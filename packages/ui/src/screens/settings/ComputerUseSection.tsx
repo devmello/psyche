@@ -2,21 +2,14 @@ import { Lock } from "lucide-react";
 import type { ReactElement } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Kbd } from "../../components/ui/kbd.tsx";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "../../components/ui/table.tsx";
 import { t } from "../../i18n/core.ts";
 import { usePersona } from "../../slots.tsx";
-import { RadioTableRow } from "./RadioTableRow.tsx";
+import { SegmentedRadio } from "./SegmentedRadio.tsx";
 import {
   bool,
   EmptyNotice,
   ErrorNotice,
+  GROUP_ROWS,
   Group,
   LoadGate,
   type LoadProps,
@@ -219,56 +212,39 @@ export function ComputerUsePanel({
             onChange={(v) => onChange("computerUse.enabled", v)}
           />
           <SettingHint settingKey="computerUse.apps" />
-          {apps.length === 0 ? (
-            <EmptyNotice text={t("settings.computerUse.noApps")} />
-          ) : (
-            <Table aria-label={t("settings.key.computerUse.apps")}>
-              <TableHeader>
-                <TableRow>
-                  <TableHead scope="col">{t("settings.computerUse.app")}</TableHead>
-                  {TIERS.map((x) => (
-                    <TableHead key={x.value} scope="col" className="text-center">
-                      {x.label}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {apps.map((a) => (
-                  <RadioTableRow
-                    key={a.id}
-                    label={a.name}
-                    header={
-                      <th scope="row" className="p-2 text-start font-normal">
-                        {a.name}
-                      </th>
-                    }
-                    options={TIERS}
-                    value={a.tier}
-                    disabled={!enabled}
-                    onChange={(tier) => setTier(a, tier)}
-                  />
-                ))}
-                {LOCKED_APPS.map((a) => (
-                  <TableRow key={a.id} data-locked="true">
-                    <th scope="row" className="p-2 text-start font-normal">
-                      <span className="flex items-center gap-1.5">
-                        <Lock className="size-3.5 text-gray-11" aria-hidden="true" />
-                        {a.name}
-                      </span>
-                    </th>
-                    <TableCell colSpan={TIERS.length} className="whitespace-normal">
-                      <span className="font-medium">
-                        {a.locked ? t(`settings.computerUse.cap.${a.locked.cap}`) : ""}
-                      </span>{" "}
-                      <span className="text-xs text-muted-foreground">{a.locked?.reason}</span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
         </Group>
+        {/* One row per app with a segmented tier control; fixed caps are locked rows (§5.8). */}
+        {apps.length === 0 ? (
+          <EmptyNotice text={t("settings.computerUse.noApps")} />
+        ) : (
+          <ul aria-label={t("settings.key.computerUse.apps")} className={GROUP_ROWS}>
+            {apps.map((a) => (
+              <li key={a.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="min-w-0 flex-1 text-body text-label-primary">{a.name}</span>
+                <SegmentedRadio
+                  label={a.name}
+                  options={TIERS}
+                  value={a.tier}
+                  disabled={!enabled}
+                  onChange={(tier) => setTier(a, tier)}
+                  segmentLabel={(o) => t("settings.matrix.cell", { row: a.name, column: o.label })}
+                />
+              </li>
+            ))}
+            {LOCKED_APPS.map((a) => (
+              <li key={a.id} data-locked="true" className="flex items-center gap-3">
+                <Lock className="size-3.5 shrink-0 text-label-tertiary" aria-hidden="true" />
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="text-body text-label-primary">{a.name}</span>
+                  <span className="text-callout text-label-secondary">{a.locked?.reason}</span>
+                </div>
+                <span className="shrink-0 text-body text-label-secondary">
+                  {a.locked ? t(`settings.computerUse.cap.${a.locked.cap}`) : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </LoadGate>
     </SectionFrame>
   );
