@@ -52,17 +52,35 @@ describe("motion CSS and literals (docs/design/motion.md §8)", () => {
     }
   });
 
-  it("components/ui reads motion tokens instead of literals", async () => {
-    const { readdirSync, readFileSync } = await import("node:fs");
-    const { join } = await import("node:path");
-    const dir = join(process.cwd(), "src/components/ui");
-    const offenders: string[] = [];
-    for (const file of readdirSync(dir)) {
-      const src = readFileSync(join(dir, file), "utf8");
-      for (const m of src.matchAll(/\b(duration-\d+|transition-all|cubic-bezier\()/g))
-        offenders.push(`${file}: ${m[0]}`);
+  it("the kit reads motion tokens instead of literals", async () => {
+    const { readdirSync, readFileSync, statSync } = await import("node:fs");
+    const { join, relative } = await import("node:path");
+    const src = join(process.cwd(), "src");
+    const walk = (dir: string): string[] =>
+      readdirSync(dir).flatMap((f) => {
+        const p = join(dir, f);
+        return statSync(p).isDirectory() ? walk(p) : [p];
+      });
+    const offenders = new Map<string, string[]>();
+    for (const file of walk(src)) {
+      const rel = relative(src, file);
+      // Tokens live in styles/ and motion/; stories are fixtures.
+      if (/^(styles|motion)\//.test(rel) || !/\.tsx?$/.test(rel) || rel.endsWith(".stories.tsx"))
+        continue;
+      const hits = [
+        ...readFileSync(file, "utf8").matchAll(/\b(duration-\d+|transition-all|cubic-bezier\()/g),
+      ];
+      if (hits.length > 0)
+        offenders.set(
+          rel,
+          hits.map((m) => m[0] as string),
+        );
     }
-    // drawer.tsx follows Base UI's swipe physics (its own durations); everything else uses tokens.
-    expect(offenders.filter((o) => !o.startsWith("drawer.tsx"))).toEqual([]);
+    // Known exceptions. drawer.tsx follows Base UI's swipe physics; the rest are listed in the A3
+    // PR for their owners to move onto tokens. This list may only shrink.
+    const known = ["components/ui/drawer.tsx", "blocks/RelatedThreads.tsx", "blocks/ToolRun.tsx"];
+    expect([...offenders.keys()].filter((f) => !known.includes(f))).toEqual([]);
+    for (const f of known.filter((k) => k !== "components/ui/drawer.tsx"))
+      expect(offenders.has(f), `${f} is clean now: remove it from the known list`).toBe(true);
   });
 });

@@ -27,10 +27,10 @@ describe("formatRelative (UI design §4.12)", () => {
 });
 
 describe("cn keeps the type roles (UI design §4.2)", () => {
-  it("does not read text-label or text-h1 as a colour", async () => {
+  it("does not read the type roles as colours", async () => {
     const { cn } = await import("../src/lib/utils.ts");
-    expect(cn("text-label text-gray-11")).toBe("text-label text-gray-11");
-    expect(cn("text-h1 text-foreground")).toBe("text-h1 text-foreground");
+    expect(cn("text-caption text-label-secondary")).toBe("text-caption text-label-secondary");
+    expect(cn("text-title-1 text-foreground")).toBe("text-title-1 text-foreground");
     expect(cn("text-small", "text-caption")).toBe("text-caption");
   });
 });

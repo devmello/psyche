@@ -1,7 +1,9 @@
 /*
   Redesign 2026 tokens (docs/design/redesign-2026.md §3). Components use these semantic roles,
-  never raw scale steps. The older names in index.css (--card, --popover, shadow-level-*,
-  text-h1…, text-label) stay as aliases until workstream A3 removes them.
+  never raw scale steps. The shadcn names in index.css (--card, --popover, --muted …) are the
+  permanent bridge for the shadcn primitives. A3 removed the unused legacy aliases; the few still
+  in use (text-small, text-h2, text-h3, shadow-level-2, .elevation-1, .psy-enter, .prose-width)
+  are listed in its PR for their owners to migrate.
 */
 
 :root,
