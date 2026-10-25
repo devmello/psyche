@@ -1,24 +1,17 @@
 import type { Goal } from "@psyche/protocol";
-import { CircleCheck, Sparkles } from "lucide-react";
+import { CircleCheck, Goal as GoalIcon, Plus, Sparkles } from "lucide-react";
 import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { toast } from "sonner";
-import {
-  EmptyState,
-  ErrorState,
-  LoadingCards,
-  Page,
-  PageHeader,
-  SectionLabel,
-  useDelayedFlag,
-} from "../../components/page.tsx";
+import { EmptyState, ErrorState, LoadingCards, useDelayedFlag } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { Progress } from "../../components/ui/progress.tsx";
 import { useGoals } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
-import { plural } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
+import { ListItem } from "../../motion/index.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
+import { ScreenToolbar, ToolbarLabel } from "../feed/ScreenToolbar.tsx";
 import { EvidenceLine } from "../ideas/evidence.tsx";
 import { AddGoalDialog } from "./AddGoalDialog.tsx";
 import { formatWhen, GoalPage } from "./GoalPage.tsx";
@@ -35,15 +28,18 @@ export interface GoalRowProps {
   onOpen?: (goal: Goal) => void;
 }
 
-/** List row: title, next check-in, milestone progress bar (UI design §3.11). */
+/**
+ * A sidebar-style list row (redesign §5.6, §3.7: 44 px two-line rows): title, next check-in and a
+ * thin milestone bar. The selection is the accent-tinted pill, like the app sidebar's.
+ */
 export function GoalRow({ goal, selected = false, onOpen }: GoalRowProps): ReactElement {
   const { done, total } = milestoneProgress(readGoalPlan(goal).milestones);
   const complete = total > 0 && done === total;
   return (
     <div
       className={cn(
-        "relative flex flex-col gap-1.5 rounded-md px-3 py-2.5 transition-colors",
-        selected ? "bg-accent-3" : "hover:bg-gray-3",
+        "relative flex min-h-11 flex-col justify-center gap-1 rounded-sm px-2.5 py-1.5 transition-colors",
+        selected ? "bg-selection" : "hover:bg-fill-quaternary",
       )}
     >
       <div className="flex items-baseline gap-2">
@@ -52,20 +48,20 @@ export function GoalRow({ goal, selected = false, onOpen }: GoalRowProps): React
           aria-current={selected ? "page" : undefined}
           onClick={() => onOpen?.(goal)}
           className={cn(
-            "min-w-0 flex-1 text-start text-reading font-medium focus-visible:outline-2 focus-visible:outline-ring",
-            "after:absolute after:inset-0 after:content-['']",
-            selected ? "text-accent-12" : "text-foreground",
+            "min-w-0 flex-1 truncate text-start text-headline focus-visible:outline-2 focus-visible:outline-ring",
+            "after:absolute after:inset-0 after:rounded-sm after:content-['']",
+            "text-label-primary",
           )}
         >
           {goal.title}
         </button>
         {total > 0 ? (
-          <span className="text-callout text-gray-11 tabular-nums" aria-hidden="true">
+          <span className="text-callout text-label-secondary tabular-nums" aria-hidden="true">
             {done}/{total}
           </span>
         ) : null}
       </div>
-      <p className="text-callout text-gray-11">
+      <p className="truncate text-callout text-label-secondary">
         {t("screens.goals.listLine", {
           checkin: goal.nextCheckinAt
             ? t("screens.goals.nextCheckin", { when: formatWhen(goal.nextCheckinAt) })
@@ -79,7 +75,7 @@ export function GoalRow({ goal, selected = false, onOpen }: GoalRowProps): React
           value={(done / total) * 100}
           aria-label={t("screens.goals.progressLabel", { title: goal.title, done, total })}
           className={cn(
-            "[&_[data-slot=progress-track]]:h-1.5",
+            "[&_[data-slot=progress-track]]:h-1",
             complete ? "[&_[data-slot=progress-indicator]]:bg-grass-9" : "",
           )}
         />
@@ -96,7 +92,10 @@ export interface CandidateGoalCardProps {
   busy?: boolean;
 }
 
-/** Inferred goal: "Because:" evidence, Confirm / Not a goal / Later; nothing exists before Confirm. */
+/**
+ * Inferred goal (redesign §5.6): a level-1 card with a sparkle glyph, the "Because:" evidence and
+ * Confirm (primary) / Not a goal / Later. Nothing exists before Confirm.
+ */
 export function CandidateGoalCard({
   goal,
   persona = "Wren",
@@ -109,17 +108,19 @@ export function CandidateGoalCard({
   return (
     <article
       aria-labelledby={titleId}
-      className="flex flex-col gap-2 rounded-lg border border-dashed border-accent-7 bg-accent-2 p-4"
+      className="flex flex-col gap-2 rounded-lg bg-surface-raised p-3 shadow-elevation-1"
     >
-      <p className="flex items-center gap-1 text-label text-accent-11">
-        <Sparkles className="size-3" aria-hidden="true" />
+      <p className="flex items-center gap-1 text-caption text-label-secondary">
+        <Sparkles className="size-3.5 text-accent-11" aria-hidden="true" />
         {t("screens.goals.inferred", { category: GOAL_CATEGORY_LABEL[goal.category] })}
       </p>
       <div className="flex flex-col gap-0.5">
-        <h3 id={titleId} className="text-reading font-semibold text-foreground">
+        <h3 id={titleId} className="text-headline text-label-primary">
           {goal.title}
         </h3>
-        <p className="text-callout text-gray-11">{t("screens.goals.thinks", { name: persona })}</p>
+        <p className="text-callout text-label-secondary">
+          {t("screens.goals.thinks", { name: persona })}
+        </p>
       </div>
       <EvidenceLine items={evidence} {...(onOpenRoute ? { onOpenRoute } : {})} />
       <div className="mt-1 flex flex-wrap gap-1.5">
@@ -216,45 +217,49 @@ export function GoalsView({
     );
   } else {
     list = (
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
         {groups.map((group) => (
           <section key={group.category} aria-labelledby={`goals-${group.category}`}>
-            <SectionLabel id={`goals-${group.category}`} className="px-3">
+            {/* Group labels read like the sidebar's: text-caption, sentence case (§3.2). */}
+            <h2
+              id={`goals-${group.category}`}
+              className="px-2.5 pb-1 text-caption text-label-tertiary"
+            >
               {GOAL_CATEGORY_LABEL[group.category]}
-            </SectionLabel>
-            <ul className="mt-1 flex flex-col gap-0.5">
-              {group.goals.map((g) => (
-                <li key={g.id}>
+            </h2>
+            <ul className="flex flex-col gap-0.5">
+              {group.goals.map((g, i) => (
+                <ListItem key={g.id} index={i}>
                   <GoalRow
                     goal={g}
                     selected={g.id === selectedGoalId}
                     {...(onOpenGoal ? { onOpen: onOpenGoal } : {})}
                   />
-                </li>
+                </ListItem>
               ))}
             </ul>
           </section>
         ))}
         {goals.length === 0 ? (
-          <p className="px-3 text-small text-gray-11">
+          <p className="px-2.5 text-callout text-label-secondary">
             {t("screens.goals.noConfirmed", { name: persona })}
           </p>
         ) : null}
         {candidates.length > 0 ? (
-          <section aria-labelledby="goals-candidates" className="flex flex-col gap-2">
-            <SectionLabel id="goals-candidates" className="px-3">
+          <section aria-labelledby="goals-candidates" className="flex flex-col gap-1">
+            <h2 id="goals-candidates" className="px-2.5 pb-1 text-caption text-label-tertiary">
               {t("screens.goals.suggested")}
-            </SectionLabel>
+            </h2>
             <ul className="flex flex-col gap-2">
-              {candidates.map((g) => (
-                <li key={g.id}>
+              {candidates.map((g, i) => (
+                <ListItem key={g.id} index={i}>
                   <CandidateGoalCard
                     goal={g}
                     persona={persona}
                     {...(onDecide ? { onDecide } : {})}
                     {...(onOpenRoute ? { onOpenRoute } : {})}
                   />
-                </li>
+                </ListItem>
               ))}
             </ul>
           </section>
@@ -264,32 +269,52 @@ export function GoalsView({
   }
 
   const tracked = !loading && error === null && goals.length > 0;
+  const listOnly = loading || error !== null || (goals.length === 0 && candidates.length === 0);
   return (
     <section aria-label={t("screens.goals.title")}>
-      {/* The list is a centred prose column like Feed (#512); the goal page needs the full width. */}
-      <Page width={detail ? "full" : "prose"}>
-        <PageHeader
-          title={t("screens.goals.title")}
-          {...(tracked ? { meta: plural(goals.length, "goal") } : {})}
-          {...(onAddGoal && goals.length > 0
-            ? {
-                actions: (
-                  <Button type="button" size="sm" variant="outline" onClick={onAddGoal}>
-                    {t("screens.goals.add")}
-                  </Button>
-                ),
-              }
-            : {})}
-        />
-        <div
-          className={cn(detail && "grid items-start gap-8 md:grid-cols-[minmax(240px,300px)_1fr]")}
-        >
-          <div className="-mx-3">{list}</div>
-          {detail ? (
-            <div className="min-w-0 rounded-lg border border-gray-6 bg-gray-2 p-6">{detail}</div>
-          ) : null}
+      <ScreenToolbar
+        title={t("screens.goals.title")}
+        {...(tracked ? { meta: t("screens.goals.count", { n: goals.length }) } : {})}
+        {...(onAddGoal && goals.length > 0
+          ? {
+              actions: (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  title={t("screens.goals.add")}
+                  onClick={onAddGoal}
+                >
+                  <Plus aria-hidden="true" />
+                  <ToolbarLabel>{t("screens.goals.add")}</ToolbarLabel>
+                </Button>
+              ),
+            }
+          : {})}
+      />
+      {listOnly ? (
+        // Loading, error and empty states take the centred column (§5.10).
+        <div className="mx-auto w-full max-w-[calc(880px+3rem)] px-4 pt-4 pb-12 md:px-6">
+          {list}
         </div>
-      </Page>
+      ) : (
+        // The split layout (§5.6): a 280 px sidebar-like list and the goal page.
+        <div
+          data-slot="goals-split"
+          className="mx-auto grid w-full max-w-[calc(280px+880px+5rem)] items-start gap-6 px-4 pt-4 pb-12 md:grid-cols-[280px_minmax(0,1fr)] md:px-6"
+        >
+          <nav aria-label={t("screens.goals.listLabel")} className="md:sticky md:top-16">
+            {list}
+          </nav>
+          <div className="min-w-0">
+            {detail ?? (
+              <EmptyState icon={GoalIcon} className="pt-[8vh]">
+                {t("screens.goals.pick")}
+              </EmptyState>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
