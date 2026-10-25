@@ -142,6 +142,7 @@ export const chat = {
   "chat.approval.segment.site": "This site",
   "chat.approval.segment.always": "Always",
   "chat.approval.allow": "Allow",
+  "chat.approval.keysHint": "⌘↩ {allows} · ⌘D {denies}",
   "chat.approval.more": "More about this approval",
   "chat.approval.others": "{n, plural, one {# more} other {# more}}",
   "chat.approval.nextLabel": "{more} · next: {summary}, expires in {countdown}",

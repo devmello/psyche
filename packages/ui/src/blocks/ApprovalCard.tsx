@@ -501,7 +501,10 @@ export function ApprovalCard({
         // Deny leading, Allow trailing; the buttons never move (docs/06 §3.3).
         <div className="mt-4 flex items-center justify-end gap-2">
           <p id={hintId} className="sr-only">
-            ⌘↩ {t("blocks.approval.keyAllows")} · ⌘D {t("blocks.approval.keyDenies")}
+            {t("chat.approval.keysHint", {
+              allows: t("blocks.approval.keyAllows"),
+              denies: t("blocks.approval.keyDenies"),
+            })}
           </p>
           <Button
             variant="outline"
