@@ -13,6 +13,9 @@ allowBuilds:
   # `node-gyp rebuild` for binding.gyp, which is a no-op here (S06).
   better-sqlite3-multiple-ciphers: false
   electron: true
+  # Liquid Glass spike (docs/design/research/liquid-glass.md): N-API prebuilds ship in the
+  # tarball; its binding.gyp rebuild is not needed.
+  electron-liquid-glass: false
   esbuild: true
   node-pty: true
   # Pulled in by @univerjs/protocol -> @grpc/grpc-js; its postinstall only prints a notice (S13).

@@ -4,6 +4,7 @@ import { chat } from "./chat.ts";
 import { common } from "./common.ts";
 import { context } from "./context.ts";
 import { errors } from "./errors.ts";
+import { glass } from "./glass.ts";
 import { onboarding } from "./onboarding.ts";
 import { screens } from "./screens.ts";
 import { settings } from "./settings.ts";
@@ -32,6 +33,7 @@ export const en = {
   ...onboarding,
   ...screens,
   ...web,
+  ...glass,
 } as const;
 
 export type MessageId = keyof typeof en;

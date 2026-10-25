@@ -1,5 +1,11 @@
 import { join } from "node:path";
-import { app, BaseWindow, type WebContents, WebContentsView } from "electron";
+import {
+  app,
+  BaseWindow,
+  type BaseWindowConstructorOptions,
+  type WebContents,
+  WebContentsView,
+} from "electron";
 import { mainWindowOptions, TRAFFIC_LIGHTS } from "./window-options.ts";
 
 /**
@@ -31,6 +37,8 @@ export interface WindowOptions {
   rendererUrl: string;
   preloadPath: string;
   onMainCreated?: (win: BaseWindow, view: WebContentsView) => void;
+  /** Extra main-window options (the Liquid Glass spike's transparent window). */
+  mainOptions?: Partial<BaseWindowConstructorOptions>;
   onMainClosed?: () => void;
   /** Every app renderer as it is made (main, pop-outs, quick entry): zoom and the like. */
   onViewCreated?: (wc: WebContents) => void;
@@ -109,7 +117,10 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
   }
 
   function createMain(): BaseWindow {
-    const win = new BaseWindow(mainWindowOptions({ anySize: opts.anySize === true }));
+    const win = new BaseWindow({
+      ...mainWindowOptions({ anySize: opts.anySize === true }),
+      ...opts.mainOptions,
+    });
     const view = makeView(win, "/chat", {
       ...(process.platform === "darwin"
         ? { titleBar: "inset" as const, trafficLights: { ...TRAFFIC_LIGHTS } }
