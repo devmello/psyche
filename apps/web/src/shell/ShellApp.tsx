@@ -157,6 +157,8 @@ const SIDEBAR_OPEN_KEY = "shell.sidebar.open";
 /** What the chat slot needs from the shell to drive the agent header (§3.1). */
 export interface ChatSlotContext {
   thread: Thread | null;
+  /** The current route; `/agent/*` opens the agent sheet over the chat (redesign §5.7). */
+  route: string;
   navigate: (to: string) => void;
   setPermissionMode: (mode: Thread["permissionMode"]) => void;
   openModelPicker: () => void;
@@ -670,6 +672,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     onChat && slots.chat && threadId ? (
       slots.chat(threadId, {
         thread,
+        route,
         navigate,
         setPermissionMode,
         openModelPicker: () => setOverlay("model"),

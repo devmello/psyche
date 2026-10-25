@@ -73,6 +73,27 @@ function webPlatform() {
   return { platform, calls };
 }
 
+describe("the agent sheet over the chat (redesign §5.7)", () => {
+  it("opens from /agent/<tab> over the mounted chat and closes back to the thread", async () => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", "/agent/upcoming");
+    const { platform } = webPlatform();
+    render(<PsycheApp platform={platform} />);
+    const sheet = await screen.findByTestId("agent-sheet");
+    // The chat stays mounted underneath: its composer is still there.
+    expect(
+      await screen.findByRole("textbox", { name: "Message Flash", hidden: true }),
+    ).toBeTruthy();
+    // The route picks the tab.
+    const upcoming = within(sheet).getByRole("tab", { name: /Upcoming/ });
+    expect(upcoming.getAttribute("aria-selected")).toBe("true");
+    // Closing (Escape) leaves the route for this thread.
+    fireEvent.keyDown(sheet, { key: "Escape" });
+    await waitFor(() => expect(window.location.pathname).toBe(`/chat/${MAIN.id}`));
+    await waitFor(() => expect(screen.queryByTestId("agent-sheet")).toBeNull());
+  });
+});
+
 describe("the composed app on the web host (A8)", () => {
   it("renders the kit's chat column with the persona and the phone layout below 720 px", async () => {
     window.innerWidth = 390;

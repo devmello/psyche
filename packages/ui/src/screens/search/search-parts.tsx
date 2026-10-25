@@ -11,7 +11,7 @@ import {
   Newspaper,
   Plug,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { type ParsedSearchQuery, SCOPE_ORDER } from "./search-query.ts";
 
 /** Pieces shared by the search surface, the Search page and the palette (redesign §5.5). */
@@ -60,7 +60,7 @@ export function Highlight({ text, terms }: { text: string; terms: readonly strin
         {part}
       </mark>
     ) : (
-      <span key={`t${at}`}>{part}</span>
+      <Fragment key={`t${at}`}>{part}</Fragment>
     );
   });
 }

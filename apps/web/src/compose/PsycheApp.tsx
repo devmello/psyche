@@ -2,7 +2,6 @@ import {
   AgentHeader,
   AgentRouteSheet,
   AgentSheet,
-  type AgentTab,
   AppearanceProvider,
   agentSheetRoute,
   ChatThread,
@@ -62,10 +61,14 @@ import { ComposedFilesPane } from "./viewers.tsx";
 export const ONBOARDED_KEY = "ui.onboarding.completedAt";
 
 function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }): ReactElement {
-  const [sheet, setSheet] = useState<{ open: boolean; tab: AgentTab; taskId?: string }>({
-    open: false,
-    tab: "activity",
-  });
+  // The agent sheet is a route (redesign §5.7): `/agent/<tab>[/<task>][?file=]` opens E's 420 px
+  // sheet over this chat, which stays mounted; tabs change the route, and closing it (×, Escape,
+  // the backdrop) returns to this thread. The last route is kept while the sheet animates out.
+  const routed = agentSheetRoute(ctx.route);
+  const lastRouted = useRef(routed);
+  if (routed !== null) lastRouted.current = routed;
+  const sheet = routed ?? lastRouted.current;
+  const backToChat = () => ctx.navigate(`/chat/${threadId}`);
   const incognito = useThread(threadId).thread?.thread.kind === "incognito";
   const [limitsOpen, setLimitsOpen] = useState(false);
   const store = useStore();
@@ -86,8 +89,8 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
         data-incognito={incognito ? "true" : undefined}
       >
         <AgentHeader
-          onOpenSheet={() => setSheet((s) => ({ ...s, open: true }))}
-          onOpenTask={(taskId) => setSheet({ open: true, tab: "activity", taskId })}
+          onOpenSheet={() => ctx.navigate("/agent/activity")}
+          onOpenTask={(taskId) => ctx.navigate(`/agent/activity/${encodeURIComponent(taskId)}`)}
           incognito={incognito}
           onOpenInbox={() => ctx.navigate("/inbox")}
           {...(ctx.thread
@@ -108,11 +111,15 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
         <ThreadContextDialog threadId={threadId} open={limitsOpen} onOpenChange={setLimitsOpen} />
         <ChatThread threadId={threadId} disclosure={level} onDisclosureChange={setLevel} />
         <AgentSheet
-          open={sheet.open}
-          onOpenChange={(open) => setSheet((s) => ({ ...s, open }))}
-          tab={sheet.tab}
-          onTabChange={(tab) => setSheet((s) => ({ ...s, tab }))}
-          {...(sheet.taskId === undefined ? {} : { taskId: sheet.taskId })}
+          open={routed !== null}
+          onOpenChange={(open) => {
+            if (!open) backToChat();
+          }}
+          tab={sheet?.tab ?? "activity"}
+          onTabChange={(tab) => ctx.navigate(`/agent/${tab}`)}
+          {...(sheet?.taskId === undefined ? {} : { taskId: sheet.taskId })}
+          {...(sheet?.file === undefined ? {} : { file: sheet.file })}
+          onClose={backToChat}
         />
       </div>
     </UiSlotsProvider>

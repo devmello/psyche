@@ -51,7 +51,10 @@ export function EmptyThread(): ReactElement {
 
 const SUGGESTIONS = ["chat.suggest.today", "chat.suggest.inbox", "chat.suggest.plan"] as const;
 
-/** Three glass chips above the composer in an empty chat; one fills the composer (§5.2). */
+/**
+ * Three chips above the composer in an empty chat; one fills the composer (§5.2). Raised and
+ * opaque: the toolbar and the composer already spend the two-glass budget (motion.md §5).
+ */
 export function ComposerSuggestions(): ReactElement {
   const aui = useAui();
   return (
@@ -60,7 +63,7 @@ export function ComposerSuggestions(): ReactElement {
         <li key={key}>
           <button
             type="button"
-            className="material-glass inline-flex h-8 cursor-default items-center rounded-full px-3 text-body text-label-primary outline-none transition-colors duration-(--duration-micro) ease-(--ease-standard) hover:bg-fill-tertiary focus-visible:ring-2 focus-visible:ring-ring"
+            className="bg-surface-raised shadow-elevation-1 inline-flex h-8 cursor-default items-center rounded-full px-3 text-body text-label-primary outline-none transition-colors duration-(--duration-micro) ease-(--ease-standard) hover:bg-fill-tertiary focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => {
               aui.composer.setText(t(key));
               document.querySelector<HTMLTextAreaElement>("[data-composer-input]")?.focus();
@@ -74,14 +77,14 @@ export function ComposerSuggestions(): ReactElement {
   );
 }
 
-/** A 28 px glass pill centred above the composer when the reader has scrolled up (§5.2). */
+/** A 28 px pill centred above the composer when the reader has scrolled up (§5.2); opaque, so it never stacks glass on the composer. */
 export function JumpToLatest({ onJump }: { onJump: () => void }): ReactElement {
   return (
     <m.div className="flex justify-center" {...fade}>
       <button
         type="button"
         onClick={onJump}
-        className="material-glass inline-flex h-7 cursor-default items-center gap-1.5 rounded-full px-3 text-body text-label-primary outline-none transition-colors duration-(--duration-micro) ease-(--ease-standard) hover:bg-fill-tertiary focus-visible:ring-2 focus-visible:ring-ring"
+        className="bg-surface-raised shadow-elevation-1 inline-flex h-7 cursor-default items-center gap-1.5 rounded-full px-3 text-body text-label-primary outline-none transition-colors duration-(--duration-micro) ease-(--ease-standard) hover:bg-fill-tertiary focus-visible:ring-2 focus-visible:ring-ring"
         data-testid="jump-to-latest"
       >
         <ArrowDown className="size-3.5 text-label-secondary" aria-hidden="true" />
