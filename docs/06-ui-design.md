@@ -1,6 +1,6 @@
 # Psyche — UI Design
 
-Status: draft v0.1 (2026-10-18). Companion documents: [00-vision-and-principles.md](00-vision-and-principles.md), [02-architecture.md](02-architecture.md), [03-feature-spec.md](03-feature-spec.md), [04-data-model.md](04-data-model.md), [05-security-and-permissions.md](05-security-and-permissions.md), [07-tech-decisions.md](07-tech-decisions.md).
+Status: draft v0.1 (2026-10-18), **amended 2026-10-25 by the 2026 redesign**: where this document disagrees with [design/redesign-2026.md](design/redesign-2026.md), [design/motion.md](design/motion.md) or [design/research/liquid-glass.md](design/research/liquid-glass.md) §6, those win. §2.1, §3.1 and §4 below are updated to match. Companion documents: [00-vision-and-principles.md](00-vision-and-principles.md), [02-architecture.md](02-architecture.md), [03-feature-spec.md](03-feature-spec.md), [04-data-model.md](04-data-model.md), [05-security-and-permissions.md](05-security-and-permissions.md), [07-tech-decisions.md](07-tech-decisions.md).
 
 References. *(muse notes, Qn)* = `research_notes/.../meta_muse_app.md`; *(claude notes, Qn)* = `claude_desktop_and_peers.md`; *(blocks notes, section)* = `models_memory_mcp_ui_feed.md`; *(harness notes, KQn)* = `opendots_openclaw_harnesses.md`; *(arch §n)* = `02-architecture.md`. Where the notes are silent the text says so and labels the choice **Psyche decision**. Component names follow the architecture document.
 
@@ -43,6 +43,14 @@ Muse's Mac app has a left rail with Chat, Search, Feed, Ideas, Goals and Library
 | Goals | Goals by category | |
 | Library | Documents, images, artifacts, downloads, system files | Muse has a "System Files" section |
 | Bottom menu | Settings, Usage, Help | **Psyche decision**; Usage shows the ledger and percent-remaining meter *(arch §4.4)* |
+
+**Amended (redesign 2026 §5.1):**
+- The rail and the thread list (§2.2) are now **one 248 px macOS-style sidebar**, resizable from 220 to 320 px and collapsed with ⌘B.
+- From top to bottom it holds:
+  - the destinations above, each with a trailing count
+  - a "Threads" group: Main chat, then side chats by activity, then Archived (n)
+  - a footer with the persona and a settings gear (Usage and Help are in its menu)
+- On the desktop, Settings opens **its own window** (⌘,). The web keeps `/settings/:section`.
 
 ### 2.2 Thread list
 
@@ -118,6 +126,12 @@ Routes are shared by psyche-desktop and psyche-web and used for pop-out windows 
 ```
 
 Inventory: rail (56 px), thread list (260 px; ⌘B toggles it as in Claude *(claude notes, Q1)*), chat column (min 480 px), pane area. Header: avatar with state ring, persona name, status snippet (opens the current Task at level 1), counters, permission-mode pill (manual / balanced / auto / plan *(arch §4.6)*), model pill, bell, ⋯.
+
+**Amended (redesign 2026 §4, §5.2):**
+- **Layout:** sidebar (248 px; it holds the traffic lights under a hidden title bar), then the content column with a **52 px unified toolbar** (`Toolbar` / `useToolbar`), then the panes.
+- **Toolbar:** it carries the avatar (28 px), the persona name and status, and the mode and model pills, bell and ⋯ as glass control groups.
+  - The row itself is opaque, with a scroll-edge fade.
+  - The separate "View" strip is gone: the disclosure level lives in ⋯ and ⌃O.
 
 ### 3.2 Chat message anatomy
 
@@ -586,25 +600,78 @@ The notes contain no colors, type, spacing, radii, dark-mode behaviour or motion
 
 ### 4.1 Layout grid and breakpoints
 
-| Token | Value |
+Superseded by [redesign-2026.md](design/redesign-2026.md) §3.2 and §3.7. The base unit stays 4 px with an 8-point rhythm.
+
+| Region | Size |
 | --- | --- |
-| Base unit | 4 px (`--spacing: 4px`, Tailwind v4 convention *(blocks notes, theming)*); 8 px vertical rhythm |
-| Rail / thread list / chat / pane | 56 px / 260 px / min 480 px, prose 68ch / min 360 px |
-| Breakpoints | compact < 720 (§3.24); medium 720–1079 (icon rail, list as overlay, one pane as a tab below the chat); wide 1080–1439 (one pane beside the chat); x-wide ≥ 1440 (two panes); minimum window 900 × 600 |
+| Sidebar | 248 px (220–320) |
+| Toolbar | 52 px |
+| Chat column | 680 px reading width |
+| Pages | 680 / 880 px |
+
+The breakpoints are unchanged: compact < 720 px (§3.24, redesign §5.11), and the minimum window is 900 × 600.
 
 ### 4.2 Typography
 
-System stack `-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Inter, sans-serif` (Inter self-hosted on Linux); mono `"SF Mono", Menlo, "JetBrains Mono", ui-monospace`. Scale: body 15/22, small 13/18, caption 12/16, label 11/14 uppercase; h1 24/30, h2 20/26, h3 16/22 at weight 600; mono 13/20. The interface is text-heavy, as reviewers describe Muse *(muse notes, Q5)*; type carries hierarchy, color does not.
+Superseded by redesign §3.2: the macOS text styles on the system font (`system-ui`, SF with optical sizing).
+
+| Role | Size / line height | Weight |
+| --- | --- | --- |
+| `text-large-title` | 26/32 | 700 |
+| `text-title-1` | 22/28 | 700 |
+| `text-title-2` | 17/22 | 600 |
+| `text-title-3` | 15/20 | 600 |
+| `text-headline` | 13/16 | 600 |
+| `text-body` (all chrome) | **13/18** | |
+| `text-reading` (transcripts, posts, documents) | **15/23** | |
+| `text-callout` | 12/16 | |
+| `text-subheadline` | 11/14 | |
+| `text-caption` (sentence case; the uppercase label is retired) | 11/14 | 500 |
+| `text-mono` | 12/18 | |
+
+The minimum size is 11 px. Type carries hierarchy; colour does not.
 
 ### 4.3 Spacing and radius
 
-Spacing 2, 4, 8, 12, 16, 24, 32, 48 px. Radius base `--radius: 10px` (shadcn's 0.625rem default *(blocks notes, theming)*): sm 6, md 8, lg 10, xl 14, full. Cards 10, inputs 8, chips and avatars full, user bubble 16, panes 0.
+Superseded by redesign §3.5. Spacing is 2, 4, 8, 12, 16, 20, 24, 32, 40, 48 and 64.
+
+Radii are concentric (inner radius = outer − padding):
+
+| Radius | Used for |
+| --- | --- |
+| xs 4 | checkboxes, chips in text |
+| sm 6 | small controls, the selection pill |
+| md 8 | controls |
+| lg 12 | cards, grouped lists, popovers |
+| xl 16 | sheets, dialogs, the composer |
+| full | capsules, avatars, badges |
+
+Large controls are capsules. The window radius is drawn by the system; `--radius-window` is only the reference for concentric inner radii.
 
 ### 4.4 Elevation
 
-Level 0 (page, panes): gray-1. Level 1 (cards, approval dock): gray-2 with a 1 px gray-6 border, no shadow. Level 2 (popovers, menus, status pill): shadow 0 4 16 / 12% in light, gray-3 with a gray-7 border in dark. Level 3 (sheets, dialogs, quick entry): shadow 0 12 40 / 20%. Dark mode steps surfaces up instead of deepening shadows.
+Superseded by redesign §3.5 and §3.4. There are no borders.
+
+| Level | What | Surface |
+| --- | --- | --- |
+| 0 | Canvas | `--canvas` |
+| 1 | Cards, grouped rows | `--surface-raised` + `shadow-elevation-1` (0.5 px hairline) |
+| 2 | Popovers, menus, palette | `.material-glass` + `shadow-elevation-2` |
+| 3 | Sheets, dialogs | Opaque `--surface-overlay` + `shadow-elevation-3` + scrim |
+
+Dark mode steps surfaces up instead of deepening shadows. Glass is chrome-only, at most two surfaces at once, and never stacked. The materials table is in redesign §3.4 (sidebar vibrancy behind a setting; refraction capsules for toolbar groups and the composer; CSS glass for popovers).
 
 ### 4.5 Motion
+
+Superseded by [design/motion.md](design/motion.md):
+- duration tokens: 0 / 100 / 150 / 220 / 320 ms
+- standard, enter and exit eases
+- six critically damped springs (micro, snappy, smooth, gentle, emphasis, interactive), with stiffness and damping in `packages/ui/src/motion/tokens.ts`
+- what never animates
+- choreography, the performance budget, and a reduced-motion form for every animation
+
+The avatar loops below are unchanged, except that they stop after 5 s idle (WCAG 2.2.2).
+
 
 | Element | Spec |
 | --- | --- |
@@ -627,13 +694,20 @@ Lucide, 1.75 px stroke, 16 / 20 / 24. The icons Muse documents keep their meanin
 
 ### 4.8 Color system
 
-| Rule | Spec |
+The generator is unchanged: OKLCH 12-step accent and gray scales from the seed, the WCAG gate, and the fixed Radix semantic scales for approval, danger, success and info.
+
+**Amended (redesign §3.3):** components use semantic roles, never raw steps:
+
+| Group | Roles |
 | --- | --- |
-| Tokens and scales | OKLCH CSS variables, as shadcn v4 and Tailwind v4 emit them *(blocks notes, theming)*: `--accent-1..12`, `--gray-1..12`, alpha variants, P3 overrides, `--accent-contrast`. Radix semantics: 1–2 backgrounds, 3–5 component states, 6–8 borders and rings, 9–10 solids, 11–12 text. |
-| Generation | From the user's seed with the open Radix generator (colorjs.io, bezier easing, APCA-chosen text color), once per appearance; the seed lands on step 9. |
-| Appearance | light / dark / auto via `data-theme` and `color-scheme`; auto follows `prefers-color-scheme`. |
-| Contrast gate | WCAG 2: step 11 ≥ 4.5:1 and step 12 ≥ 7:1 on step 2; `--accent-contrast` ≥ 4.5:1 on step 9; failing seeds are nudged in lightness and the picker says so. APCA Lc is advisory only (WCAG 3 is undecided; the APCA licence is restrictive). |
-| Semantic tokens | `--approval` (amber: dock border, needs-you ring, countdowns), `--danger` (tomato: Deny, destructive, failed), `--success` (grass: receipts, done), `--info` (sky: system messages), `--untrusted` (amber outline on provenance chips); fixed Radix scales, not seed-derived, so Deny never looks like the brand. Incognito threads replace the accent with gray. |
+| Surfaces | `canvas`, `surface-sidebar`, `surface-raised`, `surface-overlay` |
+| Labels | `label-primary` … `label-quaternary` |
+| Fills | `fill-primary` … `fill-quaternary` |
+| Lines and selection | `separator`, `selection` (gray when the window is inactive) |
+
+- **Accent:** only for the one primary action per view, the key-window selection, links and focus.
+- **Status:** uses the semantic scales.
+- **Increase Contrast and Reduce Transparency:** each comes from the OS (through `nativeTheme` on the desktop) or from Settings, and each changes the rendering: stronger separators, opaque materials.
 
 ### 4.9 Component inventory
 
@@ -661,6 +735,7 @@ Keyboard map, modeled on the Claude desktop shortcuts *(claude notes, Q1)*; † 
 | Shortcut | Action |
 | --- | --- |
 | ⌘K † | Command palette |
+| ⌘, | Settings (its own window on the desktop; redesign §4) |
 | ⌘N / ⌘W | New side chat / close thread view or pop-out |
 | ⌘B | Toggle thread list |
 | ⌃Tab | Cycle threads |

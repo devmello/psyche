@@ -77,12 +77,8 @@
   --chat-min-width: 480px;
   --prose-width: 68ch;
   --page-width: 880px;
-  --ease-psyche: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --duration-fast: 120ms;
-  --duration-card: 200ms;
-  --duration-sheet: 320ms;
+  /* Alias kept while consumers remain (A3 PR lists them): shadow-level-2. */
   --shadow-level-2: var(--elevation-2);
-  --shadow-level-3: var(--elevation-3);
 
   --font-sans:
     system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Inter Variable", Inter,
@@ -90,8 +86,8 @@
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
 
   transition:
-    --accent-9 200ms var(--ease-psyche),
-    --accent-10 200ms var(--ease-psyche);
+    --accent-9 200ms var(--ease-standard),
+    --accent-10 200ms var(--ease-standard);
 }
 
 /* The accent change animates :root itself, which the reduced-motion rules below never reach. */
@@ -228,7 +224,11 @@
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
 
-  /* Type scale (§4.2): body 15/22, small 13/18, caption 12/16, label 11/14, h3 16/22, h2 20/26, h1 24/30. */
+  /*
+    Tailwind's stock size names at Psyche's values (xs 12/16, sm 13/18, base 15/22 …). The named
+    roles (text-title-1, text-body, text-reading …) are in design.css. text-small, text-h2 and
+    text-h3 are aliases kept while screens still use them (listed in the A3 PR).
+  */
   --text-xs: 12px;
   --text-xs--line-height: 16px;
   --text-sm: 13px;
@@ -241,13 +241,6 @@
   --text-xl--line-height: 26px;
   --text-2xl: 24px;
   --text-2xl--line-height: 30px;
-  --text-label: 11px;
-  --text-label--line-height: 14px;
-  /* Named roles (§4.2): headings carry weight 600; type carries hierarchy, color does not. */
-  --text-h1: 24px;
-  --text-h1--line-height: 30px;
-  --text-h1--font-weight: 600;
-  --text-h1--letter-spacing: -0.012em;
   --text-h2: 20px;
   --text-h2--line-height: 26px;
   --text-h2--font-weight: 600;
@@ -264,16 +257,14 @@
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
 
-  --ease-psyche: var(--ease-psyche);
   /* Motion (§4.5): every transition utility defaults to 120 ms on the Psyche curve. */
   --default-transition-duration: 120ms;
   --default-transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --animate-psy-rise: psy-rise var(--duration-card) var(--ease-psyche) both;
-  --animate-psy-fade: psy-fade var(--duration-card) var(--ease-psyche) both;
+  --animate-psy-rise: psy-rise var(--duration-medium) var(--ease-enter) both;
+  --animate-psy-fade: psy-fade var(--duration-medium) var(--ease-enter) both;
   --animate-psy-breathe: psy-breathe 4s ease-in-out infinite;
   --animate-psy-pulse-ring: psy-pulse-ring 1.2s ease-in-out infinite;
   --shadow-level-2: var(--shadow-level-2);
-  --shadow-level-3: var(--shadow-level-3);
 }
 
 @layer base {
@@ -346,13 +337,6 @@
 }
 
 @layer utilities {
-  .text-label {
-    font-size: var(--text-label);
-    line-height: var(--text-label--line-height);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-weight: 600;
-  }
   .prose-width {
     max-width: var(--prose-width);
   }
@@ -360,18 +344,9 @@
     background: var(--surface-raised);
     box-shadow: var(--elevation-1);
   }
-  .elevation-2 {
-    box-shadow: var(--shadow-level-2);
-  }
-  .elevation-3 {
-    box-shadow: var(--shadow-level-3);
-  }
-  /* Cards enter with fade + 8 px rise, 200 ms (§4.5). Approval cards use .psy-enter-still. */
+  /* Alias of animate-psy-rise kept while blocks use it (motion.md §4.1; listed in the A3 PR). */
   .psy-enter {
-    animation: psy-rise var(--duration-card) var(--ease-psyche) both;
-  }
-  .psy-enter-still {
-    animation: psy-fade var(--duration-card) var(--ease-psyche) both;
+    animation: psy-rise var(--duration-medium) var(--ease-enter) both;
   }
 }
 

@@ -1,9 +1,9 @@
 /*
  * Structural styles for the shell (docs/06 §3.1, §4.1). Colours, borders and shadows come from
- * the kit's redesign roles (packages/ui/src/styles/design.css); the `--shell-*` names alias them
- * until workstream A3, with neutral fallbacks for hosts that load this before the kit.
+ * the kit's redesign roles (packages/ui/src/styles/design.css) directly.
  */
 :root {
+  /* Aliases kept for the shell components that still read them (listed in the A3 PR). */
   --shell-bg: var(--canvas, #fcfcfe);
   --shell-panel: var(--surface-sidebar, #f9f9fb);
   --shell-border: var(--separator, rgb(0 0 0 / 8%));
@@ -25,7 +25,7 @@
   background: transparent;
 }
 :root[data-vibrancy="true"] .shell > :not(.rail-slot):not(.threads-slot):not(.rail):not(.threads) {
-  background: var(--shell-bg);
+  background: var(--canvas);
 }
 :root[data-vibrancy="true"] .titlebar {
   background: transparent;
@@ -42,8 +42,8 @@ body {
   overflow: hidden;
 }
 body {
-  background: var(--shell-bg);
-  color: var(--shell-text);
+  background: var(--canvas);
+  color: var(--label-primary);
   font:
     15px / 22px system-ui,
     -apple-system,
@@ -74,8 +74,8 @@ button {
   box-sizing: border-box;
   /* Physical, like the inline left padding that clears the macOS traffic lights (TitleBar). */
   padding-right: 12px;
-  border-bottom: 1px solid var(--shell-border);
-  background: var(--shell-panel);
+  border-bottom: 1px solid var(--separator);
+  background: var(--surface-sidebar);
   user-select: none;
 }
 .titlebar .title {
@@ -87,7 +87,7 @@ button {
   white-space: nowrap;
   font-size: 13px;
   font-weight: 600;
-  color: var(--shell-muted);
+  color: var(--label-secondary);
 }
 .titlebar button,
 .titlebar a,
@@ -141,8 +141,8 @@ button {
   flex-direction: column;
   gap: 4px;
   padding: 8px 4px;
-  border-inline-end: 1px solid var(--shell-border);
-  background: var(--shell-panel);
+  border-inline-end: 1px solid var(--separator);
+  background: var(--surface-sidebar);
 }
 .rail button {
   border: 0;
@@ -150,12 +150,12 @@ button {
   padding: 8px 2px;
   border-radius: 8px;
   font-size: 11px;
-  color: var(--shell-muted);
+  color: var(--label-secondary);
   cursor: pointer;
 }
 .rail button[aria-current="page"] {
-  color: var(--shell-text);
-  background: var(--shell-bg);
+  color: var(--label-primary);
+  background: var(--canvas);
 }
 .rail .spacer {
   flex: 1;
@@ -164,7 +164,7 @@ button {
   flex-direction: row;
   justify-content: space-around;
   border-inline-end: 0;
-  border-top: 1px solid var(--shell-border);
+  border-top: 1px solid var(--separator);
   order: 3;
 }
 /* Sidebar and chat headers share one height so their borders line up (docs/06 §4.1). */
@@ -176,7 +176,7 @@ button {
   box-sizing: border-box;
   height: 56px;
   padding: 0 12px;
-  border-bottom: 1px solid var(--shell-border);
+  border-bottom: 1px solid var(--separator);
 }
 .threads > .threads-header strong {
   flex: 1;
@@ -188,7 +188,7 @@ button {
 }
 .threads {
   width: 260px;
-  border-inline-end: 1px solid var(--shell-border);
+  border-inline-end: 1px solid var(--separator);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -212,7 +212,7 @@ button {
   cursor: pointer;
 }
 .threads li button[aria-current="true"] {
-  background: var(--shell-panel);
+  background: var(--surface-sidebar);
 }
 /* Rows: title, time and a status dot, then the last line (docs/06 §2.2). */
 .threads-search {
@@ -223,9 +223,9 @@ button {
   width: 100%;
   height: 30px;
   padding: 0 10px;
-  border: 1px solid var(--shell-border);
+  border: 1px solid var(--separator);
   border-radius: 8px;
-  background: var(--shell-bg);
+  background: var(--canvas);
   color: inherit;
   font: inherit;
   font-size: 13px;
@@ -253,22 +253,22 @@ button {
 .thread-row-time {
   flex-shrink: 0;
   font-size: 12px;
-  color: var(--shell-muted);
+  color: var(--label-secondary);
 }
 .thread-row-badge {
   flex-shrink: 0;
   padding: 0 6px;
-  border: 1px dashed var(--shell-border);
+  border: 1px dashed var(--separator);
   border-radius: 999px;
   font-size: 11px;
-  color: var(--shell-muted);
+  color: var(--label-secondary);
 }
 .thread-row-dot {
   flex-shrink: 0;
   width: 7px;
   height: 7px;
   border-radius: 999px;
-  background: var(--shell-approval);
+  background: var(--approval);
   align-self: center;
 }
 .thread-row-line {
@@ -276,7 +276,7 @@ button {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 13px;
-  color: var(--shell-muted);
+  color: var(--label-secondary);
 }
 .sr-only {
   position: absolute;
@@ -297,17 +297,17 @@ button {
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  border-bottom: 1px solid var(--shell-border);
+  border-bottom: 1px solid var(--separator);
 }
 .chat header .grow {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--shell-muted);
+  color: var(--label-secondary);
 }
 .pill {
-  border: 1px solid var(--shell-border);
+  border: 1px solid var(--separator);
   border-radius: 999px;
   padding: 2px 10px;
   font-size: 13px;
@@ -336,14 +336,14 @@ button {
 .msg-system {
   align-self: center;
   font-size: 13px;
-  color: var(--shell-muted);
+  color: var(--label-secondary);
 }
 .dock {
-  border: 1px solid var(--shell-approval);
+  border: 1px solid var(--approval);
   border-radius: 10px;
   margin: 0 16px 8px;
   padding: 12px;
-  background: var(--shell-panel);
+  background: var(--surface-sidebar);
 }
 .dock .row {
   display: flex;
@@ -351,7 +351,7 @@ button {
   justify-content: flex-end;
 }
 .composer {
-  border-top: 1px solid var(--shell-border);
+  border-top: 1px solid var(--separator);
   padding: 8px 16px 12px;
   display: flex;
   flex-direction: column;
@@ -362,11 +362,11 @@ button {
   box-sizing: border-box;
   resize: none;
   min-height: 44px;
-  border: 1px solid var(--shell-border);
+  border: 1px solid var(--separator);
   border-radius: 8px;
   padding: 8px;
   font: inherit;
-  background: var(--shell-bg);
+  background: var(--canvas);
   color: inherit;
 }
 .composer .bar {
@@ -383,24 +383,24 @@ button {
   gap: 4px;
 }
 .chip {
-  border: 1px solid var(--shell-border);
+  border: 1px solid var(--separator);
   border-radius: 999px;
   padding: 0 8px;
   font-size: 12px;
 }
 .suggest {
-  border: 1px solid var(--shell-border);
+  border: 1px solid var(--separator);
   border-radius: 8px;
-  background: var(--shell-bg);
+  background: var(--canvas);
   list-style: none;
   margin: 0;
   padding: 4px;
 }
 .suggest li[aria-selected="true"] {
-  background: var(--shell-panel);
+  background: var(--surface-sidebar);
 }
 .banner {
-  background: var(--shell-approval);
+  background: var(--approval);
   color: #000;
   padding: 6px 16px;
   font-size: 13px;
@@ -417,14 +417,14 @@ button {
 .panes {
   display: flex;
   min-width: 0;
-  border-inline-start: 1px solid var(--shell-border);
+  border-inline-start: 1px solid var(--separator);
 }
 .pane {
   display: flex;
   flex-direction: column;
   min-width: 360px;
   min-height: 0;
-  border-inline-start: 1px solid var(--shell-border);
+  border-inline-start: 1px solid var(--separator);
 }
 .pane > header {
   display: flex;
@@ -434,7 +434,7 @@ button {
   box-sizing: border-box;
   height: 56px;
   padding: 0 8px;
-  border-bottom: 1px solid var(--shell-border);
+  border-bottom: 1px solid var(--separator);
   font-size: 13px;
 }
 .pane > header .tabs {
@@ -451,7 +451,7 @@ button {
   border-radius: 6px;
 }
 .pane > header button[aria-selected="true"] {
-  background: var(--shell-panel);
+  background: var(--surface-sidebar);
 }
 .pane .body {
   flex: 1;
@@ -464,15 +464,15 @@ button {
   background: transparent;
 }
 .resizer:hover {
-  background: var(--shell-border);
+  background: var(--separator);
 }
 .browser-viewport {
   position: absolute;
   inset: 0;
-  background: var(--shell-panel);
+  background: var(--surface-sidebar);
 }
 .browser-viewport[data-control="user"] {
-  outline: 2px solid var(--shell-accent);
+  outline: 2px solid var(--accent-9);
   outline-offset: -2px;
 }
 .status-pill {
@@ -480,8 +480,8 @@ button {
   margin: 4px;
   padding: 2px 10px;
   border-radius: 999px;
-  background: var(--shell-panel);
-  border: 1px solid var(--shell-border);
+  background: var(--surface-sidebar);
+  border: 1px solid var(--separator);
   font-size: 13px;
 }
 .overlay {
@@ -495,7 +495,7 @@ button {
   z-index: 10;
 }
 .dialog {
-  background: var(--surface-raised, var(--shell-bg));
+  background: var(--surface-raised, var(--canvas));
   border-radius: 16px;
   width: min(640px, 92vw);
   max-height: 70vh;
@@ -508,7 +508,7 @@ button {
   box-sizing: border-box;
   padding: 8px;
   border-radius: 8px;
-  border: 1px solid var(--shell-border);
+  border: 1px solid var(--separator);
   font: inherit;
   background: transparent;
   color: inherit;
@@ -523,7 +523,7 @@ button {
   z-index: 20;
 }
 .toast {
-  background: var(--material-glass, var(--shell-panel));
+  background: var(--material-glass, var(--surface-sidebar));
   -webkit-backdrop-filter: var(--material-blur, none);
   backdrop-filter: var(--material-blur, none);
   box-shadow: var(--material-glass-highlight, none), var(--elevation-2, none);
@@ -554,7 +554,7 @@ button {
   z-index: 100;
   padding: 8px 12px;
   border-radius: 8px;
-  background: var(--shell-panel);
+  background: var(--surface-sidebar);
   color: inherit;
   border: 2px solid var(--ring, currentColor);
 }
@@ -590,14 +590,14 @@ button {
   font-weight: 600;
 }
 .voice-mode[data-phase="listening"] .voice-mode-state {
-  color: var(--shell-accent, currentColor);
+  color: var(--accent-9);
 }
 .voice-mode[data-phase="waiting"] .voice-mode-state,
 .voice-mode[data-phase="error"] .voice-mode-state {
-  color: var(--shell-danger, currentColor);
+  color: var(--danger);
 }
 .voice-mode-heard {
-  color: var(--shell-muted);
+  color: var(--label-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -616,8 +616,8 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--shell-bg);
-  color: var(--shell-text);
+  background: var(--canvas);
+  color: var(--label-primary);
   -webkit-app-region: drag;
   app-region: drag;
   transition: opacity var(--duration-medium, 220ms) var(--ease-standard, ease-out);
@@ -652,7 +652,7 @@ button {
 .startup-splash-body [role="status"] {
   margin: 0;
   min-height: 18px;
-  color: var(--shell-muted);
+  color: var(--label-secondary);
 }
 .startup-splash-bar {
   position: relative;
@@ -661,7 +661,7 @@ button {
   margin-top: 8px;
   overflow: hidden;
   border-radius: 1px;
-  background: var(--shell-border);
+  background: var(--separator);
 }
 .startup-splash-bar::after {
   content: "";
@@ -669,7 +669,7 @@ button {
   inset: 0 auto 0 0;
   width: 40%;
   border-radius: 1px;
-  background: var(--shell-accent);
+  background: var(--accent-9);
   animation: startup-slide 1.4s ease-in-out infinite;
 }
 @keyframes startup-slide {
@@ -692,7 +692,7 @@ button {
 }
 .startup-splash-reason {
   margin: 0;
-  color: var(--shell-danger);
+  color: var(--danger);
   overflow-wrap: anywhere;
 }
 .startup-splash-actions {
@@ -704,26 +704,26 @@ button {
   -webkit-app-region: no-drag;
   app-region: no-drag;
   padding: 4px 12px;
-  border: 1px solid var(--shell-border);
+  border: 1px solid var(--separator);
   border-radius: 6px;
   background: transparent;
-  color: var(--shell-text);
+  color: var(--label-primary);
   font: inherit;
   cursor: pointer;
 }
 .startup-splash-button.primary {
-  border-color: var(--shell-accent);
-  background: var(--shell-accent);
+  border-color: var(--accent-9);
+  background: var(--accent-9);
   color: var(--accent-contrast, #fff);
 }
 .startup-splash-button.skip {
   margin-top: 8px;
   border: 0;
-  color: var(--shell-muted);
+  color: var(--label-secondary);
   text-decoration: underline;
 }
 .startup-splash-button:focus-visible {
-  outline: 2px solid var(--shell-accent);
+  outline: 2px solid var(--accent-9);
   outline-offset: 2px;
 }
 
@@ -734,7 +734,7 @@ button {
   flex-direction: column;
   min-height: 0;
   overflow: auto;
-  background: var(--shell-bg);
+  background: var(--canvas);
 }
 
 @keyframes startup-splash-in {

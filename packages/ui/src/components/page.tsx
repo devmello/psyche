@@ -63,7 +63,7 @@ export interface ScreenHeaderProps {
   className?: string;
 }
 
-/** A page's h1 with its facts, one-line description and actions (§4.2: h1 24/30 at 600). */
+/** A page's h1 with its facts, one-line description and actions (redesign §3.2: Title 1). */
 export function PageHeader({
   title,
   meta,
@@ -75,10 +75,10 @@ export function PageHeader({
     <header className={cn("flex flex-wrap items-end gap-x-3 gap-y-2", className)}>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h1 className="text-h1 text-foreground">{title}</h1>
-          {meta ? <p className="text-small text-muted-foreground">{meta}</p> : null}
+          <h1 className="text-title-1 text-label-primary">{title}</h1>
+          {meta ? <p className="text-body text-label-secondary">{meta}</p> : null}
         </div>
-        {description ? <p className="text-small text-muted-foreground">{description}</p> : null}
+        {description ? <p className="text-body text-label-secondary">{description}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
     </header>
@@ -88,7 +88,7 @@ export function PageHeader({
 /** Kept for the screens that predate `PageHeader`. */
 export const ScreenHeader = PageHeader;
 
-/** An uppercase group label (§4.2 label 11/14), e.g. "HEALTH" or "NEEDS YOU (2)". */
+/** A group label (redesign §3.2 caption 11/14 500, sentence case), e.g. "Health" or "Needs you (2)". */
 export function SectionLabel({
   children,
   className,
@@ -101,7 +101,7 @@ export function SectionLabel({
   id?: string;
 }): ReactElement {
   return (
-    <Tag id={id} className={cn("text-label text-gray-11", className)}>
+    <Tag id={id} className={cn("text-caption text-label-secondary", className)}>
       {children}
     </Tag>
   );
