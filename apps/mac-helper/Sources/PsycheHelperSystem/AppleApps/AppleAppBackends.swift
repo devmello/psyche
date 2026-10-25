@@ -119,8 +119,8 @@ public final class EventKitBackend: CalendarBackend, RemindersBackend, @unchecke
         switch EKEventStore.authorizationStatus(for: type) {
         case .fullAccess: return
         case .notDetermined:
-            let granted = type == .event ? try await store.requestFullAccessToEvents() : try await store.requestFullAccessToReminders()
-            if granted { return }
+            try HostAttribution.check(type == .event ? .calendars : .reminders)  // #570
+            if try await EventKitRequest.run(type, store: store) == "granted" { return }
         default: break
         }
         throw CapabilityError.permissionMissing(type == .event ? .calendars : .reminders)

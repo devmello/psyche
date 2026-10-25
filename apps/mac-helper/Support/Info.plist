@@ -40,6 +40,11 @@
   <string>Psyche contributors. Apache-2.0.</string>
   <key>NSAppleEventsUsageDescription</key>
   <string>Psyche sends Apple Events to an app only when you ask it to act there, such as reading Notes, drafting Mail or running a Shortcut. macOS asks once for each app.</string>
+  <!-- The pre-14 keys too: which one tccd reads depends on the SDK the asking app was built with (#570). -->
+  <key>NSCalendarsUsageDescription</key>
+  <string>Psyche reads and adds calendar events when you turn on the Calendar connector. macOS has no read-only option.</string>
+  <key>NSRemindersUsageDescription</key>
+  <string>Psyche reads and adds reminders when you turn on the Reminders connector.</string>
   <key>NSCalendarsFullAccessUsageDescription</key>
   <string>Psyche reads and adds calendar events when you turn on the Calendar connector. macOS has no read-only option.</string>
   <key>NSRemindersFullAccessUsageDescription</key>

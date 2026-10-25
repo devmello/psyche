@@ -43,6 +43,11 @@ if CommandLine.arguments.count >= 2, CommandLine.arguments[1] == "guest-image" {
     GuestImageCLI.run(Array(CommandLine.arguments.dropFirst(2)), log: HelperLog())
 }
 
+// `psyche-helper --probe-permission <kind> <out.json> [--ask]` (#570): what TCC answers inside the app.
+if CommandLine.arguments.count >= 4, CommandLine.arguments[1] == "--probe-permission" {
+    PermissionProbe.run(kind: CommandLine.arguments[2], out: CommandLine.arguments[3], ask: CommandLine.arguments.contains("--ask"), log: HelperLog())
+}
+
 var args = CommandLine.arguments.dropFirst()
 while let arg = args.popFirst() {
     switch arg {
