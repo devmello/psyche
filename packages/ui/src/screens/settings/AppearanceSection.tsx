@@ -7,6 +7,11 @@ import { RadioGroup } from "../../components/ui/radio-group.tsx";
 import { activeI18n, t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
 import {
+  REDUCE_TRANSPARENCY_SETTING,
+  useSupportsVibrancy,
+  VIBRANCY_SETTING,
+} from "../../shell/AppearanceProvider.tsx";
+import {
   DEFAULT_ACCENT_SEED,
   GRAY_FAMILIES,
   type GrayFamily,
@@ -223,6 +228,15 @@ function AccentPicker({
   );
 }
 
+/** The OS asks for opaque materials (`prefers-reduced-transparency`). */
+function systemReducesTransparency(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-transparency: reduce)").matches
+  );
+}
+
 export function AppearancePanel({
   values,
   onChange,
@@ -230,13 +244,20 @@ export function AppearancePanel({
   loading,
   error,
   onRetry,
-}: SettingsFormProps & LoadProps): ReactElement {
+  supportsVibrancy = false,
+}: SettingsFormProps &
+  LoadProps & {
+    /** The desktop window can draw the native sidebar material (shows the vibrancy switch). */
+    supportsVibrancy?: boolean;
+  }): ReactElement {
   const a = appearanceFromSettings(values);
   const theme = useMemo(
     () => generateTheme({ accentSeed: a.accentSeed, gray: a.gray }),
     [a.accentSeed, a.gray],
   );
   const motion = a.reduceMotion === "system" ? "system" : a.reduceMotion ? "on" : "off";
+  // Unset follows the OS (AppearanceProvider leaves `data-reduce-transparency` off the root).
+  const reduceTransparency = values[REDUCE_TRANSPARENCY_SETTING];
   return (
     <SectionFrame
       needsApproval={needsApproval}
@@ -329,6 +350,28 @@ export function AppearancePanel({
           />
         </Group>
 
+        <Group title={t("settings.appearance.transparency")}>
+          {supportsVibrancy ? (
+            <SwitchField
+              label={t("settings.key.appearance.vibrancy")}
+              description={t("settings.appearance.vibrancyHint")}
+              checked={values[VIBRANCY_SETTING] === true}
+              settingKey={VIBRANCY_SETTING}
+              onChange={(v) => onChange(VIBRANCY_SETTING, v)}
+            />
+          ) : null}
+          <SwitchField
+            label={t("settings.key.appearance.reduceTransparency")}
+            description={t("settings.appearance.reduceTransparencyHint")}
+            checked={
+              reduceTransparency === true ||
+              (reduceTransparency !== false && systemReducesTransparency())
+            }
+            settingKey={REDUCE_TRANSPARENCY_SETTING}
+            onChange={(v) => onChange(REDUCE_TRANSPARENCY_SETTING, v)}
+          />
+        </Group>
+
         <LanguageGroup values={values} onChange={onChange} />
       </LoadGate>
     </SectionFrame>
@@ -337,6 +380,7 @@ export function AppearancePanel({
 
 export function AppearanceSection(): ReactElement {
   const form = useSettingsForm();
+  const supportsVibrancy = useSupportsVibrancy();
   return (
     <div className="flex flex-col gap-3">
       <AppearancePanel
@@ -346,6 +390,7 @@ export function AppearanceSection(): ReactElement {
         loading={form.loading && Object.keys(form.values).length === 0}
         error={form.error}
         onRetry={form.reload}
+        supportsVibrancy={supportsVibrancy}
       />
       {form.writeError ? <ErrorNotice what={form.writeError} did="" /> : null}
     </div>

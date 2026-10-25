@@ -65,6 +65,8 @@ export const settings = {
   "settings.key.appearance.reduceMotion": "Reduce motion",
   "settings.key.appearance.contrast": "High contrast",
   "settings.key.appearance.zoom": "Zoom",
+  "settings.key.appearance.vibrancy": "Translucent sidebar",
+  "settings.key.appearance.reduceTransparency": "Reduce transparency",
   "settings.key.backup.schedule": "Backup schedule",
   "settings.key.browser.realChrome": "Real-Chrome mode",
   "settings.key.browser.botAuth": "Web Bot Auth",
@@ -461,6 +463,11 @@ export const settings = {
   "settings.appearance.motionContrast": "Motion and contrast",
   "settings.appearance.followSystem": "Follow the system",
   "settings.appearance.contrastHint": "Stronger borders, darker text and 2 px focus rings.",
+  "settings.appearance.transparency": "Transparency",
+  "settings.appearance.vibrancyHint":
+    "The sidebar shows the desktop through the macOS sidebar material. Off by default until it is checked on macOS 26.",
+  "settings.appearance.reduceTransparencyHint":
+    "Menus, popovers and the composer become opaque. Follows the system setting until you change it here.",
 
   // Settings → Browser: real-Chrome mode and Web Bot Auth (BrowserSection.tsx).
   "settings.browser.profile": "Psyche profile",

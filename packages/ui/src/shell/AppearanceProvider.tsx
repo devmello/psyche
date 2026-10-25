@@ -16,6 +16,12 @@ export const VIBRANCY_SETTING = "appearance.vibrancy";
 export const REDUCE_TRANSPARENCY_SETTING = "appearance.reduceTransparency";
 
 const SystemLocale = createContext<string | null>(null);
+const SupportsVibrancy = createContext(false);
+
+/** The host can draw the native sidebar material (Settings → Appearance shows the vibrancy switch). */
+export function useSupportsVibrancy(): boolean {
+  return useContext(SupportsVibrancy);
+}
 
 /** The system's locale as the host reported it (Settings → Language and region shows it). */
 export function useSystemLocale(): string | null {
@@ -66,15 +72,17 @@ export function AppearanceProvider({
   return (
     <ThemeProvider settings={appearance}>
       <SystemLocale.Provider value={systemLocale ?? null}>
-        <I18nProvider
-          locale={resolveLocale(settings[LOCALE_SETTING] ?? "system", systemLocale)}
-          direction={
-            direction === "ltr" || direction === "rtl" ? (direction as DirectionSetting) : "auto"
-          }
-          applyToDocument
-        >
-          {children}
-        </I18nProvider>
+        <SupportsVibrancy.Provider value={supportsVibrancy}>
+          <I18nProvider
+            locale={resolveLocale(settings[LOCALE_SETTING] ?? "system", systemLocale)}
+            direction={
+              direction === "ltr" || direction === "rtl" ? (direction as DirectionSetting) : "auto"
+            }
+            applyToDocument
+          >
+            {children}
+          </I18nProvider>
+        </SupportsVibrancy.Provider>
       </SystemLocale.Provider>
     </ThemeProvider>
   );
