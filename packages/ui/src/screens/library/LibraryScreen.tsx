@@ -40,7 +40,7 @@ import {
 } from "../../components/ui/dropdown-menu.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover.tsx";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs.tsx";
+import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs.tsx";
 import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group.tsx";
 import { useLibrary, useTasks } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
@@ -719,72 +719,70 @@ export function LibraryView({
     </Popover>
   );
 
+  // Sections are a segmented control in the toolbar (§5.7). It carries its own Tabs root so it
+  // keeps working when the shell's toolbar slot renders it away from the content below.
+  const sections = (
+    <Tabs
+      value={section}
+      onValueChange={(v) => {
+        const next = LIBRARY_SECTIONS.find((s) => s.id === v);
+        if (next) {
+          setSelected(null);
+          onSectionChange?.(next.id);
+        }
+      }}
+      className="min-w-0 gap-0"
+    >
+      <TabsList aria-label={t("screens.library.sections")} className="max-w-full overflow-x-auto">
+        {LIBRARY_SECTIONS.map((s) => (
+          <TabsTrigger key={s.id} value={s.id}>
+            {s.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
+  );
+
   return (
     <section aria-label={t("screens.library.title")}>
-      <Tabs
-        value={section}
-        onValueChange={(v) => {
-          const next = LIBRARY_SECTIONS.find((s) => s.id === v);
-          if (next) {
-            setSelected(null);
-            onSectionChange?.(next.id);
-          }
-        }}
-        className="gap-0"
-      >
-        <ScreenToolbar
-          title={t("screens.library.title")}
-          {...(!loading && error === null
-            ? {
-                meta: t("screens.library.meta.count", {
-                  section: spec?.label ?? "",
-                  n: shown.length,
-                }),
-              }
-            : {})}
-          center={
-            // Sections are a segmented control in the toolbar (§5.7).
-            <TabsList
-              aria-label={t("screens.library.sections")}
-              className="max-w-full overflow-x-auto"
+      <ScreenToolbar
+        title={t("screens.library.title")}
+        {...(!loading && error === null
+          ? {
+              meta: t("screens.library.meta.count", {
+                section: spec?.label ?? "",
+                n: shown.length,
+              }),
+            }
+          : {})}
+        center={sections}
+        actions={
+          <>
+            {filterPopover}
+            <ToggleGroup
+              aria-label={t("screens.library.layout")}
+              value={[layout]}
+              onValueChange={(v) => {
+                const next = v[0];
+                if (next === "grid" || next === "list") onLayoutChange?.(next);
+              }}
             >
-              {LIBRARY_SECTIONS.map((s) => (
-                <TabsTrigger key={s.id} value={s.id}>
-                  {s.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          }
-          actions={
-            <>
-              {filterPopover}
-              <ToggleGroup
-                aria-label={t("screens.library.layout")}
-                value={[layout]}
-                onValueChange={(v) => {
-                  const next = v[0];
-                  if (next === "grid" || next === "list") onLayoutChange?.(next);
-                }}
-              >
-                <ToggleGroupItem value="grid" size="sm" aria-label={t("screens.library.grid")}>
-                  <LayoutGrid aria-hidden="true" />
-                </ToggleGroupItem>
-                <ToggleGroupItem value="list" size="sm" aria-label={t("screens.library.list")}>
-                  <List aria-hidden="true" />
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </>
-          }
-        />
-        <TabsContent value={section}>
-          <ScreenColumn width="wide">
-            <p className="text-callout text-label-secondary">
-              {t("screens.library.description", { name: persona })}
-            </p>
-            {body}
-          </ScreenColumn>
-        </TabsContent>
-      </Tabs>
+              <ToggleGroupItem value="grid" size="sm" aria-label={t("screens.library.grid")}>
+                <LayoutGrid aria-hidden="true" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="list" size="sm" aria-label={t("screens.library.list")}>
+                <List aria-hidden="true" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </>
+        }
+      />
+      <ScreenColumn width="wide">
+        <p className="text-callout text-label-secondary">
+          {t("screens.library.description", { name: persona })}
+        </p>
+        {body}
+      </ScreenColumn>
     </section>
   );
 }

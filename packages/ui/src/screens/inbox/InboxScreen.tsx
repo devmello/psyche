@@ -13,14 +13,8 @@ import {
 } from "lucide-react";
 import { type ReactElement, type ReactNode, useEffect, useId, useState } from "react";
 import { toast } from "sonner";
-import {
-  EmptyState,
-  ErrorState,
-  LoadingCards,
-  Page,
-  PageHeader,
-  useDelayedFlag,
-} from "../../components/page.tsx";
+import { EmptyState, ErrorState, LoadingCards, useDelayedFlag } from "../../components/page.tsx";
+import { StatusGlyph, type StatusKind } from "../../components/status.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { useApproval, useNotifications, useTask } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
@@ -28,7 +22,9 @@ import { describeError } from "../../i18n/errors.ts";
 import { formatCountdown, formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { cn } from "../../lib/utils.ts";
+import { ListItem } from "../../motion/index.ts";
 import { useSlots } from "../../slots.tsx";
+import { ScreenColumn, ScreenToolbar } from "../feed/ScreenToolbar.tsx";
 
 /** Semantic tones only (§4.8): approval, success, danger, info, or neutral gray. */
 const TONE = {
@@ -36,12 +32,12 @@ const TONE = {
   success: "bg-grass-3 text-grass-11",
   danger: "bg-tomato-3 text-tomato-12 dark:text-tomato-11",
   info: "bg-sky-3 text-sky-11",
-  muted: "bg-gray-3 text-gray-11",
+  muted: "bg-fill-tertiary text-label-secondary",
 } as const;
 
 export const NOTIFICATION_KIND: Record<
   NotificationKind,
-  { label: string; icon: LucideIcon; tone: string }
+  { label: string; icon: LucideIcon; tone: string; status?: StatusKind }
 > = {
   approval: {
     get label() {
@@ -49,6 +45,7 @@ export const NOTIFICATION_KIND: Record<
     },
     icon: CircleAlert,
     tone: TONE.approval,
+    status: "waiting",
   },
   input_needed: {
     get label() {
@@ -56,6 +53,7 @@ export const NOTIFICATION_KIND: Record<
     },
     icon: CircleHelp,
     tone: TONE.approval,
+    status: "waiting",
   },
   task_done: {
     get label() {
@@ -63,6 +61,7 @@ export const NOTIFICATION_KIND: Record<
     },
     icon: CircleCheck,
     tone: TONE.success,
+    status: "done",
   },
   task_failed: {
     get label() {
@@ -70,6 +69,7 @@ export const NOTIFICATION_KIND: Record<
     },
     icon: CircleX,
     tone: TONE.danger,
+    status: "failed",
   },
   proactive: {
     get label() {
@@ -171,17 +171,23 @@ function ApprovalControls({
   const a = state?.approval ?? null;
   if (a === null) return openCard;
   if (a.status !== "pending") {
-    return <span className="text-callout text-gray-11">{DECIDED[a.status] ?? a.status}</span>;
+    return (
+      <span className="text-callout text-label-secondary">{DECIDED[a.status] ?? a.status}</span>
+    );
   }
   const remaining = Date.parse(a.expiresAt) - now;
   if (remaining <= 0) {
-    return <span className="text-callout text-gray-11">{t("screens.inbox.decided.expired")}</span>;
+    return (
+      <span className="text-callout text-label-secondary">
+        {t("screens.inbox.decided.expired")}
+      </span>
+    );
   }
   const countdown = (
     <span
       className={cn(
         "me-1 text-callout tabular-nums",
-        remaining < 60_000 ? "font-semibold text-danger-text" : "text-gray-11",
+        remaining < 60_000 ? "font-semibold text-danger-text" : "text-label-secondary",
       )}
     >
       <span className="sr-only">{t("screens.inbox.expiresIn")} </span>
@@ -265,10 +271,18 @@ export function InboxRow({
       />
     );
   } else if (resolved) {
-    actions = <span className="text-callout text-gray-11">{t("screens.inbox.resolved")}</span>;
+    actions = (
+      <span className="text-callout text-label-secondary">{t("screens.inbox.resolved")}</span>
+    );
   } else if (n.kind === "input_needed") {
     actions = (
-      <Button type="button" size="sm" onClick={() => onOpen?.(n)} disabled={n.route == null}>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={() => onOpen?.(n)}
+        disabled={n.route == null}
+      >
         {t("screens.inbox.answer")}
       </Button>
     );
@@ -281,7 +295,7 @@ export function InboxRow({
         <Button
           type="button"
           size="sm"
-          variant="secondary"
+          variant="outline"
           disabled={busy || n.taskId == null}
           onClick={() => onRetry?.(n)}
         >
@@ -295,7 +309,7 @@ export function InboxRow({
         key={a.id}
         type="button"
         size="sm"
-        variant={a.destructive ? "destructive" : i === 0 ? "secondary" : "ghost"}
+        variant={a.destructive ? "destructive" : i === 0 ? "outline" : "ghost"}
         disabled={busy}
         onClick={() => onAction?.(n, a.id)}
       >
@@ -315,37 +329,48 @@ export function InboxRow({
       aria-labelledby={titleId}
       data-unread={unread || undefined}
       className={cn(
-        "flex flex-wrap items-start gap-3 border-b border-gray-6 py-3 pe-2 ps-0 text-sm",
+        // A two-line grouped row (redesign §3.7): status glyph, kind · time, title, body, actions.
+        "relative flex min-h-11 flex-wrap items-start gap-3 px-3 py-2 text-body",
+        "before:absolute before:inset-x-3 before:top-0 before:h-px before:bg-separator",
         resolved || isStale ? "opacity-75" : "",
       )}
     >
       {/* Unread is the dot plus weight; the dot marks the row read (§3.20). */}
-      <span className="flex h-7 w-5 shrink-0 items-center justify-center">
+      <span className="-ms-1 flex h-5 w-3 shrink-0 items-center justify-center">
         {unread && onMarkRead ? (
           <button
             type="button"
             aria-label={t("screens.inbox.markReadLabel", { title: n.title })}
             title={t("screens.inbox.markRead")}
             onClick={() => onMarkRead(n)}
-            className="group/dot flex size-5 items-center justify-center rounded-full hover:bg-gray-3 focus-visible:outline-2 focus-visible:outline-ring"
+            className="group/dot flex size-5 items-center justify-center rounded-full hover:bg-fill-quaternary focus-visible:outline-2 focus-visible:outline-ring"
           >
-            <span className="size-2 rounded-full bg-accent-9 transition-transform group-hover/dot:scale-125" />
+            <span className="size-2 rounded-full bg-accent-9" />
           </button>
         ) : unread ? (
           <span className="size-2 rounded-full bg-accent-9" aria-hidden="true" />
         ) : null}
       </span>
-      <span
-        className={cn(
-          "inline-flex size-7 shrink-0 items-center justify-center rounded-full",
-          kind.tone,
+      {/* One glyph per state (§3.6): status kinds use the shared glyph, the rest their icon. */}
+      <span className="flex h-5 shrink-0 items-center" aria-hidden="true">
+        {kind.status ? (
+          <StatusGlyph status={resolved ? "done" : kind.status} />
+        ) : (
+          <Icon className="size-4 text-label-secondary" />
         )}
-        aria-hidden="true"
-      >
-        <Icon className="size-4" />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className="flex flex-wrap items-center gap-x-1.5 text-callout text-gray-11">
+        <h3
+          id={titleId}
+          className={cn(
+            "text-headline text-label-primary",
+            unread ? "font-semibold" : "font-normal",
+          )}
+        >
+          {n.title}
+        </h3>
+        {n.body ? <p className="text-callout text-label-secondary">{n.body}</p> : null}
+        <p className="flex flex-wrap items-center gap-x-1.5 text-subheadline text-label-tertiary">
           <span className="font-medium">{kind.label}</span>
           <span aria-hidden="true">·</span>
           <span>{formatRelative(n.createdAt, now)}</span>
@@ -361,20 +386,16 @@ export function InboxRow({
             </>
           ) : null}
         </p>
-        <h2
-          id={titleId}
-          className={cn(
-            "text-reading",
-            unread ? "font-semibold text-foreground" : "font-normal text-gray-12",
-          )}
-        >
-          {n.title}
-        </h2>
-        {n.body ? <p className="text-small text-gray-11">{n.body}</p> : null}
       </div>
       <div className="flex flex-wrap items-center gap-1.5 self-center">{actions}</div>
     </article>
   );
+}
+
+/** Rows group by what they ask (§5.10, grouped rows): what needs you, then today, then earlier. */
+function groupOf(n: Notification, now: number): "needs" | "today" | "earlier" {
+  if ((n.kind === "approval" || n.kind === "input_needed") && n.resolvedAt == null) return "needs";
+  return now - Date.parse(n.createdAt) < 24 * 60 * 60 * 1000 ? "today" : "earlier";
 }
 
 export interface InboxViewProps {
@@ -436,39 +457,53 @@ export function InboxView({
       </EmptyState>
     );
   } else {
+    const groups = (["needs", "today", "earlier"] as const)
+      .map((g) => ({ id: g, items: notifications.filter((n) => groupOf(n, now) === g) }))
+      .filter((g) => g.items.length > 0);
     body = (
-      <ul aria-label={t("screens.inbox.notifications")} className="flex flex-col">
-        {notifications.map((n) => (
-          <li key={n.id}>
-            {renderRow ? renderRow(n) : <InboxRow notification={n} now={now} {...rowProps} />}
-          </li>
+      <div
+        aria-label={t("screens.inbox.notifications")}
+        role="group"
+        className="flex flex-col gap-5"
+      >
+        {groups.map((g) => (
+          <section key={g.id} aria-labelledby={`inbox-${g.id}`} className="flex flex-col gap-2">
+            <h2 id={`inbox-${g.id}`} className="px-1 text-title-3 text-label-primary">
+              {t(`screens.inbox.group.${g.id}`)}
+            </h2>
+            <ul className="flex flex-col rounded-lg bg-surface-raised shadow-elevation-1 [&>li:first-child>article]:before:hidden">
+              {g.items.map((n, i) => (
+                <ListItem key={n.id} index={i}>
+                  {renderRow ? renderRow(n) : <InboxRow notification={n} now={now} {...rowProps} />}
+                </ListItem>
+              ))}
+            </ul>
+          </section>
         ))}
-      </ul>
+      </div>
     );
   }
 
   return (
     <section aria-label={t("screens.inbox.title")}>
-      <Page width="wide">
-        <PageHeader
-          title={t("screens.inbox.title")}
-          meta={
-            !loading && error === null && unread > 0
-              ? t("screens.inbox.unreadCount", { n: unread })
-              : null
-          }
-          {...(unread > 0 && onMarkAllRead
-            ? {
-                actions: (
-                  <Button type="button" size="sm" variant="ghost" onClick={onMarkAllRead}>
-                    {t("screens.inbox.markAllRead")}
-                  </Button>
-                ),
-              }
-            : {})}
-        />
-        {body}
-      </Page>
+      <ScreenToolbar
+        title={t("screens.inbox.title")}
+        meta={
+          !loading && error === null && unread > 0
+            ? t("screens.inbox.unreadCount", { n: unread })
+            : null
+        }
+        {...(unread > 0 && onMarkAllRead
+          ? {
+              actions: (
+                <Button type="button" size="sm" variant="ghost" onClick={onMarkAllRead}>
+                  {t("screens.inbox.markAllRead")}
+                </Button>
+              ),
+            }
+          : {})}
+      />
+      <ScreenColumn width="wide">{body}</ScreenColumn>
     </section>
   );
 }

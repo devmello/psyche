@@ -1,9 +1,10 @@
-import type { Task, TaskAction } from "@psyche/protocol";
+import type { Task, TaskAction, TaskStatus } from "@psyche/protocol";
 import { ArrowLeft, ListChecks } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { DISCLOSURE_LABEL, type DisclosureLevel } from "../blocks/disclosure.tsx";
-import { TASK_STATUS_LABEL, TaskStatusIcon } from "../blocks/TaskCard.tsx";
+import { TASK_STATUS_LABEL } from "../blocks/TaskCard.tsx";
 import { EmptyState } from "../components/page.tsx";
+import { StatusGlyph, type StatusKind } from "../components/status.tsx";
 import { Badge } from "../components/ui/badge.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
@@ -12,6 +13,18 @@ import { useTask, useTasks } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { formatRelative, formatTime } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
+
+/** One glyph per task state across the app (redesign §3.6, `components/status.tsx`). */
+export const TASK_GLYPH: Record<TaskStatus, StatusKind> = {
+  queued: "pending",
+  running: "running",
+  awaiting_input: "waiting",
+  awaiting_approval: "waiting",
+  paused: "paused",
+  done: "done",
+  failed: "failed",
+  cancelled: "cancelled",
+};
 
 type Filter = "running" | "needs-you" | "all";
 
@@ -32,7 +45,7 @@ function Outcome({ outcome }: { outcome: string }): ReactElement {
     <span className="flex shrink-0 items-center gap-1.5">
       <Badge variant={outcomeTone(outcome)}>{head}</Badge>
       {rest.length > 0 ? (
-        <span className="text-callout text-muted-foreground">{rest.join(" · ")}</span>
+        <span className="text-callout text-label-secondary">{rest.join(" · ")}</span>
       ) : null}
     </span>
   );
@@ -63,17 +76,17 @@ export function TaskList({
         return (
           <li
             key={task.id}
-            className="group/row flex items-center gap-1 rounded-md hover:bg-gray-3"
+            className="group/row flex items-center gap-1 rounded-md hover:bg-fill-quaternary"
           >
             <button
               type="button"
               onClick={() => onSelect(task)}
               className="flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2 text-start"
             >
-              <TaskStatusIcon status={task.status} />
+              <StatusGlyph status={TASK_GLYPH[task.status]} />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-small font-medium">{task.title}</span>
-                <span className="block truncate text-callout text-muted-foreground">
+                <span className="block truncate text-body font-medium">{task.title}</span>
+                <span className="block truncate text-callout text-label-secondary">
                   {step || task.summary
                     ? t("agent.task.statusDetail", {
                         status: TASK_STATUS_LABEL[task.status],
@@ -82,7 +95,7 @@ export function TaskList({
                     : TASK_STATUS_LABEL[task.status]}
                 </span>
               </span>
-              <span className="shrink-0 text-end text-callout text-muted-foreground">
+              <span className="shrink-0 text-end text-callout text-label-secondary">
                 {task.createdFrom}
                 <br />
                 {formatRelative(task.updatedAt, now)}
@@ -128,43 +141,43 @@ export function ActionLog({
 }): ReactElement {
   if (actions.length === 0) {
     return (
-      <p className="px-2 py-4 text-small text-muted-foreground">{t("agent.activity.noActions")}</p>
+      <p className="px-2 py-4 text-body text-label-secondary">{t("agent.activity.noActions")}</p>
     );
   }
   if (level === 0) {
     const last = actions[actions.length - 1];
-    return <p className="px-2 py-2 text-small">{last?.level1}</p>;
+    return <p className="px-2 py-2 text-body">{last?.level1}</p>;
   }
   return (
     <ol
-      className="flex flex-col divide-y divide-gray-4 text-small"
+      className="flex flex-col divide-y divide-separator text-body"
       aria-label={t("agent.activity.actions")}
     >
       {actions.map((a) => (
         <li key={a.id} className="px-2 py-2">
           <div className="flex items-center gap-3">
-            <span className="w-11 shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+            <span className="w-11 shrink-0 font-mono text-xs text-label-secondary tabular-nums">
               {formatTime(a.createdAt)}
             </span>
-            <span className="w-16 shrink-0 truncate text-callout text-gray-11">
+            <span className="w-16 shrink-0 truncate text-callout text-label-secondary">
               {a.level2.tool.split(/[._]/)[0]}
             </span>
             <span className="min-w-0 flex-1 truncate">{a.level1}</span>
             {a.level2.outcome ? <Outcome outcome={a.level2.outcome} /> : null}
           </div>
           {level === 2 ? (
-            <dl className="mt-1.5 ms-14 grid grid-cols-[5rem_1fr] gap-x-2 rounded-md bg-gray-2 p-2 font-mono text-xs">
-              <dt className="text-muted-foreground">{t("agent.action.tool")}</dt>
+            <dl className="mt-1.5 ms-14 grid grid-cols-[5rem_1fr] gap-x-2 rounded-md bg-fill-quaternary p-2 font-mono text-xs">
+              <dt className="text-label-secondary">{t("agent.action.tool")}</dt>
               <dd>{a.level2.tool}</dd>
               {a.level2.target ? (
                 <>
-                  <dt className="text-muted-foreground">{t("agent.action.target")}</dt>
+                  <dt className="text-label-secondary">{t("agent.action.target")}</dt>
                   <dd className="break-all">{a.level2.target}</dd>
                 </>
               ) : null}
               {a.level3Ref ? (
                 <>
-                  <dt className="text-muted-foreground">{t("agent.action.raw")}</dt>
+                  <dt className="text-label-secondary">{t("agent.action.raw")}</dt>
                   <dd className="break-all">{a.level3Ref}</dd>
                 </>
               ) : null}
@@ -191,7 +204,7 @@ export function TaskDetail({
     return q.loading ? (
       <Skeleton className="h-40" />
     ) : (
-      <p className="text-sm text-muted-foreground">{t("agent.task.loadFailed")}</p>
+      <p className="text-sm text-label-secondary">{t("agent.task.loadFailed")}</p>
     );
   }
   const task = q.task;
@@ -211,7 +224,7 @@ export function TaskDetail({
               <ArrowLeft aria-hidden="true" className="rtl:rotate-180" />
             </Button>
           ) : null}
-          <TaskStatusIcon status={task.status} />
+          <StatusGlyph status={TASK_GLYPH[task.status]} />
           <h3 id={`task-${task.id}`} className="min-w-0 flex-1 truncate text-h3">
             {task.title}
           </h3>
@@ -238,7 +251,7 @@ export function TaskDetail({
             ) : null}
           </span>
         </div>
-        <p className="text-callout text-muted-foreground">
+        <p className="text-callout text-label-secondary">
           {t("agent.task.meta", {
             from: task.createdFrom,
             time: formatTime(task.createdAt),
@@ -247,7 +260,7 @@ export function TaskDetail({
             remote: Boolean(task.leaseOwner && task.leaseOwner !== "local"),
           })}
         </p>
-        <p className="text-small text-gray-11">
+        <p className="text-body text-label-secondary">
           {t("agent.task.updated", {
             status: TASK_STATUS_LABEL[task.status],
             summary: task.summary ?? "",
@@ -256,8 +269,8 @@ export function TaskDetail({
           })}
         </p>
       </header>
-      <div className="flex items-center gap-2 px-2 text-small">
-        <span className="text-muted-foreground" id={`level-${task.id}`}>
+      <div className="flex items-center gap-2 px-2 text-body">
+        <span className="text-label-secondary" id={`level-${task.id}`}>
           {t("agent.task.level")}
         </span>
         <ToggleGroup
@@ -323,7 +336,7 @@ export function ActivityPanel({
           <Skeleton className="h-10" />
         </div>
       ) : tasks.error && tasks.all.length === 0 ? (
-        <p className="px-2 text-small">
+        <p className="px-2 text-body">
           {t("agent.activity.loadFailed", { reason: tasks.error })}{" "}
           <button type="button" className="text-accent-11 underline" onClick={tasks.reload}>
             {t("agent.activity.tryAgain")}

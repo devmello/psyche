@@ -104,7 +104,7 @@ const indent = (depth: number): CSSProperties => ({
 });
 
 const ROW =
-  "flex w-full min-w-0 items-center gap-1.5 rounded-md py-1 pe-2 text-start text-sm hover:bg-gray-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "flex w-full min-w-0 items-center gap-1.5 rounded-md py-1 pe-2 text-start text-sm hover:bg-fill-quaternary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 function sameFile(a: FileRef | null, b: FileRef): boolean {
   return a !== null && a.path === b.path && a.libraryPath === b.libraryPath;
@@ -130,7 +130,7 @@ function FileRow({ file, depth, selected, onSelect }: TreeProps & { file: FileRe
         onClick={() => onSelect(file)}
       >
         <span className="size-3.5 shrink-0" aria-hidden="true" />
-        <Icon className="size-4 shrink-0 text-gray-11" aria-hidden="true" />
+        <Icon className="size-4 shrink-0 text-label-secondary" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate">{file.name}</span>
       </button>
     </li>
@@ -139,7 +139,7 @@ function FileRow({ file, depth, selected, onSelect }: TreeProps & { file: FileRe
 
 function Note({ depth, children }: { depth: number; children: ReactNode }): ReactElement {
   return (
-    <li className="py-1 pe-2 text-xs text-muted-foreground" style={indent(depth + 1)}>
+    <li className="py-1 pe-2 text-xs text-label-secondary" style={indent(depth + 1)}>
       {children}
     </li>
   );
@@ -206,7 +206,7 @@ function FolderChildren({ path, depth, selected, onSelect }: TreeProps & { path:
         ) : (
           <li key={e.path}>
             <span
-              className={cn(ROW, "cursor-default text-muted-foreground hover:bg-transparent")}
+              className={cn(ROW, "cursor-default text-label-secondary hover:bg-transparent")}
               style={indent(depth)}
               title={t("screens.files.link")}
             >
@@ -252,7 +252,7 @@ function FolderNode({
           )}
           aria-hidden="true"
         />
-        <Icon className="size-4 shrink-0 text-gray-11" aria-hidden="true" />
+        <Icon className="size-4 shrink-0 text-label-secondary" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate">{label}</span>
         {badge}
       </button>
@@ -284,10 +284,10 @@ function LibraryNode({ selected, onSelect }: Omit<TreeProps, "depth">): ReactEle
           )}
           aria-hidden="true"
         />
-        <Library className="size-4 shrink-0 text-gray-11" aria-hidden="true" />
+        <Library className="size-4 shrink-0 text-label-secondary" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate">{t("screens.files.library")}</span>
         {lib.items.length > 0 ? (
-          <span className="text-xs text-muted-foreground tabular-nums">{lib.items.length}</span>
+          <span className="text-xs text-label-secondary tabular-nums">{lib.items.length}</span>
         ) : null}
       </button>
       {open ? (
@@ -358,7 +358,7 @@ export function FilesPaneView({
       <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,12rem)_minmax(0,1fr)] @lg:grid-cols-[minmax(11rem,15rem)_minmax(0,1fr)] @lg:grid-rows-1">
         <nav
           aria-label={t("screens.files.sharedFolders")}
-          className="min-h-0 overflow-auto border-b border-gray-6 p-1.5 @lg:border-e @lg:border-b-0"
+          className="min-h-0 overflow-auto border-b border-separator p-1.5 @lg:border-e @lg:border-b-0"
         >
           <ul>
             {loading && grants.length === 0 ? (
@@ -383,7 +383,7 @@ export function FilesPaneView({
             <LibraryNode selected={selected} onSelect={setSelected} />
           </ul>
           {!loading && grants.length === 0 ? (
-            <div className="flex flex-col items-start gap-2 p-2 text-xs text-muted-foreground">
+            <div className="flex flex-col items-start gap-2 p-2 text-xs text-label-secondary">
               <p>{t("screens.files.noneShared", { name: persona.name })}</p>
               {onShareFolder ? (
                 <Button type="button" size="xs" onClick={onShareFolder}>
@@ -405,10 +405,12 @@ export function FilesPaneView({
         >
           {selected ? (
             <>
-              <header className="flex h-10 shrink-0 items-center gap-2 border-b border-gray-6 px-3 text-sm">
+              <header className="flex h-10 shrink-0 items-center gap-2 border-b border-separator px-3 text-sm">
                 {(() => {
                   const Icon = fileIcon(selected.name);
-                  return <Icon className="size-4 shrink-0 text-gray-11" aria-hidden="true" />;
+                  return (
+                    <Icon className="size-4 shrink-0 text-label-secondary" aria-hidden="true" />
+                  );
                 })()}
                 <h3
                   className="min-w-0 flex-1 truncate font-medium"
@@ -416,7 +418,7 @@ export function FilesPaneView({
                 >
                   {selected.name}
                 </h3>
-                <span className="shrink-0 text-xs text-muted-foreground">
+                <span className="shrink-0 text-xs text-label-secondary">
                   {[
                     selected.size === null ? null : formatBytes(selected.size),
                     selected.modifiedAt ? formatRelative(selected.modifiedAt, clock) : null,
@@ -429,7 +431,7 @@ export function FilesPaneView({
                 {renderViewer ? (
                   renderViewer(selected)
                 ) : (
-                  <p className="p-4 text-sm text-muted-foreground">{t("screens.files.needsApp")}</p>
+                  <p className="p-4 text-sm text-label-secondary">{t("screens.files.needsApp")}</p>
                 )}
               </div>
             </>

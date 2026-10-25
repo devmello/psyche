@@ -71,6 +71,26 @@ function useTypingFrame(active: boolean): CreaturePose {
   return active ? frame : "typing-a";
 }
 
+/**
+ * Idle and needs-you loops run for 5 s after the state changes, then hold still (WCAG 2.2.2,
+ * motion.md §3: nothing loops past 5 s beside other content unless it can be paused).
+ */
+export const AVATAR_LOOP_MS = 5000;
+
+function useLoopWindow(key: string, enabled: boolean): boolean {
+  const [on, setOn] = useState(enabled);
+  useEffect(() => {
+    if (!enabled) {
+      setOn(false);
+      return;
+    }
+    setOn(true);
+    const timer = setTimeout(() => setOn(false), AVATAR_LOOP_MS);
+    return () => clearTimeout(timer);
+  }, [key, enabled]);
+  return on && enabled;
+}
+
 export function Avatar({
   name,
   creature = "moth",
@@ -88,6 +108,7 @@ export function Avatar({
   const typing = useTypingFrame(working && !reduced && size >= 28);
   // Reduced motion and the 20 px size show the static frame; working is carried by badge and text.
   const pose: CreaturePose = working && size >= 28 ? typing : "idle";
+  const looping = useLoopWindow(state, !reduced && (state === "idle" || state === "needs-you"));
   const dashed = state === "paused" || state === "incognito";
   const ring =
     state === "needs-you"
@@ -106,6 +127,7 @@ export function Avatar({
       style={{ width: size, height: size }}
       data-state={state}
       data-size={size}
+      data-looping={looping || undefined}
       {...(decorative ? { "aria-hidden": true } : { role: "img", "aria-label": label })}
     >
       <span
@@ -113,8 +135,8 @@ export function Avatar({
           "inline-flex size-full items-center justify-center overflow-hidden rounded-full bg-gray-2",
           ring,
           dashed && "outline-2 outline-dashed outline-offset-1 outline-gray-9 ring-0",
-          state === "needs-you" && !reduced && "animate-[psy-pulse-ring_1.2s_ease-in-out_infinite]",
-          state === "idle" && !reduced && "animate-[psy-breathe_4s_ease-in-out_infinite]",
+          state === "needs-you" && looping && "animate-[psy-pulse-ring_1.2s_ease-in-out_infinite]",
+          state === "idle" && looping && "animate-[psy-breathe_4s_ease-in-out_infinite]",
           (state === "error" || state === "offline") && "grayscale",
           state === "offline" && "opacity-60",
         )}

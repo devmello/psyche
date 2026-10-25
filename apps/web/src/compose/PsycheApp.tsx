@@ -1,9 +1,10 @@
 import {
   AgentHeader,
+  AgentRouteSheet,
   AgentSheet,
-  AgentSheetBody,
   type AgentTab,
   AppearanceProvider,
+  agentSheetRoute,
   ChatThread,
   compactThread,
   compactWithToast,
@@ -56,8 +57,6 @@ import { ComposedFilesPane } from "./viewers.tsx";
 
 /** Cosmetic key (no admin needed) recording that onboarding finished on this Gateway. */
 export const ONBOARDED_KEY = "ui.onboarding.completedAt";
-
-const TABS: readonly AgentTab[] = ["activity", "approvals", "upcoming", "soul"];
 
 function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }): ReactElement {
   const [sheet, setSheet] = useState<{ open: boolean; tab: AgentTab; taskId?: string }>({
@@ -115,21 +114,19 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
 }
 
 function agentRoute(route: string, navigate: (to: string) => void): ReactNode | null {
-  const m = /^\/agent\/(activity|approvals|upcoming|soul)(?:\/([^/?]+))?/.exec(route);
-  if (m === null) return null;
-  const tab = (TABS.find((x) => x === m[1]) ?? "activity") as AgentTab;
-  // Library's and Ideas' "Open in editor" link here with the file to show (#508).
-  const file = new URLSearchParams(route.split("?")[1] ?? "").get("file") ?? undefined;
+  // `/agent/*` opens the 420 px agent sheet over the canvas, never a full-width page; closing
+  // it returns to the chat (redesign §5.7). Library's and Ideas' "Open in editor" pass `?file=`.
+  const sheet = agentSheetRoute(route);
+  if (sheet === null) return null;
   return (
     <section
-      className="flex min-h-0 flex-1 flex-col overflow-auto"
+      className="flex min-h-0 flex-1 flex-col bg-canvas"
       aria-label={t("web.agent.label")}
+      data-testid="agent-route"
     >
-      <AgentSheetBody
-        tab={tab}
+      <AgentRouteSheet
+        route={sheet}
         onTabChange={(next) => navigate(`/agent/${next}`)}
-        {...(m[2] === undefined ? {} : { taskId: m[2] })}
-        {...(file ? { file } : {})}
         onClose={() => navigate("/chat")}
       />
     </section>

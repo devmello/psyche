@@ -1,7 +1,6 @@
 import { ShieldCheck } from "lucide-react";
 import { type ReactElement, useMemo } from "react";
 import { ApprovalCard } from "../blocks/ApprovalCard.tsx";
-import { SectionLabel } from "../components/page.tsx";
 import { Badge } from "../components/ui/badge.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { type ApprovalView, useApprovals, useGatewayQuery, useStoreState } from "../data/index.ts";
@@ -101,21 +100,21 @@ export function ApprovalsPanel({ now: fixedNow }: { now?: number }): ReactElemen
             type="button"
             size="xs"
             variant="ghost"
-            className="text-gray-11"
+            className="text-label-secondary"
             onClick={() => jump(sec.id)}
           >
             {sec.label()}
-            <span className="tabular-nums text-gray-11">{counts[sec.id]}</span>
+            <span className="tabular-nums text-label-secondary">{counts[sec.id]}</span>
           </Button>
         ))}
       </nav>
 
       <section aria-labelledby="approvals-needs-you" className="flex scroll-mt-2 flex-col gap-2">
-        <SectionLabel as="h3" id="approvals-needs-you">
+        <h3 id="approvals-needs-you" className="text-title-3 text-label-primary">
           {t("agent.approvals.needsYouCount", { n: live.length })}
-        </SectionLabel>
+        </h3>
         {live.length === 0 ? (
-          <p className="text-small text-muted-foreground">
+          <p className="text-body text-label-secondary">
             {loading ? t("common.loading") : t("agent.approvals.nothingNeedsYou")}
           </p>
         ) : (
@@ -144,13 +143,13 @@ export function ApprovalsPanel({ now: fixedNow }: { now?: number }): ReactElemen
       </section>
 
       <section aria-labelledby="approvals-deferred" className="flex scroll-mt-2 flex-col gap-2">
-        <SectionLabel as="h3" id="approvals-deferred">
+        <h3 id="approvals-deferred" className="text-title-3 text-label-primary">
           {t("agent.approvals.deferredCount", { n: deferred.length })}
-        </SectionLabel>
+        </h3>
         {deferred.length === 0 ? (
-          <p className="text-small text-muted-foreground">{t("agent.approvals.noDeferred")}</p>
+          <p className="text-body text-label-secondary">{t("agent.approvals.noDeferred")}</p>
         ) : (
-          <ul className="flex flex-col divide-y divide-gray-4 text-small">
+          <ul className="flex flex-col divide-y divide-separator text-body">
             {deferred.map((v) => {
               const taskId = v.approval.requestedBy.taskId;
               return (
@@ -159,7 +158,7 @@ export function ApprovalsPanel({ now: fixedNow }: { now?: number }): ReactElemen
                     <span className="font-medium">
                       {tasks[taskId ?? ""]?.title ?? t("agent.approvals.anAutomation")}
                     </span>{" "}
-                    <span className="text-gray-11">
+                    <span className="text-label-secondary">
                       {t("agent.approvals.wantedTo", { what: displaySummary(v.approval) })}
                     </span>
                   </span>
@@ -180,13 +179,13 @@ export function ApprovalsPanel({ now: fixedNow }: { now?: number }): ReactElemen
       </section>
 
       <section aria-labelledby="approvals-recent" className="flex scroll-mt-2 flex-col gap-2">
-        <SectionLabel as="h3" id="approvals-recent">
+        <h3 id="approvals-recent" className="text-title-3 text-label-primary">
           {t("agent.approvals.recent")}
-        </SectionLabel>
+        </h3>
         {recentList.length === 0 ? (
-          <p className="text-small text-muted-foreground">{t("agent.approvals.noRecent")}</p>
+          <p className="text-body text-label-secondary">{t("agent.approvals.noRecent")}</p>
         ) : (
-          <ul className="flex flex-col divide-y divide-gray-4 text-small">
+          <ul className="flex flex-col divide-y divide-separator text-body">
             {recentList.map((v) => {
               const line = recentLine(v);
               return (
@@ -194,7 +193,7 @@ export function ApprovalsPanel({ now: fixedNow }: { now?: number }): ReactElemen
                   <span className="min-w-0 flex-1 truncate">{displaySummary(v.approval)}</span>
                   <Badge variant={line.variant}>{line.text}</Badge>
                   {v.approval.decidedAt ? (
-                    <span className="shrink-0 text-callout text-muted-foreground">
+                    <span className="shrink-0 text-callout text-label-secondary">
                       {formatRelative(v.approval.decidedAt, now)}
                     </span>
                   ) : null}
@@ -207,13 +206,13 @@ export function ApprovalsPanel({ now: fixedNow }: { now?: number }): ReactElemen
 
       <section
         aria-labelledby="approvals-grants"
-        className="flex scroll-mt-2 flex-col gap-2 rounded-lg border border-gray-6 bg-gray-2 p-3"
+        className="flex scroll-mt-2 flex-col gap-2 rounded-lg bg-surface-raised shadow-elevation-1 p-3"
       >
-        <SectionLabel as="h3" id="approvals-grants">
+        <h3 id="approvals-grants" className="text-title-3 text-label-primary">
           {t("agent.approvals.grants")}
-        </SectionLabel>
-        <div className="flex items-center gap-2 text-small">
-          <ShieldCheck className="size-4 text-gray-11" aria-hidden="true" />
+        </h3>
+        <div className="flex items-center gap-2 text-body">
+          <ShieldCheck className="size-4 text-label-secondary" aria-hidden="true" />
           <span className="min-w-0 flex-1">
             {t("agent.approvals.grantsActive", { n: standing.length })}
           </span>
