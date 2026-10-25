@@ -35,15 +35,15 @@ function humanize(key: string): string {
 
 function Row({ label, children }: { label: string; children: ReactNode }): ReactElement {
   return (
-    <div className="grid grid-cols-[7rem_1fr] gap-2 py-0.5 text-sm">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 break-words text-foreground">{children}</dd>
+    <div className="grid grid-cols-[7rem_1fr] gap-3 py-0.5 text-body">
+      <dt className="text-callout leading-[18px] text-label-secondary">{label}</dt>
+      <dd className="min-w-0 break-words text-label-primary">{children}</dd>
     </div>
   );
 }
 
 function Code({ children }: { children: ReactNode }): ReactElement {
-  return <code className="rounded bg-gray-3 px-1 font-mono text-[13px]">{children}</code>;
+  return <code className="rounded-xs bg-fill-tertiary px-1 text-mono">{children}</code>;
 }
 
 /** A diff behind "View diff", in the kit's code block (Shiki `diff`). */
@@ -53,7 +53,7 @@ function ExpandableDiff({ diff }: { diff: string }): ReactElement {
     <>
       <button
         type="button"
-        className="text-accent-11 hover:underline"
+        className="cursor-default text-accent-11 hover:underline"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
@@ -70,14 +70,14 @@ function Expandable({ label, text }: { label: string; text: string }): ReactElem
     <>
       <button
         type="button"
-        className="text-accent-11 hover:underline"
+        className="cursor-default text-accent-11 hover:underline"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
         {open ? t("blocks.common.hide") : label}
       </button>
       {open ? (
-        <pre className="mt-1 max-h-60 overflow-auto rounded-md bg-gray-3 p-2 font-mono text-xs whitespace-pre-wrap">
+        <pre className="mt-1 max-h-60 overflow-auto rounded-md bg-fill-quaternary p-2 text-mono whitespace-pre-wrap">
           {text}
         </pre>
       ) : null}
@@ -186,7 +186,7 @@ export function ApprovalDetails({
         <dl>
           <Row label={t("blocks.details.to")}>
             {to.join(", ")}{" "}
-            <span className="text-muted-foreground">{t("blocks.details.exactRecipient")}</span>
+            <span className="text-label-secondary">{t("blocks.details.exactRecipient")}</span>
           </Row>
           {Array.isArray(d.cc) && d.cc.length > 0 ? (
             <Row label={t("blocks.details.cc")}>{str(d.cc)}</Row>
@@ -341,7 +341,7 @@ export function ApprovalDetails({
           </Row>
           <Row label={t("blocks.details.serverTrust")}>{str(d.trustTier)}</Row>
           <Row label={t("blocks.details.arguments")}>
-            <pre className="max-h-40 overflow-auto rounded-md bg-gray-3 p-2 font-mono text-xs whitespace-pre-wrap">
+            <pre className="max-h-40 overflow-auto rounded-md bg-fill-quaternary p-2 text-mono whitespace-pre-wrap">
               {JSON.stringify(d.argsPreview ?? d.args ?? {}, null, 2)}
             </pre>
           </Row>

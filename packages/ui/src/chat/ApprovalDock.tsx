@@ -7,12 +7,14 @@ import { displaySummary } from "../lib/cards.ts";
 import { formatCountdown } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
+import { Presence } from "../motion/index.ts";
 import { usePersona } from "../slots.tsx";
 
 /**
- * The approval dock above the composer (UI design §3.3): pending approvals for this thread,
- * outside the message stream. One card is open at a time (the most urgent first) so the
- * transcript stays visible; the others are one-line rows that open on click. A new card takes
+ * The approval dock above the composer (UI design §3.3, redesign-2026 §5.3): pending approvals
+ * for this thread, outside the message stream. One card is open at a time (the most urgent
+ * first); the others stack as a deck behind it, and "N more" brings the next one forward. When
+ * a card is answered it morphs (`layoutId`) into its one-line result row in the transcript. A new card takes
  * focus unless the user is typing and is announced through a polite live region (§4.11).
  */
 export function ApprovalDock({
@@ -55,13 +57,11 @@ export function ApprovalDock({
   const newest = [...mine].sort((a, b) =>
     b.approval.requestedAt.localeCompare(a.approval.requestedAt),
   )[0];
+  const others = mine.filter((v) => v !== open);
+  const next = others[0];
+  const edges = Math.min(others.length, 2);
   return (
-    <div
-      // Compact (§3.3): one open card, the rest one line each. The card is never clipped (its
-      // choices and buttons stay in view); its binding rows scroll instead when they run long.
-      className="flex flex-col gap-1.5"
-      data-testid="approval-dock"
-    >
+    <div className="flex flex-col gap-1.5" data-testid="approval-dock">
       {/* One short line per arrival, not the whole card (docs/a11y-audit.md C4). */}
       <p className="sr-only" role="status">
         {mine.length === 0
@@ -71,69 +71,82 @@ export function ApprovalDock({
               count: mine.length,
             })}
       </p>
-      {mine.length > 1 ? (
-        <ul
-          aria-label={t("chat.approvals.others")}
-          className="flex max-h-24 flex-col gap-1 overflow-y-auto"
-        >
-          {mine
-            .filter((v) => v !== open)
-            .map((v) => (
-              <li key={v.approval.id}>
-                <button
-                  type="button"
-                  onClick={() => setOpenId(v.approval.id)}
-                  className="elevation-1 flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-start text-small transition-colors hover:bg-gray-3"
-                >
-                  <ShieldCheck className="size-4 text-approval-text" aria-hidden="true" />
-                  <span className="min-w-0 flex-1 truncate">{displaySummary(v.approval)}</span>
-                  <span
-                    className={cn(
-                      "text-callout tabular-nums",
-                      Date.parse(v.approval.expiresAt) - now < 60_000
-                        ? "text-danger-text"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    {formatCountdown(Date.parse(v.approval.expiresAt) - now)}
-                  </span>
-                </button>
-              </li>
-            ))}
-        </ul>
+      {open ? (
+        // A deck (redesign-2026 §5.3): the most urgent card in full, the others as 8 px edges
+        // peeking below it. The card is never clipped; its binding rows scroll when they run long.
+        <div className="relative" style={{ paddingBottom: edges * 6 }} data-testid="approval-deck">
+          {Array.from({ length: edges }, (_, i) => (
+            <span
+              // biome-ignore lint/suspicious/noArrayIndexKey: decorative layers, fixed order
+              key={i}
+              aria-hidden="true"
+              className="absolute h-10 rounded-b-lg bg-surface-raised shadow-elevation-1"
+              style={{ insetInline: (edges - i) * 10, bottom: i * 6 }}
+            />
+          ))}
+          <Presence mode="popLayout" initial={false}>
+            {(() => {
+              const taskId = open.approval.requestedBy.taskId;
+              const task = taskId ? tasks[taskId] : undefined;
+              return (
+                <ApprovalCard
+                  key={open.approval.id}
+                  layoutId={`approval-${open.approval.id}`}
+                  approval={open.approval}
+                  canAnswer={open.canAnswer}
+                  stale={open.stale}
+                  persona={persona.name}
+                  taskTitle={task?.title ?? null}
+                  createdFrom={task?.createdFrom ?? null}
+                  {...(mode === undefined ? {} : { mode })}
+                  otherSurfaces={open.approval.surfaces.filter(
+                    (s) => s !== "desktop" && s !== "web",
+                  )}
+                  onAnswer={async (decision, scope) => {
+                    await answer(open.approval.id, decision, scope);
+                    // The next card focuses its heading as it mounts; with none left, focus
+                    // returns to the composer instead of falling to the page (a11y-audit C3).
+                    if (mine.length <= 1) {
+                      document
+                        .querySelector<HTMLTextAreaElement>("textarea[data-composer-input]")
+                        ?.focus();
+                    }
+                  }}
+                  autoFocus
+                  now={now}
+                  detailsClassName="max-h-[min(9rem,18vh)] overflow-y-auto"
+                />
+              );
+            })()}
+          </Presence>
+        </div>
       ) : null}
-      {open
-        ? (() => {
-            const taskId = open.approval.requestedBy.taskId;
-            const task = taskId ? tasks[taskId] : undefined;
-            return (
-              <ApprovalCard
-                key={open.approval.id}
-                approval={open.approval}
-                canAnswer={open.canAnswer}
-                stale={open.stale}
-                persona={persona.name}
-                taskTitle={task?.title ?? null}
-                createdFrom={task?.createdFrom ?? null}
-                {...(mode === undefined ? {} : { mode })}
-                otherSurfaces={open.approval.surfaces.filter((s) => s !== "desktop" && s !== "web")}
-                onAnswer={async (decision, scope) => {
-                  await answer(open.approval.id, decision, scope);
-                  // The next card focuses its heading as it mounts; with none left, focus returns
-                  // to the composer instead of falling to the page (docs/a11y-audit.md C3).
-                  if (mine.length <= 1) {
-                    document
-                      .querySelector<HTMLTextAreaElement>("textarea[data-composer-input]")
-                      ?.focus();
-                  }
-                }}
-                autoFocus
-                now={now}
-                detailsClassName="max-h-[min(9rem,18vh)] overflow-y-auto"
-              />
-            );
-          })()
-        : null}
+      {next ? (
+        // "2 more": shows the next card (most urgent first); its name says which one.
+        <button
+          type="button"
+          onClick={() => setOpenId(next.approval.id)}
+          className="inline-flex h-6 cursor-default items-center gap-1.5 self-center rounded-full px-2.5 text-callout text-label-secondary outline-none transition-colors duration-(--duration-micro) ease-(--ease-standard) hover:bg-fill-tertiary hover:text-label-primary focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={t("chat.approval.nextLabel", {
+            more: t("chat.approval.others", { n: others.length }),
+            summary: displaySummary(next.approval),
+            countdown: formatCountdown(Date.parse(next.approval.expiresAt) - now),
+          })}
+        >
+          <ShieldCheck className="size-3.5 text-approval-text" aria-hidden="true" />
+          {t("chat.approval.others", { n: others.length })}
+          <span
+            className={cn(
+              "tabular-nums",
+              Date.parse(next.approval.expiresAt) - now < 60_000
+                ? "text-danger-text"
+                : "text-label-tertiary",
+            )}
+          >
+            · {formatCountdown(Date.parse(next.approval.expiresAt) - now)}
+          </span>
+        </button>
+      ) : null}
     </div>
   );
 }

@@ -79,13 +79,17 @@ export const chat = {
   "chat.message.editHint":
     "Edits are sent in a side chat forked from here; this chat keeps the original.",
   "chat.message.resendAsSideChat": "Resend as a side chat",
-  "chat.message.fromTask": "from task: {title}",
+  "chat.message.fromTask": "From task: {title}",
 
   "chat.approvals.announce":
     "Approval needed: {summary}. {count, plural, one {# approval needs you} other {# approvals need you}}.",
   "chat.approvals.others": "Other approvals",
 
   "chat.thread.conversation": "Conversation",
+  "chat.question.change": "Change",
+  "chat.question.changeOf": "Change the answer to {header}",
+  "chat.question.otherPlaceholder": "Type an answer",
+  "chat.receipt.ok": "Done",
   "chat.thread.empty": "Nothing here yet. Ask {name} something below to start.",
   "chat.thread.working": "{name} is working…",
   "chat.thread.runningTool": "Running {tool}…",
@@ -118,4 +122,28 @@ export const chat = {
   "chat.runFailed.generic": "Psyche couldn't finish this reply.",
   "chat.runFailed.openModels": "Open Settings → Models",
   "chat.runFailed.details": "Details",
+
+  // Redesign 2026, workstream B (docs/design/redesign-2026.md §5.2).
+  "chat.toolbar.label": "Chat toolbar",
+  "chat.toolbar.incognito": "Incognito",
+  "chat.toolbar.view": "Transcript view",
+  "chat.toolbar.view.status": "Status only",
+  "chat.toolbar.view.actions": "Actions",
+  "chat.toolbar.view.raw": "Raw tool I/O",
+  "chat.toolbar.keySheet": "⌘⇧A",
+  "chat.toolbar.keyModel": "⌘⇧I",
+  "chat.toolbar.keyView": "⌃O",
+  "chat.thread.jumpToLatest": "Jump to latest",
+  "chat.suggest.label": "Suggestions",
+  "chat.suggest.today": "What's on my plate today?",
+  "chat.suggest.inbox": "Summarize my unread email",
+  "chat.suggest.plan": "Help me plan this week",
+  "chat.approval.segment.task": "This task",
+  "chat.approval.segment.site": "This site",
+  "chat.approval.segment.always": "Always",
+  "chat.approval.allow": "Allow",
+  "chat.approval.keysHint": "⌘↩ {allows} · ⌘D {denies}",
+  "chat.approval.more": "More about this approval",
+  "chat.approval.others": "{n, plural, one {# more} other {# more}}",
+  "chat.approval.nextLabel": "{more} · next: {summary}, expires in {countdown}",
 } as const;

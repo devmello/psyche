@@ -31,11 +31,12 @@ import {
   UiSlotsProvider,
   useStore,
   useThread,
+  useThreadExport,
 } from "@psyche/ui";
 import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ConnectedStartupSplash } from "../shell/components/StartupSplash.tsx";
 import { TitleBar } from "../shell/components/TitleBar.tsx";
-import type { ShellPlatform } from "../shell/platform.ts";
+import type { ShellPlatform, SystemAppearance } from "../shell/platform.ts";
 import { type ChatSlotContext, ShellApp, type ShellSlots } from "../shell/ShellApp.tsx";
 import { chatFileSlots } from "./attachments.tsx";
 import { useMacHelper } from "./helper.tsx";
@@ -44,7 +45,7 @@ import { checkModel, saveProviderKey, verifySetup } from "./model-setup.ts";
 import { writeOnboarding } from "./onboarding.ts";
 import { readPermissions, requestPermission } from "./permissions.tsx";
 import { settingsRoute } from "./settings.tsx";
-import { TranscriptModeBar, useTranscriptMode } from "./transcript-mode.tsx";
+import { useTranscriptMode } from "./transcript-mode.tsx";
 import { ComposedFilesPane } from "./viewers.tsx";
 
 /**
@@ -67,6 +68,7 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
   const [limitsOpen, setLimitsOpen] = useState(false);
   const store = useStore();
   const [level, setLevel] = useTranscriptMode();
+  const exportThread = useThreadExport(threadId);
   // File blocks open in the Files pane (P4); a ref keeps the slots stable across renders.
   const openPane = useRef(ctx.openPane);
   openPane.current = ctx.openPane;
@@ -97,9 +99,11 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
           }
           onContextLimits={() => setLimitsOpen(true)}
           onCompact={() => void compactWithToast(() => compactThread(store, threadId))}
+          disclosure={level}
+          onDisclosureChange={setLevel}
+          onExport={(format) => void exportThread(format)}
         />
         <ThreadContextDialog threadId={threadId} open={limitsOpen} onOpenChange={setLimitsOpen} />
-        <TranscriptModeBar level={level} onChange={setLevel} incognito={incognito} />
         <ChatThread threadId={threadId} disclosure={level} onDisclosureChange={setLevel} />
         <AgentSheet
           open={sheet.open}
@@ -341,9 +345,30 @@ function useSystemLocale(platform: ShellPlatform): string | null {
   return locale;
 }
 
+/** macOS Reduce Transparency / Increase Contrast from the desktop main (redesign §3.4, §8). */
+function useSystemAppearance(platform: ShellPlatform): SystemAppearance | null {
+  const [appearance, setAppearance] = useState<SystemAppearance | null>(null);
+  useEffect(() => {
+    const port = platform.systemAppearance;
+    if (!port) return;
+    let live = true;
+    void port.get().then(
+      (a) => live && setAppearance(a),
+      () => undefined,
+    );
+    const off = port.on((a) => setAppearance(a));
+    return () => {
+      live = false;
+      off();
+    };
+  }, [platform]);
+  return appearance;
+}
+
 export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactElement {
   const client = useMemo(() => kitClient(platform.gateway, platform.passkeys), [platform]);
   const systemLocale = useSystemLocale(platform);
+  const systemAppearance = useSystemAppearance(platform);
   const [gate, setGate] = useState<Gate>("loading");
   const [error, setError] = useState<string | null>(null);
   const [persona, reloadPersona] = useWorkspacePersona(platform);
@@ -462,6 +487,7 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
       <AppearanceProvider
         systemLocale={systemLocale}
         supportsVibrancy={platform.chrome?.titleBar === "inset"}
+        system={systemAppearance}
       >
         <UiSlotsProvider value={uiSlots}>
           {body}

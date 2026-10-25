@@ -57,6 +57,13 @@ import { BrowserHost } from "./main/browser/browser-host.ts";
 import { SystemDictation } from "./main/dictation/controller.ts";
 import { HudWindow } from "./main/dictation/hud.ts";
 import { ACCESSIBILITY_SETTINGS_URL, DictationService } from "./main/dictation/service.ts";
+import {
+  attachNativeGlass,
+  GLASS_PROBE_ENV,
+  glassMode,
+  glassWindowOptions,
+  runGlassProbe,
+} from "./main/glass.ts";
 import { HelperLauncher, helperCanHoldKeychain } from "./main/helper-launcher.ts";
 import { buildAppMenu } from "./main/menu.ts";
 import { perfProbeFile, startProbe, watchFirstPaint } from "./main/perf-probe.ts";
@@ -161,11 +168,23 @@ const zoom = new ZoomController({
   call: (method, params) => requireGateway().call(method, params),
   warn: (message) => console.warn(`[zoom] ${message}`),
 });
+/** The macOS accessibility displays settings the renderer and the native layer follow. */
+function systemAppearance(): { reduceTransparency: boolean; highContrast: boolean } {
+  return {
+    reduceTransparency: nativeTheme.prefersReducedTransparency,
+    highContrast: nativeTheme.shouldUseHighContrastColors,
+  };
+}
+
 const vibrancy = new VibrancyController({
   targets: () => windows?.chromeWindows() ?? [],
   call: (method, params) => requireGateway().call(method, params),
   canvas: () => canvasColor(nativeTheme.shouldUseDarkColors),
   supported: process.platform === "darwin",
+  blocked: () => {
+    const a = systemAppearance();
+    return a.reduceTransparency || a.highContrast;
+  },
   warn: (message) => console.warn(`[vibrancy] ${message}`),
 });
 const pendingCommands: ShellCommand[] = [];
@@ -512,6 +531,7 @@ function registerIpc(): void {
   handle(IPC.openExternal, async (_event, arg) => {
     await shell.openExternal(checkExternalUrl(arg));
   });
+  handle(IPC.systemAppearanceGet, () => systemAppearance());
   handle(IPC.localeGet, () => ({
     system: app.getSystemLocale(),
     preferred: app.getPreferredSystemLanguages(),
@@ -662,7 +682,10 @@ function lockDownDefaultSession(): void {
 
 void app.whenReady().then(async () => {
   await decideSplash();
-  nativeTheme.on("updated", () => vibrancy.refresh());
+  nativeTheme.on("updated", () => {
+    vibrancy.refresh();
+    broadcast(IPC.systemAppearance, systemAppearance());
+  });
   // 120 Hz check (docs/design/motion.md §5): compare with the renderer's rAF probe.
   if (!app.isPackaged) {
     console.info(`[display] ${screen.getPrimaryDisplay().displayFrequency} Hz`);
@@ -690,18 +713,41 @@ void app.whenReady().then(async () => {
     }),
   );
 
+  // Liquid Glass spike: off unless PSYCHE_GLASS=native on an unpackaged macOS run.
+  const glass = app.isPackaged ? "off" : glassMode(process.env, process.platform);
   windows = createAppWindows({
     rendererUrl,
     preloadPath: preloadPath(),
     splash: () => splashWanted,
     anySize: wantsAnyWindowSize(app.isPackaged, process.env),
+    mainOptions: glassWindowOptions(glass),
     // The stored zoom wins over Electron's own per-origin memory on every load.
     onViewCreated: (wc) => wc.on("did-finish-load", () => zoom.applyTo(wc)),
-    onChromeWindowCreated: (win, view) => vibrancy.applyTo({ win, view }),
+    // Native glass replaces vibrancy (electron-liquid-glass: never both, or it "looks blurry").
+    onChromeWindowCreated: (win, view) => {
+      if (glass !== "native") vibrancy.applyTo({ win, view });
+    },
     onMainCreated: (win, view) => {
       view.webContents.once("did-finish-load", () => {
         for (const c of pendingCommands.splice(0)) view.webContents.send(IPC.shellCommand, c);
       });
+      if (glass === "native") {
+        void attachNativeGlass(win, view).then((id) => {
+          if (id < 0) console.warn("[glass] no native glass here; the page stays opaque");
+          const probe = process.env[GLASS_PROBE_ENV];
+          if (id < 0 || !probe) return;
+          const run = () =>
+            void runGlassProbe(win, view, probe, {
+              metrics: () => app.getAppMetrics(),
+              setTheme: (t) => {
+                nativeTheme.themeSource = t;
+              },
+            });
+          // The addon loads asynchronously; the page may already have finished loading.
+          if (view.webContents.isLoading()) view.webContents.once("did-finish-load", run);
+          else run();
+        });
+      }
       browser?.dispose();
       browser = new BrowserHost({
         window: win,
