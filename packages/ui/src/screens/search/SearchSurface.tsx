@@ -149,9 +149,16 @@ export function SearchSurface({
     [searching, hits, palette, actions, parsed.text],
   );
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
-  const [active, setActive] = useState(0);
-  // Each keystroke resets the selection to the best result.
-  useEffect(() => setActive(0), [query, flat.length]);
+  // Each keystroke (or a new result set) puts the selection back on the best result: the index
+  // only counts for the query and results it was chosen in.
+  const resetKey = `${query}\u0000${flat.length}`;
+  const [selection, setSelection] = useState({ key: resetKey, index: 0 });
+  const active = selection.key === resetKey ? selection.index : 0;
+  const setActive = (next: number | ((index: number) => number)) =>
+    setSelection((s) => {
+      const from = s.key === resetKey ? s.index : 0;
+      return { key: resetKey, index: typeof next === "function" ? next(from) : next };
+    });
   const current = flat[Math.min(active, flat.length - 1)];
   const optionId = (key: string) => `${baseId}-opt-${key.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
   useEffect(() => {

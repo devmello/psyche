@@ -50,13 +50,17 @@ export function Highlight({ text, terms }: { text: string; terms: readonly strin
     .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
   const parts = text.split(new RegExp(`(${escaped.join("|")})`, "gi"));
   const lower = new Set(terms.map((w) => w.toLowerCase()));
-  return parts.map((part, i) =>
-    lower.has(part.toLowerCase()) ? (
-      <mark key={i} className="rounded-xs bg-accent-a4 px-0.5 text-inherit">
+  // Each part keyed by where it starts in the text: stable for a given text and terms.
+  let start = 0;
+  return parts.map((part) => {
+    const at = start;
+    start += part.length;
+    return lower.has(part.toLowerCase()) ? (
+      <mark key={`m${at}`} className="rounded-xs bg-accent-a4 px-0.5 text-inherit">
         {part}
       </mark>
     ) : (
-      part
-    ),
-  );
+      <span key={`t${at}`}>{part}</span>
+    );
+  });
 }
