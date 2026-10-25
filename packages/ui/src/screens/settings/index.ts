@@ -100,15 +100,20 @@ export {
   type PersonaPanelProps,
   PersonaSection,
 } from "./PersonaSection.tsx";
+export { SegmentedRadio } from "./SegmentedRadio.tsx";
 export { ServerPanel, type ServerPanelProps, ServerSection } from "./ServerSection.tsx";
 export { presenceUnavailable, SettingsApprovalProvider } from "./SettingsApproval.tsx";
 export {
+  matchSections,
+  SETTINGS_GROUPS,
   SETTINGS_SECTIONS,
+  type SettingsGroupId,
   SettingsScreen,
   type SettingsScreenProps,
   type SettingsSectionId,
   SettingsSectionView,
   type SettingsShellProps,
+  sectionForKey,
 } from "./SettingsScreen.tsx";
 export {
   asksFor,

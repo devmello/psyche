@@ -20,6 +20,7 @@ import { useSettings } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { cn } from "../../lib/utils.ts";
+import { SegmentedRadio } from "./SegmentedRadio.tsx";
 import { settingLabel } from "./setting-labels.ts";
 
 /**
@@ -165,12 +166,13 @@ export function SectionFrame({
   return (
     <section aria-labelledby={id} className="flex min-w-0 flex-col gap-4">
       {/* PageHeader's layout one level down: Settings owns the page's h1, each section an h2. */}
-      <header className="mb-2 flex flex-wrap items-end gap-x-3 gap-y-2">
+      <header className="flex flex-wrap items-end gap-x-3 gap-y-2">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <h2 id={id} className="text-h2 text-foreground">
+          {/* The section title (text-title-1, redesign §5.8); Settings owns the page's h1. */}
+          <h2 id={id} className="text-title-1 text-label-primary">
             {title}
           </h2>
-          {description ? <p className="text-small text-muted-foreground">{description}</p> : null}
+          {description ? <p className="text-callout text-label-secondary">{description}</p> : null}
         </div>
         {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
       </header>
@@ -180,6 +182,10 @@ export function SectionFrame({
     </section>
   );
 }
+
+/** Rows inside a grouped container: padded, 36 px minimum, hairlines inset to the text. */
+export const GROUP_ROWS =
+  "flex flex-col rounded-lg bg-surface-raised text-body text-label-primary shadow-elevation-1 [&>*]:relative [&>*]:min-h-9 [&>*]:px-3 [&>*]:py-2 [&>*+*]:before:absolute [&>*+*]:before:inset-x-3 [&>*+*]:before:top-0 [&>*+*]:before:h-px [&>*+*]:before:bg-separator";
 
 export function Group({
   title,
@@ -195,20 +201,18 @@ export function Group({
   className?: string;
 }): ReactElement {
   const id = useId();
+  // A grouped inset list (redesign §5.8): the title-3 header above, the raised container with
+  // 36 px rows separated by hairlines inset to the text, and the help text under it.
   return (
-    <section aria-labelledby={id} className={cn("elevation-1 rounded-lg p-4 text-sm", className)}>
-      <div className="flex flex-wrap items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <h3 id={id} className="text-h3 text-foreground">
-            {title}
-          </h3>
-          {description ? (
-            <p className="mt-0.5 text-small text-muted-foreground">{description}</p>
-          ) : null}
-        </div>
+    <section aria-labelledby={id} className={cn("flex flex-col gap-1.5", className)}>
+      <div className="flex flex-wrap items-end gap-2 px-1">
+        <h3 id={id} className="min-w-0 flex-1 text-title-3 text-label-primary">
+          {title}
+        </h3>
         {actions}
       </div>
-      {children ? <div className="mt-4 flex flex-col gap-4">{children}</div> : null}
+      {children ? <div className={GROUP_ROWS}>{children}</div> : null}
+      {description ? <p className="px-1 text-callout text-label-secondary">{description}</p> : null}
     </section>
   );
 }
@@ -251,17 +255,19 @@ export function ErrorNotice({
   return (
     <div
       role="alert"
+      // An inline row on a raised surface; danger colours only the icon (redesign §5.10).
       className={cn(
-        "flex flex-wrap items-center gap-2 rounded-lg border border-gray-6 bg-gray-2 p-3 text-sm",
+        "flex flex-wrap items-center gap-3 rounded-lg bg-surface-raised p-3 shadow-elevation-1",
         className,
       )}
     >
-      <CircleAlert className="size-4 shrink-0 text-danger-text" aria-hidden="true" />
-      <p className="min-w-0 flex-1">
-        <span className="font-medium text-danger-text">{what}</span> {did}
+      <CircleAlert className="size-4 shrink-0 text-danger" aria-hidden="true" />
+      <p className="flex min-w-0 flex-1 flex-col">
+        <span className="text-headline text-label-primary">{what}</span>
+        <span className="text-body text-label-secondary">{did}</span>
       </p>
       {onRetry ? (
-        <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+        <Button type="button" variant="plain" size="sm" onClick={onRetry}>
           {t("settings.shared.tryAgain")}
         </Button>
       ) : null}
@@ -272,8 +278,8 @@ export function ErrorNotice({
 /** Empty state: one sentence plus one action (§4.13). */
 export function EmptyNotice({ text, action }: { text: string; action?: ReactNode }): ReactElement {
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-dashed border-gray-6 p-4 text-sm">
-      <p className="min-w-0 flex-1 text-muted-foreground">{text}</p>
+    <div className="flex flex-wrap items-center gap-3 rounded-lg bg-surface-raised px-3 py-3 shadow-elevation-1">
+      <p className="min-w-0 flex-1 text-body text-label-secondary">{text}</p>
       {action}
     </div>
   );
@@ -282,7 +288,7 @@ export function EmptyNotice({ text, action }: { text: string; action?: ReactNode
 export function AdminHint({ show }: { show: boolean }): ReactElement | null {
   if (!show) return null;
   return (
-    <p className="flex items-center gap-1.5 text-xs text-approval-text" role="status">
+    <p className="flex items-center gap-1.5 text-callout text-approval-text" role="status">
       <ShieldAlert className="size-3.5 shrink-0" aria-hidden="true" />
       {t("settings.shared.needsAdmin")}
     </p>
@@ -372,16 +378,41 @@ export function RadioField<T extends string>({
       </div>
     );
   }
+  // A short inline choice (Theme: Auto / Light / Dark) is a trailing segmented control (§5.8).
+  if (inline && options.length <= 4 && options.every((o) => !o.hint && !o.disabled)) {
+    return (
+      <div className="flex flex-col gap-1">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span
+              id={`${id}-label`}
+              className={cn("text-body text-label-primary", hideLabel && "sr-only")}
+            >
+              {label}
+            </span>
+            {description ? (
+              <p id={`${id}-desc`} className="text-callout text-label-secondary">
+                {description}
+              </p>
+            ) : null}
+          </div>
+          <SegmentedRadio label={label} options={options} value={value} onChange={onChange} />
+        </div>
+        {settingKey ? <SettingHint settingKey={settingKey} /> : null}
+        {children}
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col gap-1.5">
       <span
         id={`${id}-label`}
-        className={cn("font-medium text-foreground", hideLabel && "sr-only")}
+        className={cn("text-body text-label-primary", hideLabel && "sr-only")}
       >
         {label}
       </span>
       {description ? (
-        <p id={`${id}-desc`} className="text-xs text-muted-foreground">
+        <p id={`${id}-desc`} className="text-callout text-label-secondary">
           {description}
         </p>
       ) : null}
@@ -390,27 +421,48 @@ export function RadioField<T extends string>({
         {...(description ? { "aria-describedby": `${id}-desc` } : {})}
         value={value}
         onValueChange={(v) => onChange(v as T)}
-        className={cn(inline ? "flex flex-wrap gap-x-4 gap-y-2" : "grid gap-2")}
+        className={cn(inline ? "flex flex-wrap gap-x-4 gap-y-2" : "flex flex-col gap-0")}
       >
-        {options.map((o) => (
-          <div key={o.value} className="flex items-start gap-2">
-            <RadioGroupItem
-              value={o.value}
-              id={`${id}-${o.value}`}
-              className="mt-0.5"
-              {...(o.disabled ? { disabled: true } : {})}
-            />
+        {options.map((o) =>
+          inline ? (
+            <div key={o.value} className="flex items-start gap-2">
+              <RadioGroupItem
+                value={o.value}
+                id={`${id}-${o.value}`}
+                className="mt-0.5"
+                {...(o.disabled ? { disabled: true } : {})}
+              />
+              <Label
+                htmlFor={`${id}-${o.value}`}
+                className="flex-col items-start gap-0.5 text-body font-normal text-label-primary"
+              >
+                <span>{o.label}</span>
+                {o.hint ? (
+                  <span className="text-callout text-label-secondary">{o.hint}</span>
+                ) : null}
+              </Label>
+            </div>
+          ) : (
+            // One row per option, the radio trailing, hairlines between (System Settings).
             <Label
+              key={o.value}
               htmlFor={`${id}-${o.value}`}
-              className="flex-col items-start gap-0.5 font-normal"
+              className="relative flex min-h-9 cursor-default items-center gap-3 py-1.5 font-normal before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-separator first:before:hidden has-disabled:opacity-50"
             >
-              <span>{o.label}</span>
-              {o.hint ? (
-                <span className="text-xs leading-4 text-muted-foreground">{o.hint}</span>
-              ) : null}
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-body text-label-primary">{o.label}</span>
+                {o.hint ? (
+                  <span className="text-callout text-label-secondary">{o.hint}</span>
+                ) : null}
+              </span>
+              <RadioGroupItem
+                value={o.value}
+                id={`${id}-${o.value}`}
+                {...(o.disabled ? { disabled: true } : {})}
+              />
             </Label>
-          </div>
-        ))}
+          ),
+        )}
       </RadioGroup>
       {settingKey ? <SettingHint settingKey={settingKey} /> : null}
       {children}
@@ -438,13 +490,13 @@ export function SwitchField({
   const id = useId();
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-3">
+      <div className="flex min-h-5 items-center gap-3">
         <div className="min-w-0 flex-1">
-          <span id={`${id}-label`} className="font-medium text-foreground">
+          <span id={`${id}-label`} className="text-body text-label-primary">
             {label}
           </span>
           {description ? (
-            <p id={`${id}-desc`} className="text-xs text-muted-foreground">
+            <p id={`${id}-desc`} className="text-callout text-label-secondary">
               {description}
             </p>
           ) : null}
@@ -469,8 +521,8 @@ const TONE: Record<Tone, string> = {
   success: "border-success/40 text-success-text",
   danger: "border-danger/40 text-danger-text",
   approval: "border-approval-border text-approval-text",
-  info: "border-gray-6 text-info-text",
-  neutral: "border-gray-6 text-gray-11",
+  info: "border-separator-strong text-info-text",
+  neutral: "border-separator-strong text-label-secondary",
   accent: "border-accent-7 text-accent-11",
 };
 
@@ -487,7 +539,7 @@ export function StatusChip({
   return (
     <span
       className={cn(
-        "inline-flex h-5 shrink-0 items-center gap-1 rounded-full border px-2 text-xs font-medium whitespace-nowrap",
+        "inline-flex h-5 shrink-0 items-center gap-1 rounded-full border px-2 text-caption whitespace-nowrap",
         TONE[tone],
         className,
       )}
@@ -509,7 +561,7 @@ export function Facts({
     <dl className={cn("grid grid-cols-[9rem_1fr] gap-x-3 gap-y-1", className)}>
       {items.map((i) => (
         <div key={i.term} className="contents">
-          <dt className="text-muted-foreground">{i.term}</dt>
+          <dt className="text-label-secondary">{i.term}</dt>
           <dd className="min-w-0 break-words">{i.value}</dd>
         </div>
       ))}
@@ -573,25 +625,31 @@ export function TextSetting({
   };
   return (
     <div className="flex flex-col gap-1">
-      <Label htmlFor={id}>{label}</Label>
-      {description ? (
-        <p id={`${id}-desc`} className="text-xs text-muted-foreground">
-          {description}
-        </p>
-      ) : null}
-      <Input
-        id={id}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") commit();
-        }}
-        className="max-w-sm"
-        {...(description ? { "aria-describedby": `${id}-desc` } : {})}
-        {...(placeholder === undefined ? {} : { placeholder })}
-        {...(maxLength === undefined ? {} : { maxLength })}
-      />
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Label htmlFor={id} className="text-body font-normal text-label-primary">
+            {label}
+          </Label>
+          {description ? (
+            <p id={`${id}-desc`} className="text-callout text-label-secondary">
+              {description}
+            </p>
+          ) : null}
+        </div>
+        <Input
+          id={id}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+          }}
+          className="h-7 w-full sm:w-56"
+          {...(description ? { "aria-describedby": `${id}-desc` } : {})}
+          {...(placeholder === undefined ? {} : { placeholder })}
+          {...(maxLength === undefined ? {} : { maxLength })}
+        />
+      </div>
       {settingKey ? <SettingHint settingKey={settingKey} /> : null}
       {children}
     </div>
