@@ -25,7 +25,9 @@ export const Idle: Story = {
     withWorld({
       edit: (w) => {
         w.runs = w.runs.map((r) => ({ ...r, status: "done" as const }));
-        w.approvals = w.approvals.filter((a) => a.status !== "pending");
+        w.approvals = w.approvals.map((a) =>
+          a.status === "pending" ? { ...a, status: "approved" as const } : a,
+        );
       },
     }),
   ],
