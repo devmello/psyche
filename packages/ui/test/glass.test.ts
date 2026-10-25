@@ -40,6 +40,11 @@ describe("resolveGlassImpl", () => {
     expect(resolveGlassImpl("native", { ...ALL, reduceTransparency: true })).toBe("opaque");
     expect(resolveGlassImpl("refraction", { ...ALL, increaseContrast: true })).toBe("opaque");
   });
+
+  it("recedes to opaque in an inactive window (liquid-glass.md §6.2 rung 4)", () => {
+    expect(resolveGlassImpl("refraction", { ...ALL, inactive: true })).toBe("opaque");
+    expect(resolveGlassImpl("css", { ...ALL, inactive: false })).toBe("css");
+  });
 });
 
 describe("lens geometry", () => {

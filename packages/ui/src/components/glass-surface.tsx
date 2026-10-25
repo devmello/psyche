@@ -55,6 +55,7 @@ function readEnvironment(): GlassEnvironment {
       backdrop: false,
       reduceTransparency: false,
       increaseContrast: false,
+      inactive: false,
     };
   }
   const root = document.documentElement;
@@ -76,6 +77,7 @@ function readEnvironment(): GlassEnvironment {
     increaseContrast:
       root.dataset.contrast === "high" ||
       (root.dataset.contrast !== "standard" && media("(prefers-contrast: more)")),
+    inactive: root.dataset.windowActive === "false",
   };
 }
 
@@ -87,7 +89,12 @@ export function useGlassEnvironment(): GlassEnvironment {
     const observer = new MutationObserver(update);
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["data-glass", "data-reduce-transparency", "data-contrast"],
+      attributeFilter: [
+        "data-glass",
+        "data-reduce-transparency",
+        "data-contrast",
+        "data-window-active",
+      ],
     });
     const queries =
       typeof window.matchMedia === "function"
@@ -120,15 +127,16 @@ function lensMapUrl(width: number, height: number, radius: number, bezel: number
   return canvas.toDataURL();
 }
 
+/** Tints come from the material tokens (styles/design.css), so contrast and window state flip them. */
 const TINT: Record<GlassImpl, Record<"regular" | "clear", string>> = {
   native: { regular: "transparent", clear: "transparent" },
   refraction: {
-    regular: "color-mix(in oklch, var(--surface-overlay) 50%, transparent)",
-    clear: "color-mix(in oklch, var(--surface-overlay) 8%, transparent)",
+    regular: "var(--material-glass-refraction)",
+    clear: "var(--material-glass-clear)",
   },
   css: {
-    regular: "color-mix(in oklch, var(--surface-overlay) 62%, transparent)",
-    clear: "color-mix(in oklch, var(--surface-overlay) 20%, transparent)",
+    regular: "var(--material-glass)",
+    clear: "var(--material-glass-clear)",
   },
   opaque: { regular: "var(--surface-overlay)", clear: "var(--surface-overlay)" },
 };
@@ -178,14 +186,15 @@ export function GlassSurface({
 
   // Refraction keeps the backdrop sharper than plain CSS (the lens is the point), but regular glass
   // still needs enough blur that text behind it can't compete with labels on it.
-  const blur = variant === "clear" ? "blur(2px) saturate(1.4)" : "blur(10px) saturate(1.8)";
+  const blur =
+    variant === "clear" ? "var(--material-blur-clear)" : "var(--material-blur-refraction)";
   const backdrop =
     impl === "refraction" && mapUrl !== null
       ? `url(#${filterId}) ${blur}`
       : impl === "css" || impl === "refraction"
         ? variant === "clear"
-          ? "blur(8px) saturate(1.4)"
-          : "blur(20px) saturate(1.6)"
+          ? "var(--material-blur-clear)"
+          : "var(--material-blur)"
         : "none";
 
   const surfaceStyle: CSSProperties = {

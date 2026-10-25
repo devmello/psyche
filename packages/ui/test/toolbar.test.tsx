@@ -2,6 +2,7 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  ToolbarGroup,
   ToolbarProvider,
   ToolbarSlot,
   ToolbarStore,
@@ -75,5 +76,25 @@ describe("toolbar slot (docs/design/redesign-2026.md §4)", () => {
     render(<Screen title="Ideas" />);
     expect(screen.getByText("Ideas body")).toBeTruthy();
     expect(screen.queryByRole("toolbar")).toBeNull();
+  });
+
+  it("draws control groups as glass capsules, never the row itself", () => {
+    render(
+      <ToolbarProvider>
+        <ToolbarSlot
+          fallback={{
+            title: "Wren",
+            trailing: (
+              <ToolbarGroup>
+                <button type="button">Balanced</button>
+              </ToolbarGroup>
+            ),
+          }}
+        />
+      </ToolbarProvider>,
+    );
+    const group = screen.getByRole("group");
+    expect(group.getAttribute("data-glass-impl")).toBeTruthy();
+    expect(screen.getByRole("toolbar").className).not.toContain("material-glass");
   });
 });

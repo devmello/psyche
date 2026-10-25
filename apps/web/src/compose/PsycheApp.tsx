@@ -34,7 +34,7 @@ import {
 import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ConnectedStartupSplash } from "../shell/components/StartupSplash.tsx";
 import { TitleBar } from "../shell/components/TitleBar.tsx";
-import type { ShellPlatform } from "../shell/platform.ts";
+import type { ShellPlatform, SystemAppearance } from "../shell/platform.ts";
 import { type ChatSlotContext, ShellApp, type ShellSlots } from "../shell/ShellApp.tsx";
 import { chatFileSlots } from "./attachments.tsx";
 import { useMacHelper } from "./helper.tsx";
@@ -344,9 +344,30 @@ function useSystemLocale(platform: ShellPlatform): string | null {
   return locale;
 }
 
+/** macOS Reduce Transparency / Increase Contrast from the desktop main (redesign §3.4, §8). */
+function useSystemAppearance(platform: ShellPlatform): SystemAppearance | null {
+  const [appearance, setAppearance] = useState<SystemAppearance | null>(null);
+  useEffect(() => {
+    const port = platform.systemAppearance;
+    if (!port) return;
+    let live = true;
+    void port.get().then(
+      (a) => live && setAppearance(a),
+      () => undefined,
+    );
+    const off = port.on((a) => setAppearance(a));
+    return () => {
+      live = false;
+      off();
+    };
+  }, [platform]);
+  return appearance;
+}
+
 export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactElement {
   const client = useMemo(() => kitClient(platform.gateway, platform.passkeys), [platform]);
   const systemLocale = useSystemLocale(platform);
+  const systemAppearance = useSystemAppearance(platform);
   const [gate, setGate] = useState<Gate>("loading");
   const [error, setError] = useState<string | null>(null);
   const [persona, reloadPersona] = useWorkspacePersona(platform);
@@ -465,6 +486,7 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
       <AppearanceProvider
         systemLocale={systemLocale}
         supportsVibrancy={platform.chrome?.titleBar === "inset"}
+        system={systemAppearance}
       >
         <UiSlotsProvider value={uiSlots}>
           {body}

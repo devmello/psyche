@@ -168,11 +168,23 @@ const zoom = new ZoomController({
   call: (method, params) => requireGateway().call(method, params),
   warn: (message) => console.warn(`[zoom] ${message}`),
 });
+/** The macOS accessibility displays settings the renderer and the native layer follow. */
+function systemAppearance(): { reduceTransparency: boolean; highContrast: boolean } {
+  return {
+    reduceTransparency: nativeTheme.prefersReducedTransparency,
+    highContrast: nativeTheme.shouldUseHighContrastColors,
+  };
+}
+
 const vibrancy = new VibrancyController({
   targets: () => windows?.chromeWindows() ?? [],
   call: (method, params) => requireGateway().call(method, params),
   canvas: () => canvasColor(nativeTheme.shouldUseDarkColors),
   supported: process.platform === "darwin",
+  blocked: () => {
+    const a = systemAppearance();
+    return a.reduceTransparency || a.highContrast;
+  },
   warn: (message) => console.warn(`[vibrancy] ${message}`),
 });
 const pendingCommands: ShellCommand[] = [];
@@ -519,6 +531,7 @@ function registerIpc(): void {
   handle(IPC.openExternal, async (_event, arg) => {
     await shell.openExternal(checkExternalUrl(arg));
   });
+  handle(IPC.systemAppearanceGet, () => systemAppearance());
   handle(IPC.localeGet, () => ({
     system: app.getSystemLocale(),
     preferred: app.getPreferredSystemLanguages(),
@@ -669,7 +682,10 @@ function lockDownDefaultSession(): void {
 
 void app.whenReady().then(async () => {
   await decideSplash();
-  nativeTheme.on("updated", () => vibrancy.refresh());
+  nativeTheme.on("updated", () => {
+    vibrancy.refresh();
+    broadcast(IPC.systemAppearance, systemAppearance());
+  });
   // 120 Hz check (docs/design/motion.md §5): compare with the renderer's rAF probe.
   if (!app.isPackaged) {
     console.info(`[display] ${screen.getPrimaryDisplay().displayFrequency} Hz`);

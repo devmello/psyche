@@ -149,7 +149,7 @@ Workstream A generates CSS custom properties from `tokens.ts`. CSS can't hand of
 - **Run off the main thread:** Motion 14.6 runs opacity, transform, independent `x`/`y`/`scale`, `filter`, `clipPath` and `backgroundColor` on WAAPI (hardware-accelerated). Avoid what forces the main thread: `onUpdate`, `repeatType: "mirror"`, damping 0, `transformTemplate`.
 - **`will-change`:** never in stylesheets. Motion manages it.
 - **Glass:**
-  - At most **two** `backdrop-filter` surfaces visible at once. In practice that's the toolbar edge plus one popover or the composer.
+  - At most **two** glass surfaces visible at once, never stacked. A toolbar's control groups count as one container, because they never overlap; in practice that's the toolbar groups plus the composer, or plus one popover. The Liquid Glass study measured three small surfaces at +8–15% of one core at 120 Hz on an M5, with refraction costing the same GPU time as plain blur (research/liquid-glass.md §6.3).
   - Blur radius ≤ 24 px.
   - Never animate the blur.
   - Never scroll a large blurred region's backdrop every frame; the scroll edge effect is a static gradient mask, not a live blur, where possible.

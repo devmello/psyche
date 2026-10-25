@@ -10,6 +10,7 @@ import {
   type PermissionState,
   type ShellCommand,
   type ShellPlatform,
+  type SystemAppearance,
   type SystemDictationStatus,
   type SystemLocale,
   type TerminalOpenResult,
@@ -123,6 +124,10 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
     },
     locale: {
       get: () => b.locale.get() as Promise<SystemLocale>,
+    },
+    systemAppearance: {
+      get: () => b.systemAppearance.get() as Promise<SystemAppearance>,
+      on: (cb) => b.systemAppearance.on((a) => cb(a as SystemAppearance)),
     },
     dictation: {
       getStatus: () => b.dictation.getStatus() as Promise<SystemDictationStatus>,

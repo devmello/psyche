@@ -204,6 +204,18 @@ export interface ShellPlatform {
   external?: ExternalPort;
   /** Desktop only: the system clipboard through main; the web uses `navigator.clipboard` (#507). */
   clipboard?: ClipboardPort;
+  /** Desktop only: macOS Reduce Transparency / Increase Contrast; the web reads media queries. */
+  systemAppearance?: SystemAppearancePort;
+}
+
+export interface SystemAppearance {
+  reduceTransparency: boolean;
+  highContrast: boolean;
+}
+
+export interface SystemAppearancePort {
+  get(): Promise<SystemAppearance>;
+  on(cb: (a: SystemAppearance) => void): Unsubscribe;
 }
 
 export interface ClipboardPort {
