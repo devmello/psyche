@@ -283,6 +283,7 @@ Compiled 2026-10-25 for the 2026 redesign ([redesign-2026.md](../redesign-2026.m
 | Bundling | First launch failed: Vite resolved the constant dynamic import and bundled the addon, which breaks its `import.meta.url` loader. Fixed by making it external in `vite.main.config.ts`. |
 | Attach | Second launch (`PSYCHE_HOME=~/.psyche-try PSYCHE_PORT=7989 PSYCHE_GLASS=native`) attached with no error: `addView` returned an id ≥ 0. |
 | Frame times, CPU, screenshots | **Not captured.** The scripted probe waits for animation frames, and the window sat behind other windows, where Chromium sends none. Bringing it forward or taking a screenshot needed computer-use access to the window, which the owner declined. The probe now raises the window itself before measuring. |
+| Capturing evidence from inside the app | `webContents.capturePage()` can't serve as evidence: it renders only the web contents, and the native `NSGlassEffectView` sits *below* the web view, so the capture would show transparent pixels where the glass is. Only a window-level capture (`screencapture -l`, which needs Screen Recording permission) or a look at the screen shows the native glass. The Reduce Transparency check belongs on `nativeTheme.prefersReducedTransparency`; `systemPreferences.accessibilityDisplayShouldReduceTransparency` is deprecated [E31]. |
 | Signing | Not exercised. Dev runs are unsigned. A packaged build would need the addon copied like node-pty and signed with the app (§3.1). |
 
 **How the owner can finish it** (one launch, about 30 s, window in front):
