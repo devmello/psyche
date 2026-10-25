@@ -1,10 +1,12 @@
 import type { Task } from "@psyche/protocol";
-import { activeI18n, t } from "@psyche/ui";
+import { activeI18n, PanePresence, t } from "@psyche/ui";
 import {
   type PointerEvent,
   type ReactElement,
   type ReactNode,
   useEffect,
+  useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -186,6 +188,50 @@ export type PaneRenderer = (
   ctx: { threadId: string; covered: boolean; navigate: (to: string) => void },
 ) => ReactNode | null | undefined;
 
+/**
+ * Focus goes back to whatever opened a pane when the pane closes (redesign §7.4 C, docs/06 §4.11):
+ * the last focus outside the pane area when the pane appeared, else the content column.
+ */
+function useFocusReturn(paneIds: readonly string[]): void {
+  const lastOutside = useRef<HTMLElement | null>(null);
+  const openers = useRef(new Map<string, HTMLElement | null>());
+  const previous = useRef<readonly string[]>(paneIds);
+  useEffect(() => {
+    const onFocus = (e: FocusEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && !el.closest?.('[data-testid="pane-area"]')) lastOutside.current = el;
+    };
+    document.addEventListener("focusin", onFocus);
+    return () => document.removeEventListener("focusin", onFocus);
+  }, []);
+  useEffect(() => {
+    const before = previous.current;
+    previous.current = paneIds;
+    for (const id of paneIds)
+      if (!before.includes(id))
+        openers.current.set(
+          id,
+          lastOutside.current ??
+            (document.activeElement instanceof HTMLElement ? document.activeElement : null),
+        );
+    for (const id of before) {
+      if (paneIds.includes(id)) continue;
+      const opener = openers.current.get(id);
+      openers.current.delete(id);
+      const active = document.activeElement;
+      const lost =
+        active === null ||
+        active === document.body ||
+        !active.isConnected ||
+        active.closest?.('[data-testid="pane-area"]') !== null;
+      if (!lost) continue;
+      const target =
+        opener?.isConnected === true ? opener : document.getElementById("main");
+      target?.focus({ preventScroll: true });
+    }
+  }, [paneIds]);
+}
+
 export function PaneArea(props: {
   layout: LayoutStore;
   threadId: string;
@@ -195,13 +241,37 @@ export function PaneArea(props: {
   renderPane?: PaneRenderer;
   navigate?: (to: string) => void;
 }): ReactElement | null {
-  const { platform } = useShell();
   const state = useSyncExternalStore(
     (cb) => props.layout.subscribeThread(props.threadId, cb),
     () => props.layout.forThread(props.threadId),
   );
   const pres = presentation(state, props.width);
-  if (pres.groups.length === 0) return null;
+  const ids = state.panes.map((p) => p.paneId).join(" ");
+  // One array per set of panes, so the focus effect runs only when panes come or go.
+  const paneIds = useMemo(() => (ids === "" ? [] : ids.split(" ")), [ids]);
+  useFocusReturn(paneIds);
+  const open = pres.groups.length > 0;
+  // The pane column slides in from the end edge; the chat column reflows (motion.md §4.3).
+  return (
+    <PanePresence
+      className="pane-presence"
+      style={{
+        width: pres.mode === "compact" ? "100%" : `${Math.round((1 - pres.chatFraction) * 100)}%`,
+      }}
+    >
+      {open ? <PaneColumns {...props} state={state} pres={pres} /> : null}
+    </PanePresence>
+  );
+}
+
+function PaneColumns(
+  props: Parameters<typeof PaneArea>[0] & {
+    state: ReturnType<LayoutStore["forThread"]>;
+    pres: ReturnType<typeof presentation>;
+  },
+): ReactElement {
+  const { platform } = useShell();
+  const { state, pres } = props;
 
   const startDrag = (boundary: number) => (e: PointerEvent) => {
     let last = e.clientX;
@@ -218,13 +288,7 @@ export function PaneArea(props: {
   };
 
   return (
-    <div
-      className="panes"
-      style={{
-        width: pres.mode === "compact" ? "100%" : `${Math.round((1 - pres.chatFraction) * 100)}%`,
-      }}
-      data-testid="pane-area"
-    >
+    <div className="panes" data-testid="pane-area">
       {pres.mode === "compact" ? null : (
         <PaneResizer
           onPointerDown={startDrag(0)}

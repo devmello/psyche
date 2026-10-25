@@ -1,8 +1,24 @@
 import type { Thread } from "@psyche/protocol";
-import { t, type UiSlots, UiSlotsProvider } from "@psyche/ui";
+import {
+  CompactTopBar,
+  clampSidebarWidth,
+  destinationFor,
+  ReflowColumn,
+  RouteTransition,
+  SIDEBAR_WIDTH,
+  ShellMotion,
+  SidebarPresence,
+  SidebarToggle,
+  t,
+  TabBar,
+  ThreadsDrawer,
+  type UiSlots,
+  UiSlotsProvider,
+} from "@psyche/ui";
 import {
   type ReactElement,
   type ReactNode,
+  startTransition,
   useCallback,
   useEffect,
   useMemo,
@@ -13,8 +29,8 @@ import { ChatView, PERMISSION_MODES, QuickEntry } from "./components/Chat.tsx";
 import {
   GatewayPill,
   OfflineBanner,
-  Rail,
   SectionPlaceholder,
+  ShellSidebar,
   ThreadList,
   Toasts,
 } from "./components/Chrome.tsx";
@@ -41,11 +57,13 @@ import {
 import type { GatewayRunView, ShellPlatform } from "./platform.ts";
 import { ShellStore } from "./store.ts";
 import "./shell.css";
+import "./layout/shell-layout.css";
 import type { GatewayStatus } from "../client/status.ts";
 
 /**
- * The shared shell (docs/06 §3.1): rail, thread list, chat column and pane area, with the
- * keyboard map, palette, offline banner and `view.*` handling. Hosts pass a `ShellPlatform`.
+ * The shared shell (docs/06 §3.1, redesign §4–§5.1): the sidebar, the content column and the
+ * pane area, with the keyboard map, palette, offline banner and `view.*` handling. Below 720 px:
+ * the compact top bar, a threads drawer and the tab bar (§5.11). Hosts pass a `ShellPlatform`.
  */
 
 /** The title bar's label for a non-chat route (`/settings/files` → "Settings"). */
@@ -88,20 +106,44 @@ function isTextTarget(t: EventTarget | null): boolean {
 export interface ShellSlots {
   chat?: (threadId: string, ctx: ChatSlotContext) => ReactNode;
   section?: (route: string, navigate: (to: string) => void) => ReactNode | null;
-  /** The left rail, or the bottom tab bar when `compact` (docs/06 §2.1, §3.24). */
-  rail?: (props: { route: string; compact: boolean; navigate: (to: string) => void }) => ReactNode;
-  /** The thread list beside the chat (§2.2); its first child is a 56 px `.threads-header`. */
+  /** The sidebar (redesign §5.1): destinations, threads and the persona footer. */
+  sidebar?: (props: SidebarSlotProps) => ReactNode;
+  /** The threads alone, for the compact drawer (§5.11). */
   threadList?: (props: {
     threadId: string | null;
     onOpen: (threadId: string) => void;
     onNew: () => void;
   }) => ReactNode;
+  /** ⌘K (§5.5); absent keeps the shell's own palette. */
+  palette?: (props: PaletteSlotProps) => ReactNode;
   /**
    * A pane's body (docs/06 §2.4), e.g. the Files pane with the viewers (§3.7); `null` or
    * `undefined` keeps the shell's own view for that pane.
    */
   pane?: PaneRenderer;
 }
+
+export interface SidebarSlotProps {
+  route: string;
+  navigate: (to: string) => void;
+  threadId: string | null;
+  onOpenThread: (threadId: string) => void;
+  onNew: () => void;
+  width: number;
+  onWidthChange: (width: number) => void;
+}
+
+export interface PaletteSlotProps {
+  open: boolean;
+  onClose: () => void;
+  navigate: (to: string) => void;
+  /** The shell's commands: new side chat, panes, /model, mode, shortcuts. */
+  actions: PaletteAction[];
+}
+
+/** Persisted sidebar state (redesign §5.1: the width is remembered; ⌘B too). */
+const SIDEBAR_WIDTH_KEY = "shell.sidebar.width";
+const SIDEBAR_OPEN_KEY = "shell.sidebar.open";
 
 /** What the chat slot needs from the shell to drive the agent header (§3.1). */
 export interface ChatSlotContext {
@@ -193,7 +235,14 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   const gatewayRun = useGatewayRun(platform);
   const pairingGrace = usePairingGrace(status, platform.kind === "desktop");
   const [route, setRoute] = useState(initialRoute);
-  const [listHidden, setListHidden] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => platform.storage.get(SIDEBAR_OPEN_KEY) !== "false",
+  );
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const stored = Number(platform.storage.get(SIDEBAR_WIDTH_KEY));
+    return stored > 0 ? clampSidebarWidth(stored) : SIDEBAR_WIDTH.default;
+  });
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [focusToken, setFocusToken] = useState(0);
   const width = useWindowWidth();
@@ -210,21 +259,42 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   const env = useCallback(
     (): LayoutEnv => ({
       width,
-      contentWidth: Math.max(0, width - (compact ? 0 : 56) - (listHidden || compact ? 0 : 260)),
+      contentWidth: Math.max(0, width - (!sidebarOpen || compact ? 0 : sidebarWidth)),
       now: () => new Date().toISOString(),
       newId,
     }),
-    [width, compact, listHidden, newId],
+    [width, compact, sidebarOpen, sidebarWidth, newId],
   );
 
+  const routeRef = useRef(route);
+  routeRef.current = route;
   const navigate = useCallback((to: string) => {
-    setRoute(to);
+    // A new destination crossfades the content column (motion.md §4.5); a thread switch inside
+    // Chat, or anything on the same screen, changes in place.
+    const crossfade = destinationFor(to) !== destinationFor(routeRef.current);
+    if (crossfade) startTransition(() => setRoute(to));
+    else setRoute(to);
     try {
       globalThis.history?.pushState(null, "", to);
     } catch {
       // app:// and file:// hosts may refuse; the in-memory route still changes
     }
   }, []);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarOpen((open) => {
+      platform.storage.set(SIDEBAR_OPEN_KEY, String(!open));
+      return !open;
+    });
+  }, [platform]);
+  const resizeSidebar = useCallback(
+    (w: number) => {
+      const next = clampSidebarWidth(w);
+      setSidebarWidth(next);
+      platform.storage.set(SIDEBAR_WIDTH_KEY, String(next));
+    },
+    [platform],
+  );
 
   // The kit's own links (Goals' Add a goal, a failed run's Settings → Models) use the shell's route.
   const kitSlots = useMemo<UiSlots>(() => ({ navigate }), [navigate]);
@@ -354,7 +424,9 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
           newSideChat();
           return true;
         case "toggleThreadList":
-          setListHidden((h) => !h);
+          // ⌘B: the sidebar, or the threads drawer when compact (redesign §4).
+          if (compact) setDrawerOpen((o) => !o);
+          else toggleSidebar();
           return true;
         case "openBrowserPane":
           dispatch({ type: "open", pane: "browser" });
@@ -418,7 +490,20 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
           return false;
       }
     },
-    [newSideChat, dispatch, threadId, layout, cycleMode, navigate, threads, overlay, thread, store],
+    [
+      newSideChat,
+      dispatch,
+      threadId,
+      layout,
+      cycleMode,
+      navigate,
+      threads,
+      overlay,
+      thread,
+      store,
+      compact,
+      toggleSidebar,
+    ],
   );
 
   useEffect(() => {
@@ -496,135 +581,179 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       ? t("web.threads.mainChat")
       : thread.title || t("web.threads.sideChat")
     : sectionTitle(route);
+  const openThread = (id: string) => navigate(`/chat/${id}`);
+  const threadsFor = (onOpen: (id: string) => void) =>
+    slots.threadList ? (
+      slots.threadList({ threadId, onOpen, onNew: newSideChat })
+    ) : (
+      <ThreadList currentThreadId={threadId} onOpen={onOpen} onNew={newSideChat} />
+    );
+  const sidebar = slots.sidebar ? (
+    slots.sidebar({
+      route,
+      navigate,
+      threadId,
+      onOpenThread: openThread,
+      onNew: newSideChat,
+      width: sidebarWidth,
+      onWidthChange: resizeSidebar,
+    })
+  ) : (
+    <ShellSidebar
+      route={route}
+      onNavigate={navigate}
+      width={sidebarWidth}
+      {...(onChat ? { threads: threadsFor(openThread) } : {})}
+      {...(inset ? {} : { footer: <GatewayPill status={status} /> })}
+    />
+  );
+  const showSidebarButton =
+    !compact && !sidebarOpen ? (
+      <SidebarToggle onClick={toggleSidebar} className="shell-sidebar-toggle" />
+    ) : null;
+  const content =
+    onChat && slots.chat && threadId ? (
+      slots.chat(threadId, {
+        thread,
+        navigate,
+        setPermissionMode,
+        openModelPicker: () => setOverlay("model"),
+        openPane: (pane, target) => dispatch({ type: "open", pane, target: target ?? null }),
+      })
+    ) : onChat ? (
+      <ChatView
+        thread={thread}
+        onModeCycle={cycleMode}
+        onModelPicker={() => setOverlay("model")}
+        focusToken={focusToken}
+      />
+    ) : (
+      (slots.section?.(route, navigate) ?? <SectionPlaceholder route={route} />)
+    );
   return (
     <UiSlotsProvider value={kitSlots}>
-      <div className="app-frame" data-testid="app-frame">
-        <a className="skip-link" href="#main">
-          {t("web.shell.skipToContent")}
-        </a>
-        <TitleBar chrome={platform.chrome}>
-          <span className="title">{barTitle}</span>
-          {/* Connected is the quiet default; only other states earn a chip (docs/06 §3.0). */}
-          {status.phase === "paired" ? null : (
-            <span data-no-drag="">
-              <GatewayPill status={status} />
-            </span>
-          )}
-        </TitleBar>
-        <div className="shell" data-compact={compact} data-testid="shell">
-          {slots.rail ? (
-            <div className="rail-slot" data-testid="rail">
-              {slots.rail({ route, compact, navigate })}
-            </div>
-          ) : (
-            <Rail
-              route={route}
-              compact={compact}
-              onNavigate={navigate}
-              {...(inset ? {} : { footer: <GatewayPill status={status} /> })}
-            />
-          )}
-          {onChat && !compact && slots.threadList ? (
-            <div className="threads-slot" hidden={listHidden} data-testid="thread-list">
-              {slots.threadList({
-                threadId,
-                onOpen: (id) => navigate(`/chat/${id}`),
-                onNew: newSideChat,
-              })}
-            </div>
-          ) : onChat && !compact ? (
-            <ThreadList
-              hidden={listHidden}
-              currentThreadId={threadId}
-              onOpen={(id) => navigate(`/chat/${id}`)}
-              onNew={newSideChat}
-            />
-          ) : (
-            <span />
-          )}
-          <main
-            id="main"
-            tabIndex={-1}
-            aria-label={barTitle}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              minWidth: 0,
-              minHeight: 0,
-              outline: "none",
-            }}
-          >
-            {/* The chat has no visible page title (docs/a11y-audit.md L2). */}
-            {onChat ? <h1 className="sr-only">{barTitle}</h1> : null}
-            <OfflineBanner
-              status={status}
-              pairingGrace={pairingGrace}
-              {...(gatewayRun ? { run: gatewayRun } : {})}
-              {...(platform.gateway.showLogs
-                ? { onShowLogs: () => void platform.gateway.showLogs?.() }
+      <ShellMotion>
+        <div className="app-frame" data-testid="app-frame">
+          <a className="skip-link" href="#main">
+            {t("web.shell.skipToContent")}
+          </a>
+          <TitleBar chrome={platform.chrome}>
+            {inset ? showSidebarButton : null}
+            <span className="title">{barTitle}</span>
+            {/* Connected is the quiet default; only other states earn a chip (docs/06 §3.0). */}
+            {status.phase === "paired" ? null : (
+              <span data-no-drag="">
+                <GatewayPill status={status} />
+              </span>
+            )}
+          </TitleBar>
+          {compact ? (
+            <CompactTopBar
+              onOpenThreads={() => setDrawerOpen(true)}
+              onOpenSearch={() => setOverlay("palette")}
+              {...(onChat ? {} : { title: barTitle })}
+              {...(onChat && thread
+                ? {
+                    mode: thread.permissionMode,
+                    onModeChange: setPermissionMode,
+                    model: thread.modelRef,
+                    onOpenModelPicker: () => setOverlay("model"),
+                  }
                 : {})}
             />
-            {onChat && slots.chat && threadId ? (
-              slots.chat(threadId, {
-                thread,
-                navigate,
-                setPermissionMode,
-                openModelPicker: () => setOverlay("model"),
-                openPane: (pane, target) =>
-                  dispatch({ type: "open", pane, target: target ?? null }),
-              })
-            ) : onChat ? (
-              <ChatView
-                thread={thread}
-                onModeCycle={cycleMode}
-                onModelPicker={() => setOverlay("model")}
-                focusToken={focusToken}
-              />
-            ) : (
-              (slots.section?.(route, navigate) ?? <SectionPlaceholder route={route} />)
+          ) : null}
+          <div
+            className="shell shell-sidebar-layout"
+            data-compact={compact}
+            data-sidebar={compact ? "drawer" : sidebarOpen ? "open" : "collapsed"}
+            data-testid="shell"
+          >
+            {compact ? null : (
+              <SidebarPresence open={sidebarOpen} className="sidebar-slot" testId="sidebar-slot">
+                {sidebar}
+              </SidebarPresence>
             )}
-          </main>
-          {onChat && threadId ? (
-            <PaneArea
-              layout={layout}
-              threadId={threadId}
-              width={width}
-              covered={overlay !== null}
-              dispatch={dispatch}
-              {...(slots.pane ? { renderPane: slots.pane, navigate } : {})}
-            />
-          ) : (
-            <span />
-          )}
-          {overlay === "palette" ? (
-            <CommandPalette
-              actions={actions}
-              onClose={() => setOverlay(null)}
-              onNavigate={navigate}
-            />
-          ) : null}
-          {overlay === "shortcuts" ? <ShortcutSheet onClose={() => setOverlay(null)} /> : null}
-          {overlay === "model" ? (
-            <ModelPicker
-              current={thread?.modelRef ?? null}
-              onClose={() => {
-                setOverlay(null);
-                setFocusToken((n) => n + 1);
-              }}
-              onPick={(modelRef) => {
-                if (!thread) return;
-                void store
-                  .call("threads.update", { threadId: thread.id, modelRef })
-                  .then(
-                    (r) => r === undefined && store.toast(t("web.toast.modelUnsupported"), "warn"),
-                  )
-                  .catch(() => store.toast(t("web.toast.modelUnsupported"), "warn"));
-              }}
-            />
-          ) : null}
-          <Toasts />
+            <ReflowColumn
+              id="main"
+              tabIndex={-1}
+              aria-label={barTitle}
+              className="shell-content"
+              data-testid="content"
+            >
+              {inset ? null : showSidebarButton}
+              {/* The chat has no visible page title (docs/a11y-audit.md L2). */}
+              {onChat ? <h1 className="sr-only">{barTitle}</h1> : null}
+              <OfflineBanner
+                status={status}
+                pairingGrace={pairingGrace}
+                {...(gatewayRun ? { run: gatewayRun } : {})}
+                {...(platform.gateway.showLogs
+                  ? { onShowLogs: () => void platform.gateway.showLogs?.() }
+                  : {})}
+              />
+              <RouteTransition>
+                <div className="shell-route">{content}</div>
+              </RouteTransition>
+            </ReflowColumn>
+            {onChat && threadId ? (
+              <PaneArea
+                layout={layout}
+                threadId={threadId}
+                width={width}
+                covered={overlay !== null}
+                dispatch={dispatch}
+                {...(slots.pane ? { renderPane: slots.pane, navigate } : {})}
+              />
+            ) : null}
+            {compact ? (
+              <div className="tab-bar-slot" data-testid="rail">
+                <TabBar active={destinationFor(route)} onNavigate={navigate} />
+              </div>
+            ) : null}
+            {slots.palette ? (
+              slots.palette({
+                open: overlay === "palette",
+                onClose: () => setOverlay(null),
+                navigate,
+                actions,
+              })
+            ) : overlay === "palette" ? (
+              <CommandPalette
+                actions={actions}
+                onClose={() => setOverlay(null)}
+                onNavigate={navigate}
+              />
+            ) : null}
+            {overlay === "shortcuts" ? <ShortcutSheet onClose={() => setOverlay(null)} /> : null}
+            {overlay === "model" ? (
+              <ModelPicker
+                current={thread?.modelRef ?? null}
+                onClose={() => {
+                  setOverlay(null);
+                  setFocusToken((n) => n + 1);
+                }}
+                onPick={(modelRef) => {
+                  if (!thread) return;
+                  void store
+                    .call("threads.update", { threadId: thread.id, modelRef })
+                    .then(
+                      (r) =>
+                        r === undefined && store.toast(t("web.toast.modelUnsupported"), "warn"),
+                    )
+                    .catch(() => store.toast(t("web.toast.modelUnsupported"), "warn"));
+                }}
+              />
+            ) : null}
+            <Toasts />
+          </div>
+          <ThreadsDrawer open={compact && drawerOpen} onOpenChange={setDrawerOpen}>
+            {threadsFor((id) => {
+              setDrawerOpen(false);
+              openThread(id);
+            })}
+          </ThreadsDrawer>
         </div>
-      </div>
+      </ShellMotion>
     </UiSlotsProvider>
   );
 }

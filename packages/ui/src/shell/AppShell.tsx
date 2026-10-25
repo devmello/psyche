@@ -1,13 +1,17 @@
-import { type ReactElement, type ReactNode, useEffect, useState } from "react";
+import { type ReactElement, type ReactNode, startTransition, useEffect, useState } from "react";
 import { AgentHeader } from "../agent/AgentHeader.tsx";
 import { AgentSheet, type AgentTab } from "../agent/AgentSheet.tsx";
 import { ChatThread } from "../chat/Thread.tsx";
 import { useThread, useThreads } from "../data/index.ts";
 import { CommandPalette, type PaletteAction } from "./CommandPalette.tsx";
-import { Rail, type RailItem } from "./Rail.tsx";
+import { CompactTopBar } from "./CompactTopBar.tsx";
+import { PanePresence, ReflowColumn, RouteTransition, ShellMotion, SidebarPresence } from "./motion.tsx";
+import { destinationFor, type RailItem, TabBar } from "./Rail.tsx";
 import { ShortcutList } from "./ShortcutList.tsx";
+import { clampSidebarWidth, ConnectedSidebar, SIDEBAR_WIDTH } from "./Sidebar.tsx";
 import { type ShortcutId, useShortcuts } from "./shortcuts.ts";
 import { ThreadList } from "./ThreadList.tsx";
+import { ThreadsDrawer } from "./ThreadsDrawer.tsx";
 
 function useCompact(): boolean {
   const query = "(max-width: 719px)";
@@ -39,21 +43,19 @@ export interface AppShellProps {
   actions?: readonly PaletteAction[];
   shortcuts?: Partial<Record<ShortcutId, () => void>>;
   railBadges?: Partial<Record<RailItem, number>>;
+  /** Starts with the sidebar collapsed (⌘B toggles it). */
+  defaultSidebarOpen?: boolean;
+  defaultSidebarWidth?: number;
+  /** Forces the compact layout (stories); otherwise it follows the window width. */
+  compact?: boolean;
   now?: number;
 }
 
-function railItemFor(route: string): RailItem | null {
-  const first = route.split(/[/?]/)[1] ?? "";
-  return (
-    (["chat", "search", "feed", "ideas", "goals", "library"] as const).find((r) => r === first) ??
-    null
-  );
-}
-
 /**
- * Main window layout (UI design §3.1, §3.24): rail (56 px), thread list (260 px, ⌘B), chat column
- * with the agent header, pane area; below 720 px the rail becomes a bottom tab bar and the thread
- * list a drawer. Routes and panes stay with the shell.
+ * Main window layout (redesign §4, §5.1, §5.11): one 248 px sidebar (destinations, threads,
+ * persona; resizable, ⌘B collapses it), the content column with the agent header, and the pane
+ * area. Below 720 px: a 44 px top bar, a threads drawer and the glass tab bar. Routes and panes
+ * stay with the shell; a change of destination crossfades the content column.
  */
 export function AppShell({
   route,
@@ -63,11 +65,17 @@ export function AppShell({
   actions,
   shortcuts,
   railBadges,
+  defaultSidebarOpen = true,
+  defaultSidebarWidth = SIDEBAR_WIDTH.default,
+  compact: forceCompact,
   now,
 }: AppShellProps): ReactElement {
-  const compact = useCompact();
+  const narrow = useCompact();
+  const compact = forceCompact ?? narrow;
   const threads = useThreads();
-  const [threadListOpen, setThreadListOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(defaultSidebarOpen);
+  const [sidebarWidth, setSidebarWidth] = useState(clampSidebarWidth(defaultSidebarWidth));
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [sheet, setSheet] = useState<{ open: boolean; tab: AgentTab; taskId?: string }>({
@@ -87,13 +95,18 @@ export function AppShell({
   }, [agentTab, agentTask]);
 
   const newSideChat = async () => {
-    const t = await threads.create({ kind: "side" });
-    onNavigate(`/chat/${t.id}`);
+    const created = await threads.create({ kind: "side" });
+    onNavigate(`/chat/${created.id}`);
+  };
+  // A new destination crossfades the content column; a thread switch inside Chat doesn't.
+  const go = (to: string) => {
+    if (destinationFor(to) !== destinationFor(route)) startTransition(() => onNavigate(to));
+    else onNavigate(to);
   };
   useShortcuts({
     palette: () => setPaletteOpen(true),
     newSideChat: () => void newSideChat(),
-    toggleThreadList: () => setThreadListOpen((o) => !o),
+    toggleThreadList: () => (compact ? setDrawerOpen((o) => !o) : setSidebarOpen((o) => !o)),
     stop: () => {
       if (thread.running) void thread.cancel();
     },
@@ -120,60 +133,88 @@ export function AppShell({
     />
   );
 
+  const content = chatMatch && threadId ? (
+    <ChatThread threadId={threadId} {...(now === undefined ? {} : { now })} />
+  ) : (
+    children
+  );
+
   return (
-    <div className="flex h-dvh min-h-[600px] w-full flex-col bg-background text-foreground">
-      <div className="flex min-h-0 flex-1">
-        {compact ? null : (
-          <Rail active={railItemFor(route)} onNavigate={onNavigate} badges={railBadges ?? {}} />
-        )}
-        {chatMatch && threadListOpen && !compact ? (
-          <ThreadList
-            activeThreadId={threadId}
-            onOpen={(id) => onNavigate(`/chat/${id}`)}
-            onNewSideChat={() => void newSideChat()}
-            {...(now === undefined ? {} : { now })}
+    <ShellMotion>
+      <div
+        className="flex h-dvh min-h-[600px] w-full flex-col bg-canvas text-label-primary"
+        data-compact={compact}
+        data-testid="app-shell"
+      >
+        {compact ? (
+          <CompactTopBar
+            onOpenThreads={() => setDrawerOpen(true)}
+            onOpenSearch={() => setPaletteOpen(true)}
+            {...(thread.thread ? { mode: thread.thread.thread.permissionMode } : {})}
+            {...(thread.thread?.thread.modelRef ? { model: thread.thread.thread.modelRef } : {})}
           />
         ) : null}
-        <main className="flex min-w-0 flex-1 flex-col">
-          {header}
-          <div className="flex min-h-0 flex-1">
-            <div className="min-w-0 flex-1 overflow-y-auto">
-              {chatMatch && threadId ? (
-                <ChatThread threadId={threadId} {...(now === undefined ? {} : { now })} />
-              ) : (
-                children
-              )}
+        <div className="flex min-h-0 flex-1">
+          {compact ? null : (
+            <SidebarPresence open={sidebarOpen} className="h-full shrink-0">
+              <ConnectedSidebar
+                route={route}
+                onNavigate={go}
+                activeThreadId={threadId}
+                onOpenThread={(id) => go(`/chat/${id}`)}
+                onNewSideChat={() => void newSideChat()}
+                width={sidebarWidth}
+                onWidthChange={setSidebarWidth}
+                {...(now === undefined ? {} : { now })}
+              />
+            </SidebarPresence>
+          )}
+          <ReflowColumn className="flex min-w-0 flex-1 flex-col bg-canvas">
+            {chatMatch ? header : null}
+            <div className="flex min-h-0 flex-1">
+              <div className="min-w-0 flex-1 overflow-y-auto">
+                <RouteTransition>{content}</RouteTransition>
+              </div>
             </div>
-            {panes && !compact ? (
-              <div className="flex min-w-[360px] border-s border-gray-6">{panes}</div>
-            ) : null}
-          </div>
-        </main>
-      </div>
-      {compact ? (
-        <Rail
-          compact
-          active={railItemFor(route)}
-          onNavigate={onNavigate}
-          badges={railBadges ?? {}}
+          </ReflowColumn>
+          {compact ? null : (
+            <PanePresence className="flex min-w-[360px]">{panes ?? null}</PanePresence>
+          )}
+        </div>
+        {compact ? (
+          <TabBar active={destinationFor(route)} onNavigate={go} badges={railBadges ?? {}} />
+        ) : null}
+        <ThreadsDrawer open={compact && drawerOpen} onOpenChange={setDrawerOpen}>
+            <ThreadList
+              activeThreadId={threadId}
+              onOpen={(id) => {
+                setDrawerOpen(false);
+                go(`/chat/${id}`);
+              }}
+              onNewSideChat={() => {
+                setDrawerOpen(false);
+                void newSideChat();
+              }}
+              {...(now === undefined ? {} : { now })}
+            />
+        </ThreadsDrawer>
+        <AgentSheet
+          open={sheet.open}
+          onOpenChange={(open) => setSheet((s) => ({ ...s, open }))}
+          tab={sheet.tab}
+          onTabChange={(tab) => setSheet((s) => ({ ...s, tab }))}
+          side={compact ? "bottom" : "right"}
+          {...(sheet.taskId ? { taskId: sheet.taskId } : {})}
+          {...(now === undefined ? {} : { now })}
         />
-      ) : null}
-      <AgentSheet
-        open={sheet.open}
-        onOpenChange={(open) => setSheet((s) => ({ ...s, open }))}
-        tab={sheet.tab}
-        onTabChange={(tab) => setSheet((s) => ({ ...s, tab }))}
-        side={compact ? "bottom" : "right"}
-        {...(sheet.taskId ? { taskId: sheet.taskId } : {})}
-        {...(now === undefined ? {} : { now })}
-      />
-      <CommandPalette
-        open={paletteOpen}
-        onOpenChange={setPaletteOpen}
-        onNavigate={onNavigate}
-        {...(actions ? { actions } : {})}
-      />
-      <ShortcutList open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
-    </div>
+        <CommandPalette
+          open={paletteOpen}
+          onOpenChange={setPaletteOpen}
+          onNavigate={go}
+          {...(actions ? { actions } : {})}
+        />
+        <ShortcutList open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      </div>
+    </ShellMotion>
   );
 }

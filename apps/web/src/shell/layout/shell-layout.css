@@ -1,0 +1,130 @@
+/*
+  The 2026 window layout (docs/design/redesign-2026.md §4, §5.1, §5.11): sidebar | content | panes
+  as one flex row, so the sidebar can collapse (⌘B) and panes come and go while the content column
+  reflows by FLIP (motion.md §4.3). Structure only: colours, radii and materials are kit tokens.
+*/
+.shell.shell-sidebar-layout {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  min-height: 0;
+}
+.shell.shell-sidebar-layout > .sidebar-slot {
+  flex: none;
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+  z-index: 1;
+}
+.shell.shell-sidebar-layout > .shell-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 480px;
+  min-height: 0;
+  outline: none;
+  background: var(--canvas, var(--shell-bg));
+}
+.shell.shell-sidebar-layout > .pane-presence {
+  flex: none;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+.shell.shell-sidebar-layout > .pane-presence > .panes {
+  width: 100%;
+}
+.shell-route {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Compact (< 720 px): top bar above, the tab bar below, the content in between. */
+.shell.shell-sidebar-layout[data-compact="true"] {
+  flex-direction: column;
+}
+.shell.shell-sidebar-layout[data-compact="true"] > .shell-content {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.shell.shell-sidebar-layout[data-compact="true"] > .pane-presence {
+  flex: 1 1 0;
+}
+.tab-bar-slot {
+  flex: none;
+}
+
+/* Shows the collapsed sidebar again (also ⌘B); the toolbar hosts it on the desktop. */
+.shell-sidebar-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  color: var(--label-secondary, currentColor);
+}
+.shell-sidebar-toggle:hover {
+  background: var(--fill-quaternary, transparent);
+}
+.shell-sidebar-toggle:focus-visible {
+  outline: 2px solid var(--ring, currentColor);
+  outline-offset: 1px;
+}
+.shell-content > .shell-sidebar-toggle {
+  position: absolute;
+  top: 14px;
+  inset-inline-start: 12px;
+  z-index: 2;
+}
+
+/*
+  Route crossfade between destinations (motion.md §4.5): React's <ViewTransition> tags the content
+  column `psy-route`; 180 ms crossfade, the incoming page rising 4 px. Reduced motion: opacity only,
+  120 ms (React does not do this for us).
+*/
+::view-transition-old(.psy-route) {
+  animation: psy-route-out 180ms var(--ease-exit, ease-in) both;
+}
+::view-transition-new(.psy-route) {
+  animation: psy-route-in 180ms var(--ease-enter, ease-out) both;
+}
+@keyframes psy-route-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes psy-route-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@keyframes psy-route-fade {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-reduce-motion="false"])::view-transition-old(.psy-route),
+  :root:not([data-reduce-motion="false"])::view-transition-new(.psy-route) {
+    animation-duration: 120ms;
+  }
+  :root:not([data-reduce-motion="false"])::view-transition-new(.psy-route) {
+    animation-name: psy-route-fade;
+  }
+}
+:root[data-reduce-motion="true"]::view-transition-old(.psy-route),
+:root[data-reduce-motion="true"]::view-transition-new(.psy-route) {
+  animation-duration: 120ms;
+}
+:root[data-reduce-motion="true"]::view-transition-new(.psy-route) {
+  animation-name: psy-route-fade;
+}

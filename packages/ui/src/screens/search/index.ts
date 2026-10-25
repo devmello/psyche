@@ -9,6 +9,15 @@ export {
   type SearchViewProps,
 } from "./SearchScreen.tsx";
 export {
+  type SearchSurfaceProps,
+  SearchSurface,
+  type SurfaceGroup,
+  type SurfaceItem,
+  surfaceGroups,
+  useMinWidth,
+  useSearchSurface,
+} from "./SearchSurface.tsx";
+export {
   filterHits,
   type ParsedSearchQuery,
   parseSearchQuery,

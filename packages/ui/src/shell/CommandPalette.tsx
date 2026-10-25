@@ -1,18 +1,9 @@
-import type { SearchHit, SearchScope } from "@psyche/protocol";
-import { type ReactElement, useEffect, useState } from "react";
-import {
-  Command,
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandShortcut,
-} from "../components/ui/command.tsx";
-import { useSearch, useThreads } from "../data/index.ts";
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
+import type { SearchHit } from "@psyche/protocol";
+import { type ReactElement, useEffect } from "react";
+import { useThreads } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
-import { SCOPE_LABEL } from "../screens/search/search-query.ts";
+import { SearchSurface, useMinWidth, useSearchSurface } from "../screens/search/SearchSurface.tsx";
 import { RAIL_ITEMS } from "./Rail.tsx";
 import { SHORTCUTS } from "./shortcuts.ts";
 
@@ -93,103 +84,105 @@ export const DEFAULT_ACTIONS: readonly PaletteAction[] = [
   },
 ];
 
-function useDebounced<T>(value: T, ms: number): T {
-  const [v, setV] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setV(value), ms);
-    return () => clearTimeout(t);
-  }, [value, ms]);
-  return v;
-}
-
 export interface CommandPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onNavigate: (route: string) => void;
-  /** Slash commands and pane actions the shell adds (`/model`, `/schedule`, open Browser pane …). */
+  /** Slash commands and pane actions the shell adds (`/model`, open Browser pane …). */
   actions?: readonly PaletteAction[];
+  /** ⌘↵ on a result; defaults to a new side chat named after it. */
+  onOpenInSideChat?: (hit: SearchHit) => void;
+  /** Leave out the built-in Go to / Settings actions (the host lists its own). */
+  builtInActions?: boolean;
+  /** What the field holds when the palette opens. */
+  initialQuery?: string;
 }
 
-/** ⌘K: searches the unified index and lists actions (UI design §2.5, §3.13). */
+/** The shortcut shown beside an action: its own, else the keyboard map's. */
+function withShortcut(a: PaletteAction): PaletteAction {
+  const keys = a.shortcut ?? SHORTCUTS.find((s) => s.id === a.id)?.keys;
+  return keys === undefined ? a : { ...a, shortcut: keys };
+}
+
+/**
+ * ⌘K (redesign §5.5, UI design §2.5): the search surface in a level-2 glass palette, 640 px wide,
+ * centred 20% from the top, with the actions as a last group and a preview when the window is at
+ * least 1080 px wide. It enters like a popover (scale 0.97 + fade) and leaves by fading.
+ */
 export function CommandPalette({
   open,
   onOpenChange,
   onNavigate,
   actions = [],
+  onOpenInSideChat,
+  builtInActions = true,
+  initialQuery = "",
 }: CommandPaletteProps): ReactElement {
-  const [query, setQuery] = useState("");
-  const debounced = useDebounced(query, 150);
-  const search = useSearch(open ? debounced : "");
+  const search = useSearchSurface(initialQuery, 150, open);
+  const wide = useMinWidth(1080);
   const threads = useThreads();
-  const go = (route: string) => {
-    onOpenChange(false);
-    onNavigate(route);
-  };
-  const run = (a: PaletteAction) => {
-    onOpenChange(false);
-    if (a.run) a.run();
-    else if (a.route) onNavigate(a.route);
-  };
-  const shortcutFor = (a: PaletteAction) =>
-    a.shortcut ?? SHORTCUTS.find((s) => s.id === a.id)?.keys;
+  const { setQuery } = search;
+  // A fresh palette every time it opens.
+  useEffect(() => {
+    if (!open) setQuery(initialQuery);
+  }, [open, setQuery, initialQuery]);
+  const close = () => onOpenChange(false);
+  // The host's actions first; a built-in one with the same id gives way to the host's.
+  const builtIn = builtInActions ? DEFAULT_ACTIONS.filter((d) => !actions.some((a) => a.id === d.id)) : [];
+  const all = [...actions, ...builtIn].map(withShortcut);
+  const sideChat =
+    onOpenInSideChat ??
+    ((hit: SearchHit) => {
+      void threads
+        .create({ kind: "side", title: hit.title.slice(0, 200) })
+        .then((thread) => onNavigate(`/chat/${thread.id}`));
+    });
   return (
-    <CommandDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={t("shell.palette.title")}
-      description={t("shell.palette.description")}
-    >
-      <Command shouldFilter={search.hits.length === 0}>
-        <CommandInput
-          placeholder={t("shell.palette.placeholder")}
-          value={query}
-          onValueChange={setQuery}
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Backdrop
+          data-slot="dialog-overlay"
+          className="psy-backdrop fixed inset-0 z-50 bg-black/10"
         />
-        <CommandList>
-          <CommandEmpty>
-            {search.loading ? t("shell.palette.searching") : t("shell.palette.nothing")}
-          </CommandEmpty>
-          {[...search.groups.entries()].map(([scope, hits]) => (
-            <CommandGroup
-              key={scope}
-              heading={t("shell.palette.group", {
-                scope: SCOPE_LABEL[scope as SearchScope] ?? scope,
-                n: hits.length,
-              })}
-            >
-              {hits.map((h: SearchHit) => (
-                <CommandItem
-                  key={`${scope}:${h.id}`}
-                  value={`${scope} ${h.title} ${h.snippet}`}
-                  onSelect={() => h.route && go(h.route)}
-                >
-                  <span className="truncate">{h.title}</span>
-                  <span className="ms-2 truncate text-xs text-muted-foreground">{h.snippet}</span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          ))}
-          <CommandGroup heading={t("shell.palette.threads")}>
-            {threads.all.slice(0, 6).map((entry) => (
-              <CommandItem
-                key={entry.thread.id}
-                value={`thread ${entry.thread.title}`}
-                onSelect={() => go(`/chat/${entry.thread.id}`)}
-              >
-                {entry.thread.title}
-              </CommandItem>
-            ))}
-          </CommandGroup>
-          <CommandGroup heading={t("shell.palette.actions")}>
-            {[...actions, ...DEFAULT_ACTIONS].map((a) => (
-              <CommandItem key={a.id} value={a.label} onSelect={() => run(a)}>
-                {a.label}
-                {shortcutFor(a) ? <CommandShortcut>{shortcutFor(a)}</CommandShortcut> : null}
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        </CommandList>
-      </Command>
-    </CommandDialog>
+        <DialogPrimitive.Popup
+          data-slot="dialog-content"
+          data-testid="command-palette"
+          className="psy-popup fixed top-[20%] left-1/2 z-50 flex w-[min(640px,calc(100vw-2rem))] -translate-x-1/2 flex-col overflow-hidden rounded-xl material-glass text-label-primary outline-none"
+          style={{ ["--transform-origin" as string]: "top center" }}
+        >
+          <DialogPrimitive.Title className="sr-only">{t("shell.palette.title")}</DialogPrimitive.Title>
+          <DialogPrimitive.Description className="sr-only">
+            {t("shell.palette.description")}
+          </DialogPrimitive.Description>
+          <SearchSurface
+            variant="palette"
+            query={search.query}
+            onQueryChange={search.setQuery}
+            hits={search.hits}
+            parsed={search.parsed}
+            loading={search.loading}
+            loadingDelayMs={150}
+            error={search.error}
+            onRetry={search.reload}
+            actions={all}
+            preview={wide}
+            autoFocus
+            onOpen={(hit) => {
+              close();
+              if (hit.route != null) onNavigate(hit.route);
+            }}
+            onOpenInSideChat={(hit) => {
+              close();
+              sideChat(hit);
+            }}
+            onRunAction={(a) => {
+              close();
+              if (a.run) a.run();
+              else if (a.route) onNavigate(a.route);
+            }}
+          />
+        </DialogPrimitive.Popup>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }

@@ -99,25 +99,25 @@ describe("SearchScreen", () => {
 
   it("groups results by scope with counts and opens a result's route", async () => {
     const { navigate, user } = setup(<SearchScreen debounceMs={0} />);
-    await user.type(screen.getByRole("searchbox", { name: "Search everything" }), "dentist");
-    expect(await screen.findByRole("heading", { name: "Threads (1)" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Tasks (1)" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Feed (1)" })).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: /^Dentist booking:\s*running/ }));
+    await user.type(screen.getByRole("combobox", { name: "Search everything" }), "dentist");
+    expect(await screen.findByRole("group", { name: "Threads (1)" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Tasks (1)" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Feed (1)" })).toBeTruthy();
+    await user.click(screen.getByRole("option", { name: /^Dentist booking:\s*running/ }));
     expect(navigate).toHaveBeenCalledWith(`/agent/activity/${IDS.tasks.dentist}`);
   });
 
   it("sends scopes from typed filters and shows removable chips", async () => {
     const { callsTo, user } = setup(<SearchScreen debounceMs={0} initialQuery="in:feed dentist" />);
-    expect(await screen.findByRole("heading", { name: "Feed (1)" })).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: /Threads/ })).toBeNull();
+    expect(await screen.findByRole("group", { name: "Feed (1)" })).toBeTruthy();
+    expect(screen.queryByRole("group", { name: /Threads/ })).toBeNull();
     expect(callsTo("search.query").at(-1)?.params).toEqual({ query: "dentist", scopes: ["feed"] });
     const feedChip = screen.getByRole("button", { name: "in: Feed" });
     expect(feedChip.getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: "All" }).getAttribute("aria-pressed")).toBe("false");
     await user.click(feedChip);
-    expect(await screen.findByRole("heading", { name: /Threads/ })).toBeTruthy();
-    expect(screen.getByRole("searchbox", { name: "Search everything" })).toHaveProperty(
+    expect(await screen.findByRole("group", { name: /Threads/ })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "Search everything" })).toHaveProperty(
       "value",
       "dentist",
     );
@@ -125,7 +125,7 @@ describe("SearchScreen", () => {
 
   it("adds in:, type: and from: filters from the chips and removes them again", async () => {
     const { callsTo, user } = setup(<SearchScreen debounceMs={0} initialQuery="slip" />);
-    const box = screen.getByRole("searchbox", { name: "Search everything" });
+    const box = screen.getByRole("combobox", { name: "Search everything" });
     await user.click(screen.getByRole("button", { name: "in: Library" }));
     expect(box).toHaveProperty("value", "slip in:library");
     await waitFor(() =>
@@ -147,7 +147,7 @@ describe("SearchScreen", () => {
 
   it("highlights the matched words in titles and snippets", async () => {
     setup(<SearchScreen debounceMs={0} initialQuery="dentist" />);
-    await screen.findByRole("heading", { name: "Threads (1)" });
+    await screen.findByRole("group", { name: "Threads (1)" });
     const marks = document.querySelectorAll("mark");
     expect(marks.length).toBeGreaterThan(0);
     for (const m of marks) expect(m.textContent?.toLowerCase()).toBe("dentist");
@@ -155,7 +155,7 @@ describe("SearchScreen", () => {
 
   it("marks memory hits with a provenance chip", async () => {
     setup(<SearchScreen debounceMs={0} initialQuery="morning" />);
-    expect(await screen.findByRole("heading", { name: "Memory (1)" })).toBeTruthy();
+    expect(await screen.findByRole("group", { name: "Memory (1)" })).toBeTruthy();
     expect(screen.getByText("provenance unknown")).toBeTruthy();
   });
 
