@@ -1,6 +1,11 @@
 import { join } from "node:path";
-import { app, BaseWindow, type WebContents, WebContentsView } from "electron";
-import { mainWindowOptions, TRAFFIC_LIGHTS } from "./window-options.ts";
+import { app, BaseWindow, nativeTheme, type WebContents, WebContentsView } from "electron";
+import {
+  canvasColor,
+  mainWindowOptions,
+  settingsWindowOptions,
+  TRAFFIC_LIGHTS,
+} from "./window-options.ts";
 
 /**
  * Windows hosting the shell (architecture §5): one main `BaseWindow` with the app in a
@@ -18,6 +23,10 @@ export interface AppWindows {
   /** Shows the main window, creating it when it was closed. */
   showMain(): BaseWindow;
   popOut(route: string, title: string): void;
+  /** Opens (or focuses) the Settings window on a section (⌘,; redesign §4). */
+  showSettings(section?: string): void;
+  /** The windows with app chrome (main, Settings) and their app views, for vibrancy. */
+  chromeWindows(): { win: BaseWindow; view: WebContentsView }[];
   toggleQuickEntry(): void;
   hideQuickEntry(): void;
   /** Every live app renderer (main, pop-outs, quick entry), for broadcasting. */
@@ -38,6 +47,14 @@ export interface WindowOptions {
   splash?: () => boolean;
   /** The layout e2e sizes the window past CI's small screen (#561). */
   anySize?: boolean;
+  /** A chrome window (main, Settings) was made: vibrancy and the like. */
+  onChromeWindowCreated?: (win: BaseWindow, view: WebContentsView) => void;
+}
+
+/** Settings section ids are short slugs (`model`, `computer-use`). */
+export function settingsRoute(section: string | undefined): string {
+  const id = section && /^[a-z][a-z-]{0,39}$/.test(section) ? section : "model";
+  return `/window/settings/${id}`;
 }
 
 export { TRAFFIC_LIGHTS };
@@ -67,6 +84,7 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
   let mainView: WebContentsView | undefined;
   let quitting = false;
   let quick: { win: BaseWindow; view: WebContentsView } | undefined;
+  let settings: { win: BaseWindow; view: WebContentsView } | undefined;
   const views = new Map<WebContents, { win: BaseWindow; view: WebContentsView }>();
 
   const urlFor = (route: string) => {
@@ -109,13 +127,14 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
   }
 
   function createMain(): BaseWindow {
-    const win = new BaseWindow(mainWindowOptions({ anySize: opts.anySize === true }));
+    const win = new BaseWindow(
+      mainWindowOptions({ anySize: opts.anySize === true, dark: nativeTheme.shouldUseDarkColors }),
+    );
     const view = makeView(win, "/chat", {
-      ...(process.platform === "darwin"
-        ? { titleBar: "inset" as const, trafficLights: { ...TRAFFIC_LIGHTS } }
-        : { titleBar: "native" as const }),
+      ...insetChrome(),
       ...(opts.splash?.() ? { splash: true } : {}),
     });
+    view.setBackgroundColor(canvasColor(nativeTheme.shouldUseDarkColors));
     mainView = view;
     view.webContents.once("did-finish-load", () => win.show());
     // "Close window" hides it: the agent browser's tab views live in this window and keep
@@ -132,7 +151,25 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
     });
     mainWin = win;
     opts.onMainCreated?.(win, view);
+    opts.onChromeWindowCreated?.(win, view);
     return win;
+  }
+
+  const insetChrome = (): ChromeArg =>
+    process.platform === "darwin"
+      ? { titleBar: "inset", trafficLights: { ...TRAFFIC_LIGHTS } }
+      : { titleBar: "native" };
+
+  function createSettings(section?: string): { win: BaseWindow; view: WebContentsView } {
+    const win = new BaseWindow(settingsWindowOptions({ dark: nativeTheme.shouldUseDarkColors }));
+    const view = makeView(win, settingsRoute(section), insetChrome());
+    view.setBackgroundColor(canvasColor(nativeTheme.shouldUseDarkColors));
+    view.webContents.once("did-finish-load", () => win.show());
+    win.on("closed", () => {
+      settings = undefined;
+    });
+    opts.onChromeWindowCreated?.(win, view);
+    return { win, view };
   }
 
   function createQuick(): { win: BaseWindow; view: WebContentsView } {
@@ -172,6 +209,21 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
       const win = new BaseWindow({ width: 900, height: 700, minWidth: 480, minHeight: 360, title });
       makeView(win, route);
       win.show();
+    },
+    showSettings(section) {
+      if (settings && !settings.win.isDestroyed()) {
+        if (section) void settings.view.webContents.loadURL(urlFor(settingsRoute(section)));
+        settings.win.show();
+        settings.win.focus();
+        return;
+      }
+      settings = createSettings(section);
+    },
+    chromeWindows() {
+      const out: { win: BaseWindow; view: WebContentsView }[] = [];
+      if (mainWin && mainView && !mainWin.isDestroyed()) out.push({ win: mainWin, view: mainView });
+      if (settings && !settings.win.isDestroyed()) out.push(settings);
+      return out;
     },
     toggleQuickEntry() {
       quick ??= createQuick();

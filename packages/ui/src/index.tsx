@@ -117,6 +117,7 @@ export * from "./i18n/index.ts";
 // Formatting helpers.
 export * from "./lib/format.ts";
 export { cn } from "./lib/utils.ts";
+export { FPS_PROBE_KEY, medianFps, startFpsProbe } from "./motion/fps-probe.ts";
 // Screens.
 export * from "./screens/feed/index.ts";
 export * from "./screens/files/index.ts";
@@ -128,7 +129,12 @@ export * from "./screens/onboarding/index.ts";
 export * from "./screens/search/index.ts";
 export { CONTEXT_KEYS, ContextSettingsGroup } from "./screens/settings/ContextSettings.tsx";
 export * from "./screens/settings/index.ts";
-export { AppearanceProvider, type AppearanceProviderProps } from "./shell/AppearanceProvider.tsx";
+export {
+  AppearanceProvider,
+  type AppearanceProviderProps,
+  REDUCE_TRANSPARENCY_SETTING,
+  VIBRANCY_SETTING,
+} from "./shell/AppearanceProvider.tsx";
 // Shell pieces.
 export { AppShell, type AppShellProps } from "./shell/AppShell.tsx";
 export {
