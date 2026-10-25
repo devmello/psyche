@@ -1,10 +1,13 @@
 import { execFile } from "node:child_process";
 import { writeFileSync } from "node:fs";
-import type {
-  BaseWindow,
-  BaseWindowConstructorOptions,
-  WebContents,
-  WebContentsView,
+import { createRequire } from "node:module";
+import { join } from "node:path";
+import {
+  app,
+  type BaseWindow,
+  type BaseWindowConstructorOptions,
+  type WebContents,
+  type WebContentsView,
 } from "electron";
 
 /**
@@ -12,7 +15,15 @@ import type {
  * macOS. The community `electron-liquid-glass` addon puts one `NSGlassEffectView` under the whole
  * window (it has no region API), so the window is transparent and the page paints every region
  * opaque except the sidebar: the rail and the thread list show the glass, the content column
- * does not. Not for release: the addon is an optional dependency and is not packaged.
+ * does not. Not for release: Psyche does not depend on the addon (the research recommends
+ * against shipping it), so a probe installs it locally first and must not commit the change:
+ *
+ *   pnpm --filter @psyche/desktop add -O electron-liquid-glass@1.1.1   # N-API prebuilds, no build
+ *   PSYCHE_GLASS=native PSYCHE_GLASS_PROBE=/tmp/psyche-glass/probe.json \
+ *     pnpm --filter @psyche/desktop dev
+ *   git checkout apps/desktop/package.json pnpm-lock.yaml              # drop the local install
+ *
+ * Without it, `PSYCHE_GLASS=native` logs one warning and the window stays opaque.
  */
 
 export const GLASS_ENV = "PSYCHE_GLASS";
@@ -62,17 +73,18 @@ export interface LiquidGlass {
   isGlassSupported(): boolean;
 }
 
+/** Loads the addon at runtime if it is installed locally; `null` when it is absent. */
 async function loadLiquidGlass(): Promise<LiquidGlass | null> {
   try {
-    // A variable specifier: the addon is an optional, macOS-only dependency, so neither tsc nor
-    // the bundler should need it on other platforms.
-    const specifier = "electron-liquid-glass";
-    const mod = (await import(specifier)) as unknown as {
-      default?: LiquidGlass;
-    } & LiquidGlass;
+    // Resolved from the app directory at run time, never by tsc or the bundler: the package is
+    // not a dependency (vite.main.config.ts also keeps it external, as bundling breaks its loader).
+    const require = createRequire(join(app.getAppPath(), "package.json"));
+    const mod = require("electron-liquid-glass") as { default?: LiquidGlass } & LiquidGlass;
     return mod.default ?? mod;
   } catch (err) {
-    console.warn(`[glass] electron-liquid-glass is not available: ${String(err)}`);
+    console.warn(
+      `[glass] electron-liquid-glass is not installed (see main/glass.ts to add it locally): ${String(err)}`,
+    );
     return null;
   }
 }

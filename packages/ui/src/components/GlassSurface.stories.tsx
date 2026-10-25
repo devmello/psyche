@@ -68,16 +68,20 @@ function Photo(): ReactElement {
   );
 }
 
+/** Thirty filler paragraphs with stable ids; every fifth is a heading-sized lead. */
+const TEXT_BLOCKS = Array.from({ length: 30 }, (_, n) => ({
+  id: `paragraph-${n}`,
+  className: `text-[15px] leading-[22px] ${
+    ["text-label-primary", "text-accent-11", "text-label-secondary"][n % 3]
+  } ${n % 5 === 0 ? "font-semibold text-[20px]" : ""}`,
+}));
+
 function Text(): ReactElement {
   const { t } = useI18n();
-  const colours = ["text-label-primary", "text-accent-11", "text-label-secondary"];
   return (
     <div className="flex flex-col gap-4 bg-canvas px-6 py-20">
-      {Array.from({ length: 30 }, (_, i) => (
-        <p
-          key={i}
-          className={`text-[15px] leading-[22px] ${colours[i % 3]} ${i % 5 === 0 ? "font-semibold text-[20px]" : ""}`}
-        >
+      {TEXT_BLOCKS.map((block) => (
+        <p key={block.id} className={block.className}>
           {t("glass.demo.paragraph")}
         </p>
       ))}
