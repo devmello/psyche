@@ -86,6 +86,10 @@ export const chat = {
   "chat.approvals.others": "Other approvals",
 
   "chat.thread.conversation": "Conversation",
+  "chat.question.change": "Change",
+  "chat.question.changeOf": "Change the answer to {header}",
+  "chat.question.otherPlaceholder": "Type an answer",
+  "chat.receipt.ok": "Done",
   "chat.thread.empty": "Nothing here yet. Ask {name} something below to start.",
   "chat.thread.working": "{name} is working…",
   "chat.thread.runningTool": "Running {tool}…",
@@ -134,4 +138,12 @@ export const chat = {
   "chat.suggest.today": "What's on my plate today?",
   "chat.suggest.inbox": "Summarize my unread email",
   "chat.suggest.plan": "Help me plan this week",
+  "chat.approval.segment.task": "This task",
+  "chat.approval.segment.site": "This site",
+  "chat.approval.segment.always": "Always",
+  "chat.approval.allow": "Allow",
+  "chat.approval.keysHint": "⌘↩ {allows} · ⌘D {denies}",
+  "chat.approval.more": "More about this approval",
+  "chat.approval.others": "{n, plural, one {# more} other {# more}}",
+  "chat.approval.nextLabel": "{more} · next: {summary}, expires in {countdown}",
 } as const;

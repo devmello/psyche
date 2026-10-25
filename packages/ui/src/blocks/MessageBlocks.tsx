@@ -1,7 +1,9 @@
 import type { Block, Message } from "@psyche/protocol";
-import { ArrowDown, ShieldCheck, ShieldX } from "lucide-react";
+import { ArrowDown } from "lucide-react";
+import * as m from "motion/react-m";
 import type { ReactElement, ReactNode } from "react";
 import { Avatar } from "../avatar/Avatar.tsx";
+import { StatusGlyph } from "../components/status.tsx";
 import {
   useApproval,
   useArtifact,
@@ -13,6 +15,7 @@ import {
 } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { displaySummary } from "../lib/cards.ts";
+import { fade, motionSpring, Presence, spring } from "../motion/index.ts";
 import { usePersona, useSlots } from "../slots.tsx";
 import { focusApproval } from "./ApprovalCard.tsx";
 import { ArtifactCard, FileCard } from "./ArtifactCard.tsx";
@@ -67,39 +70,52 @@ function ToolRunBlock({ blocks }: { blocks: readonly ToolCallBlock[] }): ReactEl
 
 /**
  * The one inline trace of an approval (§3.2, §3.3): the card itself lives in the dock. Pending, it
- * is a quiet pointer that opens and focuses the card; answered, a one-line outcome.
+ * is a quiet pointer that opens and focuses the card; answered, a one-line result row. The
+ * answered row shares the dock card's `layoutId`, so the card morphs into it (redesign-2026 §5.3,
+ * `spring.emphasis`); under reduced motion the card fades out and the row fades in. Rows that are
+ * already answered when the transcript loads appear without motion.
  */
 function ApprovalPointer({ approvalId }: { approvalId: string }): ReactElement {
   const { approval, loading } = useApproval(approvalId);
   if (approval === null)
     return loading ? <Skeleton what="approval" /> : <Missing what="approval" />;
   const summary = displaySummary(approval);
-  if (approval.status === "pending")
-    return (
-      <button
-        type="button"
-        onClick={() => focusApproval(approval.id)}
-        className="my-0.5 inline-flex min-h-6 items-center gap-1.5 rounded-md px-1 py-0.5 text-small text-gray-11 transition-colors hover:bg-gray-3 hover:text-foreground"
-        aria-label={t("blocks.message.reviewApproval", { summary })}
-        title={summary}
-      >
-        <ShieldCheck className="size-3.5 text-approval-text" aria-hidden="true" />
-        {t("blocks.message.waitingApproval")}
-        <ArrowDown className="size-3.5" aria-hidden="true" />
-      </button>
-    );
-  const ok = approval.status === "approved";
+  const pending = approval.status === "pending";
   return (
-    <p className="my-0.5 flex items-center gap-1.5 px-1 text-small text-muted-foreground">
-      {ok ? (
-        <ShieldCheck className="size-3.5 text-success" aria-hidden="true" />
+    <Presence mode="popLayout" initial={false}>
+      {pending ? (
+        <m.button
+          key="pending"
+          type="button"
+          onClick={() => focusApproval(approval.id)}
+          className="-ms-1 my-0.5 inline-flex min-h-6 cursor-default items-center gap-1.5 rounded-sm px-1 py-0.5 text-callout text-label-secondary outline-none transition-colors duration-(--duration-micro) ease-(--ease-standard) hover:bg-fill-tertiary hover:text-label-primary focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={t("blocks.message.reviewApproval", { summary })}
+          title={summary}
+          {...fade}
+        >
+          <StatusGlyph status="waiting" className="[&_svg]:size-3.5" />
+          {t("blocks.message.waitingApproval")}
+          <ArrowDown className="size-3.5" aria-hidden="true" />
+        </m.button>
       ) : (
-        <ShieldX className="size-3.5" aria-hidden="true" />
+        <m.p
+          key="answered"
+          layoutId={`approval-${approval.id}`}
+          transition={{ layout: motionSpring(spring.emphasis), ...fade.animate.transition }}
+          className="my-0.5 flex items-center gap-1.5 text-callout text-label-secondary"
+          data-testid="approval-result"
+          {...fade}
+        >
+          <StatusGlyph
+            status={approval.status === "approved" ? "done" : "failed"}
+            className="[&_svg]:size-3.5"
+          />
+          <span className="min-w-0 truncate">
+            {t("blocks.message.decided", { status: approval.status, summary })}
+          </span>
+        </m.p>
       )}
-      <span className="min-w-0 truncate">
-        {t("blocks.message.decided", { status: approval.status, summary })}
-      </span>
-    </p>
+    </Presence>
   );
 }
 

@@ -65,6 +65,41 @@ export const CompactWidth: Story = {
   ),
 };
 
+/** Three pending approvals: the most urgent card in full, two edges peeking, "2 more" (§5.3). */
+export const ApprovalsDeck: Story = {
+  decorators: [
+    withWorld({
+      edit: (w) => {
+        const base = w.approvals.find((a) => a.id === IDS.approvals.sendEmail);
+        if (base)
+          w.approvals.push({
+            ...base,
+            id: "ap_story_third",
+            summary: "Add Tuesday 2:30 to your calendar",
+            expiresAt: new Date(Date.parse(base.expiresAt) + 600_000).toISOString(),
+          });
+      },
+    }),
+  ],
+  render: DentistBooking.render,
+};
+
+/** Answered approvals: one-line result rows in the transcript, the dock empty (§5.3). */
+export const Answered: Story = {
+  decorators: [
+    withWorld({
+      edit: (w) => {
+        w.approvals = w.approvals.map((a) =>
+          a.status === "pending" && a.requestedBy.threadId === IDS.threads.dentist
+            ? { ...a, status: "approved" as const, scopeGranted: "once" as const }
+            : a,
+        );
+      },
+    }),
+  ],
+  render: DentistBooking.render,
+};
+
 /** Reduced motion: fades only, no movement, static working pulse (motion.md §7). */
 export const ReducedMotion: Story = {
   ...DentistBooking,
