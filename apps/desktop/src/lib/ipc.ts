@@ -50,6 +50,8 @@ export const IPC = {
   helperState: "psyche:helper:state",
   // The owner's macOS region format (A12: numbers, dates and times; Settings can override it).
   localeGet: "psyche:locale:get",
+  systemAppearanceGet: "psyche:system-appearance:get",
+  systemAppearance: "psyche:system-appearance",
   // Open an https page in the default browser: a connector's sign-in (#505). Agent tabs stay
   // in the browser pane; app windows refuse window.open.
   openExternal: "psyche:shell:open-external",

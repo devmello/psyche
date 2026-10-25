@@ -18,15 +18,20 @@ export interface GlassEnvironment {
   reduceTransparency: boolean;
   /** macOS Increase Contrast, or the in-app setting. */
   increaseContrast: boolean;
+  /**
+   * The window is not key: glass "recedes" to opaque, as Apple's does
+   * (docs/design/research/liquid-glass.md §6.2, rung 4; `data-window-active="false"`).
+   */
+  inactive?: boolean;
 }
 
 /**
  * The fallback ladder: native → refraction → css → opaque. A surface asks for the best it wants
- * (`requested`); it gets that or the next rung the environment supports. Reduce Transparency and
- * Increase Contrast always land on opaque, as Apple's own materials do.
+ * (`requested`); it gets that or the next rung the environment supports. Reduce Transparency,
+ * Increase Contrast and an inactive window always land on opaque, as Apple's own materials do.
  */
 export function resolveGlassImpl(requested: GlassImpl, env: GlassEnvironment): GlassImpl {
-  if (env.reduceTransparency || env.increaseContrast) return "opaque";
+  if (env.reduceTransparency || env.increaseContrast || env.inactive) return "opaque";
   const ladder: GlassImpl[] = ["native", "refraction", "css", "opaque"];
   const supported: Record<GlassImpl, boolean> = {
     native: env.nativeGlass,

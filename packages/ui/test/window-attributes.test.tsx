@@ -12,10 +12,20 @@ afterEach(cleanup);
 
 const root = () => document.documentElement.dataset;
 
-function mount(settings: Record<string, unknown>, supportsVibrancy: boolean) {
+function mount(
+  settings: Record<string, unknown>,
+  supportsVibrancy: boolean,
+  system: { reduceTransparency: boolean; highContrast: boolean } | null = null,
+) {
   return render(
-    <StoryWorld edit={(w) => Object.assign(w.settings, settings)}>
-      <AppearanceProvider supportsVibrancy={supportsVibrancy}>
+    <StoryWorld
+      edit={(w) => {
+        Object.assign(w.settings, settings);
+        // `undefined` means "the owner never chose": drop the fixture's value.
+        for (const [k, v] of Object.entries(settings)) if (v === undefined) delete w.settings[k];
+      }}
+    >
+      <AppearanceProvider supportsVibrancy={supportsVibrancy} system={system}>
         <p>content</p>
       </AppearanceProvider>
     </StoryWorld>,
@@ -37,6 +47,22 @@ describe("window attributes (docs/design/redesign-2026.md §3.4, §4)", () => {
     cleanup();
     mount({ [REDUCE_TRANSPARENCY_SETTING]: true }, false);
     await waitFor(() => expect(root().reduceTransparency).toBe("true"));
+  });
+
+  it("applies macOS Reduce Transparency and Increase Contrast unless the owner chose", async () => {
+    mount({ "appearance.contrast": undefined }, true, {
+      reduceTransparency: true,
+      highContrast: true,
+    });
+    await waitFor(() => expect(root().reduceTransparency).toBe("true"));
+    await waitFor(() => expect(root().contrast).toBe("high"));
+    cleanup();
+    mount({ [REDUCE_TRANSPARENCY_SETTING]: false, "appearance.contrast": "standard" }, true, {
+      reduceTransparency: true,
+      highContrast: true,
+    });
+    await waitFor(() => expect(root().reduceTransparency).toBe("false"));
+    await waitFor(() => expect(root().contrast).toBe("standard"));
   });
 
   it("tracks whether the window is key", async () => {

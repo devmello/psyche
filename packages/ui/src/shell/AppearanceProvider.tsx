@@ -33,6 +33,12 @@ export interface AppearanceProviderProps {
   systemLocale?: string | null;
   /** The host can draw the native sidebar material (the macOS desktop window). */
   supportsVibrancy?: boolean;
+  /**
+   * macOS Reduce Transparency / Increase Contrast as the desktop main reads them
+   * (`nativeTheme`); they apply when the owner hasn't chosen in Settings. The web relies on the
+   * `prefers-reduced-transparency` / `prefers-contrast` media queries instead.
+   */
+  system?: { reduceTransparency: boolean; highContrast: boolean } | null;
   children?: ReactNode;
 }
 
@@ -45,15 +51,26 @@ export interface AppearanceProviderProps {
 export function AppearanceProvider({
   systemLocale,
   supportsVibrancy = false,
+  system = null,
   children,
 }: AppearanceProviderProps): ReactElement {
   const { settings } = useSettings();
   const direction = settings[DIRECTION_SETTING];
   const vibrancy = supportsVibrancy && settings[VIBRANCY_SETTING] === true;
-  const reduceTransparency = settings[REDUCE_TRANSPARENCY_SETTING];
+  const chosenTransparency = settings[REDUCE_TRANSPARENCY_SETTING];
+  const reduceTransparency =
+    chosenTransparency === true || chosenTransparency === false
+      ? chosenTransparency
+      : system?.reduceTransparency
+        ? true
+        : undefined;
   useWindowAttributes(vibrancy, reduceTransparency);
+  const appearance = appearanceFromSettings(settings);
+  // Increase Contrast from macOS applies until the owner picks a contrast in Settings.
+  if (settings["appearance.contrast"] === undefined && system?.highContrast)
+    appearance.contrast = "high";
   return (
-    <ThemeProvider settings={appearanceFromSettings(settings)}>
+    <ThemeProvider settings={appearance}>
       <SystemLocale.Provider value={systemLocale ?? null}>
         <SupportsVibrancy.Provider value={supportsVibrancy}>
           <I18nProvider
