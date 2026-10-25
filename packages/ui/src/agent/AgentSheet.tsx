@@ -212,10 +212,11 @@ export function AgentSheet({
         data-testid="agent-sheet"
         className={cn(
           "gap-0",
-          // A 420 px glass right sheet (redesign §3.4, §5.7); a bottom sheet with a grabber on
-          // narrow windows (§5.11). Under Reduce Transparency the glass turns opaque.
+          // A 420 px right sheet (redesign §5.7) on the opaque overlay surface at level 3 over a
+          // dimming scrim: modal sheets are not glass (materials decision, #584 / A2b); a bottom
+          // sheet with a grabber on narrow windows (§5.11).
           side === "right"
-            ? "bg-(--material-glass) shadow-elevation-3 [backdrop-filter:var(--material-blur)] data-[side=right]:w-full data-[side=right]:border-0 data-[side=right]:sm:max-w-[420px]"
+            ? "bg-surface-overlay shadow-elevation-3 data-[side=right]:w-full data-[side=right]:border-0 data-[side=right]:sm:max-w-[420px]"
             : "max-h-[85vh] rounded-t-xl bg-surface-overlay pt-2",
         )}
       >

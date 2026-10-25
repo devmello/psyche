@@ -9,7 +9,7 @@ import { SoulMemoryPanel } from "./SoulMemoryPanel.tsx";
 import { UpcomingPanel } from "./UpcomingPanel.tsx";
 
 /**
- * The agent sheet (docs/design/redesign-2026.md §5.7): a 420 px glass right sheet with a 64 px
+ * The agent sheet (docs/design/redesign-2026.md §5.7): a 420 px opaque right sheet (level 3, over a scrim) with a 64 px
  * header and segmented tabs, and its four panels in populated, empty, loading and error states.
  * The visual baseline shoots Agent/* in light and dark.
  */
