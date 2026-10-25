@@ -19,6 +19,62 @@ export const DentistBooking: Story = {
   ),
 };
 
+/** Redesign 2026 §5.2: the main chat at rest (no run, nothing pending). */
+export const Idle: Story = {
+  decorators: [
+    withWorld({
+      edit: (w) => {
+        w.runs = w.runs.map((r) => ({ ...r, status: "done" as const }));
+        w.approvals = w.approvals.filter((a) => a.status !== "pending");
+      },
+    }),
+  ],
+  render: () => (
+    <div className="flex h-[720px] flex-col">
+      <ChatThread threadId={IDS.threads.main} now={STORY_NOW} />
+    </div>
+  ),
+};
+
+/** Before the first message: the 64 px avatar, the name and three suggestion chips. */
+export const EmptySideChat: Story = {
+  decorators: [
+    withWorld({
+      edit: (w) => {
+        w.messages = w.messages.filter((m) => m.threadId !== IDS.threads.lisbon);
+        w.approvals = w.approvals.filter((a) => a.requestedBy.threadId !== IDS.threads.lisbon);
+      },
+    }),
+  ],
+  render: () => (
+    <div className="flex h-[720px] flex-col">
+      <ChatThread threadId={IDS.threads.lisbon} now={STORY_NOW} />
+    </div>
+  ),
+};
+
+/** The column at 390 px (web compact, §5.11). */
+export const CompactWidth: Story = {
+  decorators: [withWorld()],
+  render: () => (
+    <div className="flex h-[720px] w-[390px] flex-col">
+      <ChatThread threadId={IDS.threads.dentist} now={STORY_NOW} />
+    </div>
+  ),
+};
+
+/** Reduced motion: fades only, no movement, static working pulse (motion.md §7). */
+export const ReducedMotion: Story = {
+  ...DentistBooking,
+  globals: { motion: "reduced" },
+};
+
+/** Dark appearance: surfaces step up instead of deepening shadows (§3.5). */
+export const Dark: Story = {
+  ...DentistBooking,
+  globals: { theme: "dark" },
+};
+
 /** #548: fifty messages scroll inside the viewport; the composer stays pinned. */
 export const LongThread: Story = {
   decorators: [withWorld({ edit: (w) => addLongConversation(w, IDS.threads.main, 50) })],

@@ -8,9 +8,9 @@ export function OfflineBanner({ state }: { state: ConnectionState }): ReactEleme
   return (
     <div
       role="status"
-      className="flex items-center gap-2 border-b border-gray-6 bg-gray-3 px-4 py-2 text-sm text-foreground"
+      className="flex items-center justify-center gap-2 bg-fill-tertiary px-4 py-1.5 text-callout text-label-primary"
     >
-      <CloudOff className="size-4 text-gray-11" aria-hidden="true" />
+      <CloudOff className="size-4 text-label-secondary" aria-hidden="true" />
       {state === "connecting" ? t("chat.offline.connecting") : t("chat.offline.unreachable")}
     </div>
   );

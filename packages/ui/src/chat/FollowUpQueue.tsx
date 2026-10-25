@@ -31,16 +31,16 @@ export function FollowUpQueue({
 }): ReactElement | null {
   if (items.length === 0) return null;
   return (
-    <ul className="flex flex-wrap gap-1.5 px-1 pb-1.5" aria-label={t("chat.queue.list")}>
+    <ul className="flex flex-wrap justify-center gap-1.5" aria-label={t("chat.queue.list")}>
       {items.map((q) => (
         <li
           key={q.id}
-          className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-gray-6 bg-gray-2 py-0.5 ps-2.5 pe-1 text-small"
+          className="material-glass inline-flex h-7 max-w-full items-center gap-1.5 rounded-full ps-3 pe-1 text-callout text-label-primary"
         >
           {onSendNow && !q.failed ? (
             <DropdownMenu>
               <DropdownMenuTrigger
-                className="inline-flex shrink-0 items-center gap-0.5 rounded-full text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                className="inline-flex shrink-0 cursor-default items-center gap-0.5 rounded-full text-label-secondary transition-colors duration-(--duration-micro) outline-none hover:text-label-primary focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label={t("chat.queue.changeWhen", {
                   mode: modeLabel(q.mode),
                   content: q.content,
@@ -59,7 +59,7 @@ export function FollowUpQueue({
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <span className="shrink-0 text-muted-foreground">
+            <span className="shrink-0 text-label-secondary">
               {t("chat.queue.queuedPrefix", { mode: modeLabel(q.mode) })}
             </span>
           )}
@@ -71,7 +71,7 @@ export function FollowUpQueue({
                 <button
                   type="button"
                   onClick={() => onRetry(q.id)}
-                  className="rounded px-1 text-accent-11 hover:bg-gray-4"
+                  className="cursor-default rounded-sm px-1 text-accent-11 hover:bg-fill-tertiary"
                   aria-label={t("chat.queue.retry", { content: q.content })}
                 >
                   {t("common.retry")}
@@ -82,7 +82,7 @@ export function FollowUpQueue({
           <button
             type="button"
             onClick={() => onRemove(q.id)}
-            className="inline-flex size-6 items-center justify-center rounded-full text-muted-foreground hover:bg-gray-4 hover:text-foreground"
+            className="inline-flex size-6 cursor-default items-center justify-center rounded-full text-label-secondary hover:bg-fill-tertiary hover:text-label-primary"
             aria-label={t("chat.queue.remove", { content: q.content })}
           >
             <X className="size-3.5" aria-hidden="true" />

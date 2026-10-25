@@ -1,21 +1,26 @@
 import type { PermissionMode } from "@psyche/protocol";
 import { Bell, ChevronDown, Download, Ellipsis, PanelRight, ShieldCheck } from "lucide-react";
+import * as m from "motion/react-m";
 import type { ReactElement, ReactNode } from "react";
 import { AVATAR_STATE_LABEL, Avatar, type AvatarState } from "../avatar/Avatar.tsx";
+import { DISCLOSURE_KEY, type DisclosureLevel } from "../blocks/disclosure.tsx";
 import type { ExportFormat } from "../chat/ExportMenu.tsx";
 import { Button } from "../components/ui/button.tsx";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu.tsx";
 import { useNotifications, useStoreState } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
-import { cn } from "../lib/utils.ts";
+import { fade, Presence } from "../motion/index.ts";
 import { usePersona } from "../slots.tsx";
 import { useAgentStatus } from "./useAgentState.ts";
 
@@ -57,14 +62,16 @@ export function modelLabel(ref: string): string {
   return out.join(" ") || ref;
 }
 
-/** Pills in the header share one quiet, clearly interactive look (no disabled gray). */
-const PILL =
-  "inline-flex h-7 items-center gap-1 rounded-full border border-gray-6 bg-gray-2 px-2.5 text-small font-medium text-foreground transition-colors hover:border-gray-8 hover:bg-gray-3 [&_svg]:size-3.5 [&_svg]:text-gray-11";
-
 /** True when the snippet already starts with the state word ("Idle", "Working…", "Needs you: 2"). */
 function snippetSaysState(snippet: string, state: AvatarState): boolean {
   return snippet.toLowerCase().startsWith(AVATAR_STATE_LABEL[state].toLowerCase());
 }
+
+/** One segment of the toolbar's mode / model pill group (§4, §5.2). */
+const SEGMENT =
+  "inline-flex h-7 cursor-default items-center gap-1 px-3 text-body text-label-primary transition-colors duration-(--duration-micro) ease-(--ease-standard) outline-none hover:bg-fill-tertiary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset aria-expanded:bg-fill-secondary [&_svg]:size-3.5 [&_svg]:text-label-secondary";
+/** The same segment when there is no handler: text, not a disabled control. */
+const SEGMENT_STATIC = "inline-flex h-7 items-center gap-1 px-3 text-body text-label-secondary";
 
 export interface AgentHeaderProps {
   /** Opens the agent sheet (avatar click). */
@@ -80,9 +87,12 @@ export interface AgentHeaderProps {
   paused?: boolean;
   /** Export the open thread (⋯ → Export: Markdown / JSON / HTML, §3.2). */
   onExport?: (format: ExportFormat) => void;
-  /** Extra items for the ⋯ menu (rename, …). */
+  /** Transcript view level (⋯ → View; ⌃O cycles). Replaces the separate "View" strip (§4). */
+  disclosure?: DisclosureLevel;
+  onDisclosureChange?: (level: DisclosureLevel) => void;
+  /** Extra items for the ⋯ menu (rename, fork, …). */
   menu?: ReactNode;
-  /** The thread's context meter, before the permission-mode pill. */
+  /** The thread's context meter, before the pill group. */
   context?: ReactNode;
   /** ⋯ → Context limits… (this chat's own limits). */
   onContextLimits?: () => void;
@@ -90,9 +100,13 @@ export interface AgentHeaderProps {
   onCompact?: () => void;
 }
 
+const LEVELS: readonly DisclosureLevel[] = [0, 1, 2];
+
 /**
- * Agent header (UI design §2.3, §3.1): avatar with state ring, persona name, status snippet,
- * counters, permission-mode pill, model pill, bell, ⋯.
+ * The chat column's toolbar content (redesign-2026 §4, §5.2): the 28 px avatar with its state
+ * ring, the persona name, the status snippet (cross-fades at a fixed width), counters, the mode
+ * and model pill group, the bell and ⋯ (agent sheet, model, view level, context, export). The
+ * separate "View" strip is gone: the transcript view level lives in ⋯ and on ⌃O.
  */
 export function AgentHeader({
   onOpenSheet,
@@ -105,6 +119,8 @@ export function AgentHeader({
   incognito = false,
   paused = false,
   onExport,
+  disclosure,
+  onDisclosureChange,
   menu,
   context,
   onContextLimits,
@@ -120,12 +136,19 @@ export function AgentHeader({
     return task.checklist.find((c) => c.status === "in_progress")?.text ?? task.title;
   });
   const snippet = status.state !== "offline" && step !== null ? step : status.snippet;
+  const pills = mode !== undefined || model !== undefined;
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-gray-6 px-4">
+    <div
+      role="toolbar"
+      aria-label={t("chat.toolbar.label")}
+      aria-orientation="horizontal"
+      className="flex h-13 shrink-0 items-center gap-3 bg-canvas ps-4 pe-3"
+      data-testid="chat-toolbar"
+    >
       <button
         type="button"
         onClick={onOpenSheet}
-        className="rounded-full"
+        className="shrink-0 cursor-default rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         aria-label={t("agent.header.openSheet", { name: persona.name })}
         aria-keyshortcuts="Meta+Shift+A"
       >
@@ -135,21 +158,31 @@ export function AgentHeader({
           {...(persona.imageSrc ? { imageSrc: persona.imageSrc } : {})}
           state={status.state}
           count={status.needsYou}
-          size={40}
+          size={28}
           decorative
         />
       </button>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold">{persona.name}</p>
+      <div className="flex min-w-0 flex-1 items-baseline gap-2">
+        <p className="shrink-0 text-headline text-label-primary">{persona.name}</p>
+        {incognito ? (
+          <span className="shrink-0 rounded-full border border-dashed border-separator-strong px-2 text-subheadline text-label-secondary">
+            {t("chat.toolbar.incognito")}
+          </span>
+        ) : null}
         {/*
           One polite live region around the snippet (C13: the region holds the button, it is
-          not on it). The state word is said once (#555): as a lead only when the snippet does
-          not already say it ("working: Hold the 2:30 slot", but just "Idle").
+          not on it). The state word is said once (#555). The text cross-fades in place at a
+          fixed width (motion.md §3: it never moves).
         */}
-        <div role="status" aria-live="polite" data-testid="agent-status">
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="agent-status"
+          className="relative min-w-0 max-w-[36ch] flex-1"
+        >
           <button
             type="button"
-            className="block max-w-full truncate text-start text-sm text-muted-foreground hover:text-foreground"
+            className="block w-full cursor-default truncate rounded-sm text-start text-callout text-label-secondary outline-none hover:text-label-primary focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() =>
               status.taskId && onOpenTask ? onOpenTask(status.taskId) : onOpenSheet()
             }
@@ -159,12 +192,16 @@ export function AgentHeader({
                 {t("agent.header.stateLead", { state: AVATAR_STATE_LABEL[status.state] })}{" "}
               </span>
             )}
-            {snippet}
+            <Presence mode="popLayout" initial={false}>
+              <m.span key={snippet} className="inline" {...fade}>
+                {snippet}
+              </m.span>
+            </Presence>
           </button>
         </div>
       </div>
       {status.running > 0 || status.needsYou > 0 ? (
-        <p className="hidden items-center gap-2 text-callout text-muted-foreground sm:flex">
+        <p className="hidden shrink-0 items-center gap-2 text-callout text-label-secondary md:flex">
           {status.running > 0 ? (
             <span>{t("agent.header.running", { n: status.running })}</span>
           ) : null}
@@ -172,7 +209,7 @@ export function AgentHeader({
             <button
               type="button"
               onClick={onOpenSheet}
-              className="rounded-sm text-approval-text hover:underline"
+              className="cursor-default rounded-sm text-approval-text outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
             >
               {t("agent.header.needYou", { n: status.needsYou })}
             </button>
@@ -180,70 +217,81 @@ export function AgentHeader({
         </p>
       ) : null}
       {context}
-      {mode ? (
-        onModeChange ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className={PILL}
-              aria-label={t("agent.header.modeLabel", { mode: MODE_LABEL[mode] })}
-              aria-keyshortcuts="Meta+Shift+M"
-            >
-              <ShieldCheck aria-hidden="true" />
-              {MODE_LABEL[mode]}
-              <ChevronDown aria-hidden="true" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuRadioGroup
-                value={mode}
-                onValueChange={(m) => onModeChange(m as PermissionMode)}
+      {pills ? (
+        // The mode and model pills are one glass control group (§4), concentric capsules.
+        <div
+          className="material-glass flex shrink-0 items-center overflow-hidden rounded-full"
+          data-testid="toolbar-pills"
+        >
+          {mode ? (
+            onModeChange ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className={SEGMENT}
+                  aria-label={t("agent.header.modeLabel", { mode: MODE_LABEL[mode] })}
+                  aria-keyshortcuts="Meta+Shift+M"
+                >
+                  <ShieldCheck aria-hidden="true" />
+                  {MODE_LABEL[mode]}
+                  <ChevronDown aria-hidden="true" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuRadioGroup
+                    value={mode}
+                    onValueChange={(m) => onModeChange(m as PermissionMode)}
+                  >
+                    {(Object.keys(MODE_LABEL) as PermissionMode[]).map((m) => (
+                      <DropdownMenuRadioItem key={m} value={m}>
+                        {MODE_LABEL[m]}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <span className={SEGMENT_STATIC}>
+                <ShieldCheck className="size-3.5" aria-hidden="true" />
+                <span className="sr-only">{t("agent.header.modeLead")} </span>
+                {MODE_LABEL[mode]}
+              </span>
+            )
+          ) : null}
+          {mode && model ? (
+            <span className="h-4 w-px shrink-0 bg-separator" aria-hidden="true" />
+          ) : null}
+          {model ? (
+            onOpenModelPicker ? (
+              <button
+                type="button"
+                className={SEGMENT}
+                onClick={onOpenModelPicker}
+                aria-label={t("agent.header.modelLabel", { model: modelLabel(model) })}
+                title={model}
+                aria-keyshortcuts="Meta+Shift+I"
               >
-                {(Object.keys(MODE_LABEL) as PermissionMode[]).map((m) => (
-                  <DropdownMenuRadioItem key={m} value={m}>
-                    {MODE_LABEL[m]}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : (
-          // Read-only here (no handler): a plain chip, not a disabled button.
-          <span className={cn(PILL, "hover:border-gray-6 hover:bg-gray-2")}>
-            <ShieldCheck aria-hidden="true" />
-            <span className="sr-only">{t("agent.header.modeLead")} </span>
-            {MODE_LABEL[mode]}
-          </span>
-        )
-      ) : null}
-      {model ? (
-        onOpenModelPicker ? (
-          <button
-            type="button"
-            className={PILL}
-            onClick={onOpenModelPicker}
-            aria-label={t("agent.header.modelLabel", { model: modelLabel(model) })}
-            title={model}
-            aria-keyshortcuts="Meta+Shift+I"
-          >
-            {modelLabel(model)}
-            <ChevronDown aria-hidden="true" />
-          </button>
-        ) : (
-          <span className={cn(PILL, "hover:border-gray-6 hover:bg-gray-2")} title={model}>
-            <span className="sr-only">{t("agent.header.modelLead")} </span>
-            {modelLabel(model)}
-          </span>
-        )
+                {modelLabel(model)}
+                <ChevronDown aria-hidden="true" />
+              </button>
+            ) : (
+              <span className={SEGMENT_STATIC} title={model}>
+                <span className="sr-only">{t("agent.header.modelLead")} </span>
+                {modelLabel(model)}
+              </span>
+            )
+          ) : null}
+        </div>
       ) : null}
       <Button
         variant="ghost"
         size="icon-sm"
+        className="relative"
         onClick={onOpenInbox}
         aria-label={t("agent.header.notifications", { n: unread.length })}
       >
         <Bell aria-hidden="true" />
         {unread.length > 0 ? (
           <span
-            className="absolute -mt-4 ms-4 rounded-full bg-accent-9 px-1 text-[10px] text-accent-contrast"
+            className="absolute -top-0.5 -end-0.5 min-w-4 rounded-full bg-accent-9 px-1 text-center text-[11px] leading-4 text-accent-contrast tabular-nums"
             aria-hidden="true"
           >
             {unread.length}
@@ -256,14 +304,35 @@ export function AgentHeader({
         >
           <Ellipsis aria-hidden="true" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" className="min-w-56">
           <DropdownMenuItem onClick={onOpenSheet}>
             <PanelRight aria-hidden="true" /> {t("agent.header.menuSheet")}
+            <DropdownMenuShortcut>⌘⇧A</DropdownMenuShortcut>
           </DropdownMenuItem>
           {onOpenModelPicker ? (
             <DropdownMenuItem onClick={onOpenModelPicker}>
               {t("agent.header.changeModel")}
+              <DropdownMenuShortcut>⌘⇧I</DropdownMenuShortcut>
             </DropdownMenuItem>
+          ) : null}
+          {disclosure !== undefined && onDisclosureChange ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>{t("chat.toolbar.view")}</DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={String(disclosure)}
+                  onValueChange={(v) => onDisclosureChange(Number(v) as DisclosureLevel)}
+                >
+                  {LEVELS.map((level) => (
+                    <DropdownMenuRadioItem key={level} value={String(level)}>
+                      {t(`chat.toolbar.view.${DISCLOSURE_KEY[level]}`)}
+                      {level === 0 ? <DropdownMenuShortcut>⌃O</DropdownMenuShortcut> : null}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuGroup>
+            </>
           ) : null}
           {onContextLimits || onCompact ? (
             <>
@@ -302,6 +371,6 @@ export function AgentHeader({
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
-    </header>
+    </div>
   );
 }

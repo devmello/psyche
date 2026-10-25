@@ -45,12 +45,12 @@ export function RunFailure({ run }: { run: Run }): ReactElement {
   return (
     <div
       role="alert"
-      className="my-2 flex items-start gap-2 rounded-lg border border-danger-text/30 bg-danger-surface px-3 py-2 text-sm"
+      className="mt-3 ms-7 flex items-start gap-2 rounded-lg bg-surface-raised px-4 py-3 text-body shadow-elevation-1"
       data-testid="run-failure"
     >
       <CircleAlert className="mt-0.5 size-4 shrink-0 text-danger-text" aria-hidden="true" />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="font-medium text-foreground">
+        <p className="text-label-primary">
           {credential ? t("chat.runFailed.credential") : t("chat.runFailed.generic")}
         </p>
         <div className="flex flex-wrap items-center gap-2">
@@ -78,7 +78,7 @@ export function RunFailure({ run }: { run: Run }): ReactElement {
           ) : null}
         </div>
         {open ? (
-          <p id={`${id}-details`} className="font-mono text-xs break-words text-muted-foreground">
+          <p id={`${id}-details`} className="text-mono break-words text-label-secondary">
             {error}
           </p>
         ) : null}

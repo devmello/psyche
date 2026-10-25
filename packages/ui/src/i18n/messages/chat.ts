@@ -79,7 +79,7 @@ export const chat = {
   "chat.message.editHint":
     "Edits are sent in a side chat forked from here; this chat keeps the original.",
   "chat.message.resendAsSideChat": "Resend as a side chat",
-  "chat.message.fromTask": "from task: {title}",
+  "chat.message.fromTask": "From task: {title}",
 
   "chat.approvals.announce":
     "Approval needed: {summary}. {count, plural, one {# approval needs you} other {# approvals need you}}.",
@@ -118,4 +118,17 @@ export const chat = {
   "chat.runFailed.generic": "Psyche couldn't finish this reply.",
   "chat.runFailed.openModels": "Open Settings → Models",
   "chat.runFailed.details": "Details",
+
+  // Redesign 2026, workstream B (docs/design/redesign-2026.md §5.2).
+  "chat.toolbar.label": "Chat toolbar",
+  "chat.toolbar.incognito": "Incognito",
+  "chat.toolbar.view": "Transcript view",
+  "chat.toolbar.view.status": "Status only",
+  "chat.toolbar.view.actions": "Actions",
+  "chat.toolbar.view.raw": "Raw tool I/O",
+  "chat.thread.jumpToLatest": "Jump to latest",
+  "chat.suggest.label": "Suggestions",
+  "chat.suggest.today": "What's on my plate today?",
+  "chat.suggest.inbox": "Summarize my unread email",
+  "chat.suggest.plan": "Help me plan this week",
 } as const;
