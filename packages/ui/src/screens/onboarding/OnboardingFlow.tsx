@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { type ReactElement, useEffect, useId, useRef, useState } from "react";
 import { DEFAULT_CREATURE } from "../../avatar/creatures/index.tsx";
 import { PsycheMark } from "../../brand.tsx";
@@ -39,7 +39,8 @@ import {
 } from "./types.ts";
 
 /**
- * Onboarding (UI design §3.19): a six-step stepper. The OS prompts, connect flows, key storage
+ * Onboarding (UI design §3.19; redesign-2026 §5.9): one centred column, step dots, one decision
+ * per step. The OS prompts, connect flows, key storage
  * and the tool-calling check run in the shell through callback props; the flow ends with
  * `onComplete(result)`, which writes IDENTITY.md and starts BOOTSTRAP.md.
  */
@@ -322,60 +323,57 @@ export function OnboardingFlow({
     };
   }, [current, onVerify]);
 
+  // Which way the step body slides in: forward from the trailing side, back from the leading.
+  const lastIndex = useRef(index);
+  const direction = index >= lastIndex.current ? "forward" : "back";
+  useEffect(() => {
+    lastIndex.current = index;
+  }, [index]);
+
   return (
     <div
-      // A centered column (UI design §4.1: prose width plus the preview column). In a flex
-      // parent it is also centred vertically (`my-auto`) with a steady minimum height, so the
-      // step body never floats above an empty window and Back / Next keep their place between
-      // steps; taller steps scroll. `shrink-0`: with an explicit min-height a flex item may
-      // otherwise shrink to the window and let Back / Next overflow below the column.
-      className="mx-auto my-auto flex w-full max-w-4xl shrink-0 flex-col gap-6 px-6 py-8 sm:px-10 md:min-h-[600px]"
+      // One centred 560 px column (docs/design/redesign-2026.md §5.9). In a flex parent it is
+      // also centred vertically (`my-auto`) with a steady minimum height, so Back / Next keep
+      // their place between steps; taller steps scroll. `shrink-0`: with an explicit min-height
+      // a flex item may otherwise shrink to the window and let Back / Next overflow.
+      className="mx-auto my-auto flex w-full max-w-[608px] shrink-0 flex-col gap-8 bg-canvas px-6 py-10 md:min-h-[600px]"
       data-testid="onboarding-flow"
     >
-      <header className="flex flex-col gap-5">
-        <span className="text-accent-11" data-testid="onboarding-mark">
+      <header className="flex flex-col items-center gap-5">
+        <span className="text-label-tertiary" data-testid="onboarding-mark">
           <PsycheMark size={24} />
         </span>
         <nav aria-label={t("onboarding.progress")}>
-          <ol className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+          {/* Step dots; each dot is named for VoiceOver and the visited ones are buttons. */}
+          <ol className="flex items-center gap-2">
             {steps.map((s, i) => {
               const active = s === current;
               const done = i < index;
               const reachable = i <= reached && !active;
               const label = stepLabel(s, name);
+              const dot = cn(
+                "block h-2 rounded-full transition-[width,background-color] duration-(--duration-short)",
+                active ? "w-5 bg-accent-9" : done ? "w-2 bg-accent-7" : "w-2 bg-fill-primary",
+              );
               return (
-                <li
-                  key={s}
-                  aria-current={active ? "step" : undefined}
-                  className={cn(
-                    "flex items-center gap-1.5",
-                    active ? "font-semibold text-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={cn(
-                      "flex size-5 items-center justify-center rounded-full border text-xs",
-                      active
-                        ? "border-accent-9 bg-accent-9 text-accent-contrast"
-                        : done
-                          ? "border-accent-7 text-accent-11"
-                          : "border-gray-7",
-                    )}
-                  >
-                    {done ? <Check className="size-3" /> : i + 1}
-                  </span>
+                <li key={s} aria-current={active ? "step" : undefined}>
                   {reachable ? (
                     <button
                       type="button"
-                      className="rounded-sm underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                      className="flex h-6 cursor-default items-center rounded-full px-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       onClick={() => go(s)}
                     >
-                      {label}
-                      {done ? <span className="sr-only">{t("onboarding.doneMark")}</span> : null}
+                      <span aria-hidden="true" className={dot} />
+                      <span className="sr-only">
+                        {label}
+                        {done ? ` ${t("onboarding.doneMark")}` : ""}
+                      </span>
                     </button>
                   ) : (
-                    <span>{label}</span>
+                    <span className="flex h-6 items-center px-0.5">
+                      <span aria-hidden="true" className={dot} />
+                      <span className="sr-only">{label}</span>
+                    </span>
                   )}
                 </li>
               );
@@ -384,12 +382,23 @@ export function OnboardingFlow({
         </nav>
       </header>
 
-      <section aria-labelledby={headingId} className="flex flex-1 flex-col gap-4">
+      <section
+        key={current}
+        aria-labelledby={headingId}
+        data-direction={direction}
+        // Steps change with a 24 px slide plus a crossfade on spring.gentle (§5.9).
+        className={cn(
+          "flex flex-1 flex-col gap-6 animate-in fade-in-0 duration-(--spring-gentle-duration) ease-(--spring-gentle)",
+          direction === "forward"
+            ? "slide-in-from-right-6 rtl:slide-in-from-left-6"
+            : "slide-in-from-left-6 rtl:slide-in-from-right-6",
+        )}
+      >
         <h1
           id={headingId}
           ref={headingRef}
           tabIndex={-1}
-          className="text-h1 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="text-large-title text-label-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="sr-only">
             {t("onboarding.stepOf", { n: index + 1, total: steps.length })}{" "}
@@ -467,13 +476,10 @@ export function OnboardingFlow({
         ) : null}
       </section>
 
-      <div
-        className="mt-auto flex items-center justify-between gap-2 border-t border-gray-6 pt-4"
-        data-testid="onboarding-nav"
-      >
+      <div className="mt-auto flex items-center gap-2" data-testid="onboarding-nav">
         <Button
           type="button"
-          variant="ghost"
+          variant="plain"
           disabled={index === 0}
           onClick={() => {
             const prev = steps[index - 1];
@@ -482,11 +488,11 @@ export function OnboardingFlow({
         >
           <ArrowLeft aria-hidden="true" className="rtl:rotate-180" /> {t("onboarding.back")}
         </Button>
+        <span className="ms-auto" />
         {current === "connectors" && connectors.length === 0 ? (
           <Button
             type="button"
-            variant="ghost"
-            className="ms-auto"
+            variant="plain"
             onClick={() => {
               const next = steps[index + 1];
               if (next) go(next);
@@ -496,12 +502,13 @@ export function OnboardingFlow({
           </Button>
         ) : null}
         {isLast ? (
-          <Button type="button" onClick={() => onComplete(result)}>
+          <Button type="button" size="lg" onClick={() => onComplete(result)}>
             {t("onboarding.openChat")}
           </Button>
         ) : (
           <Button
             type="button"
+            size="lg"
             disabled={recoveryPending}
             onClick={() => {
               const next = steps[index + 1];

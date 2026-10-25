@@ -39,28 +39,32 @@ export function CreaturePicker({
   const id = useId();
   return (
     <div className="flex flex-col gap-1.5">
-      <span id={`${id}-label`} className="font-medium text-foreground">
+      <span id={`${id}-label`} className="text-headline text-label-primary">
         {label}
       </span>
       <RadioGroup
         aria-labelledby={`${id}-label`}
         value={value}
         onValueChange={(v) => onChange(String(v))}
-        className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6"
+        className="grid grid-cols-[repeat(auto-fill,minmax(72px,1fr))] gap-3"
       >
         {CREATURES.map((c) => (
-          // One control per choice: the whole tile is the radio, named by the creature.
+          // One control per choice: the whole 72 px tile is the radio, named by the creature;
+          // the selection is an accent ring, with no inner radio (redesign §5.9). Large tiles may
+          // scale to 0.985 on press (motion.md §4.4).
           <RadioPrimitive.Root
             key={c.id}
             value={c.id}
-            className="flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-gray-6 bg-background p-2 text-sm outline-none transition-colors hover:bg-gray-3 focus-visible:ring-3 focus-visible:ring-ring data-checked:border-accent-8 data-checked:bg-accent-3 data-checked:text-accent-12"
+            className="group/tile flex cursor-default flex-col items-center gap-1 rounded-lg p-1 text-callout text-label-secondary outline-none transition-transform duration-(--spring-micro-duration) ease-(--spring-micro) active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-ring data-checked:text-label-primary"
           >
-            <Avatar name={personaName} creature={c.id} size={40} decorative />
+            <span className="flex size-[72px] items-center justify-center rounded-full bg-fill-quaternary ring-offset-2 ring-offset-canvas group-data-checked/tile:ring-2 group-data-checked/tile:ring-accent-9">
+              <Avatar name={personaName} creature={c.id} size={64} decorative />
+            </span>
             <span>{c.name}</span>
           </RadioPrimitive.Root>
         ))}
       </RadioGroup>
-      <p className="text-xs text-muted-foreground" aria-live="polite">
+      <p className="text-callout text-label-secondary" aria-live="polite">
         {getCreature(value).description}
       </p>
     </div>
