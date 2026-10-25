@@ -35,7 +35,7 @@ export function FollowUpQueue({
       {items.map((q) => (
         <li
           key={q.id}
-          className="material-glass inline-flex h-7 max-w-full items-center gap-1.5 rounded-full ps-3 pe-1 text-callout text-label-primary"
+          className="bg-surface-raised shadow-elevation-1 inline-flex h-7 max-w-full items-center gap-1.5 rounded-full ps-3 pe-1 text-callout text-label-primary"
         >
           {onSendNow && !q.failed ? (
             <DropdownMenu>

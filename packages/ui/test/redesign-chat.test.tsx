@@ -140,7 +140,8 @@ describe("transcript (redesign-2026 §5.2, motion.md §4.6)", () => {
     const log = await screen.findByRole("log", { name: "Conversation" });
     const capsule = screen.getByTestId("composer-capsule");
     expect(log.contains(capsule)).toBe(false);
-    expect(capsule.className).toMatch(/material-glass/);
+    // A Liquid Glass surface (refraction, or the next rung jsdom supports), never two stacked.
+    expect(capsule.querySelector("[data-glass-impl]")).not.toBeNull();
     const box = within(capsule).getByRole("textbox", { name: "Message Wren" });
     const send = within(capsule).getByRole("button", { name: "Send" });
     expect(send.hasAttribute("disabled")).toBe(true);
