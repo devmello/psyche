@@ -137,7 +137,10 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
 
   function createMain(): BaseWindow {
     const win = new BaseWindow({
-      ...mainWindowOptions({ anySize: opts.anySize === true, dark: nativeTheme.shouldUseDarkColors }),
+      ...mainWindowOptions({
+        anySize: opts.anySize === true,
+        dark: nativeTheme.shouldUseDarkColors,
+      }),
       ...opts.mainOptions,
     });
     const view = makeView(win, "/chat", {
