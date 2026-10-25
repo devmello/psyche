@@ -9,12 +9,14 @@ import {
   useSyncExternalStore,
 } from "react";
 import { cn } from "../../lib/utils.ts";
+import { GlassSurface } from "../glass-surface.tsx";
 
 /**
  * The unified toolbar (docs/design/redesign-2026.md §4, §5.2): one 52 px row at the top of the
  * content column holding the page or thread title, leading controls (sidebar toggle, back) and
- * trailing controls (pills, bell, ⋯). It is chrome glass (§3.4) that content scrolls under, with a
- * 24 px scroll-edge fade instead of a hard border.
+ * trailing controls (pills, bell, ⋯). The row itself has no material, only the opaque canvas
+ * with a 24 px scroll-edge fade instead of a hard border; its control groups are the glass
+ * (`ToolbarGroup`, refraction capsules; docs/design/research/liquid-glass.md §6.1).
  *
  * Screens don't render a toolbar of their own: they register their content with `useToolbar` and
  * the shell renders one `ToolbarSlot` in the toolbar row. The registry is an external store, so a
@@ -93,13 +95,22 @@ export function ToolbarTrailing({ className, ...props }: React.ComponentProps<"d
   );
 }
 
-/** Adjacent controls on one capsule (macOS 26 groups toolbar buttons onto one piece of glass). */
+/**
+ * Adjacent controls on one glass capsule (macOS groups toolbar buttons onto one piece of glass):
+ * `GlassSurface` refraction in Chromium, CSS blur elsewhere, opaque under Reduce Transparency,
+ * Increase Contrast or an inactive window. All of a toolbar's groups count as one glass container
+ * in the two-surface budget (motion.md §5): they never overlap.
+ */
 export function ToolbarGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
-    <div
+    <GlassSurface
+      impl="refraction"
+      radius={999}
+      bezel={8}
+      strength={18}
       role="group"
       data-slot="toolbar-group"
-      className={cn("flex items-center gap-0.5 rounded-full bg-fill-tertiary p-0.5", className)}
+      className={cn("flex items-center gap-0.5 p-0.5", className)}
       {...props}
     />
   );

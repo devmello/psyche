@@ -1,3 +1,5 @@
+import { useReducedMotionConfig } from "motion/react";
+import * as m from "motion/react-m";
 import type { ReactElement } from "react";
 import { useStoreState } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
@@ -20,10 +22,15 @@ export function useRunningTool(threadId: string): string | null {
   });
 }
 
+/** The working pulse (motion.md §4.6): 1.2 s, 40% → 100%, linear; four cycles stay under 5 s. */
+const PULSE_SECONDS = 1.2;
+const PULSE_CYCLES = 4;
+
 /**
  * The status line under the last message while a run works (#548): "Wren is working…" from the
  * moment a message is sent until the run settles, "Running mail_search…" while a tool call is in
- * flight. The dots pulse only when motion is allowed; the text alone carries the state.
+ * flight. One shared opacity pulse on the glyph that stops within 5 s (WCAG 2.2.2); under reduced
+ * motion it is static and the text alone carries the state.
  */
 export function WorkingIndicator({
   persona,
@@ -32,22 +39,28 @@ export function WorkingIndicator({
   persona: string;
   tool: string | null;
 }): ReactElement {
+  const reduce = useReducedMotionConfig();
   return (
     <p
       role="status"
       aria-live="polite"
       data-testid="chat-working"
-      className="my-2 flex items-center gap-2 ps-7 text-small text-muted-foreground"
+      className="mt-3 flex items-center gap-2 ps-7 text-callout text-label-secondary"
     >
-      <span className="flex gap-1" aria-hidden="true">
-        {[0, 1, 2].map((i) => (
-          <span
-            key={i}
-            className="size-1.5 rounded-full bg-gray-9 motion-safe:animate-pulse"
-            style={{ animationDelay: `${i * 160}ms` }}
-          />
-        ))}
-      </span>
+      <m.span
+        className="size-2 shrink-0 rounded-full bg-label-secondary"
+        aria-hidden="true"
+        {...(reduce
+          ? {}
+          : {
+              animate: { opacity: [0.4, 1, 0.4] },
+              transition: {
+                duration: PULSE_SECONDS,
+                ease: "linear",
+                repeat: PULSE_CYCLES - 1,
+              },
+            })}
+      />
       {tool === null
         ? t("chat.thread.working", { name: persona })
         : t("chat.thread.runningTool", { tool })}

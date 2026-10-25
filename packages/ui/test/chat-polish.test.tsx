@@ -29,7 +29,10 @@ describe("ReceiptLine (§3.2)", () => {
     const r = receipt(IDS.receipts.emailSent);
     const { container, unmount } = render(<ReceiptLine receipt={r} />);
     const text = container.textContent ?? "";
-    expect(text).toMatch(/^Sent to jane\.ortiz@example\.com · .* · Gmail id 18c4… · \d\d:\d\d$/);
+    // The leading status glyph speaks "Done" (redesign §5.3).
+    expect(text).toMatch(
+      /^Done Sent to jane\.ortiz@example\.com · .* · Gmail id 18c4… · \d\d:\d\d$/,
+    );
     expect(text).not.toContain("gmailThreadId");
     expect(text).not.toContain("r-107");
     unmount();
@@ -77,18 +80,23 @@ describe("ApprovalCard (§3.3)", () => {
       <ApprovalCard approval={a} canAnswer onAnswer={() => {}} now={STORY_NOW} armDelayMs={0} />,
     );
     const card = container.querySelector("fieldset") as HTMLElement;
-    expect(card.className).toContain("bg-gray-2");
+    // Raised surface with a 2 px amber leading edge, not an amber fill (redesign-2026 §5.3).
+    expect(card.className).toContain("bg-surface-raised");
     expect(card.className).not.toContain("bg-approval-surface");
+    expect(card.querySelector("[data-testid=approval-edge]")).not.toBeNull();
     expect(card.textContent).not.toContain(a.bindingHash);
-    const details = screen.getByRole("button", { name: "Details" });
-    expect(details.getAttribute("aria-expanded")).toBe("false");
-    // Opening Details never moves the buttons: it renders after them.
+    // Details are level 2, under the card's ⋯ (§5.3).
+    await userEvent.click(screen.getByRole("button", { name: "More about this approval" }));
+    const details = await screen.findByRole("menuitemcheckbox", { name: "Details" });
+    expect(details.getAttribute("aria-checked")).toBe("false");
     const deny = screen.getByRole("button", { name: "Deny" });
-    const before = deny.compareDocumentPosition(details);
+    const allow = screen.getByRole("button", { name: "Allow with scope" });
     await userEvent.click(details);
-    expect(details.getAttribute("aria-expanded")).toBe("true");
     expect(card.textContent).toContain(a.bindingHash);
-    expect(deny.compareDocumentPosition(details)).toBe(before);
+    // Opening Details never moves the buttons: the panel renders after them.
+    const panel = card.querySelector("[data-testid=approval-ids]") as HTMLElement;
+    expect(deny.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(allow.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("offers the spec's expiry choices through a styled select", () => {

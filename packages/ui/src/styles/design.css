@@ -31,10 +31,24 @@
   --selection: var(--accent-a4);
   --selection-inactive: var(--fill-secondary);
 
-  /* Materials (§3.4): glass for chrome only; opaque fallbacks below. */
+  /*
+    Materials (§3.4; research/liquid-glass.md §6): glass for chrome only, opaque fallbacks below.
+    The CSS rung (popovers, menus, palette) is --material-glass; GlassSurface's refraction rung
+    (toolbar control groups, composer) and the clear variant (controls over media) have their own.
+  */
   --material-glass: color-mix(in oklch, var(--surface-overlay) 72%, transparent);
+  --material-glass-refraction: color-mix(in oklch, var(--surface-overlay) 50%, transparent);
+  --material-glass-clear: color-mix(in oklch, var(--surface-overlay) 15%, transparent);
   --material-glass-highlight: inset 0 0.5px 0 oklch(1 0 0 / 40%);
   --material-blur: blur(20px) saturate(1.6);
+  --material-blur-refraction: blur(10px) saturate(1.8);
+  --material-blur-clear: blur(4px) saturate(1.4);
+
+  /*
+    The window's corner radius is drawn by the system (macOS 27: one smaller radius for every
+    window); this is only the reference for concentric inner radii (inner = window − padding).
+  */
+  --radius-window: 12px;
 
   /* Elevation without borders (§3.5). */
   --elevation-1: 0 0 0 0.5px var(--separator), 0 1px 2px oklch(0 0 0 / 4%);
@@ -63,9 +77,18 @@
   --elevation-3: 0 0 0 0.5px oklch(1 0 0 / 12%), 0 24px 64px oklch(0 0 0 / 50%);
 }
 
-/* An inactive window loses the accent on its selection (A2 sets data-window-active). */
+/*
+  An inactive window loses the accent on its selection and its glass recedes to opaque, as
+  Apple's does (A2 sets data-window-active; research/liquid-glass.md §6.2 rung 4).
+*/
 :root[data-window-active="false"] {
   --selection: var(--selection-inactive);
+  --material-glass: var(--surface-overlay);
+  --material-glass-refraction: var(--surface-overlay);
+  --material-glass-clear: var(--surface-overlay);
+  --material-blur: none;
+  --material-blur-refraction: none;
+  --material-blur-clear: none;
 }
 
 /* Increase Contrast (§3.3): stronger separators, darker labels, opaque materials with a border. */
@@ -75,7 +98,11 @@
   --separator: oklch(0 0 0 / 20%);
   --separator-strong: oklch(0 0 0 / 32%);
   --material-glass: var(--surface-overlay);
+  --material-glass-refraction: var(--surface-overlay);
+  --material-glass-clear: var(--surface-overlay);
   --material-blur: none;
+  --material-blur-refraction: none;
+  --material-blur-clear: none;
 }
 :root[data-theme="dark"][data-contrast="high"] {
   --separator: oklch(1 0 0 / 22%);
@@ -84,19 +111,31 @@
 @media (prefers-contrast: more) {
   :root:not([data-contrast="standard"]) {
     --material-glass: var(--surface-overlay);
+    --material-glass-refraction: var(--surface-overlay);
+    --material-glass-clear: var(--surface-overlay);
     --material-blur: none;
+    --material-blur-refraction: none;
+    --material-blur-clear: none;
   }
 }
 
 /* Reduce Transparency (§3.4): every material becomes opaque. */
 :root[data-reduce-transparency="true"] {
   --material-glass: var(--surface-overlay);
+  --material-glass-refraction: var(--surface-overlay);
+  --material-glass-clear: var(--surface-overlay);
   --material-blur: none;
+  --material-blur-refraction: none;
+  --material-blur-clear: none;
 }
 @media (prefers-reduced-transparency: reduce) {
   :root:not([data-reduce-transparency="false"]) {
     --material-glass: var(--surface-overlay);
+    --material-glass-refraction: var(--surface-overlay);
+    --material-glass-clear: var(--surface-overlay);
     --material-blur: none;
+    --material-blur-refraction: none;
+    --material-blur-clear: none;
   }
 }
 
@@ -180,10 +219,13 @@
     The unified toolbar (§4): chrome glass without an elevation shadow; content scrolling under
     it fades through a 24 px scroll-edge instead of meeting a hard border.
   */
+  /*
+    The toolbar row has no material (macOS 27 resolves the edge to hard; non-interactive titles
+    stay off glass): an opaque canvas with a 24 px scroll-edge fade. Only its control groups are
+    glass (ToolbarGroup → GlassSurface refraction).
+  */
   .material-toolbar {
-    background-color: var(--material-glass);
-    -webkit-backdrop-filter: var(--material-blur);
-    backdrop-filter: var(--material-blur);
+    background-color: var(--canvas);
   }
   .material-toolbar::after {
     content: "";

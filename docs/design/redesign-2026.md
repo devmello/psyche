@@ -171,15 +171,31 @@ Apple's rule: glass on the navigation and control layer only; never glass on gla
 - PR #50415 (`setGlassEffect`) closed unmerged on 2026-06-30.
 - The community `electron-liquid-glass` addon says "DO NOT USE IN PROD".
 
-So Psyche uses two tiers.
+Amended 2026-10-25 by the Liquid Glass study ([research/liquid-glass.md](research/liquid-glass.md) §6), which is now the materials decision.
 
-| Material | Where | Desktop (Electron) | Web | Fallback (Reduce Transparency, Increase Contrast, inactive window, unsupported) |
-| --- | --- | --- | --- | --- |
-| **Sidebar material** | Sidebar, settings window sidebar | Native `vibrancy: "sidebar"` with `visualEffectState: "followWindow"`. The window background is transparent under the sidebar only; the content column paints `--canvas` opaquely on top. | `--surface-sidebar` opaque (no blur: it's a large region and blur costs scale with area) | Opaque `--surface-sidebar` |
-| **Chrome glass** | The toolbar's scroll-edge strip, the floating composer, popovers, menus, the ⌘K palette, the agent sheet | CSS: `background: color-mix(in oklch, var(--surface-raised) 72%, transparent)` with `backdrop-filter: blur(20px) saturate(1.6)` and a 0.5 px inner highlight (`inset 0 0.5px 0 white/40%`) | Same | Opaque `--surface-overlay` + `--separator` border |
+This Mac runs macOS 27, where WWDC26 made sidebars edge to edge again, made glass more opaque and gave every window one radius. That confirms chrome-only glass. `electron-liquid-glass` is not adopted: it places glass under the whole window, samples the desktop, and needs a transparent window.
 
-- **Ship gate for vibrancy:** native vibrancy ships behind `appearance.vibrancy` (default on). Workstream A must verify it on macOS 26 first, because one report has `setVibrancy` rendering flat grey on Tahoe. If it fails there, the default flips to off and the opaque fallback is the design.
-- **Glass budget:** never more than two glass surfaces at once (motion.md §5). Glass is never stacked: a popover over the composer becomes opaque.
+Every glass surface is a `GlassSurface` with a fallback ladder: **native → refraction → css → opaque** (`resolveGlassImpl`).
+
+| Surface | Desktop (Electron) | Web, Chromium | Web, Safari / Firefox |
+| --- | --- | --- | --- |
+| **Sidebar**, including the Settings window sidebar | Native `vibrancy: "sidebar"`, `visualEffectState: "followWindow"`, `transparent: false`, behind `appearance.vibrancy` (**off by default** until verified on macOS 27) | Opaque `--surface-sidebar` | Opaque |
+| **Toolbar row** (52 px) | **No material.** Opaque canvas with a 24 px scroll-edge fade | Same | Same |
+| **Toolbar control groups** (mode and model pills, bell, ⋯) | `ToolbarGroup` → `GlassSurface impl="refraction"` capsule | Refraction | CSS blur |
+| **Composer** | `GlassSurface impl="refraction"`, radius = height / 2 | Refraction | CSS blur |
+| **Popovers, menus, ⌘K palette** | `.material-glass` (the CSS rung, 72% tint, `blur(20px) saturate(1.6)`) | Same | Same |
+| **Agent sheet, Settings sheets, dialogs** | Opaque `--surface-overlay` with `--elevation-3` and a dimming scrim, **no glass** | Same | Same |
+| **Clear variant** | Only controls over media (image or video viewer, avatar crop), with a 35% dark dim behind labels | Same | CSS |
+
+- **Tokens:**
+  - `--material-glass` (CSS rung), `--material-glass-refraction` (50% overlay), `--material-glass-clear` (15%)
+  - `--material-blur` (`blur(20px) saturate(1.6)`), `--material-blur-refraction` (`blur(10px) saturate(1.8)`), `--material-blur-clear`
+
+  All of them become `--surface-overlay` / `none` under Reduce Transparency, Increase Contrast and an inactive window.
+- **Opaque rung:** used under Reduce Transparency or Increase Contrast. Each comes from the media queries, the in-app setting, or macOS through `nativeTheme` in main, which also drops the native vibrancy layer. The rung also applies in an inactive window (`data-window-active="false"`), when the budget is exceeded, and when glass would stack on glass (a popover over the composer).
+- **Budget:** at most two glass surfaces at once, never stacked (motion.md §5). A toolbar's control groups count as one container, because they never overlap. Measured: refraction costs the same GPU time as plain blur, and no variant drops frames at 120 Hz on an M5.
+- **Corner radius:** no hard-coded window radius; the system draws it. Concentric inner radii come from `--radius-window` minus padding.
+- **Electron floor:** ≥ 44.9.0 (the Tahoe WindowServer fix), pinned by a test.
 - **Scroll edge:** where content scrolls under the toolbar or composer, a 24 px gradient mask fades it. This is Apple's "hard" scroll-edge style for macOS, and it replaces the 1 px border under the toolbar.
 
 ### 3.5 Shape, elevation, separators
@@ -331,7 +347,7 @@ Wireframes are layout-level. Every string goes through the catalogue.
 - **Plan checklist:** pinned under the latest agent message. Each item has a 16 px circle that fills, with a check that draws on completion. The in-progress item's text is label-primary and the rest are secondary.
 - **Empty chat:** never empty (docs/06 §4.13: `chat.greet` opens with the agent's first message). Before the greeting arrives, show the 64 px avatar, "Wren" in `text-title-2` and the tagline, centred at 40% height. Composer suggestions appear as three glass chips above the composer.
 - **Composer:**
-  - A floating glass capsule, 680 px wide and 16 px above the window bottom, with the transcript scrolling beneath it through the scroll-edge fade.
+  - A floating glass capsule (`GlassSurface impl="refraction"`, radius = height / 2; §3.4), 680 px wide and 16 px above the window bottom, with the transcript scrolling beneath it through the scroll-edge fade.
   - **Contents:** attachments (+), the field in `text-reading`, dictation, and one Send/Stop button (28 px, accent fill only when there is text).
   - **States:** at rest, no ring. On focus, a 1 px `--ring` hairline inside the capsule, with no outer glow. Above the capsule sit the follow-up queue (glass chips) and the slash-command menu (level-2 popover).
   - **Growth:** it grows with `layout` (`spring.smooth`) up to 40% of the window height, then scrolls.
@@ -415,7 +431,7 @@ Wireframes are layout-level. Every string goes through the catalogue.
   - The list view is a table with 32 px rows.
   - A quarantined download carries an amber badge and its "Trust" action.
 - **Persona (agent sheet):**
-  - The agent sheet becomes a right-side glass sheet, 420 px, opened from the avatar, with its tabs as a segmented control under a header (64 px avatar, name, state, tagline).
+  - The agent sheet becomes a right-side sheet, 420 px, on opaque `--surface-overlay` with a scrim (no glass, §3.4), opened from the avatar, with its tabs as a segmented control under a header (64 px avatar, name, state, tagline).
   - The `/agent/*` routes render that same sheet over the chat, never as a full-width page.
   - Soul & Memory uses the file list as rows that open the Markdown editor in a level-3 sheet with Rich / Source / Diff.
   - The avatar picker (persona and onboarding) is a 6-column grid of 72 px tiles with the creature only. The selected tile gets an accent ring, with no inner radio.
@@ -515,10 +531,10 @@ Ownership: A = tokens, motion and chrome; B = chat; C = shell, sidebar and searc
 | `shell/CommandPalette`, `screens/search/*` | separate palette and search screen | one `SearchSurface` used by ⌘K and the Search destination (§5.5) | C |
 | `shell/ShortcutList`, `AppearanceProvider` | dialog; appearance attributes | glass sheet; adds `data-window-active` and reduced-transparency wiring | C (shortcuts), A (provider) |
 | `agent/AgentHeader` | 56 px header + View strip | toolbar content (§5.2), status crossfade, pill group | B |
-| `agent/AgentSheet`, `ActivityPanel`, `ApprovalsPanel`, `UpcomingPanel`, `SoulMemoryPanel` | sheet or full-width route | 420 px glass right sheet, header, segmented tabs, grouped rows (§5.7) | E |
+| `agent/AgentSheet`, `ActivityPanel`, `ApprovalsPanel`, `UpcomingPanel`, `SoulMemoryPanel` | sheet or full-width route | 420 px opaque right sheet with a scrim, header, segmented tabs, grouped rows (§5.7) | E |
 | `avatar/Avatar` | states, loops | adds a 5 s idle stop and the 28 px toolbar size; loops honour reduced motion (unchanged art) | E |
 | `chat/Thread`, `MessageView`, `WorkingIndicator`, `RunFailure`, `OfflineBanner` | flat transcript | §5.2 runs, hover times, task dividers, jump pill, list presence | B |
-| `chat/Composer`, `FollowUpQueue`, `commands.ts` | bordered box | floating glass capsule, layout growth, glass queue chips, slash popover (§5.2) | B |
+| `chat/Composer`, `FollowUpQueue`, `commands.ts` | bordered box | floating `GlassSurface` refraction capsule, layout growth, glass queue chips, slash popover (§5.2) | B |
 | `chat/ApprovalDock`, `blocks/ApprovalCard`, `approval-details` | amber outline card + rows | §5.3 dock, segmented scope, deck stacking, `layoutId` morph to receipt | B |
 | `blocks/QuestionCard`, `WrapUp`, `Receipt`, `ToolRun`, `Checklist`, `TaskCard`, `ArtifactCard`, `DiffBlock`, `Markdown`, `MessageBlocks`, `RelatedThreads`, `disclosure` | individually styled | §5.2 / §5.3 run rows, status glyphs, reading type, level 1 cards | B |
 | `chat/ExportMenu` | dropdown | moves into the toolbar ⋯ menu | B |
@@ -622,7 +638,7 @@ Each workstream has disjoint file ownership and uses at most 2 subagents. Locall
   - §5.2–§5.3 implemented.
   - The approval fixed structure is intact: Deny first, 400 ms arming, ⌘↩ / ⌘D, every state.
   - Approval → receipt `layoutId` morph, with its reduced-motion crossfade.
-  - The composer floats with glass and scroll-edge.
+  - The composer floats as a `GlassSurface impl="refraction"` capsule (§3.4) with a scroll edge.
   - Stories:
     - Chat thread: idle, streaming, approvals deck, answered, offline, compact width, reduced motion, dark
     - Every card state
@@ -689,7 +705,7 @@ Each workstream has disjoint file ownership and uses at most 2 subagents. Locall
   - the `screenRoute` / `agentRoute` functions in `PsycheApp.tsx`
 - **Definition of done:**
   - §5.6–§5.7 and §5.10 implemented.
-  - The agent sheet is a 420 px glass sheet with a header and segmented tabs, and `/agent/*` renders it over the chat.
+  - The agent sheet is a 420 px opaque sheet (no glass, §3.4) with a header and segmented tabs, and `/agent/*` renders it over the chat.
   - Library is a Finder-like grid and table with Quick Look on Space.
   - The milestone completes on `spring.emphasis` with a reduced form.
   - The empty, loading and error states follow §5.10 on every screen.

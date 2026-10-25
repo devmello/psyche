@@ -162,6 +162,11 @@ const bridge = {
   external: {
     open: (url: string) => invoke(IPC.openExternal, { url }),
   },
+  /** macOS Reduce Transparency and Increase Contrast (redesign §3.4, §8). */
+  systemAppearance: {
+    get: () => invoke(IPC.systemAppearanceGet),
+    on: (cb: (a: unknown) => void) => listen(IPC.systemAppearance, cb),
+  },
   /** The macOS region format and preferred languages (A12). */
   locale: {
     get: () => invoke(IPC.localeGet),

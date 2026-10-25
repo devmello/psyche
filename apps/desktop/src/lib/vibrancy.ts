@@ -30,6 +30,11 @@ export interface VibrancyControllerOptions {
   canvas: () => string;
   /** Vibrancy is a macOS material; elsewhere the setting is ignored. */
   supported: boolean;
+  /**
+   * macOS Reduce Transparency or Increase Contrast is on (`nativeTheme`): the native layer goes
+   * opaque too, since the CSS media queries can't reach it (research/liquid-glass.md §6.3 item 3).
+   */
+  blocked?: () => boolean;
   warn?: (message: string) => void;
 }
 
@@ -45,7 +50,7 @@ export class VibrancyController {
 
   /** Whether the material is on (setting on and the platform supports it). */
   get on(): boolean {
-    return this.#on && this.#o.supported;
+    return this.#on && this.#o.supported && !(this.#o.blocked?.() ?? false);
   }
 
   apply(on: boolean): void {

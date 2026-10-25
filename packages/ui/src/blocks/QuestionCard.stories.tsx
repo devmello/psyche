@@ -26,7 +26,9 @@ type Story = StoryObj<typeof meta>;
 
 export const ChipsAndMultiSelect: Story = {};
 export const ListWithPreviews: Story = { args: { request: req(IDS.inputRequests.lisbonDates) } };
-export const Answered: Story = { args: { request: req(IDS.inputRequests.answered) } };
+export const Answered: Story = {
+  args: { request: req(IDS.inputRequests.answered), onChangeAnswer: () => {} },
+};
 export const Cancelled: Story = {
   args: { request: { ...req(IDS.inputRequests.dentistSlot), status: "cancelled" } },
 };

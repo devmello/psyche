@@ -12,6 +12,7 @@ import type { RecordedCall } from "../src/data/mock-gateway.ts";
 import { MockGateway } from "../src/data/mock-gateway.ts";
 import { createFixtureWorld, FIXTURE_NOW, IDS, PERSONA } from "../src/fixtures/index.ts";
 import { actionLabel } from "../src/screens/settings/ActionMatrix.tsx";
+import { AppearancePanel } from "../src/screens/settings/AppearanceSection.tsx";
 import { ChannelsPanel } from "../src/screens/settings/ChannelsSection.tsx";
 import { ConnectorsSection } from "../src/screens/settings/ConnectorsSection.tsx";
 import {
@@ -136,6 +137,23 @@ describe("Appearance", () => {
     await userEvent.type(input, "not a color{Enter}");
     expect(screen.getByText(/Psyche can't read that color/)).toBeTruthy();
     expect(settingCall(gateway(), "appearance.accentSeed")).toBeUndefined();
+  });
+
+  it("shows the translucent sidebar switch only where the window can draw it", async () => {
+    const { gateway } = setup({ defaultSection: "appearance" });
+    const reduce = await screen.findByRole("switch", { name: "Reduce transparency" });
+    expect(screen.queryByRole("switch", { name: "Translucent sidebar" })).toBeNull();
+    await userEvent.click(reduce);
+    await waitFor(() =>
+      expect(settingValue(gateway(), "appearance.reduceTransparency")).toBe(true),
+    );
+
+    const onChange = vi.fn();
+    render(<AppearancePanel values={{}} onChange={onChange} supportsVibrancy />);
+    const vibrancy = screen.getByRole("switch", { name: "Translucent sidebar" });
+    expect(vibrancy.getAttribute("aria-checked")).toBe("false");
+    await userEvent.click(vibrancy);
+    expect(onChange).toHaveBeenCalledWith("appearance.vibrancy", true);
   });
 });
 
@@ -278,7 +296,10 @@ describe("Computer use", () => {
     expect(
       screen.queryByRole("button", { name: "Open System Settings for Accessibility" }),
     ).toBeNull();
-    const row = screen.getByRole("row", { name: /1Password/ });
+    const apps = screen.getByRole("list", { name: "App access" });
+    const row = within(apps)
+      .getAllByRole("listitem")
+      .find((li) => li.textContent?.includes("1Password")) as HTMLElement;
     expect(within(row).getByText("Off (fixed)")).toBeTruthy();
     expect(within(row).queryByRole("radio")).toBeNull();
     expect(screen.getAllByText("Click only (fixed)")).toHaveLength(2);
@@ -297,8 +318,8 @@ describe("Computer use", () => {
         (last?.params as { value: { id: string; tier: string }[] } | undefined)?.value ?? [];
       expect(apps.find((a) => a.id === "com.apple.Notes")?.tier).toBe("ask");
     });
-    // One radio group per row (audit decision 2): the arrow keys move within the row.
-    const notes = screen.getByRole("row", { name: "Notes" });
+    // One segmented radio group per app (audit decision 2): the arrow keys move within it.
+    const notes = screen.getByRole("radiogroup", { name: "Notes" });
     expect(within(notes).getAllByRole("radio")).toHaveLength(4);
     screen.getByRole("radio", { name: "Notes: Ask" }).focus();
     await userEvent.keyboard("{ArrowRight}");

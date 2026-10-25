@@ -16,6 +16,8 @@ const LABELLED_KEYS = [
   "appearance.reduceMotion",
   "appearance.contrast",
   "appearance.zoom",
+  "appearance.vibrancy",
+  "appearance.reduceTransparency",
   "backup.schedule",
   "browser.realChrome",
   "browser.botAuth",

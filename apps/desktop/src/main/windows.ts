@@ -1,5 +1,12 @@
 import { join } from "node:path";
-import { app, BaseWindow, nativeTheme, type WebContents, WebContentsView } from "electron";
+import {
+  app,
+  BaseWindow,
+  type BaseWindowConstructorOptions,
+  nativeTheme,
+  type WebContents,
+  WebContentsView,
+} from "electron";
 import {
   canvasColor,
   mainWindowOptions,
@@ -40,6 +47,8 @@ export interface WindowOptions {
   rendererUrl: string;
   preloadPath: string;
   onMainCreated?: (win: BaseWindow, view: WebContentsView) => void;
+  /** Extra main-window options (the Liquid Glass spike's transparent window). */
+  mainOptions?: Partial<BaseWindowConstructorOptions>;
   onMainClosed?: () => void;
   /** Every app renderer as it is made (main, pop-outs, quick entry): zoom and the like. */
   onViewCreated?: (wc: WebContents) => void;
@@ -127,9 +136,13 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
   }
 
   function createMain(): BaseWindow {
-    const win = new BaseWindow(
-      mainWindowOptions({ anySize: opts.anySize === true, dark: nativeTheme.shouldUseDarkColors }),
-    );
+    const win = new BaseWindow({
+      ...mainWindowOptions({
+        anySize: opts.anySize === true,
+        dark: nativeTheme.shouldUseDarkColors,
+      }),
+      ...opts.mainOptions,
+    });
     const view = makeView(win, "/chat", {
       ...insetChrome(),
       ...(opts.splash?.() ? { splash: true } : {}),

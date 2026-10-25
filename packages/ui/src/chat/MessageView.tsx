@@ -70,7 +70,7 @@ export function MessageView({
     <button
       type="button"
       onClick={() => onJumpTo?.(quoted.id)}
-      className="mb-1 line-clamp-2 border-s-2 border-gray-7 ps-2 text-start text-sm text-muted-foreground hover:text-foreground"
+      className="mb-1 line-clamp-2 cursor-default border-s-2 border-separator-strong ps-2 text-start text-callout text-label-secondary hover:text-label-primary"
       aria-label={t("chat.message.jumpToQuote")}
     >
       {messageText(quoted)}
@@ -79,7 +79,7 @@ export function MessageView({
 
   if (message.role === "system") {
     return (
-      <div className="my-2 text-center text-xs text-gray-11" data-role="system">
+      <div className="mt-5 text-center text-callout text-label-secondary" data-role="system">
         {message.blocks.map((b, i) =>
           b.type === "text" ? (
             // biome-ignore lint/suspicious/noArrayIndexKey: blocks have no ids and never reorder
@@ -128,19 +128,33 @@ export function MessageView({
       </DropdownMenu>
     ) : null;
 
+  // Times show on hover or focus (redesign-2026 §5.2), never under every message; the article's
+  // label carries the time for assistive tech.
+  const hoverTime = (
+    <time
+      dateTime={message.createdAt}
+      className="shrink-0 text-subheadline text-label-tertiary tabular-nums opacity-0 transition-opacity duration-(--duration-micro) ease-(--ease-standard) group-focus-within/message:opacity-100 group-hover/message:opacity-100 pointer-coarse:opacity-100"
+      aria-hidden="true"
+      data-testid="message-time"
+    >
+      {time}
+    </time>
+  );
+
   if (message.role === "user") {
     return (
       <article
         id={`message-${message.id}`}
-        className="group/message my-2 flex flex-col items-end"
+        className="group/message mt-5 flex flex-col items-end"
         aria-label={t("chat.message.userLabel", { time })}
         data-role="user"
       >
-        <div className="flex max-w-[80%] items-start gap-1">
+        <div className="flex max-w-[80%] items-center gap-2">
+          {hoverTime}
           {actions}
           {editing !== null && onEdit ? (
             <form
-              className="flex w-full flex-col gap-2 rounded-2xl bg-gray-3 px-3.5 py-2"
+              className="flex w-full flex-col gap-2 rounded-xl bg-fill-secondary px-4 py-2.5"
               aria-label={t("chat.message.editResend")}
               onSubmit={(e) => {
                 e.preventDefault();
@@ -150,7 +164,7 @@ export function MessageView({
                 onEdit(message, text);
               }}
             >
-              <label htmlFor={editId} className="text-xs text-muted-foreground">
+              <label htmlFor={editId} className="text-callout text-label-secondary">
                 {t("chat.message.editHint")}
               </label>
               <Textarea
@@ -170,13 +184,12 @@ export function MessageView({
               </div>
             </form>
           ) : (
-            <div className="rounded-2xl bg-gray-3 px-3.5 py-2 text-base text-foreground">
+            <div className="rounded-xl bg-fill-secondary px-4 py-2.5 text-reading text-label-primary">
               {quote}
               <MessageBlocks message={message} />
             </div>
           )}
         </div>
-        <span className="mt-0.5 text-xs text-muted-foreground">{time}</span>
       </article>
     );
   }
@@ -184,19 +197,20 @@ export function MessageView({
   return (
     <article
       id={`message-${message.id}`}
-      className="group/message my-2"
+      className={cn("group/message", showHeader || fromTask ? "mt-5" : "mt-2")}
       aria-label={t("chat.message.agentLabel", { name: persona.name, time })}
       data-role="agent"
     >
       {fromTask ? (
-        <p className="my-3 flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="h-px flex-1 bg-gray-5" aria-hidden="true" />
+        // Out-of-turn task messages: a hairline with the task's name (§5.2).
+        <p className="mb-3 flex items-center gap-3 text-caption text-label-secondary">
+          <span className="flex-1 border-t-[0.5px] border-separator-strong" aria-hidden="true" />
           {t("chat.message.fromTask", { title: fromTask.title })}
-          <span className="h-px flex-1 bg-gray-5" aria-hidden="true" />
+          <span className="flex-1 border-t-[0.5px] border-separator-strong" aria-hidden="true" />
         </p>
       ) : null}
       {showHeader ? (
-        <div className="mb-1 flex items-center gap-2">
+        <div className="mb-1 flex h-6 items-center gap-2">
           <Avatar
             name={persona.name}
             creature={persona.creature}
@@ -204,12 +218,12 @@ export function MessageView({
             size={20}
             decorative
           />
-          <span className="text-sm font-semibold">{persona.name}</span>
-          <span className="text-xs text-muted-foreground">{time}</span>
+          <span className="text-headline text-label-primary">{persona.name}</span>
+          {hoverTime}
           <span className="ms-auto">{actions}</span>
         </div>
       ) : null}
-      <div className={cn("ps-7", message.provenance === "untrusted" && "text-foreground")}>
+      <div className="ps-7">
         {quote}
         <MessageBlocks
           message={message}

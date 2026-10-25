@@ -9,13 +9,14 @@ function target() {
   return t;
 }
 
-function controller(supported = true, call = vi.fn()) {
+function controller(supported = true, call = vi.fn(), blocked = () => false) {
   const targets = [target()];
   const c = new VibrancyController({
     targets: () => targets,
     call,
     canvas: () => "#fcfcfe",
     supported,
+    blocked,
   });
   return { c, t: targets[0] as ReturnType<typeof target>, call };
 }
@@ -55,5 +56,16 @@ describe("sidebar vibrancy (docs/design/redesign-2026.md §3.4, §4)", () => {
     await c.load();
     c.onSettingsChanged([{ key: "appearance.zoom", value: 110 }]);
     expect(t.win.setVibrancy).not.toHaveBeenCalledWith("sidebar");
+  });
+
+  it("stays opaque while macOS Reduce Transparency or Increase Contrast is on", () => {
+    let blocked = true;
+    const { c, t } = controller(true, vi.fn(), () => blocked);
+    c.apply(true);
+    expect(c.on).toBe(false);
+    expect(t.view.setBackgroundColor).toHaveBeenLastCalledWith("#fcfcfe");
+    blocked = false;
+    c.refresh();
+    expect(t.win.setVibrancy).toHaveBeenLastCalledWith("sidebar");
   });
 });

@@ -5,13 +5,13 @@ import {
   useExternalStoreRuntime,
 } from "@assistant-ui/react";
 import type { Message, QueueMode } from "@psyche/protocol";
-import { X } from "lucide-react";
+import { CircleAlert, X } from "lucide-react";
 import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type DisclosureLevel, DisclosureProvider } from "../blocks/disclosure.tsx";
 import { useCall, useConnection, useStoreState, useThread, useThreads } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
-import { cn } from "../lib/utils.ts";
+import { LayoutMotion, Presence } from "../motion/index.ts";
 import { usePersona, useSlots } from "../slots.tsx";
 import { ApprovalDock } from "./ApprovalDock.tsx";
 import { Composer } from "./Composer.tsx";
@@ -20,6 +20,13 @@ import { FollowUpQueue } from "./FollowUpQueue.tsx";
 import { MessageView } from "./MessageView.tsx";
 import { OfflineBanner } from "./OfflineBanner.tsx";
 import { failureAnchors, RunFailure } from "./RunFailure.tsx";
+import {
+  ComposerSuggestions,
+  EmptyThread,
+  JumpToLatest,
+  useElementHeight,
+} from "./ThreadChrome.tsx";
+import { useBottomAnchor } from "./useBottomAnchor.ts";
 import { useRunningTool, WorkingIndicator } from "./WorkingIndicator.tsx";
 
 /** A committed message, or a streaming one that has no committed blocks yet. */
@@ -81,17 +88,18 @@ function NoticeBar({
     <div
       role={notice.kind === "error" ? "alert" : "status"}
       data-testid="command-notice"
-      className={cn(
-        "flex items-start gap-2 rounded-md border px-3 py-2 text-sm",
-        notice.kind === "error" ? "border-danger/40 text-danger-text" : "border-gray-6 bg-gray-2",
-      )}
+      // Level 1; an error uses danger only for its icon, the sentence stays primary (§3.3).
+      className="flex items-start gap-2 rounded-lg bg-surface-raised px-3 py-2 text-body text-label-primary shadow-elevation-1"
     >
+      {notice.kind === "error" ? (
+        <CircleAlert className="mt-0.5 size-4 shrink-0 text-danger-text" aria-hidden="true" />
+      ) : null}
       <p className="min-w-0 flex-1 whitespace-pre-line">{notice.text}</p>
       {notice.confirm ? (
         <button
           type="button"
           disabled={busy}
-          className="rounded-md border border-input bg-background px-2 py-0.5 text-xs font-medium hover:bg-gray-3"
+          className="cursor-default rounded-sm bg-fill-secondary px-2 py-0.5 text-callout font-medium text-label-primary hover:bg-fill-primary"
           onClick={() => {
             setBusy(true);
             void notice.confirm?.run().finally(() => setBusy(false));
@@ -104,7 +112,7 @@ function NoticeBar({
         type="button"
         onClick={onDismiss}
         aria-label={t("common.dismiss")}
-        className="inline-flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-gray-4"
+        className="inline-flex size-6 cursor-default items-center justify-center rounded-sm text-label-secondary hover:bg-fill-tertiary"
       >
         <X className="size-3.5" aria-hidden="true" />
       </button>
@@ -452,118 +460,136 @@ export function ChatThread({
     [view.messages, threadId, fork, create, call, navigate],
   );
 
+  // Bottom anchoring and the jump pill (motion.md §4.6); the floating stack's height pads the
+  // transcript so the last message and any focused control clear the glass (WCAG 2.4.11).
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const columnRef = useRef<HTMLDivElement>(null);
+  const stackRef = useRef<HTMLDivElement>(null);
+  const stackHeight = useElementHeight(stackRef);
+  const anchorVersion = `${display.length}:${display.at(-1)?.message.blocks.length ?? 0}:${display.at(-1)?.streamingText?.length ?? 0}:${working}`;
+  const { away, jump } = useBottomAnchor(viewportRef, columnRef, anchorVersion);
+  const empty = display.length === 0 && !view.loading;
+
   return (
     <DisclosureProvider
       {...(disclosure === undefined ? {} : { level: disclosure })}
       {...(onDisclosureChange === undefined ? {} : { onLevelChange: onDisclosureChange })}
     >
       <AssistantRuntimeProvider runtime={runtime}>
-        {/*
-          #548: only the message viewport scrolls. `min-h-0` lets the root shrink below its
-          content in a flex column (its automatic minimum would otherwise be the whole
-          transcript, which pushed the window out of frame); `flex-1` fills the column when the
-          parent is flex, `h-full` when it is a block.
-        */}
-        <ThreadPrimitive.Root className="flex h-full min-h-0 min-w-[min(100%,var(--chat-min-width))] flex-1 flex-col overflow-hidden">
-          {offline ? <OfflineBanner state={connection} /> : null}
-          <ThreadPrimitive.Viewport
-            className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3"
-            data-testid="chat-viewport"
-            aria-label={t("chat.thread.conversation")}
-            role="log"
-          >
-            {/*
-              Short conversations sit just above the composer, as in a messaging app, instead
-              of leaving an empty band between the last message and the composer; long ones
-              scroll as usual.
-            */}
-            <div
-              className="mx-auto flex min-h-full w-full max-w-[calc(var(--prose-width)+3rem)] flex-col justify-end"
-              data-testid="conversation-column"
-            >
-              {display.length === 0 && !view.loading ? (
-                // Empty state (UI design §3.0): one sentence in Psyche's voice; the composer
-                // below is the one action. The main chat is never empty (it opens with the
-                // agent's first message), so this is a new side chat.
-                <p
-                  className="py-6 text-center text-sm text-muted-foreground"
-                  data-testid="chat-empty"
-                >
-                  {t("chat.thread.empty", { name: persona.name })}
-                </p>
-              ) : null}
-              <ThreadPrimitive.Messages>
-                {({ message }) => {
-                  const [d] = getExternalStoreMessages<DisplayMessage>(message);
-                  if (d === undefined) return null;
-                  const m = d.message;
-                  const prev = display[display.indexOf(d) - 1]?.message;
-                  const lead = m.blocks[0];
-                  const fromTask =
-                    m.role === "agent" && m.runId === null && lead?.type === "task"
-                      ? (tasks[lead.taskId] ?? null)
-                      : null;
-                  const failed = failures.get(m.id) ?? [];
-                  return (
-                    <>
-                      <MessageView
-                        message={m}
-                        streamingText={d.streamingText}
-                        quoted={m.replyToMessageId ? (byId.get(m.replyToMessageId) ?? null) : null}
-                        fromTask={fromTask}
-                        pinChecklist={m.id === latestChecklistId}
-                        showHeader={
-                          prev?.role !== "agent" || fromTask !== null || prev.runId !== m.runId
-                        }
-                        onReply={setQuoting}
-                        onFork={(msg) => void fork(threadId, msg.id)}
-                        onEdit={(msg, text) => void editAndResend(msg, text)}
-                        onJumpTo={(id) =>
-                          document
-                            .getElementById(`message-${id}`)
-                            ?.scrollIntoView({ block: "center" })
-                        }
-                        onWrapUpAction={(text) => void view.send(text)}
-                      />
-                      {failed.map((run) => (
-                        <RunFailure key={run.id} run={run} />
-                      ))}
-                    </>
-                  );
-                }}
-              </ThreadPrimitive.Messages>
-              {working ? <WorkingIndicator persona={persona.name} tool={runningTool} /> : null}
-            </div>
-          </ThreadPrimitive.Viewport>
-          <div className="mx-auto flex w-full max-w-[calc(var(--prose-width)+3rem)] shrink-0 flex-col gap-2 px-4 pb-3">
-            <ApprovalDock
-              threadId={threadId}
-              {...(view.thread ? { mode: view.thread.thread.permissionMode } : {})}
-              {...(now === undefined ? {} : { now })}
-            />
-            <FollowUpQueue
-              items={view.queue}
-              onRemove={view.removeQueued}
-              onRetry={view.retryQueued}
-              onSendNow={(q, m) => {
-                view.removeQueued(q.id);
-                void view.send(q.content, { mode: m, replyToMessageId: q.replyToMessageId });
+        <LayoutMotion>
+          {/*
+            #548: only the message viewport scrolls. `min-h-0` lets the root shrink below its
+            content in a flex column; `flex-1` fills the column when the parent is flex,
+            `h-full` when it is a block. The composer stack floats over the transcript's end
+            (redesign-2026 §5.2), so the root is the positioning context.
+          */}
+          <ThreadPrimitive.Root className="relative flex h-full min-h-0 min-w-[min(100%,var(--chat-min-width))] flex-1 flex-col overflow-hidden bg-canvas">
+            {offline ? <OfflineBanner state={connection} /> : null}
+            <ThreadPrimitive.Viewport
+              ref={viewportRef}
+              autoScroll={false}
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 [mask-image:linear-gradient(to_bottom,transparent_0,black_24px,black_calc(100%_-_24px),transparent_100%)]"
+              style={{
+                paddingBottom: stackHeight + 24,
+                scrollPaddingBottom: stackHeight + 24,
               }}
-            />
-            {notice ? <NoticeBar notice={notice} onDismiss={() => setNotice(null)} /> : null}
-            <Composer
-              persona={persona.name}
-              running={view.running}
-              disabled={offline}
-              quoting={quoting}
-              onClearQuote={() => setQuoting(null)}
-              mode={mode}
-              onStop={() => void view.cancel()}
-              {...(onAttach ? { onAttach } : {})}
-              {...(onDictate ? { onDictate } : {})}
-            />
-          </div>
-        </ThreadPrimitive.Root>
+              data-testid="chat-viewport"
+              aria-label={t("chat.thread.conversation")}
+              role="log"
+            >
+              {/*
+                Short conversations sit just above the composer, as in a messaging app; long
+                ones scroll. 680 px reading column (§3.7).
+              */}
+              <div
+                ref={columnRef}
+                className="mx-auto flex min-h-full w-full max-w-[680px] flex-col justify-end pt-6"
+                data-testid="conversation-column"
+              >
+                {empty ? <EmptyThread /> : null}
+                <ThreadPrimitive.Messages>
+                  {({ message }) => {
+                    const [d] = getExternalStoreMessages<DisplayMessage>(message);
+                    if (d === undefined) return null;
+                    const m = d.message;
+                    const prev = display[display.indexOf(d) - 1]?.message;
+                    const lead = m.blocks[0];
+                    const fromTask =
+                      m.role === "agent" && m.runId === null && lead?.type === "task"
+                        ? (tasks[lead.taskId] ?? null)
+                        : null;
+                    const failed = failures.get(m.id) ?? [];
+                    return (
+                      <>
+                        <MessageView
+                          message={m}
+                          streamingText={d.streamingText}
+                          quoted={
+                            m.replyToMessageId ? (byId.get(m.replyToMessageId) ?? null) : null
+                          }
+                          fromTask={fromTask}
+                          pinChecklist={m.id === latestChecklistId}
+                          showHeader={
+                            prev?.role !== "agent" || fromTask !== null || prev.runId !== m.runId
+                          }
+                          onReply={setQuoting}
+                          onFork={(msg) => void fork(threadId, msg.id)}
+                          onEdit={(msg, text) => void editAndResend(msg, text)}
+                          onJumpTo={(id) =>
+                            document
+                              .getElementById(`message-${id}`)
+                              ?.scrollIntoView({ block: "center" })
+                          }
+                          onWrapUpAction={(text) => void view.send(text)}
+                        />
+                        {failed.map((run) => (
+                          <RunFailure key={run.id} run={run} />
+                        ))}
+                      </>
+                    );
+                  }}
+                </ThreadPrimitive.Messages>
+                {working ? <WorkingIndicator persona={persona.name} tool={runningTool} /> : null}
+              </div>
+            </ThreadPrimitive.Viewport>
+            <div
+              ref={stackRef}
+              className="pointer-events-none absolute inset-x-0 bottom-0 px-6 pb-4"
+              data-testid="composer-stack"
+            >
+              <div className="pointer-events-auto mx-auto flex w-full max-w-[680px] flex-col gap-2">
+                <Presence>{away ? <JumpToLatest key="jump" onJump={jump} /> : null}</Presence>
+                {empty ? <ComposerSuggestions /> : null}
+                <ApprovalDock
+                  threadId={threadId}
+                  {...(view.thread ? { mode: view.thread.thread.permissionMode } : {})}
+                  {...(now === undefined ? {} : { now })}
+                />
+                <FollowUpQueue
+                  items={view.queue}
+                  onRemove={view.removeQueued}
+                  onRetry={view.retryQueued}
+                  onSendNow={(q, m) => {
+                    view.removeQueued(q.id);
+                    void view.send(q.content, { mode: m, replyToMessageId: q.replyToMessageId });
+                  }}
+                />
+                {notice ? <NoticeBar notice={notice} onDismiss={() => setNotice(null)} /> : null}
+                <Composer
+                  persona={persona.name}
+                  running={view.running}
+                  disabled={offline}
+                  quoting={quoting}
+                  onClearQuote={() => setQuoting(null)}
+                  mode={mode}
+                  onStop={() => void view.cancel()}
+                  {...(onAttach ? { onAttach } : {})}
+                  {...(onDictate ? { onDictate } : {})}
+                />
+              </div>
+            </div>
+          </ThreadPrimitive.Root>
+        </LayoutMotion>
       </AssistantRuntimeProvider>
     </DisclosureProvider>
   );

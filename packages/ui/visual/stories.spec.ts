@@ -6,13 +6,17 @@ interface IndexEntry {
   type: "story" | "docs";
   title: string;
   name: string;
+  tags?: string[];
 }
 
 const index = JSON.parse(
   readFileSync(new URL("../storybook-static/index.json", import.meta.url), "utf8"),
 ) as { entries: Record<string, IndexEntry> };
 
-const stories = Object.values(index.entries).filter((e) => e.type === "story");
+/** `no-visual` stories animate on purpose (the glass frame probes); they have no baseline. */
+const stories = Object.values(index.entries).filter(
+  (e) => e.type === "story" && !e.tags?.includes("no-visual"),
+);
 
 /** Every story in light; dark only for the core surfaces, to keep the baseline small. */
 const DARK = /^(Primitives|Cards|Chat|Shell|Avatar|Agent)\//;
