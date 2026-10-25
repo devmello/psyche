@@ -77,13 +77,13 @@ export function FeedPostCard({
         {post.title}
       </h2>
       {/* Every [n] marker reads the same: web citations are links, in-app ones plain text. */}
-      <Markdown className="text-body text-gray-12 [&_a]:text-inherit [&_a]:underline [&_a]:decoration-dotted [&_a]:underline-offset-2 [&_a:hover]:decoration-solid [&_a]:rounded-sm [&_a:focus-visible]:outline-2 [&_a:focus-visible]:outline-ring">
+      <Markdown className="text-reading text-gray-12 [&_a]:text-inherit [&_a]:underline [&_a]:decoration-dotted [&_a]:underline-offset-2 [&_a:hover]:decoration-solid [&_a]:rounded-sm [&_a:focus-visible]:outline-2 [&_a:focus-visible]:outline-ring">
         {withCitationLinks(post.bodyMd, post.citations)}
       </Markdown>
 
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
         {sources.length > 0 ? (
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-caption text-gray-11">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-callout text-gray-11">
             <span className="font-medium">
               {t("screens.feed.sourcesCount", { n: post.citations.length })}
             </span>

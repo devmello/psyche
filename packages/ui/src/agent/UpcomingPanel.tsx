@@ -200,7 +200,7 @@ export function UpcomingRow({
           {a.kind === "watch" ? <Badge variant="info">{t("agent.upcoming.watch")}</Badge> : null}
           {!a.enabled ? <Badge variant="muted">{t("agent.upcoming.paused")}</Badge> : null}
         </span>
-        <span className="mt-0.5 block text-caption text-gray-11">
+        <span className="mt-0.5 block text-callout text-gray-11">
           {t("agent.upcoming.runs", {
             once: reminder,
             schedule: scheduleSentence(a),
@@ -210,10 +210,10 @@ export function UpcomingRow({
           })}
         </span>
         {delivery ? (
-          <span className="block text-caption text-muted-foreground">{delivery}</span>
+          <span className="block text-callout text-muted-foreground">{delivery}</span>
         ) : null}
         {a.kind === "watch" && a.scratch ? (
-          <span className="block text-caption text-muted-foreground">{a.scratch}</span>
+          <span className="block text-callout text-muted-foreground">{a.scratch}</span>
         ) : null}
         {a.lastStatus ? <span className="mt-1 flex">{lastOutcome(a)}</span> : null}
       </span>

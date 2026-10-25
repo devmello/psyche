@@ -89,7 +89,7 @@ export function ApprovalDock({
                   <span className="min-w-0 flex-1 truncate">{displaySummary(v.approval)}</span>
                   <span
                     className={cn(
-                      "text-caption tabular-nums",
+                      "text-callout tabular-nums",
                       Date.parse(v.approval.expiresAt) - now < 60_000
                         ? "text-danger-text"
                         : "text-muted-foreground",

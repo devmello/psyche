@@ -126,18 +126,14 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center gap-4 rounded-lg px-6 py-14 text-center animate-psy-fade",
+        "flex flex-col items-center gap-3 px-6 pt-[12vh] pb-14 text-center animate-psy-fade",
         className,
       )}
     >
-      {Icon ? (
-        <span className="flex size-12 items-center justify-center rounded-full bg-gray-3 text-gray-11">
-          <Icon className="size-6" aria-hidden="true" />
-        </span>
-      ) : null}
-      <p className="max-w-sm text-body text-gray-11">{children}</p>
+      {Icon ? <Icon className="size-8 text-label-tertiary" aria-hidden="true" /> : null}
+      <p className="max-w-sm text-reading text-label-secondary">{children}</p>
       {action ? (
-        <Button type="button" onClick={action.onClick}>
+        <Button type="button" variant="outline" onClick={action.onClick}>
           {action.label}
         </Button>
       ) : null}
@@ -168,13 +164,13 @@ export function ErrorState({
     <div
       role="alert"
       className={cn(
-        "flex flex-wrap items-start gap-3 rounded-lg border border-gray-6 bg-gray-2 p-4 text-sm",
+        "flex flex-wrap items-start gap-3 rounded-lg bg-surface-raised p-4 text-body shadow-elevation-1",
         className,
       )}
     >
       <CircleAlert className="mt-0.5 size-4 shrink-0 text-danger-text" aria-hidden="true" />
-      <p className="min-w-0 flex-1">
-        <span className="font-semibold">
+      <p className="min-w-0 flex-1 text-label-secondary">
+        <span className="font-semibold text-label-primary">
           {what}
           {reason ? ` (${reason})` : ""}.
         </span>{" "}
@@ -225,7 +221,7 @@ export function LoadingCards({
           key={i}
           className={cn(
             "flex flex-col gap-2",
-            layout === "rows" ? "py-2" : "rounded-lg border border-gray-6 bg-gray-2 p-4",
+            layout === "rows" ? "py-2" : "rounded-lg bg-surface-raised p-4 shadow-elevation-1",
           )}
         >
           <Skeleton className="h-3 w-24" />
@@ -238,6 +234,76 @@ export function LoadingCards({
           ))}
         </div>
       ))}
+    </div>
+  );
+}
+
+export interface GroupedListProps {
+  /** Group header (text-title-3), e.g. "Default mode for new threads". */
+  title?: ReactNode;
+  /** Help text under the group (text-callout). */
+  footer?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}
+
+/**
+ * A grouped inset list (docs/design/redesign-2026.md §5.8, System Settings style): a raised,
+ * borderless container whose rows are separated by hairlines inset to the text start.
+ */
+export function GroupedList({
+  title,
+  footer,
+  children,
+  className,
+}: GroupedListProps): ReactElement {
+  return (
+    <section className={cn("flex flex-col gap-2", className)}>
+      {title ? <h3 className="px-1 text-title-3 text-label-primary">{title}</h3> : null}
+      <div className="flex flex-col rounded-lg bg-surface-raised shadow-elevation-1">
+        {children}
+      </div>
+      {footer ? <p className="px-1 text-callout text-label-secondary">{footer}</p> : null}
+    </section>
+  );
+}
+
+export interface GroupedRowProps {
+  label: ReactNode;
+  /** A secondary line under the label. */
+  description?: ReactNode;
+  /** A leading icon or avatar. */
+  leading?: ReactNode;
+  /** The trailing control (switch, select, segmented control, value). */
+  control?: ReactNode;
+  className?: string;
+}
+
+/** A 36 px row in a `GroupedList`: label leading, control trailing. */
+export function GroupedRow({
+  label,
+  description,
+  leading,
+  control,
+  className,
+}: GroupedRowProps): ReactElement {
+  return (
+    <div
+      className={cn(
+        "relative flex min-h-9 items-center gap-3 px-3 py-1.5 before:absolute before:inset-x-3 before:top-0 before:h-px before:bg-separator first:before:hidden",
+        className,
+      )}
+    >
+      {leading ? (
+        <span className="flex shrink-0 items-center text-label-secondary">{leading}</span>
+      ) : null}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="text-body text-label-primary">{label}</span>
+        {description ? (
+          <span className="text-callout text-label-secondary">{description}</span>
+        ) : null}
+      </div>
+      {control ? <div className="flex shrink-0 items-center gap-2">{control}</div> : null}
     </div>
   );
 }

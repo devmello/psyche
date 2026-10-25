@@ -161,7 +161,7 @@ function TaskLine({
       ) : (
         <span className="min-w-0 truncate">{task.title}</span>
       )}
-      <span className="text-caption text-gray-11">{TASK_STATUS_LABEL[task.status]}</span>
+      <span className="text-callout text-gray-11">{TASK_STATUS_LABEL[task.status]}</span>
     </span>
   );
 }
@@ -184,7 +184,7 @@ function PlanTile({
       </span>
       <span className="flex min-w-0 flex-col">
         <span className="truncate font-medium text-foreground">{artifact.title}</span>
-        <span className="text-caption text-gray-11">
+        <span className="text-callout text-gray-11">
           {t("screens.goals.planMeta", {
             type: artifact.type.toUpperCase(),
             version: artifact.version,
@@ -298,7 +298,7 @@ export function GoalPageView({
                   doneCount === items.length ? "[&_[data-slot=progress-indicator]]:bg-grass-9" : "",
                 )}
               />
-              <span className="text-caption text-gray-11 tabular-nums">
+              <span className="text-callout text-gray-11 tabular-nums">
                 {t("screens.goals.milestonesCount", { done: doneCount, total: items.length })}
               </span>
             </div>
@@ -361,7 +361,7 @@ export function GoalPageView({
                     {m.done ? t("screens.goals.done") : t("screens.goals.notDone")}
                   </span>
                   {m.dueAt ? (
-                    <span className="text-caption opacity-80">· {formatDate(m.dueAt)}</span>
+                    <span className="text-callout opacity-80">· {formatDate(m.dueAt)}</span>
                   ) : null}
                 </span>
               </li>
@@ -444,7 +444,7 @@ export function GoalPageView({
                 )}
                 {w.condition ? <Badge variant="muted">{w.condition}</Badge> : null}
                 {w.lastValue ? (
-                  <span className="text-caption text-gray-11">
+                  <span className="text-callout text-gray-11">
                     {t("screens.goals.last", { value: w.lastValue })}
                   </span>
                 ) : null}

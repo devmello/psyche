@@ -1,6 +1,6 @@
 /**
- * Motion tokens for the 2026 redesign (docs/design/motion.md §2). A stub: nothing imports it yet;
- * workstream A wires it into a MotionProvider and a generated `styles/motion.css`.
+ * Motion tokens for the 2026 redesign (docs/design/motion.md §2): the single source for
+ * `MotionProvider`, the motion helpers and the generated `styles/motion.css`.
  *
  * Springs are designed as SwiftUI-style perceptual `duration` + `bounce` and converted with
  * Apple's formulas (mass 1): stiffness = (2π / duration)², damping = 4π(1 − bounce) / duration.

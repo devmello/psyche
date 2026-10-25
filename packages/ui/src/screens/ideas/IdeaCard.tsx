@@ -151,7 +151,7 @@ export function IdeaCard({
           </Badge>
         </div>
         {idea.bodyMd.trim() !== "" ? (
-          <Markdown className="text-body text-gray-12">{idea.bodyMd}</Markdown>
+          <Markdown className="text-reading text-gray-12">{idea.bodyMd}</Markdown>
         ) : null}
       </div>
       <EvidenceLine items={evidence} {...(onOpenRoute ? { onOpenRoute } : {})} />

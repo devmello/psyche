@@ -52,7 +52,7 @@ export function GoalRow({ goal, selected = false, onOpen }: GoalRowProps): React
           aria-current={selected ? "page" : undefined}
           onClick={() => onOpen?.(goal)}
           className={cn(
-            "min-w-0 flex-1 text-start text-body font-medium focus-visible:outline-2 focus-visible:outline-ring",
+            "min-w-0 flex-1 text-start text-reading font-medium focus-visible:outline-2 focus-visible:outline-ring",
             "after:absolute after:inset-0 after:content-['']",
             selected ? "text-accent-12" : "text-foreground",
           )}
@@ -60,12 +60,12 @@ export function GoalRow({ goal, selected = false, onOpen }: GoalRowProps): React
           {goal.title}
         </button>
         {total > 0 ? (
-          <span className="text-caption text-gray-11 tabular-nums" aria-hidden="true">
+          <span className="text-callout text-gray-11 tabular-nums" aria-hidden="true">
             {done}/{total}
           </span>
         ) : null}
       </div>
-      <p className="text-caption text-gray-11">
+      <p className="text-callout text-gray-11">
         {t("screens.goals.listLine", {
           checkin: goal.nextCheckinAt
             ? t("screens.goals.nextCheckin", { when: formatWhen(goal.nextCheckinAt) })
@@ -116,10 +116,10 @@ export function CandidateGoalCard({
         {t("screens.goals.inferred", { category: GOAL_CATEGORY_LABEL[goal.category] })}
       </p>
       <div className="flex flex-col gap-0.5">
-        <h3 id={titleId} className="text-body font-semibold text-foreground">
+        <h3 id={titleId} className="text-reading font-semibold text-foreground">
           {goal.title}
         </h3>
-        <p className="text-caption text-gray-11">{t("screens.goals.thinks", { name: persona })}</p>
+        <p className="text-callout text-gray-11">{t("screens.goals.thinks", { name: persona })}</p>
       </div>
       <EvidenceLine items={evidence} {...(onOpenRoute ? { onOpenRoute } : {})} />
       <div className="mt-1 flex flex-wrap gap-1.5">

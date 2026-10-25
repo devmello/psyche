@@ -3,12 +3,34 @@ import { extendTailwindMerge } from "tailwind-merge";
 
 /**
  * tailwind-merge only knows Tailwind's stock sizes, so it would read the kit's type roles
- * (`text-label`, `text-h1`, …; UI design §4.2) as colours and drop them next to `text-gray-11`.
+ * (`text-reading`, `text-title-1`, …; docs/design/redesign-2026.md §3.2) as colours and drop them next to `text-gray-11`.
  */
 const twMerge = extendTailwindMerge({
   extend: {
     classGroups: {
-      "font-size": [{ text: ["h1", "h2", "h3", "body", "small", "caption", "label", "mono"] }],
+      "font-size": [
+        {
+          text: [
+            "large-title",
+            "title-1",
+            "title-2",
+            "title-3",
+            "headline",
+            "body",
+            "reading",
+            "callout",
+            "subheadline",
+            "caption",
+            "mono",
+            "h1",
+            "h2",
+            "h3",
+            "small",
+            "label",
+          ],
+        },
+      ],
+      shadow: [{ shadow: ["elevation-1", "elevation-2", "elevation-3", "level-2", "level-3"] }],
     },
   },
 });

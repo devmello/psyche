@@ -171,16 +171,16 @@ function ApprovalControls({
   const a = state?.approval ?? null;
   if (a === null) return openCard;
   if (a.status !== "pending") {
-    return <span className="text-caption text-gray-11">{DECIDED[a.status] ?? a.status}</span>;
+    return <span className="text-callout text-gray-11">{DECIDED[a.status] ?? a.status}</span>;
   }
   const remaining = Date.parse(a.expiresAt) - now;
   if (remaining <= 0) {
-    return <span className="text-caption text-gray-11">{t("screens.inbox.decided.expired")}</span>;
+    return <span className="text-callout text-gray-11">{t("screens.inbox.decided.expired")}</span>;
   }
   const countdown = (
     <span
       className={cn(
-        "me-1 text-caption tabular-nums",
+        "me-1 text-callout tabular-nums",
         remaining < 60_000 ? "font-semibold text-danger-text" : "text-gray-11",
       )}
     >
@@ -265,7 +265,7 @@ export function InboxRow({
       />
     );
   } else if (resolved) {
-    actions = <span className="text-caption text-gray-11">{t("screens.inbox.resolved")}</span>;
+    actions = <span className="text-callout text-gray-11">{t("screens.inbox.resolved")}</span>;
   } else if (n.kind === "input_needed") {
     actions = (
       <Button type="button" size="sm" onClick={() => onOpen?.(n)} disabled={n.route == null}>
@@ -345,7 +345,7 @@ export function InboxRow({
         <Icon className="size-4" />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className="flex flex-wrap items-center gap-x-1.5 text-caption text-gray-11">
+        <p className="flex flex-wrap items-center gap-x-1.5 text-callout text-gray-11">
           <span className="font-medium">{kind.label}</span>
           <span aria-hidden="true">·</span>
           <span>{formatRelative(n.createdAt, now)}</span>
@@ -364,7 +364,7 @@ export function InboxRow({
         <h2
           id={titleId}
           className={cn(
-            "text-body",
+            "text-reading",
             unread ? "font-semibold text-foreground" : "font-normal text-gray-12",
           )}
         >

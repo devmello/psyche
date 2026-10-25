@@ -15,7 +15,7 @@ const index = JSON.parse(
 const stories = Object.values(index.entries).filter((e) => e.type === "story");
 
 /** Every story in light; dark only for the core surfaces, to keep the baseline small. */
-const DARK = /^(Cards|Chat|Shell|Avatar|Agent)\//;
+const DARK = /^(Primitives|Cards|Chat|Shell|Avatar|Agent)\//;
 
 for (const story of stories) {
   const themes = DARK.test(story.title) ? (["light", "dark"] as const) : (["light"] as const);

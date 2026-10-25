@@ -135,7 +135,7 @@ export function MemoryFileEditor({ path, budget }: { path: string; budget: numbe
         </span>
       </div>
       {path === "MEMORY.md" ? (
-        <p className="text-caption text-muted-foreground">{t("agent.memory.dreaming")}</p>
+        <p className="text-callout text-muted-foreground">{t("agent.memory.dreaming")}</p>
       ) : null}
       {slots.renderEditor ? (
         slots.renderEditor({ path, value, onChange: setDraft, budget })
@@ -325,7 +325,7 @@ export function SoulMemoryPanel({
             {t("agent.memory.daily")}
           </SectionLabel>
           {notes.length === 0 ? (
-            <span className="text-caption text-muted-foreground">{t("agent.memory.noDaily")}</span>
+            <span className="text-callout text-muted-foreground">{t("agent.memory.noDaily")}</span>
           ) : (
             <span className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-0.5">
               {notes.map((n) => (

@@ -1,0 +1,311 @@
+/*
+  Redesign 2026 tokens (docs/design/redesign-2026.md §3). Components use these semantic roles,
+  never raw scale steps. The older names in index.css (--card, --popover, shadow-level-*,
+  text-h1…, text-label) stay as aliases until workstream A3 removes them.
+*/
+
+:root,
+:root[data-theme="light"] {
+  /* Surfaces (§3.3). */
+  --canvas: var(--gray-1);
+  --surface-sidebar: var(--gray-2);
+  --surface-raised: oklch(1 0 0);
+  --surface-overlay: oklch(1 0 0);
+
+  /* Labels: four levels, like AppKit's label colours. */
+  --label-primary: var(--gray-12);
+  --label-secondary: var(--gray-11);
+  --label-tertiary: var(--gray-10);
+  --label-quaternary: var(--gray-9);
+
+  /* Fills for controls, hover and pressed states. */
+  --fill-primary: oklch(0 0 0 / 9%);
+  --fill-secondary: oklch(0 0 0 / 6%);
+  --fill-tertiary: oklch(0 0 0 / 4%);
+  --fill-quaternary: oklch(0 0 0 / 2.5%);
+
+  --separator: oklch(0 0 0 / 8%);
+  --separator-strong: oklch(0 0 0 / 14%);
+
+  /* Selection: accent when the window is key, gray when it isn't (§3.3, §4). */
+  --selection: var(--accent-a4);
+  --selection-inactive: var(--fill-secondary);
+
+  /* Materials (§3.4): glass for chrome only; opaque fallbacks below. */
+  --material-glass: color-mix(in oklch, var(--surface-overlay) 72%, transparent);
+  --material-glass-highlight: inset 0 0.5px 0 oklch(1 0 0 / 40%);
+  --material-blur: blur(20px) saturate(1.6);
+
+  /* Elevation without borders (§3.5). */
+  --elevation-1: 0 0 0 0.5px var(--separator), 0 1px 2px oklch(0 0 0 / 4%);
+  --elevation-2: 0 0 0 0.5px oklch(0 0 0 / 10%), 0 8px 24px oklch(0 0 0 / 12%);
+  --elevation-3: 0 0 0 0.5px oklch(0 0 0 / 10%), 0 24px 64px oklch(0 0 0 / 18%);
+}
+
+:root[data-theme="dark"] {
+  /* One step above the canvas; gray-3 would drop the accent focus ring under 3:1. */
+  --surface-raised: var(--gray-2);
+  --surface-overlay: var(--gray-2);
+
+  --fill-primary: oklch(1 0 0 / 14%);
+  --fill-secondary: oklch(1 0 0 / 10%);
+  --fill-tertiary: oklch(1 0 0 / 7%);
+  --fill-quaternary: oklch(1 0 0 / 4%);
+
+  --separator: oklch(1 0 0 / 9%);
+  --separator-strong: oklch(1 0 0 / 16%);
+
+  --material-glass-highlight: inset 0 0.5px 0 oklch(1 0 0 / 10%);
+
+  /* Dark mode steps surfaces up instead of deepening shadows. */
+  --elevation-1: 0 0 0 0.5px oklch(1 0 0 / 8%);
+  --elevation-2: 0 0 0 0.5px oklch(1 0 0 / 12%), 0 8px 24px oklch(0 0 0 / 40%);
+  --elevation-3: 0 0 0 0.5px oklch(1 0 0 / 12%), 0 24px 64px oklch(0 0 0 / 50%);
+}
+
+/* An inactive window loses the accent on its selection (A2 sets data-window-active). */
+:root[data-window-active="false"] {
+  --selection: var(--selection-inactive);
+}
+
+/* Increase Contrast (§3.3): stronger separators, darker labels, opaque materials with a border. */
+:root[data-contrast="high"] {
+  --label-tertiary: var(--gray-11);
+  --label-quaternary: var(--gray-10);
+  --separator: oklch(0 0 0 / 20%);
+  --separator-strong: oklch(0 0 0 / 32%);
+  --material-glass: var(--surface-overlay);
+  --material-blur: none;
+}
+:root[data-theme="dark"][data-contrast="high"] {
+  --separator: oklch(1 0 0 / 22%);
+  --separator-strong: oklch(1 0 0 / 34%);
+}
+@media (prefers-contrast: more) {
+  :root:not([data-contrast="standard"]) {
+    --material-glass: var(--surface-overlay);
+    --material-blur: none;
+  }
+}
+
+/* Reduce Transparency (§3.4): every material becomes opaque. */
+:root[data-reduce-transparency="true"] {
+  --material-glass: var(--surface-overlay);
+  --material-blur: none;
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root:not([data-reduce-transparency="false"]) {
+    --material-glass: var(--surface-overlay);
+    --material-blur: none;
+  }
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface-sidebar: var(--surface-sidebar);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-label-primary: var(--label-primary);
+  --color-label-secondary: var(--label-secondary);
+  --color-label-tertiary: var(--label-tertiary);
+  --color-label-quaternary: var(--label-quaternary);
+  --color-fill-primary: var(--fill-primary);
+  --color-fill-secondary: var(--fill-secondary);
+  --color-fill-tertiary: var(--fill-tertiary);
+  --color-fill-quaternary: var(--fill-quaternary);
+  --color-separator: var(--separator);
+  --color-separator-strong: var(--separator-strong);
+  --color-selection: var(--selection);
+
+  /* macOS text styles (§3.2); `text-reading` is Psyche's reading size for transcripts. */
+  --text-large-title: 26px;
+  --text-large-title--line-height: 32px;
+  --text-large-title--font-weight: 700;
+  --text-large-title--letter-spacing: 0.22px;
+  --text-title-1: 22px;
+  --text-title-1--line-height: 28px;
+  --text-title-1--font-weight: 700;
+  --text-title-1--letter-spacing: -0.26px;
+  --text-title-2: 17px;
+  --text-title-2--line-height: 22px;
+  --text-title-2--font-weight: 600;
+  --text-title-2--letter-spacing: -0.43px;
+  --text-title-3: 15px;
+  --text-title-3--line-height: 20px;
+  --text-title-3--font-weight: 600;
+  --text-title-3--letter-spacing: -0.23px;
+  --text-headline: 13px;
+  --text-headline--line-height: 16px;
+  --text-headline--font-weight: 600;
+  --text-headline--letter-spacing: -0.08px;
+  --text-body: 13px;
+  --text-body--line-height: 18px;
+  --text-body--letter-spacing: -0.08px;
+  --text-reading: 15px;
+  --text-reading--line-height: 23px;
+  --text-reading--letter-spacing: -0.23px;
+  --text-callout: 12px;
+  --text-callout--line-height: 16px;
+  --text-subheadline: 11px;
+  --text-subheadline--line-height: 14px;
+  --text-subheadline--letter-spacing: 0.06px;
+  --text-caption: 11px;
+  --text-caption--line-height: 14px;
+  --text-caption--font-weight: 500;
+  --text-caption--letter-spacing: 0.06px;
+  --text-mono: 12px;
+  --text-mono--line-height: 18px;
+
+  /* Concentric radii (§3.5): xs 4, sm 6, md 8, lg 12, xl 16, 2xl 20. */
+  --radius-xs: 4px;
+
+  --shadow-elevation-1: var(--elevation-1);
+  --shadow-elevation-2: var(--elevation-2);
+  --shadow-elevation-3: var(--elevation-3);
+
+  --ease-standard: var(--ease-standard);
+  --ease-enter: var(--ease-enter);
+  --ease-exit: var(--ease-exit);
+}
+
+@layer utilities {
+  /* Chrome glass (§3.4): composer, popovers, menus, palette, sheets. Never stacked. */
+  .material-glass {
+    background-color: var(--material-glass);
+    -webkit-backdrop-filter: var(--material-blur);
+    backdrop-filter: var(--material-blur);
+    box-shadow: var(--material-glass-highlight), var(--elevation-2);
+  }
+  /* The sidebar region: transparent over native vibrancy (A2), opaque otherwise. */
+  .material-sidebar {
+    background-color: var(--surface-sidebar);
+  }
+  :root[data-vibrancy="true"] .material-sidebar {
+    background-color: transparent;
+  }
+  /* Scroll edge (§3.4): content fades under a toolbar instead of a hard border. */
+  .scroll-edge-top {
+    mask-image: linear-gradient(to bottom, transparent 0, black 24px);
+  }
+  .scroll-edge-bottom {
+    mask-image: linear-gradient(to top, transparent 0, black 24px);
+  }
+}
+
+/*
+  Enter/exit for Base UI popups (docs/design/motion.md §4.2–4.3). Base UI sets
+  data-starting-style / data-ending-style around mount and unmount and waits for the transition,
+  which is its form of @starting-style. Reduced motion keeps the fade and drops the movement.
+*/
+@layer components {
+  .psy-popup {
+    transform-origin: var(--transform-origin, center);
+    transition:
+      opacity var(--duration-short) var(--ease-enter),
+      scale var(--spring-snappy-duration) var(--spring-snappy);
+  }
+  .psy-popup[data-starting-style] {
+    opacity: 0;
+    scale: 0.97;
+  }
+  .psy-popup[data-ending-style] {
+    opacity: 0;
+    transition: opacity var(--duration-short-exit) var(--ease-exit);
+  }
+
+  .psy-dialog {
+    transition:
+      opacity var(--duration-short) var(--ease-enter),
+      scale var(--spring-snappy-duration) var(--spring-snappy);
+  }
+  .psy-dialog[data-starting-style] {
+    opacity: 0;
+    scale: 0.98;
+  }
+  .psy-dialog[data-ending-style] {
+    opacity: 0;
+    transition: opacity var(--duration-short-exit) var(--ease-exit);
+  }
+
+  .psy-backdrop {
+    transition: opacity var(--duration-long) var(--ease-standard);
+  }
+  .psy-backdrop[data-starting-style],
+  .psy-backdrop[data-ending-style] {
+    opacity: 0;
+  }
+  .psy-backdrop[data-ending-style] {
+    transition-duration: var(--duration-long-exit);
+  }
+
+  /* Sheets slide from their edge on spring.gentle; exits retrace faster. */
+  .psy-sheet {
+    transition:
+      translate var(--spring-gentle-duration) var(--spring-gentle),
+      opacity var(--duration-medium) var(--ease-enter);
+  }
+  .psy-sheet[data-ending-style] {
+    transition:
+      translate var(--duration-long-exit) var(--ease-exit),
+      opacity var(--duration-long-exit) var(--ease-exit);
+  }
+  .psy-sheet[data-side="right"][data-starting-style],
+  .psy-sheet[data-side="right"][data-ending-style] {
+    translate: 100% 0;
+  }
+  .psy-sheet[data-side="left"][data-starting-style],
+  .psy-sheet[data-side="left"][data-ending-style] {
+    translate: -100% 0;
+  }
+  .psy-sheet[data-side="bottom"][data-starting-style],
+  .psy-sheet[data-side="bottom"][data-ending-style] {
+    translate: 0 100%;
+  }
+  .psy-sheet[data-side="top"][data-starting-style],
+  .psy-sheet[data-side="top"][data-ending-style] {
+    translate: 0 -100%;
+  }
+
+  /* Reduced motion: fades only, at most 150 ms (§7). Only the enter/exit transforms are reset, so
+     centring translates on dialogs stay intact. */
+  :root[data-reduce-motion="true"] :is(.psy-popup, .psy-dialog, .psy-sheet, .psy-backdrop) {
+    transition: opacity var(--duration-short) linear !important;
+  }
+  :root[data-reduce-motion="true"]
+    :is(.psy-popup, .psy-dialog):is([data-starting-style], [data-ending-style]) {
+    scale: 1 !important;
+  }
+  :root[data-reduce-motion="true"] .psy-sheet:is([data-starting-style], [data-ending-style]) {
+    translate: 0 0 !important;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :root:not([data-reduce-motion="false"])
+      :is(.psy-popup, .psy-dialog, .psy-sheet, .psy-backdrop) {
+      transition: opacity var(--duration-short) linear !important;
+    }
+    :root:not([data-reduce-motion="false"])
+      :is(.psy-popup, .psy-dialog):is([data-starting-style], [data-ending-style]) {
+      scale: 1 !important;
+    }
+    :root:not([data-reduce-motion="false"])
+      .psy-sheet:is([data-starting-style], [data-ending-style]) {
+      translate: 0 0 !important;
+    }
+  }
+
+  /* Skeleton shimmer (§4.7): opacity through a moving mask; static when reduced. */
+  .psy-shimmer {
+    mask-image: linear-gradient(90deg, black 30%, oklch(0 0 0 / 55%) 50%, black 70%);
+    mask-size: 300% 100%;
+    animation: psy-shimmer 1.5s linear infinite;
+  }
+}
+
+@keyframes psy-shimmer {
+  from {
+    mask-position: 100% 0;
+  }
+  to {
+    mask-position: 0 0;
+  }
+}

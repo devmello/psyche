@@ -64,22 +64,26 @@ Colors are OKLCH CSS variables (UI design §4.8):
 
 Tailwind utilities exist for each (`bg-accent-9`, `text-gray-11`, `border-approval-border`, …). Root attributes: `data-theme` (light / dark), `data-density`, `data-reduce-motion`, `data-contrast` (high contrast: borders step 8, text step 12, 2 px rings).
 
-### Design system rules (UI design §4)
+### Design system rules (redesign 2026)
 
-Screens inherit the look from these; do not hand-roll a card, header or select.
+The spec is [docs/design/redesign-2026.md](../../docs/design/redesign-2026.md) and [docs/design/motion.md](../../docs/design/motion.md). Components use semantic roles, never raw scale steps, and never hand-roll a card, header, select or animation.
 
 | Area | Rule | Use |
 | --- | --- | --- |
-| Type (§4.2) | h1 24/30, h2 20/26, h3 16/22 at 600; body 15/22, small 13/18, caption 12/16, label 11/14 uppercase, mono 13/20 | `text-h1` `text-h2` `text-h3` `text-body` `text-small` `text-caption` `text-label` `text-mono` (the older `text-2xl`…`text-xs` aliases map to the same sizes) |
-| Spacing (§4.3) | 4 px base; 2, 4, 8, 12, 16, 24, 32, 48 | `gap-2` `p-4` `gap-6` …; pages use 24 px gutters and a 24 px rhythm (`Page`) |
-| Radius (§4.3) | cards 10 (`rounded-lg`), inputs and buttons 8 (`rounded-md`), chips and avatars full, sheets and dialogs 14 (`rounded-xl`), panes 0 | `Card`, `Input`, `NativeSelect`, `Button`, `Badge` already follow it |
-| Elevation (§4.4) | 0: page (gray-1); 1: cards and the approval dock, gray-2 with a 1 px gray-6 border, no shadow; 2: popovers, menus (`shadow-level-2`); 3: sheets, dialogs (`shadow-level-3`); dark mode steps surfaces up instead of deepening shadows | `Card` / `.elevation-1`; popovers, selects, menus and dialogs already carry their level |
-| Motion (§4.5) | 120 ms hover and toggles (every `transition-*` utility's default), 200 ms cards (`animate-psy-rise`, `animate-psy-fade`), 320 ms sheets; `ease-psyche`; reduced motion makes all of it 0 ms | |
-| Icons (§4.6) | Lucide, 1.75 px stroke (set globally on `svg.lucide`), 16 / 20 / 24 | |
-| Semantic chips (§4.8) | `Badge` variants `approval`, `success`, `danger`, `info`, `muted`, `accent`; never a raw hue | |
-| Incognito (§4.8) | `data-incognito="true"` on a thread's root swaps the accent for gray | |
-| Pages (§3.0, §4.13) | `Page` (centred column, `wide` 880 px, `prose` 68ch, `full`), `PageHeader` (h1, facts, one sentence, actions), `SectionLabel`, `EmptyState` (optional icon, one sentence, one action), `ErrorState`, `LoadingCards` | `components/page.tsx` |
-| Times (§4.12) | `formatRelative`: "41 min ago", "5 h ago", "yesterday", "4 days ago", then "Oct 2" | `lib/format.ts` |
+| Surfaces | Canvas for content; sidebar material; raised for cards and grouped rows (level 1); overlay or glass for popovers, menus and sheets | `bg-canvas`, `bg-surface-sidebar` / `.material-sidebar`, `bg-surface-raised`, `bg-surface-overlay`, `.material-glass` |
+| Labels and fills | Four label levels and four fills (AppKit-style): hover fill-tertiary, pressed fill-secondary, selection accent-tinted when the window is key | `text-label-primary`…`-quaternary`, `bg-fill-primary`…`-quaternary`, `bg-selection`, `bg-separator` |
+| Accent | Only the one primary action per view, the key-window selection, links and the focus ring. Status uses the fixed scales | `Button` (default), `bg-selection`, `Badge` variants `approval`/`success`/`danger`/`info` |
+| Type | macOS text styles: `text-large-title` 26/32, `text-title-1` 22/28, `text-title-2` 17/22, `text-title-3` 15/20, `text-headline` 13/16 600, `text-body` 13/18 (chrome), `text-reading` 15/23 (transcripts, posts), `text-callout` 12/16, `text-subheadline` 11/14, `text-caption` 11/14 500, `text-mono` 12/18. Sentence case | `text-h1`…`h3`, `text-small` and `text-label` are aliases until A3 |
+| Spacing | 4 px base; 2, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64 | `p-2` = 8 px; pages use `Page` (24 px gutters) |
+| Radius | Concentric: xs 4, sm 6 (small controls), md 8 (controls), lg 12 (cards, popovers, grouped lists), xl 16 (sheets, dialogs, composer), full (capsules, avatars, badges). Inner radius = outer − padding | `rounded-xs`…`rounded-xl`, `rounded-full`; `Button size="lg"` is a capsule |
+| Elevation | No borders: level 1 `shadow-elevation-1`, level 2 `shadow-elevation-2` (or `.material-glass`), level 3 `shadow-elevation-3`; dark mode steps surfaces up | `Card`, `GroupedList`, popups and dialogs already carry their level |
+| Materials | Glass only on chrome (composer, popovers, menus, palette); at most two at once; opaque under Reduce Transparency (`prefers-reduced-transparency` or `data-reduce-transparency`) and Increase Contrast | `.material-glass`, `.scroll-edge-top` / `-bottom` |
+| Motion | Tokens from `src/motion/tokens.ts`: durations 0/100/150/220/320 ms, eases standard/enter/exit, springs micro/snappy/smooth/gentle/emphasis/interactive. CSS forms in the generated `styles/motion.css` (`--duration-*`, `--ease-*`, `--spring-*` as `linear()`); Motion through `MotionProvider` (in `ThemeProvider`: `LazyMotion` + async `domAnimation`, `reducedMotion` from the Appearance setting, `spring.smooth` default) | Base UI popups use `.psy-popup` / `.psy-dialog` / `.psy-sheet` / `.psy-backdrop` (data-starting/ending-style); content uses `FadeIn`, `ListItem`, `Presence`; `LayoutMotion` adds `layout` / `layoutId` to a subtree. Never `duration-<n>`, `transition-all` or `cubic-bezier(` in components (tested) |
+| Reduced motion | Movement becomes a ≤ 150 ms opacity fade; loops stop; blur never animates | Automatic for the classes and helpers above |
+| Icons | Lucide, 1.75 px stroke (`svg.lucide`), 16 / 20 px; one status glyph per state | `StatusGlyph` |
+| Pages and states | `Page`, `PageHeader`, `SectionLabel`, `GroupedList` / `GroupedRow`, `EmptyState` (icon, one sentence, one action), `ErrorState` (danger only on the icon), `LoadingCards` (shimmer after 150 ms) | `components/page.tsx` |
+| Native feel | No `cursor: pointer` on controls, no press movement, primary action trailing, tooltips after 500 ms | Built into `Button`, `Tooltip` |
+| Times | `formatRelative`: "41 min ago", "5 h ago", "yesterday", "4 days ago", then "Oct 2" | `lib/format.ts` |
 
 **Theme generator** (`generateTheme({accentSeed, gray})`): Radix-style 12-step scales per appearance in OKLCH with colorjs.io; the seed lands on step 9, steps 1–8 ease with bezier curves, text on step 9 is chosen with APCA (advisory), and a binding WCAG 2 gate (step 11 ≥ 4.5:1 and step 12 ≥ 7:1 on step 2, contrast text ≥ 4.5:1 on step 9) nudges failing seeds and reports it in `nudged`. Outputs sRGB-mapped and P3 values and alpha scales. `pnpm --filter @psyche/ui gen:theme` regenerates the default theme CSS.
 

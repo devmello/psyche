@@ -102,7 +102,7 @@ export function ReceiptLine({
       ) : null}
     </>
   );
-  const cls = "my-1 block w-full text-start text-caption text-muted-foreground";
+  const cls = "my-1 block w-full text-start text-callout text-muted-foreground";
   return onOpen ? (
     <button
       type="button"

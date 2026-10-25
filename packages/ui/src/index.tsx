@@ -99,7 +99,17 @@ export { FollowUpQueue } from "./chat/FollowUpQueue.tsx";
 export { MessageView, type MessageViewProps, messageText } from "./chat/MessageView.tsx";
 export { OfflineBanner } from "./chat/OfflineBanner.tsx";
 export { ChatThread, type ChatThreadProps } from "./chat/Thread.tsx";
-export { Page, PageHeader, type PageProps, SectionLabel } from "./components/page.tsx";
+export {
+  GroupedList,
+  type GroupedListProps,
+  GroupedRow,
+  type GroupedRowProps,
+  Page,
+  PageHeader,
+  type PageProps,
+  SectionLabel,
+} from "./components/page.tsx";
+export { StatusGlyph, type StatusGlyphProps, type StatusKind } from "./components/status.tsx";
 export { NativeSelect } from "./components/ui/native-select.tsx";
 export { Toaster } from "./components/ui/sonner.tsx";
 export * from "./data/index.ts";

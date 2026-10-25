@@ -164,7 +164,7 @@ export function AgentHeader({
         </div>
       </div>
       {status.running > 0 || status.needsYou > 0 ? (
-        <p className="hidden items-center gap-2 text-caption text-muted-foreground sm:flex">
+        <p className="hidden items-center gap-2 text-callout text-muted-foreground sm:flex">
           {status.running > 0 ? (
             <span>{t("agent.header.running", { n: status.running })}</span>
           ) : null}

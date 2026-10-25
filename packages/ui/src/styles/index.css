@@ -6,6 +6,8 @@
 @import "tw-animate-css";
 @import "./theme-default.css";
 @import "./semantic.css";
+@import "./motion.css";
+@import "./design.css";
 
 /* Scan the kit's own sources wherever the shell's Tailwind runs from. */
 @source "../";
@@ -33,9 +35,10 @@
   /* shadcn names, mapped once (§4.10). */
   --background: var(--gray-1);
   --foreground: var(--gray-12);
-  --card: var(--gray-2);
+  /* Aliases of the redesign roles (styles/design.css) until A3. */
+  --card: var(--surface-raised);
   --card-foreground: var(--gray-12);
-  --popover: var(--gray-1);
+  --popover: var(--surface-overlay);
   --popover-foreground: var(--gray-12);
   --primary: var(--accent-9);
   --primary-foreground: var(--accent-contrast);
@@ -68,7 +71,7 @@
 
   /* Layout (§4.1), radius (§4.3), motion (§4.5), elevation (§4.4). */
   --spacing: 4px;
-  --radius: 10px;
+  --radius: 12px;
   --rail-width: 56px;
   --thread-list-width: 260px;
   --chat-min-width: 480px;
@@ -78,12 +81,13 @@
   --duration-fast: 120ms;
   --duration-card: 200ms;
   --duration-sheet: 320ms;
-  --shadow-level-2: 0 4px 16px oklch(0 0 0 / 12%);
-  --shadow-level-3: 0 12px 40px oklch(0 0 0 / 20%);
+  --shadow-level-2: var(--elevation-2);
+  --shadow-level-3: var(--elevation-3);
 
   --font-sans:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Inter, sans-serif;
-  --font-mono: "SF Mono", Menlo, "JetBrains Mono", ui-monospace, monospace;
+    system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Inter Variable", Inter,
+    "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
 
   transition:
     --accent-9 200ms var(--ease-psyche),
@@ -101,12 +105,7 @@
 }
 
 :root[data-theme="dark"] {
-  --popover: var(--gray-3);
   --approval-text: var(--amber-11);
-  --card: var(--gray-2);
-  /* Dark mode steps surfaces up instead of deepening shadows (§4.4). */
-  --shadow-level-2: 0 0 0 1px var(--gray-7);
-  --shadow-level-3: 0 0 0 1px var(--gray-7), 0 12px 40px oklch(0 0 0 / 40%);
 }
 
 /* High contrast: borders step 8, text step 12, 2 px solid focus rings (§4.11). */
@@ -256,20 +255,14 @@
   --text-h3: 16px;
   --text-h3--line-height: 22px;
   --text-h3--font-weight: 600;
-  --text-body: 15px;
-  --text-body--line-height: 22px;
   --text-small: 13px;
   --text-small--line-height: 18px;
-  --text-caption: 12px;
-  --text-caption--line-height: 16px;
-  --text-mono: 13px;
-  --text-mono--line-height: 20px;
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 4px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 6px);
+  --radius-2xl: calc(var(--radius) + 8px);
 
   --ease-psyche: var(--ease-psyche);
   /* Motion (§4.5): every transition utility defaults to 120 ms on the Psyche curve. */
@@ -289,6 +282,7 @@
   }
   html {
     font-family: var(--font-sans);
+    font-optical-sizing: auto;
     -webkit-font-smoothing: antialiased;
   }
   body {
@@ -308,7 +302,7 @@
   /* Quiet scrollbars that match the gray scale (§4.4 level 0 surfaces). */
   * {
     scrollbar-width: thin;
-    scrollbar-color: var(--gray-7) transparent;
+    scrollbar-color: var(--fill-primary) transparent;
   }
   h1,
   h2,
@@ -363,8 +357,8 @@
     max-width: var(--prose-width);
   }
   .elevation-1 {
-    background: var(--gray-2);
-    border: 1px solid var(--gray-6);
+    background: var(--surface-raised);
+    box-shadow: var(--elevation-1);
   }
   .elevation-2 {
     box-shadow: var(--shadow-level-2);
