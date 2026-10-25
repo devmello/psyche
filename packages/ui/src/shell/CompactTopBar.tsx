@@ -110,9 +110,7 @@ export function CompactTopBar({
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onOpenModelPicker}>
-                {model
-                  ? t("shell.compact.modelCurrent", { model })
-                  : t("shell.compact.model")}
+                {model ? t("shell.compact.modelCurrent", { model }) : t("shell.compact.model")}
               </DropdownMenuItem>
             </>
           ) : null}

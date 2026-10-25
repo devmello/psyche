@@ -432,7 +432,11 @@ export function ThreadGroup({
         </div>
       ) : null}
       {threads.loading && threads.all.length === 0 ? (
-        <div className="flex flex-col gap-1 px-2" role="status" aria-label={t("shell.threads.loading")}>
+        <div
+          className="flex flex-col gap-1 px-2"
+          role="status"
+          aria-label={t("shell.threads.loading")}
+        >
           <Skeleton className="h-7" />
           <Skeleton className="h-7" />
           <Skeleton className="h-7" />

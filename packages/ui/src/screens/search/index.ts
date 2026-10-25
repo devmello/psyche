@@ -9,8 +9,8 @@ export {
   type SearchViewProps,
 } from "./SearchScreen.tsx";
 export {
-  type SearchSurfaceProps,
   SearchSurface,
+  type SearchSurfaceProps,
   type SurfaceGroup,
   type SurfaceItem,
   surfaceGroups,

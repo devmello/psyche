@@ -132,7 +132,12 @@ describe("⌘K palette", () => {
     const onNavigate = vi.fn();
     render(
       <StoryWorld>
-        <CommandPalette open onOpenChange={() => {}} onNavigate={onNavigate} initialQuery="dentist" />
+        <CommandPalette
+          open
+          onOpenChange={() => {}}
+          onNavigate={onNavigate}
+          initialQuery="dentist"
+        />
       </StoryWorld>,
     );
     const dialog = await screen.findByRole("dialog", { name: "Command palette" });

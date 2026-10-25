@@ -74,7 +74,9 @@ describe("Sidebar (redesign §5.1)", () => {
     const rows = await screen.findAllByTestId("thread-row");
     const current = rows.find((r) => r.getAttribute("aria-current") === "page");
     expect(current).toBeTruthy();
-    expect(current?.parentElement?.querySelector('[data-testid="sidebar-selection"]')).not.toBeNull();
+    expect(
+      current?.parentElement?.querySelector('[data-testid="sidebar-selection"]'),
+    ).not.toBeNull();
     expect(destination("Chat").getAttribute("aria-current")).toBe("true");
     // Main chat first, by name.
     expect(rows[0]?.textContent).toContain("Main chat");
@@ -178,13 +180,11 @@ describe("AppShell sidebar and compact layout", () => {
     expect(screen.queryByRole("navigation", { name: "Sidebar" })).toBeNull();
     expect(screen.getByTestId("compact-top-bar")).toBeTruthy();
     const tabs = screen.getByTestId("tab-bar");
-    expect(within(tabs).getAllByRole("button").map((b) => b.textContent)).toEqual([
-      "Chat",
-      "Feed",
-      "Ideas",
-      "Goals",
-      "Library",
-    ]);
+    expect(
+      within(tabs)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["Chat", "Feed", "Ideas", "Goals", "Library"]);
     await userEvent.click(within(tabs).getByRole("button", { name: "Feed" }));
     expect(routes).toContain("/feed");
     await userEvent.click(screen.getByRole("button", { name: "Threads" }));

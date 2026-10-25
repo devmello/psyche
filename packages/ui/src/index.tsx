@@ -153,6 +153,7 @@ export {
   TabBar,
   type TabBarProps,
 } from "./shell/Rail.tsx";
+export { ShortcutList, ShortcutTable } from "./shell/ShortcutList.tsx";
 export {
   ConnectedSidebar,
   clampSidebarWidth,
@@ -162,7 +163,6 @@ export {
   SidebarToggle,
   useSidebarCounts,
 } from "./shell/Sidebar.tsx";
-export { ShortcutList, ShortcutTable } from "./shell/ShortcutList.tsx";
 export {
   CARD_SHORTCUTS,
   isMac,

@@ -5,10 +5,16 @@ import { ChatThread } from "../chat/Thread.tsx";
 import { useThread, useThreads } from "../data/index.ts";
 import { CommandPalette, type PaletteAction } from "./CommandPalette.tsx";
 import { CompactTopBar } from "./CompactTopBar.tsx";
-import { PanePresence, ReflowColumn, RouteTransition, ShellMotion, SidebarPresence } from "./motion.tsx";
+import {
+  PanePresence,
+  ReflowColumn,
+  RouteTransition,
+  ShellMotion,
+  SidebarPresence,
+} from "./motion.tsx";
 import { destinationFor, type RailItem, TabBar } from "./Rail.tsx";
 import { ShortcutList } from "./ShortcutList.tsx";
-import { clampSidebarWidth, ConnectedSidebar, SIDEBAR_WIDTH } from "./Sidebar.tsx";
+import { ConnectedSidebar, clampSidebarWidth, SIDEBAR_WIDTH } from "./Sidebar.tsx";
 import { type ShortcutId, useShortcuts } from "./shortcuts.ts";
 import { ThreadList } from "./ThreadList.tsx";
 import { ThreadsDrawer } from "./ThreadsDrawer.tsx";
@@ -133,11 +139,12 @@ export function AppShell({
     />
   );
 
-  const content = chatMatch && threadId ? (
-    <ChatThread threadId={threadId} {...(now === undefined ? {} : { now })} />
-  ) : (
-    children
-  );
+  const content =
+    chatMatch && threadId ? (
+      <ChatThread threadId={threadId} {...(now === undefined ? {} : { now })} />
+    ) : (
+      children
+    );
 
   return (
     <ShellMotion>
@@ -185,18 +192,18 @@ export function AppShell({
           <TabBar active={destinationFor(route)} onNavigate={go} badges={railBadges ?? {}} />
         ) : null}
         <ThreadsDrawer open={compact && drawerOpen} onOpenChange={setDrawerOpen}>
-            <ThreadList
-              activeThreadId={threadId}
-              onOpen={(id) => {
-                setDrawerOpen(false);
-                go(`/chat/${id}`);
-              }}
-              onNewSideChat={() => {
-                setDrawerOpen(false);
-                void newSideChat();
-              }}
-              {...(now === undefined ? {} : { now })}
-            />
+          <ThreadList
+            activeThreadId={threadId}
+            onOpen={(id) => {
+              setDrawerOpen(false);
+              go(`/chat/${id}`);
+            }}
+            onNewSideChat={() => {
+              setDrawerOpen(false);
+              void newSideChat();
+            }}
+            {...(now === undefined ? {} : { now })}
+          />
         </ThreadsDrawer>
         <AgentSheet
           open={sheet.open}

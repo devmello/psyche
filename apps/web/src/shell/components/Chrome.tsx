@@ -88,7 +88,11 @@ export function ShellSidebar(props: {
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{props.threads}</div>
       {props.footer ? <div className="px-3">{props.footer}</div> : null}
       <div className="px-1">
-        <button type="button" className={rowClass} onClick={() => props.onNavigate("/settings/model")}>
+        <button
+          type="button"
+          className={rowClass}
+          onClick={() => props.onNavigate("/settings/model")}
+        >
           {t("web.rail.settings")}
         </button>
       </div>

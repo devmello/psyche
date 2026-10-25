@@ -90,7 +90,9 @@ describe("the shell's one sidebar (redesign §5.1)", () => {
     expect(screen.getByTestId("shell").getAttribute("data-sidebar")).toBe("collapsed");
     expect(show).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Show the sidebar" }));
-    await waitFor(() => expect(screen.getByTestId("shell").getAttribute("data-sidebar")).toBe("open"));
+    await waitFor(() =>
+      expect(screen.getByTestId("shell").getAttribute("data-sidebar")).toBe("open"),
+    );
     expect(storage.get("shell.sidebar.open")).toBe("true");
   });
 
@@ -137,13 +139,11 @@ describe("compact layout under 720 px (redesign §5.11)", () => {
     expect(within(shell).queryByRole("navigation", { name: "Sidebar" })).toBeNull();
     expect(screen.getByTestId("compact-top-bar")).toBeTruthy();
     const tabs = screen.getByTestId("tab-bar");
-    expect(within(tabs).getAllByRole("button").map((b) => b.textContent)).toEqual([
-      "Chat",
-      "Feed",
-      "Ideas",
-      "Goals",
-      "Library",
-    ]);
+    expect(
+      within(tabs)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["Chat", "Feed", "Ideas", "Goals", "Library"]);
     await press({ key: "b", ctrlKey: true });
     const drawer = await screen.findByRole("dialog", { name: "Threads" });
     expect(within(drawer).getByRole("button", { name: /Main chat/ })).toBeTruthy();

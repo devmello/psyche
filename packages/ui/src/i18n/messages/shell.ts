@@ -97,6 +97,8 @@ export const shell = {
   "shell.search.hintOpen": "open",
   "shell.search.hintSideChat": "open in a side chat",
   "shell.search.hintFilter": "filter",
+  "shell.search.keyCtrlEnter": "Ctrl ↵",
+  "shell.search.keyTab": "Tab",
   "shell.search.actionHint": "Runs this command.",
   "shell.search.run": "Run",
   "shell.search.open": "Open",

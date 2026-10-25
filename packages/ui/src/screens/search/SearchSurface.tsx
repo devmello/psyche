@@ -151,7 +151,6 @@ export function SearchSurface({
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
   const [active, setActive] = useState(0);
   // Each keystroke resets the selection to the best result.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new query or result set resets it
   useEffect(() => setActive(0), [query, flat.length]);
   const current = flat[Math.min(active, flat.length - 1)];
   const optionId = (key: string) => `${baseId}-opt-${key.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
@@ -257,52 +256,55 @@ export function SearchSurface({
     );
   } else {
     results = (
-      <div
-        ref={listRef}
-        id={listId}
-        role="listbox"
-        aria-label={t("shell.search.results")}
-        className="flex flex-col gap-3"
-      >
-        {groups.map((g) => (
-          <div
-            key={g.id}
-            role="group"
-            aria-label={t("shell.palette.group", { scope: g.label, n: g.items.length })}
-            className="flex flex-col"
-          >
-            <div aria-hidden="true" className="px-3 pb-1 text-caption text-label-tertiary">
-              {g.label}
-            </div>
-            {g.items.map((item) => {
-              const index = flat.indexOf(item);
-              const selected = item === current;
-              return (
-                // biome-ignore lint/a11y/useKeyWithClickEvents: the field handles the keyboard
-                <div
-                  key={item.key}
-                  id={optionId(item.key)}
-                  role="option"
-                  tabIndex={-1}
-                  aria-selected={selected}
-                  onMouseMove={() => index !== active && setActive(index)}
-                  onClick={(e) => choose(item, isMac() ? e.metaKey : e.ctrlKey)}
-                  className={cn(
-                    "flex min-h-9 items-center gap-3 rounded-md px-3 py-1.5 text-start",
-                    selected ? "bg-selection" : "",
-                  )}
-                  data-testid="search-option"
-                >
-                  <SurfaceRow item={item} terms={terms} />
-                </div>
-              );
-            })}
-          </div>
-        ))}
+      <>
         <p className="sr-only" role="status">
           {t("screens.search.results", { n: flat.filter((i) => i.kind === "hit").length })}
         </p>
-      </div>
+        <div
+          ref={listRef}
+          id={listId}
+          role="listbox"
+          aria-label={t("shell.search.results")}
+          className="flex flex-col gap-3"
+        >
+          {groups.map((g) => (
+            // biome-ignore lint/a11y/useSemanticElements: an option group inside a listbox has no native element
+            <div
+              key={g.id}
+              role="group"
+              aria-label={t("shell.palette.group", { scope: g.label, n: g.items.length })}
+              className="flex flex-col"
+            >
+              <div aria-hidden="true" className="px-3 pb-1 text-caption text-label-tertiary">
+                {g.label}
+              </div>
+              {g.items.map((item) => {
+                const index = flat.indexOf(item);
+                const selected = item === current;
+                return (
+                  // biome-ignore lint/a11y/useKeyWithClickEvents: the field handles the keyboard
+                  <div
+                    key={item.key}
+                    id={optionId(item.key)}
+                    role="option"
+                    tabIndex={-1}
+                    aria-selected={selected}
+                    onMouseMove={() => index !== active && setActive(index)}
+                    onClick={(e) => choose(item, isMac() ? e.metaKey : e.ctrlKey)}
+                    className={cn(
+                      "flex min-h-9 items-center gap-3 rounded-md px-3 py-1.5 text-start",
+                      selected ? "bg-selection" : "",
+                    )}
+                    data-testid="search-option"
+                  >
+                    <SurfaceRow item={item} terms={terms} />
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </>
     );
   }
 
@@ -391,7 +393,10 @@ export function SearchSurface({
       <div
         role="toolbar"
         aria-label={t("screens.search.filters")}
-        className={cn("flex flex-wrap items-center gap-1", palette && "border-b border-separator px-3 py-1.5")}
+        className={cn(
+          "flex flex-wrap items-center gap-1",
+          palette && "border-b border-separator px-3 py-1.5",
+        )}
       >
         <button
           type="button"
@@ -418,7 +423,9 @@ export function SearchSurface({
               onClick={() => toggleScope(scope)}
               className={cn(
                 chipClass,
-                on ? "bg-accent-a3 text-accent-11" : "text-label-secondary hover:bg-fill-quaternary",
+                on
+                  ? "bg-accent-a3 text-accent-11"
+                  : "text-label-secondary hover:bg-fill-quaternary",
               )}
             >
               <Icon className="size-3.5" aria-hidden="true" strokeWidth={1.75} />
@@ -466,7 +473,9 @@ export function SearchSurface({
           from:
         </button>
         {parsed.from.length > 0 ? (
-          <span className="ms-1 text-callout text-label-tertiary">{t("screens.search.fromNote")}</span>
+          <span className="ms-1 text-callout text-label-tertiary">
+            {t("screens.search.fromNote")}
+          </span>
         ) : null}
       </div>
 
@@ -477,7 +486,9 @@ export function SearchSurface({
             aria-label={t("shell.search.preview")}
             className={cn(
               "flex w-72 shrink-0 flex-col gap-3 p-4",
-              palette ? "overflow-y-auto border-s border-separator" : "rounded-lg bg-surface-raised shadow-elevation-1",
+              palette
+                ? "overflow-y-auto border-s border-separator"
+                : "rounded-lg bg-surface-raised shadow-elevation-1",
             )}
             data-testid="search-preview"
           >
@@ -503,11 +514,12 @@ export function SearchSurface({
           </span>
           {onOpenInSideChat ? (
             <span className="inline-flex items-center gap-1">
-              <Kbd>{isMac() ? "⌘↵" : "Ctrl ↵"}</Kbd> {t("shell.search.hintSideChat")}
+              <Kbd>{isMac() ? "⌘↵" : t("shell.search.keyCtrlEnter")}</Kbd>{" "}
+              {t("shell.search.hintSideChat")}
             </span>
           ) : null}
           <span className="inline-flex items-center gap-1">
-            <Kbd>Tab</Kbd> {t("shell.search.hintFilter")}
+            <Kbd>{t("shell.search.keyTab")}</Kbd> {t("shell.search.hintFilter")}
           </span>
         </div>
       ) : null}
@@ -515,7 +527,13 @@ export function SearchSurface({
   );
 }
 
-function SurfaceRow({ item, terms }: { item: SurfaceItem; terms: readonly string[] }): ReactElement {
+function SurfaceRow({
+  item,
+  terms,
+}: {
+  item: SurfaceItem;
+  terms: readonly string[];
+}): ReactElement {
   if (item.kind === "action") {
     return (
       <>
@@ -525,9 +543,13 @@ function SurfaceRow({ item, terms }: { item: SurfaceItem; terms: readonly string
         >
           <Zap className="size-3.5" strokeWidth={1.75} />
         </span>
-        <span className="min-w-0 flex-1 truncate text-body text-label-primary">{item.action.label}</span>
+        <span className="min-w-0 flex-1 truncate text-body text-label-primary">
+          {item.action.label}
+        </span>
         {item.action.shortcut ? (
-          <span className="shrink-0 text-subheadline text-label-tertiary">{item.action.shortcut}</span>
+          <span className="shrink-0 text-subheadline text-label-tertiary">
+            {item.action.shortcut}
+          </span>
         ) : null}
       </>
     );
@@ -656,7 +678,10 @@ export function useSearchSurface(initialQuery = "", debounceMs = 200, enabled = 
 export function useMinWidth(px: number): boolean {
   const query = `(min-width: ${px}px)`;
   const [wide, setWide] = useState(
-    () => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia(query).matches,
+    () =>
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia(query).matches,
   );
   useEffect(() => {
     if (typeof window.matchMedia !== "function") return;

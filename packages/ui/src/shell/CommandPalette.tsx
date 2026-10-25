@@ -128,7 +128,9 @@ export function CommandPalette({
   }, [open, setQuery, initialQuery]);
   const close = () => onOpenChange(false);
   // The host's actions first; a built-in one with the same id gives way to the host's.
-  const builtIn = builtInActions ? DEFAULT_ACTIONS.filter((d) => !actions.some((a) => a.id === d.id)) : [];
+  const builtIn = builtInActions
+    ? DEFAULT_ACTIONS.filter((d) => !actions.some((a) => a.id === d.id))
+    : [];
   const all = [...actions, ...builtIn].map(withShortcut);
   const sideChat =
     onOpenInSideChat ??
@@ -150,7 +152,9 @@ export function CommandPalette({
           className="psy-popup fixed top-[20%] left-1/2 z-50 flex w-[min(640px,calc(100vw-2rem))] -translate-x-1/2 flex-col overflow-hidden rounded-xl material-glass text-label-primary outline-none"
           style={{ ["--transform-origin" as string]: "top center" }}
         >
-          <DialogPrimitive.Title className="sr-only">{t("shell.palette.title")}</DialogPrimitive.Title>
+          <DialogPrimitive.Title className="sr-only">
+            {t("shell.palette.title")}
+          </DialogPrimitive.Title>
           <DialogPrimitive.Description className="sr-only">
             {t("shell.palette.description")}
           </DialogPrimitive.Description>

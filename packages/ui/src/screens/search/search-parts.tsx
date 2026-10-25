@@ -52,7 +52,6 @@ export function Highlight({ text, terms }: { text: string; terms: readonly strin
   const lower = new Set(terms.map((w) => w.toLowerCase()));
   return parts.map((part, i) =>
     lower.has(part.toLowerCase()) ? (
-      // biome-ignore lint/suspicious/noArrayIndexKey: split parts never reorder
       <mark key={i} className="rounded-xs bg-accent-a4 px-0.5 text-inherit">
         {part}
       </mark>

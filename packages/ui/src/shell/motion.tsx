@@ -71,7 +71,11 @@ export function ReflowColumn({
 }: Omit<HTMLMotionProps<"main">, "layout">): ReactElement {
   const reduce = useReducedMotion();
   return (
-    <m.main layout={reduce ? false : "position"} transition={motionSpring(spring.smooth)} {...props}>
+    <m.main
+      layout={reduce ? false : "position"}
+      transition={motionSpring(spring.smooth)}
+      {...props}
+    >
       {children}
     </m.main>
   );

@@ -225,8 +225,7 @@ function useFocusReturn(paneIds: readonly string[]): void {
         !active.isConnected ||
         active.closest?.('[data-testid="pane-area"]') !== null;
       if (!lost) continue;
-      const target =
-        opener?.isConnected === true ? opener : document.getElementById("main");
+      const target = opener?.isConnected === true ? opener : document.getElementById("main");
       target?.focus({ preventScroll: true });
     }
   }, [paneIds]);

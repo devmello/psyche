@@ -231,7 +231,10 @@ export function Sidebar({
             filterToken={(filterToken ?? 0) + filterBump}
           />
         </div>
-        <div className="flex h-11 shrink-0 items-center gap-2 ps-3 pe-1" data-testid="sidebar-footer">
+        <div
+          className="flex h-11 shrink-0 items-center gap-2 ps-3 pe-1"
+          data-testid="sidebar-footer"
+        >
           <Avatar
             name={persona.name}
             creature={persona.creature}
