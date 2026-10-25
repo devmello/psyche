@@ -18,6 +18,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu.tsx";
+import { ToolbarGroup } from "../components/ui/toolbar.tsx";
 import { useNotifications, useStoreState } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { fade, Presence } from "../motion/index.ts";
@@ -69,7 +70,7 @@ function snippetSaysState(snippet: string, state: AvatarState): boolean {
 
 /** One segment of the toolbar's mode / model pill group (§4, §5.2). */
 const SEGMENT =
-  "inline-flex h-7 cursor-default items-center gap-1 px-3 text-body text-label-primary transition-colors duration-(--duration-micro) ease-(--ease-standard) outline-none hover:bg-fill-tertiary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset aria-expanded:bg-fill-secondary [&_svg]:size-3.5 [&_svg]:text-label-secondary";
+  "inline-flex h-7 cursor-default items-center gap-1 rounded-full px-3 text-body text-label-primary transition-colors duration-(--duration-micro) ease-(--ease-standard) outline-none hover:bg-fill-tertiary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset aria-expanded:bg-fill-secondary [&_svg]:size-3.5 [&_svg]:text-label-secondary";
 /** The same segment when there is no handler: text, not a disabled control. */
 const SEGMENT_STATIC = "inline-flex h-7 items-center gap-1 px-3 text-body text-label-secondary";
 
@@ -218,11 +219,9 @@ export function AgentHeader({
       ) : null}
       {context}
       {pills ? (
-        // The mode and model pills are one glass control group (§4), concentric capsules.
-        <div
-          className="material-glass flex shrink-0 items-center overflow-hidden rounded-full"
-          data-testid="toolbar-pills"
-        >
+        // The mode and model pills are one Liquid Glass group (liquid-glass.md §6.3); the row
+        // itself has no material.
+        <ToolbarGroup className="shrink-0" data-testid="toolbar-pills">
           {mode ? (
             onModeChange ? (
               <DropdownMenu>
@@ -279,100 +278,109 @@ export function AgentHeader({
               </span>
             )
           ) : null}
-        </div>
+        </ToolbarGroup>
       ) : null}
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        className="relative"
-        onClick={onOpenInbox}
-        aria-label={t("agent.header.notifications", { n: unread.length })}
-      >
-        <Bell aria-hidden="true" />
-        {unread.length > 0 ? (
-          <span
-            className="absolute -top-0.5 -end-0.5 min-w-4 rounded-full bg-accent-9 px-1 text-center text-[11px] leading-4 text-accent-contrast tabular-nums"
-            aria-hidden="true"
-          >
-            {unread.length}
-          </span>
-        ) : null}
-      </Button>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={<Button variant="ghost" size="icon-sm" aria-label={t("common.more")} />}
+      <ToolbarGroup className="shrink-0" data-testid="toolbar-actions">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="relative rounded-full"
+          onClick={onOpenInbox}
+          aria-label={t("agent.header.notifications", { n: unread.length })}
         >
-          <Ellipsis aria-hidden="true" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-56">
-          <DropdownMenuItem onClick={onOpenSheet}>
-            <PanelRight aria-hidden="true" /> {t("agent.header.menuSheet")}
-            <DropdownMenuShortcut>{t("chat.toolbar.keySheet")}</DropdownMenuShortcut>
-          </DropdownMenuItem>
-          {onOpenModelPicker ? (
-            <DropdownMenuItem onClick={onOpenModelPicker}>
-              {t("agent.header.changeModel")}
-              <DropdownMenuShortcut>{t("chat.toolbar.keyModel")}</DropdownMenuShortcut>
+          <Bell aria-hidden="true" />
+          {unread.length > 0 ? (
+            <span
+              className="absolute -top-0.5 -end-0.5 min-w-4 rounded-full bg-accent-9 px-1 text-center text-[11px] leading-4 text-accent-contrast tabular-nums"
+              aria-hidden="true"
+            >
+              {unread.length}
+            </span>
+          ) : null}
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="rounded-full"
+                aria-label={t("common.more")}
+              />
+            }
+          >
+            <Ellipsis aria-hidden="true" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-56">
+            <DropdownMenuItem onClick={onOpenSheet}>
+              <PanelRight aria-hidden="true" /> {t("agent.header.menuSheet")}
+              <DropdownMenuShortcut>{t("chat.toolbar.keySheet")}</DropdownMenuShortcut>
             </DropdownMenuItem>
-          ) : null}
-          {disclosure !== undefined && onDisclosureChange ? (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>{t("chat.toolbar.view")}</DropdownMenuLabel>
-                <DropdownMenuRadioGroup
-                  value={String(disclosure)}
-                  onValueChange={(v) => onDisclosureChange(Number(v) as DisclosureLevel)}
-                >
-                  {LEVELS.map((level) => (
-                    <DropdownMenuRadioItem key={level} value={String(level)}>
-                      {t(`chat.toolbar.view.${DISCLOSURE_KEY[level]}`)}
-                      {level === 0 ? (
-                        <DropdownMenuShortcut>{t("chat.toolbar.keyView")}</DropdownMenuShortcut>
-                      ) : null}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuGroup>
-            </>
-          ) : null}
-          {onContextLimits || onCompact ? (
-            <>
-              <DropdownMenuSeparator />
-              {onContextLimits ? (
-                <DropdownMenuItem onClick={onContextLimits}>
-                  {t("context.limits.menu")}
+            {onOpenModelPicker ? (
+              <DropdownMenuItem onClick={onOpenModelPicker}>
+                {t("agent.header.changeModel")}
+                <DropdownMenuShortcut>{t("chat.toolbar.keyModel")}</DropdownMenuShortcut>
+              </DropdownMenuItem>
+            ) : null}
+            {disclosure !== undefined && onDisclosureChange ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>{t("chat.toolbar.view")}</DropdownMenuLabel>
+                  <DropdownMenuRadioGroup
+                    value={String(disclosure)}
+                    onValueChange={(v) => onDisclosureChange(Number(v) as DisclosureLevel)}
+                  >
+                    {LEVELS.map((level) => (
+                      <DropdownMenuRadioItem key={level} value={String(level)}>
+                        {t(`chat.toolbar.view.${DISCLOSURE_KEY[level]}`)}
+                        {level === 0 ? (
+                          <DropdownMenuShortcut>{t("chat.toolbar.keyView")}</DropdownMenuShortcut>
+                        ) : null}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuGroup>
+              </>
+            ) : null}
+            {onContextLimits || onCompact ? (
+              <>
+                <DropdownMenuSeparator />
+                {onContextLimits ? (
+                  <DropdownMenuItem onClick={onContextLimits}>
+                    {t("context.limits.menu")}
+                  </DropdownMenuItem>
+                ) : null}
+                {onCompact ? (
+                  <DropdownMenuItem onClick={onCompact}>
+                    {t("context.meter.compactNow")}
+                  </DropdownMenuItem>
+                ) : null}
+              </>
+            ) : null}
+            {onExport ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onExport("markdown")}>
+                  <Download aria-hidden="true" /> {t("agent.header.exportMarkdown")}
                 </DropdownMenuItem>
-              ) : null}
-              {onCompact ? (
-                <DropdownMenuItem onClick={onCompact}>
-                  {t("context.meter.compactNow")}
+                <DropdownMenuItem onClick={() => onExport("json")}>
+                  <Download aria-hidden="true" /> {t("agent.header.exportJson")}
                 </DropdownMenuItem>
-              ) : null}
-            </>
-          ) : null}
-          {onExport ? (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onExport("markdown")}>
-                <Download aria-hidden="true" /> {t("agent.header.exportMarkdown")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onExport("json")}>
-                <Download aria-hidden="true" /> {t("agent.header.exportJson")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onExport("html")}>
-                <Download aria-hidden="true" /> {t("agent.header.exportHtml")}
-              </DropdownMenuItem>
-            </>
-          ) : null}
-          {menu ? (
-            <>
-              <DropdownMenuSeparator />
-              {menu}
-            </>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
+                <DropdownMenuItem onClick={() => onExport("html")}>
+                  <Download aria-hidden="true" /> {t("agent.header.exportHtml")}
+                </DropdownMenuItem>
+              </>
+            ) : null}
+            {menu ? (
+              <>
+                <DropdownMenuSeparator />
+                {menu}
+              </>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </ToolbarGroup>
     </div>
   );
 }
