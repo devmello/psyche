@@ -2,19 +2,13 @@ import type { Idea, IdeaDismissReason } from "@psyche/protocol";
 import { Lightbulb } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { toast } from "sonner";
-import {
-  EmptyState,
-  ErrorState,
-  LoadingCards,
-  Page,
-  PageHeader,
-  useDelayedFlag,
-} from "../../components/page.tsx";
+import { EmptyState, ErrorState, LoadingCards, useDelayedFlag } from "../../components/page.tsx";
 import { useIdeas } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
-import { plural } from "../../lib/format.ts";
+import { ListItem } from "../../motion/index.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
+import { ScreenColumn, ScreenToolbar } from "../feed/ScreenToolbar.tsx";
 import { type IdeaAcceptOptions, IdeaCard } from "./IdeaCard.tsx";
 
 export interface IdeasViewProps {
@@ -51,6 +45,10 @@ export function IdeasView({
   onOpenChat,
 }: IdeasViewProps): ReactElement {
   const showSkeleton = useDelayedFlag(loading, loadingDelayMs);
+  // One accent primary at a time: the hovered card, else the one holding focus.
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [focused, setFocused] = useState<string | null>(null);
+  const active = hovered ?? focused;
   let body: ReactElement;
   if (loading) {
     body = showSkeleton ? (
@@ -80,11 +78,23 @@ export function IdeasView({
     );
   } else {
     body = (
-      <ul aria-label={t("screens.ideas.title")} className="flex flex-col gap-4">
-        {ideas.map((idea) => (
-          <li key={idea.id}>
+      <ul aria-label={t("screens.ideas.title")} className="flex flex-col gap-3">
+        {ideas.map((idea, i) => (
+          <ListItem
+            key={idea.id}
+            index={i}
+            onPointerEnter={() => setHovered(idea.id)}
+            onPointerLeave={() => setHovered((h) => (h === idea.id ? null : h))}
+            onFocus={() => setFocused(idea.id)}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                setFocused((f) => (f === idea.id ? null : f));
+              }
+            }}
+          >
             <IdeaCard
               idea={idea}
+              prominent={active === idea.id}
               busy={busyIds?.has(idea.id) ?? false}
               {...(onAccept ? { onAccept } : {})}
               {...(onEdit ? { onEdit } : {})}
@@ -92,24 +102,25 @@ export function IdeasView({
               {...(onViewSkill ? { onViewSkill } : {})}
               {...(onOpenRoute ? { onOpenRoute } : {})}
             />
-          </li>
+          </ListItem>
         ))}
       </ul>
     );
   }
   return (
     <section aria-label={t("screens.ideas.title")}>
-      {/* Idea cards read like Feed posts: the same centred prose column (#512). */}
-      <Page width="prose">
-        <PageHeader
-          title={t("screens.ideas.title")}
-          meta={
-            !loading && error === null && ideas.length > 0 ? plural(ideas.length, "idea") : null
-          }
-          description={t("screens.ideas.description")}
-        />
+      <ScreenToolbar
+        title={t("screens.ideas.title")}
+        meta={
+          !loading && error === null && ideas.length > 0
+            ? t("screens.ideas.count", { n: ideas.length })
+            : null
+        }
+      />
+      <ScreenColumn width="wide">
+        <p className="text-callout text-label-secondary">{t("screens.ideas.description")}</p>
         {body}
-      </Page>
+      </ScreenColumn>
     </section>
   );
 }

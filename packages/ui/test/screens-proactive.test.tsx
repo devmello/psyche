@@ -461,12 +461,17 @@ describe("InboxScreen", () => {
   });
 });
 
-describe("page columns (#512)", () => {
-  /** The page column under a screen's labelled section: its classes and what's inside it. */
-  const column = (name: string) =>
-    screen.getByRole("region", { name }).firstElementChild as HTMLElement;
+describe("page columns (#512, redesign §5.6)", () => {
+  /** A screen's labelled section: its toolbar row and the centred column under it. */
+  const parts = (name: string) => {
+    const region = screen.getByRole("region", { name });
+    return {
+      toolbar: region.querySelector('[data-slot="screen-toolbar"]') as HTMLElement | null,
+      column: region.children[1] as HTMLElement,
+    };
+  };
 
-  it("centres Goals and Ideas in the same prose column as Feed", async () => {
+  it("puts each title in the toolbar row and centres the 680 / 880 px columns", async () => {
     render(
       <StoryWorld>
         <FeedScreen />
@@ -475,13 +480,22 @@ describe("page columns (#512)", () => {
       </StoryWorld>,
     );
     await screen.findByRole("heading", { name: "Goals" });
-    const feed = column("Feed").className;
-    for (const name of ["Goals", "Ideas"]) {
-      const c = column(name);
-      expect(c.className, name).toBe(feed);
-      expect(c.className).toContain("mx-auto");
+    for (const [name, width] of [
+      ["Feed", "680px"],
+      ["Ideas", "880px"],
+    ] as const) {
+      const { toolbar, column } = parts(name);
+      expect(toolbar, name).toBeTruthy();
+      // The title lives in the toolbar only, never repeated in the content.
+      expect(within(toolbar as HTMLElement).getByRole("heading", { level: 1, name })).toBeTruthy();
+      expect(within(column).queryByRole("heading", { level: 1 })).toBeNull();
+      expect(column.className).toContain("mx-auto");
+      expect(column.className).toContain(width);
       // Nothing inside narrows the content to a left-aligned measure again.
-      expect(c.querySelector('[class*="max-w-[68ch]"]'), name).toBeNull();
+      expect(column.querySelector('[class*="max-w-[68ch]"]'), name).toBeNull();
     }
+    // Goals keeps its centred column until its split layout lands (redesign E2).
+    const goals = screen.getByRole("region", { name: "Goals" }).firstElementChild as HTMLElement;
+    expect(goals.className).toContain("mx-auto");
   });
 });

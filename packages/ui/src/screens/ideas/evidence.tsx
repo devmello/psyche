@@ -111,7 +111,7 @@ export interface EvidenceLineProps {
 }
 
 const linkClass =
-  "cursor-pointer text-start text-gray-12 underline decoration-gray-7 underline-offset-2 hover:decoration-accent-9 focus-visible:outline-2 focus-visible:outline-ring";
+  "cursor-pointer text-start text-label-primary underline decoration-separator-strong underline-offset-2 hover:decoration-accent-9 focus-visible:outline-2 focus-visible:outline-ring";
 
 /**
  * "Because:" then one line per item, each linked to its source with the source named after it
@@ -119,8 +119,8 @@ const linkClass =
  */
 export function EvidenceLine({ items, onOpenRoute, className }: EvidenceLineProps): ReactElement {
   return (
-    <div className={cn("flex flex-col gap-1 text-small text-gray-11", className)}>
-      <p className="font-medium text-gray-12">
+    <div className={cn("flex flex-col gap-1 text-callout text-label-secondary", className)}>
+      <p className="font-medium text-label-primary">
         {t("screens.evidence.because")}
         {items.length === 0 ? (
           <span className="font-normal"> {t("screens.evidence.none")}</span>
@@ -144,18 +144,21 @@ export function EvidenceLine({ items, onOpenRoute, className }: EvidenceLineProp
                 </a>
               );
             } else {
-              node = <span className="text-gray-12">{e.text}</span>;
+              node = <span className="text-label-primary">{e.text}</span>;
             }
             return (
               <li key={`${e.ref ?? ""}-${e.text}`} className="flex min-w-0 items-baseline gap-2">
                 <span
                   aria-hidden="true"
-                  className="size-1 shrink-0 translate-y-[-2px] rounded-full bg-gray-8"
+                  className="size-1 shrink-0 translate-y-[-2px] rounded-full bg-label-quaternary"
                 />
                 <span className="min-w-0">
                   {node}
                   {e.source ? (
-                    <span className="text-callout text-gray-11"> · {sourceLabel(e.source)}</span>
+                    <span className="text-callout text-label-secondary">
+                      {" "}
+                      · {sourceLabel(e.source)}
+                    </span>
                   ) : null}
                 </span>
               </li>

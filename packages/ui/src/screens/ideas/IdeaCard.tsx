@@ -105,12 +105,19 @@ export interface IdeaCardProps {
   onOpenRoute?: (route: string) => void;
   /** The idea is being accepted or dismissed. */
   busy?: boolean;
+  /**
+   * The one card whose "Let's do it" is the accent primary: the card the user is hovering or
+   * focused on (redesign §5.6, the one-primary rule applied to a list). Every other card shows a
+   * plain button.
+   */
+  prominent?: boolean;
   className?: string;
 }
 
 /**
- * Idea card (UI design §3.10): title, "Because:" evidence linked to its source, effort, a
- * recurring toggle, then Let's do it / Edit / Dismiss in a fixed order.
+ * Idea card (docs/design/redesign-2026.md §5.6): a level-1 card without an outline. Title
+ * (text-title-2), "Because:" evidence linked to its source, effort and approvals as callout
+ * metadata, the recurring toggle with its cadence, then Let's do it / Edit / Dismiss trailing.
  */
 export function IdeaCard({
   idea,
@@ -120,6 +127,7 @@ export function IdeaCard({
   onViewSkill,
   onOpenRoute,
   busy = false,
+  prominent = false,
   className,
 }: IdeaCardProps): ReactElement {
   const titleId = useId();
@@ -136,14 +144,15 @@ export function IdeaCard({
     <article
       aria-labelledby={titleId}
       aria-busy={busy || undefined}
+      data-prominent={prominent || undefined}
       className={cn(
-        "flex flex-col gap-3 rounded-lg border border-gray-6 bg-gray-2 px-5 py-4 psy-enter",
+        "flex flex-col gap-3 rounded-lg bg-surface-raised p-4 shadow-elevation-1",
         className,
       )}
     >
       <div className="flex flex-col gap-1">
         <div className="flex flex-wrap items-start gap-2">
-          <h2 id={titleId} className="min-w-0 flex-1 text-h3 text-foreground">
+          <h2 id={titleId} className="min-w-0 flex-1 text-title-2 text-label-primary">
             {idea.title}
           </h2>
           <Badge variant={idea.kind === "skill" ? "accent" : "muted"}>
@@ -151,11 +160,11 @@ export function IdeaCard({
           </Badge>
         </div>
         {idea.bodyMd.trim() !== "" ? (
-          <Markdown className="text-reading text-gray-12">{idea.bodyMd}</Markdown>
+          <Markdown className="text-reading text-label-primary">{idea.bodyMd}</Markdown>
         ) : null}
       </div>
       <EvidenceLine items={evidence} {...(onOpenRoute ? { onOpenRoute } : {})} />
-      <p className="flex items-center gap-1.5 text-small text-gray-11">
+      <p className="flex items-center gap-1.5 text-callout text-label-secondary">
         <Clock className="size-4 shrink-0" aria-hidden="true" />
         <span>
           <span className="sr-only">{t("screens.ideas.effort")} </span>
@@ -170,7 +179,7 @@ export function IdeaCard({
             disabled={busy}
             onCheckedChange={(checked) => setRecurring(checked === true)}
           />
-          <Label htmlFor={recurringId} className="text-small font-normal">
+          <Label htmlFor={recurringId} className="text-body font-normal">
             {t("screens.ideas.makeRecurring")}
           </Label>
           <label htmlFor={cadenceId} className="sr-only">
@@ -194,7 +203,7 @@ export function IdeaCard({
           </NativeSelect>
         </div>
       ) : idea.kind === "automation" ? (
-        <p className="flex items-center gap-1.5 text-small text-gray-11">
+        <p className="flex items-center gap-1.5 text-callout text-label-secondary">
           <Repeat className="size-4 shrink-0" aria-hidden="true" />
           {t("screens.ideas.repeats")}
         </p>
@@ -215,6 +224,7 @@ export function IdeaCard({
         <Button
           type="button"
           size="sm"
+          variant={prominent ? "default" : "outline"}
           disabled={busy || onAccept === undefined}
           onClick={() =>
             onAccept?.(
