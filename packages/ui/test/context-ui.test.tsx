@@ -197,7 +197,9 @@ describe("Connected context UI", () => {
         <ThreadList activeThreadId={null} onOpen={() => {}} now={STORY_NOW} />
       </StoryWorld>,
     );
-    const main = await screen.findByRole("list", { name: "Main chat" });
+    await screen.findAllByTestId("thread-row");
+    const main = document.querySelector<HTMLElement>('li[data-thread-kind="main"]');
+    if (!main) throw new Error("no main chat row");
     await userEvent.click(within(main).getByRole("button", { name: /More for/ }));
     await userEvent.click(await screen.findByRole("menuitem", { name: "Context limits…" }));
     const dialog = await screen.findByRole("dialog", { name: "Context limits for this chat" });

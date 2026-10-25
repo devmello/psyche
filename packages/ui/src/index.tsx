@@ -170,8 +170,33 @@ export {
   DEFAULT_ACTIONS,
   type PaletteAction,
 } from "./shell/CommandPalette.tsx";
-export { RAIL_ITEMS, Rail, type RailItem, type RailProps } from "./shell/Rail.tsx";
+export { CompactTopBar, type CompactTopBarProps } from "./shell/CompactTopBar.tsx";
+export {
+  PanePresence,
+  ReflowColumn,
+  RouteTransition,
+  SelectionPill,
+  ShellMotion,
+  SidebarPresence,
+  ThreadCrossfade,
+} from "./shell/motion.tsx";
+export {
+  destinationFor,
+  RAIL_ITEMS,
+  type RailItem,
+  TabBar,
+  type TabBarProps,
+} from "./shell/Rail.tsx";
 export { ShortcutList, ShortcutTable } from "./shell/ShortcutList.tsx";
+export {
+  ConnectedSidebar,
+  clampSidebarWidth,
+  SIDEBAR_WIDTH,
+  Sidebar,
+  type SidebarProps,
+  SidebarToggle,
+  useSidebarCounts,
+} from "./shell/Sidebar.tsx";
 export {
   CARD_SHORTCUTS,
   isMac,
@@ -180,7 +205,15 @@ export {
   type ShortcutId,
   useShortcuts,
 } from "./shell/shortcuts.ts";
-export { ThreadList, type ThreadListProps, ThreadRow } from "./shell/ThreadList.tsx";
+export {
+  ThreadGroup,
+  type ThreadGroupProps,
+  ThreadList,
+  type ThreadListProps,
+  ThreadRow,
+  threadTitle,
+} from "./shell/ThreadList.tsx";
+export { ThreadsDrawer } from "./shell/ThreadsDrawer.tsx";
 export {
   type EditorSlotProps,
   type UiSlots,

@@ -9,7 +9,8 @@ import {
   OnboardingFlow,
   QuestionCard,
   RAIL_ITEMS,
-  Rail,
+  ShellMotion,
+  Sidebar,
   UiSlotsProvider,
   WrapUpBox,
 } from "@psyche/ui";
@@ -327,15 +328,54 @@ describe("onboarding", () => {
   });
 });
 
-describe("rail", () => {
-  it("is a labelled navigation whose items carry their badge count in the name", async () => {
-    const { container } = render(<Rail active="chat" badges={{ feed: 2 }} onNavigate={() => {}} />);
+describe("sidebar (redesign-2026 §5.1)", () => {
+  function renderSidebar() {
+    const gateway = new MockGateway(createFixtureWorld(), { now: () => FIXTURE_NOW });
+    const store = new GatewayStore(gateway, { now: () => FIXTURE_NOW });
+    return render(
+      <GatewayProvider client={gateway} store={store}>
+        <UiSlotsProvider value={{ persona: { name: "Wren", creature: "moth" } }}>
+          <ShellMotion>
+            <Sidebar
+              route={`/chat/${IDS.threads.dentist}`}
+              onNavigate={() => {}}
+              activeThreadId={IDS.threads.dentist}
+              onOpenThread={() => {}}
+              onNewSideChat={() => {}}
+              onWidthChange={() => {}}
+              counts={{ feed: 2 }}
+              now={NOW}
+            />
+          </ShellMotion>
+        </UiSlotsProvider>
+      </GatewayProvider>,
+    );
+  }
+
+  it("is one labelled navigation whose destinations carry their count in the name", async () => {
+    const { container } = renderSidebar();
+    await screen.findAllByTestId("thread-row");
     await expectNoAxeViolations(container);
-    const nav = screen.getByRole("navigation", { name: "Main" });
-    expect(nav).toBeTruthy();
+    const nav = screen.getByRole("navigation", { name: "Sidebar" });
     const feed = RAIL_ITEMS.find((i) => i.id === "feed");
     if (feed !== undefined)
       expect(within(nav).getByRole("button", { name: `${feed.label}, 2 new` })).toBeTruthy();
+    // The open thread is the current page; the resize edge is a labelled separator.
+    expect(within(nav).getAllByRole("button", { current: "page" })).toHaveLength(1);
+    expect(within(nav).getByRole("separator", { name: "Resize the sidebar" })).toBeTruthy();
+  });
+
+  it("is operable from the keyboard: arrows move between rows, Enter opens", async () => {
+    renderSidebar();
+    await screen.findAllByTestId("thread-row");
+    const nav = screen.getByRole("navigation", { name: "Sidebar" });
+    const user = userEvent.setup();
+    const chat = within(nav).getByRole("button", { name: "Chat" });
+    chat.focus();
+    await user.keyboard("{ArrowDown}");
+    expect(document.activeElement).toBe(within(nav).getByRole("button", { name: "Search" }));
+    await user.keyboard("{End}");
+    expect(document.activeElement?.closest("nav")).toBe(nav);
   });
 });
 

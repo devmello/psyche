@@ -78,7 +78,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
   {
     action: "toggleThreadList",
     get label() {
-      return t("web.shortcut.toggleThreadList");
+      return t("shell.shortcut.toggleThreadList");
     },
     chord: { key: "b", mod: true },
     scope: "app",

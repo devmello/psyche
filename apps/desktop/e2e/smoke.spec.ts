@@ -160,7 +160,8 @@ test("the agent opens and closes panes through view.* and the layout is reported
 });
 
 test("keyboard shortcuts: palette, shortcut sheet, browser pane, close pane", async () => {
-  await page.locator("body").click({ position: { x: 5, y: 300 } });
+  // Out of the composer, without clicking anything (the sidebar sits at the window's start edge).
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await page.keyboard.press("Meta+K");
   await expect(page.getByTestId("palette")).toBeVisible();
   await page.keyboard.press("Escape");
@@ -293,14 +294,21 @@ test("Settings shares a folder through the native picker as a permissions.policy
       filePaths: [folder],
     })) as typeof dialog.showOpenDialog;
   }, picked);
-  // Settings sits in the rail's bottom menu (the kit rail, #561).
-  await page.getByTestId("rail").getByRole("button", { name: "Menu" }).click();
-  await page.getByRole("menuitem", { name: "Settings" }).click();
+  // Settings sits under the gear in the sidebar's persona footer (redesign §5.1).
   await page
+    .getByTestId("sidebar-footer")
+    .getByRole("button", { name: "Settings and help" })
+    .click();
+  // On the desktop, Settings open in their own window (⌘,; redesign §4, §5.8).
+  const [settings] = await Promise.all([
+    app.waitForEvent("window"),
+    page.getByRole("menuitem", { name: /^Settings/ }).click(),
+  ]);
+  await settings
     .getByRole("navigation", { name: "Settings sections" })
     .getByRole("button", { name: "File access" })
     .click();
-  await page.getByRole("button", { name: "Choose a folder…" }).click();
+  await settings.getByRole("button", { name: "Choose a folder…" }).click();
   const call = await gw.waitForCall("settings.set", (p) =>
     JSON.stringify(p).includes('"permissions.policy"'),
   );
@@ -309,7 +317,7 @@ test("Settings shares a folder through the native picker as a permissions.policy
     key: "permissions.policy",
     value: { folders: [{ path: realpathSync(picked), mode: "ro" }] },
   });
-  await expect(page.getByTestId("settings-files")).toContainText(realpathSync(picked));
+  await expect(settings.getByTestId("settings-files")).toContainText(realpathSync(picked));
 });
 
 test("the stored appearance.zoom is applied on launch and View → Actual Size stores 100", async () => {

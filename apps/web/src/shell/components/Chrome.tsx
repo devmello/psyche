@@ -1,10 +1,10 @@
-import { activeI18n, PsycheMark, StatusPill, t } from "@psyche/ui";
+import { activeI18n, destinationFor, PsycheMark, StatusPill, t } from "@psyche/ui";
 import { type ReactElement, type ReactNode, useId, useState } from "react";
 import type { GatewayStatus } from "../../client/status.ts";
 import { useShell, useShellState } from "../context.tsx";
 import type { GatewayRunView } from "../platform.ts";
 
-/** The rail on the start side (docs/06 §2.1); below 720 px it renders as the bottom tab bar (§3.24). */
+/** The destinations, in docs/06 §2.1's order (the fallback sidebar's first group). */
 export const RAIL_ITEMS = [
   {
     route: "/chat",
@@ -44,43 +44,59 @@ export const RAIL_ITEMS = [
   },
 ] as const;
 
-const COMPACT_TABS = new Set(["/chat", "/feed", "/ideas", "/goals", "/library/documents"]);
+const rowClass =
+  "flex h-7 w-full items-center gap-2 rounded-sm px-3 text-start text-body text-label-primary outline-none hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring aria-[current=page]:bg-selection";
 
-export function Rail(props: {
+/**
+ * The shell's own sidebar (redesign §5.1) for hosts without the UI kit's: destinations, the
+ * thread list on chat routes, and Settings at the foot. The composed app passes the kit's.
+ */
+export function ShellSidebar(props: {
   route: string;
-  compact: boolean;
   onNavigate: (route: string) => void;
-  /** Shown above Settings on wide layouts (the web client's connection pill). */
+  /** The thread list, on chat routes. */
+  threads?: ReactNode;
+  /** Shown above Settings (the web client's connection pill). */
   footer?: ReactNode;
+  width: number;
 }): ReactElement {
-  const items = props.compact ? RAIL_ITEMS.filter((i) => COMPACT_TABS.has(i.route)) : RAIL_ITEMS;
-  const section = `/${props.route.split("/")[1] ?? ""}`;
+  // `/agent/*` belongs to Chat: the agent sheet opens over the chat.
+  const current = destinationFor(props.route);
   return (
-    <nav className="rail" aria-label={t("web.rail.label")} data-testid="rail">
-      {props.compact ? null : (
-        <span style={{ alignSelf: "center", padding: "4px 0 8px" }}>
-          <PsycheMark size={24} withWordmark={false} />
-        </span>
-      )}
-      {items.map((i) => (
+    <nav
+      className="flex h-full min-h-0 flex-col gap-3 py-2 material-sidebar"
+      style={{ width: props.width }}
+      aria-label={t("shell.sidebar.label")}
+      data-testid="sidebar"
+    >
+      <span className="px-3 pb-1">
+        <PsycheMark size={20} withWordmark={false} />
+      </span>
+      <ul aria-label={t("shell.sidebar.destinations")} className="flex flex-col">
+        {RAIL_ITEMS.map((i) => (
+          <li key={i.route} className="px-1">
+            <button
+              type="button"
+              className={rowClass}
+              aria-current={destinationFor(i.route) === current ? "page" : undefined}
+              onClick={() => props.onNavigate(i.route)}
+            >
+              {i.label}
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{props.threads}</div>
+      {props.footer ? <div className="px-3">{props.footer}</div> : null}
+      <div className="px-1">
         <button
-          key={i.route}
           type="button"
-          aria-current={i.route.startsWith(section) ? "page" : undefined}
-          onClick={() => props.onNavigate(i.route)}
+          className={rowClass}
+          onClick={() => props.onNavigate("/settings/model")}
         >
-          {i.label}
+          {t("web.rail.settings")}
         </button>
-      ))}
-      {props.compact ? null : (
-        <>
-          <span className="spacer" />
-          {props.footer ? <div className="rail-status">{props.footer}</div> : null}
-          <button type="button" onClick={() => props.onNavigate("/settings/model")}>
-            {t("web.rail.settings")}
-          </button>
-        </>
-      )}
+      </div>
     </nav>
   );
 }
@@ -105,7 +121,7 @@ function titleOf(thread: { kind: string; title: string }): string {
 }
 
 export function ThreadList(props: {
-  hidden: boolean;
+  hidden?: boolean;
   currentThreadId: string | null;
   onOpen: (threadId: string) => void;
   onNew: () => void;
@@ -125,7 +141,7 @@ export function ThreadList(props: {
   return (
     <aside
       className="threads"
-      hidden={props.hidden}
+      hidden={props.hidden ?? false}
       aria-label={t("web.threads.label")}
       data-testid="thread-list"
     >

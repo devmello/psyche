@@ -1,24 +1,9 @@
-import {
-  CircleCheck,
-  Library,
-  Lightbulb,
-  Menu,
-  MessageCircle,
-  Newspaper,
-  Search,
-  Settings,
-} from "lucide-react";
+import { CircleCheck, Library, Lightbulb, MessageCircle, Newspaper, Search } from "lucide-react";
 import type { ReactElement } from "react";
-import { Button } from "../components/ui/button.tsx";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../components/ui/dropdown-menu.tsx";
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 
+/** The destinations, in docs/06 §2.1's order: the sidebar's first group and the compact tab bar. */
 export type RailItem = "chat" | "search" | "feed" | "ideas" | "goals" | "library";
 
 export const RAIL_ITEMS: readonly {
@@ -77,92 +62,68 @@ export const RAIL_ITEMS: readonly {
   },
 ];
 
-export interface RailProps {
-  active: RailItem | null;
-  onNavigate: (route: string) => void;
-  /** Unread / new-candidate badges (Feed, Ideas). */
-  badges?: Partial<Record<RailItem, number>>;
-  /** Compact (< 720 px): a bottom tab bar with Chat, Feed, Ideas, Goals, Library (§3.24). */
-  compact?: boolean;
+/**
+ * The destination a route belongs to (`/library/documents` → library), or null. The agent sheet
+ * opens over the chat, so `/agent/*` belongs to Chat.
+ */
+export function destinationFor(route: string): RailItem | null {
+  const first = route.split(/[/?]/)[1] ?? "";
+  if (first === "agent") return "chat";
+  return RAIL_ITEMS.find((i) => i.id === first)?.id ?? null;
 }
 
-/** Left rail (UI design §2.1): 56 px, with the bottom menu (Settings, Usage, Help). */
-export function Rail({
-  active,
-  onNavigate,
-  badges = {},
-  compact = false,
-}: RailProps): ReactElement {
-  const items = compact ? RAIL_ITEMS.filter((i) => i.id !== "search") : RAIL_ITEMS;
-  const list = (
-    <ul className={cn("flex", compact ? "w-full justify-around" : "flex-col items-center gap-1")}>
-      {items.map((item) => {
-        const Icon = item.icon;
-        const badge = badges[item.id] ?? 0;
-        return (
-          <li key={item.id}>
-            <button
-              type="button"
-              onClick={() => onNavigate(item.route)}
-              aria-current={active === item.id ? "page" : undefined}
-              aria-label={
-                badge > 0 ? t("shell.rail.badge", { label: item.label, n: badge }) : item.label
-              }
-              className={cn(
-                "relative flex flex-col items-center gap-0.5 rounded-lg p-2 text-gray-11 hover:bg-gray-3 hover:text-foreground",
-                active === item.id && "bg-accent-3 text-accent-11",
-              )}
-            >
-              <Icon className="size-5" aria-hidden="true" strokeWidth={1.75} />
-              <span className="text-[10px] leading-3">{item.label}</span>
-              {badge > 0 ? (
-                <span
-                  className="absolute top-1 end-1 size-2 rounded-full bg-accent-9"
-                  aria-hidden="true"
-                />
-              ) : null}
-            </button>
-          </li>
-        );
-      })}
-    </ul>
-  );
-  if (compact) {
-    return (
-      <nav
-        aria-label={t("shell.rail.main")}
-        className="border-t border-gray-6 bg-background px-2 py-1"
-      >
-        {list}
-      </nav>
-    );
-  }
+export interface TabBarProps {
+  active: RailItem | null;
+  onNavigate: (route: string) => void;
+  /** Unread / new-candidate counts, spoken with the tab's name. */
+  badges?: Partial<Record<RailItem, number>>;
+}
+
+/**
+ * The compact bottom tab bar (redesign §5.11, under 720 px): Chat, Feed, Ideas, Goals, Library on
+ * chrome glass, 49 px plus the safe area. The current tab is the accent icon and label only, with
+ * no tile; Search lives in the top bar's palette.
+ */
+export function TabBar({ active, onNavigate, badges = {} }: TabBarProps): ReactElement {
+  const items = RAIL_ITEMS.filter((i) => i.id !== "search");
   return (
     <nav
       aria-label={t("shell.rail.main")}
-      className="flex h-full w-[var(--rail-width)] flex-col items-center border-e border-gray-6 bg-gray-1 py-3"
+      className="material-glass pb-[env(safe-area-inset-bottom)]"
+      data-testid="tab-bar"
     >
-      {list}
-      <div className="mt-auto">
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={<Button variant="ghost" size="icon" aria-label={t("shell.rail.menu")} />}
-          >
-            <Menu aria-hidden="true" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent side="inline-end" align="end">
-            <DropdownMenuItem onClick={() => onNavigate("/settings/model")}>
-              <Settings aria-hidden="true" /> {t("shell.rail.settings")}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onNavigate("/settings/usage")}>
-              {t("shell.rail.usage")}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onNavigate("/settings/about")}>
-              {t("shell.rail.help")}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      <ul className="flex h-[49px] items-stretch justify-around">
+        {items.map((item) => {
+          const Icon = item.icon;
+          const badge = badges[item.id] ?? 0;
+          const current = active === item.id;
+          return (
+            <li key={item.id} className="flex flex-1">
+              <button
+                type="button"
+                onClick={() => onNavigate(item.route)}
+                aria-current={current ? "page" : undefined}
+                aria-label={
+                  badge > 0 ? t("shell.rail.badge", { label: item.label, n: badge }) : item.label
+                }
+                className={cn(
+                  "relative flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                  current ? "text-accent-11" : "text-label-secondary",
+                )}
+              >
+                <Icon className="size-5" aria-hidden="true" strokeWidth={1.75} />
+                <span className="text-subheadline">{item.label}</span>
+                {badge > 0 ? (
+                  <span
+                    className="absolute top-1.5 start-1/2 ms-2.5 size-2 rounded-full bg-accent-9"
+                    aria-hidden="true"
+                  />
+                ) : null}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </nav>
   );
 }

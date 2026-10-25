@@ -6,9 +6,12 @@ import {
   AppearanceProvider,
   agentSheetRoute,
   ChatThread,
+  CommandPalette,
+  ConnectedSidebar,
   compactThread,
   compactWithToast,
   describeError,
+  destinationFor,
   FeedScreen,
   GatewayProvider,
   GoalsScreen,
@@ -19,7 +22,6 @@ import {
   type LibrarySection,
   OnboardingFlow,
   type OnboardingResult,
-  Rail,
   type RailItem,
   SearchScreen,
   ThreadContextDialog,
@@ -137,13 +139,9 @@ function agentRoute(route: string, navigate: (to: string) => void): ReactNode | 
   );
 }
 
-const RAIL_ITEMS: readonly RailItem[] = ["chat", "search", "feed", "ideas", "goals", "library"];
-
-/** The rail item a route belongs to (the agent sheet routes belong to Chat). */
+/** The destination a route belongs to (the agent sheet routes belong to Chat). */
 export function railItemFor(route: string): RailItem | null {
-  const first = route.split(/[/?]/)[1] ?? "";
-  if (first === "agent") return "chat";
-  return RAIL_ITEMS.find((r) => r === first) ?? null;
+  return destinationFor(route);
 }
 
 /**
@@ -410,11 +408,31 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
         settingsRoute(route, navigate, platform) ??
         agentRoute(route, navigate) ??
         screenRoute(route, navigate),
-      rail: ({ route, compact, navigate }) => (
-        <Rail active={railItemFor(route)} onNavigate={navigate} compact={compact} />
+      // The 2026 sidebar (redesign §5.1); the compact drawer shows its threads alone (§5.11).
+      sidebar: ({ route, navigate, threadId, onOpenThread, onNew, width, onWidthChange }) => (
+        <ConnectedSidebar
+          route={route}
+          onNavigate={navigate}
+          activeThreadId={threadId}
+          onOpenThread={onOpenThread}
+          onNewSideChat={onNew}
+          width={width}
+          onWidthChange={onWidthChange}
+        />
       ),
       threadList: ({ threadId, onOpen, onNew }) => (
         <ThreadList activeThreadId={threadId} onOpen={onOpen} onNewSideChat={onNew} />
+      ),
+      // One search surface for ⌘K and the Search destination (§5.5).
+      palette: ({ open, onClose, navigate, actions }) => (
+        <CommandPalette
+          open={open}
+          onOpenChange={(o) => {
+            if (!o) onClose();
+          }}
+          onNavigate={navigate}
+          actions={actions}
+        />
       ),
       // The Files pane renders the viewers (§3.7, P4); other panes keep the shell's views.
       pane: (pane, ctx) =>
