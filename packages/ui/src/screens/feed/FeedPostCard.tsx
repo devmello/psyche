@@ -35,10 +35,11 @@ export interface FeedPostCardProps {
 }
 
 /**
- * Feed post card (UI design §3.9). Fixed element order: kind label, title, body with citation
- * markers, then one footer row: the sources (count, letter badges and names) on the left and the
- * feedback on the right. Like, Save and Ask are ghost icon buttons; Follow topic, Not interested
- * and Hide source sit under ⋯.
+ * Feed post card (docs/design/redesign-2026.md §5.6): a level-1 card without an outline. Kind line
+ * (text-caption), title (text-title-2), body (text-reading) with citation markers, then one footer
+ * row: the sources (count, favicon-shaped tiles and names) leading and the feedback trailing.
+ * Like, Save and Ask are ghost icon buttons shown on hover or focus; Follow topic, Not interested
+ * and Hide source sit under ⋯. The briefing is the hero: wider, with 24 px padding.
  */
 export function FeedPostCard({
   post,
@@ -62,28 +63,29 @@ export function FeedPostCard({
       aria-labelledby={titleId}
       data-kind={kind}
       className={cn(
-        "flex flex-col gap-2 rounded-lg border border-gray-6 bg-gray-2 px-5 py-4 psy-enter",
-        post.exploration ? "border-dashed" : "",
+        // Level 1 without an outline (§3.5); the briefing is the wider hero at the top (§5.6).
+        "group/post flex flex-col gap-2 rounded-lg bg-surface-raised p-4 shadow-elevation-1",
+        kind === "briefing" ? "gap-3 p-6 @2xl/column:-mx-3" : "",
         className,
       )}
     >
-      <p className="text-label text-gray-11">
+      <p className="text-caption text-label-secondary">
         <span className={cn(kind === "exploration" ? "text-accent-11" : "")}>
           {feedKindLabel(post)}
         </span>
         {kind === "briefing" ? <span> · {formatTime(post.createdAt)}</span> : null}
       </p>
-      <h2 id={titleId} className="text-h3 text-foreground">
+      <h2 id={titleId} className="text-title-2 text-label-primary">
         {post.title}
       </h2>
       {/* Every [n] marker reads the same: web citations are links, in-app ones plain text. */}
-      <Markdown className="text-reading text-gray-12 [&_a]:text-inherit [&_a]:underline [&_a]:decoration-dotted [&_a]:underline-offset-2 [&_a:hover]:decoration-solid [&_a]:rounded-sm [&_a:focus-visible]:outline-2 [&_a:focus-visible]:outline-ring">
+      <Markdown className="text-reading text-label-primary [&_a]:text-inherit [&_a]:underline [&_a]:decoration-dotted [&_a]:underline-offset-2 [&_a:hover]:decoration-solid [&_a]:rounded-sm [&_a:focus-visible]:outline-2 [&_a:focus-visible]:outline-ring">
         {withCitationLinks(post.bodyMd, post.citations)}
       </Markdown>
 
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
         {sources.length > 0 ? (
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-callout text-gray-11">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-callout text-label-secondary">
             <span className="font-medium">
               {t("screens.feed.sourcesCount", { n: post.citations.length })}
             </span>
@@ -97,11 +99,12 @@ export function FeedPostCard({
                     href={s.url}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="inline-flex items-center gap-1 rounded-full hover:text-gray-12 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                    className="inline-flex items-center gap-1.5 rounded-xs hover:text-label-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring"
                   >
+                    {/* A favicon-shaped tile: 16 px, radius-xs. Psyche fetches no remote favicons. */}
                     <span
                       aria-hidden="true"
-                      className="inline-flex size-4 items-center justify-center rounded-full bg-gray-4 text-[10px] font-semibold text-gray-12"
+                      className="inline-flex size-4 items-center justify-center rounded-xs bg-fill-secondary text-[10px] leading-none font-semibold text-label-primary"
                     >
                       {s.letter}
                     </span>
@@ -115,7 +118,14 @@ export function FeedPostCard({
           <span className="flex-1" />
         )}
 
-        <fieldset className="m-0 -me-2 flex min-w-0 items-center gap-0.5 border-0 p-0">
+        {/* Like, Save and Ask appear on hover or focus, and stay visible on touch or once set. */}
+        <fieldset
+          className={cn(
+            "m-0 -me-2 flex min-w-0 items-center gap-0.5 border-0 p-0 transition-opacity",
+            "opacity-0 group-focus-within/post:opacity-100 group-hover/post:opacity-100 pointer-coarse:opacity-100",
+            liked || saved ? "opacity-100" : "",
+          )}
+        >
           <legend className="sr-only">{t("screens.feed.feedbackOn", { title: post.title })}</legend>
           <Button
             type="button"
@@ -125,7 +135,7 @@ export function FeedPostCard({
             title={t("screens.feed.like")}
             aria-pressed={liked}
             onClick={() => toggle("like")}
-            className={cn("text-gray-11", liked ? "text-accent-11" : "")}
+            className={cn("text-label-secondary", liked ? "text-accent-11" : "")}
           >
             <Heart aria-hidden="true" className={liked ? "fill-current" : ""} />
           </Button>
@@ -137,7 +147,7 @@ export function FeedPostCard({
             title={t("common.save")}
             aria-pressed={saved}
             onClick={() => toggle("save")}
-            className={cn("text-gray-11", saved ? "text-accent-11" : "")}
+            className={cn("text-label-secondary", saved ? "text-accent-11" : "")}
           >
             <Bookmark aria-hidden="true" className={saved ? "fill-current" : ""} />
           </Button>
@@ -149,7 +159,7 @@ export function FeedPostCard({
               aria-label={t("screens.feed.ask", { name: persona })}
               title={t("screens.feed.ask", { name: persona })}
               onClick={() => onAsk(post)}
-              className="text-gray-11"
+              className="text-label-secondary"
             >
               <MessageCircle aria-hidden="true" />
             </Button>
@@ -163,7 +173,7 @@ export function FeedPostCard({
                   variant="ghost"
                   aria-label={t("screens.feed.moreFeedback", { title: post.title })}
                   title={t("common.more")}
-                  className="text-gray-11"
+                  className="text-label-secondary"
                 />
               }
             >
