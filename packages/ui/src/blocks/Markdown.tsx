@@ -30,7 +30,7 @@ export function isSafeLink(url: string): boolean {
 export function Markdown({ children, streaming = false, className }: MarkdownProps): ReactElement {
   return (
     <Streamdown
-      className={cn("psy-markdown prose-width text-base text-foreground", className)}
+      className={cn("psy-markdown prose-width text-reading text-label-primary", className)}
       mode={streaming ? "streaming" : "static"}
       parseIncompleteMarkdown={streaming}
       isAnimating={streaming}
