@@ -21,6 +21,7 @@ interface Invocation {
 const ALL = [
   "permissions.status",
   "permissions.open_settings",
+  "permissions.request",
   "notes.list",
   "notes.read",
   "notes.create",
@@ -45,6 +46,18 @@ class FakeHelper implements AppleHelper {
   refuse: { code: string; message: string; details?: Record<string, unknown> } | undefined;
   /** What macOS says about the grant (#549); a denied probe fails like the helper does. */
   grant: "granted" | "denied" | "notDetermined" | "notRunning" = "granted";
+  /**
+   * What asking does while the grant is not determined (#570): the owner allows or denies the
+   * prompt, or no prompt appears and the request resolves denied (the helper bug S14 chases).
+   * Unset: asking changes nothing.
+   */
+  prompt: "granted" | "denied" | "none" | undefined;
+  #ask(): string {
+    if (this.grant !== "notDetermined" || this.prompt === undefined) return this.grant;
+    if (this.prompt === "none") return "denied";
+    this.grant = this.prompt;
+    return this.grant;
+  }
   async invoke(capability: string, params: unknown, options: { approvalId?: string }) {
     this.calls.push({
       capability,
@@ -69,7 +82,12 @@ class FakeHelper implements AppleHelper {
       };
     }
     if (capability === "permissions.open_settings") return { ok: true, result: { opened: true } };
+    if (capability === "permissions.request") {
+      return { ok: true, result: { permission: "reminders", status: this.#ask() } };
+    }
     if (this.refuse) return { ok: false, error: this.refuse };
+    // The adapters' first Apple Event asks for Automation.
+    if (this.grant === "notDetermined") this.#ask();
     if (this.grant === "denied" || this.grant === "notDetermined") {
       return {
         ok: false,
@@ -354,9 +372,64 @@ describe("macOS permission and single instances (#549)", () => {
       settingsPath: "System Settings → Privacy & Security → Automation → Psyche (Helper) → Mail",
       settingsUrl: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation",
     });
-    // The probe ran (it is what shows the prompt); nothing opened System Settings yet.
-    expect(helper.calls.map((c) => c.capability)).toEqual(["mail.search"]);
+    // Already denied: macOS will not ask again, so nothing is requested and nothing opens.
+    expect(helper.calls.map((c) => c.capability)).toEqual(["permissions.status"]);
     expect(events.at(-1)).toMatchObject({ type: "status", status: "needs_auth" });
+  });
+
+  it("asks for Reminders when macOS has not decided, and connects when the owner allows it", async () => {
+    const helper = new FakeHelper();
+    helper.grant = "notDetermined";
+    helper.prompt = "granted";
+    const { registry } = reg(helper);
+    const r = await registry.connect({ catalogueId: "apple-reminders", scopeMode: "read" });
+    expect(r.status).toBe("connected");
+    expect(helper.calls.map((c) => [c.capability, c.params])).toEqual([
+      ["permissions.status", {}],
+      ["permissions.request", { permission: "reminders" }],
+      ["reminders.list_lists", {}],
+    ]);
+  });
+
+  it("says what the helper reported when asking showed no prompt (#570)", async () => {
+    const helper = new FakeHelper();
+    helper.grant = "notDetermined";
+    helper.prompt = "none";
+    const { registry } = reg(helper);
+    const r = await registry.connect({ catalogueId: "apple-reminders", scopeMode: "read" });
+    expect(r.status).toBe("needs_auth");
+    expect(r.config.permission).toMatchObject({
+      kind: "reminders",
+      state: "notDetermined",
+      requested: true,
+      reason: 'macOS answered "denied"',
+    });
+    // Check again asks again (still not decided), without opening System Settings.
+    helper.calls.length = 0;
+    helper.prompt = "granted";
+    const again = await registry.connect({
+      catalogueId: "apple-reminders",
+      scopeMode: "read",
+      connectorId: r.id,
+      config: { permissionAction: "check" },
+    });
+    expect(again.status).toBe("connected");
+    expect(again.config.permission).toBeNull();
+    expect(helper.calls.map((c) => c.capability)).toEqual([
+      "permissions.status",
+      "permissions.request",
+      "reminders.list_lists",
+    ]);
+  });
+
+  it("asks for Automation through the probe, not permissions.request", async () => {
+    const helper = new FakeHelper();
+    helper.grant = "notDetermined";
+    helper.prompt = "granted";
+    const { registry } = reg(helper);
+    const r = await registry.connect({ catalogueId: "apple-notes", scopeMode: "read" });
+    expect(r.status).toBe("connected");
+    expect(helper.calls.map((c) => c.capability)).toEqual(["permissions.status", "notes.list"]);
   });
 
   it("flips to connected on the next status check once the owner allows it", async () => {
@@ -364,7 +437,7 @@ describe("macOS permission and single instances (#549)", () => {
     helper.grant = "notDetermined";
     const { registry, events } = reg(helper);
     const r = await registry.connect({ catalogueId: "apple-notes", scopeMode: "read" });
-    expect(r.config.permission).toMatchObject({ state: "notDetermined" });
+    expect(r.config.permission).toMatchObject({ state: "notDetermined", requested: true });
     expect(await registry.status(r.id)).toMatchObject({ ok: false, status: "needs_auth" });
     helper.grant = "granted";
     expect(await registry.status(r.id)).toMatchObject({ ok: true, status: "connected" });
@@ -378,15 +451,28 @@ describe("macOS permission and single instances (#549)", () => {
     expect((await registry.get(r.id)).status).toBe("needs_auth");
   });
 
-  it("Open System Settings (reconnecting while denied) opens the pane on the Mac", async () => {
+  it("Open System Settings opens the pane only when macOS denied it", async () => {
     const helper = new FakeHelper();
     helper.grant = "denied";
     const { registry } = reg(helper);
     const r = await registry.connect({ catalogueId: "apple-mail", scopeMode: "read" });
     helper.calls.length = 0;
-    await registry.connect({ catalogueId: "apple-mail", scopeMode: "read", connectorId: r.id });
+    await registry.connect({
+      catalogueId: "apple-mail",
+      scopeMode: "read",
+      connectorId: r.id,
+      config: { permissionAction: "check" },
+    });
+    expect(helper.calls.map((c) => c.capability)).toEqual(["permissions.status"]);
+    helper.calls.length = 0;
+    await registry.connect({
+      catalogueId: "apple-mail",
+      scopeMode: "read",
+      connectorId: r.id,
+      config: { permissionAction: "open_settings" },
+    });
     expect(helper.calls.map((c) => [c.capability, c.params])).toEqual([
-      ["mail.search", { query: "psyche permission check", limit: 1 }],
+      ["permissions.status", { automationTargets: ["com.apple.mail"] }],
       ["permissions.open_settings", { permission: "automation" }],
     ]);
   });

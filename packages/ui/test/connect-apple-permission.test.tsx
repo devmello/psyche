@@ -7,7 +7,7 @@ import { StoryWorld } from "../src/stories/harness.tsx";
 
 /** #549: Apple connectors wait on the macOS grant, and one-per-machine types are offered once. */
 
-function setup(grant: "granted" | "denied") {
+function setup(grant: "granted" | "denied" | "notDetermined") {
   let gw: MockGateway | null = null;
   render(
     <StoryWorld
@@ -60,6 +60,29 @@ describe("Apple connectors and macOS permission (#549)", () => {
         within(screen.getByRole("article", { name: "Apple Mail" })).getByText("Connected"),
       ).toBeTruthy(),
     );
+  });
+
+  it("when macOS has not asked yet: no System Settings, the helper's reason, and Check again asks (#570)", async () => {
+    const gateway = setup("notDetermined");
+    await connect("Apple Mail");
+    const card = await screen.findByTestId("connect-needs-permission");
+    expect(within(card).getByText(/macOS has not asked you yet/)).toBeTruthy();
+    expect(
+      within(card).getByText('macOS did not show a prompt: macOS answered "denied"'),
+    ).toBeTruthy();
+    expect(within(card).queryByRole("button", { name: "Open System Settings" })).toBeNull();
+
+    act(() => {
+      gateway().world.appleGrant = "granted";
+    });
+    await userEvent.click(within(card).getByRole("button", { name: "Check again" }));
+    expect(await screen.findByText(/Apple Mail is connected as This Mac\./)).toBeTruthy();
+    // Check again went through connect with the check action, which is what asks macOS.
+    const retry = gateway()
+      .calls.filter((c) => c.method === "connectors.connect")
+      .at(-1)?.params as { config?: unknown; connectorId?: string };
+    expect(retry.config).toEqual({ permissionAction: "check" });
+    expect(retry.connectorId).toBeTruthy();
   });
 
   it("offers a one-per-machine connector once: then it is listed as connected and disabled", async () => {
