@@ -1,10 +1,14 @@
-import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useState } from "react";
+import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
+import { useEffect, useState } from "react";
 import { IDS } from "../fixtures/index.ts";
 import { STORY_NOW, withWorld } from "../stories/harness.tsx";
 import { AppShell } from "./AppShell.tsx";
-import { Rail } from "./Rail.tsx";
+import { CommandPalette } from "./CommandPalette.tsx";
+import { CompactTopBar } from "./CompactTopBar.tsx";
+import { ShellMotion } from "./motion.tsx";
+import { TabBar } from "./Rail.tsx";
 import { ShortcutTable } from "./ShortcutList.tsx";
+import { Sidebar } from "./Sidebar.tsx";
 import { ThreadList } from "./ThreadList.tsx";
 
 const meta = {
@@ -15,28 +19,72 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const MainWindow: Story = {
-  render: () => {
-    const [route, setRoute] = useState(`/chat/${IDS.threads.dentist}`);
-    return <AppShell route={route} onNavigate={setRoute} now={STORY_NOW} />;
-  },
+/** The window lost focus: the selection pill goes gray (A2 sets this from `blur`). */
+const inactiveWindow: Decorator = (Story) => {
+  useEffect(() => {
+    document.documentElement.dataset.windowActive = "false";
+    return () => {
+      delete document.documentElement.dataset.windowActive;
+    };
+  }, []);
+  return <Story />;
 };
 
-export const RailWide: Story = {
+function Main(props: { start?: string; sidebar?: boolean; compact?: boolean }) {
+  const [route, setRoute] = useState(props.start ?? `/chat/${IDS.threads.dentist}`);
+  return (
+    <AppShell
+      route={route}
+      onNavigate={setRoute}
+      now={STORY_NOW}
+      defaultSidebarOpen={props.sidebar ?? true}
+      {...(props.compact === undefined ? {} : { compact: props.compact })}
+    />
+  );
+}
+
+export const MainWindow: Story = { render: () => <Main /> };
+
+export const MainWindowInactive: Story = {
+  decorators: [inactiveWindow],
+  render: () => <Main />,
+};
+
+export const MainWindowFeed: Story = { render: () => <Main start="/feed" /> };
+
+export const SidebarCollapsed: Story = { render: () => <Main sidebar={false} /> };
+
+export const Compact: Story = {
+  parameters: { viewport: { defaultViewport: "mobile1" } },
   render: () => (
-    <div className="h-[600px]">
-      <Rail active="chat" onNavigate={() => {}} badges={{ feed: 3, ideas: 1 }} />
+    <div className="mx-auto w-[390px]">
+      <Main compact />
     </div>
   ),
 };
 
-export const RailCompact: Story = {
-  render: () => <Rail compact active="feed" onNavigate={() => {}} />,
+export const SidebarAlone: Story = {
+  render: () => (
+    <ShellMotion>
+      <div className="flex h-[640px]">
+        <Sidebar
+          route="/ideas"
+          onNavigate={() => {}}
+          activeThreadId={IDS.threads.dentist}
+          onOpenThread={() => {}}
+          onNewSideChat={() => {}}
+          onWidthChange={() => {}}
+          counts={{ ideas: 2, goals: 1 }}
+          now={STORY_NOW}
+        />
+      </div>
+    </ShellMotion>
+  ),
 };
 
-export const Threads: Story = {
+export const ThreadsDrawer: Story = {
   render: () => (
-    <div className="h-[600px]">
+    <div className="h-[600px] w-[320px]">
       <ThreadList
         activeThreadId={IDS.threads.dentist}
         onOpen={() => {}}
@@ -44,6 +92,31 @@ export const Threads: Story = {
         now={STORY_NOW}
       />
     </div>
+  ),
+};
+
+export const CompactBars: Story = {
+  render: () => (
+    <div className="flex h-[300px] w-[390px] flex-col justify-between bg-canvas">
+      <CompactTopBar
+        onOpenThreads={() => {}}
+        onOpenSearch={() => {}}
+        mode="balanced"
+        onModeChange={() => {}}
+        onOpenModelPicker={() => {}}
+      />
+      <TabBar active="feed" onNavigate={() => {}} badges={{ ideas: 2 }} />
+    </div>
+  ),
+};
+
+export const Palette: Story = {
+  render: () => <CommandPalette open onOpenChange={() => {}} onNavigate={() => {}} />,
+};
+
+export const PaletteResults: Story = {
+  render: () => (
+    <CommandPalette open onOpenChange={() => {}} onNavigate={() => {}} initialQuery="dentist" />
   ),
 };
 
