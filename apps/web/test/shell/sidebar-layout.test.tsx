@@ -6,7 +6,7 @@ import type { GatewayEvent } from "../../src/client/connection.ts";
 import type { GatewayStatus } from "../../src/client/status.ts";
 import { SHORTCUTS } from "../../src/shell/keyboard.ts";
 import type { ShellPlatform } from "../../src/shell/platform.ts";
-import { ShellApp } from "../../src/shell/ShellApp.tsx";
+import { isChatRoute, ShellApp } from "../../src/shell/ShellApp.tsx";
 
 afterEach(() => {
   cleanup();
@@ -128,6 +128,28 @@ describe("the shell's one sidebar (redesign §5.1)", () => {
     expect(SHORTCUTS.map((s) => s.action)).toEqual(
       expect.arrayContaining(["palette", "newSideChat", "cycleThreads", "closePane", "stop"]),
     );
+  });
+});
+
+describe("the agent sheet's routes (redesign §5.7)", () => {
+  it("keeps the chat mounted under /agent/*", async () => {
+    expect(isChatRoute("/agent/activity")).toBe(true);
+    expect(isChatRoute("/chat/t1")).toBe(true);
+    expect(isChatRoute("/agentx")).toBe(false);
+    expect(isChatRoute("/feed")).toBe(false);
+    window.history.replaceState(null, "", "/agent/activity");
+    const { platform } = platformWith();
+    render(<ShellApp platform={platform} />);
+    expect(await screen.findByTestId("chat")).toBeTruthy();
+    expect(screen.queryByTestId("section")).toBeNull();
+    // The sidebar still marks Chat as where you are.
+    expect(
+      within(screen.getByRole("navigation", { name: "Sidebar" }))
+        .getByRole("button", {
+          name: "Chat",
+        })
+        .getAttribute("aria-current"),
+    ).toBe("page");
   });
 });
 

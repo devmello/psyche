@@ -1,4 +1,4 @@
-import { activeI18n, PsycheMark, StatusPill, t } from "@psyche/ui";
+import { activeI18n, destinationFor, PsycheMark, StatusPill, t } from "@psyche/ui";
 import { type ReactElement, type ReactNode, useId, useState } from "react";
 import type { GatewayStatus } from "../../client/status.ts";
 import { useShell, useShellState } from "../context.tsx";
@@ -60,7 +60,8 @@ export function ShellSidebar(props: {
   footer?: ReactNode;
   width: number;
 }): ReactElement {
-  const section = `/${props.route.split("/")[1] ?? ""}`;
+  // `/agent/*` belongs to Chat: the agent sheet opens over the chat.
+  const current = destinationFor(props.route);
   return (
     <nav
       className="flex h-full min-h-0 flex-col gap-3 py-2 material-sidebar"
@@ -77,7 +78,7 @@ export function ShellSidebar(props: {
             <button
               type="button"
               className={rowClass}
-              aria-current={i.route.startsWith(section) ? "page" : undefined}
+              aria-current={destinationFor(i.route) === current ? "page" : undefined}
               onClick={() => props.onNavigate(i.route)}
             >
               {i.label}

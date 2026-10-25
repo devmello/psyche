@@ -77,6 +77,11 @@ export function sectionTitle(route: string): string {
   });
 }
 
+/** Routes that show the chat column: `/chat…`, and `/agent/*` with the agent sheet over it. */
+export function isChatRoute(route: string): boolean {
+  return /^\/(chat|agent)(\/|$|\?)/.test(route);
+}
+
 /** The Settings window's routes (`/window/settings/:section`), opened by the desktop main. */
 export const SETTINGS_WINDOW_PREFIX = "/window/settings";
 
@@ -609,7 +614,9 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     );
   }
 
-  const onChat = route.startsWith("/chat");
+  // The agent sheet opens over the chat (redesign §5.7): `/agent/*` keeps the chat mounted
+  // underneath, and the chat slot opens the sheet for the route.
+  const onChat = isChatRoute(route);
   const inset = hasInsetTitleBar(platform.chrome);
   const barTitle = onChat
     ? thread?.kind === "main" || thread === null
