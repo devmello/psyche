@@ -94,8 +94,13 @@ export * from "./brand.tsx";
 export { ApprovalDock } from "./chat/ApprovalDock.tsx";
 export { Composer, type ComposerProps, SLASH_COMMANDS } from "./chat/Composer.tsx";
 export * from "./chat/context/index.ts";
-export { type ExportFormat, ExportMenu, markdownToHtmlDocument } from "./chat/ExportMenu.tsx";
-export { downloadFile, useThreadExport } from "./chat/ExportMenu.tsx";
+export {
+  downloadFile,
+  type ExportFormat,
+  ExportMenu,
+  markdownToHtmlDocument,
+  useThreadExport,
+} from "./chat/ExportMenu.tsx";
 export { FollowUpQueue } from "./chat/FollowUpQueue.tsx";
 export { MessageView, type MessageViewProps, messageText } from "./chat/MessageView.tsx";
 export { OfflineBanner } from "./chat/OfflineBanner.tsx";
