@@ -239,7 +239,7 @@ Compiled 2026-10-25 for the 2026 redesign ([redesign-2026.md](../redesign-2026.m
 | Lens map | `packages/ui/src/lib/glass.ts` | A rounded-rect SDF plus a squircle-rim slope (`(1 − (1 − t)⁴)^¼`), encoded for `feDisplacementMap`. It is drawn to a canvas at half resolution and rebuilt on resize (`ResizeObserver`). Unit-tested in `test/glass.test.ts`. |
 | Stories | `Primitives/GlassSurface` | The same sidebar, toolbar group and composer drawn as CSS, refraction and native side by side, over a scrolling procedural photo and over text, in light and dark; plus clear-over-photo, Reduce Transparency and Increase Contrast stories. Four `Probe*` stories (tagged `no-visual`) expose `window.__glassProbe(seconds)`. |
 | Probe runner | `packages/ui/visual/glass-probe.mjs` | `shots` takes the screenshots; `probe` scrolls each probe story and records rAF frame times, plus Chrome's GPU-process and renderer CPU time through CDP `SystemInfo.getProcessInfo`. |
-| Native proof | `apps/desktop/src/main/glass.ts` | Off unless `PSYCHE_GLASS=native` on an unpackaged macOS run. It makes the main window `transparent`, attaches `electron-liquid-glass` (an optional, external, macOS-only dependency) and injects CSS that clears the frame, rail and thread list while `.shell > main` stays opaque. `PSYCHE_GLASS_PROBE=<file>` runs a scripted scroll that records frame times, Electron's GPU and renderer CPU and WindowServer CPU, and screenshots the window with `screencapture`. |
+| Native proof | `apps/desktop/src/main/glass.ts` | Off unless `PSYCHE_GLASS=native` on an unpackaged macOS run. It makes the main window `transparent`, attaches `electron-liquid-glass` (not a dependency: loaded at runtime with `require` if a probe installed it locally, kept external by Vite) and injects CSS that clears the frame, rail and thread list while `.shell > main` stays opaque. `PSYCHE_GLASS_PROBE=<file>` runs a scripted scroll that records frame times, Electron's GPU and renderer CPU and WindowServer CPU, and screenshots the window with `screencapture`. |
 
 ## 5. Measurements
 
@@ -278,7 +278,7 @@ Compiled 2026-10-25 for the 2026 redesign ([redesign-2026.md](../redesign-2026.m
 
 | Item | Result |
 | --- | --- |
-| Install | `pnpm add -O electron-liquid-glass@1.1.1` installs with no build step (`allowBuilds: false`). The arm64 addon is **98.6 KB**, the package 193 KB unpacked **[measured]**. It is optional and `os: darwin`, so Linux CI skips it. |
+| Install | For the spike, `pnpm add -O electron-liquid-glass@1.1.1` installed with no build step. The arm64 addon is **98.6 KB**, the package 193 KB unpacked **[measured]**. Psyche does **not** keep it as a dependency (§6). `main/glass.ts` explains how to install it locally for a probe and drop it again. |
 | Load under Electron 44 | `require("electron-liquid-glass")` under Electron's Node gives `addView: function` and `isGlassSupported() === true` on macOS 27.0.1 **[measured]**. |
 | Bundling | First launch failed: Vite resolved the constant dynamic import and bundled the addon, which breaks its `import.meta.url` loader. Fixed by making it external in `vite.main.config.ts`. |
 | Attach | Second launch (`PSYCHE_HOME=~/.psyche-try PSYCHE_PORT=7989 PSYCHE_GLASS=native`) attached with no error: `addView` returned an id ≥ 0. |
