@@ -337,6 +337,7 @@ public enum AutomationPermission {
 
     /// Asks (off the main thread; the call blocks while the prompt is up) and throws unless granted.
     static func ensure(bundleId: String, ask: Bool) async throws {
+        if ask, Self.state(bundleId: bundleId, ask: false) == .notDetermined { try HostAttribution.check(.automation) }  // #570
         let current = await withCheckedContinuation { (cont: CheckedContinuation<State, Never>) in
             DispatchQueue.global(qos: .userInitiated).async { cont.resume(returning: Self.state(bundleId: bundleId, ask: ask)) }
         }

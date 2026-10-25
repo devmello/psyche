@@ -298,6 +298,24 @@ macOS prompts, System Settings › Privacy & Security, Finder and Activity Monit
 - **Check:** `deploy/macos/build-helper.sh` refuses a bundle whose display name is not "Psyche (Helper)", or whose Info.plist still says "Psyche Helper".
 - **Single "Psyche" later:** if Psyche.app stops requesting Accessibility and Screen Recording for itself (onboarding asking through the helper's `permissions.request` instead), only one row remains. The helper could then be named plain "Psyche".
 
+## Who macOS asks for (#570)
+
+Inside `Psyche.app/Contents/Resources`, the helper is not its own subject for TCC: tccd attributes its requests to the enclosing app (`subject=Sub:{com.psyche.desktop}` in the tccd log). Psyche.app's Info.plist must carry the usage string, and its hardened-runtime signature must carry the resource entitlement. Otherwise tccd refuses without a prompt ("Refusing authorization request … without NSRemindersUsageDescription key"), and no row appears in Privacy & Security.
+
+| Permission | Usage key in Psyche.app (either) | Entitlement on Psyche.app |
+| --- | --- | --- |
+| Reminders | `NSRemindersUsageDescription`, `NSRemindersFullAccessUsageDescription` | `com.apple.security.personal-information.calendars` |
+| Calendars | `NSCalendarsUsageDescription`, `NSCalendarsFullAccessUsageDescription` | `com.apple.security.personal-information.calendars` |
+| Contacts | `NSContactsUsageDescription` | `com.apple.security.personal-information.addressbook` |
+| Automation | `NSAppleEventsUsageDescription` | `com.apple.security.automation.apple-events` |
+| Microphone | `NSMicrophoneUsageDescription` | `com.apple.security.device.audio-input` |
+| Speech recognition | `NSSpeechRecognitionUsageDescription` | — |
+
+- **`permissions.status`** reports `attribution: {app, path, hardenedRuntime, missing: {<permission>: {usageKeys, entitlement}}}` when the helper is nested. It is `null` when the helper runs on its own.
+- **Requests:** `permissions.request`, the EventKit first use (Calendar, Reminders adapters) and Automation's first ask fail fast with `forbidden/prompt_refused_by_macos` when the host lacks something. The message names the host and the missing key or entitlement, so it can be shown as is.
+- **Instant denials:** an EventKit denial that comes back in under 1 s while the status is still `notDetermined` is reported the same way. The in-process status can lag a real answer, which is why the timing matters.
+- **Diagnosis:** `open -n -g -j <PsycheHelper.app> --args --probe-permission <reminders|calendars|automation:<bundle id>> <out.json> [--ask]` writes what the helper sees: bundle, signature, attribution, the status before, and with `--ask` the result and timing. Launch it through LaunchServices; a shell child is attributed to the terminal. Without `--ask` it never prompts.
+
 ## Entitlements and Info.plist
 
 | Key | Where | Why |

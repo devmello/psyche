@@ -139,6 +139,7 @@ public enum PermissionsCapabilities {
                 "next": next.map { .string($0.rawValue) } ?? .null,
                 "bundled": .bool(Bundle.main.bundleIdentifier == "com.psyche.helper"),
                 "bundle": BundleIdentity.json(),
+                "attribution": HostAttribution.current()?.json() ?? .null,
                 "disclaimSupported": .bool(DisclaimedProcess.isSupported),
             ])
         }
@@ -163,6 +164,9 @@ public enum PermissionsCapabilities {
             receiptKind: "permission_request"
         )) { ctx in
             let p = try ctx.decode(RequestParams.self)
+            // Nested in Psyche.app, tccd asks on that app's behalf: refuse with the reason rather
+            // than let macOS deny silently (#570).
+            try HostAttribution.check(p.permission)
             let state: String
             var openedSettings = false
             var launched = false
@@ -195,9 +199,9 @@ public enum PermissionsCapabilities {
                     SFSpeechRecognizer.requestAuthorization { cont.resume(returning: $0 == .authorized ? "granted" : "denied") }
                 }
             case .calendars:
-                state = try await EKEventStore().requestFullAccessToEvents() ? "granted" : "denied"
+                state = try await EventKitRequest.run(.event)
             case .reminders:
-                state = try await EKEventStore().requestFullAccessToReminders() ? "granted" : "denied"
+                state = try await EventKitRequest.run(.reminder)
             case .contacts:
                 state = try await CNContactStore().requestAccess(for: .contacts) ? "granted" : "denied"
             case .notifications:
@@ -260,5 +264,31 @@ enum AutomationRequest {
         guard first == .notRunning else { return (first, false) }
         try await launch(target)
         return (await asked(), true)
+    }
+}
+
+/// EventKit full-access requests (#570): on the main actor, with the run loop alive, and a denial
+/// that comes back while the status is still `notDetermined` (macOS answered without a prompt)
+/// becomes `prompt_refused_by_macos` instead of a plain "denied".
+enum EventKitRequest {
+    /// Faster than anyone can read and answer a prompt: tccd refused it (#570 measured milliseconds).
+    static let refusedWithin: TimeInterval = 1.0
+
+    @MainActor static func run(_ type: EKEntityType, store: EKEventStore = EKEventStore()) async throws -> String {
+        let started = Date()
+        let granted = type == .event ? try await store.requestFullAccessToEvents() : try await store.requestFullAccessToReminders()
+        if granted { return "granted" }
+        // The in-process status can lag a real answer, so only a near-instant denial counts.
+        if Self.looksRefused(elapsed: Date().timeIntervalSince(started), statusAfter: EKEventStore.authorizationStatus(for: type)) {
+            let p: TCCPermission = type == .event ? .calendars : .reminders
+            throw CapabilityError(.forbidden, reason: "prompt_refused_by_macos",
+                                  "macOS answered the \(p.rawValue) request without showing a prompt. The Console log of tccd says why (\"Refusing authorization request\").",
+                                  details: ["permission": .string(p.rawValue)])
+        }
+        return "denied"
+    }
+
+    static func looksRefused(elapsed: TimeInterval, statusAfter: EKAuthorizationStatus) -> Bool {
+        elapsed < refusedWithin && statusAfter == .notDetermined
     }
 }
