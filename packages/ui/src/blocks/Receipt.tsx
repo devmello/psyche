@@ -1,6 +1,6 @@
 import type { Receipt } from "@psyche/protocol";
-import { CircleAlert, CircleCheck, CircleHelp } from "lucide-react";
 import type { ReactElement } from "react";
+import { StatusGlyph, type StatusKind } from "../components/status.tsx";
 import { t } from "../i18n/core.ts";
 import { formatTime } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
@@ -43,6 +43,9 @@ export function providerId(receipt: Receipt): string | null {
  * "Sent to jane.ortiz@example.com · Gmail id 18c4… · 10:07". Uncertain outcomes read "outcome
  * unknown · not retried" (architecture §4.5). The receipt id and every raw provider key are
  * disclosure level 2. Receipts are facts.
+ *
+ * Redesign 2026 (§5.3): `text-callout` in `label-secondary` with the summary in `label-primary`
+ * and one leading status glyph. Status colour stays on the glyph; the words never turn red.
  */
 export function ReceiptLine({
   receipt,
@@ -60,53 +63,42 @@ export function ReceiptLine({
       : receipt.outcome === "failed" && !/\bfailed\b/i.test(summary)
         ? t("blocks.receipt.failed")
         : null;
-  const Icon =
-    receipt.outcome === "ok"
-      ? CircleCheck
-      : receipt.outcome === "failed"
-        ? CircleAlert
-        : CircleHelp;
+  const status: StatusKind =
+    receipt.outcome === "ok" ? "done" : receipt.outcome === "failed" ? "failed" : "waiting";
   const raw = Object.entries(receipt.externalRefs)
     .map(([k, v]) => `${k} ${String(v)}`)
     .join(" · ");
   const content = (
     <>
       <span className="flex min-w-0 items-center gap-1.5">
-        <Icon
-          className={cn(
-            "size-3.5 shrink-0",
-            receipt.outcome === "ok" && "text-success",
-            receipt.outcome === "failed" && "text-danger",
-            receipt.outcome === "uncertain" && "text-approval-text",
-          )}
-          aria-hidden="true"
-        />
+        {/* Failed and uncertain say so in words (the outcome or the summary), so only ok speaks. */}
+        <StatusGlyph
+          status={status}
+          className="[&_svg]:size-3.5"
+          {...(receipt.outcome === "ok" ? { label: t("chat.receipt.ok") } : {})}
+        />{" "}
         <span className="min-w-0 truncate">
-          <span className="text-foreground">{summary}</span>
-          {outcome ? (
-            <span
-              className={receipt.outcome === "failed" ? "text-danger-text" : "text-approval-text"}
-            >
-              {" "}
-              · {outcome}
-            </span>
-          ) : null}
+          <span className="text-label-primary">{summary}</span>
+          {outcome ? <span> · {outcome}</span> : null}
           {id ? <span> · {id}</span> : null}
           <span className="tabular-nums"> · {formatTime(receipt.createdAt)}</span>
         </span>
       </span>
       {level === 2 && (raw !== "" || receipt.shortId) ? (
-        <span className="block truncate ps-5 font-mono text-muted-foreground">
+        <span className="block truncate ps-5 font-mono text-mono text-label-secondary">
           {[receipt.shortId, raw].filter(Boolean).join(" · ")}
         </span>
       ) : null}
     </>
   );
-  const cls = "my-1 block w-full text-start text-callout text-muted-foreground";
+  const cls = "my-1 block w-full text-start text-callout text-label-secondary";
   return onOpen ? (
     <button
       type="button"
-      className={cn(cls, "rounded px-1 -mx-1 transition-colors hover:bg-gray-3")}
+      className={cn(
+        cls,
+        "-mx-1 rounded-sm px-1 outline-none transition-colors duration-(--duration-micro) ease-(--ease-standard) hover:bg-fill-tertiary focus-visible:ring-3 focus-visible:ring-ring",
+      )}
       onClick={() => onOpen(receipt)}
     >
       <span className="sr-only">{t("blocks.receipt.label")} </span>
