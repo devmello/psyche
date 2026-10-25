@@ -139,6 +139,8 @@ export interface TerminalPort {
 export interface WindowPort {
   popOutPane(route: string, title: string): Promise<void>;
   closeWindow(): void;
+  /** Opens the Settings window on a section (⌘,; docs/design/redesign-2026.md §4). */
+  openSettings?(section?: string): void;
   /** Commands from the app menu, tray, deep links and global shortcuts. */
   onCommand(cb: (command: ShellCommand) => void): Unsubscribe;
 }
