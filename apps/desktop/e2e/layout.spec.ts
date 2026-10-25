@@ -249,7 +249,8 @@ async function expectOnboardingLayout(p: Page, label: string, barBottom: number)
   const flow = await box(p, "onboarding-flow");
   const scroll = await box(p, "onboarding-scroll");
   const nav = await box(p, "onboarding-nav");
-  expect(flow.width, `${label}: column max width`).toBeLessThanOrEqual(896);
+  // One 560 px column plus its 24 px gutters (docs/design/redesign-2026.md §5.9).
+  expect(flow.width, `${label}: column max width`).toBeLessThanOrEqual(608);
   expect(
     Math.abs(flow.x + flow.width / 2 - viewport / 2),
     `${label}: column centred horizontally`,
@@ -327,8 +328,10 @@ for (const [width, height] of [
       if (i === 0) {
         const form = await box(page, "onboarding-form");
         const preview = await box(page, "onboarding-preview");
-        expect(preview.x, "preview beside the form").toBeGreaterThanOrEqual(form.x + form.width);
-        expect(Math.abs(preview.y - form.y), "preview top-aligned with the form").toBeLessThan(8);
+        // One column: the 160 px avatar sits above the tile grid and the name (§5.9).
+        expect(preview.y + preview.height, "preview above the form").toBeLessThanOrEqual(
+          form.y + 1,
+        );
       }
       await shot(page, `onboarding-${i + 1}-${width}x${height}`);
       if (i < STEPS.length - 1) await page.getByRole("button", { name: "Next" }).click();
@@ -528,7 +531,9 @@ test("web client at 390 px: no title bar, every onboarding step, main chat", asy
       if (i === 0) {
         const form = await box(p, "onboarding-form");
         const preview = await box(p, "onboarding-preview");
-        expect(preview.y, "preview below the form").toBeGreaterThanOrEqual(form.y + form.height);
+        expect(preview.y + preview.height, "preview above the form").toBeLessThanOrEqual(
+          form.y + 1,
+        );
       }
       await shot(p, `web-onboarding-${i + 1}-390`);
       if (i < webSteps.length - 1) await p.getByRole("button", { name: "Next" }).click();

@@ -42,6 +42,7 @@ export const IPC = {
   // Windows, notifications, native commands.
   windowPopOut: "psyche:window:pop-out",
   windowClose: "psyche:window:close",
+  windowOpenSettings: "psyche:window:open-settings",
   shellCommand: "psyche:shell:command",
   notifyShow: "psyche:notify:show",
   // The bundled Mac helper's launch and pairing state (onboarding, Settings → Devices).

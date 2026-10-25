@@ -47,52 +47,39 @@ export function MeetStep({
   const id = useId();
   const set = (patch: Partial<PersonaDraft>) => onChange({ ...value, ...patch });
   const name = value.name.trim() === "" ? DEFAULT_NAME : value.name.trim();
+  // The avatar at 160 px, the tile grid below it, then name and tagline (redesign §5.9).
   return (
-    <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_14rem] md:items-start">
-      <div className="flex min-w-0 flex-col gap-5" data-testid="onboarding-form">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor={`${id}-name`}>{t("onboarding.agent.name")}</Label>
-          <Input
-            id={`${id}-name`}
-            className="max-w-xs"
-            maxLength={40}
-            value={value.name}
-            placeholder={DEFAULT_NAME}
-            onChange={(e) => set({ name: e.target.value })}
-          />
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span id={`${id}-sugg`} className="text-muted-foreground">
-              {t("onboarding.agent.suggestions")}
+    <div className="flex flex-col gap-6">
+      <figure
+        aria-label={t("onboarding.agent.preview")}
+        data-testid="onboarding-preview"
+        className="flex flex-col items-center gap-2 text-center"
+      >
+        <Avatar name={name} creature={value.creatureId} size={160} />
+        <figcaption>
+          <span className="block text-title-2 text-label-primary">{name}</span>
+          {value.tagline.trim() ? (
+            <span className="block text-callout text-label-secondary">{value.tagline.trim()}</span>
+          ) : null}
+          {value.creatureMode === "describe" && value.creatureDescription.trim() ? (
+            <span className="mt-1 block text-callout text-label-tertiary">
+              “{value.creatureDescription.trim()}”
             </span>
-            <ul aria-labelledby={`${id}-sugg`} className="flex flex-wrap gap-1.5">
-              {NAME_SUGGESTIONS.map((n) => (
-                <li key={n}>
-                  <Button
-                    type="button"
-                    size="xs"
-                    variant={value.name === n ? "default" : "outline"}
-                    aria-pressed={value.name === n}
-                    onClick={() => set({ name: n })}
-                  >
-                    {n}
-                  </Button>
-                </li>
-              ))}
-              <li>
-                <Button
-                  type="button"
-                  size="xs"
-                  variant={value.name === DEFAULT_NAME ? "default" : "ghost"}
-                  aria-pressed={value.name === DEFAULT_NAME}
-                  onClick={() => set({ name: DEFAULT_NAME })}
-                >
-                  {t("onboarding.agent.keep", { name: DEFAULT_NAME })}
-                </Button>
-              </li>
-            </ul>
-          </div>
-        </div>
+          ) : null}
+        </figcaption>
+      </figure>
 
+      <div className="flex min-w-0 flex-col gap-5" data-testid="onboarding-form">
+        <CreaturePicker
+          label={
+            value.creatureMode === "describe"
+              ? t("onboarding.agent.standIn")
+              : t("onboarding.agent.bundled")
+          }
+          value={value.creatureId}
+          personaName={name}
+          onChange={(creatureId) => set({ creatureId })}
+        />
         <RadioField
           label={t("onboarding.agent.creature")}
           inline
@@ -112,29 +99,59 @@ export function MeetStep({
               placeholder={t("onboarding.agent.describePlaceholder")}
               value={value.creatureDescription}
               onChange={(e) => set({ creatureDescription: e.target.value })}
-              className="max-w-lg"
             />
-            <p id={`${id}-desc-hint`} className="text-xs text-muted-foreground">
+            <p id={`${id}-desc-hint`} className="text-callout text-label-secondary">
               {t("onboarding.agent.describeHint", { name })}
             </p>
           </div>
         ) : null}
-        <CreaturePicker
-          label={
-            value.creatureMode === "describe"
-              ? t("onboarding.agent.standIn")
-              : t("onboarding.agent.bundled")
-          }
-          value={value.creatureId}
-          personaName={name}
-          onChange={(creatureId) => set({ creatureId })}
-        />
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor={`${id}-name`}>{t("onboarding.agent.name")}</Label>
+          <Input
+            id={`${id}-name`}
+            maxLength={40}
+            value={value.name}
+            placeholder={DEFAULT_NAME}
+            onChange={(e) => set({ name: e.target.value })}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <span id={`${id}-sugg`} className="text-callout text-label-secondary">
+              {t("onboarding.agent.suggestions")}
+            </span>
+            <ul aria-labelledby={`${id}-sugg`} className="flex flex-wrap gap-1.5">
+              {NAME_SUGGESTIONS.map((n) => (
+                <li key={n}>
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant={value.name === n ? "secondary" : "ghost"}
+                    aria-pressed={value.name === n}
+                    onClick={() => set({ name: n })}
+                  >
+                    {n}
+                  </Button>
+                </li>
+              ))}
+              <li>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant={value.name === DEFAULT_NAME ? "secondary" : "ghost"}
+                  aria-pressed={value.name === DEFAULT_NAME}
+                  onClick={() => set({ name: DEFAULT_NAME })}
+                >
+                  {t("onboarding.agent.keep", { name: DEFAULT_NAME })}
+                </Button>
+              </li>
+            </ul>
+          </div>
+        </div>
 
         <div className="flex flex-col gap-1">
           <Label htmlFor={`${id}-tagline`}>{t("onboarding.agent.tagline")}</Label>
           <Input
             id={`${id}-tagline`}
-            className="max-w-sm"
             maxLength={120}
             placeholder={t("onboarding.agent.taglinePlaceholder")}
             value={value.tagline}
@@ -142,25 +159,6 @@ export function MeetStep({
           />
         </div>
       </div>
-
-      <figure
-        aria-label={t("onboarding.agent.preview")}
-        data-testid="onboarding-preview"
-        className="flex flex-col items-center gap-2 self-start rounded-lg border border-gray-6 bg-gray-2 p-4 text-center md:sticky md:top-4"
-      >
-        <Avatar name={name} creature={value.creatureId} size={160} />
-        <figcaption>
-          <span className="block text-lg font-semibold">{name}</span>
-          {value.tagline.trim() ? (
-            <span className="block text-sm text-muted-foreground">{value.tagline.trim()}</span>
-          ) : null}
-          {value.creatureMode === "describe" && value.creatureDescription.trim() ? (
-            <span className="mt-1 block text-xs text-muted-foreground">
-              “{value.creatureDescription.trim()}”
-            </span>
-          ) : null}
-        </figcaption>
-      </figure>
     </div>
   );
 }
@@ -228,7 +226,7 @@ export function PermissionsStep({
   };
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-muted-foreground">{t("onboarding.permission.intro")}</p>
+      <p className="text-reading text-label-secondary">{t("onboarding.permission.intro")}</p>
       {helper ? <MacHelperStatusRow state={helper} /> : null}
       <ul className="flex flex-col gap-3">
         {ONBOARDING_PERMISSIONS.map((p) => {
@@ -236,20 +234,20 @@ export function PermissionsStep({
           return (
             <li
               key={p}
-              className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-6 bg-gray-2 p-3"
+              className="flex flex-wrap items-center gap-3 rounded-lg bg-surface-raised p-3 shadow-elevation-1"
             >
               <div className="min-w-0 flex-1">
-                <p className="flex flex-wrap items-center gap-2 font-medium">
+                <p className="flex flex-wrap items-center gap-2 text-headline text-label-primary">
                   {TCC_LABEL[p].name}
                   <StatusChip tone={ANSWER[answer].tone}>{ANSWER[answer].text}</StatusChip>
                 </p>
-                <p className="text-sm text-muted-foreground">{why[p]}</p>
+                <p className="text-callout text-label-secondary">{why[p]}</p>
                 {answer === "denied" ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-callout text-label-secondary">
                     {t("onboarding.permission.deniedHint")}
                   </p>
                 ) : answer === "unavailable" ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-callout text-label-secondary">
                     {t("onboarding.permission.unavailableHint")}
                   </p>
                 ) : null}
@@ -257,6 +255,7 @@ export function PermissionsStep({
               <div className="flex gap-2">
                 <Button
                   type="button"
+                  variant="outline"
                   size="sm"
                   disabled={busy !== null || answer === "granted"}
                   onClick={() => onAllow(p)}
@@ -321,29 +320,29 @@ export function ConnectorsStep({
   const current = available.some((c) => c.type === type) ? type : (available[0]?.type ?? "");
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-muted-foreground">
+      <p className="text-reading text-label-secondary">
         {t("onboarding.connectors.intro", { name: persona })}
       </p>
       <section aria-labelledby={`${id}-connected`} className="flex flex-col gap-2">
         {/* The step title is the page's h1 (docs/a11y-audit.md L3), so step sections are h2. */}
-        <h2 id={`${id}-connected`} className="text-label text-gray-11">
+        <h2 id={`${id}-connected`} className="px-1 text-caption text-label-secondary">
           {t("onboarding.connectors.connected", { n: connected.length })}
         </h2>
         {connected.length > 0 ? (
           <ul
-            className="flex flex-col divide-y divide-gray-5 rounded-lg border border-gray-6"
+            className="flex flex-col divide-y divide-separator rounded-lg bg-surface-raised shadow-elevation-1"
             aria-label={t("onboarding.connectors.connectedList")}
           >
             {connected.map((c) => (
-              <li key={c.type} className="flex items-center gap-2 px-3 py-2 text-sm">
+              <li key={c.type} className="flex min-h-9 items-center gap-2 px-3 py-1.5 text-body">
                 <Check className="size-4 text-success-text" aria-hidden="true" />
-                <span className="min-w-0 flex-1 font-medium">{c.label}</span>
+                <span className="min-w-0 flex-1 text-label-primary">{c.label}</span>
                 <StatusChip tone="neutral">{SCOPE_MODE_LABEL[c.mode]}</StatusChip>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <p className="flex items-center gap-2 text-callout text-label-secondary">
             <Plug className="size-4" aria-hidden="true" />
             {t("onboarding.connectors.none")}
           </p>
@@ -384,6 +383,7 @@ export function ConnectorsStep({
           <div>
             <Button
               type="button"
+              variant="outline"
               size="sm"
               disabled={busy}
               onClick={() => onConnect(current, mode)}
@@ -662,6 +662,7 @@ export function ModelStep({
   return (
     <div className="flex flex-col gap-4">
       <RadioField
+        grouped
         label={t("onboarding.model.how")}
         value={value.kind}
         onChange={(kind) => {
@@ -719,6 +720,7 @@ export function ModelStep({
         </div>
       ) : null}
       <RadioField
+        grouped
         label={t("onboarding.model.model")}
         value={picked}
         onChange={(ref) => {
@@ -794,7 +796,7 @@ export function ModelStep({
                   </Button>
                 ) : null}
               </div>
-              <p id={`${id}-key-hint`} className="text-xs text-muted-foreground">
+              <p id={`${id}-key-hint`} className="text-callout text-label-secondary">
                 {onSaveKey ? t("onboarding.model.keyHint") : t("onboarding.model.keyLater")}
               </p>
             </>
@@ -807,10 +809,12 @@ export function ModelStep({
           ) : null}
           {recoveryKey ? (
             <div
-              className="mt-2 flex flex-col gap-1 rounded-lg border border-approval/40 bg-gray-2 p-3"
+              className="mt-2 flex flex-col gap-1 rounded-lg border border-approval-border bg-approval-surface p-3"
               data-testid="vault-recovery-key"
             >
-              <p className="text-sm font-medium">{t("onboarding.model.recoveryTitle")}</p>
+              <p className="text-headline text-label-primary">
+                {t("onboarding.model.recoveryTitle")}
+              </p>
               <div className="flex flex-wrap items-center gap-2">
                 <code className="font-mono text-sm break-all select-all">{recoveryKey}</code>
                 <Button
@@ -833,7 +837,9 @@ export function ModelStep({
                   </span>
                 ) : null}
               </div>
-              <p className="text-xs text-muted-foreground">{t("onboarding.model.recoveryBody")}</p>
+              <p className="text-callout text-label-secondary">
+                {t("onboarding.model.recoveryBody")}
+              </p>
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
@@ -848,13 +854,15 @@ export function ModelStep({
       ) : null}
 
       {value.kind === "subscription" ? (
-        <p className="text-sm text-muted-foreground">{t("onboarding.model.subscriptionNote")}</p>
+        <p className="text-reading text-label-secondary">
+          {t("onboarding.model.subscriptionNote")}
+        </p>
       ) : null}
 
       {value.kind === "local" ? <RamGuidance {...(ramGb === undefined ? {} : { ramGb })} /> : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium">{t("onboarding.model.toolCheck")}</span>
+        <span className="text-headline text-label-primary">{t("onboarding.model.toolCheck")}</span>
         <ToolCheckBadge status={value.toolCheck} />
         {onCheck && value.toolCheck !== "running" ? (
           <Button
@@ -893,6 +901,7 @@ export function WhereStep({
   return (
     <div className="flex flex-col gap-4">
       <RadioField
+        grouped
         label={t("onboarding.where.question", { name: persona })}
         value={value}
         onChange={onChange}
@@ -912,7 +921,7 @@ export function WhereStep({
           },
         ]}
       />
-      <div className="rounded-lg border border-gray-6 bg-gray-2 p-4 text-sm">
+      <div className="rounded-lg bg-surface-raised p-4 text-body shadow-elevation-1">
         <h2 className="mb-2 font-semibold">
           {value === "vm" ? t("onboarding.where.vmDefaults") : t("onboarding.where.localDefaults")}
         </h2>
@@ -980,7 +989,7 @@ export function DoneStep({
         <Avatar name={p.name} creature={p.creatureId} size={64} />
         <div>
           <p className="text-lg font-semibold">{t("onboarding.done.ready", { name: p.name })}</p>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-reading text-label-secondary">
             {t("onboarding.done.opens", { name: p.name })}
           </p>
         </div>
@@ -1030,7 +1039,7 @@ export function DoneStep({
         ]}
       />
       {checks === "checking" ? (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+        <p className="flex items-center gap-2 text-callout text-label-secondary" role="status">
           <Loader className="size-4 motion-safe:animate-spin" aria-hidden="true" />{" "}
           {t("onboarding.done.checking")}
         </p>

@@ -10,6 +10,8 @@ export interface MenuActions {
   palette(): void;
   closeThreadView(): void;
   quitEntirely(): void;
+  /** Opens the Settings window (⌘,; docs/design/redesign-2026.md §4). */
+  settings(): void;
   /** View → Zoom: an appearance setting (`appearance.zoom`), not Electron's per-origin memory. */
   zoomIn(): void;
   zoomOut(): void;
@@ -22,6 +24,8 @@ export function buildAppMenu(a: MenuActions): Menu {
       label: app.name,
       submenu: [
         { role: "about" },
+        { type: "separator" },
+        { label: "Settings…", accelerator: "CmdOrCtrl+,", click: a.settings },
         { type: "separator" },
         { role: "hide" },
         { role: "hideOthers" },

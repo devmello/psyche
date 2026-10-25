@@ -122,6 +122,7 @@ const bridge = {
   windows: {
     popOutPane: (route: string, title: string) => invoke(IPC.windowPopOut, { route, title }),
     closeWindow: () => ipcRenderer.send(IPC.windowClose),
+    openSettings: (section?: string) => ipcRenderer.send(IPC.windowOpenSettings, section ?? null),
     onCommand: (cb: (c: unknown) => void) => listen(IPC.shellCommand, cb),
   },
   notify: {

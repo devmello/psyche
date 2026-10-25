@@ -306,6 +306,7 @@ export function RadioField<T extends string>({
   onChange,
   inline = false,
   hideLabel = false,
+  grouped = false,
   settingKey,
   children,
 }: {
@@ -317,9 +318,60 @@ export function RadioField<T extends string>({
   onChange: (value: T) => void;
   inline?: boolean;
   hideLabel?: boolean;
+  /**
+   * A grouped inset list (redesign-2026 §5.8): one 36 px row per option, label and hint leading,
+   * the radio trailing, hairlines inset to the text.
+   */
+  grouped?: boolean;
   children?: ReactNode;
 }): ReactElement {
   const id = useId();
+  if (grouped) {
+    return (
+      <div className="flex flex-col gap-2">
+        <span
+          id={`${id}-label`}
+          className={cn("px-1 text-title-3 text-label-primary", hideLabel && "sr-only")}
+        >
+          {label}
+        </span>
+        <RadioGroup
+          aria-labelledby={`${id}-label`}
+          {...(description ? { "aria-describedby": `${id}-desc` } : {})}
+          value={value}
+          onValueChange={(v) => onChange(v as T)}
+          className="flex flex-col gap-0 rounded-lg bg-surface-raised shadow-elevation-1"
+        >
+          {options.map((o) => (
+            <Label
+              key={o.value}
+              htmlFor={`${id}-${o.value}`}
+              className="relative flex min-h-9 cursor-default items-center gap-3 px-3 py-2 font-normal before:absolute before:inset-x-3 before:top-0 before:h-px before:bg-separator first:before:hidden has-disabled:opacity-50"
+            >
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-body text-label-primary">{o.label}</span>
+                {o.hint ? (
+                  <span className="text-callout text-label-secondary">{o.hint}</span>
+                ) : null}
+              </span>
+              <RadioGroupItem
+                value={o.value}
+                id={`${id}-${o.value}`}
+                {...(o.disabled ? { disabled: true } : {})}
+              />
+            </Label>
+          ))}
+        </RadioGroup>
+        {description ? (
+          <p id={`${id}-desc`} className="px-1 text-callout text-label-secondary">
+            {description}
+          </p>
+        ) : null}
+        {settingKey ? <SettingHint settingKey={settingKey} /> : null}
+        {children}
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col gap-1.5">
       <span
