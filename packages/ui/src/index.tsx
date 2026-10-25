@@ -8,10 +8,14 @@
 export { ActionLog, ActivityPanel, TaskDetail, TaskList } from "./agent/ActivityPanel.tsx";
 export { AgentHeader, type AgentHeaderProps, MODE_LABEL } from "./agent/AgentHeader.tsx";
 export {
+  AgentRouteSheet,
+  type AgentRouteSheetProps,
   AgentSheet,
   AgentSheetBody,
   type AgentSheetProps,
+  type AgentSheetRoute,
   type AgentTab,
+  agentSheetRoute,
 } from "./agent/AgentSheet.tsx";
 export { ApprovalsPanel } from "./agent/ApprovalsPanel.tsx";
 export {

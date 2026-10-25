@@ -2,6 +2,7 @@ import type { Artifact, Goal, GoalMilestone, Task } from "@psyche/protocol";
 import { Ellipsis, FileText, Trash2 } from "lucide-react";
 import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { toast } from "sonner";
+import { TASK_GLYPH } from "../../agent/ActivityPanel.tsx";
 import { Markdown } from "../../blocks/Markdown.tsx";
 import { TASK_STATUS_LABEL } from "../../blocks/TaskCard.tsx";
 import {
@@ -11,7 +12,7 @@ import {
   LoadingCards,
   useDelayedFlag,
 } from "../../components/page.tsx";
-import { StatusGlyph, type StatusKind } from "../../components/status.tsx";
+import { StatusGlyph } from "../../components/status.tsx";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -131,17 +132,6 @@ function Section({ title, children }: { title: string; children: ReactNode }): R
 function Line({ children }: { children: ReactNode }): ReactElement {
   return <GroupedRow label={children} />;
 }
-
-const TASK_GLYPH: Record<Task["status"], StatusKind> = {
-  queued: "pending",
-  running: "running",
-  awaiting_input: "waiting",
-  awaiting_approval: "waiting",
-  paused: "paused",
-  done: "done",
-  failed: "failed",
-  cancelled: "cancelled",
-};
 
 export interface GoalTaskRowProps {
   taskId: string;

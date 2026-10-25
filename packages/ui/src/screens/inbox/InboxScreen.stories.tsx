@@ -105,3 +105,17 @@ export const ApprovalStale: Story = {
     />
   ),
 };
+
+/** The inbox in dark appearance (Screens/* baselines shoot light only). */
+export const Dark: Story = { globals: { theme: "dark" } };
+
+/** Compact width (§5.11). */
+export const Compact: Story = {
+  decorators: [
+    (S) => (
+      <div className="w-[390px]">
+        <S />
+      </div>
+    ),
+  ],
+};

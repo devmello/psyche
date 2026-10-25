@@ -1,10 +1,16 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ActivityPanel, outcomeTone } from "../src/agent/ActivityPanel.tsx";
 import { AgentHeader } from "../src/agent/AgentHeader.tsx";
-import { AgentSheet, AgentSheetBody, type AgentTab } from "../src/agent/AgentSheet.tsx";
+import {
+  AgentRouteSheet,
+  AgentSheet,
+  AgentSheetBody,
+  type AgentTab,
+  agentSheetRoute,
+} from "../src/agent/AgentSheet.tsx";
 import { ApprovalsPanel } from "../src/agent/ApprovalsPanel.tsx";
 import { SoulMemoryPanel } from "../src/agent/SoulMemoryPanel.tsx";
 import {
@@ -13,6 +19,7 @@ import {
   snoozedSchedule,
   UpcomingPanel,
 } from "../src/agent/UpcomingPanel.tsx";
+import { AVATAR_LOOP_MS, Avatar } from "../src/avatar/Avatar.tsx";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { IDS } from "../src/fixtures/index.ts";
 import { STORY_NOW, StoryWorld } from "../src/stories/harness.tsx";
@@ -116,6 +123,8 @@ describe("SoulMemoryPanel", () => {
         <SoulMemoryPanel />
       </StoryWorld>,
     );
+    // The files are rows; each opens the editor in a level-3 sheet (redesign §5.7).
+    await userEvent.click(await screen.findByRole("button", { name: "Open SOUL.md" }));
     const box = await screen.findByRole("textbox", { name: "SOUL.md contents" });
     await userEvent.type(box, "\n- I keep receipts.");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -240,8 +249,8 @@ describe("AgentSheet (#508)", () => {
     const opener = screen.getByRole("button", { name: "Open the agent" });
     await userEvent.click(opener);
     const sheet = await screen.findByRole("dialog");
-    // The persona files are listed (the pencil view of SOUL.md, USER.md, …).
-    expect(within(sheet).getByRole("tab", { name: "SOUL.md" })).toBeTruthy();
+    // The persona files are listed as rows (redesign §5.7: SOUL.md, USER.md, …).
+    expect(within(sheet).getByRole("button", { name: "Open SOUL.md" })).toBeTruthy();
     await userEvent.click(within(sheet).getByRole("button", { name: "Close" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(opener));
@@ -261,12 +270,62 @@ describe("the /agent page (#508)", () => {
         <AgentSheetBody tab="soul" onTabChange={() => {}} file="USER.md" onClose={onClose} />
       </StoryWorld>,
     );
-    expect(
-      (await screen.findByRole("tab", { name: "USER.md" })).getAttribute("aria-selected"),
-    ).toBe("true");
+    // The requested file opens in the editor sheet; Escape closes that sheet first.
+    const editor = await screen.findByRole("dialog", { name: "USER.md" });
+    expect(await within(editor).findByRole("textbox", { name: "USER.md contents" })).toBeTruthy();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(onClose).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalledTimes(1);
     await userEvent.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("redesign E3", () => {
+  it("reads /agent/* routes for the sheet", () => {
+    expect(agentSheetRoute("/chat")).toBeNull();
+    expect(agentSheetRoute("/agent/upcoming")).toEqual({ tab: "upcoming" });
+    expect(agentSheetRoute(`/agent/activity/${IDS.tasks.dentist}`)).toEqual({
+      tab: "activity",
+      taskId: IDS.tasks.dentist,
+    });
+    expect(agentSheetRoute("/agent/soul?file=memory%2F2026-10-18.md")).toEqual({
+      tab: "soul",
+      file: "memory/2026-10-18.md",
+    });
+  });
+
+  it("stops the avatar's idle loop after 5 s (WCAG 2.2.2)", () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = render(<Avatar name="Wren" state="idle" />);
+      const avatar = container.querySelector("[data-state]") as HTMLElement;
+      expect(avatar.dataset.looping).toBe("true");
+      act(() => {
+        vi.advanceTimersByTime(AVATAR_LOOP_MS + 10);
+      });
+      expect(avatar.dataset.looping).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("opens the route's sheet and closes it back to the chat", async () => {
+    const onClose = vi.fn();
+    render(
+      <StoryWorld>
+        <AgentRouteSheet route={{ tab: "approvals" }} onTabChange={() => {}} onClose={onClose} />
+      </StoryWorld>,
+    );
+    const sheet = await screen.findByRole("dialog", { name: "Wren" });
+    expect(
+      within(sheet)
+        .getByRole("tab", { name: /^Approvals/ })
+        .getAttribute("aria-selected"),
+    ).toBe("true");
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 });

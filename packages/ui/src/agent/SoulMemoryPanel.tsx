@@ -1,7 +1,17 @@
 import type { MemoryHit, Provenance } from "@psyche/protocol";
-import { Download, EyeOff, Pause, Play, Search, ShieldAlert, Upload } from "lucide-react";
-import { type ReactElement, useEffect, useState } from "react";
-import { SectionLabel } from "../components/page.tsx";
+import {
+  ChevronRight,
+  Download,
+  EyeOff,
+  FileText,
+  Pause,
+  Play,
+  Search,
+  ShieldAlert,
+  Upload,
+} from "lucide-react";
+import { type ReactElement, type ReactNode, useState } from "react";
+import { GroupedList, GroupedRow } from "../components/page.tsx";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,9 +25,9 @@ import {
 } from "../components/ui/alert-dialog.tsx";
 import { Badge } from "../components/ui/badge.tsx";
 import { Button } from "../components/ui/button.tsx";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog.tsx";
 import { Input } from "../components/ui/input.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
-import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs.tsx";
 import { Textarea } from "../components/ui/textarea.tsx";
 import { useCall, useGatewayQuery, useMemoryFile } from "../data/index.ts";
 import { activeI18n, t } from "../i18n/core.ts";
@@ -27,18 +37,18 @@ import { usePersona, useSlots } from "../slots.tsx";
 
 /** Persona files and their budgets (architecture §4.2: 20k per file, 4k for USER.md). */
 export const PERSONA_FILES = [
-  { path: "SOUL.md", budget: 20_000 },
-  { path: "IDENTITY.md", budget: 20_000 },
-  { path: "USER.md", budget: 4_000 },
-  { path: "MEMORY.md", budget: 20_000 },
-  { path: "AGENTS.md", budget: 20_000 },
+  { path: "SOUL.md", key: "soul", budget: 20_000 },
+  { path: "IDENTITY.md", key: "identity", budget: 20_000 },
+  { path: "USER.md", key: "user", budget: 4_000 },
+  { path: "MEMORY.md", key: "memory", budget: 20_000 },
+  { path: "AGENTS.md", key: "agents", budget: 20_000 },
 ] as const;
 
 export function BudgetMeter({ used, budget }: { used: number; budget: number }): ReactElement {
   const pct = Math.min(100, Math.round((used / budget) * 100));
   const over = used > budget;
   return (
-    <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+    <span className="inline-flex items-center gap-2 text-callout text-label-secondary">
       <meter
         className="sr-only"
         min={0}
@@ -46,7 +56,10 @@ export function BudgetMeter({ used, budget }: { used: number; budget: number }):
         value={used}
         aria-label={t("agent.memory.budget")}
       />
-      <span className="h-1.5 w-20 overflow-hidden rounded-full bg-gray-4" aria-hidden="true">
+      <span
+        className="h-1.5 w-20 overflow-hidden rounded-full bg-fill-secondary"
+        aria-hidden="true"
+      >
         <span
           className={cn(
             "block h-full",
@@ -69,7 +82,7 @@ export function ProvenanceChip({ provenance }: { provenance: Provenance }): Reac
     <span
       className={cn(
         "inline-flex items-center gap-1 rounded-full border px-1.5 text-xs",
-        untrusted ? "border-untrusted text-approval-text" : "border-gray-6 text-muted-foreground",
+        untrusted ? "border-untrusted text-approval-text" : "border-separator text-label-secondary",
       )}
     >
       {untrusted ? <ShieldAlert className="size-3" aria-hidden="true" /> : null}
@@ -82,12 +95,12 @@ export function ProvenanceChip({ provenance }: { provenance: Provenance }): Reac
 export function MemoryFileEditor({ path, budget }: { path: string; budget: number }): ReactElement {
   const { file, loading, error, save } = useMemoryFile(path);
   const slots = useSlots();
-  const [draft, setDraft] = useState<string | null>(null);
+  // The draft belongs to the file it was typed in: switching files drops it.
+  const [edit, setEdit] = useState<{ path: string; value: string } | null>(null);
+  const draft = edit !== null && edit.path === path ? edit.value : null;
+  const setDraft = (value: string | null) => setEdit(value === null ? null : { path, value });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  // Switching files drops the unsaved draft of the previous one.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reset on path change only
-  useEffect(() => setDraft(null), [path]);
   if (file === null) {
     return loading ? (
       <Skeleton className="h-48" />
@@ -118,7 +131,6 @@ export function MemoryFileEditor({ path, budget }: { path: string; budget: numbe
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-3">
-        <span className="text-mono text-gray-12">{path}</span>
         <BudgetMeter used={value.length} budget={budget} />
         <span className="ms-auto flex gap-2">
           <Button
@@ -135,14 +147,14 @@ export function MemoryFileEditor({ path, budget }: { path: string; budget: numbe
         </span>
       </div>
       {path === "MEMORY.md" ? (
-        <p className="text-callout text-muted-foreground">{t("agent.memory.dreaming")}</p>
+        <p className="text-callout text-label-secondary">{t("agent.memory.dreaming")}</p>
       ) : null}
       {slots.renderEditor ? (
         slots.renderEditor({ path, value, onChange: setDraft, budget })
       ) : (
         <Textarea
           aria-label={t("agent.memory.contents", { path })}
-          className="field-sizing-fixed h-64 resize-y bg-gray-1 font-mono text-[13px] leading-5"
+          className="field-sizing-fixed h-[50vh] resize-y bg-canvas font-mono text-[13px] leading-5"
           value={value}
           onChange={(e) => setDraft(e.target.value)}
         />
@@ -200,14 +212,14 @@ function MemorySearch({ onClose }: { onClose?: () => void }): ReactElement {
       {error ? <p className="text-sm text-danger-text">{error}</p> : null}
       {hits !== null ? (
         hits.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("agent.memory.noHits")}</p>
+          <p className="text-sm text-label-secondary">{t("agent.memory.noHits")}</p>
         ) : (
           <ul className="flex flex-col gap-1 text-sm">
             {hits.map((h) => (
               <li key={h.chunk.id} className="flex items-start gap-2">
                 <span className="min-w-0 flex-1">
                   <span className="block truncate">{h.chunk.text}</span>
-                  <span className="block font-mono text-xs text-muted-foreground">
+                  <span className="block font-mono text-xs text-label-secondary">
                     {h.chunk.source}:{h.chunk.lineStart}
                   </span>
                 </span>
@@ -287,136 +299,173 @@ export function SoulMemoryPanel({
   const fileBudget = PERSONA_FILES.find((f) => f.path === path)?.budget ?? 20_000;
 
   const notes = daily.data?.notes ?? [];
+  // Rows open the Markdown editor in a level-3 sheet; "Open in editor" links arrive with a file.
+  const [editing, setEditing] = useState<string | null>(initialFile ?? null);
+  const open = (next: string) => {
+    setPath(next);
+    setEditing(next);
+  };
+  const chevron = (
+    <ChevronRight className="size-4 text-label-tertiary rtl:rotate-180" aria-hidden="true" />
+  );
+  const row = (file: string, label: ReactNode, description?: ReactNode) => (
+    <button
+      key={file}
+      type="button"
+      onClick={() => open(file)}
+      aria-label={t("screens.soul.openFile", { file })}
+      className="block w-full rounded-lg text-start transition-colors hover:bg-fill-quaternary focus-visible:outline-2 focus-visible:outline-ring"
+    >
+      <GroupedRow
+        label={label}
+        {...(description ? { description } : {})}
+        leading={<FileText className="size-4" aria-hidden="true" />}
+        control={chevron}
+      />
+    </button>
+  );
 
   return (
-    <div className="flex flex-col gap-5 px-2">
-      <section aria-label={t("agent.memory.files")} className="flex flex-col gap-3">
-        <div className="flex items-center gap-3">
-          <SectionLabel as="h3" className="w-12 shrink-0">
-            {t("agent.memory.files")}
-          </SectionLabel>
-          <Tabs value={path} onValueChange={(v) => setPath(String(v))} className="min-w-0 flex-1">
-            <TabsList
-              aria-label={t("agent.memory.files")}
-              variant="line"
-              className="h-8 w-full justify-start overflow-x-auto"
-            >
-              {PERSONA_FILES.map((f) => (
-                <TabsTrigger key={f.path} value={f.path} className="flex-none font-mono text-xs">
-                  {f.path}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            aria-label={t("agent.memory.search")}
-            title={t("agent.memory.search")}
-            aria-expanded={searching}
-            onClick={() => setSearching((v) => !v)}
-          >
-            <Search aria-hidden="true" />
-          </Button>
-        </div>
-        {searching ? <MemorySearch onClose={() => setSearching(false)} /> : null}
-        <nav aria-label={t("agent.memory.dailyNotes")} className="flex items-center gap-3">
-          <SectionLabel as="span" className="w-12 shrink-0">
-            {t("agent.memory.daily")}
-          </SectionLabel>
-          {notes.length === 0 ? (
-            <span className="text-callout text-muted-foreground">{t("agent.memory.noDaily")}</span>
-          ) : (
-            <span className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-0.5">
-              {notes.map((n) => (
-                <button
-                  key={n.path}
-                  type="button"
-                  onClick={() => setPath(n.path)}
-                  aria-current={path === n.path ? "page" : undefined}
-                  aria-label={n.date}
-                  className={cn(
-                    "flex shrink-0 flex-col items-center rounded-md border border-gray-6 px-2.5 py-1 leading-none hover:bg-gray-3",
-                    path === n.path && "border-accent-8 bg-accent-3 text-accent-11",
-                  )}
-                >
-                  <span className="text-[11px] text-muted-foreground">{dayName(n.date)}</span>
-                  <span className="text-small font-medium tabular-nums">{shortDate(n.date)}</span>
-                </button>
-              ))}
-            </span>
-          )}
-        </nav>
-      </section>
-
-      <MemoryFileEditor path={path} budget={fileBudget} />
-
-      <section
-        aria-label={t("agent.memory.controls")}
-        className="flex flex-col divide-y divide-gray-5 rounded-lg border border-gray-6 bg-gray-2 text-small"
-      >
-        <div className="flex flex-wrap items-center gap-2 p-3">
-          <span className="min-w-0 flex-1">
-            {t("agent.memory.memory")}{" "}
-            <Badge variant={paused ? "approval" : "success"}>
-              {paused ? t("agent.memory.paused") : t("common.on")}
-            </Badge>
-          </span>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={async () => {
-              await call("memory.pause", { paused: !paused });
-              status.reload();
-            }}
-          >
-            {paused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}
-            {paused ? t("agent.activity.resume") : t("agent.task.pause")}
-          </Button>
-          {onStartIncognito ? (
-            <Button size="sm" variant="ghost" onClick={onStartIncognito}>
-              <EyeOff aria-hidden="true" /> {t("agent.memory.incognito")}
-            </Button>
-          ) : null}
-        </div>
-        <fieldset
-          aria-label={t("agent.memory.importExport")}
-          className="m-0 flex min-w-0 flex-wrap items-center gap-2 border-0 p-3"
+    <div className="flex flex-col gap-5 pb-2">
+      {searching ? (
+        <MemorySearch onClose={() => setSearching(false)} />
+      ) : (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="self-end"
+          aria-expanded={false}
+          onClick={() => setSearching(true)}
         >
+          <Search aria-hidden="true" />
+          {t("agent.memory.search")}
+        </Button>
+      )}
+
+      <GroupedList title={t("agent.memory.files")}>
+        {PERSONA_FILES.map((f) =>
+          row(
+            f.path,
+            <span className="text-mono">{f.path}</span>,
+            t(`screens.soul.file.${f.key}`, { name: persona.name }),
+          ),
+        )}
+      </GroupedList>
+
+      <GroupedList
+        title={t("agent.memory.dailyNotes")}
+        {...(notes.length === 0 ? { footer: t("agent.memory.noDaily") } : {})}
+      >
+        {notes.map((n) =>
+          row(
+            n.path,
+            `${dayName(n.date)} ${shortDate(n.date)}`,
+            <span className="text-mono">{n.path}</span>,
+          ),
+        )}
+      </GroupedList>
+
+      <GroupedList title={t("agent.memory.controls")}>
+        <GroupedRow
+          label={t("agent.memory.memory")}
+          control={
+            <>
+              <Badge variant={paused ? "approval" : "success"}>
+                {paused ? t("agent.memory.paused") : t("common.on")}
+              </Badge>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  await call("memory.pause", { paused: !paused });
+                  status.reload();
+                }}
+              >
+                {paused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}
+                {paused ? t("agent.activity.resume") : t("agent.task.pause")}
+              </Button>
+            </>
+          }
+        />
+        {onStartIncognito ? (
+          <GroupedRow
+            label={t("agent.memory.incognito")}
+            leading={<EyeOff className="size-4" aria-hidden="true" />}
+            control={
+              <Button size="sm" variant="ghost" onClick={onStartIncognito}>
+                {t("screens.soul.start")}
+              </Button>
+            }
+          />
+        ) : null}
+      </GroupedList>
+
+      <fieldset aria-label={t("agent.memory.importExport")} className="m-0 min-w-0 border-0 p-0">
+        <GroupedList>
           {onImport ? (
-            <Button size="sm" variant="ghost" onClick={onImport}>
-              <Upload aria-hidden="true" /> {t("agent.memory.import")}
-            </Button>
-          ) : null}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={async () => {
-              const res = await call("memory.export", {});
-              onExported?.({ filename: res.filename, data: res.data });
-              setNotice(t("agent.memory.exported", { file: res.filename }));
-            }}
-          >
-            <Download aria-hidden="true" /> {t("agent.memory.export")}
-          </Button>
-          <span className="ms-auto">
-            <ResetDialog
-              persona={persona.name}
-              onReset={async () => {
-                const res = await call("memory.reset", {});
-                setNotice(
-                  t("agent.memory.resetDone", { files: res.files.length, claims: res.claims }),
-                );
-              }}
+            <GroupedRow
+              label={t("agent.memory.import")}
+              leading={<Upload className="size-4" aria-hidden="true" />}
+              control={
+                <Button size="sm" variant="ghost" onClick={onImport}>
+                  {t("screens.soul.choose")}
+                </Button>
+              }
             />
-          </span>
-        </fieldset>
-      </section>
+          ) : null}
+          <GroupedRow
+            label={t("agent.memory.export")}
+            leading={<Download className="size-4" aria-hidden="true" />}
+            control={
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={async () => {
+                  const res = await call("memory.export", {});
+                  onExported?.({ filename: res.filename, data: res.data });
+                  setNotice(t("agent.memory.exported", { file: res.filename }));
+                }}
+              >
+                {t("screens.soul.exportGo")}
+              </Button>
+            }
+          />
+          <GroupedRow
+            label={t("screens.soul.resetRow", { name: persona.name })}
+            control={
+              <ResetDialog
+                persona={persona.name}
+                onReset={async () => {
+                  const res = await call("memory.reset", {});
+                  setNotice(
+                    t("agent.memory.resetDone", { files: res.files.length, claims: res.claims }),
+                  );
+                }}
+              />
+            }
+          />
+        </GroupedList>
+      </fieldset>
       {notice ? (
-        <p className="text-small text-muted-foreground" role="status">
+        <p className="text-callout text-label-secondary" role="status">
           {notice}
         </p>
       ) : null}
+
+      {/* The editor in a level-3 sheet (§5.7); Rich / Source / Diff come from the editor slot. */}
+      <Dialog
+        open={editing !== null}
+        onOpenChange={(next) => {
+          if (!next) setEditing(null);
+        }}
+      >
+        <DialogContent className="flex max-h-[85vh] w-[min(720px,calc(100vw-2rem))] max-w-none flex-col gap-3 sm:max-w-none">
+          <DialogHeader>
+            <DialogTitle className="text-mono text-label-primary">{editing ?? path}</DialogTitle>
+          </DialogHeader>
+          {editing !== null ? <MemoryFileEditor path={editing} budget={fileBudget} /> : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

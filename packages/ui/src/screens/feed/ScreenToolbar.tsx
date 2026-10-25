@@ -1,4 +1,5 @@
 import type { ReactElement, ReactNode } from "react";
+import { useToolbar, useToolbarContent } from "../../components/ui/toolbar.tsx";
 import { cn } from "../../lib/utils.ts";
 
 export interface ScreenToolbarProps {
@@ -17,8 +18,11 @@ export interface ScreenToolbarProps {
  * A content screen's toolbar row (docs/design/redesign-2026.md §5.6): 52 px, the title in
  * text-title-1 at the leading edge and the actions trailing, so the title is not repeated in the
  * content. It sticks to the top of the scrolling page and fades the content under it with a
- * 24 px scroll-edge gradient instead of a border (§3.4). When the shell grows a toolbar slot
- * (redesign §6, workstream A), screens hand it these same props.
+ * 24 px scroll-edge gradient instead of a border (§3.4).
+ *
+ * It registers the same content with the shell's toolbar (`useToolbar`, workstream A2). Inside a
+ * `ToolbarProvider` the shell's `ToolbarSlot` shows it and this row renders nothing; outside one
+ * (stories, tests, a shell without the slot yet) the screen draws the row itself.
  */
 export function ScreenToolbar({
   title,
@@ -26,7 +30,23 @@ export function ScreenToolbar({
   center,
   actions,
   className,
-}: ScreenToolbarProps): ReactElement {
+}: ScreenToolbarProps): ReactElement | null {
+  useToolbar({
+    title,
+    ...(meta ? { subtitle: meta } : {}),
+    ...(center || actions
+      ? {
+          trailing: (
+            <>
+              {center}
+              {actions}
+            </>
+          ),
+        }
+      : {}),
+  });
+  // Non-null only when a provider is listening: the registration above is then its content.
+  if (useToolbarContent() !== null) return null;
   return (
     <header
       data-slot="screen-toolbar"

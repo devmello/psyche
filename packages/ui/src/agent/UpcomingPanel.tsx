@@ -196,11 +196,11 @@ export function UpcomingRow({
     <li className="flex items-start gap-3 py-3">
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
-          <span className="truncate text-small font-medium">{a.title}</span>
+          <span className="truncate text-body font-medium">{a.title}</span>
           {a.kind === "watch" ? <Badge variant="info">{t("agent.upcoming.watch")}</Badge> : null}
           {!a.enabled ? <Badge variant="muted">{t("agent.upcoming.paused")}</Badge> : null}
         </span>
-        <span className="mt-0.5 block text-callout text-gray-11">
+        <span className="mt-0.5 block text-callout text-label-secondary">
           {t("agent.upcoming.runs", {
             once: reminder,
             schedule: scheduleSentence(a),
@@ -210,10 +210,10 @@ export function UpcomingRow({
           })}
         </span>
         {delivery ? (
-          <span className="block text-callout text-muted-foreground">{delivery}</span>
+          <span className="block text-callout text-label-secondary">{delivery}</span>
         ) : null}
         {a.kind === "watch" && a.scratch ? (
-          <span className="block text-callout text-muted-foreground">{a.scratch}</span>
+          <span className="block text-callout text-label-secondary">{a.scratch}</span>
         ) : null}
         {a.lastStatus ? <span className="mt-1 flex">{lastOutcome(a)}</span> : null}
       </span>
@@ -296,7 +296,7 @@ export function UpcomingPanel({
   }
   if (q.error && q.automations.length === 0) {
     return (
-      <p className="px-2 text-small">
+      <p className="px-2 text-body">
         {t("agent.upcoming.loadFailed", { reason: q.error })}{" "}
         <button type="button" className="text-accent-11 underline" onClick={q.reload}>
           {t("agent.activity.tryAgain")}
@@ -312,7 +312,7 @@ export function UpcomingPanel({
   );
   return (
     <ul
-      className="flex flex-col divide-y divide-gray-4 px-2"
+      className="flex flex-col divide-y divide-separator px-2"
       aria-label={t("agent.sheet.upcoming")}
     >
       {sorted.map((a) => (

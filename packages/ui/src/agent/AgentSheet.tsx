@@ -12,6 +12,7 @@ import {
 } from "../components/ui/sheet.tsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs.tsx";
 import { t } from "../i18n/core.ts";
+import { cn } from "../lib/utils.ts";
 import { usePersona } from "../slots.tsx";
 import { ActivityPanel } from "./ActivityPanel.tsx";
 import { ApprovalsPanel, useApprovalQueue } from "./ApprovalsPanel.tsx";
@@ -22,13 +23,13 @@ import { useAgentStatus } from "./useAgentState.ts";
 export type AgentTab = "activity" | "approvals" | "upcoming" | "soul";
 
 /**
- * The sheet's header (§2.3, §4.7): the 64 px avatar (which carries the state), the persona's
- * name and the one-line status snippet. The modal sheet passes its dialog title and description components so the
- * dialog stays labelled; the `/agent/*` routes render a plain heading.
+ * The sheet's header (redesign §5.7, docs/06 §4.7): the 64 px avatar (which carries the state),
+ * the persona's name in text-title-2 and the state with the one-line status snippet. The modal
+ * sheet passes its dialog title and description components so the dialog stays labelled.
  */
 export function AgentIdentity({
-  title = (name) => <h2 className="text-h2 text-foreground">{name}</h2>,
-  description = (text) => <p className="text-small text-muted-foreground">{text}</p>,
+  title = (name) => <h2 className="text-title-2 text-label-primary">{name}</h2>,
+  description = (text) => <p className="text-callout text-label-secondary">{text}</p>,
 }: {
   title?: (name: string) => ReactNode;
   description?: (text: string) => ReactNode;
@@ -36,10 +37,11 @@ export function AgentIdentity({
   const persona = usePersona();
   const status = useAgentStatus();
   return (
-    <div className="flex items-center gap-4" data-testid="agent-identity">
+    <div className="flex min-h-16 items-center gap-3" data-testid="agent-identity">
       <Avatar
         name={persona.name}
         creature={persona.creature}
+        {...(persona.imageSrc ? { imageSrc: persona.imageSrc } : {})}
         state={status.state}
         size={64}
         count={status.needsYou}
@@ -50,6 +52,31 @@ export function AgentIdentity({
       </div>
     </div>
   );
+}
+
+/** What an `/agent/*` route opens: the tab, a task in Activity, a file in Soul & Memory. */
+export interface AgentSheetRoute {
+  tab: AgentTab;
+  taskId?: string;
+  file?: string;
+}
+
+const ROUTE_TABS: readonly AgentTab[] = ["activity", "approvals", "upcoming", "soul"];
+
+/**
+ * Reads `/agent/<tab>[/<taskId>][?file=…]`. The chat column opens its sheet from this so the
+ * routes render the same sheet over the chat, never a full-width page (redesign §5.7).
+ */
+export function agentSheetRoute(route: string): AgentSheetRoute | null {
+  const m = /^\/agent\/(activity|approvals|upcoming|soul)(?:\/([^/?]+))?/.exec(route);
+  if (m === null) return null;
+  const tab = ROUTE_TABS.find((x) => x === m[1]) ?? "activity";
+  const file = new URLSearchParams(route.split("?")[1] ?? "").get("file") ?? undefined;
+  return {
+    tab,
+    ...(m[2] === undefined ? {} : { taskId: m[2] }),
+    ...(file ? { file } : {}),
+  };
 }
 
 export interface AgentSheetBodyProps {
@@ -117,6 +144,7 @@ export function AgentSheetBody({
         onValueChange={(v) => onTabChange(v as AgentTab)}
         className="flex min-h-0 flex-1 flex-col gap-3"
       >
+        {/* The tabs are a segmented control under the header (§5.7). */}
         <TabsList aria-label={t("agent.sheet.tabs")} className="w-full">
           <TabsTrigger value="activity" className="min-w-0">
             <ListChecks aria-hidden="true" className="@max-md:hidden" /> {t("agent.sheet.activity")}
@@ -181,22 +209,73 @@ export function AgentSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side={side}
-        className={
+        data-testid="agent-sheet"
+        className={cn(
+          "gap-0",
+          // A 420 px right sheet (redesign §5.7) on the opaque overlay surface at level 3 over a
+          // dimming scrim: modal sheets are not glass (materials decision, #584 / A2b); a bottom
+          // sheet with a grabber on narrow windows (§5.11).
           side === "right"
-            ? "gap-0 data-[side=right]:w-full data-[side=right]:sm:max-w-xl"
-            : "max-h-[85vh] gap-0"
-        }
+            ? "bg-surface-overlay shadow-elevation-3 data-[side=right]:w-full data-[side=right]:border-0 data-[side=right]:sm:max-w-[420px]"
+            : "max-h-[85vh] rounded-t-xl bg-surface-overlay pt-2",
+        )}
       >
-        <SheetHeader className="px-6 pt-6 pb-4">
+        {side === "bottom" ? (
+          <span
+            aria-hidden="true"
+            className="mx-auto mb-1 h-1 w-9 shrink-0 rounded-full bg-fill-primary"
+          />
+        ) : null}
+        <SheetHeader className="px-5 pt-5 pb-3">
           <AgentIdentity
-            title={(name) => <SheetTitle className="text-xl font-semibold">{name}</SheetTitle>}
-            description={(text) => <SheetDescription>{text}</SheetDescription>}
+            title={(name) => (
+              <SheetTitle className="text-title-2 text-label-primary">{name}</SheetTitle>
+            )}
+            description={(text) => (
+              <SheetDescription className="text-callout text-label-secondary">
+                {text}
+              </SheetDescription>
+            )}
           />
         </SheetHeader>
-        <div className="flex min-h-0 flex-1 flex-col px-6">
+        <div className="flex min-h-0 flex-1 flex-col px-5">
           <AgentSheetBody {...body} header={false} />
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+export interface AgentRouteSheetProps
+  extends Omit<AgentSheetBodyProps, "header" | "tab" | "taskId" | "file" | "onClose"> {
+  route: AgentSheetRoute;
+  /** Switches tabs by changing the route, e.g. to `/agent/upcoming`. */
+  onTabChange: (tab: AgentTab) => void;
+  /** Closing the sheet (×, Escape, the backdrop) leaves the route, e.g. back to `/chat`. */
+  onClose: () => void;
+  side?: "right" | "bottom";
+}
+
+/** The sheet an `/agent/*` route shows: open, over whatever is under it, closing to the chat. */
+export function AgentRouteSheet({
+  route,
+  onTabChange,
+  onClose,
+  side = "right",
+  ...body
+}: AgentRouteSheetProps): ReactElement {
+  return (
+    <AgentSheet
+      open
+      side={side}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      tab={route.tab}
+      onTabChange={onTabChange}
+      {...(route.taskId === undefined ? {} : { taskId: route.taskId })}
+      {...(route.file === undefined ? {} : { file: route.file })}
+      {...body}
+    />
   );
 }
