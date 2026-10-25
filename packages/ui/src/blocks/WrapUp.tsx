@@ -2,7 +2,7 @@ import { sanitizeDisplay } from "@psyche/permissions/cards";
 import type { ReactElement } from "react";
 import { Button } from "../components/ui/button.tsx";
 import { t } from "../i18n/core.ts";
-import { CardEnter, useEntersLater } from "./QuestionCard.tsx";
+import { CardEnter, useEntersLater } from "./card-enter.tsx";
 import type { WrapUpBlock } from "./types.ts";
 
 /**

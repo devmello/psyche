@@ -1,6 +1,9 @@
+import { Radio as RadioPrimitive } from "@base-ui/react/radio";
+import { RadioGroup as RadioGroupPrimitive } from "@base-ui/react/radio-group";
 import { renderForSurface, sanitizeApproval } from "@psyche/permissions/cards";
 import type { ApprovalRequest, GrantScope } from "@psyche/protocol";
-import { ChevronRight, Fingerprint, ShieldCheck } from "lucide-react";
+import { CircleAlert, Ellipsis, Fingerprint, ShieldCheck } from "lucide-react";
+import * as m from "motion/react-m";
 import {
   type KeyboardEvent,
   type ReactElement,
@@ -11,14 +14,19 @@ import {
   useState,
 } from "react";
 import { Button } from "../components/ui/button.tsx";
-import { Label } from "../components/ui/label.tsx";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu.tsx";
 import { NativeSelect } from "../components/ui/native-select.tsx";
-import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group.tsx";
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { formatCountdown, formatRelative } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
+import { fade, motionSpring, spring } from "../motion/index.ts";
 import { ApprovalDetails, ApprovalIds } from "./approval-details.tsx";
 
 /**
@@ -65,6 +73,8 @@ export interface ApprovalCardProps {
   className?: string;
   /** Caps the binding rows (the dock scrolls them so the choices and buttons stay in view). */
   detailsClassName?: string;
+  /** Shared-layout id: the dock's card morphs into the transcript's result row (§5.3). */
+  layoutId?: string;
 }
 
 /**
@@ -134,6 +144,7 @@ export function ApprovalCard({
   armDelayMs = 400,
   className,
   detailsClassName,
+  layoutId,
 }: ApprovalCardProps): ReactElement {
   const approval = useMemo(() => sanitizeApproval(raw), [raw]);
   // First line of the per-surface template: kind · side effect · taint (never attacker text).
@@ -234,43 +245,127 @@ export function ApprovalCard({
           .filter(Boolean)
           .join("; ");
 
+  const offeredScopes: { value: ApprovalChoice; short: string; long: string; hint?: string }[] = [
+    ...(offered.includes("once")
+      ? [{ value: "once" as const, short: scopeLabel("once"), long: scopeLabel("once") }]
+      : []),
+    ...(offered.includes("task")
+      ? [
+          {
+            value: "task" as const,
+            short: t("chat.approval.segment.task"),
+            long: scopeLabel("task"),
+          },
+        ]
+      : []),
+    ...(offered.includes("site") && site !== null
+      ? [
+          {
+            value: "site" as const,
+            short: t("chat.approval.segment.site"),
+            long: `${scopeLabel("site")} ${site}`,
+            hint: site,
+          },
+        ]
+      : []),
+    ...(hasAlways
+      ? [
+          {
+            value: "always" as const,
+            short: t("chat.approval.segment.always"),
+            long: scopeLabel("always"),
+          },
+        ]
+      : []),
+    { value: "deny", short: t("blocks.approval.deny"), long: t("blocks.approval.deny") },
+  ];
+  const canAllow = armed && !busy && choice !== "deny";
+  const requester = t("blocks.approval.requester", {
+    persona,
+    hasTask: Boolean(taskTitle),
+    task: taskTitle ?? "",
+    hasFrom: Boolean(createdFrom),
+    from: createdFrom ?? "",
+    hasAgent: Boolean(approval.requestedBy.agent && approval.requestedBy.agent !== persona),
+    agent: approval.requestedBy.agent ?? "",
+  });
+
   return (
-    <fieldset
+    <m.fieldset
+      // Fades in place and out; never moves while shown (docs/06 §3.3, motion.md §3).
+      {...fade}
+      {...(layoutId
+        ? {
+            layoutId,
+            transition: { layout: motionSpring(spring.emphasis), ...fade.animate.transition },
+          }
+        : {})}
       aria-labelledby={headingId}
       onKeyDown={onKeyDown}
       data-approval-id={approval.id}
       data-status={stale ? "stale" : expiredByClock ? "expired" : approval.status}
       className={cn(
-        // Level 1 (§4.4): gray-2 with a 1 px border, amber while it waits for an answer.
-        "m-0 min-w-0 rounded-lg border bg-gray-2 p-4 text-sm psy-enter-still",
-        pending && !stale ? "border-approval-border" : "border-gray-6",
+        // Level 1 (redesign-2026 §5.3): raised surface, no outline; a 2 px amber leading edge
+        // while it waits for an answer. It fades in place and never moves (docs/06 §3.3).
+        "relative m-0 min-w-0 overflow-hidden rounded-lg bg-surface-raised p-4 ps-5 text-body text-label-primary shadow-elevation-1",
         className,
       )}
     >
+      {pending && !stale ? (
+        <span
+          className="absolute inset-y-0 start-0 w-0.5 bg-approval"
+          aria-hidden="true"
+          data-testid="approval-edge"
+        />
+      ) : null}
       <div className="flex items-center gap-2">
-        <ShieldCheck className="size-4 text-approval-text" aria-hidden="true" />
-        <span className="font-semibold text-approval-text">
+        <ShieldCheck className="size-4 shrink-0 text-approval-text" aria-hidden="true" />
+        <span className="text-caption text-approval-text">
           {pending ? t("blocks.approval.titlePending") : t("blocks.approval.title")}
         </span>
         {pending ? (
           <span
             className={cn(
-              "ms-auto text-xs tabular-nums",
-              remaining < 60_000 ? "font-semibold text-danger-text" : "text-muted-foreground",
+              "text-caption tabular-nums",
+              remaining < 60_000 ? "text-danger-text" : "text-approval-text",
             )}
           >
-            {t("blocks.approval.expiresIn", { countdown: formatCountdown(remaining) })}
+            · {t("blocks.approval.expiresIn", { countdown: formatCountdown(remaining) })}
           </span>
         ) : null}
+        <span className="ms-auto" />
+        {/* Technical details (ids, hashes, the binding) are level 2, under ⋯ (§5.3). */}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className="-me-1.5 text-label-secondary"
+                aria-label={t("chat.approval.more")}
+              />
+            }
+          >
+            <Ellipsis aria-hidden="true" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuCheckboxItem
+              checked={showIds}
+              onCheckedChange={(v) => setShowIds(Boolean(v))}
+            >
+              {t("blocks.approval.details")}
+            </DropdownMenuCheckboxItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
-      <p className="mt-1 text-xs font-medium text-muted-foreground" data-card-header>
+      <p className="mt-0.5 text-callout text-label-secondary" data-card-header>
         {header}
       </p>
       <h3
         id={headingId}
         ref={headingRef}
         tabIndex={-1}
-        className="mt-0.5 text-base font-semibold text-foreground outline-none"
+        className="mt-1 text-title-2 text-label-primary outline-none"
       >
         {approval.summary}
       </h3>
@@ -286,36 +381,24 @@ export function ApprovalCard({
         </div>
       )}
 
-      <dl className="mt-2 border-t border-gray-5 pt-2">
-        <div className="grid grid-cols-[7rem_1fr] gap-2">
-          <dt className="text-muted-foreground">{t("blocks.approval.requestedBy")}</dt>
-          <dd>
-            {t("blocks.approval.requester", {
-              persona,
-              hasTask: Boolean(taskTitle),
-              task: taskTitle ?? "",
-              hasFrom: Boolean(createdFrom),
-              from: createdFrom ?? "",
-              hasAgent: Boolean(
-                approval.requestedBy.agent && approval.requestedBy.agent !== persona,
-              ),
-              agent: approval.requestedBy.agent ?? "",
-            })}
-          </dd>
-        </div>
+      {/* Who and why, as one secondary line (§5.3); the labels stay for screen readers. */}
+      <p className="mt-2 text-callout text-label-secondary">
+        <span className="sr-only">{t("blocks.approval.requestedBy")} </span>
+        {requester}
         {why ? (
-          <div className="grid grid-cols-[7rem_1fr] gap-2 pt-0.5">
-            <dt className="text-muted-foreground">{t("blocks.approval.whyAsked")}</dt>
-            <dd>{why}</dd>
-          </div>
+          <>
+            {" · "}
+            <span className="sr-only">{t("blocks.approval.whyAsked")} </span>
+            {why}
+          </>
         ) : null}
-      </dl>
+      </p>
 
       {/* Always mounted so screen readers announce the text when it appears (C7). */}
       <p
         className={
           status !== null || expiredByClock || stale || (pending && !canAnswer)
-            ? "mt-3 rounded-md bg-gray-3 px-3 py-2 text-foreground"
+            ? "mt-3 rounded-md bg-fill-tertiary px-3 py-2 text-label-primary"
             : "sr-only"
         }
         aria-live="polite"
@@ -331,20 +414,41 @@ export function ApprovalCard({
 
       {interactive ? (
         <>
-          <RadioGroup
-            className="mt-3 flex flex-wrap gap-x-6 gap-y-1.5"
-            value={choice}
-            onValueChange={(v) => setChoice(v as ApprovalChoice)}
-            aria-label={t("blocks.approval.decision")}
-          >
-            {offered.includes("once") ? <Choice value="once" label={scopeLabel("once")} /> : null}
-            {offered.includes("task") ? <Choice value="task" label={scopeLabel("task")} /> : null}
-            {offered.includes("site") && site !== null ? (
-              <Choice value="site" label={scopeLabel("site")} hint={site} />
-            ) : null}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {/* The scope is one segmented control; Deny is preselected (docs/06 §3.3). */}
+            <RadioGroupPrimitive
+              value={choice}
+              onValueChange={(v) => setChoice(v as ApprovalChoice)}
+              aria-label={t("blocks.approval.decision")}
+              className="inline-flex max-w-full flex-wrap items-center gap-0.5 rounded-md bg-fill-secondary p-0.5"
+            >
+              {offeredScopes.map((scope) => (
+                <RadioPrimitive.Root
+                  key={scope.value}
+                  value={scope.value}
+                  aria-label={scope.long}
+                  {...(scope.hint ? { title: scope.hint } : {})}
+                  className={cn(
+                    "relative inline-flex h-6 cursor-default items-center rounded-sm px-2.5 text-body outline-none transition-colors duration-(--duration-micro) ease-(--ease-standard) focus-visible:ring-2 focus-visible:ring-ring",
+                    choice === scope.value
+                      ? "text-label-primary"
+                      : "text-label-secondary hover:text-label-primary",
+                  )}
+                >
+                  {choice === scope.value ? (
+                    <m.span
+                      layoutId={`approval-scope-${approval.id}`}
+                      transition={motionSpring(spring.micro)}
+                      className="absolute inset-0 rounded-sm bg-surface-raised shadow-elevation-1"
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                  <span className="relative">{scope.short}</span>
+                </RadioPrimitive.Root>
+              ))}
+            </RadioGroupPrimitive>
             {hasAlways ? (
-              <div className="flex items-center gap-2">
-                <Choice value="always" label={scopeLabel("always")} />
+              <>
                 <label className="sr-only" htmlFor={`${headingId}-until`}>
                   {t("blocks.approval.alwaysUntil")}
                 </label>
@@ -364,13 +468,12 @@ export function ApprovalCard({
                     <option value="always">{untilLabel("always")}</option>
                   ) : null}
                 </NativeSelect>
-              </div>
+              </>
             ) : null}
-            <Choice value="deny" label={t("blocks.approval.deny")} />
-          </RadioGroup>
+          </div>
 
           {approval.requiresAuthentication || otherSurfaces.length > 0 ? (
-            <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-callout text-muted-foreground">
+            <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-callout text-label-secondary">
               {approval.requiresAuthentication ? (
                 <span className="inline-flex items-center gap-1.5">
                   <Fingerprint className="size-3.5" aria-hidden="true" />{" "}
@@ -388,80 +491,72 @@ export function ApprovalCard({
       ) : null}
 
       {error ? (
-        <p className="mt-2 text-danger-text" role="alert">
+        <p className="mt-2 flex items-start gap-2 text-label-primary" role="alert">
+          <CircleAlert className="mt-0.5 size-4 shrink-0 text-danger-text" aria-hidden="true" />
           {error}
         </p>
       ) : null}
 
-      <div className="mt-3 flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="xs"
-          className="-ms-1.5 text-muted-foreground"
-          aria-expanded={showIds}
-          aria-controls={`${headingId}-ids`}
-          onClick={() => setShowIds((v) => !v)}
-        >
-          <ChevronRight
-            className={cn("transition-transform", showIds ? "rotate-90" : "rtl:rotate-180")}
-            aria-hidden="true"
-          />
-          {t("blocks.approval.details")}
-        </Button>
-        <p className="min-w-0 flex-1 truncate text-callout text-muted-foreground">
-          {t("blocks.approval.binding")}{" "}
-          <span className="font-mono">{approval.bindingHash.slice(0, 15)}…</span>{" "}
-          {t("blocks.approval.bindingVoids")}
-        </p>
-        {interactive ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <p id={hintId} className="text-callout text-muted-foreground">
-              <kbd className="font-sans">⌘↩</kbd> {t("blocks.approval.keyAllows")} ·{" "}
-              <kbd className="font-sans">⌘D</kbd> {t("blocks.approval.keyDenies")}
-            </p>
-            <Button
-              variant="outline"
-              disabled={!armed || busy}
-              onClick={() => void submit("deny")}
-              aria-keyshortcuts="Meta+D Control+D"
-              aria-describedby={`${hintId}`}
-            >
-              {t("blocks.approval.deny")}
-            </Button>
-            <Button
-              disabled={!armed || busy || choice === "deny"}
-              onClick={(e) => {
-                // Return and Space on this button never approve; only ⌘Return or a pointer does.
-                if (e.detail === 0) return;
-                void submit("approve");
-              }}
-              aria-keyshortcuts="Meta+Enter Control+Enter"
-              aria-describedby={`${hintId}`}
-            >
-              {t("blocks.approval.allowWithScope")}
-            </Button>
-          </div>
-        ) : null}
-      </div>
+      {interactive ? (
+        // Deny leading, Allow trailing; the buttons never move (docs/06 §3.3).
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <p id={hintId} className="sr-only">
+            ⌘↩ {t("blocks.approval.keyAllows")} · ⌘D {t("blocks.approval.keyDenies")}
+          </p>
+          <Button
+            variant="outline"
+            disabled={!armed || busy}
+            onClick={() => void submit("deny")}
+            aria-keyshortcuts="Meta+D Control+D"
+            aria-describedby={hintId}
+          >
+            {t("blocks.approval.deny")}
+          </Button>
+          <Button
+            // Solid accent once armed; before that a fill with a 400 ms progress underline, so
+            // it never reads as disabled for good (§5.3).
+            variant={canAllow ? "default" : "secondary"}
+            className="relative overflow-hidden"
+            disabled={!canAllow}
+            onClick={(e) => {
+              // Return and Space on this button never approve; only ⌘Return or a pointer does.
+              if (e.detail === 0) return;
+              void submit("approve");
+            }}
+            aria-label={t("blocks.approval.allowWithScope")}
+            aria-keyshortcuts="Meta+Enter Control+Enter"
+            aria-describedby={hintId}
+          >
+            {t("chat.approval.allow")}
+            <kbd className="font-sans text-callout opacity-70">⌘↩</kbd>
+            {!armed ? (
+              <m.span
+                className="absolute inset-x-0 bottom-0 h-0.5 origin-left bg-accent-9"
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: 1 }}
+                transition={{ duration: armDelayMs / 1000, ease: "linear" }}
+                aria-hidden="true"
+                data-testid="approval-arming"
+              />
+            ) : null}
+          </Button>
+        </div>
+      ) : null}
       {/* Below the buttons, so opening it never moves them (§3.3). */}
       {showIds ? (
-        <div id={`${headingId}-ids`} className="mt-2 rounded-md bg-gray-3 px-3 py-2">
+        <div
+          id={`${headingId}-ids`}
+          className="mt-3 rounded-md bg-fill-quaternary px-3 py-2"
+          data-testid="approval-ids"
+        >
+          <p className="mb-1 text-callout text-label-secondary">
+            {t("blocks.approval.binding")}{" "}
+            <span className="text-mono">{approval.bindingHash.slice(0, 15)}…</span>{" "}
+            {t("blocks.approval.bindingVoids")}
+          </p>
           <ApprovalIds approval={approval} />
         </div>
       ) : null}
-    </fieldset>
-  );
-}
-
-function Choice({ value, label, hint }: { value: string; label: string; hint?: string }) {
-  const id = useId();
-  return (
-    <div className="flex items-center gap-2">
-      <RadioGroupItem value={value} id={id} />
-      <Label htmlFor={id} className="font-normal">
-        {label}
-        {hint ? <span className="text-muted-foreground"> {hint}</span> : null}
-      </Label>
-    </div>
+    </m.fieldset>
   );
 }

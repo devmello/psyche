@@ -135,4 +135,11 @@ export const chat = {
   "chat.suggest.today": "What's on my plate today?",
   "chat.suggest.inbox": "Summarize my unread email",
   "chat.suggest.plan": "Help me plan this week",
+  "chat.approval.segment.task": "This task",
+  "chat.approval.segment.site": "This site",
+  "chat.approval.segment.always": "Always",
+  "chat.approval.allow": "Allow",
+  "chat.approval.more": "More about this approval",
+  "chat.approval.others": "{n, plural, one {# more} other {# more}}",
+  "chat.approval.nextLabel": "{more} · next: {summary}, expires in {countdown}",
 } as const;

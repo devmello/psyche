@@ -57,9 +57,9 @@ describe("the chat column right to left", () => {
     const run = log.querySelector("[data-disclosure] svg.lucide-chevron-right");
     expect(run?.getAttribute("class")).toContain("rtl:rotate-180");
 
-    // The approval card's closed Details chevron mirrors too.
-    const details = (await screen.findAllByRole("button", { name: "Details" }))[0];
-    expect(details?.querySelector("svg")?.getAttribute("class")).toContain("rtl:rotate-180");
+    // The approval card's leading edge sits at the inline start (logical inset, not left).
+    const edge = (await screen.findAllByTestId("approval-edge"))[0];
+    expect(edge?.getAttribute("class")).toContain("start-0");
 
     // Reply arrows flip horizontally.
     const [actions] = within(log).getAllByRole("button", { name: "Message actions" });

@@ -182,3 +182,88 @@ describe("toolbar (redesign-2026 §4, §5.2)", () => {
     expect(onDisclosureChange).toHaveBeenCalledWith(2);
   });
 });
+
+describe("approval dock (redesign-2026 §5.3, docs/06 §3.3)", () => {
+  it("keeps the fixed structure: Deny preselected, scope as one segmented control, armed after 400 ms", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      render(
+        <StoryWorld>
+          <div style={{ height: 900 }}>
+            <ChatThread threadId={IDS.threads.dentist} now={NOW} />
+          </div>
+        </StoryWorld>,
+      );
+      const dock = await screen.findByTestId("approval-dock");
+      const group = await within(dock).findByRole("radiogroup", { name: "Decision" });
+      const radios = within(group).getAllByRole("radio");
+      expect(radios.at(-1)?.getAttribute("aria-label")).toBe("Deny");
+      expect(radios.at(-1)?.getAttribute("aria-checked")).toBe("true");
+      const deny = within(dock).getByRole("button", { name: "Deny" });
+      const allow = within(dock).getByRole("button", { name: "Allow with scope" });
+      // Deny leads, Allow trails.
+      expect(deny.compareDocumentPosition(allow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(deny.hasAttribute("disabled")).toBe(true);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(450);
+      });
+      await waitFor(() => expect(deny.hasAttribute("disabled")).toBe(false));
+      // Allow stays off while Deny is the choice; picking a scope arms it.
+      expect(allow.hasAttribute("disabled")).toBe(true);
+      fireEvent.click(radios[0] as HTMLElement);
+      await waitFor(() => expect(allow.hasAttribute("disabled")).toBe(false));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stacks several approvals as a deck and brings the next one forward", async () => {
+    render(
+      <StoryWorld>
+        <div style={{ height: 900 }}>
+          <ChatThread threadId={IDS.threads.dentist} now={NOW} />
+        </div>
+      </StoryWorld>,
+    );
+    const dock = await screen.findByTestId("approval-dock");
+    const card = () => dock.querySelector<HTMLElement>("[data-approval-id]");
+    await waitFor(() => expect(card()).not.toBeNull());
+    const first = card()?.dataset.approvalId;
+    const more = within(dock).getByRole("button", { name: /^1 more · next: / });
+    expect(dock.querySelectorAll("[data-testid=approval-deck] > span[aria-hidden]")).toHaveLength(
+      1,
+    );
+    await userEvent.click(more);
+    await waitFor(() => expect(card()?.dataset.approvalId).not.toBe(first));
+  });
+
+  it("turns an answered approval into its one-line result row in the transcript", async () => {
+    const ref: { gateway?: MockGateway } = {};
+    render(
+      <StoryWorld onGateway={(g) => (ref.gateway = g)}>
+        <div style={{ height: 900 }}>
+          <ChatThread threadId={IDS.threads.dentist} now={NOW} />
+        </div>
+      </StoryWorld>,
+    );
+    const log = await screen.findByRole("log", { name: "Conversation" });
+    await waitFor(() =>
+      expect(within(log).getAllByRole("button", { name: /^Review approval:/ }).length).toBe(2),
+    );
+    const pending = ref.gateway?.world.approvals.find(
+      (a) => a.id === IDS.approvals.sendEmail && a.status === "pending",
+    );
+    if (pending === undefined || ref.gateway === undefined) throw new Error("fixture missing");
+    const gateway = ref.gateway;
+    act(() =>
+      gateway.emit("approval.updated", {
+        approval: { ...pending, status: "approved", decidedAt: FIXTURE_NOW, scopeGranted: "once" },
+      }),
+    );
+    const row = await within(log).findByTestId("approval-result");
+    expect(row.textContent).toMatch(/Send an email/);
+    await waitFor(() =>
+      expect(within(log).getAllByRole("button", { name: /^Review approval:/ })).toHaveLength(1),
+    );
+  });
+});
