@@ -10,7 +10,7 @@ import {
   ShieldAlert,
   Upload,
 } from "lucide-react";
-import { type ReactElement, type ReactNode, useEffect, useState } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 import { GroupedList, GroupedRow } from "../components/page.tsx";
 import {
   AlertDialog,
@@ -95,11 +95,12 @@ export function ProvenanceChip({ provenance }: { provenance: Provenance }): Reac
 export function MemoryFileEditor({ path, budget }: { path: string; budget: number }): ReactElement {
   const { file, loading, error, save } = useMemoryFile(path);
   const slots = useSlots();
-  const [draft, setDraft] = useState<string | null>(null);
+  // The draft belongs to the file it was typed in: switching files drops it.
+  const [edit, setEdit] = useState<{ path: string; value: string } | null>(null);
+  const draft = edit !== null && edit.path === path ? edit.value : null;
+  const setDraft = (value: string | null) => setEdit(value === null ? null : { path, value });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  // Switching files drops the unsaved draft of the previous one.
-  useEffect(() => setDraft(null), [path]);
   if (file === null) {
     return loading ? (
       <Skeleton className="h-48" />

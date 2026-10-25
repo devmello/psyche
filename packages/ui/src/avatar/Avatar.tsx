@@ -78,17 +78,14 @@ function useTypingFrame(active: boolean): CreaturePose {
 export const AVATAR_LOOP_MS = 5000;
 
 function useLoopWindow(key: string, enabled: boolean): boolean {
-  const [on, setOn] = useState(enabled);
+  // The window is tied to the state it started for; a new state starts a new 5 s window.
+  const [ended, setEnded] = useState<string | null>(null);
   useEffect(() => {
-    if (!enabled) {
-      setOn(false);
-      return;
-    }
-    setOn(true);
-    const timer = setTimeout(() => setOn(false), AVATAR_LOOP_MS);
+    if (!enabled) return;
+    const timer = setTimeout(() => setEnded(key), AVATAR_LOOP_MS);
     return () => clearTimeout(timer);
   }, [key, enabled]);
-  return on && enabled;
+  return enabled && ended !== key;
 }
 
 export function Avatar({
