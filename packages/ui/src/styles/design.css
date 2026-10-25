@@ -176,6 +176,40 @@
     backdrop-filter: var(--material-blur);
     box-shadow: var(--material-glass-highlight), var(--elevation-2);
   }
+  /*
+    The unified toolbar (§4): chrome glass without an elevation shadow; content scrolling under
+    it fades through a 24 px scroll-edge instead of meeting a hard border.
+  */
+  .material-toolbar {
+    background-color: var(--material-glass);
+    -webkit-backdrop-filter: var(--material-blur);
+    backdrop-filter: var(--material-blur);
+  }
+  .material-toolbar::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 100%;
+    height: 24px;
+    pointer-events: none;
+    background: linear-gradient(to bottom, var(--canvas), transparent);
+    opacity: 0.85;
+  }
+  :root[data-contrast="high"] .material-toolbar::after {
+    height: 1px;
+    opacity: 1;
+    background: var(--separator);
+  }
+  /* A toolbar that is also the window's drag region keeps its controls clickable. */
+  [data-slot="toolbar"][data-drag] {
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
+  [data-slot="toolbar"][data-drag]
+    :is(button, a, input, select, textarea, [role="button"], [role="menuitem"], [data-no-drag]) {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
   /* The sidebar region: transparent over native vibrancy (A2), opaque otherwise. */
   .material-sidebar {
     background-color: var(--surface-sidebar);
