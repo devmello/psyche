@@ -77,7 +77,10 @@ describe("the shell's one sidebar (redesign §5.1)", () => {
     expect(within(shell).getAllByRole("navigation", { name: "Sidebar" })).toHaveLength(1);
     expect(shell.getAttribute("data-sidebar")).toBe("open");
     // No rail and no separate thread-list column any more.
-    expect(shell.querySelector(".rail, .threads-slot, .rail-slot")).toBeNull();
+    expect(shell.querySelector("nav.rail, .threads-slot")).toBeNull();
+    // The threads live inside the sidebar, not in a column of their own.
+    const sidebar = within(shell).getByRole("navigation", { name: "Sidebar" });
+    expect(shell.querySelector("aside.threads")?.closest("nav")).toBe(sidebar);
 
     await press({ key: "b", ctrlKey: true });
     await waitFor(() => expect(shell.getAttribute("data-sidebar")).toBe("collapsed"));

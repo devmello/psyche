@@ -14,6 +14,13 @@ export const settings = {
   // The Settings screen and its section nav (SettingsScreen.tsx).
   "settings.nav.title": "Settings",
   "settings.nav.label": "Settings sections",
+  "settings.nav.search": "Search settings",
+  "settings.nav.noMatch": "No settings match.",
+  "settings.nav.group.general": "General",
+  "settings.nav.group.access": "Access",
+  "settings.nav.group.devices": "Devices",
+  "settings.nav.group.privacy": "Privacy",
+  "settings.nav.group.about": "About",
   "settings.nav.model": "Model & providers",
   "settings.nav.persona": "Persona",
   "settings.nav.connectors": "Connectors",
@@ -379,6 +386,9 @@ export const settings = {
   "settings.actions.action": "Action",
   "settings.actions.key": "Key",
   "settings.actions.table": "{connector} actions",
+  "settings.actions.more": "More for {action}",
+  "settings.actions.showKey": "Show technical name",
+  "settings.actions.hideKey": "Hide technical name",
   "settings.matrix.cell": "{row}: {column}",
 
   // Settings → About (AboutSection.tsx).

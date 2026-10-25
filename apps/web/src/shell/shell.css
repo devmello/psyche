@@ -1,26 +1,34 @@
 /*
- * Structural styles for the shell (docs/06 §3.1, §4.1). Visual tokens are S12's
- * (@psyche/ui); these fall back to neutral values until the theme lands.
+ * Structural styles for the shell (docs/06 §3.1, §4.1). Colours, borders and shadows come from
+ * the kit's redesign roles (packages/ui/src/styles/design.css); the `--shell-*` names alias them
+ * until workstream A3, with neutral fallbacks for hosts that load this before the kit.
  */
 :root {
-  --shell-bg: var(--gray-1, #fcfcfc);
-  --shell-panel: var(--gray-2, #f9f9f9);
-  --shell-border: var(--gray-6, #dddddd);
-  --shell-text: var(--gray-12, #202020);
-  --shell-muted: var(--gray-11, #646464);
+  --shell-bg: var(--canvas, #fcfcfe);
+  --shell-panel: var(--surface-sidebar, #f9f9fb);
+  --shell-border: var(--separator, rgb(0 0 0 / 8%));
+  --shell-text: var(--label-primary, #202020);
+  --shell-muted: var(--label-secondary, #646464);
   --shell-accent: var(--accent-9, #6e56cf);
   --shell-approval: var(--approval, #ffc53d);
   --shell-danger: var(--danger, #e54d2e);
   color-scheme: light dark;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --shell-bg: var(--gray-1, #111111);
-    --shell-panel: var(--gray-2, #191919);
-    --shell-border: var(--gray-6, #3a3a3a);
-    --shell-text: var(--gray-12, #eeeeee);
-    --shell-muted: var(--gray-11, #b4b4b4);
-  }
+/*
+ * Native sidebar vibrancy (desktop, opt-in; redesign §3.4, §4): the window shows the macOS
+ * material wherever the renderer is transparent, so the document goes transparent and every
+ * column except the sidebar paints the canvas.
+ */
+:root[data-vibrancy="true"],
+:root[data-vibrancy="true"] body,
+:root[data-vibrancy="true"] #root {
+  background: transparent;
+}
+:root[data-vibrancy="true"] .shell > :not(.rail-slot):not(.threads-slot):not(.rail):not(.threads) {
+  background: var(--shell-bg);
+}
+:root[data-vibrancy="true"] .titlebar {
+  background: transparent;
 }
 html,
 body,
@@ -37,7 +45,8 @@ body {
   background: var(--shell-bg);
   color: var(--shell-text);
   font:
-    15px / 22px -apple-system,
+    15px / 22px system-ui,
+    -apple-system,
     BlinkMacSystemFont,
     "SF Pro Text",
     "Segoe UI",
@@ -315,7 +324,7 @@ button {
 }
 .msg-user {
   align-self: flex-end;
-  background: var(--gray-3, #f0f0f0);
+  background: var(--fill-secondary, #f0f0f0);
   border-radius: 16px;
   padding: 8px 12px;
   max-width: 68ch;
@@ -486,14 +495,13 @@ button {
   z-index: 10;
 }
 .dialog {
-  background: var(--shell-bg);
-  border: 1px solid var(--shell-border);
-  border-radius: 14px;
+  background: var(--surface-raised, var(--shell-bg));
+  border-radius: 16px;
   width: min(640px, 92vw);
   max-height: 70vh;
   overflow: auto;
   padding: 12px;
-  box-shadow: 0 12px 40px rgb(0 0 0 / 20%);
+  box-shadow: var(--elevation-3, 0 12px 40px rgb(0 0 0 / 20%));
 }
 .dialog input {
   width: 100%;
@@ -515,9 +523,11 @@ button {
   z-index: 20;
 }
 .toast {
-  background: var(--shell-panel);
-  border: 1px solid var(--shell-border);
-  border-radius: 10px;
+  background: var(--material-glass, var(--shell-panel));
+  -webkit-backdrop-filter: var(--material-blur, none);
+  backdrop-filter: var(--material-blur, none);
+  box-shadow: var(--material-glass-highlight, none), var(--elevation-2, none);
+  border-radius: 12px;
   padding: 8px 12px;
   max-width: 360px;
 }
@@ -610,13 +620,15 @@ button {
   color: var(--shell-text);
   -webkit-app-region: drag;
   app-region: drag;
-  transition: opacity 220ms ease-out;
+  transition: opacity var(--duration-medium, 220ms) var(--ease-standard, ease-out);
 }
 .startup-splash[data-leaving] {
   opacity: 0;
   pointer-events: none;
 }
+/* The mark appears only if pairing takes longer than 300 ms (redesign §5.9): no flash on fast starts. */
 .startup-splash-body {
+  animation: startup-splash-in var(--duration-medium, 220ms) var(--ease-enter, ease-out) 300ms both;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -713,4 +725,23 @@ button {
 .startup-splash-button:focus-visible {
   outline: 2px solid var(--shell-accent);
   outline-offset: 2px;
+}
+
+/* The Settings window (⌘,; redesign §4, §5.8): the bar above the section, which scrolls. */
+.settings-window-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+  background: var(--shell-bg);
+}
+
+@keyframes startup-splash-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

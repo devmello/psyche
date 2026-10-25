@@ -307,6 +307,7 @@ function ChannelCard({
                     <Button
                       type="button"
                       size="xs"
+                      variant="outline"
                       onClick={() => onApprove(p)}
                       aria-label={t("settings.channels.approveSender", { name: p.display })}
                     >

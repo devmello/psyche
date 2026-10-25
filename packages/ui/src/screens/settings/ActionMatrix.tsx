@@ -1,22 +1,20 @@
 import type { Connector } from "@psyche/protocol";
-import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
-import { type ReactElement, useMemo } from "react";
+import { Ellipsis } from "lucide-react";
+import { type ReactElement, useState } from "react";
+import { Button } from "../../components/ui/button.tsx";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "../../components/ui/table.tsx";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu.tsx";
 import { t } from "../../i18n/core.ts";
-import { RadioTableRow } from "./RadioTableRow.tsx";
+import { SegmentedRadio } from "./SegmentedRadio.tsx";
+import { GROUP_ROWS } from "./shared.tsx";
 
 /**
  * Per-connector action matrix, Allow / Ask / Deny per action (UI design §3.18, as on Muse's
- * Notion connector screen), built on TanStack Table v9 (`useTable` + `table.FlexRender`). Rows say
- * the action in plain words first and show the raw key (`gmail.send`, `mcp__notion__search`)
- * small and muted beside it. Each row is a native radio group, so arrow keys move between rules.
+ * Notion connector screen).
  */
 
 export type ActionRule = Connector["actionMatrix"][string];
@@ -33,14 +31,6 @@ export const RULES: readonly { value: ActionRule; readonly label: string }[] = [
   rule("ask"),
   rule("deny"),
 ];
-
-interface MatrixRow {
-  action: string;
-  rule: ActionRule;
-}
-
-const features = tableFeatures({});
-const helper = createColumnHelper<typeof features, MatrixRow>();
 
 /** `mcp__notion__search` stays as written; built-in actions read as `gmail.send`. */
 export function isMcpKey(action: string): boolean {
@@ -88,95 +78,72 @@ export interface ActionMatrixProps {
   disabled?: boolean;
 }
 
+/**
+ * A connector's actions as a grouped inset list (redesign §5.8): each row says the action in
+ * plain words with one Allow / Ask / Deny segmented control trailing. The raw key
+ * (`gmail.send`, `mcp__notion__search`) appears only from the row's ⋯ → "Show technical name".
+ */
 export function ActionMatrix({
   connectorLabel,
   matrix,
   onChange,
   disabled = false,
 }: ActionMatrixProps): ReactElement {
-  const data = useMemo<MatrixRow[]>(
-    () => Object.entries(matrix).map(([action, rule]) => ({ action, rule })),
-    [matrix],
-  );
-  const columns = useMemo(
-    () =>
-      helper.columns([
-        helper.display({
-          id: "label",
-          header: t("settings.actions.action"),
-          cell: ({ row }) => <span className="text-small">{actionLabel(row.original.action)}</span>,
-        }),
-        helper.accessor("action", {
-          header: () => <span className="sr-only">{t("settings.actions.key")}</span>,
-          cell: (info) => <code className="font-mono text-xs text-gray-11">{info.getValue()}</code>,
-        }),
-        ...RULES.map((r) =>
-          helper.display({
-            id: r.value,
-            header: r.label,
-            cell: () => null,
-          }),
-        ),
-      ]),
-    [],
-  );
-  const table = useTable({ features, columns, data });
-
+  const [shown, setShown] = useState<ReadonlySet<string>>(new Set());
+  const toggle = (action: string) =>
+    setShown((s) => {
+      const next = new Set(s);
+      if (next.has(action)) next.delete(action);
+      else next.add(action);
+      return next;
+    });
   return (
-    <Table aria-label={t("settings.actions.table", { connector: connectorLabel })}>
-      <TableHeader>
-        {table.getHeaderGroups().map((group) => (
-          <TableRow key={group.id}>
-            {group.headers.map((header) => (
-              <TableHead
-                key={header.id}
-                scope="col"
-                className={
-                  header.column.id === "label"
-                    ? ""
-                    : header.column.id === "action"
-                      ? "w-px"
-                      : "w-16 text-center"
+    <ul
+      aria-label={t("settings.actions.table", { connector: connectorLabel })}
+      className={GROUP_ROWS}
+    >
+      {Object.entries(matrix).map(([action, value]) => {
+        const label = actionLabel(action);
+        return (
+          <li key={action} data-rule={value} className="flex items-center gap-3">
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="text-body text-label-primary">{label}</span>
+              {shown.has(action) ? (
+                <code className="truncate font-mono text-mono text-label-secondary">{action}</code>
+              ) : null}
+            </div>
+            <SegmentedRadio
+              label={label}
+              options={RULES}
+              value={value}
+              disabled={disabled}
+              onChange={(rule) => onChange(action, rule)}
+              segmentLabel={(o) => t("settings.matrix.cell", { row: label, column: o.label })}
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={t("settings.actions.more", { action: label })}
+                  />
                 }
               >
-                {header.isPlaceholder ? null : <table.FlexRender header={header} />}
-              </TableHead>
-            ))}
-          </TableRow>
-        ))}
-      </TableHeader>
-      <TableBody>
-        {table.getRowModel().rows.map((row) => (
-          <RadioTableRow
-            key={row.id}
-            label={actionLabel(row.original.action)}
-            rowProps={{ "data-rule": row.original.rule }}
-            header={row
-              .getAllCells()
-              .filter((cell) => cell.column.id === "label" || cell.column.id === "action")
-              .map((cell) =>
-                cell.column.id === "label" ? (
-                  <TableCell key={cell.id}>
-                    <table.FlexRender cell={cell} />
-                  </TableCell>
-                ) : (
-                  // The canonical key names the row for assistive tech; it reads small and muted.
-                  <th
-                    key={cell.id}
-                    scope="row"
-                    className="p-2 text-start font-normal whitespace-nowrap"
-                  >
-                    <table.FlexRender cell={cell} />
-                  </th>
-                ),
-              )}
-            options={RULES}
-            value={row.original.rule}
-            disabled={disabled}
-            onChange={(rule) => onChange(row.original.action, rule)}
-          />
-        ))}
-      </TableBody>
-    </Table>
+                <Ellipsis aria-hidden="true" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => toggle(action)}>
+                  {shown.has(action)
+                    ? t("settings.actions.hideKey")
+                    : t("settings.actions.showKey")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

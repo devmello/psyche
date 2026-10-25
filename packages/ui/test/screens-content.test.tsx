@@ -207,7 +207,11 @@ describe("LibraryScreen", () => {
     expect(within(form).getByText("#dentist")).toBeTruthy();
     await user.click(await within(form).findByRole("button", { name: "Task: Dentist booking" }));
     expect(navigate).toHaveBeenCalledWith(`/agent/activity/${IDS.tasks.dentist}`);
-    await user.click(within(form).getByRole("button", { name: "Open acme-intake-form.pdf" }));
+    // Finder: one click selects, a double click opens (§5.7).
+    const open = within(form).getByRole("button", { name: "Open acme-intake-form.pdf" });
+    await user.click(open);
+    expect(openLibraryItem).not.toHaveBeenCalled();
+    await user.dblClick(open);
     expect(openLibraryItem).toHaveBeenCalledWith(
       expect.objectContaining({ id: IDS.library.intakeForm }),
     );
@@ -226,9 +230,11 @@ describe("LibraryScreen", () => {
     const { navigate, user } = setup(<LibraryScreen now={STORY_NOW} />);
     await screen.findByText("acme-intake-form.pdf");
     await user.click(screen.getByRole("tab", { name: "System files" }));
-    await user.click(await screen.findByRole("button", { name: "Open SOUL.md in the editor" }));
+    await user.dblClick(await screen.findByRole("button", { name: "Open SOUL.md in the editor" }));
     expect(navigate).toHaveBeenCalledWith("/agent/soul?file=SOUL.md");
-    await user.click(screen.getByRole("button", { name: "Open 2026-10-18.md in the editor" }));
+    // Return on a focused item opens it too.
+    screen.getByRole("button", { name: "Open 2026-10-18.md in the editor" }).focus();
+    await user.keyboard("{Enter}");
     expect(navigate).toHaveBeenCalledWith(
       `/agent/soul?file=${encodeURIComponent("memory/2026-10-18.md")}`,
     );
@@ -249,7 +255,9 @@ describe("LibraryScreen", () => {
   it("filters by type and clears filters from the empty state", async () => {
     const { user } = setup(<LibraryScreen now={STORY_NOW} section="artifacts" />);
     await screen.findByText("half-marathon-plan.pdf");
-    await user.selectOptions(screen.getByLabelText("Type"), "HTML");
+    // One Filter popover instead of three selects in the toolbar (§5.7).
+    await user.click(screen.getByRole("button", { name: "Filter" }));
+    await user.selectOptions(await screen.findByLabelText("Type"), "HTML");
     expect(screen.queryByText("half-marathon-plan.pdf")).toBeNull();
     expect(screen.getByText("Subscription audit · October")).toBeTruthy();
     await user.selectOptions(screen.getByLabelText("Date"), "today");

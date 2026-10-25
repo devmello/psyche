@@ -16,12 +16,21 @@ import {
   Palette,
   Plug,
   Puzzle,
+  Search,
   Server,
   ShieldCheck,
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { type KeyboardEvent, type ReactElement, type ReactNode, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  type ReactElement,
+  type ReactNode,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { UsageSummary } from "../../fixtures/index.ts";
 import { t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
@@ -43,6 +52,7 @@ import { PersonaSection } from "./PersonaSection.tsx";
 import { ServerSection } from "./ServerSection.tsx";
 import { SettingsApprovalProvider } from "./SettingsApproval.tsx";
 import { SkillsSection } from "./SkillsSection.tsx";
+import { SETTING_LABELS } from "./setting-labels.ts";
 import type {
   AboutInfo,
   DoctorCheck,
@@ -115,6 +125,73 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionEntry[] = [
   entry("usage", Activity),
   entry("about", Info),
 ];
+
+/** Sidebar groups, as System Settings groups its panes (docs/design/redesign-2026.md §5.8). */
+export type SettingsGroupId = "general" | "access" | "devices" | "privacy" | "about";
+
+export const SETTINGS_GROUPS: readonly {
+  id: SettingsGroupId;
+  sections: readonly SettingsSectionId[];
+}[] = [
+  { id: "general", sections: ["model", "persona", "appearance", "voice", "usage"] },
+  {
+    id: "access",
+    sections: [
+      "permissions",
+      "connectors",
+      "mcp",
+      "skills",
+      "credentials",
+      "computer-use",
+      "browser",
+      "files",
+    ],
+  },
+  { id: "devices", sections: ["devices", "channels", "vm", "server"] },
+  { id: "privacy", sections: ["data"] },
+  { id: "about", sections: ["about"] },
+];
+
+/** The section a setting key lives in, so the sidebar search finds sections by their settings. */
+export function sectionForKey(key: string): SettingsSectionId | null {
+  const root = key.split(".", 1)[0] ?? "";
+  if (key.startsWith("permissions.folders")) return "files";
+  const byRoot: Record<string, SettingsSectionId> = {
+    appearance: "appearance",
+    backup: "data",
+    browser: "browser",
+    computerUse: "computer-use",
+    context: "model",
+    data: "data",
+    gateway: "server",
+    models: "model",
+    permissions: "permissions",
+    persona: "persona",
+    vm: "vm",
+    voice: "voice",
+    vault: "credentials",
+    channels: "channels",
+    mcp: "mcp",
+    skills: "skills",
+  };
+  return byRoot[root] ?? null;
+}
+
+/** Sections whose name, or one of whose settings, matches the search (case-insensitive). */
+export function matchSections(query: string): Set<SettingsSectionId> {
+  const q = query.trim().toLocaleLowerCase();
+  const out = new Set<SettingsSectionId>();
+  for (const s of SETTINGS_SECTIONS) {
+    if (q === "" || s.label.toLocaleLowerCase().includes(q)) out.add(s.id);
+  }
+  if (q !== "") {
+    for (const [key, label] of Object.entries(SETTING_LABELS)) {
+      const section = sectionForKey(key);
+      if (section !== null && label.toLocaleLowerCase().includes(q)) out.add(section);
+    }
+  }
+  return out;
+}
 
 /** Things only the shell knows or can do (OS permissions, OAuth windows, files, versions). */
 export interface SettingsShellProps {
@@ -279,7 +356,7 @@ export function SettingsScreen({
   const { navigate } = useSlots();
   const [own, setOwn] = useState<SettingsSectionId>(defaultSection);
   const current = section ?? own;
-  const navRef = useRef<HTMLUListElement>(null);
+  const navRef = useRef<HTMLElement>(null);
 
   const select = (id: SettingsSectionId) => {
     setOwn(id);
@@ -287,9 +364,15 @@ export function SettingsScreen({
     navigate?.(`/settings/${id}`);
   };
 
-  const onNavKey = (e: KeyboardEvent<HTMLUListElement>) => {
+  const searchId = useId();
+  const [query, setQuery] = useState("");
+  const matches = useMemo(() => matchSections(query), [query]);
+  const byId = useMemo(() => new Map(SETTINGS_SECTIONS.map((s) => [s.id, s])), []);
+
+  const onNavKey = (e: KeyboardEvent<HTMLElement>) => {
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Home" && e.key !== "End") return;
     const buttons = Array.from(navRef.current?.querySelectorAll("button") ?? []);
+    if (buttons.length === 0) return;
     const i = buttons.indexOf(document.activeElement as HTMLButtonElement);
     const next =
       e.key === "Home"
@@ -302,40 +385,90 @@ export function SettingsScreen({
   };
 
   return (
-    <div className="flex min-h-0 flex-col gap-4 md:grid md:grid-cols-[14rem_minmax(0,1fr)] md:gap-6">
-      <div className="flex flex-col gap-3">
-        <h1 className="text-h1 text-foreground">{t("settings.nav.title")}</h1>
-        <nav aria-label={t("settings.nav.label")}>
-          <ul ref={navRef} onKeyDown={onNavKey} className="flex flex-col gap-0.5">
-            {SETTINGS_SECTIONS.map((s) => {
-              const active = s.id === current;
-              const Icon = s.icon;
-              return (
-                <li key={s.id}>
-                  <button
-                    type="button"
-                    aria-current={active ? "page" : undefined}
-                    onClick={() => select(s.id)}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-start text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      active
-                        ? "bg-accent-3 font-medium text-accent-12"
-                        : "text-gray-11 hover:bg-gray-3 hover:text-foreground",
-                    )}
-                  >
-                    <Icon className="size-4 shrink-0" aria-hidden="true" />
-                    {s.label}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+    // The Settings window (§5.8): a grouped, searchable sidebar and grouped inset lists. On the
+    // web the same layout renders at /settings/:section.
+    <div className="flex min-h-0 flex-col gap-4 md:grid md:grid-cols-[13.75rem_minmax(0,1fr)] md:gap-0">
+      <aside className="flex flex-col gap-3 bg-surface-sidebar p-2 md:min-h-full md:py-3">
+        <h1 className="sr-only">{t("settings.nav.title")}</h1>
+        <div className="relative px-1">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute start-3 top-1/2 size-3.5 -translate-y-1/2 text-label-tertiary"
+          />
+          <input
+            id={searchId}
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                navRef.current?.querySelector("button")?.focus();
+              }
+            }}
+            placeholder={t("settings.nav.search")}
+            aria-label={t("settings.nav.search")}
+            className="h-7 w-full rounded-md bg-fill-tertiary ps-7 pe-2 text-body text-label-primary outline-none placeholder:text-label-tertiary focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </div>
+        <nav aria-label={t("settings.nav.label")} ref={navRef} onKeyDown={onNavKey}>
+          {matches.size === 0 ? (
+            <p className="px-3 py-2 text-callout text-label-secondary" role="status">
+              {t("settings.nav.noMatch")}
+            </p>
+          ) : null}
+          {SETTINGS_GROUPS.map((g) => {
+            const shown = g.sections.filter((id) => matches.has(id));
+            if (shown.length === 0) return null;
+            return (
+              <div key={g.id} className="mb-3 flex flex-col gap-0.5">
+                <h2 className="px-3 pb-0.5 text-caption text-label-tertiary">
+                  {t(`settings.nav.group.${g.id}`)}
+                </h2>
+                <ul className="flex flex-col gap-px">
+                  {shown.map((id) => {
+                    const s = byId.get(id);
+                    if (s === undefined) return null;
+                    const active = id === current;
+                    const Icon = s.icon;
+                    return (
+                      <li key={id}>
+                        <button
+                          type="button"
+                          aria-current={active ? "page" : undefined}
+                          onClick={() => select(id)}
+                          className={cn(
+                            "flex h-7 w-full cursor-default items-center gap-2 rounded-sm px-2 text-start text-body outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            active
+                              ? "bg-selection text-label-primary"
+                              : "text-label-primary hover:bg-fill-quaternary",
+                          )}
+                        >
+                          <Icon
+                            className={cn(
+                              "size-4 shrink-0",
+                              active ? "text-accent-11" : "text-label-secondary",
+                            )}
+                            strokeWidth={1.75}
+                            aria-hidden="true"
+                          />
+                          <span className="truncate">{s.label}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })}
         </nav>
-      </div>
-      <div className="flex min-w-0 max-w-[var(--page-width)] flex-col gap-4">
-        <SettingsApprovalProvider>
-          <SettingsSectionView section={current} shell={shell} onOpenSection={select} />
-        </SettingsApprovalProvider>
+      </aside>
+      <div className="flex min-w-0 flex-col gap-5 bg-canvas px-6 py-5 md:px-8">
+        <div className="flex w-full max-w-[680px] flex-col gap-5">
+          <SettingsApprovalProvider>
+            <SettingsSectionView section={current} shell={shell} onOpenSection={select} />
+          </SettingsApprovalProvider>
+        </div>
       </div>
     </div>
   );

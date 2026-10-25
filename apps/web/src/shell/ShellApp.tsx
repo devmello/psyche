@@ -77,6 +77,9 @@ export function sectionTitle(route: string): string {
   });
 }
 
+/** The Settings window's routes (`/window/settings/:section`), opened by the desktop main. */
+export const SETTINGS_WINDOW_PREFIX = "/window/settings";
+
 function initialRoute(): string {
   const p = globalThis.location?.pathname ?? "/chat";
   return p === "/" || p.endsWith("index.html") ? "/chat" : p;
@@ -267,20 +270,34 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     [width, compact, sidebarOpen, sidebarWidth, newId],
   );
 
+  // Desktop: Settings live in their own window (⌘,; docs/design/redesign-2026.md §4, §5.8).
+  const settingsWindow = useRef(initialRoute().startsWith(SETTINGS_WINDOW_PREFIX)).current;
+  const openSettings = platform.windows?.openSettings;
   const routeRef = useRef(route);
   routeRef.current = route;
-  const navigate = useCallback((to: string) => {
-    // A new destination crossfades the content column (motion.md §4.5); a thread switch inside
-    // Chat, or anything on the same screen, changes in place.
-    const crossfade = destinationFor(to) !== destinationFor(routeRef.current);
-    if (crossfade) startTransition(() => setRoute(to));
-    else setRoute(to);
-    try {
-      globalThis.history?.pushState(null, "", to);
-    } catch {
-      // app:// and file:// hosts may refuse; the in-memory route still changes
-    }
-  }, []);
+  const navigate = useCallback(
+    (target: string) => {
+      let to = target;
+      if (to.startsWith("/settings")) {
+        if (settingsWindow) to = `/window${to}`;
+        else if (openSettings) {
+          openSettings(to.split("/")[2]);
+          return;
+        }
+      } else if (settingsWindow) return;
+      // A new destination crossfades the content column (motion.md §4.5); a thread switch inside
+      // Chat, or anything on the same screen, changes in place.
+      const crossfade = destinationFor(to) !== destinationFor(routeRef.current);
+      if (crossfade) startTransition(() => setRoute(to));
+      else setRoute(to);
+      try {
+        globalThis.history?.pushState(null, "", to);
+      } catch {
+        // app:// and file:// hosts may refuse; the in-memory route still changes
+      }
+    },
+    [settingsWindow, openSettings],
+  );
 
   const toggleSidebar = useCallback(() => {
     setSidebarOpen((open) => {
@@ -549,6 +566,23 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     { id: "shortcuts", label: t("web.shortcuts.title"), run: () => setOverlay("shortcuts") },
   ];
 
+  if (settingsWindow) {
+    const section = route.slice("/window".length) || "/settings/model";
+    return (
+      <UiSlotsProvider value={kitSlots}>
+        <div className="app-frame" data-testid="settings-window">
+          <TitleBar chrome={platform.chrome}>
+            <span className="title">{sectionTitle(section)}</span>
+          </TitleBar>
+          <div className="settings-window-body">
+            {slots.section?.(section, navigate) ?? <SectionPlaceholder route={section} />}
+          </div>
+          <Toasts />
+        </div>
+      </UiSlotsProvider>
+    );
+  }
+
   if (route === "/quick") {
     return (
       <div className="shell" style={{ gridTemplateColumns: "1fr" }} data-testid="quick-entry">
@@ -690,7 +724,13 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
             data-testid="shell"
           >
             {compact ? null : (
-              <SidebarPresence open={sidebarOpen} className="sidebar-slot" testId="sidebar-slot">
+              // `rail-slot` keeps shell.css's vibrancy rule from painting the canvas behind the
+              // sidebar (A2); the class goes when A3 renames the shell's structure.
+              <SidebarPresence
+                open={sidebarOpen}
+                className="sidebar-slot rail-slot"
+                testId="sidebar-slot"
+              >
                 {sidebar}
               </SidebarPresence>
             )}

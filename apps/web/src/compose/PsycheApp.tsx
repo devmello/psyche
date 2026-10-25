@@ -480,7 +480,10 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
   return (
     <GatewayProvider client={client}>
       {/* Appearance (theme, contrast, reduce motion) and the kit's toasts (docs/a11y-audit.md A1, A2). */}
-      <AppearanceProvider systemLocale={systemLocale}>
+      <AppearanceProvider
+        systemLocale={systemLocale}
+        supportsVibrancy={platform.chrome?.titleBar === "inset"}
+      >
         <UiSlotsProvider value={uiSlots}>
           {body}
           <Toaster />
