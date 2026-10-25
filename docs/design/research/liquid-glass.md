@@ -324,11 +324,13 @@ It writes `probe.json` and the `.png`s next to it.
 
 `resolveGlassImpl` already implements rungs 1–4. Wiring the inactive-window and budget rules is A2's job (§6.3).
 
-### 6.3 What workstream A should change in the window-chrome PR (A2)
-1. **Keep** `vibrancy: "sidebar"` + `visualEffectState: "followWindow"` behind `appearance.vibrancy`, with `transparent: false`. **Don't** adopt `electron-liquid-glass`: whole-window, desktop-sampling, a sibling placement Apple warns against, `transparent: true` with its shadow, click-through and DevTools limits, the CSS `backdrop-filter` text bug in transparent windows, and an idle maintainer (§3.1).
+### 6.3 What workstream A should change (follow-ups to A2)
+A2's window chrome merged while this research ran. Already on main: `VibrancyController` (`appearance.vibrancy`, off by default), `visualEffectState: "followWindow"`, a per-appearance `backgroundColor`, and the Settings window. The list below is written against that.
+
+1. **Keep** `vibrancy: "sidebar"` behind `appearance.vibrancy`, with `transparent: false`, and keep it **off by default** until someone checks it on macOS 27. This spike did not verify vibrancy. **Don't** adopt `electron-liquid-glass`: whole-window, desktop-sampling, a sibling placement Apple warns against, `transparent: true` with its shadow, click-through and DevTools limits, the CSS `backdrop-filter` text bug in transparent windows, and an idle maintainer (§3.1).
 2. **Electron ≥ 36.9.2 / 37.6.0 / 38.2.0** for the Tahoe WindowServer fix. 44.9.0 already qualifies; add a test that pins the floor.
-3. **In main,** read `nativeTheme.prefersReducedTransparency` and `nativeTheme.shouldUseHighContrastColors`. On `nativeTheme` `updated`, call `setVibrancy(null)` / restore, and send both to the renderer as `data-reduce-transparency` / `data-contrast`. The CSS media queries already update live [E30], but the vibrancy layer is native and needs this.
-4. **Inactive window:** on `blur`, set `data-window-active="false"` (already planned) **and** raise glass tints to opaque. `design.css` gets `:root[data-window-active="false"] { --material-glass: var(--surface-overlay); --material-blur: none; }`. `GlassSurface` should read the same flag as one more input to `resolveGlassImpl`.
+3. **In main** (the in-app `appearance.reduceTransparency` setting exists; the OS setting doesn't reach the native vibrancy layer yet), read `nativeTheme.prefersReducedTransparency` and `nativeTheme.shouldUseHighContrastColors`. On `nativeTheme` `updated`, call `setVibrancy(null)` / restore, and send both to the renderer as `data-reduce-transparency` / `data-contrast`. The CSS media queries already update live [E30], but the vibrancy layer is native and needs this.
+4. **Inactive window:** `AppearanceProvider` already sets `data-window-active` from document focus. Add the glass half: raise glass tints to opaque. `design.css` gets `:root[data-window-active="false"] { --material-glass: var(--surface-overlay); --material-blur: none; }`. `GlassSurface` should read the same flag as one more input to `resolveGlassImpl`.
 5. **Toolbar:** delete the planned "scroll-edge strip" glass. Use the 24 px hard scroll-edge mask alone, and put glass only on the control groups (`GlassSurface impl="refraction"`, capsule radius).
 6. **Composer:** move from `.material-glass` to `GlassSurface impl="refraction"`. Keep `.material-glass` as the CSS rung for popovers, menus and the palette.
 7. **Sheets and dialogs:** opaque `--surface-overlay` plus a scrim. Remove glass from the agent sheet in §3.4's table.

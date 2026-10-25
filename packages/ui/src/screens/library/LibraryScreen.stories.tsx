@@ -89,10 +89,26 @@ export const QuarantinedDownload: Story = {
   render: () => (
     <LibraryItemView
       item={item(IDS.library.invoiceDownload)}
+      layout="grid"
       taskTitle="Dentist booking"
       onOpen={() => {}}
       onTrust={() => {}}
       onOpenTask={() => {}}
     />
   ),
+};
+
+/** Documents in dark appearance (Screens/* baselines shoot light only). */
+export const Dark: Story = { args: { section: "documents" }, globals: { theme: "dark" } };
+
+/** Compact width (§5.11): the tiles reflow; the toolbar's buttons become icons. */
+export const Compact: Story = {
+  args: { section: "documents" },
+  decorators: [
+    (S) => (
+      <div className="w-[390px]">
+        <S />
+      </div>
+    ),
+  ],
 };

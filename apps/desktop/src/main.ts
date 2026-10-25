@@ -22,6 +22,7 @@ import {
   Notification,
   nativeTheme,
   protocol,
+  screen,
   session,
   shell,
   systemPreferences,
@@ -47,6 +48,7 @@ import {
 import { NotificationRelay } from "./lib/notify-relay.ts";
 import { pairingEdge } from "./lib/pairing-edge.ts";
 import { realChromeOpenCommand, realChromeProfileDir } from "./lib/real-chrome.ts";
+import { VibrancyController } from "./lib/vibrancy.ts";
 import { ZoomController } from "./lib/zoom.ts";
 import { bootstrapAdminIfNeeded } from "./main/bootstrap-admin.ts";
 import { BridgeClient } from "./main/bridge/bridge-client.ts";
@@ -82,7 +84,7 @@ import {
 import { TerminalHost } from "./main/terminal.ts";
 import { PsycheTray } from "./main/tray.ts";
 import { startUpdater } from "./main/updater.ts";
-import { wantsAnyWindowSize } from "./main/window-options.ts";
+import { canvasColor, wantsAnyWindowSize } from "./main/window-options.ts";
 import { type AppWindows, createAppWindows, preloadPath } from "./main/windows.ts";
 
 /**
@@ -165,6 +167,13 @@ const zoom = new ZoomController({
   targets: () => windows?.appContents() ?? [],
   call: (method, params) => requireGateway().call(method, params),
   warn: (message) => console.warn(`[zoom] ${message}`),
+});
+const vibrancy = new VibrancyController({
+  targets: () => windows?.chromeWindows() ?? [],
+  call: (method, params) => requireGateway().call(method, params),
+  canvas: () => canvasColor(nativeTheme.shouldUseDarkColors),
+  supported: process.platform === "darwin",
+  warn: (message) => console.warn(`[vibrancy] ${message}`),
 });
 const pendingCommands: ShellCommand[] = [];
 let quittingEntirely = false;
@@ -490,6 +499,10 @@ function registerIpc(): void {
     );
   });
   on(IPC.windowClose, (event) => windows?.closeFor(event.sender));
+  // The section is checked against a slug pattern in settingsRoute().
+  on(IPC.windowOpenSettings, (_e, arg) =>
+    windows?.showSettings(typeof arg === "string" ? arg : undefined),
+  );
   handle(IPC.dictationGetStatus, () => dictation?.status);
   handle(IPC.dictationRecheck, async () => {
     await dictation?.recheck();
@@ -580,7 +593,9 @@ function onGatewayEvent(e: {
   dictation?.onEvent(e.event, e.payload);
   const p = e.payload as Record<string, unknown>;
   if (e.event === "settings.changed") {
-    zoom.onSettingsChanged((p.entries as { key: string; value: unknown }[] | undefined) ?? []);
+    const entries = (p.entries as { key: string; value: unknown }[] | undefined) ?? [];
+    zoom.onSettingsChanged(entries);
+    vibrancy.onSettingsChanged(entries);
   }
   if (e.event === "notification.created") {
     const d = relay.decide(p.notification as PsycheNotification);
@@ -654,6 +669,11 @@ function lockDownDefaultSession(): void {
 
 void app.whenReady().then(async () => {
   await decideSplash();
+  nativeTheme.on("updated", () => vibrancy.refresh());
+  // 120 Hz check (docs/design/motion.md §5): compare with the renderer's rAF probe.
+  if (!app.isPackaged) {
+    console.info(`[display] ${screen.getPrimaryDisplay().displayFrequency} Hz`);
+  }
   // Packaged builds get the icon from the bundle (forge.config.ts); dev runs set the Dock icon here.
   if (!app.isPackaged && process.platform === "darwin") {
     app.dock?.setIcon(join(app.getAppPath(), "assets", "icon.png"));
@@ -670,6 +690,7 @@ void app.whenReady().then(async () => {
         if (wc) wc.send(IPC.shellCommand, { type: "closeThreadView" } satisfies ShellCommand);
       },
       quitEntirely,
+      settings: () => windows?.showSettings(),
       zoomIn: () => void zoom.zoomIn(),
       zoomOut: () => void zoom.zoomOut(),
       zoomReset: () => void zoom.reset(),
@@ -686,6 +707,10 @@ void app.whenReady().then(async () => {
     mainOptions: glassWindowOptions(glass),
     // The stored zoom wins over Electron's own per-origin memory on every load.
     onViewCreated: (wc) => wc.on("did-finish-load", () => zoom.applyTo(wc)),
+    // Native glass replaces vibrancy (electron-liquid-glass: never both, or it "looks blurry").
+    onChromeWindowCreated: (win, view) => {
+      if (glass !== "native") vibrancy.applyTo({ win, view });
+    },
     onMainCreated: (win, view) => {
       view.webContents.once("did-finish-load", () => {
         for (const c of pendingCommands.splice(0)) view.webContents.send(IPC.shellCommand, c);
@@ -770,6 +795,7 @@ void app.whenReady().then(async () => {
       void refreshHelperPresence();
       void refreshApprovals();
       void zoom.load();
+      void vibrancy.load();
       void dictation?.load();
       void bootstrapAdminIfNeeded({
         packaged: app.isPackaged,

@@ -1,8 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { useState } from "react";
+import { Button } from "../../components/ui/button.tsx";
 import { createFixtureWorld, IDS } from "../../fixtures/index.ts";
 import { withWorld } from "../../stories/harness.tsx";
 import { GoalPage, GoalPageView } from "./GoalPage.tsx";
 import { CandidateGoalCard, GoalsScreen, GoalsView } from "./GoalsScreen.tsx";
+import { MilestoneTrack } from "./MilestoneTrack.tsx";
 
 const world = createFixtureWorld();
 const goal = (id: string) => {
@@ -87,4 +90,55 @@ export const GoalPageLoading: Story = {
 
 export const GoalPageError: Story = {
   render: () => <GoalPageView goal={null} error="goal not found" onRetry={() => {}} />,
+};
+
+/** The split layout in dark appearance (Screens/* baselines shoot light only). */
+export const Dark: Story = {
+  ...WithGoalPage,
+  globals: { theme: "dark" },
+};
+
+/** Compact width (§5.11): the list stacks above the goal page. */
+export const Compact: Story = {
+  ...WithGoalPage,
+  decorators: [
+    withGoalTasks,
+    (S) => (
+      <div className="w-[390px]">
+        <S />
+      </div>
+    ),
+  ],
+};
+
+/** The milestone track completing on spring.emphasis (a fade and an instant fill when reduced). */
+export const MilestoneComplete: Story = {
+  render: function Render() {
+    const [done, setDone] = useState(2);
+    const titles = ["10k", "15k", "18k", "Race day"];
+    return (
+      <div className="flex max-w-xl flex-col gap-4 p-6">
+        <MilestoneTrack
+          milestones={titles.map((title, i) => ({ title, done: i < done, dueAt: null }))}
+        />
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setDone((n) => Math.max(0, n - 1))}
+          >
+            Undo
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => setDone((n) => Math.min(titles.length, n + 1))}
+          >
+            Complete next
+          </Button>
+        </div>
+      </div>
+    );
+  },
 };

@@ -1,10 +1,17 @@
 import type { Artifact, Goal, GoalMilestone, Task } from "@psyche/protocol";
-import { Circle, CircleCheck, Ellipsis, FileText, Trash2 } from "lucide-react";
+import { Ellipsis, FileText, Trash2 } from "lucide-react";
 import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { toast } from "sonner";
 import { Markdown } from "../../blocks/Markdown.tsx";
-import { TASK_STATUS_LABEL, TaskStatusIcon } from "../../blocks/TaskCard.tsx";
-import { ErrorState, LoadingCards, SectionLabel, useDelayedFlag } from "../../components/page.tsx";
+import { TASK_STATUS_LABEL } from "../../blocks/TaskCard.tsx";
+import {
+  ErrorState,
+  GroupedList,
+  GroupedRow,
+  LoadingCards,
+  useDelayedFlag,
+} from "../../components/page.tsx";
+import { StatusGlyph, type StatusKind } from "../../components/status.tsx";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -24,7 +31,6 @@ import {
 } from "../../components/ui/dropdown-menu.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
-import { Progress } from "../../components/ui/progress.tsx";
 import { useArtifact, useCall, useGoal, useTask } from "../../data/hooks.ts";
 import { activeI18n, t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
@@ -37,6 +43,7 @@ import {
   type GoalPlan,
   readGoalPlan,
 } from "./goal-plan.ts";
+import { MilestoneTrack } from "./MilestoneTrack.tsx";
 
 /** "Mon 08:00" in UTC, like the rest of the kit's times. */
 export function formatWhen(iso: string): string {
@@ -115,16 +122,26 @@ export function DeleteGoalDialog({
   );
 }
 
+/** One group of the goal page: a text-title-3 header over a raised, borderless group (§5.8). */
 function Section({ title, children }: { title: string; children: ReactNode }): ReactElement {
-  return (
-    <section className="grid gap-2 border-t border-gray-6 py-4 sm:grid-cols-[8rem_1fr] sm:gap-4">
-      <SectionLabel as="h3" className="sm:pt-0.5">
-        {title}
-      </SectionLabel>
-      <div className="min-w-0 text-small text-gray-12">{children}</div>
-    </section>
-  );
+  return <GroupedList title={title}>{children}</GroupedList>;
 }
+
+/** A plain line inside a group, for empty and single-value content. */
+function Line({ children }: { children: ReactNode }): ReactElement {
+  return <GroupedRow label={children} />;
+}
+
+const TASK_GLYPH: Record<Task["status"], StatusKind> = {
+  queued: "pending",
+  running: "running",
+  awaiting_input: "waiting",
+  awaiting_approval: "waiting",
+  paused: "paused",
+  done: "done",
+  failed: "failed",
+  cancelled: "cancelled",
+};
 
 export interface GoalTaskRowProps {
   taskId: string;
@@ -146,23 +163,27 @@ function TaskLine({
   taskId: string;
   onOpen?: (taskId: string) => void;
 }): ReactElement {
-  if (task === null) return <span className="text-gray-11">{t("screens.goals.loadingTask")}</span>;
+  if (task === null) return <Line>{t("screens.goals.loadingTask")}</Line>;
   return (
-    <span className="flex items-center gap-2">
-      <TaskStatusIcon status={task.status} />
-      {onOpen ? (
-        <button
-          type="button"
-          className="min-w-0 truncate text-start underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
-          onClick={() => onOpen(taskId)}
-        >
-          {task.title}
-        </button>
-      ) : (
-        <span className="min-w-0 truncate">{task.title}</span>
-      )}
-      <span className="text-callout text-gray-11">{TASK_STATUS_LABEL[task.status]}</span>
-    </span>
+    <GroupedRow
+      leading={<StatusGlyph status={TASK_GLYPH[task.status]} />}
+      label={
+        onOpen ? (
+          <button
+            type="button"
+            className="min-w-0 truncate text-start underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+            onClick={() => onOpen(taskId)}
+          >
+            {task.title}
+          </button>
+        ) : (
+          <span className="min-w-0 truncate">{task.title}</span>
+        )
+      }
+      control={
+        <span className="text-callout text-label-secondary">{TASK_STATUS_LABEL[task.status]}</span>
+      }
+    />
   );
 }
 
@@ -178,13 +199,13 @@ function PlanTile({
     <>
       <span
         aria-hidden="true"
-        className="flex size-8 shrink-0 items-center justify-center rounded-md bg-accent-3 text-accent-11"
+        className="flex size-8 shrink-0 items-center justify-center rounded-md bg-fill-secondary text-label-secondary"
       >
         <FileText className="size-4" />
       </span>
       <span className="flex min-w-0 flex-col">
-        <span className="truncate font-medium text-foreground">{artifact.title}</span>
-        <span className="text-callout text-gray-11">
+        <span className="truncate text-body text-label-primary">{artifact.title}</span>
+        <span className="text-callout text-label-secondary">
           {t("screens.goals.planMeta", {
             type: artifact.type.toUpperCase(),
             version: artifact.version,
@@ -194,15 +215,14 @@ function PlanTile({
       </span>
     </>
   );
-  const cls =
-    "inline-flex max-w-full items-center gap-3 rounded-lg border border-gray-6 bg-gray-1 py-2 pe-4 ps-2 text-start";
+  const cls = "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-start";
   return onOpen ? (
     <button
       type="button"
       onClick={() => onOpen(artifact)}
       className={cn(
         cls,
-        "transition-colors hover:border-gray-8 hover:bg-gray-3 focus-visible:outline-2 focus-visible:outline-ring",
+        "transition-colors hover:bg-fill-quaternary focus-visible:outline-2 focus-visible:outline-ring",
       )}
     >
       {inner}
@@ -268,41 +288,21 @@ export function GoalPageView({
   const plan = readGoalPlan(goal);
   const items = goalMilestones(plan, milestones);
   const lastCheckin = plan.checkins[0];
-  const doneCount = items.filter((m) => m.done).length;
-  const nextIndex = items.findIndex((m) => !m.done);
 
   return (
-    <article aria-labelledby={titleId} className="flex flex-col">
-      <header className="flex items-start gap-2 pb-4">
+    <article aria-labelledby={titleId} className="flex flex-col gap-6">
+      <header className="flex items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <SectionLabel as="p">
+          <p className="text-callout text-label-secondary">
             {t("screens.goals.categoryStatus", {
               category: GOAL_CATEGORY_LABEL[goal.category],
               status: goal.status,
               inactive: goal.status !== "active",
             })}
-          </SectionLabel>
-          <h2 id={titleId} className="text-h2 text-foreground">
+          </p>
+          <h2 id={titleId} className="text-title-1 text-label-primary">
             {goal.title}
           </h2>
-          {items.length > 0 ? (
-            <div className="mt-2 flex items-center gap-3">
-              <Progress
-                value={(doneCount / items.length) * 100}
-                aria-label={t("screens.goals.milestonesDone", {
-                  done: doneCount,
-                  total: items.length,
-                })}
-                className={cn(
-                  "max-w-64 flex-1 [&_[data-slot=progress-track]]:h-1.5",
-                  doneCount === items.length ? "[&_[data-slot=progress-indicator]]:bg-grass-9" : "",
-                )}
-              />
-              <span className="text-callout text-gray-11 tabular-nums">
-                {t("screens.goals.milestonesCount", { done: doneCount, total: items.length })}
-              </span>
-            </div>
-          ) : null}
         </div>
         {onDelete ? (
           <DropdownMenu>
@@ -330,51 +330,17 @@ export function GoalPageView({
 
       <Section title={t("screens.goals.milestones")}>
         {items.length === 0 ? (
-          <p className="text-gray-11">{t("screens.goals.noMilestones")}</p>
+          <Line>{t("screens.goals.noMilestones")}</Line>
         ) : (
-          <ol className="flex flex-wrap items-center gap-1.5">
-            {items.map((m, i) => (
-              <li key={m.title} className="flex items-center gap-1.5">
-                {i > 0 ? (
-                  <span
-                    aria-hidden="true"
-                    className={cn("h-px w-3", m.done ? "bg-grass-8" : "bg-gray-6")}
-                  />
-                ) : null}
-                <span
-                  className={cn(
-                    "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5",
-                    m.done
-                      ? "border-transparent bg-grass-3 text-grass-11"
-                      : i === nextIndex
-                        ? "border-accent-7 bg-gray-1 text-foreground"
-                        : "border-gray-6 text-gray-11",
-                  )}
-                >
-                  {m.done ? (
-                    <CircleCheck className="size-3.5" aria-hidden="true" />
-                  ) : (
-                    <Circle className="size-3.5" aria-hidden="true" />
-                  )}
-                  <span>{m.title}</span>
-                  <span className="sr-only">
-                    {m.done ? t("screens.goals.done") : t("screens.goals.notDone")}
-                  </span>
-                  {m.dueAt ? (
-                    <span className="text-callout opacity-80">· {formatDate(m.dueAt)}</span>
-                  ) : null}
-                </span>
-              </li>
-            ))}
-          </ol>
+          <MilestoneTrack milestones={items} className="px-3 pt-4 pb-3" />
         )}
       </Section>
 
       <Section title={t("screens.goals.plan")}>
         {plan.planArtifactId === null ? (
-          <p className="text-gray-11">{t("screens.goals.noPlan")}</p>
+          <Line>{t("screens.goals.noPlan")}</Line>
         ) : planArtifact === null ? (
-          <p className="text-gray-11">{t("screens.goals.loadingPlan")}</p>
+          <Line>{t("screens.goals.loadingPlan")}</Line>
         ) : (
           <PlanTile
             artifact={planArtifact}
@@ -385,24 +351,22 @@ export function GoalPageView({
 
       <Section title={t("screens.goals.tasks")}>
         {taskIds.length === 0 ? (
-          <p className="text-gray-11">{t("screens.goals.noTasks")}</p>
+          <Line>{t("screens.goals.noTasks")}</Line>
         ) : (
-          <ul className="flex flex-col gap-1">
-            {taskIds.map((id) => (
-              <li key={id}>
-                {renderTask ? (
-                  renderTask(id)
-                ) : (
-                  <GoalTaskRow taskId={id} {...(onOpenTask ? { onOpen: onOpenTask } : {})} />
-                )}
-              </li>
-            ))}
-          </ul>
+          taskIds.map((id) => (
+            <div key={id} className="contents">
+              {renderTask ? (
+                <GroupedRow label={renderTask(id)} />
+              ) : (
+                <GoalTaskRow taskId={id} {...(onOpenTask ? { onOpen: onOpenTask } : {})} />
+              )}
+            </div>
+          ))
         )}
       </Section>
 
       <Section title={t("screens.goals.checkins")}>
-        <p>
+        <Line>
           {t("screens.goals.checkinLine", {
             cadence: goal.cadence ? goal.cadence : t("screens.goals.noSchedule"),
             next: goal.nextCheckinAt ? formatWhen(goal.nextCheckinAt) : "",
@@ -410,55 +374,58 @@ export function GoalPageView({
             last: lastCheckin?.status ?? "",
             hasLast: Boolean(lastCheckin),
           })}
-        </p>
-        {plan.checkins.length > 0 ? (
-          <ul className="mt-1 flex flex-col gap-0.5 text-gray-11">
-            {plan.checkins.map((c) => (
-              <li key={c.at}>
-                <span className="tabular-nums">{formatDate(c.at)}</span> · {c.status}
-                {c.note ? ` · ${c.note}` : ""}
-              </li>
-            ))}
-          </ul>
-        ) : null}
+        </Line>
+        {plan.checkins.map((c) => (
+          <GroupedRow
+            key={c.at}
+            label={c.status}
+            {...(c.note ? { description: c.note } : {})}
+            control={
+              <span className="text-callout text-label-secondary tabular-nums">
+                {formatDate(c.at)}
+              </span>
+            }
+          />
+        ))}
       </Section>
 
       <Section title={t("screens.goals.watches")}>
         {plan.watches.length === 0 ? (
-          <p className="text-gray-11">{t("screens.goals.nothingWatched")}</p>
+          <Line>{t("screens.goals.nothingWatched")}</Line>
         ) : (
-          <ul className="flex flex-col gap-1">
-            {plan.watches.map((w) => (
-              <li key={w.title} className="flex flex-wrap items-center gap-2">
-                {w.url ? (
+          plan.watches.map((w) => (
+            <GroupedRow
+              key={w.title}
+              label={
+                w.url ? (
                   <a
                     href={w.url}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="text-accent-11 underline underline-offset-2"
+                    className="text-accent-11 underline-offset-2 hover:underline"
                   >
                     {w.title}
                   </a>
                 ) : (
-                  <span>{w.title}</span>
-                )}
-                {w.condition ? <Badge variant="muted">{w.condition}</Badge> : null}
-                {w.lastValue ? (
-                  <span className="text-callout text-gray-11">
-                    {t("screens.goals.last", { value: w.lastValue })}
-                  </span>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+                  w.title
+                )
+              }
+              {...(w.lastValue
+                ? { description: t("screens.goals.last", { value: w.lastValue }) }
+                : {})}
+              {...(w.condition ? { control: <Badge variant="muted">{w.condition}</Badge> } : {})}
+            />
+          ))
         )}
       </Section>
 
       <Section title={t("screens.goals.notes")}>
         {plan.notesMd.trim() === "" ? (
-          <p className="text-gray-11">{t("screens.goals.noNotes")}</p>
+          <Line>{t("screens.goals.noNotes")}</Line>
         ) : (
-          <Markdown className="text-sm">{plan.notesMd}</Markdown>
+          <Markdown className="px-3 py-2.5 text-reading text-label-primary">
+            {plan.notesMd}
+          </Markdown>
         )}
       </Section>
 
