@@ -16,6 +16,7 @@ import {
 } from "@psyche/ui";
 import { type ReactElement, type ReactNode, useEffect, useMemo, useState } from "react";
 import type { DictationPort, ShellPlatform, SystemDictationStatus } from "../shell/platform.ts";
+import { useAboutInfo } from "./about.ts";
 import { BackupsPanel } from "./backups.tsx";
 import { DesktopDevicesSettings, useThisDeviceId } from "./helper.tsx";
 import { LogViewer } from "./logs.tsx";
@@ -209,6 +210,12 @@ export function SystemVoiceSettings({ dictation }: { dictation: DictationPort })
   );
 }
 
+/** About with live versions: the app's from the build, the Gateway's from `/version`. */
+function AboutLive(): ReactElement {
+  const info = useAboutInfo();
+  return <AboutSection info={info} />;
+}
+
 export function settingsRoute(
   route: string,
   navigate: (to: string) => void,
@@ -267,7 +274,7 @@ export function settingsRoute(
           ),
           about: (
             <div className="flex flex-col gap-4">
-              <AboutSection info={null} />
+              <AboutLive />
               <LogViewer />
             </div>
           ),
