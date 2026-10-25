@@ -139,6 +139,32 @@ export function SelectionPill({ instant = false }: { instant?: boolean }): React
 }
 
 /**
+ * Switching threads crossfades the chat column's content over `duration.short` while the title
+ * changes in place (motion.md §4.4): no shared element, no movement. Keyed by the thread.
+ */
+export function ThreadCrossfade({
+  threadId,
+  children,
+  className,
+}: {
+  threadId: string;
+  children?: ReactNode;
+  className?: string;
+}): ReactElement {
+  return (
+    <m.div
+      key={threadId}
+      className={className}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={fadeShort}
+    >
+      {children}
+    </m.div>
+  );
+}
+
+/**
  * Crossfades the content column between destinations (motion.md §4.5): React's
  * `<ViewTransition>` with the `psy-route` class. It runs only for updates inside
  * `startTransition` (the host starts one for a change of destination, not of thread); the host's

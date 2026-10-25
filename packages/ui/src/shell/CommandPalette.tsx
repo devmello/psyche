@@ -148,7 +148,7 @@ export function CommandPalette({
         />
         <DialogPrimitive.Popup
           data-slot="dialog-content"
-          data-testid="command-palette"
+          data-testid="palette"
           className="psy-popup fixed top-[20%] left-1/2 z-50 flex w-[min(640px,calc(100vw-2rem))] -translate-x-1/2 flex-col overflow-hidden rounded-xl material-glass text-label-primary outline-none"
           style={{ ["--transform-origin" as string]: "top center" }}
         >

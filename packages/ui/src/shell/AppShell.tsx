@@ -14,7 +14,7 @@ import {
 } from "./motion.tsx";
 import { destinationFor, type RailItem, TabBar } from "./Rail.tsx";
 import { ShortcutList } from "./ShortcutList.tsx";
-import { ConnectedSidebar, clampSidebarWidth, SIDEBAR_WIDTH } from "./Sidebar.tsx";
+import { ConnectedSidebar, clampSidebarWidth, SIDEBAR_WIDTH, SidebarToggle } from "./Sidebar.tsx";
 import { type ShortcutId, useShortcuts } from "./shortcuts.ts";
 import { ThreadList } from "./ThreadList.tsx";
 import { ThreadsDrawer } from "./ThreadsDrawer.tsx";
@@ -177,7 +177,21 @@ export function AppShell({
             </SidebarPresence>
           )}
           <ReflowColumn className="flex min-w-0 flex-1 flex-col bg-canvas">
-            {chatMatch ? header : null}
+            {/* Compact: the top bar carries the persona, mode and model (§5.11). */}
+            {chatMatch && !compact ? (
+              sidebarOpen ? (
+                header
+              ) : (
+                // Collapsed: the toggle sits at the header's start (redesign §4).
+                <div className="relative [&>header]:ps-13">
+                  <SidebarToggle
+                    onClick={() => setSidebarOpen(true)}
+                    className="absolute top-3.5 start-3 z-10"
+                  />
+                  {header}
+                </div>
+              )
+            ) : null}
             <div className="flex min-h-0 flex-1">
               <div className="min-w-0 flex-1 overflow-y-auto">
                 <RouteTransition>{content}</RouteTransition>

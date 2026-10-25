@@ -92,6 +92,7 @@ export const shell = {
   "shell.sidebar.untitled": "Untitled chat",
   "shell.sidebar.show": "Show the sidebar",
   "shell.sidebar.filterToggle": "Filter",
+  "shell.sidebar.forkedFrom": "A side chat from {parent}",
   "shell.search.results": "Results",
   "shell.search.preview": "Preview",
   "shell.search.hintOpen": "open",

@@ -160,7 +160,8 @@ test("the agent opens and closes panes through view.* and the layout is reported
 });
 
 test("keyboard shortcuts: palette, shortcut sheet, browser pane, close pane", async () => {
-  await page.locator("body").click({ position: { x: 5, y: 300 } });
+  // Out of the composer, without clicking anything (the sidebar sits at the window's start edge).
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await page.keyboard.press("Meta+K");
   await expect(page.getByTestId("palette")).toBeVisible();
   await page.keyboard.press("Escape");
@@ -293,9 +294,12 @@ test("Settings shares a folder through the native picker as a permissions.policy
       filePaths: [folder],
     })) as typeof dialog.showOpenDialog;
   }, picked);
-  // Settings sits in the rail's bottom menu (the kit rail, #561).
-  await page.getByTestId("rail").getByRole("button", { name: "Menu" }).click();
-  await page.getByRole("menuitem", { name: "Settings" }).click();
+  // Settings sits under the gear in the sidebar's persona footer (redesign §5.1).
+  await page
+    .getByTestId("sidebar-footer")
+    .getByRole("button", { name: "Settings and help" })
+    .click();
+  await page.getByRole("menuitem", { name: /^Settings/ }).click();
   await page
     .getByRole("navigation", { name: "Settings sections" })
     .getByRole("button", { name: "File access" })

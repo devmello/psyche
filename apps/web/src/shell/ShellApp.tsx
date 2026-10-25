@@ -10,6 +10,7 @@ import {
   SidebarPresence,
   SidebarToggle,
   TabBar,
+  ThreadCrossfade,
   ThreadsDrawer,
   t,
   type UiSlots,
@@ -581,6 +582,15 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       ? t("web.threads.mainChat")
       : thread.title || t("web.threads.sideChat")
     : sectionTitle(route);
+  const parent =
+    onChat && thread?.parentThreadId
+      ? threads.find((x) => x.thread.id === thread.parentThreadId)?.thread
+      : undefined;
+  const forkedFrom = parent
+    ? parent.kind === "main"
+      ? t("web.threads.mainChat")
+      : parent.title || t("web.threads.sideChat")
+    : null;
   const openThread = (id: string) => navigate(`/chat/${id}`);
   const threadsFor = (onOpen: (id: string) => void) =>
     slots.threadList ? (
@@ -639,6 +649,17 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
           </a>
           <TitleBar chrome={platform.chrome}>
             {inset ? showSidebarButton : null}
+            {/* A side chat names where it came from (redesign §5.4). */}
+            {forkedFrom ? (
+              <span
+                className="title-fork"
+                role="img"
+                aria-label={t("shell.sidebar.forkedFrom", { parent: forkedFrom })}
+                title={t("shell.sidebar.forkedFrom", { parent: forkedFrom })}
+              >
+                ↳
+              </span>
+            ) : null}
             <span className="title">{barTitle}</span>
             {/* Connected is the quiet default; only other states earn a chip (docs/06 §3.0). */}
             {status.phase === "paired" ? null : (
@@ -692,7 +713,14 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
                   : {})}
               />
               <RouteTransition>
-                <div className="shell-route">{content}</div>
+                {onChat ? (
+                  // Keyed by the route's thread: `/chat` stays one view while the main chat loads.
+                  <ThreadCrossfade threadId={routeThreadId ?? "main"} className="shell-route">
+                    {content}
+                  </ThreadCrossfade>
+                ) : (
+                  <div className="shell-route">{content}</div>
+                )}
               </RouteTransition>
             </ReflowColumn>
             {onChat && threadId ? (

@@ -84,6 +84,10 @@
   inset-inline-start: 12px;
   z-index: 2;
 }
+/* Room for it at the start of the chat's header row while the sidebar is collapsed. */
+.shell-sidebar-layout[data-sidebar="collapsed"] [data-testid="kit-chat"] > header:first-child {
+  padding-inline-start: 52px;
+}
 
 /*
   Route crossfade between destinations (motion.md §4.5): React's <ViewTransition> tags the content
@@ -127,4 +131,10 @@
 }
 :root[data-reduce-motion="true"]::view-transition-new(.psy-route) {
   animation-name: psy-route-fade;
+}
+
+/* The side chat's "forked from" glyph before the toolbar title (redesign §5.4). */
+.titlebar .title-fork {
+  color: var(--label-tertiary, currentColor);
+  margin-inline-end: 2px;
 }

@@ -145,6 +145,7 @@ export {
   SelectionPill,
   ShellMotion,
   SidebarPresence,
+  ThreadCrossfade,
 } from "./shell/motion.tsx";
 export {
   destinationFor,
