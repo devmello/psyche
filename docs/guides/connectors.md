@@ -54,7 +54,7 @@ Apple Notes, Apple Reminders, Apple Calendar and Apple Mail connect through the 
 
 - The helper must be paired and running. Without it, Connect says the app needs the Psyche helper, and an already connected app's tools say the same until the helper is back.
 - When you connect, macOS asks you on the Mac: Automation for Notes and Mail ("Psyche (Helper)" wants to control the app), Calendars or Reminders access for Calendar and Reminders. The app is opened in the background if it is not running.
-- Until you allow it, the connector shows **Needs permission** with the place to allow it, for example System Settings → Privacy & Security → Automation → Psyche (Helper) → Mail. macOS does not ask twice, so after a "Don't Allow", **Open System Settings** opens that pane on the Mac. Once allowed, **Check again** (or the Gateway's own check every few minutes) turns it to Connected.
+- Until you allow it, the connector shows **Needs permission**. If macOS has not asked you yet, **Check again** asks again so the prompt appears on the Mac; if no prompt appears, the card shows the reason the helper reported. If you chose "Don't Allow", macOS does not ask twice: the card names the place to allow it, for example System Settings → Privacy & Security → Automation → Psyche (Helper) → Mail, and **Open System Settings** opens that pane on the Mac. Once allowed, **Check again** (or the Gateway's own check every few minutes) turns it to Connected.
 - Each app connects once per Mac. A second Connect says it is already connected, and older duplicates are removed when the Gateway starts.
 - The account shown is "This Mac". The scopes listed are the helper capabilities the connection can use.
 

@@ -6,3 +6,6 @@ declare module "*?url" {
 
 /** Side-effect CSS imports, including the viewers' lazily loaded Univer stylesheet. */
 declare module "*.css";
+
+/** Baked in by vite.config.ts `define`: the workspace version (Settings → About). */
+declare const __PSYCHE_APP_VERSION__: string;

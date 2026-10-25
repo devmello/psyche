@@ -62,6 +62,16 @@ describe("forge.config.ts", () => {
     expect(packagerConfig.protocols).toEqual([{ name: "Psyche", schemes: ["psyche"] }]);
     expect(packagerConfig.extendInfo).toMatchObject({
       NSMicrophoneUsageDescription: expect.stringContaining("dictation"),
+      // tccd attributes the nested helper's requests to this bundle (#570): every string the
+      // helper's Info.plist declares must be here too, or macOS refuses without a prompt.
+      NSRemindersFullAccessUsageDescription: expect.stringContaining("reminders"),
+      NSRemindersUsageDescription: expect.stringContaining("reminders"),
+      NSCalendarsFullAccessUsageDescription: expect.stringContaining("calendar"),
+      NSCalendarsUsageDescription: expect.stringContaining("calendar"),
+      NSContactsUsageDescription: expect.stringContaining("people"),
+      NSAppleEventsUsageDescription: expect.stringContaining("Apple Events"),
+      NSSpeechRecognitionUsageDescription: expect.stringContaining("speech"),
+      NSScreenCaptureUsageDescription: expect.stringContaining("screen"),
       LSUIElement: false,
     });
   });
