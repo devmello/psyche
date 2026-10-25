@@ -12,6 +12,7 @@ import type { RecordedCall } from "../src/data/mock-gateway.ts";
 import { MockGateway } from "../src/data/mock-gateway.ts";
 import { createFixtureWorld, FIXTURE_NOW, IDS, PERSONA } from "../src/fixtures/index.ts";
 import { actionLabel } from "../src/screens/settings/ActionMatrix.tsx";
+import { AppearancePanel } from "../src/screens/settings/AppearanceSection.tsx";
 import { ChannelsPanel } from "../src/screens/settings/ChannelsSection.tsx";
 import { ConnectorsSection } from "../src/screens/settings/ConnectorsSection.tsx";
 import {
@@ -136,6 +137,23 @@ describe("Appearance", () => {
     await userEvent.type(input, "not a color{Enter}");
     expect(screen.getByText(/Psyche can't read that color/)).toBeTruthy();
     expect(settingCall(gateway(), "appearance.accentSeed")).toBeUndefined();
+  });
+
+  it("shows the translucent sidebar switch only where the window can draw it", async () => {
+    const { gateway } = setup({ defaultSection: "appearance" });
+    const reduce = await screen.findByRole("switch", { name: "Reduce transparency" });
+    expect(screen.queryByRole("switch", { name: "Translucent sidebar" })).toBeNull();
+    await userEvent.click(reduce);
+    await waitFor(() =>
+      expect(settingValue(gateway(), "appearance.reduceTransparency")).toBe(true),
+    );
+
+    const onChange = vi.fn();
+    render(<AppearancePanel values={{}} onChange={onChange} supportsVibrancy />);
+    const vibrancy = screen.getByRole("switch", { name: "Translucent sidebar" });
+    expect(vibrancy.getAttribute("aria-checked")).toBe("false");
+    await userEvent.click(vibrancy);
+    expect(onChange).toHaveBeenCalledWith("appearance.vibrancy", true);
   });
 });
 
