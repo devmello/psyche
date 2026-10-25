@@ -1,6 +1,6 @@
 import type { Connector, Grant } from "@psyche/protocol";
 import { ShieldOff } from "lucide-react";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useCallback, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import {
   Table,
@@ -157,6 +157,7 @@ export function PermissionsPanel({
   error,
   onRetry,
 }: PermissionsPanelProps): ReactElement {
+  const id = useId();
   const clock = useNow(30_000, now);
   const [showProhibitions, setShowProhibitions] = useState(false);
   const mode = str(values, "permissions.mode", "balanced") as PermissionMode;
@@ -179,7 +180,6 @@ export function PermissionsPanel({
           <RadioField
             label={t("settings.key.permissions.mode")}
             hideLabel
-            inline
             value={mode}
             options={MODE_OPTIONS}
             settingKey="permissions.mode"
@@ -187,10 +187,16 @@ export function PermissionsPanel({
           ></RadioField>
         </Group>
 
-        <Group
-          title={t("settings.permissions.connectorActions")}
-          description={t("settings.permissions.connectorActionsHint")}
-        >
+        {/* One grouped list per connector, rows per action (redesign §5.8). */}
+        <section aria-labelledby={`${id}-actions`} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-0.5 px-1">
+            <h3 id={`${id}-actions`} className="text-title-3 text-label-primary">
+              {t("settings.permissions.connectorActions")}
+            </h3>
+            <p className="text-callout text-label-secondary">
+              {t("settings.permissions.connectorActionsHint")}
+            </p>
+          </div>
           {connectors.length === 0 ? (
             <EmptyNotice text={t("settings.permissions.noConnectors")} />
           ) : (
@@ -199,14 +205,11 @@ export function PermissionsPanel({
               const key = `permissions.connectors.${c.id}`;
               const hash = c.config.toolsListHash;
               return (
-                <div
-                  key={c.id}
-                  className="flex flex-col gap-1 border-t border-gray-6 pt-3 first:border-0 first:pt-0"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h4 className="font-semibold">
+                <div key={c.id} className="flex flex-col gap-1.5">
+                  <div className="flex flex-wrap items-center gap-2 px-1">
+                    <h4 className="text-headline text-label-primary">
                       {c.label}{" "}
-                      <span className="font-normal text-muted-foreground">
+                      <span className="font-normal text-label-secondary">
                         {t("settings.permissions.scopeMode", {
                           mode: SCOPE_MODE_LABEL[c.scopeMode].toLocaleLowerCase(
                             activeI18n().locale,
@@ -225,14 +228,20 @@ export function PermissionsPanel({
                       )
                     ) : null}
                   </div>
+                  <ActionMatrix
+                    connectorLabel={c.label}
+                    matrix={c.actionMatrix}
+                    onChange={(action, rule) => onRuleChange?.(c, action, rule)}
+                    disabled={onRuleChange === undefined}
+                  />
                   {changed ? (
-                    <p className="text-xs text-danger-text">
+                    <p className="px-1 text-callout text-label-primary">
                       {t("settings.permissions.toolsChanged", { name: c.label })}
                     </p>
                   ) : null}
                   {c.type === "mcp" && typeof hash === "string" ? (
-                    <details className="text-xs text-muted-foreground">
-                      <summary className="w-fit cursor-pointer select-none hover:text-foreground">
+                    <details className="px-1 text-callout text-label-secondary">
+                      <summary className="w-fit cursor-default select-none hover:text-label-primary">
                         {t("settings.browser.details")}
                       </summary>
                       <p className="mt-1 truncate font-mono">
@@ -240,18 +249,12 @@ export function PermissionsPanel({
                       </p>
                     </details>
                   ) : null}
-                  <ActionMatrix
-                    connectorLabel={c.label}
-                    matrix={c.actionMatrix}
-                    onChange={(action, rule) => onRuleChange?.(c, action, rule)}
-                    disabled={onRuleChange === undefined}
-                  />
                   <SettingHint settingKey={key} />
                 </div>
               );
             })
           )}
-        </Group>
+        </section>
 
         <Group
           title={t("settings.permissions.origins")}

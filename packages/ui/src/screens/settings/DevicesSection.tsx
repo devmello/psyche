@@ -93,7 +93,6 @@ export function DevicesPanel({
           <Group
             title={t("settings.devices.waiting")}
             description={t("settings.devices.waitingHint")}
-            className="border-approval-border bg-approval-surface"
           >
             <ul className="flex flex-col gap-3">
               {pending.map((p) => (
