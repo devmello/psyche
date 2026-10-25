@@ -21,10 +21,9 @@
       "!pnpm-lock.yaml",
       "!spikes",
       "!tests/corpus/review-cases",
-      "!**/dist-bin",
-      "!.claude"
+      "!**/dist-bin"
     ],
-    "experimentalScannerIgnores": [".build", ".claude", "dist", "dist-bin", "node_modules", "out"]
+    "experimentalScannerIgnores": [".build", "dist", "dist-bin", "node_modules", "out"]
   },
   "formatter": {
     "enabled": true,
