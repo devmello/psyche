@@ -425,6 +425,56 @@ describe("stateVersion reconciliation", () => {
   });
 });
 
+describe("loading before the first pairing (#592)", () => {
+  function connecting(world: ConstructorParameters<typeof MockGateway>[0] = {}) {
+    const gateway = new MockGateway(
+      { threads: [thread], ...world },
+      { now: () => NOW, connection: "connecting" },
+    );
+    const store = new GatewayStore(gateway, { now: () => NOW });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <GatewayProvider client={gateway} store={store}>
+        {children}
+      </GatewayProvider>
+    );
+    return { gateway, wrapper };
+  }
+
+  it("stays loading while the handshake runs, then loads once paired", async () => {
+    const { gateway, wrapper } = connecting();
+    const { result } = renderHook(() => useThreads(), { wrapper });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(result.current.loading).toBe(true);
+    expect(result.current.error).toBeNull();
+    expect(gateway.calls.filter((c) => c.method === "threads.list")).toHaveLength(0);
+    act(() => gateway.setConnection("open"));
+    await waitFor(() => expect(result.current.main).not.toBeNull());
+    expect(result.current.error).toBeNull();
+    expect(gateway.calls.filter((c) => c.method === "threads.list")).toHaveLength(1);
+    // The first pairing is not a reconnect.
+    expect(gateway.calls.filter((c) => c.method === "events.subscribe")).toHaveLength(0);
+  });
+
+  it("settles every component that waited, even two on the same query", async () => {
+    const { gateway, wrapper } = connecting();
+    const { result } = renderHook(() => ({ a: useThreads(), b: useThreads() }), { wrapper });
+    act(() => gateway.setConnection("open"));
+    await waitFor(() => expect(result.current.a.loading).toBe(false));
+    await waitFor(() => expect(result.current.b.loading).toBe(false));
+  });
+
+  it("shows the error when the first connection fails, and loads after a later pairing", async () => {
+    const { gateway, wrapper } = connecting();
+    const { result } = renderHook(() => useThreads(), { wrapper });
+    act(() => gateway.setConnection("offline"));
+    await waitFor(() => expect(result.current.error).not.toBeNull());
+    act(() => gateway.setConnection("connecting"));
+    act(() => gateway.setConnection("open"));
+    await waitFor(() => expect(result.current.main).not.toBeNull());
+    expect(result.current.error).toBeNull();
+  });
+});
+
 describe("review regressions", () => {
   it("treats open → offline → connecting → open as a reconnect", async () => {
     const { gateway, wrapper } = setup({

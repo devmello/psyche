@@ -49,6 +49,9 @@ export class GatewayStore {
   private refreshing = 0;
   /** True once the connection has been open; any later transition to open is a reconnect. */
   private hasOpened: boolean;
+  /** True until the connection first leaves "connecting" (the first handshake is in flight). */
+  private settled: boolean;
+  private settleListeners = new Set<() => void>();
   /** Queued follow-up ids being sent right now (single owner per item). */
   private sending = new Set<string>();
   private nextOverlayId = 1;
@@ -61,6 +64,7 @@ export class GatewayStore {
     this.now = options.now ?? (() => new Date().toISOString());
     this.base = { ...INITIAL_STATE, connection: client.connectionState() };
     this.hasOpened = this.base.connection === "open";
+    this.settled = this.base.connection !== "connecting";
     this.snapshot = this.base;
   }
 
@@ -217,15 +221,40 @@ export class GatewayStore {
     if (failed !== undefined) throw (failed as PromiseRejectedResult).reason;
   }
 
+  /**
+   * The first handshake is still in flight (#592): a request now would fail with "can't reach the
+   * Gateway" although pairing completes moments later. Loaders hold their loading state and run
+   * once the connection first settles (`open`, or `offline` when the Gateway really is down).
+   */
+  get awaitingConnection(): boolean {
+    return !this.settled;
+  }
+
+  /** Calls `listener` once when the connection first settles. Returns an unsubscribe function. */
+  onSettled(listener: () => void): () => void {
+    this.settleListeners.add(listener);
+    return () => this.settleListeners.delete(listener);
+  }
+
   private onConnection(state: ConnectionState): void {
     this.update((s) => ({ ...s, connection: state }));
     if (state === "offline") {
       // Stream deltas stop; the committed message replaces them after the refresh.
       this.update((s) => ({ ...s, lastSeq: null }));
     }
+    if (state !== "connecting" && !this.settled) {
+      // The first pairing (or the first failure) runs each loader that held for it.
+      this.settled = true;
+      if (state === "open") this.hasOpened = true;
+      const held = [...this.settleListeners];
+      this.settleListeners.clear();
+      for (const l of held) l();
+      return;
+    }
     if (state === "open") {
       // open → offline → connecting → open is the usual retry path: still a reconnect.
       if (this.hasOpened) void this.reconnected();
+      else void this.refreshAll().catch(() => {});
       this.hasOpened = true;
     }
   }
