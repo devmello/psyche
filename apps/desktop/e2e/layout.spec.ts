@@ -14,10 +14,11 @@ import { MockGateway } from "@psyche/web/testing";
 import { createFixtureWorld } from "../../../packages/ui/src/fixtures/index.ts";
 
 /**
- * Window layout (docs/06 §3.1, §3.19, §4.1) in the packaged desktop app and the web client:
- * the main window draws a 52 px drag bar under the macOS traffic lights and nothing else may sit
- * there; onboarding is a centred, vertically balanced column with Back / Next at its bottom on
- * every step; the main window's headers line up below the bar and the chat column is centred;
+ * Window layout (docs/06 §3.1, §3.19, §4.1; redesign-2026 §4, §5.1, §5.11) in the packaged
+ * desktop app and the web client: the main window draws a 52 px drag bar under the macOS traffic
+ * lights and nothing else may sit there; onboarding is a centred, vertically balanced column with
+ * Back / Next at its bottom on every step; one 248 px sidebar (destinations, threads, persona)
+ * sits beside the content column, both starting below the bar; the chat column is centred;
  * nothing scrolls sideways. Screenshots of every view land in `e2e/__screenshots__/`.
  *
  * The web part serves `apps/web/dist` (build it first: `pnpm --filter @psyche/web build`) from
@@ -363,18 +364,28 @@ for (const [width, height] of [
       await intruders(page, await trafficLights()),
       `${tag}: under the traffic lights`,
     ).toEqual([]);
-    // Sidebar and chat headers end on the same line.
-    const threadsHeader = await page.locator(".threads-header").boundingBox();
+    // One sidebar (redesign §5.1): no rail and no separate thread-list column.
+    await expect(page.getByRole("navigation", { name: "Sidebar" })).toHaveCount(1);
+    await expect(page.locator("nav.rail, .threads-slot, aside.threads")).toHaveCount(0);
+    const sidebar = await box(page, "sidebar");
+    expect(sidebar.x, `${tag}: sidebar at the start edge`).toBeLessThanOrEqual(1);
+    expect(sidebar.width, `${tag}: sidebar width`).toBeGreaterThanOrEqual(220);
+    expect(sidebar.width, `${tag}: sidebar width`).toBeLessThanOrEqual(320);
+    // The sidebar and the content column start on the same line, and the agent header is the
+    // content column's first row.
+    const content = await box(page, "content");
     const agentHeader = await page.getByTestId("kit-chat").locator("header").first().boundingBox();
-    expect(threadsHeader && agentHeader).toBeTruthy();
-    if (threadsHeader && agentHeader) {
-      expect(Math.abs(threadsHeader.y - agentHeader.y), `${tag}: header tops`).toBeLessThanOrEqual(
+    expect(Math.abs(sidebar.y - content.y), `${tag}: sidebar and content tops`).toBeLessThanOrEqual(
+      1,
+    );
+    expect(content.x, `${tag}: content beside the sidebar`).toBeGreaterThanOrEqual(
+      sidebar.x + sidebar.width - 1,
+    );
+    expect(agentHeader).toBeTruthy();
+    if (agentHeader) {
+      expect(Math.abs(agentHeader.y - content.y), `${tag}: header at the top`).toBeLessThanOrEqual(
         1,
       );
-      expect(
-        Math.abs(threadsHeader.y + threadsHeader.height - (agentHeader.y + agentHeader.height)),
-        `${tag}: header bottoms`,
-      ).toBeLessThanOrEqual(1);
     }
     // The composer and messages share a centred column inside the chat area.
     const chat = await box(page, "kit-chat");
@@ -399,32 +410,38 @@ for (const [width, height] of [
         `${tag}: gap above the composer`,
       ).toBeLessThanOrEqual(72);
     }
-    // Thread rows: title, time and the last line; the filter field narrows them (§2.2).
-    const list = page.getByTestId("thread-list");
+    // Thread rows: 28 px source-list rows with title and time; the last line is the tooltip and
+    // the filter (revealed from the Threads header) narrows on it (§2.2, redesign §5.1).
+    const list = page.getByTestId("thread-group");
     const rows = list.getByTestId("thread-row");
     await expect(rows).toHaveCount(4);
-    await expect(rows.filter({ hasText: "Lisbon trip" })).toContainText(
-      "Flights on the 14th are cheapest",
+    await expect(rows.first()).toContainText("Main chat");
+    await expect(rows.filter({ hasText: "Lisbon trip" })).toHaveAttribute(
+      "title",
+      /Flights on the 14th are cheapest/,
     );
-    await expect(rows.filter({ hasText: "Taxes 2025" })).toContainText("You: Find my 1099 forms");
-    const listBox = await list.boundingBox();
+    await expect(rows.filter({ hasText: "Taxes 2025" })).toHaveAttribute(
+      "title",
+      /^You: Find my 1099 forms/,
+    );
     for (const row of await rows.all()) {
       const b = await row.boundingBox();
-      if (b && listBox) {
-        expect(b.x + b.width, `${tag}: row inside the list`).toBeLessThanOrEqual(
-          listBox.x + listBox.width + 1,
+      if (b) {
+        expect(Math.round(b.height), `${tag}: 28 px rows`).toBe(28);
+        expect(b.x + b.width, `${tag}: row inside the sidebar`).toBeLessThanOrEqual(
+          sidebar.x + sidebar.width + 1,
         );
       }
     }
-    if (listBox) expect(listBox.width, `${tag}: list width`).toBeLessThanOrEqual(261);
     await expectNoSidewaysScroll(page, tag);
     await shot(page, `main-${width}x${height}`);
     if (width === 1440) {
-      await page.getByLabel("Filter threads").fill("cheapest");
+      await list.getByRole("button", { name: "Filter" }).click();
+      await page.getByRole("searchbox", { name: "Filter threads" }).fill("cheapest");
       await expect(rows).toHaveCount(1);
       await expect(rows.first()).toContainText("Lisbon trip");
       await shot(page, `main-search-${width}x${height}`);
-      await page.getByLabel("Filter threads").fill("");
+      await page.getByRole("searchbox", { name: "Filter threads" }).press("Escape");
       await expect(rows).toHaveCount(4);
     }
 
@@ -453,14 +470,14 @@ test("rail screens, inbox and agent sheet at 1440x900: kit chrome, no sideways s
   await page.waitForSelector('[data-testid="kit-chat"]');
   await setWindowSize(1440, 900);
   const lights = await trafficLights();
-  const rail = page.getByRole("navigation", { name: "Main" });
-  // The kit's rail: six icon items, Chat current.
-  await expect(rail.getByRole("button")).toHaveCount(7); // six items + the bottom menu
-  await expect(rail.getByRole("button", { name: /^Chat/ })).toHaveAttribute("aria-current", "page");
-  // The kit's thread list: filter field and new-side-chat button in a 56 px header.
-  await expect(page.getByRole("textbox", { name: "Filter threads" })).toBeVisible();
-  const threadsHeader = await page.locator(".threads-header").boundingBox();
-  expect(threadsHeader?.height).toBe(56);
+  // The sidebar's destinations (redesign §5.1): six rows, Chat current while a thread is open.
+  const rail = page.getByRole("list", { name: "Destinations" });
+  await expect(rail.getByRole("button")).toHaveCount(6);
+  await expect(rail.getByRole("button", { name: /^Chat/ })).toHaveAttribute("aria-current", "true");
+  // The Threads group: its header with the filter and new-side-chat buttons.
+  const group = page.getByTestId("thread-group");
+  await expect(group.getByRole("heading", { name: "Threads" })).toBeVisible();
+  await expect(group.getByRole("button", { name: "New side chat" })).toBeVisible();
   for (const [label, id] of [
     ["Search", "search"],
     ["Feed", "feed"],
@@ -470,6 +487,10 @@ test("rail screens, inbox and agent sheet at 1440x900: kit chrome, no sideways s
   ] as const) {
     await rail.getByRole("button", { name: new RegExp(`^${label}`) }).click();
     await expect(page.getByTestId(`screen-${id}`)).toBeVisible();
+    await expect(rail.getByRole("button", { name: new RegExp(`^${label}`) })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
     await expect(page.getByText("This screen arrives with the UI kit.")).toHaveCount(0);
     await page.waitForTimeout(300);
     expect(await intruders(page, lights), `${label}: under the traffic lights`).toEqual([]);
@@ -546,6 +567,10 @@ test("web client at 390 px: no title bar, every onboarding step, main chat", asy
     ).toBeVisible();
     await expect(p.getByTestId("titlebar")).toHaveCount(0);
     await expect(p.getByTestId("shell")).toHaveAttribute("data-compact", "true");
+    // Compact (redesign §5.11): the top bar and the tab bar, no sidebar.
+    await expect(p.getByTestId("compact-top-bar")).toBeVisible();
+    await expect(p.getByTestId("tab-bar").getByRole("button")).toHaveCount(5);
+    await expect(p.getByRole("navigation", { name: "Sidebar" })).toHaveCount(0);
     await expectNoSidewaysScroll(p, "web main");
     await shot(p, "web-main-390");
   } finally {

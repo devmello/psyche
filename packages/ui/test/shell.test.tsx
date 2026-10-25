@@ -37,15 +37,17 @@ describe("ThreadList", () => {
         <ThreadList activeThreadId={null} onOpen={() => {}} now={STORY_NOW} />
       </StoryWorld>,
     );
-    const main = await screen.findByRole("list", { name: "Main chat" });
+    await screen.findAllByTestId("thread-row");
+    const main = document.querySelector<HTMLElement>('li[data-thread-kind="main"]');
+    if (!main) throw new Error("no main chat row");
     await userEvent.click(within(main).getByRole("button", { name: /More for/ }));
     expect(screen.queryByRole("menuitem", { name: "Archive" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Rename" })).toBeNull();
     await userEvent.keyboard("{Escape}");
 
-    const side = screen.getByRole("list", { name: "Side chats" });
-    await userEvent.click(
-      within(side).getAllByRole("button", { name: /More for/ })[0] as HTMLElement,
-    );
+    const side = document.querySelector<HTMLElement>('li[data-thread-kind="side"]');
+    if (!side) throw new Error("no side chat row");
+    await userEvent.click(within(side).getByRole("button", { name: /More for/ }));
     await userEvent.click(await screen.findByRole("menuitem", { name: "Archive" }));
     await waitFor(() =>
       expect(gateway?.calls.some((c) => c.method === "threads.archive")).toBe(true),
@@ -92,11 +94,14 @@ describe("ThreadList last line (§2.2)", () => {
         <ThreadList activeThreadId={null} onOpen={() => {}} now={STORY_NOW} />
       </StoryWorld>,
     );
-    expect(await screen.findByText("Flights on the 14th are cheapest.")).toBeTruthy();
-    await userEvent.type(screen.getByLabelText("Filter threads"), "cheapest");
+    // One-line rows (redesign §5.1): the last line is the row's tooltip, and the filter matches it.
+    const lisbon = await screen.findByTitle("Flights on the 14th are cheapest.");
+    expect(lisbon.getAttribute("data-testid")).toBe("thread-row");
+    await userEvent.click(screen.getByRole("button", { name: "Filter" }));
+    await userEvent.type(screen.getByRole("searchbox", { name: "Filter threads" }), "cheapest");
     const rows = screen.getAllByTestId("thread-row");
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.textContent).toContain("Flights on the 14th are cheapest.");
+    expect(rows[0]?.getAttribute("title")).toBe("Flights on the 14th are cheapest.");
   });
 
   it("a committed message becomes its thread's last line", () => {
