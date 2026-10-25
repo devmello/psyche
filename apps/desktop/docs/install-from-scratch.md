@@ -20,11 +20,15 @@ pnpm app:install       # install the newest dist/Psyche-*.dmg (or a path you giv
 ```
 
 `deploy/macos/install-local.sh` quits a running Psyche, boots the Gateway LaunchAgent out so nothing
-runs from the old bundle, swaps `/Applications/Psyche.app` atomically, verifies the signature and
-launches the new app, which loads the LaunchAgent again. `~/.psyche` is untouched. The build signs with
-the first Apple Development or Developer ID identity in your keychain, so permission grants survive
-rebuilds; when the signing identity changes the installer prints the `tccutil reset` to run once.
-`--dry-run` shows the steps, `--no-launch` leaves the app closed.
+runs from the old bundle, **resets the app** (deletes `$PSYCHE_HOME`, by default `~/.psyche`, with its
+state, vault, workspace, logs and backups; the desktop's Application Support, caches, logs,
+preferences, saved state and web storage; the helper's preferences; the LaunchAgent plist; and the
+vault's and helper's Keychain items), swaps `/Applications/Psyche.app` atomically, verifies the
+signature and launches the new app, which installs the LaunchAgent again and runs first-run
+onboarding. Pass `--keep-data` to install over your existing data instead. Privacy grants are kept:
+the build signs with the first Apple Development or Developer ID identity in your keychain, so they
+survive rebuilds, and when the signing identity changes the installer prints the `tccutil reset` to
+run once. `--dry-run` shows every step without doing it, `--no-launch` leaves the app closed.
 
 ### From a DMG, by hand
 

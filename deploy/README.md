@@ -30,7 +30,7 @@ Every recipe runs the same `psyched` with the same rules: it binds `127.0.0.1` o
 
 The desktop app installs and supervises the Gateway for you (LaunchAgent `com.psyche.gateway`). From a terminal:
 
-Building and installing the app from this checkout: `pnpm app:ship` (or `pnpm app:build` then `pnpm app:install`; see `deploy/macos/build-local.sh` and `install-local.sh`, and apps/desktop/docs/install-from-scratch.md).
+Building and installing the app from this checkout: `pnpm app:ship` (or `pnpm app:build` then `pnpm app:install`). The install resets the app's data, caches and Keychain items for a from-scratch first run unless you pass `--keep-data`; see `deploy/macos/build-local.sh`, `install-local.sh` and apps/desktop/docs/install-from-scratch.md.
 
 ```bash
 psyche start          # writes ~/Library/LaunchAgents/com.psyche.gateway.plist, bootstraps it, waits for /healthz
