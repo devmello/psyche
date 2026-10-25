@@ -1,6 +1,14 @@
+import { readFileSync } from "node:fs";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
+
+/** The workspace version (changesets bump every package together), shown in Settings → About. */
+const APP_VERSION = (
+  JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")) as {
+    version: string;
+  }
+).version;
 
 const GATEWAY = "127.0.0.1:7979";
 const DEV_PORT = 5173;
@@ -21,6 +29,7 @@ function devCsp(): Plugin {
 
 export default defineConfig({
   base: "/",
+  define: { __PSYCHE_APP_VERSION__: JSON.stringify(APP_VERSION) },
   plugins: [react(), tailwindcss(), devCsp()],
   resolve: { dedupe: ["react", "react-dom"] },
   build: { outDir: "dist", emptyOutDir: true, sourcemap: true },
@@ -34,6 +43,7 @@ export default defineConfig({
     // origin check rejects it.
     proxy: {
       "/healthz": { target: `http://${GATEWAY}` },
+      "/version": { target: `http://${GATEWAY}` },
       "/ws": {
         target: `ws://${GATEWAY}`,
         ws: true,
