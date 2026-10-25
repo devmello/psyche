@@ -491,8 +491,12 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
             setOverlay(null);
             return true;
           }
-          if (thread?.activeWriterRunId) void store.call("chat.cancel", { threadId: thread.id });
-          return true;
+          if (thread?.activeWriterRunId) {
+            void store.call("chat.cancel", { threadId: thread.id });
+            return true;
+          }
+          // Nothing to stop: Escape goes on to the focused field or menu (the sidebar's filter).
+          return false;
         case "approve":
         case "deny": {
           // The kit card owns ⌘Return / ⌘D (arming delay, Deny preselected); hand it the key.

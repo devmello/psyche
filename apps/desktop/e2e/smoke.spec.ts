@@ -299,12 +299,16 @@ test("Settings shares a folder through the native picker as a permissions.policy
     .getByTestId("sidebar-footer")
     .getByRole("button", { name: "Settings and help" })
     .click();
-  await page.getByRole("menuitem", { name: /^Settings/ }).click();
-  await page
+  // On the desktop, Settings open in their own window (⌘,; redesign §4, §5.8).
+  const [settings] = await Promise.all([
+    app.waitForEvent("window"),
+    page.getByRole("menuitem", { name: /^Settings/ }).click(),
+  ]);
+  await settings
     .getByRole("navigation", { name: "Settings sections" })
     .getByRole("button", { name: "File access" })
     .click();
-  await page.getByRole("button", { name: "Choose a folder…" }).click();
+  await settings.getByRole("button", { name: "Choose a folder…" }).click();
   const call = await gw.waitForCall("settings.set", (p) =>
     JSON.stringify(p).includes('"permissions.policy"'),
   );
@@ -313,7 +317,7 @@ test("Settings shares a folder through the native picker as a permissions.policy
     key: "permissions.policy",
     value: { folders: [{ path: realpathSync(picked), mode: "ro" }] },
   });
-  await expect(page.getByTestId("settings-files")).toContainText(realpathSync(picked));
+  await expect(settings.getByTestId("settings-files")).toContainText(realpathSync(picked));
 });
 
 test("the stored appearance.zoom is applied on launch and View → Actual Size stores 100", async () => {

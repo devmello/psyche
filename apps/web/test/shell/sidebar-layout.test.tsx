@@ -122,6 +122,18 @@ describe("the shell's one sidebar (redesign §5.1)", () => {
     await waitFor(() => expect(document.activeElement).toBe(composer));
   });
 
+  it("lets Escape through to the focused field when nothing is running", async () => {
+    window.history.replaceState(null, "", "/chat");
+    const { platform } = platformWith();
+    render(<ShellApp platform={platform} />);
+    await screen.findByTestId("shell");
+    const esc = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    act(() => {
+      window.dispatchEvent(esc);
+    });
+    expect(esc.defaultPrevented).toBe(false);
+  });
+
   it("keeps the §4.11 keyboard map: ⌘B is still the sidebar's chord", () => {
     const chord = SHORTCUTS.find((s) => s.action === "toggleThreadList")?.chord;
     expect(chord).toEqual({ key: "b", mod: true });
