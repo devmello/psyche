@@ -32,7 +32,7 @@ function Outcome({ outcome }: { outcome: string }): ReactElement {
     <span className="flex shrink-0 items-center gap-1.5">
       <Badge variant={outcomeTone(outcome)}>{head}</Badge>
       {rest.length > 0 ? (
-        <span className="text-caption text-muted-foreground">{rest.join(" · ")}</span>
+        <span className="text-callout text-muted-foreground">{rest.join(" · ")}</span>
       ) : null}
     </span>
   );
@@ -73,7 +73,7 @@ export function TaskList({
               <TaskStatusIcon status={task.status} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-small font-medium">{task.title}</span>
-                <span className="block truncate text-caption text-muted-foreground">
+                <span className="block truncate text-callout text-muted-foreground">
                   {step || task.summary
                     ? t("agent.task.statusDetail", {
                         status: TASK_STATUS_LABEL[task.status],
@@ -82,7 +82,7 @@ export function TaskList({
                     : TASK_STATUS_LABEL[task.status]}
                 </span>
               </span>
-              <span className="shrink-0 text-end text-caption text-muted-foreground">
+              <span className="shrink-0 text-end text-callout text-muted-foreground">
                 {task.createdFrom}
                 <br />
                 {formatRelative(task.updatedAt, now)}
@@ -146,7 +146,7 @@ export function ActionLog({
             <span className="w-11 shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
               {formatTime(a.createdAt)}
             </span>
-            <span className="w-16 shrink-0 truncate text-caption text-gray-11">
+            <span className="w-16 shrink-0 truncate text-callout text-gray-11">
               {a.level2.tool.split(/[._]/)[0]}
             </span>
             <span className="min-w-0 flex-1 truncate">{a.level1}</span>
@@ -238,7 +238,7 @@ export function TaskDetail({
             ) : null}
           </span>
         </div>
-        <p className="text-caption text-muted-foreground">
+        <p className="text-callout text-muted-foreground">
           {t("agent.task.meta", {
             from: task.createdFrom,
             time: formatTime(task.createdAt),

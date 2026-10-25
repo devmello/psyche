@@ -155,7 +155,7 @@ export function EvidenceLine({ items, onOpenRoute, className }: EvidenceLineProp
                 <span className="min-w-0">
                   {node}
                   {e.source ? (
-                    <span className="text-caption text-gray-11"> · {sourceLabel(e.source)}</span>
+                    <span className="text-callout text-gray-11"> · {sourceLabel(e.source)}</span>
                   ) : null}
                 </span>
               </li>

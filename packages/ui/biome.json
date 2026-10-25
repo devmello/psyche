@@ -3,7 +3,13 @@
   "root": false,
   "extends": "//",
   "files": {
-    "includes": ["**", "!storybook-static", "!visual/__screenshots__", "!test-results"]
+    "includes": [
+      "**",
+      "!storybook-static",
+      "!visual/__screenshots__",
+      "!test-results",
+      "!src/styles/motion.css"
+    ]
   },
   "css": {
     "parser": { "tailwindDirectives": true }

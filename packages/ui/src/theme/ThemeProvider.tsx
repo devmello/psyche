@@ -8,6 +8,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { MotionProvider } from "../motion/MotionProvider.tsx";
 import { THEME_STYLE_ID, themeToCss } from "./css.ts";
 import {
   type Appearance,
@@ -154,7 +155,11 @@ export function ThemeProvider({ settings, children, target }: ThemeProviderProps
     [normalized, resolved, reduceMotion, theme],
   );
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={value}>
+      <MotionProvider reduce={reduceMotion}>{children}</MotionProvider>
+    </ThemeContext.Provider>
+  );
 }
 
 /** Theme state; outside a provider it reports the defaults without generating CSS. */

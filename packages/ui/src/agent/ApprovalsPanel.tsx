@@ -194,7 +194,7 @@ export function ApprovalsPanel({ now: fixedNow }: { now?: number }): ReactElemen
                   <span className="min-w-0 flex-1 truncate">{displaySummary(v.approval)}</span>
                   <Badge variant={line.variant}>{line.text}</Badge>
                   {v.approval.decidedAt ? (
-                    <span className="shrink-0 text-caption text-muted-foreground">
+                    <span className="shrink-0 text-callout text-muted-foreground">
                       {formatRelative(v.approval.decidedAt, now)}
                     </span>
                   ) : null}

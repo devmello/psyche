@@ -29,3 +29,40 @@ describe("motion tokens (docs/design/motion.md §2.3)", () => {
     for (const s of Object.values(spring)) expect(s.bounce).toBeLessThanOrEqual(0.15);
   });
 });
+
+describe("motion CSS and literals (docs/design/motion.md §8)", () => {
+  it("styles/motion.css is generated from the tokens", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { motionCss } = await import("../src/motion/css.ts");
+    const { join } = await import("node:path");
+    const css = readFileSync(join(process.cwd(), "src/styles/motion.css"), "utf8");
+    expect(css, "run `pnpm --filter @psyche/ui gen:motion`").toBe(motionCss());
+  });
+
+  it("spring curves start at 0, end at 1 and never overshoot past the bounce", async () => {
+    const { springLinear } = await import("../src/motion/css.ts");
+    for (const s of Object.values(spring)) {
+      const stops = springLinear(s)
+        .slice("linear(".length, -1)
+        .split(",")
+        .map((v) => Number(v.trim()));
+      expect(stops[0]).toBe(0);
+      expect(stops.at(-1)).toBe(1);
+      expect(Math.max(...stops)).toBeLessThanOrEqual(1 + s.bounce);
+    }
+  });
+
+  it("components/ui reads motion tokens instead of literals", async () => {
+    const { readdirSync, readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const dir = join(process.cwd(), "src/components/ui");
+    const offenders: string[] = [];
+    for (const file of readdirSync(dir)) {
+      const src = readFileSync(join(dir, file), "utf8");
+      for (const m of src.matchAll(/\b(duration-\d+|transition-all|cubic-bezier\()/g))
+        offenders.push(`${file}: ${m[0]}`);
+    }
+    // drawer.tsx follows Base UI's swipe physics (its own durations); everything else uses tokens.
+    expect(offenders.filter((o) => !o.startsWith("drawer.tsx"))).toEqual([]);
+  });
+});

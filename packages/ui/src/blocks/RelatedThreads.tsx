@@ -44,7 +44,7 @@ export function RelatedThreads({ block }: { block: BlockOf<"related_threads"> })
               >
                 {item.title || t("blocks.related.untitled")}
               </button>
-              <span className="text-caption text-muted-foreground">
+              <span className="text-callout text-muted-foreground">
                 {item.lastMessageAt ? `${formatDate(item.lastMessageAt)} · ` : ""}
                 {item.snippet}
               </span>

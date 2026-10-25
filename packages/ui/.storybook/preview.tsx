@@ -20,8 +20,12 @@ const preview: Preview = {
       description: "Reduced motion",
       toolbar: { title: "Motion", items: ["full", "reduced"], dynamicTitle: true },
     },
+    contrast: {
+      description: "Increase contrast",
+      toolbar: { title: "Contrast", items: ["standard", "high"], dynamicTitle: true },
+    },
   },
-  initialGlobals: { theme: "light", accent: "#6e56cf", motion: "full" },
+  initialGlobals: { theme: "light", accent: "#6e56cf", motion: "full", contrast: "standard" },
   parameters: {
     layout: "padded",
     a11y: { test: "error" },
@@ -33,6 +37,7 @@ const preview: Preview = {
           theme: ctx.globals.theme === "dark" ? "dark" : "light",
           accentSeed: String(ctx.globals.accent ?? "#6e56cf"),
           reduceMotion: ctx.globals.motion === "reduced",
+          contrast: ctx.globals.contrast === "high" ? "high" : "standard",
         }}
       >
         <div className="bg-background text-foreground">

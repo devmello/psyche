@@ -127,20 +127,20 @@ export function ToolCallRow({
           <StatusDot status={block.status} />
           <span
             className={cn(
-              "truncate text-caption",
+              "truncate text-callout",
               failed ? "text-danger-text" : "text-muted-foreground",
             )}
           >
             {statusLabel(block.status)}
           </span>
         </span>
-        <span className="w-10 shrink-0 text-end text-caption text-muted-foreground tabular-nums">
+        <span className="w-10 shrink-0 text-end text-callout text-muted-foreground tabular-nums">
           {duration(call) ?? ""}
         </span>
       </div>
       {diff !== undefined ? (
         <details className="ms-6">
-          <summary className="cursor-pointer text-caption text-accent-11">
+          <summary className="cursor-pointer text-callout text-accent-11">
             {t("blocks.common.viewDiff")}
           </summary>
           <DiffBlock diff={diff} className="mt-1 max-h-96 overflow-auto" />

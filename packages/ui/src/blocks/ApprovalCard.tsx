@@ -370,7 +370,7 @@ export function ApprovalCard({
           </RadioGroup>
 
           {approval.requiresAuthentication || otherSurfaces.length > 0 ? (
-            <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-muted-foreground">
+            <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-callout text-muted-foreground">
               {approval.requiresAuthentication ? (
                 <span className="inline-flex items-center gap-1.5">
                   <Fingerprint className="size-3.5" aria-hidden="true" />{" "}
@@ -408,14 +408,14 @@ export function ApprovalCard({
           />
           {t("blocks.approval.details")}
         </Button>
-        <p className="min-w-0 flex-1 truncate text-caption text-muted-foreground">
+        <p className="min-w-0 flex-1 truncate text-callout text-muted-foreground">
           {t("blocks.approval.binding")}{" "}
           <span className="font-mono">{approval.bindingHash.slice(0, 15)}…</span>{" "}
           {t("blocks.approval.bindingVoids")}
         </p>
         {interactive ? (
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <p id={hintId} className="text-caption text-muted-foreground">
+            <p id={hintId} className="text-callout text-muted-foreground">
               <kbd className="font-sans">⌘↩</kbd> {t("blocks.approval.keyAllows")} ·{" "}
               <kbd className="font-sans">⌘D</kbd> {t("blocks.approval.keyDenies")}
             </p>

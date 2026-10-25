@@ -175,7 +175,7 @@ export function Composer({
             <Mic aria-hidden="true" />
           </Button>
         ) : null}
-        <span id={hintId} className="ms-1 text-caption text-muted-foreground">
+        <span id={hintId} className="ms-1 text-callout text-muted-foreground">
           {!running
             ? t("chat.composer.hintIdle")
             : mode === "followUp"

@@ -120,14 +120,14 @@ export function ApprovalIds({ approval }: { approval: ApprovalRequest }): ReactE
         .filter(([k, v]) => k !== "reason" && isLevel2Key(k, v))
         .map(([k, v]) => (
           <Row key={k} label={humanize(k)}>
-            <span className="font-mono text-caption break-all">{str(v)}</span>
+            <span className="font-mono text-callout break-all">{str(v)}</span>
           </Row>
         ))}
       <Row label={t("blocks.details.approval")}>
-        <span className="font-mono text-caption break-all">{approval.id}</span>
+        <span className="font-mono text-callout break-all">{approval.id}</span>
       </Row>
       <Row label={t("blocks.details.binding")}>
-        <span className="font-mono text-caption break-all">{approval.bindingHash}</span>
+        <span className="font-mono text-callout break-all">{approval.bindingHash}</span>
       </Row>
     </dl>
   );
@@ -324,7 +324,7 @@ export function ApprovalDetails({
             <Code>{str(d.branch)}</Code>
           </Row>
           <Row label={t("blocks.details.commit")}>
-            <span className="font-mono text-caption break-all">{str(d.commit)}</span>
+            <span className="font-mono text-callout break-all">{str(d.commit)}</span>
           </Row>
           <Row label={t("blocks.details.repository")}>
             <Code>{str(d.repo)}</Code>

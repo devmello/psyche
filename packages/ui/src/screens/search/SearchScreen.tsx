@@ -254,7 +254,7 @@ export function SearchView({
                         <Icon className="size-4" />
                       </span>
                       <span className="flex min-w-0 flex-1 flex-col">
-                        <span className="truncate text-body font-medium text-foreground">
+                        <span className="truncate text-reading font-medium text-foreground">
                           <Highlight text={hit.title} terms={terms} />
                         </span>
                         <span className="sr-only">: </span>
@@ -305,7 +305,7 @@ export function SearchView({
               type="search"
               value={query}
               placeholder={t("screens.search.placeholder")}
-              className="h-12 rounded-lg border-gray-7 bg-gray-2 ps-11 text-body md:text-body"
+              className="h-12 rounded-lg border-gray-7 bg-gray-2 ps-11 text-reading md:text-reading"
               autoFocus={autoFocus}
               onChange={(e) => onQueryChange?.(e.target.value)}
             />
@@ -393,7 +393,7 @@ export function SearchView({
             >
               {otherFilters.map((f) => (
                 <li key={`${f.key}:${f.value}`}>
-                  <span className="inline-flex h-6 items-center gap-1 rounded-full bg-accent-3 pe-1 ps-2.5 text-caption text-accent-11">
+                  <span className="inline-flex h-6 items-center gap-1 rounded-full bg-accent-3 pe-1 ps-2.5 text-callout text-accent-11">
                     {filterLabel(f)}
                     <button
                       type="button"
@@ -408,13 +408,13 @@ export function SearchView({
               ))}
               {parsed.unsupported.map((u) => (
                 <li key={u}>
-                  <span className="inline-flex h-6 items-center rounded-full border border-dashed border-gray-7 px-2.5 text-caption text-gray-11">
+                  <span className="inline-flex h-6 items-center rounded-full border border-dashed border-gray-7 px-2.5 text-callout text-gray-11">
                     {t("screens.search.unknownFilter", { filter: u })}
                   </span>
                 </li>
               ))}
               {parsed.from.length > 0 ? (
-                <li className="text-caption text-gray-11">{t("screens.search.fromNote")}</li>
+                <li className="text-callout text-gray-11">{t("screens.search.fromNote")}</li>
               ) : null}
             </ul>
           ) : null}

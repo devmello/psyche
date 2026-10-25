@@ -144,7 +144,7 @@ export function LibraryItemView({
               <Badge variant="muted">{t("screens.library.readOnly")}</Badge>
             ) : null}
           </div>
-          <p className="text-caption text-gray-11">
+          <p className="text-callout text-gray-11">
             {t("screens.library.meta", {
               kind: KIND_LABEL[item.kind],
               type: fileType(item),
@@ -365,7 +365,7 @@ export function LibraryView({
 
   const labelled = (id: string, label: string, control: ReactElement) => (
     <div className="flex items-center gap-1.5">
-      <label htmlFor={id} className="text-caption text-gray-11">
+      <label htmlFor={id} className="text-callout text-gray-11">
         {label}
       </label>
       {control}

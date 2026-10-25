@@ -143,7 +143,7 @@ export function ArtifactCard({
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1 p-3">
         <h3 className="truncate text-h3">{artifact.title}</h3>
-        <p className="text-caption text-muted-foreground">
+        <p className="text-callout text-muted-foreground">
           {t("blocks.artifact.meta", {
             kind: kindLabel(kind),
             version: artifact.version,

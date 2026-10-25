@@ -40,6 +40,12 @@ for (const mode of ["light", "dark"] as const) {
     // Danger text on tinted surfaces: tomato-12 in light, tomato-11 in dark.
     const dangerOnTint = sem(mode === "light" ? "tomato-12" : "tomato-11");
 
+    // --canvas = gray-1, --surface-sidebar = gray-2, --surface-raised = white (light) / gray-2 (dark).
+    const surfaces: [string, string][] = [
+      ["canvas", gray(1)],
+      ["sidebar", gray(2)],
+      ["raised", mode === "light" ? "#ffffff" : gray(2)],
+    ];
     const pairs: [string, string, string, number][] = [
       ["approval text on gray-1", approvalText, gray(1), TEXT],
       ["approval text on gray-2 (approval card)", approvalText, gray(2), TEXT],
@@ -59,6 +65,14 @@ for (const mode of ["light", "dark"] as const) {
       ["incognito ring gray-9 on gray-1", gray(9), gray(1), NON_TEXT],
       ["pending icon gray-9 on gray-2", gray(9), gray(2), NON_TEXT],
       ["primary text on accent-9", t.accentContrast, accent(9), TEXT],
+      // Redesign roles (styles/design.css): labels on canvas, sidebar and raised surfaces.
+      ...surfaces.flatMap(([surface, bg]): [string, string, string, number][] => [
+        [`label-primary on ${surface}`, gray(12), bg, TEXT],
+        [`label-secondary on ${surface}`, gray(11), bg, TEXT],
+        [`label-tertiary (metadata) on ${surface}`, gray(10), bg, NON_TEXT],
+        [`accent-11 link on ${surface}`, accent(11), bg, TEXT],
+        [`focus ring on ${surface}`, accent(9), bg, NON_TEXT],
+      ]),
     ];
     for (const [name, fg, bg, min] of pairs) {
       it(`${name} ≥ ${min}:1`, () => {
