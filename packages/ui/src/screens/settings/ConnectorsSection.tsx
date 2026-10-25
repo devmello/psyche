@@ -17,6 +17,7 @@ import {
 } from "./connect-flow.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import {
+  GROUP_ROWS,
   Group,
   LoadGate,
   type LoadProps,
@@ -223,6 +224,14 @@ export function ConnectorsPanel({
   onRetry,
 }: ConnectorsPanelProps): ReactElement {
   const clock = useNow(30_000, now);
+  const [shownScopes, setShownScopes] = useState<ReadonlySet<string>>(new Set());
+  const toggleScopes = (id: string) =>
+    setShownScopes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   const [adding, setAdding] = useState(defaultAdding);
   const addButton = onConnect ? (
     <Button type="button" size="sm" onClick={() => setAdding(true)} disabled={adding}>
@@ -276,105 +285,129 @@ export function ConnectorsPanel({
             </EmptyState>
           )
         ) : (
-          <ul className="flex flex-col gap-3">
+          // A grouped inset list, one row per account (redesign §5.8); scopes are technical names.
+          <ul className={GROUP_ROWS}>
             {connectors.map((c) => {
               const used = lastUsed(c);
               const permission = permissionOf(c);
+              const technical = shownScopes.has(c.id);
               return (
                 <li key={c.id}>
-                  <article
-                    aria-label={c.label}
-                    className="rounded-lg border border-gray-6 bg-gray-2 p-4 text-sm"
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-base font-semibold">{c.label}</h3>
-                      <StatusChip tone={permission ? "approval" : STATUS_TONE[c.status]}>
-                        {permission
-                          ? t("settings.connectors.status.needsPermission")
-                          : t(`settings.connectors.status.${c.status}`)}
-                      </StatusChip>
-                      <StatusChip tone="neutral">{SCOPE_MODE_LABEL[c.scopeMode]}</StatusChip>
-                      <StatusChip tone={trustTier(c) === "built-in" ? "info" : "approval"}>
-                        {t("settings.connectors.trust", { tier: trustTierLabel(trustTier(c)) })}
-                      </StatusChip>
-                    </div>
-                    <dl className="mt-2 grid grid-cols-[7rem_1fr] gap-x-3 gap-y-1">
-                      <dt className="text-muted-foreground">{t("settings.connectors.account")}</dt>
-                      <dd>{c.account ?? t("settings.connectors.noAccount")}</dd>
-                      <dt className="text-muted-foreground">{t("settings.connectors.scopes")}</dt>
-                      <dd className="flex flex-wrap gap-1">
-                        {c.scopes.map((s) => (
-                          <code key={s} className="rounded bg-gray-4 px-1 font-mono text-xs">
-                            {s}
-                          </code>
-                        ))}
-                      </dd>
-                      <dt className="text-muted-foreground">
-                        {t("settings.credentials.col.lastUsed")}
-                      </dt>
-                      <dd>
-                        {used === null
-                          ? t("settings.credentials.never")
-                          : formatRelative(used, clock)}
-                      </dd>
-                    </dl>
-                    {permission && c.status === "needs_auth" ? (
-                      <div className="mt-2 flex flex-col gap-1">
-                        <PermissionNotice name={c.label} permission={permission} />
+                  <article aria-label={c.label} className="flex flex-col gap-1.5">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-headline text-label-primary">{c.label}</h3>
+                          <StatusChip tone={permission ? "approval" : STATUS_TONE[c.status]}>
+                            {permission
+                              ? t("settings.connectors.status.needsPermission")
+                              : t(`settings.connectors.status.${c.status}`)}
+                          </StatusChip>
+                          <StatusChip tone="neutral">{SCOPE_MODE_LABEL[c.scopeMode]}</StatusChip>
+                          <StatusChip tone={trustTier(c) === "built-in" ? "info" : "approval"}>
+                            {t("settings.connectors.trust", { tier: trustTierLabel(trustTier(c)) })}
+                          </StatusChip>
+                        </div>
+                        <p className="text-callout text-label-secondary">
+                          <span>{c.account ?? t("settings.connectors.noAccount")}</span>
+                          <span aria-hidden="true"> · </span>
+                          <span>
+                            {t("settings.credentials.col.lastUsed")}{" "}
+                            {used === null
+                              ? t("settings.credentials.never").toLocaleLowerCase()
+                              : formatRelative(used, clock)}
+                          </span>
+                        </p>
+                        {technical ? (
+                          <p className="flex flex-wrap items-center gap-1 text-callout text-label-secondary">
+                            <span>{t("settings.connectors.scopes")}</span>
+                            {c.scopes.map((sc) => (
+                              <code
+                                key={sc}
+                                className="rounded-xs bg-fill-tertiary px-1 font-mono text-mono"
+                              >
+                                {sc}
+                              </code>
+                            ))}
+                          </p>
+                        ) : null}
                       </div>
-                    ) : null}
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {permission && c.status === "needs_auth" ? (
-                        <>
-                          {onGrant && permission.state === "denied" ? (
-                            <Button type="button" size="sm" onClick={() => onGrant(c)}>
-                              {t("settings.connect.openSystemSettings")}
-                            </Button>
-                          ) : null}
-                          {onCheck ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => onCheck(c)}
-                            >
-                              {t("settings.connect.checkAgain")}
-                            </Button>
-                          ) : null}
-                        </>
-                      ) : c.status === "needs_auth" && onReconnect ? (
-                        <Button type="button" size="sm" onClick={() => onReconnect(c)}>
-                          {t("settings.connectors.status.needs_auth")}
-                        </Button>
-                      ) : null}
-                      {onDisconnect && c.status !== "disconnected" ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onDisconnect(c)}
-                          aria-label={t("settings.connectors.disconnectNamed", { name: c.label })}
-                        >
-                          {t("settings.connectors.disconnect")}
-                        </Button>
-                      ) : null}
-                      {onRemove ? (
+                      <div className="flex shrink-0 flex-wrap items-center gap-2">
+                        {permission && c.status === "needs_auth" ? (
+                          <>
+                            {onGrant && permission.state === "denied" ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => onGrant(c)}
+                              >
+                                {t("settings.connect.openSystemSettings")}
+                              </Button>
+                            ) : null}
+                            {onCheck ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => onCheck(c)}
+                              >
+                                {t("settings.connect.checkAgain")}
+                              </Button>
+                            ) : null}
+                          </>
+                        ) : c.status === "needs_auth" && onReconnect ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onReconnect(c)}
+                          >
+                            {t("settings.connectors.status.needs_auth")}
+                          </Button>
+                        ) : null}
+                        {onDisconnect && c.status !== "disconnected" ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onDisconnect(c)}
+                            aria-label={t("settings.connectors.disconnectNamed", { name: c.label })}
+                          >
+                            {t("settings.connectors.disconnect")}
+                          </Button>
+                        ) : null}
                         <RowMoreMenu
                           name={c.label}
-                          destructive={[
+                          items={[
                             {
-                              label: t("common.remove"),
-                              title: t("settings.connectors.removeTitle", { name: c.label }),
-                              description: t("settings.connectors.removeDescription", {
-                                name: c.label,
-                              }),
-                              confirm: t("common.remove"),
-                              onConfirm: () => onRemove(c),
+                              label: technical
+                                ? t("settings.actions.hideKey")
+                                : t("settings.actions.showKey"),
+                              onClick: () => toggleScopes(c.id),
                             },
                           ]}
+                          destructive={
+                            onRemove
+                              ? [
+                                  {
+                                    label: t("common.remove"),
+                                    title: t("settings.connectors.removeTitle", { name: c.label }),
+                                    description: t("settings.connectors.removeDescription", {
+                                      name: c.label,
+                                    }),
+                                    confirm: t("common.remove"),
+                                    onConfirm: () => onRemove(c),
+                                  },
+                                ]
+                              : []
+                          }
                         />
-                      ) : null}
+                      </div>
                     </div>
+                    {permission && c.status === "needs_auth" ? (
+                      <PermissionNotice name={c.label} permission={permission} />
+                    ) : null}
                   </article>
                 </li>
               );

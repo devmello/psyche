@@ -278,7 +278,10 @@ describe("Computer use", () => {
     expect(
       screen.queryByRole("button", { name: "Open System Settings for Accessibility" }),
     ).toBeNull();
-    const row = screen.getByRole("row", { name: /1Password/ });
+    const apps = screen.getByRole("list", { name: "App access" });
+    const row = within(apps)
+      .getAllByRole("listitem")
+      .find((li) => li.textContent?.includes("1Password")) as HTMLElement;
     expect(within(row).getByText("Off (fixed)")).toBeTruthy();
     expect(within(row).queryByRole("radio")).toBeNull();
     expect(screen.getAllByText("Click only (fixed)")).toHaveLength(2);
@@ -297,8 +300,8 @@ describe("Computer use", () => {
         (last?.params as { value: { id: string; tier: string }[] } | undefined)?.value ?? [];
       expect(apps.find((a) => a.id === "com.apple.Notes")?.tier).toBe("ask");
     });
-    // One radio group per row (audit decision 2): the arrow keys move within the row.
-    const notes = screen.getByRole("row", { name: "Notes" });
+    // One segmented radio group per app (audit decision 2): the arrow keys move within it.
+    const notes = screen.getByRole("radiogroup", { name: "Notes" });
     expect(within(notes).getAllByRole("radio")).toHaveLength(4);
     screen.getByRole("radio", { name: "Notes: Ask" }).focus();
     await userEvent.keyboard("{ArrowRight}");

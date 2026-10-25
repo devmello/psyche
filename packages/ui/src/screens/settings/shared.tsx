@@ -378,8 +378,10 @@ export function RadioField<T extends string>({
       </div>
     );
   }
-  // A short inline choice (Theme: Auto / Light / Dark) is a trailing segmented control (§5.8).
-  if (inline && options.length <= 4 && options.every((o) => !o.hint && !o.disabled)) {
+  // A short inline choice (Theme: Auto / Light / Dark) is a trailing segmented control (§5.8);
+  // the selected option's hint reads under the row.
+  if (inline && options.length <= 4 && options.every((o) => !o.disabled)) {
+    const selectedHint = options.find((o) => o.value === value)?.hint;
     return (
       <div className="flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -398,6 +400,11 @@ export function RadioField<T extends string>({
           </div>
           <SegmentedRadio label={label} options={options} value={value} onChange={onChange} />
         </div>
+        {selectedHint ? (
+          <p className="text-callout text-label-secondary" aria-live="polite">
+            {selectedHint}
+          </p>
+        ) : null}
         {settingKey ? <SettingHint settingKey={settingKey} /> : null}
         {children}
       </div>
