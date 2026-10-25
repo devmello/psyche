@@ -494,8 +494,13 @@ describe("page columns (#512, redesign §5.6)", () => {
       // Nothing inside narrows the content to a left-aligned measure again.
       expect(column.querySelector('[class*="max-w-[68ch]"]'), name).toBeNull();
     }
-    // Goals keeps its centred column until its split layout lands (redesign E2).
-    const goals = screen.getByRole("region", { name: "Goals" }).firstElementChild as HTMLElement;
-    expect(goals.className).toContain("mx-auto");
+    // Goals is a split layout (§5.6): the title in the toolbar, a 280 px list beside the page.
+    const goals = parts("Goals");
+    expect(
+      within(goals.toolbar as HTMLElement).getByRole("heading", { level: 1, name: "Goals" }),
+    ).toBeTruthy();
+    expect(goals.column.dataset.slot).toBe("goals-split");
+    expect(goals.column.className).toContain("md:grid-cols-[280px_minmax(0,1fr)]");
+    expect(within(goals.column).getByRole("navigation", { name: "Your goals" })).toBeTruthy();
   });
 });
