@@ -3439,6 +3439,32 @@ export const es: Partial<Catalogue> = {
   "settings.key.voice.conversation.pauseMs": "Pausa antes de que Psyche responda",
   "settings.key.voice.conversation.brief": "Resumen hablado",
 
+  // specialist controls (specialists §4.7) and the approval context line (§4.4)
+  "specialists.control.menu": "Más para {title}",
+  "specialists.control.steerLabel": "Decirle algo al {role} sobre {title}",
+  "specialists.control.steerPlaceholder": "Dile algo al {role}…",
+  "specialists.control.steerHint": "Lo lee antes de su siguiente paso.",
+  "specialists.control.send": "Enviar",
+  "specialists.control.steered": "Enviado al {role}.",
+  "specialists.control.pause": "Pausar",
+  "specialists.control.resume": "Reanudar",
+  "specialists.control.giveMore": "Darle más…",
+  "specialists.control.stop": "Detener…",
+  "specialists.control.giveMoreTitle": "¿Darle más al {role}?",
+  "specialists.control.giveMoreBody":
+    "Sube su presupuesto para {title} en la mitad, hasta el máximo que permiten los Ajustes para este rol.",
+  "specialists.control.moreTokens": "Tokens: {from} → {to}",
+  "specialists.control.moreCost": "Coste: {from} → {to}",
+  "specialists.control.moreTime": "Tiempo: {from, number} → {to, number} min",
+  "specialists.control.atCap": "Ya tiene el máximo que permiten los Ajustes para este rol.",
+  "specialists.control.giveMoreConfirm": "Darle más",
+  "specialists.control.stopTitle": "¿Detener al {role}?",
+  "specialists.control.stopBody":
+    "Se detiene ahora y no terminará {title}. Lo que ya hizo queda en Actividad.",
+  "specialists.control.stopConfirm": "Detenerlo",
+  "specialists.control.failed": "Psyche no pudo hacerlo: {reason}",
+  "blocks.approval.specialist":
+    "{hasTask, select, true {Para «{task}» · } other {}}{role} iniciado por {agent}{hasThread, select, true { en {thread}} other {}}",
   // Ask about my screen
   "screenAsk.label": "Preguntar sobre tu pantalla",
   "screenAsk.placeholder": "Pregunta sobre lo que hay en pantalla o pídele algo a Psyche…",

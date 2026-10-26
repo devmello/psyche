@@ -30,6 +30,7 @@ export function ApprovalDock({
   const { pending, answer } = useApprovals();
   const persona = usePersona();
   const tasks = useStoreState((s) => s.tasks);
+  const threads = useStoreState((s) => s.threads);
   const [openId, setOpenId] = useState<string | null>(null);
   useEffect(() => {
     const onFocus = (e: Event) => {
@@ -98,6 +99,11 @@ export function ApprovalDock({
                   persona={persona.name}
                   taskTitle={task?.title ?? null}
                   createdFrom={task?.createdFrom ?? null}
+                  parentThreadTitle={
+                    task?.specialist
+                      ? (threads[task.specialist.parentThreadId]?.thread.title ?? null)
+                      : null
+                  }
                   {...(mode === undefined ? {} : { mode })}
                   otherSurfaces={open.approval.surfaces.filter(
                     (s) => s !== "desktop" && s !== "web",

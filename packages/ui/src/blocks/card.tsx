@@ -114,6 +114,10 @@ export interface CardProps {
   /** Polite live region on the meta, for cards whose status changes while shown. */
   live?: boolean;
   actions?: readonly CardAction[];
+  /** Text at the start of the action bar (a wrap-up's question). */
+  actionsLead?: ReactNode;
+  /** Button size in the action bar; `sm` except for decision cards. */
+  actionSize?: "sm" | "default";
   /** Creation time: a card arriving later than the first wave enters with the list enter. */
   createdAt?: string | null;
   className?: string;
@@ -135,6 +139,8 @@ export function Card({
   meta,
   live = false,
   actions = [],
+  actionsLead,
+  actionSize = "sm",
   createdAt,
   className,
   children,
@@ -182,22 +188,31 @@ export function Card({
           </header>
         ) : null}
         {children !== undefined ? <div className={cn(hasHeader && "mt-1")}>{children}</div> : null}
-        <CardActions actions={actions} />
+        <CardActions actions={actions} lead={actionsLead} size={actionSize} />
       </article>
     </CardEnter>
   );
 }
 
 /** The action bar: the primary trails, the rest come first in reading and focus order. */
-export function CardActions({ actions }: { actions: readonly CardAction[] }): ReactElement | null {
-  if (actions.length === 0) return null;
+export function CardActions({
+  actions,
+  lead,
+  size = "sm",
+}: {
+  actions: readonly CardAction[];
+  lead?: ReactNode;
+  size?: "sm" | "default";
+}): ReactElement | null {
+  if (actions.length === 0 && lead === undefined) return null;
   const ordered = [...actions.filter((a) => !a.primary), ...actions.filter((a) => a.primary)];
   return (
     <footer className="mt-3 flex flex-wrap items-center justify-end gap-2">
+      {lead !== undefined ? <div className="me-auto">{lead}</div> : null}
       {ordered.map((a) => (
         <Button
           key={a.id}
-          size="sm"
+          size={size}
           variant={a.primary ? "default" : "secondary"}
           disabled={a.disabled}
           data-action-kind={a.kind}

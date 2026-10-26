@@ -1222,6 +1222,35 @@ export class MockGateway implements GatewayClient {
     "tasks.pause": (p) => this.patchTask(p.taskId, "paused"),
     "tasks.resume": (p) => this.patchTask(p.taskId, "running"),
     "tasks.cancel": (p) => this.patchTask(p.taskId, "cancelled"),
+    "tasks.steer": (p) => {
+      const task = this.find(this.world.tasks, p.taskId, "task");
+      if (["done", "failed", "cancelled"].includes(task.status)) {
+        fail("conflict", `task ${p.taskId} is ${task.status}`);
+      }
+      return { task };
+    },
+    "tasks.update": (p) => {
+      const task = this.find(this.world.tasks, p.taskId, "task");
+      const jobs = this.world.specialistJobs ?? [];
+      const job =
+        jobs.find((j) => j.taskId === p.taskId) ??
+        fail("invalid_params", `task ${p.taskId} is not a specialist's job`);
+      const b = p.budget ?? {};
+      const limit = {
+        ...job.budget.limit,
+        ...(b.tokens === undefined ? {} : { tokens: b.tokens }),
+        ...(b.costUsd === undefined ? {} : { costUsd: b.costUsd }),
+        ...(b.minutes === undefined ? {} : { wallMs: b.minutes * 60_000 }),
+      };
+      const next: SpecialistJob = {
+        ...job,
+        budget: { ...job.budget, limit },
+        ...(p.deadline === undefined ? {} : { deadline: p.deadline }),
+        updatedAt: this.now(),
+      };
+      this.world.specialistJobs = jobs.map((j) => (j.taskId === p.taskId ? next : j));
+      return { task };
+    },
     "tasks.retry": (p) => {
       const t = this.find(this.world.tasks, p.taskId, "task");
       const task = {
