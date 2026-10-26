@@ -53,7 +53,13 @@ import { presenceStateFor } from "./presence-gate.ts";
 import { resolvePeer, trustedProxyList } from "./proxy.ts";
 import { RateLimiter } from "./rate-limit.ts";
 import { type RecoveryReport, recoverAfterRestart } from "./recovery.ts";
-import { RETENTION_INTERVAL_MS, reasoningRetentionDays, runRetention } from "./retention.ts";
+import {
+  RETENTION_INTERVAL_MS,
+  reasoningRetentionDays,
+  replayRetentionDays,
+  runRecordingsDir,
+  runRetention,
+} from "./retention.ts";
 import { RunTraceSink } from "./run-trace/sink.ts";
 import { SessionController } from "./session/controller.ts";
 import { ensureSocketDir, writeSocketPointer } from "./socket-path.ts";
@@ -220,6 +226,8 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       now,
       ...(options.traceRedact === undefined ? {} : { redact: options.traceRedact }),
       reasoningRetentionDays: () => reasoningRetentionDays(db),
+      replayRetentionDays: () => replayRetentionDays(db),
+      recordingsDir: (runId) => runRecordingsDir(config.home, runId),
       // Incognito threads are never written (run trace §4.3).
       isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
     }),

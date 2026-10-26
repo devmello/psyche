@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (S01, #660: run trace T1, part 3)
+
+- Contract `MemoryWriteOptions.trace` and `DailyNoteInput.trace` (`MemoryWriteTrace {runId, toolCallId}`): the tool call behind a memory write, so `memory.file.changed` can name its run and step. TypeScript-only; no schema change.
+
 ### v1 additive — 2026-10-25 (S17: voice conversation, V-G #691)
 
 For S17 (`packages/speech` `VoiceConversation`, V-G), S14 (helper, V-H #692), the UI session (V-U #693), S02 (agent-core voice turns), S03 (router). Contract of docs/voice/voice-mode-2026.md §7.

@@ -117,6 +117,9 @@ export const automationRuns = sqliteTable("automation_runs", {
   notificationId: text("notification_id"),
   createdAt: text("created_at").notNull(),
   events: text("events"),
+  // 202610261400_gateway_run-trace-automations: the agent run behind it and what it used.
+  runId: text("run_id"),
+  usage: text("usage"),
 });
 
 export const watches = sqliteTable("watches", {
