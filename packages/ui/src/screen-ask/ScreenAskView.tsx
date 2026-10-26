@@ -14,6 +14,7 @@ import { Markdown } from "../blocks/Markdown.tsx";
 import { MessageBlocks } from "../blocks/MessageBlocks.tsx";
 import { indexThreadBlocks, ThreadBlocksProvider } from "../blocks/thread-blocks.tsx";
 import { Button } from "../components/ui/button.tsx";
+import { Skeleton } from "../components/ui/skeleton.tsx";
 import { t } from "../i18n/core.ts";
 import { type OrbState, ScreenAskOrb } from "./ScreenAskOrb.tsx";
 
@@ -128,7 +129,13 @@ function Answer({
   });
 
   return (
-    <div className="psy-ask-in border-separator border-t-[0.5px]" aria-live="polite">
+    // Announced once, when the answer is complete: `aria-busy` holds the live region back while it
+    // streams, so a reader is not interrupted per chunk.
+    <div
+      className="psy-ask-in border-separator border-t-[0.5px]"
+      aria-live="polite"
+      aria-busy={answer.status !== "done" && answer.status !== "failed"}
+    >
       {answer.status === "failed" ? (
         <p className="px-4 py-3 text-callout text-label-secondary">
           {t("screenAsk.answer.failed")}
@@ -150,11 +157,7 @@ function Answer({
               <MessageBlocks key={m.id} message={m} />
             ))}
           </ThreadBlocksProvider>
-          {streamed !== "" ? (
-            <div aria-busy="true">
-              <Markdown streaming>{streamed}</Markdown>
-            </div>
-          ) : null}
+          {streamed !== "" ? <Markdown streaming>{streamed}</Markdown> : null}
         </div>
       )}
       {onOpen ? (
@@ -255,6 +258,12 @@ export function ScreenAskView(p: ScreenAskViewProps): ReactElement {
                   src={c.thumbnail}
                   alt=""
                   className="h-7 w-10 shrink-0 rounded-md object-cover"
+                />
+              ) : c.status === "capturing" ? (
+                // The thumbnail's slot is reserved while the capture runs, so the chip keeps its width.
+                <Skeleton
+                  data-testid="screen-ask-thumb-slot"
+                  className="h-7 w-10 shrink-0 rounded-md"
                 />
               ) : null}
               <span className="truncate">{chipText}</span>
