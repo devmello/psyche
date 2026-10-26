@@ -3,6 +3,7 @@ import { Card } from "../blocks/card.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { t } from "../i18n/core.ts";
 import { formatTime } from "../lib/format.ts";
+import { smoothScrollBehavior } from "../lib/reduced-motion.ts";
 import { cn } from "../lib/utils.ts";
 import { ScreenToolbar } from "../screens/feed/ScreenToolbar.tsx";
 import { SegmentedRadio } from "../screens/settings/SegmentedRadio.tsx";
@@ -207,8 +208,8 @@ function JumpBar({ sections }: { sections: readonly OverviewSectionId[] }): Reac
           data-testid="overview-jump"
           data-stuck={stuck ? "true" : "false"}
           className={cn(
-            "absolute inset-x-0 top-0 bg-canvas px-6 py-1.5",
-            stuck ? "" : "pointer-events-none invisible",
+            "absolute inset-x-0 top-0 bg-canvas px-6 py-1.5 transition-[opacity,visibility] duration-(--duration-short) ease-(--ease-standard)",
+            stuck ? "opacity-100" : "pointer-events-none invisible opacity-0",
           )}
         >
           <ul className="mx-auto flex max-w-[1040px] flex-wrap gap-x-4 gap-y-1">
@@ -220,7 +221,7 @@ function JumpBar({ sections }: { sections: readonly OverviewSectionId[] }): Reac
                     e.preventDefault();
                     document
                       .getElementById(id)
-                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      ?.scrollIntoView({ behavior: smoothScrollBehavior(), block: "start" });
                   }}
                   className="rounded-sm text-callout text-label-secondary outline-none hover:text-label-primary focus-visible:ring-2 focus-visible:ring-ring"
                 >

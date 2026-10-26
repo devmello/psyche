@@ -13,3 +13,10 @@ export function documentPrefersReducedMotion(
   if (setting === "false") return false;
   return doc.defaultView?.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 }
+
+/** `behavior` for `scrollIntoView` / `scrollTo`: smooth, instant under reduced motion. */
+export function smoothScrollBehavior(
+  doc: Document | undefined = globalThis.document,
+): "auto" | "smooth" {
+  return documentPrefersReducedMotion(doc) ? "auto" : "smooth";
+}
