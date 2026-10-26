@@ -284,6 +284,11 @@
         "payload": "#/$defs/ReceiptCreatedPayload"
       },
       {
+        "description": "A run-trace step was added or changed (an upsert, coalesced per step; ≤ 4/s for progress). Never carries thinking text or payload bodies: read them with runs.step.",
+        "name": "run.step",
+        "payload": "#/$defs/RunStepPayload"
+      },
+      {
         "description": "A run changed status or usage.",
         "name": "run.updated",
         "payload": "#/$defs/RunUpdatedPayload"
@@ -1786,6 +1791,78 @@
         "name": "receipts.list",
         "params": "#/$defs/ReceiptsListParams",
         "result": "#/$defs/ReceiptsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists a run's helper and specialist runs with status, budget and deadline.",
+        "name": "runs.children",
+        "params": "#/$defs/RunIdParams",
+        "result": "#/$defs/RunsChildrenResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Deletes a run's trace (steps, payloads, frames); receipts and audit are kept. Side-effecting.",
+        "name": "runs.delete",
+        "params": "#/$defs/RunIdParams",
+        "result": "#/$defs/RunsDeleteResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Exports a run's trace as psyche-trace+json v1 (OTel GenAI attribute names) or Markdown, redacted again.",
+        "name": "runs.export",
+        "params": "#/$defs/RunsExportParams",
+        "result": "#/$defs/RunsExportResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Returns one frame image (masked as it was captured).",
+        "name": "runs.frame",
+        "params": "#/$defs/RunsFrameParams",
+        "result": "#/$defs/RunsFrameResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists the frames Psyche saw during a run (or one step).",
+        "name": "runs.frames",
+        "params": "#/$defs/RunsFramesParams",
+        "result": "#/$defs/RunsFramesResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Returns one run with its first 500 steps and its helper runs.",
+        "name": "runs.get",
+        "params": "#/$defs/RunIdParams",
+        "result": "#/$defs/RunGetResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists runs, newest first, with their current step and activity.",
+        "name": "runs.list",
+        "params": "#/$defs/RunsListParams",
+        "result": "#/$defs/RunsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Returns one step with its kept thinking text and its tool input and output (redacted).",
+        "name": "runs.step",
+        "params": "#/$defs/RunsStepParams",
+        "result": "#/$defs/RunsStepResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Pages a run's steps in seq order after afterSeq (a client that missed events catches up with it).",
+        "name": "runs.steps",
+        "params": "#/$defs/RunsStepsParams",
+        "result": "#/$defs/RunsStepsResult",
         "scope": "operator.read",
         "sideEffecting": false
       },
@@ -6278,6 +6355,22 @@
               "type": "null"
             }
           ]
+        },
+        "runId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "usage": {
+          "$ref": "#/$defs/Usage"
         }
       },
       "required": [
@@ -7501,6 +7594,19 @@
           "type": "integer"
         },
         "libraryItemId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "runId": {
           "anyOf": [
             {
               "description": "ULID in production",
@@ -16851,6 +16957,18 @@
         },
         "provenance": {
           "$ref": "#/$defs/Provenance"
+        },
+        "runId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "stepId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -20213,6 +20331,91 @@
       ],
       "type": "object"
     },
+    "PsycheTrace": {
+      "properties": {
+        "format": {
+          "const": "psyche-trace",
+          "type": "string"
+        },
+        "version": {
+          "const": 1,
+          "type": "number"
+        },
+        "exportedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "redacted": {
+          "const": true,
+          "type": "boolean"
+        },
+        "run": {
+          "$ref": "#/$defs/TraceRun"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/TraceStep"
+          },
+          "type": "array"
+        },
+        "children": {
+          "items": {
+            "$ref": "#/$defs/TraceChild"
+          },
+          "type": "array"
+        },
+        "frames": {
+          "items": {
+            "properties": {
+              "seq": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "at": {
+                "description": "ISO-8601 timestamp (UTC)",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+                "type": "string"
+              },
+              "stepId": {
+                "anyOf": [
+                  {
+                    "description": "ULID in production",
+                    "maxLength": 64,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "file": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "seq",
+              "at",
+              "file"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "format",
+        "version",
+        "exportedAt",
+        "redacted",
+        "run",
+        "steps",
+        "children",
+        "frames"
+      ],
+      "type": "object"
+    },
     "Question": {
       "properties": {
         "question": {
@@ -20940,6 +21143,129 @@
         },
         "usage": {
           "$ref": "#/$defs/Usage"
+        },
+        "kind": {
+          "$ref": "#/$defs/RunKind"
+        },
+        "title": {
+          "maxLength": 160,
+          "type": "string"
+        },
+        "parentRunId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rootRunId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "automationRunId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stepCount": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "currentStepId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastStepAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "origin": {
+          "$ref": "#/$defs/RunOrigin"
+        },
+        "budget": {
+          "$ref": "#/$defs/RunBudget"
+        },
+        "deadline": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "specialist": {
+          "properties": {
+            "role": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "role"
+          ],
+          "type": "object"
+        },
+        "note": {
+          "maxLength": 160,
+          "type": "string"
         }
       },
       "required": [
@@ -20953,6 +21279,202 @@
       ],
       "type": "object"
     },
+    "RunBudget": {
+      "properties": {
+        "limit": {
+          "properties": {
+            "steps": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "tokens": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "wallMs": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "costUsd": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "type": "object"
+        },
+        "used": {
+          "properties": {
+            "steps": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "tokens": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "wallMs": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "costUsd": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "retried": {
+              "properties": {
+                "tokens": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "costUsd": {
+                  "anyOf": [
+                    {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "tokens"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "steps",
+            "tokens",
+            "wallMs"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "limit",
+        "used"
+      ],
+      "type": "object"
+    },
+    "RunFrame": {
+      "properties": {
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "stepId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "width": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "height": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "expired": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
+    "RunGetResult": {
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/Run"
+        },
+        "steps": {
+          "description": "The first 500 steps; page with runs.steps",
+          "items": {
+            "$ref": "#/$defs/RunStep"
+          },
+          "type": "array"
+        },
+        "children": {
+          "description": "Helper and specialist runs it spawned",
+          "items": {
+            "$ref": "#/$defs/Run"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "run",
+        "steps",
+        "children"
+      ],
+      "type": "object"
+    },
+    "RunIdParams": {
+      "properties": {
+        "runId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "type": "object"
+    },
+    "RunKind": {
+      "enum": [
+        "chat",
+        "task",
+        "automation",
+        "subagent"
+      ],
+      "type": "string"
+    },
+    "RunOrigin": {
+      "enum": [
+        "owner",
+        "automation",
+        "channel",
+        "subagent"
+      ],
+      "type": "string"
+    },
     "RunStatus": {
       "enum": [
         "running",
@@ -20964,6 +21486,570 @@
       ],
       "type": "string"
     },
+    "RunStep": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "runId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "seq": {
+          "description": "Per run, monotonic from 1: the replay order",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "parentStepId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "groupId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/RunStepKind"
+        },
+        "status": {
+          "$ref": "#/$defs/RunStepStatus"
+        },
+        "label": {
+          "maxLength": 160,
+          "type": "string"
+        },
+        "doneLabel": {
+          "maxLength": 160,
+          "type": "string"
+        },
+        "target": {
+          "maxLength": 120,
+          "type": "string"
+        },
+        "startedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "endedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "attempt": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "attempts": {
+          "items": {
+            "$ref": "#/$defs/RunStepAttempt"
+          },
+          "maxItems": 5,
+          "type": "array"
+        },
+        "toolCallId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "inputRequestId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "receiptId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "artifactId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "memoryPath": {
+          "maxLength": 1024,
+          "type": "string"
+        },
+        "childRunId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "modelRef": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        },
+        "usage": {
+          "$ref": "#/$defs/Usage"
+        },
+        "progress": {
+          "properties": {
+            "message": {
+              "maxLength": 160,
+              "type": "string"
+            },
+            "fraction": {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "type": "object"
+        },
+        "preview": {
+          "properties": {
+            "input": {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            "output": {
+              "maxLength": 2048,
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "payloadRef": {
+          "properties": {
+            "input": {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "output": {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "frames": {
+          "properties": {
+            "first": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "last": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "first",
+            "last"
+          ],
+          "type": "object"
+        },
+        "text": {
+          "properties": {
+            "summary": {
+              "maxLength": 120,
+              "type": "string"
+            },
+            "full": {
+              "maxLength": 65536,
+              "type": "string"
+            },
+            "expiresAt": {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "summary"
+          ],
+          "type": "object"
+        },
+        "error": {
+          "$ref": "#/$defs/RunStepError"
+        }
+      },
+      "required": [
+        "id",
+        "runId",
+        "seq",
+        "kind",
+        "status",
+        "label",
+        "startedAt",
+        "attempt"
+      ],
+      "type": "object"
+    },
+    "RunStepAttempt": {
+      "properties": {
+        "startedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "endedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "$ref": "#/$defs/RunStepStatus"
+        },
+        "error": {
+          "$ref": "#/$defs/RunStepError"
+        }
+      },
+      "required": [
+        "startedAt",
+        "status"
+      ],
+      "type": "object"
+    },
+    "RunStepError": {
+      "properties": {
+        "code": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "retryable"
+      ],
+      "type": "object"
+    },
+    "RunStepKind": {
+      "enum": [
+        "thinking",
+        "model",
+        "tool",
+        "approval",
+        "question",
+        "subagent",
+        "text",
+        "memory",
+        "artifact",
+        "note"
+      ],
+      "type": "string"
+    },
+    "RunStepPayload": {
+      "properties": {
+        "runId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "step": {
+          "$ref": "#/$defs/RunStep"
+        }
+      },
+      "required": [
+        "runId",
+        "step"
+      ],
+      "type": "object"
+    },
+    "RunStepStatus": {
+      "enum": [
+        "pending",
+        "running",
+        "ok",
+        "failed",
+        "waiting",
+        "cancelled",
+        "skipped"
+      ],
+      "type": "string"
+    },
+    "RunSummary": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/RunStatus"
+        },
+        "modelRef": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        },
+        "attempt": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "startedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "endedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "usage": {
+          "$ref": "#/$defs/Usage"
+        },
+        "kind": {
+          "$ref": "#/$defs/RunKind"
+        },
+        "title": {
+          "maxLength": 160,
+          "type": "string"
+        },
+        "parentRunId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rootRunId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "automationRunId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stepCount": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "currentStepId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastStepAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "origin": {
+          "$ref": "#/$defs/RunOrigin"
+        },
+        "budget": {
+          "$ref": "#/$defs/RunBudget"
+        },
+        "deadline": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "specialist": {
+          "properties": {
+            "role": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "role"
+          ],
+          "type": "object"
+        },
+        "note": {
+          "maxLength": 160,
+          "type": "string"
+        },
+        "currentStep": {
+          "properties": {
+            "label": {
+              "type": "string"
+            },
+            "status": {
+              "$ref": "#/$defs/RunStepStatus"
+            },
+            "startedAt": {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "label",
+            "status",
+            "startedAt"
+          ],
+          "type": "object"
+        },
+        "activity": {
+          "items": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 12,
+          "minItems": 12,
+          "type": "array"
+        },
+        "durationsMs": {
+          "items": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 10,
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "threadId",
+        "status",
+        "modelRef",
+        "attempt",
+        "startedAt",
+        "usage"
+      ],
+      "type": "object"
+    },
+    "RunTraceFormat": {
+      "enum": [
+        "psyche-trace+json",
+        "markdown"
+      ],
+      "type": "string"
+    },
     "RunUpdatedPayload": {
       "properties": {
         "run": {
@@ -20972,6 +22058,342 @@
       },
       "required": [
         "run"
+      ],
+      "type": "object"
+    },
+    "RunsChildrenResult": {
+      "properties": {
+        "runs": {
+          "items": {
+            "$ref": "#/$defs/RunSummary"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "runs"
+      ],
+      "type": "object"
+    },
+    "RunsDeleteResult": {
+      "properties": {
+        "ok": {
+          "const": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "type": "object"
+    },
+    "RunsExportParams": {
+      "properties": {
+        "runId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "format": {
+          "$ref": "#/$defs/RunTraceFormat"
+        },
+        "includeFrames": {
+          "description": "psyche-trace+json only: a .zip with frames/ (never incognito)",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "runId",
+        "format"
+      ],
+      "type": "object"
+    },
+    "RunsExportResult": {
+      "properties": {
+        "fileName": {
+          "type": "string"
+        },
+        "mime": {
+          "type": "string"
+        },
+        "dataBase64": {
+          "type": "string"
+        },
+        "libraryItemId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "fileName",
+        "mime"
+      ],
+      "type": "object"
+    },
+    "RunsFrameParams": {
+      "properties": {
+        "runId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "const": "thumb",
+              "type": "string"
+            },
+            {
+              "const": "full",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "required": [
+        "runId",
+        "seq",
+        "size"
+      ],
+      "type": "object"
+    },
+    "RunsFrameResult": {
+      "properties": {
+        "mime": {
+          "type": "string"
+        },
+        "dataBase64": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "mime",
+        "dataBase64"
+      ],
+      "type": "object"
+    },
+    "RunsFramesParams": {
+      "properties": {
+        "runId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "stepId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "afterSeq": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "limit": {
+          "maximum": 600,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "type": "object"
+    },
+    "RunsFramesResult": {
+      "properties": {
+        "frames": {
+          "items": {
+            "$ref": "#/$defs/RunFrame"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "frames"
+      ],
+      "type": "object"
+    },
+    "RunsListParams": {
+      "properties": {
+        "status": {
+          "items": {
+            "$ref": "#/$defs/RunStatus"
+          },
+          "type": "array"
+        },
+        "kind": {
+          "$ref": "#/$defs/RunKind"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "automationId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "parentRunId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "rootRunId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "since": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "cursor": {
+          "description": "Opaque cursor",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "RunsListResult": {
+      "properties": {
+        "runs": {
+          "items": {
+            "$ref": "#/$defs/RunSummary"
+          },
+          "type": "array"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "description": "Opaque cursor",
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "runs"
+      ],
+      "type": "object"
+    },
+    "RunsStepParams": {
+      "properties": {
+        "runId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "stepId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId",
+        "stepId"
+      ],
+      "type": "object"
+    },
+    "RunsStepResult": {
+      "properties": {
+        "step": {
+          "$ref": "#/$defs/RunStep"
+        },
+        "input": {},
+        "output": {},
+        "truncated": {
+          "description": "A payload was over 1 MB: head and tail kept",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "step",
+        "truncated"
+      ],
+      "type": "object"
+    },
+    "RunsStepsParams": {
+      "properties": {
+        "runId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "afterSeq": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "type": "object"
+    },
+    "RunsStepsResult": {
+      "properties": {
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/RunStep"
+          },
+          "type": "array"
+        },
+        "nextSeq": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "steps"
       ],
       "type": "object"
     },
@@ -24708,6 +26130,12 @@
         },
         "status": {
           "$ref": "#/$defs/ToolCallStatus"
+        },
+        "stepId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -24858,6 +26286,189 @@
         "inputSchema",
         "sideEffect",
         "provenanceOut"
+      ],
+      "type": "object"
+    },
+    "TraceChild": {
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/TraceRun"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/TraceStep"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "run",
+        "steps"
+      ],
+      "type": "object"
+    },
+    "TraceRun": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/RunStatus"
+        },
+        "startedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "endedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "usage": {
+          "$ref": "#/$defs/Usage"
+        },
+        "model": {
+          "type": "string"
+        },
+        "parentRunId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "status",
+        "startedAt",
+        "usage",
+        "model"
+      ],
+      "type": "object"
+    },
+    "TraceStep": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "parentStepId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "groupId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/RunStepKind"
+        },
+        "status": {
+          "$ref": "#/$defs/RunStepStatus"
+        },
+        "label": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "startedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "endedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "attempt": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "attributes": {
+          "patternProperties": {
+            "^(.*)$": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          },
+          "type": "object"
+        },
+        "input": {},
+        "output": {},
+        "thinking": {
+          "type": "string"
+        },
+        "error": {
+          "$ref": "#/$defs/RunStepError"
+        },
+        "childRunId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "kind",
+        "status",
+        "label",
+        "startedAt",
+        "attempt",
+        "attributes"
       ],
       "type": "object"
     },
