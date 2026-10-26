@@ -1,4 +1,5 @@
 import type {
+  ConnectorCatalogueEntry,
   ContextLimits,
   ContextUsage,
   EffectiveContextLimits,
@@ -58,6 +59,7 @@ import {
   validateResult,
 } from "@psyche/protocol";
 import type { MockFileNode } from "../fixtures/files.ts";
+import { connectorCatalogue } from "../fixtures/settings.ts";
 import type { MockSkillSource } from "../fixtures/skills.ts";
 import type { ConnectionState, GatewayClient, GatewayEvent, RequestOptions } from "./client.ts";
 import { toBase64 } from "./files.ts";
@@ -120,6 +122,8 @@ export interface MockWorld {
   connectorConnect?: "unavailable" | "not_configured";
   /** macOS grant for the Apple connectors (#549); default granted. */
   appleGrant?: "granted" | "denied" | "notDetermined";
+  /** `connectors.catalogue`; absent → the fixture catalogue (accounts and the Apple apps). */
+  catalogue?: ConnectorCatalogueEntry[];
   /** The last turn's context usage by thread id (`threads.contextUsage`). */
   contextUsage?: Record<string, ContextUsage>;
   /** Each thread's own context limits (`threads.setContextLimits`). */
@@ -1402,6 +1406,7 @@ export class MockGateway implements GatewayClient {
     }),
 
     "connectors.list": () => ({ connectors: this.world.connectors }),
+    "connectors.catalogue": () => ({ entries: this.world.catalogue ?? connectorCatalogue() }),
     "connectors.connect": (p) => {
       if (this.world.connectorConnect === "unavailable")
         fail("not_implemented", "connectors.connect is not available on this Gateway");

@@ -1,0 +1,26 @@
+{
+  "$comment": "Contacts fixture for v2-apple-meeting-prep (fictional). No `note` field: it needs an Apple entitlement (connector plan §3).",
+  "contacts": [
+    {
+      "id": "ct_dana",
+      "name": "Dana Whitfield",
+      "emails": ["dana@example.org"],
+      "organization": "Whitfield & Co",
+      "jobTitle": "Head of Partnerships"
+    },
+    {
+      "id": "ct_priya",
+      "name": "Priya Nair",
+      "emails": ["priya@partner.example.net"],
+      "organization": "Partner Example Ltd",
+      "jobTitle": "Product Lead"
+    },
+    {
+      "id": "ct_maya",
+      "name": "Maya Okafor",
+      "emails": ["maya@example.com"],
+      "organization": "Avery's team",
+      "jobTitle": "Manager"
+    }
+  ]
+}

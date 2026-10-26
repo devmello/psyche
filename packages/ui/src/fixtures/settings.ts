@@ -1,6 +1,7 @@
 import type {
   Channel,
   Connector,
+  ConnectorCatalogueEntry,
   CredentialMeta,
   CredentialUse,
   Device,
@@ -83,6 +84,125 @@ export function connectors(): Connector[] {
       createdAt: "2026-10-01T10:00:00Z",
       updatedAt: "2026-10-14T08:00:00Z",
     },
+  ];
+}
+
+type CatalogueAction = ConnectorCatalogueEntry["actions"][number];
+const read = (id: string, title: string): CatalogueAction => ({
+  id,
+  title,
+  sideEffect: "read",
+  defaultRule: "allow",
+});
+const write = (id: string, title: string, approvalKind = "connector_action"): CatalogueAction => ({
+  id,
+  title,
+  sideEffect: "write",
+  approvalKind,
+  defaultRule: "ask",
+});
+
+/** Action groups of the Apple connectors as the Gateway's catalogue lists them (#645 for Mail). */
+const APPLE_ACTIONS: Record<string, CatalogueAction[]> = {
+  mail: [
+    read("mail.read", "Search and read mail"),
+    write("mail.draft", "Save drafts, replies and forwards"),
+    write("mail.organize", "Mark, flag, file and save attachments"),
+    {
+      id: "mail.send",
+      title: "Send mail",
+      sideEffect: "destructive",
+      approvalKind: "send_email",
+      defaultRule: "ask",
+    },
+  ],
+  notes: [read("notes.read", "Read notes"), write("notes.create", "Create notes")],
+  reminders: [
+    read("reminders.read", "Read reminders"),
+    write("reminders.write", "Add and change reminders"),
+  ],
+  calendar: [
+    read("calendar.read", "Read events"),
+    write("calendar.write", "Add and change events", "calendar_write"),
+  ],
+};
+
+const entry = (
+  type: string,
+  label: string,
+  vendor: string,
+  auth: string,
+  actions: CatalogueAction[] = [],
+): ConnectorCatalogueEntry => ({
+  type,
+  id: type.replace(":", "-"),
+  label,
+  description: label,
+  category: "first_party",
+  vendor,
+  auth,
+  scopes: { read: [], read_act: [] },
+  actions,
+  available: true,
+});
+
+/** `connectors.catalogue` (M4): the accounts and the Apple apps on this Mac. */
+export function connectorCatalogue(): ConnectorCatalogueEntry[] {
+  return [
+    entry("google", "Google", "Google", "oauth"),
+    entry("microsoft", "Microsoft 365", "Microsoft", "oauth"),
+    entry("imap", "Email (IMAP)", "Generic", "password"),
+    entry("apple:mail", "Apple Mail", "Apple", "none", APPLE_ACTIONS.mail),
+    entry("apple:notes", "Apple Notes", "Apple", "none", APPLE_ACTIONS.notes),
+    entry("apple:reminders", "Apple Reminders", "Apple", "none", APPLE_ACTIONS.reminders),
+    entry("apple:calendar", "Apple Calendar", "Apple", "none", APPLE_ACTIONS.calendar),
+  ];
+}
+
+const apple = (
+  id: string,
+  app: string,
+  label: string,
+  extra: Partial<Connector> = {},
+): Connector => ({
+  id,
+  type: `apple:${app}`,
+  label,
+  account: "This Mac",
+  scopes: [],
+  scopeMode: "read_act",
+  actionMatrix: Object.fromEntries((APPLE_ACTIONS[app] ?? []).map((a) => [a.id, a.defaultRule])),
+  credentialId: null,
+  status: "connected",
+  config: {},
+  lastSync: null,
+  createdAt: "2026-10-20T09:00:00Z",
+  updatedAt: "2026-10-20T09:00:00Z",
+  ...extra,
+});
+
+/**
+ * Apple apps on this Mac (docs/connectors/apple-apps-2026.md §7.1): Mail and Calendar connected,
+ * Notes waiting on its Automation grant, Reminders read-only.
+ */
+export function appleConnectors(): Connector[] {
+  const C = IDS.connectors;
+  return [
+    apple(C.appleMail, "mail", "Apple Mail", { lastSync: { at: today("09:50") } }),
+    apple(C.appleCalendar, "calendar", "Apple Calendar"),
+    apple(C.appleNotes, "notes", "Apple Notes", {
+      status: "needs_auth",
+      config: {
+        permission: {
+          kind: "automation",
+          target: "com.apple.Notes",
+          state: "denied",
+          settingsPath:
+            "System Settings → Privacy & Security → Automation → Psyche (Helper) → Notes",
+        },
+      },
+    }),
+    apple(C.appleReminders, "reminders", "Apple Reminders", { scopeMode: "read" }),
   ];
 }
 

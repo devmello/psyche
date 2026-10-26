@@ -31,9 +31,22 @@ public struct CalendarEventRecord: Codable, Sendable, Equatable {
     public var notes: String?
     public var url: String?
     public var recurring: Bool
+    // Wave 1 (C1, C3).
+    public var attendees: [AttendeeRecord]?
+    public var conferenceUrl: String?
+    public var alarms: [AlarmSpec]?
+    public var recurrence: RecurrenceSpec?
+    public var availability: String?
 
     public init(id: String, calendarId: String, title: String, start: String, end: String, allDay: Bool = false,
-                location: String? = nil, notes: String? = nil, url: String? = nil, recurring: Bool = false) {
+                location: String? = nil, notes: String? = nil, url: String? = nil, recurring: Bool = false,
+                attendees: [AttendeeRecord]? = nil, conferenceUrl: String? = nil, alarms: [AlarmSpec]? = nil,
+                recurrence: RecurrenceSpec? = nil, availability: String? = nil) {
+        self.attendees = attendees
+        self.conferenceUrl = conferenceUrl
+        self.alarms = alarms
+        self.recurrence = recurrence
+        self.availability = availability
         self.id = id
         self.calendarId = calendarId
         self.title = title
@@ -59,6 +72,11 @@ public struct CalendarEventRecord: Codable, Sendable, Equatable {
         try c.encode(notes, forKey: .notes)
         try c.encode(url, forKey: .url)
         try c.encode(recurring, forKey: .recurring)
+        try c.encodeIfPresent(attendees, forKey: .attendees)
+        try c.encode(conferenceUrl, forKey: .conferenceUrl)
+        try c.encodeIfPresent(alarms, forKey: .alarms)
+        try c.encode(recurrence, forKey: .recurrence)
+        try c.encodeIfPresent(availability, forKey: .availability)
     }
 }
 
@@ -70,8 +88,18 @@ public struct ReminderRecord: Codable, Sendable, Equatable {
     public var due: String?
     public var completed: Bool
     public var priority: Int
+    // Wave 1 (R1, R2).
+    public var url: String?
+    public var flagged: Bool?
+    public var alarms: [AlarmSpec]?
+    public var recurrence: RecurrenceSpec?
 
-    public init(id: String, listId: String, title: String, notes: String? = nil, due: String? = nil, completed: Bool = false, priority: Int = 0) {
+    public init(id: String, listId: String, title: String, notes: String? = nil, due: String? = nil, completed: Bool = false, priority: Int = 0,
+                url: String? = nil, flagged: Bool? = nil, alarms: [AlarmSpec]? = nil, recurrence: RecurrenceSpec? = nil) {
+        self.url = url
+        self.flagged = flagged
+        self.alarms = alarms
+        self.recurrence = recurrence
         self.id = id
         self.listId = listId
         self.title = title
@@ -90,6 +118,10 @@ public struct ReminderRecord: Codable, Sendable, Equatable {
         try c.encode(due, forKey: .due)
         try c.encode(completed, forKey: .completed)
         try c.encode(priority, forKey: .priority)
+        try c.encode(url, forKey: .url)
+        try c.encodeIfPresent(flagged, forKey: .flagged)
+        try c.encodeIfPresent(alarms, forKey: .alarms)
+        try c.encode(recurrence, forKey: .recurrence)
     }
 }
 
@@ -180,12 +212,15 @@ public struct NoteSummaryRecord: Codable, Sendable, Equatable {
     public var folder: String
     public var title: String
     public var modified: String
+    /// Wave 1 (N1): text around the match, untrusted.
+    public var snippet: String?
 
-    public init(id: String, folder: String, title: String, modified: String) {
+    public init(id: String, folder: String, title: String, modified: String, snippet: String? = nil) {
         self.id = id
         self.folder = folder
         self.title = title
         self.modified = modified
+        self.snippet = snippet
     }
 }
 

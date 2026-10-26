@@ -14,12 +14,67 @@ private final class Fakes: CalendarBackend, RemindersBackend, MailBackend, Notes
     let reminder = ReminderRecord(id: "R1", listId: "L1", title: "Milk")
 
     func calendars() async throws -> [CalendarRecord] { [CalendarRecord(id: "C1", title: "Home", source: "iCloud", writable: true)] }
-    func events(from: Date, to: Date, calendarIds: [String]?, limit: Int) async throws -> [CalendarEventRecord] { [event] }
-    func create(_ input: CalendarEventInput) async throws -> CalendarEventRecord { var e = event; e.title = input.title; return e }
-    func update(_ update: CalendarEventPatch) async throws -> CalendarEventRecord { event }
+    func events(from: Date, to: Date, calendarIds: [String]?, query: String?, limit: Int) async throws -> [CalendarEventRecord] {
+        lock.withLock { eventQueries.append(query) }
+        return [event]
+    }
+    // Calendar / Reminders wave 1.
+    var eventQueries: [String?] = []
+    var deletedEvents: [(String, String?)] = []
+    var lastEventInput: CalendarEventInput?
+    var lastPatch: CalendarEventPatch?
+    var reminderFilters: [ReminderQuery] = []
+    var completedCalls: [(String?, String?, Bool)] = []
+    var deletedReminders: [String] = []
+    var flagSets: [(String, Bool)] = []
+    var flaggedCalls = 0
+    func freeBusy(from: Date, to: Date, calendarIds: [String]?) async throws -> [BusyBlockRecord] {
+        BusyBlockRecord.blocks([
+            BusyBlockRecord(start: "2026-10-20T13:00:00Z", end: "2026-10-20T14:00:00Z", calendarId: "C1", availability: "tentative"),
+            BusyBlockRecord(start: "2026-10-20T09:00:00Z", end: "2026-10-20T10:00:00Z", calendarId: "C1", availability: "busy"),
+            BusyBlockRecord(start: "2026-10-20T11:00:00Z", end: "2026-10-20T12:00:00Z", calendarId: "C1", availability: "free"),
+        ])
+    }
+    func deleteEvent(id: String, span: String?) async throws { lock.withLock { deletedEvents.append((id, span)) } }
+    func complete(id: String?, title: String?, listId: String?, completed: Bool) async throws -> ReminderRecord {
+        lock.withLock { completedCalls.append((id, title, completed)) }
+        if title == "Twice" { throw CapabilityError(.conflict, reason: "reminder_ambiguous", "2 reminders") }
+        var r = reminder
+        r.completed = completed
+        return r
+    }
+    func delete(id: String) async throws { lock.withLock { deletedReminders.append(id) } }
+    func setFlagged(id: String, flagged: Bool) async throws { lock.withLock { flagSets.append((id, flagged)) } }
+    func flaggedIds() async throws -> Set<String> {
+        lock.withLock { flaggedCalls += 1 }
+        return ["R1"]
+    }
+    func create(_ input: CalendarEventInput) async throws -> CalendarEventRecord {
+        lock.withLock { lastEventInput = input }
+        var e = event
+        e.title = input.title
+        e.alarms = input.alarms
+        e.recurrence = input.recurrence
+        e.availability = input.availability
+        return e
+    }
+    func update(_ update: CalendarEventPatch) async throws -> CalendarEventRecord {
+        lock.withLock { lastPatch = update }
+        return event
+    }
     func lists() async throws -> [CalendarRecord] { [CalendarRecord(id: "L1", title: "Groceries", source: "iCloud", writable: true)] }
-    func reminders(listIds: [String]?, completed: Bool?, dueBefore: Date?, limit: Int) async throws -> [ReminderRecord] { [reminder] }
-    func create(_ input: ReminderInput) async throws -> ReminderRecord { var r = reminder; r.title = input.title; return r }
+    func reminders(listIds: [String]?, completed: Bool?, dueBefore: Date?, filter: ReminderQuery, limit: Int) async throws -> [ReminderRecord] {
+        lock.withLock { reminderFilters.append(filter) }
+        return filter.apply([reminder, ReminderRecord(id: "R2", listId: "L1", title: "Call")], now: Date(), limit: limit)
+    }
+    func create(_ input: ReminderInput) async throws -> ReminderRecord {
+        var r = reminder
+        r.title = input.title
+        r.url = input.url
+        r.alarms = input.alarm.map { [$0] }
+        r.recurrence = input.recurrence
+        return r
+    }
     func update(_ patch: ReminderPatch) async throws -> ReminderRecord { reminder }
     func search(_ filter: MailSearchFilter, mailbox: String?, account: String?, limit: Int) async throws -> [MailSummaryRecord] {
         lock.withLock { searched.append(filter) }
@@ -84,8 +139,33 @@ private final class Fakes: CalendarBackend, RemindersBackend, MailBackend, Notes
         [NoteSummaryRecord(id: "x-coredata://A/ICNote/p1", folder: "Notes", title: "Groceries", modified: "2026-10-19T08:00:00Z")]
     }
     func read(id: String) async throws -> (NoteSummaryRecord, html: String, text: String) { (try await list(folder: nil, limit: 1)[0], "<div>milk</div>", "milk") }
+    var createdNoteHTML: [String] = []
+    var appended: [String] = []
+    var updates: [(String?, String?)] = []
     func create(title: String, html: String, folder: String?) async throws -> NoteSummaryRecord {
-        NoteSummaryRecord(id: "x-coredata://A/ICNote/p2", folder: folder ?? "Notes", title: title, modified: "2026-10-19T08:00:00Z")
+        lock.withLock { createdNoteHTML.append(html) }
+        return NoteSummaryRecord(id: "x-coredata://A/ICNote/p2", folder: folder ?? "Notes", title: title, modified: "2026-10-19T08:00:00Z")
+    }
+    // Notes wave 1.
+    func search(query: String, folder: String?, since: Date?, limit: Int) async throws -> [(NoteSummaryRecord, text: String)] {
+        [(NoteSummaryRecord(id: "x-coredata://A/ICNote/p1", folder: "Notes", title: "Groceries", modified: "2026-10-19T08:00:00Z"),
+          text: "Groceries\nmilk, eggs and the oat milk from the corner shop")]
+    }
+    func folders() async throws -> [NoteFolderRecord] {
+        NoteFolderRecord.dedupe([
+            NoteFolderRecord(id: "F1", name: "Notes", account: "iCloud", parentId: nil, noteCount: 3),
+            NoteFolderRecord(id: "F2", name: "Trips", account: "iCloud", parentId: nil, noteCount: 1),
+            NoteFolderRecord(id: "F2", name: "Trips", account: "iCloud", parentId: "F1", noteCount: 1),
+        ])
+    }
+    func attachments(id: String) async throws -> [(id: String, name: String)] { [(id: "x-coredata://A/ICAttachment/a1", name: "scan.pdf")] }
+    func append(id: String, html: String) async throws -> (NoteSummaryRecord, html: String) {
+        lock.withLock { appended.append(html) }
+        return (try await list(folder: nil, limit: 1)[0], html: "<div>milk</div>" + html)
+    }
+    func update(id: String, title: String?, html: String?) async throws -> (NoteSummaryRecord, html: String) {
+        lock.withLock { updates.append((title, html)) }
+        return (try await list(folder: nil, limit: 1)[0], html: html ?? "<div>milk</div>")
     }
     func tabs() async throws -> [SafariTabRecord] {
         [SafariTabRecord(window: 0, index: 0, title: "Docs", url: "https://example.com/a", current: false),
@@ -133,14 +213,21 @@ struct AppleAppsTests {
             // Mail wave 1 (docs/connectors/apple-apps-2026.md §4.1).
             "mail.mailboxes", "mail.selected", "mail.reply_draft", "mail.forward_draft", "mail.send_draft", "mail.set_flags", "mail.move",
             "mail.save_attachments",
+            // Reminders and Calendar wave 1 (§4.2–4.3).
+            "reminders.complete", "reminders.delete", "reminders.set_flagged", "calendar.free_busy", "calendar.delete_event",
+            // Notes wave 1 (§4.4).
+            "notes.search", "notes.folders", "notes.append", "notes.update",
         ]
         let h = Harness()
         #expect(Set(h.registry.ordered.map(\.spec.name)) == matrix)
         let writes: Set = ["calendar.create_event", "calendar.update_event", "reminders.create", "reminders.update", "mail.draft", "mail.send", "notes.create", "safari.open_url",
-                           "mail.reply_draft", "mail.forward_draft", "mail.send_draft", "mail.set_flags", "mail.move", "mail.save_attachments"]
+                           "mail.reply_draft", "mail.forward_draft", "mail.send_draft", "mail.set_flags", "mail.move", "mail.save_attachments",
+                           "reminders.complete", "reminders.set_flagged", "notes.append", "notes.update"]
+        let destructive: Set = ["reminders.delete", "calendar.delete_event"]
         for c in h.registry.ordered {
-            #expect(c.spec.sideEffect == (writes.contains(c.spec.name) ? .write : .read), "\(c.spec.name)")
-            if writes.contains(c.spec.name) { #expect(c.spec.receiptKind != nil) }
+            let expected: SideEffect = destructive.contains(c.spec.name) ? .destructive : writes.contains(c.spec.name) ? .write : .read
+            #expect(c.spec.sideEffect == expected, "\(c.spec.name)")
+            if expected != .read { #expect(c.spec.receiptKind != nil) }
         }
     }
 
@@ -390,10 +477,11 @@ struct MailWave1RulesTests {
 /// Opt in with PSYCHE_OSACOMPILE=1.
 @Suite("Mail script compiles")
 struct MailScriptCompileTests {
-    @Test func compiles() throws {
+    @Test(arguments: ["mail", "notes", "reminders"]) func compiles(_ app: String) throws {
         guard ProcessInfo.processInfo.environment["PSYCHE_OSACOMPILE"] == "1" else { return }
-        let src = FileManager.default.temporaryDirectory.appendingPathComponent("mail-\(UUID().uuidString).applescript")
-        try MailScriptingBackend.source.write(to: src, atomically: true, encoding: .utf8)
+        let src = FileManager.default.temporaryDirectory.appendingPathComponent("\(app)-\(UUID().uuidString).applescript")
+        let text = ["mail": MailScriptingBackend.source, "notes": NotesScriptingBackend.source, "reminders": EventKitBackend.flagScript][app]!
+        try text.write(to: src, atomically: true, encoding: .utf8)
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/osacompile")
         p.arguments = ["-o", src.deletingPathExtension().appendingPathExtension("scpt").path, src.path]
@@ -403,5 +491,183 @@ struct MailScriptCompileTests {
         p.waitUntilExit()
         let msg = String(decoding: err.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
         #expect(p.terminationStatus == 0, "\(msg)")
+    }
+}
+
+@Suite("Reminders and Calendar wave 1 (apple-apps-2026 §4.2–4.3)")
+struct RemindersCalendarWave1Tests {
+    @Test func remindersListFiltersAndFlags() async throws {
+        let h = Harness()
+        let all = try decode([ReminderRecord].self, try await h.invoke("reminders.list", ["query": "mil"]).result["reminders"])
+        #expect(all.map(\.id) == ["R1"] && h.fakes.flaggedCalls == 0)  // no scripting unless flagged is asked for
+        let flagged = try decode([ReminderRecord].self, try await h.invoke("reminders.list", ["flagged": true]).result["reminders"])
+        #expect(flagged.map(\.id) == ["R1"] && flagged.first?.flagged == true && h.fakes.flaggedCalls == 1)
+        _ = try await h.invoke("reminders.list", ["overdue": true, "dueToday": true])
+        #expect(h.fakes.reminderFilters.last?.overdue == true && h.fakes.reminderFilters.last?.dueToday == true)
+        let set = try await h.invoke("reminders.set_flagged", ["id": "R1", "flagged": true])
+        #expect(set.receipt?.outcome == .ok && h.fakes.flagSets.first?.1 == true)
+    }
+
+    @Test func remindersCreateCompleteDelete() async throws {
+        let h = Harness()
+        let created = try await h.invoke("reminders.create", [
+            "title": "Pay invoice", "due": "2026-10-21T09:00:00Z", "url": "message://%3Cabc@x%3E",
+            "alarm": ["relativeMinutes": -30], "recurrence": ["frequency": "weekly", "daysOfWeek": ["mo", "th"]],
+        ])
+        let r = try decode(ReminderRecord.self, created.result["reminder"])
+        #expect(r.url == "message://%3Cabc@x%3E" && r.alarms == [.relative(minutes: -30)] && r.recurrence?.daysOfWeek == ["mo", "th"])
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("reminders.create", ["title": "x", "alarm": ["relativeMinutes": 30]]) }
+        await #expect(throws: CapabilityError.self) {
+            _ = try await h.invoke("reminders.create", ["title": "x", "recurrence": ["frequency": "daily", "daysOfWeek": ["mo"]]])
+        }
+        let done = try await h.invoke("reminders.complete", ["title": "Milk"])
+        #expect(done.result["reminder"]?["completed"] == true && h.fakes.completedCalls.first?.1 == "Milk")
+        _ = try await h.invoke("reminders.complete", ["id": "R1", "completed": false])
+        #expect(h.fakes.completedCalls.last?.2 == false)
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("reminders.complete", [:]) }
+        do {
+            _ = try await h.invoke("reminders.complete", ["title": "Twice"])
+            Issue.record("expected ambiguous")
+        } catch let e as CapabilityError { #expect(e.reason == "reminder_ambiguous") }
+        let del = try await h.invoke("reminders.delete", ["id": "R1"])
+        #expect(del.result["deleted"] == true && h.fakes.deletedReminders == ["R1"])
+    }
+
+    @Test func calendarQueryFreeBusyAlarmsRecurrenceDelete() async throws {
+        let h = Harness()
+        _ = try await h.invoke("calendar.list_events", ["from": "2026-10-20T00:00:00Z", "to": "2026-10-21T00:00:00Z", "query": "dentist"])
+        #expect(h.fakes.eventQueries.last == "dentist")
+        let busy = try decode([BusyBlockRecord].self, try await h.invoke("calendar.free_busy", ["from": "2026-10-20T00:00:00Z", "to": "2026-10-21T00:00:00Z"]).result["blocks"])
+        #expect(busy.map(\.availability) == ["busy", "tentative"])  // free left out, start order
+        await #expect(throws: CapabilityError.self) {
+            _ = try await h.invoke("calendar.free_busy", ["from": "2026-10-01T00:00:00Z", "to": "2026-12-20T00:00:00Z"])
+        }
+        let created = try await h.invoke("calendar.create_event", [
+            "title": "Focus", "start": "2026-10-20T13:00:00Z", "end": "2026-10-20T15:00:00Z", "availability": "busy",
+            "alarms": [["relativeMinutes": -10], ["at": "2026-10-20T12:30:00Z"]], "recurrence": ["frequency": "daily", "count": 5],
+        ])
+        let ev = try decode(CalendarEventRecord.self, created.result["event"])
+        #expect(ev.alarms?.count == 2 && ev.recurrence?.count == 5 && ev.availability == "busy")
+        await #expect(throws: CapabilityError.self) {
+            _ = try await h.invoke("calendar.create_event", ["title": "x", "start": "2026-10-20T13:00:00Z", "end": "2026-10-20T14:00:00Z",
+                                                           "recurrence": ["frequency": "daily", "count": 2, "until": "2026-11-01T00:00:00Z"]])
+        }
+        // update: recurrence null removes it, absent leaves it.
+        _ = try await h.invoke("calendar.update_event", ["id": "E1", "recurrence": .null])
+        if case .some(.none) = h.fakes.lastPatch?.recurrence {} else { Issue.record("null should remove the recurrence") }
+        _ = try await h.invoke("calendar.update_event", ["id": "E1", "title": "Dentist 2"])
+        if case .none = h.fakes.lastPatch?.recurrence {} else { Issue.record("absent should leave the recurrence") }
+        let del = try await h.invoke("calendar.delete_event", ["id": "E1", "span": "future"])
+        #expect(del.result["deleted"] == true && h.fakes.deletedEvents.first?.1 == "future")
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("calendar.delete_event", ["id": "E1", "span": "all"]) }
+    }
+
+    @Test func outputsDecodeAsTheGeneratedProtocolTypes() async throws {
+        let h = Harness()
+        _ = try decode([AppleCalendarEvent].self, try await h.invoke("calendar.list_events", ["from": "2026-10-20T00:00:00Z", "to": "2026-10-21T00:00:00Z"]).result["events"])
+        _ = try decode([AppleBusyBlock].self, try await h.invoke("calendar.free_busy", ["from": "2026-10-20T00:00:00Z", "to": "2026-10-21T00:00:00Z"]).result["blocks"])
+        _ = try decode([AppleReminder].self, try await h.invoke("reminders.list", ["flagged": true]).result["reminders"])
+        let made = try await h.invoke("reminders.create", ["title": "x", "due": "2026-10-21T09:00:00Z", "alarm": ["at": "2026-10-21T08:00:00Z"],
+                                                           "recurrence": ["frequency": "monthly", "interval": 2]])
+        _ = try decode(AppleReminder.self, made.result["reminder"])
+    }
+}
+
+@Suite("Reminders and Calendar wave 1: pure rules")
+struct RemindersCalendarRulesTests {
+    @Test func conferenceLinksAreFoundOnlyForMeetingHosts() {
+        #expect(ConferenceLinks.find([nil, "Room 4", "Join: https://us02web.zoom.us/j/123?pwd=x."]) == "https://us02web.zoom.us/j/123?pwd=x")
+        #expect(ConferenceLinks.find(["https://meet.google.com/abc-defg-hij"]) == "https://meet.google.com/abc-defg-hij")
+        #expect(ConferenceLinks.find(["https://zoom.us.evil.example/j/1", "http://meet.google.com/x"]) == nil)
+    }
+
+    @Test func remindersAreFilteredAndOrderedSoonestFirst() {
+        let now = AppleDates.parse("2026-10-20T12:00:00Z")!
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        let rs = [
+            ReminderRecord(id: "a", listId: "L", title: "Late", due: "2026-10-19T09:00:00Z"),
+            ReminderRecord(id: "b", listId: "L", title: "Today", due: "2026-10-20T18:00:00Z"),
+            ReminderRecord(id: "c", listId: "L", title: "Undated"),
+            ReminderRecord(id: "d", listId: "L", title: "Done late", due: "2026-10-18T09:00:00Z", completed: true),
+        ]
+        #expect(ReminderQuery().apply(rs, now: now, calendar: cal, limit: 10).map(\.id) == ["d", "a", "b", "c"])
+        #expect(ReminderQuery(overdue: true).apply(rs, now: now, calendar: cal, limit: 10).map(\.id) == ["a"])
+        #expect(ReminderQuery(dueToday: true).apply(rs, now: now, calendar: cal, limit: 10).map(\.id) == ["b"])
+        #expect(ReminderQuery(flaggedIds: ["c"]).apply(rs, now: now, calendar: cal, limit: 10).map(\.flagged) == [true])
+        #expect(ReminderQuery.eventKitId(fromScripting: "x-apple-reminder://ABC-1") == "ABC-1")
+    }
+
+    @Test func alarmsAndRecurrenceDecodeStrictly() throws {
+        #expect(try JSONDecoder().decode(AlarmSpec.self, from: Data(#"{"relativeMinutes":-15}"#.utf8)) == .relative(minutes: -15))
+        #expect(throws: (any Error).self) { try JSONDecoder().decode(AlarmSpec.self, from: Data(#"{}"#.utf8)) }
+        #expect(throws: CapabilityError.self) { try RecurrenceSpec(frequency: "hourly").validate() }
+        #expect(throws: CapabilityError.self) { try RecurrenceSpec(frequency: "weekly", daysOfWeek: ["mo", "mo"]).validate() }
+        try RecurrenceSpec(frequency: "weekly", interval: 2, daysOfWeek: ["fr"], until: "2027-01-01T00:00:00Z").validate()
+    }
+}
+
+@Suite("Notes wave 1 (apple-apps-2026 §4.4)")
+struct NotesWave1Tests {
+    @Test func searchFoldersAndRead() async throws {
+        let h = Harness()
+        let found = try await h.invoke("notes.search", ["query": "oat milk"])
+        let notes = try decode([NoteSummaryRecord].self, found.result["notes"])
+        #expect(notes.first?.snippet?.contains("oat milk") == true && found.result["provenance"] == "untrusted")
+        let folders = try decode([NoteFolderRecord].self, try await h.invoke("notes.folders").result["folders"])
+        #expect(folders.map(\.id) == ["F1", "F2"] && folders[1].parentId == "F1")
+        let read = try await h.invoke("notes.read", ["id": "x-coredata://A/ICNote/p1"])
+        #expect(read.result["note"]?["bodySha256"] == .string(NotesWave1.bodyHash("<div>milk</div>")))
+        #expect(read.result["note"]?["attachments"]?.arrayValue?.first?["name"] == "scan.pdf")
+    }
+
+    @Test func appendEscapesAndUpdateIsBoundToTheBodyRead() async throws {
+        let h = Harness()
+        let a = try await h.invoke("notes.append", ["id": "x-coredata://A/ICNote/p1", "text": "eggs <b>\nbread", "checklist": true])
+        #expect(h.fakes.appended == ["<div>☐ eggs &lt;b&gt;</div><div>☐ bread</div>"] && a.receipt?.outcome == .ok)
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("notes.append", ["id": "note-1", "text": "x"]) }
+        do {
+            _ = try await h.invoke("notes.update", ["id": "x-coredata://A/ICNote/p1", "previousBodySha256": .string(String(repeating: "0", count: 64)), "body": "new"])
+            Issue.record("expected note_changed")
+        } catch let e as CapabilityError { #expect(e.reason == "note_changed" && e.code == .bindingMismatch) }
+        #expect(h.fakes.updates.isEmpty)
+        let ok = try await h.invoke("notes.update", ["id": "x-coredata://A/ICNote/p1", "previousBodySha256": .string(NotesWave1.bodyHash("<div>milk</div>")),
+                                                     "body": "oat milk"])
+        #expect(h.fakes.updates.first?.1 == NotesHTML.body(title: "Groceries", text: "oat milk") && ok.result["bodySha256"] != nil)
+        _ = try await h.invoke("notes.update", ["id": "x-coredata://A/ICNote/p1", "previousBodySha256": .string(NotesWave1.bodyHash("<div>milk</div>")),
+                                                "title": "Shopping"])
+        #expect(h.fakes.updates.last?.0 == "Shopping" && h.fakes.updates.last?.1 == nil)
+    }
+
+    @Test func createWithMarkdown() async throws {
+        let h = Harness()
+        _ = try await h.invoke("notes.create", ["title": "Plan", "body": "# Steps\n- **one**\n- two", "format": "markdown"])
+        #expect(h.fakes.createdNoteHTML.last == "<div><h1>Plan</h1></div><div><h2>Steps</h2></div><ul><li><b>one</b></li><li>two</li></ul>")
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("notes.create", ["title": "x", "body": "y", "format": "rtf"]) }
+    }
+
+    @Test func outputsDecodeAsTheGeneratedProtocolTypes() async throws {
+        let h = Harness()
+        _ = try decode([AppleNoteSummary].self, try await h.invoke("notes.search", ["query": "milk"]).result["notes"])
+        _ = try decode([AppleNoteFolder].self, try await h.invoke("notes.folders").result["folders"])
+        _ = try decode(AppleNote.self, try await h.invoke("notes.read", ["id": "x-coredata://A/ICNote/p1"]).result["note"])
+    }
+}
+
+@Suite("Notes wave 1: pure rules")
+struct NotesWave1RulesTests {
+    @Test func markdownNeverBecomesRawHTML() {
+        let h = NotesMarkdown.html(title: "T", markdown: "<script>x</script>\n[click](javascript:alert(1))\n[ok](https://a.example/x?a=1&b=2)\n1. first\n*it* and `c`")
+        #expect(!h.contains("<script>") && h.contains("&lt;script&gt;"))
+        #expect(!h.contains("href=\"javascript") && h.contains("<a href=\"https://a.example/x?a=1&amp;b=2\">ok</a>"))
+        #expect(h.contains("<ol><li>first</li></ol>") && h.contains("<i>it</i>") && h.contains("<tt>c</tt>"))
+    }
+
+    @Test func snippetsAndAppends() {
+        let long = String(repeating: "a ", count: 200) + "needle" + String(repeating: " b", count: 200)
+        let s = NotesWave1.snippet(long, query: "NEEDLE", radius: 20)
+        #expect(s.hasPrefix("…") && s.hasSuffix("…") && s.contains("needle") && s.count < 60)
+        #expect(NotesWave1.snippet("line one\nline two", query: "") == "line one line two")
+        #expect(NotesWave1.appendHTML("a\n\nb", checklist: false) == "<div>a</div><div><br></div><div>b</div>")
     }
 }
