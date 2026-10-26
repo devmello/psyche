@@ -147,6 +147,15 @@ export {
   MAIL_DIGEST_JOB,
   RULES_PATH,
 } from "./mail/digest.ts";
+export {
+  commitments,
+  type Draft,
+  type DraftRequest,
+  DraftService,
+  type DraftServiceOptions,
+  shouldAutoDraft,
+  type Tone,
+} from "./mail/drafts.ts";
 export { lookalikeOf, type MailItem, presort } from "./mail/presort.ts";
 export {
   addressOf,
@@ -160,6 +169,29 @@ export {
   serializeRules,
   setRule,
 } from "./mail/rules.ts";
+export {
+  findSlots,
+  formatSlot,
+  pickSlot,
+  SchedulingService,
+  type SchedulingServiceOptions,
+  type Slot,
+  type TimesProposal,
+} from "./mail/scheduling.ts";
+export {
+  buildProfile,
+  commonSignature,
+  MAIL_VOICE_JOB,
+  ownText,
+  renderVoice,
+  type SentMessage,
+  type Tier,
+  VOICE_PATH,
+  VOICE_SAMPLES_PATH,
+  type VoiceProfile,
+  VoiceService,
+  type VoiceServiceOptions,
+} from "./mail/voice.ts";
 export {
   appleMailSource,
   type EventScheduler,
@@ -197,6 +229,7 @@ export {
   feedTools,
   goalTools,
   ideaTools,
+  mailTools,
   type ProactiveToolsOptions,
   proactiveTools,
 } from "./tools/index.ts";

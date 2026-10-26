@@ -11,6 +11,7 @@ import {
   createIdeaHandlers,
   createProposalHandlers,
   DigestService,
+  DraftService,
   FeedService,
   type FeedSource,
   GoalsService,
@@ -22,7 +23,9 @@ import {
   ProposalService,
   publicFetch,
   rssSource,
+  SchedulingService,
   type SignalsProvider,
+  VoiceService,
   withProactiveJobs,
 } from "@psyche/proactive";
 import type { Clock, EventName, EventPayload, ModelProvider, ModelRef } from "@psyche/protocol";
@@ -99,6 +102,12 @@ export interface ComposedProactive {
   readonly digest: DigestService | undefined;
   /** Batch proposals, when the composition gave a broker and a registry. */
   readonly proposals: ProposalService | undefined;
+  /** The owner's writing style (§4.3), refreshed nightly only when `mail.voice.enabled`. */
+  readonly voice: VoiceService | undefined;
+  /** Reply drafts in the owner's voice, saved through one approval card (§4.3). */
+  readonly drafts: DraftService | undefined;
+  /** Scheduling over email: free slots, a reply draft and optional holds (§4.4). */
+  readonly scheduling: SchedulingService | undefined;
   readonly handlers: Record<string, HandlerDef>;
   /** The scheduler's launcher: proactive jobs in-process, the heartbeat bounded, the rest to `inner`. */
   launcher(inner: RunLauncher, pool: TaskWorkerPool): RunLauncher;
@@ -203,6 +212,44 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           onError: (err) =>
             logger?.log("warn", "mail digest step failed", { code: PsycheError.from(err).code }),
         });
+  // The owner's own addresses tell their text from quoted mail (§4.3); Settings fills them.
+  const ownerAddresses = async () => stringList(getSetting(db, "mail.ownerAddresses")?.value);
+  const voice =
+    registry === undefined
+      ? undefined
+      : new VoiceService({
+          clock,
+          tools: registry,
+          memory,
+          scheduler,
+          ownerAddresses,
+          provider,
+          model,
+          ...(timeZone === undefined ? {} : { timezone: timeZone }),
+        });
+  const drafts =
+    registry === undefined
+      ? undefined
+      : new DraftService({
+          tools: registry,
+          ...(voice === undefined ? {} : { voice }),
+          ...(proposals === undefined ? {} : { proposals }),
+          provider,
+          model,
+          ownerAddresses,
+        });
+  const link = getSetting(db, "mail.schedulingLink")?.value;
+  const scheduling =
+    registry === undefined || drafts === undefined
+      ? undefined
+      : new SchedulingService({
+          tools: registry,
+          drafts,
+          ...(proposals === undefined ? {} : { proposals }),
+          timezone: timeZone ?? "UTC",
+          now: () => clock.now(),
+          ...(typeof link === "string" && link !== "" ? { schedulingLink: link } : {}),
+        });
   const proposalHandlers: Record<string, HandlerDef> = {};
   if (proposals !== undefined) {
     // `proposals.approve` hands the caller the answer token of its own surface only (§3.7).
@@ -222,6 +269,9 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     mailWatch,
     digest,
     proposals,
+    voice,
+    drafts,
+    scheduling,
     handlers: {
       ...mountParamsOnly(createGoalHandlers(goals) as never),
       ...mountParamsOnly(createFeedHandlers(feed) as never),
@@ -236,6 +286,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           ideas.job(),
           mailWatch.job(),
           ...(digest === undefined ? [] : [digest.job()]),
+          ...(voice === undefined ? [] : [voice.job()]),
         ],
         heartbeat: createTaskLauncher({ engine: tasks, pool, budget: HEARTBEAT_TASK_BUDGET }),
         onError: (err) =>
@@ -251,6 +302,10 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
         await digest?.ensureSchedule({
           enabled: getSetting(db, "mail.digest.enabled")?.value === true,
         });
+        await voice?.ensureSchedule({
+          enabled: getSetting(db, "mail.voice.enabled")?.value === true,
+          ...(timeZone === undefined ? {} : { timezone: timeZone }),
+        });
       } catch (err) {
         logger?.log("warn", "proactive schedule sync failed", { code: PsycheError.from(err).code });
       }
@@ -259,4 +314,8 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
       proposals?.stop();
     },
   };
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
 }

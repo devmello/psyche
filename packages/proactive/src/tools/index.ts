@@ -13,6 +13,8 @@ import type { FeedService } from "../feed/service.ts";
 import type { GoalsService } from "../goals/service.ts";
 import type { IdeasService } from "../ideas/service.ts";
 import { toIdea } from "../ideas/store.ts";
+import type { DraftRequest, DraftService } from "../mail/drafts.ts";
+import type { SchedulingService } from "../mail/scheduling.ts";
 import { toIso } from "../sqlite.ts";
 
 /**
@@ -48,6 +50,8 @@ export interface ProactiveToolsOptions {
   goals?: GoalsService;
   ideas?: IdeasService;
   feed?: FeedService;
+  drafts?: DraftService;
+  scheduling?: SchedulingService;
   clock: Clock;
 }
 
@@ -440,11 +444,94 @@ export function feedTools(feed: FeedService, clock: Clock): AgentToolRegistratio
   ];
 }
 
+/**
+ * Mail workflows (docs/workflows/mail-and-meetings-2026.md §4.3, §4.4). Both only create pending
+ * proposals in Psyche's own store (`none`); saving a draft or a hold needs the owner's card, and
+ * sending stays its own `send_email` card. Results are built from the email: `untrusted`.
+ */
+export function mailTools(
+  drafts: DraftService,
+  scheduling?: SchedulingService,
+): AgentToolRegistration[] {
+  const via = Type.Union([Type.Literal("apple"), Type.Literal("gmail")]);
+  const tone = Type.Union(
+    ["shorter", "warmer", "more_formal", "more_direct"].map((t) => Type.Literal(t)),
+  );
+  const out: AgentToolRegistration[] = [
+    readTool({
+      name: "mail.draft_reply",
+      description:
+        "Write a reply in the owner's voice (their mail/VOICE.md) to one email. It returns the text, the sentences that commit the owner (a time, a price, a yes), and a pending card that saves the draft in Mail; nothing is sent. via: apple (messageId) or gmail (thread id as messageId).",
+      input: Type.Object({
+        via,
+        messageId: Type.String({ minLength: 1, maxLength: 256 }),
+        mailbox: Type.Optional(Type.String({ maxLength: 200 })),
+        account: Type.Optional(Type.String({ maxLength: 200 })),
+        instruction: Type.Optional(Type.String({ maxLength: 2_000 })),
+        tone: Type.Optional(tone),
+      }),
+      async run(p, ctx) {
+        const d = await drafts.draft({ ...(p as DraftRequest), threadId: ctx.threadId });
+        return ok(
+          {
+            body: d.body,
+            to: d.to,
+            subject: d.subject,
+            commitments: d.commitments,
+            voiceUsed: d.voiceUsed,
+            proposalId: d.proposalId,
+          },
+          "untrusted",
+        );
+      },
+    }),
+  ];
+  if (scheduling !== undefined) {
+    out.push(
+      readTool({
+        name: "mail.propose_times",
+        description:
+          "Offer three free times for a meeting someone asked for by email: free/busy inside working hours with buffers, written in both time zones, as a reply draft in the owner's voice (a pending card saves it). holds: also a card that puts tentative holds on the calendar. Never moves an existing meeting.",
+        input: Type.Object({
+          via,
+          messageId: Type.String({ minLength: 1, maxLength: 256 }),
+          mailbox: Type.Optional(Type.String({ maxLength: 200 })),
+          durationMin: Type.Optional(Type.Integer({ minimum: 10, maximum: 240 })),
+          withinDays: Type.Optional(Type.Integer({ minimum: 1, maximum: 30 })),
+          recipientTimezone: Type.Optional(Type.String({ maxLength: 64 })),
+          holds: Type.Optional(Type.Boolean()),
+          who: Type.Optional(Type.String({ maxLength: 120 })),
+        }),
+        async run(p, ctx) {
+          const r = await scheduling.proposeTimes({
+            ...(p as Parameters<SchedulingService["proposeTimes"]>[0]),
+            threadId: ctx.threadId,
+          });
+          return ok(
+            {
+              slots: r.slots,
+              draft: {
+                body: r.draft.body,
+                proposalId: r.draft.proposalId,
+                commitments: r.draft.commitments,
+              },
+              holdsProposalId: r.holdsProposalId,
+            },
+            "untrusted",
+          );
+        },
+      }),
+    );
+  }
+  return out;
+}
+
 /** Every proactive tool for the services given. */
 export function proactiveTools(options: ProactiveToolsOptions): AgentToolRegistration[] {
   return [
     ...(options.goals === undefined ? [] : goalTools(options.goals, options.clock)),
     ...(options.ideas === undefined ? [] : ideaTools(options.ideas)),
     ...(options.feed === undefined ? [] : feedTools(options.feed, options.clock)),
+    ...(options.drafts === undefined ? [] : mailTools(options.drafts, options.scheduling)),
   ];
 }
