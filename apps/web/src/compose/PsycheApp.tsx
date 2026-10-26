@@ -21,6 +21,7 @@ import {
   LIBRARY_SECTIONS,
   LibraryScreen,
   type LibrarySection,
+  mailSettings,
   OnboardingFlow,
   type OnboardingResult,
   type RailItem,
@@ -261,6 +262,22 @@ export async function completeOnboarding(
     creature: result.persona.creatureDescription || result.persona.creatureId,
     tagline: result.persona.tagline,
   });
+  // The mail and meetings decision screen (§7.5), when it was offered: one setting per switch.
+  // Best effort: a failed write leaves that workflow off, the safe default, and the owner can
+  // turn it on in Settings → Mail & meetings.
+  if (result.mail !== undefined) {
+    for (const [settingKey, value] of Object.entries(mailSettings(result.mail))) {
+      try {
+        await call(
+          "settings.set",
+          { key: settingKey, value },
+          { idempotencyKey: `onboarding:mail:${settingKey}:${now().getTime()}` },
+        );
+      } catch {
+        // See above.
+      }
+    }
+  }
   await call(
     "settings.set",
     { key: ONBOARDED_KEY, value: now().toISOString() },

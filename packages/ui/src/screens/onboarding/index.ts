@@ -1,3 +1,4 @@
+export { MAIL_DEFAULTS, MailStep, mailSettings } from "./MailStep.tsx";
 export { OnboardingFlow, type OnboardingFlowProps, stepLabel } from "./OnboardingFlow.tsx";
 export {
   ConnectorsStep,
@@ -13,6 +14,7 @@ export {
 } from "./OnboardingSteps.tsx";
 export {
   type ConnectedAccount,
+  type MailChoices,
   type ModelChoice,
   ONBOARDING_STEP_IDS,
   type OnboardingResult,

@@ -1,8 +1,11 @@
 import type { Catalogue } from "../index.ts";
+import { mailMeetings } from "./mail-meetings/pt.ts";
 import { workflows } from "./workflows/pt.ts";
 
 /** Portuguese catalogue (pt, Brazil). Same ids as `en`; missing ids fall back to English. */
 export const pt: Partial<Catalogue> = {
+  // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...mailMeetings,
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
   "common.cancel": "Cancelar",

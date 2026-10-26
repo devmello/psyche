@@ -1,8 +1,11 @@
 import type { Catalogue } from "../index.ts";
+import { mailMeetings } from "./mail-meetings/de.ts";
 import { workflows } from "./workflows/de.ts";
 
 /** German catalogue (de). Same ids as `en`; missing ids fall back to English. */
 export const de: Partial<Catalogue> = {
+  // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...mailMeetings,
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
   // common
