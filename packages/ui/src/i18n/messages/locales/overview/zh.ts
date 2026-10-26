@@ -20,6 +20,12 @@ export const overview: Partial<Catalogue> = {
   "overview.section.upcoming": "即将到来",
   "overview.section.recent": "最近运行",
   "overview.section.empty": "这里还没有内容。",
+  "overview.built.meta": "{count, plural, other {# 个成果}}",
+  "overview.built.seeAll": "查看全部",
+  "overview.built.open": "打开{title}",
+  "overview.built.empty": "此期间还没有创建任何内容。",
+  "overview.specialists.meta": "{count, plural, other {# 条结果}}",
+  "overview.specialists.empty": "此期间没有专家结果。",
   "overview.newUser.title": "{name}正在了解你",
   "overview.newUser.body":
     "一周后，你将看到{name}为你做了什么、学到了什么，以及它记住的人物和项目。",

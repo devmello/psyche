@@ -6,6 +6,7 @@ import { cn } from "../lib/utils.ts";
 import { ScreenToolbar } from "../screens/feed/ScreenToolbar.tsx";
 import { SegmentedRadio } from "../screens/settings/SegmentedRadio.tsx";
 import { usePersona } from "../slots.tsx";
+import { BuiltForYou, Specialists } from "./BuiltSpecialists.tsx";
 import { isNewUser, type OverviewData, useOverviewData } from "./data.ts";
 import {
   OVERVIEW_SECTIONS,
@@ -83,9 +84,15 @@ export function OverviewScreen({
         {/* Section cards are h3s; this keeps the outline h1 → h2 → h3. */}
         <h2 className="sr-only">{t("overview.screen")}</h2>
         {fresh ? <GettingToKnowYou name={persona.name} onTry={onTry} /> : null}
-        {visible.map((id) => (
-          <OverviewSection key={id} id={id} />
-        ))}
+        {visible.map((id) =>
+          id === "built" ? (
+            <BuiltForYou key={id} period={period} now={at} />
+          ) : id === "specialists" ? (
+            <Specialists key={id} period={period} now={at} />
+          ) : (
+            <OverviewSection key={id} id={id} />
+          ),
+        )}
       </div>
     </div>
   );
