@@ -4,7 +4,7 @@ import PsycheHelperSystem
 import PsycheProtocol
 import Testing
 
-/// Only paths that never reach the microphone, the recognizer or the synthesizer (no TCC, no audio).
+/// Only paths that never reach the microphone, or the recognizer (no TCC, no audio).
 @Suite("speech capabilities")
 struct SpeechCapabilitiesTests {
     struct DenyAll: PermissionPreflight {
@@ -34,9 +34,9 @@ struct SpeechCapabilitiesTests {
 
     @Test func manifest() {
         let specs = SpeechCapabilities.make(preflight: DenyAll(), registry: registry).map(\.spec)
-        #expect(specs.map(\.name) == ["speech.transcribe_stream", "speech.transcribe_file", "speech.audio_push", "speech.stop", "speech.synthesize", "speech.prepare", "speech.personal_voice.authorize", "speech.voices", "speech.status"])
-        #expect(specs.filter { $0.sideEffect != .read }.map(\.name) == ["speech.personal_voice.authorize"])
-        #expect(specs.filter(\.streaming).map(\.name) == ["speech.transcribe_stream", "speech.transcribe_file", "speech.synthesize"])
+        #expect(specs.map(\.name) == ["speech.transcribe_stream", "speech.transcribe_file", "speech.audio_push", "speech.stop", "speech.status"])
+        #expect(specs.allSatisfy { $0.sideEffect == .read })
+        #expect(specs.filter(\.streaming).map(\.name) == ["speech.transcribe_stream", "speech.transcribe_file"])
         _ = CapabilityRegistry(SpeechCapabilities.make(preflight: DenyAll(), registry: registry))
     }
 
@@ -48,7 +48,6 @@ struct SpeechCapabilitiesTests {
     @Test func invalidParamsBeforeAnyAudio() async {
         #expect(await reason("speech.transcribe_stream", ["source": "push"]) == "invalid_params")
         #expect(await reason("speech.transcribe_stream", ["vocabulary": .array(Array(repeating: "w", count: 101))]) == "invalid_params")
-        #expect(await reason("speech.synthesize", ["text": ""]) == "invalid_params")
         #expect(await reason("speech.status", ["locale": "nope nope"]) == "invalid_params")
     }
 

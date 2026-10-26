@@ -1,7 +1,7 @@
 import Foundation
 import PsycheProtocol
 
-/// Raw PCM sample encodings the helper accepts (push audio) and produces (synthesis). The subset of
+/// Raw PCM sample encodings the helper accepts (push audio). The subset of
 /// `AudioFormat.encoding` in `packages/protocol/src/contracts/SpeechEngine.ts` that is plain PCM.
 public enum PCMEncoding: String, Codable, Sendable, CaseIterable {
     case pcmS16le = "pcm_s16le"
