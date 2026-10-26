@@ -72,6 +72,10 @@ Skills name tools as the architecture lists them (§4.3): `browser.*`, `email.*`
 - `SKILL.md` bodies load on demand through `skills_read`. Keep each under 6,000 characters; the bundled ones are about 3,000–5,700.
 - Sizes are recorded in `docs/status/s20.md`.
 
+## Specialist roles (`specialist-*`)
+
+Six bundled skills define the background specialists of docs/agent/specialists-2026.md §5: `specialist-researcher`, `specialist-shopper`, `specialist-coder`, `specialist-organizer`, `specialist-writer` and `specialist-planner`. Each `SKILL.md` carries a `metadata.psyche.specialist` section (role, label, model class, `maxMode`, a tool allowlist that only narrows policy, `deny`, budget defaults and caps, the result kind, `planFirst`) and a role prompt as its body; `metadata.psyche.approvals` feeds the spawn pre-flight. They are `user-invocable: false` and `disable-model-invocation: true`: they never appear in the skills index or the composer, and the runtime starts them through `specialist.spawn`. Each folder has an `acceptance.md` and two scripted `examples/*.json` (a `FakeModelProvider` script plus the expected `specialist.report`), checked by `packages/skills/test/specialist-roles.test.ts`. An owner-installed skill can define a new role the same way; it stays off until the owner turns it on in Settings.
+
 ## Writing a new bundled skill
 
 - Original text only. Do not copy other products' skills.

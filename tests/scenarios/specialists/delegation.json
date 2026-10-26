@@ -1,0 +1,186 @@
+{
+  "version": 1,
+  "description": "Delegation eval for docs/agent/specialists-2026.md §4.8: owner requests labelled with the expected specialist role, or null for 'do it in the thread'. Scored offline by packages/skills/test/delegation-eval.test.ts; the bar is 26 of 30.",
+  "cases": [
+    {
+      "id": "d01",
+      "request": "Research the pros and cons of heat pumps versus gas furnaces for a 1950s house, with sources, and write me a brief.",
+      "expect": "researcher",
+      "why": "multi-source research, cited"
+    },
+    {
+      "id": "d02",
+      "request": "Look into what recent studies say about intermittent fasting and longevity; I want a cited summary by tonight.",
+      "expect": "researcher",
+      "why": "research with sources, can run alone"
+    },
+    {
+      "id": "d03",
+      "request": "Compare the latest research on remote work productivity and give me a report with sources.",
+      "expect": "researcher",
+      "why": "comparison of sources, not products"
+    },
+    {
+      "id": "d04",
+      "request": "Research which project management tools fit a five-person team and summarize the evidence with sources.",
+      "expect": "researcher",
+      "why": "research brief"
+    },
+    {
+      "id": "d05",
+      "request": "Find the best noise-cancelling headphones under $300 and compare prices across stores.",
+      "expect": "shopper",
+      "why": "product comparison with prices"
+    },
+    {
+      "id": "d06",
+      "request": "Find me a good deal on a 65-inch OLED TV and compare three retailers.",
+      "expect": "shopper",
+      "why": "deal hunting across stores"
+    },
+    {
+      "id": "d07",
+      "request": "Shop around for a kids' bike for a seven-year-old and compare options and prices.",
+      "expect": "shopper",
+      "why": "shopping comparison"
+    },
+    {
+      "id": "d08",
+      "request": "Fix the failing date parsing test in my notes-app repo and run the tests.",
+      "expect": "coder",
+      "why": "code change in a repo, tested"
+    },
+    {
+      "id": "d09",
+      "request": "Refactor the CSV export in ~/code/budget so it streams rows, and add tests.",
+      "expect": "coder",
+      "why": "refactor with tests"
+    },
+    {
+      "id": "d10",
+      "request": "There's a bug in my blog repo's RSS feed; find it, fix it and test the change.",
+      "expect": "coder",
+      "why": "bug fix in a repo"
+    },
+    {
+      "id": "d11",
+      "request": "Clean up my Downloads folder and sort the PDFs into folders by type.",
+      "expect": "organizer",
+      "why": "folder tidy-up"
+    },
+    {
+      "id": "d12",
+      "request": "Tidy my inbox: label every receipt and invoice from this year and file them away.",
+      "expect": "organizer",
+      "why": "inbox organizing"
+    },
+    {
+      "id": "d13",
+      "request": "Organize my reminders and notes from last month into lists by project.",
+      "expect": "organizer",
+      "why": "notes and reminders tidy-up"
+    },
+    {
+      "id": "d14",
+      "request": "Write a first draft of a blog post about our Lisbon trip from my notes.",
+      "expect": "writer",
+      "why": "draft from sources"
+    },
+    {
+      "id": "d15",
+      "request": "Draft a cover letter for the product manager job in my voice, using my CV and the job posting.",
+      "expect": "writer",
+      "why": "draft in the owner's voice"
+    },
+    {
+      "id": "d16",
+      "request": "Write a two-page summary from these three articles for my book club.",
+      "expect": "writer",
+      "why": "writing from sources"
+    },
+    {
+      "id": "d17",
+      "request": "Plan my next week around my calendar: find time for the gym, deep work and the dentist.",
+      "expect": "planner",
+      "why": "week plan from calendar"
+    },
+    {
+      "id": "d18",
+      "request": "Make an itinerary for a four-day trip to Kyoto with a day-by-day schedule.",
+      "expect": "planner",
+      "why": "itinerary"
+    },
+    {
+      "id": "d19",
+      "request": "Put together a study plan and timeline for the AWS exam over the next six weeks.",
+      "expect": "planner",
+      "why": "plan and timeline"
+    },
+    {
+      "id": "d20",
+      "request": "Build a roadmap and schedule for renovating the kitchen over three months.",
+      "expect": "planner",
+      "why": "roadmap and schedule"
+    },
+    {
+      "id": "d21",
+      "request": "What's on my calendar tomorrow?",
+      "expect": null,
+      "why": "answer in a few steps"
+    },
+    {
+      "id": "d22",
+      "request": "What time is it in Tokyo right now?",
+      "expect": null,
+      "why": "quick question"
+    },
+    {
+      "id": "d23",
+      "request": "Send the invoice email to Alice now.",
+      "expect": null,
+      "why": "main risk is a send: do it in the thread"
+    },
+    {
+      "id": "d24",
+      "request": "Buy the headphones in my cart.",
+      "expect": null,
+      "why": "payment: do it in the thread"
+    },
+    {
+      "id": "d25",
+      "request": "Delete all the files in my Downloads folder.",
+      "expect": null,
+      "why": "delete: do it in the thread"
+    },
+    {
+      "id": "d26",
+      "request": "Let's brainstorm names for my new project together.",
+      "expect": null,
+      "why": "back-and-forth with the owner"
+    },
+    {
+      "id": "d27",
+      "request": "Help me decide between these two job offers; ask me questions first.",
+      "expect": null,
+      "why": "needs back-and-forth"
+    },
+    {
+      "id": "d28",
+      "request": "Remind me to call Mom at 6.",
+      "expect": null,
+      "why": "one quick action"
+    },
+    {
+      "id": "d29",
+      "request": "Pay my electricity bill.",
+      "expect": null,
+      "why": "payment"
+    },
+    {
+      "id": "d30",
+      "request": "What's the capital of Australia?",
+      "expect": null,
+      "why": "answer directly"
+    }
+  ]
+}

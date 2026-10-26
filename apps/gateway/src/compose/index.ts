@@ -12,6 +12,7 @@ import {
   type HashChainAuditLog,
   SoftwareAnchorKey,
 } from "@psyche/audit";
+import { redactUrl } from "@psyche/browser";
 import { getDevice, getSetting, getThread, openDb, type PsycheDb } from "@psyche/db";
 import { fileTools } from "@psyche/files";
 import {
@@ -735,6 +736,22 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // Reasoning steps for the step log (setting agent.showReasoning, default on), masked.
     showReasoning: () => getSetting(db, "agent.showReasoning")?.value !== false,
     redact: (text) => redactor.redact(text),
+    // Helper runs become child runs in the run trace (run trace §4.2).
+    onSubagentEvent: (info, event) => {
+      try {
+        gatewayRef?.context.runTrace.subagent(info, event);
+      } catch {
+        // A trace write never fails the helper.
+      }
+    },
+  });
+  // Tool inputs and outputs become the trace's payloads and previews (run trace §4.2).
+  loop.hooks.on("tool_result_persist", ({ record, result }) => {
+    try {
+      gatewayRef?.context.runTrace.toolResult(record, result);
+    } catch {
+      // A trace write never fails the call.
+    }
   });
   const pool = new TaskWorkerPool({
     engine: tasks,
@@ -880,6 +897,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // explicit one, or a part's with a registered key (the helper without keys is not).
     settingsPresence: () => presence !== NO_PRESENCE || presenceReady.some((ready) => ready()),
     threadModels: modelPins,
+    // Run trace §4.6: the one redactor, and credential-like URL parameters.
+    traceRedact: (text) =>
+      redactor.redact(text).replace(/https?:\/\/[^\s"'<>)\]]+/g, (url) => redactUrl(url)),
   });
   bus = gateway.bus;
   webTools.refresh();

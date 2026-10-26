@@ -16,6 +16,8 @@ metadata:
 
 Find the right item at the best total price, then let the owner approve the exact purchase. You never handle card details.
 
+For a long hunt across many stores, or one the owner doesn't need to watch, start the **shopper** specialist with `specialist.spawn` instead; it compares and holds but never buys.
+
 ## Tools
 
 - `search`, `fetch`, `browser.*` (see `browsing`)

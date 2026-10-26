@@ -8,12 +8,14 @@
 //   let appleAlarm = try? JSONDecoder().decode(AppleAlarm.self, from: jsonData)
 //   let appleBusyBlock = try? JSONDecoder().decode(AppleBusyBlock.self, from: jsonData)
 //   let appleCalendar = try? JSONDecoder().decode(AppleCalendar.self, from: jsonData)
+//   let appleCalendarChangedEvent = try? JSONDecoder().decode(AppleCalendarChangedEvent.self, from: jsonData)
 //   let appleCalendarDeleteEventParams = try? JSONDecoder().decode(AppleCalendarDeleteEventParams.self, from: jsonData)
 //   let appleCalendarEvent = try? JSONDecoder().decode(AppleCalendarEvent.self, from: jsonData)
 //   let appleCalendarEventInput = try? JSONDecoder().decode(AppleCalendarEventInput.self, from: jsonData)
 //   let appleCalendarEventUpdate = try? JSONDecoder().decode(AppleCalendarEventUpdate.self, from: jsonData)
 //   let appleCalendarFreeBusyParams = try? JSONDecoder().decode(AppleCalendarFreeBusyParams.self, from: jsonData)
 //   let appleCalendarListEventsParams = try? JSONDecoder().decode(AppleCalendarListEventsParams.self, from: jsonData)
+//   let appleCalendarWatchParams = try? JSONDecoder().decode(AppleCalendarWatchParams.self, from: jsonData)
 //   let appleContact = try? JSONDecoder().decode(AppleContact.self, from: jsonData)
 //   let appleContactInput = try? JSONDecoder().decode(AppleContactInput.self, from: jsonData)
 //   let appleContactSummary = try? JSONDecoder().decode(AppleContactSummary.self, from: jsonData)
@@ -863,11 +865,15 @@
 //   let specialistsListResult = try? JSONDecoder().decode(SpecialistsListResult.self, from: jsonData)
 //   let speechAudioPayload = try? JSONDecoder().decode(SpeechAudioPayload.self, from: jsonData)
 //   let speechEngineLocation = try? JSONDecoder().decode(SpeechEngineLocation.self, from: jsonData)
+//   let speechNodeEngine = try? JSONDecoder().decode(SpeechNodeEngine.self, from: jsonData)
+//   let speechProgressEvent = try? JSONDecoder().decode(SpeechProgressEvent.self, from: jsonData)
 //   let speechReadAloudCancelParams = try? JSONDecoder().decode(SpeechReadAloudCancelParams.self, from: jsonData)
 //   let speechReadAloudCompletedPayload = try? JSONDecoder().decode(SpeechReadAloudCompletedPayload.self, from: jsonData)
 //   let speechReadAloudFailedPayload = try? JSONDecoder().decode(SpeechReadAloudFailedPayload.self, from: jsonData)
 //   let speechReadAloudParams = try? JSONDecoder().decode(SpeechReadAloudParams.self, from: jsonData)
 //   let speechReadAloudResult = try? JSONDecoder().decode(SpeechReadAloudResult.self, from: jsonData)
+//   let speechTranscribeFileParams = try? JSONDecoder().decode(SpeechTranscribeFileParams.self, from: jsonData)
+//   let speechTranscribeFileResult = try? JSONDecoder().decode(SpeechTranscribeFileResult.self, from: jsonData)
 //   let speechVoice = try? JSONDecoder().decode(SpeechVoice.self, from: jsonData)
 //   let speechVoicesParams = try? JSONDecoder().decode(SpeechVoicesParams.self, from: jsonData)
 //   let speechVoicesResult = try? JSONDecoder().decode(SpeechVoicesResult.self, from: jsonData)
@@ -1115,6 +1121,30 @@ public struct AppleCalendar: Codable, Sendable {
         self.title = title
         self.writable = writable
     }
+}
+
+// MARK: - AppleCalendarChangedEvent
+public struct AppleCalendarChangedEvent: Codable, Sendable {
+    public let at: String
+    /// EKEventStoreChanged notifications folded into this event
+    public let coalesced: Int
+    public let type: AppleCalendarChangedEventType
+
+    public enum CodingKeys: String, CodingKey {
+        case at = "at"
+        case coalesced = "coalesced"
+        case type = "type"
+    }
+
+    public init(at: String, coalesced: Int, type: AppleCalendarChangedEventType) {
+        self.at = at
+        self.coalesced = coalesced
+        self.type = type
+    }
+}
+
+public enum AppleCalendarChangedEventType: String, Codable, Sendable {
+    case calendarChanged = "calendar.changed"
 }
 
 // MARK: - AppleCalendarDeleteEventParams
@@ -1443,6 +1473,13 @@ public struct AppleCalendarListEventsParams: Codable, Sendable {
         self.limit = limit
         self.query = query
         self.to = to
+    }
+}
+
+// MARK: - AppleCalendarWatchParams
+public struct AppleCalendarWatchParams: Codable, Sendable {
+
+    public init() {
     }
 }
 
@@ -19514,6 +19551,40 @@ public enum Encoding: String, Codable, Sendable {
     case wav = "wav"
 }
 
+// MARK: - SpeechProgressEvent
+public struct SpeechProgressEvent: Codable, Sendable {
+    /// Chunks finished
+    public let chunk: Int
+    public let chunks: Int
+    public let fraction: Double
+    /// Audio transcribed so far
+    public let processedMS: Int
+    public let totalMS: Int
+    public let type: SpeechProgressEventType
+
+    public enum CodingKeys: String, CodingKey {
+        case chunk = "chunk"
+        case chunks = "chunks"
+        case fraction = "fraction"
+        case processedMS = "processedMs"
+        case totalMS = "totalMs"
+        case type = "type"
+    }
+
+    public init(chunk: Int, chunks: Int, fraction: Double, processedMS: Int, totalMS: Int, type: SpeechProgressEventType) {
+        self.chunk = chunk
+        self.chunks = chunks
+        self.fraction = fraction
+        self.processedMS = processedMS
+        self.totalMS = totalMS
+        self.type = type
+    }
+}
+
+public enum SpeechProgressEventType: String, Codable, Sendable {
+    case speechProgress = "speech.progress"
+}
+
 // MARK: - SpeechReadAloudCancelParams
 public struct SpeechReadAloudCancelParams: Codable, Sendable {
     public let streamID: String
@@ -19600,6 +19671,97 @@ public struct SpeechReadAloudResult: Codable, Sendable {
 
     public init(streamID: String) {
         self.streamID = streamID
+    }
+}
+
+// MARK: - SpeechTranscribeFileParams
+public struct SpeechTranscribeFileParams: Codable, Sendable {
+    /// BCP-47 tag (default: the Mac's locale)
+    public let locale: String?
+    /// Refuse longer files (default and ceiling 4 h)
+    public let maxDurationMS: Int?
+    /// Absolute path of an audio file in a granted folder or the Library (m4a, caf, wav, aiff,
+    /// mp3, …)
+    public let path: String
+    /// Names and terms; selects DictationTranscriber with contextual strings
+    public let vocabulary: [String]?
+
+    public enum CodingKeys: String, CodingKey {
+        case locale = "locale"
+        case maxDurationMS = "maxDurationMs"
+        case path = "path"
+        case vocabulary = "vocabulary"
+    }
+
+    public init(locale: String?, maxDurationMS: Int?, path: String, vocabulary: [String]?) {
+        self.locale = locale
+        self.maxDurationMS = maxDurationMS
+        self.path = path
+        self.vocabulary = vocabulary
+    }
+}
+
+// MARK: - SpeechTranscribeFileResult
+public struct SpeechTranscribeFileResult: Codable, Sendable {
+    /// Duration of the file
+    public let audioMS: Int
+    /// How many chunks the file was split into
+    public let chunks: Int
+    public let engine: SpeechNodeEngine
+    /// BCP-47 tag of the locale used
+    public let language: String
+    /// Final segments in time order
+    public let segments: [TranscriptSegment]
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case audioMS = "audioMs"
+        case chunks = "chunks"
+        case engine = "engine"
+        case language = "language"
+        case segments = "segments"
+        case text = "text"
+    }
+
+    public init(audioMS: Int, chunks: Int, engine: SpeechNodeEngine, language: String, segments: [TranscriptSegment], text: String) {
+        self.audioMS = audioMS
+        self.chunks = chunks
+        self.engine = engine
+        self.language = language
+        self.segments = segments
+        self.text = text
+    }
+}
+
+public enum SpeechNodeEngine: String, Codable, Sendable {
+    case dictationTranscriber = "dictationTranscriber"
+    case sfSpeech = "sfSpeech"
+    case speechAnalyzer = "speechAnalyzer"
+}
+
+// MARK: - TranscriptSegment
+public struct TranscriptSegment: Codable, Sendable {
+    public let confidence: Double?
+    public let endMS: Int
+    /// false = volatile partial a later segment replaces
+    public let transcriptSegmentFinal: Bool
+    public let startMS: Int
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case confidence = "confidence"
+        case endMS = "endMs"
+        case transcriptSegmentFinal = "final"
+        case startMS = "startMs"
+        case text = "text"
+    }
+
+    public init(confidence: Double?, endMS: Int, transcriptSegmentFinal: Bool, startMS: Int, text: String) {
+        self.confidence = confidence
+        self.endMS = endMS
+        self.transcriptSegmentFinal = transcriptSegmentFinal
+        self.startMS = startMS
+        self.text = text
     }
 }
 
@@ -23566,32 +23728,6 @@ public struct Transcript: Codable, Sendable {
     public init(language: String?, segments: [TranscriptSegment], text: String) {
         self.language = language
         self.segments = segments
-        self.text = text
-    }
-}
-
-// MARK: - TranscriptSegment
-public struct TranscriptSegment: Codable, Sendable {
-    public let confidence: Double?
-    public let endMS: Int
-    /// false = volatile partial a later segment replaces
-    public let transcriptSegmentFinal: Bool
-    public let startMS: Int
-    public let text: String
-
-    public enum CodingKeys: String, CodingKey {
-        case confidence = "confidence"
-        case endMS = "endMs"
-        case transcriptSegmentFinal = "final"
-        case startMS = "startMs"
-        case text = "text"
-    }
-
-    public init(confidence: Double?, endMS: Int, transcriptSegmentFinal: Bool, startMS: Int, text: String) {
-        self.confidence = confidence
-        self.endMS = endMS
-        self.transcriptSegmentFinal = transcriptSegmentFinal
-        self.startMS = startMS
         self.text = text
     }
 }
