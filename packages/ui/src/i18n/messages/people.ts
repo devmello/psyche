@@ -129,6 +129,27 @@ export const people = {
   "people.suggestion.later": "Later",
   "people.suggestion.because": "Because:",
 
+  "people.dialog.cancel": "Cancel",
+  "people.forget.title": "Forget {name}?",
+  "people.forget.counting": "Checking what Psyche knows…",
+  "people.forget.counts":
+    "Psyche deletes the card, {facts, plural, one {# fact} other {# facts}}, {loops, plural, one {# open loop} other {# open loops}}, {interactions, plural, one {# interaction} other {# interactions}} and {edges, plural, one {# relation} other {# relations}}.",
+  "people.forget.after":
+    "Their addresses are blocked, so Psyche won't learn about them again. Your mail and calendar stay as they are.",
+  "people.forget.previewFailed": "Psyche couldn't count what it would delete ({reason}).",
+  "people.forget.confirm": "Forget",
+  "people.forget.done": "Forgot {name}.",
+  "people.merge.title": "Merge into {name}",
+  "people.merge.description":
+    "Pick who else this is. Psyche shows what moves before anything changes.",
+  "people.merge.search": "Who else is this?",
+  "people.merge.searchPlaceholder": "Name or email",
+  "people.merge.checking": "Checking what would move…",
+  "people.merge.preview":
+    "Moves {identifiers, plural, one {# address} other {# addresses}} and {facts, plural, one {# fact} other {# facts}} from {other} into {name}. {other} goes away; you can split them again later.",
+  "people.merge.pickAnother": "Pick someone else",
+  "people.merge.confirm": "Merge",
+  "people.merge.done": "Merged {other} into {name}.",
   "people.writeFailed": "Psyche couldn't save that ({reason}). Nothing was changed.",
   "people.loading": "Loading the card",
   "people.error": "Psyche couldn't load this card",

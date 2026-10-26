@@ -89,7 +89,6 @@ export function graphHandlers(ctx: GraphMockContext): Handlers {
           .filter(
             (e) =>
               e.status === "active" &&
-              !e.isOwner &&
               (!p.kinds || p.kinds.includes(e.kind)) &&
               matches(w, e, p.q),
           )

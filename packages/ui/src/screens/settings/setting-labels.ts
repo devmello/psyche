@@ -31,6 +31,7 @@ const LABELLED_KEYS = [
   "context.keepRecentTurns",
   "data.transcriptRecall",
   "data.replayRetentionDays",
+  "memory.graph",
   "gateway.bind",
   "models.primary",
   "models.utility",
