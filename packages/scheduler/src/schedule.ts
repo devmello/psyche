@@ -15,7 +15,7 @@ export interface Fold {
 }
 
 export interface Schedule {
-  readonly type: "cron" | "interval" | "once";
+  readonly type: "cron" | "interval" | "once" | "event";
   next(after: number): number | undefined;
   /** Folds every fire time from `due` (itself a fire time, `<= now`) up to `now`. */
   fold(due: number, now: number, cap: number): Fold;
@@ -65,6 +65,15 @@ function bad(message: string): never {
 export function parseSchedule(kind: AutomationKind, schedule: string, timezone: string): Schedule {
   if (!isValidTimezone(timezone)) bad(`unknown timezone ${JSON.stringify(timezone)}`);
   const text = schedule.trim();
+  if (kind === "event") {
+    // Event automations run on their trigger, never on a clock (§4.7).
+    if (text !== "") bad("an event automation has no schedule; it runs on its trigger");
+    return {
+      type: "event",
+      next: () => undefined,
+      fold: (due) => ({ count: 1, latest: due, next: undefined }),
+    };
+  }
   if (kind === "reminder") {
     if (!ISO_INSTANT.test(text)) bad("a reminder needs an ISO-8601 instant with an offset");
     const at = Date.parse(text);

@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   Sparkles,
   Trash2,
+  Users,
 } from "lucide-react";
 import {
   type KeyboardEvent,
@@ -48,6 +49,7 @@ import { DevicesSection } from "./DevicesSection.tsx";
 import { FileAccessSection } from "./FileAccessSection.tsx";
 import { McpSection } from "./McpSection.tsx";
 import { ModelSection } from "./ModelSection.tsx";
+import { PeopleSection } from "./PeopleSection.tsx";
 import { PermissionsSection } from "./PermissionsSection.tsx";
 import { PersonaSection } from "./PersonaSection.tsx";
 import { ServerSection } from "./ServerSection.tsx";
@@ -85,6 +87,7 @@ export type SettingsSectionId =
   | "appearance"
   | "voice"
   | "data"
+  | "people"
   | "server"
   | "usage"
   | "about";
@@ -122,6 +125,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionEntry[] = [
   entry("appearance", Palette),
   entry("voice", Mic),
   entry("data", Trash2),
+  entry("people", Users),
   entry("server", Server),
   entry("usage", Activity),
   entry("about", Info),
@@ -149,7 +153,7 @@ export const SETTINGS_GROUPS: readonly {
     ],
   },
   { id: "devices", sections: ["devices", "channels", "vm", "server"] },
-  { id: "privacy", sections: ["data"] },
+  { id: "privacy", sections: ["data", "people"] },
   { id: "about", sections: ["about"] },
 ];
 
@@ -165,6 +169,7 @@ export function sectionForKey(key: string): SettingsSectionId | null {
     context: "model",
     data: "data",
     gateway: "server",
+    memory: "people",
     models: "model",
     permissions: "permissions",
     persona: "persona",
@@ -323,6 +328,8 @@ export function SettingsSectionView({
       return <VoiceSection />;
     case "data":
       return <DataControlsSection {...opt("onExportReady", s.onExportReady)} />;
+    case "people":
+      return <PeopleSection {...opt("onExportReady", s.onExportReady)} />;
     case "server":
       return (
         <ServerSection

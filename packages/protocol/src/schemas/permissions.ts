@@ -2,6 +2,7 @@ import { type Static, Type } from "@sinclair/typebox";
 import {
   GrantScope,
   Id,
+  InputVia,
   IsoDateTime,
   JsonObject,
   Nullable,
@@ -40,6 +41,8 @@ export const ApprovalKind = StringEnum(
     "shortcut_run",
     "git_write",
     "git_push",
+    /** One approval for a listed set of `write` calls (an `ActionProposal`), once only. */
+    "batch",
   ],
   { $id: "ApprovalKind" },
 );
@@ -158,6 +161,8 @@ export const ApprovalAnswer = Type.Object(
     decision: StringEnum(["approve", "deny"]),
     scope: Type.Optional(GrantScope),
     presence: Type.Optional(PresenceAssertionSchema),
+    /** `voice`: answered by a spoken phrase after a readback (docs/voice/voice-mode-2026.md §4.6). */
+    via: Type.Optional(InputVia),
   },
   { $id: "ApprovalAnswer" },
 );

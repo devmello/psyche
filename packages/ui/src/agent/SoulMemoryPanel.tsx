@@ -33,6 +33,7 @@ import { useCall, useGatewayQuery, useMemoryFile } from "../data/index.ts";
 import { activeI18n, t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { cn } from "../lib/utils.ts";
+import { PeopleSheetSection } from "../people/PeopleSheetSection.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
 import { lessonsAt, useLessons } from "../teaching/hooks.ts";
 import { LessonMark } from "../teaching/LessonMark.tsx";
@@ -303,11 +304,14 @@ function ResetDialog({
 /** Agent sheet → Soul & Memory (UI design §3.17). */
 export function SoulMemoryPanel({
   initialFile,
+  initialEntity,
   onStartIncognito,
   onImport,
   onExported,
 }: {
   initialFile?: string;
+  /** Opens this person's or project's card (`/agent/soul?entity=`). */
+  initialEntity?: string;
   onStartIncognito?: () => void;
   /** The shell picks the export file to import (format + content) and calls back. */
   onImport?: () => void;
@@ -385,6 +389,8 @@ export function SoulMemoryPanel({
           ),
         )}
       </GroupedList>
+
+      <PeopleSheetSection {...(initialEntity ? { initialEntity } : {})} />
 
       <GroupedList
         title={t("agent.memory.dailyNotes")}

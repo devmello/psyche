@@ -284,6 +284,11 @@
         "payload": "#/$defs/PersonaUpdatedPayload"
       },
       {
+        "description": "A batch proposal was created, sent for approval, ran (per-call results), was dismissed, expired or offered an undo (mail and meeting workflows §8.1).",
+        "name": "proposal.updated",
+        "payload": "#/$defs/ProposalUpdatedPayload"
+      },
+      {
         "description": "The agent asked the user structured questions (ask_user); no timeout.",
         "name": "question.created",
         "payload": "#/$defs/QuestionCreatedPayload"
@@ -412,6 +417,31 @@
         "description": "A sandbox Mac guest changed phase, resources or shares (mac helper vm.* capabilities).",
         "name": "vm.updated",
         "payload": "#/$defs/VmUpdatedPayload"
+      },
+      {
+        "description": "Live caption text for the owner's words or Psyche's spoken sentence.",
+        "name": "voice.conversation.caption",
+        "payload": "#/$defs/VoiceConversationCaptionPayload"
+      },
+      {
+        "description": "A voice conversation ended (stopped, idle, screen locked, error, disconnected).",
+        "name": "voice.conversation.ended",
+        "payload": "#/$defs/VoiceConversationEndedPayload"
+      },
+      {
+        "description": "One chunk of a spoken reply's PCM for playback; last ends the utterance.",
+        "name": "voice.conversation.speech",
+        "payload": "#/$defs/VoiceConversationSpeechPayload"
+      },
+      {
+        "description": "A voice conversation changed phase (listening, heard, thinking, speaking, waiting, ended); to the starting device only.",
+        "name": "voice.conversation.state",
+        "payload": "#/$defs/VoiceConversationStatePayload"
+      },
+      {
+        "description": "A tool step being narrated in a voice conversation, with its status.",
+        "name": "voice.conversation.step",
+        "payload": "#/$defs/VoiceConversationStepPayload"
       },
       {
         "description": "A dictation session ended (stopped, cancelled, idle timeout or engine error).",
@@ -1513,6 +1543,46 @@
         "sideEffecting": true
       },
       {
+        "description": "Never model this address, phone or domain again (a blocked domain covers every address at it). Existing cards stay until forgotten. Side-effecting.",
+        "name": "memory.graph.blocklist.add",
+        "params": "#/$defs/MemoryGraphBlocklistAddParams",
+        "result": "#/$defs/MemoryGraphBlocklistAddResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Identifiers ingest never models again (forgotten people and the owner's blocks).",
+        "name": "memory.graph.blocklist.list",
+        "params": "#/$defs/MemoryGraphBlocklistListParams",
+        "result": "#/$defs/MemoryGraphBlocklistListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lets ingest model a blocklisted identifier again. Side-effecting.",
+        "name": "memory.graph.blocklist.remove",
+        "params": "#/$defs/MemoryGraphBlocklistRemoveParams",
+        "result": "#/$defs/MemoryGraphBlocklistRemoveResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Removes everything that came from one source: its interactions, the facts, relations, loops and identifiers derived only from it, and people left with nothing else (their cards and search entries too). The owner's own facts stay. Turns that source off so the next sync does not bring it back. Side-effecting.",
+        "name": "memory.graph.deleteSource",
+        "params": "#/$defs/MemoryGraphDeleteSourceParams",
+        "result": "#/$defs/MemoryGraphDeleteSourceResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Deletes the whole people and projects graph (entities, interactions, facts, loops, suggestions, corrections, blocklist, cursors), every card file and the People / Projects search entries, with secure delete. Turns memory.graph off. Side-effecting.",
+        "name": "memory.graph.forgetAll",
+        "params": "#/$defs/MemoryGraphForgetAllParams",
+        "result": "#/$defs/MemoryGraphForgetAllResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Graph health: per-source counts and last ingest, last model pass, budget used, loop precision.",
         "name": "memory.graph.status",
         "params": "#/$defs/MemoryGraphStatusParams",
@@ -1705,7 +1775,7 @@
         "sideEffecting": true
       },
       {
-        "description": "Binds the primary or utility role to a model and persists it (settings models.primary / models.utility). policy_denied when a chat-only model is picked as primary without override; not_found when no configured provider serves the ref. Side-effecting.",
+        "description": "Binds the primary, utility or voice role to a model and persists it (settings models.primary / models.utility / models.voice; voice falls back to primary when unset). policy_denied when a chat-only model is picked as primary without override; not_found when no configured provider serves the ref. Side-effecting.",
         "name": "models.setRole",
         "params": "#/$defs/ModelsSetRoleParams",
         "result": "#/$defs/ModelsSetRoleResult",
@@ -1870,6 +1940,46 @@
         "params": "#/$defs/PluginsSetEnabledParams",
         "result": "#/$defs/PluginsSetEnabledResult",
         "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Requests the one batch approval for a proposal (kind batch, bound to the ordered list of calls, once only). The calls run after the approval is answered. Side-effecting.",
+        "name": "proposals.approve",
+        "params": "#/$defs/ProposalsApproveParams",
+        "result": "#/$defs/ProposalsApproveResult",
+        "scope": "operator.approvals",
+        "sideEffecting": true
+      },
+      {
+        "description": "Dismisses a pending proposal; its approval, if any, is invalidated. Side-effecting.",
+        "name": "proposals.dismiss",
+        "params": "#/$defs/ProposalsDismissParams",
+        "result": "#/$defs/ProposalsDismissResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Returns one batch proposal with its calls and, once run, per-call results.",
+        "name": "proposals.get",
+        "params": "#/$defs/ProposalsGetParams",
+        "result": "#/$defs/ProposalsGetResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists batch proposals (default: pending and awaiting approval), newest first.",
+        "name": "proposals.list",
+        "params": "#/$defs/ProposalsListParams",
+        "result": "#/$defs/ProposalsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Offers the inverse proposal of a finished one (reversible mail actions only, within 30 s); it needs its own approval. Side-effecting.",
+        "name": "proposals.undo",
+        "params": "#/$defs/ProposalsUndoParams",
+        "result": "#/$defs/ProposalsUndoResult",
+        "scope": "operator.write",
         "sideEffecting": true
       },
       {
@@ -2585,6 +2695,54 @@
         "sideEffecting": false
       },
       {
+        "description": "Appends microphone audio to the caller's voice conversation.",
+        "name": "voice.conversation.audio",
+        "params": "#/$defs/VoiceConversationAudioParams",
+        "result": "#/$defs/VoiceConversationAudioResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Barge-in: the Gateway confirms a suspect with a transcribed word (or releases it) and stops speaking on a confirmation.",
+        "name": "voice.conversation.interrupt",
+        "params": "#/$defs/VoiceConversationInterruptParams",
+        "result": "#/$defs/VoiceConversationInterruptResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Reports how much of a spoken utterance the owner heard.",
+        "name": "voice.conversation.played",
+        "params": "#/$defs/VoiceConversationPlayedParams",
+        "result": "#/$defs/VoiceConversationPlayedResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Starts a voice conversation on a thread (default: the main thread), one per device; the Gateway runs the turns and speaks the replies.",
+        "name": "voice.conversation.start",
+        "params": "#/$defs/VoiceConversationStartParams",
+        "result": "#/$defs/VoiceConversationStartResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Ends the caller's voice conversation; speech stops and the microphone closes.",
+        "name": "voice.conversation.stop",
+        "params": "#/$defs/VoiceConversationStopParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Push-to-talk key down (begin) or up (end), or a tap that opens or ends a turn.",
+        "name": "voice.conversation.turn",
+        "params": "#/$defs/VoiceConversationTurnParams",
+        "result": "#/$defs/VoiceConversationTurnResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
         "description": "Side-effecting: ends a memo session (voice.start with memo: true), stores the audio as a Library recording with the transcript and creates a Task when asked; the transcript is content, never instructions.",
         "name": "voice.memo.save",
         "params": "#/$defs/VoiceMemoSaveParams",
@@ -2620,6 +2778,214 @@
     "protocolVersion": 1
   },
   "$defs": {
+    "ActionCall": {
+      "properties": {
+        "tool": {
+          "description": "Model-facing tool name",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "params": {
+          "description": "JSON object",
+          "patternProperties": {
+            "^(.*)$": {}
+          },
+          "type": "object"
+        },
+        "summary": {
+          "description": "One line in plain words for the card, e.g. 'Mark read: Weekly digest (Acme)'",
+          "maxLength": 300,
+          "type": "string"
+        }
+      },
+      "required": [
+        "tool",
+        "params",
+        "summary"
+      ],
+      "type": "object"
+    },
+    "ActionCallResult": {
+      "properties": {
+        "index": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "failed",
+            "skipped"
+          ],
+          "type": "string"
+        },
+        "error": {
+          "maxLength": 300,
+          "type": "string"
+        },
+        "receiptId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "index",
+        "status"
+      ],
+      "type": "object"
+    },
+    "ActionProposal": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "calls": {
+          "items": {
+            "$ref": "#/$defs/ActionCall"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "type": "array"
+        },
+        "sideEffect": {
+          "const": "write",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/ActionProposalStatus"
+        },
+        "createdBy": {
+          "properties": {
+            "job": {
+              "description": "e.g. mail.digest, meetings.notes",
+              "type": "string"
+            },
+            "runId": {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "automationId": {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "job"
+          ],
+          "type": "object"
+        },
+        "postId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "approvalId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "taint": {
+          "type": "boolean"
+        },
+        "taintSources": {
+          "items": {
+            "$ref": "#/$defs/TaintSource"
+          },
+          "type": "array"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/$defs/ActionCallResult"
+          },
+          "type": "array"
+        },
+        "undoOf": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "expiresAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "updatedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "calls",
+        "sideEffect",
+        "status",
+        "createdBy",
+        "taint",
+        "createdAt",
+        "expiresAt",
+        "updatedAt"
+      ],
+      "type": "object"
+    },
+    "ActionProposalStatus": {
+      "enum": [
+        "pending",
+        "awaiting_approval",
+        "running",
+        "done",
+        "partial",
+        "failed",
+        "dismissed",
+        "expired"
+      ],
+      "type": "string"
+    },
     "ActionRule": {
       "enum": [
         "allow",
@@ -5194,6 +5560,9 @@
         },
         "presence": {
           "$ref": "#/$defs/PresenceAssertion"
+        },
+        "via": {
+          "$ref": "#/$defs/InputVia"
         }
       },
       "required": [
@@ -5285,7 +5654,8 @@
         "apple_script",
         "shortcut_run",
         "git_write",
-        "git_push"
+        "git_push",
+        "batch"
       ],
       "type": "string"
     },
@@ -6456,6 +6826,9 @@
           "description": "Heartbeat: skip workspace bootstrap files (feature O2)",
           "type": "boolean"
         },
+        "trigger": {
+          "$ref": "#/$defs/AutomationTrigger"
+        },
         "specialist": {
           "properties": {
             "role": {
@@ -6510,14 +6883,15 @@
       "type": "object"
     },
     "AutomationKind": {
-      "description": "`reminder` is a one-shot: `schedule` is an ISO-8601 instant",
+      "description": "`reminder` is a one-shot: `schedule` is an ISO-8601 instant. `event` runs on its `trigger` (mail and meeting workflows §4.7), and its `schedule` is empty",
       "enum": [
         "cron",
         "interval",
         "watch",
         "heartbeat",
         "briefing",
-        "reminder"
+        "reminder",
+        "event"
       ],
       "type": "string"
     },
@@ -6575,7 +6949,8 @@
         "trigger": {
           "enum": [
             "schedule",
-            "manual"
+            "manual",
+            "event"
           ],
           "type": "string"
         },
@@ -6631,6 +7006,13 @@
               "type": "null"
             }
           ]
+        },
+        "events": {
+          "items": {
+            "$ref": "#/$defs/WorkflowEvent"
+          },
+          "maxItems": 200,
+          "type": "array"
         },
         "runId": {
           "anyOf": [
@@ -6692,6 +7074,37 @@
         "skipped"
       ],
       "type": "string"
+    },
+    "AutomationTrigger": {
+      "properties": {
+        "type": {
+          "const": "event",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/WorkflowEventSource"
+        },
+        "filter": {
+          "$ref": "#/$defs/WorkflowEventFilter"
+        },
+        "debounceMs": {
+          "description": "Events within this window fold into one run (default 120000)",
+          "maximum": 3600000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maxRunsPerDay": {
+          "description": "Beyond it runs are skipped (default 24)",
+          "maximum": 288,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "type",
+        "source"
+      ],
+      "type": "object"
     },
     "AutomationUpdatedPayload": {
       "properties": {
@@ -12033,6 +12446,9 @@
         "at": {
           "description": "ISO time the helper saw the change",
           "type": "string"
+        },
+        "role": {
+          "$ref": "#/$defs/DictationKeyRole"
         }
       },
       "required": [
@@ -12041,6 +12457,13 @@
         "at"
       ],
       "type": "object"
+    },
+    "DictationKeyRole": {
+      "enum": [
+        "dictation",
+        "voice"
+      ],
+      "type": "string"
     },
     "DictationRefusal": {
       "enum": [
@@ -12127,6 +12550,27 @@
             }
           ],
           "description": "null stops watching"
+        },
+        "keys": {
+          "description": "Watch up to two keys with roles (dictation, voice); takes precedence over key. Keys and roles must differ.",
+          "items": {
+            "properties": {
+              "key": {
+                "$ref": "#/$defs/DictationKey"
+              },
+              "role": {
+                "$ref": "#/$defs/DictationKeyRole"
+              }
+            },
+            "required": [
+              "key",
+              "role"
+            ],
+            "type": "object"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "type": "array"
         }
       },
       "required": [
@@ -12142,6 +12586,123 @@
       },
       "required": [
         "watching"
+      ],
+      "type": "object"
+    },
+    "DigestAction": {
+      "enum": [
+        "draft_reply",
+        "remind",
+        "propose_times",
+        "mark_read",
+        "move",
+        "archive",
+        "save_attachment",
+        "allow_sender",
+        "not_now",
+        "always_archive",
+        "open"
+      ],
+      "type": "string"
+    },
+    "DigestCategory": {
+      "enum": [
+        "needs_you",
+        "soon",
+        "fyi",
+        "newsletters",
+        "notifications",
+        "screen",
+        "unverified"
+      ],
+      "type": "string"
+    },
+    "DigestGroup": {
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/DigestCategory"
+        },
+        "count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "title": {
+          "description": "e.g. '12 newsletters'",
+          "maxLength": 200,
+          "type": "string"
+        },
+        "proposalId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "category",
+        "count",
+        "title"
+      ],
+      "type": "object"
+    },
+    "DigestItem": {
+      "properties": {
+        "thread": {
+          "$ref": "#/$defs/MailThreadRef"
+        },
+        "category": {
+          "$ref": "#/$defs/DigestCategory"
+        },
+        "summary": {
+          "maxLength": 300,
+          "type": "string"
+        },
+        "because": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/DigestAction"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "thread",
+        "category",
+        "summary",
+        "actions"
+      ],
+      "type": "object"
+    },
+    "DigestLoop": {
+      "properties": {
+        "loop": {
+          "$ref": "#/$defs/GraphLoop"
+        },
+        "counterpart": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "thread": {
+          "$ref": "#/$defs/MailThreadRef"
+        },
+        "shownCount": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "loop",
+        "shownCount"
       ],
       "type": "object"
     },
@@ -12761,6 +13322,15 @@
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
           "type": "string"
         },
+        "kind": {
+          "$ref": "#/$defs/FeedPostKind"
+        },
+        "refs": {
+          "$ref": "#/$defs/FeedPostRefs"
+        },
+        "card": {
+          "$ref": "#/$defs/WorkflowCard"
+        },
         "growth": {
           "$ref": "#/$defs/GrowthCard"
         }
@@ -12777,6 +13347,21 @@
       ],
       "type": "object"
     },
+    "FeedPostKind": {
+      "enum": [
+        "brief",
+        "briefing",
+        "digest",
+        "meeting_prep",
+        "meeting_notes",
+        "watch",
+        "reminder",
+        "suggestion",
+        "news",
+        "exploration"
+      ],
+      "type": "string"
+    },
     "FeedPostPayload": {
       "properties": {
         "post": {
@@ -12786,6 +13371,35 @@
       "required": [
         "post"
       ],
+      "type": "object"
+    },
+    "FeedPostRefs": {
+      "properties": {
+        "meetingId": {
+          "type": "string"
+        },
+        "proposalIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "threads": {
+          "items": {
+            "$ref": "#/$defs/MailThreadRef"
+          },
+          "type": "array"
+        },
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
       "type": "object"
     },
     "FeedUpdatedPayload": {
@@ -14223,6 +14837,47 @@
       ],
       "type": "object"
     },
+    "GraphBlockKind": {
+      "enum": [
+        "email",
+        "phone",
+        "domain"
+      ],
+      "type": "string"
+    },
+    "GraphBlocklistEntry": {
+      "properties": {
+        "id": {
+          "description": "Opaque; for memory.graph.blocklist.remove",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/GraphIdentifierKind"
+        },
+        "hint": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "createdAt"
+      ],
+      "type": "object"
+    },
     "GraphDirection": {
       "enum": [
         "in",
@@ -15080,6 +15735,38 @@
       ],
       "type": "string"
     },
+    "GraphRemovedCounts": {
+      "properties": {
+        "entities": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "identifiers": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "facts": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "interactions": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "loops": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "entities",
+        "identifiers",
+        "facts",
+        "interactions",
+        "loops"
+      ],
+      "type": "object"
+    },
     "GraphSource": {
       "enum": [
         "contacts",
@@ -15679,6 +16366,157 @@
       ],
       "type": "string"
     },
+    "HelperSpeechPrepareParams": {
+      "properties": {
+        "voice": {
+          "maxLength": 256,
+          "type": "string"
+        },
+        "language": {
+          "maxLength": 35,
+          "type": "string"
+        },
+        "keepWarmMs": {
+          "description": "How long to keep it warm without use (default 120 000)",
+          "maximum": 600000,
+          "minimum": 1000,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "HelperSpeechPrepareResult": {
+      "properties": {
+        "voice": {
+          "description": "The voice id that was prepared",
+          "type": "string"
+        },
+        "prepared": {
+          "type": "boolean"
+        },
+        "prepareMs": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "voice",
+        "prepared",
+        "prepareMs"
+      ],
+      "type": "object"
+    },
+    "HelperSpeechTimings": {
+      "properties": {
+        "synthesisFirstAudioMs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "firstPartialMs": {
+          "properties": {
+            "long": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "short": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "finalizeMs": {
+          "properties": {
+            "long": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "short": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "HelperSpeechVoice": {
+      "properties": {
+        "id": {
+          "description": "AVSpeechSynthesisVoice identifier",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "language": {
+          "description": "BCP 47",
+          "type": "string"
+        },
+        "quality": {
+          "$ref": "#/$defs/SpeechVoiceQuality"
+        },
+        "personalVoice": {
+          "description": "Apple Personal Voice: non-commercial use only",
+          "type": "boolean"
+        },
+        "installed": {
+          "description": "The voice's assets are on disk (premium voices need a download)",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "language",
+        "quality",
+        "personalVoice"
+      ],
+      "type": "object"
+    },
+    "HelperSynthesizeParams": {
+      "properties": {
+        "text": {
+          "maxLength": 5000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "voice": {
+          "description": "Voice id from speech.voices",
+          "maxLength": 256,
+          "type": "string"
+        },
+        "rate": {
+          "description": "0 slowest … 1 fastest; 0.5 ≈ normal",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "speed": {
+          "description": "Multiplier of the voice's normal rate (1 = normal); wins over rate",
+          "maximum": 2,
+          "minimum": 0.5,
+          "type": "number"
+        },
+        "personalVoice": {
+          "description": "Opt in to the owner's Personal Voice",
+          "type": "boolean"
+        },
+        "format": {
+          "$ref": "#/$defs/SpeechPcmEncoding"
+        },
+        "utteranceId": {
+          "description": "Echoed on every speech.audio event",
+          "maxLength": 64,
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
+    },
     "HighlightRange": {
       "additionalItems": false,
       "items": [
@@ -15977,6 +16815,99 @@
       "minLength": 1,
       "type": "string"
     },
+    "InboxDigest": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "since": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "until": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "accounts": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "counts": {
+          "description": "Messages per DigestCategory",
+          "patternProperties": {
+            "^(.*)$": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "needsYou": {
+          "items": {
+            "$ref": "#/$defs/DigestItem"
+          },
+          "type": "array"
+        },
+        "groups": {
+          "items": {
+            "$ref": "#/$defs/DigestGroup"
+          },
+          "type": "array"
+        },
+        "waitingOn": {
+          "items": {
+            "$ref": "#/$defs/DigestLoop"
+          },
+          "type": "array"
+        },
+        "screen": {
+          "items": {
+            "$ref": "#/$defs/DigestItem"
+          },
+          "type": "array"
+        },
+        "unverified": {
+          "items": {
+            "$ref": "#/$defs/DigestItem"
+          },
+          "type": "array"
+        },
+        "taint": {
+          "description": "Built from untrusted mail (always true when mail was read)",
+          "type": "boolean"
+        },
+        "usedCloudModel": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "createdAt",
+        "since",
+        "until",
+        "accounts",
+        "counts",
+        "needsYou",
+        "groups",
+        "waitingOn",
+        "screen",
+        "unverified",
+        "taint"
+      ],
+      "type": "object"
+    },
     "InputRequest": {
       "properties": {
         "id": {
@@ -16096,6 +17027,12 @@
         "open",
         "answered",
         "cancelled"
+      ],
+      "type": "string"
+    },
+    "InputVia": {
+      "enum": [
+        "voice"
       ],
       "type": "string"
     },
@@ -16872,6 +17809,40 @@
       ],
       "type": "object"
     },
+    "MailThreadRef": {
+      "properties": {
+        "account": {
+          "type": "string"
+        },
+        "threadId": {
+          "type": "string"
+        },
+        "messageId": {
+          "type": "string"
+        },
+        "link": {
+          "type": "string"
+        },
+        "subject": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "from": {
+          "maxLength": 320,
+          "type": "string"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "account",
+        "threadId"
+      ],
+      "type": "object"
+    },
     "McpAddParams": {
       "properties": {
         "proposalId": {
@@ -17246,6 +18217,331 @@
       "required": [
         "launcher",
         "servers"
+      ],
+      "type": "object"
+    },
+    "MeetingActionItem": {
+      "properties": {
+        "text": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "owner": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dueAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "quote": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "atMs": {
+          "description": "Offset into the recording",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "proposalId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "loopId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
+    },
+    "MeetingAttendee": {
+      "properties": {
+        "email": {
+          "maxLength": 320,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "personId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "relationship": {
+          "enum": [
+            "family",
+            "friend",
+            "colleague",
+            "external",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        "summary": {
+          "description": "One line: who they are",
+          "maxLength": 300,
+          "type": "string"
+        }
+      },
+      "required": [
+        "email"
+      ],
+      "type": "object"
+    },
+    "MeetingNotes": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "meetingId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "title": {
+          "maxLength": 300,
+          "type": "string"
+        },
+        "startedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "durationMs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "recordingItemId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "transcriptItemId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "summary": {
+          "items": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "maxItems": 5,
+          "type": "array"
+        },
+        "decisions": {
+          "items": {
+            "properties": {
+              "text": {
+                "maxLength": 500,
+                "type": "string"
+              },
+              "quote": {
+                "maxLength": 200,
+                "type": "string"
+              },
+              "atMs": {
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "text"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "actionItems": {
+          "items": {
+            "$ref": "#/$defs/MeetingActionItem"
+          },
+          "type": "array"
+        },
+        "openQuestions": {
+          "items": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "model": {
+          "properties": {
+            "role": {
+              "enum": [
+                "primary",
+                "utility",
+                "local"
+              ],
+              "type": "string"
+            },
+            "remote": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "role",
+            "remote"
+          ],
+          "type": "object"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "startedAt",
+        "durationMs",
+        "summary",
+        "decisions",
+        "actionItems",
+        "openQuestions",
+        "model",
+        "provenance"
+      ],
+      "type": "object"
+    },
+    "MeetingPrep": {
+      "properties": {
+        "meetingId": {
+          "description": "The calendar event id",
+          "type": "string"
+        },
+        "calendarId": {
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 300,
+          "type": "string"
+        },
+        "startAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "endAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "joinUrl": {
+          "type": "string"
+        },
+        "attendees": {
+          "items": {
+            "$ref": "#/$defs/MeetingAttendee"
+          },
+          "type": "array"
+        },
+        "why": {
+          "$ref": "#/$defs/SourcedLine"
+        },
+        "openLoops": {
+          "items": {
+            "$ref": "#/$defs/GraphLoop"
+          },
+          "type": "array"
+        },
+        "lastTime": {
+          "items": {
+            "$ref": "#/$defs/SourcedLine"
+          },
+          "type": "array"
+        },
+        "worthReading": {
+          "items": {
+            "$ref": "#/$defs/SourcedLine"
+          },
+          "maxItems": 3,
+          "type": "array"
+        },
+        "agenda": {
+          "items": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "maxItems": 4,
+          "type": "array"
+        },
+        "taint": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "meetingId",
+        "title",
+        "startAt",
+        "attendees",
+        "openLoops",
+        "lastTime",
+        "worthReading",
+        "agenda",
+        "taint"
       ],
       "type": "object"
     },
@@ -18451,6 +19747,152 @@
       ],
       "type": "object"
     },
+    "MemoryGraphBlocklistAddParams": {
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/GraphBlockKind"
+        },
+        "value": {
+          "maxLength": 320,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "type": "object"
+    },
+    "MemoryGraphBlocklistAddResult": {
+      "properties": {
+        "entry": {
+          "$ref": "#/$defs/GraphBlocklistEntry"
+        }
+      },
+      "required": [
+        "entry"
+      ],
+      "type": "object"
+    },
+    "MemoryGraphBlocklistListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "MemoryGraphBlocklistListResult": {
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/GraphBlocklistEntry"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "entries"
+      ],
+      "type": "object"
+    },
+    "MemoryGraphBlocklistRemoveParams": {
+      "properties": {
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "MemoryGraphBlocklistRemoveResult": {
+      "properties": {
+        "removed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "removed"
+      ],
+      "type": "object"
+    },
+    "MemoryGraphDeleteSourceParams": {
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/GraphSource"
+        },
+        "dryRun": {
+          "description": "Report counts without deleting",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "type": "object"
+    },
+    "MemoryGraphDeleteSourceResult": {
+      "properties": {
+        "removed": {
+          "$ref": "#/$defs/GraphRemovedCounts"
+        },
+        "cardPaths": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "removed",
+        "cardPaths",
+        "dryRun"
+      ],
+      "type": "object"
+    },
+    "MemoryGraphForgetAllParams": {
+      "properties": {
+        "confirm": {
+          "const": "forget everything",
+          "description": "Must be exactly this phrase; guards against an accidental call",
+          "type": "string"
+        },
+        "dryRun": {
+          "description": "Report counts without deleting",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "confirm"
+      ],
+      "type": "object"
+    },
+    "MemoryGraphForgetAllResult": {
+      "properties": {
+        "removed": {
+          "$ref": "#/$defs/GraphRemovedCounts"
+        },
+        "cardPaths": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "removed",
+        "cardPaths",
+        "dryRun"
+      ],
+      "type": "object"
+    },
     "MemoryGraphStatusParams": {
       "properties": {},
       "type": "object"
@@ -19514,6 +20956,9 @@
           },
           "maxItems": 20,
           "type": "array"
+        },
+        "via": {
+          "$ref": "#/$defs/InputVia"
         }
       },
       "required": [
@@ -20207,6 +21652,11 @@
           "type": "string"
         },
         "utility": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        },
+        "voice": {
           "description": "provider/model",
           "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
           "type": "string"
@@ -21410,10 +22860,20 @@
       ],
       "type": "object"
     },
+    "PersonalVoiceAuthorization": {
+      "enum": [
+        "authorized",
+        "denied",
+        "notDetermined",
+        "unsupported"
+      ],
+      "type": "string"
+    },
     "PickableModelRole": {
       "enum": [
         "primary",
-        "utility"
+        "utility",
+        "voice"
       ],
       "type": "string"
     },
@@ -21937,6 +23397,179 @@
         "ref",
         "id",
         "capabilities"
+      ],
+      "type": "object"
+    },
+    "ProposalUpdatedPayload": {
+      "properties": {
+        "proposal": {
+          "$ref": "#/$defs/ActionProposal"
+        }
+      },
+      "required": [
+        "proposal"
+      ],
+      "type": "object"
+    },
+    "ProposalsApproveParams": {
+      "properties": {
+        "proposalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "proposalId"
+      ],
+      "type": "object"
+    },
+    "ProposalsApproveResult": {
+      "properties": {
+        "proposal": {
+          "$ref": "#/$defs/ActionProposal"
+        },
+        "approval": {
+          "$ref": "#/$defs/ApprovalRequest"
+        },
+        "answerToken": {
+          "$ref": "#/$defs/SurfaceAnswerToken"
+        }
+      },
+      "required": [
+        "proposal",
+        "approval"
+      ],
+      "type": "object"
+    },
+    "ProposalsDismissParams": {
+      "properties": {
+        "proposalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "proposalId"
+      ],
+      "type": "object"
+    },
+    "ProposalsDismissResult": {
+      "properties": {
+        "proposal": {
+          "$ref": "#/$defs/ActionProposal"
+        }
+      },
+      "required": [
+        "proposal"
+      ],
+      "type": "object"
+    },
+    "ProposalsGetParams": {
+      "properties": {
+        "proposalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "proposalId"
+      ],
+      "type": "object"
+    },
+    "ProposalsGetResult": {
+      "properties": {
+        "proposal": {
+          "$ref": "#/$defs/ActionProposal"
+        }
+      },
+      "required": [
+        "proposal"
+      ],
+      "type": "object"
+    },
+    "ProposalsListParams": {
+      "properties": {
+        "status": {
+          "items": {
+            "$ref": "#/$defs/ActionProposalStatus"
+          },
+          "type": "array"
+        },
+        "postId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "cursor": {
+          "description": "Opaque cursor",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "ProposalsListResult": {
+      "properties": {
+        "proposals": {
+          "items": {
+            "$ref": "#/$defs/ActionProposal"
+          },
+          "type": "array"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "description": "Opaque cursor",
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "proposals"
+      ],
+      "type": "object"
+    },
+    "ProposalsUndoParams": {
+      "properties": {
+        "proposalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "proposalId"
+      ],
+      "type": "object"
+    },
+    "ProposalsUndoResult": {
+      "properties": {
+        "proposal": {
+          "$ref": "#/$defs/ActionProposal"
+        }
+      },
+      "required": [
+        "proposal"
       ],
       "type": "object"
     },
@@ -25696,6 +27329,46 @@
       ],
       "type": "object"
     },
+    "SourcedLine": {
+      "properties": {
+        "text": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "source": {
+          "properties": {
+            "kind": {
+              "enum": [
+                "thread",
+                "note",
+                "loop",
+                "library",
+                "url",
+                "event",
+                "meeting"
+              ],
+              "type": "string"
+            },
+            "ref": {
+              "type": "string"
+            },
+            "label": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "ref"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
+    },
     "SpecialistBudgetSetting": {
       "properties": {
         "tokens": {
@@ -26555,6 +28228,13 @@
       ],
       "type": "string"
     },
+    "SpeechPcmEncoding": {
+      "enum": [
+        "pcm_s16le",
+        "pcm_f32le"
+      ],
+      "type": "string"
+    },
     "SpeechProgressEvent": {
       "properties": {
         "type": {
@@ -26770,6 +28450,13 @@
       ],
       "type": "object"
     },
+    "SpeechTranscribePreset": {
+      "enum": [
+        "long",
+        "short"
+      ],
+      "type": "string"
+    },
     "SpeechVoice": {
       "properties": {
         "ref": {
@@ -26815,6 +28502,14 @@
         "default"
       ],
       "type": "object"
+    },
+    "SpeechVoiceQuality": {
+      "enum": [
+        "default",
+        "enhanced",
+        "premium"
+      ],
+      "type": "string"
     },
     "SpeechVoicesParams": {
       "properties": {
@@ -29326,6 +31021,21 @@
         },
         "timezone": {
           "type": "string"
+        },
+        "trigger": {
+          "$ref": "#/$defs/AutomationTrigger"
+        },
+        "lastRunAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -31564,6 +33274,14 @@
       ],
       "type": "string"
     },
+    "VoiceApprovalTier": {
+      "enum": [
+        "off",
+        "write",
+        "write_destructive"
+      ],
+      "type": "string"
+    },
     "VoiceCancelParams": {
       "properties": {
         "sessionId": {
@@ -31575,6 +33293,379 @@
       "required": [
         "sessionId"
       ],
+      "type": "object"
+    },
+    "VoiceConversationAudioParams": {
+      "properties": {
+        "conversationId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "seq": {
+          "description": "0, 1, 2… per conversation; in order",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "audio": {
+          "description": "Base64 PCM in the start format",
+          "maxLength": 512000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "conversationId",
+        "seq",
+        "audio"
+      ],
+      "type": "object"
+    },
+    "VoiceConversationAudioResult": {
+      "properties": {},
+      "type": "object"
+    },
+    "VoiceConversationCaptionPayload": {
+      "properties": {
+        "conversationId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "owner",
+            "agent"
+          ],
+          "type": "string"
+        },
+        "utteranceId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "final": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "conversationId",
+        "role",
+        "utteranceId",
+        "text",
+        "final"
+      ],
+      "type": "object"
+    },
+    "VoiceConversationEndReason": {
+      "enum": [
+        "stopped",
+        "idle",
+        "locked",
+        "error",
+        "disconnected"
+      ],
+      "type": "string"
+    },
+    "VoiceConversationEndedPayload": {
+      "properties": {
+        "conversationId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "reason": {
+          "$ref": "#/$defs/VoiceConversationEndReason"
+        },
+        "error": {
+          "$ref": "#/$defs/ErrorPayload"
+        }
+      },
+      "required": [
+        "conversationId",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "VoiceConversationInterruptParams": {
+      "properties": {
+        "conversationId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "stage": {
+          "$ref": "#/$defs/VoiceInterruptStage"
+        },
+        "playedMs": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "conversationId",
+        "stage"
+      ],
+      "type": "object"
+    },
+    "VoiceConversationInterruptResult": {
+      "properties": {},
+      "type": "object"
+    },
+    "VoiceConversationMode": {
+      "enum": [
+        "push",
+        "tap",
+        "handsfree"
+      ],
+      "type": "string"
+    },
+    "VoiceConversationPhase": {
+      "enum": [
+        "listening",
+        "heard",
+        "thinking",
+        "speaking",
+        "waiting",
+        "ended"
+      ],
+      "type": "string"
+    },
+    "VoiceConversationPlayedParams": {
+      "properties": {
+        "conversationId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "utteranceId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "playedMs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "done": {
+          "description": "The utterance played to its end",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "conversationId",
+        "utteranceId",
+        "playedMs",
+        "done"
+      ],
+      "type": "object"
+    },
+    "VoiceConversationPlayedResult": {
+      "properties": {},
+      "type": "object"
+    },
+    "VoiceConversationReason": {
+      "description": "Waiting for an approval or a question, a confirmed barge-in, nothing heard",
+      "enum": [
+        "approval",
+        "question",
+        "barge_in",
+        "no_speech"
+      ],
+      "type": "string"
+    },
+    "VoiceConversationSpeechPayload": {
+      "properties": {
+        "conversationId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "utteranceId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "audio": {
+          "description": "Base64 PCM",
+          "type": "string"
+        },
+        "format": {
+          "$ref": "#/$defs/AudioFormat"
+        },
+        "last": {
+          "description": "The utterance's last chunk",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "conversationId",
+        "utteranceId",
+        "seq",
+        "audio",
+        "format",
+        "last"
+      ],
+      "type": "object"
+    },
+    "VoiceConversationStartParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "mode": {
+          "$ref": "#/$defs/VoiceConversationMode"
+        },
+        "format": {
+          "$ref": "#/$defs/AudioFormat"
+        },
+        "language": {
+          "description": "BCP 47",
+          "maxLength": 35,
+          "type": "string"
+        },
+        "voice": {
+          "description": "<engine>:<voice>",
+          "maxLength": 128,
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode",
+        "format"
+      ],
+      "type": "object"
+    },
+    "VoiceConversationStartResult": {
+      "properties": {
+        "conversationId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "engine": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/SpeechEngineLocation"
+        }
+      },
+      "required": [
+        "conversationId",
+        "engine",
+        "location"
+      ],
+      "type": "object"
+    },
+    "VoiceConversationStatePayload": {
+      "properties": {
+        "conversationId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "phase": {
+          "$ref": "#/$defs/VoiceConversationPhase"
+        },
+        "reason": {
+          "$ref": "#/$defs/VoiceConversationReason"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "prompt": {
+          "maxLength": 600,
+          "type": "string"
+        },
+        "windowMs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "listening": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "conversationId",
+        "phase",
+        "listening"
+      ],
+      "type": "object"
+    },
+    "VoiceConversationStepPayload": {
+      "properties": {
+        "conversationId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "toolCallId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "label": {
+          "description": "The narration text as shown",
+          "maxLength": 200,
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/ToolCallStatus"
+        }
+      },
+      "required": [
+        "conversationId",
+        "toolCallId",
+        "label",
+        "status"
+      ],
+      "type": "object"
+    },
+    "VoiceConversationStopParams": {
+      "properties": {
+        "conversationId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "conversationId"
+      ],
+      "type": "object"
+    },
+    "VoiceConversationTurnParams": {
+      "properties": {
+        "conversationId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "action": {
+          "$ref": "#/$defs/VoiceTurnAction"
+        }
+      },
+      "required": [
+        "conversationId",
+        "action"
+      ],
+      "type": "object"
+    },
+    "VoiceConversationTurnResult": {
+      "properties": {},
       "type": "object"
     },
     "VoiceEndReason": {
@@ -31605,6 +33696,14 @@
         "reason"
       ],
       "type": "object"
+    },
+    "VoiceInterruptStage": {
+      "description": "suspect: the client VAD heard speech and ducked playback; confirmed: a key press stopped it",
+      "enum": [
+        "suspect",
+        "confirmed"
+      ],
+      "type": "string"
     },
     "VoiceMemoContent": {
       "properties": {
@@ -31702,6 +33801,14 @@
       ],
       "type": "object"
     },
+    "VoiceNarrateLevel": {
+      "enum": [
+        "off",
+        "brief",
+        "steps"
+      ],
+      "type": "string"
+    },
     "VoicePushParams": {
       "properties": {
         "sessionId": {
@@ -31747,6 +33854,13 @@
         "segment"
       ],
       "type": "object"
+    },
+    "VoiceSpeakLevel": {
+      "enum": [
+        "brief",
+        "full"
+      ],
+      "type": "string"
     },
     "VoiceStartParams": {
       "properties": {
@@ -31835,6 +33949,13 @@
       ],
       "type": "object"
     },
+    "VoiceTurnAction": {
+      "enum": [
+        "begin",
+        "end"
+      ],
+      "type": "string"
+    },
     "WatchCheck": {
       "enum": [
         "change",
@@ -31872,6 +33993,146 @@
         "check"
       ],
       "type": "object"
+    },
+    "WorkflowCard": {
+      "anyOf": [
+        {
+          "properties": {
+            "type": {
+              "const": "digest",
+              "type": "string"
+            },
+            "digest": {
+              "$ref": "#/$defs/InboxDigest"
+            }
+          },
+          "required": [
+            "type",
+            "digest"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "meeting_prep",
+              "type": "string"
+            },
+            "prep": {
+              "$ref": "#/$defs/MeetingPrep"
+            }
+          },
+          "required": [
+            "type",
+            "prep"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "meeting_notes",
+              "type": "string"
+            },
+            "notes": {
+              "$ref": "#/$defs/MeetingNotes"
+            }
+          },
+          "required": [
+            "type",
+            "notes"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "WorkflowEvent": {
+      "properties": {
+        "id": {
+          "description": "Source id: the dedupe key",
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/WorkflowEventSource"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "account": {
+          "type": "string"
+        },
+        "messageId": {
+          "type": "string"
+        },
+        "threadId": {
+          "type": "string"
+        },
+        "calendarEventId": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "from": {
+          "maxLength": 320,
+          "type": "string"
+        },
+        "subject": {
+          "maxLength": 500,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "at"
+      ],
+      "type": "object"
+    },
+    "WorkflowEventFilter": {
+      "properties": {
+        "accounts": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "fromContains": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "mailbox": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "calendarIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array"
+        },
+        "folder": {
+          "description": "recording.added: a granted folder",
+          "maxLength": 1024,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "WorkflowEventSource": {
+      "enum": [
+        "mail.received",
+        "calendar.changed",
+        "recording.added",
+        "followup.due"
+      ],
+      "type": "string"
     },
     "WorkspacePath": {
       "description": "Workspace-relative path, e.g. \"memory/2026-10-18.md\"",

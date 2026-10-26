@@ -233,7 +233,14 @@ describe("the sidebar toggle (#598)", () => {
     ).toBe("true");
     await userEvent.click(screen.getByRole("menuitemradio", { name: /^Compact sidebar/ }));
     expect(onModeChange).toHaveBeenCalledWith("rail");
-    await userEvent.click(screen.getByRole("button", { name: "Sidebar options" }));
+    // Picking a state closes the menu (it used to stay open, so the next trigger click closed it
+    // and "Hidden" was found only while the menu animated out: the flake). Wait until it is gone.
+    const trigger = screen.getByRole("button", { name: "Sidebar options" });
+    await waitFor(() => {
+      expect(screen.queryByRole("menu")).toBeNull();
+      expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    });
+    await userEvent.click(trigger);
     await userEvent.click(await screen.findByRole("menuitemradio", { name: /^Hidden/ }));
     expect(onToggle).toHaveBeenCalledTimes(1);
   });

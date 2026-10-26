@@ -27,7 +27,7 @@ import {
   type Surface,
 } from "@psyche/protocol";
 import { monotonicFactory } from "ulid";
-import { type Binding, bindingFor } from "./binding.ts";
+import { type Binding, bindingFor, bindingHash } from "./binding.ts";
 import { cardHeader, sanitizeDetails, sanitizeDisplay } from "./cards.ts";
 import {
   CHANNEL_PAIRING_WINDOW_MS,
@@ -64,8 +64,10 @@ import {
   type StoredGrant,
 } from "./store.ts";
 import type {
+  BatchChild,
   PolicyAnswerInput,
   PolicyApprovalInput,
+  PolicyBatchInput,
   PolicyCall,
   PolicyContext,
   PolicyDecision,
@@ -158,6 +160,16 @@ function fail(code: ErrorCode, message: string, details?: unknown): never {
  * side effect. Evaluation lives in `PolicyEngine`; this class owns approvals, grants, receipts,
  * delivery and the audit trail.
  */
+/** Calls one batch approval may hold (docs/workflows/mail-and-meetings-2026.md §8.1). */
+export const MAX_BATCH_CALLS = 100;
+/** How long a minted child approval of an approved batch stays usable. */
+export const BATCH_CHILD_TTL_MS = 10 * 60_000;
+
+/** The id of a batch's child approval: deterministic, so no store has to remember it. */
+export function batchChildId(batchApprovalId: string, index: number): string {
+  return `${batchApprovalId}.${index}`;
+}
+
 export class PsychePermissionBroker implements PermissionBroker {
   readonly clock: Clock;
   readonly audit: AuditLog | undefined;
@@ -346,6 +358,18 @@ export class PsychePermissionBroker implements PermissionBroker {
         trace: decision.trace,
       },
     );
+    // A connector action the owner set to Deny is refused with a receipt naming the rule (#747),
+    // so the refusal shows next to the other actions on that connector.
+    if (decision.decision === "deny" && decision.rule.startsWith("connector:")) {
+      await this.recordReceipt({
+        kind: decision.rule.slice(decision.rule.indexOf("/") + 1),
+        outcome: "failed",
+        summary: `Refused ${call.tool}: ${decision.reason ?? "the connector matrix denies it"}`,
+        taskId: ctx.taskId ?? null,
+        toolCallId: call.toolCallId ?? null,
+        payload: { rule: decision.rule, decision: "deny" },
+      });
+    }
     return decision;
   }
 
@@ -446,6 +470,157 @@ export class PsychePermissionBroker implements PermissionBroker {
   }
 
   // ---- approvals ----------------------------------------------------------------------------
+
+  /**
+   * One approval for a listed set of `write` calls (an `ActionProposal`; docs/workflows/
+   * mail-and-meetings-2026.md §8.1). Each call is decided now, as the loop would decide it. The
+   * batch is refused when any call is denied, when any call's effective side effect is above
+   * `write` (after the broker's floors), or when any call is a send, a device-only or an
+   * authentication kind. The approval binds the ordered list of the calls' own binding hashes,
+   * offers `once` only, and on approval mints one approved child approval per call.
+   */
+  async requestBatch(input: PolicyBatchInput): Promise<IssuedApproval> {
+    this.#sweep();
+    if (input.children.length === 0 || input.children.length > MAX_BATCH_CALLS) {
+      fail("invalid_params", `a batch holds 1 to ${MAX_BATCH_CALLS} calls`);
+    }
+    const children: BatchChild[] = [];
+    for (const [i, c] of input.children.entries()) {
+      const d = await this.decide(c.call, input.context);
+      const kind = d.approvalKind ?? c.call.kind ?? inferApprovalKind(c.call.tool);
+      const at = `call ${i + 1} (${c.call.tool})`;
+      if (d.decision === "deny") {
+        fail("policy_denied", `${at} is denied: ${d.reason ?? d.rule}`);
+      }
+      if (SEVERITY[d.sideEffect] > SEVERITY.write) {
+        fail("policy_denied", `${at} is ${d.sideEffect}; a batch holds write actions only`);
+      }
+      if (
+        kind === "send_email" ||
+        kind === "batch" ||
+        DEVICE_ONLY_KINDS.includes(kind) ||
+        AUTH_KINDS.includes(kind)
+      ) {
+        fail("policy_denied", `${at} (${kind}) needs its own approval`);
+      }
+      children.push({
+        call: structuredClone(d.call),
+        kind,
+        bindingHash:
+          d.bindingHash ??
+          c.call.bindingHash ??
+          bindingHash(kind, { tool: c.call.tool, paramsHash: c.call.paramsHash }),
+        grantKey: d.grantKey ?? c.call.grantKey ?? `${c.call.tool}|${c.call.target?.value ?? "*"}`,
+        sideEffect: d.sideEffect,
+        summary: sanitizeDisplay(c.summary).slice(0, 300),
+      });
+    }
+    const hash = bindingHash("batch", { children: children.map((c) => c.bindingHash) });
+    const issued = this.#issue({
+      kind: "batch",
+      summary: input.title,
+      details: {
+        ...(input.details ?? {}),
+        title: input.title,
+        count: children.length,
+        calls: children.map((c) => c.summary),
+      },
+      bindingHash: hash,
+      grantKey: `batch|${hash}`,
+      requestedBy: { ...input.requestedBy },
+      sideEffect: "write",
+      surfaces: input.surfaces,
+      scopesOffered: ["once"],
+      taint: input.context.taint,
+      ...(input.taintSources === undefined ? {} : { taintSources: input.taintSources }),
+      ...(input.ttlMs === undefined ? {} : { ttlMs: input.ttlMs }),
+      context: structuredClone(input.context),
+      batch: { children },
+    });
+    await this.#afterIssue(issued.approval);
+    return issued;
+  }
+
+  /**
+   * The minted child approvals of an approved batch, in order, with the calls they cover.
+   * Empty until the batch is approved (and for any other kind).
+   */
+  async batchChildren(
+    batchApprovalId: string,
+  ): Promise<{ approval: ApprovalRequest; call: PolicyCall; summary: string }[]> {
+    this.#sweep();
+    const rec = this.#store.getApproval(batchApprovalId);
+    if (rec === undefined || rec.approval.kind !== "batch" || rec.approval.status !== "approved") {
+      return [];
+    }
+    const out: { approval: ApprovalRequest; call: PolicyCall; summary: string }[] = [];
+    for (const [i, c] of (rec.input.batch?.children ?? []).entries()) {
+      const child = this.#store.getApproval(batchChildId(batchApprovalId, i));
+      if (child === undefined) continue;
+      out.push({
+        approval: structuredClone(child.approval),
+        call: structuredClone(c.call),
+        summary: c.summary,
+      });
+    }
+    return out;
+  }
+
+  #mintBatchChildren(batch: StoredApproval, by: DecidedBy, now: number): void {
+    const children = batch.input.batch?.children ?? [];
+    const at = new Date(now).toISOString();
+    const expiresAt = new Date(now + BATCH_CHILD_TTL_MS).toISOString();
+    for (const [i, c] of children.entries()) {
+      const approval: ApprovalRequest = {
+        id: batchChildId(batch.approval.id, i),
+        kind: c.kind,
+        summary: c.summary,
+        details: { batchApprovalId: batch.approval.id, index: i, tool: c.call.tool },
+        bindingHash: c.bindingHash,
+        grantKey: c.grantKey,
+        requestedBy: {
+          ...batch.approval.requestedBy,
+          toolCallId: `${batch.approval.id}:${i}`,
+        },
+        surfaces: [],
+        scopesOffered: ["once"],
+        deviceOnly: false,
+        requiresAuthentication: false,
+        taint: batch.approval.taint,
+        status: "approved",
+        scopeGranted: "once",
+        decidedBy: structuredClone(by),
+        requestedAt: at,
+        expiresAt,
+        decidedAt: at,
+        grantId: null,
+      };
+      approval.sideEffect = c.sideEffect;
+      if (batch.approval.taintSources !== undefined) {
+        approval.taintSources = structuredClone(batch.approval.taintSources);
+      }
+      this.#store.insertApproval({
+        approval,
+        tokens: [],
+        input: {
+          kind: c.kind,
+          summary: c.summary,
+          details: approval.details,
+          bindingHash: c.bindingHash,
+          grantKey: c.grantKey,
+          requestedBy: approval.requestedBy,
+          sideEffect: c.sideEffect,
+          surfaces: [],
+          taint: approval.taint,
+          call: structuredClone(c.call),
+          ...(batch.input.context === undefined ? {} : { context: batch.input.context }),
+        },
+        consumedAt: null,
+        revoked: false,
+        bootId: this.#bootId,
+      });
+    }
+  }
 
   async requestApproval(input: PolicyApprovalInput): Promise<IssuedApproval> {
     this.#sweep();
@@ -548,6 +723,13 @@ export class PsychePermissionBroker implements PermissionBroker {
     }
     if (input.targetKind !== undefined) approval.targetKind = input.targetKind;
     if (input.target !== undefined) approval.target = { ...input.target };
+    if (input.fromLesson !== undefined) {
+      approval.fromLesson = {
+        lessonId: input.fromLesson.lessonId,
+        feedbackId: input.fromLesson.feedbackId,
+        because: sanitizeDisplay(input.fromLesson.because).slice(0, 500),
+      };
+    }
     const answerTokens: Record<Surface, string> = {};
     const tokens = surfaces.map((surface) => {
       const token = `at_${randomBytes(24).toString("base64url")}`;
@@ -879,6 +1061,8 @@ export class PsychePermissionBroker implements PermissionBroker {
       else {
         fa.status = "approved";
         fa.scopeGranted = scope;
+        // A batch becomes one approved, once-only approval per listed call (§8.1).
+        if (fa.kind === "batch") this.#mintBatchChildren(fresh, by, now);
         if (scope !== "once") {
           grant = this.#newGrant(fresh, scope, by, now);
           this.#store.insertGrant(grant);

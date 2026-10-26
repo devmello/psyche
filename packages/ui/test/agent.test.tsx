@@ -58,7 +58,11 @@ describe("ActivityPanel", () => {
         <ActivityPanel now={STORY_NOW} />
       </StoryWorld>,
     );
-    await userEvent.click(await screen.findByRole("button", { name: /Dentist booking/ }));
+    // The Task's row (its summary), not the chat run in the same thread.
+    const rows = await screen.findAllByRole("button", { name: /Dentist booking/ });
+    const task = rows.find((r) => r.textContent?.includes("Holding the 2:30 slot"));
+    if (!task) throw new Error("the dentist task row is missing");
+    await userEvent.click(task);
     expect(await screen.findByRole("heading", { name: "Dentist booking" })).toBeTruthy();
     await userEvent.click(await screen.findByRole("button", { name: "Pause" }));
     await waitFor(() =>

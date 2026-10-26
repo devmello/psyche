@@ -13,6 +13,13 @@ import {
   VoiceEndedPayload,
   VoiceSegmentPayload,
 } from "./methods/voice.ts";
+import {
+  VoiceConversationCaptionPayload,
+  VoiceConversationEndedPayload,
+  VoiceConversationSpeechPayload,
+  VoiceConversationStatePayload,
+  VoiceConversationStepPayload,
+} from "./methods/voice-conversation.ts";
 import { Block } from "./schemas/blocks.ts";
 import { ContextUsage } from "./schemas/context.ts";
 import { GraphEntityKind, GraphLoop, GraphSuggestion } from "./schemas/graph.ts";
@@ -36,6 +43,7 @@ import { InputRequest, Task, TaskAction } from "./schemas/tasks.ts";
 import { Message, Run, RunBudget, Thread } from "./schemas/threads.ts";
 import { ToolCall } from "./schemas/tools.ts";
 import { VmUpdatedPayload } from "./schemas/vm.ts";
+import { ActionProposal } from "./schemas/workflows.ts";
 
 /**
  * Server-pushed events (data model §11; architecture §4.2 step 5). Each arrives in an
@@ -348,6 +356,27 @@ export const Events = {
     payload: Type.Object({ run: AutomationRun }),
     description: "An automation run ended (done, no_reply, failed, cancelled, skipped).",
   }),
+  "voice.conversation.state": defineEvent({
+    payload: VoiceConversationStatePayload,
+    description:
+      "A voice conversation changed phase (listening, heard, thinking, speaking, waiting, ended); to the starting device only.",
+  }),
+  "voice.conversation.caption": defineEvent({
+    payload: VoiceConversationCaptionPayload,
+    description: "Live caption text for the owner's words or Psyche's spoken sentence.",
+  }),
+  "voice.conversation.speech": defineEvent({
+    payload: VoiceConversationSpeechPayload,
+    description: "One chunk of a spoken reply's PCM for playback; last ends the utterance.",
+  }),
+  "voice.conversation.step": defineEvent({
+    payload: VoiceConversationStepPayload,
+    description: "A tool step being narrated in a voice conversation, with its status.",
+  }),
+  "voice.conversation.ended": defineEvent({
+    payload: VoiceConversationEndedPayload,
+    description: "A voice conversation ended (stopped, idle, screen locked, error, disconnected).",
+  }),
   "voice.segment": defineEvent({
     payload: VoiceSegmentPayload,
     description:
@@ -407,6 +436,11 @@ export const Events = {
     payload: Type.Object({ draft: SkillDraft }),
     description:
       "The agent proposed a skill from a repeated routine, or a draft was edited, accepted, installed, dismissed or expired (T3).",
+  }),
+  "proposal.updated": defineEvent({
+    payload: Type.Object({ proposal: ActionProposal }),
+    description:
+      "A batch proposal was created, sent for approval, ran (per-call results), was dismissed, expired or offered an undo (mail and meeting workflows §8.1).",
   }),
 } as const;
 

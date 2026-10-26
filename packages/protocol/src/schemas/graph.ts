@@ -315,6 +315,34 @@ export const GraphSource = StringEnum(
 );
 export type GraphSource = Static<typeof GraphSource>;
 
+/**
+ * A blocklisted identifier (§4.9): ingest never models it again. Only a hash of the value is
+ * kept, so `hint` is a masked form ("s•••@acme.com"; a domain is shown whole).
+ */
+export const GraphBlocklistEntry = Type.Object(
+  {
+    id: Type.String({ description: "Opaque; for memory.graph.blocklist.remove" }),
+    kind: GraphIdentifierKind,
+    hint: Nullable(Type.String({ maxLength: 200 })),
+    createdAt: IsoDateTime,
+  },
+  { $id: "GraphBlocklistEntry" },
+);
+export type GraphBlocklistEntry = Static<typeof GraphBlocklistEntry>;
+
+/** What a graph-wide or per-source delete removed (or would remove, on a dry run). */
+export const GraphRemovedCounts = Type.Object(
+  {
+    entities: Type.Integer({ minimum: 0 }),
+    identifiers: Type.Integer({ minimum: 0 }),
+    facts: Type.Integer({ minimum: 0 }),
+    interactions: Type.Integer({ minimum: 0 }),
+    loops: Type.Integer({ minimum: 0 }),
+  },
+  { $id: "GraphRemovedCounts" },
+);
+export type GraphRemovedCounts = Static<typeof GraphRemovedCounts>;
+
 export const GraphStatus = Type.Object(
   {
     enabled: Type.Boolean(),

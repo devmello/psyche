@@ -919,6 +919,7 @@ export interface ApprovalAnswer {
     decision:    DecisionEnum;
     presence?:   PresenceAssertion;
     scope?:      GrantScope;
+    via?:        InputVia;
 }
 
 export type DecisionEnum = "approve" | "deny";
@@ -940,6 +941,8 @@ export interface PresenceAssertion {
 export type PresenceAssertionKind = "webauthn" | "helper";
 
 export type GrantScope = "once" | "task" | "site" | "session" | "always";
+
+export type InputVia = "voice";
 
 export interface ApprovalBlock {
     approvalId: string;
@@ -1003,7 +1006,7 @@ export interface FromLesson {
     lessonId:   string;
 }
 
-export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push";
+export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push" | "batch";
 
 export interface RequestedBy {
     agent?:       string;
@@ -1307,6 +1310,7 @@ export interface Automation {
     specialist?:   AutomationSpecialist;
     timezone:      string;
     title:         string;
+    trigger?:      AutomationTrigger;
     updatedAt:     string;
     watch?:        WatchConfig;
 }
@@ -1319,9 +1323,10 @@ export interface Delivery {
 }
 
 /**
- * `reminder` is a one-shot: `schedule` is an ISO-8601 instant
+ * `reminder` is a one-shot: `schedule` is an ISO-8601 instant. `event` runs on its
+ * `trigger` (mail and meeting workflows §4.7), and its `schedule` is empty
  */
-export type AutomationKind = "cron" | "interval" | "watch" | "heartbeat" | "briefing" | "reminder";
+export type AutomationKind = "cron" | "interval" | "watch" | "heartbeat" | "briefing" | "reminder" | "event";
 
 export interface AutomationSpecialist {
     budget?:  SpecialistBudget;
@@ -1336,6 +1341,35 @@ export interface SpecialistBudget {
 }
 
 export type Deliver = "inbox" | "thread";
+
+export interface AutomationTrigger {
+    /**
+     * Events within this window fold into one run (default 120000)
+     */
+    debounceMs?: number;
+    filter?:     WorkflowEventFilter;
+    /**
+     * Beyond it runs are skipped (default 24)
+     */
+    maxRunsPerDay?: number;
+    source:         WorkflowEventSource;
+    type:           AutomationTriggerType;
+}
+
+export interface WorkflowEventFilter {
+    accounts?:    string[];
+    calendarIds?: string[];
+    /**
+     * recording.added: a granted folder
+     */
+    folder?:       string;
+    fromContains?: string;
+    mailbox?:      string;
+}
+
+export type WorkflowEventSource = "mail.received" | "calendar.changed" | "recording.added" | "followup.due";
+
+export type AutomationTriggerType = "event";
 
 export interface WatchConfig {
     check: WatchCheck;
@@ -1367,6 +1401,7 @@ export interface AutomationRun {
      */
     coalesced:       number;
     endedAt?:        null | string;
+    events?:         WorkflowEvent[];
     id:              string;
     notificationId?: null | string;
     runId?:          null | string;
@@ -1380,9 +1415,25 @@ export interface AutomationRun {
     usage?:          Usage;
 }
 
+export interface WorkflowEvent {
+    account?:         string;
+    at:               string;
+    calendarEventId?: string;
+    from?:            string;
+    /**
+     * Source id: the dedupe key
+     */
+    id:         string;
+    messageId?: string;
+    path?:      string;
+    source:     WorkflowEventSource;
+    subject?:   string;
+    threadId?:  string;
+}
+
 export type AutomationRunStatus = "running" | "done" | "no_reply" | "failed" | "cancelled" | "skipped";
 
-export type AutomationRunTrigger = "schedule" | "manual";
+export type AutomationRunTrigger = "schedule" | "manual" | "event";
 
 export interface Usage {
     cacheRead:  number;
@@ -1472,11 +1523,13 @@ export interface UpcomingItem {
     enabled:       boolean;
     id:            string;
     kind:          UpcomingItemKind;
+    lastRunAt?:    null | string;
     nextRunAt?:    null | string;
     schedule?:     string;
     taskId?:       string;
     timezone?:     string;
     title:         string;
+    trigger?:      AutomationTrigger;
 }
 
 export type UpcomingItemKind = "automation" | "reminder" | "briefing" | "heartbeat" | "watch" | "input_request";
@@ -2271,6 +2324,7 @@ export interface Message {
     runId?:            null | string;
     seq:               number;
     threadId:          string;
+    via?:              InputVia;
 }
 
 export interface ChannelRef {
@@ -2678,13 +2732,13 @@ export type CustomConnectorAuthKind = "none" | "bearer" | "header" | "query" | "
 
 export interface CustomConnectorManifestSource {
     drafted?: Drafted;
-    kind:     SourceKind;
+    kind:     PurpleKind;
     title?:   string;
 }
 
 export type Drafted = "owner" | "agent";
 
-export type SourceKind = "openapi" | "declarative";
+export type PurpleKind = "openapi" | "declarative";
 
 export interface CustomConnectorTool {
     defaultRule?: Decision;
@@ -2693,7 +2747,7 @@ export interface CustomConnectorTool {
     name:         string;
     params:       CustomConnectorParam[];
     path:         string;
-    sideEffect:   SideEffectEnum;
+    sideEffect:   CustomConnectorToolSideEffect;
 }
 
 export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -2708,7 +2762,7 @@ export interface CustomConnectorParam {
 
 export type In = "path" | "query" | "body";
 
-export type SideEffectEnum = "read" | "write" | "destructive";
+export type CustomConnectorToolSideEffect = "read" | "write" | "destructive";
 
 export interface CustomConnectorProposalUpdate {
     /**
@@ -2977,12 +3031,15 @@ export interface DictationKeyPayload {
     /**
      * ISO time the helper saw the change
      */
-    at:   string;
-    down: boolean;
-    key:  DictationKey;
+    at:    string;
+    down:  boolean;
+    key:   DictationKey;
+    role?: DictationKeyRole;
 }
 
 export type DictationKey = "fn" | "rightOption" | "rightCommand";
+
+export type DictationKeyRole = "dictation" | "voice";
 
 export interface DictationTargetResult {
     target?: DictationTarget | null;
@@ -2993,6 +3050,16 @@ export interface DictationWatchParams {
      * null stops watching
      */
     key: DictationKey | null;
+    /**
+     * Watch up to two keys with roles (dictation, voice); takes precedence over key. Keys and
+     * roles must differ.
+     */
+    keys?: Key[];
+}
+
+export interface Key {
+    key:  DictationKey;
+    role: DictationKeyRole;
 }
 
 export interface DictationWatchResult {
@@ -3042,10 +3109,8 @@ export interface EventFrame {
     payload:      unknown;
     seq:          number;
     stateVersion: number;
-    type:         EventFrameType;
+    type:         AutomationTriggerType;
 }
-
-export type EventFrameType = "event";
 
 export interface EventsSubscribeParams {
     filters?: EventFilters;
@@ -3082,6 +3147,7 @@ export interface FeedFeedbackResult {
 export interface FeedPost {
     bodyMd:      string;
     briefingId?: null | string;
+    card?:       WorkflowCard;
     citations:   Citation[];
     cluster?:    { [key: string]: unknown } | null;
     createdAt:   string;
@@ -3092,10 +3158,198 @@ export interface FeedPost {
     feedback?:   FeedFeedback | null;
     growth?:     GrowthCard;
     id:          string;
+    kind?:       FeedPostKind;
     reasons:     string[];
+    refs?:       FeedPostRefs;
     score:       number;
     title:       string;
 }
+
+export interface WorkflowCard {
+    digest?: InboxDigest;
+    type:    WorkflowCardType;
+    prep?:   MeetingPrep;
+    notes?:  MeetingNotes;
+}
+
+export interface InboxDigest {
+    accounts: string[];
+    /**
+     * Messages per DigestCategory
+     */
+    counts:    { [key: string]: number };
+    createdAt: string;
+    groups:    DigestGroup[];
+    id:        string;
+    needsYou:  DigestItem[];
+    screen:    DigestItem[];
+    since:     string;
+    /**
+     * Built from untrusted mail (always true when mail was read)
+     */
+    taint:           boolean;
+    until:           string;
+    unverified:      DigestItem[];
+    usedCloudModel?: boolean;
+    waitingOn:       DigestLoop[];
+}
+
+export interface DigestGroup {
+    category:    DigestCategory;
+    count:       number;
+    proposalId?: null | string;
+    /**
+     * e.g. '12 newsletters'
+     */
+    title: string;
+}
+
+export type DigestCategory = "needs_you" | "soon" | "fyi" | "newsletters" | "notifications" | "screen" | "unverified";
+
+export interface DigestItem {
+    actions:  DigestAction[];
+    because?: string;
+    category: DigestCategory;
+    summary:  string;
+    thread:   MailThreadRef;
+}
+
+export type DigestAction = "draft_reply" | "remind" | "propose_times" | "mark_read" | "move" | "archive" | "save_attachment" | "allow_sender" | "not_now" | "always_archive" | "open";
+
+export interface MailThreadRef {
+    account:    string;
+    at?:        string;
+    from?:      string;
+    link?:      string;
+    messageId?: string;
+    subject?:   string;
+    threadId:   string;
+}
+
+export interface DigestLoop {
+    counterpart?: string;
+    loop:         GraphLoop;
+    shownCount:   number;
+    thread?:      MailThreadRef;
+}
+
+export interface GraphLoop {
+    closedAt?:            null | string;
+    closedBy?:            GraphLoopClosedBy | null;
+    confidence:           number;
+    counterpartId?:       null | string;
+    createdAt:            string;
+    detectedBy:           GraphLoopDetectedBy;
+    direction:            GraphLoopDirectionFilter;
+    dueAt?:               null | string;
+    evidence?:            null | string;
+    id:                   string;
+    projectId?:           null | string;
+    provenance:           Provenance;
+    sourceInteractionId?: null | string;
+    status:               GraphLoopStatus;
+    text:                 string;
+}
+
+export type GraphLoopClosedBy = "owner" | "reply_seen" | "due_passed";
+
+/**
+ * Who attached it to the entity; model links count only after the owner confirms
+ */
+export type GraphLoopDetectedBy = "rule" | "model" | "owner";
+
+export type GraphLoopDirectionFilter = "i_owe" | "waiting_on";
+
+export type GraphLoopStatus = "suggested" | "open" | "snoozed" | "done" | "dismissed";
+
+export interface MeetingNotes {
+    actionItems:       MeetingActionItem[];
+    decisions:         DecisionElement[];
+    durationMs:        number;
+    id:                string;
+    meetingId?:        null | string;
+    model:             Model;
+    openQuestions:     string[];
+    provenance:        Provenance;
+    recordingItemId?:  null | string;
+    startedAt:         string;
+    summary:           string[];
+    title:             string;
+    transcriptItemId?: null | string;
+}
+
+export interface MeetingActionItem {
+    /**
+     * Offset into the recording
+     */
+    atMs?:       number;
+    dueAt?:      null | string;
+    loopId?:     null | string;
+    owner?:      null | string;
+    proposalId?: null | string;
+    quote?:      string;
+    text:        string;
+}
+
+export interface DecisionElement {
+    atMs?:  number;
+    quote?: string;
+    text:   string;
+}
+
+export interface Model {
+    remote: boolean;
+    role:   ModelRole;
+}
+
+export type ModelRole = "primary" | "utility" | "local";
+
+export interface MeetingPrep {
+    agenda:      string[];
+    attendees:   MeetingAttendee[];
+    calendarId?: string;
+    endAt?:      string;
+    joinUrl?:    string;
+    lastTime:    SourcedLine[];
+    /**
+     * The calendar event id
+     */
+    meetingId:    string;
+    openLoops:    GraphLoop[];
+    startAt:      string;
+    taint:        boolean;
+    title:        string;
+    why?:         SourcedLine;
+    worthReading: SourcedLine[];
+}
+
+export interface MeetingAttendee {
+    email:         string;
+    name?:         string;
+    personId?:     string;
+    relationship?: Relationship;
+    /**
+     * One line: who they are
+     */
+    summary?: string;
+}
+
+export type Relationship = "family" | "friend" | "colleague" | "external" | "unknown";
+
+export interface SourcedLine {
+    source?: SourcedLineSource;
+    text:    string;
+}
+
+export interface SourcedLineSource {
+    kind:   FluffyKind;
+    label?: string;
+    ref:    string;
+}
+
+export type FluffyKind = "thread" | "note" | "loop" | "library" | "url" | "event" | "meeting";
+
+export type WorkflowCardType = "digest" | "meeting_prep" | "meeting_notes";
 
 export interface Citation {
     source?: string;
@@ -3117,6 +3371,15 @@ export interface GrowthCardItem {
 }
 
 export type GrowthCardItemType = "lesson" | "question" | "retire" | "conflict";
+
+export type FeedPostKind = "brief" | "briefing" | "digest" | "meeting_prep" | "meeting_notes" | "watch" | "reminder" | "suggestion" | "news" | "exploration";
+
+export interface FeedPostRefs {
+    goalId?:      string;
+    meetingId?:   string;
+    proposalIds?: string[];
+    threads?:     MailThreadRef[];
+}
 
 export interface FeedGenerateParams {
     briefingId?: string;
@@ -3662,35 +3925,6 @@ export interface GraphIdentifier {
 
 export type GraphIdentifierKind = "email" | "phone" | "contact" | "channel" | "domain" | "calendar" | "url";
 
-/**
- * Who attached it to the entity; model links count only after the owner confirms
- */
-export type GraphLoopDetectedBy = "rule" | "owner" | "model";
-
-export interface GraphLoop {
-    closedAt?:            null | string;
-    closedBy?:            GraphLoopClosedBy | null;
-    confidence:           number;
-    counterpartId?:       null | string;
-    createdAt:            string;
-    detectedBy:           GraphLoopDetectedBy;
-    direction:            GraphLoopDirectionFilter;
-    dueAt?:               null | string;
-    evidence?:            null | string;
-    id:                   string;
-    projectId?:           null | string;
-    provenance:           Provenance;
-    sourceInteractionId?: null | string;
-    status:               GraphLoopStatus;
-    text:                 string;
-}
-
-export type GraphLoopClosedBy = "owner" | "reply_seen" | "due_passed";
-
-export type GraphLoopDirectionFilter = "i_owe" | "waiting_on";
-
-export type GraphLoopStatus = "suggested" | "open" | "snoozed" | "done" | "dismissed";
-
 export interface GraphInteraction {
     direction:    GraphDirection;
     id:           string;
@@ -3833,6 +4067,90 @@ export interface GrowthItem {
 }
 
 export type GrowthItemType = "lesson" | "milestone";
+
+export interface HelperSpeechPrepareParams {
+    /**
+     * How long to keep it warm without use (default 120 000)
+     */
+    keepWarmMs?: number;
+    language?:   string;
+    voice?:      string;
+}
+
+export interface HelperSpeechPrepareResult {
+    prepared:  boolean;
+    prepareMs: number;
+    /**
+     * The voice id that was prepared
+     */
+    voice: string;
+}
+
+export interface HelperSpeechTimings {
+    finalizeMs?:            FinalizeMS;
+    firstPartialMs?:        FirstPartialMS;
+    synthesisFirstAudioMs?: number;
+}
+
+export interface FinalizeMS {
+    long?:  number;
+    short?: number;
+}
+
+export interface FirstPartialMS {
+    long?:  number;
+    short?: number;
+}
+
+export interface HelperSpeechVoice {
+    /**
+     * AVSpeechSynthesisVoice identifier
+     */
+    id: string;
+    /**
+     * The voice's assets are on disk (premium voices need a download)
+     */
+    installed?: boolean;
+    /**
+     * BCP 47
+     */
+    language: string;
+    name:     string;
+    /**
+     * Apple Personal Voice: non-commercial use only
+     */
+    personalVoice: boolean;
+    quality:       SpeechVoiceQuality;
+}
+
+export type SpeechVoiceQuality = "default" | "enhanced" | "premium";
+
+export interface HelperSynthesizeParams {
+    format?: SpeechPCMEncoding;
+    /**
+     * Opt in to the owner's Personal Voice
+     */
+    personalVoice?: boolean;
+    /**
+     * 0 slowest … 1 fastest; 0.5 ≈ normal
+     */
+    rate?: number;
+    /**
+     * Multiplier of the voice's normal rate (1 = normal); wins over rate
+     */
+    speed?: number;
+    text:   string;
+    /**
+     * Echoed on every speech.audio event
+     */
+    utteranceId?: string;
+    /**
+     * Voice id from speech.voices
+     */
+    voice?: string;
+}
+
+export type SpeechPCMEncoding = "pcm_s16le" | "pcm_f32le";
 
 export interface IdeaUpdatedPayload {
     idea: Idea;
@@ -4105,7 +4423,7 @@ export interface MCPProbedTool {
     blocked:     boolean;
     description: string;
     name:        string;
-    sideEffect:  SideEffectEnum;
+    sideEffect:  CustomConnectorToolSideEffect;
     warnings:    Warning[];
 }
 
@@ -4534,6 +4852,80 @@ export interface MemoryForgetResult {
     files:             string[];
     removedChunkIds:   string[];
     retractedClaimIds: string[];
+}
+
+export interface MemoryGraphBlocklistAddParams {
+    kind:  GraphBlockKind;
+    value: string;
+}
+
+export type GraphBlockKind = "email" | "phone" | "domain";
+
+export interface MemoryGraphBlocklistAddResult {
+    entry: GraphBlocklistEntry;
+}
+
+export interface GraphBlocklistEntry {
+    createdAt: string;
+    hint?:     null | string;
+    /**
+     * Opaque; for memory.graph.blocklist.remove
+     */
+    id:   string;
+    kind: GraphIdentifierKind;
+}
+
+export interface MemoryGraphBlocklistListResult {
+    entries: GraphBlocklistEntry[];
+}
+
+export interface MemoryGraphBlocklistRemoveParams {
+    id: string;
+}
+
+export interface MemoryGraphBlocklistRemoveResult {
+    removed: boolean;
+}
+
+export interface MemoryGraphDeleteSourceParams {
+    /**
+     * Report counts without deleting
+     */
+    dryRun?: boolean;
+    source:  GraphSource;
+}
+
+export interface MemoryGraphDeleteSourceResult {
+    cardPaths: string[];
+    dryRun:    boolean;
+    removed:   GraphRemovedCounts;
+}
+
+export interface GraphRemovedCounts {
+    entities:     number;
+    facts:        number;
+    identifiers:  number;
+    interactions: number;
+    loops:        number;
+}
+
+export interface MemoryGraphForgetAllParams {
+    /**
+     * Must be exactly this phrase; guards against an accidental call
+     */
+    confirm: Confirm;
+    /**
+     * Report counts without deleting
+     */
+    dryRun?: boolean;
+}
+
+export type Confirm = "forget everything";
+
+export interface MemoryGraphForgetAllResult {
+    cardPaths: string[];
+    dryRun:    boolean;
+    removed:   GraphRemovedCounts;
 }
 
 export interface MemoryImportParams {
@@ -5051,6 +5443,7 @@ export interface ModelsListResult {
 export interface ModelRoles {
     primary?: string;
     utility?: string;
+    voice?:   string;
 }
 
 export interface ModelsProbeParams {
@@ -5076,7 +5469,7 @@ export interface ModelsSetRoleParams {
     role:      PickableModelRole;
 }
 
-export type PickableModelRole = "primary" | "utility";
+export type PickableModelRole = "primary" | "utility" | "voice";
 
 export interface ModelsSetRoleResult {
     roles: ModelRoles;
@@ -5320,6 +5713,8 @@ export interface PersonaUpdatedPayload {
     identity:        PersonaIdentity;
 }
 
+export type PersonalVoiceAuthorization = "authorized" | "denied" | "notDetermined" | "unsupported";
+
 export interface PlanBlock {
     planId: string;
     type:   PlanBlockType;
@@ -5452,6 +5847,111 @@ export interface PolicyRule {
     match:     { [key: string]: unknown };
     note?:     null | string;
     priority:  number;
+}
+
+export interface ProposalUpdatedPayload {
+    proposal: ActionProposal;
+}
+
+export interface ActionProposal {
+    approvalId?:   null | string;
+    calls:         ActionCall[];
+    createdAt:     string;
+    createdBy:     CreatedBy;
+    expiresAt:     string;
+    id:            string;
+    postId?:       null | string;
+    results?:      ActionCallResult[];
+    sideEffect:    ActionProposalSideEffect;
+    status:        ActionProposalStatus;
+    taint:         boolean;
+    taintSources?: TaintSource[];
+    title:         string;
+    undoOf?:       null | string;
+    updatedAt:     string;
+}
+
+export interface ActionCall {
+    params: { [key: string]: unknown };
+    /**
+     * One line in plain words for the card, e.g. 'Mark read: Weekly digest (Acme)'
+     */
+    summary: string;
+    /**
+     * Model-facing tool name
+     */
+    tool: string;
+}
+
+export interface CreatedBy {
+    automationId?: string;
+    /**
+     * e.g. mail.digest, meetings.notes
+     */
+    job:    string;
+    runId?: string;
+}
+
+export interface ActionCallResult {
+    error?:     string;
+    index:      number;
+    receiptId?: string;
+    status:     ActionCallResultStatus;
+}
+
+export type ActionCallResultStatus = "ok" | "failed" | "skipped";
+
+export type ActionProposalSideEffect = "write";
+
+export type ActionProposalStatus = "pending" | "awaiting_approval" | "running" | "done" | "partial" | "failed" | "dismissed" | "expired";
+
+export interface ProposalsApproveParams {
+    proposalId: string;
+}
+
+export interface ProposalsApproveResult {
+    answerToken?: string;
+    approval:     ApprovalRequest;
+    proposal:     ActionProposal;
+}
+
+export interface ProposalsDismissParams {
+    proposalId: string;
+}
+
+export interface ProposalsDismissResult {
+    proposal: ActionProposal;
+}
+
+export interface ProposalsGetParams {
+    proposalId: string;
+}
+
+export interface ProposalsGetResult {
+    proposal: ActionProposal;
+}
+
+export interface ProposalsListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?: string;
+    limit?:  number;
+    postId?: string;
+    status?: ActionProposalStatus[];
+}
+
+export interface ProposalsListResult {
+    nextCursor?: null | string;
+    proposals:   ActionProposal[];
+}
+
+export interface ProposalsUndoParams {
+    proposalId: string;
+}
+
+export interface ProposalsUndoResult {
+    proposal: ActionProposal;
 }
 
 export interface PsycheTrace {
@@ -6704,6 +7204,8 @@ export interface TranscriptSegment {
     text:    string;
 }
 
+export type SpeechTranscribePreset = "long" | "short";
+
 export interface SpeechVoicesParams {
     /**
      * The persona's current <engine>:<voice>
@@ -7291,11 +7793,11 @@ export interface ThreadActivity {
 
 export interface ThreadPreview {
     at:   string;
-    role: Role;
+    role: ThreadPreviewRole;
     text: string;
 }
 
-export type Role = "user" | "agent";
+export type ThreadPreviewRole = "user" | "agent";
 
 export interface ThreadsPinParams {
     pinned:   boolean;
@@ -8066,9 +8568,136 @@ export interface VMUpdatedPayload {
     nodeId: string;
 }
 
+export type VoiceApprovalTier = "off" | "write" | "write_destructive";
+
 export interface VoiceCancelParams {
     sessionId: string;
 }
+
+export interface VoiceConversationAudioParams {
+    /**
+     * Base64 PCM in the start format
+     */
+    audio:          string;
+    conversationId: string;
+    /**
+     * 0, 1, 2… per conversation; in order
+     */
+    seq: number;
+}
+
+export interface VoiceConversationCaptionPayload {
+    conversationId: string;
+    final:          boolean;
+    role:           Drafted;
+    text:           string;
+    utteranceId:    string;
+}
+
+export interface VoiceConversationEndedPayload {
+    conversationId: string;
+    error?:         ErrorPayload;
+    reason:         VoiceConversationEndReason;
+}
+
+export type VoiceConversationEndReason = "stopped" | "idle" | "locked" | "error" | "disconnected";
+
+export interface VoiceConversationInterruptParams {
+    conversationId: string;
+    playedMs?:      number;
+    stage:          VoiceInterruptStage;
+}
+
+/**
+ * suspect: the client VAD heard speech and ducked playback; confirmed: a key press stopped
+ * it
+ */
+export type VoiceInterruptStage = "suspect" | "confirmed";
+
+export interface VoiceConversationPlayedParams {
+    conversationId: string;
+    /**
+     * The utterance played to its end
+     */
+    done:        boolean;
+    playedMs:    number;
+    utteranceId: string;
+}
+
+export interface VoiceConversationSpeechPayload {
+    /**
+     * Base64 PCM
+     */
+    audio:          string;
+    conversationId: string;
+    format:         AudioFormat;
+    /**
+     * The utterance's last chunk
+     */
+    last:        boolean;
+    seq:         number;
+    utteranceId: string;
+}
+
+export interface VoiceConversationStartParams {
+    format: AudioFormat;
+    /**
+     * BCP 47
+     */
+    language?: string;
+    mode:      VoiceConversationMode;
+    threadId?: string;
+    /**
+     * <engine>:<voice>
+     */
+    voice?: string;
+}
+
+export type VoiceConversationMode = "push" | "tap" | "handsfree";
+
+export interface VoiceConversationStartResult {
+    conversationId: string;
+    engine:         string;
+    location:       SpeechEngineLocation;
+}
+
+export interface VoiceConversationStatePayload {
+    approvalId?:    string;
+    conversationId: string;
+    listening:      boolean;
+    phase:          VoiceConversationPhase;
+    prompt?:        string;
+    reason?:        VoiceConversationReason;
+    windowMs?:      number;
+}
+
+export type VoiceConversationPhase = "listening" | "heard" | "thinking" | "speaking" | "waiting" | "ended";
+
+/**
+ * Waiting for an approval or a question, a confirmed barge-in, nothing heard
+ */
+export type VoiceConversationReason = "approval" | "question" | "barge_in" | "no_speech";
+
+export interface VoiceConversationStepPayload {
+    conversationId: string;
+    /**
+     * The narration text as shown
+     */
+    label:      string;
+    status:     ToolCallStatus;
+    toolCallId: string;
+}
+
+export interface VoiceConversationStopParams {
+    conversationId: string;
+}
+
+export interface VoiceConversationTurnParams {
+    action:         VoiceTurnAction;
+    conversationId: string;
+}
+
+export type VoiceTurnAction = "begin" | "end";
 
 export interface VoiceEndedPayload {
     error?:    ErrorPayload;
@@ -8120,6 +8749,8 @@ export interface Transcript {
     text:      string;
 }
 
+export type VoiceNarrateLevel = "off" | "brief" | "steps";
+
 export interface VoicePushParams {
     /**
      * Base64 PCM in the session format
@@ -8136,6 +8767,8 @@ export interface VoiceSegmentPayload {
     segment:   TranscriptSegment;
     sessionId: string;
 }
+
+export type VoiceSpeakLevel = "brief" | "full";
 
 export interface VoiceStartParams {
     format: AudioFormat;

@@ -63,6 +63,8 @@ export interface AgentSheetRoute {
   runId?: string;
   stepId?: string;
   file?: string;
+  /** Soul & Memory opens this person's or project's card (`?entity=`). */
+  entity?: string;
   /** Where closing the sheet returns to (`?from=/feed`); the chat when absent. */
   back?: string;
 }
@@ -112,6 +114,7 @@ export function agentSheetRoute(route: string): AgentSheetRoute | null {
   const tab = ROUTE_TABS.find((x) => x === m[1]) ?? "activity";
   const query = new URLSearchParams(route.split("?")[1] ?? "");
   const file = query.get("file") ?? undefined;
+  const entity = query.get("entity") ?? undefined;
   const back = appPath(query.get("from"));
   const stepId = query.get("step") ?? undefined;
   return {
@@ -120,6 +123,7 @@ export function agentSheetRoute(route: string): AgentSheetRoute | null {
     ...(m[2] !== undefined && stepId ? { stepId } : {}),
     ...(m[3] === undefined ? {} : { taskId: m[3] }),
     ...(file ? { file } : {}),
+    ...(entity ? { entity } : {}),
     ...(back ? { back } : {}),
   };
 }
@@ -138,6 +142,8 @@ export interface AgentSheetBodyProps {
   header?: boolean;
   /** Soul & Memory opens on this workspace file (`/agent/soul?file=SOUL.md`). */
   file?: string;
+  /** Soul & Memory opens this person's or project's card (`/agent/soul?entity=ent_…`). */
+  entity?: string;
   /** The `/agent/*` page's × and Escape: back to where the owner came from (#508). */
   onClose?: () => void;
   /**
@@ -158,6 +164,7 @@ export function AgentSheetBody({
   onStartIncognito,
   header = true,
   file,
+  entity,
   onClose,
   escapeAnywhere = true,
 }: AgentSheetBodyProps): ReactElement {
@@ -242,8 +249,9 @@ export function AgentSheetBody({
           </TabsContent>
           <TabsContent value="soul">
             <SoulMemoryPanel
-              key={file ?? ""}
+              key={`${file ?? ""}|${entity ?? ""}`}
               {...(file ? { initialFile: file } : {})}
+              {...(entity ? { initialEntity: entity } : {})}
               {...(onStartIncognito ? { onStartIncognito } : {})}
             />
           </TabsContent>

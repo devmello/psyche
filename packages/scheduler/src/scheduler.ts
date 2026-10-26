@@ -4,6 +4,7 @@ import {
   type AutomationInput,
   type AutomationPatch,
   type AutomationRun,
+  type AutomationTrigger,
   type Clock,
   type Notifier,
   PsycheError,
@@ -11,10 +12,19 @@ import {
   type Scheduler,
   type UpcomingItem,
   type WatchConfig,
+  type WorkflowEvent,
 } from "@psyche/protocol";
 import type { Timers } from "@psyche/tasks";
 import { systemTimers } from "@psyche/tasks";
 import { isPrivateHost } from "./delivery.ts";
+import {
+  DEFAULT_DEBOUNCE_MS,
+  DEFAULT_MAX_RUNS_PER_DAY,
+  EVENT_DEDUPE_MS,
+  MAX_EVENTS_PER_RUN,
+  matches,
+  taintOf,
+} from "./events.ts";
 import { buildUnattendedPrompt } from "./prompt.ts";
 import {
   type AutomationRow,
@@ -197,8 +207,15 @@ export class SqliteScheduler implements Scheduler {
     sessionTarget: string;
     delivery: Automation["delivery"];
     watch?: WatchConfig | undefined;
+    trigger?: AutomationTrigger | undefined;
   }): Schedule {
     const schedule = parseSchedule(a.kind, a.schedule, a.timezone);
+    if (a.kind === "event") {
+      if (a.trigger?.type !== "event")
+        bad('an event automation needs `trigger: {type: "event", source}`');
+    } else if (a.trigger !== undefined) {
+      bad("only event automations take `trigger`");
+    }
     if (!SESSION_TARGET.test(a.sessionTarget)) {
       bad("sessionTarget must be main, isolated or named:<id>");
     }
@@ -287,14 +304,17 @@ export class SqliteScheduler implements Scheduler {
     const schedule = this.#validate(a);
     const id = this.#newId();
     const now = this.clock.now();
-    if (a.enabled && schedule.next(now) === undefined) bad("that time has already passed");
+    if (a.enabled && a.kind !== "event" && schedule.next(now) === undefined) {
+      bad("that time has already passed");
+    }
     const event = this.#tx(() => {
       this.#db.sqlite
         .prepare(
           `INSERT INTO automations (id, kind, title, schedule, timezone, session_target, delivery,
-             prompt, scratch, enabled, light_context, system, next_run_at, created_at, updated_at)
+             prompt, scratch, enabled, light_context, system, next_run_at, created_at, updated_at,
+             trigger)
            VALUES (@id, @kind, @title, @schedule, @timezone, @session_target, @delivery, @prompt,
-             @scratch, @enabled, @light_context, @system, @next_run_at, @now, @now)`,
+             @scratch, @enabled, @light_context, @system, @next_run_at, @now, @now, @trigger)`,
         )
         .run({
           id,
@@ -311,6 +331,7 @@ export class SqliteScheduler implements Scheduler {
           system: input.system === true ? 1 : 0,
           next_run_at: this.#nextIso(schedule, a.enabled, now),
           now: this.#iso(now),
+          trigger: a.trigger === undefined ? null : JSON.stringify(a.trigger),
         });
       if (a.watch !== undefined) this.#upsertWatch(id, a.watch, false);
       return this.#updatedEvent(id);
@@ -349,7 +370,12 @@ export class SqliteScheduler implements Scheduler {
         next.timezone !== current.timezone ||
         next.enabled !== current.enabled;
       const now = this.clock.now();
-      if (rescheduled && next.enabled && schedule.next(now) === undefined) {
+      if (
+        rescheduled &&
+        next.enabled &&
+        next.kind !== "event" &&
+        schedule.next(now) === undefined
+      ) {
         bad("that time has already passed");
       }
       this.#db.sqlite
@@ -357,7 +383,7 @@ export class SqliteScheduler implements Scheduler {
           `UPDATE automations SET title = @title, schedule = @schedule, timezone = @timezone,
              session_target = @session_target, delivery = @delivery, prompt = @prompt,
              scratch = @scratch, enabled = @enabled, light_context = @light_context,
-             next_run_at = @next_run_at, updated_at = @now WHERE id = @id`,
+             next_run_at = @next_run_at, trigger = @trigger, updated_at = @now WHERE id = @id`,
         )
         .run({
           id,
@@ -376,6 +402,7 @@ export class SqliteScheduler implements Scheduler {
               ? current.nextRunAt
               : null,
           now: this.#iso(now),
+          trigger: next.trigger === undefined ? null : JSON.stringify(next.trigger),
         });
       if (patch.watch !== undefined) {
         const w = current.watch;
@@ -525,11 +552,18 @@ export class SqliteScheduler implements Scheduler {
       if (busy !== undefined) {
         throw new PsycheError("conflict", "a run of this automation is already in progress");
       }
+      // Run-now on an event automation replays the events of its last event run (§4.7 item 8).
+      const last = this.#db.sqlite
+        .prepare(
+          "SELECT events FROM automation_runs WHERE automation_id = ? AND trigger = 'event' AND events IS NOT NULL ORDER BY started_at DESC, id DESC LIMIT 1",
+        )
+        .get(id) as { events: string } | undefined;
       const r: RunRow = {
         id: this.#newId(),
         automation_id: id,
         thread_id: null,
         task_id: null,
+        events: last?.events ?? null,
         trigger: "manual",
         scheduled_for: nowIso,
         coalesced: 1,
@@ -570,11 +604,11 @@ export class SqliteScheduler implements Scheduler {
     this.#db.sqlite
       .prepare(
         `INSERT INTO automation_runs (id, automation_id, thread_id, task_id, trigger, scheduled_for,
-           coalesced, started_at, ended_at, status, summary, notification_id, created_at)
+           coalesced, started_at, ended_at, status, summary, notification_id, created_at, events)
          VALUES (@id, @automation_id, @thread_id, @task_id, @trigger, @scheduled_for, @coalesced,
-           @started_at, @ended_at, @status, @summary, @notification_id, @created_at)`,
+           @started_at, @ended_at, @status, @summary, @notification_id, @created_at, @events)`,
       )
-      .run(r);
+      .run({ ...r, events: r.events ?? null });
   }
 
   #runRow(runId: string): RunRow {
@@ -615,12 +649,15 @@ export class SqliteScheduler implements Scheduler {
         .prepare("UPDATE automation_runs SET thread_id = ? WHERE id = ?")
         .run(threadId, runId);
       const current = runFromRow(this.#runRow(runId));
+      const taintSources = taintOf(current.events ?? []);
       const handle = await launcher.launch({
         automation,
         run: current,
         threadId,
         prompt: buildUnattendedPrompt(automation, current),
         lightContext: automation.lightContext === true,
+        ...(current.events === undefined ? {} : { events: current.events }),
+        ...(taintSources.length === 0 ? {} : { taintSources }),
       });
       if (handle.taskId !== undefined) {
         this.#db.sqlite
@@ -873,6 +910,25 @@ export class SqliteScheduler implements Scheduler {
       schedule: r.schedule,
       timezone: r.timezone,
     }));
+    // Event automations have no next time: they show their trigger and last run (§4.7 item 8).
+    const evented = this.#db.sqlite
+      .prepare(
+        "SELECT * FROM automations WHERE enabled = 1 AND kind = 'event' ORDER BY created_at, id",
+      )
+      .all() as AutomationRow[];
+    for (const r of evented) {
+      if (items.length >= limit) break;
+      items.push({
+        kind: "automation",
+        id: r.id,
+        automationId: r.id,
+        title: r.title,
+        nextRunAt: null,
+        enabled: true,
+        lastRunAt: r.last_run_at,
+        ...(r.trigger == null ? {} : { trigger: JSON.parse(r.trigger) as AutomationTrigger }),
+      });
+    }
     for (const req of this.#o.openInputRequests?.() ?? []) {
       if (items.length >= limit) break;
       items.push({
@@ -907,17 +963,202 @@ export class SqliteScheduler implements Scheduler {
       }
     }
     await this.tick();
+    await this.flushEvents();
   }
 
   stop(): void {
     this.#started = false;
     if (this.#timer !== undefined) this.#timers.clearTimeout(this.#timer);
     this.#timer = undefined;
+    if (this.#eventTimer !== undefined) this.#timers.clearTimeout(this.#eventTimer);
+    this.#eventTimer = undefined;
   }
 
   /** The machine woke from sleep (or the clock jumped): catch up now. */
   async wake(): Promise<ScheduledRun[]> {
-    return this.tick();
+    const runs = await this.tick();
+    await this.flushEvents();
+    return runs;
+  }
+
+  // --- event triggers (docs/workflows/mail-and-meetings-2026.md §4.7) --------------------------
+
+  #eventTimer: unknown;
+
+  #trigger(row: AutomationRow): AutomationTrigger | undefined {
+    return row.trigger == null ? undefined : (JSON.parse(row.trigger) as AutomationTrigger);
+  }
+
+  /**
+   * An event from a source (the mail poller, the Gmail sync, the helper). Each enabled event
+   * automation whose trigger matches gets it queued once: a source id starts at most one run
+   * per automation. Runs start after the debounce window (`flushEvents`). Returns the ids of
+   * the automations that queued it.
+   */
+  async publishEvent(event: WorkflowEvent): Promise<string[]> {
+    const nowIso = this.#iso();
+    const queued = this.#tx(() => {
+      const rows = this.#db.sqlite
+        .prepare("SELECT * FROM automations WHERE enabled = 1 AND kind = 'event'")
+        .all() as AutomationRow[];
+      const out: string[] = [];
+      for (const row of rows) {
+        const trigger = this.#trigger(row);
+        if (trigger === undefined || !matches(trigger, event)) continue;
+        const fresh = this.#db.sqlite
+          .prepare(
+            "INSERT OR IGNORE INTO automation_event_seen (automation_id, event_id, seen_at) VALUES (?, ?, ?)",
+          )
+          .run(row.id, event.id, nowIso) as { changes: number };
+        if (fresh.changes === 0) continue;
+        this.#db.sqlite
+          .prepare(
+            "INSERT INTO automation_event_queue (id, automation_id, event, received_at) VALUES (?, ?, ?, ?)",
+          )
+          .run(this.#newId(), row.id, JSON.stringify(event), nowIso);
+        out.push(row.id);
+      }
+      return out;
+    });
+    if (queued.length > 0) this.#armEvents();
+    return queued;
+  }
+
+  /**
+   * Starts one run per automation whose oldest queued event is past its debounce window,
+   * folding every queued event into it (`coalesced = n`). An automation still running keeps
+   * its events queued. Past `maxRunsPerDay` the run is recorded `skipped`.
+   */
+  async flushEvents(now: number = this.clock.now()): Promise<AutomationRun[]> {
+    const nowIso = this.#iso(now);
+    const started = this.#tx(() => {
+      this.#db.sqlite
+        .prepare("DELETE FROM automation_event_seen WHERE seen_at < ?")
+        .run(this.#iso(now - EVENT_DEDUPE_MS));
+      const pending = this.#db.sqlite
+        .prepare(
+          "SELECT automation_id, MIN(received_at) AS oldest FROM automation_event_queue GROUP BY automation_id",
+        )
+        .all() as { automation_id: string; oldest: string }[];
+      const out: { run: RunRow; skipped: boolean }[] = [];
+      for (const q of pending) {
+        const row = this.#rowOrUndefined(q.automation_id);
+        const trigger = row === undefined ? undefined : this.#trigger(row);
+        if (row === undefined || trigger === undefined || row.enabled !== 1) {
+          this.#db.sqlite
+            .prepare("DELETE FROM automation_event_queue WHERE automation_id = ?")
+            .run(q.automation_id);
+          continue;
+        }
+        const debounce = trigger.debounceMs ?? DEFAULT_DEBOUNCE_MS;
+        if (Date.parse(q.oldest) + debounce > now) continue;
+        const busy = this.#db.sqlite
+          .prepare(
+            "SELECT 1 FROM automation_runs WHERE automation_id = ? AND status = 'running' LIMIT 1",
+          )
+          .get(row.id);
+        if (busy !== undefined) continue;
+        const queuedRows = this.#db.sqlite
+          .prepare(
+            "SELECT id, event FROM automation_event_queue WHERE automation_id = ? AND received_at <= ? ORDER BY received_at, id LIMIT ?",
+          )
+          .all(row.id, nowIso, MAX_EVENTS_PER_RUN) as { id: string; event: string }[];
+        if (queuedRows.length === 0) continue;
+        const del = this.#db.sqlite.prepare("DELETE FROM automation_event_queue WHERE id = ?");
+        for (const e of queuedRows) del.run(e.id);
+        const events = queuedRows.map((e) => JSON.parse(e.event) as WorkflowEvent);
+        const today = this.#db.sqlite
+          .prepare(
+            "SELECT COUNT(*) AS n FROM automation_runs WHERE automation_id = ? AND trigger = 'event' AND status != 'skipped' AND started_at >= ?",
+          )
+          .get(row.id, this.#iso(now - 86_400_000)) as { n: number };
+        const max = trigger.maxRunsPerDay ?? DEFAULT_MAX_RUNS_PER_DAY;
+        const skipped = today.n >= max;
+        const latest =
+          events
+            .map((e) => e.at)
+            .sort()
+            .at(-1) ?? nowIso;
+        const run: RunRow = {
+          id: this.#newId(),
+          automation_id: row.id,
+          thread_id: null,
+          task_id: null,
+          trigger: "event",
+          scheduled_for: latest,
+          coalesced: events.length,
+          started_at: nowIso,
+          ended_at: skipped ? nowIso : null,
+          status: skipped ? "skipped" : "running",
+          summary: skipped ? `Daily run budget reached (${max})` : null,
+          notification_id: null,
+          created_at: nowIso,
+          events: JSON.stringify(events),
+        };
+        this.#insertRun(run);
+        this.#db.sqlite
+          .prepare(
+            "UPDATE automations SET last_run_at = ?, last_status = ?, updated_at = ? WHERE id = ?",
+          )
+          .run(nowIso, run.status, nowIso, row.id);
+        out.push({ run, skipped });
+      }
+      return out;
+    });
+    const emitted: Pending[] = [];
+    for (const s of started) {
+      emitted.push({
+        event: s.skipped ? "automation.run.finished" : "automation.run.started",
+        payload: { run: runFromRow(s.run) },
+      });
+      emitted.push(this.#updatedEvent(s.run.automation_id));
+    }
+    this.#emit(emitted);
+    for (const s of started) if (!s.skipped) this.#track(this.#dispatch(s.run.id));
+    this.#armEvents();
+    return started.map((s) => runFromRow(s.run));
+  }
+
+  /** Arms one timer for the earliest debounce window that ends (restarts resume from the queue). */
+  #armEvents(): void {
+    if (!this.#started) return;
+    if (this.#eventTimer !== undefined) this.#timers.clearTimeout(this.#eventTimer);
+    this.#eventTimer = undefined;
+    const rows = this.#db.sqlite
+      .prepare(
+        `SELECT q.automation_id, MIN(q.received_at) AS oldest, a.trigger FROM automation_event_queue q
+           JOIN automations a ON a.id = q.automation_id GROUP BY q.automation_id`,
+      )
+      .all() as { automation_id: string; oldest: string; trigger: string | null }[];
+    if (rows.length === 0) return;
+    const now = this.clock.now();
+    let at = Number.POSITIVE_INFINITY;
+    for (const r of rows) {
+      const t = r.trigger == null ? undefined : (JSON.parse(r.trigger) as AutomationTrigger);
+      at = Math.min(at, Date.parse(r.oldest) + (t?.debounceMs ?? DEFAULT_DEBOUNCE_MS));
+    }
+    const delay = Math.max(1_000, Math.min(at - now, this.#o.maxTimerMs ?? 300_000));
+    this.#eventTimer = this.#timers.setTimeout(() => {
+      this.#eventTimer = undefined;
+      this.flushEvents().catch((e) => this.#error(e));
+    }, delay);
+  }
+
+  /** A source's durable cursor (the mail poller's last position per account). */
+  getCursor(source: string, key: string): string | undefined {
+    const r = this.#db.sqlite
+      .prepare("SELECT cursor FROM event_cursors WHERE source = ? AND key = ?")
+      .get(source, key) as { cursor: string } | undefined;
+    return r?.cursor;
+  }
+
+  setCursor(source: string, key: string, cursor: string): void {
+    this.#db.sqlite
+      .prepare(
+        `INSERT INTO event_cursors (source, key, cursor, updated_at) VALUES (?, ?, ?, ?)
+         ON CONFLICT (source, key) DO UPDATE SET cursor = excluded.cursor, updated_at = excluded.updated_at`,
+      )
+      .run(source, key, cursor, this.#iso());
   }
 
   /** Time of the single host timer, or `undefined` when nothing is scheduled (tests). */

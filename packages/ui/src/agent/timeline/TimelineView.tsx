@@ -126,6 +126,9 @@ export function TimelineView({
   const { frames, image } = useRunFrames(runId);
   const allSteps = useStoreState((s) => s.runSteps);
   const runs = useStoreState((s) => s.runs);
+  const storeThreadTitle = useStoreState((s) =>
+    run ? (s.threads[run.threadId]?.thread.title ?? null) : null,
+  );
   const reduce = useReducedMotionConfig() === true;
   const running = run?.status === "running";
   const clock = useTicker(running && fixedNow === undefined);
@@ -490,7 +493,9 @@ export function TimelineView({
   return (
     <section
       ref={rootRef}
-      aria-label={t("agent.timeline.label", { title: runTitle(run) })}
+      aria-label={t("agent.timeline.label", {
+        title: runTitle(run, threadTitle ?? storeThreadTitle),
+      })}
       className="flex min-h-0 flex-1 flex-col gap-3"
       onKeyDown={onRootKey}
       data-testid="timeline"
@@ -505,7 +510,9 @@ export function TimelineView({
         now={now}
         mode={mode}
         onModeChange={setMode}
-        {...(threadTitle ? { threadTitle } : {})}
+        {...((threadTitle ?? storeThreadTitle)
+          ? { threadTitle: threadTitle ?? storeThreadTitle ?? "" }
+          : {})}
         {...(onStop ? { onStop } : {})}
         {...(onPause ? { onPause } : {})}
         {...(onRetry ? { onRetry } : {})}

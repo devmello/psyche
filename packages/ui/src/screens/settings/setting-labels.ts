@@ -36,6 +36,7 @@ const LABELLED_KEYS = [
   "teaching.weeklyCard",
   "data.replayRetentionDays",
   "data.reasoningRetentionDays",
+  "memory.graph",
   "gateway.bind",
   "models.primary",
   "models.utility",

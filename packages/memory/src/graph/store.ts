@@ -2,6 +2,7 @@ import {
   type Clock,
   type EntitySummary,
   type EventPayload,
+  type GraphBlocklistEntry,
   type GraphEdge,
   type GraphEdgeRel,
   GraphEdgeRel as GraphEdgeRelSchema,
@@ -20,6 +21,7 @@ import {
   type GraphParticipantRole,
   type GraphProjectStatus,
   type GraphRelationshipLabel,
+  type GraphRemovedCounts,
   type GraphSource,
   type GraphStatus,
   type GraphSuggestion,
@@ -215,6 +217,48 @@ interface LoopRow {
 
 function fail(code: PsycheError["code"], message: string): never {
   throw new PsycheError(code, message);
+}
+
+/** Thrown inside a transaction to roll back a dry run. */
+class RollbackSignal extends Error {}
+
+/** Interaction kinds each source produces (`memory.graph.status`, `deleteSource`). */
+export const SOURCE_KINDS: Record<GraphSource, GraphInteractionKind[]> = {
+  contacts: [],
+  mail: ["mail"],
+  calendar: ["meeting"],
+  messages: ["message", "call"],
+  notes: ["note"],
+  chats: ["chat"],
+};
+
+/** Prefixes of fact and relation sources that are not interactions. */
+const SOURCE_REF_PREFIX: Partial<Record<GraphSource, string>> = {
+  contacts: "contact:",
+  chats: "chat:",
+};
+
+/** SQL over `source` of identifiers and aliases written by a source's ingest. */
+const SOURCE_COLUMN_MATCH: Record<GraphSource, string> = {
+  contacts: "source = 'contacts'",
+  mail: "(source = 'mail' OR source LIKE '%mail%')",
+  calendar: "(source = 'calendar' OR source LIKE '%calendar%')",
+  // Messages identifiers carry the channel's connector id (imessage, telegram, ...).
+  messages:
+    "(source NOT IN ('contacts', 'mail', 'calendar', 'owner', 'system', 'model', 'rule') AND source NOT LIKE '%mail%' AND source NOT LIKE '%calendar%' AND source NOT LIKE '%note%' AND source NOT LIKE 'chat:%')",
+  notes: "source LIKE '%note%'",
+  chats: "source LIKE 'chat:%'",
+};
+
+/** What Settings shows for a hashed blocklist entry: never the whole address or number. */
+function maskHint(kind: string, norm: string): string | null {
+  if (kind === "domain") return norm;
+  if (kind === "email") {
+    const [local = "", domain = ""] = norm.split("@");
+    return `${local.slice(0, 1)}•••@${domain}`;
+  }
+  if (kind === "phone") return `•••${norm.slice(-2)}`;
+  return null;
 }
 
 function clip(text: string | null | undefined, max: number): string | null {
@@ -685,23 +729,66 @@ export class GraphStore {
       .run(kind, norm);
   }
 
-  #block(kind: string, valueDisplay: string): void {
+  #block(kind: string, valueDisplay: string): GraphBlocklistEntry | undefined {
     const norm = normalizeIdentifier(kind as GraphIdentifierKind, valueDisplay, this.#country);
-    if (norm === undefined) return;
+    if (norm === undefined) return undefined;
+    const hash = blockHash(kind, norm);
     this.#db
       .prepare(
-        "INSERT OR IGNORE INTO graph_blocklist (kind, value_hash, created_at) VALUES (?, ?, ?)",
+        "INSERT OR IGNORE INTO graph_blocklist (kind, value_hash, created_at, hint) VALUES (?, ?, ?, ?)",
       )
-      .run(kind, blockHash(kind, norm), this.#now());
+      .run(kind, hash, this.#now(), maskHint(kind, norm));
+    return this.blocklist().find((e) => e.id === `${kind}:${hash}`);
   }
 
+  /** A blocked email's domain blocks it too ("never model anyone at acme.com"). */
   isBlocked(kind: GraphIdentifierKind, value: string): boolean {
     const norm = normalizeIdentifier(kind, value, this.#country);
     if (norm === undefined) return false;
-    return (
+    const has = (k: string, v: string) =>
       this.#db
         .prepare("SELECT 1 FROM graph_blocklist WHERE kind = ? AND value_hash = ?")
-        .get(kind, blockHash(kind, norm)) !== undefined
+        .get(k, blockHash(k, v)) !== undefined;
+    if (has(kind, norm)) return true;
+    const domain = kind === "email" ? norm.split("@")[1] : undefined;
+    return domain !== undefined && has("domain", domain);
+  }
+
+  /** Every blocklisted identifier, newest first, with its masked hint (§4.9). */
+  blocklist(): GraphBlocklistEntry[] {
+    const rows = this.#db
+      .prepare(
+        "SELECT kind, value_hash, created_at, hint FROM graph_blocklist ORDER BY created_at DESC, kind, value_hash",
+      )
+      .all() as { kind: string; value_hash: string; created_at: string; hint: string | null }[];
+    return rows.map((r) => ({
+      id: `${r.kind}:${r.value_hash}`,
+      kind: r.kind as GraphIdentifierKind,
+      hint: r.hint,
+      createdAt: r.created_at,
+    }));
+  }
+
+  /** The owner blocks an address, phone or domain; an existing card stays until forgotten. */
+  block(kind: "email" | "phone" | "domain", value: string): GraphBlocklistEntry {
+    if (
+      kind === "domain" &&
+      !/^(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}\.?$/i.test(value.trim())
+    )
+      fail("invalid_params", "not a valid domain");
+    const entry = this.#block(kind, value);
+    if (entry === undefined) fail("invalid_params", `not a valid ${kind}`);
+    return entry;
+  }
+
+  /** Removes a blocklist entry by its id (`memory.graph.blocklist.remove`). */
+  unblockId(id: string): boolean {
+    const at = id.indexOf(":");
+    if (at <= 0) return false;
+    return (
+      this.#db
+        .prepare("DELETE FROM graph_blocklist WHERE kind = ? AND value_hash = ?")
+        .run(id.slice(0, at), id.slice(at + 1)).changes > 0
     );
   }
 
@@ -1088,6 +1175,14 @@ export class GraphStore {
       }
     })();
     return id;
+  }
+
+  /** The interaction recorded for a source item (a calendar event id, a mail message id). */
+  interactionByRef(source: string, externalRef: string): GraphInteraction | undefined {
+    const row = this.#db
+      .prepare("SELECT id FROM graph_interactions WHERE source = ? AND external_ref = ?")
+      .get(source, externalRef) as { id: string } | undefined;
+    return row === undefined ? undefined : this.interaction(row.id);
   }
 
   /** The source app deleted an item: its interaction and anything derived only from it go too. */
@@ -1711,6 +1806,199 @@ export class GraphStore {
     return { removed, cardPath: row.card_path, names, dryRun };
   }
 
+  /** Runs `fn` with SQLite secure_delete on, then rebuilds the FTS index and checkpoints (§4.9). */
+  #secureDelete(fn: () => void): void {
+    const before = this.#db.pragma("secure_delete", { simple: true });
+    this.#db.pragma("secure_delete = ON");
+    try {
+      this.#db.transaction(fn)();
+      this.#db.exec("INSERT INTO graph_fts (graph_fts) VALUES ('optimize')");
+      if (this.#db.name !== ":memory:") this.#db.pragma("wal_checkpoint(TRUNCATE)");
+    } finally {
+      this.#db.pragma(`secure_delete = ${before === 1 ? "ON" : "OFF"}`);
+    }
+  }
+
+  #count(sql: string): number {
+    return (this.#db.prepare(sql).get() as { n: number }).n;
+  }
+
+  /**
+   * Removes what one source brought (`memory.graph.deleteSource`): its interactions, the facts,
+   * relations and loops derived only from them, its identifiers and aliases (never ones the owner
+   * linked), and people or organisations left with nothing (no identifiers, interactions, loops,
+   * facts or relations; never the owner, a pinned entity or a project).
+   */
+  deleteSource(
+    source: GraphSource,
+    dryRun = false,
+  ): { removed: GraphRemovedCounts; cardPaths: string[]; dryRun: boolean } {
+    const kinds = SOURCE_KINDS[source];
+    const interactions =
+      kinds.length === 0
+        ? []
+        : (
+            this.#db
+              .prepare(
+                `SELECT id FROM graph_interactions WHERE kind IN (${kinds.map(() => "?").join(", ")})`,
+              )
+              .all(...kinds) as { id: string }[]
+          ).map((r) => r.id);
+    const ids = new Set(interactions);
+    const prefix = SOURCE_REF_PREFIX[source];
+    const derived = (sources: string) => {
+      const list = JSON.parse(sources) as string[];
+      return (
+        list.length > 0 &&
+        list.every((x) => ids.has(x) || (prefix !== undefined && x.startsWith(prefix)))
+      );
+    };
+    const rowsOf = (table: string) =>
+      (
+        this.#db.prepare(`SELECT id, sources FROM ${table}`).all() as {
+          id: string;
+          sources: string;
+        }[]
+      ).filter((r) => derived(r.sources));
+    const facts = rowsOf("graph_facts");
+    const edges = rowsOf("graph_edges");
+    const loops = (
+      this.#db
+        .prepare(
+          "SELECT id, source_interaction_id AS sid FROM graph_loops WHERE detected_by != 'owner' AND source_interaction_id IS NOT NULL",
+        )
+        .all() as { id: string; sid: string }[]
+    ).filter((r) => ids.has(r.sid));
+    const match = SOURCE_COLUMN_MATCH[source];
+    const removed: GraphRemovedCounts = {
+      entities: 0,
+      identifiers: this.#count(
+        `SELECT count(*) AS n FROM graph_identifiers WHERE linked_by != 'owner' AND ${match}`,
+      ),
+      facts: facts.length,
+      interactions: interactions.length,
+      loops: loops.length,
+    };
+    const touched = new Set<string>();
+    const orphans: { id: string; kind: GraphEntityKind; card_path: string | null }[] = [];
+    const del = (table: string, rowIds: string[]) => {
+      const stmt = this.#db.prepare(`DELETE FROM ${table} WHERE id = ?`);
+      for (const id of rowIds) stmt.run(id);
+    };
+    const run = () => {
+      const participant = this.#db.prepare(
+        "SELECT entity_id FROM graph_participants WHERE interaction_id = ?",
+      );
+      for (const id of interactions)
+        for (const p of participant.all(id) as { entity_id: string }[]) touched.add(p.entity_id);
+      for (const r of this.#db
+        .prepare(`SELECT entity_id FROM graph_identifiers WHERE linked_by != 'owner' AND ${match}`)
+        .all() as { entity_id: string }[])
+        touched.add(r.entity_id);
+      const factEntity = this.#db.prepare("SELECT entity_id FROM graph_facts WHERE id = ?");
+      for (const f of facts) {
+        const r = factEntity.get(f.id) as { entity_id: string } | undefined;
+        if (r !== undefined) touched.add(r.entity_id);
+      }
+      const edgeEnds = this.#db.prepare("SELECT src, dst FROM graph_edges WHERE id = ?");
+      for (const e of edges) {
+        const r = edgeEnds.get(e.id) as { src: string; dst: string } | undefined;
+        if (r !== undefined) touched.add(r.src).add(r.dst);
+      }
+      del(
+        "graph_loops",
+        loops.map((l) => l.id),
+      );
+      del(
+        "graph_facts",
+        facts.map((f) => f.id),
+      );
+      del(
+        "graph_edges",
+        edges.map((e) => e.id),
+      );
+      del("graph_interactions", interactions);
+      this.#db
+        .prepare(`DELETE FROM graph_identifiers WHERE linked_by != 'owner' AND ${match}`)
+        .run();
+      this.#db.prepare(`DELETE FROM graph_aliases WHERE ${match}`).run();
+      orphans.push(
+        ...(
+          this.#db
+            .prepare(
+              `SELECT id, kind, card_path FROM graph_entities e WHERE kind IN ('person', 'org') AND is_owner = 0 AND pinned = 0
+              AND NOT EXISTS (SELECT 1 FROM graph_identifiers i WHERE i.entity_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM graph_participants p WHERE p.entity_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM graph_loops l WHERE l.counterpart_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM graph_facts f WHERE f.entity_id = e.id)
+              AND NOT EXISTS (SELECT 1 FROM graph_edges g WHERE g.src = e.id OR g.dst = e.id)`,
+            )
+            .all() as typeof orphans
+        )
+          // Only what this source touched: an owner-made name-only entry is never swept up.
+          .filter((o) => touched.has(o.id)),
+      );
+      removed.entities = orphans.length;
+      if (orphans.length > 0) {
+        const marks = orphans.map(() => "?").join(", ");
+        const oids = orphans.map((o) => o.id);
+        this.#db.prepare(`DELETE FROM graph_fts WHERE entity_id IN (${marks})`).run(...oids);
+        this.#db
+          .prepare(`UPDATE graph_entities SET merged_into = NULL WHERE merged_into IN (${marks})`)
+          .run(...oids);
+        this.#db.prepare(`DELETE FROM graph_entities WHERE id IN (${marks})`).run(...oids);
+      }
+    };
+    const cardPaths = () => orphans.flatMap((o) => (o.card_path === null ? [] : [o.card_path]));
+    if (dryRun) {
+      // The orphan count needs the deletes: run them in a transaction that is rolled back.
+      try {
+        this.#db.transaction(() => {
+          run();
+          throw new RollbackSignal();
+        })();
+      } catch (err) {
+        if (!(err instanceof RollbackSignal)) throw err;
+      }
+      return { removed, cardPaths: cardPaths(), dryRun };
+    }
+    this.#secureDelete(run);
+    const gone = new Set(orphans.map((o) => o.id));
+    for (const id of touched) {
+      const kind = gone.has(id) ? undefined : this.getEntity(id)?.kind;
+      if (kind === undefined) continue;
+      this.#reindex(id);
+      this.#emit({ event: "memory.entity.updated", payload: { id, kind, changed: ["source"] } });
+    }
+    for (const o of orphans)
+      this.#emit({
+        event: "memory.entity.updated",
+        payload: { id: o.id, kind: o.kind, changed: ["forgotten"] },
+      });
+    return { removed, cardPaths: cardPaths(), dryRun };
+  }
+
+  /**
+   * Deletes the whole graph, keeping nothing: entities (the owner's too), interactions, facts,
+   * loops, suggestions, corrections, the blocklist and cursors (`memory.graph.forgetAll`).
+   */
+  forgetAll(dryRun = false): { removed: GraphRemovedCounts; cardPaths: string[]; dryRun: boolean } {
+    const removed: GraphRemovedCounts = {
+      entities: this.#count("SELECT count(*) AS n FROM graph_entities"),
+      identifiers: this.#count("SELECT count(*) AS n FROM graph_identifiers"),
+      facts: this.#count("SELECT count(*) AS n FROM graph_facts"),
+      interactions: this.#count("SELECT count(*) AS n FROM graph_interactions"),
+      loops: this.#count("SELECT count(*) AS n FROM graph_loops"),
+    };
+    const cardPaths = (
+      this.#db
+        .prepare("SELECT card_path FROM graph_entities WHERE card_path IS NOT NULL")
+        .all() as { card_path: string }[]
+    ).map((r) => r.card_path);
+    if (!dryRun) this.#secureDelete(() => this.#wipe());
+    return { removed, cardPaths, dryRun };
+  }
+
   /** Deletes interactions past retention and archives entities with nothing left (§4.9). */
   retention(): { interactions: number; archived: number } {
     const cutoff = new Date(this.#clock.now() - this.#retentionDays * DAY_MS).toISOString();
@@ -2032,19 +2320,11 @@ export class GraphStore {
           .get(kind) as { n: number }
       ).n;
     const since = new Date(this.#clock.now() - 30 * DAY_MS).toISOString();
-    const SOURCES: GraphSource[] = ["contacts", "mail", "calendar", "messages", "notes", "chats"];
-    const kindOfSource: Record<GraphSource, string[]> = {
-      contacts: [],
-      mail: ["mail"],
-      calendar: ["meeting"],
-      messages: ["message", "call"],
-      notes: ["note"],
-      chats: ["chat"],
-    };
+    const SOURCES = Object.keys(SOURCE_KINDS) as GraphSource[];
     return {
       enabled: settings.enabled,
       sources: SOURCES.map((source) => {
-        const kinds = kindOfSource[source];
+        const kinds = SOURCE_KINDS[source];
         const interactions =
           kinds.length === 0
             ? 0
@@ -2099,7 +2379,7 @@ export class GraphStore {
         maxTokens: 150_000,
       },
       loopPrecision: SOURCES.map((source) => {
-        const kinds = kindOfSource[source];
+        const kinds = SOURCE_KINDS[source];
         if (kinds.length === 0) return { source, confirmed: 0, dismissed: 0 };
         const q = (status: string) =>
           (
@@ -2139,6 +2419,10 @@ export class GraphStore {
 
   /** `memory.reset`: everything in the graph goes. */
   reset(): void {
+    this.#wipe();
+  }
+
+  #wipe(): void {
     this.#db.exec(
       "DELETE FROM graph_loops; DELETE FROM graph_participants; DELETE FROM graph_interactions; DELETE FROM graph_suggestions; DELETE FROM graph_feedback; DELETE FROM graph_blocklist; DELETE FROM graph_cursors; DELETE FROM graph_fts; UPDATE graph_entities SET merged_into = NULL; DELETE FROM graph_entities;",
     );

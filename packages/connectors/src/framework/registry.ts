@@ -32,6 +32,37 @@ const READ_ONLY: SideEffect[] = ["none", "read"];
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
+/** Key names that hold secrets: those values are only ever `{{cred:slug}}` placeholders. */
+const SECRET_KEY =
+  /secret|token|passw(or)?d|passphrase|api[-_]?key|private[-_]?key|credential|cookie|authorization/i;
+const PLACEHOLDER = /^\{\{cred:[a-z0-9][a-z0-9-]*\}\}$/;
+/** Config the Gateway and the connector manage themselves (connect and status write these). */
+const MANAGED_KEYS = new Set(["permission", "permissionAction", "nodeId"]);
+const MAX_CONFIG_BYTES = 64 * 1024;
+
+/**
+ * Refuses a settings patch that would put a secret in a connector record (#727): a key that
+ * names a secret, at any depth, must be `null` or a `{{cred:slug}}` placeholder.
+ */
+export function assertNoSecretSettings(value: unknown, path = "config"): void {
+  if (Array.isArray(value)) {
+    for (const [i, v] of value.entries()) assertNoSecretSettings(v, `${path}[${i}]`);
+    return;
+  }
+  if (!isObject(value)) return;
+  for (const [key, v] of Object.entries(value)) {
+    const at = `${path}.${key}`;
+    if (SECRET_KEY.test(key) && v !== null && !(typeof v === "string" && PLACEHOLDER.test(v))) {
+      throw new PsycheError(
+        "invalid_params",
+        `${at} looks like a secret: store it in the vault and pass its {{cred:slug}} placeholder`,
+        { details: { reason: "secret_in_config", key: at } },
+      );
+    }
+    assertNoSecretSettings(v, at);
+  }
+}
+
 export class MemoryConnectorStore implements ConnectorStore {
   readonly #rows = new Map<string, ConnectorRecord>();
   async get(id: string) {
@@ -183,10 +214,7 @@ export class ConnectorRegistry {
       await this.#store.put(record);
       options.onPending(structuredClone(record));
     }
-    const connector = factory.create(record, {
-      ...this.#opts.context,
-      emit: (e) => void this.#fromConnector(e),
-    });
+    const connector = factory.create(record, this.#connectorContext());
     try {
       const result = await connector.connect({
         scopeMode: req.scopeMode,
@@ -286,10 +314,7 @@ export class ConnectorRegistry {
       try {
         if (factory === undefined)
           throw new PsycheError("not_found", `no factory for ${record.type}`);
-        const connector = factory.create(record, {
-          ...this.#opts.context,
-          emit: (e) => void this.#fromConnector(e),
-        });
+        const connector = factory.create(record, this.#connectorContext());
         this.#live.set(record.id, { connector, unregister: this.#register(record, connector) });
         n += 1;
       } catch (err) {
@@ -415,6 +440,49 @@ export class ConnectorRegistry {
     return structuredClone(record);
   }
 
+  /**
+   * Merges settings into a connection's config without reconnecting it (#727): key by key, `null`
+   * removes a key. Secrets stay placeholders, keys the Gateway manages are refused, and the
+   * connector checks its own keys (`Connector.configure`). A live instance is re-created so its
+   * tools see the new settings.
+   */
+  async configure(id: string, patch: Record<string, unknown>): Promise<ConnectorRecord> {
+    const record = await this.get(id);
+    assertNoSecretSettings(patch);
+    const managed = Object.keys(patch).filter((k) => MANAGED_KEYS.has(k));
+    if (managed.length > 0) {
+      throw new PsycheError("invalid_params", `${managed.join(", ")} cannot be set here`, {
+        details: { reason: "managed_key", keys: managed },
+      });
+    }
+    let next: JsonObject = { ...record.config };
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === null) delete next[k];
+      else next[k] = structuredClone(v) as JsonObject[string];
+    }
+    if (JSON.stringify(next).length > MAX_CONFIG_BYTES) {
+      throw new PsycheError("invalid_params", "connector settings are too large");
+    }
+    const factory = [...this.#factories.values()].find((f) => f.entry.type === record.type);
+    const live = this.#live.get(id);
+    const checker = live?.connector ?? factory?.create(record, this.#connectorContext());
+    if (checker?.configure !== undefined) {
+      const checked = await checker.configure(next, record.scopeMode);
+      next = checked.config;
+      if (checked.account !== undefined) record.account = checked.account;
+    }
+    record.config = next;
+    record.updatedAt = new Date(this.#clock.now()).toISOString();
+    await this.#store.put(record);
+    if (live !== undefined && factory !== undefined) {
+      await this.#teardown(id);
+      const connector = factory.create(record, this.#connectorContext());
+      this.#live.set(id, { connector, unregister: this.#register(record, connector) });
+    }
+    this.#emit({ type: "configured", connectorId: id, keys: Object.keys(patch) });
+    return structuredClone(record);
+  }
+
   async sync(id: string, signal?: AbortSignal) {
     const record = await this.get(id);
     const live = this.#live.get(id);
@@ -491,7 +559,7 @@ export class ConnectorRegistry {
         },
         execute: (callId, params, signal) => this.#run(record.id, tool, callId, params, signal),
       };
-      if (tool.describeCall !== undefined) reg.describeCall = tool.describeCall;
+      reg.describeCall = (params) => describeWithRule(record.id, tool, params);
       out.push(registry.register(reg));
     }
     return out;
@@ -513,11 +581,14 @@ export class ConnectorRegistry {
         retryable: true,
       });
     }
-    const desc: ToolCallDescription | undefined = tool.describeCall?.(params);
+    const desc: ToolCallDescription | undefined = describeWithRule(connectorId, tool, params);
     // The more severe of the spec's class and the per-call description (AgentLoop contract).
     const effect = moreSevere(tool.sideEffect, desc?.sideEffect);
     const writes = !READ_ONLY.includes(effect);
     let rule = record.actionMatrix[tool.action] ?? "ask";
+    // The connector's own narrower setting for this call (one shortcut, #727); deny still wins.
+    const own = tool.ruleFor?.(params);
+    if (own !== undefined && rule !== "deny") rule = own;
     if (rule === "allow" && NO_STANDING.includes(effect)) rule = "ask";
     if (rule === "deny") throw new PsycheError("policy_denied", `${tool.action} is set to deny`);
     if (writes && record.scopeMode === "read") {
@@ -608,6 +679,8 @@ export class ConnectorRegistry {
           toolCallId: callId,
           approvalId: approvalId ?? null,
           ...(out.externalRefs === undefined ? {} : { externalRefs: out.externalRefs }),
+          // Which rule let the call through: an approval, a grant, or the owner's matrix (#747).
+          ...(authority === undefined ? {} : { payload: { rule: authority.rule } }),
         });
         receiptId = r.id;
       }
@@ -634,6 +707,10 @@ export class ConnectorRegistry {
       }
       throw err;
     }
+  }
+
+  #connectorContext(): ConnectorContext {
+    return { ...this.#opts.context, emit: (e) => void this.#fromConnector(e) };
   }
 
   async #teardown(id: string): Promise<void> {
@@ -679,6 +756,27 @@ function moreSevere(a: SideEffect, b: SideEffect | undefined): SideEffect {
 }
 
 /** Connector tools use the MCP naming so allow / ask / deny rules look the same (ToolSpec). */
+/**
+ * The tool's own description plus its action-matrix key (#747): `{id: <connectorId>, action:
+ * <tool.action>}`, so the broker applies the owner's Settings → Connectors rule for the group. A
+ * connector may narrow the key to a sub-key of its own group (`shortcuts.run/<shortcutId>`),
+ * never name another connector or group.
+ */
+export function describeWithRule(
+  connectorId: string,
+  tool: ConnectorTool,
+  params: unknown,
+): ToolCallDescription {
+  const desc = tool.describeCall?.(params);
+  const own = desc?.connectorRule;
+  const narrowed =
+    own !== undefined && own.id === connectorId && own.action.startsWith(`${tool.action}/`);
+  return {
+    ...(desc ?? {}),
+    connectorRule: narrowed ? { ...own } : { id: connectorId, action: tool.action },
+  };
+}
+
 export function toolName(connectorId: string, tool: string): `mcp__${string}__${string}` {
   return `mcp__${connectorId.replace(/[^a-z0-9-]/g, "-")}__${tool.replace(/[^A-Za-z0-9_-]/g, "_")}`;
 }

@@ -1,7 +1,15 @@
 import { type ModelRef, PsycheError } from "@psyche/protocol";
 
 /** Roles a `router/<role>` ref selects (architecture §4.4). */
-export const MODEL_ROLES = ["primary", "utility", "embedding", "vision", "speech"] as const;
+/** `voice` is the chat model for voice turns (docs/voice/voice-mode-2026.md §5); `speech` is audio. */
+export const MODEL_ROLES = [
+  "primary",
+  "utility",
+  "embedding",
+  "vision",
+  "speech",
+  "voice",
+] as const;
 export type ModelRole = (typeof MODEL_ROLES)[number];
 
 /** Provider id the router answers to: `router/primary` resolves the primary role chain. */
