@@ -9,6 +9,7 @@ import {
   type WebContents,
   WebContentsView,
 } from "electron";
+import { createPopOutRegistry } from "./pop-outs.ts";
 import {
   canvasColor,
   mainWindowOptions,
@@ -34,7 +35,10 @@ export interface AppWindows {
   setQuitting(): void;
   /** Shows the main window, creating it when it was closed. */
   showMain(): BaseWindow;
+  /** Opens a pane in its own window, or raises the one already open for the route. */
   popOut(route: string, title: string): void;
+  /** Raises the pop-out for `route`; false when it is gone (the pane should dock again). */
+  focusPopOut(route: string): boolean;
   /** Opens (or focuses) the Settings window on a section (⌘,; redesign §4). */
   showSettings(section?: string): void;
   /** The windows with app chrome (main, Settings) and their app views, for the canvas colour. */
@@ -63,6 +67,8 @@ export interface WindowOptions {
   anySize?: boolean;
   /** A chrome window (main, Settings) was made: the native theme and the like. */
   onChromeWindowCreated?: (win: BaseWindow, view: WebContentsView) => void;
+  /** A pane's pop-out window closed: the main window docks the pane again. */
+  onPopOutClosed?: (route: string) => void;
   /** Where the Settings window's bounds are remembered (#596); unset, it always opens centred. */
   settingsBoundsFile?: string;
 }
@@ -102,6 +108,10 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
   let quick: { win: BaseWindow; view: WebContentsView } | undefined;
   let settings: { win: BaseWindow; view: WebContentsView } | undefined;
   const views = new Map<WebContents, { win: BaseWindow; view: WebContentsView }>();
+  // Closing the app (quit) closes pop-outs too; that is not a pane to dock again.
+  const popOuts = createPopOutRegistry((route) => {
+    if (!quitting) opts.onPopOutClosed?.(route);
+  });
 
   const urlFor = (route: string) => {
     const url = new URL(route, opts.rendererUrl);
@@ -239,10 +249,13 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
       return win;
     },
     popOut(route, title) {
+      if (popOuts.focus(route)) return;
       const win = new BaseWindow({ width: 900, height: 700, minWidth: 480, minHeight: 360, title });
+      popOuts.add(route, win);
       makeView(win, route);
       win.show();
     },
+    focusPopOut: (route) => popOuts.focus(route),
     showSettings(section) {
       if (settings && !settings.win.isDestroyed()) {
         if (section) void settings.view.webContents.loadURL(urlFor(settingsRoute(section)));

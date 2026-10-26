@@ -121,6 +121,7 @@ const bridge = {
   },
   windows: {
     popOutPane: (route: string, title: string) => invoke(IPC.windowPopOut, { route, title }),
+    focusPopOut: (route: string) => invoke(IPC.windowFocusPopOut, { route }),
     closeWindow: () => ipcRenderer.send(IPC.windowClose),
     openSettings: (section?: string) => ipcRenderer.send(IPC.windowOpenSettings, section ?? null),
     /** Fills the main window's composer and brings it forward; never sends (#677). */

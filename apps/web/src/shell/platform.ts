@@ -138,6 +138,8 @@ export interface TerminalPort {
 /** Desktop only: native windows for pop-out panes and the quick-entry window. */
 export interface WindowPort {
   popOutPane(route: string, title: string): Promise<void>;
+  /** Raises the pop-out window for a pane route; false when it no longer exists. */
+  focusPopOut?(route: string): Promise<boolean>;
   closeWindow(): void;
   /** Opens the Settings window on a section (⌘,; docs/design/redesign-2026.md §4). */
   openSettings?(section?: string): void;
@@ -157,6 +159,8 @@ export type ShellCommand =
   | { type: "palette" }
   /** ⌘W: closes a pop-out or quick-entry window, or leaves the current thread view. */
   | { type: "closeThreadView" }
+  /** A pane's pop-out window was closed: dock the pane again (main window only). */
+  | { type: "popOutClosed"; route: string }
   /** Fills the chat composer without sending (from the Settings window's "Try it", #677). */
   | { type: "prefillComposer"; text: string };
 
