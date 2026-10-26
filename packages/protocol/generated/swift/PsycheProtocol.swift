@@ -249,6 +249,7 @@
 //   let chatBlockPayload = try? JSONDecoder().decode(ChatBlockPayload.self, from: jsonData)
 //   let chatCancelParams = try? JSONDecoder().decode(ChatCancelParams.self, from: jsonData)
 //   let chatCancelResult = try? JSONDecoder().decode(ChatCancelResult.self, from: jsonData)
+//   let chatContextRef = try? JSONDecoder().decode(ChatContextRef.self, from: jsonData)
 //   let chatDeltaPayload = try? JSONDecoder().decode(ChatDeltaPayload.self, from: jsonData)
 //   let chatExportFormat = try? JSONDecoder().decode(ChatExportFormat.self, from: jsonData)
 //   let chatExportParams = try? JSONDecoder().decode(ChatExportParams.self, from: jsonData)
@@ -313,6 +314,7 @@
 //   let connectorsStatusParams = try? JSONDecoder().decode(ConnectorsStatusParams.self, from: jsonData)
 //   let connectorsStatusResult = try? JSONDecoder().decode(ConnectorsStatusResult.self, from: jsonData)
 //   let connectorsUpdatedPayload = try? JSONDecoder().decode(ConnectorsUpdatedPayload.self, from: jsonData)
+//   let contextBlock = try? JSONDecoder().decode(ContextBlock.self, from: jsonData)
 //   let contextBreakdown = try? JSONDecoder().decode(ContextBreakdown.self, from: jsonData)
 //   let contextLimits = try? JSONDecoder().decode(ContextLimits.self, from: jsonData)
 //   let contextUsage = try? JSONDecoder().decode(ContextUsage.self, from: jsonData)
@@ -7494,6 +7496,11 @@ public struct Block: Codable, Sendable {
     public let artifactID: String?
     public let preview: String?
     public let libraryItemID: String?
+    public let id: String?
+    public let kind: BlockKind?
+    public let source: String?
+    public let title: String?
+    public let url: String?
     public let receiptID: String?
     public let taskID: String?
     public let actions: [WrapUpAction]?
@@ -7524,6 +7531,11 @@ public struct Block: Codable, Sendable {
         case artifactID = "artifactId"
         case preview = "preview"
         case libraryItemID = "libraryItemId"
+        case id = "id"
+        case kind = "kind"
+        case source = "source"
+        case title = "title"
+        case url = "url"
         case receiptID = "receiptId"
         case taskID = "taskId"
         case actions = "actions"
@@ -7541,7 +7553,7 @@ public struct Block: Codable, Sendable {
         case statement = "statement"
     }
 
-    public init(md: String?, type: BlockType, level1: String?, status: ToolCallStatus?, tool: String?, toolCallID: String?, planID: String?, items: [ItemElement]?, approvalID: String?, inputRequestID: String?, artifactID: String?, preview: String?, libraryItemID: String?, receiptID: String?, taskID: String?, actions: [WrapUpAction]?, ask: String?, recap: String?, compactionID: String?, replaced: Replaced?, summary: CompactionSummary?, tokensAfter: Int?, tokensBefore: Int?, trigger: BlockTrigger?, feedbackID: String?, lessonID: String?, messageID: String?, statement: String?) {
+    public init(md: String?, type: BlockType, level1: String?, status: ToolCallStatus?, tool: String?, toolCallID: String?, planID: String?, items: [ItemElement]?, approvalID: String?, inputRequestID: String?, artifactID: String?, preview: String?, libraryItemID: String?, id: String?, kind: BlockKind?, source: String?, title: String?, url: String?, receiptID: String?, taskID: String?, actions: [WrapUpAction]?, ask: String?, recap: String?, compactionID: String?, replaced: Replaced?, summary: CompactionSummary?, tokensAfter: Int?, tokensBefore: Int?, trigger: BlockTrigger?, feedbackID: String?, lessonID: String?, messageID: String?, statement: String?) {
         self.md = md
         self.type = type
         self.level1 = level1
@@ -7555,6 +7567,11 @@ public struct Block: Codable, Sendable {
         self.artifactID = artifactID
         self.preview = preview
         self.libraryItemID = libraryItemID
+        self.id = id
+        self.kind = kind
+        self.source = source
+        self.title = title
+        self.url = url
         self.receiptID = receiptID
         self.taskID = taskID
         self.actions = actions
@@ -7641,6 +7658,10 @@ public enum ChecklistItemStatus: String, Codable, Sendable {
     case pending = "pending"
 }
 
+public enum BlockKind: String, Codable, Sendable {
+    case feedItem = "feed_item"
+}
+
 // MARK: - Replaced
 public struct Replaced: Codable, Sendable {
     public let fromMessageID: String?
@@ -7701,6 +7722,7 @@ public enum BlockType: String, Codable, Sendable {
     case artifact = "artifact"
     case checklist = "checklist"
     case compaction = "compaction"
+    case context = "context"
     case file = "file"
     case learned = "learned"
     case plan = "plan"
@@ -8142,6 +8164,7 @@ public struct ChatSendParams: Codable, Sendable {
     /// Library item ids
     public let attachments: [String]?
     public let content: String
+    public let context: ChatContextRef?
     public let mode: QueueMode?
     public let redo: Redo?
     public let replyToMessageID: String?
@@ -8151,6 +8174,7 @@ public struct ChatSendParams: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case attachments = "attachments"
         case content = "content"
+        case context = "context"
         case mode = "mode"
         case redo = "redo"
         case replyToMessageID = "replyToMessageId"
@@ -8158,14 +8182,31 @@ public struct ChatSendParams: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(attachments: [String]?, content: String, mode: QueueMode?, redo: Redo?, replyToMessageID: String?, screen: ChatScreenRef?, threadID: String) {
+    public init(attachments: [String]?, content: String, context: ChatContextRef?, mode: QueueMode?, redo: Redo?, replyToMessageID: String?, screen: ChatScreenRef?, threadID: String) {
         self.attachments = attachments
         self.content = content
+        self.context = context
         self.mode = mode
         self.redo = redo
         self.replyToMessageID = replyToMessageID
         self.screen = screen
         self.threadID = threadID
+    }
+}
+
+// MARK: - ChatContextRef
+public struct ChatContextRef: Codable, Sendable {
+    public let id: String
+    public let kind: BlockKind
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case kind = "kind"
+    }
+
+    public init(id: String, kind: BlockKind) {
+        self.id = id
+        self.kind = kind
     }
 }
 
@@ -9389,6 +9430,38 @@ public enum ConnectorsUpdatedPayloadReason: String, Codable, Sendable {
     case needsAuth = "needs_auth"
     case removed = "removed"
     case updated = "updated"
+}
+
+// MARK: - ContextBlock
+public struct ContextBlock: Codable, Sendable {
+    public let id: String
+    public let kind: BlockKind
+    public let source: String?
+    public let title: String
+    public let type: ContextBlockType
+    public let url: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case kind = "kind"
+        case source = "source"
+        case title = "title"
+        case type = "type"
+        case url = "url"
+    }
+
+    public init(id: String, kind: BlockKind, source: String?, title: String, type: ContextBlockType, url: String?) {
+        self.id = id
+        self.kind = kind
+        self.source = source
+        self.title = title
+        self.type = type
+        self.url = url
+    }
+}
+
+public enum ContextBlockType: String, Codable, Sendable {
+    case context = "context"
 }
 
 // MARK: - CredentialUpdatedPayload

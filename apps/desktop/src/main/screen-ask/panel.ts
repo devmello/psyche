@@ -22,9 +22,11 @@ export type PanelSource = "screen" | "voice";
 
 export const SCREEN_ASK_ROUTE = "/screen-ask";
 export const SCREEN_ASK_REGION_ROUTE = "/screen-ask-region";
-export const SCREEN_ASK_WIDTH = 480;
-const MIN_HEIGHT = 120;
-const MAX_HEIGHT = 360;
+export const SCREEN_ASK_WIDTH = 560;
+/** One bar: 56 px of bar plus the 8 px gutter the view leaves for the shadow. */
+const MIN_HEIGHT = 72;
+/** The answer grows downward to here, then scrolls inside the panel. */
+const MAX_HEIGHT = 560;
 const TOP = 12;
 
 /** What the panel's renderer is told to capture. */
@@ -290,6 +292,8 @@ export class ScreenAskWindow {
       height: MIN_HEIGHT,
       show: false,
       frame: false,
+      // Transparent only for the rounded corners: the panel draws its own opaque surface. No
+      // vibrancy, so the text never sits on the wallpaper (docs/design/screen-ask-2026.md).
       transparent: true,
       resizable: false,
       movable: true,

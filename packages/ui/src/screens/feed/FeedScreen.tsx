@@ -2,6 +2,7 @@ import type { FeedPost } from "@psyche/protocol";
 import { CalendarClock, CircleAlert, Loader, Newspaper, PenLine } from "lucide-react";
 import { type ReactElement, type ReactNode, useState } from "react";
 import { toast } from "sonner";
+import { useAskAboutFeedItem } from "../../chat/ask-about.ts";
 import { EmptyState, ErrorState, LoadingCards, useDelayedFlag } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { useFeed, useSettings } from "../../data/hooks.ts";
@@ -10,7 +11,7 @@ import { describeError } from "../../i18n/errors.ts";
 import { formatTime } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { ListItem } from "../../motion/index.ts";
-import { usePersona, useSlots } from "../../slots.tsx";
+import { useSlots } from "../../slots.tsx";
 import { FeedSpecialistResults } from "../../specialists/FeedResults.tsx";
 import { FeedInstructionsSheet } from "./FeedInstructionsSheet.tsx";
 import { type FeedFeedbackValue, FeedPostCard } from "./FeedPostCard.tsx";
@@ -37,7 +38,6 @@ export interface FeedViewProps {
   /** The first brief is being written. */
   generating?: boolean;
   sourceFailures?: readonly FeedSourceFailure[];
-  persona?: string;
   onFeedback?: (post: FeedPost, feedback: FeedFeedbackValue | null, topic?: string) => void;
   onAsk?: (post: FeedPost) => void;
   onEditInstructions?: () => void;
@@ -58,7 +58,6 @@ export function FeedView({
   onRetry,
   generating = false,
   sourceFailures = [],
-  persona = "Wren",
   onFeedback,
   onAsk,
   onEditInstructions,
@@ -124,7 +123,6 @@ export function FeedView({
             <ListItem key={post.id} index={i}>
               <FeedPostCard
                 post={post}
-                persona={persona}
                 {...(onFeedback ? { onFeedback } : {})}
                 {...(onAsk ? { onAsk } : {})}
               />
@@ -215,7 +213,10 @@ export function FeedView({
 }
 
 export interface FeedScreenProps {
-  /** Opens a side chat seeded with the post (Psyche decision, §3.9). */
+  /**
+   * "Ask about this". By default a new chat named for the post opens with the post as the
+   * composer's context (`useAskAboutFeedItem`); absent where no chat can open.
+   */
   onAsk?: (post: FeedPost) => void;
   /**
    * Replaces the built-in instructions sheet. By default the button opens the Feed instructions
@@ -252,7 +253,7 @@ const FEEDBACK_TOAST: Record<FeedFeedbackValue, (post: FeedPost) => string> = {
 
 /** Connected Feed: `feed.list`, `feed.feedback` (optimistic, with an undo toast). */
 export function FeedScreen({
-  onAsk,
+  onAsk: onAskProp,
   onEditInstructions,
   instructionsOpen,
   onCloseInstructions,
@@ -262,7 +263,8 @@ export function FeedScreen({
   now: fixedNow,
 }: FeedScreenProps): ReactElement {
   const { navigate } = useSlots();
-  const persona = usePersona();
+  const askAbout = useAskAboutFeedItem();
+  const onAsk = onAskProp ?? askAbout;
   const feed = useFeed();
   const { settings } = useSettings();
   const now = useNow(60_000, fixedNow);
@@ -319,7 +321,6 @@ export function FeedScreen({
         error={feed.posts.length === 0 ? feed.error : null}
         onRetry={feed.reload}
         generating={generating}
-        persona={persona.name}
         onFeedback={giveFeedback}
         onEditInstructions={editInstructions}
         onSchedule={schedule}

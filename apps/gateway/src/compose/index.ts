@@ -96,6 +96,7 @@ import { composeComputer } from "./computer.ts";
 import { createContext } from "./context.ts";
 import { composeConversion } from "./convert.ts";
 import { composeDictation } from "./dictation.ts";
+import { feedContextResolver } from "./feed-context.ts";
 import { filesHandlers } from "./files.ts";
 import {
   mountParamsOnly,
@@ -132,6 +133,7 @@ import { protectedRoots } from "./protected-paths.ts";
 import { createRateLimits } from "./rate-limits.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
 import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
+import { type ComposedSearch, composeSearch } from "./search.ts";
 import {
   type ApprovalRelay,
   type ComposedPart,
@@ -257,6 +259,8 @@ export interface ComposedGateway {
   readonly otherChats: OtherChats;
   /** The people and projects graph (#651). */
   readonly people: People;
+  /** Unified search (S1): the main index, its indexer and `search.query`. */
+  readonly search: ComposedSearch;
   readonly broker: PsychePermissionBroker;
   readonly audit: HashChainAuditLog;
   readonly memory: SqliteMemoryStore;
@@ -1107,6 +1111,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }).part(),
   );
   parts.push(otherChats.part());
+  // S1 unified search: `state/search.sqlite`, kept current from the bus, and `search.query`.
+  const search = composeSearch({
+    db,
+    home: config.home,
+    memory,
+    tasks,
+    now: () => clock.now(),
+    ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+  });
+  parts.push(search);
   parts.push(people.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone));
   // Code plugins (T4): off until the owner turns on `plugins.enabled`.
   parts.push(
@@ -1261,6 +1275,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   );
   ownPorts.add(gateway.port, "gateway (bound)");
   for (const part of parts) await part.start?.(gateway);
+  // Ask about this (Feed): `chat.send.context` names a feed item the agent reads as untrusted data.
+  gateway.context.chatContext.resolve = feedContextResolver(proactive.feed.store);
   await proactive.start();
   await ensureWeeklyCardAutomation(scheduler, {
     timezone: timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -1287,6 +1303,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     loop,
     otherChats,
     people,
+    search,
     broker,
     audit,
     memory,

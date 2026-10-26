@@ -7,6 +7,7 @@ import {
   Image as ImageIcon,
   Loader2,
   Mic,
+  Newspaper,
   Plus,
   Square,
   X,
@@ -75,8 +76,18 @@ function useCommandMenu() {
   return { open, matches, active: Math.min(active, matches.length - 1), pick, onKeyDown };
 }
 
+/** The item the next message is about (Feed "Ask about this"): a removable chip. */
+export interface ComposerContextChip {
+  title: string;
+  /** Source name or host. */
+  source: string | null;
+  onRemove: () => void;
+}
+
 export interface ComposerProps {
   persona: string;
+  /** What the message is about; the placeholder asks about it. */
+  context?: ComposerContextChip | null;
   running: boolean;
   disabled?: boolean;
   quoting?: Message | null;
@@ -105,6 +116,7 @@ export interface ComposerProps {
  */
 export function Composer({
   persona,
+  context,
   running,
   disabled = false,
   quoting,
@@ -130,6 +142,11 @@ export function Composer({
   const round =
     "size-7 rounded-full cursor-default [&_svg:not([class*='size-'])]:size-4 disabled:opacity-100";
   const pickerRef = useRef<HTMLInputElement>(null);
+  // A chip that appears (Ask about this) puts the cursor in the input.
+  const hasContext = context != null;
+  useEffect(() => {
+    if (hasContext) document.querySelector<HTMLTextAreaElement>("[data-composer-input]")?.focus();
+  }, [hasContext]);
   const onDrop = (e: DragEvent) => {
     if (!attach || disabled || e.dataTransfer.files.length === 0) return;
     e.preventDefault();
@@ -216,6 +233,29 @@ export function Composer({
                 <X className="size-3.5" aria-hidden="true" />
               </button>
             </div>
+          ) : null}
+          {context ? (
+            <ul
+              aria-label={t("chat.context.label")}
+              className="m-0 flex list-none flex-wrap gap-1.5 px-2 pt-2"
+              data-testid="context-chip"
+            >
+              <li className="flex max-w-72 items-center gap-1.5 rounded-md bg-fill-tertiary py-1 ps-2 pe-1 text-callout">
+                <Newspaper className="size-3.5 shrink-0 text-label-secondary" aria-hidden="true" />
+                <span className="min-w-0 truncate text-label-primary">{context.title}</span>
+                {context.source ? (
+                  <span className="shrink-0 text-label-secondary">{context.source}</span>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={context.onRemove}
+                  aria-label={t("chat.context.remove", { title: context.title })}
+                  className="inline-flex size-5 shrink-0 cursor-default items-center justify-center rounded-sm text-label-secondary hover:bg-fill-tertiary"
+                >
+                  <X className="size-3" aria-hidden="true" />
+                </button>
+              </li>
+            </ul>
           ) : null}
           {attach && attach.refused.length > 0 ? (
             <div
@@ -319,7 +359,11 @@ export function Composer({
               autoFocus
               disabled={disabled}
               placeholder={
-                disabled ? t("chat.composer.offline") : t("chat.composer.placeholder", { persona })
+                disabled
+                  ? t("chat.composer.offline")
+                  : context
+                    ? t("chat.composer.placeholderArticle")
+                    : t("chat.composer.placeholder", { persona })
               }
               aria-label={t("chat.composer.label", { persona })}
               data-composer-input=""

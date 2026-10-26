@@ -17,6 +17,7 @@ import {
   useRunsList,
   useSpecialistJobs,
   useSpecialistRoles,
+  useStore,
   useStoreState,
   useThread,
   useThreads,
@@ -156,6 +157,18 @@ export function ChatThread({
   const { navigate } = useSlots();
   const { state: connection } = useConnection();
   const tasks = useStoreState((s) => s.tasks);
+  const store = useStore();
+  // "Ask about this" (Feed): the chip waits in the store until this thread's first message.
+  const askContext = useStoreState((s) =>
+    s.composerContext?.threadId === threadId ? s.composerContext : null,
+  );
+  const clearAskContext = useCallback(
+    () =>
+      store.update((s) =>
+        s.composerContext?.threadId === threadId ? { ...s, composerContext: null } : s,
+      ),
+    [store, threadId],
+  );
   // #548: from a send until the run settles the thread says it is working, even before the
   // Gateway's first run event or token arrives.
   const [sentAt, setSentAt] = useState<number | null>(null);
@@ -278,12 +291,26 @@ export function ChatThread({
       const replyToMessageId = quoting?.id ?? null;
       // The finished uploads go with this message; the chips clear once it is on its way.
       const sentIds = attachments.ids;
+      const sentContext = askContext
+        ? {
+            ref: askContext.ref,
+            block: {
+              type: "context" as const,
+              kind: "feed_item" as const,
+              id: askContext.ref.id,
+              title: askContext.title,
+              ...(askContext.url ? { url: askContext.url } : {}),
+              ...(askContext.source ? { source: askContext.source } : {}),
+            },
+          }
+        : undefined;
       const attempt = async (): Promise<void> => {
         try {
           await view.send(parsed.text, {
             mode,
             replyToMessageId,
             ...(sentIds.length > 0 ? { attachments: sentIds } : {}),
+            ...(sentContext ? { context: sentContext } : {}),
           });
         } catch (err) {
           // The optimistic bubble is gone; keep the text one click from going out again.
@@ -306,9 +333,10 @@ export function ChatThread({
       setQuoting(null);
       setMode("followUp");
       attachments.clear();
+      clearAskContext();
       await attempt();
     },
-    [view, mode, quoting, attachments.ids, attachments.clear],
+    [view, mode, quoting, attachments.ids, attachments.clear, askContext, clearAskContext],
   );
 
   runCommandRef.current = runCommand;
@@ -743,6 +771,15 @@ export function ChatThread({
                   disabled={offline}
                   quoting={quoting}
                   onClearQuote={() => setQuoting(null)}
+                  {...(askContext
+                    ? {
+                        context: {
+                          title: askContext.title,
+                          source: askContext.source,
+                          onRemove: clearAskContext,
+                        },
+                      }
+                    : {})}
                   mode={mode}
                   onStop={() => void view.cancel()}
                   {...(attachments.attach ? { attach: attachments.attach } : {})}

@@ -111,13 +111,13 @@ beforeEach(() => {
 describe("screen ask helpers", () => {
   it("places the panel top-centre and clamps its height", () => {
     expect(panelBounds({ x: 0, y: 25, width: 1440, height: 875 }, 50)).toEqual({
-      x: 480,
+      x: 440,
       y: 37,
-      width: 480,
-      height: 120,
+      width: 560,
+      height: 72,
     });
-    expect(clampHeight(9000)).toBe(360);
-    expect(clampHeight("x")).toBe(120);
+    expect(clampHeight(9000)).toBe(560);
+    expect(clampHeight("x")).toBe(72);
   });
 
   it("turns the overlay's box into global points, clipped to the display", () => {

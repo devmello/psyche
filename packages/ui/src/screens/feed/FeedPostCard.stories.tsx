@@ -12,7 +12,7 @@ const post = (id: string) => {
 const meta = {
   title: "Screens/Feed/Post card",
   component: FeedPostCard,
-  args: { post: post(IDS.feed.briefing), persona: "Wren", onFeedback: () => {}, onAsk: () => {} },
+  args: { post: post(IDS.feed.briefing), onFeedback: () => {}, onAsk: () => {} },
 } satisfies Meta<typeof FeedPostCard>;
 
 export default meta;
