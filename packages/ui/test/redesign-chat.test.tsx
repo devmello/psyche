@@ -98,7 +98,10 @@ describe("transcript (redesign-2026 §5.2, motion.md §4.6)", () => {
         delta: "Streaming words arrive as they are",
       }),
     );
-    const text = await within(log).findByText(/Streaming words arrive/);
+    // Words are wrapped in fade spans, so match on the paragraph's text.
+    const para = (re: RegExp) =>
+      within(log).findByText((_, el) => el?.tagName === "P" && re.test(el.textContent ?? ""));
+    const text = await para(/Streaming words arrive/);
     act(() =>
       gateway.emit("chat.delta", {
         threadId: IDS.threads.main,
@@ -106,7 +109,7 @@ describe("transcript (redesign-2026 §5.2, motion.md §4.6)", () => {
         delta: " written",
       }),
     );
-    await within(log).findByText(/as they are written/);
+    await para(/as they are written/);
     // No ancestor up to the message carries an animated opacity or transform.
     const article = text.closest("article");
     expect(article).not.toBeNull();

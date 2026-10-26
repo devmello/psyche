@@ -118,7 +118,10 @@ describe("useThread", () => {
       gateway.emit("chat.delta", { threadId: "thr_main", messageId: "m1", delta: "Three slots " });
       gateway.emit("chat.delta", { threadId: "thr_main", messageId: "m1", delta: "work." });
     });
-    expect(result.current.streaming.map((s) => s.text)).toEqual(["Three slots work."]);
+    // Subscribers hear about deltas once per animation frame.
+    await waitFor(() =>
+      expect(result.current.streaming.map((s) => s.text)).toEqual(["Three slots work."]),
+    );
 
     act(() => {
       gateway.commitMessage("thr_main", "agent", [{ type: "text", md: "Three slots work." }], {
