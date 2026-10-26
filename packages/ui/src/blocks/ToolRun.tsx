@@ -233,7 +233,7 @@ export function ToolRun({ items }: { items: readonly ToolCallItem[] }): ReactEle
         ) : null}
         <ChevronRight
           className={cn(
-            "size-3.5 shrink-0 text-label-tertiary transition-transform duration-(--spring-snappy-duration) ease-(--spring-snappy) reduced:duration-0",
+            "size-3.5 shrink-0 text-label-tertiary transition-transform duration-(--spring-snappy-duration) ease-(--spring-snappy)",
             shown > 0 ? "rotate-90" : "rtl:rotate-180",
           )}
           aria-hidden="true"

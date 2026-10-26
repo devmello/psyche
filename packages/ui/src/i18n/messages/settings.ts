@@ -80,6 +80,7 @@ export const settings = {
   "settings.key.context.compactAt": "Compact at",
   "settings.key.context.keepRecentTurns": "Recent turns kept verbatim",
   "settings.key.data.transcriptRecall": "Transcript recall",
+  "settings.key.agent.showReasoning": "Show thinking while it works",
   "settings.key.data.replayRetentionDays": "Keep task replays for",
   "settings.key.gateway.bind": "Bind address",
   "settings.key.models.primary": "Primary model",
@@ -1075,6 +1076,9 @@ export const settings = {
   "settings.persona.taglinePlaceholder": "Quiet wings, careful hands.",
   "settings.persona.emojiHint": "Shown on channels that can't show the avatar.",
   "settings.persona.avatar": "Avatar",
+  "settings.persona.whileWorking": "While working",
+  "settings.persona.showReasoningHint":
+    "The steps of a run show {persona}'s reasoning as it streams. Never saved; off hides it.",
   "settings.persona.describeChange": "Describe a change",
   "settings.persona.describeHint": "In your own words, e.g. “give the moth a tiny scarf”.",
   "settings.persona.describeHintNoModel":

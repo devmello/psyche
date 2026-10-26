@@ -9,6 +9,7 @@ import { t } from "../../i18n/core.ts";
  * has no label here. Labels match the field label the Settings screen shows for the key.
  */
 const LABELLED_KEYS = [
+  "agent.showReasoning",
   "appearance.theme",
   "appearance.gray",
   "appearance.accentSeed",
