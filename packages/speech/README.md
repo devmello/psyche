@@ -34,6 +34,32 @@ Q3 is done when "a message can be played and saved as a file". `speech.readAloud
 - **Personal Voice is opt-in.** `NodeSpeechEngine` looks a voice id up in the helper's `speech.voices` (cached; an unknown id triggers one refresh). A Personal Voice is refused with `policy_denied` before the helper is called unless the owner setting (`createSpeechStack({personalVoice})`, `speech.tts.personalVoice`) is on; when it is, the call carries the helper's required `personalVoice: true`.
 - **Non-commercial caveat.** With `nonCommercial: (ref) => catalog.isNonCommercial(ref)`, a clip read by a Personal Voice is tagged `non-commercial` in the Library (Apple's terms limit that output to personal use); a failing check tags it too.
 
+## Voice conversation (Q5, docs/voice/voice-mode-2026.md)
+
+`VoiceConversationManager` (in `src/conversation/`) runs the Gateway-owned voice conversation behind the `voice.conversation.*` methods of `createSpeechHandlers`. There is one conversation per device, and its events go to that device only.
+
+- **Turns.**
+  - Push-to-talk turns run from `turn begin` to `turn end`.
+  - Tap and hands-free turns end after a 600 ms pause (`PcmVad`, energy on 30 ms frames), or 1.2 s when the transcript so far ends in a trailing word ("and", "so", "um"…).
+  - Under 300 ms of speech is ignored. Each turn is seeded with 600 ms of pre-roll.
+  - Transcription uses the dictation engine and the session vocabulary.
+- **The reply.**
+  - The owner's words go to `VoiceTurnPort.send`, the Gateway's chat path, with `StartTurnInput.voice`.
+  - `SpokenText` turns the streamed deltas into sentences as each completes. `brief` keeps the lead up to the first blank line or about 60 words; `full` keeps up to 2 000 characters. Code, table rows and raw URLs are skipped, and "The rest is on screen." closes a cut answer.
+  - Each sentence is synthesized as soon as it is complete and streamed as `voice.conversation.speech`, with `last` on its final chunk.
+- **What was heard.** The conversation listens again only after every utterance was reported `played … done`, plus a 600 ms echo hold.
+- **Barge-in.** A client `interrupt {stage: "suspect"}` opens a tentative turn. A transcribed word that isn't in the sentence being spoken confirms it, which stops synthesis, closes that sentence's caption and keeps the owner's turn. With no such word within 1 s the reply goes on. `confirmed` (a key press) stops at once.
+- **Waiting.** A run waiting for an approval or a question puts the conversation in `waiting`, with the card on screen and the mic not transcribed. Answering by voice is G3.
+- **Endings.** Stop, 30 s idle (hands-free), a new start on the same device, and `endForDevice` (lock, sleep, disconnect) or `endAll` (shutdown). Every ending aborts transcription and synthesis and reports `listening: false`.
+
+- **Narration** (`narrate`). `steps` says each tool step's label once as it starts. `brief` (default) says one phrase per turn, for a step still running after 1.5 s and only before the answer started. `off` says nothing. Labels come from `narrationLabel(tool)`, fixed templates by tool family ("Checking your calendar"), never from the model or the tool's arguments.
+- **The Gateway** mounts it in `apps/gateway/src/compose/speech.ts`:
+  - **`chatVoiceTurns`** sends the owner's words through the session controller as a `via: "voice"` owner message with `StartTurnInput.voice`. A spoken turn interrupts a running one. It maps the run's bus events into `VoiceTurnEvent`s.
+  - **`enabled`** reads `voice.conversation.enabled`: off by default, and `start` refuses with `policy_denied` while it is off.
+  - **Settings** `voice.conversation.{speak, narrate, pauseMs}` apply per conversation.
+  - **Endings.** A disconnect ends the device's conversation; shutdown ends all of them.
+- **Voice turns in agent-core.** `StartTurnInput.voice` adds a fixed "voice turn" section (lead with a short spoken answer, details after a blank line, never "done" before the tool reports success). `router/primary` moves to `router/voice`, which falls back to the primary chain.
+
 ## Voice mode (Q5)
 
 Voice mode runs in the shell (`apps/web/src/shell/voice-mode.ts`) on top of this package's methods; nothing here is specific to it except two read-aloud options:

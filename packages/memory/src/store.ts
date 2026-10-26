@@ -34,6 +34,7 @@ import {
   type MemorySearchOptions,
   type MemoryStore,
   type MemoryWriteOptions,
+  type MemoryWriteTrace,
   type ModelMessage,
   type Provenance,
   PsycheError,
@@ -745,6 +746,7 @@ export class SqliteMemoryStore implements MemoryStore {
         etag,
         source: options.source ?? (actor === "job" ? "job" : actor === "owner" ? "api" : "tool"),
         provenance: fileProvenance,
+        ...traced(options.trace),
       },
     });
     return { path: p, content: next, etag };
@@ -793,7 +795,12 @@ export class SqliteMemoryStore implements MemoryStore {
       this.#unindexFile(f);
       this.#emit({
         event: "memory.file.changed",
-        payload: { path: f, etag: null, source: options.source ?? "tool" },
+        payload: {
+          path: f,
+          etag: null,
+          source: options.source ?? "tool",
+          ...traced(options.trace),
+        },
       });
     }
     return files;
@@ -839,10 +846,14 @@ export class SqliteMemoryStore implements MemoryStore {
     this.#unindexFile(src);
     this.#indexFile(dst, content, provenance, statSync(this.#abs(dst)).mtimeMs);
     const source = options.source ?? "tool";
-    this.#emit({ event: "memory.file.changed", payload: { path: src, etag: null, source } });
+    const trace = traced(options.trace);
     this.#emit({
       event: "memory.file.changed",
-      payload: { path: dst, etag: etagOf(content), source, provenance },
+      payload: { path: src, etag: null, source, ...trace },
+    });
+    this.#emit({
+      event: "memory.file.changed",
+      payload: { path: dst, etag: etagOf(content), source, provenance, ...trace },
     });
     return { path: dst, content, etag: etagOf(content) };
   }
@@ -894,7 +905,14 @@ export class SqliteMemoryStore implements MemoryStore {
     this.#indexFile(path, next, fileProvenance, mtime);
     this.#emit({
       event: "memory.file.changed",
-      payload: { path, etag: etagOf(next), source: "job", provenance: fileProvenance },
+      payload: {
+        path,
+        etag: etagOf(next),
+        // A daily-note append by a tool call names its run (run trace §4.2).
+        source: input.trace === undefined ? "job" : "tool",
+        provenance: fileProvenance,
+        ...traced(input.trace),
+      },
     });
     const chunk = this.#index.getChunk(chunkId(path, lineNo, text));
     if (chunk === undefined) fail("internal", "daily-note entry was not indexed");
@@ -1314,4 +1332,9 @@ function ensureDir(dir: string): void {
   if (existsSync(dir)) return;
   mkdirSync(dir, { recursive: true, mode: DIR_MODE });
   chmodSync(dir, DIR_MODE);
+}
+
+/** The run and tool call behind a write, for `memory.file.changed` (run trace §4.2). */
+function traced(trace: MemoryWriteTrace | undefined): { runId?: string; toolCallId?: string } {
+  return trace === undefined ? {} : { runId: trace.runId, toolCallId: trace.toolCallId };
 }

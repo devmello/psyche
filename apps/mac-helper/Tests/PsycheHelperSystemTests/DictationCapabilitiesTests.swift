@@ -47,5 +47,24 @@ struct DictationCapabilitiesTests {
 
     @Test func watchWithNullKeyStops() async throws {
         #expect(try await run(try cap("dictation.watch"), ["key": .null]) == ["watching": false])
+        #expect(try await run(try cap("dictation.watch"), [:]) == ["watching": false])
+    }
+
+    @Test func twoKeyWatchIsValidatedBeforeTheTap() async throws {
+        let w = try cap("dictation.watch")
+        for keys: JSONValue in [
+            [["key": "fn", "role": "voice"], ["key": "fn", "role": "dictation"]],
+            [["key": "fn", "role": "voice"], ["key": "rightOption", "role": "voice"]],
+            [],
+        ] {
+            do {
+                _ = try await run(w, ["key": .null, "keys": keys])
+                Issue.record("accepted \(keys)")
+            } catch let e as CapabilityError {
+                #expect(e.reason == "invalid_params")
+            }
+        }
+        let schema = w.spec.inputSchema
+        #expect(schema["properties"]?["keys"]?["maxItems"] == 2)
     }
 }

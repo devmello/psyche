@@ -47,7 +47,8 @@ describe("Apple app action matrix (J6)", () => {
     );
     expect(await h.broker.decide(call("node.mail.read", "read"), CTX)).toMatchObject({
       decision: "deny",
-      rule: "connector:apple.mail/read",
+      // A legacy entry under the bare action still applies; the rule names the group (#747).
+      rule: "connector:apple.mail/mail.read",
     });
   });
 

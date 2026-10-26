@@ -102,3 +102,76 @@ jobs:
           else
             echo "apps/mac-helper/Tests does not exist yet; skipping swift test."
           fi
+
+  # Did this push or PR touch the protocol or the Swift helper? (#731: a protocol enum addition,
+  # #714, broke the helper's exhaustive switches, and nothing built Swift until #730.)
+  changes:
+    name: helper changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      helper: ${{ steps.diff.outputs.helper }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Paths changed
+        id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          case "$EVENT" in
+            pull_request) base="$(git merge-base "$PR_BASE" HEAD)" ;;
+            push) base="$PUSH_BEFORE" ;;
+            *) base="" ;;
+          esac
+          # A manual run, a tag, a new branch or an unknown base: build the helper.
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] \
+            || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "helper=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git diff --name-only "$base" HEAD | grep -qE '^(packages/protocol/|apps/mac-helper/)'; then
+            echo "helper=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "helper=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # The Swift helper builds and its suites pass whenever the protocol or the helper changes, on
+  # pull requests and on pushes to main, so a protocol change that breaks it is red before merge.
+  # The ubuntu job above stays the fast check.
+  helper:
+    name: mac helper (swift build + test)
+    needs: changes
+    if: needs.changes.outputs.helper == 'true'
+    runs-on: macos-26
+    timeout-minutes: 30
+    continue-on-error: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Toolchain
+        id: toolchain
+        run: |
+          swift --version
+          echo "id=$(swift --version 2>&1 | head -n1 | shasum -a 256 | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      - name: Swift build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: apps/mac-helper/.build
+          # Exact hit for unchanged sources; otherwise the newest build for this toolchain and
+          # manifest, so the build is incremental.
+          key: helper-${{ runner.os }}-${{ steps.toolchain.outputs.id }}-${{ hashFiles('apps/mac-helper/Package.swift', 'apps/mac-helper/Package.resolved') }}-${{ hashFiles('apps/mac-helper/Sources/**', 'apps/mac-helper/Tests/**') }}
+          restore-keys: |
+            helper-${{ runner.os }}-${{ steps.toolchain.outputs.id }}-${{ hashFiles('apps/mac-helper/Package.swift', 'apps/mac-helper/Package.resolved') }}-
+      - name: Swift build (with tests)
+        run: swift build --package-path apps/mac-helper --build-tests
+      - name: Swift test
+        run: swift test --package-path apps/mac-helper --skip-build
+

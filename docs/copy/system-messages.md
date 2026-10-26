@@ -118,6 +118,30 @@ The leading symbol in each inbox row stands for the kind icon; it is not part of
 - Grouping: "{n} more from {task}"
 - Quiet hours: notifications marked passive; approvals still arrive but without sound.
 
+### Specialist results (docs/agent/specialists-2026.md §6.2)
+
+One status vocabulary everywhere: **Queued**, **Working**, **Needs you**, **Done**, **Partial**, **Failed**, **Cancelled**. "Needs you" covers approvals, questions and budget pauses. Role names are lowercase in prose ("the researcher") and sentence case as labels ("Researcher").
+
+| Moment | Where | Text |
+| --- | --- | --- |
+| Spawned | Parent chat, agent voice | "I've asked the {role} to {title}. It'll take up to {minutes} min; I'll put the result in your Inbox." |
+| Spawned | Parent chat line, Psyche | "Started the {role} · {title} · {status}" · Timeline › |
+| Pre-flight | Under the spawn line | "Will ask before opening new sites (about 5)" · "Will show you a plan to approve first" (grants nothing) |
+| Queued | Row line 2 | "Queued · {n}th · starts when a slot frees" |
+| Working | Row line 2 | "Working · {last step}" |
+| Needs you | Row line 2 / OS | "Needs you · {last step}" / "{role} needs your approval for {task}" |
+| Budget pause | Question card | "{role} used its {budget} budget on {task}." Options: "Give it more", "Finish with what it has", "Stop it" |
+| Done | Row line 2 / card | "Done · 3 findings · $0.84 · 22 min" / "{role} finished {task}." |
+| Partial | Row line 2 / card | "Partial · token budget" / "Stopped at its {budget}. See what's missing." |
+| Failed | Row line 2 / card | "Failed · {time}" / "{role} couldn't finish {task}. Nothing was sent or bought." (the last sentence only when there are no receipts) |
+| Cancelled | Row line 2 / card | "Cancelled · {time}" / "Stopped. It had {n} receipts before you stopped it." |
+| Evaluator | Card | "Checked: {reason}" · "Sent back once: {reason}" · "Needs your check: {reason}" |
+| Taint | Card | "It read content from outside sources. Treat its claims as unverified." |
+| Usage | Card | "182k of 400k tokens · $0.84 of $2.00 · 22 min of 30 min · 31 steps · incl. $0.12 retried after errors" |
+| Default used | Card | "Used the default: {label}" |
+| Card actions | Card | up to 2 follow-ups · Retry (partial, failed) · Open thread · Timeline |
+| Feed | Feed section | "From your specialists" (only with "Show specialist results in Feed" on) |
+
 ### Inbox empty state
 
 "Nothing needs you."

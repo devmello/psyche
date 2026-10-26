@@ -121,6 +121,17 @@ export const TOOL_CAPABILITIES: Readonly<
     label: "your Mac's files",
     hint: "turn on Files in Settings → Connectors and share the folder in Settings → File access",
   },
+  // Mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §8.1, §8.4).
+  "speech.*": {
+    tools: ["speech_*"],
+    label: "transcription",
+    hint: "turn on the Mac helper's speech engine in Settings → Voice & dictation",
+  },
+  "proposals.*": {
+    tools: ["proposals_*"],
+    label: "batch proposals",
+    hint: "batch proposals come with Mail & meetings in Settings; update Psyche if it is missing",
+  },
   // People and projects memory graph (docs/memory/people-and-projects-2026.md §6.2): the five
   // agent tools, offered while the graph is on.
   ...Object.fromEntries(

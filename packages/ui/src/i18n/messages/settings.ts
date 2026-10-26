@@ -26,6 +26,7 @@ export const settings = {
   "settings.nav.connectors": "Connectors",
   "settings.nav.mcp": "MCP servers",
   "settings.nav.skills": "Skills",
+  "settings.nav.specialists": "Specialists",
   "settings.nav.permissions": "Permissions",
   "settings.nav.computerUse": "Computer use",
   "settings.nav.browser": "Browser",
@@ -81,6 +82,10 @@ export const settings = {
   "settings.key.context.compactAt": "Compact at",
   "settings.key.context.keepRecentTurns": "Recent turns kept verbatim",
   "settings.key.data.transcriptRecall": "Transcript recall",
+  "settings.key.teaching.enabled": "Learn from your feedback",
+  "settings.key.teaching.implicit": "Notice edits, undos and dismissals",
+  "settings.key.teaching.paused": "Pause learning",
+  "settings.key.teaching.weeklyCard": "Weekly “What I learned” card",
   "settings.key.memory.graph": "People & projects",
   "settings.key.agent.showReasoning": "Show thinking while it works",
   "settings.key.data.replayRetentionDays": "Keep task replays for",
@@ -135,6 +140,13 @@ export const settings = {
   "settings.key.ui.direction": "Text direction",
   "settings.key.permissions.connectors": "Access for {id}",
   "settings.key.models.roles": "Model for {role}",
+  "settings.key.specialists.maxConcurrent": "Specialists at once",
+  "settings.key.specialists.monthlyCapUsd": "Monthly specialist spend",
+  "settings.key.specialists.showInFeed": "Show specialist results in Feed",
+  "settings.key.specialists.enabled": "{role} on",
+  "settings.key.specialists.model": "{role} model",
+  "settings.key.specialists.budget": "{role} budget",
+  "settings.key.specialists.maxMode": "{role} permission mode",
   "settings.key.unknown": "this setting",
 
   // Words shared by the Credentials section, its detail and its import form (credential-labels.ts).
@@ -871,6 +883,35 @@ export const settings = {
     "Everything {persona} keeps lives on this machine. There is no training toggle because nothing is sent for training.",
   "settings.data.loadLabel": "data controls",
   "settings.data.memory": "Memory",
+  // The teaching loop's settings (docs/agent/teaching-loop-2026.md §8).
+  "settings.learning.title": "Learning",
+  "settings.learning.enabled": "Learn from your feedback",
+  "settings.learning.enabledHint":
+    "Helpful, Not like this and your corrections become lessons {persona} remembers.",
+  "settings.learning.implicit": "Notice edits, undos and dismissals",
+  "settings.learning.implicitHint":
+    "Sending an edited draft or undoing an action counts as feedback.",
+  "settings.learning.signals": "Signals",
+  "settings.learning.signal.draftEdits": "Draft edits",
+  "settings.learning.signal.undo": "Undo",
+  "settings.learning.signal.approvalEdits": "Approval edits",
+  "settings.learning.signal.dismissals": "Dismissals",
+  "settings.learning.paused": "Pause learning",
+  "settings.learning.pausedHint":
+    "Nothing is read or written while on, and nothing is back-filled afterwards.",
+  "settings.learning.weeklyCard": "Weekly “What I learned” card",
+  "settings.learning.weeklyCardHint":
+    "A Feed post on Sundays, only when there is something to review.",
+  "settings.learning.open": "What {persona} learned",
+  "settings.learning.openButton": "Open Growth",
+  "settings.learning.forgetAll": "Forget everything {persona} learned",
+  "settings.learning.forgetAllTitle": "Forget everything {persona} learned from you?",
+  "settings.learning.forgetAllBody":
+    'Its notes, Soul and skills go back to what you wrote. Type "{phrase}" to confirm.',
+  "settings.learning.forgetPhrase": "forget",
+  "settings.learning.forgetAllGo": "Forget everything",
+  "settings.learning.forgotAll":
+    "Forgot {lessons, plural, one {# lesson} other {# lessons}} and {events, plural, one {# feedback event} other {# feedback events}}.",
   "settings.data.pauseMemory": "Pause memory",
   "settings.data.pauseMemoryHint":
     "While paused, {persona} doesn't remember, flush or index anything from chats.",
@@ -898,7 +939,7 @@ export const settings = {
   "settings.data.resetMemory": "Reset memory",
   "settings.data.resetMemoryEllipsis": "Reset memory…",
   "settings.data.failed":
-    "Psyche couldn't {action, select, pause {change memory} export {export} delete {delete the threads} other {reset memory}} ({reason}). Nothing was changed.",
+    "Psyche couldn't {action, select, pause {change memory} export {export} delete {delete the threads} forget {forget what it learned} other {reset memory}} ({reason}). Nothing was changed.",
   "settings.data.paused": "Memory paused.",
   "settings.data.resumed": "Memory resumed.",
   "settings.data.exportReady": "Export ready: {filename}.",
@@ -1626,4 +1667,46 @@ export const settings = {
   "settings.people.previewFailed": "Psyche couldn't count what it would delete ({reason}).",
   "settings.people.removeCounts":
     "Psyche deletes {entities, plural, one {# person or project} other {# people and projects}}, {facts, plural, one {# fact} other {# facts}}, {interactions, plural, one {# interaction} other {# interactions}}, {loops, plural, one {# open loop} other {# open loops}} and {identifiers, plural, one {# address} other {# addresses}}.",
+
+  // Settings → Specialists (docs/agent/specialists-2026.md §6.4).
+  "settings.specialists.title": "Specialists",
+  "settings.specialists.description":
+    "Background jobs with a named role. Each runs in its own thread, within its budget, and delivers one result to your Inbox.",
+  "settings.specialists.all": "All specialists",
+  "settings.specialists.concurrent": "Specialists at once",
+  "settings.specialists.concurrentHint": "More run side by side; the rest wait in line.",
+  "settings.specialists.monthlyCap": "Monthly spend",
+  "settings.specialists.monthlyCapHint":
+    "When it's reached, new jobs wait for budget. Empty uses half your monthly budget{budget, select, none {} other { ({budget})}}.",
+  "settings.specialists.monthlyCapNone": "No cap",
+  "settings.specialists.showInFeed": "Show results in Feed",
+  "settings.specialists.showInFeedHint": "Your Inbox gets every result either way.",
+  "settings.specialists.roles": "Roles",
+  "settings.specialists.rolesHint":
+    "A role comes from a skill. One you installed stays off until you turn it on.",
+  "settings.specialists.turnOn": "{role} on",
+  "settings.specialists.summary": "{model} · {budget} · {mode}",
+  "settings.specialists.budgetLine": "{tokens} tokens · {cost} · {minutes} min",
+  "settings.specialists.edit": "Edit",
+  "settings.specialists.done": "Done",
+  "settings.specialists.editLabel": "Edit {role}",
+  "settings.specialists.model": "Model",
+  "settings.specialists.modelDefault": "Default: {class}",
+  "settings.specialists.class.utility": "utility model",
+  "settings.specialists.class.primary": "primary model",
+  "settings.specialists.class.harness": "coding harness",
+  "settings.specialists.class.vision": "primary model with vision",
+  "settings.specialists.budget": "Budget per job",
+  "settings.specialists.budgetTokens": "Tokens",
+  "settings.specialists.budgetCost": "Cost (USD)",
+  "settings.specialists.budgetMinutes": "Minutes",
+  "settings.specialists.budgetCaps":
+    "Up to {tokens} tokens · {cost} · {minutes} min. A job can ask for more, never past this.",
+  "settings.specialists.maxMode": "Most it can do without asking",
+  "settings.specialists.mode.plan": "Plan",
+  "settings.specialists.mode.manual": "Manual",
+  "settings.specialists.mode.balanced": "Balanced",
+  "settings.specialists.mode.auto": "Auto",
+  "settings.specialists.installed": "From {skill}",
+  "settings.specialists.empty": "No skill defines a specialist yet.",
 } as const;

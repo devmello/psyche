@@ -4,6 +4,7 @@ import { normalizeEmail, normalizeName } from "../graph/normalize.ts";
 import type { GraphStore } from "../graph/store.ts";
 
 export * from "./confidence.ts";
+export * from "./consolidate.ts";
 export * from "./growth.ts";
 export * from "./lines.ts";
 export * from "./router.ts";

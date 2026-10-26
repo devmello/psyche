@@ -192,7 +192,9 @@ export class PsycheNotifier implements Notifier {
       }
 
       const surfaces = resolveSurfaces(routing, input.kind, input.surfaces);
-      const plan = planDelivery(routing, input.kind, surfaces, now);
+      const plan = planDelivery(routing, input.kind, surfaces, now, {
+        ...(input.breakQuietHours === true ? { breakQuietHours: true } : {}),
+      });
       const n: Notification = {
         id: this.#newId(),
         kind: input.kind,

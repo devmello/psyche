@@ -64,12 +64,12 @@ enum SpeechTranscription {
         let requested = request.locale.map { Locale(identifier: $0) } ?? Locale.current
         let probe = await probe(requested)
         let kind = try SpeechEngineSelector.select(
-            os: ProcessInfo.processInfo.operatingSystemVersion, vocabulary: request.vocabulary, availability: probe.availability)
+            os: ProcessInfo.processInfo.operatingSystemVersion, vocabulary: request.vocabulary, availability: probe.availability, preset: request.preset)
         switch kind {
         case .speechAnalyzer, .dictationTranscriber:
             #if canImport(FoundationModels)
             if #available(macOS 26.0, *), let locale = kind == .speechAnalyzer ? probe.speechLocale : probe.dictationLocale {
-                return AnalyzerEngine(kind: kind, locale: locale, vocabulary: request.vocabulary, volatile: request.volatile)
+                return AnalyzerEngine(kind: kind, locale: locale, vocabulary: request.vocabulary, volatile: request.volatile, shortForm: request.preset == .short)
             }
             #endif
             throw CapabilityError.unavailable("no_speech_engine", "No on-device speech engine supports this locale on this Mac")
@@ -87,8 +87,15 @@ enum SpeechTranscription {
         private var startedAt: ContinuousClock.Instant?
         private var frames = 0
         private var hitLimit = false
+        private var inputEndedAt: ContinuousClock.Instant?
 
         func markStarted() { lock.withLock { startedAt = clock.now } }
+        func markInputEnded() { lock.withLock { if inputEndedAt == nil { inputEndedAt = clock.now } } }
+
+        /// End of input → now (the engine's finalize time), when the input ended.
+        func finalizeMs() -> Int? {
+            lock.withLock { inputEndedAt.map { elapsedMs($0, clock.now) } }
+        }
 
         /// Returns true when this is the first non-empty result.
         func ingest(_ s: SpeechSegment) -> Bool {
@@ -112,13 +119,15 @@ enum SpeechTranscription {
         }
     }
 
-    static func run(_ ctx: InvocationContext, registry: SpeechStreamRegistry, preflight: any PermissionPreflight, log: HelperLog) async throws -> CapabilityOutput {
+    static func run(_ ctx: InvocationContext, registry: SpeechStreamRegistry, preflight: any PermissionPreflight, log: HelperLog,
+                    timings: SpeechTimings = SpeechTimings(),
+                    engineFactory: (@Sendable (TranscribeRequest) async throws -> any TranscriptionEngine)? = nil) async throws -> CapabilityOutput {
         let request = try ctx.decode(TranscribeStreamParams.self).validated()
         if request.source == .microphone, !preflight.isGranted(.microphone) { throw CapabilityError.permissionMissing(.microphone) }
         let handle = try registry.register(id: ctx.invocationId, source: request.source)
         defer { registry.remove(handle.id) }
 
-        let engine = try await makeEngine(request)
+        let engine = try await (engineFactory ?? makeEngine)(request)
         if engine.kind == .sfSpeech, !preflight.isGranted(.speechRecognition) {
             throw CapabilityError.permissionMissing(.speechRecognition)
         }
@@ -165,6 +174,7 @@ enum SpeechTranscription {
                 state.addFrames(n)
                 gate.yield(box)
             }
+            state.markInputEnded()
             gate.finish()
         }
         defer { pump.cancel() }
@@ -183,11 +193,20 @@ enum SpeechTranscription {
         }
         try _Concurrency.Task.checkCancellation()
 
+        let finalizeMs = state.finalizeMs()
         let (transcript, firstResultMs, frames, hitLimit) = state.finish()
+        if let firstResultMs { timings.record(.firstPartial(request.preset), ms: firstResultMs) }
+        if let finalizeMs { timings.record(.finalize(request.preset), ms: finalizeMs) }
         let reason: SpeechStopReason = hitLimit ? .maxDuration : handle.isStopRequested ? .stopped : .endOfInput
-        log.info("speech stream end engine=\(engine.kind.rawValue) reason=\(reason.rawValue) segments=\(transcript.finals.count) first_result_ms=\(firstResultMs.map(String.init) ?? "none")")
-        return CapabilityOutput(transcript.summary(
+        log.info("speech stream end engine=\(engine.kind.rawValue) preset=\(request.preset.rawValue) reason=\(reason.rawValue) segments=\(transcript.finals.count) first_result_ms=\(firstResultMs.map(String.init) ?? "none") finalize_ms=\(finalizeMs.map(String.init) ?? "none")")
+        var summary = transcript.summary(
             streamId: handle.id, engine: engine.kind, language: engine.language, stopReason: reason,
-            audioMs: SpeechAudio.durationMs(frames: frames, sampleRate: sampleRate), firstResultMs: firstResultMs))
+            audioMs: SpeechAudio.durationMs(frames: frames, sampleRate: sampleRate), firstResultMs: firstResultMs)
+        if case .object(var o) = summary {
+            o["preset"] = .string(request.preset.rawValue)
+            if let finalizeMs { o["finalizeMs"] = .int(finalizeMs) }
+            summary = .object(o)
+        }
+        return CapabilityOutput(summary)
     }
 }

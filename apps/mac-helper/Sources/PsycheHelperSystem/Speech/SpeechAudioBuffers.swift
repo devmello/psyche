@@ -5,8 +5,9 @@ import PsycheProtocol
 
 /// `AVAudioPCMBuffer` is not `Sendable`. Each box is handed off once, from the producer (tap,
 /// synthesizer callback, push decoder) to the single consumer that owns it from then on.
-struct PCMBufferBox: @unchecked Sendable {
-    let buffer: AVAudioPCMBuffer
+public struct PCMBufferBox: @unchecked Sendable {
+    public let buffer: AVAudioPCMBuffer
+    public init(buffer: AVAudioPCMBuffer) { self.buffer = buffer }
 }
 
 enum SpeechAudio {

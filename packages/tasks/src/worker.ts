@@ -2,6 +2,7 @@ import type {
   AgentEvent,
   AgentLoop,
   ApprovalRequest,
+  ClaimOptions,
   Clock,
   InputRequest,
   IssuedApproval,
@@ -61,7 +62,33 @@ export interface TaskWorkerPoolOptions {
   newRunId?: () => string;
   /** Applied when a task has no budget of its own. */
   defaultBudget?: TaskBudget;
+  /**
+   * Which tasks this pool claims (docs/agent/specialists-2026.md §4.5): the specialist pool
+   * claims only `subagent` jobs, at most `perParentLimit` per parent thread; the chat pool
+   * excludes them.
+   */
+  claim?: Pick<ClaimOptions, "origins" | "excludeOrigins" | "perParentLimit">;
   onError?: (error: unknown) => void;
+  /**
+   * The host's run trace (docs/design/run-trace-2026.md §4.2): every turn's events, so a task
+   * run is recorded like a chat turn (`runs`, `tool_calls`, `run_steps`). A failing hook never
+   * fails the turn.
+   */
+  trace?: TaskTurnTrace;
+}
+
+/** One turn of a task: its own run. */
+export interface TaskTurn {
+  taskId: string;
+  runId: string;
+  task: Task;
+}
+
+export interface TaskTurnTrace {
+  start(turn: TaskTurn): void;
+  event(turn: TaskTurn, event: AgentEvent): void;
+  /** `outcome` as the run ends: a stop is `cancelled`, a budget stop `failed`. */
+  end(turn: TaskTurn, outcome: RunOutcome, error?: string): void;
 }
 
 export interface TurnReport {
@@ -191,6 +218,15 @@ export class TaskWorkerPool {
     return spec !== undefined && SAFE_EFFECTS.includes(spec.sideEffect);
   }
 
+  /** Calls a trace hook; the trace never fails the turn. */
+  #traced(fn: () => void): void {
+    try {
+      fn();
+    } catch (e) {
+      this.#error(e);
+    }
+  }
+
   #runId(): string {
     if (this.#o.newRunId !== undefined) return this.#o.newRunId();
     this.#runCounter += 1;
@@ -265,10 +301,11 @@ export class TaskWorkerPool {
   ): Promise<TurnReport | undefined> {
     const { engine, loop } = this.#o;
     const owner = options.owner ?? `${this.#o.owner}/0`;
-    const claimOpts =
-      options.taskId === undefined
-        ? { leaseMs: this.#o.leaseMs }
-        : { leaseMs: this.#o.leaseMs, taskId: options.taskId };
+    const claimOpts: ClaimOptions = {
+      leaseMs: this.#o.leaseMs,
+      ...this.#o.claim,
+      ...(options.taskId === undefined ? {} : { taskId: options.taskId }),
+    };
     let lease = await engine.claim(owner, claimOpts);
     if (lease === undefined) return undefined;
     const taskId = lease.taskId;
@@ -294,6 +331,8 @@ export class TaskWorkerPool {
       }
     };
     this.#active.set(taskId, { runId, controller, stop });
+    const turn: TaskTurn = { taskId, runId, task: record.task };
+    this.#traced(() => this.#o.trace?.start(turn));
 
     // Lease heartbeat. A failed renewal stops the turn; when the task was paused or cancelled
     // from another process, the stop carries that reason so authority is revoked too.
@@ -369,6 +408,7 @@ export class TaskWorkerPool {
       for await (const ev of stream) {
         // A worker that lost its lease writes nothing: another worker owns the task now.
         if (stopped === "lease_lost") continue;
+        this.#traced(() => this.#o.trace?.event(turn, ev));
         if (!acked && lease !== undefined && stopped === undefined) {
           // The turn has its input: the resume items it was told can go.
           acked = true;
@@ -448,6 +488,12 @@ export class TaskWorkerPool {
       this.#timers.clearTimeout(renewHandle);
       if (this.#active.get(taskId)?.runId === runId) this.#active.delete(taskId);
     }
+    this.#traced(() => {
+      if (stopped === "budget_exceeded")
+        this.#o.trace?.end(turn, "failed", `Stopped: ${budgetReason}`);
+      else if (stopped !== undefined) this.#o.trace?.end(turn, "cancelled", `task ${stopped}`);
+      else this.#o.trace?.end(turn, outcome, error);
+    });
 
     const report = (o: TurnReport["outcome"]): TurnReport => ({
       taskId,
