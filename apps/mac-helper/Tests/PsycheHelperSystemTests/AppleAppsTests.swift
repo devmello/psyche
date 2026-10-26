@@ -355,6 +355,22 @@ struct MailWave1Tests {
     }
 }
 
+@Suite("Mail wave 1: protocol shapes (G0, #637)")
+struct MailWave1ContractTests {
+    @Test func outputsDecodeAsTheGeneratedProtocolTypes() async throws {
+        let h = Harness()
+        _ = try decode([AppleMailMailbox].self, try await h.invoke("mail.mailboxes").result["mailboxes"])
+        _ = try decode([AppleMailMessageSummary].self, try await h.invoke("mail.selected").result["messages"])
+        let msg = try decode(AppleMailMessage.self, try await h.invoke("mail.read", ["id": "42"]).result["message"])
+        #expect(msg.summary.link?.hasPrefix("message://") == true)
+        _ = try decode(AppleMailDraftRef.self, try await h.invoke("mail.reply_draft", ["id": "42", "body": "x"]).result["draft"])
+        let granted = FileManager.default.temporaryDirectory.appendingPathComponent("psyche-att-\(UUID().uuidString)").resolvingSymlinksInPath()
+        try FileManager.default.createDirectory(at: granted, withIntermediateDirectories: true)
+        let g = Harness(roots: [granted.path])
+        _ = try decode([AppleSavedFile].self, try await g.invoke("mail.save_attachments", ["id": "42", "folder": .string(granted.path)]).result["files"])
+    }
+}
+
 @Suite("Mail wave 1: pure rules")
 struct MailWave1RulesTests {
     @Test func linksNamesAndDestinations() throws {
