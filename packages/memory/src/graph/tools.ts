@@ -450,7 +450,8 @@ const OWNER_WRITE = /^(owner_edit|owner_feedback|chat)(:|$)/;
  * (an organisation or job title can say anything) until the owner confirms them on the card.
  */
 const confirmed = (x: { provenance: Provenance; sources: string[] }) =>
-  x.provenance === "owner" && (x.sources.length === 0 || x.sources.some((s) => OWNER_WRITE.test(s)));
+  x.provenance === "owner" &&
+  (x.sources.length === 0 || x.sources.some((s) => OWNER_WRITE.test(s)));
 
 /** The owner's own spelling of words they typed: the span of `ownerText` that normalises to `said`. */
 function ownerSpan(ownerText: string, said: string): string | undefined {
