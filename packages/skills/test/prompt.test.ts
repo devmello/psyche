@@ -45,7 +45,7 @@ describe("prompt index", () => {
     expect(idx.text).toMatch(/>(word ){9}word…<\/skill>/);
   });
 
-  it("fits S20's twelve bundled skills in agent-core's 8 000-character budget", async () => {
+  it("fits every bundled skill in agent-core's 8 000-character budget", async () => {
     const { FsSkillLoader } = await import("../src/loader.ts");
     const { BUNDLED_DIR, OPEN_GATE, tempDir } = await import("./helpers.ts");
     const loader = new FsSkillLoader({
@@ -54,7 +54,7 @@ describe("prompt index", () => {
       gate: OPEN_GATE,
     });
     const idx = await loader.promptIndex();
-    expect(idx.included).toHaveLength(12);
+    expect(idx.included).toHaveLength(16);
     expect(idx.omitted).toEqual([]);
     expect(idx.text.length).toBeLessThanOrEqual(8_000);
   });
