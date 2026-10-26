@@ -76,7 +76,7 @@ function ToolRunBlock({ blocks }: { blocks: readonly ToolCallBlock[] }): ReactEl
  * `spring.emphasis`); under reduced motion the card fades out and the row fades in. Rows that are
  * already answered when the transcript loads appear without motion.
  */
-function ApprovalPointer({ approvalId }: { approvalId: string }): ReactElement {
+export function ApprovalPointer({ approvalId }: { approvalId: string }): ReactElement {
   const { approval, loading } = useApproval(approvalId);
   if (approval === null)
     return loading ? <Skeleton what="approval" /> : <Missing what="approval" />;

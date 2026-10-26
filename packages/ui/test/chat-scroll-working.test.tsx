@@ -87,8 +87,13 @@ describe("working indicator (#548)", () => {
         },
       }),
     );
+    // The running tool is a step in the run's log (#623), marked as the current step.
     await waitFor(() =>
-      expect(screen.getByTestId("chat-working").textContent).toBe("Running mail_search…"),
+      expect(
+        screen
+          .getByTestId("run-step-log")
+          .querySelector('[data-step="tool"][data-status="running"]'),
+      ).not.toBeNull(),
     );
 
     act(() => gateway.setRun({ ...run, status: "done", endedAt: FIXTURE_NOW }));
