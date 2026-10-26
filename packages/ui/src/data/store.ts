@@ -314,6 +314,27 @@ export class GatewayStore {
           },
         };
       }
+      case "chat.reasoning": {
+        const { threadId, runId, stepId, delta, summary, done } = e.payload;
+        const prev = s.reasoning[stepId];
+        const at = this.now();
+        return {
+          ...s,
+          reasoning: {
+            ...s.reasoning,
+            [stepId]: {
+              threadId,
+              runId,
+              stepId,
+              text: (prev?.text ?? "") + (delta ?? ""),
+              summary: summary ?? prev?.summary ?? null,
+              done: done === true || prev?.done === true,
+              startedAt: prev?.startedAt ?? at,
+              updatedAt: at,
+            },
+          },
+        };
+      }
       case "chat.message": {
         const m = e.payload.message;
         const next = touch(upsertMessage(s, m), `messages:${m.id}`, v);
@@ -326,8 +347,21 @@ export class GatewayStore {
           `messages:${e.payload.messageId}`,
           v,
         );
-      case "run.updated":
-        return touch(put(s, "runs", e.payload.run), `runs:${e.payload.run.id}`, v);
+      case "run.updated": {
+        const next = touch(put(s, "runs", e.payload.run), `runs:${e.payload.run.id}`, v);
+        // Reasoning lives only as long as its run is in progress (#633).
+        const status = e.payload.run.status;
+        if (status === "running" || status === "awaiting_approval" || status === "awaiting_input")
+          return next;
+        const runId = e.payload.run.id;
+        if (!Object.values(next.reasoning).some((r) => r.runId === runId)) return next;
+        return {
+          ...next,
+          reasoning: Object.fromEntries(
+            Object.entries(next.reasoning).filter(([, r]) => r.runId !== runId),
+          ),
+        };
+      }
       case "tool_call.updated":
         return touch(
           put(s, "toolCalls", e.payload.toolCall),
