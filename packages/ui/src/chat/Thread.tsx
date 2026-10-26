@@ -508,7 +508,6 @@ export function ChatThread({
     }
     return { byRun, rest };
   }, [spawned, view.messages]);
-  const threadMode = view.thread?.thread.permissionMode;
   const activeTraced = stepRun !== null && tracedRuns.has(stepRun.id);
   // The run has no message yet: its steps sit at the end until the reply begins below them.
   const activeAnchored =
@@ -648,11 +647,7 @@ export function ChatThread({
                             <RunFailure key={run.id} run={run} />
                           ))}
                           {spawns ? (
-                            <SpecialistSpawns
-                              jobs={spawns}
-                              roles={specialistRoles}
-                              {...(threadMode ? { mode: threadMode } : {})}
-                            />
+                            <SpecialistSpawns jobs={spawns} roles={specialistRoles} />
                           ) : null}
                         </>
                       );
@@ -667,11 +662,7 @@ export function ChatThread({
                     {...(now === undefined ? {} : { now })}
                   />
                 ) : null}
-                <SpecialistSpawns
-                  jobs={spawnsByRun.rest}
-                  roles={specialistRoles}
-                  {...(threadMode ? { mode: threadMode } : {})}
-                />
+                <SpecialistSpawns jobs={spawnsByRun.rest} roles={specialistRoles} />
                 {showSteps ? (
                   <RunStepLog
                     persona={persona.name}
