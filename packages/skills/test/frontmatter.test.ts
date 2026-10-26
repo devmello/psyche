@@ -168,6 +168,19 @@ describe("gating", () => {
     ).toBe(false);
   });
 
+  it("sees the built-in web.search and web.fetch for `search` / `fetch` (#703)", () => {
+    const r = { ...req, tools: ["search", "fetch"] };
+    expect(evaluateGates(r, { ...OPEN_GATE, tools: ["web.search", "web.fetch"] })).toEqual({
+      eligible: true,
+      missing: [],
+    });
+    // the connector-era names still count
+    expect(evaluateGates(r, { ...OPEN_GATE, tools: ["web_search", "web_fetch"] }).eligible).toBe(
+      true,
+    );
+    expect(evaluateGates(r, { ...OPEN_GATE, tools: ["web.search"] }).eligible).toBe(false);
+  });
+
   it("maps capability names to the Gateway's tools and says what to do (#506)", () => {
     const r = {
       ...req,
@@ -181,8 +194,8 @@ describe("gating", () => {
       }).eligible,
     ).toBe(true);
     expect(evaluateGates(r, { ...OPEN_GATE, tools: ["gmail_send"] }).missing).toEqual([
-      "needs web search: add a search provider key in Settings → Model & providers",
-      "needs web pages: web fetching comes with the web search provider",
+      "needs web search: turn web search on in Settings → Model & providers → Web search",
+      "needs web pages: web pages come with web search in Settings → Model & providers → Web search",
       "needs memory search: memory is part of every Gateway; restart Psyche if it is missing",
     ]);
     expect(

@@ -83,6 +83,16 @@ describe("bundled skills (T1 done-when)", () => {
     expect((await loader.promptIndex()).included).not.toContain("inbox-triage");
   });
 
+  it("research-brief is eligible with the built-in web.search / web.fetch (#703)", async () => {
+    const loader = new FsSkillLoader({
+      homeDir: tempDir(),
+      bundledDir: BUNDLED_DIR,
+      gate: { ...OPEN_GATE, tools: ["web.search", "web.fetch", "write_file", "memory"] },
+    });
+    const brief = (await loader.listDetailed()).find((s) => s.name === "research-brief");
+    expect(brief?.status).toBe("active");
+  });
+
   it("the Apple app skills load with the wave-1 tools and say what is missing without them", async () => {
     const apple = [
       "calendar_list_events",
