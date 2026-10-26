@@ -58,6 +58,33 @@ Ranking runs in two steps: every match is scored once into a `TEMP` table (colla
 
 The index is derived data in its own file, `$PSYCHE_HOME/state/search.sqlite`, opened with `@psyche/db`'s hardened `openDb` (0700 directory, 0600 file, WAL) and a self-managed schema (`search_meta`, `search_docs`, `search_fts` external-content FTS5 with triggers, `search_flags`). It is not in `psyche.sqlite` because it can be deleted and rebuilt at any time and its frequent writes should not contend with the transcript writer; `docs/02-architecture.md` §12 lists it. Pass `db` to use another connection.
 
+## Semantic search (S3, optional, on-device)
+
+See [docs/design/search-2026.md](../../docs/design/search-2026.md).
+
+- `SemanticIndex(db, options)` keeps chunk embeddings in the index file:
+  - `search_vectors` holds unit float32 vectors with the model id and dims, plus the chunk text for snippets;
+  - `search_vec_state` records the embedded version per document and model;
+  - a delete trigger on `search_docs` drops a document's vectors with it.
+- `setEmbedder(e)` embeds what is missing in the background (newest first, batches of 16, paced). Switching model re-embeds, then drops the old model's rows. `clear()` drops everything.
+- Queries scan an in-memory int8 copy of the active model's vectors exactly.
+- `SqliteSearchIndex.setSemantic(s)` fuses candidates into `search` by reciprocal rank (k = 60):
+  - semantic candidates pass the same SQL filters as lexical rows (viewer `scopeKey`, `in:`, dates, `-excluded`);
+  - with collapsing, a semantic hit on a message joins its thread's result;
+  - hits carry `match` (`lexical`, `semantic` or `both`);
+  - a semantic-only hit's snippet is its best chunk, with any literal query words marked;
+  - a query whose embedding misses `queryTimeoutMs` (300 ms) runs lexically with the warning `semantic_busy`.
+- `chunksOf(kind, title, body)`:
+  - texts under 24 characters are not embedded;
+  - texts up to 1,500 characters get one chunk;
+  - longer texts get 1,200-character windows with 200 characters of overlap, at most 16 chunks (64 for Library items).
+- `createOnnxEmbedder({ spec, modelPath, tokenizerPath })` is the built-in engine:
+  - it runs on `onnxruntime-node`, CPU only, with 2 threads, and tokenizes with `@huggingface/tokenizers`;
+  - both are imported lazily, only when semantic search is on;
+  - a waiting query goes before waiting document batches.
+- `EMBEDDING_MODELS` pins `multilingual-e5-small` (int8, 118 MB, MIT) to a Hugging Face revision and SHA-256. The Gateway downloads it with `@psyche/speech`'s `ModelManager` on first enable.
+- `fakeEmbedder(groups)` is a deterministic concept-count embedder for tests. No test downloads or runs a real model.
+
 ## Web tools: `web.search` and `web.fetch` (#557)
 
 Built-in agent tools, registered by the Gateway on every surface (desktop, web client, channels), so the agent can look up current facts without the desktop browser.

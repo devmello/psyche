@@ -77,6 +77,8 @@ export const settings = {
   "settings.key.computerUse.apps": "App access",
   "settings.key.context.maxTokens": "Context limit",
   "settings.key.search.web.provider": "Web search provider",
+  "settings.key.search.semantic.enabled": "Semantic search (on-device)",
+  "settings.key.search.semantic.engine": "Embedding engine",
   "settings.key.search.web.searxngUrl": "SearXNG URL",
   "settings.key.context.compactAt": "Compact at",
   "settings.key.context.keepRecentTurns": "Recent turns kept verbatim",
@@ -845,6 +847,29 @@ export const settings = {
   "settings.context.turns": "turns",
 
   // Web search for the agent's web.search / web.fetch tools, under Model (WebSearchSettings.tsx).
+  // Semantic search in Search and ⌘K (docs/design/search-2026.md §3), under Model (SemanticSearchSettings.tsx).
+  "settings.semanticSearch.title": "Search",
+  "settings.semanticSearch.description":
+    "Find chats, tasks and files by meaning as well as by their words. Everything is indexed and searched on this Mac.",
+  "settings.semanticSearch.enabledHint":
+    "The first time, Psyche downloads a 118 MB model, then indexes your history in the background. Turning it off deletes the index of meanings.",
+  "settings.semanticSearch.engine.builtin": "Built-in model",
+  "settings.semanticSearch.engine.builtinHint":
+    "Multilingual E5 small, about 100 languages, runs on this Mac's processor.",
+  "settings.semanticSearch.engine.router": "My local model server",
+  "settings.semanticSearch.engine.routerHint":
+    "Uses the embedding model set in Roles, for example Ollama or LM Studio on this Mac.",
+  "settings.semanticSearch.state.off": "Off: search matches words",
+  "settings.semanticSearch.state.starting": "Starting…",
+  "settings.semanticSearch.state.downloading": "Downloading the model: {received} of {total} MB",
+  "settings.semanticSearch.state.indexing": "Indexing meanings: {done} of {total}",
+  "settings.semanticSearch.state.ready":
+    "On: {n, plural, one {# passage} other {# passages}} indexed",
+  "settings.semanticSearch.state.noModel":
+    "No embedding model is set in Roles. Pick one, or use the built-in model.",
+  "settings.semanticSearch.state.cloudBlocked":
+    "The embedding model in Roles is a cloud service. Semantic search only uses models on this Mac.",
+  "settings.semanticSearch.state.error": "Stopped: {reason}",
   "settings.webSearch.title": "Web search",
   "settings.webSearch.description":
     "How the agent looks things up on the web. Results and pages are treated as web content, never as your instructions.",

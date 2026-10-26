@@ -16,10 +16,12 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@huggingface/tokenizers": "0.2.0",
     "@psyche/connectors": "workspace:*",
     "@psyche/db": "workspace:*",
     "@psyche/protocol": "workspace:*",
-    "better-sqlite3": "13.0.3"
+    "better-sqlite3": "13.0.3",
+    "onnxruntime-node": "1.30.0"
   },
   "devDependencies": {
     "@psyche/testing": "workspace:*",

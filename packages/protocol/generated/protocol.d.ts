@@ -6930,7 +6930,8 @@ export interface SearchIndexStatus {
     /**
      * Documents in the index
      */
-    docs: number;
+    docs:      number;
+    semantic?: SearchSemanticStatus;
 }
 
 export interface SearchBackfillStatus {
@@ -6955,6 +6956,42 @@ export interface SearchBackfillStatus {
 }
 
 export type SearchBackfillState = "idle" | "running" | "done" | "error";
+
+export interface SearchSemanticStatus {
+    blocked?: SearchSemanticBlock;
+    dims?:    number;
+    /**
+     * Documents embedded in this pass
+     */
+    done?:   number;
+    enabled: boolean;
+    engine:  SearchSemanticEngine;
+    error?:  string;
+    /**
+     * Vector space in use, e.g. builtin/multilingual-e5-small
+     */
+    model?: string;
+    /**
+     * Model download
+     */
+    receivedBytes?: number;
+    state:          SearchSemanticState;
+    /**
+     * Documents pending when it started
+     */
+    total?:      number;
+    totalBytes?: number;
+    /**
+     * Chunk vectors stored
+     */
+    vectors?: number;
+}
+
+export type SearchSemanticBlock = "no_embedding_model" | "cloud_not_allowed";
+
+export type SearchSemanticEngine = "builtin" | "router";
+
+export type SearchSemanticState = "off" | "downloading" | "loading" | "indexing" | "ready" | "error" | "blocked";
 
 export interface SearchQueryParams {
     limit?:  number;
@@ -6993,6 +7030,7 @@ export interface SearchHit {
     group?:             SearchGroup;
     id:                 string;
     kind?:              SearchIndexDocKind;
+    match?:             SearchMatch;
     provenance?:        Provenance;
     route?:             null | string;
     scope:              SearchScope;
@@ -7005,6 +7043,8 @@ export interface SearchHit {
 }
 
 export type SearchIndexDocKind = "thread" | "message" | "task" | "memory" | "library" | "feed" | "idea" | "goal" | "connector" | "person" | "project";
+
+export type SearchMatch = "lexical" | "semantic" | "both";
 
 export interface SearchReindexResult {
     /**

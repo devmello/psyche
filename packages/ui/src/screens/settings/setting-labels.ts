@@ -51,6 +51,8 @@ const LABELLED_KEYS = [
   "persona.creature",
   "persona.creatureId",
   "search.web.provider",
+  "search.semantic.enabled",
+  "search.semantic.engine",
   "specialists.maxConcurrent",
   "specialists.monthlyCapUsd",
   "specialists.showInFeed",

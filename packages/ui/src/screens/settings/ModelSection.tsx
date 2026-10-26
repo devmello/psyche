@@ -21,6 +21,7 @@ import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { activeI18n, t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
 import { ContextSettingsGroup } from "./ContextSettings.tsx";
+import { SemanticSearchSettingsGroup } from "./SemanticSearchSettings.tsx";
 import {
   EmptyNotice,
   ErrorNotice,
@@ -543,6 +544,7 @@ export function ModelProvidersPanel({
           onChange={onChange}
           {...(primaryContext === undefined ? {} : { modelContextLength: primaryContext })}
         />
+        <SemanticSearchSettingsGroup values={values} onChange={onChange} />
         <WebSearchSettingsGroup values={values} onChange={onChange} />
         <Group title={t("settings.model.local")} description={t("settings.model.localHint")}>
           <RamGuidance {...(ramGb === undefined ? {} : { ramGb })} />

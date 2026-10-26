@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   symlinkSync,
@@ -524,6 +525,26 @@ describe("deploy/macos/make-dmg.sh refuses to --deep re-sign a bundled helper", 
       }
     },
   );
+});
+
+describe("deploy/scripts/build-psyched.mjs foreign prebuilds", () => {
+  it("keeps only darwin-<arch> addons, including onnxruntime-node's napi-v6 tree", async () => {
+    const { pruneForeignPrebuilds } = await import(resolve(deploy, "scripts/build-psyched.mjs"));
+    const dir = mkdtempSync(join(tmpdir(), "psyche-prune-"));
+    try {
+      const ort = join(dir, "node_modules/onnxruntime-node/bin/napi-v6");
+      for (const p of ["darwin/arm64", "darwin/x64", "linux/x64", "win32/x64"])
+        mkdirSync(join(ort, p), { recursive: true });
+      const pre = join(dir, "node_modules/better-sqlite3/prebuilds");
+      for (const p of ["darwin-arm64", "linux-x64"]) mkdirSync(join(pre, p), { recursive: true });
+      expect(pruneForeignPrebuilds(dir, "arm64")).toBe(4);
+      expect(readdirSync(ort)).toEqual(["darwin"]);
+      expect(readdirSync(join(ort, "darwin"))).toEqual(["arm64"]);
+      expect(readdirSync(pre)).toEqual(["darwin-arm64"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("deploy/scripts/build-psyched.mjs bundled skills (#506)", () => {

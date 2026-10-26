@@ -652,6 +652,12 @@ function SurfaceRow({
           </span>
         ) : null}
       </span>
+      {hit.match === "semantic" ? (
+        // Found by meaning, not by the typed words (docs/design/search-2026.md §5.8).
+        <Badge variant="muted" title={t("screens.search.relatedHint")}>
+          {t("screens.search.related")}
+        </Badge>
+      ) : null}
       {hit.scope === "memory" ? (
         <Badge variant="muted">
           <ShieldQuestion aria-hidden="true" />

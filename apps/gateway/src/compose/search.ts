@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { getLibraryItem, getThread, openDb } from "@psyche/db";
+import { getLibraryItem, getSetting, getThread, openDb } from "@psyche/db";
 import type { DeviceScope, MemoryStore, SearchIndexStatus } from "@psyche/protocol";
 import {
   Backfill,
@@ -8,11 +8,19 @@ import {
   libraryDoc,
   OWNER,
   SearchIndexer,
+  SemanticIndex,
   SqliteSearchIndex,
 } from "@psyche/search";
 import type { HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
+import {
+  defaultSemanticEngines,
+  SEMANTIC_SETTINGS,
+  SemanticController,
+  type SemanticEngines,
+  semanticConfig,
+} from "./search-semantic.ts";
 import { libraryText, type SearchSourceDeps, searchSources } from "./search-sources.ts";
 import type { ComposedPart } from "./services.ts";
 
@@ -27,11 +35,16 @@ import type { ComposedPart } from "./services.ts";
  * adapters changed, and on `search.reindex` (a full rebuild that also drops vanished rows).
  * Library items have no events, so new and removed items are reconciled every minute.
  * `search.status` and `search.status.updated` report progress.
+ *
+ * S3: optional on-device semantic search (`search-semantic.ts`), fused into `search.query`.
  */
 export interface ComposedSearch extends ComposedPart {
   readonly index: SqliteSearchIndex;
   readonly indexer: SearchIndexer;
   readonly backfill: Backfill;
+  readonly semantic: SemanticIndex;
+  /** Resolves when the semantic settings in effect are applied (download and model load). */
+  semanticReady(): Promise<void>;
   /** Resolves once every event seen so far is indexed (tests, the backfill). */
   idle(): Promise<void>;
   status(): Promise<SearchIndexStatus>;
@@ -49,6 +62,12 @@ export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
   librarySyncMs?: number;
   /** Pause between backfill pages (default 10 ms). */
   backfillPauseMs?: number;
+  /** Embedders for semantic search; defaults download and run the on-device model. */
+  semanticEngines?: SemanticEngines;
+  /** The router's `embedding` role for `search.semantic.engine: router`. */
+  routerEmbedder?: SemanticEngines["router"];
+  /** Options for the semantic index (tests: a low floor, no pauses). */
+  semanticOptions?: ConstructorParameters<typeof SemanticIndex>[1];
 }
 
 /** At most one `search.status.updated` per this many ms while a backfill runs. */
@@ -80,7 +99,34 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
   const statusOf = async (backfill: BackfillStatus): Promise<SearchIndexStatus> => ({
     docs: await index.count(),
     backfill,
+    semantic: controller.status(),
   });
+  const publishStatus = () =>
+    void statusOf(backfill.status()).then((st) =>
+      gateway?.bus.publish("search.status.updated", st),
+    );
+  let lastSemanticAt = 0;
+  const semantic = new SemanticIndex(index.db, {
+    ...deps.semanticOptions,
+    onProgress: (p) => {
+      const now = Date.now();
+      if (p.state === "indexing" && now - lastSemanticAt < STATUS_EVERY_MS) return;
+      lastSemanticAt = now;
+      controller.progressed(p);
+    },
+  });
+  index.setSemantic(semantic);
+  const controller: SemanticController = new SemanticController(
+    semantic,
+    deps.semanticEngines ??
+      defaultSemanticEngines(
+        deps.home,
+        deps.routerEmbedder ?? (() => ({ blocked: "no_embedding_model" as const })),
+      ),
+    publishStatus,
+  );
+  const applySemantic = () =>
+    controller.apply(semanticConfig((key) => getSetting(deps.db, key)?.value));
   const backfill: Backfill = new Backfill(index, searchSources(deps), {
     now: deps.now,
     ...(deps.backfillPauseMs === undefined ? {} : { pauseMs: deps.backfillPauseMs }),
@@ -134,6 +180,8 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
     index,
     indexer,
     backfill,
+    semantic,
+    semanticReady: () => applySemantic(),
     handlers,
     idle: () => queue,
     status: () => statusOf(backfill.status()),
@@ -144,8 +192,15 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
         const f = JSON.parse(frame) as { event?: string; payload?: unknown };
         const event = f.event;
         if (event === undefined) return;
+        if (event === "settings.changed") {
+          const entries = (f.payload as { entries?: { key: string }[] }).entries ?? [];
+          const keys: string[] = Object.values(SEMANTIC_SETTINGS);
+          if (entries.some((e) => keys.includes(e.key))) void applySemantic();
+          return;
+        }
         queue = queue.then(() => indexer.handle(event, f.payload));
       });
+      void applySemantic();
       // A new index (or new adapters) fills from the stores; an interrupted pass resumes.
       if (backfill.needed()) runBackfill(false);
       const every = deps.librarySyncMs ?? 60_000;
@@ -161,7 +216,10 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
       unsubscribe = undefined;
       if (libraryTimer !== undefined) clearInterval(libraryTimer);
       gateway = undefined;
+      controller.stop();
+      semantic.setEmbedder(undefined);
       await backfill.stop();
+      await semantic.idle();
       await queue;
       file.sqlite.close();
     },

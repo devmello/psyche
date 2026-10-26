@@ -77,6 +77,8 @@ export type Range = [number, number];
 
 export interface RichHit extends SearchIndexHit {
   group: SearchGroup;
+  /** Which retriever found it; set only when semantic search took part. */
+  match?: "lexical" | "semantic" | "both";
   threadId?: string;
   parentId?: string;
   from?: string;

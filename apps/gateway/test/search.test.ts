@@ -3,9 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deleteLibraryItem, insertLibraryItem } from "@psyche/db";
 import type { ModelEvent, SearchHit, SearchIndexStatus } from "@psyche/protocol";
+import { fakeEmbedder } from "@psyche/search";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
+import type { SemanticEngines } from "../src/compose/search-semantic.ts";
 import { silentLogger } from "../src/log.ts";
 import { adminClient, ik, type TestClient } from "./helpers.ts";
 
@@ -28,7 +30,7 @@ afterEach(async () => {
   if (home) rmSync(home, { recursive: true, force: true });
 });
 
-async function start(reuseHome = false) {
+async function start(reuseHome = false, semanticEngines?: SemanticEngines) {
   if (!reuseHome) home = mkdtempSync(join(tmpdir(), "psyche-search-"));
   const model = new FakeModelProvider({ capabilities: { contextWindow: 200_000 } });
   model.script([say("Booked the dentist for Thursday at 3 pm.")]);
@@ -38,6 +40,7 @@ async function start(reuseHome = false) {
     background: false,
     config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
     model: { provider: model, model: "fake/model" },
+    ...(semanticEngines === undefined ? {} : { semanticEngines }),
   });
   const owner = await adminClient(composed.gateway);
   clients.push(owner);
@@ -197,5 +200,75 @@ describe("search backfill, status and reindex (S2)", () => {
     deleteLibraryItem(gw.db, item.id);
     await gw.search.syncLibrary();
     expect(await find("alfama")).toEqual([]);
+  });
+});
+
+describe("semantic search (S3)", () => {
+  const GROUPS = [
+    ["budget", "spend", "money"],
+    ["trip", "lisbon", "travel"],
+  ];
+
+  it("turns on from settings, downloads with progress, and finds paraphrases", async () => {
+    const downloads: number[] = [];
+    const engines: SemanticEngines = {
+      async builtin(spec, onDownload) {
+        // Stands in for the verified download; no model is fetched or run.
+        onDownload(0, spec.model.sizeBytes);
+        onDownload(spec.model.sizeBytes, spec.model.sizeBytes);
+        downloads.push(spec.model.sizeBytes);
+        return fakeEmbedder(GROUPS, { floor: 0.5 });
+      },
+      router: () => ({ blocked: "cloud_not_allowed" }),
+    };
+    const { gw, owner } = await start(false, engines);
+    await gw.search.backfill.start().done;
+    const { thread } = await owner.call<{ thread: { id: string } }>(
+      "threads.create",
+      { kind: "main", title: "Plans" },
+      ik(),
+    );
+    await owner.call(
+      "chat.send",
+      { threadId: thread.id, content: "How much can we spend in Lisbon next month?" },
+      ik(),
+    );
+    await gw.gateway.context.sessions.idle();
+    await gw.search.idle();
+    const query = async () =>
+      (await owner.call<{ hits: SearchHit[] }>("search.query", { query: "trip budget" })).hits;
+    expect(await query()).toEqual([]);
+
+    await owner.call("settings.set", { key: "search.semantic.enabled", value: true }, ik());
+    await gw.search.idle();
+    await gw.search.semanticReady();
+    await gw.search.semantic.idle();
+    expect(downloads).toHaveLength(1);
+    const hits = await query();
+    expect(hits.map((h) => [h.threadId, h.match])).toEqual([[thread.id, "semantic"]]);
+    expect(hits[0]?.snippet).toContain("Lisbon");
+    const status = await owner.call<SearchIndexStatus>("search.status", {});
+    expect(status.semantic).toMatchObject({ enabled: true, engine: "builtin", state: "ready" });
+    expect(status.semantic?.vectors).toBeGreaterThan(0);
+
+    // The router engine refuses a cloud-bound embedding role.
+    await owner.call("settings.set", { key: "search.semantic.engine", value: "router" }, ik());
+    await gw.search.idle();
+    await gw.search.semanticReady();
+    expect((await owner.call<SearchIndexStatus>("search.status", {})).semantic).toMatchObject({
+      state: "blocked",
+      blocked: "cloud_not_allowed",
+    });
+    expect(await query()).toEqual([]);
+
+    // Off drops every vector.
+    await owner.call("settings.set", { key: "search.semantic.enabled", value: false }, ik());
+    await gw.search.idle();
+    await gw.search.semanticReady();
+    const n = gw.search.index.db.prepare("SELECT count(*) AS n FROM search_vectors").get() as {
+      n: number;
+    };
+    expect(n.n).toBe(0);
+    expect((await owner.call<SearchIndexStatus>("search.status", {})).semantic?.state).toBe("off");
   });
 });

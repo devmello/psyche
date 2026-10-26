@@ -53,7 +53,7 @@ Why RRF rather than score blending:
 
 There is one interface, already defined by `@psyche/memory`: `Embedder { model, embed(texts, "document" | "query") }`. Search and memory share it, so turning semantic on also gives memory vectors.
 
-The setting `search.semantic` takes the shape `{ enabled, engine: "builtin" | "router", model?, allowCloud }`. Everything is off by default.
+The settings are `search.semantic.enabled`, `search.semantic.engine` (`builtin` | `router`), `search.semantic.model` and, from S4, `search.semantic.allowCloud`. Everything is off by default. They are under Settings → Model & providers → Search, next to Web search.
 
 | Engine | What | When |
 | --- | --- | --- |
@@ -113,10 +113,18 @@ Everything lives in `$PSYCHE_HOME/state/search.sqlite`: derived data that is saf
 | Table | Content |
 | --- | --- |
 | `search_docs`, `search_fts`, `search_flags`, `search_meta` | existing lexical index |
-| `search_vectors` (new) | `id` (`<docId>#<n>`), `doc_id`, `chunk` (n), `model`, `dims`, `text` (the chunk, for snippets), `embedding` (float32 BLOB, the source of truth) |
-| `search_vec` (new, optional) | sqlite-vec `vec0` mirror for in-database KNN. If the extension doesn't load, search scans BLOBs in process. |
+| `search_vectors` (new) | `id` (`<docId>#<n>@<model>`), `doc_id`, `chunk` (n), `model`, `dims`, `text` (the chunk, for snippets), `embedding` (unit float32 BLOB, the source of truth) |
+| `search_vec_state` (new) | `doc_id`, `model`, `version`: which version of each document a model embedded, so edits re-embed and unchanged documents never do |
 
-This is the same split memory uses (ADR-004, `packages/memory/src/vector.ts`). sqlite-vec 0.1.9 is already a dependency and is packaged for darwin-arm64, darwin-x64 and windows-x64.
+A trigger on `search_docs` deletes a document's vectors and state with the document, whatever deletes it: a deleted thread, incognito, a dropped connector, a rebuild's sweep.
+
+**As built (S3): an exact scan, no vector extension.** Queries scan an in-memory int8 copy of the active model's vectors. At 100k chunks × 384 dimensions that is about 38 MB of RAM and a few tens of ms per query. Reasons:
+
+- It avoids loading sqlite-vec into a second database file.
+- It avoids a vec0 table that would have to be rebuilt whenever the width changes.
+- Every candidate still goes through the same SQL filters as lexical rows.
+
+A sqlite-vec `vec0` mirror, like memory's (ADR-004, `packages/memory/src/vector.ts`), stays an S5 option if measurements on large homes need it.
 
 Every vector row stores `model` and `dims`. A query uses only vectors of the active model. Switching model starts a re-embed while lexical keeps serving, and old-model rows are deleted once the new pass completes.
 

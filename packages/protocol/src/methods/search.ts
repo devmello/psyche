@@ -70,6 +70,10 @@ export const HighlightRange = Type.Tuple(
 );
 export type HighlightRange = Static<typeof HighlightRange>;
 
+/** Which retriever found a hit (docs/design/search-2026.md §5.8); absent when search was lexical only. */
+export const SearchMatch = StringEnum(["lexical", "semantic", "both"], { $id: "SearchMatch" });
+export type SearchMatch = Static<typeof SearchMatch>;
+
 /** One unified-search result; `route` is the in-app deep link. */
 export const SearchHit = Type.Object(
   {
@@ -86,6 +90,7 @@ export const SearchHit = Type.Object(
     createdAt: Type.Optional(Type.Integer({ minimum: 0, description: "Epoch ms" })),
     snippetHighlights: Type.Optional(Type.Array(HighlightRange)),
     titleHighlights: Type.Optional(Type.Array(HighlightRange)),
+    match: Type.Optional(SearchMatch),
   },
   { $id: "SearchHit" },
 );
@@ -121,11 +126,42 @@ export const SearchBackfillStatus = Type.Object(
 );
 export type SearchBackfillStatus = Static<typeof SearchBackfillStatus>;
 
+/** On-device semantic search (Settings → Model & providers → Search). */
+export const SearchSemanticStatus = Type.Object(
+  {
+    enabled: Type.Boolean(),
+    engine: StringEnum(["builtin", "router"], { $id: "SearchSemanticEngine" }),
+    state: StringEnum(["off", "downloading", "loading", "indexing", "ready", "error", "blocked"], {
+      $id: "SearchSemanticState",
+    }),
+    model: Type.Optional(
+      Type.String({ description: "Vector space in use, e.g. builtin/multilingual-e5-small" }),
+    ),
+    dims: Type.Optional(Type.Integer({ minimum: 1 })),
+    vectors: Type.Optional(Type.Integer({ minimum: 0, description: "Chunk vectors stored" })),
+    done: Type.Optional(
+      Type.Integer({ minimum: 0, description: "Documents embedded in this pass" }),
+    ),
+    total: Type.Optional(
+      Type.Integer({ minimum: 0, description: "Documents pending when it started" }),
+    ),
+    receivedBytes: Type.Optional(Type.Integer({ minimum: 0, description: "Model download" })),
+    totalBytes: Type.Optional(Type.Integer({ minimum: 0 })),
+    blocked: Type.Optional(
+      StringEnum(["no_embedding_model", "cloud_not_allowed"], { $id: "SearchSemanticBlock" }),
+    ),
+    error: Type.Optional(Type.String()),
+  },
+  { $id: "SearchSemanticStatus" },
+);
+export type SearchSemanticStatus = Static<typeof SearchSemanticStatus>;
+
 /** What `search.status` returns and `search.status.updated` carries. */
 export const SearchIndexStatus = Type.Object(
   {
     docs: Type.Integer({ minimum: 0, description: "Documents in the index" }),
     backfill: SearchBackfillStatus,
+    semantic: Type.Optional(SearchSemanticStatus),
   },
   { $id: "SearchIndexStatus" },
 );
