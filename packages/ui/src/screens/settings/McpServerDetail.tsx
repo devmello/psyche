@@ -1,8 +1,11 @@
 import { sanitizeDisplay } from "@psyche/permissions/cards";
 import type { McpServerStatus } from "@psyche/protocol";
 import { type ReactElement, useState } from "react";
+import { Button } from "../../components/ui/button.tsx";
 import { t } from "../../i18n/core.ts";
 import { ConnectorIcon } from "./ConnectorIcon.tsx";
+import { presetText } from "./mcp-preset-build.ts";
+import { MCP_PRESETS } from "./mcp-presets.ts";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import { Facts, StatusChip, type Tone } from "./shared.tsx";
 
@@ -27,13 +30,18 @@ export function mcpTrustLabel(trust: McpServerStatus["trust"]): string {
 export function McpServerRow({
   server,
   onRemove,
+  onTry,
   defaultOpen = false,
 }: {
   server: McpServerStatus;
   onRemove?: (server: McpServerStatus) => void;
+  /** "Try it": fills the chat composer (a ready-made server has an example). */
+  onTry?: (text: string) => void;
   defaultOpen?: boolean;
 }): ReactElement {
   const [open, setOpen] = useState(defaultOpen);
+  const preset = MCP_PRESETS.find((p) => p.id === server.id);
+  const example = preset ? presetText(preset, "example") : null;
   const trustTone: Tone = server.trust === "unknown" ? "approval" : "info";
   const transport =
     server.transport === "http" ? t("settings.mcp.kind.url") : t("settings.mcp.kind.command");
@@ -80,6 +88,15 @@ export function McpServerRow({
           }
         />
       </div>
+      {example !== null && onTry && server.connected ? (
+        <p className="ms-11 flex flex-wrap items-center gap-2 text-callout text-label-secondary">
+          <span>{t("gallery.tryAsking")}</span>
+          <q className="text-label-primary">{example}</q>
+          <Button type="button" variant="ghost" size="sm" onClick={() => onTry(example)}>
+            {t("settings.connectors.try.title")}
+          </Button>
+        </p>
+      ) : null}
       {open ? (
         <Facts
           className="ms-11 text-callout"

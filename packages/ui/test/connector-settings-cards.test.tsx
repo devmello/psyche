@@ -151,9 +151,9 @@ describe("the Obsidian card (#640)", () => {
       await userEvent.click(
         screen.getAllByRole("button", { name: "Add connector" })[0] as HTMLElement,
       );
-      expect(screen.getByLabelText("Connector type")).toBeTruthy();
+      expect(screen.getByRole("searchbox", { name: "Search connectors" })).toBeTruthy();
     });
-    await userEvent.selectOptions(screen.getByLabelText("Connector type"), "obsidian");
+    await userEvent.click(screen.getByRole("button", { name: /Obsidian/ }));
     const go = screen.getByRole("button", { name: "Continue to sign in" }) as HTMLButtonElement;
     expect(go.disabled).toBe(true);
     await userEvent.type(screen.getByLabelText("Vault folder"), "/Users/you/Vault");

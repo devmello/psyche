@@ -3,8 +3,9 @@ import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { t } from "../../i18n/core.ts";
-import { EMPTY_DRAFT, type McpDraft, splitCommand } from "./mcp-input.ts";
+import { EMPTY_DRAFT, type McpDraft, splitCommand, toServerInput } from "./mcp-input.ts";
 import { RadioField } from "./shared.tsx";
+import type { McpState } from "./use-mcp.tsx";
 
 /**
  * The "Custom MCP server" form inside Add connector (#529): a command (run sandboxed) or an HTTPS
@@ -18,7 +19,7 @@ export function McpAddForm({
 }: {
   commandsAllowed: boolean;
   checking: boolean;
-  onCheck: (draft: McpDraft) => void;
+  onCheck: McpState["check"];
   onCancel: () => void;
 }): ReactElement {
   const id = useId();
@@ -103,7 +104,7 @@ export function McpAddForm({
           type="button"
           size="sm"
           disabled={!ready || checking || (d.kind === "command" && !commandsAllowed)}
-          onClick={() => onCheck(d)}
+          onClick={() => onCheck(toServerInput(d))}
         >
           {checking ? t("settings.mcp.checking") : t("settings.mcp.check")}
         </Button>
