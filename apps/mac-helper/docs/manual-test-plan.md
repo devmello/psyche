@@ -160,6 +160,8 @@ See the speech section of the README for engine selection. On macOS 26+:
 | 10.4 | Two microphone streams | Second → `conflict/microphone_busy` |
 | 10.5 | `speech.synthesize {text}` | PCM chunks play back cleanly; `nonCommercial: false` |
 | 10.6 | `personalVoice: true` with and without Personal Voice authorization | Uses it and flags `nonCommercial: true` / falls back to a system voice |
+| 10.6d | `speech.prepare {language: "en-US"}`, then `speech.synthesize {text, utteranceId: "u1"}` three times, then `speech.status` | `prepared: true`; every `speech.audio` carries `utteranceId: "u1"`; `warm: true` on the synthesize results; `timings.synthesisFirstAudioMs` under 100 ms after the first; nothing plays through the speakers |
+| 10.6e | `speech.synthesize {text, speed: 0.8}`, `{speed: 1}`, `{speed: 1.5}` on one sentence | `durationMs` roughly 1.1×, 1× and 0.67× of the normal one (slow speeds are coarse; see the README) |
 | 10.6a | `contacts.list {limit: 500, fields: ["name"]}` before / after granting Contacts | No prompt and `forbidden/permission_denied` / names in family-name order, no phones or emails; `truncated` when over the limit |
 | 10.6b | `speech.transcribe_file {path}` on a 60–90 min test recording of your own in a granted folder (not someone else's meeting) | `speech.progress` after each 10-minute chunk; one result with no repeated or missing sentence at the 10:00 / 20:00 marks; `audioMs` matches the file; `provenance: untrusted` |
 | 10.6c | The same with a path outside the granted folders, a folder, a text file, and a file over `maxDurationMs` | `policy_denied/outside_granted_folders`, `not_found`, `invalid_params/unsupported_audio`, `invalid_params/too_long`, each before any audio is read |
