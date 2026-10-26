@@ -95,6 +95,20 @@ describe("the agent sheet over the chat (redesign §5.7)", () => {
   });
 });
 
+describe("the Feed's instructions sheet (#614)", () => {
+  it("opens /feed/instructions over the feed and closes back to /feed", async () => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", "/feed/instructions");
+    const { platform } = webPlatform();
+    render(<PsycheApp platform={platform} />);
+    const sheet = await screen.findByTestId("feed-instructions");
+    expect(await screen.findByTestId("screen-feed")).toBeTruthy();
+    fireEvent.keyDown(sheet, { key: "Escape" });
+    await waitFor(() => expect(window.location.pathname).toBe("/feed"));
+    await waitFor(() => expect(screen.queryByTestId("feed-instructions")).toBeNull());
+  });
+});
+
 describe("the agent sheet over the current section (#614)", () => {
   it("the Feed's Schedule opens the sheet over the feed and closing returns to /feed", async () => {
     window.innerWidth = 1280;

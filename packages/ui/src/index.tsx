@@ -15,6 +15,7 @@ export {
   type AgentSheetProps,
   type AgentSheetRoute,
   type AgentTab,
+  agentSheetHref,
   agentSheetRoute,
 } from "./agent/AgentSheet.tsx";
 export { ApprovalsPanel } from "./agent/ApprovalsPanel.tsx";

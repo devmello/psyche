@@ -140,6 +140,10 @@ describe("FeedScreen", () => {
     const { navigate, user } = setup(<FeedScreen onAsk={onAsk} />);
     await user.click(await screen.findByRole("button", { name: "What should I write about" }));
     expect(navigate).toHaveBeenCalledWith("/feed/instructions");
+    // The instructions sheet opens over the feed (#614); close it to get back to the posts.
+    await screen.findByRole("dialog", { name: "What should I write about" });
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     const card = screen.getByRole("article", { name: "Two things before your 10:00" });
     await user.click(within(card).getByRole("button", { name: "Ask Wren" }));
     expect(onAsk).toHaveBeenCalledWith(expect.objectContaining({ id: IDS.feed.briefing }));

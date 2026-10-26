@@ -2,6 +2,7 @@ import {
   AgentHeader,
   AgentSheet,
   AppearanceProvider,
+  agentSheetHref,
   agentSheetRoute,
   ChatThread,
   CommandPalette,
@@ -67,7 +68,8 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
   const lastRouted = useRef(routed);
   if (routed !== null) lastRouted.current = routed;
   const sheet = routed ?? lastRouted.current;
-  const backToChat = () => ctx.navigate(`/chat/${threadId}`);
+  // `?from=` (the Feed's Schedule, #614) sends the close back to where the sheet was opened.
+  const backToChat = () => ctx.navigate(sheet?.back ?? `/chat/${threadId}`);
   const incognito = useThread(threadId).thread?.thread.kind === "incognito";
   const [limitsOpen, setLimitsOpen] = useState(false);
   const store = useStore();
@@ -115,7 +117,9 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
             if (!open) backToChat();
           }}
           tab={sheet?.tab ?? "activity"}
-          onTabChange={(tab) => ctx.navigate(`/agent/${tab}`)}
+          onTabChange={(tab) =>
+            ctx.navigate(agentSheetHref(tab, sheet?.back ? { back: sheet.back } : {}))
+          }
           {...(sheet?.taskId === undefined ? {} : { taskId: sheet.taskId })}
           {...(sheet?.file === undefined ? {} : { file: sheet.file })}
           onClose={backToChat}
@@ -196,7 +200,14 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
       );
     }
     case "feed":
-      return page("Feed", <FeedScreen />);
+      // `/feed/instructions` is the feed with its instructions sheet open (#614).
+      return page(
+        "Feed",
+        <FeedScreen
+          instructionsOpen={parts[1] === "instructions"}
+          onCloseInstructions={() => navigate("/feed")}
+        />,
+      );
     case "ideas":
       return page("Ideas", <IdeasScreen />);
     case "goals":
