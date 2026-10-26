@@ -35,6 +35,7 @@ import { SettingsMethods } from "./settings.ts";
 import { SkillsMethods } from "./skills.ts";
 import { TasksMethods } from "./tasks.ts";
 import { ThreadsMethods } from "./threads.ts";
+import { UsageMethods } from "./usage.ts";
 import { VaultMethods } from "./vault.ts";
 import { ViewMethods } from "./view.ts";
 import { VmMethods } from "./vm.ts";
@@ -126,6 +127,7 @@ export const Methods = {
   ...BackupMethods,
   ...LogsMethods,
   ...ModelsMethods,
+  ...UsageMethods,
 } as const;
 
 export type MethodName = keyof typeof Methods;

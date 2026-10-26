@@ -129,6 +129,7 @@ import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts
 import { SqliteThreadStateStore } from "./thread-state.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
+import { usageSummaryHandlers } from "./usage-summary.ts";
 import { createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 import { composeWebTools, type WebToolsSetup } from "./web-tools.ts";
@@ -813,6 +814,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...attentionHandlers(attention),
     ...libraryHandlers({ db, home: config.home }),
     ...modelSettingsHandlers(modelSettings),
+    // The sidebar's usage footer (#599): a read over the run ledger.
+    ...usageSummaryHandlers({
+      db,
+      providers: modelSettings.providers,
+      primary: () => router?.role("primary")?.model ?? modelSettings.fixedModel,
+    }),
   };
   for (const part of parts) Object.assign(handlers, part.handlers ?? {});
   const webhooks: Record<string, WebhookRoute> = { ...gwOptions.webhooks };

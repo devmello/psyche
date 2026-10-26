@@ -5,6 +5,7 @@ import {
   type PointerEvent,
   type ReactElement,
   type ReactNode,
+  useCallback,
   useMemo,
   useRef,
   useState,
@@ -28,6 +29,7 @@ import { cn } from "../lib/utils.ts";
 import { usePersona } from "../slots.tsx";
 import { destinationFor, RAIL_ITEMS, type RailItem } from "./Rail.tsx";
 import { CurrentMark, SelectionContext, ThreadGroup } from "./ThreadList.tsx";
+import { ConnectedUsageFooter } from "./UsageFooter.tsx";
 
 /** Sidebar widths (redesign §5.1): 248 px by default, resizable 220–320, persisted by the host. */
 export const SIDEBAR_WIDTH = { min: 220, default: 248, max: 320 } as const;
@@ -73,6 +75,8 @@ export interface SidebarProps {
   onModeChange?: (mode: SidebarMode) => void;
   /** A row above the destinations (the web client's sidebar toggle). */
   header?: ReactNode;
+  /** Usage under the persona's name (#599): the full footer's second line or the rail's graphic. */
+  renderUsage?: (variant: "full" | "rail", name: string) => ReactNode;
   /** The gear's Settings item (⌘,); defaults to the `/settings/model` route. */
   onOpenSettings?: () => void;
   /** Reveals and focuses the thread filter (⌘F inside the sidebar). */
@@ -214,6 +218,7 @@ export function Sidebar({
   mode = "full",
   onModeChange,
   header,
+  renderUsage,
   onOpenSettings,
   filterToken,
   now,
@@ -364,7 +369,7 @@ export function Sidebar({
         </div>
         {rail ? (
           <div
-            className="flex h-14 shrink-0 items-center justify-center"
+            className="flex h-14 shrink-0 items-center justify-center gap-0.5"
             data-testid="sidebar-footer"
           >
             <DropdownMenu>
@@ -373,7 +378,10 @@ export function Sidebar({
                   <button
                     type="button"
                     aria-label={t("shell.sidebar.settingsMenu")}
-                    className="flex size-10 items-center justify-center rounded-full outline-none hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring"
+                    className={cn(
+                      "flex items-center justify-center rounded-full outline-none hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring",
+                      renderUsage ? "size-8" : "size-10",
+                    )}
                   />
                 }
               >
@@ -381,7 +389,7 @@ export function Sidebar({
                   name={persona.name}
                   creature={persona.creature}
                   {...(persona.imageSrc ? { imageSrc: persona.imageSrc } : {})}
-                  size={28}
+                  size={renderUsage ? 20 : 28}
                   decorative
                 />
               </DropdownMenuTrigger>
@@ -389,6 +397,7 @@ export function Sidebar({
                 <SettingsMenuItems onSettings={settings} onNavigate={onNavigate} />
               </DropdownMenuContent>
             </DropdownMenu>
+            {renderUsage?.("rail", persona.name)}
           </div>
         ) : (
           <div
@@ -402,7 +411,13 @@ export function Sidebar({
               size={20}
               decorative
             />
-            <span className="min-w-0 flex-1 truncate text-headline">{persona.name}</span>
+            <div className="flex min-w-0 flex-1 flex-col">
+              {renderUsage ? (
+                renderUsage("full", persona.name)
+              ) : (
+                <span className="min-w-0 truncate text-headline">{persona.name}</span>
+              )}
+            </div>
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
@@ -541,8 +556,19 @@ export function useSidebarCounts(): Partial<Record<RailItem, number>> {
   );
 }
 
-/** The sidebar with its counts from the Gateway. */
+/** The sidebar with its counts and usage from the Gateway. */
 export function ConnectedSidebar(props: Omit<SidebarProps, "counts">): ReactElement {
   const counts = useSidebarCounts();
-  return <Sidebar {...props} counts={counts} />;
+  const { onNavigate } = props;
+  const renderUsage = useCallback(
+    (variant: "full" | "rail", name: string) => (
+      <ConnectedUsageFooter
+        variant={variant}
+        name={name}
+        onOpenUsage={() => onNavigate("/settings/usage")}
+      />
+    ),
+    [onNavigate],
+  );
+  return <Sidebar renderUsage={renderUsage} {...props} counts={counts} />;
 }

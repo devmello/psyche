@@ -1978,6 +1978,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Tokens, cost and turns from the run ledger: one row per day of the window, today by model, the window by model, the month so far, the monthly budget setting and the plan window when known.",
+        "name": "usage.summary",
+        "params": "#/$defs/UsageSummaryParams",
+        "result": "#/$defs/UsageSummaryResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Adds an item. Card numbers, CVVs, bank account numbers and government ids are refused (policy_denied). Side-effecting.",
         "name": "vault.add",
         "params": "#/$defs/VaultAddParams",
@@ -20647,6 +20655,90 @@
       ],
       "type": "object"
     },
+    "UsageByModel": {
+      "properties": {
+        "modelRef": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        },
+        "subscription": {
+          "type": "boolean"
+        },
+        "tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "costUsd": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "turns": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "modelRef",
+        "subscription",
+        "tokens",
+        "costUsd",
+        "turns"
+      ],
+      "type": "object"
+    },
+    "UsageDay": {
+      "properties": {
+        "date": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "type": "string"
+        },
+        "tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "costUsd": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "turns": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "date",
+        "tokens",
+        "costUsd",
+        "turns"
+      ],
+      "type": "object"
+    },
+    "UsagePlanWindow": {
+      "properties": {
+        "modelRef": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        },
+        "usedFraction": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "resetsAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "modelRef",
+        "usedFraction",
+        "resetsAt"
+      ],
+      "type": "object"
+    },
     "UsageRecord": {
       "properties": {
         "id": {
@@ -20723,6 +20815,134 @@
         "reasoning",
         "costUsd",
         "createdAt"
+      ],
+      "type": "object"
+    },
+    "UsageSummaryParams": {
+      "properties": {
+        "days": {
+          "maximum": 31,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "timeZone": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "UsageSummaryResult": {
+      "properties": {
+        "days": {
+          "items": {
+            "$ref": "#/$defs/UsageDay"
+          },
+          "type": "array"
+        },
+        "today": {
+          "$ref": "#/$defs/UsageToday"
+        },
+        "byModel": {
+          "items": {
+            "$ref": "#/$defs/UsageByModel"
+          },
+          "type": "array"
+        },
+        "month": {
+          "$ref": "#/$defs/UsageTally"
+        },
+        "budgetUsd": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "primary": {
+          "anyOf": [
+            {
+              "description": "provider/model",
+              "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "planWindow": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UsagePlanWindow"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "days",
+        "today",
+        "byModel",
+        "month"
+      ],
+      "type": "object"
+    },
+    "UsageTally": {
+      "properties": {
+        "tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "costUsd": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "turns": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "tokens",
+        "costUsd",
+        "turns"
+      ],
+      "type": "object"
+    },
+    "UsageToday": {
+      "properties": {
+        "tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "costUsd": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "turns": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "byModel": {
+          "items": {
+            "$ref": "#/$defs/UsageByModel"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "tokens",
+        "costUsd",
+        "turns",
+        "byModel"
       ],
       "type": "object"
     },

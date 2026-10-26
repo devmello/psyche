@@ -18,6 +18,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-25 (#599 the sidebar's usage footer)
+
+For S11 (the sidebar footer) and S01 (the Gateway handler, `apps/gateway/src/compose/usage-summary.ts`).
+
+- New schemas `UsageTally`, `UsageByModel` (with `subscription` for the Claude Code / Codex CLIs), `UsageDay`, `UsageToday`, `UsagePlanWindow` (`schemas/usage.ts`).
+- New method (operator.read): `usage.summary {days?, timeZone?}` → `{days, today, byModel, month, budgetUsd, primary, planWindow}`. Tokens are input + output + reasoning (cache reads excluded), counted from the runs table in the owner's time zone. `budgetUsd` is the new `usage.monthlyBudgetUsd` setting. `planWindow` stays null until an adapter can read a subscription's rate-limit window; clients must not estimate one.
+
 ### v1 additive — 2026-10-24 (#555 the first message after onboarding)
 
 For S01 (the Gateway handler and `SessionController.greet`) and S11 (the web client calls it when onboarding completes).
