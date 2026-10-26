@@ -20318,16 +20318,19 @@ public struct ThingsAddParams: Codable, Sendable {
 
 // MARK: - ThingsCompleteParams
 public struct ThingsCompleteParams: Codable, Sendable {
+    public let authToken: String?
     public let id: String
     /// Default completed
     public let status: ThingsCompleteParamsStatus?
 
     public enum CodingKeys: String, CodingKey {
+        case authToken = "authToken"
         case id = "id"
         case status = "status"
     }
 
-    public init(id: String, status: ThingsCompleteParamsStatus?) {
+    public init(authToken: String?, id: String, status: ThingsCompleteParamsStatus?) {
+        self.authToken = authToken
         self.id = id
         self.status = status
     }
@@ -20422,6 +20425,7 @@ public struct ThingsTodo: Codable, Sendable {
 public struct ThingsUpdateParams: Codable, Sendable {
     public let addTags: [String]?
     public let appendNotes: String?
+    public let authToken: String?
     public let deadline: String?
     public let id: String
     public let title: String?
@@ -20431,15 +20435,17 @@ public struct ThingsUpdateParams: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case addTags = "addTags"
         case appendNotes = "appendNotes"
+        case authToken = "authToken"
         case deadline = "deadline"
         case id = "id"
         case title = "title"
         case when = "when"
     }
 
-    public init(addTags: [String]?, appendNotes: String?, deadline: String?, id: String, title: String?, when: String?) {
+    public init(addTags: [String]?, appendNotes: String?, authToken: String?, deadline: String?, id: String, title: String?, when: String?) {
         self.addTags = addTags
         self.appendNotes = appendNotes
+        self.authToken = authToken
         self.deadline = deadline
         self.id = id
         self.title = title
