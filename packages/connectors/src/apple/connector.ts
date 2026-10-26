@@ -58,7 +58,8 @@ export type AppleApp =
   | "safari"
   | "chrome"
   | "files"
-  | "shortcuts";
+  | "shortcuts"
+  | "things";
 
 /**
  * Catalogue identity per app (#639): Apple apps are `apple:<app>` / `apple-<app>`; Mac apps from
@@ -66,6 +67,7 @@ export type AppleApp =
  */
 const IDENTITY: Partial<Record<AppleApp, { type: string; id: string; vendor: string }>> = {
   chrome: { type: "chrome:tabs", id: "chrome-tabs", vendor: "Google" },
+  things: { type: "things", id: "things", vendor: "Cultured Code" },
 };
 const identity = (app: AppleApp) =>
   IDENTITY[app] ?? { type: `apple:${app}`, id: `apple-${app}`, vendor: "Apple" };
@@ -104,9 +106,12 @@ const LABEL: Record<AppleApp, string> = {
   chrome: "Google Chrome",
   files: "Files on your Mac",
   shortcuts: "Shortcuts",
+  things: "Things 3",
 };
 
 const DESCRIPTION: Record<AppleApp, string> = {
+  things:
+    "See your to-dos in Things 3 on your Mac (Inbox, Today, Upcoming, projects, areas, tags); add to-dos with dates, deadlines, tags and checklists; reschedule and complete them.",
   shortcuts:
     "Run your own shortcuts from the Shortcuts app on your Mac, with text input and their output back. Each run asks first; you can turn single shortcuts off.",
   files:
@@ -128,6 +133,16 @@ const DESCRIPTION: Record<AppleApp, string> = {
 };
 
 const ACTIONS: Record<AppleApp, ConnectorAction[]> = {
+  things: [
+    { id: "things.read", title: "See to-dos", sideEffect: "read", defaultRule: "allow" },
+    {
+      id: "things.write",
+      title: "Add, change and complete to-dos",
+      sideEffect: "write",
+      approvalKind: "connector_action",
+      defaultRule: "ask",
+    },
+  ],
   shortcuts: [
     { id: "shortcuts.read", title: "See your shortcuts", sideEffect: "read", defaultRule: "allow" },
     {
@@ -385,7 +400,101 @@ const contactFields = {
 const musicApp = { type: "string", enum: ["music", "spotify"] };
 const musicKind = { type: "string", enum: ["track", "album", "artist", "playlist"] };
 
+const thingsWhen = {
+  type: "string",
+  pattern: "^(today|tomorrow|evening|anytime|someday|\\d{4}-\\d{2}-\\d{2})$",
+};
+const thingsDate = { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" };
+
 const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
+  things: [
+    {
+      name: "things_list",
+      capability: "things.list",
+      action: "things.read",
+      description:
+        'List to-dos in Things: inbox, today, upcoming, anytime, someday, logbook, or a project / area / tag by name, optionally matching query. For "what\'s on my plate today": { list: "today" }.',
+      inputSchema: obj(
+        {
+          list: {
+            type: "string",
+            enum: [
+              "inbox",
+              "today",
+              "upcoming",
+              "anytime",
+              "someday",
+              "logbook",
+              "project",
+              "area",
+              "tag",
+            ],
+          },
+          name: { type: "string" },
+          query: { type: "string", maxLength: 200 },
+          limit,
+        },
+        ["list"],
+      ),
+      sideEffect: "read",
+    },
+    {
+      name: "things_add",
+      capability: "things.add",
+      action: "things.write",
+      description:
+        "Add a to-do to Things: title, notes, when (today, tomorrow, evening, anytime, someday or YYYY-MM-DD), deadline, tags, a project or area (default Inbox), checklist items.",
+      inputSchema: obj(
+        {
+          title: { type: "string", minLength: 1, maxLength: 500 },
+          notes: { type: "string", maxLength: 10_000 },
+          when: thingsWhen,
+          deadline: thingsDate,
+          tags: { type: "array", items: { type: "string" }, maxItems: 20 },
+          list: { type: "string" },
+          checklist: { type: "array", items: { type: "string", maxLength: 500 }, maxItems: 50 },
+        },
+        ["title"],
+      ),
+      sideEffect: "write",
+      binding: "action",
+    },
+    {
+      name: "things_update",
+      capability: "things.update",
+      action: "things.write",
+      description:
+        "Change a Things to-do: title, reschedule (when), deadline (null clears it), add tags, or append to its notes.",
+      inputSchema: obj(
+        {
+          id: { type: "string" },
+          title: { type: "string", minLength: 1, maxLength: 500 },
+          appendNotes: { type: "string", maxLength: 10_000 },
+          when: thingsWhen,
+          deadline: { anyOf: [thingsDate, { type: "null" }] },
+          addTags: { type: "array", items: { type: "string" }, maxItems: 20 },
+        },
+        ["id"],
+      ),
+      sideEffect: "write",
+      binding: "action",
+    },
+    {
+      name: "things_complete",
+      capability: "things.complete",
+      action: "things.write",
+      description: "Complete a Things to-do (or cancel it, or reopen it with status open).",
+      inputSchema: obj(
+        {
+          id: { type: "string" },
+          status: { type: "string", enum: ["completed", "canceled", "open"] },
+        },
+        ["id"],
+      ),
+      sideEffect: "write",
+      binding: "action",
+    },
+  ],
   shortcuts: [
     {
       name: "shortcuts_list",
@@ -1148,6 +1257,7 @@ const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
 
 /** The capability every app's connect checks for: the helper offers the adapter. */
 const PROBE: Record<AppleApp, string> = {
+  things: "things.list",
   shortcuts: "shortcuts.list",
   files: "files.recent",
   safari: "safari.tabs",
@@ -1203,6 +1313,13 @@ const PERMISSION: Record<
     probe: {},
     pane: "Privacy_Reminders",
     path: "System Settings → Privacy & Security → Reminders → Psyche (Helper)",
+  },
+  things: {
+    kind: "automation",
+    target: "com.culturedcode.ThingsMac",
+    probe: { list: "today", limit: 1 },
+    pane: "Privacy_Automation",
+    path: "System Settings → Privacy & Security → Automation → Psyche (Helper) → Things 3",
   },
   // Listing shortcuts needs no grant; a shortcut asks for whatever it touches when it runs.
   shortcuts: {
@@ -1300,6 +1417,7 @@ export const APPLE_APPS: readonly AppleApp[] = [
   "chrome",
   "files",
   "shortcuts",
+  "things",
 ];
 
 export function appleCatalogueEntry(app: AppleApp): CatalogueEntry {

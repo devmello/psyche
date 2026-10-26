@@ -87,6 +87,11 @@ export const APPLE_APP_ACTIONS: Readonly<Record<string, AppleAppAction>> = {
   "contacts.read": read("apple.contacts", "read"),
   "contacts.create": write("apple.contacts", "create"),
   "contacts.update": write("apple.contacts", "update"),
+  // Things 3 through the same helper route (wave 1, §5; #639).
+  "things.list": read("apple.things", "list"),
+  "things.add": write("apple.things", "add"),
+  "things.update": write("apple.things", "update"),
+  "things.complete": write("apple.things", "complete"),
   // Shortcuts (wave 1, §4.9; #639): a run's side effect is unknown, so it is destructive.
   "shortcuts.list": read("apple.shortcuts", "list"),
   "shortcuts.run": write("apple.shortcuts", "run", "connector_action", {

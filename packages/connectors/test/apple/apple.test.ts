@@ -37,6 +37,10 @@ const ALL = [
   "mail.read",
   "mail.draft",
   "mail.send",
+  "things.list",
+  "things.add",
+  "things.update",
+  "things.complete",
   "shortcuts.list",
   "shortcuts.run",
   "files.recent",
@@ -224,6 +228,7 @@ describe("Apple app connectors (#528)", () => {
       ["chrome:tabs", "chrome-tabs", true],
       ["apple:files", "apple-files", true],
       ["apple:shortcuts", "apple-shortcuts", true],
+      ["things", "things", true],
     ]);
     expect(appleCatalogueEntry("mail").actions.find((a) => a.id === "mail.send")).toMatchObject({
       sideEffect: "destructive",
@@ -1078,5 +1083,39 @@ describe("Shortcuts wave 1 (#639)", () => {
       details: { reason: "shortcut_off" },
     });
     expect(helper.calls).toEqual([]);
+  });
+});
+
+describe("Things 3 wave 1 (#639)", () => {
+  it("is a Cultured Code connector over the helper, with its own Automation grant", async () => {
+    expect(appleCatalogueEntry("things")).toMatchObject({
+      type: "things",
+      id: "things",
+      vendor: "Cultured Code",
+      singleInstance: true,
+    });
+    const helper = new FakeHelper();
+    helper.grant = "denied";
+    const { registry } = make(helper);
+    const r = await registry.connect({ catalogueId: "things", scopeMode: "read" });
+    expect(r.config.permission).toMatchObject({ target: "com.culturedcode.ThingsMac" });
+  });
+
+  it("lists as a read; add, update and complete ask", async () => {
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "things", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    await run("mcp__apple-1__things_list")({ list: "today" });
+    expect(helper.calls).toEqual([{ capability: "things.list", params: { list: "today" } }]);
+    for (const [tool, params] of [
+      ["things_add", { title: "Renew passport", when: "2026-10-30" }],
+      ["things_update", { id: "T1", when: "tomorrow" }],
+      ["things_complete", { id: "T1" }],
+    ] as const) {
+      await expect(run(`mcp__apple-1__${tool}`)(params)).rejects.toMatchObject({
+        code: "approval_required",
+      });
+    }
   });
 });
