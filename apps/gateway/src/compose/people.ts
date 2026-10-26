@@ -1,10 +1,11 @@
-import type { AgentToolRegistration } from "@psyche/agent-core";
+import type { AgentToolRegistration, TurnContextProvider } from "@psyche/agent-core";
 import { getSetting, getThread, type PsycheDb, setSetting } from "@psyche/db";
 import {
   assignProjects,
   CardSync,
   createGraphHandlers,
   ensureDreamingAutomation,
+  entityRecall,
   type GraphEvent,
   type GraphHandlers,
   type GraphPollReport,
@@ -53,7 +54,9 @@ import type { ComposedPart } from "./services.ts";
  *
  * Ingest from connectors (Contacts, Mail, Calendar, Messages) comes with the connector adapters;
  * the meeting-prep schedule and card belong to the mail and meetings workstream, which reads
- * `meetingPrep`. Entity recall waits for a context path that does not taint the turn.
+ * `meetingPrep`;
+ * - entity recall (§6.3): a trusted turn context section with one line per person or project the
+ *   owner named, in the owner's own chats only, while `memory.graph.entityRecall` is on.
  */
 
 export const GRAPH_SETTING = "memory.graph";
@@ -117,6 +120,9 @@ export interface PeopleDeps {
 }
 
 export const DEFAULT_GRAPH_POLL_MS = 15 * 60_000;
+/** Threads where recall applies: the owner's own chats, never a channel peer's or a subagent's. */
+const RECALL_THREADS = new Set(["main", "side", "incognito"]);
+export const RECALL_TITLE = "People and projects you named";
 export const AFTER_RUN_DELAY_MS = 5 * 60_000;
 /** At most this many entities per after-run pass, within this many tokens (§5.2). */
 export const AFTER_RUN_ENTITIES = 3;
@@ -155,6 +161,8 @@ export interface People {
   afterRun(): Promise<ModelPassReport | undefined>;
   /** The nightly graph step, for tests. */
   readonly nightly: NightlyStep;
+  /** Entity recall (§6.3) for the agent loop's `contextProviders`. */
+  readonly recall: TurnContextProvider;
   part(scheduler: SchedulerLike, timezone: string): ComposedPart;
 }
 
@@ -423,9 +431,32 @@ export function composePeople(deps: PeopleDeps): People {
     return polling;
   };
 
+  // Entity recall (§6.3): only owner and system data (`entityRecall`), so the section is trusted
+  // and the turn keeps its write tools. The loop drops it from delegated and specialist runs.
+  const recall: TurnContextProvider = {
+    name: "entity_recall",
+    async provide(input) {
+      const s = settings();
+      if (!s.enabled || !s.entityRecall) return undefined;
+      if (!RECALL_THREADS.has(getThread(db, input.threadId)?.kind ?? "")) return undefined;
+      const lines = entityRecall(store, input.text, {
+        session: "private",
+        sources: s.sources,
+        now: clock.now(),
+      });
+      if (lines.length === 0) return undefined;
+      return {
+        sections: [{ title: RECALL_TITLE, text: lines.join("\n") }],
+        source: { sourceKind: "entity_recall" },
+        trusted: true,
+      };
+    },
+  };
+
   return {
     graph: store,
     cards,
+    recall,
     handlers,
     settings,
     onMemoryEvent(event) {

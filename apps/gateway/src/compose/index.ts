@@ -830,7 +830,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     approvalSurfaces: ["desktop", "web"],
     skills: skills.loader,
     ...(compaction === undefined ? {} : { compaction }),
-    contextProviders: [otherChats.provider],
+    contextProviders: [otherChats.provider, ...(people === undefined ? [] : [people.recall])],
     contextLimits: context.contextLimits,
     onContextUsage: context.onContextUsage,
     onCompaction: context.onCompaction,
