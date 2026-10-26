@@ -1948,6 +1948,25 @@ export class MockGateway implements GatewayClient {
     },
 
     "automations.list": () => ({ automations: this.world.automations }),
+    "automations.upcoming": (p) => ({
+      items: this.world.automations
+        .map((a) => ({
+          kind:
+            a.kind === "cron" || a.kind === "reminder"
+              ? ("automation" as const)
+              : (a.kind as "briefing" | "heartbeat" | "watch"),
+          id: a.id,
+          title: a.title,
+          nextRunAt: a.nextRunAt,
+          enabled: a.enabled,
+          automationId: a.id,
+          schedule: a.schedule,
+          timezone: a.timezone,
+          lastRunAt: a.lastRunAt,
+        }))
+        .sort((x, y) => (x.nextRunAt ?? "9999").localeCompare(y.nextRunAt ?? "9999"))
+        .slice(0, p.limit ?? 200),
+    }),
     "automations.run": () => ({ runId: this.id("run"), taskId: this.id("task") }),
     "automations.update": (p) => {
       const { automationId, ...fields } = p;

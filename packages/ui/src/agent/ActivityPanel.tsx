@@ -290,11 +290,12 @@ export function TaskDetail({
 }
 
 /** A run opened by id: its Task (if any) comes from the run itself. */
-function RunTimelineFor(props: {
+export function RunTimelineFor(props: {
   runId: string;
   stepId?: string;
-  onBack: () => void;
+  onBack?: () => void;
   onOpenRun?: (runId: string) => void;
+  linkFor?: (runId: string, stepId: string | null) => string;
   now?: number;
 }): ReactElement {
   const taskId = useStoreState((s) => s.runs[props.runId]?.taskId ?? null);
@@ -311,14 +312,18 @@ export function RunTimeline({
   stepId,
   onBack,
   onOpenRun,
+  linkFor = (id, step) => agentTimelineHref(id, step ? { stepId: step } : {}),
   now,
 }: {
   runId: string;
   taskId?: string | null;
   stepId?: string;
-  onBack: () => void;
+  /** The Back control; the Overview's Timeline page has its own link and passes none. */
+  onBack?: () => void;
   /** A helper's own Timeline. */
   onOpenRun?: (runId: string) => void;
+  /** The route "Copy link" copies for a run (and step); the sheet's by default. */
+  linkFor?: (runId: string, stepId: string | null) => string;
   now?: number;
 }): ReactElement {
   const q = useTask(taskId ?? null);
@@ -336,8 +341,8 @@ export function RunTimeline({
   return (
     <TimelineView
       runId={runId}
-      onBack={onBack}
-      onCopyLink={(step) => copy(agentTimelineHref(runId, step ? { stepId: step } : {}))}
+      {...(onBack ? { onBack } : {})}
+      onCopyLink={(step) => copy(linkFor(runId, step))}
       {...(navigate
         ? {
             onReconnect: () => navigate("/settings/connectors"),

@@ -2,9 +2,9 @@ export { OverviewActivity, type OverviewActivityProps } from "./ActivitySection.
 export { isNewUser, NEW_USER_DAYS, type OverviewData, useOverviewData } from "./data.ts";
 export { GrowthAndPeople } from "./GrowthAndPeople.tsx";
 export { GrowthSection, type GrowthSectionProps } from "./GrowthSection.tsx";
+export { NowSection } from "./NowSection.tsx";
+export { OverviewRun, type OverviewRunProps } from "./OverviewRun.tsx";
 export {
-  OverviewRunPlaceholder,
-  type OverviewRunPlaceholderProps,
   OverviewScreen,
   type OverviewScreenProps,
   type OverviewTry,
@@ -37,6 +37,8 @@ export {
   periodLabel,
   useOverviewPeriod,
 } from "./period.ts";
+export { RecentSection, type RecentSectionProps } from "./RecentSection.tsx";
+export { matchesRecent, overviewAnchor, overviewRunHref, recentRunsQuery } from "./recent.ts";
 export {
   NO_RECENT_FILTER,
   parseRecentFilter,
@@ -50,4 +52,15 @@ export {
   scrollToRecent,
   useRecentFilter,
 } from "./recentFilter.ts";
+export { overviewRedirect } from "./redirects.ts";
 export { OverviewSummary, type OverviewSummaryProps } from "./SummarySection.tsx";
+export { UpcomingSection } from "./UpcomingSection.tsx";
+export {
+  cadenceMs,
+  dayOffset,
+  groupUpcoming,
+  isFrequent,
+  UPCOMING_GROUPS,
+  type UpcomingEntry,
+  type UpcomingGroup,
+} from "./upcoming-groups.ts";
