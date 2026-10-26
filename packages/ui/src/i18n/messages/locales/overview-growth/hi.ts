@@ -32,11 +32,8 @@ export const overviewGrowth: Partial<Catalogue> = {
   "overview.people.mapHint":
     "तीर कुंजियों से लोगों और प्रोजेक्ट के बीच जाएँ, सबसे ज़्यादा बातचीत वाले पहले। Enter से एक खोलें।",
   "overview.people.caption":
-    "आपके पास का मतलब ज़्यादा हाल का। बड़े का मतलब ज़्यादा बातचीत। गोले लोग हैं; चौकोर प्रोजेक्ट और संगठन हैं।",
+    "केंद्र से बाहर की ओर के छल्ले: इस सप्ताह, इस महीने, इससे पहले। बड़े का मतलब ज़्यादा बातचीत। गोले लोग हैं; चौकोर प्रोजेक्ट और संगठन हैं।",
   "overview.people.you": "आप",
-  "overview.people.ring.0": "इस सप्ताह",
-  "overview.people.ring.1": "इस महीने",
-  "overview.people.ring.2": "इससे पहले",
   "overview.people.kind.person": "व्यक्ति",
   "overview.people.kind.org": "संगठन",
   "overview.people.kind.project": "प्रोजेक्ट",

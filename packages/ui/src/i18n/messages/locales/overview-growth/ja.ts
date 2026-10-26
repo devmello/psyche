@@ -33,11 +33,8 @@ export const overviewGrowth: Partial<Catalogue> = {
   "overview.people.mapHint":
     "矢印キーでやり取りの多い順に人やプロジェクトを移動できます。Enterで開きます。",
   "overview.people.caption":
-    "中心に近いほど最近のやり取りです。大きいほどやり取りが多いことを表します。丸は人、四角はプロジェクトと組織です。",
+    "中心から順に、今週、今月、それ以前のリングです。大きいほどやり取りが多いことを表します。丸は人、四角はプロジェクトと組織です。",
   "overview.people.you": "あなた",
-  "overview.people.ring.0": "今週",
-  "overview.people.ring.1": "今月",
-  "overview.people.ring.2": "それ以前",
   "overview.people.kind.person": "人",
   "overview.people.kind.org": "組織",
   "overview.people.kind.project": "プロジェクト",

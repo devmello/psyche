@@ -129,13 +129,25 @@ describe("layoutPeopleMap", () => {
     }
   });
 
+  it("puts each name just outside its node, away from the centre", () => {
+    const { nodes, center } = layoutPeopleMap(fixtures, NOW);
+    for (const n of nodes) {
+      const node = Math.hypot(n.x - center.x, n.y - center.y);
+      const label = Math.hypot(n.label.x - center.x, n.label.y - center.y);
+      expect(label).toBeGreaterThan(node);
+      if (n.label.anchor === "start") expect(n.label.x).toBeGreaterThan(n.x);
+      if (n.label.anchor === "end") expect(n.label.x).toBeLessThan(n.x);
+      if (n.label.anchor === "middle") expect(n.label.x).toBe(n.x);
+    }
+  });
+
   it("is empty for no entities", () => {
     expect(layoutPeopleMap([], NOW).nodes).toEqual([]);
   });
 
   it("has a fixed, hand-checked first node", () => {
-    // One entity, this week: ring 0 (radius 74), straight up from the centre.
+    // One entity, this week: ring 0 (radius 100), straight up from the centre.
     const { nodes } = layoutPeopleMap([entity(1)], NOW);
-    expect(nodes[0]).toMatchObject({ ring: 0, size: 3, x: 260, y: 146 });
+    expect(nodes[0]).toMatchObject({ ring: 0, size: 3, x: 320, y: 140 });
   });
 });

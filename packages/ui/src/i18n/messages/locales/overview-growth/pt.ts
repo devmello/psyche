@@ -32,11 +32,8 @@ export const overviewGrowth: Partial<Catalogue> = {
   "overview.people.mapHint":
     "As setas movem entre pessoas e projetos, primeiro os com mais interações. Enter abre um.",
   "overview.people.caption":
-    "Mais perto de você significa mais recente. Maior significa mais interações. Círculos são pessoas; quadrados são projetos e organizações.",
+    "Anéis a partir do centro: esta semana, este mês, antes. Maior significa mais interações. Círculos são pessoas; quadrados são projetos e organizações.",
   "overview.people.you": "Você",
-  "overview.people.ring.0": "Esta semana",
-  "overview.people.ring.1": "Este mês",
-  "overview.people.ring.2": "Antes",
   "overview.people.kind.person": "Pessoa",
   "overview.people.kind.org": "Organização",
   "overview.people.kind.project": "Projeto",

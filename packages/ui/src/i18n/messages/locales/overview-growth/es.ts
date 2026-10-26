@@ -33,11 +33,8 @@ export const overviewGrowth: Partial<Catalogue> = {
   "overview.people.mapHint":
     "Las flechas te mueven entre personas y proyectos, primero los que tienen más interacciones. Intro abre uno.",
   "overview.people.caption":
-    "Más cerca de ti significa más reciente. Más grande significa más interacciones. Los círculos son personas; los cuadrados, proyectos y organizaciones.",
+    "Anillos desde el centro: esta semana, este mes, antes. Más grande significa más interacciones. Los círculos son personas; los cuadrados, proyectos y organizaciones.",
   "overview.people.you": "Tú",
-  "overview.people.ring.0": "Esta semana",
-  "overview.people.ring.1": "Este mes",
-  "overview.people.ring.2": "Antes",
   "overview.people.kind.person": "Persona",
   "overview.people.kind.org": "Organización",
   "overview.people.kind.project": "Proyecto",

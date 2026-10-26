@@ -39,11 +39,8 @@ export const overviewGrowth = {
   "overview.people.mapHint":
     "Arrow keys move between people and projects, most interactions first. Enter opens one.",
   "overview.people.caption":
-    "Closer to you means more recent. Bigger means more interactions. Circles are people; squares are projects and organisations.",
+    "Rings from the centre: this week, this month, earlier. Bigger means more interactions. Circles are people; squares are projects and organisations.",
   "overview.people.you": "You",
-  "overview.people.ring.0": "This week",
-  "overview.people.ring.1": "This month",
-  "overview.people.ring.2": "Earlier",
   "overview.people.kind.person": "Person",
   "overview.people.kind.org": "Organisation",
   "overview.people.kind.project": "Project",

@@ -33,11 +33,8 @@ export const overviewGrowth: Partial<Catalogue> = {
   "overview.people.mapHint":
     "Mit den Pfeiltasten wechselst du zwischen Personen und Projekten, die meisten Interaktionen zuerst. Eingabe öffnet eines.",
   "overview.people.caption":
-    "Näher bei dir heißt: jünger. Größer heißt: mehr Interaktionen. Kreise sind Personen, Quadrate sind Projekte und Organisationen.",
+    "Ringe von innen nach außen: diese Woche, diesen Monat, früher. Größer heißt: mehr Interaktionen. Kreise sind Personen, Quadrate sind Projekte und Organisationen.",
   "overview.people.you": "Du",
-  "overview.people.ring.0": "Diese Woche",
-  "overview.people.ring.1": "Diesen Monat",
-  "overview.people.ring.2": "Früher",
   "overview.people.kind.person": "Person",
   "overview.people.kind.org": "Organisation",
   "overview.people.kind.project": "Projekt",

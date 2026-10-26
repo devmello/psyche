@@ -2,7 +2,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { FixtureWorld } from "../fixtures/index.ts";
 import { emptyInsights, growthFeedPost, insightsFixtures } from "../fixtures/index.ts";
 import { STORY_NOW, StoryWorld } from "../stories/harness.tsx";
-import { GrowthAndPeople } from "./GrowthAndPeople.tsx";
+import { GrowthSection } from "./GrowthSection.tsx";
+import { PeopleSection } from "./PeopleSection.tsx";
 import type { OverviewPeriod } from "./period.ts";
 
 /**
@@ -55,11 +56,13 @@ function worldFor(opts: {
 
 function Page({
   edit,
+  part,
   period = "30d",
-  width,
+  width = 920,
   compact,
 }: {
   edit: (world: FixtureWorld) => void;
+  part: "growth" | "people";
   period?: OverviewPeriod;
   width?: number;
   compact?: boolean;
@@ -69,63 +72,59 @@ function Page({
       <div
         className="@container/overview flex min-h-0 flex-col overflow-auto bg-canvas p-4"
         data-testid="overview"
-        style={width === undefined ? {} : { width }}
+        style={{ width }}
       >
-        <GrowthAndPeople
-          period={period}
-          now={STORY_NOW}
-          {...(compact === undefined ? {} : { compact })}
-        />
+        {part === "growth" ? (
+          <GrowthSection period={period} now={STORY_NOW} />
+        ) : (
+          <PeopleSection
+            period={period}
+            now={STORY_NOW}
+            {...(compact === undefined ? {} : { compact })}
+          />
+        )}
       </div>
     </StoryWorld>
   );
 }
 
 const TYPICAL = worldFor({ insights: "typical", graph: "on", growth: "some" });
+const HEAVY = worldFor({ insights: "heavy", graph: "on", growth: "some" });
+const QUIET = worldFor({ insights: "empty", graph: "on", growth: "none" });
+const FRESH = worldFor({ insights: "new", graph: "on", growth: "none" });
+const PAUSED = worldFor({ insights: "typical", graph: "off", growth: "some" });
 
-/** A typical month: Growth beside the map. */
-export const Typical: Story = { render: () => <Page edit={TYPICAL} width={1100} /> };
+/** A typical month: counts, two metrics with evidence, the weekly card row, milestones. */
+export const Growth: Story = { render: () => <Page part="growth" edit={TYPICAL} /> };
+
+/** A quiet period: nothing learned. */
+export const GrowthEmpty: Story = { render: () => <Page part="growth" edit={QUIET} /> };
+
+/** The radial map for a typical month. */
+export const People: Story = { render: () => <Page part="people" edit={TYPICAL} /> };
 
 /** A heavy year: the full 12 nodes on the rings. */
-export const Heavy: Story = {
-  render: () => (
-    <Page
-      edit={worldFor({ insights: "heavy", graph: "on", growth: "some" })}
-      period="all"
-      width={1100}
-    />
-  ),
+export const PeopleHeavy: Story = {
+  render: () => <Page part="people" edit={HEAVY} period="all" />,
 };
 
 /** Compact (< 720 px): the list is the default view, the map is behind "Show map". */
-export const Compact: Story = {
-  render: () => <Page edit={TYPICAL} width={390} compact />,
+export const PeopleCompact: Story = {
+  render: () => <Page part="people" edit={TYPICAL} width={390} compact />,
 };
 
-/** Between 720 and 1100 px: Growth above People, the map shown. */
-export const Medium: Story = { render: () => <Page edit={TYPICAL} width={840} /> };
-
-/** A quiet period: nothing learned and nobody seen yet. */
-export const Empty: Story = {
-  render: () => (
-    <Page edit={worldFor({ insights: "empty", graph: "on", growth: "none" })} width={1100} />
-  ),
+/** The list equivalent at full width (after "Show as list"). */
+export const PeopleList: Story = {
+  render: () => <Page part="people" edit={TYPICAL} compact />,
 };
 
-/** Day 2: two entities, no lessons. */
-export const NewUser: Story = {
-  render: () => (
-    <Page
-      edit={worldFor({ insights: "new", graph: "on", growth: "none" })}
-      period="7d"
-      width={1100}
-    />
-  ),
+/** Day 2: two entities on the rings. */
+export const PeopleNewUser: Story = {
+  render: () => <Page part="people" edit={FRESH} period="7d" />,
 };
+
+/** Nobody yet in this period. */
+export const PeopleEmpty: Story = { render: () => <Page part="people" edit={QUIET} /> };
 
 /** The people and projects graph is turned off. */
-export const GraphPaused: Story = {
-  render: () => (
-    <Page edit={worldFor({ insights: "typical", graph: "off", growth: "some" })} width={1100} />
-  ),
-};
+export const PeopleGraphPaused: Story = { render: () => <Page part="people" edit={PAUSED} /> };

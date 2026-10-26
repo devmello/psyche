@@ -33,11 +33,8 @@ export const overviewGrowth: Partial<Catalogue> = {
   "overview.people.mapHint":
     "화살표 키로 상호작용이 많은 순서대로 사람과 프로젝트 사이를 이동합니다. Enter로 엽니다.",
   "overview.people.caption":
-    "가운데에 가까울수록 최근입니다. 클수록 상호작용이 많습니다. 원은 사람, 사각형은 프로젝트와 조직입니다.",
+    "가운데에서부터 이번 주, 이번 달, 그 이전 순의 고리입니다. 클수록 상호작용이 많습니다. 원은 사람, 사각형은 프로젝트와 조직입니다.",
   "overview.people.you": "나",
-  "overview.people.ring.0": "이번 주",
-  "overview.people.ring.1": "이번 달",
-  "overview.people.ring.2": "그 이전",
   "overview.people.kind.person": "사람",
   "overview.people.kind.org": "조직",
   "overview.people.kind.project": "프로젝트",

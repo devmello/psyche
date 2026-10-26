@@ -32,11 +32,8 @@ export const overviewGrowth: Partial<Catalogue> = {
   "overview.people.mapHint":
     "Les flèches passent d’une personne ou d’un projet à l’autre, les plus actifs d’abord. Entrée en ouvre un.",
   "overview.people.caption":
-    "Plus près de vous signifie plus récent. Plus grand signifie plus d’interactions. Les cercles sont des personnes ; les carrés, des projets et des organisations.",
+    "Anneaux depuis le centre : cette semaine, ce mois-ci, avant. Plus grand signifie plus d’interactions. Les cercles sont des personnes ; les carrés, des projets et des organisations.",
   "overview.people.you": "Vous",
-  "overview.people.ring.0": "Cette semaine",
-  "overview.people.ring.1": "Ce mois-ci",
-  "overview.people.ring.2": "Avant",
   "overview.people.kind.person": "Personne",
   "overview.people.kind.org": "Organisation",
   "overview.people.kind.project": "Projet",

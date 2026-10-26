@@ -36,11 +36,8 @@ export const overviewGrowth: Partial<Catalogue> = {
   "overview.people.mapHint":
     "تنقّل بين الأشخاص والمشاريع بمفاتيح الأسهم، الأكثر تفاعلًا أولًا. اضغط Enter لفتح أحدهم.",
   "overview.people.caption":
-    "الأقرب إليك هو الأحدث. الأكبر هو الأكثر تفاعلًا. الدوائر أشخاص، والمربعات مشاريع ومؤسسات.",
+    "الحلقات من المركز إلى الخارج: هذا الأسبوع، هذا الشهر، قبل ذلك. الأكبر هو الأكثر تفاعلًا. الدوائر أشخاص، والمربعات مشاريع ومؤسسات.",
   "overview.people.you": "أنت",
-  "overview.people.ring.0": "هذا الأسبوع",
-  "overview.people.ring.1": "هذا الشهر",
-  "overview.people.ring.2": "قبل ذلك",
   "overview.people.kind.person": "شخص",
   "overview.people.kind.org": "مؤسسة",
   "overview.people.kind.project": "مشروع",

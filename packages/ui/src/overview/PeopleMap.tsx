@@ -103,7 +103,7 @@ export function PeopleMap({ entities, now, onOpen, rtl = false }: PeopleMapProps
           role="group"
           aria-label={t("overview.people.map")}
           aria-describedby={hintId}
-          className="mx-auto block h-auto w-full max-w-[520px] select-none"
+          className="mx-auto block h-auto w-full max-w-[640px] select-none"
         >
           {/* biome-ignore lint/a11y/noAriaHiddenOnFocusable: a decorative group; the nodes are outside it */}
           <g aria-hidden="true">
@@ -117,15 +117,6 @@ export function PeopleMap({ entities, now, onOpen, rtl = false }: PeopleMapProps
                   stroke="var(--separator)"
                   strokeDasharray="2 4"
                 />
-                <text
-                  x={layout.center.x}
-                  y={layout.center.y - radius - 3}
-                  textAnchor="middle"
-                  fontSize={10}
-                  fill="var(--label-tertiary)"
-                >
-                  {t(`overview.people.ring.${ring}` as MessageId)}
-                </text>
               </g>
             ))}
             {nodes.map((n) => (
@@ -202,7 +193,7 @@ function Detail({ node, now }: { node: PeopleNode; now: number }): ReactElement 
   );
 }
 
-const MAX_LABEL = 14;
+const MAX_LABEL = 12;
 const shortName = (name: string): string =>
   name.length > MAX_LABEL ? `${name.slice(0, MAX_LABEL - 1)}…` : name;
 
@@ -279,6 +270,10 @@ function Node({
         strokeWidth={2.5}
       >
         <Mark shape={node.shape} r={node.radius + 4} />
+      </g>
+      {/* An opaque underlay, so the edge to "you" never shows through the translucent fill. */}
+      <g fill="var(--surface-raised)">
+        <Mark shape={node.shape} r={node.radius} />
       </g>
       <g fill="var(--accent-a4)" stroke="var(--accent-9)" strokeWidth={2}>
         <Mark shape={node.shape} r={node.radius} />

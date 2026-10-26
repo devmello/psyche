@@ -30,11 +30,9 @@ export const overviewGrowth: Partial<Catalogue> = {
     "这段时间还没有人物。{agent} 为你与他们合作后，人物和项目就会出现在这里。",
   "overview.people.map": "人物和项目图",
   "overview.people.mapHint": "用方向键在人物和项目之间移动，互动最多的在前。按回车打开。",
-  "overview.people.caption": "离你越近表示越新，越大表示互动越多。圆形是人物，方形是项目和组织。",
+  "overview.people.caption":
+    "从中心向外依次是：本周、本月、更早。越大表示互动越多。圆形是人物，方形是项目和组织。",
   "overview.people.you": "你",
-  "overview.people.ring.0": "本周",
-  "overview.people.ring.1": "本月",
-  "overview.people.ring.2": "更早",
   "overview.people.kind.person": "人物",
   "overview.people.kind.org": "组织",
   "overview.people.kind.project": "项目",

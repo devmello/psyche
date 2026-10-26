@@ -7,8 +7,8 @@ import type { InsightEntity } from "@psyche/protocol";
  * last interacted with. Only "you → entity" edges exist, because the data has no others.
  */
 
-export const MAP_WIDTH = 520;
-export const MAP_HEIGHT = 440;
+export const MAP_WIDTH = 640;
+export const MAP_HEIGHT = 480;
 export const MAP_CENTER = { x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 } as const;
 /** The most nodes drawn (the Gateway sends at most 12). */
 export const MAP_LIMIT = 12;
@@ -17,7 +17,7 @@ const DAY_MS = 86_400_000;
 
 /** Ring 0: this week, 1: this month, 2: earlier. */
 export type Ring = 0 | 1 | 2;
-export const RING_RADII: readonly [number, number, number] = [74, 124, 172];
+export const RING_RADII: readonly [number, number, number] = [100, 150, 198];
 /** Where the first node of each ring sits, in turns, so rings don't line up like spokes. */
 const RING_PHASE: readonly [number, number, number] = [0, 1 / 12, 1 / 7];
 
@@ -26,6 +26,13 @@ export type NodeSize = 1 | 2 | 3;
 export const NODE_RADII: Readonly<Record<NodeSize, number>> = { 1: 10, 2: 14, 3: 18 };
 
 export type NodeShape = "circle" | "square";
+
+/** Where a node's name goes: just outside the node, away from "you". */
+export interface NodeLabel {
+  x: number;
+  y: number;
+  anchor: "start" | "middle" | "end";
+}
 
 export interface PeopleNode {
   entity: InsightEntity;
@@ -37,6 +44,7 @@ export interface PeopleNode {
   shape: NodeShape;
   x: number;
   y: number;
+  label: NodeLabel;
 }
 
 export interface PeopleLayout {
@@ -97,15 +105,28 @@ export function layoutPeopleMap(entities: readonly InsightEntity[], now: number)
     const turn = RING_PHASE[ring] + index / perRing[ring];
     const angle = turn * 2 * Math.PI - Math.PI / 2;
     const size = sizeOf(entity.interactions, max);
+    const radius = NODE_RADII[size];
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle);
+    const gap = radius + 6;
+    const anchor = dx > 0.35 ? "start" : dx < -0.35 ? "end" : "middle";
+    const x = round(MAP_CENTER.x + RING_RADII[ring] * dx);
+    const y = round(MAP_CENTER.y + RING_RADII[ring] * dy);
     return {
       entity,
       rank,
       ring,
       size,
-      radius: NODE_RADII[size],
+      radius,
       shape: shapeOf(entity.kind),
-      x: round(MAP_CENTER.x + RING_RADII[ring] * Math.cos(angle)),
-      y: round(MAP_CENTER.y + RING_RADII[ring] * Math.sin(angle)),
+      x,
+      y,
+      // Beside the node on the left and right; above or below it near the top and bottom.
+      label: {
+        x: round(x + (anchor === "middle" ? 0 : Math.sign(dx) * gap)),
+        y: round(anchor === "middle" ? y + (dy > 0 ? gap + 8 : -gap) : y + 4),
+        anchor,
+      },
     };
   });
   return {
