@@ -77,24 +77,30 @@ describe("locales", () => {
     expect(resolveLocale(undefined, "ja-JP")).toBe("ja-JP");
   });
 
-  it("falls back to the English catalogue and follows its direction", () => {
-    expect(messageLocaleFor("fr-FR")).toBe("en");
+  it("picks the shipped catalogue for a language, else English, and follows its direction", () => {
+    expect(messageLocaleFor("fr-FR")).toBe("fr");
+    expect(messageLocaleFor("pt-BR")).toBe("pt");
+    expect(messageLocaleFor("nl-NL")).toBe("en");
     expect(directionOf("ar-EG")).toBe("rtl");
     expect(directionOf("en-GB")).toBe("ltr");
-    // English text under an Arabic region stays left to right unless the owner overrides it.
-    expect(resolveDirection("auto", messageLocaleFor("ar-EG"))).toBe("ltr");
+    // Arabic text reads right to left; English text under a Persian region stays left to right
+    // unless the owner overrides it.
+    expect(resolveDirection("auto", messageLocaleFor("ar-EG"))).toBe("rtl");
+    expect(resolveDirection("auto", messageLocaleFor("fa-IR"))).toBe("ltr");
     expect(resolveDirection("rtl", "en")).toBe("rtl");
   });
 
   it("writes numbers and dates in the format locale and plurals in the message's language", () => {
-    const de = createI18n({ locale: "de-DE" });
+    const de = createI18n({ locale: "de-DE", language: "en" });
     expect(de.number(1234567.5)).toBe("1.234.567,5");
     expect(de.t("context.meter.usage", { used: 141000, limit: 200000, pct: 71 })).toBe(
       "141.000 of 200.000 tokens (71%).",
     );
     // French plural rules would make 0 "one"; the English text keeps English rules.
-    const fr = createI18n({ locale: "fr-FR" });
+    const fr = createI18n({ locale: "fr-FR", language: "en" });
     expect(fr.t("time.days", { n: 0 })).toBe("0 days");
+    // The French catalogue uses French rules for the same id.
+    expect(createI18n({ locale: "fr-FR" }).t("time.days", { n: 0 })).toBe("0 jour");
     setActiveI18n(de);
     expect(formatTokens(12_400)).toBe("12,4k");
     expect(formatDuration(65 * 60_000)).toBe("1 h 5 min");

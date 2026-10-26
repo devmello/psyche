@@ -8,8 +8,8 @@ import {
   LOCALE_SETTING,
   localeName,
   MESSAGE_LOCALES,
+  messageLocaleFor,
   OFFERED_LOCALES,
-  resolveMessageLocale,
   runtimeLocale,
 } from "../../i18n/locale.ts";
 import { useSystemLocale } from "../../shell/AppearanceProvider.tsx";
@@ -44,8 +44,7 @@ export function LanguageSelect({
   describedBy?: string;
   className?: string;
 }): ReactElement {
-  const i18n = activeI18n();
-  const system = resolveMessageLocale("system", i18n.locale);
+  const system = messageLocaleFor(canonicalLocale(useSystemLocale()) ?? runtimeLocale());
   return (
     <NativeSelect
       id={id}
