@@ -1,5 +1,6 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, JsonObject, Nullable, StringEnum, Usage } from "../common.ts";
+import { SpecialistBudgetSetting } from "./specialists.ts";
 import { AutomationTrigger, WorkflowEvent } from "./workflows.ts";
 
 /** Data model §6 — metadata mirror only; secrets never cross the protocol. */
@@ -371,6 +372,17 @@ export const WatchConfig = Type.Object(
 );
 export type WatchConfig = Static<typeof WatchConfig>;
 
+/** An automation's specialist (docs/agent/specialists-2026.md §4.10). */
+export const AutomationSpecialist = Type.Object(
+  {
+    role: Type.String({ minLength: 1, maxLength: 64 }),
+    budget: Type.Optional(SpecialistBudgetSetting),
+    deliver: Type.Optional(StringEnum(["inbox", "thread"])),
+  },
+  { $id: "AutomationSpecialist" },
+);
+export type AutomationSpecialist = Static<typeof AutomationSpecialist>;
+
 export const Automation = Type.Object(
   {
     id: Id,
@@ -395,19 +407,7 @@ export const Automation = Type.Object(
     /** `kind: "event"`: what starts a run (docs/workflows/mail-and-meetings-2026.md §4.7). */
     trigger: Type.Optional(AutomationTrigger),
     /** Run each occurrence as a background specialist job (docs/agent/specialists-2026.md §4.10). */
-    specialist: Type.Optional(
-      Type.Object({
-        role: Type.String({ minLength: 1, maxLength: 64 }),
-        budget: Type.Optional(
-          Type.Object({
-            tokens: Type.Optional(Type.Integer({ minimum: 1 })),
-            costUsd: Type.Optional(Type.Number({ minimum: 0 })),
-            minutes: Type.Optional(Type.Integer({ minimum: 1 })),
-          }),
-        ),
-        deliver: Type.Optional(StringEnum(["inbox", "thread"])),
-      }),
-    ),
+    specialist: Type.Optional(AutomationSpecialist),
   },
   { $id: "Automation" },
 );

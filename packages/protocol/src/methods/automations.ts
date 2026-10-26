@@ -4,6 +4,7 @@ import {
   Automation,
   AutomationKind,
   AutomationRun,
+  AutomationSpecialist,
   Delivery,
   UpcomingItem,
   WatchConfig,
@@ -49,6 +50,8 @@ export const AutomationsMethods = {
       enabled: Type.Optional(automationFields.enabled),
       watch: Type.Optional(WatchConfig),
       lightContext: Type.Optional(Type.Boolean()),
+      /** Run each occurrence as a background specialist job (specialists §4.10). */
+      specialist: Type.Optional(AutomationSpecialist),
     }),
     result: AutomationResult,
     scope: "operator.write",
@@ -68,6 +71,8 @@ export const AutomationsMethods = {
       watch: Type.Optional(WatchConfig),
       lightContext: Type.Optional(Type.Boolean()),
       scratch: Type.Optional(Nullable(Type.String({ maxLength: 20_000 }))),
+      /** null runs it as a plain automation again. */
+      specialist: Type.Optional(Nullable(AutomationSpecialist)),
     }),
     result: AutomationResult,
     scope: "operator.write",

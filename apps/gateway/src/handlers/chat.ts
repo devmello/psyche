@@ -1,12 +1,13 @@
 import { listAllMessages, listMessagesPage, listQueue } from "@psyche/db";
 import {
   type Block,
+  type ChatScreenRef,
   type Message,
   PsycheError,
   type QueueMode,
   type Thread,
 } from "@psyche/protocol";
-import type { Call, HandlerDef } from "../context.ts";
+import type { Call, HandlerDef, ResolvedScreen } from "../context.ts";
 import { requireThread } from "./threads.ts";
 
 const DEFAULT_PAGE = 100;
@@ -27,10 +28,22 @@ function send(
     attachments?: string[];
     replyToMessageId?: string;
     redo?: { messageId: string; instruction?: string; withoutLessons?: boolean };
+    screen?: ChatScreenRef;
   },
   mode: QueueMode | undefined,
 ) {
   requireThread(call, params.threadId);
+  // Ask about my screen: the capture's context, frame and taint (docs/design/screen-ask-2026.md).
+  let screen: ResolvedScreen | undefined;
+  if (params.screen !== undefined) {
+    const resolve = call.ctx.chatScreen.resolve;
+    if (resolve === null)
+      throw new PsycheError("unavailable", "Ask about my screen is not available here");
+    screen = resolve(params.screen, {
+      deviceId: call.identity.deviceId,
+      threadId: params.threadId,
+    });
+  }
   const redo = params.redo;
   if (redo !== undefined) {
     // Parts (the teaching loop) hear about a redo once the send commits.
@@ -50,11 +63,19 @@ function send(
       }
     });
   }
-  return call.ctx.sessions.send(
+  const attachments = [...(params.attachments ?? []), ...(screen?.attachments ?? [])];
+  const result = call.ctx.sessions.send(
     {
       threadId: params.threadId,
       content: params.content,
-      ...(params.attachments === undefined ? {} : { attachments: params.attachments }),
+      ...(attachments.length === 0 ? {} : { attachments }),
+      ...(screen === undefined
+        ? {}
+        : {
+            preamble: screen.preamble,
+            images: screen.images,
+            taintSources: screen.taintSources,
+          }),
       ...(params.replyToMessageId === undefined
         ? {}
         : { replyToMessageId: params.replyToMessageId }),
@@ -63,6 +84,11 @@ function send(
     },
     { emit: call.emit, afterCommit: call.afterCommit },
   );
+  if (screen !== undefined) {
+    const s = screen;
+    call.afterCommit(() => s.commit(params.threadId));
+  }
+  return result;
 }
 
 const ROLE_LABEL: Record<Message["role"], string> = {
@@ -131,6 +157,7 @@ export const chatHandlers: Record<string, HandlerDef> = {
         mode?: QueueMode;
         replyToMessageId?: string;
         redo?: { messageId: string; instruction?: string; withoutLessons?: boolean };
+        screen?: ChatScreenRef;
       },
     ) => send(call, params, params.mode),
   },

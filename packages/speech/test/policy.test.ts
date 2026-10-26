@@ -35,7 +35,7 @@ function selector(up: { mac?: boolean; whisper?: boolean } = {}) {
     .register(entry("whisper", "gateway", { up: up.whisper ?? true }))
     .register(entry("web-speech", "client"))
     .register(entry("kokoro", "gateway", { synth: true }))
-    .register(entry("openai", "cloud", { synth: true }));
+    .register(entry("elevenlabs", "cloud", { synth: true }));
 }
 
 describe("engine selection policy (Q1, ADR-014)", () => {
@@ -96,9 +96,9 @@ describe("engine selection policy (Q1, ADR-014)", () => {
       voice: "af_heart",
     });
     // A persona pinned to a cloud voice wins even though cloud is not in the default order.
-    expect(await s.select({ purpose: "synthesize", voice: "openai:nova" })).toMatchObject({
-      id: "openai",
-      voice: "nova",
+    expect(await s.select({ purpose: "synthesize", voice: "elevenlabs:rachel" })).toMatchObject({
+      id: "elevenlabs",
+      voice: "rachel",
     });
     // A voice for another engine is not passed to the fallback engine.
     s.configure({ ...DEFAULT_SPEECH_SETTINGS, tts: { order: ["kokoro"] } });
