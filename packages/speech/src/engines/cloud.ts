@@ -13,49 +13,43 @@ import { PCM_24K_MONO } from "../audio.ts";
 import { splitSentences, ssmlToText } from "../ssml.ts";
 
 /**
- * Cloud voices (feature Q3): OpenAI `/v1/audio/speech` and ElevenLabs text-to-speech. Both are
- * opt-in: they are not in the default synthesis order, they send the text off the machine, and
- * their API keys live in the vault. The engine never sees a key value outside the request it
- * builds: `apiKey()` returns a one-shot `ResolvedSecret` (the Gateway resolves
- * `{{cred:openai}}` / `{{cred:elevenlabs}}` after the Permission Broker approved the
+ * Cloud voices (feature Q3): ElevenLabs text-to-speech. It is opt-in: not in the default synthesis
+ * order, it sends the text off the machine, and its API key lives in the vault. The engine never
+ * sees a key value outside the request it builds: `apiKey()` returns a one-shot `ResolvedSecret`
+ * (the Gateway resolves `{{cred:elevenlabs}}` after the Permission Broker approved the
  * `credential_fill`), and the key goes straight into one request header.
  *
- * Both providers are asked for raw 24 kHz mono s16le PCM (OpenAI `response_format: "pcm"`,
- * ElevenLabs `output_format=pcm_24000`), so the voice-note transcoder handles every channel.
+ * ElevenLabs is asked for raw 24 kHz mono s16le PCM (`output_format=pcm_24000`), so the
+ * voice-note transcoder handles every channel.
+ *
+ * OpenAI's voice (`gpt-4o-mini-tts`) was removed: its TTS endpoints shut down on 2027-01-06
+ * (docs/voice/research/cloud-voice-apis.md §2). A saved `openai:` voice ref is retired, see
+ * `isRetiredVoiceRef`.
  */
 
-export type CloudProvider = "openai" | "elevenlabs";
+export type CloudProvider = "elevenlabs";
+
+/** Engines that used to exist; a voice ref naming one falls back to the default voice. */
+export const RETIRED_VOICE_ENGINES = ["openai"] as const;
+
+/** True for an `<engine>:<voice>` ref whose engine was removed (spec §2: OpenAI TTS shutdown). */
+export function isRetiredVoiceRef(ref: unknown): boolean {
+  if (typeof ref !== "string") return false;
+  const colon = ref.indexOf(":");
+  if (colon <= 0) return false;
+  return (RETIRED_VOICE_ENGINES as readonly string[]).includes(ref.slice(0, colon));
+}
 
 export interface CloudTtsOptions {
   provider: CloudProvider;
   apiKey: () => Promise<ResolvedSecret>;
   fetch?: typeof fetch;
-  /** OpenAI: `gpt-4o-mini-tts` (default), `tts-1`, `tts-1-hd`. ElevenLabs: `eleven_flash_v2_5`. */
+  /** Default `eleven_flash_v2_5`. */
   model?: string;
   defaultVoice?: string;
-  /** OpenAI `instructions` (tone), not supported by tts-1 models. */
-  instructions?: string;
   baseUrl?: string;
 }
 
-export const OPENAI_VOICES = [
-  "alloy",
-  "ash",
-  "ballad",
-  "coral",
-  "echo",
-  "fable",
-  "onyx",
-  "nova",
-  "sage",
-  "shimmer",
-  "verse",
-  "marin",
-  "cedar",
-] as const;
-
-/** OpenAI caps `input` at 4096 characters per request. */
-const OPENAI_MAX_INPUT = 4_000;
 const ELEVENLABS_MAX_INPUT = 4_000;
 
 export class CloudTtsEngine implements SpeechEngine {
@@ -81,9 +75,6 @@ export class CloudTtsEngine implements SpeechEngine {
   }
 
   async voices(): Promise<Voice[]> {
-    if (this.#opts.provider === "openai") {
-      return OPENAI_VOICES.map((id) => ({ id, name: id, language: "*", local: false }));
-    }
     // ElevenLabs voices are per account; listing them needs the key.
     const res = await this.#request("/v1/voices", { method: "GET" });
     const doc = (await res.json()) as { voices?: { voice_id: string; name: string }[] };
@@ -101,8 +92,7 @@ export class CloudTtsEngine implements SpeechEngine {
       throw new PsycheError("invalid_params", "cloud voices return 24 kHz mono s16le PCM");
     }
     const plain = ssmlToText(text);
-    const max = this.#opts.provider === "openai" ? OPENAI_MAX_INPUT : ELEVENLABS_MAX_INPUT;
-    for (const piece of packSentences(plain, max)) {
+    for (const piece of packSentences(plain, ELEVENLABS_MAX_INPUT)) {
       const res = await this.#speak(piece, options);
       if (res.body === null) continue;
       let odd: number | undefined;
@@ -142,16 +132,6 @@ export class CloudTtsEngine implements SpeechEngine {
 
   #speak(text: string, options: SynthesizeOptions): Promise<Response> {
     const voice = options.voice ?? this.#opts.defaultVoice;
-    if (this.#opts.provider === "openai") {
-      const body: Record<string, unknown> = {
-        model: this.#opts.model ?? "gpt-4o-mini-tts",
-        input: text,
-        voice: voice ?? "alloy",
-        response_format: "pcm",
-      };
-      if (this.#opts.instructions !== undefined) body.instructions = this.#opts.instructions;
-      return this.#request("/v1/audio/speech", this.#json(body), options.signal);
-    }
     if (voice === undefined) {
       throw new PsycheError("invalid_params", "ElevenLabs needs a voice id");
     }
@@ -169,17 +149,12 @@ export class CloudTtsEngine implements SpeechEngine {
   }
 
   async #request(path: string, init: RequestInit, signal?: AbortSignal): Promise<Response> {
-    const base =
-      this.#opts.baseUrl ??
-      (this.#opts.provider === "openai" ? "https://api.openai.com" : "https://api.elevenlabs.io");
+    const base = this.#opts.baseUrl ?? "https://api.elevenlabs.io";
     const secret = await this.#opts.apiKey();
     let res: Response;
     try {
       const headers = new Headers(init.headers);
-      secret.use((key) => {
-        if (this.#opts.provider === "openai") headers.set("authorization", `Bearer ${key}`);
-        else headers.set("xi-api-key", key);
-      });
+      secret.use((key) => headers.set("xi-api-key", key));
       const req: RequestInit = { ...init, headers };
       if (signal !== undefined) req.signal = signal;
       res = await this.#fetch(new URL(path, base), req);

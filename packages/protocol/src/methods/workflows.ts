@@ -1,7 +1,13 @@
 import { Type } from "@sinclair/typebox";
-import { Id } from "../common.ts";
+import { Id, IsoDateTime } from "../common.ts";
 import { ApprovalRequest } from "../schemas/permissions.ts";
-import { ActionProposal, ActionProposalStatus } from "../schemas/workflows.ts";
+import {
+  ActionProposal,
+  ActionProposalStatus,
+  MeetingNotesResult,
+  MeetingRecordingStatus,
+  RecordingSpeakers,
+} from "../schemas/workflows.ts";
 import { SurfaceAnswerToken } from "./approvals.ts";
 import { defineMethod, nextCursor, pageParams } from "./define.ts";
 
@@ -55,5 +61,57 @@ export const ProposalsMethods = {
     sideEffecting: true,
     description:
       "Offers the inverse proposal of a finished one (reversible mail actions only, within 30 s); it needs its own approval. Side-effecting.",
+  }),
+} as const;
+
+/**
+ * `meetings.*`: post-meeting notes (docs/workflows/mail-and-meetings-2026.md §4.6). Notes start
+ * only from audio the owner chose: a Library item, or a recording the owner started with
+ * "Record meeting" after confirming the consent line. Progress and the finished notes arrive as
+ * `meetings.recording.updated` and the `meeting_notes` Feed post.
+ */
+export const MeetingsMethods = {
+  "meetings.notes.create": defineMethod({
+    params: Type.Object({
+      /** A recording or audio file in the Library (dropped into chat or the Library). */
+      libraryItemId: Id,
+      /** When the recording started; default the item's creation time. */
+      startedAt: Type.Optional(IsoDateTime),
+      title: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
+      /** Default `others`: a meeting is other people's words, so the notes are untrusted. */
+      speakers: Type.Optional(RecordingSpeakers),
+    }),
+    result: MeetingNotesResult,
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Writes meeting notes from a Library recording: transcribed on the Mac (up to 4 h), matched to the overlapping calendar event, summarized into one meeting_notes Feed post. Proposes, never sends. Side-effecting.",
+  }),
+  "meetings.record.status": defineMethod({
+    params: Type.Object({}),
+    result: MeetingRecordingStatus,
+    scope: "operator.read",
+    description:
+      "Whether Record meeting is available and running, the consent line to show before a start, and the last recording's notes.",
+  }),
+  "meetings.record.start": defineMethod({
+    params: Type.Object({
+      /** True only after the owner confirmed "I've told everyone"; anything else is refused. */
+      consentConfirmed: Type.Boolean(),
+      meetingId: Type.Optional(Type.String({ maxLength: 512 })),
+    }),
+    result: MeetingRecordingStatus,
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Starts recording a meeting with the helper microphone, only after the owner confirmed the consent line. Stops by itself after 5 minutes of silence or when the conference app quits. Side-effecting.",
+  }),
+  "meetings.record.stop": defineMethod({
+    params: Type.Object({}),
+    result: MeetingRecordingStatus,
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Stops the running recording; its notes are written in the background (meetings.recording.updated, then the meeting_notes post). Side-effecting.",
   }),
 } as const;

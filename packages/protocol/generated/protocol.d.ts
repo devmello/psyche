@@ -1320,12 +1320,12 @@ export interface Delivery {
 export type AutomationKind = "cron" | "interval" | "watch" | "heartbeat" | "briefing" | "reminder" | "event";
 
 export interface AutomationSpecialist {
-    budget?:  SpecialistBudget;
+    budget?:  SpecialistBudgetSetting;
     deliver?: Deliver;
     role:     string;
 }
 
-export interface SpecialistBudget {
+export interface SpecialistBudgetSetting {
     costUsd?: number;
     minutes?: number;
     tokens?:  number;
@@ -1457,6 +1457,7 @@ export interface AutomationsCreateParams {
      * main | isolated | named:<id>
      */
     sessionTarget?: string;
+    specialist?:    AutomationSpecialist;
     /**
      * IANA zone; defaults to the Gateway's
      */
@@ -1540,6 +1541,7 @@ export interface AutomationsUpdateParams {
      * main | isolated | named:<id>
      */
     sessionTarget?: string;
+    specialist?:    AutomationSpecialist | null;
     /**
      * IANA zone; defaults to the Gateway's
      */
@@ -4442,6 +4444,52 @@ export interface MCPStatusResult {
 
 export type Launcher = "srt" | "container" | "none";
 
+export interface MeetingNotesResult {
+    notes?:               MeetingNotes;
+    postId?:              string;
+    question?:            string;
+    remindersProposalId?: null | string;
+    status:               MeetingNotesResultStatus;
+}
+
+export type MeetingNotesResultStatus = "done" | "needs_permission";
+
+export interface MeetingRecordingStatus {
+    available:   boolean;
+    consentLine: string;
+    last?:       MeetingRecordingEnded;
+    meetingId?:  null | string;
+    recording:   boolean;
+    startedAt?:  null | string;
+}
+
+export interface MeetingRecordingEnded {
+    durationMs: number;
+    error?:     string;
+    notes:      Notes;
+    postId?:    string;
+    reason:     MeetingRecordingEndedReason;
+    startedAt:  string;
+}
+
+export type Notes = "processing" | "done" | "needs_permission" | "failed";
+
+export type MeetingRecordingEndedReason = "stopped" | "source_ended" | "silence" | "app_quit";
+
+export interface MeetingsNotesCreateParams {
+    libraryItemId: string;
+    speakers?:     RecordingSpeakers;
+    startedAt?:    string;
+    title?:        string;
+}
+
+export type RecordingSpeakers = "owner_only" | "others";
+
+export interface MeetingsRecordStartParams {
+    consentConfirmed: boolean;
+    meetingId?:       string;
+}
+
 export interface MemoryClaimsConfirmParams {
     claimId: string;
 }
@@ -7130,12 +7178,6 @@ export interface SpecialistRole {
     skill:  string;
     source: SkillSource;
     tools:  string[];
-}
-
-export interface SpecialistBudgetSetting {
-    costUsd?: number;
-    minutes?: number;
-    tokens?:  number;
 }
 
 export interface Caps {
