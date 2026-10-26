@@ -3,6 +3,7 @@ import { ArrowDown } from "lucide-react";
 import * as m from "motion/react-m";
 import { type ReactElement, type ReactNode, useEffect } from "react";
 import { Avatar } from "../avatar/Avatar.tsx";
+import { DelayedSkeleton } from "../components/DelayedSkeleton.tsx";
 import { StatusGlyph } from "../components/status.tsx";
 import {
   useApproval,
@@ -46,13 +47,7 @@ import { WrapUpBox } from "./WrapUp.tsx";
 type BlockTarget = "approval" | "question" | "receipt" | "artifact" | "file" | "task" | "plan";
 
 function Skeleton({ what }: { what: BlockTarget }): ReactElement {
-  return (
-    <div
-      className="my-2 h-12 max-w-md animate-pulse rounded-lg bg-gray-3"
-      role="status"
-      aria-label={t("blocks.message.loading", { what })}
-    />
-  );
+  return <DelayedSkeleton label={t("blocks.message.loading", { what })} />;
 }
 
 function Missing({ what }: { what: BlockTarget }): ReactElement {
