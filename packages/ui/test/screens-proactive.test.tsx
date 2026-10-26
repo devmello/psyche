@@ -75,7 +75,7 @@ describe("FeedScreen", () => {
     const briefing = screen.getByRole("article", { name: "Two things before your 10:00" });
     expect(within(briefing).getByText("Briefing")).toBeTruthy();
     expect(within(briefing).getByText("Sources (3)")).toBeTruthy();
-    for (const name of ["Like", "Save", "Ask Wren"]) {
+    for (const name of ["Like", "Save", "Ask about this"]) {
       expect(within(briefing).getByRole("button", { name })).toBeTruthy();
     }
     // Follow, Not interested and Hide source sit under ⋯ (§3.9).
@@ -135,7 +135,7 @@ describe("FeedScreen", () => {
     );
   });
 
-  it("navigates to the instructions editor and asks the persona about a post", async () => {
+  it("navigates to the instructions editor and asks about a post", async () => {
     const onAsk = vi.fn();
     const { navigate, user } = setup(<FeedScreen onAsk={onAsk} />);
     await user.click(await screen.findByRole("button", { name: "What should I write about" }));
@@ -145,7 +145,7 @@ describe("FeedScreen", () => {
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     const card = screen.getByRole("article", { name: "Two things before your 10:00" });
-    await user.click(within(card).getByRole("button", { name: "Ask Wren" }));
+    await user.click(within(card).getByRole("button", { name: "Ask about this" }));
     expect(onAsk).toHaveBeenCalledWith(expect.objectContaining({ id: IDS.feed.briefing }));
   });
 

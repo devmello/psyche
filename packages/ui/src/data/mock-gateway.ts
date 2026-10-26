@@ -1125,7 +1125,21 @@ export class MockGateway implements GatewayClient {
     }),
     "chat.send": (p) => {
       const busy = this.world.runs.some((r) => r.threadId === p.threadId && r.status === "running");
-      const message = this.commitMessage(p.threadId, "user", [{ type: "text", md: p.content }]);
+      const about = p.context && this.world.feed.find((f) => f.id === p.context?.id);
+      const message = this.commitMessage(p.threadId, "user", [
+        ...(about
+          ? [
+              {
+                type: "context" as const,
+                kind: "feed_item" as const,
+                id: about.id,
+                title: about.title,
+                ...(about.citations[0] ? { url: about.citations[0].url } : {}),
+              },
+            ]
+          : []),
+        { type: "text", md: p.content },
+      ]);
       return { messageId: message.id, runId: null, queued: busy };
     },
     "chat.greet": (p) => ({

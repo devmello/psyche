@@ -25,6 +25,7 @@ import { LearnedLine, TaughtLine } from "../teaching/TaughtLine.tsx";
 import { focusApproval } from "./ApprovalCard.tsx";
 import { ArtifactCard, FileCard } from "./ArtifactCard.tsx";
 import { Checklist, PlanCard } from "./Checklist.tsx";
+import { ContextCard } from "./ContextCard.tsx";
 import { useEntersLater } from "./card-enter.tsx";
 import { Markdown } from "./Markdown.tsx";
 import { QuestionCard } from "./QuestionCard.tsx";
@@ -333,6 +334,7 @@ registerBlock("artifact", {
 registerBlock("file", {
   View: ({ block }) => <FileBlockView libraryItemId={block.libraryItemId} />,
 });
+registerBlock("context", { View: ({ block }) => <ContextCard block={block} /> });
 registerBlock("receipt", { View: ({ block }) => <ReceiptBlockView receiptId={block.receiptId} /> });
 registerBlock("task", { View: ({ block }) => <TaskBlockView taskId={block.taskId} /> });
 registerBlock("wrap_up", {

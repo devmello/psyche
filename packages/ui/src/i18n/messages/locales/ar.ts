@@ -2517,7 +2517,6 @@ export const ar: Partial<Catalogue> = {
   "screens.feed.sources": "المصادر",
   "screens.feed.feedbackOn": "ملاحظات على {title}",
   "screens.feed.like": "إعجاب",
-  "screens.feed.ask": "اسأل {name}",
   "screens.feed.moreFeedback": "مزيد من الملاحظات على {title}",
   "screens.feed.follow": "متابعة: {topic}",
   "screens.feed.followTopic": "متابعة الموضوع",

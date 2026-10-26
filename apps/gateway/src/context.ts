@@ -1,6 +1,8 @@
 import type { PsycheDb } from "@psyche/db";
 import type {
   AgentLoop,
+  Block,
+  ChatContextRef,
   ChatScreenRef,
   DeviceScope,
   EventName,
@@ -97,6 +99,17 @@ export type ChatScreenResolver = (
   caller: { deviceId: string; threadId: string },
 ) => ResolvedScreen;
 
+/** What a `chat.send.context` adds to the turn (Feed "Ask about this"). */
+export interface ResolvedChatContext {
+  /** Untrusted text the agent reads ahead of the message; not in the transcript as text. */
+  preamble: string;
+  /** The compact card the user message carries in the transcript. */
+  block: Extract<Block, { type: "context" }>;
+  taintSources: TaintSource[];
+}
+
+export type ChatContextResolver = (ref: ChatContextRef) => ResolvedChatContext;
+
 export interface GatewayContext {
   readonly config: GatewayConfig;
   readonly db: PsycheDb;
@@ -148,6 +161,11 @@ export interface GatewayContext {
    * the turn gets. The screen-ask part sets it; without one a send naming a capture is refused.
    */
   readonly chatScreen: { resolve: ChatScreenResolver | null };
+  /**
+   * Ask about this (Feed): resolves `chat.send.context` to what the turn gets. The proactive part
+   * sets it; without one a send naming a context is refused.
+   */
+  readonly chatContext: { resolve: ChatContextResolver | null };
   serverOrigin(): string;
   connections(): Iterable<LiveConnection>;
 }

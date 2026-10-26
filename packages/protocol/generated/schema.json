@@ -8721,6 +8721,9 @@
           "$ref": "#/$defs/FileBlock"
         },
         {
+          "$ref": "#/$defs/ContextBlock"
+        },
+        {
           "$ref": "#/$defs/ReceiptBlock"
         },
         {
@@ -10709,6 +10712,25 @@
       ],
       "type": "object"
     },
+    "ChatContextRef": {
+      "properties": {
+        "kind": {
+          "const": "feed_item",
+          "type": "string"
+        },
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "type": "object"
+    },
     "ChatDeltaPayload": {
       "properties": {
         "threadId": {
@@ -11097,6 +11119,9 @@
         },
         "screen": {
           "$ref": "#/$defs/ChatScreenRef"
+        },
+        "context": {
+          "$ref": "#/$defs/ChatContextRef"
         }
       },
       "required": [
@@ -12248,6 +12273,43 @@
       "required": [
         "connector",
         "reason"
+      ],
+      "type": "object"
+    },
+    "ContextBlock": {
+      "properties": {
+        "type": {
+          "const": "context",
+          "type": "string"
+        },
+        "kind": {
+          "const": "feed_item",
+          "type": "string"
+        },
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 300,
+          "type": "string"
+        },
+        "url": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "source": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "kind",
+        "id",
+        "title"
       ],
       "type": "object"
     },

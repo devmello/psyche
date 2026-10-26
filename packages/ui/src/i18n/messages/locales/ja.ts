@@ -2502,7 +2502,6 @@ export const ja: Partial<Catalogue> = {
   "screens.feed.sources": "ソース",
   "screens.feed.feedbackOn": "{title}へのフィードバック",
   "screens.feed.like": "いいね",
-  "screens.feed.ask": "{name}に聞く",
   "screens.feed.moreFeedback": "{title}へのその他のフィードバック",
   "screens.feed.follow": "フォロー：{topic}",
   "screens.feed.followTopic": "トピックをフォロー",

@@ -2487,7 +2487,6 @@ export const ko: Partial<Catalogue> = {
   "screens.feed.sources": "출처",
   "screens.feed.feedbackOn": "{title}에 대한 피드백",
   "screens.feed.like": "좋아요",
-  "screens.feed.ask": "{name}에게 묻기",
   "screens.feed.moreFeedback": "{title}에 대한 추가 피드백",
   "screens.feed.follow": "팔로우: {topic}",
   "screens.feed.followTopic": "주제 팔로우",

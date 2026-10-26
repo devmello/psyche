@@ -2533,7 +2533,6 @@ export const it: Partial<Catalogue> = {
   "screens.feed.sources": "Fonti",
   "screens.feed.feedbackOn": "Feedback su {title}",
   "screens.feed.like": "Mi piace",
-  "screens.feed.ask": "Chiedi a {name}",
   "screens.feed.moreFeedback": "Altro feedback su {title}",
   "screens.feed.follow": "Segui: {topic}",
   "screens.feed.followTopic": "Segui argomento",
