@@ -40,7 +40,6 @@ import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState
 import { useShellComposerVoice } from "../shell/components/composer-voice.ts";
 import { ConnectedStartupSplash } from "../shell/components/StartupSplash.tsx";
 import { TitleBar } from "../shell/components/TitleBar.tsx";
-import { useShellVoiceTerminal } from "../shell/components/voice-terminal.ts";
 import type { ShellPlatform, SystemAppearance } from "../shell/platform.ts";
 import { type ChatSlotContext, ShellApp, type ShellSlots } from "../shell/ShellApp.tsx";
 import { chatFileSlots } from "./attachments.tsx";
@@ -75,16 +74,13 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
   // File blocks open in the Files pane (P4); a ref keeps the slots stable across renders.
   const openPane = useRef(ctx.openPane);
   openPane.current = ctx.openPane;
-  const voiceTerminal = useShellVoiceTerminal();
   const fileSlots = useMemo(
     () => ({
       ...chatFileSlots((pane, target) => openPane.current(pane, target)),
-      // Composer dictation and voice mode (#690): the shell's capture, drawn by the kit.
+      // Composer dictation (#690): the shell's capture, drawn by the kit.
       useComposerVoice: useShellComposerVoice,
-      // Voice conversation (voice-mode-2026 §6.1): the renderer is the audio terminal.
-      voiceTerminal,
     }),
-    [voiceTerminal],
+    [],
   );
   return (
     <UiSlotsProvider value={fileSlots}>

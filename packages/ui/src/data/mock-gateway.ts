@@ -280,8 +280,6 @@ export class MockGateway implements GatewayClient {
   private latency: number;
   private now: () => string;
   private counter = 0;
-  /** The open voice conversation (`voice.conversation.start`), for scripted events. */
-  voiceConversation: string | null = null;
   private skillProposals = new Map<string, SkillProposal>();
   /** Settings → MCP (#529): added servers and probes waiting for their trust card. */
   readonly mcpServers: McpServerStatus[] = [];
@@ -1158,20 +1156,6 @@ export class MockGateway implements GatewayClient {
         mime: markdown ? "text/markdown" : "application/vnd.psyche-trace+json",
         dataBase64: toBase64(new TextEncoder().encode(text)),
       };
-    },
-    // Voice conversation (voice-mode-2026 §7): one per device; stories script the events.
-    "voice.conversation.start": () => {
-      this.counter += 1;
-      this.voiceConversation = `vc_mock_${this.counter}`;
-      return { conversationId: this.voiceConversation, engine: "mock", location: "node" as const };
-    },
-    "voice.conversation.audio": () => ({}),
-    "voice.conversation.turn": () => ({}),
-    "voice.conversation.interrupt": () => ({}),
-    "voice.conversation.played": () => ({}),
-    "voice.conversation.stop": (p) => {
-      if (this.voiceConversation === p.conversationId) this.voiceConversation = null;
-      return { ok: true as const };
     },
     "runs.delete": (p) => {
       this.find(this.world.runs, p.runId, "run");

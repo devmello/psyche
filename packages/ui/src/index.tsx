@@ -333,53 +333,23 @@ export {
 export * from "./teaching/index.ts";
 // Theme and data layer.
 export * from "./theme/index.ts";
-// Voice (voice-mode-2026 §6, §8 V-U).
+// Voice: composer dictation and the screen-request phrases (Psyche answers in text).
 export {
   type ComposerDictation,
   type ComposerVoice,
   ComposerVoiceBar,
   ComposerVoiceButtons,
-  type ComposerVoiceMode,
   type UseComposerVoice,
 } from "./voice/controls.tsx";
-export { useVoiceConversation, type VoiceConversation } from "./voice/conversation.ts";
-export { FakeVoiceTerminal } from "./voice/fake-terminal.ts";
 export {
-  envelope,
-  glowFor,
-  Lantern,
-  type LanternProps,
-  type LanternState,
-} from "./voice/Lantern.tsx";
-export {
-  matchApproval,
   mentionsScreen,
   normalizeUtterance,
   type VoicePhraseList,
   voicePhrases,
 } from "./voice/phrases.ts";
 export {
-  IDLE_SESSION,
-  micOn,
-  sessionActive,
-  useVoiceSession,
-  type VoiceAction,
-  type VoicePhase,
-  type VoiceSession,
-  voiceReducer,
-} from "./voice/session.ts";
-export {
-  LEGACY_START_KEY,
-  migrateVoiceSettings,
   readVoiceSettings,
   VOICE_DEFAULTS,
+  VOICE_KEYS,
   type VoiceSettings,
 } from "./voice/settings.ts";
-export type { VoiceTerminal } from "./voice/terminal.ts";
-export {
-  lanternState,
-  stateLabel as voiceStateLabel,
-  VoiceCapsule,
-  type VoiceCapsuleProps,
-} from "./voice/VoiceCapsule.tsx";
-export { VoiceHudView, type VoiceHudViewProps } from "./voice/VoiceHudView.tsx";
