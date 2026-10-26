@@ -2,6 +2,7 @@ import type { Catalogue } from "../../index.ts";
 
 /** Output canvas strings (ko); merged into `../ko.ts`. */
 export const canvas: Partial<Catalogue> = {
+  "canvas.chart": "차트",
   "canvas.label": "캔버스: {title}",
   "canvas.recents": "최근 결과물",
   "canvas.loading": "불러오는 중…",

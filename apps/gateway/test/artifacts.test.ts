@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { openDb, type PsycheDb } from "@psyche/db";
 import type { Artifact, ArtifactVersion } from "@psyche/protocol";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { applyOps, parseCell, parseTable } from "../src/artifacts/ops.ts";
+import { applyOps, mergePatch, parseCell, parseTable } from "../src/artifacts/ops.ts";
 import { ArtifactStore, SNAPSHOT_EVERY } from "../src/artifacts/store.ts";
 import { artifactContextProvider, artifactTools, windowOf } from "../src/compose/artifacts.ts";
 
@@ -68,6 +68,62 @@ describe("artifact ops", () => {
     const w = windowOf(text);
     expect([w.from, w.to, w.totalLines, w.truncated]).toEqual([1, 400, 1000, true]);
     expect(windowOf(text, 998, 2000)).toMatchObject({ from: 998, to: 1000, truncated: false });
+  });
+});
+
+describe("chart, diagram and diff artifacts", () => {
+  const chart = JSON.stringify({
+    kind: "bar",
+    categories: ["Q1", "Q2"],
+    series: [{ name: "Sales", values: [3, 5] }],
+  });
+
+  it("merge-patches a chart and validates the result", () => {
+    const r = applyOps("chart", chart, null, [
+      {
+        op: "patch",
+        patch: { kind: "line", title: "Sales", series: [{ name: "Sales", values: [3, 6] }] },
+      },
+    ]);
+    expect(JSON.parse(r.content)).toMatchObject({
+      kind: "line",
+      title: "Sales",
+      series: [{ values: [3, 6] }],
+    });
+    // null removes a key
+    expect(
+      JSON.parse(
+        applyOps("chart", r.content, null, [{ op: "patch", patch: { title: null } }]).content,
+      ),
+    ).not.toHaveProperty("title");
+    expect(() =>
+      applyOps("chart", chart, null, [
+        { op: "patch", patch: { series: [{ name: "S", values: [1] }] } },
+      ]),
+    ).toThrow(/1 values for 2 categories/);
+    expect(() => applyOps("chart", chart, null, [{ op: "replace", old: "a", new: "b" }])).toThrow(
+      /does not apply to a chart/,
+    );
+    expect(() => applyOps("chart", "{", null, [])).toThrow(/valid JSON/);
+  });
+
+  it("ignores prototype keys in a patch", () => {
+    const out = mergePatch({}, JSON.parse('{"__proto__":{"x":1},"a":1}')) as Record<
+      string,
+      unknown
+    >;
+    expect(out.a).toBe(1);
+    expect(({} as Record<string, unknown>).x).toBeUndefined();
+  });
+
+  it("treats diagram and diff content as text", () => {
+    expect(
+      applyOps("diagram", "graph TD\n A-->B", null, [{ op: "replace", old: "B", new: "C" }])
+        .content,
+    ).toBe("graph TD\n A-->C");
+    expect(
+      applyOps("diff", "+a\n", null, [{ op: "insert", after: "+a\n", text: "+b\n" }]).content,
+    ).toBe("+a\n+b\n");
   });
 });
 
@@ -225,6 +281,30 @@ describe("ArtifactStore", () => {
     expect(text).toContain('ops [{"op":"replace","old":"secret","new":"public"}]');
     const again = await provider.provide(input);
     expect(again?.sections[0]?.text).not.toContain("edited these");
+  });
+
+  it("stores a chart, summarises it and patches it as one version", async () => {
+    const w = await store.create(
+      {
+        type: "chart",
+        title: "Sales",
+        content: JSON.stringify({
+          kind: "bar",
+          categories: ["Q1"],
+          series: [{ name: "S", values: [1] }],
+        }),
+      },
+      agent,
+    );
+    expect(w.ref.summary).toBe("bar chart, 1 series × 1 points");
+    const u = await store.update(
+      w.artifact.id,
+      1,
+      [{ op: "patch", patch: { kind: "pie" } }],
+      agent,
+    );
+    expect(u.ref.version).toBe(2);
+    expect(JSON.parse(store.contentAt(w.artifact.id).content).kind).toBe("pie");
   });
 
   it("keeps the model's token cost flat: refs and patches, not bodies (§4.3)", async () => {

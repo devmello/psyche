@@ -146,11 +146,18 @@ export function artifactHandlers(store: ArtifactStore): Record<string, HandlerDe
 }
 
 const CreateInput = Type.Object({
-  type: Type.Union([Type.Literal("doc"), Type.Literal("code"), Type.Literal("table")]),
+  type: Type.Union([
+    Type.Literal("doc"),
+    Type.Literal("code"),
+    Type.Literal("table"),
+    Type.Literal("chart"),
+    Type.Literal("diagram"),
+    Type.Literal("diff"),
+  ]),
   title: Type.String({ minLength: 1, maxLength: 200 }),
   content: Type.String({
     description:
-      "doc: markdown. code: the source. table: CSV with a header row, or JSON {columns, rows}.",
+      "doc: markdown. code: the source. table: CSV with a header row, or JSON {columns, rows}. chart: JSON {kind: bar|line|area|pie, categories, series: [{name, values}]}. diagram: Mermaid text. diff: a unified diff.",
   }),
   language: Type.Optional(Type.String({ maxLength: 40, description: "code only, e.g. ts, py" })),
 });
@@ -221,7 +228,7 @@ export function artifactTools(store: ArtifactStore): AgentToolRegistration[] {
           (ctx as Partial<TurnToolContext>).turn?.emitBlock({
             type: "artifact",
             artifactId: w.artifact.id,
-            preview: p.type === "table" ? "sheet" : "markdown",
+            preview: p.type === "table" ? "sheet" : p.type === "chart" ? "dashboard" : "markdown",
           });
           return { output: w.ref, provenance: "trusted" };
         } catch (e) {
@@ -232,7 +239,7 @@ export function artifactTools(store: ArtifactStore): AgentToolRegistration[] {
     defineTool({
       name: "artifact.update",
       description:
-        'Edit a canvas artifact with small ops on version `base`. Text: {op:"replace", old, new} (old must match exactly once; include enough context), {op:"insert", after, text} (after="" inserts at the start), {op:"rewrite", content} only when most of it changes. Tables (A1 = first data row): {op:"set", cell:"B3", value}, {op:"setRange", range, values}, {op:"addRows", rows, at?}, {op:"deleteRows", at, count}, {op:"addColumn", name, values?}, {op:"view", view:{sort?, filter?}}. If the user edited it since `base`, you get a conflict with what changed; nothing is written.',
+        'Edit a canvas artifact with small ops on version `base`. Text: {op:"replace", old, new} (old must match exactly once; include enough context), {op:"insert", after, text} (after="" inserts at the start), {op:"rewrite", content} only when most of it changes. Charts: {op:"patch", patch} is a JSON merge patch onto the spec (arrays are replaced whole; null deletes a key). Tables (A1 = first data row): {op:"set", cell:"B3", value}, {op:"setRange", range, values}, {op:"addRows", rows, at?}, {op:"deleteRows", at, count}, {op:"addColumn", name, values?}, {op:"view", view:{sort?, filter?}}. If the user edited it since `base`, you get a conflict with what changed; nothing is written.',
       input: UpdateInput,
       sideEffect: "none",
       describeCall: (p) => ({ summary: `Edited artifact (${p.ops.length} ops)` }),

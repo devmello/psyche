@@ -1106,6 +1106,23 @@ export interface ArtifactBlock {
 
 export type ArtifactBlockType = "artifact";
 
+export interface ArtifactChart {
+    categories: string[];
+    kind:       ArtifactChartKind;
+    series:     Series[];
+    stacked?:   boolean;
+    title?:     string;
+    xLabel?:    string;
+    yLabel?:    string;
+}
+
+export type ArtifactChartKind = "bar" | "line" | "area" | "pie";
+
+export interface Series {
+    name:   string;
+    values: (number | null)[];
+}
+
 export interface ArtifactTable {
     columns: string[];
     rows:    Array<ArtifactCell[]>;
@@ -1133,7 +1150,7 @@ export interface Artifact {
     version:       number;
 }
 
-export type ArtifactType = "markdown" | "html" | "react" | "pdf" | "sheet" | "itinerary" | "dashboard" | "doc" | "code" | "table" | "image";
+export type ArtifactType = "markdown" | "html" | "react" | "pdf" | "sheet" | "itinerary" | "dashboard" | "doc" | "code" | "table" | "image" | "chart" | "diagram" | "diff";
 
 export interface ArtifactVersion {
     artifactId:    string;
@@ -1170,9 +1187,10 @@ export interface ArtifactOp {
     count?:   number;
     name?:    string;
     view?:    ArtifactTableView;
+    patch?:   { [key: string]: unknown };
 }
 
-export type Op = "replace" | "insert" | "rewrite" | "set" | "setRange" | "addRows" | "deleteRows" | "addColumn" | "view";
+export type Op = "replace" | "insert" | "rewrite" | "set" | "setRange" | "addRows" | "deleteRows" | "addColumn" | "view" | "patch";
 
 export type ValueElement = ArtifactCell[] | boolean | number | null | string;
 

@@ -18,6 +18,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (chat experience phase 5: chart, diagram and diff artifacts, docs/design/chat-experience-2026.md §4.2)
+
+- `ArtifactType` gains `chart`, `diagram` and `diff` (appended). `html` already existed; it joins them behind the sandbox in a later PR.
+- New `ArtifactChart` (the `chart` artifact's JSON content: `{kind: bar | line | area | pie, categories, series[], …}`, rendered by the client, never model JS) and the `ArtifactOp` variant `patch {patch}` (JSON merge patch onto a chart spec).
+- `diagram` content is Mermaid text and `diff` content a unified diff; both take the text ops. Swift enums regenerate; no hand-written switch sites.
 ### v1 additive — 2026-10-26 (U, #672: one source for the mail and meeting setting defaults)
 
 - New plain export `MAIL_MEETING_SETTING_DEFAULTS` (and `MailMeetingSettingKey`): the value each `mail.*`, `meetings.*` and `workflows.*` setting has when unset. The Gateway and Settings → Mail & meetings both read it. No schema, method or event changes, so nothing to regenerate.

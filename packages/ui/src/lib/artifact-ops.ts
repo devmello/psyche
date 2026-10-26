@@ -154,6 +154,15 @@ export function applyOpsLocal(
     }
     return { content: JSON.stringify(t), view: v };
   }
+  if (type === "chart") {
+    let c = JSON.parse(content) as Record<string, unknown>;
+    for (const op of ops) {
+      if (op.op === "patch") c = { ...c, ...op.patch };
+      else if (op.op === "rewrite") c = JSON.parse(op.content) as Record<string, unknown>;
+      else throw new Error(`${op.op} does not apply to a chart`);
+    }
+    return { content: JSON.stringify(c), view: null };
+  }
   let text = content;
   for (const op of ops) {
     if (op.op === "rewrite") text = op.content;
