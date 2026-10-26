@@ -3,6 +3,7 @@ import { activeI18n, t } from "@psyche/ui";
 import { type ReactElement, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useShell, useShellState } from "../context.tsx";
 import type { BrowserHostState, BrowserPort, BrowserTabView } from "../platform.ts";
+import { openNewTab } from "./browser-new-tab.ts";
 
 /**
  * Browser pane chrome (docs/06 §3.5; features I1, I5, I6, I11). The live page is a native
@@ -150,6 +151,8 @@ function DesktopBrowserPane(props: {
   const state = useBrowserState(port);
   const viewport = useRef<HTMLDivElement>(null);
   const [findText, setFindText] = useState<string | null>(null);
+  // The new-tab address field; null while closed. Electron has no window.prompt().
+  const [newTabText, setNewTabText] = useState<string | null>(null);
   const approvals = useShellState((s) => s.approvals);
   const tab: BrowserTabView | undefined = state.tabs.find((x) => x.tabId === state.activeTabId);
 
@@ -237,11 +240,9 @@ function DesktopBrowserPane(props: {
           type="button"
           className="pill"
           aria-label={t("web.browser.newTab")}
-          onClick={() => {
-            const url = window.prompt(t("web.browser.openUrl"), "https://");
-            if (url)
-              void port.openTab(url).catch(() => store.toast(t("web.browser.httpOnly"), "warn"));
-          }}
+          aria-expanded={newTabText !== null}
+          data-testid="browser-new-tab"
+          onClick={() => setNewTabText((x) => (x === null ? "" : null))}
         >
           +
         </button>
@@ -255,6 +256,32 @@ function DesktopBrowserPane(props: {
           ×
         </button>
       </div>
+      {newTabText !== null ? (
+        <form
+          style={{ display: "flex", gap: 4, padding: "0 4px 4px" }}
+          data-testid="browser-new-tab-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void openNewTab(port, newTabText).then((r) => {
+              if (r.ok) setNewTabText(null);
+              else store.toast(t("web.browser.httpOnly"), "warn");
+            });
+          }}
+        >
+          <input
+            // biome-ignore lint/a11y/noAutofocus: opened on demand
+            autoFocus
+            value={newTabText}
+            aria-label={t("web.browser.openUrl")}
+            placeholder={t("web.browser.openUrl")}
+            onChange={(e) => setNewTabText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setNewTabText(null);
+            }}
+            style={{ flex: 1 }}
+          />
+        </form>
+      ) : null}
       {tab ? (
         <>
           <div

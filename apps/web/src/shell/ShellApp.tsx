@@ -2,6 +2,7 @@ import type { Thread } from "@psyche/protocol";
 import {
   AGENT_PANEL_MIN_CONTENT,
   AGENT_PANEL_WIDTH,
+  BrowserToggle,
   CompactTopBar,
   clampSidebarWidth,
   destinationFor,
@@ -66,7 +67,9 @@ import {
   type LayoutEnv,
   type LayoutStore,
   type PaneInstance,
+  parsePopOutRoute,
   randomIds,
+  showBrowser,
   toViewLayout,
 } from "./layout/index.ts";
 import type { GatewayRunView, ShellPlatform, WindowChrome } from "./platform.ts";
@@ -496,6 +499,18 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     [layout, threadId, env],
   );
 
+  // The browser icon, ⌘K and ⌥⌘B-style shortcut: always shows the built-in browser, docking it
+  // again if its pop-out window is gone.
+  const openBrowser = useCallback(async () => {
+    if (!threadId) return;
+    await showBrowser({
+      threadId,
+      state: layout.forThread(threadId),
+      dispatch,
+      ...(platform.windows?.focusPopOut ? { focusPopOut: platform.windows.focusPopOut } : {}),
+    });
+  }, [layout, threadId, dispatch, platform.windows]);
+
   // A chat link's "Open in Psyche": a tab in the built-in browser, shown in the pane. Without a
   // browser (the web build) or an open thread it goes to the default browser instead.
   const openInPsyche = useCallback(
@@ -503,11 +518,11 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       const browser = platform.browser;
       if (browser && threadId) {
         await browser.openTab(url);
-        dispatch({ type: "open", pane: "browser" });
+        await openBrowser();
       } else if (platform.external) await platform.external.open(url);
       else globalThis.open?.(url, "_blank", "noopener,noreferrer");
     },
-    [platform, threadId, dispatch],
+    [platform, threadId, openBrowser],
   );
   const kitSlots = useMemo<UiSlots>(
     () => ({ navigate, prefillComposer, openInPsyche }),
@@ -612,6 +627,12 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         if (c.type === "newSideChat") newSideChat();
         if (c.type === "palette") setOverlay("palette");
         if (c.type === "prefillComposer") prefillComposer(c.text);
+        if (c.type === "popOutClosed") {
+          // The pane's window is gone: dock it again, on the thread it was popped out of.
+          const target = parsePopOutRoute(c.route);
+          if (target && !popOutPane)
+            layout.dispatch(target.threadId, { type: "popIn", paneId: target.paneId }, env());
+        }
         if (c.type === "closeThreadView") {
           if (popOutPane || route === "/quick") platform.windows?.closeWindow();
           else if (routeThreadId && routeThreadId !== mainThread?.id) navigate("/chat");
@@ -622,6 +643,8 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       navigate,
       newSideChat,
       prefillComposer,
+      layout,
+      env,
       popOutPane,
       route,
       routeThreadId,
@@ -650,7 +673,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
           if (!compact) toggleSidebarMode();
           return true;
         case "openBrowserPane":
-          dispatch({ type: "open", pane: "browser" });
+          void openBrowser();
           return true;
         case "openDiffPane":
           dispatch({ type: "open", pane: "diff" });
@@ -718,6 +741,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     [
       newSideChat,
       dispatch,
+      openBrowser,
       threadId,
       layout,
       cycleMode,
@@ -750,7 +774,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     {
       id: "browser",
       label: t("web.palette.openBrowser"),
-      run: () => dispatch({ type: "open", pane: "browser" }),
+      run: () => void openBrowser(),
     },
     {
       id: "terminal",
@@ -850,6 +874,17 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       className="shell-sidebar-toggle"
     />
   );
+  // Next to the sidebar toggle: the built-in browser's always-there entry (desktop only).
+  const browserToggle =
+    platform.browser && onChat && threadId ? (
+      <BrowserToggle onOpen={() => void openBrowser()} className="ms-1" />
+    ) : null;
+  const chromeToggles = (
+    <>
+      {sidebarToggle}
+      {browserToggle}
+    </>
+  );
   const openThread = (id: string) => navigate(`/chat/${id}`);
   const threadsFor = (onOpen: (id: string) => void) =>
     slots.threadList ? (
@@ -868,7 +903,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       onWidthChange: resizeSidebar,
       mode: sidebarMode,
       onModeChange: setSidebarMode,
-      ...(inset ? {} : { header: sidebarToggle }),
+      ...(inset ? {} : { header: chromeToggles }),
     })
   ) : (
     <ShellSidebar
@@ -876,7 +911,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       onNavigate={navigate}
       width={sidebarMode === "rail" ? SIDEBAR_RAIL.width : sidebarWidth}
       rail={sidebarMode === "rail"}
-      {...(inset ? {} : { header: sidebarToggle })}
+      {...(inset ? {} : { header: chromeToggles })}
       {...(onChat && sidebarMode !== "rail" ? { threads: threadsFor(openThread) } : {})}
       {...(inset ? {} : { footer: <GatewayPill status={status} /> })}
     />
@@ -1104,7 +1139,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
               data-testid="titlebar-toggle"
               style={{ left: titleBarInset(platform.chrome), height: TITLEBAR_HEIGHT }}
             >
-              {sidebarToggle}
+              {chromeToggles}
             </div>
           ) : null}
         </div>

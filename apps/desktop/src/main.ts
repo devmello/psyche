@@ -522,6 +522,13 @@ function registerIpc(): void {
       str(IPC.windowPopOut, r.title, "title", 120),
     );
   });
+  handle(
+    IPC.windowFocusPopOut,
+    (_e, arg) =>
+      windows?.focusPopOut(
+        checkRoute(IPC.windowFocusPopOut, rec(IPC.windowFocusPopOut, arg).route),
+      ) ?? false,
+  );
   on(IPC.windowClose, (event) => windows?.closeFor(event.sender));
   // The section is checked against a slug pattern in settingsRoute().
   on(IPC.windowOpenSettings, (_e, arg) =>
@@ -759,6 +766,8 @@ void app.whenReady().then(async () => {
     rendererUrl,
     preloadPath: preloadPath(),
     settingsBoundsFile: join(app.getPath("userData"), "settings-window.json"),
+    // The pane's window is gone: the main window docks it again instead of keeping it "popped".
+    onPopOutClosed: (route) => command({ type: "popOutClosed", route }),
     splash: () => splashWanted,
     anySize: wantsAnyWindowSize(app.isPackaged, process.env),
     mainOptions: glassWindowOptions(glass),
