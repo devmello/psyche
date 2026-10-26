@@ -2,7 +2,7 @@
 
 Updated 2026-10-25. Spec: [docs/agent/teaching-loop-2026.md](../agent/teaching-loop-2026.md) §3–4, §9 "T1". Code: `packages/memory/src/teaching/`, `apps/gateway/src/compose/teaching.ts`, migration `packages/db/migrations/202610251600_memory_teaching.sql`.
 
-## First PR: store and routing (#740)
+## First PR: store and routing (#740, merged)
 
 - **Records.** `feedback_events`, `lessons` (with `destination_key`, `fingerprint` for tombstones, `approval_id` for a pending card) and `feedback_weekly` (counts that outlive the events).
 - **Feedback.** `feedback.give` takes owner-only feedback from a paired device. Delegated persons and groups are refused with `forbidden`. Incognito, paused or switched-off learning and switched-off surfaces get `policy_denied`. "Helpful" never creates a lesson; it raises the confidence of lessons the answer used (`Message.lessonsApplied`, filled in the second PR). Implicit kinds are evidence only. `feedback.list` and `feedback.delete` are mounted too; deleting a lesson's last source forgets the lesson.
@@ -18,7 +18,7 @@ Updated 2026-10-25. Spec: [docs/agent/teaching-loop-2026.md](../agent/teaching-l
 - **Gates.** SOUL.md, AGENTS.md, skills, automations and boundaries always get a `memory_protected_write` card with `fromLesson` and the line diff. USER.md and the graph follow `memory.userProfile.review`. An approved card is verified and consumed once. A declined card leaves the lesson `dormant`. Cards open at a restart are re-awaited (`resume`).
 - **Lessons methods.** `memory.lessons.list / get / confirm / edit / forget`. Forget restores `previous`, makes the superseded lesson live again, removes MEMORY.md lines citing `lesson:<id>`, and keeps a tombstone.
 - **Implicit evidence.** Approval answers with a narrower scope than offered (`approval_edited`) or a denial (`approval_denied`); lesson cards and plan approvals are skipped.
-- **Dreaming.** `ensureDreamingAutomation` runs at compose time and `withDreaming` wraps the task launcher, so the nightly run happens in-process.
+- **Dreaming** is scheduled by S07's `people` part on main (the dreaming automation runs dreaming and the graph pass), so T1 adds nothing there.
 - **The chat note.** A `taught` block ("Psyche will remember: …") goes under the corrected message.
 
 ## Second PR: growth, retention and the remaining implicit signals
@@ -43,5 +43,5 @@ Updated 2026-10-25. Spec: [docs/agent/teaching-loop-2026.md](../agent/teaching-l
 ## Notes for other workstreams
 
 - **T3 (skills):** `LESSONS.md` at the top of a skill folder is excluded from the skill tree (`packages/skills/src/tree.ts` `LESSONS_FILE`). A new lesson therefore never turns an approved workspace skill back into a draft, and a bundle can't ship one. When you load it with the skill, read only lines whose `[ls_…]` id is a live lesson for that skill. That way a file someone dropped there by hand is never prompt text.
-- **S07 (graph):** entity and person-scoped style lessons use `GraphStore.setFact` / `setEdge` / `retractFact` directly, and the Gateway passes a graph only once part 3 composes one (`TeachingComposeDeps.graph`). Until then, entity lessons fall back to USER.md People, scoped to the name.
+- **S07 (graph):** entity and person-scoped style lessons use `GraphStore.setFact` / `setEdge` / `retractFact` with `owner_feedback` and `lesson:<id>`. The Gateway passes `people.graph`. A person or project the graph doesn't know falls back to USER.md People, scoped to the name.
 - **Repo scan:** `docs/agent/research/teaching-loop.md` cites a help-center URL whose numeric article id the card pattern flags. It is allowlisted for `card` only in `check-secrets.ts`.

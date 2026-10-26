@@ -84,6 +84,10 @@ export function activeRun(
   let found: Run | null = null;
   for (const r of Object.values(runs)) {
     if (r.threadId !== threadId || !ACTIVE.includes(r.status)) continue;
+    // A Task, automation or helper run on the thread is background work, not the chat turn.
+    if (r.kind !== undefined && r.kind !== "chat" && r.id !== activeWriterRunId) continue;
+    // A paused turn holds the transcript writer; a paused run that doesn't is stale state.
+    if (r.status !== "running" && r.id !== activeWriterRunId) continue;
     if (found === null || r.startedAt > found.startedAt) found = r;
   }
   if (found !== null) return { id: found.id, startedAt: found.startedAt };

@@ -43,6 +43,7 @@ import { VaultMethods } from "./vault.ts";
 import { ViewMethods } from "./view.ts";
 import { VmMethods } from "./vm.ts";
 import { VoiceMethods } from "./voice.ts";
+import { ProposalsMethods } from "./workflows.ts";
 
 export * from "./approvals.ts";
 export * from "./attention.ts";
@@ -86,6 +87,7 @@ export * from "./vault.ts";
 export * from "./view.ts";
 export * from "./vm.ts";
 export * from "./voice.ts";
+export * from "./workflows.ts";
 
 /**
  * Every WS method (wire spec v1). Families are additive: new methods are appended by their
@@ -136,6 +138,7 @@ export const Methods = {
   ...LogsMethods,
   ...ModelsMethods,
   ...UsageMethods,
+  ...ProposalsMethods,
   ...FeedbackMethods,
   ...LessonsMethods,
   ...GrowthMethods,

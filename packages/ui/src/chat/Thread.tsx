@@ -9,7 +9,14 @@ import { CircleAlert, X } from "lucide-react";
 import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type DisclosureLevel, DisclosureProvider } from "../blocks/disclosure.tsx";
 import { indexThreadBlocks, ThreadBlocksProvider } from "../blocks/thread-blocks.tsx";
-import { useCall, useConnection, useStoreState, useThread, useThreads } from "../data/index.ts";
+import {
+  useCall,
+  useConnection,
+  useRunsList,
+  useStoreState,
+  useThread,
+  useThreads,
+} from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { LayoutMotion, Presence } from "../motion/index.ts";
@@ -23,6 +30,7 @@ import { OfflineBanner } from "./OfflineBanner.tsx";
 import { ComposerPrefill } from "./prefill.ts";
 import { failureAnchors, RunFailure } from "./RunFailure.tsx";
 import { RunStepLog, useRunSteps } from "./RunStepLog.tsx";
+import { RunTrace } from "./steps/RunTrace.tsx";
 import {
   ComposerSuggestions,
   EmptyThread,
@@ -445,11 +453,29 @@ export function ChatThread({
   // the run ends, then fold back into the transcript's grouped rows.
   const streamingText = view.streaming.at(-1)?.text ?? null;
   const { run: stepRun, steps } = useRunSteps(threadId, baseIndex, streamingText);
+  // Run trace (T2): runs the store has steps for show them at their anchor above the reply.
+  const runSteps = useStoreState((s) => s.runSteps);
+  // One `runs.list` per thread says which past runs have steps, so their anchors load them.
+  const runFilter = useMemo(() => ({ threadId }), [threadId]);
+  const { runs: listedRuns } = useRunsList(runFilter);
+  const tracedRuns = useMemo(() => {
+    const out = new Set<string>();
+    for (const r of listedRuns) if ((r.stepCount ?? 0) > 0) out.add(r.id);
+    for (const m of view.messages)
+      if (m.runId && (runSteps[m.runId]?.length ?? 0) > 0) out.add(m.runId);
+    if (stepRun && (runSteps[stepRun.id]?.length ?? 0) > 0) out.add(stepRun.id);
+    return out;
+  }, [view.messages, runSteps, stepRun, listedRuns]);
   const blockIndex = useMemo(
-    () => ({ ...baseIndex, activeRunId: stepRun?.id ?? null }),
-    [baseIndex, stepRun?.id],
+    () => ({ ...baseIndex, activeRunId: stepRun?.id ?? null, tracedRuns }),
+    [baseIndex, stepRun?.id, tracedRuns],
   );
-  const showSteps = stepRun !== null || sentAt !== null;
+  const activeTraced = stepRun !== null && tracedRuns.has(stepRun.id);
+  // The run has no message yet: its steps sit at the end until the reply begins below them.
+  const activeAnchored =
+    stepRun !== null && view.messages.some((m) => m.runId === stepRun.id && m.role === "agent");
+  const showSteps = !activeTraced && (stepRun !== null || sentAt !== null);
+  const incognitoThread = view.thread?.thread.kind === "incognito";
   // A failed run says so where its reply would have been (#539).
   const failures = useMemo(
     () => failureAnchors(view.messages, view.failedRuns),
@@ -534,8 +560,24 @@ export function ChatThread({
                           ? (tasks[lead.taskId] ?? null)
                           : null;
                       const failed = failures.get(m.id) ?? [];
+                      // The run's steps sit once, above its first agent message (§3.2's anchor).
+                      const runAnchor =
+                        m.role === "agent" &&
+                        m.runId != null &&
+                        (prev?.runId !== m.runId || prev?.role !== "agent") &&
+                        (tracedRuns.has(m.runId) ||
+                          m.runId === stepRun?.id ||
+                          m.blocks.some((b) => b.type === "tool_call" || b.type === "approval"));
                       return (
                         <>
+                          {runAnchor && m.runId ? (
+                            <RunTrace
+                              runId={m.runId}
+                              incognito={incognitoThread}
+                              onStop={() => void view.cancel()}
+                              {...(now === undefined ? {} : { now })}
+                            />
+                          ) : null}
                           <MessageView
                             message={m}
                             streamingText={d.streamingText}
@@ -565,6 +607,14 @@ export function ChatThread({
                     }}
                   </ThreadPrimitive.Messages>
                 </ThreadBlocksProvider>
+                {stepRun && !activeAnchored ? (
+                  <RunTrace
+                    runId={stepRun.id}
+                    incognito={incognitoThread}
+                    onStop={() => void view.cancel()}
+                    {...(now === undefined ? {} : { now })}
+                  />
+                ) : null}
                 {showSteps ? (
                   <RunStepLog
                     persona={persona.name}
