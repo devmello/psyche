@@ -162,6 +162,23 @@ export function runFromRow(row: RunRow): Run {
     endedAt: row.endedAt,
     error: row.error,
     usage: decodeJson<Usage>(row.usage),
+    // Run trace: unset fields stay absent, so a run without a trace maps as before.
+    ...(row.kind === null ? {} : { kind: row.kind as NonNullable<Run["kind"]> }),
+    ...(row.title === null ? {} : { title: row.title }),
+    ...(row.parentRunId === null ? {} : { parentRunId: row.parentRunId }),
+    ...(row.rootRunId === null ? {} : { rootRunId: row.rootRunId }),
+    ...(row.taskId === null ? {} : { taskId: row.taskId }),
+    ...(row.automationRunId === null ? {} : { automationRunId: row.automationRunId }),
+    ...(row.origin === null ? {} : { origin: row.origin as NonNullable<Run["origin"]> }),
+    ...(row.budget === null ? {} : { budget: decodeJson<NonNullable<Run["budget"]>>(row.budget) }),
+    ...(row.deadline === null ? {} : { deadline: row.deadline }),
+    ...(row.specialist === null
+      ? {}
+      : { specialist: decodeJson<NonNullable<Run["specialist"]>>(row.specialist) }),
+    ...(row.note === null ? {} : { note: row.note }),
+    ...(row.stepCount === 0 ? {} : { stepCount: row.stepCount }),
+    ...(row.currentStepId === null ? {} : { currentStepId: row.currentStepId }),
+    ...(row.lastStepAt === null ? {} : { lastStepAt: row.lastStepAt }),
   };
 }
 
@@ -186,6 +203,7 @@ export function toolCallFromRow(row: ToolCallRow): ToolCall {
     startedAt: row.startedAt,
     endedAt: row.endedAt,
     status: row.status as ToolCallStatus,
+    ...(row.stepId === null ? {} : { stepId: row.stepId }),
   };
 }
 
