@@ -562,30 +562,6 @@ button {
   display: none;
 }
 
-/* Voice mode (Q5): the state bar above the composer. */
-.voice-mode {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 0 8px;
-  font-size: 13px;
-}
-.voice-mode-state {
-  font-weight: 600;
-}
-.voice-mode[data-phase="listening"] .voice-mode-state {
-  color: var(--accent-9);
-}
-.voice-mode[data-phase="waiting"] .voice-mode-state,
-.voice-mode[data-phase="error"] .voice-mode-state {
-  color: var(--danger);
-}
-.voice-mode-heard {
-  color: var(--label-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 /* Glyphs that point along the reading direction (the browser's Back and Forward, like Chrome). */
 [dir="rtl"] .rtl-mirror {
   display: inline-block;

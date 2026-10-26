@@ -87,9 +87,9 @@ import {
   GatewaySupervisor,
 } from "./main/supervisor.ts";
 import { TerminalHost } from "./main/terminal.ts";
+import { threadRoute } from "./main/thread-route.ts";
 import { PsycheTray } from "./main/tray.ts";
 import { startUpdater } from "./main/updater.ts";
-import { threadRoute, VoiceHudWindow } from "./main/voice/hud.ts";
 import { canvasColor, wantsAnyWindowSize } from "./main/window-options.ts";
 import { type AppWindows, createAppWindows, preloadPath } from "./main/windows.ts";
 
@@ -167,7 +167,6 @@ async function decideSplash(): Promise<void> {
 let helper: HelperLauncher | undefined;
 let thisDeviceId: string | undefined;
 let hud: HudWindow | undefined;
-let voiceHud: VoiceHudWindow | undefined;
 let screenAsk: ScreenAskWindow | undefined;
 let screenAskShortcut: ScreenAskShortcut | undefined;
 let dictation: DictationService | undefined;
@@ -203,8 +202,6 @@ function isAppUrl(url: string | undefined): boolean {
 
 function broadcast(channel: string, payload: unknown): void {
   for (const wc of windows?.appContents() ?? []) wc.send(channel, payload);
-  // The voice HUD runs the app renderer too: it needs Gateway events and the system signals.
-  voiceHud?.contents()?.send(channel, payload);
   // So does the ask panel: it streams the answer from Gateway events.
   screenAsk?.contents()?.send(channel, payload);
 }
@@ -243,9 +240,7 @@ app.on("web-contents-created", (_e, contents) => {
 
 function trusted(event: IpcMainInvokeEvent | IpcMainEvent): boolean {
   return (
-    (windows?.isAppContents(event.sender) === true ||
-      voiceHud?.owns(event.sender) === true ||
-      screenAsk?.owns(event.sender) === true) &&
+    (windows?.isAppContents(event.sender) === true || screenAsk?.owns(event.sender) === true) &&
     isAppUrl(event.senderFrame?.url)
   );
 }
@@ -708,7 +703,6 @@ function lockDownDefaultSession(): void {
       permission === "media" &&
       (windows?.isAppContents(wc) === true ||
         hud?.owns(wc) === true ||
-        voiceHud?.owns(wc) === true ||
         screenAsk?.owns(wc) === true) &&
       isAppUrl(details.requestingUrl) &&
       (details as { mediaTypes?: string[] }).mediaTypes?.every((t) => t === "audio") === true;
@@ -720,7 +714,6 @@ function lockDownDefaultSession(): void {
       wc !== null &&
       (windows?.isAppContents(wc) === true ||
         hud?.owns(wc) === true ||
-        voiceHud?.owns(wc) === true ||
         screenAsk?.owns(wc) === true) &&
       isAppUrl(origin),
   );
@@ -896,12 +889,6 @@ void app.whenReady().then(async () => {
     onAudio: (chunk) => controller.onAudio(chunk),
     warn: (m) => console.warn(`[dictation] ${m}`),
   });
-  // The voice HUD (V-G, §6.2): a voice conversation from any app, on the main thread.
-  voiceHud = new VoiceHudWindow({
-    url: (route) => new URL(route, rendererUrl).toString(),
-    preloadPath: preloadPath(),
-    onOpenThread: (threadId) => command({ type: "navigate", route: threadRoute(threadId) }),
-  });
   // Ask about my screen (docs/design/screen-ask-2026.md): the ask panel and its region overlay.
   screenAsk = new ScreenAskWindow({
     url: (route) => new URL(route, rendererUrl).toString(),
@@ -922,30 +909,26 @@ void app.whenReady().then(async () => {
       : { shortcuts: globalShortcut }),
     warn: (m) => console.warn(`[dictation] ${m}`),
     onStatus: (s) => broadcast(IPC.dictationStatus, s),
+    // The voice key (held from any app) opens the ask panel in voice mode: speak, and the answer
+    // appears as text. The panel dictates through the renderer, which owns the microphone.
     onVoiceKey: (down) => {
-      if (down) voiceHud?.show();
+      if (down) screenAsk?.trigger("voice");
       broadcast(IPC.voiceKey, { down });
     },
-    onVoiceEnabled: (on) => voiceHud?.setEnabled(on),
   });
-  // A locked or sleeping Mac ends any voice conversation: the terminal stops and frees the mic,
-  // and the voice HUD's window goes until the Mac is back.
+  // A locked or sleeping Mac closes the panel and frees the microphone.
   powerMonitor.on("lock-screen", () => {
     broadcast(IPC.voiceSystem, { event: "lock" });
-    voiceHud?.suspend();
     screenAsk?.suspend();
   });
   powerMonitor.on("suspend", () => {
     broadcast(IPC.voiceSystem, { event: "suspend" });
-    voiceHud?.suspend();
     screenAsk?.suspend();
   });
   powerMonitor.on("unlock-screen", () => {
-    voiceHud?.resume();
     screenAsk?.resume();
   });
   powerMonitor.on("resume", () => {
-    voiceHud?.resume();
     screenAsk?.resume();
   });
   terminal = new TerminalHost({ call: (m, p) => requireGateway().call(m, p) });
@@ -1073,7 +1056,6 @@ app.on("will-quit", () => {
   dictation?.dispose();
   screenAskShortcut?.dispose();
   hud?.destroy();
-  voiceHud?.destroy();
   screenAsk?.destroy();
   globalShortcut.unregisterAll();
 });
