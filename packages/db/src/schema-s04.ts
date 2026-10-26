@@ -36,6 +36,8 @@ export const tasks = sqliteTable("tasks", {
   taintSources: text("taint_sources"),
   // 202610231000_tasks_workspace.sql
   workspace: text("workspace"),
+  // 202610261001_tasks_lessons-applied.sql (teaching loop, LessonRef[] JSON)
+  lessonsApplied: text("lessons_applied"),
 });
 
 export const taskCheckpoints = sqliteTable("task_checkpoints", {

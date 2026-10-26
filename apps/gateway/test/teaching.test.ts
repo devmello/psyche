@@ -13,6 +13,7 @@ import type {
 } from "@psyche/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
+import { lessonIdsIn } from "../src/compose/teaching.ts";
 import { silentLogger } from "../src/log.ts";
 import { adminClient, ik, type TestClient } from "./helpers.ts";
 
@@ -327,5 +328,65 @@ describe("teaching loop (Gateway)", () => {
     expect(
       (await owner.call<{ events: FeedbackEvent[] }>("feedback.list", {}, ik())).events,
     ).toEqual([]);
+  }, 30_000);
+
+  it("an answer whose prompt carried a lesson lists it in lessonsApplied; a task's runs too", async () => {
+    const { gw, owner, thread, answer } = await setup();
+    expect(
+      lessonIdsIn(
+        "- 2026-10-25 [ls_01abcdefgh recipient=x] a\n[lf_x thread:t other lesson:ls_02abcdefgh] b",
+      ),
+    ).toEqual(["ls_01abcdefgh", "ls_02abcdefgh"]);
+    const r = await owner.call<GiveResult>(
+      "feedback.give",
+      {
+        target: { type: "message", id: answer.id, threadId: thread.id },
+        kind: "correction",
+        text: "To Jane, just 'Hi Jane'.",
+        scope: "person",
+      },
+      ik(),
+    );
+    expect(r.lesson?.status).toBe("active");
+
+    // The next turn's prompt has USER.md with the lesson's tagged line.
+    await owner.call(
+      "chat.send",
+      { threadId: thread.id, content: "Draft another note to Jane." },
+      ik(),
+    );
+    await gw.gateway.context.sessions.idle();
+    const latest = () =>
+      listMessagesPage(gw.db, thread.id, { limit: 100 })
+        .messages.filter((m) => m.role === "agent")
+        .at(-1);
+    for (let i = 0; i < 100 && latest()?.lessonsApplied === undefined; i++) {
+      await new Promise((res) => setTimeout(res, 10));
+    }
+    expect(latest()?.lessonsApplied).toEqual([
+      { lessonId: r.lesson?.id, statement: r.lesson?.statement, kind: "style" },
+    ]);
+    // The first answer predates the lesson: nothing applied to it.
+    expect(
+      listMessagesPage(gw.db, thread.id, { limit: 100 }).messages.find((m) => m.id === answer.id)
+        ?.lessonsApplied,
+    ).toBeUndefined();
+    const got = await owner.call<{ lesson: Lesson }>(
+      "memory.lessons.get",
+      { lessonId: r.lesson?.id },
+      ik(),
+    );
+    expect(got.lesson.lastAppliedAt).not.toBeNull();
+
+    // A task run: the lessons accumulate on the task.
+    const task = await gw.tasks.create({
+      threadId: thread.id,
+      title: "Note",
+      goal: "write",
+      createdFrom: "chat",
+    });
+    await gw.teaching.onRunEnd({ runId: "run_task_x", taskId: task.id });
+    // explainContext only knows real runs; a task's own run is covered by the engine test.
+    expect((await gw.tasks.get(task.id))?.lessonsApplied).toBeUndefined();
   }, 30_000);
 });
