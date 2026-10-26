@@ -22,6 +22,7 @@ import {
   useState,
 } from "react";
 import { compactWithToast, ThreadContextDialog } from "../chat/context/connected.tsx";
+import { DelayedSkeletons } from "../components/DelayedSkeleton.tsx";
 import { Button } from "../components/ui/button.tsx";
 import {
   DropdownMenu,
@@ -432,15 +433,11 @@ export function ThreadGroup({
         </div>
       ) : null}
       {threads.loading && threads.all.length === 0 ? (
-        <div
-          className="flex flex-col gap-1 px-2"
-          role="status"
-          aria-label={t("shell.threads.loading")}
-        >
+        <DelayedSkeletons className="flex flex-col gap-1 px-2" label={t("shell.threads.loading")}>
           <Skeleton className="h-7" />
           <Skeleton className="h-7" />
           <Skeleton className="h-7" />
-        </div>
+        </DelayedSkeletons>
       ) : (
         <>
           <ul aria-label={t("shell.threads.region")} className="flex flex-col">

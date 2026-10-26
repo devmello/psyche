@@ -1,8 +1,8 @@
 import type { Lesson } from "@psyche/protocol";
 import { type ReactElement, useId, useState } from "react";
+import { DelayedSkeleton } from "../components/DelayedSkeleton.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover.tsx";
-import { Skeleton } from "../components/ui/skeleton.tsx";
 import { Textarea } from "../components/ui/textarea.tsx";
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
@@ -131,7 +131,7 @@ export function LessonDetails({
         {t("screens.lessons.loadFailed", { reason: q.error })}
       </p>
     ) : (
-      <Skeleton className="h-24" />
+      <DelayedSkeleton label={t("common.loading")} className="my-0 h-24 max-w-none" />
     );
   }
   const { lesson, sources, diff } = q.data;

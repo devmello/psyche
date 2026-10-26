@@ -204,11 +204,15 @@ export function LoadingCards({
   layout = "stack",
   className,
 }: LoadingCardsProps): ReactElement {
+  // The skeleton keeps its space but shows only after `duration.skeletonDelay` (§3.0).
+  const shown = useDelayedFlag(true);
   return (
     <div
       role="status"
       aria-busy="true"
       className={cn(
+        "transition-opacity duration-(--duration-short) ease-(--ease-standard)",
+        shown ? "opacity-100" : "opacity-0",
         layout === "grid" ? "grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3" : "",
         layout === "stack" ? "flex flex-col gap-3" : "",
         layout === "rows" ? "flex flex-col gap-1" : "",

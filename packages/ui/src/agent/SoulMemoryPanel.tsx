@@ -11,6 +11,7 @@ import {
   Upload,
 } from "lucide-react";
 import { type ReactElement, type ReactNode, useState } from "react";
+import { DelayedSkeleton } from "../components/DelayedSkeleton.tsx";
 import { GroupedList, GroupedRow } from "../components/page.tsx";
 import {
   AlertDialog,
@@ -27,7 +28,6 @@ import { Badge } from "../components/ui/badge.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog.tsx";
 import { Input } from "../components/ui/input.tsx";
-import { Skeleton } from "../components/ui/skeleton.tsx";
 import { Textarea } from "../components/ui/textarea.tsx";
 import { useCall, useGatewayQuery, useMemoryFile } from "../data/index.ts";
 import { activeI18n, t } from "../i18n/core.ts";
@@ -109,7 +109,7 @@ export function MemoryFileEditor({ path, budget }: { path: string; budget: numbe
   const [openLesson, setOpenLesson] = useState<string | null>(null);
   if (file === null) {
     return loading ? (
-      <Skeleton className="h-48" />
+      <DelayedSkeleton label={t("common.loading")} className="my-0 h-48 max-w-none" />
     ) : (
       <p className="text-sm">
         {t("agent.memory.openFailed", { path, reason: error ?? "", hasReason: Boolean(error) })}

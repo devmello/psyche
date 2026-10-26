@@ -1,6 +1,7 @@
 import type { Automation, Lesson } from "@psyche/protocol";
 import { CalendarClock, Ellipsis } from "lucide-react";
 import type { ReactElement } from "react";
+import { DelayedSkeletons } from "../components/DelayedSkeleton.tsx";
 import { EmptyState } from "../components/page.tsx";
 import { Badge } from "../components/ui/badge.tsx";
 import { Button } from "../components/ui/button.tsx";
@@ -341,10 +342,10 @@ export function UpcomingPanel({
   const rowProps = useUpcomingRowProps(q, now, onEdit);
   if (q.loading && q.automations.length === 0) {
     return (
-      <div className="flex flex-col gap-2" role="status" aria-label={t("agent.upcoming.loading")}>
+      <DelayedSkeletons className="flex flex-col gap-2" label={t("agent.upcoming.loading")}>
         <Skeleton className="h-10" />
         <Skeleton className="h-10" />
-      </div>
+      </DelayedSkeletons>
     );
   }
   if (q.error && q.automations.length === 0) {
