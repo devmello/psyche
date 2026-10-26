@@ -1,10 +1,10 @@
 import type { RunFrame, RunStep } from "@psyche/protocol";
 import { type ReactElement, type ReactNode, type RefObject, useState } from "react";
+import { DelayedSkeleton } from "../../components/DelayedSkeleton.tsx";
 import { JsonView } from "../../components/json-view.tsx";
 import { StatusGlyph, stepStatusKind } from "../../components/status.tsx";
 import { formatStepDuration } from "../../components/steps/LiveDuration.tsx";
 import { Button } from "../../components/ui/button.tsx";
-import { Skeleton } from "../../components/ui/skeleton.tsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs.tsx";
 import { useRunStep } from "../../data/runs.ts";
 import { t } from "../../i18n/core.ts";
@@ -232,7 +232,10 @@ export function StepInspector({
                   {t("agent.timeline.expired", { days: retentionDays })}
                 </p>
               ) : loading && fullThinking === undefined ? (
-                <Skeleton className="h-16" />
+                <DelayedSkeleton
+                  label={t("agent.timeline.loading")}
+                  className="my-0 h-16 max-w-none"
+                />
               ) : (
                 <blockquote className="border-s-2 border-separator ps-3 text-reading whitespace-pre-wrap text-label-primary">
                   {fullThinking ?? step.text?.summary}
@@ -298,7 +301,10 @@ export function StepInspector({
           </TabsContent>
           <TabsContent value="input">
             {loading && detail === null ? (
-              <Skeleton className="h-24" />
+              <DelayedSkeleton
+                label={t("agent.timeline.loading")}
+                className="my-0 h-24 max-w-none"
+              />
             ) : (
               <Payload
                 value={detail?.input}
@@ -316,7 +322,10 @@ export function StepInspector({
               </p>
             ) : null}
             {loading && detail === null ? (
-              <Skeleton className="h-24" />
+              <DelayedSkeleton
+                label={t("agent.timeline.loading")}
+                className="my-0 h-24 max-w-none"
+              />
             ) : step.payloadRef?.output && detail !== null && detail.output === undefined ? (
               <p className="text-body text-label-secondary">{t("agent.timeline.outputExpired")}</p>
             ) : (

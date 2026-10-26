@@ -1,6 +1,7 @@
 import type { GrowthItem, GrowthMetric, GrowthWindow, Lesson, Milestone } from "@psyche/protocol";
 import { Diamond, Ellipsis, Sprout } from "lucide-react";
 import { type ReactElement, useState } from "react";
+import { DelayedSkeletons } from "../components/DelayedSkeleton.tsx";
 import { EmptyState } from "../components/page.tsx";
 import { Button } from "../components/ui/button.tsx";
 import {
@@ -311,15 +312,14 @@ export function GrowthPanel({ defaultWindow = "30d" }: { defaultWindow?: GrowthW
             </button>
           </p>
         ) : (
-          <div
+          <DelayedSkeletons
             className="flex flex-col gap-2"
-            role="status"
-            aria-label={t("screens.growth.loading", { agent: persona.name })}
+            label={t("screens.growth.loading", { agent: persona.name })}
           >
             <Skeleton className="h-5 w-2/3" />
             <Skeleton className="h-12" />
             <Skeleton className="h-12" />
-          </div>
+          </DelayedSkeletons>
         )}
       </div>
     );

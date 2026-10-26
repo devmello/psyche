@@ -7,7 +7,6 @@ import { EmptyState } from "../components/page.tsx";
 import { StatusGlyph } from "../components/status.tsx";
 import { Badge } from "../components/ui/badge.tsx";
 import { Button } from "../components/ui/button.tsx";
-import { Skeleton } from "../components/ui/skeleton.tsx";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group.tsx";
 import { useSpecialistJob, useTask, useTasks } from "../data/index.ts";
 import { useStoreState } from "../data/provider.tsx";
@@ -22,6 +21,7 @@ import { MissionControl, TASK_GLYPH } from "./MissionControl.tsx";
 
 export { TASK_GLYPH };
 
+import { DelayedSkeleton } from "../components/DelayedSkeleton.tsx";
 import { TimelineView } from "./timeline/TimelineView.tsx";
 
 /**
@@ -198,7 +198,7 @@ export function TaskDetail({
   const [level, setLevel] = useState<DisclosureLevel>(1);
   if (q.task === null) {
     return q.loading ? (
-      <Skeleton className="h-40" />
+      <DelayedSkeleton label={t("agent.activity.loading")} className="my-0 h-40 max-w-none" />
     ) : (
       <p className="text-sm text-label-secondary">{t("agent.task.loadFailed")}</p>
     );
@@ -408,7 +408,8 @@ function TaskTimeline({
       />
     );
   }
-  if (list.loading) return <Skeleton className="h-40" />;
+  if (list.loading)
+    return <DelayedSkeleton label={t("agent.activity.loading")} className="my-0 h-40 max-w-none" />;
   return <TaskDetail taskId={taskId} onBack={onBack} now={now} />;
 }
 

@@ -3,6 +3,7 @@ import { CalendarClock, Plus, Sparkles, X } from "lucide-react";
 import { type ReactElement, useCallback, useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { scheduleSentence } from "../../agent/UpcomingPanel.tsx";
+import { DelayedSkeletons } from "../../components/DelayedSkeleton.tsx";
 import { ErrorState, GroupedList, GroupedRow } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
@@ -83,15 +84,11 @@ export function FeedInstructionsView({
   const textId = useId();
   if (loading) {
     return (
-      <div
-        role="status"
-        aria-label={t("screens.feed.editor.loading")}
-        className="flex flex-col gap-3"
-      >
+      <DelayedSkeletons label={t("screens.feed.editor.loading")} className="flex flex-col gap-3">
         <Skeleton className="h-28" />
         <Skeleton className="h-9" />
         <Skeleton className="h-9" />
-      </div>
+      </DelayedSkeletons>
     );
   }
   if (error !== null) {
