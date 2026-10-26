@@ -169,7 +169,8 @@ const bridge = {
     getStatus: () => invoke(IPC.dictationGetStatus),
     onStatus: (cb: (s: unknown) => void) => listen(IPC.dictationStatus, cb),
     recheck: () => invoke(IPC.dictationRecheck),
-    checkHotkey: (accelerator: string) => invoke(IPC.dictationCheckHotkey, { accelerator }),
+    checkHotkey: (accelerator: string, purpose?: "dictation" | "screenAsk") =>
+      invoke(IPC.dictationCheckHotkey, { accelerator, ...(purpose ? { purpose } : {}) }),
     openAccessibilitySettings: () => ipcRenderer.send(IPC.dictationOpenAccessibility),
   },
   /** macOS privacy permissions (onboarding, Settings): prompt or open the pane, and read status. */

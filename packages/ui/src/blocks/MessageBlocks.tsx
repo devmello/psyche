@@ -26,6 +26,7 @@ import { Markdown } from "./Markdown.tsx";
 import { QuestionCard } from "./QuestionCard.tsx";
 import { ReceiptLine } from "./Receipt.tsx";
 import { RelatedThreads } from "./RelatedThreads.tsx";
+import { type BlockContext, RegisteredBlock, registerBlock } from "./registry.tsx";
 import { TaskCard } from "./TaskCard.tsx";
 import { type ToolCallItem, ToolRun } from "./ToolRun.tsx";
 import { blocksToShow, useThreadBlocks } from "./thread-blocks.tsx";
@@ -245,6 +246,12 @@ export function MessageBlocks({
   const out: ReactNode[] = [];
   // One row per tool call and one notice per approval across the thread (#569, #555).
   const blocks = blocksToShow(message, useThreadBlocks());
+  const ctx: BlockContext = {
+    message,
+    pinChecklist,
+    onWrapUpAction,
+    untrusted: message.provenance === "untrusted",
+  };
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i] as Block;
     const key = `${message.id}:${i}`;
@@ -258,15 +265,7 @@ export function MessageBlocks({
       out.push(<ToolRunBlock key={key} blocks={run} />);
       continue;
     }
-    out.push(
-      <BlockView
-        key={key}
-        block={b}
-        pinChecklist={pinChecklist}
-        onWrapUpAction={onWrapUpAction}
-        untrusted={message.provenance === "untrusted"}
-      />,
-    );
+    out.push(<RegisteredBlock key={key} block={b} ctx={ctx} />);
   }
   if (streamingText)
     out.push(
@@ -278,49 +277,48 @@ export function MessageBlocks({
   return <>{out}</>;
 }
 
-function BlockView({
-  block: b,
-  pinChecklist,
-  onWrapUpAction,
-  untrusted,
-}: {
-  block: Block;
-  pinChecklist: boolean;
-  onWrapUpAction?: ((message: string) => void) | undefined;
-  untrusted: boolean;
-}): ReactElement | null {
-  switch (b.type) {
-    case "text":
-      return (
-        <div className={untrusted ? "border-s-2 border-untrusted ps-2" : undefined}>
-          <Markdown>{b.md}</Markdown>
-        </div>
-      );
-    case "checklist":
-      return <Checklist items={b.items} pinned={pinChecklist} />;
-    case "plan":
-      return <PlanBlockView planId={b.planId} />;
-    case "approval":
-      return <ApprovalPointer approvalId={b.approvalId} />;
-    case "question":
-      return <QuestionBlockView inputRequestId={b.inputRequestId} />;
-    case "artifact":
-      return <ArtifactBlockView artifactId={b.artifactId} preview={b.preview} />;
-    case "file":
-      return <FileBlockView libraryItemId={b.libraryItemId} />;
-    case "receipt":
-      return <ReceiptBlockView receiptId={b.receiptId} />;
-    case "task":
-      return <TaskBlockView taskId={b.taskId} />;
-    case "wrap_up":
-      return <WrapUpBox block={b} {...(onWrapUpAction ? { onAction: onWrapUpAction } : {})} />;
-    case "related_threads":
-      return <RelatedThreads block={b} />;
-    case "learned":
-      return <LearnedLine items={b.items} />;
-    case "taught":
-      return <TaughtLine feedbackId={b.feedbackId} lessonId={b.lessonId} statement={b.statement} />;
-    default:
-      return null;
-  }
-}
+/** The built-in block types (data model §9.1), registered at load. */
+registerBlock("text", {
+  View: ({ block, ctx }) => (
+    <div className={ctx.untrusted ? "border-s-2 border-untrusted ps-2" : undefined}>
+      <Markdown>{block.md}</Markdown>
+    </div>
+  ),
+});
+registerBlock("checklist", {
+  View: ({ block, ctx }) => <Checklist items={block.items} pinned={ctx.pinChecklist} />,
+});
+registerBlock("plan", { View: ({ block }) => <PlanBlockView planId={block.planId} /> });
+registerBlock("approval", {
+  View: ({ block }) => <ApprovalPointer approvalId={block.approvalId} />,
+});
+registerBlock("question", {
+  View: ({ block }) => <QuestionBlockView inputRequestId={block.inputRequestId} />,
+});
+registerBlock("artifact", {
+  View: ({ block }) => <ArtifactBlockView artifactId={block.artifactId} preview={block.preview} />,
+});
+registerBlock("file", {
+  View: ({ block }) => <FileBlockView libraryItemId={block.libraryItemId} />,
+});
+registerBlock("receipt", { View: ({ block }) => <ReceiptBlockView receiptId={block.receiptId} /> });
+registerBlock("task", { View: ({ block }) => <TaskBlockView taskId={block.taskId} /> });
+registerBlock("wrap_up", {
+  View: ({ block, ctx }) => (
+    <WrapUpBox block={block} {...(ctx.onWrapUpAction ? { onAction: ctx.onWrapUpAction } : {})} />
+  ),
+});
+registerBlock("related_threads", { View: ({ block }) => <RelatedThreads block={block} /> });
+registerBlock("learned", { View: ({ block }) => <LearnedLine items={block.items} /> });
+registerBlock("taught", {
+  View: ({ block }) => (
+    <TaughtLine
+      feedbackId={block.feedbackId}
+      lessonId={block.lessonId}
+      statement={block.statement}
+    />
+  ),
+});
+// Folded into runs above, and drawn by MessageView as a system notice.
+registerBlock("tool_call", { View: () => null });
+registerBlock("compaction", { View: () => null });

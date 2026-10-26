@@ -5,6 +5,9 @@ export const blocks = {
   "blocks.common.viewDiff": "View diff",
   "blocks.common.open": "Open",
 
+  "blocks.card.status":
+    "{status, select, pending {Pending} running {Running} waiting {Waiting} done {Done} failed {Failed} blocked {Blocked} cancelled {Cancelled} other {{status}}}{warning, select, yes {, outcome unknown} other {}}",
+  "blocks.card.unknown": "Psyche can't show this kind of item yet ({type}).",
   "blocks.message.loading":
     "Loading {what, select, approval {approval} question {question} receipt {receipt} artifact {artifact} file {file} task {task} plan {plan} other {item}}",
   "blocks.message.missing":

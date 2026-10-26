@@ -68,6 +68,21 @@ export {
 export { ApprovalDetails } from "./blocks/approval-details.tsx";
 export { Checklist, PlanCard } from "./blocks/Checklist.tsx";
 export {
+  CARD_STATUSES,
+  Card as BlockCard,
+  type CardAction,
+  CardActions,
+  type CardProps,
+  type CardStatus,
+  type CardStatusInfo,
+  type CardVariant,
+  cardStatusLabel,
+  fromApprovalStatus,
+  fromStepStatus,
+  fromTaskStatus,
+  fromToolCallStatus,
+} from "./blocks/card.tsx";
+export {
   DISCLOSURE_LABEL,
   type DisclosureLevel,
   DisclosureProvider,
@@ -85,6 +100,19 @@ export {
   usesChips,
 } from "./blocks/QuestionCard.tsx";
 export { ReceiptLine } from "./blocks/Receipt.tsx";
+export {
+  type BlockContext,
+  type BlockRenderer,
+  type BlockViewProps,
+  blockRenderer,
+  RegisteredBlock,
+  registerBlock,
+  registeredBlockTypes,
+  registerToolView,
+  type ToolViewProps,
+  toolViewFor,
+  UnknownBlock,
+} from "./blocks/registry.tsx";
 export {
   TASK_STATUS_LABEL,
   TaskCard,
@@ -207,6 +235,7 @@ export * from "./screens/onboarding/index.ts";
 export * from "./screens/search/index.ts";
 export { CONTEXT_KEYS, ContextSettingsGroup } from "./screens/settings/ContextSettings.tsx";
 export * from "./screens/settings/index.ts";
+export * from "./screens/workflows/index.ts";
 export {
   AppearanceProvider,
   type AppearanceProviderProps,
@@ -324,6 +353,7 @@ export {
 } from "./voice/Lantern.tsx";
 export {
   matchApproval,
+  mentionsScreen,
   normalizeUtterance,
   type VoicePhraseList,
   voicePhrases,

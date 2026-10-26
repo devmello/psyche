@@ -1,12 +1,14 @@
 import type { PsycheDb } from "@psyche/db";
 import type {
   AgentLoop,
+  ChatScreenRef,
   DeviceScope,
   EventName,
   EventPayload,
   MemoryStore,
   ModelRef,
   PermissionBroker,
+  TaintSource,
 } from "@psyche/protocol";
 import type { PairedIdentity, PeerInfo } from "./auth.ts";
 import type { GatewayConfig } from "./config.ts";
@@ -78,6 +80,23 @@ export interface ChatRedo {
   deviceId: string;
 }
 
+/** What a `chat.send.screen` adds to the turn (docs/design/screen-ask-2026.md §3.3). */
+export interface ResolvedScreen {
+  /** Untrusted text context the agent reads ahead of the message; never in the transcript. */
+  preamble: string;
+  /** The frame, when it goes with the message (pinned): shown in the transcript, seen by the model. */
+  attachments: string[];
+  images: { mime: string; data: string }[];
+  taintSources: TaintSource[];
+  /** Called once the send committed: the capture now belongs to the thread. */
+  commit(threadId: string): void;
+}
+
+export type ChatScreenResolver = (
+  ref: ChatScreenRef,
+  caller: { deviceId: string; threadId: string },
+) => ResolvedScreen;
+
 export interface GatewayContext {
   readonly config: GatewayConfig;
   readonly db: PsycheDb;
@@ -124,6 +143,11 @@ export interface GatewayContext {
    * here, e.g. the teaching loop records a redo with an instruction as `regenerated` feedback.
    */
   readonly chatRedo: Set<(redo: ChatRedo) => void>;
+  /**
+   * Ask about my screen (docs/design/screen-ask-2026.md §4): resolves `chat.send.screen` to what
+   * the turn gets. The screen-ask part sets it; without one a send naming a capture is refused.
+   */
+  readonly chatScreen: { resolve: ChatScreenResolver | null };
   serverOrigin(): string;
   connections(): Iterable<LiveConnection>;
 }

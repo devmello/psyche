@@ -17,6 +17,7 @@ import { specialists } from "./specialists.ts";
 import { time } from "./time.ts";
 import { voice } from "./voice.ts";
 import { web } from "./web.ts";
+import { workflows } from "./workflows.ts";
 
 /**
  * The English catalogue: every user-facing string in the kit and the web app, by stable id
@@ -44,6 +45,7 @@ export const en = {
   ...design,
   ...voice,
   ...screenAsk,
+  ...workflows,
 } as const;
 
 export type MessageId = keyof typeof en;

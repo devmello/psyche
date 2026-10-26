@@ -112,8 +112,8 @@ export interface MeetingNotesServiceOptions {
   /** Whether the summary model is a cloud model (§3 rule 7: ask once before using it). */
   primaryIsRemote?: () => boolean;
   cloudAllowed?: () => boolean;
-  /** A "they owe you" loop in the graph; none until it is wired. */
-  addLoop?: (loop: TheyOweLoop) => Promise<{ id: string }>;
+  /** A "they owe you" loop in the graph; `undefined` when the graph refused or is off. */
+  addLoop?: (loop: TheyOweLoop) => Promise<{ id: string } | undefined>;
   /** Names the transcript may use for the owner ("Sam"); "I" and "me" always count. */
   ownerNames?: () => readonly string[];
   /** The owner's own addresses, left out of a recap's recipients. */
@@ -341,6 +341,7 @@ export class MeetingNotesService {
         provenance: input.provenance,
         meetingId: event?.id ?? null,
       });
+      if (loop === undefined) continue;
       a.loopId = loop.id;
       loopIds.push(loop.id);
     }

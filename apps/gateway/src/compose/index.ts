@@ -28,6 +28,7 @@ import {
   CliAdapter,
   type CliAdapterDeps,
   createModelRouter,
+  isLocalKind,
   isSubscriptionKind,
   type KeySource,
   KeyValueProbeStore,
@@ -84,6 +85,7 @@ import { taskRunTrace } from "../run-trace/tasks.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
 import { attentionHandlers, OwnerAttention, parkWhenUnwatched } from "./attention.ts";
+import { withAutomationSpecialists } from "./automation-specialists.ts";
 import { bootstrapAdminHandlers } from "./bootstrap-admin.ts";
 import { CallContexts } from "./call-context.ts";
 import { ChannelConversations } from "./channel-conversations.ts";
@@ -125,6 +127,7 @@ import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { protectedRoots } from "./protected-paths.ts";
 import { createRateLimits } from "./rate-limits.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
+import { composeScreenAsk } from "./screen-ask.ts";
 import {
   type ApprovalRelay,
   type ComposedPart,
@@ -134,7 +137,12 @@ import {
 import { composeSkills } from "./skills.ts";
 import { withSpecialistContext } from "./specialist-approvals.ts";
 import { createSpecialistHost } from "./specialists.ts";
-import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
+import {
+  composeSpeech,
+  type MeetingIngest,
+  type SpeechSetup,
+  speechSetupFromEnv,
+} from "./speech.ts";
 import { taskUpdateHandlers } from "./task-controls.ts";
 import {
   type ComposedTeaching,
@@ -674,6 +682,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     skills.part,
     composeSpeech(speechSetup ?? speechSetupFromEnv(gwOptions.env)),
     composeDictation(),
+    composeScreenAsk(),
     composePayments(paymentsSetupFromEnv(gwOptions.env)),
     // Web passkeys (issue #79): unavailable until gateway.publicOrigin is an https origin. A
     // caller-supplied `presence` verifier takes the passkey role instead.
@@ -837,7 +846,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     approvalSurfaces: ["desktop", "web"],
     skills: skills.loader,
     ...(compaction === undefined ? {} : { compaction }),
-    contextProviders: [otherChats.provider],
+    contextProviders: [otherChats.provider, ...(people === undefined ? [] : [people.recall])],
     contextLimits: context.contextLimits,
     onContextUsage: context.onContextUsage,
     onCompaction: context.onCompaction,
@@ -924,6 +933,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     claim: { origins: ["subagent"], perParentLimit: 2 },
   });
   pokeSpecialists = () => specialistPool.poke();
+  const speechPart = parts.find(
+    (p): p is ComposedPart & { meetings: MeetingIngest } => "meetings" in p,
+  );
   // S15: goal check-ins and the Feed run in-process; the heartbeat gets its 5k-token budget (O2).
   const proactive = composeProactive({
     db,
@@ -939,6 +951,20 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     registry,
     // Ideas proposes folding a skill's lessons into it once it has three (teaching loop §6).
     skillUpdates: () => skills.updates(),
+    // Post-meeting notes transcribe on the Mac through the speech part (§4.6). Record meeting
+    // stays unavailable until a helper offers microphone capture.
+    meetings: {
+      home: config.home,
+      primary: modelRef,
+      primaryIsRemote: () => {
+        const providers = "router" in modelSetup ? modelSetup.router.providers : [];
+        const p = providers.find((c) => c.id === modelRef.split("/")[0]);
+        return p !== undefined && !isLocalKind(p.kind);
+      },
+      ...(speechPart === undefined ? {} : { transcriber: speechPart.meetings }),
+    },
+    // The people graph while the owner has it on: prep's attendees and loops, notes' loops.
+    graph: () => (people?.settings().enabled === true ? people.graph : undefined),
     ...(timeZone === undefined ? {} : { timeZone }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
@@ -967,25 +993,29 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   for (const tool of webTools.tools) registry.register(tool);
   // The dreaming automation runs memory dreaming and the people graph pass in-process.
   // Dreaming, then the lesson pass (teaching loop §6, #681), then the people graph pass.
-  launcher = people.launcher(
-    // The weekly "What I learned" Feed post (teaching loop §5.4) runs in-process too.
-    withWeeklyCard(proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool), {
-      store: teaching.service.store,
-      memory,
-      clock,
-      enabled: () =>
-        teachingSettings(db).enabled && getSetting(db, "teaching.weeklyCard")?.value !== false,
-      post: (card) => proactive.feed.postGrowth(card),
-    }),
-    [
-      async () => {
-        if (!teachingSettings(db).enabled) return undefined;
-        const r = await consolidateLessons(teaching.service, memory, { clock });
-        // "Still true?" left unanswered: the lesson goes dormant (teaching loop §3.3).
-        const dormant = await retireUnanswered(teaching.service, memory, { clock });
-        return `lessons: ${r.merged} merged, ${r.promoted} promoted, ${r.proposed} proposed, ${r.flagged} flagged, ${dormant} dormant`;
-      },
-    ],
+  // Automations with a `specialist` run as unattended specialist jobs (specialists §4.10).
+  launcher = withAutomationSpecialists(
+    people.launcher(
+      // The weekly "What I learned" Feed post (teaching loop §5.4) runs in-process too.
+      withWeeklyCard(proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool), {
+        store: teaching.service.store,
+        memory,
+        clock,
+        enabled: () =>
+          teachingSettings(db).enabled && getSetting(db, "teaching.weeklyCard")?.value !== false,
+        post: (card) => proactive.feed.postGrowth(card),
+      }),
+      [
+        async () => {
+          if (!teachingSettings(db).enabled) return undefined;
+          const r = await consolidateLessons(teaching.service, memory, { clock });
+          // "Still true?" left unanswered: the lesson goes dormant (teaching loop §3.3).
+          const dormant = await retireUnanswered(teaching.service, memory, { clock });
+          return `lessons: ${r.merged} merged, ${r.promoted} promoted, ${r.proposed} proposed, ${r.flagged} flagged, ${dormant} dormant`;
+        },
+      ],
+    ),
+    { db, tasks, host: specialists, now: () => clock.now() },
   );
   scheduler.subscribe((e) => publish(e.event, e.payload as never));
 
