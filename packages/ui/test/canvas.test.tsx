@@ -1,10 +1,14 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import type { Artifact, Message, Run } from "@psyche/protocol";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { Card } from "../src/blocks/card.tsx";
+import { MessageBlocks } from "../src/blocks/MessageBlocks.tsx";
 import { CanvasPane } from "../src/canvas/CanvasPane.tsx";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { CANVAS_IDS, canvasFixtures } from "../src/fixtures/canvas.ts";
 import { IDS } from "../src/fixtures/ids.ts";
+import { createFixtureWorld } from "../src/fixtures/index.ts";
 import { applyOpsLocal, diffToOps, setCellOp, viewRows } from "../src/lib/artifact-ops.ts";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
@@ -115,5 +119,75 @@ describe("CanvasPane", () => {
       ]),
     );
     expect(await screen.findByText("720")).toBeTruthy();
+  });
+});
+
+describe("canvas auto-open", () => {
+  const fresh = (id: string): Artifact => ({
+    id,
+    libraryItemId: "lib_x",
+    type: "doc",
+    title: "Fresh",
+    version: 1,
+    nameSlug: "fresh",
+    sourceRef: null,
+    updatedAt: new Date().toISOString(),
+    threadId: IDS.threads.lisbon,
+  });
+  const message = (artifactId: string, runId: string) =>
+    ({
+      id: `m_${artifactId}`,
+      threadId: IDS.threads.lisbon,
+      role: "agent",
+      runId,
+      provenance: "trusted",
+      blocks: [{ type: "artifact", artifactId }],
+      createdAt: new Date().toISOString(),
+    }) as unknown as Message;
+  const run = (id: string, origin: Run["origin"]): Run => ({
+    ...(createFixtureWorld().runs[0] as Run),
+    id,
+    threadId: IDS.threads.lisbon,
+    status: "running",
+    origin,
+    taskId: null,
+    automationRunId: null,
+    parentRunId: null,
+  });
+
+  async function show(artifactId: string, origin: Run["origin"]) {
+    const openArtifact = vi.fn();
+    // The first wave of cards has rendered: later cards count as live.
+    render(<Card label="settle" title="settle" />);
+    let gateway: MockGateway | undefined;
+    render(
+      <StoryWorld
+        edit={(w) => {
+          (w.artifacts as Artifact[]).push(fresh(artifactId));
+        }}
+        onGateway={(g) => {
+          gateway = g;
+        }}
+        slots={{ openArtifact }}
+      >
+        <MessageBlocks message={message(artifactId, `run_${artifactId}`)} />
+      </StoryWorld>,
+    );
+    await screen.findByRole("article", { name: /Fresh/ });
+    // The live run reaches the store the way it does in a chat: as a run event.
+    act(() => gateway?.emit("run.updated", { run: run(`run_${artifactId}`, origin) }));
+    return openArtifact;
+  }
+
+  it("opens a new artifact from the owner's own live run once", async () => {
+    const open = await show("art_fg", "owner");
+    await waitFor(() => expect(open).toHaveBeenCalledOnce());
+    expect(open.mock.calls[0]?.[0]).toMatchObject({ id: "art_fg" });
+  });
+
+  it("leaves an automation's artifact as a card", async () => {
+    const open = await show("art_bg", "automation");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(open).not.toHaveBeenCalled();
   });
 });

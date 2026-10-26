@@ -100,12 +100,14 @@ function PaneBody(props: {
   onClose: () => void;
   renderPane?: PaneRenderer;
   navigate?: (to: string) => void;
+  dispatch: (action: LayoutAction) => void;
 }): ReactElement {
   const { platform } = useShell();
   const custom = props.renderPane?.(props.pane, {
     threadId: props.threadId,
     covered: props.covered,
     navigate: props.navigate ?? (() => undefined),
+    dispatch: props.dispatch,
   });
   if (custom !== null && custom !== undefined) return <>{custom}</>;
   switch (props.pane.pane) {
@@ -185,7 +187,13 @@ function PaneResizer({
 /** The composed app's pane bodies (ShellSlots.pane). */
 export type PaneRenderer = (
   pane: PaneInstance,
-  ctx: { threadId: string; covered: boolean; navigate: (to: string) => void },
+  ctx: {
+    threadId: string;
+    covered: boolean;
+    navigate: (to: string) => void;
+    /** Applies a layout action (the canvas swaps its artifact through `open`). */
+    dispatch: (action: LayoutAction) => void;
+  },
 ) => ReactNode | null | undefined;
 
 /**
@@ -377,6 +385,7 @@ function PaneColumns(
                   threadId={props.threadId}
                   covered={props.covered}
                   onClose={() => props.dispatch({ type: "close", paneId: active.paneId })}
+                  dispatch={props.dispatch}
                   {...(props.renderPane ? { renderPane: props.renderPane } : {})}
                   {...(props.navigate ? { navigate: props.navigate } : {})}
                 />

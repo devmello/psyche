@@ -1,7 +1,7 @@
 import type { Block, Message } from "@psyche/protocol";
 import { ArrowDown } from "lucide-react";
 import * as m from "motion/react-m";
-import type { ReactElement, ReactNode } from "react";
+import { type ReactElement, type ReactNode, useEffect } from "react";
 import { Avatar } from "../avatar/Avatar.tsx";
 import { StatusGlyph } from "../components/status.tsx";
 import {
@@ -22,6 +22,7 @@ import { LearnedLine, TaughtLine } from "../teaching/TaughtLine.tsx";
 import { focusApproval } from "./ApprovalCard.tsx";
 import { ArtifactCard, FileCard } from "./ArtifactCard.tsx";
 import { Checklist, PlanCard } from "./Checklist.tsx";
+import { useEntersLater } from "./card-enter.tsx";
 import { Markdown } from "./Markdown.tsx";
 import { QuestionCard } from "./QuestionCard.tsx";
 import { ReceiptLine } from "./Receipt.tsx";
@@ -152,15 +153,42 @@ function ReceiptBlockView({ receiptId }: { receiptId: string }): ReactElement {
   );
 }
 
+/** Artifacts the canvas already opened on its own this session (never twice). */
+const autoOpened = new Set<string>();
+
 function ArtifactBlockView({
   artifactId,
   preview,
+  runId,
 }: {
   artifactId: string;
   preview?: string | undefined;
+  runId?: string | null | undefined;
 }): ReactElement {
   const { artifact, loading } = useArtifact(artifactId);
   const slots = useSlots();
+  // Auto-open (chat-experience-2026 §4.2, decision 3): only a new artifact arriving live from
+  // the owner's own run in this chat opens the canvas; history, automations, channels and
+  // specialists leave just the card.
+  const live = useEntersLater(artifact?.updatedAt ?? null);
+  const foreground = useStoreState((s) => {
+    const run = runId == null ? undefined : s.runs[runId];
+    // An unknown run is not assumed to be the owner's: no auto-open without knowing.
+    return (
+      run !== undefined &&
+      (run.origin === undefined || run.origin === "owner") &&
+      run.taskId === null &&
+      run.automationRunId === null &&
+      run.parentRunId === null &&
+      run.specialist === undefined
+    );
+  });
+  useEffect(() => {
+    if (artifact === null || !live || !foreground || artifact.version !== 1) return;
+    if (slots.openArtifact === undefined || autoOpened.has(artifact.id)) return;
+    autoOpened.add(artifact.id);
+    slots.openArtifact(artifact);
+  }, [artifact, live, foreground, slots.openArtifact]);
   if (artifact === null)
     return loading ? <Skeleton what="artifact" /> : <Missing what="artifact" />;
   return (
@@ -296,7 +324,13 @@ registerBlock("question", {
   View: ({ block }) => <QuestionBlockView inputRequestId={block.inputRequestId} />,
 });
 registerBlock("artifact", {
-  View: ({ block }) => <ArtifactBlockView artifactId={block.artifactId} preview={block.preview} />,
+  View: ({ block, ctx }) => (
+    <ArtifactBlockView
+      artifactId={block.artifactId}
+      preview={block.preview}
+      runId={ctx.message.runId}
+    />
+  ),
 });
 registerBlock("file", {
   View: ({ block }) => <FileBlockView libraryItemId={block.libraryItemId} />,
