@@ -1,5 +1,4 @@
 import {
-  type AudioChunk,
   type AudioFormat,
   type NodeClient,
   type NodeInvokeResult,
@@ -8,21 +7,18 @@ import {
   type SpeechCapabilities,
   type SpeechEngine,
   type SpeechProgressEvent,
-  type SynthesizeOptions,
   type TranscribeOptions,
   type Transcript,
   type TranscriptSegment,
-  type Voice,
 } from "@psyche/protocol";
 import { decodeWav, isPcm } from "../audio.ts";
-import { AsyncQueue, fromBase64, toBase64 } from "../queue.ts";
-import { splitSentences } from "../ssml.ts";
+import { AsyncQueue, toBase64 } from "../queue.ts";
 import { sequenceSegments } from "../stream.ts";
 
 /**
  * `SpeechEngine` over the Mac helper's `speech.*` node capabilities (architecture §6; S14,
  * `apps/mac-helper` README "Speech"). The helper owns the engines (SpeechAnalyzer /
- * DictationTranscriber on macOS 26+, on-device SFSpeechRecognizer before that, AVSpeechSynthesizer);
+ * DictationTranscriber on macOS 26+, on-device SFSpeechRecognizer before that);
  * this adapter moves audio and segments over the node protocol. Audio travels base64-encoded
  * because node frames are JSON.
  *
@@ -31,8 +27,7 @@ import { sequenceSegments } from "../stream.ts";
  * then `{type: "speech.partial" | "speech.final", text, startMs, endMs, final, confidence?}`; it
  * resolves with `{streamId, text, segments, language, …}`. Audio goes in with
  * `speech.audio_push {streamId, data, final?}` (≤ 512 KiB decoded each); the last push carries
- * `final: true`. Synthesis: `speech.synthesize {text ≤ 5000, voice?, format}` emits
- * `{type: "speech.audio", seq, data, format}`.
+ * `final: true`.
  *
  * Long-form files (#673 H1): `speech.transcribe_file {path, locale?, vocabulary?, maxDurationMs?}`
  * reads a recording in a granted folder or the Library on the Mac itself (no audio crosses the
@@ -44,8 +39,6 @@ export const NODE_SPEECH_CAPABILITIES = {
   transcribeFile: "speech.transcribe_file",
   audioPush: "speech.audio_push",
   stop: "speech.stop",
-  synthesize: "speech.synthesize",
-  voices: "speech.voices",
   status: "speech.status",
 } as const;
 
@@ -54,7 +47,6 @@ export const NODE_SPEECH_LIMITS = {
   maxPushBytes: 512 * 1024,
   maxVocabularyEntries: 100,
   maxVocabularyEntryLength: 64,
-  maxSynthesisText: 5_000,
   /** Helper accepts 1 s … 10 min per stream. */
   maxDurationMs: 10 * 60 * 1000,
   /** `speech.transcribe_file` takes recordings up to 4 h. */
@@ -91,12 +83,6 @@ export interface NodeSpeechEngineOptions {
   timeoutMs?: number;
   /** Size of each `speech.audio_push` for files (default and maximum 512 KiB). */
   pushBytes?: number;
-  /**
-   * Owner opt-in for Apple Personal Voice (setting `speech.tts.personalVoice`, feature Q3).
-   * Off by default: a Personal Voice id is refused before the helper is called. When on, the
-   * call carries the helper's `personalVoice: true`; the output is for non-commercial use only.
-   */
-  personalVoice?: () => boolean | Promise<boolean>;
 }
 
 interface HelperEvent {
@@ -120,9 +106,6 @@ interface HelperTranscript {
 
 export class NodeSpeechEngine implements SpeechEngine, PathTranscriber {
   readonly #opts: NodeSpeechEngineOptions;
-  /** Voice id → is a Personal Voice, from the last `speech.voices` answer. */
-  #known = new Map<string, boolean>();
-
   constructor(options: NodeSpeechEngineOptions) {
     this.#opts = options;
   }
@@ -150,7 +133,6 @@ export class NodeSpeechEngine implements SpeechEngine, PathTranscriber {
     return {
       engine: "mac-node",
       streaming: names.has(NODE_SPEECH_CAPABILITIES.transcribeStream),
-      synthesis: names.has(NODE_SPEECH_CAPABILITIES.synthesize),
       // Locales come from `speech.status`; the Gateway does not know them up front.
       languages: [],
     };
@@ -367,96 +349,6 @@ export class NodeSpeechEngine implements SpeechEngine, PathTranscriber {
     }
   }
 
-  async *synthesize(text: string, options: SynthesizeOptions = {}): AsyncIterable<AudioChunk> {
-    const node = await this.#node();
-    const encoding = options.format?.encoding ?? "pcm_s16le";
-    if (encoding !== "pcm_s16le" && encoding !== "pcm_f32le") {
-      throw new PsycheError(
-        "invalid_params",
-        "the Mac node synthesizes PCM; transcode for other formats",
-      );
-    }
-    if (options.signal?.aborted === true) return;
-    const personal = options.voice !== undefined && (await this.isPersonalVoice(options.voice));
-    if (personal && (await this.#opts.personalVoice?.()) !== true) {
-      throw new PsycheError(
-        "policy_denied",
-        "Personal Voice is off; turn it on in Settings → Voice & dictation (personal, non-commercial use only)",
-      );
-    }
-    for (const piece of packText(text, NODE_SPEECH_LIMITS.maxSynthesisText)) {
-      const chunks = new AsyncQueue<AudioChunk>();
-      const abort = new AbortController();
-      const onAbort = () => abort.abort();
-      options.signal?.addEventListener("abort", onAbort, { once: true });
-      const params: Record<string, unknown> = { text: piece, format: encoding };
-      if (options.voice !== undefined) params.voice = options.voice;
-      if (personal) params.personalVoice = true;
-      const done = node
-        .invoke(NODE_SPEECH_CAPABILITIES.synthesize, params, {
-          ...this.#invokeOptions(abort.signal, SYNTHESIS_TIMEOUT_MS),
-          onEvent: (e) => {
-            const ev = e.data as HelperEvent | null;
-            if (ev?.type !== "speech.audio" || ev.data === undefined || ev.format === undefined)
-              return;
-            chunks.push({ data: fromBase64(ev.data), format: ev.format });
-          },
-        })
-        .then(
-          (res) => (res.ok ? chunks.end() : chunks.fail(toError(res))),
-          (err: unknown) => chunks.fail(err),
-        );
-      let finished = false;
-      try {
-        yield* chunks;
-        finished = true;
-      } finally {
-        options.signal?.removeEventListener("abort", onAbort);
-        if (finished) await done;
-        else {
-          // Consumer stopped early or the signal fired: cancel the helper call, do not wait for it.
-          abort.abort();
-          void done.catch(() => {});
-        }
-      }
-      if (isAborted(options.signal)) return;
-    }
-  }
-
-  /** `true` when `voiceId` is one of the helper's Personal Voices (asks once, then cached). */
-  async isPersonalVoice(voiceId: string): Promise<boolean> {
-    const cached = this.#known.get(voiceId);
-    if (cached !== undefined) return cached;
-    // Unknown id (first use, or a voice created since): ask the helper once more.
-    await this.voices().catch(() => []);
-    return this.#known.get(voiceId) === true;
-  }
-
-  async voices(): Promise<Voice[]> {
-    const list = await this.#listVoices();
-    // An offline node answers []; keep what we knew rather than forgetting every voice.
-    if (list.length > 0) this.#known = new Map(list.map((v) => [v.id, v.nonCommercial === true]));
-    return list;
-  }
-
-  async #listVoices(): Promise<Voice[]> {
-    const node = await this.#opts.node();
-    if (node === undefined) return [];
-    const res = await node.invoke(NODE_SPEECH_CAPABILITIES.voices, {}, this.#invokeOptions());
-    if (!res.ok) return [];
-    const list = (
-      res.result as {
-        voices?: { id: string; name: string; language: string; personalVoice?: boolean }[];
-      } | null
-    )?.voices;
-    return (list ?? []).map((v) => {
-      const voice: Voice = { id: v.id, name: v.name, language: v.language, local: true };
-      // Apple Personal Voice output is for personal, non-commercial use (helper README, Q3).
-      if (v.personalVoice === true) voice.nonCommercial = true;
-      return voice;
-    });
-  }
-
   #invokeOptions(
     signal?: AbortSignal,
     timeoutMs?: number,
@@ -467,14 +359,6 @@ export class NodeSpeechEngine implements SpeechEngine, PathTranscriber {
     if (t !== undefined) o.timeoutMs = t;
     return o;
   }
-}
-
-/** One `speech.synthesize` call renders ≤ 5000 characters; allow it a generous 5 minutes. */
-const SYNTHESIS_TIMEOUT_MS = 5 * 60_000;
-
-/** Reads `aborted` through a call so TS does not keep an earlier narrowing. */
-function isAborted(signal: AbortSignal | undefined): boolean {
-  return signal?.aborted === true;
 }
 
 function segment(ev: HelperEvent | TranscriptSegment): TranscriptSegment {
@@ -498,23 +382,6 @@ function helperVocabulary(vocab: readonly string[] | undefined): string[] {
     out.push(t);
     if (out.length === NODE_SPEECH_LIMITS.maxVocabularyEntries) break;
   }
-  return out;
-}
-
-/** Splits text at sentence boundaries into requests the helper accepts. */
-function packText(text: string, max: number): string[] {
-  if (text.length <= max) return [text];
-  const out: string[] = [];
-  let cur = "";
-  for (const s of splitSentences(text, max)) {
-    if (cur !== "" && cur.length + 1 + s.length > max) {
-      out.push(cur);
-      cur = s;
-    } else {
-      cur = cur === "" ? s : `${cur} ${s}`;
-    }
-  }
-  if (cur !== "") out.push(cur);
   return out;
 }
 

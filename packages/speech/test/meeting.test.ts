@@ -2,8 +2,8 @@ import type { LibraryItem, Provenance, SpeechProgressEvent } from "@psyche/proto
 import { FakeNodeClient, FakeSpeechEngine } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { NODE_SPEECH_CAPABILITIES, NodeSpeechEngine } from "../src/engines/node.ts";
+import type { LibrarySaveInput, LibraryWriter } from "../src/library.ts";
 import { type MeetingRecordingInput, VoiceMemoService } from "../src/memo.ts";
-import type { LibrarySaveInput, LibraryWriter } from "../src/readAloud.ts";
 
 /** Long-form transcription and the VoiceMemoService meeting path (#673 H1, mail-and-meetings §4.6). */
 
