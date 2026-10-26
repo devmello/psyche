@@ -187,6 +187,15 @@ export * from "./i18n/index.ts";
 export * from "./lib/format.ts";
 export { cn } from "./lib/utils.ts";
 export { FPS_PROBE_KEY, medianFps, startFpsProbe } from "./motion/fps-probe.ts";
+export {
+  type ScreenAskAnswer,
+  type ScreenAskCaptureView,
+  type ScreenAskDictation,
+  ScreenAskRegionView,
+  type ScreenAskRegionViewProps,
+  ScreenAskView,
+  type ScreenAskViewProps,
+} from "./screen-ask/ScreenAskView.tsx";
 // Screens.
 export * from "./screens/feed/index.ts";
 export * from "./screens/files/index.ts";
