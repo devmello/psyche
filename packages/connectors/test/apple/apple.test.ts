@@ -861,9 +861,9 @@ describe("Apple Notes wave 1 (#639)", () => {
   });
 
   it("notes_create can ask for Markdown", () => {
-    const props = (
-      notesTool("notes_create")?.inputSchema as { properties: Record<string, unknown> }
-    ).properties;
+    const created = notesTool("notes_create");
+    if (!created) throw new Error("notes_create is missing");
+    const props = (created.inputSchema as { properties: Record<string, unknown> }).properties;
     expect(props.format).toEqual({ type: "string", enum: ["text", "markdown"] });
   });
 });
