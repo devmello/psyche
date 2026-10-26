@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-25 (T1, #679: teaching loop store and routing)
+
+- `ApprovalRequestInput` gains optional `fromLesson { lessonId, feedbackId, because }`, copied by the broker to `ApprovalRequest.fromLesson` (added in #678) so a lesson's card can show "Because you said: …". `FakePermissionBroker` copies it too.
+
 ### v1 additive — 2026-10-25 (E, #678: the teaching loop)
 
 For T1 (#679), T2 (#680) and T3 (#681), docs/agent/teaching-loop-2026.md §3 and §7. All new fields are optional and all new schemas are new names.

@@ -26,6 +26,7 @@ export * from "./persona-edit.ts";
 export * from "./provenance.ts";
 export * from "./store.ts";
 export * from "./support.ts";
+export * from "./teaching/index.ts";
 export * from "./tools/index.ts";
 export {
   type Embedder,

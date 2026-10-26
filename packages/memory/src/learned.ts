@@ -10,9 +10,15 @@ import { blockingKinds, looksLikeInstruction } from "./filters.ts";
  */
 
 export const LEARNED_HEADING = "## Learned (dated; from your chats)";
-const LINE = /^- (\d{4}-\d{2}-\d{2}) \[(lf_[a-z0-9]{6,32}) thread:([^\]\s]+) (\w+)\] (.+)$/;
+const LINE =
+  /^- (\d{4}-\d{2}-\d{2}) \[(lf_[a-z0-9]{6,32}) thread:([^\]\s]+) (\w+)(?: lesson:(ls_[a-z0-9_]+))?\] (.+)$/;
 
-export interface LearnedLine extends LearnedFact {
+/** A learned fact, optionally written by a teaching-loop lesson (docs/agent/teaching-loop-2026.md §4). */
+export interface LearnedFactLine extends LearnedFact {
+  lessonId?: string;
+}
+
+export interface LearnedLine extends LearnedFactLine {
   /** 1-based line in USER.md. */
   line: number;
 }
@@ -28,7 +34,8 @@ export function parseLearned(content: string): LearnedLine[] {
       factId: m[2] as string,
       threadId: m[3] as string,
       kind: m[4] as LearnedFact["kind"],
-      text: m[5] as string,
+      ...(m[5] === undefined ? {} : { lessonId: m[5] }),
+      text: m[6] as string,
     });
   });
   return out;
@@ -65,12 +72,14 @@ export function refuseFact(text: string, known: readonly string[]): LearnRefusal
 }
 
 /** Adds lines under the Learned heading (creating the section at the end of the file). */
-export function addLearned(content: string, facts: readonly LearnedFact[]): string {
+export function formatLearned(f: LearnedFactLine): string {
+  const lesson = f.lessonId === undefined ? "" : ` lesson:${f.lessonId}`;
+  return `- ${f.date} [${f.factId} thread:${f.threadId} ${f.kind}${lesson}] ${f.text.replace(/\s+/g, " ").trim()}`;
+}
+
+export function addLearned(content: string, facts: readonly LearnedFactLine[]): string {
   if (facts.length === 0) return content;
-  const lines = facts.map(
-    (f) =>
-      `- ${f.date} [${f.factId} thread:${f.threadId} ${f.kind}] ${f.text.replace(/\s+/g, " ").trim()}`,
-  );
+  const lines = facts.map(formatLearned);
   const all = content.split("\n");
   const at = all.findIndex((l) => l.trim() === LEARNED_HEADING);
   if (at < 0) {
@@ -86,11 +95,24 @@ export function addLearned(content: string, facts: readonly LearnedFact[]): stri
   return all.join("\n");
 }
 
-/** Removes one learned line; `undefined` when it is not there. */
-export function removeLearned(content: string, factId: string): string | undefined {
+/**
+ * Removes one learned line, or puts `restore` (the line a lesson replaced) in its place;
+ * `undefined` when it is not there.
+ */
+export function removeLearned(
+  content: string,
+  factId: string,
+  restore?: string,
+): string | undefined {
   const lines = content.split("\n");
   const i = lines.findIndex((l) => LINE.exec(l.trimEnd())?.[2] === factId);
   if (i < 0) return undefined;
-  lines.splice(i, 1);
+  if (restore === undefined) lines.splice(i, 1);
+  else lines[i] = restore;
   return lines.join("\n");
+}
+
+/** The raw line of a learned fact, or `undefined`. */
+export function learnedLine(content: string, factId: string): string | undefined {
+  return content.split("\n").find((l) => LINE.exec(l.trimEnd())?.[2] === factId);
 }

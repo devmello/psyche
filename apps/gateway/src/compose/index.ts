@@ -12,13 +12,15 @@ import {
   type HashChainAuditLog,
   SoftwareAnchorKey,
 } from "@psyche/audit";
-import { getDevice, getSetting, getThread, openDb, type PsycheDb } from "@psyche/db";
+import { getDevice, getSetting, getThread, openDb, type PsycheDb, setSetting } from "@psyche/db";
 import { fileTools } from "@psyche/files";
 import {
   brokerApprovalCheck,
   createMemoryHandlers,
   createMemoryStore,
+  ensureDreamingAutomation,
   type SqliteMemoryStore,
+  withDreaming,
 } from "@psyche/memory";
 import {
   CliAdapter,
@@ -126,6 +128,12 @@ import {
 } from "./services.ts";
 import { composeSkills } from "./skills.ts";
 import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
+import {
+  type ComposedTeaching,
+  composeTeaching,
+  TEACHING_ASK_RULES_KEY,
+  teachingAskRules,
+} from "./teaching.ts";
 import { SqliteThreadStateStore } from "./thread-state.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
@@ -225,6 +233,8 @@ export interface ComposedGateway {
   readonly scheduler: SqliteScheduler;
   readonly notifier: PsycheNotifier;
   readonly proactive: ComposedProactive;
+  /** The teaching loop (#679): feedback, lessons and their writers. */
+  readonly teaching: ComposedTeaching;
   readonly provider: ModelProvider;
   readonly vault: Vault;
   /** Shared by the vault, its payment broker and every output path that masks. */
@@ -438,6 +448,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     policy: hostPolicy((policy ?? storedPolicy) as PolicyConfig | undefined),
   });
   const broker = withRelay(tokens.wrap(rawBroker), relays, gwOptions.logger);
+  // The teaching loop (#679) reads approval answers as implicit feedback; set once composed.
+  let teachingRef: ComposedTeaching | undefined;
   // Executors (vault fills, the browser's mid-run gate, sandbox secrets) request approvals
   // outside the loop, which announces only its own: they announce theirs here.
   const executorBroker = announcing(broker, publish);
@@ -462,6 +474,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         { approval: e.approval },
         e.approval.requestedBy.threadId ?? undefined,
       );
+      if (e.type === "approval.decided") teachingRef?.observeApproval(e.approval);
     } else if (e.type === "receipt.created") {
       publish("receipt.created", { receipt: e.receipt });
     }
@@ -690,6 +703,34 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     surfaces: ["desktop", "web"],
     publish: (event, payload, threadId) => publish(event, payload as never, threadId),
   });
+  // The teaching loop (#679): the owner's feedback → lessons written where they belong.
+  const teaching = composeTeaching({
+    db,
+    memory,
+    provider,
+    model: utility ?? modelRef,
+    active: utility !== undefined,
+    broker: executorBroker,
+    clock,
+    audit,
+    scheduler,
+    surfaces: ["desktop", "web"],
+    askRules: teachingAskRules({
+      db,
+      read: () => ({
+        ...(validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger) ?? {}),
+      }),
+      write: (next) => {
+        const entry = setSetting(db, "permissions.policy", next);
+        rawBroker.setPolicy(hostPolicy(next as PolicyConfig));
+        publish("settings.changed", { entries: [entry] });
+      },
+      owned: () => (getSetting(db, TEACHING_ASK_RULES_KEY)?.value as string[] | undefined) ?? [],
+      setOwned: (rules) => void setSetting(db, TEACHING_ASK_RULES_KEY, rules),
+    }),
+    publish: (event, payload, threadId) => publish(event, payload as never, threadId),
+  });
+  teachingRef = teaching;
   const loop = createAgentLoop({
     // Model-side history survives a restart (issue #52); secrets the vault knows are masked.
     state: new SqliteThreadStateStore(db, redactor),
@@ -762,7 +803,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     webSetup,
   );
   for (const tool of webTools.tools) registry.register(tool);
-  launcher = proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool);
+  // Nightly dreaming runs in-process for its automation (S07 `withDreaming`); everything else
+  // goes on to the proactive jobs and the task pool.
+  launcher = withDreaming(
+    memory,
+    proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool),
+  );
   scheduler.subscribe((e) => publish(e.event, e.payload as never));
 
   // C10: Claude Code behind harness.delegate, only once the owner configured harness.claudeCode.
@@ -797,6 +843,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...mountPermissions(db, createPermissionHandlers(rawBroker, audit), tokens),
     ...mountParamsOnly(createMemoryHandlers(memory) as never),
     ...mountParamsOnly(userProfile.handlers as never),
+    ...teaching.handlers,
     ...mountParamsOnly(
       context.handlers(
         () => loop,
@@ -906,6 +953,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   ownPorts.add(gateway.port, "gateway (bound)");
   for (const part of parts) await part.start?.(gateway);
   await proactive.start();
+  // Dreaming was only ever scheduled in tests (teaching loop §6): one system automation, 03:00.
+  await ensureDreamingAutomation(scheduler, {
+    timezone: timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+  }).catch((err: unknown) =>
+    gwOptions.logger?.log("warn", "dreaming automation not scheduled", {
+      code: PsycheError.from(err).code,
+    }),
+  );
+  // Lesson cards that were open at shutdown are awaited again (or settled).
+  await teaching.resume().catch(() => undefined);
 
   if (background) {
     pool.start();
@@ -932,6 +989,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     scheduler,
     notifier,
     proactive,
+    teaching,
     provider,
     vault: vault.vault,
     redactor,

@@ -239,6 +239,59 @@ export const graphCursors = sqliteTable("graph_cursors", {
   updatedAt: text("updated_at").notNull(),
 });
 
+// --- The teaching loop (202610251600_memory_teaching.sql; docs/agent/teaching-loop-2026.md §3) ---
+
+export const feedbackEvents = sqliteTable("feedback_events", {
+  id: text("id").primaryKey(),
+  kind: text("kind").notNull(),
+  targetType: text("target_type").notNull(),
+  targetId: text("target_id").notNull(),
+  target: text("target").notNull(),
+  threadId: text("thread_id"),
+  text: text("text"),
+  reason: text("reason"),
+  scope: text("scope"),
+  detail: text("detail"),
+  surface: text("surface").notNull(),
+  lessonId: text("lesson_id"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const lessons = sqliteTable("lessons", {
+  id: text("id").primaryKey(),
+  kind: text("kind").notNull(),
+  origin: text("origin").notNull(),
+  statement: text("statement").notNull(),
+  scope: text("scope").notNull(),
+  destination: text("destination").notNull(),
+  destinationKey: text("destination_key").notNull(),
+  previous: text("previous"),
+  value: text("value").notNull(),
+  sources: text("sources").notNull(),
+  confidence: real("confidence").notNull(),
+  status: text("status").notNull(),
+  refinedCount: integer("refined_count").notNull().default(0),
+  supersedes: text("supersedes"),
+  approvalId: text("approval_id"),
+  fingerprint: text("fingerprint").notNull(),
+  lastAppliedAt: text("last_applied_at"),
+  lastConfirmedAt: text("last_confirmed_at"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  confirmedAt: text("confirmed_at"),
+  forgottenAt: text("forgotten_at"),
+});
+
+export const feedbackWeekly = sqliteTable(
+  "feedback_weekly",
+  {
+    week: text("week").notNull(),
+    kind: text("kind").notNull(),
+    count: integer("count").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.week, t.kind] })],
+);
+
 export const s07Schema = {
   memoryFiles,
   memoryClaims,
@@ -258,6 +311,9 @@ export const s07Schema = {
   graphFeedback,
   graphBlocklist,
   graphCursors,
+  feedbackEvents,
+  lessons,
+  feedbackWeekly,
 };
 
 export type MemoryFileRow = typeof memoryFiles.$inferSelect;
