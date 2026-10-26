@@ -8,6 +8,7 @@ import { Button } from "../components/ui/button.tsx";
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { motionSpring, spring } from "../motion/index.ts";
+import { type ComposerVoice, ComposerVoiceButtons } from "../voice/controls.tsx";
 import { COMMANDS, type CommandInfo, completion, matchCommands } from "./commands.ts";
 import { messageText } from "./MessageView.tsx";
 import { useElementHeight } from "./ThreadChrome.tsx";
@@ -64,6 +65,8 @@ export interface ComposerProps {
   mode?: QueueMode;
   onAttach?: () => void;
   onDictate?: () => void;
+  /** The host's dictation and voice conversation (#690): the mic and Voice buttons. */
+  voice?: ComposerVoice;
   /** Stops the active run (`chat.cancel`). */
   onStop?: () => void;
 }
@@ -83,6 +86,7 @@ export function Composer({
   mode = "followUp",
   onAttach,
   onDictate,
+  voice,
   onStop,
 }: ComposerProps): ReactElement {
   const menu = useCommandMenu();
@@ -210,7 +214,10 @@ export function Composer({
                     ? t("chat.composer.hintSteer", { persona })
                     : t("chat.composer.hintInterrupt", { persona })}
             </span>
-            {onDictate ? (
+            {voice ? (
+              <ComposerVoiceButtons voice={voice} disabled={disabled} className={round} />
+            ) : null}
+            {onDictate && !voice?.dictation ? (
               <Button
                 variant="ghost"
                 size="icon-sm"
