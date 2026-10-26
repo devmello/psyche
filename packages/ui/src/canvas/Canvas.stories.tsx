@@ -38,3 +38,19 @@ export const Table: Story = {
     </StoryWorld>
   ),
 };
+
+export const Chart: Story = {
+  render: () => (
+    <StoryWorld edit={withCanvas}>
+      <Frame id={CANVAS_IDS.chart} />
+    </StoryWorld>
+  ),
+};
+
+export const Diff: Story = {
+  render: () => (
+    <StoryWorld edit={withCanvas}>
+      <Frame id={CANVAS_IDS.diff} />
+    </StoryWorld>
+  ),
+};

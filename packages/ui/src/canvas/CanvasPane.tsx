@@ -1,15 +1,25 @@
-import type { Artifact, ArtifactCell, ArtifactOp, ArtifactTable } from "@psyche/protocol";
+import type {
+  Artifact,
+  ArtifactCell,
+  ArtifactChart,
+  ArtifactOp,
+  ArtifactTable,
+} from "@psyche/protocol";
 import {
+  ChartColumn,
   Code2,
   Copy,
   Download,
   FileText,
+  GitCompare,
   Image as ImageIcon,
+  Network,
   Pencil,
   ShieldAlert,
   Table as TableIcon,
 } from "lucide-react";
 import { type ReactElement, type ReactNode, useEffect, useMemo, useState } from "react";
+import { DiffBlock } from "../blocks/DiffBlock.tsx";
 import { Markdown } from "../blocks/Markdown.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { NativeSelect } from "../components/ui/native-select.tsx";
@@ -37,6 +47,7 @@ import { useCopy } from "../lib/clipboard.ts";
 import { formatTime } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
 import { useSlots } from "../slots.tsx";
+import { ChartView } from "./ChartView.tsx";
 
 /**
  * The output canvas (docs/design/chat-experience-2026.md §4.2): one artifact at a time with the
@@ -53,8 +64,11 @@ const TYPE_ICON: Partial<Record<Artifact["type"], typeof FileText>> = {
   table: TableIcon,
   sheet: TableIcon,
   image: ImageIcon,
+  chart: ChartColumn,
+  diagram: Network,
+  diff: GitCompare,
 };
-const EDITABLE = new Set<Artifact["type"]>(["doc", "markdown", "code", "table"]);
+const EDITABLE = new Set<Artifact["type"]>(["doc", "markdown", "code", "table", "diagram"]);
 const MAX_TABS = 5;
 
 /** What a host renderer gets to draw an artifact body. */
@@ -75,7 +89,7 @@ export interface CanvasPaneProps {
 }
 
 const fileName = (a: Artifact): string =>
-  `${a.nameSlug}.${a.type === "table" || a.type === "sheet" ? "csv" : a.type === "code" ? (a.language ?? "txt") : "md"}`;
+  `${a.nameSlug}.${a.type === "table" || a.type === "sheet" ? "csv" : a.type === "chart" ? "json" : a.type === "diagram" ? "mmd" : a.type === "diff" ? "patch" : a.type === "code" ? (a.language ?? "txt") : "md"}`;
 
 function asTable(content: ArtifactContent): ArtifactTable | null {
   try {
@@ -341,6 +355,10 @@ function CanvasBody({
           />
         ) : artifact.type === "image" ? (
           <ImageBody itemId={content.content} />
+        ) : artifact.type === "chart" ? (
+          <ChartBody content={content} />
+        ) : artifact.type === "diff" ? (
+          <DiffBlock diff={content.content} maxLines={2000} />
         ) : editing ? (
           artifact.type !== "code" && slots.renderEditor ? (
             slots.renderEditor({
@@ -356,7 +374,7 @@ function CanvasBody({
               onChange={(e) => setDraft(e.target.value)}
             />
           )
-        ) : artifact.type === "code" ? (
+        ) : artifact.type === "code" || artifact.type === "diagram" ? (
           <pre className="overflow-x-auto font-mono text-mono text-label-primary">
             <code>{content.content}</code>
           </pre>
@@ -497,6 +515,18 @@ function TableBody({
       </tbody>
     </table>
   );
+}
+
+function ChartBody({ content }: { content: ArtifactContent }): ReactElement {
+  let chart: ArtifactChart | null = null;
+  try {
+    chart = JSON.parse(content.content) as ArtifactChart;
+  } catch {
+    // A malformed spec shows its text below.
+  }
+  if (chart === null || !Array.isArray(chart.series) || !Array.isArray(chart.categories))
+    return <pre className="font-mono text-mono">{content.content}</pre>;
+  return <ChartView chart={chart} />;
 }
 
 function ImageBody({ itemId }: { itemId: string }): ReactElement {

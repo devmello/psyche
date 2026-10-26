@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Card } from "../src/blocks/card.tsx";
 import { MessageBlocks } from "../src/blocks/MessageBlocks.tsx";
 import { CanvasPane } from "../src/canvas/CanvasPane.tsx";
+import { niceTicks } from "../src/canvas/ChartView.tsx";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { CANVAS_IDS, canvasFixtures } from "../src/fixtures/canvas.ts";
 import { IDS } from "../src/fixtures/ids.ts";
@@ -62,6 +63,35 @@ function mount(id: string) {
   return () => gateway as MockGateway;
 }
 
+describe("chart, diff and diagram in the canvas", () => {
+  it("draws a chart with a legend and a hidden data table", async () => {
+    mount(CANVAS_IDS.chart);
+    expect(await screen.findByText("Trip cost by item")).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Trip cost by item" })).toBeTruthy();
+    expect(screen.getAllByText("Planned").length).toBeGreaterThan(0);
+    const cell = screen.getAllByRole("cell").find((c) => c.textContent === "690");
+    expect(cell).toBeTruthy();
+  });
+
+  it("shows a diff without an Edit button", async () => {
+    mount(CANVAS_IDS.diff);
+    expect(await screen.findByTestId("diff-block")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Edit/ })).toBeNull();
+  });
+
+  it("round-trips a chart patch locally and picks round ticks", () => {
+    const c = JSON.stringify({
+      kind: "bar",
+      categories: ["a"],
+      series: [{ name: "s", values: [1] }],
+    });
+    const out = applyOpsLocal("chart", c, null, [{ op: "patch", patch: { kind: "line" } }]);
+    expect(JSON.parse(out.content).kind).toBe("line");
+    expect(niceTicks(690)).toEqual([0, 200, 400, 600, 800]);
+    expect(niceTicks(0)).toEqual([0, 1]);
+  });
+});
+
 describe("CanvasPane", () => {
   it("shows the latest version with recents tabs and the version picker", async () => {
     mount(CANVAS_IDS.doc);
@@ -71,7 +101,7 @@ describe("CanvasPane", () => {
       within(tabs)
         .getAllByRole("tab")
         .map((t) => t.textContent),
-    ).toEqual(["Lisbon itinerary", "Trip budget"]);
+    ).toEqual(["Lisbon itinerary", "Trip budget", "Trip cost chart", "Itinerary changes"]);
     const picker = screen.getByRole("combobox", { name: "Version" });
     await waitFor(() => expect(within(picker).getAllByRole("option")).toHaveLength(3));
     expect(within(picker).getAllByRole("option")[0]?.textContent).toMatch(/^v3 · you/);

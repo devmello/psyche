@@ -1,7 +1,7 @@
 import { type ArtifactRenderProps, CanvasPane, UiSlotsProvider, useLibraryItem } from "@psyche/ui";
 import { ViewerHost } from "@psyche/viewers";
 import { mimeFromName } from "@psyche/viewers/core/detect";
-import { type ReactElement, type ReactNode, useCallback } from "react";
+import { type ReactElement, type ReactNode, useCallback, useEffect, useId, useState } from "react";
 import { ConnectedFileViewer } from "./viewers.tsx";
 
 /**
@@ -62,7 +62,53 @@ function ImageBody({ itemId }: { itemId: string }): ReactElement | null {
   );
 }
 
+/**
+ * Mermaid text drawn in strict mode (docs/design/chat-experience-2026.md §4.6): Mermaid's own
+ * sanitizer runs with `securityLevel: "strict"` (no click handlers, no HTML labels), and the SVG
+ * it returns is shown as an image from a data URL, so nothing in it can run or reach the page.
+ * Mermaid loads on first use. A diagram that fails to parse shows its source instead.
+ */
+function DiagramBody({ source }: { source: string }): ReactElement {
+  const id = `mmd-${useId().replace(/\W/g, "")}`;
+  const [svg, setSvg] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let live = true;
+    setSvg(null);
+    setFailed(false);
+    void (async () => {
+      try {
+        const { default: mermaid } = await import("mermaid");
+        mermaid.initialize({ startOnLoad: false, securityLevel: "strict", htmlLabels: false });
+        const out = await mermaid.render(id, source);
+        if (live) setSvg(out.svg);
+      } catch {
+        if (live) setFailed(true);
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [source, id]);
+  if (failed)
+    return (
+      <pre className="overflow-x-auto font-mono text-mono text-label-primary">
+        <code>{source}</code>
+      </pre>
+    );
+  if (svg === null) return <p className="text-callout text-label-secondary">…</p>;
+  return (
+    <img
+      alt=""
+      className="max-w-full"
+      src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`}
+    />
+  );
+}
+
 export function renderArtifact(props: ArtifactRenderProps): ReactNode {
+  if (props.artifact.type === "diagram" && !props.editing)
+    return <DiagramBody source={props.content.content} />;
   if (props.artifact.type === "code" && !props.editing) return <CodeBody props={props} />;
   if (props.artifact.type === "image") return <ImageBody itemId={props.content.content} />;
   return undefined;
