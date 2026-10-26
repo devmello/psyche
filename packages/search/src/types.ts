@@ -48,7 +48,10 @@ export const GROUP_OF_KIND: Record<SearchIndexDocKind, SearchGroup> = {
   project: "projects",
 };
 
+/** People and Projects lead (docs/memory/people-and-projects-2026.md §6.4). */
 export const GROUP_ORDER: SearchGroup[] = [
+  "people",
+  "projects",
   "threads",
   "tasks",
   "memory",

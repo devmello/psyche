@@ -88,10 +88,7 @@ export function graphHandlers(ctx: GraphMockContext): Handlers {
         entities: w.entities
           .filter(
             (e) =>
-              e.status === "active" &&
-              !e.isOwner &&
-              (!p.kinds || p.kinds.includes(e.kind)) &&
-              matches(w, e, p.q),
+              e.status === "active" && (!p.kinds || p.kinds.includes(e.kind)) && matches(w, e, p.q),
           )
           .sort((a, b) => rank(b) - rank(a))
           .slice(0, p.limit ?? 20)

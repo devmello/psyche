@@ -168,6 +168,11 @@ export interface ApprovalRequestInput {
    * restart can re-evaluate the same inputs.
    */
   context?: DecisionContext;
+  /**
+   * The card writes a lesson (teaching loop §3.3): copied to `ApprovalRequest.fromLesson` so the
+   * card shows "Because you said: …" with the owner's words.
+   */
+  fromLesson?: { lessonId: string; feedbackId: string; because: string };
 }
 
 /** A created request plus one single-use answer token per delivered surface. Tokens are returned only here. */

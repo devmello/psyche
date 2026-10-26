@@ -454,6 +454,7 @@ export class FakePermissionBroker implements PermissionBroker {
     if (se !== undefined) approval.sideEffect = se;
     if (input.targetKind !== undefined) approval.targetKind = input.targetKind;
     if (input.target !== undefined) approval.target = { ...input.target };
+    if (input.fromLesson !== undefined) approval.fromLesson = { ...input.fromLesson };
     if (requester !== undefined && requester.role !== "owner") {
       approval.details.requestedFor = `${requester.role}: ${
         requester.display ?? requester.identityId ?? requester.senderId ?? "unknown"

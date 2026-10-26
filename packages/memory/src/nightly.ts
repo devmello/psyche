@@ -68,20 +68,34 @@ export async function ensureDreamingAutomation(
   return scheduler.create({ kind: "cron", scratch: null, system: true, ...fields });
 }
 
+/**
+ * Other nightly memory work that runs after dreaming in the same window (the people graph's
+ * model pass, docs/memory/people-and-projects-2026.md §5.2). Returns a short summary to append;
+ * its failure is reported in the summary and never fails the dreaming run.
+ */
+export type NightlyStep = () => Promise<string | undefined>;
+
 /** Runs dreaming for its automation and passes every other run to `inner`. */
 export function withDreaming<R extends LaunchRequest, Run>(
   store: SqliteMemoryStore,
   inner: Launcher<R, Run>,
   options: DreamingOptions = {},
+  after: readonly NightlyStep[] = [],
 ): Launcher<R, Run> {
   return {
     async launch(request) {
       if (!isDreamingAutomation(request.automation)) return inner.launch(request);
       const result = runDreaming(store, options).then(
-        (r): LaunchResult => ({
-          status: "no_reply",
-          summary: `promoted ${r.promoted}, merged ${r.merged}, superseded ${r.superseded}, dropped ${r.dropped}`,
-        }),
+        async (r): Promise<LaunchResult> => {
+          const parts = [
+            `promoted ${r.promoted}, merged ${r.merged}, superseded ${r.superseded}, dropped ${r.dropped}`,
+          ];
+          for (const step of after) {
+            const summary = await step().catch(() => "a nightly step failed");
+            if (summary !== undefined) parts.push(summary);
+          }
+          return { status: "no_reply", summary: parts.join("; ") };
+        },
         (): LaunchResult => ({ status: "failed", summary: "Memory dreaming failed" }),
       );
       return { result };

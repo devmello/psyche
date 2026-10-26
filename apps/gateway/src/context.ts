@@ -16,6 +16,7 @@ import type { Logger } from "./log.ts";
 import type { NodeRegistry } from "./nodes/registry.ts";
 import type { PresenceState } from "./presence-gate.ts";
 import type { RateLimiter } from "./rate-limit.ts";
+import type { RunTraceSink } from "./run-trace/sink.ts";
 import type { SessionController } from "./session/controller.ts";
 
 /**
@@ -86,6 +87,8 @@ export interface GatewayContext {
   readonly idempotency: Idempotency;
   readonly sessions: SessionController;
   readonly nodes: NodeRegistry;
+  /** The run trace's one sink (run trace §4.2): steps for every run. */
+  readonly runTrace: RunTraceSink;
   /**
    * Handlers mounted by the composition root (package APIs such as `approvals.*` or `memory.*`).
    * Gateway-owned handlers win; `startGateway` refuses a name that both define.

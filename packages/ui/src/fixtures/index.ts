@@ -229,6 +229,7 @@ export {
   TRACE_IDS,
   traceAutomationRuns,
   traceFrames,
+  traceLongRun,
   tracePayloads,
   traceRuns,
   traceSteps,

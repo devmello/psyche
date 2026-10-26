@@ -21,6 +21,11 @@ export interface ThreadBlockIndex {
    * the last message, so the transcript leaves them out until the run ends.
    */
   activeRunId?: string | null;
+  /**
+   * Runs with a step trace (run-trace T2): their tool calls and approvals show in the run's steps
+   * above the reply, so the transcript leaves them out.
+   */
+  tracedRuns?: ReadonlySet<string>;
 }
 
 /** Indexes a thread's messages, in transcript order. */
@@ -54,7 +59,9 @@ export function blocksToShow(
   let changed = false;
   const out: Block[] = [];
   const live =
-    index?.activeRunId != null && message.runId != null && message.runId === index.activeRunId;
+    message.runId != null &&
+    ((index?.activeRunId != null && message.runId === index.activeRunId) ||
+      index?.tracedRuns?.has(message.runId) === true);
   for (const b of message.blocks) {
     if (live && (b.type === "tool_call" || b.type === "approval")) {
       changed = true;
