@@ -4,6 +4,7 @@ export * from "./contracts/index.ts";
 export * from "./errors.ts";
 export * from "./events.ts";
 export * from "./frames.ts";
+export * from "./mcp-official.ts";
 export * from "./methods/index.ts";
 export * from "./node.ts";
 export * from "./schemas/index.ts";
