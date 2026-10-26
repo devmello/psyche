@@ -3,6 +3,7 @@ import type { EventFilter } from "../event-bus.ts";
 import { chatHandlers } from "./chat.ts";
 import { devicesHandlers } from "./devices.ts";
 import { nodesHandlers } from "./nodes.ts";
+import { runsHandlers } from "./runs.ts";
 import { settingsHandlers } from "./settings.ts";
 import { threadsHandlers } from "./threads.ts";
 
@@ -25,5 +26,6 @@ export const HANDLERS: Readonly<Record<string, HandlerDef>> = {
   ...threadsHandlers,
   ...chatHandlers,
   ...nodesHandlers,
+  ...runsHandlers,
   ...eventsHandlers,
 };
