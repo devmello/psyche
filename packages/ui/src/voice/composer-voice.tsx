@@ -1,8 +1,16 @@
 import { useAui, useAuiState } from "@assistant-ui/react";
 import { type ReactElement, useCallback, useRef } from "react";
 import { Composer, type ComposerProps } from "../chat/Composer.tsx";
-import { useSlots } from "../slots.tsx";
-import { ComposerVoiceBar, type UseComposerVoice, useNoVoice } from "./controls.tsx";
+import { t } from "../i18n/core.ts";
+import { usePersona, useSlots } from "../slots.tsx";
+import {
+  type ComposerVoice,
+  ComposerVoiceBar,
+  type UseComposerVoice,
+  useNoVoice,
+} from "./controls.tsx";
+import { useVoiceConversation } from "./conversation.ts";
+import { VoiceCapsule } from "./VoiceCapsule.tsx";
 
 /**
  * The kit's composer with the host's voice: the status line above it, the mic and Voice buttons
@@ -25,10 +33,58 @@ export function VoiceComposer({
     },
     [aui],
   );
-  const voice = useVoice(threadId, onText);
+  const hostVoice = useVoice(threadId, onText);
+  const persona = usePersona();
+  // Voice conversation (voice-mode-2026 §6.1): with the host's audio terminal, Voice opens the
+  // capsule, which takes the composer's place (the same layoutId) until the conversation ends.
+  const conversation = useVoiceConversation(threadId);
+  if (conversation?.active) {
+    return (
+      <VoiceCapsule
+        session={conversation.session}
+        settings={conversation.settings}
+        onTalk={conversation.talk}
+        onToggleMute={conversation.toggleMute}
+        onStopSpeaking={conversation.stopSpeaking}
+        onEnd={conversation.end}
+        levels={() => conversation.terminal.levels()}
+      />
+    );
+  }
+  const voice: ComposerVoice | null = conversation
+    ? {
+        dictation: hostVoice?.dictation ?? null,
+        voiceMode: {
+          active: false,
+          label: "",
+          heard: "",
+          push: false,
+          talking: false,
+          canTalk: false,
+          interruptible: false,
+          toggle: conversation.start,
+          pushStart: () => {},
+          pushEnd: () => {},
+          title: t("voice.startTitle", {
+            name: persona.name,
+            key: t(`voice.key.${conversation.settings.key}`),
+          }),
+        },
+      }
+    : hostVoice;
+  const failed = conversation?.session.error ?? null;
   return (
     <>
       {voice ? <ComposerVoiceBar voice={voice} /> : null}
+      {failed ? (
+        <p
+          role="status"
+          className="px-3 text-callout text-label-secondary"
+          data-testid="voice-error"
+        >
+          {failed}
+        </p>
+      ) : null}
       <Composer {...props} {...(voice ? { voice } : {})} />
     </>
   );

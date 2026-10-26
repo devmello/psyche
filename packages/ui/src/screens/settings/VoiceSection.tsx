@@ -1,7 +1,10 @@
-import type { ReactElement } from "react";
+import { type ReactElement, useEffect, useId, useRef } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Kbd } from "../../components/ui/kbd.tsx";
+import { NativeSelect } from "../../components/ui/native-select.tsx";
+import { useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
+import { migrateVoiceSettings, readVoiceSettings, VOICE_RATE } from "../../voice/settings.ts";
 import { type ShortcutCheck, ShortcutRecorder } from "./ShortcutRecorder.tsx";
 import {
   bool,
@@ -91,6 +94,217 @@ function AccessibilityRow({
   );
 }
 
+/** The voices `speech.voices` lists, for the Voice row (null while unknown). */
+export interface VoiceChoices {
+  voices?: { ref: string; name: string; local: boolean; engine: string }[] | null;
+  /** Opens System Settings → Accessibility → Spoken Content (premium voices). */
+  onGetVoices?: () => void;
+}
+
+const LANGUAGES = ["en", "ar", "de", "es", "fr", "hi", "it", "ja", "ko", "pt", "zh"] as const;
+
+function languageName(code: string): string {
+  try {
+    return new Intl.DisplayNames([code], { type: "language" }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
+
+/**
+ * Settings → Voice & dictation → Voice conversation (docs/voice/voice-mode-2026.md §6.4): talk
+ * with Psyche, the voice key (never the dictation key), how turns end, the voice and its speed,
+ * how much is spoken and narrated, interrupting, approving by voice, language, captions, review
+ * before sending, and the spoken brief. Replaces #481's Q5 group; its keys are migrated.
+ */
+export function VoiceConversationGroup({
+  values,
+  onChange,
+  voices,
+  onGetVoices,
+}: Pick<SettingsFormProps, "values" | "onChange"> & VoiceChoices): ReactElement {
+  const v = readVoiceSettings(values);
+  const dictationKey = str(values, "voice.pushToTalk", "fn");
+  const rateId = useId();
+  const voiceId = useId();
+  const languageId = useId();
+  return (
+    <Group title={t("voice.settings.title")}>
+      <SwitchField
+        label={t("voice.settings.enabled")}
+        description={t("voice.settings.enabledHint")}
+        checked={v.enabled}
+        settingKey="voice.conversation.enabled"
+        onChange={(on) => onChange("voice.conversation.enabled", on)}
+      />
+      {v.enabled ? (
+        <>
+          <RadioField
+            label={t("voice.settings.key")}
+            description={
+              v.key === dictationKey ? t("voice.settings.keyClash") : t("voice.settings.keyHint")
+            }
+            inline
+            value={v.key}
+            settingKey="voice.conversation.key"
+            onChange={(k) => onChange("voice.conversation.key", k)}
+            options={(["fn", "rightOption", "rightCommand"] as const).map((k) => ({
+              value: k,
+              label: t(`voice.key.${k}`),
+              disabled: k === dictationKey,
+            }))}
+          />
+          <RadioField
+            label={t("voice.settings.mode")}
+            value={v.mode}
+            settingKey="voice.conversation.mode"
+            onChange={(mode) => onChange("voice.conversation.mode", mode)}
+            options={(["push", "tap", "handsfree"] as const).map((mode) => ({
+              value: mode,
+              label: t(`voice.settings.mode.${mode}`),
+              hint: t(`voice.settings.mode.${mode}Hint`),
+            }))}
+          />
+          <div className="flex flex-col gap-1">
+            <label htmlFor={voiceId} className="text-body">
+              {t("voice.settings.voice")}
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <NativeSelect
+                id={voiceId}
+                value={v.voice ?? ""}
+                onChange={(e) => onChange("voice.conversation.voice", e.target.value || null)}
+                className="min-w-56"
+              >
+                <option value="">{t("voice.settings.voiceBest")}</option>
+                {(voices ?? []).map((o) => (
+                  <option key={o.ref} value={o.ref}>
+                    {o.local
+                      ? o.name
+                      : `${o.name} · ${t("voice.settings.voiceCloud", { vendor: o.engine })}`}
+                  </option>
+                ))}
+              </NativeSelect>
+              {onGetVoices ? (
+                <Button size="sm" variant="ghost" onClick={onGetVoices}>
+                  {t("voice.settings.getVoices")}
+                </Button>
+              ) : null}
+            </div>
+            {voices === null ? (
+              <p className="text-callout text-label-secondary">
+                {t("voice.settings.voicesUnavailable")}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor={rateId} className="text-body">
+              {t("voice.settings.rate")}
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                id={rateId}
+                type="range"
+                min={VOICE_RATE.min}
+                max={VOICE_RATE.max}
+                step={VOICE_RATE.step}
+                value={v.rate}
+                onChange={(e) => onChange("voice.conversation.rate", Number(e.target.value))}
+                className="w-48 accent-(--accent-9)"
+              />
+              <output htmlFor={rateId} className="text-callout text-label-secondary tabular-nums">
+                {t("voice.settings.rateValue", { rate: v.rate.toFixed(2).replace(/0$/, "") })}
+              </output>
+            </div>
+          </div>
+          <RadioField
+            label={t("voice.settings.speak")}
+            value={v.speak}
+            settingKey="voice.conversation.speak"
+            onChange={(x) => onChange("voice.conversation.speak", x)}
+            options={(["brief", "full"] as const).map((x) => ({
+              value: x,
+              label: t(`voice.settings.speak.${x}`),
+              hint: t(`voice.settings.speak.${x}Hint`),
+            }))}
+          />
+          <RadioField
+            label={t("voice.settings.narrate")}
+            inline
+            value={v.narrate}
+            settingKey="voice.conversation.narrate"
+            onChange={(x) => onChange("voice.conversation.narrate", x)}
+            options={(["off", "brief", "steps"] as const).map((x) => ({
+              value: x,
+              label: t(`voice.settings.narrate.${x}`),
+            }))}
+          />
+          <SwitchField
+            label={t("voice.settings.bargeIn")}
+            description={t("voice.settings.bargeInHint")}
+            checked={v.bargeIn}
+            settingKey="voice.conversation.bargeIn"
+            onChange={(on) => onChange("voice.conversation.bargeIn", on)}
+          />
+          <RadioField
+            label={t("voice.settings.approvals")}
+            description={t("voice.settings.approvalsHint")}
+            inline
+            value={v.approvals}
+            settingKey="voice.conversation.approvals"
+            onChange={(x) => onChange("voice.conversation.approvals", x)}
+            options={(["off", "write", "write_destructive"] as const).map((x) => ({
+              value: x,
+              label: t(`voice.settings.approvals.${x}`),
+            }))}
+          />
+          <div className="flex flex-col gap-1">
+            <label htmlFor={languageId} className="text-body">
+              {t("voice.settings.language")}
+            </label>
+            <NativeSelect
+              id={languageId}
+              value={v.language ?? ""}
+              onChange={(e) => onChange("voice.conversation.language", e.target.value || null)}
+              className="min-w-56"
+            >
+              <option value="">{t("voice.settings.languageFollow")}</option>
+              {LANGUAGES.map((code) => (
+                <option key={code} value={code}>
+                  {languageName(code)}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+          <SwitchField
+            label={t("voice.settings.captions")}
+            checked={v.captions}
+            settingKey="voice.conversation.captions"
+            onChange={(on) => onChange("voice.conversation.captions", on)}
+          />
+          <SwitchField
+            label={t("voice.settings.review")}
+            description={t("voice.settings.reviewHint")}
+            checked={v.reviewBeforeSend}
+            settingKey="voice.conversation.reviewBeforeSend"
+            onChange={(on) => onChange("voice.conversation.reviewBeforeSend", on)}
+          />
+          <RadioField
+            label={t("voice.settings.brief")}
+            value={v.brief}
+            settingKey="voice.conversation.brief"
+            onChange={(x) => onChange("voice.conversation.brief", x)}
+            options={(["off", "listen", "atMac"] as const).map((x) => ({
+              value: x,
+              label: t(`voice.settings.brief.${x}`),
+            }))}
+          />
+        </>
+      ) : null}
+    </Group>
+  );
+}
+
 export function VoicePanel({
   values,
   onChange,
@@ -102,10 +316,11 @@ export function VoicePanel({
   onOpenAccessibility,
   onRecheck,
   onCheckShortcut,
-}: SettingsFormProps & LoadProps & SystemDictationProps): ReactElement {
+  voices,
+  onGetVoices,
+}: SettingsFormProps & LoadProps & SystemDictationProps & VoiceChoices): ReactElement {
   const ptt = str(values, "voice.pushToTalk", "fn");
   const systemWide = bool(values, "voice.systemWide", true);
-  const conversation = bool(values, "voice.conversation.enabled", false);
   return (
     <SectionFrame
       needsApproval={needsApproval}
@@ -176,62 +391,12 @@ export function VoicePanel({
             />
           </Group>
         ) : null}
-        <Group title={t("settings.key.voice.conversation.enabled")}>
-          <SwitchField
-            label={t("settings.voice.talk")}
-            description={t("settings.voice.talkHint")}
-            checked={conversation}
-            settingKey="voice.conversation.enabled"
-            onChange={(v) => onChange("voice.conversation.enabled", v)}
-          />
-          {conversation ? (
-            <>
-              <RadioField
-                label={t("settings.voice.yourTurn")}
-                value={str(values, "voice.conversation.start", "toggle")}
-                settingKey="voice.conversation.start"
-                onChange={(v) => onChange("voice.conversation.start", v)}
-                options={[
-                  {
-                    value: "toggle",
-                    label: t("settings.voice.turn.toggle"),
-                    hint: t("settings.voice.turn.toggleHint"),
-                  },
-                  {
-                    value: "push",
-                    label: t("settings.voice.turn.push"),
-                    hint: t("settings.voice.turn.pushHint"),
-                  },
-                ]}
-              />
-              <RadioField
-                label={t("settings.voice.reply")}
-                value={str(values, "voice.conversation.reply", "gateway")}
-                settingKey="voice.conversation.reply"
-                onChange={(v) => onChange("voice.conversation.reply", v)}
-                options={[
-                  {
-                    value: "gateway",
-                    label: t("settings.voice.reply.gateway"),
-                    hint: t("settings.voice.reply.gatewayHint"),
-                  },
-                  {
-                    value: "browser",
-                    label: t("settings.voice.reply.browser"),
-                    hint: t("settings.voice.reply.browserHint"),
-                  },
-                ]}
-              />
-              <SwitchField
-                label={t("settings.key.voice.conversation.bargeIn")}
-                description={t("settings.voice.bargeInHint")}
-                checked={bool(values, "voice.conversation.bargeIn", true)}
-                settingKey="voice.conversation.bargeIn"
-                onChange={(v) => onChange("voice.conversation.bargeIn", v)}
-              />
-            </>
-          ) : null}
-        </Group>
+        <VoiceConversationGroup
+          values={values}
+          onChange={onChange}
+          {...(voices ? { voices } : {})}
+          {...(onGetVoices ? { onGetVoices } : {})}
+        />
         <Group title={t("settings.voice.engine")}>
           <RadioField
             label={t("settings.key.voice.engine")}
@@ -263,8 +428,22 @@ export function VoicePanel({
   );
 }
 
-export function VoiceSection(props: SystemDictationProps = {}): ReactElement {
+export function VoiceSection(props: SystemDictationProps & VoiceChoices = {}): ReactElement {
   const form = useSettingsForm();
+  const voices = useGatewayQuery(
+    "speech.voices",
+    {},
+    { enabled: bool(form.values, "voice.conversation.enabled", false) },
+  );
+  // #481's turn style moves onto §6.4's mode once, the first time this section loads with it.
+  const migrated = useRef(false);
+  useEffect(() => {
+    if (migrated.current || form.loading) return;
+    const writes = migrateVoiceSettings(form.values);
+    if (writes.length === 0) return;
+    migrated.current = true;
+    for (const w of writes) form.onChange(w.key, w.value);
+  }, [form.values, form.loading, form.onChange]);
   return (
     <div className="flex flex-col gap-3">
       <VoicePanel
@@ -274,6 +453,7 @@ export function VoiceSection(props: SystemDictationProps = {}): ReactElement {
         loading={form.loading && Object.keys(form.values).length === 0}
         error={form.error}
         onRetry={form.reload}
+        voices={voices.error ? null : (voices.data?.voices ?? [])}
         {...props}
       />
       {form.writeError ? <ErrorNotice what={form.writeError} did="" /> : null}

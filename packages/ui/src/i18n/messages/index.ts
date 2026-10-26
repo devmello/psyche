@@ -13,6 +13,7 @@ import { settings } from "./settings.ts";
 import { settingsLanguage } from "./settings-language.ts";
 import { shell } from "./shell.ts";
 import { time } from "./time.ts";
+import { voice } from "./voice.ts";
 import { web } from "./web.ts";
 
 /**
@@ -38,6 +39,7 @@ export const en = {
   ...web,
   ...glass,
   ...design,
+  ...voice,
 } as const;
 
 export type MessageId = keyof typeof en;
