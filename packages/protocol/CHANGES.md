@@ -213,6 +213,15 @@ For S01 (the Gateway handler and `SessionController.greet`) and S11 (the web cli
 
 - New method (operator.write, side-effecting): `chat.greet {threadId}` → `{started, runId}`. Starts the agent's first message in an empty thread: a turn with no user message, from a fixed Gateway prompt (BOOTSTRAP.md guides it while it exists). `started: false` when the thread has any message or a run.
 
+### v1 additive — 2026-10-26 (MCP server detail: tools, enable/disable, secrets)
+
+For the Gateway's MCP part and Settings → Connectors.
+
+- New schemas `McpServerTool` (name, description, optional annotated `sideEffect`, `enabled`, `blocked`) and `McpServerSecret` (`name`, `storage` `vault | config`, `isSet`; never a value). `McpServerStatus` gains optional `enabled` (false = turned off, default on).
+- New read methods: `mcp.tools {serverId}` → `{tools, available}`; `mcp.secrets {serverId}` → `{secrets}`.
+- New admin, side-effecting methods: `mcp.tools.set {serverId, tool, enabled}` → `{tools}` (a withheld tool is not offered to the agent); `mcp.setEnabled {serverId, enabled}` → `{server}`; `mcp.secrets.replace {serverId, name, value}` → `{secret}` (the value goes to the vault bound to the server; the server restarts).
+- Nested result objects carry `$id`s (`McpToolsResult`, `McpToolsSetResult`, `McpSetEnabledResult`, `McpSecretsResult`, `McpSecretsReplaceResult`).
+
 ### v1 additive — 2026-10-21 (S09, #529: adding an MCP server from Settings)
 
 For S09 (the Gateway's MCP part) and the Settings → MCP section.

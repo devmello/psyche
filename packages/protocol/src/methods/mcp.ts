@@ -19,6 +19,8 @@ export const McpServerStatus = Type.Object(
     network: Type.Boolean(),
     /** Its tools are registered (it connected). */
     connected: Type.Boolean(),
+    /** Turned off by the owner (`mcp.setEnabled`): kept in the config, not running. Default on. */
+    enabled: Type.Optional(Type.Boolean()),
   },
   { $id: "McpServerStatus" },
 );
@@ -113,6 +115,42 @@ export const McpProposal = Type.Object(
 );
 export type McpProposal = Static<typeof McpProposal>;
 
+/** One tool of a configured server, with whether the agent is offered it. Words are the server's: untrusted. */
+export const McpServerTool = Type.Object(
+  {
+    /** The server's own tool name (the agent sees it as `mcp__<server>__<tool>`). */
+    name: Type.String(),
+    description: Type.String(),
+    /** From the server's annotations when it gave any (`readOnlyHint` / `destructiveHint`); a hint, not policy. */
+    sideEffect: Type.Optional(StringEnum(["read", "write", "destructive"])),
+    /** The owner has not turned it off (`mcp.tools.set`). */
+    enabled: Type.Boolean(),
+    /** Kept from the agent by a blocking description finding, whatever `enabled` says. */
+    blocked: Type.Boolean(),
+  },
+  { $id: "McpServerTool" },
+);
+export type McpServerTool = Static<typeof McpServerTool>;
+
+/**
+ * One env variable (stdio) or the bearer token (http) of a server. Names and state only: a value
+ * never leaves the Gateway.
+ */
+export const McpServerSecret = Type.Object(
+  {
+    /** The env variable, or `Authorization` for a remote server's bearer token. */
+    name: Type.String(),
+    /** Where its value is kept: the vault, or (an older or hand-edited config) in plain config. */
+    storage: StringEnum(["vault", "config"]),
+    /** A value exists: a vault item for a vault secret, a non-empty value for config. */
+    isSet: Type.Boolean(),
+  },
+  { $id: "McpServerSecret" },
+);
+export type McpServerSecret = Static<typeof McpServerSecret>;
+
+const ServerId = Type.String({ minLength: 1, maxLength: 64 });
+
 export const McpMethods = {
   "mcp.status": defineMethod({
     params: Type.Object({}),
@@ -155,5 +193,58 @@ export const McpMethods = {
     sideEffecting: true,
     description:
       "Side-effecting: removes a server from mcp.servers; its tools unregister and its grants are revoked.",
+  }),
+  "mcp.tools": defineMethod({
+    params: Type.Object({ serverId: ServerId }),
+    result: Type.Object(
+      {
+        tools: Type.Array(McpServerTool),
+        /** False while the server is off or did not connect: there is no listing to show. */
+        available: Type.Boolean(),
+      },
+      { $id: "McpToolsResult" },
+    ),
+    scope: "operator.read",
+    description:
+      "A configured server's tools (name, description, side effect when annotated) and whether each is offered to the agent. Descriptions are server-authored: render as data. not_found for an unknown server.",
+  }),
+  "mcp.tools.set": defineMethod({
+    params: Type.Object({
+      serverId: ServerId,
+      tool: Type.String({ minLength: 1, maxLength: 200 }),
+      enabled: Type.Boolean(),
+    }),
+    result: Type.Object({ tools: Type.Array(McpServerTool) }, { $id: "McpToolsSetResult" }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: offers a tool to the agent or withholds it (kept in the server's mcp.servers entry; the server keeps running and its grants stay). A tool the description scan blocked stays off. not_found for an unknown server or tool.",
+  }),
+  "mcp.setEnabled": defineMethod({
+    params: Type.Object({ serverId: ServerId, enabled: Type.Boolean() }),
+    result: Type.Object({ server: McpServerStatus }, { $id: "McpSetEnabledResult" }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: turns a server off without removing it (its tools unregister, it stops, its grants are revoked) or back on (it starts again; secrets ask for their own approval). not_found for an unknown server.",
+  }),
+  "mcp.secrets": defineMethod({
+    params: Type.Object({ serverId: ServerId }),
+    result: Type.Object({ secrets: Type.Array(McpServerSecret) }, { $id: "McpSecretsResult" }),
+    scope: "operator.read",
+    description:
+      "The env variables and bearer token a server is configured with, by name, and whether each is set. Never a value. not_found for an unknown server.",
+  }),
+  "mcp.secrets.replace": defineMethod({
+    params: Type.Object({
+      serverId: ServerId,
+      name: Type.String({ minLength: 1, maxLength: 64 }),
+      value: Type.String({ minLength: 1, maxLength: 4_000 }),
+    }),
+    result: Type.Object({ secret: McpServerSecret }, { $id: "McpSecretsReplaceResult" }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: stores a new value for one of the server's env variables (or its bearer token) in the vault, bound to that server, and restarts the server so it takes effect. A value kept in plain config moves to the vault. The value travels client to Gateway only. not_found for an unknown server or name; unavailable while the vault is locked.",
   }),
 } as const;

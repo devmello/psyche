@@ -441,7 +441,7 @@ export function ConnectorsPanel({
                   <li key={s.id}>
                     <McpServerRow
                       server={s}
-                      {...(mcp ? { onRemove: mcp.remove } : {})}
+                      {...(mcp ? { onRemove: mcp.remove, onSetEnabled: mcp.setEnabled } : {})}
                       {...(onTry ? { onTry } : {})}
                     />
                   </li>

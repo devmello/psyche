@@ -62,10 +62,16 @@ function hasDescribe(host: McpHost): host is McpHost & Describable {
   return typeof (host as Partial<Describable>).describe === "function";
 }
 
+export interface RegisterMcpToolsOptions {
+  /** Whether the agent is offered a tool (the server's own name). Read at every `sync`. Default all. */
+  offer?(tool: string): boolean;
+}
+
 export async function registerMcpServerTools(
   host: McpHost,
   registry: ToolRegistry,
   serverId: string,
+  options: RegisterMcpToolsOptions = {},
 ): Promise<McpRegistration> {
   let unsubs: Unsubscribe[] = [];
   let registered = "";
@@ -86,7 +92,7 @@ export async function registerMcpServerTools(
     unregister();
     for (const spec of tools) {
       const tool = raw.get(spec.name) ?? parseMcpToolName(spec.name)?.tool;
-      if (tool === undefined) continue;
+      if (tool === undefined || options.offer?.(tool) === false) continue;
       unsubs.push(
         registry.register({
           spec,

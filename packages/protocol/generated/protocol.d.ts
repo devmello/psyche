@@ -4665,6 +4665,7 @@ export interface MCPAddResult {
 
 export interface MCPServerStatus {
     connected: boolean;
+    enabled?:  boolean;
     id:        string;
     name:      string;
     network:   boolean;
@@ -4745,12 +4746,74 @@ export interface MCPRemoveParams {
     serverId: string;
 }
 
+export interface MCPSecretsParams {
+    serverId: string;
+}
+
+export interface MCPSecretsReplaceParams {
+    name:     string;
+    serverId: string;
+    value:    string;
+}
+
+export interface MCPSecretsReplaceResult {
+    secret: MCPServerSecret;
+}
+
+export interface MCPServerSecret {
+    isSet:   boolean;
+    name:    string;
+    storage: Storage;
+}
+
+export type Storage = "vault" | "config";
+
+export interface MCPSecretsResult {
+    secrets: MCPServerSecret[];
+}
+
+export interface MCPSetEnabledParams {
+    enabled:  boolean;
+    serverId: string;
+}
+
+export interface MCPSetEnabledResult {
+    server: MCPServerStatus;
+}
+
 export interface MCPStatusResult {
     launcher: Launcher;
     servers:  MCPServerStatus[];
 }
 
 export type Launcher = "srt" | "container" | "none";
+
+export interface MCPToolsParams {
+    serverId: string;
+}
+
+export interface MCPToolsResult {
+    available: boolean;
+    tools:     MCPServerTool[];
+}
+
+export interface MCPServerTool {
+    blocked:     boolean;
+    description: string;
+    enabled:     boolean;
+    name:        string;
+    sideEffect?: CustomConnectorToolSideEffect;
+}
+
+export interface MCPToolsSetParams {
+    enabled:  boolean;
+    serverId: string;
+    tool:     string;
+}
+
+export interface MCPToolsSetResult {
+    tools: MCPServerTool[];
+}
 
 export interface MeetingNotesResult {
     notes?:               MeetingNotes;

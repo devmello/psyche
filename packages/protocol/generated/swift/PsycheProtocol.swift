@@ -548,10 +548,22 @@
 //   let mCPProbedTool = try? JSONDecoder().decode(MCPProbedTool.self, from: jsonData)
 //   let mCPProposal = try? JSONDecoder().decode(MCPProposal.self, from: jsonData)
 //   let mCPRemoveParams = try? JSONDecoder().decode(MCPRemoveParams.self, from: jsonData)
+//   let mCPSecretsParams = try? JSONDecoder().decode(MCPSecretsParams.self, from: jsonData)
+//   let mCPSecretsReplaceParams = try? JSONDecoder().decode(MCPSecretsReplaceParams.self, from: jsonData)
+//   let mCPSecretsReplaceResult = try? JSONDecoder().decode(MCPSecretsReplaceResult.self, from: jsonData)
+//   let mCPSecretsResult = try? JSONDecoder().decode(MCPSecretsResult.self, from: jsonData)
 //   let mCPServerInput = try? JSONDecoder().decode(MCPServerInput.self, from: jsonData)
+//   let mCPServerSecret = try? JSONDecoder().decode(MCPServerSecret.self, from: jsonData)
 //   let mCPServerStatus = try? JSONDecoder().decode(MCPServerStatus.self, from: jsonData)
+//   let mCPServerTool = try? JSONDecoder().decode(MCPServerTool.self, from: jsonData)
+//   let mCPSetEnabledParams = try? JSONDecoder().decode(MCPSetEnabledParams.self, from: jsonData)
+//   let mCPSetEnabledResult = try? JSONDecoder().decode(MCPSetEnabledResult.self, from: jsonData)
 //   let mCPStatusParams = try? JSONDecoder().decode(MCPStatusParams.self, from: jsonData)
 //   let mCPStatusResult = try? JSONDecoder().decode(MCPStatusResult.self, from: jsonData)
+//   let mCPToolsParams = try? JSONDecoder().decode(MCPToolsParams.self, from: jsonData)
+//   let mCPToolsResult = try? JSONDecoder().decode(MCPToolsResult.self, from: jsonData)
+//   let mCPToolsSetParams = try? JSONDecoder().decode(MCPToolsSetParams.self, from: jsonData)
+//   let mCPToolsSetResult = try? JSONDecoder().decode(MCPToolsSetResult.self, from: jsonData)
 //   let meetingActionItem = try? JSONDecoder().decode(MeetingActionItem.self, from: jsonData)
 //   let meetingAttendee = try? JSONDecoder().decode(MeetingAttendee.self, from: jsonData)
 //   let meetingNotes = try? JSONDecoder().decode(MeetingNotes.self, from: jsonData)
@@ -14119,6 +14131,7 @@ public struct MCPAddResult: Codable, Sendable {
 // MARK: - MCPServerStatus
 public struct MCPServerStatus: Codable, Sendable {
     public let connected: Bool
+    public let enabled: Bool?
     public let id: String
     public let name: String
     public let network: Bool
@@ -14127,6 +14140,7 @@ public struct MCPServerStatus: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case connected = "connected"
+        case enabled = "enabled"
         case id = "id"
         case name = "name"
         case network = "network"
@@ -14134,8 +14148,9 @@ public struct MCPServerStatus: Codable, Sendable {
         case trust = "trust"
     }
 
-    public init(connected: Bool, id: String, name: String, network: Bool, transport: KindEnum, trust: Trust) {
+    public init(connected: Bool, enabled: Bool?, id: String, name: String, network: Bool, transport: KindEnum, trust: Trust) {
         self.connected = connected
+        self.enabled = enabled
         self.id = id
         self.name = name
         self.network = network
@@ -14364,6 +14379,117 @@ public struct MCPRemoveParams: Codable, Sendable {
     }
 }
 
+// MARK: - MCPSecretsParams
+public struct MCPSecretsParams: Codable, Sendable {
+    public let serverID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case serverID = "serverId"
+    }
+
+    public init(serverID: String) {
+        self.serverID = serverID
+    }
+}
+
+// MARK: - MCPSecretsReplaceParams
+public struct MCPSecretsReplaceParams: Codable, Sendable {
+    public let name: String
+    public let serverID: String
+    public let value: String
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case serverID = "serverId"
+        case value = "value"
+    }
+
+    public init(name: String, serverID: String, value: String) {
+        self.name = name
+        self.serverID = serverID
+        self.value = value
+    }
+}
+
+// MARK: - MCPSecretsReplaceResult
+public struct MCPSecretsReplaceResult: Codable, Sendable {
+    public let secret: MCPServerSecret
+
+    public enum CodingKeys: String, CodingKey {
+        case secret = "secret"
+    }
+
+    public init(secret: MCPServerSecret) {
+        self.secret = secret
+    }
+}
+
+// MARK: - MCPServerSecret
+public struct MCPServerSecret: Codable, Sendable {
+    public let isSet: Bool
+    public let name: String
+    public let storage: Storage
+
+    public enum CodingKeys: String, CodingKey {
+        case isSet = "isSet"
+        case name = "name"
+        case storage = "storage"
+    }
+
+    public init(isSet: Bool, name: String, storage: Storage) {
+        self.isSet = isSet
+        self.name = name
+        self.storage = storage
+    }
+}
+
+public enum Storage: String, Codable, Sendable {
+    case config = "config"
+    case vault = "vault"
+}
+
+// MARK: - MCPSecretsResult
+public struct MCPSecretsResult: Codable, Sendable {
+    public let secrets: [MCPServerSecret]
+
+    public enum CodingKeys: String, CodingKey {
+        case secrets = "secrets"
+    }
+
+    public init(secrets: [MCPServerSecret]) {
+        self.secrets = secrets
+    }
+}
+
+// MARK: - MCPSetEnabledParams
+public struct MCPSetEnabledParams: Codable, Sendable {
+    public let enabled: Bool
+    public let serverID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case enabled = "enabled"
+        case serverID = "serverId"
+    }
+
+    public init(enabled: Bool, serverID: String) {
+        self.enabled = enabled
+        self.serverID = serverID
+    }
+}
+
+// MARK: - MCPSetEnabledResult
+public struct MCPSetEnabledResult: Codable, Sendable {
+    public let server: MCPServerStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case server = "server"
+    }
+
+    public init(server: MCPServerStatus) {
+        self.server = server
+    }
+}
+
 // MARK: - MCPStatusResult
 public struct MCPStatusResult: Codable, Sendable {
     public let launcher: Launcher
@@ -14384,6 +14510,92 @@ public enum Launcher: String, Codable, Sendable {
     case container = "container"
     case none = "none"
     case srt = "srt"
+}
+
+// MARK: - MCPToolsParams
+public struct MCPToolsParams: Codable, Sendable {
+    public let serverID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case serverID = "serverId"
+    }
+
+    public init(serverID: String) {
+        self.serverID = serverID
+    }
+}
+
+// MARK: - MCPToolsResult
+public struct MCPToolsResult: Codable, Sendable {
+    public let available: Bool
+    public let tools: [MCPServerTool]
+
+    public enum CodingKeys: String, CodingKey {
+        case available = "available"
+        case tools = "tools"
+    }
+
+    public init(available: Bool, tools: [MCPServerTool]) {
+        self.available = available
+        self.tools = tools
+    }
+}
+
+// MARK: - MCPServerTool
+public struct MCPServerTool: Codable, Sendable {
+    public let blocked: Bool
+    public let description: String
+    public let enabled: Bool
+    public let name: String
+    public let sideEffect: CustomConnectorToolSideEffect?
+
+    public enum CodingKeys: String, CodingKey {
+        case blocked = "blocked"
+        case description = "description"
+        case enabled = "enabled"
+        case name = "name"
+        case sideEffect = "sideEffect"
+    }
+
+    public init(blocked: Bool, description: String, enabled: Bool, name: String, sideEffect: CustomConnectorToolSideEffect?) {
+        self.blocked = blocked
+        self.description = description
+        self.enabled = enabled
+        self.name = name
+        self.sideEffect = sideEffect
+    }
+}
+
+// MARK: - MCPToolsSetParams
+public struct MCPToolsSetParams: Codable, Sendable {
+    public let enabled: Bool
+    public let serverID: String
+    public let tool: String
+
+    public enum CodingKeys: String, CodingKey {
+        case enabled = "enabled"
+        case serverID = "serverId"
+        case tool = "tool"
+    }
+
+    public init(enabled: Bool, serverID: String, tool: String) {
+        self.enabled = enabled
+        self.serverID = serverID
+        self.tool = tool
+    }
+}
+
+// MARK: - MCPToolsSetResult
+public struct MCPToolsSetResult: Codable, Sendable {
+    public let tools: [MCPServerTool]
+
+    public enum CodingKeys: String, CodingKey {
+        case tools = "tools"
+    }
+
+    public init(tools: [MCPServerTool]) {
+        self.tools = tools
+    }
 }
 
 // MARK: - MeetingNotesResult
