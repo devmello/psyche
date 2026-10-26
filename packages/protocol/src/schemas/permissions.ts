@@ -40,6 +40,8 @@ export const ApprovalKind = StringEnum(
     "shortcut_run",
     "git_write",
     "git_push",
+    /** One approval for a listed set of `write` calls (an `ActionProposal`), once only. */
+    "batch",
   ],
   { $id: "ApprovalKind" },
 );

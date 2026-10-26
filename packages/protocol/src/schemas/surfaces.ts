@@ -1,5 +1,6 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, JsonObject, ModelRef, Nullable, StringEnum, Surface } from "../common.ts";
+import { FeedPostKind, FeedPostRefs, WorkflowCard } from "./workflows.ts";
 
 /** Data model §8 (proactive), §9 (library), §10 (usage, settings). */
 export const Citation = Type.Object(
@@ -27,6 +28,12 @@ export const FeedPost = Type.Object(
     briefingId: Nullable(Id),
     feedback: Nullable(FeedFeedback),
     createdAt: IsoDateTime,
+    /** What the post is; absent on older posts (clients then derive it from `reasons`). */
+    kind: Type.Optional(FeedPostKind),
+    /** Ids the post points at: a meeting, proposals, mail threads, a goal. */
+    refs: Type.Optional(FeedPostRefs),
+    /** Structured content for workflow cards (digest, meeting prep, meeting notes). */
+    card: Type.Optional(WorkflowCard),
   },
   { $id: "FeedPost" },
 );

@@ -18,6 +18,16 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-25 (S15, #670 W1: mail and meeting workflows)
+
+For S15 (W, #670), the skills (S, #671), the UI (U, #672) and the helper (H, #673): the shapes of docs/workflows/mail-and-meetings-2026.md. All new fields are optional, new enum values are appended, and new schemas are new names.
+
+- New `schemas/workflows.ts`: `ActionCall`, `ActionProposal` (+ `ActionProposalStatus`, `ActionCallResult`), `AutomationTrigger` (+ `WorkflowEventSource`, `WorkflowEventFilter`), `WorkflowEvent`, `MailThreadRef`, `DigestCategory`, `DigestAction`, `DigestItem`, `DigestGroup`, `InboxDigest`, `OpenLoop` (+ `OpenLoopKind`, `OpenLoopStatus`, `LoopPerson`), `SourcedLine`, `MeetingAttendee`, `MeetingPrep`, `MeetingActionItem`, `MeetingNotes`, `WorkflowCard`, `FeedPostKind`, `FeedPostRefs`.
+- `ApprovalKind` gains `batch` (one approval bound to the ordered calls of a proposal, write-only, once). `packages/channels` gets its label.
+- `AutomationKind` gains `event`; `Automation.trigger`; `AutomationRun.trigger` gains `event`; `AutomationRun.events`; `UpcomingItem.trigger` / `lastRunAt`.
+- `FeedPost.kind`, `FeedPost.refs`, `FeedPost.card`.
+- New methods `proposals.list | get | approve | dismiss | undo` and `followups.list | update`; new events `proposal.updated`, `followup.updated`.
+
 ### v1 additive — 2026-10-25 (S09, #637: Apple app capabilities, wave 1)
 
 For S14 / the helper session (H, #638) and S09 (G, #639): the shapes of docs/connectors/apple-apps-2026.md wave 1. All new fields are optional and all new schemas are new names.
