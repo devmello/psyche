@@ -1,4 +1,4 @@
-import { Check, KeyRound, Loader, Plug } from "lucide-react";
+import { Check, CircleAlert, KeyRound, Loader, Plug } from "lucide-react";
 import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { Avatar } from "../../avatar/Avatar.tsx";
 import { Button } from "../../components/ui/button.tsx";
@@ -299,8 +299,10 @@ export function ConnectorsStep({
   error = null,
   progress,
   implemented,
+  onResume,
 }: {
   persona: string;
+  /** Every account the Gateway has, with its status (#620), not only the connected ones. */
   connected: readonly ConnectedAccount[];
   onConnect: (type: string, mode: ScopeMode) => void;
   busy?: boolean;
@@ -309,6 +311,8 @@ export function ConnectorsStep({
   progress?: ReactNode;
   /** Connector types the Gateway can connect (its catalogue); undefined offers every row. */
   implemented?: ReadonlySet<string> | undefined;
+  /** Continues an account that is not connected yet: its permission, sign-in or error (#620). */
+  onResume?: (account: ConnectedAccount) => void;
 }): ReactElement {
   const id = useId();
   // Only real connectors here: MCP servers and Slack are added later in Settings (#529).
@@ -326,7 +330,10 @@ export function ConnectorsStep({
       <section aria-labelledby={`${id}-connected`} className="flex flex-col gap-2">
         {/* The step title is the page's h1 (docs/a11y-audit.md L3), so step sections are h2. */}
         <h2 id={`${id}-connected`} className="px-1 text-caption text-label-secondary">
-          {t("onboarding.connectors.connected", { n: connected.length })}
+          {/* The count is what is connected; the list also shows accounts still pending (#620). */}
+          {t("onboarding.connectors.connected", {
+            n: connected.filter((c) => (c.status ?? "connected") === "connected").length,
+          })}
         </h2>
         {connected.length > 0 ? (
           <ul
@@ -334,10 +341,44 @@ export function ConnectorsStep({
             aria-label={t("onboarding.connectors.connectedList")}
           >
             {connected.map((c) => (
-              <li key={c.type} className="flex min-h-9 items-center gap-2 px-3 py-1.5 text-body">
-                <Check className="size-4 text-success-text" aria-hidden="true" />
+              <li
+                key={c.connectorId ?? c.type}
+                className="flex min-h-9 flex-wrap items-center gap-2 px-3 py-1.5 text-body"
+              >
+                {(c.status ?? "connected") === "connected" ? (
+                  <Check className="size-4 text-success-text" aria-hidden="true" />
+                ) : (
+                  <CircleAlert className="size-4 text-approval-text" aria-hidden="true" />
+                )}
                 <span className="min-w-0 flex-1 text-label-primary">{c.label}</span>
-                <StatusChip tone="neutral">{SCOPE_MODE_LABEL[c.mode]}</StatusChip>
+                {(c.status ?? "connected") === "connected" ? (
+                  <StatusChip tone="neutral">{SCOPE_MODE_LABEL[c.mode]}</StatusChip>
+                ) : (
+                  <>
+                    <StatusChip tone={c.status === "error" ? "danger" : "approval"}>
+                      {c.status === "error"
+                        ? t("onboarding.connectors.failed")
+                        : c.needs === "permission"
+                          ? t("onboarding.connectors.needsPermission")
+                          : t("onboarding.connectors.needsSignIn")}
+                    </StatusChip>
+                    {onResume ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => onResume(c)}
+                      >
+                        {c.status === "error"
+                          ? t("onboarding.connectors.tryAgain", { name: c.label })
+                          : c.needs === "permission"
+                            ? t("onboarding.connectors.allow", { name: c.label })
+                            : t("onboarding.connectors.continue", { name: c.label })}
+                      </Button>
+                    ) : null}
+                  </>
+                )}
               </li>
             ))}
           </ul>
