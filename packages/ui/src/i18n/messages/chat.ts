@@ -128,6 +128,8 @@ export const chat = {
   "chat.thread.empty": "Nothing here yet. Ask {name} something below to start.",
   "chat.thread.working": "{name} is working…",
   "chat.thread.runningTool": "Running {tool}…",
+  "chat.thread.sendFailed": "Couldn't send your message ({reason}).",
+  "chat.thread.retrySend": "Retry",
   "chat.thread.commandFailed": "/{name} didn't work ({reason}). Nothing was changed.",
   "chat.thread.needsNewerGateway": "This needs a newer version of Psyche.",
   "chat.thread.failed": "That didn't work ({reason}). Nothing was changed.",
