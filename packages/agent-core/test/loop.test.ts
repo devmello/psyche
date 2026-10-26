@@ -14,6 +14,7 @@ import {
   start,
   text,
   toolStatuses,
+  turnInput,
   until,
 } from "./harness.ts";
 
@@ -31,6 +32,22 @@ describe("text-only turn", () => {
     const request = h.provider.requests[0];
     expect(request?.model).toBe("fake/main");
     expect(request?.messages).toEqual([{ role: "user", parts: [{ type: "text", text: "hi" }] }]);
+  });
+
+  it("gives the model the turn's images after the text (a pinned screen capture)", async () => {
+    const h = harness({ script: [say("A chart")] });
+    const input = turnInput("what is this?");
+    input.input.images = [{ mime: "image/jpeg", data: "AAAA" }];
+    for await (const _ of h.loop.startTurn(input)) {
+      // drain
+    }
+    expect(h.provider.requests[0]?.messages[0]).toEqual({
+      role: "user",
+      parts: [
+        { type: "text", text: "what is this?" },
+        { type: "image", mime: "image/jpeg", data: "AAAA" },
+      ],
+    });
   });
 
   it("keeps provider-native reasoning verbatim in the next request", async () => {

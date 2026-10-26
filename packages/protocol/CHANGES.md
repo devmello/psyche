@@ -22,6 +22,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 - `SpecialistSpec.budgetPause?` (`{inputRequestId, reason, raised?}`, nullable): the job is paused on its budget question. `raised` means `tasks.update` raised the limits.
 - `SpecialistSpec.planApproved?`: a plan-first job's plan was approved. No new enum values.
+### v1 additive — 2026-10-26 (W, #670: post-meeting notes and Record meeting, docs/workflows/mail-and-meetings-2026.md §4.6)
+
+- **New `meetings.*` methods:** `meetings.notes.create {libraryItemId, startedAt?, title?, speakers?}` → `MeetingNotesResult {status: done | needs_permission, postId?, notes?, remindersProposalId?, question?}` (`operator.write`); `meetings.record.status {}` → `MeetingRecordingStatus` (`operator.read`); `meetings.record.start {consentConfirmed, meetingId?}` and `meetings.record.stop {}` → `MeetingRecordingStatus` (`operator.write`). A start without `consentConfirmed: true` is refused.
+- New event `meetings.recording.updated` (payload `MeetingRecordingStatus`).
+- New types `RecordingSpeakers`, `MeetingNotesResult`, `MeetingRecordingEnded`, `MeetingRecordingStatus {available, recording, consentLine, startedAt, meetingId, last?}`.
 
 ### v1 additive — 2026-10-26 (screen-ask: Ask about my screen, docs/design/screen-ask-2026.md)
 
@@ -29,6 +34,7 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 - Helper capability `screen.context` takes `ScreenContextParams` and returns `ScreenContextResult {image (base64 JPEG) | null, width, height, context, refusal?}`; never reachable through `nodes.invoke` or agent tools.
 - New types `ScreenContext {appName, bundleId, windowTitle, selectedText, url}`, `ScreenRect`, `ScreenCaptureMode`, `ScreenCaptureRefusal`, `ScreenImageChoice`, `ChatScreenRef`.
 - `chat.send` gains optional `screen: ChatScreenRef {captureId, image: auto | pinned | dropped}`.
+- Contract `TurnInput.images?` (`{mime, data}[]`, base64): images the model sees with the message (a pinned capture). TypeScript-only; no schema change.
 
 ### v1 additive — 2026-10-26 (S02, #683 part 2a: the specialist pool)
 

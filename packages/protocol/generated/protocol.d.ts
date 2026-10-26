@@ -4442,6 +4442,52 @@ export interface MCPStatusResult {
 
 export type Launcher = "srt" | "container" | "none";
 
+export interface MeetingNotesResult {
+    notes?:               MeetingNotes;
+    postId?:              string;
+    question?:            string;
+    remindersProposalId?: null | string;
+    status:               MeetingNotesResultStatus;
+}
+
+export type MeetingNotesResultStatus = "done" | "needs_permission";
+
+export interface MeetingRecordingStatus {
+    available:   boolean;
+    consentLine: string;
+    last?:       MeetingRecordingEnded;
+    meetingId?:  null | string;
+    recording:   boolean;
+    startedAt?:  null | string;
+}
+
+export interface MeetingRecordingEnded {
+    durationMs: number;
+    error?:     string;
+    notes:      Notes;
+    postId?:    string;
+    reason:     MeetingRecordingEndedReason;
+    startedAt:  string;
+}
+
+export type Notes = "processing" | "done" | "needs_permission" | "failed";
+
+export type MeetingRecordingEndedReason = "stopped" | "source_ended" | "silence" | "app_quit";
+
+export interface MeetingsNotesCreateParams {
+    libraryItemId: string;
+    speakers?:     RecordingSpeakers;
+    startedAt?:    string;
+    title?:        string;
+}
+
+export type RecordingSpeakers = "owner_only" | "others";
+
+export interface MeetingsRecordStartParams {
+    consentConfirmed: boolean;
+    meetingId?:       string;
+}
+
 export interface MemoryClaimsConfirmParams {
     claimId: string;
 }

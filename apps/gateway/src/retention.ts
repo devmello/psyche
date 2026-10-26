@@ -2,6 +2,7 @@ import { rmSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 import {
   deleteAgentThreadState,
+  deleteLibraryItem,
   deleteThread,
   deleteToolPayloadsBefore,
   expireRunFramesBefore,
@@ -12,6 +13,7 @@ import {
   pruneIdempotencyRecords,
   threadActivity,
 } from "@psyche/db";
+import { SCREEN_CAPTURE_TTL_MS } from "@psyche/protocol";
 import type { GatewayContext } from "./context.ts";
 
 /** Default for the `cleanupPeriodDays` setting (data model §12). */
@@ -64,6 +66,40 @@ export function removeFrameFile(home: string, runId: string, path: string): void
   const file = resolve(dir, path);
   if (!file.startsWith(`${dir}${sep}`)) return;
   rmSync(file, { force: true });
+}
+
+/** Library tag of Ask about my screen frames (`library/screen/<id>.jpg`). */
+export const SCREEN_TAG = "screen";
+
+/** Removes a screen frame file, never outside `library/screen/`. */
+export function removeScreenFrame(home: string, path: string): void {
+  const dir = resolve(home, "library", "screen");
+  const file = resolve(home, "library", path);
+  if (file.startsWith(`${dir}${sep}`)) rmSync(file, { force: true });
+}
+
+/**
+ * Ask about my screen frames (docs/design/screen-ask-2026.md §5) older than `beforeIso` (sent ones
+ * follow `data.replayRetentionDays`), or unsent ones (no thread) older than `unsentBeforeIso`.
+ */
+export function expireScreenFrames(
+  db: PsycheDb,
+  home: string,
+  beforeIso: string,
+  unsentBeforeIso: string,
+): number {
+  const rows = db.sqlite
+    .prepare(
+      `SELECT id, path FROM library_items
+       WHERE EXISTS (SELECT 1 FROM json_each(library_items.tags) WHERE value = ?)
+         AND (created_at < ? OR (thread_id IS NULL AND created_at < ?))`,
+    )
+    .all(SCREEN_TAG, beforeIso, unsentBeforeIso) as { id: string; path: string }[];
+  for (const r of rows) {
+    removeScreenFrame(home, r.path);
+    deleteLibraryItem(db, r.id);
+  }
+  return rows.length;
 }
 
 export function cleanupPeriodDays(ctx: GatewayContext): number {
@@ -126,6 +162,18 @@ export function runRetention(ctx: GatewayContext): RetentionReport {
     )
       bus.bumpStateVersion();
   })();
+  try {
+    report.frames += expireScreenFrames(
+      db,
+      ctx.config.home,
+      iso(replayRetentionDays(db) * DAY_MS),
+      iso(SCREEN_CAPTURE_TTL_MS),
+    );
+  } catch (err) {
+    ctx.log.log("warn", "screen frames not removed", {
+      code: (err as { code?: string }).code ?? null,
+    });
+  }
   for (const f of frameFiles) {
     try {
       removeFrameFile(ctx.config.home, f.runId, f.path);

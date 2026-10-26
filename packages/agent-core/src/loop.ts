@@ -732,7 +732,18 @@ export class PsycheAgentLoop implements AgentLoop {
       // A specialist runs on its role's model, never a pinned `/model` (specialists §4.3).
       if (run.specialistJob !== undefined) run.model = run.specialistJob.spec.model;
       run.turnStart = run.thread.messages.length;
-      run.thread.messages.push({ role: "user", parts: [{ type: "text", text: userText(input) }] });
+      run.thread.messages.push({
+        role: "user",
+        parts: [
+          { type: "text", text: userText(input) },
+          // Images the model sees with the message (a pinned screen capture).
+          ...(input.input.images ?? []).map((i) => ({
+            type: "image" as const,
+            mime: i.mime,
+            data: i.data,
+          })),
+        ],
+      });
       outcome = await this.#loop(run);
       await this.#specialistFallback(run, outcome);
     } catch (err) {

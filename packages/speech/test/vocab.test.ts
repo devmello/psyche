@@ -171,13 +171,13 @@ describe("voice catalog for persona voice selection (Q3)", () => {
   it("lists <engine>:<voice> refs in tts order, marks the configured default and skips unavailable engines", async () => {
     const selector = new SpeechEngineSelector({
       stt: { order: [] },
-      tts: { order: ["kokoro", "mac-node", "openai"], voice: "kokoro:bm_george" },
+      tts: { order: ["kokoro", "mac-node", "elevenlabs"], voice: "kokoro:bm_george" },
     });
     selector.register(synth("kokoro", kokoroVoices));
     selector.register(synth("mac-node", macVoices, true, "node"));
     selector.register(
       synth(
-        "openai",
+        "elevenlabs",
         [{ id: "alloy", name: "alloy", language: "*", local: false }],
         false,
         "cloud",
@@ -198,7 +198,7 @@ describe("voice catalog for persona voice selection (Q3)", () => {
       nonCommercial: true,
     });
     expect(r.voices[0]?.nonCommercial).toBeUndefined();
-    expect(r.unavailable).toEqual(["openai"]);
+    expect(r.unavailable).toEqual(["elevenlabs"]);
   });
 
   it("puts the persona's engine first and falls back to the first voice when the ref is unknown", async () => {
