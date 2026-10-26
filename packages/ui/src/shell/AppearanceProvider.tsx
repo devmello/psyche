@@ -2,11 +2,14 @@ import { createContext, type ReactElement, type ReactNode, useContext, useEffect
 import { useSettings } from "../data/hooks.ts";
 import { I18nProvider } from "../i18n/I18nProvider.tsx";
 import {
+  canonicalLocale,
   DIRECTION_SETTING,
   type DirectionSetting,
   LANGUAGE_SETTING,
   LOCALE_SETTING,
+  messageLocaleFor,
   resolveLocale,
+  runtimeLocale,
 } from "../i18n/locale.ts";
 import { glassCssVariables, glassPreset, glassValues } from "../lib/glass-settings.ts";
 import { fpsProbeEnabled, startFpsProbe } from "../motion/fps-probe.ts";
@@ -40,6 +43,16 @@ export interface AppearanceProviderProps {
  * locale from `ui.locale` or the system, the direction from `ui.direction`; A12), fed from
  * `settings.get` and `settings.changed`. `lang` and `dir` are set on `<html>`.
  */
+/**
+ * The text's language: `ui.language` when it names a shipped catalogue, else the best catalogue
+ * for the owner's system locale. The Region format override never changes the language, as in
+ * macOS, where Language and Region are separate choices.
+ */
+function systemLanguage(setting: unknown, systemLocale: string | null | undefined): string {
+  if (typeof setting === "string" && setting !== "system") return setting;
+  return messageLocaleFor(canonicalLocale(systemLocale) ?? runtimeLocale());
+}
+
 export function AppearanceProvider({
   systemLocale,
   system = null,
@@ -65,9 +78,7 @@ export function AppearanceProvider({
       <SystemLocale.Provider value={systemLocale ?? null}>
         <I18nProvider
           locale={resolveLocale(settings[LOCALE_SETTING] ?? "system", systemLocale)}
-          {...(typeof settings[LANGUAGE_SETTING] === "string"
-            ? { language: settings[LANGUAGE_SETTING] as string }
-            : {})}
+          language={systemLanguage(settings[LANGUAGE_SETTING], systemLocale)}
           direction={
             direction === "ltr" || direction === "rtl" ? (direction as DirectionSetting) : "auto"
           }
