@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import { Card, type CardStatusInfo } from "../blocks/card.tsx";
+import { DelayedSkeleton } from "../components/DelayedSkeleton.tsx";
 import { useSpecialistJob, useSpecialistRoles } from "../data/specialists.ts";
 import { t } from "../i18n/core.ts";
 import { useSpecialistActions } from "./InboxRow.tsx";
@@ -37,11 +38,7 @@ export function SpecialistResultBlockView({ taskId }: { taskId: string }): React
   const actions = useSpecialistActions(job);
   if (job === null)
     return loading ? (
-      <div
-        className="my-2 h-12 max-w-md animate-pulse rounded-lg bg-gray-3"
-        role="status"
-        aria-label={t("blocks.message.loading", { what: "item" })}
-      />
+      <DelayedSkeleton label={t("blocks.message.loading", { what: "item" })} />
     ) : (
       <p className="my-1 text-sm text-muted-foreground">
         {t("blocks.message.missing", { what: "item" })}
