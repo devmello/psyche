@@ -19,6 +19,7 @@ import {
 } from "@psyche/mcp-host";
 import {
   type McpTrustTier,
+  mcpTrustFor,
   PLACEHOLDER_PATTERN,
   PsycheError,
   type ToolRegistry,
@@ -84,6 +85,23 @@ function launcherFor(services: ComposeServices, setup: McpSetup): StdioLauncher 
   return undefined;
 }
 
+/**
+ * The tier a stored entry runs under. The stored `trust` is a claim, not a fact: `verified` is
+ * re-derived from the entry's own command or URL (so an owner-edited command drops back to
+ * `unknown`), and `bundled` stays the host's to accept (it refuses ids it does not ship).
+ */
+function trustOf(c: PsycheMcpServerConfig): McpTrustTier {
+  if (c.trust === "bundled") return "bundled";
+  const t = c.transport as Partial<PsycheMcpServerConfig["transport"]>;
+  if (t.kind === "stdio" && Array.isArray(t.command)) {
+    return mcpTrustFor({ kind: "stdio", command: t.command });
+  }
+  if (t.kind === "http" && typeof t.url === "string") {
+    return mcpTrustFor({ kind: "http", url: t.url });
+  }
+  return "unknown";
+}
+
 /** The configured servers, each with a valid shape; anything else is dropped with a warning. */
 function readServers(value: unknown, warn: (msg: string) => void): PsycheMcpServerConfig[] {
   if (value === undefined || value === null) return [];
@@ -108,7 +126,7 @@ function readServers(value: unknown, warn: (msg: string) => void): PsycheMcpServ
       continue;
     }
     seen.add(c.id);
-    out.push({ ...c, trust: c.trust ?? "unknown" } as PsycheMcpServerConfig);
+    out.push({ ...c, trust: trustOf(c as PsycheMcpServerConfig) } as PsycheMcpServerConfig);
   }
   return out;
 }
