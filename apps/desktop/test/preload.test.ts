@@ -3,6 +3,7 @@ import { IPC } from "../src/lib/ipc.ts";
 
 const exposed: Record<string, unknown> = {};
 const invoke = vi.fn(async (_channel: string, _arg?: unknown) => ({ ok: true, value: "v" }));
+const send = vi.fn();
 
 vi.mock("electron", () => ({
   contextBridge: {
@@ -10,7 +11,7 @@ vi.mock("electron", () => ({
       exposed[key] = api;
     },
   },
-  ipcRenderer: { invoke, on: vi.fn(), removeListener: vi.fn(), send: vi.fn() },
+  ipcRenderer: { invoke, on: vi.fn(), removeListener: vi.fn(), send },
 }));
 
 beforeAll(async () => {
@@ -27,5 +28,15 @@ describe("the preload bridge (#610)", () => {
     expect(invoke).toHaveBeenLastCalledWith(IPC.appInfo, undefined);
     await bridge.app.revealHome();
     expect(invoke).toHaveBeenLastCalledWith(IPC.appRevealHome, undefined);
+  });
+});
+
+describe("Try it from the Settings window (#677)", () => {
+  it("sends the composer text to main on its own channel, fire-and-forget", () => {
+    const bridge = exposed.psyche as { windows: { prefillComposer: (text: string) => void } };
+    bridge.windows.prefillComposer("What's on my calendar today?");
+    expect(send).toHaveBeenLastCalledWith(IPC.windowPrefillComposer, {
+      text: "What's on my calendar today?",
+    });
   });
 });

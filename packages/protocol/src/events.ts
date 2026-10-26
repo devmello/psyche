@@ -15,6 +15,7 @@ import {
 } from "./methods/voice.ts";
 import { Block } from "./schemas/blocks.ts";
 import { ContextUsage } from "./schemas/context.ts";
+import { GraphEntityKind, GraphLoop, GraphSuggestion } from "./schemas/graph.ts";
 import { Device, NodeInfo, PairingRequest } from "./schemas/identity.ts";
 import {
   Automation,
@@ -207,6 +208,23 @@ export const Events = {
     payload: Type.Object({}),
     description:
       "Coarse and debounced: something behind growth.summary changed (a lesson, a metric, a milestone). Clients re-read it when the Growth view is open.",
+  }),
+  "memory.entity.updated": defineEvent({
+    payload: Type.Object({
+      id: Id,
+      kind: GraphEntityKind,
+      /** What changed: "facts", "edges", "identifiers", "summary", "status", "merged", "forgotten" … */
+      changed: Type.Array(Type.String()),
+    }),
+    description: "A person, organisation, project or place changed in the memory graph.",
+  }),
+  "memory.loop.updated": defineEvent({
+    payload: Type.Object({ loop: GraphLoop }),
+    description: "An open loop was created, confirmed, completed, snoozed or dismissed.",
+  }),
+  "memory.suggestion.created": defineEvent({
+    payload: Type.Object({ suggestion: GraphSuggestion }),
+    description: "The graph suggests a merge or a project for the owner to confirm.",
   }),
   "memory.job.updated": defineEvent({
     payload: Type.Object({ job: MemoryJob }),

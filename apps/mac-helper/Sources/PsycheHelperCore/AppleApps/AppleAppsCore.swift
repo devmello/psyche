@@ -212,12 +212,15 @@ public struct NoteSummaryRecord: Codable, Sendable, Equatable {
     public var folder: String
     public var title: String
     public var modified: String
+    /// Wave 1 (N1): text around the match, untrusted.
+    public var snippet: String?
 
-    public init(id: String, folder: String, title: String, modified: String) {
+    public init(id: String, folder: String, title: String, modified: String, snippet: String? = nil) {
         self.id = id
         self.folder = folder
         self.title = title
         self.modified = modified
+        self.snippet = snippet
     }
 }
 

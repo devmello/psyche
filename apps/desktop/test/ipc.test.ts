@@ -3,6 +3,7 @@ import {
   checkAudioChunk,
   checkCallable,
   checkClipboardText,
+  checkComposerText,
   checkExternalUrl,
   checkHttpUrl,
   checkRoute,
@@ -87,5 +88,15 @@ describe("IPC validators", () => {
       null,
     ])
       expect(() => checkExternalUrl(bad), JSON.stringify(bad)).toThrow();
+  });
+});
+
+describe("composer text from another window (#677)", () => {
+  it("is a non-empty string of at most 4,000 characters", () => {
+    expect(checkComposerText({ text: "Summarise my unread mail" })).toBe(
+      "Summarise my unread mail",
+    );
+    for (const bad of [null, "text", {}, { text: "" }, { text: 42 }, { text: "x".repeat(4_001) }])
+      expect(() => checkComposerText(bad), JSON.stringify(bad)?.slice(0, 40)).toThrow();
   });
 });
