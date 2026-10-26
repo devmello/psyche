@@ -7,15 +7,19 @@ import type { OverviewPeriod } from "./period.ts";
  * measured. Pure, so it is tested without React.
  */
 
-/** Tasks and chats: the runs a person started (kinds task and chat), subagents and automations aside. */
-export const tasksOf = (t: InsightTotals): number => t.runs.task + t.runs.chat;
+/** Tasks and chats finished with status done (kinds task and chat), subagents and automations aside. */
+export const tasksDone = (t: InsightTotals): number =>
+  t.runsByKind.task.done + t.runsByKind.chat.done;
 
 export const approvalsDecided = (t: InsightTotals): number =>
   t.approvals.approved + t.approvals.denied + t.approvals.expired;
 
 const dayRuns = (d: InsightDay): number => d.runs.task + d.runs.chat + d.runs.automation;
 
-/** Daily task-and-chat counts, oldest first (the Tasks tile's sparkline). */
+/**
+ * Daily task-and-chat runs started, oldest first (the Tasks done tile's sparkline). The days
+ * carry no per-status split, so the trend line counts runs started, not only the done ones.
+ */
 export const taskSpark = (days: readonly InsightDay[]): number[] =>
   days.map((d) => d.runs.task + d.runs.chat);
 
@@ -38,7 +42,7 @@ export type SummaryKinds = "both" | "tasks" | "automations" | "none";
 
 /** Which of the sentence's two run clauses survive: a clause is dropped when its number is 0. */
 export function summaryKinds(totals: InsightTotals): SummaryKinds {
-  const tasks = tasksOf(totals) > 0;
+  const tasks = tasksDone(totals) > 0;
   const automations = totals.runs.automation > 0;
   if (tasks && automations) return "both";
   if (tasks) return "tasks";

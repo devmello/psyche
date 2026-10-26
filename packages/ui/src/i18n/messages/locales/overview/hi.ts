@@ -24,9 +24,9 @@ export const overview: Partial<Catalogue> = {
   "overview.error.load": "लोड नहीं हो सका",
   "overview.summary.label": "सारांश",
   "overview.summary.sentence.both":
-    "{period, select, week {इस सप्ताह} month {इस महीने} other {कुल मिलाकर}}, {name} ने आपके लिए {tasks, plural, one {# कार्य या चैट} other {# कार्य और चैट}} सँभाले और {automations, plural, one {# ऑटोमेशन} other {# ऑटोमेशन}} चलाए।",
+    "{period, select, week {इस सप्ताह} month {इस महीने} other {कुल मिलाकर}}, {name} ने आपके लिए {tasks, plural, one {# कार्य या चैट} other {# कार्य और चैट}} पूरे किए और {automations, plural, one {# ऑटोमेशन} other {# ऑटोमेशन}} चलाए।",
   "overview.summary.sentence.tasks":
-    "{period, select, week {इस सप्ताह} month {इस महीने} other {कुल मिलाकर}}, {name} ने आपके लिए {tasks, plural, one {# कार्य या चैट} other {# कार्य और चैट}} सँभाले।",
+    "{period, select, week {इस सप्ताह} month {इस महीने} other {कुल मिलाकर}}, {name} ने आपके लिए {tasks, plural, one {# कार्य या चैट} other {# कार्य और चैट}} पूरे किए।",
   "overview.summary.sentence.automations":
     "{period, select, week {इस सप्ताह} month {इस महीने} other {कुल मिलाकर}}, {name} ने आपके लिए {automations, plural, one {# ऑटोमेशन} other {# ऑटोमेशन}} चलाए।",
   "overview.summary.sentence.none":
@@ -34,7 +34,7 @@ export const overview: Partial<Catalogue> = {
   "overview.summary.sentence.lessons": "{name} ने आपसे {n, plural, one {# सीख} other {# सीखें}} सीखीं।",
   "overview.summary.quiet":
     "{period, select, week {इस सप्ताह कुछ नहीं।} month {इस महीने कुछ नहीं।} other {अभी कुछ नहीं।}}",
-  "overview.summary.tile.tasks": "कार्य और चैट",
+  "overview.summary.tile.tasks": "पूरे हुए कार्य",
   "overview.summary.tile.automations": "चले ऑटोमेशन",
   "overview.summary.tile.approvals": "तय किए गए अनुमोदन",
   "overview.summary.tile.lessons": "सीखी गई बातें",

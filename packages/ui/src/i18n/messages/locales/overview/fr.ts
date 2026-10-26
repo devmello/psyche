@@ -24,9 +24,9 @@ export const overview: Partial<Catalogue> = {
   "overview.error.load": "Chargement impossible",
   "overview.summary.label": "Résumé",
   "overview.summary.sentence.both":
-    "{period, select, week {Cette semaine} month {Ce mois-ci} other {Au total}}, {name} a traité {tasks, plural, one {# tâche ou conversation} other {# tâches et conversations}} et lancé {automations, plural, one {# automatisation} other {# automatisations}} pour toi.",
+    "{period, select, week {Cette semaine} month {Ce mois-ci} other {Au total}}, {name} a terminé {tasks, plural, one {# tâche ou conversation} other {# tâches et conversations}} et lancé {automations, plural, one {# automatisation} other {# automatisations}} pour toi.",
   "overview.summary.sentence.tasks":
-    "{period, select, week {Cette semaine} month {Ce mois-ci} other {Au total}}, {name} a traité {tasks, plural, one {# tâche ou conversation} other {# tâches et conversations}} pour toi.",
+    "{period, select, week {Cette semaine} month {Ce mois-ci} other {Au total}}, {name} a terminé {tasks, plural, one {# tâche ou conversation} other {# tâches et conversations}} pour toi.",
   "overview.summary.sentence.automations":
     "{period, select, week {Cette semaine} month {Ce mois-ci} other {Au total}}, {name} a lancé {automations, plural, one {# automatisation} other {# automatisations}} pour toi.",
   "overview.summary.sentence.none":
@@ -35,7 +35,7 @@ export const overview: Partial<Catalogue> = {
     "{name} a appris {n, plural, one {# leçon} other {# leçons}} avec toi.",
   "overview.summary.quiet":
     "{period, select, week {Rien cette semaine.} month {Rien ce mois-ci.} other {Rien pour l’instant.}}",
-  "overview.summary.tile.tasks": "Tâches et conversations",
+  "overview.summary.tile.tasks": "Tâches terminées",
   "overview.summary.tile.automations": "Automatisations exécutées",
   "overview.summary.tile.approvals": "Approbations traitées",
   "overview.summary.tile.lessons": "Leçons apprises",

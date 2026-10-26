@@ -34,9 +34,9 @@ export const overview = {
   // is dropped when its number is 0. `period` is week | month | all.
   "overview.summary.label": "Summary",
   "overview.summary.sentence.both":
-    "{period, select, week {This week} month {This month} other {Overall}}, {name} handled {tasks, plural, one {# task or chat} other {# tasks and chats}} and ran {automations, plural, one {# automation} other {# automations}} for you.",
+    "{period, select, week {This week} month {This month} other {Overall}}, {name} finished {tasks, plural, one {# task or chat} other {# tasks and chats}} and ran {automations, plural, one {# automation} other {# automations}} for you.",
   "overview.summary.sentence.tasks":
-    "{period, select, week {This week} month {This month} other {Overall}}, {name} handled {tasks, plural, one {# task or chat} other {# tasks and chats}} for you.",
+    "{period, select, week {This week} month {This month} other {Overall}}, {name} finished {tasks, plural, one {# task or chat} other {# tasks and chats}} for you.",
   "overview.summary.sentence.automations":
     "{period, select, week {This week} month {This month} other {Overall}}, {name} ran {automations, plural, one {# automation} other {# automations}} for you.",
   "overview.summary.sentence.none":
@@ -45,7 +45,7 @@ export const overview = {
     "{name} learned {n, plural, one {# lesson} other {# lessons}} from you.",
   "overview.summary.quiet":
     "{period, select, week {Nothing this week.} month {Nothing this month.} other {Nothing yet.}}",
-  "overview.summary.tile.tasks": "Tasks and chats",
+  "overview.summary.tile.tasks": "Tasks done",
   "overview.summary.tile.automations": "Automations run",
   "overview.summary.tile.approvals": "Approvals decided",
   "overview.summary.tile.lessons": "Lessons learned",

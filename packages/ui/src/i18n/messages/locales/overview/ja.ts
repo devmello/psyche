@@ -24,9 +24,9 @@ export const overview: Partial<Catalogue> = {
   "overview.error.load": "読み込めませんでした",
   "overview.summary.label": "サマリー",
   "overview.summary.sentence.both":
-    "{period, select, week {今週} month {今月} other {これまでに}}、{name}はあなたのために{tasks, plural, other {#件のタスクとチャット}}を処理し、{automations, plural, other {#件のオートメーション}}を実行しました。",
+    "{period, select, week {今週} month {今月} other {これまでに}}、{name}はあなたのために{tasks, plural, other {#件のタスクとチャット}}を完了し、{automations, plural, other {#件のオートメーション}}を実行しました。",
   "overview.summary.sentence.tasks":
-    "{period, select, week {今週} month {今月} other {これまでに}}、{name}はあなたのために{tasks, plural, other {#件のタスクとチャット}}を処理しました。",
+    "{period, select, week {今週} month {今月} other {これまでに}}、{name}はあなたのために{tasks, plural, other {#件のタスクとチャット}}を完了しました。",
   "overview.summary.sentence.automations":
     "{period, select, week {今週} month {今月} other {これまでに}}、{name}はあなたのために{automations, plural, other {#件のオートメーション}}を実行しました。",
   "overview.summary.sentence.none":
@@ -35,7 +35,7 @@ export const overview: Partial<Catalogue> = {
     "{name}はあなたから{n, plural, other {#件の学び}}を得ました。",
   "overview.summary.quiet":
     "{period, select, week {今週はありません。} month {今月はありません。} other {まだありません。}}",
-  "overview.summary.tile.tasks": "タスクとチャット",
+  "overview.summary.tile.tasks": "完了したタスク",
   "overview.summary.tile.automations": "実行したオートメーション",
   "overview.summary.tile.approvals": "判断した承認",
   "overview.summary.tile.lessons": "学んだこと",

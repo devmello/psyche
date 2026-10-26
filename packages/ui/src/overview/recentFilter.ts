@@ -10,6 +10,8 @@ import { DEFAULT_OVERVIEW_PERIOD, type OverviewPeriod } from "./period.ts";
  *
  * - `filter`: `all` (default, omitted) | `tasks` (kinds task and chat) | `automations` | `chat` |
  *   `failed`
+ * - `status`: `done` narrows `filter` to runs that finished done (the Tasks done tile links
+ *   `filter=tasks&status=done`); absent means any status. `failed` already implies its status.
  * - `day`: a `YYYY-MM-DD` calendar day in the user's time zone; narrows the list to that day
  *   whatever the period is.
  *
@@ -19,13 +21,18 @@ import { DEFAULT_OVERVIEW_PERIOD, type OverviewPeriod } from "./period.ts";
 export const RECENT_FILTERS = ["all", "tasks", "automations", "chat", "failed"] as const;
 export type RecentFilterKind = (typeof RECENT_FILTERS)[number];
 
+export const RECENT_STATUSES = ["done"] as const;
+export type RecentStatus = (typeof RECENT_STATUSES)[number];
+
 export interface RecentFilter {
   filter: RecentFilterKind;
+  /** Restricts `filter` to runs with this status, or null for any. */
+  status: RecentStatus | null;
   /** `YYYY-MM-DD`, or null for the whole period. */
   day: string | null;
 }
 
-export const NO_RECENT_FILTER: RecentFilter = { filter: "all", day: null };
+export const NO_RECENT_FILTER: RecentFilter = { filter: "all", status: null, day: null };
 export const RECENT_ANCHOR = "recent";
 
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -42,13 +49,15 @@ export function parseRecentFilter(routeOrQuery: string): RecentFilter {
   const query = queryOf(routeOrQuery);
   const raw = query.get("filter");
   const day = query.get("day");
+  const status = query.get("status");
   return {
     filter: RECENT_FILTERS.find((f) => f === raw) ?? "all",
+    status: RECENT_STATUSES.find((s) => s === status) ?? null,
     day: day !== null && DAY_PATTERN.test(day) ? day : null,
   };
 }
 
-/** `/overview[?period=][&filter=][&day=]`. Defaults are left out, so the clean URL stays clean. */
+/** `/overview[?period=][&filter=][&status=][&day=]`. Defaults are left out, so the clean URL stays clean. */
 export function recentHref(
   period: OverviewPeriod,
   filter: Partial<RecentFilter> = NO_RECENT_FILTER,
@@ -56,6 +65,7 @@ export function recentHref(
   const query = new URLSearchParams();
   if (period !== DEFAULT_OVERVIEW_PERIOD) query.set("period", period);
   if (filter.filter !== undefined && filter.filter !== "all") query.set("filter", filter.filter);
+  if (filter.status != null) query.set("status", filter.status);
   if (filter.day != null && DAY_PATTERN.test(filter.day)) query.set("day", filter.day);
   const qs = query.toString();
   return qs === "" ? "/overview" : `/overview?${qs}`;

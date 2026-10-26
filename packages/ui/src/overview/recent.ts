@@ -24,17 +24,20 @@ export function recentRunsQuery(
       : days === null
         ? {}
         : { since: new Date(now - (days - 1) * DAY_MS).toISOString() };
+  // `failed` implies its status; `status=done` narrows any other filter to finished-done runs.
+  const status =
+    filter.filter === "failed"
+      ? ["failed" as const]
+      : filter.status === "done"
+        ? ["done" as const]
+        : [...FINISHED];
   switch (filter.filter) {
-    case "failed":
-      return { status: ["failed"], ...since };
-    case "tasks":
-      return { status: ["done"], ...since };
     case "automations":
-      return { status: [...FINISHED], kind: "automation", ...since };
+      return { status, kind: "automation", ...since };
     case "chat":
-      return { status: [...FINISHED], kind: "chat", ...since };
+      return { status, kind: "chat", ...since };
     default:
-      return { status: [...FINISHED], ...since };
+      return { status, ...since };
   }
 }
 

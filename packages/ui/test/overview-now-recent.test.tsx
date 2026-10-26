@@ -26,7 +26,7 @@ const HOUR = 3_600_000;
 
 describe("the recent filter's query", () => {
   const NOW = STORY_NOW;
-  const none = { filter: "all", day: null } as const;
+  const none = { filter: "all", status: null, day: null } as const;
 
   it("asks the Gateway for finished runs in the period, narrowed by outcome or kind", () => {
     const since = new Date(NOW - 29 * 24 * HOUR).toISOString();
@@ -34,26 +34,39 @@ describe("the recent filter's query", () => {
       status: ["done", "failed", "cancelled"],
       since,
     });
-    expect(recentRunsQuery("30d", { filter: "failed", day: null }, NOW).status).toEqual(["failed"]);
-    expect(recentRunsQuery("30d", { filter: "automations", day: null }, NOW).kind).toBe(
-      "automation",
+    expect(
+      recentRunsQuery("30d", { filter: "failed", status: null, day: null }, NOW).status,
+    ).toEqual(["failed"]);
+    expect(
+      recentRunsQuery("30d", { filter: "automations", status: null, day: null }, NOW).kind,
+    ).toBe("automation");
+    expect(recentRunsQuery("30d", { filter: "chat", status: null, day: null }, NOW).kind).toBe(
+      "chat",
     );
-    expect(recentRunsQuery("30d", { filter: "chat", day: null }, NOW).kind).toBe("chat");
-    expect(recentRunsQuery("30d", { filter: "tasks", day: null }, NOW).status).toEqual(["done"]);
+    expect(
+      recentRunsQuery("30d", { filter: "tasks", status: "done", day: null }, NOW).status,
+    ).toEqual(["done"]);
+    expect(
+      recentRunsQuery("30d", { filter: "tasks", status: null, day: null }, NOW).status,
+    ).toEqual(["done", "failed", "cancelled"]);
+    // failed implies its status, even beside status=done.
+    expect(
+      recentRunsQuery("30d", { filter: "failed", status: "done", day: null }, NOW).status,
+    ).toEqual(["failed"]);
     // All time has no lower bound; a day filter wins over the period.
     expect(recentRunsQuery("all", none, NOW).since).toBeUndefined();
-    expect(recentRunsQuery("7d", { filter: "all", day: "2026-09-01" }, NOW).since).toMatch(
-      /^2026-08-31T/,
-    );
+    expect(
+      recentRunsQuery("7d", { filter: "all", status: null, day: "2026-09-01" }, NOW).since,
+    ).toMatch(/^2026-08-31T/);
   });
 
   it("does the rest in the client: task and chat kinds, one calendar day in the time zone", () => {
     const run = (kind: "task" | "chat" | "automation", startedAt: string) => ({ kind, startedAt });
-    const tasks = { filter: "tasks", day: null } as const;
+    const tasks = { filter: "tasks", status: "done", day: null } as const;
     expect(matchesRecent(run("task", "2026-10-14T10:00:00Z"), tasks)).toBe(true);
     expect(matchesRecent(run("chat", "2026-10-14T10:00:00Z"), tasks)).toBe(true);
     expect(matchesRecent(run("automation", "2026-10-14T10:00:00Z"), tasks)).toBe(false);
-    const day = { filter: "all", day: "2026-10-14" } as const;
+    const day = { filter: "all", status: null, day: "2026-10-14" } as const;
     expect(matchesRecent(run("task", "2026-10-14T23:30:00Z"), day, "UTC")).toBe(true);
     expect(matchesRecent(run("task", "2026-10-14T23:30:00Z"), day, "Asia/Tokyo")).toBe(false);
     expect(matchesRecent(run("task", "2026-10-15T00:30:00Z"), day, "UTC")).toBe(false);
@@ -244,14 +257,14 @@ describe("Recent runs", () => {
       {},
       <RecentSection
         period="30d"
-        route="/overview?filter=tasks&day=2026-10-18"
+        route="/overview?filter=tasks&status=done&day=2026-10-18"
         onNavigate={onNavigate}
         now={STORY_NOW}
       />,
     );
     expect(await screen.findByRole("button", { name: "Tasks" })).toBeTruthy();
     fireEvent.click(await screen.findByRole("button", { name: /Clear the 2026-10-18 filter/ }));
-    expect(onNavigate).toHaveBeenCalledWith("/overview?period=30d&filter=tasks");
+    expect(onNavigate).toHaveBeenCalledWith("/overview?period=30d&filter=tasks&status=done");
   });
 
   it("pages by cursor", async () => {

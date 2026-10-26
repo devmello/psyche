@@ -24,9 +24,9 @@ export const overview: Partial<Catalogue> = {
   "overview.error.load": "불러오지 못했습니다",
   "overview.summary.label": "요약",
   "overview.summary.sentence.both":
-    "{period, select, week {이번 주} month {이번 달} other {지금까지}} {name}이(가) 회원님을 위해 {tasks, plural, other {작업과 채팅 #건}}을 처리하고 {automations, plural, other {자동화 #건}}을 실행했습니다.",
+    "{period, select, week {이번 주} month {이번 달} other {지금까지}} {name}이(가) 회원님을 위해 {tasks, plural, other {작업과 채팅 #건}}을 완료하고 {automations, plural, other {자동화 #건}}을 실행했습니다.",
   "overview.summary.sentence.tasks":
-    "{period, select, week {이번 주} month {이번 달} other {지금까지}} {name}이(가) 회원님을 위해 {tasks, plural, other {작업과 채팅 #건}}을 처리했습니다.",
+    "{period, select, week {이번 주} month {이번 달} other {지금까지}} {name}이(가) 회원님을 위해 {tasks, plural, other {작업과 채팅 #건}}을 완료했습니다.",
   "overview.summary.sentence.automations":
     "{period, select, week {이번 주} month {이번 달} other {지금까지}} {name}이(가) 회원님을 위해 {automations, plural, other {자동화 #건}}을 실행했습니다.",
   "overview.summary.sentence.none":
@@ -35,7 +35,7 @@ export const overview: Partial<Catalogue> = {
     "{name}이(가) 회원님에게서 {n, plural, other {교훈 #개}}를 배웠습니다.",
   "overview.summary.quiet":
     "{period, select, week {이번 주에는 없습니다.} month {이번 달에는 없습니다.} other {아직 없습니다.}}",
-  "overview.summary.tile.tasks": "작업과 채팅",
+  "overview.summary.tile.tasks": "완료한 작업",
   "overview.summary.tile.automations": "실행한 자동화",
   "overview.summary.tile.approvals": "결정한 승인",
   "overview.summary.tile.lessons": "배운 교훈",

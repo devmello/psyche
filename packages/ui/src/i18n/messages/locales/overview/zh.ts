@@ -24,16 +24,16 @@ export const overview: Partial<Catalogue> = {
   "overview.error.load": "无法加载",
   "overview.summary.label": "摘要",
   "overview.summary.sentence.both":
-    "{period, select, week {本周} month {本月} other {到目前为止}}，{name}为你处理了{tasks, plural, other {#项任务和聊天}}，并运行了{automations, plural, other {#个自动化}}。",
+    "{period, select, week {本周} month {本月} other {到目前为止}}，{name}为你完成了{tasks, plural, other {#项任务和聊天}}，并运行了{automations, plural, other {#个自动化}}。",
   "overview.summary.sentence.tasks":
-    "{period, select, week {本周} month {本月} other {到目前为止}}，{name}为你处理了{tasks, plural, other {#项任务和聊天}}。",
+    "{period, select, week {本周} month {本月} other {到目前为止}}，{name}为你完成了{tasks, plural, other {#项任务和聊天}}。",
   "overview.summary.sentence.automations":
     "{period, select, week {本周} month {本月} other {到目前为止}}，{name}为你运行了{automations, plural, other {#个自动化}}。",
   "overview.summary.sentence.none":
     "{period, select, week {本周没有运行任何内容。} month {本月没有运行任何内容。} other {目前还没有运行任何内容。}}",
   "overview.summary.sentence.lessons": "{name}从你这里学到了{n, plural, other {#条经验}}。",
   "overview.summary.quiet": "{period, select, week {本周暂无。} month {本月暂无。} other {暂无。}}",
-  "overview.summary.tile.tasks": "任务和聊天",
+  "overview.summary.tile.tasks": "已完成的任务",
   "overview.summary.tile.automations": "已运行的自动化",
   "overview.summary.tile.approvals": "已处理的批准",
   "overview.summary.tile.lessons": "学到的经验",

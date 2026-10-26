@@ -82,7 +82,7 @@ export function RecentSection({
             value={[filter.filter]}
             onValueChange={(v) => {
               const next = chips.find((f) => f === v[0]);
-              if (next !== undefined) setFilter({ filter: next, day: filter.day });
+              if (next !== undefined) setFilter({ filter: next, status: null, day: filter.day });
             }}
           >
             {chips.map((f) => (
@@ -95,7 +95,9 @@ export function RecentSection({
             <Button
               size="sm"
               variant="secondary"
-              onClick={() => setFilter({ ...NO_RECENT_FILTER, filter: filter.filter })}
+              onClick={() =>
+                setFilter({ ...NO_RECENT_FILTER, filter: filter.filter, status: filter.status })
+              }
               aria-label={t("overview.recent.clearDay", { date: filter.day })}
             >
               {i18n.date(`${filter.day}T12:00:00Z`, {
