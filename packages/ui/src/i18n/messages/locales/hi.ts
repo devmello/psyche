@@ -3316,4 +3316,31 @@ export const hi: Partial<Catalogue> = {
   "settings.key.voice.conversation.reviewBeforeSend": "भेजने से पहले देखें",
   "settings.key.voice.conversation.pauseMs": "Psyche के जवाब देने से पहले विराम",
   "settings.key.voice.conversation.brief": "बोला गया ब्रीफ़",
+
+  // specialist controls (specialists §4.7) and the approval context line (§4.4)
+  "specialists.control.menu": "{title} के लिए और विकल्प",
+  "specialists.control.steerLabel": "{title} के बारे में {role} से कुछ कहें",
+  "specialists.control.steerPlaceholder": "{role} से कुछ कहें…",
+  "specialists.control.steerHint": "यह अगले चरण से पहले इसे पढ़ेगा।",
+  "specialists.control.send": "भेजें",
+  "specialists.control.steered": "{role} को भेज दिया।",
+  "specialists.control.pause": "रोकें",
+  "specialists.control.resume": "फिर शुरू करें",
+  "specialists.control.giveMore": "और दें…",
+  "specialists.control.stop": "बंद करें…",
+  "specialists.control.giveMoreTitle": "{role} को और दें?",
+  "specialists.control.giveMoreBody":
+    "{title} का बजट आधा बढ़ाता है, इस भूमिका के लिए सेटिंग में तय सीमा तक।",
+  "specialists.control.moreTokens": "टोकन: {from} → {to}",
+  "specialists.control.moreCost": "लागत: {from} → {to}",
+  "specialists.control.moreTime": "समय: {from, number} → {to, number} मिनट",
+  "specialists.control.atCap": "इसके पास पहले से वह अधिकतम है जो सेटिंग इस भूमिका के लिए देती है।",
+  "specialists.control.giveMoreConfirm": "और दें",
+  "specialists.control.stopTitle": "{role} को बंद करें?",
+  "specialists.control.stopBody":
+    "यह अभी रुक जाएगा और {title} पूरा नहीं करेगा। जो काम हो चुका है वह गतिविधि में रहेगा।",
+  "specialists.control.stopConfirm": "बंद करें",
+  "specialists.control.failed": "Psyche यह नहीं कर सका: {reason}",
+  "blocks.approval.specialist":
+    '{hasTask, select, true {"{task}" के लिए · } other {}}{role}, {agent} ने शुरू किया{hasThread, select, true { ({thread} में)} other {}}',
 };

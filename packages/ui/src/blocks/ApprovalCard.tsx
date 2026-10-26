@@ -27,6 +27,7 @@ import { formatCountdown, formatRelative } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
 import { fade, motionSpring, spring } from "../motion/index.ts";
+import { roleLabel } from "../specialists/model.ts";
 import { ApprovalDetails, ApprovalIds } from "./approval-details.tsx";
 
 /**
@@ -59,6 +60,8 @@ export interface ApprovalCardProps {
   persona?: string;
   taskTitle?: string | null;
   createdFrom?: string | null;
+  /** A specialist's approval: the thread that started the job, for the card's context line. */
+  parentThreadTitle?: string | null;
   /** Thread permission mode, for "Why asked". */
   mode?: string;
   /** Surface labels for "Also sent to" (other than this one). */
@@ -136,6 +139,7 @@ export function ApprovalCard({
   persona = t("blocks.common.theAgent"),
   taskTitle,
   createdFrom,
+  parentThreadTitle,
   mode,
   otherSurfaces = [],
   onAnswer,
@@ -280,15 +284,26 @@ export function ApprovalCard({
     { value: "deny", short: t("blocks.approval.deny"), long: t("blocks.approval.deny") },
   ];
   const canAllow = armed && !busy && choice !== "deny";
-  const requester = t("blocks.approval.requester", {
-    persona,
-    hasTask: Boolean(taskTitle),
-    task: taskTitle ?? "",
-    hasFrom: Boolean(createdFrom),
-    from: createdFrom ?? "",
-    hasAgent: Boolean(approval.requestedBy.agent && approval.requestedBy.agent !== persona),
-    agent: approval.requestedBy.agent ?? "",
-  });
+  const specialist = approval.requestedBy.specialist;
+  // A specialist asks (specialists §4.4): "For {task} · Shopper started by Psyche in Main chat".
+  const requester = specialist
+    ? t("blocks.approval.specialist", {
+        hasTask: Boolean(taskTitle),
+        task: taskTitle ?? "",
+        role: roleLabel(specialist),
+        agent: persona,
+        hasThread: Boolean(parentThreadTitle),
+        thread: parentThreadTitle ?? "",
+      })
+    : t("blocks.approval.requester", {
+        persona,
+        hasTask: Boolean(taskTitle),
+        task: taskTitle ?? "",
+        hasFrom: Boolean(createdFrom),
+        from: createdFrom ?? "",
+        hasAgent: Boolean(approval.requestedBy.agent && approval.requestedBy.agent !== persona),
+        agent: approval.requestedBy.agent ?? "",
+      });
 
   return (
     <m.fieldset

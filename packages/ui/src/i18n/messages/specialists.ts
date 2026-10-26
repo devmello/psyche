@@ -77,4 +77,29 @@ export const specialists = {
   "specialists.preflight.estimate": "{label} (about {n, number})",
 
   "specialists.feed.title": "From your specialists",
+
+  // The owner's controls on a running job (§4.7).
+  "specialists.control.menu": "More for {title}",
+  "specialists.control.steerLabel": "Tell the {role} something about {title}",
+  "specialists.control.steerPlaceholder": "Tell the {role}…",
+  "specialists.control.steerHint": "It reads this before its next step.",
+  "specialists.control.send": "Send",
+  "specialists.control.steered": "Sent to the {role}.",
+  "specialists.control.pause": "Pause",
+  "specialists.control.resume": "Resume",
+  "specialists.control.giveMore": "Give it more…",
+  "specialists.control.stop": "Stop…",
+  "specialists.control.giveMoreTitle": "Give the {role} more?",
+  "specialists.control.giveMoreBody":
+    "Raises its budget for {title} by half, up to what Settings allow for this role.",
+  "specialists.control.moreTokens": "Tokens: {from} → {to}",
+  "specialists.control.moreCost": "Cost: {from} → {to}",
+  "specialists.control.moreTime": "Time: {from, number} → {to, number} min",
+  "specialists.control.atCap": "It already has the most Settings allow for this role.",
+  "specialists.control.giveMoreConfirm": "Give it more",
+  "specialists.control.stopTitle": "Stop the {role}?",
+  "specialists.control.stopBody":
+    "It stops now and won't finish {title}. What it already did stays in Activity.",
+  "specialists.control.stopConfirm": "Stop it",
+  "specialists.control.failed": "Psyche couldn't do that: {reason}",
 } as const;

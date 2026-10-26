@@ -89,6 +89,8 @@ export const blocks = {
   "blocks.approval.requestedBy": "Requested by",
   "blocks.approval.requester":
     '{persona}{hasTask, select, true { · task "{task}"} other {}}{hasFrom, select, true { (from {from})} other {}}{hasAgent, select, true { · {agent}} other {}}',
+  "blocks.approval.specialist":
+    '{hasTask, select, true {For "{task}" · } other {}}{role} started by {agent}{hasThread, select, true { in {thread}} other {}}',
   "blocks.approval.whyAsked": "Why asked",
   "blocks.approval.stale":
     "Psyche restarted, so this card is out of date. It will be re-issued if it is still needed.",
