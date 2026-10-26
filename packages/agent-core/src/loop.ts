@@ -36,6 +36,7 @@ import {
   type Scheduler,
   type SideEffect,
   type SkillLoader,
+  type SpecialistSpec,
   type StartTurnInput,
   type Surface,
   type TaintSource,
@@ -99,6 +100,18 @@ import {
 import { type QuestionAnswer, validateAnswer } from "./questions.ts";
 import { ReasoningSteps } from "./reasoning.ts";
 import { type AgentToolRegistration, AgentToolRegistry, parseMcpToolName } from "./registry.ts";
+import {
+  buildSpecialistSpec,
+  fallbackReport,
+  minMode,
+  preflight,
+  type SpecialistHost,
+  type SpecialistRoleDef,
+  type SpecialistTurnApi,
+  specialistBrief,
+  specialistTools,
+  toolAllowed,
+} from "./specialists.ts";
 import {
   emptyThreadState,
   InMemoryThreadStateStore,
@@ -236,6 +249,11 @@ export interface AgentLoopOptions {
   evaluator?: { enabled?: boolean; model?: ModelRef; maxReopens?: number };
   /** Coding harness plugins (C10); `harness.delegate` is offered when one is registered. */
   harnesses?: HarnessRegistry;
+  /**
+   * Background specialists (docs/agent/specialists-2026.md): the Gateway's host for roles, jobs
+   * and reports. With `tasks`, registers `specialist.spawn`, `.report` and `.status`.
+   */
+  specialists?: SpecialistHost;
   /** Context drawn from the owner's own data, once per owner turn (E12 "From your other chats"). */
   contextProviders?: readonly TurnContextProvider[];
   /**
@@ -331,6 +349,15 @@ interface RunState {
   subagent?: { parentRunId: string; maxSteps: number };
   /** Subagents of this run currently in flight. */
   children: number;
+  /** Set when this run is a background specialist's job (specialists §4.2–§4.3). */
+  specialistJob?: {
+    taskId: string;
+    spec: SpecialistSpec;
+    role: SpecialistRoleDef | undefined;
+    reported: boolean;
+  };
+  /** The main agent's Specialists prompt section, fetched once per run. */
+  specialistsPrompt?: string;
   /** Times the evaluator reopened this run (C7). */
   reopens: number;
   /** Harness actions gated in this run, and those allowed but not yet reported (C10). */
@@ -461,6 +488,7 @@ export class PsycheAgentLoop implements AgentLoop {
     if (o.scheduler !== undefined) tools.push(scheduleTool(o.scheduler, tz));
     if (o.notifier !== undefined) tools.push(notifyTool(o.notifier));
     tools.push(harnessDelegateTool(this.harnesses));
+    if (o.specialists !== undefined && o.tasks !== undefined) tools.push(...specialistTools());
     for (const tool of tools) {
       if (this.registry.get(tool.spec.name) === undefined) this.registry.register(tool);
     }
@@ -652,6 +680,18 @@ export class PsycheAgentLoop implements AgentLoop {
           this.#taint(run, { sourceKind: "task" });
           for (const s of task.taintSources ?? []) this.#taint(run, { ...s });
         }
+        if (task?.specialist !== undefined && this.#o.specialists !== undefined) {
+          const spec = task.specialist;
+          const roles = await this.#o.specialists.roles();
+          run.specialistJob = {
+            taskId: task.id,
+            spec,
+            role: roles.find((r) => r.role === spec.role),
+            reported: spec.result != null,
+          };
+          // Never wider than the role allows or the parent had (specialists §4.3).
+          run.permissionMode = minMode(run.permissionMode, spec.permissionMode);
+        }
       }
       // Untrusted content inside the input itself: forwarded or quoted third-party text in an
       // owner's channel message (#275).
@@ -666,9 +706,12 @@ export class PsycheAgentLoop implements AgentLoop {
         });
       }
       run.model = await this.#resolveModel(run);
+      // A specialist runs on its role's model, never a pinned `/model` (specialists §4.3).
+      if (run.specialistJob !== undefined) run.model = run.specialistJob.spec.model;
       run.turnStart = run.thread.messages.length;
       run.thread.messages.push({ role: "user", parts: [{ type: "text", text: userText(input) }] });
       outcome = await this.#loop(run);
+      await this.#specialistFallback(run, outcome);
     } catch (err) {
       const end = err instanceof RunEnd ? err : (abortReason(run) ?? undefined);
       if (end !== undefined) {
@@ -759,7 +802,11 @@ export class PsycheAgentLoop implements AgentLoop {
   }
 
   async #loop(run: RunState): Promise<RunOutcome> {
-    const maxSteps = run.subagent?.maxSteps ?? this.#o.maxSteps ?? 50;
+    const maxSteps =
+      run.subagent?.maxSteps ??
+      run.specialistJob?.spec.budget.limit.steps ??
+      this.#o.maxSteps ??
+      50;
     const maxTokens = this.#o.maxRunTokens ?? 2_000_000;
     let pendingText = "";
     for (;;) {
@@ -1108,8 +1155,18 @@ export class PsycheAgentLoop implements AgentLoop {
       permissionMode: run.permissionMode,
       runMode: run.mode,
       subagent: run.subagent !== undefined,
+      specialist: run.specialistJob !== undefined,
       ...(toggles === undefined ? {} : { toggles }),
     });
+    const job = run.specialistJob;
+    if (job !== undefined) {
+      // The role's allowlist, never more (specialists §4.3); questions and the report always.
+      const keep = (name: string) =>
+        name === "ask_user" || name === "specialist.report" || toolAllowed(name, job.spec.tools);
+      for (const t of tools)
+        if (!keep(t.spec.name)) hidden.set(t.spec.name, "not in the role's tools");
+      tools = tools.filter((t) => keep(t.spec.name));
+    }
     if (this.harnesses.list().length === 0) {
       // Offered only once a coding harness is installed (C10).
       tools = tools.filter((t) => t.spec.name !== "harness.delegate");
@@ -1130,7 +1187,37 @@ export class PsycheAgentLoop implements AgentLoop {
     if (ctx.untrusted && !run.taintSources.some((s) => s.sourceKind === "context")) {
       this.#taint(run, { sourceKind: "context" });
     }
-    const sections = ctx.sections;
+    let sections = ctx.sections;
+    if (job !== undefined) {
+      // A fresh context (specialists §4.2): the role prompt, no skills index or daily notes,
+      // and USER.md only when the role may see the owner's facts.
+      sections = sections.filter(
+        (x) =>
+          x.kind !== "skills" &&
+          x.kind !== "daily_note" &&
+          !(job.role?.memory === "none" && x.id === "persona:USER.md"),
+      );
+      const at = sections.findIndex((x) => x.kind === "base") + 1;
+      sections.splice(at, 0, {
+        id: `specialist:${job.spec.role}`,
+        kind: "skills",
+        title: `Role: ${job.role?.label ?? job.spec.role}`,
+        text:
+          job.role?.prompt ??
+          `You are the ${job.spec.role} specialist. Work on the task below and finish with specialist.report.`,
+      });
+    } else if (tools.some((t) => t.spec.name === "specialist.spawn")) {
+      run.specialistsPrompt ??= (await this.#o.specialists?.promptSection()) ?? "";
+      if (run.specialistsPrompt !== "") {
+        const at = sections.findIndex((x) => x.kind === "skills");
+        sections.splice(at < 0 ? sections.length : at + 1, 0, {
+          id: "specialists",
+          kind: "skills",
+          title: "Specialists",
+          text: run.specialistsPrompt,
+        });
+      }
+    }
     for (const hook of this.hooks.handlers("before_prompt_build")) {
       const r = await hook({
         ...runRef(run),
@@ -1146,6 +1233,7 @@ export class PsycheAgentLoop implements AgentLoop {
           permissionMode: run.permissionMode,
           runMode: run.mode,
           subagent: run.subagent !== undefined,
+          specialist: run.specialistJob !== undefined,
           ...(toggles === undefined ? {} : { toggles }),
           allow: new Set(tools.map((t) => t.spec.name).filter((n) => allow.has(n))),
         }));
@@ -2305,6 +2393,93 @@ export class PsycheAgentLoop implements AgentLoop {
 
   // --- Turn tools -------------------------------------------------------------------------------
 
+  /** `specialist.*` for one run (specialists §4.1–§4.2). */
+  #specialistApi(run: RunState): SpecialistTurnApi {
+    const host = this.#o.specialists as SpecialistHost;
+    return {
+      spawn: async (req, toolCallId) => {
+        if (run.specialistJob !== undefined || run.subagent !== undefined) {
+          throw new PsycheError("forbidden", "specialists and subagents cannot start specialists");
+        }
+        if (run.requester !== undefined && run.requester.role !== "owner") {
+          throw new PsycheError("forbidden", "only the owner's own turns can start specialists");
+        }
+        const role = (await host.roles()).find((r) => r.role === req.role);
+        if (role === undefined) {
+          throw new PsycheError("invalid_params", `specialist ${req.role} is off or unknown`);
+        }
+        const spec = buildSpecialistSpec(
+          role,
+          req,
+          {
+            threadId: run.threadId,
+            runId: run.runId,
+            rootRunId: null,
+            permissionMode: run.permissionMode,
+            taint: run.taint,
+            taintSources: run.taintSources.map((x) => ({ ...x })) as TaintSource[],
+            incognito: this.#o.isIncognito?.(run.threadId) === true,
+          },
+          this.#clock.now(),
+        );
+        const job = await host.createJob({
+          spec,
+          title: req.title,
+          brief: specialistBrief(req.brief, spec),
+          incognito: this.#o.isIncognito?.(run.threadId) === true,
+          taint: run.taint,
+          taintSources: run.taintSources.map((x) => ({ ...x })) as TaintSource[],
+        });
+        const status = job.queuePosition === null ? "running" : "queued";
+        run.emit({
+          type: "subagent",
+          runId: run.runId,
+          messageId: run.messageId,
+          toolCallId,
+          taskId: job.taskId,
+          childRunId: null,
+          status: status === "running" ? "working" : "queued",
+          label: `${role.label} · ${req.title}`,
+        });
+        return {
+          taskId: job.taskId,
+          threadId: job.threadId,
+          status,
+          ...(job.queuePosition === null ? {} : { position: job.queuePosition }),
+          preflight: preflight(role, spec.permissionMode),
+        };
+      },
+      report: async (report) => {
+        const job = run.specialistJob;
+        if (job === undefined) throw new PsycheError("forbidden", "only specialists report");
+        if (job.reported) throw new PsycheError("conflict", "this job already reported");
+        const result = await host.report(job.taskId, report, { tainted: run.taint });
+        job.reported = true;
+        return result;
+      },
+      status: async (taskId) => {
+        const jobs = (await host.jobs(run.threadId)).filter(
+          (j) => taskId === undefined || j.taskId === taskId,
+        );
+        return { jobs, tainted: jobs.some((j) => j.result?.tainted === true) };
+      },
+    };
+  }
+
+  /** A specialist that ended without `specialist.report` still delivers one result (§4.2). */
+  async #specialistFallback(run: RunState, outcome: RunOutcome): Promise<void> {
+    const job = run.specialistJob;
+    const host = this.#o.specialists;
+    if (job === undefined || job.reported || host === undefined) return;
+    if (outcome !== "final" && outcome !== "failed") return;
+    const report = fallbackReport(
+      lastAssistantText(run.thread.messages),
+      outcome === "final" ? "partial" : "failed",
+    );
+    await host.report(job.taskId, report, { tainted: run.taint, stopReason: "no_report" });
+    job.reported = true;
+  }
+
   #turnApi(run: RunState, toolCallId: string): TurnApi {
     return {
       emitBlock: (block) => this.#block(run, block),
@@ -2314,6 +2489,7 @@ export class PsycheAgentLoop implements AgentLoop {
       },
       ask: (questions) => this.#ask(run, questions),
       spawnSubagent: (input) => this.#spawn(run, toolCallId, input),
+      ...(this.#o.specialists === undefined ? {} : { specialists: this.#specialistApi(run) }),
       gateHarnessAction: (harnessId, callId, action) =>
         this.#gateHarness(run, harnessId, callId, action),
       harnessActionDone: (actionId, outcome, summary) =>

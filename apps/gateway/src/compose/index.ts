@@ -127,6 +127,7 @@ import {
   createOwnPorts,
 } from "./services.ts";
 import { composeSkills } from "./skills.ts";
+import { createSpecialistHost } from "./specialists.ts";
 import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
 import {
   type ComposedTeaching,
@@ -721,6 +722,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     publish: (event, payload, threadId) => publish(event, payload as never, threadId),
     onForgotten: (factId, threadId) => teachingRef?.onLearnedUndo(factId, threadId),
   });
+  // Background specialists (docs/agent/specialists-2026.md, #683): roles from the role skills,
+  // jobs as a subagent thread + Task, one sanitized result.
+  const specialists = createSpecialistHost({
+    db,
+    tasks,
+    broker: loopBroker,
+    roles: skills.roles,
+    models: { primary: modelRef, ...(utility === undefined ? {} : { utility }) },
+    now: () => clock.now(),
+  });
   // The teaching loop (#679): the owner's feedback → lessons written where they belong.
   const teaching = composeTeaching({
     db,
@@ -780,6 +791,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     onOwnerTurn: userProfile.onOwnerTurn,
     // Incognito threads are memory-only (E9, security §8): the loop never flushes them.
     isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
+    specialists,
     // Reasoning steps for the step log (setting agent.showReasoning, default on), masked.
     showReasoning: () => getSetting(db, "agent.showReasoning")?.value !== false,
     redact: (text) => redactor.redact(text),
