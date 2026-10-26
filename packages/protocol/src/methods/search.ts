@@ -8,7 +8,19 @@ import { defineMethod } from "./define.ts";
  */
 
 export const SearchScope = StringEnum(
-  ["threads", "messages", "tasks", "memory", "library", "feed", "ideas", "goals", "connectors"],
+  [
+    "threads",
+    "messages",
+    "tasks",
+    "memory",
+    "library",
+    "feed",
+    "ideas",
+    "goals",
+    "connectors",
+    "people",
+    "projects",
+  ],
   {
     $id: "SearchScope",
   },
@@ -17,13 +29,36 @@ export type SearchScope = Static<typeof SearchScope>;
 
 /** JSON form of the `SearchIndexDocKind` contract type (`contracts/SearchIndex.ts`). */
 export const SearchIndexDocKindSchema = StringEnum(
-  ["thread", "message", "task", "memory", "library", "feed", "idea", "goal", "connector"],
+  [
+    "thread",
+    "message",
+    "task",
+    "memory",
+    "library",
+    "feed",
+    "idea",
+    "goal",
+    "connector",
+    "person",
+    "project",
+  ],
   { $id: "SearchIndexDocKind" },
 );
 
 /** The pane a result opens in; the Search screen groups by it (UI §3.13). */
 export const SearchGroup = StringEnum(
-  ["threads", "tasks", "memory", "library", "feed", "ideas", "goals", "connectors"],
+  [
+    "threads",
+    "tasks",
+    "memory",
+    "library",
+    "feed",
+    "ideas",
+    "goals",
+    "connectors",
+    "people",
+    "projects",
+  ],
   { $id: "SearchGroup" },
 );
 export type SearchGroup = Static<typeof SearchGroup>;

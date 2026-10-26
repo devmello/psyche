@@ -3542,11 +3542,11 @@ export interface GoalsUpdateParams {
     category?: GoalCategory;
     goalId:    string;
     plan?:     { [key: string]: unknown } | null;
-    status?:   GoalsUpdateParamsStatus;
+    status?:   GraphProjectStatus;
     title?:    string;
 }
 
-export type GoalsUpdateParamsStatus = "active" | "paused" | "done";
+export type GraphProjectStatus = "active" | "paused" | "done";
 
 export interface GoalsUpdateResult {
     goal:       Goal;
@@ -3570,6 +3570,241 @@ export interface GrantsRevokeParams {
 
 export interface GrantsRevokeResult {
     grant: Grant;
+}
+
+export interface GraphEntityDetail {
+    /**
+     * Current relations from or to this entity
+     */
+    edges:  GraphEdge[];
+    entity: GraphEntity;
+    /**
+     * Of the card; for memory.entities.update if-match
+     */
+    etag: string;
+    /**
+     * Current facts, owner first, newest first
+     */
+    facts:              GraphFact[];
+    identifiers:        GraphIdentifier[];
+    openLoops:          GraphLoop[];
+    recentInteractions: GraphInteraction[];
+    /**
+     * Every entity the edges point to
+     */
+    related: EntitySummary[];
+}
+
+export interface GraphEdge {
+    confidence:    number;
+    dst:           string;
+    id:            string;
+    label?:        GraphRelationshipLabel;
+    provenance:    Provenance;
+    rel:           GraphEdgeRel;
+    retractedAt?:  null | string;
+    sources:       string[];
+    src:           string;
+    supersededBy?: null | string;
+    validFrom:     string;
+    validTo?:      null | string;
+}
+
+export type GraphRelationshipLabel = "partner" | "parent" | "child" | "sibling" | "friend" | "colleague" | "manager" | "report" | "client" | "vendor" | "teacher" | "doctor" | "other";
+
+export type GraphEdgeRel = "works_at" | "member_of" | "stakeholder_of" | "located_at" | "reports_to" | "related_to" | "part_of";
+
+export interface GraphEntity {
+    aliases:   string[];
+    cardPath?: null | string;
+    createdAt: string;
+    dueAt?:    null | string;
+    /**
+     * Don't track: nothing new is stored about them
+     */
+    hidden: boolean;
+    id:     string;
+    /**
+     * The owner's own person entity (exactly one)
+     */
+    isOwner:            boolean;
+    kind:               GraphEntityKind;
+    lastInteractionAt?: null | string;
+    mergedInto?:        null | string;
+    name:               string;
+    pinned:             boolean;
+    projectStatus?:     GraphProjectStatus;
+    status:             GraphEntityStatus;
+    summary?:           null | string;
+    summaryAt?:         null | string;
+    updatedAt:          string;
+}
+
+/**
+ * person, organisation, project or place
+ */
+export type GraphEntityKind = "person" | "org" | "project" | "place";
+
+export type GraphEntityStatus = "active" | "archived" | "merged";
+
+export interface GraphFact {
+    attribute:    GraphFactAttribute;
+    confidence:   number;
+    entityId:     string;
+    evidence?:    null | string;
+    id:           string;
+    provenance:   Provenance;
+    recordedAt:   string;
+    retractedAt?: null | string;
+    /**
+     * Interaction, chunk, Contacts or lesson references
+     */
+    sources:       string[];
+    supersededBy?: null | string;
+    validFrom:     string;
+    validTo?:      null | string;
+    value:         string;
+}
+
+export type GraphFactAttribute = "role" | "title" | "employer" | "team" | "email_pref" | "timezone" | "city" | "birthday" | "relationship_to_owner" | "preference" | "note" | "status" | "next_step" | "budget_note" | "deadline";
+
+export interface GraphIdentifier {
+    createdAt: string;
+    entityId:  string;
+    kind:      GraphIdentifierKind;
+    linkedBy:  GraphLoopDetectedBy;
+    /**
+     * Seen with several display names (a family or team inbox): never resolves alone
+     */
+    shared: boolean;
+    /**
+     * Connector or origin that produced it
+     */
+    source: string;
+    /**
+     * Display form (the stored key is normalised: lower-case email, E.164 phone)
+     */
+    value: string;
+    /**
+     * From Contacts or confirmed by the owner
+     */
+    verified: boolean;
+}
+
+export type GraphIdentifierKind = "email" | "phone" | "contact" | "channel" | "domain" | "calendar" | "url";
+
+/**
+ * Who attached it to the entity; model links count only after the owner confirms
+ */
+export type GraphLoopDetectedBy = "rule" | "owner" | "model";
+
+export interface GraphLoop {
+    closedAt?:            null | string;
+    closedBy?:            GraphLoopClosedBy | null;
+    confidence:           number;
+    counterpartId?:       null | string;
+    createdAt:            string;
+    detectedBy:           GraphLoopDetectedBy;
+    direction:            GraphLoopDirectionFilter;
+    dueAt?:               null | string;
+    evidence?:            null | string;
+    id:                   string;
+    projectId?:           null | string;
+    provenance:           Provenance;
+    sourceInteractionId?: null | string;
+    status:               GraphLoopStatus;
+    text:                 string;
+}
+
+export type GraphLoopClosedBy = "owner" | "reply_seen" | "due_passed";
+
+export type GraphLoopDirectionFilter = "i_owe" | "waiting_on";
+
+export type GraphLoopStatus = "suggested" | "open" | "snoozed" | "done" | "dismissed";
+
+export interface GraphInteraction {
+    direction:    GraphDirection;
+    id:           string;
+    kind:         GraphInteractionKind;
+    link?:        null | string;
+    occurredAt:   string;
+    participants: Participant[];
+    projectId?:   null | string;
+    /**
+     * Connector id
+     */
+    source:     string;
+    subject?:   null | string;
+    threadKey?: null | string;
+}
+
+export type GraphDirection = "in" | "out" | "both" | "none";
+
+export type GraphInteractionKind = "mail" | "message" | "meeting" | "call" | "note" | "chat" | "task";
+
+export interface Participant {
+    entityId: string;
+    role:     GraphParticipantRole;
+}
+
+export type GraphParticipantRole = "from" | "to" | "cc" | "attendee" | "organizer" | "mentioned";
+
+export interface EntitySummary {
+    id:                 string;
+    isOwner:            boolean;
+    kind:               GraphEntityKind;
+    lastInteractionAt?: null | string;
+    name:               string;
+    openLoops:          number;
+    pinned:             boolean;
+    projectStatus?:     GraphProjectStatus;
+    status:             GraphEntityStatus;
+    subtitle?:          null | string;
+    summary?:           null | string;
+}
+
+export interface GraphStatus {
+    budget:           Budget;
+    counts:           Counts;
+    enabled:          boolean;
+    lastModelPassAt?: null | string;
+    /**
+     * Suggested loops confirmed vs dismissed per source over 30 days
+     */
+    loopPrecision: LoopPrecision[];
+    sources:       SourceElement[];
+}
+
+export interface Budget {
+    entitiesUsed: number;
+    maxEntities:  number;
+    maxTokens:    number;
+    tokensUsed:   number;
+}
+
+export interface Counts {
+    openLoops:          number;
+    orgs:               number;
+    pendingSuggestions: number;
+    people:             number;
+    places:             number;
+    projects:           number;
+}
+
+export interface LoopPrecision {
+    confirmed: number;
+    dismissed: number;
+    source:    GraphSource;
+}
+
+export type GraphSource = "contacts" | "mail" | "calendar" | "messages" | "notes" | "chats";
+
+export interface SourceElement {
+    enabled:       boolean;
+    entities:      number;
+    interactions:  number;
+    lastIngestAt?: null | string;
+    source:        GraphSource;
 }
 
 export interface IdeaUpdatedPayload {
@@ -3904,6 +4139,283 @@ export interface Note {
     path:    string;
 }
 
+export interface MemoryEntitiesCreateParams {
+    /**
+     * Other names
+     */
+    aliases?: string[];
+    /**
+     * Emails, phones, handles; refused if another entity has one
+     */
+    identifiers?: MemoryEntitiesCreateParamsIdentifier[];
+    kind:         GraphEntityKind;
+    /**
+     * Display name
+     */
+    name:           string;
+    projectStatus?: GraphProjectStatus;
+}
+
+export interface MemoryEntitiesCreateParamsIdentifier {
+    kind:  GraphIdentifierKind;
+    value: string;
+}
+
+export interface MemoryEntitiesCreateResult {
+    entity: GraphEntity;
+}
+
+export interface MemoryEntitiesEdgesRetractParams {
+    edgeId:  string;
+    source?: GraphWriteSource;
+}
+
+export interface GraphWriteSource {
+    kind: GraphWriteSourceKind;
+    /**
+     * e.g. "lesson:<id>" or a thread id
+     */
+    ref?: string;
+}
+
+/**
+ * The card or file, the teaching loop, or the owner's chat
+ */
+export type GraphWriteSourceKind = "owner_edit" | "owner_feedback" | "chat";
+
+export interface MemoryEntitiesEdgesRetractResult {
+    edge: GraphEdge;
+}
+
+export interface MemoryEntitiesEdgesSetParams {
+    dst:     string;
+    label?:  GraphRelationshipLabel;
+    rel:     GraphEdgeRel;
+    source?: GraphWriteSource;
+    src:     string;
+}
+
+export interface MemoryEntitiesEdgesSetResult {
+    edge:        GraphEdge;
+    superseded?: null | string;
+}
+
+export interface MemoryEntitiesFactsRetractParams {
+    factId:  string;
+    source?: GraphWriteSource;
+}
+
+export interface MemoryEntitiesFactsRetractResult {
+    fact: GraphFact;
+}
+
+export interface MemoryEntitiesFactsSetParams {
+    attribute: GraphFactAttribute;
+    entityId:  string;
+    source?:   GraphWriteSource;
+    /**
+     * The owner's value
+     */
+    value: string;
+}
+
+export interface MemoryEntitiesFactsSetResult {
+    fact:        GraphFact;
+    superseded?: null | string;
+}
+
+export interface MemoryEntitiesForgetParams {
+    /**
+     * Report counts without deleting
+     */
+    dryRun?: boolean;
+    id:      string;
+}
+
+export interface MemoryEntitiesForgetResult {
+    cardPath?: null | string;
+    dryRun:    boolean;
+    removed:   Removed;
+}
+
+export interface Removed {
+    edges:        number;
+    facts:        number;
+    identifiers:  number;
+    interactions: number;
+    loops:        number;
+}
+
+export interface MemoryEntitiesGetParams {
+    id: string;
+}
+
+export interface MemoryEntitiesHistoryParams {
+    attribute?: GraphFactAttribute;
+    entityId:   string;
+}
+
+export interface MemoryEntitiesHistoryResult {
+    edges: GraphEdge[];
+    facts: GraphFact[];
+}
+
+export interface MemoryEntitiesInteractionsParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?: string;
+    id:      string;
+    limit?:  number;
+}
+
+export interface MemoryEntitiesInteractionsResult {
+    interactions: GraphInteraction[];
+    nextCursor?:  null | string;
+}
+
+export interface MemoryEntitiesMergeParams {
+    /**
+     * Report what would move
+     */
+    dryRun?: boolean;
+    /**
+     * Entities to merge
+     */
+    ids:  string[];
+    into: string;
+}
+
+export interface MemoryEntitiesMergeResult {
+    dryRun:           boolean;
+    entity:           GraphEntity;
+    movedFacts:       number;
+    movedIdentifiers: number;
+}
+
+export interface MemoryEntitiesSearchParams {
+    /**
+     * Only these entity kinds
+     */
+    kinds?: GraphEntityKind[];
+    /**
+     * At most this many (default 20)
+     */
+    limit?: number;
+    /**
+     * Name, alias, email, phone or keyword
+     */
+    q: string;
+}
+
+export interface MemoryEntitiesSearchResult {
+    entities: EntitySummary[];
+}
+
+export interface MemoryEntitiesSplitParams {
+    dryRun?: boolean;
+    id:      string;
+    /**
+     * Identifiers that belong to someone else
+     */
+    identifiers: MemoryEntitiesSplitParamsIdentifier[];
+    /**
+     * Name of the new entity
+     */
+    name: string;
+}
+
+export interface MemoryEntitiesSplitParamsIdentifier {
+    kind:  GraphIdentifierKind;
+    value: string;
+}
+
+export interface MemoryEntitiesSplitResult {
+    dryRun: boolean;
+    entity: GraphEntity;
+}
+
+export interface MemoryEntitiesSuggestionsAnswerParams {
+    answer: GraphSuggestionAnswer;
+    id:     string;
+}
+
+export type GraphSuggestionAnswer = "accept" | "reject" | "later";
+
+export interface MemoryEntitiesSuggestionsAnswerResult {
+    entity?:    GraphEntity | null;
+    suggestion: GraphSuggestion;
+}
+
+export interface GraphSuggestion {
+    createdAt: string;
+    /**
+     * merge: the entities; project: the proposed members
+     */
+    entityIds: string[];
+    id:        string;
+    kind:      GraphSuggestionKind;
+    name?:     null | string;
+    /**
+     * Why it was suggested, in plain words
+     */
+    reason: string;
+    status: GraphSuggestionStatus;
+}
+
+export type GraphSuggestionKind = "merge" | "project";
+
+export type GraphSuggestionStatus = "pending" | "accepted" | "rejected" | "later";
+
+export interface MemoryEntitiesSuggestionsParams {
+    status?: GraphSuggestionFilter;
+}
+
+/**
+ * Default pending
+ */
+export type GraphSuggestionFilter = "pending" | "later";
+
+export interface MemoryEntitiesSuggestionsResult {
+    suggestions: GraphSuggestion[];
+}
+
+export interface MemoryEntitiesUpdateParams {
+    /**
+     * Replaces aliases
+     */
+    aliases?: string[];
+    /**
+     * If-match on the card
+     */
+    etag?: string;
+    /**
+     * Don't track: block new data about them
+     */
+    hidden?: boolean;
+    id:      string;
+    /**
+     * New name
+     */
+    name?: string;
+    /**
+     * Keep at the top and in nightly passes
+     */
+    pinned?:        boolean;
+    projectStatus?: GraphProjectStatus;
+    status?:        GraphEntityStatus;
+}
+
+export interface MemoryEntitiesUpdateResult {
+    entity: GraphEntity;
+}
+
+export interface MemoryEntityUpdatedPayload {
+    changed: string[];
+    id:      string;
+    kind:    GraphEntityKind;
+}
+
 export interface MemoryExplainParams {
     claimId: string;
 }
@@ -4027,6 +4539,48 @@ export type MemoryJobKind = "flush" | "dreaming" | "reindex" | "import";
 
 export type MemoryJobStatus = "running" | "ok" | "failed" | "skipped";
 
+export interface MemoryLoopUpdatedPayload {
+    loop: GraphLoop;
+}
+
+export interface MemoryLoopsListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?:    string;
+    direction?: GraphLoopDirectionFilter;
+    dueBefore?: string;
+    entityId?:  string;
+    limit?:     number;
+    projectId?: string;
+    /**
+     * Default suggested and open
+     */
+    status?: GraphLoopStatus[];
+}
+
+export interface MemoryLoopsListResult {
+    loops:       GraphLoop[];
+    nextCursor?: null | string;
+}
+
+export interface MemoryLoopsUpdateParams {
+    /**
+     * null clears it
+     */
+    dueAt?:  null | string;
+    id:      string;
+    status?: GraphLoopStatus;
+    /**
+     * Rephrase it
+     */
+    text?: string;
+}
+
+export interface MemoryLoopsUpdateResult {
+    loop: GraphLoop;
+}
+
 export interface MemoryPauseParams {
     paused: boolean;
 }
@@ -4144,6 +4698,10 @@ export interface MemoryStatusResult {
 }
 
 export type MemoryVectorMode = "sqlite-vec" | "brute-force" | "off";
+
+export interface MemorySuggestionCreatedPayload {
+    suggestion: GraphSuggestion;
+}
 
 export interface MemoryWriteParams {
     content: string;
@@ -5098,7 +5656,7 @@ export interface SearchQueryParams {
     scopes?: SearchScope[];
 }
 
-export type SearchScope = "threads" | "messages" | "tasks" | "memory" | "library" | "feed" | "ideas" | "goals" | "connectors";
+export type SearchScope = "threads" | "messages" | "tasks" | "memory" | "library" | "feed" | "ideas" | "goals" | "connectors" | "people" | "projects";
 
 export interface SearchQueryResult {
     groups?: SearchHitGroup[];
@@ -5119,7 +5677,7 @@ export interface SearchHitGroup {
     hits:  SearchHit[];
 }
 
-export type SearchGroup = "threads" | "tasks" | "memory" | "library" | "feed" | "ideas" | "goals" | "connectors";
+export type SearchGroup = "threads" | "tasks" | "memory" | "library" | "feed" | "ideas" | "goals" | "connectors" | "people" | "projects";
 
 export interface SearchHit {
     /**
@@ -5140,7 +5698,7 @@ export interface SearchHit {
     titleHighlights?:   Array<number[]>;
 }
 
-export type SearchIndexDocKind = "thread" | "message" | "task" | "memory" | "library" | "feed" | "idea" | "goal" | "connector";
+export type SearchIndexDocKind = "thread" | "message" | "task" | "memory" | "library" | "feed" | "idea" | "goal" | "connector" | "person" | "project";
 
 export interface SettingsChangedPayload {
     entries: SettingEntry[];
