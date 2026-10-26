@@ -218,6 +218,10 @@ export const IDS = {
     gmail: "conn_gmail",
     notion: "conn_notion",
     outlook: "conn_outlook",
+    appleMail: "conn_apple_mail",
+    appleNotes: "conn_apple_notes",
+    appleCalendar: "conn_apple_calendar",
+    appleReminders: "conn_apple_reminders",
   },
   channels: {
     telegram: "chan_telegram",

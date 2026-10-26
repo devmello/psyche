@@ -117,6 +117,8 @@ export interface UiState {
   ideas: Dict<Idea>;
   goals: Dict<Goal>;
   settings: Dict<unknown>;
+  /** Text waiting to fill the chat composer (a "Try it" request from Settings, #640). */
+  composerPrefill: string | null;
   memoryEtags: Dict<string | null>;
   queries: Dict<QueryEntry>;
   /** Sandbox Mac guests as `vm.updated` last reported them, by `<nodeId>/<guest name>`. */
@@ -156,6 +158,7 @@ export const INITIAL_STATE: UiState = {
   ideas: {},
   goals: {},
   settings: {},
+  composerPrefill: null,
   memoryEtags: {},
   queries: {},
   vmGuests: {},

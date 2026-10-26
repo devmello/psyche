@@ -113,6 +113,7 @@ export {
 export { FollowUpQueue } from "./chat/FollowUpQueue.tsx";
 export { MessageView, type MessageViewProps, messageText } from "./chat/MessageView.tsx";
 export { OfflineBanner } from "./chat/OfflineBanner.tsx";
+export { ComposerPrefill, usePrefillComposer } from "./chat/prefill.ts";
 export { ChatThread, type ChatThreadProps } from "./chat/Thread.tsx";
 export {
   GroupedList,
