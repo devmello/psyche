@@ -773,7 +773,8 @@ describe("Apple Reminders and Calendar wave 1 (#639)", () => {
 
   it("reminders_create carries a mail link, an alarm and a recurrence; complete and delete ask", async () => {
     const create = toolOf(1, "apple:reminders", "reminders_create");
-    expect(Object.keys((create?.inputSchema as { properties: object }).properties)).toEqual(
+    if (!create) throw new Error("reminders_create is missing");
+    expect(Object.keys((create.inputSchema as { properties: object }).properties)).toEqual(
       expect.arrayContaining(["url", "alarm", "recurrence"]),
     );
     const helper = new FakeHelper();
@@ -879,9 +880,9 @@ describe("Apple Notes wave 1 (#639)", () => {
   });
 
   it("notes_create can ask for Markdown", () => {
-    const props = (
-      notesTool("notes_create")?.inputSchema as { properties: Record<string, unknown> }
-    ).properties;
+    const created = notesTool("notes_create");
+    if (!created) throw new Error("notes_create is missing");
+    const props = (created.inputSchema as { properties: Record<string, unknown> }).properties;
     expect(props.format).toEqual({ type: "string", enum: ["text", "markdown"] });
   });
 });
