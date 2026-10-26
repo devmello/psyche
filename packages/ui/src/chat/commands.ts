@@ -16,6 +16,7 @@ export type CommandName =
   | "incognito"
   | "forget"
   | "remember"
+  | "teach"
   | "plan"
   | "status"
   | "export"
@@ -55,6 +56,7 @@ export const COMMANDS: readonly CommandInfo[] = [
   command("incognito", "optional"),
   command("forget", "required"),
   command("remember", "required"),
+  command("teach", "required"),
   command("plan", "optional"),
   command("status", "none"),
   command("export", "optional"),
