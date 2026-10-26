@@ -20,6 +20,7 @@ import {
   touch,
   type UiState,
   upsertMessage,
+  upsertRunSteps,
 } from "./state.ts";
 
 type Overlay = { id: number; apply: (s: UiState) => UiState };
@@ -362,6 +363,25 @@ export class GatewayStore {
           ),
         };
       }
+      case "run.step": {
+        const { runId, step } = e.payload;
+        let next = touch(upsertRunSteps(s, runId, [step]), `runSteps:${step.id}`, v);
+        // A loaded detail follows the step; once the step ends its payloads are read again.
+        const key = `${runId}/${step.id}`;
+        const detail = next.runStepDetails[key];
+        if (detail !== undefined) {
+          const merged = (next.runSteps[runId] ?? []).find((x) => x.id === step.id) ?? step;
+          const { [key]: _stale, ...rest } = next.runStepDetails;
+          next = {
+            ...next,
+            runStepDetails:
+              detail.step.status === step.status
+                ? { ...next.runStepDetails, [key]: { ...detail, step: merged } }
+                : rest,
+          };
+        }
+        return next;
+      }
       case "tool_call.updated":
         return touch(
           put(s, "toolCalls", e.payload.toolCall),
@@ -494,6 +514,11 @@ export class GatewayStore {
         return invalidate(s, ["devices."]);
       case "memory.job.updated":
         return invalidate(s, ["memory.status"]);
+      // The people and projects graph: every query that could show the change reloads.
+      case "memory.entity.updated":
+      case "memory.loop.updated":
+      case "memory.suggestion.created":
+        return invalidate(s, ["memory.entities.", "memory.loops.", "memory.graph."]);
       case "credential.updated":
         return invalidate(s, ["vault."]);
       case "vault.payment.updated":

@@ -1,5 +1,5 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { Id, IsoDateTime, JsonObject, Nullable, StringEnum } from "../common.ts";
+import { Id, IsoDateTime, JsonObject, Nullable, StringEnum, Usage } from "../common.ts";
 
 /** Data model §6 — metadata mirror only; secrets never cross the protocol. */
 export const CredentialKind = StringEnum(
@@ -390,6 +390,20 @@ export const Automation = Type.Object(
     lightContext: Type.Optional(
       Type.Boolean({ description: "Heartbeat: skip workspace bootstrap files (feature O2)" }),
     ),
+    /** Run each occurrence as a background specialist job (docs/agent/specialists-2026.md §4.10). */
+    specialist: Type.Optional(
+      Type.Object({
+        role: Type.String({ minLength: 1, maxLength: 64 }),
+        budget: Type.Optional(
+          Type.Object({
+            tokens: Type.Optional(Type.Integer({ minimum: 1 })),
+            costUsd: Type.Optional(Type.Number({ minimum: 0 })),
+            minutes: Type.Optional(Type.Integer({ minimum: 1 })),
+          }),
+        ),
+        deliver: Type.Optional(StringEnum(["inbox", "thread"])),
+      }),
+    ),
   },
   { $id: "Automation" },
 );
@@ -416,6 +430,9 @@ export const AutomationRun = Type.Object(
     status: AutomationRunStatus,
     summary: Nullable(Type.String()),
     notificationId: Nullable(Id),
+    /** The agent run that did the work (its trace: `runs.get`). */
+    runId: Nullable(Id),
+    usage: Type.Optional(Usage),
   },
   { $id: "AutomationRun" },
 );

@@ -77,6 +77,8 @@ export const BrowserRecording = Type.Object(
     bytes: Type.Integer({ minimum: 0 }),
     /** The Library item once imported (`kind: recording`), else null. */
     libraryItemId: Nullable(Id),
+    /** The run whose steps these frames belong to. */
+    runId: Nullable(Id),
   },
   { $id: "BrowserRecording" },
 );

@@ -87,6 +87,33 @@ Nightly at 03:00 local, as a system automation in `@psyche/scheduler` (`ensureDr
 
 `WorkspaceGit` syncs the workspace with the owner's own private repository (backing `psyche workspace sync`, S22). It runs the system `git` through `execFile` (never a shell) with `GIT_TERMINAL_PROMPT=0`, using the owner's SSH agent or credential helper; Psyche stores no git secret. `init()` writes a generated `.gitignore` (temp files, OS junk, `memory/imports/`) and later only adds missing lines. Remotes must be `https://`, `ssh://`, `user@host:path` or an absolute local path, never with credentials in the URL. Every file about to be committed is scanned and a credential or card number stops the sync, naming the file but not the value. `sync()` commits, fetches, rebases onto the remote branch (a conflict aborts the rebase, is reported, and nothing is pushed or forced), reindexes pulled files as the owner's edits, then pushes. There is no agent tool for it: only the owner starts a sync.
 
+## People and projects graph (in progress, #651)
+
+`GraphStore` (`src/graph/store.ts`) holds the graph from docs/memory/people-and-projects-2026.md in the main database (migration `202610251200_memory_graph.sql`):
+- entities (person, org, project, place) and identifiers as merge keys (`normalize.ts`: Gmail folding, E.164, machine, role and bulk senders);
+- facts and relations from the allowlists, with provenance, evidence, validity, supersession and history. Owner-only attributes and labels, sensitive and instruction-like values are refused, and a model never overrides the owner;
+- interactions as pointers (no bodies), following the source's deletions;
+- open loops (untrusted asks are only suggestions; dismissals are remembered);
+- suggestions; merge and split, with do-not-merge remembered;
+- forget, with a hashed identifier blocklist and `secure_delete`;
+- retention, status, export and reset.
+
+`cards.ts` renders each entity as `people/<slug>.md` / `projects/<slug>.md` (≤ 2,000 characters; hidden `<!--f:id-->` / `<!--l:id-->` markers). `CardSync` writes cards as a job; the agent cannot write them. It also turns the owner's edits back into corrections: changed or added facts become owner facts, deleted lines are retractions, ticked loops are done, deleted loops are dismissed, Notes are kept verbatim, and front-matter emails and phones are linked (or suggested for merging when they belong to someone else). `ingest.ts` (`GraphIngester`) is the deterministic pass over connector-neutral records:
+- Contacts are owner facts (title, birthday, works-at, related names), and Contacts re-ingest respects the owner's corrections.
+- Mail creates people past the threshold, skips bulk, machine and role senders, marks shared addresses, records direction, and applies the 3-day no-reply rule with reply-closes.
+- Calendar attendees become people, never rooms.
+- Messages give one interaction per conversation per day.
+- Projects the owner names in chat are created.
+
+The shared fixture world is `tests/fixtures/graph/world.json`.
+
+- **Model pass (`model-pass.ts`, `runGraphModelPass`):** per entity with new interactions, one tool-less utility-model turn. It reads facts, the owner's corrections, the last 20 interaction headers (quoted as data) and up to 5 excerpts of the owner's own messages, and returns JSON. Facts and loops sourced from owner-authored items are `agent`/open; anything sourced from received items is `untrusted`/suggested. Unknown sources, forbidden attributes, sensitive or instruction-like values, and owner-only attributes are dropped. It has an input-hash cache, per-night entity and token caps, and deferral.
+- **Projects (`projects.ts`):** confirmed projects claim interactions that name them and gain members (`system`). Repeated two-word subject phrases across three or more interactions with two or more people become project suggestions.
+- **Handlers (`handlers.ts`, `createGraphHandlers`):** every `memory.entities.*`, `memory.loops.*` and `memory.graph.status` method as owner writes. Cards are refreshed after each change. Forget also removes the card and the person's mentions in notes.
+- **Tools and recall (`tools.ts`):** `GraphTools` provides `people_lookup` (asks which one when names clash and contact strength is within 3×), `project_brief`, `waiting_on`, `meeting_prep` and `loop_update` (refused in tainted or incognito turns). Results carry `provenance: "untrusted"` when they show subjects, summaries, unverified facts or suggested loops. `entityRecall` gives one line per unambiguously named entity, private sessions only.
+
+Gateway wiring (pollers, events, card edits, the nightly pass in dreaming, tool registration, recall in context, the Search adapter, the meeting-prep job) follows in the last PR.
+
 ## Imports
 
 Imports are data (security §8): ChatGPT and Claude exports (JSON shapes with `content` / `text` / `memory` strings, or Markdown / text) and free text are split into items, capped (2 MB input, 500 items, 500 characters each), filtered (credentials, cards, ids, accounts, health), scanned for instruction-like text (flagged, confidence 0.2), written to `memory/imports/<format>-<date>.md` and staged as `agent` claims. The owner promotes them one by one with `memory.claims.confirm` (idempotent). Whole OpenClaw files are checked for credentials and card numbers; the claims staged from them get the full filter. An OpenClaw workspace imports with the same names (ADR-018), but never overwrites an existing or owner-edited file (those land in `memory/imports/openclaw/`), never installs `skills/` (also routed there, for the skills flow to scan and approve), and skips `BOOTSTRAP.md`.

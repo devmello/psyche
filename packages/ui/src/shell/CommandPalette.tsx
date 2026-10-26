@@ -3,6 +3,7 @@ import type { SearchHit } from "@psyche/protocol";
 import { type ReactElement, useEffect } from "react";
 import { useThreads } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
+import { ConnectedEntityCard } from "../people/ConnectedEntityCard.tsx";
 import { SearchSurface, useMinWidth, useSearchSurface } from "../screens/search/SearchSurface.tsx";
 import { RAIL_ITEMS } from "./Rail.tsx";
 import { SHORTCUTS } from "./shortcuts.ts";
@@ -184,6 +185,22 @@ export function CommandPalette({
               if (a.run) a.run();
               else if (a.route) onNavigate(a.route);
             }}
+            entities={search.entities}
+            onOpenEntity={(e) => {
+              close();
+              onNavigate(`/agent/soul?entity=${encodeURIComponent(e.id)}`);
+            }}
+            renderEntityPreview={(e) => (
+              <ConnectedEntityCard
+                id={e.id}
+                recentLimit={3}
+                className="bg-transparent p-0 shadow-none"
+                onOpenEntity={(id) => {
+                  close();
+                  onNavigate(`/agent/soul?entity=${encodeURIComponent(id)}`);
+                }}
+              />
+            )}
           />
         </DialogPrimitive.Popup>
       </DialogPrimitive.Portal>
