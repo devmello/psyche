@@ -45,6 +45,9 @@ export interface RunRow {
   created_at: string;
   /** The events an event run folded in (JSON array). */
   events?: string | null;
+  /** Run trace: the agent run that did the work, and its usage (JSON). */
+  run_id?: string | null;
+  usage?: string | null;
 }
 
 export interface WatchRow {
@@ -114,5 +117,7 @@ export function runFromRow(r: RunRow): AutomationRun {
     notificationId: r.notification_id,
   };
   if (r.events != null) run.events = JSON.parse(r.events) as WorkflowEvent[];
+  if (r.run_id != null) run.runId = r.run_id;
+  if (r.usage != null) run.usage = JSON.parse(r.usage) as NonNullable<AutomationRun["usage"]>;
   return run;
 }

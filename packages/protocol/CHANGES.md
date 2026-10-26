@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (S01, #660: run trace T1, part 3)
+
+- Contract `MemoryWriteOptions.trace` and `DailyNoteInput.trace` (`MemoryWriteTrace {runId, toolCallId}`): the tool call behind a memory write, so `memory.file.changed` can name its run and step. TypeScript-only; no schema change.
+
 ### v1 additive — 2026-10-26 (S15, #670 W6: meeting prep)
 
 - `NotifyInput` gains optional `breakQuietHours`: deliver this one notification through quiet hours. Meeting prep sets it when the meeting itself falls inside quiet hours (§4.5 acceptance 3); otherwise only the kinds in `quietHours.breakthrough` interrupt, as before. A TypeScript contract field only; no generated files change.

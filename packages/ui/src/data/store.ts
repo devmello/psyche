@@ -382,6 +382,43 @@ export class GatewayStore {
         }
         return next;
       }
+      case "specialist.spawned": {
+        const job = e.payload.job;
+        return {
+          ...touch(s, `specialistJobs:${job.taskId}`, v),
+          specialistJobs: { ...s.specialistJobs, [job.taskId]: job },
+        };
+      }
+      case "specialist.progress": {
+        const { taskId, runId, step, budget } = e.payload;
+        const job = s.specialistJobs[taskId];
+        if (job === undefined) return s;
+        return {
+          ...s,
+          specialistJobs: {
+            ...s.specialistJobs,
+            [taskId]: { ...job, runId, lastStep: step.label, budget },
+          },
+        };
+      }
+      case "specialist.result": {
+        const { taskId, runId, result } = e.payload;
+        const job = s.specialistJobs[taskId];
+        if (job === undefined) return s;
+        return {
+          ...touch(s, `specialistJobs:${taskId}`, v),
+          specialistJobs: {
+            ...s.specialistJobs,
+            [taskId]: {
+              ...job,
+              runId: runId ?? job.runId,
+              status: result.outcome,
+              queuePosition: null,
+              result,
+            },
+          },
+        };
+      }
       case "tool_call.updated":
         return touch(
           put(s, "toolCalls", e.payload.toolCall),

@@ -78,6 +78,7 @@ import { resolveConfig } from "../config.ts";
 import type { HandlerDef } from "../context.ts";
 import type { PublicRoute, WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
+import { taskRunTrace } from "../run-trace/tasks.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
 import { attentionHandlers, OwnerAttention, parkWhenUnwatched } from "./attention.ts";
@@ -556,7 +557,18 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     audit,
     flush: { provider, model: utility ?? modelRef },
     onEvent: (e) => {
-      publish(e.event, e.payload as never);
+      if (e.event === "memory.file.changed") {
+        // Run trace §4.2: the writing call becomes the trace step; the call id stays internal.
+        const { toolCallId, ...payload } = e.payload;
+        const sink = gatewayRef?.context.runTrace;
+        const stepId =
+          payload.runId === undefined || toolCallId === undefined
+            ? undefined
+            : sink?.memoryChanged(payload.runId, toolCallId, payload.path);
+        publish(e.event, { ...payload, ...(stepId === undefined ? {} : { stepId }) });
+      } else {
+        publish(e.event, e.payload as never);
+      }
       people?.onMemoryEvent(e);
     },
   });
@@ -848,6 +860,18 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     notifier,
     tools: registry,
     ...(taskPollMs === undefined ? {} : { pollMs: taskPollMs }),
+    // Run trace §4.2: each task turn is its own run (ULID), recorded like a chat turn.
+    newRunId: () => db.newId(),
+    trace: taskRunTrace({
+      db,
+      sink: () => gatewayRef?.context.runTrace,
+      publish,
+      modelRef,
+      onError: (err) =>
+        gwOptions.logger?.log("warn", "task run trace failed", {
+          code: PsycheError.from(err).code,
+        }),
+    }),
   });
   // S15: goal check-ins and the Feed run in-process; the heartbeat gets its 5k-token budget (O2).
   const proactive = composeProactive({

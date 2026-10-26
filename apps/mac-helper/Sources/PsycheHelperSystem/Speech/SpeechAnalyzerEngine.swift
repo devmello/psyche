@@ -5,8 +5,9 @@ import PsycheHelperCore
 import PsycheProtocol
 import Speech
 
-/// One on-device transcription engine run.
-protocol TranscriptionEngine: AnyObject, Sendable {
+/// One on-device transcription engine run. Public so tests can pass a fake through
+/// `SpeechCapabilities.make(transcriptionEngine:)`.
+public protocol TranscriptionEngine: AnyObject, Sendable {
     var kind: SpeechEngineKind { get }
     /// BCP-47 tag of the locale actually used.
     var language: String { get }
@@ -56,7 +57,10 @@ final class AnalyzerEngine: TranscriptionEngine, @unchecked Sendable {
         }
     }
 
-    init(kind: SpeechEngineKind, locale: Locale, vocabulary: [String], volatile: Bool) {
+    /// - Parameter shortForm: the `short` preset (H3): DictationTranscriber's short-form hint, which
+    ///   with frequent finalization is what Apple's `progressiveShortDictation` preset sets (read
+    ///   from the macOS 27 SDK; the preset itself is not used, see above).
+    init(kind: SpeechEngineKind, locale: Locale, vocabulary: [String], volatile: Bool, shortForm: Bool = false) {
         self.kind = kind
         self.locale = locale
         self.language = locale.identifier(.bcp47)
@@ -64,7 +68,7 @@ final class AnalyzerEngine: TranscriptionEngine, @unchecked Sendable {
         switch kind {
         case .dictationTranscriber:
             module = .dictation(DictationTranscriber(
-                locale: locale, contentHints: [],
+                locale: locale, contentHints: shortForm ? [.shortForm] : [],
                 transcriptionOptions: [.punctuation],
                 reportingOptions: volatile ? [.volatileResults, .frequentFinalization] : [.frequentFinalization],
                 attributeOptions: [.audioTimeRange, .transcriptionConfidence]))

@@ -1,0 +1,62 @@
+{
+  "$comment": "The expected digest partition of mail.json (test-only; never served to the model). Group headings in the digest: Needs you, Bills, Newsletters, Receipts, Screen, FYI.",
+  "groups": {
+    "Needs you": ["msg_v1_001", "msg_v1_002", "msg_v1_003"],
+    "Bills": ["msg_v1_004"],
+    "Newsletters": [
+      "msg_v1_005",
+      "msg_v1_006",
+      "msg_v1_007",
+      "msg_v1_008",
+      "msg_v1_009",
+      "msg_v1_010",
+      "msg_v1_011",
+      "msg_v1_012",
+      "msg_v1_013",
+      "msg_v1_014",
+      "msg_v1_015",
+      "msg_v1_016"
+    ],
+    "Receipts": [
+      "msg_v1_017",
+      "msg_v1_018",
+      "msg_v1_019",
+      "msg_v1_020",
+      "msg_v1_021",
+      "msg_v1_022",
+      "msg_v1_023",
+      "msg_v1_024"
+    ],
+    "Screen": ["msg_v1_025", "msg_v1_026"],
+    "FYI": [
+      "msg_v1_027",
+      "msg_v1_028",
+      "msg_v1_029",
+      "msg_v1_030",
+      "msg_v1_031",
+      "msg_v1_032",
+      "msg_v1_033",
+      "msg_v1_034",
+      "msg_v1_035",
+      "msg_v1_036",
+      "msg_v1_037",
+      "msg_v1_038",
+      "msg_v1_039",
+      "msg_v1_040"
+    ]
+  },
+  "needsYou": [
+    {
+      "id": "msg_v1_001",
+      "because": "Can you confirm the Q4 launch date by Wednesday?"
+    },
+    {
+      "id": "msg_v1_002",
+      "because": "Could you be the final interviewer at 3:00 PM on Thursday?"
+    },
+    {
+      "id": "msg_v1_003",
+      "because": "do you want the pilot to include the EU team, or start with the US only?"
+    }
+  ]
+}
