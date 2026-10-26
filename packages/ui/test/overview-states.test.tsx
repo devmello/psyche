@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import type { ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useConnection } from "../src/data/index.ts";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
@@ -165,6 +165,57 @@ describe("delayed skeleton", () => {
     expect(skeleton.getAttribute("data-shown")).toBe("false");
     expect(screen.queryByRole("status")).toBeNull();
   });
+});
+
+describe("changing the period (stale-while-revalidate)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  function Switchable({ section }: { section: "growth" | "activity" | "summary" }): ReactElement {
+    const [period, setPeriod] = useState<"7d" | "30d">("7d");
+    return (
+      <>
+        <button type="button" onClick={() => setPeriod("30d")}>
+          month
+        </button>
+        {section === "growth" ? (
+          <GrowthSection period={period} now={STORY_NOW} />
+        ) : section === "activity" ? (
+          <OverviewActivity period={period} />
+        ) : (
+          <OverviewSummary period={period} />
+        )}
+      </>
+    );
+  }
+
+  for (const section of ["growth", "activity", "summary"] as const) {
+    it(`${section}: the previous period stays up, dimmed, until the new data arrives`, async () => {
+      const { container } = render(
+        <StoryWorld edit={typical} options={{ latency: 400 }}>
+          <Switchable section={section} />
+        </StoryWorld>,
+      );
+      await advance(1000);
+      const dimmed = () => container.querySelectorAll("[data-revalidating='true']");
+      expect(container.querySelectorAll("[data-revalidating='false']").length).toBeGreaterThan(0);
+      expect(dimmed()).toHaveLength(0);
+      const before = container.textContent?.length ?? 0;
+      fireEvent.click(screen.getByRole("button", { name: "month" }));
+      await advance(0);
+      // Not a skeleton, not an empty box: the old content, marked busy.
+      expect(screen.queryByTestId(`overview-${section}-loading`)).toBeNull();
+      expect(dimmed().length).toBeGreaterThan(0);
+      expect(dimmed()[0]?.getAttribute("aria-busy")).toBe("true");
+      expect(container.textContent?.length ?? 0).toBeGreaterThan(before / 2);
+      // Past the skeleton delay it is still the old content, not a skeleton.
+      await advance(200);
+      expect(screen.queryByTestId(`overview-${section}-loading`)).toBeNull();
+      await advance(1500);
+      expect(dimmed()).toHaveLength(0);
+    });
+  }
 });
 
 describe("error and Retry", () => {

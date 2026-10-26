@@ -130,10 +130,10 @@ export const screens = {
   "screens.growth.metric.repeat_corrections": "Repeat corrections",
   "screens.growth.metric.corrections_applied": "Corrections applied",
   "screens.growth.metricSkill": "{skill}: {metric}",
-  "screens.growth.metricRate": "{rate, number, percent} ({count} of {total})",
-  "screens.growth.metricCount": "{count} of {total}",
+  "screens.growth.metricRate": "{rate, number, percent} ({count, number} of {total, number})",
+  "screens.growth.metricCount": "{count, number} of {total, number}",
   "screens.growth.wasRate": "was {rate, number, percent}",
-  "screens.growth.wasCount": "was {count} of {total}",
+  "screens.growth.wasCount": "was {count, number} of {total, number}",
   "screens.growth.thin": "Not enough history yet",
   "screens.growth.evidence": "{n, plural, one {Based on # event} other {Based on # events}}",
   "screens.growth.empty":

@@ -184,8 +184,14 @@ export function MetricRow({
       <span className="flex flex-wrap items-baseline justify-between gap-x-3">
         <span className="text-body text-label-primary">{label}</span>
         <span className="text-callout text-label-primary tabular-nums">
-          {value}
-          {was ? <span className="text-label-secondary"> ({was})</span> : null}
+          <bdi>{value}</bdi>
+          {was ? (
+            <span className="text-label-secondary">
+              {" ("}
+              <bdi>{was}</bdi>
+              {")"}
+            </span>
+          ) : null}
         </span>
       </span>
       {metric.evidence.length === 0 ? null : evidencePopover ? (

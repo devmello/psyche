@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import type { MockGateway } from "../data/mock-gateway.ts";
 import type { InsightsFixtureState } from "../fixtures/index.ts";
+import { cn } from "../lib/utils.ts";
 import { InLocale, STORY_NOW, StoryWorld, withWorld } from "../stories/harness.tsx";
 import { OverviewScreen } from "./OverviewScreen.tsx";
 import type { OverviewPeriod } from "./period.ts";
@@ -32,6 +33,7 @@ function Page({
   locale,
   latency,
   failing = [],
+  full = false,
 }: {
   initial?: OverviewPeriod;
   firstActivityAt: string | null;
@@ -44,6 +46,8 @@ function Page({
   latency?: number;
   /** Gateway methods that always fail, so those sections show "Couldn’t load · Retry". */
   failing?: readonly string[];
+  /** Lets the page take its full height, so a full-page screenshot shows every section. */
+  full?: boolean;
 }) {
   const [period, setPeriod] = useState<OverviewPeriod>(initial);
   const failAlways = (gateway: MockGateway): void => {
@@ -59,7 +63,7 @@ function Page({
   };
   const page = (
     <div
-      className="flex h-dvh min-h-0 flex-col overflow-auto bg-canvas"
+      className={cn("flex flex-col bg-canvas", full ? "min-h-dvh" : "h-dvh min-h-0 overflow-auto")}
       style={width === undefined ? {} : { width }}
     >
       <StoryWorld
@@ -141,4 +145,28 @@ export const CompactAr: Story = {
 /** §5.8 RTL: Arabic on desktop, the full page mirrored. */
 export const DesktopAr: Story = {
   render: () => <Page firstActivityAt={SIX_WEEKS_AGO} initial="30d" locale="ar" />,
+};
+
+/**
+ * Full-page variants (tag `full-page`: the visual suite shoots the whole document, not just the
+ * first 960×720 screen), so clipping lower down in de, ja and ar is caught too.
+ */
+export const DesktopDeFull: Story = {
+  tags: ["full-page"],
+  render: () => <Page firstActivityAt={SIX_WEEKS_AGO} initial="30d" locale="de-DE" full />,
+};
+
+export const DesktopJaFull: Story = {
+  tags: ["full-page"],
+  render: () => <Page firstActivityAt={SIX_WEEKS_AGO} initial="30d" locale="ja-JP" full />,
+};
+
+export const DesktopArFull: Story = {
+  tags: ["full-page"],
+  render: () => <Page firstActivityAt={SIX_WEEKS_AGO} initial="30d" locale="ar" full />,
+};
+
+export const CompactArFull: Story = {
+  tags: ["full-page"],
+  render: () => <Page firstActivityAt={SIX_WEEKS_AGO} initial="30d" width={390} locale="ar" full />,
 };

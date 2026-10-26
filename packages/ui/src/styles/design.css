@@ -272,6 +272,28 @@
 }
 
 @layer utilities {
+  /*
+    CJK line breaking: ja/zh break at phrase boundaries, never in the middle of a word (strict
+    line-breaking, plus auto-phrase where the engine supports it); ko breaks at spaces only.
+    Latin text is unchanged.
+  */
+  .cjk-wrap:lang(ja),
+  .cjk-wrap:lang(zh) {
+    line-break: strict;
+    word-break: auto-phrase;
+  }
+  .cjk-wrap:lang(ko) {
+    word-break: keep-all;
+  }
+  /*
+    A short label that must fit its box (tile and chart labels): balanced lines, and a long word
+    ("Automatisierungen") hyphenates by the page language before it ever breaks mid-word.
+  */
+  .label-fit {
+    text-wrap: balance;
+    hyphens: auto;
+    overflow-wrap: break-word;
+  }
   /* Chrome glass (§3.4): composer, popovers, menus, palette, sheets. Never stacked. */
   .material-glass {
     background-color: var(--material-glass);
