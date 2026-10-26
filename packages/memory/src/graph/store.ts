@@ -745,6 +745,11 @@ export class GraphStore {
     );
   }
 
+  /** The owner marked this value wrong for this entity (Contacts re-ingest respects it too). */
+  isRejectedFact(entityId: string, attribute: GraphFactAttribute, value: string): boolean {
+    return this.#rejected("wrong_fact", entityId, factKeyHash(attribute, value));
+  }
+
   #feedback(
     kind: string,
     entityId: string | null,
