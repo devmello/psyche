@@ -1,10 +1,13 @@
 import type { Catalogue } from "../index.ts";
+import { canvas } from "./canvas/pt.ts";
 import { workflows } from "./workflows/pt.ts";
 
 /** Portuguese catalogue (pt, Brazil). Same ids as `en`; missing ids fall back to English. */
 export const pt: Partial<Catalogue> = {
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
+  // the output canvas (docs/design/chat-experience-2026.md §4.2)
+  ...canvas,
   "common.cancel": "Cancelar",
   "common.close": "Fechar",
   "common.save": "Salvar",

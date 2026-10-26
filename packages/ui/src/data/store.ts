@@ -464,6 +464,27 @@ export class GatewayStore {
         );
       case "receipt.created":
         return put(s, "receipts", e.payload.receipt);
+      case "artifact.updated": {
+        // A new version (agent, user or specialist): the card, recents and picker follow it;
+        // content loads by `id@version`, so the canvas fetches the new one on its next render.
+        const { artifact, version } = e.payload;
+        let next = put(s, "artifacts", artifact);
+        const versions = next.artifactVersions[artifact.id];
+        if (versions !== undefined && !versions.some((x) => x.version === version.version))
+          next = {
+            ...next,
+            artifactVersions: { ...next.artifactVersions, [artifact.id]: [...versions, version] },
+          };
+        const thread = artifact.threadId;
+        if (thread != null && next.threadArtifacts[thread] !== undefined) {
+          const ids = [
+            artifact.id,
+            ...(next.threadArtifacts[thread] ?? []).filter((x) => x !== artifact.id),
+          ];
+          next = { ...next, threadArtifacts: { ...next.threadArtifacts, [thread]: ids } };
+        }
+        return next;
+      }
       case "notification.created":
         return touch(
           put(s, "notifications", e.payload.notification),
