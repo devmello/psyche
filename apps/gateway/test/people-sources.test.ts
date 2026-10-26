@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type ConnectorRecord, toolName } from "@psyche/connectors";
-import { setSetting } from "@psyche/db";
+import { appendMessage, createThread, openDb, setSetting } from "@psyche/db";
 import type { ToolRegistration } from "@psyche/protocol";
 import { FakeClock, FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
@@ -368,6 +368,100 @@ describe("mail adapters (#732)", () => {
       },
     ]);
     expect(pulled?.cursor).toEqual({ since: "2026-10-16T08:00:00.000Z" });
+  });
+});
+
+describe("notes and chats adapters", () => {
+  const signal = new AbortController().signal;
+
+  it("Apple Notes: titles by folder since the cursor, resuming folders a pass did not reach", async () => {
+    const folders = Array.from({ length: 12 }, (_, i) => ({ id: `f${i}`, name: `Folder ${i}` }));
+    const tools = fakeTools({
+      [toolName("apple-notes-1", "notes_folders")]: () => ({
+        folders: [...folders, { id: "rd", name: "Recently Deleted" }],
+      }),
+      [toolName("apple-notes-1", "notes_search")]: (p) => ({
+        notes: [
+          {
+            id: `n-${String(p.folder)}`,
+            folder: p.folder,
+            title: `${String(p.folder)}: Dana Fox`,
+            modified: "2026-10-17T10:00:00Z",
+            snippet: "pasted text, never kept",
+          },
+        ],
+      }),
+    });
+    const [notes] = await graphSourceAdapters({
+      connectors: async () => [record("apple-notes-1", "apple:notes")],
+      tools,
+      clock,
+    });
+    const first = await notes?.pull(null, signal);
+    expect(first?.notes).toHaveLength(10);
+    expect(first?.notes?.[0]).toEqual({
+      source: "apple:notes",
+      id: "n-Folder 0",
+      title: "Folder 0: Dana Fox",
+      modifiedAt: "2026-10-17T10:00:00.000Z",
+    });
+    expect(first?.cursor).toMatchObject({ pending: ["Folder 10", "Folder 11"] });
+    const searched = tools.calls.filter((c) => c.name.endsWith("notes_search"));
+    expect(searched[0]?.params.modifiedSince).toBe(new Date(NOW - 365 * 86_400_000).toISOString());
+    expect(searched.some((c) => c.params.folder === "Recently Deleted")).toBe(false);
+    const second = await notes?.pull(first?.cursor, signal);
+    expect(second?.notes?.map((n) => n.id)).toEqual(["n-Folder 10", "n-Folder 11"]);
+    expect(second?.cursor).toEqual({ since: "2026-10-17T10:00:00.000Z" });
+  });
+
+  it("chats: only the owner's own words in private chats, resuming a long backlog", () => {
+    const db = openDb(":memory:");
+    const say = (threadId: string, role: "user" | "agent", text: string, provenance = "owner") =>
+      appendMessage(
+        db,
+        {
+          threadId,
+          role,
+          blocks: [{ type: "text", md: text }] as never,
+          provenance: provenance as never,
+        },
+        { expectedWriterRunId: null },
+      );
+    const main = createThread(db, { kind: "main", sessionKey: "owner:main" });
+    say(main.id, "user", "Remind me to call Rita Gomez");
+    say(main.id, "agent", "Sure, and Mo Chen?");
+    say(main.id, "user", "forwarded: Omar Haddad says hi", "untrusted");
+    const secret = createThread(db, { kind: "incognito", sessionKey: "owner:incognito" });
+    say(secret.id, "user", "Dana Fox private");
+    const channel = createThread(db, { kind: "main", sessionKey: "channel:telegram:x:dm:9" });
+    say(channel.id, "user", "Dana Fox from a channel");
+    return (async () => {
+      const adapters = await graphSourceAdapters({
+        connectors: async () => [],
+        tools: fakeTools({}),
+        clock: new FakeClock(Date.now()),
+        db,
+      });
+      const chats = adapters.find((a) => a.id === "chats:psyche");
+      const pulled = await chats?.pull(null, signal);
+      expect(pulled?.chats?.map((c) => c.text)).toEqual(["Remind me to call Rita Gomez"]);
+      expect(pulled?.chats?.[0]).toMatchObject({ threadId: main.id, link: `/chat/${main.id}` });
+      const again = await chats?.pull(pulled?.cursor, signal);
+      expect(again?.chats).toEqual([]);
+
+      // 105 more chats: a pass reads 100 threads and the next one the other 5.
+      for (let i = 0; i < 105; i++) {
+        const t = createThread(db, { kind: "side", sessionKey: `owner:side:${i}` });
+        say(t.id, "user", `note ${i}`);
+      }
+      const p1 = await chats?.pull(again?.cursor, signal);
+      expect(p1?.chats).toHaveLength(100);
+      expect(p1?.cursor).toHaveProperty("after");
+      const p2 = await chats?.pull(p1?.cursor, signal);
+      expect(p2?.chats).toHaveLength(5);
+      expect(p2?.cursor).not.toHaveProperty("after");
+      db.close();
+    })();
   });
 });
 

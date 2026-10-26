@@ -1,11 +1,13 @@
 import type { Clock, GraphSource } from "@psyche/protocol";
 import {
+  type ChatRecord,
   type ContactRecord,
   type EventRecord,
   GraphIngester,
   type IngestReport,
   type MailRecord,
   type MessageRecord,
+  type NoteRecord,
 } from "./ingest.ts";
 import type { GraphStore } from "./store.ts";
 
@@ -22,6 +24,8 @@ export interface GraphPull {
   mails?: MailRecord[];
   events?: EventRecord[];
   messages?: MessageRecord[];
+  notes?: NoteRecord[];
+  chats?: ChatRecord[];
   /** Stored as the adapter's cursor once the records are ingested. */
   cursor: unknown;
 }
@@ -99,6 +103,10 @@ export async function runGraphPoll(
         parts.push(ingest.ingestEvents(pulled.events));
       if (pulled.messages !== undefined && pulled.messages.length > 0)
         parts.push(ingest.ingestMessages(pulled.messages));
+      if (pulled.notes !== undefined && pulled.notes.length > 0)
+        parts.push(ingest.ingestNotes(pulled.notes));
+      if (pulled.chats !== undefined && pulled.chats.length > 0)
+        parts.push(ingest.ingestChats(pulled.chats));
       graph.setCursor(key, pulled.cursor);
       const merged = sum(parts);
       report.adapters.push({ id: a.id, source: a.source, ok: true, report: merged });
