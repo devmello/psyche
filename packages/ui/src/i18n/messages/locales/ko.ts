@@ -220,6 +220,9 @@ export const ko: Partial<Catalogue> = {
   "blocks.common.hide": "가리기",
   "blocks.common.viewDiff": "변경 사항 보기",
   "blocks.common.open": "열기",
+  "blocks.card.status":
+    "{status, select, pending {대기 중} running {실행 중} waiting {기다리는 중} done {완료} failed {실패} blocked {차단됨} cancelled {취소됨} other {{status}}}{warning, select, yes {, 결과 불확실} other {}}",
+  "blocks.card.unknown": "Psyche에서 아직 이 유형의 항목을 표시할 수 없습니다({type}).",
   "blocks.message.loading":
     "{what, select, approval {승인} question {질문} receipt {영수증} artifact {아티팩트} file {파일} task {작업} plan {계획} other {항목}} 로드 중",
   "blocks.message.missing":
@@ -3303,4 +3306,49 @@ export const ko: Partial<Catalogue> = {
   "settings.key.voice.conversation.reviewBeforeSend": "보내기 전에 검토",
   "settings.key.voice.conversation.pauseMs": "Psyche가 답하기 전 대기 시간",
   "settings.key.voice.conversation.brief": "음성 브리핑",
+
+  // Ask about my screen
+  "screenAsk.label": "화면에 대해 묻기",
+  "screenAsk.placeholder": "화면에 있는 내용에 대해 묻거나 Psyche에게 작업을 요청하세요…",
+  "screenAsk.send": "묻기",
+  "screenAsk.capturing": "화면을 보는 중…",
+  "screenAsk.chip.window": "{app}",
+  "screenAsk.chip.region": "{app}의 영역",
+  "screenAsk.chip.textOnly": "{app} · 텍스트만",
+  "screenAsk.chip.none": "캡처된 항목 없음",
+  "screenAsk.drop": "화면 내용 보내지 않기",
+  "screenAsk.pin": "항상 스크린샷 보내기",
+  "screenAsk.unpin": "필요할 때만 스크린샷 보내기",
+  "screenAsk.recapture": "다시 캡처",
+  "screenAsk.selectArea": "영역 선택",
+  "screenAsk.refusal.app_excluded": "Psyche는 {app}을(를) 캡처하지 않습니다.",
+  "screenAsk.refusal.secure_field": "암호 입력란에 포커스가 있어 스크린샷이 없습니다.",
+  "screenAsk.refusal.no_window": "캡처할 창이 없습니다.",
+  "screenAsk.refusal.permission_missing": "스크린샷을 보내려면 화면 캡처를 허용하세요.",
+  "screenAsk.allowCapture": "허용",
+  "screenAsk.captureFailed": "화면을 캡처할 수 없습니다. 그래도 질문할 수 있습니다.",
+  "screenAsk.dest.new": "새 채팅",
+  "screenAsk.dest.current": "현재 채팅",
+  "screenAsk.dest.label": "보낼 곳",
+  "screenAsk.mic.start": "말로 요청하기",
+  "screenAsk.mic.stop": "듣기 중지",
+  "screenAsk.answer.thinking": "생각하는 중…",
+  "screenAsk.answer.failed": "문제가 발생했습니다. 자세한 내용은 채팅을 여세요.",
+  "screenAsk.open": "Psyche에서 열기",
+  "screenAsk.cancelHint": "Esc를 눌러 닫기",
+  "screenAsk.region.hint": "드래그하여 영역을 선택하세요. Esc를 누르면 창 전체를 유지합니다.",
+  "screenAsk.region.label": "화면의 영역 선택",
+  "settings.screenAsk.title": "화면에 대해 묻기",
+  "settings.key.screenAsk.enabled": "내 화면에 대해 묻기",
+  "settings.screenAsk.enabledHint":
+    "어느 앱에서든 단축키를 누르면 화면에 있는 내용에 대해 묻거나 Psyche에게 그 내용으로 작업을 맡길 수 있습니다. 단축키를 누르기 전에는 아무것도 캡처되지 않습니다.",
+  "settings.key.screenAsk.shortcut": "단축키",
+  "settings.screenAsk.shortcutHint":
+    "질문 패널을 엽니다. 패널이 열려 있을 때 다시 누르면 영역을 선택합니다.",
+  "settings.key.screenAsk.destination": "보낼 곳",
+  "settings.key.screenAsk.alwaysImage": "항상 스크린샷 포함",
+  "settings.screenAsk.alwaysImageHint":
+    "이 옵션이 꺼져 있으면 Psyche는 요청이 화면에 관한 것일 때만 스크린샷을 보내고, 필요할 때만 확인합니다.",
+  "voice.phrases.screen":
+    "이거|이것|저거|그거|여기|화면|화면에|지금 보고 있는|이 페이지|이 오류|이 에러|이 차트|이 창|위에|아래",
 };

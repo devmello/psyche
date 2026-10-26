@@ -2,14 +2,17 @@ import {
   type EntitySummary,
   type GraphInteraction,
   type GraphLoop,
+  type GraphSource,
+  type Provenance,
   PsycheError,
   type ToolSpec,
 } from "@psyche/protocol";
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
+import { looksLikeInstruction } from "../filters.ts";
 import type { MemoryCallClass, MemoryToolContext, ToolOutcome } from "../tools/memory-command.ts";
 import { normalizeName } from "./normalize.ts";
-import type { GraphStore } from "./store.ts";
+import { type GraphStore, SOURCE_KINDS } from "./store.ts";
 
 /**
  * The agent's people and project tools (docs/memory/people-and-projects-2026.md §6.2), and entity
@@ -417,47 +420,147 @@ function findMeeting(
   )[0];
 }
 
+/** Recall limits (§6.3): characters per line, lines per turn, and characters in all. */
+export const ENTITY_RECALL_LIMITS = { line: 300, entities: 3, chars: 900 };
+
+export interface EntityRecallOptions {
+  session: "private" | "delegated" | "shared";
+  max?: number;
+  /** Characters across every line (the section's budget). */
+  budget?: number;
+  /** `memory.graph.sources`: interactions and loops from a source turned off are not recalled. */
+  sources?: Partial<Record<GraphSource, boolean>>;
+  /** Interactions older than this are not recalled, even before the nightly retention runs. */
+  retentionDays?: number;
+  now?: number;
+}
+
+const DAY_MS = 86_400_000;
+/** A label recall may show as written: letters, digits, spaces and name punctuation only. */
+const PLAIN_LABEL = /^[\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N} .,'’&-]{0,79}$/u;
+const plain = (s: string | null | undefined): string | undefined => {
+  const t = s?.replace(/\s+/g, " ").trim();
+  return t !== undefined && PLAIN_LABEL.test(t) && !looksLikeInstruction(t) ? t : undefined;
+};
+/** Sources of owner writes: card edits, the teaching loop and the owner's chat (§5.4). */
+const OWNER_WRITE = /^(owner_edit|owner_feedback|chat)(:|$)/;
+/**
+ * Owner-authored or owner-confirmed: `owner` provenance written by the owner (no sources, or an
+ * owner write among them). A Contacts import is `owner` too, but its fields are connector text
+ * (an organisation or job title can say anything) until the owner confirms them on the card.
+ */
+const confirmed = (x: { provenance: Provenance; sources: string[] }) =>
+  x.provenance === "owner" &&
+  (x.sources.length === 0 || x.sources.some((s) => OWNER_WRITE.test(s)));
+
+/** The owner's own spelling of words they typed: the span of `ownerText` that normalises to `said`. */
+function ownerSpan(ownerText: string, said: string): string | undefined {
+  const words = [...ownerText.matchAll(/[\p{L}\p{M}\p{N}]+/gu)].map((m) => m[0]);
+  const target = said.split(" ");
+  for (let i = 0; i + target.length <= words.length; i++) {
+    const span = words.slice(i, i + target.length);
+    if (normalizeName(span.join(" ")) === said) return span.join(" ");
+  }
+  return undefined;
+}
+
 /**
  * Entity recall (§6.3): one line per entity the owner named unambiguously, at most three, only
  * in the owner's private sessions. Names must match a whole alias.
+ *
+ * Every line is safe for a trusted context section, so no byte of it comes from a connector:
+ * - the name is the owner's own words, as they typed them this turn (never the stored name,
+ *   which may be a mail display name or a Contacts field);
+ * - a job title and employer only when the owner wrote or confirmed them (never a Contacts
+ *   import as such, never `agent` or `untrusted`);
+ * - a loop's text only from `owner` loops (the owner's own words, or a rule over their sent mail);
+ * - the rest is fixed words and dates.
+ * Subjects, display names, summaries, model output and suggested loops never appear. Hidden or
+ * blocklisted people, sources turned off, and interactions past retention are left out.
  */
 export function entityRecall(
   graph: GraphStore,
   ownerText: string,
-  options: { session: "private" | "delegated" | "shared"; max?: number } = { session: "private" },
+  options: EntityRecallOptions = { session: "private" },
 ): string[] {
   if (options.session !== "private") return [];
+  const max = Math.min(options.max ?? ENTITY_RECALL_LIMITS.entities, ENTITY_RECALL_LIMITS.entities);
+  let budget = options.budget ?? ENTITY_RECALL_LIMITS.chars;
+  const now = options.now ?? Date.now();
+  const cutoff = now - (options.retentionDays ?? 540) * DAY_MS;
+  const sourceOn = (kind: GraphInteraction["kind"]) => {
+    if (options.sources === undefined) return true;
+    const source = (Object.keys(SOURCE_KINDS) as GraphSource[]).find((s) =>
+      SOURCE_KINDS[s].includes(kind),
+    );
+    return source === undefined || options.sources[source] === true;
+  };
   const text = ` ${normalizeName(ownerText)} `;
   const lines: string[] = [];
   for (const e of graph.listEntities(["person", "org", "project"])) {
-    if (lines.length >= (options.max ?? 3)) break;
-    if (e.isOwner || e.hidden) continue;
+    if (lines.length >= max) break;
+    if (e.isOwner || e.hidden || e.status !== "active") continue;
     const names = [e.name, ...e.aliases].map(normalizeName).filter((n) => n.length >= 3);
-    if (!names.some((n) => text.includes(` ${n} `))) continue;
+    const said = names
+      .filter((n) => text.includes(` ${n} `))
+      .sort((a, b) => b.length - a.length)[0];
+    if (said === undefined) continue;
     // Ambiguous: another entity answers to the same name.
     const clash = graph
       .search(e.name, { kinds: [e.kind], limit: 3 })
       .filter((s) => normalizeName(s.name) === normalizeName(e.name));
     if (clash.length > 1) continue;
-    // Only what the owner or a deterministic rule said: never unverified third-party claims.
+    // "Don't track" or forgotten identifiers: nothing is recalled about them.
+    const idents = graph.identifiers(e.id);
+    if (idents.some((i) => graph.isBlocked(i.kind, i.value))) continue;
+    const interactions = graph.interactions(e.id, { limit: 50 }).filter((i) => {
+      const at = Date.parse(i.occurredAt);
+      return at >= cutoff && at <= now && sourceOn(i.kind);
+    });
+    // Known only from sources turned off (or past retention): not recalled.
+    const known =
+      idents.length === 0 ||
+      interactions.length > 0 ||
+      idents.some(
+        (i) =>
+          i.linkedBy === "owner" ||
+          (i.source === "contacts" &&
+            (options.sources === undefined || options.sources.contacts === true)),
+      );
+    if (!known) continue;
+    const kept = new Set(interactions.map((i) => i.id));
+    // Stored names and aliases may come from a mail header or a Contacts card: the owner's words.
+    const name = ownerSpan(ownerText, said);
+    if (name === undefined) continue;
     const org = graph
       .edges(e.id)
-      .find((x) => x.rel === "works_at" && x.src === e.id && x.provenance !== "untrusted");
-    const subtitle = org === undefined ? undefined : graph.getEntity(org.dst)?.name;
-    const loops = graph
-      .loops({ entityId: e.id })
-      .filter((l) => l.status === "open")
-      .slice(0, 1);
+      .find((x) => x.rel === "works_at" && x.src === e.id && confirmed(x));
+    const orgName = org === undefined ? undefined : plain(graph.getEntity(org.dst)?.name);
+    const title = plain(
+      graph.facts(e.id).find((f) => f.attribute === "title" && confirmed(f))?.value,
+    );
+    const loop = graph
+      .loops({ entityId: e.id, status: ["open"] })
+      .find(
+        (l) =>
+          l.provenance === "owner" &&
+          (l.sourceInteractionId == null || kept.has(l.sourceInteractionId)) &&
+          !l.text.trimStart().startsWith(">") &&
+          !looksLikeInstruction(l.text),
+      );
+    const last = interactions[0]?.occurredAt;
     const bits = [
-      subtitle,
-      e.lastInteractionAt === null || e.lastInteractionAt === undefined
+      title !== undefined && orgName !== undefined ? `${title} at ${orgName}` : (title ?? orgName),
+      last === undefined ? undefined : `last talked ${day(last)}`,
+      loop === undefined
         ? undefined
-        : `last talked ${day(e.lastInteractionAt)}`,
-      loops[0] === undefined
-        ? undefined
-        : `${loops[0].direction === "i_owe" ? "you owe" : "waiting on"}: ${loops[0].text}`,
+        : `${loop.direction === "i_owe" ? "you owe" : "waiting on"}: ${loop.text.replace(/\s+/g, " ")}`,
     ].filter((b): b is string => b !== undefined && b.length > 0);
-    lines.push(`${e.name} — ${bits.join("; ")}`.slice(0, 300));
+    if (bits.length === 0) continue;
+    const line = `${name} — ${bits.join("; ")}`.slice(0, ENTITY_RECALL_LIMITS.line);
+    if (line.length > budget) break;
+    budget -= line.length;
+    lines.push(line);
   }
   return lines;
 }

@@ -216,6 +216,9 @@ export const zh: Partial<Catalogue> = {
   "blocks.common.viewDiff": "查看差异",
   "blocks.common.open": "打开",
 
+  "blocks.card.status":
+    "{status, select, pending {待处理} running {运行中} waiting {等待中} done {完成} failed {失败} blocked {已阻止} cancelled {已取消} other {{status}}}{warning, select, yes {，结果不确定} other {}}",
+  "blocks.card.unknown": "Psyche 暂时无法显示此类项目（{type}）。",
   "blocks.message.loading":
     "正在载入{what, select, approval {审批} question {问题} receipt {回执} artifact {成果} file {文件} task {任务} plan {计划} other {项目}}",
   "blocks.message.missing":
@@ -3226,4 +3229,48 @@ export const zh: Partial<Catalogue> = {
   "settings.key.voice.conversation.reviewBeforeSend": "发送前检查",
   "settings.key.voice.conversation.pauseMs": "Psyche 回复前的停顿",
   "settings.key.voice.conversation.brief": "语音简报",
+
+  // Ask about my screen
+  "screenAsk.label": "询问屏幕内容",
+  "screenAsk.placeholder": "询问屏幕上的内容，或让 Psyche 做点什么…",
+  "screenAsk.send": "询问",
+  "screenAsk.capturing": "正在查看你的屏幕…",
+  "screenAsk.chip.window": "{app}",
+  "screenAsk.chip.region": "{app} 的区域",
+  "screenAsk.chip.textOnly": "{app} · 仅文本",
+  "screenAsk.chip.none": "未截取任何内容",
+  "screenAsk.drop": "不发送屏幕内容",
+  "screenAsk.pin": "始终发送截屏",
+  "screenAsk.unpin": "仅在需要时发送截屏",
+  "screenAsk.recapture": "重新截取",
+  "screenAsk.selectArea": "选择区域",
+  "screenAsk.refusal.app_excluded": "Psyche 不会截取 {app}。",
+  "screenAsk.refusal.secure_field": "密码栏处于焦点状态，因此没有截屏。",
+  "screenAsk.refusal.no_window": "没有可截取的窗口。",
+  "screenAsk.refusal.permission_missing": "允许屏幕录制以发送截屏。",
+  "screenAsk.allowCapture": "允许",
+  "screenAsk.captureFailed": "无法截取屏幕。你仍然可以提问。",
+  "screenAsk.dest.new": "新聊天",
+  "screenAsk.dest.current": "当前聊天",
+  "screenAsk.dest.label": "发送到",
+  "screenAsk.mic.start": "说出你的请求",
+  "screenAsk.mic.stop": "停止聆听",
+  "screenAsk.answer.thinking": "正在思考…",
+  "screenAsk.answer.failed": "出了点问题。打开聊天查看详情。",
+  "screenAsk.open": "在 Psyche 中打开",
+  "screenAsk.cancelHint": "按 Esc 关闭",
+  "screenAsk.region.hint": "拖动以选择区域。按 Esc 保留整个窗口。",
+  "screenAsk.region.label": "选择屏幕上的区域",
+  "settings.screenAsk.title": "询问屏幕内容",
+  "settings.key.screenAsk.enabled": "询问我的屏幕内容",
+  "settings.screenAsk.enabledHint":
+    "在任何 App 中按下快捷键，即可询问屏幕上的内容，或让 Psyche 据此做点什么。按下之前不会截取任何内容。",
+  "settings.key.screenAsk.shortcut": "快捷键",
+  "settings.screenAsk.shortcutHint": "打开询问面板。面板打开时再按一次可选择区域。",
+  "settings.key.screenAsk.destination": "发送到",
+  "settings.key.screenAsk.alwaysImage": "始终附上截屏",
+  "settings.screenAsk.alwaysImageHint":
+    "否则，Psyche 只在你的请求与屏幕有关时才发送截屏，并且只在需要时才查看。",
+  "voice.phrases.screen":
+    "这个|这|那个|这里|屏幕|屏幕上|我在看什么|这是什么|这个页面|这个错误|这个报错|这个图表|这个窗口|上面|下面",
 };

@@ -202,6 +202,7 @@ export const chat = {
   "chat.steps.status.waiting": "waiting",
   "chat.steps.status.paused": "paused",
   "chat.steps.status.cancelled": "cancelled",
+  "chat.steps.status.blocked": "blocked",
   "chat.steps.status.pending": "pending",
   // Run trace T2 (docs/design/run-trace-2026.md §3.2).
   "chat.steps.working": "Working",

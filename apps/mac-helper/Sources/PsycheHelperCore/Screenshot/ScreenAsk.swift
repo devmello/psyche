@@ -62,7 +62,7 @@ public enum ScreenAsk {
     /// Nil when the box misses every display or is too small to read.
     public static func region(_ rect: CGRect, displays: [CGRect]) -> (index: Int, local: CGRect)? {
         let r = rect.standardized
-        var best: (Int, CGRect, Double)?
+        var best: (Int, CGRect, CGFloat)?
         for (i, d) in displays.enumerated() {
             let clip = r.intersection(d)
             guard !clip.isNull, clip.width >= 8, clip.height >= 8 else { continue }

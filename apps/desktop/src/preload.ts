@@ -147,6 +147,16 @@ const bridge = {
     done: () => ipcRenderer.send(IPC.voiceHudDone),
     openThread: (threadId: string | null) => ipcRenderer.send(IPC.voiceHudOpenThread, { threadId }),
   },
+  /** The ask panel and its region overlay only (`ScreenAskBridge`); main ignores other senders. */
+  screenAsk: {
+    onOpen: (cb: (open: unknown) => void) => listen(IPC.screenAskOpen, cb),
+    done: () => ipcRenderer.send(IPC.screenAskDone),
+    openThread: (threadId: string) => ipcRenderer.send(IPC.screenAskOpenThread, { threadId }),
+    resize: (height: number) => ipcRenderer.send(IPC.screenAskResize, { height }),
+    selectArea: () => ipcRenderer.send(IPC.screenAskSelectArea),
+    region: (rect: { x: number; y: number; width: number; height: number } | null) =>
+      ipcRenderer.send(IPC.screenAskRegion, { rect }),
+  },
   /** The dictation HUD window only; main ignores these from any other renderer. */
   dictation: {
     onState: (cb: (s: unknown) => void) => listen(IPC.dictationHudState, cb),
@@ -159,7 +169,8 @@ const bridge = {
     getStatus: () => invoke(IPC.dictationGetStatus),
     onStatus: (cb: (s: unknown) => void) => listen(IPC.dictationStatus, cb),
     recheck: () => invoke(IPC.dictationRecheck),
-    checkHotkey: (accelerator: string) => invoke(IPC.dictationCheckHotkey, { accelerator }),
+    checkHotkey: (accelerator: string, purpose?: "dictation" | "screenAsk") =>
+      invoke(IPC.dictationCheckHotkey, { accelerator, ...(purpose ? { purpose } : {}) }),
     openAccessibilitySettings: () => ipcRenderer.send(IPC.dictationOpenAccessibility),
   },
   /** macOS privacy permissions (onboarding, Settings): prompt or open the pane, and read status. */

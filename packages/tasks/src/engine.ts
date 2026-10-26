@@ -850,6 +850,30 @@ export class SqliteTaskEngine implements TaskEngine {
     return event.payload.task;
   }
 
+  /**
+   * Records the owner's steer (`tasks.steer`, specialists §4.7) as an Activity line. Text a
+   * running turn did not take (`delivered: false`) is queued to open the task's next turn.
+   */
+  async steer(taskId: string, text: string, delivered: boolean): Promise<Task> {
+    const [action, updated] = this.#tx(() => {
+      const row = this.#row(taskId);
+      if (isTerminal(row.status as TaskStatus)) fail("conflict", `task ${taskId} is ${row.status}`);
+      if (!delivered) {
+        this.#patch(taskId, {
+          resume: this.#pushResume(row, { kind: "steered", text }),
+          updated_at: this.#iso(),
+        });
+      }
+      const action = this.#insertAction(taskId, {
+        level1: `You steered it: ${text}`,
+        level2: { tool: "task.steer", outcome: delivered ? "delivered" : "queued" },
+      });
+      return [this.#actionEvent(action), this.#updated(taskId)] as const;
+    });
+    this.#emit([action, updated]);
+    return updated.payload.task;
+  }
+
   async resume(taskId: string): Promise<Task> {
     const event = this.#tx(() => {
       const row = this.#row(taskId);

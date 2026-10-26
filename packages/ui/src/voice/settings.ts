@@ -74,7 +74,9 @@ export function readVoiceSettings(values: Readonly<Record<string, unknown>>): Vo
     key: pick(values[K.key], ["fn", "rightOption", "rightCommand"], VOICE_DEFAULTS.key),
     mode: pick(values[K.mode], ["push", "tap", "handsfree"], legacyMode ?? VOICE_DEFAULTS.mode),
     voice:
-      typeof values[K.voice] === "string" && values[K.voice] !== ""
+      typeof values[K.voice] === "string" &&
+      values[K.voice] !== "" &&
+      !isRetiredVoice(values[K.voice] as string)
         ? (values[K.voice] as string)
         : null,
     rate: clamp(values[K.rate], VOICE_RATE.min, VOICE_RATE.max, VOICE_DEFAULTS.rate),
@@ -102,11 +104,24 @@ export function readVoiceSettings(values: Readonly<Record<string, unknown>>): Vo
   };
 }
 
+/**
+ * OpenAI's cloud voice was removed (its TTS endpoints shut down on 2027-01-06); a saved
+ * `openai:` ref falls back to the default voice. The Gateway migrates the stored value too.
+ */
+export function isRetiredVoice(ref: string): boolean {
+  return ref.startsWith("openai:");
+}
+
 /** The writes that move a #481 owner onto §6.4's keys (empty once migrated). */
 export function migrateVoiceSettings(
   values: Readonly<Record<string, unknown>>,
 ): { key: string; value: unknown }[] {
+  const writes: { key: string; value: unknown }[] = [];
+  const voice = values[K.voice];
+  if (typeof voice === "string" && isRetiredVoice(voice))
+    writes.push({ key: K.voice, value: null });
   const legacy = values[LEGACY_START_KEY];
-  if (values[K.mode] !== undefined || (legacy !== "toggle" && legacy !== "push")) return [];
-  return [{ key: K.mode, value: legacy === "toggle" ? "handsfree" : "push" }];
+  if (values[K.mode] !== undefined || (legacy !== "toggle" && legacy !== "push")) return writes;
+  writes.push({ key: K.mode, value: legacy === "toggle" ? "handsfree" : "push" });
+  return writes;
 }

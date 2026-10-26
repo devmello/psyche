@@ -41,7 +41,9 @@ export type ResumeItem =
   | { kind: "recovered"; previousOwner: string | null; uncertainStepIds: string[] }
   | { kind: "resumed" }
   | { kind: "retry"; fromStepId: string | null }
-  | { kind: "reconciled"; stepId: string; status: "done" | "failed"; note?: string };
+  | { kind: "reconciled"; stepId: string; status: "done" | "failed"; note?: string }
+  /** `tasks.steer` while no turn was running: the owner's guidance opens the next turn. */
+  | { kind: "steered"; text: string };
 
 /** What a parked task waits on. */
 export type Awaiting =
