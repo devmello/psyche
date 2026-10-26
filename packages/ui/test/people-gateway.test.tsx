@@ -2,10 +2,12 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { agentSheetRoute } from "../src/agent/AgentSheet.tsx";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import type { FixtureWorld } from "../src/fixtures/index.ts";
 import { PEOPLE_IDS } from "../src/fixtures/people.ts";
 import { ConnectedEntityCard } from "../src/people/ConnectedEntityCard.tsx";
+import { PeopleSheetSection } from "../src/people/PeopleSheetSection.tsx";
 import { SearchScreen } from "../src/screens/search/SearchScreen.tsx";
 import { PeopleSection } from "../src/screens/settings/PeopleSection.tsx";
 import type { UiSlots } from "../src/slots.tsx";
@@ -299,5 +301,72 @@ describe("Settings → People & projects", () => {
     await user.click(screen.getByRole("button", { name: "Export people and projects" }));
     await waitFor(() => expect(callsTo("memory.export")).toHaveLength(1));
     await waitFor(() => expect(onExportReady).toHaveBeenCalled());
+  });
+});
+
+describe("Soul & Memory → People & projects", () => {
+  it("lists people (not you), filters to projects, and searches", async () => {
+    const { user } = setup(<PeopleSheetSection now={STORY_NOW} />);
+    expect(await screen.findByRole("button", { name: /Sam Lee/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Dana Kim/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Alex Rivera/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Kitchen remodel/ })).toBeNull();
+    await user.click(screen.getByRole("radio", { name: "Projects" }));
+    expect(await screen.findByRole("button", { name: /Kitchen remodel/ })).toBeTruthy();
+    await user.click(screen.getByRole("radio", { name: "People" }));
+    await user.type(screen.getByRole("textbox", { name: "Search people and projects" }), "dana");
+    await waitFor(() => expect(screen.queryByRole("button", { name: /Sam Lee/ })).toBeNull());
+    expect(screen.getByRole("button", { name: /Dana Kim/ })).toBeTruthy();
+  });
+
+  it("opens a card in a sheet, and opens one directly from ?entity=", async () => {
+    const { user } = setup(<PeopleSheetSection now={STORY_NOW} />);
+    await user.click(await screen.findByRole("button", { name: /Sam Lee/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByRole("article", { name: "Sam Lee" })).toBeTruthy();
+  });
+
+  it("opens the card named in the route", async () => {
+    setup(<PeopleSheetSection now={STORY_NOW} initialEntity={PEOPLE_IDS.kitchen} />);
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByRole("article", { name: "Kitchen remodel" })).toBeTruthy();
+  });
+
+  it("answers suggestions", async () => {
+    const { callsTo, user } = setup(<PeopleSheetSection now={STORY_NOW} />);
+    await user.click(await screen.findByRole("radio", { name: "Suggestions" }));
+    expect(
+      await screen.findByRole("heading", { name: "Is Sam Lee the same as Sam L.?" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "Is this a project: Backyard fence?" }),
+    ).toBeTruthy();
+    const merge = screen.getByRole("article", { name: "Is Sam Lee the same as Sam L.?" });
+    await user.click(within(merge).getByRole("button", { name: "Confirm" }));
+    await waitFor(() =>
+      expect(callsTo("memory.entities.suggestions.answer")[0]?.params).toEqual({
+        id: "sug_merge_sam",
+        answer: "accept",
+      }),
+    );
+  });
+
+  it("lists what you're waiting on and closes a loop", async () => {
+    const { callsTo, user } = setup(<PeopleSheetSection now={STORY_NOW} />);
+    await user.click(await screen.findByRole("radio", { name: "Waiting on" }));
+    expect(await screen.findByText("Signed SOW from Sam")).toBeTruthy();
+    expect(screen.getByText("Tile samples from Dana")).toBeTruthy();
+    expect(screen.queryByText("Send Sam the revised budget")).toBeNull();
+    await user.click(screen.getByRole("checkbox", { name: "Mark “Signed SOW from Sam” done" }));
+    await waitFor(() =>
+      expect(callsTo("memory.loops.update")[0]?.params).toEqual({ id: "loop_sow", status: "done" }),
+    );
+  });
+
+  it("reads ?entity= from the sheet route", () => {
+    expect(agentSheetRoute(`/agent/soul?entity=${PEOPLE_IDS.samLee}`)).toEqual({
+      tab: "soul",
+      entity: PEOPLE_IDS.samLee,
+    });
   });
 });

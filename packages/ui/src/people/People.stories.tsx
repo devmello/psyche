@@ -1,9 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { type ReactElement, useState } from "react";
 import { kitchen, samLee, suggestions, summaries } from "../fixtures/people.ts";
-import { STORY_NOW } from "../stories/harness.tsx";
+import { STORY_NOW, withWorld } from "../stories/harness.tsx";
 import { EntityCard, PersonCard, ProjectCard } from "./EntityCard.tsx";
 import { EntityRow } from "./EntityRow.tsx";
+import { PeopleSheetSection } from "./PeopleSheetSection.tsx";
 import { SuggestionCard } from "./SuggestionCard.tsx";
 import type { EntityView, GraphLoopStatus } from "./types.ts";
 
@@ -142,6 +143,16 @@ export const Suggestions: Story = {
       {suggestions.map((s) => (
         <SuggestionCard key={s.id} suggestion={s} onAnswer={() => {}} />
       ))}
+    </div>
+  ),
+};
+
+/** Soul & Memory → People & projects on the mock Gateway, at the sheet's 420 px. */
+export const SheetSection: Story = {
+  decorators: [withWorld()],
+  render: () => (
+    <div className="w-[420px]">
+      <PeopleSheetSection now={STORY_NOW} />
     </div>
   ),
 };
