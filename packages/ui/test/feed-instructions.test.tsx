@@ -9,6 +9,7 @@ import { FeedScreen } from "../src/screens/feed/FeedScreen.tsx";
 import {
   FEED_INSTRUCTIONS_PATH,
   INTERESTS_PATH,
+  mergeInterests,
   parseInterests,
   serializeInterests,
 } from "../src/screens/feed/interests.ts";
@@ -74,6 +75,26 @@ Notes the owner wrote.
   });
 });
 
+describe("merging after a conflict (S15: feedback rewrites interests.md in place)", () => {
+  it("re-applies the owner's edits to the fresh file and keeps feedback's changes", () => {
+    const base = parseInterests(
+      "- robotics (0.90) — asked\n- Lisbon (0.60) — trip\n- knitting (0.30)\n",
+    );
+    const edited = [
+      { kind: "topic" as const, topic: "robotics", weight: 0.3, why: "asked", origin: 0 },
+      { kind: "topic" as const, topic: "Lisbon", weight: 0.6, why: "trip", origin: 1 },
+      // knitting removed; one added
+      { kind: "topic" as const, topic: "chess", weight: 0.6, why: "" },
+    ];
+    // Meanwhile a Like raised Lisbon and a new topic arrived.
+    const fresh =
+      "- robotics (0.90) — asked\n- Lisbon (0.70) — trip; liked 1 post\n- knitting (0.30)\n- sailing (0.40)\n";
+    expect(mergeInterests(base, edited, fresh)).toBe(
+      "- robotics (0.30) — asked\n- Lisbon (0.70) — trip; liked 1 post\n- sailing (0.40)\n\n- chess (0.60)\n",
+    );
+  });
+});
+
 describe("the Feed instructions sheet (issue #614)", () => {
   it("opens from the toolbar, saves the text and the interests, and generates now", async () => {
     const { user, callsTo, gw, navigate } = setup(<FeedScreen />);
@@ -104,6 +125,29 @@ describe("the Feed instructions sheet (issue #614)", () => {
 
     await user.click(within(sheet).getByRole("button", { name: "Generate now" }));
     await waitFor(() => expect(callsTo("feed.generate")).toHaveLength(1));
+  });
+
+  it("saves after feedback changed interests.md meanwhile", async () => {
+    const { user, callsTo, gw } = setup(
+      <FeedScreen instructionsOpen onCloseInstructions={() => {}} />,
+    );
+    const sheet = await screen.findByRole("dialog", { name: "What should I write about" });
+    await user.selectOptions(
+      await within(sheet).findByRole("combobox", { name: "How much Lisbon steers the feed" }),
+      "0.9",
+    );
+    // A Like lands between the read and the save: the etag no longer matches.
+    gw().world.memoryFiles[INTERESTS_PATH] =
+      `${gw().world.memoryFiles[INTERESTS_PATH]}- sailing (0.40)\n`;
+    await user.click(within(sheet).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(gw().world.memoryFiles[INTERESTS_PATH]).toContain("- Lisbon (0.90)"),
+    );
+    expect(gw().world.memoryFiles[INTERESTS_PATH]).toContain("- sailing (0.40)");
+    expect(
+      callsTo("memory.write").filter((c) => (c.params as { path: string }).path === INTERESTS_PATH),
+    ).toHaveLength(2);
+    expect(within(sheet).queryByRole("alert")).toBeNull();
   });
 
   it("closes back to /feed when the route opened it", async () => {

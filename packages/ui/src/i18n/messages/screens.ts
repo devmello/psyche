@@ -136,6 +136,7 @@ export const screens = {
     "More on robotics papers, less celebrity news. Favour primary sources. Keep posts short.",
   "screens.feed.editor.hint":
     "Interests, sources to favour or avoid, tone and length. Saved to feed/INSTRUCTIONS.md in the workspace.",
+  "screens.feed.editor.count": "{n, number} / {max, number}",
   "screens.feed.editor.interests": "Interests",
   "screens.feed.editor.interestsHint":
     "From interests.md. Likes, saves and Not interested also change these.",

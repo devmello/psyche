@@ -103,3 +103,50 @@ export function serializeInterests(
   }
   return `${out.join("\n")}\n`;
 }
+
+/** The instructions file's cap: the generator reads at most this many characters (S15, #615). */
+export const INSTRUCTIONS_MAX = 4000;
+
+function identity(r: InterestRow): string {
+  return `${r.kind}:${(r.kind === "hide_source" ? r.host : r.topic).trim().toLowerCase()}`;
+}
+
+function sameRow(a: InterestRow, b: InterestRow): boolean {
+  return formatRow(a) === formatRow(b);
+}
+
+/**
+ * Re-applies the owner's edits to a ledger that changed meanwhile (Feed feedback rewrites
+ * weights and reasons in place, so the etag moves between read and save). Rows are matched by
+ * kind and topic or host: an edited row replaces its match, a removed row drops it, an untouched
+ * row keeps the fresh version, and added rows go at the end unless the topic is already there.
+ */
+export function mergeInterests(
+  base: InterestLedger,
+  edited: readonly (InterestRow & { origin?: number })[],
+  freshText: string,
+): string {
+  const fresh = parseInterests(freshText);
+  const changes = new Map<string, InterestRow | null>();
+  const kept = new Set<number>();
+  for (const r of edited) {
+    if (r.origin === undefined) continue;
+    kept.add(r.origin);
+    const before = base.rows[r.origin];
+    if (before !== undefined && !sameRow(before, r)) changes.set(identity(before), r);
+  }
+  base.rows.forEach((r, i) => {
+    if (!kept.has(i)) changes.set(identity(r), null);
+  });
+  const rows: (InterestRow & { origin?: number })[] = [];
+  fresh.rows.forEach((r, i) => {
+    const change = changes.get(identity(r));
+    if (change === null) return;
+    rows.push({ ...(change ?? r), origin: i });
+  });
+  const present = new Set(rows.map(identity));
+  for (const r of edited) {
+    if (r.origin === undefined && !present.has(identity(r))) rows.push(r);
+  }
+  return serializeInterests(fresh, rows);
+}

@@ -22,9 +22,11 @@ import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import {
   FEED_INSTRUCTIONS_PATH,
+  INSTRUCTIONS_MAX,
   INTERESTS_PATH,
   type InterestLedger,
   type InterestRow,
+  mergeInterests,
   parseInterests,
   serializeInterests,
 } from "./interests.ts";
@@ -117,13 +119,17 @@ export function FeedInstructionsView({
         <Textarea
           id={textId}
           value={instructions}
+          maxLength={INSTRUCTIONS_MAX}
           onChange={(e) => onInstructionsChange(e.target.value)}
           placeholder={t("screens.feed.editor.placeholder")}
           className="min-h-28 text-reading"
           aria-describedby={`${textId}-hint`}
         />
-        <p id={`${textId}-hint`} className="px-1 text-callout text-label-secondary">
-          {t("screens.feed.editor.hint")}
+        <p id={`${textId}-hint`} className="flex gap-3 px-1 text-callout text-label-secondary">
+          <span className="min-w-0 flex-1">{t("screens.feed.editor.hint")}</span>
+          <span className="shrink-0 tabular-nums" aria-live="polite">
+            {t("screens.feed.editor.count", { n: instructions.length, max: INSTRUCTIONS_MAX })}
+          </span>
         </p>
       </div>
 
@@ -282,15 +288,25 @@ function useWorkspaceFile(path: string, active: boolean) {
     };
   }, [call, path, active, tick]);
   const reload = useCallback(() => setTick((n) => n + 1), []);
-  const save = async (content: string) => {
+  /** Reads the latest version (after a conflict) without touching what the sheet shows. */
+  const latest = async (): Promise<LoadedFile> => {
+    try {
+      const res = await call("memory.read", { path });
+      return { content: res.content, etag: res.etag ?? null };
+    } catch (err) {
+      if (hasCode(err, "not_found")) return { content: "", etag: null };
+      throw err;
+    }
+  };
+  const save = async (content: string, against: LoadedFile | null = file) => {
     const res = await call("memory.write", {
       path,
       content,
-      ...(file?.etag == null ? {} : { etag: file.etag }),
+      ...(against?.etag == null ? {} : { etag: against.etag }),
     });
     setFile({ content, etag: res.etag ?? null });
   };
-  return { file, error, reload, save };
+  return { file, error, reload, latest, save };
 }
 
 function toRows(ledger: InterestLedger): EditableRow[] {
@@ -359,7 +375,16 @@ export function FeedInstructionsSheet({
         await textFile.save(
           shownText.endsWith("\n") || shownText === "" ? shownText : `${shownText}\n`,
         );
-      if (ledgerDirty && nextLedger !== null) await ledgerFile.save(nextLedger);
+      if (ledgerDirty && nextLedger !== null && ledger !== null) {
+        try {
+          await ledgerFile.save(nextLedger);
+        } catch (err) {
+          if (!hasCode(err, "conflict")) throw err;
+          // Feedback rewrote interests.md meanwhile: re-read it and re-apply these edits once.
+          const fresh = await ledgerFile.latest();
+          await ledgerFile.save(mergeInterests(ledger, shownRows, fresh.content), fresh);
+        }
+      }
       setText(null);
       setRows(null);
       toast(t("screens.feed.editor.saved"));
