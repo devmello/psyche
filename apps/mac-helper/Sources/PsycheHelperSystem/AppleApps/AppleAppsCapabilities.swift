@@ -46,7 +46,7 @@ public enum AppleAppsCapabilities {
     }
 
     public static func make(_ b: Backends) -> [any CapabilityHandler] {
-        calendar(b) + reminders(b) + mail(b) + notes(b) + finder(b) + safari(b)
+        calendar(b) + calendarWave1(b) + reminders(b) + remindersWave1(b) + mail(b) + notes(b) + finder(b) + safari(b)
     }
 
     // MARK: Helpers
@@ -81,14 +81,33 @@ public enum AppleAppsCapabilities {
         var from: String
         var to: String
         var calendarIds: [String]?
+        var query: String?
         var limit: Int?
     }
+    struct FreeBusy: Decodable {
+        var from: String
+        var to: String
+        var calendarIds: [String]?
+    }
+    struct DeleteEvent: Decodable {
+        var id: String
+        var span: String?
+    }
+
+    /// `AppleAlarm` / `AppleRecurrence` (shape checked in Swift).
+    static let alarmSchema: JSONValue = ["type": "object", "description": "{relativeMinutes: -15} (minutes before) or {at: ISO date-time}"]
+    static let recurrenceSchema: JSONValue = [
+        "description": "{frequency: daily|weekly|monthly|yearly, interval?, daysOfWeek? (weekly: mo…su), until? | count?}; null removes it on update",
+    ]
 
     static func calendar(_ b: Backends) -> [any CapabilityHandler] {
         let eventFields: [String: JSONValue] = [
             "calendarId": Schema.string(), "title": Schema.string(maxLength: 500), "start": isoSchema, "end": isoSchema,
             "allDay": Schema.boolean(), "location": Schema.string(maxLength: 500), "notes": Schema.string(maxLength: 10_000),
             "url": Schema.string(maxLength: 2_000),
+            // Wave 1 (C3).
+            "alarms": Schema.array(alarmSchema, description: "Replaces the alarms", maxItems: 5), "recurrence": recurrenceSchema,
+            "availability": Schema.string("Show as busy or free", enum: ["busy", "free"]),
         ]
         @Sendable func validate(title: String?, location: String?, notes: String?, url: String?, titleRequired: Bool) throws {
             try text(title, max: 500, field: "title", required: titleRequired)
@@ -103,9 +122,11 @@ public enum AppleAppsCapabilities {
             )) { _ in untrustedList("calendars", try json(try await b.calendar.calendars())) },
 
             Capability(CapabilitySpec(
-                name: "calendar.list_events", description: "Events between from and to (at most 366 days), optionally in some calendars.",
+                name: "calendar.list_events",
+                description: "Events between from and to (at most 366 days), optionally in some calendars or matching text in the title, location or notes. Each event has its attendees (read-only), a conferenceUrl (Zoom / Meet / Teams / Webex) found in its URL, location or notes, alarms, recurrence and availability.",
                 sideEffect: .read,
-                inputSchema: Schema.object(["from": isoSchema, "to": isoSchema, "calendarIds": Schema.array(Schema.string(), maxItems: 50), "limit": limitSchema],
+                inputSchema: Schema.object(["from": isoSchema, "to": isoSchema, "calendarIds": Schema.array(Schema.string(), maxItems: 50),
+                                            "query": Schema.string("Text in the title, location or notes", maxLength: 200), "limit": limitSchema],
                                            required: ["from", "to"])
             )) { ctx in
                 let p = try ctx.decode(ListEvents.self)
@@ -113,16 +134,19 @@ public enum AppleAppsCapabilities {
                 guard to > from, to.timeIntervalSince(from) <= 366 * 86_400 else {
                     throw CapabilityError.invalidParams("to must be after from, within 366 days", field: "to")
                 }
-                let events = try await b.calendar.events(from: from, to: to, calendarIds: p.calendarIds, limit: try limit(p.limit))
+                try text(p.query, max: 200, field: "query")
+                let events = try await b.calendar.events(from: from, to: to, calendarIds: p.calendarIds, query: p.query, limit: try limit(p.limit))
                 return untrustedList("events", try json(events))
             },
 
             Capability(CapabilitySpec(
-                name: "calendar.create_event", description: "Create an event (default calendar unless calendarId).",
+                name: "calendar.create_event",
+                description: "Create an event (default calendar unless calendarId), with optional alarms, a recurrence and busy / free. EventKit cannot invite attendees: to invite people, send an invitation email instead.",
                 sideEffect: .write, inputSchema: Schema.object(eventFields, required: ["title", "start", "end"]), receiptKind: "calendar_write"
             )) { ctx in
                 let p = try ctx.decode(CalendarEventInput.self)
                 try validate(title: p.title, location: p.location, notes: p.notes, url: p.url, titleRequired: true)
+                try p.recurrence?.validate()
                 _ = try AppleDates.param(p.start, field: "start")
                 _ = try AppleDates.param(p.end, field: "end")
                 let e = try await b.calendar.create(p)
@@ -138,9 +162,98 @@ public enum AppleAppsCapabilities {
             )) { ctx in
                 let p = try ctx.decode(CalendarEventPatch.self)
                 try validate(title: p.title, location: p.location, notes: p.notes, url: p.url, titleRequired: false)
+                if case .some(let r?) = p.recurrence { try r.validate() }
                 if let s = p.span, !["this", "future"].contains(s) { throw CapabilityError.invalidParams("span is this or future", field: "span") }
                 let e = try await b.calendar.update(p)
                 return CapabilityOutput(["event": try json(e)], receipt: ReceiptDraft(outcome: .ok, summary: "Updated event \(e.title)", externalRefs: ["eventId": .string(e.id)]))
+            },
+        ]
+    }
+
+    // MARK: Calendar wave 1 (C2, C4)
+
+    static func calendarWave1(_ b: Backends) -> [any CapabilityHandler] {
+        [
+            Capability(CapabilitySpec(
+                name: "calendar.free_busy",
+                description: "Busy blocks (busy, tentative, unavailable; free events left out) between from and to (at most 62 days), in start order. Finding free slots is the caller's job.",
+                sideEffect: .read,
+                inputSchema: Schema.object(["from": isoSchema, "to": isoSchema, "calendarIds": Schema.array(Schema.string(), maxItems: 50)], required: ["from", "to"])
+            )) { ctx in
+                let p = try ctx.decode(FreeBusy.self)
+                let from = try AppleDates.param(p.from, field: "from"), to = try AppleDates.param(p.to, field: "to")
+                guard to > from, to.timeIntervalSince(from) <= 62 * 86_400 else {
+                    throw CapabilityError.invalidParams("to must be after from, within 62 days", field: "to")
+                }
+                // Busy blocks carry no titles or notes: not untrusted content.
+                return CapabilityOutput(["blocks": try json(try await b.calendar.freeBusy(from: from, to: to, calendarIds: p.calendarIds))])
+            },
+            Capability(CapabilitySpec(
+                name: "calendar.delete_event",
+                description: "Delete an event; span: future deletes this and the later events of a recurring series. Always asks.",
+                sideEffect: .destructive,
+                inputSchema: Schema.object(["id": Schema.string(), "span": Schema.string(enum: ["this", "future"])], required: ["id"]),
+                receiptKind: "calendar_write"
+            )) { ctx in
+                let p = try ctx.decode(DeleteEvent.self)
+                if let s = p.span, !["this", "future"].contains(s) { throw CapabilityError.invalidParams("span is this or future", field: "span") }
+                try await b.calendar.deleteEvent(id: p.id, span: p.span)
+                return CapabilityOutput(["deleted": true], receipt: ReceiptDraft(outcome: .ok, summary: "Deleted an event", externalRefs: ["eventId": .string(p.id)]))
+            },
+        ]
+    }
+
+    // MARK: Reminders wave 1 (R3–R5)
+
+    struct CompleteReminder: Decodable {
+        var id: String?
+        var title: String?
+        var listId: String?
+        var completed: Bool?
+    }
+    struct ReminderRef: Decodable { var id: String }
+    struct SetFlagged: Decodable {
+        var id: String
+        var flagged: Bool
+    }
+
+    static func remindersWave1(_ b: Backends) -> [any CapabilityHandler] {
+        [
+            Capability(CapabilitySpec(
+                name: "reminders.complete",
+                description: "Complete a reminder (completed: false reopens it), by id or by the exact title of one open reminder (in listId when given).",
+                sideEffect: .write,
+                inputSchema: Schema.object(["id": Schema.string(), "title": Schema.string("Exact title (when no id)", maxLength: 500),
+                                            "listId": Schema.string("The list to look in with title"), "completed": Schema.boolean("Default true")]),
+                receiptKind: "connector_action"
+            )) { ctx in
+                let p = try ctx.decode(CompleteReminder.self)
+                guard p.id != nil || !(p.title ?? "").trimmingCharacters(in: .whitespaces).isEmpty else {
+                    throw CapabilityError.invalidParams("give id or title", field: "id")
+                }
+                try text(p.title, max: 500, field: "title")
+                let r = try await b.reminders.complete(id: p.id, title: p.title, listId: p.listId, completed: p.completed ?? true)
+                return CapabilityOutput(["reminder": try json(r)], receipt: ReceiptDraft(outcome: .ok, summary: "\(r.completed ? "Completed" : "Reopened") reminder \(r.title)",
+                                                                                      externalRefs: ["reminderId": .string(r.id)]))
+            },
+            Capability(CapabilitySpec(
+                name: "reminders.delete", description: "Delete a reminder. Always asks.", sideEffect: .destructive,
+                inputSchema: Schema.object(["id": Schema.string()], required: ["id"]), receiptKind: "connector_action"
+            )) { ctx in
+                let p = try ctx.decode(ReminderRef.self)
+                try await b.reminders.delete(id: p.id)
+                return CapabilityOutput(["deleted": true], receipt: ReceiptDraft(outcome: .ok, summary: "Deleted a reminder", externalRefs: ["reminderId": .string(p.id)]))
+            },
+            Capability(CapabilitySpec(
+                name: "reminders.set_flagged",
+                description: "Flag or unflag a reminder (through Reminders scripting: EventKit has no flag; asks for Automation of Reminders once).",
+                sideEffect: .write, targetKind: .app,
+                inputSchema: Schema.object(["id": Schema.string(), "flagged": Schema.boolean()], required: ["id", "flagged"]), receiptKind: "connector_action"
+            )) { ctx in
+                let p = try ctx.decode(SetFlagged.self)
+                try await b.reminders.setFlagged(id: p.id, flagged: p.flagged)
+                return CapabilityOutput(["flagged": .bool(p.flagged)], receipt: ReceiptDraft(outcome: .ok, summary: p.flagged ? "Flagged a reminder" : "Unflagged a reminder",
+                                                                                          externalRefs: ["reminderId": .string(p.id)]))
             },
         ]
     }
@@ -155,6 +268,11 @@ public enum AppleAppsCapabilities {
         var listIds: [String]?
         var completed: Bool?
         var dueBefore: String?
+        // Wave 1 (R1).
+        var overdue: Bool?
+        var dueToday: Bool?
+        var flagged: Bool?
+        var query: String?
         var limit: Int?
     }
 
@@ -168,23 +286,40 @@ public enum AppleAppsCapabilities {
             )) { _ in untrustedList("lists", try json(try await b.reminders.lists())) },
 
             Capability(CapabilitySpec(
-                name: "reminders.list", description: "Reminders, optionally by list, completion and due date.", sideEffect: .read,
-                inputSchema: Schema.object(["listIds": Schema.array(Schema.string(), maxItems: 50), "completed": Schema.boolean(), "dueBefore": isoSchema, "limit": limitSchema])
+                name: "reminders.list",
+                description: "Reminders, soonest due first: optionally by list, completion, due before, overdue (open and past due), due today, flagged (asks for Automation of Reminders once) and text in the title or notes.",
+                sideEffect: .read,
+                inputSchema: Schema.object([
+                    "listIds": Schema.array(Schema.string(), maxItems: 50), "completed": Schema.boolean(), "dueBefore": isoSchema,
+                    "overdue": Schema.boolean("Only open reminders past their due time"), "dueToday": Schema.boolean("Only reminders due today"),
+                    "flagged": Schema.boolean("Only flagged reminders"), "query": Schema.string("Text in the title or notes", maxLength: 200), "limit": limitSchema,
+                ])
             )) { ctx in
                 let p = try ctx.decode(ListReminders.self)
                 let due = try p.dueBefore.map { try AppleDates.param($0, field: "dueBefore") }
-                return untrustedList("reminders", try json(try await b.reminders.reminders(listIds: p.listIds, completed: p.completed, dueBefore: due, limit: try limit(p.limit))))
+                try text(p.query, max: 200, field: "query")
+                let flagged: Set<String>? = p.flagged == true ? try await b.reminders.flaggedIds() : nil
+                let filter = ReminderQuery(overdue: p.overdue ?? false, dueToday: p.dueToday ?? false, query: p.query ?? "", flaggedIds: flagged)
+                // Overdue reminders are open ones.
+                let completed = p.overdue == true ? false : p.completed
+                return untrustedList("reminders", try json(try await b.reminders.reminders(listIds: p.listIds, completed: completed, dueBefore: due, filter: filter,
+                                                                                           limit: try limit(p.limit))))
             },
 
             Capability(CapabilitySpec(
-                name: "reminders.create", description: "Create a reminder (default list unless listId).", sideEffect: .write,
+                name: "reminders.create", description: "Create a reminder (default list unless listId), with an optional url (e.g. the mail it came from), alarm and recurrence (needs a due date).", sideEffect: .write,
                 inputSchema: Schema.object(["listId": Schema.string(), "title": Schema.string(maxLength: 500), "notes": Schema.string(maxLength: 10_000),
-                                            "due": isoSchema, "priority": Schema.integer(min: 0, max: 9)], required: ["title"]),
+                                            "due": isoSchema, "priority": Schema.integer(min: 0, max: 9),
+                                            // Wave 1 (R2).
+                                            "url": Schema.string("A link to keep with it, e.g. message://… from mail.read", maxLength: 2_000),
+                                            "alarm": alarmSchema, "recurrence": recurrenceSchema], required: ["title"]),
                 receiptKind: "connector_action"
             )) { ctx in
                 let p = try ctx.decode(ReminderInput.self)
                 try text(p.title, max: 500, field: "title", required: true)
                 try text(p.notes, max: 10_000, field: "notes")
+                try text(p.url, max: 2_000, field: "url")
+                try p.recurrence?.validate()
                 try check(priority: p.priority)
                 let r = try await b.reminders.create(p)
                 return CapabilityOutput(["reminder": try json(r)], receipt: ReceiptDraft(outcome: .ok, summary: "Created reminder \(r.title)", externalRefs: ["reminderId": .string(r.id)]))
