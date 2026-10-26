@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (chat experience phase 2: `specialist_result` block, docs/design/chat-experience-2026.md §4.5)
+
+- New `Block` variant `specialist_result {taskId}` (`SpecialistResultBlock`): a specialist job's result in the thread that spawned it, in addition to Feed and Inbox. Swift `Block` is one struct with optional fields, so no switch site changes.
+
 ### v1 additive — 2026-10-26 (W, #670: Record meeting captured by the owner's device, docs/workflows/mail-and-meetings-2026.md §4.6)
 
 - New `meetings.record.push {seq, audio}` (`operator.write`): one chunk (base64 mono PCM s16le, 16 kHz, ≤ 512 000 chars) of the running recording, from the device that started it. The recording ends by itself after two minutes without chunks or when that device disconnects.

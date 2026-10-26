@@ -132,6 +132,8 @@ function blockToMarkdown(block: Block): string {
       return block.statement === null ? "[noted feedback]" : `[will remember: ${block.statement}]`;
     case "related_threads":
       return `[from your other chats: ${block.items.map((i) => i.title || i.threadId).join(", ")}]`;
+    case "specialist_result":
+      return `[specialist result: ${block.taskId}]`;
   }
 }
 
