@@ -1,6 +1,12 @@
 import { sanitizeDisplay } from "@psyche/permissions/cards";
-import type { McpProposal, McpServerInput, McpServerStatus } from "@psyche/protocol";
-import { type ReactNode, useState } from "react";
+import type {
+  McpProposal,
+  McpServerInput,
+  McpServerSecret,
+  McpServerStatus,
+  McpServerTool,
+} from "@psyche/protocol";
+import { type ReactNode, useEffect, useState } from "react";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { McpTrustCard } from "./McpTrustCard.tsx";
@@ -43,6 +49,8 @@ export interface McpState {
   review: ReactNode;
   check: (input: McpServerInput, secrets?: readonly McpSecret[]) => void;
   remove: (server: McpServerStatus) => void;
+  /** Turns a server off (kept in the list, not running) or back on. */
+  setEnabled: (server: McpServerStatus, enabled: boolean) => void;
 }
 
 export function useMcp(now?: number): McpState {
@@ -141,6 +149,18 @@ export function useMcp(now?: number): McpState {
         })
         .finally(() => setChecking(false));
     },
+    setEnabled: (s, enabled) => {
+      setActionError(null);
+      call("mcp.setEnabled", { serverId: s.id, enabled }).then(
+        () => {
+          q.reload();
+          setNotice(
+            t(enabled ? "settings.mcp.turnedOn" : "settings.mcp.turnedOff", { name: show(s.name) }),
+          );
+        },
+        (err: unknown) => setActionError(messageOf(err)),
+      );
+    },
     remove: (s) => {
       setActionError(null);
       call("mcp.remove", { serverId: s.id }).then(
@@ -150,6 +170,98 @@ export function useMcp(now?: number): McpState {
         },
         (err: unknown) => setActionError(messageOf(err)),
       );
+    },
+  };
+}
+
+export interface McpToolsState {
+  tools: readonly McpServerTool[];
+  /** False while the server is off or not connected: there is nothing to list. */
+  available: boolean;
+  loading: boolean;
+  error: string | null;
+  /** A tool change that failed, in words. */
+  actionError: string | null;
+  /** The tool being changed. */
+  busy: string | null;
+  set: (tool: string, enabled: boolean) => void;
+}
+
+/**
+ * A server's tools and which the agent is offered (`mcp.tools`, `mcp.tools.set`). Loads while the
+ * detail is open, and again when the server connects or disconnects.
+ */
+export function useMcpTools(server: McpServerStatus, open: boolean): McpToolsState {
+  const call = useCall();
+  const live = server.connected && server.enabled !== false;
+  const q = useGatewayQuery("mcp.tools", { serverId: server.id }, { enabled: open });
+  const { reload } = q;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a change of `live` is the trigger
+  useEffect(() => {
+    if (open) reload();
+  }, [live, open, reload]);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  return {
+    tools: q.data?.tools ?? [],
+    available: q.data?.available ?? false,
+    loading: q.loading && q.data === undefined,
+    error: q.error,
+    actionError,
+    busy,
+    set: (tool, enabled) => {
+      setActionError(null);
+      setBusy(tool);
+      call("mcp.tools.set", { serverId: server.id, tool, enabled })
+        .then(() => reload())
+        .catch((err: unknown) => setActionError(messageOf(err)))
+        .finally(() => setBusy(null));
+    },
+  };
+}
+
+export interface McpSecretsState {
+  secrets: readonly McpServerSecret[];
+  loading: boolean;
+  error: string | null;
+  actionError: string | null;
+  /** The name being replaced. */
+  busy: string | null;
+  /** The last replacement, in words. */
+  notice: string | null;
+  /** Stores a new value (it goes to the vault, never back to this screen). */
+  replace: (name: string, value: string) => Promise<boolean>;
+}
+
+/** A server's env variables and bearer token by name (`mcp.secrets`, `mcp.secrets.replace`). */
+export function useMcpSecrets(server: McpServerStatus, open: boolean): McpSecretsState {
+  const call = useCall();
+  const q = useGatewayQuery("mcp.secrets", { serverId: server.id }, { enabled: open });
+  const [busy, setBusy] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  return {
+    secrets: q.data?.secrets ?? [],
+    loading: q.loading && q.data === undefined,
+    error: q.error,
+    actionError,
+    busy,
+    notice,
+    replace: async (name, value) => {
+      setActionError(null);
+      setNotice(null);
+      setBusy(name);
+      try {
+        await call("mcp.secrets.replace", { serverId: server.id, name, value });
+        q.reload();
+        setNotice(t("settings.mcp.secrets.replaced", { name }));
+        return true;
+      } catch (err) {
+        setActionError(messageOf(err));
+        return false;
+      } finally {
+        setBusy(null);
+      }
     },
   };
 }
