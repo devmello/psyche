@@ -26,6 +26,7 @@ import {
   type KeyboardEvent,
   type ReactElement,
   type ReactNode,
+  useEffect,
   useId,
   useMemo,
   useRef,
@@ -384,90 +385,113 @@ export function SettingsScreen({
     buttons[next]?.focus();
   };
 
+  // Two-pane (≥ 720 px): the selected row stays in view in the list, and a new section starts at
+  // the top of the content pane. Stacked, neither pane scrolls on its own, so neither moves.
+  const asideRef = useRef<HTMLElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the section changes
+  useEffect(() => {
+    const aside = asideRef.current;
+    if (aside === null || getComputedStyle(aside).overflowY !== "auto") return;
+    const row = navRef.current?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (typeof row?.scrollIntoView === "function") row.scrollIntoView({ block: "nearest" });
+    if (contentRef.current !== null) contentRef.current.scrollTop = 0;
+  }, [current]);
+
   return (
-    // The Settings window (§5.8): a grouped, searchable sidebar and grouped inset lists. On the
-    // web the same layout renders at /settings/:section.
-    <div className="flex min-h-0 flex-col gap-4 md:grid md:grid-cols-[13.75rem_minmax(0,1fr)] md:gap-0">
-      <aside className="flex flex-col gap-3 bg-surface-sidebar p-2 md:min-h-full md:py-3">
-        <h1 className="sr-only">{t("settings.nav.title")}</h1>
-        <div className="relative px-1">
-          <Search
-            aria-hidden="true"
-            className="pointer-events-none absolute start-3 top-1/2 size-3.5 -translate-y-1/2 text-label-tertiary"
-          />
-          <input
-            id={searchId}
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "ArrowDown") {
-                e.preventDefault();
-                navRef.current?.querySelector("button")?.focus();
-              }
-            }}
-            placeholder={t("settings.nav.search")}
-            aria-label={t("settings.nav.search")}
-            className="h-7 w-full rounded-md bg-fill-tertiary ps-7 pe-2 text-body text-label-primary outline-none placeholder:text-label-tertiary focus-visible:ring-2 focus-visible:ring-ring"
-          />
-        </div>
-        <nav aria-label={t("settings.nav.label")} ref={navRef} onKeyDown={onNavKey}>
-          {matches.size === 0 ? (
-            <p className="px-3 py-2 text-callout text-label-secondary" role="status">
-              {t("settings.nav.noMatch")}
-            </p>
-          ) : null}
-          {SETTINGS_GROUPS.map((g) => {
-            const shown = g.sections.filter((id) => matches.has(id));
-            if (shown.length === 0) return null;
-            return (
-              <div key={g.id} className="mb-3 flex flex-col gap-0.5">
-                <h2 className="px-3 pb-0.5 text-caption text-label-tertiary">
-                  {t(`settings.nav.group.${g.id}`)}
-                </h2>
-                <ul className="flex flex-col gap-px">
-                  {shown.map((id) => {
-                    const s = byId.get(id);
-                    if (s === undefined) return null;
-                    const active = id === current;
-                    const Icon = s.icon;
-                    return (
-                      <li key={id}>
-                        <button
-                          type="button"
-                          aria-current={active ? "page" : undefined}
-                          onClick={() => select(id)}
-                          className={cn(
-                            "flex h-7 w-full cursor-default items-center gap-2 rounded-sm px-2 text-start text-body outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                            active
-                              ? "bg-selection text-label-primary"
-                              : "text-label-primary hover:bg-fill-quaternary",
-                          )}
-                        >
-                          <Icon
+    // The Settings window (§5.8), like System Settings: at ≥ 720 px a 248 px section list and the
+    // content, each full height with its own scroll; narrower (the web on a phone) they stack. A
+    // container query, so the screen's own width decides, not the window's.
+    <div className="@container flex min-h-0 w-full flex-1 flex-col">
+      <div className="flex flex-1 flex-col gap-4 @min-[720px]:grid @min-[720px]:min-h-0 @min-[720px]:grid-cols-[248px_minmax(0,1fr)] @min-[720px]:gap-0">
+        <aside
+          ref={asideRef}
+          className="flex flex-col bg-surface-sidebar px-2 pb-2 @min-[720px]:min-h-0 @min-[720px]:overflow-y-auto @min-[720px]:pb-3"
+        >
+          <h1 className="sr-only">{t("settings.nav.title")}</h1>
+          {/* Pinned at the top of the list's scroll (h-11: the group headers stick under it). */}
+          <div className="relative z-20 flex h-11 shrink-0 items-center bg-surface-sidebar px-1 @min-[720px]:sticky @min-[720px]:top-0">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute start-3 top-1/2 size-3.5 -translate-y-1/2 text-label-tertiary"
+            />
+            <input
+              id={searchId}
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  navRef.current?.querySelector("button")?.focus();
+                }
+              }}
+              placeholder={t("settings.nav.search")}
+              aria-label={t("settings.nav.search")}
+              className="h-7 w-full rounded-md bg-fill-tertiary ps-7 pe-2 text-body text-label-primary outline-none placeholder:text-label-tertiary focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
+          <nav aria-label={t("settings.nav.label")} ref={navRef} onKeyDown={onNavKey}>
+            {matches.size === 0 ? (
+              <p className="px-3 py-2 text-callout text-label-secondary" role="status">
+                {t("settings.nav.noMatch")}
+              </p>
+            ) : null}
+            {SETTINGS_GROUPS.map((g) => {
+              const shown = g.sections.filter((id) => matches.has(id));
+              if (shown.length === 0) return null;
+              return (
+                <div key={g.id} className="mb-3 flex flex-col gap-0.5">
+                  <h2 className="z-10 bg-surface-sidebar px-3 pb-0.5 text-caption text-label-tertiary @min-[720px]:sticky @min-[720px]:top-11">
+                    {t(`settings.nav.group.${g.id}`)}
+                  </h2>
+                  <ul className="flex flex-col gap-px">
+                    {shown.map((id) => {
+                      const s = byId.get(id);
+                      if (s === undefined) return null;
+                      const active = id === current;
+                      const Icon = s.icon;
+                      return (
+                        <li key={id}>
+                          <button
+                            type="button"
+                            aria-current={active ? "page" : undefined}
+                            onClick={() => select(id)}
                             className={cn(
-                              "size-4 shrink-0",
-                              active ? "text-accent-11" : "text-label-secondary",
+                              "flex h-7 w-full cursor-default scroll-mt-16 items-center gap-2 rounded-sm px-2 text-start text-body outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                              active
+                                ? "bg-selection text-label-primary"
+                                : "text-label-primary hover:bg-fill-quaternary",
                             )}
-                            strokeWidth={1.75}
-                            aria-hidden="true"
-                          />
-                          <span className="truncate">{s.label}</span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            );
-          })}
-        </nav>
-      </aside>
-      <div className="flex min-w-0 flex-col gap-5 bg-canvas px-6 py-5 md:px-8">
-        <div className="flex w-full max-w-[680px] flex-col gap-5">
-          <SettingsApprovalProvider>
-            <SettingsSectionView section={current} shell={shell} onOpenSection={select} />
-          </SettingsApprovalProvider>
+                          >
+                            <Icon
+                              className={cn(
+                                "size-4 shrink-0",
+                                active ? "text-accent-11" : "text-label-secondary",
+                              )}
+                              strokeWidth={1.75}
+                              aria-hidden="true"
+                            />
+                            <span className="truncate">{s.label}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              );
+            })}
+          </nav>
+        </aside>
+        <div
+          ref={contentRef}
+          className="flex min-w-0 flex-col gap-5 bg-canvas px-6 py-5 @min-[720px]:min-h-0 @min-[720px]:overflow-y-auto @min-[720px]:px-8"
+        >
+          <div className="flex w-full max-w-[680px] flex-col gap-5">
+            <SettingsApprovalProvider>
+              <SettingsSectionView section={current} shell={shell} onOpenSection={select} />
+            </SettingsApprovalProvider>
+          </div>
         </div>
       </div>
     </div>

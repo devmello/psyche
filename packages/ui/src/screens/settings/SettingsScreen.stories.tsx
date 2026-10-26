@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/react-vite";
+import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import { createFixtureWorld, IDS } from "../../fixtures/index.ts";
 import { STORY_NOW, withWorld } from "../../stories/harness.tsx";
 import { SettingsScreen } from "./SettingsScreen.tsx";
@@ -96,4 +96,46 @@ export const EmptyWorld: Story = {
       },
     }),
   ],
+};
+
+// --- Window widths (#596) ------------------------------------------------------------------------
+
+/**
+ * The screen in a window-sized frame: two panes from 720 px, each scrolling on its own. The
+ * baseline viewport is 960 px wide, so wider frames are scaled down to fit (the layout still sees
+ * the full width; it is a container query).
+ */
+const frame =
+  (width: number, height: number): Decorator =>
+  (Story) => {
+    const scale = Math.min(1, 940 / width);
+    return (
+      <div style={{ width: width * scale, height: height * scale, overflow: "hidden" }}>
+        <div
+          className="flex flex-col overflow-auto border border-separator"
+          style={{ width, height, transform: `scale(${scale})`, transformOrigin: "top left" }}
+        >
+          <Story />
+        </div>
+      </div>
+    );
+  };
+
+export const Window760: Story = {
+  args: { defaultSection: "permissions" },
+  decorators: [frame(760, 560)],
+};
+export const Window920: Story = {
+  args: { defaultSection: "appearance" },
+  decorators: [frame(920, 600)],
+};
+/** The selected row (the last group) is scrolled into view in the list. */
+export const Window1200: Story = {
+  args: { defaultSection: "about" },
+  decorators: [frame(1200, 640)],
+};
+/** Below 720 px the list stacks above the content (the web on a phone). */
+export const Window600Stacked: Story = {
+  args: { defaultSection: "model" },
+  decorators: [frame(600, 640)],
 };
