@@ -142,6 +142,11 @@ const bridge = {
     onKey: (cb: (e: unknown) => void) => listen(IPC.voiceKey, cb),
     onSystem: (cb: (e: unknown) => void) => listen(IPC.voiceSystem, cb),
   },
+  /** The voice HUD window only (`VoiceHudBridge`); main ignores these from any other renderer. */
+  voiceHud: {
+    done: () => ipcRenderer.send(IPC.voiceHudDone),
+    openThread: (threadId: string | null) => ipcRenderer.send(IPC.voiceHudOpenThread, { threadId }),
+  },
   /** The dictation HUD window only; main ignores these from any other renderer. */
   dictation: {
     onState: (cb: (s: unknown) => void) => listen(IPC.dictationHudState, cb),

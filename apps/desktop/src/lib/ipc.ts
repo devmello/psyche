@@ -81,6 +81,9 @@ export const IPC = {
   // voice key from the helper's watch, and screen lock / sleep, which end a conversation.
   voiceKey: "psyche:voice:key",
   voiceSystem: "psyche:voice:system",
+  // Voice HUD only (HUD → main): the conversation ended, or open its thread in Psyche.
+  voiceHudDone: "psyche:voice-hud:done",
+  voiceHudOpenThread: "psyche:voice-hud:open-thread",
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];

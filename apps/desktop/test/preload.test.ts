@@ -40,3 +40,18 @@ describe("Try it from the Settings window (#677)", () => {
     });
   });
 });
+
+describe("the voice HUD bridge (V-G)", () => {
+  it("sends done and openThread to main on their own channels", () => {
+    const bridge = exposed.psyche as {
+      voiceHud: { done: () => void; openThread: (id: string | null) => void };
+    };
+    expect(Object.keys(bridge.voiceHud).sort()).toEqual(["done", "openThread"]);
+    bridge.voiceHud.done();
+    expect(send).toHaveBeenLastCalledWith(IPC.voiceHudDone);
+    bridge.voiceHud.openThread("th_1");
+    expect(send).toHaveBeenLastCalledWith(IPC.voiceHudOpenThread, { threadId: "th_1" });
+    bridge.voiceHud.openThread(null);
+    expect(send).toHaveBeenLastCalledWith(IPC.voiceHudOpenThread, { threadId: null });
+  });
+});
