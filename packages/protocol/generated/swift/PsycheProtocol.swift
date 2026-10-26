@@ -258,6 +258,8 @@
 //   let connectorStatus = try? JSONDecoder().decode(ConnectorStatus.self, from: jsonData)
 //   let connectorsCatalogueParams = try? JSONDecoder().decode(ConnectorsCatalogueParams.self, from: jsonData)
 //   let connectorsCatalogueResult = try? JSONDecoder().decode(ConnectorsCatalogueResult.self, from: jsonData)
+//   let connectorsConfigureParams = try? JSONDecoder().decode(ConnectorsConfigureParams.self, from: jsonData)
+//   let connectorsConfigureResult = try? JSONDecoder().decode(ConnectorsConfigureResult.self, from: jsonData)
 //   let connectorsConnectParams = try? JSONDecoder().decode(ConnectorsConnectParams.self, from: jsonData)
 //   let connectorsConnectResult = try? JSONDecoder().decode(ConnectorsConnectResult.self, from: jsonData)
 //   let connectorsDisconnectParams = try? JSONDecoder().decode(ConnectorsDisconnectParams.self, from: jsonData)
@@ -7646,74 +7648,32 @@ public struct Scopes: Codable, Sendable {
     }
 }
 
-// MARK: - ConnectorsConnectParams
-public struct ConnectorsConnectParams: Codable, Sendable {
-    public let catalogueID: String
-    public let config: [String: JSONAny]?
-    public let connectorID: String?
-    public let label: String?
-    public let scopeMode: ScopeMode
+// MARK: - ConnectorsConfigureParams
+public struct ConnectorsConfigureParams: Codable, Sendable {
+    public let config: [String: JSONAny]
+    public let connectorID: String
 
     public enum CodingKeys: String, CodingKey {
-        case catalogueID = "catalogueId"
         case config = "config"
         case connectorID = "connectorId"
-        case label = "label"
-        case scopeMode = "scopeMode"
     }
 
-    public init(catalogueID: String, config: [String: JSONAny]?, connectorID: String?, label: String?, scopeMode: ScopeMode) {
-        self.catalogueID = catalogueID
+    public init(config: [String: JSONAny], connectorID: String) {
         self.config = config
         self.connectorID = connectorID
-        self.label = label
-        self.scopeMode = scopeMode
     }
 }
 
-public enum ScopeMode: String, Codable, Sendable {
-    case read = "read"
-    case readAct = "read_act"
-}
-
-// MARK: - ConnectorsConnectResult
-public struct ConnectorsConnectResult: Codable, Sendable {
-    public let authorization: ConnectorAuthorization?
+// MARK: - ConnectorsConfigureResult
+public struct ConnectorsConfigureResult: Codable, Sendable {
     public let connector: Connector
 
     public enum CodingKeys: String, CodingKey {
-        case authorization = "authorization"
         case connector = "connector"
     }
 
-    public init(authorization: ConnectorAuthorization?, connector: Connector) {
-        self.authorization = authorization
+    public init(connector: Connector) {
         self.connector = connector
-    }
-}
-
-// MARK: - ConnectorAuthorization
-public struct ConnectorAuthorization: Codable, Sendable {
-    /// Epoch ms
-    public let expiresAt: Int
-    public let opened: Bool
-    /// https consent page, or the device-code verification page
-    public let url: String
-    /// Device code flow: the code to enter
-    public let userCode: String?
-
-    public enum CodingKeys: String, CodingKey {
-        case expiresAt = "expiresAt"
-        case opened = "opened"
-        case url = "url"
-        case userCode = "userCode"
-    }
-
-    public init(expiresAt: Int, opened: Bool, url: String, userCode: String?) {
-        self.expiresAt = expiresAt
-        self.opened = opened
-        self.url = url
-        self.userCode = userCode
     }
 }
 
@@ -7767,11 +7727,82 @@ public struct Connector: Codable, Sendable {
     }
 }
 
+public enum ScopeMode: String, Codable, Sendable {
+    case read = "read"
+    case readAct = "read_act"
+}
+
 public enum ConnectorStatus: String, Codable, Sendable {
     case connected = "connected"
     case disconnected = "disconnected"
     case error = "error"
     case needsAuth = "needs_auth"
+}
+
+// MARK: - ConnectorsConnectParams
+public struct ConnectorsConnectParams: Codable, Sendable {
+    public let catalogueID: String
+    public let config: [String: JSONAny]?
+    public let connectorID: String?
+    public let label: String?
+    public let scopeMode: ScopeMode
+
+    public enum CodingKeys: String, CodingKey {
+        case catalogueID = "catalogueId"
+        case config = "config"
+        case connectorID = "connectorId"
+        case label = "label"
+        case scopeMode = "scopeMode"
+    }
+
+    public init(catalogueID: String, config: [String: JSONAny]?, connectorID: String?, label: String?, scopeMode: ScopeMode) {
+        self.catalogueID = catalogueID
+        self.config = config
+        self.connectorID = connectorID
+        self.label = label
+        self.scopeMode = scopeMode
+    }
+}
+
+// MARK: - ConnectorsConnectResult
+public struct ConnectorsConnectResult: Codable, Sendable {
+    public let authorization: ConnectorAuthorization?
+    public let connector: Connector
+
+    public enum CodingKeys: String, CodingKey {
+        case authorization = "authorization"
+        case connector = "connector"
+    }
+
+    public init(authorization: ConnectorAuthorization?, connector: Connector) {
+        self.authorization = authorization
+        self.connector = connector
+    }
+}
+
+// MARK: - ConnectorAuthorization
+public struct ConnectorAuthorization: Codable, Sendable {
+    /// Epoch ms
+    public let expiresAt: Int
+    public let opened: Bool
+    /// https consent page, or the device-code verification page
+    public let url: String
+    /// Device code flow: the code to enter
+    public let userCode: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case expiresAt = "expiresAt"
+        case opened = "opened"
+        case url = "url"
+        case userCode = "userCode"
+    }
+
+    public init(expiresAt: Int, opened: Bool, url: String, userCode: String?) {
+        self.expiresAt = expiresAt
+        self.opened = opened
+        self.url = url
+        self.userCode = userCode
+    }
 }
 
 // MARK: - ConnectorsDisconnectParams
@@ -20318,16 +20349,19 @@ public struct ThingsAddParams: Codable, Sendable {
 
 // MARK: - ThingsCompleteParams
 public struct ThingsCompleteParams: Codable, Sendable {
+    public let authToken: String?
     public let id: String
     /// Default completed
     public let status: ThingsCompleteParamsStatus?
 
     public enum CodingKeys: String, CodingKey {
+        case authToken = "authToken"
         case id = "id"
         case status = "status"
     }
 
-    public init(id: String, status: ThingsCompleteParamsStatus?) {
+    public init(authToken: String?, id: String, status: ThingsCompleteParamsStatus?) {
+        self.authToken = authToken
         self.id = id
         self.status = status
     }
@@ -20422,6 +20456,7 @@ public struct ThingsTodo: Codable, Sendable {
 public struct ThingsUpdateParams: Codable, Sendable {
     public let addTags: [String]?
     public let appendNotes: String?
+    public let authToken: String?
     public let deadline: String?
     public let id: String
     public let title: String?
@@ -20431,15 +20466,17 @@ public struct ThingsUpdateParams: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case addTags = "addTags"
         case appendNotes = "appendNotes"
+        case authToken = "authToken"
         case deadline = "deadline"
         case id = "id"
         case title = "title"
         case when = "when"
     }
 
-    public init(addTags: [String]?, appendNotes: String?, deadline: String?, id: String, title: String?, when: String?) {
+    public init(addTags: [String]?, appendNotes: String?, authToken: String?, deadline: String?, id: String, title: String?, when: String?) {
         self.addTags = addTags
         self.appendNotes = appendNotes
+        self.authToken = authToken
         self.deadline = deadline
         self.id = id
         self.title = title
