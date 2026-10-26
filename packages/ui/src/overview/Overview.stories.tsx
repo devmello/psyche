@@ -2,8 +2,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import type { MockGateway } from "../data/mock-gateway.ts";
 import type { InsightsFixtureState } from "../fixtures/index.ts";
-import { InLocale, STORY_NOW, StoryWorld, withWorld } from "../stories/harness.tsx";
 import { cn } from "../lib/utils.ts";
+import { InLocale, STORY_NOW, StoryWorld, withWorld } from "../stories/harness.tsx";
 import { OverviewScreen } from "./OverviewScreen.tsx";
 import type { OverviewPeriod } from "./period.ts";
 import { insightsWorld } from "./storyWorld.ts";
@@ -63,10 +63,7 @@ function Page({
   };
   const page = (
     <div
-      className={cn(
-        "flex flex-col bg-canvas",
-        full ? "min-h-dvh" : "h-dvh min-h-0 overflow-auto",
-      )}
+      className={cn("flex flex-col bg-canvas", full ? "min-h-dvh" : "h-dvh min-h-0 overflow-auto")}
       style={width === undefined ? {} : { width }}
     >
       <StoryWorld
@@ -171,7 +168,5 @@ export const DesktopArFull: Story = {
 
 export const CompactArFull: Story = {
   tags: ["full-page"],
-  render: () => (
-    <Page firstActivityAt={SIX_WEEKS_AGO} initial="30d" width={390} locale="ar" full />
-  ),
+  render: () => <Page firstActivityAt={SIX_WEEKS_AGO} initial="30d" width={390} locale="ar" full />,
 };

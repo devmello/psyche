@@ -192,7 +192,7 @@ function Sentence({
   const second =
     lessons > 0 ? i18n.t("overview.summary.sentence.lessons", { name, n: lessons }) : "";
   return (
-    <p className="text-title-3 text-label-primary" data-testid="overview-summary-sentence">
+    <p className="cjk-wrap text-title-3 text-label-primary" data-testid="overview-summary-sentence">
       {[first, second].filter((s) => s !== "").join(" ")}
     </p>
   );

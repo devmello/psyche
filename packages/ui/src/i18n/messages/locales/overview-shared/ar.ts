@@ -33,7 +33,8 @@ export const overviewShared: Partial<Catalogue> = {
   "agent.timeline.state.failed": "فشلت",
   "agent.timeline.state.cancelled": "أُوقفت",
   "agent.timeline.state.waiting": "بانتظارك",
-  "agent.timeline.steps": "{n, plural, zero {لا خطوات} one {خطوة واحدة} two {خطوتان} few {# خطوات} many {# خطوة} other {# خطوة}}",
+  "agent.timeline.steps":
+    "{n, plural, zero {لا خطوات} one {خطوة واحدة} two {خطوتان} few {# خطوات} many {# خطوة} other {# خطوة}}",
   "agent.timeline.unknown": "—",
   "specialists.action.open": "فتح",
   "specialists.action.hide": "إخفاء",
@@ -46,7 +47,8 @@ export const overviewShared: Partial<Catalogue> = {
   "screens.growth.period.7d": "هذا الأسبوع",
   "screens.growth.period.30d": "هذا الشهر",
   "screens.growth.period.all": "حتى الآن",
-  "screens.growth.summaryLine": "{period}: {learned, plural, zero {لا دروس} one {درس واحد} two {درسان} few {# دروس} many {# درسًا} other {# درس}}، {refined} مُحسَّن",
+  "screens.growth.summaryLine":
+    "{period}: {learned, plural, zero {لا دروس} one {درس واحد} two {درسان} few {# دروس} many {# درسًا} other {# درس}}، {refined} مُحسَّن",
   "screens.growth.timeline": "ما تعلّمه {agent}",
   "screens.growth.filter": "عرض",
   "screens.growth.filter.all": "الكل",
@@ -55,7 +57,8 @@ export const overviewShared: Partial<Catalogue> = {
   "screens.growth.week": "أسبوع {date}",
   "screens.growth.provenance.stated": "أخبرتني",
   "screens.growth.provenance.feedback": "من ملاحظاتك",
-  "screens.growth.provenance.noticed": "{n, plural, zero {لم ألاحظ ذلك بعد} one {لاحظتُ ذلك مرة واحدة} two {لاحظتُ ذلك مرتين} few {لاحظتُ ذلك # مرات} many {لاحظتُ ذلك # مرة} other {لاحظتُ ذلك # مرة}}",
+  "screens.growth.provenance.noticed":
+    "{n, plural, zero {لم ألاحظ ذلك بعد} one {لاحظتُ ذلك مرة واحدة} two {لاحظتُ ذلك مرتين} few {لاحظتُ ذلك # مرات} many {لاحظتُ ذلك # مرة} other {لاحظتُ ذلك # مرة}}",
   "screens.growth.provenance.confirmed": "أكّدتَ ذلك",
   "screens.growth.destination.skill": "مهارة {skill}",
   "screens.growth.destination.automation": "القادمة",
@@ -77,13 +80,16 @@ export const overviewShared: Partial<Catalogue> = {
   "screens.growth.metric.repeat_corrections": "تصحيحات متكررة",
   "screens.growth.metric.corrections_applied": "تصحيحات مُطبَّقة",
   "screens.growth.metricSkill": "{skill}: {metric}",
-  "screens.growth.metricRate": "\u2068{rate, number, percent}\u2069 (\u2068{count, number}\u2069 من \u2068{total, number}\u2069)",
+  "screens.growth.metricRate":
+    "\u2068{rate, number, percent}\u2069 (\u2068{count, number}\u2069 من \u2068{total, number}\u2069)",
   "screens.growth.metricCount": "\u2068{count, number}\u2069 من \u2068{total, number}\u2069",
   "screens.growth.wasRate": "كان \u2068{rate, number, percent}\u2069",
   "screens.growth.wasCount": "كان \u2068{count, number}\u2069 من \u2068{total, number}\u2069",
   "screens.growth.thin": "لا يوجد سجل كافٍ بعد",
-  "screens.growth.evidence": "{n, plural, zero {دون أي حدث} one {استنادًا إلى حدث واحد} two {استنادًا إلى حدثين} few {استنادًا إلى # أحداث} many {استنادًا إلى # حدثًا} other {استنادًا إلى # حدث}}",
-  "screens.growth.empty": "لم يُتعلَّم أي شيء بعد. أخبر {agent} عندما لا يكون شيء على ما يرام وسيتذكّر ذلك.",
+  "screens.growth.evidence":
+    "{n, plural, zero {دون أي حدث} one {استنادًا إلى حدث واحد} two {استنادًا إلى حدثين} few {استنادًا إلى # أحداث} many {استنادًا إلى # حدثًا} other {استنادًا إلى # حدث}}",
+  "screens.growth.empty":
+    "لم يُتعلَّم أي شيء بعد. أخبر {agent} عندما لا يكون شيء على ما يرام وسيتذكّر ذلك.",
   "screens.growth.loading": "جارٍ تحميل ما تعلّمه {agent}",
   "screens.growth.loadFailed": "تعذّر تحميل التطور. {reason}",
   "screens.growth.retry": "حاول مرة أخرى",
@@ -98,4 +104,22 @@ export const overviewShared: Partial<Catalogue> = {
   "screens.growth.card.remembered": "سيتذكّر {agent} ذلك.",
   "screens.growth.card.declined": "حسنًا. لن يتذكّر {agent} ذلك.",
   "screens.growth.card.open": "فتح التطور",
+  "screens.lessons.automation": "تغيّر بناءً على ملاحظاتك · {date}",
+  "screens.lessons.mark": "تعلّمتُه منك · {date}",
+  "screens.lessons.refined":
+    "{n, plural, zero {صُقل # مرة} one {صُقل مرة واحدة} two {صُقل مرتين} few {صُقل # مرات} many {صُقل # مرة} other {صُقل # مرة}}",
+  "screens.lessons.markLabel":
+    "تعلّمتُه منك في {date}{n, plural, =0 {} one {، صُقل مرة واحدة} two {، صُقل مرتين} few {، صُقل # مرات} many {، صُقل # مرة} other {، صُقل # مرة}}. عرض التفاصيل",
+  "screens.lessons.change": "التغيير",
+  "screens.lessons.before": "قبل",
+  "screens.lessons.after": "بعد",
+  "screens.lessons.loadFailed": "تعذّر تحميل هذا الدرس. {reason}",
+  "screens.lessons.sources": "من ملاحظاتك",
+  "screens.lessons.sourceDate": "{date}",
+  "screens.lessons.openThread": "فتح المحادثة",
+  "screens.lessons.saved": "تم الحفظ.",
+  "screens.lessons.editLabel": "سطر الدرس",
+  "screens.lessons.kept": "تم الاحتفاظ بها. صار Psyche متأكدًا من ذلك الآن.",
+  "screens.lessons.keep": "احتفظ",
+  "screens.lessons.forgotten": "تم النسيان. عاد السطر إلى ما كان عليه.",
 };
