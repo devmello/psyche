@@ -110,4 +110,7 @@ export const voice = {
   "voice.phrases.approve": "yes|send it|do it|go ahead|approve",
   "voice.phrases.deny": "no|cancel|don’t|stop|deny",
   "voice.phrases.trailing": "and|but|so|or|because|um|uh",
+  // Ask about my screen: words that mean the request is about what's on screen.
+  "voice.phrases.screen":
+    "this|that|these|those|here|on screen|on my screen|looking at|what am i looking at|this page|this error|this chart|this window|above|below",
 } as const;

@@ -1106,6 +1106,123 @@ export interface ArtifactBlock {
 
 export type ArtifactBlockType = "artifact";
 
+export interface ArtifactTable {
+    columns: string[];
+    rows:    Array<ArtifactCell[]>;
+}
+
+export type ArtifactCell = boolean | number | null | string;
+
+export interface ArtifactUpdatedPayload {
+    artifact: Artifact;
+    version:  ArtifactVersion;
+}
+
+export interface Artifact {
+    bytes?:        number;
+    id:            string;
+    language?:     string;
+    libraryItemId: string;
+    nameSlug:      string;
+    sourceRef?:    null | string;
+    threadId?:     null | string;
+    title:         string;
+    type:          ArtifactType;
+    untrusted?:    boolean;
+    updatedAt:     string;
+    version:       number;
+}
+
+export type ArtifactType = "markdown" | "html" | "react" | "pdf" | "sheet" | "itinerary" | "dashboard" | "doc" | "code" | "table" | "image";
+
+export interface ArtifactVersion {
+    artifactId:    string;
+    author:        ArtifactAuthor;
+    bytes:         number;
+    createdAt:     string;
+    hash:          string;
+    kind:          ArtifactVersionKind;
+    ops?:          ArtifactOp[];
+    restoredFrom?: number;
+    runId?:        null | string;
+    summary:       string;
+    toolCallId?:   null | string;
+    version:       number;
+}
+
+export type ArtifactAuthor = "agent" | "user" | "specialist";
+
+export type ArtifactVersionKind = "snapshot" | "ops";
+
+export interface ArtifactOp {
+    new?:     string;
+    old?:     string;
+    op:       Op;
+    after?:   string;
+    text?:    string;
+    content?: string;
+    cell?:    string;
+    value?:   ArtifactCell;
+    range?:   string;
+    values?:  ValueElement[];
+    at?:      number;
+    rows?:    Array<ArtifactCell[]>;
+    count?:   number;
+    name?:    string;
+    view?:    ArtifactTableView;
+}
+
+export type Op = "replace" | "insert" | "rewrite" | "set" | "setRange" | "addRows" | "deleteRows" | "addColumn" | "view";
+
+export type ValueElement = ArtifactCell[] | boolean | number | null | string;
+
+export interface ArtifactTableView {
+    filter?: Filter | null;
+    sort?:   Sort | null;
+}
+
+export interface Filter {
+    column:   string;
+    contains: string;
+}
+
+export interface Sort {
+    column: string;
+    dir:    Dir;
+}
+
+export type Dir = "asc" | "desc";
+
+export interface ArtifactsCreateParams {
+    content:   string;
+    language?: string;
+    threadId?: string;
+    title:     string;
+    type:      ArtifactType;
+}
+
+export interface ArtifactsCreateResult {
+    artifact:  Artifact;
+    conflict?: ArtifactConflict;
+    ref:       ArtifactRef;
+}
+
+export interface ArtifactConflict {
+    base:   number;
+    latest: number;
+    missed: ArtifactVersion[];
+}
+
+export interface ArtifactRef {
+    artifactId: string;
+    bytes:      number;
+    hash:       string;
+    summary:    string;
+    title:      string;
+    type:       ArtifactType;
+    version:    number;
+}
+
 export interface ArtifactsGetParams {
     artifactId: string;
 }
@@ -1114,18 +1231,70 @@ export interface ArtifactsGetResult {
     artifact: Artifact;
 }
 
-export interface Artifact {
-    id:            string;
-    libraryItemId: string;
-    nameSlug:      string;
-    sourceRef?:    null | string;
-    title:         string;
-    type:          ArtifactType;
-    updatedAt:     string;
-    version:       number;
+export interface ArtifactsListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?:   string;
+    limit?:    number;
+    threadId?: string;
 }
 
-export type ArtifactType = "markdown" | "html" | "react" | "pdf" | "sheet" | "itinerary" | "dashboard";
+export interface ArtifactsListResult {
+    artifacts:   Artifact[];
+    nextCursor?: null | string;
+}
+
+export interface ArtifactsReadParams {
+    artifactId: string;
+    lines?:     Lines;
+    version?:   number;
+}
+
+export interface Lines {
+    from: number;
+    to:   number;
+}
+
+export interface ArtifactsReadResult {
+    artifactId: string;
+    content:    string;
+    totalLines: number;
+    type:       ArtifactType;
+    version:    number;
+    view?:      ArtifactTableView;
+}
+
+export interface ArtifactsRestoreParams {
+    artifactId: string;
+    version:    number;
+}
+
+export interface ArtifactsRestoreResult {
+    artifact:  Artifact;
+    conflict?: ArtifactConflict;
+    ref:       ArtifactRef;
+}
+
+export interface ArtifactsUpdateParams {
+    artifactId: string;
+    base:       number;
+    ops:        ArtifactOp[];
+}
+
+export interface ArtifactsUpdateResult {
+    artifact:  Artifact;
+    conflict?: ArtifactConflict;
+    ref:       ArtifactRef;
+}
+
+export interface ArtifactsVersionsParams {
+    artifactId: string;
+}
+
+export interface ArtifactsVersionsResult {
+    versions: ArtifactVersion[];
+}
 
 export interface AttentionReportParams {
     /**
@@ -1215,14 +1384,12 @@ export interface AuditListParams {
      */
     kindPrefix?: string;
     limit?:      number;
-    order?:      Order;
+    order?:      Dir;
     since?:      string;
     sinceSeq?:   number;
     taskId?:     string;
     until?:      string;
 }
-
-export type Order = "asc" | "desc";
 
 export interface AuditListResult {
     entries: AuditEntry[];
