@@ -162,7 +162,10 @@ export const SETTINGS_WINDOW_PREFIX = "/window/settings";
 
 function initialRoute(): string {
   const p = globalThis.location?.pathname ?? "/chat";
-  return p === "/" || p.endsWith("index.html") ? "/chat" : p;
+  if (p === "/" || p.endsWith("index.html")) return "/chat";
+  // The Overview keeps its period in the URL (`?period=`), so a reload or a shared link reproduces
+  // the view (docs/design/agent-overview-2026.md §5.1).
+  return /^\/overview(\/|$)/.test(p) ? p + (globalThis.location?.search ?? "") : p;
 }
 
 function useWindowWidth(): number {

@@ -1,10 +1,18 @@
-import { CircleCheck, Library, Lightbulb, MessageCircle, Newspaper, Search } from "lucide-react";
+import {
+  CircleCheck,
+  Library,
+  Lightbulb,
+  MessageCircle,
+  Newspaper,
+  Search,
+  UserRound,
+} from "lucide-react";
 import type { ReactElement } from "react";
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 
 /** The destinations, in docs/06 §2.1's order: the sidebar's first group and the compact tab bar. */
-export type RailItem = "chat" | "search" | "feed" | "ideas" | "goals" | "library";
+export type RailItem = "chat" | "search" | "feed" | "ideas" | "goals" | "library" | "overview";
 
 export const RAIL_ITEMS: readonly {
   id: RailItem;
@@ -59,6 +67,14 @@ export const RAIL_ITEMS: readonly {
     },
     route: "/library/documents",
     icon: Library,
+  },
+  {
+    id: "overview",
+    get label() {
+      return t("shell.rail.overview");
+    },
+    route: "/overview",
+    icon: UserRound,
   },
 ];
 

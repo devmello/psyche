@@ -1,0 +1,35 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Overview screen strings (zh); merged into `../zh.ts`. */
+export const overview: Partial<Catalogue> = {
+  "overview.title": "{name}与你",
+  "overview.screen": "概览",
+  "overview.period.label": "时间范围",
+  "overview.period.week": "周",
+  "overview.period.month": "月",
+  "overview.period.all": "全部",
+  "overview.range.since": "自 {date} 起",
+  "overview.range.allTime": "全部时间",
+  "overview.jump.label": "跳转到某个部分",
+  "overview.section.now": "当前与接下来",
+  "overview.section.activity": "活动",
+  "overview.section.growth": "成长",
+  "overview.section.people": "人物与项目",
+  "overview.section.built": "为你打造",
+  "overview.section.specialists": "专家",
+  "overview.section.upcoming": "即将到来",
+  "overview.section.recent": "最近运行",
+  "overview.section.empty": "这里还没有内容。",
+  "overview.newUser.title": "{name}正在了解你",
+  "overview.newUser.body":
+    "一周后，你将看到{name}为你做了什么、学到了什么，以及它记住的人物和项目。",
+  "overview.newUser.try": "试试",
+  "overview.newUser.planWeek": "让{name}规划你的一周",
+  "overview.newUser.morningBrief": "设置晨间简报",
+  "overview.newUser.connectMail": "连接你的邮箱",
+  "overview.run.title": "运行",
+  "overview.run.placeholder": "运行时间线即将迁移到这里。",
+  "overview.run.back": "返回概览",
+  "shell.rail.overview": "概览",
+  "shell.sidebar.openOverview": "打开概览",
+};

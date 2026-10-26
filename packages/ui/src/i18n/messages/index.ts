@@ -10,6 +10,7 @@ import { glass } from "./glass.ts";
 import { mailMeetings } from "./mail-meetings.ts";
 import { meetingRecord } from "./meeting-record.ts";
 import { onboarding } from "./onboarding.ts";
+import { overview } from "./overview.ts";
 import { people } from "./people.ts";
 import { screenAsk } from "./screen-ask.ts";
 import { screens } from "./screens.ts";
@@ -52,6 +53,7 @@ export const en = {
   ...screenAsk,
   ...meetingRecord,
   ...workflows,
+  ...overview,
 } as const;
 
 export type MessageId = keyof typeof en;

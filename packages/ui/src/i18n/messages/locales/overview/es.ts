@@ -1,0 +1,35 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Overview screen strings (es); merged into `../es.ts`. */
+export const overview: Partial<Catalogue> = {
+  "overview.title": "{name} y tú",
+  "overview.screen": "Resumen",
+  "overview.period.label": "Periodo",
+  "overview.period.week": "Semana",
+  "overview.period.month": "Mes",
+  "overview.period.all": "Todo",
+  "overview.range.since": "Desde el {date}",
+  "overview.range.allTime": "Todo el tiempo",
+  "overview.jump.label": "Ir a una sección",
+  "overview.section.now": "Ahora y a continuación",
+  "overview.section.activity": "Actividad",
+  "overview.section.growth": "Progreso",
+  "overview.section.people": "Personas y proyectos",
+  "overview.section.built": "Hecho para ti",
+  "overview.section.specialists": "Especialistas",
+  "overview.section.upcoming": "Próximamente",
+  "overview.section.recent": "Ejecuciones recientes",
+  "overview.section.empty": "Aún no hay nada aquí.",
+  "overview.newUser.title": "{name} está empezando a conocerte",
+  "overview.newUser.body":
+    "En una semana verás lo que {name} hizo por ti, lo que aprendió y las personas y proyectos que tiene en cuenta.",
+  "overview.newUser.try": "Prueba",
+  "overview.newUser.planWeek": "Pídele a {name} que planifique tu semana",
+  "overview.newUser.morningBrief": "Configura un resumen matutino",
+  "overview.newUser.connectMail": "Conecta tu correo",
+  "overview.run.title": "Ejecución",
+  "overview.run.placeholder": "La cronología de la ejecución se está mudando aquí.",
+  "overview.run.back": "Volver al resumen",
+  "shell.rail.overview": "Resumen",
+  "shell.sidebar.openOverview": "Abrir el resumen",
+};

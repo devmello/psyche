@@ -1,0 +1,35 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Overview screen strings (it); merged into `../it.ts`. */
+export const overview: Partial<Catalogue> = {
+  "overview.title": "{name} e te",
+  "overview.screen": "Panoramica",
+  "overview.period.label": "Periodo",
+  "overview.period.week": "Settimana",
+  "overview.period.month": "Mese",
+  "overview.period.all": "Sempre",
+  "overview.range.since": "Dal {date}",
+  "overview.range.allTime": "Da sempre",
+  "overview.jump.label": "Vai a una sezione",
+  "overview.section.now": "Ora e a seguire",
+  "overview.section.activity": "Attività",
+  "overview.section.growth": "Crescita",
+  "overview.section.people": "Persone e progetti",
+  "overview.section.built": "Creato per te",
+  "overview.section.specialists": "Specialisti",
+  "overview.section.upcoming": "In arrivo",
+  "overview.section.recent": "Esecuzioni recenti",
+  "overview.section.empty": "Qui non c’è ancora nulla.",
+  "overview.newUser.title": "{name} sta imparando a conoscerti",
+  "overview.newUser.body":
+    "Tra una settimana vedrai cosa ha fatto {name} per te, cosa ha imparato e quali persone e progetti tiene d’occhio.",
+  "overview.newUser.try": "Prova",
+  "overview.newUser.planWeek": "Chiedi a {name} di pianificare la tua settimana",
+  "overview.newUser.morningBrief": "Imposta un riepilogo del mattino",
+  "overview.newUser.connectMail": "Collega la tua posta",
+  "overview.run.title": "Esecuzione",
+  "overview.run.placeholder": "La cronologia dell’esecuzione si sta spostando qui.",
+  "overview.run.back": "Torna alla panoramica",
+  "shell.rail.overview": "Panoramica",
+  "shell.sidebar.openOverview": "Apri la panoramica",
+};

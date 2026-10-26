@@ -1,0 +1,35 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Overview screen strings (fr); merged into `../fr.ts`. */
+export const overview: Partial<Catalogue> = {
+  "overview.title": "{name} et toi",
+  "overview.screen": "Aperçu",
+  "overview.period.label": "Période",
+  "overview.period.week": "Semaine",
+  "overview.period.month": "Mois",
+  "overview.period.all": "Tout",
+  "overview.range.since": "Depuis le {date}",
+  "overview.range.allTime": "Depuis toujours",
+  "overview.jump.label": "Aller à une section",
+  "overview.section.now": "Maintenant et ensuite",
+  "overview.section.activity": "Activité",
+  "overview.section.growth": "Progression",
+  "overview.section.people": "Personnes et projets",
+  "overview.section.built": "Créé pour toi",
+  "overview.section.specialists": "Spécialistes",
+  "overview.section.upcoming": "À venir",
+  "overview.section.recent": "Exécutions récentes",
+  "overview.section.empty": "Rien ici pour l’instant.",
+  "overview.newUser.title": "{name} apprend à te connaître",
+  "overview.newUser.body":
+    "Dans une semaine, tu verras ce que {name} a fait pour toi, ce qu’il a appris, ainsi que les personnes et les projets qu’il garde en tête.",
+  "overview.newUser.try": "Essayer",
+  "overview.newUser.planWeek": "Demander à {name} de planifier ta semaine",
+  "overview.newUser.morningBrief": "Configurer un résumé du matin",
+  "overview.newUser.connectMail": "Connecter ta messagerie",
+  "overview.run.title": "Exécution",
+  "overview.run.placeholder": "La chronologie de l’exécution déménage ici.",
+  "overview.run.back": "Retour à l’aperçu",
+  "shell.rail.overview": "Aperçu",
+  "shell.sidebar.openOverview": "Ouvrir l’aperçu",
+};
