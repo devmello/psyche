@@ -4,6 +4,10 @@
 // This file was generated from JSON Schema using quicktype, do not modify it directly.
 // To parse the JSON, add this file to your project and do:
 //
+//   let actionCall = try? JSONDecoder().decode(ActionCall.self, from: jsonData)
+//   let actionCallResult = try? JSONDecoder().decode(ActionCallResult.self, from: jsonData)
+//   let actionProposal = try? JSONDecoder().decode(ActionProposal.self, from: jsonData)
+//   let actionProposalStatus = try? JSONDecoder().decode(ActionProposalStatus.self, from: jsonData)
 //   let actionRule = try? JSONDecoder().decode(ActionRule.self, from: jsonData)
 //   let appleAlarm = try? JSONDecoder().decode(AppleAlarm.self, from: jsonData)
 //   let appleBusyBlock = try? JSONDecoder().decode(AppleBusyBlock.self, from: jsonData)
@@ -109,6 +113,7 @@
 //   let automationRunFinishedPayload = try? JSONDecoder().decode(AutomationRunFinishedPayload.self, from: jsonData)
 //   let automationRunStartedPayload = try? JSONDecoder().decode(AutomationRunStartedPayload.self, from: jsonData)
 //   let automationRunStatus = try? JSONDecoder().decode(AutomationRunStatus.self, from: jsonData)
+//   let automationTrigger = try? JSONDecoder().decode(AutomationTrigger.self, from: jsonData)
 //   let automationUpdatedPayload = try? JSONDecoder().decode(AutomationUpdatedPayload.self, from: jsonData)
 //   let automationsCreateParams = try? JSONDecoder().decode(AutomationsCreateParams.self, from: jsonData)
 //   let automationsDeleteParams = try? JSONDecoder().decode(AutomationsDeleteParams.self, from: jsonData)
@@ -334,6 +339,11 @@
 //   let dictationTargetResult = try? JSONDecoder().decode(DictationTargetResult.self, from: jsonData)
 //   let dictationWatchParams = try? JSONDecoder().decode(DictationWatchParams.self, from: jsonData)
 //   let dictationWatchResult = try? JSONDecoder().decode(DictationWatchResult.self, from: jsonData)
+//   let digestAction = try? JSONDecoder().decode(DigestAction.self, from: jsonData)
+//   let digestCategory = try? JSONDecoder().decode(DigestCategory.self, from: jsonData)
+//   let digestGroup = try? JSONDecoder().decode(DigestGroup.self, from: jsonData)
+//   let digestItem = try? JSONDecoder().decode(DigestItem.self, from: jsonData)
+//   let digestLoop = try? JSONDecoder().decode(DigestLoop.self, from: jsonData)
 //   let dmPolicy = try? JSONDecoder().decode(DmPolicy.self, from: jsonData)
 //   let documentsConvertParams = try? JSONDecoder().decode(DocumentsConvertParams.self, from: jsonData)
 //   let documentsConvertResult = try? JSONDecoder().decode(DocumentsConvertResult.self, from: jsonData)
@@ -357,7 +367,9 @@
 //   let feedListParams = try? JSONDecoder().decode(FeedListParams.self, from: jsonData)
 //   let feedListResult = try? JSONDecoder().decode(FeedListResult.self, from: jsonData)
 //   let feedPost = try? JSONDecoder().decode(FeedPost.self, from: jsonData)
+//   let feedPostKind = try? JSONDecoder().decode(FeedPostKind.self, from: jsonData)
 //   let feedPostPayload = try? JSONDecoder().decode(FeedPostPayload.self, from: jsonData)
+//   let feedPostRefs = try? JSONDecoder().decode(FeedPostRefs.self, from: jsonData)
 //   let feedUpdatedPayload = try? JSONDecoder().decode(FeedUpdatedPayload.self, from: jsonData)
 //   let feedbackDeleteParams = try? JSONDecoder().decode(FeedbackDeleteParams.self, from: jsonData)
 //   let feedbackEvent = try? JSONDecoder().decode(FeedbackEvent.self, from: jsonData)
@@ -460,6 +472,7 @@
 //   let ideasDismissResult = try? JSONDecoder().decode(IdeasDismissResult.self, from: jsonData)
 //   let ideasListParams = try? JSONDecoder().decode(IdeasListParams.self, from: jsonData)
 //   let ideasListResult = try? JSONDecoder().decode(IdeasListResult.self, from: jsonData)
+//   let inboxDigest = try? JSONDecoder().decode(InboxDigest.self, from: jsonData)
 //   let inputRequest = try? JSONDecoder().decode(InputRequest.self, from: jsonData)
 //   let inputRequestResult = try? JSONDecoder().decode(InputRequestResult.self, from: jsonData)
 //   let inputRequestStatus = try? JSONDecoder().decode(InputRequestStatus.self, from: jsonData)
@@ -485,6 +498,7 @@
 //   let logLine = try? JSONDecoder().decode(LogLine.self, from: jsonData)
 //   let logsTailParams = try? JSONDecoder().decode(LogsTailParams.self, from: jsonData)
 //   let logsTailResult = try? JSONDecoder().decode(LogsTailResult.self, from: jsonData)
+//   let mailThreadRef = try? JSONDecoder().decode(MailThreadRef.self, from: jsonData)
 //   let mCPAddParams = try? JSONDecoder().decode(MCPAddParams.self, from: jsonData)
 //   let mCPAddResult = try? JSONDecoder().decode(MCPAddResult.self, from: jsonData)
 //   let mCPProbeParams = try? JSONDecoder().decode(MCPProbeParams.self, from: jsonData)
@@ -496,6 +510,10 @@
 //   let mCPServerStatus = try? JSONDecoder().decode(MCPServerStatus.self, from: jsonData)
 //   let mCPStatusParams = try? JSONDecoder().decode(MCPStatusParams.self, from: jsonData)
 //   let mCPStatusResult = try? JSONDecoder().decode(MCPStatusResult.self, from: jsonData)
+//   let meetingActionItem = try? JSONDecoder().decode(MeetingActionItem.self, from: jsonData)
+//   let meetingAttendee = try? JSONDecoder().decode(MeetingAttendee.self, from: jsonData)
+//   let meetingNotes = try? JSONDecoder().decode(MeetingNotes.self, from: jsonData)
+//   let meetingPrep = try? JSONDecoder().decode(MeetingPrep.self, from: jsonData)
 //   let memoTaskMode = try? JSONDecoder().decode(MemoTaskMode.self, from: jsonData)
 //   let memoryChangeSource = try? JSONDecoder().decode(MemoryChangeSource.self, from: jsonData)
 //   let memoryChunk = try? JSONDecoder().decode(MemoryChunk.self, from: jsonData)
@@ -702,6 +720,17 @@
 //   let presenceAssertion = try? JSONDecoder().decode(PresenceAssertion.self, from: jsonData)
 //   let presenceKeyInfo = try? JSONDecoder().decode(PresenceKeyInfo.self, from: jsonData)
 //   let probedModel = try? JSONDecoder().decode(ProbedModel.self, from: jsonData)
+//   let proposalUpdatedPayload = try? JSONDecoder().decode(ProposalUpdatedPayload.self, from: jsonData)
+//   let proposalsApproveParams = try? JSONDecoder().decode(ProposalsApproveParams.self, from: jsonData)
+//   let proposalsApproveResult = try? JSONDecoder().decode(ProposalsApproveResult.self, from: jsonData)
+//   let proposalsDismissParams = try? JSONDecoder().decode(ProposalsDismissParams.self, from: jsonData)
+//   let proposalsDismissResult = try? JSONDecoder().decode(ProposalsDismissResult.self, from: jsonData)
+//   let proposalsGetParams = try? JSONDecoder().decode(ProposalsGetParams.self, from: jsonData)
+//   let proposalsGetResult = try? JSONDecoder().decode(ProposalsGetResult.self, from: jsonData)
+//   let proposalsListParams = try? JSONDecoder().decode(ProposalsListParams.self, from: jsonData)
+//   let proposalsListResult = try? JSONDecoder().decode(ProposalsListResult.self, from: jsonData)
+//   let proposalsUndoParams = try? JSONDecoder().decode(ProposalsUndoParams.self, from: jsonData)
+//   let proposalsUndoResult = try? JSONDecoder().decode(ProposalsUndoResult.self, from: jsonData)
 //   let protocolVersionRange = try? JSONDecoder().decode(ProtocolVersionRange.self, from: jsonData)
 //   let provenance = try? JSONDecoder().decode(Provenance.self, from: jsonData)
 //   let provenanceOut = try? JSONDecoder().decode(ProvenanceOut.self, from: jsonData)
@@ -834,6 +863,7 @@
 //   let skillsSearchResult = try? JSONDecoder().decode(SkillsSearchResult.self, from: jsonData)
 //   let skillsSetEnabledParams = try? JSONDecoder().decode(SkillsSetEnabledParams.self, from: jsonData)
 //   let skillsSetEnabledResult = try? JSONDecoder().decode(SkillsSetEnabledResult.self, from: jsonData)
+//   let sourcedLine = try? JSONDecoder().decode(SourcedLine.self, from: jsonData)
 //   let specialistBudgetSetting = try? JSONDecoder().decode(SpecialistBudgetSetting.self, from: jsonData)
 //   let specialistFinding = try? JSONDecoder().decode(SpecialistFinding.self, from: jsonData)
 //   let specialistInputs = try? JSONDecoder().decode(SpecialistInputs.self, from: jsonData)
@@ -1051,6 +1081,10 @@
 //   let voiceStopResult = try? JSONDecoder().decode(VoiceStopResult.self, from: jsonData)
 //   let watchCheck = try? JSONDecoder().decode(WatchCheck.self, from: jsonData)
 //   let watchConfig = try? JSONDecoder().decode(WatchConfig.self, from: jsonData)
+//   let workflowCard = try? JSONDecoder().decode(WorkflowCard.self, from: jsonData)
+//   let workflowEvent = try? JSONDecoder().decode(WorkflowEvent.self, from: jsonData)
+//   let workflowEventFilter = try? JSONDecoder().decode(WorkflowEventFilter.self, from: jsonData)
+//   let workflowEventSource = try? JSONDecoder().decode(WorkflowEventSource.self, from: jsonData)
 //   let wrapUpAction = try? JSONDecoder().decode(WrapUpAction.self, from: jsonData)
 //   let wrapUpBlock = try? JSONDecoder().decode(WrapUpBlock.self, from: jsonData)
 
@@ -3346,6 +3380,7 @@ public struct FromLesson: Codable, Sendable {
 public enum ApprovalKind: String, Codable, Sendable {
     case appleScript = "apple_script"
     case archiveThread = "archive_thread"
+    case batch = "batch"
     case browserSubmit = "browser_submit"
     case calendarWrite = "calendar_write"
     case computerAction = "computer_action"
@@ -4174,6 +4209,7 @@ public struct Automation: Codable, Sendable {
     public let specialist: AutomationSpecialist?
     public let timezone: String
     public let title: String
+    public let trigger: AutomationTrigger?
     public let updatedAt: String
     public let watch: WatchConfig?
 
@@ -4194,11 +4230,12 @@ public struct Automation: Codable, Sendable {
         case specialist = "specialist"
         case timezone = "timezone"
         case title = "title"
+        case trigger = "trigger"
         case updatedAt = "updatedAt"
         case watch = "watch"
     }
 
-    public init(createdAt: String, delivery: Delivery, enabled: Bool, id: String, kind: AutomationKind, lastRunAt: String?, lastStatus: String?, lightContext: Bool?, nextRunAt: String?, prompt: String, schedule: String, scratch: String?, sessionTarget: String, specialist: AutomationSpecialist?, timezone: String, title: String, updatedAt: String, watch: WatchConfig?) {
+    public init(createdAt: String, delivery: Delivery, enabled: Bool, id: String, kind: AutomationKind, lastRunAt: String?, lastStatus: String?, lightContext: Bool?, nextRunAt: String?, prompt: String, schedule: String, scratch: String?, sessionTarget: String, specialist: AutomationSpecialist?, timezone: String, title: String, trigger: AutomationTrigger?, updatedAt: String, watch: WatchConfig?) {
         self.createdAt = createdAt
         self.delivery = delivery
         self.enabled = enabled
@@ -4215,6 +4252,7 @@ public struct Automation: Codable, Sendable {
         self.specialist = specialist
         self.timezone = timezone
         self.title = title
+        self.trigger = trigger
         self.updatedAt = updatedAt
         self.watch = watch
     }
@@ -4242,10 +4280,12 @@ public struct Delivery: Codable, Sendable {
     }
 }
 
-/// `reminder` is a one-shot: `schedule` is an ISO-8601 instant
+/// `reminder` is a one-shot: `schedule` is an ISO-8601 instant. `event` runs on its
+/// `trigger` (mail and meeting workflows §4.7), and its `schedule` is empty
 public enum AutomationKind: String, Codable, Sendable {
     case briefing = "briefing"
     case cron = "cron"
+    case event = "event"
     case heartbeat = "heartbeat"
     case interval = "interval"
     case reminder = "reminder"
@@ -4293,6 +4333,70 @@ public struct SpecialistBudget: Codable, Sendable {
 public enum Deliver: String, Codable, Sendable {
     case inbox = "inbox"
     case thread = "thread"
+}
+
+// MARK: - AutomationTrigger
+public struct AutomationTrigger: Codable, Sendable {
+    /// Events within this window fold into one run (default 120000)
+    public let debounceMS: Int?
+    public let filter: WorkflowEventFilter?
+    /// Beyond it runs are skipped (default 24)
+    public let maxRunsPerDay: Int?
+    public let source: WorkflowEventSource
+    public let type: AutomationTriggerType
+
+    public enum CodingKeys: String, CodingKey {
+        case debounceMS = "debounceMs"
+        case filter = "filter"
+        case maxRunsPerDay = "maxRunsPerDay"
+        case source = "source"
+        case type = "type"
+    }
+
+    public init(debounceMS: Int?, filter: WorkflowEventFilter?, maxRunsPerDay: Int?, source: WorkflowEventSource, type: AutomationTriggerType) {
+        self.debounceMS = debounceMS
+        self.filter = filter
+        self.maxRunsPerDay = maxRunsPerDay
+        self.source = source
+        self.type = type
+    }
+}
+
+// MARK: - WorkflowEventFilter
+public struct WorkflowEventFilter: Codable, Sendable {
+    public let accounts: [String]?
+    public let calendarIDS: [String]?
+    /// recording.added: a granted folder
+    public let folder: String?
+    public let fromContains: String?
+    public let mailbox: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case accounts = "accounts"
+        case calendarIDS = "calendarIds"
+        case folder = "folder"
+        case fromContains = "fromContains"
+        case mailbox = "mailbox"
+    }
+
+    public init(accounts: [String]?, calendarIDS: [String]?, folder: String?, fromContains: String?, mailbox: String?) {
+        self.accounts = accounts
+        self.calendarIDS = calendarIDS
+        self.folder = folder
+        self.fromContains = fromContains
+        self.mailbox = mailbox
+    }
+}
+
+public enum WorkflowEventSource: String, Codable, Sendable {
+    case calendarChanged = "calendar.changed"
+    case followupDue = "followup.due"
+    case mailReceived = "mail.received"
+    case recordingAdded = "recording.added"
+}
+
+public enum AutomationTriggerType: String, Codable, Sendable {
+    case event = "event"
 }
 
 // MARK: - WatchConfig
@@ -4349,6 +4453,7 @@ public struct AutomationRun: Codable, Sendable {
     /// Missed ticks folded into this run
     public let coalesced: Int
     public let endedAt: String?
+    public let events: [WorkflowEvent]?
     public let id: String
     public let notificationID: String?
     public let runID: String?
@@ -4365,6 +4470,7 @@ public struct AutomationRun: Codable, Sendable {
         case automationID = "automationId"
         case coalesced = "coalesced"
         case endedAt = "endedAt"
+        case events = "events"
         case id = "id"
         case notificationID = "notificationId"
         case runID = "runId"
@@ -4378,10 +4484,11 @@ public struct AutomationRun: Codable, Sendable {
         case usage = "usage"
     }
 
-    public init(automationID: String, coalesced: Int, endedAt: String?, id: String, notificationID: String?, runID: String?, scheduledFor: String, startedAt: String, status: AutomationRunStatus, summary: String?, taskID: String?, threadID: String?, trigger: AutomationRunTrigger, usage: Usage?) {
+    public init(automationID: String, coalesced: Int, endedAt: String?, events: [WorkflowEvent]?, id: String, notificationID: String?, runID: String?, scheduledFor: String, startedAt: String, status: AutomationRunStatus, summary: String?, taskID: String?, threadID: String?, trigger: AutomationRunTrigger, usage: Usage?) {
         self.automationID = automationID
         self.coalesced = coalesced
         self.endedAt = endedAt
+        self.events = events
         self.id = id
         self.notificationID = notificationID
         self.runID = runID
@@ -4396,6 +4503,47 @@ public struct AutomationRun: Codable, Sendable {
     }
 }
 
+// MARK: - WorkflowEvent
+public struct WorkflowEvent: Codable, Sendable {
+    public let account: String?
+    public let at: String
+    public let calendarEventID: String?
+    public let from: String?
+    /// Source id: the dedupe key
+    public let id: String
+    public let messageID: String?
+    public let path: String?
+    public let source: WorkflowEventSource
+    public let subject: String?
+    public let threadID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case account = "account"
+        case at = "at"
+        case calendarEventID = "calendarEventId"
+        case from = "from"
+        case id = "id"
+        case messageID = "messageId"
+        case path = "path"
+        case source = "source"
+        case subject = "subject"
+        case threadID = "threadId"
+    }
+
+    public init(account: String?, at: String, calendarEventID: String?, from: String?, id: String, messageID: String?, path: String?, source: WorkflowEventSource, subject: String?, threadID: String?) {
+        self.account = account
+        self.at = at
+        self.calendarEventID = calendarEventID
+        self.from = from
+        self.id = id
+        self.messageID = messageID
+        self.path = path
+        self.source = source
+        self.subject = subject
+        self.threadID = threadID
+    }
+}
+
 public enum AutomationRunStatus: String, Codable, Sendable {
     case cancelled = "cancelled"
     case done = "done"
@@ -4406,6 +4554,7 @@ public enum AutomationRunStatus: String, Codable, Sendable {
 }
 
 public enum AutomationRunTrigger: String, Codable, Sendable {
+    case event = "event"
     case manual = "manual"
     case schedule = "schedule"
 }
@@ -4646,34 +4795,40 @@ public struct UpcomingItem: Codable, Sendable {
     public let enabled: Bool
     public let id: String
     public let kind: UpcomingItemKind
+    public let lastRunAt: String?
     public let nextRunAt: String?
     public let schedule: String?
     public let taskID: String?
     public let timezone: String?
     public let title: String
+    public let trigger: AutomationTrigger?
 
     public enum CodingKeys: String, CodingKey {
         case automationID = "automationId"
         case enabled = "enabled"
         case id = "id"
         case kind = "kind"
+        case lastRunAt = "lastRunAt"
         case nextRunAt = "nextRunAt"
         case schedule = "schedule"
         case taskID = "taskId"
         case timezone = "timezone"
         case title = "title"
+        case trigger = "trigger"
     }
 
-    public init(automationID: String?, enabled: Bool, id: String, kind: UpcomingItemKind, nextRunAt: String?, schedule: String?, taskID: String?, timezone: String?, title: String) {
+    public init(automationID: String?, enabled: Bool, id: String, kind: UpcomingItemKind, lastRunAt: String?, nextRunAt: String?, schedule: String?, taskID: String?, timezone: String?, title: String, trigger: AutomationTrigger?) {
         self.automationID = automationID
         self.enabled = enabled
         self.id = id
         self.kind = kind
+        self.lastRunAt = lastRunAt
         self.nextRunAt = nextRunAt
         self.schedule = schedule
         self.taskID = taskID
         self.timezone = timezone
         self.title = title
+        self.trigger = trigger
     }
 }
 
@@ -8049,7 +8204,7 @@ public enum CustomConnectorAuthKind: String, Codable, Sendable {
 // MARK: - CustomConnectorManifestSource
 public struct CustomConnectorManifestSource: Codable, Sendable {
     public let drafted: Drafted?
-    public let kind: SourceKind
+    public let kind: PurpleKind
     public let title: String?
 
     public enum CodingKeys: String, CodingKey {
@@ -8058,7 +8213,7 @@ public struct CustomConnectorManifestSource: Codable, Sendable {
         case title = "title"
     }
 
-    public init(drafted: Drafted?, kind: SourceKind, title: String?) {
+    public init(drafted: Drafted?, kind: PurpleKind, title: String?) {
         self.drafted = drafted
         self.kind = kind
         self.title = title
@@ -8070,7 +8225,7 @@ public enum Drafted: String, Codable, Sendable {
     case owner = "owner"
 }
 
-public enum SourceKind: String, Codable, Sendable {
+public enum PurpleKind: String, Codable, Sendable {
     case declarative = "declarative"
     case openapi = "openapi"
 }
@@ -8083,7 +8238,7 @@ public struct CustomConnectorTool: Codable, Sendable {
     public let name: String
     public let params: [CustomConnectorParam]
     public let path: String
-    public let sideEffect: SideEffectEnum
+    public let sideEffect: CustomConnectorToolSideEffect
 
     public enum CodingKeys: String, CodingKey {
         case defaultRule = "defaultRule"
@@ -8095,7 +8250,7 @@ public struct CustomConnectorTool: Codable, Sendable {
         case sideEffect = "sideEffect"
     }
 
-    public init(defaultRule: Decision?, description: String, method: Method, name: String, params: [CustomConnectorParam], path: String, sideEffect: SideEffectEnum) {
+    public init(defaultRule: Decision?, description: String, method: Method, name: String, params: [CustomConnectorParam], path: String, sideEffect: CustomConnectorToolSideEffect) {
         self.defaultRule = defaultRule
         self.description = description
         self.method = method
@@ -8145,7 +8300,7 @@ public enum In: String, Codable, Sendable {
     case query = "query"
 }
 
-public enum SideEffectEnum: String, Codable, Sendable {
+public enum CustomConnectorToolSideEffect: String, Codable, Sendable {
     case destructive = "destructive"
     case read = "read"
     case write = "write"
@@ -9086,7 +9241,7 @@ public struct EventFrame: Codable, Sendable {
     public let payload: JSONAny
     public let seq: Int
     public let stateVersion: Int
-    public let type: EventFrameType
+    public let type: AutomationTriggerType
 
     public enum CodingKeys: String, CodingKey {
         case event = "event"
@@ -9096,17 +9251,13 @@ public struct EventFrame: Codable, Sendable {
         case type = "type"
     }
 
-    public init(event: String, payload: JSONAny, seq: Int, stateVersion: Int, type: EventFrameType) {
+    public init(event: String, payload: JSONAny, seq: Int, stateVersion: Int, type: AutomationTriggerType) {
         self.event = event
         self.payload = payload
         self.seq = seq
         self.stateVersion = stateVersion
         self.type = type
     }
-}
-
-public enum EventFrameType: String, Codable, Sendable {
-    case event = "event"
 }
 
 // MARK: - EventsSubscribeParams
@@ -9200,6 +9351,7 @@ public struct FeedFeedbackResult: Codable, Sendable {
 public struct FeedPost: Codable, Sendable {
     public let bodyMd: String
     public let briefingID: String?
+    public let card: WorkflowCard?
     public let citations: [Citation]
     public let cluster: [String: JSONAny]?
     public let createdAt: String
@@ -9208,13 +9360,16 @@ public struct FeedPost: Codable, Sendable {
     public let feedback: FeedFeedback?
     public let growth: GrowthCard?
     public let id: String
+    public let kind: FeedPostKind?
     public let reasons: [String]
+    public let refs: FeedPostRefs?
     public let score: Double
     public let title: String
 
     public enum CodingKeys: String, CodingKey {
         case bodyMd = "bodyMd"
         case briefingID = "briefingId"
+        case card = "card"
         case citations = "citations"
         case cluster = "cluster"
         case createdAt = "createdAt"
@@ -9222,14 +9377,17 @@ public struct FeedPost: Codable, Sendable {
         case feedback = "feedback"
         case growth = "growth"
         case id = "id"
+        case kind = "kind"
         case reasons = "reasons"
+        case refs = "refs"
         case score = "score"
         case title = "title"
     }
 
-    public init(bodyMd: String, briefingID: String?, citations: [Citation], cluster: [String: JSONAny]?, createdAt: String, exploration: Bool, feedback: FeedFeedback?, growth: GrowthCard?, id: String, reasons: [String], score: Double, title: String) {
+    public init(bodyMd: String, briefingID: String?, card: WorkflowCard?, citations: [Citation], cluster: [String: JSONAny]?, createdAt: String, exploration: Bool, feedback: FeedFeedback?, growth: GrowthCard?, id: String, kind: FeedPostKind?, reasons: [String], refs: FeedPostRefs?, score: Double, title: String) {
         self.bodyMd = bodyMd
         self.briefingID = briefingID
+        self.card = card
         self.citations = citations
         self.cluster = cluster
         self.createdAt = createdAt
@@ -9237,10 +9395,548 @@ public struct FeedPost: Codable, Sendable {
         self.feedback = feedback
         self.growth = growth
         self.id = id
+        self.kind = kind
         self.reasons = reasons
+        self.refs = refs
         self.score = score
         self.title = title
     }
+}
+
+// MARK: - WorkflowCard
+public struct WorkflowCard: Codable, Sendable {
+    public let digest: InboxDigest?
+    public let type: WorkflowCardType
+    public let prep: MeetingPrep?
+    public let notes: MeetingNotes?
+
+    public enum CodingKeys: String, CodingKey {
+        case digest = "digest"
+        case type = "type"
+        case prep = "prep"
+        case notes = "notes"
+    }
+
+    public init(digest: InboxDigest?, type: WorkflowCardType, prep: MeetingPrep?, notes: MeetingNotes?) {
+        self.digest = digest
+        self.type = type
+        self.prep = prep
+        self.notes = notes
+    }
+}
+
+// MARK: - InboxDigest
+public struct InboxDigest: Codable, Sendable {
+    public let accounts: [String]
+    /// Messages per DigestCategory
+    public let counts: [String: Int]
+    public let createdAt: String
+    public let groups: [DigestGroup]
+    public let id: String
+    public let needsYou: [DigestItem]
+    public let screen: [DigestItem]
+    public let since: String
+    /// Built from untrusted mail (always true when mail was read)
+    public let taint: Bool
+    public let until: String
+    public let unverified: [DigestItem]
+    public let usedCloudModel: Bool?
+    public let waitingOn: [DigestLoop]
+
+    public enum CodingKeys: String, CodingKey {
+        case accounts = "accounts"
+        case counts = "counts"
+        case createdAt = "createdAt"
+        case groups = "groups"
+        case id = "id"
+        case needsYou = "needsYou"
+        case screen = "screen"
+        case since = "since"
+        case taint = "taint"
+        case until = "until"
+        case unverified = "unverified"
+        case usedCloudModel = "usedCloudModel"
+        case waitingOn = "waitingOn"
+    }
+
+    public init(accounts: [String], counts: [String: Int], createdAt: String, groups: [DigestGroup], id: String, needsYou: [DigestItem], screen: [DigestItem], since: String, taint: Bool, until: String, unverified: [DigestItem], usedCloudModel: Bool?, waitingOn: [DigestLoop]) {
+        self.accounts = accounts
+        self.counts = counts
+        self.createdAt = createdAt
+        self.groups = groups
+        self.id = id
+        self.needsYou = needsYou
+        self.screen = screen
+        self.since = since
+        self.taint = taint
+        self.until = until
+        self.unverified = unverified
+        self.usedCloudModel = usedCloudModel
+        self.waitingOn = waitingOn
+    }
+}
+
+// MARK: - DigestGroup
+public struct DigestGroup: Codable, Sendable {
+    public let category: DigestCategory
+    public let count: Int
+    public let proposalID: String?
+    /// e.g. '12 newsletters'
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case category = "category"
+        case count = "count"
+        case proposalID = "proposalId"
+        case title = "title"
+    }
+
+    public init(category: DigestCategory, count: Int, proposalID: String?, title: String) {
+        self.category = category
+        self.count = count
+        self.proposalID = proposalID
+        self.title = title
+    }
+}
+
+public enum DigestCategory: String, Codable, Sendable {
+    case fyi = "fyi"
+    case needsYou = "needs_you"
+    case newsletters = "newsletters"
+    case notifications = "notifications"
+    case screen = "screen"
+    case soon = "soon"
+    case unverified = "unverified"
+}
+
+// MARK: - DigestItem
+public struct DigestItem: Codable, Sendable {
+    public let actions: [DigestAction]
+    public let because: String?
+    public let category: DigestCategory
+    public let summary: String
+    public let thread: MailThreadRef
+
+    public enum CodingKeys: String, CodingKey {
+        case actions = "actions"
+        case because = "because"
+        case category = "category"
+        case summary = "summary"
+        case thread = "thread"
+    }
+
+    public init(actions: [DigestAction], because: String?, category: DigestCategory, summary: String, thread: MailThreadRef) {
+        self.actions = actions
+        self.because = because
+        self.category = category
+        self.summary = summary
+        self.thread = thread
+    }
+}
+
+public enum DigestAction: String, Codable, Sendable {
+    case allowSender = "allow_sender"
+    case alwaysArchive = "always_archive"
+    case archive = "archive"
+    case digestActionOpen = "open"
+    case draftReply = "draft_reply"
+    case markRead = "mark_read"
+    case move = "move"
+    case notNow = "not_now"
+    case proposeTimes = "propose_times"
+    case remind = "remind"
+    case saveAttachment = "save_attachment"
+}
+
+// MARK: - MailThreadRef
+public struct MailThreadRef: Codable, Sendable {
+    public let account: String
+    public let at: String?
+    public let from: String?
+    public let link: String?
+    public let messageID: String?
+    public let subject: String?
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case account = "account"
+        case at = "at"
+        case from = "from"
+        case link = "link"
+        case messageID = "messageId"
+        case subject = "subject"
+        case threadID = "threadId"
+    }
+
+    public init(account: String, at: String?, from: String?, link: String?, messageID: String?, subject: String?, threadID: String) {
+        self.account = account
+        self.at = at
+        self.from = from
+        self.link = link
+        self.messageID = messageID
+        self.subject = subject
+        self.threadID = threadID
+    }
+}
+
+// MARK: - DigestLoop
+public struct DigestLoop: Codable, Sendable {
+    public let counterpart: String?
+    public let loop: GraphLoop
+    public let shownCount: Int
+    public let thread: MailThreadRef?
+
+    public enum CodingKeys: String, CodingKey {
+        case counterpart = "counterpart"
+        case loop = "loop"
+        case shownCount = "shownCount"
+        case thread = "thread"
+    }
+
+    public init(counterpart: String?, loop: GraphLoop, shownCount: Int, thread: MailThreadRef?) {
+        self.counterpart = counterpart
+        self.loop = loop
+        self.shownCount = shownCount
+        self.thread = thread
+    }
+}
+
+// MARK: - GraphLoop
+public struct GraphLoop: Codable, Sendable {
+    public let closedAt: String?
+    public let closedBy: GraphLoopClosedBy?
+    public let confidence: Double
+    public let counterpartID: String?
+    public let createdAt: String
+    public let detectedBy: GraphLoopDetectedBy
+    public let direction: GraphLoopDirectionFilter
+    public let dueAt: String?
+    public let evidence: String?
+    public let id: String
+    public let projectID: String?
+    public let provenance: Provenance
+    public let sourceInteractionID: String?
+    public let status: GraphLoopStatus
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case closedAt = "closedAt"
+        case closedBy = "closedBy"
+        case confidence = "confidence"
+        case counterpartID = "counterpartId"
+        case createdAt = "createdAt"
+        case detectedBy = "detectedBy"
+        case direction = "direction"
+        case dueAt = "dueAt"
+        case evidence = "evidence"
+        case id = "id"
+        case projectID = "projectId"
+        case provenance = "provenance"
+        case sourceInteractionID = "sourceInteractionId"
+        case status = "status"
+        case text = "text"
+    }
+
+    public init(closedAt: String?, closedBy: GraphLoopClosedBy?, confidence: Double, counterpartID: String?, createdAt: String, detectedBy: GraphLoopDetectedBy, direction: GraphLoopDirectionFilter, dueAt: String?, evidence: String?, id: String, projectID: String?, provenance: Provenance, sourceInteractionID: String?, status: GraphLoopStatus, text: String) {
+        self.closedAt = closedAt
+        self.closedBy = closedBy
+        self.confidence = confidence
+        self.counterpartID = counterpartID
+        self.createdAt = createdAt
+        self.detectedBy = detectedBy
+        self.direction = direction
+        self.dueAt = dueAt
+        self.evidence = evidence
+        self.id = id
+        self.projectID = projectID
+        self.provenance = provenance
+        self.sourceInteractionID = sourceInteractionID
+        self.status = status
+        self.text = text
+    }
+}
+
+public enum GraphLoopClosedBy: String, Codable, Sendable {
+    case duePassed = "due_passed"
+    case owner = "owner"
+    case replySeen = "reply_seen"
+}
+
+/// Who attached it to the entity; model links count only after the owner confirms
+public enum GraphLoopDetectedBy: String, Codable, Sendable {
+    case model = "model"
+    case owner = "owner"
+    case rule = "rule"
+}
+
+public enum GraphLoopDirectionFilter: String, Codable, Sendable {
+    case iOwe = "i_owe"
+    case waitingOn = "waiting_on"
+}
+
+public enum GraphLoopStatus: String, Codable, Sendable {
+    case dismissed = "dismissed"
+    case done = "done"
+    case graphLoopStatusOpen = "open"
+    case snoozed = "snoozed"
+    case suggested = "suggested"
+}
+
+// MARK: - MeetingNotes
+public struct MeetingNotes: Codable, Sendable {
+    public let actionItems: [MeetingActionItem]
+    public let decisions: [DecisionElement]
+    public let durationMS: Int
+    public let id: String
+    public let meetingID: String?
+    public let model: Model
+    public let openQuestions: [String]
+    public let provenance: Provenance
+    public let recordingItemID: String?
+    public let startedAt: String
+    public let summary: [String]
+    public let title: String
+    public let transcriptItemID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case actionItems = "actionItems"
+        case decisions = "decisions"
+        case durationMS = "durationMs"
+        case id = "id"
+        case meetingID = "meetingId"
+        case model = "model"
+        case openQuestions = "openQuestions"
+        case provenance = "provenance"
+        case recordingItemID = "recordingItemId"
+        case startedAt = "startedAt"
+        case summary = "summary"
+        case title = "title"
+        case transcriptItemID = "transcriptItemId"
+    }
+
+    public init(actionItems: [MeetingActionItem], decisions: [DecisionElement], durationMS: Int, id: String, meetingID: String?, model: Model, openQuestions: [String], provenance: Provenance, recordingItemID: String?, startedAt: String, summary: [String], title: String, transcriptItemID: String?) {
+        self.actionItems = actionItems
+        self.decisions = decisions
+        self.durationMS = durationMS
+        self.id = id
+        self.meetingID = meetingID
+        self.model = model
+        self.openQuestions = openQuestions
+        self.provenance = provenance
+        self.recordingItemID = recordingItemID
+        self.startedAt = startedAt
+        self.summary = summary
+        self.title = title
+        self.transcriptItemID = transcriptItemID
+    }
+}
+
+// MARK: - MeetingActionItem
+public struct MeetingActionItem: Codable, Sendable {
+    /// Offset into the recording
+    public let atMS: Int?
+    public let dueAt: String?
+    public let loopID: String?
+    public let owner: String?
+    public let proposalID: String?
+    public let quote: String?
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case atMS = "atMs"
+        case dueAt = "dueAt"
+        case loopID = "loopId"
+        case owner = "owner"
+        case proposalID = "proposalId"
+        case quote = "quote"
+        case text = "text"
+    }
+
+    public init(atMS: Int?, dueAt: String?, loopID: String?, owner: String?, proposalID: String?, quote: String?, text: String) {
+        self.atMS = atMS
+        self.dueAt = dueAt
+        self.loopID = loopID
+        self.owner = owner
+        self.proposalID = proposalID
+        self.quote = quote
+        self.text = text
+    }
+}
+
+// MARK: - DecisionElement
+public struct DecisionElement: Codable, Sendable {
+    public let atMS: Int?
+    public let quote: String?
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case atMS = "atMs"
+        case quote = "quote"
+        case text = "text"
+    }
+
+    public init(atMS: Int?, quote: String?, text: String) {
+        self.atMS = atMS
+        self.quote = quote
+        self.text = text
+    }
+}
+
+// MARK: - Model
+public struct Model: Codable, Sendable {
+    public let remote: Bool
+    public let role: ModelRole
+
+    public enum CodingKeys: String, CodingKey {
+        case remote = "remote"
+        case role = "role"
+    }
+
+    public init(remote: Bool, role: ModelRole) {
+        self.remote = remote
+        self.role = role
+    }
+}
+
+public enum ModelRole: String, Codable, Sendable {
+    case local = "local"
+    case primary = "primary"
+    case utility = "utility"
+}
+
+// MARK: - MeetingPrep
+public struct MeetingPrep: Codable, Sendable {
+    public let agenda: [String]
+    public let attendees: [MeetingAttendee]
+    public let calendarID: String?
+    public let endAt: String?
+    public let joinURL: String?
+    public let lastTime: [SourcedLine]
+    /// The calendar event id
+    public let meetingID: String
+    public let openLoops: [GraphLoop]
+    public let startAt: String
+    public let taint: Bool
+    public let title: String
+    public let why: SourcedLine?
+    public let worthReading: [SourcedLine]
+
+    public enum CodingKeys: String, CodingKey {
+        case agenda = "agenda"
+        case attendees = "attendees"
+        case calendarID = "calendarId"
+        case endAt = "endAt"
+        case joinURL = "joinUrl"
+        case lastTime = "lastTime"
+        case meetingID = "meetingId"
+        case openLoops = "openLoops"
+        case startAt = "startAt"
+        case taint = "taint"
+        case title = "title"
+        case why = "why"
+        case worthReading = "worthReading"
+    }
+
+    public init(agenda: [String], attendees: [MeetingAttendee], calendarID: String?, endAt: String?, joinURL: String?, lastTime: [SourcedLine], meetingID: String, openLoops: [GraphLoop], startAt: String, taint: Bool, title: String, why: SourcedLine?, worthReading: [SourcedLine]) {
+        self.agenda = agenda
+        self.attendees = attendees
+        self.calendarID = calendarID
+        self.endAt = endAt
+        self.joinURL = joinURL
+        self.lastTime = lastTime
+        self.meetingID = meetingID
+        self.openLoops = openLoops
+        self.startAt = startAt
+        self.taint = taint
+        self.title = title
+        self.why = why
+        self.worthReading = worthReading
+    }
+}
+
+// MARK: - MeetingAttendee
+public struct MeetingAttendee: Codable, Sendable {
+    public let email: String
+    public let name: String?
+    public let personID: String?
+    public let relationship: Relationship?
+    /// One line: who they are
+    public let summary: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case email = "email"
+        case name = "name"
+        case personID = "personId"
+        case relationship = "relationship"
+        case summary = "summary"
+    }
+
+    public init(email: String, name: String?, personID: String?, relationship: Relationship?, summary: String?) {
+        self.email = email
+        self.name = name
+        self.personID = personID
+        self.relationship = relationship
+        self.summary = summary
+    }
+}
+
+public enum Relationship: String, Codable, Sendable {
+    case colleague = "colleague"
+    case external = "external"
+    case family = "family"
+    case friend = "friend"
+    case unknown = "unknown"
+}
+
+// MARK: - SourcedLine
+public struct SourcedLine: Codable, Sendable {
+    public let source: SourcedLineSource?
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case source = "source"
+        case text = "text"
+    }
+
+    public init(source: SourcedLineSource?, text: String) {
+        self.source = source
+        self.text = text
+    }
+}
+
+// MARK: - SourcedLineSource
+public struct SourcedLineSource: Codable, Sendable {
+    public let kind: FluffyKind
+    public let label: String?
+    public let ref: String
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case label = "label"
+        case ref = "ref"
+    }
+
+    public init(kind: FluffyKind, label: String?, ref: String) {
+        self.kind = kind
+        self.label = label
+        self.ref = ref
+    }
+}
+
+public enum FluffyKind: String, Codable, Sendable {
+    case event = "event"
+    case library = "library"
+    case loop = "loop"
+    case meeting = "meeting"
+    case note = "note"
+    case thread = "thread"
+    case url = "url"
+}
+
+public enum WorkflowCardType: String, Codable, Sendable {
+    case digest = "digest"
+    case meetingNotes = "meeting_notes"
+    case meetingPrep = "meeting_prep"
 }
 
 // MARK: - Citation
@@ -9308,6 +10004,41 @@ public enum GrowthCardItemType: String, Codable, Sendable {
     case lesson = "lesson"
     case question = "question"
     case retire = "retire"
+}
+
+public enum FeedPostKind: String, Codable, Sendable {
+    case brief = "brief"
+    case briefing = "briefing"
+    case digest = "digest"
+    case exploration = "exploration"
+    case meetingNotes = "meeting_notes"
+    case meetingPrep = "meeting_prep"
+    case news = "news"
+    case reminder = "reminder"
+    case suggestion = "suggestion"
+    case watch = "watch"
+}
+
+// MARK: - FeedPostRefs
+public struct FeedPostRefs: Codable, Sendable {
+    public let goalID: String?
+    public let meetingID: String?
+    public let proposalIDS: [String]?
+    public let threads: [MailThreadRef]?
+
+    public enum CodingKeys: String, CodingKey {
+        case goalID = "goalId"
+        case meetingID = "meetingId"
+        case proposalIDS = "proposalIds"
+        case threads = "threads"
+    }
+
+    public init(goalID: String?, meetingID: String?, proposalIDS: [String]?, threads: [MailThreadRef]?) {
+        self.goalID = goalID
+        self.meetingID = meetingID
+        self.proposalIDS = proposalIDS
+        self.threads = threads
+    }
 }
 
 // MARK: - FeedGenerateParams
@@ -10866,87 +11597,6 @@ public enum GraphIdentifierKind: String, Codable, Sendable {
     case url = "url"
 }
 
-/// Who attached it to the entity; model links count only after the owner confirms
-public enum GraphLoopDetectedBy: String, Codable, Sendable {
-    case model = "model"
-    case owner = "owner"
-    case rule = "rule"
-}
-
-// MARK: - GraphLoop
-public struct GraphLoop: Codable, Sendable {
-    public let closedAt: String?
-    public let closedBy: GraphLoopClosedBy?
-    public let confidence: Double
-    public let counterpartID: String?
-    public let createdAt: String
-    public let detectedBy: GraphLoopDetectedBy
-    public let direction: GraphLoopDirectionFilter
-    public let dueAt: String?
-    public let evidence: String?
-    public let id: String
-    public let projectID: String?
-    public let provenance: Provenance
-    public let sourceInteractionID: String?
-    public let status: GraphLoopStatus
-    public let text: String
-
-    public enum CodingKeys: String, CodingKey {
-        case closedAt = "closedAt"
-        case closedBy = "closedBy"
-        case confidence = "confidence"
-        case counterpartID = "counterpartId"
-        case createdAt = "createdAt"
-        case detectedBy = "detectedBy"
-        case direction = "direction"
-        case dueAt = "dueAt"
-        case evidence = "evidence"
-        case id = "id"
-        case projectID = "projectId"
-        case provenance = "provenance"
-        case sourceInteractionID = "sourceInteractionId"
-        case status = "status"
-        case text = "text"
-    }
-
-    public init(closedAt: String?, closedBy: GraphLoopClosedBy?, confidence: Double, counterpartID: String?, createdAt: String, detectedBy: GraphLoopDetectedBy, direction: GraphLoopDirectionFilter, dueAt: String?, evidence: String?, id: String, projectID: String?, provenance: Provenance, sourceInteractionID: String?, status: GraphLoopStatus, text: String) {
-        self.closedAt = closedAt
-        self.closedBy = closedBy
-        self.confidence = confidence
-        self.counterpartID = counterpartID
-        self.createdAt = createdAt
-        self.detectedBy = detectedBy
-        self.direction = direction
-        self.dueAt = dueAt
-        self.evidence = evidence
-        self.id = id
-        self.projectID = projectID
-        self.provenance = provenance
-        self.sourceInteractionID = sourceInteractionID
-        self.status = status
-        self.text = text
-    }
-}
-
-public enum GraphLoopClosedBy: String, Codable, Sendable {
-    case duePassed = "due_passed"
-    case owner = "owner"
-    case replySeen = "reply_seen"
-}
-
-public enum GraphLoopDirectionFilter: String, Codable, Sendable {
-    case iOwe = "i_owe"
-    case waitingOn = "waiting_on"
-}
-
-public enum GraphLoopStatus: String, Codable, Sendable {
-    case dismissed = "dismissed"
-    case done = "done"
-    case graphLoopStatusOpen = "open"
-    case snoozed = "snoozed"
-    case suggested = "suggested"
-}
-
 // MARK: - GraphInteraction
 public struct GraphInteraction: Codable, Sendable {
     public let direction: GraphDirection
@@ -12230,7 +12880,7 @@ public struct MCPProbedTool: Codable, Sendable {
     public let blocked: Bool
     public let description: String
     public let name: String
-    public let sideEffect: SideEffectEnum
+    public let sideEffect: CustomConnectorToolSideEffect
     public let warnings: [Warning]
 
     public enum CodingKeys: String, CodingKey {
@@ -12241,7 +12891,7 @@ public struct MCPProbedTool: Codable, Sendable {
         case warnings = "warnings"
     }
 
-    public init(blocked: Bool, description: String, name: String, sideEffect: SideEffectEnum, warnings: [Warning]) {
+    public init(blocked: Bool, description: String, name: String, sideEffect: CustomConnectorToolSideEffect, warnings: [Warning]) {
         self.blocked = blocked
         self.description = description
         self.name = name
@@ -16045,6 +16695,307 @@ public struct PolicyRule: Codable, Sendable {
         self.match = match
         self.note = note
         self.priority = priority
+    }
+}
+
+// MARK: - ProposalUpdatedPayload
+public struct ProposalUpdatedPayload: Codable, Sendable {
+    public let proposal: ActionProposal
+
+    public enum CodingKeys: String, CodingKey {
+        case proposal = "proposal"
+    }
+
+    public init(proposal: ActionProposal) {
+        self.proposal = proposal
+    }
+}
+
+// MARK: - ActionProposal
+public struct ActionProposal: Codable, Sendable {
+    public let approvalID: String?
+    public let calls: [ActionCall]
+    public let createdAt: String
+    public let createdBy: CreatedBy
+    public let expiresAt: String
+    public let id: String
+    public let postID: String?
+    public let results: [ActionCallResult]?
+    public let sideEffect: ActionProposalSideEffect
+    public let status: ActionProposalStatus
+    public let taint: Bool
+    public let taintSources: [TaintSource]?
+    public let title: String
+    public let undoOf: String?
+    public let updatedAt: String
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case calls = "calls"
+        case createdAt = "createdAt"
+        case createdBy = "createdBy"
+        case expiresAt = "expiresAt"
+        case id = "id"
+        case postID = "postId"
+        case results = "results"
+        case sideEffect = "sideEffect"
+        case status = "status"
+        case taint = "taint"
+        case taintSources = "taintSources"
+        case title = "title"
+        case undoOf = "undoOf"
+        case updatedAt = "updatedAt"
+    }
+
+    public init(approvalID: String?, calls: [ActionCall], createdAt: String, createdBy: CreatedBy, expiresAt: String, id: String, postID: String?, results: [ActionCallResult]?, sideEffect: ActionProposalSideEffect, status: ActionProposalStatus, taint: Bool, taintSources: [TaintSource]?, title: String, undoOf: String?, updatedAt: String) {
+        self.approvalID = approvalID
+        self.calls = calls
+        self.createdAt = createdAt
+        self.createdBy = createdBy
+        self.expiresAt = expiresAt
+        self.id = id
+        self.postID = postID
+        self.results = results
+        self.sideEffect = sideEffect
+        self.status = status
+        self.taint = taint
+        self.taintSources = taintSources
+        self.title = title
+        self.undoOf = undoOf
+        self.updatedAt = updatedAt
+    }
+}
+
+// MARK: - ActionCall
+public struct ActionCall: Codable, Sendable {
+    public let params: [String: JSONAny]
+    /// One line in plain words for the card, e.g. 'Mark read: Weekly digest (Acme)'
+    public let summary: String
+    /// Model-facing tool name
+    public let tool: String
+
+    public enum CodingKeys: String, CodingKey {
+        case params = "params"
+        case summary = "summary"
+        case tool = "tool"
+    }
+
+    public init(params: [String: JSONAny], summary: String, tool: String) {
+        self.params = params
+        self.summary = summary
+        self.tool = tool
+    }
+}
+
+// MARK: - CreatedBy
+public struct CreatedBy: Codable, Sendable {
+    public let automationID: String?
+    /// e.g. mail.digest, meetings.notes
+    public let job: String
+    public let runID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case automationID = "automationId"
+        case job = "job"
+        case runID = "runId"
+    }
+
+    public init(automationID: String?, job: String, runID: String?) {
+        self.automationID = automationID
+        self.job = job
+        self.runID = runID
+    }
+}
+
+// MARK: - ActionCallResult
+public struct ActionCallResult: Codable, Sendable {
+    public let error: String?
+    public let index: Int
+    public let receiptID: String?
+    public let status: ActionCallResultStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case error = "error"
+        case index = "index"
+        case receiptID = "receiptId"
+        case status = "status"
+    }
+
+    public init(error: String?, index: Int, receiptID: String?, status: ActionCallResultStatus) {
+        self.error = error
+        self.index = index
+        self.receiptID = receiptID
+        self.status = status
+    }
+}
+
+public enum ActionCallResultStatus: String, Codable, Sendable {
+    case failed = "failed"
+    case ok = "ok"
+    case skipped = "skipped"
+}
+
+public enum ActionProposalSideEffect: String, Codable, Sendable {
+    case write = "write"
+}
+
+public enum ActionProposalStatus: String, Codable, Sendable {
+    case awaitingApproval = "awaiting_approval"
+    case dismissed = "dismissed"
+    case done = "done"
+    case expired = "expired"
+    case failed = "failed"
+    case partial = "partial"
+    case pending = "pending"
+    case running = "running"
+}
+
+// MARK: - ProposalsApproveParams
+public struct ProposalsApproveParams: Codable, Sendable {
+    public let proposalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case proposalID = "proposalId"
+    }
+
+    public init(proposalID: String) {
+        self.proposalID = proposalID
+    }
+}
+
+// MARK: - ProposalsApproveResult
+public struct ProposalsApproveResult: Codable, Sendable {
+    public let answerToken: String?
+    public let approval: ApprovalRequest
+    public let proposal: ActionProposal
+
+    public enum CodingKeys: String, CodingKey {
+        case answerToken = "answerToken"
+        case approval = "approval"
+        case proposal = "proposal"
+    }
+
+    public init(answerToken: String?, approval: ApprovalRequest, proposal: ActionProposal) {
+        self.answerToken = answerToken
+        self.approval = approval
+        self.proposal = proposal
+    }
+}
+
+// MARK: - ProposalsDismissParams
+public struct ProposalsDismissParams: Codable, Sendable {
+    public let proposalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case proposalID = "proposalId"
+    }
+
+    public init(proposalID: String) {
+        self.proposalID = proposalID
+    }
+}
+
+// MARK: - ProposalsDismissResult
+public struct ProposalsDismissResult: Codable, Sendable {
+    public let proposal: ActionProposal
+
+    public enum CodingKeys: String, CodingKey {
+        case proposal = "proposal"
+    }
+
+    public init(proposal: ActionProposal) {
+        self.proposal = proposal
+    }
+}
+
+// MARK: - ProposalsGetParams
+public struct ProposalsGetParams: Codable, Sendable {
+    public let proposalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case proposalID = "proposalId"
+    }
+
+    public init(proposalID: String) {
+        self.proposalID = proposalID
+    }
+}
+
+// MARK: - ProposalsGetResult
+public struct ProposalsGetResult: Codable, Sendable {
+    public let proposal: ActionProposal
+
+    public enum CodingKeys: String, CodingKey {
+        case proposal = "proposal"
+    }
+
+    public init(proposal: ActionProposal) {
+        self.proposal = proposal
+    }
+}
+
+// MARK: - ProposalsListParams
+public struct ProposalsListParams: Codable, Sendable {
+    /// Opaque cursor
+    public let cursor: String?
+    public let limit: Int?
+    public let postID: String?
+    public let status: [ActionProposalStatus]?
+
+    public enum CodingKeys: String, CodingKey {
+        case cursor = "cursor"
+        case limit = "limit"
+        case postID = "postId"
+        case status = "status"
+    }
+
+    public init(cursor: String?, limit: Int?, postID: String?, status: [ActionProposalStatus]?) {
+        self.cursor = cursor
+        self.limit = limit
+        self.postID = postID
+        self.status = status
+    }
+}
+
+// MARK: - ProposalsListResult
+public struct ProposalsListResult: Codable, Sendable {
+    public let nextCursor: String?
+    public let proposals: [ActionProposal]
+
+    public enum CodingKeys: String, CodingKey {
+        case nextCursor = "nextCursor"
+        case proposals = "proposals"
+    }
+
+    public init(nextCursor: String?, proposals: [ActionProposal]) {
+        self.nextCursor = nextCursor
+        self.proposals = proposals
+    }
+}
+
+// MARK: - ProposalsUndoParams
+public struct ProposalsUndoParams: Codable, Sendable {
+    public let proposalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case proposalID = "proposalId"
+    }
+
+    public init(proposalID: String) {
+        self.proposalID = proposalID
+    }
+}
+
+// MARK: - ProposalsUndoResult
+public struct ProposalsUndoResult: Codable, Sendable {
+    public let proposal: ActionProposal
+
+    public enum CodingKeys: String, CodingKey {
+        case proposal = "proposal"
+    }
+
+    public init(proposal: ActionProposal) {
+        self.proposal = proposal
     }
 }
 
@@ -21133,7 +22084,7 @@ public struct ThreadActivity: Codable, Sendable {
 // MARK: - ThreadPreview
 public struct ThreadPreview: Codable, Sendable {
     public let at: String
-    public let role: Role
+    public let role: ThreadPreviewRole
     public let text: String
 
     public enum CodingKeys: String, CodingKey {
@@ -21142,14 +22093,14 @@ public struct ThreadPreview: Codable, Sendable {
         case text = "text"
     }
 
-    public init(at: String, role: Role, text: String) {
+    public init(at: String, role: ThreadPreviewRole, text: String) {
         self.at = at
         self.role = role
         self.text = text
     }
 }
 
-public enum Role: String, Codable, Sendable {
+public enum ThreadPreviewRole: String, Codable, Sendable {
     case agent = "agent"
     case user = "user"
 }

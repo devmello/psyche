@@ -284,6 +284,11 @@
         "payload": "#/$defs/PersonaUpdatedPayload"
       },
       {
+        "description": "A batch proposal was created, sent for approval, ran (per-call results), was dismissed, expired or offered an undo (mail and meeting workflows §8.1).",
+        "name": "proposal.updated",
+        "payload": "#/$defs/ProposalUpdatedPayload"
+      },
+      {
         "description": "The agent asked the user structured questions (ask_user); no timeout.",
         "name": "question.created",
         "payload": "#/$defs/QuestionCreatedPayload"
@@ -1873,6 +1878,46 @@
         "sideEffecting": true
       },
       {
+        "description": "Requests the one batch approval for a proposal (kind batch, bound to the ordered list of calls, once only). The calls run after the approval is answered. Side-effecting.",
+        "name": "proposals.approve",
+        "params": "#/$defs/ProposalsApproveParams",
+        "result": "#/$defs/ProposalsApproveResult",
+        "scope": "operator.approvals",
+        "sideEffecting": true
+      },
+      {
+        "description": "Dismisses a pending proposal; its approval, if any, is invalidated. Side-effecting.",
+        "name": "proposals.dismiss",
+        "params": "#/$defs/ProposalsDismissParams",
+        "result": "#/$defs/ProposalsDismissResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Returns one batch proposal with its calls and, once run, per-call results.",
+        "name": "proposals.get",
+        "params": "#/$defs/ProposalsGetParams",
+        "result": "#/$defs/ProposalsGetResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists batch proposals (default: pending and awaiting approval), newest first.",
+        "name": "proposals.list",
+        "params": "#/$defs/ProposalsListParams",
+        "result": "#/$defs/ProposalsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Offers the inverse proposal of a finished one (reversible mail actions only, within 30 s); it needs its own approval. Side-effecting.",
+        "name": "proposals.undo",
+        "params": "#/$defs/ProposalsUndoParams",
+        "result": "#/$defs/ProposalsUndoResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "Answers an open input request; the run that asked consumes it. Side-effecting: a repeat with the same key returns the original result.",
         "name": "questions.answer",
         "params": "#/$defs/QuestionsAnswerParams",
@@ -2620,6 +2665,214 @@
     "protocolVersion": 1
   },
   "$defs": {
+    "ActionCall": {
+      "properties": {
+        "tool": {
+          "description": "Model-facing tool name",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "params": {
+          "description": "JSON object",
+          "patternProperties": {
+            "^(.*)$": {}
+          },
+          "type": "object"
+        },
+        "summary": {
+          "description": "One line in plain words for the card, e.g. 'Mark read: Weekly digest (Acme)'",
+          "maxLength": 300,
+          "type": "string"
+        }
+      },
+      "required": [
+        "tool",
+        "params",
+        "summary"
+      ],
+      "type": "object"
+    },
+    "ActionCallResult": {
+      "properties": {
+        "index": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "failed",
+            "skipped"
+          ],
+          "type": "string"
+        },
+        "error": {
+          "maxLength": 300,
+          "type": "string"
+        },
+        "receiptId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "index",
+        "status"
+      ],
+      "type": "object"
+    },
+    "ActionProposal": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "calls": {
+          "items": {
+            "$ref": "#/$defs/ActionCall"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "type": "array"
+        },
+        "sideEffect": {
+          "const": "write",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/ActionProposalStatus"
+        },
+        "createdBy": {
+          "properties": {
+            "job": {
+              "description": "e.g. mail.digest, meetings.notes",
+              "type": "string"
+            },
+            "runId": {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "automationId": {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "job"
+          ],
+          "type": "object"
+        },
+        "postId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "approvalId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "taint": {
+          "type": "boolean"
+        },
+        "taintSources": {
+          "items": {
+            "$ref": "#/$defs/TaintSource"
+          },
+          "type": "array"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/$defs/ActionCallResult"
+          },
+          "type": "array"
+        },
+        "undoOf": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "expiresAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "updatedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "calls",
+        "sideEffect",
+        "status",
+        "createdBy",
+        "taint",
+        "createdAt",
+        "expiresAt",
+        "updatedAt"
+      ],
+      "type": "object"
+    },
+    "ActionProposalStatus": {
+      "enum": [
+        "pending",
+        "awaiting_approval",
+        "running",
+        "done",
+        "partial",
+        "failed",
+        "dismissed",
+        "expired"
+      ],
+      "type": "string"
+    },
     "ActionRule": {
       "enum": [
         "allow",
@@ -5285,7 +5538,8 @@
         "apple_script",
         "shortcut_run",
         "git_write",
-        "git_push"
+        "git_push",
+        "batch"
       ],
       "type": "string"
     },
@@ -6456,6 +6710,9 @@
           "description": "Heartbeat: skip workspace bootstrap files (feature O2)",
           "type": "boolean"
         },
+        "trigger": {
+          "$ref": "#/$defs/AutomationTrigger"
+        },
         "specialist": {
           "properties": {
             "role": {
@@ -6510,14 +6767,15 @@
       "type": "object"
     },
     "AutomationKind": {
-      "description": "`reminder` is a one-shot: `schedule` is an ISO-8601 instant",
+      "description": "`reminder` is a one-shot: `schedule` is an ISO-8601 instant. `event` runs on its `trigger` (mail and meeting workflows §4.7), and its `schedule` is empty",
       "enum": [
         "cron",
         "interval",
         "watch",
         "heartbeat",
         "briefing",
-        "reminder"
+        "reminder",
+        "event"
       ],
       "type": "string"
     },
@@ -6575,7 +6833,8 @@
         "trigger": {
           "enum": [
             "schedule",
-            "manual"
+            "manual",
+            "event"
           ],
           "type": "string"
         },
@@ -6631,6 +6890,13 @@
               "type": "null"
             }
           ]
+        },
+        "events": {
+          "items": {
+            "$ref": "#/$defs/WorkflowEvent"
+          },
+          "maxItems": 200,
+          "type": "array"
         },
         "runId": {
           "anyOf": [
@@ -6692,6 +6958,37 @@
         "skipped"
       ],
       "type": "string"
+    },
+    "AutomationTrigger": {
+      "properties": {
+        "type": {
+          "const": "event",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/WorkflowEventSource"
+        },
+        "filter": {
+          "$ref": "#/$defs/WorkflowEventFilter"
+        },
+        "debounceMs": {
+          "description": "Events within this window fold into one run (default 120000)",
+          "maximum": 3600000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maxRunsPerDay": {
+          "description": "Beyond it runs are skipped (default 24)",
+          "maximum": 288,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "type",
+        "source"
+      ],
+      "type": "object"
     },
     "AutomationUpdatedPayload": {
       "properties": {
@@ -12145,6 +12442,123 @@
       ],
       "type": "object"
     },
+    "DigestAction": {
+      "enum": [
+        "draft_reply",
+        "remind",
+        "propose_times",
+        "mark_read",
+        "move",
+        "archive",
+        "save_attachment",
+        "allow_sender",
+        "not_now",
+        "always_archive",
+        "open"
+      ],
+      "type": "string"
+    },
+    "DigestCategory": {
+      "enum": [
+        "needs_you",
+        "soon",
+        "fyi",
+        "newsletters",
+        "notifications",
+        "screen",
+        "unverified"
+      ],
+      "type": "string"
+    },
+    "DigestGroup": {
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/DigestCategory"
+        },
+        "count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "title": {
+          "description": "e.g. '12 newsletters'",
+          "maxLength": 200,
+          "type": "string"
+        },
+        "proposalId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "category",
+        "count",
+        "title"
+      ],
+      "type": "object"
+    },
+    "DigestItem": {
+      "properties": {
+        "thread": {
+          "$ref": "#/$defs/MailThreadRef"
+        },
+        "category": {
+          "$ref": "#/$defs/DigestCategory"
+        },
+        "summary": {
+          "maxLength": 300,
+          "type": "string"
+        },
+        "because": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/DigestAction"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "thread",
+        "category",
+        "summary",
+        "actions"
+      ],
+      "type": "object"
+    },
+    "DigestLoop": {
+      "properties": {
+        "loop": {
+          "$ref": "#/$defs/GraphLoop"
+        },
+        "counterpart": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "thread": {
+          "$ref": "#/$defs/MailThreadRef"
+        },
+        "shownCount": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "loop",
+        "shownCount"
+      ],
+      "type": "object"
+    },
     "DmPolicy": {
       "enum": [
         "pairing",
@@ -12761,6 +13175,15 @@
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
           "type": "string"
         },
+        "kind": {
+          "$ref": "#/$defs/FeedPostKind"
+        },
+        "refs": {
+          "$ref": "#/$defs/FeedPostRefs"
+        },
+        "card": {
+          "$ref": "#/$defs/WorkflowCard"
+        },
         "growth": {
           "$ref": "#/$defs/GrowthCard"
         }
@@ -12777,6 +13200,21 @@
       ],
       "type": "object"
     },
+    "FeedPostKind": {
+      "enum": [
+        "brief",
+        "briefing",
+        "digest",
+        "meeting_prep",
+        "meeting_notes",
+        "watch",
+        "reminder",
+        "suggestion",
+        "news",
+        "exploration"
+      ],
+      "type": "string"
+    },
     "FeedPostPayload": {
       "properties": {
         "post": {
@@ -12786,6 +13224,35 @@
       "required": [
         "post"
       ],
+      "type": "object"
+    },
+    "FeedPostRefs": {
+      "properties": {
+        "meetingId": {
+          "type": "string"
+        },
+        "proposalIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "threads": {
+          "items": {
+            "$ref": "#/$defs/MailThreadRef"
+          },
+          "type": "array"
+        },
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
       "type": "object"
     },
     "FeedUpdatedPayload": {
@@ -15977,6 +16444,99 @@
       "minLength": 1,
       "type": "string"
     },
+    "InboxDigest": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "since": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "until": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "accounts": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "counts": {
+          "description": "Messages per DigestCategory",
+          "patternProperties": {
+            "^(.*)$": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "needsYou": {
+          "items": {
+            "$ref": "#/$defs/DigestItem"
+          },
+          "type": "array"
+        },
+        "groups": {
+          "items": {
+            "$ref": "#/$defs/DigestGroup"
+          },
+          "type": "array"
+        },
+        "waitingOn": {
+          "items": {
+            "$ref": "#/$defs/DigestLoop"
+          },
+          "type": "array"
+        },
+        "screen": {
+          "items": {
+            "$ref": "#/$defs/DigestItem"
+          },
+          "type": "array"
+        },
+        "unverified": {
+          "items": {
+            "$ref": "#/$defs/DigestItem"
+          },
+          "type": "array"
+        },
+        "taint": {
+          "description": "Built from untrusted mail (always true when mail was read)",
+          "type": "boolean"
+        },
+        "usedCloudModel": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "createdAt",
+        "since",
+        "until",
+        "accounts",
+        "counts",
+        "needsYou",
+        "groups",
+        "waitingOn",
+        "screen",
+        "unverified",
+        "taint"
+      ],
+      "type": "object"
+    },
     "InputRequest": {
       "properties": {
         "id": {
@@ -16872,6 +17432,40 @@
       ],
       "type": "object"
     },
+    "MailThreadRef": {
+      "properties": {
+        "account": {
+          "type": "string"
+        },
+        "threadId": {
+          "type": "string"
+        },
+        "messageId": {
+          "type": "string"
+        },
+        "link": {
+          "type": "string"
+        },
+        "subject": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "from": {
+          "maxLength": 320,
+          "type": "string"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "account",
+        "threadId"
+      ],
+      "type": "object"
+    },
     "McpAddParams": {
       "properties": {
         "proposalId": {
@@ -17246,6 +17840,331 @@
       "required": [
         "launcher",
         "servers"
+      ],
+      "type": "object"
+    },
+    "MeetingActionItem": {
+      "properties": {
+        "text": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "owner": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dueAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "quote": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "atMs": {
+          "description": "Offset into the recording",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "proposalId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "loopId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
+    },
+    "MeetingAttendee": {
+      "properties": {
+        "email": {
+          "maxLength": 320,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "personId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "relationship": {
+          "enum": [
+            "family",
+            "friend",
+            "colleague",
+            "external",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        "summary": {
+          "description": "One line: who they are",
+          "maxLength": 300,
+          "type": "string"
+        }
+      },
+      "required": [
+        "email"
+      ],
+      "type": "object"
+    },
+    "MeetingNotes": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "meetingId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "title": {
+          "maxLength": 300,
+          "type": "string"
+        },
+        "startedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "durationMs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "recordingItemId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "transcriptItemId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "summary": {
+          "items": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "maxItems": 5,
+          "type": "array"
+        },
+        "decisions": {
+          "items": {
+            "properties": {
+              "text": {
+                "maxLength": 500,
+                "type": "string"
+              },
+              "quote": {
+                "maxLength": 200,
+                "type": "string"
+              },
+              "atMs": {
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "text"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "actionItems": {
+          "items": {
+            "$ref": "#/$defs/MeetingActionItem"
+          },
+          "type": "array"
+        },
+        "openQuestions": {
+          "items": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "model": {
+          "properties": {
+            "role": {
+              "enum": [
+                "primary",
+                "utility",
+                "local"
+              ],
+              "type": "string"
+            },
+            "remote": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "role",
+            "remote"
+          ],
+          "type": "object"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "startedAt",
+        "durationMs",
+        "summary",
+        "decisions",
+        "actionItems",
+        "openQuestions",
+        "model",
+        "provenance"
+      ],
+      "type": "object"
+    },
+    "MeetingPrep": {
+      "properties": {
+        "meetingId": {
+          "description": "The calendar event id",
+          "type": "string"
+        },
+        "calendarId": {
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 300,
+          "type": "string"
+        },
+        "startAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "endAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "joinUrl": {
+          "type": "string"
+        },
+        "attendees": {
+          "items": {
+            "$ref": "#/$defs/MeetingAttendee"
+          },
+          "type": "array"
+        },
+        "why": {
+          "$ref": "#/$defs/SourcedLine"
+        },
+        "openLoops": {
+          "items": {
+            "$ref": "#/$defs/GraphLoop"
+          },
+          "type": "array"
+        },
+        "lastTime": {
+          "items": {
+            "$ref": "#/$defs/SourcedLine"
+          },
+          "type": "array"
+        },
+        "worthReading": {
+          "items": {
+            "$ref": "#/$defs/SourcedLine"
+          },
+          "maxItems": 3,
+          "type": "array"
+        },
+        "agenda": {
+          "items": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "maxItems": 4,
+          "type": "array"
+        },
+        "taint": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "meetingId",
+        "title",
+        "startAt",
+        "attendees",
+        "openLoops",
+        "lastTime",
+        "worthReading",
+        "agenda",
+        "taint"
       ],
       "type": "object"
     },
@@ -21940,6 +22859,179 @@
       ],
       "type": "object"
     },
+    "ProposalUpdatedPayload": {
+      "properties": {
+        "proposal": {
+          "$ref": "#/$defs/ActionProposal"
+        }
+      },
+      "required": [
+        "proposal"
+      ],
+      "type": "object"
+    },
+    "ProposalsApproveParams": {
+      "properties": {
+        "proposalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "proposalId"
+      ],
+      "type": "object"
+    },
+    "ProposalsApproveResult": {
+      "properties": {
+        "proposal": {
+          "$ref": "#/$defs/ActionProposal"
+        },
+        "approval": {
+          "$ref": "#/$defs/ApprovalRequest"
+        },
+        "answerToken": {
+          "$ref": "#/$defs/SurfaceAnswerToken"
+        }
+      },
+      "required": [
+        "proposal",
+        "approval"
+      ],
+      "type": "object"
+    },
+    "ProposalsDismissParams": {
+      "properties": {
+        "proposalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "proposalId"
+      ],
+      "type": "object"
+    },
+    "ProposalsDismissResult": {
+      "properties": {
+        "proposal": {
+          "$ref": "#/$defs/ActionProposal"
+        }
+      },
+      "required": [
+        "proposal"
+      ],
+      "type": "object"
+    },
+    "ProposalsGetParams": {
+      "properties": {
+        "proposalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "proposalId"
+      ],
+      "type": "object"
+    },
+    "ProposalsGetResult": {
+      "properties": {
+        "proposal": {
+          "$ref": "#/$defs/ActionProposal"
+        }
+      },
+      "required": [
+        "proposal"
+      ],
+      "type": "object"
+    },
+    "ProposalsListParams": {
+      "properties": {
+        "status": {
+          "items": {
+            "$ref": "#/$defs/ActionProposalStatus"
+          },
+          "type": "array"
+        },
+        "postId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "cursor": {
+          "description": "Opaque cursor",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "ProposalsListResult": {
+      "properties": {
+        "proposals": {
+          "items": {
+            "$ref": "#/$defs/ActionProposal"
+          },
+          "type": "array"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "description": "Opaque cursor",
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "proposals"
+      ],
+      "type": "object"
+    },
+    "ProposalsUndoParams": {
+      "properties": {
+        "proposalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "proposalId"
+      ],
+      "type": "object"
+    },
+    "ProposalsUndoResult": {
+      "properties": {
+        "proposal": {
+          "$ref": "#/$defs/ActionProposal"
+        }
+      },
+      "required": [
+        "proposal"
+      ],
+      "type": "object"
+    },
     "ProtocolVersionRange": {
       "properties": {
         "min": {
@@ -25696,6 +26788,46 @@
       ],
       "type": "object"
     },
+    "SourcedLine": {
+      "properties": {
+        "text": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "source": {
+          "properties": {
+            "kind": {
+              "enum": [
+                "thread",
+                "note",
+                "loop",
+                "library",
+                "url",
+                "event",
+                "meeting"
+              ],
+              "type": "string"
+            },
+            "ref": {
+              "type": "string"
+            },
+            "label": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "ref"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
+    },
     "SpecialistBudgetSetting": {
       "properties": {
         "tokens": {
@@ -29326,6 +30458,21 @@
         },
         "timezone": {
           "type": "string"
+        },
+        "trigger": {
+          "$ref": "#/$defs/AutomationTrigger"
+        },
+        "lastRunAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -31872,6 +33019,146 @@
         "check"
       ],
       "type": "object"
+    },
+    "WorkflowCard": {
+      "anyOf": [
+        {
+          "properties": {
+            "type": {
+              "const": "digest",
+              "type": "string"
+            },
+            "digest": {
+              "$ref": "#/$defs/InboxDigest"
+            }
+          },
+          "required": [
+            "type",
+            "digest"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "meeting_prep",
+              "type": "string"
+            },
+            "prep": {
+              "$ref": "#/$defs/MeetingPrep"
+            }
+          },
+          "required": [
+            "type",
+            "prep"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "meeting_notes",
+              "type": "string"
+            },
+            "notes": {
+              "$ref": "#/$defs/MeetingNotes"
+            }
+          },
+          "required": [
+            "type",
+            "notes"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "WorkflowEvent": {
+      "properties": {
+        "id": {
+          "description": "Source id: the dedupe key",
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/WorkflowEventSource"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "account": {
+          "type": "string"
+        },
+        "messageId": {
+          "type": "string"
+        },
+        "threadId": {
+          "type": "string"
+        },
+        "calendarEventId": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "from": {
+          "maxLength": 320,
+          "type": "string"
+        },
+        "subject": {
+          "maxLength": 500,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "at"
+      ],
+      "type": "object"
+    },
+    "WorkflowEventFilter": {
+      "properties": {
+        "accounts": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "fromContains": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "mailbox": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "calendarIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array"
+        },
+        "folder": {
+          "description": "recording.added: a granted folder",
+          "maxLength": 1024,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "WorkflowEventSource": {
+      "enum": [
+        "mail.received",
+        "calendar.changed",
+        "recording.added",
+        "followup.due"
+      ],
+      "type": "string"
     },
     "WorkspacePath": {
       "description": "Workspace-relative path, e.g. \"memory/2026-10-18.md\"",
