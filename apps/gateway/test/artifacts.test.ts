@@ -226,4 +226,35 @@ describe("ArtifactStore", () => {
     const again = await provider.provide(input);
     expect(again?.sections[0]?.text).not.toContain("edited these");
   });
+
+  it("keeps the model's token cost flat: refs and patches, not bodies (§4.3)", async () => {
+    const line = (i: number) => `Line ${i}: ${"lorem ipsum ".repeat(8)}\n`;
+    const body = Array.from({ length: 300 }, (_, i) => line(i)).join("");
+    const [create, update] = artifactTools(store);
+    const ctx = {
+      callId: "tc_t",
+      threadId: "thr_1",
+      runId: "run_t",
+      taint: false,
+      signal: new AbortController().signal,
+      onUpdate: () => {},
+    } as never;
+    const made = await create?.run?.({ type: "doc", title: "Big", content: body }, ctx);
+    const ref = made?.output as { artifactId: string };
+    // What the model emits and gets back across ten one-line edits.
+    let emitted = body.length;
+    let received = JSON.stringify(made?.output).length;
+    for (let v = 1; v <= 10; v++) {
+      const ops = [
+        { op: "replace" as const, old: `Line ${v * 20}:`, new: `Line ${v * 20} (edited):` },
+      ];
+      emitted += JSON.stringify(ops).length;
+      const r = await update?.run?.({ artifactId: ref.artifactId, base: v, ops }, ctx);
+      received += JSON.stringify(r?.output).length;
+    }
+    // Re-sending the document ten times would cost 10 x body; patches cost under 1% of that.
+    expect(emitted - body.length).toBeLessThan(body.length / 10);
+    expect(received).toBeLessThan(5_000);
+    expect(received).toBeLessThan(body.length / 5);
+  });
 });
