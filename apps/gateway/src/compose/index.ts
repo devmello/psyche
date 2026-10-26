@@ -842,6 +842,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     goals: proactive.goals,
     ideas: proactive.ideas,
     feed: proactive.feed,
+    ...(proactive.drafts === undefined ? {} : { drafts: proactive.drafts }),
+    ...(proactive.scheduling === undefined ? {} : { scheduling: proactive.scheduling }),
     clock,
   })) {
     registry.register(tool);

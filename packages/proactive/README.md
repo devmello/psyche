@@ -270,6 +270,13 @@ agent loop's registry (architecture §4.3 built-ins "`goal.*`, `idea.*`, `feed.*
 - **`setSenderRule(from, decision)`:** the card's Allow / Not now / Always archive and category moves, written to `mail/RULES.md` (which the UI may also edit with `memory.write`).
 - **Schedule:** a system cron automation (`30 7 * * 1-5`) runs in-process. In the Gateway it is off until `mail.digest.enabled` is true (§7.5: upgrades start off).
 
+### Voice profile, drafts and scheduling (§4.3, §4.4, #670 W5)
+
+- **`VoiceService`** reads up to 100 sent messages, keeps only the owner's own text (quotes and signatures go), and writes `mail/VOICE.md` (greetings and sign-offs per tier: colleague, known person, other) and up to 40 short samples in `mail/voice-samples.jsonl`. Both are owner files; `reset()` deletes them and drafts then say no style is saved. The nightly refresh (`15 3 * * *`) is off until `mail.voice.enabled` is true. Owner addresses come from `mail.ownerAddresses`.
+- **`DraftService.draft({via, messageId, instruction?, tone?, replyAll?})`** writes a reply on the utility model with the thread fenced as untrusted and the voice for the recipient's tier. It returns the body, the sentences that commit the owner (`commitments`) and a one-call proposal (`mail_reply_draft` or `gmail_create_draft`); nothing is saved until it is approved. `shouldAutoDraft` limits unasked drafts to short questions from known senders without money, documents or attachments.
+- **`SchedulingService.proposeTimes({via, messageId, durationMin?, recipientTimezone?, holds?, who?})`** reads `calendar_free_busy`, picks three weekday slots in working hours with a 15-minute buffer (one per day), drafts the reply with both time zones and, when asked, proposes three tentative holds as one batch. `mail.schedulingLink` is offered only when set. `confirm({reply, slots, ...})` turns a reply that picks a slot into one card for the event; an ambiguous reply returns a question. Releasing the other holds is a separate approval, because deletes are destructive and cannot be batched.
+- **Agent tools:** `mail.draft_reply` and `mail.propose_times` (side effect `none`, untrusted results); they only propose.
+
 ## Gateway wiring
 
 `composeProactive({ db, clock, scheduler, notifier, tasks, publish, timeZone, logger })` in

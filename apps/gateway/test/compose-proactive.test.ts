@@ -50,6 +50,8 @@ describe("composition root: proactive surfaces (S15)", () => {
       "feed.list",
       "feed.explain",
       "feed.mark_read",
+      "mail.draft_reply",
+      "mail.propose_times",
     ]) {
       expect(se(name)).toBe("none");
     }
@@ -70,6 +72,7 @@ describe("composition root: proactive surfaces (S15)", () => {
       "Ideas: delivery window",
       "Ideas: nightly mining",
       "Inbox digest",
+      "Learn my writing style",
       "Memory dreaming",
     ]);
 
