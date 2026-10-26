@@ -15,7 +15,12 @@ import {
   VoiceSection,
 } from "@psyche/ui";
 import { type ReactElement, type ReactNode, useEffect, useMemo, useState } from "react";
-import type { DictationPort, ShellPlatform, SystemDictationStatus } from "../shell/platform.ts";
+import type {
+  AppInfoPort,
+  DictationPort,
+  ShellPlatform,
+  SystemDictationStatus,
+} from "../shell/platform.ts";
 import { useAboutInfo } from "./about.ts";
 import { BackupsPanel } from "./backups.tsx";
 import { DesktopDevicesSettings, useThisDeviceId } from "./helper.tsx";
@@ -210,10 +215,18 @@ export function SystemVoiceSettings({ dictation }: { dictation: DictationPort })
   );
 }
 
-/** About with live versions: the app's from the build, the Gateway's from `/version`. */
-function AboutLive(): ReactElement {
-  const info = useAboutInfo();
-  return <AboutSection info={info} />;
+/**
+ * About with live versions: on the web the app's from the build and the Gateway's from
+ * `/version`; on the desktop everything from main, with Reveal in Finder for the data folder.
+ */
+function AboutLive({ app }: { app: AppInfoPort | undefined }): ReactElement {
+  const info = useAboutInfo(app);
+  return (
+    <AboutSection
+      info={info}
+      {...(app ? { onRevealHome: () => void app.revealHome().catch(() => undefined) } : {})}
+    />
+  );
 }
 
 export function settingsRoute(
@@ -274,7 +287,7 @@ export function settingsRoute(
           ),
           about: (
             <div className="flex flex-col gap-4">
-              <AboutLive />
+              <AboutLive app={platform.app} />
               <LogViewer />
             </div>
           ),

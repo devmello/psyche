@@ -5,6 +5,7 @@ import {
   browserStorage,
   type DownloadNotice,
   type GatewayRunView,
+  type HostAppInfo,
   type MacHelperState,
   type PermissionKind,
   type PermissionState,
@@ -124,6 +125,10 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
     },
     locale: {
       get: () => b.locale.get() as Promise<SystemLocale>,
+    },
+    app: {
+      info: () => b.app.info() as Promise<HostAppInfo>,
+      revealHome: async () => void (await b.app.revealHome()),
     },
     systemAppearance: {
       get: () => b.systemAppearance.get() as Promise<SystemAppearance>,
