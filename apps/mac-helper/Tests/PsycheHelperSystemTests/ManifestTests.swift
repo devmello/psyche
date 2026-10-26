@@ -14,7 +14,7 @@ struct ManifestTests {
         let groups = Set(names.map { String($0.split(separator: ".").first ?? "") })
         #expect(groups.isSuperset(of: ["computer", "apps", "permissions", "notify"]))
         for required in ["computer.ax_tree", "computer.click", "computer.double_click", "computer.right_click", "computer.type",
-                         "computer.key", "computer.scroll", "computer.drag", "computer.screenshot", "computer.screenshot_pick",
+                         "computer.key", "computer.scroll", "computer.drag", "computer.screenshot", "computer.screenshot_pick", "screen.context",
                          "apps.open", "apps.focus", "apps.list", "apps.applescript", "apps.jxa", "apps.shortcut_run",
                          "permissions.status", "permissions.request", "notify.show"] {
             #expect(names.contains(required), "missing \(required)")

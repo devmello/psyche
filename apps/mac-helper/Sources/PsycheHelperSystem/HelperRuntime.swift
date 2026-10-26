@@ -18,6 +18,8 @@ public final class HelperRuntime: @unchecked Sendable {
         handlers += PermissionsCapabilities.make(preflight: preflight)
         handlers += ComputerCapabilities.make(computer)
         handlers += ScreenshotCapabilities.make(computer)
+        // Ask about my screen (docs/design/screen-ask-2026.md): owner-initiated, desktop only.
+        handlers += ScreenAskCapabilities.make()
         handlers += AppsCapabilities.make(computer)
         handlers += NotifyCapabilities.make(bridge: notifications)
         handlers += SpeechCapabilities.make(preflight: preflight, log: log)
