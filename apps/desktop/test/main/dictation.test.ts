@@ -5,6 +5,7 @@ import {
   parseDictationSettings,
   SystemDictation,
 } from "../../src/main/dictation/controller.ts";
+import { FN_HOLD_MS } from "../../src/main/dictation/fn-gesture.ts";
 import {
   DictationService,
   type DictationStatus,
@@ -333,6 +334,7 @@ describe("dictation service", () => {
     await settled();
     expect(h.d.phase).toBe("idle");
     svc.onEvent("dictation.key", { key: "fn", down: true, at: "" });
+    await new Promise((r) => setTimeout(r, FN_HOLD_MS + 20));
     await settled();
     expect(h.d.phase).toBe("listening");
     svc.onEvent("voice.segment", { sessionId: "vs_1", segment: { text: "hi", final: true } });
@@ -438,6 +440,7 @@ describe("the voice conversation key (V-G, docs/voice/voice-mode-2026.md §4.1)"
     expect(keys).toEqual([true, false]);
     expect(h.d.phase).toBe("idle");
     svc.onEvent("dictation.key", { key: "fn", down: true, at: "", role: "dictation" });
+    await new Promise((r) => setTimeout(r, FN_HOLD_MS + 20));
     await settled();
     expect(h.d.phase).toBe("listening");
     h.d.cancel();
