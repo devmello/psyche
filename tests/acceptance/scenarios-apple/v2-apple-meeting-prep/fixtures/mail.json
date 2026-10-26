@@ -1,0 +1,54 @@
+{
+  "$comment": "Apple Mail fixture for v2-apple-meeting-prep (fictional): recent mail from the 2 PM attendees and one unrelated message.",
+  "account": "iCloud",
+  "messages": [
+    {
+      "id": "msg_a2_001",
+      "messageId": "pilot-scope-0001@whitfield.example.org",
+      "mailbox": "INBOX",
+      "from": { "name": "Dana Whitfield", "email": "dana@example.org" },
+      "to": ["owner@example.com"],
+      "subject": "Pilot scope draft",
+      "date": "2026-10-16T15:12:00-07:00",
+      "read": true,
+      "flagged": false,
+      "body": "Avery, attached is our draft pilot scope: two regions, 90 days, weekly check-ins. Happy to walk through it Monday."
+    },
+    {
+      "id": "msg_a2_002",
+      "messageId": "intro-0002@whitfield.example.org",
+      "mailbox": "INBOX",
+      "from": { "name": "Dana Whitfield", "email": "dana@example.org" },
+      "to": ["owner@example.com"],
+      "subject": "Intro: Whitfield & Co",
+      "date": "2026-10-12T10:03:00-07:00",
+      "read": true,
+      "flagged": false,
+      "body": "Great to meet you at the summit. Looping in Priya, who leads product on our side."
+    },
+    {
+      "id": "msg_a2_003",
+      "messageId": "pricing-0003@partner.example.net",
+      "mailbox": "INBOX",
+      "from": { "name": "Priya Nair", "email": "priya@partner.example.net" },
+      "to": ["owner@example.com"],
+      "subject": "Pricing questions",
+      "date": "2026-10-15T09:41:00-07:00",
+      "read": true,
+      "flagged": false,
+      "body": "Two questions before Monday: is the pilot priced per seat, and is there a cap on API calls?"
+    },
+    {
+      "id": "msg_a2_004",
+      "messageId": "roadmap-0004@example.com",
+      "mailbox": "INBOX",
+      "from": { "name": "Maya Okafor", "email": "maya@example.com" },
+      "to": ["owner@example.com"],
+      "subject": "Q4 roadmap",
+      "date": "2026-10-16T08:00:00-07:00",
+      "read": true,
+      "flagged": false,
+      "body": "Roadmap review moved to Wednesday."
+    }
+  ]
+}

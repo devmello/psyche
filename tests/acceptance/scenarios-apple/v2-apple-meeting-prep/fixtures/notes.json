@@ -1,0 +1,13 @@
+{
+  "$comment": "Apple Notes fixture for v2-apple-meeting-prep (fictional). notes_create allocates note_0001, note_0002, ...",
+  "folders": ["Notes", "Work"],
+  "notes": [
+    {
+      "id": "note_a2_ideas",
+      "title": "Partnership ideas",
+      "folder": "Work",
+      "modified": "2026-10-09T17:20:00-07:00",
+      "body": "Co-marketing, shared webinar, referral fee."
+    }
+  ]
+}
