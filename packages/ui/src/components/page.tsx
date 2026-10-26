@@ -2,6 +2,7 @@ import { CircleAlert, type LucideIcon } from "lucide-react";
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
+import { duration } from "../motion/tokens.ts";
 import { Button } from "./ui/button.tsx";
 import { Skeleton } from "./ui/skeleton.tsx";
 
@@ -13,7 +14,7 @@ import { Skeleton } from "./ui/skeleton.tsx";
  */
 
 /** True once `flag` has stayed true for `delayMs` (skeletons appear after 150 ms, §3.0). */
-export function useDelayedFlag(flag: boolean, delayMs = 150): boolean {
+export function useDelayedFlag(flag: boolean, delayMs: number = duration.skeletonDelay): boolean {
   const [shown, setShown] = useState(flag && delayMs === 0);
   useEffect(() => {
     if (!flag) {

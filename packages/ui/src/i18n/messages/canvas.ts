@@ -21,4 +21,32 @@ export const canvas = {
   "canvas.conflict":
     "This changed while you were editing, so your edit wasn't saved. Try again on the latest version.",
   "canvas.saveFailed": "Couldn't save: {message}",
+  "canvas.map": "Map",
+  "map.label": "Map: {title}",
+  "map.untitled": "Map",
+  "map.list": "Places",
+  "map.openLink": "Open link",
+  "map.empty": "No places to show.",
+  "map.tilesOff": "Map tiles are off in Settings. Showing the list.",
+  "map.tilesFailed": "The map couldn't load. Showing the list.",
+  "map.showMap": "Show map",
+  "map.showList": "Show list",
+  "map.card": "Map: {title}",
+  "map.meta": "{count, plural, one {# place} other {# places}} · {date}",
+  "map.openCanvas": "Open in canvas",
+  "map.invalid": "This map couldn't be read.",
+  "map.gesture.windows": "Use Ctrl + scroll to zoom the map",
+  "map.gesture.mac": "Use ⌘ + scroll to zoom the map",
+  "map.gesture.mobile": "Use two fingers to move the map",
+  "settings.map.title": "Maps",
+  "settings.map.privacy":
+    "Showing a map asks a tile server for the area you look at, so that server can tell roughly where you are looking. Turn tiles off to see places as a list only, or use your own tile server. Requests go through your Gateway, so the tile host sees the Gateway, not your device.",
+  "settings.map.tiles": "Show map tiles",
+  "settings.map.tilesHint": "Off shows places as a list with no map requests.",
+  "settings.map.style": "Tile server style URL",
+  "settings.map.styleHint":
+    "A MapLibre style JSON URL, for example your own server. Empty uses the free OpenFreeMap tiles (https only; http for localhost).",
+  "settings.map.styleDark": "Dark style URL",
+  "settings.map.styleDarkHint":
+    "Optional. Empty uses the style above for dark mode too, or OpenFreeMap's dark style.",
 } as const;

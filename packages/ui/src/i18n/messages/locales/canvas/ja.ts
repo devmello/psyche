@@ -23,4 +23,32 @@ export const canvas: Partial<Catalogue> = {
   "canvas.conflict":
     "編集中に変更されたため、編集は保存されませんでした。最新のバージョンでもう一度お試しください。",
   "canvas.saveFailed": "保存できませんでした: {message}",
+  "canvas.map": "地図",
+  "map.label": "地図: {title}",
+  "map.untitled": "地図",
+  "map.list": "場所",
+  "map.openLink": "リンクを開く",
+  "map.empty": "表示する場所がありません。",
+  "map.tilesOff": "設定で地図タイルがオフです。リストを表示しています。",
+  "map.tilesFailed": "地図を読み込めませんでした。リストを表示しています。",
+  "map.showMap": "地図を表示",
+  "map.showList": "リストを表示",
+  "map.card": "地図: {title}",
+  "map.meta": "{count, plural, other {#件の場所}} · {date}",
+  "map.openCanvas": "キャンバスで開く",
+  "map.invalid": "この地図を読み取れませんでした。",
+  "map.gesture.windows": "Ctrl +スクロールで地図をズーム",
+  "map.gesture.mac": "⌘ +スクロールで地図をズーム",
+  "map.gesture.mobile": "2本指で地図を動かします",
+  "settings.map.title": "地図",
+  "settings.map.privacy":
+    "地図を表示すると、見ているエリアがタイルサーバに送られ、サーバはおおよその閲覧場所を知ることができます。タイルをオフにすると場所をリストのみで表示します。自分のタイルサーバも使えます。リクエストはGateway経由なので、タイルサーバに見えるのはGatewayであり、お使いの端末ではありません。",
+  "settings.map.tiles": "地図タイルを表示",
+  "settings.map.tilesHint": "オフにすると、地図へのリクエストなしで場所をリスト表示します。",
+  "settings.map.style": "タイルサーバのスタイルURL",
+  "settings.map.styleHint":
+    "MapLibreのスタイルJSONのURL(自分のサーバなど)。空欄の場合は無料のOpenFreeMapタイルを使います(httpsのみ、localhostはhttp可)。",
+  "settings.map.styleDark": "スタイルURL(ダーク)",
+  "settings.map.styleDarkHint":
+    "任意。空欄の場合はダークモードでも上のスタイル、またはOpenFreeMapのダークスタイルを使います。",
 };

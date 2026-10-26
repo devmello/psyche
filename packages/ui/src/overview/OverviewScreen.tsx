@@ -10,6 +10,7 @@ import { OverviewActivity } from "./ActivitySection.tsx";
 import { BuiltForYou, Specialists } from "./BuiltSpecialists.tsx";
 import { isNewUser, type OverviewData, useOverviewData } from "./data.ts";
 import { NowSection } from "./NowSection.tsx";
+import { GrowthAndPeople } from "./GrowthAndPeople.tsx";
 import {
   OVERVIEW_SECTIONS,
   OverviewSection,
@@ -110,7 +111,9 @@ export function OverviewScreen({
             <NowSection key={id} {...(now === undefined ? {} : { now })} />
           ) : id === "activity" ? (
             <OverviewActivity key={id} period={period} onNavigate={onNavigate} route={route} />
-          ) : id === "built" ? (
+          ) : id === "growth" ? (
+            <GrowthAndPeople key={id} period={period} now={at} />
+          ) : id === "people" ? null : id === "built" ? (
             <BuiltForYou key={id} period={period} now={at} />
           ) : id === "specialists" ? (
             <Specialists key={id} period={period} now={at} />

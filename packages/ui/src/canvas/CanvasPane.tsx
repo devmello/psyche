@@ -14,6 +14,7 @@ import {
   GitCompare,
   Globe,
   Image as ImageIcon,
+  Map as MapIcon,
   Network,
   Pencil,
   ShieldAlert,
@@ -47,7 +48,10 @@ import {
 import { useCopy } from "../lib/clipboard.ts";
 import { formatTime } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
+import { MapPanel } from "../map/MapPanel.tsx";
+import { parseMapContent } from "../map/map-model.ts";
 import { useSlots } from "../slots.tsx";
+import { CanvasSkeleton } from "./CanvasSkeleton.tsx";
 import { ChartView } from "./ChartView.tsx";
 
 /**
@@ -66,6 +70,7 @@ const TYPE_ICON: Partial<Record<Artifact["type"], typeof FileText>> = {
   sheet: TableIcon,
   image: ImageIcon,
   chart: ChartColumn,
+  map: MapIcon,
   diagram: Network,
   diff: GitCompare,
   html: Globe,
@@ -91,7 +96,7 @@ export interface CanvasPaneProps {
 }
 
 const fileName = (a: Artifact): string =>
-  `${a.nameSlug}.${a.type === "table" || a.type === "sheet" ? "csv" : a.type === "chart" ? "json" : a.type === "diagram" ? "mmd" : a.type === "diff" ? "patch" : a.type === "html" ? "html" : a.type === "code" ? (a.language ?? "txt") : "md"}`;
+  `${a.nameSlug}.${a.type === "table" || a.type === "sheet" ? "csv" : a.type === "chart" || a.type === "map" ? "json" : a.type === "diagram" ? "mmd" : a.type === "diff" ? "patch" : a.type === "html" ? "html" : a.type === "code" ? (a.language ?? "txt") : "md"}`;
 
 function asTable(content: ArtifactContent): ArtifactTable | null {
   try {
@@ -125,11 +130,18 @@ export function CanvasPane({ artifactId, threadId, onSelect }: CanvasPaneProps):
     >
       <RecentsTabs threadId={threadId} activeId={artifactId} onSelect={onSelect} />
       {artifact === null ? (
-        <p className="p-4 text-callout text-label-secondary" role="status">
-          {loading ? t("canvas.loading") : t("canvas.missing")}
-        </p>
+        loading ? (
+          <div className="p-4">
+            <CanvasSkeleton />
+          </div>
+        ) : (
+          <p className="p-4 text-callout text-label-secondary" role="status">
+            {t("canvas.missing")}
+          </p>
+        )
       ) : (
         <CanvasBody
+          key={artifact.id}
           artifact={artifact}
           content={content}
           latest={latest}
@@ -352,9 +364,13 @@ function CanvasBody({
       ) : null}
       <div className="min-h-0 flex-1 overflow-auto p-4">
         {content === null ? (
-          <p className="text-callout text-label-secondary" role="status">
-            {error ?? t("canvas.loading")}
-          </p>
+          error !== null && error !== undefined ? (
+            <p className="text-callout text-label-secondary" role="status">
+              {error}
+            </p>
+          ) : (
+            <CanvasSkeleton />
+          )
         ) : custom !== undefined && custom !== null ? (
           custom
         ) : table ? (
@@ -367,6 +383,8 @@ function CanvasBody({
           <ImageBody itemId={content.content} />
         ) : artifact.type === "chart" ? (
           <ChartBody content={content} />
+        ) : artifact.type === "map" ? (
+          <MapBody content={content} />
         ) : artifact.type === "diff" ? (
           <DiffBlock diff={content.content} maxLines={2000} />
         ) : editing ? (
@@ -576,6 +594,12 @@ function ChartBody({ content }: { content: ArtifactContent }): ReactElement {
   if (chart === null || !Array.isArray(chart.series) || !Array.isArray(chart.categories))
     return <pre className="font-mono text-mono">{content.content}</pre>;
   return <ChartView chart={chart} />;
+}
+
+function MapBody({ content }: { content: ArtifactContent }): ReactElement {
+  const map = parseMapContent(content.content);
+  if (map === null) return <pre className="font-mono text-mono">{content.content}</pre>;
+  return <MapPanel map={map} variant="full" />;
 }
 
 function ImageBody({ itemId }: { itemId: string }): ReactElement {

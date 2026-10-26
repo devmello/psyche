@@ -118,7 +118,10 @@ describe("useThread", () => {
       gateway.emit("chat.delta", { threadId: "thr_main", messageId: "m1", delta: "Three slots " });
       gateway.emit("chat.delta", { threadId: "thr_main", messageId: "m1", delta: "work." });
     });
-    expect(result.current.streaming.map((s) => s.text)).toEqual(["Three slots work."]);
+    // Subscribers hear about deltas once per animation frame.
+    await waitFor(() =>
+      expect(result.current.streaming.map((s) => s.text)).toEqual(["Three slots work."]),
+    );
 
     act(() => {
       gateway.commitMessage("thr_main", "agent", [{ type: "text", md: "Three slots work." }], {
@@ -183,6 +186,43 @@ describe("useThread", () => {
     await act(() => result.current.send("Book the dentist next week"));
     const call = gateway.calls.find((c) => c.method === "chat.send");
     expect(call?.idempotencyKey).toBeTruthy();
+  });
+});
+
+describe("useThread optimistic send", () => {
+  it("shows the user message before the round trip, once, and drops it on failure", async () => {
+    const gateway = new MockGateway({ threads: [thread] }, { now: () => NOW, latency: 30 });
+    const store = new GatewayStore(gateway, { now: () => NOW });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <GatewayProvider client={gateway} store={store}>
+        {children}
+      </GatewayProvider>
+    );
+    const { result } = renderHook(() => useThread("thr_main"), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let sending: Promise<unknown> = Promise.resolve();
+    act(() => {
+      sending = result.current.send("Book the dentist");
+    });
+    expect(result.current.messages.map((m) => m.role)).toEqual(["user"]);
+    await act(async () => {
+      await sending;
+    });
+    const users = result.current.messages.filter((m) => m.role === "user");
+    expect(users).toHaveLength(1);
+    expect(users[0]?.id.startsWith("pending-")).toBe(false);
+
+    gateway.failNext("chat.send", "unavailable");
+    let failing: Promise<unknown> = Promise.resolve();
+    act(() => {
+      failing = result.current.send("second").catch(() => "failed");
+    });
+    expect(result.current.messages.filter((m) => m.role === "user")).toHaveLength(2);
+    await act(async () => {
+      expect(await failing).toBe("failed");
+    });
+    expect(result.current.messages.filter((m) => m.role === "user")).toHaveLength(1);
   });
 });
 

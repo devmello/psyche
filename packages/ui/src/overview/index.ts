@@ -2,6 +2,8 @@ export { OverviewActivity, type OverviewActivityProps } from "./ActivitySection.
 export { isNewUser, NEW_USER_DAYS, type OverviewData, useOverviewData } from "./data.ts";
 export { NowSection } from "./NowSection.tsx";
 export { OverviewRun, type OverviewRunProps } from "./OverviewRun.tsx";
+export { GrowthAndPeople } from "./GrowthAndPeople.tsx";
+export { GrowthSection, type GrowthSectionProps } from "./GrowthSection.tsx";
 export {
   OverviewScreen,
   type OverviewScreenProps,
@@ -14,6 +16,16 @@ export {
   type OverviewSectionProps,
   sectionTitle,
 } from "./OverviewSection.tsx";
+export { PeopleMap, type PeopleMapProps } from "./PeopleMap.tsx";
+export { PeopleList, PeopleSection, type PeopleSectionProps } from "./PeopleSection.tsx";
+export {
+  layoutPeopleMap,
+  type PeopleLayout,
+  type PeopleNode,
+  rankEntities,
+  ringOf,
+  sizeOf,
+} from "./peopleLayout.ts";
 export {
   DEFAULT_OVERVIEW_PERIOD,
   formatPeriodRange,

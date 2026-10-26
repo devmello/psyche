@@ -23,4 +23,32 @@ export const canvas: Partial<Catalogue> = {
   "canvas.conflict":
     "आपके संपादन के दौरान यह बदल गया, इसलिए आपका संपादन सहेजा नहीं गया। नवीनतम संस्करण पर फिर से कोशिश करें।",
   "canvas.saveFailed": "सहेजा नहीं जा सका: {message}",
+  "canvas.map": "मानचित्र",
+  "map.label": "मानचित्र: {title}",
+  "map.untitled": "मानचित्र",
+  "map.list": "स्थान",
+  "map.openLink": "लिंक खोलें",
+  "map.empty": "दिखाने के लिए कोई स्थान नहीं।",
+  "map.tilesOff": "सेटिंग में मानचित्र टाइल बंद हैं। सूची दिखाई जा रही है।",
+  "map.tilesFailed": "मानचित्र लोड नहीं हो सका। सूची दिखाई जा रही है।",
+  "map.showMap": "मानचित्र दिखाएँ",
+  "map.showList": "सूची दिखाएँ",
+  "map.card": "मानचित्र: {title}",
+  "map.meta": "{count, plural, one {# स्थान} other {# स्थान}} · {date}",
+  "map.openCanvas": "कैनवास में खोलें",
+  "map.invalid": "यह मानचित्र पढ़ा नहीं जा सका।",
+  "map.gesture.windows": "मानचित्र ज़ूम करने के लिए Ctrl + स्क्रॉल करें",
+  "map.gesture.mac": "मानचित्र ज़ूम करने के लिए ⌘ + स्क्रॉल करें",
+  "map.gesture.mobile": "मानचित्र हिलाने के लिए दो उँगलियों का उपयोग करें",
+  "settings.map.title": "मानचित्र",
+  "settings.map.privacy":
+    "मानचित्र दिखाने पर टाइल सर्वर से आपके देखे जा रहे क्षेत्र का अनुरोध होता है, इसलिए वह सर्वर मोटे तौर पर जान सकता है कि आप कहाँ देख रहे हैं। स्थान केवल सूची में देखने के लिए टाइल बंद करें, या अपना टाइल सर्वर इस्तेमाल करें। अनुरोध आपके Gateway से होकर जाते हैं, इसलिए टाइल सर्वर आपका डिवाइस नहीं, Gateway देखता है।",
+  "settings.map.tiles": "मानचित्र टाइल दिखाएँ",
+  "settings.map.tilesHint": "बंद करने पर स्थान बिना मानचित्र अनुरोध के सूची में दिखते हैं।",
+  "settings.map.style": "टाइल सर्वर स्टाइल URL",
+  "settings.map.styleHint":
+    "MapLibre स्टाइल JSON का URL, जैसे आपका अपना सर्वर। खाली होने पर मुफ़्त OpenFreeMap टाइल इस्तेमाल होते हैं (केवल https; localhost के लिए http)।",
+  "settings.map.styleDark": "स्टाइल URL (डार्क)",
+  "settings.map.styleDarkHint":
+    "वैकल्पिक। खाली होने पर डार्क मोड में भी ऊपर की स्टाइल, या OpenFreeMap की डार्क स्टाइल इस्तेमाल होती है।",
 };

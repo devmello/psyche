@@ -1,8 +1,16 @@
 import type { ReactElement } from "react";
-import { Streamdown } from "streamdown";
+import { type Components, Streamdown } from "streamdown";
 import { t } from "../i18n/core.ts";
+import { useSmoothText } from "../lib/smooth-text.ts";
 import { cn } from "../lib/utils.ts";
 import { psycheCodePlugin } from "./highlighter.ts";
+
+const STREAM_FADE = {
+  animation: "fadeIn",
+  duration: 140,
+  easing: "ease-out",
+  sep: "word",
+} as const;
 
 export interface MarkdownProps {
   /** Markdown source. Model output is untrusted: it is sanitized and raw HTML is not rendered. */
@@ -22,46 +30,59 @@ export function isSafeLink(url: string): boolean {
   return SAFE_LINK.test(url.trim());
 }
 
+// Module-level and stable: Streamdown memoizes each finished block on the identity of these props,
+// so inline objects or functions would re-render every block on every token.
+const PLUGINS = { code: psycheCodePlugin };
+const CONTROLS = { code: true, table: false };
+const LINK_SAFETY = { enabled: false };
+const urlTransform = (url: string): string => (isSafeLink(url) ? url : "");
+const COMPONENTS: Components = {
+  img: ({ alt }) => (
+    <span className="text-muted-foreground">
+      {t("blocks.markdown.image", { alt: alt || t("blocks.markdown.untitled") })}
+    </span>
+  ),
+  a: ({ href, children: label }) =>
+    href ? (
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer noopener"
+        className="text-accent-11 underline underline-offset-2"
+      >
+        {label}
+      </a>
+    ) : (
+      <span>{label}</span>
+    ),
+};
+
 /**
  * Streamed, sanitized Markdown (UI design §3.0, §3.2): Streamdown with rehype sanitization,
  * no raw HTML, safe link schemes only, images not loaded (remote content stays out of the
  * transcript), and Shiki code blocks.
  */
 export function Markdown({ children, streaming = false, className }: MarkdownProps): ReactElement {
+  // Bursty deltas are released one frame at a time, and the tail drains after the stream ends.
+  const text = useSmoothText(children, streaming);
+  const live = streaming || text !== children;
   return (
     <Streamdown
       className={cn("psy-markdown prose-width text-reading text-label-primary", className)}
-      mode={streaming ? "streaming" : "static"}
-      parseIncompleteMarkdown={streaming}
-      isAnimating={streaming}
-      caret={streaming ? "block" : undefined}
-      plugins={{ code: psycheCodePlugin }}
-      controls={{ code: true, table: false }}
-      linkSafety={{ enabled: false }}
+      mode={live ? "streaming" : "static"}
+      parseIncompleteMarkdown={live}
+      isAnimating={live}
+      caret={live ? "block" : undefined}
+      // Opacity only, one short fade per newly arrived chunk (no transforms: they jank).
+      animated={live ? STREAM_FADE : false}
+      plugins={PLUGINS}
+      controls={CONTROLS}
+      linkSafety={LINK_SAFETY}
       skipHtml
-      urlTransform={(url) => (isSafeLink(url) ? url : "")}
-      components={{
-        img: ({ alt }) => (
-          <span className="text-muted-foreground">
-            {t("blocks.markdown.image", { alt: alt || t("blocks.markdown.untitled") })}
-          </span>
-        ),
-        a: ({ href, children: label }) =>
-          href ? (
-            <a
-              href={href}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="text-accent-11 underline underline-offset-2"
-            >
-              {label}
-            </a>
-          ) : (
-            <span>{label}</span>
-          ),
-      }}
+      urlTransform={urlTransform}
+      components={COMPONENTS}
     >
-      {children}
+      {text}
     </Streamdown>
   );
 }

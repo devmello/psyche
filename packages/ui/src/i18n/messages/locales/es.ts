@@ -3,6 +3,7 @@ import { canvas } from "./canvas/es.ts";
 import { charts } from "./charts/es.ts";
 import { mailMeetings } from "./mail-meetings/es.ts";
 import { overview } from "./overview/es.ts";
+import { overviewGrowth } from "./overview-growth/es.ts";
 import { workflows } from "./workflows/es.ts";
 
 /** Spanish catalogue (es). Same ids as `en`; missing ids fall back to English. */
@@ -13,6 +14,8 @@ export const es: Partial<Catalogue> = {
   ...workflows,
   // the Overview screen (docs/design/agent-overview-2026.md)
   ...overview,
+  // Overview Growth and People & projects (docs/design/agent-overview-2026.md §5.4)
+  ...overviewGrowth,
   // the output canvas (docs/design/chat-experience-2026.md §4.2)
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
@@ -396,6 +399,7 @@ export const es: Partial<Catalogue> = {
   "blocks.artifact.kind.html": "Página web",
   "blocks.artifact.kind.markdown": "Documento",
   "blocks.artifact.kind.dashboard": "Panel",
+  "blocks.artifact.kind.map": "Mapa",
   "blocks.artifact.label": "Artefacto: {title}",
   "blocks.artifact.meta": "{kind} · v{version} · {date}",
   "blocks.artifact.save": "Guardar en la biblioteca",

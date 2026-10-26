@@ -38,9 +38,15 @@ export function useBottomAnchor(
   useEffect(() => {
     const el = viewport.current;
     if (!el) return;
+    let lastTop = el.scrollTop;
     const onScroll = () => {
       const gap = el.scrollHeight - el.clientHeight - el.scrollTop;
-      pinned.current = gap <= ANCHOR_SLACK_PX;
+      const up = el.scrollTop < lastTop;
+      lastTop = el.scrollTop;
+      // Content that grew between frames widens the gap without the reader moving: only an upward
+      // scroll lets go of the end, so a fast stream never unpins itself.
+      if (gap <= ANCHOR_SLACK_PX) pinned.current = true;
+      else if (up) pinned.current = false;
       setAway(!pinned.current);
     };
     el.addEventListener("scroll", onScroll, { passive: true });
