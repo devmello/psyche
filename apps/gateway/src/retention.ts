@@ -1,9 +1,14 @@
+import { rmSync } from "node:fs";
+import { join, resolve, sep } from "node:path";
 import {
   deleteAgentThreadState,
   deleteThread,
   deleteToolPayloadsBefore,
+  expireRunFramesBefore,
+  expireRunStepText,
   getSetting,
   listExpiredThreads,
+  type PsycheDb,
   pruneIdempotencyRecords,
   threadActivity,
 } from "@psyche/db";
@@ -20,6 +25,45 @@ export interface RetentionReport {
   toolPayloads: number;
   expiredThreads: string[];
   idempotencyRecords: number;
+  /** Thinking steps whose retained text was blanked (run trace §4.3). */
+  thinking: number;
+  /** Frames whose image was removed. */
+  frames: number;
+}
+
+/** Run trace §4.3: Off · 1 · 7 · 30 days; Off (0) keeps only the summary line. */
+export const DEFAULT_REASONING_RETENTION_DAYS = 7;
+/** Run trace §4.3: frames Psyche saw; Off (0) keeps none past the run. */
+export const DEFAULT_REPLAY_RETENTION_DAYS = 7;
+
+function retentionDays(db: PsycheDb, key: string, fallback: number): number {
+  const value = getSetting(db, key)?.value;
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? Math.floor(value)
+    : fallback;
+}
+
+/** `data.reasoningRetentionDays`: how long a thinking step's full text is kept. */
+export function reasoningRetentionDays(db: PsycheDb): number {
+  return retentionDays(db, "data.reasoningRetentionDays", DEFAULT_REASONING_RETENTION_DAYS);
+}
+
+/** `data.replayRetentionDays`: how long the frames Psyche saw are kept. */
+export function replayRetentionDays(db: PsycheDb): number {
+  return retentionDays(db, "data.replayRetentionDays", DEFAULT_REPLAY_RETENTION_DAYS);
+}
+
+/** Where a run's frames live: `$PSYCHE_HOME/library/recordings/<runId>/`. */
+export function runRecordingsDir(home: string, runId: string): string {
+  return join(home, "library", "recordings", runId);
+}
+
+/** Removes a frame file, never outside its run's folder. */
+export function removeFrameFile(home: string, runId: string, path: string): void {
+  const dir = resolve(runRecordingsDir(home, runId));
+  const file = resolve(dir, path);
+  if (!file.startsWith(`${dir}${sep}`)) return;
+  rmSync(file, { force: true });
 }
 
 export function cleanupPeriodDays(ctx: GatewayContext): number {
@@ -38,7 +82,14 @@ export function runRetention(ctx: GatewayContext): RetentionReport {
   const { db, bus } = ctx;
   const now = ctx.now();
   const iso = (ms: number) => new Date(now.getTime() - ms).toISOString();
-  const report: RetentionReport = { toolPayloads: 0, expiredThreads: [], idempotencyRecords: 0 };
+  const report: RetentionReport = {
+    toolPayloads: 0,
+    expiredThreads: [],
+    idempotencyRecords: 0,
+    thinking: 0,
+    frames: 0,
+  };
+  let frameFiles: { runId: string; seq: number; path: string }[] = [];
   db.sqlite.transaction(() => {
     report.toolPayloads = deleteToolPayloadsBefore(db, iso(cleanupPeriodDays(ctx) * DAY_MS));
     const expired = listExpiredThreads(db, now.toISOString());
@@ -59,14 +110,42 @@ export function runRetention(ctx: GatewayContext): RetentionReport {
       db,
       iso(IDEMPOTENCY_RETENTION_DAYS * DAY_MS),
     );
-    if (report.toolPayloads > 0 || report.expiredThreads.length > 0) bus.bumpStateVersion();
+    // Run trace §4.3: thinking text past its expiresAt, frames past data.replayRetentionDays.
+    report.thinking = expireRunStepText(db, now.toISOString());
+    frameFiles = expireRunFramesBefore(
+      db,
+      iso(replayRetentionDays(db) * DAY_MS),
+      now.toISOString(),
+    );
+    report.frames = frameFiles.length;
+    if (
+      report.toolPayloads > 0 ||
+      report.expiredThreads.length > 0 ||
+      report.thinking > 0 ||
+      report.frames > 0
+    )
+      bus.bumpStateVersion();
   })();
+  for (const f of frameFiles) {
+    try {
+      removeFrameFile(ctx.config.home, f.runId, f.path);
+    } catch (err) {
+      ctx.log.log("warn", "frame file not removed", { code: (err as { code?: string }).code ?? null });
+    }
+  }
   for (const threadId of report.expiredThreads)
     bus.publish("thread.deleted", { threadId }, threadId);
-  if (report.toolPayloads > 0 || report.expiredThreads.length > 0) {
+  if (
+    report.toolPayloads > 0 ||
+    report.expiredThreads.length > 0 ||
+    report.thinking > 0 ||
+    report.frames > 0
+  ) {
     ctx.log.log("info", "retention sweep", {
       toolPayloads: report.toolPayloads,
       threads: report.expiredThreads.length,
+      thinking: report.thinking,
+      frames: report.frames,
     });
   }
   return report;
