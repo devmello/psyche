@@ -5,6 +5,7 @@ export * from "./kit-client.ts";
 export * from "./logs.tsx";
 export * from "./onboarding.ts";
 export * from "./PsycheApp.tsx";
+export * from "./ScreenAsk.tsx";
 export * from "./settings.tsx";
 export * from "./VoiceHud.tsx";
 export * from "./ZoomSetting.tsx";
