@@ -24,6 +24,7 @@ import { useNow } from "../../lib/use-now.ts";
 import { cn } from "../../lib/utils.ts";
 import { ListItem } from "../../motion/index.ts";
 import { useSlots } from "../../slots.tsx";
+import { SpecialistInboxRow } from "../../specialists/InboxRow.tsx";
 import { ScreenColumn, ScreenToolbar } from "../feed/ScreenToolbar.tsx";
 
 /** Semantic tones only (§4.8): approval, success, danger, info, or neutral gray. */
@@ -71,7 +72,7 @@ export const NOTIFICATION_KIND: Record<
     tone: TONE.danger,
     status: "failed",
   },
-  // The full specialist result card is #685; until then it reads like a finished task.
+  // A known job gets its own row and result card (`SpecialistInboxRow`, #685).
   specialist_result: {
     get label() {
       return t("screens.inbox.kind.specialist_result");
@@ -614,15 +615,27 @@ export function InboxScreen({ now: fixedNow, onOpen }: InboxScreenProps): ReactE
           });
       }}
       onOpenActivity={() => navigate?.("/agent/activity")}
-      renderRow={(n) => (
-        <ConnectedInboxRow
-          notification={n}
-          now={now}
-          markRead={inbox.markRead}
-          resolve={inbox.resolve}
-          open={open}
-        />
-      )}
+      renderRow={(n) => {
+        const row = (
+          <ConnectedInboxRow
+            notification={n}
+            now={now}
+            markRead={inbox.markRead}
+            resolve={inbox.resolve}
+            open={open}
+          />
+        );
+        return n.kind === "specialist_result" && n.taskId != null ? (
+          <SpecialistInboxRow
+            notification={n}
+            now={now}
+            onMarkRead={() => void inbox.markRead([n.id]).catch(() => {})}
+            fallback={row}
+          />
+        ) : (
+          row
+        );
+      }}
     />
   );
 }

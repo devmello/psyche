@@ -13,6 +13,7 @@ import {
   SoftwareAnchorKey,
 } from "@psyche/audit";
 import { redactUrl } from "@psyche/browser";
+import type { ConnectorRegistry } from "@psyche/connectors";
 import { getDevice, getSetting, getThread, openDb, type PsycheDb, setSetting } from "@psyche/db";
 import { fileTools } from "@psyche/files";
 import {
@@ -77,6 +78,7 @@ import { resolveConfig } from "../config.ts";
 import type { HandlerDef } from "../context.ts";
 import type { PublicRoute, WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
+import { taskRunTrace } from "../run-trace/tasks.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
 import { attentionHandlers, OwnerAttention, parkWhenUnwatched } from "./attention.ts";
@@ -115,6 +117,7 @@ import { createOtherChats, type OtherChats } from "./other-chats.ts";
 import { composePasskeys } from "./passkeys.ts";
 import { composePayments, paymentsSetupFromEnv } from "./payments.ts";
 import { composePeople, type People } from "./people.ts";
+import { graphSourceAdapters } from "./people-sources.ts";
 import { composePlugins } from "./plugins.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { protectedRoots } from "./protected-paths.ts";
@@ -127,6 +130,7 @@ import {
   createOwnPorts,
 } from "./services.ts";
 import { composeSkills } from "./skills.ts";
+import { createSpecialistHost } from "./specialists.ts";
 import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
 import {
   type ComposedTeaching,
@@ -553,7 +557,18 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     audit,
     flush: { provider, model: utility ?? modelRef },
     onEvent: (e) => {
-      publish(e.event, e.payload as never);
+      if (e.event === "memory.file.changed") {
+        // Run trace §4.2: the writing call becomes the trace step; the call id stays internal.
+        const { toolCallId, ...payload } = e.payload;
+        const sink = gatewayRef?.context.runTrace;
+        const stepId =
+          payload.runId === undefined || toolCallId === undefined
+            ? undefined
+            : sink?.memoryChanged(payload.runId, toolCallId, payload.path);
+        publish(e.event, { ...payload, ...(stepId === undefined ? {} : { stepId }) });
+      } else {
+        publish(e.event, e.payload as never);
+      }
       people?.onMemoryEvent(e);
     },
   });
@@ -593,6 +608,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     model: utility ?? modelRef,
     publish: (event, payload) => publish(event, payload as never),
     register: (tool) => registry.register(tool),
+    // Tests drive `people.poll()` by hand.
+    ...(background ? {} : { pollIntervalMs: 0, afterRunDelayMs: 0 }),
+    ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
   const calls = new CallContexts();
   const ownPorts = createOwnPorts();
@@ -674,6 +692,18 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       localProjectSupplied = true;
     }
   }
+  // The people graph's deterministic pass reads the connected apps through their tools (#732).
+  const connectorsPart = parts.find(
+    (p): p is ComposedPart & { registry: ConnectorRegistry } => "registry" in p && "mail" in p,
+  );
+  people.useSources(() =>
+    graphSourceAdapters({
+      connectors: async () => (connectorsPart === undefined ? [] : connectorsPart.registry.list()),
+      tools: services.tools,
+      clock,
+      db,
+    }),
+  );
 
   // scheduler → launcher → worker pool → loop → scheduler: the launcher is bound once the pool exists.
   let launcher: RunLauncher | null = null;
@@ -719,6 +749,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     broker: executorBroker,
     surfaces: ["desktop", "web"],
     publish: (event, payload, threadId) => publish(event, payload as never, threadId),
+    onForgotten: (factId, threadId) => teachingRef?.onLearnedUndo(factId, threadId),
+  });
+  // Background specialists (docs/agent/specialists-2026.md, #683): roles from the role skills,
+  // jobs as a subagent thread + Task, one sanitized result.
+  const specialists = createSpecialistHost({
+    db,
+    tasks,
+    broker: loopBroker,
+    roles: skills.roles,
+    models: { primary: modelRef, ...(utility === undefined ? {} : { utility }) },
+    now: () => clock.now(),
   });
   // The teaching loop (#679): the owner's feedback → lessons written where they belong.
   const teaching = composeTeaching({
@@ -733,6 +774,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     scheduler,
     // Entity and person-scoped lessons write through the people graph (S07, #651).
     ...(people === undefined ? {} : { graph: people.graph }),
+    tasks,
+    // "Used n lessons": the lessons each run's assembled prompt carried (teaching loop §5.1).
+    explain: (runId) => loop.explainContext(runId),
+    ...(gwOptions.retentionIntervalMs === undefined
+      ? {}
+      : { retentionIntervalMs: gwOptions.retentionIntervalMs }),
     surfaces: ["desktop", "web"],
     askRules: teachingAskRules({
       db,
@@ -750,6 +797,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     publish: (event, payload, threadId) => publish(event, payload as never, threadId),
   });
   teachingRef = teaching;
+  parts.push(teaching.part);
   const loop = createAgentLoop({
     // Model-side history survives a restart (issue #52); secrets the vault knows are masked.
     state: new SqliteThreadStateStore(db, redactor),
@@ -774,6 +822,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     onOwnerTurn: userProfile.onOwnerTurn,
     // Incognito threads are memory-only (E9, security §8): the loop never flushes them.
     isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
+    specialists,
     // Reasoning steps for the step log (setting agent.showReasoning, default on), masked.
     showReasoning: () => getSetting(db, "agent.showReasoning")?.value !== false,
     redact: (text) => redactor.redact(text),
@@ -794,6 +843,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       // A trace write never fails the call.
     }
   });
+  // Awaited by the loop before its `end` event, so a chat run's lessons are known before the
+  // controller commits the transcript and publishes `run.updated`.
+  loop.hooks.on("agent_end", (ctx) =>
+    teaching.onRunEnd({
+      runId: ctx.runId,
+      ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
+      subagent: ctx.subagent,
+    }),
+  );
   const pool = new TaskWorkerPool({
     engine: tasks,
     loop,
@@ -802,6 +860,18 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     notifier,
     tools: registry,
     ...(taskPollMs === undefined ? {} : { pollMs: taskPollMs }),
+    // Run trace §4.2: each task turn is its own run (ULID), recorded like a chat turn.
+    newRunId: () => db.newId(),
+    trace: taskRunTrace({
+      db,
+      sink: () => gatewayRef?.context.runTrace,
+      publish,
+      modelRef,
+      onError: (err) =>
+        gwOptions.logger?.log("warn", "task run trace failed", {
+          code: PsycheError.from(err).code,
+        }),
+    }),
   });
   // S15: goal check-ins and the Feed run in-process; the heartbeat gets its 5k-token budget (O2).
   const proactive = composeProactive({
@@ -814,6 +884,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     provider,
     model: utility ?? modelRef,
     publish,
+    broker,
+    registry,
     ...(timeZone === undefined ? {} : { timeZone }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
@@ -822,6 +894,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     goals: proactive.goals,
     ideas: proactive.ideas,
     feed: proactive.feed,
+    ...(proactive.drafts === undefined ? {} : { drafts: proactive.drafts }),
+    ...(proactive.scheduling === undefined ? {} : { scheduling: proactive.scheduling }),
     clock,
   })) {
     registry.register(tool);
@@ -873,7 +947,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   );
   const handlers: Record<string, HandlerDef> = {
     ...mountPermissions(db, createPermissionHandlers(rawBroker, audit), tokens),
-    ...mountParamsOnly(createMemoryHandlers(memory) as never),
+    ...mountParamsOnly(createMemoryHandlers(memory, { teaching: teaching.service.store }) as never),
     ...mountParamsOnly(userProfile.handlers as never),
     ...teaching.handlers,
     ...mountParamsOnly(
@@ -1024,6 +1098,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     parts,
     async stop(reason) {
       for (const part of [...parts].reverse()) await part.stop?.();
+      proactive.stop();
       vault.stop();
       await pool.stop();
       scheduler.stop();

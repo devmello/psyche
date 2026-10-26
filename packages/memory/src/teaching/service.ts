@@ -32,6 +32,7 @@ import {
 } from "./router.ts";
 import {
   destinationKey,
+  FEEDBACK_RETENTION_DAYS,
   LIVE_STATUSES,
   normalizeLessonText,
   type StoredLesson,
@@ -115,6 +116,9 @@ export interface TeachingServiceDeps {
   onFeedback?: (event: FeedbackEvent) => void;
   onLesson?: (lesson: Lesson) => void;
 }
+
+/** A draft edited by at least this share of its length is `draft_edited` evidence (§3.1). */
+export const DRAFT_EDIT_THRESHOLD = 0.2;
 
 /** The teaching surface a target belongs to (`teaching.surfaces`). */
 export function teachingSurface(target: FeedbackTarget): string {
@@ -778,6 +782,84 @@ export class TeachingService {
       else this.#changed(store.updateLesson(l.id, { sources: rest }));
     }
     this.#audit("teaching.feedback.deleted", { eventId, lessons: lessons.length });
+  }
+
+  /**
+   * A draft the agent wrote was sent (the send path's receipt, §3.1): counted as an outcome, and
+   * a heavy edit (normalised distance ≥ 0.2) is also `draft_edited` evidence. Only hashes and the
+   * distance are kept, never the texts.
+   */
+  async recordDraftSent(
+    input: {
+      target: FeedbackTarget;
+      editDistance: number;
+      beforeSha256?: string;
+      afterSha256?: string;
+    },
+    ctx: FeedbackContext,
+  ): Promise<FeedbackEvent | undefined> {
+    const s = this.#d.settings();
+    if (!s.enabled || s.paused || ctx.incognito === true) return undefined;
+    this.#d.store.countOutcome("draft_sent");
+    if (input.editDistance < DRAFT_EDIT_THRESHOLD) return undefined;
+    try {
+      const r = await this.give(
+        {
+          target: input.target,
+          kind: "draft_edited",
+          detail: {
+            editDistance: Math.round(input.editDistance * 1000) / 1000,
+            ...(input.beforeSha256 === undefined ? {} : { beforeSha256: input.beforeSha256 }),
+            ...(input.afterSha256 === undefined ? {} : { afterSha256: input.afterSha256 }),
+          },
+        },
+        ctx,
+      );
+      return r.event;
+    } catch {
+      return undefined; // the draft-edits signal is switched off
+    }
+  }
+
+  /** Retention (§3.5): feedback events older than 180 days go; weekly counts stay. */
+  retain(): number {
+    const cutoff = new Date(this.#d.clock.now() - FEEDBACK_RETENTION_DAYS * 86_400_000);
+    const n = this.#d.store.deleteEventsBefore(cutoff.toISOString());
+    if (n > 0) this.#audit("teaching.feedback.retained", { deleted: n });
+    return n;
+  }
+
+  /**
+   * "Forget everything I learned" (§3.5): every lesson is forgotten (lines removed, what they
+   * replaced restored, tombstones kept) and every feedback event deleted; what the owner wrote
+   * stays. `dryRun` only counts.
+   */
+  async forgetAll(
+    options: { dryRun?: boolean } = {},
+  ): Promise<{ lessons: number; events: number }> {
+    const store = this.#d.store;
+    const live = store.allLessons().filter((l) => l.status !== "forgotten");
+    const events = store.listEvents({ limit: 1 }).events.length === 0 ? 0 : this.#countEvents();
+    if (options.dryRun === true) return { lessons: live.length, events };
+    // Newest first, so each forget restores the line its predecessor had.
+    for (const l of [...live].reverse()) await this.forget(l.id);
+    const deleted = store.deleteAllEvents();
+    this.#audit("teaching.forget_all", { lessons: live.length, events: deleted });
+    return { lessons: live.length, events: deleted };
+  }
+
+  #countEvents(): number {
+    let n = 0;
+    let cursor: string | undefined;
+    do {
+      const page = this.#d.store.listEvents({
+        limit: 200,
+        ...(cursor === undefined ? {} : { cursor }),
+      });
+      n += page.events.length;
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor !== undefined);
+    return n;
   }
 
   /** `lastAppliedAt` for lessons a run's prompt included (`lessonsApplied`). */

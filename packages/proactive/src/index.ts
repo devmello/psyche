@@ -134,11 +134,127 @@ export {
   type SchedulerLike,
   withProactiveJobs,
 } from "./jobs.ts";
+export {
+  CLASSIFY_BATCH,
+  type Classified,
+  classifyBatch,
+  sanitizeMailText,
+} from "./mail/classify.ts";
+export {
+  DEFAULT_DIGEST_SCHEDULE,
+  DigestService,
+  type DigestServiceOptions,
+  MAIL_DIGEST_JOB,
+  RULES_PATH,
+} from "./mail/digest.ts";
+export {
+  commitments,
+  type Draft,
+  type DraftRequest,
+  DraftService,
+  type DraftServiceOptions,
+  shouldAutoDraft,
+  type Tone,
+} from "./mail/drafts.ts";
+export { lookalikeOf, type MailItem, presort } from "./mail/presort.ts";
+export {
+  addressOf,
+  domainOf,
+  formatRule,
+  parseRules,
+  type RuleDecision,
+  type RulesFile,
+  ruleFor,
+  type SenderRule,
+  serializeRules,
+  setRule,
+} from "./mail/rules.ts";
+export {
+  findSlots,
+  formatSlot,
+  pickSlot,
+  SchedulingService,
+  type SchedulingServiceOptions,
+  type Slot,
+  type TimesProposal,
+} from "./mail/scheduling.ts";
+export {
+  buildProfile,
+  commonSignature,
+  MAIL_VOICE_JOB,
+  ownText,
+  renderVoice,
+  type SentMessage,
+  type Tier,
+  VOICE_PATH,
+  VOICE_SAMPLES_PATH,
+  type VoiceProfile,
+  VoiceService,
+  type VoiceServiceOptions,
+} from "./mail/voice.ts";
+export {
+  appleMailSource,
+  type EventScheduler,
+  FIRST_POLL_LOOKBACK_MS,
+  gmailSource,
+  MAIL_WATCH_JOB,
+  MAIL_WATCH_SCHEDULE,
+  MAIL_WATCH_SOURCE,
+  type MailEventSource,
+  MailWatcher,
+  type MailWatcherOptions,
+  OFF_HOURS_POLL_MS,
+} from "./mail/watch.ts";
+export {
+  MeetingNotesService,
+  type MeetingNotesServiceOptions,
+  type MeetingTranscriber,
+  type NotesOutcome,
+  type RecordingInput,
+  type TheyOweLoop,
+  type TranscriptInput,
+} from "./meetings/notes.ts";
+export {
+  type CalendarEvent,
+  MEETING_PREP_JOB,
+  MeetingPrepService,
+  type MeetingPrepServiceOptions,
+  type PlanResult,
+  PREP_PLANNER_SCHEDULE,
+  type PrepScope,
+} from "./meetings/prep.ts";
+export {
+  type AudioCapture,
+  type CapturedAudio,
+  CONSENT_LINE,
+  MeetingRecorder,
+  type MeetingRecording,
+} from "./meetings/recorder.ts";
+export {
+  createProposalHandlers,
+  type ProposalCaller,
+  type ProposalHandlers,
+} from "./proposals/handlers.ts";
+export {
+  type BatchBroker,
+  type CreateProposalInput,
+  DEFAULT_INVERSES,
+  type Inverse,
+  MAX_PROPOSAL_CALLS,
+  PROPOSAL_TTL_MS,
+  type ProposalEvent,
+  ProposalService,
+  type ProposalServiceOptions,
+  type ToolLookup,
+  UNDO_WINDOW_MS,
+} from "./proposals/service.ts";
+export { ProposalStore, type StoredProposal, toActionProposal } from "./proposals/store.ts";
 export type { SqliteDatabase, SqliteStatement } from "./sqlite.ts";
 export {
   feedTools,
   goalTools,
   ideaTools,
+  mailTools,
   type ProactiveToolsOptions,
   proactiveTools,
 } from "./tools/index.ts";

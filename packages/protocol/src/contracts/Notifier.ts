@@ -19,6 +19,11 @@ export interface NotifyInput {
   actions?: Notification["actions"];
   surfaces?: Surface[];
   dedupeKey?: string;
+  /**
+   * Deliver through quiet hours this once (a meeting prep for a meeting inside them, §4.5).
+   * Without it only the kinds in `quietHours.breakthrough` do.
+   */
+  breakQuietHours?: boolean;
 }
 
 export interface NotificationFilter {

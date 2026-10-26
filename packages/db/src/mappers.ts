@@ -148,6 +148,9 @@ export function messageFromRow(row: MessageRow): Message {
     channelRef: decodeJson<ChannelRef>(row.channelRef),
     runId: row.runId,
     createdAt: row.createdAt,
+    ...(row.lessonsApplied == null
+      ? {}
+      : { lessonsApplied: decodeJson<NonNullable<Message["lessonsApplied"]>>(row.lessonsApplied) }),
     ...(row.via === "voice" ? { via: "voice" as const } : {}),
   };
 }

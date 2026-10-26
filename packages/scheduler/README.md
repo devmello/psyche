@@ -81,6 +81,19 @@ Checks:
 
 On failure, the next check waits `interval × 2^failures`, capped at 24 h. A success resets the counter. Watches never start the agent.
 
+## Event automations (S15, #670 W3; docs/workflows/mail-and-meetings-2026.md §4.7)
+
+`kind: "event"` automations have no schedule and run on their `trigger: {type: "event", source, filter?, debounceMs?, maxRunsPerDay?}`. Sources are `mail.received`, `calendar.changed`, `recording.added` and `followup.due`.
+- `publishEvent(event)`: every enabled event automation whose trigger matches queues the event once. A source id (`event.id`) starts at most one run per automation, and ids are remembered for 30 days in `automation_event_seen`.
+- `flushEvents(now?)`: one run per automation whose oldest queued event is past its debounce window (default 2 min). It folds every queued event in, sets `trigger: "event"` and `coalesced = n`, and stores the events on the run.
+  - An automation still running keeps its events queued.
+  - Past `maxRunsPerDay` (default 24 in 24 h) the run is recorded `skipped` with a reason.
+  - The queue (`automation_event_queue`) survives restarts and sleep; `start()` and `wake()` flush it.
+- **Taint by source:** the launch request carries `events` and `taintSources` (mail sender, calendar account, recording file), and `createTaskLauncher` starts the task tainted. The unattended prompt lists the events inside an untrusted-data fence.
+- **Run-now** on an event automation replays the events of its last event run. **Upcoming** lists event automations with their trigger and last run, and no next time.
+- `getCursor(source, key)` / `setCursor(...)`: durable cursors for event sources (`event_cursors`); the mail poller in `@psyche/proactive` uses them.
+- **Migration** `202610252000_scheduler_event-triggers` rebuilds `automations`, `automation_runs` and `watches` to add `event` to their CHECK constraints. It drops the children before the parent, so no foreign-key cascade deletes history; a test checks that the rows survive and cascades still work.
+
 ## Heartbeat
 
 `ensureHeartbeat({ everyMinutes: 30 | 60, activeHours: { start, end }, timezone })` keeps one system automation, `kind: heartbeat`. Its cron is built from the active hours; for example, `0,30 8-21 * * *` covers 08:00–22:00. It runs in the `main` session with `lightContext: true` and uses a `NO_REPLY` default prompt.

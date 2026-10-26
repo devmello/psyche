@@ -1,4 +1,5 @@
 import type { Automation, AutomationRun } from "@psyche/protocol";
+import { eventsBlock } from "./events.ts";
 
 /** The reply that means "nothing to report" (architecture §4.3). */
 export const NO_REPLY = "NO_REPLY";
@@ -32,6 +33,9 @@ export function buildUnattendedPrompt(automation: Automation, run: AutomationRun
   const scratch = automation.scratch?.trim() ?? "";
   if (scratch !== "") {
     lines.push("", "Scratch note kept by earlier runs of this job:", scratch);
+  }
+  if (run.events !== undefined && run.events.length > 0) {
+    lines.push("", eventsBlock(run.events));
   }
   lines.push("", "Job:", automation.prompt);
   return lines.join("\n");

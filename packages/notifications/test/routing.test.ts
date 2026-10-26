@@ -108,3 +108,15 @@ describe("routing matrix", () => {
     expect(parseChannelSurface("telegram:")).toBeUndefined();
   });
 });
+
+describe("breakQuietHours", () => {
+  it("delivers one notification through quiet hours; the kind's default is unchanged", () => {
+    const surfaces = resolveSurfaces(config, "reminder");
+    const held = planDelivery(quietConfig, "reminder", surfaces, QUIET_NOW);
+    const through = planDelivery(quietConfig, "reminder", surfaces, QUIET_NOW, {
+      breakQuietHours: true,
+    });
+    expect(held.some((p) => p.action === "defer")).toBe(true);
+    expect(through.some((p) => p.action === "defer")).toBe(false);
+  });
+});

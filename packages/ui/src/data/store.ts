@@ -382,6 +382,43 @@ export class GatewayStore {
         }
         return next;
       }
+      case "specialist.spawned": {
+        const job = e.payload.job;
+        return {
+          ...touch(s, `specialistJobs:${job.taskId}`, v),
+          specialistJobs: { ...s.specialistJobs, [job.taskId]: job },
+        };
+      }
+      case "specialist.progress": {
+        const { taskId, runId, step, budget } = e.payload;
+        const job = s.specialistJobs[taskId];
+        if (job === undefined) return s;
+        return {
+          ...s,
+          specialistJobs: {
+            ...s.specialistJobs,
+            [taskId]: { ...job, runId, lastStep: step.label, budget },
+          },
+        };
+      }
+      case "specialist.result": {
+        const { taskId, runId, result } = e.payload;
+        const job = s.specialistJobs[taskId];
+        if (job === undefined) return s;
+        return {
+          ...touch(s, `specialistJobs:${taskId}`, v),
+          specialistJobs: {
+            ...s.specialistJobs,
+            [taskId]: {
+              ...job,
+              runId: runId ?? job.runId,
+              status: result.outcome,
+              queuePosition: null,
+              result,
+            },
+          },
+        };
+      }
       case "tool_call.updated":
         return touch(
           put(s, "toolCalls", e.payload.toolCall),
@@ -527,12 +564,22 @@ export class GatewayStore {
       case "skills.updated":
       case "skills.draft.updated":
         return invalidate(s, ["skills."]);
+      // The teaching loop: lessons, feedback and Growth reload together.
+      case "feedback.recorded":
+      case "lesson.changed":
+      case "growth.updated":
+        return invalidateTeaching(s);
       case "gateway.shutdown":
         return { ...s, connection: "offline" };
       default:
         return s;
     }
   }
+}
+
+/** Marks the teaching loop's queries (lessons, feedback, Growth) as needing a reload. */
+export function invalidateTeaching(s: UiState): UiState {
+  return invalidate(s, ["memory.lessons.", "feedback.", "growth."]);
 }
 
 /** Marks generic queries whose method starts with one of `prefixes` as needing a reload. */

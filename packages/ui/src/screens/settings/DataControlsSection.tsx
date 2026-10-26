@@ -1,12 +1,13 @@
 import type { MethodResult } from "@psyche/protocol";
 import { Download, Trash2 } from "lucide-react";
-import { type ReactElement, useId, useState } from "react";
+import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
-import { usePersona } from "../../slots.tsx";
+import { usePersona, useSlots } from "../../slots.tsx";
+import { LearningGroup } from "./LearningGroup.tsx";
 import {
   bool,
   ErrorNotice,
@@ -42,6 +43,8 @@ export interface DataControlsPanelProps extends SettingsFormProps, LoadProps {
   busy?: boolean;
   /** Opens with the reset confirmation showing (stories). */
   defaultResetting?: boolean;
+  /** The teaching loop's Learning group (§8), after Memory. */
+  learning?: ReactNode;
 }
 
 export function DataControlsPanel({
@@ -58,6 +61,7 @@ export function DataControlsPanel({
   notice = null,
   busy = false,
   defaultResetting = false,
+  learning,
   loading,
   error,
   onRetry,
@@ -128,6 +132,7 @@ export function DataControlsPanel({
             options={[0, 1, 7, 30, 90].map(days)}
           />
         </Group>
+        {learning}
 
         <Group title={t("settings.data.export")} description={t("settings.data.exportHint")}>
           <div>
@@ -259,6 +264,7 @@ export function DataControlsSection({ onExportReady }: DataControlsSectionProps)
   const form = useSettingsForm();
   const call = useCall();
   const persona = usePersona();
+  const { navigate } = useSlots();
   const status = useGatewayQuery("memory.status", {});
   const threads = useGatewayQuery("threads.list", { includeArchived: true });
   const [busy, setBusy] = useState(false);
@@ -267,7 +273,7 @@ export function DataControlsSection({ onExportReady }: DataControlsSectionProps)
     (t) => t.thread.archivedAt !== null && t.thread.archivedAt !== undefined,
   );
 
-  type Action = "pause" | "export" | "delete" | "reset";
+  type Action = "pause" | "export" | "delete" | "reset" | "forget";
   const act = async (fn: () => Promise<string>, action: Action) => {
     setBusy(true);
     setNotice(null);
@@ -296,6 +302,21 @@ export function DataControlsSection({ onExportReady }: DataControlsSectionProps)
       loading={form.loading && Object.keys(form.values).length === 0}
       error={form.error}
       onRetry={form.reload}
+      learning={
+        <LearningGroup
+          values={form.values}
+          onChange={form.onChange}
+          persona={persona.name}
+          busy={busy}
+          {...(navigate ? { onOpenGrowth: () => navigate("/agent/growth") } : {})}
+          onForgetAll={() =>
+            void act(async () => {
+              const r = await call("memory.lessons.forgetAll", {});
+              return t("settings.learning.forgotAll", { lessons: r.lessons, events: r.events });
+            }, "forget")
+          }
+        />
+      }
       onPauseMemory={(paused) =>
         void act(async () => {
           await call("memory.pause", { paused });

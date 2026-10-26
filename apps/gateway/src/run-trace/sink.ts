@@ -1,4 +1,7 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import {
+  addRunFrame,
   createRun,
   finishRun,
   getRun,
@@ -43,6 +46,18 @@ export interface RunTraceOptions {
   readonly reasoningRetentionDays?: () => number;
   /** Incognito threads are never written (§4.3); their steps are only streamed. */
   readonly isIncognito?: (threadId: string) => boolean;
+  /** `data.replayRetentionDays` (0 = keep no frames). */
+  readonly replayRetentionDays?: () => number;
+  /** Where a run's frames are written: `$PSYCHE_HOME/library/recordings/<runId>/`. */
+  readonly recordingsDir?: (runId: string) => string;
+}
+
+/** One frame Psyche saw (a computer-use screenshot, masked as the helper captured it). */
+export interface TraceFrame {
+  data: Uint8Array;
+  mime: string;
+  width: number;
+  height: number;
 }
 
 /** Progress updates of one step are published at most this often (§4.5: 4/s). */
@@ -51,6 +66,22 @@ export const PROGRESS_INTERVAL_MS = 250;
 const RUN_UPDATE_INTERVAL_MS = 1000;
 
 const STEP_ID_PREFIX = "stp_";
+/** Tools whose step is a `subagent` step: a helper or a background specialist (§4.2). */
+const SPAWN_TOOLS: ReadonlySet<string> = new Set(["subagent.spawn", "specialist.spawn"]);
+
+/** A specialist job's status as its spawn step's. */
+const SPECIALIST_STATUS: Record<
+  Extract<AgentEvent, { type: "subagent" }>["status"],
+  RunStepStatus
+> = {
+  queued: "running",
+  working: "running",
+  needs_you: "waiting",
+  done: "ok",
+  partial: "ok",
+  failed: "failed",
+  cancelled: "cancelled",
+};
 
 interface OpenText {
   stepId: string;
@@ -146,6 +177,11 @@ export class RunTraceSink {
   readonly #runs = new Map<string, TraceRun>();
   /** The loop's helper run id → its own run id. */
   readonly #helpers = new Map<string, string>();
+  /** Step ids handed out before their tool call was seen (`memoryChanged`), by `runId|callId`. */
+  readonly #reserved = new Map<
+    string,
+    { stepId: string; memoryPath?: string; frames?: { first: number; last: number } }
+  >();
 
   constructor(options: RunTraceOptions) {
     this.#o = options;
@@ -195,6 +231,69 @@ export class RunTraceSink {
     return value;
   }
 
+  /**
+   * A tool call changed a memory file (`memory.file.changed`): its step names the path. Returns
+   * the step id for the event.
+   */
+  memoryChanged(runId: string, toolCallId: string, path: string): string {
+    const memoryPath = clip(path, 1024);
+    const t = this.#runs.get(runId);
+    const id = t?.byToolCall.get(toolCallId);
+    const step = id === undefined ? undefined : t?.steps.get(id);
+    if (t !== undefined && id !== undefined && step !== undefined) {
+      this.#put(t, { ...step, memoryPath });
+      return id;
+    }
+    // The write can run before the call's own event reaches the sink: reserve its step id.
+    const key = `${runId}|${toolCallId}`;
+    const reserved = this.#reserved.get(key) ?? { stepId: this.#newId() };
+    this.#reserved.set(key, { ...reserved, memoryPath });
+    return reserved.stepId;
+  }
+
+  /**
+   * A frame Psyche saw during a tool call (§4.2 "Frames"): written under the run's recording
+   * folder and listed in `run_frames`; the call's step gets the frame range. Nothing is kept
+   * for incognito runs or with `data.replayRetentionDays` Off. Returns the frame's seq.
+   */
+  addFrame(runId: string, toolCallId: string, frame: TraceFrame): number | undefined {
+    const dir = this.#o.recordingsDir?.(runId);
+    if (dir === undefined || (this.#o.replayRetentionDays?.() ?? 7) <= 0) return undefined;
+    const run = getRun(this.#o.db, runId);
+    if (run === undefined || this.#o.isIncognito?.(run.threadId) === true) return undefined;
+    const t = this.#runs.get(runId);
+    const known = t?.byToolCall.get(toolCallId);
+    const key = `${runId}|${toolCallId}`;
+    let stepId = known;
+    if (stepId === undefined) {
+      const reserved = this.#reserved.get(key) ?? { stepId: this.#newId() };
+      this.#reserved.set(key, reserved);
+      stepId = reserved.stepId;
+    }
+    const ext = frame.mime === "image/png" ? "png" : "jpg";
+    const rel = `frames/${this.#o.db.newId()}.${ext}`;
+    mkdirSync(join(dir, "frames"), { recursive: true, mode: 0o700 });
+    writeFileSync(join(dir, rel), frame.data, { mode: 0o600 });
+    const seq = addRunFrame(this.#o.db, {
+      runId,
+      at: this.#iso(),
+      stepId,
+      width: frame.width,
+      height: frame.height,
+      path: rel,
+    });
+    const step = known === undefined ? undefined : t?.steps.get(known);
+    if (t !== undefined && step !== undefined) {
+      this.#put(t, { ...step, frames: { first: step.frames?.first ?? seq, last: seq } });
+    } else {
+      const reserved = this.#reserved.get(key);
+      if (reserved !== undefined) {
+        reserved.frames = { first: reserved.frames?.first ?? seq, last: seq };
+      }
+    }
+    return seq;
+  }
+
   /** The step that shows a tool call, once the sink has seen it. */
   stepIdFor(runId: string, toolCallId: string): string | undefined {
     return this.#runs.get(runId)?.byToolCall.get(toolCallId);
@@ -227,6 +326,8 @@ export class RunTraceSink {
       }
       case "tool_call":
         return this.#tool(t, event, at);
+      case "subagent":
+        return this.#specialist(t, event, at);
       case "approval_requested": {
         this.#closeText(t, at);
         const id = this.#newId();
@@ -305,6 +406,8 @@ export class RunTraceSink {
     for (const step of t.steps.values()) {
       if (ENDED.has(step.status)) continue;
       if (step.status === "waiting" && waiting) continue;
+      // A specialist outlives the run that spawned it: its own turns settle the spawn step.
+      if (step.kind === "subagent" && step.taskId !== undefined) continue;
       const status: RunStepStatus =
         step.kind === "thinking" || step.kind === "text"
           ? "ok"
@@ -317,7 +420,91 @@ export class RunTraceSink {
     if (t.runUpdateTimer !== undefined) clearTimeout(t.runUpdateTimer);
     this.#publishRun(t, true);
     // An awaiting run resumes in a later turn with the same run id: keep its state.
-    if (!waiting) this.#runs.delete(runId);
+    if (!waiting) {
+      this.#runs.delete(runId);
+      for (const key of this.#reserved.keys())
+        if (key.startsWith(`${runId}|`)) this.#reserved.delete(key);
+    }
+  }
+
+  // --- Specialists (S02, docs/agent/specialists-2026.md) -----------------------------------
+
+  /** The parent's `subagent` event: its spawn step follows the specialist's job. */
+  #specialist(
+    t: TraceRun,
+    event: Extract<AgentEvent, { type: "subagent" }>,
+    at: string,
+  ): string | undefined {
+    const id = t.byToolCall.get(event.toolCallId);
+    const prev = id === undefined ? undefined : t.steps.get(id);
+    if (prev === undefined || id === undefined) return undefined;
+    const status = SPECIALIST_STATUS[event.status];
+    const ended = ENDED.has(status);
+    // The spawn call itself returns at once; the step lasts while the specialist works.
+    this.#put(t, {
+      ...prev,
+      kind: "subagent",
+      status,
+      label: clip(this.#redact(event.label), RUN_STEP_LIMITS.labelChars),
+      taskId: event.taskId,
+      ...(event.childRunId === null ? {} : { childRunId: event.childRunId }),
+      ...(event.progress === undefined || ended
+        ? {}
+        : {
+            progress: { message: clip(this.#redact(event.progress), RUN_STEP_LIMITS.labelChars) },
+          }),
+      endedAt: ended ? (prev.endedAt ?? at) : null,
+    });
+    return id;
+  }
+
+  /**
+   * A specialist's task turn started as its own run: the parent's spawn step for that task
+   * points at it (`childRunId`), whether the parent run is still live or long finished.
+   */
+  linkChild(
+    parentRunId: string,
+    taskId: string,
+    childRunId: string,
+    /** When the specialist's turn ended: the spawn step's outcome. */
+    status?: RunStepStatus,
+  ): void {
+    const at = this.#iso();
+    const settle = (s: RunStep): RunStep => ({
+      ...s,
+      childRunId,
+      ...(status === undefined
+        ? {}
+        : { status, endedAt: ENDED.has(status) ? (s.endedAt ?? at) : null }),
+      ...(status !== undefined && ENDED.has(status) ? { progress: undefined } : {}),
+    });
+    const live = this.#runs.get(parentRunId);
+    if (live !== undefined) {
+      const spawn = [...live.steps.values()]
+        .filter((s) => s.kind === "subagent" && s.taskId === taskId)
+        .sort((a, b) => b.seq - a.seq)[0];
+      if (spawn !== undefined) {
+        this.#put(live, settle(spawn));
+        return;
+      }
+    }
+    let row: { data: string; thread_id: string } | undefined;
+    try {
+      row = this.#o.db.sqlite
+        .prepare(
+          `SELECT s.data, r.thread_id FROM run_steps s JOIN runs r ON r.id = s.run_id
+           WHERE s.run_id = ? AND s.kind = 'subagent' AND json_extract(s.data, '$.taskId') = ?
+           ORDER BY s.seq DESC LIMIT 1`,
+        )
+        .get(parentRunId, taskId) as { data: string; thread_id: string } | undefined;
+    } catch {
+      return;
+    }
+    if (row === undefined) return;
+    const step = settle(JSON.parse(row.data) as RunStep);
+    upsertRunStep(this.#o.db, step);
+    this.#o.bus.bumpStateVersion();
+    this.#o.bus.publish("run.step", { runId: parentRunId, step }, row.thread_id);
   }
 
   // --- Helpers (C6) ------------------------------------------------------------------------
@@ -422,7 +609,7 @@ export class RunTraceSink {
     const step = t.steps.get(stepId);
     if (step === undefined) return;
     const input = preview(record.paramsRedacted, (x) => this.#redact(x));
-    const output = preview(result.output, (x) => this.#redact(x));
+    const output = preview(withoutImages(result.output), (x) => this.#redact(x));
     const payloadRef: { input?: string; output?: string } = {};
     if (t.store) {
       const write = (kind: "params" | "result", value: unknown) => {
@@ -452,7 +639,7 @@ export class RunTraceSink {
         }
       };
       const i = write("params", record.paramsRedacted);
-      const o = write("result", result.output);
+      const o = write("result", withoutImages(result.output));
       if (i !== undefined) payloadRef.input = i;
       if (o !== undefined) payloadRef.output = o;
     }
@@ -535,7 +722,10 @@ export class RunTraceSink {
     const target = event.details?.target?.value;
     if (id === undefined) {
       this.#closeText(t, at);
-      id = this.#newId();
+      const key = `${t.runId}|${event.toolCallId}`;
+      const reserved = this.#reserved.get(key);
+      this.#reserved.delete(key);
+      id = reserved?.stepId ?? this.#newId();
       t.byToolCall.set(event.toolCallId, id);
       const inputPreview =
         event.details?.paramsRedacted === undefined
@@ -543,7 +733,7 @@ export class RunTraceSink {
           : preview(event.details.paramsRedacted, (x) => this.#redact(x));
       this.#put(t, {
         id,
-        kind: event.tool === "subagent.spawn" ? "subagent" : "tool",
+        kind: SPAWN_TOOLS.has(event.tool) ? "subagent" : "tool",
         status,
         label,
         startedAt: at,
@@ -555,6 +745,8 @@ export class RunTraceSink {
         ...(inputPreview === undefined ? {} : { preview: { input: inputPreview } }),
         ...(event.details?.approvalId == null ? {} : { approvalId: event.details.approvalId }),
         ...(t.parentStepId === undefined ? {} : { parentStepId: t.parentStepId }),
+        ...(reserved?.memoryPath === undefined ? {} : { memoryPath: reserved.memoryPath }),
+        ...(reserved?.frames === undefined ? {} : { frames: reserved.frames }),
         ...this.#group(t, id, status),
       });
       if (status === "running") t.runningTools.add(id);
@@ -625,6 +817,11 @@ export class RunTraceSink {
     if (status === "running") t.runningTools.add(id);
     else t.runningTools.delete(id);
     if (ended && t.runningTools.size === 0) t.modelSince = at;
+    // A specialist's spawn call returns at once: its step follows the job (`subagent` events).
+    if (prev.kind === "subagent" && prev.taskId !== undefined && status === "ok") {
+      this.#put(t, { ...next, status: prev.status, endedAt: prev.endedAt, label: prev.label });
+      return id;
+    }
     this.#put(t, next);
     return id;
   }
@@ -827,6 +1024,14 @@ export class RunTraceSink {
     t.runUpdateTimer = setTimeout(send, wait);
     t.runUpdateTimer.unref?.();
   }
+}
+
+/** A screenshot's inline base64 is a frame now: the payload keeps a reference (§4.2). */
+function withoutImages(value: unknown): unknown {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return value;
+  const v = value as Record<string, unknown>;
+  if (typeof v.base64 !== "string" || v.base64.length < 1024) return value;
+  return { ...v, base64: "‹frame›" };
 }
 
 function firstLine(text: string): string {

@@ -54,7 +54,8 @@ messages (
   provenance TEXT,                                 -- owner | agent | untrusted | system
   reply_to_message_id FK messages NULL,
   channel_ref TEXT JSON NULL,                      -- {channel, account, messageId} for inbound/outbound channel messages
-  run_id FK runs NULL, created_at
+  run_id FK runs NULL, created_at,
+  lessons_applied TEXT JSON NULL                   -- LessonRef[]: lessons the Gateway put in this answer's prompt (teaching loop)
 )
 runs (
   id TEXT PK, thread_id FK, status TEXT,           -- running | done | failed | cancelled | awaiting_approval | awaiting_input
@@ -99,7 +100,8 @@ tasks (
   lease_owner TEXT NULL, lease_until NULL,
   browser_session_id NULL, sandbox_id NULL,
   summary TEXT NULL, outcome TEXT JSON NULL,
-  created_at, updated_at, completed_at
+  created_at, updated_at, completed_at,
+  lessons_applied TEXT JSON NULL                   -- LessonRef[]: lessons its runs' prompts used (teaching loop)
 )
 task_checkpoints (
   id TEXT PK, task_id FK, step_id TEXT, idx INTEGER,

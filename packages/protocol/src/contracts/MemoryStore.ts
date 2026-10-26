@@ -32,6 +32,14 @@ export interface MemoryWriteOptions {
   etag?: string;
   /** Required for protected files. */
   approvalId?: string;
+  /** The tool call that writes (run trace §4.2): `memory.file.changed` names its run and step. */
+  trace?: MemoryWriteTrace;
+}
+
+/** The run and tool call behind a memory write. */
+export interface MemoryWriteTrace {
+  runId: string;
+  toolCallId: string;
 }
 
 export interface MemorySearchOptions {
@@ -47,6 +55,7 @@ export interface DailyNoteInput {
   provenance: Provenance;
   /** `YYYY-MM-DD`; defaults to today in the store's clock. */
   date?: string;
+  trace?: MemoryWriteTrace;
 }
 
 export interface ClaimInput {

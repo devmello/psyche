@@ -25,6 +25,13 @@ export default defineConfig({
         const html = render?.(tokens, idx, options, env, self) ?? "";
         return html.replace(/^<code/, "<code v-pre");
       };
+      // Prose and tables are not Vue templates either: a literal `{{cred:slug}}` outside code
+      // broke the site build twice (#745). Entity-escaped braces render the same.
+      const text = md.renderer.rules.text;
+      md.renderer.rules.text = (tokens, idx, options, env, self) =>
+        (text?.(tokens, idx, options, env, self) ?? md.utils.escapeHtml(tokens[idx]?.content ?? ""))
+          .replaceAll("{{", "&#123;&#123;")
+          .replaceAll("}}", "&#125;&#125;");
     },
   },
   themeConfig: {

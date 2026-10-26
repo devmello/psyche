@@ -95,9 +95,14 @@ export function planDelivery(
   kind: NotificationKind,
   surfaces: readonly Surface[],
   now: number,
+  options: { breakQuietHours?: boolean } = {},
 ): DeliveryPlan[] {
   const qh = config.quietHours ?? null;
-  const quiet = qh !== null && !breaksThrough(qh, kind) && isQuietAt(qh, now);
+  const quiet =
+    qh !== null &&
+    options.breakQuietHours !== true &&
+    !breaksThrough(qh, kind) &&
+    isQuietAt(qh, now);
   const until = quiet ? quietEndsAt(qh, now) : undefined;
   return surfaces.map((surface): DeliveryPlan => {
     const c = surfaceClass(surface);

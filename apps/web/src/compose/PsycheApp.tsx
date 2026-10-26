@@ -37,6 +37,7 @@ import {
   useThreadExport,
 } from "@psyche/ui";
 import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { useShellComposerVoice } from "../shell/components/composer-voice.ts";
 import { ConnectedStartupSplash } from "../shell/components/StartupSplash.tsx";
 import { TitleBar } from "../shell/components/TitleBar.tsx";
 import type { ShellPlatform, SystemAppearance } from "../shell/platform.ts";
@@ -74,7 +75,11 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
   const openPane = useRef(ctx.openPane);
   openPane.current = ctx.openPane;
   const fileSlots = useMemo(
-    () => chatFileSlots((pane, target) => openPane.current(pane, target)),
+    () => ({
+      ...chatFileSlots((pane, target) => openPane.current(pane, target)),
+      // Composer dictation and voice mode (#690): the shell's capture, drawn by the kit.
+      useComposerVoice: useShellComposerVoice,
+    }),
     [],
   );
   return (
