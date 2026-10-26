@@ -45,7 +45,7 @@ function Token({ value }: { value: string }): ReactElement {
 
 function Scalar({ value }: { value: unknown }): ReactElement {
   if (typeof value === "string") return <Token value={value} />;
-  if (value === null) return <span className="text-label-tertiary">null</span>;
+  if (value === null) return <span className="text-label-tertiary">{JSON.stringify(value)}</span>;
   if (typeof value === "number" || typeof value === "boolean")
     return <span className="text-accent-11">{String(value)}</span>;
   return <span className="text-label-tertiary">{String(value)}</span>;
