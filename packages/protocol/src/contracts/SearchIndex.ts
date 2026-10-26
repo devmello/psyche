@@ -15,7 +15,9 @@ export type SearchIndexDocKind =
   | "feed"
   | "idea"
   | "goal"
-  | "connector";
+  | "connector"
+  | "person"
+  | "project";
 
 export interface SearchIndexDoc {
   id: string;

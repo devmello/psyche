@@ -2,6 +2,7 @@ import type { SearchHit, SearchScope } from "@psyche/protocol";
 import {
   CircleCheck,
   Fingerprint,
+  FolderKanban,
   Library as LibraryIcon,
   Lightbulb,
   ListChecks,
@@ -10,6 +11,7 @@ import {
   MessagesSquare,
   Newspaper,
   Plug,
+  Users,
 } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
 import { type ParsedSearchQuery, SCOPE_ORDER } from "./search-query.ts";
@@ -34,6 +36,8 @@ export const SCOPE_ICON: Record<SearchScope, LucideIcon> = {
   ideas: Lightbulb,
   goals: CircleCheck,
   connectors: Plug,
+  people: Users,
+  projects: FolderKanban,
 };
 
 /** The words to highlight: free text (quotes stripped) and `from:` names. */

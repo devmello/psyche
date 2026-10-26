@@ -93,6 +93,13 @@ export const onboarding = {
   "onboarding.connectors.another": "Connect another account",
   "onboarding.connectors.what": "What can {name} do with it?",
   "onboarding.connectors.connect": "Connect",
+  "onboarding.connectors.onThisMac": "On this Mac",
+  "onboarding.connectors.onThisMacHint":
+    "Each app asks macOS for permission as it connects, one at a time.",
+  "onboarding.connectors.connectApps":
+    "{n, plural, =0 {Connect apps} one {Connect # app} other {Connect # apps}}",
+  "onboarding.connectors.connecting": "Connecting {name}",
+  "onboarding.connectors.accounts": "Accounts",
   "onboarding.model.how": "How should the agent think?",
   "onboarding.model.kind.cloud": "Cloud API key",
   "onboarding.model.kind.cloudHint": "Anthropic, OpenAI or Google; pay per use.",

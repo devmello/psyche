@@ -172,4 +172,10 @@ export const SCOPE_LABEL: Record<SearchScope, string> = {
   get connectors() {
     return t("screens.search.scope.connectors");
   },
+  get people() {
+    return t("screens.search.scope.people");
+  },
+  get projects() {
+    return t("screens.search.scope.projects");
+  },
 };

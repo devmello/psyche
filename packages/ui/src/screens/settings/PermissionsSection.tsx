@@ -15,7 +15,7 @@ import { activeI18n, t } from "../../i18n/core.ts";
 import { formatDate, formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { useSlots } from "../../slots.tsx";
-import { ActionMatrix, type ActionRule } from "./ActionMatrix.tsx";
+import { ActionMatrix, type ActionRule, withMatrixOverrides } from "./ActionMatrix.tsx";
 import { SCOPE_MODE_LABEL } from "./ConnectorsSection.tsx";
 import { folderGrants } from "./FileAccessSection.tsx";
 import {
@@ -428,23 +428,7 @@ export function PermissionsPanel({
   );
 }
 
-function isRule(v: unknown): v is ActionRule {
-  return v === "allow" || v === "ask" || v === "deny";
-}
-
-/** Applies `permissions.connectors.<id>` overrides from settings to each connector's matrix. */
-export function withMatrixOverrides(
-  connectors: readonly Connector[],
-  values: Readonly<Record<string, unknown>>,
-): Connector[] {
-  return connectors.map((c) => {
-    const o = values[`permissions.connectors.${c.id}`];
-    if (typeof o !== "object" || o === null) return c;
-    const matrix = { ...c.actionMatrix };
-    for (const [k, v] of Object.entries(o)) if (isRule(v)) matrix[k] = v;
-    return { ...c, actionMatrix: matrix };
-  });
-}
+export { withMatrixOverrides } from "./ActionMatrix.tsx";
 
 export function PermissionsSection({ now }: { now?: number }): ReactElement {
   const form = useSettingsForm();
