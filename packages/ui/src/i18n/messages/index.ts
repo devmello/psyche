@@ -12,6 +12,7 @@ import { mailMeetings } from "./mail-meetings.ts";
 import { meetingRecord } from "./meeting-record.ts";
 import { onboarding } from "./onboarding.ts";
 import { overview } from "./overview.ts";
+import { overviewGrowth } from "./overview-growth.ts";
 import { people } from "./people.ts";
 import { screenAsk } from "./screen-ask.ts";
 import { screens } from "./screens.ts";
@@ -56,6 +57,7 @@ export const en = {
   ...meetingRecord,
   ...workflows,
   ...overview,
+  ...overviewGrowth,
 } as const;
 
 export type MessageId = keyof typeof en;

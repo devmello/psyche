@@ -9,6 +9,7 @@ import { usePersona } from "../slots.tsx";
 import { OverviewActivity } from "./ActivitySection.tsx";
 import { BuiltForYou, Specialists } from "./BuiltSpecialists.tsx";
 import { isNewUser, type OverviewData, useOverviewData } from "./data.ts";
+import { GrowthAndPeople } from "./GrowthAndPeople.tsx";
 import {
   OVERVIEW_SECTIONS,
   OverviewSection,
@@ -96,7 +97,9 @@ export function OverviewScreen({
         {visible.map((id) =>
           id === "activity" ? (
             <OverviewActivity key={id} period={period} onNavigate={onNavigate} route={route} />
-          ) : id === "built" ? (
+          ) : id === "growth" ? (
+            <GrowthAndPeople key={id} period={period} now={at} />
+          ) : id === "people" ? null : id === "built" ? (
             <BuiltForYou key={id} period={period} now={at} />
           ) : id === "specialists" ? (
             <Specialists key={id} period={period} now={at} />
