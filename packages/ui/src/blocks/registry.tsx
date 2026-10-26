@@ -100,10 +100,18 @@ export function registerToolView(key: string, View: ComponentType<ToolViewProps>
   };
 }
 
-/** The view for a call: its exact tool name first, then its result kind, else none. */
+/**
+ * The view for a call: its exact tool name first, then the name without a connector prefix
+ * (`mcp__apple__calendar_list_events` → `calendar_list_events`), then its result kind.
+ */
 export function toolViewFor(
   tool: string,
   resultKind?: string | null,
 ): ComponentType<ToolViewProps> | undefined {
-  return toolViews.get(tool) ?? (resultKind ? toolViews.get(`kind:${resultKind}`) : undefined);
+  const bare = /^mcp__.+?__(.+)$/.exec(tool)?.[1];
+  return (
+    toolViews.get(tool) ??
+    (bare === undefined ? undefined : toolViews.get(bare)) ??
+    (resultKind ? toolViews.get(`kind:${resultKind}`) : undefined)
+  );
 }

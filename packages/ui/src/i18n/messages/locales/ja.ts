@@ -228,6 +228,12 @@ export const ja: Partial<Catalogue> = {
     "{status, select, pending {保留中} running {実行中} waiting {待機中} done {完了} failed {失敗} blocked {ブロック済み} cancelled {キャンセル済み} other {{status}}}{warning, select, yes {、結果不明} other {}}",
   "blocks.card.unknown": "Psyche はこの種類の項目をまだ表示できません（{type}）。",
   "specialists.block.label": "{role}の結果: {title}",
+  "blocks.toolView.show": "結果を表示",
+  "blocks.toolView.loading": "結果を読み込み中…",
+  "blocks.toolView.none": "この操作の結果は保存されていません。",
+  "blocks.toolView.more": "ほか {count} 件",
+  "blocks.toolView.empty": "結果はありません。",
+  "blocks.toolView.untitled": "無題",
   "blocks.message.loading":
     "{what, select, approval {承認} question {質問} receipt {レシート} artifact {アーティファクト} file {ファイル} task {タスク} plan {プラン} other {項目}}を読み込み中",
   "blocks.message.missing":

@@ -2,7 +2,7 @@ import { type AudioFormat, PsycheError } from "@psyche/protocol";
 
 /** whisper.cpp, Parakeet and SpeechAnalyzer all want 16 kHz mono for recognition. */
 export const PCM_16K_MONO: AudioFormat = { encoding: "pcm_s16le", sampleRate: 16_000, channels: 1 };
-/** Kokoro-82M and ElevenLabs `pcm_24000` output. */
+/** 24 kHz mono s16le PCM (a common recording rate). */
 export const PCM_24K_MONO: AudioFormat = { encoding: "pcm_s16le", sampleRate: 24_000, channels: 1 };
 
 /** Bounds for raw PCM this package will process (guards allocation from untrusted headers). */

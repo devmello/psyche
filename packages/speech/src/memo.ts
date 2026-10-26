@@ -13,7 +13,7 @@ import {
 } from "@psyche/protocol";
 import { decodeWav, encodeWav, isPcm, PCM_16K_MONO, pcmDurationMs } from "./audio.ts";
 import type { PathTranscriber, PathTranscript } from "./engines/node.ts";
-import type { LibraryWriter } from "./readAloud.ts";
+import type { LibraryWriter } from "./library.ts";
 import type { VoiceNoteTranscoder } from "./transcode/ffmpeg.ts";
 import { inboundFormat, LIBRARY_AUDIO_PROFILE } from "./transcode/formats.ts";
 import type { VoiceCallContext, VoiceSessionManager } from "./voice.ts";

@@ -232,6 +232,13 @@ export const ar: Partial<Catalogue> = {
     "{status, select, pending {معلّق} running {قيد التشغيل} waiting {في الانتظار} done {تم} failed {فشل} blocked {محظور} cancelled {أُلغي} other {{status}}}{warning, select, yes {، النتيجة غير مؤكدة} other {}}",
   "blocks.card.unknown": "لا يستطيع Psyche عرض هذا النوع من العناصر بعد ({type}).",
   "specialists.block.label": "نتيجة {role}: {title}",
+  "blocks.toolView.show": "عرض النتيجة",
+  "blocks.toolView.loading": "جارٍ تحميل النتيجة…",
+  "blocks.toolView.none": "لا يُحتفظ بنتيجة هذا الإجراء.",
+  "blocks.toolView.more":
+    "{count, plural, one {# آخر} two {# آخران} few {# أخرى} many {# أخرى} other {# أخرى}}",
+  "blocks.toolView.empty": "لا توجد نتائج.",
+  "blocks.toolView.untitled": "بلا عنوان",
   "blocks.message.loading":
     "جارٍ تحميل {what, select, approval {الموافقة} question {السؤال} receipt {الإيصال} artifact {المُخرَج} file {الملف} task {المهمة} plan {الخطة} other {العنصر}}",
   "blocks.message.missing":
