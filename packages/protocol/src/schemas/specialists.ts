@@ -121,6 +121,8 @@ export const SpecialistSpec = Type.Object(
     /** Where the job stands in the specialist queue; null once it has started. */
     queuePosition: Nullable(Type.Integer({ minimum: 1 })),
     result: Nullable(SpecialistResult),
+    /** The approvals the job will likely ask for, computed at spawn (informational, §4.4). */
+    preflight: Type.Optional(Type.Array(ApprovalHint, { maxItems: 16 })),
   },
   { $id: "SpecialistSpec" },
 );
@@ -192,6 +194,8 @@ export const SpecialistJob = Type.Object(
     deadline: Nullable(IsoDateTime),
     /** The last step's label, for the row's second line. */
     lastStep: Nullable(Type.String({ maxLength: 200 })),
+    /** The spawn's pre-flight: approvals the job will likely ask for (informational, §4.4). */
+    preflight: Type.Optional(Type.Array(ApprovalHint, { maxItems: 16 })),
     createdAt: IsoDateTime,
     updatedAt: IsoDateTime,
     result: Nullable(SpecialistResult),

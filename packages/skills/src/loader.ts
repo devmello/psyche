@@ -3,6 +3,7 @@ import {
   type FSWatcher,
   mkdirSync,
   readdirSync,
+  readFileSync,
   renameSync,
   rmSync,
   statSync,
@@ -53,7 +54,7 @@ import {
   specialistRoleOf,
 } from "./specialists.ts";
 import { MemorySkillStateStore, type SkillStateStore } from "./state.ts";
-import { readSkillDir, type SkillTree, textOf, treeHash } from "./tree.ts";
+import { LESSONS_FILE, readSkillDir, type SkillTree, textOf, treeHash } from "./tree.ts";
 import type { VirusTotalClient } from "./virustotal.ts";
 
 /**
@@ -118,6 +119,21 @@ export type SkillChangeEvent =
   | { type: "hash_mismatch"; name: string; source: SkillSource; path: string }
   | { type: "installed"; name: string; hash: string; enabled: boolean }
   | { type: "removed"; name: string; source: SkillSource };
+
+/** Characters of a skill's lessons that reach the prompt (teaching loop §6). */
+export const SKILL_LESSONS_BUDGET = 2_000;
+/** `- 2026-10-25 [ls_… scope] text`, the teaching loop's lesson lines. */
+const LESSON_LINE = /^- \d{4}-\d{2}-\d{2} \[ls_[a-z0-9_]+(?: [a-zA-Z]+=[^\]]+)?\] \S/;
+
+function lessonsBlock(lines: readonly string[]): string {
+  return [
+    "## Lessons from your feedback",
+    "",
+    "The owner taught these for this skill; follow them over the steps above where they differ.",
+    "",
+    ...lines,
+  ].join("\n");
+}
 
 export interface FsSkillLoaderOptions {
   /** `$PSYCHE_HOME/workspace/skills`. */
@@ -444,16 +460,47 @@ export class FsSkillLoader implements SkillLoader {
     return [...new Set(this.#entries.map((e) => e.details.name))];
   }
 
-  /** The winning skill of `name` with its body, or `undefined` (never drafts or invalid ones). */
+  /**
+   * The winning skill of `name` with its body, or `undefined` (never drafts or invalid ones). The
+   * skill's lessons (`<workspace>/skills/<name>/LESSONS.md`, written by the teaching loop after the
+   * owner's card) follow the body, newest kept within `SKILL_LESSONS_BUDGET` characters.
+   */
   async load(name: string): Promise<LoadedSkill | undefined> {
     this.#fresh();
     const e = this.#winners.get(name);
     if (e?.parsed === undefined) return undefined;
+    const lessons = this.lessons(name);
     return {
       ...toSummary(e.details),
       frontmatter: structuredClone(e.parsed.frontmatter),
-      body: e.parsed.body,
+      body:
+        lessons.length === 0
+          ? e.parsed.body
+          : `${e.parsed.body.trimEnd()}\n\n${lessonsBlock(lessons)}`,
     };
+  }
+
+  /** The lesson lines of a skill's `LESSONS.md` that fit the budget, oldest first. */
+  lessons(name: string): string[] {
+    const dir = this.#o.workspaceDir;
+    if (dir === undefined || !NAME_PATTERN.test(name)) return [];
+    const path = join(dir, name, LESSONS_FILE);
+    if (!existsSync(path)) return [];
+    let text: string;
+    try {
+      text = readFileSync(path, "utf8");
+    } catch {
+      return [];
+    }
+    const lines = text.split("\n").filter((l) => LESSON_LINE.test(l.trimEnd()));
+    const kept: string[] = [];
+    let used = 0;
+    for (const line of [...lines].reverse()) {
+      if (used + line.length + 1 > SKILL_LESSONS_BUDGET) break;
+      kept.unshift(line.trimEnd());
+      used += line.length + 1;
+    }
+    return kept;
   }
 
   /** Active skills matching the words of `query` in name or description, best first. */

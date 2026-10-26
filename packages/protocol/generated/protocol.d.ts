@@ -1046,15 +1046,6 @@ export interface Target {
 
 export type TargetKind = "origin" | "path" | "account" | "command" | "recipient" | "app";
 
-export interface ApprovalHint {
-    /**
-     * How many, roughly
-     */
-    estimate?: number;
-    kind:      ApprovalKind;
-    label:     string;
-}
-
 export interface ApprovalResult {
     answerToken?: string;
     approval:     ApprovalRequest;
@@ -7005,6 +6996,7 @@ export interface SpecialistJob {
     lastStep?:      null | string;
     parentRunId?:   null | string;
     parentThreadId: string;
+    preflight?:     ApprovalHint[];
     queuePosition?: number | null;
     result?:        SpecialistResult | null;
     /**
@@ -7017,6 +7009,15 @@ export interface SpecialistJob {
     threadId:  string;
     title:     string;
     updatedAt: string;
+}
+
+export interface ApprovalHint {
+    /**
+     * How many, roughly
+     */
+    estimate?: number;
+    kind:      ApprovalKind;
+    label:     string;
 }
 
 export type StatusElement = "queued" | "working" | "needs_you" | "done" | "partial" | "failed" | "cancelled";
@@ -7357,6 +7358,7 @@ export interface SpecialistSpec {
     parentThreadId: string;
     permissionMode: PermissionMode;
     planFirst:      boolean;
+    preflight?:     ApprovalHint[];
     queuePosition?: number | null;
     result?:        SpecialistResult | null;
     /**

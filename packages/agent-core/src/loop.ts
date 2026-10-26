@@ -2454,7 +2454,7 @@ export class PsycheAgentLoop implements AgentLoop {
           threadId: job.threadId,
           status,
           ...(job.queuePosition === null ? {} : { position: job.queuePosition }),
-          preflight: preflight(role, spec.permissionMode),
+          preflight: spec.preflight ?? preflight(role, spec.permissionMode),
         };
       },
       report: async (report) => {

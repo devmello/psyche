@@ -36,6 +36,11 @@ export interface MarkdownEditorProps {
   marks?: readonly LineMark[];
   /** A mark's button was activated. */
   onMarkActivate?: (id: string) => void;
+  /**
+   * `modes`: only the Rich / Source / Diff switch, for a host that owns the name, budget, Save
+   * and Discard itself (the kit's editor slot, `ControlledMarkdownEditor`).
+   */
+  chrome?: "full" | "modes";
 }
 
 /**
@@ -185,6 +190,7 @@ function EditorBody(
   const fm = useMemo(() => splitFrontmatter(state.content), [state.content]);
   const fmParse = fm.yaml === null ? undefined : parseFrontmatter(fm.yaml);
 
+  const full = (props.chrome ?? "full") === "full";
   const status = {
     loading: "Loading",
     clean: "Saved",
@@ -198,7 +204,7 @@ function EditorBody(
     <div className="psy-md" data-mode={mode}>
       {/* biome-ignore lint/a11y/useSemanticElements: a button row, not a form group */}
       <div className="psy-md__bar" role="group" aria-label="Editor">
-        <span className="psy-md__name">{props.path}</span>
+        {full ? <span className="psy-md__name">{props.path}</span> : null}
         <fieldset className="psy-segmented" aria-label="Mode">
           {(["rich", "source", "diff"] as const).map((m) => (
             <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)}>
@@ -206,7 +212,7 @@ function EditorBody(
             </button>
           ))}
         </fieldset>
-        {kind.budget === undefined ? null : (
+        {!full || kind.budget === undefined ? null : (
           <meter
             aria-label="Prompt budget"
             min={0}
@@ -216,12 +222,14 @@ function EditorBody(
             title={formatBudget(state.content.length, kind.budget)}
           />
         )}
-        {kind.budget === undefined ? null : (
+        {!full || kind.budget === undefined ? null : (
           <span className="psy-md__budget">{formatBudget(state.content.length, kind.budget)}</span>
         )}
-        <output className="psy-md__status" data-status={state.status}>
-          {status}
-        </output>
+        {full ? (
+          <output className="psy-md__status" data-status={state.status}>
+            {status}
+          </output>
+        ) : null}
         {mode === "diff" ? (
           <span className="psy-md__stats">
             <span aria-hidden="true">
@@ -232,22 +240,26 @@ function EditorBody(
             </span>
           </span>
         ) : null}
-        <button
-          type="button"
-          onClick={() => void session.save()}
-          disabled={props.readOnly || (state.status !== "dirty" && state.status !== "error")}
-        >
-          Save
-        </button>
-        <button
-          type="button"
-          onClick={() => session.discard()}
-          disabled={props.readOnly || state.status === "clean" || state.status === "saving"}
-        >
-          Discard
-        </button>
+        {full ? (
+          <>
+            <button
+              type="button"
+              onClick={() => void session.save()}
+              disabled={props.readOnly || (state.status !== "dirty" && state.status !== "error")}
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={() => session.discard()}
+              disabled={props.readOnly || state.status === "clean" || state.status === "saving"}
+            >
+              Discard
+            </button>
+          </>
+        ) : null}
       </div>
-      {kind.rewrittenNightly ? (
+      {full && kind.rewrittenNightly ? (
         <p role="note">Dreaming rewrites MEMORY.md every night; your edits are kept as inputs.</p>
       ) : null}
       {kind.budget !== undefined && state.content.length > kind.budget ? (

@@ -27555,6 +27555,13 @@
             }
           ]
         },
+        "preflight": {
+          "items": {
+            "$ref": "#/$defs/ApprovalHint"
+          },
+          "maxItems": 16,
+          "type": "array"
+        },
         "createdAt": {
           "description": "ISO-8601 timestamp (UTC)",
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
@@ -28064,6 +28071,13 @@
               "type": "null"
             }
           ]
+        },
+        "preflight": {
+          "items": {
+            "$ref": "#/$defs/ApprovalHint"
+          },
+          "maxItems": 16,
+          "type": "array"
         }
       },
       "required": [
