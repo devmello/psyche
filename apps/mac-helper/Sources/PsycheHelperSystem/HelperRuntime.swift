@@ -29,6 +29,8 @@ public final class HelperRuntime: @unchecked Sendable {
         handlers += VMCapabilities.make(VMManager(backend: VZBackend(), environment: environment, log: log))
         // J6 Apple app adapters (Calendar, Reminders, Mail, Notes, Finder, Safari).
         handlers += AppleAppsCapabilities.make(.live(environment: environment))
+        // #673 H2: calendar.changed events for the Gateway's event triggers.
+        handlers += CalendarWatchCapabilities.make()
         // J8 teach mode (owner demonstrations into skill drafts).
         handlers += TeachCapabilities.make(TeachController(screenshot: TeachCapabilities.liveScreenshotter(computer), log: log), computer: computer)
         registry = CapabilityRegistry(handlers)

@@ -300,63 +300,121 @@ export class GraphTools {
   }
 
   #prep(args: Static<typeof PrepInput>): ToolOutcome {
-    const meeting = this.#findMeeting(args);
-    if (meeting === undefined)
+    const prep = meetingPrep(this.#graph, {
+      ...(args.event_id === undefined ? {} : { interactionId: args.event_id }),
+      ...(args.when === undefined ? {} : { when: args.when }),
+      now: this.#now(),
+    });
+    if (prep === undefined)
       return { content: "I couldn't find that meeting.", provenance: "trusted" };
-    const taint = { untrusted: typeof meeting.subject === "string" };
-    const attendees = meeting.participants
-      .map((p) => this.#graph.getEntity(p.entityId))
-      .filter((e) => e !== undefined && e.kind === "person" && !e.isOwner);
+    const { meeting } = prep;
+    const taint = { untrusted: prep.untrusted };
     const parts = [
       `Meeting: ${typeof meeting.subject === "string" ? `"${meeting.subject}"` : "(untitled)"} at ${meeting.occurredAt}${typeof meeting.link === "string" ? ` ${meeting.link}` : ""}`,
     ];
-    if (typeof meeting.projectId === "string") {
-      const project = this.#graph.getEntity(meeting.projectId);
-      if (project !== undefined)
-        parts.push(`Project: ${project.name} (${project.projectStatus ?? "active"})`);
+    if (prep.project !== null)
+      parts.push(`Project: ${prep.project.name} (${prep.project.projectStatus ?? "active"})`);
+    for (const a of prep.attendees) {
+      parts.push(this.#card(a.entity.id, taint));
+      const last = a.recent.map((i) => this.#interactionLine(i, taint));
+      if (last.length > 0) parts.push(`Last with ${a.entity.name}:\n${last.join("\n")}`);
     }
-    for (const a of attendees) {
-      if (a === undefined) continue;
-      parts.push(this.#card(a.id, taint));
-      const last = this.#graph
-        .interactions(a.id, { limit: 4 })
-        .filter((i) => i.id !== meeting.id)
-        .slice(0, 3)
-        .map((i) => this.#interactionLine(i, taint));
-      if (last.length > 0) parts.push(`Last with ${a.name}:\n${last.join("\n")}`);
-    }
-    if (attendees.length === 0) parts.push("No other attendees I know.");
+    if (prep.attendees.length === 0) parts.push("No other attendees I know.");
     return { content: parts.join("\n\n"), provenance: taint.untrusted ? "untrusted" : "trusted" };
   }
+}
 
-  #findMeeting(args: Static<typeof PrepInput>): GraphInteraction | undefined {
-    if (args.event_id !== undefined) {
-      const i = this.#graph.interaction(args.event_id);
-      return i?.kind === "meeting" ? i : undefined;
-    }
-    const now = this.#now();
-    let target = now;
-    if (args.when !== undefined) {
-      const hm = /^(\d{1,2}):(\d{2})$/.exec(args.when.trim());
-      if (hm !== null) {
-        const d = new Date(now);
-        d.setHours(Number(hm[1]), Number(hm[2]), 0, 0);
-        target = d.getTime();
-      } else if (!Number.isNaN(Date.parse(args.when))) {
-        target = Date.parse(args.when);
-      }
-    }
-    const window = this.#graph
-      .interactionsBetween(
-        new Date(target - 30 * 60_000).toISOString(),
-        new Date(target + 7 * 86_400_000).toISOString(),
-      )
-      .filter((i) => i.kind === "meeting");
-    return window.sort(
-      (a, b) =>
-        Math.abs(Date.parse(a.occurredAt) - target) - Math.abs(Date.parse(b.occurredAt) - target),
-    )[0];
+/** What a meeting-prep card shows (§6.6); the scheduling and the card belong to the caller. */
+export interface MeetingPrep {
+  meeting: GraphInteraction;
+  project: EntitySummary | null;
+  attendees: { entity: EntitySummary; openLoops: GraphLoop[]; recent: GraphInteraction[] }[];
+  /** The subject or a recent interaction's subject was written by someone else. */
+  untrusted: boolean;
+}
+
+/**
+ * The data side of meeting prep: attendees (people other than the owner) with their open loops
+ * and last three other interactions, and the meeting's project. Finds the meeting by interaction
+ * id, by the source item (`source: "calendar"`, the event id), or nearest to `when` (ISO or
+ * "HH:MM" today; default now) within 30 minutes before to 7 days after.
+ */
+export function meetingPrep(
+  graph: GraphStore,
+  query: {
+    interactionId?: string;
+    source?: string;
+    externalRef?: string;
+    when?: string;
+    now?: number;
+  },
+): MeetingPrep | undefined {
+  const meeting = findMeeting(graph, query);
+  if (meeting === undefined) return undefined;
+  let untrusted = typeof meeting.subject === "string";
+  const attendees: MeetingPrep["attendees"] = [];
+  for (const p of meeting.participants) {
+    const e = graph.getEntity(p.entityId);
+    if (e === undefined || e.kind !== "person" || e.isOwner) continue;
+    const entity = graph.summary(e.id);
+    if (entity === undefined) continue;
+    const recent = graph
+      .interactions(e.id, { limit: 4 })
+      .filter((i) => i.id !== meeting.id)
+      .slice(0, 3);
+    if (recent.some((i) => typeof i.subject === "string" && i.direction !== "out"))
+      untrusted = true;
+    const openLoops = graph
+      .loops({ entityId: e.id })
+      .filter((l) => l.status === "open" || l.status === "suggested");
+    if (openLoops.some((l) => l.provenance === "untrusted")) untrusted = true;
+    attendees.push({ entity, openLoops, recent });
   }
+  const project =
+    typeof meeting.projectId === "string" ? (graph.summary(meeting.projectId) ?? null) : null;
+  return { meeting, project, attendees, untrusted };
+}
+
+function findMeeting(
+  graph: GraphStore,
+  args: {
+    interactionId?: string;
+    source?: string;
+    externalRef?: string;
+    when?: string;
+    now?: number;
+  },
+): GraphInteraction | undefined {
+  if (args.interactionId !== undefined) {
+    const i = graph.interaction(args.interactionId);
+    return i?.kind === "meeting" ? i : undefined;
+  }
+  if (args.source !== undefined && args.externalRef !== undefined) {
+    const i = graph.interactionByRef(args.source, args.externalRef);
+    return i?.kind === "meeting" ? i : undefined;
+  }
+  const now = args.now ?? Date.now();
+  let target = now;
+  if (args.when !== undefined) {
+    const hm = /^(\d{1,2}):(\d{2})$/.exec(args.when.trim());
+    if (hm !== null) {
+      const d = new Date(now);
+      d.setHours(Number(hm[1]), Number(hm[2]), 0, 0);
+      target = d.getTime();
+    } else if (!Number.isNaN(Date.parse(args.when))) {
+      target = Date.parse(args.when);
+    }
+  }
+  const window = graph
+    .interactionsBetween(
+      new Date(target - 30 * 60_000).toISOString(),
+      new Date(target + 7 * 86_400_000).toISOString(),
+    )
+    .filter((i) => i.kind === "meeting");
+  return window.sort(
+    (a, b) =>
+      Math.abs(Date.parse(a.occurredAt) - target) - Math.abs(Date.parse(b.occurredAt) - target),
+  )[0];
 }
 
 /**

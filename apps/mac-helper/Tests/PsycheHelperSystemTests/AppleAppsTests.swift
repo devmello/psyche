@@ -186,7 +186,7 @@ final class FakeThings: ThingsBackend, @unchecked Sendable {
     var opened: [URL] = []
     var installed = true
     func list(_ list: String, name: String?, query: String, limit: Int) async throws -> [ThingsTodoRecord] {
-        [ThingsTodoRecord(id: "AbCdEf1234567890XyZ123", title: "Renew passport", notes: "", status: "open", when: "2026-10-31", deadline: nil,
+        [ThingsTodoRecord(id: "fakeThingsTodoId0001", title: "Renew passport", notes: "", status: "open", when: "2026-10-31", deadline: nil,
                           project: nil, area: "Admin", tags: ["errand"], modified: "2026-10-20T08:00:00Z")]
     }
     func open(_ url: URL) async throws { lock.withLock { opened.append(url) } }
@@ -1030,7 +1030,7 @@ struct ShortcutsWave1RulesTests {
 
 @Suite("Things wave 1 (apple-apps-2026 §5)")
 struct ThingsWave1Tests {
-    let token = "Ab12Cd34Ef56Gh78"
+    let token = "faketoken"
 
     @Test func listAndWrites() async throws {
         let h = Harness()
@@ -1042,12 +1042,12 @@ struct ThingsWave1Tests {
         #expect(add.hasPrefix("things:///add?title=Renew%20passport%20%26%20visa") && add.contains("checklist-items=photo%0Aform") && !add.contains("auth-token"))
         await #expect(throws: CapabilityError.self) { _ = try await h.invoke("things.add", ["title": "x", "when": "next week"]) }
         await #expect(throws: CapabilityError.self) { _ = try await h.invoke("things.add", ["title": "x", "tags": ["a,b"]]) }
-        _ = try await h.invoke("things.update", ["id": "AbCdEf1234567890XyZ123", "authToken": .string(token), "deadline": .null])
+        _ = try await h.invoke("things.update", ["id": "fakeThingsTodoId0001", "authToken": .string(token), "deadline": .null])
         let up = try #require(h.things.opened.last?.absoluteString)
         #expect(up.contains("auth-token=\(token)") && up.contains("deadline=&") || up.hasSuffix("deadline="))
-        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("things.update", ["id": "AbCdEf1234567890XyZ123"]) }
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("things.update", ["id": "fakeThingsTodoId0001"]) }
         await #expect(throws: CapabilityError.self) { _ = try await h.invoke("things.update", ["id": "x&y=z", "authToken": .string(token)]) }
-        _ = try await h.invoke("things.complete", ["id": "AbCdEf1234567890XyZ123", "authToken": .string(token), "status": "canceled"])
+        _ = try await h.invoke("things.complete", ["id": "fakeThingsTodoId0001", "authToken": .string(token), "status": "canceled"])
         #expect(h.things.opened.last?.absoluteString.contains("canceled=true") == true)
     }
 

@@ -12,6 +12,7 @@ import {
   type Transcript,
 } from "@psyche/protocol";
 import { decodeWav, encodeWav, isPcm, PCM_16K_MONO, pcmDurationMs } from "./audio.ts";
+import type { PathTranscriber, PathTranscript } from "./engines/node.ts";
 import type { LibraryWriter } from "./readAloud.ts";
 import type { VoiceNoteTranscoder } from "./transcode/ffmpeg.ts";
 import { inboundFormat, LIBRARY_AUDIO_PROFILE } from "./transcode/formats.ts";
@@ -96,9 +97,67 @@ export interface VoiceMemoOptions {
   vocabulary?: () => Promise<string[]> | string[];
   /** Longest memo accepted (default 10 min); longer audio is refused. */
   maxDurationMs?: number;
+  /**
+   * Long-form transcription where the recording lies on the Mac (`NodeSpeechEngine`, the
+   * helper's `speech.transcribe_file`). Without it `ingestMeeting` answers `unavailable`.
+   */
+  files?: PathTranscriber;
+}
+
+/**
+ * Who is speaking on a recording. `owner_only`: the owner's own memo, nobody else on it.
+ * `others`: a meeting or a call, so the transcript is other people's words too.
+ */
+export type RecordingSpeakers = "owner_only" | "others";
+
+/**
+ * A long recording for the meeting path (docs/workflows/mail-and-meetings-2026.md §4.6, §8.4):
+ * no 10-minute cap (the helper takes up to 4 h), transcribed on the Mac where the file lies.
+ */
+export interface MeetingRecordingInput {
+  /** Absolute path on the Mac, in a granted folder or the Library. */
+  path: string;
+  /**
+   * The Library item for the recording: an `existing` item (the owner dropped the file into chat
+   * or the Library) gets the transcript as its text extract; `audio` is saved as a new item.
+   */
+  library: { existing: LibraryItem } | { audio: { data: Uint8Array; mime: string; name: string } };
+  /** Default `others`. Only `owner_only` keeps `owner` provenance. */
+  speakers?: RecordingSpeakers;
+  threadId: string | null;
+  /** Default: the file name without its extension. */
+  title?: string;
+  language?: string;
+  vocabulary?: string[];
+  /** Default and ceiling 4 h. */
+  maxDurationMs?: number;
+  onProgress?: (progress: { processedMs: number; totalMs: number; fraction: number }) => void;
+  signal?: AbortSignal;
+}
+
+export interface MeetingRecordingResult {
+  item: LibraryItem;
+  transcript: PathTranscript;
+  content: TranscriptContent;
+  provenance: Provenance;
+  /** A task or loop made from this transcript starts tainted with these. */
+  taintSources: TaintSource[];
+  /** A label and the file; the transcript itself is too long to quote in chat. */
+  blocks: Block[];
+  durationMs: number;
+}
+
+/** Stores a recording's transcript as the text extract of a Library item it already is. */
+export interface LibraryTranscriptWriter {
+  setTextExtract(
+    itemId: string,
+    extract: { text: string; provenance: Provenance },
+  ): Promise<LibraryItem>;
 }
 
 export const MEMO_MAX_DURATION_MS = 10 * 60_000;
+/** The meeting path's ceiling (`SPEECH_FILE_MAX_DURATION_MS`). */
+export const MEETING_MAX_DURATION_MS = 4 * 60 * 60_000;
 /** A transcript longer than this becomes a task goal only in truncated form. */
 export const MEMO_TASK_GOAL_MAX_CHARS = 2_000;
 export const MEMO_TITLE_MAX_CHARS = 80;
@@ -204,7 +263,14 @@ function speakerLabel(speaker: MemoSpeaker, channel: ChannelType | undefined): s
 
 function formatDuration(ms: number): string {
   const s = Math.round(ms / 1000);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  const mmss = (n: number) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}`;
+  return s < 3600 ? mmss(s) : `${Math.floor(s / 3600)}:${mmss(s % 3600).padStart(5, "0")}`;
+}
+
+function baseName(path: string): string {
+  const name = path.split("/").pop() ?? path;
+  const dot = name.lastIndexOf(".");
+  return dot > 0 ? name.slice(0, dot) : name;
 }
 
 export class VoiceMemoService {
@@ -268,6 +334,98 @@ export class VoiceMemoService {
     if (task !== null) blocks.push({ type: "task", taskId: task.id });
 
     return { item, transcript, content, provenance, taintSources, task, blocks, durationMs };
+  }
+
+  /**
+   * The meeting path: a long recording (a meeting, a call, or the owner's own long memo) →
+   * transcript on the Mac → the Library item's text extract. There is no task here; the
+   * post-meeting workflow reads the transcript. A recording with anyone but the owner on it is
+   * `untrusted` and taints what is made from it.
+   */
+  async ingestMeeting(
+    input: MeetingRecordingInput,
+    library?: LibraryTranscriptWriter,
+  ): Promise<MeetingRecordingResult> {
+    const files = this.#opts.files;
+    if (files === undefined) {
+      throw new PsycheError("unavailable", "long recordings need the Mac helper", {
+        retryable: true,
+      });
+    }
+    if ("existing" in input.library && library === undefined) {
+      throw new PsycheError("unavailable", "the Library cannot attach a transcript here");
+    }
+    const maxDurationMs = Math.min(
+      input.maxDurationMs ?? MEETING_MAX_DURATION_MS,
+      MEETING_MAX_DURATION_MS,
+    );
+    const defaults = (await this.#opts.vocabulary?.()) ?? [];
+    const vocabulary = [...new Set([...(input.vocabulary ?? []), ...defaults])];
+    const transcript = await files.transcribePath(input.path, {
+      maxDurationMs,
+      ...(input.language === undefined ? {} : { language: input.language }),
+      ...(vocabulary.length === 0 ? {} : { vocabulary }),
+      ...(input.signal === undefined ? {} : { signal: input.signal }),
+      ...(input.onProgress === undefined
+        ? {}
+        : {
+            onProgress: (p) =>
+              input.onProgress?.({
+                processedMs: p.processedMs,
+                totalMs: p.totalMs,
+                fraction: p.fraction,
+              }),
+          }),
+    });
+    const content = analyzeTranscript(transcript.text);
+    const ownerOnly = (input.speakers ?? "others") === "owner_only";
+    const provenance: Provenance = ownerOnly ? "owner" : "untrusted";
+    const taintSources: TaintSource[] = ownerOnly
+      ? []
+      : [{ sourceKind: "transcript", origin: "meeting_recording" }];
+    const title = input.title ?? baseName(input.path);
+
+    let item: LibraryItem;
+    if ("existing" in input.library) {
+      // Checked above: an existing item needs the transcript writer.
+      item = await (library as LibraryTranscriptWriter).setTextExtract(input.library.existing.id, {
+        text: content.text,
+        provenance,
+      });
+    } else {
+      const audio = input.library.audio;
+      item = await this.#opts.library.saveAudio({
+        data: audio.data,
+        name: audio.name,
+        mime: audio.mime,
+        threadId: input.threadId,
+        tags: ["recording", ownerOnly ? "voice-memo" : "meeting"],
+        kind: "recording",
+        origin: "upload",
+        provenance,
+        ...(content.text === "" ? {} : { textExtract: content.text }),
+      });
+    }
+
+    const words = content.text === "" ? 0 : content.text.split(/\s+/).length;
+    const label = `${ownerOnly ? "Voice memo" : "Recording"}: ${title}, ${formatDuration(transcript.audioMs)}`;
+    const note =
+      words === 0
+        ? "nothing was recognized"
+        : `${words} words transcribed${ownerOnly ? "" : "; the transcript is other people's words (untrusted)"}`;
+    const blocks: Block[] = [
+      { type: "text", md: `**${label}**\n_${note}_` },
+      { type: "file", libraryItemId: item.id },
+    ];
+    return {
+      item,
+      transcript,
+      content,
+      provenance,
+      taintSources,
+      blocks,
+      durationMs: transcript.audioMs,
+    };
   }
 
   /**

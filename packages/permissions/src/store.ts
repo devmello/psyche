@@ -396,10 +396,13 @@ function approvalFromRow(r: ApprovalRow): StoredApproval {
     approval.targetKind = r.target_kind as NonNullable<ApprovalRequest["targetKind"]>;
   if (r.target !== null) approval.target = parse<NonNullable<ApprovalRequest["target"]>>(r.target);
   if (r.invalidated_reason !== null) approval.invalidatedReason = r.invalidated_reason;
+  const input = parse<PolicyApprovalInput>(r.request_input);
+  // Not a column: the request input keeps it (teaching loop, "Because you said").
+  if (input.fromLesson !== undefined) approval.fromLesson = { ...input.fromLesson };
   return {
     approval,
     tokens: parse<StoredToken[]>(r.answer_tokens),
-    input: parse<PolicyApprovalInput>(r.request_input),
+    input,
     consumedAt: r.consumed_at,
     revoked: r.run_revoked === 1,
     bootId: r.boot_id,

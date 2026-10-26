@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
-import { PsycheError, type ToolCallDescription } from "@psyche/protocol";
+import { type JsonObject, PsycheError, type ToolCallDescription } from "@psyche/protocol";
 import { canonicalJSON, sha256 } from "../framework/binding.ts";
 import type {
   CatalogueEntry,
@@ -13,6 +13,7 @@ import type {
   ConnectorRecord,
   ConnectorTool,
   ConnectResult,
+  ScopeMode,
   ToolOutput,
 } from "../framework/types.ts";
 
@@ -141,23 +142,58 @@ class ObsidianConnector implements Connector {
   readonly type = "obsidian";
   readonly #opts: ObsidianOptions;
   #vault: string | null;
+  /** The owner's daily-note folder (`config.dailyFolder`), over Obsidian's own setting. */
+  readonly #dailyFolder: string | null;
 
   constructor(record: ConnectorRecord, opts: ObsidianOptions) {
     this.id = record.id;
     this.#opts = opts;
-    const v = (record.config as Record<string, unknown> | undefined)?.vaultPath;
-    this.#vault = typeof v === "string" ? v : null;
+    const cfg = (record.config as Record<string, unknown> | undefined) ?? {};
+    this.#vault = typeof cfg.vaultPath === "string" ? cfg.vaultPath : null;
+    this.#dailyFolder = typeof cfg.dailyFolder === "string" ? cfg.dailyFolder : null;
   }
 
   async connect(input: ConnectInput): Promise<ConnectResult> {
-    const raw = input.config.vaultPath;
+    const vault = await this.#checkVault(input.config.vaultPath, input.scopeMode);
+    this.#vault = vault;
+    return {
+      account: basename(vault),
+      scopes: OBSIDIAN_CATALOGUE.scopes[input.scopeMode],
+      config: { vaultPath: vault },
+    };
+  }
+
+  /** Settings → Connectors → Obsidian (#727): another vault folder, or the daily-note folder. */
+  async configure(
+    config: JsonObject,
+    scopeMode: ScopeMode,
+  ): Promise<{ config: JsonObject; account: string }> {
+    const vault = await this.#checkVault(config.vaultPath, scopeMode);
+    const next: JsonObject = { ...config, vaultPath: vault };
+    const folder = config.dailyFolder;
+    if (folder !== undefined) {
+      if (typeof folder !== "string" || folder.includes("\0") || folder.length > 500) {
+        throw new PsycheError("invalid_params", "dailyFolder is a folder inside the vault");
+      }
+      const trimmed = folder.replace(/^\/+|\/+$/g, "");
+      const full = resolve(vault, trimmed);
+      if (full !== vault && !full.startsWith(vault + sep)) {
+        throw new PsycheError("forbidden", `${folder} is outside the vault`);
+      }
+      next.dailyFolder = relative(vault, full).split(sep).join("/");
+    }
+    return { config: next, account: basename(vault) };
+  }
+
+  /** A shared folder that is an Obsidian vault, readable (or writable for read-and-act). */
+  async #checkVault(raw: unknown, scopeMode: ScopeMode): Promise<string> {
     if (typeof raw !== "string" || raw.trim() === "") {
       throw new PsycheError("invalid_params", "Choose the vault folder (config.vaultPath)", {
         details: { reason: "vault_required" },
       });
     }
     const vault = resolve(raw);
-    await this.#opts.access(vault, input.scopeMode === "read_act" ? "write" : "read");
+    await this.#opts.access(vault, scopeMode === "read_act" ? "write" : "read");
     const isVault = await stat(join(vault, ".obsidian")).then(
       (s) => s.isDirectory(),
       () => false,
@@ -171,12 +207,7 @@ class ObsidianConnector implements Connector {
         },
       );
     }
-    this.#vault = vault;
-    return {
-      account: basename(vault),
-      scopes: OBSIDIAN_CATALOGUE.scopes[input.scopeMode],
-      config: { vaultPath: vault },
-    };
+    return vault;
   }
 
   async disconnect(): Promise<void> {}
@@ -307,7 +338,7 @@ class ObsidianConnector implements Connector {
           const o = p as { text: string; date?: string };
           const root = this.#root();
           const date = o.date ?? this.#opts.today?.() ?? new Date().toISOString().slice(0, 10);
-          const folder = await dailyFolder(root);
+          const folder = this.#dailyFolder ?? (await dailyFolder(root));
           const file = notePath(root, join(folder, `${date}.md`));
           await this.#opts.access(file, "write");
           const before = await readFile(file, "utf8").catch(() => "");

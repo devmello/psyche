@@ -711,6 +711,13 @@ export class PsychePermissionBroker implements PermissionBroker {
     }
     if (input.targetKind !== undefined) approval.targetKind = input.targetKind;
     if (input.target !== undefined) approval.target = { ...input.target };
+    if (input.fromLesson !== undefined) {
+      approval.fromLesson = {
+        lessonId: input.fromLesson.lessonId,
+        feedbackId: input.fromLesson.feedbackId,
+        because: sanitizeDisplay(input.fromLesson.because).slice(0, 500),
+      };
+    }
     const answerTokens: Record<Surface, string> = {};
     const tokens = surfaces.map((surface) => {
       const token = `at_${randomBytes(24).toString("base64url")}`;
