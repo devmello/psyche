@@ -64,9 +64,8 @@ export interface SpeechStackOptions {
   /** `onnxruntime-node`, loaded by the Gateway; Kokoro is unavailable without it. */
   ort?: OrtModuleLike | (() => Promise<OrtModuleLike>);
   kokoro?: { model?: string; phonemizer?: Phonemizer; defaultVoice?: string };
-  /** Registered only when present; add `openai` / `elevenlabs` to `tts.order` to use them. */
+  /** Registered only when present; add `elevenlabs` to `tts.order` to use it. */
   cloud?: {
-    openai?: () => Promise<ResolvedSecret>;
     elevenlabs?: () => Promise<ResolvedSecret>;
   };
 }
@@ -153,7 +152,7 @@ export function createSpeechStack(options: SpeechStackOptions = {}): SpeechStack
     });
   }
 
-  for (const provider of ["openai", "elevenlabs"] as const) {
+  for (const provider of ["elevenlabs"] as const) {
     const apiKey = options.cloud?.[provider];
     if (apiKey === undefined) continue;
     const engine = new CloudTtsEngine({ provider, apiKey });

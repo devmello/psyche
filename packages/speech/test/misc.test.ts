@@ -14,7 +14,7 @@ import {
   toPcm16kMono,
 } from "../src/audio.ts";
 import { MODEL_CATALOG } from "../src/catalog.ts";
-import { CloudTtsEngine, packSentences } from "../src/engines/cloud.ts";
+import { CloudTtsEngine, isRetiredVoiceRef, packSentences } from "../src/engines/cloud.ts";
 import {
   type SpeechRecognitionEventLike,
   type SpeechRecognitionLike,
@@ -81,17 +81,17 @@ describe("cloud voices (keys from the vault)", () => {
 
   const secret = () =>
     new ResolvedSecret(KEY, {
-      credentialId: "cred_openai",
-      target: { kind: "origin", value: "https://api.openai.com" },
+      credentialId: "cred_elevenlabs",
+      target: { kind: "origin", value: "https://api.elevenlabs.io" },
     });
 
-  it("sends the OpenAI request with the key only in the header and keeps PCM aligned", async () => {
-    registerSecret(KEY, "openai");
+  it("keeps PCM aligned across odd network reads and keeps the key out of results", async () => {
+    registerSecret(KEY, "elevenlabs");
     const requests: { url: string; init: RequestInit }[] = [];
     const engine = new CloudTtsEngine({
-      provider: "openai",
+      provider: "elevenlabs",
       apiKey: async () => secret(),
-      defaultVoice: "marin",
+      defaultVoice: "voice-1",
       fetch: async (url, init) => {
         requests.push({ url: String(url), init: init ?? {} });
         // Odd-sized network reads must still yield whole 16-bit samples.
@@ -108,17 +108,8 @@ describe("cloud voices (keys from the vault)", () => {
     const chunks = await collect(engine.synthesize('Hello <break time="1s"/> there.'));
     expect(chunks.map((c) => c.data.byteLength)).toEqual([2, 6]);
     expect(chunks[0]?.format).toEqual(PCM_24K_MONO);
-    const req = requests[0];
-    expect(req?.url).toBe("https://api.openai.com/v1/audio/speech");
-    const body = JSON.parse(String(req?.init.body)) as Record<string, unknown>;
-    expect(body).toEqual({
-      model: "gpt-4o-mini-tts",
-      input: "Hello there.",
-      voice: "marin",
-      response_format: "pcm",
-    });
-    expect(new Headers(req?.init.headers).get("authorization")).toBe(`Bearer ${KEY}`);
-    // Nothing the engine returns or reports carries the key.
+    const body = JSON.parse(String(requests[0]?.init.body)) as Record<string, unknown>;
+    expect(body).toEqual({ text: "Hello there.", model_id: "eleven_flash_v2_5" });
     assertNoSecrets({
       chunks: chunks.map((c) => c.format),
       body,
@@ -127,15 +118,24 @@ describe("cloud voices (keys from the vault)", () => {
   });
 
   it("maps HTTP errors without echoing provider bodies", async () => {
-    registerSecret(KEY, "openai");
+    registerSecret(KEY, "elevenlabs");
     const engine = new CloudTtsEngine({
-      provider: "openai",
+      provider: "elevenlabs",
       apiKey: async () => secret(),
+      defaultVoice: "voice-1",
       fetch: async () => new Response(`bad key ${KEY}`, { status: 401 }),
     });
     const err = await collect(engine.synthesize("hi")).catch((e: unknown) => e);
     expect(err).toMatchObject({ code: "unauthorized" });
     assertNoSecrets({ message: (err as Error).message });
+  });
+
+  it("retires saved OpenAI voice refs (TTS endpoints shut down 2027-01-06)", () => {
+    expect(isRetiredVoiceRef("openai:marin")).toBe(true);
+    expect(isRetiredVoiceRef("elevenlabs:voice-1")).toBe(false);
+    expect(isRetiredVoiceRef("mac-node:com.apple.voice.Ava")).toBe(false);
+    expect(isRetiredVoiceRef("openai")).toBe(false);
+    expect(isRetiredVoiceRef(undefined)).toBe(false);
   });
 
   it("calls ElevenLabs with pcm_24000 and xi-api-key", async () => {
