@@ -15,6 +15,7 @@ import { Button } from "../../components/ui/button.tsx";
 import { Checkbox } from "../../components/ui/checkbox.tsx";
 import { t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
+import type { ReplayClock } from "./clock.ts";
 import { REPLAY_SPEEDS, type ReplaySpeed } from "./replay.ts";
 
 /**
@@ -34,6 +35,8 @@ export interface ScrubberProps {
   end: number;
   /** Where the playhead is. */
   at: number;
+  /** The live clock: thumb, fill and time follow it by direct DOM writes while playing. */
+  clock?: ReplayClock;
   gaps: readonly Gap[];
   markers: readonly ScrubberMarker[];
   /** The task is running and the view follows it (the Live pill). */
@@ -60,6 +63,7 @@ export function Scrubber({
   start,
   end,
   at,
+  clock,
   gaps,
   markers,
   live,
@@ -114,7 +118,27 @@ export function Scrubber({
     e.preventDefault();
     e.stopPropagation();
   };
+  const fillRef = useRef<HTMLSpanElement | null>(null);
+  const thumbRef = useRef<HTMLSpanElement | null>(null);
+  const labelRef = useRef<HTMLSpanElement | null>(null);
   const total = formatElapsed(end - start);
+  useEffect(() => {
+    if (!clock) return;
+    return clock.subscribe((now) => {
+      const x = scale.x(now);
+      if (fillRef.current) fillRef.current.style.width = `${x}px`;
+      if (thumbRef.current) thumbRef.current.style.insetInlineStart = `${x}px`;
+      if (labelRef.current)
+        labelRef.current.textContent = t("agent.timeline.scrubber.value", {
+          at: formatElapsed(Math.max(0, now - start)),
+          total,
+        });
+      trackRef.current?.setAttribute(
+        "aria-valuenow",
+        String(Math.max(0, Math.round((now - start) / 1000))),
+      );
+    });
+  }, [clock, scale, start, total]);
   const position = formatElapsed(Math.max(0, at - start));
   return (
     // biome-ignore lint/a11y/useSemanticElements: a toolbar-like group of controls, not a form fieldset
@@ -198,6 +222,7 @@ export function Scrubber({
           />
           <span
             aria-hidden="true"
+            ref={fillRef}
             className="absolute start-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-accent-9"
             style={{ width: scale.x(at) }}
           />
@@ -225,13 +250,14 @@ export function Scrubber({
             />
           ))}
           <span
+            ref={thumbRef}
             aria-hidden="true"
             className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-9 ring-2 ring-canvas rtl:translate-x-1/2"
             style={{ insetInlineStart: scale.x(at) }}
             data-playhead=""
           />
         </div>
-        <span className="shrink-0 text-callout text-label-secondary tabular-nums">
+        <span ref={labelRef} className="shrink-0 text-callout text-label-secondary tabular-nums">
           {t("agent.timeline.scrubber.value", { at: position, total })}
         </span>
         {live ? (

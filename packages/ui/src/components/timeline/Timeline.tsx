@@ -1,5 +1,5 @@
 import { useReducedMotionConfig } from "motion/react";
-import type { CSSProperties, ReactElement } from "react";
+import { type CSSProperties, type ReactElement, useEffect, useRef } from "react";
 import { t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
 import { formatStepDuration } from "../steps/LiveDuration.tsx";
@@ -170,13 +170,24 @@ export function Playhead({
   scale,
   at,
   className,
+  subscribe,
 }: {
   scale: TimeScale;
   at: number;
   className?: string;
+  /** Follow a clock without re-rendering: each tick writes the position straight to the DOM. */
+  subscribe?: (fn: (t: number) => void) => () => void;
 }): ReactElement {
+  const ref = useRef<HTMLSpanElement | null>(null);
+  useEffect(() => {
+    if (!subscribe) return;
+    return subscribe((t) => {
+      if (ref.current) ref.current.style.insetInlineStart = `${scale.x(t)}px`;
+    });
+  }, [subscribe, scale]);
   return (
     <span
+      ref={ref}
       aria-hidden="true"
       className={cn("pointer-events-none absolute inset-y-0 w-px bg-accent-9", className)}
       style={{ insetInlineStart: scale.x(at) }}
