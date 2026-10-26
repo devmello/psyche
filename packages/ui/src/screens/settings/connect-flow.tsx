@@ -103,7 +103,12 @@ export function useConnectorConnect() {
   const { openExternal } = useSlots();
   const [state, setState] = useState<ConnectState>({ phase: "idle" });
   const pending = useRef<{ connectorId: string; type: string; label: string } | null>(null);
-  const last = useRef<{ type: string; mode: ScopeMode; label: string } | null>(null);
+  const last = useRef<{
+    type: string;
+    mode: ScopeMode;
+    label: string;
+    config?: Record<string, unknown>;
+  } | null>(null);
 
   const open = useCallback(
     async (url: string) => {
@@ -179,6 +184,7 @@ export function useConnectorConnect() {
       mode: ScopeMode,
       label: string,
       resume?: { connectorId: string; permission: boolean },
+      config?: Record<string, unknown>,
     ): Promise<void> => {
       setState({ phase: "starting", type, label });
       try {
@@ -191,6 +197,7 @@ export function useConnectorConnect() {
           catalogueId,
           scopeMode: mode,
           label,
+          ...(config === undefined ? {} : { config }),
           ...(resume === undefined
             ? {}
             : {
@@ -263,9 +270,10 @@ export function useConnectorConnect() {
   );
 
   const start = useCallback(
-    async (type: string, mode: ScopeMode, label: string) => {
-      last.current = { type, mode, label };
-      await connectWith(type, mode, label);
+    /** `config`: non-secret settings the connector needs to connect (Obsidian's `vaultPath`). */
+    async (type: string, mode: ScopeMode, label: string, config?: Record<string, unknown>) => {
+      last.current = { type, mode, label, ...(config ? { config } : {}) };
+      await connectWith(type, mode, label, undefined, config);
     },
     [connectWith],
   );
@@ -289,7 +297,7 @@ export function useConnectorConnect() {
 
   const retry = useCallback(() => {
     const l = last.current;
-    if (l) void start(l.type, l.mode, l.label);
+    if (l) void start(l.type, l.mode, l.label, l.config);
   }, [start]);
 
   /**
