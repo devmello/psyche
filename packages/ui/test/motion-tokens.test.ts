@@ -104,7 +104,7 @@ describe("run-trace motion (docs/design/motion.md §4.9)", () => {
     expect(bar).toMatch(/transform \$\{TICK_MS\}ms linear/);
     expect(bar).not.toMatch(/transition[^\n]*width/);
     const spark = read("sparkline.tsx");
-    expect(spark).toContain("initial={live && !reduce && generation > 0 ? { x: step } : false}");
+    expect(spark).toContain("initial={live && !reduce && generation > 0 ? { x: rtl ? -step : step } : false}");
   });
 });
 

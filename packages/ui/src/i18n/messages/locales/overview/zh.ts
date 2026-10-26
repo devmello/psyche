@@ -22,6 +22,9 @@ export const overview: Partial<Catalogue> = {
   "overview.section.empty": "这里还没有内容。",
   "overview.loading": "正在加载",
   "overview.error.load": "无法加载",
+  "overview.error.section": "无法加载{section}",
+  "overview.section.loading": "正在加载{section}",
+  "overview.lastUpdated": "最后更新 {time}",
   "overview.summary.label": "摘要",
   "overview.summary.sentence.both":
     "{period, select, week {本周} month {本月} other {到目前为止}}，{name}为你完成了{tasks, plural, other {#项任务和聊天}}，并运行了{automations, plural, other {#个自动化}}。",

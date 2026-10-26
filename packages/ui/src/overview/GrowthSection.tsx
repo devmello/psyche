@@ -17,6 +17,7 @@ import { GrowthCardItems } from "../teaching/GrowthCard.tsx";
 import { GrowthTimeline, MetricRow, MilestoneRow, weekOf } from "../teaching/GrowthPanel.tsx";
 import { OverviewSection } from "./OverviewSection.tsx";
 import type { OverviewPeriod } from "./period.ts";
+import { SectionBody, useSectionStatus } from "./SectionState.tsx";
 
 /** Milestones listed in the section; the rest are in the lessons sheet's timeline. */
 const MILESTONES_SHOWN = 3;
@@ -59,38 +60,32 @@ export function GrowthSection({ period, now }: GrowthSectionProps): ReactElement
         ]
       : [];
 
-  let body: ReactNode;
-  if (summary === undefined) {
-    body = q.error ? (
-      <p className="text-callout text-label-secondary" role="alert">
-        {t("overview.growth.loadFailed")} ·{" "}
-        <button
-          type="button"
-          className="rounded-sm text-accent-11 underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          onClick={q.reload}
-        >
-          {t("common.retry")}
-        </button>
-      </p>
-    ) : (
-      <div className="flex flex-col gap-2" role="status" aria-label={t("overview.growth.loading")}>
-        <Skeleton className="h-5 w-2/3" />
-        <Skeleton className="h-12" />
-        <Skeleton className="h-12" />
-      </div>
-    );
-  } else {
-    body = (
-      <GrowthBody
-        summary={summary}
-        agent={persona.name}
-        post={post}
-        now={now}
-        onOpenLessons={() => setLessonsOpen(true)}
-        onOpenCard={() => setCardOpen(true)}
-      />
-    );
-  }
+  const status = useSectionStatus("growth", [{ ...q, has: summary !== undefined, key: period }]);
+  const body: ReactNode = (
+    <SectionBody
+      id="growth"
+      status={status}
+      reserve="min-h-48"
+      skeleton={
+        <>
+          <Skeleton className="h-5 w-2/3" />
+          <Skeleton className="h-12" />
+          <Skeleton className="h-12" />
+        </>
+      }
+    >
+      {summary === undefined ? null : (
+        <GrowthBody
+          summary={summary}
+          agent={persona.name}
+          post={post}
+          now={now}
+          onOpenLessons={() => setLessonsOpen(true)}
+          onOpenCard={() => setCardOpen(true)}
+        />
+      )}
+    </SectionBody>
+  );
 
   return (
     <>

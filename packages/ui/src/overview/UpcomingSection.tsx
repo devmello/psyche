@@ -2,11 +2,11 @@ import type { Automation } from "@psyche/protocol";
 import { ChevronRight } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { UpcomingRow, useUpcomingRowProps } from "../agent/UpcomingPanel.tsx";
-import { Skeleton } from "../components/ui/skeleton.tsx";
 import { activeI18n, t } from "../i18n/core.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
 import { OverviewSection } from "./OverviewSection.tsx";
+import { SectionBody, SkeletonRows, useSectionStatus } from "./SectionState.tsx";
 import { groupUpcoming, UPCOMING_GROUPS, type UpcomingGroup } from "./upcoming-groups.ts";
 import { useUpcomingEntries } from "./useUpcomingEntries.ts";
 
@@ -32,22 +32,18 @@ export function UpcomingSection({ now: fixedNow }: { now?: number }): ReactEleme
     <UpcomingRow key={a.id} automation={a} now={now} {...rowProps(a)} />
   );
 
+  const status = useSectionStatus("upcoming", [{ loading, error, reload, key: "upcoming" }]);
   let body: ReactElement;
-  if (loading && entries.length === 0 && paused.length === 0) {
+  if (status.phase !== "ready") {
     body = (
-      <div className="flex flex-col gap-2" role="status" aria-label={t("agent.upcoming.loading")}>
-        <Skeleton className="h-10" />
-        <Skeleton className="h-10" />
-      </div>
-    );
-  } else if (error && entries.length === 0 && paused.length === 0) {
-    body = (
-      <p className="text-body">
-        {t("agent.upcoming.loadFailed", { reason: error })}{" "}
-        <button type="button" className="text-accent-11 underline" onClick={reload}>
-          {t("agent.activity.tryAgain")}
-        </button>
-      </p>
+      <SectionBody
+        id="upcoming"
+        status={status}
+        reserve="min-h-24"
+        skeleton={<SkeletonRows count={2} />}
+      >
+        {null}
+      </SectionBody>
     );
   } else if (entries.length === 0 && paused.length === 0) {
     body = <p className="text-callout text-label-tertiary">{t("agent.upcoming.empty")}</p>;

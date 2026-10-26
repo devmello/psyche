@@ -22,6 +22,9 @@ export const overview: Partial<Catalogue> = {
   "overview.section.empty": "Aún no hay nada aquí.",
   "overview.loading": "Cargando",
   "overview.error.load": "No se pudo cargar",
+  "overview.error.section": "No se pudo cargar {section}",
+  "overview.section.loading": "Cargando {section}",
+  "overview.lastUpdated": "Última actualización {time}",
   "overview.summary.label": "Resumen",
   "overview.summary.sentence.both":
     "{period, select, week {Esta semana} month {Este mes} other {En total}}, {name} completó {tasks, plural, one {# tarea o chat} other {# tareas y chats}} y ejecutó {automations, plural, one {# automatización} other {# automatizaciones}} por ti.",

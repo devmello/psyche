@@ -22,6 +22,9 @@ export const overview: Partial<Catalogue> = {
   "overview.section.empty": "यहाँ अभी कुछ नहीं है।",
   "overview.loading": "लोड हो रहा है",
   "overview.error.load": "लोड नहीं हो सका",
+  "overview.error.section": "{section} लोड नहीं हो सका",
+  "overview.section.loading": "{section} लोड हो रहा है",
+  "overview.lastUpdated": "अंतिम अपडेट {time}",
   "overview.summary.label": "सारांश",
   "overview.summary.sentence.both":
     "{period, select, week {इस सप्ताह} month {इस महीने} other {कुल मिलाकर}}, {name} ने आपके लिए {tasks, plural, one {# कार्य या चैट} other {# कार्य और चैट}} पूरे किए और {automations, plural, one {# ऑटोमेशन} other {# ऑटोमेशन}} चलाए।",

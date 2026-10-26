@@ -2,6 +2,7 @@ import { type ReactElement, useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "../blocks/card.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { t } from "../i18n/core.ts";
+import { formatTime } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
 import { ScreenToolbar } from "../screens/feed/ScreenToolbar.tsx";
 import { SegmentedRadio } from "../screens/settings/SegmentedRadio.tsx";
@@ -19,6 +20,7 @@ import {
 } from "./OverviewSection.tsx";
 import { formatPeriodRange, OVERVIEW_PERIODS, type OverviewPeriod, periodLabel } from "./period.ts";
 import { RecentSection } from "./RecentSection.tsx";
+import { OverviewStatusProvider, useOverviewStatusProvider } from "./SectionState.tsx";
 import { OverviewSummary } from "./SummarySection.tsx";
 import { UpcomingSection } from "./UpcomingSection.tsx";
 
@@ -84,55 +86,72 @@ export function OverviewScreen({
     document.getElementById(anchor)?.scrollIntoView?.({ block: "start" });
   }, [anchor]);
 
+  const { value: status, staleSince } = useOverviewStatusProvider();
+
   return (
-    <div className="@container/overview flex min-h-0 flex-1 flex-col" data-testid="overview">
-      <ScreenToolbar
-        title={t("overview.title", { name: persona.name })}
-        meta={
-          <span data-testid="overview-range">{formatPeriodRange(period, at, firstActivityAt)}</span>
-        }
-        actions={
-          <SegmentedRadio
-            label={t("overview.period.label")}
-            options={OVERVIEW_PERIODS.map((p) => ({ value: p, label: periodLabel(p) }))}
-            value={period}
-            onChange={onPeriodChange}
-          />
-        }
-      />
-      <JumpBar sections={visible} />
-      <div className="mx-auto flex w-full max-w-[calc(1040px+3rem)] flex-col gap-4 px-4 pt-2 pb-12 md:px-6">
-        {/* Section cards are h3s; this keeps the outline h1 → h2 → h3. */}
-        <h2 className="sr-only">{t("overview.screen")}</h2>
-        {fresh ? <GettingToKnowYou name={persona.name} onTry={onTry} /> : null}
-        {fresh ? null : <OverviewSummary period={period} onNavigate={onNavigate} />}
-        {visible.map((id) =>
-          id === "now" ? (
-            <NowSection key={id} {...(now === undefined ? {} : { now })} />
-          ) : id === "activity" ? (
-            <OverviewActivity key={id} period={period} onNavigate={onNavigate} route={route} />
-          ) : id === "growth" ? (
-            <GrowthAndPeople key={id} period={period} now={at} />
-          ) : id === "people" ? null : id === "built" ? (
-            <BuiltForYou key={id} period={period} now={at} />
-          ) : id === "specialists" ? (
-            <Specialists key={id} period={period} now={at} />
-          ) : id === "upcoming" ? (
-            <UpcomingSection key={id} {...(now === undefined ? {} : { now })} />
-          ) : id === "recent" ? (
-            <RecentSection
-              key={id}
-              period={period}
-              route={route}
-              onNavigate={onNavigate}
-              now={at}
+    <OverviewStatusProvider value={status}>
+      <div className="@container/overview flex min-h-0 flex-1 flex-col" data-testid="overview">
+        <ScreenToolbar
+          title={t("overview.title", { name: persona.name })}
+          meta={
+            <>
+              {/* Polite: a period change reads the new range once, not every section. */}
+              <span data-testid="overview-range" aria-live="polite">
+                {formatPeriodRange(period, at, firstActivityAt)}
+              </span>
+              {staleSince === null ? null : (
+                <span data-testid="overview-last-updated" role="status">
+                  {" · "}
+                  {t("overview.lastUpdated", {
+                    time: formatTime(new Date(staleSince).toISOString()),
+                  })}
+                </span>
+              )}
+            </>
+          }
+          actions={
+            <SegmentedRadio
+              label={t("overview.period.label")}
+              options={OVERVIEW_PERIODS.map((p) => ({ value: p, label: periodLabel(p) }))}
+              value={period}
+              onChange={onPeriodChange}
             />
-          ) : (
-            <OverviewSection key={id} id={id} />
-          ),
-        )}
+          }
+        />
+        <JumpBar sections={visible} />
+        <div className="mx-auto flex w-full max-w-[calc(1040px+3rem)] flex-col gap-4 px-4 pt-2 pb-12 md:px-6">
+          {/* Section cards are h3s; this keeps the outline h1 → h2 → h3. */}
+          <h2 className="sr-only">{t("overview.screen")}</h2>
+          {fresh ? <GettingToKnowYou name={persona.name} onTry={onTry} /> : null}
+          {fresh ? null : <OverviewSummary period={period} onNavigate={onNavigate} />}
+          {visible.map((id) =>
+            id === "now" ? (
+              <NowSection key={id} {...(now === undefined ? {} : { now })} />
+            ) : id === "activity" ? (
+              <OverviewActivity key={id} period={period} onNavigate={onNavigate} route={route} />
+            ) : id === "growth" ? (
+              <GrowthAndPeople key={id} period={period} now={at} />
+            ) : id === "people" ? null : id === "built" ? (
+              <BuiltForYou key={id} period={period} now={at} />
+            ) : id === "specialists" ? (
+              <Specialists key={id} period={period} now={at} />
+            ) : id === "upcoming" ? (
+              <UpcomingSection key={id} {...(now === undefined ? {} : { now })} />
+            ) : id === "recent" ? (
+              <RecentSection
+                key={id}
+                period={period}
+                route={route}
+                onNavigate={onNavigate}
+                now={at}
+              />
+            ) : (
+              <OverviewSection key={id} id={id} />
+            ),
+          )}
+        </div>
       </div>
-    </div>
+    </OverviewStatusProvider>
   );
 }
 

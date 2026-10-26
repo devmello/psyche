@@ -1,5 +1,6 @@
 import * as m from "motion/react-m";
 import { type ReactElement, useEffect, useRef, useState } from "react";
+import { useI18n } from "../i18n/I18nProvider.tsx";
 import { duration, motionSpring, spring } from "../motion/tokens.ts";
 import { useReducedMotion } from "../theme/ThemeProvider.tsx";
 
@@ -50,6 +51,8 @@ export function Sparkline({
   testId = "sparkline",
 }: SparklineProps): ReactElement {
   const reduce = useReducedMotion();
+  // Time runs newest-first in the reading direction, so the line mirrors in RTL (§5.8).
+  const rtl = useI18n().dir === "rtl";
   const throttled = useThrottled(values, live ? 1000 : 0);
   const shown = live ? throttled : values;
   const max = Math.max(...shown, 0);
@@ -57,7 +60,8 @@ export function Sparkline({
   const pad = 1.5;
   const step = n <= 1 ? 0 : (width - pad * 2) / (n - 1);
   const points = shown.map((v, i) => {
-    const x = n <= 1 ? width / 2 : pad + i * step;
+    const x0 = n <= 1 ? width / 2 : pad + i * step;
+    const x = rtl ? width - x0 : x0;
     const y = max === 0 ? height - pad : height - pad - (v / max) * (height - pad * 2);
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   });
@@ -81,7 +85,7 @@ export function Sparkline({
       {label ? <title>{label}</title> : null}
       <m.g
         key={live && !reduce ? generation : 0}
-        initial={live && !reduce && generation > 0 ? { x: step } : false}
+        initial={live && !reduce && generation > 0 ? { x: rtl ? -step : step } : false}
         animate={{ x: 0 }}
         transition={{ duration: duration.medium / 1000, ease: "easeOut" }}
       >

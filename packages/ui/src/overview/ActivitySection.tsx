@@ -13,7 +13,7 @@ import { OverviewSection } from "./OverviewSection.tsx";
 import { go, type OverviewLink, recentLink } from "./overviewLinks.ts";
 import type { OverviewPeriod } from "./period.ts";
 import { parseRecentFilter, recentHref, scrollToRecent } from "./recentFilter.ts";
-import { LoadFailed } from "./SummarySection.tsx";
+import { SectionBody, useSectionStatus } from "./SectionState.tsx";
 import { hasNoRuns, PERIOD_WORD } from "./summaryModel.ts";
 
 export interface OverviewActivityProps {
@@ -32,23 +32,27 @@ export function OverviewActivity({
 }: OverviewActivityProps): ReactElement {
   const i18n = useI18n();
   const insights = useInsights(period);
+  const status = useSectionStatus("activity", [
+    { ...insights, has: insights.data !== undefined, key: period },
+  ]);
   const meta = i18n.t("overview.activity.meta", { period: PERIOD_WORD[period] });
   return (
     <OverviewSection id="activity" meta={meta}>
-      {insights.data === undefined ? (
-        insights.error === null ? (
-          <Skeleton className="h-48" data-testid="overview-activity-loading" />
-        ) : (
-          <LoadFailed onRetry={insights.reload} />
-        )
-      ) : (
-        <ActivityBody
-          period={period}
-          insights={insights.data}
-          onNavigate={onNavigate}
-          selectedDay={parseRecentFilter(route).day}
-        />
-      )}
+      <SectionBody
+        id="activity"
+        status={status}
+        reserve="min-h-48"
+        skeleton={<Skeleton className="h-48" />}
+      >
+        {insights.data === undefined ? null : (
+          <ActivityBody
+            period={period}
+            insights={insights.data}
+            onNavigate={onNavigate}
+            selectedDay={parseRecentFilter(route).day}
+          />
+        )}
+      </SectionBody>
     </OverviewSection>
   );
 }
