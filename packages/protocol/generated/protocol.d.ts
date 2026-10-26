@@ -4588,6 +4588,24 @@ export interface LibraryListResult {
     nextCursor?: null | string;
 }
 
+export interface LibraryUploadParams {
+    bytes: string;
+    final: boolean;
+    mime?: string;
+    /**
+     * the file's name
+     */
+    name:      string;
+    threadId?: string;
+    uploadId?: string;
+}
+
+export interface LibraryUploadResult {
+    item?:    LibraryItem;
+    received: number;
+    uploadId: string;
+}
+
 export interface LogsTailParams {
     level?:     LogLevel;
     lines?:     number;

@@ -388,7 +388,12 @@ export function useThread(threadId: string | null) {
   });
 
   const sendNow = useCallback(
-    async (content: string, mode: QueueMode | undefined, replyToMessageId?: string | null) => {
+    async (
+      content: string,
+      mode: QueueMode | undefined,
+      replyToMessageId?: string | null,
+      attachments?: readonly string[],
+    ) => {
       if (threadId === null) return;
       const pendingId = `pending-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
       const createdAt = new Date().toISOString();
@@ -404,6 +409,7 @@ export function useThread(threadId: string | null) {
             content,
             ...(mode ? { mode } : {}),
             ...(replyToMessageId ? { replyToMessageId } : {}),
+            ...(attachments && attachments.length > 0 ? { attachments: [...attachments] } : {}),
           }),
       });
     },
@@ -418,7 +424,12 @@ export function useThread(threadId: string | null) {
   const send = useCallback(
     async (
       content: string,
-      options: { mode?: QueueMode; replyToMessageId?: string | null } = {},
+      options: {
+        mode?: QueueMode;
+        replyToMessageId?: string | null;
+        /** Library item ids (finished uploads) sent with the message. */
+        attachments?: readonly string[];
+      } = {},
     ) => {
       if (threadId === null) return;
       const mode = options.mode ?? "followUp";
@@ -429,11 +440,19 @@ export function useThread(threadId: string | null) {
           content,
           mode,
           replyToMessageId: options.replyToMessageId ?? null,
+          ...(options.attachments && options.attachments.length > 0
+            ? { attachments: options.attachments }
+            : {}),
         };
         store.update((s) => ({ ...s, queue: [...s.queue, item] }));
         return;
       }
-      await sendNow(content, view.running ? mode : undefined, options.replyToMessageId ?? null);
+      await sendNow(
+        content,
+        view.running ? mode : undefined,
+        options.replyToMessageId ?? null,
+        options.attachments,
+      );
     },
     [store, threadId, view.running, sendNow],
   );
@@ -447,7 +466,7 @@ export function useThread(threadId: string | null) {
     if (running || threadId === null || queued.length === 0) return;
     const next = store.takeQueued(threadId);
     if (next === null) return;
-    void sendNow(next.content, undefined, next.replyToMessageId).then(
+    void sendNow(next.content, undefined, next.replyToMessageId, next.attachments).then(
       () => store.sentQueued(next),
       () => store.failQueued(next),
     );

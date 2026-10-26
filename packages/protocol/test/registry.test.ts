@@ -109,6 +109,7 @@ const REQUIRED_METHODS: MethodName[] = [
   "memory.graph.status",
   "library.list",
   "library.get",
+  "library.upload",
   "library.delete",
   "settings.get",
   "settings.set",

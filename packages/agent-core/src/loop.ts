@@ -3090,6 +3090,9 @@ function worst(a: ProvenanceOut, b: ProvenanceOut | undefined): ProvenanceOut {
 function userText(input: StartTurnInput): string {
   const files = input.input.attachments ?? [];
   if (files.length === 0) return input.input.text;
+  // Extracted text, when the Gateway made it, says more than the ids do.
+  const attached = input.input.attachmentText;
+  if (attached !== undefined && attached !== "") return `${input.input.text}\n\n${attached}`;
   return `${input.input.text}\n\n[attached library items: ${files.map((f) => f.libraryItemId).join(", ")}]`;
 }
 

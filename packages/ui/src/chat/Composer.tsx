@@ -1,8 +1,27 @@
 import { ComposerPrimitive, useAui, useAuiState } from "@assistant-ui/react";
 import type { Message, QueueMode } from "@psyche/protocol";
-import { ArrowUp, Mic, Plus, Square, X } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowUp,
+  FileText,
+  Image as ImageIcon,
+  Loader2,
+  Mic,
+  Plus,
+  Square,
+  X,
+} from "lucide-react";
 import * as m from "motion/react-m";
-import { type KeyboardEvent, type ReactElement, useEffect, useId, useRef, useState } from "react";
+import {
+  type ClipboardEvent,
+  type DragEvent,
+  type KeyboardEvent,
+  type ReactElement,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { GlassSurface } from "../components/glass-surface.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { t } from "../i18n/core.ts";
@@ -12,6 +31,7 @@ import { type ComposerVoice, ComposerVoiceButtons } from "../voice/controls.tsx"
 import { COMMANDS, type CommandInfo, completion, matchCommands } from "./commands.ts";
 import { messageText } from "./MessageView.tsx";
 import { useElementHeight } from "./ThreadChrome.tsx";
+import type { ComposerAttach } from "./useAttachments.ts";
 
 /** Every composer command, as typed (feature C9). */
 /** The capsule's height at one line (§3.7). */
@@ -63,7 +83,13 @@ export interface ComposerProps {
   onClearQuote?: () => void;
   /** How a message sent mid-turn goes; the follow-up strip changes it per queued message. */
   mode?: QueueMode;
-  onAttach?: () => void;
+  /**
+   * The + button, the chips and the drop and paste targets. Absent when the thread's model takes
+   * no files: the composer then shows none of them.
+   */
+  attach?: ComposerAttach;
+  /** Files are still uploading: Send waits for them. */
+  sendBlocked?: boolean;
   onDictate?: () => void;
   /** The host's dictation (#690): the mic button. */
   voice?: ComposerVoice;
@@ -84,7 +110,8 @@ export function Composer({
   quoting,
   onClearQuote,
   mode = "followUp",
-  onAttach,
+  attach,
+  sendBlocked = false,
   onDictate,
   voice,
   onStop,
@@ -102,6 +129,20 @@ export function Composer({
   const radius = Math.min(height || ONE_LINE_PX, ONE_LINE_PX) / 2;
   const round =
     "size-7 rounded-full cursor-default [&_svg:not([class*='size-'])]:size-4 disabled:opacity-100";
+  const pickerRef = useRef<HTMLInputElement>(null);
+  const onDrop = (e: DragEvent) => {
+    if (!attach || disabled || e.dataTransfer.files.length === 0) return;
+    e.preventDefault();
+    attach.onFiles(Array.from(e.dataTransfer.files));
+  };
+  const onDragOver = (e: DragEvent) => {
+    if (attach && !disabled && e.dataTransfer.types.includes("Files")) e.preventDefault();
+  };
+  const onPaste = (e: ClipboardEvent) => {
+    if (!attach || disabled || e.clipboardData.files.length === 0) return;
+    e.preventDefault();
+    attach.onFiles(Array.from(e.clipboardData.files));
+  };
   return (
     // A floating Liquid Glass capsule (redesign-2026 §5.2; liquid-glass.md §6.3): refraction where
     // Chromium can, the next rung elsewhere, opaque under Reduce Transparency / Increase Contrast /
@@ -115,6 +156,8 @@ export function Composer({
       transition={motionSpring(spring.smooth)}
       className="group/composer relative"
       data-testid="composer-capsule"
+      onDrop={onDrop}
+      onDragOver={onDragOver}
     >
       <GlassSurface impl="refraction" radius={radius} as="div">
         <span
@@ -174,18 +217,102 @@ export function Composer({
               </button>
             </div>
           ) : null}
-          <m.div layout="position" className="flex items-end gap-1 p-1.5">
-            {onAttach ? (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className={round}
-                onClick={onAttach}
-                aria-label={t("chat.composer.attach")}
-                disabled={disabled}
+          {attach && attach.refused.length > 0 ? (
+            <div
+              role="status"
+              className="mx-2 mt-2 flex items-start gap-2 rounded-md bg-fill-tertiary px-2 py-1 text-callout text-label-secondary"
+              data-testid="attach-refused"
+            >
+              <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+              <span className="min-w-0 flex-1">
+                {attach.refused.map((r) => (
+                  <span key={`${r.name}-${r.reason}`} className="block">
+                    {t(`chat.attach.refused.${r.reason}`, { name: r.name })}
+                  </span>
+                ))}
+              </span>
+              <button
+                type="button"
+                onClick={attach.onDismissRefused}
+                aria-label={t("chat.attach.dismiss")}
+                className="inline-flex size-6 shrink-0 cursor-default items-center justify-center rounded-sm hover:bg-fill-tertiary"
               >
-                <Plus aria-hidden="true" />
-              </Button>
+                <X className="size-3.5" aria-hidden="true" />
+              </button>
+            </div>
+          ) : null}
+          {attach && attach.chips.length > 0 ? (
+            <ul
+              aria-label={t("chat.attach.list")}
+              className="m-0 flex list-none flex-wrap gap-1.5 px-2 pt-2"
+              data-testid="attach-chips"
+            >
+              {attach.chips.map((c) => {
+                const Icon = c.kind === "image" ? ImageIcon : FileText;
+                return (
+                  <li
+                    key={c.key}
+                    data-status={c.status}
+                    className={cn(
+                      "flex max-w-52 items-center gap-1.5 rounded-md bg-fill-tertiary py-1 ps-2 pe-1 text-callout",
+                      c.status === "error" && "text-danger-text",
+                    )}
+                  >
+                    {c.status === "uploading" ? (
+                      <Loader2
+                        className="size-3.5 shrink-0 animate-spin"
+                        aria-label={t("chat.attach.uploading", { name: c.name })}
+                      />
+                    ) : c.status === "error" ? (
+                      <AlertCircle
+                        className="size-3.5 shrink-0"
+                        aria-label={t("chat.attach.failed", { name: c.name })}
+                      />
+                    ) : (
+                      <Icon className="size-3.5 shrink-0 text-label-secondary" aria-hidden="true" />
+                    )}
+                    <span className="min-w-0 truncate text-label-primary">{c.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => attach.onRemove(c.key)}
+                      aria-label={t("chat.attach.remove", { name: c.name })}
+                      className="inline-flex size-5 shrink-0 cursor-default items-center justify-center rounded-sm text-label-secondary hover:bg-fill-tertiary"
+                    >
+                      <X className="size-3" aria-hidden="true" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+          <m.div layout="position" className="flex items-end gap-1 p-1.5">
+            {attach ? (
+              <>
+                <input
+                  ref={pickerRef}
+                  type="file"
+                  multiple
+                  hidden
+                  tabIndex={-1}
+                  accept={attach.accept}
+                  data-testid="attach-input"
+                  onChange={(e) => {
+                    attach.onFiles(Array.from(e.target.files ?? []));
+                    // The same file picked again must still fire.
+                    e.target.value = "";
+                  }}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className={round}
+                  onClick={() => pickerRef.current?.click()}
+                  aria-label={t("chat.composer.attach")}
+                  disabled={disabled}
+                >
+                  <Plus aria-hidden="true" />
+                </Button>
+              </>
             ) : null}
             <ComposerPrimitive.Input
               rows={1}
@@ -196,7 +323,15 @@ export function Composer({
               }
               aria-label={t("chat.composer.label", { persona })}
               data-composer-input=""
-              onKeyDown={menu.onKeyDown}
+              onKeyDown={(e) => {
+                // Files still uploading: Return waits for them, like the Send button.
+                if (sendBlocked && e.key === "Enter" && !e.shiftKey && !menu.open) {
+                  e.preventDefault();
+                  return;
+                }
+                menu.onKeyDown(e);
+              }}
+              onPaste={onPaste}
               aria-autocomplete="list"
               aria-describedby={hintId}
               {...(menu.open
@@ -249,7 +384,7 @@ export function Composer({
                     variant={empty ? "secondary" : "default"}
                     className={cn(round, empty && "text-label-tertiary")}
                     aria-label={t("chat.composer.send")}
-                    disabled={disabled || empty}
+                    disabled={disabled || empty || sendBlocked}
                   />
                 }
               >

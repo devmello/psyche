@@ -33,6 +33,7 @@ import {
   type Thread,
 } from "@psyche/protocol";
 import type { GatewayContext } from "../context.ts";
+import { resolveAttachments } from "./attachments.ts";
 
 type SendResult = MethodResult<"chat.send">;
 type TurnImages = { mime: string; data: string }[];
@@ -665,6 +666,12 @@ export class SessionController {
     try {
       const inputTaint = this.#inputTaint.get(runId);
       this.#inputTaint.delete(runId);
+      // Library attachments: images as image parts, documents as capped extracted text.
+      const attached =
+        attachments.length > 0
+          ? await resolveAttachments(db, this.#ctx.config.home, attachments, turn.abort.signal)
+          : undefined;
+      const allImages = [...(images ?? []), ...(attached?.images ?? [])];
       const stream = agent.startTurn({
         threadId,
         runId,
@@ -673,7 +680,10 @@ export class SessionController {
           ...(attachments.length > 0
             ? { attachments: attachments.map((libraryItemId) => ({ libraryItemId })) }
             : {}),
-          ...(images === undefined || images.length === 0 ? {} : { images }),
+          ...(attached === undefined || attached.text === ""
+            ? {}
+            : { attachmentText: attached.text }),
+          ...(allImages.length === 0 ? {} : { images: allImages }),
         },
         mode: "attended",
         permissionMode: thread.permissionMode,

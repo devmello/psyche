@@ -85,6 +85,17 @@ class FakeHelper implements AppleHelper {
   readonly calls: Invocation[] = [];
   capabilities: string[] = [...ALL];
   refuse: { code: string; message: string; details?: Record<string, unknown> } | undefined;
+  /** A canned answer for one capability (checked after the permission handling). */
+  answers: Record<
+    string,
+    {
+      ok: boolean;
+      result?: unknown;
+      error?: { code: string; message: string; details?: Record<string, unknown> };
+    }
+  > = {};
+  /** How long the connector said it would wait, per capability. */
+  readonly timeouts: Record<string, number | undefined> = {};
   /** What macOS says about the grant (#549); a denied probe fails like the helper does. */
   grant: "granted" | "denied" | "notDetermined" | "notRunning" = "granted";
   /**
@@ -99,7 +110,12 @@ class FakeHelper implements AppleHelper {
     this.grant = this.prompt;
     return this.grant;
   }
-  async invoke(capability: string, params: unknown, options: { approvalId?: string }) {
+  async invoke(
+    capability: string,
+    params: unknown,
+    options: { approvalId?: string; timeoutMs?: number },
+  ) {
+    this.timeouts[capability] = options.timeoutMs;
     this.calls.push({
       capability,
       params,
@@ -143,6 +159,8 @@ class FakeHelper implements AppleHelper {
         },
       };
     }
+    const canned = this.answers[capability];
+    if (canned) return canned;
     if (capability === "notes.list") {
       return {
         ok: true,
@@ -299,6 +317,81 @@ describe("Apple app connectors (#528)", () => {
     const params = { unread: true, since: "2026-10-24T00:00:00Z", from: "billing@", limit: 10 };
     await run("mcp__apple-1__mail_search")(params);
     expect(helper.calls).toEqual([{ capability: "mail.search", params }]);
+  });
+
+  it("connecting Mail probes with one cheap Apple Event, not a mailbox search", async () => {
+    const helper = new FakeHelper();
+    const { registry } = make(helper);
+    await registry.connect({ catalogueId: "apple-mail", scopeMode: "read" });
+    const probes = helper.calls.filter((c) => c.capability.startsWith("mail."));
+    expect(probes).toEqual([{ capability: "mail.selected", params: { limit: 1 } }]);
+  });
+
+  describe("mail_search timeouts", () => {
+    async function mailSearch(helper: FakeHelper) {
+      const { registry, run } = make(helper);
+      const connected = await registry.connect({ catalogueId: "apple-mail", scopeMode: "read" });
+      return { registry, connected, run, search: run("mcp__apple-1__mail_search") };
+    }
+
+    it("waits longer than the helper's own worst case, so its answer arrives first", async () => {
+      const helper = new FakeHelper();
+      helper.answers["mail.search"] = { ok: true, result: { messages: [] } };
+      const { search, run } = await mailSearch(helper);
+      await search({ query: "invoice" });
+      expect(helper.timeouts["mail.search"]).toBe(90_000);
+      // Other reads keep the default.
+      await run("mcp__apple-1__mail_read")({ id: "1" });
+      expect(helper.timeouts["mail.read"]).toBe(60_000);
+    });
+
+    it("passes a partial answer through with its truncated flag and note", async () => {
+      const helper = new FakeHelper();
+      const result = {
+        messages: [{ id: "7", subject: "Invoice" }],
+        truncated: true,
+        source: "index",
+        note: "The search hit its time limit: these are the newest matches found.",
+      };
+      helper.answers["mail.search"] = { ok: true, result };
+      const { search } = await mailSearch(helper);
+      const out = await search({ query: "invoice" });
+      expect(out.output).toMatchObject(result);
+    });
+
+    it("tells the model to narrow the search when the Gateway gives up, and stays connected", async () => {
+      const helper = new FakeHelper();
+      helper.answers["mail.search"] = {
+        ok: false,
+        error: { code: "timeout", message: "mail.search timed out" },
+      };
+      const { search, registry, connected } = await mailSearch(helper);
+      await expect(search({ query: "invoice" })).rejects.toMatchObject({
+        code: "unavailable",
+        message: expect.stringContaining("Mail search took too long — narrow it"),
+        details: { capability: "mail.search", helperCode: "timeout", reason: "timeout" },
+      });
+      // The failed search is the tool's error; it does not take the connector down.
+      expect(await registry.status(connected.id)).toMatchObject({ status: "connected" });
+    });
+
+    it("keeps the helper's own search_timeout reason and message", async () => {
+      const helper = new FakeHelper();
+      helper.answers["mail.search"] = {
+        ok: false,
+        error: {
+          code: "unavailable",
+          message:
+            "Mail search took too long. Narrow it: a shorter date range, a sender, or one mailbox.",
+          details: { reason: "search_timeout" },
+        },
+      };
+      const { search } = await mailSearch(helper);
+      await expect(search({ query: "invoice" })).rejects.toMatchObject({
+        message: expect.stringContaining("Narrow it"),
+        details: { reason: "search_timeout" },
+      });
+    });
   });
 
   it("a write asks: refused without an approval, and reaches the helper with it", async () => {
