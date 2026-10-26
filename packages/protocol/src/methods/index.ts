@@ -16,6 +16,7 @@ import { DictationMethods } from "./dictation.ts";
 import { EventsMethods } from "./events.ts";
 import { FilesMethods } from "./files.ts";
 import { GrantsMethods } from "./grants.ts";
+import { FeedbackMethods, GrowthMethods, LessonsMethods } from "./learning.ts";
 import { LibraryMethods } from "./library.ts";
 import { LogsMethods } from "./logs.ts";
 import { McpMethods } from "./mcp.ts";
@@ -59,6 +60,7 @@ export * from "./dictation.ts";
 export * from "./events.ts";
 export * from "./files.ts";
 export * from "./grants.ts";
+export * from "./learning.ts";
 export * from "./library.ts";
 export * from "./logs.ts";
 export * from "./mcp.ts";
@@ -134,6 +136,9 @@ export const Methods = {
   ...LogsMethods,
   ...ModelsMethods,
   ...UsageMethods,
+  ...FeedbackMethods,
+  ...LessonsMethods,
+  ...GrowthMethods,
 } as const;
 
 export type MethodName = keyof typeof Methods;

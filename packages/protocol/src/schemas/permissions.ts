@@ -114,6 +114,17 @@ export const ApprovalRequest = Type.Object(
     expiresAt: IsoDateTime,
     decidedAt: Nullable(IsoDateTime),
     grantId: Nullable(Id),
+    /**
+     * The card writes a lesson (teaching loop §3.3: SOUL.md, AGENTS.md, boundaries, automation
+     * changes): the card shows "Because you said: …" with the owner's words.
+     */
+    fromLesson: Type.Optional(
+      Type.Object({
+        lessonId: Id,
+        feedbackId: Id,
+        because: Type.String({ maxLength: 500, description: "The owner's feedback text" }),
+      }),
+    ),
   },
   { $id: "ApprovalRequest" },
 );

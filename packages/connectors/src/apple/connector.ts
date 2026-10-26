@@ -1739,7 +1739,7 @@ class AppleConnector implements Connector {
 
   async health(): Promise<ConnectorHealth> {
     const h = this.#opts.helper();
-    const ok = h !== undefined && h.capabilities.includes(PROBE[this.#app]);
+    const ok = h?.capabilities.includes(PROBE[this.#app]) === true;
     const checkedAt = Date.now();
     if (!ok) {
       return {

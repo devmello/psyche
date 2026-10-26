@@ -175,6 +175,31 @@ private final class Fakes: CalendarBackend, RemindersBackend, MailBackend, Notes
     func reveal(_ path: String) async throws { lock.withLock { revealed.append(path) } }
 }
 
+final class FakeMusic: MusicBackend, @unchecked Sendable {
+    let lock = NSLock()
+    var controls: [(String?, String)] = []
+    var plays: [(String, String)] = []
+    func nowPlaying(app: String?) async throws -> NowPlayingRecord {
+        NowPlayingRecord(app: app ?? "music", state: "playing",
+                         track: .init(name: "Clair de lune", artist: "Debussy", album: "Suite", durationSeconds: 300, positionSeconds: 12), volume: 40, shuffle: false)
+    }
+    func control(app: String?, action: String, volume: Int?, shuffle: Bool?) async throws -> NowPlayingRecord {
+        lock.withLock { controls.append((app, action)) }
+        return action == "pause" ? NowPlayingRecord(app: app ?? "music", state: "paused") : try await nowPlaying(app: app)
+    }
+    func searchLibrary(query: String, kind: String?, limit: Int) async throws -> [MusicItemRecord] {
+        MusicWave1.rank([
+            MusicItemRecord(kind: "playlist", id: "0123456789ABCDEF", name: "Deep Focus", trackCount: 40),
+            MusicItemRecord(kind: "album", id: MusicWave1.albumId(artist: "Hania Rani", album: "Focus/Flow"), name: "Focus/Flow", artist: "Hania Rani", trackCount: 9),
+            MusicItemRecord(kind: "track", id: "FEDCBA9876543210", name: "Focus", artist: "Ariana", album: "Focus"),
+        ].filter { kind == nil || $0.kind == kind }, query: query, limit: limit)
+    }
+    func play(kind: String, id: String, shuffle: Bool?) async throws -> NowPlayingRecord {
+        lock.withLock { plays.append((kind, id)) }
+        return try await nowPlaying(app: "music")
+    }
+}
+
 final class FakeContacts: ContactsBackend, @unchecked Sendable {
     let lock = NSLock()
     var created: [ContactInputRecord] = []
@@ -211,11 +236,13 @@ private struct Harness {
     let registry: CapabilityRegistry
     let staging = FileManager.default.temporaryDirectory.appendingPathComponent("psyche-staging-\(UUID().uuidString)").resolvingSymlinksInPath()
     let people = FakeContacts()
+    let player = FakeMusic()
     init(roots: [String] = []) {
         let f = fakes
         let st = staging
         registry = CapabilityRegistry(AppleAppsCapabilities.make(.init(
-            calendar: f, reminders: f, mail: f, notes: f, safari: f, finder: f, roots: { FinderRoots(roots: roots) }, staging: { st }, contacts: people)))
+            calendar: f, reminders: f, mail: f, notes: f, safari: f, finder: f, roots: { FinderRoots(roots: roots) }, staging: { st }, contacts: people,
+            music: player)))
     }
     func invoke(_ name: String, _ params: JSONValue = [:], approvalId: String? = nil) async throws -> CapabilityOutput {
         let h = try #require(registry[name])
@@ -244,12 +271,15 @@ struct AppleAppsTests {
             "notes.search", "notes.folders", "notes.append", "notes.update",
             // Contacts wave 1 (§4.5).
             "contacts.search", "contacts.read", "contacts.create", "contacts.update",
+            // Music and Spotify wave 1 (§4.6).
+            "music.now_playing", "music.control", "music.search_library", "music.play",
         ]
         let h = Harness()
         #expect(Set(h.registry.ordered.map(\.spec.name)) == matrix)
         let writes: Set = ["calendar.create_event", "calendar.update_event", "reminders.create", "reminders.update", "mail.draft", "mail.send", "notes.create", "safari.open_url",
                            "mail.reply_draft", "mail.forward_draft", "mail.send_draft", "mail.set_flags", "mail.move", "mail.save_attachments",
-                           "reminders.complete", "reminders.set_flagged", "notes.append", "notes.update", "contacts.create", "contacts.update"]
+                           "reminders.complete", "reminders.set_flagged", "notes.append", "notes.update", "contacts.create", "contacts.update",
+                           "music.control", "music.play"]
         let destructive: Set = ["reminders.delete", "calendar.delete_event"]
         for c in h.registry.ordered {
             let expected: SideEffect = destructive.contains(c.spec.name) ? .destructive : writes.contains(c.spec.name) ? .write : .read
@@ -504,10 +534,12 @@ struct MailWave1RulesTests {
 /// Opt in with PSYCHE_OSACOMPILE=1.
 @Suite("Mail script compiles")
 struct MailScriptCompileTests {
-    @Test(arguments: ["mail", "notes", "reminders"]) func compiles(_ app: String) throws {
+    @Test(arguments: ["mail", "notes", "reminders", "music", "spotify", "music-library"]) func compiles(_ app: String) throws {
         guard ProcessInfo.processInfo.environment["PSYCHE_OSACOMPILE"] == "1" else { return }
         let src = FileManager.default.temporaryDirectory.appendingPathComponent("\(app)-\(UUID().uuidString).applescript")
-        let text = ["mail": MailScriptingBackend.source, "notes": NotesScriptingBackend.source, "reminders": EventKitBackend.flagScript][app]!
+        let text = ["mail": MailScriptingBackend.source, "notes": NotesScriptingBackend.source, "reminders": EventKitBackend.flagScript,
+                    "music": MusicScriptingBackend.source("music"), "spotify": MusicScriptingBackend.source("spotify"),
+                    "music-library": MusicScriptingBackend.libraryScript][app]!
         try text.write(to: src, atomically: true, encoding: .utf8)
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/osacompile")
@@ -740,5 +772,53 @@ struct ContactsWave1RulesTests {
         #expect(throws: CapabilityError.self) { try ContactsWave1.birthday("1999-13-02") }
         #expect(throws: CapabilityError.self) { try ContactsWave1.birthday("-12-31") }
         #expect(ContactsWave1.birthdayString(year: nil, month: 3, day: 4) == "--03-04")
+    }
+}
+
+@Suite("Music and Spotify wave 1 (apple-apps-2026 §4.6)")
+struct MusicWave1Tests {
+    @Test func nowPlayingAndControls() async throws {
+        let h = Harness()
+        let now = try await h.invoke("music.now_playing")
+        #expect(now.result["nowPlaying"]?["track"]?["name"] == "Clair de lune" && now.result["provenance"] == "untrusted")
+        let paused = try await h.invoke("music.control", ["app": "spotify", "action": "pause"])
+        #expect(paused.result["nowPlaying"]?["state"] == "paused" && paused.result["nowPlaying"]?["track"] == .null && h.player.controls.first?.0 == "spotify")
+        _ = try await h.invoke("music.control", ["action": "volume", "volume": 30])
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("music.control", ["action": "volume"]) }
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("music.control", ["action": "shuffle"]) }
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("music.control", ["action": "play", "app": "winamp"]) }
+    }
+
+    @Test func searchAndPlay() async throws {
+        let h = Harness()
+        let items = try decode([MusicItemRecord].self, try await h.invoke("music.search_library", ["query": "focus"]).result["items"])
+        #expect(items.first?.name == "Focus")  // exact before prefix before contains
+        _ = try await h.invoke("music.play", ["kind": "playlist", "id": "0123456789ABCDEF", "shuffle": true])
+        _ = try await h.invoke("music.play", ["kind": "album", "id": .string(MusicWave1.albumId(artist: "Hania Rani", album: "Focus/Flow"))])
+        #expect(h.player.plays.map(\.0) == ["playlist", "album"])
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("music.play", ["kind": "track", "id": "not-an-id"]) }
+    }
+
+    @Test func outputsDecodeAsTheGeneratedProtocolTypes() async throws {
+        let h = Harness()
+        _ = try decode(AppleNowPlaying.self, try await h.invoke("music.now_playing").result["nowPlaying"])
+        _ = try decode(AppleNowPlaying.self, try await h.invoke("music.control", ["action": "pause"]).result["nowPlaying"])
+        _ = try decode([AppleMusicItem].self, try await h.invoke("music.search_library", ["query": "focus"]).result["items"])
+    }
+}
+
+@Suite("Music wave 1: pure rules")
+struct MusicWave1RulesTests {
+    @Test func idsGroupingAndDurations() {
+        let id = MusicWave1.albumId(artist: "AC/DC", album: "Back in Black")
+        #expect(MusicWave1.parseAlbum(id)?.artist == "AC/DC" && MusicWave1.parseAlbum(id)?.album == "Back in Black")
+        #expect(MusicWave1.parseArtist(MusicWave1.artistId("Sigur Rós")) == "Sigur Rós" && MusicWave1.parseArtist("artist/") == nil)
+        let rows = [MusicTrackRow(persistentId: "1", name: "a", artist: "X", album: "A1", albumArtist: ""),
+                    MusicTrackRow(persistentId: "2", name: "b", artist: "Y", album: "A1", albumArtist: "X"),
+                    MusicTrackRow(persistentId: "3", name: "c", artist: "X", album: "A2", albumArtist: "")]
+        #expect(MusicWave1.group(rows, kind: "album").map(\.trackCount) == [2, 1])
+        #expect(MusicWave1.group(rows, kind: "artist").map(\.name) == ["X"])
+        #expect(MusicWave1.seconds("215000", app: "spotify") == 215 && MusicWave1.seconds("215,5", app: "music") == 215.5)
+        #expect(MusicWave1.isPersistentId("0123456789ABCDEF") && !MusicWave1.isPersistentId("0123"))
     }
 }

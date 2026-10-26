@@ -1,6 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, JsonObject, Nullable, StringEnum } from "../common.ts";
 import { ChecklistItem } from "./blocks.ts";
+import { LessonRef } from "./learning.ts";
 import { TaintSource } from "./permissions.ts";
 import { SpecialistSpec } from "./specialists.ts";
 
@@ -82,6 +83,8 @@ export const Task = Type.Object(
     createdAt: IsoDateTime,
     updatedAt: IsoDateTime,
     completedAt: Nullable(IsoDateTime),
+    /** Lessons the Gateway applied to this task's runs (teaching loop §5.1); absent when none. */
+    lessonsApplied: Type.Optional(Type.Array(LessonRef, { maxItems: 20 })),
   },
   { $id: "Task" },
 );

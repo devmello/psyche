@@ -10,6 +10,7 @@ import {
   Usage,
 } from "../common.ts";
 import { Block } from "./blocks.ts";
+import { LessonRef } from "./learning.ts";
 
 /** Data model §2. */
 export const ThreadKind = StringEnum(
@@ -79,6 +80,11 @@ export const Message = Type.Object(
     channelRef: Nullable(ChannelRef),
     runId: Nullable(Id),
     createdAt: IsoDateTime,
+    /**
+     * Lessons the Gateway put in this answer's prompt (the "Used n lessons" chip; teaching loop
+     * §5.1). Filled by the Gateway when it assembles the prompt; absent when none applied.
+     */
+    lessonsApplied: Type.Optional(Type.Array(LessonRef, { maxItems: 20 })),
   },
   { $id: "Message" },
 );
