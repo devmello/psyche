@@ -1,7 +1,7 @@
 /** Ask about my screen (docs/design/screen-ask-2026.md): the ask panel and its region overlay. */
 export const screenAsk = {
   "screenAsk.label": "Ask about your screen",
-  "screenAsk.placeholder": "Ask about what's on screen, or ask Psyche to do something…",
+  "screenAsk.placeholder": "Ask about your screen…",
   "screenAsk.voice.placeholder": "Ask Psyche anything…",
   "screenAsk.send": "Ask",
   "screenAsk.capturing": "Looking at your screen…",
@@ -28,7 +28,6 @@ export const screenAsk = {
   "screenAsk.answer.thinking": "Thinking…",
   "screenAsk.answer.failed": "Something went wrong. Open the chat to see more.",
   "screenAsk.open": "Open in Psyche",
-  "screenAsk.cancelHint": "Esc to close",
   "screenAsk.region.hint": "Drag to select an area. Esc keeps the whole window.",
   "screenAsk.region.label": "Select an area of the screen",
   "settings.screenAsk.title": "Ask about screen",

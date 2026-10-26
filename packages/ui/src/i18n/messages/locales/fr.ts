@@ -3345,7 +3345,6 @@ export const fr: Partial<Catalogue> = {
   "screenAsk.answer.thinking": "Réflexion…",
   "screenAsk.answer.failed": "Un problème est survenu. Ouvrez la discussion pour en savoir plus.",
   "screenAsk.open": "Ouvrir dans Psyche",
-  "screenAsk.cancelHint": "Échap pour fermer",
   "screenAsk.region.hint":
     "Faites glisser pour sélectionner une zone. Échap conserve la fenêtre entière.",
   "screenAsk.region.label": "Sélectionner une zone de l’écran",

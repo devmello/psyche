@@ -3423,7 +3423,6 @@ export const de: Partial<Catalogue> = {
   "screenAsk.answer.thinking": "Denkt nach …",
   "screenAsk.answer.failed": "Etwas ist schiefgelaufen. Öffne den Chat für Details.",
   "screenAsk.open": "In Psyche öffnen",
-  "screenAsk.cancelHint": "Esc zum Schließen",
   "screenAsk.region.hint": "Ziehe, um einen Bereich auszuwählen. Esc behält das ganze Fenster.",
   "screenAsk.region.label": "Bereich des Bildschirms auswählen",
   "settings.screenAsk.title": "Zum Bildschirm fragen",
