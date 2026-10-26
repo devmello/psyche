@@ -442,20 +442,40 @@ const plain = (s: string | null | undefined): string | undefined => {
   const t = s?.replace(/\s+/g, " ").trim();
   return t !== undefined && PLAIN_LABEL.test(t) && !looksLikeInstruction(t) ? t : undefined;
 };
-/** Only the owner's own data or a deterministic rule's (never `agent` or `untrusted`). */
-const ownerData = (p: Provenance) => p === "owner" || p === "system";
-const titleCase = (s: string) =>
-  s.replace(/(^|\s)(\p{L})/gu, (_, a, b: string) => a + b.toUpperCase());
+/** Sources of owner writes: card edits, the teaching loop and the owner's chat (§5.4). */
+const OWNER_WRITE = /^(owner_edit|owner_feedback|chat)(:|$)/;
+/**
+ * Owner-authored or owner-confirmed: `owner` provenance written by the owner (no sources, or an
+ * owner write among them). A Contacts import is `owner` too, but its fields are connector text
+ * (an organisation or job title can say anything) until the owner confirms them on the card.
+ */
+const confirmed = (x: { provenance: Provenance; sources: string[] }) =>
+  x.provenance === "owner" && (x.sources.length === 0 || x.sources.some((s) => OWNER_WRITE.test(s)));
+
+/** The owner's own spelling of words they typed: the span of `ownerText` that normalises to `said`. */
+function ownerSpan(ownerText: string, said: string): string | undefined {
+  const words = [...ownerText.matchAll(/[\p{L}\p{M}\p{N}]+/gu)].map((m) => m[0]);
+  const target = said.split(" ");
+  for (let i = 0; i + target.length <= words.length; i++) {
+    const span = words.slice(i, i + target.length);
+    if (normalizeName(span.join(" ")) === said) return span.join(" ");
+  }
+  return undefined;
+}
 
 /**
  * Entity recall (§6.3): one line per entity the owner named unambiguously, at most three, only
  * in the owner's private sessions. Names must match a whole alias.
  *
- * Every line is safe for a trusted context section: the name is the owner's own words (the
- * stored name only when it is the same words, recased), and the rest comes from owner or system
- * provenance (Contacts, the owner's edits, rules over the owner's sent mail). Subjects, display
- * names, summaries, model output and suggested loops never appear. Hidden or blocklisted people,
- * sources turned off, and interactions past retention are left out.
+ * Every line is safe for a trusted context section, so no byte of it comes from a connector:
+ * - the name is the owner's own words, as they typed them this turn (never the stored name,
+ *   which may be a mail display name or a Contacts field);
+ * - a job title and employer only when the owner wrote or confirmed them (never a Contacts
+ *   import as such, never `agent` or `untrusted`);
+ * - a loop's text only from `owner` loops (the owner's own words, or a rule over their sent mail);
+ * - the rest is fixed words and dates.
+ * Subjects, display names, summaries, model output and suggested loops never appear. Hidden or
+ * blocklisted people, sources turned off, and interactions past retention are left out.
  */
 export function entityRecall(
   graph: GraphStore,
@@ -508,22 +528,23 @@ export function entityRecall(
       );
     if (!known) continue;
     const kept = new Set(interactions.map((i) => i.id));
-    // A display name from someone's mail could say anything: show the owner's words instead.
-    const stored = normalizeName(e.name) === said ? plain(e.name) : undefined;
-    const name = stored ?? titleCase(said);
+    // Stored names and aliases may come from a mail header or a Contacts card: the owner's words.
+    const name = ownerSpan(ownerText, said);
+    if (name === undefined) continue;
     const org = graph
       .edges(e.id)
-      .find((x) => x.rel === "works_at" && x.src === e.id && ownerData(x.provenance));
+      .find((x) => x.rel === "works_at" && x.src === e.id && confirmed(x));
     const orgName = org === undefined ? undefined : plain(graph.getEntity(org.dst)?.name);
     const title = plain(
-      graph.facts(e.id).find((f) => f.attribute === "title" && ownerData(f.provenance))?.value,
+      graph.facts(e.id).find((f) => f.attribute === "title" && confirmed(f))?.value,
     );
     const loop = graph
       .loops({ entityId: e.id, status: ["open"] })
       .find(
         (l) =>
-          ownerData(l.provenance) &&
+          l.provenance === "owner" &&
           (l.sourceInteractionId == null || kept.has(l.sourceInteractionId)) &&
+          !l.text.trimStart().startsWith(">") &&
           !looksLikeInstruction(l.text),
       );
     const last = interactions[0]?.occurredAt;

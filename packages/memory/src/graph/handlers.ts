@@ -162,7 +162,8 @@ export function createGraphHandlers(
         attribute: p.attribute,
         value: p.value,
         provenance: "owner",
-        ...(p.source === undefined ? {} : { source: p.source }),
+        // The owner's write confirms the value, even one Contacts already had (entity recall).
+        source: p.source ?? { kind: "owner_edit" },
       });
       if (result === undefined)
         throw new PsycheError("policy_denied", "that fact cannot be stored");
@@ -183,7 +184,7 @@ export function createGraphHandlers(
         dst: p.dst,
         provenance: "owner",
         ...(p.label === undefined ? {} : { label: p.label }),
-        ...(p.source === undefined ? {} : { source: p.source }),
+        source: p.source ?? { kind: "owner_edit" },
       });
       if (result === undefined)
         throw new PsycheError("policy_denied", "that relation cannot be stored");
