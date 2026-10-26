@@ -1,10 +1,10 @@
-import type { Task, TaskAction, TaskStatus } from "@psyche/protocol";
+import type { Task, TaskAction } from "@psyche/protocol";
 import { ArrowLeft, ListChecks } from "lucide-react";
 import { type ReactElement, useEffect, useState } from "react";
 import { DISCLOSURE_LABEL, type DisclosureLevel } from "../blocks/disclosure.tsx";
 import { TASK_STATUS_LABEL } from "../blocks/TaskCard.tsx";
 import { EmptyState } from "../components/page.tsx";
-import { StatusGlyph, type StatusKind } from "../components/status.tsx";
+import { StatusGlyph } from "../components/status.tsx";
 import { Badge } from "../components/ui/badge.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
@@ -17,21 +17,11 @@ import { formatRelative, formatTime } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 import { useSlots } from "../slots.tsx";
 import { agentTimelineHref } from "./AgentSheet.tsx";
+import { MissionControl, TASK_GLYPH } from "./MissionControl.tsx";
+
+export { TASK_GLYPH };
+
 import { TimelineView } from "./timeline/TimelineView.tsx";
-
-/** One glyph per task state across the app (redesign §3.6, `components/status.tsx`). */
-export const TASK_GLYPH: Record<TaskStatus, StatusKind> = {
-  queued: "pending",
-  running: "running",
-  awaiting_input: "waiting",
-  awaiting_approval: "waiting",
-  paused: "paused",
-  done: "done",
-  failed: "failed",
-  cancelled: "cancelled",
-};
-
-type Filter = "running" | "needs-you" | "all";
 
 /**
  * An action's outcome as a semantic chip (§4.8): "ok · 12s · r-101" reads as a success chip
@@ -428,7 +418,6 @@ export function ActivityPanel({
 }): ReactElement {
   const now = useNow(30_000, fixedNow);
   const tasks = useTasks();
-  const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState<string | null>(initialTaskId ?? null);
   const [run, setRun] = useState<{ runId: string; stepId?: string } | null>(
     initialRunId
@@ -462,49 +451,22 @@ export function ActivityPanel({
       />
     );
   }
-  const shown =
-    filter === "running" ? tasks.running : filter === "needs-you" ? tasks.needsYou : tasks.all;
   return (
     <section aria-label={t("agent.sheet.activity")} className="flex flex-col gap-3">
-      <ToggleGroup
-        aria-label={t("agent.activity.filter")}
-        value={[filter]}
-        onValueChange={(v) => {
-          const next = v[0];
-          if (next !== undefined) setFilter(next as Filter);
-        }}
-      >
-        <ToggleGroupItem value="running" size="sm">
-          {t("agent.activity.filterRunning", { n: tasks.running.length })}
-        </ToggleGroupItem>
-        <ToggleGroupItem value="needs-you" size="sm">
-          {t("agent.activity.filterNeedsYou", { n: tasks.needsYou.length })}
-        </ToggleGroupItem>
-        <ToggleGroupItem value="all" size="sm">
-          {t("agent.activity.filterAll")}
-        </ToggleGroupItem>
-      </ToggleGroup>
-      {tasks.loading && tasks.all.length === 0 ? (
-        <div className="flex flex-col gap-2" role="status" aria-label={t("agent.activity.loading")}>
-          <Skeleton className="h-10" />
-          <Skeleton className="h-10" />
-        </div>
-      ) : tasks.error && tasks.all.length === 0 ? (
+      {tasks.error && tasks.all.length === 0 ? (
         <p className="px-2 text-body">
           {t("agent.activity.loadFailed", { reason: tasks.error })}{" "}
           <button type="button" className="text-accent-11 underline" onClick={tasks.reload}>
             {t("agent.activity.tryAgain")}
           </button>
         </p>
-      ) : (
-        <TaskList
-          tasks={shown}
-          onSelect={(task) => setSelected(task.id)}
-          onRetry={(task) => void tasks.retry(task.id)}
-          onResume={(task) => void tasks.resume(task.id)}
-          now={now}
-        />
-      )}
+      ) : null}
+      <MissionControl
+        onOpenRun={(runId) => setRun({ runId })}
+        tasks={tasks.all}
+        onOpenTask={(taskId) => setSelected(taskId)}
+        now={now}
+      />
     </section>
   );
 }
