@@ -126,6 +126,7 @@ import {
   createOwnPorts,
 } from "./services.ts";
 import { composeSkills } from "./skills.ts";
+import { createSpecialistHost } from "./specialists.ts";
 import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
 import { SqliteThreadStateStore } from "./thread-state.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
@@ -691,6 +692,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     surfaces: ["desktop", "web"],
     publish: (event, payload, threadId) => publish(event, payload as never, threadId),
   });
+  // Background specialists (docs/agent/specialists-2026.md, #683): roles from the role skills,
+  // jobs as a subagent thread + Task, one sanitized result.
+  const specialists = createSpecialistHost({
+    db,
+    tasks,
+    broker: loopBroker,
+    roles: skills.roles,
+    models: { primary: modelRef, ...(utility === undefined ? {} : { utility }) },
+    now: () => clock.now(),
+  });
   const loop = createAgentLoop({
     // Model-side history survives a restart (issue #52); secrets the vault knows are masked.
     state: new SqliteThreadStateStore(db, redactor),
@@ -715,6 +726,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     onOwnerTurn: userProfile.onOwnerTurn,
     // Incognito threads are memory-only (E9, security §8): the loop never flushes them.
     isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
+    specialists,
     // Reasoning steps for the step log (setting agent.showReasoning, default on), masked.
     showReasoning: () => getSetting(db, "agent.showReasoning")?.value !== false,
     redact: (text) => redactor.redact(text),

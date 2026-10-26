@@ -10,6 +10,7 @@ import { Type } from "@sinclair/typebox";
 import { applyPlanUpdate, UpdatePlanInput } from "../checklist.ts";
 import { AskUserInput, normalizeQuestions, type QuestionAnswer } from "../questions.ts";
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "../registry.ts";
+import type { SpecialistTurnApi } from "../specialists.ts";
 import type { HarnessTurnApi } from "./harness.ts";
 
 /** What the loop lends its turn tools: blocks, the checklist, questions and plan approval. */
@@ -22,6 +23,8 @@ export interface TurnApi {
   /** C10: gate one action of an embedded coding harness through the broker. */
   gateHarnessAction?: HarnessTurnApi["gateHarnessAction"];
   harnessActionDone?: HarnessTurnApi["harnessActionDone"];
+  /** Background specialists (specialists §4): spawn, report, status. */
+  specialists?: SpecialistTurnApi;
   /** Runs a subagent to completion (C6); its result comes back as this tool's result. */
   spawnSubagent(input: SpawnSubagentInput): Promise<SubagentResult>;
   /** Emits the plan block and waits for the `plan_exit` approval. */

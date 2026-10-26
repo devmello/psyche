@@ -236,7 +236,12 @@ export function parseMcpToolName(name: string): { server: string; tool: string }
 const TOOL_NAME = /^[A-Za-z][A-Za-z0-9_.-]{0,127}$/;
 
 /** Tools never offered to unattended runs (C4, C8): nobody is there to answer. */
-export const UNATTENDED_WITHHELD = new Set(["ask_user", "exit_plan_mode"]);
+export const UNATTENDED_WITHHELD = new Set([
+  "ask_user",
+  "exit_plan_mode",
+  // Unattended runs start specialists only through an automation's own field (specialists §4.9).
+  "specialist.spawn",
+]);
 /**
  * Tools withheld from subagents (C6; architecture §4.3): no `ask_user`, messaging or approval
  * authority, no work that outlives the parent turn, and no nesting.
@@ -249,6 +254,9 @@ export const SUBAGENT_WITHHELD = new Set([
   "task.start",
   "schedule",
   "notify",
+  "specialist.spawn",
+  "specialist.status",
+  "specialist.report",
 ]);
 /** Tools offered only in plan mode. */
 export const PLAN_ONLY = new Set(["exit_plan_mode"]);
@@ -256,13 +264,25 @@ export const PLAN_ONLY = new Set(["exit_plan_mode"]);
  * `none` tools still withheld in plan mode: a task would run outside the plan's read-only mode
  * (`TaskCreateInput` carries no permission mode).
  */
-export const PLAN_WITHHELD = new Set(["task.start"]);
+export const PLAN_WITHHELD = new Set(["task.start", "specialist.spawn"]);
+/** Tools a background specialist never gets, whatever its allowlist says (specialists §4.3). */
+export const SPECIALIST_WITHHELD = new Set([
+  "specialist.spawn",
+  "specialist.status",
+  "schedule",
+  "wrap_up",
+  "task.start",
+]);
+/** Tools only a specialist run sees. */
+export const SPECIALIST_ONLY = new Set(["specialist.report"]);
 
 export interface ActiveToolsInput {
   permissionMode: PermissionMode;
   runMode: RunMode;
   /** A subagent run (C6): see `SUBAGENT_WITHHELD`; tools that reach a recipient are hidden too. */
   subagent?: boolean;
+  /** A background specialist's run (specialists §4.3): see `SPECIALIST_WITHHELD`. */
+  specialist?: boolean;
   /** Per-tool user toggles (C3): `false` hides the tool. */
   toggles?: Record<string, boolean>;
   /** Narrowing from `before_prompt_build` hooks; never widens. */
@@ -323,6 +343,10 @@ function hiddenReason(name: string, spec: ToolSpec, input: ActiveToolsInput): st
   if (input.allow !== undefined && !input.allow.has(name)) return "removed by a hook";
   if (input.subagent === true && (SUBAGENT_WITHHELD.has(name) || spec.targetKind === "recipient")) {
     return "not available to subagents";
+  }
+  if (SPECIALIST_ONLY.has(name) && input.specialist !== true) return "only for specialists";
+  if (input.specialist === true && SPECIALIST_WITHHELD.has(name)) {
+    return "not available to specialists";
   }
   if (input.runMode === "unattended" && UNATTENDED_WITHHELD.has(name)) {
     return "not available in unattended runs";
