@@ -410,3 +410,67 @@ export function runTraceWorld() {
     automationRuns: traceAutomationRuns(),
   };
 }
+
+/**
+ * T3: a long task for the waterfall's virtualisation (2,000 steps, the §4.5 cap): tool steps of
+ * 1–4 s in a row, every 25th failing once and retried, every 40th a parallel pair.
+ */
+export function traceLongRun(count = 2000): { run: Run; steps: RunStep[] } {
+  const id = "run_trace_long";
+  const t0 = Date.parse(today("06:00"));
+  const steps: RunStep[] = [];
+  let cursor = t0;
+  for (let i = 1; i <= count; i += 1) {
+    const dur = 1000 + ((i * 37) % 3000);
+    const iso = (ms: number) => new Date(ms).toISOString().replace(".000Z", "Z");
+    const retried = i % 25 === 0;
+    const firstStart = cursor;
+    const start = retried ? cursor + 1500 : cursor;
+    steps.push({
+      id: `stp_trace_long_${String(i).padStart(4, "0")}`,
+      runId: id,
+      seq: i,
+      kind: "tool",
+      status: "ok",
+      label: `Reading page ${i}`,
+      doneLabel: `Read page ${i}`,
+      target: `site${i % 17}.example`,
+      startedAt: iso(start),
+      endedAt: iso(start + dur),
+      attempt: retried ? 2 : 1,
+      ...(retried
+        ? {
+            attempts: [
+              {
+                startedAt: iso(firstStart),
+                endedAt: iso(firstStart + 1200),
+                status: "failed" as const,
+                error: {
+                  code: "timeout",
+                  message: "The page took too long to load.",
+                  retryable: true,
+                },
+              },
+            ],
+          }
+        : {}),
+      // Every 40th step and the one after it ran together (a parallel pair).
+      ...(i > 1 && (i % 40 === 0 || i % 40 === 1)
+        ? { groupId: `grp_trace_long_${Math.round((i - 0.5) / 40)}` }
+        : {}),
+    });
+    cursor = start + (i % 40 === 0 ? 0 : dur);
+  }
+  const run = traceRun({
+    id,
+    threadId: T.main,
+    kind: "task",
+    title: "Read 2,000 pages",
+    status: "done",
+    startedAt: new Date(t0).toISOString().replace(".000Z", "Z"),
+    endedAt: new Date(cursor + 4000).toISOString().replace(".000Z", "Z"),
+    stepCount: count,
+    usage: usage(0, 0, 0),
+  });
+  return { run, steps };
+}

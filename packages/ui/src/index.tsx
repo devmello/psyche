@@ -21,6 +21,7 @@ export {
   type AgentTab,
   agentSheetHref,
   agentSheetRoute,
+  agentTimelineHref,
 } from "./agent/AgentSheet.tsx";
 export { ApprovalsPanel } from "./agent/ApprovalsPanel.tsx";
 export {
@@ -30,6 +31,8 @@ export {
   ProvenanceChip,
   SoulMemoryPanel,
 } from "./agent/SoulMemoryPanel.tsx";
+// The run trace's Timeline (run trace §3.3–§3.5).
+export { TimelineView, type TimelineViewProps } from "./agent/timeline/TimelineView.tsx";
 export { scheduleSentence, UpcomingPanel, UpcomingRow } from "./agent/UpcomingPanel.tsx";
 export { type AgentStatus, useAgentStatus } from "./agent/useAgentState.ts";
 // Avatar.
