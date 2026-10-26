@@ -82,6 +82,11 @@ import type {
 } from "@psyche/protocol";
 
 export { ago, at, FIXTURE_NOW, fakeHex, fakeSha, IDS, inMinutes, PERSONA, today } from "./ids.ts";
+export {
+  emptyInsights,
+  type InsightsFixtureState,
+  insightsFixtures,
+} from "./insights.ts";
 export { growthFeedPost, LEARNING_IDS } from "./learning.ts";
 export {
   appleConnectors,

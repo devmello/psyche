@@ -75,6 +75,7 @@ import {
   validateResult,
 } from "@psyche/protocol";
 import type { MockFileNode } from "../fixtures/files.ts";
+import { emptyInsights } from "../fixtures/insights.ts";
 import type { GraphWorld } from "../fixtures/people.ts";
 import { appleShortcuts, connectorCatalogue } from "../fixtures/settings.ts";
 import type { MockSkillSource } from "../fixtures/skills.ts";
@@ -162,6 +163,8 @@ export interface MockWorld {
   contextLimits?: Record<string, ContextLimits>;
   /** `usage.summary` (#599); absent → an empty week. */
   usageSummary?: MethodResult<"usage.summary">;
+  /** `insights.summary` by window (`insightsFixtures(state)`); absent → a new install's zeros. */
+  insights?: Partial<Record<GrowthWindow, MethodResult<"insights.summary">>>;
   /** The teaching loop (T0 #678). */
   feedbackEvents: FeedbackEvent[];
   lessons: Lesson[];
@@ -1887,6 +1890,8 @@ export class MockGateway implements GatewayClient {
           planWindow: null,
         },
       ),
+    "insights.summary": (p) =>
+      structuredClone(this.world.insights?.[p.window] ?? emptyInsights(p.window)),
     "models.list": () => ({
       providers: this.world.modelProviders ?? [],
       roles: this.world.modelRoles ?? {},

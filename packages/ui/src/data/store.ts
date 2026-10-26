@@ -57,6 +57,7 @@ export class GatewayStore {
   private sending = new Set<string>();
   private nextOverlayId = 1;
   private unsubscribe: Array<() => void> = [];
+  private insightsTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly now: () => string;
 
   constructor(client: GatewayClient, options: { now?: () => string; detached?: boolean } = {}) {
@@ -84,6 +85,8 @@ export class GatewayStore {
     if (this.starts > 0) return;
     for (const u of this.unsubscribe) u();
     this.unsubscribe = [];
+    clearTimeout(this.insightsTimer);
+    this.insightsTimer = undefined;
   }
 
   // --- Subscription (useSyncExternalStore) -----------------------------------------------------
@@ -293,6 +296,19 @@ export class GatewayStore {
       ),
     );
     if (gap) void this.refreshAll().catch(() => {});
+    if (INSIGHTS_EVENTS.has(e.event)) this.invalidateInsightsSoon();
+  }
+
+  /**
+   * `insights.summary` has no event of its own: the events that feed its inputs mark it stale,
+   * at most once per `INSIGHTS_DEBOUNCE_MS` (agent-overview-2026 §6.2).
+   */
+  private invalidateInsightsSoon(): void {
+    if (this.insightsTimer !== undefined) return;
+    this.insightsTimer = setTimeout(() => {
+      this.insightsTimer = undefined;
+      this.update((s) => invalidate(s, ["insights."]));
+    }, INSIGHTS_DEBOUNCE_MS);
   }
 
   /** Pure event reducer. Exposed for tests. */
@@ -604,6 +620,22 @@ export class GatewayStore {
     }
   }
 }
+
+/** Refetches of `insights.summary` wait this long after the last event that could change it. */
+export const INSIGHTS_DEBOUNCE_MS = 2000;
+
+/** Events that change the inputs of `insights.summary`: runs, approvals, artifacts, specialist jobs, growth and the people graph. */
+const INSIGHTS_EVENTS: ReadonlySet<string> = new Set([
+  "run.updated",
+  "approval.created",
+  "approval.updated",
+  "artifact.updated",
+  "specialist.result",
+  "growth.updated",
+  "memory.entity.updated",
+  "memory.loop.updated",
+  "memory.suggestion.created",
+]);
 
 /** Marks the teaching loop's queries (lessons, feedback, Growth) as needing a reload. */
 export function invalidateTeaching(s: UiState): UiState {
