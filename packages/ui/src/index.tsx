@@ -352,6 +352,7 @@ export {
 } from "./voice/Lantern.tsx";
 export {
   matchApproval,
+  mentionsScreen,
   normalizeUtterance,
   type VoicePhraseList,
   voicePhrases,

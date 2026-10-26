@@ -3357,4 +3357,51 @@ export const it: Partial<Catalogue> = {
   "settings.key.voice.conversation.reviewBeforeSend": "Rivedi prima di inviare",
   "settings.key.voice.conversation.pauseMs": "Pausa prima che Psyche risponda",
   "settings.key.voice.conversation.brief": "Rassegna parlata",
+
+  // Ask about my screen
+  "screenAsk.label": "Chiedi del tuo schermo",
+  "screenAsk.placeholder": "Chiedi di ciò che è sullo schermo o chiedi a Psyche di fare qualcosa…",
+  "screenAsk.send": "Chiedi",
+  "screenAsk.capturing": "Psyche sta guardando lo schermo…",
+  "screenAsk.chip.window": "{app}",
+  "screenAsk.chip.region": "Area di {app}",
+  "screenAsk.chip.textOnly": "{app} · solo testo",
+  "screenAsk.chip.none": "Nessuna acquisizione",
+  "screenAsk.drop": "Non inviare ciò che è sullo schermo",
+  "screenAsk.pin": "Invia sempre l’istantanea dello schermo",
+  "screenAsk.unpin": "Invia l’istantanea solo se serve",
+  "screenAsk.recapture": "Acquisisci di nuovo",
+  "screenAsk.selectArea": "Seleziona area",
+  "screenAsk.refusal.app_excluded": "Psyche non acquisisce {app}.",
+  "screenAsk.refusal.secure_field":
+    "È attivo un campo password, quindi non c’è un’istantanea dello schermo.",
+  "screenAsk.refusal.no_window": "Nessuna finestra da acquisire.",
+  "screenAsk.refusal.permission_missing":
+    "Consenti la registrazione dello schermo per inviare un’istantanea.",
+  "screenAsk.allowCapture": "Consenti",
+  "screenAsk.captureFailed": "Impossibile acquisire lo schermo. Puoi comunque chiedere.",
+  "screenAsk.dest.new": "Nuova chat",
+  "screenAsk.dest.current": "Chat attuale",
+  "screenAsk.dest.label": "Invia a",
+  "screenAsk.mic.start": "Pronuncia la richiesta",
+  "screenAsk.mic.stop": "Smetti di ascoltare",
+  "screenAsk.answer.thinking": "Sto pensando…",
+  "screenAsk.answer.failed": "Qualcosa è andato storto. Apri la chat per saperne di più.",
+  "screenAsk.open": "Apri in Psyche",
+  "screenAsk.cancelHint": "Esc per chiudere",
+  "screenAsk.region.hint": "Trascina per selezionare un’area. Esc mantiene l’intera finestra.",
+  "screenAsk.region.label": "Seleziona un’area dello schermo",
+  "settings.screenAsk.title": "Chiedi dello schermo",
+  "settings.key.screenAsk.enabled": "Chiedi del mio schermo",
+  "settings.screenAsk.enabledHint":
+    "Premi l’abbreviazione in qualsiasi app per chiedere di ciò che è sullo schermo o per far fare qualcosa a Psyche. Non viene acquisito nulla finché non la premi.",
+  "settings.key.screenAsk.shortcut": "Abbreviazione",
+  "settings.screenAsk.shortcutHint":
+    "Apre il pannello delle domande. Premila di nuovo mentre il pannello è aperto per selezionare un’area.",
+  "settings.key.screenAsk.destination": "Invia a",
+  "settings.key.screenAsk.alwaysImage": "Includi sempre l’istantanea dello schermo",
+  "settings.screenAsk.alwaysImageHint":
+    "Altrimenti Psyche la invia solo quando la richiesta riguarda lo schermo e la guarda solo se ne ha bisogno.",
+  "voice.phrases.screen":
+    "questo|questa|quello|quella|qui|qua|sullo schermo|sul mio schermo|cosa sto guardando|questa pagina|questo errore|questo grafico|questa finestra|sopra|sotto",
 };

@@ -3372,4 +3372,54 @@ export const fr: Partial<Catalogue> = {
   "settings.key.voice.conversation.reviewBeforeSend": "Relire avant d’envoyer",
   "settings.key.voice.conversation.pauseMs": "Pause avant la réponse de Psyche",
   "settings.key.voice.conversation.brief": "Briefing parlé",
+
+  // Ask about my screen
+  "screenAsk.label": "Poser une question sur votre écran",
+  "screenAsk.placeholder":
+    "Posez une question sur ce qui est à l’écran ou demandez quelque chose à Psyche…",
+  "screenAsk.send": "Demander",
+  "screenAsk.capturing": "Psyche regarde votre écran…",
+  "screenAsk.chip.window": "{app}",
+  "screenAsk.chip.region": "Zone de {app}",
+  "screenAsk.chip.textOnly": "{app} · texte seulement",
+  "screenAsk.chip.none": "Rien n’a été capturé",
+  "screenAsk.drop": "Ne pas envoyer le contenu de l’écran",
+  "screenAsk.pin": "Toujours envoyer la capture d’écran",
+  "screenAsk.unpin": "Envoyer la capture d’écran seulement si nécessaire",
+  "screenAsk.recapture": "Capturer à nouveau",
+  "screenAsk.selectArea": "Sélectionner une zone",
+  "screenAsk.refusal.app_excluded": "Psyche ne capture pas {app}.",
+  "screenAsk.refusal.secure_field":
+    "Un champ de mot de passe est actif, il n’y a donc pas de capture d’écran.",
+  "screenAsk.refusal.no_window": "Aucune fenêtre à capturer.",
+  "screenAsk.refusal.permission_missing":
+    "Autorisez l’enregistrement de l’écran pour envoyer une capture d’écran.",
+  "screenAsk.allowCapture": "Autoriser",
+  "screenAsk.captureFailed":
+    "Impossible de capturer l’écran. Vous pouvez quand même poser votre question.",
+  "screenAsk.dest.new": "Nouvelle discussion",
+  "screenAsk.dest.current": "Discussion en cours",
+  "screenAsk.dest.label": "Envoyer à",
+  "screenAsk.mic.start": "Dites votre demande",
+  "screenAsk.mic.stop": "Arrêter l’écoute",
+  "screenAsk.answer.thinking": "Réflexion…",
+  "screenAsk.answer.failed": "Un problème est survenu. Ouvrez la discussion pour en savoir plus.",
+  "screenAsk.open": "Ouvrir dans Psyche",
+  "screenAsk.cancelHint": "Échap pour fermer",
+  "screenAsk.region.hint":
+    "Faites glisser pour sélectionner une zone. Échap conserve la fenêtre entière.",
+  "screenAsk.region.label": "Sélectionner une zone de l’écran",
+  "settings.screenAsk.title": "Question sur l’écran",
+  "settings.key.screenAsk.enabled": "Poser une question sur mon écran",
+  "settings.screenAsk.enabledHint":
+    "Appuyez sur le raccourci dans n’importe quelle app pour poser une question sur ce qui est à l’écran, ou pour que Psyche en fasse quelque chose. Rien n’est capturé tant que vous n’appuyez pas dessus.",
+  "settings.key.screenAsk.shortcut": "Raccourci",
+  "settings.screenAsk.shortcutHint":
+    "Ouvre le panneau de question. Appuyez à nouveau dessus quand le panneau est ouvert pour sélectionner une zone.",
+  "settings.key.screenAsk.destination": "Envoyer à",
+  "settings.key.screenAsk.alwaysImage": "Toujours inclure la capture d’écran",
+  "settings.screenAsk.alwaysImageHint":
+    "Sinon, Psyche ne l’envoie que si votre demande concerne l’écran, et ne la regarde que si c’est nécessaire.",
+  "voice.phrases.screen":
+    "ça|ceci|cela|ce|cette|ici|là|sur mon écran|je regarde quoi|cette page|cette erreur|ce graphique|cette fenêtre|en haut|en bas",
 };

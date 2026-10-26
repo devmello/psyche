@@ -11,7 +11,13 @@ import { CATALOGUES } from "../src/i18n/messages/locales/index.ts";
  */
 
 const VOICE = Object.keys(en).filter(
-  (id) => id.startsWith("voice.") || id.startsWith("settings.key.voice.conversation."),
+  (id) =>
+    id.startsWith("voice.") ||
+    id.startsWith("settings.key.voice.conversation.") ||
+    // Ask about my screen rides on the same checks.
+    id.startsWith("screenAsk.") ||
+    id.startsWith("settings.screenAsk.") ||
+    id.startsWith("settings.key.screenAsk."),
 );
 
 interface Shape {

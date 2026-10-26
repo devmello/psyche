@@ -209,6 +209,8 @@ export function SystemVoiceSettings({ dictation }: { dictation: DictationPort })
         ? {
             onCheckShortcut: (a: string) =>
               dictation.checkHotkey?.(a) ?? Promise.resolve("ok" as const),
+            onCheckScreenShortcut: (a: string) =>
+              dictation.checkHotkey?.(a, "screenAsk") ?? Promise.resolve("ok" as const),
           }
         : {})}
     />
