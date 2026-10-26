@@ -68,32 +68,6 @@ public enum PCMConvert {
     }
 }
 
-/// Splits PCM bytes into event-sized chunks. Chunks are frame-aligned and small enough that their
-/// base64 text stays within `maxEncodedBytes` (64 KiB by default), keeping every `node.event` frame
-/// far below the 1 MiB NDJSON limit.
-public enum PCMChunker {
-    public static let defaultMaxEncodedBytes = 64 * 1024
-
-    /// Largest raw chunk (frame-aligned) whose base64 form fits in `maxEncodedBytes`.
-    public static func maxRawBytes(bytesPerFrame: Int, maxEncodedBytes: Int = defaultMaxEncodedBytes) -> Int {
-        let raw = maxEncodedBytes / 4 * 3
-        let frame = max(1, bytesPerFrame)
-        return max(frame, raw - raw % frame)
-    }
-
-    public static func split(_ data: Data, bytesPerFrame: Int, maxEncodedBytes: Int = defaultMaxEncodedBytes) -> [Data] {
-        let size = maxRawBytes(bytesPerFrame: bytesPerFrame, maxEncodedBytes: maxEncodedBytes)
-        var chunks: [Data] = []
-        var offset = data.startIndex
-        while offset < data.endIndex {
-            let end = min(offset + size, data.endIndex)
-            chunks.append(data.subdata(in: offset..<end))
-            offset = end
-        }
-        return chunks
-    }
-}
-
 /// Re-frames an arbitrary byte stream into whole PCM frames, carrying a partial frame over to the
 /// next push (clients may split pushes anywhere).
 public struct PCMFrameAligner: Sendable {

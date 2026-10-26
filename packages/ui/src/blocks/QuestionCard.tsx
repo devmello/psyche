@@ -19,7 +19,8 @@ import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group.tsx";
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { cn } from "../lib/utils.ts";
-import { CardEnter, useEntersLater } from "./card-enter.tsx";
+import { Card } from "./card.tsx";
+import { useEntersLater } from "./card-enter.tsx";
 
 /**
  * Question card from `ask_user` (UI design §3.4, Claude's AskUserQuestion schema): 1–4 questions,
@@ -65,9 +66,6 @@ export function orderedOptions(q: Question) {
 }
 
 const cleanLabel = (label: string) => label.replace(RECOMMENDED, "");
-
-/** Level-1 card surface shared with the approval dock (§3.5): elevation gives the hairline. */
-const SURFACE = "my-2 rounded-lg bg-surface-raised text-body text-label-primary shadow-elevation-1";
 
 /** A `fill-tertiary` capsule; the selected chip takes the accent (theme-gated AA contrast). */
 const CHIP =
@@ -133,7 +131,13 @@ export function QuestionCard({
 
   if (request.status !== "open") {
     return (
-      <article aria-labelledby={headingId} className={cn(SURFACE, "px-4 py-2", className)}>
+      <Card
+        variant="pinned"
+        label=""
+        labelledBy={headingId}
+        animate={false}
+        className={cn("text-body", className)}
+      >
         <h3 id={headingId} className="sr-only">
           {request.status === "answered"
             ? t("blocks.question.answered")
@@ -170,7 +174,7 @@ export function QuestionCard({
             })}
           </ul>
         )}
-      </article>
+      </Card>
     );
   }
 
@@ -204,12 +208,14 @@ export function QuestionCard({
 
   const n = request.questions.length;
   return (
-    <CardEnter animate={later}>
-      <article
-        aria-labelledby={headingId}
-        onKeyDown={onKeyDown}
-        className={cn(SURFACE, "p-4", className)}
-      >
+    <Card
+      label=""
+      labelledBy={headingId}
+      onKeyDown={onKeyDown}
+      animate={later}
+      className={cn("text-body", className)}
+    >
+      <div>
         <div className="mb-3 flex items-center gap-2">
           {avatar}
           <h3 id={headingId} className="text-headline text-label-primary">
@@ -248,8 +254,8 @@ export function QuestionCard({
             {t("blocks.question.answer")}
           </Button>
         </div>
-      </article>
-    </CardEnter>
+      </div>
+    </Card>
   );
 }
 

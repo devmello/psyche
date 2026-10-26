@@ -84,6 +84,7 @@ import { createLogger } from "../log.ts";
 import { taskRunTrace } from "../run-trace/tasks.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
+import { artifactContextProvider, composeArtifacts } from "./artifacts.ts";
 import { attentionHandlers, OwnerAttention, parkWhenUnwatched } from "./attention.ts";
 import { withAutomationSpecialists } from "./automation-specialists.ts";
 import { bootstrapAdminHandlers } from "./bootstrap-admin.ts";
@@ -159,6 +160,7 @@ import { createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 import { composeWebTools, type WebToolsSetup } from "./web-tools.ts";
 import { ensureWeeklyCardAutomation, withWeeklyCard } from "./weekly-card.ts";
+import { WORKFLOW_SETTING_KEYS } from "./workflow-settings.ts";
 
 /**
  * Composition root for `psyched` (INT-1): the real agent loop, model router, Permission Broker,
@@ -685,6 +687,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     composeSpeech(speechSetup ?? speechSetupFromEnv(gwOptions.env)),
     composeDictation(),
     composeScreenAsk(gwOptions.screenAsk),
+    // Canvas artifacts (chat-experience-2026 §4.3): the version store and `artifact.*` tools.
+    composeArtifacts,
     composePayments(paymentsSetupFromEnv(gwOptions.env)),
     // Web passkeys (issue #79): unavailable until gateway.publicOrigin is an https origin. A
     // caller-supplied `presence` verifier takes the passkey role instead.
@@ -848,7 +852,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     approvalSurfaces: ["desktop", "web"],
     skills: skills.loader,
     ...(compaction === undefined ? {} : { compaction }),
-    contextProviders: [otherChats.provider, ...(people === undefined ? [] : [people.recall])],
+    contextProviders: [
+      otherChats.provider,
+      ...(people === undefined ? [] : [people.recall]),
+      artifactContextProvider(db),
+    ],
     contextLimits: context.contextLimits,
     onContextUsage: context.onContextUsage,
     onCompaction: context.onCompaction,
@@ -1041,12 +1049,28 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   );
   // A device that goes away ends the meeting recording it was capturing (§4.6).
   const meetingsDisconnect = (deviceId: string) => proactive.meetings?.deviceGone(deviceId);
+  let unsubscribeWorkflows: (() => void) | undefined;
   parts.push({
     start: (gw) => {
       gw.context.deviceDisconnected.add(meetingsDisconnect);
+      // Settings → Mail & meetings: a changed key re-syncs the jobs' schedules (the digest's time
+      // and days, the mail check cadence, each workflow's switch). Everything else is read per run.
+      unsubscribeWorkflows = gw.bus.subscribe(["operator.read"], (frame) => {
+        const f = JSON.parse(frame) as {
+          event?: string;
+          payload?: { entries?: { key: string }[] };
+        };
+        if (f.event !== "settings.changed") return;
+        const keys: readonly string[] = WORKFLOW_SETTING_KEYS;
+        if ((f.payload?.entries ?? []).some((e) => keys.includes(e.key))) {
+          void proactive.syncWorkflowSchedules();
+        }
+      });
     },
     stop: () => {
       gatewayRef?.context.deviceDisconnected.delete(meetingsDisconnect);
+      unsubscribeWorkflows?.();
+      unsubscribeWorkflows = undefined;
     },
   });
   parts.push(otherChats.part());

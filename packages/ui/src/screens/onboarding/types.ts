@@ -4,12 +4,20 @@ import type { ProviderKind, TccPermission, TccState, ToolCheck } from "../settin
 
 /** Onboarding (UI design §3.19): the steps, the shell callbacks and the result. */
 
-export type OnboardingStepId = "agent" | "permissions" | "connectors" | "model" | "where" | "done";
+export type OnboardingStepId =
+  | "agent"
+  | "permissions"
+  | "connectors"
+  | "mail"
+  | "model"
+  | "where"
+  | "done";
 
 export const ONBOARDING_STEP_IDS: readonly OnboardingStepId[] = [
   "agent",
   "permissions",
   "connectors",
+  "mail",
   "model",
   "where",
   "done",
@@ -56,6 +64,23 @@ export interface ModelChoice {
 
 export type Workspace = "local" | "vm";
 
+/**
+ * The mail and meetings decision screen's switches (mail-and-meetings-2026 §7.5). The step is
+ * offered only when a mail account is connected; without one `OnboardingResult.mail` is absent.
+ */
+export interface MailChoices {
+  /** Morning inbox digest at 7:30. */
+  digest: boolean;
+  /** Prep notes before meetings with people outside the team. */
+  prep: boolean;
+  /** Track replies the owner is waiting on (shown in the digest only). */
+  followups: boolean;
+  /** Learn the writing style from sent mail (starts off). */
+  voice: boolean;
+  /** Meeting notes from recordings (does nothing until the owner adds audio). */
+  notes: boolean;
+}
+
 export interface OnboardingResult {
   persona: {
     name: string;
@@ -67,6 +92,8 @@ export interface OnboardingResult {
   connectors: ConnectedAccount[];
   model: ModelChoice;
   workspace: Workspace;
+  /** Set when the mail step was offered (a mail account is connected). */
+  mail?: MailChoices;
 }
 
 export interface OnboardingShellProps {

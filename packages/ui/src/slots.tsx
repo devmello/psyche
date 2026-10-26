@@ -3,7 +3,6 @@ import { createContext, type ReactElement, type ReactNode, useContext, useMemo }
 import type { PreviewSlot } from "./blocks/ArtifactCard.tsx";
 import type { ArtifactRenderProps } from "./canvas/CanvasPane.tsx";
 import type { UseComposerVoice } from "./voice/controls.tsx";
-import type { VoiceTerminal } from "./voice/terminal.ts";
 
 /**
  * What the shell plugs into the kit: navigation (routes from UI design §2.7), pane commands and
@@ -60,15 +59,10 @@ export interface UiSlots {
    */
   prefillComposer?: (text: string) => void;
   /**
-   * The host's composer dictation and voice conversation (#690): a hook, called with the open
+   * The host's composer dictation (#690): a hook, called with the open
    * thread and a sink for dictated text, that returns their state for the kit to draw.
    */
   useComposerVoice?: UseComposerVoice;
-  /**
-   * The host's audio terminal for voice conversation (voice-mode-2026 §4.2): capture, playback,
-   * barge-in and levels. With it, the composer's Voice button opens the voice capsule.
-   */
-  voiceTerminal?: VoiceTerminal;
   /** Persona shown in agent messages and cards. */
   persona?: { name: string; creature?: string; imageSrc?: string };
 }

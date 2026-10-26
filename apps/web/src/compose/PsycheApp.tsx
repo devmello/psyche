@@ -22,6 +22,7 @@ import {
   LIBRARY_SECTIONS,
   LibraryScreen,
   type LibrarySection,
+  mailSettings,
   OnboardingFlow,
   type OnboardingResult,
   type RailItem,
@@ -41,7 +42,6 @@ import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState
 import { useShellComposerVoice } from "../shell/components/composer-voice.ts";
 import { ConnectedStartupSplash } from "../shell/components/StartupSplash.tsx";
 import { TitleBar } from "../shell/components/TitleBar.tsx";
-import { useShellVoiceTerminal } from "../shell/components/voice-terminal.ts";
 import type { ShellPlatform, SystemAppearance } from "../shell/platform.ts";
 import {
   type ChatSlotContext,
@@ -84,18 +84,15 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
   openPane.current = ctx.openPane;
   const openArtifact = useRef(ctx.openArtifact);
   openArtifact.current = ctx.openArtifact;
-  const voiceTerminal = useShellVoiceTerminal();
   const fileSlots = useMemo(
     () => ({
       ...chatFileSlots((pane, target) => openPane.current(pane, target)),
       // Artifact cards (and auto-open, §4.2) show the artifact in the canvas pane.
       openArtifact: (artifact: Artifact) => openArtifact.current(artifact.id, artifact.title),
-      // Composer dictation and voice mode (#690): the shell's capture, drawn by the kit.
+      // Composer dictation (#690): the shell's capture, drawn by the kit.
       useComposerVoice: useShellComposerVoice,
-      // Voice conversation (voice-mode-2026 §6.1): the renderer is the audio terminal.
-      voiceTerminal,
     }),
-    [voiceTerminal],
+    [],
   );
   return (
     <UiSlotsProvider value={fileSlots}>
@@ -272,6 +269,22 @@ export async function completeOnboarding(
     creature: result.persona.creatureDescription || result.persona.creatureId,
     tagline: result.persona.tagline,
   });
+  // The mail and meetings decision screen (§7.5), when it was offered: one setting per switch.
+  // Best effort: a failed write leaves that workflow off, the safe default, and the owner can
+  // turn it on in Settings → Mail & meetings.
+  if (result.mail !== undefined) {
+    for (const [settingKey, value] of Object.entries(mailSettings(result.mail))) {
+      try {
+        await call(
+          "settings.set",
+          { key: settingKey, value },
+          { idempotencyKey: `onboarding:mail:${settingKey}:${now().getTime()}` },
+        );
+      } catch {
+        // See above.
+      }
+    }
+  }
   await call(
     "settings.set",
     { key: ONBOARDED_KEY, value: now().toISOString() },

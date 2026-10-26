@@ -7,6 +7,7 @@ import { context } from "./context.ts";
 import { design } from "./design.ts";
 import { errors } from "./errors.ts";
 import { glass } from "./glass.ts";
+import { mailMeetings } from "./mail-meetings.ts";
 import { meetingRecord } from "./meeting-record.ts";
 import { onboarding } from "./onboarding.ts";
 import { people } from "./people.ts";
@@ -39,6 +40,7 @@ export const en = {
   ...shell,
   ...settings,
   ...settingsLanguage,
+  ...mailMeetings,
   ...onboarding,
   ...people,
   ...specialists,

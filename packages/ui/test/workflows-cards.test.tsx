@@ -226,6 +226,16 @@ describe("MeetingPrepCard", () => {
   });
 });
 
+describe("MeetingPrepCard Record", () => {
+  it("asks the shell to record this meeting", async () => {
+    const onRecord = vi.fn();
+    const user = userEvent.setup();
+    render(<MeetingPrepCard prep={meetingPrep()} now={STORY_NOW} onRecord={onRecord} />);
+    await user.click(screen.getByRole("button", { name: "Record meeting…" }));
+    expect(onRecord).toHaveBeenCalledWith(WORKFLOW_IDS.meeting);
+  });
+});
+
 describe("MeetingNotesCard", () => {
   it("seeks the audio, checks items and offers Add 2 to Reminders", async () => {
     const onSeek = vi.fn();

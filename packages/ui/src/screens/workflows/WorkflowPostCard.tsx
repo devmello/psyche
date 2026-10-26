@@ -12,6 +12,9 @@ import { MeetingNotesCard } from "./MeetingNotesCard.tsx";
 import { MeetingPrepCard } from "./MeetingPrepCard.tsx";
 import { senderName } from "./shared.tsx";
 
+/** The shell's "Record meeting" request; its consent dialog opens on it. */
+export const RECORD_MEETING_EVENT = "psyche:record-meeting";
+
 export interface WorkflowPostCardProps {
   post: FeedPost & { card: NonNullable<FeedPost["card"]> };
   /** The focused card holds the one accent primary (redesign-2026 §5.6). */
@@ -93,6 +96,10 @@ export function WorkflowPostCard({
         <MeetingPrepCard
           prep={card.prep}
           focused={focused}
+          // The shell's consent dialog listens for this event (apps/web MeetingRecord).
+          onRecord={(meetingId) =>
+            document.dispatchEvent(new CustomEvent(RECORD_MEETING_EVENT, { detail: { meetingId } }))
+          }
           {...(openExternal
             ? {
                 onJoin: (url: string) => void openExternal(url),

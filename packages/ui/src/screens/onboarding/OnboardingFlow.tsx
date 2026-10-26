@@ -14,6 +14,7 @@ import {
 } from "../settings/ConnectorsSection.tsx";
 import { ConnectProgress, permissionOf, useConnectorConnect } from "../settings/connect-flow.tsx";
 import type { TccPermission } from "../settings/types.ts";
+import { MAIL_DEFAULTS, MailStep } from "./MailStep.tsx";
 import {
   ConnectorsStep,
   DEFAULT_NAME,
@@ -26,6 +27,7 @@ import {
 } from "./OnboardingSteps.tsx";
 import {
   type ConnectedAccount,
+  type MailChoices,
   type ModelChoice,
   ONBOARDING_STEP_IDS,
   type OnboardingResult,
@@ -45,6 +47,14 @@ import {
  * `onComplete(result)`, which writes IDENTITY.md and starts BOOTSTRAP.md.
  */
 
+/** Connector types that are mail accounts (they trigger the mail decision screen). */
+const MAIL_CONNECTOR_TYPES: ReadonlySet<string> = new Set([
+  "google",
+  "microsoft",
+  "imap",
+  "apple:mail",
+]);
+
 export function stepLabel(step: OnboardingStepId, persona: string): string {
   switch (step) {
     case "agent":
@@ -53,6 +63,8 @@ export function stepLabel(step: OnboardingStepId, persona: string): string {
       return t("onboarding.step.permissions");
     case "connectors":
       return t("onboarding.step.connectors");
+    case "mail":
+      return t("onboarding.step.mail");
     case "model":
       return t("onboarding.step.model");
     case "where":
@@ -103,15 +115,6 @@ export function OnboardingFlow({
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [own, setOwn] = useState<OnboardingStepId>(defaultStep);
-  const steps = macPermissions
-    ? ONBOARDING_STEP_IDS
-    : ONBOARDING_STEP_IDS.filter((s) => s !== "permissions");
-  const asked = step ?? own;
-  const current = steps.includes(asked)
-    ? asked
-    : (steps[ONBOARDING_STEP_IDS.indexOf(asked)] ?? "agent");
-  const index = steps.indexOf(current);
-  const [reached, setReached] = useState(index);
 
   const [persona, setPersona] = useState<PersonaDraft>({
     name: "",
@@ -151,6 +154,18 @@ export function OnboardingFlow({
     : hostConnectors;
   // What the result and "Skip for now" count: the accounts that are connected.
   const connectors = accounts.filter((c) => (c.status ?? "connected") === "connected");
+  // The mail decision screen is offered once a mail account is connected (§7.5).
+  const mailConnected = connectors.some((c) => MAIL_CONNECTOR_TYPES.has(c.type));
+  const steps = ONBOARDING_STEP_IDS.filter(
+    (s) => (s !== "permissions" || macPermissions) && (s !== "mail" || mailConnected),
+  );
+  const asked = step ?? own;
+  const current = steps.includes(asked)
+    ? asked
+    : (steps[ONBOARDING_STEP_IDS.indexOf(asked)] ?? "agent");
+  const index = steps.indexOf(current);
+  const [reached, setReached] = useState(index);
+  const [mail, setMail] = useState<MailChoices>(MAIL_DEFAULTS);
   const resumeConnector = (account: ConnectedAccount) => {
     const c = liveConnectors.find((x) => x.id === account.connectorId);
     if (c !== undefined) void flow.resume(c, account.label);
@@ -202,6 +217,7 @@ export function OnboardingFlow({
     connectors,
     model,
     workspace,
+    ...(mailConnected ? { mail } : {}),
   };
 
   const allow = async (p: TccPermission) => {
@@ -456,6 +472,7 @@ export function OnboardingFlow({
               : {})}
           />
         ) : null}
+        {current === "mail" ? <MailStep persona={name} value={mail} onChange={setMail} /> : null}
         {current === "model" ? (
           <ModelStep
             value={model}

@@ -4,7 +4,7 @@ import PsycheHelperCore
 import PsycheProtocol
 
 /// `AVAudioPCMBuffer` is not `Sendable`. Each box is handed off once, from the producer (tap,
-/// synthesizer callback, push decoder) to the single consumer that owns it from then on.
+/// push decoder) to the single consumer that owns it from then on.
 public struct PCMBufferBox: @unchecked Sendable {
     public let buffer: AVAudioPCMBuffer
     public init(buffer: AVAudioPCMBuffer) { self.buffer = buffer }
@@ -35,15 +35,7 @@ enum SpeechAudio {
         return buffer
     }
 
-    /// Bytes of an interleaved buffer (first `frameLength` frames).
-    static func data(from buffer: AVAudioPCMBuffer) -> Data {
-        let bytesPerFrame = Int(buffer.format.streamDescription.pointee.mBytesPerFrame)
-        let list = UnsafeMutableAudioBufferListPointer(buffer.mutableAudioBufferList)
-        guard buffer.format.isInterleaved || buffer.format.channelCount == 1, let src = list[0].mData else { return Data() }
-        return Data(bytes: src, count: Int(buffer.frameLength) * bytesPerFrame)
-    }
-
-    /// Deep copy (tap and synthesizer buffers may be reused by the framework after the callback).
+    /// Deep copy (tap buffers may be reused by the framework after the callback).
     static func copy(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
         guard let out = AVAudioPCMBuffer(pcmFormat: buffer.format, frameCapacity: max(1, buffer.frameLength)) else { return nil }
         out.frameLength = buffer.frameLength
