@@ -113,7 +113,7 @@ Captures were taken on 2026-10-25. The Electron e2e was not run, per the machine
 
 ### 3.2 Grid and type
 
-**Grid:** 8-point with a 4-point half step. The spacing scale is 2 · 4 · 8 · 12 · 16 · 20 · 24 · 32 · 40 · 48 · 64. Tailwind's `--spacing: 4px` stays, so `p-2` = 8 px. Comfortable density is the default and compact density sets `--spacing: 3.5px` (unchanged).
+**Grid:** 8-point with a 4-point half step. The spacing scale is 2 · 4 · 8 · 12 · 16 · 20 · 24 · 32 · 40 · 48 · 64. Tailwind's `--spacing: 4px` stays, so `p-2` = 8 px. The density setting was removed (#608); the compact sidebar mode is separate.
 
 **Font:**
 - `system-ui, -apple-system, "SF Pro Text", "SF Pro", "Inter Variable", "Segoe UI", sans-serif` with `font-optical-sizing: auto`, so SF switches to Display optics at 20 pt and up.

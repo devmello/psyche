@@ -2,10 +2,13 @@
 export const settingsLanguage = {
   "settings.language.title": "Language and region",
   "settings.language.description":
-    "Psyche's text is in English for now. The region sets how dates, times and numbers are written.",
+    "The region sets how dates, times, numbers and amounts are written, everywhere in Psyche.",
+  "settings.language.language": "Language",
+  "settings.language.languageHint":
+    "Psyche's text is in {languages} for now. More languages will follow.",
   "settings.language.region": "Region format",
-  "settings.language.system": "System ({name})",
-  "settings.language.example": "Example: {date}, {time}, {number}",
+  "settings.language.system": "Match system ({name})",
+  "settings.language.preview": "{date} · {time} · {number} · {amount}",
   "settings.language.direction": "Text direction",
   "settings.language.directionHint":
     "Automatic follows the language. Right to left lets translators check the layout.",

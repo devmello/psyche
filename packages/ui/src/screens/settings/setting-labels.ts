@@ -11,7 +11,6 @@ import { t } from "../../i18n/core.ts";
 const LABELLED_KEYS = [
   "appearance.theme",
   "appearance.gray",
-  "appearance.density",
   "appearance.accentSeed",
   "appearance.reduceMotion",
   "appearance.contrast",

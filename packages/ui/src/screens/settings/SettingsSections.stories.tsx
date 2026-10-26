@@ -9,6 +9,7 @@ import {
   PERSONA,
   stagedSkillProposal,
 } from "../../fixtures/index.ts";
+import { I18nProvider } from "../../i18n/I18nProvider.tsx";
 import { STORY_NOW, withWorld } from "../../stories/harness.tsx";
 import { AboutPanel } from "./AboutSection.tsx";
 import { AppearancePanel } from "./AppearanceSection.tsx";
@@ -22,6 +23,7 @@ import { CredentialsPanel } from "./CredentialsSection.tsx";
 import { DataControlsPanel } from "./DataControlsSection.tsx";
 import { DevicesPanel } from "./DevicesSection.tsx";
 import { FileAccessPanel } from "./FileAccessSection.tsx";
+import { LanguageGroup } from "./LanguageSettings.tsx";
 import { ModelProvidersPanel, providerInfoFromSummary } from "./ModelSection.tsx";
 import { PermissionsPanel } from "./PermissionsSection.tsx";
 import { PersonaPanel } from "./PersonaSection.tsx";
@@ -621,6 +623,17 @@ export const AppearanceNudgedSeed: Story = {
   ),
 };
 export const AppearanceLoading: Story = { render: () => <AppearancePanel {...form} loading /> };
+/** Language and region (#608): English only, and the preview line in the chosen region. */
+export const AppearanceLanguage: Story = {
+  render: () => <LanguageGroup values={{}} onChange={() => {}} />,
+};
+export const AppearanceLanguageGermanRegion: Story = {
+  render: () => (
+    <I18nProvider locale="de-DE">
+      <LanguageGroup values={{ "ui.locale": "de-DE" }} onChange={() => {}} />
+    </I18nProvider>
+  ),
+};
 
 // --- Voice, data, server, usage, about ---------------------------------------------------------
 

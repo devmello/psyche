@@ -5,8 +5,9 @@ import { activeI18n, t } from "../i18n/core.ts";
  * from the catalogue (`time.*`) and numbers and dates follow the active format locale (A12).
  */
 
-export function formatTime(iso: string, locale: string = activeI18n().locale): string {
-  return new Date(iso).toLocaleTimeString(locale, {
+/** A clock time in the active format locale ("14:05"; 24-hour, UTC as before #608). */
+export function formatTime(iso: string): string {
+  return activeI18n().time(iso, {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -14,12 +15,9 @@ export function formatTime(iso: string, locale: string = activeI18n().locale): s
   });
 }
 
-export function formatDate(iso: string, locale: string = activeI18n().locale): string {
-  return new Date(iso).toLocaleDateString(locale, {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
+/** A short date in the active format locale ("Oct 2", "2 Oct", "2. Okt."). */
+export function formatDate(iso: string): string {
+  return activeI18n().date(iso, { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
 /** "12 s", "3 min", "1 h 5 min". */

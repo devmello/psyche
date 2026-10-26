@@ -434,7 +434,6 @@ export function settings(): Record<string, unknown> {
     "appearance.theme": "auto",
     "appearance.accentSeed": "#6e56cf",
     "appearance.gray": "auto",
-    "appearance.density": "comfortable",
     "appearance.reduceMotion": "system",
     "appearance.contrast": "standard",
     "permissions.mode": "balanced",

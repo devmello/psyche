@@ -139,7 +139,7 @@ describe("Appearance", () => {
     expect(settingCall(gateway(), "appearance.accentSeed")).toBeUndefined();
   });
 
-  it("sets the Translucency preset and its values, and reduce transparency (#597)", async () => {
+  it("turns translucent controls off and on, and reduce transparency (#608)", async () => {
     const { gateway } = setup({ defaultSection: "appearance" });
     const reduce = await screen.findByRole("switch", { name: "Reduce transparency" });
     expect(screen.queryByRole("switch", { name: "Translucent sidebar" })).toBeNull();
@@ -150,9 +150,25 @@ describe("Appearance", () => {
 
     const onChange = vi.fn();
     const panel = render(<AppearancePanel values={{}} onChange={onChange} />);
-    await userEvent.click(within(panel.container).getByRole("button", { name: "Clear" }));
-    expect(onChange).toHaveBeenCalledWith("appearance.glass", "clear");
-    expect(onChange).toHaveBeenCalledWith("appearance.glassTint", 38);
+    const glass = within(panel.container).getByRole("switch", { name: "Translucent controls" });
+    expect(glass.getAttribute("aria-checked")).toBe("true");
+    expect(within(panel.container).queryByRole("slider")).toBeNull();
+    await userEvent.click(glass);
+    expect(onChange).toHaveBeenCalledWith("appearance.glass", "opaque");
+    panel.unmount();
+
+    // On again: the Regular preset, and an earlier build's Advanced value is cleared.
+    const again = render(
+      <AppearancePanel
+        values={{ "appearance.glass": "opaque", "appearance.glassTint": 50 }}
+        onChange={onChange}
+      />,
+    );
+    await userEvent.click(
+      within(again.container).getByRole("switch", { name: "Translucent controls" }),
+    );
+    expect(onChange).toHaveBeenCalledWith("appearance.glass", "regular");
+    expect(onChange).toHaveBeenCalledWith("appearance.glassTint", null);
   });
 });
 
@@ -180,8 +196,8 @@ describe("Admin-only settings", () => {
       { defaultSection: "appearance" },
       { onGateway: (g) => g.failNext("settings.set", "forbidden") },
     );
-    await userEvent.click(await screen.findByRole("radio", { name: "Compact" }));
-    expect(await screen.findByText(/Psyche couldn't save “Density”/)).toBeTruthy();
+    await userEvent.click(await screen.findByRole("radio", { name: "Dark" }));
+    expect(await screen.findByText(/Psyche couldn't save “Theme”/)).toBeTruthy();
     expect(screen.queryByText(/Needs approval on this device/)).toBeNull();
   });
 

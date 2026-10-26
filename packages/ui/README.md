@@ -62,7 +62,7 @@ Colors are OKLCH CSS variables (UI design §4.8):
 | shadcn names (`--primary`, `--border`, `--ring`, …) | Mapped once to the scales (§4.10) |
 | `--spacing` (4 px, 3.5 px compact), `--radius` (10 px), `--ease-psyche`, `--duration-*` | Layout, radius, motion |
 
-Tailwind utilities exist for each (`bg-accent-9`, `text-gray-11`, `border-approval-border`, …). Root attributes: `data-theme` (light / dark), `data-density`, `data-reduce-motion`, `data-contrast` (high contrast: borders step 8, text step 12, 2 px rings).
+Tailwind utilities exist for each (`bg-accent-9`, `text-gray-11`, `border-approval-border`, …). Root attributes: `data-theme` (light / dark), `data-reduce-motion`, `data-contrast` (high contrast: borders step 8, text step 12, 2 px rings).
 
 ### Design system rules (redesign 2026)
 

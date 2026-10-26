@@ -35,7 +35,7 @@ export interface AppearanceProviderProps {
 
 /**
  * The owner's Appearance settings applied to the window: `ThemeProvider` (theme, accent, gray,
- * density, contrast, reduce motion; docs/a11y-audit.md A2) and `I18nProvider` (the format
+ * contrast, reduce motion; docs/a11y-audit.md A2) and `I18nProvider` (the format
  * locale from `ui.locale` or the system, the direction from `ui.direction`; A12), fed from
  * `settings.get` and `settings.changed`. `lang` and `dir` are set on `<html>`.
  */

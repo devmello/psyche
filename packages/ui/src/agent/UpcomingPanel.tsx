@@ -18,6 +18,9 @@ import { useNow } from "../lib/use-now.ts";
 
 const dateName = (d: Date, options: Intl.DateTimeFormatOptions) =>
   activeI18n().date(d, { ...options, timeZone: "UTC" });
+/** "07:00" in the format locale's digits (a schedule's clock time, UTC). */
+const clock = (d: Date) =>
+  activeI18n().time(d, { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" });
 const monthName = (month: number) =>
   dateName(new Date(Date.UTC(2026, month, 1)), { month: "short" });
 
@@ -27,7 +30,7 @@ export function scheduleSentence(a: Pick<Automation, "kind" | "schedule">): stri
     const at = Date.parse(a.schedule);
     if (!Number.isNaN(at)) {
       const d = new Date(at);
-      const time = `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+      const time = clock(d);
       return t("agent.schedule.once", {
         weekday: dateName(d, { weekday: "short" }),
         month: monthName(d.getUTCMonth()),
@@ -52,7 +55,7 @@ export function scheduleSentence(a: Pick<Automation, "kind" | "schedule">): stri
     const [min, hour, dom, month, dow] = parts as [string, string, string, string, string];
     const time =
       /^\d+$/.test(min) && /^\d+$/.test(hour)
-        ? `${hour.padStart(2, "0")}:${min.padStart(2, "0")}`
+        ? clock(new Date(Date.UTC(2026, 0, 1, Number(hour), Number(min))))
         : null;
     if (time !== null) {
       if (/^\d+$/.test(dom) && /^\d+$/.test(month) && dow === "*") {

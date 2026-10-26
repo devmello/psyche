@@ -152,7 +152,6 @@ describe("appearanceFromSettings", () => {
         "appearance.theme": "dark",
         "appearance.accentSeed": "#e54d2e",
         "appearance.gray": "slate",
-        "appearance.density": "compact",
         "appearance.reduceMotion": true,
         "appearance.contrast": "high",
       }),
@@ -160,7 +159,6 @@ describe("appearanceFromSettings", () => {
       theme: "dark",
       accentSeed: "#e54d2e",
       gray: "slate",
-      density: "compact",
       reduceMotion: true,
       contrast: "high",
     });
