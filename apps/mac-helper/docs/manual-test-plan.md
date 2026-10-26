@@ -209,6 +209,14 @@ Spike 06 restarted a 16 GB host under two guests plus an install. Never run thes
 | 12.4 | `mail.search {query: "invoice"}` and `mail.read` (Mail not running) | Mail launches hidden; Automation prompt once; plain-text body |
 | 12.5 | `mail.draft` | A draft appears in Drafts; nothing sent |
 | 12.6 | `mail.send` through the Gateway | Approval card with the exact recipients and body; sent only after approval; without `approvalId` → `send_needs_approval` |
+| 12.6a | Mail wave 1 (apple-apps-2026 §4.1): `mail.mailboxes {}` | Every account's mailboxes, nested ones as `Parent/Child`, unread counts match Mail's sidebar; the unified `INBOX` first; `special` set for inbox / sent / drafts / junk / trash / archive |
+| 12.6b | Select two messages in Mail, `mail.selected {}`; then quit Mail and call it again | The two, newest first, each with a `message://` link that opens it; with Mail quit: `[]` and Mail stays closed |
+| 12.6c | `mail.read {id}` on a message with attachments | `summary.link` opens the message from a reminder; `attachments` lists names, sizes and types (nothing saved) |
+| 12.6d | `mail.reply_draft {id, body: "Thanks"}`, `{replyAll: true}`, and `mail.forward_draft {id, to: [<you>]}` | Drafts in Drafts with Mail's quoting and threading (Re: / Fwd:, In-Reply-To); "Thanks" above the quote; nothing sent; each returns `draftId` and `bodySha256` |
+| 12.6e | Approved `mail.send_draft` with the returned draft; then edit a second draft's subject in Mail and send it with the old values; then quit Mail and send a third | Sent; `binding_mismatch/draft_changed` naming `subject`; `not_found/draft_not_open` (send it from Drafts). Without `approvalId` → `send_needs_approval` |
+| 12.6f | `mail.set_flags {ids: [2 ids], read: false, flagColor: 3}`, then `{flagged: false}` | Both unread with a green flag; then unflagged |
+| 12.6g | `mail.move {ids, to: "archive"}`, `{to: "junk"}`, `{to: {mailbox: "Receipts", account: <acct>}}` | In Archive / Junk (marked junk) / Receipts; an account without an Archive mailbox → a clear error, nothing moved |
+| 12.6h | `mail.save_attachments {id, folder: <granted>}`, then `{id}` (Library), then `{id, folder: "/etc"}` | Files in the folder with safe, unique names; staged under `$PSYCHE_HOME/helper/staging/mail-…` with `stagedPath`; `outside_granted_folders` |
 | 12.7 | `notes.create {title, body: "<b>x</b>"}` and `notes.read` | The note shows the literal `<b>x</b>`; read returns HTML and text |
 | 12.8 | `finder.list` with no granted folders / inside / outside / through a symlink out | `no_granted_folders` / entries / `outside_granted_folders` / refused |
 | 12.9 | `safari.tabs`, `safari.current_tab`, `safari.open_url` | Tabs and URLs; a new tab; `file:` and `javascript:` refused |

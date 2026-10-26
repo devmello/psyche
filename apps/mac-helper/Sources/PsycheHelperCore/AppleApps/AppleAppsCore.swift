@@ -101,8 +101,13 @@ public struct MailSummaryRecord: Codable, Sendable, Equatable {
     public var from: String
     public var date: String
     public var read: Bool
+    /// Wave 1 (M4, M7); omitted when unknown.
+    public var flagged: Bool?
+    /// `message://` link that opens the message in Mail (M4).
+    public var link: String?
 
-    public init(id: String, mailbox: String, account: String, subject: String, from: String, date: String, read: Bool) {
+    public init(id: String, mailbox: String, account: String, subject: String, from: String, date: String, read: Bool,
+                flagged: Bool? = nil, link: String? = nil) {
         self.id = id
         self.mailbox = mailbox
         self.account = account
@@ -110,6 +115,8 @@ public struct MailSummaryRecord: Codable, Sendable, Equatable {
         self.from = from
         self.date = date
         self.read = read
+        self.flagged = flagged
+        self.link = link
     }
 }
 

@@ -14,10 +14,13 @@ public enum AppleAppsCapabilities {
         public var safari: any SafariBackend
         public var finder: any FinderBackend
         public var roots: @Sendable () -> FinderRoots
+        /// Where `mail.save_attachments` stages files for the Library (the Gateway imports them).
+        public var staging: @Sendable () -> URL
 
         public init(
             calendar: any CalendarBackend, reminders: any RemindersBackend, mail: any MailBackend, notes: any NotesBackend,
-            safari: any SafariBackend, finder: any FinderBackend, roots: @escaping @Sendable () -> FinderRoots
+            safari: any SafariBackend, finder: any FinderBackend, roots: @escaping @Sendable () -> FinderRoots,
+            staging: @escaping @Sendable () -> URL = { Backends.stagingDir() }
         ) {
             self.calendar = calendar
             self.reminders = reminders
@@ -26,12 +29,19 @@ public enum AppleAppsCapabilities {
             self.safari = safari
             self.finder = finder
             self.roots = roots
+            self.staging = staging
+        }
+
+        /// `$PSYCHE_HOME/helper/staging` (0700).
+        public static func stagingDir(environment: [String: String] = ProcessInfo.processInfo.environment) -> URL {
+            URL(fileURLWithPath: HelperPaths.psycheHome(environment: environment)).appendingPathComponent("helper/staging", isDirectory: true)
         }
 
         public static func live(environment: [String: String] = ProcessInfo.processInfo.environment) -> Backends {
             let ek = EventKitBackend()
             return Backends(calendar: ek, reminders: ek, mail: MailScriptingBackend(), notes: NotesScriptingBackend(),
-                            safari: SafariScriptingBackend(), finder: WorkspaceFinderBackend(), roots: { FinderRoots.load(environment: environment) })
+                            safari: SafariScriptingBackend(), finder: WorkspaceFinderBackend(), roots: { FinderRoots.load(environment: environment) },
+                            staging: { stagingDir(environment: environment) })
         }
     }
 
@@ -265,9 +275,12 @@ public enum AppleAppsCapabilities {
                 guard Int(p.id) != nil else { throw CapabilityError.invalidParams("id is a Mail message id", field: "id") }
                 let max = min(100_000, Swift.max(100, p.maxLength ?? 20_000))
                 let (summary, to, cc, body) = try await b.mail.read(id: p.id, mailbox: p.mailbox, account: p.account, maxLength: max)
+                // M4: the summary carries the `message://` link; attachments are listed, not saved.
+                let atts = (try? await b.mail.attachments(id: p.id, mailbox: p.mailbox, account: p.account)) ?? []
                 return CapabilityOutput(untrusted([
                     "message": ["summary": try json(summary), "to": .array(to.map { .string($0) }), "cc": .array(cc.map { .string($0) }),
-                                "body": .string(body), "truncated": .bool(body.count >= max)],
+                                "body": .string(body), "truncated": .bool(body.count >= max),
+                                "attachments": .array(atts.map { ["name": .string($0.name), "size": .int($0.bytes), "mimeType": $0.mimeType.map { .string($0) } ?? .null] })],
                 ]))
             },
 
@@ -277,8 +290,10 @@ public enum AppleAppsCapabilities {
             )) { ctx in
                 let d = try ctx.decode(MailDraft.self)
                 try checkDraft(d)
-                try await b.mail.compose(d, send: false)
-                return CapabilityOutput(["saved": true], receipt: ReceiptDraft(outcome: .ok, summary: "Saved a draft to \(d.to.count) recipient(s)"))
+                let saved = try await b.mail.compose(d, send: false)
+                var out: [String: JSONValue] = ["saved": true]
+                if let saved { out["draft"] = try json(saved) }
+                return CapabilityOutput(.object(out), receipt: ReceiptDraft(outcome: .ok, summary: "Saved a draft to \(d.to.count) recipient(s)"))
             },
 
             Capability(CapabilitySpec(
@@ -294,6 +309,245 @@ public enum AppleAppsCapabilities {
                 try await b.mail.compose(d, send: true)
                 return CapabilityOutput(["sent": true], receipt: ReceiptDraft(outcome: .ok, summary: "Sent an email to \(d.to.count) recipient(s)",
                                                                              externalRefs: ["recipients": .int(d.to.count + (d.cc ?? []).count)]))
+            },
+        ] + mailWave1(b)
+    }
+
+    // MARK: Mail wave 1 (docs/connectors/apple-apps-2026.md §4.1, M2–M9)
+
+    struct MailMailboxes: Decodable { var account: String? }
+    struct MailSelected: Decodable { var limit: Int? }
+    struct MailMessageRef: Decodable {
+        var id: String
+        var mailbox: String?
+        var account: String?
+    }
+    struct MailReply: Decodable {
+        var id: String
+        var mailbox: String?
+        var account: String?
+        var body: String
+        var replyAll: Bool?
+        var cc: [String]?
+    }
+    struct MailForward: Decodable {
+        var id: String
+        var mailbox: String?
+        var account: String?
+        var to: [String]
+        var cc: [String]?
+        var body: String?
+    }
+    struct MailSendDraft: Decodable {
+        var draftId: String
+        var to: [String]
+        var cc: [String]?
+        var subject: String
+        var bodySha256: String
+    }
+    struct MailSetFlags: Decodable {
+        var ids: [String]
+        var mailbox: String?
+        var account: String?
+        var read: Bool?
+        var flagged: Bool?
+        var flagColor: Int?
+    }
+    struct MailIdsRef: Decodable {
+        var ids: [String]
+        var mailbox: String?
+        var account: String?
+    }
+    struct MailSaveAttachments: Decodable {
+        var id: String
+        var mailbox: String?
+        var account: String?
+        var folder: String?
+        var names: [String]?
+    }
+
+    static let messageRef: [String: JSONValue] = [
+        "id": Schema.string("Mail message id (from mail.search / mail.selected)"),
+        "mailbox": Schema.string("Mailbox the message is in (default: inbox)"), "account": Schema.string("Account of that mailbox"),
+    ]
+
+    static func checkMessageId(_ id: String) throws {
+        guard Int(id) != nil else { throw CapabilityError.invalidParams("id is a Mail message id", field: "id") }
+    }
+
+    static func checkAddresses(_ xs: [String], field: String, min: Int) throws {
+        guard xs.count >= min, xs.count <= 50 else { throw CapabilityError.invalidParams("\(field) takes \(min)–50 addresses", field: field) }
+        for a in xs where !(a.count <= 320 && a.contains("@") && !a.contains(where: { $0.isNewline || $0 == "," || $0 == ";" })) {
+            throw CapabilityError.invalidParams("each recipient is one email address", field: field)
+        }
+    }
+
+    static func mailWave1(_ b: Backends) -> [any CapabilityHandler] {
+        [
+            Capability(CapabilitySpec(
+                name: "mail.mailboxes",
+                description: "Mail accounts and their mailboxes with unread counts (and the unified inbox). Read-only.",
+                sideEffect: .read, inputSchema: Schema.object(["account": Schema.string("Only this account")])
+            )) { ctx in
+                let p = try ctx.decode(MailMailboxes.self)
+                return untrustedList("mailboxes", try json(try await b.mail.mailboxes(account: p.account)))
+            },
+
+            Capability(CapabilitySpec(
+                name: "mail.selected",
+                description: "The messages selected in Mail right now (\"this email\"), newest first. Empty when Mail is not open. Read-only; untrusted.",
+                sideEffect: .read, inputSchema: Schema.object(["limit": Schema.integer("Default 10", min: 1, max: 100)])
+            )) { ctx in
+                let p = try ctx.decode(MailSelected.self)
+                let lim = min(100, max(1, p.limit ?? 10))
+                return untrustedList("messages", try json(try await b.mail.selected(limit: lim)))
+            },
+
+            Capability(CapabilitySpec(
+                name: "mail.reply_draft",
+                description: "Reply (or reply to all) to a message: Mail quotes and threads it, your text goes on top, and it is saved as a draft, not sent. Send it with mail.send_draft.",
+                sideEffect: .write, targetKind: .recipient,
+                inputSchema: Schema.object(messageRef.merging([
+                    "body": Schema.string("Text above the quoted message", maxLength: 100_000), "replyAll": Schema.boolean("Reply to all recipients"),
+                    "cc": Schema.array(Schema.string(maxLength: 320), maxItems: 50),
+                ]) { a, _ in a }, required: ["id", "body"]),
+                receiptKind: "email_draft"
+            )) { ctx in
+                let p = try ctx.decode(MailReply.self)
+                try checkMessageId(p.id)
+                try text(p.body, max: 100_000, field: "body")
+                try checkAddresses(p.cc ?? [], field: "cc", min: 0)
+                let d = try await b.mail.replyDraft(id: p.id, mailbox: p.mailbox, account: p.account, body: p.body, replyAll: p.replyAll ?? false, cc: p.cc ?? [])
+                return CapabilityOutput(["draft": try json(d)], receipt: ReceiptDraft(outcome: .ok, summary: "Saved a reply draft to \(d.to.count) recipient(s)"))
+            },
+
+            Capability(CapabilitySpec(
+                name: "mail.forward_draft",
+                description: "Forward a message to new recipients with your text on top, saved as a draft (not sent). Send it with mail.send_draft.",
+                sideEffect: .write, targetKind: .recipient,
+                inputSchema: Schema.object(messageRef.merging([
+                    "to": Schema.array(Schema.string(maxLength: 320), maxItems: 50), "cc": Schema.array(Schema.string(maxLength: 320), maxItems: 50),
+                    "body": Schema.string("Text above the forwarded message", maxLength: 100_000),
+                ]) { a, _ in a }, required: ["id", "to"]),
+                receiptKind: "email_draft"
+            )) { ctx in
+                let p = try ctx.decode(MailForward.self)
+                try checkMessageId(p.id)
+                try checkAddresses(p.to, field: "to", min: 1)
+                try checkAddresses(p.cc ?? [], field: "cc", min: 0)
+                try text(p.body, max: 100_000, field: "body")
+                let d = try await b.mail.forwardDraft(id: p.id, mailbox: p.mailbox, account: p.account, to: p.to, cc: p.cc ?? [], body: p.body ?? "")
+                return CapabilityOutput(["draft": try json(d)], receipt: ReceiptDraft(outcome: .ok, summary: "Saved a forward draft to \(d.to.count) recipient(s)"))
+            },
+
+            Capability(CapabilitySpec(
+                name: "mail.send_draft",
+                description: "Send a draft saved by mail.draft / reply_draft / forward_draft. Always needs an approval bound to its recipients, subject and body; refused if the draft changed since (send it from Mail once Mail has been restarted).",
+                sideEffect: .write, targetKind: .recipient,
+                inputSchema: Schema.object([
+                    "draftId": Schema.string("draft.draftId from mail.draft / reply_draft / forward_draft"),
+                    "to": Schema.array(Schema.string(maxLength: 320), maxItems: 50), "cc": Schema.array(Schema.string(maxLength: 320), maxItems: 50),
+                    "subject": Schema.string(maxLength: 500), "bodySha256": Schema.string("draft.bodySha256", maxLength: 64),
+                ], required: ["draftId", "to", "subject", "bodySha256"]),
+                receiptKind: "send_email"
+            )) { ctx in
+                let p = try ctx.decode(MailSendDraft.self)
+                guard Int(p.draftId) != nil else { throw CapabilityError.invalidParams("draftId is a Mail draft id", field: "draftId") }
+                // Below the model and the Gateway: never send without an approval (J6).
+                guard ctx.approvalId != nil else {
+                    throw CapabilityError(.approvalRequired, reason: "send_needs_approval", "Sending mail always needs your approval")
+                }
+                guard let current = try await b.mail.draft(id: p.draftId) else {
+                    throw CapabilityError(.notFound, reason: "draft_not_open",
+                                          "The draft is no longer open in Mail (Mail was restarted or the draft was closed). Send it from Mail's Drafts mailbox.")
+                }
+                try MailWave1.check(current, against: MailDraftExpectation(to: p.to, cc: p.cc, subject: p.subject, bodySha256: p.bodySha256))
+                try await b.mail.sendDraft(id: p.draftId)
+                return CapabilityOutput(["sent": true], receipt: ReceiptDraft(outcome: .ok, summary: "Sent an email to \(current.to.count) recipient(s)",
+                                                                             externalRefs: ["recipients": .int(current.to.count + current.cc.count)]))
+            },
+
+            Capability(CapabilitySpec(
+                name: "mail.set_flags",
+                description: "Mark up to 100 messages read or unread, flagged or unflagged, or set a flag color (0 red, 1 orange, 2 yellow, 3 green, 4 blue, 5 purple, 6 gray).",
+                sideEffect: .write, targetKind: .account,
+                inputSchema: Schema.object([
+                    "ids": Schema.array(Schema.string(), maxItems: MailWave1.maxBatch), "mailbox": Schema.string(), "account": Schema.string(),
+                    "read": Schema.boolean(), "flagged": Schema.boolean(), "flagColor": Schema.integer(min: 0, max: 6),
+                ], required: ["ids"]),
+                receiptKind: "connector_action"
+            )) { ctx in
+                let p = try ctx.decode(MailSetFlags.self)
+                let ids = try MailWave1.batch(p.ids)
+                let color = p.flagColor
+                if let c = color, !MailWave1.flagColors.contains(c) { throw CapabilityError.invalidParams("flagColor is 0–6", field: "flagColor") }
+                if color != nil, p.flagged == false { throw CapabilityError.invalidParams("a flag color flags the message; drop flagged: false", field: "flagColor") }
+                guard p.read != nil || p.flagged != nil || color != nil else { throw CapabilityError.invalidParams("set read, flagged or flagColor", field: "read") }
+                let n = try await b.mail.setFlags(ids: ids, mailbox: p.mailbox, account: p.account, read: p.read, flagged: p.flagged, flagIndex: color)
+                return CapabilityOutput(["updated": .int(n)], receipt: ReceiptDraft(outcome: .ok, summary: "Updated \(n) message(s)"))
+            },
+
+            Capability(CapabilitySpec(
+                name: "mail.move",
+                description: "Move up to 100 messages to another mailbox (to: {mailbox, account}), or to the account's Archive or Junk (to: \"archive\" / \"junk\"). Never deletes.",
+                sideEffect: .write, targetKind: .account,
+                inputSchema: Schema.object([
+                    "ids": Schema.array(Schema.string(), maxItems: MailWave1.maxBatch), "mailbox": Schema.string(), "account": Schema.string(),
+                    "to": ["description": "\"archive\", \"junk\", or {mailbox, account}"],
+                ], required: ["ids", "to"]),
+                receiptKind: "connector_action"
+            )) { ctx in
+                let p = try ctx.decode(MailIdsRef.self)
+                let ids = try MailWave1.batch(p.ids)
+                let dest = try MailWave1.Destination.parse(ctx.params["to"])
+                let n = try await b.mail.move(ids: ids, mailbox: p.mailbox, account: p.account, to: dest)
+                return CapabilityOutput(["moved": .int(n)], receipt: ReceiptDraft(outcome: .ok, summary: "Moved \(n) message(s)"))
+            },
+
+            Capability(CapabilitySpec(
+                name: "mail.save_attachments",
+                description: "Save a message's attachments (all, or those named) into a granted folder, or for the Library when no folder is given. Saved files are untrusted.",
+                sideEffect: .write, targetKind: .path,
+                inputSchema: Schema.object(messageRef.merging([
+                    "folder": Schema.string("A granted folder (absolute path); omit to stage the files for the Library"),
+                    "names": Schema.array(Schema.string(maxLength: 255), maxItems: MailWave1.maxAttachments),
+                ]) { a, _ in a }, required: ["id"]),
+                receiptKind: "connector_action"
+            )) { ctx in
+                let p = try ctx.decode(MailSaveAttachments.self)
+                try checkMessageId(p.id)
+                let dir: URL
+                if let folder = p.folder {
+                    dir = URL(fileURLWithPath: try b.roots().resolve(folder))
+                    var isDir: ObjCBool = false
+                    guard FileManager.default.fileExists(atPath: dir.path, isDirectory: &isDir), isDir.boolValue else {
+                        throw CapabilityError(.notFound, reason: "folder_not_found", "\(folder) is not a folder")
+                    }
+                } else {
+                    dir = b.staging().appendingPathComponent("mail-\(UUID().uuidString.lowercased())", isDirectory: true)
+                    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+                }
+                let all = try await b.mail.attachments(id: p.id, mailbox: p.mailbox, account: p.account)
+                let wanted = Set(p.names ?? [])
+                let picked = all.enumerated().filter { wanted.isEmpty || wanted.contains($0.element.name) }
+                guard !picked.isEmpty else { throw CapabilityError(.notFound, reason: "no_attachments", "The message has no matching attachments") }
+                guard picked.count <= MailWave1.maxAttachments else {
+                    throw CapabilityError.invalidParams("at most \(MailWave1.maxAttachments) attachments at a time; name the ones you want", field: "names")
+                }
+                var existing = Set((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? [])
+                var saved: [MailSavedFileRecord] = []
+                let toLibrary = p.folder == nil
+                for (i, a) in picked {
+                    let name = MailWave1.fileName(a.name, existing: existing)
+                    existing.insert(name)
+                    let path = dir.appendingPathComponent(name).path
+                    try await b.mail.saveAttachment(id: p.id, mailbox: p.mailbox, account: p.account, index: i + 1, to: path)
+                    let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? NSNumber)??.intValue
+                    guard let size else { throw CapabilityError(.unavailable, reason: "attachment_not_saved", "Mail did not save \(name) (is it downloaded?)") }
+                    saved.append(MailSavedFileRecord(name: name, size: size, path: toLibrary ? nil : path, stagedPath: toLibrary ? path : nil, mimeType: a.mimeType))
+                }
+                return CapabilityOutput(untrusted(["files": try json(saved), "library": .bool(p.folder == nil)]),
+                                        receipt: ReceiptDraft(outcome: .ok, summary: "Saved \(saved.count) attachment(s)"))
             },
         ]
     }
