@@ -65,6 +65,7 @@ describe("composition root: proactive surfaces (S15)", () => {
     }
     const system = (await scheduler.list()).map((a) => a.title).sort();
     expect(system).toEqual([
+      "Check for new mail",
       "Daily brief",
       "Ideas: delivery window",
       "Ideas: nightly mining",

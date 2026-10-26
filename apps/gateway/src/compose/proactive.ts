@@ -4,6 +4,7 @@ import type { SqliteMemoryStore } from "@psyche/memory";
 import type { PsycheNotifier } from "@psyche/notifications";
 import type { PsychePermissionBroker } from "@psyche/permissions";
 import {
+  appleMailSource,
   arxivSource,
   createFeedHandlers,
   createGoalHandlers,
@@ -12,9 +13,11 @@ import {
   FeedService,
   type FeedSource,
   GoalsService,
+  gmailSource,
   HEARTBEAT_TASK_BUDGET,
   hackerNewsSource,
   IdeasService,
+  MailWatcher,
   ProposalService,
   publicFetch,
   rssSource,
@@ -89,6 +92,8 @@ export interface ComposedProactive {
   readonly goals: GoalsService;
   readonly feed: FeedService;
   readonly ideas: IdeasService;
+  /** The new-mail poller (mail and meeting workflows §4.7); it reads mail only for listeners. */
+  readonly mailWatch: MailWatcher;
   /** Batch proposals, when the composition gave a broker and a registry. */
   readonly proposals: ProposalService | undefined;
   readonly handlers: Record<string, HandlerDef>;
@@ -167,6 +172,15 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           onError: (err) =>
             logger?.log("warn", "proposal run failed", { code: PsycheError.from(err).code }),
         });
+  // Wave 1 has no push for new mail: poll through whichever mail tools are connected (§4.7).
+  const mailWatch = new MailWatcher({
+    scheduler,
+    clock,
+    sources: () =>
+      registry === undefined ? [] : [appleMailSource(registry), gmailSource(registry)],
+    ...(timeZone === undefined ? {} : { timezone: timeZone }),
+    onError: (err) => logger?.log("warn", "mail poll failed", { code: PsycheError.from(err).code }),
+  });
   const proposalHandlers: Record<string, HandlerDef> = {};
   if (proposals !== undefined) {
     // `proposals.approve` hands the caller the answer token of its own surface only (§3.7).
@@ -183,6 +197,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     goals,
     feed,
     ideas,
+    mailWatch,
     proposals,
     handlers: {
       ...mountParamsOnly(createGoalHandlers(goals) as never),
@@ -192,7 +207,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     },
     launcher: (inner, pool) =>
       withProactiveJobs(inner, {
-        jobs: [goals.checkinJob(), feed.job(), ideas.job()],
+        jobs: [goals.checkinJob(), feed.job(), ideas.job(), mailWatch.job()],
         heartbeat: createTaskLauncher({ engine: tasks, pool, budget: HEARTBEAT_TASK_BUDGET }),
         onError: (err) =>
           logger?.log("warn", "proactive job failed", { code: PsycheError.from(err).code }),
@@ -202,6 +217,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
         await goals.start();
         await feed.ensureDailyBrief();
         await ideas.ensureSchedules();
+        await mailWatch.ensureSchedule();
       } catch (err) {
         logger?.log("warn", "proactive schedule sync failed", { code: PsycheError.from(err).code });
       }

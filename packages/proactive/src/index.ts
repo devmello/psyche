@@ -135,6 +135,19 @@ export {
   withProactiveJobs,
 } from "./jobs.ts";
 export {
+  appleMailSource,
+  type EventScheduler,
+  FIRST_POLL_LOOKBACK_MS,
+  gmailSource,
+  MAIL_WATCH_JOB,
+  MAIL_WATCH_SCHEDULE,
+  MAIL_WATCH_SOURCE,
+  type MailEventSource,
+  MailWatcher,
+  type MailWatcherOptions,
+  OFF_HOURS_POLL_MS,
+} from "./mail/watch.ts";
+export {
   createProposalHandlers,
   type ProposalCaller,
   type ProposalHandlers,
