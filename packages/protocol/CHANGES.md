@@ -18,6 +18,14 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (chat experience phase 2: artifacts, docs/design/chat-experience-2026.md §4.3–4.4)
+
+- `ArtifactType` gains `doc`, `code`, `table`, `image` (appended). `Artifact` gains optional `threadId`, `language`, `untrusted`, `bytes`.
+- New types `ArtifactAuthor` (agent | user | specialist), `ArtifactOp` (text: replace | insert | rewrite; table: set | setRange | addRows | deleteRows | addColumn | view), `ArtifactCell`, `ArtifactTable`, `ArtifactTableView`, `ArtifactRef` (what tool results carry instead of content), `ArtifactVersion`, `ArtifactConflict`.
+- New methods `artifacts.list`, `artifacts.read {version?, lines?}`, `artifacts.versions`, and side-effecting `artifacts.create`, `artifacts.update {base, ops}` (stale base → `conflict`, nothing written), `artifacts.restore`. `artifacts.get`'s description now points at `artifacts.read`.
+- New event `artifact.updated {artifact, version}`.
+- No Swift switch sites change (the helper never decodes artifacts).
+
 ### v1 additive — 2026-10-26 (W, #670: post-meeting notes and Record meeting, docs/workflows/mail-and-meetings-2026.md §4.6)
 
 - **New `meetings.*` methods:** `meetings.notes.create {libraryItemId, startedAt?, title?, speakers?}` → `MeetingNotesResult {status: done | needs_permission, postId?, notes?, remindersProposalId?, question?}` (`operator.write`); `meetings.record.status {}` → `MeetingRecordingStatus` (`operator.read`); `meetings.record.start {consentConfirmed, meetingId?}` and `meetings.record.stop {}` → `MeetingRecordingStatus` (`operator.write`). A start without `consentConfirmed: true` is refused.
