@@ -27,6 +27,10 @@ For S15 (W, #670), the skills (S, #671), the UI (U, #672) and the helper (H, #67
 - `AutomationKind` gains `event`; `Automation.trigger`; `AutomationRun.trigger` gains `event`; `AutomationRun.events`; `UpcomingItem.trigger` / `lastRunAt`.
 - `FeedPost.kind`, `FeedPost.refs`, `FeedPost.card`.
 - New methods `proposals.list | get | approve | dismiss | undo`; new event `proposal.updated`. Follow-ups use the memory graph's loops (`GraphLoop`, `memory.loops.*`, #650), not a second store.
+### v1 additive — 2026-10-26 (S09 for S14 #719: Things auth token)
+
+- `ThingsUpdateParams.authToken?` and `ThingsCompleteParams.authToken?`: Things' URL-scheme auth token, which the Gateway fills in from the vault for that call only. The model never writes it, no card shows it, and the helper neither logs nor stores it.
+
 ### v1 additive — 2026-10-25 (E, #678: the teaching loop)
 
 For T1 (#679), T2 (#680) and T3 (#681), docs/agent/teaching-loop-2026.md §3 and §7. All new fields are optional and all new schemas are new names.
