@@ -111,6 +111,9 @@ const LABELLED_KEYS = [
   "ui.onboarding.completedAt",
   "ui.transcriptMode",
   "ui.language",
+  "ui.map.tiles",
+  "ui.map.styleUrl",
+  "ui.map.styleUrlDark",
   "ui.locale",
   "ui.direction",
 ] as const;

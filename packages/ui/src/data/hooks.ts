@@ -390,11 +390,21 @@ export function useThread(threadId: string | null) {
   const sendNow = useCallback(
     async (content: string, mode: QueueMode | undefined, replyToMessageId?: string | null) => {
       if (threadId === null) return;
-      return store.call("chat.send", {
-        threadId,
-        content,
-        ...(mode ? { mode } : {}),
-        ...(replyToMessageId ? { replyToMessageId } : {}),
+      const pendingId = `pending-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+      const createdAt = new Date().toISOString();
+      const baseSeq = store.getState().messages[threadId]?.at(-1)?.seq ?? -1;
+      // The message shows in the same frame as Return (smoothness-2026 C1); the overlay drops once
+      // the request settles, and a failed send leaves nothing behind for the caller to retry.
+      return store.mutate({
+        optimistic: (s) =>
+          withPendingUserMessage(s, threadId, pendingId, content, createdAt, baseSeq),
+        run: () =>
+          store.call("chat.send", {
+            threadId,
+            content,
+            ...(mode ? { mode } : {}),
+            ...(replyToMessageId ? { replyToMessageId } : {}),
+          }),
       });
     },
     [store, threadId],
@@ -1361,4 +1371,37 @@ export function useMemoryFile(path: string | null) {
 /** Streaming text of an agent message, if any (for the typing indicator and partial render). */
 export function useStreamingText(messageId: string): string | null {
   return useStoreState((s) => s.streaming[messageId]?.text ?? null);
+}
+
+/** A user message the Gateway has not echoed yet; skipped once the real one is in the store. */
+function withPendingUserMessage(
+  s: UiState,
+  threadId: string,
+  id: string,
+  content: string,
+  createdAt: string,
+  baseSeq: number,
+): UiState {
+  const list = s.messages[threadId] ?? EMPTY;
+  const echoed = list.some(
+    (m) =>
+      m.role === "user" &&
+      m.seq > baseSeq &&
+      m.blocks.some((b) => b.type === "text" && b.md === content),
+  );
+  if (echoed) return s;
+  const pending: Message = {
+    id,
+    threadId,
+    seq: Math.max(baseSeq, list[list.length - 1]?.seq ?? -1) + 1,
+    role: "user",
+    blocks: [{ type: "text", md: content }],
+    providerNative: null,
+    provenance: "owner",
+    replyToMessageId: null,
+    channelRef: null,
+    runId: null,
+    createdAt,
+  };
+  return { ...s, messages: { ...s.messages, [threadId]: [...list, pending] } };
 }

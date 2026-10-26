@@ -9,6 +9,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu.tsx";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTitle,
+  PopoverTrigger,
+} from "../components/ui/popover.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group.tsx";
 import { useGatewayQuery } from "../data/index.ts";
@@ -56,14 +62,14 @@ export function milestoneText(m: Milestone, agent: string): string {
 }
 
 /** Monday of the item's week, as the group key (`YYYY-MM-DD`, UTC). */
-function weekOf(iso: string): string {
+export function weekOf(iso: string): string {
   const d = new Date(iso);
   const day = (d.getUTCDay() + 6) % 7;
   d.setUTCDate(d.getUTCDate() - day);
   return d.toISOString().slice(0, 10);
 }
 
-function LessonRow({ lesson }: { lesson: Lesson }): ReactElement {
+export function LessonRow({ lesson }: { lesson: Lesson }): ReactElement {
   const teach = useTeaching();
   const [open, setOpen] = useState(false);
   return (
@@ -116,7 +122,13 @@ function LessonRow({ lesson }: { lesson: Lesson }): ReactElement {
   );
 }
 
-function MilestoneRow({ milestone, agent }: { milestone: Milestone; agent: string }) {
+export function MilestoneRow({
+  milestone,
+  agent,
+}: {
+  milestone: Milestone;
+  agent: string;
+}): ReactElement {
   return (
     <li className="flex gap-3 py-2" data-testid="growth-milestone">
       <time
@@ -133,7 +145,17 @@ function MilestoneRow({ milestone, agent }: { milestone: Milestone; agent: strin
   );
 }
 
-function MetricRow({ metric }: { metric: GrowthMetric }): ReactElement {
+/**
+ * One outcome metric: its label, rate or count, and the previous period beside it. With
+ * `evidencePopover`, "Based on n events" opens the evidence ids behind the number.
+ */
+export function MetricRow({
+  metric,
+  evidencePopover = false,
+}: {
+  metric: GrowthMetric;
+  evidencePopover?: boolean;
+}): ReactElement {
   const name = t(`screens.growth.metric.${metric.id}`);
   const label = metric.skill
     ? t("screens.growth.metricSkill", { skill: metric.skill, metric: name })
@@ -166,12 +188,83 @@ function MetricRow({ metric }: { metric: GrowthMetric }): ReactElement {
           {was ? <span className="text-label-secondary"> ({was})</span> : null}
         </span>
       </span>
-      {metric.evidence.length > 0 ? (
+      {metric.evidence.length === 0 ? null : evidencePopover ? (
+        <EvidencePopover label={label} evidence={metric.evidence} />
+      ) : (
         <span className="text-caption text-label-secondary">
           {t("screens.growth.evidence", { n: metric.evidence.length })}
         </span>
-      ) : null}
+      )}
     </li>
+  );
+}
+
+/** "Based on 12 events", opening the ids of the events behind a metric. */
+function EvidencePopover({
+  label,
+  evidence,
+}: {
+  label: string;
+  evidence: readonly string[];
+}): ReactElement {
+  return (
+    <Popover>
+      <PopoverTrigger
+        className="self-start rounded-sm text-caption text-label-secondary underline decoration-dotted underline-offset-2 outline-none hover:decoration-solid focus-visible:ring-3 focus-visible:ring-ring"
+        data-testid="growth-evidence"
+      >
+        {t("screens.growth.evidence", { n: evidence.length })}
+      </PopoverTrigger>
+      <PopoverContent align="start" className="max-h-64 w-72 overflow-auto">
+        <PopoverTitle>{t("overview.growth.evidenceTitle", { metric: label })}</PopoverTitle>
+        <ul className="flex flex-col gap-1 text-caption text-label-secondary">
+          {evidence.map((id) => (
+            <li key={id} className="font-mono break-all">
+              {id}
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** Timeline items grouped by the week they fall in, newest first: the lists under each heading. */
+export function GrowthTimeline({
+  items,
+  agent,
+}: {
+  items: readonly GrowthItem[];
+  agent: string;
+}): ReactElement {
+  const weeks = new Map<string, GrowthItem[]>();
+  for (const item of items) {
+    const key = weekOf(item.at);
+    weeks.set(key, [...(weeks.get(key) ?? []), item]);
+  }
+  return (
+    <>
+      {[...weeks.entries()].map(([week, list]) => (
+        <section key={week} aria-label={t("screens.growth.week", { date: weekLabel(week) })}>
+          <h4 className="mt-2 text-caption text-label-secondary">
+            {t("screens.growth.week", { date: weekLabel(week) })}
+          </h4>
+          <ul className="divide-y divide-separator">
+            {list.map((item) =>
+              item.type === "lesson" ? (
+                <LessonRow key={item.lesson.id} lesson={item.lesson} />
+              ) : (
+                <MilestoneRow
+                  key={`${item.milestone.kind}:${item.at}`}
+                  milestone={item.milestone}
+                  agent={agent}
+                />
+              ),
+            )}
+          </ul>
+        </section>
+      ))}
+    </>
   );
 }
 
@@ -237,11 +330,6 @@ export function GrowthPanel({ defaultWindow = "30d" }: { defaultWindow?: GrowthW
       </div>
     );
   }
-  const weeks = new Map<string, GrowthItem[]>();
-  for (const item of items) {
-    const key = weekOf(item.at);
-    weeks.set(key, [...(weeks.get(key) ?? []), item]);
-  }
   return (
     <div className="flex flex-col gap-5 px-2" data-testid="growth">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -275,26 +363,7 @@ export function GrowthPanel({ defaultWindow = "30d" }: { defaultWindow?: GrowthW
             ))}
           </ToggleGroup>
         </div>
-        {[...weeks.entries()].map(([week, list]) => (
-          <section key={week} aria-label={t("screens.growth.week", { date: weekLabel(week) })}>
-            <h4 className="mt-2 text-caption text-label-secondary">
-              {t("screens.growth.week", { date: weekLabel(week) })}
-            </h4>
-            <ul className="divide-y divide-separator">
-              {list.map((item) =>
-                item.type === "lesson" ? (
-                  <LessonRow key={item.lesson.id} lesson={item.lesson} />
-                ) : (
-                  <MilestoneRow
-                    key={`${item.milestone.kind}:${item.at}`}
-                    milestone={item.milestone}
-                    agent={persona.name}
-                  />
-                ),
-              )}
-            </ul>
-          </section>
-        ))}
+        <GrowthTimeline items={items} agent={persona.name} />
       </section>
 
       {summary.metrics.length > 0 ? (
@@ -312,7 +381,7 @@ export function GrowthPanel({ defaultWindow = "30d" }: { defaultWindow?: GrowthW
 }
 
 /** "2026-10-19" → "Oct 19" (UTC, the group key's own day). */
-function weekLabel(date: string): string {
+export function weekLabel(date: string): string {
   return activeI18n().date(`${date}T12:00:00Z`, {
     month: "short",
     day: "numeric",

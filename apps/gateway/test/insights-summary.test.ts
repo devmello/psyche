@@ -179,6 +179,8 @@ describe("insights.summary", () => {
     expect(s.totals.runs).toEqual({ task: 2, chat: 2, automation: 0, subagent: 1 });
     expect(s.totals.runsDone).toBe(4);
     expect(s.totals.runsFailed).toBe(1);
+    expect(s.totals.runsByKind.task).toEqual({ done: 1, failed: 1 });
+    expect(s.totals.runsByKind.chat).toEqual({ done: 2, failed: 0 });
     expect(s.totals.wallMs).toBe(2000 + 3000 + 500 + 100 + 1000);
     expect(s.totals.busiestDay).toEqual({ date: "2026-10-25", runs: 3 });
     const last = s.days.at(-1);
@@ -187,6 +189,25 @@ describe("insights.summary", () => {
     expect(last?.wallMs).toBe(5600);
     expect(s.firstActivityAt).toBe("2026-10-10T12:00:00.000Z");
     expect(s.range.to).toBe(NOW.toISOString());
+  });
+
+  it("splits finished runs by kind, so a failed automation is not a failed task", () => {
+    run("2026-10-25T09:00:00.000Z", { kind: "task" });
+    run("2026-10-25T09:10:00.000Z", { kind: "chat" });
+    run("2026-10-25T09:20:00.000Z", { kind: "chat", status: "failed" });
+    run("2026-10-25T09:30:00.000Z", { kind: "automation" });
+    run("2026-10-25T09:40:00.000Z", { kind: "automation" });
+    run("2026-10-25T09:50:00.000Z", { kind: "automation", status: "failed" });
+    run("2026-10-25T10:00:00.000Z", { kind: "subagent", status: "failed" });
+    const t = summary({ window: "7d" }).totals;
+    expect(t.runsByKind).toEqual({
+      task: { done: 1, failed: 0 },
+      chat: { done: 1, failed: 1 },
+      automation: { done: 2, failed: 1 },
+      subagent: { done: 0, failed: 1 },
+    });
+    expect(t.runsDone).toBe(4);
+    expect(t.runsFailed).toBe(3);
   });
 
   it("infers a missing run kind from its links", () => {

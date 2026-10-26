@@ -8,6 +8,7 @@ import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { LearningGroup } from "./LearningGroup.tsx";
+import { MapGroup } from "./MapSettings.tsx";
 import {
   bool,
   ErrorNotice,
@@ -133,6 +134,7 @@ export function DataControlsPanel({
           />
         </Group>
         {learning}
+        <MapGroup values={values} onChange={onChange} />
 
         <Group title={t("settings.data.export")} description={t("settings.data.exportHint")}>
           <div>

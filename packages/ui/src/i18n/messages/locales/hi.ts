@@ -3,6 +3,7 @@ import { canvas } from "./canvas/hi.ts";
 import { charts } from "./charts/hi.ts";
 import { mailMeetings } from "./mail-meetings/hi.ts";
 import { overview } from "./overview/hi.ts";
+import { overviewGrowth } from "./overview-growth/hi.ts";
 import { workflows } from "./workflows/hi.ts";
 
 /** Hindi catalogue (hi). Same ids as `en`; missing ids fall back to English. */
@@ -13,6 +14,8 @@ export const hi: Partial<Catalogue> = {
   ...workflows,
   // the Overview screen (docs/design/agent-overview-2026.md)
   ...overview,
+  // Overview Growth and People & projects (docs/design/agent-overview-2026.md §5.4)
+  ...overviewGrowth,
   // the output canvas (docs/design/chat-experience-2026.md §4.2)
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
@@ -389,6 +392,7 @@ export const hi: Partial<Catalogue> = {
   "blocks.artifact.kind.html": "वेब पेज",
   "blocks.artifact.kind.markdown": "दस्तावेज़",
   "blocks.artifact.kind.dashboard": "डैशबोर्ड",
+  "blocks.artifact.kind.map": "मानचित्र",
   "blocks.artifact.label": "आर्टिफ़ैक्ट: {title}",
   "blocks.artifact.meta": "{kind} · v{version} · {date}",
   "blocks.artifact.save": "लाइब्रेरी में सेव करें",
