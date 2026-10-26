@@ -6925,6 +6925,37 @@ export interface ScreenDiscardResult {
     discarded: boolean;
 }
 
+export interface SearchIndexStatus {
+    backfill: SearchBackfillStatus;
+    /**
+     * Documents in the index
+     */
+    docs: number;
+}
+
+export interface SearchBackfillStatus {
+    /**
+     * Documents indexed by this run so far
+     */
+    done:   number;
+    error?: string;
+    /**
+     * Epoch ms
+     */
+    finishedAt?: number;
+    /**
+     * Store being indexed: threads, messages, tasks, library, …
+     */
+    source?: string;
+    /**
+     * Epoch ms
+     */
+    startedAt?: number;
+    state:      SearchBackfillState;
+}
+
+export type SearchBackfillState = "idle" | "running" | "done" | "error";
+
 export interface SearchQueryParams {
     limit?:  number;
     query:   string;
@@ -6974,6 +7005,13 @@ export interface SearchHit {
 }
 
 export type SearchIndexDocKind = "thread" | "message" | "task" | "memory" | "library" | "feed" | "idea" | "goal" | "connector" | "person" | "project";
+
+export interface SearchReindexResult {
+    /**
+     * False when a run was already in flight
+     */
+    started: boolean;
+}
 
 export interface SettingsChangedPayload {
     entries: SettingEntry[];

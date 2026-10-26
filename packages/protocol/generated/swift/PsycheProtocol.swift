@@ -876,13 +876,19 @@
 //   let screenDiscardResult = try? JSONDecoder().decode(ScreenDiscardResult.self, from: jsonData)
 //   let screenImageChoice = try? JSONDecoder().decode(ScreenImageChoice.self, from: jsonData)
 //   let screenRect = try? JSONDecoder().decode(ScreenRect.self, from: jsonData)
+//   let searchBackfillState = try? JSONDecoder().decode(SearchBackfillState.self, from: jsonData)
+//   let searchBackfillStatus = try? JSONDecoder().decode(SearchBackfillStatus.self, from: jsonData)
 //   let searchGroup = try? JSONDecoder().decode(SearchGroup.self, from: jsonData)
 //   let searchHit = try? JSONDecoder().decode(SearchHit.self, from: jsonData)
 //   let searchHitGroup = try? JSONDecoder().decode(SearchHitGroup.self, from: jsonData)
 //   let searchIndexDocKind = try? JSONDecoder().decode(SearchIndexDocKind.self, from: jsonData)
+//   let searchIndexStatus = try? JSONDecoder().decode(SearchIndexStatus.self, from: jsonData)
 //   let searchQueryParams = try? JSONDecoder().decode(SearchQueryParams.self, from: jsonData)
 //   let searchQueryResult = try? JSONDecoder().decode(SearchQueryResult.self, from: jsonData)
+//   let searchReindexParams = try? JSONDecoder().decode(SearchReindexParams.self, from: jsonData)
+//   let searchReindexResult = try? JSONDecoder().decode(SearchReindexResult.self, from: jsonData)
 //   let searchScope = try? JSONDecoder().decode(SearchScope.self, from: jsonData)
+//   let searchStatusParams = try? JSONDecoder().decode(SearchStatusParams.self, from: jsonData)
 //   let settingEntry = try? JSONDecoder().decode(SettingEntry.self, from: jsonData)
 //   let settings = try? JSONDecoder().decode(Settings.self, from: jsonData)
 //   let settingsChangedPayload = try? JSONDecoder().decode(SettingsChangedPayload.self, from: jsonData)
@@ -20619,6 +20625,62 @@ public struct ScreenDiscardResult: Codable, Sendable {
     }
 }
 
+// MARK: - SearchIndexStatus
+public struct SearchIndexStatus: Codable, Sendable {
+    public let backfill: SearchBackfillStatus
+    /// Documents in the index
+    public let docs: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case backfill = "backfill"
+        case docs = "docs"
+    }
+
+    public init(backfill: SearchBackfillStatus, docs: Int) {
+        self.backfill = backfill
+        self.docs = docs
+    }
+}
+
+// MARK: - SearchBackfillStatus
+public struct SearchBackfillStatus: Codable, Sendable {
+    /// Documents indexed by this run so far
+    public let done: Int
+    public let error: String?
+    /// Epoch ms
+    public let finishedAt: Int?
+    /// Store being indexed: threads, messages, tasks, library, …
+    public let source: String?
+    /// Epoch ms
+    public let startedAt: Int?
+    public let state: SearchBackfillState
+
+    public enum CodingKeys: String, CodingKey {
+        case done = "done"
+        case error = "error"
+        case finishedAt = "finishedAt"
+        case source = "source"
+        case startedAt = "startedAt"
+        case state = "state"
+    }
+
+    public init(done: Int, error: String?, finishedAt: Int?, source: String?, startedAt: Int?, state: SearchBackfillState) {
+        self.done = done
+        self.error = error
+        self.finishedAt = finishedAt
+        self.source = source
+        self.startedAt = startedAt
+        self.state = state
+    }
+}
+
+public enum SearchBackfillState: String, Codable, Sendable {
+    case done = "done"
+    case error = "error"
+    case idle = "idle"
+    case running = "running"
+}
+
 // MARK: - SearchQueryParams
 public struct SearchQueryParams: Codable, Sendable {
     public let limit: Int?
@@ -20770,6 +20832,20 @@ public enum SearchIndexDocKind: String, Codable, Sendable {
     case project = "project"
     case task = "task"
     case thread = "thread"
+}
+
+// MARK: - SearchReindexResult
+public struct SearchReindexResult: Codable, Sendable {
+    /// False when a run was already in flight
+    public let started: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case started = "started"
+    }
+
+    public init(started: Bool) {
+        self.started = started
+    }
 }
 
 // MARK: - SettingsChangedPayload
@@ -26520,6 +26596,8 @@ public typealias PasskeysListParams = [String: JSONAny]
 public typealias PasskeysReauthBeginParams = [String: JSONAny]
 public typealias PasskeysRegisterBeginParams = [String: JSONAny]
 public typealias SandboxListParams = [String: JSONAny]
+public typealias SearchReindexParams = [String: JSONAny]
+public typealias SearchStatusParams = [String: JSONAny]
 public typealias Settings = [String: JSONAny]
 public typealias SpecialistsListParams = [String: JSONAny]
 public typealias VaultLockParams = [String: JSONAny]

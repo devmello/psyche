@@ -1,7 +1,8 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ModelEvent, SearchHit } from "@psyche/protocol";
+import { deleteLibraryItem, insertLibraryItem } from "@psyche/db";
+import type { ModelEvent, SearchHit, SearchIndexStatus } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
@@ -27,8 +28,8 @@ afterEach(async () => {
   if (home) rmSync(home, { recursive: true, force: true });
 });
 
-async function start() {
-  home = mkdtempSync(join(tmpdir(), "psyche-search-"));
+async function start(reuseHome = false) {
+  if (!reuseHome) home = mkdtempSync(join(tmpdir(), "psyche-search-"));
   const model = new FakeModelProvider({ capabilities: { contextWindow: 200_000 } });
   model.script([say("Booked the dentist for Thursday at 3 pm.")]);
   composed = await composeGateway({
@@ -123,5 +124,78 @@ describe("search.query (S1)", () => {
     expect((await as()).sort()).toEqual(["t-alice", "t-owner"]);
     expect(await as({ kind: "delegated", scopeKey: "persona:alice" })).toEqual(["t-alice"]);
     expect(await as({ kind: "delegated", scopeKey: "persona:bob" })).toEqual([]);
+  });
+});
+
+describe("search backfill, status and reindex (S2)", () => {
+  it("fills a new index from the stores at start and reports status", async () => {
+    let { gw, owner } = await start();
+    const { thread } = await owner.call<{ thread: { id: string } }>(
+      "threads.create",
+      { kind: "main", title: "Errands" },
+      ik(),
+    );
+    await owner.call("chat.send", { threadId: thread.id, content: "Book the dentist" }, ik());
+    await gw.gateway.context.sessions.idle();
+    for (const c of clients.splice(0)) c.close();
+    await gw.stop("test");
+    composed = null;
+    // The index is derived data: delete it, as an upgrade from a build without S1 looks.
+    for (const f of ["search.sqlite", "search.sqlite-wal", "search.sqlite-shm"])
+      rmSync(join(home, "state", f), { force: true });
+
+    ({ gw, owner } = await start(true));
+    await gw.search.backfill.start().done;
+    const res = await owner.call<{ hits: SearchHit[] }>("search.query", { query: "dentist" });
+    expect(res.hits.map((h) => h.threadId)).toContain(thread.id);
+    const status = await owner.call<SearchIndexStatus>("search.status", {});
+    expect(status.backfill.state).toBe("done");
+    expect(status.docs).toBeGreaterThanOrEqual(3);
+  });
+
+  it("reindex drops rows whose store row is gone; Library items are reconciled", async () => {
+    const { gw, owner } = await start();
+    await gw.search.backfill.start().done;
+    // A Library file with text, written outside any event.
+    mkdirSync(join(home, "library", "docs"), { recursive: true });
+    writeFileSync(join(home, "library", "docs", "lisbon.md"), "Hotel near the Alfama, 3 nights");
+    const item = insertLibraryItem(gw.db, {
+      kind: "document",
+      name: "lisbon.md",
+      mime: "text/markdown",
+      path: "docs/lisbon.md",
+      size: 31,
+      sha256: "sha256:0",
+      origin: "upload",
+    });
+    await gw.search.syncLibrary();
+    const find = async (q: string) =>
+      (await owner.call<{ hits: SearchHit[] }>("search.query", { query: q })).hits.map((h) => h.id);
+    expect(await find("alfama")).toEqual([item.id]);
+
+    // A stale row the index never heard about being deleted.
+    await gw.search.index.index({
+      id: "msg_gone",
+      kind: "message",
+      title: "Old",
+      text: "alfama tram",
+      provenance: "owner",
+      createdAt: 1,
+    });
+    expect((await find("tram")).length).toBe(1);
+    const { started } = await owner.call<{ started: boolean }>("search.reindex", {}, ik());
+    expect(started).toBe(true);
+    await gw.search.backfill.start().done;
+    await owner.waitForEvent(
+      (f) =>
+        f.event === "search.status.updated" &&
+        (f.payload as SearchIndexStatus).backfill.state === "done",
+    );
+    expect(await find("tram")).toEqual([]);
+    expect(await find("alfama")).toEqual([item.id]);
+
+    deleteLibraryItem(gw.db, item.id);
+    await gw.search.syncLibrary();
+    expect(await find("alfama")).toEqual([]);
   });
 });

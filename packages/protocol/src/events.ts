@@ -5,6 +5,7 @@ import { BrowserRecording } from "./methods/browser.ts";
 import { QueuedMessage } from "./methods/chat.ts";
 import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
 import { DictationKeyPayload } from "./methods/dictation.ts";
+import { SearchIndexStatus } from "./methods/search.ts";
 import { SkillChangeEvent, SkillDraft, SkillUpdateStatus } from "./methods/skills.ts";
 import { VoiceEndedPayload, VoiceSegmentPayload } from "./methods/voice.ts";
 import { ArtifactVersion } from "./schemas/artifacts.ts";
@@ -404,6 +405,11 @@ export const Events = {
     payload: MeetingRecordingStatus,
     description:
       "Record meeting started or ended (stopped, silence, the conference app quit), or the ended recording's notes finished or failed (mail and meeting workflows §4.6).",
+  }),
+  "search.status.updated": defineEvent({
+    payload: SearchIndexStatus,
+    description:
+      "Search index backfill started, progressed or finished (docs/design/search-2026.md §6).",
   }),
 } as const;
 
