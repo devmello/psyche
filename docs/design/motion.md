@@ -108,7 +108,7 @@ Workstream A generates CSS custom properties from `tokens.ts`. CSS can't hand of
 ### 4.3 Sheets, dialogs, panes, the sidebar
 - **Sheet / agent sheet:** slides in from its edge (x 100% → 0) on `spring.gentle`. The backdrop fades over `duration.long`. Exit is the same spring in reverse, and is interruptible: a second ⌘⇧A mid-open reverses it from where it is.
 - **Dialog / alert:** opacity + scale 0.98 → 1 on `spring.snappy`. The backdrop fades 0 → 20% black over `duration.medium`. Alerts never slide.
-- **Pane open/close:** the pane column animates its *x* from off-edge on `spring.smooth`. The chat column reflows with `layout` (FLIP) and is never animated by width. Closing a pane is the reverse, and focus returns to the opener immediately.
+- **Pane open/close:** the pane column animates its *x* from off-edge on `spring.smooth`. The chat column reflows with `layout="position"` (FLIP) and is never animated by width; because its text rewraps at frame 0, a change of the column's width (not of the window) also crossfades it: opacity 0.6 → 1 over `duration.short`. Closing a pane is the reverse, and focus returns to the opener immediately.
 - **Sidebar collapse (⌘B):** the sidebar translates −100% on `spring.gentle` while the content column reflows with `layout`. Labels don't fade separately.
 
 ### 4.4 Shared-layout moves (`layoutId`)
