@@ -19,14 +19,17 @@ import { ModelManager } from "@psyche/speech";
  * - `search.semantic.engine`: `builtin` (default) runs an ONNX model on the CPU, downloaded on the
  *   first enable (pinned URL and SHA-256, `$PSYCHE_HOME/models/embeddings/`), with progress;
  *   `router` uses the model router's `embedding` role (Ollama, LM Studio, another local server).
- *   A role bound to a cloud provider is refused (`blocked: cloud_not_allowed`): text leaves the
- *   machine only through S4's explicit opt-in.
+ *   A role bound to a cloud provider is refused (`blocked: cloud_not_allowed`) unless
+ * - `search.semantic.allowCloud` (S4, default off, admin-only like every `search.*` key) is on:
+ *   then chats, tasks and Library text are sent to that provider to be embedded, the status says
+ *   so (`cloud: true`), and its key comes from the vault through the router as for any model.
  */
 
 export const SEMANTIC_SETTINGS = {
   enabled: "search.semantic.enabled",
   engine: "search.semantic.engine",
   model: "search.semantic.model",
+  allowCloud: "search.semantic.allowCloud",
 } as const;
 
 export type SemanticEngine = "builtin" | "router";
@@ -35,6 +38,7 @@ export interface SemanticConfig {
   enabled: boolean;
   engine: SemanticEngine;
   model: string;
+  allowCloud: boolean;
 }
 
 export function semanticConfig(read: (key: string) => unknown): SemanticConfig {
@@ -46,6 +50,7 @@ export function semanticConfig(read: (key: string) => unknown): SemanticConfig {
       typeof model === "string" && embeddingModel(model) !== undefined
         ? model
         : DEFAULT_EMBEDDING_MODEL,
+    allowCloud: read(SEMANTIC_SETTINGS.allowCloud) === true,
   };
 }
 
@@ -56,13 +61,17 @@ export interface SemanticEngines {
     onDownload: (receivedBytes: number, totalBytes: number) => void,
     signal: AbortSignal,
   ): Promise<SearchEmbedder>;
-  router(): { embedder: SearchEmbedder } | { blocked: "no_embedding_model" | "cloud_not_allowed" };
+  router(
+    allowCloud: boolean,
+  ):
+    | { embedder: SearchEmbedder; cloud: boolean }
+    | { blocked: "no_embedding_model" | "cloud_not_allowed" };
 }
 
 /** The real engines: ModelManager downloads, onnxruntime-node runs. */
 export function defaultSemanticEngines(
   home: string,
-  router: () => ReturnType<SemanticEngines["router"]>,
+  router: SemanticEngines["router"],
 ): SemanticEngines {
   return {
     async builtin(spec, onDownload, signal) {
@@ -107,15 +116,16 @@ export function defaultSemanticEngines(
  */
 export function routerEmbedder(
   router: ModelRouter | undefined,
-  allowCloud: () => boolean = () => false,
+  allowCloud: boolean,
 ): ReturnType<SemanticEngines["router"]> {
   const binding = router?.role("embedding");
   if (router === undefined || binding === undefined) return { blocked: "no_embedding_model" };
   const providerId = binding.model.split("/")[0];
   const provider = router.providers().find((p) => p.id === providerId);
   const local = provider instanceof AiSdkAdapter && isLocalKind(provider.config.kind);
-  if (!local && !allowCloud()) return { blocked: "cloud_not_allowed" };
+  if (!local && !allowCloud) return { blocked: "cloud_not_allowed" };
   return {
+    cloud: !local,
     embedder: {
       model: `router/${binding.model}`,
       embed: (texts, purpose, signal) =>
@@ -128,7 +138,12 @@ export class SemanticController {
   readonly #semantic: SemanticIndex;
   readonly #engines: SemanticEngines;
   readonly #onChange: () => void;
-  #config: SemanticConfig = { enabled: false, engine: "builtin", model: DEFAULT_EMBEDDING_MODEL };
+  #config: SemanticConfig = {
+    enabled: false,
+    engine: "builtin",
+    model: DEFAULT_EMBEDDING_MODEL,
+    allowCloud: false,
+  };
   #status: SearchSemanticStatus = { enabled: false, engine: "builtin", state: "off" };
   #abort: AbortController | null = null;
   #applying: Promise<void> = Promise.resolve();
@@ -169,7 +184,8 @@ export class SemanticController {
     const same =
       config.enabled === this.#config.enabled &&
       config.engine === this.#config.engine &&
-      config.model === this.#config.model;
+      config.model === this.#config.model &&
+      config.allowCloud === this.#config.allowCloud;
     if (same && this.#status.state !== "error") return this.#applying;
     this.#config = config;
     this.#abort?.abort();
@@ -194,14 +210,19 @@ export class SemanticController {
       return;
     }
     if (config.engine === "router") {
-      const r = this.#engines.router();
+      const r = this.#engines.router(config.allowCloud);
       if ("blocked" in r) {
         this.#semantic.setEmbedder(undefined);
         this.#set({ ...base, state: "blocked", blocked: r.blocked });
         return;
       }
       this.#semantic.setEmbedder(r.embedder);
-      this.#set({ ...base, state: "indexing", model: r.embedder.model });
+      this.#set({
+        ...base,
+        state: "indexing",
+        model: r.embedder.model,
+        ...(r.cloud ? { cloud: true } : {}),
+      });
       return;
     }
     const spec = embeddingModel(config.model);

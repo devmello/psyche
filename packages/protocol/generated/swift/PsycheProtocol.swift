@@ -20692,6 +20692,8 @@ public enum SearchBackfillState: String, Codable, Sendable {
 // MARK: - SearchSemanticStatus
 public struct SearchSemanticStatus: Codable, Sendable {
     public let blocked: SearchSemanticBlock?
+    /// Text is sent to a cloud embedding service (search.semantic.allowCloud)
+    public let cloud: Bool?
     public let dims: Int?
     /// Documents embedded in this pass
     public let done: Int?
@@ -20711,6 +20713,7 @@ public struct SearchSemanticStatus: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case blocked = "blocked"
+        case cloud = "cloud"
         case dims = "dims"
         case done = "done"
         case enabled = "enabled"
@@ -20724,8 +20727,9 @@ public struct SearchSemanticStatus: Codable, Sendable {
         case vectors = "vectors"
     }
 
-    public init(blocked: SearchSemanticBlock?, dims: Int?, done: Int?, enabled: Bool, engine: SearchSemanticEngine, error: String?, model: String?, receivedBytes: Int?, state: SearchSemanticState, total: Int?, totalBytes: Int?, vectors: Int?) {
+    public init(blocked: SearchSemanticBlock?, cloud: Bool?, dims: Int?, done: Int?, enabled: Bool, engine: SearchSemanticEngine, error: String?, model: String?, receivedBytes: Int?, state: SearchSemanticState, total: Int?, totalBytes: Int?, vectors: Int?) {
         self.blocked = blocked
+        self.cloud = cloud
         self.dims = dims
         self.done = done
         self.enabled = enabled

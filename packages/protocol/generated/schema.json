@@ -28303,6 +28303,10 @@
           "minimum": 0,
           "type": "integer"
         },
+        "cloud": {
+          "description": "Text is sent to a cloud embedding service (search.semantic.allowCloud)",
+          "type": "boolean"
+        },
         "blocked": {
           "$ref": "#/$defs/SearchSemanticBlock"
         },
