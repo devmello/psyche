@@ -1,4 +1,4 @@
-import { CalendarClock, Fingerprint, ListChecks, ShieldCheck, X } from "lucide-react";
+import { CalendarClock, Fingerprint, ListChecks, ShieldCheck, Sprout, X } from "lucide-react";
 import { type ReactElement, type ReactNode, useEffect } from "react";
 import { Avatar } from "../avatar/Avatar.tsx";
 import { Badge } from "../components/ui/badge.tsx";
@@ -14,13 +14,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs.
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { usePersona } from "../slots.tsx";
+import { GrowthPanel } from "../teaching/GrowthPanel.tsx";
 import { ActivityPanel } from "./ActivityPanel.tsx";
 import { ApprovalsPanel, useApprovalQueue } from "./ApprovalsPanel.tsx";
 import { SoulMemoryPanel } from "./SoulMemoryPanel.tsx";
 import { UpcomingPanel } from "./UpcomingPanel.tsx";
 import { useAgentStatus } from "./useAgentState.ts";
 
-export type AgentTab = "activity" | "approvals" | "upcoming" | "soul";
+export type AgentTab = "activity" | "approvals" | "upcoming" | "soul" | "growth";
 
 /**
  * The sheet's header (redesign §5.7, docs/06 §4.7): the 64 px avatar (which carries the state),
@@ -90,16 +91,23 @@ export function agentTimelineHref(
   return `/agent/activity/run/${encodeURIComponent(runId)}${qs ? `?${qs}` : ""}`;
 }
 
-const ROUTE_TABS: readonly AgentTab[] = ["activity", "approvals", "upcoming", "soul"];
+/**
+ * Five tabs fit the 400 px panel when each is as wide as its label (not equal widths) and the
+ * padding tightens in narrow containers; icons already hide there.
+ */
+const TAB = "min-w-0 flex-auto @max-md:px-1";
+
+const ROUTE_TABS: readonly AgentTab[] = ["activity", "approvals", "upcoming", "soul", "growth"];
 
 /**
  * Reads `/agent/<tab>[/<taskId>][?file=…][&from=/feed]`. The chat column opens its sheet from this so the
  * routes render the same sheet over the chat, never a full-width page (redesign §5.7).
  */
 export function agentSheetRoute(route: string): AgentSheetRoute | null {
-  const m = /^\/agent\/(activity|approvals|upcoming|soul)(?:\/run\/([^/?]+)|\/([^/?]+))?/.exec(
-    route,
-  );
+  const m =
+    /^\/agent\/(activity|approvals|upcoming|soul|growth)(?:\/run\/([^/?]+)|\/([^/?]+))?/.exec(
+      route,
+    );
   if (m === null) return null;
   const tab = ROUTE_TABS.find((x) => x === m[1]) ?? "activity";
   const query = new URLSearchParams(route.split("?")[1] ?? "");
@@ -139,7 +147,7 @@ export interface AgentSheetBodyProps {
   escapeAnywhere?: boolean;
 }
 
-/** The four tabs behind the avatar (UI design §2.3), also used by the `/agent/*` routes. */
+/** The five tabs behind the avatar (UI design §2.3), also used by the `/agent/*` routes. */
 export function AgentSheetBody({
   tab,
   onTabChange,
@@ -194,10 +202,10 @@ export function AgentSheetBody({
       >
         {/* The tabs are a segmented control under the header (§5.7). */}
         <TabsList aria-label={t("agent.sheet.tabs")} className="w-full">
-          <TabsTrigger value="activity" className="min-w-0">
+          <TabsTrigger value="activity" className={TAB}>
             <ListChecks aria-hidden="true" className="@max-md:hidden" /> {t("agent.sheet.activity")}
           </TabsTrigger>
-          <TabsTrigger value="approvals" className="min-w-0">
+          <TabsTrigger value="approvals" className={TAB}>
             <ShieldCheck aria-hidden="true" className="@max-md:hidden" />{" "}
             {t("agent.sheet.approvals")}
             {live.length > 0 ? (
@@ -206,12 +214,15 @@ export function AgentSheetBody({
               </Badge>
             ) : null}
           </TabsTrigger>
-          <TabsTrigger value="upcoming" className="min-w-0">
+          <TabsTrigger value="upcoming" className={TAB}>
             <CalendarClock aria-hidden="true" className="@max-md:hidden" />{" "}
             {t("agent.sheet.upcoming")}
           </TabsTrigger>
-          <TabsTrigger value="soul" className="min-w-0">
+          <TabsTrigger value="soul" className={TAB}>
             <Fingerprint aria-hidden="true" className="@max-md:hidden" /> {t("agent.sheet.soul")}
+          </TabsTrigger>
+          <TabsTrigger value="growth" className={TAB}>
+            <Sprout aria-hidden="true" className="@max-md:hidden" /> {t("agent.sheet.growth")}
           </TabsTrigger>
         </TabsList>
         <div className="-mx-2 min-h-0 flex-1 overflow-y-auto px-2 pt-1 pb-4">
@@ -235,6 +246,9 @@ export function AgentSheetBody({
               {...(file ? { initialFile: file } : {})}
               {...(onStartIncognito ? { onStartIncognito } : {})}
             />
+          </TabsContent>
+          <TabsContent value="growth">
+            <GrowthPanel />
           </TabsContent>
         </div>
       </Tabs>

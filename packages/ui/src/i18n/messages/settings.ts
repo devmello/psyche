@@ -80,6 +80,10 @@ export const settings = {
   "settings.key.context.compactAt": "Compact at",
   "settings.key.context.keepRecentTurns": "Recent turns kept verbatim",
   "settings.key.data.transcriptRecall": "Transcript recall",
+  "settings.key.teaching.enabled": "Learn from your feedback",
+  "settings.key.teaching.implicit": "Notice edits, undos and dismissals",
+  "settings.key.teaching.paused": "Pause learning",
+  "settings.key.teaching.weeklyCard": "Weekly “What I learned” card",
   "settings.key.agent.showReasoning": "Show thinking while it works",
   "settings.key.data.replayRetentionDays": "Keep task replays for",
   "settings.key.data.reasoningRetentionDays": "Keep thinking for",
@@ -857,6 +861,35 @@ export const settings = {
     "Everything {persona} keeps lives on this machine. There is no training toggle because nothing is sent for training.",
   "settings.data.loadLabel": "data controls",
   "settings.data.memory": "Memory",
+  // The teaching loop's settings (docs/agent/teaching-loop-2026.md §8).
+  "settings.learning.title": "Learning",
+  "settings.learning.enabled": "Learn from your feedback",
+  "settings.learning.enabledHint":
+    "Helpful, Not like this and your corrections become lessons {persona} remembers.",
+  "settings.learning.implicit": "Notice edits, undos and dismissals",
+  "settings.learning.implicitHint":
+    "Sending an edited draft or undoing an action counts as feedback.",
+  "settings.learning.signals": "Signals",
+  "settings.learning.signal.draftEdits": "Draft edits",
+  "settings.learning.signal.undo": "Undo",
+  "settings.learning.signal.approvalEdits": "Approval edits",
+  "settings.learning.signal.dismissals": "Dismissals",
+  "settings.learning.paused": "Pause learning",
+  "settings.learning.pausedHint":
+    "Nothing is read or written while on, and nothing is back-filled afterwards.",
+  "settings.learning.weeklyCard": "Weekly “What I learned” card",
+  "settings.learning.weeklyCardHint":
+    "A Feed post on Sundays, only when there is something to review.",
+  "settings.learning.open": "What {persona} learned",
+  "settings.learning.openButton": "Open Growth",
+  "settings.learning.forgetAll": "Forget everything {persona} learned",
+  "settings.learning.forgetAllTitle": "Forget everything {persona} learned from you?",
+  "settings.learning.forgetAllBody":
+    'Its notes, Soul and skills go back to what you wrote. Type "{phrase}" to confirm.',
+  "settings.learning.forgetPhrase": "forget",
+  "settings.learning.forgetAllGo": "Forget everything",
+  "settings.learning.forgotAll":
+    "Forgot {lessons, plural, one {# lesson} other {# lessons}} and {events, plural, one {# feedback event} other {# feedback events}}.",
   "settings.data.pauseMemory": "Pause memory",
   "settings.data.pauseMemoryHint":
     "While paused, {persona} doesn't remember, flush or index anything from chats.",
@@ -884,7 +917,7 @@ export const settings = {
   "settings.data.resetMemory": "Reset memory",
   "settings.data.resetMemoryEllipsis": "Reset memory…",
   "settings.data.failed":
-    "Psyche couldn't {action, select, pause {change memory} export {export} delete {delete the threads} other {reset memory}} ({reason}). Nothing was changed.",
+    "Psyche couldn't {action, select, pause {change memory} export {export} delete {delete the threads} forget {forget what it learned} other {reset memory}} ({reason}). Nothing was changed.",
   "settings.data.paused": "Memory paused.",
   "settings.data.resumed": "Memory resumed.",
   "settings.data.exportReady": "Export ready: {filename}.",

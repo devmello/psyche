@@ -41,6 +41,7 @@ export const agent = {
   "agent.sheet.approvals": "Approvals",
   "agent.sheet.upcoming": "Upcoming",
   "agent.sheet.soul": "Soul & Memory",
+  "agent.sheet.growth": "Growth",
   "agent.activity.noTasks": "No tasks yet.",
   "agent.activity.tasks": "Tasks",
   "agent.activity.retryTask": "Retry {title}",
