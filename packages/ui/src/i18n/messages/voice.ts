@@ -94,4 +94,19 @@ export const voice = {
   "voice.settings.brief.atMac": "When I'm at the Mac",
 
   "voice.onboarding.hint": "Hold {key} to talk to {name}.",
+
+  // What Psyche says (§4.5, §4.6): fixed templates the Gateway fills, never model text.
+  "voice.say.rest": "The rest is on screen.",
+  "voice.say.link": "I’ve put the link on screen.",
+  "voice.say.step": "{label}.",
+  "voice.say.readbackEmail": "Send an email to {to}, subject “{subject}”. Say “{approve}” or “{deny}”.",
+  "voice.say.readback": "{summary}. Say “{approve}” or “{deny}”.",
+  "voice.say.touchId": "That needs your Touch ID on screen.",
+  "voice.say.leftOnScreen": "I’ll leave it on screen.",
+  "voice.say.briefHandOff": "Ask me about any of these.",
+  // Phrase lists (§4.3, §4.6), "|"-separated, matched after normalisation. Translate the
+  // phrases people say in each language; keep the "|" separators.
+  "voice.phrases.approve": "yes|send it|do it|go ahead|approve",
+  "voice.phrases.deny": "no|cancel|don’t|stop|deny",
+  "voice.phrases.trailing": "and|but|so|or|because|um|uh",
 } as const;
