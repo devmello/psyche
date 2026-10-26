@@ -370,3 +370,111 @@ describe("Soul & Memory → People & projects", () => {
     });
   });
 });
+
+describe("Settings → People & projects: privacy", () => {
+  const graphOn = (w: FixtureWorld) => {
+    w.settings["memory.graph"] = {
+      enabled: true,
+      sources: {
+        contacts: true,
+        mail: true,
+        calendar: true,
+        messages: false,
+        notes: false,
+        chats: true,
+      },
+      interactionRetentionDays: 540,
+      entityRecall: true,
+      model: { nightly: true, afterRun: true, maxEntitiesPerNight: 200, maxTokensPerNight: 150000 },
+    };
+  };
+
+  it("lists blocked addresses, unblocks one and blocks a domain", async () => {
+    const { callsTo, user } = setup(<PeopleSection />, { edit: graphOn });
+    expect(await screen.findByText("j•••@example.com")).toBeTruthy();
+    expect(screen.getByText("deals.example")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Unblock j•••@example.com" }));
+    await waitFor(() =>
+      expect(callsTo("memory.graph.blocklist.remove")[0]?.params).toEqual({ id: "blk_jordan" }),
+    );
+    await waitFor(() => expect(screen.queryByText("j•••@example.com")).toBeNull());
+    await user.selectOptions(screen.getByRole("combobox", { name: "What to block" }), "domain");
+    await user.type(
+      screen.getByRole("textbox", { name: "Address, phone or domain" }),
+      "spam.example",
+    );
+    await user.click(screen.getByRole("button", { name: "Block" }));
+    await waitFor(() =>
+      expect(callsTo("memory.graph.blocklist.add")[0]?.params).toEqual({
+        kind: "domain",
+        value: "spam.example",
+      }),
+    );
+    expect(await screen.findByText("spam.example")).toBeTruthy();
+  });
+
+  it("shows what deleting a source removes, then deletes it and turns it off", async () => {
+    const { callsTo, gw, user } = setup(<PeopleSection />, { edit: graphOn });
+    await user.click(await screen.findByRole("button", { name: "Delete what Mail brought in" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Delete what Mail brought in?" });
+    expect(
+      await within(dialog).findByText(
+        "Psyche deletes 1 person or project, 4 facts, 4 interactions, 4 open loops and 0 addresses.",
+      ),
+    ).toBeTruthy();
+    expect(callsTo("memory.graph.deleteSource")[0]?.params).toEqual({
+      source: "mail",
+      dryRun: true,
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+    await waitFor(() =>
+      expect(callsTo("memory.graph.deleteSource")[1]?.params).toEqual({ source: "mail" }),
+    );
+    await waitFor(() =>
+      expect(
+        (gw().world.settings["memory.graph"] as { sources: Record<string, boolean> }).sources.mail,
+      ).toBe(false),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("switch", { name: "Mail" }).getAttribute("aria-checked")).toBe(
+        "false",
+      ),
+    );
+  });
+
+  it("forgets everything only after the phrase is typed", async () => {
+    const { callsTo, gw, user } = setup(<PeopleSection />, { edit: graphOn });
+    await user.click(await screen.findByRole("button", { name: "Forget everything…" }));
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Forget everything about people and projects?",
+    });
+    expect(await within(dialog).findByText(/Psyche deletes 8 people and projects/)).toBeTruthy();
+    expect(callsTo("memory.graph.forgetAll")[0]?.params).toEqual({
+      confirm: "forget everything",
+      dryRun: true,
+    });
+    const confirm = within(dialog).getByRole("button", { name: "Forget everything" });
+    expect((confirm as HTMLButtonElement).disabled).toBe(true);
+    await user.type(
+      within(dialog).getByRole("textbox", { name: "Type “forget everything” to confirm" }),
+      "forget everything",
+    );
+    expect((confirm as HTMLButtonElement).disabled).toBe(false);
+    await user.click(confirm);
+    await waitFor(() =>
+      expect(callsTo("memory.graph.forgetAll")[1]?.params).toEqual({
+        confirm: "forget everything",
+      }),
+    );
+    await waitFor(() =>
+      expect((gw().world.settings["memory.graph"] as { enabled: boolean }).enabled).toBe(false),
+    );
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole("switch", { name: "Learn about people and projects" })
+          .getAttribute("aria-checked"),
+      ).toBe("false"),
+    );
+  });
+});

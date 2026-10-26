@@ -55,6 +55,8 @@ export interface ComposedSkills {
   part: (services: ComposeServices) => ComposedPart;
   /** For the agent loop; usable once the part has been composed. */
   loader: SkillLoader;
+  /** Background specialist roles (docs/agent/specialists-2026.md §5), once composed. */
+  roles: Pick<FsSkillLoader, "specialistRoles">;
 }
 
 /** Longest third-party description the model reads (the MCP cap, #326). */
@@ -134,6 +136,10 @@ export function composeSkills(opts: SkillsOptions = {}): ComposedSkills {
     checkUpdates: (name) => ready().checkUpdates(name),
   };
 
+  const roles: Pick<FsSkillLoader, "specialistRoles"> = {
+    specialistRoles: () => ready().specialistRoles(),
+  };
+
   const part = (services: ComposeServices): ComposedPart => {
     const { home, publish, tools, rawBroker } = services;
     const bundledDir = bundledDirFor(opts);
@@ -210,5 +216,5 @@ export function composeSkills(opts: SkillsOptions = {}): ComposedSkills {
       },
     };
   };
-  return { part, loader };
+  return { part, loader, roles };
 }

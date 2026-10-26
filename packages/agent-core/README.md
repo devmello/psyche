@@ -129,6 +129,28 @@ const off = loop.registry.register({
 - Budgets: `subagentMaxSteps` (20) per child; the child's tokens are added to the parent's `maxRunTokens`; at most `maxConcurrentSubagents` (4) at once. Parallel spawns in one model response run concurrently.
 - Cancelling the parent cancels its children. `subagents(threadId)` lists them; each has its own thread (`<parent>:sub:<id>`) whose `threadState` is the view-only transcript, and `onSubagentEvent(info, event)` streams their events for the Subagents pane.
 
+### Background specialists (docs/agent/specialists-2026.md, #683)
+
+Unlike a subagent, a specialist runs a job **in the background** as a Task in its own thread and delivers one result. With `specialists: SpecialistHost` (the Gateway's `compose/specialists.ts`) and `tasks`, the loop registers three tools:
+
+- `specialist.spawn {role, title, brief, inputs?, budget?, deadline?, deliver?, planFirst?}` builds the job's `SpecialistSpec` and hands it to the host, which creates the thread and the task. It returns at once with `{taskId, threadId, status, position?, preflight}` and emits a `subagent` event for the parent's step log.
+  - **Budget:** requested, else the role default, capped by the role's caps.
+  - **Deadline:** at most `maxHours`.
+  - **Mode:** `min(parent, role.maxMode)`.
+  - **Tools:** the role's resolved allowlist minus `SPECIALIST_WITHHELD`.
+  - **Withheld** in plan mode, unattended runs, subagents and specialists; refused for non-owner requesters and unknown or disabled roles.
+- `specialist.report {outcome, summary, findings?, artifacts?, next?, gaps?}` is specialist-only and delivers the job's one result through the host (sanitized and defused there; `untrusted` when the run was tainted). A second report is refused. A run that ends without one delivers a `partial` report built from its last message.
+- `specialist.status {taskId?}` lists the thread's jobs; its output is `untrusted` when any result was tainted.
+
+**A specialist's run** is a task run whose task has a `specialist` block:
+- it uses the role's model (never a `/model` pin);
+- its permission mode is `min(input, spec)`;
+- its tools are the role allowlist plus `ask_user` and `specialist.report`;
+- its system prompt is the base prompt, the role's prompt, and the persona files (`USER.md` only when the role's `memory` is `user`), with no skills index and no daily notes;
+- its step budget comes from `budget.limit.steps`.
+
+Owner runs that offer `specialist.spawn` get the "Specialists" prompt section (`specialistsPromptSection` from `@psyche/skills`). Still to come in later parts of #683: the specialist pool, budget pauses and plan-first, approval context, delivery cards and the `specialists.*` / `tasks.steer` / `tasks.update` handlers.
+
 ### Harness plugins (C10)
 
 `loop.harnesses.register(plugin)` installs a coding harness (Claude Code, Codex, pi). A `HarnessPlugin` is `{id, name, available(), run(ctx)}`; its adapter turns the harness's own approval hook (Agent SDK `canUseTool`, Codex approval policy, pi `beforeToolCall`) into `ctx.gate(action)`, where the plugin classifies each action as `{tool, input, sideEffect, target?, summary}`.

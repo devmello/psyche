@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { THREAD, testEngine } from "./helpers.ts";
 
 /**
- * `tasks.lessons_applied` (teaching loop §5.1, 202610261001): lessons a task's runs used,
+ * `tasks.lessons_applied` (teaching loop §5.1, 202610261301): lessons a task's runs used,
  * accumulated across runs (newest last, deduped, at most 20), with a `task.updated` event.
  */
 describe("Task.lessonsApplied", () => {

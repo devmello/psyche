@@ -13,7 +13,7 @@ import {
 import { memoryDb } from "./helpers.ts";
 
 /**
- * `messages.lessons_applied` (teaching loop §5.1, 202610261000): the lessons the Gateway put in
+ * `messages.lessons_applied` (teaching loop §5.1, 202610261300): the lessons the Gateway put in
  * a run's prompt, set on that run's agent messages after the run and read back as
  * `Message.lessonsApplied`. Other runs' and the owner's messages are untouched.
  */

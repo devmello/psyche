@@ -36,7 +36,7 @@ Updated 2026-10-25. Spec: [docs/agent/teaching-loop-2026.md](../agent/teaching-l
 
 ## Third PR: `lessonsApplied`
 
-- Two additive migrations: `202610261000_gateway_messages-lessons-applied.sql` (S01's `messages`) and `202610261001_tasks_lessons-applied.sql` (S04's `tasks`).
+- Two additive migrations: `202610261300_gateway_messages-lessons-applied.sql` (S01's `messages`) and `202610261301_tasks_lessons-applied.sql` (S04's `tasks`).
 - At `agent_end` the Gateway reads the run's assembled prompt (`explainContext`) and collects its lesson ids: the `[ls_…]` tags of lesson-owned lines and `lesson:ls_…` on learned facts. Live lessons among them become `LessonRef`s and their `lastAppliedAt` moves.
 - A task's refs go on the task through `SqliteTaskEngine.setLessonsApplied`, accumulated across runs and capped at 20. A chat run's refs go on its agent messages once `run.updated` shows the transcript committed (`setRunLessonsApplied`), and the updated messages are re-published as `chat.message`.
 - "Helpful" now has the lessons to confirm.
