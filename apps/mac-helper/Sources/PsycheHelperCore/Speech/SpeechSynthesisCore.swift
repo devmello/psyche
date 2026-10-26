@@ -69,6 +69,13 @@ public struct SpeechPrepareParams: Decodable, Sendable, Equatable {
 public final class SpeechTimings: @unchecked Sendable {
     public enum Metric: String, Sendable, CaseIterable {
         case synthesisFirstAudio
+        /// Stream start → first non-empty result, per `speech.transcribe_stream` preset (H3).
+        case firstPartialLong, firstPartialShort
+        /// End of input → the engine's last final, per preset (H3).
+        case finalizeLong, finalizeShort
+
+        public static func firstPartial(_ p: SpeechPreset) -> Metric { p == .short ? .firstPartialShort : .firstPartialLong }
+        public static func finalize(_ p: SpeechPreset) -> Metric { p == .short ? .finalizeShort : .finalizeLong }
     }
 
     private let lock = NSLock()
@@ -96,6 +103,14 @@ public final class SpeechTimings: @unchecked Sendable {
     public var json: JSONValue {
         var o: [String: JSONValue] = [:]
         if let m = median(.synthesisFirstAudio) { o["synthesisFirstAudioMs"] = .int(m) }
+        func pair(_ long: Metric, _ short: Metric) -> JSONValue? {
+            var p: [String: JSONValue] = [:]
+            if let m = median(long) { p["long"] = .int(m) }
+            if let m = median(short) { p["short"] = .int(m) }
+            return p.isEmpty ? nil : .object(p)
+        }
+        if let p = pair(.firstPartialLong, .firstPartialShort) { o["firstPartialMs"] = p }
+        if let p = pair(.finalizeLong, .finalizeShort) { o["finalizeMs"] = p }
         return .object(o)
     }
 }
