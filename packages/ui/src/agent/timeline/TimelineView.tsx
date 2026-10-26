@@ -11,6 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { DelayedSkeletons } from "../../components/DelayedSkeleton.tsx";
 import { useTicker } from "../../components/steps/ticker.ts";
 import { timeScale } from "../../components/timeline/scale.ts";
 import { Button } from "../../components/ui/button.tsx";
@@ -126,7 +127,7 @@ export function TimelineView({
   initialReplayAt,
   ...links
 }: TimelineViewProps): ReactElement {
-  const { run, steps, children, loading, error, reload, exportTrace, deleteTrace } = useRun(runId);
+  const { run, steps, children, error, reload, exportTrace, deleteTrace } = useRun(runId);
   const { frames, image } = useRunFrames(runId);
   const allSteps = useStoreState((s) => s.runSteps);
   const runs = useStoreState((s) => s.runs);
@@ -451,17 +452,12 @@ export function TimelineView({
             </Button>
           </p>
         ) : (
-          <div
-            role="status"
-            aria-busy={loading}
-            aria-label={t("agent.timeline.loading")}
-            className="flex flex-col gap-2"
-          >
+          <DelayedSkeletons label={t("agent.timeline.loading")} className="flex flex-col gap-2">
             {Array.from({ length: 5 }, (_, i) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton rows
-              <Skeleton key={i} className="psy-shimmer h-5" style={{ width: `${90 - i * 12}%` }} />
+              <Skeleton key={i} className="h-5" style={{ width: `${90 - i * 12}%` }} />
             ))}
-          </div>
+          </DelayedSkeletons>
         )}
       </div>
     );

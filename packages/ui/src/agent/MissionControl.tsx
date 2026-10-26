@@ -2,6 +2,7 @@ import type { Automation, RunStatus, RunSummary, Task, TaskStatus } from "@psych
 import { Search } from "lucide-react";
 import { type ReactElement, type ReactNode, useMemo, useState } from "react";
 import { TASK_STATUS_LABEL } from "../blocks/TaskCard.tsx";
+import { DelayedSkeletons } from "../components/DelayedSkeleton.tsx";
 import { Sparkline } from "../components/sparkline.tsx";
 import {
   StatusGlyph,
@@ -500,14 +501,13 @@ export function MissionControl({
           </div>
         </div>
         {recentList.loading && recentList.runs.length === 0 ? (
-          <div
+          <DelayedSkeletons
             className="flex flex-col gap-1 px-2"
-            role="status"
-            aria-label={t("agent.activity.loading")}
+            label={t("agent.activity.loading")}
           >
             <Skeleton className="h-10" />
             <Skeleton className="h-10" />
-          </div>
+          </DelayedSkeletons>
         ) : recent.length + tasksRecent.length === 0 ? (
           <p className="px-2 py-2 text-body text-label-secondary">
             {query || filter !== "all"

@@ -10,6 +10,7 @@ import {
   useId,
   useState,
 } from "react";
+import { DelayedSkeletons } from "../../components/DelayedSkeleton.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
@@ -227,16 +228,15 @@ export function SectionSkeleton({
   rows?: number;
 }): ReactElement {
   return (
-    <div
-      role="status"
-      aria-label={t("settings.shared.loading", { label })}
+    <DelayedSkeletons
+      label={t("settings.shared.loading", { label })}
       className="flex flex-col gap-3"
     >
       <Skeleton className="h-6 w-48" />
       {Array.from({ length: rows }, (_, i) => `row-${i}`).map((k) => (
         <Skeleton key={k} className="h-16 w-full rounded-lg" />
       ))}
-    </div>
+    </DelayedSkeletons>
   );
 }
 
