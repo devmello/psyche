@@ -107,13 +107,11 @@ export async function runGraphModelPass(
       report.skipped++;
       continue;
     }
-    const facts = graph
-      .facts(entity.id)
-      .map((f) => ({
-        attribute: f.attribute,
-        value: f.value,
-        by: f.provenance === "owner" ? "owner" : "notes",
-      }));
+    const facts = graph.facts(entity.id).map((f) => ({
+      attribute: f.attribute,
+      value: f.value,
+      by: f.provenance === "owner" ? "owner" : "notes",
+    }));
     const corrected = graph.retractedFacts(entity.id).map((f) => `${f.attribute}=${f.value}`);
     const ownerItems = interactions
       .filter((i) => i.direction === "out" || i.direction === "both")
