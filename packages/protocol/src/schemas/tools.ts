@@ -58,6 +58,8 @@ export const ToolCall = Type.Object(
     startedAt: IsoDateTime,
     endedAt: Nullable(IsoDateTime),
     status: ToolCallStatus,
+    /** The run-trace step that shows this call (`stp_…`; run trace §4.2). */
+    stepId: Type.Optional(Id),
   },
   { $id: "ToolCall" },
 );

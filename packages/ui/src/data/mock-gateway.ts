@@ -11,7 +11,9 @@ import {
   type ApprovalRequest,
   type Artifact,
   type Automation,
+  type AutomationRun,
   type BotAuthStatus,
+  buildPsycheTrace,
   type Channel,
   type ChannelIdentity,
   type Connector,
@@ -49,6 +51,9 @@ import {
   PsycheError,
   type Receipt,
   type Run,
+  type RunFrame,
+  type RunStep,
+  type RunSummary,
   requiresIdempotencyKey,
   type SearchHit,
   type SkillDetails,
@@ -58,6 +63,7 @@ import {
   type TaskAction,
   type ThreadListEntry,
   type ToolCall,
+  traceMarkdown,
   type VaultPayment,
   validateEventPayload,
   validateParams,
@@ -139,6 +145,14 @@ export interface MockWorld {
   feedbackEvents: FeedbackEvent[];
   lessons: Lesson[];
   milestones: Milestone[];
+  /** Run-trace steps (`runs.*`, `run.step`); `fixtures/runs.ts` has a world of them. */
+  runSteps?: RunStep[];
+  /** Frames by run id. */
+  runFrames?: Record<string, RunFrame[]>;
+  /** Tool inputs and outputs by `<runId>/<stepId>`. */
+  runPayloads?: Record<string, { input?: unknown; output?: unknown }>;
+  /** Joins automation runs to their agent runs (`runs.list {automationId}`). */
+  automationRuns?: AutomationRun[];
 }
 
 /** The model window the mock reports when a thread has no usage yet. */
@@ -231,6 +245,10 @@ const fakeHash = (text: string): `sha256:${string}` => {
   for (let i = 0; i < text.length; i += 1) h = (h * 31 + text.charCodeAt(i)) >>> 0;
   return `sha256:${h.toString(16).padStart(8, "0").repeat(8)}`;
 };
+
+/** A 1×1 grey PNG: what every mock frame shows. */
+const MOCK_FRAME_PNG =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
 const fail = (code: ErrorCode, message: string): never => {
   throw new PsycheError(code, message);
@@ -519,6 +537,75 @@ export class MockGateway implements GatewayClient {
     this.world.answerTokens[approval.id] = answerToken;
     this.emit("approval.created", { approval, answerToken });
     return approval;
+  }
+
+  /**
+   * Adds or replaces a run-trace step and emits `run.step` (without retained thinking text, as
+   * the Gateway does). Stories script live runs with it.
+   */
+  setStep(step: RunStep): void {
+    const steps = (this.world.runSteps ?? []).filter(
+      (x) => !(x.runId === step.runId && x.id === step.id),
+    );
+    this.world.runSteps = [...steps, step];
+    const { text, ...rest } = step;
+    const sent: RunStep =
+      text === undefined ? rest : { ...rest, text: { ...text, full: undefined } };
+    if (sent.text?.full === undefined && sent.text !== undefined) delete sent.text.full;
+    this.emit("run.step", { runId: step.runId, step: sent });
+  }
+
+  /** Emits each step in order, `intervalMs` apart (a scripted live run). */
+  async playSteps(steps: readonly RunStep[], intervalMs = 400): Promise<void> {
+    for (const step of steps) {
+      this.setStep(step);
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+  }
+
+  private stepsOf(runId: string): RunStep[] {
+    return (this.world.runSteps ?? [])
+      .filter((x) => x.runId === runId)
+      .sort((a, b) => a.seq - b.seq);
+  }
+
+  /** A step as `runs.get` / `runs.steps` return it: retained thinking text is `runs.step`'s. */
+  private listed(step: RunStep): RunStep {
+    if (step.text?.full === undefined) return step;
+    const { full: _full, ...text } = step.text;
+    return { ...step, text };
+  }
+
+  private summary(run: Run): RunSummary {
+    const steps = this.stepsOf(run.id);
+    const current = steps.find((x) => x.id === run.currentStepId);
+    const out: RunSummary = {
+      ...run,
+      ...(current === undefined
+        ? {}
+        : {
+            currentStep: {
+              label: current.label,
+              status: current.status,
+              startedAt: current.startedAt,
+            },
+          }),
+    };
+    const automationId = this.automationOf(run);
+    if (automationId !== undefined) {
+      out.durationsMs = this.world.runs
+        .filter((r) => this.automationOf(r) === automationId && r.endedAt != null)
+        .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+        .slice(0, 10)
+        .map((r) => Date.parse(r.endedAt as string) - Date.parse(r.startedAt));
+    }
+    return out;
+  }
+
+  private automationOf(run: Run): string | undefined {
+    if (run.automationRunId == null) return undefined;
+    return (this.world.automationRuns ?? []).find((a) => a.id === run.automationRunId)
+      ?.automationId;
   }
 
   /** Sets a run's status and emits `run.updated`. */
@@ -911,6 +998,112 @@ export class MockGateway implements GatewayClient {
               )
               .join("\n\n"),
           };
+    },
+
+    "runs.get": (p) => {
+      const run = this.find(this.world.runs, p.runId, "run");
+      return {
+        run,
+        steps: this.stepsOf(run.id)
+          .slice(0, 500)
+          .map((x) => this.listed(x)),
+        children: this.world.runs.filter((r) => r.parentRunId === run.id),
+      };
+    },
+    "runs.steps": (p) => {
+      this.find(this.world.runs, p.runId, "run");
+      const limit = p.limit ?? 500;
+      const after = this.stepsOf(p.runId).filter((x) => x.seq > (p.afterSeq ?? 0));
+      const page = after.slice(0, limit).map((x) => this.listed(x));
+      return {
+        steps: page,
+        nextSeq: after.length > limit ? (page.at(-1)?.seq ?? null) : null,
+      };
+    },
+    "runs.list": (p) => {
+      const limit = p.limit ?? 50;
+      const offset = p.cursor === undefined ? 0 : Number(p.cursor);
+      const all = this.world.runs
+        .filter(
+          (r) =>
+            (p.status === undefined || p.status.includes(r.status)) &&
+            (p.kind === undefined || r.kind === p.kind) &&
+            (p.threadId === undefined || r.threadId === p.threadId) &&
+            (p.taskId === undefined || r.taskId === p.taskId) &&
+            (p.parentRunId === undefined || r.parentRunId === p.parentRunId) &&
+            (p.rootRunId === undefined || r.rootRunId === p.rootRunId) &&
+            (p.since === undefined || r.startedAt >= p.since) &&
+            (p.automationId === undefined || this.automationOf(r) === p.automationId),
+        )
+        .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+      const page = all.slice(offset, offset + limit);
+      return {
+        runs: page.map((r) => this.summary(r)),
+        nextCursor: offset + limit < all.length ? String(offset + limit) : null,
+      };
+    },
+    "runs.children": (p) => ({
+      runs: this.world.runs.filter((r) => r.parentRunId === p.runId).map((r) => this.summary(r)),
+    }),
+    "runs.step": (p) => {
+      const step = this.stepsOf(p.runId).find((x) => x.id === p.stepId);
+      if (step === undefined) fail("not_found", `step ${p.stepId} not found`);
+      const payload = this.world.runPayloads?.[`${p.runId}/${p.stepId}`] ?? {};
+      return {
+        step: step as RunStep,
+        ...(payload.input === undefined ? {} : { input: payload.input }),
+        ...(payload.output === undefined ? {} : { output: payload.output }),
+        truncated: false,
+      };
+    },
+    "runs.frames": (p) => ({
+      frames: (this.world.runFrames?.[p.runId] ?? [])
+        .filter(
+          (f) => (p.stepId === undefined || f.stepId === p.stepId) && f.seq > (p.afterSeq ?? 0),
+        )
+        .slice(0, p.limit ?? 600),
+    }),
+    "runs.frame": (p) => {
+      const frame = (this.world.runFrames?.[p.runId] ?? []).find((f) => f.seq === p.seq);
+      if (frame === undefined) fail("not_found", `frame ${p.seq} not found`);
+      return { mime: "image/png", dataBase64: MOCK_FRAME_PNG };
+    },
+    "runs.export": (p) => {
+      const run = this.find(this.world.runs, p.runId, "run");
+      const input = (r: Run) => {
+        const steps = this.stepsOf(r.id);
+        const payloads: Record<string, { input?: unknown; output?: unknown }> = {};
+        const thinking: Record<string, string> = {};
+        for (const x of steps) {
+          const pl = this.world.runPayloads?.[`${r.id}/${x.id}`];
+          if (pl !== undefined) payloads[x.id] = pl;
+          if (x.text?.full !== undefined) thinking[x.id] = x.text.full;
+        }
+        return { run: r, steps, payloads, thinking };
+      };
+      const trace = buildPsycheTrace({
+        ...input(run),
+        exportedAt: this.now(),
+        children: this.world.runs.filter((r) => r.parentRunId === run.id).map(input),
+        frames: p.includeFrames === true ? (this.world.runFrames?.[run.id] ?? []) : [],
+      });
+      const markdown = p.format === "markdown";
+      const text = markdown ? traceMarkdown(trace) : JSON.stringify(trace, null, 2);
+      return {
+        fileName: `${run.id}.${markdown ? "md" : "psyche-trace.json"}`,
+        mime: markdown ? "text/markdown" : "application/vnd.psyche-trace+json",
+        dataBase64: toBase64(new TextEncoder().encode(text)),
+      };
+    },
+    "runs.delete": (p) => {
+      this.find(this.world.runs, p.runId, "run");
+      this.world.runSteps = (this.world.runSteps ?? []).filter((x) => x.runId !== p.runId);
+      if (this.world.runFrames !== undefined) delete this.world.runFrames[p.runId];
+      const prefix = `${p.runId}/`;
+      for (const k of Object.keys(this.world.runPayloads ?? {})) {
+        if (k.startsWith(prefix)) delete this.world.runPayloads?.[k];
+      }
+      return { ok: true as const };
     },
 
     "tasks.list": (p) => ({

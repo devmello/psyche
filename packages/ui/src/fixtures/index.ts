@@ -2,6 +2,7 @@ import type {
   ApprovalRequest,
   Artifact,
   Automation,
+  AutomationRun,
   BotAuthStatus,
   Channel,
   Connector,
@@ -26,6 +27,8 @@ import type {
   PairingRequest,
   Receipt,
   Run,
+  RunFrame,
+  RunStep,
   SearchHit,
   SkillDetails,
   SkillDraft,
@@ -146,6 +149,11 @@ export interface FixtureWorld {
   feedbackEvents: FeedbackEvent[];
   lessons: Lesson[];
   milestones: Milestone[];
+  /** Run-trace steps, frames, payloads and automation runs (`runTraceWorld()` in fixtures/runs). */
+  runSteps?: RunStep[];
+  runFrames?: Record<string, RunFrame[]>;
+  runPayloads?: Record<string, { input?: unknown; output?: unknown }>;
+  automationRuns?: AutomationRun[];
 }
 
 /** Builds a fresh world; every call returns a deep copy, so callers may mutate freely. */
@@ -206,6 +214,15 @@ export function createFixtureWorld(): FixtureWorld {
   });
 }
 export { FILE_ROOTS, fileRootGrants, fileTree, type MockFileNode } from "./files.ts";
+export {
+  runTraceWorld,
+  TRACE_IDS,
+  traceAutomationRuns,
+  traceFrames,
+  tracePayloads,
+  traceRuns,
+  traceSteps,
+} from "./runs.ts";
 export {
   GREEDY_SKILL_FOLDER,
   type MockSkillSource,

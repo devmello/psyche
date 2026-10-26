@@ -30,6 +30,7 @@ import { PluginsMethods } from "./plugins.ts";
 import { FeedMethods, GoalsMethods, IdeasMethods } from "./proactive.ts";
 import { QuestionsMethods } from "./questions.ts";
 import { ArtifactsMethods, ReceiptsMethods } from "./receipts.ts";
+import { RunsMethods } from "./runs.ts";
 import { SandboxMethods } from "./sandbox.ts";
 import { SearchMethods } from "./search.ts";
 import { SettingsMethods } from "./settings.ts";
@@ -72,6 +73,7 @@ export * from "./plugins.ts";
 export * from "./proactive.ts";
 export * from "./questions.ts";
 export * from "./receipts.ts";
+export * from "./runs.ts";
 export * from "./sandbox.ts";
 export * from "./search.ts";
 export * from "./settings.ts";
@@ -122,6 +124,7 @@ export const Methods = {
   ...GoalsMethods,
   ...VoiceMethods,
   ...VmMethods,
+  ...RunsMethods,
   ...DictationMethods,
   ...AttentionMethods,
   ...SkillsMethods,

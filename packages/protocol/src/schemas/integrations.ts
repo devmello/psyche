@@ -1,5 +1,5 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { Id, IsoDateTime, JsonObject, Nullable, StringEnum } from "../common.ts";
+import { Id, IsoDateTime, JsonObject, Nullable, StringEnum, Usage } from "../common.ts";
 
 /** Data model §6 — metadata mirror only; secrets never cross the protocol. */
 export const CredentialKind = StringEnum(
@@ -416,6 +416,9 @@ export const AutomationRun = Type.Object(
     status: AutomationRunStatus,
     summary: Nullable(Type.String()),
     notificationId: Nullable(Id),
+    /** The agent run that did the work (its trace: `runs.get`). */
+    runId: Nullable(Id),
+    usage: Type.Optional(Usage),
   },
   { $id: "AutomationRun" },
 );
