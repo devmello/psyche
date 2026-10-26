@@ -76,6 +76,12 @@ export const APPLE_APP_ACTIONS: Readonly<Record<string, AppleAppAction>> = {
   "notes.folders": read("apple.notes", "folders"),
   "notes.append": write("apple.notes", "append"),
   "notes.update": write("apple.notes", "update"),
+  // Music and Spotify (wave 1, §4.6; #639). Direct node calls ask for writes like every other
+  // app; the connector's own matrix allows the agent's playback tools by default.
+  "music.now_playing": read("apple.music", "now_playing"),
+  "music.search_library": read("apple.music", "search_library"),
+  "music.control": write("apple.music", "control"),
+  "music.play": write("apple.music", "play"),
   // Contacts (wave 1, docs/connectors/apple-apps-2026.md §4.5; #639).
   "contacts.search": read("apple.contacts", "search"),
   "contacts.read": read("apple.contacts", "read"),

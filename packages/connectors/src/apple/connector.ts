@@ -48,7 +48,7 @@ export interface AppleOptions {
   timeoutMs?: number;
 }
 
-export type AppleApp = "notes" | "reminders" | "calendar" | "mail" | "contacts";
+export type AppleApp = "notes" | "reminders" | "calendar" | "mail" | "contacts" | "music";
 
 /**
  * Catalogue identity per app (#639): Apple apps are `apple:<app>` / `apple-<app>`; Mac apps from
@@ -87,9 +87,12 @@ const LABEL: Record<AppleApp, string> = {
   calendar: "Apple Calendar",
   mail: "Apple Mail",
   contacts: "Apple Contacts",
+  music: "Music (Apple Music and Spotify)",
 };
 
 const DESCRIPTION: Record<AppleApp, string> = {
+  music:
+    "See what's playing in Music or Spotify on your Mac and control it (play, pause, skip, volume, shuffle); search your Music library and play a song, album, artist or playlist.",
   contacts:
     "Look people up in the Contacts app on your Mac by name, email, phone or company; add people and add emails or phone numbers to them.",
   notes:
@@ -102,6 +105,22 @@ const DESCRIPTION: Record<AppleApp, string> = {
 };
 
 const ACTIONS: Record<AppleApp, ConnectorAction[]> = {
+  music: [
+    {
+      id: "music.read",
+      title: "See what's playing and search the library",
+      sideEffect: "read",
+      defaultRule: "allow",
+    },
+    {
+      // Playback stays on the Mac and sends nothing anywhere: allowed by default, still settable.
+      id: "music.control",
+      title: "Play, pause, skip and change the volume",
+      sideEffect: "write",
+      approvalKind: "connector_action",
+      defaultRule: "allow",
+    },
+  ],
   contacts: [
     { id: "contacts.read", title: "Look up contacts", sideEffect: "read", defaultRule: "allow" },
     {
@@ -291,7 +310,65 @@ const contactFields = {
   birthday: { type: "string", pattern: "^(\\d{4}|-)-\\d{2}-\\d{2}$" },
 };
 
+const musicApp = { type: "string", enum: ["music", "spotify"] };
+const musicKind = { type: "string", enum: ["track", "album", "artist", "playlist"] };
+
 const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
+  music: [
+    {
+      name: "music_now_playing",
+      capability: "music.now_playing",
+      action: "music.read",
+      description:
+        "What Music or Spotify is playing now (track, artist, album, position), its state, volume and shuffle. app picks the player; default: whichever is playing.",
+      inputSchema: obj({ app: musicApp }),
+      sideEffect: "read",
+    },
+    {
+      name: "music_control",
+      capability: "music.control",
+      action: "music.control",
+      description:
+        'Control Music or Spotify: play, pause, playpause, next, previous, volume (0–100) or shuffle (true / false), e.g. { action: "pause" }.',
+      inputSchema: obj(
+        {
+          app: musicApp,
+          action: {
+            type: "string",
+            enum: ["play", "pause", "playpause", "next", "previous", "volume", "shuffle"],
+          },
+          volume: { type: "integer", minimum: 0, maximum: 100 },
+          shuffle: { type: "boolean" },
+        },
+        ["action"],
+      ),
+      sideEffect: "write",
+    },
+    {
+      name: "music_search_library",
+      capability: "music.search_library",
+      action: "music.read",
+      description:
+        'Search the owner\'s Music library (not the catalog) for tracks, albums, artists or playlists, best match first. For "play something for focus", look for a fitting playlist, then music_play.',
+      inputSchema: obj(
+        { query: { type: "string", minLength: 1, maxLength: 200 }, kind: musicKind, limit },
+        ["query"],
+      ),
+      sideEffect: "read",
+    },
+    {
+      name: "music_play",
+      capability: "music.play",
+      action: "music.control",
+      description:
+        "Play an item from music_search_library (by its kind and id) in Music, optionally shuffled.",
+      inputSchema: obj({ kind: musicKind, id: { type: "string" }, shuffle: { type: "boolean" } }, [
+        "kind",
+        "id",
+      ]),
+      sideEffect: "write",
+    },
+  ],
   contacts: [
     {
       name: "contacts_search",
@@ -832,6 +909,7 @@ const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
 
 /** The capability every app's connect checks for: the helper offers the adapter. */
 const PROBE: Record<AppleApp, string> = {
+  music: "music.now_playing",
   contacts: "contacts.search",
   notes: "notes.list",
   reminders: "reminders.list_lists",
@@ -882,6 +960,13 @@ const PERMISSION: Record<
     probe: {},
     pane: "Privacy_Reminders",
     path: "System Settings → Privacy & Security → Reminders → Psyche (Helper)",
+  },
+  music: {
+    kind: "automation",
+    target: "com.apple.Music",
+    probe: { app: "music" },
+    pane: "Privacy_Automation",
+    path: "System Settings → Privacy & Security → Automation → Psyche (Helper) → Music",
   },
   contacts: {
     kind: "contacts",
@@ -939,6 +1024,7 @@ export const APPLE_APPS: readonly AppleApp[] = [
   "calendar",
   "mail",
   "contacts",
+  "music",
 ];
 
 export function appleCatalogueEntry(app: AppleApp): CatalogueEntry {
