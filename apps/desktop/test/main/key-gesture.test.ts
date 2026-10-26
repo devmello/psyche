@@ -1,19 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  FN_DOUBLE_TAP_GAP_MS,
-  FN_HOLD_MS,
-  FnGesture,
-  type FnInput,
-  type FnState,
-  fnStep,
-} from "../../src/main/dictation/fn-gesture.ts";
+  KEY_DOUBLE_TAP_GAP_MS,
+  KEY_HOLD_MS,
+  KeyGesture,
+  type KeyInput,
+  type KeyState,
+  keyStep,
+} from "../../src/main/dictation/key-gesture.ts";
 
-describe("fnStep", () => {
-  const run = (inputs: FnInput[]) => {
-    let state: FnState = "idle";
+describe("keyStep", () => {
+  const run = (inputs: KeyInput[]) => {
+    let state: KeyState = "idle";
     const actions: string[] = [];
     for (const i of inputs) {
-      const s = fnStep(state, i);
+      const s = keyStep(state, i);
       state = s.state;
       actions.push(...s.actions);
     }
@@ -49,12 +49,12 @@ describe("fnStep", () => {
   });
 });
 
-describe("FnGesture timing", () => {
+describe("KeyGesture timing", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
   const make = () => {
     const log: string[] = [];
-    const g = new FnGesture({
+    const g = new KeyGesture({
       onHoldStart: () => log.push("start"),
       onHoldEnd: () => log.push("end"),
       onDoubleTap: () => log.push("double"),
@@ -65,7 +65,7 @@ describe("FnGesture timing", () => {
   it("release just under the threshold is a tap", () => {
     const { g, log } = make();
     g.key(true);
-    vi.advanceTimersByTime(FN_HOLD_MS - 1);
+    vi.advanceTimersByTime(KEY_HOLD_MS - 1);
     g.key(false);
     vi.advanceTimersByTime(1000);
     expect(log).toEqual([]);
@@ -73,7 +73,7 @@ describe("FnGesture timing", () => {
   it("hold at the threshold starts dictation", () => {
     const { g, log } = make();
     g.key(true);
-    vi.advanceTimersByTime(FN_HOLD_MS);
+    vi.advanceTimersByTime(KEY_HOLD_MS);
     expect(log).toEqual(["start"]);
     g.key(false);
     expect(log).toEqual(["start", "end"]);
@@ -83,7 +83,7 @@ describe("FnGesture timing", () => {
     g.key(true);
     vi.advanceTimersByTime(100);
     g.key(false);
-    vi.advanceTimersByTime(FN_DOUBLE_TAP_GAP_MS - 1);
+    vi.advanceTimersByTime(KEY_DOUBLE_TAP_GAP_MS - 1);
     g.key(true);
     vi.advanceTimersByTime(100);
     g.key(false);
@@ -94,7 +94,7 @@ describe("FnGesture timing", () => {
     const { g, log } = make();
     g.key(true);
     g.key(false);
-    vi.advanceTimersByTime(FN_DOUBLE_TAP_GAP_MS);
+    vi.advanceTimersByTime(KEY_DOUBLE_TAP_GAP_MS);
     g.key(true);
     g.key(false);
     vi.advanceTimersByTime(1000);
@@ -103,7 +103,7 @@ describe("FnGesture timing", () => {
   it("reset ends a hold in progress", () => {
     const { g, log } = make();
     g.key(true);
-    vi.advanceTimersByTime(FN_HOLD_MS);
+    vi.advanceTimersByTime(KEY_HOLD_MS);
     g.reset();
     expect(log).toEqual(["start", "end"]);
   });
