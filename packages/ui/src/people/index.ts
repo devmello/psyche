@@ -1,3 +1,5 @@
+export { isCurrent, type NameLookup, toEntityView, toSuggestionView } from "./adapt.ts";
+export { ConnectedEntityCard, type ConnectedEntityCardProps } from "./ConnectedEntityCard.tsx";
 export {
   EntityCard,
   type EntityCardActions,
@@ -21,6 +23,7 @@ export {
   ProvenanceGlyph,
   sourceText,
 } from "./glyphs.tsx";
+export { type EntityCardState, useEntityCard, useEntitySearch } from "./hooks.ts";
 export { LoopRow, type LoopRowProps } from "./LoopRow.tsx";
 export {
   type SuggestionAnswer,

@@ -261,7 +261,7 @@ describe("SuggestionCard", () => {
         name: "Is Sam Lee (sam@acme.com) the same as Sam L. (samlee.home@gmail.com)?",
       }),
     ).toBeTruthy();
-    expect(screen.getByText(/You replied to both/)).toBeTruthy();
+    expect(screen.getByText(/you replied to both in one thread/)).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Not the same" }));
     expect(onAnswer).toHaveBeenCalledWith(merge, "reject");
     await user.click(screen.getByRole("button", { name: "Confirm" }));

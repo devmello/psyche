@@ -25,6 +25,7 @@ import { t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
 import { entityDetail } from "../../people/EntityRow.tsx";
 import { EntityMonogram } from "../../people/glyphs.tsx";
+import { useEntitySearch } from "../../people/hooks.ts";
 import type { EntitySummary } from "../../people/types.ts";
 import type { PaletteAction } from "../../shell/CommandPalette.tsx";
 import { isMac } from "../../shell/shortcuts.ts";
@@ -763,8 +764,14 @@ export function useSearchSurface(initialQuery = "", debounceMs = 200, enabled = 
     settledParsed.scopes,
   );
   const hits = useMemo(() => filterHits(search.hits, settledParsed), [search.hits, settledParsed]);
+  // People and projects come first for plain queries; a typed filter (in:, type:, from:) narrows
+  // the search to the index's own scopes.
+  const people = useEntitySearch(settledParsed.text, {
+    enabled: enabled && settledParsed.filters.length === 0,
+  });
   const parsed = useMemo(() => parseSearchQuery(query), [query]);
   return {
+    entities: people.entities,
     query,
     setQuery,
     parsed,

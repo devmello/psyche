@@ -18,26 +18,26 @@ import { AddFactRow, FactRow } from "./FactRow.tsx";
 import { EntityMonogram, INTERACTION_ICON } from "./glyphs.tsx";
 import { LoopRow } from "./LoopRow.tsx";
 import type {
-  GraphEdge,
-  GraphEntity,
-  GraphFact,
+  EdgeView,
+  EntityView,
+  FactView,
   GraphFactAttribute,
-  GraphInteraction,
-  GraphLoop,
   GraphLoopStatus,
+  InteractionView,
+  LoopView,
   ProjectStatus,
 } from "./types.ts";
 
 /** Everything a card can ask its host to do; each is optional, and a missing one hides its control. */
 export interface EntityCardActions {
-  onSetFact?: (entity: GraphEntity, attribute: GraphFactAttribute, value: string) => void;
-  onRetractFact?: (entity: GraphEntity, fact: GraphFact) => void;
-  onUpdateLoop?: (entity: GraphEntity, loop: GraphLoop, status: GraphLoopStatus) => void;
-  onSaveNotes?: (entity: GraphEntity, notes: string) => void;
-  onSetStatus?: (entity: GraphEntity, status: ProjectStatus) => void;
-  onTogglePin?: (entity: GraphEntity) => void;
-  onMerge?: (entity: GraphEntity) => void;
-  onForget?: (entity: GraphEntity) => void;
+  onSetFact?: (entity: EntityView, attribute: GraphFactAttribute, value: string) => void;
+  onRetractFact?: (entity: EntityView, fact: FactView) => void;
+  onUpdateLoop?: (entity: EntityView, loop: LoopView, status: GraphLoopStatus) => void;
+  onSaveNotes?: (entity: EntityView, notes: string) => void;
+  onSetStatus?: (entity: EntityView, status: ProjectStatus) => void;
+  onTogglePin?: (entity: EntityView) => void;
+  onMerge?: (entity: EntityView) => void;
+  onForget?: (entity: EntityView) => void;
   /** Opens another person, org or project's card. */
   onOpenEntity?: (id: string) => void;
   /** Opens a link back to Mail, Calendar or Messages. */
@@ -45,7 +45,7 @@ export interface EntityCardActions {
 }
 
 export interface EntityCardProps extends EntityCardActions {
-  entity: GraphEntity | null;
+  entity: EntityView | null;
   now: number;
   /** Persona name, for the empty-facts hint. */
   persona?: string;
@@ -61,7 +61,7 @@ export interface EntityCardProps extends EntityCardActions {
 }
 
 /** "Person · Acme", "Project · Active". */
-export function kindLine(entity: GraphEntity): string {
+export function kindLine(entity: EntityView): string {
   const kind = t(`people.kind.${entity.kind}`);
   let detail: string | null = null;
   if (entity.kind === "project" && entity.projectStatus)
@@ -79,7 +79,7 @@ function CardHeader({
   entity,
   actions,
 }: {
-  entity: GraphEntity;
+  entity: EntityView;
   actions: EntityCardActions;
 }): ReactElement {
   const hasMenu = actions.onTogglePin || actions.onMerge || actions.onForget;
@@ -131,7 +131,7 @@ function CardHeader({
   );
 }
 
-function Summary({ entity }: { entity: GraphEntity }): ReactElement | null {
+function Summary({ entity }: { entity: EntityView }): ReactElement | null {
   if (!entity.summary) return null;
   return (
     <div className="flex flex-col gap-1">
@@ -155,7 +155,7 @@ function RecentRows({
   limit,
   onOpenLink,
 }: {
-  interactions: readonly GraphInteraction[];
+  interactions: readonly InteractionView[];
   limit: number;
   onOpenLink?: (link: string) => void;
 }): ReactElement {
@@ -176,7 +176,9 @@ function RecentRows({
           >
             <Icon className="size-4 shrink-0 text-label-secondary" aria-hidden="true" />
             <div className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-body text-label-primary">{it.subject}</span>
+              <span className="truncate text-body text-label-primary">
+                {it.subject ?? (it.with.length > 0 ? it.with.join(", ") : app)}
+              </span>
               <span className="text-callout text-label-secondary">
                 {t(`people.recent.${it.direction}`)} · {app} · {formatDate(it.occurredAt)}
               </span>
@@ -207,8 +209,8 @@ function NotesEditor({
   onSave,
   busy,
 }: {
-  entity: GraphEntity;
-  onSave?: (entity: GraphEntity, notes: string) => void;
+  entity: EntityView;
+  onSave?: (entity: EntityView, notes: string) => void;
   busy: boolean;
 }): ReactElement {
   const id = useId();
@@ -246,8 +248,8 @@ function FactRows({
   persona,
   busy,
 }: {
-  entity: GraphEntity;
-  facts: readonly GraphFact[];
+  entity: EntityView;
+  facts: readonly FactView[];
   actions: EntityCardActions;
   persona: string;
   busy: boolean;
@@ -265,12 +267,12 @@ function FactRows({
             busy={busy}
             {...(actions.onSetFact
               ? {
-                  onSet: (f: GraphFact, value: string) =>
+                  onSet: (f: FactView, value: string) =>
                     actions.onSetFact?.(entity, f.attribute, value),
                 }
               : {})}
             {...(actions.onRetractFact
-              ? { onRetract: (f: GraphFact) => actions.onRetractFact?.(entity, f) }
+              ? { onRetract: (f: FactView) => actions.onRetractFact?.(entity, f) }
               : {})}
           />
         ))
@@ -292,7 +294,7 @@ function LoopRows({
   actions,
   busy,
 }: {
-  entity: GraphEntity;
+  entity: EntityView;
   now: number;
   actions: EntityCardActions;
   busy: boolean;
@@ -300,7 +302,7 @@ function LoopRows({
   const shown = entity.loops.filter((l) => l.status !== "dismissed");
   if (shown.length === 0) return <EmptyRow>{t("people.empty.loops")}</EmptyRow>;
   // Open first (overdue and soonest due on top), then suggestions, then done.
-  const rank = (l: GraphLoop) => (l.status === "open" ? 0 : l.status === "suggested" ? 1 : 2);
+  const rank = (l: LoopView) => (l.status === "open" ? 0 : l.status === "suggested" ? 1 : 2);
   const sorted = [...shown].sort(
     (a, b) =>
       rank(a) - rank(b) ||
@@ -318,8 +320,7 @@ function LoopRows({
           hideCounterpart={loop.counterpart?.id === entity.id}
           {...(actions.onUpdateLoop
             ? {
-                onUpdate: (l: GraphLoop, s: GraphLoopStatus) =>
-                  actions.onUpdateLoop?.(entity, l, s),
+                onUpdate: (l: LoopView, s: GraphLoopStatus) => actions.onUpdateLoop?.(entity, l, s),
               }
             : {})}
           {...(actions.onOpenLink ? { onOpenLink: actions.onOpenLink } : {})}
@@ -334,7 +335,7 @@ function EdgeRow({
   edge,
   onOpenEntity,
 }: {
-  edge: GraphEdge;
+  edge: EdgeView;
   onOpenEntity?: (id: string) => void;
 }): ReactElement {
   const content = (
@@ -375,13 +376,13 @@ function CardFrame({
   className,
   children,
 }: {
-  entity: GraphEntity | null;
+  entity: EntityView | null;
   loading: boolean;
   loadingDelayMs: number;
   error: string | null;
   onRetry?: () => void;
   className?: string;
-  children: (entity: GraphEntity) => ReactNode;
+  children: (entity: EntityView) => ReactNode;
 }): ReactElement {
   const showSkeleton = useDelayedFlag(loading && entity === null, loadingDelayMs);
   if (entity === null) {
@@ -555,10 +556,10 @@ export function ProjectCard({
                   fact={nextStep}
                   busy={busy}
                   {...(actions.onSetFact
-                    ? { onSet: (f: GraphFact, v: string) => actions.onSetFact?.(e, f.attribute, v) }
+                    ? { onSet: (f: FactView, v: string) => actions.onSetFact?.(e, f.attribute, v) }
                     : {})}
                   {...(actions.onRetractFact
-                    ? { onRetract: (f: GraphFact) => actions.onRetractFact?.(e, f) }
+                    ? { onRetract: (f: FactView) => actions.onRetractFact?.(e, f) }
                     : {})}
                 />
               ) : (

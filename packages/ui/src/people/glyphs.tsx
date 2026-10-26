@@ -23,7 +23,7 @@ import type {
   GraphEntityKind,
   GraphInteractionKind,
   GraphProvenance,
-  GraphSourceRef,
+  SourceView,
 } from "./types.ts";
 
 /** Up to two initials: "Sam Lee" → "SL", "Acme" → "A". */
@@ -122,7 +122,7 @@ export function ProvenanceGlyph({
  * Where something came from, in words: "Contacts", "mail, Oct 12", "you, Oct 3", or for a claim
  * inside someone else's message "From Sam Lee's mail, Oct 12" (spec §6.5).
  */
-export function sourceText(source: GraphSourceRef | undefined | null, untrusted = false): string {
+export function sourceText(source: SourceView | undefined | null, untrusted = false): string {
   if (!source) return "";
   const name = t(`people.source.${source.kind}`);
   const date = source.at ? formatDate(source.at) : null;

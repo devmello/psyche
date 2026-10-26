@@ -129,6 +129,7 @@ export const people = {
   "people.suggestion.later": "Later",
   "people.suggestion.because": "Because:",
 
+  "people.writeFailed": "Psyche couldn't save that ({reason}). Nothing was changed.",
   "people.loading": "Loading the card",
   "people.error": "Psyche couldn't load this card",
   "people.errorDid": "Nothing was changed.",

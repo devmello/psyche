@@ -3,18 +3,18 @@ import { type ReactElement, useId } from "react";
 import { Button } from "../components/ui/button.tsx";
 import { t } from "../i18n/core.ts";
 import { EvidenceLine } from "../screens/ideas/evidence.tsx";
-import type { GraphSuggestion } from "./types.ts";
+import type { SuggestionView } from "./types.ts";
 
 export type SuggestionAnswer = "accept" | "reject" | "later";
 
 export interface SuggestionCardProps {
-  suggestion: GraphSuggestion;
-  onAnswer?: (suggestion: GraphSuggestion, answer: SuggestionAnswer) => void;
+  suggestion: SuggestionView;
+  onAnswer?: (suggestion: SuggestionView, answer: SuggestionAnswer) => void;
   busy?: boolean;
 }
 
 /** "Sam Lee" or "Sam L. (samlee.home@gmail.com)". */
-function described(e: GraphSuggestion["entities"][number] | undefined): string {
+function described(e: SuggestionView["entities"][number] | undefined): string {
   if (!e) return "";
   return e.detail ? `${e.name} (${e.detail})` : e.name;
 }
@@ -36,7 +36,7 @@ export function SuggestionCard({
         a: described(suggestion.entities[0]),
         b: described(suggestion.entities[1]),
       })
-    : t("people.suggestion.project", { name: suggestion.proposedName ?? "" });
+    : t("people.suggestion.project", { name: suggestion.entities[0]?.name ?? "" });
   return (
     <article
       aria-labelledby={titleId}

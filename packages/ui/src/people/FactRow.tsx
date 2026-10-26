@@ -6,7 +6,7 @@ import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { ProvenanceGlyph, sourceText } from "./glyphs.tsx";
 import { revealOnHover } from "./LoopRow.tsx";
-import type { GraphEntityKind, GraphFact, GraphFactAttribute } from "./types.ts";
+import type { FactView, GraphEntityKind, GraphFactAttribute } from "./types.ts";
 
 /** Attributes the owner may set by hand, per kind (spec §4.3; birthday and relations included). */
 export const OWNER_ATTRIBUTES: Record<"person" | "project", readonly GraphFactAttribute[]> = {
@@ -31,11 +31,11 @@ export function attributesFor(kind: GraphEntityKind): readonly GraphFactAttribut
 }
 
 export interface FactRowProps {
-  fact: GraphFact;
+  fact: FactView;
   /** Saves an owner value; the old fact is superseded, not deleted (spec §6.1). */
-  onSet?: (fact: GraphFact, value: string) => void;
+  onSet?: (fact: FactView, value: string) => void;
   /** "This is wrong": retracts it and records a correction. */
-  onRetract?: (fact: GraphFact) => void;
+  onRetract?: (fact: FactView) => void;
   busy?: boolean;
 }
 
@@ -50,7 +50,7 @@ export function FactRow({ fact, onSet, onRetract, busy = false }: FactRowProps):
   const [draft, setDraft] = useState(fact.value);
   const untrusted = fact.provenance === "untrusted";
   const attribute = t(`people.attr.${fact.attribute}`);
-  const source = sourceText(fact.sources[0], untrusted);
+  const source = sourceText(fact.source, untrusted);
 
   if (editing) {
     return (

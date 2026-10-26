@@ -5,12 +5,12 @@ import { STORY_NOW } from "../stories/harness.tsx";
 import { EntityCard, PersonCard, ProjectCard } from "./EntityCard.tsx";
 import { EntityRow } from "./EntityRow.tsx";
 import { SuggestionCard } from "./SuggestionCard.tsx";
-import type { GraphEntity, GraphLoopStatus } from "./types.ts";
+import type { EntityView, GraphLoopStatus } from "./types.ts";
 
 /** People and projects (docs/memory/people-and-projects-2026.md §6.4, §6.5) on fixtures. */
 
 /** A card whose writes apply locally, so edits, loops and status can be tried in the story. */
-function LiveCard({ initial }: { initial: GraphEntity }): ReactElement {
+function LiveCard({ initial }: { initial: EntityView }): ReactElement {
   const [entity, setEntity] = useState(initial);
   return (
     <EntityCard
@@ -23,12 +23,10 @@ function LiveCard({ initial }: { initial: GraphEntity }): ReactElement {
           facts: [
             {
               id: `fact_${attribute}_${e.facts.length}`,
-              entityId: e.id,
               attribute,
               value,
               provenance: "owner",
-              confidence: 1,
-              sources: [{ kind: "owner", at: new Date(STORY_NOW).toISOString() }],
+              source: { kind: "owner", at: new Date(STORY_NOW).toISOString() },
               recordedAt: new Date(STORY_NOW).toISOString(),
             },
             ...e.facts.filter((f) => f.attribute !== attribute || f.provenance !== "owner"),
@@ -76,6 +74,7 @@ export const PersonEmpty: Story = {
         ...samLee,
         id: "ent_new",
         name: "Priya Shah",
+        pinned: false,
         summary: null,
         facts: [],
         edges: [],
