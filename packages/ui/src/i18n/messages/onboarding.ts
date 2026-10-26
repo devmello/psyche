@@ -58,6 +58,8 @@ export const onboarding = {
   "onboarding.agent.tagline": "Vibe or tagline",
   "onboarding.agent.taglinePlaceholder": "Quiet wings, careful hands.",
   "onboarding.agent.preview": "Preview",
+  "onboarding.language.label": "Language",
+  "onboarding.language.hint": "You can change it later in Settings → Appearance.",
   "onboarding.permission.why.accessibility": "Lets {name} click, type and use apps.",
   "onboarding.permission.why.screenRecording": "Lets {name} see app windows while it works.",
   "onboarding.permission.why.notifications":

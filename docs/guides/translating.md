@@ -2,16 +2,17 @@
 
 This guide is for contributors. It explains how text in the desktop app and the web UI is organised, the rules every UI change follows, and how to add a language.
 
-Psyche ships in English only. Everything a translation needs is in place: a message catalogue, a check that fails on text written straight into the UI, locale-aware formatting, and a layout that works right to left.
+Psyche's text ships in the languages listed in the catalogue registry (`packages/ui/src/i18n/messages/locales/index.ts`), English first. Everything a translation needs is in place: a message catalogue, a check that fails on text written straight into the UI and reports each language's coverage, locale-aware formatting, and a layout that works right to left.
 
 ## For people running Psyche
 
-Settings → Appearance → **Language and region** has two controls:
+Onboarding's first step starts with a **Language** menu, and Settings → Appearance → **Language and region** has three controls:
 
+- **Language**: the language of Psyche's text (`ui.language`). It starts on **Match system**, which picks the catalogue for your region format's language and falls back to English. The menu lists each shipped language by its own name ("Deutsch", "日本語"). A change applies at once. A string a language has not translated yet shows in English.
 - **Region format**: how dates, times and numbers are written. It starts on **System**, which follows the region in macOS System Settings → General → Language & Region (on the web, the browser's language). Pick another region to override it. The example line under the menu shows the result.
 - **Text direction**: **Automatic** follows the language, which is left to right while the text is English. **Right to left** mirrors the layout. It is meant for checking a translation.
 
-The text stays English whichever region you pick, until a catalogue for that language ships.
+Language and region are separate: English text with a German region writes dates the German way, and so on.
 
 ## Where the text lives
 
@@ -42,7 +43,7 @@ import { t } from "../../i18n/core.ts";
 - **Gateway errors:** show `describeError(err)` from `i18n/errors.ts`, not `err.message`.
   - The Gateway writes its messages in English, often with the exact cause. While the text is English, `describeError` shows that message.
   - In any other language it shows the catalogue sentence for the error's code (`errors.<code>`). Errors without a code show `errors.unknown`.
-- **Remounting:** `I18nProvider`, inside `AppearanceProvider`, sets `lang` and `dir` on `<html>`. It remounts the app when the region or direction changes, so nothing keeps stale text.
+- **Remounting:** `I18nProvider`, inside `AppearanceProvider`, sets `lang` and `dir` on `<html>`. It remounts the app when the language, region or direction changes, so nothing keeps stale text.
 
 ## The check
 
@@ -59,6 +60,9 @@ pnpm i18n:check
   - `toast()` messages;
   - user-facing keys in object literals: `label`, `text`, `hint`, `description`, `title`, `placeholder`, `term`, `empty`, `detail` and `did`. These cover option lists, `action={{ label }}`, notices and label records.
 - **An id is missing:** a `t("…")` id isn't in the English catalogue, or no id starts with the prefix of a template id.
+- **A translation is wrong:** a catalogue in `messages/locales/` has an id that `en` doesn't, or a message that isn't valid ICU MessageFormat.
+
+It also prints each language's coverage (`de: 2790/2840 ids translated (warning: 50 fall back to English)`). Missing ids are a warning, not a failure: they fall back to English one by one.
 
 These are exempt:
 - text inside `<code>`, `<kbd>`, `<pre>` and `<samp>`;
@@ -93,10 +97,21 @@ Physical directions remain only where the meaning is physical, such as a macOS t
 
 ## Adding a language
 
-1. Copy the group files you are translating into `packages/ui/src/i18n/messages/<lang>/`, with the same ids. Ids you leave out fall back to English.
-2. Add the language to `MESSAGE_LOCALES` in `i18n/locale.ts`, and its catalogue to `CATALOGUES` in `i18n/core.ts`.
+1. Create `packages/ui/src/i18n/messages/locales/<lang>.ts`, named by the language subtag (`es`, `pt`, `zh`):
+
+   ```ts
+   import type { Catalogue } from "../index.ts";
+
+   export const es: Partial<Catalogue> = {
+     "common.on": "Activado",
+     // …the same ids as `en`
+   };
+   ```
+
+   Ids you leave out fall back to English, one by one.
+2. Register it in `messages/locales/index.ts`: import it and add it to `REGISTRY` after `en`. `MESSAGE_LOCALES`, the onboarding and Settings menus, and the check pick it up from there. Add its native name to `NATIVE_NAMES` in `i18n/locale.ts` if the runtime might not know it.
 3. Keep every `{placeholder}` and every plural or select branch. A plural needs the forms your language uses (`zero`, `one`, `two`, `few`, `many`, `other`).
-4. Run `pnpm --filter @psyche/ui exec vitest run test/i18n.test.tsx`. It parses and formats every message.
-5. Check the app with your region selected. For a right-to-left language, the layout flips on its own; Text direction should stay on Automatic.
+4. Run `pnpm i18n:check` (unknown ids and invalid messages fail; it prints your coverage) and `pnpm --filter @psyche/ui exec vitest run test/i18n.test.tsx`.
+5. Pick the language in Settings → Appearance → Language and region and check the app. For a right-to-left language, the layout flips on its own; Text direction should stay on Automatic.
 
 The desktop's packaging keeps only English in Electron's own resources (`apps/desktop/src/packaging/locales.ts`). Electron's built-in strings, such as the text field context menu, stay English until a language is added there too. The app's region format doesn't depend on that list: it comes from `app.getSystemLocale()`.

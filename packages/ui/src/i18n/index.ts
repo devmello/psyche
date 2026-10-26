@@ -17,13 +17,17 @@ export {
   type Direction,
   type DirectionSetting,
   directionOf,
+  LANGUAGE_SETTING,
   LOCALE_SETTING,
   localeName,
   MESSAGE_LOCALES,
+  type MessageLocale,
   messageLocaleFor,
   OFFERED_LOCALES,
   resolveDirection,
   resolveLocale,
+  resolveMessageLocale,
   runtimeLocale,
 } from "./locale.ts";
 export { type Catalogue, en, type MessageId } from "./messages/index.ts";
+export { CATALOGUES } from "./messages/locales/index.ts";

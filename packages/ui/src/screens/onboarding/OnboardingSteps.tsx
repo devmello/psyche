@@ -6,7 +6,9 @@ import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { Textarea } from "../../components/ui/textarea.tsx";
+import { useSettings } from "../../data/hooks.ts";
 import { activeI18n, t } from "../../i18n/core.ts";
+import { LANGUAGE_SETTING } from "../../i18n/locale.ts";
 import { useCopy } from "../../lib/clipboard.ts";
 import { TCC_LABEL } from "../settings/ComputerUseSection.tsx";
 import {
@@ -15,6 +17,7 @@ import {
   SCOPE_MODE_LABEL,
   type ScopeMode,
 } from "../settings/ConnectorsSection.tsx";
+import { LanguageSelect } from "../settings/LanguageSettings.tsx";
 import { type MacHelperStatus, MacHelperStatusRow } from "../settings/MacHelperStatus.tsx";
 import { RamGuidance, ToolCheckBadge } from "../settings/ModelSection.tsx";
 import { CreaturePicker } from "../settings/PersonaSection.tsx";
@@ -37,6 +40,32 @@ export const DEFAULT_NAME = "Psyche";
 
 // --- 1 Meet your agent ---------------------------------------------------------------------------
 
+/**
+ * The language, first thing in onboarding (A12, #621): written to `ui.language` at once, so the
+ * rest of the flow already reads in it (AppearanceProvider remounts the app on a change).
+ */
+function OnboardingLanguage(): ReactElement {
+  const id = useId();
+  const { settings, set } = useSettings();
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+      <div className="flex min-w-0 flex-col">
+        <Label htmlFor={`${id}-language`}>{t("onboarding.language.label")}</Label>
+        <span id={`${id}-language-hint`} className="text-callout text-label-secondary">
+          {t("onboarding.language.hint")}
+        </span>
+      </div>
+      <LanguageSelect
+        id={`${id}-language`}
+        className="min-w-48"
+        value={settings[LANGUAGE_SETTING]}
+        describedBy={`${id}-language-hint`}
+        onChange={(language) => void set(LANGUAGE_SETTING, language).catch(() => {})}
+      />
+    </div>
+  );
+}
+
 export function MeetStep({
   value,
   onChange,
@@ -50,6 +79,7 @@ export function MeetStep({
   // The avatar at 160 px, the tile grid below it, then name and tagline (redesign §5.9).
   return (
     <div className="flex flex-col gap-6">
+      <OnboardingLanguage />
       <figure
         aria-label={t("onboarding.agent.preview")}
         data-testid="onboarding-preview"

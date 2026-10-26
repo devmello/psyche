@@ -5,7 +5,8 @@ export const settingsLanguage = {
     "The region sets how dates, times, numbers and amounts are written, everywhere in Psyche.",
   "settings.language.language": "Language",
   "settings.language.languageHint":
-    "Psyche's text is in {languages} for now. More languages will follow.",
+    "The language of Psyche's text. Match system follows your region; anything not yet translated shows in English.",
+  "settings.language.languageSystem": "Match system ({name})",
   "settings.language.region": "Region format",
   "settings.language.system": "Match system ({name})",
   "settings.language.preview": "{date} · {time} · {number} · {amount}",
