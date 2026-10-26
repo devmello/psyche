@@ -133,6 +133,8 @@ export interface SchedulingServiceOptions {
   tools: ToolLookup;
   drafts: DraftService;
   proposals?: ProposalService;
+  /** Read-only mode (Settings → Mail & meetings): reads and writes notes, but proposes nothing. */
+  readOnly?: () => boolean;
   timezone: string;
   workingHours?: { start: number; end: number };
   now: () => number;
@@ -153,6 +155,11 @@ export class SchedulingService {
 
   constructor(options: SchedulingServiceOptions) {
     this.#o = options;
+  }
+
+  /** The proposal service, unless the owner turned on read-only: then nothing is proposed. */
+  get #proposals(): ProposalService | undefined {
+    return this.#o.readOnly?.() === true ? undefined : this.#o.proposals;
   }
 
   async #busy(from: number, to: number) {
@@ -203,7 +210,7 @@ export class SchedulingService {
     let holdsProposalId: string | null = null;
     if (
       r.holds === true &&
-      this.#o.proposals !== undefined &&
+      this.#proposals !== undefined &&
       this.#o.tools.get("calendar_create_event") !== undefined &&
       slots.length > 0
     ) {
@@ -217,7 +224,7 @@ export class SchedulingService {
         },
         summary: `Hold ${formatSlot(s, this.#o.timezone)}`,
       }));
-      holdsProposalId = this.#o.proposals.create({
+      holdsProposalId = this.#proposals.create({
         title: `Hold ${slots.length} times`,
         calls,
         createdBy: { job: "mail.schedule" },
@@ -246,11 +253,8 @@ export class SchedulingService {
     }
     const slot = input.slots[i] as Slot;
     let proposalId: string | null = null;
-    if (
-      this.#o.proposals !== undefined &&
-      this.#o.tools.get("calendar_create_event") !== undefined
-    ) {
-      proposalId = this.#o.proposals.create({
+    if (this.#proposals !== undefined && this.#o.tools.get("calendar_create_event") !== undefined) {
+      proposalId = this.#proposals.create({
         title: `Add "${input.title}" ${formatSlot(slot, this.#o.timezone)}`,
         calls: [
           {

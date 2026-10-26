@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
 import type { AgentToolRegistry } from "@psyche/agent-core";
-import { getLibraryItem, getSetting, type PsycheDb } from "@psyche/db";
+import { getLibraryItem, type PsycheDb } from "@psyche/db";
 import type { GraphStore } from "@psyche/memory";
 import {
   type AudioCapture,
@@ -35,6 +35,7 @@ import type { Call, HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 import { mountParamsOnly } from "./handlers.ts";
 import { ClientAudioCapture } from "./meeting-capture.ts";
+import { assertNotesAllowed, notesRefusal, workflowSettings } from "./workflow-settings.ts";
 
 /**
  * Post-meeting notes and "Record meeting" (docs/workflows/mail-and-meetings-2026.md §4.6), and
@@ -46,7 +47,7 @@ import { ClientAudioCapture } from "./meeting-capture.ts";
  */
 
 /** The owner's one-time permission to send meeting transcripts to a cloud model. */
-export const NOTES_CLOUD_SETTING = "meetings.notes.cloudAllowed";
+export const NOTES_CLOUD_SETTING = "meetings.notes.cloudSummary";
 
 const AUDIO_MIME: Record<string, string> = {
   ".m4a": "audio/mp4",
@@ -115,7 +116,10 @@ export function composeMeetings(setup: MeetingsSetup): ComposedMeetings {
     primary: setup.primary,
     utility: setup.utility,
     ownerAddresses: setup.ownerAddresses,
-    cloudAllowed: () => getSetting(db, NOTES_CLOUD_SETTING)?.value === true,
+    cloudAllowed: () => workflowSettings(db).notes.cloudSummary,
+    readOnly: () => workflowSettings(db).readOnly,
+    tasksApp: () => workflowSettings(db).notes.tasksApp,
+    recapDraftDefault: () => workflowSettings(db).notes.recapDraft,
     ...(setup.primaryIsRemote === undefined ? {} : { primaryIsRemote: setup.primaryIsRemote }),
     ...(setup.transcriber === undefined ? {} : { transcriber: setup.transcriber }),
     ...(setup.proposals === undefined ? {} : { proposals: setup.proposals }),
@@ -131,6 +135,8 @@ export function composeMeetings(setup: MeetingsSetup): ComposedMeetings {
     notes,
     clock: setup.clock,
     capture: () => setup.capture?.() ?? (transcriberUp() ? device : undefined),
+    consentLine: () => workflowSettings(db).notes.consentLine ?? CONSENT_LINE,
+    allowed: () => notesRefusal(workflowSettings(db)),
     push: (seq, pcm) => device.push(seq, pcm),
     existingItem: (id) => getLibraryItem(db, id),
     publish: (status) => setup.publish("meetings.recording.updated", status),
@@ -143,6 +149,7 @@ export function composeMeetings(setup: MeetingsSetup): ComposedMeetings {
       title?: string;
       speakers?: RecordingSpeakers;
     }): Promise<MeetingNotesResult> => {
+      assertNotesAllowed(workflowSettings(db));
       const item = getLibraryItem(db, p.libraryItemId);
       if (item === undefined) {
         throw new PsycheError("not_found", `library item ${p.libraryItemId} not found`);
@@ -217,6 +224,10 @@ export interface RecordMeetingOptions {
   existingItem?: (id: string) => LibraryItem | undefined;
   /** Chunks stop for this long and the recording ends (default 2 minutes). */
   idleMs?: number;
+  /** The consent line shown before every start (Settings; default `CONSENT_LINE`). */
+  consentLine?: () => string;
+  /** Why recording is off right now (paused, notes off), or `undefined` when it may run. */
+  allowed?: () => string | undefined;
   publish: (status: MeetingRecordingStatus) => void;
   logger?: Logger;
 }
@@ -235,9 +246,9 @@ export class RecordMeeting {
   status(): MeetingRecordingStatus {
     const a = this.#active;
     return {
-      available: this.#o.capture() !== undefined,
+      available: this.#o.capture() !== undefined && this.#o.allowed?.() === undefined,
       recording: a !== null,
-      consentLine: CONSENT_LINE,
+      consentLine: this.#o.consentLine?.() ?? CONSENT_LINE,
       startedAt: a?.startedAt ?? null,
       meetingId: a?.meetingId ?? null,
       ...(this.#last === undefined ? {} : { last: { ...this.#last } }),
@@ -255,6 +266,8 @@ export class RecordMeeting {
       );
     }
     if (this.#active !== null) throw new PsycheError("conflict", "a recording is already running");
+    const off = this.#o.allowed?.();
+    if (off !== undefined) throw new PsycheError("forbidden", off);
     const capture = this.#o.capture();
     if (capture === undefined) {
       throw new PsycheError(

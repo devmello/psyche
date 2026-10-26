@@ -20,6 +20,7 @@ import { ClientAudioCapture } from "../src/compose/meeting-capture.ts";
 import { composeMeetings, graphPrepHooks, RecordMeeting } from "../src/compose/meetings.ts";
 import { GRAPH_SETTING } from "../src/compose/people.ts";
 import { FsAudioLibrary, libraryTranscripts } from "../src/compose/speech.ts";
+import { pausable } from "../src/compose/workflow-settings.ts";
 import type { HandlerDef } from "../src/context.ts";
 import { silentLogger } from "../src/log.ts";
 
@@ -66,6 +67,8 @@ async function compose(provider = new FakeModelProvider()): Promise<ComposedGate
     config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
     model: { provider, model: "fake/model" },
   });
+  // Meeting notes are off until the owner turns them on (Settings → Mail & meetings).
+  setSetting(composed.db, "meetings.notes.enabled", true);
   return composed;
 }
 
@@ -611,5 +614,192 @@ describe("graph-aware meeting prep (§4.5)", () => {
     const hooks = graphPrepHooks(() => undefined);
     expect(await hooks.person("dana@client.example")).toBeUndefined();
     expect(await hooks.loops(["dana@client.example"])).toEqual([]);
+  });
+});
+
+describe("Settings → Mail & meetings are honoured (§7.3)", () => {
+  const call = (r: ReturnType<typeof notesRig>, name: string, params: unknown) =>
+    run(r.meetings.handlers[name], params, "dev1");
+
+  async function libraryRecording(c: ComposedGateway) {
+    return insertLibraryItem(c.db, {
+      kind: "audio",
+      name: "Acme kickoff.m4a",
+      mime: "audio/mp4",
+      path: "audio/acme.m4a",
+      size: 8,
+      sha256: "sha256:00",
+      origin: "upload",
+      createdAt: iso(NOW - 45 * MIN),
+    });
+  }
+
+  const mailSearch = () =>
+    defineTool({
+      name: "mail_search",
+      description: "Search mail",
+      input: Type.Object({}, { additionalProperties: true }),
+      sideEffect: "none",
+      run: async () => ({ output: { messages: [] }, provenance: "untrusted" }),
+    });
+
+  it("notes and Record meeting are refused while notes are off or the workflows are paused", async () => {
+    const provider = new FakeModelProvider();
+    const c = await compose(provider);
+    const r = notesRig(c, provider, 20);
+    const item = await libraryRecording(c);
+
+    setSetting(c.db, "meetings.notes.enabled", false);
+    await expect(
+      call(r, "meetings.notes.create", { libraryItemId: item.id }),
+    ).rejects.toMatchObject({
+      code: "forbidden",
+      message: expect.stringContaining("Meeting notes are off"),
+    });
+    expect(r.meetings.record.status().available).toBe(false);
+    await expect(
+      call(r, "meetings.record.start", { consentConfirmed: true }),
+    ).rejects.toMatchObject({ code: "forbidden" });
+
+    setSetting(c.db, "meetings.notes.enabled", true);
+    setSetting(c.db, "workflows.paused", true);
+    await expect(
+      call(r, "meetings.notes.create", { libraryItemId: item.id }),
+    ).rejects.toMatchObject({ message: expect.stringContaining("paused") });
+    expect(r.meetings.record.status().available).toBe(false);
+
+    setSetting(c.db, "workflows.paused", false);
+    expect(r.meetings.record.status().available).toBe(true);
+    const out = (await call(r, "meetings.notes.create", { libraryItemId: item.id })) as {
+      status: string;
+    };
+    expect(out.status).toBe("done");
+  });
+
+  it("read-only keeps the notes but proposes no reminders", async () => {
+    const provider = new FakeModelProvider();
+    const c = await compose(provider);
+    const r = notesRig(c, provider, 20);
+    setSetting(c.db, "workflows.readOnly", true);
+    const item = await libraryRecording(c);
+    const out = (await call(r, "meetings.notes.create", { libraryItemId: item.id })) as {
+      status: string;
+      remindersProposalId: string | null;
+      notes: { actionItems: unknown[] };
+    };
+    expect(out.status).toBe("done");
+    expect(out.notes.actionItems).toHaveLength(2);
+    expect(out.remindersProposalId).toBeNull();
+  });
+
+  it("action items go to the app the owner chose", async () => {
+    const provider = new FakeModelProvider();
+    const c = await compose(provider);
+    const r = notesRig(c, provider, 20);
+    c.loop.registry.register(
+      defineTool({
+        name: "things_add",
+        description: "Add a to-do",
+        input: Type.Object({}, { additionalProperties: true }),
+        sideEffect: "write",
+        run: async () => ({ output: { id: "t1" }, provenance: "trusted" }),
+      }),
+    );
+    setSetting(c.db, "meetings.notes.tasksApp", "things");
+    const item = await libraryRecording(c);
+    const out = (await call(r, "meetings.notes.create", { libraryItemId: item.id })) as {
+      remindersProposalId: string;
+    };
+    const proposal = await c.proactive.proposals?.get(out.remindersProposalId);
+    expect(proposal?.calls.map((x) => x.tool)).toEqual(["things_add"]);
+  });
+
+  it("shows the owner's consent line, and the default when it is empty", async () => {
+    const provider = new FakeModelProvider();
+    const c = await compose(provider);
+    const r = notesRig(c, provider, 20);
+    expect(r.meetings.record.status().consentLine).toMatch(/recording this meeting/);
+    setSetting(c.db, "meetings.notes.consentLine", "  I'm recording this for my notes. OK?  ");
+    expect(r.meetings.record.status().consentLine).toBe("I'm recording this for my notes. OK?");
+    setSetting(c.db, "meetings.notes.consentLine", "   ");
+    expect(r.meetings.record.status().consentLine).toMatch(/recording this meeting/);
+  });
+
+  it("re-syncs the digest's time and days, the mail check cadence and each switch", async () => {
+    const c = await compose();
+    const find = async (title: string) => (await c.scheduler.list()).find((a) => a.title === title);
+    expect(await find("Inbox digest")).toMatchObject({ schedule: "30 7 * * 1-5", enabled: false });
+    expect(await find("Check for new mail")).toMatchObject({ schedule: "PT10M" });
+
+    setSetting(c.db, "mail.digest.enabled", true);
+    setSetting(c.db, "mail.digest.time", "09:05");
+    setSetting(c.db, "mail.digest.days", "everyday");
+    setSetting(c.db, "mail.poll.activeMin", 2);
+    setSetting(c.db, "meetings.prep.enabled", true);
+    setSetting(c.db, "mail.voice.enabled", true);
+    await c.proactive.syncWorkflowSchedules();
+    expect(await find("Inbox digest")).toMatchObject({ schedule: "5 9 * * *", enabled: true });
+    expect(await find("Check for new mail")).toMatchObject({ schedule: "PT2M" });
+    expect(await find("Meeting prep")).toMatchObject({ enabled: true });
+    expect(await find("Learn my writing style")).toMatchObject({ enabled: true });
+
+    // A time that is not a time falls back to the default instead of breaking the job.
+    setSetting(c.db, "mail.digest.time", "25:99");
+    setSetting(c.db, "mail.digest.days", "weekdays");
+    await c.proactive.syncWorkflowSchedules();
+    expect(await find("Inbox digest")).toMatchObject({ schedule: "30 7 * * 1-5" });
+  });
+
+  it("a paused job stands still and says why", async () => {
+    let ran = 0;
+    let paused = true;
+    const job = pausable(
+      {
+        name: "x",
+        matches: () => true,
+        run: async () => {
+          ran += 1;
+          return { status: "done", summary: "ran" };
+        },
+      },
+      () => paused,
+    );
+    expect(await job.run({} as never)).toEqual({
+      status: "no_reply",
+      summary: "paused in Settings",
+    });
+    expect(ran).toBe(0);
+    paused = false;
+    expect((await job.run({} as never)).summary).toBe("ran");
+  });
+
+  it("posts the upgrade card once, only on an upgraded install with Mail connected", async () => {
+    const c = await compose();
+    // `compose` turned meeting notes on for the other tests; this install never touched Settings.
+    c.db.sqlite.prepare("DELETE FROM settings WHERE key = 'meetings.notes.enabled'").run();
+    const posts = () =>
+      c.proactive.feed.store
+        .list()
+        .posts.filter((p) => p.reasons.includes("new: mail and meetings"));
+    // A new install that has not finished onboarding, or has no Mail, gets nothing.
+    await c.proactive.offerWorkflowsOnUpgrade();
+    setSetting(c.db, "ui.onboarding.completedAt", "2026-09-01T00:00:00.000Z");
+    await c.proactive.offerWorkflowsOnUpgrade();
+    expect(posts()).toHaveLength(0);
+    c.loop.registry.register(mailSearch());
+    await c.proactive.offerWorkflowsOnUpgrade();
+    await c.proactive.offerWorkflowsOnUpgrade();
+    expect(posts()).toHaveLength(1);
+    expect(posts()[0]?.kind).toBe("suggestion");
+    expect(posts()[0]?.bodyMd).toMatch(/Settings → Mail & meetings/);
+  });
+
+  it("an install that already answered the onboarding mail step gets no upgrade card", async () => {
+    const c = await compose();
+    setSetting(c.db, "ui.onboarding.completedAt", "2026-09-01T00:00:00.000Z");
+    setSetting(c.db, "mail.digest.enabled", true);
+    c.loop.registry.register(mailSearch());
+    await c.proactive.offerWorkflowsOnUpgrade();
+    expect(c.proactive.feed.store.list().posts.some((p) => p.kind === "suggestion")).toBe(false);
   });
 });
