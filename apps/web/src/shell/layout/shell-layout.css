@@ -150,6 +150,16 @@
   background: transparent;
   border-bottom: 0;
 }
+/* The inset toggle: after the screens in the tree so its no-drag region wins over their toolbars. */
+.app-frame[data-chrome="inset"] > .titlebar-toggle {
+  position: absolute;
+  top: 0;
+  z-index: 31;
+  display: flex;
+  align-items: center;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
 /* The window title stays native (Mission Control, the Window menu); the strip shows no text. */
 .app-frame[data-chrome="inset"] > .titlebar .title,
 .app-frame[data-chrome="inset"] > .titlebar .title-fork {
