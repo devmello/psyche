@@ -229,6 +229,7 @@ export const ko: Partial<Catalogue> = {
   "blocks.card.status":
     "{status, select, pending {대기 중} running {실행 중} waiting {기다리는 중} done {완료} failed {실패} blocked {차단됨} cancelled {취소됨} other {{status}}}{warning, select, yes {, 결과 불확실} other {}}",
   "blocks.card.unknown": "Psyche에서 아직 이 유형의 항목을 표시할 수 없습니다({type}).",
+  "specialists.block.label": "{role} 결과: {title}",
   "blocks.toolView.show": "결과 보기",
   "blocks.toolView.loading": "결과를 불러오는 중…",
   "blocks.toolView.none": "이 작업의 결과는 보관되지 않습니다.",

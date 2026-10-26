@@ -23,6 +23,9 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 - `ArtifactType` gains `chart`, `diagram` and `diff` (appended). `html` already existed; it joins them behind the sandbox in a later PR.
 - New `ArtifactChart` (the `chart` artifact's JSON content: `{kind: bar | line | area | pie, categories, series[], …}`, rendered by the client, never model JS) and the `ArtifactOp` variant `patch {patch}` (JSON merge patch onto a chart spec).
 - `diagram` content is Mermaid text and `diff` content a unified diff; both take the text ops. Swift enums regenerate; no hand-written switch sites.
+### v1 additive — 2026-10-26 (U, #672: one source for the mail and meeting setting defaults)
+
+- New plain export `MAIL_MEETING_SETTING_DEFAULTS` (and `MailMeetingSettingKey`): the value each `mail.*`, `meetings.*` and `workflows.*` setting has when unset. The Gateway and Settings → Mail & meetings both read it. No schema, method or event changes, so nothing to regenerate.
 ### v1 breaking, signed off by the integrator — 2026-10-26 (S17: remove text-to-speech, #691 / #693)
 
 The owner removed all text-to-speech: voice is speech to text into the ask panel, and answers are text. Nothing in the repo calls any of the following any more (the consumers were removed first: UI #836, helper #839, speech/Gateway #848).

@@ -230,6 +230,7 @@ export const hi: Partial<Catalogue> = {
   "blocks.card.status":
     "{status, select, pending {लंबित} running {चल रहा है} waiting {प्रतीक्षा में} done {हो गया} failed {विफल} blocked {अवरुद्ध} cancelled {रद्द} other {{status}}}{warning, select, yes {, परिणाम अनिश्चित} other {}}",
   "blocks.card.unknown": "Psyche अभी इस प्रकार का आइटम नहीं दिखा सकता ({type})।",
+  "specialists.block.label": "{role} का परिणाम: {title}",
   "blocks.toolView.show": "परिणाम दिखाएँ",
   "blocks.toolView.loading": "परिणाम लोड हो रहा है…",
   "blocks.toolView.none": "इस कार्रवाई का परिणाम सहेजा नहीं गया है।",

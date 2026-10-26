@@ -17,6 +17,7 @@ import { t } from "../i18n/core.ts";
 import { displaySummary } from "../lib/cards.ts";
 import { fade, motionSpring, Presence, spring } from "../motion/index.ts";
 import { usePersona, useSlots } from "../slots.tsx";
+import { SpecialistResultBlockView } from "../specialists/SpecialistResultBlock.tsx";
 import { ReceiptFeedback } from "../teaching/ReceiptFeedback.tsx";
 import { LearnedLine, TaughtLine } from "../teaching/TaughtLine.tsx";
 import { focusApproval } from "./ApprovalCard.tsx";
@@ -352,6 +353,9 @@ registerBlock("taught", {
       statement={block.statement}
     />
   ),
+});
+registerBlock("specialist_result", {
+  View: ({ block }) => <SpecialistResultBlockView taskId={block.taskId} />,
 });
 // Folded into runs above, and drawn by MessageView as a system notice.
 registerBlock("tool_call", { View: () => null });

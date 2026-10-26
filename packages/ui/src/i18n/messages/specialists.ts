@@ -59,6 +59,7 @@ export const specialists = {
   "specialists.action.timeline": "Timeline",
   "specialists.action.open": "Open",
   "specialists.action.hide": "Hide",
+  "specialists.block.label": "{role} result: {title}",
   "specialists.retryFailed": "Psyche couldn't retry {title}: {reason}",
 
   // The parent thread's line at spawn (§6.1, §4.4 pre-flight).
