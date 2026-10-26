@@ -272,6 +272,24 @@
 }
 
 @layer utilities {
+  /*
+    A short label that must fit its box (tile and chart labels): balanced lines, and CJK breaks at
+    phrase boundaries, never in the middle of a word (ja/zh: strict line-breaking, phrase breaks
+    where the engine supports auto-phrase; ko: breaks at spaces only). Latin text is unchanged
+    apart from the balancing.
+  */
+  .label-fit {
+    text-wrap: balance;
+    overflow-wrap: break-word;
+  }
+  .label-fit:lang(ja),
+  .label-fit:lang(zh) {
+    line-break: strict;
+    word-break: auto-phrase;
+  }
+  .label-fit:lang(ko) {
+    word-break: keep-all;
+  }
   /* Chrome glass (§3.4): composer, popovers, menus, palette, sheets. Never stacked. */
   .material-glass {
     background-color: var(--material-glass);

@@ -11,7 +11,13 @@ import type { MessageId } from "../i18n/index.ts";
 import { usePersona } from "../slots.tsx";
 import { type OverviewLink, recentLink, routeLink, sectionLink } from "./overviewLinks.ts";
 import { type OverviewPeriod, overviewHref } from "./period.ts";
-import { DelayedSkeleton, LoadFailed, useSectionStatus } from "./SectionState.tsx";
+import {
+  DelayedSkeleton,
+  DIM_WHILE_REVALIDATING,
+  LoadFailed,
+  useLastDefined,
+  useSectionStatus,
+} from "./SectionState.tsx";
 import {
   approvalsDecided,
   automationSpark,
@@ -42,9 +48,17 @@ export function OverviewSummary({ period, onNavigate }: OverviewSummaryProps): R
   const status = useSectionStatus("summary", [
     { ...insights, has: insights.data !== undefined, key: period },
   ]);
+  // The previous period's sentence and tiles stay up (dimmed) while the new period loads.
+  const data = useLastDefined(insights.data);
   return (
-    <section aria-label={i18n.t("overview.summary.label")} data-testid="overview-summary">
-      {insights.data === undefined ? (
+    <section
+      aria-label={i18n.t("overview.summary.label")}
+      data-testid="overview-summary"
+      data-revalidating={status.revalidating ? "true" : "false"}
+      aria-busy={status.revalidating ? "true" : undefined}
+      className={DIM_WHILE_REVALIDATING}
+    >
+      {data === undefined ? (
         status.phase === "error" ? (
           <LoadFailed onRetry={status.reload} />
         ) : (
@@ -53,7 +67,7 @@ export function OverviewSummary({ period, onNavigate }: OverviewSummaryProps): R
       ) : (
         <SummaryBody
           period={period}
-          insights={insights.data}
+          insights={data}
           growth={growth.data?.summary}
           growthState={growth.error === null ? (growth.loading ? "loading" : "ready") : "error"}
           onRetryGrowth={growth.reload}

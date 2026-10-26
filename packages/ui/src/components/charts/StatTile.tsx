@@ -71,7 +71,7 @@ export function StatTile({
   const name = i18n.t("charts.tile.name", { label, value: number, delta: words }).trim();
   const body = (
     <>
-      <span className="block text-caption text-label-secondary">{label}</span>
+      <span className="label-fit block text-caption text-label-secondary">{label}</span>
       <span className="block text-title-1 text-label-primary tabular-nums">{number}</span>
     </>
   );
