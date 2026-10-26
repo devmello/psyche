@@ -78,6 +78,7 @@ import { resolveConfig } from "../config.ts";
 import type { HandlerDef } from "../context.ts";
 import type { PublicRoute, WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
+import { taskRunTrace } from "../run-trace/tasks.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
 import { attentionHandlers, OwnerAttention, parkWhenUnwatched } from "./attention.ts";
@@ -558,7 +559,18 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     audit,
     flush: { provider, model: utility ?? modelRef },
     onEvent: (e) => {
-      publish(e.event, e.payload as never);
+      if (e.event === "memory.file.changed") {
+        // Run trace §4.2: the writing call becomes the trace step; the call id stays internal.
+        const { toolCallId, ...payload } = e.payload;
+        const sink = gatewayRef?.context.runTrace;
+        const stepId =
+          payload.runId === undefined || toolCallId === undefined
+            ? undefined
+            : sink?.memoryChanged(payload.runId, toolCallId, payload.path);
+        publish(e.event, { ...payload, ...(stepId === undefined ? {} : { stepId }) });
+      } else {
+        publish(e.event, e.payload as never);
+      }
       people?.onMemoryEvent(e);
     },
   });
@@ -599,7 +611,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     publish: (event, payload) => publish(event, payload as never),
     register: (tool) => registry.register(tool),
     // Tests drive `people.poll()` by hand.
-    ...(background ? {} : { pollIntervalMs: 0 }),
+    ...(background ? {} : { pollIntervalMs: 0, afterRunDelayMs: 0 }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
   const calls = new CallContexts();
@@ -859,6 +871,18 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     notifier,
     tools: registry,
     ...(taskPollMs === undefined ? {} : { pollMs: taskPollMs }),
+    // Run trace §4.2: each task turn is its own run (ULID), recorded like a chat turn.
+    newRunId: () => db.newId(),
+    trace: taskRunTrace({
+      db,
+      sink: () => gatewayRef?.context.runTrace,
+      publish,
+      modelRef,
+      onError: (err) =>
+        gwOptions.logger?.log("warn", "task run trace failed", {
+          code: PsycheError.from(err).code,
+        }),
+    }),
     // Specialist jobs run in their own pool, so they never take the chat tasks' slots.
     claim: { excludeOrigins: ["subagent"] },
   });
@@ -873,6 +897,18 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     tools: registry,
     owner: "specialist",
     concurrency: specialistSlots(),
+    // Specialist runs are child runs in the trace, recorded like any task turn (run trace §4.2).
+    newRunId: () => db.newId(),
+    trace: taskRunTrace({
+      db,
+      sink: () => gatewayRef?.context.runTrace,
+      publish,
+      modelRef,
+      onError: (err) =>
+        gwOptions.logger?.log("warn", "specialist run trace failed", {
+          code: PsycheError.from(err).code,
+        }),
+    }),
     ...(taskPollMs === undefined ? {} : { pollMs: taskPollMs }),
     claim: { origins: ["subagent"], perParentLimit: 2 },
   });

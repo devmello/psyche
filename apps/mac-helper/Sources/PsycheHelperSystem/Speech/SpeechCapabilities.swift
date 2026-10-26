@@ -20,7 +20,8 @@ public enum SpeechCapabilities {
         fileRoots: (@Sendable () -> FinderRoots)? = nil,
         synthesis: any SynthesisBackend = LiveSynthesisBackend(),
         timings: SpeechTimings = SpeechTimings(),
-        transcriptionEngine: (@Sendable (TranscribeRequest) async throws -> any TranscriptionEngine)? = nil
+        transcriptionEngine: (@Sendable (TranscribeRequest) async throws -> any TranscriptionEngine)? = nil,
+        personalVoice: any PersonalVoiceAuthorizer = LivePersonalVoiceAuthorizer()
     ) -> [any CapabilityHandler] {
         let preflight = preflight ?? SpeechPermissionPreflight()
         let fileBackend = fileBackend ?? LiveLongFormBackend(preflight: preflight)
@@ -138,6 +139,20 @@ public enum SpeechCapabilities {
                 let started = clock.now
                 let voice = try await synthesis.prepare(voice: p.voice, language: p.language, keepWarmMs: p.keepWarmMs ?? SpeechPrepareParams.defaultKeepWarmMs)
                 return CapabilityOutput(["voice": .string(voice.id), "prepared": true, "prepareMs": .int(elapsedMs(started, clock.now))])
+            },
+
+            Capability(CapabilitySpec(
+                name: "speech.personal_voice.authorize",
+                description: "Ask macOS for Personal Voice authorization. Only on an explicit owner action (Settings); it prompts once, while nothing is decided, and otherwise answers with the current status. Personal Voice output is for personal, non-commercial use.",
+                sideEffect: .write,
+                inputSchema: Schema.object([:]),
+                receiptKind: "permission_request"
+            )) { _ in
+                let before = personalVoice.status()
+                let prompted = PersonalVoiceAuth.shouldPrompt(before)
+                let status = prompted ? await personalVoice.request() : before
+                let receipt = ReceiptDraft(outcome: .ok, summary: prompted ? "Asked macOS for Personal Voice: \(status)" : "Personal Voice is \(status); macOS was not asked again")
+                return CapabilityOutput(PersonalVoiceAuth.result(status: status, prompted: prompted), receipt: receipt)
             },
 
             Capability(CapabilitySpec(

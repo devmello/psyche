@@ -248,9 +248,8 @@ describe("Settings → People & projects", () => {
     const mail = await screen.findByRole("switch", { name: "Mail" });
     expect(mail.getAttribute("aria-checked")).toBe("true");
     expect(screen.getByText(/86 people and projects · 1,240 interactions · read at/)).toBeTruthy();
-    expect(screen.getByRole("switch", { name: "Messages" }).getAttribute("aria-checked")).toBe(
-      "false",
-    );
+    // Messages is not read in v1 (#763): no switch for it.
+    expect(screen.queryByRole("switch", { name: "Messages" })).toBeNull();
     expect(await screen.findByText(/Tonight: 41,200 of 150,000 tokens/)).toBeTruthy();
     expect(
       screen.getByText(/Suggested loops you kept: Mail 14 of 17, Your chats 6 of 6/),
