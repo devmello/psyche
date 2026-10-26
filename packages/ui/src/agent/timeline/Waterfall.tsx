@@ -376,7 +376,13 @@ export function Waterfall({
                         {(row.step?.attempt ?? 1) > 1 ? (
                           <span
                             className="absolute top-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-fill-secondary px-1.5 text-subheadline text-label-secondary"
-                            style={{ insetInlineStart: scale.x(row.end ?? playhead ?? now) + 6 }}
+                            style={{
+                              // Beside the bar's end, or inside the track's end when there's no room.
+                              insetInlineStart: Math.min(
+                                scale.x(row.end ?? playhead ?? now) + 6,
+                                trackPx - 76,
+                              ),
+                            }}
                           >
                             {t("agent.timeline.attempt", { n: row.step?.attempt ?? 1 })}
                           </span>

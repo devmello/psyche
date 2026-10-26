@@ -131,20 +131,11 @@ export function TimelineView({
   const clock = useTicker(running && fixedNow === undefined);
   const now = fixedNow ?? clock;
 
-  const rootRef = useRef<HTMLElement | null>(null);
   const gridRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
   const inspectorRef = useRef<HTMLElement | null>(null);
-  const [width, setWidth] = useState(0);
-  useEffect(() => {
-    const el = rootRef.current;
-    if (!el || typeof ResizeObserver !== "function") return;
-    const ro = new ResizeObserver(() => setWidth(el.clientWidth));
-    ro.observe(el);
-    setWidth(el.clientWidth);
-    return () => ro.disconnect();
-  }, []);
+  const [width, rootRef] = useElementWidth();
 
   const [mode, setMode] = useState<TimelineMode>("waterfall");
   const [selectedId, setSelectedId] = useState<string | null>(initialStepId ?? null);
@@ -443,13 +434,7 @@ export function TimelineView({
 
   if (run === null) {
     return (
-      <div
-        ref={(el) => {
-          rootRef.current = el;
-        }}
-        className="flex flex-col gap-2 p-1"
-        data-testid="timeline"
-      >
+      <div ref={rootRef} className="flex flex-col gap-2 p-1" data-testid="timeline">
         {onBack ? <BackButton onBack={onBack} /> : null}
         {error ? (
           <p role="alert" className="text-body text-label-secondary">
@@ -659,6 +644,25 @@ export function TimelineView({
       />
     </section>
   );
+}
+
+/**
+ * The element's width, kept current with a ResizeObserver that follows the element: the loading
+ * state and the loaded Timeline are different elements, so a mount-only effect would miss it.
+ */
+function useElementWidth(): [number, (el: HTMLElement | null) => void] {
+  const [width, setWidth] = useState(0);
+  const observer = useRef<ResizeObserver | null>(null);
+  const ref = useCallback((el: HTMLElement | null) => {
+    observer.current?.disconnect();
+    observer.current = null;
+    if (el === null) return;
+    setWidth(el.clientWidth);
+    if (typeof ResizeObserver !== "function") return;
+    observer.current = new ResizeObserver(() => setWidth(el.clientWidth));
+    observer.current.observe(el);
+  }, []);
+  return [width, ref];
 }
 
 function BackButton({ onBack }: { onBack: () => void }): ReactElement {

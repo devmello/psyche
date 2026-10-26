@@ -349,7 +349,8 @@ export function RunTimeline({
         ? {
             onReconnect: () => navigate("/settings/connectors"),
             onOpenApproval: () => navigate("/agent/approvals"),
-            onOpenMemory: (path: string) => navigate(`/agent/soul?file=${encodeURIComponent(path)}`),
+            onOpenMemory: (path: string) =>
+              navigate(`/agent/soul?file=${encodeURIComponent(path)}`),
           }
         : {})}
       {...(onOpenRun ? { onOpenRun } : {})}

@@ -198,28 +198,32 @@ export const CompactWeb: Story = {
 function FpsProbe({ children }: { children: ReactNode }): ReactElement {
   const [fps, setFps] = useState<number | null>(null);
   useEffect(() => {
-    const scroller = document.querySelector<HTMLElement>(
-      '[data-testid="waterfall"] .overflow-auto',
-    );
-    if (!scroller) return;
     const intervals: number[] = [];
     let last = 0;
     let first = 0;
     let handle = 0;
-    const tick = (ts: number) => {
+    let wait: ReturnType<typeof setTimeout> | undefined;
+    const tick = (scroller: HTMLElement) => (ts: number) => {
       if (first === 0) first = ts;
       else intervals.push(ts - last);
       last = ts;
       // Scroll the waterfall steadily while measuring, so the virtualiser works every frame.
       scroller.scrollTop += 40;
-      if (ts - first < 3000) handle = requestAnimationFrame(tick);
+      if (ts - first < 3000) handle = requestAnimationFrame(tick(scroller));
       else setFps(medianFps(intervals));
     };
-    const start = setTimeout(() => {
-      handle = requestAnimationFrame(tick);
-    }, 300);
+    // Wait for the steps to load, then measure.
+    const find = () => {
+      const scroller = document.querySelector<HTMLElement>(
+        '[data-testid="waterfall"] .overflow-auto',
+      );
+      const rows = document.querySelectorAll('[data-testid="waterfall"] [role="row"]').length;
+      if (scroller && rows > 10) handle = requestAnimationFrame(tick(scroller));
+      else wait = setTimeout(find, 200);
+    };
+    wait = setTimeout(find, 300);
     return () => {
-      clearTimeout(start);
+      clearTimeout(wait);
       cancelAnimationFrame(handle);
     };
   }, []);
