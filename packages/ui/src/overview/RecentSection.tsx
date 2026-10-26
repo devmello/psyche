@@ -1,6 +1,6 @@
 import type { RunSummary } from "@psyche/protocol";
 import { Search, X } from "lucide-react";
-import { type ReactElement, useMemo, useState } from "react";
+import { type ReactElement, useMemo, useRef, useState } from "react";
 import { RecentRunRow } from "../agent/MissionControl.tsx";
 import { runTitle } from "../agent/timeline/RunHeader.tsx";
 import { Button } from "../components/ui/button.tsx";
@@ -11,6 +11,7 @@ import { useStore, useStoreState } from "../data/provider.tsx";
 import { useRunsList } from "../data/runs.ts";
 import { activeI18n, t } from "../i18n/core.ts";
 import { useNow } from "../lib/use-now.ts";
+import { cn } from "../lib/utils.ts";
 import { useSlots } from "../slots.tsx";
 import { OverviewSection } from "./OverviewSection.tsx";
 import type { OverviewPeriod } from "./period.ts";
@@ -22,7 +23,12 @@ import {
   type RecentFilterKind,
   recentHref,
 } from "./recentFilter.ts";
-import { SectionBody, SkeletonRows, useSectionStatus } from "./SectionState.tsx";
+import {
+  DIM_WHILE_REVALIDATING,
+  SectionBody,
+  SkeletonRows,
+  useSectionStatus,
+} from "./SectionState.tsx";
 
 const FILTER_LABEL = {
   all: "agent.activity.filterAll",
@@ -202,6 +208,11 @@ function RecentList({
     .filter((r) => matchesRecent(r, filter, timeZone))
     .filter((r) => title(r).toLowerCase().includes(needle));
 
+  // A new window or filter keeps the previous rows up, dimmed, until its own arrive.
+  const lastRows = useRef<readonly RunSummary[]>(rows);
+  if (!status.revalidating) lastRows.current = rows;
+  const shown = status.revalidating ? lastRows.current : rows;
+  const dim = DIM_WHILE_REVALIDATING;
   if (status.phase !== "ready") {
     return (
       <div className="px-2">
@@ -219,13 +230,21 @@ function RecentList({
   const unfiltered = filter.filter === "all" && filter.day === null && needle === "";
   return (
     <>
-      {rows.length === 0 ? (
-        <p className="px-2 py-2 text-body text-label-secondary">
+      {shown.length === 0 ? (
+        <p
+          className={cn("px-2 py-2 text-body text-label-secondary", dim)}
+          data-revalidating={status.revalidating ? "true" : "false"}
+        >
           {unfiltered ? t("agent.activity.noRecent") : t("agent.activity.noMatches")}
         </p>
       ) : (
-        <ul className="flex flex-col" data-testid="overview-recent-list">
-          {rows.map((r) => (
+        <ul
+          className={cn("flex flex-col", dim)}
+          data-testid="overview-recent-list"
+          data-revalidating={status.revalidating ? "true" : "false"}
+          aria-busy={status.revalidating ? "true" : undefined}
+        >
+          {shown.map((r) => (
             <li key={r.id}>
               <RecentRunRow
                 run={r}

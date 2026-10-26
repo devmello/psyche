@@ -53,7 +53,12 @@ function FrameThumb({ runId, step }: { runId: string; step: RunStep }): ReactEle
       live = false;
     };
   }, [image, seq]);
-  if (seq === undefined || src === null) return null;
+  if (seq === undefined) return null;
+  // The 32 × 20 slot is reserved while the thumbnail loads, so the row does not shift.
+  if (src === null)
+    return (
+      <span aria-hidden="true" className="block h-5 w-8 shrink-0 rounded-xs bg-fill-secondary" />
+    );
   return (
     <button
       type="button"

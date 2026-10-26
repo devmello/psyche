@@ -17,7 +17,7 @@ import { GrowthCardItems } from "../teaching/GrowthCard.tsx";
 import { GrowthTimeline, MetricRow, MilestoneRow, weekOf } from "../teaching/GrowthPanel.tsx";
 import { OverviewSection } from "./OverviewSection.tsx";
 import type { OverviewPeriod } from "./period.ts";
-import { SectionBody, useSectionStatus } from "./SectionState.tsx";
+import { SectionBody, useLastDefined, useSectionStatus } from "./SectionState.tsx";
 
 /** Milestones listed in the section; the rest are in the lessons sheet's timeline. */
 const MILESTONES_SHOWN = 3;
@@ -43,7 +43,8 @@ export function GrowthSection({ period, now }: GrowthSectionProps): ReactElement
   const feed = useGatewayQuery("feed.list", {});
   const [lessonsOpen, setLessonsOpen] = useState(false);
   const [cardOpen, setCardOpen] = useState(false);
-  const summary = q.data?.summary;
+  // The previous period's summary stays up (dimmed) while the new one loads.
+  const summary = useLastDefined(q.data?.summary);
   const post = feed.data?.posts
     .filter((p) => p.growth !== undefined)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
@@ -60,7 +61,9 @@ export function GrowthSection({ period, now }: GrowthSectionProps): ReactElement
         ]
       : [];
 
-  const status = useSectionStatus("growth", [{ ...q, has: summary !== undefined, key: period }]);
+  const status = useSectionStatus("growth", [
+    { ...q, has: q.data?.summary !== undefined, key: period },
+  ]);
   const body: ReactNode = (
     <SectionBody
       id="growth"

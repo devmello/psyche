@@ -1,7 +1,15 @@
 export { AgentGlow } from "./AgentGlow.tsx";
 export { motionCss, settleTime, springLinear } from "./css.ts";
 export { LayoutMotion, MotionProvider, type MotionProviderProps } from "./MotionProvider.tsx";
-export { FadeIn, fade, fadeRise, ListItem, Presence } from "./primitives.tsx";
+export {
+  Disclosure,
+  FadeIn,
+  fade,
+  fadeRise,
+  ListItem,
+  Presence,
+  WorkingPulse,
+} from "./primitives.tsx";
 export {
   duration,
   ease,

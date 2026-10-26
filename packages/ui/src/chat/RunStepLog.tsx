@@ -1,6 +1,5 @@
 import type { ApprovalRequest, InputRequest, Message, Run, ToolCall } from "@psyche/protocol";
 import { Brain, ChevronRight } from "lucide-react";
-import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
 import { type ReactElement, useMemo, useState } from "react";
 import { ApprovalPointer } from "../blocks/MessageBlocks.tsx";
@@ -14,7 +13,7 @@ import { displaySummary } from "../lib/cards.ts";
 import { formatDuration } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
-import { fade, Presence } from "../motion/index.ts";
+import { Disclosure, fade, Presence, WorkingPulse } from "../motion/index.ts";
 
 /** Run states in which the run is still in progress, paused on the owner included. */
 const ACTIVE: readonly Run["status"][] = ["running", "awaiting_approval", "awaiting_input"];
@@ -287,23 +286,6 @@ export function useRunSteps(
   ]);
 }
 
-/** The working pulse on the current step (motion.md §4.6): stops within 5 s, static if reduced. */
-function Pulse(): ReactElement {
-  const reduce = useReducedMotionConfig();
-  return (
-    <m.span
-      className="size-2 shrink-0 rounded-full bg-label-secondary"
-      aria-hidden="true"
-      {...(reduce
-        ? {}
-        : {
-            animate: { opacity: [0.4, 1, 0.4] },
-            transition: { duration: 1.2, ease: "linear", repeat: 3 },
-          })}
-    />
-  );
-}
-
 function StepIcon({ step }: { step: RunStep }): ReactElement | null {
   if (step.kind === "thinking")
     return <Brain className="size-4 shrink-0 text-label-secondary" aria-hidden="true" />;
@@ -358,7 +340,7 @@ function ThinkingStep({
           ) : null}
         </button>
         {current && step.status === "running" ? (
-          <Pulse />
+          <WorkingPulse />
         ) : (
           <StatusGlyph
             status={step.status}
@@ -367,14 +349,14 @@ function ThinkingStep({
           />
         )}
       </div>
-      {open && expandable ? (
+      <Disclosure open={open && expandable}>
         <p
           id={id}
           className="ms-6 mb-1 max-h-60 overflow-y-auto whitespace-pre-wrap text-callout text-label-secondary"
         >
           {step.full}
         </p>
-      ) : null}
+      </Disclosure>
     </>
   );
 }
@@ -486,7 +468,7 @@ export function RunStepLog({
                   </span>
                 ) : null}
                 {step.kind === "approval" ? null : isCurrent && step.status === "running" ? (
-                  <Pulse />
+                  <WorkingPulse />
                 ) : (
                   <StatusGlyph
                     status={step.status}
@@ -506,7 +488,7 @@ export function RunStepLog({
         className="mt-1 flex items-center gap-2 text-callout text-label-secondary"
         data-testid="chat-working"
       >
-        {current === undefined || steps.length === 0 ? <Pulse /> : null}
+        {current === undefined || steps.length === 0 ? <WorkingPulse /> : null}
         {stalled
           ? t("chat.steps.stalled", { duration: formatDuration(quiet) })
           : current?.status === "waiting"

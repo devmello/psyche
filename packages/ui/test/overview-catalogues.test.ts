@@ -2,6 +2,7 @@ import { IntlMessageFormat } from "intl-messageformat";
 import { describe, expect, it } from "vitest";
 import { en } from "../src/i18n/index.ts";
 import { CATALOGUES } from "../src/i18n/messages/locales/index.ts";
+import { overviewShared } from "../src/i18n/messages/locales/overview-shared/ar.ts";
 
 /**
  * The Overview strings (docs/design/agent-overview-2026.md §5.8) in every catalogue, checked per
@@ -10,7 +11,9 @@ import { CATALOGUES } from "../src/i18n/messages/locales/index.ts";
  */
 
 const PREFIXES = ["overview.", "shell.rail.overview", "shell.sidebar.openOverview"];
-const IDS = Object.keys(en).filter((id) => PREFIXES.some((p) => id.startsWith(p)));
+/** Ids from other catalogues (Growth screen, Activity, specialists) the Overview renders too. */
+const SHARED = Object.keys(overviewShared);
+const IDS = [...Object.keys(en).filter((id) => PREFIXES.some((p) => id.startsWith(p))), ...SHARED];
 
 interface Shape {
   args: Set<string>;
@@ -82,10 +85,32 @@ describe("Overview strings in every catalogue", () => {
 
       it("adds no ids English doesn't have", () => {
         const extra = Object.keys(catalogue).filter(
-          (id) => PREFIXES.some((p) => id.startsWith(p)) && !(id in en),
+          (id) => (PREFIXES.some((p) => id.startsWith(p)) || SHARED.includes(id)) && !(id in en),
         );
         expect(extra).toEqual([]);
       });
     });
   }
+});
+
+describe("Arabic Growth metrics", () => {
+  const FSI = "\u2068";
+  const PDI = "\u2069";
+  const fmt = (id: string, values: Record<string, number>) =>
+    new IntlMessageFormat((CATALOGUES.ar as Record<string, string>)[id] as string, "ar").format(
+      values,
+    );
+
+  it("isolates each number so '1 of 4' reads in order inside a right-to-left line", () => {
+    const text = String(fmt("screens.growth.metricCount", { count: 1, total: 4 }));
+    expect(text).toMatch(new RegExp(`^${FSI}.+${PDI} من ${FSI}.+${PDI}$`, "u"));
+    expect(text).not.toMatch(/\bof\b/);
+    const rate = String(fmt("screens.growth.metricRate", { rate: 0.25, count: 1, total: 4 }));
+    expect(rate.split(FSI)).toHaveLength(4);
+  });
+
+  it("English formats the counts as numbers (grouping), not concatenated strings", () => {
+    const f = new IntlMessageFormat(en["screens.growth.metricCount"], "en");
+    expect(f.format({ count: 1200, total: 4000 })).toBe("1,200 of 4,000");
+  });
 });
