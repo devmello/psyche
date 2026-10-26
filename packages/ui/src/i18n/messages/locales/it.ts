@@ -2590,6 +2590,7 @@ export const it: Partial<Catalogue> = {
   "screens.inbox.resolved": "Risolta",
   "screens.inbox.answer": "Rispondi",
   "screens.inbox.open": "Apri",
+  "screens.inbox.listen": "Ascolta",
   "screens.inbox.markReadLabel": 'Segna "{title}" come letta',
   "screens.inbox.markRead": "Segna come letta",
   "screens.inbox.unread": "Non letta",

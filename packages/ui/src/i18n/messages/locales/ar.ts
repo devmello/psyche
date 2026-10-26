@@ -2569,6 +2569,7 @@ export const ar: Partial<Catalogue> = {
   "screens.inbox.resolved": "تم الحسم",
   "screens.inbox.answer": "إجابة",
   "screens.inbox.open": "فتح",
+  "screens.inbox.listen": "استماع",
   "screens.inbox.markReadLabel": "تعليم «{title}» كمقروء",
   "screens.inbox.markRead": "تعليم كمقروء",
   "screens.inbox.unread": "غير مقروء",

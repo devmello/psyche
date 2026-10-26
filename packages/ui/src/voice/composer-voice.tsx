@@ -63,7 +63,7 @@ export function VoiceComposer({
           talking: false,
           canTalk: false,
           interruptible: false,
-          toggle: conversation.start,
+          toggle: () => conversation.start(),
           pushStart: () => {},
           pushEnd: () => {},
           title: t("voice.startTitle", {

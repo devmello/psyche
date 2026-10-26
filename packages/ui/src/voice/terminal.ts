@@ -13,7 +13,12 @@ export interface VoiceTerminal {
    * when null). Resolves with the conversation id; rejects with a message the capsule shows
    * ("Psyche needs the microphone to hear you").
    */
-  start(options: { threadId: string | null; mode: VoiceConversationMode }): Promise<string>;
+  start(options: {
+    threadId: string | null;
+    mode: VoiceConversationMode;
+    /** Listen (§4.9): speak this brief or check-in first (`voice.conversation.start {listen}`). */
+    listen?: { notificationId: string };
+  }): Promise<string>;
   /** Push-to-talk key or button down (`begin`) and up (`end`), or a tap. */
   turn(action: "begin" | "end"): void;
   /** Hands-free: close the mic (the conversation stays) or open it again. */

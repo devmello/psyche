@@ -2481,6 +2481,7 @@ export const zh: Partial<Catalogue> = {
   "screens.inbox.resolved": "已处理",
   "screens.inbox.answer": "回答",
   "screens.inbox.open": "打开",
+  "screens.inbox.listen": "收听",
   "screens.inbox.markReadLabel": "将“{title}”标记为已读",
   "screens.inbox.markRead": "标记为已读",
   "screens.inbox.unread": "未读",

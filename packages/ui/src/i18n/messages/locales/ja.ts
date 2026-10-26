@@ -2561,6 +2561,7 @@ export const ja: Partial<Catalogue> = {
   "screens.inbox.resolved": "解決済み",
   "screens.inbox.answer": "回答",
   "screens.inbox.open": "開く",
+  "screens.inbox.listen": "聞く",
   "screens.inbox.markReadLabel": "「{title}」を既読にする",
   "screens.inbox.markRead": "既読にする",
   "screens.inbox.unread": "未読",

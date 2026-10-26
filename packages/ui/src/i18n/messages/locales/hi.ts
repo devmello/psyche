@@ -2559,6 +2559,7 @@ export const hi: Partial<Catalogue> = {
   "screens.inbox.resolved": "निपटाया गया",
   "screens.inbox.answer": "जवाब दें",
   "screens.inbox.open": "खोलें",
+  "screens.inbox.listen": "सुनें",
   "screens.inbox.markReadLabel": "“{title}” को पढ़ा हुआ चिह्नित करें",
   "screens.inbox.markRead": "पढ़ा हुआ चिह्नित करें",
   "screens.inbox.unread": "अपठित",

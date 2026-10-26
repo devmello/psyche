@@ -2650,6 +2650,7 @@ export const es: Partial<Catalogue> = {
   "screens.inbox.resolved": "Resuelto",
   "screens.inbox.answer": "Responder",
   "screens.inbox.open": "Abrir",
+  "screens.inbox.listen": "Escuchar",
   "screens.inbox.markReadLabel": "Marcar «{title}» como leído",
   "screens.inbox.markRead": "Marcar como leído",
   "screens.inbox.unread": "Sin leer",

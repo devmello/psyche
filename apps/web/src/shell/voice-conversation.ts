@@ -109,7 +109,11 @@ export class VoiceConversationTerminal implements VoiceTerminal {
     return this.stopMic !== null;
   }
 
-  async start(options: { threadId: string | null; mode: VoiceConversationMode }): Promise<string> {
+  async start(options: {
+    threadId: string | null;
+    mode: VoiceConversationMode;
+    listen?: { notificationId: string };
+  }): Promise<string> {
     if (this.conversationId) this.end();
     this.mode = options.mode;
     this.muted = false;
@@ -121,6 +125,7 @@ export class VoiceConversationTerminal implements VoiceTerminal {
       res = (await this.o.call("voice.conversation.start", {
         ...(options.threadId ? { threadId: options.threadId } : {}),
         mode: this.mode,
+        ...(options.listen ? { listen: options.listen } : {}),
         format: VOICE_FORMAT,
       })) as { conversationId: string };
     } catch (err) {

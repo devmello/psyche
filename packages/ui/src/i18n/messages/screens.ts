@@ -276,6 +276,7 @@ export const screens = {
   "screens.inbox.resolved": "Resolved",
   "screens.inbox.answer": "Answer",
   "screens.inbox.open": "Open",
+  "screens.inbox.listen": "Listen",
   "screens.inbox.markReadLabel": 'Mark "{title}" read',
   "screens.inbox.markRead": "Mark read",
   "screens.inbox.unread": "Unread",

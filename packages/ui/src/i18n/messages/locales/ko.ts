@@ -2544,6 +2544,7 @@ export const ko: Partial<Catalogue> = {
   "screens.inbox.resolved": "처리됨",
   "screens.inbox.answer": "답변",
   "screens.inbox.open": "열기",
+  "screens.inbox.listen": "듣기",
   "screens.inbox.markReadLabel": "“{title}”을(를) 읽음으로 표시",
   "screens.inbox.markRead": "읽음으로 표시",
   "screens.inbox.unread": "읽지 않음",

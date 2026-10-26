@@ -26,11 +26,16 @@ export class FakeVoiceTerminal implements VoiceTerminal {
     void this.client.request(method as never, params as never).catch(() => undefined);
   }
 
-  async start(o: { threadId: string | null; mode: VoiceConversationMode }): Promise<string> {
+  async start(o: {
+    threadId: string | null;
+    mode: VoiceConversationMode;
+    listen?: { notificationId: string };
+  }): Promise<string> {
     if (this.failWith) throw new Error(this.failWith);
     const params = {
       ...(o.threadId ? { threadId: o.threadId } : {}),
       mode: o.mode,
+      ...(o.listen ? { listen: o.listen } : {}),
       format: { encoding: "pcm_s16le" as const, sampleRate: 16_000, channels: 1 },
     };
     this.calls.push({ method: "voice.conversation.start", params });

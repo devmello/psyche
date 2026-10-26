@@ -1,4 +1,9 @@
-import type { ApprovalRequest, Notification, NotificationKind } from "@psyche/protocol";
+import {
+  type ApprovalRequest,
+  NOTIFICATION_LISTEN_ACTION,
+  type Notification,
+  type NotificationKind,
+} from "@psyche/protocol";
 import {
   Bell,
   CircleAlert,
@@ -10,6 +15,7 @@ import {
   Lightbulb,
   type LucideIcon,
   Newspaper,
+  Volume2,
 } from "lucide-react";
 import { type ReactElement, type ReactNode, useEffect, useId, useState } from "react";
 import { toast } from "sonner";
@@ -25,6 +31,8 @@ import { cn } from "../../lib/utils.ts";
 import { ListItem } from "../../motion/index.ts";
 import { useSlots } from "../../slots.tsx";
 import { SpecialistInboxRow } from "../../specialists/InboxRow.tsx";
+import { useVoiceConversation } from "../../voice/conversation.ts";
+import { VoiceCapsule } from "../../voice/VoiceCapsule.tsx";
 import { ScreenColumn, ScreenToolbar } from "../feed/ScreenToolbar.tsx";
 
 /** Semantic tones only (§4.8): approval, success, danger, info, or neutral gray. */
@@ -132,6 +140,8 @@ export interface InboxRowProps {
   onRetry?: (n: Notification) => void;
   /** Resolves with one of the notification's own actions (Done, Snooze). */
   onAction?: (n: Notification, actionId: string) => void;
+  /** Listen (voice-mode-2026 §4.9): speaks a brief or check-in that carries the action. */
+  onListen?: (n: Notification) => void;
   onMarkRead?: (n: Notification) => void;
 }
 
@@ -258,6 +268,7 @@ export function InboxRow({
   onOpen,
   onRetry,
   onAction,
+  onListen,
   onMarkRead,
 }: InboxRowProps): ReactElement {
   const titleId = useId();
@@ -268,6 +279,9 @@ export function InboxRow({
   const isStale = stale || n.staleAt != null || (n.kind === "approval" && approval?.stale === true);
 
   let actions: ReactNode = null;
+  // Listen is the voice terminal's, not a resolution: it never goes through `notifications.resolve`.
+  const ownActions = n.actions.filter((a) => a.id !== NOTIFICATION_LISTEN_ACTION);
+  const listenable = onListen !== undefined && ownActions.length < n.actions.length;
   if (n.kind === "approval") {
     actions = (
       <ApprovalControls
@@ -313,8 +327,8 @@ export function InboxRow({
         </Button>
       </>
     );
-  } else if (n.kind === "reminder" && n.actions.length > 0) {
-    actions = n.actions.map((a, i) => (
+  } else if (n.kind === "reminder" && ownActions.length > 0) {
+    actions = ownActions.map((a, i) => (
       <Button
         key={a.id}
         type="button"
@@ -397,7 +411,15 @@ export function InboxRow({
           ) : null}
         </p>
       </div>
-      <div className="flex flex-wrap items-center gap-1.5 self-center">{actions}</div>
+      <div className="flex flex-wrap items-center gap-1.5 self-center">
+        {actions}
+        {listenable ? (
+          <Button type="button" size="sm" variant="outline" onClick={() => onListen?.(n)}>
+            <Volume2 aria-hidden="true" />
+            {t("screens.inbox.listen")}
+          </Button>
+        ) : null}
+      </div>
     </article>
   );
 }
@@ -523,6 +545,7 @@ interface ConnectedRowProps {
   markRead: (ids: string[]) => Promise<unknown>;
   resolve: (id: string, actionId?: string) => Promise<unknown>;
   open: (n: Notification) => void;
+  onListen?: (n: Notification) => void;
 }
 
 /** A row with its approval (`useApproval`) and task retry (`useTask`) wired in. */
@@ -532,6 +555,7 @@ function ConnectedInboxRow({
   markRead,
   resolve,
   open,
+  onListen,
 }: ConnectedRowProps): ReactElement {
   const ap = useApproval(n.kind === "approval" ? (n.approvalId ?? null) : null);
   const { retry } = useTask(null);
@@ -575,6 +599,7 @@ function ConnectedInboxRow({
         );
       }}
       onAction={(x, actionId) => run(() => resolve(x.id, actionId), t("screens.inbox.saveFailed"))}
+      {...(onListen ? { onListen: (x: Notification) => (read(), onListen(x)) } : {})}
       onMarkRead={read}
     />
   );
@@ -590,6 +615,9 @@ export interface InboxScreenProps {
 /** Connected inbox: `notifications.*`, `approvals.answer` (scope once), `tasks.retry`. */
 export function InboxScreen({ now: fixedNow, onOpen }: InboxScreenProps): ReactElement {
   const { navigate } = useSlots();
+  // Listen (§4.9): the conversation speaks the notification; its capsule rides above the list.
+  const [listening, setListening] = useState<string | null>(null);
+  const voice = useVoiceConversation(null, { listen: true });
   const now = useNow(1000, fixedNow);
   const inbox = useNotifications();
   const open =
@@ -599,43 +627,77 @@ export function InboxScreen({ now: fixedNow, onOpen }: InboxScreenProps): ReactE
       if (route !== null) navigate?.(route);
     });
 
+  const onListen = voice
+    ? (n: Notification) => {
+        setListening(n.id);
+        voice.start({ listen: { notificationId: n.id } });
+      }
+    : undefined;
+
   return (
-    <InboxView
-      notifications={inbox.all}
-      now={now}
-      loading={inbox.loading && inbox.all.length === 0}
-      loadingDelayMs={150}
-      error={inbox.all.length === 0 ? inbox.error : null}
-      onRetryLoad={inbox.reload}
-      onMarkAllRead={() => {
-        const ids = inbox.unread.map((n) => n.id);
-        if (ids.length > 0)
-          inbox.markRead(ids).catch((err: unknown) => {
-            toast.error(t("screens.inbox.markFailed", { reason: describeError(err) }));
-          });
-      }}
-      onOpenActivity={() => navigate?.("/agent/activity")}
-      renderRow={(n) => {
-        const row = (
-          <ConnectedInboxRow
-            notification={n}
-            now={now}
-            markRead={inbox.markRead}
-            resolve={inbox.resolve}
-            open={open}
-          />
-        );
-        return n.kind === "specialist_result" && n.taskId != null ? (
-          <SpecialistInboxRow
-            notification={n}
-            now={now}
-            onMarkRead={() => void inbox.markRead([n.id]).catch(() => {})}
-            fallback={row}
-          />
-        ) : (
-          row
-        );
-      }}
-    />
+    <>
+      <InboxView
+        notifications={inbox.all}
+        now={now}
+        loading={inbox.loading && inbox.all.length === 0}
+        loadingDelayMs={150}
+        error={inbox.all.length === 0 ? inbox.error : null}
+        onRetryLoad={inbox.reload}
+        onMarkAllRead={() => {
+          const ids = inbox.unread.map((n) => n.id);
+          if (ids.length > 0)
+            inbox.markRead(ids).catch((err: unknown) => {
+              toast.error(t("screens.inbox.markFailed", { reason: describeError(err) }));
+            });
+        }}
+        onOpenActivity={() => navigate?.("/agent/activity")}
+        renderRow={(n) => {
+          const row = (
+            <ConnectedInboxRow
+              notification={n}
+              now={now}
+              markRead={inbox.markRead}
+              resolve={inbox.resolve}
+              open={open}
+              {...(onListen ? { onListen } : {})}
+            />
+          );
+          return n.kind === "specialist_result" && n.taskId != null ? (
+            <SpecialistInboxRow
+              notification={n}
+              now={now}
+              onMarkRead={() => void inbox.markRead([n.id]).catch(() => {})}
+              fallback={row}
+            />
+          ) : (
+            row
+          );
+        }}
+      />
+      {voice?.active && listening !== null ? (
+        <VoiceCapsule
+          className="fixed inset-x-4 bottom-4 z-20 mx-auto max-w-xl"
+          session={voice.session}
+          settings={voice.settings}
+          onTalk={voice.talk}
+          onToggleMute={voice.toggleMute}
+          onStopSpeaking={voice.stopSpeaking}
+          onReview={voice.review}
+          onEnd={() => {
+            voice.end();
+            setListening(null);
+          }}
+          levels={() => voice.terminal.levels()}
+        />
+      ) : voice?.session.error ? (
+        <p
+          role="status"
+          className="px-4 text-callout text-label-secondary"
+          data-testid="voice-error"
+        >
+          {voice.session.error}
+        </p>
+      ) : null}
+    </>
   );
 }

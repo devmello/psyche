@@ -2663,6 +2663,7 @@ export const de: Partial<Catalogue> = {
   "screens.inbox.resolved": "Erledigt",
   "screens.inbox.answer": "Antworten",
   "screens.inbox.open": "Öffnen",
+  "screens.inbox.listen": "Anhören",
   "screens.inbox.markReadLabel": "„{title}“ als gelesen markieren",
   "screens.inbox.markRead": "Als gelesen markieren",
   "screens.inbox.unread": "Ungelesen",

@@ -16,7 +16,7 @@ export interface VoiceConversation {
   settings: VoiceSettings;
   active: boolean;
   terminal: VoiceTerminal;
-  start: () => void;
+  start: (options?: { listen?: { notificationId: string } }) => void;
   /** Push-to-talk: down and up; tap mode: a tap opens or ends the turn. */
   talk: (action: "begin" | "end") => void;
   toggleMute: () => void;
@@ -26,24 +26,33 @@ export interface VoiceConversation {
   end: () => void;
 }
 
-export function useVoiceConversation(threadId: string | null): VoiceConversation | null {
+export function useVoiceConversation(
+  threadId: string | null,
+  /** `listen`: usable for Listen (§4.9) while "Talk with Psyche" is off, unless the brief is off. */
+  options: { listen?: boolean } = {},
+): VoiceConversation | null {
   const terminal = useSlots().voiceTerminal ?? null;
   const { settings: values } = useSettings();
   const settings = useMemo(() => readVoiceSettings(values), [values]);
   const [session, dispatch] = useVoiceSession();
 
-  const start = useCallback(() => {
-    if (!terminal) return;
-    dispatch({ type: "starting", mode: settings.mode });
-    terminal.start({ threadId, mode: settings.mode }).then(
-      (conversationId) => dispatch({ type: "started", conversationId }),
-      (err: unknown) =>
-        dispatch({
-          type: "failed",
-          error: err instanceof Error && err.message ? err.message : t("voice.needsMic"),
-        }),
-    );
-  }, [terminal, threadId, settings.mode, dispatch]);
+  const start = useCallback(
+    (o?: { listen?: { notificationId: string } }) => {
+      if (!terminal) return;
+      dispatch({ type: "starting", mode: settings.mode });
+      terminal
+        .start({ threadId, mode: settings.mode, ...(o?.listen ? { listen: o.listen } : {}) })
+        .then(
+          (conversationId) => dispatch({ type: "started", conversationId }),
+          (err: unknown) =>
+            dispatch({
+              type: "failed",
+              error: err instanceof Error && err.message ? err.message : t("voice.needsMic"),
+            }),
+        );
+    },
+    [terminal, threadId, settings.mode, dispatch],
+  );
 
   const talk = useCallback((action: "begin" | "end") => terminal?.turn(action), [terminal]);
   const toggleMute = useCallback(() => {
@@ -65,7 +74,8 @@ export function useVoiceConversation(threadId: string | null): VoiceConversation
     dispatch({ type: "reset" });
   }, [terminal, dispatch]);
 
-  if (!terminal || (!settings.enabled && !sessionActive(session))) return null;
+  const allowed = settings.enabled || (options.listen === true && settings.brief !== "off");
+  if (!terminal || (!allowed && !sessionActive(session))) return null;
   return {
     session,
     settings,

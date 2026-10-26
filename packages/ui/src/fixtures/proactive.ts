@@ -114,7 +114,10 @@ export function notifications(): Notification[] {
       title: "Brief ready",
       body: "Two things before your 10:00.",
       route: "/feed",
-      actions: [{ id: "open", label: "Open" }],
+      actions: [
+        { id: "open", label: "Open" },
+        { id: "listen", label: "Listen" },
+      ],
       readAt: today("07:20"),
       resolvedAt: today("07:20"),
       createdAt: today("07:00"),
