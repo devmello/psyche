@@ -152,6 +152,8 @@ export function AgentHeader({
         className="shrink-0 cursor-default rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         aria-label={t("agent.header.openSheet", { name: persona.name })}
         aria-keyshortcuts="Meta+Shift+A"
+        // The startup splash's mark lands here as the app appears (#595).
+        data-splash-target=""
       >
         <Avatar
           name={persona.name}

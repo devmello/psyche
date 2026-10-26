@@ -202,6 +202,12 @@ export {
   useSidebarCounts,
 } from "./shell/Sidebar.tsx";
 export {
+  SPLASH_LEAVE_MS,
+  type SplashLineView,
+  StartupSplashView,
+  type StartupSplashViewProps,
+} from "./shell/StartupSplashView.tsx";
+export {
   CARD_SHORTCUTS,
   isMac,
   SHORTCUTS,

@@ -1,11 +1,12 @@
-import { t } from "@psyche/ui";
+import { SPLASH_LEAVE_MS, StartupSplashView, t } from "@psyche/ui";
 import { type ReactElement, useEffect, useState } from "react";
 import { type GatewayStatus, INITIAL_STATUS } from "../../client/status.ts";
 import type { GatewayRunView, MacHelperState, ShellPlatform } from "../platform.ts";
 
 /**
- * The startup splash (#539): the main window's first content while Psyche starts, then it gives
- * way in place to the app once this window is paired. No second window. Main decides at launch
+ * The startup splash (#539, #595): the main window's first content while Psyche starts, then it
+ * gives way in place to the app once this window is paired (the kit's `StartupSplashView` draws
+ * it: the mark, the lantern, the hand-off into the toolbar avatar). No second window. Main decides at launch
  * whether there is anything to wait for (`chrome.splash`): not in dev with PSYCHE_NO_SPLASH=1,
  * not when Psyche already answered (attach mode).
  */
@@ -39,8 +40,6 @@ export function splashLine(i: {
 
 /** After this long without pairing, offer to open the app behind the splash. */
 export const SPLASH_ESCAPE_MS = 8_000;
-/** The splash fades into the app (instantly under reduced motion). */
-const FADE_MS = 220;
 
 export function StartupSplash({
   platform,
@@ -65,7 +64,7 @@ export function StartupSplash({
     if (!up || line.tone !== "ready") return;
     const reduce = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
     setLeaving(true);
-    const timer = setTimeout(() => setUp(false), reduce ? 0 : FADE_MS);
+    const timer = setTimeout(() => setUp(false), reduce ? 0 : SPLASH_LEAVE_MS);
     return () => clearTimeout(timer);
   }, [up, line.tone]);
 
@@ -81,63 +80,17 @@ export function StartupSplash({
   }, [up, now]);
 
   if (!up) return null;
+  const gateway = platform.gateway;
   return (
-    <div
-      className="startup-splash"
-      data-tone={line.tone}
-      data-leaving={leaving || undefined}
-      data-testid="startup-splash"
-    >
-      <div className="startup-splash-body">
-        <svg width="64" height="64" viewBox="0 0 32 32" aria-hidden="true">
-          <circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" strokeWidth="2.5" />
-          <path
-            d="M16 6v20M9 11c0 5 3 8 7 8s7-3 7-8"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-          />
-        </svg>
-        {/* i18n-ignore: the product name */}
-        <h1>Psyche</h1>
-        <p role="status" aria-live="polite">
-          {line.text}
-        </p>
-        {line.tone === "progress" ? (
-          <div className="startup-splash-bar" aria-hidden="true" />
-        ) : null}
-        {line.tone === "error" ? (
-          <div className="startup-splash-error">
-            <p className="startup-splash-reason">{line.reason}</p>
-            <div className="startup-splash-actions">
-              {platform.gateway.showLogs ? (
-                <button
-                  type="button"
-                  className="startup-splash-button"
-                  onClick={() => void platform.gateway.showLogs?.()}
-                >
-                  {t("web.splash.showLogs")}
-                </button>
-              ) : null}
-              {platform.gateway.retry ? (
-                <button
-                  type="button"
-                  className="startup-splash-button primary"
-                  onClick={() => void platform.gateway.retry?.()}
-                >
-                  {t("web.splash.retry")}
-                </button>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-        {canSkip || line.tone === "error" ? (
-          <button type="button" className="startup-splash-button skip" onClick={() => setUp(false)}>
-            {t("web.splash.openAnyway")}
-          </button>
-        ) : null}
-      </div>
-    </div>
+    <StartupSplashView
+      line={line}
+      leaving={leaving}
+      {...(line.tone === "error" && gateway.showLogs
+        ? { onShowLogs: () => void gateway.showLogs?.() }
+        : {})}
+      {...(line.tone === "error" && gateway.retry ? { onRetry: () => void gateway.retry?.() } : {})}
+      {...(canSkip || line.tone === "error" ? { onOpenAnyway: () => setUp(false) } : {})}
+    />
   );
 }
 
