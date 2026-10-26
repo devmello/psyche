@@ -37,6 +37,10 @@ const ALL = [
   "mail.read",
   "mail.draft",
   "mail.send",
+  "music.now_playing",
+  "music.control",
+  "music.search_library",
+  "music.play",
   "contacts.search",
   "contacts.read",
   "contacts.create",
@@ -203,6 +207,7 @@ describe("Apple app connectors (#528)", () => {
       ["apple:calendar", "apple-calendar", true],
       ["apple:mail", "apple-mail", true],
       ["apple:contacts", "apple-contacts", true],
+      ["apple:music", "apple-music", true],
     ]);
     expect(appleCatalogueEntry("mail").actions.find((a) => a.id === "mail.send")).toMatchObject({
       sideEffect: "destructive",
@@ -916,5 +921,39 @@ describe("Apple Contacts wave 1 (#639)", () => {
         addPhones: [{ label: "mobile", value: "+1 555 0100" }],
       }),
     ).rejects.toMatchObject({ code: "approval_required" });
+  });
+});
+
+describe("Music and Spotify wave 1 (#639)", () => {
+  it("reads now-playing and searches the library; playback control is allowed by default", async () => {
+    const e = appleCatalogueEntry("music");
+    expect(e.actions.map((a) => [a.id, a.sideEffect, a.defaultRule])).toEqual([
+      ["music.read", "read", "allow"],
+      ["music.control", "write", "allow"],
+    ]);
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "apple-music", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    await run("mcp__apple-1__music_now_playing")({});
+    await run("mcp__apple-1__music_search_library")({ query: "focus", kind: "playlist" });
+    // No approval needed: the matrix allows playback (no data leaves the Mac).
+    await run("mcp__apple-1__music_control")({ action: "pause", app: "spotify" });
+    await run("mcp__apple-1__music_play")({ kind: "playlist", id: "PL1", shuffle: true });
+    expect(helper.calls.map((c) => c.capability)).toEqual([
+      "music.now_playing",
+      "music.search_library",
+      "music.control",
+      "music.play",
+    ]);
+  });
+
+  it("read-only connections get no playback control", async () => {
+    const { registry, tools } = make(new FakeHelper());
+    await registry.connect({ catalogueId: "apple-music", scopeMode: "read" });
+    expect([...tools.keys()].sort()).toEqual([
+      "mcp__apple-1__music_now_playing",
+      "mcp__apple-1__music_search_library",
+    ]);
   });
 });
