@@ -1,11 +1,14 @@
 import { type ConnectorRecord, toolName } from "@psyche/connectors";
+import { listMessagesPage, listThreads, type PsycheDb } from "@psyche/db";
 import type {
   Address,
+  ChatRecord,
   ContactRecord,
   EventRecord,
   GraphPull,
   GraphSourceAdapter,
   MailRecord,
+  NoteRecord,
 } from "@psyche/memory";
 import type { Clock, ToolRegistry } from "@psyche/protocol";
 
@@ -30,6 +33,8 @@ export interface SourceDeps {
   connectors: () => Promise<ConnectorRecord[]>;
   tools: Pick<ToolRegistry, "get">;
   clock: Clock;
+  /** The owner's chats with Psyche (the `chats` source); absent in connector-only tests. */
+  db?: PsycheDb;
 }
 
 type Obj = Record<string, unknown>;
@@ -524,6 +529,168 @@ function mailAdapter(deps: SourceDeps, record: ConnectorRecord): GraphSourceAdap
   return undefined;
 }
 
+// --- notes -----------------------------------------------------------------------------------
+
+const NOTES_BACKFILL_DAYS = 365;
+/** Folders searched per pass; the rest are resumed next pass before the cursor moves on. */
+const NOTES_FOLDERS_PER_PASS = 10;
+const NOTES_SKIP_FOLDERS = new Set(["recently deleted"]);
+
+interface FolderCursor {
+  since: string;
+  high?: string;
+  pending?: string[];
+}
+
+/**
+ * Apple Notes titles (`notes_search` by folder, modified since the cursor). Search returns at most
+ * 500 per call and has no paging, so each folder is its own call and a pass that does not get
+ * through every folder resumes from the next one.
+ */
+function notesAdapter(deps: SourceDeps, record: ConnectorRecord): GraphSourceAdapter {
+  return {
+    id: `notes:${record.id}`,
+    source: "notes",
+    async pull(raw, signal): Promise<GraphPull> {
+      const now = deps.clock.now();
+      const cursor: FolderCursor = {
+        since:
+          isObj(raw) && typeof raw.since === "string"
+            ? raw.since
+            : new Date(now - NOTES_BACKFILL_DAYS * DAY_MS).toISOString(),
+        ...(isObj(raw) && typeof raw.high === "string" ? { high: raw.high } : {}),
+        ...(isObj(raw) && Array.isArray(raw.pending) ? { pending: strs(raw.pending) } : {}),
+      };
+      let pending = cursor.pending;
+      if (pending === undefined) {
+        const out = await call(deps, record, "notes_folders", {}, signal);
+        const folders = isObj(out) && Array.isArray(out.folders) ? out.folders : [];
+        pending = [
+          ...new Set(
+            folders.flatMap((f) => {
+              const name = isObj(f) ? str(f.name) : undefined;
+              return name === undefined || NOTES_SKIP_FOLDERS.has(name.toLowerCase()) ? [] : [name];
+            }),
+          ),
+        ];
+      }
+      const notes: NoteRecord[] = [];
+      const batch = pending.slice(0, NOTES_FOLDERS_PER_PASS);
+      for (const folder of batch) {
+        const out = await call(
+          deps,
+          record,
+          "notes_search",
+          { folder, modifiedSince: cursor.since, limit: 500 },
+          signal,
+        );
+        for (const n of isObj(out) && Array.isArray(out.notes) ? out.notes : []) {
+          if (!isObj(n)) continue;
+          const id = str(n.id);
+          const title = str(n.title);
+          const modifiedAt = iso(n.modified);
+          if (id === undefined || title === undefined || modifiedAt === undefined) continue;
+          notes.push({ source: "apple:notes", id, title, modifiedAt });
+        }
+      }
+      const rest = pending.slice(batch.length);
+      const high = notes.reduce(
+        (max, n) => (n.modifiedAt > max ? n.modifiedAt : max),
+        cursor.high ?? cursor.since,
+      );
+      return {
+        notes,
+        cursor: rest.length > 0 ? { since: cursor.since, high, pending: rest } : { since: high },
+      };
+    },
+  };
+}
+
+// --- chats with Psyche ----------------------------------------------------------------------
+
+const CHAT_THREADS_PER_PASS = 100;
+const CHAT_BACKFILL_DAYS = 90;
+const CHAT_KINDS = new Set(["main", "side"]);
+
+/**
+ * The owner's own messages in their private chats with Psyche: only `user` messages with
+ * `owner` provenance in `owner:` threads, never incognito, channel or automation threads, and
+ * never the agent's replies or anything quoted from elsewhere (those carry other provenance).
+ * Threads are visited oldest-active first; a pass that hits its budget resumes after the last
+ * thread it read, with the same lower bound, so nothing in between is skipped.
+ */
+function chatsAdapter(deps: SourceDeps, db: PsycheDb): GraphSourceAdapter {
+  return {
+    id: "chats:psyche",
+    source: "chats",
+    async pull(raw, signal): Promise<GraphPull> {
+      const now = deps.clock.now();
+      const since =
+        isObj(raw) && typeof raw.since === "string"
+          ? raw.since
+          : new Date(now - CHAT_BACKFILL_DAYS * DAY_MS).toISOString();
+      const after = isObj(raw) && typeof raw.after === "string" ? raw.after : undefined;
+      const prevHigh = isObj(raw) && typeof raw.high === "string" ? raw.high : since;
+      const key = (t: { lastMessageAt?: string | null; id: string }) =>
+        `${t.lastMessageAt ?? ""}\u0000${t.id}`;
+      const threads = listThreads(db, { includeArchived: true })
+        .filter(
+          (t) =>
+            CHAT_KINDS.has(t.kind) &&
+            t.sessionKey.startsWith("owner:") &&
+            typeof t.lastMessageAt === "string" &&
+            t.lastMessageAt > since &&
+            (after === undefined || key(t) > after),
+        )
+        .sort((a, b) => key(a).localeCompare(key(b)));
+      const batch = threads.slice(0, CHAT_THREADS_PER_PASS);
+      const chats: ChatRecord[] = [];
+      for (const t of batch) {
+        if (signal.aborted) break;
+        let before: number | undefined;
+        for (;;) {
+          const page = listMessagesPage(db, t.id, {
+            limit: 100,
+            ...(before === undefined ? {} : { beforeSeq: before }),
+          });
+          for (const m of page.messages) {
+            if (m.role !== "user" || m.provenance !== "owner" || m.createdAt <= since) continue;
+            const text = m.blocks
+              .flatMap((b) => (b.type === "text" ? [b.md] : []))
+              .join("\n")
+              .trim();
+            if (text === "") continue;
+            chats.push({
+              source: "psyche:chat",
+              threadId: t.id,
+              date: m.createdAt,
+              text,
+              link: `/chat/${t.id}`,
+            });
+          }
+          const oldest = page.messages[0];
+          if (page.nextBeforeSeq === null || oldest === undefined || oldest.createdAt <= since)
+            break;
+          before = page.nextBeforeSeq;
+        }
+      }
+      const last = batch.at(-1);
+      const high = batch.reduce(
+        (max, t) =>
+          typeof t.lastMessageAt === "string" && t.lastMessageAt > max ? t.lastMessageAt : max,
+        prevHigh,
+      );
+      return {
+        chats,
+        cursor:
+          threads.length > batch.length && last !== undefined
+            ? { since, high, after: key(last) }
+            : { since: high },
+      };
+    },
+  };
+}
+
 /** The adapters for every connected app that can feed the graph. */
 export async function graphSourceAdapters(deps: SourceDeps): Promise<GraphSourceAdapter[]> {
   const adapters: GraphSourceAdapter[] = [];
@@ -535,6 +702,8 @@ export async function graphSourceAdapters(deps: SourceDeps): Promise<GraphSource
       adapters.push(calendarAdapter(deps, record));
     const mail = mailAdapter(deps, record);
     if (mail !== undefined) adapters.push(mail);
+    if (record.type === "apple:notes") adapters.push(notesAdapter(deps, record));
   }
+  if (deps.db !== undefined) adapters.push(chatsAdapter(deps, deps.db));
   return adapters;
 }

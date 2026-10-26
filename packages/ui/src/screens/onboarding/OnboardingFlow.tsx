@@ -482,6 +482,7 @@ export function OnboardingFlow({
           <DoneStep
             result={result}
             permissionsOnMac={!macPermissions}
+            helperConnected={helper?.kind === "paired"}
             {...(checks === null ? {} : { checks })}
           />
         ) : null}

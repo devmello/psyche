@@ -553,3 +553,63 @@
 :root[data-reduce-motion="true"] .startup-splash-lantern {
   animation: none;
 }
+
+/*
+  The voice lantern (docs/voice/voice-mode-2026.md §6.3): one glow layer behind the avatar,
+  opacity and transform only. Level following is written by the component at 30 Hz; these are
+  the state animations. Reduced motion: none of them run (the component also skips them).
+*/
+.psy-voice-glow {
+  background: radial-gradient(
+    closest-side,
+    color-mix(in oklch, var(--accent-9) 55%, transparent),
+    transparent
+  );
+  transition: opacity 280ms var(--ease-standard, ease);
+  will-change: transform, opacity;
+}
+.psy-voice-glow-warm {
+  background: radial-gradient(
+    closest-side,
+    color-mix(in oklch, var(--accent-10) 60%, transparent),
+    transparent
+  );
+}
+.psy-voice-heard {
+  animation: psy-voice-heard 120ms ease-out;
+}
+.psy-voice-thinking {
+  animation: psy-voice-pulse 1.2s linear infinite;
+}
+@keyframes psy-voice-heard {
+  50% {
+    opacity: 0.95;
+  }
+}
+@keyframes psy-voice-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
+@keyframes psy-voice-drain {
+  from {
+    stroke-dashoffset: var(--psy-ring-from, 0);
+  }
+  to {
+    stroke-dashoffset: 100;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-reduce-motion="false"]) .psy-voice-glow {
+    animation: none;
+    transition: none;
+  }
+}
+:root[data-reduce-motion="true"] .psy-voice-glow {
+  animation: none;
+  transition: none;
+}
