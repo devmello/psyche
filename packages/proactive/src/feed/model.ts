@@ -74,6 +74,13 @@ export function describeCluster(k: ScoredCluster, max = 400): string {
   return `${lead?.title ?? ""} — ${lead?.host ?? ""}${extra}: ${(lead?.summary ?? "").slice(0, max)}`;
 }
 
+/** The owner's feed instructions as the first block of a prompt (empty when there are none). */
+export function ownerBlock(instructions: string | undefined): string {
+  return instructions === undefined
+    ? ""
+    : `What the owner wants the feed to write about (their own words):\n${instructions}\n\n`;
+}
+
 export interface RerankResult {
   /** Shortlist indices, best first; identity when the model's answer was unusable. */
   order: number[];
@@ -90,7 +97,13 @@ export async function rerank(
   provider: Pick<ModelProvider, "stream"> | undefined,
   model: ModelRef | undefined,
   shortlist: readonly ScoredCluster[],
-  context: { topics: readonly LedgerTopic[]; focus?: string; signal?: AbortSignal },
+  context: {
+    topics: readonly LedgerTopic[];
+    /** The owner's `feed/INSTRUCTIONS.md`, placed ahead of the interests. */
+    instructions?: string;
+    focus?: string;
+    signal?: AbortSignal;
+  },
 ): Promise<RerankResult> {
   const identity = shortlist.map((_, i) => i);
   if (provider === undefined || model === undefined || shortlist.length < 2) {
@@ -113,7 +126,7 @@ export async function rerank(
         parts: [
           {
             type: "text",
-            text: `Interests:\n${interests || "- (none yet)"}\n${context.focus === undefined ? "" : `\nBriefing instructions from the owner: ${context.focus}\n`}\nItems:\n${fence(items)}\n\nJSON array of item numbers, best first:`,
+            text: `${ownerBlock(context.instructions)}Interests:\n${interests || "- (none yet)"}\n${context.focus === undefined ? "" : `\nBriefing instructions from the owner: ${context.focus}\n`}\nItems:\n${fence(items)}\n\nJSON array of item numbers, best first:`,
           },
         ],
       },
@@ -181,7 +194,7 @@ export async function writePost(
   provider: Pick<ModelProvider, "stream"> | undefined,
   model: ModelRef | undefined,
   k: ScoredCluster,
-  options: { signal?: AbortSignal; focus?: string } = {},
+  options: { signal?: AbortSignal; focus?: string; instructions?: string } = {},
 ): Promise<WrittenPost> {
   const citations = citationsOf(k);
   if (provider === undefined || model === undefined) {
@@ -203,7 +216,7 @@ export async function writePost(
         parts: [
           {
             type: "text",
-            text: `${options.focus === undefined ? "" : `Briefing instructions from the owner: ${options.focus}\n\n`}Sources:\n${fence(sources)}\n\nJSON:`,
+            text: `${ownerBlock(options.instructions)}${options.focus === undefined ? "" : `Briefing instructions from the owner: ${options.focus}\n\n`}Sources:\n${fence(sources)}\n\nJSON:`,
           },
         ],
       },
