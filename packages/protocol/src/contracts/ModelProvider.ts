@@ -54,7 +54,15 @@ export type FinishReason = "stop" | "length" | "tool_calls" | "error" | "cancell
  */
 export type ModelEvent =
   | { type: "text_delta"; text: string }
-  | { type: "reasoning"; provider: string; data: unknown; textDelta?: string }
+  | {
+      type: "reasoning";
+      provider: string;
+      data: unknown;
+      /** Streamed reasoning text, shown as a step (never part of the round-trip data). */
+      textDelta?: string;
+      /** A provider summary of the reasoning, when it gives no streamed text. */
+      summary?: string;
+    }
   | { type: "tool_call"; id: string; name: string; input: unknown }
   /** Result of a provider-executed (server-side) tool. */
   | { type: "tool_result"; callId: string; output: unknown; isError?: boolean }

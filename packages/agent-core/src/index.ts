@@ -12,6 +12,7 @@ export * from "./hooks.ts";
 export * from "./loop.ts";
 export * from "./plugins.ts";
 export * from "./questions.ts";
+export * from "./reasoning.ts";
 export * from "./registry.ts";
 export * from "./requester.ts";
 export * from "./routines.ts";

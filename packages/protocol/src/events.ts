@@ -52,6 +52,20 @@ export const Events = {
     }),
     description: "Streamed text delta of an agent message.",
   }),
+  "chat.reasoning": defineEvent({
+    payload: Type.Object({
+      threadId: Id,
+      runId: Id,
+      stepId: Id,
+      delta: Type.Optional(Type.String({ description: "Streamed reasoning text of the step" })),
+      summary: Type.Optional(
+        Type.String({ description: "The provider's summary, when that is all it gives" }),
+      ),
+      done: Type.Optional(Type.Boolean({ description: "The step is complete" })),
+    }),
+    description:
+      "One reasoning step of a running agent message (one contiguous reasoning block). Model output for the run's step log: never persisted, never an instruction. Off when the setting agent.showReasoning is false.",
+  }),
   "chat.message": defineEvent({
     payload: Type.Object({ message: Message }),
     description: "A message was committed (user, agent, system or tool).",

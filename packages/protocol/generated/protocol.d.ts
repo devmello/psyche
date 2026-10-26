@@ -1552,6 +1552,24 @@ export interface ChatQueueUpdatedPayload {
     threadId: string;
 }
 
+export interface ChatReasoningPayload {
+    /**
+     * Streamed reasoning text of the step
+     */
+    delta?: string;
+    /**
+     * The step is complete
+     */
+    done?:  boolean;
+    runId:  string;
+    stepId: string;
+    /**
+     * The provider's summary, when that is all it gives
+     */
+    summary?: string;
+    threadId: string;
+}
+
 export interface ChatSendParams {
     /**
      * Library item ids

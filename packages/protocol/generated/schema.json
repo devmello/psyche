@@ -164,6 +164,11 @@
         "payload": "#/$defs/ChatQueueUpdatedPayload"
       },
       {
+        "description": "One reasoning step of a running agent message (one contiguous reasoning block). Model output for the run's step log: never persisted, never an instruction. Off when the setting agent.showReasoning is false.",
+        "name": "chat.reasoning",
+        "payload": "#/$defs/ChatReasoningPayload"
+      },
+      {
         "description": "A connector's state changed (Settings → Connectors and onboarding refresh from it): a sign-in finished or failed, it was disconnected, or its token was revoked.",
         "name": "connectors.updated",
         "payload": "#/$defs/ConnectorsUpdatedPayload"
@@ -7063,6 +7068,46 @@
       "required": [
         "threadId",
         "items"
+      ],
+      "type": "object"
+    },
+    "ChatReasoningPayload": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "runId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "stepId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "delta": {
+          "description": "Streamed reasoning text of the step",
+          "type": "string"
+        },
+        "summary": {
+          "description": "The provider's summary, when that is all it gives",
+          "type": "string"
+        },
+        "done": {
+          "description": "The step is complete",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "threadId",
+        "runId",
+        "stepId"
       ],
       "type": "object"
     },
