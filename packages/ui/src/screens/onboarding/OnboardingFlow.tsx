@@ -379,7 +379,7 @@ export function OnboardingFlow({
               const reachable = i <= reached && !active;
               const label = stepLabel(s, name);
               const dot = cn(
-                "block h-2 rounded-full transition-[width,background-color] duration-(--duration-short)",
+                "block h-2 rounded-full transition-colors duration-(--duration-short)",
                 active ? "w-5 bg-accent-9" : done ? "w-2 bg-accent-7" : "w-2 bg-fill-primary",
               );
               return (

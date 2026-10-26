@@ -10,6 +10,13 @@
   --duration-medium-exit: 154ms;
   --duration-long: 320ms;
   --duration-long-exit: 224ms;
+  --duration-route: 180ms;
+  --duration-route-reduced: 120ms;
+  --duration-splash-delay: 300ms;
+  --duration-lantern: 2800ms;
+  --duration-lantern-delay: 800ms;
+  --route-rise: 4px;
+  --ease-linear: linear;
   --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);

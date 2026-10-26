@@ -69,7 +69,7 @@ describe("motion CSS and literals (docs/design/motion.md §8)", () => {
         continue;
       const hits = [
         ...readFileSync(file, "utf8").matchAll(
-          /\b(duration-\d+|duration-\[|ease-\[|transition-all|transition-\[(?:width|height)|cubic-bezier\()/g,
+          /\b(duration-\d+|duration-\[|ease-\[|transition-all|transition-\[(?:width|height)|cubic-bezier\(|ease:\s*"linear")/g,
         ),
       ];
       if (hits.length > 0)
@@ -78,19 +78,14 @@ describe("motion CSS and literals (docs/design/motion.md §8)", () => {
           hits.map((m) => m[0] as string),
         );
     }
-    // Known exceptions. drawer.tsx follows Base UI's swipe physics; the rest are listed in the A3
-    // PR for their owners to move onto tokens. This list may only shrink.
-    // The width-animating progress bars (smoothness-2026 C19) move to `scaleX` when their owners
-    // next touch them.
-    const known = [
-      "components/ui/drawer.tsx",
-      "blocks/RelatedThreads.tsx",
-      "components/ui/progress.tsx",
-      "screens/onboarding/OnboardingFlow.tsx",
-    ];
+    // Known exception: drawer.tsx's close duration scales with the swipe's strength
+    // (`duration-[calc(var(--drawer-swipe-strength)*400ms)]`), which is physics, not a token. Every
+    // other literal there is on tokens now. This list may only shrink.
+    const known = ["components/ui/drawer.tsx"];
     expect([...offenders.keys()].filter((f) => !known.includes(f))).toEqual([]);
-    for (const f of known.filter((k) => k !== "components/ui/drawer.tsx"))
-      expect(offenders.has(f), `${f} is clean now: remove it from the known list`).toBe(true);
+    for (const [file, hits] of offenders)
+      if (known.includes(file))
+        expect(hits.filter((h) => h !== "duration-[" && h !== "duration-0")).toEqual([]);
   });
 });
 
@@ -106,7 +101,9 @@ describe("run-trace motion (docs/design/motion.md §4.9)", () => {
     expect(bar).toMatch(/transform \$\{TICK_MS\}ms linear/);
     expect(bar).not.toMatch(/transition[^\n]*width/);
     const spark = read("sparkline.tsx");
-    expect(spark).toContain("initial={live && !reduce && generation > 0 ? { x: rtl ? -step : step } : false}");
+    expect(spark).toContain(
+      "initial={live && !reduce && generation > 0 ? { x: rtl ? -step : step } : false}",
+    );
   });
 });
 

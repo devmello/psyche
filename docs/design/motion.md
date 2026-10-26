@@ -39,7 +39,7 @@ The constants live in `packages/ui/src/motion/tokens.ts` (a stub in this PR; wor
 | `ease.standard` | `cubic-bezier(0.2, 0.8, 0.2, 1)` | Default for colour/opacity. It is the existing `--ease-psyche` |
 | `ease.enter` | `cubic-bezier(0.16, 1, 0.3, 1)` | Things appearing: decelerates hard and settles quietly |
 | `ease.exit` | `cubic-bezier(0.4, 0, 1, 1)` | Things leaving: accelerates away |
-| `ease.linear` | `linear` | Progress bars, shimmer, the working spinner |
+| `easeLinear` (`--ease-linear`) | `linear` | Progress bars, shimmer, the working pulse. A plain string next to the `ease` curves, not one of them |
 
 ### 2.3 Springs (anything that moves or resizes)
 
