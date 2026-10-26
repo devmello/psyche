@@ -14,6 +14,7 @@ import { useCopy } from "../../lib/clipboard.ts";
 import { TCC_LABEL } from "../settings/ComputerUseSection.tsx";
 import {
   ConnectAccessChoice,
+  needsSetup,
   offeredCatalog,
   SCOPE_MODE_LABEL,
   type ScopeMode,
@@ -368,7 +369,7 @@ export function ConnectorsStep({
   const id = useId();
   // Only real connectors here: MCP servers and Slack are added later in Settings (#529).
   const offered = offeredCatalog(implemented, { navigation: false }).filter(
-    (c) => !connected.some((x) => x.type === c.type),
+    (c) => !connected.some((x) => x.type === c.type) && !needsSetup(c.type),
   );
   // "On this Mac" (the Apple apps) and "Accounts" (Google, Microsoft, IMAP), §7.2.
   const macApps = offered

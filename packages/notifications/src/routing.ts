@@ -32,6 +32,8 @@ export const DEFAULT_SURFACES: Readonly<Record<NotificationKind, readonly Surfac
   briefing: ["desktop", "web"],
   reminder: ["desktop", "web", "notification"],
   system: ["desktop", "web"],
+  // A specialist's one result card (docs/agent/specialists-2026.md §6.2): like a finished task.
+  specialist_result: ["desktop", "web", "notification"],
 };
 
 export const DEFAULT_CHANNEL_KINDS: readonly NotificationKind[] = [
@@ -40,6 +42,7 @@ export const DEFAULT_CHANNEL_KINDS: readonly NotificationKind[] = [
   "task_done",
   "task_failed",
   "reminder",
+  "specialist_result",
 ];
 
 /** UI §3.20: approvals are time-sensitive; proactive, briefing and reminder are passive. */
@@ -52,6 +55,7 @@ export const DEFAULT_INTERRUPTION: Readonly<Record<NotificationKind, Interruptio
   briefing: "passive",
   reminder: "passive",
   system: "passive",
+  specialist_result: "active",
 };
 
 export function resolveSurfaces(
