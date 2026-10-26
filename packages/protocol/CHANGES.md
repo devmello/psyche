@@ -18,6 +18,9 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (O1, agent overview: `insights.summary`, docs/design/agent-overview-2026.md §6.2)
+
+- New read-only method `insights.summary` (`operator.read`): `{window: "7d" | "30d" | "all", timeZone?}` returns `range`, `firstActivityAt`, `totals` and `previous` (`InsightTotals`, `previous` null for `all`), `days` (`InsightDay[]`, zeros included; 7, 30 or 371 for `all`) and `topEntities` (`InsightEntity[]`, at most 12). New schemas `InsightTotals`, `InsightDay`, `InsightEntity`. No new events, no new enum values, no migration; Swift gains the method only.
 ### v1 additive — 2026-10-26 (S02, #683 part 2b: budgets and plan first)
 
 - `SpecialistSpec.budgetPause?` (`{inputRequestId, reason, raised?}`, nullable): the job is paused on its budget question. `raised` means `tasks.update` raised the limits.

@@ -1313,6 +1313,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Aggregates for the Overview: run, approval, artifact and specialist totals for a window with the previous period, one row per day, and the people and projects Psyche dealt with most.",
+        "name": "insights.summary",
+        "params": "#/$defs/InsightsSummaryParams",
+        "result": "#/$defs/InsightsSummaryResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Deletes a Library item and its file.",
         "name": "library.delete",
         "params": "#/$defs/LibraryDeleteParams",
@@ -17817,6 +17825,350 @@
         "voice"
       ],
       "type": "string"
+    },
+    "InsightDay": {
+      "properties": {
+        "date": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "type": "string"
+        },
+        "runs": {
+          "properties": {
+            "task": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "chat": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "automation": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "task",
+            "chat",
+            "automation"
+          ],
+          "type": "object"
+        },
+        "failed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "wallMs": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "date",
+        "runs",
+        "failed",
+        "wallMs"
+      ],
+      "type": "object"
+    },
+    "InsightEntity": {
+      "properties": {
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/GraphEntityKind"
+        },
+        "name": {
+          "type": "string"
+        },
+        "interactions": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "lastInteractionAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "openLoops": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "entityId",
+        "kind",
+        "name",
+        "interactions",
+        "lastInteractionAt",
+        "openLoops"
+      ],
+      "type": "object"
+    },
+    "InsightTotals": {
+      "properties": {
+        "runs": {
+          "properties": {
+            "task": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "chat": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "automation": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "subagent": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "task",
+            "chat",
+            "automation",
+            "subagent"
+          ],
+          "type": "object"
+        },
+        "runsDone": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "runsFailed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "wallMs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "approvals": {
+          "properties": {
+            "approved": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "denied": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "expired": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "approved",
+            "denied",
+            "expired"
+          ],
+          "type": "object"
+        },
+        "artifacts": {
+          "properties": {
+            "created": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "versions": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "charts": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "created",
+            "versions",
+            "charts"
+          ],
+          "type": "object"
+        },
+        "specialists": {
+          "properties": {
+            "done": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "partial": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "failed": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "done",
+            "partial",
+            "failed"
+          ],
+          "type": "object"
+        },
+        "busiestDay": {
+          "anyOf": [
+            {
+              "properties": {
+                "date": {
+                  "type": "string"
+                },
+                "runs": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "date",
+                "runs"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "topAutomation": {
+          "anyOf": [
+            {
+              "properties": {
+                "automationId": {
+                  "description": "ULID in production",
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "runs": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "automationId",
+                "title",
+                "runs"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "runs",
+        "runsDone",
+        "runsFailed",
+        "wallMs",
+        "approvals",
+        "artifacts",
+        "specialists"
+      ],
+      "type": "object"
+    },
+    "InsightsSummaryParams": {
+      "properties": {
+        "window": {
+          "$ref": "#/$defs/GrowthWindow"
+        },
+        "timeZone": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "window"
+      ],
+      "type": "object"
+    },
+    "InsightsSummaryResult": {
+      "properties": {
+        "window": {
+          "$ref": "#/$defs/GrowthWindow"
+        },
+        "range": {
+          "properties": {
+            "from": {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            "to": {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "from",
+            "to"
+          ],
+          "type": "object"
+        },
+        "firstActivityAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "totals": {
+          "$ref": "#/$defs/InsightTotals"
+        },
+        "previous": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InsightTotals"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "days": {
+          "items": {
+            "$ref": "#/$defs/InsightDay"
+          },
+          "maxItems": 371,
+          "type": "array"
+        },
+        "topEntities": {
+          "items": {
+            "$ref": "#/$defs/InsightEntity"
+          },
+          "maxItems": 12,
+          "type": "array"
+        }
+      },
+      "required": [
+        "window",
+        "range",
+        "totals",
+        "days",
+        "topEntities"
+      ],
+      "type": "object"
     },
     "InvocationId": {
       "maxLength": 128,
