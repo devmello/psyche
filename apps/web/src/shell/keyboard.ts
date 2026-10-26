@@ -10,6 +10,7 @@ export type ShortcutAction =
   | "newSideChat"
   | "closeThreadView"
   | "toggleThreadList"
+  | "toggleCompactSidebar"
   | "cycleThreads"
   | "forkSelection"
   | "stop"
@@ -81,6 +82,15 @@ export const SHORTCUTS: readonly Shortcut[] = [
       return t("shell.shortcut.toggleThreadList");
     },
     chord: { key: "b", mod: true },
+    scope: "app",
+    inText: true,
+  },
+  {
+    action: "toggleCompactSidebar",
+    get label() {
+      return t("shell.shortcut.compactSidebar");
+    },
+    chord: { key: "b", mod: true, alt: true },
     scope: "app",
     inText: true,
   },

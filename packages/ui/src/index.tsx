@@ -191,10 +191,14 @@ export { ShortcutList, ShortcutTable } from "./shell/ShortcutList.tsx";
 export {
   ConnectedSidebar,
   clampSidebarWidth,
+  SIDEBAR_RAIL,
   SIDEBAR_WIDTH,
   Sidebar,
+  type SidebarMode,
   type SidebarProps,
   SidebarToggle,
+  type SidebarToggleProps,
+  sidebarResize,
   useSidebarCounts,
 } from "./shell/Sidebar.tsx";
 export {

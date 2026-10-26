@@ -30,7 +30,12 @@ const inactiveWindow: Decorator = (Story) => {
   return <Story />;
 };
 
-function Main(props: { start?: string; sidebar?: boolean; compact?: boolean }) {
+function Main(props: {
+  start?: string;
+  sidebar?: boolean;
+  compact?: boolean;
+  mode?: "full" | "rail";
+}) {
   const [route, setRoute] = useState(props.start ?? `/chat/${IDS.threads.dentist}`);
   return (
     <AppShell
@@ -38,6 +43,7 @@ function Main(props: { start?: string; sidebar?: boolean; compact?: boolean }) {
       onNavigate={setRoute}
       now={STORY_NOW}
       defaultSidebarOpen={props.sidebar ?? true}
+      defaultSidebarMode={props.mode ?? "full"}
       {...(props.compact === undefined ? {} : { compact: props.compact })}
     />
   );
@@ -53,6 +59,11 @@ export const MainWindowInactive: Story = {
 export const MainWindowFeed: Story = { render: () => <Main start="/feed" /> };
 
 export const SidebarCollapsed: Story = { render: () => <Main sidebar={false} /> };
+
+/** The compact, icon-only rail (#598; ⌥⌘B, ⌥-click on the toggle, or a drag below 180 px). */
+export const SidebarRail: Story = { render: () => <Main mode="rail" /> };
+
+export const SidebarRailFeed: Story = { render: () => <Main mode="rail" start="/feed" /> };
 
 export const Compact: Story = {
   parameters: { viewport: { defaultViewport: "mobile1" } },

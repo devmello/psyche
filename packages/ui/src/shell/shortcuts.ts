@@ -10,6 +10,7 @@ export type ShortcutId =
   | "newSideChat"
   | "closeThread"
   | "toggleThreadList"
+  | "compactSidebar"
   | "cycleThreads"
   | "forkSelection"
   | "stop"
@@ -70,7 +71,17 @@ export const SHORTCUTS: readonly Shortcut[] = [
     get label() {
       return t("shell.shortcut.toggleThreadList");
     },
-    match: (e, m) => mod(e, m) && !e.shiftKey && key(e, "b"),
+    match: (e, m) => mod(e, m) && !e.shiftKey && !e.altKey && key(e, "b"),
+  },
+  {
+    id: "compactSidebar",
+    keys: "⌥⌘B",
+    get label() {
+      return t("shell.shortcut.compactSidebar");
+    },
+    psyche: true,
+    // ⌥ changes `key` on macOS (⌥B is "∫"); match the physical key.
+    match: (e, m) => mod(e, m) && !e.shiftKey && e.altKey && (e.code === "KeyB" || key(e, "b")),
   },
   {
     id: "cycleThreads",

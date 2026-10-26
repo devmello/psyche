@@ -26,6 +26,11 @@ describe("keyboard map", () => {
       true,
     );
     expect(find("stop").match(ev({ key: "Escape" }), true)).toBe(true);
+    // ⌥⌘B is the compact rail (#598); ⌥ turns B into "∫" on macOS, so the physical key counts.
+    const optB = ev({ key: "∫", code: "KeyB", metaKey: true, altKey: true });
+    expect(find("compactSidebar").match(optB, true)).toBe(true);
+    expect(find("toggleThreadList").match(optB, true)).toBe(false);
+    expect(find("toggleThreadList").match(ev({ key: "b", metaKey: true }), true)).toBe(true);
   });
 });
 
