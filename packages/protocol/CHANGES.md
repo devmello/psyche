@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (S02, #683 part 2a: the specialist pool)
+
+- `ClaimOptions` gains `origins?`, `excludeOrigins?` and `perParentLimit?` (the chat pool excludes `subagent` jobs; the specialist pool claims only them, at most N running per parent thread). `FakeTaskEngine.claim` honours them.
+- `SpecialistSpec.preflight?` and `SpecialistJob.preflight?` (`ApprovalHint[]`): the spawn's pre-flight, stored on the job so cards and the spawn line read it directly. No new enum values.
 ### v1 additive — 2026-10-26 (S01, #660: run trace T1, part 3)
 
 - Contract `MemoryWriteOptions.trace` and `DailyNoteInput.trace` (`MemoryWriteTrace {runId, toolCallId}`): the tool call behind a memory write, so `memory.file.changed` can name its run and step. TypeScript-only; no schema change.
