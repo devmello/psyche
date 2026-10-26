@@ -219,15 +219,17 @@ describe("voice conversation over the wire (V-G, docs/voice/voice-mode-2026.md)"
     expect(ended.payload).toEqual({ conversationId: started.conversationId, reason: "stopped" });
   });
 
-  it("reads the owner's speak, narrate and pause settings, clamped", () => {
+  it("reads the owner's speak, narrate, review and pause settings, clamped", () => {
     const values: Record<string, unknown> = {
       "voice.conversation.speak": "full",
       "voice.conversation.narrate": "steps",
+      "voice.conversation.reviewBeforeSend": true,
       "voice.conversation.pauseMs": 9_000,
     };
     expect(conversationSettings((k) => values[k])).toEqual({
       speak: "full",
       narrate: "steps",
+      reviewBeforeSend: true,
       pauseMs: 2_000,
     });
     expect(conversationSettings(() => "nonsense")).toEqual({});

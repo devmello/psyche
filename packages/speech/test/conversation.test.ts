@@ -512,6 +512,98 @@ describe("voice conversation: push-to-talk, endings and ownership", () => {
   });
 });
 
+describe("review before sending (spec §4.10)", () => {
+  it("holds the transcript for review, then sends it as edited", async () => {
+    const t = setup(["tell Sam I'm running late"], { settings: { reviewBeforeSend: true } });
+    await t.manager.start({ mode: "push", format: PCM_16K_MONO }, t.ctx);
+    t.manager.turn({ conversationId: "vc_1", action: "begin" }, t.ctx);
+    t.feed(0.3, 400);
+    t.manager.turn({ conversationId: "vc_1", action: "end" }, t.ctx);
+    await flush();
+    expect(t.turns.sends).toHaveLength(0);
+    const waiting = t.of("voice.conversation.state").at(-1);
+    expect(waiting).toMatchObject({
+      phase: "waiting",
+      reason: "review",
+      draft: "tell Sam I'm running late",
+      listening: false,
+    });
+    validateEventPayload("voice.conversation.state", waiting);
+    const utteranceId = waiting?.utteranceId as string;
+    expect(t.of("voice.conversation.caption").at(-1)).toMatchObject({
+      utteranceId,
+      final: true,
+    });
+
+    // A stale or unknown utterance is refused; nothing is sent.
+    expect(() =>
+      t.manager.review({ conversationId: "vc_1", utteranceId: "u_other", action: "send" }, t.ctx),
+    ).toThrow(expect.objectContaining({ code: "conflict" }));
+
+    t.manager.review(
+      {
+        conversationId: "vc_1",
+        utteranceId,
+        action: "send",
+        text: "Tell Sam I'm ten minutes late",
+      },
+      t.ctx,
+    );
+    await flush();
+    expect(t.turns.sends.map((x) => x.text)).toEqual(["Tell Sam I'm ten minutes late"]);
+    expect(t.of("voice.conversation.caption").at(-1)).toMatchObject({
+      role: "owner",
+      utteranceId,
+      text: "Tell Sam I'm ten minutes late",
+      final: true,
+    });
+    expect(t.phases().slice(-2)).toEqual(["heard", "thinking"]);
+    // Answered once: a second send is refused.
+    expect(() =>
+      t.manager.review({ conversationId: "vc_1", utteranceId, action: "send" }, t.ctx),
+    ).toThrow(expect.objectContaining({ code: "conflict" }));
+  });
+
+  it("discards a draft and listens again; talking again replaces it", async () => {
+    const t = setup(["first try", "second try"], { settings: { reviewBeforeSend: true } });
+    await t.manager.start({ mode: "handsfree", format: PCM_16K_MONO }, t.ctx);
+    await sayTurn(t);
+    const first = t.of("voice.conversation.state").at(-1);
+    expect(first).toMatchObject({ reason: "review", draft: "first try", listening: false });
+    t.manager.review(
+      { conversationId: "vc_1", utteranceId: first?.utteranceId as string, action: "discard" },
+      t.ctx,
+    );
+    expect(t.of("voice.conversation.state").at(-1)).toMatchObject({
+      phase: "listening",
+      listening: true,
+    });
+    await sayTurn(t);
+    const second = t.of("voice.conversation.state").at(-1);
+    expect(second).toMatchObject({ reason: "review", draft: "second try" });
+    // The key (or a tap) while reviewing drops the draft and opens a new turn.
+    t.manager.turn({ conversationId: "vc_1", action: "begin" }, t.ctx);
+    expect(t.of("voice.conversation.state").at(-1)).toMatchObject({
+      phase: "listening",
+      listening: true,
+    });
+    expect(() =>
+      t.manager.review(
+        { conversationId: "vc_1", utteranceId: second?.utteranceId as string, action: "send" },
+        t.ctx,
+      ),
+    ).toThrow(expect.objectContaining({ code: "conflict" }));
+    expect(t.turns.sends).toHaveLength(0);
+  });
+
+  it("is off by default: turns go straight out", async () => {
+    const t = setup(["what time is it"]);
+    await t.manager.start({ mode: "handsfree", format: PCM_16K_MONO }, t.ctx);
+    await sayTurn(t);
+    expect(t.turns.sends.map((x) => x.text)).toEqual(["what time is it"]);
+  });
+});
+
 describe("what is spoken", () => {
   it("speaks the brief lead only, skipping code, tables and raw links", () => {
     const s = new SpokenText({ speak: "brief" });
