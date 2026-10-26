@@ -156,7 +156,7 @@ export function ActionLog({
       {actions.map((a) => (
         <li key={a.id} className="px-2 py-2">
           <div className="flex items-center gap-3">
-            <span className="w-11 shrink-0 font-mono text-xs text-label-secondary tabular-nums">
+            <span className="min-w-11 shrink-0 whitespace-nowrap font-mono text-xs text-label-secondary tabular-nums">
               {formatTime(a.createdAt)}
             </span>
             <span className="w-16 shrink-0 truncate text-callout text-label-secondary">

@@ -18,9 +18,9 @@ import { useNow } from "../lib/use-now.ts";
 
 const dateName = (d: Date, options: Intl.DateTimeFormatOptions) =>
   activeI18n().date(d, { ...options, timeZone: "UTC" });
-/** "07:00" in the format locale's digits (a schedule's clock time, UTC). */
+/** A cron field's wall-clock hour and minute ("7:00 AM", "07:00"): built in UTC, shown in UTC. */
 const clock = (d: Date) =>
-  activeI18n().time(d, { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" });
+  activeI18n().time(d, { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
 const monthName = (month: number) =>
   dateName(new Date(Date.UTC(2026, month, 1)), { month: "short" });
 
@@ -29,13 +29,18 @@ export function scheduleSentence(a: Pick<Automation, "kind" | "schedule">): stri
   if (a.kind === "reminder") {
     const at = Date.parse(a.schedule);
     if (!Number.isNaN(at)) {
-      const d = new Date(at);
-      const time = clock(d);
+      // A reminder is an instant: shown on the owner's clock and calendar.
+      const i18n = activeI18n();
       return t("agent.schedule.once", {
-        weekday: dateName(d, { weekday: "short" }),
-        month: monthName(d.getUTCMonth()),
-        day: d.getUTCDate(),
-        time,
+        weekday: i18n.date(at, { weekday: "short" }),
+        month: i18n.date(at, { month: "short" }),
+        day: Number(
+          new Intl.DateTimeFormat("en-US", {
+            day: "numeric",
+            ...(i18n.timeZone ? { timeZone: i18n.timeZone } : {}),
+          }).format(at),
+        ),
+        time: i18n.time(at, { hour: "numeric", minute: "2-digit" }),
       });
     }
   }

@@ -91,7 +91,7 @@ describe("FeedScreen", () => {
     await user.keyboard("{Escape}");
     expect(screen.getByText("News cluster")).toBeTruthy();
     expect(screen.getByText("Lisbon · exploration slot")).toBeTruthy();
-    expect(screen.getByText("That's it for today. Next brief 07:00.")).toBeTruthy();
+    expect(screen.getByText("That's it for today. Next brief 7:00 AM.")).toBeTruthy();
   });
 
   it("hides a post at once on Not interested and restores it from the undo toast", async () => {
@@ -152,7 +152,7 @@ describe("FeedScreen", () => {
       },
     });
     expect(
-      await screen.findByText("No brief yet. Generate the first one, or wait until 07:00."),
+      await screen.findByText("No brief yet. Generate the first one, or wait until 7:00 AM."),
     ).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Generate the first brief" }));
     await waitFor(() => expect(callsTo("feed.generate")).toHaveLength(1));
@@ -250,7 +250,7 @@ describe("GoalsScreen", () => {
     expect(
       screen.getByRole("progressbar", { name: "Run a half marathon in May: 2 of 4 milestones" }),
     ).toBeTruthy();
-    expect(screen.getAllByText("Next check-in Mon 08:00").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Next check-in Mon 8:00 AM").length).toBeGreaterThan(0);
     await user.click(screen.getByRole("button", { name: "Run a half marathon in May" }));
     expect(navigate).toHaveBeenCalledWith(`/goals/${IDS.goals.halfMarathon}`);
   });

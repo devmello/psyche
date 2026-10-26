@@ -6,6 +6,7 @@ export {
   isMessageId,
   type MessageValues,
   setActiveI18n,
+  setDefaultTimeZone,
   t,
 } from "./core.ts";
 export { describeError, errorCode, errorSummary } from "./errors.ts";

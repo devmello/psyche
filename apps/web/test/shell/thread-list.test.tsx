@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import type { Message, ThreadListEntry } from "@psyche/protocol";
+import { activeI18n, createI18n, setActiveI18n } from "@psyche/ui";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished } from "vitest";
 import type { GatewayEvent } from "../../src/client/connection.ts";
 import { type GatewayStatus, INITIAL_STATUS } from "../../src/client/status.ts";
 import { rowTime, ThreadList } from "../../src/shell/components/Chrome.tsx";
@@ -11,6 +12,7 @@ import { lastLineOf, ShellStore } from "../../src/shell/store.ts";
 
 afterEach(cleanup);
 
+const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const T = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
 
 function entry(
@@ -86,18 +88,22 @@ function setup(threads: ThreadListEntry[]) {
 
 describe("rowTime", () => {
   it("shows the clock today, the weekday this week and the date before that", () => {
+    // Day boundaries are the owner's: format on the runtime's clock here (the setup pins UTC).
+    const pinned = activeI18n();
+    setActiveI18n(createI18n({ locale: "en-US", timeZone: localZone }));
+    onTestFinished(() => setActiveI18n(pinned));
     const now = new Date(2026, 9, 20, 15, 0);
     expect(rowTime(new Date(2026, 9, 20, 9, 5).toISOString(), now)).toBe(
-      new Date(2026, 9, 20, 9, 5).toLocaleTimeString(undefined, {
+      new Date(2026, 9, 20, 9, 5).toLocaleTimeString("en-US", {
         hour: "numeric",
         minute: "2-digit",
       }),
     );
     expect(rowTime(new Date(2026, 9, 17, 9, 5).toISOString(), now)).toBe(
-      new Date(2026, 9, 17).toLocaleDateString(undefined, { weekday: "short" }),
+      new Date(2026, 9, 17).toLocaleDateString("en-US", { weekday: "short" }),
     );
     expect(rowTime(new Date(2026, 8, 2).toISOString(), now)).toBe(
-      new Date(2026, 8, 2).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+      new Date(2026, 8, 2).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
     );
   });
 });
