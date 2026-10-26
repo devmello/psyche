@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { IDS } from "../fixtures/index.ts";
+import { type createFixtureWorld, IDS } from "../fixtures/index.ts";
 import { addLongConversation } from "../fixtures/long-thread.ts";
 import { STORY_NOW, withWorld } from "../stories/harness.tsx";
 import { FollowUpQueue } from "./FollowUpQueue.tsx";
@@ -98,6 +98,106 @@ export const Answered: Story = {
     }),
   ],
   render: DentistBooking.render,
+};
+
+/** A run with four steps for the step-log stories; `quietFor` seconds since its last event. */
+function runWithSteps(quietFor: number) {
+  return (w: ReturnType<typeof createFixtureWorld>) => {
+    const base = w.runs[0];
+    const call = w.toolCalls[0];
+    if (base === undefined || call === undefined) return;
+    const at = (s: number) => new Date(STORY_NOW - s * 1000).toISOString();
+    const run = {
+      ...base,
+      id: "run_story_steps",
+      threadId: IDS.threads.main,
+      status: "running" as const,
+      startedAt: at(60),
+      endedAt: null,
+      error: null,
+    };
+    w.runs = [...w.runs.filter((r) => r.threadId !== IDS.threads.main), run];
+    const tool = (id: string, status: typeof call.status, start: number, end: number | null) => ({
+      ...call,
+      id,
+      runId: run.id,
+      tool: "web.fetch",
+      target: null,
+      status,
+      startedAt: at(start),
+      endedAt: end === null ? null : at(end),
+    });
+    w.toolCalls.push(
+      tool("st_1", "ok", 50, 48),
+      tool("st_2", "failed", 40, 39),
+      tool("st_3", "ok", 30, 26),
+      tool("st_4", "running", 12, null),
+    );
+    w.threads = w.threads.map((th) =>
+      th.thread.id === IDS.threads.main
+        ? { ...th, thread: { ...th.thread, activeWriterRunId: run.id } }
+        : th,
+    );
+    w.messages.push({
+      id: "msg_story_steps",
+      threadId: IDS.threads.main,
+      seq: 990,
+      role: "agent",
+      blocks: [
+        { type: "text", md: "Checking the current Node.js LTS before I update the lockfile." },
+        {
+          type: "tool_call",
+          toolCallId: "st_1",
+          tool: "web.search",
+          status: "ok",
+          level1: 'Searched the web for "Node.js LTS"',
+        },
+        {
+          type: "tool_call",
+          toolCallId: "st_2",
+          tool: "web.fetch",
+          status: "failed",
+          level1: "Read nodejs.org/en/about/previous-releases (timed out)",
+        },
+        {
+          type: "tool_call",
+          toolCallId: "st_3",
+          tool: "web.fetch",
+          status: "ok",
+          level1: "Read nodejs.org",
+        },
+        {
+          type: "tool_call",
+          toolCallId: "st_4",
+          tool: "exec",
+          status: "running",
+          level1: "Run npm install in ~/Projects/psyche",
+        },
+      ],
+      providerNative: null,
+      provenance: "agent",
+      replyToMessageId: null,
+      channelRef: null,
+      runId: run.id,
+      createdAt: at(quietFor),
+    });
+  };
+}
+
+/** #623: a run's step log while it works: past steps, the current one, a failure (§5.2). */
+export const RunInProgress: Story = {
+  decorators: [withWorld({ edit: runWithSteps(8) })],
+  render: () => (
+    <div className="flex h-[720px] flex-col">
+      <ChatThread threadId={IDS.threads.main} now={STORY_NOW} />
+    </div>
+  ),
+};
+
+/** #623: nothing has happened for 55 s, so the log says so (a freeze is visible). */
+export const RunStalled: Story = {
+  decorators: [withWorld({ edit: runWithSteps(55) })],
+  render: RunInProgress.render,
 };
 
 /** Reduced motion: fades only, no movement, static working pulse (motion.md §7). */

@@ -16,6 +16,11 @@ export interface ThreadBlockIndex {
   toolLatest: ReadonlyMap<string, ToolCallBlock>;
   /** approvalId → the first message that shows it. */
   approvalHome: ReadonlyMap<string, string>;
+  /**
+   * The run in progress (#623): its tool calls and approvals show in the run's step log under
+   * the last message, so the transcript leaves them out until the run ends.
+   */
+  activeRunId?: string | null;
 }
 
 /** Indexes a thread's messages, in transcript order. */
@@ -42,13 +47,19 @@ export function indexThreadBlocks(messages: readonly Message[]): ThreadBlockInde
  * With no index (a message rendered on its own) only the in-message rules apply.
  */
 export function blocksToShow(
-  message: { id: string; blocks: readonly Block[] },
+  message: { id: string; blocks: readonly Block[]; runId?: string | null },
   index: ThreadBlockIndex | null,
 ): readonly Block[] {
   const seenApprovals = new Set<string>();
   let changed = false;
   const out: Block[] = [];
+  const live =
+    index?.activeRunId != null && message.runId != null && message.runId === index.activeRunId;
   for (const b of message.blocks) {
+    if (live && (b.type === "tool_call" || b.type === "approval")) {
+      changed = true;
+      continue;
+    }
     if (b.type === "approval") {
       const elsewhere =
         index !== null && (index.approvalHome.get(b.approvalId) ?? message.id) !== message.id;

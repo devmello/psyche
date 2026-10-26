@@ -146,4 +146,22 @@ export const chat = {
   "chat.approval.more": "More about this approval",
   "chat.approval.others": "{n, plural, one {# more} other {# more}}",
   "chat.approval.nextLabel": "{more} · next: {summary}, expires in {countdown}",
+
+  // A run's step log while it works (#623).
+  "chat.steps.label": "Steps of this run",
+  "chat.steps.showAll": "Show all ({n})",
+  "chat.steps.showFewer": "Show fewer",
+  "chat.steps.stalled": "No response for {duration}",
+  "chat.steps.waiting": "{name} is waiting for you",
+  "chat.steps.approval": "Waiting for your approval: {summary}",
+  "chat.steps.question": "Asked: {question}",
+  "chat.steps.answered": "Answered: {question}",
+  "chat.steps.writing": "Writing the reply…",
+  "chat.steps.status.running": "running",
+  "chat.steps.status.done": "done",
+  "chat.steps.status.failed": "failed",
+  "chat.steps.status.waiting": "waiting",
+  "chat.steps.status.paused": "paused",
+  "chat.steps.status.cancelled": "cancelled",
+  "chat.steps.status.pending": "pending",
 } as const;

@@ -21,6 +21,7 @@ import { FollowUpQueue } from "./FollowUpQueue.tsx";
 import { MessageView } from "./MessageView.tsx";
 import { OfflineBanner } from "./OfflineBanner.tsx";
 import { failureAnchors, RunFailure } from "./RunFailure.tsx";
+import { RunStepLog, useRunSteps } from "./RunStepLog.tsx";
 import {
   ComposerSuggestions,
   EmptyThread,
@@ -28,7 +29,7 @@ import {
   useElementHeight,
 } from "./ThreadChrome.tsx";
 import { useBottomAnchor } from "./useBottomAnchor.ts";
-import { useRunningTool, WorkingIndicator } from "./WorkingIndicator.tsx";
+import { useRunningTool } from "./WorkingIndicator.tsx";
 
 /** A committed message, or a streaming one that has no committed blocks yet. */
 interface DisplayMessage {
@@ -438,7 +439,16 @@ export function ChatThread({
 
   const byId = useMemo(() => new Map(view.messages.map((m) => [m.id, m])), [view.messages]);
   // Tool calls and approvals that span an approval pause show once (#569).
-  const blockIndex = useMemo(() => indexThreadBlocks(view.messages), [view.messages]);
+  const baseIndex = useMemo(() => indexThreadBlocks(view.messages), [view.messages]);
+  // A run's step log while it works (#623): its tool calls and approvals live in the log until
+  // the run ends, then fold back into the transcript's grouped rows.
+  const streamingText = view.streaming.at(-1)?.text ?? null;
+  const { run: stepRun, steps } = useRunSteps(threadId, baseIndex, streamingText);
+  const blockIndex = useMemo(
+    () => ({ ...baseIndex, activeRunId: stepRun?.id ?? null }),
+    [baseIndex, stepRun?.id],
+  );
+  const showSteps = stepRun !== null || sentAt !== null;
   // A failed run says so where its reply would have been (#539).
   const failures = useMemo(
     () => failureAnchors(view.messages, view.failedRuns),
@@ -469,7 +479,7 @@ export function ChatThread({
   const columnRef = useRef<HTMLDivElement>(null);
   const stackRef = useRef<HTMLDivElement>(null);
   const stackHeight = useElementHeight(stackRef);
-  const anchorVersion = `${display.length}:${display.at(-1)?.message.blocks.length ?? 0}:${display.at(-1)?.streamingText?.length ?? 0}:${working}`;
+  const anchorVersion = `${display.length}:${display.at(-1)?.message.blocks.length ?? 0}:${display.at(-1)?.streamingText?.length ?? 0}:${working}:${steps.length}:${steps.at(-1)?.status ?? ""}`;
   const { away, jump } = useBottomAnchor(viewportRef, columnRef, anchorVersion);
   const empty = display.length === 0 && !view.loading;
 
@@ -554,7 +564,14 @@ export function ChatThread({
                     }}
                   </ThreadPrimitive.Messages>
                 </ThreadBlocksProvider>
-                {working ? <WorkingIndicator persona={persona.name} tool={runningTool} /> : null}
+                {showSteps ? (
+                  <RunStepLog
+                    persona={persona.name}
+                    run={stepRun}
+                    steps={steps}
+                    {...(now === undefined ? {} : { now })}
+                  />
+                ) : null}
               </div>
             </ThreadPrimitive.Viewport>
             <div
