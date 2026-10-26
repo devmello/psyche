@@ -308,7 +308,8 @@ Target:
   The second "View" strip is removed: disclosure level moves into ⋯ and ⌃O. The drag region covers the toolbar's empty space only.
 - **Sidebar collapse:** ⌘B and the toolbar button. When collapsed, the traffic lights stay and the toolbar starts at x 84.
 - **Settings window:** ⌘, opens a separate `BrowserWindow`:
-  - 720 × 560, resizable
+  - 920 × 640 by default, at least 760 × 520, resizable (#596)
+  - the first time, centred on the main window; then where the owner left it (remembered in `userData/settings-window.json` while it's still on a screen)
   - its own sidebar with vibrancy
   - `titleBarStyle: "hidden"`, so the lights sit on the sidebar
   - route `/settings/:section`

@@ -16,7 +16,8 @@ import type { BaseWindowConstructorOptions } from "electron";
 export const TRAFFIC_LIGHTS = { x: 20, y: 19 } as const;
 
 export const MAIN_WINDOW_SIZE = { width: 1280, height: 860 } as const;
-export const SETTINGS_WINDOW_SIZE = { width: 760, height: 580 } as const;
+export const SETTINGS_WINDOW_SIZE = { width: 920, height: 640 } as const;
+export const SETTINGS_WINDOW_MIN = { width: 760, height: 520 } as const;
 
 /**
  * The canvas colour (`--canvas`, gray-1 of the default theme) per appearance. Native windows
@@ -61,12 +62,16 @@ export function mainWindowOptions(
   };
 }
 
-/** The Settings window (⌘,): its own window, as macOS settings are (redesign §4, §5.8). */
+/**
+ * The Settings window (⌘,): its own window, as macOS settings are (redesign §4, §5.8), with the
+ * main window's chrome (hidden title bar, the lights at the same place in the 52 px toolbar).
+ * Where it opens is `window-placement.ts` (#596).
+ */
 export function settingsWindowOptions(o: { dark?: boolean } = {}): BaseWindowConstructorOptions {
   return {
     ...SETTINGS_WINDOW_SIZE,
-    minWidth: 640,
-    minHeight: 440,
+    minWidth: SETTINGS_WINDOW_MIN.width,
+    minHeight: SETTINGS_WINDOW_MIN.height,
     title: "Settings",
     show: false,
     fullscreenable: false,
