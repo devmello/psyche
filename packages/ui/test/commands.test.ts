@@ -12,6 +12,7 @@ describe("composer commands (C9)", () => {
       "incognito",
       "forget",
       "remember",
+      "teach",
       "plan",
       "status",
       "export",
@@ -45,7 +46,7 @@ describe("composer commands (C9)", () => {
   });
 
   it("matches a partial name and completes with a space only when an argument follows", () => {
-    expect(matchCommands("/").length).toBe(12);
+    expect(matchCommands("/").length).toBe(13);
     expect(matchCommands("/f").map((c) => c.name)).toEqual(["fork", "forget"]);
     expect(matchCommands("/f x")).toEqual([]);
     expect(matchCommands("hi")).toEqual([]);
