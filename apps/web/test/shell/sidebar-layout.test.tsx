@@ -9,6 +9,7 @@ import type { GatewayStatus } from "../../src/client/status.ts";
 import { SHORTCUTS } from "../../src/shell/keyboard.ts";
 import type { ShellPlatform } from "../../src/shell/platform.ts";
 import {
+  agentSheetDocked,
   chromeLead,
   isAgentRoute,
   isChatRoute,
@@ -251,6 +252,15 @@ describe("the toolbar clear of the traffic lights (#624)", () => {
 });
 
 describe("the agent sheet's routes (redesign §5.7)", () => {
+  it("docks beside the content only with room for both and no panes open (#625)", () => {
+    expect(agentSheetDocked({ compact: false, contentWidth: 1280 - 248 })).toBe(true);
+    // 480 px of content beside the 400 px sheet is the floor.
+    expect(agentSheetDocked({ compact: false, contentWidth: 880 })).toBe(true);
+    expect(agentSheetDocked({ compact: false, contentWidth: 879 })).toBe(false);
+    expect(agentSheetDocked({ compact: true, contentWidth: 2000 })).toBe(false);
+    expect(agentSheetDocked({ compact: false, contentWidth: 2000, panesOpen: true })).toBe(false);
+  });
+
   it("remembers the section under the sheet (#614)", () => {
     expect(isAgentRoute("/agent/upcoming")).toBe(true);
     expect(isAgentRoute("/agent")).toBe(true);

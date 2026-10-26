@@ -109,6 +109,39 @@ describe("the Feed's instructions sheet (#614)", () => {
   });
 });
 
+describe("the agent sheet beside the content (#625)", () => {
+  it("sits beside the chat on a wide window: the chat stays usable and Escape there keeps it", async () => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", "/agent/activity");
+    const { platform } = webPlatform();
+    render(<PsycheApp platform={platform} />);
+    const sheet = await screen.findByTestId("agent-sheet");
+    expect(sheet.getAttribute("data-presentation")).toBe("inline");
+    expect(screen.getByTestId("agent-sheet-column").contains(sheet)).toBe(true);
+    // Not modal: the composer is reachable (not aria-hidden) and there is no dialog.
+    const composer = await screen.findByRole("textbox", { name: "Message Flash" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    // Escape in the composer belongs to the composer; Escape in the sheet closes it.
+    fireEvent.keyDown(composer, { key: "Escape" });
+    expect(window.location.pathname).toBe("/agent/activity");
+    fireEvent.keyDown(within(sheet).getByRole("tab", { name: /Activity/ }), { key: "Escape" });
+    await waitFor(() => expect(window.location.pathname).toBe(`/chat/${MAIN.id}`));
+    await waitFor(() => expect(screen.queryByTestId("agent-sheet")).toBeNull());
+  });
+
+  it("stays the modal overlay when the window is too narrow for both", async () => {
+    // 900 px: wider than the compact breakpoint, but 900 − 248 − 400 < 480.
+    window.innerWidth = 900;
+    window.history.replaceState(null, "", "/agent/upcoming");
+    const { platform } = webPlatform();
+    render(<PsycheApp platform={platform} />);
+    const sheet = await screen.findByTestId("agent-sheet");
+    expect(sheet.getAttribute("data-presentation")).toBeNull();
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(screen.queryByTestId("agent-sheet-column")).toBeNull();
+  });
+});
+
 describe("the agent sheet over the current section (#614)", () => {
   it("the Feed's Schedule opens the sheet over the feed and closing returns to /feed", async () => {
     window.innerWidth = 1280;
@@ -124,7 +157,7 @@ describe("the agent sheet over the current section (#614)", () => {
         .getByRole("tab", { name: /Upcoming/ })
         .getAttribute("aria-selected"),
     ).toBe("true");
-    // The feed stays mounted underneath (inert behind the modal sheet), not the chat, and the
+    // The feed stays mounted beside the sheet, not the chat, and the
     // sidebar still marks Feed.
     expect(screen.getByTestId("screen-feed")).toBe(feed);
     expect(screen.queryByTestId("kit-chat")).toBeNull();

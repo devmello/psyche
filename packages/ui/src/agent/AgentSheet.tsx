@@ -109,6 +109,11 @@ export interface AgentSheetBodyProps {
   file?: string;
   /** The `/agent/*` page's × and Escape: back to where the owner came from (#508). */
   onClose?: () => void;
+  /**
+   * Escape anywhere in the window closes it (the modal sheet, the page). The inline panel turns
+   * this off: it sits beside the chat, so Escape in the composer must not close it (#625).
+   */
+  escapeAnywhere?: boolean;
 }
 
 /** The four tabs behind the avatar (UI design §2.3), also used by the `/agent/*` routes. */
@@ -121,10 +126,11 @@ export function AgentSheetBody({
   header = true,
   file,
   onClose,
+  escapeAnywhere = true,
 }: AgentSheetBodyProps): ReactElement {
   // Escape closes the page unless something on top (a dialog, a menu) already handled it.
   useEffect(() => {
-    if (!onClose) return;
+    if (!onClose || !escapeAnywhere) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || e.defaultPrevented) return;
       if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"]')) return;
@@ -132,7 +138,7 @@ export function AgentSheetBody({
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, escapeAnywhere]);
   // The badge counts what the Approvals panel lists under "Needs you", so the two always agree.
   const { live } = useApprovalQueue();
   return (
@@ -206,6 +212,41 @@ export function AgentSheetBody({
         </div>
       </Tabs>
     </div>
+  );
+}
+
+/** The inline panel's width (#625): Notes' inspector, beside the content column. */
+export const AGENT_PANEL_WIDTH = 400;
+/** The content column's narrowest width beside the panel; narrower windows get the modal sheet. */
+export const AGENT_PANEL_MIN_CONTENT = 480;
+
+export interface AgentSheetPanelProps
+  extends Omit<AgentSheetBodyProps, "header" | "onClose" | "escapeAnywhere"> {
+  /** × and Escape (with focus in the panel): back to where the sheet was opened from. */
+  onClose: () => void;
+}
+
+/**
+ * The agent sheet beside the content (#625), like Notes' inspector: the shell gives it a column at
+ * the window's trailing edge and the content column shrinks from the right. Non-modal, in the
+ * same chrome layer as the canvas (a hairline on its leading edge); its own header row carries
+ * the identity and the ×. The shell keeps the modal `AgentSheet` for windows too narrow for both.
+ */
+export function AgentSheetPanel({ onClose, ...body }: AgentSheetPanelProps): ReactElement {
+  return (
+    <aside
+      aria-label={t("agent.sheet.label")}
+      data-testid="agent-sheet"
+      data-presentation="inline"
+      className="flex h-full min-h-0 w-full flex-col border-s border-separator bg-canvas px-4 pt-4"
+      onKeyDown={(e) => {
+        if (e.key !== "Escape" || e.defaultPrevented) return;
+        e.preventDefault();
+        onClose();
+      }}
+    >
+      <AgentSheetBody {...body} header onClose={onClose} escapeAnywhere={false} />
+    </aside>
   );
 }
 

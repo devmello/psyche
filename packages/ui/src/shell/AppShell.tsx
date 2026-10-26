@@ -1,6 +1,12 @@
 import { type ReactElement, type ReactNode, startTransition, useEffect, useState } from "react";
 import { AgentHeader } from "../agent/AgentHeader.tsx";
-import { AgentSheet, type AgentTab } from "../agent/AgentSheet.tsx";
+import {
+  AGENT_PANEL_MIN_CONTENT,
+  AGENT_PANEL_WIDTH,
+  AgentSheet,
+  AgentSheetPanel,
+  type AgentTab,
+} from "../agent/AgentSheet.tsx";
 import { ChatThread } from "../chat/Thread.tsx";
 import { useThread, useThreads } from "../data/index.ts";
 import { CommandPalette, type PaletteAction } from "./CommandPalette.tsx";
@@ -43,6 +49,18 @@ function useCompact(): boolean {
   return compact;
 }
 
+function useWindowWidth(): number {
+  const [width, setWidth] = useState(() =>
+    typeof window === "undefined" ? 1280 : window.innerWidth,
+  );
+  useEffect(() => {
+    const on = () => setWidth(window.innerWidth);
+    window.addEventListener("resize", on);
+    return () => window.removeEventListener("resize", on);
+  }, []);
+  return width;
+}
+
 export interface AppShellProps {
   /** Current route (UI design §2.7); the shell owns routing. */
   route: string;
@@ -62,13 +80,15 @@ export interface AppShellProps {
   defaultSidebarMode?: SidebarMode;
   /** Forces the compact layout (stories); otherwise it follows the window width. */
   compact?: boolean;
+  /** Starts with the agent sheet open on this tab (stories). */
+  defaultSheet?: AgentTab;
   now?: number;
 }
 
 /**
  * Main window layout (redesign §4, §5.1, §5.11): one 248 px sidebar (destinations, threads,
- * persona; resizable, ⌘B collapses it), the content column with the agent header, and the pane
- * area. Below 720 px: a 44 px top bar, a threads drawer and the glass tab bar. Routes and panes
+ * persona; resizable, ⌘B collapses it), the content column with the agent header, the pane
+ * area and the agent sheet beside them (#625). Below 720 px: a 44 px top bar, a threads drawer and the glass tab bar. Routes and panes
  * stay with the shell; a change of destination crossfades the content column.
  */
 export function AppShell({
@@ -83,10 +103,12 @@ export function AppShell({
   defaultSidebarWidth = SIDEBAR_WIDTH.default,
   defaultSidebarMode = "full",
   compact: forceCompact,
+  defaultSheet,
   now,
 }: AppShellProps): ReactElement {
   const narrow = useCompact();
   const compact = forceCompact ?? narrow;
+  const windowWidth = useWindowWidth();
   const threads = useThreads();
   const [sidebarOpen, setSidebarOpen] = useState(defaultSidebarOpen);
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>(defaultSidebarMode);
@@ -95,8 +117,8 @@ export function AppShell({
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [sheet, setSheet] = useState<{ open: boolean; tab: AgentTab; taskId?: string }>({
-    open: false,
-    tab: "activity",
+    open: defaultSheet !== undefined,
+    tab: defaultSheet ?? "activity",
   });
 
   const chatMatch = /^\/chat(?:\/([^/?]+))?/.exec(route);
@@ -164,6 +186,11 @@ export function AppShell({
       onModeChange={setSidebarMode}
     />
   );
+  // The agent sheet sits beside the content when the content keeps its minimum next to it (#625);
+  // narrower windows get the modal sheet.
+  const contentWidth =
+    windowWidth - (compact || !sidebarOpen ? 0 : sidebarMode === "rail" ? 64 : sidebarWidth);
+  const docked = !compact && contentWidth - AGENT_PANEL_WIDTH >= AGENT_PANEL_MIN_CONTENT;
   const content =
     chatMatch && threadId ? (
       <ChatThread threadId={threadId} {...(now === undefined ? {} : { now })} />
@@ -226,6 +253,20 @@ export function AppShell({
           {compact ? null : (
             <PanePresence className="flex min-w-[360px]">{panes ?? null}</PanePresence>
           )}
+          {/* The agent sheet beside the content (#625): the content column shrinks from the right. */}
+          {docked ? (
+            <PanePresence className="flex h-full shrink-0" style={{ width: AGENT_PANEL_WIDTH }}>
+              {sheet.open ? (
+                <AgentSheetPanel
+                  tab={sheet.tab}
+                  onTabChange={(tab) => setSheet((s) => ({ ...s, tab }))}
+                  onClose={() => setSheet((s) => ({ ...s, open: false }))}
+                  {...(sheet.taskId ? { taskId: sheet.taskId } : {})}
+                  {...(now === undefined ? {} : { now })}
+                />
+              ) : null}
+            </PanePresence>
+          ) : null}
         </div>
         {compact ? (
           <TabBar active={destinationFor(route)} onNavigate={go} badges={railBadges ?? {}} />
@@ -244,8 +285,9 @@ export function AppShell({
             {...(now === undefined ? {} : { now })}
           />
         </ThreadsDrawer>
+        {/* Too narrow for both: the modal sheet (a bottom sheet when compact). */}
         <AgentSheet
-          open={sheet.open}
+          open={!docked && sheet.open}
           onOpenChange={(open) => setSheet((s) => ({ ...s, open }))}
           tab={sheet.tab}
           onTabChange={(tab) => setSheet((s) => ({ ...s, tab }))}
