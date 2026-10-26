@@ -65,7 +65,7 @@ export interface ComposerProps {
   mode?: QueueMode;
   onAttach?: () => void;
   onDictate?: () => void;
-  /** The host's dictation and voice conversation (#690): the mic and Voice buttons. */
+  /** The host's dictation (#690): the mic button. */
   voice?: ComposerVoice;
   /** Stops the active run (`chat.cancel`). */
   onStop?: () => void;
@@ -110,7 +110,7 @@ export function Composer({
     <m.div
       ref={capsuleRef}
       layout
-      // The voice capsule takes this place with the same id (voice-mode-2026 §6.1).
+      // Other surfaces (the pop-up) morph from this id.
       layoutId="psyche-composer"
       transition={motionSpring(spring.smooth)}
       className="group/composer relative"

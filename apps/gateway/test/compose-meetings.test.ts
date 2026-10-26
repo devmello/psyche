@@ -16,7 +16,8 @@ import { FakeClock, FakeModelProvider, FakeSpeechEngine } from "@psyche/testing"
 import { Type } from "@sinclair/typebox";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
-import { composeMeetings, graphPrepHooks } from "../src/compose/meetings.ts";
+import { ClientAudioCapture } from "../src/compose/meeting-capture.ts";
+import { composeMeetings, graphPrepHooks, RecordMeeting } from "../src/compose/meetings.ts";
 import { GRAPH_SETTING } from "../src/compose/people.ts";
 import { FsAudioLibrary, libraryTranscripts } from "../src/compose/speech.ts";
 import type { HandlerDef } from "../src/context.ts";
@@ -73,9 +74,12 @@ function enableGraph(c: ComposedGateway) {
   c.people.sync({ enabled: true });
 }
 
-const run = (h: HandlerDef | undefined, params: unknown) => {
+const run = (h: HandlerDef | undefined, params: unknown, deviceId = "dev1") => {
   if (h === undefined) throw new Error("handler not mounted");
-  return (h.run as (call: unknown, p: unknown) => Promise<unknown>)({}, params);
+  return (h.run as (call: unknown, p: unknown) => Promise<unknown>)(
+    { identity: { deviceId } },
+    params,
+  );
 };
 
 const LINES = [
@@ -186,6 +190,7 @@ function notesRig(c: ComposedGateway, provider: FakeModelProvider, minutes = 40)
     primary: "fake/primary",
     utility: "fake/utility",
     transcriber: { ingestMeeting: (input) => memos.ingestMeeting(input as never, transcripts) },
+    transcriberAvailable: () => true,
     capture: () => capture,
     graph: () => (c.people.settings().enabled ? c.people.graph : undefined),
     ownerAddresses: async () => ["sam@acme.example"],
@@ -387,6 +392,132 @@ describe("post-meeting notes in the Gateway (§4.6)", () => {
     expect(r.meetings.record.status().last?.notes).toBe("done");
     // Exactly one notes run for one recording.
     expect(r.prompts).toHaveLength(1);
+  });
+});
+
+/** One second of 16 kHz mono PCM s16le, as a device's microphone chunk. */
+const pcmChunk = (seconds = 1) => Buffer.alloc(32_000 * seconds, 1).toString("base64");
+
+describe("Record meeting with the device's microphone (§4.6)", () => {
+  const call = (r: ReturnType<typeof notesRig>, name: string, params: unknown, device = "dev1") =>
+    run(r.meetings.handlers[name], params, device);
+
+  it("is available once a transcriber is online, and asks consent before it takes any audio", async () => {
+    const provider = new FakeModelProvider();
+    const c = await compose(provider);
+    const r = notesRig(c, provider, 20);
+    expect(r.meetings.record.status()).toMatchObject({ available: true, recording: false });
+    await expect(
+      call(r, "meetings.record.start", { consentConfirmed: false }),
+    ).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    await expect(
+      call(r, "meetings.record.push", { seq: 0, audio: pcmChunk() }),
+    ).rejects.toMatchObject({
+      code: "conflict",
+    });
+  });
+
+  it("stores the pushed audio as a Library WAV and writes notes from it where it lies", async () => {
+    const provider = new FakeModelProvider();
+    const c = await compose(provider);
+    const r = notesRig(c, provider, 20);
+    await call(r, "meetings.record.start", { consentConfirmed: true, meetingId: "ev1" });
+    // Only the device that started the recording pushes; chunks go in order.
+    await expect(
+      call(r, "meetings.record.push", { seq: 0, audio: pcmChunk() }, "dev2"),
+    ).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    await call(r, "meetings.record.push", { seq: 0, audio: pcmChunk() });
+    await expect(
+      call(r, "meetings.record.push", { seq: 2, audio: pcmChunk() }),
+    ).rejects.toMatchObject({
+      code: "invalid_params",
+    });
+    await call(r, "meetings.record.push", { seq: 1, audio: pcmChunk() });
+    const stopped = (await call(r, "meetings.record.stop", {
+      reason: "silence",
+    })) as MeetingRecordingStatus;
+    expect(stopped).toMatchObject({
+      recording: false,
+      last: { reason: "silence", durationMs: 2000 },
+    });
+    await r.meetings.record.pending;
+    const last = r.meetings.record.status().last;
+    expect(last).toMatchObject({ notes: "done", reason: "silence" });
+
+    const [path] = r.files.paths;
+    expect(path).toMatch(/library\/audio\/[0-9A-Z]+\.wav$/);
+    const wav = readFileSync(path ?? "");
+    expect(wav.subarray(0, 4).toString()).toBe("RIFF");
+    expect(wav.readUInt32LE(40)).toBe(64_000);
+    expect(wav.length).toBe(44 + 64_000);
+    const id = (path ?? "").split("/").pop()?.replace(".wav", "") ?? "";
+    expect(getLibraryItem(c.db, id)).toMatchObject({
+      kind: "recording",
+      mime: "audio/wav",
+      quarantined: true,
+      textExtractRef: `extracts/${id}.txt`,
+    });
+    const post = c.proactive.feed.store.get(last?.postId ?? "");
+    expect(post?.title).toMatch(/^Notes: Meeting 2026-10-26/);
+  });
+
+  it("ends the recording and keeps its notes when the device disconnects", async () => {
+    const provider = new FakeModelProvider();
+    const c = await compose(provider);
+    const r = notesRig(c, provider, 20);
+    await call(r, "meetings.record.start", { consentConfirmed: true });
+    await call(r, "meetings.record.push", { seq: 0, audio: pcmChunk() });
+    r.meetings.deviceGone("dev2");
+    expect(r.meetings.record.status().recording).toBe(true);
+    r.meetings.deviceGone("dev1");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await r.meetings.record.pending;
+    expect(r.meetings.record.status()).toMatchObject({
+      recording: false,
+      last: { reason: "source_ended", notes: "done" },
+    });
+  });
+
+  it("a recording with no audio ends without notes instead of hanging", async () => {
+    const provider = new FakeModelProvider();
+    const c = await compose(provider);
+    const r = notesRig(c, provider, 20);
+    await call(r, "meetings.record.start", { consentConfirmed: true });
+    await expect(call(r, "meetings.record.stop", {})).rejects.toMatchObject({
+      code: "invalid_params",
+    });
+    expect(r.meetings.record.status().recording).toBe(false);
+    await call(r, "meetings.record.start", { consentConfirmed: true });
+  });
+
+  it("ends by itself when chunks stop, and at the 4-hour cap", async () => {
+    const provider = new FakeModelProvider();
+    const c = await compose(provider);
+    const r = notesRig(c, provider, 20);
+    const mic = new ClientAudioCapture({ db: c.db, home, clock: clock() });
+    const idle = new RecordMeeting({
+      notes: { fromRecording: async () => ({ status: "needs_permission", question: "ok?" }) },
+      clock: clock(),
+      capture: () => mic,
+      push: (seq, pcm) => mic.push(seq, pcm),
+      idleMs: 25,
+      publish: () => {},
+    });
+    await idle.start({ consentConfirmed: true }, "dev1");
+    await idle.push(0, Buffer.alloc(32_000, 1), "dev1");
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(idle.status().last).toMatchObject({ reason: "source_ended" });
+
+    const capped = new ClientAudioCapture({ db: c.db, home, clock: clock(), maxMs: 1000 });
+    const session = await capped.start();
+    await capped.push(0, Buffer.alloc(64_000, 1));
+    const audio = await session.ended;
+    expect(audio).toMatchObject({ reason: "stopped", durationMs: 1000 });
+    expect(r.prompts).toHaveLength(0);
   });
 });
 

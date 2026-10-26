@@ -100,6 +100,7 @@ describe("parseOpen", () => {
       mode: "region",
       rect: { x: 1, y: 2, width: 3, height: 4 },
     });
+    expect(parseOpen({ mode: "voice" })).toEqual({ mode: "voice" });
     expect(parseOpen({ mode: "region" })).toBeNull();
     expect(parseOpen({ mode: "display" })).toBeNull();
   });
@@ -226,5 +227,22 @@ describe("ScreenAsk", () => {
       .map(([, p]) => p as Record<string, unknown>);
     expect(sends.map((p) => p.threadId)).toEqual(["th_main", "th_new"]);
     expect(sends[1]?.screen).toEqual({ captureId: "cap_1", image: "pinned" });
+  });
+
+  it("voice mode shows no capture chip, never calls screen.capture and sends a plain chat", async () => {
+    const { platform, bridge, calls, open } = setup();
+    render(<ScreenAsk platform={platform} bridge={bridge} />);
+    open({ mode: "voice" });
+    await waitFor(() => screen.getByTestId("screen-ask"));
+    expect(screen.queryByTestId("screen-ask-chip")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Select area" })).toBeNull();
+    expect(screen.getByPlaceholderText("Ask Psyche anything…")).toBeTruthy();
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "what time is it" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(calls.some(([m]) => m === "chat.send")).toBe(true));
+    expect(calls.some(([m]) => m === "screen.capture")).toBe(false);
+    const sent = calls.find(([m]) => m === "chat.send")?.[1] as Record<string, unknown>;
+    expect(sent.screen).toBeUndefined();
+    expect(sent.content).toBe("what time is it");
   });
 });

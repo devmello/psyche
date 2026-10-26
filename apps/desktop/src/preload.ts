@@ -142,11 +142,6 @@ const bridge = {
     onKey: (cb: (e: unknown) => void) => listen(IPC.voiceKey, cb),
     onSystem: (cb: (e: unknown) => void) => listen(IPC.voiceSystem, cb),
   },
-  /** The voice HUD window only (`VoiceHudBridge`); main ignores these from any other renderer. */
-  voiceHud: {
-    done: () => ipcRenderer.send(IPC.voiceHudDone),
-    openThread: (threadId: string | null) => ipcRenderer.send(IPC.voiceHudOpenThread, { threadId }),
-  },
   /** The ask panel and its region overlay only (`ScreenAskBridge`); main ignores other senders. */
   screenAsk: {
     onOpen: (cb: (open: unknown) => void) => listen(IPC.screenAskOpen, cb),

@@ -8,13 +8,10 @@ import {
   type VoiceState,
   webSpeechDictation,
 } from "../voice.ts";
-import { voiceModeLabel } from "../voice-mode.ts";
-import { useVoiceMode } from "./VoiceModeBar.tsx";
 
 /**
- * The shell's dictation and voice mode for the kit's composer (#690; voice-mode-2026 §8 V-U U1):
- * the same `VoiceCapture` and #481 `VoiceMode` the shell's own chat used, handed to the kit as
- * state through `UiSlots.useComposerVoice`. Must render under the shell (`useShell`), as the kit
+ * The shell's dictation for the kit's composer (#690): the same `VoiceCapture` the shell's own
+ * chat uses, handed to the kit as state through `UiSlots.useComposerVoice`. Must render under the shell (`useShell`), as the kit
  * chat does in the composed app.
  */
 export function useShellComposerVoice(
@@ -27,7 +24,6 @@ export function useShellComposerVoice(
   const pushToTalk = useRef(false);
   const sink = useRef(onText);
   sink.current = onText;
-  const voiceMode = useVoiceMode(store, threadId);
 
   const capture = useMemo(() => {
     const local = webSpeechDictation();
@@ -58,9 +54,6 @@ export function useShellComposerVoice(
     if (said) sink.current(said);
   };
 
-  const state = voiceMode.state;
-  const heard =
-    state.phase === "listening" ? state.partial : state.phase === "thinking" ? state.said : "";
   return {
     dictation: {
       phase: voice.phase,
@@ -84,19 +77,5 @@ export function useShellComposerVoice(
         else void capture.start(threadId ?? undefined);
       },
     },
-    voiceMode: voiceMode.available
-      ? {
-          active: state.phase !== "off",
-          label: voiceModeLabel(state),
-          heard,
-          push: voiceMode.settings.start === "push",
-          talking: state.phase === "listening",
-          canTalk: state.phase !== "waiting" && state.phase !== "thinking",
-          interruptible: state.phase === "speaking" && voiceMode.settings.bargeIn,
-          toggle: voiceMode.toggle,
-          pushStart: voiceMode.pushStart,
-          pushEnd: voiceMode.pushEnd,
-        }
-      : null,
   };
 }

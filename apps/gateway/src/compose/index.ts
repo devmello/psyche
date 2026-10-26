@@ -84,6 +84,7 @@ import { createLogger } from "../log.ts";
 import { taskRunTrace } from "../run-trace/tasks.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
+import { artifactContextProvider, composeArtifacts } from "./artifacts.ts";
 import { attentionHandlers, OwnerAttention, parkWhenUnwatched } from "./attention.ts";
 import { withAutomationSpecialists } from "./automation-specialists.ts";
 import { bootstrapAdminHandlers } from "./bootstrap-admin.ts";
@@ -127,7 +128,7 @@ import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { protectedRoots } from "./protected-paths.ts";
 import { createRateLimits } from "./rate-limits.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
-import { composeScreenAsk } from "./screen-ask.ts";
+import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
 import {
   type ApprovalRelay,
   type ComposedPart,
@@ -212,6 +213,8 @@ export interface ComposeOptions
    * process runner prefix (default: `speechSetupFromEnv`).
    */
   speech?: SpeechSetup;
+  /** Ask about my screen is always mounted; this swaps what takes the capture (default: the Mac helper). */
+  screenAsk?: ScreenAskOptions;
   /**
    * Passkey assertions for approvals that require authentication (purchase, credential fill,
    * host exec; security §3.7). Helper (Touch ID) assertions go to the helper part's verifier.
@@ -682,7 +685,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     skills.part,
     composeSpeech(speechSetup ?? speechSetupFromEnv(gwOptions.env)),
     composeDictation(),
-    composeScreenAsk(),
+    composeScreenAsk(gwOptions.screenAsk),
+    // Canvas artifacts (chat-experience-2026 §4.3): the version store and `artifact.*` tools.
+    composeArtifacts,
     composePayments(paymentsSetupFromEnv(gwOptions.env)),
     // Web passkeys (issue #79): unavailable until gateway.publicOrigin is an https origin. A
     // caller-supplied `presence` verifier takes the passkey role instead.
@@ -846,7 +851,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     approvalSurfaces: ["desktop", "web"],
     skills: skills.loader,
     ...(compaction === undefined ? {} : { compaction }),
-    contextProviders: [otherChats.provider, ...(people === undefined ? [] : [people.recall])],
+    contextProviders: [
+      otherChats.provider,
+      ...(people === undefined ? [] : [people.recall]),
+      artifactContextProvider(db),
+    ],
     contextLimits: context.contextLimits,
     onContextUsage: context.onContextUsage,
     onCompaction: context.onCompaction,
@@ -961,7 +970,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         const p = providers.find((c) => c.id === modelRef.split("/")[0]);
         return p !== undefined && !isLocalKind(p.kind);
       },
-      ...(speechPart === undefined ? {} : { transcriber: speechPart.meetings }),
+      ...(speechPart === undefined
+        ? {}
+        : {
+            transcriber: speechPart.meetings,
+            transcriberAvailable: () => speechPart.meetings.available(),
+          }),
     },
     // The people graph while the owner has it on: prep's attendees and loops, notes' loops.
     graph: () => (people?.settings().enabled === true ? people.graph : undefined),
@@ -1032,6 +1046,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       folders: () => rawBroker.policy.folders ?? [],
     }),
   );
+  // A device that goes away ends the meeting recording it was capturing (§4.6).
+  const meetingsDisconnect = (deviceId: string) => proactive.meetings?.deviceGone(deviceId);
+  parts.push({
+    start: (gw) => {
+      gw.context.deviceDisconnected.add(meetingsDisconnect);
+    },
+    stop: () => {
+      gatewayRef?.context.deviceDisconnected.delete(meetingsDisconnect);
+    },
+  });
   parts.push(otherChats.part());
   parts.push(people.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone));
   // Code plugins (T4): off until the owner turns on `plugins.enabled`.

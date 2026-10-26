@@ -130,6 +130,11 @@ export type * from "./blocks/types.ts";
 export { WrapUpBox } from "./blocks/WrapUp.tsx";
 // Bootstrap brand pieces (inline-styled; usable without the stylesheet).
 export * from "./brand.tsx";
+export {
+  type ArtifactRenderProps,
+  CanvasPane,
+  type CanvasPaneProps,
+} from "./canvas/CanvasPane.tsx";
 // Chat column.
 export { ApprovalDock } from "./chat/ApprovalDock.tsx";
 export { Composer, type ComposerProps, SLASH_COMMANDS } from "./chat/Composer.tsx";
@@ -211,6 +216,15 @@ export {
 } from "./components/ui/toolbar.tsx";
 export * from "./data/index.ts";
 export * from "./i18n/index.ts";
+export {
+  applyOpsLocal,
+  cellFromInput,
+  columnName,
+  diffToOps,
+  setCellOp,
+  tableToCsv,
+  viewRows,
+} from "./lib/artifact-ops.ts";
 // Formatting helpers.
 export * from "./lib/format.ts";
 export { cn } from "./lib/utils.ts";
@@ -333,53 +347,23 @@ export {
 export * from "./teaching/index.ts";
 // Theme and data layer.
 export * from "./theme/index.ts";
-// Voice (voice-mode-2026 §6, §8 V-U).
+// Voice: composer dictation and the screen-request phrases (Psyche answers in text).
 export {
   type ComposerDictation,
   type ComposerVoice,
   ComposerVoiceBar,
   ComposerVoiceButtons,
-  type ComposerVoiceMode,
   type UseComposerVoice,
 } from "./voice/controls.tsx";
-export { useVoiceConversation, type VoiceConversation } from "./voice/conversation.ts";
-export { FakeVoiceTerminal } from "./voice/fake-terminal.ts";
 export {
-  envelope,
-  glowFor,
-  Lantern,
-  type LanternProps,
-  type LanternState,
-} from "./voice/Lantern.tsx";
-export {
-  matchApproval,
   mentionsScreen,
   normalizeUtterance,
   type VoicePhraseList,
   voicePhrases,
 } from "./voice/phrases.ts";
 export {
-  IDLE_SESSION,
-  micOn,
-  sessionActive,
-  useVoiceSession,
-  type VoiceAction,
-  type VoicePhase,
-  type VoiceSession,
-  voiceReducer,
-} from "./voice/session.ts";
-export {
-  LEGACY_START_KEY,
-  migrateVoiceSettings,
   readVoiceSettings,
   VOICE_DEFAULTS,
+  VOICE_KEYS,
   type VoiceSettings,
 } from "./voice/settings.ts";
-export type { VoiceTerminal } from "./voice/terminal.ts";
-export {
-  lanternState,
-  stateLabel as voiceStateLabel,
-  VoiceCapsule,
-  type VoiceCapsuleProps,
-} from "./voice/VoiceCapsule.tsx";
-export { VoiceHudView, type VoiceHudViewProps } from "./voice/VoiceHudView.tsx";

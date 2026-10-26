@@ -1,14 +1,14 @@
-import { AudioLines, Mic } from "lucide-react";
+import { Mic } from "lucide-react";
 import type { ReactElement } from "react";
 import { Button } from "../components/ui/button.tsx";
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 
 /**
- * Composer dictation and voice mode in the kit's chat (#690, voice-mode-2026 §8 V-U U1). The host
- * owns capture and the conversation (the shell's `VoiceCapture` and #481 `VoiceMode`, later V-G's
- * voice conversation) and hands their state to the kit through the `useComposerVoice` slot; the
- * kit draws the mic and Voice buttons in the composer and the status line above it.
+ * Composer dictation in the kit's chat (#690). The host owns capture (the shell's `VoiceCapture`)
+ * and hands its state to the kit through the `useComposerVoice` slot; the kit draws the mic
+ * button in the composer and the status line above it. Psyche does not speak: voice is
+ * speech-to-text, and answers appear as text.
  */
 
 export interface ComposerDictation {
@@ -22,31 +22,8 @@ export interface ComposerDictation {
   up: () => void;
 }
 
-export interface ComposerVoiceMode {
-  active: boolean;
-  /** The state pill: "Listening", "Thinking", "Speaking", "Needs you". */
-  label: string;
-  /** What Psyche heard (the owner's partial or last words). */
-  heard: string;
-  /** Push-to-talk: a hold-to-talk button between turns. */
-  push: boolean;
-  /** Holding to talk right now. */
-  talking: boolean;
-  /** The hold-to-talk button works (not while thinking or waiting on a card). */
-  canTalk: boolean;
-  /** Say "talk to interrupt" while Psyche speaks. */
-  interruptible: boolean;
-  toggle: () => void;
-  pushStart: () => void;
-  pushEnd: () => void;
-  /** The Voice button's tooltip ("Talk with Wren (hold Right ⌘)"). */
-  title?: string;
-}
-
 export interface ComposerVoice {
   dictation: ComposerDictation | null;
-  /** Null unless Settings → Voice & dictation turns voice conversation on. */
-  voiceMode: ComposerVoiceMode | null;
 }
 
 /** The slot's hook: called with the open thread and a sink for dictated text. */
@@ -59,7 +36,7 @@ export function useNoVoice(): ComposerVoice | null {
   return null;
 }
 
-/** The mic and Voice buttons, inside the composer capsule. */
+/** The mic button, inside the composer capsule. */
 export function ComposerVoiceButtons({
   voice,
   disabled,
@@ -69,25 +46,10 @@ export function ComposerVoiceButtons({
   disabled: boolean;
   className: string;
 }): ReactElement {
-  const { dictation, voiceMode } = voice;
+  const { dictation } = voice;
   const listening = dictation?.phase === "listening" || dictation?.phase === "finishing";
   return (
     <>
-      {voiceMode ? (
-        <Button
-          variant={voiceMode.active ? "secondary" : "ghost"}
-          size="icon-sm"
-          className={className}
-          aria-pressed={voiceMode.active}
-          aria-label={t("web.chat.voice")}
-          title={voiceMode.title ?? t("web.chat.voiceModeTitle")}
-          onClick={voiceMode.toggle}
-          disabled={disabled}
-          data-testid="voice-mode-toggle"
-        >
-          <AudioLines aria-hidden="true" />
-        </Button>
-      ) : null}
       {dictation ? (
         <Button
           variant={listening ? "secondary" : "ghost"}
@@ -106,7 +68,7 @@ export function ComposerVoiceButtons({
               dictation.up();
             }
           }}
-          disabled={disabled || voiceMode?.active === true}
+          disabled={disabled}
           data-testid="mic"
         >
           <Mic aria-hidden="true" />
@@ -116,45 +78,9 @@ export function ComposerVoiceButtons({
   );
 }
 
-/** The line above the composer: what dictation hears, or the voice conversation's state. */
+/** The line above the composer: what dictation hears. */
 export function ComposerVoiceBar({ voice }: { voice: ComposerVoice }): ReactElement | null {
-  const { dictation, voiceMode } = voice;
-  if (voiceMode?.active) {
-    return (
-      <div
-        className="flex min-h-9 items-center gap-2 rounded-full bg-surface-raised px-3 py-1 text-callout shadow-elevation-1"
-        data-testid="voice-mode"
-      >
-        <span role="status" aria-live="polite" className="shrink-0 font-medium">
-          {voiceMode.label}
-          {voiceMode.interruptible ? t("web.voiceMode.talkToInterrupt") : ""}
-        </span>
-        <span
-          className="min-w-0 flex-1 truncate text-label-secondary"
-          title={t("web.voiceMode.heard")}
-        >
-          {voiceMode.heard}
-        </span>
-        {voiceMode.push ? (
-          <Button
-            size="xs"
-            variant="outline"
-            aria-pressed={voiceMode.talking}
-            disabled={!voiceMode.canTalk}
-            onPointerDown={voiceMode.pushStart}
-            onPointerUp={voiceMode.pushEnd}
-            onPointerLeave={voiceMode.pushEnd}
-            data-testid="voice-mode-talk"
-          >
-            {t("web.voiceMode.holdToTalk")}
-          </Button>
-        ) : null}
-        <Button size="xs" variant="ghost" onClick={voiceMode.toggle} data-testid="voice-mode-end">
-          {t("web.voiceMode.end")}
-        </Button>
-      </div>
-    );
-  }
+  const { dictation } = voice;
   if (dictation?.phase === "unavailable" && dictation.reason) {
     return (
       <p role="status" className="px-3 text-callout text-label-secondary">

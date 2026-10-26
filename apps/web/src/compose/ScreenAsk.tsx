@@ -6,6 +6,7 @@ import {
   type ScreenAskCaptureView,
   ScreenAskRegionView,
   ScreenAskView,
+  t,
   useSettings,
   useStore,
   useThread,
@@ -33,6 +34,8 @@ export const SCREEN_ASK_REGION_ROUTE = "/screen-ask-region";
 
 export type ScreenAskOpen =
   | { mode: "window" }
+  /** Voice mode: no screen context, dictation starts at once. */
+  | { mode: "voice" }
   | { mode: "region"; rect: { x: number; y: number; width: number; height: number } };
 
 /** What the desktop's ask panel window offers its renderer (preload `screenAsk`). */
@@ -48,6 +51,7 @@ export interface ScreenAskBridge {
 export function parseOpen(arg: unknown): ScreenAskOpen | null {
   const a = arg as { mode?: unknown; rect?: Record<string, unknown> } | null;
   if (a?.mode === "window") return { mode: "window" };
+  if (a?.mode === "voice") return { mode: "voice" };
   if (a?.mode === "region" && a.rect) {
     const { x, y, width, height } = a.rect;
     if ([x, y, width, height].every((n) => typeof n === "number" && Number.isFinite(n)))
@@ -102,6 +106,7 @@ export function ScreenAsk({ platform, bridge }: ScreenAskProps): ReactElement {
 }
 
 type Captured =
+  | { status: "none" }
   | { status: "capturing"; mode: "window" | "region" }
   | { status: "ready"; capture: ScreenCapture }
   | { status: "failed"; mode: "window" | "region" };
@@ -132,6 +137,10 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
     async (o: ScreenAskOpen) => {
       const gen = ++generation.current;
       discard();
+      if (o.mode === "voice") {
+        setCaptured({ status: "none" });
+        return;
+      }
       setCaptured({ status: "capturing", mode: o.mode });
       setImage("auto");
       try {
@@ -159,7 +168,7 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
         if (!o) return;
         setOpen(o);
         // A fresh trigger (window) starts over; a region replaces the capture and keeps the text.
-        if (o.mode === "window") {
+        if (o.mode !== "region") {
           setText("");
           setSent(null);
           setFailed(false);
@@ -179,6 +188,11 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
   const dictation = usePanelDictation(platform, (said) =>
     setText((t) => (t.trim() === "" ? said : `${t.trimEnd()} ${said}`)),
   );
+  // Voice mode listens as soon as the panel opens.
+  const startDictation = dictation.start;
+  useEffect(() => {
+    if (open?.mode === "voice") startDictation();
+  }, [open, startDictation]);
 
   const thread = useThread(sent?.threadId ?? null);
   const answer: ScreenAskAnswer | undefined = useMemo(() => {
@@ -234,21 +248,24 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
   };
 
   if (open === null) return null;
-  const view: ScreenAskCaptureView =
-    captured.status === "ready"
-      ? {
-          status: "ready",
-          mode: captured.capture.mode,
-          thumbnail: captured.capture.thumbnail ?? null,
-          appName: captured.capture.context?.appName ?? null,
-          ...(captured.capture.refusal ? { refusal: captured.capture.refusal } : {}),
-          image,
-        }
-      : { status: captured.status, mode: captured.mode, thumbnail: null, appName: null, image };
+  const view: ScreenAskCaptureView | undefined =
+    captured.status === "none"
+      ? undefined
+      : captured.status === "ready"
+        ? {
+            status: "ready",
+            mode: captured.capture.mode,
+            thumbnail: captured.capture.thumbnail ?? null,
+            appName: captured.capture.context?.appName ?? null,
+            ...(captured.capture.refusal ? { refusal: captured.capture.refusal } : {}),
+            image,
+          }
+        : { status: captured.status, mode: captured.mode, thumbnail: null, appName: null, image };
 
   return (
     <ScreenAskView
-      capture={view}
+      {...(view ? { capture: view } : {})}
+      {...(open.mode === "voice" ? { placeholder: t("screenAsk.voice.placeholder") } : {})}
       text={text}
       onText={setText}
       onSubmit={() => void submit()}
@@ -286,6 +303,7 @@ function usePanelDictation(platform: ShellPlatform, onText: (said: string) => vo
       }),
     [platform],
   );
+  const start = useCallback(() => void capture.start(), [capture]);
   useEffect(() => {
     const off = platform.gateway.onEvent((e) => {
       const p = e.payload as { sessionId?: string; segment?: VoiceSegment; reason?: string };
@@ -304,6 +322,7 @@ function usePanelDictation(platform: ShellPlatform, onText: (said: string) => vo
     phase: state.phase,
     ...("partial" in state ? { partial: state.partial } : {}),
     ...(state.phase === "unavailable" ? { reason: state.reason } : {}),
+    start,
     toggle: () => {
       if (state.phase === "listening")
         void capture.stop().then((said) => {
