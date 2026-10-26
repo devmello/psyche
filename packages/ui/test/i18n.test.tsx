@@ -191,10 +191,11 @@ describe("Settings → Appearance → Language and region", () => {
     const region = (await screen.findByLabelText("Region format")) as HTMLSelectElement;
     expect(region.value).toBe("system");
     expect(screen.getByRole("option", { name: "Match system (British English)" })).toBeTruthy();
-    // Only languages with a catalogue; the region list is separate.
-    expect(
-      screen.getByText(/text is in English for now\. More languages will follow/),
-    ).toBeTruthy();
+    // The language is its own select: shipped catalogues only, by native name.
+    const language = screen.getByLabelText("Language") as HTMLSelectElement;
+    expect(language.value).toBe("system");
+    expect(screen.getByRole("option", { name: "Match system (English)" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "English" })).toBeTruthy();
     expect(screen.getByText("Tue, 27 Oct 2026 · 14:05 · 1,234.5 · US$4.20")).toBeTruthy();
     await userEvent.selectOptions(region, "de-DE");
     const calls = () =>

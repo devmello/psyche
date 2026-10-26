@@ -4,6 +4,7 @@ import { I18nProvider } from "../i18n/I18nProvider.tsx";
 import {
   DIRECTION_SETTING,
   type DirectionSetting,
+  LANGUAGE_SETTING,
   LOCALE_SETTING,
   resolveLocale,
 } from "../i18n/locale.ts";
@@ -64,6 +65,9 @@ export function AppearanceProvider({
       <SystemLocale.Provider value={systemLocale ?? null}>
         <I18nProvider
           locale={resolveLocale(settings[LOCALE_SETTING] ?? "system", systemLocale)}
+          {...(typeof settings[LANGUAGE_SETTING] === "string"
+            ? { language: settings[LANGUAGE_SETTING] as string }
+            : {})}
           direction={
             direction === "ltr" || direction === "rtl" ? (direction as DirectionSetting) : "auto"
           }

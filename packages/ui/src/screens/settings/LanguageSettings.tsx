@@ -4,10 +4,12 @@ import { activeI18n, t } from "../../i18n/core.ts";
 import {
   canonicalLocale,
   DIRECTION_SETTING,
+  LANGUAGE_SETTING,
   LOCALE_SETTING,
   localeName,
   MESSAGE_LOCALES,
   OFFERED_LOCALES,
+  resolveMessageLocale,
   runtimeLocale,
 } from "../../i18n/locale.ts";
 import { useSystemLocale } from "../../shell/AppearanceProvider.tsx";
@@ -16,11 +18,58 @@ import { Group, RadioField, SettingHint, type SettingsValues, str } from "./shar
 /** A fixed moment for the preview line (14:05 on Tuesday 27 October 2026, UTC). */
 const PREVIEW_AT = Date.UTC(2026, 9, 27, 14, 5);
 
+/** The `ui.language` value a select shows: a shipped language, else "system". */
+export function languageChoice(setting: unknown): string {
+  return typeof setting === "string" && (MESSAGE_LOCALES as readonly string[]).includes(setting)
+    ? setting
+    : "system";
+}
+
 /**
- * Language and region (A12, #608): the format locale (`ui.locale`: "system" or a BCP 47 tag) and
- * the text direction (`ui.direction`). AppearanceProvider resolves both and remounts the app, so a
- * change shows at once, starting with the preview line under the Region field. Only languages with
- * a catalogue are listed (English today); the region does not change the text.
+ * The language select (A12, #621), shared by onboarding's first step and Settings: "Match system"
+ * (the best catalogue for the region) and every shipped language by its native name, labelled in
+ * the current language. The text changes as soon as the setting is written (AppearanceProvider
+ * remounts the app).
+ */
+export function LanguageSelect({
+  id,
+  value,
+  onChange,
+  describedBy,
+  className,
+}: {
+  id: string;
+  value: unknown;
+  onChange: (language: string) => void;
+  describedBy?: string;
+  className?: string;
+}): ReactElement {
+  const i18n = activeI18n();
+  const system = resolveMessageLocale("system", i18n.locale);
+  return (
+    <NativeSelect
+      id={id}
+      className={className}
+      value={languageChoice(value)}
+      {...(describedBy ? { "aria-describedby": describedBy } : {})}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      <option value="system">
+        {t("settings.language.languageSystem", { name: localeName(system, system) })}
+      </option>
+      {MESSAGE_LOCALES.map((lang) => (
+        <option key={lang} value={lang} lang={lang}>
+          {localeName(lang, lang)}
+        </option>
+      ))}
+    </NativeSelect>
+  );
+}
+
+/**
+ * Language and region (A12, #608, #621): the text's language (`ui.language`), the format locale (`ui.locale`: "system" or a BCP 47 tag) and
+ * the text direction (`ui.direction`). AppearanceProvider resolves them and remounts the app, so
+ * a change shows at once. Only languages with a catalogue are listed.
  */
 export function LanguageGroup({
   values,
@@ -37,17 +86,23 @@ export function LanguageGroup({
   const offered: string[] = [...OFFERED_LOCALES];
   if (current !== "system" && !offered.includes(current)) offered.unshift(current);
   const direction = str(values, DIRECTION_SETTING, "auto");
-  const languages = i18n.list(MESSAGE_LOCALES.map((l) => localeName(l, i18n.messageLocale)));
   return (
     <Group title={t("settings.language.title")} description={t("settings.language.description")}>
       <div className="flex flex-col gap-0.5">
-        <div className="flex items-center justify-between gap-3">
-          <span>{t("settings.language.language")}</span>
-          <span className="text-label-secondary">{languages}</span>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <label htmlFor={`${id}-language`}>{t("settings.language.language")}</label>
+          <LanguageSelect
+            id={`${id}-language`}
+            className="min-w-56"
+            value={values[LANGUAGE_SETTING]}
+            describedBy={`${id}-language-hint`}
+            onChange={(v) => onChange(LANGUAGE_SETTING, v)}
+          />
         </div>
-        <p className="text-callout text-label-secondary">
-          {t("settings.language.languageHint", { languages })}
+        <p id={`${id}-language-hint`} className="text-callout text-label-secondary">
+          {t("settings.language.languageHint")}
         </p>
+        <SettingHint settingKey={LANGUAGE_SETTING} />
       </div>
       <div className="flex flex-col gap-0.5">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">

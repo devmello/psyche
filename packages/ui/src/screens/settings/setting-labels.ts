@@ -66,6 +66,9 @@ const LABELLED_KEYS = [
   "voice.conversation.bargeIn",
   "ui.onboarding.completedAt",
   "ui.transcriptMode",
+  "ui.language",
+  "ui.locale",
+  "ui.direction",
 ] as const;
 
 type LabelledKey = (typeof LABELLED_KEYS)[number];

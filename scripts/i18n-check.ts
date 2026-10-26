@@ -10,7 +10,10 @@
  *   actions, notices) — above the file's count in the shrink-only baseline
  *   (`scripts/i18n-baseline.json`, while the extraction lands screen group by screen group);
  * - **missing ids**: a `t("id")` whose id isn't in the English catalogue, or a `t(`prefix.${x}`)`
- *   whose prefix matches no id.
+ *   whose prefix matches no id;
+ * - **translations** (`packages/ui/src/i18n/messages/locales`): an id a catalogue has that `en`
+ *   does not, or a message that is not valid ICU MessageFormat. Ids a catalogue leaves out fall
+ *   back to English per id; they are reported as coverage, not failures.
  *
  * Exempt: text inside `<code>`, `<kbd>`, `<pre>` and `<samp>`; a line marked `i18n-ignore` (on it
  * or the line above, with the reason) or a block between `i18n-ignore-start` and `i18n-ignore-end`;
@@ -20,11 +23,17 @@
  * file's count. docs/guides/translating.md has the details.
  */
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { join, relative } from "node:path";
 import ts from "typescript";
 import { en } from "../packages/ui/src/i18n/messages/index.ts";
+import { CATALOGUES } from "../packages/ui/src/i18n/messages/locales/index.ts";
 
 const ROOT = join(import.meta.dirname, "..");
+// The kit's own formatter (a dependency of packages/ui, not of the workspace root).
+const { IntlMessageFormat } = createRequire(join(ROOT, "packages/ui/package.json"))(
+  "intl-messageformat",
+) as typeof import("intl-messageformat");
 const SCAN = ["packages/ui/src", "apps/web/src"];
 const BASELINE = join(ROOT, "scripts/i18n-baseline.json");
 
@@ -257,6 +266,37 @@ const print = (f: Finding) =>
   );
 
 let failed = false;
+
+// Translations: per-locale coverage; unknown ids and unparsable messages fail.
+for (const [lang, catalogue] of Object.entries(CATALOGUES)) {
+  if (lang === "en") continue;
+  const entries = Object.entries(catalogue as Record<string, string>);
+  const unknown = entries.filter(([id]) => !ids.has(id)).map(([id]) => id);
+  const broken: string[] = [];
+  for (const [id, source] of entries) {
+    try {
+      new IntlMessageFormat(source, lang, undefined, { ignoreTag: true });
+    } catch (err) {
+      broken.push(`${id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  const covered = entries.length - unknown.length;
+  out(
+    `${lang}: ${covered}/${ids.size} ids translated` +
+      (covered < ids.size ? ` (warning: ${ids.size - covered} fall back to English)` : ""),
+  );
+  if (unknown.length > 0) {
+    failed = true;
+    console.error(`✗ ${lang}: ${unknown.length} id(s) not in the English catalogue:`);
+    for (const id of unknown) console.error(`  ${id}`);
+  }
+  if (broken.length > 0) {
+    failed = true;
+    console.error(`✗ ${lang}: ${broken.length} message(s) are not valid ICU MessageFormat:`);
+    for (const b of broken) console.error(`  ${b}`);
+  }
+}
+
 if (missing.length > 0) {
   failed = true;
   console.error(`✗ ${missing.length} t() id(s) missing from the English catalogue:`);
@@ -294,5 +334,5 @@ if (verbose) for (const found of hardCoded.values()) found.forEach(print);
 const left = [...hardCoded.values()].reduce((n, f) => n + f.length, 0);
 if (failed && !init) process.exit(1);
 out(
-  `✓ i18n: ${ids.size} catalogue ids, ${files.length} files scanned, ${left} hard-coded strings left in the baseline.`,
+  `✓ i18n: ${ids.size} catalogue ids, ${Object.keys(CATALOGUES).length} language(s), ${files.length} files scanned, ${left} hard-coded strings left in the baseline.`,
 );
