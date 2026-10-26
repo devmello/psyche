@@ -516,6 +516,8 @@ export function SidebarToggle({
             <ChevronDown aria-hidden="true" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
+            {/* Picking a state closes the menu, as a native mode picker does (Base UI radio items
+                stay open by default). */}
             <DropdownMenuRadioGroup
               value={state}
               onValueChange={(v) => {
@@ -527,13 +529,15 @@ export function SidebarToggle({
                 if (!open) onToggle();
               }}
             >
-              <DropdownMenuRadioItem value="full">{t("shell.sidebar.full")}</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="rail">
+              <DropdownMenuRadioItem value="full" closeOnClick>
+                {t("shell.sidebar.full")}
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="rail" closeOnClick>
                 {t("shell.sidebar.compact")}
                 {/* i18n-ignore: a key chord */}
                 <DropdownMenuShortcut>⌥⌘B</DropdownMenuShortcut>
               </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="hidden">
+              <DropdownMenuRadioItem value="hidden" closeOnClick>
                 {t("shell.sidebar.hidden")}
                 {/* i18n-ignore: a key chord */}
                 <DropdownMenuShortcut>⌘B</DropdownMenuShortcut>
