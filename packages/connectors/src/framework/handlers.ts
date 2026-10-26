@@ -106,6 +106,14 @@ export const CONNECTOR_METHODS = {
     description:
       "Sets allow / ask / deny per action; destructive and financial actions refuse allow.",
   }),
+  "connectors.configure": defineMethod({
+    params: Type.Object({ connectorId: Id, config: Type.Record(Type.String(), Type.Unknown()) }),
+    result: Type.Object({ connector: ConnectorSchema }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Merges non-secret settings into a connector's config (null removes a key) without reconnecting it.",
+  }),
 } as const;
 
 export type ConnectorMethodName = keyof typeof CONNECTOR_METHODS;
@@ -185,6 +193,10 @@ export function connectorHandlers(registry: ConnectorRegistry): ConnectorHandler
     "connectors.setMatrix": async (p) => {
       const v = validated("connectors.setMatrix", p);
       return { connector: toWire(await registry.setMatrix(v.connectorId, v.matrix)) };
+    },
+    "connectors.configure": async (p) => {
+      const v = validated("connectors.configure", p);
+      return { connector: toWire(await registry.configure(v.connectorId, v.config)) };
     },
   };
 }

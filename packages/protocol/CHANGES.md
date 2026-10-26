@@ -18,6 +18,9 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-25 (T1, #679: teaching loop store and routing)
+
+- `ApprovalRequestInput` gains optional `fromLesson { lessonId, feedbackId, because }`, copied by the broker to `ApprovalRequest.fromLesson` (added in #678) so a lesson's card can show "Because you said: …". `FakePermissionBroker` copies it too.
 ### v1 additive — 2026-10-25 (S15, #670 W1: mail and meeting workflows)
 
 For S15 (W, #670), the skills (S, #671), the UI (U, #672) and the helper (H, #673): the shapes of docs/workflows/mail-and-meetings-2026.md. All new fields are optional, new enum values are appended, and new schemas are new names.

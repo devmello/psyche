@@ -130,7 +130,9 @@ export type ConnectorEvent =
       account: string | null;
     }
   | { type: "synced"; connectorId: string; changes: number; full: boolean }
-  | { type: "matrix_changed"; connectorId: string; matrix: Record<string, ActionRule> };
+  | { type: "matrix_changed"; connectorId: string; matrix: Record<string, ActionRule> }
+  /** `connectors.configure` changed the record's settings (#727); the instance was re-created. */
+  | { type: "configured"; connectorId: string; keys: string[] };
 
 export interface ConnectorContext {
   clock: Clock;
@@ -170,6 +172,12 @@ export interface ConnectorTool {
   inputSchema: Record<string, unknown>;
   sideEffect: SideEffect;
   describeCall?: (params: unknown) => ToolCallDescription;
+  /**
+   * A narrower rule for this one call, from the connector's own settings (a single shortcut the
+   * owner turned off or allowed, #727). A matrix `deny` still wins; `allow` still never covers a
+   * destructive or financial call. It may throw to refuse the call outright.
+   */
+  ruleFor?: (params: unknown) => ActionRule | undefined;
   execute(params: unknown, ctx: ToolRunContext): Promise<ToolOutput>;
 }
 
@@ -228,6 +236,15 @@ export interface Connector {
   disconnect(): Promise<void>;
   actions(): ConnectorAction[];
   tools(): ConnectorTool[];
+  /**
+   * Checks and normalises settings `connectors.configure` merged into the record's config
+   * (#727) before they are stored; throws to refuse them. The returned config is stored, and an
+   * `account` replaces the record's. Without it, any non-secret key is accepted as is.
+   */
+  configure?(
+    config: JsonObject,
+    scopeMode: ScopeMode,
+  ): Promise<{ config: JsonObject; account?: string | null }>;
   /** Incremental sync; `cursor` is what the previous sync returned (`lastSync`). */
   sync?(cursor: JsonObject | null, signal?: AbortSignal): Promise<SyncResult>;
   health(): Promise<ConnectorHealth>;

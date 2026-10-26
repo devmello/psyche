@@ -2,6 +2,7 @@ import { Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, Nullable, Provenance, StringEnum } from "../common.ts";
 import {
   EntitySummary,
+  GraphBlocklistEntry,
   GraphEdge,
   GraphEdgeRel,
   GraphEntity,
@@ -16,6 +17,8 @@ import {
   GraphLoopStatus,
   GraphProjectStatus,
   GraphRelationshipLabel,
+  GraphRemovedCounts,
+  GraphSource,
   GraphStatus,
   GraphSuggestion,
   GraphWriteSource,
@@ -534,5 +537,63 @@ export const MemoryMethods = {
     scope: "operator.read",
     description:
       "Graph health: per-source counts and last ingest, last model pass, budget used, loop precision.",
+  }),
+  "memory.graph.forgetAll": defineMethod({
+    params: Type.Object({
+      confirm: Type.Literal("forget everything", {
+        description: "Must be exactly this phrase; guards against an accidental call",
+      }),
+      dryRun: Type.Optional(Type.Boolean({ description: "Report counts without deleting" })),
+    }),
+    result: Type.Object({
+      removed: GraphRemovedCounts,
+      /** Card files deleted from the workspace. */
+      cardPaths: Type.Array(Type.String()),
+      dryRun: Type.Boolean(),
+    }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Deletes the whole people and projects graph (entities, interactions, facts, loops, suggestions, corrections, blocklist, cursors), every card file and the People / Projects search entries, with secure delete. Turns memory.graph off. Side-effecting.",
+  }),
+  "memory.graph.deleteSource": defineMethod({
+    params: Type.Object({
+      source: GraphSource,
+      dryRun: Type.Optional(Type.Boolean({ description: "Report counts without deleting" })),
+    }),
+    result: Type.Object({
+      removed: GraphRemovedCounts,
+      /** Cards of entities that had nothing else and were deleted. */
+      cardPaths: Type.Array(Type.String()),
+      dryRun: Type.Boolean(),
+    }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Removes everything that came from one source: its interactions, the facts, relations, loops and identifiers derived only from it, and people left with nothing else (their cards and search entries too). The owner's own facts stay. Turns that source off so the next sync does not bring it back. Side-effecting.",
+  }),
+  "memory.graph.blocklist.list": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({ entries: Type.Array(GraphBlocklistEntry) }),
+    scope: "operator.read",
+    description: "Identifiers ingest never models again (forgotten people and the owner's blocks).",
+  }),
+  "memory.graph.blocklist.add": defineMethod({
+    params: Type.Object({
+      kind: StringEnum(["email", "phone", "domain"], { $id: "GraphBlockKind" }),
+      value: Type.String({ minLength: 1, maxLength: 320 }),
+    }),
+    result: Type.Object({ entry: GraphBlocklistEntry }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Never model this address, phone or domain again (a blocked domain covers every address at it). Existing cards stay until forgotten. Side-effecting.",
+  }),
+  "memory.graph.blocklist.remove": defineMethod({
+    params: Type.Object({ id: Type.String({ minLength: 1, maxLength: 200 }) }),
+    result: Type.Object({ removed: Type.Boolean() }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description: "Lets ingest model a blocklisted identifier again. Side-effecting.",
   }),
 } as const;

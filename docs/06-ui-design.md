@@ -153,7 +153,7 @@ Inventory: rail (56 px), thread list (260 px; ⌘B toggles it as in Claude *(cla
 | --- | --- |
 | User message | Right-aligned light bubble (gray-3). Muse removed heavy bubbles and puts the agent at the top *(muse notes, Q5)*. |
 | Agent, system messages | Agent: no bubble; 20 px avatar, name and time per run; out-of-turn thoughts from background Tasks get a divider "from task: <title>" (Muse keeps bubbles for the same reason). System: centered, small, gray-11, Psyche's voice. |
-| Tool call | Collapsed: icon, verb + target, outcome dot, duration; runs fold into "3 actions · browser, calendar". Level 0 hides rows; level 2 shows raw I/O, provenance chip, receipt link; ⌃O cycles, as Claude's view modes *(claude notes, Q1)*. Secrets show as `{{cred:name}}` placeholders *(arch §4.7)*. |
+| Steps (tool calls, thinking, helpers) | *Amended 2026-10-25 (run trace §3.2).* While working, one row per step: status glyph, label (a status line that flips tense when done), target, live elapsed or final duration; parallel steps under "{n} at once", helpers nested one level, repeats folded, the last 5 visible. When the run ends the log condenses into one summary row ("Worked for 1 min 12 s · sent 1 email · 9 steps", or "✕ Stopped at step 7 · … failed") with "Timeline ›" into the agent sheet (§3.14). Level 0 hides rows; level 2 shows each step's redacted parameters; ⌃O cycles *(claude notes, Q1)*. Secrets show as `{{cred:name}}` placeholders *(arch §4.7)*. |
 | Plan checklist | Pinned under the latest agent message from `update_plan`, one item in progress, distinct from the approved Plan artifact *(arch §4.3)*; Claude pins its list the same way. |
 | Approval, question, artifact cards | Approval: never a message, a dock above the composer (§3.3). Question: from `ask_user` (§3.4). Artifact: title, type, thumbnail, Open, Save to Library; artifacts appear in chat and exist outside it *(muse notes, Q4)*. |
 | Receipt line | One compact line after every external write with the provider id; uncertain outcomes read "outcome unknown · not retried" *(arch §4.5)*. |
@@ -382,23 +382,26 @@ A first-class rail item (Muse's Mac rail has Search *(muse notes, Q1)*) over one
 
 ### 3.14 Activity
 
-Tasks most recent first; tap a task to see every action *(muse notes, Q1)*; each Task has an ordered action log with three disclosure levels *(arch §4.5)*.
+*Amended 2026-10-25 by the run trace (docs/design/run-trace-2026.md §3.3–§3.6).* Activity is mission control: every kind of run (chat tasks, Tasks, automations; helpers fold under their parent) in four sections, and every row opens that task's **Timeline**, which replaces the old action log.
 
 ```
 +--------------------------------------------------------------+
-| Activity          [Running 1] [Needs you 2] [All]             |
-| * Dentist booking       running - Holding the 2:30 slot       |
-| ! Tax letter            awaiting approval - send email        |
-|   Price watch           automation - last run NO_REPLY        |
-+--------------------------------------------------------------+
-| Dentist booking   from chat - 10:02 - attempt 1  [Pause][Cancel]|
-| level: [status | actions | raw]                               |
-| 10:02 browser  open acme.com/appointments   ok   r-101        |
-| 10:05 approval credential.fill acme.com     waiting           |
+| Needs you (1)                                                |
+|  ⏸ Pay the dentist invoice   Waiting for your approval  3 min |
+| Now (2)                                                      |
+|  ● Book flights to Lisbon    Comparing 3 flights   0:42 ▁▃▅▂▇ |
+|  ● Morning briefing · automation  Reading your inbox 0:08 ▂▂▅ |
+| Next up                                                      |
+|  ○ Inbox triage · automation  in 14 min · usually 1 min ▁▁▂▁▃ |
+| Recent        [All] [Failed] [Automations] [Chat]  [search]  |
+|  ✓ Summarise the board deck   2 min 10 s · 14 steps    11:02  |
+|  ✕ Sync Notion tasks          Stopped at step 3        10:15  |
 +--------------------------------------------------------------+
 ```
 
-Rows: status glyph, title, status text, `createdFrom`, lease owner when remote; controls Pause / Resume / Cancel / Retry. Level 1 is the action list with receipt links, level 2 raw I/O with provenance chips and the Broker's decision; replay shows screencast frames when retention is on *(arch §8)*; the evaluator line reads done / reopened / escalated.
+- **Needs you:** approvals and questions blocking a run, linked to their card. **Now:** the current step's status line, live elapsed time and a 60 s activity sparkline. **Next up:** enabled automations by next run, with a countdown, the usual duration (only after 3 past runs; Psyche never invents an ETA) and the last runs' durations. **Recent:** finished runs from the last 7 days, newest first, filterable and searchable. Tasks with no recorded steps still list here and open their action log.
+- Empty: "Nothing running. Wren's next automation is Inbox triage, in 14 min." or "Nothing running."
+- **Timeline** (`/agent/activity/run/:runId[?step=]`): the run header (state · duration · steps · tokens · cost, provenance, Waterfall / List, Stop / Pause / Retry, Export, ⋯), a failure diagnosis (what happened / what Psyche did / what you can do), the waterfall (a `treegrid`: parallel brackets, folded helpers, retries as attempts, hatched waits, idle-gap breaks, zoom, range selection) or the searchable List, the step inspector (Overview, Input, Output, Timing, Cost, Frames) and the replay scrubber (1× / 4× / 16×, Skip waits, Stop at failures, Live / Back to live). A failed task opens on its failed step. Keyboard: ↑↓ steps, ←→ fold, Return inspector, Space play, `,` `.` events, `[` `]` failures, ⌘C copy, ⌘+ ⌘− ⌘0 zoom, ⌘F find.
 
 ### 3.15 Approvals queue
 

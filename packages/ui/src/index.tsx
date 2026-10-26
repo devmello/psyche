@@ -290,5 +290,7 @@ export {
   usePersona,
   useSlots,
 } from "./slots.tsx";
+// The teaching loop (docs/agent/teaching-loop-2026.md §5).
+export * from "./teaching/index.ts";
 // Theme and data layer.
 export * from "./theme/index.ts";

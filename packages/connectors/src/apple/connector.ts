@@ -1,6 +1,12 @@
-import { PsycheError, type SideEffect, type ToolCallDescription } from "@psyche/protocol";
+import {
+  type JsonObject,
+  PsycheError,
+  type SideEffect,
+  type ToolCallDescription,
+} from "@psyche/protocol";
 import { canonicalJSON, sha256 } from "../framework/binding.ts";
 import type {
+  ActionRule,
   CatalogueEntry,
   ConnectInput,
   Connector,
@@ -54,6 +60,15 @@ export interface AppleOptions {
   approveCredential?: ApproveMailCredential;
   /** Per-invocation timeout (default 60 s: the first use of an app waits on a macOS prompt). */
   timeoutMs?: number;
+  /**
+   * Moves a file the helper staged for the Library (`mail.save_attachments` without a folder:
+   * `stagedPath` under `$PSYCHE_HOME/helper/staging`) into the Library, quarantined, and returns
+   * its item id (#727). Without it, staged files are reported as not saved.
+   */
+  importStaged?: (
+    file: { stagedPath: string; name: string; mimeType: string },
+    source: { connectorId: string; ref: string },
+  ) => Promise<string>;
 }
 
 export type AppleApp =
@@ -526,7 +541,7 @@ const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
       capability: "shortcuts.run",
       action: "shortcuts.run",
       description:
-        "Run one of the owner's shortcuts by id, with optional text input; returns its output as text (untrusted). Always asks first: a shortcut can do anything. Times out after timeoutSeconds (default 60).",
+        "Run one of the owner's shortcuts by id, with optional text input; returns its output as text (untrusted). Asks first unless the owner allowed that shortcut: a shortcut can do anything. Times out after timeoutSeconds (default 60).",
       inputSchema: obj(
         {
           id: { type: "string" },
@@ -535,7 +550,8 @@ const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
         },
         ["id"],
       ),
-      sideEffect: "destructive",
+      // Destructive per call (describeCall) unless the owner allowed this very shortcut (#727).
+      sideEffect: "write",
       binding: "action",
     },
   ],
@@ -1543,6 +1559,11 @@ function binding(
   };
 }
 
+const shortcutOff = (id: string) =>
+  new PsycheError("policy_denied", "The owner turned this shortcut off for Psyche", {
+    details: { reason: "shortcut_off", id },
+  });
+
 class AppleConnector implements Connector {
   readonly id: string;
   readonly type: string;
@@ -1720,8 +1741,59 @@ class AppleConnector implements Connector {
             : desc;
         };
       }
+      if (spec.capability === "shortcuts.run") {
+        // A shortcut can do anything: destructive, so it asks, unless the owner allowed it in
+        // Settings (`config.shortcutRules[id]`), which makes it a write the matrix lets through.
+        tool.ruleFor = (p) => this.#shortcutRule(p);
+        tool.describeCall = (p) => ({
+          ...(binding(this.id, spec, p) as ToolCallDescription),
+          sideEffect: this.#shortcutRule(p) === "allow" ? "write" : "destructive",
+        });
+      }
       return tool;
     });
+  }
+
+  /**
+   * The owner's rule for one shortcut, or undefined for the default (ask). A shortcut turned off
+   * is refused here, before any approval card (describeCall) or helper call.
+   */
+  #shortcutRule(params: unknown): ActionRule | undefined {
+    const id = (params as { id?: unknown } | null)?.id;
+    const rule = typeof id === "string" ? this.#shortcutRules[id] : undefined;
+    if (rule === "off") throw shortcutOff(String(id));
+    return rule === "allow" || rule === "ask" ? rule : undefined;
+  }
+
+  async configure(config: JsonObject): Promise<{ config: JsonObject }> {
+    const rules = config.shortcutRules;
+    if (rules !== undefined) {
+      if (this.#app !== "shortcuts") {
+        throw new PsycheError("invalid_params", "shortcutRules is a Shortcuts setting");
+      }
+      if (typeof rules !== "object" || rules === null || Array.isArray(rules)) {
+        throw new PsycheError(
+          "invalid_params",
+          "shortcutRules maps shortcut ids to off, ask or allow",
+        );
+      }
+      const entries = Object.entries(rules);
+      if (entries.length > 1000)
+        throw new PsycheError("invalid_params", "at most 1000 shortcut rules");
+      for (const [id, rule] of entries) {
+        if (
+          id === "" ||
+          id.length > 200 ||
+          (rule !== "off" && rule !== "ask" && rule !== "allow")
+        ) {
+          throw new PsycheError(
+            "invalid_params",
+            `shortcutRules.${id.slice(0, 200)} is off, ask or allow`,
+          );
+        }
+      }
+    }
+    return { config };
   }
 
   async #run(spec: AppleToolSpec, params: unknown, ctx: ToolRunContext): Promise<ToolOutput> {
@@ -1732,9 +1804,7 @@ class AppleConnector implements Connector {
     const p = (params ?? {}) as Record<string, unknown>;
     // Shortcuts the owner turned off in Settings never run, whatever the approval says (§7.1).
     if (spec.capability === "shortcuts.run" && this.#shortcutRules[String(p.id)] === "off") {
-      throw new PsycheError("policy_denied", "The owner turned this shortcut off for Psyche", {
-        details: { reason: "shortcut_off", id: String(p.id) },
-      });
+      throw shortcutOff(String(p.id));
     }
     // `query` is ours (notes.list has no search); the helper's schema does not allow it.
     let sent = spec.shape === filterNotes ? withoutQuery(p) : p;
@@ -1756,12 +1826,53 @@ class AppleConnector implements Connector {
         { details: { capability: spec.capability, helperCode: res.error?.code ?? "unknown" } },
       );
     }
-    const output = spec.shape ? spec.shape(res.result, p) : (res.result ?? null);
+    let output = spec.shape ? spec.shape(res.result, p) : (res.result ?? null);
+    if (spec.capability === "mail.save_attachments") output = await this.#importStaged(output, p);
     const out: ToolOutput = { output, provenance: "untrusted" };
     if (spec.sideEffect !== "read") {
       out.receiptSummary = `${LABEL[this.#app]}: ${spec.capability} on ${h.name ?? "this Mac"}`;
     }
     return out;
+  }
+
+  /**
+   * Files staged for the Library go into it (`libraryItemId`); the staging path never reaches
+   * the model. A file that cannot be imported is listed in `notSaved` with the reason.
+   */
+  async #importStaged(result: unknown, p: Record<string, unknown>): Promise<unknown> {
+    const files = (result as { files?: unknown } | null)?.files;
+    if (!Array.isArray(files)) return result;
+    const saved: Record<string, unknown>[] = [];
+    const notSaved: { name: string; reason: string }[] = [];
+    for (const f of files as Record<string, unknown>[]) {
+      const { stagedPath, mimeType, ...file } = f;
+      const name = typeof file.name === "string" ? file.name : "attachment";
+      if (typeof stagedPath !== "string") {
+        saved.push({ ...file, libraryItemId: file.libraryItemId ?? null });
+        continue;
+      }
+      try {
+        if (this.#opts.importStaged === undefined) {
+          throw new PsycheError("unavailable", "the Library is not available here");
+        }
+        const libraryItemId = await this.#opts.importStaged(
+          {
+            stagedPath,
+            name,
+            mimeType: typeof mimeType === "string" ? mimeType : "application/octet-stream",
+          },
+          { connectorId: this.id, ref: String(p.id ?? "") },
+        );
+        saved.push({ ...file, path: null, libraryItemId });
+      } catch (err) {
+        notSaved.push({ name, reason: PsycheError.from(err).message.slice(0, 200) });
+      }
+    }
+    return {
+      ...(result as Record<string, unknown>),
+      files: saved,
+      ...(notSaved.length === 0 ? {} : { notSaved }),
+    };
   }
 
   /** A vault secret for this call only (Things' auth token, #719). */

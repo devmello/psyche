@@ -36,6 +36,8 @@ export const tasks = sqliteTable("tasks", {
   taintSources: text("taint_sources"),
   // 202610231000_tasks_workspace.sql
   workspace: text("workspace"),
+  // 202610261200_tasks_specialist.sql (S02, background specialists)
+  specialist: text("specialist"),
 });
 
 export const taskCheckpoints = sqliteTable("task_checkpoints", {

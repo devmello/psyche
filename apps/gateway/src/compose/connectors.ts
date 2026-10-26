@@ -1,3 +1,6 @@
+import { constants } from "node:fs";
+import { open, rm, rmdir } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import {
   type AppleHelper,
   appleFactories,
@@ -31,7 +34,13 @@ import {
   type WebFetchFactoryOptions,
   type WebSearchFactoryOptions,
 } from "@psyche/connectors";
-import { assertGranted, assertNoSymlinks, assertNotProtected } from "@psyche/files";
+import {
+  assertGranted,
+  assertNoSymlinks,
+  assertNotProtected,
+  fsError,
+  isUnder,
+} from "@psyche/files";
 import {
   type CredentialBroker,
   type CredentialRevokedEvent,
@@ -44,6 +53,7 @@ import type { Call, HandlerDef } from "../context.ts";
 import type { Gateway } from "../server.ts";
 import { connectorMatrixSync } from "./connector-matrix.ts";
 import { fetchLimit, taskOrigins } from "./fetch-origins.ts";
+import { indexedConnectorLibrary } from "./library.ts";
 import { type MailCredentials, mailCredentials } from "./mail-credentials.ts";
 import { protectedRoots } from "./protected-paths.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
@@ -128,18 +138,68 @@ const noBrowser = () => {
   throw new PsycheError("unavailable", "no browser to open Google's consent page");
 };
 
+/** The largest staged attachment the Library takes (the same cap as Gmail's). */
+const MAX_STAGED_BYTES = 25 * 1024 * 1024;
+
+/**
+ * Mail attachments the Mac helper staged for the Library (#727): only a regular file under
+ * `$PSYCHE_HOME/helper/staging`, opened without following links, read once into the Library
+ * (quarantined), then removed from the staging folder.
+ */
+export function stagedImporter(home: string, library: LibrarySink) {
+  const staging = join(home, "helper", "staging");
+  return async (
+    file: { stagedPath: string; name: string; mimeType: string },
+    source: { connectorId: string; ref: string },
+  ): Promise<string> => {
+    const path = resolve(file.stagedPath);
+    if (path === staging || !isUnder(path, staging)) {
+      throw new PsycheError("forbidden", "the staged file is outside the helper's staging folder");
+    }
+    await assertNoSymlinks(path);
+    let bytes: Buffer;
+    const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW).catch((err) => {
+      throw fsError(err, "the staged file");
+    });
+    try {
+      const st = await handle.stat();
+      if (!st.isFile()) throw new PsycheError("forbidden", "the staged file is not a file");
+      if (st.size > MAX_STAGED_BYTES) {
+        throw new PsycheError("invalid_params", "the attachment is larger than 25 MB");
+      }
+      bytes = await handle.readFile();
+    } finally {
+      await handle.close();
+    }
+    const { libraryItemId } = await library.put({
+      name: file.name,
+      mimeType: file.mimeType,
+      bytes,
+      source,
+      provenance: "untrusted",
+    });
+    await rm(path, { force: true }).catch(() => undefined);
+    // The helper stages each save in its own `mail-…` folder: drop it once empty.
+    if (dirname(path) !== staging) await rmdir(dirname(path)).catch(() => undefined);
+    return libraryItemId;
+  };
+}
+
 function defaultFactories(
   setup: ConnectorsSetup,
   services: ComposeServices,
   mail: MailCredentials,
   helper: () => AppleHelper | undefined,
+  library: LibrarySink,
 ): ConnectorFactory[] {
   const factories = [
     // Apple Notes, Reminders, Calendar and Mail through the paired Mac helper (#528).
     // Things' auth token (#719) is a vault item read under the same once-per-credential card.
+    // Mail attachments saved to the Library arrive staged by the helper (#727).
     ...appleFactories({
       helper,
       approveCredential: (req, run) => mail.approve({ ...req, purpose: "tool" }, run),
+      importStaged: stagedImporter(services.home, library),
     }),
     // Obsidian (#639): the vault is a shared folder; every path passes the same checks as the
     // file tools (granted folder and its mode, protected roots, no symlinks).
@@ -194,16 +254,19 @@ export function composeConnectors(
   const mail = mailCredentials(services, () => registry);
   let gateway: Gateway | undefined;
   const appleHelper = setup.appleHelper ?? macHelper(() => gateway);
-  const factories = setup.factories ?? defaultFactories(setup, services, mail, appleHelper);
+  const library = setup.library ?? indexedConnectorLibrary(services.db, services.home);
+  const factories =
+    setup.factories ?? defaultFactories(setup, services, mail, appleHelper, library);
   /** Catalogue ids with an implementation here; the rest (remote MCP presets) show unavailable. */
   const implemented = new Set(factories.map((f) => f.entry.id));
   /** connectors.updated for Settings and onboarding (#505): the record as stored now. */
   const publishUpdate = async (event: ConnectorEvent): Promise<void> => {
-    if (event.type !== "status" && event.type !== "matrix_changed") return;
+    if (event.type !== "status" && event.type !== "matrix_changed" && event.type !== "configured")
+      return;
     const connector = await registry.get(event.connectorId).catch(() => undefined);
     if (connector === undefined) return;
     const reason =
-      event.type === "matrix_changed"
+      event.type === "matrix_changed" || event.type === "configured"
         ? "updated"
         : event.status === "connected"
           ? "connected"
@@ -229,7 +292,7 @@ export function composeConnectors(
       fetch: setup.fetch ?? ((input, init) => fetch(input, init)),
       tokens: setup.tokens ?? new VaultTokenVault(services.vault),
       credentials: setup.credentials ?? services.vault,
-      ...(setup.library === undefined ? {} : { library: setup.library }),
+      library,
     },
     tools: services.tools,
     broker: services.broker,
@@ -642,6 +705,13 @@ function onConnectorEvent(services: ComposeServices, event: ConnectorEvent): voi
       return;
     case "matrix_changed":
       log?.log("info", "connector action matrix changed", { connectorId: event.connectorId });
+      return;
+    case "configured":
+      // Key names only: values are settings, never logged.
+      log?.log("info", "connector settings changed", {
+        connectorId: event.connectorId,
+        keys: event.keys.slice(0, 20).join(","),
+      });
       return;
   }
 }

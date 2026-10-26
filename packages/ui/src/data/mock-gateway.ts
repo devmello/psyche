@@ -829,6 +829,7 @@ export class MockGateway implements GatewayClient {
       },
       now: () => this.now(),
       emit: (event, payload) => this.emit(event, payload),
+      settings: () => this.world.settings,
     }),
     "events.subscribe": () => ({ stateVersion: this.stateVersion }),
 
@@ -1808,6 +1809,16 @@ export class MockGateway implements GatewayClient {
       const after = before === "" ? `- ${p.text}` : `${before}\n- ${p.text}`;
       this.world.memoryFiles[path] = after;
       return { path, chunk: this.chunk(path, after.split("\n").length, p.text) };
+    },
+    // Undo for a learned fact (#509): drops its line from USER.md's Learned section.
+    "memory.forgetLearned": (p) => {
+      const before = this.world.memoryFiles["USER.md"] ?? "";
+      const after = before
+        .split("\n")
+        .filter((line) => !line.includes(p.factId))
+        .join("\n");
+      this.world.memoryFiles["USER.md"] = after;
+      return { removed: after !== before };
     },
     "memory.forget": (p) => {
       const q = p.subject.toLowerCase();
