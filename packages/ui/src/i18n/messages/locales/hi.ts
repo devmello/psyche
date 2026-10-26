@@ -3326,6 +3326,7 @@ export const hi: Partial<Catalogue> = {
   // Ask about my screen
   "screenAsk.label": "अपनी स्क्रीन के बारे में पूछें",
   "screenAsk.placeholder": "स्क्रीन पर जो है उसके बारे में पूछें, या Psyche से कुछ करवाएँ…",
+  "screenAsk.voice.placeholder": "Psyche से कुछ भी पूछें…",
   "screenAsk.send": "पूछें",
   "screenAsk.capturing": "आपकी स्क्रीन देखी जा रही है…",
   "screenAsk.chip.window": "{app}",

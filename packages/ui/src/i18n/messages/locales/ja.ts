@@ -3328,6 +3328,7 @@ export const ja: Partial<Catalogue> = {
   // Ask about my screen
   "screenAsk.label": "画面について質問",
   "screenAsk.placeholder": "画面の内容について質問するか、Psycheに何か頼んでください…",
+  "screenAsk.voice.placeholder": "Psycheに何でも聞いてください…",
   "screenAsk.send": "質問",
   "screenAsk.capturing": "画面を確認中…",
   "screenAsk.chip.window": "{app}",

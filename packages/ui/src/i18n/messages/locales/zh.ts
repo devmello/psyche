@@ -3233,6 +3233,7 @@ export const zh: Partial<Catalogue> = {
   // Ask about my screen
   "screenAsk.label": "询问屏幕内容",
   "screenAsk.placeholder": "询问屏幕上的内容，或让 Psyche 做点什么…",
+  "screenAsk.voice.placeholder": "向 Psyche 提问任何事…",
   "screenAsk.send": "询问",
   "screenAsk.capturing": "正在查看你的屏幕…",
   "screenAsk.chip.window": "{app}",
