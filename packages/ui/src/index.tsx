@@ -228,6 +228,7 @@ export {
 } from "./lib/artifact-ops.ts";
 // Formatting helpers.
 export * from "./lib/format.ts";
+export { documentPrefersReducedMotion } from "./lib/reduced-motion.ts";
 export { cn } from "./lib/utils.ts";
 export { MapBlock } from "./map/MapBlock.tsx";
 export { MapList } from "./map/MapList.tsx";

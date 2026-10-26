@@ -1,17 +1,11 @@
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { documentPrefersReducedMotion } from "../lib/reduced-motion.ts";
 
 /** Within this distance of the end the transcript follows new content (motion.md §4.6). */
 export const ANCHOR_SLACK_PX = 72;
 
-function prefersReducedMotion(el: HTMLElement): boolean {
-  const root = el.ownerDocument.documentElement;
-  const setting = root.getAttribute("data-reduce-motion");
-  if (setting === "true") return true;
-  if (setting === "false") return false;
-  return (
-    el.ownerDocument.defaultView?.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false
-  );
-}
+const prefersReducedMotion = (el: HTMLElement): boolean =>
+  documentPrefersReducedMotion(el.ownerDocument);
 
 /**
  * Keeps a scrolling transcript anchored to its end (redesign-2026 §5.2, motion.md §4.6): when the
