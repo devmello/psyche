@@ -81,6 +81,17 @@ public protocol NotesBackend: Sendable {
 public protocol SafariBackend: Sendable {
     func tabs() async throws -> [SafariTabRecord]
     func open(_ url: URL) async throws
+    // Wave 1 (docs/connectors/apple-apps-2026.md §4.7).
+    /// A tab's text (Safari's own `text` of the tab; no JavaScript): the front window's current
+    /// tab unless `window` / `index` are given.
+    func tabText(window: Int?, index: Int?) async throws -> (SafariTabRecord, text: String)
+    func addReadingList(_ url: URL, title: String?) async throws
+}
+
+/// Google Chrome tabs (S2): titles and URLs only (page text would need `execute`, never exposed).
+public protocol ChromeBackend: Sendable {
+    /// Empty when Chrome is not running (never launches it).
+    func tabs() async throws -> [SafariTabRecord]
 }
 
 public protocol FinderBackend: Sendable {
@@ -1201,6 +1212,39 @@ public final class SafariScriptingBackend: SafariBackend, @unchecked Sendable {
           end tell
           return "ok"
         end psyche_open
+        -- Wave 1 (§4.7). Fixed text; inputs are arguments. `text` is Safari's tab property, not JavaScript.
+        on psyche_tab_text(wIdx, tIdx)
+          set fs to character id 31
+          tell application "Safari"
+            set w to window ((wIdx as integer) + 1)
+            if tIdx is "-1" then
+              set t to current tab of w
+            else
+              set t to tab ((tIdx as integer) + 1) of w
+            end if
+            set ti to (index of t) - 1
+            set isCurrent to ((index of current tab of w) = (index of t))
+            set u to ""
+            try
+              set u to URL of t
+            end try
+            set tx to ""
+            try
+              set tx to text of t
+            end try
+            return (wIdx as text) & fs & (ti as text) & fs & my psyche_clean(name of t) & fs & my psyche_clean(u) & fs & ((isCurrent and wIdx is "0") as text) & fs & my psyche_clean(tx)
+          end tell
+        end psyche_tab_text
+        on psyche_reading_list(u, ttl)
+          tell application "Safari"
+            if ttl is "" then
+              add reading list item u
+            else
+              add reading list item u with title ttl
+            end if
+          end tell
+          return "ok"
+        end psyche_reading_list
         """
 
     public init() {}
@@ -1214,6 +1258,53 @@ public final class SafariScriptingBackend: SafariBackend, @unchecked Sendable {
 
     public func open(_ url: URL) async throws {
         _ = try await ScriptHandler.call(Self.source, handler: "psyche_open", [url.absoluteString], app: Self.bundleId)
+    }
+
+    public func tabText(window: Int?, index: Int?) async throws -> (SafariTabRecord, text: String) {
+        let out = try await ScriptHandler.call(Self.source, handler: "psyche_tab_text", ["\(window ?? 0)", "\(index ?? -1)"], app: Self.bundleId)
+        let f = (out ?? "").components(separatedBy: ScriptRecords.fieldSeparator)
+        guard f.count == 6 else { throw CapabilityError(.notFound, reason: "no_tab", "No such Safari tab") }
+        return (SafariTabRecord(window: Int(f[0]) ?? 0, index: Int(f[1]) ?? 0, title: f[2], url: f[3], current: f[4] == "true"), text: f[5])
+    }
+
+    public func addReadingList(_ url: URL, title: String?) async throws {
+        _ = try await ScriptHandler.call(Self.source, handler: "psyche_reading_list", [url.absoluteString, title ?? ""], app: Self.bundleId)
+    }
+}
+
+public final class ChromeScriptingBackend: ChromeBackend, @unchecked Sendable {
+    static let bundleId = "com.google.Chrome"
+    static let source = ScriptHandler.prelude + """
+        on psyche_tabs()
+          set fs to character id 31
+          set out to {}
+          tell application "Google Chrome"
+            set wi to 0
+            repeat with w in windows
+              set wi to wi + 1
+              set ai to 0
+              try
+                set ai to active tab index of w
+              end try
+              set ti to 0
+              repeat with t in tabs of w
+                set ti to ti + 1
+                set end of out to ((wi - 1) as text) & fs & ((ti - 1) as text) & fs & my psyche_clean(title of t) & fs & my psyche_clean(URL of t) & fs & ((wi = 1 and ti = ai) as text)
+              end repeat
+            end repeat
+          end tell
+          return my psyche_join(out, character id 30)
+        end psyche_tabs
+        """
+
+    public init() {}
+
+    public func tabs() async throws -> [SafariTabRecord] {
+        guard !NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleId).isEmpty else { return [] }
+        let out = try await ScriptHandler.call(Self.source, handler: "psyche_tabs", [], app: Self.bundleId)
+        return ScriptRecords.parse(out, fields: 5).map { f in
+            SafariTabRecord(window: Int(f[0]) ?? 0, index: Int(f[1]) ?? 0, title: f[2], url: f[3], current: f[4] == "true")
+        }
     }
 }
 

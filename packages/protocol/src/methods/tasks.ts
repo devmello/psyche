@@ -1,5 +1,5 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { Id } from "../common.ts";
+import { Id, IsoDateTime } from "../common.ts";
 import { Task, TaskAction, TaskStatus } from "../schemas/tasks.ts";
 import { defineMethod, nextCursor, pageParams } from "./define.ts";
 
@@ -52,6 +52,35 @@ export const TasksMethods = {
     sideEffecting: true,
     description:
       "Starts a new attempt of a failed or cancelled task, optionally from a step. Side-effecting: a duplicate would start a second attempt.",
+  }),
+  "tasks.steer": defineMethod({
+    params: Type.Object({
+      taskId: Id,
+      text: Type.String({ minLength: 1, maxLength: 4000 }),
+    }),
+    result: TaskResult,
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Steers a running task (a specialist job): the text reaches the running turn as owner guidance, or opens its next turn when parked. Side-effecting: a duplicate would steer twice.",
+  }),
+  "tasks.update": defineMethod({
+    params: Type.Object({
+      taskId: Id,
+      budget: Type.Optional(
+        Type.Object({
+          tokens: Type.Optional(Type.Integer({ minimum: 1 })),
+          costUsd: Type.Optional(Type.Number({ minimum: 0 })),
+          minutes: Type.Optional(Type.Integer({ minimum: 1 })),
+        }),
+      ),
+      deadline: Type.Optional(IsoDateTime),
+    }),
+    result: TaskResult,
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Changes a specialist job's budget limits or deadline (owner only; capped by Settings). A paused-on-budget job resumes. Side-effecting: a duplicate would apply twice.",
   }),
   "tasks.actions": defineMethod({
     params: Type.Object({ taskId: Id, ...pageParams }),

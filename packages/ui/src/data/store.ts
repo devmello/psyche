@@ -20,6 +20,7 @@ import {
   touch,
   type UiState,
   upsertMessage,
+  upsertRunSteps,
 } from "./state.ts";
 
 type Overlay = { id: number; apply: (s: UiState) => UiState };
@@ -361,6 +362,25 @@ export class GatewayStore {
             Object.entries(next.reasoning).filter(([, r]) => r.runId !== runId),
           ),
         };
+      }
+      case "run.step": {
+        const { runId, step } = e.payload;
+        let next = touch(upsertRunSteps(s, runId, [step]), `runSteps:${step.id}`, v);
+        // A loaded detail follows the step; once the step ends its payloads are read again.
+        const key = `${runId}/${step.id}`;
+        const detail = next.runStepDetails[key];
+        if (detail !== undefined) {
+          const merged = (next.runSteps[runId] ?? []).find((x) => x.id === step.id) ?? step;
+          const { [key]: _stale, ...rest } = next.runStepDetails;
+          next = {
+            ...next,
+            runStepDetails:
+              detail.step.status === step.status
+                ? { ...next.runStepDetails, [key]: { ...detail, step: merged } }
+                : rest,
+          };
+        }
+        return next;
       }
       case "tool_call.updated":
         return touch(

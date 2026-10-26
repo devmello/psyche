@@ -46,6 +46,18 @@ export const ChatMethods = {
        * `Message.replyToMessageId`; the agent sees the quoted text ahead of the new message.
        */
       replyToMessageId: Type.Optional(Id),
+      /**
+       * Redo (teaching loop §5.1): answer `messageId` again, with the owner's instruction
+       * ("shorter") or without the lessons it used. A redo with an instruction is recorded as
+       * `regenerated` feedback.
+       */
+      redo: Type.Optional(
+        Type.Object({
+          messageId: Id,
+          instruction: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
+          withoutLessons: Type.Optional(Type.Boolean()),
+        }),
+      ),
     }),
     result: ChatSendResult,
     scope: "operator.write",
