@@ -16,6 +16,7 @@ import { DictationMethods } from "./dictation.ts";
 import { EventsMethods } from "./events.ts";
 import { FilesMethods } from "./files.ts";
 import { GrantsMethods } from "./grants.ts";
+import { FeedbackMethods, GrowthMethods, LessonsMethods } from "./learning.ts";
 import { LibraryMethods } from "./library.ts";
 import { LogsMethods } from "./logs.ts";
 import { McpMethods } from "./mcp.ts";
@@ -29,10 +30,12 @@ import { PluginsMethods } from "./plugins.ts";
 import { FeedMethods, GoalsMethods, IdeasMethods } from "./proactive.ts";
 import { QuestionsMethods } from "./questions.ts";
 import { ArtifactsMethods, ReceiptsMethods } from "./receipts.ts";
+import { RunsMethods } from "./runs.ts";
 import { SandboxMethods } from "./sandbox.ts";
 import { SearchMethods } from "./search.ts";
 import { SettingsMethods } from "./settings.ts";
 import { SkillsMethods } from "./skills.ts";
+import { SpecialistsMethods } from "./specialists.ts";
 import { TasksMethods } from "./tasks.ts";
 import { ThreadsMethods } from "./threads.ts";
 import { UsageMethods } from "./usage.ts";
@@ -58,6 +61,7 @@ export * from "./dictation.ts";
 export * from "./events.ts";
 export * from "./files.ts";
 export * from "./grants.ts";
+export * from "./learning.ts";
 export * from "./library.ts";
 export * from "./logs.ts";
 export * from "./mcp.ts";
@@ -71,10 +75,12 @@ export * from "./plugins.ts";
 export * from "./proactive.ts";
 export * from "./questions.ts";
 export * from "./receipts.ts";
+export * from "./runs.ts";
 export * from "./sandbox.ts";
 export * from "./search.ts";
 export * from "./settings.ts";
 export * from "./skills.ts";
+export * from "./specialists.ts";
 export * from "./tasks.ts";
 export * from "./threads.ts";
 export * from "./vault.ts";
@@ -91,6 +97,7 @@ export const Methods = {
   ...ConnectMethods,
   ...ThreadsMethods,
   ...ChatMethods,
+  ...SpecialistsMethods,
   ...TasksMethods,
   ...ApprovalsMethods,
   ...GrantsMethods,
@@ -122,6 +129,7 @@ export const Methods = {
   ...GoalsMethods,
   ...VoiceMethods,
   ...VmMethods,
+  ...RunsMethods,
   ...DictationMethods,
   ...AttentionMethods,
   ...SkillsMethods,
@@ -131,6 +139,9 @@ export const Methods = {
   ...ModelsMethods,
   ...UsageMethods,
   ...ProposalsMethods,
+  ...FeedbackMethods,
+  ...LessonsMethods,
+  ...GrowthMethods,
 } as const;
 
 export type MethodName = keyof typeof Methods;

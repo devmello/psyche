@@ -77,6 +77,8 @@ function blockToMarkdown(block: Block): string {
       return `[compacted ${block.replaced.turns} earlier turns: ${block.summary.decisions.length} decisions, ${block.summary.openTasks.length} open tasks]`;
     case "learned":
       return `[learned: ${block.items.map((i) => i.text).join("; ")}]`;
+    case "taught":
+      return block.statement === null ? "[noted feedback]" : `[will remember: ${block.statement}]`;
     case "related_threads":
       return `[from your other chats: ${block.items.map((i) => i.title || i.threadId).join(", ")}]`;
   }
