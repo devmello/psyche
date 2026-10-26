@@ -77,6 +77,7 @@ import {
   type PermissionKind,
 } from "./main/permissions/permissions.ts";
 import { ScreenAskWindow } from "./main/screen-ask/panel.ts";
+import { ScreenAskShortcut } from "./main/screen-ask/settings.ts";
 import { shouldShowSplash } from "./main/splash.ts";
 import { startShell } from "./main/startup.ts";
 import {
@@ -168,6 +169,7 @@ let thisDeviceId: string | undefined;
 let hud: HudWindow | undefined;
 let voiceHud: VoiceHudWindow | undefined;
 let screenAsk: ScreenAskWindow | undefined;
+let screenAskShortcut: ScreenAskShortcut | undefined;
 let dictation: DictationService | undefined;
 const relay = new NotificationRelay();
 const zoom = new ZoomController({
@@ -577,6 +579,12 @@ function registerIpc(): void {
   handle(IPC.dictationCheckHotkey, (_event, arg) => {
     const r = rec(IPC.dictationCheckHotkey, arg);
     const accelerator = str(IPC.dictationCheckHotkey, r.accelerator, "accelerator", 64);
+    // Settings checks each shortcut against the other's: neither may take the one in use.
+    if (r.purpose === "screenAsk") {
+      if (accelerator !== "" && accelerator === dictation?.hotkey) return "taken";
+      return screenAskShortcut?.check(accelerator) ?? "ok";
+    }
+    if (accelerator !== "" && accelerator === screenAskShortcut?.current) return "taken";
     return dictation?.checkHotkey(accelerator) ?? "ok";
   });
   on(IPC.dictationOpenAccessibility, () => {
@@ -635,6 +643,7 @@ function onGatewayEvent(e: {
 }): void {
   broadcast(IPC.event, e);
   dictation?.onEvent(e.event, e.payload);
+  screenAskShortcut?.onEvent(e.event, e.payload);
   const p = e.payload as Record<string, unknown>;
   if (e.event === "settings.changed") {
     const entries = (p.entries as { key: string; value: unknown }[] | undefined) ?? [];
@@ -851,6 +860,7 @@ void app.whenReady().then(async () => {
       void zoom.load();
       void windowTheme.load();
       void dictation?.load();
+      void screenAskShortcut?.load();
       void bootstrapAdminIfNeeded({
         packaged: app.isPackaged,
         scopes: () => gateway?.getStatus().scopes,
@@ -898,7 +908,6 @@ void app.whenReady().then(async () => {
     preloadPath: preloadPath(),
     onOpenThread: (threadId) => command({ type: "navigate", route: threadRoute(threadId) }),
   });
-  screenAsk.setEnabled(true);
   const controller = new SystemDictation({
     call: (m, p) => requireGateway().call(m, p),
     hud,
@@ -1000,9 +1009,15 @@ void app.whenReady().then(async () => {
     (!app.isPackaged && process.env.PSYCHE_DISABLE_GLOBAL_SHORTCUTS === "1");
   if (!skipShortcuts && !globalShortcut.register("Alt+Space", () => windows?.toggleQuickEntry()))
     globalShortcut.register("Control+Alt+Space", () => windows?.toggleQuickEntry());
-  // Ask about my screen: ⌥⇧Space, or ⌃⌥⇧Space when another utility owns it (spec §2).
-  if (!skipShortcuts && !globalShortcut.register("Alt+Shift+Space", () => screenAsk?.trigger()))
-    globalShortcut.register("Control+Alt+Shift+Space", () => screenAsk?.trigger());
+  // Ask about my screen: ⌥⇧Space (or ⌃⌥⇧Space), until the settings say otherwise (spec §2, §6).
+  screenAskShortcut = new ScreenAskShortcut({
+    call: (m, p) => requireGateway().call(m, p),
+    ...(skipShortcuts ? {} : { shortcuts: globalShortcut }),
+    trigger: () => screenAsk?.trigger(),
+    setEnabled: (on) => screenAsk?.setEnabled(on),
+    warn: (m) => console.warn(`[screen-ask] ${m}`),
+  });
+  screenAskShortcut.apply(screenAskShortcut.settings);
   app.dock?.setMenu(
     Menu.buildFromTemplate([{ label: "Ask about screen", click: () => screenAsk?.trigger() }]),
   );
@@ -1056,6 +1071,7 @@ app.on("window-all-closed", () => {
 
 app.on("will-quit", () => {
   dictation?.dispose();
+  screenAskShortcut?.dispose();
   hud?.destroy();
   voiceHud?.destroy();
   screenAsk?.destroy();

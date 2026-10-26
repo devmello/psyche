@@ -1,4 +1,5 @@
 import type {
+  ActionProposal,
   ApprovalRequest,
   Artifact,
   Block,
@@ -112,6 +113,8 @@ export interface UiState {
   runFrames: Dict<readonly RunFrame[]>;
   /** Background specialist jobs by task id (`specialists.jobs`, `specialist.*` events). */
   specialistJobs: Dict<SpecialistJob>;
+  /** Batch proposals by id (`proposals.get`, `proposal.updated`; mail-and-meetings §8.1). */
+  proposals: Dict<ActionProposal>;
   /** The specialist roles with the owner's settings (`specialists.list`); null until loaded. */
   specialistRoles: readonly SpecialistRole[] | null;
   toolCalls: Dict<ToolCall>;
@@ -161,6 +164,7 @@ export const INITIAL_STATE: UiState = {
   runStepDetails: {},
   runFrames: {},
   specialistJobs: {},
+  proposals: {},
   specialistRoles: null,
   toolCalls: {},
   tasks: {},

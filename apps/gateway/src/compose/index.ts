@@ -127,7 +127,7 @@ import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { protectedRoots } from "./protected-paths.ts";
 import { createRateLimits } from "./rate-limits.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
-import { composeScreenAsk } from "./screen-ask.ts";
+import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
 import {
   type ApprovalRelay,
   type ComposedPart,
@@ -212,6 +212,8 @@ export interface ComposeOptions
    * process runner prefix (default: `speechSetupFromEnv`).
    */
   speech?: SpeechSetup;
+  /** Ask about my screen is always mounted; this swaps what takes the capture (default: the Mac helper). */
+  screenAsk?: ScreenAskOptions;
   /**
    * Passkey assertions for approvals that require authentication (purchase, credential fill,
    * host exec; security §3.7). Helper (Touch ID) assertions go to the helper part's verifier.
@@ -682,7 +684,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     skills.part,
     composeSpeech(speechSetup ?? speechSetupFromEnv(gwOptions.env)),
     composeDictation(),
-    composeScreenAsk(),
+    composeScreenAsk(gwOptions.screenAsk),
     composePayments(paymentsSetupFromEnv(gwOptions.env)),
     // Web passkeys (issue #79): unavailable until gateway.publicOrigin is an https origin. A
     // caller-supplied `presence` verifier takes the passkey role instead.

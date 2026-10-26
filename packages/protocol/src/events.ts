@@ -20,6 +20,7 @@ import {
   VoiceConversationStatePayload,
   VoiceConversationStepPayload,
 } from "./methods/voice-conversation.ts";
+import { ArtifactVersion } from "./schemas/artifacts.ts";
 import { Block } from "./schemas/blocks.ts";
 import { ContextUsage } from "./schemas/context.ts";
 import { GraphEntityKind, GraphLoop, GraphSuggestion } from "./schemas/graph.ts";
@@ -38,7 +39,7 @@ import { MemoryChangeSource, MemoryJob, PersonaIdentity } from "./schemas/memory
 import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
 import { RunStep } from "./schemas/runs.ts";
 import { SpecialistJob, SpecialistResult } from "./schemas/specialists.ts";
-import { FeedPost, Goal, Idea, Notification, SettingEntry } from "./schemas/surfaces.ts";
+import { Artifact, FeedPost, Goal, Idea, Notification, SettingEntry } from "./schemas/surfaces.ts";
 import { InputRequest, Task, TaskAction } from "./schemas/tasks.ts";
 import { Message, Run, RunBudget, Thread } from "./schemas/threads.ts";
 import { ToolCall } from "./schemas/tools.ts";
@@ -158,6 +159,10 @@ export const Events = {
   "receipt.created": defineEvent({
     payload: Type.Object({ receipt: Receipt }),
     description: "A side effect was recorded.",
+  }),
+  "artifact.updated": defineEvent({
+    payload: Type.Object({ artifact: Artifact, version: ArtifactVersion }),
+    description: "A canvas artifact gained a version (created, edited, restored).",
   }),
   "notification.created": defineEvent({
     payload: Type.Object({ notification: Notification }),

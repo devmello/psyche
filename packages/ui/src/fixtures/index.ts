@@ -1,4 +1,5 @@
 import type {
+  ActionProposal,
   ApprovalRequest,
   Artifact,
   Automation,
@@ -166,6 +167,9 @@ export interface FixtureWorld {
   runFrames?: Record<string, RunFrame[]>;
   runPayloads?: Record<string, { input?: unknown; output?: unknown }>;
   automationRuns?: AutomationRun[];
+  /** Batch proposals (`proposals.*`) and which calls fail when one runs (`fixtures/workflows.ts`). */
+  proposals?: ActionProposal[];
+  proposalFailures?: Record<string, Record<number, string>>;
   /** Background specialists (`fixtures/specialists.ts`). */
   specialistRoles?: SpecialistRole[];
   specialistJobs?: SpecialistJob[];
@@ -260,3 +264,18 @@ export {
   specialistTasks,
   withSpecialists,
 } from "./specialists.ts";
+export {
+  draftView,
+  inboxDigest,
+  markReadProposal,
+  meetingNotes,
+  meetingPrep,
+  quietDigest,
+  remindersProposal,
+  schedulingView,
+  WORKFLOW_IDS,
+  withWorkflows,
+  workflowLoops,
+  workflowPosts,
+  workflowProposals,
+} from "./workflows.ts";

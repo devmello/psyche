@@ -22,6 +22,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 - New `meetings.record.push {seq, audio}` (`operator.write`): one chunk (base64 mono PCM s16le, 16 kHz, ≤ 512 000 chars) of the running recording, from the device that started it. The recording ends by itself after two minutes without chunks or when that device disconnects.
 - `meetings.record.stop` gains optional `reason: stopped | source_ended | silence | app_quit`.
+### v1 additive — 2026-10-26 (chat experience phase 2: artifacts, docs/design/chat-experience-2026.md §4.3–4.4)
+
+- `ArtifactType` gains `doc`, `code`, `table`, `image` (appended). `Artifact` gains optional `threadId`, `language`, `untrusted`, `bytes`.
+- New types `ArtifactAuthor` (agent | user | specialist), `ArtifactOp` (text: replace | insert | rewrite; table: set | setRange | addRows | deleteRows | addColumn | view), `ArtifactCell`, `ArtifactTable`, `ArtifactTableView`, `ArtifactRef` (what tool results carry instead of content), `ArtifactVersion`, `ArtifactConflict`.
+- New methods `artifacts.list`, `artifacts.read {version?, lines?}`, `artifacts.versions`, and side-effecting `artifacts.create`, `artifacts.update {base, ops}` (stale base → `conflict`, nothing written), `artifacts.restore`. `artifacts.get`'s description now points at `artifacts.read`.
+- New event `artifact.updated {artifact, version}`.
+- No Swift switch sites change (the helper never decodes artifacts).
 
 ### v1 additive — 2026-10-26 (W, #670: post-meeting notes and Record meeting, docs/workflows/mail-and-meetings-2026.md §4.6)
 

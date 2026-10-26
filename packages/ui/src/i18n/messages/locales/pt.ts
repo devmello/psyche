@@ -1,7 +1,10 @@
 import type { Catalogue } from "../index.ts";
+import { workflows } from "./workflows/pt.ts";
 
 /** Portuguese catalogue (pt, Brazil). Same ids as `en`; missing ids fall back to English. */
 export const pt: Partial<Catalogue> = {
+  // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
+  ...workflows,
   "common.cancel": "Cancelar",
   "common.close": "Fechar",
   "common.save": "Salvar",
@@ -3333,4 +3336,51 @@ export const pt: Partial<Catalogue> = {
   "settings.key.voice.conversation.reviewBeforeSend": "Revisar antes de enviar",
   "settings.key.voice.conversation.pauseMs": "Pausa antes de o Psyche responder",
   "settings.key.voice.conversation.brief": "Resumo falado",
+
+  // Ask about my screen
+  "screenAsk.label": "Perguntar sobre sua tela",
+  "screenAsk.placeholder": "Pergunte sobre o que está na tela ou peça algo ao Psyche…",
+  "screenAsk.voice.placeholder": "Pergunte qualquer coisa ao Psyche…",
+  "screenAsk.send": "Perguntar",
+  "screenAsk.capturing": "Olhando sua tela…",
+  "screenAsk.chip.window": "{app}",
+  "screenAsk.chip.region": "Área de {app}",
+  "screenAsk.chip.textOnly": "{app} · só texto",
+  "screenAsk.chip.none": "Nada capturado",
+  "screenAsk.drop": "Não enviar o que está na tela",
+  "screenAsk.pin": "Sempre enviar a captura de tela",
+  "screenAsk.unpin": "Enviar a captura de tela só se precisar",
+  "screenAsk.recapture": "Capturar de novo",
+  "screenAsk.selectArea": "Selecionar área",
+  "screenAsk.refusal.app_excluded": "O Psyche não captura {app}.",
+  "screenAsk.refusal.secure_field": "Um campo de senha está em foco, então não há captura de tela.",
+  "screenAsk.refusal.no_window": "Nenhuma janela para capturar.",
+  "screenAsk.refusal.permission_missing":
+    "Permita a gravação de tela para enviar uma captura de tela.",
+  "screenAsk.allowCapture": "Permitir",
+  "screenAsk.captureFailed": "Não foi possível capturar a tela. Você ainda pode perguntar.",
+  "screenAsk.dest.new": "Nova conversa",
+  "screenAsk.dest.current": "Conversa atual",
+  "screenAsk.dest.label": "Enviar para",
+  "screenAsk.mic.start": "Fale seu pedido",
+  "screenAsk.mic.stop": "Parar de ouvir",
+  "screenAsk.answer.thinking": "Pensando…",
+  "screenAsk.answer.failed": "Algo deu errado. Abra a conversa para ver mais.",
+  "screenAsk.open": "Abrir no Psyche",
+  "screenAsk.cancelHint": "Esc para fechar",
+  "screenAsk.region.hint": "Arraste para selecionar uma área. Esc mantém a janela inteira.",
+  "screenAsk.region.label": "Selecione uma área da tela",
+  "settings.screenAsk.title": "Perguntar sobre a tela",
+  "settings.key.screenAsk.enabled": "Perguntar sobre minha tela",
+  "settings.screenAsk.enabledHint":
+    "Pressione o atalho em qualquer app para perguntar sobre o que está na tela ou para pedir que o Psyche faça algo com isso. Nada é capturado até você pressioná-lo.",
+  "settings.key.screenAsk.shortcut": "Atalho",
+  "settings.screenAsk.shortcutHint":
+    "Abre o painel de perguntas. Pressione de novo com o painel aberto para selecionar uma área.",
+  "settings.key.screenAsk.destination": "Enviar para",
+  "settings.key.screenAsk.alwaysImage": "Sempre incluir a captura de tela",
+  "settings.screenAsk.alwaysImageHint":
+    "Caso contrário, o Psyche só a envia quando seu pedido é sobre a tela, e só olha para ela se precisar.",
+  "voice.phrases.screen":
+    "isso|esse|essa|este|esta|aqui|na tela|na minha tela|o que estou vendo|o que é isso|essa página|esse erro|esse gráfico|essa janela|acima",
 };
