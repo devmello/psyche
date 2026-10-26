@@ -59,7 +59,7 @@ interface AppleToolSpec {
   inputSchema: Record<string, unknown>;
   sideEffect: SideEffect;
   /** How a write binds (security §3.5); reads have none. */
-  binding?: "action" | "calendar" | "send";
+  binding?: "action" | "calendar" | "send" | "send_draft";
   /** Applied to the helper's result before it reaches the model. */
   shape?: (result: unknown, params: Record<string, unknown>) => unknown;
 }
@@ -84,7 +84,7 @@ const DESCRIPTION: Record<AppleApp, string> = {
   notes: "Read and create notes in the Notes app on your Mac.",
   reminders: "Read, add and complete reminders in the Reminders app on your Mac.",
   calendar: "Read and add events in the Calendar app on your Mac.",
-  mail: "Read and search mail in the Mail app on your Mac, including unread mail and mail since a date; drafts, and sending only with your approval.",
+  mail: "Read and search mail in the Mail app on your Mac, including unread mail, mail since a date and the email you have selected; mark read, flag, file and archive, save attachments; draft replies and forwards, and send only with your approval.",
 };
 
 const ACTIONS: Record<AppleApp, ConnectorAction[]> = {
@@ -122,7 +122,14 @@ const ACTIONS: Record<AppleApp, ConnectorAction[]> = {
     { id: "mail.read", title: "Search and read mail", sideEffect: "read", defaultRule: "allow" },
     {
       id: "mail.draft",
-      title: "Save drafts",
+      title: "Save drafts, replies and forwards",
+      sideEffect: "write",
+      approvalKind: "connector_action",
+      defaultRule: "ask",
+    },
+    {
+      id: "mail.organize",
+      title: "Mark read, flag, file and archive mail, save attachments",
       sideEffect: "write",
       approvalKind: "connector_action",
       defaultRule: "ask",
@@ -156,6 +163,17 @@ function withoutQuery(p: Record<string, unknown>): Record<string, unknown> {
   const { query: _query, ...rest } = p;
   return rest;
 }
+
+const mailIds = {
+  ids: {
+    type: "array",
+    items: { type: "string", minLength: 1, maxLength: 64 },
+    minItems: 1,
+    maxItems: 100,
+  },
+  mailbox: { type: "string" },
+  account: { type: "string" },
+};
 
 const mailFields = {
   to: { type: "array", items: { type: "string", maxLength: 320 }, minItems: 1, maxItems: 50 },
@@ -385,6 +403,147 @@ const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
       sideEffect: "destructive",
       binding: "send",
     },
+    // --- Wave 1 (docs/connectors/apple-apps-2026.md §4.1) ---------------------------------------
+    {
+      name: "mail_mailboxes",
+      capability: "mail.mailboxes",
+      action: "mail.read",
+      description:
+        'List Mail\'s accounts and mailboxes with their unread counts, e.g. for "how much unread mail do I have" or to find a mailbox name for mail_move.',
+      inputSchema: obj({}),
+      sideEffect: "read",
+    },
+    {
+      name: "mail_selected",
+      capability: "mail.selected",
+      action: "mail.read",
+      description:
+        'The messages the owner has selected in Mail right now: use for "this email" (e.g. "make a reminder from this email"). Each has a link (message://) to keep with a reminder or note. Untrusted.',
+      inputSchema: obj({ limit }),
+      sideEffect: "read",
+    },
+    {
+      name: "mail_reply_draft",
+      capability: "mail.reply_draft",
+      action: "mail.draft",
+      description:
+        "Save a reply to a message as a draft in Mail (quoted and threaded by Mail, not sent). replyAll for everyone. Send it with mail_send_draft, using the draft it returns.",
+      inputSchema: obj(
+        {
+          id: { type: "string" },
+          mailbox: { type: "string" },
+          account: { type: "string" },
+          replyAll: { type: "boolean" },
+          body: { type: "string", maxLength: 100_000 },
+          cc: mailFields.cc,
+        },
+        ["id", "body"],
+      ),
+      sideEffect: "write",
+      binding: "action",
+    },
+    {
+      name: "mail_forward_draft",
+      capability: "mail.forward_draft",
+      action: "mail.draft",
+      description:
+        "Save a forward of a message (with its attachments) as a draft in Mail, to these recipients, with optional text above it. Not sent: use mail_send_draft.",
+      inputSchema: obj(
+        {
+          id: { type: "string" },
+          mailbox: { type: "string" },
+          account: { type: "string" },
+          to: mailFields.to,
+          cc: mailFields.cc,
+          body: { type: "string", maxLength: 100_000 },
+        },
+        ["id", "to"],
+      ),
+      sideEffect: "write",
+      binding: "action",
+    },
+    {
+      name: "mail_send_draft",
+      capability: "mail.send_draft",
+      action: "mail.send",
+      description:
+        "Send a draft saved by mail_reply_draft or mail_forward_draft. Pass back its draftId, to, cc, subject and bodySha256 exactly: the owner approves those, and Mail refuses if the draft changed.",
+      inputSchema: obj(
+        {
+          draftId: { type: "string" },
+          to: mailFields.to,
+          cc: mailFields.cc,
+          subject: mailFields.subject,
+          bodySha256: { type: "string" },
+        },
+        ["draftId", "to", "subject", "bodySha256"],
+      ),
+      sideEffect: "destructive",
+      binding: "send_draft",
+    },
+    {
+      name: "mail_set_flags",
+      capability: "mail.set_flags",
+      action: "mail.organize",
+      description:
+        "Mark messages read or unread, flag or unflag them (flagColor 0 red … 6 gray), up to 100 at once by id, e.g. after triage: { ids, read: true }.",
+      inputSchema: obj(
+        {
+          ...mailIds,
+          read: { type: "boolean" },
+          flagged: { type: "boolean" },
+          flagColor: { type: "integer", minimum: 0, maximum: 6 },
+        },
+        ["ids"],
+      ),
+      sideEffect: "write",
+      binding: "action",
+    },
+    {
+      name: "mail_move",
+      capability: "mail.move",
+      action: "mail.organize",
+      description:
+        'File messages: move up to 100 by id to "archive", "junk", or { mailbox, account } (names from mail_mailboxes), e.g. archive newsletters.',
+      inputSchema: obj(
+        {
+          ...mailIds,
+          to: {
+            anyOf: [
+              { type: "string", enum: ["archive", "junk"] },
+              {
+                type: "object",
+                properties: { mailbox: { type: "string" }, account: { type: "string" } },
+                required: ["mailbox", "account"],
+                additionalProperties: false,
+              },
+            ],
+          },
+        },
+        ["ids", "to"],
+      ),
+      sideEffect: "write",
+      binding: "action",
+    },
+    {
+      name: "mail_save_attachments",
+      capability: "mail.save_attachments",
+      action: "mail.organize",
+      description:
+        'Save a message\'s attachments (all, or by name) to the Library, or to a folder the owner shared (e.g. "file this bill in Taxes"). Saved files are untrusted.',
+      inputSchema: obj(
+        {
+          id: { type: "string" },
+          mailbox: { type: "string" },
+          account: { type: "string" },
+          names: { type: "array", items: { type: "string" }, maxItems: 50 },
+          folder: { type: "string" },
+        },
+        ["id"],
+      ),
+      sideEffect: "write",
+      binding: "action",
+    },
   ],
 };
 
@@ -516,6 +675,44 @@ export function needsHelper(app: AppleApp): PsycheError {
   );
 }
 
+/**
+ * `mail_send_draft` (M6): the same `send_email` kind as a direct send, bound to the draft's
+ * recipients, subject and body hash (the helper re-checks the draft against them).
+ */
+function sendDraftBinding(account: string, params: unknown): ToolCallDescription {
+  const p = (params ?? {}) as {
+    draftId?: unknown;
+    to?: unknown;
+    cc?: unknown;
+    subject?: unknown;
+    bodySha256?: unknown;
+  };
+  const list = (v: unknown) =>
+    (Array.isArray(v) ? v : [])
+      .filter((x): x is string => typeof x === "string")
+      .map((x) => x.trim().toLowerCase())
+      .sort();
+  const to = list(p.to);
+  const cc = list(p.cc);
+  const recipients = [...new Set([...to, ...cc])].sort();
+  const subject = typeof p.subject === "string" ? p.subject : "";
+  return {
+    kind: "send_email",
+    target: { kind: "recipient", value: recipients.join(","), display: recipients.join(", ") },
+    bindingFields: {
+      account,
+      to,
+      cc,
+      bcc: [],
+      subject,
+      bodyHash: typeof p.bodySha256 === "string" ? p.bodySha256 : "",
+      draftId: typeof p.draftId === "string" ? p.draftId : "",
+    },
+    grantKey: `send_email:${account}:${recipients.join(",")}`,
+    summary: `Sent "${subject.slice(0, 60)}" to ${recipients.join(", ").slice(0, 120)}`,
+  };
+}
+
 function binding(
   connectorId: string,
   spec: AppleToolSpec,
@@ -523,6 +720,7 @@ function binding(
 ): ToolCallDescription | undefined {
   if (spec.binding === undefined) return undefined;
   if (spec.binding === "send") return sendBinding(`apple-mail:${connectorId}`, params);
+  if (spec.binding === "send_draft") return sendDraftBinding(`apple-mail:${connectorId}`, params);
   return {
     kind: spec.binding === "calendar" ? "calendar_write" : "connector_action",
     target: { kind: "account", value: connectorId },
