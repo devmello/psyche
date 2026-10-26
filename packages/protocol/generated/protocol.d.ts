@@ -1123,6 +1123,27 @@ export interface Series {
     values: (number | null)[];
 }
 
+export interface ArtifactMap {
+    bounds?: number[];
+    markers: ArtifactMapMarker[];
+    routes?: Route[];
+    title?:  string;
+}
+
+export interface ArtifactMapMarker {
+    id:    string;
+    label: string;
+    lat:   number;
+    link?: string;
+    lng:   number;
+    note?: string;
+}
+
+export interface Route {
+    label?: string;
+    points: Array<number[]>;
+}
+
 export interface ArtifactTable {
     columns: string[];
     rows:    Array<ArtifactCell[]>;
@@ -1150,7 +1171,7 @@ export interface Artifact {
     version:       number;
 }
 
-export type ArtifactType = "markdown" | "html" | "react" | "pdf" | "sheet" | "itinerary" | "dashboard" | "doc" | "code" | "table" | "image" | "chart" | "diagram" | "diff";
+export type ArtifactType = "markdown" | "html" | "react" | "pdf" | "sheet" | "itinerary" | "dashboard" | "doc" | "code" | "table" | "image" | "chart" | "diagram" | "diff" | "map";
 
 export interface ArtifactVersion {
     artifactId:    string;
@@ -1187,10 +1208,21 @@ export interface ArtifactOp {
     count?:   number;
     name?:    string;
     view?:    ArtifactTableView;
+    marker?:  ArtifactMapMarker;
+    id?:      string;
+    set?:     Set;
     patch?:   { [key: string]: unknown };
 }
 
-export type Op = "replace" | "insert" | "rewrite" | "set" | "setRange" | "addRows" | "deleteRows" | "addColumn" | "view" | "patch";
+export type Op = "replace" | "insert" | "rewrite" | "set" | "setRange" | "addRows" | "deleteRows" | "addColumn" | "view" | "addMarker" | "removeMarker" | "updateMarker" | "patch";
+
+export interface Set {
+    label?: string;
+    lat?:   number;
+    link?:  null | string;
+    lng?:   number;
+    note?:  null | string;
+}
 
 export type ValueElement = ArtifactCell[] | boolean | number | null | string;
 

@@ -162,6 +162,7 @@ export const blocks = {
   "blocks.artifact.kind.html": "Web page",
   "blocks.artifact.kind.markdown": "Document",
   "blocks.artifact.kind.dashboard": "Dashboard",
+  "blocks.artifact.kind.map": "Map",
   "blocks.artifact.label": "Artifact: {title}",
   "blocks.artifact.meta": "{kind} · v{version} · {date}",
   "blocks.artifact.save": "Save to Library",

@@ -47,6 +47,14 @@ export const Chart: Story = {
   ),
 };
 
+export const Places: Story = {
+  render: () => (
+    <StoryWorld edit={withCanvas}>
+      <Frame id={CANVAS_IDS.map} />
+    </StoryWorld>
+  ),
+};
+
 export const Diff: Story = {
   render: () => (
     <StoryWorld edit={withCanvas}>

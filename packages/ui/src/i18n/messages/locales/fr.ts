@@ -383,6 +383,7 @@ export const fr: Partial<Catalogue> = {
   "blocks.artifact.kind.html": "Page web",
   "blocks.artifact.kind.markdown": "Document",
   "blocks.artifact.kind.dashboard": "Tableau de bord",
+  "blocks.artifact.kind.map": "Carte",
   "blocks.artifact.label": "Artefact : {title}",
   "blocks.artifact.meta": "{kind} · v{version} · {date}",
   "blocks.artifact.save": "Enregistrer dans la bibliothèque",

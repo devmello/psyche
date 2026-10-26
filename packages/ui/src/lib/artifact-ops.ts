@@ -154,6 +154,31 @@ export function applyOpsLocal(
     }
     return { content: JSON.stringify(t), view: v };
   }
+  if (type === "map") {
+    let m = JSON.parse(content) as { markers: Record<string, unknown>[] } & Record<string, unknown>;
+    for (const op of ops) {
+      if (op.op === "addMarker") m = { ...m, markers: [...m.markers, op.marker] };
+      else if (op.op === "removeMarker")
+        m = { ...m, markers: m.markers.filter((p) => p.id !== op.id) };
+      else if (op.op === "updateMarker")
+        m = {
+          ...m,
+          markers: m.markers.map((p) => {
+            if (p.id !== op.id) return p;
+            const next: Record<string, unknown> = { ...p };
+            for (const [k, v] of Object.entries(op.set)) {
+              if (v === null) delete next[k];
+              else if (v !== undefined) next[k] = v;
+            }
+            return next;
+          }),
+        };
+      else if (op.op === "rewrite") m = JSON.parse(op.content) as typeof m;
+      else if (op.op === "patch") m = { ...m, ...op.patch };
+      else throw new Error(`${op.op} does not apply to a map`);
+    }
+    return { content: JSON.stringify(m), view: null };
+  }
   if (type === "chart") {
     let c = JSON.parse(content) as Record<string, unknown>;
     for (const op of ops) {

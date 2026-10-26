@@ -392,6 +392,7 @@ export const hi: Partial<Catalogue> = {
   "blocks.artifact.kind.html": "वेब पेज",
   "blocks.artifact.kind.markdown": "दस्तावेज़",
   "blocks.artifact.kind.dashboard": "डैशबोर्ड",
+  "blocks.artifact.kind.map": "मानचित्र",
   "blocks.artifact.label": "आर्टिफ़ैक्ट: {title}",
   "blocks.artifact.meta": "{kind} · v{version} · {date}",
   "blocks.artifact.save": "लाइब्रेरी में सेव करें",

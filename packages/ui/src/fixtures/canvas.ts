@@ -7,6 +7,7 @@ export const CANVAS_IDS = {
   table: "art_canvas_table",
   chart: "art_canvas_chart",
   diff: "art_canvas_diff",
+  map: "art_canvas_map",
   html: "art_canvas_html",
   htmlUntrusted: "art_canvas_html_untrusted",
 } as const;
@@ -31,6 +32,32 @@ const CHART = JSON.stringify({
   series: [
     { name: "Planned", values: [400, 700, 30, 220] },
     { name: "Actual", values: [412, 690, 24, 260] },
+  ],
+});
+export const MAP_FIXTURE = JSON.stringify({
+  title: "Lisbon, day 1",
+  markers: [
+    {
+      id: "a",
+      lat: 38.711,
+      lng: -9.13,
+      label: "Alfama viewpoint",
+      note: "Miradouro de Santa Luzia",
+      link: "https://www.visitlisboa.com/",
+    },
+    { id: "b", lat: 38.7139, lng: -9.1334, label: "Time Out Market", note: "Lunch" },
+    { id: "c", lat: 38.7223, lng: -9.1393, label: "Bairro Alto dinner" },
+    { id: "d", lat: 38.6916, lng: -9.216, label: "Belém Tower" },
+  ],
+  routes: [
+    {
+      label: "Walk",
+      points: [
+        [38.711, -9.13],
+        [38.7139, -9.1334],
+        [38.7223, -9.1393],
+      ],
+    },
   ],
 });
 const DIFF = `--- a/itinerary.md
@@ -111,6 +138,18 @@ export function canvasFixtures(): {
     threadId: IDS.threads.lisbon,
     bytes: CHART.length,
   };
+  const map: Artifact = {
+    id: CANVAS_IDS.map,
+    libraryItemId: "lib_canvas_map",
+    type: "map",
+    title: "Lisbon, day 1",
+    version: 1,
+    nameSlug: "lisbon-day-1",
+    sourceRef: null,
+    updatedAt: at(13),
+    threadId: IDS.threads.lisbon,
+    bytes: MAP_FIXTURE.length,
+  };
   const diff: Artifact = {
     id: CANVAS_IDS.diff,
     libraryItemId: "lib_canvas_diff",
@@ -143,7 +182,7 @@ export function canvasFixtures(): {
     untrusted: true,
   };
   return {
-    artifacts: [doc, table, chart, diff, html, htmlUntrusted],
+    artifacts: [doc, table, chart, diff, html, htmlUntrusted, map],
     artifactHistory: {
       [doc.id]: {
         contents: [DOC_V1, DOC_V2, DOC_V3],
@@ -158,6 +197,11 @@ export function canvasFixtures(): {
         contents: [CHART],
         views: [null],
         versions: [version(chart.id, 1, "agent", "bar chart, 2 series × 4 points", 8)],
+      },
+      [map.id]: {
+        contents: [MAP_FIXTURE],
+        views: [null],
+        versions: [version(map.id, 1, "agent", "map, 4 markers", 8)],
       },
       [diff.id]: {
         contents: [DIFF],

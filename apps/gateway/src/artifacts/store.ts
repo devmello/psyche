@@ -27,6 +27,7 @@ import { libraryRoot } from "../compose/library.ts";
 import {
   applyOps,
   isChartType,
+  isMapType,
   isTableType,
   isTextType,
   normalizeContent,
@@ -77,6 +78,7 @@ const EXT: Partial<Record<Artifact["type"], string>> = {
   sheet: "json",
   html: "html",
   chart: "json",
+  map: "json",
   diagram: "mmd",
   diff: "patch",
 };
@@ -88,6 +90,7 @@ const MIME: Partial<Record<Artifact["type"], string>> = {
   sheet: "application/json",
   html: "text/html",
   chart: "application/json",
+  map: "application/json",
   diagram: "text/plain",
   diff: "text/x-diff",
 };
@@ -156,7 +159,12 @@ export class ArtifactStore {
         throw new PsycheError("invalid_params", "image content must be a Library image item id");
       content = item.id;
       libraryItemId = item.id;
-    } else if (isTextType(input.type) || isTableType(input.type) || isChartType(input.type)) {
+    } else if (
+      isTextType(input.type) ||
+      isTableType(input.type) ||
+      isChartType(input.type) ||
+      isMapType(input.type)
+    ) {
       content = normalizeContent(input.type, input.content);
       libraryItemId = await this.#mirror(id, slug, input.type, content, input.threadId ?? null);
     } else {

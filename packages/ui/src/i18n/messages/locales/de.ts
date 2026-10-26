@@ -403,6 +403,7 @@ export const de: Partial<Catalogue> = {
   "blocks.artifact.kind.html": "Webseite",
   "blocks.artifact.kind.markdown": "Dokument",
   "blocks.artifact.kind.dashboard": "Dashboard",
+  "blocks.artifact.kind.map": "Karte",
   "blocks.artifact.label": "Artefakt: {title}",
   "blocks.artifact.meta": "{kind} · v{version} · {date}",
   "blocks.artifact.save": "In Mediathek sichern",

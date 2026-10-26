@@ -71,6 +71,47 @@ describe("artifact ops", () => {
   });
 });
 
+describe("map artifacts", () => {
+  const map = JSON.stringify({
+    markers: [{ id: "a", lat: 38.7, lng: -9.1, label: "Alfama" }],
+  });
+
+  it("adds, updates and removes markers by id", () => {
+    const r = applyOps("map", map, null, [
+      { op: "addMarker", marker: { id: "b", lat: 38.71, lng: -9.13, label: "Market" } },
+      { op: "updateMarker", id: "a", set: { label: "Alfama walk", note: "views" } },
+      { op: "removeMarker", id: "b" },
+    ]);
+    expect(JSON.parse(r.content).markers).toEqual([
+      { id: "a", lat: 38.7, lng: -9.1, label: "Alfama walk", note: "views" },
+    ]);
+  });
+
+  it("rejects bad ids, duplicates, unsafe links and out-of-range coordinates", () => {
+    expect(() => applyOps("map", map, null, [{ op: "removeMarker", id: "zz" }])).toThrow(
+      /no marker/,
+    );
+    expect(() =>
+      applyOps("map", map, null, [
+        { op: "addMarker", marker: { id: "a", lat: 1, lng: 1, label: "dup" } },
+      ]),
+    ).toThrow(/duplicate/);
+    expect(() =>
+      applyOps("map", map, null, [
+        { op: "updateMarker", id: "a", set: { link: "javascript:alert(1)" } },
+      ]),
+    ).toThrow(/http/);
+    expect(() =>
+      applyOps("map", map, null, [
+        { op: "addMarker", marker: { id: "c", lat: 120, lng: 0, label: "x" } },
+      ]),
+    ).toThrow(/map content/);
+    expect(() => applyOps("map", map, null, [{ op: "replace", old: "a", new: "b" }])).toThrow(
+      /does not apply to a map/,
+    );
+  });
+});
+
 describe("chart, diagram and diff artifacts", () => {
   const chart = JSON.stringify({
     kind: "bar",

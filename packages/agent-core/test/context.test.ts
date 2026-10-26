@@ -7,6 +7,7 @@ import {
   assembleContext,
   CANVAS_GUIDANCE,
   DEFAULT_CONTEXT_BUDGETS,
+  MAP_GUIDANCE,
   renderSystemPrompt,
 } from "../src/index.ts";
 import { harness, runTurn, say } from "./harness.ts";
@@ -208,5 +209,7 @@ describe("context budgets (C2)", () => {
     expect(await tools(["artifact.create", "artifact.update"])).toContain(CANVAS_GUIDANCE);
     expect(await tools(["read_file"])).not.toContain(CANVAS_GUIDANCE);
     expect(CANVAS_GUIDANCE.length).toBeLessThan(420);
+    expect(MAP_GUIDANCE.length).toBeLessThan(260);
+    expect(await tools(["artifact.create"])).toContain(MAP_GUIDANCE);
   });
 });

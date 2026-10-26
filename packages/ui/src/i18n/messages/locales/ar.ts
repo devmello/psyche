@@ -395,6 +395,7 @@ export const ar: Partial<Catalogue> = {
   "blocks.artifact.kind.html": "صفحة ويب",
   "blocks.artifact.kind.markdown": "مستند",
   "blocks.artifact.kind.dashboard": "لوحة معلومات",
+  "blocks.artifact.kind.map": "خريطة",
   "blocks.artifact.label": "مُخرَج: {title}",
   "blocks.artifact.meta": "{kind} · الإصدار {version} · {date}",
   "blocks.artifact.save": "حفظ في المكتبة",

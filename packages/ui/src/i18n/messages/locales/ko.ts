@@ -385,6 +385,7 @@ export const ko: Partial<Catalogue> = {
   "blocks.artifact.kind.html": "웹 페이지",
   "blocks.artifact.kind.markdown": "문서",
   "blocks.artifact.kind.dashboard": "대시보드",
+  "blocks.artifact.kind.map": "지도",
   "blocks.artifact.label": "아티팩트: {title}",
   "blocks.artifact.meta": "{kind} · v{version} · {date}",
   "blocks.artifact.save": "보관함에 저장",

@@ -2,6 +2,7 @@ import {
   type Artifact,
   type ArtifactCell,
   ArtifactChart,
+  ArtifactMap,
   type ArtifactOp,
   ArtifactTable,
   type ArtifactTableView,
@@ -27,6 +28,7 @@ const TEXT_TYPES = new Set<Artifact["type"]>([
 ]);
 const TABLE_TYPES = new Set<Artifact["type"]>(["table", "sheet"]);
 
+export const isMapType = (t: Artifact["type"]): boolean => t === "map";
 export const isChartType = (t: Artifact["type"]): boolean => t === "chart";
 export const isTextType = (t: Artifact["type"]): boolean => TEXT_TYPES.has(t);
 export const isTableType = (t: Artifact["type"]): boolean => TABLE_TYPES.has(t);
@@ -105,6 +107,60 @@ export function parseChart(content: string): ArtifactChart {
         `series ${clip(s.name)} has ${s.values.length} values for ${parsed.categories.length} categories`,
       );
   return parsed;
+}
+
+const HTTP_LINK = /^https?:\/\/\S+$/i;
+
+/** Parses and validates map content (`ArtifactMap` JSON): unique marker ids, http(s) links only. */
+export function parseMap(content: string): ArtifactMap {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    throw bad("map content is not valid JSON");
+  }
+  if (!Value.Check(ArtifactMap, parsed))
+    throw bad(
+      "map content must be {markers: [{id, lat, lng, label, note?, link?}], routes?, bounds?}",
+    );
+  const ids = new Set<string>();
+  for (const m of parsed.markers) {
+    if (ids.has(m.id)) throw bad(`duplicate marker id ${clip(m.id)}`);
+    ids.add(m.id);
+    if (m.link !== undefined && !HTTP_LINK.test(m.link))
+      throw bad(`marker ${clip(m.id)} link must be an http(s) URL`);
+  }
+  return parsed;
+}
+
+function applyMapOp(map: ArtifactMap, op: ArtifactOp, index: number): ArtifactMap {
+  const at = (id: string): number => {
+    const i = map.markers.findIndex((m) => m.id === id);
+    if (i === -1) throw bad(`op ${index}: no marker ${clip(id)}`);
+    return i;
+  };
+  switch (op.op) {
+    case "rewrite":
+      return parseMap(op.content);
+    case "patch":
+      return parseMap(JSON.stringify(mergePatch(map, op.patch)));
+    case "addMarker":
+      return parseMap(JSON.stringify({ ...map, markers: [...map.markers, op.marker] }));
+    case "removeMarker": {
+      const i = at(op.id);
+      return { ...map, markers: map.markers.filter((_, j) => j !== i) };
+    }
+    case "updateMarker": {
+      const i = at(op.id);
+      const next = mergePatch(map.markers[i], op.set);
+      const markers = map.markers.map((m, j) => (j === i ? (next as typeof m) : m));
+      return parseMap(JSON.stringify({ ...map, markers }));
+    }
+    default:
+      throw bad(
+        `op ${index}: ${op.op} does not apply to a map (use the marker ops, patch or rewrite)`,
+      );
+  }
 }
 
 /** RFC 7386: objects merge, null deletes a key, anything else (arrays too) replaces. */
@@ -284,6 +340,13 @@ export function applyOps(
     });
     return { content: JSON.stringify(chart), view: null, rewrites };
   }
+  if (isMapType(type)) {
+    let map = parseMap(content);
+    ops.forEach((op, i) => {
+      map = applyMapOp(map, op, i);
+    });
+    return { content: JSON.stringify(map), view: null, rewrites };
+  }
   // Images and other stored kinds only take a whole new reference.
   if (ops.length !== 1 || ops[0]?.op !== "rewrite")
     throw bad(`a ${type} artifact only takes a single rewrite`);
@@ -293,6 +356,7 @@ export function applyOps(
 /** Normalizes content at create time (tables become canonical JSON). */
 export function normalizeContent(type: Artifact["type"], content: string): string {
   if (isChartType(type)) return JSON.stringify(parseChart(content));
+  if (isMapType(type)) return JSON.stringify(parseMap(content));
   return isTableType(type) ? JSON.stringify(parseTable(content)) : content;
 }
 
@@ -305,19 +369,24 @@ export function summarize(
   ops?: readonly ArtifactOp[],
   previous?: string,
 ): string {
-  const what = isChartType(type)
+  const what = isMapType(type)
     ? (() => {
-        const c = JSON.parse(content) as ArtifactChart;
-        return `${c.kind} chart, ${c.series.length} series × ${c.categories.length} points`;
+        const m = JSON.parse(content) as ArtifactMap;
+        return `map, ${m.markers.length} markers`;
       })()
-    : isTableType(type)
+    : isChartType(type)
       ? (() => {
-          const t = JSON.parse(content) as ArtifactTable;
-          return `${t.rows.length} rows × ${t.columns.length} columns`;
+          const c = JSON.parse(content) as ArtifactChart;
+          return `${c.kind} chart, ${c.series.length} series × ${c.categories.length} points`;
         })()
-      : isTextType(type)
-        ? `${lineCount(content)} lines`
-        : "replaced";
+      : isTableType(type)
+        ? (() => {
+            const t = JSON.parse(content) as ArtifactTable;
+            return `${t.rows.length} rows × ${t.columns.length} columns`;
+          })()
+        : isTextType(type)
+          ? `${lineCount(content)} lines`
+          : "replaced";
   if (ops === undefined) return what;
   const counts = new Map<string, number>();
   for (const o of ops) counts.set(o.op, (counts.get(o.op) ?? 0) + 1);

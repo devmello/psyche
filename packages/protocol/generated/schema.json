@@ -6258,6 +6258,130 @@
       ],
       "type": "object"
     },
+    "ArtifactMap": {
+      "properties": {
+        "title": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "markers": {
+          "items": {
+            "$ref": "#/$defs/ArtifactMapMarker"
+          },
+          "maxItems": 500,
+          "type": "array"
+        },
+        "routes": {
+          "items": {
+            "properties": {
+              "label": {
+                "maxLength": 120,
+                "type": "string"
+              },
+              "points": {
+                "items": {
+                  "additionalItems": false,
+                  "items": [
+                    {
+                      "maximum": 90,
+                      "minimum": -90,
+                      "type": "number"
+                    },
+                    {
+                      "maximum": 180,
+                      "minimum": -180,
+                      "type": "number"
+                    }
+                  ],
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "type": "array"
+                },
+                "maxItems": 2000,
+                "minItems": 2,
+                "type": "array"
+              }
+            },
+            "required": [
+              "points"
+            ],
+            "type": "object"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "bounds": {
+          "additionalItems": false,
+          "items": [
+            {
+              "maximum": 90,
+              "minimum": -90,
+              "type": "number"
+            },
+            {
+              "maximum": 180,
+              "minimum": -180,
+              "type": "number"
+            },
+            {
+              "maximum": 90,
+              "minimum": -90,
+              "type": "number"
+            },
+            {
+              "maximum": 180,
+              "minimum": -180,
+              "type": "number"
+            }
+          ],
+          "maxItems": 4,
+          "minItems": 4,
+          "type": "array"
+        }
+      },
+      "required": [
+        "markers"
+      ],
+      "type": "object"
+    },
+    "ArtifactMapMarker": {
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "minLength": 1,
+          "type": "string"
+        },
+        "lat": {
+          "maximum": 90,
+          "minimum": -90,
+          "type": "number"
+        },
+        "lng": {
+          "maximum": 180,
+          "minimum": -180,
+          "type": "number"
+        },
+        "label": {
+          "maxLength": 120,
+          "type": "string"
+        },
+        "note": {
+          "maxLength": 400,
+          "type": "string"
+        },
+        "link": {
+          "maxLength": 1000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "lat",
+        "lng",
+        "label"
+      ],
+      "type": "object"
+    },
     "ArtifactOp": {
       "anyOf": [
         {
@@ -6460,6 +6584,98 @@
         {
           "properties": {
             "op": {
+              "const": "addMarker",
+              "type": "string"
+            },
+            "marker": {
+              "$ref": "#/$defs/ArtifactMapMarker"
+            }
+          },
+          "required": [
+            "op",
+            "marker"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "removeMarker",
+              "type": "string"
+            },
+            "id": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "id"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "updateMarker",
+              "type": "string"
+            },
+            "id": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "set": {
+              "properties": {
+                "lat": {
+                  "maximum": 90,
+                  "minimum": -90,
+                  "type": "number"
+                },
+                "lng": {
+                  "maximum": 180,
+                  "minimum": -180,
+                  "type": "number"
+                },
+                "label": {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                "note": {
+                  "anyOf": [
+                    {
+                      "maxLength": 400,
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "link": {
+                  "anyOf": [
+                    {
+                      "maxLength": 1000,
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "op",
+            "id",
+            "set"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
               "const": "patch",
               "type": "string"
             },
@@ -6613,7 +6829,8 @@
         "image",
         "chart",
         "diagram",
-        "diff"
+        "diff",
+        "map"
       ],
       "type": "string"
     },

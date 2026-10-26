@@ -385,6 +385,7 @@ export const zh: Partial<Catalogue> = {
   "blocks.artifact.kind.html": "网页",
   "blocks.artifact.kind.markdown": "文稿",
   "blocks.artifact.kind.dashboard": "仪表盘",
+  "blocks.artifact.kind.map": "地图",
   "blocks.artifact.label": "成果：{title}",
   "blocks.artifact.meta": "{kind} · v{version} · {date}",
   "blocks.artifact.save": "存储到资料库",

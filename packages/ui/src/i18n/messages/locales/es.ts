@@ -399,6 +399,7 @@ export const es: Partial<Catalogue> = {
   "blocks.artifact.kind.html": "Página web",
   "blocks.artifact.kind.markdown": "Documento",
   "blocks.artifact.kind.dashboard": "Panel",
+  "blocks.artifact.kind.map": "Mapa",
   "blocks.artifact.label": "Artefacto: {title}",
   "blocks.artifact.meta": "{kind} · v{version} · {date}",
   "blocks.artifact.save": "Guardar en la biblioteca",
