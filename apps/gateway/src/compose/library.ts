@@ -10,6 +10,7 @@ import {
   safeFilename,
 } from "@psyche/browser";
 import type { LibraryIngest, LibraryIngestInput } from "@psyche/channels";
+import type { LibrarySink } from "@psyche/connectors";
 import {
   deleteLibraryItem,
   getLibraryItem,
@@ -93,6 +94,38 @@ export function indexedChannelLibrary(db: PsycheDb, home: string): LibraryIngest
         sha256: `sha256:${createHash("sha256").update(input.data).digest("hex")}`,
         origin: "channel",
         tags: [input.source.channel],
+        quarantined: true,
+        source: { ...input.source, provenance: input.provenance },
+      });
+      return { libraryItemId: item.id };
+    },
+  };
+}
+
+/**
+ * Connector attachments (S09 `LibrarySink`: Gmail, Drive, OneDrive, Mail attachments the Mac
+ * helper staged): bytes under `quarantine/<id>-<name>`, mode 0600, never opened or executed,
+ * indexed as quarantined with `origin: connector`.
+ */
+export function indexedConnectorLibrary(db: PsycheDb, home: string): LibrarySink {
+  const dir = join(libraryRoot(home), "quarantine");
+  return {
+    async put(input) {
+      await mkdir(dir, { recursive: true, mode: 0o700 });
+      const id = db.newId();
+      const name = safeFilename(input.name);
+      const stored = join(dir, `${id}-${name}`);
+      await writeFile(stored, input.bytes, { mode: 0o600 });
+      const item = await indexOrRemove(db, stored, {
+        id,
+        kind: kindOfMime(input.mimeType),
+        name,
+        mime: input.mimeType,
+        path: `quarantine/${id}-${name}`,
+        size: input.bytes.byteLength,
+        sha256: `sha256:${createHash("sha256").update(input.bytes).digest("hex")}`,
+        origin: "connector",
+        tags: [input.source.connectorId],
         quarantined: true,
         source: { ...input.source, provenance: input.provenance },
       });

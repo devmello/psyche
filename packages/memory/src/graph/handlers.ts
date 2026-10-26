@@ -27,7 +27,12 @@ export type GraphMethod =
   | "memory.entities.forget"
   | "memory.loops.list"
   | "memory.loops.update"
-  | "memory.graph.status";
+  | "memory.graph.status"
+  | "memory.graph.forgetAll"
+  | "memory.graph.deleteSource"
+  | "memory.graph.blocklist.list"
+  | "memory.graph.blocklist.add"
+  | "memory.graph.blocklist.remove";
 
 export type GraphHandlers = {
   [M in GraphMethod]: (params: MethodParams<M>) => Promise<MethodResult<M>>;
@@ -52,6 +57,11 @@ export const GRAPH_METHODS: readonly GraphMethod[] = [
   "memory.loops.list",
   "memory.loops.update",
   "memory.graph.status",
+  "memory.graph.forgetAll",
+  "memory.graph.deleteSource",
+  "memory.graph.blocklist.list",
+  "memory.graph.blocklist.add",
+  "memory.graph.blocklist.remove",
 ];
 
 export interface GraphHandlerOptions {
@@ -268,6 +278,32 @@ export function createGraphHandlers(
 
     async "memory.graph.status"() {
       return graph.status(options.settings?.() ?? { enabled: false, sources: {} });
+    },
+
+    async "memory.graph.forgetAll"(p) {
+      if (p.confirm !== "forget everything")
+        throw new PsycheError("invalid_params", 'confirm must be "forget everything"');
+      const result = graph.forgetAll(p.dryRun === true);
+      if (!result.dryRun) for (const path of result.cardPaths) await options.cards?.remove(path);
+      return result;
+    },
+
+    async "memory.graph.deleteSource"(p) {
+      const result = graph.deleteSource(p.source, p.dryRun === true);
+      if (!result.dryRun) for (const path of result.cardPaths) await options.cards?.remove(path);
+      return result;
+    },
+
+    async "memory.graph.blocklist.list"() {
+      return { entries: graph.blocklist() };
+    },
+
+    async "memory.graph.blocklist.add"(p) {
+      return { entry: graph.block(p.kind, p.value) };
+    },
+
+    async "memory.graph.blocklist.remove"(p) {
+      return { removed: graph.unblockId(p.id) };
     },
   };
 }

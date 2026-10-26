@@ -64,7 +64,12 @@ describe("composition root: proactive surfaces (S15)", () => {
       expect(se(name)).toBe("write");
     }
     const system = (await scheduler.list()).map((a) => a.title).sort();
-    expect(system).toEqual(["Daily brief", "Ideas: delivery window", "Ideas: nightly mining"]);
+    expect(system).toEqual([
+      "Daily brief",
+      "Ideas: delivery window",
+      "Ideas: nightly mining",
+      "Memory dreaming",
+    ]);
 
     // A goal without a check-in → an idea → delivered → accepted: the check-in now exists.
     const { goal } = await proactive.goals.create({
