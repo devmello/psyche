@@ -6,6 +6,7 @@ export * from "./cards.ts";
 export * from "./channel-reply.ts";
 export * from "./classifier.ts";
 export * from "./classifier-eval.ts";
+export * from "./connector-matrix.ts";
 export {
   type EngineDeps,
   type Evaluation,
