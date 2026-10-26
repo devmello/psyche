@@ -24,6 +24,7 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 - Helper capability `screen.context` takes `ScreenContextParams` and returns `ScreenContextResult {image (base64 JPEG) | null, width, height, context, refusal?}`; never reachable through `nodes.invoke` or agent tools.
 - New types `ScreenContext {appName, bundleId, windowTitle, selectedText, url}`, `ScreenRect`, `ScreenCaptureMode`, `ScreenCaptureRefusal`, `ScreenImageChoice`, `ChatScreenRef`.
 - `chat.send` gains optional `screen: ChatScreenRef {captureId, image: auto | pinned | dropped}`.
+- Contract `TurnInput.images?` (`{mime, data}[]`, base64): images the model sees with the message (a pinned capture). TypeScript-only; no schema change.
 
 ### v1 additive — 2026-10-26 (S02, #683 part 2a: the specialist pool)
 
