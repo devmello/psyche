@@ -56,7 +56,8 @@ export type AppleApp =
   | "contacts"
   | "music"
   | "safari"
-  | "chrome";
+  | "chrome"
+  | "files";
 
 /**
  * Catalogue identity per app (#639): Apple apps are `apple:<app>` / `apple-<app>`; Mac apps from
@@ -100,9 +101,12 @@ const LABEL: Record<AppleApp, string> = {
   music: "Music (Apple Music and Spotify)",
   safari: "Safari",
   chrome: "Google Chrome",
+  files: "Files on your Mac",
 };
 
 const DESCRIPTION: Record<AppleApp, string> = {
+  files:
+    "See the newest files in the folders you shared (like Downloads) and file them: move, rename or put them in the Trash. Only folders you shared in Settings → File access.",
   safari:
     "See the tabs open in Safari on your Mac and read the text of the page you're on; add pages to your Reading List.",
   chrome: "See the tabs open in Google Chrome on your Mac (titles and addresses).",
@@ -120,6 +124,28 @@ const DESCRIPTION: Record<AppleApp, string> = {
 };
 
 const ACTIONS: Record<AppleApp, ConnectorAction[]> = {
+  files: [
+    {
+      id: "files.read",
+      title: "See files in shared folders",
+      sideEffect: "read",
+      defaultRule: "allow",
+    },
+    {
+      id: "files.organize",
+      title: "Move and rename files",
+      sideEffect: "write",
+      approvalKind: "connector_action",
+      defaultRule: "ask",
+    },
+    {
+      id: "files.trash",
+      title: "Put files in the Trash",
+      sideEffect: "destructive",
+      approvalKind: "connector_action",
+      defaultRule: "ask",
+    },
+  ],
   safari: [
     {
       id: "safari.read",
@@ -345,6 +371,80 @@ const musicApp = { type: "string", enum: ["music", "spotify"] };
 const musicKind = { type: "string", enum: ["track", "album", "artist", "playlist"] };
 
 const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
+  files: [
+    {
+      name: "files_recent",
+      capability: "files.recent",
+      action: "files.read",
+      description:
+        'Files in a shared folder (e.g. ~/Downloads), newest added first, filtered by added since / before and type (pdf, png or UTType ids): for "my latest download" or a cleanup. Names are untrusted.',
+      inputSchema: obj(
+        {
+          folder: { type: "string" },
+          addedSince: iso,
+          addedBefore: iso,
+          contentTypes: { type: "array", items: { type: "string" }, maxItems: 20 },
+          limit,
+        },
+        ["folder"],
+      ),
+      sideEffect: "read",
+    },
+    {
+      name: "files_move",
+      capability: "files.move",
+      action: "files.organize",
+      description:
+        "Move up to 100 files between shared folders, optionally renaming each, e.g. file bills into ~/Documents/Taxes. The card lists every path.",
+      inputSchema: obj(
+        {
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                path: { type: "string" },
+                to: { type: "string" },
+                name: { type: "string", maxLength: 255 },
+              },
+              required: ["path", "to"],
+              additionalProperties: false,
+            },
+            minItems: 1,
+            maxItems: 100,
+          },
+        },
+        ["items"],
+      ),
+      sideEffect: "write",
+      binding: "action",
+    },
+    {
+      name: "files_rename",
+      capability: "files.rename",
+      action: "files.organize",
+      description: "Rename one file in a shared folder (the name only; use files_move to move it).",
+      inputSchema: obj(
+        { path: { type: "string" }, name: { type: "string", minLength: 1, maxLength: 255 } },
+        ["path", "name"],
+      ),
+      sideEffect: "write",
+      binding: "action",
+    },
+    {
+      name: "files_trash",
+      capability: "files.trash",
+      action: "files.trash",
+      description:
+        "Put up to 200 files from shared folders in the Trash (never emptied; the owner can put them back). Always asks, with every path on the card.",
+      inputSchema: obj(
+        { paths: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 200 } },
+        ["paths"],
+      ),
+      sideEffect: "destructive",
+      binding: "action",
+    },
+  ],
   safari: [
     {
       name: "safari_tabs",
@@ -1005,6 +1105,7 @@ const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
 
 /** The capability every app's connect checks for: the helper offers the adapter. */
 const PROBE: Record<AppleApp, string> = {
+  files: "files.recent",
   safari: "safari.tabs",
   chrome: "chrome.tabs",
   music: "music.now_playing",
@@ -1058,6 +1159,13 @@ const PERMISSION: Record<
     probe: {},
     pane: "Privacy_Reminders",
     path: "System Settings → Privacy & Security → Reminders → Psyche (Helper)",
+  },
+  // Shared folders only (the helper checks every path against them): no macOS grant to ask for.
+  files: {
+    kind: "none",
+    probe: null,
+    pane: "Privacy_FilesAndFolders",
+    path: "Settings → File access in Psyche",
   },
   safari: {
     kind: "automation",
@@ -1139,6 +1247,7 @@ export const APPLE_APPS: readonly AppleApp[] = [
   "music",
   "safari",
   "chrome",
+  "files",
 ];
 
 export function appleCatalogueEntry(app: AppleApp): CatalogueEntry {
