@@ -103,6 +103,8 @@ export function StepRow({
   return (
     <m.li
       {...motionProps}
+      // Rows slide to make room for an insert instead of jumping (C3).
+      layout={reduce ? false : "position"}
       className={cn(
         "flex flex-col",
         level === 1 && "ms-5 border-s border-separator ps-3",

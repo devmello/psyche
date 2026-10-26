@@ -267,3 +267,40 @@ describe("canvas auto-open", () => {
     expect(open).not.toHaveBeenCalled();
   });
 });
+
+describe("switching artifacts (smoothness C5)", () => {
+  it("settles on the new artifact without a bare skeleton left behind", async () => {
+    const view = (id: string) => (
+      <StoryWorld edit={withCanvas}>
+        <CanvasPane artifactId={id} threadId={IDS.threads.lisbon} onSelect={() => {}} />
+      </StoryWorld>
+    );
+    const { rerender } = render(view(CANVAS_IDS.diff));
+    expect(await screen.findByTestId("diff-block")).toBeTruthy();
+    rerender(view(CANVAS_IDS.chart));
+    // The new artifact's header is up at once; its body holds a reserved skeleton slot, then
+    // crossfades to the content. The dimmed old pane (`canvas-stale`) covers a first fetch of the
+    // artifact itself.
+    await waitFor(() =>
+      expect(screen.getByRole("img", { name: "Trip cost by item" })).toBeTruthy(),
+    );
+    expect(screen.queryByTestId("canvas-skeleton-slot")).toBeNull();
+    expect(screen.queryByTestId("canvas-stale")).toBeNull();
+  });
+});
+
+describe("a first fetch of the next artifact (smoothness C5)", () => {
+  it("keeps the previous pane visible, dimmed and inert, while it loads", async () => {
+    const view = (id: string) => (
+      <StoryWorld edit={withCanvas}>
+        <CanvasPane artifactId={id} threadId={IDS.threads.lisbon} onSelect={() => {}} />
+      </StoryWorld>
+    );
+    const { rerender } = render(view(CANVAS_IDS.diff));
+    expect(await screen.findByTestId("diff-block")).toBeTruthy();
+    rerender(view("art_not_in_the_store"));
+    const stale = await screen.findByTestId("canvas-stale");
+    expect(stale.getAttribute("aria-busy")).toBe("true");
+    expect(within(stale).getByTestId("diff-block")).toBeTruthy();
+  });
+});
