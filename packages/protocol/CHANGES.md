@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (chat map widget)
+
+- `ArtifactType` gains `map` (at the end). New schemas `ArtifactMap` and `ArtifactMapMarker` (the JSON content: markers, optional `routes` polylines and `bounds`) and `ArtifactOp` gains `addMarker`, `removeMarker` and `updateMarker`. Swift gains the cases and structs; no hand-written switch needed changes.
+
 ### v1 additive — 2026-10-26 (O1, agent overview: `insights.summary`, docs/design/agent-overview-2026.md §6.2)
 
 - New read-only method `insights.summary` (`operator.read`): `{window: "7d" | "30d" | "all", timeZone?}` returns `range`, `firstActivityAt`, `totals` and `previous` (`InsightTotals`, `previous` null for `all`), `days` (`InsightDay[]`, zeros included; 7, 30 or 371 for `all`) and `topEntities` (`InsightEntity[]`, at most 12). New schemas `InsightTotals`, `InsightDay`, `InsightEntity`. No new events, no new enum values, no migration; Swift gains the method only.

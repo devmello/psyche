@@ -27,7 +27,8 @@ export type ArtifactPreviewKind =
   | "sheet"
   | "html"
   | "markdown"
-  | "dashboard";
+  | "dashboard"
+  | "map";
 
 /**
  * Slot the shell fills with `packages/viewers` (S13): the kit never renders untrusted documents
@@ -50,6 +51,7 @@ const ICONS: Record<ArtifactPreviewKind, typeof FileText> = {
   html: Globe,
   markdown: FileText,
   dashboard: LayoutDashboard,
+  map: MapIcon,
 };
 
 const kindLabel = (kind: ArtifactPreviewKind): string => t(`blocks.artifact.kind.${kind}`);
@@ -105,6 +107,8 @@ export function previewKindOf(artifact: Artifact, preview?: string): ArtifactPre
       return "itinerary";
     case "dashboard":
       return "dashboard";
+    case "map":
+      return "map";
     case "html":
     case "react":
       return "html";

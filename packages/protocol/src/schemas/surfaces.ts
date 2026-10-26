@@ -214,6 +214,7 @@ export const ArtifactType = StringEnum(
     "chart",
     "diagram",
     "diff",
+    "map",
   ],
   {
     $id: "ArtifactType",

@@ -380,6 +380,7 @@ export const ja: Partial<Catalogue> = {
   "blocks.artifact.kind.html": "Webページ",
   "blocks.artifact.kind.markdown": "書類",
   "blocks.artifact.kind.dashboard": "ダッシュボード",
+  "blocks.artifact.kind.map": "地図",
   "blocks.artifact.label": "アーティファクト：{title}",
   "blocks.artifact.meta": "{kind} · v{version} · {date}",
   "blocks.artifact.save": "ライブラリに保存",
