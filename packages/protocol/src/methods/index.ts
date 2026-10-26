@@ -35,6 +35,7 @@ import { SandboxMethods } from "./sandbox.ts";
 import { SearchMethods } from "./search.ts";
 import { SettingsMethods } from "./settings.ts";
 import { SkillsMethods } from "./skills.ts";
+import { SpecialistsMethods } from "./specialists.ts";
 import { TasksMethods } from "./tasks.ts";
 import { ThreadsMethods } from "./threads.ts";
 import { UsageMethods } from "./usage.ts";
@@ -78,6 +79,7 @@ export * from "./sandbox.ts";
 export * from "./search.ts";
 export * from "./settings.ts";
 export * from "./skills.ts";
+export * from "./specialists.ts";
 export * from "./tasks.ts";
 export * from "./threads.ts";
 export * from "./vault.ts";
@@ -93,6 +95,7 @@ export const Methods = {
   ...ConnectMethods,
   ...ThreadsMethods,
   ...ChatMethods,
+  ...SpecialistsMethods,
   ...TasksMethods,
   ...ApprovalsMethods,
   ...GrantsMethods,

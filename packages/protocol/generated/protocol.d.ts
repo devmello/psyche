@@ -992,11 +992,13 @@ export interface FromLesson {
 export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push";
 
 export interface RequestedBy {
-    agent?:      string;
-    runId?:      null | string;
-    taskId?:     null | string;
-    threadId?:   null | string;
-    toolCallId?: string;
+    agent?:       string;
+    parentRunId?: string;
+    runId?:       null | string;
+    specialist?:  string;
+    taskId?:      null | string;
+    threadId?:    null | string;
+    toolCallId?:  string;
 }
 
 export type SideEffect = "none" | "read" | "write" | "destructive" | "financial";
@@ -1026,6 +1028,15 @@ export interface Target {
 }
 
 export type TargetKind = "origin" | "path" | "account" | "command" | "recipient" | "app";
+
+export interface ApprovalHint {
+    /**
+     * How many, roughly
+     */
+    estimate?: number;
+    kind:      ApprovalKind;
+    label:     string;
+}
 
 export interface ApprovalResult {
     answerToken?: string;
@@ -1279,6 +1290,7 @@ export interface Automation {
      * main | isolated | named:<id>
      */
     sessionTarget: string;
+    specialist?:   AutomationSpecialist;
     timezone:      string;
     title:         string;
     updatedAt:     string;
@@ -1296,6 +1308,20 @@ export interface Delivery {
  * `reminder` is a one-shot: `schedule` is an ISO-8601 instant
  */
 export type AutomationKind = "cron" | "interval" | "watch" | "heartbeat" | "briefing" | "reminder";
+
+export interface AutomationSpecialist {
+    budget?:  SpecialistBudget;
+    deliver?: Deliver;
+    role:     string;
+}
+
+export interface SpecialistBudget {
+    costUsd?: number;
+    minutes?: number;
+    tokens?:  number;
+}
+
+export type Deliver = "inbox" | "thread";
 
 export interface WatchConfig {
     check: WatchCheck;
@@ -3684,7 +3710,7 @@ export interface EntitySummary {
 }
 
 export interface GraphStatus {
-    budget:           Budget;
+    budget:           GraphStatusBudget;
     counts:           Counts;
     enabled:          boolean;
     lastModelPassAt?: null | string;
@@ -3695,7 +3721,7 @@ export interface GraphStatus {
     sources:       SourceElement[];
 }
 
-export interface Budget {
+export interface GraphStatusBudget {
     entitiesUsed: number;
     maxEntities:  number;
     maxTokens:    number;
@@ -5162,7 +5188,7 @@ export interface NotificationAction {
     label:                   string;
 }
 
-export type NotificationKind = "approval" | "input_needed" | "task_done" | "task_failed" | "proactive" | "briefing" | "reminder" | "system";
+export type NotificationKind = "approval" | "input_needed" | "task_done" | "task_failed" | "proactive" | "briefing" | "reminder" | "system" | "specialist_result";
 
 export interface NotificationResolvedPayload {
     notification: Notification;
@@ -6390,6 +6416,147 @@ export interface SkillsSetEnabledResult {
     skill: SkillDetails;
 }
 
+export interface SpecialistProgressPayload {
+    budget: RunBudget;
+    runId:  string;
+    step:   Step;
+    taskId: string;
+}
+
+export interface Step {
+    id:     string;
+    label:  string;
+    status: string;
+}
+
+export interface SpecialistResultPayload {
+    notificationId?: null | string;
+    parentRunId?:    null | string;
+    result:          SpecialistResult;
+    runId?:          null | string;
+    taskId:          string;
+}
+
+export interface SpecialistResult {
+    artifacts:     string[];
+    defaultsUsed?: string[];
+    evaluator?:    Evaluator;
+    findings:      SpecialistFinding[];
+    gaps:          string[];
+    next:          Next[];
+    outcome:       SpecialistOutcome;
+    receipts:      string[];
+    stopReason?:   string;
+    summary:       string;
+    tainted:       boolean;
+}
+
+export interface Evaluator {
+    reason:  string;
+    verdict: Verdict;
+}
+
+export type Verdict = "done" | "reopen" | "escalate";
+
+export interface SpecialistFinding {
+    detail:   string;
+    sources?: string[];
+    title:    string;
+}
+
+export interface Next {
+    label:   string;
+    message: string;
+}
+
+export type SpecialistOutcome = "done" | "partial" | "failed" | "cancelled";
+
+export interface SpecialistSpawnedPayload {
+    job: SpecialistJob;
+}
+
+export interface SpecialistJob {
+    budget:         RunBudget;
+    createdAt:      string;
+    deadline?:      null | string;
+    lastStep?:      null | string;
+    parentRunId?:   null | string;
+    parentThreadId: string;
+    queuePosition?: number | null;
+    result?:        SpecialistResult | null;
+    /**
+     * researcher | shopper | coder | organizer | writer | planner, or a skill-defined role
+     */
+    role:      string;
+    runId?:    null | string;
+    status:    StatusElement;
+    taskId:    string;
+    threadId:  string;
+    title:     string;
+    updatedAt: string;
+}
+
+export type StatusElement = "queued" | "working" | "needs_you" | "done" | "partial" | "failed" | "cancelled";
+
+export interface SpecialistsJobsParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?:   string;
+    limit?:    number;
+    status?:   StatusElement[];
+    threadId?: string;
+}
+
+export interface SpecialistsJobsResult {
+    jobs:        SpecialistJob[];
+    nextCursor?: null | string;
+}
+
+export interface SpecialistsListResult {
+    roles: SpecialistRole[];
+}
+
+export interface SpecialistRole {
+    approvals:   ApprovalKind[];
+    budget:      SpecialistBudgetSetting;
+    caps:        Caps;
+    description: string;
+    enabled:     boolean;
+    label:       string;
+    maxMode:     PermissionMode;
+    model?:      null | string;
+    modelClass:  ModelClass;
+    planFirst:   boolean;
+    result:      SpecialistResultKind;
+    /**
+     * researcher | shopper | coder | organizer | writer | planner, or a skill-defined role
+     */
+    role:   string;
+    skill:  string;
+    source: SkillSource;
+    tools:  string[];
+}
+
+export interface SpecialistBudgetSetting {
+    costUsd?: number;
+    minutes?: number;
+    tokens?:  number;
+}
+
+export interface Caps {
+    costUsd?: number;
+    maxHours: number;
+    minutes?: number;
+    tokens?:  number;
+}
+
+export type PermissionMode = "plan" | "manual" | "balanced" | "auto";
+
+export type ModelClass = "utility" | "primary" | "harness" | "vision";
+
+export type SpecialistResultKind = "findings" | "draft" | "changes" | "plan" | "items";
+
 export interface SpeechAudioPayload {
     /**
      * Base64 PCM
@@ -6551,6 +6718,7 @@ export interface Task {
     outcome?:          { [key: string]: unknown } | null;
     plan?:             TaskPlan | null;
     sandboxId?:        null | string;
+    specialist?:       SpecialistSpec;
     status:            TaskStatus;
     summary?:          null | string;
     /**
@@ -6582,6 +6750,32 @@ export interface PlanStep {
 }
 
 export type PlanStepStatus = "pending" | "running" | "done" | "failed" | "skipped";
+
+export interface SpecialistSpec {
+    budget:         RunBudget;
+    deadline?:      null | string;
+    deliver:        Deliver;
+    inputs:         SpecialistInputs;
+    model:          string;
+    parentRunId?:   null | string;
+    parentThreadId: string;
+    permissionMode: PermissionMode;
+    planFirst:      boolean;
+    queuePosition?: number | null;
+    result?:        SpecialistResult | null;
+    /**
+     * researcher | shopper | coder | organizer | writer | planner, or a skill-defined role
+     */
+    role:       string;
+    rootRunId?: null | string;
+    tools:      string[];
+}
+
+export interface SpecialistInputs {
+    folders:        string[];
+    libraryItemIds: string[];
+    urls:           string[];
+}
 
 export type TaskStatus = "queued" | "running" | "awaiting_input" | "awaiting_approval" | "paused" | "done" | "failed" | "cancelled";
 
@@ -6623,6 +6817,23 @@ export interface TasksListResult {
 export interface TasksRetryParams {
     fromStepId?: string;
     taskId:      string;
+}
+
+export interface TasksSteerParams {
+    taskId: string;
+    text:   string;
+}
+
+export interface TasksUpdateParams {
+    budget?:   TasksUpdateParamsBudget;
+    deadline?: string;
+    taskId:    string;
+}
+
+export interface TasksUpdateParamsBudget {
+    costUsd?: number;
+    minutes?: number;
+    tokens?:  number;
 }
 
 export interface TaughtBlock {
@@ -6889,8 +7100,6 @@ export interface Thread {
 }
 
 export type ThreadKind = "main" | "side" | "incognito" | "channel" | "automation" | "subagent";
-
-export type PermissionMode = "plan" | "manual" | "balanced" | "auto";
 
 export type TitleSource = "user" | "auto";
 
