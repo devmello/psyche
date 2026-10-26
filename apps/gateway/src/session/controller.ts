@@ -320,6 +320,8 @@ export class SessionController {
       const run = createRun(db, {
         threadId: thread.id,
         modelRef: thread.modelRef ?? DEFAULT_MODEL_REF,
+        kind: "chat",
+        origin: requester === undefined ? "owner" : "channel",
       });
       claimWriter(db, thread.id, run.id);
       this.#bump();
@@ -332,6 +334,8 @@ export class SessionController {
     const run = createRun(db, {
       threadId: thread.id,
       modelRef: thread.modelRef ?? DEFAULT_MODEL_REF,
+      kind: "chat",
+      origin: requester === undefined ? "owner" : "channel",
     });
     claimWriter(db, thread.id, run.id);
     const message = appendMessage(
@@ -453,6 +457,8 @@ export class SessionController {
     const run = createRun(db, {
       threadId: thread.id,
       modelRef: thread.modelRef ?? DEFAULT_MODEL_REF,
+      kind: "chat",
+      origin: "owner",
     });
     claimWriter(db, thread.id, run.id);
     this.#bump();
@@ -646,14 +652,19 @@ export class SessionController {
         if (event.runId !== runId) continue;
         if (event.type === "end") {
           outcome = endStatus(event);
+          this.#ctx.runTrace.end(runId, event.outcome);
           break;
         }
         this.#apply(event, { threadId, runId, idFor, current, flushBefore });
       }
     } catch (err) {
       outcome = { status: "failed", error: PsycheError.from(err).message };
+      this.#ctx.runTrace.end(runId, "failed");
     }
-    if (turn.detached) return;
+    if (turn.detached) {
+      this.#ctx.runTrace.end(runId, "cancelled");
+      return;
+    }
 
     for (const agentMessageId of order) {
       const msg = pending.get(agentMessageId);
@@ -687,6 +698,8 @@ export class SessionController {
   ): void {
     const { db, bus } = this.#ctx;
     const { threadId, runId } = t;
+    // The run trace sees every event first (run trace §4.2), so a tool call carries its step.
+    const stepId = this.#traceStep(runId, threadId, event);
     switch (event.type) {
       case "run.status": {
         if (event.status === "done" || event.status === "failed" || event.status === "cancelled")
@@ -748,6 +761,7 @@ export class SessionController {
           tool: event.tool,
           status: event.status,
           ...d,
+          ...(stepId === undefined ? {} : { stepId }),
         });
         this.#bump();
         // The transcript shows the call in the message currently streaming (or a new one).
@@ -799,6 +813,16 @@ export class SessionController {
 
   #bump(): void {
     this.#ctx.bus.bumpStateVersion();
+  }
+
+  /** The step an event touched; a trace failure never fails the turn. */
+  #traceStep(runId: string, threadId: string, event: AgentEvent): string | undefined {
+    try {
+      return this.#ctx.runTrace.apply(runId, threadId, event);
+    } catch (err) {
+      this.#warn("run trace write failed", err);
+      return undefined;
+    }
   }
 
   #warn(msg: string, err: unknown): void {

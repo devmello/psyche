@@ -82,6 +82,7 @@ export const settings = {
   "settings.key.data.transcriptRecall": "Transcript recall",
   "settings.key.agent.showReasoning": "Show thinking while it works",
   "settings.key.data.replayRetentionDays": "Keep task replays for",
+  "settings.key.data.reasoningRetentionDays": "Keep thinking for",
   "settings.key.gateway.bind": "Bind address",
   "settings.key.models.primary": "Primary model",
   "settings.key.models.utility": "Utility model",
@@ -862,6 +863,10 @@ export const settings = {
   "settings.data.transcriptRecallHint":
     "Lets the agent search old chat transcripts, not only memory files.",
   "settings.data.days": "{n, plural, one {# day} other {# days}}",
+  "settings.data.reasoningRetentionHint":
+    "How long each step's full thinking is kept. Off keeps only a one-line summary. Thinking is never kept while “Show thinking while it works” is off.",
+  "settings.data.replayRetentionHint":
+    "The screens {persona} looked at while it worked, for the Timeline. Off keeps none.",
   "settings.data.export": "Export",
   "settings.data.exportHint": "A zip of the workspace (SOUL.md, memory, notes) and every claim.",
   "settings.data.exportEverything": "Export everything",

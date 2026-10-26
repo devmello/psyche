@@ -1,6 +1,6 @@
 import type { Task, TaskAction, TaskStatus } from "@psyche/protocol";
 import { ArrowLeft, ListChecks } from "lucide-react";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 import { DISCLOSURE_LABEL, type DisclosureLevel } from "../blocks/disclosure.tsx";
 import { TASK_STATUS_LABEL } from "../blocks/TaskCard.tsx";
 import { EmptyState } from "../components/page.tsx";
@@ -10,9 +10,14 @@ import { Button } from "../components/ui/button.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group.tsx";
 import { useTask, useTasks } from "../data/index.ts";
+import { useStoreState } from "../data/provider.tsx";
+import { useRunsList } from "../data/runs.ts";
 import { t } from "../i18n/core.ts";
 import { formatRelative, formatTime } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
+import { useSlots } from "../slots.tsx";
+import { agentTimelineHref } from "./AgentSheet.tsx";
+import { TimelineView } from "./timeline/TimelineView.tsx";
 
 /** One glyph per task state across the app (redesign §3.6, `components/status.tsx`). */
 export const TASK_GLYPH: Record<TaskStatus, StatusKind> = {
@@ -293,20 +298,169 @@ export function TaskDetail({
   );
 }
 
+/** A run opened by id: its Task (if any) comes from the run itself. */
+function RunTimelineFor(props: {
+  runId: string;
+  stepId?: string;
+  onBack: () => void;
+  onOpenRun?: (runId: string) => void;
+  now?: number;
+}): ReactElement {
+  const taskId = useStoreState((s) => s.runs[props.runId]?.taskId ?? null);
+  return <RunTimeline {...props} taskId={taskId} />;
+}
+
+/**
+ * A run's Timeline in Activity (run trace §3.3), with its Task's controls when it has one: Pause
+ * and Stop while running, Retry when it failed or was stopped.
+ */
+export function RunTimeline({
+  runId,
+  taskId,
+  stepId,
+  onBack,
+  onOpenRun,
+  now,
+}: {
+  runId: string;
+  taskId?: string | null;
+  stepId?: string;
+  onBack: () => void;
+  /** A helper's own Timeline. */
+  onOpenRun?: (runId: string) => void;
+  now?: number;
+}): ReactElement {
+  const q = useTask(taskId ?? null);
+  const slots = useSlots();
+  const receipts = useStoreState((s) => s.receipts);
+  const artifacts = useStoreState((s) => s.artifacts);
+  const task = q.task;
+  const live = task !== null && (task.status === "running" || task.status === "queued");
+  const ended = task !== null && (task.status === "failed" || task.status === "cancelled");
+  const navigate = slots.navigate;
+  const copy = (text: string) =>
+    void (slots.writeClipboard ?? ((x: string) => navigator.clipboard?.writeText(x)))(text);
+  return (
+    <TimelineView
+      runId={runId}
+      onBack={onBack}
+      onCopyLink={(step) => copy(agentTimelineHref(runId, step ? { stepId: step } : {}))}
+      {...(navigate
+        ? {
+            onReconnect: () => navigate("/settings/connectors"),
+            onOpenApproval: () => navigate("/agent/approvals"),
+            onOpenMemory: (path: string) =>
+              navigate(`/agent/soul?file=${encodeURIComponent(path)}`),
+          }
+        : {})}
+      {...(onOpenRun ? { onOpenRun } : {})}
+      {...(slots.openReceipt
+        ? {
+            onOpenReceipt: (id: string) => {
+              const r = receipts[id];
+              if (r) slots.openReceipt?.(r);
+            },
+          }
+        : {})}
+      {...(slots.openArtifact
+        ? {
+            onOpenArtifact: (id: string) => {
+              const a = artifacts[id];
+              if (a) slots.openArtifact?.(a);
+            },
+          }
+        : {})}
+      {...(stepId ? { initialStepId: stepId } : {})}
+      {...(now === undefined ? {} : { now })}
+      {...(task && live ? { onPause: () => void q.pause(task.id) } : {})}
+      {...(task && live ? { onStop: () => void q.cancel(task.id) } : {})}
+      {...(task && ended ? { onRetry: () => void q.retry(task.id) } : {})}
+    />
+  );
+}
+
+/**
+ * A task opened in Activity: its latest run's Timeline, which replaces the old action log
+ * (run trace §3.3). A task with no recorded steps (from before the run trace) keeps its log.
+ */
+function TaskTimeline({
+  taskId,
+  onBack,
+  onOpenRun,
+  now,
+  fixedNow,
+}: {
+  taskId: string;
+  onBack: () => void;
+  onOpenRun: (runId: string) => void;
+  now: number;
+  fixedNow?: number;
+}): ReactElement {
+  const list = useRunsList({ taskId, limit: 1 });
+  const run = list.runs.find((r) => r.taskId === taskId) ?? null;
+  if (run !== null) {
+    return (
+      <RunTimeline
+        runId={run.id}
+        taskId={taskId}
+        onBack={onBack}
+        onOpenRun={onOpenRun}
+        {...(fixedNow === undefined ? {} : { now: fixedNow })}
+      />
+    );
+  }
+  if (list.loading) return <Skeleton className="h-40" />;
+  return <TaskDetail taskId={taskId} onBack={onBack} now={now} />;
+}
+
 /** Agent sheet → Activity (§3.14). */
 export function ActivityPanel({
   initialTaskId,
+  initialRunId,
+  initialStepId,
   now: fixedNow,
 }: {
   initialTaskId?: string;
+  /** Open on a run's Timeline (`/agent/activity/run/:runId`). */
+  initialRunId?: string;
+  initialStepId?: string;
   now?: number;
 }): ReactElement {
   const now = useNow(30_000, fixedNow);
   const tasks = useTasks();
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState<string | null>(initialTaskId ?? null);
+  const [run, setRun] = useState<{ runId: string; stepId?: string } | null>(
+    initialRunId
+      ? { runId: initialRunId, ...(initialStepId ? { stepId: initialStepId } : {}) }
+      : null,
+  );
+  // A new route (`/agent/activity/run/…`) opens that run.
+  useEffect(() => {
+    if (initialRunId)
+      setRun({ runId: initialRunId, ...(initialStepId ? { stepId: initialStepId } : {}) });
+  }, [initialRunId, initialStepId]);
+  if (run !== null) {
+    return (
+      <RunTimelineFor
+        runId={run.runId}
+        {...(run.stepId ? { stepId: run.stepId } : {})}
+        onBack={() => setRun(null)}
+        onOpenRun={(child) => setRun({ runId: child })}
+        {...(fixedNow === undefined ? {} : { now: fixedNow })}
+      />
+    );
+  }
   if (selected !== null) {
-    return <TaskDetail taskId={selected} onBack={() => setSelected(null)} now={now} />;
+    return (
+      <TaskTimeline
+        taskId={selected}
+        onBack={() => setSelected(null)}
+        onOpenRun={(child) => setRun({ runId: child })}
+        now={now}
+        {...(fixedNow === undefined ? {} : { fixedNow })}
+      />
+    );
   }
   const shown =
     filter === "running" ? tasks.running : filter === "needs-you" ? tasks.needsYou : tasks.all;

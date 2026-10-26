@@ -13,6 +13,7 @@ export * from "./policy.ts";
 export * from "./prompt.ts";
 export * from "./scanner.ts";
 export * from "./sources.ts";
+export * from "./specialists.ts";
 export * from "./state.ts";
 export * from "./tools.ts";
 export * from "./tree.ts";
