@@ -8,16 +8,19 @@ import type {
   CredentialMeta,
   CredentialUse,
   Device,
+  FeedbackEvent,
   FeedPost,
   Goal,
   Grant,
   Idea,
   InputRequest,
+  Lesson,
   LibraryItem,
   LinkPaymentMethod,
   MemoryClaim,
   MemoryFileInfo,
   Message,
+  Milestone,
   NodeInfo,
   Notification,
   PairingRequest,
@@ -35,6 +38,7 @@ import type {
 import { answerTokens, approvals, grants } from "./approvals.ts";
 import { messages, runs, threads, toolCalls } from "./chat.ts";
 import { fileTree, type MockFileNode } from "./files.ts";
+import { feedbackEvents, lessons, milestones } from "./learning.ts";
 import { memoryClaims, memoryFileInfos, memoryFiles, searchHits } from "./memory.ts";
 import { automations, feed, goals, ideas, NEXT_BRIEF_AT, notifications } from "./proactive.ts";
 import {
@@ -70,6 +74,7 @@ import type {
 } from "@psyche/protocol";
 
 export { ago, at, FIXTURE_NOW, fakeHex, fakeSha, IDS, inMinutes, PERSONA, today } from "./ids.ts";
+export { growthFeedPost, LEARNING_IDS } from "./learning.ts";
 export { appleConnectors, connectorCatalogue, type UsageSummary } from "./settings.ts";
 export { subscriptionUsageSummary, usageSummary } from "./usage.ts";
 
@@ -137,6 +142,10 @@ export interface FixtureWorld {
   modelProbes?: Record<string, EndpointProbe>;
   /** `usage.summary` (#599). */
   usageSummary?: MethodResult<"usage.summary">;
+  /** The teaching loop (T0 #678): the owner's feedback, the lessons from it, milestones. */
+  feedbackEvents: FeedbackEvent[];
+  lessons: Lesson[];
+  milestones: Milestone[];
 }
 
 /** Builds a fresh world; every call returns a deep copy, so callers may mutate freely. */
@@ -144,6 +153,9 @@ export function createFixtureWorld(): FixtureWorld {
   return structuredClone<FixtureWorld>({
     threads: threads(),
     usageSummary: usageSummary(),
+    feedbackEvents: feedbackEvents(),
+    lessons: lessons(),
+    milestones: milestones(),
     messages: messages(),
     runs: runs(),
     toolCalls: toolCalls(),
