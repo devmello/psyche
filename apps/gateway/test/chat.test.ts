@@ -79,6 +79,48 @@ describe("chat.send", () => {
     expect(getThread(t.gateway.context.db, thread.id)?.activeWriterRunId ?? null).toBeNull();
   });
 
+  it("publishes reasoning steps as chat.reasoning and never commits them", async () => {
+    const c = await setup();
+    const thread = await newThread(c);
+    agent.script([
+      { type: "run.status", status: "running" },
+      { type: "reasoning", messageId: "a1", stepId: "rsn_1", delta: "Checking the " },
+      { type: "reasoning", messageId: "a1", stepId: "rsn_1", delta: "calendar.", done: true },
+      {
+        type: "reasoning",
+        messageId: "a1",
+        stepId: "rsn_2",
+        summary: "Tuesday is free.",
+        done: true,
+      },
+      { type: "chat.delta", messageId: "a1", delta: "Tuesday works." },
+      { type: "end", outcome: "final" },
+    ]);
+    const res = await c.call<{ runId: string }>(
+      "chat.send",
+      { threadId: thread.id, content: "when am I free?" },
+      ik(),
+    );
+    await c.waitForEvent(
+      (e) =>
+        e.event === "run.updated" &&
+        (e.payload as { run: { status: string } }).run.status === "done",
+    );
+    expect(c.eventsNamed("chat.reasoning").map((e) => e.payload)).toEqual([
+      { threadId: thread.id, runId: res.runId, stepId: "rsn_1", delta: "Checking the " },
+      { threadId: thread.id, runId: res.runId, stepId: "rsn_1", delta: "calendar.", done: true },
+      {
+        threadId: thread.id,
+        runId: res.runId,
+        stepId: "rsn_2",
+        summary: "Tuesday is free.",
+        done: true,
+      },
+    ]);
+    expect(texts(thread.id)).toEqual(["when am I free?", "Tuesday works."]);
+    expect(JSON.stringify(transcript(thread.id))).not.toContain("calendar.");
+  });
+
   it("is idempotent: a retried key returns the original result and starts no second run", async () => {
     const c = await setup();
     const thread = await newThread(c);

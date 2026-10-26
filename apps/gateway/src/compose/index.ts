@@ -714,6 +714,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     onOwnerTurn: userProfile.onOwnerTurn,
     // Incognito threads are memory-only (E9, security §8): the loop never flushes them.
     isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
+    // Reasoning steps for the step log (setting agent.showReasoning, default on), masked.
+    showReasoning: () => getSetting(db, "agent.showReasoning")?.value !== false,
+    redact: (text) => redactor.redact(text),
   });
   const pool = new TaskWorkerPool({
     engine: tasks,

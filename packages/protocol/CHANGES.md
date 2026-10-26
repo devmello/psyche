@@ -18,6 +18,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-25 (S02, #632: reasoning steps)
+
+- Event `chat.reasoning { threadId, runId, stepId, delta?, summary?, done? }`: one step per contiguous reasoning block of a running agent message, for the run's step log. Transient (never persisted); off when the setting `agent.showReasoning` is `false`.
+- `ModelEvent` `reasoning` gains optional `summary` (a provider summary when no text streams); `AgentEvent` gains `{ type: "reasoning", runId, messageId, stepId, delta?, summary?, done? }`.
+
 ### v1 additive — 2026-10-25 (S09 + S14, #626: Apple Mail search filters)
 
 For S14 (the helper's `mail.search`) and S09 (the Apple Mail connector's `mail_search` tool).

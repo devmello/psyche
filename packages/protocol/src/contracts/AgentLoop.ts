@@ -101,6 +101,19 @@ export type AgentEvent =
   | { type: "run.status"; runId: string; status: RunStatus }
   | { type: "chat.delta"; runId: string; messageId: string; delta: string }
   | { type: "block"; runId: string; messageId: string; block: Block }
+  /**
+   * A reasoning step (one contiguous reasoning block): `delta` streams text, `summary` is the
+   * provider's summary, `done` closes the step. Transient: never stored in the thread.
+   */
+  | {
+      type: "reasoning";
+      runId: string;
+      messageId: string;
+      stepId: string;
+      delta?: string;
+      summary?: string;
+      done?: boolean;
+    }
   | {
       type: "tool_call";
       runId: string;

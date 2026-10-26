@@ -97,6 +97,7 @@ import {
   withDeadline,
 } from "./plugins.ts";
 import { type QuestionAnswer, validateAnswer } from "./questions.ts";
+import { ReasoningSteps } from "./reasoning.ts";
 import { type AgentToolRegistration, AgentToolRegistry, parseMcpToolName } from "./registry.ts";
 import {
   emptyThreadState,
@@ -213,6 +214,13 @@ export interface AgentLoopOptions {
   toolToggles?: (threadId: string) => Record<string, boolean> | undefined;
   /** Incognito threads are never flushed to memory (security §8). */
   isIncognito?: (threadId: string) => boolean;
+  /**
+   * Stream reasoning steps (`reasoning` events) for the run's step log: setting
+   * `agent.showReasoning`, default on. Off skips the work entirely.
+   */
+  showReasoning?: boolean | ((threadId: string) => boolean);
+  /** Masks secrets in reasoning text before it leaves the loop (the vault's redactor). */
+  redact?: (text: string) => string;
   finishTurn?: (ctx: FinishTurnContext) => MaybePromise<FinishTurnDecision>;
   onPermissionModeChange?: (threadId: string, mode: PermissionMode) => void;
   /** Runs whose prompt `explainContext` keeps (default 200). */
@@ -1383,53 +1391,68 @@ export class PsycheAgentLoop implements AgentLoop {
     // The thread lets the router apply its `/model` pin (strict) and attribute usage.
     const callOptions = { signal: run.abort.signal, threadId: run.threadId, runId: run.runId };
     let promptTokens = 0;
-    for await (const ev of this.#o.provider.stream(request, callOptions)) {
-      switch (ev.type) {
-        case "text_delta": {
-          text += ev.text;
-          const last = parts.at(-1);
-          if (last?.type === "text") last.text += ev.text;
-          else parts.push({ type: "text", text: ev.text });
-          if (run.mode === "attended") {
-            run.emit({
-              type: "chat.delta",
-              runId: run.runId,
-              messageId: run.messageId,
-              delta: ev.text,
-            });
+    const steps = this.#reasoningSteps(run);
+    try {
+      for await (const ev of this.#o.provider.stream(request, callOptions)) {
+        if (ev.type !== "reasoning" && ev.type !== "usage") steps?.close();
+        switch (ev.type) {
+          case "text_delta": {
+            text += ev.text;
+            const last = parts.at(-1);
+            if (last?.type === "text") last.text += ev.text;
+            else parts.push({ type: "text", text: ev.text });
+            if (run.mode === "attended") {
+              run.emit({
+                type: "chat.delta",
+                runId: run.runId,
+                messageId: run.messageId,
+                delta: ev.text,
+              });
+            }
+            break;
           }
-          break;
+          case "reasoning": {
+            if (ev.textDelta !== undefined) steps?.delta(ev.textDelta);
+            if (ev.summary !== undefined) steps?.summary(ev.summary);
+            const displayOnly =
+              (ev.data === null || ev.data === undefined) &&
+              (ev.textDelta !== undefined || ev.summary !== undefined);
+            // The opaque envelope ends the block; display text never enters the transcript.
+            if (displayOnly) break;
+            steps?.close();
+            // Provider-native and opaque: kept verbatim, never edited or re-ordered.
+            parts.push({ type: "reasoning", provider: ev.provider, data: ev.data });
+            break;
+          }
+          case "tool_call":
+            parts.push({ type: "tool_call", id: ev.id, name: ev.name, input: ev.input });
+            calls.push({ id: ev.id, name: ev.name, input: ev.input });
+            this.#toolEvent(run, ev.id, ev.name, "pending", `Calling ${ev.name}`);
+            break;
+          case "tool_result":
+            // Provider-executed (server-side) tools fetch third-party content: untrusted.
+            parts.push({
+              type: "tool_result",
+              callId: ev.callId,
+              output: ev.output,
+              ...(ev.isError === undefined ? {} : { isError: ev.isError }),
+              provenance: "untrusted",
+            });
+            this.#taint(run, { sourceKind: "provider_tool", toolCallId: ev.callId });
+            break;
+          case "usage":
+            run.usage = addUsage(run.usage, ev.usage);
+            // Everything the provider read for this call: fresh input plus cached prefix.
+            promptTokens += ev.usage.input + ev.usage.cacheRead + ev.usage.cacheWrite;
+            break;
+          case "finish":
+            finish = ev.reason;
+            error = ev.error;
+            break;
         }
-        case "reasoning":
-          // Provider-native and opaque: kept verbatim, never edited or re-ordered.
-          parts.push({ type: "reasoning", provider: ev.provider, data: ev.data });
-          break;
-        case "tool_call":
-          parts.push({ type: "tool_call", id: ev.id, name: ev.name, input: ev.input });
-          calls.push({ id: ev.id, name: ev.name, input: ev.input });
-          this.#toolEvent(run, ev.id, ev.name, "pending", `Calling ${ev.name}`);
-          break;
-        case "tool_result":
-          // Provider-executed (server-side) tools fetch third-party content: untrusted.
-          parts.push({
-            type: "tool_result",
-            callId: ev.callId,
-            output: ev.output,
-            ...(ev.isError === undefined ? {} : { isError: ev.isError }),
-            provenance: "untrusted",
-          });
-          this.#taint(run, { sourceKind: "provider_tool", toolCallId: ev.callId });
-          break;
-        case "usage":
-          run.usage = addUsage(run.usage, ev.usage);
-          // Everything the provider read for this call: fresh input plus cached prefix.
-          promptTokens += ev.usage.input + ev.usage.cacheRead + ev.usage.cacheWrite;
-          break;
-        case "finish":
-          finish = ev.reason;
-          error = ev.error;
-          break;
       }
+    } finally {
+      steps?.close();
     }
     const pending = run.pendingBreakdown;
     if (pending !== undefined) {
@@ -1443,6 +1466,18 @@ export class PsycheAgentLoop implements AgentLoop {
       run.pendingBreakdown = undefined;
     }
     return { parts, text, calls, finish, ...(error === undefined ? {} : { error }) };
+  }
+
+  /** Reasoning steps for this run's step log, unless `showReasoning` is off for the thread. */
+  #reasoningSteps(run: RunState): ReasoningSteps | undefined {
+    const show = this.#o.showReasoning ?? true;
+    if (typeof show === "function" ? !show(run.threadId) : !show) return undefined;
+    const messageId = run.messageId;
+    return new ReasoningSteps(
+      (e) => run.emit({ type: "reasoning", runId: run.runId, messageId, ...e }),
+      () => this.#ids.next("rsn"),
+      this.#o.redact,
+    );
   }
 
   // --- Tools ------------------------------------------------------------------------------------

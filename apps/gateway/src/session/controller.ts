@@ -717,6 +717,22 @@ export class SessionController {
         );
         return;
       }
+      case "reasoning": {
+        // Transient step-log text (model output): published, never added to the message.
+        bus.publish(
+          "chat.reasoning",
+          {
+            threadId,
+            runId,
+            stepId: event.stepId,
+            ...(event.delta === undefined ? {} : { delta: event.delta }),
+            ...(event.summary === undefined ? {} : { summary: event.summary }),
+            ...(event.done === undefined ? {} : { done: event.done }),
+          },
+          threadId,
+        );
+        return;
+      }
       case "block": {
         t.flushBefore(event.messageId);
         const msg = t.idFor(event.messageId);

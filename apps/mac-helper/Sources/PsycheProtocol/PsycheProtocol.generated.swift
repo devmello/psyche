@@ -187,6 +187,7 @@
 //   let chatQueueRemoveParams = try? JSONDecoder().decode(ChatQueueRemoveParams.self, from: jsonData)
 //   let chatQueueRemoveResult = try? JSONDecoder().decode(ChatQueueRemoveResult.self, from: jsonData)
 //   let chatQueueUpdatedPayload = try? JSONDecoder().decode(ChatQueueUpdatedPayload.self, from: jsonData)
+//   let chatReasoningPayload = try? JSONDecoder().decode(ChatReasoningPayload.self, from: jsonData)
 //   let chatSendParams = try? JSONDecoder().decode(ChatSendParams.self, from: jsonData)
 //   let chatSendResult = try? JSONDecoder().decode(ChatSendResult.self, from: jsonData)
 //   let chatSteerParams = try? JSONDecoder().decode(ChatSteerParams.self, from: jsonData)
@@ -5174,6 +5175,37 @@ public struct ChatQueueUpdatedPayload: Codable, Sendable {
 
     public init(items: [QueuedMessage], threadID: String) {
         self.items = items
+        self.threadID = threadID
+    }
+}
+
+// MARK: - ChatReasoningPayload
+public struct ChatReasoningPayload: Codable, Sendable {
+    /// Streamed reasoning text of the step
+    public let delta: String?
+    /// The step is complete
+    public let done: Bool?
+    public let runID: String
+    public let stepID: String
+    /// The provider's summary, when that is all it gives
+    public let summary: String?
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case delta = "delta"
+        case done = "done"
+        case runID = "runId"
+        case stepID = "stepId"
+        case summary = "summary"
+        case threadID = "threadId"
+    }
+
+    public init(delta: String?, done: Bool?, runID: String, stepID: String, summary: String?, threadID: String) {
+        self.delta = delta
+        self.done = done
+        self.runID = runID
+        self.stepID = stepID
+        self.summary = summary
         self.threadID = threadID
     }
 }
