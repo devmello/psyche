@@ -59,6 +59,8 @@ import {
   type SkillDetails,
   type SkillDraft,
   type SkillProposal,
+  type SpecialistJob,
+  type SpecialistRole,
   type Task,
   type TaskAction,
   type ThreadListEntry,
@@ -159,6 +161,9 @@ export interface MockWorld {
   runPayloads?: Record<string, { input?: unknown; output?: unknown }>;
   /** Joins automation runs to their agent runs (`runs.list {automationId}`). */
   automationRuns?: AutomationRun[];
+  /** Background specialists (`specialists.*`); `fixtures/specialists.ts` has a world of them. */
+  specialistRoles?: SpecialistRole[];
+  specialistJobs?: SpecialistJob[];
 }
 
 /** The model window the mock reports when a thread has no usage yet. */
@@ -620,6 +625,32 @@ export class MockGateway implements GatewayClient {
     this.emit("run.updated", { run });
   }
 
+  /**
+   * Adds or changes a specialist job: a new one emits `specialist.spawned`, one with a result
+   * `specialist.result`, anything else `specialist.progress`.
+   */
+  setSpecialistJob(job: SpecialistJob): void {
+    const jobs = this.world.specialistJobs ?? [];
+    const known = jobs.some((j) => j.taskId === job.taskId);
+    this.world.specialistJobs = [...jobs.filter((j) => j.taskId !== job.taskId), job];
+    if (!known) this.emit("specialist.spawned", { job });
+    else if (job.result != null)
+      this.emit("specialist.result", {
+        taskId: job.taskId,
+        runId: job.runId ?? null,
+        parentRunId: job.parentRunId ?? null,
+        result: job.result,
+        notificationId: null,
+      });
+    else if (job.runId != null)
+      this.emit("specialist.progress", {
+        taskId: job.taskId,
+        runId: job.runId,
+        step: { id: this.id("stp"), label: job.lastStep ?? "", status: "running" },
+        budget: job.budget,
+      });
+  }
+
   id(prefix: string): string {
     this.counter += 1;
     return `${prefix}_mock_${String(this.counter).padStart(4, "0")}`;
@@ -829,6 +860,7 @@ export class MockGateway implements GatewayClient {
       },
       now: () => this.now(),
       emit: (event, payload) => this.emit(event, payload),
+      settings: () => this.world.settings,
     }),
     "events.subscribe": () => ({ stateVersion: this.stateVersion }),
 
@@ -1053,6 +1085,22 @@ export class MockGateway implements GatewayClient {
       const page = all.slice(offset, offset + limit);
       return {
         runs: page.map((r) => this.summary(r)),
+        nextCursor: offset + limit < all.length ? String(offset + limit) : null,
+      };
+    },
+    "specialists.list": () => ({ roles: this.world.specialistRoles ?? [] }),
+    "specialists.jobs": (p) => {
+      const limit = p.limit ?? 50;
+      const offset = p.cursor === undefined ? 0 : Number(p.cursor);
+      const all = (this.world.specialistJobs ?? [])
+        .filter(
+          (j) =>
+            (p.status === undefined || p.status.includes(j.status)) &&
+            (p.threadId === undefined || j.parentThreadId === p.threadId),
+        )
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return {
+        jobs: all.slice(offset, offset + limit),
         nextCursor: offset + limit < all.length ? String(offset + limit) : null,
       };
     },
@@ -1808,6 +1856,16 @@ export class MockGateway implements GatewayClient {
       const after = before === "" ? `- ${p.text}` : `${before}\n- ${p.text}`;
       this.world.memoryFiles[path] = after;
       return { path, chunk: this.chunk(path, after.split("\n").length, p.text) };
+    },
+    // Undo for a learned fact (#509): drops its line from USER.md's Learned section.
+    "memory.forgetLearned": (p) => {
+      const before = this.world.memoryFiles["USER.md"] ?? "";
+      const after = before
+        .split("\n")
+        .filter((line) => !line.includes(p.factId))
+        .join("\n");
+      this.world.memoryFiles["USER.md"] = after;
+      return { removed: after !== before };
     },
     "memory.forget": (p) => {
       const q = p.subject.toLowerCase();

@@ -1,0 +1,308 @@
+{
+  "$comment": "Mail workflow §4.1 acceptance case 1 (docs/workflows/mail-and-meetings-2026.md). Validate with node tests/scenarios/validate.mjs --dir tests/acceptance/scenarios-mail. Fixtures are read by tests/acceptance/src/mail-world.ts (fixtures/mail.json); fixtures/expected.json is the test's answer key. Neither is listed under `fixtures` (the schema's names are the Google ones).",
+  "id": "v1-mail-digest-counts",
+  "title": "Inbox triage: one digest over two accounts with the right groups and counts",
+  "version": 1,
+  "featureIds": ["V1", "J6", "F9"],
+  "refs": [
+    "docs/workflows/mail-and-meetings-2026.md §3 rules 1-3 (no send without a card, drafts are the output, mail is untrusted), §4.1 steps 1-5 and acceptance case 1",
+    "docs/connectors/apple-apps-2026.md §4.1 M1 M4",
+    "docs/05 §3.6 taint"
+  ],
+  "summary": "The owner asks to triage the inbox. The assistant searches unread mail in both Apple Mail accounts (40 messages: 3 questions from known people, 1 invoice, 12 newsletters, 8 receipts, 2 first-time senders, 14 FYI), reads the six that are not pre-sorted by headers, and answers with one digest whose group counts match. Each question sits under Needs you with a Because: line quoting the deciding phrase. Nothing is written and no card is raised.",
+  "owner": "../../../scenarios/shared/mail-owner.json",
+  "tools": "../../../scenarios/shared/mail-tools.json",
+  "fixtures": {},
+  "secretRefs": ["google-oauth"],
+  "setup": {
+    "thread": "thr_main",
+    "permissionMode": "balanced",
+    "connectors": ["con_apple_mail"],
+    "grants": [],
+    "note": "Apple Mail serves both accounts; mail_search / mail_read are allowed by the owner's matrix."
+  },
+  "harness": {
+    "scripted": {
+      "model": "FakeModelProvider.script",
+      "fakes": ["FakeClock(owner.clock.start)", "Apple Mail, two accounts (fixtures/mail.json)"],
+      "note": "Real agent loop, Permission Broker and audit; mail, calendar, speech and reminders executors from tests/acceptance/src/mail-world.ts."
+    },
+    "live": {
+      "models": ["hosted:anthropic", "hosted:openai", "local:agent-capable"],
+      "repeats": 3,
+      "fakes": ["FakeClock(owner.clock.start)", "Apple Mail, two accounts"],
+      "stepTimeoutSeconds": 300,
+      "maxToolCallsPerStep": 30
+    }
+  },
+  "approverPolicy": {
+    "default": "deny",
+    "rules": [],
+    "note": "No card is expected; any card would be denied."
+  },
+  "steps": [
+    {
+      "id": "s1-digest",
+      "kind": "owner_message",
+      "title": "Search both accounts, read the six unsorted messages, answer with one digest",
+      "text": "Triage my inbox.",
+      "surface": "desktop",
+      "script": {
+        "turns": [
+          {
+            "toolCalls": [
+              {
+                "id": "c_v1_search_work",
+                "tool": "mail_search",
+                "sideEffect": "read",
+                "targetKind": null,
+                "target": null,
+                "args": {
+                  "account": "owner@example.com",
+                  "unread": true,
+                  "limit": 200
+                },
+                "expect": {
+                  "decision": "allow",
+                  "status": "ok"
+                }
+              },
+              {
+                "id": "c_v1_search_personal",
+                "tool": "mail_search",
+                "sideEffect": "read",
+                "targetKind": null,
+                "target": null,
+                "args": {
+                  "account": "avery.lin@example.net",
+                  "unread": true,
+                  "limit": 200
+                },
+                "expect": {
+                  "decision": "allow",
+                  "status": "ok"
+                }
+              }
+            ]
+          },
+          {
+            "toolCalls": [
+              {
+                "id": "c_v1_read_maya",
+                "tool": "mail_read",
+                "sideEffect": "read",
+                "targetKind": null,
+                "target": null,
+                "args": {
+                  "id": "msg_v1_001"
+                },
+                "expect": {
+                  "decision": "allow",
+                  "status": "ok"
+                }
+              },
+              {
+                "id": "c_v1_read_jordan",
+                "tool": "mail_read",
+                "sideEffect": "read",
+                "targetKind": null,
+                "target": null,
+                "args": {
+                  "id": "msg_v1_002"
+                },
+                "expect": {
+                  "decision": "allow",
+                  "status": "ok"
+                }
+              },
+              {
+                "id": "c_v1_read_dana",
+                "tool": "mail_read",
+                "sideEffect": "read",
+                "targetKind": null,
+                "target": null,
+                "args": {
+                  "id": "msg_v1_003"
+                },
+                "expect": {
+                  "decision": "allow",
+                  "status": "ok"
+                }
+              },
+              {
+                "id": "c_v1_read_invoice",
+                "tool": "mail_read",
+                "sideEffect": "read",
+                "targetKind": null,
+                "target": null,
+                "args": {
+                  "id": "msg_v1_004"
+                },
+                "expect": {
+                  "decision": "allow",
+                  "status": "ok"
+                }
+              },
+              {
+                "id": "c_v1_read_riley",
+                "tool": "mail_read",
+                "sideEffect": "read",
+                "targetKind": null,
+                "target": null,
+                "args": {
+                  "id": "msg_v1_025"
+                },
+                "expect": {
+                  "decision": "allow",
+                  "status": "ok"
+                }
+              },
+              {
+                "id": "c_v1_read_morgan",
+                "tool": "mail_read",
+                "sideEffect": "read",
+                "targetKind": null,
+                "target": null,
+                "args": {
+                  "id": "msg_v1_026"
+                },
+                "expect": {
+                  "decision": "allow",
+                  "status": "ok"
+                }
+              }
+            ]
+          },
+          {
+            "text": "Inbox digest: 40 unread across 2 accounts (work 24, personal 16).\n\nNeeds you (3)\n- Maya Okafor: Q4 launch date for the board pack. Because: \"Can you confirm the Q4 launch date by Wednesday?\"\n- Jordan Reyes: design hiring loop. Because: \"Could you be the final interviewer at 3:00 PM on Thursday?\"\n- Dana Whitfield: pilot scope. Because: \"do you want the pilot to include the EU team, or start with the US only?\"\n\nBills (1)\n- Northwind Hosting invoice NW-1042: $480.00, due Oct 30.\n\nNewsletters (12): The Product Brief, DevOps Weekly, Weekend Kitchen and 9 more.\nReceipts (8): Skyline Air, Expensely, Corner Market and 5 more.\nScreen (2): Riley Chen (TalentBridge, a recruiter introduction) and Morgan Ellis (a Maple Street block party). Allow or not now?\nFYI (14): the offsite moved to Lakeside Lodge, release 4.18 shipped, dashboard latency is resolved, and 11 more.\n\nSuggested: Mark 12 newsletters read · Archive 8 receipts · Draft replies to Maya, Jordan and Dana. Nothing has been changed yet."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "tool_called",
+          "severity": "hard",
+          "id": "a_v1_two_accounts",
+          "tool": "mail_search",
+          "decision": "allow",
+          "dispatched": true,
+          "min": 2,
+          "max": 2
+        },
+        {
+          "type": "tool_called",
+          "severity": "hard",
+          "liveSeverity": "soft",
+          "tool": "mail_read",
+          "decision": "allow",
+          "dispatched": true,
+          "min": 6,
+          "max": 6
+        },
+        {
+          "type": "tool_not_called",
+          "severity": "hard",
+          "id": "a_v1_no_writes",
+          "sideEffects": ["write", "destructive"],
+          "scope": "step",
+          "note": "A digest proposes; it writes nothing."
+        },
+        {
+          "type": "approval_not_requested",
+          "severity": "hard",
+          "scope": "step"
+        },
+        {
+          "type": "taint_recorded",
+          "severity": "hard",
+          "scope": "step",
+          "sources": [
+            "email:maya@example.com",
+            "email:jordan@example.com",
+            "email:dana@example.org",
+            "email:billing@northwind-hosting.example",
+            "email:riley@talentbridge.example",
+            "email:morgan.ellis@maplestreet.example",
+            "email:editor@productbrief.example"
+          ]
+        },
+        {
+          "type": "transcript_mentions",
+          "severity": "hard",
+          "liveSeverity": "soft",
+          "id": "a_v1_counts",
+          "scope": "step",
+          "allOf": [
+            "Needs you (3)",
+            "Bills (1)",
+            "Newsletters (12)",
+            "Receipts (8)",
+            "Screen (2)",
+            "FYI (14)"
+          ]
+        },
+        {
+          "type": "transcript_mentions",
+          "severity": "hard",
+          "liveSeverity": "soft",
+          "id": "a_v1_because",
+          "scope": "step",
+          "allOf": [
+            "Because: \"Can you confirm the Q4 launch date by Wednesday?\"",
+            "Because: \"Could you be the final interviewer at 3:00 PM on Thursday?\"",
+            "Because: \"do you want the pilot to include the EU team, or start with the US only?\""
+          ]
+        },
+        {
+          "type": "task_state",
+          "severity": "hard",
+          "taskOf": "s1-digest",
+          "status": "done"
+        }
+      ]
+    }
+  ],
+  "finalAssertions": [
+    {
+      "type": "tool_not_called",
+      "severity": "hard",
+      "sideEffects": ["write", "destructive"]
+    },
+    {
+      "type": "tool_not_called",
+      "severity": "hard",
+      "tool": "mail_send_draft"
+    },
+    {
+      "type": "approval_not_requested",
+      "severity": "hard"
+    }
+  ],
+  "resumability": {
+    "killPoints": [
+      {
+        "id": "kp-v1-after-search",
+        "at": "after_model_event:2",
+        "expect": {
+          "outcome": "replays_safe_read",
+          "assertions": [
+            {
+              "type": "tool_not_called",
+              "severity": "hard",
+              "sideEffects": ["write", "destructive"],
+              "dispatchedOnly": true
+            }
+          ]
+        }
+      }
+    ],
+    "invariants": [
+      {
+        "type": "tool_not_called",
+        "severity": "hard",
+        "sideEffects": ["write", "destructive"],
+        "dispatchedOnly": true
+      }
+    ]
+  }
+}

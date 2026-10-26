@@ -5,6 +5,7 @@ import {
   CircleDashed,
   CircleSlash,
   Clock,
+  Contrast,
   LoaderCircle,
   Pause,
   RotateCw,
@@ -25,8 +26,11 @@ export type StatusKind =
   | "cancelled"
   | "pending";
 
-/** Run-trace step glyphs add thinking, retried and skipped (docs/design/run-trace-2026.md §3.2). */
-export type StepStatusKind = StatusKind | "thinking" | "retried" | "skipped";
+/**
+ * Run-trace step glyphs add thinking, retried and skipped (docs/design/run-trace-2026.md §3.2);
+ * a specialist's partial result is half done (docs/agent/specialists-2026.md §6.2).
+ */
+export type StepStatusKind = StatusKind | "thinking" | "retried" | "skipped" | "partial";
 
 const GLYPH = {
   running: { Icon: LoaderCircle, tone: "text-label-secondary animate-spin reduced:animate-none" },
@@ -39,6 +43,7 @@ const GLYPH = {
   thinking: { Icon: Brain, tone: "text-label-secondary" },
   retried: { Icon: RotateCw, tone: "text-approval-text" },
   skipped: { Icon: CircleSlash, tone: "text-label-tertiary" },
+  partial: { Icon: Contrast, tone: "text-approval-text" },
 } as const;
 
 /** A run step's status (protocol `RunStep.status`) as a glyph kind. */

@@ -1,5 +1,5 @@
 import type { Receipt } from "@psyche/protocol";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { StatusGlyph, type StatusKind } from "../components/status.tsx";
 import { t } from "../i18n/core.ts";
 import { formatTime } from "../lib/format.ts";
@@ -50,9 +50,12 @@ export function providerId(receipt: Receipt): string | null {
 export function ReceiptLine({
   receipt,
   onOpen,
+  menu,
 }: {
   receipt: Receipt;
   onOpen?: (receipt: Receipt) => void;
+  /** The line's ⋯ menu (teaching loop §5.1: Not like this), floating over its end. */
+  menu?: ReactNode;
 }): ReactElement {
   const { level } = useDisclosure();
   const id = providerId(receipt);
@@ -92,7 +95,7 @@ export function ReceiptLine({
     </>
   );
   const cls = "my-1 block w-full text-start text-callout text-label-secondary";
-  return onOpen ? (
+  const line = onOpen ? (
     <button
       type="button"
       className={cn(
@@ -106,5 +109,13 @@ export function ReceiptLine({
     </button>
   ) : (
     <p className={cls}>{content}</p>
+  );
+  return menu ? (
+    <div className="group/receipt relative">
+      {line}
+      {menu}
+    </div>
+  ) : (
+    line
   );
 }

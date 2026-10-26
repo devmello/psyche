@@ -118,6 +118,13 @@ interface LessonRow {
   forgotten_at: string | null;
 }
 
+/** Weekly counts per feedback kind, plus `draft_sent` outcomes (never events). */
+export interface WeeklyCount {
+  week: string;
+  kind: FeedbackKind | "draft_sent";
+  count: number;
+}
+
 /** Statuses whose line is in the destination (and so in the prompt). */
 export const LIVE_STATUSES: readonly LessonStatus[] = ["active", "confirmed"];
 /** Kept 180 days, then deleted; weekly counts survive (§3.5). */
@@ -352,6 +359,13 @@ export class TeachingStore {
     };
   }
 
+  /** Every event still kept (180 days), oldest first: growth and export. */
+  allEvents(): FeedbackEvent[] {
+    return (
+      this.#db.prepare("SELECT * FROM feedback_events ORDER BY created_at, id").all() as EventRow[]
+    ).map(toEvent);
+  }
+
   linkEvent(eventId: string, lessonId: string | null): void {
     this.#db
       .prepare("UPDATE feedback_events SET lesson_id = ? WHERE id = ?")
@@ -372,18 +386,27 @@ export class TeachingStore {
     return this.#db.prepare("DELETE FROM feedback_events").run().changes;
   }
 
+  /**
+   * An outcome that is not feedback (a draft sent as the agent wrote it): counted per week for
+   * growth, never an event (§3.1 "smaller edits count as sent as-is for outcomes").
+   */
+  countOutcome(kind: "draft_sent"): void {
+    this.#db
+      .prepare(
+        `INSERT INTO feedback_weekly (week, kind, count) VALUES (?, ?, 1)
+         ON CONFLICT (week, kind) DO UPDATE SET count = count + 1`,
+      )
+      .run(weekOf(this.#now()), kind);
+  }
+
   /** `{ week, kind, count }` rows, oldest first. */
-  weekly(sinceWeek?: string): { week: string; kind: FeedbackKind; count: number }[] {
+  weekly(sinceWeek?: string): WeeklyCount[] {
     return this.#db
       .prepare(
         `SELECT week, kind, count FROM feedback_weekly ${sinceWeek === undefined ? "" : "WHERE week >= ?"}
          ORDER BY week, kind`,
       )
-      .all(...(sinceWeek === undefined ? [] : [sinceWeek])) as {
-      week: string;
-      kind: FeedbackKind;
-      count: number;
-    }[];
+      .all(...(sinceWeek === undefined ? [] : [sinceWeek])) as WeeklyCount[];
   }
 
   // --- Lessons --------------------------------------------------------------------------------

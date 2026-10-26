@@ -17,6 +17,8 @@ import { t } from "../i18n/core.ts";
 import { displaySummary } from "../lib/cards.ts";
 import { fade, motionSpring, Presence, spring } from "../motion/index.ts";
 import { usePersona, useSlots } from "../slots.tsx";
+import { ReceiptFeedback } from "../teaching/ReceiptFeedback.tsx";
+import { LearnedLine, TaughtLine } from "../teaching/TaughtLine.tsx";
 import { focusApproval } from "./ApprovalCard.tsx";
 import { ArtifactCard, FileCard } from "./ArtifactCard.tsx";
 import { Checklist, PlanCard } from "./Checklist.tsx";
@@ -141,7 +143,11 @@ function ReceiptBlockView({ receiptId }: { receiptId: string }): ReactElement {
   const slots = useSlots();
   if (receipt === null) return loading ? <Skeleton what="receipt" /> : <Missing what="receipt" />;
   return (
-    <ReceiptLine receipt={receipt} {...(slots.openReceipt ? { onOpen: slots.openReceipt } : {})} />
+    <ReceiptLine
+      receipt={receipt}
+      {...(slots.openReceipt ? { onOpen: slots.openReceipt } : {})}
+      menu={<ReceiptFeedback receipt={receipt} />}
+    />
   );
 }
 
@@ -310,6 +316,10 @@ function BlockView({
       return <WrapUpBox block={b} {...(onWrapUpAction ? { onAction: onWrapUpAction } : {})} />;
     case "related_threads":
       return <RelatedThreads block={b} />;
+    case "learned":
+      return <LearnedLine items={b.items} />;
+    case "taught":
+      return <TaughtLine feedbackId={b.feedbackId} lessonId={b.lessonId} statement={b.statement} />;
     default:
       return null;
   }

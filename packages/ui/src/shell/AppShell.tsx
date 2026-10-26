@@ -124,7 +124,9 @@ export function AppShell({
   const chatMatch = /^\/chat(?:\/([^/?]+))?/.exec(route);
   const threadId = chatMatch ? (chatMatch[1] ?? threads.main?.thread.id ?? null) : null;
   const thread = useThread(threadId);
-  const agentMatch = /^\/agent\/(activity|approvals|upcoming|soul)(?:\/([^/?]+))?/.exec(route);
+  const agentMatch = /^\/agent\/(activity|approvals|upcoming|soul|growth)(?:\/([^/?]+))?/.exec(
+    route,
+  );
   const agentTab = agentMatch?.[1] as AgentTab | undefined;
   const agentTask = agentMatch?.[2];
   useEffect(() => {

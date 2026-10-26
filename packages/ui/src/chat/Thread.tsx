@@ -4,7 +4,7 @@ import {
   ThreadPrimitive,
   useExternalStoreRuntime,
 } from "@assistant-ui/react";
-import type { Message, QueueMode } from "@psyche/protocol";
+import type { Message, QueueMode, SpecialistJob } from "@psyche/protocol";
 import { CircleAlert, X } from "lucide-react";
 import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type DisclosureLevel, DisclosureProvider } from "../blocks/disclosure.tsx";
@@ -13,6 +13,8 @@ import {
   useCall,
   useConnection,
   useRunsList,
+  useSpecialistJobs,
+  useSpecialistRoles,
   useStoreState,
   useThread,
   useThreads,
@@ -21,8 +23,9 @@ import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { LayoutMotion, Presence } from "../motion/index.ts";
 import { usePersona, useSlots } from "../slots.tsx";
+import { SpecialistSpawns } from "../specialists/SpawnLine.tsx";
+import { VoiceComposer } from "../voice/composer-voice.tsx";
 import { ApprovalDock } from "./ApprovalDock.tsx";
-import { Composer } from "./Composer.tsx";
 import { type CommandName, parseCommand } from "./commands.ts";
 import { FollowUpQueue } from "./FollowUpQueue.tsx";
 import { MessageView } from "./MessageView.tsx";
@@ -356,6 +359,26 @@ export function ChatThread({
         setNotice({ kind: "ok", text: t("chat.thread.remembered", { path: res.path }) });
         return;
       }
+      case "teach": {
+        // A correction to the last reply (teaching loop §5.1), like Not like this with text.
+        const last = view.messages.findLast((m) => m.role === "agent");
+        if (last === undefined) {
+          setNotice({ kind: "info", text: t("chat.thread.teachNothing") });
+          return;
+        }
+        const res = await call("feedback.give", {
+          target: { type: "message", id: last.id, threadId },
+          kind: "correction",
+          text: arg,
+        });
+        setNotice({
+          kind: "ok",
+          text: res.lesson
+            ? t("chat.thread.taught", { lesson: res.lesson.statement })
+            : t("chat.teach.noted"),
+        });
+        return;
+      }
       case "forget": {
         const preview = await call("memory.forget", { subject: arg, dryRun: true });
         const claims = preview.retractedClaimIds.length;
@@ -470,6 +493,22 @@ export function ChatThread({
     () => ({ ...baseIndex, activeRunId: stepRun?.id ?? null, tracedRuns }),
     [baseIndex, stepRun?.id, tracedRuns],
   );
+  // Specialists this thread started (§6.1): one line each after the run that started them.
+  const jobFilter = useMemo(() => ({ threadId }), [threadId]);
+  const { jobs: spawned } = useSpecialistJobs(jobFilter);
+  const { roles: specialistRoles } = useSpecialistRoles();
+  const spawnsByRun = useMemo(() => {
+    const runIds = new Set(view.messages.map((m) => m.runId));
+    const byRun = new Map<string, SpecialistJob[]>();
+    const rest: SpecialistJob[] = [];
+    for (const job of spawned) {
+      if (job.parentRunId != null && runIds.has(job.parentRunId)) {
+        byRun.set(job.parentRunId, [...(byRun.get(job.parentRunId) ?? []), job]);
+      } else rest.push(job);
+    }
+    return { byRun, rest };
+  }, [spawned, view.messages]);
+  const threadMode = view.thread?.thread.permissionMode;
   const activeTraced = stepRun !== null && tracedRuns.has(stepRun.id);
   // The run has no message yet: its steps sit at the end until the reply begins below them.
   const activeAnchored =
@@ -554,6 +593,12 @@ export function ChatThread({
                       if (d === undefined) return null;
                       const m = d.message;
                       const prev = display[display.indexOf(d) - 1]?.message;
+                      const next = display[display.indexOf(d) + 1]?.message;
+                      // The run's specialists follow its last message.
+                      const spawns =
+                        m.runId != null && next?.runId !== m.runId
+                          ? spawnsByRun.byRun.get(m.runId)
+                          : undefined;
                       const lead = m.blocks[0];
                       const fromTask =
                         m.role === "agent" && m.runId === null && lead?.type === "task"
@@ -602,6 +647,13 @@ export function ChatThread({
                           {failed.map((run) => (
                             <RunFailure key={run.id} run={run} />
                           ))}
+                          {spawns ? (
+                            <SpecialistSpawns
+                              jobs={spawns}
+                              roles={specialistRoles}
+                              {...(threadMode ? { mode: threadMode } : {})}
+                            />
+                          ) : null}
                         </>
                       );
                     }}
@@ -615,6 +667,11 @@ export function ChatThread({
                     {...(now === undefined ? {} : { now })}
                   />
                 ) : null}
+                <SpecialistSpawns
+                  jobs={spawnsByRun.rest}
+                  roles={specialistRoles}
+                  {...(threadMode ? { mode: threadMode } : {})}
+                />
                 {showSteps ? (
                   <RunStepLog
                     persona={persona.name}
@@ -649,7 +706,8 @@ export function ChatThread({
                   }}
                 />
                 {notice ? <NoticeBar notice={notice} onDismiss={() => setNotice(null)} /> : null}
-                <Composer
+                <VoiceComposer
+                  threadId={threadId}
                   persona={persona.name}
                   running={view.running}
                   disabled={offline}

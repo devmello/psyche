@@ -1,4 +1,10 @@
-import type { Automation, AutomationRun, InputRequest } from "@psyche/protocol";
+import type {
+  Automation,
+  AutomationRun,
+  InputRequest,
+  TaintSource,
+  WorkflowEvent,
+} from "@psyche/protocol";
 
 /** What a launched automation run produced (the unattended-run contract's outcomes). */
 export interface RunResult {
@@ -17,6 +23,10 @@ export interface AutomationRunRequest {
   prompt: string;
   /** Heartbeat: skip workspace bootstrap files. */
   lightContext: boolean;
+  /** Event runs: the events folded into this run (their sender and subject are untrusted). */
+  events?: WorkflowEvent[];
+  /** Event runs: the taint the events carry (mail senders, invitations, recordings). */
+  taintSources?: TaintSource[];
 }
 
 export interface LaunchedRun {

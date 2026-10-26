@@ -227,3 +227,77 @@ public struct DictationKeyTracker: Sendable {
         return false
     }
 }
+
+/// One watched key and, for a two-key watch, its role (V-H H1: `dictation.watch {keys}`).
+public struct DictationWatchedKey: Sendable, Equatable {
+    public var key: DictationKey
+    public var role: DictationKeyRole?
+
+    public init(key: DictationKey, role: DictationKeyRole? = nil) {
+        self.key = key
+        self.role = role
+    }
+}
+
+/// A hold-to-talk transition of one watched key.
+public struct DictationKeyChange: Sendable, Equatable {
+    public var key: DictationKey
+    public var role: DictationKeyRole?
+    public var down: Bool
+
+    public init(key: DictationKey, role: DictationKeyRole?, down: Bool) {
+        self.key = key
+        self.role = role
+        self.down = down
+    }
+}
+
+public enum DictationWatchPlan {
+    /// The keys a `dictation.watch` call asks for; empty means stop. `keys` wins over `key`; its
+    /// keys and roles must differ. A single `key` has no role, so its events stay as before.
+    public static func keys(_ p: DictationWatchParams) throws -> [DictationWatchedKey] {
+        guard let keys = p.keys else { return p.key.map { [DictationWatchedKey(key: $0)] } ?? [] }
+        guard (1...2).contains(keys.count) else {
+            throw CapabilityError.invalidParams("keys holds one or two keys", field: "keys")
+        }
+        guard Set(keys.map(\.key.rawValue)).count == keys.count else {
+            throw CapabilityError.invalidParams("each key is watched once", field: "keys")
+        }
+        guard Set(keys.map(\.role.rawValue)).count == keys.count else {
+            throw CapabilityError.invalidParams("each role is used once", field: "keys")
+        }
+        return keys.map { DictationWatchedKey(key: $0.key, role: $0.role) }
+    }
+}
+
+/// Trackers for one or two watched keys. Each key holds independently; a key press during any
+/// hold is a chord for every held key (so fn+arrow never starts voice or dictation).
+public struct DictationKeySet: Sendable {
+    public private(set) var trackers: [DictationKeyTracker]
+    public let watched: [DictationWatchedKey]
+
+    public init(_ watched: [DictationWatchedKey]) {
+        self.watched = watched
+        trackers = watched.map { DictationKeyTracker(key: $0.key) }
+    }
+
+    public mutating func flagsChanged(keyCode: Int64, flags: UInt64) -> [DictationKeyChange] {
+        var out: [DictationKeyChange] = []
+        for i in trackers.indices {
+            if let down = trackers[i].flagsChanged(keyCode: keyCode, flags: flags) {
+                out.append(DictationKeyChange(key: watched[i].key, role: watched[i].role, down: down))
+            }
+        }
+        return out
+    }
+
+    public mutating func keyDown() -> [DictationKeyChange] {
+        var out: [DictationKeyChange] = []
+        for i in trackers.indices {
+            if let down = trackers[i].keyDown() {
+                out.append(DictationKeyChange(key: watched[i].key, role: watched[i].role, down: down))
+            }
+        }
+        return out
+    }
+}

@@ -1,0 +1,224 @@
+import type {
+  SpecialistHost,
+  SpecialistJobInput,
+  SpecialistReportInput,
+  SpecialistReportMeta,
+  SpecialistRoleDef,
+} from "@psyche/agent-core";
+import { createThread, getSetting, type PsycheDb } from "@psyche/db";
+import { sanitizeBlock } from "@psyche/permissions";
+import type {
+  ModelRef,
+  PermissionBroker,
+  SpecialistJob,
+  SpecialistResult,
+  Task,
+} from "@psyche/protocol";
+import { type FsSkillLoader, specialistsPromptSection } from "@psyche/skills";
+import type { SqliteTaskEngine } from "@psyche/tasks";
+import { INCOGNITO_TTL_MS } from "../handlers/threads.ts";
+
+/**
+ * The Gateway side of background specialists (docs/agent/specialists-2026.md §4): roles from the
+ * role skills plus the owner's `specialists.*` settings, jobs as a thread + Task, and the one
+ * sanitized result. The pool, budgets and delivery card come in later parts of #683.
+ */
+
+/** The role skills (`FsSkillLoader.specialistRoles()`). */
+export type RoleSource = Pick<FsSkillLoader, "specialistRoles">;
+
+export interface SpecialistHostDeps {
+  db: PsycheDb;
+  tasks: SqliteTaskEngine;
+  broker: Pick<PermissionBroker, "listReceipts">;
+  roles: RoleSource;
+  /** Router roles: `primary` and the optional `utility` model. */
+  models: { primary: ModelRef; utility?: ModelRef };
+  now: () => number;
+}
+
+const setting = (db: PsycheDb, key: string): unknown => getSetting(db, key)?.value;
+
+function modelFor(
+  db: PsycheDb,
+  role: string,
+  modelClass: string,
+  models: SpecialistHostDeps["models"],
+): ModelRef {
+  const pinned = setting(db, `specialists.model.${role}`);
+  if (typeof pinned === "string" && pinned.includes("/")) return pinned;
+  // Harness and vision roles run on the primary model until the router has those roles.
+  return modelClass === "utility" ? (models.utility ?? models.primary) : models.primary;
+}
+
+/**
+ * Control and bidi characters go (`sanitizeBlock`), and instruction-shaped markup is defused:
+ * chat-template tokens (`<|im_start|>`) and role or fence tags (`<system>`, `</section>`) get a
+ * zero-width joiner after `<`, so no reader can take them for structure (specialists §4.2).
+ */
+export function defuse(text: string): string {
+  return sanitizeBlock(text)
+    .replace(/<\|/g, "<\u200D|")
+    .replace(
+      /<(\/?)\s*(system|user|assistant|developer|section|tool|instructions?)\b/gi,
+      "<\u200D$1$2",
+    );
+}
+
+const clip = (s: string, n: number) => defuse(s).slice(0, n);
+
+/** `specialist.report` text is model output: sanitize every field before anyone reads it. */
+export function sanitizeReport(r: SpecialistReportInput): SpecialistReportInput {
+  return {
+    outcome: r.outcome,
+    summary: clip(r.summary, 600),
+    ...(r.findings === undefined
+      ? {}
+      : {
+          findings: r.findings.slice(0, 12).map((f) => ({
+            title: clip(f.title, 200),
+            detail: clip(f.detail, 2_000),
+            ...(f.sources === undefined
+              ? {}
+              : { sources: f.sources.slice(0, 10).map((x) => clip(x, 2_048)) }),
+          })),
+        }),
+    ...(r.artifacts === undefined ? {} : { artifacts: r.artifacts.slice(0, 32) }),
+    ...(r.next === undefined
+      ? {}
+      : {
+          next: r.next
+            .slice(0, 2)
+            .map((n) => ({ label: clip(n.label, 60), message: clip(n.message, 300) })),
+        }),
+    ...(r.gaps === undefined ? {} : { gaps: r.gaps.slice(0, 12).map((g) => clip(g, 300)) }),
+  };
+}
+
+function jobOf(task: Task): SpecialistJob | undefined {
+  const s = task.specialist;
+  if (s === undefined) return undefined;
+  const status: SpecialistJob["status"] =
+    s.result != null
+      ? s.result.outcome
+      : task.status === "queued"
+        ? "queued"
+        : task.status === "awaiting_approval" || task.status === "awaiting_input"
+          ? "needs_you"
+          : task.status === "cancelled"
+            ? "cancelled"
+            : task.status === "failed"
+              ? "failed"
+              : task.status === "done"
+                ? "done"
+                : "working";
+  return {
+    taskId: task.id,
+    runId: null,
+    threadId: task.threadId,
+    parentThreadId: s.parentThreadId,
+    parentRunId: s.parentRunId,
+    role: s.role,
+    title: task.title,
+    status,
+    queuePosition: s.queuePosition ?? null,
+    budget: s.budget,
+    deadline: s.deadline ?? null,
+    lastStep: null,
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
+    result: s.result ?? null,
+  };
+}
+
+export function createSpecialistHost(deps: SpecialistHostDeps): SpecialistHost {
+  const { db, tasks } = deps;
+  const roles = async (): Promise<SpecialistRoleDef[]> => {
+    const out: SpecialistRoleDef[] = [];
+    for (const r of await deps.roles.specialistRoles()) {
+      const on = setting(db, `specialists.enabled.${r.role.role}`);
+      if (!(typeof on === "boolean" ? on : r.defaultOn)) continue;
+      out.push({
+        role: r.role.role,
+        label: r.role.label,
+        description: r.role.description,
+        prompt: r.body,
+        model: modelFor(db, r.role.role, r.role.modelClass, deps.models),
+        maxMode: r.role.maxMode,
+        tools: [...r.role.tools],
+        memory: r.skill.specialist?.memory ?? "none",
+        result: r.role.result,
+        planFirst: r.role.planFirst,
+        budget: { ...r.role.budget },
+        caps: { ...r.role.caps },
+        approvals: [...r.role.approvals],
+      });
+    }
+    return out;
+  };
+
+  return {
+    roles,
+    async createJob(input: SpecialistJobInput) {
+      const thread = createThread(db, {
+        // An incognito parent's job is incognito too: no flush, no index, the same expiry (§4.9).
+        kind: input.incognito ? "incognito" : "subagent",
+        sessionKey: `specialist:${input.spec.role}:${db.newId()}`,
+        title: input.title,
+        titleSource: "user",
+        parentThreadId: input.spec.parentThreadId,
+        permissionMode: input.spec.permissionMode,
+        modelRef: input.spec.model,
+        expiresAt: input.incognito ? new Date(deps.now() + INCOGNITO_TTL_MS).toISOString() : null,
+      });
+      const task = await tasks.create({
+        threadId: thread.id,
+        title: input.title,
+        goal: input.brief,
+        createdFrom: "subagent",
+        ...(input.taint ? { taint: true, taintSources: input.taintSources } : {}),
+        specialist: input.spec,
+      });
+      return {
+        taskId: task.id,
+        threadId: thread.id,
+        queuePosition: input.spec.queuePosition ?? null,
+      };
+    },
+    async jobs(parentThreadId: string) {
+      const all = await tasks.list({});
+      return all
+        .map(jobOf)
+        .filter((j): j is SpecialistJob => j !== undefined && j.parentThreadId === parentThreadId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    },
+    async report(taskId: string, report: SpecialistReportInput, meta: SpecialistReportMeta) {
+      const clean = sanitizeReport(report);
+      const receipts = (await deps.broker.listReceipts({ taskId })).map((r) => r.id);
+      let stored: SpecialistResult | undefined;
+      await tasks.updateSpecialist(taskId, (spec) => {
+        // One result per job: a second report keeps the first (§4.2).
+        if (spec.result != null) {
+          stored = spec.result;
+          return spec;
+        }
+        stored = {
+          outcome: clean.outcome,
+          summary: clean.summary,
+          findings: clean.findings ?? [],
+          artifacts: clean.artifacts ?? [],
+          next: clean.next ?? [],
+          gaps: clean.gaps ?? [],
+          receipts,
+          tainted: meta.tainted,
+          ...(meta.stopReason === undefined ? {} : { stopReason: meta.stopReason }),
+        };
+        return { ...spec, result: stored };
+      });
+      return stored as SpecialistResult;
+    },
+    async promptSection() {
+      return specialistsPromptSection(await roles());
+    },
+  };
+}

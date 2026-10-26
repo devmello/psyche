@@ -17,6 +17,8 @@ import type {
   Run,
   RunFrame,
   RunStep,
+  SpecialistJob,
+  SpecialistRole,
   Task,
   TaskAction,
   ThreadListEntry,
@@ -108,6 +110,10 @@ export interface UiState {
   runStepDetails: Dict<RunStepDetail>;
   /** Frames Psyche saw during a run, by run id, ordered by seq. */
   runFrames: Dict<readonly RunFrame[]>;
+  /** Background specialist jobs by task id (`specialists.jobs`, `specialist.*` events). */
+  specialistJobs: Dict<SpecialistJob>;
+  /** The specialist roles with the owner's settings (`specialists.list`); null until loaded. */
+  specialistRoles: readonly SpecialistRole[] | null;
   toolCalls: Dict<ToolCall>;
   tasks: Dict<Task>;
   taskActions: Dict<readonly TaskAction[]>;
@@ -154,6 +160,8 @@ export const INITIAL_STATE: UiState = {
   runSteps: {},
   runStepDetails: {},
   runFrames: {},
+  specialistJobs: {},
+  specialistRoles: null,
   toolCalls: {},
   tasks: {},
   taskActions: {},

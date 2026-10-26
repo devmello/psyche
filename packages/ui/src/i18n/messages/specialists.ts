@@ -1,0 +1,80 @@
+/** Background specialists: the result card, the Inbox row and the spawn line (`specialists/`). */
+export const specialists = {
+  // The one status vocabulary (docs/agent/specialists-2026.md §6.2).
+  "specialists.status.queued": "Queued",
+  "specialists.status.working": "Working",
+  "specialists.status.needs_you": "Needs you",
+  "specialists.status.done": "Done",
+  "specialists.status.partial": "Partial",
+  "specialists.status.failed": "Failed",
+  "specialists.status.cancelled": "Cancelled",
+
+  "specialists.count.findings": "{n, plural, one {# finding} other {# findings}}",
+  "specialists.count.items": "{n, plural, one {# item} other {# items}}",
+  "specialists.count.changes": "{n, plural, one {# change} other {# changes}}",
+  "specialists.count.files": "{n, plural, one {# file} other {# files}}",
+  "specialists.queuedAt":
+    "{n, selectordinal, one {#st} two {#nd} few {#rd} other {#th}} · starts when a slot frees",
+  "specialists.stop.tokens": "token budget",
+  "specialists.stop.costUsd": "cost budget",
+  "specialists.stop.minutes": "time budget",
+  "specialists.stop.steps": "step budget",
+  "specialists.stop.deadline": "deadline",
+
+  // The card's first line, in Psyche's voice (§6.2 copy).
+  "specialists.card.done": "{role} finished {task}.",
+  "specialists.card.partial": "Stopped at its {budget}. See what's missing.",
+  "specialists.card.partialOther": "Stopped early. See what's missing.",
+  "specialists.card.failed": "{role} couldn't finish {task}.",
+  "specialists.card.nothingSent": "Nothing was sent or bought.",
+  "specialists.card.cancelled":
+    "Stopped. It had {n, plural, =0 {no receipts} one {# receipt} other {# receipts}} before you stopped it.",
+  "specialists.card.label": "{role} result: {task}",
+  "specialists.card.findings": "Findings",
+  "specialists.card.items": "Items",
+  "specialists.card.showAll": "Show all {n, number}",
+  "specialists.card.showFewer": "Show fewer",
+  "specialists.card.files": "Files",
+  "specialists.card.gaps": "What's missing",
+  "specialists.card.whatItDid": "What it did",
+  "specialists.card.nothingDone": "Nothing was sent, changed or bought.",
+  "specialists.card.usage": "Usage",
+  "specialists.card.taint": "It read content from outside sources. Treat its claims as unverified.",
+  "specialists.card.defaultUsed": "Used the default: {label}",
+  "specialists.card.source": "Source",
+
+  "specialists.usage.tokens": "{used} of {limit} tokens",
+  "specialists.usage.tokensOnly": "{used} tokens",
+  "specialists.usage.of": "{used} of {limit}",
+  "specialists.usage.steps": "{n, plural, one {# step} other {# steps}}",
+  "specialists.usage.retried": "incl. {cost} retried after errors",
+  "specialists.usage.unpriced": "no price",
+
+  "specialists.evaluator.done": "Checked: {reason}",
+  "specialists.evaluator.reopen": "Sent back once: {reason}",
+  "specialists.evaluator.escalate": "Needs your check: {reason}",
+
+  "specialists.action.openThread": "Open thread",
+  "specialists.action.retry": "Retry",
+  "specialists.action.timeline": "Timeline",
+  "specialists.action.open": "Open",
+  "specialists.action.hide": "Hide",
+  "specialists.retryFailed": "Psyche couldn't retry {title}: {reason}",
+
+  // The parent thread's line at spawn (§6.1, §4.4 pre-flight).
+  "specialists.spawn.line": "Started the {role} · {title}",
+  "specialists.spawn.label": "{role} started: {title}, {status}",
+  "specialists.preflight.label": "What it will ask first",
+  "specialists.preflight.new_origin": "Will ask before opening new sites",
+  "specialists.preflight.file_write": "Will ask before changing files",
+  "specialists.preflight.send_email": "Will ask before sending email",
+  "specialists.preflight.calendar_write": "Will ask before changing your calendar",
+  "specialists.preflight.exec": "Will ask before running commands",
+  "specialists.preflight.browser_submit": "Will ask before submitting forms",
+  "specialists.preflight.credential_fill": "Will ask before using a saved login",
+  "specialists.preflight.connector_action": "Will ask before acting in your apps",
+  "specialists.preflight.plan_exit": "Will show you a plan to approve first",
+  "specialists.preflight.estimate": "{label} (about {n, number})",
+
+  "specialists.feed.title": "From your specialists",
+} as const;

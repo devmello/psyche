@@ -29,6 +29,30 @@ export const PROACTIVITY_BUDGET = {
     /** Proposed ideas expire after this many days without a decision. */
     expiryDays: 14,
   },
+  mail: {
+    /** One digest notification a day (spec §3 rule 5). */
+    digestNotificationsPerDay: 1,
+    /** Unread messages one digest reads, at most. */
+    maxMessages: 200,
+    /** Message bodies read for the classifier, at most (the rest go by headers). */
+    maxBodyReads: 60,
+    /** A waiting-on loop is shown in at most this many digests, then it goes quiet. */
+    nudgeShowMax: 2,
+  },
+  meetings: {
+    /** Prep notifications a day; later preps are silent Feed posts (spec §4.5). */
+    prepNotificationsPerDay: 4,
+    /** The prep run starts this long before the meeting. */
+    prepLeadMs: 2 * 3_600_000,
+    /** The prep notification arrives this long before the meeting. */
+    notifyLeadMs: 60 * 60_000,
+    /** Recordings longer than this are refused (the helper's long-form ceiling, §4.6). */
+    maxRecordingMs: 4 * 3_600_000,
+    /** Above this the summary is chunked map-reduce on the utility model. */
+    singlePassMaxMs: 60 * 60_000,
+    /** One notification per notes post. */
+    notesNotificationsPerRecording: 1,
+  },
   goals: {
     /** Inferred candidates waiting for a decision at any time (confirm cards, UI §3.11). */
     maxOpenCandidates: 3,

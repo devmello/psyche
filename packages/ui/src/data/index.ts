@@ -16,6 +16,7 @@ export {
   useStoreState,
 } from "./provider.tsx";
 export * from "./runs.ts";
+export * from "./specialists.ts";
 export {
   INITIAL_STATE,
   type QueuedFollowUp,

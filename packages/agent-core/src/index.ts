@@ -16,6 +16,7 @@ export * from "./reasoning.ts";
 export * from "./registry.ts";
 export * from "./requester.ts";
 export * from "./routines.ts";
+export * from "./specialists.ts";
 export * from "./state.ts";
 export * from "./turn-context.ts";
 export {

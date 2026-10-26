@@ -52,25 +52,33 @@ public enum DictationCapabilities {
 
             Capability(CapabilitySpec(
                 name: "dictation.watch",
-                description: "Desktop dictation only: stream {key, down, at} while a hold-to-talk modifier (fn, Right Option, Right Command) goes down and up. Listen-only; a newer watch or key: null ends this one.",
+                description: "Desktop dictation and voice only: stream {key, down, at, role?} while a hold-to-talk modifier (fn, Right Option, Right Command) goes down and up. `keys` watches two keys with roles (dictation, voice); a single `key` has no role. Listen-only; a newer watch or key: null ends this one.",
                 sideEffect: .read,
                 inputSchema: Schema.object([
                     "key": Schema.string("Modifier to watch; null stops", enum: ["fn", "rightOption", "rightCommand"]),
+                    "keys": Schema.array(
+                        Schema.object([
+                            "key": Schema.string(enum: ["fn", "rightOption", "rightCommand"]),
+                            "role": Schema.string(enum: ["dictation", "voice"]),
+                        ], required: ["key", "role"]),
+                        description: "Up to two keys with distinct roles; wins over key", maxItems: 2),
                 ]),
                 streaming: true,
                 permissions: [.accessibility]
             )) { ctx in
-                let p = try ctx.decode(DictationWatchParams.self)
-                guard let key = p.key else {
+                let keys = try DictationWatchPlan.keys(try ctx.decode(DictationWatchParams.self))
+                guard !keys.isEmpty else {
                     watcher.stop()
                     return CapabilityOutput(["watching": false])
                 }
-                let changes = try watcher.start(key)
-                // The first event is the key's state once the tap is installed: the Gateway answers
-                // `watching: true` on it.
-                await ctx.emit(try JSONValue(encoding: DictationKeyPayload(at: DictationCapabilities.timestamp(), down: false, key: key, role: nil)))
-                for await down in changes {
-                    let payload = DictationKeyPayload(at: Self.timestamp(), down: down, key: key, role: nil)
+                let changes = try watcher.start(keys)
+                // The first events are the keys' states once the tap is installed: the Gateway
+                // answers `watching: true` on the first.
+                for k in keys {
+                    await ctx.emit(try JSONValue(encoding: DictationKeyPayload(at: Self.timestamp(), down: false, key: k.key, role: k.role)))
+                }
+                for await change in changes {
+                    let payload = DictationKeyPayload(at: Self.timestamp(), down: change.down, key: change.key, role: change.role)
                     await ctx.emit(try JSONValue(encoding: payload))
                 }
                 return CapabilityOutput(["watching": false])
@@ -164,19 +172,20 @@ public struct LiveDictationBackend: DictationBackend {
     }
 }
 
-/// One listen-only event tap for the hold-to-talk modifier. Starting a new watch ends the old one.
+/// One listen-only event tap for the hold-to-talk modifiers (one or two keys). Starting a new
+/// watch ends the old one.
 public final class DictationKeyWatcher: @unchecked Sendable {
     private let lock = NSLock()
     private var current: Watch?
 
     public init() {}
 
-    /// Starts watching `key`; the stream yields true / false on each hold and finishes when the
+    /// Starts watching `keys`; the stream yields each key's hold and release and finishes when the
     /// watch is replaced or stopped. Throws `permission_missing` without Accessibility.
-    public func start(_ key: DictationKey) throws -> AsyncStream<Bool> {
+    public func start(_ keys: [DictationWatchedKey]) throws -> AsyncStream<DictationKeyChange> {
         guard AXIsProcessTrusted() else { throw CapabilityError.permissionMissing(.accessibility) }
-        let (stream, continuation) = AsyncStream<Bool>.makeStream()
-        let watch = Watch(tracker: DictationKeyTracker(key: key), continuation: continuation)
+        let (stream, continuation) = AsyncStream<DictationKeyChange>.makeStream()
+        let watch = Watch(tracker: DictationKeySet(keys), continuation: continuation)
         guard watch.install() else { throw CapabilityError.permissionMissing(.accessibility) }
         lock.withLock {
             current?.finish()
@@ -197,13 +206,13 @@ public final class DictationKeyWatcher: @unchecked Sendable {
     }
 
     final class Watch: @unchecked Sendable {
-        private var tracker: DictationKeyTracker
-        private let continuation: AsyncStream<Bool>.Continuation
+        private var tracker: DictationKeySet
+        private let continuation: AsyncStream<DictationKeyChange>.Continuation
         private var tap: CFMachPort?
         private var runLoop: CFRunLoop?
         private let lock = NSLock()
 
-        init(tracker: DictationKeyTracker, continuation: AsyncStream<Bool>.Continuation) {
+        init(tracker: DictationKeySet, continuation: AsyncStream<DictationKeyChange>.Continuation) {
             self.tracker = tracker
             self.continuation = continuation
         }
@@ -243,15 +252,15 @@ public final class DictationKeyWatcher: @unchecked Sendable {
                 return
             }
             if event.getIntegerValueField(.eventSourceUserData) == Input.marker { return }
-            let change: Bool? = lock.withLock {
+            let changes: [DictationKeyChange] = lock.withLock {
                 switch type {
                 case .flagsChanged:
                     tracker.flagsChanged(keyCode: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags.rawValue)
                 case .keyDown: tracker.keyDown()
-                default: nil
+                default: []
                 }
             }
-            if let change { continuation.yield(change) }
+            for change in changes { continuation.yield(change) }
         }
 
         func finish() {

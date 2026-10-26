@@ -1,10 +1,14 @@
 import type {
   ApprovalAnswerInput,
   ApprovalKind,
+  ApprovalRequest,
   ApprovalRequestInput,
   DecisionContext,
   DecisionResult,
   GrantScope,
+  JsonObject,
+  SideEffect,
+  Surface,
   ToolCallIntent,
 } from "@psyche/protocol";
 
@@ -126,6 +130,35 @@ export interface PolicyApprovalInput extends ApprovalRequestInput {
   typedConfirmation?: string;
   /** Taint sources shown on the card. */
   taintSources?: TaintSource[];
+  /** `kind: "batch"`: the decided calls the one approval covers, in order (§8.1, #670). */
+  batch?: { children: BatchChild[] };
+}
+
+/**
+ * One call inside a batch approval, as the broker decided it when the batch was requested. On
+ * approval the broker mints one approved, once-only child approval per call, bound to the
+ * call's own binding hash, so every existing check (the loop's `verifyBinding`, connectors
+ * confirming their authority) works unchanged.
+ */
+export interface BatchChild {
+  call: PolicyCall;
+  kind: ApprovalKind;
+  bindingHash: string;
+  grantKey: string;
+  sideEffect: SideEffect;
+  summary: string;
+}
+
+/** `requestBatch` input (docs/workflows/mail-and-meetings-2026.md §8.1). */
+export interface PolicyBatchInput {
+  title: string;
+  children: { call: PolicyCall; summary: string }[];
+  context: PolicyContext;
+  requestedBy: ApprovalRequest["requestedBy"];
+  surfaces: Surface[];
+  details?: JsonObject;
+  taintSources?: TaintSource[];
+  ttlMs?: number;
 }
 
 /** WebAuthn assertion or helper-signed Touch ID signature over the challenge (design-04). */
