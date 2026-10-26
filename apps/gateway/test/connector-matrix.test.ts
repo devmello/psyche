@@ -252,6 +252,26 @@ describe("connector action matrix → broker (#747)", () => {
     });
   });
 
+  it("an echoed catalogue default is not a choice: neither side flips (music, reads)", () => {
+    // Settings saves the whole matrix; music.control's default allow is echoed, not chosen.
+    const defaults = (type: string) =>
+      type === "apple:music" ? { "music.control": "allow", "music.read": "allow" } : undefined;
+    const music = record({ id: "apple-music", type: "apple:music" });
+    const echoed = ownerMatrices({
+      "permissions.connectors.apple-music": { "music.control": "allow", "music.read": "allow" },
+    });
+    const out = brokerConnectors(undefined, echoed, [music], defaults);
+    expect(out["apple-music"]).toEqual({});
+    expect(out["apple.music"]).toEqual({});
+    const changed = ownerMatrices({
+      "permissions.connectors.apple-music": { "music.control": "ask", "music.read": "deny" },
+    });
+    expect(brokerConnectors(undefined, changed, [music], defaults)).toEqual({
+      "apple-music": { "music.control": "ask", "music.read": "deny" },
+      "apple.music": { "music.control": "ask", "music.read": "deny" },
+    });
+  });
+
   it("every Apple connector tool's group matches its APPLE_APP_ACTIONS row (no drift)", () => {
     let checked = 0;
     for (const f of appleFactories({ helper: () => helper })) {

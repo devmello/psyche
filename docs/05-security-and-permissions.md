@@ -249,7 +249,7 @@ An `uncertain` receipt (timeout after dispatch) is never retried automatically; 
 
 ### 3.12 Connector action matrix (Settings → Connectors)
 
-The owner sets Allow / Ask / Deny per connector **action group** (`mail.read`, `mail.organize`, `mail.send`, `reminders.write`, …). Settings saves the rules as `permissions.connectors.<connectorId>`. The Gateway layers them over `permissions.connectors` from `permissions.policy` (the owner's Settings rule wins) and applies them to both the broker and the connector executor's own matrix (#747).
+The owner sets Allow / Ask / Deny per connector **action group** (`mail.read`, `mail.organize`, `mail.send`, `reminders.write`, …). Settings saves the rules as `permissions.connectors.<connectorId>`. The Gateway layers them over `permissions.connectors` from `permissions.policy` (the owner's Settings rule wins) and applies them to both the broker and the connector executor's own matrix (#747). Settings saves a connector's whole matrix, so the broker takes only the rules that differ from the catalogue default. An echoed default is not a choice: a default-allow read keeps its first-read card, and a direct `node.*` write keeps asking.
 
 - **Resolving the group.** The connectors registry stamps every connector tool call with `connectorRule: {id: <connectorId>, action: <group>}`. A connector may only narrow it to a sub-key of its own group, such as `shortcuts.run/<shortcutId>`. Only the Gateway writes sub-key rules, and only from the owner's own settings. A sub-key's rule overrides the group's, except that a group deny always wins; the connector executor uses the same order.
 - **Decisions.**
