@@ -214,6 +214,9 @@ export const pt: Partial<Catalogue> = {
   "blocks.common.hide": "Ocultar",
   "blocks.common.viewDiff": "Ver diferenças",
   "blocks.common.open": "Abrir",
+  "blocks.card.status":
+    "{status, select, pending {Pendente} running {Em execução} waiting {Aguardando} done {Concluído} failed {Falhou} blocked {Bloqueado} cancelled {Cancelado} other {{status}}}{warning, select, yes {, resultado incerto} other {}}",
+  "blocks.card.unknown": "O Psyche ainda não consegue mostrar este tipo de item ({type}).",
   "blocks.message.loading":
     "Carregando {what, select, approval {aprovação} question {pergunta} receipt {recibo} artifact {artefato} file {arquivo} task {tarefa} plan {plano} other {item}}",
   "blocks.message.missing":

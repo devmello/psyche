@@ -229,6 +229,9 @@ export const de: Partial<Catalogue> = {
   "blocks.common.viewDiff": "Diff anzeigen",
   "blocks.common.open": "Öffnen",
 
+  "blocks.card.status":
+    "{status, select, pending {Ausstehend} running {Läuft} waiting {Wartet} done {Fertig} failed {Fehlgeschlagen} blocked {Blockiert} cancelled {Abgebrochen} other {{status}}}{warning, select, yes {, Ergebnis unklar} other {}}",
+  "blocks.card.unknown": "Psyche kann diese Art von Element noch nicht anzeigen ({type}).",
   "blocks.message.loading":
     "{what, select, approval {Genehmigung} question {Frage} receipt {Beleg} artifact {Artefakt} file {Datei} task {Aufgabe} plan {Plan} other {Element}} wird geladen",
   "blocks.message.missing":
