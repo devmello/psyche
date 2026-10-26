@@ -1,0 +1,35 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Overview screen strings (hi); merged into `../hi.ts`. */
+export const overview: Partial<Catalogue> = {
+  "overview.title": "{name} और आप",
+  "overview.screen": "अवलोकन",
+  "overview.period.label": "अवधि",
+  "overview.period.week": "सप्ताह",
+  "overview.period.month": "महीना",
+  "overview.period.all": "सभी समय",
+  "overview.range.since": "{date} से",
+  "overview.range.allTime": "सभी समय",
+  "overview.jump.label": "किसी अनुभाग पर जाएँ",
+  "overview.section.now": "अभी और आगे",
+  "overview.section.activity": "गतिविधि",
+  "overview.section.growth": "विकास",
+  "overview.section.people": "लोग और प्रोजेक्ट",
+  "overview.section.built": "आपके लिए बनाया गया",
+  "overview.section.specialists": "विशेषज्ञ",
+  "overview.section.upcoming": "आगामी",
+  "overview.section.recent": "हाल के रन",
+  "overview.section.empty": "यहाँ अभी कुछ नहीं है।",
+  "overview.newUser.title": "{name} आपको जानना शुरू कर रहा है",
+  "overview.newUser.body":
+    "एक सप्ताह में आप देखेंगे कि {name} ने आपके लिए क्या किया, उसने क्या सीखा, और वह किन लोगों और प्रोजेक्ट का ध्यान रख रहा है।",
+  "overview.newUser.try": "आज़माएँ",
+  "overview.newUser.planWeek": "{name} से अपना सप्ताह प्लान करवाएँ",
+  "overview.newUser.morningBrief": "सुबह की ब्रीफ़ सेट करें",
+  "overview.newUser.connectMail": "अपना मेल जोड़ें",
+  "overview.run.title": "रन",
+  "overview.run.placeholder": "रन की टाइमलाइन यहाँ आ रही है।",
+  "overview.run.back": "अवलोकन पर वापस जाएँ",
+  "shell.rail.overview": "अवलोकन",
+  "shell.sidebar.openOverview": "अवलोकन खोलें",
+};

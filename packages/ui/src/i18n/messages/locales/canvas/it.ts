@@ -3,6 +3,11 @@ import type { Catalogue } from "../../index.ts";
 /** Output canvas strings (it); merged into `../it.ts`. */
 export const canvas: Partial<Catalogue> = {
   "canvas.chart": "Grafico",
+  "canvas.htmlOff":
+    "Proviene da contenuti non attendibili, quindi l’anteprima è disattivata. Eseguila solo se ti fidi. Gira in una sandbox senza rete.",
+  "canvas.htmlRun": "Esegui",
+  "canvas.htmlNoPreview":
+    "Questo host non può mostrare l’anteprima HTML; viene mostrato il sorgente.",
   "canvas.label": "Canvas: {title}",
   "canvas.recents": "Risultati recenti",
   "canvas.loading": "Caricamento…",

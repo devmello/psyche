@@ -4364,6 +4364,96 @@ export interface QuestionOption {
 
 export type InputRequestStatus = "open" | "answered" | "cancelled";
 
+export interface InsightsSummaryParams {
+    timeZone?: string;
+    window:    GrowthWindow;
+}
+
+export interface InsightsSummaryResult {
+    days:             InsightDay[];
+    firstActivityAt?: null | string;
+    previous?:        InsightTotals | null;
+    range:            Range;
+    topEntities:      InsightEntity[];
+    totals:           InsightTotals;
+    window:           GrowthWindow;
+}
+
+export interface InsightDay {
+    date:   string;
+    failed: number;
+    runs:   InsightDayRuns;
+    wallMs: number;
+}
+
+export interface InsightDayRuns {
+    automation: number;
+    chat:       number;
+    task:       number;
+}
+
+export interface InsightTotals {
+    approvals:      Approvals;
+    artifacts:      Artifacts;
+    busiestDay?:    BusiestDay | null;
+    runs:           InsightTotalsRuns;
+    runsDone:       number;
+    runsFailed:     number;
+    specialists:    Specialists;
+    topAutomation?: TopAutomation | null;
+    wallMs:         number;
+}
+
+export interface Approvals {
+    approved: number;
+    denied:   number;
+    expired:  number;
+}
+
+export interface Artifacts {
+    charts:   number;
+    created:  number;
+    versions: number;
+}
+
+export interface BusiestDay {
+    date: string;
+    runs: number;
+}
+
+export interface InsightTotalsRuns {
+    automation: number;
+    chat:       number;
+    subagent:   number;
+    task:       number;
+}
+
+export interface Specialists {
+    done:    number;
+    failed:  number;
+    partial: number;
+}
+
+export interface TopAutomation {
+    automationId: string;
+    runs:         number;
+    title:        string;
+}
+
+export interface Range {
+    from: string;
+    to:   string;
+}
+
+export interface InsightEntity {
+    entityId:          string;
+    interactions:      number;
+    kind:              GraphEntityKind;
+    lastInteractionAt: string;
+    name:              string;
+    openLoops:         number;
+}
+
 export interface LearnedBlock {
     items: LearnedFact[];
     type:  LearnedBlockType;
@@ -7251,6 +7341,7 @@ export interface SpecialistSpawnedPayload {
 }
 
 export interface SpecialistJob {
+    automation?:    SpecialistAutomation;
     budget:         RunBudget;
     createdAt:      string;
     deadline?:      null | string;
@@ -7270,6 +7361,11 @@ export interface SpecialistJob {
     threadId:  string;
     title:     string;
     updatedAt: string;
+}
+
+export interface SpecialistAutomation {
+    id:    string;
+    title: string;
 }
 
 export interface ApprovalHint {
@@ -7509,6 +7605,7 @@ export interface PlanStep {
 export type PlanStepStatus = "pending" | "running" | "done" | "failed" | "skipped";
 
 export interface SpecialistSpec {
+    automation?:    SpecialistAutomation;
     budget:         RunBudget;
     budgetPause?:   BudgetPause | null;
     deadline?:      null | string;

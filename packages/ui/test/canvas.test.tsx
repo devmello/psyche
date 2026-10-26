@@ -92,6 +92,46 @@ describe("chart, diff and diagram in the canvas", () => {
   });
 });
 
+function mountWithPreview(id: string) {
+  render(
+    <StoryWorld
+      edit={withCanvas}
+      slots={{
+        renderArtifact: ({ artifact, content }) =>
+          artifact.type === "html" ? (
+            <div data-testid="live-preview">{content.content}</div>
+          ) : undefined,
+      }}
+    >
+      <CanvasPane artifactId={id} threadId={IDS.threads.lisbon} onSelect={() => {}} />
+    </StoryWorld>,
+  );
+}
+
+describe("html artifacts (chat-experience-2026 §4.6)", () => {
+  it("previews trusted html at once", async () => {
+    mountWithPreview(CANVAS_IDS.html);
+    expect(await screen.findByTestId("live-preview")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Run" })).toBeNull();
+  });
+
+  it("keeps html from untrusted sources off until Run, and off again on a new version", async () => {
+    mountWithPreview(CANVAS_IDS.htmlUntrusted);
+    expect(await screen.findByText(/preview is off/)).toBeTruthy();
+    expect(screen.queryByTestId("live-preview")).toBeNull();
+    // The source is readable, never executed.
+    expect(screen.getByText(/onclick/)).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Run" }));
+    expect(await screen.findByTestId("live-preview")).toBeTruthy();
+    expect(screen.queryByText(/preview is off/)).toBeNull();
+  });
+
+  it("says so when the host has no preview", async () => {
+    mount(CANVAS_IDS.html);
+    expect(await screen.findByText(/can't preview HTML/)).toBeTruthy();
+  });
+});
+
 describe("CanvasPane", () => {
   it("shows the latest version with recents tabs and the version picker", async () => {
     mount(CANVAS_IDS.doc);
@@ -101,7 +141,13 @@ describe("CanvasPane", () => {
       within(tabs)
         .getAllByRole("tab")
         .map((t) => t.textContent),
-    ).toEqual(["Lisbon itinerary", "Trip budget", "Trip cost chart", "Itinerary changes"]);
+    ).toEqual([
+      "Lisbon itinerary",
+      "Trip budget",
+      "Trip cost chart",
+      "Itinerary changes",
+      "Packing page",
+    ]);
     const picker = screen.getByRole("combobox", { name: "Version" });
     await waitFor(() => expect(within(picker).getAllByRole("option")).toHaveLength(3));
     expect(within(picker).getAllByRole("option")[0]?.textContent).toMatch(/^v3 · you/);

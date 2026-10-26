@@ -62,7 +62,7 @@ describe("Sidebar (redesign §5.1)", () => {
     const names = within(within(nav).getByRole("list", { name: "Destinations" }))
       .getAllByRole("button")
       .map((b) => b.getAttribute("data-destination"));
-    expect(names).toEqual(["chat", "search", "feed", "ideas", "goals", "library"]);
+    expect(names).toEqual(["chat", "search", "feed", "ideas", "goals", "library", "overview"]);
     const ideas = destination("Ideas");
     expect(ideas.getAttribute("aria-current")).toBe("page");
     expect(ideas.getAttribute("aria-label")).toBe("Ideas, 2 new");
@@ -159,6 +159,15 @@ describe("Sidebar (redesign §5.1)", () => {
     await userEvent.click(within(footer).getByRole("button", { name: "Settings and help" }));
     await userEvent.click(await screen.findByRole("menuitem", { name: /^Settings/ }));
     expect(onNavigate).toHaveBeenCalledWith("/settings/model");
+  });
+
+  it("marks Overview current on /overview and opens it from the footer avatar", async () => {
+    const { onNavigate } = renderSidebar({ route: "/overview?period=30d" });
+    expect(destination("Overview").getAttribute("aria-current")).toBe("page");
+    await userEvent.click(
+      within(screen.getByTestId("sidebar-footer")).getByRole("button", { name: "Open Overview" }),
+    );
+    expect(onNavigate).toHaveBeenCalledWith("/overview");
   });
 
   it("reveals the thread filter and narrows the rows", async () => {
@@ -305,7 +314,7 @@ describe("AppShell sidebar and compact layout", () => {
       within(tabs)
         .getAllByRole("button")
         .map((b) => b.textContent),
-    ).toEqual(["Chat", "Feed", "Ideas", "Goals", "Library"]);
+    ).toEqual(["Chat", "Feed", "Ideas", "Goals", "Library", "Overview"]);
     await userEvent.click(within(tabs).getByRole("button", { name: "Feed" }));
     expect(routes).toContain("/feed");
     await userEvent.click(screen.getByRole("button", { name: "Threads" }));

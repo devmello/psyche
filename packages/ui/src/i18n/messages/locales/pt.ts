@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { canvas } from "./canvas/pt.ts";
 import { charts } from "./charts/pt.ts";
 import { mailMeetings } from "./mail-meetings/pt.ts";
+import { overview } from "./overview/pt.ts";
 import { workflows } from "./workflows/pt.ts";
 
 /** Portuguese catalogue (pt, Brazil). Same ids as `en`; missing ids fall back to English. */
@@ -10,6 +11,8 @@ export const pt: Partial<Catalogue> = {
   ...mailMeetings,
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
+  // the Overview screen (docs/design/agent-overview-2026.md)
+  ...overview,
   // the output canvas (docs/design/chat-experience-2026.md §4.2)
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
@@ -3310,4 +3313,5 @@ export const pt: Partial<Catalogue> = {
     "Caso contrário, o Psyche só a envia quando seu pedido é sobre a tela, e só olha para ela se precisar.",
   "voice.phrases.screen":
     "isso|esse|essa|este|esta|aqui|na tela|na minha tela|o que estou vendo|o que é isso|essa página|esse erro|esse gráfico|essa janela|acima",
+  "specialists.card.fromAutomation": "Da sua automação {name}",
 };

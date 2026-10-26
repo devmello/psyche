@@ -1,0 +1,35 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Overview screen strings (ko); merged into `../ko.ts`. */
+export const overview: Partial<Catalogue> = {
+  "overview.title": "{name}와 나",
+  "overview.screen": "개요",
+  "overview.period.label": "기간",
+  "overview.period.week": "주",
+  "overview.period.month": "월",
+  "overview.period.all": "전체",
+  "overview.range.since": "{date}부터",
+  "overview.range.allTime": "전체 기간",
+  "overview.jump.label": "섹션으로 이동",
+  "overview.section.now": "지금과 다음",
+  "overview.section.activity": "활동",
+  "overview.section.growth": "성장",
+  "overview.section.people": "사람 및 프로젝트",
+  "overview.section.built": "나를 위해 만든 것",
+  "overview.section.specialists": "전문가",
+  "overview.section.upcoming": "예정",
+  "overview.section.recent": "최근 실행",
+  "overview.section.empty": "아직 아무것도 없습니다.",
+  "overview.newUser.title": "{name}이(가) 당신을 알아가는 중입니다",
+  "overview.newUser.body":
+    "일주일 후에는 {name}이(가) 해 준 일, 배운 것, 파악하고 있는 사람과 프로젝트를 볼 수 있습니다.",
+  "overview.newUser.try": "시도해 보기",
+  "overview.newUser.planWeek": "{name}에게 이번 주 계획 부탁하기",
+  "overview.newUser.morningBrief": "아침 브리핑 설정하기",
+  "overview.newUser.connectMail": "메일 연결하기",
+  "overview.run.title": "실행",
+  "overview.run.placeholder": "실행 타임라인이 이곳으로 옮겨집니다.",
+  "overview.run.back": "개요로 돌아가기",
+  "shell.rail.overview": "개요",
+  "shell.sidebar.openOverview": "개요 열기",
+};

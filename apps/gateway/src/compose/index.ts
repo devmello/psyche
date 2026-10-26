@@ -104,6 +104,7 @@ import {
   surfaceOf,
 } from "./handlers.ts";
 import { composeHarnesses } from "./harnesses.ts";
+import { insightsHandlers } from "./insights.ts";
 import { libraryHandlers } from "./library.ts";
 import {
   clearModelKey,
@@ -1129,6 +1130,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         tasks,
         roles: skills.roles,
         now: () => clock.now(),
+        raise: (taskId, patch) =>
+          raiseSpecialistBudget({ tasks, host: specialists }, taskId, patch),
         poke: () => specialistPool.poke(),
       }) as never,
     ),
@@ -1153,6 +1156,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...attentionHandlers(attention),
     ...libraryHandlers({ db, home: config.home }),
     ...modelSettingsHandlers(modelSettings),
+    // The Overview's aggregates (docs/design/agent-overview-2026.md §6.2): read-only SQL.
+    ...insightsHandlers({ db }),
     // The sidebar's usage footer (#599): a read over the run ledger.
     ...usageSummaryHandlers({
       db,

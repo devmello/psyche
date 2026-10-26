@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { canvas } from "./canvas/ko.ts";
 import { charts } from "./charts/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
+import { overview } from "./overview/ko.ts";
 import { workflows } from "./workflows/ko.ts";
 
 /** Korean catalogue (ko). Same ids as `en`; missing ids fall back to English. */
@@ -10,6 +11,8 @@ export const ko: Partial<Catalogue> = {
   ...mailMeetings,
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
+  // the Overview screen (docs/design/agent-overview-2026.md)
+  ...overview,
   // the output canvas (docs/design/chat-experience-2026.md §4.2)
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
@@ -3281,4 +3284,5 @@ export const ko: Partial<Catalogue> = {
     "이 옵션이 꺼져 있으면 Psyche는 요청이 화면에 관한 것일 때만 스크린샷을 보내고, 필요할 때만 확인합니다.",
   "voice.phrases.screen":
     "이거|이것|저거|그거|여기|화면|화면에|지금 보고 있는|이 페이지|이 오류|이 에러|이 차트|이 창|위에|아래",
+  "specialists.card.fromAutomation": "자동화 {name}에서",
 };

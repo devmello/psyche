@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { canvas } from "./canvas/ar.ts";
 import { charts } from "./charts/ar.ts";
 import { mailMeetings } from "./mail-meetings/ar.ts";
+import { overview } from "./overview/ar.ts";
 import { workflows } from "./workflows/ar.ts";
 
 /** Arabic catalogue (ar). Same ids as `en`; missing ids fall back to English. */
@@ -10,6 +11,8 @@ export const ar: Partial<Catalogue> = {
   ...mailMeetings,
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
+  // the Overview screen (docs/design/agent-overview-2026.md)
+  ...overview,
   // the output canvas (docs/design/chat-experience-2026.md §4.2)
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
@@ -3309,4 +3312,5 @@ export const ar: Partial<Catalogue> = {
     "وإلا فإن Psyche يرسلها فقط عندما يتعلق طلبك بالشاشة، ولا ينظر إليها إلا إذا احتاج إلى ذلك.",
   "voice.phrases.screen":
     "هذا|هذه|ذلك|تلك|هنا|على الشاشة|على شاشتي|ماذا أرى|ما هذا|هذه الصفحة|هذا الخطأ|هذا الرسم البياني|هذه النافذة|أعلاه|بالأسفل",
+  "specialists.card.fromAutomation": "من أتمتتك {name}",
 };

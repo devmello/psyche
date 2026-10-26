@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { canvas } from "./canvas/zh.ts";
 import { charts } from "./charts/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
+import { overview } from "./overview/zh.ts";
 import { workflows } from "./workflows/zh.ts";
 
 /** Simplified Chinese catalogue (zh). Same ids as `en`; missing ids fall back to English. */
@@ -10,6 +11,8 @@ export const zh: Partial<Catalogue> = {
   ...mailMeetings,
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
+  // the Overview screen (docs/design/agent-overview-2026.md)
+  ...overview,
   // the output canvas (docs/design/chat-experience-2026.md §4.2)
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
@@ -3204,4 +3207,5 @@ export const zh: Partial<Catalogue> = {
     "否则，Psyche 只在你的请求与屏幕有关时才发送截屏，并且只在需要时才查看。",
   "voice.phrases.screen":
     "这个|这|那个|这里|屏幕|屏幕上|我在看什么|这是什么|这个页面|这个错误|这个报错|这个图表|这个窗口|上面|下面",
+  "specialists.card.fromAutomation": "来自你的自动化 {name}",
 };

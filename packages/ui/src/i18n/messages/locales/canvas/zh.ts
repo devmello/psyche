@@ -3,6 +3,10 @@ import type { Catalogue } from "../../index.ts";
 /** Output canvas strings (zh); merged into `../zh.ts`. */
 export const canvas: Partial<Catalogue> = {
   "canvas.chart": "图表",
+  "canvas.htmlOff":
+    "此内容来自不受信任的来源，因此预览已关闭。仅在信任时才运行。它在无网络的沙盒中运行。",
+  "canvas.htmlRun": "运行",
+  "canvas.htmlNoPreview": "此主机无法预览 HTML，已显示源代码。",
   "canvas.label": "画布：{title}",
   "canvas.recents": "最近的输出",
   "canvas.loading": "正在加载…",

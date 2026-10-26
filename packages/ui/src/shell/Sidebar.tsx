@@ -404,13 +404,22 @@ export function Sidebar({
             className="flex h-11 shrink-0 items-center gap-2 ps-3 pe-1"
             data-testid="sidebar-footer"
           >
-            <Avatar
-              name={persona.name}
-              creature={persona.creature}
-              {...(persona.imageSrc ? { imageSrc: persona.imageSrc } : {})}
-              size={20}
-              decorative
-            />
+            {/* The avatar opens the Overview, "{persona} & you" (agent-overview-2026 §8.8). */}
+            <button
+              type="button"
+              onClick={() => onNavigate("/overview")}
+              aria-label={t("shell.sidebar.openOverview")}
+              className="flex shrink-0 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              data-testid="sidebar-avatar"
+            >
+              <Avatar
+                name={persona.name}
+                creature={persona.creature}
+                {...(persona.imageSrc ? { imageSrc: persona.imageSrc } : {})}
+                size={20}
+                decorative
+              />
+            </button>
             <div className="flex min-w-0 flex-1 flex-col">
               {renderUsage ? (
                 renderUsage("full", persona.name)

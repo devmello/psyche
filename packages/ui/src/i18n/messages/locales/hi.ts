@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { canvas } from "./canvas/hi.ts";
 import { charts } from "./charts/hi.ts";
 import { mailMeetings } from "./mail-meetings/hi.ts";
+import { overview } from "./overview/hi.ts";
 import { workflows } from "./workflows/hi.ts";
 
 /** Hindi catalogue (hi). Same ids as `en`; missing ids fall back to English. */
@@ -10,6 +11,8 @@ export const hi: Partial<Catalogue> = {
   ...mailMeetings,
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
+  // the Overview screen (docs/design/agent-overview-2026.md)
+  ...overview,
   // the output canvas (docs/design/chat-experience-2026.md §4.2)
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
@@ -3299,4 +3302,5 @@ export const hi: Partial<Catalogue> = {
     "नहीं तो Psyche इसे सिर्फ़ तब भेजता है जब आपका अनुरोध स्क्रीन के बारे में हो, और ज़रूरत होने पर ही इसे देखता है।",
   "voice.phrases.screen":
     "यह|ये|वह|इस|यहाँ|स्क्रीन पर|मेरी स्क्रीन पर|मैं क्या देख रहा हूँ|यह क्या है|यह पेज|यह एरर|यह चार्ट|यह विंडो|ऊपर|नीचे",
+  "specialists.card.fromAutomation": "आपके ऑटोमेशन {name} से",
 };

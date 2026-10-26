@@ -506,6 +506,11 @@
 //   let inputRequestResult = try? JSONDecoder().decode(InputRequestResult.self, from: jsonData)
 //   let inputRequestStatus = try? JSONDecoder().decode(InputRequestStatus.self, from: jsonData)
 //   let inputVia = try? JSONDecoder().decode(InputVia.self, from: jsonData)
+//   let insightDay = try? JSONDecoder().decode(InsightDay.self, from: jsonData)
+//   let insightEntity = try? JSONDecoder().decode(InsightEntity.self, from: jsonData)
+//   let insightTotals = try? JSONDecoder().decode(InsightTotals.self, from: jsonData)
+//   let insightsSummaryParams = try? JSONDecoder().decode(InsightsSummaryParams.self, from: jsonData)
+//   let insightsSummaryResult = try? JSONDecoder().decode(InsightsSummaryResult.self, from: jsonData)
 //   let learnedBlock = try? JSONDecoder().decode(LearnedBlock.self, from: jsonData)
 //   let learnedFact = try? JSONDecoder().decode(LearnedFact.self, from: jsonData)
 //   let lesson = try? JSONDecoder().decode(Lesson.self, from: jsonData)
@@ -924,6 +929,7 @@
 //   let skillsSetEnabledParams = try? JSONDecoder().decode(SkillsSetEnabledParams.self, from: jsonData)
 //   let skillsSetEnabledResult = try? JSONDecoder().decode(SkillsSetEnabledResult.self, from: jsonData)
 //   let sourcedLine = try? JSONDecoder().decode(SourcedLine.self, from: jsonData)
+//   let specialistAutomation = try? JSONDecoder().decode(SpecialistAutomation.self, from: jsonData)
 //   let specialistBudgetSetting = try? JSONDecoder().decode(SpecialistBudgetSetting.self, from: jsonData)
 //   let specialistFinding = try? JSONDecoder().decode(SpecialistFinding.self, from: jsonData)
 //   let specialistInputs = try? JSONDecoder().decode(SpecialistInputs.self, from: jsonData)
@@ -13172,6 +13178,289 @@ public enum InputRequestStatus: String, Codable, Sendable {
     case inputRequestStatusOpen = "open"
 }
 
+// MARK: - InsightsSummaryParams
+public struct InsightsSummaryParams: Codable, Sendable {
+    public let timeZone: String?
+    public let window: GrowthWindow
+
+    public enum CodingKeys: String, CodingKey {
+        case timeZone = "timeZone"
+        case window = "window"
+    }
+
+    public init(timeZone: String?, window: GrowthWindow) {
+        self.timeZone = timeZone
+        self.window = window
+    }
+}
+
+// MARK: - InsightsSummaryResult
+public struct InsightsSummaryResult: Codable, Sendable {
+    public let days: [InsightDay]
+    public let firstActivityAt: String?
+    public let previous: InsightTotals?
+    public let range: Range
+    public let topEntities: [InsightEntity]
+    public let totals: InsightTotals
+    public let window: GrowthWindow
+
+    public enum CodingKeys: String, CodingKey {
+        case days = "days"
+        case firstActivityAt = "firstActivityAt"
+        case previous = "previous"
+        case range = "range"
+        case topEntities = "topEntities"
+        case totals = "totals"
+        case window = "window"
+    }
+
+    public init(days: [InsightDay], firstActivityAt: String?, previous: InsightTotals?, range: Range, topEntities: [InsightEntity], totals: InsightTotals, window: GrowthWindow) {
+        self.days = days
+        self.firstActivityAt = firstActivityAt
+        self.previous = previous
+        self.range = range
+        self.topEntities = topEntities
+        self.totals = totals
+        self.window = window
+    }
+}
+
+// MARK: - InsightDay
+public struct InsightDay: Codable, Sendable {
+    public let date: String
+    public let failed: Int
+    public let runs: InsightDayRuns
+    public let wallMS: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case date = "date"
+        case failed = "failed"
+        case runs = "runs"
+        case wallMS = "wallMs"
+    }
+
+    public init(date: String, failed: Int, runs: InsightDayRuns, wallMS: Int) {
+        self.date = date
+        self.failed = failed
+        self.runs = runs
+        self.wallMS = wallMS
+    }
+}
+
+// MARK: - InsightDayRuns
+public struct InsightDayRuns: Codable, Sendable {
+    public let automation: Int
+    public let chat: Int
+    public let task: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case automation = "automation"
+        case chat = "chat"
+        case task = "task"
+    }
+
+    public init(automation: Int, chat: Int, task: Int) {
+        self.automation = automation
+        self.chat = chat
+        self.task = task
+    }
+}
+
+// MARK: - InsightTotals
+public struct InsightTotals: Codable, Sendable {
+    public let approvals: Approvals
+    public let artifacts: Artifacts
+    public let busiestDay: BusiestDay?
+    public let runs: InsightTotalsRuns
+    public let runsDone: Int
+    public let runsFailed: Int
+    public let specialists: Specialists
+    public let topAutomation: TopAutomation?
+    public let wallMS: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case approvals = "approvals"
+        case artifacts = "artifacts"
+        case busiestDay = "busiestDay"
+        case runs = "runs"
+        case runsDone = "runsDone"
+        case runsFailed = "runsFailed"
+        case specialists = "specialists"
+        case topAutomation = "topAutomation"
+        case wallMS = "wallMs"
+    }
+
+    public init(approvals: Approvals, artifacts: Artifacts, busiestDay: BusiestDay?, runs: InsightTotalsRuns, runsDone: Int, runsFailed: Int, specialists: Specialists, topAutomation: TopAutomation?, wallMS: Int) {
+        self.approvals = approvals
+        self.artifacts = artifacts
+        self.busiestDay = busiestDay
+        self.runs = runs
+        self.runsDone = runsDone
+        self.runsFailed = runsFailed
+        self.specialists = specialists
+        self.topAutomation = topAutomation
+        self.wallMS = wallMS
+    }
+}
+
+// MARK: - Approvals
+public struct Approvals: Codable, Sendable {
+    public let approved: Int
+    public let denied: Int
+    public let expired: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case approved = "approved"
+        case denied = "denied"
+        case expired = "expired"
+    }
+
+    public init(approved: Int, denied: Int, expired: Int) {
+        self.approved = approved
+        self.denied = denied
+        self.expired = expired
+    }
+}
+
+// MARK: - Artifacts
+public struct Artifacts: Codable, Sendable {
+    public let charts: Int
+    public let created: Int
+    public let versions: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case charts = "charts"
+        case created = "created"
+        case versions = "versions"
+    }
+
+    public init(charts: Int, created: Int, versions: Int) {
+        self.charts = charts
+        self.created = created
+        self.versions = versions
+    }
+}
+
+// MARK: - BusiestDay
+public struct BusiestDay: Codable, Sendable {
+    public let date: String
+    public let runs: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case date = "date"
+        case runs = "runs"
+    }
+
+    public init(date: String, runs: Int) {
+        self.date = date
+        self.runs = runs
+    }
+}
+
+// MARK: - InsightTotalsRuns
+public struct InsightTotalsRuns: Codable, Sendable {
+    public let automation: Int
+    public let chat: Int
+    public let subagent: Int
+    public let task: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case automation = "automation"
+        case chat = "chat"
+        case subagent = "subagent"
+        case task = "task"
+    }
+
+    public init(automation: Int, chat: Int, subagent: Int, task: Int) {
+        self.automation = automation
+        self.chat = chat
+        self.subagent = subagent
+        self.task = task
+    }
+}
+
+// MARK: - Specialists
+public struct Specialists: Codable, Sendable {
+    public let done: Int
+    public let failed: Int
+    public let partial: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case done = "done"
+        case failed = "failed"
+        case partial = "partial"
+    }
+
+    public init(done: Int, failed: Int, partial: Int) {
+        self.done = done
+        self.failed = failed
+        self.partial = partial
+    }
+}
+
+// MARK: - TopAutomation
+public struct TopAutomation: Codable, Sendable {
+    public let automationID: String
+    public let runs: Int
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case automationID = "automationId"
+        case runs = "runs"
+        case title = "title"
+    }
+
+    public init(automationID: String, runs: Int, title: String) {
+        self.automationID = automationID
+        self.runs = runs
+        self.title = title
+    }
+}
+
+// MARK: - Range
+public struct Range: Codable, Sendable {
+    public let from: String
+    public let to: String
+
+    public enum CodingKeys: String, CodingKey {
+        case from = "from"
+        case to = "to"
+    }
+
+    public init(from: String, to: String) {
+        self.from = from
+        self.to = to
+    }
+}
+
+// MARK: - InsightEntity
+public struct InsightEntity: Codable, Sendable {
+    public let entityID: String
+    public let interactions: Int
+    public let kind: GraphEntityKind
+    public let lastInteractionAt: String
+    public let name: String
+    public let openLoops: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case entityID = "entityId"
+        case interactions = "interactions"
+        case kind = "kind"
+        case lastInteractionAt = "lastInteractionAt"
+        case name = "name"
+        case openLoops = "openLoops"
+    }
+
+    public init(entityID: String, interactions: Int, kind: GraphEntityKind, lastInteractionAt: String, name: String, openLoops: Int) {
+        self.entityID = entityID
+        self.interactions = interactions
+        self.kind = kind
+        self.lastInteractionAt = lastInteractionAt
+        self.name = name
+        self.openLoops = openLoops
+    }
+}
+
 // MARK: - LearnedBlock
 public struct LearnedBlock: Codable, Sendable {
     public let items: [LearnedFact]
@@ -21408,6 +21697,7 @@ public struct SpecialistSpawnedPayload: Codable, Sendable {
 
 // MARK: - SpecialistJob
 public struct SpecialistJob: Codable, Sendable {
+    public let automation: SpecialistAutomation?
     public let budget: RunBudget
     public let createdAt: String
     public let deadline: String?
@@ -21427,6 +21717,7 @@ public struct SpecialistJob: Codable, Sendable {
     public let updatedAt: String
 
     public enum CodingKeys: String, CodingKey {
+        case automation = "automation"
         case budget = "budget"
         case createdAt = "createdAt"
         case deadline = "deadline"
@@ -21445,7 +21736,8 @@ public struct SpecialistJob: Codable, Sendable {
         case updatedAt = "updatedAt"
     }
 
-    public init(budget: RunBudget, createdAt: String, deadline: String?, lastStep: String?, parentRunID: String?, parentThreadID: String, preflight: [ApprovalHint]?, queuePosition: Int?, result: SpecialistResult?, role: String, runID: String?, status: StatusElement, taskID: String, threadID: String, title: String, updatedAt: String) {
+    public init(automation: SpecialistAutomation?, budget: RunBudget, createdAt: String, deadline: String?, lastStep: String?, parentRunID: String?, parentThreadID: String, preflight: [ApprovalHint]?, queuePosition: Int?, result: SpecialistResult?, role: String, runID: String?, status: StatusElement, taskID: String, threadID: String, title: String, updatedAt: String) {
+        self.automation = automation
         self.budget = budget
         self.createdAt = createdAt
         self.deadline = deadline
@@ -21462,6 +21754,22 @@ public struct SpecialistJob: Codable, Sendable {
         self.threadID = threadID
         self.title = title
         self.updatedAt = updatedAt
+    }
+}
+
+// MARK: - SpecialistAutomation
+public struct SpecialistAutomation: Codable, Sendable {
+    public let id: String
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case title = "title"
+    }
+
+    public init(id: String, title: String) {
+        self.id = id
+        self.title = title
     }
 }
 
@@ -22075,6 +22383,7 @@ public enum PlanStepStatus: String, Codable, Sendable {
 
 // MARK: - SpecialistSpec
 public struct SpecialistSpec: Codable, Sendable {
+    public let automation: SpecialistAutomation?
     public let budget: RunBudget
     public let budgetPause: BudgetPause?
     public let deadline: String?
@@ -22095,6 +22404,7 @@ public struct SpecialistSpec: Codable, Sendable {
     public let tools: [String]
 
     public enum CodingKeys: String, CodingKey {
+        case automation = "automation"
         case budget = "budget"
         case budgetPause = "budgetPause"
         case deadline = "deadline"
@@ -22114,7 +22424,8 @@ public struct SpecialistSpec: Codable, Sendable {
         case tools = "tools"
     }
 
-    public init(budget: RunBudget, budgetPause: BudgetPause?, deadline: String?, deliver: Deliver, inputs: SpecialistInputs, model: String, parentRunID: String?, parentThreadID: String, permissionMode: PermissionMode, planApproved: Bool?, planFirst: Bool, preflight: [ApprovalHint]?, queuePosition: Int?, result: SpecialistResult?, role: String, rootRunID: String?, tools: [String]) {
+    public init(automation: SpecialistAutomation?, budget: RunBudget, budgetPause: BudgetPause?, deadline: String?, deliver: Deliver, inputs: SpecialistInputs, model: String, parentRunID: String?, parentThreadID: String, permissionMode: PermissionMode, planApproved: Bool?, planFirst: Bool, preflight: [ApprovalHint]?, queuePosition: Int?, result: SpecialistResult?, role: String, rootRunID: String?, tools: [String]) {
+        self.automation = automation
         self.budget = budget
         self.budgetPause = budgetPause
         self.deadline = deadline

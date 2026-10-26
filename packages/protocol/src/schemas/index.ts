@@ -5,6 +5,7 @@ export * from "./context.ts";
 export * from "./custom-connectors.ts";
 export * from "./graph.ts";
 export * from "./identity.ts";
+export * from "./insights.ts";
 export * from "./integrations.ts";
 export * from "./learning.ts";
 export * from "./memory.ts";

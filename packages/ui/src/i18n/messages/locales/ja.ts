@@ -2,6 +2,7 @@ import type { Catalogue } from "../index.ts";
 import { canvas } from "./canvas/ja.ts";
 import { charts } from "./charts/ja.ts";
 import { mailMeetings } from "./mail-meetings/ja.ts";
+import { overview } from "./overview/ja.ts";
 import { workflows } from "./workflows/ja.ts";
 
 /** Japanese catalogue (ja). Same ids as `en`; missing ids fall back to English. */
@@ -10,6 +11,8 @@ export const ja: Partial<Catalogue> = {
   ...mailMeetings,
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
+  // the Overview screen (docs/design/agent-overview-2026.md)
+  ...overview,
   // the output canvas (docs/design/chat-experience-2026.md §4.2)
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
@@ -3300,4 +3303,5 @@ export const ja: Partial<Catalogue> = {
     "オフの場合、Psycheは依頼が画面に関するものであるときだけ送信し、必要なときだけ確認します。",
   "voice.phrases.screen":
     "これ|この|それ|その|あれ|ここ|画面|画面の|今見てる|このページ|このエラー|このグラフ|このウインドウ|上の|下の",
+  "specialists.card.fromAutomation": "オートメーション「{name}」から",
 };

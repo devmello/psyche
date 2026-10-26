@@ -24,7 +24,16 @@ const ALLOWED: Record<string, string> = {
   "teaching/ReceiptFeedback.tsx": "popover surface",
 };
 
-const ROOTS = ["blocks", "chat", "specialists", "teaching", "people", "screen-ask", "voice"];
+const ROOTS = [
+  "blocks",
+  "chat",
+  "overview",
+  "specialists",
+  "teaching",
+  "people",
+  "screen-ask",
+  "voice",
+];
 const src = join(import.meta.dirname, "../src");
 
 function files(dir: string): string[] {

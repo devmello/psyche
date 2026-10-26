@@ -1,6 +1,10 @@
 /** The output canvas (`canvas/`; docs/design/chat-experience-2026.md §4.2). */
 export const canvas = {
   "canvas.chart": "Chart",
+  "canvas.htmlOff":
+    "This came from untrusted content, so its preview is off. Run it only if you trust it. It runs in a sandbox with no network.",
+  "canvas.htmlRun": "Run",
+  "canvas.htmlNoPreview": "This host can't preview HTML; the source is shown.",
   "canvas.label": "Canvas: {title}",
   "canvas.recents": "Recent outputs",
   "canvas.loading": "Loading…",

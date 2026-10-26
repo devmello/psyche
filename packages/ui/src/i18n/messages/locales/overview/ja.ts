@@ -1,0 +1,35 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Overview screen strings (ja); merged into `../ja.ts`. */
+export const overview: Partial<Catalogue> = {
+  "overview.title": "{name}とあなた",
+  "overview.screen": "概要",
+  "overview.period.label": "期間",
+  "overview.period.week": "週",
+  "overview.period.month": "月",
+  "overview.period.all": "全期間",
+  "overview.range.since": "{date}から",
+  "overview.range.allTime": "全期間",
+  "overview.jump.label": "セクションへ移動",
+  "overview.section.now": "今と次の予定",
+  "overview.section.activity": "アクティビティ",
+  "overview.section.growth": "成長",
+  "overview.section.people": "人物とプロジェクト",
+  "overview.section.built": "あなたのために作成",
+  "overview.section.specialists": "スペシャリスト",
+  "overview.section.upcoming": "今後の予定",
+  "overview.section.recent": "最近の実行",
+  "overview.section.empty": "まだ何もありません。",
+  "overview.newUser.title": "{name}はあなたのことを知り始めています",
+  "overview.newUser.body":
+    "1週間後には、{name}があなたのために行ったこと、学んだこと、把握している人物やプロジェクトが表示されます。",
+  "overview.newUser.try": "試してみる",
+  "overview.newUser.planWeek": "{name}に今週の計画を頼む",
+  "overview.newUser.morningBrief": "朝のブリーフを設定する",
+  "overview.newUser.connectMail": "メールを接続する",
+  "overview.run.title": "実行",
+  "overview.run.placeholder": "実行のタイムラインはここに移動します。",
+  "overview.run.back": "概要に戻る",
+  "shell.rail.overview": "概要",
+  "shell.sidebar.openOverview": "概要を開く",
+};

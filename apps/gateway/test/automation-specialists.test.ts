@@ -100,6 +100,7 @@ describe("automations as specialists (§4.10)", () => {
       parentRunId: null,
       rootRunId: null,
       planFirst: false,
+      automation: { id: "aut_1", title: "Weekly price check" },
     });
     expect(task?.specialist?.budget.limit.tokens).toBe(60_000);
     expect(task?.goal).toContain("Check the prices on my watchlist");

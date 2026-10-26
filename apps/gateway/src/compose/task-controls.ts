@@ -2,7 +2,7 @@ import {
   type MethodParams,
   type MethodResult,
   PsycheError,
-  type RunBudget,
+  type Task,
   TERMINAL_TASK_STATUSES,
 } from "@psyche/protocol";
 import type { SqliteTaskEngine } from "@psyche/tasks";
@@ -18,12 +18,14 @@ export interface TaskUpdateDeps {
   tasks: SqliteTaskEngine;
   roles: RoleSource;
   now: () => number;
+  /** `raiseSpecialistBudget` of the composed Gateway. */
+  raise: (
+    taskId: string,
+    patch: { tokens?: number; costUsd?: number; minutes?: number; deadline?: string },
+  ) => Promise<Task>;
   /** Woken after a change, so a job that waits on its budget can go on. */
   poke?: () => void;
 }
-
-const capAt = (value: number, cap: number | undefined) =>
-  cap === undefined ? value : Math.min(value, cap);
 
 export function taskUpdateHandlers(deps: TaskUpdateDeps): {
   "tasks.update": (p: MethodParams<"tasks.update">) => Promise<MethodResult<"tasks.update">>;
@@ -45,13 +47,7 @@ export function taskUpdateHandlers(deps: TaskUpdateDeps): {
         throw new PsycheError("unavailable", `the ${spec.role} role is not installed`);
       }
       const { caps } = role.role;
-      const limit: RunBudget["limit"] = { ...spec.budget.limit };
-      if (p.budget?.tokens !== undefined) limit.tokens = capAt(p.budget.tokens, caps.tokens);
-      if (p.budget?.costUsd !== undefined) limit.costUsd = capAt(p.budget.costUsd, caps.costUsd);
-      if (p.budget?.minutes !== undefined) {
-        limit.wallMs = capAt(p.budget.minutes, caps.minutes) * 60_000;
-      }
-      let deadline = spec.deadline;
+      let deadline: string | undefined;
       if (p.deadline !== undefined) {
         const at = Date.parse(p.deadline);
         if (!Number.isFinite(at) || at <= deps.now()) {
@@ -61,11 +57,14 @@ export function taskUpdateHandlers(deps: TaskUpdateDeps): {
         const latest = Date.parse(task.createdAt) + caps.maxHours * 3_600_000;
         deadline = new Date(Math.min(at, latest)).toISOString();
       }
-      const updated = await deps.tasks.updateSpecialist(p.taskId, (s) => ({
-        ...s,
-        budget: { ...s.budget, limit },
-        deadline,
-      }));
+      // The runtime caps the limits by the role, writes them, and, for a job parked on its budget
+      // question, answers "Give it more" so it re-queues without adding its own +50%.
+      const updated = await deps.raise(p.taskId, {
+        ...(p.budget?.tokens === undefined ? {} : { tokens: p.budget.tokens }),
+        ...(p.budget?.costUsd === undefined ? {} : { costUsd: p.budget.costUsd }),
+        ...(p.budget?.minutes === undefined ? {} : { minutes: p.budget.minutes }),
+        ...(deadline === undefined ? {} : { deadline }),
+      });
       await deps.tasks.addAction(p.taskId, {
         level1: p.budget === undefined ? "You gave it more time" : "You gave it more budget",
         level2: { tool: "task.update", outcome: "ok" },
