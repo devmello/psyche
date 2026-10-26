@@ -351,9 +351,10 @@ RunStep = {
 }
 ```
 
-`Run` gains these optional fields (additive): `kind: "chat" | "task" | "automation" | "subagent"`, `title`, `parentRunId`, `rootRunId`, `taskId`, `automationRunId`, `stepCount`, `currentStepId`, `lastStepAt`, `origin: "owner" | "automation" | "channel" | "subagent"`, `budget?: {limit: {steps?, tokens?, wallMs?}, used: {steps, tokens, wallMs}}`, `deadline?: Timestamp`.
+`Run` gains these optional fields (additive): `kind: "chat" | "task" | "automation" | "subagent"`, `title`, `parentRunId`, `rootRunId`, `taskId`, `automationRunId`, `stepCount`, `currentStepId`, `lastStepAt`, `origin: "owner" | "automation" | "channel" | "subagent"`, `budget?: {limit: {steps?, tokens?, wallMs?, costUsd?}, used: {steps, tokens, wallMs, costUsd?}}` (`costUsd` is null for unpriced subscription runs; show "—"), `deadline?: Timestamp`, `specialist?: {role}` (the branch label for S02 specialists).
 
 - Steps are addressed by `(runId, stepId)`. Branches are keyed by `childRunId` on the parent's `subagent` step; the child run has `parentRunId` and `rootRunId`.
+- Whichever protocol PR lands first (T1 or S02's P0) defines these shared `Run` fields; the other reuses them.
 - S02's background specialists (docs/agent/specialists-2026.md) use the same shape: a specialist is a child run backed by a Task (`createdFrom: "subagent"`, a specialist role id), and its spawn is a `subagent` step on the parent. In the UI a spawned copy is a "helper"; a specialist shows under its role's name.
 
 **Ids:**
