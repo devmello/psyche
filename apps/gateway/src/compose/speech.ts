@@ -364,6 +364,7 @@ export function conversationSettings(
   if (approvals === "off" || approvals === "write" || approvals === "write_destructive") {
     out.approvals = approvals;
   }
+  if (setting(VC.reviewBeforeSend) === true) out.reviewBeforeSend = true;
   const pause = setting(VC.pauseMs);
   if (typeof pause === "number" && Number.isFinite(pause)) {
     out.pauseMs = Math.min(2_000, Math.max(500, Math.round(pause)));

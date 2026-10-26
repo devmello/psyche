@@ -31,6 +31,7 @@ export type SpeechMethod =
   | "voice.conversation.turn"
   | "voice.conversation.interrupt"
   | "voice.conversation.played"
+  | "voice.conversation.review"
   | "voice.conversation.stop";
 
 export const SPEECH_METHODS: readonly SpeechMethod[] = [
@@ -47,6 +48,7 @@ export const SPEECH_METHODS: readonly SpeechMethod[] = [
   "voice.conversation.turn",
   "voice.conversation.interrupt",
   "voice.conversation.played",
+  "voice.conversation.review",
   "voice.conversation.stop",
 ];
 
@@ -173,6 +175,11 @@ export function createSpeechHandlers(deps: SpeechHandlerDeps): SpeechHandlers {
 
     async "voice.conversation.played"(p, ctx) {
       need(deps.conversations, "voice conversation").played(p, ctx);
+      return {};
+    },
+
+    async "voice.conversation.review"(p, ctx) {
+      need(deps.conversations, "voice conversation").review(p, ctx);
       return {};
     },
 

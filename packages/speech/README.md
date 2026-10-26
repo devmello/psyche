@@ -49,6 +49,7 @@ Q3 is done when "a message can be played and saved as a file". `speech.readAloud
   - Each sentence is synthesized as soon as it is complete and streamed as `voice.conversation.speech`, with `last` on its final chunk.
 - **What was heard.** The conversation listens again only after every utterance was reported `played … done`, plus a 600 ms echo hold.
 - **Barge-in.** A client `interrupt {stage: "suspect"}` opens a tentative turn. A transcribed word that isn't in the sentence being spoken confirms it, which stops synthesis, closes that sentence's caption and keeps the owner's turn. With no such word within 1 s the reply goes on. `confirmed` (a key press) stops at once.
+- **Review before sending** (spec §4.10, `voice.conversation.reviewBeforeSend`, off by default). The owner's final transcript isn't sent: the conversation waits (`reason: "review"`, `draft`, `utteranceId`, microphone off) until `voice.conversation.review` sends it, as edited, or discards it. Talking again replaces the draft; a stale `utteranceId` is a `conflict`.
 - **Approvals by voice** (`conversation/approvals.ts`, spec §4.6). A run waiting for an approval puts the conversation in `waiting`, and the card is on screen as always. `planVoiceApproval` applies chat's tiers:
   - voice answers `write` approvals by default (`voice.conversation.approvals`: `off`, `write`, `write_destructive`);
   - never `deviceOnly` or Touch ID approvals ("That needs your Touch ID on screen.");
@@ -67,7 +68,7 @@ Q3 is done when "a message can be played and saved as a file". `speech.readAloud
 - **The Gateway** mounts it in `apps/gateway/src/compose/speech.ts`:
   - **`chatVoiceTurns`** sends the owner's words through the session controller as a `via: "voice"` owner message with `StartTurnInput.voice`. A spoken turn interrupts a running one. It maps the run's bus events into `VoiceTurnEvent`s.
   - **`enabled`** reads `voice.conversation.enabled`: off by default, and `start` refuses with `policy_denied` while it is off.
-  - **Settings** `voice.conversation.{speak, narrate, pauseMs}` apply per conversation.
+  - **Settings** `voice.conversation.{speak, narrate, pauseMs, reviewBeforeSend}` apply per conversation.
   - **Endings.** A disconnect ends the device's conversation; shutdown ends all of them.
 - **Voice turns in agent-core.** `StartTurnInput.voice` adds a fixed "voice turn" section (lead with a short spoken answer, details after a blank line, never "done" before the tool reports success). `router/primary` moves to `router/voice`, which falls back to the primary chain.
 

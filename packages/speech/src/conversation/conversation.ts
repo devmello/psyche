@@ -123,6 +123,8 @@ interface StatePayload {
   prompt?: string;
   windowMs?: number;
   listening: boolean;
+  draft?: string;
+  utteranceId?: string;
 }
 
 export interface VoiceConversationSettings {
@@ -146,6 +148,8 @@ export interface VoiceConversationSettings {
   approvals: VoiceApprovalTier;
   /** How long Psyche listens for an approval answer after the readback (default 10 s). */
   approvalWindowMs: number;
+  /** Review before sending (spec §4.10; off by default): hold each turn for the owner to edit. */
+  reviewBeforeSend: boolean;
 }
 
 export const DEFAULT_VOICE_CONVERSATION_SETTINGS: VoiceConversationSettings = {
@@ -160,6 +164,7 @@ export const DEFAULT_VOICE_CONVERSATION_SETTINGS: VoiceConversationSettings = {
   trailingWords: ["and", "but", "so", "or", "because", "um", "uh", "like", "then", "with", "to"],
   approvals: "write",
   approvalWindowMs: APPROVAL_WINDOW_MS,
+  reviewBeforeSend: false,
 };
 
 export interface VoiceConversationOptions {
@@ -276,6 +281,8 @@ export class VoiceConversation {
   #ended = false;
   /** An approval the run is waiting for, while voice may answer it. */
   #approval: PendingApproval | undefined;
+  /** The owner's transcript held for review before sending (spec §4.10). */
+  #review: { utteranceId: string; text: string } | undefined;
 
   constructor(init: {
     id: string;
@@ -359,7 +366,9 @@ export class VoiceConversation {
         return;
       }
       if (this.#phase === "speaking") this.#stopSpeaking("barge_in");
-      if (this.#phase === "thinking" || this.#phase === "waiting") return;
+      // Talking again while reviewing replaces the draft with the new words.
+      if (this.#review !== undefined) this.#review = undefined;
+      else if (this.#phase === "thinking" || this.#phase === "waiting") return;
       this.#listening = true;
       if (this.#turn === undefined) {
         // A key or tap opens the turn before any speech: start counting from here.
@@ -408,6 +417,42 @@ export class VoiceConversation {
     this.#maybeReplyFinished();
   }
 
+  /**
+   * Review before sending: sends the held transcript (as edited) as the voice turn, or discards
+   * it and listens again. Only the draft the conversation is waiting on can be answered.
+   */
+  review(utteranceId: string, action: "send" | "discard", text?: string): void {
+    if (this.#ended) throw new PsycheError("conflict", "the voice conversation has ended");
+    const r = this.#review;
+    if (r === undefined || r.utteranceId !== utteranceId) {
+      throw new PsycheError("conflict", "nothing is waiting for review");
+    }
+    this.#review = undefined;
+    if (action === "discard") {
+      this.#listening = this.mode === "handsfree";
+      this.#state("listening");
+      this.#armIdle();
+      return;
+    }
+    const words = (text ?? r.text).trim();
+    if (words === "") {
+      this.#listening = this.mode === "handsfree";
+      this.#state("listening", { reason: "no_speech" });
+      this.#armIdle();
+      return;
+    }
+    if (words !== r.text) {
+      // The thread shows what was sent; the caption follows the edit.
+      this.#emit({
+        event: "voice.conversation.caption",
+        payload: { conversationId: this.id, role: "owner", utteranceId, text: words, final: true },
+      });
+    }
+    this.#state("heard");
+    this.#state("thinking");
+    void this.#runTurn(words);
+  }
+
   stop(): void {
     this.end("stopped");
   }
@@ -421,6 +466,7 @@ export class VoiceConversation {
     }
     this.#closeApproval();
     this.#dropTurn();
+    this.#review = undefined;
     if (this.#reply !== undefined) {
       this.#clearSlow(this.#reply);
       this.#reply.muted = true;
@@ -592,6 +638,13 @@ export class VoiceConversation {
       event: "voice.conversation.caption",
       payload: { conversationId: this.id, role: "owner", utteranceId: t.id, text, final: true },
     });
+    if (this.#settings.reviewBeforeSend) {
+      // Nothing goes out until the owner sends it; the microphone closes meanwhile.
+      this.#review = { utteranceId: t.id, text };
+      this.#listening = false;
+      this.#state("waiting", { reason: "review", draft: text, utteranceId: t.id });
+      return;
+    }
     this.#state("heard");
     this.#state("thinking");
     void this.#runTurn(text);
@@ -969,7 +1022,12 @@ export class VoiceConversation {
 
   #state(
     phase: VoiceConversationPhase,
-    extra: { reason?: VoiceConversationReason; approvalId?: string } = {},
+    extra: {
+      reason?: VoiceConversationReason;
+      approvalId?: string;
+      draft?: string;
+      utteranceId?: string;
+    } = {},
   ): void {
     if (this.#ended) return;
     this.#phase = phase;
@@ -981,6 +1039,8 @@ export class VoiceConversation {
     };
     if (extra.reason !== undefined) payload.reason = extra.reason;
     if (extra.approvalId !== undefined) payload.approvalId = extra.approvalId;
+    if (extra.draft !== undefined) payload.draft = extra.draft;
+    if (extra.utteranceId !== undefined) payload.utteranceId = extra.utteranceId;
     this.#emit({ event: "voice.conversation.state", payload });
   }
 
@@ -1102,6 +1162,10 @@ export class VoiceConversationManager {
 
   played(p: MethodParams<"voice.conversation.played">, ctx: VoiceConversationContext): void {
     this.#own(p.conversationId, ctx).played(p.utteranceId, p.done);
+  }
+
+  review(p: MethodParams<"voice.conversation.review">, ctx: VoiceConversationContext): void {
+    this.#own(p.conversationId, ctx).review(p.utteranceId, p.action, p.text);
   }
 
   stop(p: MethodParams<"voice.conversation.stop">, ctx: VoiceConversationContext): void {
