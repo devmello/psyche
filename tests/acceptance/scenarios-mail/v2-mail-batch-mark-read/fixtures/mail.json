@@ -1,0 +1,316 @@
+{
+  "$comment": "§4.1 acceptance case 2. Twelve newsletters arrived before the 07:30 digest cursor; msg_v2_nl13 arrived at 08:20, after the digest and its card were drawn (the 13th id the tamper fault adds). Read by tests/acceptance/src/mail-world.ts.",
+  "messages": [
+    {
+      "id": "msg_v2_nl01",
+      "messageId": "msg-v2-nl01@productbrief.example",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "The Product Brief",
+        "email": "editor@productbrief.example"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Issue 212: roadmaps that survive contact",
+      "date": "2026-10-16T06:00:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@productbrief.example>",
+        "Precedence": "bulk"
+      },
+      "body": "Issue 212: roadmaps that survive contact. Three short reads and a long one. You are receiving this because you subscribed to The Product Brief."
+    },
+    {
+      "id": "msg_v2_nl02",
+      "messageId": "msg-v2-nl02@devopsweekly.example",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "DevOps Weekly",
+        "email": "news@devopsweekly.example"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Incident reviews without blame",
+      "date": "2026-10-16T09:30:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@devopsweekly.example>",
+        "Precedence": "bulk"
+      },
+      "body": "Incident reviews without blame. Three short reads and a long one. You are receiving this because you subscribed to DevOps Weekly."
+    },
+    {
+      "id": "msg_v2_nl03",
+      "messageId": "msg-v2-nl03@saasmetrics.example",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "SaaS Metrics Digest",
+        "email": "digest@saasmetrics.example"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Net revenue retention, explained again",
+      "date": "2026-10-17T05:00:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@saasmetrics.example>",
+        "Precedence": "bulk"
+      },
+      "body": "Net revenue retention, explained again. Three short reads and a long one. You are receiving this because you subscribed to SaaS Metrics Digest."
+    },
+    {
+      "id": "msg_v2_nl04",
+      "messageId": "msg-v2-nl04@dsmonthly.example",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Design Systems Monthly",
+        "email": "hello@dsmonthly.example"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Tokens, themes and dark mode",
+      "date": "2026-10-18T07:00:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@dsmonthly.example>",
+        "Precedence": "bulk"
+      },
+      "body": "Tokens, themes and dark mode. Three short reads and a long one. You are receiving this because you subscribed to Design Systems Monthly."
+    },
+    {
+      "id": "msg_v2_nl05",
+      "messageId": "msg-v2-nl05@remotenotes.example",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Remote Work Notes",
+        "email": "letters@remotenotes.example"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Async standups, a year in",
+      "date": "2026-10-19T05:30:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@remotenotes.example>",
+        "Precedence": "bulk"
+      },
+      "body": "Async standups, a year in. Three short reads and a long one. You are receiving this because you subscribed to Remote Work Notes."
+    },
+    {
+      "id": "msg_v2_nl06",
+      "messageId": "msg-v2-nl06@fieldnotes.example",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Founder Field Notes",
+        "email": "notes@fieldnotes.example"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Pricing pages that convert",
+      "date": "2026-10-19T06:45:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@fieldnotes.example>",
+        "Precedence": "bulk"
+      },
+      "body": "Pricing pages that convert. Three short reads and a long one. You are receiving this because you subscribed to Founder Field Notes."
+    },
+    {
+      "id": "msg_v2_nl07",
+      "messageId": "msg-v2-nl07@weekendkitchen.example",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Weekend Kitchen",
+        "email": "recipes@weekendkitchen.example"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "Five soups for October",
+      "date": "2026-10-16T08:00:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@weekendkitchen.example>",
+        "Precedence": "bulk"
+      },
+      "body": "Five soups for October. Three short reads and a long one. You are receiving this because you subscribed to Weekend Kitchen."
+    },
+    {
+      "id": "msg_v2_nl08",
+      "messageId": "msg-v2-nl08@trailrunner.example",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Trail Runner Weekly",
+        "email": "news@trailrunner.example"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "Fall race calendar",
+      "date": "2026-10-17T06:30:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@trailrunner.example>",
+        "Precedence": "bulk"
+      },
+      "body": "Fall race calendar. Three short reads and a long one. You are receiving this because you subscribed to Trail Runner Weekly."
+    },
+    {
+      "id": "msg_v2_nl09",
+      "messageId": "msg-v2-nl09@cityarts.example",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "City Arts Calendar",
+        "email": "events@cityarts.example"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "What's on this week",
+      "date": "2026-10-17T10:00:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@cityarts.example>",
+        "Precedence": "bulk"
+      },
+      "body": "What's on this week. Three short reads and a long one. You are receiving this because you subscribed to City Arts Calendar."
+    },
+    {
+      "id": "msg_v2_nl10",
+      "messageId": "msg-v2-nl10@gardenletters.example",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Garden Letters",
+        "email": "hello@gardenletters.example"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "Planting garlic now",
+      "date": "2026-10-18T06:15:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@gardenletters.example>",
+        "Precedence": "bulk"
+      },
+      "body": "Planting garlic now. Three short reads and a long one. You are receiving this because you subscribed to Garden Letters."
+    },
+    {
+      "id": "msg_v2_nl11",
+      "messageId": "msg-v2-nl11@bookclubpicks.example",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Book Club Picks",
+        "email": "picks@bookclubpicks.example"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "October picks and a short story",
+      "date": "2026-10-18T11:20:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@bookclubpicks.example>",
+        "Precedence": "bulk"
+      },
+      "body": "October picks and a short story. Three short reads and a long one. You are receiving this because you subscribed to Book Club Picks."
+    },
+    {
+      "id": "msg_v2_nl12",
+      "messageId": "msg-v2-nl12@photowalks.example",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Photo Walks",
+        "email": "letters@photowalks.example"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "Golden hour, shorter days",
+      "date": "2026-10-19T06:10:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@photowalks.example>",
+        "Precedence": "bulk"
+      },
+      "body": "Golden hour, shorter days. Three short reads and a long one. You are receiving this because you subscribed to Photo Walks."
+    },
+    {
+      "id": "msg_v2_nl13",
+      "messageId": "msg-v2-nl13@morningmarkets.example",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Morning Markets Letter",
+        "email": "letter@morningmarkets.example"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "Monday open: what to watch",
+      "date": "2026-10-19T08:20:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@morningmarkets.example>",
+        "Precedence": "bulk"
+      },
+      "body": "Monday open: what to watch. You are receiving this because you subscribed to Morning Markets Letter."
+    },
+    {
+      "id": "msg_v2_q1",
+      "messageId": "msg-v2-q1@example.com",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Maya Okafor",
+        "email": "maya@example.com"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Q4 launch date for the board pack",
+      "date": "2026-10-19T07:10:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "Hi Avery, can you confirm the Q4 launch date by Wednesday? Thanks, Maya"
+    },
+    {
+      "id": "msg_v2_fyi1",
+      "messageId": "msg-v2-fyi1@example.com",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Sam Kim",
+        "email": "sam.kim@example.com"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Dashboard latency is back to normal",
+      "date": "2026-10-19T06:58:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "The dashboard latency issue from Friday is resolved. Postmortem to follow."
+    },
+    {
+      "id": "msg_v2_rcpt1",
+      "messageId": "msg-v2-rcpt1@cornermarket.example",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Corner Market",
+        "email": "receipts@cornermarket.example"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "Your receipt from Corner Market",
+      "date": "2026-10-17T18:05:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "Auto-Submitted": "auto-generated"
+      },
+      "body": "Thanks for shopping with us. Total $38.75. This is an automated receipt."
+    }
+  ]
+}

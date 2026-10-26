@@ -29,7 +29,10 @@ export interface SlotQuery {
   stepMin?: number;
 }
 
-function localParts(ms: number, tz: string): { hour: number; minute: number; weekday: number } {
+export function localParts(
+  ms: number,
+  tz: string,
+): { hour: number; minute: number; weekday: number } {
   const f = new Intl.DateTimeFormat("en-US", {
     timeZone: tz,
     hour: "2-digit",

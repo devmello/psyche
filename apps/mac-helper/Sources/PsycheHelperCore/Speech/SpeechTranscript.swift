@@ -78,9 +78,11 @@ public enum SpeechEvent {
         return ["type": .string(modelDownload), "phase": .string(phase.rawValue), "locale": .string(locale), "fraction": .number((f * 1000).rounded() / 1000)]
     }
 
-    /// `{type: "speech.audio", seq, data (base64), format}`.
-    public static func audio(seq: Int, data: Data, format: PCMAudioFormat) -> JSONValue {
-        ["type": .string(audio), "seq": .int(seq), "data": .string(data.base64EncodedString()), "format": format.json]
+    /// `{type: "speech.audio", seq, data (base64), format, utteranceId?}`.
+    public static func audio(seq: Int, data: Data, format: PCMAudioFormat, utteranceId: String? = nil) -> JSONValue {
+        var o: [String: JSONValue] = ["type": .string(audio), "seq": .int(seq), "data": .string(data.base64EncodedString()), "format": format.json]
+        if let utteranceId { o["utteranceId"] = .string(utteranceId) }
+        return .object(o)
     }
 }
 

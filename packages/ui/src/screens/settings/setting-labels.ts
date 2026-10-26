@@ -30,6 +30,10 @@ const LABELLED_KEYS = [
   "context.compactAt",
   "context.keepRecentTurns",
   "data.transcriptRecall",
+  "teaching.enabled",
+  "teaching.implicit",
+  "teaching.paused",
+  "teaching.weeklyCard",
   "data.replayRetentionDays",
   "data.reasoningRetentionDays",
   "memory.graph",
@@ -47,6 +51,9 @@ const LABELLED_KEYS = [
   "persona.creature",
   "persona.creatureId",
   "search.web.provider",
+  "specialists.maxConcurrent",
+  "specialists.monthlyCapUsd",
+  "specialists.showInFeed",
   "search.web.searxngUrl",
   "vault.backend",
   "vault.fillDefault",
@@ -106,6 +113,10 @@ const PREFIX_LABELS: readonly [prefix: string, label: (rest: string) => string][
     (id) => t("settings.key.permissions.connectors", { id: id.replace(/^conn_/, "") }),
   ],
   ["models.roles.", (role) => t("settings.key.models.roles", { role })],
+  ["specialists.enabled.", (role) => t("settings.key.specialists.enabled", { role })],
+  ["specialists.model.", (role) => t("settings.key.specialists.model", { role })],
+  ["specialists.budget.", (role) => t("settings.key.specialists.budget", { role })],
+  ["specialists.maxMode.", (role) => t("settings.key.specialists.maxMode", { role })],
 ];
 
 const isLabelled = (key: string): key is LabelledKey =>

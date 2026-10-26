@@ -3561,26 +3561,6 @@ public enum TargetKind: String, Codable, Sendable {
     case recipient = "recipient"
 }
 
-// MARK: - ApprovalHint
-public struct ApprovalHint: Codable, Sendable {
-    /// How many, roughly
-    public let estimate: Int?
-    public let kind: ApprovalKind
-    public let label: String
-
-    public enum CodingKeys: String, CodingKey {
-        case estimate = "estimate"
-        case kind = "kind"
-        case label = "label"
-    }
-
-    public init(estimate: Int?, kind: ApprovalKind, label: String) {
-        self.estimate = estimate
-        self.kind = kind
-        self.label = label
-    }
-}
-
 // MARK: - ApprovalResult
 public struct ApprovalResult: Codable, Sendable {
     public let answerToken: String?
@@ -20475,6 +20455,7 @@ public struct SpecialistJob: Codable, Sendable {
     public let lastStep: String?
     public let parentRunID: String?
     public let parentThreadID: String
+    public let preflight: [ApprovalHint]?
     public let queuePosition: Int?
     public let result: SpecialistResult?
     /// researcher | shopper | coder | organizer | writer | planner, or a skill-defined role
@@ -20493,6 +20474,7 @@ public struct SpecialistJob: Codable, Sendable {
         case lastStep = "lastStep"
         case parentRunID = "parentRunId"
         case parentThreadID = "parentThreadId"
+        case preflight = "preflight"
         case queuePosition = "queuePosition"
         case result = "result"
         case role = "role"
@@ -20504,13 +20486,14 @@ public struct SpecialistJob: Codable, Sendable {
         case updatedAt = "updatedAt"
     }
 
-    public init(budget: RunBudget, createdAt: String, deadline: String?, lastStep: String?, parentRunID: String?, parentThreadID: String, queuePosition: Int?, result: SpecialistResult?, role: String, runID: String?, status: StatusElement, taskID: String, threadID: String, title: String, updatedAt: String) {
+    public init(budget: RunBudget, createdAt: String, deadline: String?, lastStep: String?, parentRunID: String?, parentThreadID: String, preflight: [ApprovalHint]?, queuePosition: Int?, result: SpecialistResult?, role: String, runID: String?, status: StatusElement, taskID: String, threadID: String, title: String, updatedAt: String) {
         self.budget = budget
         self.createdAt = createdAt
         self.deadline = deadline
         self.lastStep = lastStep
         self.parentRunID = parentRunID
         self.parentThreadID = parentThreadID
+        self.preflight = preflight
         self.queuePosition = queuePosition
         self.result = result
         self.role = role
@@ -20520,6 +20503,26 @@ public struct SpecialistJob: Codable, Sendable {
         self.threadID = threadID
         self.title = title
         self.updatedAt = updatedAt
+    }
+}
+
+// MARK: - ApprovalHint
+public struct ApprovalHint: Codable, Sendable {
+    /// How many, roughly
+    public let estimate: Int?
+    public let kind: ApprovalKind
+    public let label: String
+
+    public enum CodingKeys: String, CodingKey {
+        case estimate = "estimate"
+        case kind = "kind"
+        case label = "label"
+    }
+
+    public init(estimate: Int?, kind: ApprovalKind, label: String) {
+        self.estimate = estimate
+        self.kind = kind
+        self.label = label
     }
 }
 
@@ -21366,6 +21369,7 @@ public struct SpecialistSpec: Codable, Sendable {
     public let parentThreadID: String
     public let permissionMode: PermissionMode
     public let planFirst: Bool
+    public let preflight: [ApprovalHint]?
     public let queuePosition: Int?
     public let result: SpecialistResult?
     /// researcher | shopper | coder | organizer | writer | planner, or a skill-defined role
@@ -21383,6 +21387,7 @@ public struct SpecialistSpec: Codable, Sendable {
         case parentThreadID = "parentThreadId"
         case permissionMode = "permissionMode"
         case planFirst = "planFirst"
+        case preflight = "preflight"
         case queuePosition = "queuePosition"
         case result = "result"
         case role = "role"
@@ -21390,7 +21395,7 @@ public struct SpecialistSpec: Codable, Sendable {
         case tools = "tools"
     }
 
-    public init(budget: RunBudget, deadline: String?, deliver: Deliver, inputs: SpecialistInputs, model: String, parentRunID: String?, parentThreadID: String, permissionMode: PermissionMode, planFirst: Bool, queuePosition: Int?, result: SpecialistResult?, role: String, rootRunID: String?, tools: [String]) {
+    public init(budget: RunBudget, deadline: String?, deliver: Deliver, inputs: SpecialistInputs, model: String, parentRunID: String?, parentThreadID: String, permissionMode: PermissionMode, planFirst: Bool, preflight: [ApprovalHint]?, queuePosition: Int?, result: SpecialistResult?, role: String, rootRunID: String?, tools: [String]) {
         self.budget = budget
         self.deadline = deadline
         self.deliver = deliver
@@ -21400,6 +21405,7 @@ public struct SpecialistSpec: Codable, Sendable {
         self.parentThreadID = parentThreadID
         self.permissionMode = permissionMode
         self.planFirst = planFirst
+        self.preflight = preflight
         self.queuePosition = queuePosition
         self.result = result
         self.role = role

@@ -49,14 +49,11 @@ export interface GraphSettings {
   };
 }
 
-const SOURCES: readonly GraphSource[] = [
-  "contacts",
-  "mail",
-  "calendar",
-  "messages",
-  "notes",
-  "chats",
-];
+/**
+ * The sources the owner can turn on. Messages is not read in v1 (no Gateway path to iMessage
+ * history, #763), so it is hidden rather than shown as a switch that does nothing.
+ */
+const SOURCES: readonly GraphSource[] = ["contacts", "mail", "calendar", "notes", "chats"];
 
 /** The spec's defaults (§4.7): off, sources off except chats (the owner's own words). */
 export const GRAPH_DEFAULTS: GraphSettings = {

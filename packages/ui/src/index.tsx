@@ -284,6 +284,7 @@ export {
   useUsageSummary,
 } from "./shell/UsageFooter.tsx";
 export {
+  type EditorLineMark,
   type EditorSlotProps,
   type UiSlots,
   UiSlotsProvider,
@@ -304,13 +305,6 @@ export {
   type UseComposerVoice,
 } from "./voice/controls.tsx";
 export { useVoiceConversation, type VoiceConversation } from "./voice/conversation.ts";
-export { VoiceHudView, type VoiceHudViewProps } from "./voice/VoiceHudView.tsx";
-export {
-  matchApproval,
-  normalizeUtterance,
-  type VoicePhraseList,
-  voicePhrases,
-} from "./voice/phrases.ts";
 export { FakeVoiceTerminal } from "./voice/fake-terminal.ts";
 export {
   envelope,
@@ -319,6 +313,12 @@ export {
   type LanternProps,
   type LanternState,
 } from "./voice/Lantern.tsx";
+export {
+  matchApproval,
+  normalizeUtterance,
+  type VoicePhraseList,
+  voicePhrases,
+} from "./voice/phrases.ts";
 export {
   IDLE_SESSION,
   micOn,
@@ -343,3 +343,4 @@ export {
   VoiceCapsule,
   type VoiceCapsuleProps,
 } from "./voice/VoiceCapsule.tsx";
+export { VoiceHudView, type VoiceHudViewProps } from "./voice/VoiceHudView.tsx";

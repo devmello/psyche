@@ -420,6 +420,62 @@ export class TeachingService {
       return { lesson: written, approval: null };
     }
 
+    return this.#ask(lesson, pending, {
+      taskId: event.target.taskId ?? null,
+      threadId: event.target.threadId ?? null,
+      feedbackId: event.id,
+      because: (event.text ?? event.reason ?? "").slice(0, 500),
+    });
+  }
+
+  /**
+   * Dreaming's proposals (docs/agent/teaching-loop-2026.md §6): an `inferred` lesson drawn from
+   * live lessons (a style the owner taught for several recipients, proposed for everyone). It is
+   * never written silently: it waits on the same card a stated lesson to SOUL.md or AGENTS.md
+   * does, and "Not now" leaves it dormant for the weekly card.
+   */
+  async proposeInferred(
+    plan: PlannedLesson,
+    from: readonly StoredLesson[],
+    because: string,
+  ): Promise<{ lesson: StoredLesson; approval: ApprovalRequest | null } | undefined> {
+    const store = this.#d.store;
+    const dest = plan.destination as LessonDestination;
+    if (store.isTombstoned(plan.kind, dest, plan.scope, plan.value)) return undefined;
+    const sources = [...new Set(from.flatMap((l) => l.sources))].slice(-50);
+    const feedbackId = sources[0];
+    if (feedbackId === undefined) return undefined;
+    // Lines in a file section stack (§4 rule 3 applies when a lesson replaces another); a
+    // proposal for everyone replaces nothing.
+    const replaces = undefined;
+    const lesson = store.insertLesson({
+      kind: plan.kind,
+      origin: "inferred",
+      statement: plan.statement,
+      scope: plan.scope,
+      destination: withLineId(plan.destination, "pending"),
+      previous: null,
+      value: plan.value,
+      sources,
+      confidence: CONFIDENCE.repeated,
+      status: "proposed",
+      refinedCount: 0,
+      supersedes: null,
+    });
+    return this.#ask(
+      lesson,
+      { plan, replaces },
+      { taskId: null, threadId: null, feedbackId, because: because.slice(0, 500) },
+    );
+  }
+
+  async #ask(
+    lesson: StoredLesson,
+    pending: Pending,
+    by: { taskId: string | null; threadId: string | null; feedbackId: string; because: string },
+  ): Promise<{ lesson: StoredLesson; approval: ApprovalRequest | null }> {
+    const store = this.#d.store;
+    const { plan, replaces } = pending;
     const preview = await this.#d.writer.preview({
       lessonId: lesson.id,
       kind: plan.kind,
@@ -450,20 +506,12 @@ export class TeachingService {
       },
       bindingHash: binding,
       grantKey: binding,
-      requestedBy: {
-        runId: null,
-        taskId: event.target.taskId ?? null,
-        threadId: event.target.threadId ?? null,
-      },
+      requestedBy: { runId: null, taskId: by.taskId, threadId: by.threadId },
       sideEffect: "write",
       surfaces: this.#d.surfaces,
       scopesOffered: ["once"],
       taint: false,
-      fromLesson: {
-        lessonId: lesson.id,
-        feedbackId: event.id,
-        because: (event.text ?? event.reason ?? "").slice(0, 500),
-      },
+      fromLesson: { lessonId: lesson.id, feedbackId: by.feedbackId, because: by.because },
     });
     const proposed = store.updateLesson(lesson.id, { approvalId: issued.approval.id });
     this.#pending.set(lesson.id, pending);

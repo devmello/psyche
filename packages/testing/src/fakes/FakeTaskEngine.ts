@@ -134,7 +134,23 @@ export class FakeTaskEngine implements TaskEngine {
       options.taskId === undefined
         ? [...this.#tasks.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
         : [this.#task(options.taskId)];
-    const task = candidates.find((t) => this.#claimable(t, now));
+    const runningUnder = (parent: string) =>
+      [...this.#tasks.values()].filter(
+        (t) =>
+          t.status === "running" &&
+          t.leaseUntil != null &&
+          Date.parse(t.leaseUntil) > now &&
+          t.specialist?.parentThreadId === parent,
+      ).length;
+    const task = candidates.find(
+      (t) =>
+        this.#claimable(t, now) &&
+        (options.origins === undefined || options.origins.includes(t.createdFrom)) &&
+        (options.excludeOrigins === undefined || !options.excludeOrigins.includes(t.createdFrom)) &&
+        (options.perParentLimit === undefined ||
+          t.specialist === undefined ||
+          runningUnder(t.specialist.parentThreadId) < options.perParentLimit),
+    );
     if (task === undefined) return undefined;
     if (task.status === "running") {
       // Expired lease: in-flight unsafe steps become uncertain, never replayed.

@@ -16,6 +16,19 @@ export interface EditorSlotProps {
   /** Budget meter limit in characters (20k per persona file, 4k for USER.md). */
   budget?: number;
   readOnly?: boolean;
+  /**
+   * Margin marks beside lines, by line text (the teaching loop's "Learned from you", §5.2). The
+   * viewers' `MarkdownEditor` takes them as `marks` / `onMarkActivate`.
+   */
+  marks?: readonly EditorLineMark[];
+  onMarkActivate?: (id: string) => void;
+}
+
+/** One margin mark: the line it sits beside (by text) and its tooltip. */
+export interface EditorLineMark {
+  id: string;
+  text: string;
+  label: string;
 }
 
 export interface UiSlots {
