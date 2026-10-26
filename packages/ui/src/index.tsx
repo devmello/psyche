@@ -303,3 +303,36 @@ export {
   type ComposerVoiceMode,
   type UseComposerVoice,
 } from "./voice/controls.tsx";
+export { useVoiceConversation, type VoiceConversation } from "./voice/conversation.ts";
+export { FakeVoiceTerminal } from "./voice/fake-terminal.ts";
+export {
+  envelope,
+  glowFor,
+  Lantern,
+  type LanternProps,
+  type LanternState,
+} from "./voice/Lantern.tsx";
+export {
+  IDLE_SESSION,
+  micOn,
+  sessionActive,
+  useVoiceSession,
+  type VoiceAction,
+  type VoicePhase,
+  type VoiceSession,
+  voiceReducer,
+} from "./voice/session.ts";
+export {
+  LEGACY_START_KEY,
+  migrateVoiceSettings,
+  readVoiceSettings,
+  VOICE_DEFAULTS,
+  type VoiceSettings,
+} from "./voice/settings.ts";
+export type { VoiceTerminal } from "./voice/terminal.ts";
+export {
+  lanternState,
+  stateLabel as voiceStateLabel,
+  VoiceCapsule,
+  type VoiceCapsuleProps,
+} from "./voice/VoiceCapsule.tsx";

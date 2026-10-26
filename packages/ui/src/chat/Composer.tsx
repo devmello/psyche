@@ -110,6 +110,8 @@ export function Composer({
     <m.div
       ref={capsuleRef}
       layout
+      // The voice capsule takes this place with the same id (voice-mode-2026 §6.1).
+      layoutId="psyche-composer"
       transition={motionSpring(spring.smooth)}
       className="group/composer relative"
       data-testid="composer-capsule"

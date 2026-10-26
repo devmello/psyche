@@ -1193,8 +1193,11 @@ export function DoneStep({
   result,
   checks,
   permissionsOnMac = false,
+  helperConnected = false,
 }: {
   result: OnboardingResult;
+  /** The Mac helper is paired: the voice key works, so say how to talk (voice-mode-2026 §6.5). */
+  helperConnected?: boolean;
   /** This window can't ask macOS: say the permissions are set up in the desktop app (#554). */
   permissionsOnMac?: boolean;
   /** What `onVerify` found; "checking" while it runs. */
@@ -1213,6 +1216,11 @@ export function DoneStep({
           <p className="text-reading text-label-secondary">
             {t("onboarding.done.opens", { name: p.name })}
           </p>
+          {helperConnected ? (
+            <p className="text-reading text-label-secondary" data-testid="onboarding-voice-hint">
+              {t("voice.onboarding.hint", { key: t("voice.key.rightCommand"), name: p.name })}
+            </p>
+          ) : null}
         </div>
       </div>
       <Facts
