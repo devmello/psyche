@@ -57,7 +57,8 @@ export type AppleApp =
   | "music"
   | "safari"
   | "chrome"
-  | "files";
+  | "files"
+  | "shortcuts";
 
 /**
  * Catalogue identity per app (#639): Apple apps are `apple:<app>` / `apple-<app>`; Mac apps from
@@ -102,9 +103,12 @@ const LABEL: Record<AppleApp, string> = {
   safari: "Safari",
   chrome: "Google Chrome",
   files: "Files on your Mac",
+  shortcuts: "Shortcuts",
 };
 
 const DESCRIPTION: Record<AppleApp, string> = {
+  shortcuts:
+    "Run your own shortcuts from the Shortcuts app on your Mac, with text input and their output back. Each run asks first; you can turn single shortcuts off.",
   files:
     "See the newest files in the folders you shared (like Downloads) and file them: move, rename or put them in the Trash. Only folders you shared in Settings → File access.",
   safari:
@@ -124,6 +128,17 @@ const DESCRIPTION: Record<AppleApp, string> = {
 };
 
 const ACTIONS: Record<AppleApp, ConnectorAction[]> = {
+  shortcuts: [
+    { id: "shortcuts.read", title: "See your shortcuts", sideEffect: "read", defaultRule: "allow" },
+    {
+      // A shortcut can do anything (send, delete, buy): an unknown side effect, so it always asks.
+      id: "shortcuts.run",
+      title: "Run shortcuts",
+      sideEffect: "destructive",
+      approvalKind: "connector_action",
+      defaultRule: "ask",
+    },
+  ],
   files: [
     {
       id: "files.read",
@@ -371,6 +386,34 @@ const musicApp = { type: "string", enum: ["music", "spotify"] };
 const musicKind = { type: "string", enum: ["track", "album", "artist", "playlist"] };
 
 const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
+  shortcuts: [
+    {
+      name: "shortcuts_list",
+      capability: "shortcuts.list",
+      action: "shortcuts.read",
+      description:
+        'List the owner\'s shortcuts (id, name, folder, whether it takes input), by name: find one the owner mentions, e.g. "run my Log Water shortcut".',
+      inputSchema: obj({}),
+      sideEffect: "read",
+    },
+    {
+      name: "shortcuts_run",
+      capability: "shortcuts.run",
+      action: "shortcuts.run",
+      description:
+        "Run one of the owner's shortcuts by id, with optional text input; returns its output as text (untrusted). Always asks first: a shortcut can do anything. Times out after timeoutSeconds (default 60).",
+      inputSchema: obj(
+        {
+          id: { type: "string" },
+          input: { type: "string", maxLength: 100_000 },
+          timeoutSeconds: { type: "integer", minimum: 1, maximum: 120 },
+        },
+        ["id"],
+      ),
+      sideEffect: "destructive",
+      binding: "action",
+    },
+  ],
   files: [
     {
       name: "files_recent",
@@ -1105,6 +1148,7 @@ const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
 
 /** The capability every app's connect checks for: the helper offers the adapter. */
 const PROBE: Record<AppleApp, string> = {
+  shortcuts: "shortcuts.list",
   files: "files.recent",
   safari: "safari.tabs",
   chrome: "chrome.tabs",
@@ -1159,6 +1203,13 @@ const PERMISSION: Record<
     probe: {},
     pane: "Privacy_Reminders",
     path: "System Settings → Privacy & Security → Reminders → Psyche (Helper)",
+  },
+  // Listing shortcuts needs no grant; a shortcut asks for whatever it touches when it runs.
+  shortcuts: {
+    kind: "none",
+    probe: {},
+    pane: "Privacy_Automation",
+    path: "the Shortcuts app",
   },
   // Shared folders only (the helper checks every path against them): no macOS grant to ask for.
   files: {
@@ -1248,6 +1299,7 @@ export const APPLE_APPS: readonly AppleApp[] = [
   "safari",
   "chrome",
   "files",
+  "shortcuts",
 ];
 
 export function appleCatalogueEntry(app: AppleApp): CatalogueEntry {
@@ -1364,13 +1416,21 @@ class AppleConnector implements Connector {
   readonly #opts: AppleOptions;
   /** The record is waiting on a macOS grant (`config.permission`). */
   #waiting: boolean;
+  /** Per-shortcut settings from Settings → Connectors → Shortcuts (`config.shortcutRules`). */
+  readonly #shortcutRules: Record<string, string>;
 
   constructor(record: ConnectorRecord, app: AppleApp, opts: AppleOptions) {
     this.id = record.id;
     this.type = record.type;
     this.#app = app;
     this.#opts = opts;
-    const permission = (record.config as Record<string, unknown> | undefined)?.permission;
+    const cfg = (record.config as Record<string, unknown> | undefined) ?? {};
+    const rules = cfg.shortcutRules;
+    this.#shortcutRules =
+      typeof rules === "object" && rules !== null && !Array.isArray(rules)
+        ? (rules as Record<string, string>)
+        : {};
+    const permission = cfg.permission;
     this.#waiting = typeof permission === "object" && permission !== null;
   }
 
@@ -1528,6 +1588,12 @@ class AppleConnector implements Connector {
       throw new PsycheError("unavailable", `this Mac's helper does not offer ${spec.capability}`);
     }
     const p = (params ?? {}) as Record<string, unknown>;
+    // Shortcuts the owner turned off in Settings never run, whatever the approval says (§7.1).
+    if (spec.capability === "shortcuts.run" && this.#shortcutRules[String(p.id)] === "off") {
+      throw new PsycheError("policy_denied", "The owner turned this shortcut off for Psyche", {
+        details: { reason: "shortcut_off", id: String(p.id) },
+      });
+    }
     // `query` is ours (notes.list has no search); the helper's schema does not allow it.
     const sent = spec.shape === filterNotes ? withoutQuery(p) : p;
     const res = await h.invoke(spec.capability, sent, {

@@ -87,6 +87,11 @@ export const APPLE_APP_ACTIONS: Readonly<Record<string, AppleAppAction>> = {
   "contacts.read": read("apple.contacts", "read"),
   "contacts.create": write("apple.contacts", "create"),
   "contacts.update": write("apple.contacts", "update"),
+  // Shortcuts (wave 1, §4.9; #639): a run's side effect is unknown, so it is destructive.
+  "shortcuts.list": read("apple.shortcuts", "list"),
+  "shortcuts.run": write("apple.shortcuts", "run", "connector_action", {
+    sideEffect: "destructive",
+  }),
   // Files in granted folders (wave 1, §4.8; #639).
   "files.recent": read("apple.files", "recent"),
   "files.move": write("apple.files", "move"),
