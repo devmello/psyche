@@ -2,6 +2,7 @@ import type { Catalogue } from "../../index.ts";
 
 /** Output canvas strings (zh); merged into `../zh.ts`. */
 export const canvas: Partial<Catalogue> = {
+  "canvas.chart": "图表",
   "canvas.label": "画布：{title}",
   "canvas.recents": "最近的输出",
   "canvas.loading": "正在加载…",

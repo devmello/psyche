@@ -1,6 +1,7 @@
 import {
   type Artifact,
   type ArtifactCell,
+  ArtifactChart,
   type ArtifactOp,
   ArtifactTable,
   type ArtifactTableView,
@@ -16,9 +17,17 @@ import { Value } from "@sinclair/typebox/value";
 
 export type TextType = "doc" | "code" | "markdown" | "html";
 
-const TEXT_TYPES = new Set<Artifact["type"]>(["doc", "code", "markdown", "html"]);
+const TEXT_TYPES = new Set<Artifact["type"]>([
+  "doc",
+  "code",
+  "markdown",
+  "html",
+  "diagram",
+  "diff",
+]);
 const TABLE_TYPES = new Set<Artifact["type"]>(["table", "sheet"]);
 
+export const isChartType = (t: Artifact["type"]): boolean => t === "chart";
 export const isTextType = (t: Artifact["type"]): boolean => TEXT_TYPES.has(t);
 export const isTableType = (t: Artifact["type"]): boolean => TABLE_TYPES.has(t);
 
@@ -78,6 +87,39 @@ export function parseCell(ref: string): [number, number] {
   let col = 0;
   for (const ch of m[1] as string) col = col * 26 + (ch.charCodeAt(0) - 64);
   return [Number(m[2]) - 1, col - 1];
+}
+
+/** Parses and validates chart content (`ArtifactChart` JSON): every series matches the categories. */
+export function parseChart(content: string): ArtifactChart {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    throw bad("chart content is not valid JSON");
+  }
+  if (!Value.Check(ArtifactChart, parsed))
+    throw bad("chart content must be {kind, categories, series: [{name, values}]}");
+  for (const s of parsed.series)
+    if (s.values.length !== parsed.categories.length)
+      throw bad(
+        `series ${clip(s.name)} has ${s.values.length} values for ${parsed.categories.length} categories`,
+      );
+  return parsed;
+}
+
+/** RFC 7386: objects merge, null deletes a key, anything else (arrays too) replaces. */
+export function mergePatch(target: unknown, patch: unknown): unknown {
+  if (typeof patch !== "object" || patch === null || Array.isArray(patch)) return patch;
+  const out: Record<string, unknown> =
+    typeof target === "object" && target !== null && !Array.isArray(target)
+      ? { ...(target as Record<string, unknown>) }
+      : {};
+  for (const [k, v] of Object.entries(patch)) {
+    if (k === "__proto__" || k === "constructor" || k === "prototype") continue;
+    if (v === null) delete out[k];
+    else out[k] = mergePatch(out[k], v);
+  }
+  return out;
 }
 
 /** Parses table content: `ArtifactTable` JSON, or CSV with a header row. */
@@ -233,6 +275,15 @@ export function applyOps(
     });
     return { content: JSON.stringify(table), view: nextView, rewrites };
   }
+  if (isChartType(type)) {
+    let chart = parseChart(content);
+    ops.forEach((op, i) => {
+      if (op.op === "rewrite") chart = parseChart(op.content);
+      else if (op.op === "patch") chart = parseChart(JSON.stringify(mergePatch(chart, op.patch)));
+      else throw bad(`op ${i}: ${op.op} does not apply to a chart (use patch or rewrite)`);
+    });
+    return { content: JSON.stringify(chart), view: null, rewrites };
+  }
   // Images and other stored kinds only take a whole new reference.
   if (ops.length !== 1 || ops[0]?.op !== "rewrite")
     throw bad(`a ${type} artifact only takes a single rewrite`);
@@ -241,6 +292,7 @@ export function applyOps(
 
 /** Normalizes content at create time (tables become canonical JSON). */
 export function normalizeContent(type: Artifact["type"], content: string): string {
+  if (isChartType(type)) return JSON.stringify(parseChart(content));
   return isTableType(type) ? JSON.stringify(parseTable(content)) : content;
 }
 
@@ -253,14 +305,19 @@ export function summarize(
   ops?: readonly ArtifactOp[],
   previous?: string,
 ): string {
-  const what = isTableType(type)
+  const what = isChartType(type)
     ? (() => {
-        const t = JSON.parse(content) as ArtifactTable;
-        return `${t.rows.length} rows × ${t.columns.length} columns`;
+        const c = JSON.parse(content) as ArtifactChart;
+        return `${c.kind} chart, ${c.series.length} series × ${c.categories.length} points`;
       })()
-    : isTextType(type)
-      ? `${lineCount(content)} lines`
-      : "replaced";
+    : isTableType(type)
+      ? (() => {
+          const t = JSON.parse(content) as ArtifactTable;
+          return `${t.rows.length} rows × ${t.columns.length} columns`;
+        })()
+      : isTextType(type)
+        ? `${lineCount(content)} lines`
+        : "replaced";
   if (ops === undefined) return what;
   const counts = new Map<string, number>();
   for (const o of ops) counts.set(o.op, (counts.get(o.op) ?? 0) + 1);

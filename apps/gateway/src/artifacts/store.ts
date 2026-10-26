@@ -24,7 +24,14 @@ import {
   PsycheError,
 } from "@psyche/protocol";
 import { libraryRoot } from "../compose/library.ts";
-import { applyOps, isTableType, isTextType, normalizeContent, summarize } from "./ops.ts";
+import {
+  applyOps,
+  isChartType,
+  isTableType,
+  isTextType,
+  normalizeContent,
+  summarize,
+} from "./ops.ts";
 
 /**
  * The Gateway's artifact version store (docs/design/chat-experience-2026.md §4.4): every version
@@ -69,6 +76,9 @@ const EXT: Partial<Record<Artifact["type"], string>> = {
   table: "json",
   sheet: "json",
   html: "html",
+  chart: "json",
+  diagram: "mmd",
+  diff: "patch",
 };
 const MIME: Partial<Record<Artifact["type"], string>> = {
   doc: "text/markdown",
@@ -77,6 +87,9 @@ const MIME: Partial<Record<Artifact["type"], string>> = {
   table: "application/json",
   sheet: "application/json",
   html: "text/html",
+  chart: "application/json",
+  diagram: "text/plain",
+  diff: "text/x-diff",
 };
 
 export function slugify(title: string): string {
@@ -143,7 +156,7 @@ export class ArtifactStore {
         throw new PsycheError("invalid_params", "image content must be a Library image item id");
       content = item.id;
       libraryItemId = item.id;
-    } else if (isTextType(input.type) || isTableType(input.type)) {
+    } else if (isTextType(input.type) || isTableType(input.type) || isChartType(input.type)) {
       content = normalizeContent(input.type, input.content);
       libraryItemId = await this.#mirror(id, slug, input.type, content, input.threadId ?? null);
     } else {

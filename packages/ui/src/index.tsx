@@ -135,6 +135,7 @@ export {
   CanvasPane,
   type CanvasPaneProps,
 } from "./canvas/CanvasPane.tsx";
+export { ChartView, niceTicks } from "./canvas/ChartView.tsx";
 // Chat column.
 export { ApprovalDock } from "./chat/ApprovalDock.tsx";
 export { Composer, type ComposerProps, SLASH_COMMANDS } from "./chat/Composer.tsx";

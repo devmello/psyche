@@ -89,6 +89,7 @@
 //   let artifactAuthor = try? JSONDecoder().decode(ArtifactAuthor.self, from: jsonData)
 //   let artifactBlock = try? JSONDecoder().decode(ArtifactBlock.self, from: jsonData)
 //   let artifactCell = try? JSONDecoder().decode(ArtifactCell.self, from: jsonData)
+//   let artifactChart = try? JSONDecoder().decode(ArtifactChart.self, from: jsonData)
 //   let artifactConflict = try? JSONDecoder().decode(ArtifactConflict.self, from: jsonData)
 //   let artifactOp = try? JSONDecoder().decode(ArtifactOp.self, from: jsonData)
 //   let artifactRef = try? JSONDecoder().decode(ArtifactRef.self, from: jsonData)
@@ -3734,6 +3735,60 @@ public enum ArtifactBlockType: String, Codable, Sendable {
     case artifact = "artifact"
 }
 
+// MARK: - ArtifactChart
+public struct ArtifactChart: Codable, Sendable {
+    public let categories: [String]
+    public let kind: ArtifactChartKind
+    public let series: [Series]
+    public let stacked: Bool?
+    public let title: String?
+    public let xLabel: String?
+    public let yLabel: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case categories = "categories"
+        case kind = "kind"
+        case series = "series"
+        case stacked = "stacked"
+        case title = "title"
+        case xLabel = "xLabel"
+        case yLabel = "yLabel"
+    }
+
+    public init(categories: [String], kind: ArtifactChartKind, series: [Series], stacked: Bool?, title: String?, xLabel: String?, yLabel: String?) {
+        self.categories = categories
+        self.kind = kind
+        self.series = series
+        self.stacked = stacked
+        self.title = title
+        self.xLabel = xLabel
+        self.yLabel = yLabel
+    }
+}
+
+public enum ArtifactChartKind: String, Codable, Sendable {
+    case area = "area"
+    case bar = "bar"
+    case line = "line"
+    case pie = "pie"
+}
+
+// MARK: - Series
+public struct Series: Codable, Sendable {
+    public let name: String
+    public let values: [Double?]
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case values = "values"
+    }
+
+    public init(name: String, values: [Double?]) {
+        self.name = name
+        self.values = values
+    }
+}
+
 // MARK: - ArtifactTable
 public struct ArtifactTable: Codable, Sendable {
     public let columns: [String]
@@ -3855,8 +3910,11 @@ public struct Artifact: Codable, Sendable {
 }
 
 public enum ArtifactType: String, Codable, Sendable {
+    case chart = "chart"
     case code = "code"
     case dashboard = "dashboard"
+    case diagram = "diagram"
+    case diff = "diff"
     case doc = "doc"
     case html = "html"
     case image = "image"
@@ -3942,6 +4000,7 @@ public struct ArtifactOp: Codable, Sendable {
     public let count: Int?
     public let name: String?
     public let view: ArtifactTableView?
+    public let patch: [String: JSONAny]?
 
     public enum CodingKeys: String, CodingKey {
         case new = "new"
@@ -3959,9 +4018,10 @@ public struct ArtifactOp: Codable, Sendable {
         case count = "count"
         case name = "name"
         case view = "view"
+        case patch = "patch"
     }
 
-    public init(new: String?, old: String?, op: Op, after: String?, text: String?, content: String?, cell: String?, value: ArtifactCell?, range: String?, values: [ValueElement]?, at: Int?, rows: [[ArtifactCell]]?, count: Int?, name: String?, view: ArtifactTableView?) {
+    public init(new: String?, old: String?, op: Op, after: String?, text: String?, content: String?, cell: String?, value: ArtifactCell?, range: String?, values: [ValueElement]?, at: Int?, rows: [[ArtifactCell]]?, count: Int?, name: String?, view: ArtifactTableView?, patch: [String: JSONAny]?) {
         self.new = new
         self.old = old
         self.op = op
@@ -3977,6 +4037,7 @@ public struct ArtifactOp: Codable, Sendable {
         self.count = count
         self.name = name
         self.view = view
+        self.patch = patch
     }
 }
 
@@ -3986,6 +4047,7 @@ public enum Op: String, Codable, Sendable {
     case deleteRows = "deleteRows"
     case insert = "insert"
     case opSet = "set"
+    case patch = "patch"
     case replace = "replace"
     case rewrite = "rewrite"
     case setRange = "setRange"

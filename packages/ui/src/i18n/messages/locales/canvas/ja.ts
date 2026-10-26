@@ -2,6 +2,7 @@ import type { Catalogue } from "../../index.ts";
 
 /** Output canvas strings (ja); merged into `../ja.ts`. */
 export const canvas: Partial<Catalogue> = {
+  "canvas.chart": "グラフ",
   "canvas.label": "キャンバス: {title}",
   "canvas.recents": "最近の出力",
   "canvas.loading": "読み込み中…",
