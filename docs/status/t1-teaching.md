@@ -34,9 +34,15 @@ Updated 2026-10-25. Spec: [docs/agent/teaching-loop-2026.md](../agent/teaching-l
   - Feed feedback and idea dismissals, mirrored once each.
 - **Drafts.** `recordDraftSent` is ready (an outcome count, plus `draft_edited` at an edit distance of 0.2 or more), but no call site exists yet. No in-app path sends an agent draft today: the owner sends Gmail drafts in Gmail.
 
+## Third PR: `lessonsApplied`
+
+- Two additive migrations: `202610261300_gateway_messages-lessons-applied.sql` (S01's `messages`) and `202610261301_tasks_lessons-applied.sql` (S04's `tasks`).
+- At `agent_end` the Gateway reads the run's assembled prompt (`explainContext`) and collects its lesson ids: the `[ls_…]` tags of lesson-owned lines and `lesson:ls_…` on learned facts. Live lessons among them become `LessonRef`s and their `lastAppliedAt` moves.
+- A task's refs go on the task through `SqliteTaskEngine.setLessonsApplied`, accumulated across runs and capped at 20. A chat run's refs go on its agent messages once `run.updated` shows the transcript committed (`setRunLessonsApplied`), and the updated messages are re-published as `chat.message`.
+- "Helpful" now has the lessons to confirm.
+
 ## Not done yet
 
-- **`lessonsApplied` on messages and task runs.** It needs a `lessons_applied` column on S01's `messages` (and S04's `tasks`), filled after each run from `explainContext` (the `[ls_…]` tags in the assembled prompt). That's a small third PR across S01 / S04 tables; "helpful" already reads the field once it is filled.
 - **`redo.withoutLessons`.** Blocked: `chat.send` `redo` is recorded but not acted on (nothing re-answers the message yet; S01 / T2). Once redo exists, the loop needs a context option that leaves out lesson-tagged lines.
 - **A Files-pane revert as `undo`.** No revert path exists yet.
 

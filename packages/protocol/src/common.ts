@@ -87,6 +87,10 @@ export const Provenance = StringEnum(["owner", "agent", "untrusted", "system"], 
 });
 export type Provenance = Static<typeof Provenance>;
 
+/** How the owner gave an input when it was not typed or clicked: `voice` (voice-mode-2026 §4.6). */
+export const InputVia = StringEnum(["voice"], { $id: "InputVia" });
+export type InputVia = Static<typeof InputVia>;
+
 /** Side-effect class every tool and node capability declares. */
 export const SideEffect = StringEnum(["none", "read", "write", "destructive", "financial"], {
   $id: "SideEffect",

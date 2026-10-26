@@ -15,6 +15,9 @@ interface PostRow {
   batch_id: string;
   created_at: string;
   read_at?: string | null;
+  kind?: string | null;
+  refs?: string | null;
+  card?: string | null;
 }
 
 export interface StoredPost extends FeedPost {
@@ -38,6 +41,11 @@ function fromRow(r: PostRow): StoredPost {
     createdAt: r.created_at,
     batchId: r.batch_id,
     readAt: r.read_at ?? null,
+    ...(r.kind == null ? {} : { kind: r.kind as NonNullable<FeedPost["kind"]> }),
+    ...(r.refs == null ? {} : { refs: parseJson<NonNullable<FeedPost["refs"]>>(r.refs, {}) }),
+    ...(r.card == null
+      ? {}
+      : { card: parseJson<NonNullable<FeedPost["card"]>>(r.card, null as never) }),
   };
 }
 
@@ -60,9 +68,9 @@ export class FeedStore {
     this.#db
       .prepare(
         `INSERT INTO feed_posts (id, title, body_md, citations, cluster, score, reasons, exploration,
-           briefing_id, feedback, batch_id, created_at)
+           briefing_id, feedback, batch_id, created_at, kind, refs, card)
          VALUES (@id, @title, @body_md, @citations, @cluster, @score, @reasons, @exploration,
-           @briefing_id, @feedback, @batch_id, @created_at)`,
+           @briefing_id, @feedback, @batch_id, @created_at, @kind, @refs, @card)`,
       )
       .run({
         id: post.id,
@@ -77,6 +85,9 @@ export class FeedStore {
         feedback: post.feedback ?? null,
         batch_id: post.batchId,
         created_at: post.createdAt,
+        kind: post.kind ?? null,
+        refs: post.refs === undefined ? null : JSON.stringify(post.refs),
+        card: post.card === undefined ? null : JSON.stringify(post.card),
       });
   }
 

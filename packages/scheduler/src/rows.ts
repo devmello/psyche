@@ -1,4 +1,10 @@
-import type { Automation, AutomationRun, WatchConfig } from "@psyche/protocol";
+import type {
+  Automation,
+  AutomationRun,
+  AutomationTrigger,
+  WatchConfig,
+  WorkflowEvent,
+} from "@psyche/protocol";
 
 /** Raw rows of the S04 scheduler tables (migrations/202610191300_scheduler_init.sql). */
 export interface AutomationRow {
@@ -19,6 +25,8 @@ export interface AutomationRow {
   last_status: string | null;
   created_at: string;
   updated_at: string;
+  /** 202610252000_scheduler_event-triggers: the trigger of `kind: event`. */
+  trigger?: string | null;
 }
 
 export interface RunRow {
@@ -35,6 +43,8 @@ export interface RunRow {
   summary: string | null;
   notification_id: string | null;
   created_at: string;
+  /** The events an event run folded in (JSON array). */
+  events?: string | null;
 }
 
 export interface WatchRow {
@@ -84,11 +94,12 @@ export function automationFromRow(r: AutomationRow, w?: WatchRow): Automation {
   };
   if (r.light_context !== null) a.lightContext = r.light_context === 1;
   if (w !== undefined) a.watch = watchConfigFromRow(w);
+  if (r.trigger != null) a.trigger = JSON.parse(r.trigger) as AutomationTrigger;
   return a;
 }
 
 export function runFromRow(r: RunRow): AutomationRun {
-  return {
+  const run: AutomationRun = {
     id: r.id,
     automationId: r.automation_id,
     threadId: r.thread_id,
@@ -102,4 +113,6 @@ export function runFromRow(r: RunRow): AutomationRun {
     summary: r.summary,
     notificationId: r.notification_id,
   };
+  if (r.events != null) run.events = JSON.parse(r.events) as WorkflowEvent[];
+  return run;
 }

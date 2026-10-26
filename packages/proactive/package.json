@@ -17,13 +17,13 @@
   },
   "dependencies": {
     "@psyche/agent-core": "workspace:*",
+    "@psyche/permissions": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "@sinclair/typebox": "0.34.52",
     "ulid": "3.0.2"
   },
   "devDependencies": {
     "@psyche/db": "workspace:*",
-    "@psyche/permissions": "workspace:*",
     "@psyche/scheduler": "workspace:*",
     "@psyche/tasks": "workspace:*",
     "@psyche/testing": "workspace:*",

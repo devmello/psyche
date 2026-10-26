@@ -45,7 +45,7 @@ export const ModelsMethods = {
     scope: "operator.admin",
     sideEffecting: true,
     description:
-      "Binds the primary or utility role to a model and persists it (settings models.primary / models.utility). policy_denied when a chat-only model is picked as primary without override; not_found when no configured provider serves the ref. Side-effecting.",
+      "Binds the primary, utility or voice role to a model and persists it (settings models.primary / models.utility / models.voice; voice falls back to primary when unset). policy_denied when a chat-only model is picked as primary without override; not_found when no configured provider serves the ref. Side-effecting.",
   }),
   "models.setKey": defineMethod({
     params: Type.Object({
