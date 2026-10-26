@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (U, #640: connector settings from Settings → Connectors)
+
+For the UI session (U) and S09 (G, #639): `connectors.configure {connectorId, config}` merges non-secret keys into a connector's `config` (`null` removes one) without reconnecting it. Settings writes `apple:shortcuts`' `config.shortcutRules` (`off` / `ask` / `allow` per shortcut id) and Obsidian's `config.vaultPath` and `config.dailyFolder` through it. G implements the handler.
+
 ### v1 additive — 2026-10-25 (S09, #637: Apple app capabilities, wave 1)
 
 For S14 / the helper session (H, #638) and S09 (G, #639): the shapes of docs/connectors/apple-apps-2026.md wave 1. All new fields are optional and all new schemas are new names.
