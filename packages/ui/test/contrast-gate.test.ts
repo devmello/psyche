@@ -72,6 +72,16 @@ for (const mode of ["light", "dark"] as const) {
         [`label-tertiary (metadata) on ${surface}`, gray(10), bg, NON_TEXT],
         [`accent-11 link on ${surface}`, accent(11), bg, TEXT],
         [`focus ring on ${surface}`, accent(9), bg, NON_TEXT],
+        // Run-trace bars (styles/design.css --trace-*; run-trace-2026.md §3.3).
+        [`trace thinking bar on ${surface}`, gray(9), bg, NON_TEXT],
+        [`trace tool bar on ${surface}`, accent(9), bg, NON_TEXT],
+        [
+          `trace waiting bar on ${surface}`,
+          sem(mode === "light" ? "amber-11" : "amber-9"),
+          bg,
+          NON_TEXT,
+        ],
+        [`trace failed bar on ${surface}`, sem("tomato-9"), bg, NON_TEXT],
       ]),
     ];
     for (const [name, fg, bg, min] of pairs) {
