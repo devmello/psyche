@@ -68,6 +68,13 @@ export const DEFAULT_ACTIONS: readonly PaletteAction[] = [
     },
     route: "/settings/permissions",
   },
+  {
+    id: "add-mcp",
+    get label() {
+      return t("shell.palette.addMcp");
+    },
+    route: "/settings/connectors/add-mcp",
+  },
 ];
 
 export interface CommandPaletteProps {

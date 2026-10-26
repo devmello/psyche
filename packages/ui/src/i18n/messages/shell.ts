@@ -43,6 +43,7 @@ export const shell = {
   "shell.palette.settings": "Settings",
   "shell.palette.appearance": "Settings → Appearance",
   "shell.palette.permissions": "Settings → Permissions",
+  "shell.palette.addMcp": "Add MCP server",
   "shell.palette.goTo": "Go to {label}",
   "shell.palette.title": "Command palette",
   "shell.palette.description": "Search Psyche or run a command",

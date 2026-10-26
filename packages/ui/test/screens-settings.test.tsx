@@ -81,9 +81,9 @@ describe("SettingsScreen", () => {
     const { navigate } = setup({ defaultSection: "appearance" });
     const nav = screen.getByRole("navigation", { name: "Settings sections" });
     const items = within(nav).getAllByRole("button");
-    // 15 sections of UI design §2.6 plus Browser (I13), Skills (T2), VM mode (L1–L5), MCP (#529),
+    // 15 sections of UI design §2.6 plus Browser (I13), Skills (T2), VM mode (L1–L5),
     // People & projects (#652), Specialists (#685) and Mail & meetings (#672).
-    expect(items).toHaveLength(22);
+    expect(items).toHaveLength(21);
     expect(items.map((b) => b.textContent?.trim())).toContain("People & projects");
     expect(items.map((b) => b.textContent?.trim())).toContain("Skills");
     expect(items.map((b) => b.textContent?.trim())).toContain("Specialists");
@@ -292,7 +292,7 @@ describe("Connectors", () => {
     expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({ id: IDS.connectors.gmail }));
     expect(screen.getAllByText("Trust: community")).toHaveLength(1);
 
-    await userEvent.click(screen.getByRole("button", { name: "Connect an account" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add connector" }));
     await userEvent.click(screen.getByRole("radio", { name: /^Read and act/ }));
     await userEvent.click(screen.getByRole("button", { name: "Continue to sign in" }));
     expect(onConnect).toHaveBeenCalledWith("google", "read_act");
@@ -988,7 +988,7 @@ describe("Settings polish (UI design §3.18, §4.12)", () => {
       },
     );
     expect(await screen.findByText(/No accounts connected/)).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "Connect an account" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Add connector" })).toHaveLength(1);
   });
 
   it("draws each accent swatch as one radio", async () => {
@@ -1328,7 +1328,7 @@ describe("Settings → Connectors connects for real (#505)", () => {
     );
     // The list loads again once the mock connection opens; click the settled empty state.
     await waitFor(async () => {
-      await userEvent.click(screen.getByRole("button", { name: "Connect an account" }));
+      await userEvent.click(screen.getByRole("button", { name: "Add connector" }));
       expect(screen.getByRole("button", { name: "Continue to sign in" })).toBeTruthy();
     });
     await userEvent.click(screen.getByRole("button", { name: "Continue to sign in" }));

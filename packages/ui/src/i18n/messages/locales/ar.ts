@@ -862,7 +862,6 @@ export const ar: Partial<Catalogue> = {
   "settings.nav.model": "النموذج والمزوّدون",
   "settings.nav.persona": "الشخصية",
   "settings.nav.connectors": "الموصّلات",
-  "settings.nav.mcp": "خوادم MCP",
   "settings.nav.skills": "المهارات",
   "settings.nav.permissions": "الأذونات",
   "settings.nav.computerUse": "استخدام الكمبيوتر",
@@ -1447,11 +1446,8 @@ export const ar: Partial<Catalogue> = {
   "settings.connectors.catalog.appleMail": "بريد Apple",
   "settings.connectors.catalog.mcp": "خادم MCP",
   "settings.connectors.catalog.slack": "Slack",
-  "settings.connectors.mcpExplain":
-    "تضيف خوادم MCP خوادم أدوات خارجية تتحدث بروتوكول Model Context Protocol. أضف واحدًا في الإعدادات ← خوادم MCP.",
   "settings.connectors.slackExplain":
     "Slack قناة: تدردش مع Psyche هناك. أعدّه في الإعدادات ← القنوات.",
-  "settings.connectors.openMcp": "فتح خوادم MCP",
   "settings.connectors.openChannels": "فتح القنوات",
   "settings.connectors.status.connected": "متصل",
   "settings.connectors.status.disconnected": "غير متصل",
@@ -1477,10 +1473,6 @@ export const ar: Partial<Catalogue> = {
   "settings.connectors.accountType": "نوع الحساب",
   "settings.connectors.whatCan": "ما الذي يمكن لـ {persona} فعله به؟",
   "settings.connectors.continue": "المتابعة إلى تسجيل الدخول",
-  "settings.mcp.title": "خوادم MCP",
-  "settings.mcp.description":
-    "خوادم أدوات خارجية تتحدث بروتوكول Model Context Protocol. تعمل خوادم الأوامر في بيئة معزولة؛ ويُفحص كل منها ويُوافق عليه قبل أن يتمكن Psyche من استخدام أدواته.",
-  "settings.mcp.loadLabel": "خوادم MCP",
   "settings.mcp.empty": "لا خوادم MCP بعد. أضف واحدًا لمنح Psyche أدواته.",
   "settings.mcp.add": "إضافة خادم MCP",
   "settings.mcp.addHint":

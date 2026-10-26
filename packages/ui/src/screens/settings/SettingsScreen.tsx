@@ -2,7 +2,6 @@ import type { Connector } from "@psyche/protocol";
 import {
   Activity,
   Bot,
-  Cable,
   FolderLock,
   Globe,
   Info,
@@ -44,13 +43,12 @@ import { AppearanceSection } from "./AppearanceSection.tsx";
 import { BrowserSection } from "./BrowserSection.tsx";
 import { ChannelsSection } from "./ChannelsSection.tsx";
 import { ComputerUseSection } from "./ComputerUseSection.tsx";
-import { ConnectorsSection, type ScopeMode } from "./ConnectorsSection.tsx";
+import { ConnectorsSection, type ConnectorsView, type ScopeMode } from "./ConnectorsSection.tsx";
 import { CredentialsSection } from "./CredentialsSection.tsx";
 import { DataControlsSection, type ExportFile } from "./DataControlsSection.tsx";
 import { DevicesSection } from "./DevicesSection.tsx";
 import { FileAccessSection } from "./FileAccessSection.tsx";
 import { MailMeetingsSection } from "./MailMeetingsSection.tsx";
-import { McpSection } from "./McpSection.tsx";
 import { ModelSection } from "./ModelSection.tsx";
 import { PeopleSection } from "./PeopleSection.tsx";
 import { PermissionsSection } from "./PermissionsSection.tsx";
@@ -78,7 +76,6 @@ export type SettingsSectionId =
   | "model"
   | "persona"
   | "connectors"
-  | "mcp"
   | "skills"
   | "specialists"
   | "permissions"
@@ -118,7 +115,6 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionEntry[] = [
   entry("model", Bot),
   entry("persona", Sparkles),
   entry("connectors", Plug),
-  entry("mcp", Cable),
   entry("skills", Puzzle),
   entry("specialists", Workflow),
   entry("permissions", ShieldCheck),
@@ -152,7 +148,6 @@ export const SETTINGS_GROUPS: readonly {
     sections: [
       "permissions",
       "connectors",
-      "mcp",
       "skills",
       "specialists",
       "credentials",
@@ -189,7 +184,7 @@ export function sectionForKey(key: string): SettingsSectionId | null {
     workflows: "mail",
     vault: "credentials",
     channels: "channels",
-    mcp: "mcp",
+    mcp: "connectors",
     skills: "skills",
     specialists: "specialists",
   };
@@ -261,6 +256,8 @@ export interface SettingsScreenProps extends SettingsShellProps {
   section?: SettingsSectionId;
   defaultSection?: SettingsSectionId;
   onSectionChange?: (section: SettingsSectionId) => void;
+  /** Where Connectors opens: the MCP servers only, or with the Add MCP server form showing. */
+  connectorsView?: ConnectorsView;
 }
 
 function opt<K extends string, V>(key: K, value: V | undefined): { [P in K]?: V } {
@@ -271,11 +268,14 @@ export function SettingsSectionView({
   section,
   shell,
   onOpenSection,
+  connectorsView,
 }: {
   section: SettingsSectionId;
   shell: SettingsShellProps;
-  /** Moves to another section (the connector catalog's MCP and Slack rows). */
+  /** Moves to another section (the connector catalog's Slack row). */
   onOpenSection?: (section: SettingsSectionId) => void;
+  /** Where Connectors opens (the old MCP route, ⌘K "Add MCP server"). */
+  connectorsView?: ConnectorsView;
 }): ReactElement {
   const s = shell;
   const override = s.sections?.[section];
@@ -302,6 +302,7 @@ export function SettingsSectionView({
           {...opt("onDisconnect", s.onDisconnect)}
           {...opt("onRemove", s.onRemove)}
           {...opt("onOpenSection", onOpenSection)}
+          {...opt("view", connectorsView)}
         />
       );
     case "skills":
@@ -325,8 +326,6 @@ export function SettingsSectionView({
       return <VmSection {...opt("now", s.now)} />;
     case "devices":
       return <DevicesSection {...opt("now", s.now)} {...opt("thisDeviceId", s.thisDeviceId)} />;
-    case "mcp":
-      return <McpSection {...opt("now", s.now)} />;
     case "channels":
       return <ChannelsSection {...opt("now", s.now)} />;
     case "credentials":
@@ -376,6 +375,7 @@ export function SettingsScreen({
   section,
   defaultSection = "model",
   onSectionChange,
+  connectorsView,
   ...shell
 }: SettingsScreenProps): ReactElement {
   const { navigate } = useSlots();
@@ -513,7 +513,12 @@ export function SettingsScreen({
         >
           <div className="flex w-full max-w-[680px] flex-col gap-5">
             <SettingsApprovalProvider>
-              <SettingsSectionView section={current} shell={shell} onOpenSection={select} />
+              <SettingsSectionView
+                section={current}
+                shell={shell}
+                onOpenSection={select}
+                {...(connectorsView === undefined ? {} : { connectorsView })}
+              />
             </SettingsApprovalProvider>
           </div>
         </div>

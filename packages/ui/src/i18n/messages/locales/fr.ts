@@ -848,7 +848,6 @@ export const fr: Partial<Catalogue> = {
   "settings.nav.model": "Modèle et fournisseurs",
   "settings.nav.persona": "Persona",
   "settings.nav.connectors": "Connecteurs",
-  "settings.nav.mcp": "Serveurs MCP",
   "settings.nav.skills": "Compétences",
   "settings.nav.permissions": "Autorisations",
   "settings.nav.computerUse": "Utilisation de l’ordinateur",
@@ -1438,11 +1437,8 @@ export const fr: Partial<Catalogue> = {
   "settings.connectors.catalog.appleMail": "Mail",
   "settings.connectors.catalog.mcp": "Serveur MCP",
   "settings.connectors.catalog.slack": "Slack",
-  "settings.connectors.mcpExplain":
-    "Les serveurs MCP branchent des serveurs d’outils externes qui parlent le Model Context Protocol. Ajoutez-en un dans Réglages → Serveurs MCP.",
   "settings.connectors.slackExplain":
     "Slack est un canal : vous y discutez avec Psyche. Configurez-le dans Réglages → Canaux.",
-  "settings.connectors.openMcp": "Ouvrir Serveurs MCP",
   "settings.connectors.openChannels": "Ouvrir Canaux",
   "settings.connectors.status.connected": "Connecté",
   "settings.connectors.status.disconnected": "Déconnecté",
@@ -1469,10 +1465,6 @@ export const fr: Partial<Catalogue> = {
   "settings.connectors.accountType": "Type de compte",
   "settings.connectors.whatCan": "Que peut en faire {persona} ?",
   "settings.connectors.continue": "Continuer vers la connexion",
-  "settings.mcp.title": "Serveurs MCP",
-  "settings.mcp.description":
-    "Serveurs d’outils externes qui parlent le Model Context Protocol. Les serveurs en ligne de commande s’exécutent dans le bac à sable ; chacun est vérifié et approuvé avant que Psyche puisse utiliser ses outils.",
-  "settings.mcp.loadLabel": "les serveurs MCP",
   "settings.mcp.empty":
     "Aucun serveur MCP pour l’instant. Ajoutez-en un pour donner ses outils à Psyche.",
   "settings.mcp.add": "Ajouter un serveur MCP",
