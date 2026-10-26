@@ -1,4 +1,5 @@
 import type { ApprovalStatus, RunStep, TaskStatus, ToolCallStatus } from "@psyche/protocol";
+import { TriangleAlert } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
 import { StatusGlyph } from "../components/status.tsx";
 import { Button } from "../components/ui/button.tsx";
@@ -155,13 +156,20 @@ export function Card({
             {status ? (
               <StatusGlyph status={status.status} label={cardStatusLabel(status)} morph />
             ) : null}
+            {status?.warning ? (
+              <TriangleAlert className="size-3.5 shrink-0 text-approval-text" aria-hidden="true" />
+            ) : null}
             {icon ? (
               <span className="inline-flex shrink-0 text-label-secondary [&_svg]:size-4">
                 {icon}
               </span>
             ) : null}
             {title !== undefined ? (
-              <h3 className="min-w-0 flex-1 truncate text-headline">{title}</h3>
+              <h3
+                className={cn("min-w-0 flex-1 truncate", variant !== "inline" && "text-headline")}
+              >
+                {title}
+              </h3>
             ) : null}
             {meta !== undefined ? (
               <span
