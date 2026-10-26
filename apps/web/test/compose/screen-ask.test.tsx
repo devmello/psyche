@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { GatewayEvent, GatewayStatus } from "../../src/client/index.ts";
 import {
-  answerText,
+  answerParts,
   imageChoice,
   parseOpen,
   ScreenAsk,
@@ -132,8 +132,8 @@ describe("parseOpen", () => {
   });
 });
 
-describe("answerText", () => {
-  it("joins the agent's text after the request, then what streams", () => {
+describe("answerParts", () => {
+  it("takes the agent's messages after the request, plus what streams", () => {
     const msg = (id: string, role: "user" | "agent", md: string) =>
       ({ id, role, blocks: [{ type: "text", md }] }) as never;
     const messages = [
@@ -141,8 +141,10 @@ describe("answerText", () => {
       msg("m_1", "user", "q"),
       msg("m_2", "agent", "A"),
     ];
-    expect(answerText(messages, "m_1", [{ text: "B" }])).toBe("A\n\nB");
-    expect(answerText(messages, "missing", [])).toBe("");
+    const parts = answerParts(messages, "m_1", [{ text: "B" }, { text: "C" }]);
+    expect(parts.messages.map((m) => m.id)).toEqual(["m_2"]);
+    expect(parts.streamingText).toBe("BC");
+    expect(answerParts(messages, "missing", []).messages).toEqual([]);
   });
 });
 
@@ -168,6 +170,7 @@ describe("ScreenAsk", () => {
     expect(calls.filter(([m]) => m === "screen.capture")).toEqual([
       ["screen.capture", { mode: "window" }],
     ]);
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
     fireEvent.click(screen.getByRole("button", { name: "Always send the screenshot" }));
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "What is this?" } });
     fireEvent.click(screen.getByRole("button", { name: "Ask" }));
@@ -206,6 +209,8 @@ describe("ScreenAsk", () => {
       expect(screen.getByTestId("screen-ask-chip").textContent).toContain("Safari"),
     );
     fireEvent.click(screen.getByRole("button", { name: "Don't send what's on screen" }));
+    expect(screen.queryByTestId("screen-ask-chip")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
     fireEvent.click(screen.getByRole("button", { name: "Current chat" }));
     await waitFor(() =>
       expect(calls).toContainEqual([
@@ -243,6 +248,7 @@ describe("ScreenAsk", () => {
     await waitFor(() =>
       expect(screen.getByTestId("screen-ask-chip").textContent).toContain("Safari"),
     );
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
     fireEvent.click(screen.getByRole("button", { name: "Current chat" }));
     await waitFor(() => expect(calls.some(([m]) => m === "settings.set")).toBe(true));
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "what is this" } });

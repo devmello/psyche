@@ -3200,7 +3200,6 @@ export const zh: Partial<Catalogue> = {
   "screenAsk.answer.thinking": "正在思考…",
   "screenAsk.answer.failed": "出了点问题。打开聊天查看详情。",
   "screenAsk.open": "在 Psyche 中打开",
-  "screenAsk.cancelHint": "按 Esc 关闭",
   "screenAsk.region.hint": "拖动以选择区域。按 Esc 保留整个窗口。",
   "screenAsk.region.label": "选择屏幕上的区域",
   "settings.screenAsk.title": "询问屏幕内容",

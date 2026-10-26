@@ -3330,7 +3330,6 @@ export const it: Partial<Catalogue> = {
   "screenAsk.answer.thinking": "Sto pensando…",
   "screenAsk.answer.failed": "Qualcosa è andato storto. Apri la chat per saperne di più.",
   "screenAsk.open": "Apri in Psyche",
-  "screenAsk.cancelHint": "Esc per chiudere",
   "screenAsk.region.hint": "Trascina per selezionare un’area. Esc mantiene l’intera finestra.",
   "screenAsk.region.label": "Seleziona un’area dello schermo",
   "settings.screenAsk.title": "Chiedi dello schermo",

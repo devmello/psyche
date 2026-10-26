@@ -3305,7 +3305,6 @@ export const ar: Partial<Catalogue> = {
   "screenAsk.answer.thinking": "جارٍ التفكير…",
   "screenAsk.answer.failed": "حدث خطأ ما. افتح الدردشة لمعرفة المزيد.",
   "screenAsk.open": "فتح في Psyche",
-  "screenAsk.cancelHint": "Esc للإغلاق",
   "screenAsk.region.hint": "اسحب لتحديد منطقة. يُبقي Esc النافذة كاملة.",
   "screenAsk.region.label": "حدد منطقة من الشاشة",
   "settings.screenAsk.title": "السؤال عن الشاشة",

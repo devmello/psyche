@@ -1,25 +1,32 @@
-import type { ScreenCaptureRefusal, ScreenImageChoice } from "@psyche/protocol";
-import { Crop, ExternalLink, Mic, Pin, PinOff, RotateCw, Square, X } from "lucide-react";
+import type { Message, ScreenCaptureRefusal, ScreenImageChoice } from "@psyche/protocol";
+import { ArrowUp, Ellipsis, ExternalLink, Mic, Square, X } from "lucide-react";
 import {
   type FormEvent,
-  type KeyboardEvent,
   type PointerEvent,
   type ReactElement,
   useEffect,
+  useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import { Markdown } from "../blocks/Markdown.tsx";
-import { GlassSurface } from "../components/glass-surface.tsx";
+import { MessageBlocks } from "../blocks/MessageBlocks.tsx";
+import { indexThreadBlocks, ThreadBlocksProvider } from "../blocks/thread-blocks.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { t } from "../i18n/core.ts";
-import { cn } from "../lib/utils.ts";
+import { type OrbState, ScreenAskOrb } from "./ScreenAskOrb.tsx";
 
 /**
- * The ask panel (docs/design/screen-ask-2026.md §2–§4): a chip with the capture's thumbnail
- * (✕ drops it, the pin always sends the image, ↻ captures again, the crop button selects an
- * area), one line to type or speak the request, where it goes, and the answer streaming in below
- * with Open in Psyche. Esc closes from anywhere in the panel. The window is the desktop's.
+ * The ask panel (docs/design/screen-ask-2026.md, "Redesign: Siri-simple"): one rounded bar with
+ * the orb, a small chip with the capture's thumbnail (✕ removes it), one line to type or speak the
+ * request, and mic / send. The answer grows downward under the bar and is the chat's own
+ * rendering (`MessageBlocks`: cards, artifacts, maps, charts), scrolling past a maximum. The
+ * rarely used controls (capture again, select area, always send the screenshot, send to the
+ * current chat) sit behind ⋯. Esc closes from anywhere. The window is the desktop's.
+ *
+ * The surface is opaque (`surface-overlay`, which follows light and dark): the panel floats over
+ * any wallpaper, and glass has nothing to refract in a window of its own.
  */
 
 /** Window heights move in steps of this many pixels. */
@@ -43,7 +50,10 @@ export interface ScreenAskDictation {
 
 export interface ScreenAskAnswer {
   status: "sending" | "streaming" | "done" | "failed";
-  text: string;
+  /** The agent's messages after the ask, drawn by the chat's block registry. */
+  messages: readonly Message[];
+  /** Text still arriving; the smooth-streaming buffer reveals it. */
+  streamingText?: string;
 }
 
 export interface ScreenAskViewProps {
@@ -80,10 +90,90 @@ function chipLabel(c: ScreenAskCaptureView): string {
     : t("screenAsk.chip.window", { app });
 }
 
+/** What the orb shows: listening, thinking (waiting on the reply), or answering. */
+export function orbState(
+  p: Pick<ScreenAskViewProps, "dictation" | "answer" | "capture">,
+): OrbState {
+  const d = p.dictation?.phase;
+  if (d === "listening" || d === "finishing") return "listening";
+  const a = p.answer;
+  if (a !== undefined) {
+    if (a.status === "failed" || a.status === "done") return "idle";
+    const hasContent = a.messages.length > 0 || (a.streamingText ?? "") !== "";
+    return hasContent ? "answering" : "thinking";
+  }
+  return p.capture?.status === "capturing" ? "thinking" : "idle";
+}
+
+/** Within this many px of the bottom the answer keeps following new text. */
+const STICK_PX = 48;
+
+function Answer({
+  answer,
+  onOpen,
+}: {
+  answer: ScreenAskAnswer;
+  onOpen: (() => void) | undefined;
+}): ReactElement {
+  const scroll = useRef<HTMLDivElement>(null);
+  const stick = useRef(true);
+  const index = useMemo(() => indexThreadBlocks(answer.messages), [answer.messages]);
+  const streamed = answer.streamingText ?? "";
+  const empty = answer.messages.length === 0 && streamed === "";
+
+  // Follow the text while the owner is at the bottom; scrolling up lets go.
+  useLayoutEffect(() => {
+    const el = scroll.current;
+    if (el && stick.current) el.scrollTop = el.scrollHeight;
+  });
+
+  return (
+    <div className="psy-ask-in border-separator border-t-[0.5px]" aria-live="polite">
+      {answer.status === "failed" ? (
+        <p className="px-4 py-3 text-callout text-label-secondary">
+          {t("screenAsk.answer.failed")}
+        </p>
+      ) : empty ? (
+        <p className="sr-only">{t("screenAsk.answer.thinking")}</p>
+      ) : (
+        <div
+          ref={scroll}
+          data-testid="screen-ask-answer"
+          className="max-h-[420px] overflow-y-auto px-4 py-3 text-reading text-label-primary"
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_PX;
+          }}
+        >
+          <ThreadBlocksProvider index={index}>
+            {answer.messages.map((m) => (
+              <MessageBlocks key={m.id} message={m} />
+            ))}
+          </ThreadBlocksProvider>
+          {streamed !== "" ? (
+            <div aria-busy="true">
+              <Markdown streaming>{streamed}</Markdown>
+            </div>
+          ) : null}
+        </div>
+      )}
+      {onOpen ? (
+        <div className="flex justify-end px-3 pb-3">
+          <Button size="sm" variant="outline" onClick={onOpen}>
+            <ExternalLink data-icon="inline-start" />
+            {t("screenAsk.open")}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function ScreenAskView(p: ScreenAskViewProps): ReactElement {
   const { capture: c, answer } = p;
   const input = useRef<HTMLTextAreaElement>(null);
   const root = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState(false);
   const sent = answer !== undefined;
   const listening = p.dictation?.phase === "listening" || p.dictation?.phase === "finishing";
 
@@ -117,12 +207,18 @@ export function ScreenAskView(p: ScreenAskViewProps): ReactElement {
     };
   }, [onHeight]);
 
-  const onKeyDown = (e: KeyboardEvent<HTMLElement>) => {
-    if (e.key === "Escape") {
+  // Esc closes from anywhere in the panel's own window, focus or not.
+  const onCancel = p.onCancel;
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== "Escape") return;
       e.preventDefault();
-      p.onCancel();
-    }
-  };
+      onCancel();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+
   const submit = (e?: FormEvent) => {
     e?.preventDefault();
     if (p.text.trim() !== "") p.onSubmit();
@@ -136,163 +232,150 @@ export function ScreenAskView(p: ScreenAskViewProps): ReactElement {
           : null
         : t(`screenAsk.refusal.${c.refusal}`, { app: c.appName ?? "" });
   const hasCapture = c?.status === "ready";
+  const showChip =
+    c !== undefined && c.image !== "dropped" && (c.status === "capturing" || c.status === "ready");
+  const chipText = c ? chipLabel(c) : "";
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: Esc anywhere in the panel closes it
-    <div ref={root} className="p-2" onKeyDown={onKeyDown} data-testid="screen-ask">
-      <GlassSurface impl="refraction" radius={20} as="section" aria-label={t("screenAsk.label")}>
-        <div className="flex flex-col gap-2 p-3">
-          {c ? (
-            <div className="flex items-center gap-2">
-              <div
-                className={cn(
-                  "flex min-w-0 items-center gap-2 rounded-md bg-fill-quaternary py-1 pr-1 pl-1 text-xs text-label-secondary",
-                  c.image === "dropped" && "opacity-50",
-                )}
-                data-testid="screen-ask-chip"
-              >
-                {c.thumbnail ? (
-                  <img src={c.thumbnail} alt="" className="h-8 w-12 rounded-sm object-cover" />
-                ) : null}
-                <span className="truncate">{chipLabel(c)}</span>
-                {hasCapture && c.thumbnail && c.image !== "dropped" ? (
-                  <Button
-                    size="icon-xs"
-                    variant="ghost"
-                    aria-pressed={c.image === "pinned"}
-                    aria-label={c.image === "pinned" ? t("screenAsk.unpin") : t("screenAsk.pin")}
-                    title={c.image === "pinned" ? t("screenAsk.unpin") : t("screenAsk.pin")}
-                    onClick={p.onTogglePin ?? (() => undefined)}
-                    disabled={sent}
-                  >
-                    {c.image === "pinned" ? <Pin /> : <PinOff />}
-                  </Button>
-                ) : null}
-                {hasCapture && c.image !== "dropped" ? (
-                  <Button
-                    size="icon-xs"
-                    variant="ghost"
-                    aria-label={t("screenAsk.drop")}
-                    title={t("screenAsk.drop")}
-                    onClick={p.onDrop ?? (() => undefined)}
-                    disabled={sent}
-                  >
-                    <X />
-                  </Button>
-                ) : null}
-              </div>
-              <div className="ml-auto flex items-center gap-1">
-                <Button
-                  size="icon-xs"
-                  variant="ghost"
-                  aria-label={t("screenAsk.recapture")}
-                  title={t("screenAsk.recapture")}
-                  onClick={p.onRecapture ?? (() => undefined)}
-                  disabled={sent || c.status === "capturing"}
-                >
-                  <RotateCw />
-                </Button>
-                <Button
-                  size="icon-xs"
-                  variant="ghost"
-                  aria-label={t("screenAsk.selectArea")}
-                  title={t("screenAsk.selectArea")}
-                  onClick={p.onSelectArea ?? (() => undefined)}
-                  disabled={sent}
-                >
-                  <Crop />
-                </Button>
-              </div>
-            </div>
-          ) : null}
-          {refusal ? (
-            <p className="flex items-center gap-2 text-xs text-label-secondary" role="status">
-              {refusal}
-              {c?.refusal === "permission_missing" && p.onAllowCapture ? (
-                <Button size="xs" variant="outline" onClick={p.onAllowCapture}>
-                  {t("screenAsk.allowCapture")}
-                </Button>
+    <div ref={root} className="p-2" data-testid="screen-ask">
+      <section
+        aria-label={t("screenAsk.label")}
+        className="psy-ask-in overflow-hidden rounded-[28px] border-[0.5px] border-separator-strong bg-surface-overlay text-label-primary"
+      >
+        <form className="flex min-h-14 items-center gap-2.5 py-2 pr-2.5 pl-4" onSubmit={submit}>
+          <ScreenAskOrb state={orbState(p)} />
+          {showChip && c ? (
+            <div
+              className="flex h-9 max-w-40 shrink-0 items-center gap-1.5 rounded-lg bg-fill-secondary py-1 pr-1 pl-1 text-xs text-label-secondary"
+              data-testid="screen-ask-chip"
+              title={chipText}
+            >
+              {c.thumbnail ? (
+                <img
+                  src={c.thumbnail}
+                  alt=""
+                  className="h-7 w-10 shrink-0 rounded-md object-cover"
+                />
               ) : null}
-            </p>
-          ) : null}
-          <form className="flex items-end gap-2" onSubmit={submit}>
-            <textarea
-              ref={input}
-              rows={1}
-              className="min-h-8 flex-1 resize-none bg-transparent py-1.5 text-sm text-label-primary outline-none placeholder:text-label-tertiary"
-              placeholder={p.placeholder ?? t("screenAsk.placeholder")}
-              aria-label={t("screenAsk.label")}
-              value={listening && p.dictation?.partial ? p.dictation.partial : p.text}
-              readOnly={sent || listening}
-              onChange={(e) => p.onText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) submit(e);
-              }}
-            />
-            {p.dictation && !sent ? (
-              <Button
-                type="button"
-                size="icon-sm"
-                variant={listening ? "default" : "ghost"}
-                aria-pressed={listening}
-                aria-label={listening ? t("screenAsk.mic.stop") : t("screenAsk.mic.start")}
-                title={p.dictation.phase === "unavailable" ? p.dictation.reason : undefined}
-                disabled={p.dictation.phase === "unavailable"}
-                onClick={p.dictation.toggle}
-              >
-                {listening ? <Square /> : <Mic />}
-              </Button>
-            ) : null}
-            {!sent ? (
-              <Button type="submit" size="sm" disabled={p.text.trim() === "" || listening}>
-                {t("screenAsk.send")}
-              </Button>
-            ) : null}
-          </form>
-          {!sent ? (
-            <div className="flex items-center gap-2 text-xs text-label-tertiary">
-              <span>{t("screenAsk.dest.label")}</span>
-              {(["new", "current"] as const).map((d) => (
-                <button
-                  key={d}
+              <span className="truncate">{chipText}</span>
+              {hasCapture && !sent ? (
+                <Button
                   type="button"
-                  aria-pressed={p.destination === d}
-                  className={cn(
-                    "rounded-sm px-1.5 py-0.5",
-                    p.destination === d
-                      ? "bg-fill-secondary text-label-primary"
-                      : "hover:bg-fill-quaternary",
-                  )}
-                  onClick={() => p.onDestination(d)}
+                  size="icon-xs"
+                  variant="ghost"
+                  aria-label={t("screenAsk.drop")}
+                  title={t("screenAsk.drop")}
+                  onClick={p.onDrop ?? (() => undefined)}
                 >
-                  {d === "new" ? t("screenAsk.dest.new") : t("screenAsk.dest.current")}
-                </button>
-              ))}
-              <span className="ml-auto">{t("screenAsk.cancelHint")}</span>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2" aria-live="polite">
-              <div className="max-h-56 overflow-y-auto text-sm">
-                {answer.status === "failed" ? (
-                  <p className="text-label-secondary">{t("screenAsk.answer.failed")}</p>
-                ) : answer.text === "" ? (
-                  <p className="text-label-tertiary">{t("screenAsk.answer.thinking")}</p>
-                ) : (
-                  <Markdown streaming={answer.status === "streaming"}>{answer.text}</Markdown>
-                )}
-              </div>
-              {p.onOpen ? (
-                <div className="flex justify-end">
-                  <Button size="sm" variant="outline" onClick={p.onOpen}>
-                    <ExternalLink data-icon="inline-start" />
-                    {t("screenAsk.open")}
-                  </Button>
-                </div>
+                  <X />
+                </Button>
               ) : null}
             </div>
-          )}
-        </div>
-      </GlassSurface>
+          ) : null}
+          <textarea
+            ref={input}
+            rows={1}
+            className="max-h-28 min-h-8 min-w-0 flex-1 resize-none bg-transparent py-1 text-reading text-label-primary outline-none [field-sizing:content] placeholder:text-label-secondary"
+            placeholder={p.placeholder ?? t("screenAsk.placeholder")}
+            aria-label={t("screenAsk.label")}
+            value={listening && p.dictation?.partial ? p.dictation.partial : p.text}
+            readOnly={sent || listening}
+            onChange={(e) => p.onText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) submit(e);
+            }}
+          />
+          {!sent ? (
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="rounded-full"
+              aria-label={t("common.more")}
+              aria-expanded={more}
+              onClick={() => setMore((m) => !m)}
+            >
+              <Ellipsis />
+            </Button>
+          ) : null}
+          {p.dictation && !sent ? (
+            <Button
+              type="button"
+              size="icon"
+              variant={listening ? "default" : "ghost"}
+              className="rounded-full"
+              aria-pressed={listening}
+              aria-label={listening ? t("screenAsk.mic.stop") : t("screenAsk.mic.start")}
+              title={p.dictation.phase === "unavailable" ? p.dictation.reason : undefined}
+              disabled={p.dictation.phase === "unavailable"}
+              onClick={p.dictation.toggle}
+            >
+              {listening ? <Square /> : <Mic />}
+            </Button>
+          ) : null}
+          {!sent ? (
+            <Button
+              type="submit"
+              size="icon"
+              className="rounded-full"
+              aria-label={t("screenAsk.send")}
+              disabled={p.text.trim() === "" || listening}
+            >
+              <ArrowUp />
+            </Button>
+          ) : null}
+        </form>
+        {refusal ? (
+          <p
+            className="flex items-center gap-2 px-4 pb-3 text-xs text-label-secondary"
+            role="status"
+          >
+            {refusal}
+            {c?.refusal === "permission_missing" && p.onAllowCapture ? (
+              <Button size="xs" variant="outline" onClick={p.onAllowCapture}>
+                {t("screenAsk.allowCapture")}
+              </Button>
+            ) : null}
+          </p>
+        ) : null}
+        {more && !sent ? (
+          <div
+            className="psy-ask-in flex flex-wrap items-center gap-1.5 px-4 pb-3"
+            data-testid="screen-ask-more"
+          >
+            {c ? (
+              <>
+                <Button size="sm" variant="secondary" onClick={p.onRecapture ?? (() => undefined)}>
+                  {t("screenAsk.recapture")}
+                </Button>
+                <Button size="sm" variant="secondary" onClick={p.onSelectArea ?? (() => undefined)}>
+                  {t("screenAsk.selectArea")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  aria-pressed={c.image === "pinned"}
+                  onClick={p.onTogglePin ?? (() => undefined)}
+                >
+                  {c.image === "pinned" ? t("screenAsk.unpin") : t("screenAsk.pin")}
+                </Button>
+              </>
+            ) : null}
+            {(["new", "current"] as const).map((d) => (
+              <Button
+                key={d}
+                size="sm"
+                variant={p.destination === d ? "default" : "secondary"}
+                aria-pressed={p.destination === d}
+                onClick={() => p.onDestination(d)}
+              >
+                {d === "new" ? t("screenAsk.dest.new") : t("screenAsk.dest.current")}
+              </Button>
+            ))}
+          </div>
+        ) : null}
+        {answer ? <Answer answer={answer} onOpen={p.onOpen} /> : null}
+      </section>
     </div>
   );
 }
