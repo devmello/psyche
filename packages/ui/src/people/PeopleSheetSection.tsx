@@ -8,8 +8,8 @@ import { Input } from "../components/ui/input.tsx";
 import { useCall, useGatewayQuery } from "../data/hooks.ts";
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
+import { useOpenLink } from "../links/LinkPrompt.tsx";
 import { SegmentedRadio } from "../screens/settings/SegmentedRadio.tsx";
-import { useSlots } from "../slots.tsx";
 import { toSuggestionView } from "./adapt.ts";
 import { ConnectedEntityCard } from "./ConnectedEntityCard.tsx";
 import { EntityRow } from "./EntityRow.tsx";
@@ -54,7 +54,7 @@ export function PeopleSheetSection({
   now = Date.now(),
 }: PeopleSheetSectionProps): ReactElement {
   const call = useCall();
-  const { openExternal } = useSlots();
+  const openLink = useOpenLink();
   const searchId = useId();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("people");
@@ -137,7 +137,7 @@ export function PeopleSheetSection({
               onUpdate={(loop, status) =>
                 act(() => call("memory.loops.update", { id: loop.id, status }))
               }
-              {...(openExternal ? { onOpenLink: (link: string) => void openExternal(link) } : {})}
+              onOpenLink={openLink}
             />
           ))}
         </div>

@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import { t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
+import { SafeLink } from "../../links/SafeLink.tsx";
 
 /**
  * "Because:" evidence for ideas and inferred goals (UI design §3.10, §3.11). Evidence is untyped
@@ -139,9 +140,9 @@ export function EvidenceLine({ items, onOpenRoute, className }: EvidenceLineProp
               );
             } else if (e.href !== null) {
               node = (
-                <a href={e.href} target="_blank" rel="noreferrer noopener" className={linkClass}>
+                <SafeLink href={e.href} className={linkClass}>
                   {e.text}
-                </a>
+                </SafeLink>
               );
             } else {
               node = <span className="text-label-primary">{e.text}</span>;

@@ -3,6 +3,7 @@ import { type Components, Streamdown } from "streamdown";
 import { t } from "../i18n/core.ts";
 import { useSmoothText } from "../lib/smooth-text.ts";
 import { cn } from "../lib/utils.ts";
+import { SafeLink } from "../links/SafeLink.tsx";
 import { psycheCodePlugin } from "./highlighter.ts";
 
 const STREAM_FADE = {
@@ -44,14 +45,9 @@ const COMPONENTS: Components = {
   ),
   a: ({ href, children: label }) =>
     href ? (
-      <a
-        href={href}
-        target="_blank"
-        rel="noreferrer noopener"
-        className="text-accent-11 underline underline-offset-2"
-      >
+      <SafeLink href={href} className="text-accent-11 underline underline-offset-2">
         {label}
-      </a>
+      </SafeLink>
     ) : (
       <span>{label}</span>
     ),

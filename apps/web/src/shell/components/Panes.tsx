@@ -280,18 +280,26 @@ function PaneColumns(
   const { platform } = useShell();
   const { state, pres } = props;
 
+  // The drag in progress, if any; ended on release, cancel or when the panes unmount.
+  const endDrag = useRef<(() => void) | null>(null);
+  useEffect(() => () => endDrag.current?.(), []);
   const startDrag = (boundary: number) => (e: PointerEvent) => {
+    endDrag.current?.();
     let last = e.clientX;
     const move = (ev: globalThis.PointerEvent) => {
       props.dispatch({ type: "resize", boundary, delta: inlineDelta(ev.clientX - last) });
       last = ev.clientX;
     };
-    const up = () => {
+    const stop = () => {
       window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+      endDrag.current = null;
     };
     window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
+    window.addEventListener("pointerup", stop);
+    window.addEventListener("pointercancel", stop);
+    endDrag.current = stop;
   };
 
   return (

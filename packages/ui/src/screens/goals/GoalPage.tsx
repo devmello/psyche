@@ -37,6 +37,7 @@ import { activeI18n, t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { formatDate, formatTime } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
+import { SafeLink } from "../../links/SafeLink.tsx";
 import { useSlots } from "../../slots.tsx";
 import {
   GOAL_CATEGORY_LABEL,
@@ -388,14 +389,12 @@ export function GoalPageView({
               key={w.title}
               label={
                 w.url ? (
-                  <a
+                  <SafeLink
                     href={w.url}
-                    target="_blank"
-                    rel="noreferrer noopener"
                     className="text-accent-11 underline-offset-2 hover:underline"
                   >
                     {w.title}
-                  </a>
+                  </SafeLink>
                 ) : (
                   w.title
                 )
