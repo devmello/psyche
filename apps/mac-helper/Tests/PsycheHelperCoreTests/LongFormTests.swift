@@ -119,31 +119,31 @@ struct LongFormTests {
     }
 
     @Test func calendarChangesFoldIntoOneEventPerWindow() async throws {
+        let (changes, feed) = AsyncStream.makeStream(of: Void.self)
+        let (folded, foldedFeed) = AsyncStream.makeStream(of: Void.self)  // one element per counted change
+        let (sent, sentFeed) = AsyncStream.makeStream(of: Void.self)  // one element per emitted event
         let events = Events()
         let gate = Gate()
         let at = Date(timeIntervalSince1970: 1_792_000_000)
-        // The stream is pulled one change at a time, so the closure runs only after the previous
-        // change was folded in: five changes open one window, the sixth comes after it closed.
-        let counter = Events()
-        let changes = AsyncStream<Void> {
-            let n = counter.all.count
-            counter.add(.null)
-            switch n {
-            case 0..<5: return ()
-            case 5:
-                await gate.release()  // closes the first window
-                while events.all.count < 1 { await _Concurrency.Task.yield() }
-                return ()
-            case 6:
-                await gate.release()  // closes the second window
-                while events.all.count < 2 { await _Concurrency.Task.yield() }
-                return nil
-            default: return nil
-            }
+        let run = _Concurrency.Task {
+            await CalendarWatchCore.run(changes: changes, debounce: .seconds(30), now: { at },
+                                        sleep: { _ in await gate.acquire() }, folded: { foldedFeed.yield() },
+                                        emit: { events.add($0); sentFeed.yield() })
         }
-        let sent = await CalendarWatchCore.run(changes: changes, debounce: .seconds(30), now: { at },
-                                               sleep: { _ in await gate.acquire() }, emit: { events.add($0) })
-        #expect(sent == 2)
+        var foldedIterator = folded.makeAsyncIterator()
+        var sentIterator = sent.makeAsyncIterator()
+        // Five changes open one window; it closes only when the test says so.
+        for _ in 0..<5 { feed.yield() }
+        for _ in 0..<5 { await foldedIterator.next() }
+        await gate.release()
+        await sentIterator.next()
+        // A change after it closed opens the next window.
+        feed.yield()
+        await foldedIterator.next()
+        await gate.release()
+        await sentIterator.next()
+        feed.finish()
+        #expect(await run.value == 2)
         let decoded = try events.all.map { try JSONDecoder().decode(AppleCalendarChangedEvent.self, from: JSONEncoder().encode($0)) }
         #expect(decoded.map(\.coalesced) == [5, 1])
         #expect(decoded.allSatisfy { $0.type == .calendarChanged && $0.at == AppleDates.string(at) })

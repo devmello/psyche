@@ -38,16 +38,20 @@ public enum CalendarWatchCore {
     /// folded in, and the event goes out when it closes. So there is at most one event per window
     /// and none is later than `debounce` after the change that opened it. Returns how many events
     /// went out when `changes` ends; cancelling the invocation ends it without a last event.
-    /// `sleep` waits out a window: tests pass a gate they open themselves instead of real time.
+    /// `sleep` waits out a window and `folded` runs after each change was counted: tests pass a gate
+    /// they open themselves and wait on `folded`, instead of real time.
     public static func run(changes: AsyncStream<Void>, debounce: Duration = debounce,
                            now: @escaping @Sendable () -> Date = Date.init,
                            sleep: @escaping @Sendable (Duration) async -> Void = { try? await _Concurrency.Task.sleep(for: $0) },
+                           folded: @escaping @Sendable () -> Void = {},
                            emit: @escaping @Sendable (JSONValue) async -> Void) async -> Int {
         let window = Window()
         let sent = Counter()
         await withTaskGroup(of: Void.self) { group in
             for await _ in changes {
-                guard window.note() else { continue }
+                let opened = window.note()
+                folded()
+                guard opened else { continue }
                 group.addTask {
                     await sleep(debounce)
                     let n = window.take()
