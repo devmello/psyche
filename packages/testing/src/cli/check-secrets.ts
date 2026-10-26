@@ -29,6 +29,11 @@ export const REPO_ALLOW: { path: string; kinds: "all" | PatternKind[]; why: stri
     kinds: "all",
     why: "the registry of fake secrets and pattern samples",
   },
+  {
+    path: "docs/agent/research/teaching-loop.md",
+    kinds: ["card"],
+    why: "cited help-center URLs end in long numeric article ids (e.g. Superhuman's), not cards",
+  },
 ];
 
 const SKIP_PATH =
