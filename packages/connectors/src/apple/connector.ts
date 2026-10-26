@@ -48,7 +48,15 @@ export interface AppleOptions {
   timeoutMs?: number;
 }
 
-export type AppleApp = "notes" | "reminders" | "calendar" | "mail";
+export type AppleApp = "notes" | "reminders" | "calendar" | "mail" | "contacts";
+
+/**
+ * Catalogue identity per app (#639): Apple apps are `apple:<app>` / `apple-<app>`; Mac apps from
+ * other vendors served by the same helper route (Chrome, Things) keep their own type and vendor.
+ */
+const IDENTITY: Partial<Record<AppleApp, { type: string; id: string; vendor: string }>> = {};
+const identity = (app: AppleApp) =>
+  IDENTITY[app] ?? { type: `apple:${app}`, id: `apple-${app}`, vendor: "Apple" };
 
 interface AppleToolSpec {
   /** Bare tool name (`notes_list`); the helper capability is `capability`. */
@@ -78,9 +86,12 @@ const LABEL: Record<AppleApp, string> = {
   reminders: "Apple Reminders",
   calendar: "Apple Calendar",
   mail: "Apple Mail",
+  contacts: "Apple Contacts",
 };
 
 const DESCRIPTION: Record<AppleApp, string> = {
+  contacts:
+    "Look people up in the Contacts app on your Mac by name, email, phone or company; add people and add emails or phone numbers to them.",
   notes:
     "Find and read notes in the Notes app on your Mac by their text; create them, add to them (daily or scratch notes, checklists) and change them.",
   reminders:
@@ -91,6 +102,16 @@ const DESCRIPTION: Record<AppleApp, string> = {
 };
 
 const ACTIONS: Record<AppleApp, ConnectorAction[]> = {
+  contacts: [
+    { id: "contacts.read", title: "Look up contacts", sideEffect: "read", defaultRule: "allow" },
+    {
+      id: "contacts.write",
+      title: "Add and change contacts",
+      sideEffect: "write",
+      approvalKind: "connector_action",
+      defaultRule: "ask",
+    },
+  ],
   notes: [
     { id: "notes.read", title: "Read notes", sideEffect: "read", defaultRule: "allow" },
     {
@@ -249,7 +270,78 @@ const eventFields = {
   availability: { type: "string", enum: ["busy", "free"] },
 };
 
+const labeledValues = {
+  type: "array",
+  items: {
+    type: "object",
+    properties: {
+      label: { type: "string", maxLength: 64 },
+      value: { type: "string", maxLength: 320 },
+    },
+    required: ["label", "value"],
+    additionalProperties: false,
+  },
+  maxItems: 10,
+};
+const contactFields = {
+  givenName: { type: "string", maxLength: 200 },
+  familyName: { type: "string", maxLength: 200 },
+  organization: { type: "string", maxLength: 200 },
+  jobTitle: { type: "string", maxLength: 200 },
+  birthday: { type: "string", pattern: "^(\\d{4}|-)-\\d{2}-\\d{2}$" },
+};
+
 const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
+  contacts: [
+    {
+      name: "contacts_search",
+      capability: "contacts.search",
+      action: "contacts.read",
+      description:
+        'Find people in Contacts by name, email, phone or company, best match first (e.g. "Dana\'s email", or who a meeting attendee is). Returns ids, names, emails and phones.',
+      inputSchema: obj({ query: { type: "string", minLength: 1, maxLength: 200 }, limit }, [
+        "query",
+      ]),
+      sideEffect: "read",
+    },
+    {
+      name: "contacts_read",
+      capability: "contacts.read",
+      action: "contacts.read",
+      description:
+        "Read one contact: names, company, title, labeled emails, phones, addresses, URLs, birthday and groups.",
+      inputSchema: obj({ id: { type: "string" } }, ["id"]),
+      sideEffect: "read",
+    },
+    {
+      name: "contacts_create",
+      capability: "contacts.create",
+      action: "contacts.write",
+      description:
+        'Add a person to Contacts (e.g. "save this sender"): names, company, title, birthday (YYYY-MM-DD), labeled emails and phones.',
+      inputSchema: obj({ ...contactFields, emails: labeledValues, phones: labeledValues }),
+      sideEffect: "write",
+      binding: "action",
+    },
+    {
+      name: "contacts_update",
+      capability: "contacts.update",
+      action: "contacts.write",
+      description:
+        "Change a contact's names, company, title or birthday, and add emails or phones (existing ones are never removed).",
+      inputSchema: obj(
+        {
+          id: { type: "string" },
+          ...contactFields,
+          addEmails: labeledValues,
+          addPhones: labeledValues,
+        },
+        ["id"],
+      ),
+      sideEffect: "write",
+      binding: "action",
+    },
+  ],
   notes: [
     {
       name: "notes_list",
@@ -740,6 +832,7 @@ const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
 
 /** The capability every app's connect checks for: the helper offers the adapter. */
 const PROBE: Record<AppleApp, string> = {
+  contacts: "contacts.search",
   notes: "notes.list",
   reminders: "reminders.list_lists",
   calendar: "calendar.list_calendars",
@@ -754,10 +847,12 @@ const PROBE: Record<AppleApp, string> = {
 const PERMISSION: Record<
   AppleApp,
   {
-    kind: "automation" | "calendars" | "reminders";
+    /** `none`: no macOS grant beyond the helper's own (granted folders, Shortcuts). */
+    kind: "automation" | "calendars" | "reminders" | "contacts" | "none";
     /** Bundle id (Automation only). */
     target?: string;
-    probe: Record<string, unknown>;
+    /** null: nothing to probe on connect (the capability needs inputs the owner chooses later). */
+    probe: Record<string, unknown> | null;
     pane: string;
     path: string;
   }
@@ -787,6 +882,12 @@ const PERMISSION: Record<
     probe: {},
     pane: "Privacy_Reminders",
     path: "System Settings → Privacy & Security → Reminders → Psyche (Helper)",
+  },
+  contacts: {
+    kind: "contacts",
+    probe: { query: "psyche permission check", limit: 1 },
+    pane: "Privacy_Contacts",
+    path: "System Settings → Privacy & Security → Contacts → Psyche (Helper)",
   },
 };
 
@@ -832,17 +933,24 @@ function isPermissionError(e: { code: string; details?: Record<string, unknown> 
   );
 }
 
-export const APPLE_APPS: readonly AppleApp[] = ["notes", "reminders", "calendar", "mail"];
+export const APPLE_APPS: readonly AppleApp[] = [
+  "notes",
+  "reminders",
+  "calendar",
+  "mail",
+  "contacts",
+];
 
 export function appleCatalogueEntry(app: AppleApp): CatalogueEntry {
   const tools = TOOLS[app];
+  const who = identity(app);
   return {
-    type: `apple:${app}`,
-    id: `apple-${app}`,
+    type: who.type,
+    id: who.id,
     label: LABEL[app],
     description: DESCRIPTION[app],
     category: "first_party",
-    vendor: "Apple",
+    vendor: who.vendor,
     auth: "none",
     // The helper capabilities each mode reaches (no OAuth: the Mac's own app permissions).
     scopes: {
@@ -993,6 +1101,11 @@ class AppleConnector implements Connector {
         .catch(() => undefined);
     };
 
+    // Nothing to grant and nothing to probe (granted folders): the helper offering it is enough.
+    if (p.kind === "none" && p.probe === null) {
+      this.#waiting = false;
+      return { ...base, config: config(null) };
+    }
     // #549 / #570: never "connected" without the macOS grant. Read it first (no prompt).
     const before = await this.#grant(h).catch(() => "unknown");
     if (before === "denied") {
@@ -1022,7 +1135,7 @@ class AppleConnector implements Connector {
     }
     // The probe verifies (and for Automation is the request): the helper waits while a prompt
     // is up, so allow the owner some time.
-    const res = await h.invoke(PROBE[this.#app], p.probe, { timeoutMs: 180_000 });
+    const res = await h.invoke(PROBE[this.#app], p.probe ?? {}, { timeoutMs: 180_000 });
     if (res.ok) {
       this.#waiting = false;
       return { ...base, config: config(null) };
@@ -1050,8 +1163,9 @@ class AppleConnector implements Connector {
 
   /** The grant's state without prompting: `granted`, `denied`, `notDetermined` or `unknown`. */
   async #grant(h: AppleHelper): Promise<string> {
-    if (!h.capabilities.includes("permissions.status")) return "unknown";
     const p = PERMISSION[this.#app];
+    if (p.kind === "none") return "granted";
+    if (!h.capabilities.includes("permissions.status")) return "unknown";
     const res = await h.invoke(
       "permissions.status",
       p.target === undefined ? {} : { automationTargets: [p.target] },
