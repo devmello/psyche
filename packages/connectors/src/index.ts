@@ -1,8 +1,10 @@
 // @psyche/connectors: connector framework (M4 data, M11), web search and fetch (M8), Google (M5).
 export * from "./apple/connector.ts";
+export * from "./apple/guidance.ts";
 export * from "./custom/index.ts";
 export * from "./framework/binding.ts";
 export * from "./framework/catalogue.ts";
+export * from "./framework/free-time.ts";
 export * from "./framework/handlers.ts";
 export * from "./framework/loopback.ts";
 export * from "./framework/params.ts";
