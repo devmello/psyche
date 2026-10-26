@@ -225,6 +225,12 @@ export const zh: Partial<Catalogue> = {
   "blocks.card.status":
     "{status, select, pending {待处理} running {运行中} waiting {等待中} done {完成} failed {失败} blocked {已阻止} cancelled {已取消} other {{status}}}{warning, select, yes {，结果不确定} other {}}",
   "blocks.card.unknown": "Psyche 暂时无法显示此类项目（{type}）。",
+  "blocks.toolView.show": "显示结果",
+  "blocks.toolView.loading": "正在加载结果…",
+  "blocks.toolView.none": "此操作的结果未保留。",
+  "blocks.toolView.more": "还有 {count} 项",
+  "blocks.toolView.empty": "没有结果。",
+  "blocks.toolView.untitled": "无标题",
   "blocks.message.loading":
     "正在载入{what, select, approval {审批} question {问题} receipt {回执} artifact {成果} file {文件} task {任务} plan {计划} other {项目}}",
   "blocks.message.missing":
