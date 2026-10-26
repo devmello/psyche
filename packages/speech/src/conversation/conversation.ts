@@ -16,6 +16,16 @@ import { bytesPerSample, isPcm } from "../audio.ts";
 import type { EngineLocation, SpeechCaller, SpeechEngineSelector } from "../policy.ts";
 import { AsyncQueue, fromBase64, toBase64 } from "../queue.ts";
 import { mergeVocabulary } from "../vocabulary.ts";
+import {
+  APPROVAL_WINDOW_MS,
+  type ApprovalPhrases,
+  DEFAULT_APPROVAL_PHRASES,
+  matchApprovalPhrase,
+  planVoiceApproval,
+  type VoiceApprovalInfo,
+  type VoiceApprovalPlan,
+  type VoiceApprovalTier,
+} from "./approvals.ts";
 import { NARRATE_SLOW_MS } from "./narration.ts";
 import { type SpeakLevel, SpokenText } from "./spoken.ts";
 import { PcmVad } from "./vad.ts";
@@ -41,7 +51,13 @@ import { PcmVad } from "./vad.ts";
 export type VoiceTurnEvent =
   | { type: "delta"; text: string }
   | { type: "step"; toolCallId: string; label: string; status: ToolCallStatus }
-  | { type: "waiting"; reason: "approval" | "question"; approvalId?: string }
+  | {
+      type: "waiting";
+      reason: "approval" | "question";
+      approvalId?: string;
+      /** The pending approval as the card shows it (for a spoken readback and answer). */
+      approval?: VoiceApprovalInfo;
+    }
   | { type: "resumed" }
   | { type: "done"; status: "done" | "failed" | "cancelled" };
 
@@ -126,6 +142,10 @@ export interface VoiceConversationSettings {
   postPlaybackMs: number;
   /** Words that mean the owner hasn't finished (per locale; English default). */
   trailingWords: readonly string[];
+  /** Which approvals voice may answer (spec §4.6; default "write"). */
+  approvals: VoiceApprovalTier;
+  /** How long Psyche listens for an approval answer after the readback (default 10 s). */
+  approvalWindowMs: number;
 }
 
 export const DEFAULT_VOICE_CONVERSATION_SETTINGS: VoiceConversationSettings = {
@@ -138,6 +158,8 @@ export const DEFAULT_VOICE_CONVERSATION_SETTINGS: VoiceConversationSettings = {
   suspectMs: 1_000,
   postPlaybackMs: 600,
   trailingWords: ["and", "but", "so", "or", "because", "um", "uh", "like", "then", "with", "to"],
+  approvals: "write",
+  approvalWindowMs: APPROVAL_WINDOW_MS,
 };
 
 export interface VoiceConversationOptions {
@@ -158,6 +180,21 @@ export interface VoiceConversationOptions {
    * `policy_denied` while it is off. Without the option, conversations are allowed (tests).
    */
   enabled?: () => boolean | Promise<boolean>;
+  /** Answers an approval as the conversation's device. Without it, approvals stay cards. */
+  approvals?: VoiceApprovalPort;
+  /** Approval phrases for a language (the UI catalogues); English by default. */
+  phrases?: (language: string | undefined) => ApprovalPhrases;
+}
+
+/** The Gateway's side of an approval answered by voice: the broker, as this device's surface. */
+export interface VoiceApprovalPort {
+  answer(input: {
+    approvalId: string;
+    deviceId: string;
+    decision: "approve" | "deny";
+    /** The owner's words, for the audit entry. */
+    utterance: string;
+  }): Promise<void>;
 }
 
 /** One base64 chunk may carry at most 1 s of 48 kHz stereo f32, as `voice.push`. */
@@ -176,8 +213,8 @@ interface Turn {
 interface Reply {
   abort: AbortController;
   spoken: SpokenText;
-  /** Sentences waiting for synthesis, in order. */
-  queue: string[];
+  /** Sentences waiting for synthesis, in order; `readback` marks an approval's readback. */
+  queue: { text: string; tag?: "readback" }[];
   synthesizing: boolean;
   runDone: boolean;
   /** Utterances sent and not yet reported as played to the end. */
@@ -195,6 +232,19 @@ interface Reply {
 }
 
 type Timer = ReturnType<typeof setTimeout>;
+
+interface PendingApproval {
+  info: VoiceApprovalInfo;
+  plan: VoiceApprovalPlan;
+  /** The utterance that reads the approval back; its `played … done` opens the window. */
+  readbackId?: string;
+  /** Opens the window anyway when the client never reports `played`. */
+  fallback?: Timer;
+  /** Closes the window after `approvalWindowMs`. */
+  window?: Timer;
+  /** Listening for the answer now. */
+  open: boolean;
+}
 
 export class VoiceConversation {
   readonly id: string;
@@ -224,6 +274,8 @@ export class VoiceConversation {
   #resume: Timer | undefined;
   #counter = 0;
   #ended = false;
+  /** An approval the run is waiting for, while voice may answer it. */
+  #approval: PendingApproval | undefined;
 
   constructor(init: {
     id: string;
@@ -297,6 +349,15 @@ export class VoiceConversation {
   turn(action: "begin" | "end"): void {
     if (this.#ended) throw new PsycheError("conflict", "the voice conversation has ended");
     if (action === "begin") {
+      if (this.#approval !== undefined && this.#approval.plan.mode !== "card") {
+        // Talking during the readback, or pressing the key in the window, answers the approval.
+        this.#openAnswerWindow();
+        if (this.#turn === undefined) {
+          this.#vad.reset();
+          this.#openTurn(false);
+        }
+        return;
+      }
       if (this.#phase === "speaking") this.#stopSpeaking("barge_in");
       if (this.#phase === "thinking" || this.#phase === "waiting") return;
       this.#listening = true;
@@ -317,7 +378,14 @@ export class VoiceConversation {
   }
 
   interrupt(stage: "suspect" | "confirmed"): void {
-    if (this.#ended || this.#phase !== "speaking") return;
+    if (this.#ended || (this.#phase !== "speaking" && this.#phase !== "waiting")) return;
+    const a = this.#approval;
+    if (a !== undefined && a.plan.mode !== "card" && this.#reply?.current?.id === a.readbackId) {
+      // The owner answered over the readback: listen now, and keep the rest of the reply.
+      this.#openAnswerWindow();
+      return;
+    }
+    if (this.#phase !== "speaking") return;
     if (stage === "confirmed") {
       this.#stopSpeaking("barge_in");
       if (this.mode !== "push") this.#openTurn(false);
@@ -333,6 +401,7 @@ export class VoiceConversation {
   }
 
   played(utteranceId: string, done: boolean): void {
+    if (done && this.#approval?.readbackId === utteranceId) this.#openAnswerWindow();
     const r = this.#reply;
     if (r === undefined || !done) return;
     r.unplayed.delete(utteranceId);
@@ -350,6 +419,7 @@ export class VoiceConversation {
     for (const t of [this.#suspect, this.#endTimer, this.#idle, this.#resume]) {
       if (t !== undefined) clearTimeout(t);
     }
+    this.#closeApproval();
     this.#dropTurn();
     if (this.#reply !== undefined) {
       this.#clearSlow(this.#reply);
@@ -507,6 +577,10 @@ export class VoiceConversation {
       return;
     }
     if (this.#ended) return;
+    if (this.#approval?.open === true) {
+      await this.#answerApproval(text);
+      return;
+    }
     // Push-to-talk turns are deliberate: only the transcript decides. Others need real speech.
     const tooShort = this.mode !== "push" && speechMs < this.#settings.minSpeechMs;
     if (text === "" || tooShort) {
@@ -574,8 +648,15 @@ export class VoiceConversation {
             reason: e.reason,
             ...(e.approvalId === undefined ? {} : { approvalId: e.approvalId }),
           });
+          if (e.reason === "approval" && e.approval !== undefined)
+            this.#onApproval(reply, e.approval);
+          else if (e.reason === "question") {
+            this.#queueSentences(reply, ["I have a question for you on screen."]);
+          }
         } else if (e.type === "resumed") {
-          if (this.#phase === "waiting") this.#state("thinking");
+          // Answered (by voice or on the card): the window closes and the run goes on.
+          this.#closeApproval();
+          if (this.#phase === "waiting" || this.#phase === "speaking") this.#state("thinking");
         } else if (e.type === "done") break;
       }
     } catch (err) {
@@ -593,6 +674,107 @@ export class VoiceConversation {
     this.#queueSentences(reply, reply.spoken.finish());
     reply.runDone = true;
     this.#maybeReplyFinished();
+  }
+
+  // --- Approvals by voice (spec §4.6) -----------------------------------------------------------
+
+  #onApproval(reply: Reply, info: VoiceApprovalInfo): void {
+    this.#closeApproval();
+    const tier = this.#opts.approvals === undefined ? "off" : this.#settings.approvals;
+    const plan = planVoiceApproval(info, tier);
+    this.#approval = { info, plan, open: false };
+    if (plan.mode === "card") this.#queueSentences(reply, [plan.speech]);
+    else this.#queueSentences(reply, [plan.speech], "readback");
+  }
+
+  /** The readback played (or the owner talked over it): listen for the answer. */
+  #openAnswerWindow(): void {
+    const a = this.#approval;
+    if (a === undefined || a.open || a.plan.mode === "card" || this.#ended) return;
+    a.open = true;
+    if (a.fallback !== undefined) clearTimeout(a.fallback);
+    this.#listening = true;
+    this.#phase = "waiting";
+    this.#emit({
+      event: "voice.conversation.state",
+      payload: {
+        conversationId: this.id,
+        phase: "waiting",
+        reason: "approval",
+        approvalId: a.info.id,
+        prompt: a.plan.speech,
+        windowMs: this.#settings.approvalWindowMs,
+        listening: true,
+      },
+    });
+    // Push-to-talk answers with the key; tap and hands-free listen at once.
+    if (this.mode !== "push" && this.#turn === undefined) {
+      this.#vad.reset();
+      this.#openTurn(false);
+    }
+    a.window = setTimeout(() => {
+      if (this.#approval !== a) return;
+      this.#dropTurn();
+      this.#leaveOnScreen(a);
+    }, this.#settings.approvalWindowMs);
+  }
+
+  async #answerApproval(text: string): Promise<void> {
+    const a = this.#approval;
+    if (a === undefined) return;
+    const phrases = this.#opts.phrases?.(this.#language) ?? DEFAULT_APPROVAL_PHRASES;
+    let decision = matchApprovalPhrase(text, phrases);
+    // In a tainted turn voice can only deny: an approve here counts as no answer.
+    if (decision === "approve" && a.plan.mode === "deny_only") decision = undefined;
+    const port = this.#opts.approvals;
+    if (decision === undefined || port === undefined) {
+      this.#leaveOnScreen(a);
+      return;
+    }
+    if (a.window !== undefined) clearTimeout(a.window);
+    a.open = false;
+    try {
+      await port.answer({
+        approvalId: a.info.id,
+        deviceId: this.deviceId,
+        decision,
+        utterance: text,
+      });
+    } catch {
+      if (this.#approval === a) this.#leaveOnScreen(a);
+      return;
+    }
+    if (this.#ended) return;
+    const reply = this.#reply;
+    if (reply !== undefined) {
+      this.#queueSentences(reply, [decision === "approve" ? phrases.approved : phrases.denied]);
+    }
+    this.#approval = undefined;
+    this.#listening = this.mode === "handsfree";
+    this.#state("thinking");
+  }
+
+  /** No usable answer: the card stays, and Psyche says so once. */
+  #leaveOnScreen(a: PendingApproval): void {
+    if (a.window !== undefined) clearTimeout(a.window);
+    a.open = false;
+    this.#listening = false;
+    const reply = this.#reply;
+    const phrases = this.#opts.phrases?.(this.#language) ?? DEFAULT_APPROVAL_PHRASES;
+    if (reply !== undefined) this.#queueSentences(reply, [phrases.leftOnScreen]);
+    this.#state("waiting", {
+      reason: "approval",
+      ...(this.#approval ? { approvalId: this.#approval.info.id } : {}),
+    });
+  }
+
+  #closeApproval(): void {
+    const a = this.#approval;
+    if (a === undefined) return;
+    if (a.window !== undefined) clearTimeout(a.window);
+    if (a.fallback !== undefined) clearTimeout(a.fallback);
+    if (a.open) this.#dropTurn();
+    this.#approval = undefined;
   }
 
   /**
@@ -632,9 +814,9 @@ export class VoiceConversation {
     reply.slow.clear();
   }
 
-  #queueSentences(reply: Reply, sentences: string[]): void {
+  #queueSentences(reply: Reply, sentences: string[], tag?: "readback"): void {
     if (reply.muted || sentences.length === 0) return;
-    reply.queue.push(...sentences);
+    reply.queue.push(...sentences.map((text) => (tag === undefined ? { text } : { text, tag })));
     if (!reply.synthesizing) void this.#synthesize(reply);
   }
 
@@ -642,8 +824,8 @@ export class VoiceConversation {
     reply.synthesizing = true;
     try {
       while (reply.queue.length > 0 && !reply.muted) {
-        const text = reply.queue.shift() as string;
-        await this.#speakSentence(reply, text);
+        const item = reply.queue.shift() as { text: string; tag?: "readback" };
+        await this.#speakSentence(reply, item.text, item.tag);
       }
     } catch {
       // Synthesis failed: the rest of the reply is shown, not spoken.
@@ -654,8 +836,9 @@ export class VoiceConversation {
     }
   }
 
-  async #speakSentence(reply: Reply, text: string): Promise<void> {
+  async #speakSentence(reply: Reply, text: string, tag?: "readback"): Promise<void> {
     const id = `${this.id}_a${++this.#counter}`;
+    if (tag === "readback" && this.#approval !== undefined) this.#approval.readbackId = id;
     const opts: { signal: AbortSignal; voice?: string } = { signal: reply.abort.signal };
     if (this.#voice !== undefined) opts.voice = this.#voice;
     let seq = 0;
@@ -666,7 +849,9 @@ export class VoiceConversation {
       if (held === undefined) return;
       if (seq === 0) {
         reply.unplayed.add(id);
-        if (this.#phase !== "speaking") this.#state("speaking");
+        // While waiting for an approval the phase stays `waiting`: the readback and notices are
+        // spoken under "Needs your approval on screen".
+        if (this.#phase !== "speaking" && this.#phase !== "waiting") this.#state("speaking");
         this.#emit({
           event: "voice.conversation.caption",
           payload: { conversationId: this.id, role: "agent", utteranceId: id, text, final: false },
@@ -698,6 +883,14 @@ export class VoiceConversation {
     if (format !== undefined) {
       const bytesPerMs = (format.sampleRate * format.channels * bytesPerSample(format)) / 1000;
       reply.current = { id, text, durationMs: Math.round(bytes / bytesPerMs) };
+    }
+    const a = this.#approval;
+    if (tag === "readback" && a !== undefined && a.readbackId === id) {
+      // A client that never reports `played` still gets its window, after the readback's length.
+      a.fallback = setTimeout(
+        () => this.#openAnswerWindow(),
+        (reply.current.durationMs ?? 0) + 2_000,
+      );
     }
   }
 

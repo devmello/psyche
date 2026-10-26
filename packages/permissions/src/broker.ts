@@ -931,6 +931,8 @@ export class PsychePermissionBroker implements PermissionBroker {
         bindingHash: fa.bindingHash,
         taint: fa.taint,
         latencyMs: now - Date.parse(fa.requestedAt),
+        // Answered by a spoken phrase after a readback (voice conversation, §4.6).
+        ...(input.via === "voice" ? { via: "voice" } : {}),
       },
     );
     const g = grant as StoredGrant | undefined;

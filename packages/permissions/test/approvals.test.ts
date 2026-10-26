@@ -83,6 +83,23 @@ describe("approval lifecycle", () => {
     expect(rejected.map((e) => e.data.reason)).toEqual(["replayed", "late"]);
   });
 
+  it("records an answer given by voice in the audit entry (voice-mode-2026 §4.6)", async () => {
+    const h = makeBroker();
+    const issued = await request(h, write());
+    h.clock.advance(500);
+    const approval = await h.broker.answer({
+      approvalId: issued.approval.id,
+      answerToken: issued.answerTokens.desktop ?? "",
+      decision: "approve",
+      scope: "once",
+      via: "voice",
+      decidedBy: { deviceId: "dev_mac", surface: "desktop" },
+    });
+    expect(approval.status).toBe("approved");
+    const [decided] = await h.audit.query({ kind: "approval.decided" });
+    expect(decided?.data).toMatchObject({ decision: "allow", via: "voice" });
+  });
+
   it("only approvers answer: operator.approvals devices and owner senders (security §3.7)", async () => {
     const h = makeBroker();
     const issued = await request(h, write());
