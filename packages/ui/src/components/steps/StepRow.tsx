@@ -4,7 +4,7 @@ import * as m from "motion/react-m";
 import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
-import { fadeRise } from "../../motion/primitives.tsx";
+import { Disclosure, fadeRise } from "../../motion/primitives.tsx";
 import { StatusGlyph, type StepStatusKind } from "../status.tsx";
 import { LiveDuration } from "./LiveDuration.tsx";
 
@@ -133,11 +133,11 @@ export function StepRow({
       ) : (
         <div className="flex min-h-7 items-center gap-2 px-1">{head}</div>
       )}
-      {hasDetail && open ? (
+      <Disclosure open={hasDetail && open}>
         <div id={`${id}-detail`} className="ms-7 mb-1 text-callout text-label-secondary">
           {children}
         </div>
-      ) : null}
+      </Disclosure>
     </m.li>
   );
 }
