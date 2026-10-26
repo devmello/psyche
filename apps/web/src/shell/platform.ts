@@ -206,6 +206,36 @@ export interface ShellPlatform {
   clipboard?: ClipboardPort;
   /** Desktop only: macOS Reduce Transparency / Increase Contrast; the web reads media queries. */
   systemAppearance?: SystemAppearancePort;
+  /** Desktop only: versions, platform and the data folder for Settings → About (#610). */
+  app?: AppInfoPort;
+}
+
+/**
+ * What the desktop main process reports for Settings → About (#610). The web bakes its version
+ * at build time and fetches `/version` on its own origin instead.
+ */
+export interface HostAppInfo {
+  appVersion: string;
+  /** `process.platform`, e.g. "darwin". */
+  platform: string;
+  /** `process.arch`: "arm64" or "x64". */
+  arch: string;
+  /** The OS version, e.g. "27.0.1". */
+  osVersion: string;
+  electronVersion: string;
+  chromeVersion: string;
+  /** PSYCHE_HOME or the default `~/.psyche`. */
+  psycheHome: string;
+  /** The Gateway's HTTP origin. */
+  gatewayOrigin: string;
+  /** The Gateway's `/version` answer as main fetched it from `gatewayOrigin`, or null. */
+  gateway: { name?: unknown; version?: unknown; protocolVersion?: unknown } | null;
+}
+
+export interface AppInfoPort {
+  info(): Promise<HostAppInfo>;
+  /** Shows the data folder in Finder. */
+  revealHome(): Promise<void>;
 }
 
 export interface SystemAppearance {

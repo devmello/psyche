@@ -57,6 +57,9 @@ export const IPC = {
   openExternal: "psyche:shell:open-external",
   // Copy text to the system clipboard (the session refuses navigator.clipboard; #507).
   clipboardWrite: "psyche:clipboard:write",
+  // Settings → About: versions, platform and the data folder (#610).
+  appInfo: "psyche:app:info",
+  appRevealHome: "psyche:app:reveal-home",
   // Native dialogs.
   dialogPickFolder: "psyche:dialog:pick-folder",
   // Dictation HUD only (main → HUD state and capture commands, HUD → main audio).

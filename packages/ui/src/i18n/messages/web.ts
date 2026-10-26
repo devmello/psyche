@@ -18,6 +18,10 @@ export const web = {
   "web.transcriptMode.optionTitle": "{mode} (⌃O cycles)",
 
   "web.settings.label": "Settings",
+  "web.about.platform": "{os} {version} · {arch}",
+  "web.about.appleSilicon": "Apple silicon",
+  "web.about.intel": "Intel",
+  "web.about.runtime": "Electron {electron} · Chrome {chrome}",
   "web.settings.pickSkillFolder": "Choose a skill folder",
   "web.files.shareTitle": "Share a folder with {persona}",
   "web.files.pickError": "Psyche couldn't open the folder chooser ({error}). Nothing changed.",

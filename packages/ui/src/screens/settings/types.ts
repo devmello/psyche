@@ -69,7 +69,10 @@ export interface AboutInfo {
   gatewayVersion: string;
   protocolVersion: number;
   platform: string;
+  /** The data folder; empty when the host doesn't know it (the web). */
   home: string;
+  /** The desktop's runtime, e.g. "Electron 39.2.0 · Chrome 142.0.7444.59". */
+  runtime?: string;
 }
 
 export interface DoctorCheck {

@@ -162,6 +162,11 @@ const bridge = {
   external: {
     open: (url: string) => invoke(IPC.openExternal, { url }),
   },
+  /** Settings → About (#610): versions, platform, the data folder and the Gateway's origin. */
+  app: {
+    info: () => invoke(IPC.appInfo),
+    revealHome: () => invoke(IPC.appRevealHome),
+  },
   /** macOS Reduce Transparency and Increase Contrast (redesign §3.4, §8). */
   systemAppearance: {
     get: () => invoke(IPC.systemAppearanceGet),
