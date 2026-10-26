@@ -54,7 +54,7 @@ describe("prompt index", () => {
       gate: OPEN_GATE,
     });
     const idx = await loader.promptIndex();
-    expect(idx.included).toHaveLength(16);
+    expect(idx.included).toHaveLength(19);
     expect(idx.omitted).toEqual([]);
     expect(idx.text.length).toBeLessThanOrEqual(8_000);
   });
