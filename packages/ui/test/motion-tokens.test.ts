@@ -84,3 +84,21 @@ describe("motion CSS and literals (docs/design/motion.md §8)", () => {
       expect(offenders.has(f), `${f} is clean now: remove it from the known list`).toBe(true);
   });
 });
+
+describe("run-trace motion (docs/design/motion.md §4.9)", () => {
+  it("ticks live durations once a second on one shared clock", async () => {
+    const { TICK_MS } = await import("../src/components/steps/ticker.ts");
+    expect(TICK_MS).toBe(1000);
+  });
+
+  it("grows bars and slides sparklines with transform only", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const read = (f: string) => readFileSync(join(process.cwd(), "src/components", f), "utf8");
+    const bar = read("timeline/Timeline.tsx");
+    expect(bar).toMatch(/transform \$\{TICK_MS\}ms linear/);
+    expect(bar).not.toMatch(/transition[^\n]*width/);
+    const spark = read("sparkline.tsx");
+    expect(spark).toContain("initial={live && !reduce && generation > 0 ? { x: step } : false}");
+  });
+});

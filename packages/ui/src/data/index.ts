@@ -15,9 +15,11 @@ export {
   useStore,
   useStoreState,
 } from "./provider.tsx";
+export * from "./runs.ts";
 export {
   INITIAL_STATE,
   type QueuedFollowUp,
+  type RunStepDetail,
   type StreamingMessage,
   type UiState,
 } from "./state.ts";

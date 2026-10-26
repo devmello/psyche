@@ -11,7 +11,9 @@ import {
   type ApprovalRequest,
   type Artifact,
   type Automation,
+  type AutomationRun,
   type BotAuthStatus,
+  buildPsycheTrace,
   type Channel,
   type ChannelIdentity,
   type Connector,
@@ -21,13 +23,17 @@ import {
   type ErrorCode,
   type EventName,
   type EventPayload,
+  type FeedbackEvent,
   type FeedPost,
   FILE_CHUNK_BYTES,
   type Goal,
   type GoalMilestone,
   type Grant,
+  type GrowthSummary,
+  type GrowthWindow,
   type Idea,
   type InputRequest,
+  type Lesson,
   type LibraryItem,
   type LinkPaymentMethod,
   type McpProposal,
@@ -38,12 +44,16 @@ import {
   type MethodName,
   type MethodParams,
   type MethodResult,
+  type Milestone,
   type NodeInfo,
   type Notification,
   type PairingRequest,
   PsycheError,
   type Receipt,
   type Run,
+  type RunFrame,
+  type RunStep,
+  type RunSummary,
   requiresIdempotencyKey,
   type SearchHit,
   type SkillDetails,
@@ -53,16 +63,19 @@ import {
   type TaskAction,
   type ThreadListEntry,
   type ToolCall,
+  traceMarkdown,
   type VaultPayment,
   validateEventPayload,
   validateParams,
   validateResult,
 } from "@psyche/protocol";
 import type { MockFileNode } from "../fixtures/files.ts";
+import type { GraphWorld } from "../fixtures/people.ts";
 import { connectorCatalogue } from "../fixtures/settings.ts";
 import type { MockSkillSource } from "../fixtures/skills.ts";
 import type { ConnectionState, GatewayClient, GatewayEvent, RequestOptions } from "./client.ts";
 import { toBase64 } from "./files.ts";
+import { emptyGraph, graphHandlers } from "./mock-graph.ts";
 
 /**
  * In-memory Gateway for stories and tests (no network). It speaks the protocol exactly: every
@@ -110,6 +123,8 @@ export interface MockWorld {
   memoryFiles: Record<string, string>;
   memoryClaims: MemoryClaim[];
   searchHits: SearchHit[];
+  /** The people and projects graph (`memory.entities.*`); absent → empty. */
+  graph?: GraphWorld;
   skills: SkillDetails[];
   skillSources: Record<string, MockSkillSource>;
   skillDrafts: SkillDraft[];
@@ -130,12 +145,27 @@ export interface MockWorld {
   contextLimits?: Record<string, ContextLimits>;
   /** `usage.summary` (#599); absent → an empty week. */
   usageSummary?: MethodResult<"usage.summary">;
+  /** The teaching loop (T0 #678). */
+  feedbackEvents: FeedbackEvent[];
+  lessons: Lesson[];
+  milestones: Milestone[];
+  /** Run-trace steps (`runs.*`, `run.step`); `fixtures/runs.ts` has a world of them. */
+  runSteps?: RunStep[];
+  /** Frames by run id. */
+  runFrames?: Record<string, RunFrame[]>;
+  /** Tool inputs and outputs by `<runId>/<stepId>`. */
+  runPayloads?: Record<string, { input?: unknown; output?: unknown }>;
+  /** Joins automation runs to their agent runs (`runs.list {automationId}`). */
+  automationRuns?: AutomationRun[];
 }
 
 /** The model window the mock reports when a thread has no usage yet. */
 export const MOCK_CONTEXT_WINDOW = 200_000;
 
 export const EMPTY_WORLD: MockWorld = {
+  feedbackEvents: [],
+  lessons: [],
+  milestones: [],
   threads: [],
   messages: [],
   runs: [],
@@ -219,6 +249,10 @@ const fakeHash = (text: string): `sha256:${string}` => {
   for (let i = 0; i < text.length; i += 1) h = (h * 31 + text.charCodeAt(i)) >>> 0;
   return `sha256:${h.toString(16).padStart(8, "0").repeat(8)}`;
 };
+
+/** A 1×1 grey PNG: what every mock frame shows. */
+const MOCK_FRAME_PNG =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
 const fail = (code: ErrorCode, message: string): never => {
   throw new PsycheError(code, message);
@@ -509,6 +543,75 @@ export class MockGateway implements GatewayClient {
     return approval;
   }
 
+  /**
+   * Adds or replaces a run-trace step and emits `run.step` (without retained thinking text, as
+   * the Gateway does). Stories script live runs with it.
+   */
+  setStep(step: RunStep): void {
+    const steps = (this.world.runSteps ?? []).filter(
+      (x) => !(x.runId === step.runId && x.id === step.id),
+    );
+    this.world.runSteps = [...steps, step];
+    const { text, ...rest } = step;
+    const sent: RunStep =
+      text === undefined ? rest : { ...rest, text: { ...text, full: undefined } };
+    if (sent.text?.full === undefined && sent.text !== undefined) delete sent.text.full;
+    this.emit("run.step", { runId: step.runId, step: sent });
+  }
+
+  /** Emits each step in order, `intervalMs` apart (a scripted live run). */
+  async playSteps(steps: readonly RunStep[], intervalMs = 400): Promise<void> {
+    for (const step of steps) {
+      this.setStep(step);
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+  }
+
+  private stepsOf(runId: string): RunStep[] {
+    return (this.world.runSteps ?? [])
+      .filter((x) => x.runId === runId)
+      .sort((a, b) => a.seq - b.seq);
+  }
+
+  /** A step as `runs.get` / `runs.steps` return it: retained thinking text is `runs.step`'s. */
+  private listed(step: RunStep): RunStep {
+    if (step.text?.full === undefined) return step;
+    const { full: _full, ...text } = step.text;
+    return { ...step, text };
+  }
+
+  private summary(run: Run): RunSummary {
+    const steps = this.stepsOf(run.id);
+    const current = steps.find((x) => x.id === run.currentStepId);
+    const out: RunSummary = {
+      ...run,
+      ...(current === undefined
+        ? {}
+        : {
+            currentStep: {
+              label: current.label,
+              status: current.status,
+              startedAt: current.startedAt,
+            },
+          }),
+    };
+    const automationId = this.automationOf(run);
+    if (automationId !== undefined) {
+      out.durationsMs = this.world.runs
+        .filter((r) => this.automationOf(r) === automationId && r.endedAt != null)
+        .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+        .slice(0, 10)
+        .map((r) => Date.parse(r.endedAt as string) - Date.parse(r.startedAt));
+    }
+    return out;
+  }
+
+  private automationOf(run: Run): string | undefined {
+    if (run.automationRunId == null) return undefined;
+    return (this.world.automationRuns ?? []).find((a) => a.id === run.automationRunId)
+      ?.automationId;
+  }
+
   /** Sets a run's status and emits `run.updated`. */
   setRun(run: Run): void {
     this.world.runs = [...this.world.runs.filter((r) => r.id !== run.id), run];
@@ -552,6 +655,78 @@ export class MockGateway implements GatewayClient {
       (f) => path === f.path || path.startsWith(`${f.path}/`),
     );
     if (!ok) fail("forbidden", `${path} is outside every granted folder`);
+  }
+
+  /** Replaces a lesson in place, keeping the list newest first. */
+  private putLesson(lesson: Lesson): void {
+    this.world.lessons = this.world.lessons.map((l) => (l.id === lesson.id ? lesson : l));
+  }
+
+  /** A small `growth.summary` over the fixture world (lessons, two metrics, milestones). */
+  private growthSummary(window: GrowthWindow): GrowthSummary {
+    const days = window === "7d" ? 7 : window === "30d" ? 30 : 36_500;
+    const from = Date.parse(this.now()) - days * 86_400_000;
+    const inWindow = (iso: string | null | undefined) =>
+      typeof iso === "string" && Date.parse(iso) >= from;
+    const lessons = this.world.lessons;
+    const live = lessons.filter((l) => l.status !== "forgotten" && l.status !== "superseded");
+    const drafts = this.world.feedbackEvents.filter((e) => e.target.type === "draft");
+    const edited = drafts.filter((e) => e.kind === "draft_edited");
+    const metric = (
+      id: GrowthSummary["metrics"][number]["id"],
+      count: number,
+      total: number,
+      evidence: string[],
+    ): GrowthSummary["metrics"][number] => ({
+      id,
+      count,
+      total,
+      // Rates only with enough history (teaching loop §3.4).
+      rate: total >= 10 ? count / total : null,
+      previousCount: null,
+      previousTotal: null,
+      previousRate: null,
+      evidence: evidence.slice(0, 50),
+    });
+    const timeline: GrowthSummary["timeline"] = [
+      ...live
+        .filter((l) => inWindow(l.createdAt))
+        .map((lesson) => ({ type: "lesson" as const, at: lesson.createdAt, lesson })),
+      ...this.world.milestones
+        .filter((m) => inWindow(m.at))
+        .map((milestone) => ({ type: "milestone" as const, at: milestone.at, milestone })),
+    ].sort((a, b) => b.at.localeCompare(a.at));
+    const first = [
+      ...lessons.map((l) => l.createdAt),
+      ...this.world.feedbackEvents.map((e) => e.createdAt),
+    ].sort()[0];
+    return {
+      window,
+      lessons: {
+        learned: lessons.filter((l) => inWindow(l.createdAt) && l.status !== "superseded").length,
+        refined: lessons.filter((l) => inWindow(l.createdAt) && l.refinedCount > 0).length,
+        confirmed: lessons.filter((l) => inWindow(l.confirmedAt)).length,
+        forgotten: lessons.filter((l) => inWindow(l.forgottenAt)).length,
+      },
+      metrics: [
+        metric(
+          "drafts_sent_as_is",
+          drafts.length - edited.length,
+          drafts.length,
+          edited.map((e) => e.id),
+        ),
+        metric(
+          "corrections_applied",
+          this.world.feedbackEvents.filter((e) => e.kind === "correction" && e.lessonId !== null)
+            .length,
+          this.world.feedbackEvents.filter((e) => e.kind === "correction").length,
+          this.world.feedbackEvents.filter((e) => e.kind === "correction").map((e) => e.id),
+        ),
+      ],
+      milestones: this.world.milestones.filter((m) => inWindow(m.at)),
+      timeline,
+      since: first ?? null,
+    };
   }
 
   private replace<K extends keyof MockWorld>(key: K, entity: { id: string }): void {
@@ -645,6 +820,14 @@ export class MockGateway implements GatewayClient {
   }
 
   private readonly handlers: { [M in MethodName]?: (params: MethodParams<M>) => unknown } = {
+    ...graphHandlers({
+      graph: () => {
+        this.world.graph ??= emptyGraph();
+        return this.world.graph;
+      },
+      now: () => this.now(),
+      emit: (event, payload) => this.emit(event, payload),
+    }),
     "events.subscribe": () => ({ stateVersion: this.stateVersion }),
 
     "threads.list": (p) => ({
@@ -827,6 +1010,112 @@ export class MockGateway implements GatewayClient {
               )
               .join("\n\n"),
           };
+    },
+
+    "runs.get": (p) => {
+      const run = this.find(this.world.runs, p.runId, "run");
+      return {
+        run,
+        steps: this.stepsOf(run.id)
+          .slice(0, 500)
+          .map((x) => this.listed(x)),
+        children: this.world.runs.filter((r) => r.parentRunId === run.id),
+      };
+    },
+    "runs.steps": (p) => {
+      this.find(this.world.runs, p.runId, "run");
+      const limit = p.limit ?? 500;
+      const after = this.stepsOf(p.runId).filter((x) => x.seq > (p.afterSeq ?? 0));
+      const page = after.slice(0, limit).map((x) => this.listed(x));
+      return {
+        steps: page,
+        nextSeq: after.length > limit ? (page.at(-1)?.seq ?? null) : null,
+      };
+    },
+    "runs.list": (p) => {
+      const limit = p.limit ?? 50;
+      const offset = p.cursor === undefined ? 0 : Number(p.cursor);
+      const all = this.world.runs
+        .filter(
+          (r) =>
+            (p.status === undefined || p.status.includes(r.status)) &&
+            (p.kind === undefined || r.kind === p.kind) &&
+            (p.threadId === undefined || r.threadId === p.threadId) &&
+            (p.taskId === undefined || r.taskId === p.taskId) &&
+            (p.parentRunId === undefined || r.parentRunId === p.parentRunId) &&
+            (p.rootRunId === undefined || r.rootRunId === p.rootRunId) &&
+            (p.since === undefined || r.startedAt >= p.since) &&
+            (p.automationId === undefined || this.automationOf(r) === p.automationId),
+        )
+        .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+      const page = all.slice(offset, offset + limit);
+      return {
+        runs: page.map((r) => this.summary(r)),
+        nextCursor: offset + limit < all.length ? String(offset + limit) : null,
+      };
+    },
+    "runs.children": (p) => ({
+      runs: this.world.runs.filter((r) => r.parentRunId === p.runId).map((r) => this.summary(r)),
+    }),
+    "runs.step": (p) => {
+      const step = this.stepsOf(p.runId).find((x) => x.id === p.stepId);
+      if (step === undefined) fail("not_found", `step ${p.stepId} not found`);
+      const payload = this.world.runPayloads?.[`${p.runId}/${p.stepId}`] ?? {};
+      return {
+        step: step as RunStep,
+        ...(payload.input === undefined ? {} : { input: payload.input }),
+        ...(payload.output === undefined ? {} : { output: payload.output }),
+        truncated: false,
+      };
+    },
+    "runs.frames": (p) => ({
+      frames: (this.world.runFrames?.[p.runId] ?? [])
+        .filter(
+          (f) => (p.stepId === undefined || f.stepId === p.stepId) && f.seq > (p.afterSeq ?? 0),
+        )
+        .slice(0, p.limit ?? 600),
+    }),
+    "runs.frame": (p) => {
+      const frame = (this.world.runFrames?.[p.runId] ?? []).find((f) => f.seq === p.seq);
+      if (frame === undefined) fail("not_found", `frame ${p.seq} not found`);
+      return { mime: "image/png", dataBase64: MOCK_FRAME_PNG };
+    },
+    "runs.export": (p) => {
+      const run = this.find(this.world.runs, p.runId, "run");
+      const input = (r: Run) => {
+        const steps = this.stepsOf(r.id);
+        const payloads: Record<string, { input?: unknown; output?: unknown }> = {};
+        const thinking: Record<string, string> = {};
+        for (const x of steps) {
+          const pl = this.world.runPayloads?.[`${r.id}/${x.id}`];
+          if (pl !== undefined) payloads[x.id] = pl;
+          if (x.text?.full !== undefined) thinking[x.id] = x.text.full;
+        }
+        return { run: r, steps, payloads, thinking };
+      };
+      const trace = buildPsycheTrace({
+        ...input(run),
+        exportedAt: this.now(),
+        children: this.world.runs.filter((r) => r.parentRunId === run.id).map(input),
+        frames: p.includeFrames === true ? (this.world.runFrames?.[run.id] ?? []) : [],
+      });
+      const markdown = p.format === "markdown";
+      const text = markdown ? traceMarkdown(trace) : JSON.stringify(trace, null, 2);
+      return {
+        fileName: `${run.id}.${markdown ? "md" : "psyche-trace.json"}`,
+        mime: markdown ? "text/markdown" : "application/vnd.psyche-trace+json",
+        dataBase64: toBase64(new TextEncoder().encode(text)),
+      };
+    },
+    "runs.delete": (p) => {
+      this.find(this.world.runs, p.runId, "run");
+      this.world.runSteps = (this.world.runSteps ?? []).filter((x) => x.runId !== p.runId);
+      if (this.world.runFrames !== undefined) delete this.world.runFrames[p.runId];
+      const prefix = `${p.runId}/`;
+      for (const k of Object.keys(this.world.runPayloads ?? {})) {
+        if (k.startsWith(prefix)) delete this.world.runPayloads?.[k];
+      }
+      return { ok: true as const };
     },
 
     "tasks.list": (p) => ({
@@ -1018,6 +1307,150 @@ export class MockGateway implements GatewayClient {
       this.world.library = this.world.library.filter((i) => i.id !== p.itemId);
       return { ok: true };
     },
+
+    // --- The teaching loop (T0 #678; docs/agent/teaching-loop-2026.md §7) ---------------
+    "feedback.give": (p) => {
+      const event: FeedbackEvent = {
+        id: this.id("fb"),
+        kind: p.kind,
+        target: p.target,
+        text: p.text ?? null,
+        reason: p.reason ?? null,
+        scope: p.scope ?? null,
+        detail: null,
+        surface: "desktop",
+        lessonId: null,
+        createdAt: this.now(),
+      };
+      // Helpful never creates a lesson; "just this time" fixes the answer without one.
+      let lesson: Lesson | null = null;
+      if (p.kind !== "helpful" && p.scope !== "once" && (p.text ?? p.reason) !== undefined) {
+        lesson = {
+          id: this.id("ls"),
+          kind: "style",
+          origin: "stated",
+          statement: p.text ?? "Keep it closer to what you asked for.",
+          scope:
+            p.scope === "always" || p.scope === undefined
+              ? { global: true }
+              : { taskKind: p.scope },
+          destination: {
+            type: "file",
+            path: "USER.md",
+            section: "Preferences",
+            lineId: this.id("line"),
+          },
+          previous: null,
+          value: `- ${p.text ?? "Keep it closer to what you asked for."}`,
+          sources: [event.id],
+          confidence: p.kind === "correction" ? 0.9 : 0.6,
+          status: "active",
+          refinedCount: 0,
+          supersedes: null,
+          lastAppliedAt: null,
+          createdAt: this.now(),
+          confirmedAt: null,
+          forgottenAt: null,
+        };
+        event.lessonId = lesson.id;
+        this.world.lessons = [lesson, ...this.world.lessons];
+        this.emit("lesson.changed", { lessonId: lesson.id, status: lesson.status, lesson });
+      }
+      this.world.feedbackEvents = [event, ...this.world.feedbackEvents];
+      this.emit("feedback.recorded", { event });
+      this.emit("growth.updated", {});
+      return { event, lesson, approval: null };
+    },
+    "feedback.list": (p) => ({
+      events: this.world.feedbackEvents.filter(
+        (e) =>
+          (p.kind === undefined || e.kind === p.kind) &&
+          (p.targetType === undefined || e.target.type === p.targetType) &&
+          (p.since === undefined || e.createdAt >= p.since),
+      ),
+      nextCursor: null,
+    }),
+    "feedback.delete": (p) => {
+      this.find(this.world.feedbackEvents, p.eventId, "feedback event");
+      this.world.feedbackEvents = this.world.feedbackEvents.filter((e) => e.id !== p.eventId);
+      return { ok: true };
+    },
+    "memory.lessons.list": (p) => ({
+      lessons: this.world.lessons.filter(
+        (l) =>
+          (p.status === undefined ? l.status !== "forgotten" : p.status.includes(l.status)) &&
+          (p.kind === undefined || l.kind === p.kind) &&
+          (p.destination === undefined || l.destination.type === p.destination) &&
+          (p.since === undefined || l.createdAt >= p.since),
+      ),
+      nextCursor: null,
+    }),
+    "memory.lessons.get": (p) => {
+      const lesson = this.find(this.world.lessons, p.lessonId, "lesson");
+      const history: Lesson[] = [];
+      let prev = lesson.supersedes;
+      while (prev !== null) {
+        const older = this.world.lessons.find((l) => l.id === prev);
+        if (older === undefined) break;
+        history.push(older);
+        prev = older.supersedes;
+      }
+      return {
+        lesson,
+        sources: this.world.feedbackEvents.filter((e) => lesson.sources.includes(e.id)),
+        diff: { before: lesson.previous, after: lesson.value },
+        history,
+      };
+    },
+    "memory.lessons.confirm": (p) => {
+      const lesson: Lesson = {
+        ...this.find(this.world.lessons, p.lessonId, "lesson"),
+        status: "confirmed",
+        confidence: 1,
+        confirmedAt: this.now(),
+      };
+      this.putLesson(lesson);
+      this.emit("lesson.changed", { lessonId: lesson.id, status: lesson.status, lesson });
+      return { lesson };
+    },
+    "memory.lessons.edit": (p) => {
+      const lesson: Lesson = {
+        ...this.find(this.world.lessons, p.lessonId, "lesson"),
+        value: p.value,
+      };
+      this.putLesson(lesson);
+      this.emit("lesson.changed", { lessonId: lesson.id, status: lesson.status, lesson });
+      return { lesson, approval: null };
+    },
+    "memory.lessons.forget": (p) => {
+      const lesson: Lesson = {
+        ...this.find(this.world.lessons, p.lessonId, "lesson"),
+        status: "forgotten",
+        forgottenAt: this.now(),
+      };
+      this.putLesson(lesson);
+      if (p.purgeSources === true)
+        this.world.feedbackEvents = this.world.feedbackEvents.filter(
+          (e) => !lesson.sources.includes(e.id),
+        );
+      this.emit("lesson.changed", { lessonId: lesson.id, status: lesson.status, lesson });
+      this.emit("growth.updated", {});
+      return { lesson };
+    },
+    "memory.lessons.forgetAll": (p) => {
+      const lessons = this.world.lessons.filter((l) => l.status !== "forgotten").length;
+      const events = this.world.feedbackEvents.length;
+      if (p.dryRun !== true) {
+        const now = this.now();
+        this.world.lessons = this.world.lessons.map((l) =>
+          l.status === "forgotten" ? l : { ...l, status: "forgotten", forgottenAt: now },
+        );
+        this.world.feedbackEvents = [];
+        this.emit("growth.updated", {});
+      }
+      return { lessons, events, dryRun: p.dryRun === true };
+    },
+    "growth.summary": (p) => ({ summary: this.growthSummary(p.window) }),
 
     "feed.list": () => ({
       posts: this.world.feed,

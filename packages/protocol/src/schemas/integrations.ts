@@ -1,5 +1,5 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { Id, IsoDateTime, JsonObject, Nullable, StringEnum } from "../common.ts";
+import { Id, IsoDateTime, JsonObject, Nullable, StringEnum, Usage } from "../common.ts";
 import { AutomationTrigger, WorkflowEvent } from "./workflows.ts";
 
 /** Data model §6 — metadata mirror only; secrets never cross the protocol. */
@@ -394,6 +394,20 @@ export const Automation = Type.Object(
     ),
     /** `kind: "event"`: what starts a run (docs/workflows/mail-and-meetings-2026.md §4.7). */
     trigger: Type.Optional(AutomationTrigger),
+    /** Run each occurrence as a background specialist job (docs/agent/specialists-2026.md §4.10). */
+    specialist: Type.Optional(
+      Type.Object({
+        role: Type.String({ minLength: 1, maxLength: 64 }),
+        budget: Type.Optional(
+          Type.Object({
+            tokens: Type.Optional(Type.Integer({ minimum: 1 })),
+            costUsd: Type.Optional(Type.Number({ minimum: 0 })),
+            minutes: Type.Optional(Type.Integer({ minimum: 1 })),
+          }),
+        ),
+        deliver: Type.Optional(StringEnum(["inbox", "thread"])),
+      }),
+    ),
   },
   { $id: "Automation" },
 );
@@ -422,6 +436,9 @@ export const AutomationRun = Type.Object(
     notificationId: Nullable(Id),
     /** `trigger: "event"`: the events folded into this run (`coalesced` counts them). */
     events: Type.Optional(Type.Array(WorkflowEvent, { maxItems: 200 })),
+    /** The agent run that did the work (its trace: `runs.get`). */
+    runId: Nullable(Id),
+    usage: Type.Optional(Usage),
   },
   { $id: "AutomationRun" },
 );

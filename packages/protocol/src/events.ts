@@ -26,11 +26,14 @@ import {
   VaultPayment,
   VaultStatus,
 } from "./schemas/integrations.ts";
+import { FeedbackEvent, Lesson, LessonStatus } from "./schemas/learning.ts";
 import { MemoryChangeSource, MemoryJob, PersonaIdentity } from "./schemas/memory.ts";
 import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
+import { RunStep } from "./schemas/runs.ts";
+import { SpecialistJob, SpecialistResult } from "./schemas/specialists.ts";
 import { FeedPost, Goal, Idea, Notification, SettingEntry } from "./schemas/surfaces.ts";
 import { InputRequest, Task, TaskAction } from "./schemas/tasks.ts";
-import { Message, Run, Thread } from "./schemas/threads.ts";
+import { Message, Run, RunBudget, Thread } from "./schemas/threads.ts";
 import { ToolCall } from "./schemas/tools.ts";
 import { VmUpdatedPayload } from "./schemas/vm.ts";
 import { ActionProposal } from "./schemas/workflows.ts";
@@ -84,6 +87,37 @@ export const Events = {
   "run.updated": defineEvent({
     payload: Type.Object({ run: Run }),
     description: "A run changed status or usage.",
+  }),
+  "specialist.spawned": defineEvent({
+    payload: Type.Object({ job: SpecialistJob }),
+    description:
+      "A background specialist job was created (queued or started) by a run or an automation (docs/agent/specialists-2026.md §7.3).",
+  }),
+  "specialist.progress": defineEvent({
+    payload: Type.Object({
+      taskId: Id,
+      runId: Id,
+      step: Type.Object({ id: Id, label: Type.String(), status: Type.String() }),
+      budget: RunBudget,
+    }),
+    description:
+      "A specialist job's latest step and budget use; at most one per child step, coalesced to 1/s. Labels only, never tool payloads or thinking text.",
+  }),
+  "specialist.result": defineEvent({
+    payload: Type.Object({
+      taskId: Id,
+      runId: Nullable(Id),
+      parentRunId: Nullable(Id),
+      result: SpecialistResult,
+      notificationId: Nullable(Id),
+    }),
+    description:
+      "A specialist job ended with its one result (done, partial, failed or cancelled). Text fields are sanitized; a tainted result is untrusted data.",
+  }),
+  "run.step": defineEvent({
+    payload: Type.Object({ runId: Id, step: RunStep }),
+    description:
+      "A run-trace step was added or changed (an upsert, coalesced per step; ≤ 4/s for progress). Never carries thinking text or payload bodies: read them with runs.step.",
   }),
   "tool_call.updated": defineEvent({
     payload: Type.Object({ toolCall: ToolCall }),
@@ -178,6 +212,9 @@ export const Events = {
       etag: Nullable(Type.String()),
       source: MemoryChangeSource,
       provenance: Type.Optional(Provenance),
+      /** `source: tool`: the run and step that wrote it (run trace §4.2). */
+      runId: Type.Optional(Id),
+      stepId: Type.Optional(Id),
     }),
     description:
       "A workspace file was created, changed or deleted (by a tool, the API, a job, or outside Psyche).",
@@ -193,6 +230,21 @@ export const Events = {
       avatarRequested: Type.Boolean(),
     }),
     description: "IDENTITY.md changed: clients refresh the header; maybe regenerate the avatar.",
+  }),
+  "feedback.recorded": defineEvent({
+    payload: Type.Object({ event: FeedbackEvent }),
+    description:
+      "The owner's feedback was recorded (explicit, or implicit where it happened: a draft edited before sending, an undo, an edited or denied approval, a dismissal, a redo).",
+  }),
+  "lesson.changed": defineEvent({
+    payload: Type.Object({ lessonId: Id, status: LessonStatus, lesson: Type.Optional(Lesson) }),
+    description:
+      "A lesson was made, confirmed, edited, superseded, made dormant or forgotten. Clients refresh marks and the Growth view.",
+  }),
+  "growth.updated": defineEvent({
+    payload: Type.Object({}),
+    description:
+      "Coarse and debounced: something behind growth.summary changed (a lesson, a metric, a milestone). Clients re-read it when the Growth view is open.",
   }),
   "memory.entity.updated": defineEvent({
     payload: Type.Object({

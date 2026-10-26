@@ -221,26 +221,8 @@ public enum AppsCapabilities {
                 var timeoutSeconds: Int?
             }
             let p = try ctx.decode(P.self)
-            guard !p.name.isEmpty, !p.name.hasPrefix("-") else { throw CapabilityError.invalidParams("bad shortcut name", field: "name") }
-            let dir = FileManager.default.temporaryDirectory.appendingPathComponent("psyche-shortcut-\(UUID().uuidString)")
-            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-            defer { try? FileManager.default.removeItem(at: dir) }
-            var args = ["run", p.name]
-            if let input = p.input {
-                let inFile = dir.appendingPathComponent("input.txt")
-                try Data(input.utf8).write(to: inFile, options: .atomic)
-                args += ["--input-path", inFile.path]
-            }
-            let outFile = dir.appendingPathComponent("output.txt")
-            args += ["--output-path", outFile.path, "--output-type", "public.plain-text"]
-            let r = try await DisclaimedProcess.run("/usr/bin/shortcuts", args, timeout: TimeInterval(p.timeoutSeconds ?? 120))
-            guard r.status == 0 else {
-                let notFound = r.stderr.lowercased().contains("couldn’t find") || r.stderr.lowercased().contains("couldn't find")
-                throw CapabilityError(notFound ? .notFound : .unavailable, reason: notFound ? "shortcut_not_found" : "shortcut_failed",
-                                      notFound ? "No shortcut named \(p.name)" : "The shortcut failed (exit \(r.status))",
-                                      details: ["stderr": .string(String(r.stderr.prefix(2000)))])
-            }
-            let output = (try? String(contentsOf: outFile, encoding: .utf8)) ?? r.stdout
+            // The same runner as shortcuts.run (apple-apps-2026 K2); this name stays for older Gateways.
+            let output = try await LiveShortcutsBackend().run(p.name, input: p.input, timeout: TimeInterval(p.timeoutSeconds ?? 120))
             return CapabilityOutput(
                 ["output": .string(String(output.prefix(100_000))), "provenance": "untrusted"],
                 receipt: ReceiptDraft(outcome: .ok, summary: "Ran shortcut \(p.name)", externalRefs: ["shortcut": .string(p.name)])
@@ -249,9 +231,8 @@ public enum AppsCapabilities {
     }
 
     static func shortcutsList() -> Capability {
-        Capability(CapabilitySpec(name: "apps.shortcuts_list", description: "Names of the user's Shortcuts.", sideEffect: .read)) { _ in
-            let r = try await DisclaimedProcess.run("/usr/bin/shortcuts", ["list"], timeout: 30)
-            let names = r.stdout.split(separator: "\n").map(String.init).filter { !$0.isEmpty }
+        Capability(CapabilitySpec(name: "apps.shortcuts_list", description: "Names of the user's Shortcuts (shortcuts.list has ids, folders and inputs).", sideEffect: .read)) { _ in
+            let names = try await LiveShortcutsBackend().list().map(\.name)
             return CapabilityOutput(["shortcuts": .array(names.prefix(2000).map { .string($0) })])
         }
     }
