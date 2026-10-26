@@ -5,7 +5,7 @@ import { setSetting } from "@psyche/db";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
-import { conversationSettings, voiceApprovals } from "../src/compose/speech.ts";
+import { conversationSettings, listenScripts, voiceApprovals } from "../src/compose/speech.ts";
 import { silentLogger } from "../src/log.ts";
 import { FakeNode, type FakeNodeHandler } from "./fake-node.ts";
 import { desktopClient, newDeviceKey, type TestClient } from "./helpers.ts";
@@ -233,6 +233,51 @@ describe("voice conversation over the wire (V-G, docs/voice/voice-mode-2026.md)"
       pauseMs: 2_000,
     });
     expect(conversationSettings(() => "nonsense")).toEqual({});
+  });
+});
+
+describe("Listen on the brief and check-ins (listenScripts, spec §4.9)", () => {
+  const listen = [{ id: "listen", label: "Listen" }];
+  const rows: Record<string, unknown> = {
+    ntf_brief: {
+      kind: "briefing",
+      title: "Morning brief",
+      body: "Three meetings today.",
+      route: "/threads/thr_brief",
+      actions: listen,
+    },
+    ntf_goal: {
+      kind: "reminder",
+      title: "Check-in: Emergency fund",
+      body: "1/2 milestones done",
+      route: "/goals/gol_1",
+      actions: listen,
+    },
+    ntf_task: { kind: "task_done", title: "Done", body: "x", route: null, actions: [] },
+  };
+  const notifier = { get: async (id: string) => rows[id] } as never;
+
+  it("speaks a brief with its hand-over on its thread, and a check-in with its title", async () => {
+    const scripts = listenScripts({ notifier }, () => undefined);
+    expect(await scripts("ntf_brief")).toEqual({
+      text: "Three meetings today.",
+      threadId: "thr_brief",
+      handOff: "Ask me about any of these.",
+    });
+    expect(await scripts("ntf_goal")).toEqual({
+      text: "Check-in: Emergency fund. 1/2 milestones done",
+      threadId: null,
+    });
+  });
+
+  it("refuses a notification without Listen, an unknown one, and everything while it's off", async () => {
+    const scripts = listenScripts({ notifier }, () => undefined);
+    await expect(scripts("ntf_task")).rejects.toMatchObject({ code: "not_found" });
+    await expect(scripts("ntf_nope")).rejects.toMatchObject({ code: "not_found" });
+    const off = listenScripts({ notifier }, (k) =>
+      k === "voice.conversation.brief" ? "off" : undefined,
+    );
+    await expect(off("ntf_brief")).rejects.toMatchObject({ code: "policy_denied" });
   });
 });
 

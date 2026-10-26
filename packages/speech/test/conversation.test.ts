@@ -6,7 +6,7 @@ import type {
   TranscribeOptions,
   TranscriptSegment,
 } from "@psyche/protocol";
-import { validateEventPayload, validateResult } from "@psyche/protocol";
+import { PsycheError, validateEventPayload, validateResult } from "@psyche/protocol";
 import { FakeSpeechEngine } from "@psyche/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PCM_16K_MONO } from "../src/audio.ts";
@@ -16,8 +16,10 @@ import {
   type VoiceApprovalInfo,
 } from "../src/conversation/approvals.ts";
 import {
+  LISTEN_MAX_CHARS,
   type VoiceConversationEvent,
   VoiceConversationManager,
+  type VoiceConversationOptions,
   type VoiceTurnEvent,
   type VoiceTurnInput,
   type VoiceTurnPort,
@@ -118,7 +120,10 @@ const flush = async (n = 30) => {
   for (let i = 0; i < n; i++) await new Promise((r) => setImmediate(r));
 };
 
-function setup(texts: string[], opts: { settings?: object } = {}) {
+function setup(
+  texts: string[],
+  opts: { settings?: object; listen?: VoiceConversationOptions["listen"] } = {},
+) {
   const stt = new ScriptedStt(texts);
   const voice = new FakeVoice();
   const turns = scriptedTurns();
@@ -141,6 +146,7 @@ function setup(texts: string[], opts: { settings?: object } = {}) {
     vocabulary: () => ["Wren", "Alice Chen"],
     settings: () => opts.settings ?? {},
     newId: () => `vc_${++n}`,
+    ...(opts.listen ? { listen: opts.listen } : {}),
   });
   const ctx = { deviceId: "dev_mac", caller: "desktop" as const };
   let seq = 0;
@@ -601,6 +607,113 @@ describe("review before sending (spec §4.10)", () => {
     await t.manager.start({ mode: "handsfree", format: PCM_16K_MONO }, t.ctx);
     await sayTurn(t);
     expect(t.turns.sends.map((x) => x.text)).toEqual(["what time is it"]);
+  });
+});
+
+describe("Listen on the brief and check-ins (spec §4.9)", () => {
+  const brief = [
+    "Good morning. You have three meetings today, the first at nine with Alice.",
+    "",
+    "| time | what |",
+    "| 9:00 | Alice |",
+    "Two emails need replies: one from Sam about the offsite, one from the bank.",
+    "See https://example.org/agenda for the agenda.",
+  ].join("\n");
+
+  it("speaks the brief, hands over, then listens for push-to-talk on the brief's thread", async () => {
+    const asked: string[] = [];
+    const t = setup(["what about Sam"], {
+      listen: async (id) => {
+        asked.push(id);
+        return { text: brief, threadId: "thr_brief", handOff: "Ask me about any of these." };
+      },
+    });
+    // Listen works with "Talk with Psyche" off: the spoken brief is its own setting.
+    const r = await t.manager.start(
+      { mode: "push", format: PCM_16K_MONO, listen: { notificationId: "ntf_1" } },
+      t.ctx,
+    );
+    expect(r.conversationId).toBe("vc_1");
+    expect(asked).toEqual(["ntf_1"]);
+    await flush();
+    // Flattened for the ear: the table isn't read, so the closing line says it's on screen.
+    expect(t.voice.said).toEqual([
+      "Good morning. You have three meetings today, the first at nine with Alice.",
+      "Two emails need replies: one from Sam about the offsite, one from the bank.",
+      "See link for the agenda.",
+      "The rest is on screen.",
+      "Ask me about any of these.",
+    ]);
+    expect(t.phases()).toEqual(["listening", "speaking"]);
+    for (const id of new Set(t.of("voice.conversation.speech").map((x) => x.utteranceId))) {
+      t.manager.played(
+        { conversationId: "vc_1", utteranceId: id, playedMs: 200, done: true },
+        t.ctx,
+      );
+    }
+    await vi.advanceTimersByTimeAsync(600);
+    expect(t.of("voice.conversation.state").at(-1)).toMatchObject({
+      phase: "listening",
+      listening: false,
+    });
+    // The owner's question goes to the brief's thread.
+    t.manager.turn({ conversationId: "vc_1", action: "begin" }, t.ctx);
+    t.feed(0.3, 400);
+    t.manager.turn({ conversationId: "vc_1", action: "end" }, t.ctx);
+    await flush();
+    expect(t.turns.sends[0]).toMatchObject({ threadId: "thr_brief", text: "what about Sam" });
+  });
+
+  it("caps the script at about 90 s, and the key stops it at once", async () => {
+    const long = Array.from({ length: 80 }, (_, i) => `Item ${i} is worth a short mention here.`);
+    const t = setup([], {
+      listen: async () => ({ text: long.join(" "), threadId: null }),
+    });
+    await t.manager.start(
+      { mode: "push", format: PCM_16K_MONO, listen: { notificationId: "ntf_2" } },
+      t.ctx,
+    );
+    await flush(80);
+    expect(t.voice.said.join(" ").length).toBeLessThanOrEqual(LISTEN_MAX_CHARS + 40);
+    expect(t.voice.said.at(-1)).toBe("The rest is on screen.");
+
+    const u = setup([], { listen: async () => ({ text: long.join(" "), threadId: null }) });
+    await u.manager.start(
+      { mode: "push", format: PCM_16K_MONO, listen: { notificationId: "ntf_2" } },
+      u.ctx,
+    );
+    await flush(3);
+    u.manager.turn({ conversationId: "vc_1", action: "begin" }, u.ctx);
+    const spoken = u.voice.said.length;
+    await flush();
+    expect(u.voice.said.length).toBe(spoken);
+    expect(u.of("voice.conversation.state").map((x) => x.reason)).toContain("barge_in");
+    expect(u.of("voice.conversation.state").at(-1)).toMatchObject({
+      phase: "listening",
+      listening: true,
+    });
+  });
+
+  it("refuses Listen without a script source, and passes the source's refusal on", async () => {
+    const t = setup([]);
+    await expect(
+      t.manager.start(
+        { mode: "push", format: PCM_16K_MONO, listen: { notificationId: "ntf_1" } },
+        t.ctx,
+      ),
+    ).rejects.toMatchObject({ code: "unavailable" });
+    const u = setup([], {
+      listen: async () => {
+        throw new PsycheError("policy_denied", "The spoken brief is off.");
+      },
+    });
+    await expect(
+      u.manager.start(
+        { mode: "push", format: PCM_16K_MONO, listen: { notificationId: "ntf_1" } },
+        u.ctx,
+      ),
+    ).rejects.toMatchObject({ code: "policy_denied" });
+    expect(u.manager.active).toBe(0);
   });
 });
 

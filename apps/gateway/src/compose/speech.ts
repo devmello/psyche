@@ -6,7 +6,11 @@ import { basename, join } from "node:path";
 import { getMessage, getSetting } from "@psyche/db";
 import { defaultDenyRead } from "@psyche/mcp-host";
 import type { LibraryItem, NodeClient, NodeInfo } from "@psyche/protocol";
-import { PsycheError, VOICE_CONVERSATION_SETTING_KEYS as VC } from "@psyche/protocol";
+import {
+  NOTIFICATION_LISTEN_ACTION,
+  PsycheError,
+  VOICE_CONVERSATION_SETTING_KEYS as VC,
+} from "@psyche/protocol";
 import {
   createSpeechHandlers,
   createSpeechStack,
@@ -22,6 +26,7 @@ import {
   VoiceCatalog,
   VoiceConversationManager,
   type VoiceConversationSettings,
+  type VoiceListenScript,
   VoiceMemoService,
   VoiceSessionManager,
 } from "@psyche/speech";
@@ -276,6 +281,7 @@ export function composeSpeech(setup: SpeechSetup = {}) {
       enabled: () => setting(VC.enabled) === true,
       settings: () => conversationSettings(setting),
       approvals: voiceApprovals(services),
+      listen: listenScripts(services, setting),
     });
     const fns = createSpeechHandlers({
       voice,
@@ -314,6 +320,37 @@ export function composeSpeech(setup: SpeechSetup = {}) {
         conversations.endAll();
         gateway = null;
       },
+    };
+  };
+}
+
+/**
+ * Listen (spec §4.9): what a daily-brief or check-in notification says aloud. Only notifications
+ * that carry the Listen action, and only while the spoken brief isn't off. The brief hands over
+ * to the owner ("Ask me about any of these."); its thread, when the route names one, is where the
+ * conversation continues.
+ */
+export function listenScripts(
+  services: Pick<ComposeServices, "notifier">,
+  setting: (key: string) => unknown,
+): (notificationId: string) => Promise<VoiceListenScript> {
+  return async (notificationId) => {
+    if (setting(VC.brief) === "off") {
+      throw new PsycheError(
+        "policy_denied",
+        "The spoken brief is off. Turn it on in Settings → Voice & dictation.",
+      );
+    }
+    const n = await services.notifier.get(notificationId);
+    if (n === undefined || !n.actions.some((a) => a.id === NOTIFICATION_LISTEN_ACTION)) {
+      throw new PsycheError("not_found", `no notification ${notificationId} to listen to`);
+    }
+    const threadId = /^\/threads\/([^/?#]+)/.exec(n.route ?? "")?.[1] ?? null;
+    const brief = n.kind === "briefing";
+    return {
+      text: brief ? n.body : `${n.title}. ${n.body}`,
+      threadId,
+      ...(brief ? { handOff: "Ask me about any of these." } : {}),
     };
   };
 }

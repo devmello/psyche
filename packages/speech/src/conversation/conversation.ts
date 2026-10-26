@@ -189,7 +189,25 @@ export interface VoiceConversationOptions {
   approvals?: VoiceApprovalPort;
   /** Approval phrases for a language (the UI catalogues); English by default. */
   phrases?: (language: string | undefined) => ApprovalPhrases;
+  /**
+   * Listen (spec §4.9): the script for a daily-brief or check-in notification, which the
+   * conversation speaks before the owner's first turn. Rejects for a notification without the
+   * Listen action, or while the spoken brief is off. Without it `start {listen}` is unavailable.
+   */
+  listen?: (notificationId: string) => Promise<VoiceListenScript>;
 }
+
+/** What Listen speaks: the notification's text, then an optional hand-over line. */
+export interface VoiceListenScript {
+  text: string;
+  /** The thread the notification belongs to, if any; the conversation continues there. */
+  threadId: string | null;
+  /** Said after the script ("Ask me about any of these."). */
+  handOff?: string;
+}
+
+/** Listen speaks at most about 90 s (spec §4.9): ~230 words. */
+export const LISTEN_MAX_CHARS = 1_400;
 
 /** The Gateway's side of an approval answered by voice: the broker, as this device's surface. */
 export interface VoiceApprovalPort {
@@ -652,10 +670,26 @@ export class VoiceConversation {
 
   // --- The reply --------------------------------------------------------------------------------
 
-  async #runTurn(text: string): Promise<void> {
-    const reply: Reply = {
+  /**
+   * Listen (spec §4.9): speaks a script (the daily brief or a check-in) as a reply with no run,
+   * flattened and capped at about 90 s, then the hand-over line. Barge-in and push-to-talk work
+   * as for any reply; afterwards the conversation listens for the owner's turn.
+   */
+  say(script: string, handOff?: string): void {
+    if (this.#ended) return;
+    const reply = this.#newReply(new SpokenText({ speak: "full", maxChars: LISTEN_MAX_CHARS }));
+    this.#reply = reply;
+    const sentences = [...reply.spoken.push(`${script}\n`), ...reply.spoken.finish()];
+    if (handOff !== undefined && handOff !== "") sentences.push(handOff);
+    reply.runDone = true;
+    this.#queueSentences(reply, sentences);
+    this.#maybeReplyFinished();
+  }
+
+  #newReply(spoken: SpokenText): Reply {
+    return {
       abort: new AbortController(),
-      spoken: new SpokenText({ speak: this.#settings.speak }),
+      spoken,
       queue: [],
       synthesizing: false,
       runDone: false,
@@ -666,6 +700,10 @@ export class VoiceConversation {
       narrated: false,
       answered: false,
     };
+  }
+
+  async #runTurn(text: string): Promise<void> {
+    const reply = this.#newReply(new SpokenText({ speak: this.#settings.speak }));
     this.#reply = reply;
     const voice: VoiceTurnOptions = {
       speak: this.#settings.speak,
@@ -1094,7 +1132,14 @@ export class VoiceConversationManager {
     if (p.format.sampleRate < 8_000 || p.format.sampleRate > 48_000) {
       throw new PsycheError("invalid_params", "sample rate must be 8–48 kHz");
     }
-    if (this.#opts.enabled !== undefined && (await this.#opts.enabled()) !== true) {
+    // Listen is its own opt-in (the spoken brief setting), checked by the script source.
+    let script: VoiceListenScript | undefined;
+    if (p.listen !== undefined) {
+      if (this.#opts.listen === undefined) {
+        throw new PsycheError("unavailable", "Listen is not configured");
+      }
+      script = await this.#opts.listen(p.listen.notificationId);
+    } else if (this.#opts.enabled !== undefined && (await this.#opts.enabled()) !== true) {
       throw new PsycheError(
         "policy_denied",
         "Voice conversation is off. Turn it on in Settings → Voice & dictation.",
@@ -1121,7 +1166,7 @@ export class VoiceConversationManager {
     const conv = new VoiceConversation({
       id,
       deviceId: ctx.deviceId,
-      threadId: p.threadId ?? null,
+      threadId: p.threadId ?? script?.threadId ?? null,
       mode: p.mode,
       format: p.format,
       ...(p.language === undefined ? {} : { language: p.language }),
@@ -1136,6 +1181,7 @@ export class VoiceConversationManager {
     });
     this.#byDevice.set(ctx.deviceId, conv);
     conv.begin();
+    if (script !== undefined) conv.say(script.text, script.handOff);
     return { conversationId: id, engine: sel.id, location: sel.location as EngineLocation };
   }
 

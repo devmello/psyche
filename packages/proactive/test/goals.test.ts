@@ -72,6 +72,8 @@ describe("stated goals (O9)", () => {
       kind: "reminder",
       title: "Check-in: Emergency fund",
       route: `/goals/${goal.id}`,
+      // Spoken only on request (voice-mode-2026 §4.9).
+      actions: [{ id: "listen", label: "Listen" }],
     });
     expect(notifications[0]?.body).toContain("1/2 milestones done");
     expect(notifications[0]?.body).toContain("next: $5k");

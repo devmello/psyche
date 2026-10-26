@@ -5,6 +5,7 @@ import {
   type GoalLink,
   type GoalMilestone,
   type JsonObject,
+  NOTIFICATION_LISTEN_ACTION,
   type Notifier,
   PsycheError,
   type Task,
@@ -619,6 +620,8 @@ export class GoalsService {
       title: `Check-in: ${goal.title}`,
       body,
       route: `/goals/${goal.id}`,
+      // Listen speaks it on request (voice-mode-2026 §4.9), never unprompted.
+      actions: [{ id: NOTIFICATION_LISTEN_ACTION, label: "Listen" }],
       dedupeKey: `goal:${goal.id}:checkin`,
     });
     const automation = await this.#o.scheduler.get(request.automation.id);

@@ -24,11 +24,14 @@ export interface SpokenTextOptions {
   speak: SpeakLevel;
   /** Said when part of the answer is not spoken. */
   restOnScreen?: string;
+  /** `full`'s cap (default `FULL_MAX_CHARS`); Listen caps the brief at about 90 s. */
+  maxChars?: number;
 }
 
 export class SpokenText {
   readonly #speak: SpeakLevel;
   readonly #rest: string;
+  readonly #maxChars: number;
   #pending = "";
   #inCode = false;
   #lineStart = true;
@@ -42,6 +45,7 @@ export class SpokenText {
   constructor(options: SpokenTextOptions) {
     this.#speak = options.speak;
     this.#rest = options.restOnScreen ?? "The rest is on screen.";
+    this.#maxChars = options.maxChars ?? FULL_MAX_CHARS;
   }
 
   get closed(): boolean {
@@ -148,7 +152,7 @@ export class SpokenText {
       this.#unsaid = true;
       return false;
     }
-    if (this.#speak === "full" && this.#spokenChars + text.length > FULL_MAX_CHARS) {
+    if (this.#speak === "full" && this.#spokenChars + text.length > this.#maxChars) {
       this.#closed = true;
       this.#unsaid = true;
       return false;

@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
-import type {
-  Automation,
-  AutomationRun,
-  IssuedApproval,
-  Notifier,
-  PermissionBroker,
+import {
+  type Automation,
+  type AutomationRun,
+  type IssuedApproval,
+  NOTIFICATION_LISTEN_ACTION,
+  type Notifier,
+  type PermissionBroker,
 } from "@psyche/protocol";
 import type { Deliverer, RunResult } from "./types.ts";
 
@@ -70,6 +71,12 @@ export interface DelivererOptions {
   onApprovalQueued?: (issued: IssuedApproval) => void;
 }
 
+/**
+ * Listen (voice-mode-2026 §4.9): briefings and heartbeat check-ins can be spoken on request,
+ * never unprompted. Clients hide it while the spoken brief is off or no voice terminal exists.
+ */
+const LISTEN = [{ id: NOTIFICATION_LISTEN_ACTION, label: "Listen" }];
+
 /** The notification kind for a deliverable with no explicit target. */
 function fallbackKind(kind: Automation["kind"]): "reminder" | "briefing" | "task_done" {
   return kind === "reminder" ? "reminder" : kind === "briefing" ? "briefing" : "task_done";
@@ -94,6 +101,7 @@ export function createDeliverer(options: DelivererOptions): Deliverer {
           title: "Check-in",
           body: text,
           route,
+          actions: LISTEN,
           dedupeKey: `heartbeat:${run.id}`,
         });
         return n === undefined ? {} : { notificationId: n.id };
@@ -113,6 +121,7 @@ export function createDeliverer(options: DelivererOptions): Deliverer {
             title: automation.title,
             body: text,
             route,
+            actions: LISTEN,
             dedupeKey: `automation:${automation.id}:${run.id}`,
           });
           notificationId = n?.id;
@@ -121,11 +130,13 @@ export function createDeliverer(options: DelivererOptions): Deliverer {
       if (d.webhook !== undefined) await deliverWebhook(options, automation, run, d.webhook, text);
       if (d.thread === undefined && d.channel === undefined && d.webhook === undefined) {
         // No target configured: the owner still sees the result in the inbox.
+        const kind = fallbackKind(automation.kind);
         const n = await options.notifier?.notify({
-          kind: fallbackKind(automation.kind),
+          kind,
           title: automation.title,
           body: text,
           route,
+          ...(kind === "briefing" ? { actions: LISTEN } : {}),
           dedupeKey: `automation:${automation.id}:${run.id}`,
         });
         notificationId = n?.id;
