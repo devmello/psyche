@@ -4,6 +4,7 @@ import { canvas } from "./canvas.ts";
 import { charts } from "./charts.ts";
 import { chat } from "./chat.ts";
 import { common } from "./common.ts";
+import { connectorGallery } from "./connector-gallery.ts";
 import { context } from "./context.ts";
 import { design } from "./design.ts";
 import { errors } from "./errors.ts";
@@ -47,6 +48,7 @@ export const en = {
   ...settings,
   ...settingsLanguage,
   ...mailMeetings,
+  ...connectorGallery,
   ...onboarding,
   ...people,
   ...specialists,

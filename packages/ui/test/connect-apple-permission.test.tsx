@@ -28,9 +28,9 @@ async function connect(label: string) {
     await userEvent.click(
       screen.getAllByRole("button", { name: "Add connector" })[0] as HTMLElement,
     );
-    expect(screen.getByLabelText("Connector type")).toBeTruthy();
+    expect(screen.getByRole("searchbox", { name: "Search connectors" })).toBeTruthy();
   });
-  await userEvent.selectOptions(screen.getByLabelText("Connector type"), label);
+  await userEvent.click(screen.getByRole("button", { name: new RegExp(label) }));
   await userEvent.click(screen.getByRole("button", { name: "Continue to sign in" }));
 }
 
@@ -90,9 +90,10 @@ describe("Apple connectors and macOS permission (#549)", () => {
     await connect("Apple Notes");
     expect(await screen.findByText(/Apple Notes is connected/)).toBeTruthy();
     await userEvent.click(await screen.findByRole("button", { name: "Add connector" }));
-    const option = within(screen.getByLabelText("Connector type")).getByRole("option", {
-      name: "Apple Notes (connected)",
-    }) as HTMLOptionElement;
-    expect(option.disabled).toBe(true);
+    const tile = within(screen.getByRole("region", { name: "Productivity" })).getByRole("button", {
+      name: /Apple Notes/,
+    }) as HTMLButtonElement;
+    expect(within(tile).getByText("Connected")).toBeTruthy();
+    expect(tile.disabled).toBe(true);
   });
 });

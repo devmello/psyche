@@ -195,9 +195,7 @@ export const ConnectorsError: Story = {
     <ConnectorsPanel {...connectorProps} connectors={[]} error="unavailable" onRetry={noop} />
   ),
 };
-export const ConnectorsConnectFlow: Story = {
-  render: () => <ConnectorsPanel {...connectorProps} connectors={world.connectors} defaultAdding />,
-};
+
 const mcpServers: McpState["servers"] = [
   {
     id: "files",
@@ -229,6 +227,29 @@ const mcpState = (servers: McpState["servers"]): McpState => ({
   check: noop,
   remove: noop,
 });
+/** Add connector: built-in connectors and ready-made MCP servers in one searchable gallery. */
+export const ConnectorsConnectFlow: Story = {
+  render: () => (
+    <ConnectorsPanel
+      {...connectorProps}
+      connectors={world.connectors}
+      mcp={mcpState(mcpServers)}
+      defaultAdding
+    />
+  ),
+};
+/** A ready-made server's form: what to enter, where to get the key, and a "Try it" example. */
+export const ConnectorsPresetForm: Story = {
+  render: () => (
+    <ConnectorsPanel
+      {...connectorProps}
+      connectors={world.connectors}
+      mcp={mcpState(mcpServers)}
+      onTry={noop}
+      defaultAddType="preset:brave-search"
+    />
+  ),
+};
 /** Built-in connectors and MCP servers in one list: the same row, an MCP badge and a trust badge. */
 export const ConnectorsWithMcpServers: Story = {
   render: () => (
