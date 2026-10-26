@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { canvas } from "./canvas/it.ts";
 import { charts } from "./charts/it.ts";
+import { links } from "./links/it.ts";
 import { mailMeetings } from "./mail-meetings/it.ts";
 import { overview } from "./overview/it.ts";
 import { overviewGrowth } from "./overview-growth/it.ts";
@@ -10,6 +11,8 @@ import { workflows } from "./workflows/it.ts";
 export const it: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
   ...mailMeetings,
+  // link menu and the "Open links in" setting
+  ...links,
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
   // the Overview screen (docs/design/agent-overview-2026.md)
@@ -515,7 +518,7 @@ export const it: Partial<Catalogue> = {
   "agent.status.failed": "{title} non riuscita",
   "agent.status.idle": "Inattivo",
   "agent.status.working": "Al lavoro…",
-  "agent.header.openSheet": "Apri attività, approvazioni, programma e memoria di {name}",
+  "agent.header.openSheet": "Apri approvazioni e memoria di {name}",
   "agent.header.stateLead": "{state}:",
   "agent.header.running": "{n, number} in corso",
   "agent.header.needYou":
@@ -525,16 +528,29 @@ export const it: Partial<Catalogue> = {
   "agent.header.modelLabel": "Modello: {model}",
   "agent.header.modelLead": "Modello:",
   "agent.header.notifications": "Notifiche, {n, number} non lette",
-  "agent.header.menuSheet": "Attività, approvazioni e memoria",
+  "agent.header.menuSheet": "Approvazioni e memoria",
   "agent.header.changeModel": "Cambia modello…",
   "agent.header.exportMarkdown": "Esporta come Markdown",
   "agent.header.exportJson": "Esporta come JSON",
   "agent.header.exportHtml": "Esporta come HTML",
   "agent.sheet.tabs": "Agente",
-  "agent.sheet.activity": "Attività",
   "agent.sheet.approvals": "Approvazioni",
-  "agent.sheet.upcoming": "In programma",
   "agent.sheet.soul": "Anima e memoria",
+  "agent.sheet.now.working": "Lavora su {title} · {elapsed}",
+  "agent.sheet.now.waiting":
+    "In attesa di te · {n, plural, one {# approvazione} other {# approvazioni}}",
+  "agent.sheet.now.idleNext": "Inattivo · prossimo: {title} {when}",
+  "agent.sheet.now.idle": "Inattivo",
+  "agent.sheet.now.memoryPaused": "Memoria in pausa",
+  "agent.sheet.now.automationsPaused": "Automazioni in pausa",
+  "agent.sheet.openOverview": "Apri panoramica",
+  "agent.sheet.decidedRecently": "Decise di recente",
+  "agent.sheet.standing": "Permessi permanenti",
+  "agent.sheet.fullHistory": "Cronologia completa nella panoramica",
+  "agent.sheet.nothingHint": "Le approvazioni e le domande di {name} compariranno qui.",
+  "agent.sheet.questions": "Domande ({n, number})",
+  "agent.sheet.answerInChat": "Rispondi in chat",
+  "agent.sheet.noGrants": "Nessun permesso permanente.",
   "agent.activity.noTasks": "Ancora nessuna attività.",
   "agent.activity.tasks": "Attività",
   "agent.activity.retryTask": "Riprova {title}",
@@ -565,22 +581,13 @@ export const it: Partial<Catalogue> = {
   "agent.approvals.denied": "Negata{on, select, true { su {where}} other {}}",
   "agent.approvals.expired": "Scaduta",
   "agent.approvals.voided": "Annullata",
-  "agent.approvals.needsYou": "Richiede la tua attenzione",
-  "agent.approvals.deferred": "Rimandate",
-  "agent.approvals.recent": "Recenti",
-  "agent.approvals.grants": "Autorizzazioni permanenti",
-  "agent.approvals.sections": "Sezioni delle approvazioni",
   "agent.approvals.needsYouCount": "Richiedono la tua attenzione ({n, number})",
   "agent.approvals.nothingNeedsYou": "Niente richiede la tua attenzione.",
   "agent.approvals.deferredCount": "Rimandate ({n, number})",
-  "agent.approvals.noDeferred": "Le esecuzioni non presidiate non sono state bloccate.",
   "agent.approvals.anAutomation": "Un’automazione",
   "agent.approvals.wantedTo": "voleva {what}",
   "agent.approvals.openTask": "Apri attività",
   "agent.approvals.noRecent": "Nessuna decisione negli ultimi 7 giorni.",
-  "agent.approvals.grantsActive":
-    "{n, plural, =0 {Nessuna autorizzazione per sito, sessione o permanente è attiva.} one {# autorizzazione per sito, sessione o permanente è attiva.} other {# autorizzazioni per sito, sessione o permanenti sono attive.}}",
-  "agent.approvals.review": "Rivedi in Permessi",
   "agent.schedule.once": "{weekday} {day, number} {month} {time}",
   "agent.schedule.every": "ogni {span}",
   "agent.schedule.date": "{day, number} {month} {time}",
@@ -721,9 +728,7 @@ export const it: Partial<Catalogue> = {
   "shell.rail.settings": "Impostazioni",
   "shell.rail.usage": "Utilizzo",
   "shell.rail.help": "Aiuto",
-  "shell.palette.activity": "Apri Attività",
   "shell.palette.approvals": "Apri Approvazioni",
-  "shell.palette.upcoming": "Apri In programma",
   "shell.palette.soul": "Apri Anima e memoria",
   "shell.palette.inbox": "Apri le notifiche",
   "shell.palette.settings": "Impostazioni",
@@ -2991,7 +2996,7 @@ export const it: Partial<Catalogue> = {
   "web.shortcut.toggleTerminalPane": "Pannello Terminale",
   "web.shortcut.permissionMode": "Modalità permessi",
   "web.shortcut.modelPicker": "Selettore del modello",
-  "web.shortcut.agentActivity": "Scheda agente: Attività",
+  "web.shortcut.agentActivity": "Foglio dell’agente",
   "web.shortcut.agentApprovals": "Scheda agente: Approvazioni",
   "web.shortcut.closePane": "Chiudi il pannello attivo",
   "web.shortcut.shortcutList": "Elenco delle abbreviazioni",

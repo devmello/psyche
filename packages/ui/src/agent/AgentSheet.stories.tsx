@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { type ReactNode, useState } from "react";
-import { IDS } from "../fixtures/index.ts";
+import type { FixtureWorld } from "../fixtures/index.ts";
+import { runTraceWorld } from "../fixtures/runs.ts";
 import { STORY_NOW, withWorld } from "../stories/harness.tsx";
-import { ActivityPanel } from "./ActivityPanel.tsx";
 import {
   AGENT_PANEL_WIDTH,
   AgentRouteSheet,
@@ -12,13 +12,13 @@ import {
 } from "./AgentSheet.tsx";
 import { ApprovalsPanel } from "./ApprovalsPanel.tsx";
 import { SoulMemoryPanel } from "./SoulMemoryPanel.tsx";
-import { UpcomingPanel } from "./UpcomingPanel.tsx";
 
 /**
- * The agent sheet (docs/design/redesign-2026.md §5.7): a 420 px opaque right sheet (level 3, over a scrim) with a 64 px
- * header and segmented tabs, and its four panels in populated, empty, loading and error states;
- * `Inline*` is the 400 px panel the shell puts beside the content on wide windows (#625).
- * The visual baseline shoots Agent/* in light and dark.
+ * The slim agent sheet (docs/design/agent-overview-2026.md §4): a 420 px opaque right sheet
+ * (level 3, over a scrim) with the 64 px header (avatar, name, the Now / next line, "Open
+ * overview") and two full-width segments, Approvals and Soul & Memory. `Inline*` is the 400 px
+ * panel the shell puts beside the content on wide windows (#625). The visual baseline shoots
+ * Agent/* in light and dark.
  */
 const meta = {
   title: "Agent/Sheet",
@@ -29,7 +29,15 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-function OpenSheet({ initial, side = "right" }: { initial: AgentTab; side?: "right" | "bottom" }) {
+function OpenSheet({
+  initial,
+  side = "right",
+  view,
+}: {
+  initial: AgentTab;
+  side?: "right" | "bottom";
+  view?: "decided";
+}) {
   const [tab, setTab] = useState<AgentTab>(initial);
   return (
     <AgentSheet
@@ -38,12 +46,61 @@ function OpenSheet({ initial, side = "right" }: { initial: AgentTab; side?: "rig
       onOpenChange={() => {}}
       tab={tab}
       onTabChange={setTab}
+      {...(view ? { view } : {})}
       now={STORY_NOW}
     />
   );
 }
 
-export const Activity: Story = { render: () => <OpenSheet initial="activity" /> };
+/** Nothing pending and nothing running: "Idle · next: …" and the empty Approvals state. */
+function quiet(w: FixtureWorld): void {
+  w.runs = [];
+  w.tasks = [];
+  w.approvals = [];
+  w.inputRequests = [];
+  w.threads = w.threads.map((e) => ({ ...e, thread: { ...e.thread, activeWriterRunId: null } }));
+}
+
+/** A run in flight and nothing waiting: "Working on … · 0:42". */
+function working(w: FixtureWorld): void {
+  const tw = runTraceWorld();
+  w.runs = [...tw.runs];
+  w.runSteps = tw.runSteps;
+  w.runFrames = tw.runFrames;
+  w.runPayloads = tw.runPayloads;
+  w.automationRuns = tw.automationRuns;
+  w.approvals = [];
+  w.inputRequests = [];
+}
+
+/** Approvals are waiting: "Waiting for you · N approvals", cards under Needs you. */
+export const Approvals: Story = { render: () => <OpenSheet initial="approvals" /> };
+export const SoulAndMemory: Story = { render: () => <OpenSheet initial="soul" /> };
+export const Waiting: Story = { render: () => <OpenSheet initial="approvals" /> };
+export const Working: Story = {
+  decorators: [withWorld({ edit: working })],
+  render: () => <OpenSheet initial="approvals" />,
+};
+export const Idle: Story = {
+  decorators: [withWorld({ edit: quiet })],
+  render: () => <OpenSheet initial="approvals" />,
+};
+/** Nothing pending, nothing scheduled: the empty state and a bare "Idle". */
+export const Empty: Story = {
+  decorators: [
+    withWorld({
+      edit: (w) => {
+        quiet(w);
+        w.automations = [];
+      },
+    }),
+  ],
+  render: () => <OpenSheet initial="approvals" />,
+};
+/** `/agent/approvals?view=decided`: "Decided recently" opens expanded. */
+export const DecidedRecently: Story = {
+  render: () => <OpenSheet initial="approvals" view="decided" />,
+};
 
 /** #625: the inline panel the shell puts beside the content on wide windows. */
 function InlinePanel({ initial }: { initial: AgentTab }) {
@@ -57,13 +114,8 @@ function InlinePanel({ initial }: { initial: AgentTab }) {
     </div>
   );
 }
-export const Inline: Story = { render: () => <InlinePanel initial="activity" /> };
-export const InlineUpcoming: Story = { render: () => <InlinePanel initial="upcoming" /> };
-export const Approvals: Story = { render: () => <OpenSheet initial="approvals" /> };
-export const Upcoming: Story = { render: () => <OpenSheet initial="upcoming" /> };
-export const SoulAndMemory: Story = { render: () => <OpenSheet initial="soul" /> };
-/** The fifth tab (teaching loop §5.3): what Wren learned and what got better. */
-export const Growth: Story = { render: () => <OpenSheet initial="growth" /> };
+export const Inline: Story = { render: () => <InlinePanel initial="approvals" /> };
+export const InlineSoul: Story = { render: () => <InlinePanel initial="soul" /> };
 
 /** `/agent/soul?file=USER.md`: the route opens the sheet and the file in the editor sheet. */
 export const RouteWithFile: Story = {
@@ -78,7 +130,7 @@ export const RouteWithFile: Story = {
 
 /** Compact (§5.11): the same sheet from the bottom, with a grabber. */
 export const Compact: Story = {
-  render: () => <OpenSheet initial="activity" side="bottom" />,
+  render: () => <OpenSheet initial="approvals" side="bottom" />,
 };
 
 /** The panels on their own sit in the sheet's 20 px gutter, 420 px wide. */
@@ -86,35 +138,6 @@ function Gutter({ children }: { children: ReactNode }) {
   return <div className="w-[420px] p-5">{children}</div>;
 }
 
-export const ActivityTaskDetail: Story = {
-  render: () => (
-    <Gutter>
-      <ActivityPanel initialTaskId={IDS.tasks.dentist} now={STORY_NOW} />
-    </Gutter>
-  ),
-};
-export const ActivityEmpty: Story = {
-  decorators: [
-    withWorld({
-      edit: (w) => {
-        w.tasks = [];
-      },
-    }),
-  ],
-  render: () => (
-    <Gutter>
-      <ActivityPanel now={STORY_NOW} />
-    </Gutter>
-  ),
-};
-export const ActivityError: Story = {
-  decorators: [withWorld({ onGateway: (g) => g.failNext("tasks.list", "unavailable") })],
-  render: () => (
-    <Gutter>
-      <ActivityPanel now={STORY_NOW} />
-    </Gutter>
-  ),
-};
 export const ApprovalsNothingNeedsYou: Story = {
   decorators: [
     withWorld({
@@ -126,28 +149,6 @@ export const ApprovalsNothingNeedsYou: Story = {
   render: () => (
     <Gutter>
       <ApprovalsPanel now={STORY_NOW} />
-    </Gutter>
-  ),
-};
-export const UpcomingEmpty: Story = {
-  decorators: [
-    withWorld({
-      edit: (w) => {
-        w.automations = [];
-      },
-    }),
-  ],
-  render: () => (
-    <Gutter>
-      <UpcomingPanel now={STORY_NOW} />
-    </Gutter>
-  ),
-};
-export const UpcomingError: Story = {
-  decorators: [withWorld({ onGateway: (g) => g.failNext("automations.list", "unavailable") })],
-  render: () => (
-    <Gutter>
-      <UpcomingPanel now={STORY_NOW} />
     </Gutter>
   ),
 };

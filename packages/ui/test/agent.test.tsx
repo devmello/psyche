@@ -45,7 +45,7 @@ describe("AgentHeader", () => {
     // The snippet names the current work; what needs you is the counter beside it (§3.1).
     expect(await screen.findByText("Hold the 2:30 slot")).toBeTruthy();
     expect(await screen.findByRole("button", { name: /^\d+ needs? you$/ })).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: /Open Wren's activity/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Open Wren's approvals/ }));
     expect(opened).toBe(true);
   });
 });
@@ -171,14 +171,16 @@ describe("AgentSheetBody", () => {
     const count = /\((\d+)\)/.exec(label.textContent ?? "")?.[1];
     expect(Number(count)).toBeGreaterThan(0);
     const tab = screen.getByRole("tab", { name: /^Approvals/ });
-    expect(tab.textContent).toContain(count);
-    for (const name of [/^Deferred/, /^Recent/, /^Standing grants/]) {
-      expect(
-        within(screen.getByRole("navigation", { name: "Approval sections" })).getByRole("button", {
-          name,
-        }),
-      ).toBeTruthy();
-    }
+    // The badge also counts open questions.
+    expect(Number(/(\d+)$/.exec(tab.textContent ?? "")?.[1])).toBeGreaterThanOrEqual(Number(count));
+    // The two disclosures sit under the cards; the old jump row is gone.
+    expect(screen.getByRole("button", { name: /^Standing permissions/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Decided recently/ })).toBeTruthy();
+    expect(screen.queryByRole("navigation", { name: "Approval sections" })).toBeNull();
+    // Only the two segments remain.
+    expect(
+      screen.getAllByRole("tab").map((x) => x.textContent?.replace(/\d+$/, "").trim()),
+    ).toEqual(["Approvals", "Soul & Memory"]);
   });
 });
 
@@ -290,6 +292,7 @@ describe("the /agent page (#508)", () => {
 describe("redesign E3", () => {
   it("reads /agent/* routes for the sheet", () => {
     expect(agentSheetRoute("/chat")).toBeNull();
+    // Old links still parse (the shell redirects them to the Overview).
     expect(agentSheetRoute("/agent/upcoming")).toEqual({ tab: "upcoming" });
     expect(agentSheetRoute(`/agent/activity/${IDS.tasks.dentist}`)).toEqual({
       tab: "activity",

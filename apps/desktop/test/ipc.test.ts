@@ -75,12 +75,16 @@ describe("IPC validators", () => {
       expect(() => checkClipboardText(bad), JSON.stringify(bad)?.slice(0, 40)).toThrow();
   });
 
-  it("open-external takes https pages only (#505)", () => {
+  it("open-external takes http, https and mailto only (#505)", () => {
+    expect(checkExternalUrl({ url: "http://example.com/a" })).toBe("http://example.com/a");
+    expect(checkExternalUrl({ url: "mailto:a@example.com" })).toBe("mailto:a@example.com");
     expect(checkExternalUrl({ url: "https://accounts.google.com/o/oauth2/v2/auth?x=1" })).toContain(
       "https://accounts.google.com/",
     );
     for (const bad of [
-      { url: "http://accounts.google.com/" },
+      { url: "ftp://example.com/" },
+      { url: "psyche://open" },
+      { url: "data:text/html,hi" },
       { url: "javascript:alert(1)" },
       { url: "file:///etc/passwd" },
       { url: "https://u:p@evil.com" },

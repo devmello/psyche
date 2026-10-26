@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { canvas } from "./canvas/zh.ts";
 import { charts } from "./charts/zh.ts";
+import { links } from "./links/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
 import { overview } from "./overview/zh.ts";
 import { overviewGrowth } from "./overview-growth/zh.ts";
@@ -10,6 +11,8 @@ import { workflows } from "./workflows/zh.ts";
 export const zh: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
   ...mailMeetings,
+  // link menu and the "Open links in" setting
+  ...links,
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
   // the Overview screen (docs/design/agent-overview-2026.md)
@@ -527,7 +530,7 @@ export const zh: Partial<Catalogue> = {
   "agent.status.idle": "空闲",
   "agent.status.working": "工作中…",
 
-  "agent.header.openSheet": "打开 {name} 的活动、审批、即将进行和记忆",
+  "agent.header.openSheet": "打开 {name} 的审批和记忆",
   "agent.header.stateLead": "{state}：",
   "agent.header.running": "{n, number} 个运行中",
   "agent.header.needYou": "{n, plural, other {# 项需要你}}",
@@ -536,17 +539,29 @@ export const zh: Partial<Catalogue> = {
   "agent.header.modelLabel": "模型：{model}",
   "agent.header.modelLead": "模型：",
   "agent.header.notifications": "通知，{n, number} 条未读",
-  "agent.header.menuSheet": "活动、审批和记忆",
+  "agent.header.menuSheet": "审批和记忆",
   "agent.header.changeModel": "更改模型…",
   "agent.header.exportMarkdown": "导出为 Markdown",
   "agent.header.exportJson": "导出为 JSON",
   "agent.header.exportHtml": "导出为 HTML",
 
   "agent.sheet.tabs": "代理",
-  "agent.sheet.activity": "活动",
   "agent.sheet.approvals": "审批",
-  "agent.sheet.upcoming": "即将进行",
   "agent.sheet.soul": "灵魂与记忆",
+  "agent.sheet.now.working": "正在处理{title} · {elapsed}",
+  "agent.sheet.now.waiting": "等你处理 · {n, number} 项审批",
+  "agent.sheet.now.idleNext": "空闲 · 下一项:{title} {when}",
+  "agent.sheet.now.idle": "空闲",
+  "agent.sheet.now.memoryPaused": "记忆已暂停",
+  "agent.sheet.now.automationsPaused": "自动化已暂停",
+  "agent.sheet.openOverview": "打开概览",
+  "agent.sheet.decidedRecently": "最近的决定",
+  "agent.sheet.standing": "长期权限",
+  "agent.sheet.fullHistory": "在概览中查看完整历史",
+  "agent.sheet.nothingHint": "{name}的审批和提问会显示在这里。",
+  "agent.sheet.questions": "提问({n, number})",
+  "agent.sheet.answerInChat": "在聊天中回答",
+  "agent.sheet.noGrants": "没有长期权限。",
   "agent.activity.noTasks": "还没有任务。",
   "agent.activity.tasks": "任务",
   "agent.activity.retryTask": "重试 {title}",
@@ -577,22 +592,13 @@ export const zh: Partial<Catalogue> = {
   "agent.approvals.denied": "已拒绝{on, select, true {（在 {where} 上）} other {}}",
   "agent.approvals.expired": "已过期",
   "agent.approvals.voided": "已作废",
-  "agent.approvals.needsYou": "需要你",
-  "agent.approvals.deferred": "已推迟",
-  "agent.approvals.recent": "最近",
-  "agent.approvals.grants": "长期授权",
-  "agent.approvals.sections": "审批分区",
   "agent.approvals.needsYouCount": "需要你（{n, number}）",
   "agent.approvals.nothingNeedsYou": "没有需要你处理的事项。",
   "agent.approvals.deferredCount": "已推迟（{n, number}）",
-  "agent.approvals.noDeferred": "无人值守的运行没有被耽搁。",
   "agent.approvals.anAutomation": "一个自动化",
   "agent.approvals.wantedTo": "想要{what}",
   "agent.approvals.openTask": "打开任务",
   "agent.approvals.noRecent": "最近 7 天没有决定。",
-  "agent.approvals.grantsActive":
-    "{n, plural, =0 {没有生效中的网站、会话和始终授权。} other {有 # 项网站、会话或始终授权正在生效。}}",
-  "agent.approvals.review": "在“权限”中查看",
   "agent.schedule.once": "{weekday} {month}{day, number}日 {time}",
   "agent.schedule.every": "每 {span}",
   "agent.schedule.date": "{month}{day, number}日 {time}",
@@ -724,9 +730,7 @@ export const zh: Partial<Catalogue> = {
   "shell.rail.settings": "设置",
   "shell.rail.usage": "用量",
   "shell.rail.help": "帮助",
-  "shell.palette.activity": "打开活动",
   "shell.palette.approvals": "打开审批",
-  "shell.palette.upcoming": "打开即将进行",
   "shell.palette.soul": "打开灵魂与记忆",
   "shell.palette.inbox": "打开通知",
   "shell.palette.settings": "设置",
@@ -2869,7 +2873,7 @@ export const zh: Partial<Catalogue> = {
   "web.shortcut.toggleTerminalPane": "终端面板",
   "web.shortcut.permissionMode": "权限模式",
   "web.shortcut.modelPicker": "模型选择器",
-  "web.shortcut.agentActivity": "代理面板：活动",
+  "web.shortcut.agentActivity": "代理面板",
   "web.shortcut.agentApprovals": "代理面板：审批",
   "web.shortcut.closePane": "关闭当前面板",
   "web.shortcut.shortcutList": "快捷键列表",

@@ -35,6 +35,7 @@ import {
   type RailItem,
   recentHref,
   SearchScreen,
+  sheetTab,
   ThreadContextDialog,
   ThreadContextMeter,
   ThreadList,
@@ -42,6 +43,7 @@ import {
   t,
   type UiSlots,
   UiSlotsProvider,
+  useDefaultAgentTab,
   useStore,
   useThread,
   useThreadExport,
@@ -83,6 +85,8 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
   // The agent sheet (`/agent/*`) is the shell's (`RoutedAgentSheet`): beside this chat on wide
   // windows, over it on narrow ones (#625); the avatar and task rows open it by route.
   const incognito = useThread(threadId).thread?.thread.kind === "incognito";
+  // The avatar opens Approvals when something needs you, otherwise the segment used last.
+  const defaultTab = useDefaultAgentTab();
   const [limitsOpen, setLimitsOpen] = useState(false);
   const store = useStore();
   const [level, setLevel] = useTranscriptMode();
@@ -110,8 +114,8 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
         data-incognito={incognito ? "true" : undefined}
       >
         <AgentHeader
-          onOpenSheet={() => ctx.navigate("/agent/activity")}
-          onOpenTask={(taskId) => ctx.navigate(`/agent/activity/${encodeURIComponent(taskId)}`)}
+          onOpenSheet={() => ctx.navigate(agentSheetHref(defaultTab))}
+          onOpenTask={() => ctx.navigate("/overview#now")}
           incognito={incognito}
           onOpenInbox={() => ctx.navigate("/inbox")}
           {...(ctx.thread
@@ -169,12 +173,10 @@ function RoutedAgentSheet({
   if (sheet === null) return null;
   const close = () => (sheet.back ? navigate(sheet.back) : onClose());
   const body = {
-    tab: sheet.tab,
+    tab: sheetTab(sheet.tab),
     onTabChange: (tab: AgentTab) =>
       navigate(agentSheetHref(tab, sheet.back ? { back: sheet.back } : {})),
-    ...(sheet.taskId === undefined ? {} : { taskId: sheet.taskId }),
-    ...(sheet.runId === undefined ? {} : { runId: sheet.runId }),
-    ...(sheet.stepId === undefined ? {} : { stepId: sheet.stepId }),
+    ...(sheet.view === undefined ? {} : { view: sheet.view }),
     ...(sheet.file === undefined ? {} : { file: sheet.file }),
     ...(sheet.entity === undefined ? {} : { entity: sheet.entity }),
     onClose: close,

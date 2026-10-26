@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { documentPrefersReducedMotion } from "./reduced-motion.ts";
 
 /**
  * Streaming smoothing. Gateway deltas arrive in bursts (a whole sentence at once, then nothing for
@@ -83,11 +84,7 @@ export class SmoothBuffer {
 }
 
 function prefersReduced(): boolean {
-  if (typeof document === "undefined") return false;
-  const setting = document.documentElement.getAttribute("data-reduce-motion");
-  if (setting === "true") return true;
-  if (setting === "false") return false;
-  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+  return documentPrefersReducedMotion();
 }
 
 /**

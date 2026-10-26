@@ -1,4 +1,4 @@
-import { SPLASH_LEAVE_MS, StartupSplashView, t } from "@psyche/ui";
+import { documentPrefersReducedMotion, SPLASH_LEAVE_MS, StartupSplashView, t } from "@psyche/ui";
 import { type ReactElement, useEffect, useState } from "react";
 import { type GatewayStatus, INITIAL_STATUS } from "../../client/status.ts";
 import type { GatewayRunView, MacHelperState, ShellPlatform } from "../platform.ts";
@@ -62,7 +62,7 @@ export function StartupSplash({
   // Paired: give way to the app.
   useEffect(() => {
     if (!up || line.tone !== "ready") return;
-    const reduce = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+    const reduce = documentPrefersReducedMotion();
     setLeaving(true);
     const timer = setTimeout(() => setUp(false), reduce ? 0 : SPLASH_LEAVE_MS);
     return () => clearTimeout(timer);

@@ -140,7 +140,7 @@ describe("The weekly card (teaching loop §5.4)", () => {
     await userEvent.click(within(retire).getByRole("button", { name: "Forget" }));
     expect(await within(retire).findByText("Forgotten.")).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Open Growth" }));
-    expect(navigate).toHaveBeenCalledWith("/agent/growth");
+    expect(navigate).toHaveBeenCalledWith("/overview#growth");
   });
 });
 
@@ -151,7 +151,7 @@ describe("Settings → Learning (teaching loop §8)", () => {
     await userEvent.click(await screen.findByRole("switch", { name: "Pause learning" }));
     await waitFor(() => expect(gateway.world.settings["teaching.paused"]).toBe(true));
     await userEvent.click(screen.getByRole("button", { name: "Open Growth" }));
-    expect(navigate).toHaveBeenCalledWith("/agent/growth");
+    expect(navigate).toHaveBeenCalledWith("/overview#growth");
     await userEvent.click(screen.getByRole("button", { name: "Forget everything Wren learned" }));
     const go = screen.getByRole("button", { name: "Forget everything" });
     expect((go as HTMLButtonElement).disabled).toBe(true);

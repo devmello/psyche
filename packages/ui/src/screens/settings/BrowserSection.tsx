@@ -4,6 +4,7 @@ import { type ReactElement, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
+import { LINK_OPEN_SETTING, type LinkOpenMode, linkOpenMode } from "../../links/link-policy.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import {
   ErrorNotice,
@@ -12,6 +13,7 @@ import {
   LoadGate,
   type LoadProps,
   messageOf,
+  RadioField,
   SectionFrame,
   type SettingsFormProps,
   SwitchField,
@@ -121,6 +123,19 @@ export function BrowserPanel({
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
+        <Group title={t("settings.links.title")} description={t("settings.links.description")}>
+          <RadioField<LinkOpenMode>
+            label={t("settings.key.ui.links.openIn")}
+            settingKey={LINK_OPEN_SETTING}
+            value={linkOpenMode(values[LINK_OPEN_SETTING])}
+            onChange={(v) => onChange(LINK_OPEN_SETTING, v)}
+            options={[
+              { value: "ask", label: t("settings.links.openIn.ask") },
+              { value: "psyche", label: t("settings.links.openIn.psyche") },
+              { value: "browser", label: t("settings.links.openIn.browser") },
+            ]}
+          />
+        </Group>
         <Group
           title={t("settings.key.browser.realChrome")}
           description={t("settings.browser.realChromeDescription")}

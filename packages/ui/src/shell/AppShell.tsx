@@ -6,6 +6,8 @@ import {
   AgentSheet,
   AgentSheetPanel,
   type AgentTab,
+  agentSheetRoute,
+  sheetTab,
 } from "../agent/AgentSheet.tsx";
 import { ChatThread } from "../chat/Thread.tsx";
 import { useThread, useThreads } from "../data/index.ts";
@@ -116,23 +118,18 @@ export function AppShell({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [sheet, setSheet] = useState<{ open: boolean; tab: AgentTab; taskId?: string }>({
+  const [sheet, setSheet] = useState<{ open: boolean; tab: AgentTab }>({
     open: defaultSheet !== undefined,
-    tab: defaultSheet ?? "activity",
+    tab: defaultSheet ?? "approvals",
   });
 
   const chatMatch = /^\/chat(?:\/([^/?]+))?/.exec(route);
   const threadId = chatMatch ? (chatMatch[1] ?? threads.main?.thread.id ?? null) : null;
   const thread = useThread(threadId);
-  const agentMatch = /^\/agent\/(activity|approvals|upcoming|soul|growth)(?:\/([^/?]+))?/.exec(
-    route,
-  );
-  const agentTab = agentMatch?.[1] as AgentTab | undefined;
-  const agentTask = agentMatch?.[2];
+  const agentTab = agentSheetRoute(route)?.tab;
   useEffect(() => {
-    if (agentTab)
-      setSheet({ open: true, tab: agentTab, ...(agentTask ? { taskId: agentTask } : {}) });
-  }, [agentTab, agentTask]);
+    if (agentTab) setSheet({ open: true, tab: sheetTab(agentTab) });
+  }, [agentTab]);
 
   const newSideChat = async () => {
     const created = await threads.create({ kind: "side" });
@@ -155,7 +152,7 @@ export function AppShell({
     stop: () => {
       if (thread.running) void thread.cancel();
     },
-    activity: () => setSheet({ open: true, tab: "activity" }),
+    activity: () => setSheet({ open: true, tab: "approvals" }),
     approvals: () => setSheet({ open: true, tab: "approvals" }),
     shortcutList: () => setShortcutsOpen(true),
     cycleThreads: () => {
@@ -170,7 +167,7 @@ export function AppShell({
   const header = (
     <AgentHeader
       onOpenSheet={() => setSheet((s) => ({ ...s, open: true }))}
-      onOpenTask={(taskId) => setSheet({ open: true, tab: "activity", taskId })}
+      onOpenTask={() => onNavigate("/overview#now")}
       {...(thread.thread ? { mode: thread.thread.thread.permissionMode } : {})}
       {...(thread.thread?.thread.modelRef ? { model: thread.thread.thread.modelRef } : {})}
       onOpenInbox={() => onNavigate("/inbox")}
@@ -263,7 +260,6 @@ export function AppShell({
                   tab={sheet.tab}
                   onTabChange={(tab) => setSheet((s) => ({ ...s, tab }))}
                   onClose={() => setSheet((s) => ({ ...s, open: false }))}
-                  {...(sheet.taskId ? { taskId: sheet.taskId } : {})}
                   {...(now === undefined ? {} : { now })}
                 />
               ) : null}
@@ -294,7 +290,6 @@ export function AppShell({
           tab={sheet.tab}
           onTabChange={(tab) => setSheet((s) => ({ ...s, tab }))}
           side={compact ? "bottom" : "right"}
-          {...(sheet.taskId ? { taskId: sheet.taskId } : {})}
           {...(now === undefined ? {} : { now })}
         />
         <CommandPalette

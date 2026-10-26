@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { canvas } from "./canvas/ja.ts";
 import { charts } from "./charts/ja.ts";
+import { links } from "./links/ja.ts";
 import { mailMeetings } from "./mail-meetings/ja.ts";
 import { overview } from "./overview/ja.ts";
 import { overviewGrowth } from "./overview-growth/ja.ts";
@@ -10,6 +11,8 @@ import { workflows } from "./workflows/ja.ts";
 export const ja: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
   ...mailMeetings,
+  // link menu and the "Open links in" setting
+  ...links,
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
   // the Overview screen (docs/design/agent-overview-2026.md)
@@ -514,7 +517,7 @@ export const ja: Partial<Catalogue> = {
   "agent.status.failed": "{title}が失敗しました",
   "agent.status.idle": "待機中",
   "agent.status.working": "作業中…",
-  "agent.header.openSheet": "{name}のアクティビティ、承認、予定、メモリを開く",
+  "agent.header.openSheet": "{name}の承認とメモリを開く",
   "agent.header.stateLead": "{state}：",
   "agent.header.running": "{n, number}件実行中",
   "agent.header.needYou": "{n, plural, other {#件が要対応}}",
@@ -523,16 +526,28 @@ export const ja: Partial<Catalogue> = {
   "agent.header.modelLabel": "モデル：{model}",
   "agent.header.modelLead": "モデル：",
   "agent.header.notifications": "通知、未読{n, number}件",
-  "agent.header.menuSheet": "アクティビティ、承認、メモリ",
+  "agent.header.menuSheet": "承認とメモリ",
   "agent.header.changeModel": "モデルを変更…",
   "agent.header.exportMarkdown": "Markdownとして書き出す",
   "agent.header.exportJson": "JSONとして書き出す",
   "agent.header.exportHtml": "HTMLとして書き出す",
   "agent.sheet.tabs": "エージェント",
-  "agent.sheet.activity": "アクティビティ",
   "agent.sheet.approvals": "承認",
-  "agent.sheet.upcoming": "予定",
   "agent.sheet.soul": "ソウルとメモリ",
+  "agent.sheet.now.working": "{title}に取り組み中 · {elapsed}",
+  "agent.sheet.now.waiting": "あなたを待っています · 承認{n, number}件",
+  "agent.sheet.now.idleNext": "待機中 · 次: {title} {when}",
+  "agent.sheet.now.idle": "待機中",
+  "agent.sheet.now.memoryPaused": "メモリは一時停止中",
+  "agent.sheet.now.automationsPaused": "オートメーションは一時停止中",
+  "agent.sheet.openOverview": "概要を開く",
+  "agent.sheet.decidedRecently": "最近の決定",
+  "agent.sheet.standing": "常時許可",
+  "agent.sheet.fullHistory": "概要で全履歴を見る",
+  "agent.sheet.nothingHint": "{name}からの承認と質問がここに表示されます。",
+  "agent.sheet.questions": "質問({n, number})",
+  "agent.sheet.answerInChat": "チャットで回答",
+  "agent.sheet.noGrants": "常時許可はありません。",
   "agent.activity.noTasks": "タスクはまだありません。",
   "agent.activity.tasks": "タスク",
   "agent.activity.retryTask": "{title}を再試行",
@@ -562,22 +577,13 @@ export const ja: Partial<Catalogue> = {
   "agent.approvals.denied": "拒否済み{on, select, true {（{where}）} other {}}",
   "agent.approvals.expired": "期限切れ",
   "agent.approvals.voided": "無効",
-  "agent.approvals.needsYou": "要対応",
-  "agent.approvals.deferred": "保留",
-  "agent.approvals.recent": "最近",
-  "agent.approvals.grants": "継続的な許可",
-  "agent.approvals.sections": "承認のセクション",
   "agent.approvals.needsYouCount": "要対応（{n, number}）",
   "agent.approvals.nothingNeedsYou": "対応が必要なものはありません。",
   "agent.approvals.deferredCount": "保留（{n, number}）",
-  "agent.approvals.noDeferred": "無人実行が止められたことはありません。",
   "agent.approvals.anAutomation": "オートメーション",
   "agent.approvals.wantedTo": "の要求：{what}",
   "agent.approvals.openTask": "タスクを開く",
   "agent.approvals.noRecent": "過去7日間に判断はありません。",
-  "agent.approvals.grantsActive":
-    "{n, plural, =0 {サイト、セッション、常時の許可で有効なものはありません。} other {#件のサイト、セッション、常時の許可が有効です。}}",
-  "agent.approvals.review": "権限で確認",
   "agent.schedule.once": "{month}{day, number}日（{weekday}）{time}",
   "agent.schedule.every": "{span}ごと",
   "agent.schedule.date": "{month}{day, number}日 {time}",
@@ -717,9 +723,7 @@ export const ja: Partial<Catalogue> = {
   "shell.rail.settings": "設定",
   "shell.rail.usage": "使用状況",
   "shell.rail.help": "ヘルプ",
-  "shell.palette.activity": "アクティビティを開く",
   "shell.palette.approvals": "承認を開く",
-  "shell.palette.upcoming": "予定を開く",
   "shell.palette.soul": "ソウルとメモリを開く",
   "shell.palette.inbox": "通知を開く",
   "shell.palette.settings": "設定",
@@ -2960,7 +2964,7 @@ export const ja: Partial<Catalogue> = {
   "web.shortcut.toggleTerminalPane": "ターミナルパネル",
   "web.shortcut.permissionMode": "権限モード",
   "web.shortcut.modelPicker": "モデル選択",
-  "web.shortcut.agentActivity": "エージェントシート：アクティビティ",
+  "web.shortcut.agentActivity": "エージェントシート",
   "web.shortcut.agentApprovals": "エージェントシート：承認",
   "web.shortcut.closePane": "フォーカス中のパネルを閉じる",
   "web.shortcut.shortcutList": "ショートカット一覧",

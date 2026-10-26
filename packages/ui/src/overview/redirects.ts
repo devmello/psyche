@@ -9,15 +9,16 @@ import { overviewRunHref } from "./recent.ts";
  *   `/agent/growth` → `/overview#growth`
  * - `/agent/activity/run/<id>[?step=]` → `/overview/run/<id>[?step=]`
  *
- * Approvals, Soul & Memory and a task opened in Activity (`/agent/activity/<taskId>`) stay in the
- * sheet, so they have no redirect (null).
+ * - `/agent/activity/<taskId>` → `/overview#now` (the task rows live there now)
+ *
+ * Approvals and Soul & Memory stay in the sheet, so they have no redirect (null).
  */
 export function overviewRedirect(route: AgentSheetRoute): string | null {
   if (route.tab === "activity") {
     if (route.runId !== undefined) {
       return overviewRunHref(route.runId, route.stepId ? { stepId: route.stepId } : {});
     }
-    return route.taskId === undefined ? "/overview#now" : null;
+    return "/overview#now";
   }
   if (route.tab === "upcoming") return "/overview#upcoming";
   if (route.tab === "growth") return "/overview#growth";

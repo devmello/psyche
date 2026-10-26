@@ -9,6 +9,7 @@ import { useArtifact, useLibraryItem, useReceipt } from "../data/hooks.ts";
 import { t } from "../i18n/core.ts";
 import { formatDuration } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
+import { useOpenLink } from "../links/LinkPrompt.tsx";
 import { useSlots } from "../slots.tsx";
 import { formatTokenCount, formatUsd, headline } from "./model.ts";
 
@@ -27,7 +28,7 @@ function Section({ title, children }: { title: string; children: ReactNode }): R
 
 /** A source URL as its host, opened outside the app. */
 function SourceLink({ url }: { url: string }): ReactElement {
-  const { openExternal } = useSlots();
+  const openLink = useOpenLink();
   let host = url;
   try {
     host = new URL(url).hostname.replace(/^www\./, "");
@@ -37,7 +38,7 @@ function SourceLink({ url }: { url: string }): ReactElement {
   return (
     <button
       type="button"
-      onClick={() => void openExternal?.(url)}
+      onClick={(e) => openLink(url, e.metaKey || e.ctrlKey)}
       className="inline-flex cursor-default items-center gap-1 rounded-xs text-callout text-accent-11 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={`${t("specialists.card.source")}: ${host}`}
     >

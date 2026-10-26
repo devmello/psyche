@@ -35,7 +35,7 @@ function Main(props: {
   sidebar?: boolean;
   compact?: boolean;
   mode?: "full" | "rail";
-  sheet?: "activity" | "upcoming";
+  sheet?: "approvals" | "soul";
 }) {
   const [route, setRoute] = useState(props.start ?? `/chat/${IDS.threads.dentist}`);
   return (
@@ -64,13 +64,13 @@ export const MainWindowFeed: Story = { render: () => <Main start="/feed" /> };
  * #625: the agent sheet beside the chat; the chat column, composer and toolbar reflow. The
  * sidebar is hidden so the 960 px baseline has room for both (the content keeps 480 px).
  */
-export const AgentSheetBeside: Story = { render: () => <Main sheet="activity" sidebar={false} /> };
-/** #625: the Feed's Schedule opens Upcoming beside the feed. */
+export const AgentSheetBeside: Story = { render: () => <Main sheet="approvals" sidebar={false} /> };
+/** #625: Soul & Memory beside the feed. */
 export const AgentSheetBesideFeed: Story = {
-  render: () => <Main start="/feed" sheet="upcoming" sidebar={false} />,
+  render: () => <Main start="/feed" sheet="soul" sidebar={false} />,
 };
 /** #625: too narrow for both (the full sidebar at 960 px): the modal sheet over the content. */
-export const AgentSheetNarrow: Story = { render: () => <Main sheet="activity" /> };
+export const AgentSheetNarrow: Story = { render: () => <Main sheet="approvals" /> };
 
 export const SidebarCollapsed: Story = { render: () => <Main sidebar={false} /> };
 

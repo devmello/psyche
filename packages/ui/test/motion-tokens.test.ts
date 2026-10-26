@@ -68,7 +68,9 @@ describe("motion CSS and literals (docs/design/motion.md §8)", () => {
       if (/^(styles|motion)\//.test(rel) || !/\.tsx?$/.test(rel) || rel.endsWith(".stories.tsx"))
         continue;
       const hits = [
-        ...readFileSync(file, "utf8").matchAll(/\b(duration-\d+|duration-\[|ease-\[|transition-all|transition-\[(?:width|height)|cubic-bezier\()/g),
+        ...readFileSync(file, "utf8").matchAll(
+          /\b(duration-\d+|duration-\[|ease-\[|transition-all|transition-\[(?:width|height)|cubic-bezier\()/g,
+        ),
       ];
       if (hits.length > 0)
         offenders.set(

@@ -26,27 +26,12 @@ export const DEFAULT_ACTIONS: readonly PaletteAction[] = [
     route: i.route,
   })),
   {
-    id: "activity",
-    get label() {
-      return t("shell.palette.activity");
-    },
-    route: "/agent/activity",
-    shortcut: "⌘⇧A",
-  },
-  {
     id: "approvals",
     get label() {
       return t("shell.palette.approvals");
     },
     route: "/agent/approvals",
     shortcut: "⌘⇧P",
-  },
-  {
-    id: "upcoming",
-    get label() {
-      return t("shell.palette.upcoming");
-    },
-    route: "/agent/upcoming",
   },
   {
     id: "soul",

@@ -12,6 +12,7 @@ export {
   AGENT_PANEL_WIDTH,
   AgentRouteSheet,
   type AgentRouteSheetProps,
+  type AgentRouteTab,
   AgentSheet,
   AgentSheetBody,
   AgentSheetPanel,
@@ -22,6 +23,10 @@ export {
   agentSheetHref,
   agentSheetRoute,
   agentTimelineHref,
+  lastAgentTab,
+  rememberAgentTab,
+  sheetTab,
+  useDefaultAgentTab,
 } from "./agent/AgentSheet.tsx";
 export { ApprovalsPanel } from "./agent/ApprovalsPanel.tsx";
 export {
@@ -228,7 +233,9 @@ export {
 } from "./lib/artifact-ops.ts";
 // Formatting helpers.
 export * from "./lib/format.ts";
+export { documentPrefersReducedMotion } from "./lib/reduced-motion.ts";
 export { cn } from "./lib/utils.ts";
+export * from "./links/index.ts";
 export { MapBlock } from "./map/MapBlock.tsx";
 export { MapList } from "./map/MapList.tsx";
 export { MapPanel } from "./map/MapPanel.tsx";
