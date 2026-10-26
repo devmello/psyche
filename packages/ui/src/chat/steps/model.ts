@@ -191,8 +191,8 @@ export function summarizeRun(
   return { tone: "done", text: parts.join(" · ") };
 }
 
-/** Where "Timeline ›" goes: the agent sheet on this run (T3 reads `run`). */
-export function timelineRoute(run: Pick<Run, "id" | "taskId">): string {
-  const base = run.taskId ? `/agent/activity/${encodeURIComponent(run.taskId)}` : "/agent/activity";
-  return `${base}?run=${encodeURIComponent(run.id)}`;
+/** Where "Timeline ›" goes: T3's Timeline on this run (#737), optionally landing on a step. */
+export function timelineRoute(runId: string, stepId?: string): string {
+  const base = `/agent/activity/run/${encodeURIComponent(runId)}`;
+  return stepId === undefined ? base : `${base}?step=${encodeURIComponent(stepId)}`;
 }

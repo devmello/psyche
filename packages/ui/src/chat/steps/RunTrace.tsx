@@ -148,7 +148,7 @@ export function RunTrace({
         {incognito ? null : (
           <button
             type="button"
-            onClick={() => navigate?.(timelineRoute(run))}
+            onClick={() => navigate?.(timelineRoute(run.id))}
             className="h-6 shrink-0 cursor-default rounded-sm px-1.5 text-callout text-accent-11 outline-none hover:bg-fill-tertiary focus-visible:ring-2 focus-visible:ring-ring"
           >
             {t("chat.steps.timeline")} <span aria-hidden="true">›</span>

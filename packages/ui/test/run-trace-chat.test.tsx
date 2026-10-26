@@ -114,7 +114,8 @@ describe("step rows (run-trace §3.2)", () => {
     expect(summarizeRun(done, of(R.done), [], { incognito: true }).text).toBe(
       "Not kept · incognito",
     );
-    expect(timelineRoute(run(R.live))).toBe(`/agent/activity/${IDS.tasks.dentist}?run=${R.live}`);
+    expect(timelineRoute(R.live)).toBe(`/agent/activity/run/${R.live}`);
+    expect(timelineRoute(R.live, "stp_1")).toBe(`/agent/activity/run/${R.live}?step=stp_1`);
   });
 });
 
@@ -264,6 +265,6 @@ describe("the run's steps in the chat (run-trace §3.2)", () => {
     await userEvent.click(row);
     expect(within(summary).getByText("Held the 2:30 slot")).toBeTruthy();
     await userEvent.click(within(summary).getByRole("button", { name: /Timeline/ }));
-    expect(navigate).toHaveBeenCalledWith(`/agent/activity/${IDS.tasks.dentist}?run=${R.live}`);
+    expect(navigate).toHaveBeenCalledWith(`/agent/activity/run/${R.live}`);
   });
 });

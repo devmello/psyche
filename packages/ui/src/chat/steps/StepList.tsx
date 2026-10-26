@@ -38,7 +38,6 @@ function ThinkingDetail({ runId, step }: { runId: string; step: RunStep }): Reac
 function FrameThumb({ runId, step }: { runId: string; step: RunStep }): ReactElement | null {
   const persona = usePersona();
   const { navigate } = useSlots();
-  const run = useStoreState((s) => s.runs[runId]);
   const { image } = useRunFrames(runId, step.id);
   const [src, setSrc] = useState<string | null>(null);
   const seq = step.frames?.last;
@@ -59,7 +58,7 @@ function FrameThumb({ runId, step }: { runId: string; step: RunStep }): ReactEle
       type="button"
       onClick={(e) => {
         e.stopPropagation();
-        navigate?.(`${timelineRoute({ id: runId, taskId: run?.taskId ?? null })}&frame=${seq}`);
+        navigate?.(timelineRoute(runId, step.id));
       }}
       className="shrink-0 cursor-default overflow-hidden rounded-xs outline-none ring-separator ring-1 focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={t("chat.steps.frame", { name: persona.name })}
