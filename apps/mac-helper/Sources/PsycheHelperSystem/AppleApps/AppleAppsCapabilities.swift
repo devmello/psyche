@@ -22,6 +22,8 @@ public enum AppleAppsCapabilities {
         public var music: any MusicBackend
         /// Chrome wave 1 (S2).
         public var chrome: any ChromeBackend
+        /// Files wave 1 (F3): moves an item to the Trash and returns where it went.
+        public var trash: @Sendable (URL) throws -> URL?
 
         public init(
             calendar: any CalendarBackend, reminders: any RemindersBackend, mail: any MailBackend, notes: any NotesBackend,
@@ -29,7 +31,12 @@ public enum AppleAppsCapabilities {
             staging: @escaping @Sendable () -> URL = { Backends.stagingDir() },
             contacts: any ContactsBackend = ContactsStoreBackend(),
             music: any MusicBackend = MusicScriptingBackend(),
-            chrome: any ChromeBackend = ChromeScriptingBackend()
+            chrome: any ChromeBackend = ChromeScriptingBackend(),
+            trash: @escaping @Sendable (URL) throws -> URL? = { url in
+                var out: NSURL?
+                try FileManager.default.trashItem(at: url, resultingItemURL: &out)
+                return out as URL?
+            }
         ) {
             self.calendar = calendar
             self.reminders = reminders
@@ -42,6 +49,7 @@ public enum AppleAppsCapabilities {
             self.contacts = contacts
             self.music = music
             self.chrome = chrome
+            self.trash = trash
         }
 
         /// `$PSYCHE_HOME/helper/staging` (0700).
@@ -58,7 +66,7 @@ public enum AppleAppsCapabilities {
     }
 
     public static func make(_ b: Backends) -> [any CapabilityHandler] {
-        calendar(b) + calendarWave1(b) + reminders(b) + remindersWave1(b) + mail(b) + notes(b) + finder(b) + safari(b) + contactsWave1(b) + musicWave1(b)
+        calendar(b) + calendarWave1(b) + reminders(b) + remindersWave1(b) + mail(b) + notes(b) + finder(b) + safari(b) + contactsWave1(b) + musicWave1(b) + filesWave1(b)
     }
 
     // MARK: Helpers
