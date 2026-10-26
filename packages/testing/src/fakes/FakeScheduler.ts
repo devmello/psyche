@@ -134,6 +134,7 @@ export class FakeScheduler implements Scheduler {
   async update(id: string, patch: AutomationPatch): Promise<Automation> {
     const a = this.#get(id);
     Object.assign(a, structuredClone(patch));
+    if (patch.specialist === null) delete a.specialist;
     const now = this.clock.now();
     a.updatedAt = toIso(now);
     a.nextRunAt = this.#nextIso(a.enabled, a, now);

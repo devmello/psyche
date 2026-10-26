@@ -200,6 +200,7 @@ export function createSpecialistHost(deps: SpecialistHostDeps): SpecialistHost {
         title: input.title,
         goal: input.brief,
         createdFrom: "subagent",
+        ...(input.unattended === true ? { mode: "unattended" as const } : {}),
         ...(input.taint ? { taint: true, taintSources: input.taintSources } : {}),
         specialist: input.spec,
       });

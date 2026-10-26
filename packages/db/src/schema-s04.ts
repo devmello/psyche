@@ -100,6 +100,8 @@ export const automations = sqliteTable("automations", {
   updatedAt: text("updated_at").notNull(),
   // 202610252000_scheduler_event-triggers (S15 W3): the AutomationTrigger of `kind: event`.
   trigger: text("trigger"),
+  // 202610262100_scheduler_automation-specialist (#683): run as a specialist job (§4.10).
+  specialist: text("specialist"),
 });
 
 export const automationRuns = sqliteTable("automation_runs", {

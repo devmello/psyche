@@ -113,6 +113,7 @@
 //   let automationRunFinishedPayload = try? JSONDecoder().decode(AutomationRunFinishedPayload.self, from: jsonData)
 //   let automationRunStartedPayload = try? JSONDecoder().decode(AutomationRunStartedPayload.self, from: jsonData)
 //   let automationRunStatus = try? JSONDecoder().decode(AutomationRunStatus.self, from: jsonData)
+//   let automationSpecialist = try? JSONDecoder().decode(AutomationSpecialist.self, from: jsonData)
 //   let automationTrigger = try? JSONDecoder().decode(AutomationTrigger.self, from: jsonData)
 //   let automationUpdatedPayload = try? JSONDecoder().decode(AutomationUpdatedPayload.self, from: jsonData)
 //   let automationsCreateParams = try? JSONDecoder().decode(AutomationsCreateParams.self, from: jsonData)
@@ -4341,7 +4342,7 @@ public enum AutomationKind: String, Codable, Sendable {
 
 // MARK: - AutomationSpecialist
 public struct AutomationSpecialist: Codable, Sendable {
-    public let budget: SpecialistBudget?
+    public let budget: SpecialistBudgetSetting?
     public let deliver: Deliver?
     public let role: String
 
@@ -4351,15 +4352,15 @@ public struct AutomationSpecialist: Codable, Sendable {
         case role = "role"
     }
 
-    public init(budget: SpecialistBudget?, deliver: Deliver?, role: String) {
+    public init(budget: SpecialistBudgetSetting?, deliver: Deliver?, role: String) {
         self.budget = budget
         self.deliver = deliver
         self.role = role
     }
 }
 
-// MARK: - SpecialistBudget
-public struct SpecialistBudget: Codable, Sendable {
+// MARK: - SpecialistBudgetSetting
+public struct SpecialistBudgetSetting: Codable, Sendable {
     public let costUsd: Double?
     public let minutes: Int?
     public let tokens: Int?
@@ -4671,6 +4672,7 @@ public struct AutomationsCreateParams: Codable, Sendable {
     public let schedule: String
     /// main | isolated | named:<id>
     public let sessionTarget: String?
+    public let specialist: AutomationSpecialist?
     /// IANA zone; defaults to the Gateway's
     public let timezone: String?
     public let title: String
@@ -4684,12 +4686,13 @@ public struct AutomationsCreateParams: Codable, Sendable {
         case prompt = "prompt"
         case schedule = "schedule"
         case sessionTarget = "sessionTarget"
+        case specialist = "specialist"
         case timezone = "timezone"
         case title = "title"
         case watch = "watch"
     }
 
-    public init(delivery: Delivery?, enabled: Bool?, kind: AutomationKind, lightContext: Bool?, prompt: String, schedule: String, sessionTarget: String?, timezone: String?, title: String, watch: WatchConfig?) {
+    public init(delivery: Delivery?, enabled: Bool?, kind: AutomationKind, lightContext: Bool?, prompt: String, schedule: String, sessionTarget: String?, specialist: AutomationSpecialist?, timezone: String?, title: String, watch: WatchConfig?) {
         self.delivery = delivery
         self.enabled = enabled
         self.kind = kind
@@ -4697,6 +4700,7 @@ public struct AutomationsCreateParams: Codable, Sendable {
         self.prompt = prompt
         self.schedule = schedule
         self.sessionTarget = sessionTarget
+        self.specialist = specialist
         self.timezone = timezone
         self.title = title
         self.watch = watch
@@ -4900,6 +4904,7 @@ public struct AutomationsUpdateParams: Codable, Sendable {
     public let scratch: String?
     /// main | isolated | named:<id>
     public let sessionTarget: String?
+    public let specialist: AutomationSpecialist?
     /// IANA zone; defaults to the Gateway's
     public let timezone: String?
     public let title: String?
@@ -4914,12 +4919,13 @@ public struct AutomationsUpdateParams: Codable, Sendable {
         case schedule = "schedule"
         case scratch = "scratch"
         case sessionTarget = "sessionTarget"
+        case specialist = "specialist"
         case timezone = "timezone"
         case title = "title"
         case watch = "watch"
     }
 
-    public init(automationID: String, delivery: Delivery?, enabled: Bool?, lightContext: Bool?, prompt: String?, schedule: String?, scratch: String?, sessionTarget: String?, timezone: String?, title: String?, watch: WatchConfig?) {
+    public init(automationID: String, delivery: Delivery?, enabled: Bool?, lightContext: Bool?, prompt: String?, schedule: String?, scratch: String?, sessionTarget: String?, specialist: AutomationSpecialist?, timezone: String?, title: String?, watch: WatchConfig?) {
         self.automationID = automationID
         self.delivery = delivery
         self.enabled = enabled
@@ -4928,6 +4934,7 @@ public struct AutomationsUpdateParams: Codable, Sendable {
         self.schedule = schedule
         self.scratch = scratch
         self.sessionTarget = sessionTarget
+        self.specialist = specialist
         self.timezone = timezone
         self.title = title
         self.watch = watch
@@ -20871,25 +20878,6 @@ public struct SpecialistRole: Codable, Sendable {
         self.skill = skill
         self.source = source
         self.tools = tools
-    }
-}
-
-// MARK: - SpecialistBudgetSetting
-public struct SpecialistBudgetSetting: Codable, Sendable {
-    public let costUsd: Double?
-    public let minutes: Int?
-    public let tokens: Int?
-
-    public enum CodingKeys: String, CodingKey {
-        case costUsd = "costUsd"
-        case minutes = "minutes"
-        case tokens = "tokens"
-    }
-
-    public init(costUsd: Double?, minutes: Int?, tokens: Int?) {
-        self.costUsd = costUsd
-        self.minutes = minutes
-        self.tokens = tokens
     }
 }
 
