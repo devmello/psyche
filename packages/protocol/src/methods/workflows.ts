@@ -1,5 +1,5 @@
 import { Type } from "@sinclair/typebox";
-import { Id, IsoDateTime } from "../common.ts";
+import { Id, IsoDateTime, StringEnum } from "../common.ts";
 import { ApprovalRequest } from "../schemas/permissions.ts";
 import {
   ActionProposal,
@@ -106,8 +106,31 @@ export const MeetingsMethods = {
     description:
       "Starts recording a meeting with the helper microphone, only after the owner confirmed the consent line. Stops by itself after 5 minutes of silence or when the conference app quits. Side-effecting.",
   }),
+  "meetings.record.push": defineMethod({
+    params: Type.Object({
+      seq: Type.Integer({
+        minimum: 0,
+        description: "0, 1, 2… per recording; out of order is rejected",
+      }),
+      audio: Type.String({
+        maxLength: 512_000,
+        description: "Base64 mono PCM s16le at 16 kHz (the format `voice.push` takes)",
+      }),
+    }),
+    result: Type.Object({}),
+    scope: "operator.write",
+    description:
+      "Appends one chunk of the running recording's audio, captured by the device that started it (microphone in the desktop or web shell). Only that device may push. The Gateway stores it as a Library recording, and the recording ends by itself if chunks stop for two minutes or the device disconnects.",
+  }),
   "meetings.record.stop": defineMethod({
-    params: Type.Object({}),
+    params: Type.Object({
+      reason: Type.Optional(
+        StringEnum(["stopped", "source_ended", "silence", "app_quit"], {
+          description:
+            "Why the capturing device stopped: the owner (default), the microphone ended, five minutes of silence, or the conference app quit",
+        }),
+      ),
+    }),
     result: MeetingRecordingStatus,
     scope: "operator.write",
     sideEffecting: true,

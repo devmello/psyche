@@ -3310,6 +3310,32 @@ export const ko: Partial<Catalogue> = {
   "settings.key.voice.conversation.pauseMs": "Psyche가 답하기 전 대기 시간",
   "settings.key.voice.conversation.brief": "음성 브리핑",
 
+  // specialist controls (specialists §4.7) and the approval context line (§4.4)
+  "specialists.control.menu": "{title} 더 보기",
+  "specialists.control.steerLabel": "{title}에 대해 {role}에게 말하기",
+  "specialists.control.steerPlaceholder": "{role}에게 말하기…",
+  "specialists.control.steerHint": "다음 단계 전에 읽습니다.",
+  "specialists.control.send": "보내기",
+  "specialists.control.steered": "{role}에게 보냈어요.",
+  "specialists.control.pause": "일시 중지",
+  "specialists.control.resume": "다시 시작",
+  "specialists.control.giveMore": "더 주기…",
+  "specialists.control.stop": "중지…",
+  "specialists.control.giveMoreTitle": "{role}에게 더 줄까요?",
+  "specialists.control.giveMoreBody":
+    "{title}의 예산을 절반 늘립니다. 이 역할에 설정에서 허용한 한도까지입니다.",
+  "specialists.control.moreTokens": "토큰: {from} → {to}",
+  "specialists.control.moreCost": "비용: {from} → {to}",
+  "specialists.control.moreTime": "시간: {from, number} → {to, number}분",
+  "specialists.control.atCap": "이 역할에 설정에서 허용한 최대치에 이미 도달했어요.",
+  "specialists.control.giveMoreConfirm": "더 주기",
+  "specialists.control.stopTitle": "{role}을(를) 중지할까요?",
+  "specialists.control.stopBody":
+    "바로 멈추고 {title}을(를) 끝내지 않습니다. 이미 한 일은 활동에 남아요.",
+  "specialists.control.stopConfirm": "중지",
+  "specialists.control.failed": "Psyche가 처리하지 못했어요: {reason}",
+  "blocks.approval.specialist":
+    '{hasTask, select, true {"{task}" 작업 · } other {}}{agent}이(가) 시작한 {role}{hasThread, select, true { ({thread})} other {}}',
   // Ask about my screen
   "screenAsk.label": "화면에 대해 묻기",
   "screenAsk.placeholder": "화면에 있는 내용에 대해 묻거나 Psyche에게 작업을 요청하세요…",

@@ -963,7 +963,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         const p = providers.find((c) => c.id === modelRef.split("/")[0]);
         return p !== undefined && !isLocalKind(p.kind);
       },
-      ...(speechPart === undefined ? {} : { transcriber: speechPart.meetings }),
+      ...(speechPart === undefined
+        ? {}
+        : {
+            transcriber: speechPart.meetings,
+            transcriberAvailable: () => speechPart.meetings.available(),
+          }),
     },
     // The people graph while the owner has it on: prep's attendees and loops, notes' loops.
     graph: () => (people?.settings().enabled === true ? people.graph : undefined),
@@ -1034,6 +1039,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       folders: () => rawBroker.policy.folders ?? [],
     }),
   );
+  // A device that goes away ends the meeting recording it was capturing (§4.6).
+  const meetingsDisconnect = (deviceId: string) => proactive.meetings?.deviceGone(deviceId);
+  parts.push({
+    start: (gw) => {
+      gw.context.deviceDisconnected.add(meetingsDisconnect);
+    },
+    stop: () => {
+      gatewayRef?.context.deviceDisconnected.delete(meetingsDisconnect);
+    },
+  });
   parts.push(otherChats.part());
   parts.push(people.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone));
   // Code plugins (T4): off until the owner turns on `plugins.enabled`.

@@ -105,6 +105,8 @@ export interface ProactiveSetup {
     primaryIsRemote?: () => boolean;
     /** The speech part's long-form transcription on the Mac. */
     transcriber?: MeetingTranscriber;
+    /** Whether the transcriber can take a recording now; Record meeting needs it. */
+    transcriberAvailable?: () => boolean;
     /** The helper microphone, once a helper offers capture. */
     capture?: () => AudioCapture | undefined;
   };
@@ -322,6 +324,9 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           ...(setup.meetings.transcriber === undefined
             ? {}
             : { transcriber: setup.meetings.transcriber }),
+          ...(setup.meetings.transcriberAvailable === undefined
+            ? {}
+            : { transcriberAvailable: setup.meetings.transcriberAvailable }),
           ...(setup.meetings.capture === undefined ? {} : { capture: setup.meetings.capture }),
           ...(graph === undefined ? {} : { graph }),
           ownerAddresses,

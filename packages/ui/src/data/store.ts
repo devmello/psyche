@@ -382,6 +382,13 @@ export class GatewayStore {
         }
         return next;
       }
+      case "proposal.updated": {
+        const proposal = e.payload.proposal;
+        return {
+          ...touch(s, `proposals:${proposal.id}`, v),
+          proposals: { ...s.proposals, [proposal.id]: proposal },
+        };
+      }
       case "specialist.spawned": {
         const job = e.payload.job;
         return {

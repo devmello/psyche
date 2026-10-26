@@ -1,4 +1,5 @@
 import type {
+  ActionProposal,
   DigestLoop,
   FeedPost,
   GraphLoop,
@@ -378,7 +379,81 @@ export function workflowPosts(): FeedPost[] {
 }
 
 /** Adds the workflow posts to a world's Feed, newest first. */
-export function withWorkflows<W extends { feed: FeedPost[] }>(w: W): W {
+export function withWorkflows<W extends { feed: FeedPost[]; proposals?: ActionProposal[] }>(
+  w: W,
+): W {
   w.feed = [...workflowPosts(), ...w.feed];
+  w.proposals = [...(w.proposals ?? []), ...workflowProposals()];
   return w;
+}
+
+const MARK_READ_TITLES = [
+  ["Weekly digest", "Acme"],
+  ["This week in design", "Pixel Press"],
+  ["Your receipt", "Notion"],
+  ["New on the blog", "Northwind"],
+  ["Product updates", "Linear"],
+  ["Sunday reads", "The Browser"],
+] as const;
+
+/** A batch of "Mark read" calls (reversible), as the digest's newsletters group proposes. */
+export function markReadProposal(
+  status: ActionProposal["status"] = "pending",
+  overrides: Partial<ActionProposal> = {},
+): ActionProposal {
+  const calls = MARK_READ_TITLES.map(([subject, sender], i) => ({
+    tool: "mail_mark_read",
+    params: { account: "work", messageId: `m_${i}` },
+    summary: `Mark read: ${subject} (${sender})`,
+  }));
+  return {
+    id: W.proposals.newsletters,
+    title: `Mark ${calls.length} newsletters read`,
+    calls,
+    sideEffect: "write",
+    status,
+    createdBy: { job: "mail.digest" },
+    postId: W.posts.digest,
+    approvalId: null,
+    taint: true,
+    createdAt: ago(160),
+    expiresAt: inMinutes(1300),
+    updatedAt: ago(160),
+    ...overrides,
+  };
+}
+
+/** The reminders the meeting notes propose (not reversible by the mail inverses). */
+export function remindersProposal(): ActionProposal {
+  return {
+    ...markReadProposal(),
+    id: W.proposals.reminders,
+    title: "Add 2 reminders from Roadmap sync",
+    calls: [
+      {
+        tool: "reminders_create",
+        params: { title: "Send the revised timeline to the team" },
+        summary: "Remind me: Send the revised timeline to the team",
+      },
+      {
+        tool: "reminders_create",
+        params: { title: "Book a payments review with finance" },
+        summary: "Remind me: Book a payments review with finance",
+      },
+    ],
+    createdBy: { job: "meetings.notes" },
+    postId: W.posts.notes,
+  };
+}
+
+/** Both proposals the workflow posts point at, pending. */
+export function workflowProposals(): ActionProposal[] {
+  return [
+    markReadProposal(),
+    markReadProposal("pending", {
+      id: W.proposals.notifications,
+      title: "Mark 7 notifications read",
+    }),
+    remindersProposal(),
+  ];
 }
