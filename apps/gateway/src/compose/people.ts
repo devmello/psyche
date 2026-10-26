@@ -132,7 +132,11 @@ export interface People {
   /** Applies a changed `memory.graph` setting (registers or removes the agent's tools). */
   sync(value: unknown): void;
   /** Wraps the scheduler's launcher: the dreaming automation runs dreaming, then the graph pass. */
-  launcher<R extends LaunchRequest, Run>(inner: Launcher<R, Run>): Launcher<R, Run>;
+  launcher<R extends LaunchRequest, Run>(
+    inner: Launcher<R, Run>,
+    /** Other nightly memory work that runs before the graph pass (the lesson pass). */
+    before?: readonly NightlyStep[],
+  ): Launcher<R, Run>;
   /**
    * The data side of meeting prep (attendees, their open loops and last interactions, the
    * project) for the mail and meetings workstream, which owns the schedule and the prep card.
@@ -432,7 +436,7 @@ export function composePeople(deps: PeopleDeps): People {
       void cards.onFileChanged(path).catch(() => undefined);
     },
     sync,
-    launcher: (inner) => withDreaming(memory, inner, {}, [nightly]),
+    launcher: (inner, before = []) => withDreaming(memory, inner, {}, [...before, nightly]),
     useSources(adapters) {
       sources = adapters;
     },
