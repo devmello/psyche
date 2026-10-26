@@ -137,7 +137,9 @@ const bridge = {
     onState: (cb: (s: unknown) => void) => listen(IPC.dictationHudState, cb),
     onCapture: (cb: (command: unknown) => void) => listen(IPC.dictationCapture, cb),
     sendAudio: (chunk: string) => ipcRenderer.send(IPC.dictationAudio, chunk),
-    captured: (ok: boolean) => ipcRenderer.send(IPC.dictationCaptured, { ok }),
+    /** Answers one capture command: `open` = a microphone track is still live afterwards. */
+    captured: (ack: { id: number; ok: boolean; open: boolean }) =>
+      ipcRenderer.send(IPC.dictationCaptured, ack),
     // Settings → Voice & dictation.
     getStatus: () => invoke(IPC.dictationGetStatus),
     onStatus: (cb: (s: unknown) => void) => listen(IPC.dictationStatus, cb),

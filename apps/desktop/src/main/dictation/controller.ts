@@ -231,8 +231,16 @@ export class SystemDictation {
     try {
       await this.#o.capture.start();
     } catch {
+      // Released, cancelled or turned off while the microphone was opening: that exit already
+      // stopped the capture and ended the session (issue #611).
+      if (!this.#listening(token)) return;
       this.#abort(sessionId);
       return this.#message("Psyche can't use the microphone.");
+    }
+    if (!this.#listening(token)) {
+      // Ended while the microphone was opening; make sure it is released again.
+      void this.#o.capture.stop().catch(() => undefined);
+      return;
     }
     this.#cancelTimer = this.#o.setTimer(() => void this.finish(false), this.#o.maxDurationMs);
     if (this.#releasedEarly && this.#settings.mode === "hold") void this.release();
@@ -332,11 +340,17 @@ export class SystemDictation {
     return [...p.finals, p.partial].filter((s) => s !== "").join(" ");
   }
 
+  #listening(token: number): boolean {
+    return this.#phase.kind === "listening" && this.#phase.token === token;
+  }
+
   #current(token: number): boolean {
     return this.#phase.kind !== "idle" && "token" in this.#phase && this.#phase.token === token;
   }
 
   #abort(sessionId: string): void {
+    // Every exit stops the capture; a second stop is a no-op.
+    void this.#o.capture.stop().catch(() => undefined);
     void this.#o.call("voice.cancel", { sessionId }).catch(() => undefined);
     this.#phase = { kind: "idle" };
   }
