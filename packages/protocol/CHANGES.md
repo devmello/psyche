@@ -18,6 +18,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (W, #670: Record meeting captured by the owner's device, docs/workflows/mail-and-meetings-2026.md §4.6)
+
+- New `meetings.record.push {seq, audio}` (`operator.write`): one chunk (base64 mono PCM s16le, 16 kHz, ≤ 512 000 chars) of the running recording, from the device that started it. The recording ends by itself after two minutes without chunks or when that device disconnects.
+- `meetings.record.stop` gains optional `reason: stopped | source_ended | silence | app_quit`.
+
 ### v1 additive — 2026-10-26 (W, #670: post-meeting notes and Record meeting, docs/workflows/mail-and-meetings-2026.md §4.6)
 
 - **New `meetings.*` methods:** `meetings.notes.create {libraryItemId, startedAt?, title?, speakers?}` → `MeetingNotesResult {status: done | needs_permission, postId?, notes?, remindersProposalId?, question?}` (`operator.write`); `meetings.record.status {}` → `MeetingRecordingStatus` (`operator.read`); `meetings.record.start {consentConfirmed, meetingId?}` and `meetings.record.stop {}` → `MeetingRecordingStatus` (`operator.write`). A start without `consentConfirmed: true` is refused.

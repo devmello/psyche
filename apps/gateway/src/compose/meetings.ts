@@ -20,6 +20,7 @@ import {
 import type {
   Clock,
   GraphLoop,
+  LibraryItem,
   MeetingAttendee,
   MeetingNotesResult,
   MeetingRecordingEnded,
@@ -30,8 +31,10 @@ import type {
   RecordingSpeakers,
 } from "@psyche/protocol";
 import { PsycheError } from "@psyche/protocol";
+import type { Call, HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 import { mountParamsOnly } from "./handlers.ts";
+import { ClientAudioCapture } from "./meeting-capture.ts";
 
 /**
  * Post-meeting notes and "Record meeting" (docs/workflows/mail-and-meetings-2026.md §4.6), and
@@ -68,9 +71,21 @@ export interface MeetingsSetup {
   utility: ModelRef;
   /** Whether `primary` is a cloud model; the composition decides from the router's providers. */
   primaryIsRemote?: () => boolean;
-  /** The Mac helper's long-form transcription (the speech part's `meetings`). */
+  /**
+   * Long-form transcription (the speech part's `meetings`): the Mac helper's
+   * `speech.transcribe_file` today; any `PathTranscriber` (a whisper-compatible endpoint on
+   * another platform) can stand behind it.
+   */
   transcriber?: MeetingTranscriber;
-  /** The helper microphone for Record meeting; unavailable while it returns `undefined`. */
+  /**
+   * Whether a transcriber can take a recording now. Record meeting is available only then, so
+   * the owner is never asked to record audio nothing can turn into notes. Default: always.
+   */
+  transcriberAvailable?: () => boolean;
+  /**
+   * Another capture source for Record meeting (a helper microphone); the owner's device captures
+   * by default (`meetings.record.push`).
+   */
   capture?: () => AudioCapture | undefined;
   /** The people graph while `memory.graph` is on: "they owe you" loops land there. */
   graph?: () => GraphStore | undefined;
@@ -84,7 +99,9 @@ export interface MeetingsSetup {
 export interface ComposedMeetings {
   readonly notes: MeetingNotesService;
   readonly record: RecordMeeting;
-  readonly handlers: ReturnType<typeof mountParamsOnly>;
+  readonly handlers: Record<string, HandlerDef>;
+  /** A device went away: a recording it was capturing ends and its notes are written. */
+  deviceGone(deviceId: string): void;
 }
 
 export function composeMeetings(setup: MeetingsSetup): ComposedMeetings {
@@ -108,14 +125,18 @@ export function composeMeetings(setup: MeetingsSetup): ComposedMeetings {
     onError: (err) =>
       setup.logger?.log("warn", "meeting notes step failed", { code: PsycheError.from(err).code }),
   });
+  const device = new ClientAudioCapture({ db, home, clock: setup.clock });
+  const transcriberUp = setup.transcriberAvailable ?? (() => setup.transcriber !== undefined);
   const record = new RecordMeeting({
     notes,
     clock: setup.clock,
-    capture: setup.capture ?? (() => undefined),
+    capture: () => setup.capture?.() ?? (transcriberUp() ? device : undefined),
+    push: (seq, pcm) => device.push(seq, pcm),
+    existingItem: (id) => getLibraryItem(db, id),
     publish: (status) => setup.publish("meetings.recording.updated", status),
     ...(setup.logger === undefined ? {} : { logger: setup.logger }),
   });
-  const handlers = mountParamsOnly({
+  const params = mountParamsOnly({
     "meetings.notes.create": async (p: {
       libraryItemId: string;
       startedAt?: string;
@@ -139,12 +160,26 @@ export function composeMeetings(setup: MeetingsSetup): ComposedMeetings {
       });
       return notesResult(out);
     },
-    "meetings.record.status": async () => record.status(),
-    "meetings.record.start": (p: { consentConfirmed: boolean; meetingId?: string }) =>
-      record.start(p),
-    "meetings.record.stop": () => record.stop(),
   } as never);
-  return { notes, record, handlers };
+  // The recording belongs to the device that started it: only that device pushes audio.
+  const byDevice = (fn: (p: never, deviceId: string) => Promise<unknown>): HandlerDef => ({
+    run: (call: Call, p: never) => fn(p, call.identity.deviceId),
+  });
+  const handlers: Record<string, HandlerDef> = {
+    ...params,
+    "meetings.record.status": { run: async () => record.status() },
+    "meetings.record.start": byDevice((p: { consentConfirmed: boolean; meetingId?: string }, d) =>
+      record.start(p, d),
+    ),
+    "meetings.record.push": byDevice(async (p: { seq: number; audio: string }, d) => {
+      await record.push(p.seq, Buffer.from(p.audio, "base64"), d);
+      return {};
+    }),
+    "meetings.record.stop": byDevice((p: { reason?: CapturedAudio["reason"] }) =>
+      record.stop(p.reason),
+    ),
+  };
+  return { notes, record, handlers, deviceGone: (id) => record.deviceGone(id) };
 }
 
 function notesResult(out: NotesOutcome): MeetingNotesResult {
@@ -162,6 +197,9 @@ interface Active {
   recording: MeetingRecording;
   startedAt: string;
   meetingId: string | null;
+  /** The device capturing, when a device does. */
+  deviceId: string | null;
+  idle?: ReturnType<typeof setTimeout>;
 }
 
 /**
@@ -173,6 +211,12 @@ export interface RecordMeetingOptions {
   notes: Pick<MeetingNotesService, "fromRecording">;
   clock: Clock;
   capture: () => AudioCapture | undefined;
+  /** Takes a chunk of the capturing device's audio (`meetings.record.push`). */
+  push?: (seq: number, pcm: Buffer) => Promise<void>;
+  /** A capture that already wrote a Library item (`CapturedAudio.itemId`) is notes input as is. */
+  existingItem?: (id: string) => LibraryItem | undefined;
+  /** Chunks stop for this long and the recording ends (default 2 minutes). */
+  idleMs?: number;
   publish: (status: MeetingRecordingStatus) => void;
   logger?: Logger;
 }
@@ -200,10 +244,10 @@ export class RecordMeeting {
     };
   }
 
-  async start(input: {
-    consentConfirmed: boolean;
-    meetingId?: string;
-  }): Promise<MeetingRecordingStatus> {
+  async start(
+    input: { consentConfirmed: boolean; meetingId?: string },
+    deviceId?: string,
+  ): Promise<MeetingRecordingStatus> {
     if (input.consentConfirmed !== true) {
       throw new PsycheError(
         "forbidden",
@@ -213,16 +257,20 @@ export class RecordMeeting {
     if (this.#active !== null) throw new PsycheError("conflict", "a recording is already running");
     const capture = this.#o.capture();
     if (capture === undefined) {
-      throw new PsycheError("unavailable", "Record meeting needs the Mac helper's microphone", {
-        retryable: true,
-      });
+      throw new PsycheError(
+        "unavailable",
+        "Record meeting needs a way to turn audio into notes: connect the Mac helper",
+        { retryable: true },
+      );
     }
     const recording = await new MeetingRecorder({ capture }).start({ consentConfirmed: true });
     this.#active = {
       recording,
       startedAt: new Date(this.#o.clock.now()).toISOString(),
       meetingId: input.meetingId ?? null,
+      deviceId: deviceId ?? null,
     };
+    this.#watch();
     // The source ending (silence, the app quit) finishes the recording without a stop call.
     recording.done.then(
       (audio) => this.#ended(recording, audio),
@@ -232,16 +280,53 @@ export class RecordMeeting {
     return this.status();
   }
 
-  async stop(): Promise<MeetingRecordingStatus> {
+  async stop(reason?: CapturedAudio["reason"]): Promise<MeetingRecordingStatus> {
     const active = this.#active;
     if (active === null) throw new PsycheError("conflict", "no recording is running");
-    const audio = await active.recording.stop();
-    this.#ended(active.recording, audio);
+    try {
+      const audio = await active.recording.stop(reason);
+      this.#ended(active.recording, audio);
+    } catch (err) {
+      // Nothing usable was captured: the recording is over either way.
+      this.#failed(active.recording, err);
+      throw err;
+    }
     return this.status();
+  }
+
+  /** One chunk from the capturing device; any other device is refused. */
+  async push(seq: number, pcm: Buffer, deviceId?: string): Promise<void> {
+    const active = this.#active;
+    if (active === null || this.#o.push === undefined) {
+      throw new PsycheError("conflict", "no recording is running");
+    }
+    if (active.deviceId !== null && deviceId !== active.deviceId) {
+      throw new PsycheError("forbidden", "this recording is captured by another device");
+    }
+    await this.#o.push(seq, pcm);
+    this.#watch();
+  }
+
+  /** The capturing device disconnected: end what was captured so far and write its notes. */
+  deviceGone(deviceId: string): void {
+    if (this.#active?.deviceId !== deviceId) return;
+    this.stop("source_ended").catch(() => undefined);
+  }
+
+  /** No chunk for `idleMs` (the device froze, the window closed): the source has ended. */
+  #watch(): void {
+    const active = this.#active;
+    if (active === null) return;
+    clearTimeout(active.idle);
+    active.idle = setTimeout(() => {
+      this.stop("source_ended").catch(() => undefined);
+    }, this.#o.idleMs ?? 120_000);
+    active.idle.unref?.();
   }
 
   #ended(recording: MeetingRecording, audio: CapturedAudio): void {
     if (this.#active?.recording !== recording) return;
+    clearTimeout(this.#active.idle);
     this.#active = null;
     const last: MeetingRecordingEnded = {
       startedAt: audio.startedAt,
@@ -256,6 +341,7 @@ export class RecordMeeting {
 
   #failed(recording: MeetingRecording, err: unknown): void {
     if (this.#active?.recording !== recording) return;
+    clearTimeout(this.#active.idle);
     this.#active = null;
     this.#o.logger?.log("warn", "meeting recording failed", { code: PsycheError.from(err).code });
     this.#o.publish(this.status());
@@ -263,19 +349,23 @@ export class RecordMeeting {
 
   async #write(audio: CapturedAudio, last: MeetingRecordingEnded): Promise<void> {
     try {
-      const data = await readFile(audio.path);
+      const item = audio.itemId === undefined ? undefined : this.#o.existingItem?.(audio.itemId);
       const name = basename(audio.path);
       const out = await this.#o.notes.fromRecording({
         path: audio.path,
-        library: {
-          audio: {
-            data: new Uint8Array(data),
-            mime: AUDIO_MIME[extname(name).toLowerCase()] ?? "audio/mp4",
-            name,
-          },
-        },
+        library:
+          item !== undefined
+            ? { existing: item }
+            : {
+                audio: {
+                  data: new Uint8Array(await readFile(audio.path)),
+                  mime: AUDIO_MIME[extname(name).toLowerCase()] ?? "audio/mp4",
+                  name,
+                },
+              },
         startedAt: audio.startedAt,
         durationMs: audio.durationMs,
+        ...(item === undefined ? {} : { title: `Meeting ${audio.startedAt.slice(0, 10)}` }),
       });
       last.notes = out.status;
       if (out.status === "done") last.postId = out.postId;

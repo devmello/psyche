@@ -4474,6 +4474,10 @@ export interface MeetingRecordingEnded {
 
 export type Notes = "processing" | "done" | "needs_permission" | "failed";
 
+/**
+ * Why the capturing device stopped: the owner (default), the microphone ended, five minutes
+ * of silence, or the conference app quit
+ */
 export type MeetingRecordingEndedReason = "stopped" | "source_ended" | "silence" | "app_quit";
 
 export interface MeetingsNotesCreateParams {
@@ -4485,9 +4489,28 @@ export interface MeetingsNotesCreateParams {
 
 export type RecordingSpeakers = "owner_only" | "others";
 
+export interface MeetingsRecordPushParams {
+    /**
+     * Base64 mono PCM s16le at 16 kHz (the format `voice.push` takes)
+     */
+    audio: string;
+    /**
+     * 0, 1, 2… per recording; out of order is rejected
+     */
+    seq: number;
+}
+
 export interface MeetingsRecordStartParams {
     consentConfirmed: boolean;
     meetingId?:       string;
+}
+
+export interface MeetingsRecordStopParams {
+    /**
+     * Why the capturing device stopped: the owner (default), the microphone ended, five minutes
+     * of silence, or the conference app quit
+     */
+    reason?: MeetingRecordingEndedReason;
 }
 
 export interface MemoryClaimsConfirmParams {
