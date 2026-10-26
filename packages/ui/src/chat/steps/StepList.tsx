@@ -8,6 +8,7 @@ import { StepRow } from "../../components/steps/StepRow.tsx";
 import { useRunFrames, useRunStep, useRunSteps, useStoreState } from "../../data/index.ts";
 import { t } from "../../i18n/core.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
+import { StepFeedback } from "../../teaching/StepFeedback.tsx";
 import {
   buildRows,
   ended,
@@ -153,6 +154,8 @@ export function StepItem({
       <p className="text-danger-text">{step.error.message}</p>
     ) : undefined;
   const frame = step.frames ? <FrameThumb runId={runId} step={step} /> : undefined;
+  // "Not like this" on a finished tool step (teaching loop §5.1).
+  const ends = ended(step);
   const detail =
     step.kind === "thinking" ? (
       <ThinkingDetail runId={runId} step={step} />
@@ -161,6 +164,7 @@ export function StepItem({
         {failure}
         {preview}
         {frame}
+        {ends ? <StepFeedback step={step} /> : null}
       </>
     ) : undefined;
   // A row with detail is a disclosure button: the frame goes inside the detail, never nested.
@@ -178,7 +182,10 @@ export function StepItem({
         <ArrowDown className="size-3.5" aria-hidden="true" />
       </button>
     ) : detail === undefined ? (
-      frame
+      <>
+        {frame}
+        {ends ? <StepFeedback step={step} floating /> : null}
+      </>
     ) : undefined;
   return (
     <StepRow
@@ -193,6 +200,7 @@ export function StepItem({
       accessory={accessory}
       enter={enter}
       defaultOpen={step.status === "failed"}
+      className="group/step relative"
     >
       {detail}
     </StepRow>

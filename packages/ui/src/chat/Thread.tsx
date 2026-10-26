@@ -356,6 +356,26 @@ export function ChatThread({
         setNotice({ kind: "ok", text: t("chat.thread.remembered", { path: res.path }) });
         return;
       }
+      case "teach": {
+        // A correction to the last reply (teaching loop §5.1), like Not like this with text.
+        const last = view.messages.findLast((m) => m.role === "agent");
+        if (last === undefined) {
+          setNotice({ kind: "info", text: t("chat.thread.teachNothing") });
+          return;
+        }
+        const res = await call("feedback.give", {
+          target: { type: "message", id: last.id, threadId },
+          kind: "correction",
+          text: arg,
+        });
+        setNotice({
+          kind: "ok",
+          text: res.lesson
+            ? t("chat.thread.taught", { lesson: res.lesson.statement })
+            : t("chat.teach.noted"),
+        });
+        return;
+      }
       case "forget": {
         const preview = await call("memory.forget", { subject: arg, dryRun: true });
         const claims = preview.retractedClaimIds.length;

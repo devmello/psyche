@@ -41,15 +41,21 @@ Walk into the meeting knowing who is there, what was last said, what is owed eit
 
 ## Format
 
+At most 8 bullets. Every line names its source (a thread, a note, a loop or the invite).
+
 ```
-Design review - Mon Oct 19, 2:00-2:45 pm PT · Zoom link
-People: Dana Kim (PM, Contoso; you work with her on Q4 launch) · Lee Park (design) · sam@fabrikam.example (unknown)
-Project: Q4 launch - next step: agree milestones
-You owe Dana: the Q4 timeline (asked Oct 15)
-Waiting on Lee: final mockups (promised Oct 17)
-Last: Dana, Oct 15 "Q4 timeline?" · Lee, Oct 17 "new mockups" (links)
-Agenda: agree milestones; who owns onboarding copy?
+Prep: Design review - Mon Oct 19, 2:00-2:45 pm PT · Join (Zoom)
+Why this meeting: agree the Q4 launch milestones (invite)
+Who: Dana Kim - PM, Contoso; you work with her on the Q4 launch · Lee Park - design · sam@fabrikam.example (unknown)
+Open loops: you owe Dana the Q4 timeline (her mail, Oct 15) · waiting on Lee for final mockups (your mail, Oct 17)
+Last time: chose the two-step onboarding; Lee to revise mockups (notes, Oct 12)
+Worth reading: "Q4 timeline?" (Dana, Oct 15) · mockups v3 (Lee, Oct 17)
+Suggested agenda: milestones · onboarding copy owner (only when the invite has none)
 ```
+
+**When to stay quiet** (the scheduled prep, unattended):
+- A recurring meeting whose attendees and title haven't changed and that has no new mail gets one line instead: "Nothing new since last time."
+- A thin meeting, with fewer than two sourced items, gets a silent post and no notification.
 
 ## Examples
 

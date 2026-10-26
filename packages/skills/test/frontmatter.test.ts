@@ -147,6 +147,8 @@ describe("gating", () => {
       ["shortcuts.*", "shortcuts_run", "connect Shortcuts"],
       ["email.*", "mail_set_flags", "connect Gmail or Apple Mail"],
       ["calendar.*", "calendar_find_free_time", "connect Google Calendar or Apple Calendar"],
+      ["speech.*", "speech_transcribe_file", "speech engine in Settings → Voice & dictation"],
+      ["proposals.*", "proposals_create", "Mail & meetings in Settings"],
     ];
     for (const [family, tool, hint] of families) {
       const r = { ...req, tools: [family] };

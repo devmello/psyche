@@ -1,0 +1,127 @@
+{
+  "$comment": "The owner's calendar for next week (Mon Oct 26 - Fri Oct 30, PDT until Nov 1) for §4.4 acceptance case 1, Apple event shape. Busy rules: tentative counts as busy, declined is free. calendar_find_free_time keeps 15 minutes either side of busy events, protects lunch 12:00-13:00 and stays inside working hours 09:00-17:30 America/Los_Angeles. Read by tests/acceptance/src/mail-world.ts.",
+  "timeZone": "America/Los_Angeles",
+  "events": [
+    {
+      "id": "evt_v4_planning",
+      "calendar": "Work",
+      "title": "Quarterly planning",
+      "start": "2026-10-26T09:00:00-07:00",
+      "end": "2026-10-26T11:00:00-07:00",
+      "organizer": "owner@example.com",
+      "attendees": [
+        {
+          "name": "Avery Lin",
+          "email": "owner@example.com",
+          "status": "accepted"
+        },
+        {
+          "name": "Maya Okafor",
+          "email": "maya@example.com",
+          "status": "accepted"
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "evt_v4_maya",
+      "calendar": "Work",
+      "title": "1:1 Maya / Avery",
+      "start": "2026-10-26T13:00:00-07:00",
+      "end": "2026-10-26T14:00:00-07:00",
+      "organizer": "maya@example.com",
+      "attendees": [
+        {
+          "name": "Avery Lin",
+          "email": "owner@example.com",
+          "status": "accepted"
+        },
+        {
+          "name": "Maya Okafor",
+          "email": "maya@example.com",
+          "status": "accepted"
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "evt_v4_design",
+      "calendar": "Work",
+      "title": "Design review",
+      "start": "2026-10-27T08:30:00-07:00",
+      "end": "2026-10-27T10:00:00-07:00",
+      "organizer": "jordan@example.com",
+      "attendees": [
+        {
+          "name": "Avery Lin",
+          "email": "owner@example.com",
+          "status": "accepted"
+        },
+        {
+          "name": "Jordan Reyes",
+          "email": "jordan@example.com",
+          "status": "accepted"
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "id": "evt_v4_vendor",
+      "calendar": "Work",
+      "title": "Pricing call",
+      "start": "2026-10-28T09:00:00-07:00",
+      "end": "2026-10-28T09:30:00-07:00",
+      "organizer": "priya@partner.example.net",
+      "attendees": [
+        {
+          "name": "Avery Lin",
+          "email": "owner@example.com",
+          "status": "tentative"
+        },
+        {
+          "name": "Priya Nair",
+          "email": "priya@partner.example.net",
+          "status": "accepted"
+        }
+      ],
+      "notes": "Tentative and unanswered invitations count as busy."
+    },
+    {
+      "id": "evt_v4_brownbag",
+      "calendar": "Work",
+      "title": "Optional: brown bag on tracing",
+      "start": "2026-10-28T10:00:00-07:00",
+      "end": "2026-10-28T11:00:00-07:00",
+      "organizer": "sam.kim@example.com",
+      "attendees": [
+        {
+          "name": "Avery Lin",
+          "email": "owner@example.com",
+          "status": "declined"
+        },
+        {
+          "name": "Sam Kim",
+          "email": "sam.kim@example.com",
+          "status": "accepted"
+        }
+      ],
+      "notes": "Declined by the owner: free time."
+    },
+    {
+      "id": "evt_v4_offsite_prep",
+      "calendar": "Work",
+      "title": "Offsite prep",
+      "start": "2026-10-29T09:00:00-07:00",
+      "end": "2026-10-29T12:00:00-07:00",
+      "organizer": "owner@example.com",
+      "attendees": [
+        {
+          "name": "Avery Lin",
+          "email": "owner@example.com",
+          "status": "accepted"
+        }
+      ],
+      "notes": ""
+    }
+  ]
+}
