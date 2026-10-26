@@ -1,5 +1,5 @@
 // A dependency-free stdio MCP server (newline-delimited JSON-RPC, protocol 2025-11-25) with one
-// read-only tool, `echo`; with `--poisoned`, also a tool whose description hides instructions. With `--mutate-after <ms>` it declares `tools.listChanged`, then adds a
+// read-only tool, `echo`; with `--write-tool`, also a destructive `shout`; with `--poisoned`, also a tool whose description hides instructions. With `--mutate-after <ms>` it declares `tools.listChanged`, then adds a
 // tool after that delay and sends `notifications/tools/list_changed` (a rug-pull, design-28).
 import { createInterface } from "node:readline";
 
@@ -13,6 +13,16 @@ const tools = [
     inputSchema: { type: "object", properties: { text: { type: "string" } } },
     annotations: { readOnlyHint: true },
   },
+  ...(process.argv.includes("--write-tool")
+    ? [
+        {
+          name: "shout",
+          description: "Shout the text.",
+          inputSchema: { type: "object", properties: { text: { type: "string" } } },
+          annotations: { destructiveHint: true },
+        },
+      ]
+    : []),
   ...(process.argv.includes("--poisoned")
     ? [
         {

@@ -13,7 +13,7 @@ import { OverviewSection } from "./OverviewSection.tsx";
 import { go, type OverviewLink, recentLink } from "./overviewLinks.ts";
 import type { OverviewPeriod } from "./period.ts";
 import { parseRecentFilter, recentHref, scrollToRecent } from "./recentFilter.ts";
-import { SectionBody, useSectionStatus } from "./SectionState.tsx";
+import { SectionBody, useLastDefined, useSectionStatus } from "./SectionState.tsx";
 import { hasNoRuns, PERIOD_WORD } from "./summaryModel.ts";
 
 export interface OverviewActivityProps {
@@ -32,6 +32,7 @@ export function OverviewActivity({
 }: OverviewActivityProps): ReactElement {
   const i18n = useI18n();
   const insights = useInsights(period);
+  const data = useLastDefined(insights.data);
   const status = useSectionStatus("activity", [
     { ...insights, has: insights.data !== undefined, key: period },
   ]);
@@ -44,10 +45,10 @@ export function OverviewActivity({
         reserve="min-h-48"
         skeleton={<Skeleton className="h-48" />}
       >
-        {insights.data === undefined ? null : (
+        {data === undefined ? null : (
           <ActivityBody
             period={period}
-            insights={insights.data}
+            insights={data}
             onNavigate={onNavigate}
             selectedDay={parseRecentFilter(route).day}
           />

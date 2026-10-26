@@ -63,11 +63,18 @@ import {
   type LearnRefusal,
   learnedFactId,
   normalizeFact,
+  parseLearned,
   refuseFact,
   removeLearned,
 } from "./learned.ts";
 import { canonicalWorkspacePath, resolveInWorkspace, toWorkspacePath } from "./paths.ts";
 import { substituteTokens } from "./persona.ts";
+import {
+  normalizeFieldValue,
+  type ProfileField,
+  repairHeader,
+  setHeaderField,
+} from "./profile-fields.ts";
 import {
   isProvenance,
   leastTrusted,
@@ -174,6 +181,9 @@ function randomSuffix(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
+/** `memory_state` key of the one-time USER.md header repair (`repairUserHeader`). */
+const USER_HEADER_REPAIR = "migration.userHeaderFields.v1";
+
 /**
  * `MemoryStore` over the workspace folder (source of truth) and the index tables in the main
  * database. See README.md for the file formats and provenance rules.
@@ -231,6 +241,7 @@ export class SqliteMemoryStore implements MemoryStore {
     for (const dir of WORKSPACE_DIRS) ensureDir(join(this.root, dir));
     if (this.#state("workspace.initialized") === undefined) this.#copyTemplates();
     await this.sync();
+    await this.repairUserHeader().catch(() => undefined);
   }
 
   /** Stops the watcher and waits for background embedding. */
@@ -602,7 +613,14 @@ export class SqliteMemoryStore implements MemoryStore {
    * like an instruction, or already known (USER.md or a live claim). Returns what was written.
    */
   async learnUserFacts(
-    proposals: readonly { text: string; kind: LearnedFact["kind"]; lessonId?: string }[],
+    proposals: readonly {
+      text: string;
+      kind: LearnedFact["kind"];
+      lessonId?: string;
+      /** The USER.md header field the fact states, with its value (the extractor's `field`). */
+      field?: ProfileField;
+      value?: string;
+    }[],
     context: {
       threadId: string;
       /**
@@ -610,6 +628,11 @@ export class SqliteMemoryStore implements MemoryStore {
        * replaces. Its line goes first, so the corrected fact is not refused as a duplicate.
        */
       replaces?: string;
+      /**
+       * The facts come from the owner's own words. Only then does a `field` fill the header;
+       * anything else (a web page, an email, a tool result) stays a plain Learned line.
+       */
+      ownerWords?: boolean;
     },
   ): Promise<{ written: LearnedFactLine[]; refused: { text: string; reason: LearnRefusal }[] }> {
     const original = (await this.readFile("USER.md"))?.content ?? "";
@@ -625,6 +648,7 @@ export class SqliteMemoryStore implements MemoryStore {
       ...claims,
     ].filter((k) => k !== "");
     const written: LearnedFactLine[] = [];
+    const header: { field: ProfileField; value: string; date: string }[] = [];
     const refused: { text: string; reason: LearnRefusal }[] = [];
     const date = this.now().date;
     for (const p of proposals) {
@@ -634,6 +658,11 @@ export class SqliteMemoryStore implements MemoryStore {
         continue;
       }
       const text = p.text.replace(/\s+/g, " ").trim();
+      const value =
+        context.ownerWords === true && p.field !== undefined && p.value !== undefined
+          ? normalizeFieldValue(p.field, p.value)
+          : undefined;
+      const field = value === undefined ? undefined : p.field;
       written.push({
         factId: learnedFactId(text, context.threadId),
         text,
@@ -641,17 +670,40 @@ export class SqliteMemoryStore implements MemoryStore {
         date,
         threadId: context.threadId,
         ...(p.lessonId === undefined ? {} : { lessonId: p.lessonId }),
+        ...(field === undefined ? {} : { field }),
       });
+      if (field !== undefined && value !== undefined) header.push({ field, value, date });
       known.push(normalizeFact(text));
     }
     if (written.length > 0) {
-      await this.write("USER.md", addLearned(current, written), {
-        provenance: "owner",
-        actor: "job",
-        source: "job",
-      });
+      let next = addLearned(current, written);
+      // Latest wins: the owner's own newer words replace the header value, the same value is a
+      // no-op, and an older statement never overwrites a newer one.
+      const stated = parseLearned(current);
+      for (const h of header) {
+        if (stated.some((l) => l.field === h.field && l.date > h.date)) continue;
+        next = setHeaderField(next, h.field, h.value, "replace");
+      }
+      await this.write("USER.md", next, { provenance: "owner", actor: "job", source: "job" });
     }
     return { written, refused };
+  }
+
+  /**
+   * One-time repair (guarded by a marker in `memory_state`): fills USER.md's empty header fields
+   * from Learned lines written before the extractor tagged fields. A filled field is never
+   * touched, and the rest of the file stays byte-for-byte. Returns the fields it filled.
+   */
+  async repairUserHeader(): Promise<ProfileField[]> {
+    if (this.#state(USER_HEADER_REPAIR) !== undefined) return [];
+    const file = await this.readFile("USER.md");
+    if (file === undefined) return [];
+    const { content, filled } = repairHeader(file.content, parseLearned(file.content));
+    if (content !== file.content) {
+      await this.write("USER.md", content, { provenance: "owner", actor: "job", source: "job" });
+    }
+    this.#setState(USER_HEADER_REPAIR, { at: this.#nowIso(), filled });
+    return filled;
   }
 
   /** Undo for one learned fact (#509): removes its line; false when it is already gone. */

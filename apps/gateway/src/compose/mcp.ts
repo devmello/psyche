@@ -19,6 +19,7 @@ import {
 } from "@psyche/mcp-host";
 import {
   type McpTrustTier,
+  mcpTrustFor,
   PLACEHOLDER_PATTERN,
   PsycheError,
   type ToolRegistry,
@@ -26,6 +27,7 @@ import {
 import type { Gateway } from "../server.ts";
 import { mcpAddHandlers } from "./mcp-add.ts";
 import { mcpGrantRevocation } from "./mcp-grants.ts";
+import { mcpManageHandlers } from "./mcp-manage.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -84,6 +86,23 @@ function launcherFor(services: ComposeServices, setup: McpSetup): StdioLauncher 
   return undefined;
 }
 
+/**
+ * The tier a stored entry runs under. The stored `trust` is a claim, not a fact: `verified` is
+ * re-derived from the entry's own command or URL (so an owner-edited command drops back to
+ * `unknown`), and `bundled` stays the host's to accept (it refuses ids it does not ship).
+ */
+function trustOf(c: PsycheMcpServerConfig): McpTrustTier {
+  if (c.trust === "bundled") return "bundled";
+  const t = c.transport as Partial<PsycheMcpServerConfig["transport"]>;
+  if (t.kind === "stdio" && Array.isArray(t.command)) {
+    return mcpTrustFor({ kind: "stdio", command: t.command });
+  }
+  if (t.kind === "http" && typeof t.url === "string") {
+    return mcpTrustFor({ kind: "http", url: t.url });
+  }
+  return "unknown";
+}
+
 /** The configured servers, each with a valid shape; anything else is dropped with a warning. */
 function readServers(value: unknown, warn: (msg: string) => void): PsycheMcpServerConfig[] {
   if (value === undefined || value === null) return [];
@@ -108,7 +127,7 @@ function readServers(value: unknown, warn: (msg: string) => void): PsycheMcpServ
       continue;
     }
     seen.add(c.id);
-    out.push({ ...c, trust: c.trust ?? "unknown" } as PsycheMcpServerConfig);
+    out.push({ ...c, trust: trustOf(c as PsycheMcpServerConfig) } as PsycheMcpServerConfig);
   }
   return out;
 }
@@ -262,9 +281,21 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
   const disconnectAll = () => host.close();
   grants.wrap(host);
 
+  /** Running servers: the config as it started (without the owner's tool choices). */
   const configs = new Map<string, string>();
+  /** Every configured server, running or turned off, as the setting last said. */
+  const known = new Map<string, PsycheMcpServerConfig>();
+  /** The tool choices each running server's registrations were made with. */
+  const offered = new Map<string, string>();
+  const choices = (c: PsycheMcpServerConfig | undefined) => JSON.stringify(c?.disabledTools ?? []);
+  /** What a change of these does not need a restart for: tools re-register, a switch adds or removes. */
+  const runKey = (c: PsycheMcpServerConfig) => {
+    const { disabledTools: _tools, enabled: _enabled, ...rest } = c;
+    return JSON.stringify(rest);
+  };
   const add = async (config: PsycheMcpServerConfig) => {
-    configs.set(config.id, JSON.stringify(config));
+    configs.set(config.id, runKey(config));
+    offered.set(config.id, choices(config));
     try {
       const info = await host.addServer(config);
       if (info.status !== "connected") {
@@ -279,7 +310,13 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
         () => host.describe(config.id).warnings,
         blocked,
       );
-      registrations.set(config.id, await registerMcpServerTools(host, registry, config.id));
+      registrations.set(
+        config.id,
+        await registerMcpServerTools(host, registry, config.id, {
+          // The owner's list is read at every sync, so a change applies without a restart.
+          offer: (tool) => !(known.get(config.id)?.disabledTools ?? []).includes(tool),
+        }),
+      );
       const warnings = host.describe(config.id).warnings;
       if (warnings.length > 0 && config.trust !== "bundled") {
         report(
@@ -298,6 +335,7 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
   };
   const remove = async (serverId: string) => {
     configs.delete(serverId);
+    offered.delete(serverId);
     registrations.get(serverId)?.unregister();
     registrations.delete(serverId);
     await host.removeServer(serverId);
@@ -305,12 +343,28 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
   const reconcile = async (value: unknown) => {
     const wanted = readServers(value, (msg) => warn(msg));
     const next = new Map(wanted.map((c) => [c.id, c]));
+    known.clear();
+    for (const c of wanted) known.set(c.id, c);
     for (const id of [...configs.keys()]) {
       const c = next.get(id);
-      // A changed config is a different server: its grants end with the old one.
-      if (c === undefined || JSON.stringify(c) !== configs.get(id)) await remove(id);
+      // A changed config is a different server: its grants end with the old one. A server the
+      // owner turned off stops the same way, and starts again as a new one when turned on.
+      if (c === undefined || c.enabled === false || runKey(c) !== configs.get(id)) await remove(id);
     }
-    for (const c of wanted) if (!configs.has(c.id)) await add(c);
+    for (const c of wanted) if (c.enabled !== false && !configs.has(c.id)) await add(c);
+    // The owner's tool choices: re-register what is offered; the server keeps running.
+    for (const [id, reg] of registrations) {
+      if (choices(known.get(id)) === offered.get(id)) continue;
+      offered.set(id, choices(known.get(id)));
+      await reg
+        .sync()
+        .catch((err) =>
+          warn("mcp tools re-registration failed", {
+            serverId: id,
+            code: PsycheError.from(err).code,
+          }),
+        );
+    }
   };
   // Changes apply in order, one at a time.
   let queue: Promise<void> = Promise.resolve();
@@ -326,8 +380,7 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
       : setup.srtPath !== undefined
         ? ("srt" as const)
         : ("none" as const);
-  const statusOf = (json: string) => {
-    const c = JSON.parse(json) as PsycheMcpServerConfig;
+  const statusOf = (c: PsycheMcpServerConfig) => {
     const http = c.transport.kind === "http";
     return {
       id: c.id,
@@ -336,7 +389,15 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
       transport: http ? ("http" as const) : ("stdio" as const),
       network: http || (c.sandbox?.allowedDomains?.length ?? 0) > 0,
       connected: registrations.has(c.id),
+      ...(c.enabled === false ? { enabled: false } : {}),
     };
+  };
+  /** Stops and starts a running server again, so a new secret is read at spawn. */
+  const restart = async (serverId: string) => {
+    const c = known.get(serverId);
+    if (c === undefined || !configs.has(serverId)) return;
+    await remove(serverId);
+    await add(c);
   };
   return {
     host,
@@ -346,7 +407,7 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
       "mcp.status": {
         run: () => ({
           launcher: launcherKind,
-          servers: [...configs.values()].map(statusOf),
+          servers: [...known.values()].map(statusOf),
         }),
       },
       // Settings → MCP (#529): probe in the sandbox, trust card, then add.
@@ -358,10 +419,24 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
         ...(setup.hostOptions === undefined ? {} : { hostOptions: setup.hostOptions }),
         apply: (value) => enqueue(value),
         status: (id) => {
-          const json = configs.get(id);
-          return json === undefined ? undefined : statusOf(json);
+          const c = known.get(id);
+          return c === undefined ? undefined : statusOf(c);
         },
         toolsHash: (id) => (registrations.has(id) ? host.describe(id).toolsListHash : undefined),
+      }),
+      // A server's detail (tools, on/off, secrets).
+      ...mcpManageHandlers({
+        services,
+        settingKey: MCP_SERVERS_SETTING,
+        apply: (value, wait) => {
+          const done = enqueue(value);
+          return wait ? done : Promise.resolve();
+        },
+        restart: (id) => {
+          queue = queue.then(() => restart(id)).catch(() => undefined);
+        },
+        details: (id) => (registrations.has(id) ? host.describe(id) : undefined),
+        status: statusOf,
       }),
     },
     start(gateway: Gateway) {

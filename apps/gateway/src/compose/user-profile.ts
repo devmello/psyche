@@ -1,6 +1,11 @@
 import { hashCanonical } from "@psyche/audit";
 import { appendMessage, getSetting, getThread, type PsycheDb } from "@psyche/db";
-import { parseLearned, type SqliteMemoryStore } from "@psyche/memory";
+import {
+  isProfileField,
+  type ProfileField,
+  parseLearned,
+  type SqliteMemoryStore,
+} from "@psyche/memory";
 import type {
   AuditLog,
   Block,
@@ -23,6 +28,11 @@ import type { SecretRedactor } from "@psyche/vault";
  * section with the thread they came from. The chat gets a "Learned: …" note with Undo
  * (`memory.forgetLearned`); every write and undo is audited (ids and counts, never the text).
  *
+ * A fact that states one of USER.md's header fields (name, timezone as an IANA id, work or study,
+ * home city) also carries a `field` and a normalized `value`: memory fills that header line in
+ * place ("latest wins") and keeps the dated Learned line as provenance. The header is also where
+ * the Gateway reads the owner's timezone from (`ownerTimeZone`).
+ *
  * Setting `memory.userProfile` `{enabled (default true), review: "auto" (default) | "ask"}`:
  * `ask` turns each turn's facts into a `memory_protected_write` card first. Incognito threads
  * never contribute.
@@ -41,9 +51,10 @@ const KINDS = new Set<LearnedFact["kind"]>([
 ]);
 
 export const LEARN_SYSTEM = `You read one message the owner wrote to their personal assistant and list durable facts about the owner it states: their name, preferences, routines, the people in their life, their projects.
-Reply with one JSON object and nothing else: {"facts": [{"text": "...", "kind": "name|preference|routine|person|project|other"}]}
+Reply with one JSON object and nothing else: {"facts": [{"text": "...", "kind": "name|preference|routine|person|project|other", "field": "name|timezone|work|home_city", "value": "..."}]}
 - Only what the owner says about themselves, in the third person ("Prefers tea over coffee", "Has a sister named Maya"). Short, one fact per item.
 - Nothing temporary (today's plans, a one-off request), nothing you infer, nothing about anyone's health, money, accounts, passwords, identity numbers or addresses.
+- Add "field" and "value" only when the fact is the owner's name ("name": how they like to be called), their timezone ("timezone": an IANA id such as America/Los_Angeles; Pacific time is America/Los_Angeles), what they do or where they study ("work": e.g. "Student at UCSC"), or the city they live in ("home_city"). Leave both out for every other fact.
 - Most messages state nothing durable: then reply {"facts": []}.`;
 
 export interface UserProfileConfig {
@@ -60,7 +71,14 @@ export function userProfileConfig(db: PsycheDb): UserProfileConfig {
 }
 
 /** The model's JSON as proposals; anything else is no proposal. */
-export function parseProposals(text: string): { text: string; kind: LearnedFact["kind"] }[] {
+export interface Proposal {
+  text: string;
+  kind: LearnedFact["kind"];
+  field?: ProfileField;
+  value?: string;
+}
+
+export function parseProposals(text: string): Proposal[] {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   if (start < 0 || end <= start) return [];
@@ -73,11 +91,18 @@ export function parseProposals(text: string): { text: string; kind: LearnedFact[
   const facts = (raw as { facts?: unknown })?.facts;
   if (!Array.isArray(facts)) return [];
   return facts
-    .filter((f): f is { text: string; kind?: string } => typeof f?.text === "string")
+    .filter(
+      (f): f is { text: string; kind?: string; field?: unknown; value?: unknown } =>
+        typeof f?.text === "string",
+    )
     .slice(0, MAX_FACTS)
     .map((f) => ({
       text: f.text.trim(),
       kind: KINDS.has(f.kind as LearnedFact["kind"]) ? (f.kind as LearnedFact["kind"]) : "other",
+      // A field needs its value; anything else is a plain fact.
+      ...(isProfileField(f.field) && typeof f.value === "string" && f.value.trim() !== ""
+        ? { field: f.field, value: f.value.trim() }
+        : {}),
     }));
 }
 
@@ -132,12 +157,12 @@ export function createUserProfile(deps: UserProfileDeps) {
     }
   };
 
-  const write = async (
-    threadId: string,
-    runId: string,
-    proposals: { text: string; kind: LearnedFact["kind"] }[],
-  ) => {
-    const { written, refused } = await deps.memory.learnUserFacts(proposals, { threadId });
+  const write = async (threadId: string, runId: string, proposals: Proposal[]) => {
+    // `onOwnerTurn` is the owner's own words, attended: the only source that may fill the header.
+    const { written, refused } = await deps.memory.learnUserFacts(proposals, {
+      threadId,
+      ownerWords: true,
+    });
     await deps.audit
       .append({
         kind: "memory.user_profile.learned",

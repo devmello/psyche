@@ -40,7 +40,9 @@ import {
   type LibraryItem,
   type LinkPaymentMethod,
   type McpProposal,
+  type McpServerSecret,
   type McpServerStatus,
+  type McpServerTool,
   type MemoryChunk,
   type MemoryClaim,
   type Message,
@@ -301,6 +303,36 @@ export class MockGateway implements GatewayClient {
   /** Settings → MCP (#529): added servers and probes waiting for their trust card. */
   readonly mcpServers: McpServerStatus[] = [];
   private mcpProposals = new Map<string, { proposal: McpProposal; approvalId: string }>();
+  /** What an added server's detail shows: its tools (the owner's switches) and secrets by name. */
+  private mcpDetail = new Map<string, { tools: McpServerTool[]; secrets: McpServerSecret[] }>();
+
+  private mcpServer(serverId: string): McpServerStatus {
+    return (
+      this.mcpServers.find((x) => x.id === serverId) ??
+      fail("not_found", `no MCP server ${serverId}`)
+    );
+  }
+
+  private mcpDetailOf(serverId: string) {
+    let d = this.mcpDetail.get(serverId);
+    if (d === undefined) {
+      d = { tools: [], secrets: [] };
+      this.mcpDetail.set(serverId, d);
+    }
+    return d;
+  }
+
+  /** A server already added, with the tools and secrets its detail shows (stories, tests). */
+  seedMcpServer(
+    server: McpServerStatus,
+    detail: { tools?: McpServerTool[]; secrets?: McpServerSecret[] } = {},
+  ): void {
+    this.mcpServers.push(structuredClone(server));
+    this.mcpDetail.set(server.id, {
+      tools: structuredClone(detail.tools ?? []),
+      secrets: structuredClone(detail.secrets ?? []),
+    });
+  }
 
   constructor(world: Partial<MockWorld> = {}, options: MockGatewayOptions = {}) {
     this.world = structuredClone({ ...EMPTY_WORLD, ...world });
@@ -2330,13 +2362,71 @@ export class MockGateway implements GatewayClient {
         connected: true,
       };
       this.mcpServers.push(server);
+      const t = s.transport;
+      this.mcpDetail.set(s.id, {
+        tools: staged.proposal.tools.map((x) => ({
+          name: x.name,
+          description: x.description,
+          sideEffect: x.sideEffect,
+          enabled: true,
+          blocked: x.blocked,
+        })),
+        secrets:
+          t.kind === "stdio"
+            ? Object.entries(t.env ?? {}).map(([name, v]) => ({
+                name,
+                storage: v.startsWith("{{cred:") ? ("vault" as const) : ("config" as const),
+                isSet: v !== "",
+              }))
+            : t.auth?.kind === "bearer"
+              ? [{ name: "Authorization", storage: "vault" as const, isSet: true }]
+              : [],
+      });
       return { server };
     },
     "mcp.remove": (p) => {
       const i = this.mcpServers.findIndex((x) => x.id === p.serverId);
       if (i < 0) fail("not_found", `no MCP server ${p.serverId}`);
       this.mcpServers.splice(i, 1);
+      this.mcpDetail.delete(p.serverId);
       return { ok: true as const };
+    },
+    "mcp.tools": (p) => {
+      const s = this.mcpServer(p.serverId);
+      const live = s.connected && s.enabled !== false;
+      return {
+        tools: live ? structuredClone(this.mcpDetailOf(p.serverId).tools) : [],
+        available: live,
+      };
+    },
+    "mcp.tools.set": (p) => {
+      const s = this.mcpServer(p.serverId);
+      if (!s.connected || s.enabled === false) fail("unavailable", "the server is off");
+      const tool =
+        this.mcpDetailOf(p.serverId).tools.find((x) => x.name === p.tool) ??
+        fail("not_found", `${p.serverId} has no tool ${p.tool}`);
+      tool.enabled = p.enabled;
+      return { tools: structuredClone(this.mcpDetailOf(p.serverId).tools) };
+    },
+    "mcp.setEnabled": (p) => {
+      const s = this.mcpServer(p.serverId);
+      if (p.enabled) delete s.enabled;
+      else s.enabled = false;
+      s.connected = p.enabled;
+      return { server: structuredClone(s) };
+    },
+    "mcp.secrets": (p) => {
+      this.mcpServer(p.serverId);
+      return { secrets: structuredClone(this.mcpDetailOf(p.serverId).secrets) };
+    },
+    "mcp.secrets.replace": (p) => {
+      this.mcpServer(p.serverId);
+      const secret =
+        this.mcpDetailOf(p.serverId).secrets.find((x) => x.name === p.name) ??
+        fail("not_found", `${p.serverId} has no secret ${p.name}`);
+      secret.storage = "vault";
+      secret.isSet = true;
+      return { secret: structuredClone(secret) };
     },
     "skills.proposeInstall": (p) => {
       const key = p.source.kind === "git" ? p.source.url : p.source.path;

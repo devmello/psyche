@@ -35,13 +35,32 @@ export interface SectionLoad {
   key?: string;
 }
 
+/** Dims what an element with `data-revalidating="true"` shows, after the skeleton delay. */
+export const DIM_WHILE_REVALIDATING =
+  "transition-opacity duration-short ease-standard motion-reduce:transition-none data-[revalidating=true]:opacity-60 data-[revalidating=true]:delay-150";
+
 export type SectionPhase = "loading" | "error" | "ready";
 
 export interface SectionStatus {
   phase: SectionPhase;
   /** Data is showing but the latest refetch failed. */
   stale: boolean;
+  /**
+   * The key changed and the new data is on its way: the section keeps showing what it last had
+   * (via `useLastDefined`), dimmed, instead of falling back to a skeleton.
+   */
+  revalidating: boolean;
   reload: () => void;
+}
+
+/**
+ * The last value that was defined: while a keyed query has no data yet for its new key, a
+ * section keeps rendering the previous key's data (stale-while-revalidate).
+ */
+export function useLastDefined<T>(value: T | undefined): T | undefined {
+  const last = useRef<T | undefined>(value);
+  if (value !== undefined) last.current = value;
+  return value ?? last.current;
 }
 
 // --- Stale reporting to the toolbar ---------------------------------------------------------
@@ -107,12 +126,18 @@ export function useSectionStatus(
   const ready = loads.map((l, i) => l.has === true || okKeys.current[i] === (l.key ?? ""));
   const allReady = ready.every(Boolean);
   const stale = allReady && loads.some((l) => l.error !== null);
+  // Once every load was ready, a key change keeps the section's last content up while it loads.
+  const wasReady = useRef(false);
+  if (allReady) wasReady.current = true;
   let phase: SectionPhase = "ready";
+  let revalidating = false;
   if (!allReady) {
     const pending = loads.filter((_, i) => !ready[i]);
     const settledWithError =
       pending.some((l) => l.error !== null) && pending.every((l) => !l.loading);
-    phase = settledWithError ? "error" : "loading";
+    if (settledWithError) phase = "error";
+    else if (wasReady.current) revalidating = true;
+    else phase = "loading";
   }
   const latest = useRef(loads);
   latest.current = loads;
@@ -131,7 +156,7 @@ export function useSectionStatus(
     return () => report?.(id, null);
   }, [report, id, stale, lastFresh]);
 
-  return { phase, stale, reload };
+  return { phase, stale, revalidating, reload };
 }
 
 // --- Components -----------------------------------------------------------------------------
@@ -223,7 +248,18 @@ export function SectionBody({
   reserve,
   children,
 }: SectionBodyProps): ReactElement {
-  if (status.phase === "ready") return <>{children}</>;
+  if (status.phase === "ready") {
+    // Dimmed only after the skeleton delay, so a quick refetch never flickers.
+    return (
+      <div
+        data-revalidating={status.revalidating ? "true" : "false"}
+        aria-busy={status.revalidating ? "true" : undefined}
+        className={DIM_WHILE_REVALIDATING}
+      >
+        {children}
+      </div>
+    );
+  }
   if (status.phase === "error") {
     // Compact: a failed section is a line with Retry, not a blank card the height of its data.
     return <LoadFailed section={id} onRetry={status.reload} />;

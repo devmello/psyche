@@ -44,6 +44,13 @@ export interface PsycheMcpServerConfig extends McpServerConfig {
     | { kind: "bearer"; credential: string };
   /** srt policy for stdio servers; defaults to no network and no writes. */
   sandbox?: Partial<McpSandboxPolicy>;
+  /**
+   * The owner turned the server off (`false`): it stays configured but is not started. The host
+   * itself ignores it; the Gateway's reconcile does not add a disabled server.
+   */
+  enabled?: boolean;
+  /** The server's own names of tools the owner withholds from the agent (`registerMcpServerTools`'s `offer`). */
+  disabledTools?: string[];
 }
 
 /** An MRTR (2026-07-28) or legacy elicitation request, surfaced to the owner. */

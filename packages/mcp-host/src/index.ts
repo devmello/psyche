@@ -53,7 +53,12 @@ export {
 } from "./oauth.ts";
 export { PIPE_MAX_MESSAGE_BYTES, type PipeProcess, PipeTransport } from "./pipe-transport.ts";
 export { provenanceFor, requiresUserInteraction, sideEffectFor } from "./policy.ts";
-export { describeMcpCall, type McpRegistration, registerMcpServerTools } from "./registry.ts";
+export {
+  describeMcpCall,
+  type McpRegistration,
+  type RegisterMcpToolsOptions,
+  registerMcpServerTools,
+} from "./registry.ts";
 export {
   assertNoPlaceholders,
   mcpCredentialTarget,
@@ -61,6 +66,7 @@ export {
   type SecretInjection,
   validateEnv,
 } from "./secrets.ts";
+export { BLOCKING_WARNINGS, isBlocked, serverTools } from "./tools.ts";
 
 import { type McpHostOptions, PsycheMcpHost } from "./host.ts";
 

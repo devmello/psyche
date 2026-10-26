@@ -16,6 +16,7 @@ import {
   PsycheOAuthProvider,
   parseMcpToolName,
   resolveEnv,
+  serverTools,
   sideEffectFor,
   srtLauncher,
   strictCanonicalJSON,
@@ -318,5 +319,29 @@ describe("#284 hardening", () => {
     } finally {
       await host.close();
     }
+  });
+});
+
+describe("serverTools", () => {
+  it("lists tools with an annotated side effect, what the owner withheld, and what the scan blocks", () => {
+    const warnings = [
+      { tool: "lookup", code: "hidden_markup" as const, detail: "x" },
+      { tool: "echo", code: "sensitive_path" as const, detail: "not blocking" },
+    ];
+    const tools = [
+      tool({ annotations: { readOnlyHint: true } }),
+      tool({ name: "drop", description: "Drops.", annotations: { destructiveHint: true } }),
+      tool({ name: "plain", description: "d".repeat(3_000) }),
+      tool({ name: "lookup" }),
+    ];
+    const out = serverTools({ tools, warnings }, ["drop"]);
+    expect(out.map((t) => [t.name, t.sideEffect, t.enabled, t.blocked])).toEqual([
+      ["echo", "read", true, false],
+      ["drop", "destructive", false, false],
+      ["plain", undefined, true, false],
+      ["lookup", undefined, true, true],
+    ]);
+    expect(out[2]?.description).toHaveLength(2_000);
+    expect(out[2]).not.toHaveProperty("sideEffect");
   });
 });

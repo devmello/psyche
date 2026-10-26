@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   AgentToolRegistry,
@@ -21,6 +21,8 @@ import {
   consolidateLessons,
   createMemoryHandlers,
   createMemoryStore,
+  ownerTimeZone,
+  parseLearned,
   retireUnanswered,
   type SqliteMemoryStore,
 } from "@psyche/memory";
@@ -346,12 +348,22 @@ function validPolicy(value: unknown, log: ComposeOptions["logger"]): PolicyConfi
   }
 }
 
+/** The owner's IANA zone from their USER.md, if it says one. Never throws. */
+function ownerTimeZoneAt(path: string): string | undefined {
+  try {
+    const content = readFileSync(path, "utf8");
+    return ownerTimeZone(content, parseLearned(content));
+  } catch {
+    return undefined;
+  }
+}
+
 export async function composeGateway(options: ComposeOptions): Promise<ComposedGateway> {
   const {
     model,
     policy,
     clock: clockOpt,
-    timeZone,
+    timeZone: timeZoneOption,
     background = true,
     taskPollMs,
     compaction,
@@ -366,6 +378,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     clockOpt ??
     (options.now ? { now: () => options.now?.().getTime() ?? Date.now() } : systemClock);
   const config = resolveConfig(gwOptions.env ?? process.env, gwOptions.config ?? {});
+  // "Today", daily notes and automations follow the owner's timezone (USER.md's `Timezone`,
+  // also filled from what they told Psyche); no zone there leaves the defaults as they were.
+  const timeZone = timeZoneOption ?? ownerTimeZoneAt(join(config.home, "workspace", "USER.md"));
   // One redactor for the vault, payments and logs: a value the vault handed out is masked
   // wherever it would be written.
   const redactor = new SecretRedactor();

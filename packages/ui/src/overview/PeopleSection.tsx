@@ -19,7 +19,7 @@ import { OverviewSection } from "./OverviewSection.tsx";
 import { entityFacts, kindLabel, PeopleMap } from "./PeopleMap.tsx";
 import { MAP_LIMIT, rankEntities, shapeOf } from "./peopleLayout.ts";
 import type { OverviewPeriod } from "./period.ts";
-import { SectionBody, useSectionStatus } from "./SectionState.tsx";
+import { SectionBody, useLastDefined, useSectionStatus } from "./SectionState.tsx";
 
 /** Below this container width the list is the default view (§5.4: "the map has the list equivalent"). */
 const COMPACT_BELOW = 720;
@@ -71,7 +71,9 @@ export function PeopleSection({ period, now, compact }: PeopleSectionProps): Rea
   const [mountedAt] = useState(() => Date.now());
   const at = now ?? mountedAt;
 
-  const entities = insights.data?.topEntities ?? [];
+  // The previous period's people stay up (dimmed) while the new period loads.
+  const insightsData = useLastDefined(insights.data);
+  const entities = insightsData?.topEntities ?? [];
   const paused = status.data !== undefined && !status.data.enabled;
   const open = (entityId: string) => navigate?.(soulEntityHref(entityId));
 
@@ -95,38 +97,24 @@ export function PeopleSection({ period, now, compact }: PeopleSectionProps): Rea
     { ...insights, has: insights.data !== undefined, key: period },
     { ...status, has: status.data !== undefined, key: "graph" },
   ]);
-  let body: ReactNode;
-  if (insights.data === undefined || status.data === undefined) {
-    body = (
-      <SectionBody
-        id="people"
-        status={loadStatus}
-        reserve="min-h-56"
-        skeleton={
-          <>
-            <Skeleton className="h-40" />
-            <Skeleton className="h-5 w-2/3" />
-          </>
-        }
-      >
-        {null}
-      </SectionBody>
-    );
+  let content: ReactNode = null;
+  if (insightsData === undefined || status.data === undefined) {
+    content = null;
   } else if (paused) {
-    body = (
+    content = (
       <p className="text-callout text-label-tertiary" data-testid="people-paused">
         {t("overview.people.paused")}
       </p>
     );
   } else if (entities.length === 0) {
-    body = (
+    content = (
       <p className="text-callout text-label-tertiary" data-testid="people-empty">
         {t("overview.people.empty", { agent: persona.name })}
       </p>
     );
   } else {
     const ranked = rankEntities(entities).slice(0, MAP_LIMIT);
-    body = (
+    content = (
       <div className="flex flex-col gap-3" data-testid="overview-people">
         {list ? (
           <PeopleList entities={ranked} now={at} onOpen={open} />
@@ -138,6 +126,21 @@ export function PeopleSection({ period, now, compact }: PeopleSectionProps): Rea
       </div>
     );
   }
+  const body = (
+    <SectionBody
+      id="people"
+      status={loadStatus}
+      reserve="min-h-56"
+      skeleton={
+        <>
+          <Skeleton className="h-40" />
+          <Skeleton className="h-5 w-2/3" />
+        </>
+      }
+    >
+      {content}
+    </SectionBody>
+  );
 
   return (
     <div ref={root} className="contents">

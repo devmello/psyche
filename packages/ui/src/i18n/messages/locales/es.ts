@@ -5,6 +5,7 @@ import { links } from "./links/es.ts";
 import { mailMeetings } from "./mail-meetings/es.ts";
 import { overview } from "./overview/es.ts";
 import { overviewGrowth } from "./overview-growth/es.ts";
+import { overviewShared } from "./overview-shared/es.ts";
 import { workflows } from "./workflows/es.ts";
 
 /** Spanish catalogue (es). Same ids as `en`; missing ids fall back to English. */
@@ -19,6 +20,8 @@ export const es: Partial<Catalogue> = {
   ...overview,
   // Overview Growth and People & projects (docs/design/agent-overview-2026.md §5.4)
   ...overviewGrowth,
+  // strings the Overview shares with the Growth screen, Activity and specialists
+  ...overviewShared,
   // the output canvas (docs/design/chat-experience-2026.md §4.2)
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)

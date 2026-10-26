@@ -266,6 +266,19 @@ describe("MCP Apps", () => {
 });
 
 describe("agent-core registration", () => {
+  it("leaves out tools the owner withholds, and reads that choice at every sync", async () => {
+    const { host } = await setup();
+    const registry = new MapRegistry();
+    let withheld = true;
+    const reg = await registerMcpServerTools(host, registry, "echo", {
+      offer: (tool) => !(withheld && tool === "echo"),
+    });
+    expect(registry.get("mcp__echo__echo")).toBeUndefined();
+    withheld = false;
+    await reg.sync();
+    expect(registry.get("mcp__echo__echo")).toBeDefined();
+  });
+
   it("registers mcp__ tools whose executors are bound to the registered hash", async () => {
     const { host, server } = await setup();
     const registry = new MapRegistry();

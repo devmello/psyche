@@ -32,7 +32,10 @@ for (const story of stories) {
       // Let the mock Gateway settle and fonts load.
       await page.waitForTimeout(150);
       await page.evaluate(() => document.fonts.ready);
-      await expect(page).toHaveScreenshot(`${story.id}--${theme}.png`);
+      // `full-page` stories (the de/ja/ar Overview) shoot the whole document, not one screen.
+      await expect(page).toHaveScreenshot(`${story.id}--${theme}.png`, {
+        fullPage: story.tags?.includes("full-page") ?? false,
+      });
     });
   }
 }

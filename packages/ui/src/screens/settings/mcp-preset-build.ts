@@ -89,7 +89,7 @@ export function presetMessageId(preset: McpPreset): string {
 }
 
 /** `mcp-<server>-<field>-<4 random chars>`: a vault slug no earlier add can collide with. */
-function secretSlug(serverId: string, field: string, nonce: string): string {
+export function secretSlug(serverId: string, field: string, nonce: string): string {
   return `mcp-${serverId}-${field}-${nonce}`
     .toLowerCase()
     .replace(/[^a-z0-9-]/g, "-")

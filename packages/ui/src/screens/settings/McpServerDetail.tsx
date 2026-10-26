@@ -4,6 +4,7 @@ import { type ReactElement, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { t } from "../../i18n/core.ts";
 import { ConnectorIcon } from "./ConnectorIcon.tsx";
+import { McpServerPanels } from "./McpServerPanels.tsx";
 import { presetText } from "./mcp-preset-build.ts";
 import { MCP_PRESETS } from "./mcp-presets.ts";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
@@ -30,11 +31,14 @@ export function mcpTrustLabel(trust: McpServerStatus["trust"]): string {
 export function McpServerRow({
   server,
   onRemove,
+  onSetEnabled,
   onTry,
   defaultOpen = false,
 }: {
   server: McpServerStatus;
   onRemove?: (server: McpServerStatus) => void;
+  /** Turns the server off (kept, not running) or back on. */
+  onSetEnabled?: (server: McpServerStatus, enabled: boolean) => void;
   /** "Try it": fills the chat composer (a ready-made server has an example). */
   onTry?: (text: string) => void;
   defaultOpen?: boolean;
@@ -52,9 +56,13 @@ export function McpServerRow({
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-headline text-label-primary">{show(server.name)}</h3>
-            <StatusChip tone={server.connected ? "success" : "danger"}>
-              {server.connected ? t("settings.mcp.connected") : t("settings.mcp.notConnected")}
-            </StatusChip>
+            {server.enabled === false ? (
+              <StatusChip tone="neutral">{t("settings.mcp.off")}</StatusChip>
+            ) : (
+              <StatusChip tone={server.connected ? "success" : "danger"}>
+                {server.connected ? t("settings.mcp.connected") : t("settings.mcp.notConnected")}
+              </StatusChip>
+            )}
             <StatusChip tone="neutral">{t("settings.mcp.badge")}</StatusChip>
             <StatusChip tone={trustTone}>
               {t("settings.connectors.trust", { tier: mcpTrustLabel(server.trust) })}
@@ -88,7 +96,7 @@ export function McpServerRow({
           }
         />
       </div>
-      {example !== null && onTry && server.connected ? (
+      {example !== null && onTry && server.connected && server.enabled !== false ? (
         <p className="ms-11 flex flex-wrap items-center gap-2 text-callout text-label-secondary">
           <span>{t("gallery.tryAsking")}</span>
           <q className="text-label-primary">{example}</q>
@@ -98,17 +106,26 @@ export function McpServerRow({
         </p>
       ) : null}
       {open ? (
-        <Facts
-          className="ms-11 text-callout"
-          items={[
-            { term: t("settings.mcp.how"), value: transport },
-            {
-              term: t("settings.mcp.trust.network"),
-              value: server.network ? t("settings.mcp.network") : t("settings.mcp.trust.noNetwork"),
-            },
-            { term: t("settings.mcp.trust.id"), value: <code>{server.id}</code> },
-          ]}
-        />
+        <>
+          <Facts
+            className="ms-11 text-callout"
+            items={[
+              { term: t("settings.mcp.how"), value: transport },
+              {
+                term: t("settings.mcp.trust.network"),
+                value: server.network
+                  ? t("settings.mcp.network")
+                  : t("settings.mcp.trust.noNetwork"),
+              },
+              { term: t("settings.mcp.trust.id"), value: <code>{server.id}</code> },
+            ]}
+          />
+          <McpServerPanels
+            server={server}
+            {...(onSetEnabled ? { onSetEnabled: (on: boolean) => onSetEnabled(server, on) } : {})}
+            {...(onRemove ? { onRemove: () => onRemove(server) } : {})}
+          />
+        </>
       ) : null}
     </article>
   );

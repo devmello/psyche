@@ -831,6 +831,53 @@ export const settings = {
   "settings.mcp.removeTitle": "Remove {name}?",
   "settings.mcp.removeDescription":
     "Psyche stops the server and can no longer use its tools. Permissions you gave its tools end.",
+  "settings.mcp.off": "Off",
+  "settings.mcp.turnedOn": "{name} is on.",
+  "settings.mcp.turnedOff": "{name} is off.",
+  "settings.mcp.tools.title": "Tools",
+  "settings.mcp.tools.hint":
+    "{off, plural, =0 {Psyche can use every tool.} one {# tool is kept from Psyche.} other {# tools are kept from Psyche.}} Switching one off doesn't restart the server.",
+  "settings.mcp.tools.loadFailed": "Couldn't load the tools: {reason}",
+  "settings.mcp.tools.off": "This server is off. Turn it on to see its tools.",
+  "settings.mcp.tools.notConnected": "This server isn't connected, so it lists no tools.",
+  "settings.mcp.tools.none": "This server has no tools.",
+  "settings.mcp.secrets.title": "Secrets",
+  "settings.mcp.secrets.intro":
+    "Keys this server starts with. They stay in your vault; Psyche shows only whether each is set.",
+  "settings.mcp.secrets.loadFailed": "Couldn't load the secrets: {reason}",
+  "settings.mcp.secrets.set": "Set",
+  "settings.mcp.secrets.unset": "Not set",
+  "settings.mcp.secrets.replace": "Replace",
+  "settings.mcp.secrets.setIt": "Set a value",
+  "settings.mcp.secrets.replaceFor": "Replace {name}",
+  "settings.mcp.secrets.plain":
+    "Kept in the server's settings, not the vault. Replacing it moves it to the vault.",
+  "settings.mcp.secrets.newValue": "New value for {name}",
+  "settings.mcp.secrets.hint": "Saved to your vault, then the server restarts with it.",
+  "settings.mcp.secrets.replaced": "{name} was replaced. The server restarts with the new value.",
+  "settings.mcp.danger.title": "Danger zone",
+  "settings.mcp.danger.disable": "Turn off this server",
+  "settings.mcp.danger.disableHint":
+    "Keeps its settings but stops it. Its tools go away, and permissions you gave them end.",
+  "settings.mcp.danger.disableAction": "Turn off",
+  "settings.mcp.danger.enable": "Turn on this server",
+  "settings.mcp.danger.enableHint": "Starts it again. Its secrets ask for your approval.",
+  "settings.mcp.danger.enableAction": "Turn on",
+  "settings.mcp.danger.remove": "Remove this server",
+  "settings.mcp.danger.removeHint": "Deletes its settings. Secrets in your vault stay there.",
+  "settings.mcp.json.toggle": "Paste JSON",
+  "settings.mcp.json.label": "Server JSON",
+  "settings.mcp.json.hint":
+    "The usual mcpServers format. Keys and tokens go to your vault, not the settings.",
+  "settings.mcp.json.fill": "Fill the form",
+  "settings.mcp.json.choose": "Which server?",
+  "settings.mcp.json.empty": "Paste a server's JSON first.",
+  "settings.mcp.json.invalid": "That isn't valid JSON.",
+  "settings.mcp.json.shape": "Expected a JSON object with an mcpServers entry.",
+  "settings.mcp.json.noServers": "No server with a command or a URL in that JSON.",
+  "settings.mcp.json.secrets":
+    "{n, plural, one {# secret} other {# secrets}} from the JSON will go to your vault: {names}.",
+  "settings.mcp.json.ignored": "Not carried over: {names}.",
 
   // Context and compaction defaults, under Model (ContextSettings.tsx).
   "settings.context.errorRange": "Enter a whole number from {min, number} to {max, number}.",

@@ -226,6 +226,7 @@ const mcpState = (servers: McpState["servers"]): McpState => ({
   review: null,
   check: noop,
   remove: noop,
+  setEnabled: noop,
 });
 /** Add connector: built-in connectors and ready-made MCP servers in one searchable gallery. */
 export const ConnectorsConnectFlow: Story = {
