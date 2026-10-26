@@ -3,6 +3,10 @@ import type { Catalogue } from "../../index.ts";
 /** Output canvas strings (ko); merged into `../ko.ts`. */
 export const canvas: Partial<Catalogue> = {
   "canvas.chart": "차트",
+  "canvas.htmlOff":
+    "신뢰할 수 없는 콘텐츠에서 온 것이라 미리보기가 꺼져 있습니다. 신뢰할 때만 실행하세요. 네트워크가 없는 샌드박스에서 실행됩니다.",
+  "canvas.htmlRun": "실행",
+  "canvas.htmlNoPreview": "이 호스트에서는 HTML을 미리 볼 수 없어 소스를 표시합니다.",
   "canvas.label": "캔버스: {title}",
   "canvas.recents": "최근 결과물",
   "canvas.loading": "불러오는 중…",

@@ -3,6 +3,10 @@ import type { Catalogue } from "../../index.ts";
 /** Output canvas strings (ja); merged into `../ja.ts`. */
 export const canvas: Partial<Catalogue> = {
   "canvas.chart": "グラフ",
+  "canvas.htmlOff":
+    "信頼されていないコンテンツ由来のため、プレビューはオフです。信頼できる場合のみ実行してください。ネットワークのないサンドボックスで動作します。",
+  "canvas.htmlRun": "実行",
+  "canvas.htmlNoPreview": "このホストでは HTML をプレビューできないため、ソースを表示しています。",
   "canvas.label": "キャンバス: {title}",
   "canvas.recents": "最近の出力",
   "canvas.loading": "読み込み中…",

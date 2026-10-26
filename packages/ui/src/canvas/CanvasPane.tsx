@@ -12,6 +12,7 @@ import {
   Download,
   FileText,
   GitCompare,
+  Globe,
   Image as ImageIcon,
   Network,
   Pencil,
@@ -67,8 +68,9 @@ const TYPE_ICON: Partial<Record<Artifact["type"], typeof FileText>> = {
   chart: ChartColumn,
   diagram: Network,
   diff: GitCompare,
+  html: Globe,
 };
-const EDITABLE = new Set<Artifact["type"]>(["doc", "markdown", "code", "table", "diagram"]);
+const EDITABLE = new Set<Artifact["type"]>(["doc", "markdown", "code", "table", "diagram", "html"]);
 const MAX_TABS = 5;
 
 /** What a host renderer gets to draw an artifact body. */
@@ -89,7 +91,7 @@ export interface CanvasPaneProps {
 }
 
 const fileName = (a: Artifact): string =>
-  `${a.nameSlug}.${a.type === "table" || a.type === "sheet" ? "csv" : a.type === "chart" ? "json" : a.type === "diagram" ? "mmd" : a.type === "diff" ? "patch" : a.type === "code" ? (a.language ?? "txt") : "md"}`;
+  `${a.nameSlug}.${a.type === "table" || a.type === "sheet" ? "csv" : a.type === "chart" ? "json" : a.type === "diagram" ? "mmd" : a.type === "diff" ? "patch" : a.type === "html" ? "html" : a.type === "code" ? (a.language ?? "txt") : "md"}`;
 
 function asTable(content: ArtifactContent): ArtifactTable | null {
   try {
@@ -206,6 +208,7 @@ function CanvasBody({
   const [draft, setDraft] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [allowed, setAllowed] = useState(false);
   const Icon = TYPE_ICON[artifact.type] ?? FileText;
   const table = artifact.type === "table" || artifact.type === "sheet";
   const canEdit = latest && EDITABLE.has(artifact.type) && content !== null;
@@ -215,6 +218,9 @@ function CanvasBody({
     setEditing(false);
     setDraft(null);
   }, [artifact.id, version]);
+  // Run is per artifact and per version: a new version from an untrusted source is off again.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset on the artifact and version
+  useEffect(() => setAllowed(false), [artifact.id, version]);
 
   const commit = async (ops: ArtifactOp[]) => {
     if (ops.length === 0) return true;
@@ -253,8 +259,12 @@ function CanvasBody({
     URL.revokeObjectURL(url);
   };
 
+  // HTML runs only in the host's sandbox, and stays off for content from untrusted sources until
+  // the owner presses Run (docs/design/chat-experience-2026.md §4.6, decision 5).
+  const html = artifact.type === "html";
+  const gated = html && artifact.untrusted === true && !allowed;
   const custom: ReactNode =
-    content === null
+    content === null || gated || (html && editing)
       ? undefined
       : slots.renderArtifact?.({
           artifact,
@@ -374,6 +384,13 @@ function CanvasBody({
               onChange={(e) => setDraft(e.target.value)}
             />
           )
+        ) : html && !editing ? (
+          <HtmlBody
+            gated={gated}
+            source={content.content}
+            hasPreview={slots.renderArtifact !== undefined}
+            onRun={() => setAllowed(true)}
+          />
         ) : artifact.type === "code" || artifact.type === "diagram" ? (
           <pre className="overflow-x-auto font-mono text-mono text-label-primary">
             <code>{content.content}</code>
@@ -514,6 +531,38 @@ function TableBody({
         ))}
       </tbody>
     </table>
+  );
+}
+
+/** An HTML artifact with no live preview: off for untrusted sources, source otherwise. */
+function HtmlBody({
+  gated,
+  source,
+  hasPreview,
+  onRun,
+}: {
+  gated: boolean;
+  source: string;
+  hasPreview: boolean;
+  onRun: () => void;
+}): ReactElement {
+  return (
+    <div className="flex flex-col gap-3">
+      {gated ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-md bg-fill-quaternary p-3 text-callout">
+          <ShieldAlert className="size-4 shrink-0 text-approval-text" aria-hidden="true" />
+          <p className="min-w-0 flex-1 text-label-primary">{t("canvas.htmlOff")}</p>
+          <Button size="sm" onClick={onRun}>
+            {t("canvas.htmlRun")}
+          </Button>
+        </div>
+      ) : hasPreview ? null : (
+        <p className="text-callout text-label-secondary">{t("canvas.htmlNoPreview")}</p>
+      )}
+      <pre className="overflow-x-auto font-mono text-mono text-label-primary">
+        <code>{source}</code>
+      </pre>
+    </div>
   );
 }
 

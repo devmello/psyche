@@ -54,3 +54,11 @@ export const Diff: Story = {
     </StoryWorld>
   ),
 };
+
+export const HtmlUntrustedOff: Story = {
+  render: () => (
+    <StoryWorld edit={withCanvas}>
+      <Frame id={CANVAS_IDS.htmlUntrusted} />
+    </StoryWorld>
+  ),
+};
