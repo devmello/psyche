@@ -84,6 +84,7 @@ import { taskRunTrace } from "../run-trace/tasks.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
 import { attentionHandlers, OwnerAttention, parkWhenUnwatched } from "./attention.ts";
+import { withAutomationSpecialists } from "./automation-specialists.ts";
 import { bootstrapAdminHandlers } from "./bootstrap-admin.ts";
 import { CallContexts } from "./call-context.ts";
 import { ChannelConversations } from "./channel-conversations.ts";
@@ -969,25 +970,29 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   for (const tool of webTools.tools) registry.register(tool);
   // The dreaming automation runs memory dreaming and the people graph pass in-process.
   // Dreaming, then the lesson pass (teaching loop §6, #681), then the people graph pass.
-  launcher = people.launcher(
-    // The weekly "What I learned" Feed post (teaching loop §5.4) runs in-process too.
-    withWeeklyCard(proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool), {
-      store: teaching.service.store,
-      memory,
-      clock,
-      enabled: () =>
-        teachingSettings(db).enabled && getSetting(db, "teaching.weeklyCard")?.value !== false,
-      post: (card) => proactive.feed.postGrowth(card),
-    }),
-    [
-      async () => {
-        if (!teachingSettings(db).enabled) return undefined;
-        const r = await consolidateLessons(teaching.service, memory, { clock });
-        // "Still true?" left unanswered: the lesson goes dormant (teaching loop §3.3).
-        const dormant = await retireUnanswered(teaching.service, memory, { clock });
-        return `lessons: ${r.merged} merged, ${r.promoted} promoted, ${r.proposed} proposed, ${r.flagged} flagged, ${dormant} dormant`;
-      },
-    ],
+  // Automations with a `specialist` run as unattended specialist jobs (specialists §4.10).
+  launcher = withAutomationSpecialists(
+    people.launcher(
+      // The weekly "What I learned" Feed post (teaching loop §5.4) runs in-process too.
+      withWeeklyCard(proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool), {
+        store: teaching.service.store,
+        memory,
+        clock,
+        enabled: () =>
+          teachingSettings(db).enabled && getSetting(db, "teaching.weeklyCard")?.value !== false,
+        post: (card) => proactive.feed.postGrowth(card),
+      }),
+      [
+        async () => {
+          if (!teachingSettings(db).enabled) return undefined;
+          const r = await consolidateLessons(teaching.service, memory, { clock });
+          // "Still true?" left unanswered: the lesson goes dormant (teaching loop §3.3).
+          const dormant = await retireUnanswered(teaching.service, memory, { clock });
+          return `lessons: ${r.merged} merged, ${r.promoted} promoted, ${r.proposed} proposed, ${r.flagged} flagged, ${dormant} dormant`;
+        },
+      ],
+    ),
+    { db, tasks, host: specialists, now: () => clock.now() },
   );
   scheduler.subscribe((e) => publish(e.event, e.payload as never));
 

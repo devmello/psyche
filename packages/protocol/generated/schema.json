@@ -6883,41 +6883,7 @@
           "$ref": "#/$defs/AutomationTrigger"
         },
         "specialist": {
-          "properties": {
-            "role": {
-              "maxLength": 64,
-              "minLength": 1,
-              "type": "string"
-            },
-            "budget": {
-              "properties": {
-                "tokens": {
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                "costUsd": {
-                  "minimum": 0,
-                  "type": "number"
-                },
-                "minutes": {
-                  "minimum": 1,
-                  "type": "integer"
-                }
-              },
-              "type": "object"
-            },
-            "deliver": {
-              "enum": [
-                "inbox",
-                "thread"
-              ],
-              "type": "string"
-            }
-          },
-          "required": [
-            "role"
-          ],
-          "type": "object"
+          "$ref": "#/$defs/AutomationSpecialist"
         }
       },
       "required": [
@@ -7128,6 +7094,29 @@
       ],
       "type": "string"
     },
+    "AutomationSpecialist": {
+      "properties": {
+        "role": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "budget": {
+          "$ref": "#/$defs/SpecialistBudgetSetting"
+        },
+        "deliver": {
+          "enum": [
+            "inbox",
+            "thread"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "role"
+      ],
+      "type": "object"
+    },
     "AutomationTrigger": {
       "properties": {
         "type": {
@@ -7210,6 +7199,9 @@
         },
         "lightContext": {
           "type": "boolean"
+        },
+        "specialist": {
+          "$ref": "#/$defs/AutomationSpecialist"
         }
       },
       "required": [
@@ -7431,6 +7423,16 @@
             {
               "maxLength": 20000,
               "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "specialist": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutomationSpecialist"
             },
             {
               "type": "null"
