@@ -37,6 +37,10 @@ const ALL = [
   "mail.read",
   "mail.draft",
   "mail.send",
+  "notes.search",
+  "notes.folders",
+  "notes.append",
+  "notes.update",
   "reminders.complete",
   "reminders.set_flagged",
   "reminders.delete",
@@ -223,12 +227,14 @@ describe("Apple app connectors (#528)", () => {
       type: "apple:notes",
       status: "connected",
       account: "This Mac",
-      scopes: ["notes.list", "notes.read"],
+      scopes: ["notes.list", "notes.read", "notes.search", "notes.folders"],
       config: { nodeId: "node_mac" },
     });
     expect([...tools.keys()].sort()).toEqual([
+      "mcp__apple-1__notes_folders",
       "mcp__apple-1__notes_list",
       "mcp__apple-1__notes_read",
+      "mcp__apple-1__notes_search",
     ]);
   });
 
@@ -793,5 +799,71 @@ describe("Apple Reminders and Calendar wave 1 (#639)", () => {
     expect(toolOf(2, "apple:calendar", "calendar_create_event")?.description).toMatch(
       /invitations go out by mail/,
     );
+  });
+});
+
+describe("Apple Notes wave 1 (#639)", () => {
+  const notesTool = (name: string) =>
+    appleFactories({ helper: () => new FakeHelper() })[0]
+      ?.create({ id: "apple-1", type: "apple:notes" } as never, {} as never)
+      .tools()
+      .find((t) => t.name === name);
+
+  it("searches and lists folders as reads; append and update are an edit group that asks", async () => {
+    expect(appleCatalogueEntry("notes").actions.map((a) => [a.id, a.defaultRule])).toEqual([
+      ["notes.read", "allow"],
+      ["notes.create", "ask"],
+      ["notes.edit", "ask"],
+    ]);
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "apple-notes", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    await run("mcp__apple-1__notes_search")({
+      query: "offsite",
+      modifiedSince: "2026-10-01T00:00:00Z",
+    });
+    expect(helper.calls).toEqual([
+      {
+        capability: "notes.search",
+        params: { query: "offsite", modifiedSince: "2026-10-01T00:00:00Z" },
+      },
+    ]);
+    await expect(
+      run("mcp__apple-1__notes_append")({ id: "n1", text: "Decided: Lisbon" }),
+    ).rejects.toMatchObject({ code: "approval_required" });
+  });
+
+  it("notes_update is bound to the note and the body the agent read", async () => {
+    const edit = { id: "n1", previousBodySha256: "sha256:old", body: "New plan" };
+    const desc = notesTool("notes_update")?.describeCall?.(edit);
+    expect(desc).toMatchObject({
+      kind: "connector_action",
+      bindingFields: { tool: "notes_update", noteId: "n1", previousBodySha256: "sha256:old" },
+    });
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper, {
+      id: "ap_n",
+      tool: "mcp__apple-1__notes_update",
+      params: edit,
+      desc,
+    });
+    await registry.connect({ catalogueId: "apple-notes", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    // Another base body (the note changed since it was read) is another approval.
+    await expect(
+      run("mcp__apple-1__notes_update")({ ...edit, previousBodySha256: "sha256:newer" }),
+    ).rejects.toMatchObject({ code: "binding_mismatch" });
+    await run("mcp__apple-1__notes_update")(edit);
+    expect(helper.calls).toEqual([
+      { capability: "notes.update", params: edit, approvalId: "ap_n" },
+    ]);
+  });
+
+  it("notes_create can ask for Markdown", () => {
+    const created = notesTool("notes_create");
+    if (!created) throw new Error("notes_create is missing");
+    const props = (created.inputSchema as { properties: Record<string, unknown> }).properties;
+    expect(props.format).toEqual({ type: "string", enum: ["text", "markdown"] });
   });
 });
