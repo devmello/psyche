@@ -26,6 +26,7 @@ export const feedPosts = sqliteTable("feed_posts", {
   kind: text("kind"),
   refs: text("refs"),
   card: text("card"),
+  growth: text("growth"),
 });
 
 export const ideas = sqliteTable("ideas", {

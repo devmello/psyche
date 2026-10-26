@@ -147,6 +147,7 @@ import { usageSummaryHandlers } from "./usage-summary.ts";
 import { createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 import { composeWebTools, type WebToolsSetup } from "./web-tools.ts";
+import { ensureWeeklyCardAutomation, withWeeklyCard } from "./weekly-card.ts";
 
 /**
  * Composition root for `psyched` (INT-1): the real agent loop, model router, Permission Broker,
@@ -959,7 +960,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // The dreaming automation runs memory dreaming and the people graph pass in-process.
   // Dreaming, then the lesson pass (teaching loop §6, #681), then the people graph pass.
   launcher = people.launcher(
-    proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool),
+    // The weekly "What I learned" Feed post (teaching loop §5.4) runs in-process too.
+    withWeeklyCard(proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool), {
+      store: teaching.service.store,
+      memory,
+      clock,
+      enabled: () =>
+        teachingSettings(db).enabled && getSetting(db, "teaching.weeklyCard")?.value !== false,
+      post: (card) => proactive.feed.postGrowth(card),
+    }),
     [
       async () => {
         if (!teachingSettings(db).enabled) return undefined;
@@ -1116,6 +1125,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   ownPorts.add(gateway.port, "gateway (bound)");
   for (const part of parts) await part.start?.(gateway);
   await proactive.start();
+  await ensureWeeklyCardAutomation(scheduler, {
+    timezone: timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+  });
   // Lesson cards that were open at shutdown are awaited again (or settled).
   await teaching.resume().catch(() => undefined);
 
