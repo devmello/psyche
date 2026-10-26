@@ -9,6 +9,7 @@ import {
   IDS,
   inMinutes,
   PERSONA,
+  shortcutsAndObsidian,
   stagedSkillProposal,
 } from "../../fixtures/index.ts";
 import { I18nProvider } from "../../i18n/I18nProvider.tsx";
@@ -194,6 +195,19 @@ export const ConnectorsError: Story = {
 };
 export const ConnectorsConnectFlow: Story = {
   render: () => <ConnectorsPanel {...connectorProps} connectors={world.connectors} defaultAdding />,
+};
+/** Shortcuts (the helper's list, off / ask / allow) and an Obsidian vault (#640). */
+export const ConnectorsShortcutsAndObsidian: Story = {
+  render: () => (
+    <ConnectorsPanel
+      {...connectorProps}
+      connectors={shortcutsAndObsidian()}
+      catalogue={connectorCatalogue()}
+      sharedFolders={["/Users/you/Notes/Vault"]}
+      onConfigure={noop}
+      onShareFolder={noop}
+    />
+  ),
 };
 /** Apple apps on this Mac (#640): action groups, the macOS grant and "Try it". */
 export const ConnectorsAppleApps: Story = {

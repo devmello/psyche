@@ -1101,6 +1101,13 @@ export type ThingsAddParams = Static<typeof ThingsAddParams>;
 /** `things.update`. */
 export const ThingsUpdateParams = Type.Object(
   {
+    /**
+     * Things' URL-scheme auth token, filled in by the Gateway from the vault for this call
+     * only (#719). Never written by the model, shown on a card, logged or stored by the helper.
+     */
+    authToken: Type.Optional(
+      Type.String({ minLength: 1, maxLength: 200, pattern: "^[A-Za-z0-9_-]+$" }),
+    ),
     id: Type.String(),
     title: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
     appendNotes: Type.Optional(Type.String({ maxLength: 10_000 })),
@@ -1115,6 +1122,13 @@ export type ThingsUpdateParams = Static<typeof ThingsUpdateParams>;
 /** `things.complete`. */
 export const ThingsCompleteParams = Type.Object(
   {
+    /**
+     * Things' URL-scheme auth token, filled in by the Gateway from the vault for this call
+     * only (#719). Never written by the model, shown on a card, logged or stored by the helper.
+     */
+    authToken: Type.Optional(
+      Type.String({ minLength: 1, maxLength: 200, pattern: "^[A-Za-z0-9_-]+$" }),
+    ),
     id: Type.String(),
     status: Type.Optional(
       StringEnum(["completed", "canceled", "open"], { description: "Default completed" }),

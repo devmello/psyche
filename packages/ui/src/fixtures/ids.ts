@@ -223,6 +223,8 @@ export const IDS = {
     appleNotes: "conn_apple_notes",
     appleCalendar: "conn_apple_calendar",
     appleReminders: "conn_apple_reminders",
+    appleShortcuts: "conn_apple_shortcuts",
+    obsidian: "conn_obsidian",
   },
   channels: {
     telegram: "chan_telegram",
