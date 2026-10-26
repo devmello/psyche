@@ -151,6 +151,9 @@ const bridge = {
     selectArea: () => ipcRenderer.send(IPC.screenAskSelectArea),
     region: (rect: { x: number; y: number; width: number; height: number } | null) =>
       ipcRenderer.send(IPC.screenAskRegion, { rect }),
+    /** Push-to-talk in the voice pop-up: the voice key going down / up from any app. */
+    onVoiceKey: (cb: (down: boolean) => void) =>
+      listen<{ down?: unknown } | null>(IPC.voiceKey, (e) => cb(e?.down === true)),
   },
   /** The dictation HUD window only; main ignores these from any other renderer. */
   dictation: {

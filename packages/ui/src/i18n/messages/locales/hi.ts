@@ -3200,12 +3200,14 @@ export const hi: Partial<Catalogue> = {
   "voice.key.rightCommand": "दायाँ ⌘",
   "voice.settings.title": "वॉइस बातचीत",
   "voice.settings.enabled": "Psyche से बात करें",
-  "voice.settings.enabledHint": "किसी भी ऐप में वॉइस कुंजी दबाए रखें, या चैट में वॉइस पर टैप करें, और बोलें।",
+  "voice.settings.enabledHint":
+    "किसी भी ऐप में वॉइस कुंजी दबाए रखें और बोलें। जवाब एक पॉप-अप में टेक्स्ट के रूप में आता है; Psyche बोलता नहीं है।",
   "voice.settings.key": "वॉइस कुंजी",
   "voice.settings.keyHint": "यह श्रुतलेख कुंजी से अलग होनी चाहिए।",
   "voice.settings.keyClash": "यह श्रुतलेख कुंजी है। कोई दूसरी चुनें।",
   "voice.settings.review": "भेजने से पहले देखें",
-  "voice.settings.reviewHint": "दिखाता है कि Psyche ने क्या सुना, ताकि भेजने से पहले आप उसे ठीक कर सकें।",
+  "voice.settings.reviewHint":
+    "Psyche ने जो सुना उसे पॉप-अप में रखता है, ताकि आप उसे ठीक करके Return दबा सकें। बंद होने पर, कुंजी छोड़ते ही भेज दिया जाता है।",
   "voice.onboarding.hint": "{name} से बात करने के लिए {key} दबाए रखें।",
   "settings.key.voice.conversation.key": "वॉइस कुंजी",
   "settings.key.voice.conversation.reviewBeforeSend": "भेजने से पहले देखें",

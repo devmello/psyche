@@ -3248,13 +3248,13 @@ export const fr: Partial<Catalogue> = {
   "voice.settings.title": "Conversation vocale",
   "voice.settings.enabled": "Parler avec Psyche",
   "voice.settings.enabledHint":
-    "Maintenez la touche vocale dans n’importe quelle app, ou touchez Voix dans le chat, et parlez.",
+    "Maintenez la touche vocale dans n’importe quelle app et parlez. La réponse s’affiche en texte dans une fenêtre flottante ; Psyche ne parle pas.",
   "voice.settings.key": "Touche vocale",
   "voice.settings.keyHint": "Elle doit être différente de la touche de dictée.",
   "voice.settings.keyClash": "C’est la touche de dictée. Choisissez-en une autre.",
   "voice.settings.review": "Relire avant d’envoyer",
   "voice.settings.reviewHint":
-    "Affiche ce que Psyche a entendu pour que vous puissiez corriger avant l’envoi.",
+    "Garde ce que Psyche a entendu dans la fenêtre flottante pour que vous le corrigiez et appuyiez sur Retour. Désactivé, l’envoi se fait quand vous relâchez la touche.",
   "voice.onboarding.hint": "Maintenez {key} pour parler à {name}.",
   "settings.key.voice.conversation.key": "Touche vocale",
   "settings.key.voice.conversation.reviewBeforeSend": "Relire avant d’envoyer",

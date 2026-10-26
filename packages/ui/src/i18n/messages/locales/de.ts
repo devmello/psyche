@@ -3325,13 +3325,13 @@ export const de: Partial<Catalogue> = {
   "voice.settings.title": "Sprachunterhaltung",
   "voice.settings.enabled": "Mit Psyche sprechen",
   "voice.settings.enabledHint":
-    "Halte die Sprachtaste in jeder App oder tippe im Chat auf „Stimme“ und sprich los.",
+    "Halte die Sprachtaste in jeder App und sprich. Die Antwort erscheint als Text in einem Pop-up; Psyche spricht nicht.",
   "voice.settings.key": "Sprachtaste",
   "voice.settings.keyHint": "Sie muss sich von der Diktiertaste unterscheiden.",
   "voice.settings.keyClash": "Das ist die Diktiertaste. Wähle eine andere.",
   "voice.settings.review": "Vor dem Senden prüfen",
   "voice.settings.reviewHint":
-    "Zeigt, was Psyche gehört hat, damit du es vor dem Senden korrigieren kannst.",
+    "Behält, was Psyche gehört hat, im Pop-up, damit du es korrigieren und mit Return senden kannst. Aus: Es wird gesendet, sobald du die Taste loslässt.",
   "voice.onboarding.hint": "Halte {key}, um mit {name} zu sprechen.",
   "settings.key.voice.conversation.key": "Sprachtaste",
   "settings.key.voice.conversation.reviewBeforeSend": "Vor dem Senden prüfen",

@@ -4,8 +4,9 @@ import type { ShortcutRegistry } from "../dictation/service.ts";
  * Settings → Voice & dictation → Ask about screen (docs/design/screen-ask-2026.md §6): whether
  * the ask shortcut is on, and which one. Read once paired and again on `settings.changed`; the
  * default ⌥⇧Space falls back to ⌃⌥⇧Space when another app holds it (like quick entry). Off
- * unregisters the shortcut and the panel window goes. The menu items stay; they open nothing
- * while it is off.
+ * unregisters the shortcut and turns off the panel's "screen" source: the window goes unless
+ * Talk with Psyche keeps it for the voice pop-up (`voicePopup`), and the capture UI goes either
+ * way. The menu items stay; they open nothing while it is off.
  */
 
 export const SCREEN_ASK_SETTING_KEYS = ["screenAsk.enabled", "screenAsk.shortcut"] as const;

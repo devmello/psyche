@@ -110,3 +110,14 @@ These reuse onboarding's existing flows; the panel doesn't add its own.
 4. **When the image goes:** the cheap deictic rule plus a `screen.look` tool for the model, or always send the image?
 5. **Without Screen Recording:** open with text context and a one-off picker, rather than blocking until it's granted?
 6. **Unsent captures:** delete on ✕/Esc and after 10 minutes, and keep sent ones under `data.replayRetentionDays`?
+
+## 9. Voice mode (the voice pop-up)
+
+Psyche doesn't speak. Voice is speech-to-text into this panel, so the panel is the only pop-up for voice, typing and screen context (#693).
+
+- **Key:** with **Talk with Psyche** on (`voice.conversation.enabled`), holding the voice key (`voice.conversation.key`, default Right ⌘) in any app opens the panel in voice mode: no capture, no chip, and dictation starts at once. The words show live while the key is down. Letting go finishes the dictation.
+- **Send:** with **Review before sending** off (the default), the words go at once as a plain `chat.send` with no `screen` field, to a new chat or the current one (the panel's "Send to" setting). With it on, they stay in the input to edit and send with Return. Esc closes without sending.
+- **Answer:** it streams in as text, with **Open in Psyche**. Nothing is read aloud, and there are no speaking states or captions. Holding the key again, even while an answer streams, starts a fresh ask; the earlier answer stays in its thread.
+- **Inside a screen ask:** the voice key dictates into the open panel and keeps the capture. It never sends by itself there.
+- **Window:** the panel window exists while either Ask about screen or Talk with Psyche is on. The screen shortcut, the menu items, the window capture and region mode follow Ask about screen only.
+- **Seams:** in desktop main, a `VoiceKeySource` reports the voice key (`DictationService` over the helper's `dictation.watch` on macOS), and `voicePopup()` wires it to the panel. Screen capture goes through the Gateway's `screen.capture`, which asks the node that offers `screen.context`. Another platform supplies these two pieces.
