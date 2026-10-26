@@ -74,6 +74,16 @@ export const FEED_BRIEFING_JOB = "feed-briefing";
 export const DAILY_BRIEF_ARG = "daily";
 export const DEFAULT_BRIEF_SCHEDULE = "0 7 * * *";
 export const LEDGER_PATH = "interests.md";
+/**
+ * The owner's free-text instructions for the Feed ("what should I write about": interests,
+ * sources to favour or avoid, tone, length), edited in the Feed's instructions sheet through
+ * `memory.read` / `memory.write` (#614). Read before every batch; its text goes into the rerank
+ * and post-writer prompts ahead of the `interests.md` lines. It does not steer recall: "avoid
+ * celebrity news" embedded as a focus would pull celebrity news in.
+ */
+export const FEED_INSTRUCTIONS_PATH = "feed/INSTRUCTIONS.md";
+/** Instructions beyond this are cut (the prompt stays small; the editor shows the limit). */
+export const MAX_FEED_INSTRUCTIONS = 4_000;
 /** A url posted in the last week is not posted again. */
 export const NO_REPEAT_DAYS = 7;
 
@@ -155,6 +165,20 @@ export class FeedService {
     const file = await this.#o.memory.readFile(LEDGER_PATH);
     if (file === undefined) return { ledger: parseLedger("# Interests\n") };
     return { ledger: parseLedger(file.content), etag: file.etag };
+  }
+
+  /**
+   * The owner's feed instructions (`feed/INSTRUCTIONS.md`): HTML comments (the template's
+   * hints) removed, trimmed, capped at `MAX_FEED_INSTRUCTIONS`; `undefined` when absent or empty.
+   */
+  async readInstructions(): Promise<string | undefined> {
+    const file = await this.#o.memory.readFile(FEED_INSTRUCTIONS_PATH);
+    if (file === undefined) return undefined;
+    const text = file.content.replace(/<!--[\s\S]*?(-->|$)/g, "").trim();
+    if (text === "") return undefined;
+    return text.length > MAX_FEED_INSTRUCTIONS
+      ? `${text.slice(0, MAX_FEED_INSTRUCTIONS - 1)}…`
+      : text;
   }
 
   async #writeLedger(ledger: Ledger, etag: string | undefined): Promise<void> {
@@ -255,6 +279,7 @@ export class FeedService {
 
     const { ledger } = await this.readLedger();
     const topics = ledgerTopics(ledger);
+    const ownerInstructions = await this.readInstructions();
     const embed: Embedder =
       this.#o.embedder ??
       createEmbedder(this.#o.provider, {
@@ -324,6 +349,7 @@ export class FeedService {
     const shortlist = seededShuffle(scored.slice(0, shortlistSize), seedFrom(batchId));
     const ranked = await rerank(this.#o.provider, this.#o.model, shortlist, {
       topics,
+      ...(ownerInstructions === undefined ? {} : { instructions: ownerInstructions }),
       ...(instructions === undefined ? {} : { focus: instructions }),
       ...(options.signal === undefined ? {} : { signal: options.signal }),
     });
@@ -344,6 +370,7 @@ export class FeedService {
     const createdAt = this.#now();
     for (const [i, { cluster: k, exploration: isExploration }] of picked.entries()) {
       const written = await writePost(this.#o.provider, this.#o.model, k, {
+        ...(ownerInstructions === undefined ? {} : { instructions: ownerInstructions }),
         ...(instructions === undefined ? {} : { focus: instructions }),
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       });
@@ -352,6 +379,7 @@ export class FeedService {
         ...k.reasons,
         ...(isExploration ? ["exploration slot"] : []),
         ranked.usedModel && !isExploration ? `rerank #${i + 1}` : "recall order",
+        ...(ownerInstructions !== undefined && ranked.usedModel ? ["feed instructions"] : []),
         written.writer === "model"
           ? "written by the model"
           : `templated${written.rejected === undefined ? "" : ` (model output rejected: ${written.rejected})`}`,

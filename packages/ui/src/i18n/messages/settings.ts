@@ -405,6 +405,8 @@ export const settings = {
   "settings.about.protocolVersion": "v{version}",
   "settings.about.platform": "Platform",
   "settings.about.dataFolder": "Data folder",
+  "settings.about.runtime": "Runtime",
+  "settings.about.revealHome": "Reveal in Finder",
   "settings.about.unknown": "unknown",
   "settings.about.doctorDescription": "Checks the Gateway, sandbox, permissions and vault.",
   "settings.about.running": "Running",

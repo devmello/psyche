@@ -30,6 +30,7 @@ import {
   webContents,
 } from "electron";
 import { createDesktopGateway, defaultGatewayOrigin, defaultPsycheHome } from "./gateway-client.ts";
+import { appInfo } from "./lib/app-info.ts";
 import { APP_ORIGIN, APP_SCHEME, contentType, isSameApp, resolveAppPath } from "./lib/app-path.ts";
 import { deepLinkFromArgv, parseDeepLink } from "./lib/deep-link.ts";
 import { loadOrCreateDeviceKey } from "./lib/device-key.ts";
@@ -529,6 +530,18 @@ function registerIpc(): void {
   handle(IPC.openExternal, async (_event, arg) => {
     await shell.openExternal(checkExternalUrl(arg));
   });
+  handle(IPC.appInfo, () =>
+    appInfo({
+      appVersion: app.getVersion(),
+      platform: process.platform,
+      arch: process.arch,
+      osVersion: process.getSystemVersion(),
+      versions: process.versions,
+      psycheHome: home,
+      gatewayOrigin: defaultGatewayOrigin(),
+    }),
+  );
+  handle(IPC.appRevealHome, () => shell.showItemInFolder(home));
   handle(IPC.systemAppearanceGet, () => systemAppearance());
   handle(IPC.localeGet, () => ({
     system: app.getSystemLocale(),
@@ -845,6 +858,7 @@ void app.whenReady().then(async () => {
     url: (route) => new URL(route, rendererUrl).toString(),
     preloadPath: preloadPath(),
     onAudio: (chunk) => controller.onAudio(chunk),
+    warn: (m) => console.warn(`[dictation] ${m}`),
   });
   const controller = new SystemDictation({
     call: (m, p) => requireGateway().call(m, p),

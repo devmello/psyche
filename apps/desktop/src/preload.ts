@@ -137,7 +137,9 @@ const bridge = {
     onState: (cb: (s: unknown) => void) => listen(IPC.dictationHudState, cb),
     onCapture: (cb: (command: unknown) => void) => listen(IPC.dictationCapture, cb),
     sendAudio: (chunk: string) => ipcRenderer.send(IPC.dictationAudio, chunk),
-    captured: (ok: boolean) => ipcRenderer.send(IPC.dictationCaptured, { ok }),
+    /** Answers one capture command: `open` = a microphone track is still live afterwards. */
+    captured: (ack: { id: number; ok: boolean; open: boolean }) =>
+      ipcRenderer.send(IPC.dictationCaptured, ack),
     // Settings → Voice & dictation.
     getStatus: () => invoke(IPC.dictationGetStatus),
     onStatus: (cb: (s: unknown) => void) => listen(IPC.dictationStatus, cb),
@@ -161,6 +163,11 @@ const bridge = {
   /** Opens an https page in the default browser (a connector's sign-in, #505). */
   external: {
     open: (url: string) => invoke(IPC.openExternal, { url }),
+  },
+  /** Settings → About (#610): versions, platform, the data folder and the Gateway's origin. */
+  app: {
+    info: () => invoke(IPC.appInfo),
+    revealHome: () => invoke(IPC.appRevealHome),
   },
   /** macOS Reduce Transparency and Increase Contrast (redesign §3.4, §8). */
   systemAppearance: {

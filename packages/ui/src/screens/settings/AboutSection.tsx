@@ -20,6 +20,8 @@ export interface AboutPanelProps {
   doctorRunning?: boolean;
   onRunDoctor?: () => void;
   onOpenLogs?: () => void;
+  /** Desktop only: shows the data folder in Finder. */
+  onRevealHome?: () => void;
 }
 
 export function AboutPanel({
@@ -28,6 +30,7 @@ export function AboutPanel({
   doctorRunning = false,
   onRunDoctor,
   onOpenLogs,
+  onRevealHome,
 }: AboutPanelProps): ReactElement {
   return (
     <SectionFrame title={t("settings.about.title")} description={t("settings.about.description")}>
@@ -49,11 +52,21 @@ export function AboutPanel({
               }),
             },
             ...(info ? [{ term: t("settings.about.platform"), value: info.platform }] : []),
-            ...(info
+            ...(info?.runtime ? [{ term: t("settings.about.runtime"), value: info.runtime }] : []),
+            ...(info?.home
               ? [
                   {
                     term: t("settings.about.dataFolder"),
-                    value: <code className="font-mono text-xs">{info.home}</code>,
+                    value: (
+                      <span className="flex flex-wrap items-center gap-2">
+                        <code className="font-mono text-xs break-all">{info.home}</code>
+                        {onRevealHome ? (
+                          <Button type="button" size="sm" variant="outline" onClick={onRevealHome}>
+                            {t("settings.about.revealHome")}
+                          </Button>
+                        ) : null}
+                      </span>
+                    ),
                   },
                 ]
               : []),

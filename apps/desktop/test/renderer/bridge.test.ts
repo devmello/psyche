@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { GatewayCallError, unwrapCall } from "../../src/renderer/bridge.ts";
+import type { PsycheBridge } from "../../src/preload.ts";
+import { desktopPlatform, GatewayCallError, unwrapCall } from "../../src/renderer/bridge.ts";
 
 describe("renderer bridge", () => {
   it("returns the value of an ok envelope", async () => {
@@ -26,5 +27,23 @@ describe("renderer bridge", () => {
       details: { approvalId: "ap_1" },
       retryable: false,
     });
+  });
+
+  it("hands Settings → About main's app info and Reveal in Finder (#610)", async () => {
+    const info = { appVersion: "0.3.0", arch: "arm64", psycheHome: "/Users/owner/.psyche" };
+    let revealed = 0;
+    const fake = {
+      chrome: { titleBar: "native" },
+      app: {
+        info: async () => info,
+        revealHome: async () => {
+          revealed += 1;
+        },
+      },
+    } as unknown as PsycheBridge;
+    const platform = desktopPlatform(fake);
+    await expect(platform.app?.info()).resolves.toBe(info);
+    await platform.app?.revealHome();
+    expect(revealed).toBe(1);
   });
 });
