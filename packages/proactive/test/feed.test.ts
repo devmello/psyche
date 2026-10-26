@@ -14,10 +14,12 @@ import {
   arxivSource,
   createEmbedder,
   createFeedHandlers,
+  FEED_INSTRUCTIONS_PATH,
   type FeedEvent,
   FeedService,
   hackerNewsSource,
   jobMarker,
+  MAX_FEED_INSTRUCTIONS,
   PROACTIVITY_BUDGET,
   rssSource,
   withProactiveJobs,
@@ -65,6 +67,8 @@ function rig(
   options: {
     provider?: FakeModelProvider;
     interests?: string;
+    /** `feed/INSTRUCTIONS.md`, the owner's free text (#614). */
+    instructions?: string;
     overrides?: Record<string, { status: number; text: string }>;
   } = {},
 ) {
@@ -73,7 +77,12 @@ function rig(
   const notifier = new FakeNotifier({ clock });
   const memory = new FakeMemoryStore({
     clock,
-    files: { "interests.md": options.interests ?? INTERESTS },
+    files: {
+      "interests.md": options.interests ?? INTERESTS,
+      ...(options.instructions === undefined
+        ? {}
+        : { "feed/INSTRUCTIONS.md": options.instructions }),
+    },
   });
   const agent = new RecordingLauncher();
   const ids = createIdGenerator({ prefix: "s" });
@@ -274,6 +283,63 @@ describe("feedback (O6)", () => {
     expect(listed.nextCursor).not.toBeNull();
     const page2 = await h["feed.list"]({ limit: 2, cursor: listed.nextCursor ?? "" });
     expect(page2.posts[0]?.id).not.toBe(listed.posts[0]?.id);
+  });
+});
+
+describe("feed instructions (#614)", () => {
+  const INSTRUCTIONS = [
+    "# What should the feed write about",
+    "",
+    "<!-- Write in your own words. This hint is a comment and is not read. -->",
+    "Mostly robot hardware; skip funding news. Keep posts to two sentences.",
+    "",
+  ].join("\n");
+
+  it("reads feed/INSTRUCTIONS.md into the rerank and writer prompts, ahead of interests.md", async () => {
+    const provider = scriptedModel();
+    const { feed } = rig({ provider, instructions: INSTRUCTIONS });
+    expect(await feed.readInstructions()).toBe(
+      "# What should the feed write about\n\n\nMostly robot hardware; skip funding news. Keep posts to two sentences.",
+    );
+    const { posts } = await feed.generate();
+    expect(posts.length).toBeGreaterThan(0);
+    const rerank = provider.requests.find((r) => (r.system ?? "").startsWith("You pick"));
+    const writer = provider.requests.find((r) => (r.system ?? "").startsWith("You write"));
+    for (const r of [rerank, writer]) {
+      const text = r === undefined ? "" : promptText(r);
+      expect(text).toContain("What the owner wants the feed to write about (their own words):");
+      expect(text).toContain("skip funding news");
+      expect(text).not.toContain("This hint is a comment");
+    }
+    const rerankText = rerank === undefined ? "" : promptText(rerank);
+    expect(rerankText.indexOf("skip funding news")).toBeLessThan(rerankText.indexOf("Interests:"));
+    // "Why was this chosen" shows that the instructions shaped the batch.
+    expect(
+      posts.filter((p) => !p.exploration).every((p) => p.reasons.includes("feed instructions")),
+    ).toBe(true);
+  });
+
+  it("without the file (or with only comments) the prompts carry no instructions block", async () => {
+    for (const instructions of [undefined, "<!-- nothing yet -->\n   \n"]) {
+      const provider = scriptedModel();
+      const { feed } = rig({ provider, ...(instructions === undefined ? {} : { instructions }) });
+      expect(await feed.readInstructions()).toBeUndefined();
+      const { posts } = await feed.generate();
+      expect(provider.requests.some((r) => promptText(r).includes("What the owner wants"))).toBe(
+        false,
+      );
+      expect(posts.some((p) => p.reasons.includes("feed instructions"))).toBe(false);
+    }
+  });
+
+  it("caps long instructions and picks up edits on the next batch", async () => {
+    const provider = scriptedModel();
+    const { feed, memory } = rig({ provider, instructions: "x".repeat(10_000) });
+    expect((await feed.readInstructions())?.length).toBe(MAX_FEED_INSTRUCTIONS);
+    await memory.writeFile(FEED_INSTRUCTIONS_PATH, "Only arXiv papers, please.", {
+      provenance: "owner",
+    });
+    expect(await feed.readInstructions()).toBe("Only arXiv papers, please.");
   });
 });
 
