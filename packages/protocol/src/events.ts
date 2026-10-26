@@ -25,6 +25,7 @@ import {
   VaultPayment,
   VaultStatus,
 } from "./schemas/integrations.ts";
+import { FeedbackEvent, Lesson, LessonStatus } from "./schemas/learning.ts";
 import { MemoryChangeSource, MemoryJob, PersonaIdentity } from "./schemas/memory.ts";
 import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
 import { FeedPost, Goal, Idea, Notification, SettingEntry } from "./schemas/surfaces.ts";
@@ -191,6 +192,21 @@ export const Events = {
       avatarRequested: Type.Boolean(),
     }),
     description: "IDENTITY.md changed: clients refresh the header; maybe regenerate the avatar.",
+  }),
+  "feedback.recorded": defineEvent({
+    payload: Type.Object({ event: FeedbackEvent }),
+    description:
+      "The owner's feedback was recorded (explicit, or implicit where it happened: a draft edited before sending, an undo, an edited or denied approval, a dismissal, a redo).",
+  }),
+  "lesson.changed": defineEvent({
+    payload: Type.Object({ lessonId: Id, status: LessonStatus, lesson: Type.Optional(Lesson) }),
+    description:
+      "A lesson was made, confirmed, edited, superseded, made dormant or forgotten. Clients refresh marks and the Growth view.",
+  }),
+  "growth.updated": defineEvent({
+    payload: Type.Object({}),
+    description:
+      "Coarse and debounced: something behind growth.summary changed (a lesson, a metric, a milestone). Clients re-read it when the Growth view is open.",
   }),
   "memory.job.updated": defineEvent({
     payload: Type.Object({ job: MemoryJob }),
