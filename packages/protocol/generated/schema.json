@@ -2242,6 +2242,70 @@
       ],
       "type": "string"
     },
+    "AppleAlarm": {
+      "anyOf": [
+        {
+          "properties": {
+            "relativeMinutes": {
+              "description": "Minutes before the start or due time (0 = at the time, -15 = 15 minutes before)",
+              "maximum": 0,
+              "minimum": -40320,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "relativeMinutes"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "at": {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "at"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "AppleBusyBlock": {
+      "description": "Free events are left out; blocks come in start order.",
+      "properties": {
+        "start": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "end": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "calendarId": {
+          "type": "string"
+        },
+        "availability": {
+          "enum": [
+            "busy",
+            "tentative",
+            "unavailable"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "calendarId",
+        "availability"
+      ],
+      "type": "object"
+    },
     "AppleCalendar": {
       "properties": {
         "id": {
@@ -2265,6 +2329,25 @@
         "title",
         "source",
         "writable"
+      ],
+      "type": "object"
+    },
+    "AppleCalendarDeleteEventParams": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "span": {
+          "description": "Recurring events: this one or this and later",
+          "enum": [
+            "this",
+            "future"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
       ],
       "type": "object"
     },
@@ -2325,6 +2408,81 @@
         },
         "recurring": {
           "type": "boolean"
+        },
+        "attendees": {
+          "items": {
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "email": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "status": {
+                "enum": [
+                  "accepted",
+                  "declined",
+                  "tentative",
+                  "pending",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              "organizer": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name",
+              "status",
+              "organizer"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "conferenceUrl": {
+          "anyOf": [
+            {
+              "description": "A meeting link found in the URL, location or notes (Zoom, Meet, Teams, Webex)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "alarms": {
+          "items": {
+            "$ref": "#/$defs/AppleAlarm"
+          },
+          "type": "array"
+        },
+        "recurrence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AppleRecurrence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "availability": {
+          "enum": [
+            "busy",
+            "free",
+            "tentative",
+            "unavailable"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -2373,6 +2531,32 @@
         "url": {
           "maxLength": 2000,
           "type": "string"
+        },
+        "alarms": {
+          "description": "Replaces the alarms",
+          "items": {
+            "$ref": "#/$defs/AppleAlarm"
+          },
+          "maxItems": 5,
+          "type": "array"
+        },
+        "recurrence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AppleRecurrence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "availability": {
+          "description": "Show as busy or free",
+          "enum": [
+            "busy",
+            "free"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -2417,6 +2601,32 @@
           "maxLength": 2000,
           "type": "string"
         },
+        "alarms": {
+          "description": "Replaces the alarms",
+          "items": {
+            "$ref": "#/$defs/AppleAlarm"
+          },
+          "maxItems": 5,
+          "type": "array"
+        },
+        "recurrence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AppleRecurrence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "availability": {
+          "description": "Show as busy or free",
+          "enum": [
+            "busy",
+            "free"
+          ],
+          "type": "string"
+        },
         "span": {
           "anyOf": [
             {
@@ -2433,6 +2643,33 @@
       },
       "required": [
         "id"
+      ],
+      "type": "object"
+    },
+    "AppleCalendarFreeBusyParams": {
+      "properties": {
+        "from": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "to": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "calendarIds": {
+          "description": "Default: every calendar",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array"
+        }
+      },
+      "required": [
+        "from",
+        "to"
       ],
       "type": "object"
     },
@@ -2454,6 +2691,11 @@
           },
           "type": "array"
         },
+        "query": {
+          "description": "Text in the title, location or notes (C1)",
+          "maxLength": 200,
+          "type": "string"
+        },
         "limit": {
           "maximum": 500,
           "minimum": 1,
@@ -2463,6 +2705,514 @@
       "required": [
         "from",
         "to"
+      ],
+      "type": "object"
+    },
+    "AppleContact": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "givenName": {
+          "type": "string"
+        },
+        "familyName": {
+          "type": "string"
+        },
+        "nickname": {
+          "type": "string"
+        },
+        "organization": {
+          "type": "string"
+        },
+        "jobTitle": {
+          "type": "string"
+        },
+        "emails": {
+          "items": {
+            "properties": {
+              "label": {
+                "description": "home, work, mobile, … (empty when none)",
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "label",
+              "value"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "phones": {
+          "items": {
+            "properties": {
+              "label": {
+                "description": "home, work, mobile, … (empty when none)",
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "label",
+              "value"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "addresses": {
+          "items": {
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "street": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "postalCode": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "label",
+              "street",
+              "city",
+              "state",
+              "postalCode",
+              "country"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "urls": {
+          "items": {
+            "properties": {
+              "label": {
+                "description": "home, work, mobile, … (empty when none)",
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "label",
+              "value"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "birthday": {
+          "anyOf": [
+            {
+              "description": "YYYY-MM-DD, or --MM-DD without a year",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "groups": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "givenName",
+        "familyName",
+        "nickname",
+        "organization",
+        "jobTitle",
+        "emails",
+        "phones",
+        "addresses",
+        "urls",
+        "groups"
+      ],
+      "type": "object"
+    },
+    "AppleContactInput": {
+      "properties": {
+        "givenName": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "familyName": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "organization": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "jobTitle": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "birthday": {
+          "description": "YYYY-MM-DD or --MM-DD",
+          "pattern": "^(\\d{4}|-)-\\d{2}-\\d{2}$",
+          "type": "string"
+        },
+        "emails": {
+          "items": {
+            "properties": {
+              "label": {
+                "description": "home, work, mobile, … (empty when none)",
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "label",
+              "value"
+            ],
+            "type": "object"
+          },
+          "maxItems": 10,
+          "type": "array"
+        },
+        "phones": {
+          "items": {
+            "properties": {
+              "label": {
+                "description": "home, work, mobile, … (empty when none)",
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "label",
+              "value"
+            ],
+            "type": "object"
+          },
+          "maxItems": 10,
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "AppleContactSummary": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "organization": {
+          "type": "string"
+        },
+        "emails": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "phones": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "organization",
+        "emails",
+        "phones"
+      ],
+      "type": "object"
+    },
+    "AppleContactUpdate": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "givenName": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "familyName": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "organization": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "jobTitle": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "birthday": {
+          "description": "YYYY-MM-DD or --MM-DD",
+          "pattern": "^(\\d{4}|-)-\\d{2}-\\d{2}$",
+          "type": "string"
+        },
+        "addEmails": {
+          "items": {
+            "properties": {
+              "label": {
+                "description": "home, work, mobile, … (empty when none)",
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "label",
+              "value"
+            ],
+            "type": "object"
+          },
+          "maxItems": 10,
+          "type": "array"
+        },
+        "addPhones": {
+          "items": {
+            "properties": {
+              "label": {
+                "description": "home, work, mobile, … (empty when none)",
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "label",
+              "value"
+            ],
+            "type": "object"
+          },
+          "maxItems": 10,
+          "type": "array"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "AppleContactsSearchParams": {
+      "description": "Results come best match first.",
+      "properties": {
+        "query": {
+          "description": "A name, email, phone or company",
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "type": "object"
+    },
+    "AppleFileItem": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "file",
+            "directory",
+            "symlink",
+            "other"
+          ],
+          "type": "string"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "modified": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "added": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "contentType": {
+          "anyOf": [
+            {
+              "description": "UTType identifier, e.g. com.adobe.pdf",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "path",
+        "kind"
+      ],
+      "type": "object"
+    },
+    "AppleFilesMoveParams": {
+      "properties": {
+        "items": {
+          "items": {
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "to": {
+                "description": "Destination folder (granted)",
+                "type": "string"
+              },
+              "name": {
+                "description": "New file name",
+                "maxLength": 255,
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "to"
+            ],
+            "type": "object"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "type": "object"
+    },
+    "AppleFilesRecentParams": {
+      "properties": {
+        "folder": {
+          "description": "A granted folder, e.g. ~/Downloads",
+          "type": "string"
+        },
+        "addedSince": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "addedBefore": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "contentTypes": {
+          "description": "UTType ids or extensions (pdf, png)",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "folder"
+      ],
+      "type": "object"
+    },
+    "AppleFilesRenameParams": {
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 255,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "name"
+      ],
+      "type": "object"
+    },
+    "AppleFilesTrashParams": {
+      "properties": {
+        "paths": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 200,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "paths"
       ],
       "type": "object"
     },
@@ -2560,6 +3310,120 @@
       ],
       "type": "object"
     },
+    "AppleMailDraftRef": {
+      "properties": {
+        "draftId": {
+          "type": "string"
+        },
+        "to": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "cc": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "bodySha256": {
+          "description": "sha256 of the body as saved: the send binding",
+          "type": "string"
+        }
+      },
+      "required": [
+        "draftId",
+        "to",
+        "cc",
+        "subject",
+        "bodySha256"
+      ],
+      "type": "object"
+    },
+    "AppleMailForwardDraftParams": {
+      "properties": {
+        "id": {
+          "description": "The message to forward",
+          "type": "string"
+        },
+        "mailbox": {
+          "type": "string"
+        },
+        "account": {
+          "type": "string"
+        },
+        "to": {
+          "items": {
+            "maxLength": 320,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "type": "array"
+        },
+        "cc": {
+          "items": {
+            "maxLength": 320,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array"
+        },
+        "body": {
+          "description": "Text above the forwarded message",
+          "maxLength": 100000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "to"
+      ],
+      "type": "object"
+    },
+    "AppleMailMailbox": {
+      "properties": {
+        "account": {
+          "type": "string"
+        },
+        "name": {
+          "description": "Mailbox name; nested ones as Parent/Child",
+          "type": "string"
+        },
+        "unreadCount": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "special": {
+          "anyOf": [
+            {
+              "enum": [
+                "inbox",
+                "sent",
+                "drafts",
+                "junk",
+                "trash",
+                "archive"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "account",
+        "name",
+        "unreadCount"
+      ],
+      "type": "object"
+    },
     "AppleMailMessage": {
       "properties": {
         "summary": {
@@ -2583,6 +3447,41 @@
         },
         "truncated": {
           "type": "boolean"
+        },
+        "attachments": {
+          "items": {
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "size": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "mimeType": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "type": "object"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -2619,6 +3518,13 @@
         },
         "read": {
           "type": "boolean"
+        },
+        "flagged": {
+          "type": "boolean"
+        },
+        "link": {
+          "description": "message:// URL that opens this message in Mail",
+          "type": "string"
         }
       },
       "required": [
@@ -2629,6 +3535,126 @@
         "from",
         "date",
         "read"
+      ],
+      "type": "object"
+    },
+    "AppleMailMoveParams": {
+      "properties": {
+        "ids": {
+          "description": "Mail message ids from mail.search or mail.selected",
+          "items": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "type": "array"
+        },
+        "mailbox": {
+          "description": "Mailbox the messages are in (default: inbox)",
+          "type": "string"
+        },
+        "account": {
+          "description": "Account of that mailbox",
+          "type": "string"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "description": "The account's Archive or Junk mailbox",
+              "enum": [
+                "archive",
+                "junk"
+              ],
+              "type": "string"
+            },
+            {
+              "properties": {
+                "mailbox": {
+                  "type": "string"
+                },
+                "account": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "mailbox",
+                "account"
+              ],
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "required": [
+        "ids",
+        "to"
+      ],
+      "type": "object"
+    },
+    "AppleMailReplyDraftParams": {
+      "properties": {
+        "id": {
+          "description": "The message to reply to",
+          "type": "string"
+        },
+        "mailbox": {
+          "type": "string"
+        },
+        "account": {
+          "type": "string"
+        },
+        "replyAll": {
+          "description": "Reply to everyone (default: sender only)",
+          "type": "boolean"
+        },
+        "body": {
+          "description": "Plain text written above the quote",
+          "maxLength": 100000,
+          "type": "string"
+        },
+        "cc": {
+          "items": {
+            "maxLength": 320,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "body"
+      ],
+      "type": "object"
+    },
+    "AppleMailSaveAttachmentsParams": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "mailbox": {
+          "type": "string"
+        },
+        "account": {
+          "type": "string"
+        },
+        "names": {
+          "description": "Which attachments (default: all)",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array"
+        },
+        "folder": {
+          "description": "A granted folder to save into; default: the Library",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
       ],
       "type": "object"
     },
@@ -2670,6 +3696,245 @@
       },
       "type": "object"
     },
+    "AppleMailSelectedParams": {
+      "properties": {
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "AppleMailSendDraftParams": {
+      "properties": {
+        "draftId": {
+          "description": "From mail.reply_draft / mail.forward_draft",
+          "type": "string"
+        },
+        "to": {
+          "description": "The draft's recipients, as AppleMailDraftRef returned them",
+          "items": {
+            "maxLength": 320,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "type": "array"
+        },
+        "cc": {
+          "items": {
+            "maxLength": 320,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array"
+        },
+        "subject": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "bodySha256": {
+          "description": "AppleMailDraftRef.bodySha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "draftId",
+        "to",
+        "subject",
+        "bodySha256"
+      ],
+      "type": "object"
+    },
+    "AppleMailSetFlagsParams": {
+      "properties": {
+        "ids": {
+          "description": "Mail message ids from mail.search or mail.selected",
+          "items": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "type": "array"
+        },
+        "mailbox": {
+          "description": "Mailbox the messages are in (default: inbox)",
+          "type": "string"
+        },
+        "account": {
+          "description": "Account of that mailbox",
+          "type": "string"
+        },
+        "read": {
+          "description": "true marks read, false unread",
+          "type": "boolean"
+        },
+        "flagged": {
+          "type": "boolean"
+        },
+        "flagColor": {
+          "description": "0 red, 1 orange, 2 yellow, 3 green, 4 blue, 5 purple, 6 gray",
+          "maximum": 6,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ids"
+      ],
+      "type": "object"
+    },
+    "AppleMusicControlParams": {
+      "properties": {
+        "app": {
+          "description": "Which player (default: whichever is playing, else Music)",
+          "enum": [
+            "music",
+            "spotify"
+          ],
+          "type": "string"
+        },
+        "action": {
+          "enum": [
+            "play",
+            "pause",
+            "playpause",
+            "next",
+            "previous",
+            "volume",
+            "shuffle"
+          ],
+          "type": "string"
+        },
+        "volume": {
+          "description": "With action volume",
+          "maximum": 100,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "shuffle": {
+          "description": "With action shuffle",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "type": "object"
+    },
+    "AppleMusicItem": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "track",
+            "album",
+            "artist",
+            "playlist"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "description": "Music persistent ID (track, playlist) or a name key (album, artist)",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "artist": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "album": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trackCount": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "name"
+      ],
+      "type": "object"
+    },
+    "AppleMusicPlayParams": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "track",
+            "album",
+            "artist",
+            "playlist"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "shuffle": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "type": "object"
+    },
+    "AppleMusicSearchParams": {
+      "description": "Results come best match first.",
+      "properties": {
+        "query": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "description": "Default: all kinds",
+          "enum": [
+            "track",
+            "album",
+            "artist",
+            "playlist"
+          ],
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "type": "object"
+    },
     "AppleNote": {
       "properties": {
         "summary": {
@@ -2685,6 +3950,27 @@
         },
         "truncated": {
           "type": "boolean"
+        },
+        "attachments": {
+          "items": {
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "bodySha256": {
+          "type": "string"
         }
       },
       "required": [
@@ -2692,6 +3978,40 @@
         "html",
         "text",
         "truncated"
+      ],
+      "type": "object"
+    },
+    "AppleNoteFolder": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "account": {
+          "type": "string"
+        },
+        "parentId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "noteCount": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "account",
+        "noteCount"
       ],
       "type": "object"
     },
@@ -2709,6 +4029,14 @@
         },
         "folder": {
           "maxLength": 200,
+          "type": "string"
+        },
+        "format": {
+          "description": "text (default; HTML is escaped) or markdown (macOS 27)",
+          "enum": [
+            "text",
+            "markdown"
+          ],
           "type": "string"
         }
       },
@@ -2733,6 +4061,9 @@
           "description": "ISO-8601 timestamp (UTC)",
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
           "type": "string"
+        },
+        "snippet": {
+          "type": "string"
         }
       },
       "required": [
@@ -2740,6 +4071,241 @@
         "folder",
         "title",
         "modified"
+      ],
+      "type": "object"
+    },
+    "AppleNotesAppendParams": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "text": {
+          "description": "Plain text; HTML is escaped",
+          "maxLength": 100000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "checklist": {
+          "description": "Each line becomes a checklist item",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ],
+      "type": "object"
+    },
+    "AppleNotesSearchParams": {
+      "properties": {
+        "query": {
+          "description": "Text in the title or body",
+          "maxLength": 200,
+          "type": "string"
+        },
+        "folder": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "modifiedSince": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "AppleNotesUpdateParams": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "previousBodySha256": {
+          "description": "bodySha256 from notes.read: no blind overwrite",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 300,
+          "minLength": 1,
+          "type": "string"
+        },
+        "body": {
+          "description": "Plain text; HTML is escaped",
+          "maxLength": 100000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "previousBodySha256"
+      ],
+      "type": "object"
+    },
+    "AppleNowPlaying": {
+      "properties": {
+        "app": {
+          "enum": [
+            "music",
+            "spotify"
+          ],
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "playing",
+            "paused",
+            "stopped"
+          ],
+          "type": "string"
+        },
+        "track": {
+          "anyOf": [
+            {
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "artist": {
+                  "type": "string"
+                },
+                "album": {
+                  "type": "string"
+                },
+                "durationSeconds": {
+                  "anyOf": [
+                    {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "positionSeconds": {
+                  "anyOf": [
+                    {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "artist",
+                "album"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "volume": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "shuffle": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "app",
+        "state"
+      ],
+      "type": "object"
+    },
+    "AppleReadingListParams": {
+      "properties": {
+        "url": {
+          "maxLength": 2000,
+          "pattern": "^https?://",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 500,
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "type": "object"
+    },
+    "AppleRecurrence": {
+      "properties": {
+        "frequency": {
+          "description": "How often it repeats",
+          "enum": [
+            "daily",
+            "weekly",
+            "monthly",
+            "yearly"
+          ],
+          "type": "string"
+        },
+        "interval": {
+          "description": "Every N periods (default 1)",
+          "maximum": 999,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "daysOfWeek": {
+          "description": "Weekly only: the days it falls on",
+          "items": {
+            "enum": [
+              "mo",
+              "tu",
+              "we",
+              "th",
+              "fr",
+              "sa",
+              "su"
+            ],
+            "type": "string"
+          },
+          "maxItems": 7,
+          "type": "array"
+        },
+        "until": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "count": {
+          "description": "Stop after N occurrences",
+          "maximum": 999,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "frequency"
       ],
       "type": "object"
     },
@@ -2784,6 +4350,35 @@
           "maximum": 9,
           "minimum": 0,
           "type": "integer"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "flagged": {
+          "type": "boolean"
+        },
+        "alarms": {
+          "items": {
+            "$ref": "#/$defs/AppleAlarm"
+          },
+          "type": "array"
+        },
+        "recurrence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AppleRecurrence"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -2818,6 +4413,17 @@
           "maximum": 9,
           "minimum": 0,
           "type": "integer"
+        },
+        "url": {
+          "description": "A link to keep with it, e.g. message://<id>",
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "alarm": {
+          "$ref": "#/$defs/AppleAlarm"
+        },
+        "recurrence": {
+          "$ref": "#/$defs/AppleRecurrence"
         }
       },
       "required": [
@@ -2865,7 +4471,40 @@
       ],
       "type": "object"
     },
+    "AppleRemindersCompleteParams": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "description": "Exact title of one open reminder (when no id)",
+          "maxLength": 500,
+          "type": "string"
+        },
+        "listId": {
+          "description": "The list to look in with title",
+          "type": "string"
+        },
+        "completed": {
+          "description": "false reopens it (default true)",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "AppleRemindersDeleteParams": {
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
     "AppleRemindersListParams": {
+      "description": "Results come soonest due first.",
       "properties": {
         "listIds": {
           "items": {
@@ -2881,12 +4520,44 @@
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
           "type": "string"
         },
+        "overdue": {
+          "description": "Only open reminders past their due time",
+          "type": "boolean"
+        },
+        "dueToday": {
+          "description": "Only reminders due today",
+          "type": "boolean"
+        },
+        "flagged": {
+          "description": "Only flagged reminders",
+          "type": "boolean"
+        },
+        "query": {
+          "description": "Text in the title or notes",
+          "maxLength": 200,
+          "type": "string"
+        },
         "limit": {
           "maximum": 500,
           "minimum": 1,
           "type": "integer"
         }
       },
+      "type": "object"
+    },
+    "AppleRemindersSetFlaggedParams": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "flagged": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "flagged"
+      ],
       "type": "object"
     },
     "AppleSafariTab": {
@@ -2916,6 +4587,172 @@
         "url",
         "current"
       ],
+      "type": "object"
+    },
+    "AppleSavedFile": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "size": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "description": "Where it was saved in a granted folder",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "libraryItemId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "size"
+      ],
+      "type": "object"
+    },
+    "AppleShortcut": {
+      "description": "Listed by name.",
+      "properties": {
+        "id": {
+          "description": "Shortcut identifier (UUID)",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "folder": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "acceptsInput": {
+          "type": "boolean"
+        },
+        "actionCount": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "acceptsInput"
+      ],
+      "type": "object"
+    },
+    "AppleShortcutResult": {
+      "properties": {
+        "output": {
+          "description": "The shortcut's output as text, untrusted",
+          "type": "string"
+        },
+        "outputType": {
+          "enum": [
+            "text",
+            "json",
+            "none"
+          ],
+          "type": "string"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "output",
+        "outputType",
+        "truncated"
+      ],
+      "type": "object"
+    },
+    "AppleShortcutsRunParams": {
+      "properties": {
+        "id": {
+          "description": "From shortcuts.list",
+          "type": "string"
+        },
+        "input": {
+          "description": "Text input, when it accepts input",
+          "maxLength": 100000,
+          "type": "string"
+        },
+        "timeoutSeconds": {
+          "description": "Default 60",
+          "maximum": 120,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "AppleTabText": {
+      "properties": {
+        "tab": {
+          "$ref": "#/$defs/AppleSafariTab"
+        },
+        "text": {
+          "description": "Page text, untrusted",
+          "type": "string"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "tab",
+        "text",
+        "truncated"
+      ],
+      "type": "object"
+    },
+    "AppleTabTextParams": {
+      "properties": {
+        "window": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "index": {
+          "description": "Default: the current tab",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maxLength": {
+          "maximum": 200000,
+          "minimum": 100,
+          "type": "integer"
+        }
+      },
       "type": "object"
     },
     "ApprovalAnswer": {
@@ -19677,6 +21514,241 @@
       "required": [
         "type",
         "md"
+      ],
+      "type": "object"
+    },
+    "ThingsAddParams": {
+      "properties": {
+        "title": {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        "notes": {
+          "maxLength": 10000,
+          "type": "string"
+        },
+        "when": {
+          "description": "today, tomorrow, evening, anytime, someday or YYYY-MM-DD",
+          "pattern": "^(today|tomorrow|evening|anytime|someday|\\d{4}-\\d{2}-\\d{2})$",
+          "type": "string"
+        },
+        "deadline": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "list": {
+          "description": "A project or area name (default: Inbox)",
+          "type": "string"
+        },
+        "checklist": {
+          "items": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array"
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "type": "object"
+    },
+    "ThingsCompleteParams": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "status": {
+          "description": "Default completed",
+          "enum": [
+            "completed",
+            "canceled",
+            "open"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "ThingsListParams": {
+      "description": "Results come in the list's own order.",
+      "properties": {
+        "list": {
+          "enum": [
+            "inbox",
+            "today",
+            "upcoming",
+            "anytime",
+            "someday",
+            "logbook",
+            "project",
+            "area",
+            "tag"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "description": "The project, area or tag (with those lists)",
+          "type": "string"
+        },
+        "query": {
+          "description": "Text in the title or notes",
+          "maxLength": 200,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "list"
+      ],
+      "type": "object"
+    },
+    "ThingsTodo": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "notes": {
+          "description": "Untrusted",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "open",
+            "completed",
+            "canceled"
+          ],
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "description": "today, evening, someday or YYYY-MM-DD",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "deadline": {
+          "anyOf": [
+            {
+              "description": "YYYY-MM-DD",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "project": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "area": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "modified": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "notes",
+        "status",
+        "tags"
+      ],
+      "type": "object"
+    },
+    "ThingsUpdateParams": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        "appendNotes": {
+          "maxLength": 10000,
+          "type": "string"
+        },
+        "when": {
+          "description": "today, tomorrow, evening, anytime, someday or YYYY-MM-DD",
+          "pattern": "^(today|tomorrow|evening|anytime|someday|\\d{4}-\\d{2}-\\d{2})$",
+          "type": "string"
+        },
+        "deadline": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "addTags": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "type": "array"
+        }
+      },
+      "required": [
+        "id"
       ],
       "type": "object"
     },

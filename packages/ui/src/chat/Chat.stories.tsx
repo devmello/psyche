@@ -194,6 +194,33 @@ export const RunInProgress: Story = {
   ),
 };
 
+/** #633: reasoning streamed by `chat.reasoning` shows as Thinking steps among the tool steps. */
+export const RunThinking: Story = {
+  decorators: [
+    withWorld({
+      edit: runWithSteps(8),
+      onGateway: (g) => {
+        setTimeout(() => {
+          const send = (stepId: string, payload: { delta?: string; done?: boolean }) =>
+            g.emit("chat.reasoning", {
+              threadId: IDS.threads.main,
+              runId: "run_story_steps",
+              stepId,
+              ...payload,
+            });
+          send("rs_story_1", {
+            delta:
+              "The lockfile pins Node 24; the owner wants the current LTS.\nCheck nodejs.org first.",
+          });
+          send("rs_story_1", { done: true });
+          send("rs_story_2", { delta: "npm install is running; waiting before I commit." });
+        }, 0);
+      },
+    }),
+  ],
+  render: RunInProgress.render,
+};
+
 /** #623: nothing has happened for 55 s, so the log says so (a freeze is visible). */
 export const RunStalled: Story = {
   decorators: [withWorld({ edit: runWithSteps(55) })],

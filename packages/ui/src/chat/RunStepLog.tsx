@@ -1,4 +1,5 @@
 import type { ApprovalRequest, InputRequest, Message, Run, ToolCall } from "@psyche/protocol";
+import { Brain, ChevronRight } from "lucide-react";
 import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
 import { type ReactElement, useMemo, useState } from "react";
@@ -7,6 +8,7 @@ import { toolGlyph, toolIcon } from "../blocks/ToolRun.tsx";
 import type { ThreadBlockIndex } from "../blocks/thread-blocks.tsx";
 import { StatusGlyph, type StatusKind } from "../components/status.tsx";
 import { useStoreState } from "../data/index.ts";
+import type { ReasoningStep } from "../data/state.ts";
 import { t } from "../i18n/core.ts";
 import { displaySummary } from "../lib/cards.ts";
 import { formatDuration } from "../lib/format.ts";
@@ -41,7 +43,28 @@ export type RunStep =
       label: string;
       approvalId: string;
     }
-  | { kind: "question"; id: string; at: number; status: StatusKind; label: string };
+  | { kind: "question"; id: string; at: number; status: StatusKind; label: string }
+  | {
+      kind: "thinking";
+      id: string;
+      at: number;
+      updatedAt: number;
+      status: StatusKind;
+      /** The first line, shown collapsed. */
+      label: string;
+      /** The whole text (or the provider's summary), shown expanded. */
+      full: string;
+    };
+
+/** The first non-empty line of a reasoning text, trimmed for one row. */
+function firstLine(text: string): string {
+  const line =
+    text
+      .split("\n")
+      .map((l) => l.replace(/^[#>*\-\s]+/, "").trim())
+      .find((l) => l !== "") ?? "";
+  return line.length > 140 ? `${line.slice(0, 139)}…` : line;
+}
 
 /** The run a log is about: its id and, once a `run.updated` has arrived, when it started. */
 export interface ActiveRun {
@@ -83,6 +106,8 @@ export function runSteps(input: {
   toolCalls: Readonly<Record<string, ToolCall>>;
   approvals: Readonly<Record<string, ApprovalRequest>>;
   questions: Readonly<Record<string, InputRequest>>;
+  /** Reasoning steps streamed by `chat.reasoning` (#633); none when the setting is off. */
+  reasoning?: Readonly<Record<string, ReasoningStep>>;
   index: ThreadBlockIndex | null;
   streamingText?: string | null;
 }): RunStep[] {
@@ -177,6 +202,19 @@ export function runSteps(input: {
           : t("chat.steps.answered", { question }),
     });
   }
+  for (const r of Object.values(input.reasoning ?? {})) {
+    if (r.runId !== run.id) continue;
+    const full = (r.summary ?? r.text).trim();
+    steps.push({
+      kind: "thinking",
+      id: r.stepId,
+      at: Date.parse(r.startedAt),
+      updatedAt: Date.parse(r.updatedAt),
+      status: r.done ? "done" : "running",
+      label: firstLine(full),
+      full,
+    });
+  }
   steps.sort((a, b) => a.at - b.at);
   // The reply itself is in the transcript above; the log only says that it is being written.
   if (input.streamingText)
@@ -196,6 +234,7 @@ export function lastActivity(run: ActiveRun, steps: readonly RunStep[]): number 
   for (const s of steps) {
     if (Number.isFinite(s.at)) last = Math.max(last, s.at);
     if (s.kind === "tool" && s.endedAt !== null) last = Math.max(last, s.endedAt);
+    if (s.kind === "thinking") last = Math.max(last, s.updatedAt);
   }
   return last;
 }
@@ -212,6 +251,7 @@ export function useRunSteps(
   const toolCalls = useStoreState((s) => s.toolCalls);
   const approvals = useStoreState((s) => s.approvals);
   const questions = useStoreState((s) => s.inputRequests);
+  const reasoning = useStoreState((s) => s.reasoning);
   return useMemo(() => {
     const run = activeRun(runs, threadId, writer);
     if (run === null) return { run, steps: [] };
@@ -224,11 +264,23 @@ export function useRunSteps(
         toolCalls,
         approvals,
         questions,
+        reasoning,
         index,
         streamingText,
       }),
     };
-  }, [runs, writer, threadId, messages, toolCalls, approvals, questions, index, streamingText]);
+  }, [
+    runs,
+    writer,
+    threadId,
+    messages,
+    toolCalls,
+    approvals,
+    questions,
+    reasoning,
+    index,
+    streamingText,
+  ]);
 }
 
 /** The working pulse on the current step (motion.md §4.6): stops within 5 s, static if reduced. */
@@ -249,9 +301,78 @@ function Pulse(): ReactElement {
 }
 
 function StepIcon({ step }: { step: RunStep }): ReactElement | null {
+  if (step.kind === "thinking")
+    return <Brain className="size-4 shrink-0 text-label-secondary" aria-hidden="true" />;
   if (step.kind !== "tool") return null;
   const Icon = toolIcon(step.tool);
   return <Icon className="size-4 shrink-0 text-label-secondary" aria-hidden="true" />;
+}
+
+/**
+ * A reasoning step (#633): "Thinking: <first line>" collapsed, the whole text on expand. It grows
+ * as deltas arrive and gets its check when the step is done.
+ */
+function ThinkingStep({
+  step,
+  current,
+}: {
+  step: Extract<RunStep, { kind: "thinking" }>;
+  current: boolean;
+}): ReactElement {
+  const [open, setOpen] = useState(false);
+  const id = `thinking-${step.id}`;
+  const expandable = step.full !== "" && step.full !== step.label;
+  return (
+    <>
+      <div className="flex min-h-6 items-center gap-2 text-body">
+        <StepIcon step={step} />
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          disabled={!expandable}
+          aria-expanded={expandable ? open : undefined}
+          aria-controls={expandable ? id : undefined}
+          className={cn(
+            "-ms-1 flex min-w-0 flex-1 cursor-default items-center gap-1 rounded-sm px-1 text-start outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-100",
+            expandable && "hover:bg-fill-tertiary",
+            current ? "text-label-primary" : "text-label-secondary",
+          )}
+        >
+          <span className="min-w-0 flex-1 truncate">
+            {step.label === ""
+              ? t("chat.steps.thinkingEmpty")
+              : t("chat.steps.thinking", { text: step.label })}
+          </span>
+          {expandable ? (
+            <ChevronRight
+              className={cn(
+                "size-3.5 shrink-0 text-label-tertiary transition-transform duration-(--spring-snappy-duration) ease-(--spring-snappy)",
+                open ? "rotate-90" : "rtl:rotate-180",
+              )}
+              aria-hidden="true"
+            />
+          ) : null}
+        </button>
+        {current && step.status === "running" ? (
+          <Pulse />
+        ) : (
+          <StatusGlyph
+            status={step.status}
+            label={t(`chat.steps.status.${step.status}`)}
+            className="[&_svg]:size-3.5"
+          />
+        )}
+      </div>
+      {open && expandable ? (
+        <p
+          id={id}
+          className="ms-6 mb-1 max-h-60 overflow-y-auto whitespace-pre-wrap text-callout text-label-secondary"
+        >
+          {step.full}
+        </p>
+      ) : null}
+    </>
+  );
 }
 
 /**
@@ -309,6 +430,19 @@ export function RunStepLog({
             const isCurrent = step === current;
             const failed = step.status === "failed";
             const done = step.kind === "tool" && step.endedAt !== null;
+            if (step.kind === "thinking")
+              return (
+                <m.li
+                  key={step.id}
+                  layout="position"
+                  className="flex flex-col"
+                  data-step={step.kind}
+                  data-status={step.status}
+                  {...fade}
+                >
+                  <ThinkingStep step={step} current={isCurrent} />
+                </m.li>
+              );
             const text = (
               <span
                 className={cn(
