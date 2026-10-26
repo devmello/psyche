@@ -143,3 +143,7 @@ Imports are data (security §8): ChatGPT and Claude exports (JSON shapes with `c
 - `sessions_search` needs the Gateway's transcript query (`TranscriptQuery`, S01).
 - Token counts are estimates; a real tokenizer per embedder is not wired.
 - A forgotten subject can come back if the owner states it again later (by design) or if an old transcript copy is flushed again; no "forgotten" list is kept, because storing the subject would defeat forgetting.
+
+## USER.md header fields
+
+The learner's extractor can tag a learned fact with a `field` (`name`, `timezone` as an IANA id, `work`, `home_city`) and a value. `learnUserFacts(…, { ownerWords: true })` then fills that `- Label:` line of the "About the owner" header in place (`profile-fields.ts`: latest owner words win, the same value is a no-op, every other byte is kept) and still appends the dated Learned line, now with `field:<name>`, as provenance. Without `ownerWords` (anything not typed by the owner) the field is dropped and the fact stays a plain Learned line. `repairUserHeader()` runs once at `init()` (marker `migration.userHeaderFields.v1` in `memory_state`) and fills still-empty fields from older untagged Learned lines. The Gateway reads the zone for "today", daily notes and automations from the Timezone line (`ownerTimeZone`) when `composeGateway` gets no `timeZone` option; a zone learned mid-run applies from the next start.
