@@ -921,6 +921,10 @@ void app.whenReady().then(async () => {
   });
   // A locked or sleeping Mac ends any voice conversation: the terminal stops and frees the mic,
   // and the voice HUD's window goes until the Mac is back.
+  handle(IPC.voiceScreenReader, () => app.isAccessibilitySupportEnabled());
+  app.on("accessibility-support-changed", (_event, on) => {
+    broadcast(IPC.voiceSystem, { event: "screenReader", on });
+  });
   powerMonitor.on("lock-screen", () => {
     broadcast(IPC.voiceSystem, { event: "lock" });
     voiceHud?.suspend();

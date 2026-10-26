@@ -141,6 +141,8 @@ const bridge = {
   voice: {
     onKey: (cb: (e: unknown) => void) => listen(IPC.voiceKey, cb),
     onSystem: (cb: (e: unknown) => void) => listen(IPC.voiceSystem, cb),
+    /** Whether VoiceOver is running; changes arrive on `onSystem` as `{event: "screenReader", on}`. */
+    screenReader: () => invoke(IPC.voiceScreenReader),
   },
   /** The voice HUD window only (`VoiceHudBridge`); main ignores these from any other renderer. */
   voiceHud: {

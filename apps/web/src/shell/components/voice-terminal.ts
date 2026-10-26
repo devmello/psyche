@@ -1,6 +1,7 @@
 import { readVoiceSettings, useSettings } from "@psyche/ui";
 import { useEffect, useMemo, useRef } from "react";
 import { useShell } from "../context.tsx";
+import { duckForScreenReader } from "../screen-reader.ts";
 import { microphoneSource } from "../voice.ts";
 import { VoiceConversationTerminal, webConversationPlayer } from "../voice-conversation.ts";
 
@@ -25,5 +26,7 @@ export function useShellVoiceTerminal(): VoiceConversationTerminal {
     [store],
   );
   useEffect(() => () => terminal.end(), [terminal]);
+  // VoiceOver speaking ducks the reply (§4.10).
+  useEffect(() => duckForScreenReader(terminal), [terminal]);
   return terminal;
 }

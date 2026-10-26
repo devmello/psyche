@@ -1,5 +1,6 @@
 import type { VoiceConversationMode } from "@psyche/protocol";
 import type { VoiceTerminal } from "@psyche/ui";
+import { SCREEN_READER_DUCK_VOLUME } from "./screen-reader.ts";
 import { BARGE_IN_PROFILE, EnergyVad } from "./vad.ts";
 import { type AudioSource, pcmChunkToBase64, toPcm16, VOICE_FORMAT } from "./voice.ts";
 
@@ -84,6 +85,7 @@ export class VoiceConversationTerminal implements VoiceTerminal {
   private tail: unknown = null;
   private suspect: unknown = null;
   private inputLevel = 0;
+  private screenReaderSpeaking = false;
   private player: ConversationPlayer | null = null;
   private offEvents: (() => void) | null = null;
   private readonly vad: EnergyVad;
@@ -130,6 +132,7 @@ export class VoiceConversationTerminal implements VoiceTerminal {
     this.conversationId = res.conversationId;
     this.sending = this.mode !== "push";
     this.player = this.o.player();
+    this.applyVolume();
     this.player.onFinished((utteranceId, playedMs) => this.report(utteranceId, playedMs, true));
     this.offEvents = this.o.tap((event, payload) => this.onEvent(event, payload));
     return res.conversationId;
@@ -253,13 +256,29 @@ export class VoiceConversationTerminal implements VoiceTerminal {
   /** Two-step barge-in (§4.2): duck and tell the Gateway; it confirms with a word or lets go. */
   private suspectBargeIn(): void {
     if (!this.player?.playing || this.suspect !== null) return;
-    this.player.setVolume(DUCK_VOLUME);
-    this.send("voice.conversation.interrupt", { stage: "suspect" });
     this.suspect = this.o.setTimer(() => {
       this.suspect = null;
-      this.player?.setVolume(1);
+      this.applyVolume();
       this.vad.reset();
     }, SUSPECT_MS);
+    this.applyVolume();
+    this.send("voice.conversation.interrupt", { stage: "suspect" });
+  }
+
+  /** VoiceOver is speaking (or stopped): the reply ducks under it (§4.10). */
+  setScreenReaderSpeaking(speaking: boolean): void {
+    this.screenReaderSpeaking = speaking;
+    this.applyVolume();
+  }
+
+  /** The quietest of the ducks in force: a suspected barge-in and a speaking screen reader. */
+  private applyVolume(): void {
+    this.player?.setVolume(
+      Math.min(
+        this.suspect !== null ? DUCK_VOLUME : 1,
+        this.screenReaderSpeaking ? SCREEN_READER_DUCK_VOLUME : 1,
+      ),
+    );
   }
 
   private interrupt(stage: "suspect" | "confirmed"): void {

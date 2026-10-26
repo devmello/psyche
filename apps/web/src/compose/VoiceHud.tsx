@@ -9,6 +9,7 @@ import {
 } from "@psyche/ui";
 import { type ReactElement, useEffect, useMemo, useRef, useState } from "react";
 import type { ShellPlatform } from "../shell/platform.ts";
+import { duckForScreenReader } from "../shell/screen-reader.ts";
 import { microphoneSource } from "../shell/voice.ts";
 import { VoiceConversationTerminal, webConversationPlayer } from "../shell/voice-conversation.ts";
 import { kitClient } from "./kit-client.ts";
@@ -83,6 +84,10 @@ function HudTerminal({
     [platform, terminal],
   );
   useEffect(() => () => built.end(), [built]);
+  useEffect(
+    () => (built instanceof VoiceConversationTerminal ? duckForScreenReader(built) : undefined),
+    [built],
+  );
   const slots = useMemo(() => ({ voiceTerminal: built }), [built]);
   return <UiSlotsProvider value={slots}>{children}</UiSlotsProvider>;
 }

@@ -81,6 +81,8 @@ export const IPC = {
   // voice key from the helper's watch, and screen lock / sleep, which end a conversation.
   voiceKey: "psyche:voice:key",
   voiceSystem: "psyche:voice:system",
+  // Whether a screen reader (VoiceOver) is running, so the reply ducks while it speaks (§4.10).
+  voiceScreenReader: "psyche:voice:screen-reader",
   // Voice HUD only (HUD → main): the conversation ended, or open its thread in Psyche.
   voiceHudDone: "psyche:voice-hud:done",
   voiceHudOpenThread: "psyche:voice-hud:open-thread",

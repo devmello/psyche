@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { SCREEN_READER_DUCK_VOLUME } from "../../src/shell/screen-reader.ts";
 import type { AudioSource } from "../../src/shell/voice.ts";
 import {
   type ConversationPlayer,
@@ -229,6 +230,29 @@ describe("VoiceConversationTerminal", () => {
       method: "voice.conversation.played",
       params: { utteranceId: "u1", playedMs: 900, done: true },
     });
+  });
+
+  it("ducks under a speaking screen reader, and keeps the quietest duck in force", async () => {
+    const s = setup();
+    await s.terminal.start({ threadId: null, mode: "handsfree" });
+    expect(s.p.volume).toBe(1);
+    s.terminal.setScreenReaderSpeaking(true);
+    expect(s.p.volume).toBe(SCREEN_READER_DUCK_VOLUME);
+    // A suspected barge-in on top: the quieter of the two wins, and releasing it keeps VoiceOver's.
+    s.emit("voice.conversation.speech", {
+      utteranceId: "u1",
+      seq: 0,
+      audio: pcmBase64,
+      format: { encoding: "pcm_s16le", sampleRate: 24000, channels: 1 },
+      last: true,
+    });
+    s.advance(5000);
+    for (let i = 0; i < 20; i++) s.mic.push(speech(480, 0.4), 16000);
+    expect(s.p.volume).toBe(Math.min(DUCK_VOLUME, SCREEN_READER_DUCK_VOLUME));
+    s.flush();
+    expect(s.p.volume).toBe(SCREEN_READER_DUCK_VOLUME);
+    s.terminal.setScreenReaderSpeaking(false);
+    expect(s.p.volume).toBe(1);
   });
 
   it("push-to-talk's key stops the reply at once (confirmed), and the Gateway ending releases all", async () => {
