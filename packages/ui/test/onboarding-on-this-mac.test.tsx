@@ -33,9 +33,16 @@ describe("onboarding: On this Mac vs Accounts (#640)", () => {
       "Apple Reminders",
       "Apple Mail",
       "Apple Notes",
+      "Shortcuts",
     ]);
-    for (const box of within(mac).getAllByRole("checkbox"))
-      expect(box.getAttribute("aria-checked")).toBe("true");
+    // The four defaults are selected; the rest (Shortcuts) are offered unselected.
+    expect(
+      within(mac)
+        .getAllByRole("checkbox")
+        .map((b) => b.getAttribute("aria-checked")),
+    ).toEqual(["true", "true", "true", "true", "false"]);
+    // Obsidian needs its vault chosen first: it is set up in Settings, not here.
+    expect(screen.queryByText("Obsidian")).toBeNull();
     // Accounts sign in online; the Mac's apps are not in their picker.
     expect(screen.getByRole("heading", { name: "Accounts" })).toBeTruthy();
     const picker = screen.getByLabelText("Account to connect") as HTMLSelectElement;
@@ -60,7 +67,7 @@ describe("onboarding: On this Mac vs Accounts (#640)", () => {
       within(macList())
         .getAllByRole("listitem")
         .map((r) => r.textContent),
-    ).toEqual(["Apple Mail"]);
+    ).toEqual(["Apple Mail", "Shortcuts"]);
   });
 
   it("waits on a missing macOS grant before asking for the next app", async () => {

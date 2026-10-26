@@ -1,6 +1,6 @@
-import type { Run, RunStatus, Usage } from "@psyche/protocol";
+import type { Run, RunBudget, RunKind, RunOrigin, RunStatus, Usage } from "@psyche/protocol";
 import { EMPTY_USAGE, PsycheError } from "@psyche/protocol";
-import { and, eq, inArray, notInArray } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt, notInArray, or, type SQL } from "drizzle-orm";
 import { runFromRow } from "../mappers.ts";
 import type { PsycheDb } from "../open.ts";
 import { runs } from "../schema.ts";
@@ -12,6 +12,17 @@ export interface NewRun {
   readonly attempt?: number;
   readonly status?: RunStatus;
   readonly startedAt?: string;
+  // Run trace (§4.2).
+  readonly kind?: RunKind;
+  readonly title?: string;
+  readonly parentRunId?: string | null;
+  readonly rootRunId?: string | null;
+  readonly taskId?: string | null;
+  readonly automationRunId?: string | null;
+  readonly origin?: RunOrigin;
+  readonly budget?: RunBudget;
+  readonly deadline?: string | null;
+  readonly specialist?: { role: string };
 }
 
 export function createRun(db: PsycheDb, input: NewRun): Run {
@@ -28,6 +39,16 @@ export function createRun(db: PsycheDb, input: NewRun): Run {
       usage: JSON.stringify(EMPTY_USAGE),
       createdAt: at,
       updatedAt: at,
+      kind: input.kind ?? null,
+      title: input.title ?? null,
+      parentRunId: input.parentRunId ?? null,
+      rootRunId: input.rootRunId ?? null,
+      taskId: input.taskId ?? null,
+      automationRunId: input.automationRunId ?? null,
+      origin: input.origin ?? null,
+      budget: input.budget === undefined ? null : JSON.stringify(input.budget),
+      deadline: input.deadline ?? null,
+      specialist: input.specialist === undefined ? null : JSON.stringify(input.specialist),
     })
     .returning()
     .get();
@@ -103,6 +124,84 @@ export function listRunsByStatus(db: PsycheDb, statuses: readonly RunStatus[]): 
     .select()
     .from(runs)
     .where(inArray(runs.status, [...statuses]))
+    .all()
+    .map(runFromRow);
+}
+
+/** The trace's view of a run: what changes as steps arrive (run trace §4.2). */
+export interface RunTracePatch {
+  readonly kind?: RunKind;
+  readonly title?: string;
+  readonly origin?: RunOrigin;
+  readonly taskId?: string | null;
+  readonly automationRunId?: string | null;
+  readonly stepCount?: number;
+  readonly currentStepId?: string | null;
+  readonly lastStepAt?: string | null;
+  readonly note?: string | null;
+  readonly budget?: RunBudget;
+}
+
+/** Updates a run's trace fields; it never touches status, so a finished run can still gain them. */
+export function patchRunTrace(db: PsycheDb, id: string, patch: RunTracePatch): Run | undefined {
+  const set: Partial<typeof runs.$inferInsert> = { updatedAt: db.now() };
+  if (patch.kind !== undefined) set.kind = patch.kind;
+  if (patch.title !== undefined) set.title = patch.title;
+  if (patch.origin !== undefined) set.origin = patch.origin;
+  if (patch.taskId !== undefined) set.taskId = patch.taskId;
+  if (patch.automationRunId !== undefined) set.automationRunId = patch.automationRunId;
+  if (patch.stepCount !== undefined) set.stepCount = patch.stepCount;
+  if (patch.currentStepId !== undefined) set.currentStepId = patch.currentStepId;
+  if (patch.lastStepAt !== undefined) set.lastStepAt = patch.lastStepAt;
+  if (patch.note !== undefined) set.note = patch.note;
+  if (patch.budget !== undefined) set.budget = JSON.stringify(patch.budget);
+  const row = db.drizzle.update(runs).set(set).where(eq(runs.id, id)).returning().get();
+  return row === undefined ? undefined : runFromRow(row);
+}
+
+export interface RunListFilter {
+  readonly status?: readonly RunStatus[];
+  readonly kind?: RunKind;
+  readonly threadId?: string;
+  readonly taskId?: string;
+  readonly parentRunId?: string;
+  readonly rootRunId?: string;
+  /** Runs whose `automation_run_id` is one of these (the caller joins the automation). */
+  readonly automationRunIds?: readonly string[];
+  readonly since?: string;
+  /** Keyset cursor: runs strictly older than this `(startedAt, id)`. */
+  readonly before?: { startedAt: string; id: string };
+  readonly limit: number;
+}
+
+/** Runs newest first (`runs.list`). */
+export function listRuns(db: PsycheDb, f: RunListFilter): Run[] {
+  const where: SQL[] = [];
+  if (f.status !== undefined && f.status.length > 0)
+    where.push(inArray(runs.status, [...f.status]));
+  if (f.kind !== undefined) where.push(eq(runs.kind, f.kind));
+  if (f.threadId !== undefined) where.push(eq(runs.threadId, f.threadId));
+  if (f.taskId !== undefined) where.push(eq(runs.taskId, f.taskId));
+  if (f.parentRunId !== undefined) where.push(eq(runs.parentRunId, f.parentRunId));
+  if (f.rootRunId !== undefined) where.push(eq(runs.rootRunId, f.rootRunId));
+  if (f.automationRunIds !== undefined) {
+    if (f.automationRunIds.length === 0) return [];
+    where.push(inArray(runs.automationRunId, [...f.automationRunIds]));
+  }
+  if (f.since !== undefined) where.push(gte(runs.startedAt, f.since));
+  if (f.before !== undefined) {
+    const older = or(
+      lt(runs.startedAt, f.before.startedAt),
+      and(eq(runs.startedAt, f.before.startedAt), lt(runs.id, f.before.id)),
+    );
+    if (older !== undefined) where.push(older);
+  }
+  return db.drizzle
+    .select()
+    .from(runs)
+    .where(where.length === 0 ? undefined : and(...where))
+    .orderBy(desc(runs.startedAt), desc(runs.id))
+    .limit(f.limit)
     .all()
     .map(runFromRow);
 }

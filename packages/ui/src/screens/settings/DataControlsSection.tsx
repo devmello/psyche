@@ -66,7 +66,13 @@ export function DataControlsPanel({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [resetting, setResetting] = useState(defaultResetting);
   const [typed, setTyped] = useState("");
-  const retention = String(num(values, "data.replayRetentionDays", 30));
+  // Run trace §4.3: both default to 7 days; 0 is Off.
+  const retention = String(num(values, "data.replayRetentionDays", 7));
+  const reasoning = String(num(values, "data.reasoningRetentionDays", 7));
+  const days = (n: number) => ({
+    value: String(n),
+    label: n === 0 ? t("common.off") : t("settings.data.days", { n }),
+  });
   return (
     <SectionFrame
       needsApproval={needsApproval}
@@ -104,16 +110,22 @@ export function DataControlsPanel({
             onChange={(v) => onChange("data.transcriptRecall", v)}
           />
           <RadioField
+            label={t("settings.key.data.reasoningRetentionDays")}
+            description={t("settings.data.reasoningRetentionHint")}
+            inline
+            value={reasoning}
+            settingKey="data.reasoningRetentionDays"
+            onChange={(v) => onChange("data.reasoningRetentionDays", Number(v))}
+            options={[0, 1, 7, 30].map(days)}
+          />
+          <RadioField
             label={t("settings.key.data.replayRetentionDays")}
+            description={t("settings.data.replayRetentionHint", { persona })}
             inline
             value={retention}
             settingKey="data.replayRetentionDays"
             onChange={(v) => onChange("data.replayRetentionDays", Number(v))}
-            options={[
-              { value: "7", label: t("settings.data.days", { n: 7 }) },
-              { value: "30", label: t("settings.data.days", { n: 30 }) },
-              { value: "90", label: t("settings.data.days", { n: 90 }) },
-            ]}
+            options={[0, 1, 7, 30, 90].map(days)}
           />
         </Group>
 

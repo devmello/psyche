@@ -21,6 +21,17 @@ export interface AppleCalendar {
     writable: boolean;
 }
 
+export interface AppleCalendarChangedEvent {
+    at: string;
+    /**
+     * EKEventStoreChanged notifications folded into this event
+     */
+    coalesced: number;
+    type:      AppleCalendarChangedEventType;
+}
+
+export type AppleCalendarChangedEventType = "calendar.changed";
+
 export interface AppleCalendarDeleteEventParams {
     id: string;
     /**
@@ -173,6 +184,9 @@ export interface AppleCalendarListEventsParams {
      */
     query?: string;
     to:     string;
+}
+
+export interface AppleCalendarWatchParams {
 }
 
 export interface AppleContact {
@@ -2577,35 +2591,13 @@ export interface Scopes {
     read_act: string[];
 }
 
-export interface ConnectorsConnectParams {
-    catalogueId:  string;
-    config?:      { [key: string]: unknown };
-    connectorId?: string;
-    label?:       string;
-    scopeMode:    ScopeMode;
+export interface ConnectorsConfigureParams {
+    config:      { [key: string]: unknown };
+    connectorId: string;
 }
 
-export type ScopeMode = "read" | "read_act";
-
-export interface ConnectorsConnectResult {
-    authorization?: ConnectorAuthorization;
-    connector:      Connector;
-}
-
-export interface ConnectorAuthorization {
-    /**
-     * Epoch ms
-     */
-    expiresAt: number;
-    opened:    boolean;
-    /**
-     * https consent page, or the device-code verification page
-     */
-    url: string;
-    /**
-     * Device code flow: the code to enter
-     */
-    userCode?: string;
+export interface ConnectorsConfigureResult {
+    connector: Connector;
 }
 
 export interface Connector {
@@ -2627,7 +2619,38 @@ export interface Connector {
     updatedAt: string;
 }
 
+export type ScopeMode = "read" | "read_act";
+
 export type ConnectorStatus = "connected" | "disconnected" | "error" | "needs_auth";
+
+export interface ConnectorsConnectParams {
+    catalogueId:  string;
+    config?:      { [key: string]: unknown };
+    connectorId?: string;
+    label?:       string;
+    scopeMode:    ScopeMode;
+}
+
+export interface ConnectorsConnectResult {
+    authorization?: ConnectorAuthorization;
+    connector:      Connector;
+}
+
+export interface ConnectorAuthorization {
+    /**
+     * Epoch ms
+     */
+    expiresAt: number;
+    opened:    boolean;
+    /**
+     * https consent page, or the device-code verification page
+     */
+    url: string;
+    /**
+     * Device code flow: the code to enter
+     */
+    userCode?: string;
+}
 
 export interface ConnectorsDisconnectParams {
     connectorId: string;
@@ -6898,6 +6921,23 @@ export interface AudioFormat {
 
 export type Encoding = "pcm_s16le" | "pcm_f32le" | "opus" | "mp3" | "wav" | "caf";
 
+export interface SpeechProgressEvent {
+    /**
+     * Chunks finished
+     */
+    chunk:    number;
+    chunks:   number;
+    fraction: number;
+    /**
+     * Audio transcribed so far
+     */
+    processedMs: number;
+    totalMs:     number;
+    type:        SpeechProgressEventType;
+}
+
+export type SpeechProgressEventType = "speech.progress";
+
 export interface SpeechReadAloudCancelParams {
     streamId: string;
 }
@@ -6930,6 +6970,60 @@ export interface SpeechReadAloudParams {
 
 export interface SpeechReadAloudResult {
     streamId: string;
+}
+
+export interface SpeechTranscribeFileParams {
+    /**
+     * BCP-47 tag (default: the Mac's locale)
+     */
+    locale?: string;
+    /**
+     * Refuse longer files (default and ceiling 4 h)
+     */
+    maxDurationMs?: number;
+    /**
+     * Absolute path of an audio file in a granted folder or the Library (m4a, caf, wav, aiff,
+     * mp3, …)
+     */
+    path: string;
+    /**
+     * Names and terms; selects DictationTranscriber with contextual strings
+     */
+    vocabulary?: string[];
+}
+
+export interface SpeechTranscribeFileResult {
+    /**
+     * Duration of the file
+     */
+    audioMs: number;
+    /**
+     * How many chunks the file was split into
+     */
+    chunks: number;
+    engine: SpeechNodeEngine;
+    /**
+     * BCP-47 tag of the locale used
+     */
+    language: string;
+    /**
+     * Final segments in time order
+     */
+    segments: TranscriptSegment[];
+    text:     string;
+}
+
+export type SpeechNodeEngine = "speechAnalyzer" | "dictationTranscriber" | "sfSpeech";
+
+export interface TranscriptSegment {
+    confidence?: number;
+    endMs:       number;
+    /**
+     * false = volatile partial a later segment replaces
+     */
+    final:   boolean;
+    startMs: number;
+    text:    string;
 }
 
 export interface SpeechVoicesParams {
@@ -8346,17 +8440,6 @@ export interface Transcript {
     language?: string;
     segments:  TranscriptSegment[];
     text:      string;
-}
-
-export interface TranscriptSegment {
-    confidence?: number;
-    endMs:       number;
-    /**
-     * false = volatile partial a later segment replaces
-     */
-    final:   boolean;
-    startMs: number;
-    text:    string;
 }
 
 export interface VoicePushParams {
