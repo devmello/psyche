@@ -127,18 +127,20 @@ export function PeopleSheetSection({
       loops.length === 0 ? (
         <p className="px-3 py-2 text-body text-label-secondary">{t("people.empty.loops")}</p>
       ) : (
-        loops.map((l) => (
-          <LoopRow
-            key={l.id}
-            loop={loopView(l, names)}
-            now={now}
-            busy={busy}
-            onUpdate={(loop, status) =>
-              act(() => call("memory.loops.update", { id: loop.id, status }))
-            }
-            {...(openExternal ? { onOpenLink: (link: string) => void openExternal(link) } : {})}
-          />
-        ))
+        <div className="flex flex-col">
+          {loops.map((l) => (
+            <LoopRow
+              key={l.id}
+              loop={loopView(l, names)}
+              now={now}
+              busy={busy}
+              onUpdate={(loop, status) =>
+                act(() => call("memory.loops.update", { id: loop.id, status }))
+              }
+              {...(openExternal ? { onOpenLink: (link: string) => void openExternal(link) } : {})}
+            />
+          ))}
+        </div>
       );
   } else {
     const rows = (found.data?.entities ?? []).filter((e) => !e.isOwner);
