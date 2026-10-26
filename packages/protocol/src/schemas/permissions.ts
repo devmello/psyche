@@ -93,6 +93,10 @@ export const ApprovalRequest = Type.Object(
       threadId: Nullable(Id),
       toolCallId: Type.Optional(Id),
       agent: Type.Optional(Type.String()),
+      /** The run that spawned the requesting specialist, for the card's context line. */
+      parentRunId: Type.Optional(Id),
+      /** The requesting specialist's role, when a specialist asks. */
+      specialist: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
     }),
     sideEffect: Type.Optional(SideEffect),
     targetKind: Type.Optional(TargetKind),
@@ -112,6 +116,17 @@ export const ApprovalRequest = Type.Object(
     expiresAt: IsoDateTime,
     decidedAt: Nullable(IsoDateTime),
     grantId: Nullable(Id),
+    /**
+     * The card writes a lesson (teaching loop §3.3: SOUL.md, AGENTS.md, boundaries, automation
+     * changes): the card shows "Because you said: …" with the owner's words.
+     */
+    fromLesson: Type.Optional(
+      Type.Object({
+        lessonId: Id,
+        feedbackId: Id,
+        because: Type.String({ maxLength: 500, description: "The owner's feedback text" }),
+      }),
+    ),
   },
   { $id: "ApprovalRequest" },
 );

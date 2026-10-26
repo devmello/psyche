@@ -1,14 +1,12 @@
 import type { MethodResult } from "@psyche/protocol";
-import * as m from "motion/react-m";
 import { type ReactElement, useEffect, useMemo } from "react";
+import { Sparkline } from "../components/sparkline.tsx";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "../components/ui/hover-card.tsx";
 import { useGatewayQuery, useStoreState } from "../data/index.ts";
 import { activeI18n, t } from "../i18n/core.ts";
 import { formatTime } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
-import { motionSpring, spring } from "../motion/tokens.ts";
 import { tokens as formatTokens, usd } from "../screens/settings/UsageSection.tsx";
-import { useReducedMotion } from "../theme/ThemeProvider.tsx";
 
 /**
  * Usage under the persona's name (#599): a quiet second line and a small graphic, from the
@@ -91,55 +89,6 @@ export function usageLine(s: UsageSummaryData, primarySubscription?: boolean): s
 function series(s: UsageSummaryData, lead: UsageLead): number[] {
   return s.days.map((d) =>
     lead === "api" && s.days.some((x) => x.costUsd > 0) ? d.costUsd : d.tokens,
-  );
-}
-
-/** A one-path 7-day sparkline, no axes (caption size). It draws in unless motion is reduced. */
-export function Sparkline({
-  values,
-  width = 40,
-  height = 14,
-}: {
-  values: readonly number[];
-  width?: number;
-  height?: number;
-}): ReactElement {
-  const reduce = useReducedMotion();
-  const max = Math.max(...values, 0);
-  const n = values.length;
-  const pad = 1.5;
-  const points = values.map((v, i) => {
-    const x = n <= 1 ? width / 2 : pad + (i * (width - pad * 2)) / (n - 1);
-    const y = max === 0 ? height - pad : height - pad - (v / max) * (height - pad * 2);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-  const d = points.length > 0 ? `M${points.join(" L")}` : "";
-  const last = points.at(-1)?.split(",").map(Number);
-  return (
-    <svg
-      width={width}
-      height={height}
-      viewBox={`0 0 ${width} ${height}`}
-      aria-hidden="true"
-      className="shrink-0 overflow-visible text-accent-9"
-      data-testid="usage-sparkline"
-    >
-      {d ? (
-        <m.path
-          d={d}
-          fill="none"
-          stroke="currentColor"
-          strokeOpacity={max === 0 ? 0.3 : 0.6}
-          strokeWidth={1.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          initial={reduce ? false : { pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={motionSpring(spring.gentle)}
-        />
-      ) : null}
-      {last && max > 0 ? <circle cx={last[0]} cy={last[1]} r={1.75} fill="currentColor" /> : null}
-    </svg>
   );
 }
 
@@ -245,7 +194,9 @@ export function UsageGraphic({
   if (budget !== null) return <BudgetBar fraction={budget} width={mini ? 20 : 40} />;
   // A week with no usage draws nothing rather than a flat line.
   if (summary.days.every((d) => d.turns === 0)) return null;
-  return <Sparkline values={series(summary, lead)} width={mini ? 20 : 40} />;
+  return (
+    <Sparkline values={series(summary, lead)} width={mini ? 20 : 40} testId="usage-sparkline" />
+  );
 }
 
 /** A model reference as people read it: `anthropic/claude-sonnet-5-5` → `claude-sonnet-5-5`. */

@@ -114,6 +114,24 @@ export type AgentEvent =
       summary?: string;
       done?: boolean;
     }
+  /**
+   * A background specialist this run spawned (docs/agent/specialists-2026.md §6.1): the run
+   * trace's `subagent` step, updated as the child works and when it delivers.
+   */
+  | {
+      type: "subagent";
+      runId: string;
+      messageId: string;
+      /** The spawn call's tool-call id. */
+      toolCallId: string;
+      taskId: string;
+      childRunId: string | null;
+      status: "queued" | "working" | "needs_you" | "done" | "partial" | "failed" | "cancelled";
+      label: string;
+      /** The child's last step label. */
+      progress?: string;
+      usage?: { tokens: number; costUsd: number | null; wallMs: number };
+    }
   | {
       type: "tool_call";
       runId: string;

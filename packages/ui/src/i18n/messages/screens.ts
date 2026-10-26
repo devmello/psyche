@@ -216,6 +216,7 @@ export const screens = {
   "screens.inbox.kind.approval": "Approval",
   "screens.inbox.kind.input_needed": "Input",
   "screens.inbox.kind.task_done": "Done",
+  "screens.inbox.kind.specialist_result": "Result",
   "screens.inbox.kind.task_failed": "Failed",
   "screens.inbox.kind.proactive": "Idea",
   "screens.inbox.kind.briefing": "Brief",

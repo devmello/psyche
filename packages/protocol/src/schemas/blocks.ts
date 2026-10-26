@@ -142,6 +142,24 @@ export const LearnedBlock = Type.Object(
   { $id: "LearnedBlock" },
 );
 
+/**
+ * The teaching loop (docs/agent/teaching-loop-2026.md §5.1): "Psyche will remember: …" under the
+ * message the owner corrected, with Undo (`memory.lessons.forget`) and Change
+ * (`memory.lessons.edit`). `lessonId` is null when Psyche only noted the feedback.
+ */
+export const TaughtBlock = Type.Object(
+  {
+    type: Type.Literal("taught"),
+    feedbackId: Id,
+    lessonId: Nullable(Id),
+    /** The lesson statement, or null with "Thanks. Psyche noted it." */
+    statement: Nullable(Type.String({ maxLength: 300 })),
+    /** The message the feedback was about. */
+    messageId: Id,
+  },
+  { $id: "TaughtBlock" },
+);
+
 export const Block = Type.Union(
   [
     TextBlock,
@@ -158,6 +176,7 @@ export const Block = Type.Union(
     RelatedThreadsBlock,
     CompactionBlock,
     LearnedBlock,
+    TaughtBlock,
   ],
   { $id: "Block" },
 );

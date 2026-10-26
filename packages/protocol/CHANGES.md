@@ -27,12 +27,46 @@ For S15 (W, #670), the skills (S, #671), the UI (U, #672) and the helper (H, #67
 - `AutomationKind` gains `event`; `Automation.trigger`; `AutomationRun.trigger` gains `event`; `AutomationRun.events`; `UpcomingItem.trigger` / `lastRunAt`.
 - `FeedPost.kind`, `FeedPost.refs`, `FeedPost.card`.
 - New methods `proposals.list | get | approve | dismiss | undo`; new event `proposal.updated`. Follow-ups use the memory graph's loops (`GraphLoop`, `memory.loops.*`, #650), not a second store.
+### v1 additive — 2026-10-26 (S09 for S14 #719: Things auth token)
+
+- `ThingsUpdateParams.authToken?` and `ThingsCompleteParams.authToken?`: Things' URL-scheme auth token, which the Gateway fills in from the vault for that call only. The model never writes it, no card shows it, and the helper neither logs nor stores it.
+
+### v1 additive — 2026-10-25 (E, #678: the teaching loop)
+
+For T1 (#679), T2 (#680) and T3 (#681), docs/agent/teaching-loop-2026.md §3 and §7. All new fields are optional and all new schemas are new names.
+
+- Schemas (`schemas/learning.ts`): `FeedbackKind`, `FeedbackTarget`, `FeedbackReason`, `FeedbackScope`, `FeedbackEvent`, `LessonKind`, `LessonOrigin`, `LessonStatus`, `LessonScope`, `LessonDestination`, `Lesson`, `LessonRef`, `GrowthWindow`, `GrowthMetric`, `Milestone`, `GrowthItem`, `GrowthSummary`, `GrowthCardItem`, `GrowthCard`, `TeachingImplicitSignals`, and `TEACHING_SETTING_DEFAULTS` for the keys `teaching.enabled`, `teaching.implicit`, `teaching.surfaces`, `teaching.paused`, `teaching.weeklyCard`.
+- Methods: `feedback.give / list / delete`, `memory.lessons.list / get / confirm / edit / forget / forgetAll` (forgetAll presence-gated, operator.admin), `growth.summary`.
+- Events: `feedback.recorded`, `lesson.changed`, `growth.updated`.
+- Block `taught` ("Psyche will remember: …").
+- Optional fields: `Message.lessonsApplied`, `Task.lessonsApplied`, `FeedPost.growth` (the weekly card), `chat.send` `redo { messageId, instruction?, withoutLessons? }`, `ApprovalRequest.fromLesson { lessonId, feedbackId, because }`.
+### v1 additive — 2026-10-25 (S01, #660: run trace T1)
+
+For T2 (#661), T3 (#662) and S02's specialists: the step model of docs/design/run-trace-2026.md §4. Everything is optional or new; old clients ignore `run.step`.
+
+- `RunStep` (`schemas/runs.ts`) with `RunStepKind`, `RunStepStatus`, `RunStepError`, `RunStepAttempt` and `RUN_STEP_LIMITS`; `RunSummary` (Run fields + `currentStep`, `activity` (12 buckets), `durationsMs`); `RunFrame`; `RunTraceFormat`.
+- `Run` gains `kind` (`RunKind`), `origin` (`RunOrigin`), `title`, `parentRunId`, `rootRunId`, `taskId`, `automationRunId`, `stepCount`, `currentStepId`, `lastStepAt`, `budget` (`RunBudget`, the shape S02's specialists use), `deadline`, `specialist {role}`, `note`. These are the shared Run fields S02's specialists protocol reuses.
+- `ToolCall.stepId`; `AutomationRun.runId` and `usage`; `BrowserRecording.runId`; `memory.file.changed` gains `runId` and `stepId`.
+- Methods `runs.get | steps | list | children | step | frames | frame | export` (`operator.read`) and `runs.delete` (`operator.write`, side-effecting).
+- Event `run.step {runId, step}`: an upsert per change, never carrying thinking text or payload bodies.
+- `psyche-trace+json` v1 (`PsycheTrace`, `TraceStep`, `TraceRun`, `TraceChild`) and the shared recipe `buildPsycheTrace` / `traceMarkdown` / `traceAttributes` (OTel GenAI attribute names), used by the Gateway's `runs.export` and the MockGateway.
+
 ### v1 additive — 2026-10-25 (S07 memory: people and projects graph, #650)
 
 - New schemas in `schemas/graph.ts` (docs/memory/people-and-projects-2026.md §4, §6.1): `GraphEntityKind`, `GraphEntityStatus`, `GraphProjectStatus`, `GraphIdentifierKind`, `GraphIdentifier`, `GraphFactAttribute` (allowlist; no sensitive traits), `GraphRelationshipLabel`, `GraphWriteSource`, `GraphFact` (provenance, evidence, validity, supersession), `GraphEdgeRel`, `GraphEdge`, `GraphInteractionKind`, `GraphParticipantRole`, `GraphInteraction` (headers and links, no bodies), `GraphLoopStatus`, `GraphLoop`, `GraphEntity`, `EntitySummary`, `GraphEntityDetail`, `GraphSuggestion`, `GraphSource`, `GraphStatus`.
 - New methods: `memory.entities.search | get | interactions | create | update | facts.set | facts.retract | edges.set | edges.retract | history | merge | split | suggestions | suggestions.answer | forget` (`forget` is `operator.admin`), `memory.loops.list | update`, `memory.graph.status`.
 - New events: `memory.entity.updated`, `memory.loop.updated`, `memory.suggestion.created`.
 - `SearchIndexDocKind` gains `person` and `project`; `SearchScope` and `SearchGroup` gain `people` and `projects` (the search package and the Search screen's exhaustive maps get matching entries).
+### v1 additive — 2026-10-26 (S02, #682: background specialists)
+
+Depends on the run-trace T1 additions (#660), which carry the shared `Run` fields (`kind`, `origin`, `parentRunId`, `rootRunId`, `taskId`, `budget: RunBudget`, `deadline`, `specialist {role}`), `RunSummary` and `runs.children`.
+
+- `schemas/specialists.ts`: `SpecialistSpec` (the `Task.specialist` block: role, parent ids, model, resolved tools, permission mode, `RunBudget` (retried spend in `budget.used.retried`), deadline, inputs, delivery, `planFirst`, queue position, result), `SpecialistResult` (outcome `done | partial | failed | cancelled`, summary ≤ 600, findings ≤ 12, artifacts, `next` ≤ 2, gaps, receipts, `tainted`, `stopReason`, evaluator verdict, defaults used), `SpecialistInputs`, `ApprovalHint`, `SpecialistRole` and `SpecialistJob` (status `queued | working | needs_you | done | partial | failed | cancelled`).
+- `Task.specialist?`, `TaskCreateInput.specialist?`, `ApprovalRequest.requestedBy.parentRunId?` / `.specialist?`, `NotificationKind` gains `specialist_result`, `Automation.specialist? {role, budget?, deliver?}`.
+- Methods `specialists.list`, `specialists.jobs`, `tasks.steer` (side-effecting) and `tasks.update` (side-effecting, owner-only budget or deadline change).
+- Events `specialist.spawned`, `specialist.progress` (≤ 1/s, labels only) and `specialist.result`.
+- `AgentEvent` gains `{type: "subagent", runId, messageId, toolCallId, taskId, childRunId, status, label, progress?, usage?}`, the run trace's `subagent` step.
+- Fakes: `FakeTaskEngine` stores `specialist`; `FakeAgentLoop` scripts the new event.
 
 ### v1 additive — 2026-10-25 (S09, #637: Apple app capabilities, wave 1)
 

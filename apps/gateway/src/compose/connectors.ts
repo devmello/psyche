@@ -1,6 +1,7 @@
 import {
   type AppleHelper,
   appleFactories,
+  type BusyBlock,
   type CatalogueEntry,
   COMING_SOON,
   type ConnectorEvent,
@@ -14,30 +15,36 @@ import {
   customConnectorHandlers,
   customFactory,
   type FetchFn,
+  findFreeSlots,
   googleFactory,
   type ImapBackendOptions,
   imapFactory,
   jmapFactory,
   type LibrarySink,
+  obsidianFactory,
   REMOTE_MCP_PRESETS,
   SqliteConnectorStore,
   type StoredTokens,
   type TokenVault,
+  toolName,
   toWire,
   type WebFetchFactoryOptions,
   type WebSearchFactoryOptions,
 } from "@psyche/connectors";
+import { assertGranted, assertNoSymlinks, assertNotProtected } from "@psyche/files";
 import {
   type CredentialBroker,
   type CredentialRevokedEvent,
   isMethodName,
   PsycheError,
+  type ToolRegistration,
 } from "@psyche/protocol";
 import { VaultTokenVault } from "@psyche/vault";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Gateway } from "../server.ts";
 import { fetchLimit, taskOrigins } from "./fetch-origins.ts";
 import { type MailCredentials, mailCredentials } from "./mail-credentials.ts";
+import { protectedRoots } from "./protected-paths.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -128,7 +135,20 @@ function defaultFactories(
 ): ConnectorFactory[] {
   const factories = [
     // Apple Notes, Reminders, Calendar and Mail through the paired Mac helper (#528).
-    ...appleFactories({ helper }),
+    // Things' auth token (#719) is a vault item read under the same once-per-credential card.
+    ...appleFactories({
+      helper,
+      approveCredential: (req, run) => mail.approve({ ...req, purpose: "tool" }, run),
+    }),
+    // Obsidian (#639): the vault is a shared folder; every path passes the same checks as the
+    // file tools (granted folder and its mode, protected roots, no symlinks).
+    obsidianFactory({
+      access: async (path, mode) => {
+        assertNotProtected(path, protectedRoots(services.home));
+        assertGranted(path, services.rawBroker.policy.folders ?? [], mode);
+        await assertNoSymlinks(path);
+      },
+    }),
     googleFactory({
       openBrowser: setup.openBrowser ?? noBrowser,
       ...(setup.oauthTimeoutMs === undefined ? {} : { timeoutMs: setup.oauthTimeoutMs }),
@@ -384,6 +404,8 @@ export function composeConnectors(
     }
   };
 
+  const unregisterFreeTime = services.tools.register(freeTimeTool(services, registry));
+
   return {
     registry,
     mail,
@@ -411,11 +433,104 @@ export function composeConnectors(
       timer.unref?.();
     },
     async stop() {
+      unregisterFreeTime();
       unregisterDraft();
       unsubscribeRevoked();
       if (timer !== undefined) clearInterval(timer);
       timer = undefined;
       await registry.close();
+    },
+  };
+}
+
+/** Busy blocks out of Apple Calendar's (`{blocks | busy}` or a list) or Google's free/busy. */
+function busyFrom(output: unknown): BusyBlock[] {
+  const isBlock = (b: unknown): b is BusyBlock =>
+    typeof (b as BusyBlock)?.start === "string" && typeof (b as BusyBlock)?.end === "string";
+  if (Array.isArray(output)) return output.filter(isBlock);
+  if (output === null || typeof output !== "object") return [];
+  const o = output as Record<string, unknown>;
+  for (const key of ["blocks", "busy"]) {
+    if (Array.isArray(o[key])) return (o[key] as unknown[]).filter(isBlock);
+  }
+  // Google: { calendars: { <id>: { busy: [...] } } } (or the same map at the top level).
+  const map = (o.calendars ?? o) as Record<string, { busy?: unknown }>;
+  return Object.values(map).flatMap((c) => (Array.isArray(c?.busy) ? c.busy.filter(isBlock) : []));
+}
+
+/**
+ * `calendar_find_free_time` (§6, C2): free slots across every connected calendar (Apple Calendar
+ * and Google), through each connector's own read tool, so their policy and receipts apply.
+ */
+function freeTimeTool(services: ComposeServices, registry: ConnectorRegistry): ToolRegistration {
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return {
+    spec: {
+      name: "calendar_find_free_time",
+      description:
+        "Find free time across all connected calendars (Apple Calendar, Google) between from and to: slots of durationMinutes inside working hours (default 09:00–17:00, Monday–Friday, the Mac's time zone), earliest first. Use before proposing or blocking a time.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          from: { type: "string", format: "date-time" },
+          to: { type: "string", format: "date-time" },
+          durationMinutes: { type: "integer", minimum: 5, maximum: 1440 },
+          workStart: { type: "string", pattern: "^([01]\\d|2[0-3]):[0-5]\\d$" },
+          workEnd: { type: "string", pattern: "^([01]\\d|2[0-3]):[0-5]\\d$" },
+          days: { type: "array", items: { type: "integer", minimum: 0, maximum: 6 }, maxItems: 7 },
+          bufferMinutes: { type: "integer", minimum: 0, maximum: 120 },
+          timeZone: { type: "string" },
+          limit: { type: "integer", minimum: 1, maximum: 50 },
+        },
+        required: ["from", "to", "durationMinutes"],
+        additionalProperties: false,
+      },
+      sideEffect: "read",
+      provenanceOut: "trusted",
+    },
+    async execute(callId, params, signal) {
+      const p = (params ?? {}) as {
+        from: string;
+        to: string;
+        durationMinutes: number;
+        workStart?: string;
+        workEnd?: string;
+        days?: number[];
+        bufferMinutes?: number;
+        timeZone?: string;
+        limit?: number;
+      };
+      const calendars = (await registry.list()).filter(
+        (r) => r.status === "connected" && (r.type === "apple:calendar" || r.type === "google"),
+      );
+      const busy: BusyBlock[] = [];
+      const used: string[] = [];
+      for (const r of calendars) {
+        const tool = services.tools.get(toolName(r.id, "calendar_free_busy"));
+        if (tool === undefined) continue;
+        const args =
+          r.type === "google"
+            ? { timeMin: p.from, timeMax: p.to, calendarIds: ["primary"] }
+            : { from: p.from, to: p.to };
+        const res = await tool.execute(`${callId}:${r.id}`, args, signal, () => {});
+        if (res.isError === true) continue;
+        busy.push(...busyFrom(res.output));
+        used.push(r.label);
+      }
+      if (used.length === 0) {
+        throw new PsycheError(
+          "unavailable",
+          "Connect a calendar first (Apple Calendar or Google)",
+          {
+            details: { reason: "no_calendar" },
+          },
+        );
+      }
+      const slots = findFreeSlots(busy, { ...p, timeZone: p.timeZone ?? zone });
+      return {
+        output: { slots, calendars: used, timeZone: p.timeZone ?? zone },
+        provenance: "trusted",
+      };
     },
   };
 }

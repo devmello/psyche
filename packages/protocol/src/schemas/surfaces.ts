@@ -1,5 +1,6 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, JsonObject, ModelRef, Nullable, StringEnum, Surface } from "../common.ts";
+import { GrowthCard } from "./learning.ts";
 import { FeedPostKind, FeedPostRefs, WorkflowCard } from "./workflows.ts";
 
 /** Data model §8 (proactive), §9 (library), §10 (usage, settings). */
@@ -34,6 +35,8 @@ export const FeedPost = Type.Object(
     refs: Type.Optional(FeedPostRefs),
     /** Structured content for workflow cards (digest, meeting prep, meeting notes). */
     card: Type.Optional(WorkflowCard),
+    /** Set on the weekly "What I learned" post (teaching loop §5.4): its review items. */
+    growth: Type.Optional(GrowthCard),
   },
   { $id: "FeedPost" },
 );
@@ -116,6 +119,7 @@ export const NotificationKind = StringEnum(
     "briefing",
     "reminder",
     "system",
+    "specialist_result",
   ],
   { $id: "NotificationKind" },
 );

@@ -71,6 +71,15 @@ export const NOTIFICATION_KIND: Record<
     tone: TONE.danger,
     status: "failed",
   },
+  // The full specialist result card is #685; until then it reads like a finished task.
+  specialist_result: {
+    get label() {
+      return t("screens.inbox.kind.specialist_result");
+    },
+    icon: CircleCheck,
+    tone: TONE.success,
+    status: "done",
+  },
   proactive: {
     get label() {
       return t("screens.inbox.kind.proactive");
