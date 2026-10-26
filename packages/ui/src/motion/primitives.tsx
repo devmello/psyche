@@ -1,7 +1,7 @@
 import { AnimatePresence, type HTMLMotionProps, useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
 import type { ReactElement, ReactNode } from "react";
-import { duration, ease, motionSpring, spring } from "./tokens.ts";
+import { duration, ease, easeLinear, motionSpring, spring } from "./tokens.ts";
 
 /**
  * Enter/exit helpers for content (docs/design/motion.md §4.1): fade plus an 8 px rise on
@@ -134,7 +134,7 @@ export function WorkingPulse({ className }: { className?: string }): ReactElemen
         ? {}
         : {
             animate: { opacity: PULSE_KEYFRAMES },
-            transition: { duration: seconds(duration.pulse) * PULSE_CYCLES, ease: "linear" },
+            transition: { duration: seconds(duration.pulse) * PULSE_CYCLES, ease: easeLinear },
           })}
     />
   );

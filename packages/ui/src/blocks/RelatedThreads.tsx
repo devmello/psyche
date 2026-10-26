@@ -25,7 +25,7 @@ export function RelatedThreads({ block }: { block: BlockOf<"related_threads"> })
       >
         <ChevronRight
           className={cn(
-            "size-3.5 transition-transform duration-120",
+            "size-3.5 transition-transform duration-(--duration-micro) ease-(--ease-standard)",
             open ? "rotate-90" : "rtl:rotate-180",
           )}
           aria-hidden="true"

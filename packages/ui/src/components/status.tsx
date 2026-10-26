@@ -16,7 +16,7 @@ import { useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
 import { type ReactElement, useRef } from "react";
 import { cn } from "../lib/utils.ts";
-import { duration, motionSpring, spring } from "../motion/tokens.ts";
+import { duration, easeLinear, motionSpring, spring } from "../motion/tokens.ts";
 
 export type StatusKind =
   | "running"
@@ -91,7 +91,7 @@ export function StatusGlyph({
           initial={animate ? { opacity: 0, scale: status === "done" ? 0.8 : 1 } : false}
           animate={{ opacity: 1, scale: 1 }}
           transition={{
-            opacity: { duration: duration.short / 1000, ease: "linear" },
+            opacity: { duration: duration.short / 1000, ease: easeLinear },
             scale: motionSpring(spring.micro),
           }}
         >

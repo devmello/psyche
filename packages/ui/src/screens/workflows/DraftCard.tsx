@@ -4,6 +4,7 @@ import { type ReactElement, useEffect, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
+import { easeLinear } from "../../motion/index.ts";
 import { CloudChip, TaintChip, WorkflowCardFrame } from "./shared.tsx";
 import { DRAFT_TONES, type DraftTone, type DraftView } from "./types.ts";
 
@@ -156,7 +157,7 @@ export function DraftCard({
                     className="absolute inset-x-0 bottom-0 h-0.5 origin-left bg-accent-9"
                     initial={{ scaleX: 0 }}
                     animate={{ scaleX: 1 }}
-                    transition={{ duration: armDelayMs / 1000, ease: "linear" }}
+                    transition={{ duration: armDelayMs / 1000, ease: easeLinear }}
                     aria-hidden="true"
                   />
                 ) : null}

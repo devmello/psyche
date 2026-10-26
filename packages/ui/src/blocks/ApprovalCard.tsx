@@ -26,7 +26,7 @@ import { describeError } from "../i18n/errors.ts";
 import { formatCountdown, formatRelative } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
-import { fade, motionSpring, spring } from "../motion/index.ts";
+import { easeLinear, fade, motionSpring, spring } from "../motion/index.ts";
 import { roleLabel } from "../specialists/model.ts";
 import { ApprovalDetails, ApprovalIds } from "./approval-details.tsx";
 
@@ -552,7 +552,7 @@ export function ApprovalCard({
                 className="absolute inset-x-0 bottom-0 h-0.5 origin-left bg-accent-9"
                 initial={{ scaleX: 0 }}
                 animate={{ scaleX: 1 }}
-                transition={{ duration: armDelayMs / 1000, ease: "linear" }}
+                transition={{ duration: armDelayMs / 1000, ease: easeLinear }}
                 aria-hidden="true"
                 data-testid="approval-arming"
               />
