@@ -143,6 +143,45 @@ describe("the shell's one sidebar (redesign §5.1)", () => {
   });
 });
 
+describe("the sidebar toggle and the compact rail (#598)", () => {
+  it("puts the toggle at the sidebar's top on the web, and keeps it when the sidebar hides", async () => {
+    window.history.replaceState(null, "", "/feed");
+    const { platform } = platformWith();
+    render(<ShellApp platform={platform} />);
+    const sidebar = screen.getByRole("navigation", { name: "Sidebar" });
+    fireEvent.click(within(sidebar).getByRole("button", { name: "Hide the sidebar" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("shell").getAttribute("data-sidebar")).toBe("collapsed"),
+    );
+    const show = screen.getByRole("button", { name: "Show the sidebar" });
+    expect(show.getAttribute("aria-expanded")).toBe("false");
+    expect(show.closest('[data-testid="content"]')).not.toBeNull();
+  });
+
+  it("⌥⌘B switches to the 64 px rail and back, remembered with the width", async () => {
+    window.history.replaceState(null, "", "/feed");
+    const { platform, storage } = platformWith();
+    const { unmount } = render(<ShellApp platform={platform} />);
+    await press({ key: "∫", code: "KeyB", ctrlKey: true, altKey: true });
+    const shell = screen.getByTestId("shell");
+    await waitFor(() => expect(shell.getAttribute("data-sidebar-mode")).toBe("rail"));
+    expect(storage.get("shell.sidebar.mode")).toBe("rail");
+    expect(screen.getByRole("navigation", { name: "Sidebar" }).style.width).toBe("64px");
+    // ⌘B still hides and shows it; it comes back as the rail.
+    await press({ key: "b", code: "KeyB", ctrlKey: true });
+    await waitFor(() => expect(shell.getAttribute("data-sidebar")).toBe("collapsed"));
+    unmount();
+    render(<ShellApp platform={platform} />);
+    const again = screen.getByTestId("shell");
+    expect(again.getAttribute("data-sidebar")).toBe("collapsed");
+    expect(again.getAttribute("data-sidebar-mode")).toBe("rail");
+    await press({ key: "∫", code: "KeyB", ctrlKey: true, altKey: true });
+    await waitFor(() => expect(again.getAttribute("data-sidebar")).toBe("open"));
+    expect(again.getAttribute("data-sidebar-mode")).toBe("full");
+    expect(storage.get("shell.sidebar.mode")).toBe("full");
+  });
+});
+
 describe("the agent sheet's routes (redesign §5.7)", () => {
   it("keeps the chat mounted under /agent/*", async () => {
     expect(isChatRoute("/agent/activity")).toBe(true);

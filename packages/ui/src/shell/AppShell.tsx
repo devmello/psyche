@@ -14,7 +14,13 @@ import {
 } from "./motion.tsx";
 import { destinationFor, type RailItem, TabBar } from "./Rail.tsx";
 import { ShortcutList } from "./ShortcutList.tsx";
-import { ConnectedSidebar, clampSidebarWidth, SIDEBAR_WIDTH, SidebarToggle } from "./Sidebar.tsx";
+import {
+  ConnectedSidebar,
+  clampSidebarWidth,
+  SIDEBAR_WIDTH,
+  type SidebarMode,
+  SidebarToggle,
+} from "./Sidebar.tsx";
 import { type ShortcutId, useShortcuts } from "./shortcuts.ts";
 import { ThreadList } from "./ThreadList.tsx";
 import { ThreadsDrawer } from "./ThreadsDrawer.tsx";
@@ -52,6 +58,8 @@ export interface AppShellProps {
   /** Starts with the sidebar collapsed (⌘B toggles it). */
   defaultSidebarOpen?: boolean;
   defaultSidebarWidth?: number;
+  /** Starts as the full sidebar or the icon-only rail (⌥⌘B switches; #598). */
+  defaultSidebarMode?: SidebarMode;
   /** Forces the compact layout (stories); otherwise it follows the window width. */
   compact?: boolean;
   now?: number;
@@ -73,6 +81,7 @@ export function AppShell({
   railBadges,
   defaultSidebarOpen = true,
   defaultSidebarWidth = SIDEBAR_WIDTH.default,
+  defaultSidebarMode = "full",
   compact: forceCompact,
   now,
 }: AppShellProps): ReactElement {
@@ -80,6 +89,7 @@ export function AppShell({
   const compact = forceCompact ?? narrow;
   const threads = useThreads();
   const [sidebarOpen, setSidebarOpen] = useState(defaultSidebarOpen);
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>(defaultSidebarMode);
   const [sidebarWidth, setSidebarWidth] = useState(clampSidebarWidth(defaultSidebarWidth));
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -113,6 +123,11 @@ export function AppShell({
     palette: () => setPaletteOpen(true),
     newSideChat: () => void newSideChat(),
     toggleThreadList: () => (compact ? setDrawerOpen((o) => !o) : setSidebarOpen((o) => !o)),
+    compactSidebar: () => {
+      if (compact) return;
+      setSidebarMode((m) => (m === "rail" ? "full" : "rail"));
+      setSidebarOpen(true);
+    },
     stop: () => {
       if (thread.running) void thread.cancel();
     },
@@ -139,6 +154,16 @@ export function AppShell({
     />
   );
 
+  // The toolbar's leading toggle (#598): in the sidebar's top row while it shows, at the content
+  // column's start when it hides, so it stays in one place.
+  const toggle = (
+    <SidebarToggle
+      open={sidebarOpen}
+      onToggle={() => setSidebarOpen((o) => !o)}
+      mode={sidebarMode}
+      onModeChange={setSidebarMode}
+    />
+  );
   const content =
     chatMatch && threadId ? (
       <ChatThread threadId={threadId} {...(now === undefined ? {} : { now })} />
@@ -172,6 +197,9 @@ export function AppShell({
                 onNewSideChat={() => void newSideChat()}
                 width={sidebarWidth}
                 onWidthChange={setSidebarWidth}
+                mode={sidebarMode}
+                onModeChange={setSidebarMode}
+                header={toggle}
                 {...(now === undefined ? {} : { now })}
               />
             </SidebarPresence>
@@ -182,12 +210,9 @@ export function AppShell({
               sidebarOpen ? (
                 header
               ) : (
-                // Collapsed: the toggle sits at the header's start (redesign §4).
-                <div className="relative [&>header]:ps-13">
-                  <SidebarToggle
-                    onClick={() => setSidebarOpen(true)}
-                    className="absolute top-3.5 start-3 z-10"
-                  />
+                // Collapsed: the toggle keeps its place at the window's start (redesign §4).
+                <div className="relative [&>:last-child]:ps-16">
+                  <span className="absolute top-3.5 start-2 z-10">{toggle}</span>
                   {header}
                 </div>
               )

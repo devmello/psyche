@@ -6,7 +6,9 @@ import {
   ReflowColumn,
   RouteTransition,
   ShellMotion,
+  SIDEBAR_RAIL,
   SIDEBAR_WIDTH,
+  type SidebarMode,
   SidebarPresence,
   SidebarToggle,
   TabBar,
@@ -144,6 +146,11 @@ export interface SidebarSlotProps {
   onNew: () => void;
   width: number;
   onWidthChange: (width: number) => void;
+  /** Full sidebar or the icon-only rail (#598). */
+  mode: SidebarMode;
+  onModeChange: (mode: SidebarMode) => void;
+  /** A row above the destinations: the sidebar toggle where there is no title bar (web). */
+  header?: ReactNode;
 }
 
 export interface PaletteSlotProps {
@@ -157,6 +164,7 @@ export interface PaletteSlotProps {
 /** Persisted sidebar state (redesign §5.1: the width is remembered; ⌘B too). */
 const SIDEBAR_WIDTH_KEY = "shell.sidebar.width";
 const SIDEBAR_OPEN_KEY = "shell.sidebar.open";
+const SIDEBAR_MODE_KEY = "shell.sidebar.mode";
 
 /** What the chat slot needs from the shell to drive the agent header (§3.1). */
 export interface ChatSlotContext {
@@ -253,6 +261,9 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   const [sidebarOpen, setSidebarOpen] = useState(
     () => platform.storage.get(SIDEBAR_OPEN_KEY) !== "false",
   );
+  const [sidebarMode, setSidebarModeState] = useState<SidebarMode>(() =>
+    platform.storage.get(SIDEBAR_MODE_KEY) === "rail" ? "rail" : "full",
+  );
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const stored = Number(platform.storage.get(SIDEBAR_WIDTH_KEY));
     return stored > 0 ? clampSidebarWidth(stored) : SIDEBAR_WIDTH.default;
@@ -274,11 +285,19 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   const env = useCallback(
     (): LayoutEnv => ({
       width,
-      contentWidth: Math.max(0, width - (!sidebarOpen || compact ? 0 : sidebarWidth)),
+      contentWidth: Math.max(
+        0,
+        width -
+          (!sidebarOpen || compact
+            ? 0
+            : sidebarMode === "rail"
+              ? SIDEBAR_RAIL.width
+              : sidebarWidth),
+      ),
       now: () => new Date().toISOString(),
       newId,
     }),
-    [width, compact, sidebarOpen, sidebarWidth, newId],
+    [width, compact, sidebarOpen, sidebarMode, sidebarWidth, newId],
   );
 
   // Desktop: Settings live in their own window (⌘,; docs/design/redesign-2026.md §4, §5.8).
@@ -316,6 +335,18 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       return !open;
     });
   }, [platform]);
+  const setSidebarMode = useCallback(
+    (mode: SidebarMode) => {
+      setSidebarModeState(mode);
+      platform.storage.set(SIDEBAR_MODE_KEY, mode);
+    },
+    [platform],
+  );
+  // ⌥⌘B: the rail and the full sidebar, showing it if it was hidden (#598).
+  const toggleSidebarMode = useCallback(() => {
+    setSidebarMode(sidebarMode === "rail" ? "full" : "rail");
+    if (!sidebarOpen) toggleSidebar();
+  }, [setSidebarMode, sidebarMode, sidebarOpen, toggleSidebar]);
   const resizeSidebar = useCallback(
     (w: number) => {
       const next = clampSidebarWidth(w);
@@ -457,6 +488,9 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
           if (compact) setDrawerOpen((o) => !o);
           else toggleSidebar();
           return true;
+        case "toggleCompactSidebar":
+          if (!compact) toggleSidebarMode();
+          return true;
         case "openBrowserPane":
           dispatch({ type: "open", pane: "browser" });
           return true;
@@ -536,6 +570,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       store,
       compact,
       toggleSidebar,
+      toggleSidebarMode,
     ],
   );
 
@@ -642,6 +677,18 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       ? t("web.threads.mainChat")
       : parent.title || t("web.threads.sideChat")
     : null;
+  // The toolbar's leading toggle (redesign §4, #598): click hides or shows the sidebar (⌘B),
+  // ⌥-click or its menu switches to the compact rail (⌥⌘B). On the desktop it sits in the title
+  // bar after the traffic lights, in both states.
+  const sidebarToggle = (
+    <SidebarToggle
+      open={sidebarOpen}
+      onToggle={toggleSidebar}
+      mode={sidebarMode}
+      onModeChange={setSidebarMode}
+      className="shell-sidebar-toggle"
+    />
+  );
   const openThread = (id: string) => navigate(`/chat/${id}`);
   const threadsFor = (onOpen: (id: string) => void) =>
     slots.threadList ? (
@@ -658,20 +705,24 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       onNew: newSideChat,
       width: sidebarWidth,
       onWidthChange: resizeSidebar,
+      mode: sidebarMode,
+      onModeChange: setSidebarMode,
+      ...(inset ? {} : { header: sidebarToggle }),
     })
   ) : (
     <ShellSidebar
       route={route}
       onNavigate={navigate}
-      width={sidebarWidth}
-      {...(onChat ? { threads: threadsFor(openThread) } : {})}
+      width={sidebarMode === "rail" ? SIDEBAR_RAIL.width : sidebarWidth}
+      rail={sidebarMode === "rail"}
+      {...(inset ? {} : { header: sidebarToggle })}
+      {...(onChat && sidebarMode !== "rail" ? { threads: threadsFor(openThread) } : {})}
       {...(inset ? {} : { footer: <GatewayPill status={status} /> })}
     />
   );
-  const showSidebarButton =
-    !compact && !sidebarOpen ? (
-      <SidebarToggle onClick={toggleSidebar} className="shell-sidebar-toggle" />
-    ) : null;
+  // Without a title bar (web) the toggle shows only while the sidebar is hidden; in the sidebar's
+  // own top row otherwise, at the same spot.
+  const showSidebarButton = !compact && !sidebarOpen ? sidebarToggle : null;
   const content =
     onChat && slots.chat && threadId ? (
       slots.chat(threadId, {
@@ -712,7 +763,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
             {t("web.shell.skipToContent")}
           </a>
           <TitleBar chrome={platform.chrome}>
-            {inset ? showSidebarButton : null}
+            {inset && !compact ? sidebarToggle : null}
             {/* A side chat names where it came from (redesign §5.4). */}
             {forkedFrom ? (
               <span
@@ -751,6 +802,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
             className="shell shell-sidebar-layout"
             data-compact={compact}
             data-sidebar={compact ? "drawer" : sidebarOpen ? "open" : "collapsed"}
+            data-sidebar-mode={sidebarMode}
             data-testid="shell"
           >
             {compact ? null : (

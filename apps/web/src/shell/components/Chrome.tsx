@@ -59,6 +59,10 @@ export function ShellSidebar(props: {
   /** Shown above Settings (the web client's connection pill). */
   footer?: ReactNode;
   width: number;
+  /** The icon-less compact rail (#598): destinations by initial, named in full for assistive tech. */
+  rail?: boolean;
+  /** A row above the destinations (the sidebar toggle). */
+  header?: ReactNode;
 }): ReactElement {
   // `/agent/*` belongs to Chat: the agent sheet opens over the chat.
   const current = destinationFor(props.route);
@@ -68,7 +72,11 @@ export function ShellSidebar(props: {
       style={{ width: props.width }}
       aria-label={t("shell.sidebar.label")}
       data-testid="sidebar"
+      data-mode={props.rail ? "rail" : "full"}
     >
+      {props.header ? (
+        <div className="flex h-14 shrink-0 items-center px-2">{props.header}</div>
+      ) : null}
       <span className="px-3 pb-1">
         <PsycheMark size={20} withWordmark={false} />
       </span>
@@ -79,9 +87,11 @@ export function ShellSidebar(props: {
               type="button"
               className={rowClass}
               aria-current={destinationFor(i.route) === current ? "page" : undefined}
+              aria-label={props.rail ? i.label : undefined}
+              title={props.rail ? i.label : undefined}
               onClick={() => props.onNavigate(i.route)}
             >
-              {i.label}
+              {props.rail ? i.label.slice(0, 1) : i.label}
             </button>
           </li>
         ))}

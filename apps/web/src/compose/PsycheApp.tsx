@@ -416,15 +416,18 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
         agentRoute(route, navigate) ??
         screenRoute(route, navigate),
       // The 2026 sidebar (redesign §5.1); the compact drawer shows its threads alone (§5.11).
-      sidebar: ({ route, navigate, threadId, onOpenThread, onNew, width, onWidthChange }) => (
+      sidebar: (p) => (
         <ConnectedSidebar
-          route={route}
-          onNavigate={navigate}
-          activeThreadId={threadId}
-          onOpenThread={onOpenThread}
-          onNewSideChat={onNew}
-          width={width}
-          onWidthChange={onWidthChange}
+          route={p.route}
+          onNavigate={p.navigate}
+          activeThreadId={p.threadId}
+          onOpenThread={p.onOpenThread}
+          onNewSideChat={p.onNew}
+          width={p.width}
+          onWidthChange={p.onWidthChange}
+          mode={p.mode}
+          onModeChange={p.onModeChange}
+          {...(p.header ? { header: p.header } : {})}
         />
       ),
       threadList: ({ threadId, onOpen, onNew }) => (

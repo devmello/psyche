@@ -59,34 +59,20 @@
   flex: none;
 }
 
-/* Shows the collapsed sidebar again (also ⌘B); the toolbar hosts it on the desktop. */
-.shell-sidebar-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 0;
-  border-radius: var(--radius-sm, 6px);
-  background: transparent;
-  color: var(--label-secondary, currentColor);
-}
-.shell-sidebar-toggle:hover {
-  background: var(--fill-quaternary, transparent);
-}
-.shell-sidebar-toggle:focus-visible {
-  outline: 2px solid var(--ring, currentColor);
-  outline-offset: 1px;
-}
+/*
+  The sidebar toggle (#598): the toolbar's leading control. The desktop hosts it in the title bar
+  after the traffic lights; on the web it sits in the sidebar's top row and, while the sidebar is
+  hidden, at the same spot over the content column.
+*/
 .shell-content > .shell-sidebar-toggle {
   position: absolute;
   top: 14px;
-  inset-inline-start: 12px;
+  inset-inline-start: 8px;
   z-index: 2;
 }
-/* Room for it at the start of the chat's header row while the sidebar is collapsed. */
-.shell-sidebar-layout[data-sidebar="collapsed"] [data-testid="kit-chat"] > header:first-child {
-  padding-inline-start: 52px;
+/* Room for it at the start of the chat's header row while the sidebar is hidden. */
+.shell-sidebar-layout[data-sidebar="collapsed"] [data-testid="kit-chat"] > :first-child {
+  padding-inline-start: 64px;
 }
 
 /*
