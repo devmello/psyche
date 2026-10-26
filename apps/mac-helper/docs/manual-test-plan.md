@@ -231,6 +231,9 @@ Spike 06 restarted a 16 GB host under two guests plus an install. Never run thes
 | 12.11a | Files wave 1 (§4.8) with ~/Downloads granted: `files.recent {folder: "~/Downloads", contentTypes: ["pdf"]}` after downloading two PDFs and an image | The two PDFs, newest added first, with `added` and `contentType` |
 | 12.11b | `files.move {items: [{path: <pdf>, to: "~/Downloads/Bills", name: "2026-10 bill.pdf"}]}`; repeat with a name that exists; move to a folder outside the grants | Moved and renamed; `file_exists`, nothing moved; `outside_granted_folders` |
 | 12.11c | `files.trash {paths: [<file>, <symlink to a file elsewhere>]}`, then Put Back in Finder | Both in the Trash (the link's target untouched); Put Back restores them; the Trash is not emptied |
+| 12.12a | Shortcuts wave 1 (§4.9): `shortcuts.list {}` | Every shortcut with its id, folder, accepts input and action count (Automation of Shortcuts Events asked once); if refused, names and ids from the CLI |
+| 12.12b | `shortcuts.run {id: <a shortcut that returns a dictionary>}`, `{id: <one with text input>, input: "hi"}`, `{id: <one with a Wait 30 s>, timeoutSeconds: 5}` | `outputType: json`; the text echoed back; `timeout` after 5 s |
+| 12.12c | `apps.shortcut_run {name}` and `apps.shortcuts_list {}` | Same behaviour as before (names) |
 | 12.6a | Mail wave 1 (apple-apps-2026 §4.1): `mail.mailboxes {}` | Every account's mailboxes, nested ones as `Parent/Child`, unread counts match Mail's sidebar; the unified `INBOX` first; `special` set for inbox / sent / drafts / junk / trash / archive |
 | 12.6b | Select two messages in Mail, `mail.selected {}`; then quit Mail and call it again | The two, newest first, each with a `message://` link that opens it; with Mail quit: `[]` and Mail stays closed |
 | 12.6c | `mail.read {id}` on a message with attachments | `summary.link` opens the message from a reminder; `attachments` lists names, sizes and types (nothing saved) |

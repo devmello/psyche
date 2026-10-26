@@ -24,6 +24,8 @@ public enum AppleAppsCapabilities {
         public var chrome: any ChromeBackend
         /// Files wave 1 (F3): moves an item to the Trash and returns where it went.
         public var trash: @Sendable (URL) throws -> URL?
+        /// Shortcuts wave 1 (K1–K2).
+        public var shortcuts: any ShortcutsBackend
 
         public init(
             calendar: any CalendarBackend, reminders: any RemindersBackend, mail: any MailBackend, notes: any NotesBackend,
@@ -36,7 +38,8 @@ public enum AppleAppsCapabilities {
                 var out: NSURL?
                 try FileManager.default.trashItem(at: url, resultingItemURL: &out)
                 return out as URL?
-            }
+            },
+            shortcuts: any ShortcutsBackend = LiveShortcutsBackend()
         ) {
             self.calendar = calendar
             self.reminders = reminders
@@ -50,6 +53,7 @@ public enum AppleAppsCapabilities {
             self.music = music
             self.chrome = chrome
             self.trash = trash
+            self.shortcuts = shortcuts
         }
 
         /// `$PSYCHE_HOME/helper/staging` (0700).
@@ -66,7 +70,7 @@ public enum AppleAppsCapabilities {
     }
 
     public static func make(_ b: Backends) -> [any CapabilityHandler] {
-        calendar(b) + calendarWave1(b) + reminders(b) + remindersWave1(b) + mail(b) + notes(b) + finder(b) + safari(b) + contactsWave1(b) + musicWave1(b) + filesWave1(b)
+        calendar(b) + calendarWave1(b) + reminders(b) + remindersWave1(b) + mail(b) + notes(b) + finder(b) + safari(b) + contactsWave1(b) + musicWave1(b) + filesWave1(b) + shortcutsWave1(b)
     }
 
     // MARK: Helpers
@@ -436,6 +440,40 @@ public enum AppleAppsCapabilities {
                 }
                 let now = try await b.music.play(kind: p.kind, id: p.id, shuffle: p.shuffle)
                 return CapabilityOutput(untrusted(["nowPlaying": try json(now)]), receipt: ReceiptDraft(outcome: .ok, summary: "Playing a \(p.kind)"))
+            },
+        ]
+    }
+
+    // MARK: Shortcuts wave 1 (docs/connectors/apple-apps-2026.md §4.9, K1–K2)
+
+    struct ShortcutsRun: Decodable {
+        var id: String
+        var input: String?
+        var timeoutSeconds: Int?
+    }
+
+    static func shortcutsWave1(_ b: Backends) -> [any CapabilityHandler] {
+        [
+            Capability(CapabilitySpec(
+                name: "shortcuts.list", description: "The owner's shortcuts by name: id, folder, whether it accepts input, action count. Read-only.",
+                sideEffect: .read
+            )) { _ in untrustedList("shortcuts", try json(try await b.shortcuts.list())) },
+            Capability(CapabilitySpec(
+                name: "shortcuts.run",
+                description: "Run one of the owner's shortcuts by id (from shortcuts.list) with optional text input; returns its output as text (outputType json when it is JSON). Hard timeout 1–120 s (default 60). Its effects are unknown, so it always asks unless the owner allowed this shortcut. Output is untrusted.",
+                sideEffect: .destructive, targetKind: .app,
+                inputSchema: Schema.object(["id": Schema.string("Shortcut identifier (UUID)", maxLength: 64), "input": Schema.string(maxLength: 100_000),
+                                            "timeoutSeconds": Schema.integer(min: 1, max: ShortcutsWave1.maxTimeout)], required: ["id"]),
+                receiptKind: "shortcut_run"
+            )) { ctx in
+                let p = try ctx.decode(ShortcutsRun.self)
+                guard ShortcutsWave1.isId(p.id) else { throw CapabilityError.invalidParams("id is a shortcut identifier (UUID) from shortcuts.list", field: "id") }
+                try text(p.input, max: 100_000, field: "input")
+                let t = p.timeoutSeconds ?? ShortcutsWave1.defaultTimeout
+                guard (1...ShortcutsWave1.maxTimeout).contains(t) else { throw CapabilityError.invalidParams("timeoutSeconds is 1–120", field: "timeoutSeconds") }
+                let out = try await b.shortcuts.run(p.id, input: p.input, timeout: TimeInterval(t))
+                return CapabilityOutput(untrusted(["result": try json(ShortcutsWave1.result(out))]),
+                                        receipt: ReceiptDraft(outcome: .ok, summary: "Ran a shortcut", externalRefs: ["shortcutId": .string(p.id)]))
             },
         ]
     }

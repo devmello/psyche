@@ -181,6 +181,19 @@ private final class Fakes: CalendarBackend, RemindersBackend, MailBackend, Notes
     func reveal(_ path: String) async throws { lock.withLock { revealed.append(path) } }
 }
 
+final class FakeShortcuts: ShortcutsBackend, @unchecked Sendable {
+    let lock = NSLock()
+    var runs: [(String, String?, TimeInterval)] = []
+    var output = #"{"temp": 18}"#
+    func list() async throws -> [ShortcutRecord] {
+        [ShortcutRecord(id: "8C2B6E61-1A2B-4C3D-9E8F-001122334455", name: "Log water", folder: "Health", acceptsInput: true, actionCount: 3)]
+    }
+    func run(_ nameOrId: String, input: String?, timeout: TimeInterval) async throws -> String {
+        lock.withLock { runs.append((nameOrId, input, timeout)) }
+        return output
+    }
+}
+
 /// Stands in for the Trash: moves into its own folder, so tests never touch the owner's Trash.
 final class TrashLog: @unchecked Sendable {
     let lock = NSLock()
@@ -266,12 +279,13 @@ private struct Harness {
     let player = FakeMusic()
     let chrome = FakeChrome()
     let trashed = TrashLog()
+    let shortcuts = FakeShortcuts()
     init(roots: [String] = []) {
         let f = fakes
         let st = staging
         registry = CapabilityRegistry(AppleAppsCapabilities.make(.init(
             calendar: f, reminders: f, mail: f, notes: f, safari: f, finder: f, roots: { FinderRoots(roots: roots) }, staging: { st }, contacts: people,
-            music: player, chrome: chrome, trash: { [trashed] url in try trashed.trash(url) })))
+            music: player, chrome: chrome, trash: { [trashed] url in try trashed.trash(url) }, shortcuts: shortcuts)))
     }
     func invoke(_ name: String, _ params: JSONValue = [:], approvalId: String? = nil) async throws -> CapabilityOutput {
         let h = try #require(registry[name])
@@ -306,6 +320,8 @@ struct AppleAppsTests {
             "safari.tab_text", "safari.add_reading_list", "chrome.tabs", "chrome.current_tab",
             // Files wave 1 (§4.8).
             "files.recent", "files.move", "files.rename", "files.trash",
+            // Shortcuts wave 1 (§4.9).
+            "shortcuts.list", "shortcuts.run",
         ]
         let h = Harness()
         #expect(Set(h.registry.ordered.map(\.spec.name)) == matrix)
@@ -313,7 +329,7 @@ struct AppleAppsTests {
                            "mail.reply_draft", "mail.forward_draft", "mail.send_draft", "mail.set_flags", "mail.move", "mail.save_attachments",
                            "reminders.complete", "reminders.set_flagged", "notes.append", "notes.update", "contacts.create", "contacts.update",
                            "music.control", "music.play", "safari.add_reading_list", "files.move", "files.rename"]
-        let destructive: Set = ["reminders.delete", "calendar.delete_event", "files.trash"]
+        let destructive: Set = ["reminders.delete", "calendar.delete_event", "files.trash", "shortcuts.run"]
         for c in h.registry.ordered {
             let expected: SideEffect = destructive.contains(c.spec.name) ? .destructive : writes.contains(c.spec.name) ? .write : .read
             #expect(c.spec.sideEffect == expected, "\(c.spec.name)")
@@ -567,13 +583,13 @@ struct MailWave1RulesTests {
 /// Opt in with PSYCHE_OSACOMPILE=1.
 @Suite("Mail script compiles")
 struct MailScriptCompileTests {
-    @Test(arguments: ["mail", "notes", "reminders", "music", "spotify", "music-library", "safari", "chrome"]) func compiles(_ app: String) throws {
+    @Test(arguments: ["mail", "notes", "reminders", "music", "spotify", "music-library", "safari", "chrome", "shortcuts"]) func compiles(_ app: String) throws {
         guard ProcessInfo.processInfo.environment["PSYCHE_OSACOMPILE"] == "1" else { return }
         let src = FileManager.default.temporaryDirectory.appendingPathComponent("\(app)-\(UUID().uuidString).applescript")
         let text = ["mail": MailScriptingBackend.source, "notes": NotesScriptingBackend.source, "reminders": EventKitBackend.flagScript,
                     "music": MusicScriptingBackend.source("music"), "spotify": MusicScriptingBackend.source("spotify"),
                     "music-library": MusicScriptingBackend.libraryScript, "safari": SafariScriptingBackend.source,
-                    "chrome": ChromeScriptingBackend.source][app]!
+                    "chrome": ChromeScriptingBackend.source, "shortcuts": LiveShortcutsBackend.source][app]!
         try text.write(to: src, atomically: true, encoding: .utf8)
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/osacompile")
@@ -959,5 +975,37 @@ struct FilesWave1Tests {
         let (g, _) = try layout()
         let h = Harness(roots: [g.path])
         _ = try decode([AppleFileItem].self, try await h.invoke("files.recent", ["folder": .string(g.path)]).result["files"])
+    }
+}
+
+@Suite("Shortcuts wave 1 (apple-apps-2026 §4.9)")
+struct ShortcutsWave1Tests {
+    @Test func listAndRun() async throws {
+        let h = Harness()
+        let list = try decode([ShortcutRecord].self, try await h.invoke("shortcuts.list").result["shortcuts"])
+        #expect(list.first?.acceptsInput == true && list.first?.folder == "Health")
+        let r = try await h.invoke("shortcuts.run", ["id": "8C2B6E61-1A2B-4C3D-9E8F-001122334455", "input": "250 ml"])
+        #expect(r.result["result"]?["outputType"] == "json" && r.result["provenance"] == "untrusted")
+        #expect(h.shortcuts.runs.first?.2 == 60 && h.shortcuts.runs.first?.1 == "250 ml")
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("shortcuts.run", ["id": "--help"]) }
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("shortcuts.run", ["id": "8C2B6E61-1A2B-4C3D-9E8F-001122334455", "timeoutSeconds": 600]) }
+    }
+
+    @Test func outputsDecodeAsTheGeneratedProtocolTypes() async throws {
+        let h = Harness()
+        _ = try decode([AppleShortcut].self, try await h.invoke("shortcuts.list").result["shortcuts"])
+        _ = try decode(AppleShortcutResult.self, try await h.invoke("shortcuts.run", ["id": "8C2B6E61-1A2B-4C3D-9E8F-001122334455"]).result["result"])
+    }
+}
+
+@Suite("Shortcuts wave 1: pure rules")
+struct ShortcutsWave1RulesTests {
+    @Test func parsingAndOutputTypes() {
+        let list = ShortcutsWave1.parseList("Zebra (8C2B6E61-1A2B-4C3D-9E8F-001122334455)\nA (Thing) (11111111-2222-3333-4444-555555555555)\nbad line\n")
+        #expect(list.map(\.name) == ["A (Thing)", "Zebra"] && list.allSatisfy { !$0.acceptsInput && $0.actionCount == nil })
+        #expect(ShortcutsWave1.result("").outputType == "none")
+        #expect(ShortcutsWave1.result("[1, 2]").outputType == "json" && ShortcutsWave1.result("{oops").outputType == "text")
+        let big = ShortcutsWave1.result(String(repeating: "x", count: 100_001))
+        #expect(big.truncated && big.output.count == 100_000 && big.outputType == "text")
     }
 }
