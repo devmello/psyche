@@ -15,6 +15,7 @@ public enum SpeechLimits {
     public static let minDurationMs = 1000
     public static let maxSynthesisTextLength = 5000
     public static let maxStreamIdLength = 128
+    public static let maxUtteranceIdLength = 64
     public static let maxVoiceIdLength = 256
     /// Decoded bytes per `speech.audio_push` (its base64 stays well under the 1 MiB frame limit).
     public static let maxPushBytes = 512 * 1024
@@ -187,26 +188,35 @@ public struct SynthesizeParams: Decodable, Sendable, Equatable {
     public var voice: String?
     /// 0 (slowest) … 1 (fastest); 0.5 is the system default rate.
     public var rate: Double?
+    /// Multiplier of the voice's normal speed (0.5–2); wins over `rate` (voice mode V-H H2).
+    public var speed: Double?
     public var personalVoice: Bool
     public var format: PCMEncoding
+    /// Echoed on every `speech.audio` event, so the Gateway can match audio to its sentence.
+    public var utteranceId: String?
 
-    public init(text: String, voice: String? = nil, rate: Double? = nil, personalVoice: Bool = false, format: PCMEncoding = .pcmS16le) {
+    public init(text: String, voice: String? = nil, rate: Double? = nil, speed: Double? = nil, personalVoice: Bool = false,
+                format: PCMEncoding = .pcmS16le, utteranceId: String? = nil) {
         self.text = text
         self.voice = voice
         self.rate = rate
+        self.speed = speed
         self.personalVoice = personalVoice
         self.format = format
+        self.utteranceId = utteranceId
     }
 
-    enum CodingKeys: String, CodingKey { case text, voice, rate, personalVoice, format }
+    enum CodingKeys: String, CodingKey { case text, voice, rate, speed, personalVoice, format, utteranceId }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         text = try c.decode(String.self, forKey: .text)
         voice = try c.decodeIfPresent(String.self, forKey: .voice)
         rate = try c.decodeIfPresent(Double.self, forKey: .rate)
+        speed = try c.decodeIfPresent(Double.self, forKey: .speed)
         personalVoice = try c.decodeIfPresent(Bool.self, forKey: .personalVoice) ?? false
         format = try c.decodeIfPresent(PCMEncoding.self, forKey: .format) ?? .pcmS16le
+        utteranceId = try c.decodeIfPresent(String.self, forKey: .utteranceId)
     }
 
     public func validated() throws -> SynthesizeParams {
@@ -222,6 +232,20 @@ public struct SynthesizeParams: Decodable, Sendable, Equatable {
         if let rate, !(0...1).contains(rate) {
             throw CapabilityError.invalidParams("rate must be between 0 and 1", field: "rate")
         }
+        if let speed, !(SpeechRate.minSpeed...SpeechRate.maxSpeed).contains(speed) {
+            throw CapabilityError.invalidParams("speed must be between \(SpeechRate.minSpeed) and \(SpeechRate.maxSpeed)", field: "speed")
+        }
+        if let utteranceId, utteranceId.isEmpty || utteranceId.count > SpeechLimits.maxUtteranceIdLength {
+            throw CapabilityError.invalidParams("utteranceId is 1–\(SpeechLimits.maxUtteranceIdLength) characters", field: "utteranceId")
+        }
         return self
+    }
+
+    /// The `AVSpeechUtterance.rate` to use: from `speed` when given, else from `rate` (0…1 across
+    /// the system range), else nil (the voice's default).
+    public func utteranceRate(min lo: Float, max hi: Float) -> Float? {
+        if let speed { return SpeechRate.utteranceRate(speed: speed) }
+        if let rate { return lo + Float(rate) * (hi - lo) }
+        return nil
     }
 }
