@@ -33,11 +33,13 @@ public final class SQLiteReader: @unchecked Sendable {
     private var db: OpaquePointer?
     private let lock = NSLock()
 
-    public init(path: String) throws {
+    /// `immutable` skips locking and the write-ahead log: it reads a consistent but possibly stale
+    /// snapshot, for a database that is busy or whose `-shm` cannot be opened read-only.
+    public init(path: String, immutable: Bool = false) throws {
         var url = URLComponents()
         url.scheme = "file"
         url.path = path
-        url.queryItems = [URLQueryItem(name: "mode", value: "ro")]
+        url.queryItems = [URLQueryItem(name: "mode", value: "ro")] + (immutable ? [URLQueryItem(name: "immutable", value: "1")] : [])
         let uri = url.string ?? "file:\(path)?mode=ro"
         let flags = SQLITE_OPEN_READONLY | SQLITE_OPEN_URI | SQLITE_OPEN_NOMUTEX
         let rc = sqlite3_open_v2(uri, &db, flags, nil)
@@ -63,8 +65,33 @@ public final class SQLiteReader: @unchecked Sendable {
     deinit { sqlite3_close(db) }
 
     public func query(_ sql: String, _ args: [Value] = []) throws -> [[Value]] {
+        try run(sql, args, deadline: nil).rows
+    }
+
+    /// Like `query`, but stops at `deadline` and returns the rows read so far with `timedOut` set,
+    /// so a slow scan degrades to a partial answer instead of holding the caller.
+    public func query(_ sql: String, _ args: [Value] = [], deadline: Date) throws -> (rows: [[Value]], timedOut: Bool) {
+        try run(sql, args, deadline: deadline)
+    }
+
+    /// Read by the progress handler, which SQLite calls on the thread that is stepping.
+    private final class Deadline: @unchecked Sendable {
+        let at: Date
+        init(_ at: Date) { self.at = at }
+    }
+
+    private func run(_ sql: String, _ args: [Value], deadline: Date?) throws -> (rows: [[Value]], timedOut: Bool) {
         lock.lock()
         defer { lock.unlock() }
+        let bound = deadline.map(Deadline.init)
+        if let bound {
+            sqlite3_progress_handler(db, 1000, { ctx in
+                guard let ctx else { return 0 }
+                return Date() >= Unmanaged<Deadline>.fromOpaque(ctx).takeUnretainedValue().at ? 1 : 0
+            }, Unmanaged.passUnretained(bound).toOpaque())
+        }
+        defer { if bound != nil { sqlite3_progress_handler(db, 0, nil, nil) } }
+        var timedOut = false
         var stmt: OpaquePointer?
         var rc = sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
         guard rc == SQLITE_OK else { throw QueryError(code: rc, message: errmsg) }
@@ -84,6 +111,7 @@ public final class SQLiteReader: @unchecked Sendable {
         while true {
             rc = sqlite3_step(stmt)
             if rc == SQLITE_DONE { break }
+            if rc == SQLITE_INTERRUPT, bound != nil { timedOut = true; break }
             guard rc == SQLITE_ROW else { throw QueryError(code: rc, message: errmsg) }
             let n = sqlite3_column_count(stmt)
             var row: [Value] = []
@@ -101,7 +129,7 @@ public final class SQLiteReader: @unchecked Sendable {
             }
             rows.append(row)
         }
-        return rows
+        return (rows, timedOut)
     }
 
     /// Column names of `table` (chat.db's schema differs across macOS versions).

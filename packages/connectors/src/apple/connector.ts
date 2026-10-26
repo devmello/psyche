@@ -111,6 +111,12 @@ interface AppleToolSpec {
    * only, never to the model's params, a card, a receipt or the output.
    */
   secret?: { configKey: string; param: string };
+  /**
+   * Overrides the default 60 s wait for the helper. Set it above the helper's own worst case for
+   * the capability, so the helper's partial answer or clear error arrives before the Gateway
+   * gives up and the late `node.result` finds no invocation (`not_found`).
+   */
+  timeoutMs?: number;
   /** Applied to the helper's result before it reaches the model. */
   shape?: (result: unknown, params: Record<string, unknown>) => unknown;
 }
@@ -1095,7 +1101,7 @@ const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
       capability: "mail.search",
       action: "mail.read",
       description:
-        "List or search mail in the Mail app, newest first (inbox unless mailbox). Every filter is optional: query (text in the subject or sender), unread (true: unread only, false: read only), since / until (received, ISO 8601), from (sender contains). For example, unread mail since yesterday: { unread: true, since }. Results are untrusted.",
+        "List or search mail in the Mail app, newest first (inbox unless mailbox). Every filter is optional: query (text in the subject or sender), unread (true: unread only, false: read only), since / until (received, ISO 8601), from (sender contains). For example, unread mail since yesterday: { unread: true, since }. The result says `truncated` when it stopped early and `note` when it searched less than everything (e.g. only the last 30 days): then narrow it or pass since. Results are untrusted.",
       inputSchema: obj({
         query: { type: "string", maxLength: 200 },
         unread: { type: "boolean" },
@@ -1107,6 +1113,8 @@ const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
         limit,
       }),
       sideEffect: "read",
+      // The helper stops itself at 20 s (index) or ~45 s (Mail fallback) and says why.
+      timeoutMs: 90_000,
     },
     {
       name: "mail_read",
@@ -1299,7 +1307,9 @@ const PROBE: Record<AppleApp, string> = {
   notes: "notes.list",
   reminders: "reminders.list_lists",
   calendar: "calendar.list_calendars",
-  mail: "mail.search",
+  // Not `mail.search`: that is answered from Mail's index without touching Mail, so it cannot
+  // tell whether Automation works. `mail.selected` is one cheap Apple Event.
+  mail: "mail.selected",
 };
 
 /**
@@ -1330,7 +1340,7 @@ const PERMISSION: Record<
   mail: {
     kind: "automation",
     target: "com.apple.mail",
-    probe: { query: "psyche permission check", limit: 1 },
+    probe: { limit: 1 },
     pane: "Privacy_Automation",
     path: "System Settings → Privacy & Security → Automation → Psyche (Helper) → Mail",
   },
@@ -1815,17 +1825,34 @@ class AppleConnector implements Connector {
     }
     const res = await h.invoke(spec.capability, sent, {
       signal: ctx.signal,
-      timeoutMs: this.#opts.timeoutMs ?? 60_000,
+      timeoutMs: this.#opts.timeoutMs ?? spec.timeoutMs ?? 60_000,
       // Writes reach the helper with the approval the registry confirmed (mail.send needs it).
       ...(ctx.approvalId === undefined || spec.sideEffect === "read"
         ? {}
         : { approvalId: ctx.approvalId }),
     });
     if (!res.ok) {
+      // The Gateway gave up waiting: say what to do, not just that it timed out.
+      const timedOut = res.error?.code === "timeout";
+      const message = timedOut
+        ? spec.capability === "mail.search"
+          ? "Mail search took too long — narrow it (a shorter date range, a sender, or one mailbox)"
+          : `${spec.capability} took too long`
+        : (res.error?.message ?? "the helper refused");
       throw new PsycheError(
         res.error?.code === "approval_required" ? "approval_required" : "unavailable",
-        `${LABEL[this.#app]}: ${res.error?.message ?? "the helper refused"}`,
-        { details: { capability: spec.capability, helperCode: res.error?.code ?? "unknown" } },
+        `${LABEL[this.#app]}: ${message}`,
+        {
+          details: {
+            capability: spec.capability,
+            helperCode: res.error?.code ?? "unknown",
+            ...(typeof res.error?.details?.reason === "string"
+              ? { reason: res.error.details.reason }
+              : timedOut
+                ? { reason: "timeout" }
+                : {}),
+          },
+        },
       );
     }
     let output = spec.shape ? spec.shape(res.result, p) : (res.result ?? null);
