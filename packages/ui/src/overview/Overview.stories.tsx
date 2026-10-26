@@ -1,8 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
-import { STORY_NOW, withWorld } from "../stories/harness.tsx";
+import type { InsightsFixtureState } from "../fixtures/index.ts";
+import { STORY_NOW, StoryWorld, withWorld } from "../stories/harness.tsx";
 import { OverviewScreen } from "./OverviewScreen.tsx";
 import type { OverviewPeriod } from "./period.ts";
+import { insightsWorld } from "./storyWorld.ts";
 
 /**
  * The Overview shell, "{persona} & you" (docs/design/agent-overview-2026.md §5.1, §5.5): toolbar,
@@ -25,10 +27,13 @@ function Page({
   initial = "7d",
   firstActivityAt,
   width,
+  insights = "typical",
 }: {
   initial?: OverviewPeriod;
   firstActivityAt: string | null;
   width?: number;
+  /** What `insights.summary` answers (null: a quiet install, every period empty). */
+  insights?: InsightsFixtureState | null;
 }) {
   const [period, setPeriod] = useState<OverviewPeriod>(initial);
   return (
@@ -36,12 +41,14 @@ function Page({
       className="flex h-dvh min-h-0 flex-col overflow-auto bg-canvas"
       style={width === undefined ? {} : { width }}
     >
-      <OverviewScreen
-        period={period}
-        onPeriodChange={setPeriod}
-        data={{ firstActivityAt }}
-        now={STORY_NOW}
-      />
+      <StoryWorld edit={insightsWorld(insights)}>
+        <OverviewScreen
+          period={period}
+          onPeriodChange={setPeriod}
+          data={{ firstActivityAt }}
+          now={STORY_NOW}
+        />
+      </StoryWorld>
     </div>
   );
 }
@@ -55,9 +62,21 @@ export const Compact: Story = {
 };
 
 /** §5.5: under seven days of activity, a "getting to know you" card, Now & next and Upcoming. */
-export const NewUser: Story = { render: () => <Page firstActivityAt={TWO_DAYS_AGO} /> };
+export const NewUser: Story = {
+  render: () => <Page firstActivityAt={TWO_DAYS_AGO} insights="new" />,
+};
 
 /** All time reads "Since {first activity}". The Overview group is shot in light and dark. */
 export const AllTime: Story = {
-  render: () => <Page firstActivityAt={SIX_WEEKS_AGO} initial="all" />,
+  render: () => <Page firstActivityAt={SIX_WEEKS_AGO} initial="all" insights="heavy" />,
+};
+
+/** §5.4 Summary and Activity over a month: the sentence, four tiles, stacked bars and the facts. */
+export const Month: Story = {
+  render: () => <Page firstActivityAt={SIX_WEEKS_AGO} initial="30d" />,
+};
+
+/** §5.5 sparse period: tiles show 0, the chart an empty axis and "Nothing this week." */
+export const QuietWeek: Story = {
+  render: () => <Page firstActivityAt={SIX_WEEKS_AGO} insights={null} />,
 };

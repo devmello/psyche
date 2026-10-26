@@ -4397,6 +4397,7 @@ export interface InsightTotals {
     artifacts:      Artifacts;
     busiestDay?:    BusiestDay | null;
     runs:           InsightTotalsRuns;
+    runsByKind:     RunsByKind;
     runsDone:       number;
     runsFailed:     number;
     specialists:    Specialists;
@@ -4426,6 +4427,33 @@ export interface InsightTotalsRuns {
     chat:       number;
     subagent:   number;
     task:       number;
+}
+
+export interface RunsByKind {
+    automation: AutomationClass;
+    chat:       Chat;
+    subagent:   Subagent;
+    task:       TaskClass;
+}
+
+export interface AutomationClass {
+    done:   number;
+    failed: number;
+}
+
+export interface Chat {
+    done:   number;
+    failed: number;
+}
+
+export interface Subagent {
+    done:   number;
+    failed: number;
+}
+
+export interface TaskClass {
+    done:   number;
+    failed: number;
 }
 
 export interface Specialists {

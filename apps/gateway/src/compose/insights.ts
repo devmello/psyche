@@ -106,6 +106,12 @@ function emptyTotals(): InsightTotals {
     runs: { task: 0, chat: 0, automation: 0, subagent: 0 },
     runsDone: 0,
     runsFailed: 0,
+    runsByKind: {
+      task: { done: 0, failed: 0 },
+      chat: { done: 0, failed: 0 },
+      automation: { done: 0, failed: 0 },
+      subagent: { done: 0, failed: 0 },
+    },
     wallMs: 0,
     approvals: { approved: 0, denied: 0, expired: 0 },
     artifacts: { created: 0, versions: 0, charts: 0 },
@@ -159,8 +165,14 @@ export function insightsHandlers(setup: InsightsSetup): Record<string, HandlerDe
     const t = emptyTotals();
     for (const row of rows) {
       t.runs[row.kind] += 1;
-      if (row.status === "done") t.runsDone += 1;
-      if (row.status === "failed") t.runsFailed += 1;
+      if (row.status === "done") {
+        t.runsDone += 1;
+        t.runsByKind[row.kind].done += 1;
+      }
+      if (row.status === "failed") {
+        t.runsFailed += 1;
+        t.runsByKind[row.kind].failed += 1;
+      }
       t.wallMs += wallOf(row);
     }
     let busiest: { date: string; runs: number } | null = null;

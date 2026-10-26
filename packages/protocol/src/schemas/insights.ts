@@ -9,11 +9,20 @@ import { GraphEntityKind } from "./graph.ts";
 
 const Count = Type.Integer({ minimum: 0 });
 
+const RunOutcomes = Type.Object({ done: Count, failed: Count });
+
 export const InsightTotals = Type.Object(
   {
     runs: Type.Object({ task: Count, chat: Count, automation: Count, subagent: Count }),
     runsDone: Count,
     runsFailed: Count,
+    /** Finished runs per kind, so "tasks done" and an automation success rate are strict. */
+    runsByKind: Type.Object({
+      task: RunOutcomes,
+      chat: RunOutcomes,
+      automation: RunOutcomes,
+      subagent: RunOutcomes,
+    }),
     /** Sum of measured run wall time (endedAt − startedAt). */
     wallMs: Count,
     approvals: Type.Object({ approved: Count, denied: Count, expired: Count }),

@@ -1,3 +1,4 @@
+export { OverviewActivity, type OverviewActivityProps } from "./ActivitySection.tsx";
 export { isNewUser, NEW_USER_DAYS, type OverviewData, useOverviewData } from "./data.ts";
 export { GrowthAndPeople } from "./GrowthAndPeople.tsx";
 export { GrowthSection, type GrowthSectionProps } from "./GrowthSection.tsx";
@@ -36,3 +37,17 @@ export {
   periodLabel,
   useOverviewPeriod,
 } from "./period.ts";
+export {
+  NO_RECENT_FILTER,
+  parseRecentFilter,
+  RECENT_ANCHOR,
+  RECENT_FILTERS,
+  RECENT_STATUSES,
+  type RecentFilter,
+  type RecentFilterKind,
+  type RecentStatus,
+  recentHref,
+  scrollToRecent,
+  useRecentFilter,
+} from "./recentFilter.ts";
+export { OverviewSummary, type OverviewSummaryProps } from "./SummarySection.tsx";

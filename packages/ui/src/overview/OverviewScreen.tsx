@@ -6,6 +6,7 @@ import { cn } from "../lib/utils.ts";
 import { ScreenToolbar } from "../screens/feed/ScreenToolbar.tsx";
 import { SegmentedRadio } from "../screens/settings/SegmentedRadio.tsx";
 import { usePersona } from "../slots.tsx";
+import { OverviewActivity } from "./ActivitySection.tsx";
 import { BuiltForYou, Specialists } from "./BuiltSpecialists.tsx";
 import { isNewUser, type OverviewData, useOverviewData } from "./data.ts";
 import { GrowthAndPeople } from "./GrowthAndPeople.tsx";
@@ -16,6 +17,7 @@ import {
   sectionTitle,
 } from "./OverviewSection.tsx";
 import { formatPeriodRange, OVERVIEW_PERIODS, type OverviewPeriod, periodLabel } from "./period.ts";
+import { OverviewSummary } from "./SummarySection.tsx";
 
 /** The "Try" chips of the new-user card (§5.5); the host turns each into a real action. */
 export type OverviewTry = "planWeek" | "morningBrief" | "connectMail";
@@ -31,6 +33,10 @@ export interface OverviewScreenProps {
   data?: OverviewData;
   /** A "Try" chip was chosen in the new-user state. */
   onTry?: (kind: OverviewTry) => void;
+  /** The shell's `navigate`: tiles, bars and facts link to filtered Recent runs through it. */
+  onNavigate?: (to: string) => void;
+  /** The current route, so the chart marks the day Recent runs is filtered to. */
+  route?: string;
   /** Epoch ms for the range line and the new-user threshold (stories pin it). */
   now?: number;
 }
@@ -49,6 +55,8 @@ export function OverviewScreen({
   onPeriodChange,
   data,
   onTry,
+  onNavigate,
+  route,
   now,
 }: OverviewScreenProps): ReactElement {
   const persona = usePersona();
@@ -85,8 +93,11 @@ export function OverviewScreen({
         {/* Section cards are h3s; this keeps the outline h1 → h2 → h3. */}
         <h2 className="sr-only">{t("overview.screen")}</h2>
         {fresh ? <GettingToKnowYou name={persona.name} onTry={onTry} /> : null}
+        {fresh ? null : <OverviewSummary period={period} onNavigate={onNavigate} />}
         {visible.map((id) =>
-          id === "growth" ? (
+          id === "activity" ? (
+            <OverviewActivity key={id} period={period} onNavigate={onNavigate} route={route} />
+          ) : id === "growth" ? (
             <GrowthAndPeople key={id} period={period} now={at} />
           ) : id === "people" ? null : id === "built" ? (
             <BuiltForYou key={id} period={period} now={at} />
