@@ -63,11 +63,10 @@ export function Sparkline({
   });
   const d = points.length > 0 ? `M${points.join(" L")}` : "";
   const last = points.at(-1)?.split(",").map(Number);
-  // Each live redraw starts one bucket to the right and slides home.
-  const [generation, setGeneration] = useState(0);
-  useEffect(() => {
-    if (live) setGeneration((g) => g + 1);
-  }, [live, shown]);
+  // Each live redraw (a new throttled series) starts one bucket to the right and slides home.
+  const redraws = useRef({ shown, n: 0 });
+  if (redraws.current.shown !== shown) redraws.current = { shown, n: redraws.current.n + 1 };
+  const generation = redraws.current.n;
   return (
     <svg
       width={width}
@@ -82,7 +81,7 @@ export function Sparkline({
       {label ? <title>{label}</title> : null}
       <m.g
         key={live && !reduce ? generation : 0}
-        initial={live && !reduce && generation > 1 ? { x: step } : false}
+        initial={live && !reduce && generation > 0 ? { x: step } : false}
         animate={{ x: 0 }}
         transition={{ duration: duration.medium / 1000, ease: "easeOut" }}
       >

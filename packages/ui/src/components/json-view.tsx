@@ -15,7 +15,9 @@ const REDACTED = /^‹redacted›$/;
 const VAULT = /^‹vault: (.+)›$/;
 
 /** Whether a string is one of the Gateway's redaction tokens. */
-export function redactionToken(value: string): { kind: "redacted" } | { kind: "vault"; name: string } | null {
+export function redactionToken(
+  value: string,
+): { kind: "redacted" } | { kind: "vault"; name: string } | null {
   if (REDACTED.test(value)) return { kind: "redacted" };
   const vault = VAULT.exec(value);
   return vault ? { kind: "vault", name: vault[1] as string } : null;
@@ -23,8 +25,7 @@ export function redactionToken(value: string): { kind: "redacted" } | { kind: "v
 
 function Token({ value }: { value: string }): ReactElement {
   const token = redactionToken(value);
-  if (!token)
-    return <span className="text-success-text break-all">{JSON.stringify(value)}</span>;
+  if (!token) return <span className="text-success-text break-all">{JSON.stringify(value)}</span>;
   return (
     <span
       className="inline-flex items-center gap-1 rounded-xs bg-fill-tertiary px-1 align-baseline font-sans text-caption text-label-secondary"
@@ -35,7 +36,9 @@ function Token({ value }: { value: string }): ReactElement {
       ) : (
         <Lock aria-hidden="true" className="size-3" />
       )}
-      {token.kind === "vault" ? t("design.json.vault", { name: token.name }) : t("design.json.redacted")}
+      {token.kind === "vault"
+        ? t("design.json.vault", { name: token.name })
+        : t("design.json.redacted")}
     </span>
   );
 }
@@ -84,7 +87,9 @@ function Node({
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className="-ms-4 inline-flex items-center gap-0.5 rounded-xs text-start outline-none hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring"
-        aria-label={open ? t("design.json.collapse", { key: label }) : t("design.json.expand", { key: label })}
+        aria-label={
+          open ? t("design.json.collapse", { key: label }) : t("design.json.expand", { key: label })
+        }
       >
         <ChevronRight
           aria-hidden="true"
@@ -99,7 +104,13 @@ function Node({
       {open ? (
         <>
           {entries.map(([k, v]) => (
-            <Node key={k} name={isArray ? undefined : k} value={v} depth={depth + 1} openDepth={openDepth} />
+            <Node
+              key={k}
+              name={isArray ? undefined : k}
+              value={v}
+              depth={depth + 1}
+              openDepth={openDepth}
+            />
           ))}
           <div className="text-label-tertiary">{isArray ? "]" : "}"}</div>
         </>
@@ -117,7 +128,12 @@ export interface JsonViewProps {
   className?: string;
 }
 
-export function JsonView({ value, openDepth = 2, truncated, className }: JsonViewProps): ReactElement {
+export function JsonView({
+  value,
+  openDepth = 2,
+  truncated,
+  className,
+}: JsonViewProps): ReactElement {
   const [copied, setCopied] = useState(false);
   const copy = () => {
     void navigator.clipboard?.writeText(JSON.stringify(value, null, 2)).then(() => {
@@ -126,7 +142,9 @@ export function JsonView({ value, openDepth = 2, truncated, className }: JsonVie
     });
   };
   return (
-    <div className={cn("relative rounded-md bg-fill-quaternary p-3 font-mono text-callout", className)}>
+    <div
+      className={cn("relative rounded-md bg-fill-quaternary p-3 font-mono text-callout", className)}
+    >
       <Button
         type="button"
         variant="ghost"

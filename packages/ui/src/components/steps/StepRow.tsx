@@ -103,7 +103,11 @@ export function StepRow({
   return (
     <m.li
       {...motionProps}
-      className={cn("flex flex-col", level === 1 && "ms-5 border-s border-separator ps-3", className)}
+      className={cn(
+        "flex flex-col",
+        level === 1 && "ms-5 border-s border-separator ps-3",
+        className,
+      )}
       data-step-status={status}
     >
       {hasDetail ? (

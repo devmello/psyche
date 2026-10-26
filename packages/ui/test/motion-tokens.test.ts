@@ -96,9 +96,9 @@ describe("run-trace motion (docs/design/motion.md §4.9)", () => {
     const { join } = await import("node:path");
     const read = (f: string) => readFileSync(join(process.cwd(), "src/components", f), "utf8");
     const bar = read("timeline/Timeline.tsx");
-    expect(bar).toContain("transform ${TICK_MS}ms linear");
+    expect(bar).toMatch(/transform \$\{TICK_MS\}ms linear/);
     expect(bar).not.toMatch(/transition[^\n]*width/);
     const spark = read("sparkline.tsx");
-    expect(spark).toContain("initial={live && !reduce && generation > 1 ? { x: step } : false}");
+    expect(spark).toContain("initial={live && !reduce && generation > 0 ? { x: step } : false}");
   });
 });

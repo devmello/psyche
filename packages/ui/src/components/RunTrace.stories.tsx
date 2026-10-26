@@ -5,8 +5,8 @@ import { JsonView } from "./json-view.tsx";
 import { Sparkline } from "./sparkline.tsx";
 import { StatusGlyph, type StepStatusKind } from "./status.tsx";
 import { StepRow } from "./steps/StepRow.tsx";
-import { Bar, Playhead, TimeAxis } from "./timeline/Timeline.tsx";
 import { idleGaps, timeScale } from "./timeline/scale.ts";
+import { Bar, Playhead, TimeAxis } from "./timeline/Timeline.tsx";
 
 /**
  * The run-trace primitives (docs/design/run-trace-2026.md §3, motion.md §4.9): step rows, status
@@ -26,11 +26,29 @@ const s = (sec: number) => T0 + sec * 1000;
 function StepList() {
   return (
     <ul aria-label="Steps" className="flex w-[560px] flex-col">
-      <StepRow status="thinking" label="Thought about the trip dates" startedAt={s(0)} endedAt={s(3)} />
-      <StepRow status="done" label="Searched flights" target="kayak.com" startedAt={s(3)} endedAt={s(11)}>
+      <StepRow
+        status="thinking"
+        label="Thought about the trip dates"
+        startedAt={s(0)}
+        endedAt={s(3)}
+      />
+      <StepRow
+        status="done"
+        label="Searched flights"
+        target="kayak.com"
+        startedAt={s(3)}
+        endedAt={s(11)}
+      >
         3 results · SFO → LIS, OPO, MAD
       </StepRow>
-      <StepRow status="done" label="Read SFO → LIS" target="kayak.com" level={1} startedAt={s(11)} endedAt={s(13)} />
+      <StepRow
+        status="done"
+        label="Read SFO → LIS"
+        target="kayak.com"
+        level={1}
+        startedAt={s(11)}
+        endedAt={s(13)}
+      />
       <StepRow
         status="running"
         label="Reading SFO → OPO"
@@ -38,10 +56,19 @@ function StepList() {
         level={1}
         startedAt={s(11)}
         now={s(16)}
-        accessory={<span className="h-5 w-8 shrink-0 rounded-xs bg-fill-tertiary" aria-hidden="true" />}
+        accessory={
+          <span className="h-5 w-8 shrink-0 rounded-xs bg-fill-tertiary" aria-hidden="true" />
+        }
       />
       <StepRow status="pending" label="Read SFO → MAD" target="kayak.com" level={1} />
-      <StepRow status="done" label="Read 4 pages" target="kayak.com" repeats={4} startedAt={s(16)} endedAt={s(30)} />
+      <StepRow
+        status="done"
+        label="Read 4 pages"
+        target="kayak.com"
+        repeats={4}
+        startedAt={s(16)}
+        endedAt={s(30)}
+      />
       <StepRow status="waiting" label="Waiting for your approval" startedAt={s(30)} now={s(72)} />
       <StepRow
         status="failed"
@@ -77,7 +104,10 @@ function Glyphs() {
   return (
     <div className="flex gap-3">
       {GLYPHS.map((g) => (
-        <span key={g} className="flex flex-col items-center gap-1 text-caption text-label-secondary">
+        <span
+          key={g}
+          className="flex flex-col items-center gap-1 text-caption text-label-secondary"
+        >
           <StatusGlyph status={g} />
           {g}
         </span>
@@ -106,7 +136,10 @@ const ROWS = [
 
 function Waterfall() {
   const end = s(200);
-  const intervals = [...ROWS.map((r) => ({ start: r.start, end: r.end ?? s(16) })), { start: s(180), end }];
+  const intervals = [
+    ...ROWS.map((r) => ({ start: r.start, end: r.end ?? s(16) })),
+    { start: s(180), end },
+  ];
   const scale = timeScale({ start: T0, end, width: 520, gaps: idleGaps(intervals, end) });
   return (
     <div className="flex w-[700px] flex-col gap-1">
@@ -117,7 +150,9 @@ function Waterfall() {
       <div className="relative">
         {[...ROWS, { label: "Writing", kind: "thinking" as const, start: s(180), end }].map((r) => (
           <div key={`${r.label}-${r.start}`} className="flex h-6 items-center">
-            <span className="w-40 shrink-0 truncate text-callout text-label-secondary">{r.label}</span>
+            <span className="w-40 shrink-0 truncate text-callout text-label-secondary">
+              {r.label}
+            </span>
             <span className="relative h-full" style={{ width: scale.width }}>
               <Bar
                 scale={scale}

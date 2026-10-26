@@ -64,7 +64,12 @@ export interface StatusGlyphProps {
  * One glyph per task, tool, step or approval state across the app (docs/design/redesign-2026.md
  * §3.6): never a dot plus a label plus an icon. Colours come from the fixed semantic scales.
  */
-export function StatusGlyph({ status, label, morph = false, className }: StatusGlyphProps): ReactElement {
+export function StatusGlyph({
+  status,
+  label,
+  morph = false,
+  className,
+}: StatusGlyphProps): ReactElement {
   const { Icon, tone } = GLYPH[status];
   const reduce = useReducedMotionConfig() === true;
   const first = useRef(status);

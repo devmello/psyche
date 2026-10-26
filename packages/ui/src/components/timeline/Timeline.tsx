@@ -24,17 +24,26 @@ const KIND: Record<BarKind, string> = {
   helper: "bg-(--trace-tool) psy-trace-helper",
 };
 
-export function TimeAxis({ scale, className }: { scale: TimeScale; className?: string }): ReactElement {
+export function TimeAxis({
+  scale,
+  className,
+}: {
+  scale: TimeScale;
+  className?: string;
+}): ReactElement {
   return (
     <div
       aria-hidden="true"
-      className={cn("relative h-5 border-b border-separator text-caption text-label-tertiary", className)}
+      className={cn(
+        "relative h-5 border-b border-separator text-caption text-label-tertiary",
+        className,
+      )}
       style={{ width: scale.width }}
     >
       {axisTicks(scale).map((ms) => (
         <span
           key={ms}
-          className="absolute top-0 border-s border-separator ps-1 tabular-nums"
+          className="absolute top-0 whitespace-nowrap border-s border-separator ps-1 tabular-nums"
           style={{ insetInlineStart: scale.x(scale.start + ms) }}
         >
           {ms === 0 ? "0" : formatStepDuration(ms)}
@@ -96,7 +105,16 @@ export interface BarProps {
  * A step's bar. While running it grows with `transform: scaleX` only (one layout for the whole
  * track, then compositor-only growth on the shared 1 Hz clock), never by changing its width.
  */
-export function Bar({ scale, kind, start, end, segments, now, faint, className }: BarProps): ReactElement {
+export function Bar({
+  scale,
+  kind,
+  start,
+  end,
+  segments,
+  now,
+  faint,
+  className,
+}: BarProps): ReactElement {
   const running = end === undefined;
   const clock = useTicker(running && now === undefined);
   const reduce = useReducedMotionConfig() === true;
@@ -148,7 +166,15 @@ export function Bar({ scale, kind, start, end, segments, now, faint, className }
 }
 
 /** The playhead: a 1 px accent line over the track, with a knob on the axis. */
-export function Playhead({ scale, at, className }: { scale: TimeScale; at: number; className?: string }): ReactElement {
+export function Playhead({
+  scale,
+  at,
+  className,
+}: {
+  scale: TimeScale;
+  at: number;
+  className?: string;
+}): ReactElement {
   return (
     <span
       aria-hidden="true"

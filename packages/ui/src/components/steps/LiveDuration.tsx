@@ -17,7 +17,8 @@ export function formatStepDuration(ms: number): string {
   const s = Math.round(ms / 1000);
   if (s < 60) return t("time.s", { n: s });
   const m = Math.floor(s / 60);
-  if (m < 60) return s % 60 === 0 ? t("time.min", { n: m }) : t("design.duration.minS", { m, s: s % 60 });
+  if (m < 60)
+    return s % 60 === 0 ? t("time.min", { n: m }) : t("design.duration.minS", { m, s: s % 60 });
   const h = Math.floor(m / 60);
   return m % 60 === 0 ? t("time.h", { h }) : t("time.hMin", { h, m: m % 60 });
 }
@@ -37,7 +38,12 @@ export interface LiveDurationProps {
   className?: string;
 }
 
-export function LiveDuration({ startedAt, endedAt, now, className }: LiveDurationProps): ReactElement {
+export function LiveDuration({
+  startedAt,
+  endedAt,
+  now,
+  className,
+}: LiveDurationProps): ReactElement {
   const running = endedAt === undefined;
   const clock = useTicker(running && now === undefined);
   const end = endedAt ?? now ?? clock;

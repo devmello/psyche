@@ -114,6 +114,8 @@ export { FollowUpQueue } from "./chat/FollowUpQueue.tsx";
 export { MessageView, type MessageViewProps, messageText } from "./chat/MessageView.tsx";
 export { OfflineBanner } from "./chat/OfflineBanner.tsx";
 export { ChatThread, type ChatThreadProps } from "./chat/Thread.tsx";
+export { Filmstrip, type FilmstripFrame, type FilmstripProps } from "./components/filmstrip.tsx";
+export { JsonView, type JsonViewProps, redactionToken } from "./components/json-view.tsx";
 export {
   GroupedList,
   type GroupedListProps,
@@ -124,8 +126,6 @@ export {
   type PageProps,
   SectionLabel,
 } from "./components/page.tsx";
-export { Filmstrip, type FilmstripFrame, type FilmstripProps } from "./components/filmstrip.tsx";
-export { JsonView, type JsonViewProps, redactionToken } from "./components/json-view.tsx";
 export { Sparkline, type SparklineProps, useThrottled } from "./components/sparkline.tsx";
 export {
   StatusGlyph,

@@ -1,12 +1,11 @@
 import type { MethodResult } from "@psyche/protocol";
-import * as m from "motion/react-m";
 import { type ReactElement, useEffect, useMemo } from "react";
+import { Sparkline } from "../components/sparkline.tsx";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "../components/ui/hover-card.tsx";
 import { useGatewayQuery, useStoreState } from "../data/index.ts";
 import { activeI18n, t } from "../i18n/core.ts";
 import { formatTime } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
-import { Sparkline } from "../components/sparkline.tsx";
 import { tokens as formatTokens, usd } from "../screens/settings/UsageSection.tsx";
 
 /**
@@ -195,7 +194,9 @@ export function UsageGraphic({
   if (budget !== null) return <BudgetBar fraction={budget} width={mini ? 20 : 40} />;
   // A week with no usage draws nothing rather than a flat line.
   if (summary.days.every((d) => d.turns === 0)) return null;
-  return <Sparkline values={series(summary, lead)} width={mini ? 20 : 40} testId="usage-sparkline" />;
+  return (
+    <Sparkline values={series(summary, lead)} width={mini ? 20 : 40} testId="usage-sparkline" />
+  );
 }
 
 /** A model reference as people read it: `anthropic/claude-sonnet-5-5` → `claude-sonnet-5-5`. */

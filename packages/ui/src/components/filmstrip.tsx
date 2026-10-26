@@ -47,7 +47,13 @@ export function Filmstrip({ frames, current, onSelect, className }: FilmstripPro
             data-seq={f.seq}
           >
             {f.src ? (
-              <img src={f.src} alt="" loading="lazy" decoding="async" className="size-full object-cover" />
+              <img
+                src={f.src}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                className="size-full object-cover"
+              />
             ) : null}
           </button>
         );

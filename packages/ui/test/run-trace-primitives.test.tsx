@@ -6,8 +6,8 @@ import { StatusGlyph, stepStatusKind } from "../src/components/status.tsx";
 import { formatStepDuration, LiveDuration } from "../src/components/steps/LiveDuration.tsx";
 import { StepRow } from "../src/components/steps/StepRow.tsx";
 import { tickerRunning, tickerSubscribers } from "../src/components/steps/ticker.ts";
-import { Bar } from "../src/components/timeline/Timeline.tsx";
 import { axisTicks, idleGaps, timeScale } from "../src/components/timeline/scale.ts";
+import { Bar } from "../src/components/timeline/Timeline.tsx";
 
 afterEach(() => {
   cleanup();
@@ -168,7 +168,9 @@ describe("JsonView (run-trace §3.3, §4.6)", () => {
     expect(redactionToken("‹vault: gmail›")).toEqual({ kind: "vault", name: "gmail" });
     expect(redactionToken("hello")).toBeNull();
     const { container } = render(
-      <JsonView value={{ to: "ana@example.com", password: "‹redacted›", token: "‹vault: gmail›" }} />,
+      <JsonView
+        value={{ to: "ana@example.com", password: "‹redacted›", token: "‹vault: gmail›" }}
+      />,
     );
     expect(container.querySelector('[data-redaction="redacted"]')?.textContent).toBe("redacted");
     expect(container.querySelector('[data-redaction="vault"]')?.textContent).toBe("vault: gmail");
