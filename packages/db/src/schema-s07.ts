@@ -229,6 +229,7 @@ export const graphBlocklist = sqliteTable(
     kind: text("kind").notNull(),
     valueHash: text("value_hash").notNull(),
     createdAt: text("created_at").notNull(),
+    hint: text("hint"),
   },
   (t) => [primaryKey({ columns: [t.kind, t.valueHash] })],
 );

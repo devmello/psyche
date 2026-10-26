@@ -112,7 +112,11 @@ The shared fixture world is `tests/fixtures/graph/world.json`.
 - **Handlers (`handlers.ts`, `createGraphHandlers`):** every `memory.entities.*`, `memory.loops.*` and `memory.graph.status` method as owner writes. Cards are refreshed after each change. Forget also removes the card and the person's mentions in notes.
 - **Tools and recall (`tools.ts`):** `GraphTools` provides `people_lookup` (asks which one when names clash and contact strength is within 3×), `project_brief`, `waiting_on`, `meeting_prep` and `loop_update` (refused in tainted or incognito turns). Results carry `provenance: "untrusted"` when they show subjects, summaries, unverified facts or suggested loops. `entityRecall` gives one line per unambiguously named entity, private sessions only.
 
-Gateway wiring (pollers, events, card edits, the nightly pass in dreaming, tool registration, recall in context, the Search adapter, the meeting-prep job) follows in the last PR.
+- **Privacy controls (§4.9):** `memory.graph.forgetAll` (needs the phrase "forget everything"; deletes every graph table with `secure_delete`), `memory.graph.deleteSource` (a source's interactions, the facts, relations, loops, identifiers and aliases derived only from it, and the people it alone knew; the owner's facts stay), and `memory.graph.blocklist.list` / `.add` / `.remove` (hashed values with masked hints; a blocked domain covers every address at it). Each delete has a dry run.
+- **Meeting prep data (`meetingPrep`):** attendees, their open loops and last interactions, and the project for one meeting, found by interaction id, by calendar event (`source` + `externalRef`) or by time. The schedule and the prep card belong to the mail and meetings workstream.
+- **Nightly steps:** `withDreaming(store, launcher, options, after)` runs each `NightlyStep` after dreaming; a step's failure only shows in the run summary.
+
+The Gateway composes all of this in `apps/gateway/src/compose/people.ts`: handlers, the five tools while `memory.graph.enabled` is on (owner turns only), events, Search documents, card edits, and the graph pass after dreaming. Connector ingest follows in #732; entity recall waits for #733.
 
 ## Imports
 

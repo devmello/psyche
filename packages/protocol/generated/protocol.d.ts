@@ -4753,6 +4753,80 @@ export interface MemoryForgetResult {
     retractedClaimIds: string[];
 }
 
+export interface MemoryGraphBlocklistAddParams {
+    kind:  GraphBlockKind;
+    value: string;
+}
+
+export type GraphBlockKind = "email" | "phone" | "domain";
+
+export interface MemoryGraphBlocklistAddResult {
+    entry: GraphBlocklistEntry;
+}
+
+export interface GraphBlocklistEntry {
+    createdAt: string;
+    hint?:     null | string;
+    /**
+     * Opaque; for memory.graph.blocklist.remove
+     */
+    id:   string;
+    kind: GraphIdentifierKind;
+}
+
+export interface MemoryGraphBlocklistListResult {
+    entries: GraphBlocklistEntry[];
+}
+
+export interface MemoryGraphBlocklistRemoveParams {
+    id: string;
+}
+
+export interface MemoryGraphBlocklistRemoveResult {
+    removed: boolean;
+}
+
+export interface MemoryGraphDeleteSourceParams {
+    /**
+     * Report counts without deleting
+     */
+    dryRun?: boolean;
+    source:  GraphSource;
+}
+
+export interface MemoryGraphDeleteSourceResult {
+    cardPaths: string[];
+    dryRun:    boolean;
+    removed:   GraphRemovedCounts;
+}
+
+export interface GraphRemovedCounts {
+    entities:     number;
+    facts:        number;
+    identifiers:  number;
+    interactions: number;
+    loops:        number;
+}
+
+export interface MemoryGraphForgetAllParams {
+    /**
+     * Must be exactly this phrase; guards against an accidental call
+     */
+    confirm: Confirm;
+    /**
+     * Report counts without deleting
+     */
+    dryRun?: boolean;
+}
+
+export type Confirm = "forget everything";
+
+export interface MemoryGraphForgetAllResult {
+    cardPaths: string[];
+    dryRun:    boolean;
+    removed:   GraphRemovedCounts;
+}
+
 export interface MemoryImportParams {
     content?: string;
     dryRun?:  boolean;
