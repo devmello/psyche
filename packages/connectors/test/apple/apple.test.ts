@@ -37,6 +37,26 @@ const ALL = [
   "mail.read",
   "mail.draft",
   "mail.send",
+  "things.list",
+  "things.add",
+  "things.update",
+  "things.complete",
+  "shortcuts.list",
+  "shortcuts.run",
+  "files.recent",
+  "files.move",
+  "files.rename",
+  "files.trash",
+  "safari.tabs",
+  "safari.current_tab",
+  "safari.tab_text",
+  "safari.add_reading_list",
+  "chrome.tabs",
+  "chrome.current_tab",
+  "music.now_playing",
+  "music.control",
+  "music.search_library",
+  "music.play",
   "contacts.search",
   "contacts.read",
   "contacts.create",
@@ -203,6 +223,12 @@ describe("Apple app connectors (#528)", () => {
       ["apple:calendar", "apple-calendar", true],
       ["apple:mail", "apple-mail", true],
       ["apple:contacts", "apple-contacts", true],
+      ["apple:music", "apple-music", true],
+      ["apple:safari", "apple-safari", true],
+      ["chrome:tabs", "chrome-tabs", true],
+      ["apple:files", "apple-files", true],
+      ["apple:shortcuts", "apple-shortcuts", true],
+      ["things", "things", true],
     ]);
     expect(appleCatalogueEntry("mail").actions.find((a) => a.id === "mail.send")).toMatchObject({
       sideEffect: "destructive",
@@ -917,5 +943,180 @@ describe("Apple Contacts wave 1 (#639)", () => {
         addPhones: [{ label: "mobile", value: "+1 555 0100" }],
       }),
     ).rejects.toMatchObject({ code: "approval_required" });
+  });
+});
+
+describe("Music and Spotify wave 1 (#639)", () => {
+  it("reads now-playing and searches the library; playback control is allowed by default", async () => {
+    const e = appleCatalogueEntry("music");
+    expect(e.actions.map((a) => [a.id, a.sideEffect, a.defaultRule])).toEqual([
+      ["music.read", "read", "allow"],
+      ["music.control", "write", "allow"],
+    ]);
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "apple-music", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    await run("mcp__apple-1__music_now_playing")({});
+    await run("mcp__apple-1__music_search_library")({ query: "focus", kind: "playlist" });
+    // No approval needed: the matrix allows playback (no data leaves the Mac).
+    await run("mcp__apple-1__music_control")({ action: "pause", app: "spotify" });
+    await run("mcp__apple-1__music_play")({ kind: "playlist", id: "PL1", shuffle: true });
+    expect(helper.calls.map((c) => c.capability)).toEqual([
+      "music.now_playing",
+      "music.search_library",
+      "music.control",
+      "music.play",
+    ]);
+  });
+
+  it("read-only connections get no playback control", async () => {
+    const { registry, tools } = make(new FakeHelper());
+    await registry.connect({ catalogueId: "apple-music", scopeMode: "read" });
+    expect([...tools.keys()].sort()).toEqual([
+      "mcp__apple-1__music_now_playing",
+      "mcp__apple-1__music_search_library",
+    ]);
+  });
+});
+
+describe("Safari and Chrome wave 1 (#639)", () => {
+  it("Safari reads tabs and page text (untrusted) and adds to the Reading List with an approval", async () => {
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "apple-safari", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    const out = (await run("mcp__apple-1__safari_tab_text")({ maxLength: 5000 })) as unknown as {
+      provenance: string;
+    };
+    expect(out.provenance).toBe("untrusted");
+    expect(helper.calls).toEqual([{ capability: "safari.tab_text", params: { maxLength: 5000 } }]);
+    await expect(
+      run("mcp__apple-1__safari_add_reading_list")({ url: "https://example.org/a" }),
+    ).rejects.toMatchObject({ code: "approval_required" });
+  });
+
+  it("Chrome is a Google connector over the same helper route, read-only", async () => {
+    const e = appleCatalogueEntry("chrome");
+    expect(e).toMatchObject({
+      type: "chrome:tabs",
+      id: "chrome-tabs",
+      vendor: "Google",
+      singleInstance: true,
+    });
+    expect(e.scopes.read_act).toEqual(["chrome.tabs", "chrome.current_tab"]);
+    const helper = new FakeHelper();
+    helper.grant = "denied";
+    const { registry } = make(helper);
+    const r = await registry.connect({ catalogueId: "chrome-tabs", scopeMode: "read" });
+    expect(r.config.permission).toMatchObject({ kind: "automation", target: "com.google.Chrome" });
+  });
+});
+
+describe("Files in shared folders wave 1 (#639)", () => {
+  it("connects without a macOS grant or probe; reads list, moves ask, trash is destructive", async () => {
+    const helper = new FakeHelper();
+    const { registry, run, tools } = make(helper);
+    const r = await registry.connect({ catalogueId: "apple-files", scopeMode: "read_act" });
+    expect(r.status).toBe("connected");
+    expect(helper.calls).toEqual([]); // no permissions.status, no probe
+    await run("mcp__apple-1__files_recent")({ folder: "~/Downloads", contentTypes: ["pdf"] });
+    expect(helper.calls).toEqual([
+      { capability: "files.recent", params: { folder: "~/Downloads", contentTypes: ["pdf"] } },
+    ]);
+    await expect(
+      run("mcp__apple-1__files_move")({
+        items: [{ path: "~/Downloads/a.pdf", to: "~/Documents/Taxes" }],
+      }),
+    ).rejects.toMatchObject({ code: "approval_required" });
+    await expect(
+      run("mcp__apple-1__files_trash")({ paths: ["~/Downloads/old.dmg"] }),
+    ).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    expect(appleCatalogueEntry("files").actions.map((a) => [a.id, a.sideEffect])).toEqual([
+      ["files.read", "read"],
+      ["files.organize", "write"],
+      ["files.trash", "destructive"],
+    ]);
+    expect([...tools.keys()]).toContain("mcp__apple-1__files_trash");
+  });
+});
+
+describe("Shortcuts wave 1 (#639)", () => {
+  it("lists shortcuts as a read; every run asks, and shortcuts turned off never run", async () => {
+    const e = appleCatalogueEntry("shortcuts");
+    expect(e.actions.map((a) => [a.id, a.sideEffect, a.defaultRule])).toEqual([
+      ["shortcuts.read", "read", "allow"],
+      ["shortcuts.run", "destructive", "ask"],
+    ]);
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    const r = await registry.connect({ catalogueId: "apple-shortcuts", scopeMode: "read_act" });
+    expect(r.status).toBe("connected");
+    helper.calls.length = 0;
+    await run("mcp__apple-1__shortcuts_list")({});
+    await expect(run("mcp__apple-1__shortcuts_run")({ id: "S1" })).rejects.toMatchObject({
+      code: "approval_required",
+    });
+
+    // The owner turned S2 off: refused before any approval or helper call.
+    const runTool = appleFactories({ helper: () => helper })
+      .find((f) => f.entry.id === "apple-shortcuts")
+      ?.create({ id: "apple-1", type: "apple:shortcuts" } as never, {} as never)
+      .tools()
+      .find((t) => t.name === "shortcuts_run");
+    // Even with a valid approval for this very call.
+    const off = make(helper, {
+      id: "ap_k",
+      tool: "mcp__apple-1__shortcuts_run",
+      params: { id: "S2" },
+      desc: runTool?.describeCall?.({ id: "S2" }),
+    });
+    await off.registry.connect({
+      catalogueId: "apple-shortcuts",
+      scopeMode: "read_act",
+      config: { shortcutRules: { S2: "off" } },
+    });
+    helper.calls.length = 0;
+    await expect(off.run("mcp__apple-1__shortcuts_run")({ id: "S2" })).rejects.toMatchObject({
+      code: "policy_denied",
+      details: { reason: "shortcut_off" },
+    });
+    expect(helper.calls).toEqual([]);
+  });
+});
+
+describe("Things 3 wave 1 (#639)", () => {
+  it("is a Cultured Code connector over the helper, with its own Automation grant", async () => {
+    expect(appleCatalogueEntry("things")).toMatchObject({
+      type: "things",
+      id: "things",
+      vendor: "Cultured Code",
+      singleInstance: true,
+    });
+    const helper = new FakeHelper();
+    helper.grant = "denied";
+    const { registry } = make(helper);
+    const r = await registry.connect({ catalogueId: "things", scopeMode: "read" });
+    expect(r.config.permission).toMatchObject({ target: "com.culturedcode.ThingsMac" });
+  });
+
+  it("lists as a read; add, update and complete ask", async () => {
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "things", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    await run("mcp__apple-1__things_list")({ list: "today" });
+    expect(helper.calls).toEqual([{ capability: "things.list", params: { list: "today" } }]);
+    for (const [tool, params] of [
+      ["things_add", { title: "Renew passport", when: "2026-10-30" }],
+      ["things_update", { id: "T1", when: "tomorrow" }],
+      ["things_complete", { id: "T1" }],
+    ] as const) {
+      await expect(run(`mcp__apple-1__${tool}`)(params)).rejects.toMatchObject({
+        code: "approval_required",
+      });
+    }
   });
 });

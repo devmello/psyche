@@ -7,4 +7,5 @@ export * from "./frames.ts";
 export * from "./methods/index.ts";
 export * from "./node.ts";
 export * from "./schemas/index.ts";
+export * from "./trace.ts";
 export * from "./version.ts";
