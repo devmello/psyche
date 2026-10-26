@@ -75,6 +75,7 @@ export const mailMeetings = {
   "settings.mail.schedule.noBuffer": "None",
   "settings.mail.schedule.focusTime.hint": "Suggest holding a block for deep work.",
   "settings.mail.schedule.link.hint": "Optional. Offered in replies when you have one.",
+  "settings.mail.schedule.link.placeholder": "https://",
 
   // Meeting prep
   "settings.mail.prep.scope.hint": "Skips meetings that are only with your own team.",

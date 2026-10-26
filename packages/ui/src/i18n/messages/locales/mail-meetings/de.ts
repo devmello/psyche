@@ -166,4 +166,5 @@ export const mailMeetings: Partial<Catalogue> = {
   "onboarding.mail.done": "Mail und Meetings",
   "onboarding.mail.doneOff": "Aus. Du kannst es in den Einstellungen einschalten.",
   "onboarding.mail.doneOn": "{n, plural, one {# Ablauf an} other {# Abläufe an}}",
+  "settings.mail.schedule.link.placeholder": "https://",
 };

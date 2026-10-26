@@ -81,6 +81,16 @@ describe("Settings → Mail & meetings", () => {
     ).toBe(false);
   });
 
+  it("shows the Gateway's defaults for keys that are unset", () => {
+    render(<MailMeetingsPanel {...base} />);
+    const value = (name: string) =>
+      (screen.getByRole("combobox", { name }) as HTMLSelectElement).value;
+    expect(value("Prepare ahead of the meeting")).toBe("120");
+    expect(value("Tell me before it starts")).toBe("60");
+    expect(value("While you’re active")).toBe("10");
+    expect(value("Otherwise")).toBe("60");
+  });
+
   it("hands View, Edit and Reset of the voice profile to the composer", async () => {
     const onAsk = vi.fn();
     const user = userEvent.setup();

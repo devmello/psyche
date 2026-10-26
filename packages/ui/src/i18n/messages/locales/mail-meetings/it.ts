@@ -166,4 +166,5 @@ export const mailMeetings: Partial<Catalogue> = {
   "onboarding.mail.done": "Posta e riunioni",
   "onboarding.mail.doneOff": "Disattivato. Puoi attivarlo in Impostazioni.",
   "onboarding.mail.doneOn": "{n, plural, one {# flusso attivo} other {# flussi attivi}}",
+  "settings.mail.schedule.link.placeholder": "https://",
 };

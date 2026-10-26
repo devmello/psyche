@@ -159,4 +159,5 @@ export const mailMeetings: Partial<Catalogue> = {
   "onboarding.mail.done": "메일 및 회의",
   "onboarding.mail.doneOff": "꺼져 있습니다. 설정에서 켤 수 있습니다.",
   "onboarding.mail.doneOn": "{n, plural, other {워크플로 #개 켜짐}}",
+  "settings.mail.schedule.link.placeholder": "https://",
 };

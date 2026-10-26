@@ -142,4 +142,5 @@ export const mailMeetings: Partial<Catalogue> = {
   "onboarding.mail.done": "मेल और मीटिंग",
   "onboarding.mail.doneOff": "बंद। आप इसे सेटिंग में चालू कर सकते हैं।",
   "onboarding.mail.doneOn": "{n, plural, one {# वर्कफ़्लो चालू} other {# वर्कफ़्लो चालू}}",
+  "settings.mail.schedule.link.placeholder": "https://",
 };

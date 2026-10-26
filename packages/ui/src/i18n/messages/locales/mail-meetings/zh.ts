@@ -155,4 +155,5 @@ export const mailMeetings: Partial<Catalogue> = {
   "onboarding.mail.done": "邮件与会议",
   "onboarding.mail.doneOff": "已关闭。你可以在设置中开启。",
   "onboarding.mail.doneOn": "{n, plural, other {已开启 # 个工作流}}",
+  "settings.mail.schedule.link.placeholder": "https://",
 };

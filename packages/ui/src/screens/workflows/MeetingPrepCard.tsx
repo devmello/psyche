@@ -1,5 +1,5 @@
 import type { MeetingAttendee, MeetingPrep, SourcedLine } from "@psyche/protocol";
-import { ChevronRight, Video } from "lucide-react";
+import { ChevronRight, Mic, Video } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { t } from "../../i18n/core.ts";
@@ -16,6 +16,8 @@ export interface MeetingPrepCardProps {
   /** Opens a line's source: a thread, note, loop, Library item, URL or past meeting. */
   onSource?: (source: NonNullable<SourcedLine["source"]>) => void;
   onJoin?: (url: string) => void;
+  /** Opens the consent dialog to record this meeting (the shell's Record meeting). */
+  onRecord?: (meetingId: string) => void;
   onAttendee?: (attendee: MeetingAttendee) => void;
   className?: string;
 }
@@ -108,6 +110,7 @@ export function MeetingPrepCard({
   focused = false,
   onSource,
   onJoin,
+  onRecord,
   onAttendee,
   className,
 }: MeetingPrepCardProps): ReactElement {
@@ -162,16 +165,31 @@ export function MeetingPrepCard({
       title={prep.title}
       chips={prep.taint ? <TaintChip /> : null}
       trailing={
-        join && onJoin ? (
-          <Button
-            type="button"
-            size="sm"
-            variant={focused ? "default" : "secondary"}
-            onClick={() => onJoin(join)}
-          >
-            <Video aria-hidden="true" />
-            {t("workflows.prep.join")}
-          </Button>
+        (join && onJoin) || onRecord ? (
+          <div className="flex shrink-0 items-center gap-1.5">
+            {onRecord ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => onRecord(prep.meetingId)}
+              >
+                <Mic aria-hidden="true" />
+                {t("meetingRecord.palette")}
+              </Button>
+            ) : null}
+            {join && onJoin ? (
+              <Button
+                type="button"
+                size="sm"
+                variant={focused ? "default" : "secondary"}
+                onClick={() => onJoin(join)}
+              >
+                <Video aria-hidden="true" />
+                {t("workflows.prep.join")}
+              </Button>
+            ) : null}
+          </div>
         ) : null
       }
       {...(className ? { className } : {})}

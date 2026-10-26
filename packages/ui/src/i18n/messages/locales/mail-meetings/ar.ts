@@ -146,4 +146,5 @@ export const mailMeetings: Partial<Catalogue> = {
   "onboarding.mail.doneOff": "متوقف. يمكنك تفعيله من الإعدادات.",
   "onboarding.mail.doneOn":
     "{n, plural, one {مهمة واحدة مفعّلة} two {مهمتان مفعّلتان} few {# مهام مفعّلة} many {# مهمة مفعّلة} other {# مهمة مفعّلة}}",
+  "settings.mail.schedule.link.placeholder": "https://",
 };

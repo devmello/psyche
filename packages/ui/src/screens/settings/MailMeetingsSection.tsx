@@ -22,6 +22,9 @@ import {
 } from "./shared.tsx";
 
 /**
+ * Defaults shown when a key is unset are the Gateway's own (spec §4): prep 120 min ahead and a
+ * notice 60 min ahead, mail checks every 10 min while active and hourly otherwise.
+ *
  * Settings → Mail & meetings (docs/workflows/mail-and-meetings-2026.md §7.3), under General:
  * the two master switches (pause, read-only), then one grouped list per workflow. Every switch
  * is a Gateway setting (`mail.*`, `meetings.*`, `workflows.*`); the jobs read them when they
@@ -437,7 +440,7 @@ export function MailMeetingsPanel({
             description={t("settings.mail.schedule.link.hint")}
             settingKey="mail.schedulingLink"
             value={str(values, "mail.schedulingLink", "")}
-            placeholder="https://"
+            placeholder={t("settings.mail.schedule.link.placeholder")}
             maxLength={500}
             onCommit={(v) => onChange("mail.schedulingLink", v)}
           />
@@ -465,7 +468,7 @@ export function MailMeetingsPanel({
           <SelectRow
             label={t("settings.mail.prep.leadMin")}
             settingKey="meetings.prep.leadMin"
-            value={String(num(values, "meetings.prep.leadMin", 60))}
+            value={String(num(values, "meetings.prep.leadMin", 120))}
             disabled={off || !prepOn}
             options={opts([30, 60, 120, 240], minutes)}
             onChange={(v) => onChange("meetings.prep.leadMin", Number(v))}
@@ -473,9 +476,9 @@ export function MailMeetingsPanel({
           <SelectRow
             label={t("settings.mail.prep.notifyMin")}
             settingKey="meetings.prep.notifyMin"
-            value={String(num(values, "meetings.prep.notifyMin", 15))}
+            value={String(num(values, "meetings.prep.notifyMin", 60))}
             disabled={off || !prepOn}
-            options={opts([5, 10, 15, 30], minutes)}
+            options={opts([5, 10, 15, 30, 60], minutes)}
             onChange={(v) => onChange("meetings.prep.notifyMin", Number(v))}
           />
           <SwitchField
@@ -562,7 +565,7 @@ export function MailMeetingsPanel({
           <SelectRow
             label={t("settings.mail.poll.active")}
             settingKey="mail.poll.activeMin"
-            value={String(num(values, "mail.poll.activeMin", 5))}
+            value={String(num(values, "mail.poll.activeMin", 10))}
             disabled={off}
             options={opts([1, 2, 5, 10, 15], minutes)}
             onChange={(v) => onChange("mail.poll.activeMin", Number(v))}
@@ -570,7 +573,7 @@ export function MailMeetingsPanel({
           <SelectRow
             label={t("settings.mail.poll.idle")}
             settingKey="mail.poll.idleMin"
-            value={String(num(values, "mail.poll.idleMin", 30))}
+            value={String(num(values, "mail.poll.idleMin", 60))}
             disabled={off}
             options={opts([15, 30, 60, 120], minutes)}
             onChange={(v) => onChange("mail.poll.idleMin", Number(v))}

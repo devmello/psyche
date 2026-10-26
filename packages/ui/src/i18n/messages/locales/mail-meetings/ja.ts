@@ -164,4 +164,5 @@ export const mailMeetings: Partial<Catalogue> = {
   "onboarding.mail.done": "メールと会議",
   "onboarding.mail.doneOff": "オフです。設定でオンにできます。",
   "onboarding.mail.doneOn": "{n, plural, other {# 件のワークフローがオン}}",
+  "settings.mail.schedule.link.placeholder": "https://",
 };
