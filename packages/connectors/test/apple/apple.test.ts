@@ -1,4 +1,4 @@
-import { FakeClock } from "@psyche/testing";
+import { assertNoSecrets, FakeClock, registerSecret, unregisterSecret } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import {
   type AppleHelper,
@@ -1118,5 +1118,102 @@ describe("Things 3 wave 1 (#639)", () => {
         code: "approval_required",
       });
     }
+  });
+});
+
+describe("Things auth token from the vault (#719)", () => {
+  const TOKEN = "tok_ThingsAuth123";
+
+  function registry(helper: FakeHelper) {
+    const tools = new Map<string, { execute: (...a: unknown[]) => Promise<unknown> }>();
+    const fills: unknown[] = [];
+    const reg = new ConnectorRegistry({
+      factories: appleFactories({
+        helper: () => helper,
+        approveCredential: async (req) => {
+          fills.push(req);
+          return "ap_fill";
+        },
+      }),
+      context: {
+        clock: new FakeClock(),
+        fetch,
+        tokens: { load: async () => undefined, save: async () => {}, clear: async () => {} },
+        credentials: {
+          resolve: async (placeholder: string) => {
+            expect(placeholder).toBe("{{cred:things-token}}");
+            return { use: <T>(f: (v: string) => T) => f(TOKEN) };
+          },
+        } as never,
+      },
+      tools: {
+        list: () => [],
+        get: () => undefined,
+        register: (r) => {
+          tools.set(r.spec.name, r as never);
+          return () => tools.delete(r.spec.name);
+        },
+      },
+      newId: () => "things-1",
+      onEvent: () => {},
+    });
+    return { reg, tools, fills };
+  }
+
+  it("fills the token for update and complete only, and it reaches nothing but the helper", async () => {
+    registerSecret(TOKEN, "things token");
+    try {
+      const helper = new FakeHelper();
+      const { reg, tools, fills } = registry(helper);
+      await reg.connect({
+        catalogueId: "things",
+        scopeMode: "read_act",
+        config: { authToken: "{{cred:things-token}}" },
+      });
+      await reg.setMatrix("things-1", { "things.write": "allow" });
+      helper.calls.length = 0;
+      const run = (name: string, params: unknown) =>
+        (
+          tools.get(`mcp__things-1__${name}`) as { execute: (...a: unknown[]) => Promise<unknown> }
+        ).execute("c1", params, new AbortController().signal, () => {});
+      const outputs = [
+        await run("things_add", { title: "Renew passport" }),
+        await run("things_update", { id: "T1", when: "tomorrow" }),
+        await run("things_complete", { id: "T1" }),
+      ];
+      expect(
+        helper.calls.map((c) => [c.capability, (c.params as { authToken?: string }).authToken]),
+      ).toEqual([
+        ["things.add", undefined],
+        ["things.update", TOKEN],
+        ["things.complete", TOKEN],
+      ]);
+      // One credential card per call that needs it, for the connector's own vault item.
+      expect(fills).toMatchObject([
+        { connectorId: "things-1", placeholder: "{{cred:things-token}}", purpose: "tool" },
+        { connectorId: "things-1", placeholder: "{{cred:things-token}}", purpose: "tool" },
+      ]);
+      // Never in what the model or the owner sees, or in the stored record.
+      assertNoSecrets(outputs, "tool outputs");
+      assertNoSecrets(await reg.list(), "connector records");
+    } finally {
+      unregisterSecret(TOKEN);
+    }
+  });
+
+  it("asks the owner to add the token when the connector has none", async () => {
+    const helper = new FakeHelper();
+    const { reg, tools } = registry(helper);
+    await reg.connect({ catalogueId: "things", scopeMode: "read_act" });
+    await reg.setMatrix("things-1", { "things.write": "allow" });
+    helper.calls.length = 0;
+    await expect(
+      (
+        tools.get("mcp__things-1__things_complete") as {
+          execute: (...a: unknown[]) => Promise<unknown>;
+        }
+      ).execute("c1", { id: "T1" }, new AbortController().signal, () => {}),
+    ).rejects.toMatchObject({ code: "unavailable", details: { reason: "token_required" } });
+    expect(helper.calls).toEqual([]);
   });
 });

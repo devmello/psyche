@@ -5,14 +5,17 @@ import type {
   ConnectInput,
   Connector,
   ConnectorAction,
+  ConnectorContext,
   ConnectorFactory,
   ConnectorHealth,
   ConnectorRecord,
   ConnectorTool,
   ConnectResult,
   ToolOutput,
+  ToolRunContext,
 } from "../framework/types.ts";
 import { sendBinding } from "../mail/binding.ts";
+import type { ApproveMailCredential } from "../mail/connector.ts";
 
 /**
  * Apple Notes, Reminders, Calendar and Mail (#528) as thin adapters over the paired Mac helper's
@@ -44,6 +47,11 @@ export interface AppleHelper {
 export interface AppleOptions {
   /** The newest live Mac helper, or undefined when none is paired and connected. */
   helper(): AppleHelper | undefined;
+  /**
+   * The approval to read a connector's secret from the vault (`credential_fill`, once per
+   * credential and reused while live), as the mail connectors use it. Things' URL token (#719).
+   */
+  approveCredential?: ApproveMailCredential;
   /** Per-invocation timeout (default 60 s: the first use of an app waits on a macOS prompt). */
   timeoutMs?: number;
 }
@@ -82,6 +90,12 @@ interface AppleToolSpec {
   sideEffect: SideEffect;
   /** How a write binds (security §3.5); reads have none. */
   binding?: "action" | "calendar" | "send" | "send_draft" | "note_edit";
+  /**
+   * A vault secret this capability takes as a param (`authToken` for Things' URL writes): read
+   * from the placeholder in `config[configKey]` under its approval, added to the helper call
+   * only, never to the model's params, a card, a receipt or the output.
+   */
+  secret?: { configKey: string; param: string };
   /** Applied to the helper's result before it reaches the model. */
   shape?: (result: unknown, params: Record<string, unknown>) => unknown;
 }
@@ -477,6 +491,7 @@ const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
         ["id"],
       ),
       sideEffect: "write",
+      secret: { configKey: "authToken", param: "authToken" },
       binding: "action",
     },
     {
@@ -492,6 +507,7 @@ const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
         ["id"],
       ),
       sideEffect: "write",
+      secret: { configKey: "authToken", param: "authToken" },
       binding: "action",
     },
   ],
@@ -1534,15 +1550,19 @@ class AppleConnector implements Connector {
   readonly #opts: AppleOptions;
   /** The record is waiting on a macOS grant (`config.permission`). */
   #waiting: boolean;
+  readonly #ctx: ConnectorContext | undefined;
+  readonly #config: Record<string, unknown>;
   /** Per-shortcut settings from Settings → Connectors → Shortcuts (`config.shortcutRules`). */
   readonly #shortcutRules: Record<string, string>;
 
-  constructor(record: ConnectorRecord, app: AppleApp, opts: AppleOptions) {
+  constructor(record: ConnectorRecord, app: AppleApp, opts: AppleOptions, ctx?: ConnectorContext) {
     this.id = record.id;
     this.type = record.type;
     this.#app = app;
     this.#opts = opts;
+    this.#ctx = ctx;
     const cfg = (record.config as Record<string, unknown> | undefined) ?? {};
+    this.#config = cfg;
     const rules = cfg.shortcutRules;
     this.#shortcutRules =
       typeof rules === "object" && rules !== null && !Array.isArray(rules)
@@ -1696,11 +1716,7 @@ class AppleConnector implements Connector {
     });
   }
 
-  async #run(
-    spec: AppleToolSpec,
-    params: unknown,
-    ctx: { signal: AbortSignal; approvalId?: string },
-  ): Promise<ToolOutput> {
+  async #run(spec: AppleToolSpec, params: unknown, ctx: ToolRunContext): Promise<ToolOutput> {
     const h = this.#helper();
     if (!h.capabilities.includes(spec.capability)) {
       throw new PsycheError("unavailable", `this Mac's helper does not offer ${spec.capability}`);
@@ -1713,7 +1729,10 @@ class AppleConnector implements Connector {
       });
     }
     // `query` is ours (notes.list has no search); the helper's schema does not allow it.
-    const sent = spec.shape === filterNotes ? withoutQuery(p) : p;
+    let sent = spec.shape === filterNotes ? withoutQuery(p) : p;
+    if (spec.secret !== undefined) {
+      sent = { ...sent, [spec.secret.param]: await this.#secret(spec.secret.configKey, ctx) };
+    }
     const res = await h.invoke(spec.capability, sent, {
       signal: ctx.signal,
       timeoutMs: this.#opts.timeoutMs ?? 60_000,
@@ -1735,6 +1754,33 @@ class AppleConnector implements Connector {
       out.receiptSummary = `${LABEL[this.#app]}: ${spec.capability} on ${h.name ?? "this Mac"}`;
     }
     return out;
+  }
+
+  /** A vault secret for this call only (Things' auth token, #719). */
+  async #secret(configKey: string, run: ToolRunContext): Promise<string> {
+    const placeholder = this.#config[configKey];
+    if (typeof placeholder !== "string" || !/^\{\{cred:[a-z0-9][a-z0-9-]*\}\}$/.test(placeholder)) {
+      throw new PsycheError(
+        "unavailable",
+        `${LABEL[this.#app]} needs its auth token for this: in Things, Settings → General → Enable Things URLs → Manage; store the token in the vault and add it to the connector in Settings`,
+        { details: { reason: "token_required", configKey } },
+      );
+    }
+    const credentials = this.#ctx?.credentials;
+    const approve = this.#opts.approveCredential;
+    if (credentials === undefined || approve === undefined) {
+      throw new PsycheError("unavailable", "no credential broker to read the auth token");
+    }
+    const target = { kind: "account" as const, value: this.id, display: LABEL[this.#app] };
+    const approvalId = await approve(
+      { connectorId: this.id, placeholder, target, purpose: "tool" },
+      run,
+    );
+    const handle = await credentials.resolve(placeholder, target, approvalId, {
+      executor: "connector",
+      signal: run.signal,
+    });
+    return handle.use((v) => v);
   }
 
   async health(): Promise<ConnectorHealth> {
@@ -1774,6 +1820,6 @@ class AppleConnector implements Connector {
 export function appleFactories(opts: AppleOptions): ConnectorFactory[] {
   return APPLE_APPS.map((app) => ({
     entry: appleCatalogueEntry(app),
-    create: (record) => new AppleConnector(record, app, opts),
+    create: (record, ctx) => new AppleConnector(record, app, opts, ctx),
   }));
 }
