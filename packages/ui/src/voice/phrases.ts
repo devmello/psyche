@@ -28,7 +28,8 @@ export function normalizeUtterance(text: string): string {
 export function matchApproval(text: string): "approve" | "deny" | null {
   const said = normalizeUtterance(text);
   if (said === "") return null;
-  const hit = (list: VoicePhraseList) => voicePhrases(list).some((p) => normalizeUtterance(p) === said);
+  const hit = (list: VoicePhraseList) =>
+    voicePhrases(list).some((p) => normalizeUtterance(p) === said);
   if (hit("deny")) return "deny";
   if (hit("approve")) return "approve";
   return null;

@@ -3255,7 +3255,8 @@ export const hi: Partial<Catalogue> = {
   "voice.settings.mode.tap": "टैप करके बोलें",
   "voice.settings.mode.tapHint": "टैप करें, बोलें, और बात पूरी होने पर रुकें।",
   "voice.settings.mode.handsfree": "हैंड्स-फ़्री",
-  "voice.settings.mode.handsfreeHint": "बारी-बारी से बोलते रहें; 30 सेकंड की चुप्पी के बाद यह खत्म हो जाती है।",
+  "voice.settings.mode.handsfreeHint":
+    "बारी-बारी से बोलते रहें; 30 सेकंड की चुप्पी के बाद यह खत्म हो जाती है।",
   "voice.settings.voice": "आवाज़",
   "voice.settings.voiceBest": "भाषा के लिए सबसे अच्छी इंस्टॉल की गई आवाज़",
   "voice.settings.voiceQuality.premium": "प्रीमियम",

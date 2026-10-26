@@ -3277,7 +3277,8 @@ export const fr: Partial<Catalogue> = {
   "voice.readback": "Dites « {approve} » ou « {deny} »",
   "voice.readbackApprove": "envoyez",
   "voice.readbackDeny": "annulez",
-  "voice.readbackWindow": "{seconds, plural, one {# seconde restante} many {# secondes restantes} other {# secondes restantes}}",
+  "voice.readbackWindow":
+    "{seconds, plural, one {# seconde restante} many {# secondes restantes} other {# secondes restantes}}",
   "voice.question": "Dites votre réponse",
   "voice.noSpeech": "Je n’ai pas compris",
   "voice.needsMic": "Psyche a besoin du micro pour vous entendre",
@@ -3292,7 +3293,8 @@ export const fr: Partial<Catalogue> = {
   "voice.key.rightCommand": "⌘ droite",
   "voice.settings.title": "Conversation vocale",
   "voice.settings.enabled": "Parler avec Psyche",
-  "voice.settings.enabledHint": "Maintenez la touche vocale dans n’importe quelle app, ou touchez Voix dans le chat, et parlez.",
+  "voice.settings.enabledHint":
+    "Maintenez la touche vocale dans n’importe quelle app, ou touchez Voix dans le chat, et parlez.",
   "voice.settings.key": "Touche vocale",
   "voice.settings.keyHint": "Elle doit être différente de la touche de dictée.",
   "voice.settings.keyClash": "C’est la touche de dictée. Choisissez-en une autre.",
@@ -3302,7 +3304,8 @@ export const fr: Partial<Catalogue> = {
   "voice.settings.mode.tap": "Toucher pour parler",
   "voice.settings.mode.tapHint": "Touchez, parlez et marquez une pause quand vous avez fini.",
   "voice.settings.mode.handsfree": "Mains libres",
-  "voice.settings.mode.handsfreeHint": "Parlez tour après tour ; la conversation se termine après 30 secondes de silence.",
+  "voice.settings.mode.handsfreeHint":
+    "Parlez tour après tour ; la conversation se termine après 30 secondes de silence.",
   "voice.settings.voice": "Voix",
   "voice.settings.voiceBest": "Meilleure voix installée pour la langue",
   "voice.settings.voiceQuality.premium": "Premium",
@@ -3323,17 +3326,20 @@ export const fr: Partial<Catalogue> = {
   "voice.settings.narrate.brief": "Bref",
   "voice.settings.narrate.steps": "Chaque étape",
   "voice.settings.bargeIn": "Interrompre en parlant",
-  "voice.settings.bargeInHint": "Commencez à parler pendant que Psyche parle : il s’arrête pour vous écouter.",
+  "voice.settings.bargeInHint":
+    "Commencez à parler pendant que Psyche parle : il s’arrête pour vous écouter.",
   "voice.settings.approvals": "Approuver à la voix",
   "voice.settings.approvals.off": "Désactivé",
   "voice.settings.approvals.write": "Écritures uniquement",
   "voice.settings.approvals.write_destructive": "Écritures et suppressions",
-  "voice.settings.approvalsHint": "Les achats, les mots de passe et les changements de sécurité nécessitent toujours la carte.",
+  "voice.settings.approvalsHint":
+    "Les achats, les mots de passe et les changements de sécurité nécessitent toujours la carte.",
   "voice.settings.language": "Langue",
   "voice.settings.languageFollow": "Suivre la langue de l’app",
   "voice.settings.captions": "Sous-titres",
   "voice.settings.review": "Relire avant d’envoyer",
-  "voice.settings.reviewHint": "Affiche ce que Psyche a entendu pour que vous puissiez corriger avant l’envoi.",
+  "voice.settings.reviewHint":
+    "Affiche ce que Psyche a entendu pour que vous puissiez corriger avant l’envoi.",
   "voice.settings.brief": "Briefing parlé",
   "voice.settings.brief.off": "Désactivé",
   "voice.settings.brief.listen": "Quand j’appuie sur Écouter",
@@ -3342,7 +3348,8 @@ export const fr: Partial<Catalogue> = {
   "voice.say.rest": "La suite est à l’écran.",
   "voice.say.link": "J’ai mis le lien à l’écran.",
   "voice.say.step": "{label}.",
-  "voice.say.readbackEmail": "Envoyer un e-mail à {to}, objet « {subject} ». Dites « {approve} » ou « {deny} ».",
+  "voice.say.readbackEmail":
+    "Envoyer un e-mail à {to}, objet « {subject} ». Dites « {approve} » ou « {deny} ».",
   "voice.say.readback": "{summary}. Dites « {approve} » ou « {deny} ».",
   "voice.say.touchId": "Il faut votre Touch ID à l’écran.",
   "voice.say.leftOnScreen": "Je le laisse à l’écran.",

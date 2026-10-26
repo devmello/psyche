@@ -99,7 +99,8 @@ export const voice = {
   "voice.say.rest": "The rest is on screen.",
   "voice.say.link": "I’ve put the link on screen.",
   "voice.say.step": "{label}.",
-  "voice.say.readbackEmail": "Send an email to {to}, subject “{subject}”. Say “{approve}” or “{deny}”.",
+  "voice.say.readbackEmail":
+    "Send an email to {to}, subject “{subject}”. Say “{approve}” or “{deny}”.",
   "voice.say.readback": "{summary}. Say “{approve}” or “{deny}”.",
   "voice.say.touchId": "That needs your Touch ID on screen.",
   "voice.say.leftOnScreen": "I’ll leave it on screen.",

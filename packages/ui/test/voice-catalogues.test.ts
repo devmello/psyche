@@ -51,7 +51,9 @@ describe("voice strings in every catalogue", () => {
       const categories = new Set(new Intl.PluralRules(locale).resolvedOptions().pluralCategories);
 
       it("translates every voice id", () => {
-        const missing = VOICE.filter((id) => (catalogue as Record<string, string>)[id] === undefined);
+        const missing = VOICE.filter(
+          (id) => (catalogue as Record<string, string>)[id] === undefined,
+        );
         expect(missing).toEqual([]);
       });
 

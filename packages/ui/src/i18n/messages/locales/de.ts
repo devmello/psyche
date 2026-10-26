@@ -3369,7 +3369,8 @@ export const de: Partial<Catalogue> = {
   "voice.key.rightCommand": "⌘ rechts",
   "voice.settings.title": "Sprachunterhaltung",
   "voice.settings.enabled": "Mit Psyche sprechen",
-  "voice.settings.enabledHint": "Halte die Sprachtaste in jeder App oder tippe im Chat auf „Stimme“ und sprich los.",
+  "voice.settings.enabledHint":
+    "Halte die Sprachtaste in jeder App oder tippe im Chat auf „Stimme“ und sprich los.",
   "voice.settings.key": "Sprachtaste",
   "voice.settings.keyHint": "Sie muss sich von der Diktiertaste unterscheiden.",
   "voice.settings.keyClash": "Das ist die Diktiertaste. Wähle eine andere.",
@@ -3379,7 +3380,8 @@ export const de: Partial<Catalogue> = {
   "voice.settings.mode.tap": "Zum Sprechen tippen",
   "voice.settings.mode.tapHint": "Tippen, sprechen und eine Pause machen, wenn du fertig bist.",
   "voice.settings.mode.handsfree": "Freihändig",
-  "voice.settings.mode.handsfreeHint": "Sprich Runde für Runde weiter; nach 30 Sekunden Stille endet es.",
+  "voice.settings.mode.handsfreeHint":
+    "Sprich Runde für Runde weiter; nach 30 Sekunden Stille endet es.",
   "voice.settings.voice": "Stimme",
   "voice.settings.voiceBest": "Beste installierte Stimme für die Sprache",
   "voice.settings.voiceQuality.premium": "Premium",
@@ -3405,12 +3407,14 @@ export const de: Partial<Catalogue> = {
   "voice.settings.approvals.off": "Aus",
   "voice.settings.approvals.write": "Nur Schreibvorgänge",
   "voice.settings.approvals.write_destructive": "Schreiben und Löschen",
-  "voice.settings.approvalsHint": "Käufe, Passwörter und Sicherheitsänderungen brauchen immer die Karte.",
+  "voice.settings.approvalsHint":
+    "Käufe, Passwörter und Sicherheitsänderungen brauchen immer die Karte.",
   "voice.settings.language": "Sprache",
   "voice.settings.languageFollow": "Sprache der App verwenden",
   "voice.settings.captions": "Untertitel",
   "voice.settings.review": "Vor dem Senden prüfen",
-  "voice.settings.reviewHint": "Zeigt, was Psyche gehört hat, damit du es vor dem Senden korrigieren kannst.",
+  "voice.settings.reviewHint":
+    "Zeigt, was Psyche gehört hat, damit du es vor dem Senden korrigieren kannst.",
   "voice.settings.brief": "Gesprochenes Briefing",
   "voice.settings.brief.off": "Aus",
   "voice.settings.brief.listen": "Wenn ich auf „Anhören“ drücke",
@@ -3419,7 +3423,8 @@ export const de: Partial<Catalogue> = {
   "voice.say.rest": "Der Rest steht auf dem Bildschirm.",
   "voice.say.link": "Den Link findest du auf dem Bildschirm.",
   "voice.say.step": "{label}.",
-  "voice.say.readbackEmail": "Eine E-Mail an {to} senden, Betreff „{subject}“. Sag „{approve}“ oder „{deny}“.",
+  "voice.say.readbackEmail":
+    "Eine E-Mail an {to} senden, Betreff „{subject}“. Sag „{approve}“ oder „{deny}“.",
   "voice.say.readback": "{summary}. Sag „{approve}“ oder „{deny}“.",
   "voice.say.touchId": "Dafür brauchst du Touch ID auf dem Bildschirm.",
   "voice.say.leftOnScreen": "Ich lasse es auf dem Bildschirm.",

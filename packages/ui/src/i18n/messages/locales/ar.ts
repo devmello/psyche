@@ -3240,7 +3240,8 @@ export const ar: Partial<Catalogue> = {
   "voice.readback": "قل «{approve}» أو «{deny}»",
   "voice.readbackApprove": "أرسلها",
   "voice.readbackDeny": "إلغاء",
-  "voice.readbackWindow": "المتبقي: {seconds, plural, zero {لا ثوانٍ} one {ثانية واحدة} two {ثانيتان} few {# ثوانٍ} many {# ثانية} other {# ثانية}}",
+  "voice.readbackWindow":
+    "المتبقي: {seconds, plural, zero {لا ثوانٍ} one {ثانية واحدة} two {ثانيتان} few {# ثوانٍ} many {# ثانية} other {# ثانية}}",
   "voice.question": "قل إجابتك",
   "voice.noSpeech": "لم أفهم ذلك",
   "voice.needsMic": "يحتاج Psyche إلى الميكروفون ليسمعك",
@@ -3255,7 +3256,8 @@ export const ar: Partial<Catalogue> = {
   "voice.key.rightCommand": "⌘ الأيمن",
   "voice.settings.title": "المحادثة الصوتية",
   "voice.settings.enabled": "التحدث مع Psyche",
-  "voice.settings.enabledHint": "اضغط مطوّلًا على مفتاح الصوت في أي تطبيق، أو اضغط «صوت» في الدردشة، وتحدّث.",
+  "voice.settings.enabledHint":
+    "اضغط مطوّلًا على مفتاح الصوت في أي تطبيق، أو اضغط «صوت» في الدردشة، وتحدّث.",
   "voice.settings.key": "مفتاح الصوت",
   "voice.settings.keyHint": "يجب أن يختلف عن مفتاح الإملاء.",
   "voice.settings.keyClash": "هذا مفتاح الإملاء. اختر مفتاحًا آخر.",
@@ -3265,7 +3267,8 @@ export const ar: Partial<Catalogue> = {
   "voice.settings.mode.tap": "انقر للتحدث",
   "voice.settings.mode.tapHint": "انقر وتحدّث، ثم توقف عندما تنتهي.",
   "voice.settings.mode.handsfree": "من دون استخدام اليدين",
-  "voice.settings.mode.handsfreeHint": "واصل الحديث دورًا بعد دور؛ تنتهي المحادثة بعد 30 ثانية من الصمت.",
+  "voice.settings.mode.handsfreeHint":
+    "واصل الحديث دورًا بعد دور؛ تنتهي المحادثة بعد 30 ثانية من الصمت.",
   "voice.settings.voice": "الصوت",
   "voice.settings.voiceBest": "أفضل صوت مثبّت لهذه اللغة",
   "voice.settings.voiceQuality.premium": "ممتاز",
@@ -3291,7 +3294,8 @@ export const ar: Partial<Catalogue> = {
   "voice.settings.approvals.off": "متوقفة",
   "voice.settings.approvals.write": "الكتابة فقط",
   "voice.settings.approvals.write_destructive": "الكتابة والحذف",
-  "voice.settings.approvalsHint": "تحتاج المشتريات وكلمات المرور وتغييرات الأمان دائمًا إلى البطاقة.",
+  "voice.settings.approvalsHint":
+    "تحتاج المشتريات وكلمات المرور وتغييرات الأمان دائمًا إلى البطاقة.",
   "voice.settings.language": "اللغة",
   "voice.settings.languageFollow": "اتّباع لغة التطبيق",
   "voice.settings.captions": "الترجمة النصية",
@@ -3305,7 +3309,8 @@ export const ar: Partial<Catalogue> = {
   "voice.say.rest": "البقية على الشاشة.",
   "voice.say.link": "وضعت الرابط على الشاشة.",
   "voice.say.step": "{label}.",
-  "voice.say.readbackEmail": "إرسال بريد إلى {to}، الموضوع «{subject}». قل «{approve}» أو «{deny}».",
+  "voice.say.readbackEmail":
+    "إرسال بريد إلى {to}، الموضوع «{subject}». قل «{approve}» أو «{deny}».",
   "voice.say.readback": "{summary}. قل «{approve}» أو «{deny}».",
   "voice.say.touchId": "هذا يحتاج إلى Touch ID على الشاشة.",
   "voice.say.leftOnScreen": "سأتركه على الشاشة.",
