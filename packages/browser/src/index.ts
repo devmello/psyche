@@ -19,6 +19,7 @@ export * from "./drivers/routing.ts";
 export * from "./origin/canonical.ts";
 export * from "./origin/partition.ts";
 export * from "./origin/policy.ts";
+export { redactUrl, redactUrlsIn } from "./origin/redact-url.ts";
 export * from "./origin/reputation.ts";
 export * from "./profiles.ts";
 export * from "./realchrome/launcher.ts";

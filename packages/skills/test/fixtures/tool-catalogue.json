@@ -1,0 +1,662 @@
+{
+  "_comment": "Tool names registered on main (2026-10-25) for specialist allowlist validation; recipient tools marked for the maxMode cap. Side effects other than recipient ones are not modeled here.",
+  "tools": [
+    {
+      "name": "apps.applescript",
+      "sideEffect": "read"
+    },
+    {
+      "name": "apps.focus",
+      "sideEffect": "read"
+    },
+    {
+      "name": "apps.list",
+      "sideEffect": "read"
+    },
+    {
+      "name": "apps.open",
+      "sideEffect": "read"
+    },
+    {
+      "name": "apps.shortcut_run",
+      "sideEffect": "read"
+    },
+    {
+      "name": "apps.shortcuts_list",
+      "sideEffect": "read"
+    },
+    {
+      "name": "ask_user",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.click",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.close_tab",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.console",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.dev_preview",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.dialog",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.download",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.drag",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.fill_credential",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.find",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.focus_tab",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.hover",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.navigate",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.network",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.open_tab",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.press",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.read_text",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.request_control",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.screenshot",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.scroll",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.scroll_to",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.select",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.snapshot",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.stop_real_chrome",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.tabs",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.type",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.upload",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.use_real_chrome",
+      "sideEffect": "read"
+    },
+    {
+      "name": "browser.wait",
+      "sideEffect": "read"
+    },
+    {
+      "name": "calendar_create_event",
+      "sideEffect": "read"
+    },
+    {
+      "name": "calendar_delete_event",
+      "sideEffect": "read"
+    },
+    {
+      "name": "calendar_find_free_time",
+      "sideEffect": "read"
+    },
+    {
+      "name": "calendar_free_busy",
+      "sideEffect": "read"
+    },
+    {
+      "name": "calendar_list_calendars",
+      "sideEffect": "read"
+    },
+    {
+      "name": "calendar_list_events",
+      "sideEffect": "read"
+    },
+    {
+      "name": "calendar_update_event",
+      "sideEffect": "read"
+    },
+    {
+      "name": "chrome_current_tab",
+      "sideEffect": "read"
+    },
+    {
+      "name": "chrome_tabs",
+      "sideEffect": "read"
+    },
+    {
+      "name": "code.edit",
+      "sideEffect": "read"
+    },
+    {
+      "name": "code.git",
+      "sideEffect": "read"
+    },
+    {
+      "name": "code.open",
+      "sideEffect": "read"
+    },
+    {
+      "name": "code.read",
+      "sideEffect": "read"
+    },
+    {
+      "name": "code.run",
+      "sideEffect": "read"
+    },
+    {
+      "name": "code.search",
+      "sideEffect": "read"
+    },
+    {
+      "name": "computer.act",
+      "sideEffect": "read"
+    },
+    {
+      "name": "computer.screenshot",
+      "sideEffect": "read"
+    },
+    {
+      "name": "computer.snapshot",
+      "sideEffect": "read"
+    },
+    {
+      "name": "contacts_create",
+      "sideEffect": "read"
+    },
+    {
+      "name": "contacts_read",
+      "sideEffect": "read"
+    },
+    {
+      "name": "contacts_search",
+      "sideEffect": "read"
+    },
+    {
+      "name": "contacts_update",
+      "sideEffect": "read"
+    },
+    {
+      "name": "drive_download",
+      "sideEffect": "read"
+    },
+    {
+      "name": "drive_upload",
+      "sideEffect": "read"
+    },
+    {
+      "name": "edit_file",
+      "sideEffect": "read"
+    },
+    {
+      "name": "exec",
+      "sideEffect": "read"
+    },
+    {
+      "name": "exit_plan_mode",
+      "sideEffect": "read"
+    },
+    {
+      "name": "feed.explain",
+      "sideEffect": "read"
+    },
+    {
+      "name": "feed.list",
+      "sideEffect": "read"
+    },
+    {
+      "name": "feed.mark_read",
+      "sideEffect": "read"
+    },
+    {
+      "name": "files_move",
+      "sideEffect": "read"
+    },
+    {
+      "name": "files_recent",
+      "sideEffect": "read"
+    },
+    {
+      "name": "files_rename",
+      "sideEffect": "read"
+    },
+    {
+      "name": "files_trash",
+      "sideEffect": "read"
+    },
+    {
+      "name": "forget",
+      "sideEffect": "read"
+    },
+    {
+      "name": "gmail_create_draft",
+      "sideEffect": "read"
+    },
+    {
+      "name": "gmail_list_labels",
+      "sideEffect": "read"
+    },
+    {
+      "name": "gmail_modify_labels",
+      "sideEffect": "read"
+    },
+    {
+      "name": "gmail_read_thread",
+      "sideEffect": "read"
+    },
+    {
+      "name": "gmail_save_attachment",
+      "sideEffect": "read"
+    },
+    {
+      "name": "gmail_search_threads",
+      "sideEffect": "read"
+    },
+    {
+      "name": "gmail_send",
+      "sideEffect": "destructive",
+      "targetKind": "recipient"
+    },
+    {
+      "name": "goals.add_checkin",
+      "sideEffect": "read"
+    },
+    {
+      "name": "goals.list",
+      "sideEffect": "read"
+    },
+    {
+      "name": "goals.propose",
+      "sideEffect": "read"
+    },
+    {
+      "name": "goals.update_progress",
+      "sideEffect": "read"
+    },
+    {
+      "name": "harness.delegate",
+      "sideEffect": "read"
+    },
+    {
+      "name": "ideas.accept",
+      "sideEffect": "read"
+    },
+    {
+      "name": "ideas.dismiss",
+      "sideEffect": "read"
+    },
+    {
+      "name": "ideas.list",
+      "sideEffect": "read"
+    },
+    {
+      "name": "ideas.snooze",
+      "sideEffect": "read"
+    },
+    {
+      "name": "list_dir",
+      "sideEffect": "read"
+    },
+    {
+      "name": "mail_create_draft",
+      "sideEffect": "read"
+    },
+    {
+      "name": "mail_draft",
+      "sideEffect": "read"
+    },
+    {
+      "name": "mail_forward_draft",
+      "sideEffect": "destructive",
+      "targetKind": "recipient"
+    },
+    {
+      "name": "mail_list_mailboxes",
+      "sideEffect": "read"
+    },
+    {
+      "name": "mail_mailboxes",
+      "sideEffect": "read"
+    },
+    {
+      "name": "mail_modify_flags",
+      "sideEffect": "read"
+    },
+    {
+      "name": "mail_move",
+      "sideEffect": "read"
+    },
+    {
+      "name": "mail_read",
+      "sideEffect": "read"
+    },
+    {
+      "name": "mail_read_message",
+      "sideEffect": "read"
+    },
+    {
+      "name": "mail_reply_draft",
+      "sideEffect": "read"
+    },
+    {
+      "name": "mail_save_attachment",
+      "sideEffect": "read"
+    },
+    {
+      "name": "mail_save_attachments",
+      "sideEffect": "read"
+    },
+    {
+      "name": "mail_search",
+      "sideEffect": "read"
+    },
+    {
+      "name": "mail_search_messages",
+      "sideEffect": "read"
+    },
+    {
+      "name": "mail_send",
+      "sideEffect": "destructive",
+      "targetKind": "recipient"
+    },
+    {
+      "name": "mail_send_draft",
+      "sideEffect": "destructive",
+      "targetKind": "recipient"
+    },
+    {
+      "name": "mail_set_flags",
+      "sideEffect": "read"
+    },
+    {
+      "name": "memory",
+      "sideEffect": "read"
+    },
+    {
+      "name": "memory_explain",
+      "sideEffect": "read"
+    },
+    {
+      "name": "memory_search",
+      "sideEffect": "read"
+    },
+    {
+      "name": "messages.read",
+      "sideEffect": "read"
+    },
+    {
+      "name": "messages.send",
+      "sideEffect": "destructive",
+      "targetKind": "recipient"
+    },
+    {
+      "name": "messages.status",
+      "sideEffect": "read"
+    },
+    {
+      "name": "music_control",
+      "sideEffect": "read"
+    },
+    {
+      "name": "music_now_playing",
+      "sideEffect": "read"
+    },
+    {
+      "name": "music_play",
+      "sideEffect": "read"
+    },
+    {
+      "name": "music_search_library",
+      "sideEffect": "read"
+    },
+    {
+      "name": "notes_append",
+      "sideEffect": "read"
+    },
+    {
+      "name": "notes_create",
+      "sideEffect": "read"
+    },
+    {
+      "name": "notes_folders",
+      "sideEffect": "read"
+    },
+    {
+      "name": "notes_list",
+      "sideEffect": "read"
+    },
+    {
+      "name": "notes_read",
+      "sideEffect": "read"
+    },
+    {
+      "name": "notes_search",
+      "sideEffect": "read"
+    },
+    {
+      "name": "notes_update",
+      "sideEffect": "read"
+    },
+    {
+      "name": "notify",
+      "sideEffect": "read"
+    },
+    {
+      "name": "obsidian_append",
+      "sideEffect": "read"
+    },
+    {
+      "name": "obsidian_append_daily",
+      "sideEffect": "read"
+    },
+    {
+      "name": "obsidian_create",
+      "sideEffect": "read"
+    },
+    {
+      "name": "obsidian_read",
+      "sideEffect": "read"
+    },
+    {
+      "name": "obsidian_search",
+      "sideEffect": "read"
+    },
+    {
+      "name": "read_file",
+      "sideEffect": "read"
+    },
+    {
+      "name": "remember",
+      "sideEffect": "read"
+    },
+    {
+      "name": "reminders_complete",
+      "sideEffect": "read"
+    },
+    {
+      "name": "reminders_create",
+      "sideEffect": "read"
+    },
+    {
+      "name": "reminders_delete",
+      "sideEffect": "read"
+    },
+    {
+      "name": "reminders_list",
+      "sideEffect": "read"
+    },
+    {
+      "name": "reminders_list_lists",
+      "sideEffect": "read"
+    },
+    {
+      "name": "reminders_set_flagged",
+      "sideEffect": "read"
+    },
+    {
+      "name": "reminders_update",
+      "sideEffect": "read"
+    },
+    {
+      "name": "safari_current_tab",
+      "sideEffect": "read"
+    },
+    {
+      "name": "safari_tab_text",
+      "sideEffect": "read"
+    },
+    {
+      "name": "safari_tabs",
+      "sideEffect": "read"
+    },
+    {
+      "name": "schedule",
+      "sideEffect": "read"
+    },
+    {
+      "name": "search_files",
+      "sideEffect": "read"
+    },
+    {
+      "name": "shop_add_to_cart",
+      "sideEffect": "read"
+    },
+    {
+      "name": "shop_checkout_handoff",
+      "sideEffect": "read"
+    },
+    {
+      "name": "shop_compare",
+      "sideEffect": "read"
+    },
+    {
+      "name": "shop_list_merchants",
+      "sideEffect": "read"
+    },
+    {
+      "name": "shop_parse_order_email",
+      "sideEffect": "read"
+    },
+    {
+      "name": "shop_search",
+      "sideEffect": "read"
+    },
+    {
+      "name": "shop_view_cart",
+      "sideEffect": "read"
+    },
+    {
+      "name": "shortcuts_list",
+      "sideEffect": "read"
+    },
+    {
+      "name": "shortcuts_run",
+      "sideEffect": "read"
+    },
+    {
+      "name": "skills_read",
+      "sideEffect": "read"
+    },
+    {
+      "name": "skills_search",
+      "sideEffect": "read"
+    },
+    {
+      "name": "subagent.spawn",
+      "sideEffect": "read"
+    },
+    {
+      "name": "task.start",
+      "sideEffect": "read"
+    },
+    {
+      "name": "things_add",
+      "sideEffect": "read"
+    },
+    {
+      "name": "things_complete",
+      "sideEffect": "read"
+    },
+    {
+      "name": "things_list",
+      "sideEffect": "read"
+    },
+    {
+      "name": "things_update",
+      "sideEffect": "read"
+    },
+    {
+      "name": "update_plan",
+      "sideEffect": "read"
+    },
+    {
+      "name": "web.fetch",
+      "sideEffect": "read"
+    },
+    {
+      "name": "web.search",
+      "sideEffect": "read"
+    },
+    {
+      "name": "wrap_up",
+      "sideEffect": "read"
+    },
+    {
+      "name": "write_file",
+      "sideEffect": "read"
+    }
+  ]
+}

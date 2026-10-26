@@ -95,9 +95,15 @@ export function axisTicks(scale: TimeScale, minPx = 72): number[] {
   const want = scale.msPerPx * minPx;
   const step = STEPS_MS.find((s) => s >= want) ?? STEPS_MS.at(-1) ?? 60_000;
   const out: number[] = [];
+  let lastX = Number.NEGATIVE_INFINITY;
   for (let t = 0; scale.start + t <= scale.end; t += step) {
     const at = scale.start + t;
-    if (!scale.gaps.some((g) => at > g.from && at < g.to)) out.push(t);
+    if (scale.gaps.some((g) => at > g.from && at < g.to)) continue;
+    // After a collapsed gap the next round tick can land right beside the last one: skip it.
+    const x = scale.x(at);
+    if (x - lastX < minPx * 0.75) continue;
+    out.push(t);
+    lastX = x;
   }
   return out;
 }

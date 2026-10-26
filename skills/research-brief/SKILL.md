@@ -16,6 +16,8 @@ metadata:
 
 Turn a question into a short, sourced document the owner can trust and keep.
 
+For a long job (many sources, more than a few minutes, or a brief the owner doesn't need to watch), start the **researcher** specialist with `specialist.spawn` instead and tell the owner where to watch it.
+
 ## Tools
 
 - `search` (web search provider), `fetch` (page → text), `browser.*` only for pages that need it (see `browsing`)

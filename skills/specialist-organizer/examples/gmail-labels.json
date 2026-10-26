@@ -1,0 +1,303 @@
+{
+  "id": "organizer-gmail-labels",
+  "role": "organizer",
+  "title": "Label recent Gmail receipts and invoices, archive them",
+  "brief": "Goal: in the owner's Gmail, put receipts under the label Receipts and invoices under the label Finance/Invoices, and take both out of the inbox. Scope: inbox threads from the last 30 days only. Constraints: labels and archive only; never delete, never send, don't touch threads with a personal reply in them. Done: matching threads labelled and archived, each change listed with its undo; say what you couldn't do.",
+  "tools": [
+    "gmail_list_labels",
+    "gmail_search_threads",
+    "gmail_read_thread",
+    "gmail_modify_labels",
+    "reminders_list",
+    "notes_append",
+    "update_plan"
+  ],
+  "script": [
+    [
+      {
+        "type": "tool_call",
+        "id": "c1",
+        "name": "gmail_list_labels",
+        "input": {}
+      },
+      {
+        "type": "usage",
+        "usage": {
+          "input": 1980,
+          "output": 55,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "costUsd": 0.0003
+        }
+      },
+      {
+        "type": "finish",
+        "reason": "tool_calls"
+      }
+    ],
+    [
+      {
+        "type": "tool_call",
+        "id": "c2",
+        "name": "gmail_search_threads",
+        "input": {
+          "query": "in:inbox newer_than:30d (receipt OR invoice OR \"order confirmation\")",
+          "maxResults": 50
+        }
+      },
+      {
+        "type": "usage",
+        "usage": {
+          "input": 2520,
+          "output": 110,
+          "cacheRead": 1792,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "costUsd": 0.0005
+        }
+      },
+      {
+        "type": "finish",
+        "reason": "tool_calls"
+      }
+    ],
+    [
+      {
+        "type": "tool_call",
+        "id": "c3",
+        "name": "gmail_modify_labels",
+        "input": {
+          "threadIds": ["18c9a1", "18c9b7", "18c9d0", "18ca03"],
+          "addLabelIds": ["Label_12"],
+          "removeLabelIds": ["INBOX"]
+        }
+      },
+      {
+        "type": "usage",
+        "usage": {
+          "input": 3010,
+          "output": 90,
+          "cacheRead": 2304,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "costUsd": 0.0005
+        }
+      },
+      {
+        "type": "finish",
+        "reason": "tool_calls"
+      }
+    ],
+    [
+      {
+        "type": "tool_call",
+        "id": "r1",
+        "name": "specialist.report",
+        "input": {
+          "outcome": "partial",
+          "summary": "Labelled 4 receipts Receipts and archived them in Gmail. The 2 invoices (Figma, PG&E) are still in the inbox, unlabelled: there is no Finance/Invoices label and I can't create labels. Dana Lee's thread about splitting a dinner receipt has personal replies, so I left it.",
+          "findings": [
+            {
+              "title": "Labelled and archived Lyft ride receipt",
+              "detail": "Oct 2. Added Receipts, removed from Inbox. Undo: remove Receipts from thread 18c9a1 and move it back to Inbox.",
+              "sources": ["gmail:18c9a1"]
+            },
+            {
+              "title": "Labelled and archived Apple receipt",
+              "detail": "Added Receipts, removed from Inbox. Undo: remove Receipts from thread 18c9b7 and move it back to Inbox.",
+              "sources": ["gmail:18c9b7"]
+            },
+            {
+              "title": "Labelled and archived Safeway receipt",
+              "detail": "Added Receipts, removed from Inbox. Undo: remove Receipts from thread 18c9d0 and move it back to Inbox.",
+              "sources": ["gmail:18c9d0"]
+            },
+            {
+              "title": "Labelled and archived Uniqlo order 1029-334",
+              "detail": "Added Receipts, removed from Inbox. Undo: remove Receipts from thread 18ca03 and move it back to Inbox.",
+              "sources": ["gmail:18ca03"]
+            },
+            {
+              "title": "Left as is: Figma and PG&E invoices",
+              "detail": "Both are invoices, so they belong under Finance/Invoices, which doesn't exist. They're still in the Inbox with no label.",
+              "sources": ["gmail:18c9c4", "gmail:18c9f8"]
+            },
+            {
+              "title": "Left as is: Dana Lee, dinner receipt",
+              "detail": "A 3-message thread with personal replies; the brief says not to touch those.",
+              "sources": ["gmail:18c9e2"]
+            }
+          ],
+          "artifacts": [],
+          "next": [
+            {
+              "label": "File the invoices under Finance",
+              "message": "Label the Figma and PG&E invoice threads (18c9c4, 18c9f8) Finance and archive them."
+            },
+            {
+              "label": "Undo the 4 Receipts labels",
+              "message": "Undo the organizer's change: remove Receipts from threads 18c9a1, 18c9b7, 18c9d0 and 18ca03 and put them back in the Inbox."
+            }
+          ],
+          "gaps": [
+            "Finance/Invoices doesn't exist in Gmail and I can't create labels, so the 2 invoices weren't filed. Create the label in Gmail, or say to use Finance instead."
+          ]
+        }
+      },
+      {
+        "type": "usage",
+        "usage": {
+          "input": 3300,
+          "output": 560,
+          "cacheRead": 2816,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "costUsd": 0.001
+        }
+      },
+      {
+        "type": "finish",
+        "reason": "tool_calls"
+      }
+    ]
+  ],
+  "toolResults": {
+    "c1": {
+      "output": {
+        "labels": [
+          {
+            "id": "INBOX",
+            "name": "INBOX",
+            "type": "system"
+          },
+          {
+            "id": "Label_12",
+            "name": "Receipts",
+            "type": "user"
+          },
+          {
+            "id": "Label_15",
+            "name": "Finance",
+            "type": "user"
+          },
+          {
+            "id": "Label_19",
+            "name": "Travel",
+            "type": "user"
+          }
+        ]
+      },
+      "provenance": "trusted"
+    },
+    "c2": {
+      "output": {
+        "threads": [
+          {
+            "id": "18c9a1",
+            "from": "Lyft <no-reply@lyft.example>",
+            "subject": "Your ride receipt, Oct 2",
+            "messages": 1
+          },
+          {
+            "id": "18c9b7",
+            "from": "Apple <no_reply@apple.example>",
+            "subject": "Your receipt from Apple",
+            "messages": 1
+          },
+          {
+            "id": "18c9c4",
+            "from": "Figma <billing@figma.example>",
+            "subject": "Invoice INV-20431",
+            "messages": 1
+          },
+          {
+            "id": "18c9d0",
+            "from": "Safeway <receipts@safeway.example>",
+            "subject": "Your Safeway receipt",
+            "messages": 1
+          },
+          {
+            "id": "18c9e2",
+            "from": "Dana Lee <dana@lee.example>",
+            "subject": "Re: dinner receipt, splitting it",
+            "messages": 3
+          },
+          {
+            "id": "18c9f8",
+            "from": "PG&E <billing@pge.example>",
+            "subject": "Your October invoice is ready",
+            "messages": 1
+          },
+          {
+            "id": "18ca03",
+            "from": "Uniqlo <orders@uniqlo.example>",
+            "subject": "Order confirmation 1029-334",
+            "messages": 1
+          }
+        ],
+        "resultSizeEstimate": 7
+      },
+      "provenance": "untrusted"
+    },
+    "c3": {
+      "output": {
+        "modified": 4,
+        "threadIds": ["18c9a1", "18c9b7", "18c9d0", "18ca03"],
+        "added": ["Receipts"],
+        "removed": ["INBOX"]
+      },
+      "provenance": "trusted"
+    }
+  },
+  "expectedReport": {
+    "outcome": "partial",
+    "summary": "Labelled 4 receipts Receipts and archived them in Gmail. The 2 invoices (Figma, PG&E) are still in the inbox, unlabelled: there is no Finance/Invoices label and I can't create labels. Dana Lee's thread about splitting a dinner receipt has personal replies, so I left it.",
+    "findings": [
+      {
+        "title": "Labelled and archived Lyft ride receipt",
+        "detail": "Oct 2. Added Receipts, removed from Inbox. Undo: remove Receipts from thread 18c9a1 and move it back to Inbox.",
+        "sources": ["gmail:18c9a1"]
+      },
+      {
+        "title": "Labelled and archived Apple receipt",
+        "detail": "Added Receipts, removed from Inbox. Undo: remove Receipts from thread 18c9b7 and move it back to Inbox.",
+        "sources": ["gmail:18c9b7"]
+      },
+      {
+        "title": "Labelled and archived Safeway receipt",
+        "detail": "Added Receipts, removed from Inbox. Undo: remove Receipts from thread 18c9d0 and move it back to Inbox.",
+        "sources": ["gmail:18c9d0"]
+      },
+      {
+        "title": "Labelled and archived Uniqlo order 1029-334",
+        "detail": "Added Receipts, removed from Inbox. Undo: remove Receipts from thread 18ca03 and move it back to Inbox.",
+        "sources": ["gmail:18ca03"]
+      },
+      {
+        "title": "Left as is: Figma and PG&E invoices",
+        "detail": "Both are invoices, so they belong under Finance/Invoices, which doesn't exist. They're still in the Inbox with no label.",
+        "sources": ["gmail:18c9c4", "gmail:18c9f8"]
+      },
+      {
+        "title": "Left as is: Dana Lee, dinner receipt",
+        "detail": "A 3-message thread with personal replies; the brief says not to touch those.",
+        "sources": ["gmail:18c9e2"]
+      }
+    ],
+    "artifacts": [],
+    "next": [
+      {
+        "label": "File the invoices under Finance",
+        "message": "Label the Figma and PG&E invoice threads (18c9c4, 18c9f8) Finance and archive them."
+      },
+      {
+        "label": "Undo the 4 Receipts labels",
+        "message": "Undo the organizer's change: remove Receipts from threads 18c9a1, 18c9b7, 18c9d0 and 18ca03 and put them back in the Inbox."
+      }
+    ],
+    "gaps": [
+      "Finance/Invoices doesn't exist in Gmail and I can't create labels, so the 2 invoices weren't filed. Create the label in Gmail, or say to use Finance instead."
+    ]
+  }
+}
