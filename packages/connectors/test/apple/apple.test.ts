@@ -37,6 +37,19 @@ const ALL = [
   "mail.read",
   "mail.draft",
   "mail.send",
+  "contacts.search",
+  "contacts.read",
+  "contacts.create",
+  "contacts.update",
+  "notes.search",
+  "notes.folders",
+  "notes.append",
+  "notes.update",
+  "reminders.complete",
+  "reminders.set_flagged",
+  "reminders.delete",
+  "calendar.free_busy",
+  "calendar.delete_event",
   "mail.mailboxes",
   "mail.selected",
   "mail.reply_draft",
@@ -85,6 +98,7 @@ class FakeHelper implements AppleHelper {
           permissions: [
             { permission: "calendars", status: this.grant },
             { permission: "reminders", status: this.grant },
+            { permission: "contacts", status: this.grant },
           ],
         },
       };
@@ -181,13 +195,14 @@ function make(
 }
 
 describe("Apple app connectors (#528)", () => {
-  it("lists four available catalogue entries, one per app", () => {
+  it("lists the available catalogue entries, one per app", () => {
     const entries = appleFactories({ helper: () => undefined }).map((f) => f.entry);
     expect(entries.map((e) => [e.type, e.id, e.available])).toEqual([
       ["apple:notes", "apple-notes", true],
       ["apple:reminders", "apple-reminders", true],
       ["apple:calendar", "apple-calendar", true],
       ["apple:mail", "apple-mail", true],
+      ["apple:contacts", "apple-contacts", true],
     ]);
     expect(appleCatalogueEntry("mail").actions.find((a) => a.id === "mail.send")).toMatchObject({
       sideEffect: "destructive",
@@ -218,12 +233,14 @@ describe("Apple app connectors (#528)", () => {
       type: "apple:notes",
       status: "connected",
       account: "This Mac",
-      scopes: ["notes.list", "notes.read"],
+      scopes: ["notes.list", "notes.read", "notes.search", "notes.folders"],
       config: { nodeId: "node_mac" },
     });
     expect([...tools.keys()].sort()).toEqual([
+      "mcp__apple-1__notes_folders",
       "mcp__apple-1__notes_list",
       "mcp__apple-1__notes_read",
+      "mcp__apple-1__notes_search",
     ]);
   });
 
@@ -704,5 +721,201 @@ describe("Apple Mail wave 1 (#639)", () => {
         "mail.save_attachments",
       ]),
     );
+  });
+});
+
+describe("Apple Reminders and Calendar wave 1 (#639)", () => {
+  const toolOf = (app: number, type: string, name: string) =>
+    appleFactories({ helper: () => new FakeHelper() })
+      [app]?.create({ id: "apple-1", type } as never, {} as never)
+      .tools()
+      .find((t) => t.name === name);
+
+  it("adds delete groups that always ask, and keeps reads allowed", () => {
+    expect(
+      appleCatalogueEntry("reminders").actions.map((a) => [a.id, a.sideEffect, a.defaultRule]),
+    ).toEqual([
+      ["reminders.read", "read", "allow"],
+      ["reminders.write", "write", "ask"],
+      ["reminders.delete", "destructive", "ask"],
+    ]);
+    expect(
+      appleCatalogueEntry("calendar").actions.map((a) => [a.id, a.sideEffect, a.approvalKind]),
+    ).toEqual([
+      ["calendar.read", "read", undefined],
+      ["calendar.write", "write", "calendar_write"],
+      ["calendar.delete", "destructive", "calendar_write"],
+    ]);
+  });
+
+  it("reminders_list takes the due / overdue / flagged / text filters straight to the helper", async () => {
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "apple-reminders", scopeMode: "read" });
+    helper.calls.length = 0;
+    const params = { dueToday: true, completed: false, flagged: true, query: "dentist" };
+    await run("mcp__apple-1__reminders_list")(params);
+    expect(helper.calls).toEqual([{ capability: "reminders.list", params }]);
+  });
+
+  it("reminders_create carries a mail link, an alarm and a recurrence; complete and delete ask", async () => {
+    const create = toolOf(1, "apple:reminders", "reminders_create");
+    if (!create) throw new Error("reminders_create is missing");
+    expect(Object.keys((create.inputSchema as { properties: object }).properties)).toEqual(
+      expect.arrayContaining(["url", "alarm", "recurrence"]),
+    );
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "apple-reminders", scopeMode: "read_act" });
+    await expect(run("mcp__apple-1__reminders_complete")({ id: "R1" })).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    await expect(run("mcp__apple-1__reminders_delete")({ id: "R1" })).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    const del = toolOf(1, "apple:reminders", "reminders_delete");
+    expect(del?.sideEffect).toBe("destructive");
+  });
+
+  it("calendar_free_busy is a read; calendar_delete_event binds calendar_write and asks", async () => {
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "apple-calendar", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    const window = { from: "2026-10-26T00:00:00Z", to: "2026-10-31T00:00:00Z" };
+    await run("mcp__apple-1__calendar_free_busy")(window);
+    expect(helper.calls).toEqual([{ capability: "calendar.free_busy", params: window }]);
+    expect(
+      toolOf(2, "apple:calendar", "calendar_delete_event")?.describeCall?.({ id: "E1" }),
+    ).toMatchObject({
+      kind: "calendar_write",
+      bindingFields: { tool: "calendar_delete_event" },
+    });
+    await expect(run("mcp__apple-1__calendar_delete_event")({ id: "E1" })).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    // Read-only connections never get the delete tool.
+    const ro = make(new FakeHelper());
+    await ro.registry.connect({ catalogueId: "apple-calendar", scopeMode: "read" });
+    expect([...ro.tools.keys()]).not.toContain("mcp__apple-1__calendar_delete_event");
+    expect([...ro.tools.keys()]).toContain("mcp__apple-1__calendar_free_busy");
+  });
+
+  it("the event tools say invitations go by mail", () => {
+    expect(toolOf(2, "apple:calendar", "calendar_create_event")?.description).toMatch(
+      /invitations go out by mail/,
+    );
+  });
+});
+
+describe("Apple Notes wave 1 (#639)", () => {
+  const notesTool = (name: string) =>
+    appleFactories({ helper: () => new FakeHelper() })[0]
+      ?.create({ id: "apple-1", type: "apple:notes" } as never, {} as never)
+      .tools()
+      .find((t) => t.name === name);
+
+  it("searches and lists folders as reads; append and update are an edit group that asks", async () => {
+    expect(appleCatalogueEntry("notes").actions.map((a) => [a.id, a.defaultRule])).toEqual([
+      ["notes.read", "allow"],
+      ["notes.create", "ask"],
+      ["notes.edit", "ask"],
+    ]);
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "apple-notes", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    await run("mcp__apple-1__notes_search")({
+      query: "offsite",
+      modifiedSince: "2026-10-01T00:00:00Z",
+    });
+    expect(helper.calls).toEqual([
+      {
+        capability: "notes.search",
+        params: { query: "offsite", modifiedSince: "2026-10-01T00:00:00Z" },
+      },
+    ]);
+    await expect(
+      run("mcp__apple-1__notes_append")({ id: "n1", text: "Decided: Lisbon" }),
+    ).rejects.toMatchObject({ code: "approval_required" });
+  });
+
+  it("notes_update is bound to the note and the body the agent read", async () => {
+    const edit = { id: "n1", previousBodySha256: "sha256:old", body: "New plan" };
+    const desc = notesTool("notes_update")?.describeCall?.(edit);
+    expect(desc).toMatchObject({
+      kind: "connector_action",
+      bindingFields: { tool: "notes_update", noteId: "n1", previousBodySha256: "sha256:old" },
+    });
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper, {
+      id: "ap_n",
+      tool: "mcp__apple-1__notes_update",
+      params: edit,
+      desc,
+    });
+    await registry.connect({ catalogueId: "apple-notes", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    // Another base body (the note changed since it was read) is another approval.
+    await expect(
+      run("mcp__apple-1__notes_update")({ ...edit, previousBodySha256: "sha256:newer" }),
+    ).rejects.toMatchObject({ code: "binding_mismatch" });
+    await run("mcp__apple-1__notes_update")(edit);
+    expect(helper.calls).toEqual([
+      { capability: "notes.update", params: edit, approvalId: "ap_n" },
+    ]);
+  });
+
+  it("notes_create can ask for Markdown", () => {
+    const created = notesTool("notes_create");
+    if (!created) throw new Error("notes_create is missing");
+    const props = (created.inputSchema as { properties: Record<string, unknown> }).properties;
+    expect(props.format).toEqual({ type: "string", enum: ["text", "markdown"] });
+  });
+});
+
+describe("Apple Contacts wave 1 (#639)", () => {
+  it("is a single-instance Apple app whose grant is Contacts access", async () => {
+    const e = appleCatalogueEntry("contacts");
+    expect(e).toMatchObject({
+      type: "apple:contacts",
+      id: "apple-contacts",
+      vendor: "Apple",
+      singleInstance: true,
+    });
+    expect(e.actions.map((a) => [a.id, a.defaultRule])).toEqual([
+      ["contacts.read", "allow"],
+      ["contacts.write", "ask"],
+    ]);
+    const helper = new FakeHelper();
+    helper.grant = "denied";
+    const { registry } = make(helper);
+    const r = await registry.connect({ catalogueId: "apple-contacts", scopeMode: "read" });
+    expect(r.status).toBe("needs_auth");
+    expect(r.config.permission).toMatchObject({
+      kind: "contacts",
+      settingsUrl: "x-apple.systempreferences:com.apple.preference.security?Privacy_Contacts",
+    });
+  });
+
+  it("looks people up as a read and adds them only with an approval", async () => {
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "apple-contacts", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    await run("mcp__apple-1__contacts_search")({ query: "Dana" });
+    expect(helper.calls).toEqual([{ capability: "contacts.search", params: { query: "Dana" } }]);
+    await expect(
+      run("mcp__apple-1__contacts_create")({
+        givenName: "Dana",
+        emails: [{ label: "work", value: "dana@example.org" }],
+      }),
+    ).rejects.toMatchObject({ code: "approval_required" });
+    await expect(
+      run("mcp__apple-1__contacts_update")({
+        id: "C1",
+        addPhones: [{ label: "mobile", value: "+1 555 0100" }],
+      }),
+    ).rejects.toMatchObject({ code: "approval_required" });
   });
 });

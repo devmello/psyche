@@ -43,6 +43,16 @@ export const APPLE_APP_ACTIONS: Readonly<Record<string, AppleAppAction>> = {
   "reminders.list": read("apple.reminders", "list"),
   "reminders.create": write("apple.reminders", "create"),
   "reminders.update": write("apple.reminders", "update"),
+  // Wave 1 (docs/connectors/apple-apps-2026.md §4.2, §4.3; #639).
+  "reminders.complete": write("apple.reminders", "complete"),
+  "reminders.set_flagged": write("apple.reminders", "set_flagged"),
+  "reminders.delete": write("apple.reminders", "delete", "connector_action", {
+    sideEffect: "destructive",
+  }),
+  "calendar.free_busy": read("apple.calendar", "free_busy"),
+  "calendar.delete_event": write("apple.calendar", "delete_event", "calendar_write", {
+    sideEffect: "destructive",
+  }),
   "mail.search": read("apple.mail", "search"),
   "mail.read": read("apple.mail", "read"),
   "mail.draft": write("apple.mail", "draft"),
@@ -61,6 +71,16 @@ export const APPLE_APP_ACTIONS: Readonly<Record<string, AppleAppAction>> = {
   "notes.list": read("apple.notes", "list"),
   "notes.read": read("apple.notes", "read"),
   "notes.create": write("apple.notes", "create"),
+  // Wave 1 (docs/connectors/apple-apps-2026.md §4.4; #639).
+  "notes.search": read("apple.notes", "search"),
+  "notes.folders": read("apple.notes", "folders"),
+  "notes.append": write("apple.notes", "append"),
+  "notes.update": write("apple.notes", "update"),
+  // Contacts (wave 1, docs/connectors/apple-apps-2026.md §4.5; #639).
+  "contacts.search": read("apple.contacts", "search"),
+  "contacts.read": read("apple.contacts", "read"),
+  "contacts.create": write("apple.contacts", "create"),
+  "contacts.update": write("apple.contacts", "update"),
   "finder.list": read("apple.finder", "list"),
   "finder.reveal": read("apple.finder", "reveal"),
   "safari.tabs": read("apple.safari", "tabs"),
