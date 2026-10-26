@@ -1,5 +1,6 @@
 import type { Catalogue } from "../index.ts";
 import { canvas } from "./canvas/zh.ts";
+import { charts } from "./charts/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
 import { overview } from "./overview/zh.ts";
 import { workflows } from "./workflows/zh.ts";
@@ -14,6 +15,8 @@ export const zh: Partial<Catalogue> = {
   ...overview,
   // the output canvas (docs/design/chat-experience-2026.md §4.2)
   ...canvas,
+  // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
+  ...charts,
   "common.cancel": "取消",
   "common.close": "关闭",
   "common.save": "存储",

@@ -1,5 +1,6 @@
 import type { Catalogue } from "../index.ts";
 import { canvas } from "./canvas/pt.ts";
+import { charts } from "./charts/pt.ts";
 import { mailMeetings } from "./mail-meetings/pt.ts";
 import { overview } from "./overview/pt.ts";
 import { workflows } from "./workflows/pt.ts";
@@ -14,6 +15,8 @@ export const pt: Partial<Catalogue> = {
   ...overview,
   // the output canvas (docs/design/chat-experience-2026.md §4.2)
   ...canvas,
+  // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
+  ...charts,
   "common.cancel": "Cancelar",
   "common.close": "Fechar",
   "common.save": "Salvar",

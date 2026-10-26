@@ -1,5 +1,6 @@
 import type { Catalogue } from "../index.ts";
 import { canvas } from "./canvas/ko.ts";
+import { charts } from "./charts/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
 import { overview } from "./overview/ko.ts";
 import { workflows } from "./workflows/ko.ts";
@@ -14,6 +15,8 @@ export const ko: Partial<Catalogue> = {
   ...overview,
   // the output canvas (docs/design/chat-experience-2026.md §4.2)
   ...canvas,
+  // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
+  ...charts,
   // common
   "common.cancel": "취소",
   "common.close": "닫기",

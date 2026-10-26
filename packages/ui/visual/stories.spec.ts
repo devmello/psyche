@@ -19,7 +19,7 @@ const stories = Object.values(index.entries).filter(
 );
 
 /** Every story in light; dark only for the core surfaces, to keep the baseline small. */
-const DARK = /^(Primitives|Cards|Chat|Shell|Avatar|Agent|Overview)\//;
+const DARK = /^(Primitives|Cards|Chat|Shell|Avatar|Agent|Overview|Charts)\//;
 
 for (const story of stories) {
   const themes = DARK.test(story.title) ? (["light", "dark"] as const) : (["light"] as const);
