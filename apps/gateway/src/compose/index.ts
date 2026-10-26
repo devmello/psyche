@@ -132,8 +132,10 @@ import {
   createOwnPorts,
 } from "./services.ts";
 import { composeSkills } from "./skills.ts";
+import { withSpecialistContext } from "./specialist-approvals.ts";
 import { createSpecialistHost } from "./specialists.ts";
 import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
+import { taskUpdateHandlers } from "./task-controls.ts";
 import {
   type ComposedTeaching,
   composeTeaching,
@@ -467,7 +469,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const executorBroker = announcing(broker, publish);
   // Background Task runs have no session controller to announce their cards: the loop's handle
   // announces those (requestedBy.taskId set); chat turns keep the controller's announcement.
-  const loopBroker = announcing(broker, publish, (a) => a.requestedBy.taskId != null);
+  // A specialist's approvals also carry its parent run and role (specialists §4.4).
+  const loopBroker = announcing(
+    withSpecialistContext(broker, (id) => tasks.get(id)),
+    publish,
+    (a) => a.requestedBy.taskId != null,
+  );
   broker.subscribe((e) => {
     if (
       e.type === "approval.decided" ||
@@ -1023,7 +1030,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
           loop.effectiveContextLimits(threadId, getThread(db, threadId)?.modelRef ?? undefined),
       ) as never,
     ),
-    ...mountParamsOnly(createTaskHandlers({ engine: tasks, pool, broker }) as never),
+    ...mountParamsOnly(
+      createTaskHandlers({ engine: tasks, pool, pools: [specialistPool], broker }) as never,
+    ),
+    ...mountParamsOnly(
+      taskUpdateHandlers({
+        tasks,
+        roles: skills.roles,
+        now: () => clock.now(),
+        poke: () => specialistPool.poke(),
+      }) as never,
+    ),
     ...mountParamsOnly(createAutomationHandlers(scheduler) as never),
     ...mountParamsOnly(createNotificationHandlers(notifier) as never),
     ...proactive.handlers,
