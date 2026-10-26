@@ -175,6 +175,30 @@ private final class Fakes: CalendarBackend, RemindersBackend, MailBackend, Notes
     func reveal(_ path: String) async throws { lock.withLock { revealed.append(path) } }
 }
 
+final class FakeContacts: ContactsBackend, @unchecked Sendable {
+    let lock = NSLock()
+    var created: [ContactInputRecord] = []
+    var updated: [ContactUpdateRecord] = []
+    func summaries() async throws -> [ContactSummaryRecord] {
+        [ContactSummaryRecord(id: "c1", name: "Dana Scully", organization: "FBI", emails: ["dana@fbi.example"], phones: ["+1 (202) 555-0142"]),
+         ContactSummaryRecord(id: "c2", name: "Daniel Dana", organization: "Acme", emails: ["dd@acme.example"], phones: []),
+         ContactSummaryRecord(id: "c3", name: "Fox Mulder", organization: "FBI", emails: [], phones: ["202 555 0199"])]
+    }
+    func read(id: String) async throws -> ContactRecord {
+        ContactRecord(id: id, givenName: "Dana", familyName: "Scully", organization: "FBI", emails: [LabeledValueRecord(label: "work", value: "dana@fbi.example")],
+                      birthday: "--02-23", groups: ["Work"])
+    }
+    func create(_ input: ContactInputRecord) async throws -> ContactRecord {
+        lock.withLock { created.append(input) }
+        return ContactRecord(id: "c9", givenName: input.givenName ?? "", familyName: input.familyName ?? "", organization: input.organization ?? "",
+                             emails: input.emails ?? [], phones: input.phones ?? [], birthday: input.birthday)
+    }
+    func update(_ update: ContactUpdateRecord) async throws -> ContactRecord {
+        lock.withLock { updated.append(update) }
+        return try await read(id: update.id)
+    }
+}
+
 private func tempRoot() -> URL {
     let u = FileManager.default.temporaryDirectory.appendingPathComponent("psyche-j6-\(UUID().uuidString)").resolvingSymlinksInPath()
     try? FileManager.default.createDirectory(at: u.appendingPathComponent("sub"), withIntermediateDirectories: true)
@@ -186,11 +210,12 @@ private struct Harness {
     let fakes = Fakes()
     let registry: CapabilityRegistry
     let staging = FileManager.default.temporaryDirectory.appendingPathComponent("psyche-staging-\(UUID().uuidString)").resolvingSymlinksInPath()
+    let people = FakeContacts()
     init(roots: [String] = []) {
         let f = fakes
         let st = staging
         registry = CapabilityRegistry(AppleAppsCapabilities.make(.init(
-            calendar: f, reminders: f, mail: f, notes: f, safari: f, finder: f, roots: { FinderRoots(roots: roots) }, staging: { st })))
+            calendar: f, reminders: f, mail: f, notes: f, safari: f, finder: f, roots: { FinderRoots(roots: roots) }, staging: { st }, contacts: people)))
     }
     func invoke(_ name: String, _ params: JSONValue = [:], approvalId: String? = nil) async throws -> CapabilityOutput {
         let h = try #require(registry[name])
@@ -217,12 +242,14 @@ struct AppleAppsTests {
             "reminders.complete", "reminders.delete", "reminders.set_flagged", "calendar.free_busy", "calendar.delete_event",
             // Notes wave 1 (§4.4).
             "notes.search", "notes.folders", "notes.append", "notes.update",
+            // Contacts wave 1 (§4.5).
+            "contacts.search", "contacts.read", "contacts.create", "contacts.update",
         ]
         let h = Harness()
         #expect(Set(h.registry.ordered.map(\.spec.name)) == matrix)
         let writes: Set = ["calendar.create_event", "calendar.update_event", "reminders.create", "reminders.update", "mail.draft", "mail.send", "notes.create", "safari.open_url",
                            "mail.reply_draft", "mail.forward_draft", "mail.send_draft", "mail.set_flags", "mail.move", "mail.save_attachments",
-                           "reminders.complete", "reminders.set_flagged", "notes.append", "notes.update"]
+                           "reminders.complete", "reminders.set_flagged", "notes.append", "notes.update", "contacts.create", "contacts.update"]
         let destructive: Set = ["reminders.delete", "calendar.delete_event"]
         for c in h.registry.ordered {
             let expected: SideEffect = destructive.contains(c.spec.name) ? .destructive : writes.contains(c.spec.name) ? .write : .read
@@ -669,5 +696,49 @@ struct NotesWave1RulesTests {
         #expect(s.hasPrefix("…") && s.hasSuffix("…") && s.contains("needle") && s.count < 60)
         #expect(NotesWave1.snippet("line one\nline two", query: "") == "line one line two")
         #expect(NotesWave1.appendHTML("a\n\nb", checklist: false) == "<div>a</div><div><br></div><div>b</div>")
+    }
+}
+
+@Suite("Contacts wave 1 (apple-apps-2026 §4.5)")
+struct ContactsWave1Tests {
+    @Test func searchRanksBestMatchFirst() async throws {
+        let h = Harness()
+        let r = try decode([ContactSummaryRecord].self, try await h.invoke("contacts.search", ["query": "dana"]).result["contacts"])
+        #expect(r.map(\.id) == ["c1", "c2"])  // name prefix beats a later word
+        #expect(try decode([ContactSummaryRecord].self, try await h.invoke("contacts.search", ["query": "5550199"]).result["contacts"]).map(\.id) == ["c3"])
+        #expect(try decode([ContactSummaryRecord].self, try await h.invoke("contacts.search", ["query": "FBI"]).result["contacts"]).count == 2)
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("contacts.search", ["query": "  "]) }
+    }
+
+    @Test func readCreateUpdate() async throws {
+        let h = Harness()
+        let c = try await h.invoke("contacts.read", ["id": "c1"])
+        #expect(c.result["contact"]?["birthday"] == "--02-23" && c.result["contact"]?["note"] == nil && c.result["provenance"] == "untrusted")
+        let made = try await h.invoke("contacts.create", ["givenName": "Walter", "emails": [["label": "work", "value": "w@ex.example"]], "birthday": "1950-07-04"])
+        #expect(made.result["contact"]?["id"] == "c9" && made.receipt?.outcome == .ok)
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("contacts.create", ["jobTitle": "x"]) }
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("contacts.create", ["givenName": "x", "birthday": "07/04/1950"]) }
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("contacts.create", ["givenName": "x", "emails": [["label": "", "value": "a@b, c@d"]]]) }
+        _ = try await h.invoke("contacts.update", ["id": "c1", "addPhones": [["label": "mobile", "value": "+1 202 555 0100"]]])
+        #expect(h.people.updated.first?.addPhones?.first?.label == "mobile")
+    }
+
+    @Test func outputsDecodeAsTheGeneratedProtocolTypes() async throws {
+        let h = Harness()
+        _ = try decode([AppleContactSummary].self, try await h.invoke("contacts.search", ["query": "dana"]).result["contacts"])
+        _ = try decode(AppleContact.self, try await h.invoke("contacts.read", ["id": "c1"]).result["contact"])
+    }
+}
+
+@Suite("Contacts wave 1: pure rules")
+struct ContactsWave1RulesTests {
+    @Test func labelsAndBirthdays() throws {
+        #expect(ContactsWave1.label(fromStore: "_$!<Home>!$_") == "home" && ContactsWave1.label(fromStore: nil) == "")
+        #expect(ContactsWave1.storeLabel("Mobile") == "_$!<Mobile>!$_" && ContactsWave1.storeLabel("gym") == "gym" && ContactsWave1.storeLabel("") == nil)
+        #expect(try ContactsWave1.birthday("--12-31").year == nil)
+        #expect(try ContactsWave1.birthday("1999-01-02").year == 1999)
+        #expect(throws: CapabilityError.self) { try ContactsWave1.birthday("1999-13-02") }
+        #expect(throws: CapabilityError.self) { try ContactsWave1.birthday("-12-31") }
+        #expect(ContactsWave1.birthdayString(year: nil, month: 3, day: 4) == "--03-04")
     }
 }
