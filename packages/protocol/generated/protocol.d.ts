@@ -1210,13 +1210,13 @@ export interface ArtifactOp {
     view?:    ArtifactTableView;
     marker?:  ArtifactMapMarker;
     id?:      string;
-    set?:     Set;
+    set?:     ArtifactMarkerPatch;
     patch?:   { [key: string]: unknown };
 }
 
 export type Op = "replace" | "insert" | "rewrite" | "set" | "setRange" | "addRows" | "deleteRows" | "addColumn" | "view" | "addMarker" | "removeMarker" | "updateMarker" | "patch";
 
-export interface Set {
+export interface ArtifactMarkerPatch {
     label?: string;
     lat?:   number;
     link?:  null | string;

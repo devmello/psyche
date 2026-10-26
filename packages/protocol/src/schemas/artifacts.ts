@@ -119,6 +119,19 @@ export const ArtifactTableView = Type.Object(
 );
 export type ArtifactTableView = Static<typeof ArtifactTableView>;
 
+/** `updateMarker`'s field changes. Named so Swift codegen doesn't emit a type called `Set`. */
+export const ArtifactMarkerPatch = Type.Object(
+  {
+    lat: Type.Optional(Lat),
+    lng: Type.Optional(Lng),
+    label: Type.Optional(Type.String({ maxLength: 120 })),
+    note: Type.Optional(Nullable(Type.String({ maxLength: 400 }))),
+    link: Type.Optional(Nullable(Type.String({ maxLength: 1000 }))),
+  },
+  { $id: "ArtifactMarkerPatch" },
+);
+export type ArtifactMarkerPatch = Static<typeof ArtifactMarkerPatch>;
+
 /**
  * One edit. Text types (`doc`, `code`): `replace` (`old` must match exactly once, else the update
  * fails fast), `insert` after an exact-once anchor (empty anchor = at the start), or `rewrite`
@@ -165,13 +178,7 @@ export const ArtifactOp = Type.Union(
       op: Type.Literal("updateMarker"),
       id: Type.String({ minLength: 1 }),
       /** Fields to change; `null` clears `note` or `link`. */
-      set: Type.Object({
-        lat: Type.Optional(Lat),
-        lng: Type.Optional(Lng),
-        label: Type.Optional(Type.String({ maxLength: 120 })),
-        note: Type.Optional(Nullable(Type.String({ maxLength: 400 }))),
-        link: Type.Optional(Nullable(Type.String({ maxLength: 1000 }))),
-      }),
+      set: ArtifactMarkerPatch,
     }),
     /** `chart`: a JSON merge patch (RFC 7386) onto the spec; arrays are replaced whole. */
     Type.Object({

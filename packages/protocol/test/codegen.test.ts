@@ -87,6 +87,27 @@ describe("codegen", () => {
     const swift = outputs.get(OUTPUT_FILES.swift) ?? "";
     expect(swift).toContain("public struct ConnectParams: Codable, Sendable");
     expect(swift).not.toMatch(/Alamofire/);
+    // An unnamed nested object is named after its key; one called `set` shadowed Swift.Set and broke the helper build.
+    const stdlib = [
+      "Set",
+      "Array",
+      "Dictionary",
+      "String",
+      "Int",
+      "Double",
+      "Bool",
+      "Data",
+      "Date",
+      "URL",
+      "Error",
+      "Result",
+      "Optional",
+      "Type",
+    ];
+    const shadowed = [...swift.matchAll(/^public (?:struct|enum|class) (\w+)/gm)]
+      .map((m) => m[1])
+      .filter((n) => stdlib.includes(n ?? ""));
+    expect(shadowed, "name these schemas with $id").toEqual([]);
     expect(outputs.get(OUTPUT_FILES.swiftHelper)).toBe(swift);
     expect(outputs.get(OUTPUT_FILES.typescript)).toContain("export interface ConnectParams");
   });

@@ -93,6 +93,7 @@
 //   let artifactConflict = try? JSONDecoder().decode(ArtifactConflict.self, from: jsonData)
 //   let artifactMap = try? JSONDecoder().decode(ArtifactMap.self, from: jsonData)
 //   let artifactMapMarker = try? JSONDecoder().decode(ArtifactMapMarker.self, from: jsonData)
+//   let artifactMarkerPatch = try? JSONDecoder().decode(ArtifactMarkerPatch.self, from: jsonData)
 //   let artifactOp = try? JSONDecoder().decode(ArtifactOp.self, from: jsonData)
 //   let artifactRef = try? JSONDecoder().decode(ArtifactRef.self, from: jsonData)
 //   let artifactTable = try? JSONDecoder().decode(ArtifactTable.self, from: jsonData)
@@ -4077,7 +4078,7 @@ public struct ArtifactOp: Codable, Sendable {
     public let view: ArtifactTableView?
     public let marker: ArtifactMapMarker?
     public let id: String?
-    public let artifactOpSet: Set?
+    public let artifactOpSet: ArtifactMarkerPatch?
     public let patch: [String: JSONAny]?
 
     public enum CodingKeys: String, CodingKey {
@@ -4102,7 +4103,7 @@ public struct ArtifactOp: Codable, Sendable {
         case patch = "patch"
     }
 
-    public init(new: String?, old: String?, op: Op, after: String?, text: String?, content: String?, cell: String?, value: ArtifactCell?, range: String?, values: [ValueElement]?, at: Int?, rows: [[ArtifactCell]]?, count: Int?, name: String?, view: ArtifactTableView?, marker: ArtifactMapMarker?, id: String?, artifactOpSet: Set?, patch: [String: JSONAny]?) {
+    public init(new: String?, old: String?, op: Op, after: String?, text: String?, content: String?, cell: String?, value: ArtifactCell?, range: String?, values: [ValueElement]?, at: Int?, rows: [[ArtifactCell]]?, count: Int?, name: String?, view: ArtifactTableView?, marker: ArtifactMapMarker?, id: String?, artifactOpSet: ArtifactMarkerPatch?, patch: [String: JSONAny]?) {
         self.new = new
         self.old = old
         self.op = op
@@ -4125,8 +4126,8 @@ public struct ArtifactOp: Codable, Sendable {
     }
 }
 
-// MARK: - Set
-public struct Set: Codable, Sendable {
+// MARK: - ArtifactMarkerPatch
+public struct ArtifactMarkerPatch: Codable, Sendable {
     public let label: String?
     public let lat: Double?
     public let link: String?
