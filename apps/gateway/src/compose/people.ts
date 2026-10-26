@@ -7,6 +7,8 @@ import {
   ensureDreamingAutomation,
   type GraphEvent,
   type GraphHandlers,
+  type GraphPollReport,
+  type GraphSourceAdapter,
   GraphStore,
   GraphTools,
   graphToolSpecs,
@@ -15,9 +17,11 @@ import {
   type LaunchRequest,
   type MeetingPrep,
   type MemoryEvent,
+  type ModelPassReport,
   meetingPrep,
   type NightlyStep,
   runGraphModelPass,
+  runGraphPoll,
   type SchedulerLike,
   type SqliteMemoryStore,
   suggestProjects,
@@ -105,7 +109,18 @@ export interface PeopleDeps {
   publish: (event: GraphEvent["event"] | "settings.changed", payload: unknown) => void;
   /** Registers a tool; returns its unregister function. */
   register: (tool: AgentToolRegistration) => () => unknown;
+  /** Deterministic pass interval (§5.1, default 15 minutes); 0 disables the timer (tests). */
+  pollIntervalMs?: number;
+  /** Debounce of the after-run model pass (§5.2, default 5 minutes); 0 leaves it to `afterRun()`. */
+  afterRunDelayMs?: number;
+  logger?: { log(level: "warn", msg: string, fields?: Record<string, unknown>): void };
 }
+
+export const DEFAULT_GRAPH_POLL_MS = 15 * 60_000;
+export const AFTER_RUN_DELAY_MS = 5 * 60_000;
+/** At most this many entities per after-run pass, within this many tokens (§5.2). */
+export const AFTER_RUN_ENTITIES = 3;
+export const AFTER_RUN_TOKENS = 15_000;
 
 export interface People {
   readonly graph: GraphStore;
@@ -128,6 +143,12 @@ export interface People {
     externalRef?: string;
     when?: string;
   }): MeetingPrep | undefined;
+  /** The connected apps' ingest adapters, read at each poll (bound once connectors exist). */
+  useSources(adapters: () => Promise<GraphSourceAdapter[]> | GraphSourceAdapter[]): void;
+  /** One deterministic pass over the enabled sources; also run after a connector sync. */
+  poll(signal?: AbortSignal): Promise<GraphPollReport | undefined>;
+  /** Runs the pending after-run model pass now (the debounce timer calls it). */
+  afterRun(): Promise<ModelPassReport | undefined>;
   /** The nightly graph step, for tests. */
   readonly nightly: NightlyStep;
   part(scheduler: SchedulerLike, timezone: string): ComposedPart;
@@ -229,6 +250,69 @@ export function composePeople(deps: PeopleDeps): People {
   };
 
   const graphTools = new GraphTools(store, { now: () => clock.now() });
+
+  // After-run pass (§5.2): the entities a run looked at are refreshed shortly after, debounced.
+  const afterRunIds = new Set<string>();
+  let afterRunTimer: ReturnType<typeof setTimeout> | undefined;
+  const afterRunDelay = deps.afterRunDelayMs ?? AFTER_RUN_DELAY_MS;
+  const afterRun = async (): Promise<ModelPassReport | undefined> => {
+    if (afterRunTimer !== undefined) clearTimeout(afterRunTimer);
+    afterRunTimer = undefined;
+    const ids = [...afterRunIds].slice(0, AFTER_RUN_ENTITIES);
+    afterRunIds.clear();
+    const s = settings();
+    if (ids.length === 0 || !s.enabled || !s.model.afterRun) return undefined;
+    const report = await runGraphModelPass(
+      store,
+      {
+        provider: deps.provider,
+        model: deps.model,
+        maxEntitiesPerNight: AFTER_RUN_ENTITIES,
+        maxTokensPerNight: AFTER_RUN_TOKENS,
+      },
+      { clock, only: ids },
+    );
+    for (const id of ids) {
+      const e = store.getEntity(id);
+      if (e !== undefined && (e.cardPath != null || e.summary != null))
+        await cards.write(id).catch(() => undefined);
+    }
+    return report;
+  };
+  const touch = (ids: (string | null | undefined)[]) => {
+    const s = settings();
+    if (!s.enabled || !s.model.afterRun) return;
+    for (const id of ids) if (typeof id === "string") afterRunIds.add(id);
+    if (afterRunIds.size === 0 || afterRunDelay <= 0) return;
+    if (afterRunTimer !== undefined) clearTimeout(afterRunTimer);
+    afterRunTimer = setTimeout(() => void afterRun().catch(() => undefined), afterRunDelay);
+    afterRunTimer.unref?.();
+  };
+  /** The entity a lookup answered about, only when the answer named exactly one. */
+  const looked = (name: string, params: unknown): string[] => {
+    const p = (params ?? {}) as Record<string, unknown>;
+    const q = typeof p.query === "string" ? p.query : undefined;
+    if (name === "people_lookup" && q !== undefined) {
+      const hits = store.search(q, { kinds: ["person", "org"], limit: 2 });
+      return hits.length === 1 && hits[0] !== undefined ? [hits[0].id] : [];
+    }
+    if (name === "project_brief" && q !== undefined) {
+      const hit = store.search(q, { kinds: ["project"], limit: 1 })[0];
+      return hit === undefined ? [] : [hit.id];
+    }
+    if (name === "meeting_prep") {
+      const prep = meetingPrep(store, {
+        ...(typeof p.event_id === "string" ? { interactionId: p.event_id } : {}),
+        ...(typeof p.when === "string" ? { when: p.when } : {}),
+        now: clock.now(),
+      });
+      return [
+        ...(prep?.attendees.map((a) => a.entity.id) ?? []),
+        ...(prep?.project == null ? [] : [prep.project.id]),
+      ];
+    }
+    return [];
+  };
   const tools: AgentToolRegistration[] = graphToolSpecs.map((spec) => ({
     spec,
     async run(params, ctx) {
@@ -245,6 +329,7 @@ export function composePeople(deps: PeopleDeps): People {
         incognito: getThread(db, ctx.threadId)?.kind === "incognito",
         privateSession: true,
       });
+      if (out.isError !== true) touch(looked(spec.name, params));
       if (spec.name === "loop_update" && out.isError !== true) {
         const loop = store.getLoop((params as { id: string }).id);
         for (const id of [loop?.counterpartId, loop?.projectId])
@@ -306,6 +391,34 @@ export function composePeople(deps: PeopleDeps): People {
     }
   };
 
+  let sources: () => Promise<GraphSourceAdapter[]> | GraphSourceAdapter[] = () => [];
+  let polling: Promise<GraphPollReport | undefined> | null = null;
+  const poll = (signal?: AbortSignal): Promise<GraphPollReport | undefined> => {
+    // One round at a time: a slow connector never stacks passes.
+    if (polling !== null) return polling;
+    const s = settings();
+    if (!s.enabled || !Object.values(s.sources).some((on) => on === true))
+      return Promise.resolve(undefined);
+    polling = (async () => {
+      const adapters = await sources();
+      const report = await runGraphPoll(store, adapters, {
+        enabled: s.sources,
+        clock,
+        ...(signal === undefined ? {} : { signal }),
+      });
+      for (const a of report.adapters)
+        if (!a.ok)
+          deps.logger?.log("warn", "people graph ingest failed", {
+            adapter: a.id,
+            source: a.source,
+          });
+      return report;
+    })().finally(() => {
+      polling = null;
+    });
+    return polling;
+  };
+
   return {
     graph: store,
     cards,
@@ -320,10 +433,17 @@ export function composePeople(deps: PeopleDeps): People {
     },
     sync,
     launcher: (inner) => withDreaming(memory, inner, {}, [nightly]),
+    useSources(adapters) {
+      sources = adapters;
+    },
+    poll,
+    afterRun,
     meetingPrep: (query) => meetingPrep(store, { ...query, now: clock.now() }),
     nightly,
     part(scheduler, timezone) {
       let unsubscribe: (() => void) | undefined;
+      let timer: ReturnType<typeof setInterval> | undefined;
+      const interval = deps.pollIntervalMs ?? DEFAULT_GRAPH_POLL_MS;
       return {
         handlers: mountParamsOnly(handlers as never),
         async start(gateway: Gateway) {
@@ -338,9 +458,15 @@ export function composePeople(deps: PeopleDeps): People {
               if (entry.key === GRAPH_SETTING) sync(entry.value);
           });
           await ensureDreamingAutomation(scheduler, { timezone });
+          if (interval > 0) {
+            timer = setInterval(() => void poll().catch(() => undefined), interval);
+            timer.unref?.();
+          }
         },
         stop() {
           unsubscribe?.();
+          if (timer !== undefined) clearInterval(timer);
+          if (afterRunTimer !== undefined) clearTimeout(afterRunTimer);
         },
       };
     },

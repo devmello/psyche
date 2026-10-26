@@ -313,6 +313,11 @@ export interface ComputerDeps {
   paneHidden?(): boolean;
   now?: () => number;
   logger?: Logger;
+  /** A screenshot Psyche saw: the run trace keeps it as a frame (run trace §4.2). */
+  onFrame?(
+    callId: string,
+    frame: { data: Uint8Array; mime: string; width: number; height: number },
+  ): void;
 }
 
 interface Session {
@@ -1142,6 +1147,22 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           signal,
         );
         const r = (res.result ?? {}) as Record<string, unknown>;
+        if (
+          typeof r.image === "string" &&
+          typeof r.width === "number" &&
+          typeof r.height === "number"
+        ) {
+          try {
+            deps.onFrame?.(callId, {
+              data: Buffer.from(r.image, "base64"),
+              mime: typeof r.mimeType === "string" ? r.mimeType : "image/jpeg",
+              width: r.width,
+              height: r.height,
+            });
+          } catch {
+            // A frame that could not be kept never fails the screenshot.
+          }
+        }
         return {
           output: {
             app: p.app,
@@ -1416,6 +1437,10 @@ export function composeComputer(services: ComposeServices): ComposedPart {
     },
     appUsed: (bundleId, name) => settings.noteApp(bundleId, name),
     ...(services.logger === undefined ? {} : { logger: services.logger }),
+    onFrame: (callId, frame) => {
+      const runId = services.calls.get(callId)?.runId;
+      if (runId !== undefined) gateway?.context.runTrace.addFrame(runId, callId, frame);
+    },
   });
 
   function setEnabled(on: boolean): void {

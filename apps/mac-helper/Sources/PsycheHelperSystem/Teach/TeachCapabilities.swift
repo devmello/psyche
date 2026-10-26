@@ -111,18 +111,18 @@ public final class TeachController: @unchecked Sendable {
     /// Ends the session and returns the draft (also delivered to `wait`). Idempotent.
     @discardableResult
     public func end(_ id: String, _ how: End) -> JSONValue? {
-        let ended: Active? = lock.withLock {
+        // Clearing `active` and recording the draft in one critical section: a `wait` between two
+        // would find neither and answer "no such session" (#731, a flaky TeachControllerTests).
+        let ended: (Active, JSONValue)? = lock.withLock {
             guard let a = active, a.session.id == id else { return nil }
+            let draft = Self.draft(a.session, endedBy: how, at: now())
             active = nil
-            return a
-        }
-        guard let a = ended else { return lock.withLock { finished[id] } }
-        a.source.stop()
-        let draft = Self.draft(a.session, endedBy: how, at: now())
-        lock.withLock {
             finished[id] = draft
             if finished.count > 8, let oldest = finished.keys.sorted().first { finished.removeValue(forKey: oldest) }
+            return (a, draft)
         }
+        guard let (a, draft) = ended else { return lock.withLock { finished[id] } }
+        a.source.stop()
         for w in a.waiters { w.resume(returning: draft) }
         log.info("teach ended id=\(id) by=\(how.rawValue) steps=\(a.session.steps.count)")
         return draft

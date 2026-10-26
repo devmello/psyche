@@ -69,6 +69,15 @@ export interface LiveConnection {
 }
 
 /** Shared services every handler sees. One per Gateway process. */
+/** A `chat.send` `redo` as the Gateway saw it (who sent it, for which message). */
+export interface ChatRedo {
+  threadId: string;
+  messageId: string;
+  instruction?: string;
+  withoutLessons?: boolean;
+  deviceId: string;
+}
+
 export interface GatewayContext {
   readonly config: GatewayConfig;
   readonly db: PsycheDb;
@@ -110,6 +119,11 @@ export interface GatewayContext {
   readonly threadModels: ThreadModelPolicy | null;
   /** Called with a device id when its last paired connection closes (parts register here). */
   readonly deviceDisconnected: Set<(deviceId: string) => void>;
+  /**
+   * Called after a `chat.send` carrying `redo` commits (teaching loop §5.1, §7): parts register
+   * here, e.g. the teaching loop records a redo with an instruction as `regenerated` feedback.
+   */
+  readonly chatRedo: Set<(redo: ChatRedo) => void>;
   serverOrigin(): string;
   connections(): Iterable<LiveConnection>;
 }

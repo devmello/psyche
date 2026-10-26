@@ -1,5 +1,5 @@
 import type { PsycheDb } from "@psyche/db";
-import type { ChecklistItem } from "@psyche/protocol";
+import type { ChecklistItem, LessonRef, SpecialistSpec } from "@psyche/protocol";
 import {
   type ApprovalRequest,
   type CheckpointInput,
@@ -204,6 +204,29 @@ export class SqliteTaskEngine implements TaskEngine {
     this.#patch(row.id, cols);
   }
 
+  /**
+   * Merge a change into a specialist job's `specialist` block (its result, budget use, queue
+   * position; specialists §7.1). Rejects a task that is not a specialist's job.
+   */
+  async updateSpecialist(
+    taskId: string,
+    patch: (spec: SpecialistSpec) => SpecialistSpec,
+  ): Promise<Task> {
+    const event = this.#tx(() => {
+      const task = taskFromRow(this.#row(taskId));
+      if (task.specialist === undefined) {
+        throw new PsycheError("invalid_params", `task ${taskId} is not a specialist's job`);
+      }
+      this.#patch(taskId, {
+        specialist: JSON.stringify(patch(structuredClone(task.specialist))),
+        updated_at: this.#iso(),
+      });
+      return this.#updated(taskId);
+    });
+    this.#emit([event]);
+    return event.payload.task;
+  }
+
   #patch(taskId: string, cols: Record<string, unknown>): void {
     const keys = Object.keys(cols);
     if (keys.length === 0) return;
@@ -286,9 +309,10 @@ export class SqliteTaskEngine implements TaskEngine {
       this.#db.sqlite
         .prepare(
           `INSERT INTO tasks (id, thread_id, title, goal, status, created_from, plan, checklist,
-            attempt, run_mode, budget, taint, taint_sources, workspace, created_at, updated_at)
+            attempt, run_mode, budget, taint, taint_sources, workspace, specialist, created_at,
+            updated_at)
            VALUES (@id, @thread_id, @title, @goal, 'queued', @created_from, @plan, @checklist,
-            0, @run_mode, @budget, @taint, @taint_sources, @workspace, @now, @now)`,
+            0, @run_mode, @budget, @taint, @taint_sources, @workspace, @specialist, @now, @now)`,
         )
         .run({
           id,
@@ -304,9 +328,32 @@ export class SqliteTaskEngine implements TaskEngine {
           // The creating turn's sources stay with the task for its whole life (design-08).
           taint_sources: json(input.taintSources),
           workspace: input.workspace ?? null,
+          specialist: json(input.specialist ?? null),
           now,
         });
       return this.#updated(id);
+    });
+    this.#emit([event]);
+    return event.payload.task;
+  }
+
+  /**
+   * The lessons a run of this task had in its prompt (teaching loop §5.1, `Task.lessonsApplied`):
+   * added to those of earlier runs, newest last, at most 20. Filled by the Gateway after a run;
+   * emits `task.updated`.
+   */
+  setLessonsApplied(taskId: string, refs: readonly LessonRef[]): Task {
+    if (refs.length === 0) return taskFromRow(this.#row(taskId));
+    const event = this.#tx(() => {
+      const current = taskFromRow(this.#row(taskId)).lessonsApplied ?? [];
+      const merged = [
+        ...current.filter((r) => !refs.some((n) => n.lessonId === r.lessonId)),
+        ...refs,
+      ];
+      this.#db.sqlite
+        .prepare("UPDATE tasks SET lessons_applied = ? WHERE id = ?")
+        .run(JSON.stringify(merged.slice(-20)), taskId);
+      return this.#updated(taskId);
     });
     this.#emit([event]);
     return event.payload.task;

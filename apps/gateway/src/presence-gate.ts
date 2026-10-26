@@ -135,6 +135,8 @@ export const PRESENCE_METHODS: Readonly<Record<string, (p: Params) => string | u
   "channels.pairing.approve": () => "Let a new chat sender talk to Psyche",
   "channels.identities.upsert": () => "Change a person's chat identity and permissions",
   "memory.reset": (p) => (p.dryRun === true ? undefined : "Erase all memory"),
+  "memory.lessons.forgetAll": (p) =>
+    p.dryRun === true ? undefined : "Forget everything Psyche learned from you",
   "backup.delete": () => "Delete a backup",
 };
 

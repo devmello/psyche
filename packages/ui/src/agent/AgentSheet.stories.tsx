@@ -62,6 +62,8 @@ export const InlineUpcoming: Story = { render: () => <InlinePanel initial="upcom
 export const Approvals: Story = { render: () => <OpenSheet initial="approvals" /> };
 export const Upcoming: Story = { render: () => <OpenSheet initial="upcoming" /> };
 export const SoulAndMemory: Story = { render: () => <OpenSheet initial="soul" /> };
+/** The fifth tab (teaching loop §5.3): what Wren learned and what got better. */
+export const Growth: Story = { render: () => <OpenSheet initial="growth" /> };
 
 /** `/agent/soul?file=USER.md`: the route opens the sheet and the file in the editor sheet. */
 export const RouteWithFile: Story = {

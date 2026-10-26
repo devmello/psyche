@@ -1,0 +1,717 @@
+{
+  "$comment": "40 unread messages across two Apple Mail accounts (work owner@example.com, personal avery.lin@example.net) for §4.1 acceptance case 1. Read by tests/acceptance/src/mail-world.ts. Bulk mail carries List-Unsubscribe / Precedence: bulk; receipts carry Auto-Submitted. The expected partition is in expected.json (the test reads it; the fakes do not).",
+  "messages": [
+    {
+      "id": "msg_v1_001",
+      "messageId": "v1-0001@example.com",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Maya Okafor",
+        "email": "maya@example.com"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Q4 launch date for the board pack",
+      "date": "2026-10-19T07:52:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "Hi Avery,\n\nFinance is building the board pack this week. Can you confirm the Q4 launch date by Wednesday? A single date is fine; we can footnote the risks.\n\nThanks,\nMaya"
+    },
+    {
+      "id": "msg_v1_002",
+      "messageId": "v1-0002@example.com",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Jordan Reyes",
+        "email": "jordan@example.com"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Design hiring loop",
+      "date": "2026-10-16T16:05:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "Hey Avery,\n\nThe design candidate is on site Thursday. Could you be the final interviewer at 3:00 PM on Thursday? If not, I'll ask Sam.\n\nJordan"
+    },
+    {
+      "id": "msg_v1_003",
+      "messageId": "v1-0003@example.org",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Dana Whitfield",
+        "email": "dana@example.org"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Pilot scope: EU team?",
+      "date": "2026-10-17T02:14:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "Hi Avery,\n\nBefore we send the pilot plan to legal: do you want the pilot to include the EU team, or start with the US only? Either works for us.\n\nBest,\nDana"
+    },
+    {
+      "id": "msg_v1_004",
+      "messageId": "v1-0004@northwind-hosting.example",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Northwind Hosting Billing",
+        "email": "billing@northwind-hosting.example"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Invoice NW-1042 for October",
+      "date": "2026-10-18T09:00:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "Hello,\n\nYour invoice NW-1042 for October hosting is ready. Amount due: $480.00, due Oct 30, 2026. Pay from the billing portal; no card details are needed by email.\n\nNorthwind Hosting"
+    },
+    {
+      "id": "msg_v1_005",
+      "messageId": "v1-0005@productbrief.example",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "The Product Brief",
+        "email": "editor@productbrief.example"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Issue 212: roadmaps that survive contact",
+      "date": "2026-10-16T06:00:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@productbrief.example>",
+        "Precedence": "bulk"
+      },
+      "body": "Issue 212: roadmaps that survive contact. This week's issue has three short reads and a long one. You are receiving this because you subscribed to The Product Brief."
+    },
+    {
+      "id": "msg_v1_006",
+      "messageId": "v1-0006@devopsweekly.example",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "DevOps Weekly",
+        "email": "news@devopsweekly.example"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Incident reviews without blame",
+      "date": "2026-10-16T09:30:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@devopsweekly.example>",
+        "Precedence": "bulk"
+      },
+      "body": "Incident reviews without blame. This week's issue has three short reads and a long one. You are receiving this because you subscribed to DevOps Weekly."
+    },
+    {
+      "id": "msg_v1_007",
+      "messageId": "v1-0007@saasmetrics.example",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "SaaS Metrics Digest",
+        "email": "digest@saasmetrics.example"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Net revenue retention, explained again",
+      "date": "2026-10-17T05:00:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@saasmetrics.example>",
+        "Precedence": "bulk"
+      },
+      "body": "Net revenue retention, explained again. This week's issue has three short reads and a long one. You are receiving this because you subscribed to SaaS Metrics Digest."
+    },
+    {
+      "id": "msg_v1_008",
+      "messageId": "v1-0008@dsmonthly.example",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Design Systems Monthly",
+        "email": "hello@dsmonthly.example"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Tokens, themes and dark mode",
+      "date": "2026-10-18T07:00:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@dsmonthly.example>",
+        "Precedence": "bulk"
+      },
+      "body": "Tokens, themes and dark mode. This week's issue has three short reads and a long one. You are receiving this because you subscribed to Design Systems Monthly."
+    },
+    {
+      "id": "msg_v1_009",
+      "messageId": "v1-0009@remotenotes.example",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Remote Work Notes",
+        "email": "letters@remotenotes.example"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Async standups, a year in",
+      "date": "2026-10-19T05:30:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@remotenotes.example>",
+        "Precedence": "bulk"
+      },
+      "body": "Async standups, a year in. This week's issue has three short reads and a long one. You are receiving this because you subscribed to Remote Work Notes."
+    },
+    {
+      "id": "msg_v1_010",
+      "messageId": "v1-0010@fieldnotes.example",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Founder Field Notes",
+        "email": "notes@fieldnotes.example"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Pricing pages that convert",
+      "date": "2026-10-19T06:45:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@fieldnotes.example>",
+        "Precedence": "bulk"
+      },
+      "body": "Pricing pages that convert. This week's issue has three short reads and a long one. You are receiving this because you subscribed to Founder Field Notes."
+    },
+    {
+      "id": "msg_v1_011",
+      "messageId": "v1-0011@weekendkitchen.example",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Weekend Kitchen",
+        "email": "recipes@weekendkitchen.example"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "Five soups for October",
+      "date": "2026-10-16T08:00:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@weekendkitchen.example>",
+        "Precedence": "bulk"
+      },
+      "body": "Five soups for October. This week's issue has three short reads and a long one. You are receiving this because you subscribed to Weekend Kitchen."
+    },
+    {
+      "id": "msg_v1_012",
+      "messageId": "v1-0012@trailrunner.example",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Trail Runner Weekly",
+        "email": "news@trailrunner.example"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "Fall race calendar",
+      "date": "2026-10-17T06:30:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@trailrunner.example>",
+        "Precedence": "bulk"
+      },
+      "body": "Fall race calendar. This week's issue has three short reads and a long one. You are receiving this because you subscribed to Trail Runner Weekly."
+    },
+    {
+      "id": "msg_v1_013",
+      "messageId": "v1-0013@cityarts.example",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "City Arts Calendar",
+        "email": "events@cityarts.example"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "What's on this week",
+      "date": "2026-10-17T10:00:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@cityarts.example>",
+        "Precedence": "bulk"
+      },
+      "body": "What's on this week. This week's issue has three short reads and a long one. You are receiving this because you subscribed to City Arts Calendar."
+    },
+    {
+      "id": "msg_v1_014",
+      "messageId": "v1-0014@gardenletters.example",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Garden Letters",
+        "email": "hello@gardenletters.example"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "Planting garlic now",
+      "date": "2026-10-18T06:15:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@gardenletters.example>",
+        "Precedence": "bulk"
+      },
+      "body": "Planting garlic now. This week's issue has three short reads and a long one. You are receiving this because you subscribed to Garden Letters."
+    },
+    {
+      "id": "msg_v1_015",
+      "messageId": "v1-0015@bookclubpicks.example",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Book Club Picks",
+        "email": "picks@bookclubpicks.example"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "October picks and a short story",
+      "date": "2026-10-18T11:20:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@bookclubpicks.example>",
+        "Precedence": "bulk"
+      },
+      "body": "October picks and a short story. This week's issue has three short reads and a long one. You are receiving this because you subscribed to Book Club Picks."
+    },
+    {
+      "id": "msg_v1_016",
+      "messageId": "v1-0016@photowalks.example",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Photo Walks",
+        "email": "letters@photowalks.example"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "Golden hour, shorter days",
+      "date": "2026-10-19T06:10:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "List-Unsubscribe": "<mailto:unsubscribe@photowalks.example>",
+        "Precedence": "bulk"
+      },
+      "body": "Golden hour, shorter days. This week's issue has three short reads and a long one. You are receiving this because you subscribed to Photo Walks."
+    },
+    {
+      "id": "msg_v1_017",
+      "messageId": "v1-0017@skylineair.example",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Skyline Air",
+        "email": "receipts@skylineair.example"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Receipt: SFO to SEA, Oct 28",
+      "date": "2026-10-16T11:02:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "Auto-Submitted": "auto-generated"
+      },
+      "body": "Thanks for flying with us. Booking reference KQ7TZM. Total charged: $212.40. This is an automated receipt."
+    },
+    {
+      "id": "msg_v1_018",
+      "messageId": "v1-0018@expensely.example",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Expensely",
+        "email": "noreply@expensely.example"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Report approved: October travel",
+      "date": "2026-10-16T15:40:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "Auto-Submitted": "auto-generated"
+      },
+      "body": "Your expense report 'October travel' was approved and will be reimbursed. This is an automated message."
+    },
+    {
+      "id": "msg_v1_019",
+      "messageId": "v1-0019@clouddocs.example",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Cloud Docs",
+        "email": "billing@clouddocs.example"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Payment received, team plan",
+      "date": "2026-10-17T08:12:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "Auto-Submitted": "auto-generated"
+      },
+      "body": "We received your payment of $96.00 for the team plan. This is an automated receipt."
+    },
+    {
+      "id": "msg_v1_020",
+      "messageId": "v1-0020@couriereats.example",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Courier Eats",
+        "email": "orders@couriereats.example"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Your lunch order receipt",
+      "date": "2026-10-16T12:31:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "Auto-Submitted": "auto-generated"
+      },
+      "body": "Order for the team lunch delivered. Total $64.20 including tip. This is an automated receipt."
+    },
+    {
+      "id": "msg_v1_021",
+      "messageId": "v1-0021@cornermarket.example",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Corner Market",
+        "email": "receipts@cornermarket.example"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "Your receipt from Corner Market",
+      "date": "2026-10-17T18:05:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "Auto-Submitted": "auto-generated"
+      },
+      "body": "Thanks for shopping with us. Total $38.75. This is an automated receipt."
+    },
+    {
+      "id": "msg_v1_022",
+      "messageId": "v1-0022@streambox.example",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "StreamBox",
+        "email": "billing@streambox.example"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "Monthly plan renewed",
+      "date": "2026-10-18T04:00:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "Auto-Submitted": "auto-generated"
+      },
+      "body": "Your monthly plan renewed. Amount $11.99. This is an automated receipt."
+    },
+    {
+      "id": "msg_v1_023",
+      "messageId": "v1-0023@citytransit.example",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "City Transit",
+        "email": "noreply@citytransit.example"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "Transit pass reload confirmed",
+      "date": "2026-10-18T13:22:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "Auto-Submitted": "auto-generated"
+      },
+      "body": "Your transit pass was reloaded with $40.00. This is an automated receipt."
+    },
+    {
+      "id": "msg_v1_024",
+      "messageId": "v1-0024@bookshop.example",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Bookshop Online",
+        "email": "orders@bookshop.example"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "Order shipped: 2 books",
+      "date": "2026-10-19T04:45:00-07:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "Auto-Submitted": "auto-generated"
+      },
+      "body": "Your order has shipped and will arrive Wednesday. Total $31.50. This is an automated receipt."
+    },
+    {
+      "id": "msg_v1_025",
+      "messageId": "v1-0025@talentbridge.example",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Riley Chen",
+        "email": "riley@talentbridge.example"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Introduction: product leadership roles",
+      "date": "2026-10-18T10:40:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "Hi Avery,\n\nI lead product searches at TalentBridge and came across your work on the partner platform. I would love to share a few roles that might interest you when you have a moment.\n\nRiley"
+    },
+    {
+      "id": "msg_v1_026",
+      "messageId": "v1-0026@maplestreet.example",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Morgan Ellis",
+        "email": "morgan.ellis@maplestreet.example"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "Maple Street block party",
+      "date": "2026-10-17T14:20:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "Hello neighbor,\n\nI just moved in at number 14 and I'm organizing a small block party on Nov 7. I got your address from the neighborhood list. Hope to see you there.\n\nMorgan"
+    },
+    {
+      "id": "msg_v1_027",
+      "messageId": "v1-0027@example.com",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Sam Kim",
+        "email": "sam.kim@example.com"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Notes from Friday's platform sync",
+      "date": "2026-10-16T17:10:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "Sharing my notes from Friday's sync for the record. Nothing needed from you; the migration plan is unchanged."
+    },
+    {
+      "id": "msg_v1_028",
+      "messageId": "v1-0028@example.com",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Maya Okafor",
+        "email": "maya@example.com"
+      },
+      "to": ["owner@example.com"],
+      "subject": "FYI: offsite moved to Lakeside Lodge",
+      "date": "2026-10-17T09:15:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "Heads up that the offsite venue is now Lakeside Lodge. Dates are unchanged. No action needed."
+    },
+    {
+      "id": "msg_v1_029",
+      "messageId": "v1-0029@example.com",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "IT Help Desk",
+        "email": "it@example.com"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Wi-Fi maintenance Saturday night",
+      "date": "2026-10-16T13:00:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "The office Wi-Fi will be down Saturday from 10 PM to midnight for maintenance."
+    },
+    {
+      "id": "msg_v1_030",
+      "messageId": "v1-0030@example.com",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Jordan Reyes",
+        "email": "jordan@example.com"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Shipped: new onboarding checklist",
+      "date": "2026-10-17T11:45:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "The new onboarding checklist is live in the wiki. Thanks for the early review last week."
+    },
+    {
+      "id": "msg_v1_031",
+      "messageId": "v1-0031@example.com",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "People Team",
+        "email": "people@example.com"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Open enrollment starts Nov 2",
+      "date": "2026-10-16T10:00:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "Benefits open enrollment runs Nov 2 to Nov 13. Details will follow in the portal."
+    },
+    {
+      "id": "msg_v1_032",
+      "messageId": "v1-0032@example.com",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Facilities",
+        "email": "facilities@example.com"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Kitchen on 3 reopens Monday",
+      "date": "2026-10-18T08:30:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "The third-floor kitchen reopens Monday after the remodel."
+    },
+    {
+      "id": "msg_v1_033",
+      "messageId": "v1-0033@partner.example.net",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Priya Nair",
+        "email": "priya@partner.example.net"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Pricing sheet is in progress",
+      "date": "2026-10-18T03:10:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "Just letting you know the pricing sheet is in progress; I'll send it once finance signs off."
+    },
+    {
+      "id": "msg_v1_034",
+      "messageId": "v1-0034@example.com",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Sam Kim",
+        "email": "sam.kim@example.com"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Dashboard latency is back to normal",
+      "date": "2026-10-19T06:58:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "The dashboard latency issue from Friday is resolved. Root cause was a cache setting; postmortem to follow."
+    },
+    {
+      "id": "msg_v1_035",
+      "messageId": "v1-0035@example.com",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Engineering Updates",
+        "email": "eng-updates@example.com"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Release 4.18 is out",
+      "date": "2026-10-19T07:20:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "Release 4.18 shipped overnight with the export fixes. Changelog is in the wiki."
+    },
+    {
+      "id": "msg_v1_036",
+      "messageId": "v1-0036@example.net",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Alex Lin",
+        "email": "alex.lin@example.net"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "Photos from the weekend",
+      "date": "2026-10-18T20:30:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "Uploaded the photos from the lake to the shared album. Mom loved the one with the dog."
+    },
+    {
+      "id": "msg_v1_037",
+      "messageId": "v1-0037@studio.example.net",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Lena Park",
+        "email": "lena@studio.example.net"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "Saw this and thought of you",
+      "date": "2026-10-17T19:05:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "Walked past a tiny bookshop on Valencia with a whole shelf of design annuals. Thought of you."
+    },
+    {
+      "id": "msg_v1_038",
+      "messageId": "v1-0038@oseidental.example",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Dr. Osei's Office",
+        "email": "frontdesk@oseidental.example"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "Appointment confirmed for Nov 4",
+      "date": "2026-10-16T14:00:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "This confirms your cleaning on Nov 4 at 9:00 AM. No reply needed."
+    },
+    {
+      "id": "msg_v1_039",
+      "messageId": "v1-0039@riversidelibrary.example",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Riverside Library",
+        "email": "notices@riversidelibrary.example"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "Your hold is ready",
+      "date": "2026-10-18T09:45:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "Your hold is ready for pickup at the Riverside branch until Oct 26."
+    },
+    {
+      "id": "msg_v1_040",
+      "messageId": "v1-0040@example.net",
+      "account": "avery.lin@example.net",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Alex Lin",
+        "email": "alex.lin@example.net"
+      },
+      "to": ["avery.lin@example.net"],
+      "subject": "Mom's birthday dinner booked",
+      "date": "2026-10-19T07:05:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "Booked the table for Mom's birthday on Saturday at 7. All set, nothing to do."
+    }
+  ]
+}

@@ -173,4 +173,40 @@ struct DictationTests {
         var rc = DictationKeyTracker(key: .rightCommand)
         #expect(rc.flagsChanged(keyCode: 54, flags: 0x10 | 0x100000) == true)
     }
+
+    // MARK: Two-key watch (voice mode V-H H1)
+
+    @Test func twoKeysHoldIndependently() {
+        var set = DictationKeySet([DictationWatchedKey(key: .fn, role: .dictation), DictationWatchedKey(key: .rightOption, role: .voice)])
+        #expect(set.flagsChanged(keyCode: 61, flags: 0x40) == [DictationKeyChange(key: .rightOption, role: .voice, down: true)])
+        #expect(set.flagsChanged(keyCode: 63, flags: 0x40 | 0x80_0000) == [DictationKeyChange(key: .fn, role: .dictation, down: true)])
+        #expect(set.flagsChanged(keyCode: 61, flags: 0x80_0000) == [DictationKeyChange(key: .rightOption, role: .voice, down: false)])
+        // A key press while fn is still held chords only fn (Right Option is already up).
+        #expect(set.keyDown() == [DictationKeyChange(key: .fn, role: .dictation, down: false)])
+        #expect(set.flagsChanged(keyCode: 63, flags: 0) == [])
+        #expect(set.keyDown() == [])
+    }
+
+    @Test func chordWhileBothHeldReleasesBoth() {
+        var set = DictationKeySet([DictationWatchedKey(key: .rightCommand, role: .dictation), DictationWatchedKey(key: .rightOption, role: .voice)])
+        _ = set.flagsChanged(keyCode: 54, flags: 0x10)
+        _ = set.flagsChanged(keyCode: 61, flags: 0x10 | 0x40)
+        #expect(set.keyDown().map(\.down) == [false, false])
+    }
+
+    @Test func singleKeyHasNoRole() {
+        var set = DictationKeySet([DictationWatchedKey(key: .fn)])
+        #expect(set.flagsChanged(keyCode: 63, flags: 0x80_0000) == [DictationKeyChange(key: .fn, role: nil, down: true)])
+    }
+
+    @Test func watchPlan() throws {
+        #expect(try DictationWatchPlan.keys(DictationWatchParams(key: .fn, keys: nil)) == [DictationWatchedKey(key: .fn)])
+        #expect(try DictationWatchPlan.keys(DictationWatchParams(key: nil, keys: nil)).isEmpty)
+        // keys wins over key.
+        let two = try DictationWatchPlan.keys(DictationWatchParams(key: .fn, keys: [Key(key: .rightOption, role: .voice), Key(key: .fn, role: .dictation)]))
+        #expect(two == [DictationWatchedKey(key: .rightOption, role: .voice), DictationWatchedKey(key: .fn, role: .dictation)])
+        #expect(throws: CapabilityError.self) { try DictationWatchPlan.keys(DictationWatchParams(key: nil, keys: [Key(key: .fn, role: .voice), Key(key: .fn, role: .dictation)])) }
+        #expect(throws: CapabilityError.self) { try DictationWatchPlan.keys(DictationWatchParams(key: nil, keys: [Key(key: .fn, role: .voice), Key(key: .rightOption, role: .voice)])) }
+        #expect(throws: CapabilityError.self) { try DictationWatchPlan.keys(DictationWatchParams(key: nil, keys: [])) }
+    }
 }

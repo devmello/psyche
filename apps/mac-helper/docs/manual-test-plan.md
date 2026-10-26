@@ -157,13 +157,18 @@ See the speech section of the README for engine selection. On macOS 26+:
 | 10.1 | `speech.transcribe_stream {source: microphone}` and speak | Microphone prompt once; first partial in < 500 ms (Q1 done-when); finals replace partials |
 | 10.2 | With `vocabulary: ["Psyche", "<a contact name>"]` | DictationTranscriber; the names come out right |
 | 10.3 | `source: push` with 16 kHz PCM chunks via `speech.audio_push`, then `speech.stop` | Same transcript as the file |
+| 10.3a | `source: push, preset: short`, then `preset: long`, five spoken questions each (your own voice, pushed from a recording you made for the test), then `speech.status` | `engine: dictationTranscriber` for short without a vocabulary; `preset` and `finalizeMs` in each result; `timings.firstPartialMs` and `finalizeMs` with `long` and `short` medians |
 | 10.4 | Two microphone streams | Second → `conflict/microphone_busy` |
 | 10.5 | `speech.synthesize {text}` | PCM chunks play back cleanly; `nonCommercial: false` |
 | 10.6 | `personalVoice: true` with and without Personal Voice authorization | Uses it and flags `nonCommercial: true` / falls back to a system voice |
+| 10.6f | On a Mac with a Personal Voice and authorization not yet decided: `speech.voices`, `speech.status`, then `speech.personal_voice.authorize` twice | No prompt from voices or status; one system prompt on the first authorize (`prompted: true`); the second answers with the same status and `prompted: false`; after Don't Allow, `settingsHint` names System Settings |
+| 10.6d | `speech.prepare {language: "en-US"}`, then `speech.synthesize {text, utteranceId: "u1"}` three times, then `speech.status` | `prepared: true`; every `speech.audio` carries `utteranceId: "u1"`; `warm: true` on the synthesize results; `timings.synthesisFirstAudioMs` under 100 ms after the first; nothing plays through the speakers |
+| 10.6e | `speech.synthesize {text, speed: 0.8}`, `{speed: 1}`, `{speed: 1.5}` on one sentence | `durationMs` roughly 1.1×, 1× and 0.67× of the normal one (slow speeds are coarse; see the README) |
 | 10.6a | `contacts.list {limit: 500, fields: ["name"]}` before / after granting Contacts | No prompt and `forbidden/permission_denied` / names in family-name order, no phones or emails; `truncated` when over the limit |
 | 10.6b | `speech.transcribe_file {path}` on a 60–90 min test recording of your own in a granted folder (not someone else's meeting) | `speech.progress` after each 10-minute chunk; one result with no repeated or missing sentence at the 10:00 / 20:00 marks; `audioMs` matches the file; `provenance: untrusted` |
 | 10.6c | The same with a path outside the granted folders, a folder, a text file, and a file over `maxDurationMs` | `policy_denied/outside_granted_folders`, `not_found`, `invalid_params/unsupported_audio`, `invalid_params/too_long`, each before any audio is read |
 | 10.7 | macOS 15 machine | SFSpeechRecognizer on-device engine; Speech Recognition prompt |
+| 10.8 | `dictation.watch {key: null, keys: [{key: fn, role: dictation}, {key: rightOption, role: voice}]}`; hold each key, then both, then fn+arrow | One initial `down: false` per key with its role; each hold and release reports its own key and role; fn+arrow ends the fn hold at once; `dictation.watch {key: fn}` alone still sends events without `role` |
 
 ## 11. VM mode (L1–L5): run on a host with more than 16 GB, one guest at a time
 

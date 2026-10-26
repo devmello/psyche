@@ -83,6 +83,30 @@ export interface MessageRecord {
   link?: string;
 }
 
+/** A note in the owner's notes app (titles only, §5.1 "Notes"). */
+export interface NoteRecord {
+  source: string;
+  id: string;
+  title: string;
+  /** ISO time of the last change. */
+  modifiedAt: string;
+  link?: string;
+  deleted?: boolean;
+}
+
+/**
+ * The owner's own words in a chat with Psyche (§5.1 "Chats with Psyche"). `text` is used to find
+ * the people and projects named and is never stored.
+ */
+export interface ChatRecord {
+  source: string;
+  threadId: string;
+  /** ISO time the owner wrote it. */
+  date: string;
+  text: string;
+  link?: string;
+}
+
 export interface IngestOptions {
   /** The owner's own addresses and numbers: never people, they decide direction. */
   ownerEmails: string[];
@@ -655,6 +679,105 @@ export class GraphIngester {
    * Projects the owner names in chat ("my kitchen remodel"): created as owner projects. People
    * the learner mentions are left to the model pass, which can tell who is meant.
    */
+  /**
+   * Known people, organisations and projects named in `text` by a whole name or alias (≥ 3
+   * characters) that no other entity shares. Never the owner, a hidden entity, or one whose
+   * identifiers are blocklisted. Nothing is ever created from a mention.
+   */
+  #mentions(text: string, index: Map<string, string[]>): string[] {
+    const words = ` ${normalizeName(text)} `;
+    const found = new Set<string>();
+    for (const [name, ids] of index) {
+      if (ids.length !== 1 || !words.includes(` ${name} `)) continue;
+      found.add(ids[0] as string);
+    }
+    return [...found];
+  }
+
+  #mentionIndex(): Map<string, string[]> {
+    const index = new Map<string, string[]>();
+    for (const e of this.#graph.listEntities(["person", "org", "project"])) {
+      if (e.isOwner || e.hidden || e.status !== "active") continue;
+      if (this.#graph.identifiers(e.id).some((i) => this.#graph.isBlocked(i.kind, i.value)))
+        continue;
+      for (const n of new Set([e.name, ...e.aliases].map(normalizeName))) {
+        if (n.length < 3) continue;
+        index.set(n, [...(index.get(n) ?? []), e.id]);
+      }
+    }
+    return index;
+  }
+
+  /**
+   * Notes titled with a known name become `mentioned` links (titles only; bodies are never read
+   * here). A note's text may be pasted from anywhere, so it never counts as the owner's own words.
+   */
+  ingestNotes(records: NoteRecord[]): IngestReport {
+    const report = emptyReport();
+    const index = this.#mentionIndex();
+    for (const n of records) {
+      const mentioned = n.deleted === true ? [] : this.#mentions(n.title, index);
+      if (mentioned.length === 0) {
+        // Deleted, or renamed so it no longer names anyone: its link goes.
+        if (this.#graph.deleteInteraction(n.source, n.id)) report.interactions++;
+        else report.skipped++;
+        continue;
+      }
+      this.#graph.upsertInteraction({
+        kind: "note",
+        source: n.source,
+        externalRef: n.id,
+        occurredAt: n.modifiedAt,
+        direction: "both",
+        subject: n.title,
+        link: n.link ?? null,
+        participants: mentioned.map((entityId) => ({ entityId, role: "mentioned" })),
+      });
+      report.interactions++;
+    }
+    return report;
+  }
+
+  /**
+   * The owner's chats with Psyche: one `chat` interaction per thread per day linking the people
+   * and projects the owner named. The words themselves are not stored (no subject).
+   */
+  ingestChats(records: ChatRecord[]): IngestReport {
+    const report = emptyReport();
+    const index = this.#mentionIndex();
+    const days = new Map<string, { record: ChatRecord; last: string; ids: Set<string> }>();
+    for (const r of records) {
+      const key = `${r.threadId}:${r.date.slice(0, 10)}`;
+      const day = days.get(key) ?? { record: r, last: r.date, ids: new Set<string>() };
+      for (const id of this.#mentions(r.text, index)) day.ids.add(id);
+      if (r.date > day.last) day.last = r.date;
+      days.set(key, day);
+    }
+    for (const [key, day] of days) {
+      if (day.ids.size === 0) {
+        report.skipped++;
+        continue;
+      }
+      // Merge with what an earlier pass found for the same thread and day.
+      const existing = this.#graph.interactionByRef(day.record.source, key);
+      for (const p of existing?.participants ?? []) day.ids.add(p.entityId);
+      this.#graph.upsertInteraction({
+        kind: "chat",
+        source: day.record.source,
+        externalRef: key,
+        occurredAt:
+          existing !== undefined && existing.occurredAt > day.last ? existing.occurredAt : day.last,
+        direction: "out",
+        subject: null,
+        threadKey: day.record.threadId,
+        link: day.record.link ?? null,
+        participants: [...day.ids].map((entityId) => ({ entityId, role: "mentioned" })),
+      });
+      report.interactions++;
+    }
+    return report;
+  }
+
   ingestOwnerProjects(names: { name: string; threadId: string }[]): IngestReport {
     const report = emptyReport();
     for (const p of names) {

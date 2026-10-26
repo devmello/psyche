@@ -1,0 +1,322 @@
+{
+  "$comment": "Mail workflow §4.4 acceptance case 1 (docs/workflows/mail-and-meetings-2026.md). Validate with node tests/scenarios/validate.mjs --dir tests/acceptance/scenarios-mail. Fixtures are read by tests/acceptance/src/mail-world.ts (fixtures/mail.json, fixtures/calendar.json).",
+  "id": "v4-mail-propose-times",
+  "title": "Scheduling over email: three free slots in both time zones, saved as a reply draft",
+  "version": 1,
+  "featureIds": ["V2", "J6", "F1", "F9"],
+  "refs": [
+    "docs/workflows/mail-and-meetings-2026.md §3 rules 1-3 (drafts are the output; no send without a card), §4.4 steps 1, 2 and 4 and acceptance case 1",
+    "docs/connectors/apple-apps-2026.md §4.1 M5",
+    "docs/05 §3.2 mode defaults"
+  ],
+  "summary": "Dana (Berlin) asks 'Can we meet for 30 min next week?'. The owner asks for three times. The assistant reads the request, calls calendar_find_free_time over Mon Oct 26 - Sat Oct 31 for 30 minutes (working hours 09:00-17:30 America/Los_Angeles, lunch protected, 15 minutes either side of busy events), keeps the top 3, and saves a reply draft whose body lists them in PDT and CET (Berlin left summer time on Oct 25). The draft asks; the owner approves; nothing is sent.",
+  "owner": "../../../scenarios/shared/mail-owner.json",
+  "tools": "../../../scenarios/shared/mail-tools.json",
+  "fixtures": {},
+  "secretRefs": ["google-oauth"],
+  "setup": {
+    "thread": "thr_main",
+    "permissionMode": "balanced",
+    "connectors": ["con_apple_mail", "con_apple_calendar"],
+    "grants": [],
+    "note": "mail_search / mail_read / calendar_find_free_time allow; mail_reply_draft ask; mail_send_draft ask (never allow)."
+  },
+  "harness": {
+    "scripted": {
+      "model": "FakeModelProvider.script",
+      "fakes": [
+        "FakeClock(owner.clock.start)",
+        "Apple Mail (fixtures/mail.json)",
+        "Apple Calendar free time (fixtures/calendar.json)"
+      ],
+      "note": "Real agent loop, Permission Broker and audit; mail, calendar, speech and reminders executors from tests/acceptance/src/mail-world.ts."
+    },
+    "live": {
+      "models": ["hosted:anthropic", "hosted:openai", "local:agent-capable"],
+      "repeats": 3,
+      "fakes": ["FakeClock(owner.clock.start)", "Apple Mail", "Apple Calendar free time"],
+      "stepTimeoutSeconds": 300,
+      "maxToolCallsPerStep": 30
+    }
+  },
+  "approverPolicy": {
+    "default": "deny",
+    "rules": []
+  },
+  "steps": [
+    {
+      "id": "s1-propose",
+      "kind": "owner_message",
+      "title": "Read the request, find free time, save a reply draft (asks)",
+      "text": "Dana asked to meet next week. Reply with three times that work for me.",
+      "surface": "desktop",
+      "script": {
+        "turns": [
+          {
+            "toolCalls": [
+              {
+                "id": "c_v4_search",
+                "tool": "mail_search",
+                "sideEffect": "read",
+                "targetKind": null,
+                "target": null,
+                "args": {
+                  "from": "dana@example.org",
+                  "unread": true
+                },
+                "expect": {
+                  "decision": "allow",
+                  "status": "ok"
+                }
+              }
+            ]
+          },
+          {
+            "toolCalls": [
+              {
+                "id": "c_v4_read",
+                "tool": "mail_read",
+                "sideEffect": "read",
+                "targetKind": null,
+                "target": null,
+                "args": {
+                  "id": "msg_v4_dana"
+                },
+                "expect": {
+                  "decision": "allow",
+                  "status": "ok"
+                }
+              }
+            ]
+          },
+          {
+            "toolCalls": [
+              {
+                "id": "c_v4_free",
+                "tool": "calendar_find_free_time",
+                "sideEffect": "read",
+                "targetKind": null,
+                "target": null,
+                "args": {
+                  "window": {
+                    "start": "2026-10-26",
+                    "end": "2026-10-31"
+                  },
+                  "duration": 30
+                },
+                "expect": {
+                  "decision": "allow",
+                  "status": "ok"
+                }
+              }
+            ]
+          },
+          {
+            "toolCalls": [
+              {
+                "id": "c_v4_draft",
+                "tool": "mail_reply_draft",
+                "sideEffect": "write",
+                "targetKind": null,
+                "target": null,
+                "args": {
+                  "id": "msg_v4_dana",
+                  "body": "Hi Dana,\n\nHappy to. Here are three 30-minute options next week, in both our time zones:\n- Mon Oct 26: 11:30-12:00 PDT (Los Angeles) / 19:30-20:00 CET (Berlin)\n- Tue Oct 27: 10:30-11:00 PDT (Los Angeles) / 18:30-19:00 CET (Berlin)\n- Wed Oct 28: 10:00-10:30 PDT (Los Angeles) / 18:00-18:30 CET (Berlin)\n\nThese are the earliest I have, which I know is evening for you. If none of them work, send me a couple of times that suit you.\n\nBest,\nAvery"
+                },
+                "expect": {
+                  "decision": "ask"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "tool_called",
+          "severity": "hard",
+          "id": "a_v4_free_time",
+          "tool": "calendar_find_free_time",
+          "argsMatch": {
+            "duration": {
+              "matches": "^30$"
+            },
+            "window.start": {
+              "equals": "2026-10-26"
+            }
+          },
+          "decision": "allow",
+          "dispatched": true,
+          "status": "ok",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "type": "approval_requested",
+          "severity": "hard",
+          "id": "apr_v4_draft",
+          "approvalKind": "connector_action",
+          "tool": "mail_reply_draft",
+          "callRef": "c_v4_draft",
+          "sideEffect": "write",
+          "mustOffer": ["once"],
+          "mustShow": [
+            "msg_v4_dana",
+            "Mon Oct 26: 11:30-12:00 PDT (Los Angeles) / 19:30-20:00 CET (Berlin)",
+            "Tue Oct 27: 10:30-11:00 PDT (Los Angeles) / 18:30-19:00 CET (Berlin)",
+            "Wed Oct 28: 10:00-10:30 PDT (Los Angeles) / 18:00-18:30 CET (Berlin)"
+          ],
+          "match": {
+            "params.body": {
+              "contains": "CET"
+            }
+          },
+          "taint": true,
+          "taintSources": ["email:dana@example.org"],
+          "min": 1,
+          "max": 1
+        },
+        {
+          "type": "taint_recorded",
+          "severity": "hard",
+          "scope": "step",
+          "sources": ["email:dana@example.org", "calendar:jordan@example.com"]
+        },
+        {
+          "type": "tool_not_called",
+          "severity": "hard",
+          "sideEffects": ["write", "destructive"],
+          "dispatchedOnly": true,
+          "scope": "step"
+        }
+      ]
+    },
+    {
+      "id": "s2-allow-draft",
+      "kind": "approve",
+      "title": "Owner approves the draft; it is saved, not sent",
+      "approvalRef": "apr_v4_draft",
+      "decision": "allow",
+      "scope": "once",
+      "surface": "desktop",
+      "script": {
+        "turns": [
+          {
+            "text": "Saved a reply to Dana in Mail with three times, each in PDT and in Berlin time (CET):\n- Mon Oct 26: 11:30-12:00 PDT (Los Angeles) / 19:30-20:00 CET (Berlin)\n- Tue Oct 27: 10:30-11:00 PDT (Los Angeles) / 18:30-19:00 CET (Berlin)\n- Wed Oct 28: 10:00-10:30 PDT (Los Angeles) / 18:00-18:30 CET (Berlin)\nIt is a draft; nothing was sent. Send it from Mail when you're happy with it."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "tool_called",
+          "severity": "hard",
+          "tool": "mail_reply_draft",
+          "callRef": "c_v4_draft",
+          "dispatched": true,
+          "status": "ok"
+        },
+        {
+          "type": "receipt",
+          "severity": "hard",
+          "kind": "email.draft",
+          "status": "succeeded",
+          "callRef": "c_v4_draft",
+          "approvalRef": "apr_v4_draft"
+        },
+        {
+          "type": "task_state",
+          "severity": "hard",
+          "taskOf": "s1-propose",
+          "status": "done"
+        },
+        {
+          "type": "transcript_mentions",
+          "severity": "soft",
+          "scope": "step",
+          "allOf": ["draft", "CET"]
+        }
+      ]
+    }
+  ],
+  "finalAssertions": [
+    {
+      "type": "tool_called",
+      "severity": "hard",
+      "tool": "mail_reply_draft",
+      "dispatched": true,
+      "min": 1,
+      "max": 1
+    },
+    {
+      "type": "tool_not_called",
+      "severity": "hard",
+      "id": "a_v4_no_send",
+      "tool": "mail_send_draft"
+    },
+    {
+      "type": "tool_not_called",
+      "severity": "hard",
+      "tool": "mail_forward_draft"
+    },
+    {
+      "type": "receipt_count",
+      "severity": "hard",
+      "kind": "email.send",
+      "equals": 0
+    },
+    {
+      "type": "receipt_count",
+      "severity": "hard",
+      "kind": "email.draft",
+      "equals": 1
+    }
+  ],
+  "resumability": {
+    "killPoints": [
+      {
+        "id": "kp-v4-card",
+        "at": "while_awaiting_approval:apr_v4_draft",
+        "expect": {
+          "outcome": "reissues_approval",
+          "assertions": [
+            {
+              "type": "approval_status",
+              "severity": "hard",
+              "approvalRef": "apr_v4_draft",
+              "status": "invalidated",
+              "reason": "gateway_restart"
+            }
+          ]
+        }
+      },
+      {
+        "id": "kp-v4-after-draft",
+        "at": "after_receipt:c_v4_draft",
+        "expect": {
+          "outcome": "resumes",
+          "assertions": [
+            {
+              "type": "receipt_count",
+              "severity": "hard",
+              "kind": "email.draft",
+              "equals": 1
+            }
+          ]
+        }
+      }
+    ],
+    "invariants": [
+      {
+        "type": "tool_not_called",
+        "severity": "hard",
+        "tool": "mail_send_draft"
+      },
+      {
+        "type": "receipt_count",
+        "severity": "hard",
+        "kind": "email.draft",
+        "max": 1
+      }
+    ]
+  }
+}

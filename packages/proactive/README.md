@@ -228,6 +228,70 @@ agent loop's registry (architecture §4.3 built-ins "`goal.*`, `idea.*`, `feed.*
 - Names are plural (`goals.*`, `ideas.*`) because the broker floors every `goal.*` tool to
   `write`, which would make reads ask.
 
+### Batch proposals (mail and meeting workflows §8.1, #670 W2)
+
+`ProposalService({ db, clock, broker, tools, mainThread, surfaces?, newId?, onEvent?, inverses?, onError? })`:
+- `create({ title, calls, createdBy, postId?, threadId?, taint?, taintSources?, ttlMs?, undoOf? })`: a pending proposal of 1–100 exact calls; a tool above `write` is refused at once.
+- `approve(id)`: builds each call's intent exactly as the agent loop does (validate, `describeCall`, side-effect floor, `paramsHash`, the kind's binding, the namespaced grant key) and asks `broker.requestBatch`. The broker decides every call now and refuses the batch when any call is denied, above `write` after its floors, a send (`send_email`), or a device-only or authentication kind. The result is one `batch` card, `once` only, that lists every call.
+- When the owner approves, the broker mints one approved, once-only child approval per call (id `<batch>.<index>`), bound to that call's own binding. The service runs the broker's stored calls in order: it checks that each call's params still hash to what was decided, calls `verifyBinding` (consumed once), then runs the tool with the child as its `authority`, and records a receipt when the tool gave none. Results are per call; the proposal ends `done`, `partial` or `failed`. Editing the row after approval changes nothing.
+- `dismiss(id)`, `undo(id)`: undo offers the inverse calls in reverse order for 30 s, when every call that ran has an inverse (`DEFAULT_INVERSES`: `mail_set_flags`, `gmail_modify_labels`). The undo is a new proposal with its own approval.
+- `createProposalHandlers(proposals)`: `proposals.list | get | approve | dismiss | undo`; `approve` returns the caller's own surface's answer token only.
+- **Known gap:** the agent loop's `before_tool_call` hooks and plugins do not run for batch calls. The broker's decision at request time does. Tracked for S02 in the W2 PR.
+
+### New-mail poller (§4.7, #670 W3)
+
+`MailWatcher({ scheduler, clock, sources, activeHours?, timezone?, wanted?, onError? })`:
+- **Cadence:** a system `interval` automation (`PT10M`, `[psyche:mail-watch poll]`) runs `poll()` in-process. Outside active hours (default 08–22) it polls at most hourly.
+- **Reads:** nothing is read unless an enabled `mail.received` event automation exists (`wanted`). It makes no model call.
+- **Sources:**
+  - `appleMailSource(tools)`: `mail_search {unread: true, since}`
+  - `gmailSource(tools)`: `gmail_search_threads {query: "is:unread after:<epoch>"}`; a thread's message count is part of the event id, so a new message in a known thread is a new event
+- **Events:** each source's cursor is the start of its last poll, so mail that arrives mid-poll is seen again and deduplicated rather than missed. Events carry account, ids, sender and subject; sender and subject are untrusted and travel as data only.
+
+### Inbox digest and follow-ups (§4.1, §4.2, #670 W4)
+
+`DigestService({ db, clock, scheduler, tools, memory, proposals?, feed, notifier?, provider?, model?, modelIsRemote?, loops?, isKnownPerson?, personName?, knownDomains?, timezone? })`:
+- **Collect:** unread mail since the last digest (a cursor per source): Apple Mail `mail_search` plus up to 60 `mail_read` previews, and Gmail `gmail_search_threads` snippets. At most 200 messages. Senders are recorded in `mail_senders`.
+- **Pre-sort, without a model, in this order:**
+  1. the owner's `mail/RULES.md` (allow / always archive / not now until / category)
+  2. lookalike senders of known domains, which become `unverified` and are never needs-you
+  3. automated senders and receipts, which become `notifications`
+  4. bulk senders and unsubscribe text, which become `newsletters`
+  5. first-time senders who are not known people, which become `screen`
+- **Classify the rest** on the utility model, 20 per call, sanitized (hidden text stripped) and fenced. "Needs you" and "soon" must quote a phrase that is really in the mail; otherwise the item is FYI. Unparseable output is FYI.
+- **Batch proposals:** one per bulk group, each needing one card:
+  - newsletters: mark read (`mail_set_flags` or Gmail `remove UNREAD`)
+  - notifications: archive (`mail_move` to archive or Gmail `remove INBOX`)
+  - FYI: mark read
+
+  Nothing is sent or deleted.
+- **Follow-ups:** the graph's due `waiting_on` loops (`loops`), each shown in at most two digests (`digest_loops`).
+- **Output:** one Feed post (`kind: "digest"`, `card: {type: "digest", digest}`) and one `briefing` notification per day (dedupe `mail:digest:<date>`). The notification is in-app only when nothing needs you.
+- **`setSenderRule(from, decision)`:** the card's Allow / Not now / Always archive and category moves, written to `mail/RULES.md` (which the UI may also edit with `memory.write`).
+- **Schedule:** a system cron automation (`30 7 * * 1-5`) runs in-process. In the Gateway it is off until `mail.digest.enabled` is true (§7.5: upgrades start off).
+
+### Voice profile, drafts and scheduling (§4.3, §4.4, #670 W5)
+
+- **`VoiceService`** reads up to 100 sent messages, keeps only the owner's own text (quotes and signatures go), and writes `mail/VOICE.md` (greetings and sign-offs per tier: colleague, known person, other) and up to 40 short samples in `mail/voice-samples.jsonl`. Both are owner files; `reset()` deletes them and drafts then say no style is saved. The nightly refresh (`15 3 * * *`) is off until `mail.voice.enabled` is true. Owner addresses come from `mail.ownerAddresses`.
+- **`DraftService.draft({via, messageId, instruction?, tone?, replyAll?})`** writes a reply on the utility model with the thread fenced as untrusted and the voice for the recipient's tier. It returns the body, the sentences that commit the owner (`commitments`) and a one-call proposal (`mail_reply_draft` or `gmail_create_draft`); nothing is saved until it is approved. `shouldAutoDraft` limits unasked drafts to short questions from known senders without money, documents or attachments.
+- **`SchedulingService.proposeTimes({via, messageId, durationMin?, recipientTimezone?, holds?, who?})`** reads `calendar_free_busy`, picks three weekday slots in working hours with a 15-minute buffer (one per day), drafts the reply with both time zones and, when asked, proposes three tentative holds as one batch. `mail.schedulingLink` is offered only when set. `confirm({reply, slots, ...})` turns a reply that picks a slot into one card for the event; an ambiguous reply returns a question. Releasing the other holds is a separate approval, because deletes are destructive and cannot be batched.
+- **Agent tools:** `mail.draft_reply` and `mail.propose_times` (side effect `none`, untrusted results); they only propose.
+
+### Meeting prep and post-meeting notes (§4.5, §4.6, #670 W6)
+
+- **`MeetingPrepService`:** a planner (`*/30 7-21 * * *`) reads the next 26 hours of `calendar_list_events`. It prepares meetings with someone else on them that the owner did not decline and that are not all-day. By default the meeting must also have someone outside the owner's domains or related mail (`meetings.prep.scope: "all"` widens it).
+  - Each meeting gets two one-shot `reminder` automations: the prep run at T − 2 h (morning meetings at 07:00) and the delivery at T − 60 min. They are recorded in `meeting_preps`. Moving the event moves both, cancelling it removes them, and past meetings drop theirs.
+  - A recurring meeting with the same title and attendees and no new mail since the last occurrence is "nothing new": `digestLinesToday()` feeds `DigestService.meetingLines`.
+  - The prep run is read-only: attendees (`person`, else `contacts_search`), the last 3 threads with each, their open loops (`loops`), matching notes, and the last meeting's decisions and action items (`previousNotes`). Every line cites its source. The utility model writes only "why" and, when the invitation has no agenda, up to 4 agenda bullets, with the invitation fenced as untrusted; the prep is always tainted.
+  - The prep is one Feed post (`kind: "meeting_prep"`). Delivery is one `reminder` notification with Join, at most 4 a day. Thin preps (fewer than 2 sourced items) stay silent. `breakQuietHours` is set only when the meeting itself is inside quiet hours (`isQuiet`). In the Gateway it is off until `meetings.prep.enabled`.
+- **`MeetingNotesService`:**
+  - `fromRecording` refuses recordings over 4 h, transcribes through an injected `MeetingTranscriber` (`VoiceMemoService.ingestMeeting`), then calls `fromTranscript`.
+  - `fromTranscript` matches the overlapping calendar event, then summarizes: one primary-model pass up to 60 minutes, or 30-minute chunks on the utility model above that. It produces a summary, decisions and action items with timestamps, where quotes must appear in the transcript, plus open questions.
+  - The owner's items become one batch proposal of `reminders_create` (or `things_add`). Other people's items become "they owe you" loops (`addLoop`). Items with no clear owner are listed as unassigned.
+  - The output is one Feed post (`kind: "meeting_notes"`, labelled AI-written) and one `task_done` notification. With only a cloud model and no permission it asks once (`input_needed`) and does nothing else.
+  - `recapDraft(postId, {to?})` writes a recap from the notes alone, addressed to the accepted attendees (editable). It is saved only through a `mail_draft` proposal.
+- **`MeetingRecorder`:** capture starts only after `consentConfirmed`. The source ends it (5 minutes of silence, the conference app quits) or `stop()` does.
+
 ## Gateway wiring
 
 `composeProactive({ db, clock, scheduler, notifier, tasks, publish, timeZone, logger })` in

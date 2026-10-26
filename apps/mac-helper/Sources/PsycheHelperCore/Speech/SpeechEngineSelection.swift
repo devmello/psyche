@@ -40,11 +40,13 @@ public enum SpeechEngineSelector {
         os.majorVersion >= analyzerMinimumMajorVersion
     }
 
-    /// Picks the engine: `dictationTranscriber` on 26+ when a vocabulary is given, `speechAnalyzer`
-    /// on 26+, `sfSpeech` otherwise; each step falls through when its engine cannot serve the locale.
-    public static func select(os: OperatingSystemVersion, vocabulary: [String], availability: SpeechEngineAvailability) throws -> SpeechEngineKind {
+    /// Picks the engine: `dictationTranscriber` on 26+ when a vocabulary is given or the `short`
+    /// preset asks for it (only DictationTranscriber has the short-form hint), `speechAnalyzer` on
+    /// 26+, `sfSpeech` otherwise; each step falls through when its engine cannot serve the locale.
+    public static func select(os: OperatingSystemVersion, vocabulary: [String], availability: SpeechEngineAvailability,
+                              preset: SpeechPreset = .long) throws -> SpeechEngineKind {
         let gate = analyzerGateOpen(os)
-        if gate, !vocabulary.isEmpty, availability.dictationTranscriber { return .dictationTranscriber }
+        if gate, !vocabulary.isEmpty || preset == .short, availability.dictationTranscriber { return .dictationTranscriber }
         if gate, availability.speechTranscriber { return .speechAnalyzer }
         if gate, availability.dictationTranscriber { return .dictationTranscriber }
         if availability.sfSpeechOnDevice { return .sfSpeech }

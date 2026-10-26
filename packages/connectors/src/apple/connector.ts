@@ -1737,10 +1737,17 @@ class AppleConnector implements Connector {
         // A shortcut can do anything: destructive, so it asks, unless the owner allowed it in
         // Settings (`config.shortcutRules[id]`), which makes it a write the matrix lets through.
         tool.ruleFor = (p) => this.#shortcutRule(p);
-        tool.describeCall = (p) => ({
-          ...(binding(this.id, spec, p) as ToolCallDescription),
-          sideEffect: this.#shortcutRule(p) === "allow" ? "write" : "destructive",
-        });
+        tool.describeCall = (p) => {
+          const id = String((p as { id?: unknown } | null)?.id ?? "");
+          return {
+            ...(binding(this.id, spec, p) as ToolCallDescription),
+            sideEffect: this.#shortcutRule(p) === "allow" ? "write" : "destructive",
+            // The broker applies the same per-shortcut rule under `shortcuts.run/<id>` (#747).
+            ...(id === ""
+              ? {}
+              : { connectorRule: { id: this.id, action: `${spec.action}/${id}` } }),
+          };
+        };
       }
       return tool;
     });

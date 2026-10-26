@@ -17,6 +17,7 @@ export const design = {
   "design.status.thinking": "Thinking",
   "design.status.retried": "Retried",
   "design.status.skipped": "Skipped",
+  "design.status.partial": "Partial",
   "design.timeline.axis": "Time",
   "design.timeline.gap": "{duration} idle",
   "design.timeline.playhead": "Playhead at {time}",

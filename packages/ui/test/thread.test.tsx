@@ -189,7 +189,7 @@ describe("slash commands (C9)", () => {
     renderMain();
     await userEvent.type(await box(), "/");
     const menu = await screen.findByRole("listbox", { name: "Commands" });
-    expect(within(menu).getAllByRole("option")).toHaveLength(12);
+    expect(within(menu).getAllByRole("option")).toHaveLength(13);
     await userEvent.type(await box(), "rem");
     expect(
       within(screen.getByRole("listbox", { name: "Commands" })).getAllByRole("option"),

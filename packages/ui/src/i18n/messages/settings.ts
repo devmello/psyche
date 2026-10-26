@@ -81,6 +81,10 @@ export const settings = {
   "settings.key.context.compactAt": "Compact at",
   "settings.key.context.keepRecentTurns": "Recent turns kept verbatim",
   "settings.key.data.transcriptRecall": "Transcript recall",
+  "settings.key.teaching.enabled": "Learn from your feedback",
+  "settings.key.teaching.implicit": "Notice edits, undos and dismissals",
+  "settings.key.teaching.paused": "Pause learning",
+  "settings.key.teaching.weeklyCard": "Weekly “What I learned” card",
   "settings.key.memory.graph": "People & projects",
   "settings.key.agent.showReasoning": "Show thinking while it works",
   "settings.key.data.replayRetentionDays": "Keep task replays for",
@@ -859,6 +863,35 @@ export const settings = {
     "Everything {persona} keeps lives on this machine. There is no training toggle because nothing is sent for training.",
   "settings.data.loadLabel": "data controls",
   "settings.data.memory": "Memory",
+  // The teaching loop's settings (docs/agent/teaching-loop-2026.md §8).
+  "settings.learning.title": "Learning",
+  "settings.learning.enabled": "Learn from your feedback",
+  "settings.learning.enabledHint":
+    "Helpful, Not like this and your corrections become lessons {persona} remembers.",
+  "settings.learning.implicit": "Notice edits, undos and dismissals",
+  "settings.learning.implicitHint":
+    "Sending an edited draft or undoing an action counts as feedback.",
+  "settings.learning.signals": "Signals",
+  "settings.learning.signal.draftEdits": "Draft edits",
+  "settings.learning.signal.undo": "Undo",
+  "settings.learning.signal.approvalEdits": "Approval edits",
+  "settings.learning.signal.dismissals": "Dismissals",
+  "settings.learning.paused": "Pause learning",
+  "settings.learning.pausedHint":
+    "Nothing is read or written while on, and nothing is back-filled afterwards.",
+  "settings.learning.weeklyCard": "Weekly “What I learned” card",
+  "settings.learning.weeklyCardHint":
+    "A Feed post on Sundays, only when there is something to review.",
+  "settings.learning.open": "What {persona} learned",
+  "settings.learning.openButton": "Open Growth",
+  "settings.learning.forgetAll": "Forget everything {persona} learned",
+  "settings.learning.forgetAllTitle": "Forget everything {persona} learned from you?",
+  "settings.learning.forgetAllBody":
+    'Its notes, Soul and skills go back to what you wrote. Type "{phrase}" to confirm.',
+  "settings.learning.forgetPhrase": "forget",
+  "settings.learning.forgetAllGo": "Forget everything",
+  "settings.learning.forgotAll":
+    "Forgot {lessons, plural, one {# lesson} other {# lessons}} and {events, plural, one {# feedback event} other {# feedback events}}.",
   "settings.data.pauseMemory": "Pause memory",
   "settings.data.pauseMemoryHint":
     "While paused, {persona} doesn't remember, flush or index anything from chats.",
@@ -886,7 +919,7 @@ export const settings = {
   "settings.data.resetMemory": "Reset memory",
   "settings.data.resetMemoryEllipsis": "Reset memory…",
   "settings.data.failed":
-    "Psyche couldn't {action, select, pause {change memory} export {export} delete {delete the threads} other {reset memory}} ({reason}). Nothing was changed.",
+    "Psyche couldn't {action, select, pause {change memory} export {export} delete {delete the threads} forget {forget what it learned} other {reset memory}} ({reason}). Nothing was changed.",
   "settings.data.paused": "Memory paused.",
   "settings.data.resumed": "Memory resumed.",
   "settings.data.exportReady": "Export ready: {filename}.",
@@ -1567,4 +1600,51 @@ export const settings = {
   "settings.people.exportHint":
     "A zip of your memory with graph.json (people, projects, facts and loops) and every card file.",
   "settings.people.exportButton": "Export people and projects",
+  "settings.people.blocked": "Blocked",
+  "settings.people.blockedHint":
+    "Psyche never learns about these again. A blocked domain covers every address at it; existing cards stay until you forget them.",
+  "settings.people.noneBlocked": "No one is blocked.",
+  "settings.people.blockedOn": "{kind} · blocked {date}",
+  "settings.people.unblock": "Unblock",
+  "settings.people.unblockLabel": "Unblock {hint}",
+  "settings.people.block": "Block",
+  "settings.people.blockKindLabel": "What to block",
+  "settings.people.blockValue": "Address, phone or domain",
+  "settings.people.blockKind.email": "Email address",
+  "settings.people.blockKind.phone": "Phone number",
+  "settings.people.blockKind.domain": "Domain",
+  "settings.people.blockKind.contact": "Contact",
+  "settings.people.blockKind.channel": "Channel",
+  "settings.people.blockKind.calendar": "Calendar",
+  "settings.people.blockKind.url": "Web address",
+  "settings.people.blockPlaceholder.email": "name@example.com",
+  "settings.people.blockPlaceholder.phone": "+1 555 0100",
+  "settings.people.blockPlaceholder.domain": "example.com",
+  "settings.people.deleteBySource": "Delete by source",
+  "settings.people.deleteBySourceHint":
+    "Removes everything one source brought in and turns it off. Facts you added yourself stay.",
+  "settings.people.nothingStored": "Nothing is stored from any source yet.",
+  "settings.people.sourceStored":
+    "{entities, plural, one {# person or project} other {# people and projects}} · {interactions, plural, one {# interaction} other {# interactions}}",
+  "settings.people.deleteSource": "Delete…",
+  "settings.people.deleteSourceLabel": "Delete what {source} brought in",
+  "settings.people.deleteSourceTitle": "Delete what {source} brought in?",
+  "settings.people.deleteSourceAfter":
+    "{source} is turned off so the next sync doesn't bring it back. Facts you added yourself stay.",
+  "settings.people.deleteSourceConfirm": "Delete",
+  "settings.people.deletedSource": "Deleted what {source} brought in.",
+  "settings.people.forgetAll": "Forget everything",
+  "settings.people.forgetAllHint":
+    "Deletes every person, project, card and loop, the blocklist too, and turns People & projects off. Your own memory files stay.",
+  "settings.people.forgetAllButton": "Forget everything…",
+  "settings.people.forgetAllTitle": "Forget everything about people and projects?",
+  "settings.people.forgetAllAfter":
+    "This can't be undone. People & projects turns off; turn it back on to start again from scratch.",
+  "settings.people.typeToConfirm": "Type “{phrase}” to confirm",
+  "settings.people.forgetAllConfirm": "Forget everything",
+  "settings.people.forgotAll": "Forgot everything about people and projects.",
+  "settings.people.counting": "Checking what would be deleted…",
+  "settings.people.previewFailed": "Psyche couldn't count what it would delete ({reason}).",
+  "settings.people.removeCounts":
+    "Psyche deletes {entities, plural, one {# person or project} other {# people and projects}}, {facts, plural, one {# fact} other {# facts}}, {interactions, plural, one {# interaction} other {# interactions}}, {loops, plural, one {# open loop} other {# open loops}} and {identifiers, plural, one {# address} other {# addresses}}.",
 } as const;

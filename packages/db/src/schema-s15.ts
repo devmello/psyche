@@ -3,7 +3,7 @@
  * `migrations/202610201700_proactive_init.sql`); see the header of `schema.ts` for the
  * conventions.
  */
-import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 // §8 Proactive surfaces (feed, ideas, goals) ---------------------------------------------------
 
@@ -22,6 +22,10 @@ export const feedPosts = sqliteTable("feed_posts", {
   createdAt: text("created_at").notNull(),
   // 202610211100_proactive_feed-read
   readAt: text("read_at"),
+  // 202610252100_proactive_mail-digest
+  kind: text("kind"),
+  refs: text("refs"),
+  card: text("card"),
 });
 
 export const ideas = sqliteTable("ideas", {
@@ -77,7 +81,78 @@ export const goalLinks = sqliteTable("goal_links", {
   createdAt: text("created_at").notNull(),
 });
 
-export const s15Schema = { feedPosts, ideas, goals, goalMilestones, goalLinks };
+// 202610251900_proactive_proposals
+export const actionProposals = sqliteTable("action_proposals", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  calls: text("calls").notNull(),
+  status: text("status").notNull(),
+  createdBy: text("created_by").notNull(),
+  threadId: text("thread_id"),
+  postId: text("post_id"),
+  approvalId: text("approval_id"),
+  taint: integer("taint").notNull(),
+  taintSources: text("taint_sources"),
+  results: text("results"),
+  undoOf: text("undo_of"),
+  finishedAt: text("finished_at"),
+  createdAt: text("created_at").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+// 202610252100_proactive_mail-digest
+export const mailSenders = sqliteTable("mail_senders", {
+  address: text("address").primaryKey(),
+  firstSeenAt: text("first_seen_at").notNull(),
+  lastSeenAt: text("last_seen_at").notNull(),
+  messages: integer("messages").notNull(),
+});
+
+export const digestLoops = sqliteTable("digest_loops", {
+  loopId: text("loop_id").primaryKey(),
+  shownCount: integer("shown_count").notNull(),
+  lastShownAt: text("last_shown_at"),
+});
+
+// 202610261300_proactive_meetings
+export const meetingPreps = sqliteTable(
+  "meeting_preps",
+  {
+    eventId: text("event_id").primaryKey(),
+    seriesKey: text("series_key").notNull(),
+    title: text("title").notNull(),
+    startAt: text("start_at").notNull(),
+    endAt: text("end_at").notNull(),
+    fingerprint: text("fingerprint").notNull(),
+    event: text("event").notNull(),
+    status: text("status").notNull(),
+    prepAutomationId: text("prep_automation_id"),
+    notifyAutomationId: text("notify_automation_id"),
+    postId: text("post_id"),
+    thin: integer("thin").notNull(),
+    taint: integer("taint").notNull(),
+    notifiedAt: text("notified_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    index("meeting_preps_series").on(t.seriesKey, t.startAt),
+    index("meeting_preps_notified").on(t.notifiedAt),
+  ],
+);
+
+export const s15Schema = {
+  feedPosts,
+  ideas,
+  goals,
+  goalMilestones,
+  goalLinks,
+  actionProposals,
+  mailSenders,
+  digestLoops,
+  meetingPreps,
+};
 
 export type FeedPostRow = typeof feedPosts.$inferSelect;
 export type IdeaRow = typeof ideas.$inferSelect;
