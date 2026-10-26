@@ -1,4 +1,5 @@
 import type {
+  AppleShortcut,
   Channel,
   Connector,
   ConnectorCatalogueEntry,
@@ -125,6 +126,16 @@ const APPLE_ACTIONS: Record<string, CatalogueAction[]> = {
     read("calendar.read", "Read events"),
     write("calendar.write", "Add and change events", "calendar_write"),
   ],
+  shortcuts: [
+    read("shortcuts.list", "See your shortcuts"),
+    {
+      id: "shortcuts.run",
+      title: "Run shortcuts",
+      sideEffect: "destructive",
+      approvalKind: "connector_action",
+      defaultRule: "ask",
+    },
+  ],
 };
 
 const entry = (
@@ -156,6 +167,46 @@ export function connectorCatalogue(): ConnectorCatalogueEntry[] {
     entry("apple:notes", "Apple Notes", "Apple", "none", APPLE_ACTIONS.notes),
     entry("apple:reminders", "Apple Reminders", "Apple", "none", APPLE_ACTIONS.reminders),
     entry("apple:calendar", "Apple Calendar", "Apple", "none", APPLE_ACTIONS.calendar),
+    entry("apple:shortcuts", "Shortcuts", "Apple", "none", APPLE_ACTIONS.shortcuts),
+    entry("obsidian", "Obsidian", "Obsidian", "none", [
+      read("obsidian.read", "Search and read notes"),
+      write("obsidian.write", "Add to and create notes"),
+    ]),
+  ];
+}
+
+/** The owner's shortcuts as the helper lists them (`shortcuts.list`, K1). */
+export function appleShortcuts(): AppleShortcut[] {
+  // i18n-ignore-start: fixture shortcut names
+  return [
+    {
+      id: "SC-ARRIVE",
+      name: "Arrive at office",
+      folder: null,
+      acceptsInput: false,
+      actionCount: 4,
+    },
+    { id: "SC-LOG", name: "Log water", folder: "Health", acceptsInput: true, actionCount: 2 },
+    { id: "SC-ORDER", name: "Order coffee", folder: null, acceptsInput: false, actionCount: 6 },
+  ];
+  // i18n-ignore-end
+}
+
+/** Settings → Connectors → Shortcuts and Obsidian (#640): connected, with their settings. */
+export function shortcutsAndObsidian(): Connector[] {
+  const C = IDS.connectors;
+  return [
+    apple(C.appleShortcuts, "shortcuts", "Shortcuts", {
+      config: { shortcutRules: { "SC-ORDER": "off", "SC-LOG": "allow" } },
+    }),
+    {
+      ...apple(C.obsidian, "obsidian", "Obsidian", {
+        account: "~/Notes/Vault",
+        config: { vaultPath: "/Users/you/Notes/Vault", dailyFolder: "Daily" },
+      }),
+      type: "obsidian",
+      actionMatrix: { "obsidian.read": "allow", "obsidian.write": "ask" },
+    },
   ];
 }
 
