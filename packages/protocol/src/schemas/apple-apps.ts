@@ -483,12 +483,21 @@ export const AppleMailDraftRef = Type.Object(
 );
 export type AppleMailDraftRef = Static<typeof AppleMailDraftRef>;
 
-/** `mail.send_draft` (M6): sends a saved draft (approval bound to its recipients and body). */
+/**
+ * `mail.send_draft` (M6): sends a saved draft. The approval binds the recipients, subject and
+ * body hash of the AppleMailDraftRef; the helper refuses when the draft no longer matches them.
+ */
 export const AppleMailSendDraftParams = Type.Object(
   {
-    draftId: Type.String({
-      description: "From mail.reply_draft / mail.forward_draft / mail.draft",
+    draftId: Type.String({ description: "From mail.reply_draft / mail.forward_draft" }),
+    to: Type.Array(Type.String({ maxLength: 320 }), {
+      minItems: 1,
+      maxItems: 50,
+      description: "The draft's recipients, as AppleMailDraftRef returned them",
     }),
+    cc: Type.Optional(Type.Array(Type.String({ maxLength: 320 }), { maxItems: 50 })),
+    subject: Type.String({ maxLength: 500 }),
+    bodySha256: Type.String({ description: "AppleMailDraftRef.bodySha256" }),
   },
   { $id: "AppleMailSendDraftParams" },
 );

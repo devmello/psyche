@@ -526,9 +526,19 @@ export interface AppleMailSelectedParams {
 
 export interface AppleMailSendDraftParams {
     /**
-     * From mail.reply_draft / mail.forward_draft / mail.draft
+     * AppleMailDraftRef.bodySha256
+     */
+    bodySha256: string;
+    cc?:        string[];
+    /**
+     * From mail.reply_draft / mail.forward_draft
      */
     draftId: string;
+    subject: string;
+    /**
+     * The draft's recipients, as AppleMailDraftRef returned them
+     */
+    to: string[];
 }
 
 export interface AppleMailSetFlagsParams {

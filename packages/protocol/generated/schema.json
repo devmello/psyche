@@ -3709,12 +3709,41 @@
     "AppleMailSendDraftParams": {
       "properties": {
         "draftId": {
-          "description": "From mail.reply_draft / mail.forward_draft / mail.draft",
+          "description": "From mail.reply_draft / mail.forward_draft",
+          "type": "string"
+        },
+        "to": {
+          "description": "The draft's recipients, as AppleMailDraftRef returned them",
+          "items": {
+            "maxLength": 320,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "type": "array"
+        },
+        "cc": {
+          "items": {
+            "maxLength": 320,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array"
+        },
+        "subject": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "bodySha256": {
+          "description": "AppleMailDraftRef.bodySha256",
           "type": "string"
         }
       },
       "required": [
-        "draftId"
+        "draftId",
+        "to",
+        "subject",
+        "bodySha256"
       ],
       "type": "object"
     },

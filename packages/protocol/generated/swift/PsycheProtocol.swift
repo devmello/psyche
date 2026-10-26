@@ -2098,15 +2098,29 @@ public struct AppleMailSelectedParams: Codable, Sendable {
 
 // MARK: - AppleMailSendDraftParams
 public struct AppleMailSendDraftParams: Codable, Sendable {
-    /// From mail.reply_draft / mail.forward_draft / mail.draft
+    /// AppleMailDraftRef.bodySha256
+    public let bodySha256: String
+    public let cc: [String]?
+    /// From mail.reply_draft / mail.forward_draft
     public let draftID: String
+    public let subject: String
+    /// The draft's recipients, as AppleMailDraftRef returned them
+    public let to: [String]
 
     public enum CodingKeys: String, CodingKey {
+        case bodySha256 = "bodySha256"
+        case cc = "cc"
         case draftID = "draftId"
+        case subject = "subject"
+        case to = "to"
     }
 
-    public init(draftID: String) {
+    public init(bodySha256: String, cc: [String]?, draftID: String, subject: String, to: [String]) {
+        self.bodySha256 = bodySha256
+        self.cc = cc
         self.draftID = draftID
+        self.subject = subject
+        self.to = to
     }
 }
 
