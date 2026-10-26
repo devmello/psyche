@@ -51,7 +51,7 @@ import { writeOnboarding } from "./onboarding.ts";
 import { readPermissions, requestPermission } from "./permissions.tsx";
 import { settingsRoute } from "./settings.tsx";
 import { useTranscriptMode } from "./transcript-mode.tsx";
-import { ComposedFilesPane } from "./viewers.tsx";
+import { ComposedFilesPane, renderMarkdownEditor } from "./viewers.tsx";
 
 /**
  * The composed Psyche app (INT-1): S11's shell (rail, threads, panes, browser, keyboard, `view.*`)
@@ -531,6 +531,8 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
   const uiSlots = useMemo<UiSlots>(
     () => ({
       ...(persona ? { persona } : {}),
+      // Soul & Memory's file editor: the viewers' Markdown editor (Rich / Source / Diff).
+      renderEditor: renderMarkdownEditor,
       // The desktop session refuses navigator.clipboard; copy goes through main (#507).
       ...(platform.clipboard ? { writeClipboard: platform.clipboard.writeText } : {}),
       // Connector sign-ins open in the default browser; app windows refuse window.open (#505).

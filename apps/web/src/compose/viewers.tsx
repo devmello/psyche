@@ -1,6 +1,7 @@
 /// <reference path="../vite-env.d.ts" />
 import {
   convertFileBytes,
+  type EditorSlotProps,
   type FileRef,
   type FileSource,
   FilesPane,
@@ -9,7 +10,12 @@ import {
   t,
   useCall,
 } from "@psyche/ui";
-import { configurePdfJs, ViewerHost, type ViewerItem } from "@psyche/viewers";
+import {
+  ControlledMarkdownEditor,
+  configurePdfJs,
+  ViewerHost,
+  type ViewerItem,
+} from "@psyche/viewers";
 import { type ConversionService, ConversionUnavailableError } from "@psyche/viewers/core/convert";
 import { mimeFromName } from "@psyche/viewers/core/detect";
 import "@psyche/viewers/styles.css";
@@ -148,3 +154,22 @@ export function ComposedFilesPane({
 }
 
 const sourceKey = (file: FileRef) => file.path ?? `library:${file.libraryPath ?? file.name}`;
+
+/**
+ * The kit's `renderEditor` slot: the viewers' Rich / Source / Diff Markdown editor as a controlled
+ * field (Soul & Memory keeps the draft, budget, Save and Discard), with the teaching loop's margin
+ * marks beside lesson-owned lines.
+ */
+export function renderMarkdownEditor(props: EditorSlotProps): ReactElement {
+  return (
+    <ControlledMarkdownEditor
+      key={props.path}
+      path={props.path}
+      value={props.value}
+      onChange={props.onChange}
+      {...(props.readOnly ? { readOnly: true } : {})}
+      {...(props.marks ? { marks: props.marks } : {})}
+      {...(props.onMarkActivate ? { onMarkActivate: props.onMarkActivate } : {})}
+    />
+  );
+}
