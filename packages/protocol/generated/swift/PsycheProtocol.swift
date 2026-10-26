@@ -551,6 +551,8 @@
 //   let meetingRecordingEnded = try? JSONDecoder().decode(MeetingRecordingEnded.self, from: jsonData)
 //   let meetingRecordingStatus = try? JSONDecoder().decode(MeetingRecordingStatus.self, from: jsonData)
 //   let meetingsNotesCreateParams = try? JSONDecoder().decode(MeetingsNotesCreateParams.self, from: jsonData)
+//   let meetingsRecordPushParams = try? JSONDecoder().decode(MeetingsRecordPushParams.self, from: jsonData)
+//   let meetingsRecordPushResult = try? JSONDecoder().decode(MeetingsRecordPushResult.self, from: jsonData)
 //   let meetingsRecordStartParams = try? JSONDecoder().decode(MeetingsRecordStartParams.self, from: jsonData)
 //   let meetingsRecordStatusParams = try? JSONDecoder().decode(MeetingsRecordStatusParams.self, from: jsonData)
 //   let meetingsRecordStopParams = try? JSONDecoder().decode(MeetingsRecordStopParams.self, from: jsonData)
@@ -13957,6 +13959,8 @@ public enum Notes: String, Codable, Sendable {
     case processing = "processing"
 }
 
+/// Why the capturing device stopped: the owner (default), the microphone ended, five minutes
+/// of silence, or the conference app quit
 public enum MeetingRecordingEndedReason: String, Codable, Sendable {
     case appQuit = "app_quit"
     case silence = "silence"
@@ -13991,6 +13995,24 @@ public enum RecordingSpeakers: String, Codable, Sendable {
     case ownerOnly = "owner_only"
 }
 
+// MARK: - MeetingsRecordPushParams
+public struct MeetingsRecordPushParams: Codable, Sendable {
+    /// Base64 mono PCM s16le at 16 kHz (the format `voice.push` takes)
+    public let audio: String
+    /// 0, 1, 2… per recording; out of order is rejected
+    public let seq: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case audio = "audio"
+        case seq = "seq"
+    }
+
+    public init(audio: String, seq: Int) {
+        self.audio = audio
+        self.seq = seq
+    }
+}
+
 // MARK: - MeetingsRecordStartParams
 public struct MeetingsRecordStartParams: Codable, Sendable {
     public let consentConfirmed: Bool
@@ -14004,6 +14026,21 @@ public struct MeetingsRecordStartParams: Codable, Sendable {
     public init(consentConfirmed: Bool, meetingID: String?) {
         self.consentConfirmed = consentConfirmed
         self.meetingID = meetingID
+    }
+}
+
+// MARK: - MeetingsRecordStopParams
+public struct MeetingsRecordStopParams: Codable, Sendable {
+    /// Why the capturing device stopped: the owner (default), the microphone ended, five minutes
+    /// of silence, or the conference app quit
+    public let reason: MeetingRecordingEndedReason?
+
+    public enum CodingKeys: String, CodingKey {
+        case reason = "reason"
+    }
+
+    public init(reason: MeetingRecordingEndedReason?) {
+        self.reason = reason
     }
 }
 
@@ -26421,8 +26458,8 @@ public typealias DictationTargetParams = [String: JSONAny]
 public typealias EmptyParams = [String: JSONAny]
 public typealias GrowthUpdatedPayload = [String: JSONAny]
 public typealias MCPStatusParams = [String: JSONAny]
+public typealias MeetingsRecordPushResult = [String: JSONAny]
 public typealias MeetingsRecordStatusParams = [String: JSONAny]
-public typealias MeetingsRecordStopParams = [String: JSONAny]
 public typealias MemoryExportParams = [String: JSONAny]
 public typealias MemoryGraphBlocklistListParams = [String: JSONAny]
 public typealias MemoryGraphStatusParams = [String: JSONAny]

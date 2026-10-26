@@ -15,16 +15,22 @@ export interface CapturedAudio {
   startedAt: string;
   durationMs: number;
   reason: "stopped" | "source_ended" | "silence" | "app_quit";
+  /** The Library item the capture already wrote (a Gateway-side capture); none for a bare file. */
+  itemId?: string;
 }
 
 export interface AudioCapture {
-  start(): Promise<{ stop(): Promise<CapturedAudio>; ended: Promise<CapturedAudio> }>;
+  start(): Promise<{
+    /** `reason` is why the capturing side stopped (default `stopped`). */
+    stop(reason?: CapturedAudio["reason"]): Promise<CapturedAudio>;
+    ended: Promise<CapturedAudio>;
+  }>;
 }
 
 export interface MeetingRecording {
   /** Resolves when the recording ends, by `stop()` or because the source ended. */
   readonly done: Promise<CapturedAudio>;
-  stop(): Promise<CapturedAudio>;
+  stop(reason?: CapturedAudio["reason"]): Promise<CapturedAudio>;
 }
 
 export class MeetingRecorder {
@@ -63,8 +69,8 @@ export class MeetingRecorder {
     let stopped: Promise<CapturedAudio> | null = null;
     const recording: MeetingRecording = {
       done,
-      stop: () => {
-        stopped ??= session.stop().then((a) => {
+      stop: (reason) => {
+        stopped ??= session.stop(reason).then((a) => {
           release(a);
           return a;
         });
