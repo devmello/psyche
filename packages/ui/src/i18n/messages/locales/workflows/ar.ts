@@ -144,4 +144,22 @@ export const workflows: Partial<Catalogue> = {
   "workflows.ask.always_archive": "أرشف دائمًا البريد من {sender}.",
   "workflows.ask.nudge": "صُغ تذكيرًا إلى {name} بخصوص «{text}».",
   "workflows.ask.recap": "صُغ رسالة ملخص لـ«{title}».",
+  "workflows.batch.callsLabel": "إجراءات هذه الدفعة",
+  "workflows.batch.preparing": "جارٍ تجهيز الموافقة…",
+  "workflows.batch.steps":
+    "{n, plural, zero {لا إجراءات} one {إجراء واحد} two {إجراءان} few {# إجراءات} many {# إجراءً} other {# إجراء}} · {family} · {elapsed}",
+  "workflows.batch.running":
+    "جارٍ تنفيذ {n, plural, zero {لا إجراءات} one {إجراء واحد} two {إجراءان} few {# إجراءات} many {# إجراءً} other {# إجراء}}…",
+  "workflows.batch.partial": "اكتمل {ok} من {n} · فشل {failed}: {error}",
+  "workflows.batch.failed":
+    "لم يُنفَّذ أيٌّ من {n, plural, zero {لا إجراءات} one {إجراء واحد} two {إجراءان} few {# إجراءات} many {# إجراءً} other {# إجراء}}: {error}",
+  "workflows.batch.showSteps": "عرض كل إجراء",
+  "workflows.batch.hideSteps": "إخفاء الإجراءات",
+  "workflows.batch.callError": "فشل: {error}",
+  "workflows.batch.retry": "إعادة محاولة ما فشل",
+  "workflows.batch.undo": "تراجع",
+  "workflows.batch.undoIn": "تراجع · {seconds} ث",
+  "workflows.batch.dismissed": "لم يُنفَّذ شيء. لم يتغيّر أي شيء.",
+  "workflows.batch.expired": "انتهت صلاحية هذا. لم يتغيّر أي شيء.",
+  "workflows.batch.unknownError": "حدث خطأ ما",
 };

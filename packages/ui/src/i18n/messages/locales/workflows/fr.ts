@@ -139,4 +139,21 @@ export const workflows: Partial<Catalogue> = {
   "workflows.ask.always_archive": "Archive toujours les e-mails de {sender}.",
   "workflows.ask.nudge": "Rédige une relance pour {name} au sujet de « {text} ».",
   "workflows.ask.recap": "Rédige un e-mail de récapitulatif pour « {title} ».",
+  "workflows.batch.callsLabel": "Actions de ce lot",
+  "workflows.batch.preparing": "Préparation de l’approbation…",
+  "workflows.batch.steps": "{n, plural, one {# action} other {# actions}} · {family} · {elapsed}",
+  "workflows.batch.running":
+    "{n, plural, one {Exécution de # action} other {Exécution de # actions}}…",
+  "workflows.batch.partial": "{ok} sur {n} terminées · {failed} en échec : {error}",
+  "workflows.batch.failed":
+    "{n, plural, one {L’action n’a pas été exécutée} other {Aucune des # actions n’a été exécutée}} : {error}",
+  "workflows.batch.showSteps": "Afficher chaque action",
+  "workflows.batch.hideSteps": "Masquer les actions",
+  "workflows.batch.callError": "Échec : {error}",
+  "workflows.batch.retry": "Réessayer celles qui ont échoué",
+  "workflows.batch.undo": "Annuler",
+  "workflows.batch.undoIn": "Annuler · {seconds} s",
+  "workflows.batch.dismissed": "Non effectué. Rien n’a été modifié.",
+  "workflows.batch.expired": "Expiré. Rien n’a été modifié.",
+  "workflows.batch.unknownError": "un problème est survenu",
 };
