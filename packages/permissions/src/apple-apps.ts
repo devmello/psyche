@@ -91,6 +91,12 @@ export const APPLE_APP_ACTIONS: Readonly<Record<string, AppleAppAction>> = {
   "finder.reveal": read("apple.finder", "reveal"),
   "safari.tabs": read("apple.safari", "tabs"),
   "safari.current_tab": read("apple.safari", "current_tab"),
+  // Wave 1 (§4.7; #639).
+  "safari.tab_text": read("apple.safari", "tab_text"),
+  // Google Chrome tabs through the same helper route (the key keeps the apple.* namespace).
+  "chrome.tabs": read("apple.chrome", "tabs"),
+  "chrome.current_tab": read("apple.chrome", "current_tab"),
+  "safari.add_reading_list": write("apple.safari", "add_reading_list"),
   // Opens a page in the user's own Safari (their cookies): asks like a new origin.
   "safari.open_url": write("apple.safari", "open_url", "new_origin"),
 };
