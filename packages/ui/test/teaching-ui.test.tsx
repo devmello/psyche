@@ -38,22 +38,26 @@ function agentMessage(fields: Partial<Message> = {}): Message {
 const callsOf = (gateway: MockGateway, method: string) =>
   gateway.calls.filter((c) => c.method === method);
 
+async function openTeach() {
+  await userEvent.click(screen.getByRole("button", { name: "Message actions" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Teach Psyche" }));
+}
+
 describe("Feedback on agent messages (teaching loop §5.1)", () => {
-  it("Helpful records feedback and never makes a lesson", async () => {
-    const { gateway } = setup(<MessageView message={agentMessage()} />);
-    const before = gateway.world.lessons.length;
-    await userEvent.click(screen.getByRole("button", { name: "Helpful" }));
-    await waitFor(() => expect(callsOf(gateway, "feedback.give")).toHaveLength(1));
-    expect(callsOf(gateway, "feedback.give")[0]?.params).toMatchObject({ kind: "helpful" });
-    expect(screen.getByRole("button", { name: "Helpful" }).getAttribute("aria-pressed")).toBe(
-      "true",
-    );
-    expect(gateway.world.lessons).toHaveLength(before);
+  it("has no thumbs; Teach Psyche opens from the ⋯ menu, below the answer", async () => {
+    setup(<MessageView message={agentMessage()} />);
+    expect(screen.queryByRole("button", { name: "Helpful" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Not like this" })).toBeNull();
+    await openTeach();
+    const panel = screen.getByRole("region", { name: "Teach Psyche" });
+    expect(within(panel).getByRole("form", { name: "Teach Psyche" })).toBeTruthy();
+    await userEvent.click(within(panel).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("region", { name: "Teach Psyche" })).toBeNull();
   });
 
   it("Not like this teaches a lesson, then Undo forgets it", async () => {
     const { gateway } = setup(<MessageView message={agentMessage()} />);
-    await userEvent.click(screen.getByRole("button", { name: "Not like this" }));
+    await openTeach();
     const form = await screen.findByRole("form", { name: "Teach Psyche" });
     await userEvent.click(within(form).getByRole("button", { name: "Too long" }));
     await userEvent.type(
@@ -77,7 +81,7 @@ describe("Feedback on agent messages (teaching loop §5.1)", () => {
 
   it("Just this time redoes the answer with the instruction and makes no lesson", async () => {
     const { gateway } = setup(<MessageView message={agentMessage()} />);
-    await userEvent.click(screen.getByRole("button", { name: "Not like this" }));
+    await openTeach();
     const form = await screen.findByRole("form", { name: "Teach Psyche" });
     await userEvent.type(within(form).getByRole("textbox"), "Use the Lisbon dates.");
     await userEvent.click(within(form).getByRole("button", { name: "Just this time" }));
