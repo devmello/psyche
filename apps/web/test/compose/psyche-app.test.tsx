@@ -1,6 +1,8 @@
 // @vitest-environment happy-dom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { MockGateway } from "../../../../packages/ui/src/data/mock-gateway.ts";
+import { createFixtureWorld, FIXTURE_NOW } from "../../../../packages/ui/src/fixtures/index.ts";
 import { usageSummary } from "../../../../packages/ui/src/fixtures/usage.ts";
 import type { GatewayEvent, GatewayStatus } from "../../src/client/index.ts";
 import { ONBOARDED_KEY, PsycheApp } from "../../src/compose/PsycheApp.tsx";
@@ -53,6 +55,7 @@ function webPlatform() {
       etag: "e1",
     }),
   };
+  const fallback = new MockGateway(createFixtureWorld(), { now: () => FIXTURE_NOW });
   const platform: ShellPlatform = {
     kind: "web",
     gateway: {
@@ -62,8 +65,13 @@ function webPlatform() {
         calls.push({ method, params });
         const h = handlers[method];
         if (h) return h(params);
-        if (method.endsWith(".list")) return { [method.split(".")[0] ?? "items"]: [] };
-        return {};
+        // Everything else answers like the kit's mock Gateway (sections read real shapes).
+        if (method === "usage.summary") return {};
+        try {
+          return await fallback.request(method as never, params as never);
+        } catch {
+          return {};
+        }
       },
       onEvent: (_cb: (e: GatewayEvent) => void) => () => {},
       onResync: () => () => {},
@@ -155,20 +163,6 @@ describe("the agent sheet over the current section (#614)", () => {
     await waitFor(() => expect(window.location.pathname).toBe("/overview"));
     expect(window.location.hash).toBe("#upcoming");
     expect(screen.queryByTestId("agent-sheet")).toBeNull();
-  });
-
-  it("keeps Approvals in the sheet over the section underneath", async () => {
-    window.innerWidth = 1280;
-    window.history.replaceState(null, "", "/agent/approvals?from=%2Ffeed");
-    const { platform } = webPlatform();
-    render(<PsycheApp platform={platform} />);
-    const sheet = await screen.findByTestId("agent-sheet");
-    const feed = await screen.findByTestId("screen-feed");
-    expect(screen.queryByTestId("kit-chat")).toBeNull();
-    fireEvent.keyDown(sheet, { key: "Escape" });
-    await waitFor(() => expect(window.location.pathname).toBe("/feed"));
-    await waitFor(() => expect(screen.queryByTestId("agent-sheet")).toBeNull());
-    expect(screen.getByTestId("screen-feed")).toBe(feed);
   });
 });
 

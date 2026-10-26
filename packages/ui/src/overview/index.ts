@@ -1,9 +1,9 @@
 export { OverviewActivity, type OverviewActivityProps } from "./ActivitySection.tsx";
 export { isNewUser, NEW_USER_DAYS, type OverviewData, useOverviewData } from "./data.ts";
-export { NowSection } from "./NowSection.tsx";
-export { OverviewRun, type OverviewRunProps } from "./OverviewRun.tsx";
 export { GrowthAndPeople } from "./GrowthAndPeople.tsx";
 export { GrowthSection, type GrowthSectionProps } from "./GrowthSection.tsx";
+export { NowSection } from "./NowSection.tsx";
+export { OverviewRun, type OverviewRunProps } from "./OverviewRun.tsx";
 export {
   OverviewScreen,
   type OverviewScreenProps,

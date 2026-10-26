@@ -9,8 +9,8 @@ import { usePersona } from "../slots.tsx";
 import { OverviewActivity } from "./ActivitySection.tsx";
 import { BuiltForYou, Specialists } from "./BuiltSpecialists.tsx";
 import { isNewUser, type OverviewData, useOverviewData } from "./data.ts";
-import { NowSection } from "./NowSection.tsx";
 import { GrowthAndPeople } from "./GrowthAndPeople.tsx";
+import { NowSection } from "./NowSection.tsx";
 import {
   OVERVIEW_SECTIONS,
   OverviewSection,
