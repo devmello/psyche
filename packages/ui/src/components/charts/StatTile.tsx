@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from "react";
+import type { MouseEvent, ReactElement, ReactNode } from "react";
 import { Card } from "../../blocks/card.tsx";
 import type { I18n } from "../../i18n/core.ts";
 import { useI18n } from "../../i18n/I18nProvider.tsx";
@@ -20,7 +20,8 @@ export interface StatTileProps {
   subline?: ReactNode;
   /** The tile is a link when `href` is set, a button when `onClick` is. */
   href?: string;
-  onClick?: () => void;
+  /** Receives the click so a link can navigate in-app (`preventDefault`) and keep its `href`. */
+  onClick?: (event: MouseEvent<HTMLElement>) => void;
   className?: string;
   testId?: string;
 }

@@ -260,6 +260,8 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
         <OverviewScreen
           period={parseOverviewPeriod(query)}
           onPeriodChange={(period) => navigate(overviewHref(period))}
+          onNavigate={navigate}
+          route={route}
           onTry={(kind) => navigate(kind === "connectMail" ? "/settings/mail" : "/chat")}
         />,
       );
