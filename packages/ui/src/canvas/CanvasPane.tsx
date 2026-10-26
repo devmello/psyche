@@ -20,7 +20,8 @@ import {
   ShieldAlert,
   Table as TableIcon,
 } from "lucide-react";
-import { type ReactElement, type ReactNode, useEffect, useMemo, useState } from "react";
+import * as m from "motion/react-m";
+import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { DiffBlock } from "../blocks/DiffBlock.tsx";
 import { Markdown } from "../blocks/Markdown.tsx";
 import { Button } from "../components/ui/button.tsx";
@@ -51,7 +52,7 @@ import { formatTime } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
 import { MapPanel } from "../map/MapPanel.tsx";
 import { parseMapContent } from "../map/map-model.ts";
-import { AgentGlow } from "../motion/index.ts";
+import { AgentGlow, Disclosure, fade } from "../motion/index.ts";
 import { useSlots } from "../slots.tsx";
 import { CanvasSkeleton } from "./CanvasSkeleton.tsx";
 import { ChartView } from "./ChartView.tsx";
@@ -130,6 +131,12 @@ export function CanvasPane({ artifactId, threadId, onSelect }: CanvasPaneProps):
       Object.values(s.runs).some((r) => r.threadId === threadId && r.status === "running"),
   );
 
+  // Switching artifacts keeps the previous one on screen, dimmed, until the next arrives
+  // (smoothness-2026 §4: no blank "Loading" in between). With nothing before it: the skeleton.
+  const last = useRef<{ artifact: Artifact; content: ArtifactContent | null } | null>(null);
+  if (artifact !== null) last.current = { artifact, content };
+  const stale = artifact === null && loading ? last.current : null;
+
   return (
     <section
       aria-label={t("canvas.label", { title: artifact?.title ?? "" })}
@@ -139,7 +146,24 @@ export function CanvasPane({ artifactId, threadId, onSelect }: CanvasPaneProps):
       <AgentGlow active={agentActing} />
       <RecentsTabs threadId={threadId} activeId={artifactId} onSelect={onSelect} />
       {artifact === null ? (
-        loading ? (
+        stale !== null ? (
+          <div
+            className="flex min-h-0 flex-1 flex-col opacity-60 transition-opacity duration-(--duration-short) ease-(--ease-standard)"
+            aria-busy="true"
+            inert
+            data-testid="canvas-stale"
+          >
+            <CanvasBody
+              key={stale.artifact.id}
+              artifact={stale.artifact}
+              content={stale.content}
+              latest
+              version={stale.artifact.version}
+              onPick={() => {}}
+              error={null}
+            />
+          </div>
+        ) : loading ? (
           <div className="p-4">
             <CanvasSkeleton />
           </div>
@@ -284,6 +308,11 @@ function CanvasBody({
   // the owner presses Run (docs/design/chat-experience-2026.md §4.6, decision 5).
   const html = artifact.type === "html";
   const gated = html && artifact.untrusted === true && !allowed;
+  const bodyKey = content === null ? "pending" : "loaded";
+  const shownBody = useRef<string | null>(null);
+  useEffect(() => {
+    shownBody.current = bodyKey;
+  });
   const custom: ReactNode =
     content === null || gated || (html && editing)
       ? undefined
@@ -361,17 +390,24 @@ function CanvasBody({
           </Button>
         ) : null}
       </header>
-      {notice !== null ? (
-        <p role="alert" className="shrink-0 px-4 py-2 text-callout text-danger-text">
+      {/* The notices open and close with height + opacity, so the body does not jump (C5). */}
+      <Disclosure open={notice !== null} className="shrink-0">
+        <p role="alert" className="px-4 py-2 text-callout text-danger-text">
           {notice}
         </p>
-      ) : null}
-      {!latest ? (
-        <p className="shrink-0 px-4 pt-2 text-callout text-label-secondary">
+      </Disclosure>
+      <Disclosure open={!latest} className="shrink-0">
+        <p className="px-4 pt-2 text-callout text-label-secondary">
           {t("canvas.oldVersion", { version })}
         </p>
-      ) : null}
-      <div className="min-h-0 flex-1 overflow-auto p-4">
+      </Disclosure>
+      {/* Skeleton → content, and version → version, crossfade in the same box (150 ms). */}
+      <m.div
+        key={bodyKey}
+        initial={shownBody.current !== null && shownBody.current !== bodyKey ? fade.initial : false}
+        animate={fade.animate}
+        className="min-h-0 flex-1 overflow-auto p-4"
+      >
         {content === null ? (
           error !== null && error !== undefined ? (
             <p className="text-callout text-label-secondary" role="status">
@@ -428,7 +464,7 @@ function CanvasBody({
             <Markdown>{content.content}</Markdown>
           </div>
         )}
-      </div>
+      </m.div>
     </>
   );
 }
