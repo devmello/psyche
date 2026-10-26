@@ -1,0 +1,272 @@
+{
+  "id": "writer-club-newsletter",
+  "role": "writer",
+  "title": "Draft the November club newsletter from notes and the season report",
+  "brief": "Goal: a first draft of the Harbor Rowing Club November newsletter, about 300 words, in the owner's voice (friendly, plain, signed \"Sam\"). Sources: ~/Documents/Writing/club-notes.md, ~/Documents/Writing/season-report.pdf, and the league calendar at https://league.example/calendar for race dates. Constraints: only facts from these sources; no names beyond those in the notes. Done: a Markdown draft saved to the Library, with the numbers it uses listed and sourced.",
+  "tools": [
+    "read_file",
+    "web.fetch",
+    "write_file",
+    "memory",
+    "mail_create_draft"
+  ],
+  "script": [
+    [
+      {
+        "type": "tool_call",
+        "id": "c1",
+        "name": "read_file",
+        "input": {
+          "path": "~/Documents/Writing/club-notes.md"
+        }
+      },
+      {
+        "type": "tool_call",
+        "id": "c2",
+        "name": "read_file",
+        "input": {
+          "path": "~/Documents/Writing/season-report.pdf"
+        }
+      },
+      {
+        "type": "usage",
+        "usage": {
+          "input": 2600,
+          "output": 140,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "costUsd": 0.0124
+        }
+      },
+      {
+        "type": "finish",
+        "reason": "tool_calls"
+      }
+    ],
+    [
+      {
+        "type": "tool_call",
+        "id": "c3",
+        "name": "web.fetch",
+        "input": {
+          "url": "https://league.example/calendar"
+        }
+      },
+      {
+        "type": "usage",
+        "usage": {
+          "input": 3150,
+          "output": 90,
+          "cacheRead": 2304,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "costUsd": 0.0118
+        }
+      },
+      {
+        "type": "finish",
+        "reason": "tool_calls"
+      }
+    ],
+    [
+      {
+        "type": "tool_call",
+        "id": "c4",
+        "name": "write_file",
+        "input": {
+          "path": "library/drafts/harbor-rowing-november-2026.md",
+          "content": "# Harbor Rowing Club, November 2026\n\nHi everyone,\n\nOctober was our busiest month on the water this year. We logged 412 outings, up from 351 in September, and the novice eight finished its first full 5 km piece without stopping.\n\n## Season in numbers\n\n- 38 active members, 6 of them new this fall\n- 2 regattas: 3rd place at the Head of the Lagoon, 5th at the Coastal Sprints\n- The new launch is in service; the old one is up for sale\n\n## What's coming\n\n- Fall cleanup day: Saturday, Nov 7, 9 am at the boathouse. Bring gloves.\n- Winter schedule starts Monday, Nov 16: weekday rows move to 7 am.\n- The league's Turkey Head race is Saturday, Nov 28. Sign-ups close Nov 20.\n\n## From the board\n\nDues for the winter term are the same as last year. The board meets again on Nov 12; send agenda items to Priya before then.\n\nSee you on the water,\nSam\n"
+        }
+      },
+      {
+        "type": "usage",
+        "usage": {
+          "input": 3600,
+          "output": 520,
+          "cacheRead": 2816,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "costUsd": 0.0215
+        }
+      },
+      {
+        "type": "finish",
+        "reason": "tool_calls"
+      }
+    ],
+    [
+      {
+        "type": "tool_call",
+        "id": "r1",
+        "name": "specialist.report",
+        "input": {
+          "outcome": "done",
+          "summary": "Drafted the November newsletter for Harbor Rowing Club, about 170 words, signed \"Sam\": October's numbers, 3 upcoming dates and a board note. Every number and date comes from club-notes.md, season-report.pdf or the league calendar. Check the regatta placings first; the report gives the field sizes too, which I left out.",
+          "findings": [
+            {
+              "title": "Outings: 412 in October, 351 in September",
+              "detail": "From the season report.",
+              "sources": [
+                "~/Documents/Writing/season-report.pdf"
+              ]
+            },
+            {
+              "title": "38 active members, 6 new",
+              "detail": "From the season report.",
+              "sources": [
+                "~/Documents/Writing/season-report.pdf"
+              ]
+            },
+            {
+              "title": "Regattas: 3rd and 5th",
+              "detail": "Head of the Lagoon 3rd of 11, Coastal Sprints 5th of 9. The draft gives places only.",
+              "sources": [
+                "~/Documents/Writing/season-report.pdf"
+              ]
+            },
+            {
+              "title": "Dates: Nov 7, Nov 12, Nov 16",
+              "detail": "Cleanup day, board meeting and winter schedule, from the board notes.",
+              "sources": [
+                "~/Documents/Writing/club-notes.md"
+              ]
+            },
+            {
+              "title": "Turkey Head on Saturday, Nov 28; entries close Nov 20",
+              "detail": "From the league calendar.",
+              "sources": [
+                "https://league.example/calendar"
+              ]
+            },
+            {
+              "title": "Length and tone",
+              "detail": "About 170 words, shorter than the 300 asked, because the sources had no more to say. Friendly and plain, signed \"Sam\"."
+            }
+          ],
+          "artifacts": [
+            "art_nl2611"
+          ],
+          "next": [
+            {
+              "label": "Make it closer to 300 words",
+              "message": "Expand the November newsletter draft to about 300 words, using only the same sources."
+            },
+            {
+              "label": "Draft the email to members",
+              "message": "Make an email draft to the club list with the November newsletter as the body."
+            }
+          ],
+          "gaps": []
+        }
+      },
+      {
+        "type": "usage",
+        "usage": {
+          "input": 4100,
+          "output": 480,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "costUsd": 0.0189
+        }
+      },
+      {
+        "type": "finish",
+        "reason": "tool_calls"
+      }
+    ]
+  ],
+  "toolResults": {
+    "c1": {
+      "output": {
+        "path": "~/Documents/Writing/club-notes.md",
+        "text": "Board meeting Oct 21\n- Cleanup day Sat Nov 7, 9am boathouse, gloves\n- Winter schedule from Mon Nov 16: weekday rows at 7am\n- Dues unchanged for winter\n- Next board meeting Nov 12, agenda items to Priya\n- New launch in service, sell old one\n- Novice eight did first full 5k piece"
+      },
+      "provenance": "untrusted"
+    },
+    "c2": {
+      "output": {
+        "path": "~/Documents/Writing/season-report.pdf",
+        "pages": 3,
+        "text": "Season report, fall 2026. Outings: Sep 351, Oct 412. Active members: 38 (6 new). Regattas: Head of the Lagoon, 3rd of 11; Coastal Sprints, 5th of 9."
+      },
+      "provenance": "untrusted"
+    },
+    "c3": {
+      "output": {
+        "url": "https://league.example/calendar",
+        "status": 200,
+        "text": "League calendar. Turkey Head: Saturday November 28, 2026. Entries close November 20. Winter Sprints: January 23, 2027."
+      },
+      "provenance": "untrusted"
+    },
+    "c4": {
+      "output": {
+        "id": "art_nl2611",
+        "path": "library/drafts/harbor-rowing-november-2026.md",
+        "bytes": 842
+      },
+      "provenance": "trusted"
+    }
+  },
+  "expectedReport": {
+    "outcome": "done",
+    "summary": "Drafted the November newsletter for Harbor Rowing Club, about 170 words, signed \"Sam\": October's numbers, 3 upcoming dates and a board note. Every number and date comes from club-notes.md, season-report.pdf or the league calendar. Check the regatta placings first; the report gives the field sizes too, which I left out.",
+    "findings": [
+      {
+        "title": "Outings: 412 in October, 351 in September",
+        "detail": "From the season report.",
+        "sources": [
+          "~/Documents/Writing/season-report.pdf"
+        ]
+      },
+      {
+        "title": "38 active members, 6 new",
+        "detail": "From the season report.",
+        "sources": [
+          "~/Documents/Writing/season-report.pdf"
+        ]
+      },
+      {
+        "title": "Regattas: 3rd and 5th",
+        "detail": "Head of the Lagoon 3rd of 11, Coastal Sprints 5th of 9. The draft gives places only.",
+        "sources": [
+          "~/Documents/Writing/season-report.pdf"
+        ]
+      },
+      {
+        "title": "Dates: Nov 7, Nov 12, Nov 16",
+        "detail": "Cleanup day, board meeting and winter schedule, from the board notes.",
+        "sources": [
+          "~/Documents/Writing/club-notes.md"
+        ]
+      },
+      {
+        "title": "Turkey Head on Saturday, Nov 28; entries close Nov 20",
+        "detail": "From the league calendar.",
+        "sources": [
+          "https://league.example/calendar"
+        ]
+      },
+      {
+        "title": "Length and tone",
+        "detail": "About 170 words, shorter than the 300 asked, because the sources had no more to say. Friendly and plain, signed \"Sam\"."
+      }
+    ],
+    "artifacts": [
+      "art_nl2611"
+    ],
+    "next": [
+      {
+        "label": "Make it closer to 300 words",
+        "message": "Expand the November newsletter draft to about 300 words, using only the same sources."
+      },
+      {
+        "label": "Draft the email to members",
+        "message": "Make an email draft to the club list with the November newsletter as the body."
+      }
+    ],
+    "gaps": []
+  }
+}

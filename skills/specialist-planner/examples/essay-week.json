@@ -1,0 +1,382 @@
+{
+  "id": "planner-essay-week",
+  "role": "planner",
+  "title": "Plan 8 hours of essay work before Friday",
+  "brief": "Goal: a plan for Mon Oct 26 to Fri Oct 30, 2026 that fits 8 hours of essay work before the draft is due Friday at 5 pm. Use the owner's calendars and reminders. Constraints: no work before 9 am (USER.md), blocks of 1-2 hours, don't touch fixed events, change nothing. Done: a Plan artifact with each block's day, date, time and timezone, and a hand-off for adding the blocks if the owner wants.",
+  "tools": [
+    "calendar_list_calendars",
+    "calendar_list_events",
+    "calendar_find_free_time",
+    "reminders_list",
+    "write_file",
+    "web.search"
+  ],
+  "script": [
+    [
+      {
+        "type": "tool_call",
+        "id": "c1",
+        "name": "calendar_list_calendars",
+        "input": {}
+      },
+      {
+        "type": "usage",
+        "usage": {
+          "input": 2050,
+          "output": 50,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "costUsd": 0.0071
+        }
+      },
+      {
+        "type": "finish",
+        "reason": "tool_calls"
+      }
+    ],
+    [
+      {
+        "type": "tool_call",
+        "id": "c2",
+        "name": "calendar_list_events",
+        "input": {
+          "calendarIds": [
+            "cal_personal",
+            "cal_school",
+            "cal_work"
+          ],
+          "start": "2026-10-26T00:00:00-07:00",
+          "end": "2026-10-31T00:00:00-07:00"
+        }
+      },
+      {
+        "type": "tool_call",
+        "id": "c3",
+        "name": "calendar_find_free_time",
+        "input": {
+          "start": "2026-10-26T09:00:00-07:00",
+          "end": "2026-10-30T17:00:00-07:00",
+          "minMinutes": 60,
+          "dayStart": "09:00",
+          "dayEnd": "21:00",
+          "timezone": "America/Los_Angeles"
+        }
+      },
+      {
+        "type": "tool_call",
+        "id": "c4",
+        "name": "reminders_list",
+        "input": {
+          "dueBefore": "2026-10-31",
+          "includeCompleted": false
+        }
+      },
+      {
+        "type": "usage",
+        "usage": {
+          "input": 2600,
+          "output": 160,
+          "cacheRead": 1792,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "costUsd": 0.0102
+        }
+      },
+      {
+        "type": "finish",
+        "reason": "tool_calls"
+      }
+    ],
+    [
+      {
+        "type": "tool_call",
+        "id": "c5",
+        "name": "write_file",
+        "input": {
+          "path": "library/plans/essay-week-2026-10-26.md",
+          "content": "# Essay week: Mon Oct 26 to Fri Oct 30, 2026 (PDT)\n\nGoal: 8 hours of essay work before the draft is due Fri Oct 30, 5 pm.\n\n| Day | Block | Hours | Why here |\n| --- | --- | --- | --- |\n| Mon Oct 26 | 1:00-3:00 pm | 2 | Free after class; outline and sources |\n| Tue Oct 27 | 9:30-11:30 am | 2 | Morning before the 3 pm dentist |\n| Wed Oct 28 | 1:00-3:00 pm | 2 | Free after class; body sections |\n| Thu Oct 29 | 10:00 am-12:00 pm | 2 | Before the 5 pm shift; full draft and edit |\n\nTotal: 8 hours. Friday morning stays free as a buffer.\n\nFixed: classes Mon, Wed, Fri 10:00-11:30 am; dentist Tue 3:00 pm; shift Thu 5:00-9:00 pm.\nReminders: Pay rent (Mon Oct 26), Essay draft due (Fri Oct 30).\n\nHand-offs, on your say-so: the organizer can add these 4 blocks to your Personal calendar.\n"
+        }
+      },
+      {
+        "type": "usage",
+        "usage": {
+          "input": 3700,
+          "output": 480,
+          "cacheRead": 2816,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "costUsd": 0.0187
+        }
+      },
+      {
+        "type": "finish",
+        "reason": "tool_calls"
+      }
+    ],
+    [
+      {
+        "type": "tool_call",
+        "id": "r1",
+        "name": "specialist.report",
+        "input": {
+          "outcome": "done",
+          "summary": "Planned 8 hours of essay work in 4 two-hour blocks, Mon Oct 26 to Thu Oct 29 (PDT), all after 9 am and clear of classes, the Tuesday dentist and Thursday's shift. Friday morning stays free as a buffer before the 5 pm deadline. No events were created; the blocks are in the plan only.",
+          "findings": [
+            {
+              "title": "Mon Oct 26, 1:00-3:00 pm PDT",
+              "detail": "Outline and sources, after CS 101.",
+              "sources": [
+                "event:ev_201"
+              ]
+            },
+            {
+              "title": "Tue Oct 27, 9:30-11:30 am PDT",
+              "detail": "Before the 3:00 pm dentist appointment.",
+              "sources": [
+                "event:ev_202"
+              ]
+            },
+            {
+              "title": "Wed Oct 28, 1:00-3:00 pm PDT",
+              "detail": "Body sections, after CS 101.",
+              "sources": [
+                "event:ev_203"
+              ]
+            },
+            {
+              "title": "Thu Oct 29, 10:00 am-12:00 pm PDT",
+              "detail": "Full draft and edit; the 5:00 pm shift makes the evening unusable.",
+              "sources": [
+                "event:ev_204"
+              ]
+            },
+            {
+              "title": "Deadline: Fri Oct 30, 5:00 pm PDT",
+              "detail": "From the \"Essay draft due\" reminder. Friday has 6.5 free hours around class if a block slips.",
+              "sources": [
+                "reminder:rem_32",
+                "event:ev_205"
+              ]
+            },
+            {
+              "title": "Pay rent is due Mon Oct 26",
+              "detail": "Not part of the plan; listed so it isn't missed.",
+              "sources": [
+                "reminder:rem_31"
+              ]
+            }
+          ],
+          "artifacts": [
+            "art_pl1026"
+          ],
+          "next": [
+            {
+              "label": "Add the 4 blocks to my calendar",
+              "message": "Start an organizer job to add the 4 essay blocks from plan art_pl1026 to my Personal calendar."
+            }
+          ],
+          "gaps": []
+        }
+      },
+      {
+        "type": "usage",
+        "usage": {
+          "input": 4000,
+          "output": 470,
+          "cacheRead": 3328,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "costUsd": 0.0183
+        }
+      },
+      {
+        "type": "finish",
+        "reason": "tool_calls"
+      }
+    ]
+  ],
+  "toolResults": {
+    "c1": {
+      "output": {
+        "calendars": [
+          {
+            "id": "cal_personal",
+            "name": "Personal",
+            "writable": true
+          },
+          {
+            "id": "cal_school",
+            "name": "School",
+            "writable": false
+          },
+          {
+            "id": "cal_work",
+            "name": "Work shifts",
+            "writable": false
+          }
+        ]
+      },
+      "provenance": "trusted"
+    },
+    "c2": {
+      "output": {
+        "events": [
+          {
+            "id": "ev_201",
+            "title": "CS 101",
+            "start": "2026-10-26T10:00:00-07:00",
+            "end": "2026-10-26T11:30:00-07:00",
+            "calendar": "School"
+          },
+          {
+            "id": "ev_202",
+            "title": "Dentist",
+            "start": "2026-10-27T15:00:00-07:00",
+            "end": "2026-10-27T16:00:00-07:00",
+            "calendar": "Personal"
+          },
+          {
+            "id": "ev_203",
+            "title": "CS 101",
+            "start": "2026-10-28T10:00:00-07:00",
+            "end": "2026-10-28T11:30:00-07:00",
+            "calendar": "School"
+          },
+          {
+            "id": "ev_204",
+            "title": "Shift",
+            "start": "2026-10-29T17:00:00-07:00",
+            "end": "2026-10-29T21:00:00-07:00",
+            "calendar": "Work shifts"
+          },
+          {
+            "id": "ev_205",
+            "title": "CS 101",
+            "start": "2026-10-30T10:00:00-07:00",
+            "end": "2026-10-30T11:30:00-07:00",
+            "calendar": "School"
+          }
+        ]
+      },
+      "provenance": "untrusted"
+    },
+    "c3": {
+      "output": {
+        "slots": [
+          {
+            "start": "2026-10-26T12:00:00-07:00",
+            "end": "2026-10-26T21:00:00-07:00"
+          },
+          {
+            "start": "2026-10-27T09:00:00-07:00",
+            "end": "2026-10-27T15:00:00-07:00"
+          },
+          {
+            "start": "2026-10-28T12:00:00-07:00",
+            "end": "2026-10-28T21:00:00-07:00"
+          },
+          {
+            "start": "2026-10-29T09:00:00-07:00",
+            "end": "2026-10-29T17:00:00-07:00"
+          },
+          {
+            "start": "2026-10-30T09:00:00-07:00",
+            "end": "2026-10-30T10:00:00-07:00"
+          },
+          {
+            "start": "2026-10-30T11:30:00-07:00",
+            "end": "2026-10-30T17:00:00-07:00"
+          }
+        ]
+      },
+      "provenance": "trusted"
+    },
+    "c4": {
+      "output": {
+        "reminders": [
+          {
+            "id": "rem_31",
+            "title": "Pay rent",
+            "due": "2026-10-26",
+            "list": "Home"
+          },
+          {
+            "id": "rem_32",
+            "title": "Essay draft due",
+            "due": "2026-10-30T17:00:00-07:00",
+            "list": "School"
+          }
+        ]
+      },
+      "provenance": "untrusted"
+    },
+    "c5": {
+      "output": {
+        "id": "art_pl1026",
+        "path": "library/plans/essay-week-2026-10-26.md",
+        "bytes": 782
+      },
+      "provenance": "trusted"
+    }
+  },
+  "expectedReport": {
+    "outcome": "done",
+    "summary": "Planned 8 hours of essay work in 4 two-hour blocks, Mon Oct 26 to Thu Oct 29 (PDT), all after 9 am and clear of classes, the Tuesday dentist and Thursday's shift. Friday morning stays free as a buffer before the 5 pm deadline. No events were created; the blocks are in the plan only.",
+    "findings": [
+      {
+        "title": "Mon Oct 26, 1:00-3:00 pm PDT",
+        "detail": "Outline and sources, after CS 101.",
+        "sources": [
+          "event:ev_201"
+        ]
+      },
+      {
+        "title": "Tue Oct 27, 9:30-11:30 am PDT",
+        "detail": "Before the 3:00 pm dentist appointment.",
+        "sources": [
+          "event:ev_202"
+        ]
+      },
+      {
+        "title": "Wed Oct 28, 1:00-3:00 pm PDT",
+        "detail": "Body sections, after CS 101.",
+        "sources": [
+          "event:ev_203"
+        ]
+      },
+      {
+        "title": "Thu Oct 29, 10:00 am-12:00 pm PDT",
+        "detail": "Full draft and edit; the 5:00 pm shift makes the evening unusable.",
+        "sources": [
+          "event:ev_204"
+        ]
+      },
+      {
+        "title": "Deadline: Fri Oct 30, 5:00 pm PDT",
+        "detail": "From the \"Essay draft due\" reminder. Friday has 6.5 free hours around class if a block slips.",
+        "sources": [
+          "reminder:rem_32",
+          "event:ev_205"
+        ]
+      },
+      {
+        "title": "Pay rent is due Mon Oct 26",
+        "detail": "Not part of the plan; listed so it isn't missed.",
+        "sources": [
+          "reminder:rem_31"
+        ]
+      }
+    ],
+    "artifacts": [
+      "art_pl1026"
+    ],
+    "next": [
+      {
+        "label": "Add the 4 blocks to my calendar",
+        "message": "Start an organizer job to add the 4 essay blocks from plan art_pl1026 to my Personal calendar."
+      }
+    ],
+    "gaps": []
+  }
+}

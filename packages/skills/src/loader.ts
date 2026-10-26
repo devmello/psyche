@@ -21,6 +21,7 @@ import {
   type SkillSummary,
   type SkillTrust,
   type SkillUpdateCheck,
+  type SpecialistRole,
 } from "@psyche/protocol";
 import { skillInstallBinding } from "./binding.ts";
 import { unifiedDiff } from "./diff.ts";
@@ -44,6 +45,13 @@ import {
   summarizeFindings,
 } from "./scanner.ts";
 import { fetchSource, type SourceOptions } from "./sources.ts";
+import {
+  effectiveMaxMode,
+  parseSpecialist,
+  resolveSpecialistTools,
+  type SpecialistDef,
+  specialistRoleOf,
+} from "./specialists.ts";
 import { MemorySkillStateStore, type SkillStateStore } from "./state.ts";
 import { readSkillDir, type SkillTree, textOf, treeHash } from "./tree.ts";
 import type { VirusTotalClient } from "./virustotal.ts";
@@ -82,6 +90,13 @@ export interface SkillDetails extends SkillSummary {
   manifest?: SkillManifest;
   /** The last update check for an installed skill (`checkUpdates`). */
   update?: SkillUpdateCheck;
+  /**
+   * The background specialist role this skill defines (`metadata.psyche.specialist`,
+   * docs/agent/specialists-2026.md §5). `tools` is the resolved allowlist when the Gateway's
+   * tool list is known (`gate.tools`), else the declared patterns; `unresolved` lists entries
+   * that matched no tool.
+   */
+  specialist?: SpecialistDef & { resolvedTools: string[]; unresolved: string[] };
 }
 
 export interface SkillProposal extends SkillInstallProposal {
@@ -310,6 +325,23 @@ export class FsSkillLoader implements SkillLoader {
       return entry;
     }
     details.manifest = manifest.manifest;
+    const spec = parseSpecialist(parsed.skill.frontmatter as Record<string, unknown>);
+    if (spec.present && !spec.ok) {
+      details.reasons.push(...spec.errors);
+      return entry;
+    }
+    if (spec.present && spec.ok) {
+      const resolved =
+        gate.tools === undefined
+          ? { tools: [...spec.def.tools], unresolved: [] }
+          : resolveSpecialistTools(spec.def, gate.tools);
+      details.specialist = {
+        ...spec.def,
+        maxMode: effectiveMaxMode(spec.def),
+        resolvedTools: resolved.tools,
+        unresolved: resolved.unresolved,
+      };
+    }
 
     // Trust: bundled ships with Psyche; everything else needs a matching lock entry.
     if (source !== "bundled") {
@@ -355,6 +387,10 @@ export class FsSkillLoader implements SkillLoader {
     } else if (!gates.eligible) {
       details.status = "ineligible";
       details.reasons.push(...gates.missing);
+    } else if (details.specialist !== undefined && details.specialist.resolvedTools.length === 0) {
+      // A role with none of its tools on this Gateway has nothing to work with.
+      details.status = "ineligible";
+      details.reasons.push(`none of the ${details.specialist.label} role's tools are available`);
     } else {
       details.status = "active";
       details.enabled = true;
@@ -450,6 +486,45 @@ export class FsSkillLoader implements SkillLoader {
       .map((e) => e.details)
       .filter((d) => d.enabled && !d.disableModelInvocation);
     return buildPromptIndex(skills, options);
+  }
+
+  /**
+   * Background specialist roles from active skills (specialists §5), winners only, for
+   * `specialists.list` and `specialist.spawn`. Roles from non-bundled skills come with
+   * `defaultOn: false`: they stay off until the owner turns them on in Settings.
+   */
+  async specialistRoles(): Promise<
+    {
+      skill: SkillDetails;
+      role: Omit<SpecialistRole, "enabled" | "model">;
+      defaultOn: boolean;
+      body: string;
+    }[]
+  > {
+    this.#fresh();
+    const out = [];
+    for (const e of this.#winners.values()) {
+      const d = e.details;
+      if (!d.enabled || d.specialist === undefined || e.parsed === undefined) continue;
+      out.push({
+        skill: structuredClone(d),
+        role: {
+          ...specialistRoleOf(d.specialist, d),
+          tools: [...d.specialist.resolvedTools],
+        },
+        defaultOn: d.source === "bundled",
+        body: e.parsed.body,
+      });
+    }
+    // One skill per role id: the first winner (workspace before home before bundled) keeps it.
+    const seen = new Set<string>();
+    return out
+      .sort((a, b) => SOURCES.indexOf(a.skill.source) - SOURCES.indexOf(b.skill.source))
+      .filter((r) => {
+        if (seen.has(r.role.role)) return false;
+        seen.add(r.role.role);
+        return true;
+      });
   }
 
   /** Composer slash commands: active, user-invocable skills. */

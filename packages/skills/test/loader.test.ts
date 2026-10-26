@@ -54,7 +54,10 @@ describe("bundled skills (T1 done-when)", () => {
       bundledDir: BUNDLED_DIR,
       gate: OPEN_GATE,
     });
-    const list = await loader.list();
+    const all = await loader.list();
+    // The six specialist roles (specialist-*) are bundled skills too; specialist-roles.test.ts covers them.
+    const list = all.filter((s) => !s.name.startsWith("specialist-"));
+    expect(all.filter((s) => s.name.startsWith("specialist-"))).toHaveLength(6);
     expect(list.map((s) => s.name).sort()).toEqual(BUNDLED);
     expect(list.every((s) => s.source === "bundled" && s.trust === "bundled" && s.enabled)).toBe(
       true,
