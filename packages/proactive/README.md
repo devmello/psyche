@@ -228,6 +228,16 @@ agent loop's registry (architecture §4.3 built-ins "`goal.*`, `idea.*`, `feed.*
 - Names are plural (`goals.*`, `ideas.*`) because the broker floors every `goal.*` tool to
   `write`, which would make reads ask.
 
+### Batch proposals (mail and meeting workflows §8.1, #670 W2)
+
+`ProposalService({ db, clock, broker, tools, mainThread, surfaces?, newId?, onEvent?, inverses?, onError? })`:
+- `create({ title, calls, createdBy, postId?, threadId?, taint?, taintSources?, ttlMs?, undoOf? })`: a pending proposal of 1–100 exact calls; a tool above `write` is refused at once.
+- `approve(id)`: builds each call's intent exactly as the agent loop does (validate, `describeCall`, side-effect floor, `paramsHash`, the kind's binding, the namespaced grant key) and asks `broker.requestBatch`. The broker decides every call now and refuses the batch when any call is denied, above `write` after its floors, a send (`send_email`), or a device-only or authentication kind. The result is one `batch` card, `once` only, that lists every call.
+- When the owner approves, the broker mints one approved, once-only child approval per call (id `<batch>.<index>`), bound to that call's own binding. The service runs the broker's stored calls in order: it checks that each call's params still hash to what was decided, calls `verifyBinding` (consumed once), then runs the tool with the child as its `authority`, and records a receipt when the tool gave none. Results are per call; the proposal ends `done`, `partial` or `failed`. Editing the row after approval changes nothing.
+- `dismiss(id)`, `undo(id)`: undo offers the inverse calls in reverse order for 30 s, when every call that ran has an inverse (`DEFAULT_INVERSES`: `mail_set_flags`, `gmail_modify_labels`). The undo is a new proposal with its own approval.
+- `createProposalHandlers(proposals)`: `proposals.list | get | approve | dismiss | undo`; `approve` returns the caller's own surface's answer token only.
+- **Known gap:** the agent loop's `before_tool_call` hooks and plugins do not run for batch calls. The broker's decision at request time does. Tracked for S02 in the W2 PR.
+
 ## Gateway wiring
 
 `composeProactive({ db, clock, scheduler, notifier, tasks, publish, timeZone, logger })` in

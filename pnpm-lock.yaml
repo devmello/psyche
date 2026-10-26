@@ -818,6 +818,9 @@ importers:
       '@psyche/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@psyche/permissions':
+        specifier: workspace:*
+        version: link:../permissions
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -831,9 +834,6 @@ importers:
       '@psyche/db':
         specifier: workspace:*
         version: link:../db
-      '@psyche/permissions':
-        specifier: workspace:*
-        version: link:../permissions
       '@psyche/scheduler':
         specifier: workspace:*
         version: link:../scheduler
