@@ -1,10 +1,13 @@
 import type { Catalogue } from "../index.ts";
+import { canvas } from "./canvas/ja.ts";
 import { workflows } from "./workflows/ja.ts";
 
 /** Japanese catalogue (ja). Same ids as `en`; missing ids fall back to English. */
 export const ja: Partial<Catalogue> = {
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
+  // the output canvas (docs/design/chat-experience-2026.md §4.2)
+  ...canvas,
   "common.cancel": "キャンセル",
   "common.close": "閉じる",
   "common.save": "保存",

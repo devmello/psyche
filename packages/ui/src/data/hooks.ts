@@ -1,6 +1,8 @@
 import type {
   ApprovalRequest,
   Artifact,
+  ArtifactOp,
+  ArtifactVersion,
   Automation,
   CompactionResult,
   ContextLimits,
@@ -35,6 +37,7 @@ import { describeError } from "../i18n/errors.ts";
 import type { ConnectionState } from "./client.ts";
 import { useStore, useStoreState } from "./provider.tsx";
 import {
+  type ArtifactContent,
   put,
   putMany,
   type QueuedFollowUp,
@@ -903,6 +906,111 @@ export function useArtifact(artifactId: string | null): LoadState & { artifact: 
     },
   );
   return { ...r, artifact: r.value };
+}
+
+/**
+ * A canvas artifact's content at a version (the latest when `version` is null), loaded with
+ * `artifacts.read` and kept by `id@version`: versions never change, so a load happens once.
+ */
+export function useArtifactContent(
+  artifactId: string | null,
+  version: number | null,
+): LoadState & { content: ArtifactContent | null } {
+  const { artifact } = useArtifact(artifactId);
+  const v = version ?? artifact?.version ?? null;
+  const key = artifactId === null || v === null ? null : `${artifactId}@${v}`;
+  const content = useStoreState((s) => (key === null ? undefined : s.artifactContent[key]));
+  const load = useLoader(
+    key !== null && content === undefined ? `artifact-content:${key}` : null,
+    async (st) => {
+      if (artifactId === null || v === null) return;
+      const res = await st.call("artifacts.read", { artifactId, version: v });
+      st.update((s) => ({
+        ...s,
+        artifactContent: { ...s.artifactContent, [`${artifactId}@${res.version}`]: res },
+      }));
+    },
+  );
+  return { ...load, content: content ?? null };
+}
+
+/** Every version of an artifact for the version picker, oldest first. */
+export function useArtifactVersions(
+  artifactId: string | null,
+): LoadState & { versions: readonly ArtifactVersion[] } {
+  const versions = useStoreState((s) =>
+    artifactId === null ? undefined : s.artifactVersions[artifactId],
+  );
+  const load = useLoader(
+    artifactId !== null && versions === undefined ? `artifact-versions:${artifactId}` : null,
+    async (st) => {
+      if (artifactId === null) return;
+      const res = await st.call("artifacts.versions", { artifactId });
+      st.update((s) => ({
+        ...s,
+        artifactVersions: { ...s.artifactVersions, [artifactId]: res.versions },
+      }));
+    },
+  );
+  return { ...load, versions: versions ?? EMPTY_VERSIONS };
+}
+
+const EMPTY_VERSIONS: readonly ArtifactVersion[] = [];
+const EMPTY_IDS: readonly string[] = [];
+
+/** A thread's canvas artifacts, most recently updated first (the canvas recents). */
+export function useThreadArtifacts(
+  threadId: string | null,
+): LoadState & { artifacts: readonly Artifact[] } {
+  const ids = useStoreState((s) => (threadId === null ? undefined : s.threadArtifacts[threadId]));
+  const all = useStoreState((s) => s.artifacts);
+  const load = useLoader(
+    threadId !== null && ids === undefined ? `thread-artifacts:${threadId}` : null,
+    async (st) => {
+      if (threadId === null) return;
+      const res = await st.call("artifacts.list", { threadId, limit: 20 });
+      st.update((s) => {
+        let next = s;
+        for (const a of res.artifacts) next = put(next, "artifacts", a);
+        return {
+          ...next,
+          threadArtifacts: { ...next.threadArtifacts, [threadId]: res.artifacts.map((a) => a.id) },
+        };
+      });
+    },
+  );
+  const artifacts = useMemo(
+    () => (ids ?? EMPTY_IDS).map((id) => all[id]).filter((a): a is Artifact => a !== undefined),
+    [ids, all],
+  );
+  return { ...load, artifacts };
+}
+
+/** Canvas writes: the user's edits and restores become new versions authored by `user`. */
+export function useArtifactActions(): {
+  update(
+    artifactId: string,
+    base: number,
+    ops: ArtifactOp[],
+  ): Promise<MethodResult<"artifacts.update">>;
+  restore(artifactId: string, version: number): Promise<MethodResult<"artifacts.restore">>;
+} {
+  const store = useStore();
+  return useMemo(
+    () => ({
+      async update(artifactId, base, ops) {
+        const res = await store.call("artifacts.update", { artifactId, base, ops });
+        store.update((s) => put(s, "artifacts", res.artifact));
+        return res;
+      },
+      async restore(artifactId, version) {
+        const res = await store.call("artifacts.restore", { artifactId, version });
+        store.update((s) => put(s, "artifacts", res.artifact));
+        return res;
+      },
+    }),
+    [store],
+  );
 }
 
 export function useLibraryItem(itemId: string | null): LoadState & { item: LibraryItem | null } {

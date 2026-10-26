@@ -1,5 +1,6 @@
 import { agent } from "./agent.ts";
 import { blocks } from "./blocks.ts";
+import { canvas } from "./canvas.ts";
 import { chat } from "./chat.ts";
 import { common } from "./common.ts";
 import { context } from "./context.ts";
@@ -32,6 +33,7 @@ export const en = {
   ...errors,
   ...chat,
   ...blocks,
+  ...canvas,
   ...context,
   ...agent,
   ...shell,

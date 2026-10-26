@@ -2,6 +2,7 @@ import type {
   ActionProposal,
   ApprovalRequest,
   Artifact,
+  ArtifactVersion,
   Block,
   ContextLimits,
   ContextUsage,
@@ -76,6 +77,9 @@ export interface QueryEntry {
 
 export type Dict<T> = Readonly<Record<string, T>>;
 
+/** One version's content as `artifacts.read` returns it. */
+export type ArtifactContent = MethodResult<"artifacts.read">;
+
 /** A thread's context usage and limits (`threads.contextUsage`, `thread.context.updated`). */
 export interface ThreadContextEntry {
   /** The last turn's usage; null before the first turn. */
@@ -128,6 +132,12 @@ export interface UiState {
   inputRequests: Dict<InputRequest>;
   receipts: Dict<Receipt>;
   artifacts: Dict<Artifact>;
+  /** Canvas content by `artifactId@version` (docs/design/chat-experience-2026.md §4.2). */
+  artifactContent: Dict<ArtifactContent>;
+  /** Every version of an artifact, oldest first, once the version picker loaded them. */
+  artifactVersions: Dict<ArtifactVersion[]>;
+  /** A thread's canvas artifacts, most recently updated first (the canvas's recents tabs). */
+  threadArtifacts: Dict<string[]>;
   library: Dict<LibraryItem>;
   notifications: Dict<Notification>;
   feed: Dict<FeedPost>;
@@ -175,6 +185,9 @@ export const INITIAL_STATE: UiState = {
   inputRequests: {},
   receipts: {},
   artifacts: {},
+  artifactContent: {},
+  artifactVersions: {},
+  threadArtifacts: {},
   library: {},
   notifications: {},
   feed: {},
