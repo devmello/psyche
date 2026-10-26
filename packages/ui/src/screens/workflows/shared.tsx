@@ -53,7 +53,11 @@ export function WorkflowCardFrame({
       label={label ?? ""}
       {...(title ? { labelledBy: titleId } : {})}
       data-kind={dataKind}
-      className={cn("my-0 flex min-w-0 flex-col gap-3", hero ? "p-6 @2xl/column:-mx-3" : "", className)}
+      className={cn(
+        "my-0 flex min-w-0 flex-col gap-3",
+        hero ? "p-6 @2xl/column:-mx-3" : "",
+        className,
+      )}
       header={
         <div className="flex min-w-0 items-start gap-2">
           <div className="flex min-w-0 flex-1 flex-col gap-1">
