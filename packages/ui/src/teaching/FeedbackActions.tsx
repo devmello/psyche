@@ -5,7 +5,6 @@ import type {
   Message,
   MethodResult,
 } from "@psyche/protocol";
-import { ThumbsDown, ThumbsUp } from "lucide-react";
 import { type ReactElement, useId, useState } from "react";
 import { Button } from "../components/ui/button.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover.tsx";
@@ -158,12 +157,11 @@ export function TeachForm({
   );
 }
 
-/** One message's feedback state: Helpful, the popover, and what teaching returned. */
+/** One message's feedback state: whether the teach form is open, and what teaching returned. */
 export function useMessageFeedback(message: Message) {
   const store = useStore();
   const teach = useTeaching();
   const [open, setOpen] = useState(false);
-  const [helpful, setHelpful] = useState<string | null>(null);
   const [given, setGiven] = useState<Given | null>(null);
   const [error, setError] = useState<string | null>(null);
   const target: FeedbackTarget = { type: "message", id: message.id, threadId: message.threadId };
@@ -176,20 +174,6 @@ export function useMessageFeedback(message: Message) {
           m.blocks.some((b) => b.type === "taught" && b.feedbackId === eventId),
         ),
   );
-  const onHelpful = async () => {
-    try {
-      if (helpful !== null) {
-        await teach.deleteFeedback(helpful);
-        setHelpful(null);
-      } else {
-        const r = await teach.give({ target, kind: "helpful" });
-        setHelpful(r.event.id);
-      }
-      setError(null);
-    } catch (err) {
-      setError(describeError(err));
-    }
-  };
   const onTeach = async (input: {
     reason?: FeedbackReason;
     text?: string;
@@ -213,60 +197,34 @@ export function useMessageFeedback(message: Message) {
     setGiven(r);
     setOpen(false);
   };
-  return { open, setOpen, helpful, onHelpful, onTeach, given, noted, error };
+  return { open, setOpen, onTeach, given, noted, error };
 }
 
 export type MessageFeedback = ReturnType<typeof useMessageFeedback>;
 
 /**
- * Helpful and Not like this on an agent message (teaching loop §5.1), revealed on hover or focus
- * like the Feed's actions and always shown on touch. Helpful never makes a lesson.
+ * The teach form under an agent message (teaching loop §5.1), opened from the message's ⋯ menu.
+ * It sits in the flow below the answer so it never covers the text.
  */
-export function FeedbackButtons({
+export function TeachPanel({
   feedback: f,
   person,
-  className,
 }: {
   feedback: MessageFeedback;
   person?: string | null;
-  className?: string;
-}): ReactElement {
-  const reveal =
-    "opacity-0 group-focus-within/message:opacity-100 group-hover/message:opacity-100 aria-expanded:opacity-100 aria-pressed:opacity-100 pointer-coarse:opacity-100";
+}): ReactElement | null {
+  if (!f.open) return null;
   return (
-    <span className={cn("flex items-center gap-0.5", className)}>
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        className={reveal}
-        aria-label={t("chat.teach.helpful")}
-        aria-pressed={f.helpful !== null}
-        onClick={() => void f.onHelpful()}
-      >
-        <ThumbsUp aria-hidden="true" className={f.helpful !== null ? "fill-current" : undefined} />
-      </Button>
-      <Popover open={f.open} onOpenChange={f.setOpen}>
-        <PopoverTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              className={reveal}
-              aria-label={t("chat.teach.notLikeThis")}
-            />
-          }
-        >
-          <ThumbsDown aria-hidden="true" />
-        </PopoverTrigger>
-        <PopoverContent align="end" className="w-80">
-          <TeachForm
-            {...(person === undefined ? {} : { person })}
-            onTeach={f.onTeach}
-            onCancel={() => f.setOpen(false)}
-          />
-        </PopoverContent>
-      </Popover>
-    </span>
+    <section
+      aria-label={t("chat.teach.dialog")}
+      className="mt-2 w-full max-w-80 rounded-xl border border-separator-strong bg-canvas p-3"
+    >
+      <TeachForm
+        {...(person === undefined ? {} : { person })}
+        onTeach={f.onTeach}
+        onCancel={() => f.setOpen(false)}
+      />
+    </section>
   );
 }
 
@@ -286,23 +244,6 @@ export function FeedbackNote({ feedback: f }: { feedback: MessageFeedback }): Re
       lessonId={f.given.lesson?.id ?? null}
       statement={f.given.lesson?.statement ?? null}
     />
-  );
-}
-
-/** Buttons and note together, for surfaces with room for both (cards, stories). */
-export function FeedbackActions({
-  message,
-  person,
-}: {
-  message: Message;
-  person?: string | null;
-}): ReactElement {
-  const feedback = useMessageFeedback(message);
-  return (
-    <div className="group/message flex flex-col">
-      <FeedbackButtons feedback={feedback} {...(person === undefined ? {} : { person })} />
-      <FeedbackNote feedback={feedback} />
-    </div>
   );
 }
 

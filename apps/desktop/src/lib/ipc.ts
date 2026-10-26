@@ -41,6 +41,8 @@ export const IPC = {
   terminalExit: "psyche:terminal:exit",
   // Windows, notifications, native commands.
   windowPopOut: "psyche:window:pop-out",
+  /** Raises a pane's pop-out window; resolves false when it is gone. */
+  windowFocusPopOut: "psyche:window:focus-pop-out",
   windowClose: "psyche:window:close",
   windowOpenSettings: "psyche:window:open-settings",
   /** Settings → Connectors "Try it" (#677): fill the main window's composer, without sending. */

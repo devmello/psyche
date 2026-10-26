@@ -95,7 +95,6 @@ export const chat = {
   "chat.message.fromTask": "From task: {title}",
 
   // The teaching loop (docs/agent/teaching-loop-2026.md §5.1, §8).
-  "chat.teach.helpful": "Helpful",
   "chat.teach.notLikeThis": "Not like this",
   "chat.teach.dialog": "Teach Psyche",
   "chat.teach.reasons": "What was wrong",

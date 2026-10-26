@@ -93,6 +93,7 @@ export const shell = {
   "shell.sidebar.untitled": "Untitled chat",
   "shell.sidebar.show": "Show the sidebar",
   "shell.sidebar.hide": "Hide the sidebar",
+  "shell.browser.open": "Open the browser",
   "shell.sidebar.options": "Sidebar options",
   "shell.sidebar.full": "Full sidebar",
   "shell.sidebar.compact": "Compact sidebar",

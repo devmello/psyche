@@ -1,10 +1,9 @@
 export {
   FEEDBACK_REASONS,
-  FeedbackActions,
-  FeedbackButtons,
   FeedbackNote,
   type MessageFeedback,
   TeachForm,
+  TeachPanel,
   UsedLessons,
   useMessageFeedback,
 } from "./FeedbackActions.tsx";
