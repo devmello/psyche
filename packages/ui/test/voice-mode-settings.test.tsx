@@ -75,4 +75,12 @@ describe("Voice & dictation: voice conversation (voice-mode-2026 §6.4)", () => 
       }),
     ).toEqual([]);
   });
+
+  it("drops a saved OpenAI voice, which was retired, back to the default", () => {
+    expect(readVoiceSettings({ "voice.conversation.voice": "openai:marin" }).voice).toBeNull();
+    expect(migrateVoiceSettings({ "voice.conversation.voice": "openai:marin" })).toEqual([
+      { key: "voice.conversation.voice", value: null },
+    ]);
+    expect(migrateVoiceSettings({ "voice.conversation.voice": "elevenlabs:rachel" })).toEqual([]);
+  });
 });

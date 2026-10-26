@@ -9,6 +9,9 @@ import type { Block, PermissionMode, RunMode, TaintSource } from "@psyche/protoc
  * turn drew on. A provider that fails or misses its deadline adds nothing.
  */
 
+/** Characters one trusted section may place in the prompt (three 300-character recall lines). */
+export const TRUSTED_CONTEXT_CAP = 1_200;
+
 export interface TurnContextInput {
   threadId: string;
   runId: string;
@@ -23,8 +26,10 @@ export interface TurnContext {
   sections: { title: string; text: string }[];
   /** Shown in the reply, e.g. `related_threads`. */
   block?: Block;
-  /** Recorded as the run's taint source when sections are added. */
+  /** Recorded as the run's taint source when sections are added (ignored when `trusted`). */
   source: TaintSource;
+  /** The sections hold owner/system data only: no untrusted fence, no taint (owner turns only). */
+  trusted?: true;
 }
 
 export interface TurnContextProvider {

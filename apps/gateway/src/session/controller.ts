@@ -36,6 +36,20 @@ import {
 import type { GatewayContext } from "../context.ts";
 
 type SendResult = MethodResult<"chat.send">;
+type TurnImages = { mime: string; data: string }[];
+/** What a turn gets beyond its message (Ask about my screen). */
+interface TurnExtra {
+  preamble?: string;
+  images?: TurnImages;
+}
+
+function turnExtra(input: SendInput): TurnExtra | undefined {
+  if (input.preamble === undefined && (input.images ?? []).length === 0) return undefined;
+  return {
+    ...(input.preamble === undefined ? {} : { preamble: input.preamble }),
+    ...((input.images ?? []).length === 0 ? {} : { images: input.images }),
+  };
+}
 
 /** Model ref recorded on runs until S03's router picks one per turn. */
 export const DEFAULT_MODEL_REF = "router/auto";
@@ -73,6 +87,14 @@ export interface SendInput {
    * queued follow-ups (`chat_queue`); the conversation sends an `interrupt` instead.
    */
   voice?: VoiceTurnOptions;
+  /**
+   * Context the agent reads ahead of the message but the transcript doesn't show (Ask about my
+   * screen: the untrusted text of what was on screen, docs/design/screen-ask-2026.md §3.3). Only
+   * for a turn that starts now: a busy thread refuses it rather than queueing it without.
+   */
+  preamble?: string;
+  /** Images the model sees with the message (a pinned screen capture); same rule as `preamble`. */
+  images?: { mime: string; data: string }[];
 }
 
 type Emit = <E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string) => void;
@@ -198,6 +220,12 @@ export class SessionController {
     const attachments = input.attachments ?? [];
     const quote = this.#quote(thread.id, input.replyToMessageId ?? null);
     const active = thread.activeWriterRunId ?? null;
+    const extra = turnExtra(input);
+    if (extra !== undefined && active !== null && input.mode !== "interrupt") {
+      throw new PsycheError("conflict", "this chat is busy; ask in a new chat", {
+        details: { reason: "thread_busy" },
+      });
+    }
     if (active === null) {
       const { messageId, run } = this.#admit(
         thread,
@@ -210,6 +238,7 @@ export class SessionController {
         input.provenance,
         quote,
         input.voice,
+        extra,
       );
       this.#noteTaint(run.id, input.taintSources);
       return { messageId, runId: run.id, queued: false };
@@ -275,6 +304,7 @@ export class SessionController {
       input.provenance,
       quote,
       input.voice,
+      extra,
     );
     this.#noteTaint(run.id, input.taintSources);
     return { messageId, runId: run.id, queued: false };
@@ -310,10 +340,12 @@ export class SessionController {
     provenance: "owner" | "agent" = "owner",
     quote?: Quote,
     voice?: VoiceTurnOptions,
+    extra?: TurnExtra,
   ): { messageId: string; run: Run } {
     const via = voice === undefined ? {} : { via: "voice" as const };
     const { db } = this.#ctx;
-    const agentContent = withQuote(quote, content);
+    const quoted = withQuote(quote, content);
+    const agentContent = extra?.preamble === undefined ? quoted : `${extra.preamble}\n\n${quoted}`;
     if (supersedes === null) {
       // The user message goes in before the run owns the transcript.
       const message = appendMessage(
@@ -340,7 +372,7 @@ export class SessionController {
       this.#bump();
       hooks.emit("run.updated", { run }, thread.id);
       hooks.afterCommit(() =>
-        this.#startTurn(thread, run.id, agentContent, attachments, requester, voice),
+        this.#startTurn(thread, run.id, agentContent, attachments, requester, voice, extra?.images),
       );
       return { messageId: message.id, run };
     }
@@ -368,7 +400,7 @@ export class SessionController {
     hooks.emit("chat.message", { message }, thread.id);
     hooks.emit("run.updated", { run }, thread.id);
     hooks.afterCommit(() =>
-      this.#startTurn(thread, run.id, agentContent, attachments, requester, voice),
+      this.#startTurn(thread, run.id, agentContent, attachments, requester, voice, extra?.images),
     );
     return { messageId: message.id, run };
   }
@@ -558,12 +590,13 @@ export class SessionController {
     attachments: readonly string[],
     requester?: Requester,
     voice?: VoiceTurnOptions,
+    images?: TurnImages,
   ): void {
     if (this.#stopping || this.#closing.has(thread.id)) return;
     const abort = new AbortController();
     const turn: ActiveTurn = { runId, abort, detached: false, done: Promise.resolve() };
     this.#active.set(thread.id, turn);
-    turn.done = this.#runTurn(thread, turn, content, attachments, requester, voice)
+    turn.done = this.#runTurn(thread, turn, content, attachments, requester, voice, images)
       .catch((err) => this.#warn("turn crashed", err))
       .finally(() => {
         if (this.#active.get(thread.id) === turn) this.#active.delete(thread.id);
@@ -578,6 +611,7 @@ export class SessionController {
     attachments: readonly string[],
     requester?: Requester,
     voice?: VoiceTurnOptions,
+    images?: TurnImages,
   ): Promise<void> {
     const { db, bus, agent } = this.#ctx;
     const { runId } = turn;
@@ -655,6 +689,7 @@ export class SessionController {
           ...(attachments.length > 0
             ? { attachments: attachments.map((libraryItemId) => ({ libraryItemId })) }
             : {}),
+          ...(images === undefined || images.length === 0 ? {} : { images }),
         },
         mode: "attended",
         permissionMode: thread.permissionMode,

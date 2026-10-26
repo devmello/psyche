@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { matchApproval, normalizeUtterance, voicePhrases } from "../src/voice/phrases.ts";
+import {
+  matchApproval,
+  mentionsScreen,
+  normalizeUtterance,
+  voicePhrases,
+} from "../src/voice/phrases.ts";
 
 /** The spoken phrase lists (voice-mode-2026 §4.3, §4.6), from the active (English) catalogue. */
 describe("voice phrases", () => {
@@ -17,5 +22,16 @@ describe("voice phrases", () => {
     // Anything else leaves the card on screen.
     expect(matchApproval("send it to bob instead")).toBeNull();
     expect(matchApproval("")).toBeNull();
+  });
+
+  it("tells a request about the screen (Ask about my screen §3.3)", () => {
+    expect(voicePhrases("screen")).toContain("on screen");
+    expect(mentionsScreen("What does this error mean?")).toBe(true);
+    expect(mentionsScreen("Summarise what I'm looking at")).toBe(true);
+    expect(mentionsScreen("Reply saying it's on my screen")).toBe(true);
+    // Whole words only: "thistle" is not "this".
+    expect(mentionsScreen("Buy thistle seeds")).toBe(false);
+    expect(mentionsScreen("What's the weather tomorrow?")).toBe(false);
+    expect(mentionsScreen("")).toBe(false);
   });
 });

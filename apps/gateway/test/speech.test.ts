@@ -1,11 +1,15 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { setSetting } from "@psyche/db";
+import { getSetting, openDb, setSetting } from "@psyche/db";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
-import { conversationSettings, voiceApprovals } from "../src/compose/speech.ts";
+import {
+  conversationSettings,
+  migrateRetiredVoices,
+  voiceApprovals,
+} from "../src/compose/speech.ts";
 import { silentLogger } from "../src/log.ts";
 import { FakeNode, type FakeNodeHandler } from "./fake-node.ts";
 import { desktopClient, newDeviceKey, type TestClient } from "./helpers.ts";
@@ -233,6 +237,39 @@ describe("voice conversation over the wire (V-G, docs/voice/voice-mode-2026.md)"
       pauseMs: 2_000,
     });
     expect(conversationSettings(() => "nonsense")).toEqual({});
+  });
+});
+
+describe("the retired OpenAI voice (#691)", () => {
+  it("moves an owner who picked it to the default voice once, with a notice", async () => {
+    home = mkdtempSync(join(tmpdir(), "psyche-voice-migrate-"));
+    const db = openDb(join(home, "psyche.db"));
+    const notices: { title: string; dedupeKey?: string; route?: string }[] = [];
+    const notifier = {
+      notify: async (n: { title: string; dedupeKey?: string; route?: string }) => {
+        notices.push(n);
+      },
+    } as never;
+    try {
+      setSetting(db, "voice.conversation.voice", "openai:marin");
+      setSetting(db, "speech.tts.voice", "mac-node:com.apple.voice.premium.en-US.Ava");
+      expect(migrateRetiredVoices({ db, notifier })).toEqual(["voice.conversation.voice"]);
+      expect(getSetting(db, "voice.conversation.voice")?.value).toBeNull();
+      expect(getSetting(db, "speech.tts.voice")?.value).toBe(
+        "mac-node:com.apple.voice.premium.en-US.Ava",
+      );
+      expect(notices).toEqual([
+        expect.objectContaining({
+          route: "/settings/voice",
+          dedupeKey: "speech:voice-retired:openai",
+        }),
+      ]);
+      // Already migrated: nothing to write and no second notice.
+      expect(migrateRetiredVoices({ db, notifier })).toEqual([]);
+      expect(notices).toHaveLength(1);
+    } finally {
+      db.close();
+    }
   });
 });
 

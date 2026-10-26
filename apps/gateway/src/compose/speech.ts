@@ -3,18 +3,22 @@ import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { getMessage, getSetting } from "@psyche/db";
+import { getLibraryItem, getMessage, getSetting, setSetting } from "@psyche/db";
 import { defaultDenyRead } from "@psyche/mcp-host";
 import type { LibraryItem, NodeClient, NodeInfo } from "@psyche/protocol";
 import { PsycheError, VOICE_CONVERSATION_SETTING_KEYS as VC } from "@psyche/protocol";
 import {
   createSpeechHandlers,
   createSpeechStack,
+  isRetiredVoiceRef,
   type LibrarySaveInput,
+  type LibraryTranscriptWriter,
   type LibraryWriter,
   LocalProcessRunner,
+  type MeetingRecordingInput,
   type MessageSource,
   NODE_SPEECH_CAPABILITIES,
+  NodeSpeechEngine,
   type ProcessRunner,
   ReadAloudService,
   SPEECH_METHODS,
@@ -140,14 +144,19 @@ export function warnUnsandboxed(inner: ProcessRunner, services: ComposeServices)
   };
 }
 
-/** The newest live mac-helper node that offers speech (it connects after the Gateway boots). */
-export function speechNode(gateway: () => Gateway | null): () => NodeClient | undefined {
+/**
+ * The newest live mac-helper node that offers speech (it connects after the Gateway boots):
+ * `capability` is `speech.transcribe_stream` by default, `speech.transcribe_file` for recordings.
+ */
+export function speechNode(
+  gateway: () => Gateway | null,
+  capability: string = NODE_SPEECH_CAPABILITIES.transcribeStream,
+): () => NodeClient | undefined {
   return () => {
     const nodes = gateway()?.context.nodes;
     if (!nodes) return undefined;
     const offers = (n: NodeInfo) =>
-      n.kind === "mac-helper" &&
-      n.capabilities.some((c) => c.name === NODE_SPEECH_CAPABILITIES.transcribeStream);
+      n.kind === "mac-helper" && n.capabilities.some((c) => c.name === capability);
     const node = nodes
       .list()
       .filter((n) => offers(n) && nodes.isLive(n.id))
@@ -194,6 +203,8 @@ export class FsAudioLibrary implements LibraryWriter {
     await mkdir(dir, { recursive: true, mode: 0o700 });
     await writeFile(join(this.#root, rel), file.data, { mode: 0o600 });
     await chmod(join(this.#root, rel), 0o600);
+    const extractRef =
+      file.textExtract === undefined ? null : await writeExtract(this.#root, id, file.textExtract);
     const item: LibraryItem = {
       id,
       kind: file.kind ?? "audio",
@@ -206,7 +217,7 @@ export class FsAudioLibrary implements LibraryWriter {
       threadId: file.threadId,
       taskId: null,
       tags: [...file.tags],
-      textExtractRef: null,
+      textExtractRef: extractRef,
       createdAt: this.#now().toISOString(),
     };
     if (file.provenance === "untrusted") item.quarantined = true;
@@ -214,10 +225,54 @@ export class FsAudioLibrary implements LibraryWriter {
       this.#onSaved?.(item);
     } catch (err) {
       await rm(join(this.#root, rel), { force: true }).catch(() => undefined);
+      if (extractRef !== null) {
+        await rm(join(this.#root, extractRef), { force: true }).catch(() => undefined);
+      }
       throw err;
     }
     return item;
   }
+}
+
+/** Writes `extracts/<id>.txt` under the Library root (0700 / 0600); returns its relative path. */
+async function writeExtract(root: string, id: string, text: string): Promise<string> {
+  const rel = join("extracts", `${id}.txt`);
+  await mkdir(join(root, "extracts"), { recursive: true, mode: 0o700 });
+  await writeFile(join(root, rel), text, { mode: 0o600 });
+  await chmod(join(root, rel), 0o600);
+  return rel;
+}
+
+/**
+ * A recording already in the Library gets its meeting transcript as its text extract
+ * (docs/workflows/mail-and-meetings-2026.md §4.6 step 1); other people's words quarantine it.
+ */
+export function libraryTranscripts(
+  db: ComposeServices["db"],
+  home: string,
+): LibraryTranscriptWriter {
+  return {
+    async setTextExtract(itemId, extract) {
+      if (getLibraryItem(db, itemId) === undefined) {
+        throw new PsycheError("not_found", `library item ${itemId} not found`);
+      }
+      const rel = await writeExtract(join(home, "library"), itemId, extract.text);
+      db.sqlite
+        .prepare(
+          `UPDATE library_items SET text_extract_ref = ?${extract.provenance === "untrusted" ? ", quarantined = 1" : ""} WHERE id = ?`,
+        )
+        .run(rel, itemId);
+      return getLibraryItem(db, itemId) as LibraryItem;
+    },
+  };
+}
+
+/**
+ * What post-meeting notes call to transcribe a recording on the Mac (`MeetingTranscriber` in
+ * `@psyche/proactive`): `VoiceMemoService.ingestMeeting` with the Library's transcript writer.
+ */
+export interface MeetingIngest {
+  ingestMeeting(input: MeetingRecordingInput): ReturnType<VoiceMemoService["ingestMeeting"]>;
 }
 
 /** Message text for read-aloud; the owner's devices may read every thread. */
@@ -237,9 +292,10 @@ export function dbMessageSource(db: ComposeServices["db"]): MessageSource {
 }
 
 export function composeSpeech(setup: SpeechSetup = {}) {
-  return (services: ComposeServices): ComposedPart => {
+  return (services: ComposeServices): ComposedPart & { meetings: MeetingIngest } => {
     let gateway: Gateway | null = null;
     const { db } = services;
+    migrateRetiredVoices(services);
     const prefix = speechPrefix(setup, services);
     const runner =
       prefix === undefined
@@ -262,11 +318,17 @@ export function composeSpeech(setup: SpeechSetup = {}) {
       library,
       emit: toDevice,
     });
+    // Long recordings are transcribed where they lie on the Mac (`speech.transcribe_file`, §4.6).
+    const files = new NodeSpeechEngine({
+      node: speechNode(() => gateway, NODE_SPEECH_CAPABILITIES.transcribeFile),
+    });
     const memos = new VoiceMemoService({
       engine: stack.engine,
       library,
       transcoder: stack.transcoder,
+      files,
     });
+    const transcripts = libraryTranscripts(db, services.home);
     const setting = (key: string): unknown => getSetting(db, key)?.value;
     const conversations = new VoiceConversationManager({
       selector: stack.selector,
@@ -304,6 +366,7 @@ export function composeSpeech(setup: SpeechSetup = {}) {
     };
     return {
       handlers,
+      meetings: { ingestMeeting: (input) => memos.ingestMeeting(input, transcripts) },
       start(gw) {
         gateway = gw;
         gw.context.deviceDisconnected.add(onDisconnect);
@@ -316,6 +379,41 @@ export function composeSpeech(setup: SpeechSetup = {}) {
       },
     };
   };
+}
+
+/** Settings that hold an `<engine>:<voice>` ref the owner picked. */
+export const VOICE_REF_SETTINGS = [VC.voice, "speech.tts.voice"] as const;
+
+/**
+ * Moves an owner who picked the OpenAI cloud voice to the default voice, once, with a notice:
+ * OpenAI's TTS endpoints shut down on 2027-01-06 and the engine was removed
+ * (docs/voice/voice-mode-2026.md §2, #691). `null` means "best installed voice for the language".
+ */
+export function migrateRetiredVoices(
+  services: Pick<ComposeServices, "db" | "notifier" | "logger">,
+): string[] {
+  const moved: string[] = [];
+  for (const key of VOICE_REF_SETTINGS) {
+    if (!isRetiredVoiceRef(getSetting(services.db, key)?.value)) continue;
+    setSetting(services.db, key, null);
+    moved.push(key);
+  }
+  if (moved.length > 0) {
+    services.notifier
+      .notify({
+        kind: "system",
+        route: "/settings/voice",
+        title: "Psyche's voice changed",
+        body: "OpenAI is retiring the voice you picked, so Psyche now uses the default voice. You can choose another in Settings → Voice & dictation.",
+        dedupeKey: "speech:voice-retired:openai",
+      })
+      .catch((err) =>
+        services.logger?.log("warn", "voice migration notice failed", {
+          code: PsycheError.from(err).code,
+        }),
+      );
+  }
+  return moved;
 }
 
 /**

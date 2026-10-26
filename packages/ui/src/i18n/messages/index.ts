@@ -8,6 +8,7 @@ import { errors } from "./errors.ts";
 import { glass } from "./glass.ts";
 import { onboarding } from "./onboarding.ts";
 import { people } from "./people.ts";
+import { screenAsk } from "./screen-ask.ts";
 import { screens } from "./screens.ts";
 import { settings } from "./settings.ts";
 import { settingsLanguage } from "./settings-language.ts";
@@ -16,6 +17,7 @@ import { specialists } from "./specialists.ts";
 import { time } from "./time.ts";
 import { voice } from "./voice.ts";
 import { web } from "./web.ts";
+import { workflows } from "./workflows.ts";
 
 /**
  * The English catalogue: every user-facing string in the kit and the web app, by stable id
@@ -42,6 +44,8 @@ export const en = {
   ...glass,
   ...design,
   ...voice,
+  ...screenAsk,
+  ...workflows,
 } as const;
 
 export type MessageId = keyof typeof en;

@@ -13,7 +13,7 @@ Speech-to-text and text-to-speech behind the `SpeechEngine` contract, engine sel
 | `NodeSpeechEngine`, `NODE_SPEECH_CAPABILITIES` | `SpeechEngine` over the Mac helper's `speech.*` capabilities |
 | `WhisperEngine`, `WhisperCliBackend`, `WhisperServerBackend` | whisper.cpp: per-request `whisper-cli`, or a loopback `whisper-server` that keeps the model loaded |
 | `KokoroEngine`, `KokoroOnnxRuntime`, `PhonemizePhonemizer`, `ipaToMisaki` | Kokoro-82M on an injected `onnxruntime-node` |
-| `CloudTtsEngine` | OpenAI and ElevenLabs voices; the key comes from the vault as a one-shot `ResolvedSecret` |
+| `CloudTtsEngine` | ElevenLabs voices; the key comes from the vault as a one-shot `ResolvedSecret` |
 | `webSpeechDictation`, `WEB_SPEECH_ENTRY` | Client-side helper for psyche-web (browser owns the mic) |
 | `VoiceSessionManager` | `voice.start / push / stop / cancel` and `voice.segment` / `voice.ended` events |
 | `ReadAloudService` | `speech.readAloud(messageId)`: streams `speech.audio` events, saves an MP3 Library item |
@@ -89,7 +89,7 @@ Transcription order (setting `speech.stt.order`, default `["mac-node", "whisper"
 2. **whisper**: whisper.cpp on the Gateway host, when `whisper-cli` and the model are present.
 3. **web-speech**: only when the caller is the web client (`location: "client"`); Electron has no Web Speech backend and channels or the agent cannot use a browser engine.
 
-Synthesis order (`speech.tts.order`, default `["kokoro", "mac-node"]`, voice `kokoro:af_heart`). A persona voice `<engine>:<voice>` (IDENTITY.md `voice:`) puts its engine first. Cloud voices (`openai`, `elevenlabs`) are registered only when a vault key resolver is configured and are used only if the owner names them in the order or as the persona voice, because they send text off the machine.
+Synthesis order (`speech.tts.order`, default `["kokoro", "mac-node"]`, voice `kokoro:af_heart`). A persona voice `<engine>:<voice>` (IDENTITY.md `voice:`) puts its engine first. Cloud voices (`elevenlabs`) are registered only when a vault key resolver is configured and are used only if the owner names them in the order or as the persona voice, because they send text off the machine. The OpenAI voice was removed because OpenAI's TTS endpoints shut down on 2027-01-06; a saved `openai:` voice is migrated to the default voice (`isRetiredVoiceRef`).
 
 Each engine has a cheap `available()` probe (binary and model present, node online, key configured); a throwing probe counts as unavailable. `select()` rejects `unavailable` (retryable) with the reason per engine.
 
@@ -123,7 +123,7 @@ Measured on an Apple M5 (16 GB, macOS 27.0.1) on 2026-10-19 unless marked otherw
 | Web Speech | web client | yes | browser-dependent | — | Chrome sends audio to Google; last resort |
 | Kokoro-82M q8 (ONNX, CPU) | Gateway | per sentence | RTF 0.47–0.60 (6 s of audio in 2.8–3.6 s) | +110–220 MB RSS | Linux x64 not measured; expect slower |
 | AVSpeechSynthesizer (Mac node) | helper | per utterance | — | — | Personal Voice has non-commercial terms |
-| OpenAI / ElevenLabs | cloud | per request | network-bound | — | 24 kHz PCM requested from both |
+| ElevenLabs | cloud | per request | network-bound | — | 24 kHz PCM requested |
 
 **Streaming dictation with whisper.cpp** is VAD-gated chunked inference: a 30 ms-frame energy VAD with an adaptive noise floor finds utterances (210 ms pre-roll, 600 ms of silence ends one, 15 s cap); while an utterance grows the engine re-transcribes it every second of speech and emits a volatile partial; at its end it emits the final. Custom vocabulary and the tail of the previous final go into whisper's `--prompt`. File transcription uses the same splitter (25 s cap) because tiny/base models stop decoding after a long pause and silently drop the rest.
 

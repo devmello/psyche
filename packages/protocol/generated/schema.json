@@ -119,6 +119,11 @@
         "payload": "#/$defs/ApprovalUpdatedPayload"
       },
       {
+        "description": "A canvas artifact gained a version (created, edited, restored).",
+        "name": "artifact.updated",
+        "payload": "#/$defs/ArtifactUpdatedPayload"
+      },
+      {
         "description": "An automation run ended (done, no_reply, failed, cancelled, skipped).",
         "name": "automation.run.finished",
         "payload": "#/$defs/AutomationRunFinishedPayload"
@@ -227,6 +232,11 @@
         "description": "A lesson was made, confirmed, edited, superseded, made dormant or forgotten. Clients refresh marks and the Growth view.",
         "name": "lesson.changed",
         "payload": "#/$defs/LessonChangedPayload"
+      },
+      {
+        "description": "Record meeting started or ended (stopped, silence, the conference app quit), or the ended recording's notes finished or failed (mail and meeting workflows §4.6).",
+        "name": "meetings.recording.updated",
+        "payload": "#/$defs/MeetingRecordingStatus"
       },
       {
         "description": "A person, organisation, project or place changed in the memory graph.",
@@ -487,10 +497,58 @@
         "sideEffecting": false
       },
       {
-        "description": "Returns one artifact's metadata (content is fetched over HTTP).",
+        "description": "Creates a canvas artifact at version 1 (doc, code, table or image). Side-effecting: a retried key returns the same artifact.",
+        "name": "artifacts.create",
+        "params": "#/$defs/ArtifactsCreateParams",
+        "result": "#/$defs/ArtifactsCreateResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Returns one artifact's metadata (content through `artifacts.read`).",
         "name": "artifacts.get",
         "params": "#/$defs/ArtifactsGetParams",
         "result": "#/$defs/ArtifactsGetResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists canvas artifacts, most recently updated first, optionally for one thread.",
+        "name": "artifacts.list",
+        "params": "#/$defs/ArtifactsListParams",
+        "result": "#/$defs/ArtifactsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Returns an artifact's content at a version, or a window of its lines.",
+        "name": "artifacts.read",
+        "params": "#/$defs/ArtifactsReadParams",
+        "result": "#/$defs/ArtifactsReadResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Restores an old version as a new latest version (nothing is deleted). Side-effecting.",
+        "name": "artifacts.restore",
+        "params": "#/$defs/ArtifactsRestoreParams",
+        "result": "#/$defs/ArtifactsRestoreResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Applies edit ops to an artifact as a new version; `replace` and `insert` anchors must match exactly once. Side-effecting.",
+        "name": "artifacts.update",
+        "params": "#/$defs/ArtifactsUpdateParams",
+        "result": "#/$defs/ArtifactsUpdateResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Lists every version of an artifact, oldest first (history is never deleted).",
+        "name": "artifacts.versions",
+        "params": "#/$defs/ArtifactsVersionsParams",
+        "result": "#/$defs/ArtifactsVersionsResult",
         "scope": "operator.read",
         "sideEffecting": false
       },
@@ -1357,6 +1415,38 @@
         "result": "#/$defs/McpStatusResult",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "Writes meeting notes from a Library recording: transcribed on the Mac (up to 4 h), matched to the overlapping calendar event, summarized into one meeting_notes Feed post. Proposes, never sends. Side-effecting.",
+        "name": "meetings.notes.create",
+        "params": "#/$defs/MeetingsNotesCreateParams",
+        "result": "#/$defs/MeetingNotesResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Starts recording a meeting with the helper microphone, only after the owner confirmed the consent line. Stops by itself after 5 minutes of silence or when the conference app quits. Side-effecting.",
+        "name": "meetings.record.start",
+        "params": "#/$defs/MeetingsRecordStartParams",
+        "result": "#/$defs/MeetingRecordingStatus",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Whether Record meeting is available and running, the consent line to show before a start, and the last recording's notes.",
+        "name": "meetings.record.status",
+        "params": "#/$defs/MeetingsRecordStatusParams",
+        "result": "#/$defs/MeetingRecordingStatus",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Stops the running recording; its notes are written in the background (meetings.recording.updated, then the meeting_notes post). Side-effecting.",
+        "name": "meetings.record.stop",
+        "params": "#/$defs/MeetingsRecordStopParams",
+        "result": "#/$defs/MeetingRecordingStatus",
+        "scope": "operator.write",
+        "sideEffecting": true
       },
       {
         "description": "The owner confirms an agent or imported claim; it becomes an owner claim that supersedes it. Claims derived from untrusted sources are refused. Side-effecting.",
@@ -6091,6 +6181,30 @@
           "description": "ISO-8601 timestamp (UTC)",
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
           "type": "string"
+        },
+        "threadId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "language": {
+          "maxLength": 40,
+          "type": "string"
+        },
+        "untrusted": {
+          "type": "boolean"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
         }
       },
       "required": [
@@ -6103,6 +6217,14 @@
         "updatedAt"
       ],
       "type": "object"
+    },
+    "ArtifactAuthor": {
+      "enum": [
+        "agent",
+        "user",
+        "specialist"
+      ],
+      "type": "string"
     },
     "ArtifactBlock": {
       "properties": {
@@ -6126,6 +6248,367 @@
       ],
       "type": "object"
     },
+    "ArtifactCell": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "ArtifactConflict": {
+      "properties": {
+        "base": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "latest": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "missed": {
+          "items": {
+            "$ref": "#/$defs/ArtifactVersion"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "base",
+        "latest",
+        "missed"
+      ],
+      "type": "object"
+    },
+    "ArtifactOp": {
+      "anyOf": [
+        {
+          "properties": {
+            "op": {
+              "const": "replace",
+              "type": "string"
+            },
+            "old": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "new": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "old",
+            "new"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "insert",
+              "type": "string"
+            },
+            "after": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "after",
+            "text"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "rewrite",
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "content"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "set",
+              "type": "string"
+            },
+            "cell": {
+              "pattern": "^[A-Z]{1,3}[1-9][0-9]{0,5}$",
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/$defs/ArtifactCell"
+            }
+          },
+          "required": [
+            "op",
+            "cell",
+            "value"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "setRange",
+              "type": "string"
+            },
+            "range": {
+              "pattern": "^[A-Z]{1,3}[1-9][0-9]{0,5}:[A-Z]{1,3}[1-9][0-9]{0,5}$",
+              "type": "string"
+            },
+            "values": {
+              "items": {
+                "items": {
+                  "$ref": "#/$defs/ArtifactCell"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "op",
+            "range",
+            "values"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "addRows",
+              "type": "string"
+            },
+            "rows": {
+              "items": {
+                "items": {
+                  "$ref": "#/$defs/ArtifactCell"
+                },
+                "type": "array"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            "at": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "op",
+            "rows"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "deleteRows",
+              "type": "string"
+            },
+            "at": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "count": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "op",
+            "at",
+            "count"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "addColumn",
+              "type": "string"
+            },
+            "name": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "values": {
+              "items": {
+                "$ref": "#/$defs/ArtifactCell"
+              },
+              "type": "array"
+            },
+            "at": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "op",
+            "name"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "view",
+              "type": "string"
+            },
+            "view": {
+              "$ref": "#/$defs/ArtifactTableView"
+            }
+          },
+          "required": [
+            "op",
+            "view"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ArtifactRef": {
+      "properties": {
+        "artifactId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "type": {
+          "$ref": "#/$defs/ArtifactType"
+        },
+        "title": {
+          "type": "string"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "hash": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifactId",
+        "version",
+        "type",
+        "title",
+        "bytes",
+        "hash",
+        "summary"
+      ],
+      "type": "object"
+    },
+    "ArtifactTable": {
+      "properties": {
+        "columns": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 200,
+          "type": "array"
+        },
+        "rows": {
+          "items": {
+            "items": {
+              "$ref": "#/$defs/ArtifactCell"
+            },
+            "maxItems": 200,
+            "type": "array"
+          },
+          "maxItems": 10000,
+          "type": "array"
+        }
+      },
+      "required": [
+        "columns",
+        "rows"
+      ],
+      "type": "object"
+    },
+    "ArtifactTableView": {
+      "properties": {
+        "sort": {
+          "anyOf": [
+            {
+              "properties": {
+                "column": {
+                  "type": "string"
+                },
+                "dir": {
+                  "enum": [
+                    "asc",
+                    "desc"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "column",
+                "dir"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "filter": {
+          "anyOf": [
+            {
+              "properties": {
+                "column": {
+                  "type": "string"
+                },
+                "contains": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "column",
+                "contains"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
     "ArtifactType": {
       "enum": [
         "markdown",
@@ -6134,9 +6617,164 @@
         "pdf",
         "sheet",
         "itinerary",
-        "dashboard"
+        "dashboard",
+        "doc",
+        "code",
+        "table",
+        "image"
       ],
       "type": "string"
+    },
+    "ArtifactUpdatedPayload": {
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/Artifact"
+        },
+        "version": {
+          "$ref": "#/$defs/ArtifactVersion"
+        }
+      },
+      "required": [
+        "artifact",
+        "version"
+      ],
+      "type": "object"
+    },
+    "ArtifactVersion": {
+      "properties": {
+        "artifactId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "author": {
+          "$ref": "#/$defs/ArtifactAuthor"
+        },
+        "kind": {
+          "enum": [
+            "snapshot",
+            "ops"
+          ],
+          "type": "string"
+        },
+        "ops": {
+          "items": {
+            "$ref": "#/$defs/ArtifactOp"
+          },
+          "type": "array"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "hash": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "runId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "toolCallId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "restoredFrom": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifactId",
+        "version",
+        "author",
+        "kind",
+        "bytes",
+        "hash",
+        "summary",
+        "createdAt"
+      ],
+      "type": "object"
+    },
+    "ArtifactsCreateParams": {
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/ArtifactType"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "content": {
+          "maxLength": 2000000,
+          "type": "string"
+        },
+        "language": {
+          "maxLength": 40,
+          "type": "string"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "title",
+        "content"
+      ],
+      "type": "object"
+    },
+    "ArtifactsCreateResult": {
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/Artifact"
+        },
+        "ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "conflict": {
+          "$ref": "#/$defs/ArtifactConflict"
+        }
+      },
+      "required": [
+        "artifact",
+        "ref"
+      ],
+      "type": "object"
     },
     "ArtifactsGetParams": {
       "properties": {
@@ -6160,6 +6798,236 @@
       },
       "required": [
         "artifact"
+      ],
+      "type": "object"
+    },
+    "ArtifactsListParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "cursor": {
+          "description": "Opaque cursor",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "ArtifactsListResult": {
+      "properties": {
+        "artifacts": {
+          "items": {
+            "$ref": "#/$defs/Artifact"
+          },
+          "type": "array"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "description": "Opaque cursor",
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "artifacts"
+      ],
+      "type": "object"
+    },
+    "ArtifactsReadParams": {
+      "properties": {
+        "artifactId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "lines": {
+          "properties": {
+            "from": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "to": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "from",
+            "to"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "artifactId"
+      ],
+      "type": "object"
+    },
+    "ArtifactsReadResult": {
+      "properties": {
+        "artifactId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "type": {
+          "$ref": "#/$defs/ArtifactType"
+        },
+        "content": {
+          "type": "string"
+        },
+        "totalLines": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "view": {
+          "$ref": "#/$defs/ArtifactTableView"
+        }
+      },
+      "required": [
+        "artifactId",
+        "version",
+        "type",
+        "content",
+        "totalLines"
+      ],
+      "type": "object"
+    },
+    "ArtifactsRestoreParams": {
+      "properties": {
+        "artifactId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "artifactId",
+        "version"
+      ],
+      "type": "object"
+    },
+    "ArtifactsRestoreResult": {
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/Artifact"
+        },
+        "ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "conflict": {
+          "$ref": "#/$defs/ArtifactConflict"
+        }
+      },
+      "required": [
+        "artifact",
+        "ref"
+      ],
+      "type": "object"
+    },
+    "ArtifactsUpdateParams": {
+      "properties": {
+        "artifactId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "base": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ops": {
+          "items": {
+            "$ref": "#/$defs/ArtifactOp"
+          },
+          "maxItems": 200,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "artifactId",
+        "base",
+        "ops"
+      ],
+      "type": "object"
+    },
+    "ArtifactsUpdateResult": {
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/Artifact"
+        },
+        "ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "conflict": {
+          "$ref": "#/$defs/ArtifactConflict"
+        }
+      },
+      "required": [
+        "artifact",
+        "ref"
+      ],
+      "type": "object"
+    },
+    "ArtifactsVersionsParams": {
+      "properties": {
+        "artifactId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifactId"
+      ],
+      "type": "object"
+    },
+    "ArtifactsVersionsResult": {
+      "properties": {
+        "versions": {
+          "items": {
+            "$ref": "#/$defs/ArtifactVersion"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "versions"
       ],
       "type": "object"
     },
@@ -6854,41 +7722,7 @@
           "$ref": "#/$defs/AutomationTrigger"
         },
         "specialist": {
-          "properties": {
-            "role": {
-              "maxLength": 64,
-              "minLength": 1,
-              "type": "string"
-            },
-            "budget": {
-              "properties": {
-                "tokens": {
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                "costUsd": {
-                  "minimum": 0,
-                  "type": "number"
-                },
-                "minutes": {
-                  "minimum": 1,
-                  "type": "integer"
-                }
-              },
-              "type": "object"
-            },
-            "deliver": {
-              "enum": [
-                "inbox",
-                "thread"
-              ],
-              "type": "string"
-            }
-          },
-          "required": [
-            "role"
-          ],
-          "type": "object"
+          "$ref": "#/$defs/AutomationSpecialist"
         }
       },
       "required": [
@@ -7099,6 +7933,29 @@
       ],
       "type": "string"
     },
+    "AutomationSpecialist": {
+      "properties": {
+        "role": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "budget": {
+          "$ref": "#/$defs/SpecialistBudgetSetting"
+        },
+        "deliver": {
+          "enum": [
+            "inbox",
+            "thread"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "role"
+      ],
+      "type": "object"
+    },
     "AutomationTrigger": {
       "properties": {
         "type": {
@@ -7181,6 +8038,9 @@
         },
         "lightContext": {
           "type": "boolean"
+        },
+        "specialist": {
+          "$ref": "#/$defs/AutomationSpecialist"
         }
       },
       "required": [
@@ -7402,6 +8262,16 @@
             {
               "maxLength": 20000,
               "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "specialist": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutomationSpecialist"
             },
             {
               "type": "null"
@@ -18511,6 +19381,47 @@
       ],
       "type": "object"
     },
+    "MeetingNotesResult": {
+      "properties": {
+        "status": {
+          "enum": [
+            "done",
+            "needs_permission"
+          ],
+          "type": "string"
+        },
+        "postId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "notes": {
+          "$ref": "#/$defs/MeetingNotes"
+        },
+        "remindersProposalId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "question": {
+          "maxLength": 500,
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
     "MeetingPrep": {
       "properties": {
         "meetingId": {
@@ -18588,6 +19499,149 @@
         "agenda",
         "taint"
       ],
+      "type": "object"
+    },
+    "MeetingRecordingEnded": {
+      "properties": {
+        "startedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "durationMs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "reason": {
+          "enum": [
+            "stopped",
+            "source_ended",
+            "silence",
+            "app_quit"
+          ],
+          "type": "string"
+        },
+        "notes": {
+          "enum": [
+            "processing",
+            "done",
+            "needs_permission",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "postId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "error": {
+          "maxLength": 500,
+          "type": "string"
+        }
+      },
+      "required": [
+        "startedAt",
+        "durationMs",
+        "reason",
+        "notes"
+      ],
+      "type": "object"
+    },
+    "MeetingRecordingStatus": {
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "recording": {
+          "type": "boolean"
+        },
+        "consentLine": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "startedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "meetingId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last": {
+          "$ref": "#/$defs/MeetingRecordingEnded"
+        }
+      },
+      "required": [
+        "available",
+        "recording",
+        "consentLine"
+      ],
+      "type": "object"
+    },
+    "MeetingsNotesCreateParams": {
+      "properties": {
+        "libraryItemId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "startedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "speakers": {
+          "$ref": "#/$defs/RecordingSpeakers"
+        }
+      },
+      "required": [
+        "libraryItemId"
+      ],
+      "type": "object"
+    },
+    "MeetingsRecordStartParams": {
+      "properties": {
+        "consentConfirmed": {
+          "type": "boolean"
+        },
+        "meetingId": {
+          "maxLength": 512,
+          "type": "string"
+        }
+      },
+      "required": [
+        "consentConfirmed"
+      ],
+      "type": "object"
+    },
+    "MeetingsRecordStatusParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "MeetingsRecordStopParams": {
+      "properties": {},
       "type": "object"
     },
     "MemoTaskMode": {
@@ -24283,6 +25337,13 @@
         "receipts"
       ],
       "type": "object"
+    },
+    "RecordingSpeakers": {
+      "enum": [
+        "owner_only",
+        "others"
+      ],
+      "type": "string"
     },
     "RelatedThread": {
       "properties": {
