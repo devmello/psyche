@@ -3,7 +3,12 @@ import { createThread, getThread, openDb, setSetting } from "@psyche/db";
 import { SqliteTaskEngine } from "@psyche/tasks";
 import { createIdGenerator, FakeClock, FakePermissionBroker } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
-import { createSpecialistHost, defuse, type RoleSource } from "../src/compose/specialists.ts";
+import {
+  createSpecialistHost,
+  defuse,
+  type RoleSource,
+  raiseSpecialistBudget,
+} from "../src/compose/specialists.ts";
 
 const role = {
   role: "researcher",
@@ -238,5 +243,48 @@ describe("the Gateway's specialist host (#683)", () => {
     expect(jobs[0]?.preflight).toEqual([
       { kind: "new_origin", label: "Will ask before opening new sites" },
     ]);
+  });
+
+  it("reads the owner's budget answer, and raiseSpecialistBudget re-queues a paused job within caps", async () => {
+    const { tasks, host } = setup();
+    const job = await host.createJob({
+      spec: spec("thr_parent"),
+      title: "Apartments",
+      brief: "b",
+      incognito: false,
+      taint: false,
+      taintSources: [],
+    });
+    const pause = async () => {
+      await tasks.claim("specialist/0", { leaseMs: 60_000, taskId: job.taskId });
+      const req = await tasks.requestInput(job.taskId, [
+        {
+          question: "Used its budget",
+          header: "Budget",
+          multiSelect: false,
+          options: [{ label: "Give it more" }, { label: "Stop it" }],
+        },
+      ]);
+      await host.updateSpec(job.taskId, (x) => ({
+        ...x,
+        budgetPause: { inputRequestId: req.id, reason: "token budget" },
+      }));
+      return req;
+    };
+    const first = await pause();
+    expect(await host.budgetDecision(job.taskId)).toBeUndefined();
+    await tasks.answerInput(first.id, { Budget: "Stop it" });
+    expect(await host.budgetDecision(job.taskId)).toBe("stop");
+    await host.updateSpec(job.taskId, (x) => ({ ...x, budgetPause: null }));
+
+    await pause();
+    const task = await raiseSpecialistBudget({ tasks, host }, job.taskId, {
+      tokens: 5_000_000,
+      minutes: 60,
+    });
+    expect(task.status).toBe("queued");
+    expect(task.specialist?.budget.limit).toMatchObject({ tokens: 1_000_000, wallMs: 3_600_000 });
+    expect(task.specialist?.budgetPause).toMatchObject({ raised: true });
+    expect(await host.budgetDecision(job.taskId)).toBe("raised");
   });
 });

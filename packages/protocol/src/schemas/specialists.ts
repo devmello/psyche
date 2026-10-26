@@ -123,6 +123,21 @@ export const SpecialistSpec = Type.Object(
     result: Nullable(SpecialistResult),
     /** The approvals the job will likely ask for, computed at spawn (informational, §4.4). */
     preflight: Type.Optional(Type.Array(ApprovalHint, { maxItems: 16 })),
+    /**
+     * Set while the job is paused at a budget (§4.6): the owner's question card and why.
+     * `raised` means the owner raised the limits with `tasks.update` before answering.
+     */
+    budgetPause: Type.Optional(
+      Nullable(
+        Type.Object({
+          inputRequestId: Id,
+          reason: Type.String({ maxLength: 200 }),
+          raised: Type.Optional(Type.Boolean()),
+        }),
+      ),
+    ),
+    /** A plan-first job's plan was approved; later runs use the job's own mode (§4.1). */
+    planApproved: Type.Optional(Type.Boolean()),
   },
   { $id: "SpecialistSpec" },
 );

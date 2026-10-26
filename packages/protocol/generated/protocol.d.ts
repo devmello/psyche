@@ -7510,6 +7510,7 @@ export type PlanStepStatus = "pending" | "running" | "done" | "failed" | "skippe
 
 export interface SpecialistSpec {
     budget:         RunBudget;
+    budgetPause?:   BudgetPause | null;
     deadline?:      null | string;
     deliver:        Deliver;
     inputs:         SpecialistInputs;
@@ -7517,6 +7518,7 @@ export interface SpecialistSpec {
     parentRunId?:   null | string;
     parentThreadId: string;
     permissionMode: PermissionMode;
+    planApproved?:  boolean;
     planFirst:      boolean;
     preflight?:     ApprovalHint[];
     queuePosition?: number | null;
@@ -7527,6 +7529,12 @@ export interface SpecialistSpec {
     role:       string;
     rootRunId?: null | string;
     tools:      string[];
+}
+
+export interface BudgetPause {
+    inputRequestId: string;
+    raised?:        boolean;
+    reason:         string;
 }
 
 export interface SpecialistInputs {

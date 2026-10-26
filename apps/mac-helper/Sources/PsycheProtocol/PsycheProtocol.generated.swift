@@ -22076,6 +22076,7 @@ public enum PlanStepStatus: String, Codable, Sendable {
 // MARK: - SpecialistSpec
 public struct SpecialistSpec: Codable, Sendable {
     public let budget: RunBudget
+    public let budgetPause: BudgetPause?
     public let deadline: String?
     public let deliver: Deliver
     public let inputs: SpecialistInputs
@@ -22083,6 +22084,7 @@ public struct SpecialistSpec: Codable, Sendable {
     public let parentRunID: String?
     public let parentThreadID: String
     public let permissionMode: PermissionMode
+    public let planApproved: Bool?
     public let planFirst: Bool
     public let preflight: [ApprovalHint]?
     public let queuePosition: Int?
@@ -22094,6 +22096,7 @@ public struct SpecialistSpec: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case budget = "budget"
+        case budgetPause = "budgetPause"
         case deadline = "deadline"
         case deliver = "deliver"
         case inputs = "inputs"
@@ -22101,6 +22104,7 @@ public struct SpecialistSpec: Codable, Sendable {
         case parentRunID = "parentRunId"
         case parentThreadID = "parentThreadId"
         case permissionMode = "permissionMode"
+        case planApproved = "planApproved"
         case planFirst = "planFirst"
         case preflight = "preflight"
         case queuePosition = "queuePosition"
@@ -22110,8 +22114,9 @@ public struct SpecialistSpec: Codable, Sendable {
         case tools = "tools"
     }
 
-    public init(budget: RunBudget, deadline: String?, deliver: Deliver, inputs: SpecialistInputs, model: String, parentRunID: String?, parentThreadID: String, permissionMode: PermissionMode, planFirst: Bool, preflight: [ApprovalHint]?, queuePosition: Int?, result: SpecialistResult?, role: String, rootRunID: String?, tools: [String]) {
+    public init(budget: RunBudget, budgetPause: BudgetPause?, deadline: String?, deliver: Deliver, inputs: SpecialistInputs, model: String, parentRunID: String?, parentThreadID: String, permissionMode: PermissionMode, planApproved: Bool?, planFirst: Bool, preflight: [ApprovalHint]?, queuePosition: Int?, result: SpecialistResult?, role: String, rootRunID: String?, tools: [String]) {
         self.budget = budget
+        self.budgetPause = budgetPause
         self.deadline = deadline
         self.deliver = deliver
         self.inputs = inputs
@@ -22119,6 +22124,7 @@ public struct SpecialistSpec: Codable, Sendable {
         self.parentRunID = parentRunID
         self.parentThreadID = parentThreadID
         self.permissionMode = permissionMode
+        self.planApproved = planApproved
         self.planFirst = planFirst
         self.preflight = preflight
         self.queuePosition = queuePosition
@@ -22126,6 +22132,25 @@ public struct SpecialistSpec: Codable, Sendable {
         self.role = role
         self.rootRunID = rootRunID
         self.tools = tools
+    }
+}
+
+// MARK: - BudgetPause
+public struct BudgetPause: Codable, Sendable {
+    public let inputRequestID: String
+    public let raised: Bool?
+    public let reason: String
+
+    public enum CodingKeys: String, CodingKey {
+        case inputRequestID = "inputRequestId"
+        case raised = "raised"
+        case reason = "reason"
+    }
+
+    public init(inputRequestID: String, raised: Bool?, reason: String) {
+        self.inputRequestID = inputRequestID
+        self.raised = raised
+        self.reason = reason
     }
 }
 

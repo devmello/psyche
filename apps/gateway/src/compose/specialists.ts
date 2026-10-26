@@ -1,9 +1,12 @@
-import type {
-  SpecialistHost,
-  SpecialistJobInput,
-  SpecialistReportInput,
-  SpecialistReportMeta,
-  SpecialistRoleDef,
+import {
+  BUDGET_OPTIONS,
+  BUDGET_PAUSE_HEADER,
+  budgetDecisionOf,
+  type SpecialistHost,
+  type SpecialistJobInput,
+  type SpecialistReportInput,
+  type SpecialistReportMeta,
+  type SpecialistRoleDef,
 } from "@psyche/agent-core";
 import { appendMessage, createThread, getSetting, type PsycheDb } from "@psyche/db";
 import { sanitizeBlock } from "@psyche/permissions";
@@ -14,8 +17,10 @@ import type {
   PermissionBroker,
   SpecialistJob,
   SpecialistResult,
+  SpecialistSpec,
   Task,
 } from "@psyche/protocol";
+import { PsycheError } from "@psyche/protocol";
 import { type FsSkillLoader, specialistsPromptSection } from "@psyche/skills";
 import type { SqliteTaskEngine } from "@psyche/tasks";
 import { INCOGNITO_TTL_MS } from "../handlers/threads.ts";
@@ -275,5 +280,72 @@ export function createSpecialistHost(deps: SpecialistHostDeps): SpecialistHost {
     async promptSection() {
       return specialistsPromptSection(await roles());
     },
+    async updateSpec(taskId, patch) {
+      const task = await tasks.updateSpecialist(taskId, patch);
+      return task.specialist as SpecialistSpec;
+    },
+    async budgetDecision(taskId) {
+      const spec = (await tasks.get(taskId))?.specialist;
+      const pause = spec?.budgetPause;
+      if (pause == null) return undefined;
+      if (pause.raised === true) return "raised";
+      const request = tasks.inputRequests({ taskId }).find((r) => r.id === pause.inputRequestId);
+      if (request === undefined || request.status !== "answered") return undefined;
+      return budgetDecisionOf(request.answer?.[BUDGET_PAUSE_HEADER]);
+    },
   };
+}
+
+/**
+ * Raise a specialist job's budget or move its deadline (`tasks.update`, specialists §4.7), never
+ * above the role's caps. A job paused on its budget is marked `raised` and its question is
+ * answered "Give it more", so it re-queues without adding its own +50% on top.
+ */
+export async function raiseSpecialistBudget(
+  deps: Pick<SpecialistHostDeps, "tasks"> & { host: Pick<SpecialistHost, "roles"> },
+  taskId: string,
+  patch: { tokens?: number; costUsd?: number; minutes?: number; deadline?: string },
+): Promise<Task> {
+  const { tasks } = deps;
+  const spec = (await tasks.get(taskId))?.specialist;
+  if (spec === undefined) {
+    throw new PsycheError("invalid_params", `task ${taskId} is not a specialist's job`);
+  }
+  const role = (await deps.host.roles()).find((r) => r.role === spec.role);
+  const cap = (v: number | undefined, c: number | undefined) =>
+    v === undefined ? undefined : c === undefined ? v : Math.min(v, c);
+  const tokens = cap(patch.tokens, role?.caps.tokens);
+  const costUsd = cap(patch.costUsd, role?.caps.costUsd);
+  const minutes = cap(patch.minutes, role?.caps.minutes);
+  let deadline: string | undefined;
+  if (patch.deadline !== undefined) {
+    const at = Date.parse(patch.deadline);
+    if (!Number.isFinite(at)) throw new PsycheError("invalid_params", "deadline must be ISO-8601");
+    deadline = new Date(at).toISOString();
+  }
+  const pause = spec.budgetPause;
+  let task = await tasks.updateSpecialist(taskId, (x) => ({
+    ...x,
+    budget: {
+      ...x.budget,
+      limit: {
+        ...x.budget.limit,
+        ...(tokens === undefined ? {} : { tokens }),
+        ...(costUsd === undefined ? {} : { costUsd }),
+        ...(minutes === undefined ? {} : { wallMs: minutes * 60_000 }),
+      },
+    },
+    ...(deadline === undefined ? {} : { deadline }),
+    ...(x.budgetPause == null ? {} : { budgetPause: { ...x.budgetPause, raised: true } }),
+  }));
+  if (pause != null) {
+    const open = tasks
+      .inputRequests({ taskId, status: "open" })
+      .find((r) => r.id === pause.inputRequestId);
+    if (open !== undefined) {
+      await tasks.answerInput(open.id, { [BUDGET_PAUSE_HEADER]: BUDGET_OPTIONS.more });
+      task = (await tasks.get(taskId)) ?? task;
+    }
+  }
+  return task;
 }

@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (S02, #683 part 2b: budgets and plan first)
+
+- `SpecialistSpec.budgetPause?` (`{inputRequestId, reason, raised?}`, nullable): the job is paused on its budget question. `raised` means `tasks.update` raised the limits.
+- `SpecialistSpec.planApproved?`: a plan-first job's plan was approved. No new enum values.
 ### v1 additive — 2026-10-26 (chat experience phase 5: chart, diagram and diff artifacts, docs/design/chat-experience-2026.md §4.2)
 
 - `ArtifactType` gains `chart`, `diagram` and `diff` (appended). `html` already existed; it joins them behind the sandbox in a later PR.
