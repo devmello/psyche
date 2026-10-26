@@ -129,7 +129,7 @@ describe("OnboardingFlow", () => {
     await userEvent.click(screen.getByRole("radio", { name: /^Read and act/ }));
     await userEvent.click(screen.getByRole("button", { name: "Connect" }));
     expect(onConnect).toHaveBeenCalledWith("google", "read_act");
-    const connected = await screen.findByRole("list", { name: "Connected accounts" });
+    const connected = await screen.findByRole("list", { name: "Your accounts" });
     expect(within(connected).getByText("Google (Gmail, Calendar, Drive)")).toBeTruthy();
     // The connected type leaves the picker; the next one is offered.
     const picker = screen.getByLabelText("Connect another account") as HTMLSelectElement;
@@ -227,7 +227,7 @@ describe("OnboardingFlow", () => {
     await userEvent.click(screen.getByRole("button", { name: "Skip Screen Recording" }));
     await next();
     await userEvent.click(screen.getByRole("button", { name: "Connect" }));
-    await screen.findByRole("list", { name: "Connected accounts" });
+    await screen.findByRole("list", { name: "Your accounts" });
     await next();
     await userEvent.type(screen.getByLabelText("API key"), "k");
     await userEvent.click(screen.getByRole("button", { name: "Save to vault" }));
@@ -408,7 +408,7 @@ describe("Onboarding polish (UI design §3.19)", () => {
     expect(screen.getByRole("button", { name: "Skip for now" })).toBeTruthy();
     expect(screen.getByText(/Nothing connected yet/)).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Connect" }));
-    const connected = await screen.findByRole("list", { name: "Connected accounts" });
+    const connected = await screen.findByRole("list", { name: "Your accounts" });
     expect(within(connected).getAllByRole("listitem")).toHaveLength(1);
     expect(screen.queryByRole("button", { name: "Skip for now" })).toBeNull();
   });
