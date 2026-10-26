@@ -90,6 +90,35 @@ export const RunStatus = StringEnum(
 );
 export type RunStatus = Static<typeof RunStatus>;
 
+/** What started a run (run trace §4.2): a chat turn, a Task, an automation, or a helper. */
+export const RunKind = StringEnum(["chat", "task", "automation", "subagent"], { $id: "RunKind" });
+export type RunKind = Static<typeof RunKind>;
+
+export const RunOrigin = StringEnum(["owner", "automation", "channel", "subagent"], {
+  $id: "RunOrigin",
+});
+export type RunOrigin = Static<typeof RunOrigin>;
+
+/** A run's budget and what it used; `costUsd` is null for unpriced subscription runs. */
+export const RunBudget = Type.Object(
+  {
+    limit: Type.Object({
+      steps: Type.Optional(Type.Integer({ minimum: 0 })),
+      tokens: Type.Optional(Type.Integer({ minimum: 0 })),
+      wallMs: Type.Optional(Type.Integer({ minimum: 0 })),
+      costUsd: Type.Optional(Type.Number({ minimum: 0 })),
+    }),
+    used: Type.Object({
+      steps: Type.Integer({ minimum: 0 }),
+      tokens: Type.Integer({ minimum: 0 }),
+      wallMs: Type.Integer({ minimum: 0 }),
+      costUsd: Nullable(Type.Number({ minimum: 0 })),
+    }),
+  },
+  { $id: "RunBudget" },
+);
+export type RunBudget = Static<typeof RunBudget>;
+
 export const Run = Type.Object(
   {
     id: Id,
@@ -101,6 +130,24 @@ export const Run = Type.Object(
     endedAt: Nullable(IsoDateTime),
     error: Nullable(Type.String()),
     usage: Usage,
+    // Run trace §4.2 (additive). Helper and specialist runs are child runs: `parentRunId` is the
+    // run that spawned them, `rootRunId` the top of the tree (shared with S02's specialists).
+    kind: Type.Optional(RunKind),
+    title: Type.Optional(Type.String({ maxLength: 160 })),
+    parentRunId: Nullable(Id),
+    rootRunId: Nullable(Id),
+    taskId: Nullable(Id),
+    automationRunId: Nullable(Id),
+    stepCount: Type.Optional(Type.Integer({ minimum: 0 })),
+    currentStepId: Nullable(Id),
+    lastStepAt: Nullable(IsoDateTime),
+    origin: Type.Optional(RunOrigin),
+    budget: Type.Optional(RunBudget),
+    deadline: Nullable(IsoDateTime),
+    /** The branch label for an S02 specialist. */
+    specialist: Type.Optional(Type.Object({ role: Type.String({ minLength: 1, maxLength: 64 }) })),
+    /** Why the trace differs from what ran ("Some steps were folded"). */
+    note: Type.Optional(Type.String({ maxLength: 160 })),
   },
   { $id: "Run" },
 );

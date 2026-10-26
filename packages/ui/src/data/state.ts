@@ -11,9 +11,12 @@ import type {
   InputRequest,
   LibraryItem,
   Message,
+  MethodResult,
   Notification,
   Receipt,
   Run,
+  RunFrame,
+  RunStep,
   Task,
   TaskAction,
   ThreadListEntry,
@@ -99,6 +102,12 @@ export interface UiState {
   reasoning: Dict<ReasoningStep>;
   queue: readonly QueuedFollowUp[];
   runs: Dict<Run>;
+  /** Run-trace steps by run id, ordered by seq (`runs.get`, `runs.steps`, `run.step`). */
+  runSteps: Dict<readonly RunStep[]>;
+  /** One step's kept thinking text and payloads (`runs.step`), by `<runId>/<stepId>`. */
+  runStepDetails: Dict<RunStepDetail>;
+  /** Frames Psyche saw during a run, by run id, ordered by seq. */
+  runFrames: Dict<readonly RunFrame[]>;
   toolCalls: Dict<ToolCall>;
   tasks: Dict<Task>;
   taskActions: Dict<readonly TaskAction[]>;
@@ -140,6 +149,9 @@ export const INITIAL_STATE: UiState = {
   reasoning: {},
   queue: [],
   runs: {},
+  runSteps: {},
+  runStepDetails: {},
+  runFrames: {},
   toolCalls: {},
   tasks: {},
   taskActions: {},
@@ -162,6 +174,36 @@ export const INITIAL_STATE: UiState = {
   threadContext: {},
   touched: {},
 };
+
+/** `runs.step`: a step with its kept thinking text and its tool input and output. */
+export type RunStepDetail = MethodResult<"runs.step">;
+
+/**
+ * Merges steps into a run's ordered list. With `version` (a load requested then), a step an
+ * event touched after it is newer and kept. Retained thinking text survives an update that does
+ * not carry it (`run.step` never does).
+ */
+export function upsertRunSteps(
+  state: UiState,
+  runId: string,
+  steps: readonly RunStep[],
+  version?: number,
+): UiState {
+  const byId = new Map((state.runSteps[runId] ?? []).map((x) => [x.id, x]));
+  for (const step of steps) {
+    if (version !== undefined && (state.touched[`runSteps:${step.id}`] ?? -1) > version) continue;
+    const prev = byId.get(step.id);
+    const full = step.text?.full ?? prev?.text?.full;
+    byId.set(
+      step.id,
+      step.text !== undefined && full !== undefined
+        ? { ...step, text: { ...step.text, full } }
+        : step,
+    );
+  }
+  const list = [...byId.values()].sort((a, b) => a.seq - b.seq);
+  return { ...state, runSteps: { ...state.runSteps, [runId]: list } };
+}
 
 /** Collections whose entities are keyed by `id` and can be bulk-loaded from a list result. */
 export type EntityCollection =

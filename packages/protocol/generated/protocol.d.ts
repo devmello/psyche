@@ -1319,6 +1319,7 @@ export interface AutomationRun {
     endedAt?:        null | string;
     id:              string;
     notificationId?: null | string;
+    runId?:          null | string;
     scheduledFor:    string;
     startedAt:       string;
     status:          AutomationRunStatus;
@@ -1326,11 +1327,21 @@ export interface AutomationRun {
     taskId?:         null | string;
     threadId?:       null | string;
     trigger:         AutomationRunTrigger;
+    usage?:          Usage;
 }
 
 export type AutomationRunStatus = "running" | "done" | "no_reply" | "failed" | "cancelled" | "skipped";
 
 export type AutomationRunTrigger = "schedule" | "manual";
+
+export interface Usage {
+    cacheRead:  number;
+    cacheWrite: number;
+    costUsd:    number;
+    input:      number;
+    output:     number;
+    reasoning:  number;
+}
 
 export interface AutomationRunStartedPayload {
     run: AutomationRun;
@@ -1690,6 +1701,7 @@ export interface BrowserRecording {
      */
     id:             string;
     libraryItemId?: null | string;
+    runId?:         null | string;
     startedAt:      string;
     taskId?:        null | string;
     threadId?:      null | string;
@@ -3675,7 +3687,9 @@ export interface MemoryFileChangedPayload {
      */
     path:        string;
     provenance?: Provenance;
+    runId?:      string;
     source:      MemoryChangeSource;
+    stepId?:     string;
 }
 
 export type MemoryChangeSource = "tool" | "api" | "external" | "job";
@@ -4517,6 +4531,77 @@ export interface PolicyRule {
     priority:  number;
 }
 
+export interface PsycheTrace {
+    children:   TraceChild[];
+    exportedAt: string;
+    format:     PsycheTraceFormat;
+    frames:     FrameElement[];
+    redacted:   boolean;
+    run:        TraceRun;
+    steps:      TraceStep[];
+    version:    number;
+}
+
+export interface TraceChild {
+    run:   TraceRun;
+    steps: TraceStep[];
+}
+
+export interface TraceRun {
+    endedAt?:     null | string;
+    id:           string;
+    kind?:        string;
+    model:        string;
+    parentRunId?: null | string;
+    startedAt:    string;
+    status:       RunStatus;
+    title?:       string;
+    usage:        Usage;
+}
+
+export type RunStatus = "running" | "done" | "failed" | "cancelled" | "awaiting_approval" | "awaiting_input";
+
+export interface TraceStep {
+    attempt:       number;
+    attributes:    { [key: string]: Attribute };
+    childRunId?:   string;
+    endedAt?:      null | string;
+    error?:        RunStepError;
+    groupId?:      string;
+    id:            string;
+    input?:        unknown;
+    kind:          RunStepKind;
+    label:         string;
+    output?:       unknown;
+    parentStepId?: string;
+    seq:           number;
+    startedAt:     string;
+    status:        RunStepStatus;
+    target?:       string;
+    thinking?:     string;
+}
+
+export type Attribute = boolean | number | string;
+
+export interface RunStepError {
+    code:      string;
+    message:   string;
+    retryable: boolean;
+}
+
+export type RunStepKind = "thinking" | "model" | "tool" | "approval" | "question" | "subagent" | "text" | "memory" | "artifact" | "note";
+
+export type RunStepStatus = "pending" | "running" | "ok" | "failed" | "waiting" | "cancelled" | "skipped";
+
+export type PsycheTraceFormat = "psyche-trace";
+
+export interface FrameElement {
+    at:      string;
+    file:    string;
+    seq:     number;
+    stepId?: null | string;
+}
+
 export interface QuestionBlock {
     inputRequestId: string;
     type:           QuestionBlockType;
@@ -4655,31 +4740,296 @@ export interface ResOkFrame {
     type:    ResErrFrameType;
 }
 
+export interface RunGetResult {
+    /**
+     * Helper and specialist runs it spawned
+     */
+    children: Run[];
+    run:      Run;
+    /**
+     * The first 500 steps; page with runs.steps
+     */
+    steps: RunStep[];
+}
+
+export interface Run {
+    attempt:          number;
+    automationRunId?: null | string;
+    budget?:          RunBudget;
+    currentStepId?:   null | string;
+    deadline?:        null | string;
+    endedAt?:         null | string;
+    error?:           null | string;
+    id:               string;
+    kind?:            RunKind;
+    lastStepAt?:      null | string;
+    modelRef:         string;
+    note?:            string;
+    origin?:          RunOrigin;
+    parentRunId?:     null | string;
+    rootRunId?:       null | string;
+    specialist?:      RunSpecialist;
+    startedAt:        string;
+    status:           RunStatus;
+    stepCount?:       number;
+    taskId?:          null | string;
+    threadId:         string;
+    title?:           string;
+    usage:            Usage;
+}
+
+export interface RunBudget {
+    limit: Limit;
+    used:  Used;
+}
+
+export interface Limit {
+    costUsd?: number;
+    steps?:   number;
+    tokens?:  number;
+    wallMs?:  number;
+}
+
+export interface Used {
+    costUsd?: number | null;
+    steps:    number;
+    tokens:   number;
+    wallMs:   number;
+}
+
+export type RunKind = "chat" | "task" | "automation" | "subagent";
+
+export type RunOrigin = "owner" | "automation" | "channel" | "subagent";
+
+export interface RunSpecialist {
+    role: string;
+}
+
+export interface RunStep {
+    approvalId?:     string;
+    artifactId?:     string;
+    attempt:         number;
+    attempts?:       RunStepAttempt[];
+    childRunId?:     string;
+    doneLabel?:      string;
+    endedAt?:        null | string;
+    error?:          RunStepError;
+    frames?:         Frames;
+    groupId?:        string;
+    id:              string;
+    inputRequestId?: string;
+    kind:            RunStepKind;
+    label:           string;
+    memoryPath?:     string;
+    modelRef?:       string;
+    parentStepId?:   string;
+    payloadRef?:     PayloadRef;
+    preview?:        Preview;
+    progress?:       Progress;
+    receiptId?:      string;
+    runId:           string;
+    /**
+     * Per run, monotonic from 1: the replay order
+     */
+    seq:         number;
+    startedAt:   string;
+    status:      RunStepStatus;
+    target?:     string;
+    taskId?:     string;
+    text?:       Text;
+    toolCallId?: string;
+    usage?:      Usage;
+}
+
+export interface RunStepAttempt {
+    endedAt?:  null | string;
+    error?:    RunStepError;
+    startedAt: string;
+    status:    RunStepStatus;
+}
+
+export interface Frames {
+    first: number;
+    last:  number;
+}
+
+export interface PayloadRef {
+    input?:  string;
+    output?: string;
+}
+
+export interface Preview {
+    input?:  string;
+    output?: string;
+}
+
+export interface Progress {
+    fraction?: number;
+    message?:  string;
+}
+
+export interface Text {
+    expiresAt?: string;
+    full?:      string;
+    summary:    string;
+}
+
+export interface RunIDParams {
+    runId: string;
+}
+
+export interface RunStepPayload {
+    runId: string;
+    step:  RunStep;
+}
+
 export interface RunUpdatedPayload {
     run: Run;
 }
 
-export interface Run {
-    attempt:   number;
-    endedAt?:  null | string;
-    error?:    null | string;
-    id:        string;
-    modelRef:  string;
-    startedAt: string;
-    status:    RunStatus;
-    threadId:  string;
-    usage:     Usage;
+export interface RunsChildrenResult {
+    runs: RunSummary[];
 }
 
-export type RunStatus = "running" | "done" | "failed" | "cancelled" | "awaiting_approval" | "awaiting_input";
+export interface RunSummary {
+    activity?:        number[];
+    attempt:          number;
+    automationRunId?: null | string;
+    budget?:          RunBudget;
+    currentStep?:     CurrentStep;
+    currentStepId?:   null | string;
+    deadline?:        null | string;
+    durationsMs?:     number[];
+    endedAt?:         null | string;
+    error?:           null | string;
+    id:               string;
+    kind?:            RunKind;
+    lastStepAt?:      null | string;
+    modelRef:         string;
+    note?:            string;
+    origin?:          RunOrigin;
+    parentRunId?:     null | string;
+    rootRunId?:       null | string;
+    specialist?:      RunSummarySpecialist;
+    startedAt:        string;
+    status:           RunStatus;
+    stepCount?:       number;
+    taskId?:          null | string;
+    threadId:         string;
+    title?:           string;
+    usage:            Usage;
+}
 
-export interface Usage {
-    cacheRead:  number;
-    cacheWrite: number;
-    costUsd:    number;
-    input:      number;
-    output:     number;
-    reasoning:  number;
+export interface CurrentStep {
+    label:     string;
+    startedAt: string;
+    status:    RunStepStatus;
+}
+
+export interface RunSummarySpecialist {
+    role: string;
+}
+
+export interface RunsDeleteResult {
+    ok: boolean;
+}
+
+export interface RunsExportParams {
+    format: RunTraceFormat;
+    /**
+     * psyche-trace+json only: a .zip with frames/ (never incognito)
+     */
+    includeFrames?: boolean;
+    runId:          string;
+}
+
+export type RunTraceFormat = "psyche-trace+json" | "markdown";
+
+export interface RunsExportResult {
+    dataBase64?:    string;
+    fileName:       string;
+    libraryItemId?: string;
+    mime:           string;
+}
+
+export interface RunsFrameParams {
+    runId: string;
+    seq:   number;
+    size:  Size;
+}
+
+export type Size = "thumb" | "full";
+
+export interface RunsFrameResult {
+    dataBase64: string;
+    mime:       string;
+}
+
+export interface RunsFramesParams {
+    afterSeq?: number;
+    limit?:    number;
+    runId:     string;
+    stepId?:   string;
+}
+
+export interface RunsFramesResult {
+    frames: RunFrame[];
+}
+
+export interface RunFrame {
+    at:       string;
+    expired?: boolean;
+    height:   number;
+    seq:      number;
+    stepId?:  null | string;
+    width:    number;
+}
+
+export interface RunsListParams {
+    automationId?: string;
+    /**
+     * Opaque cursor
+     */
+    cursor?:      string;
+    kind?:        RunKind;
+    limit?:       number;
+    parentRunId?: string;
+    rootRunId?:   string;
+    since?:       string;
+    status?:      RunStatus[];
+    taskId?:      string;
+    threadId?:    string;
+}
+
+export interface RunsListResult {
+    nextCursor?: null | string;
+    runs:        RunSummary[];
+}
+
+export interface RunsStepParams {
+    runId:  string;
+    stepId: string;
+}
+
+export interface RunsStepResult {
+    input?:  unknown;
+    output?: unknown;
+    step:    RunStep;
+    /**
+     * A payload was over 1 MB: head and tail kept
+     */
+    truncated: boolean;
+}
+
+export interface RunsStepsParams {
+    afterSeq?: number;
+    limit?:    number;
+    runId:     string;
+}
+
+export interface RunsStepsResult {
+    nextSeq?: number | null;
+    steps:    RunStep[];
 }
 
 export interface SandboxListResult {
@@ -5806,6 +6156,7 @@ export interface ToolCall {
     sideEffect:     SideEffect;
     startedAt:      string;
     status:         ToolCallStatus;
+    stepId?:        string;
     taintIn:        boolean;
     taintOut:       boolean;
     target?:        Target | null;

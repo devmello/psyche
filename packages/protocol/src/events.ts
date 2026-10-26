@@ -27,6 +27,7 @@ import {
 } from "./schemas/integrations.ts";
 import { MemoryChangeSource, MemoryJob, PersonaIdentity } from "./schemas/memory.ts";
 import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
+import { RunStep } from "./schemas/runs.ts";
 import { FeedPost, Goal, Idea, Notification, SettingEntry } from "./schemas/surfaces.ts";
 import { InputRequest, Task, TaskAction } from "./schemas/tasks.ts";
 import { Message, Run, Thread } from "./schemas/threads.ts";
@@ -82,6 +83,11 @@ export const Events = {
   "run.updated": defineEvent({
     payload: Type.Object({ run: Run }),
     description: "A run changed status or usage.",
+  }),
+  "run.step": defineEvent({
+    payload: Type.Object({ runId: Id, step: RunStep }),
+    description:
+      "A run-trace step was added or changed (an upsert, coalesced per step; ≤ 4/s for progress). Never carries thinking text or payload bodies: read them with runs.step.",
   }),
   "tool_call.updated": defineEvent({
     payload: Type.Object({ toolCall: ToolCall }),
@@ -176,6 +182,9 @@ export const Events = {
       etag: Nullable(Type.String()),
       source: MemoryChangeSource,
       provenance: Type.Optional(Provenance),
+      /** `source: tool`: the run and step that wrote it (run trace §4.2). */
+      runId: Type.Optional(Id),
+      stepId: Type.Optional(Id),
     }),
     description:
       "A workspace file was created, changed or deleted (by a tool, the API, a job, or outside Psyche).",
