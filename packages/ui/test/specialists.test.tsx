@@ -325,3 +325,23 @@ describe("specialist results in the Feed (specialists §6.2)", () => {
     expect(within(section).queryByText("Birthday gift ideas for Sam")).toBeNull();
   });
 });
+
+describe("specialist_result block (chat experience §4.5)", () => {
+  it("renders the job's result card in a system message", async () => {
+    const { MessageView } = await import("../src/chat/MessageView.tsx");
+    const message = {
+      id: "m_spec",
+      threadId: IDS.threads.main,
+      role: "system",
+      provenance: "agent",
+      blocks: [{ type: "specialist_result", taskId: SPECIALIST_IDS.tasks.done }],
+      createdAt: "2026-10-18T10:00:00Z",
+    } as never;
+    render(
+      <StoryWorld edit={(w) => void withSpecialists(w)}>
+        <MessageView message={message} />
+      </StoryWorld>,
+    );
+    expect(await screen.findByRole("article", { name: /result:/ })).toBeTruthy();
+  });
+});

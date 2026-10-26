@@ -22,7 +22,6 @@ const ALLOWED: Record<string, string> = {
   "specialists/FeedResults.tsx": "Feed surface; specialist results become blocks in phase 6",
   "specialists/ResultCard.tsx": "specialist results; phase 6 (`specialist_result` block)",
   "teaching/ReceiptFeedback.tsx": "popover surface",
-  "voice/controls.tsx": "voice capsule, outside the transcript",
 };
 
 const ROOTS = ["blocks", "chat", "specialists", "teaching", "people", "screen-ask", "voice"];
