@@ -51,6 +51,7 @@ import { cn } from "../lib/utils.ts";
 import { MapPanel } from "../map/MapPanel.tsx";
 import { parseMapContent } from "../map/map-model.ts";
 import { useSlots } from "../slots.tsx";
+import { CanvasSkeleton } from "./CanvasSkeleton.tsx";
 import { ChartView } from "./ChartView.tsx";
 
 /**
@@ -129,11 +130,18 @@ export function CanvasPane({ artifactId, threadId, onSelect }: CanvasPaneProps):
     >
       <RecentsTabs threadId={threadId} activeId={artifactId} onSelect={onSelect} />
       {artifact === null ? (
-        <p className="p-4 text-callout text-label-secondary" role="status">
-          {loading ? t("canvas.loading") : t("canvas.missing")}
-        </p>
+        loading ? (
+          <div className="p-4">
+            <CanvasSkeleton />
+          </div>
+        ) : (
+          <p className="p-4 text-callout text-label-secondary" role="status">
+            {t("canvas.missing")}
+          </p>
+        )
       ) : (
         <CanvasBody
+          key={artifact.id}
           artifact={artifact}
           content={content}
           latest={latest}
@@ -356,9 +364,13 @@ function CanvasBody({
       ) : null}
       <div className="min-h-0 flex-1 overflow-auto p-4">
         {content === null ? (
-          <p className="text-callout text-label-secondary" role="status">
-            {error ?? t("canvas.loading")}
-          </p>
+          error !== null && error !== undefined ? (
+            <p className="text-callout text-label-secondary" role="status">
+              {error}
+            </p>
+          ) : (
+            <CanvasSkeleton />
+          )
         ) : custom !== undefined && custom !== null ? (
           custom
         ) : table ? (
