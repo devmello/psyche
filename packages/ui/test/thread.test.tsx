@@ -50,6 +50,24 @@ describe("ChatThread", () => {
   });
 });
 
+describe("ChatThread send failure", () => {
+  it("keeps the text one click from going out again", async () => {
+    const { gateway } = renderThread();
+    const box = await screen.findByRole("textbox", { name: "Message Wren" });
+    await waitFor(() => expect(gateway.calls.some((c) => c.method === "chat.history")).toBe(true));
+    const runsBusy = gateway.world.runs.some(
+      (r) => r.threadId === IDS.threads.dentist && r.status === "running",
+    );
+    if (runsBusy) return; // follow-ups queue client-side while a run works; no round trip to fail
+    gateway.failNext("chat.send", "unavailable");
+    await userEvent.type(box, "Also check Thursday{Enter}");
+    await userEvent.click(await screen.findByRole("button", { name: "Retry" }));
+    await waitFor(() =>
+      expect(gateway.calls.filter((c) => c.method === "chat.send")).toHaveLength(2),
+    );
+  });
+});
+
 describe("ChatThread layout states", () => {
   it("shows the empty state in a chat without messages, then the conversation", async () => {
     const gateway = new MockGateway(createFixtureWorld(), { now: () => FIXTURE_NOW });

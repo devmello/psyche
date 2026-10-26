@@ -9,7 +9,7 @@ import {
 } from "node:net";
 import { join } from "node:path";
 import type { Duplex } from "node:stream";
-import { getThread, openDb, type PsycheDb } from "@psyche/db";
+import { getSetting, getThread, openDb, type PsycheDb } from "@psyche/db";
 import {
   type AgentLoop,
   isMethodName,
@@ -48,6 +48,7 @@ import {
 } from "./http.ts";
 import { Idempotency } from "./idempotency.ts";
 import { createLogger, type Logger } from "./log.ts";
+import { allowedMapOrigins } from "./map-proxy.ts";
 import { NodeRegistry } from "./nodes/registry.ts";
 import { presenceStateFor } from "./presence-gate.ts";
 import { resolvePeer, trustedProxyList } from "./proxy.ts";
@@ -244,7 +245,12 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   const webhooks: Readonly<Record<string, WebhookRoute>> = { ...options.webhooks };
   const publicRoutes: Readonly<Record<string, PublicRoute>> = { ...options.publicRoutes };
   const http: Server = createServer((req, res) => {
-    const serve = () => handleHttp(req, res, { webRoot: config.webRoot, version: GATEWAY_VERSION });
+    const serve = () =>
+      handleHttp(req, res, {
+        webRoot: config.webRoot,
+        version: GATEWAY_VERSION,
+        mapOrigins: () => allowedMapOrigins((key) => getSetting(db, key)?.value),
+      });
     // The container bind gates every route but the bare health check (Compose healthcheck).
     const path = new URL(req.url ?? "/", "http://gateway.invalid").pathname;
     // POST by default; GET only on a route that declares it (WhatsApp's subscription handshake).

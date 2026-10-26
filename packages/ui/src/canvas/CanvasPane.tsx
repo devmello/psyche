@@ -33,6 +33,7 @@ import {
   useArtifactContent,
   useArtifactVersions,
   useLibraryItem,
+  useStoreState,
   useThreadArtifacts,
 } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
@@ -50,7 +51,9 @@ import { formatTime } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
 import { MapPanel } from "../map/MapPanel.tsx";
 import { parseMapContent } from "../map/map-model.ts";
+import { AgentGlow } from "../motion/index.ts";
 import { useSlots } from "../slots.tsx";
+import { CanvasSkeleton } from "./CanvasSkeleton.tsx";
 import { ChartView } from "./ChartView.tsx";
 
 /**
@@ -120,20 +123,34 @@ export function CanvasPane({ artifactId, threadId, onSelect }: CanvasPaneProps):
   const version = picked ?? artifact?.version ?? null;
   const { content, error } = useArtifactContent(artifact === null ? null : artifactId, version);
   const latest = artifact !== null && version === artifact.version;
+  // The agent is working on this thread: the pane it may be editing glows.
+  const agentActing = useStoreState(
+    (s) =>
+      threadId !== null &&
+      Object.values(s.runs).some((r) => r.threadId === threadId && r.status === "running"),
+  );
 
   return (
     <section
       aria-label={t("canvas.label", { title: artifact?.title ?? "" })}
-      className="flex h-full min-h-0 flex-col bg-background"
+      className="relative flex h-full min-h-0 flex-col bg-background"
       data-testid="canvas-pane"
     >
+      <AgentGlow active={agentActing} />
       <RecentsTabs threadId={threadId} activeId={artifactId} onSelect={onSelect} />
       {artifact === null ? (
-        <p className="p-4 text-callout text-label-secondary" role="status">
-          {loading ? t("canvas.loading") : t("canvas.missing")}
-        </p>
+        loading ? (
+          <div className="p-4">
+            <CanvasSkeleton />
+          </div>
+        ) : (
+          <p className="p-4 text-callout text-label-secondary" role="status">
+            {t("canvas.missing")}
+          </p>
+        )
       ) : (
         <CanvasBody
+          key={artifact.id}
           artifact={artifact}
           content={content}
           latest={latest}
@@ -356,9 +373,13 @@ function CanvasBody({
       ) : null}
       <div className="min-h-0 flex-1 overflow-auto p-4">
         {content === null ? (
-          <p className="text-callout text-label-secondary" role="status">
-            {error ?? t("canvas.loading")}
-          </p>
+          error !== null && error !== undefined ? (
+            <p className="text-callout text-label-secondary" role="status">
+              {error}
+            </p>
+          ) : (
+            <CanvasSkeleton />
+          )
         ) : custom !== undefined && custom !== null ? (
           custom
         ) : table ? (

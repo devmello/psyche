@@ -4,6 +4,7 @@
 */
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "streamdown/styles.css";
 @import "./theme-default.css";
 @import "./semantic.css";
 @import "./motion.css";

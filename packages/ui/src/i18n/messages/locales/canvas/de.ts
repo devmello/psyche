@@ -42,7 +42,7 @@ export const canvas: Partial<Catalogue> = {
   "map.gesture.mobile": "Mit zwei Fingern die Karte bewegen",
   "settings.map.title": "Karten",
   "settings.map.privacy":
-    "Eine Karte fragt bei einem Kachelserver den angezeigten Bereich an; dieser Server erfährt so ungefähr, wohin du schaust. Schalte Kacheln aus, um Orte nur als Liste zu sehen, oder nutze einen eigenen Kachelserver.",
+    "Eine Karte fragt bei einem Kachelserver den angezeigten Bereich an; dieser Server erfährt so ungefähr, wohin du schaust. Schalte Kacheln aus, um Orte nur als Liste zu sehen, oder nutze einen eigenen Kachelserver. Anfragen laufen über dein Gateway; der Kachelserver sieht das Gateway, nicht dein Gerät.",
   "settings.map.tiles": "Kartenkacheln anzeigen",
   "settings.map.tilesHint": "Aus zeigt Orte als Liste ohne Kartenanfragen.",
   "settings.map.style": "Stil-URL des Kachelservers",

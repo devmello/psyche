@@ -44,9 +44,9 @@ export const FullTilesOff: Story = {
   ),
 };
 
-/** Needs network for OpenFreeMap tiles; excluded from snapshots. */
+/** Needs network for OpenFreeMap tiles; no baseline. */
 export const InlineLive: Story = {
-  tags: ["!test"],
+  tags: ["no-visual"],
   render: () => (
     <StoryWorld>
       <div className="w-[520px]">

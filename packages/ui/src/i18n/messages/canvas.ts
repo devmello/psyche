@@ -40,7 +40,7 @@ export const canvas = {
   "map.gesture.mobile": "Use two fingers to move the map",
   "settings.map.title": "Maps",
   "settings.map.privacy":
-    "Showing a map asks a tile server for the area you look at, so that server can tell roughly where you are looking. Turn tiles off to see places as a list only, or use your own tile server.",
+    "Showing a map asks a tile server for the area you look at, so that server can tell roughly where you are looking. Turn tiles off to see places as a list only, or use your own tile server. Requests go through your Gateway, so the tile host sees the Gateway, not your device.",
   "settings.map.tiles": "Show map tiles",
   "settings.map.tilesHint": "Off shows places as a list with no map requests.",
   "settings.map.style": "Tile server style URL",

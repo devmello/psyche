@@ -22,6 +22,9 @@ import { cn } from "../lib/utils.ts";
  * with Open in Psyche. Esc closes from anywhere in the panel. The window is the desktop's.
  */
 
+/** Window heights move in steps of this many pixels. */
+const HEIGHT_STEP = 8;
+
 export interface ScreenAskCaptureView {
   status: "capturing" | "ready" | "none" | "failed";
   mode: "window" | "region";
@@ -88,14 +91,30 @@ export function ScreenAskView(p: ScreenAskViewProps): ReactElement {
     if (!sent) input.current?.focus();
   }, [sent]);
 
-  // The desktop sizes the window to the content.
+  // The desktop sizes the window to the content. Heights are rounded up to a step, sent at most
+  // once per frame and only when they changed, so streaming an answer does not cost an IPC call
+  // per token (smoothness-2026 C6).
   const onHeight = p.onHeight;
   useEffect(() => {
     const el = root.current;
     if (!el || !onHeight || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => onHeight(Math.ceil(el.getBoundingClientRect().height)));
+    let last = -1;
+    let frame = 0;
+    const flush = () => {
+      frame = 0;
+      const h = Math.ceil(el.getBoundingClientRect().height / HEIGHT_STEP) * HEIGHT_STEP;
+      if (h === last) return;
+      last = h;
+      onHeight(h);
+    };
+    const ro = new ResizeObserver(() => {
+      if (frame === 0) frame = requestAnimationFrame(flush);
+    });
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      if (frame !== 0) cancelAnimationFrame(frame);
+    };
   }, [onHeight]);
 
   const onKeyDown = (e: KeyboardEvent<HTMLElement>) => {

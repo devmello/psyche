@@ -462,6 +462,20 @@
   }
 }
 
+/* Agent glow (smoothness-2026 C8): opacity-only pulse while active; the transition fades it out. */
+.psy-agent-glow[data-active="true"] {
+  animation: psy-agent-glow 1.2s linear infinite;
+}
+@keyframes psy-agent-glow {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 @keyframes psy-shimmer {
   from {
     mask-position: 100% 0;
