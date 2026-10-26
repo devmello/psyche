@@ -208,6 +208,7 @@ export class SqliteScheduler implements Scheduler {
     delivery: Automation["delivery"];
     watch?: WatchConfig | undefined;
     trigger?: AutomationTrigger | undefined;
+    specialist?: Automation["specialist"] | null | undefined;
   }): Schedule {
     const schedule = parseSchedule(a.kind, a.schedule, a.timezone);
     if (a.kind === "event") {
@@ -215,6 +216,10 @@ export class SqliteScheduler implements Scheduler {
         bad('an event automation needs `trigger: {type: "event", source}`');
     } else if (a.trigger !== undefined) {
       bad("only event automations take `trigger`");
+    }
+    // Watches and the heartbeat run in-process or on their own budget: never as a specialist.
+    if (a.specialist != null && (a.kind === "watch" || a.kind === "heartbeat")) {
+      bad(`a ${a.kind} automation cannot run as a specialist`);
     }
     if (!SESSION_TARGET.test(a.sessionTarget)) {
       bad("sessionTarget must be main, isolated or named:<id>");
@@ -312,9 +317,10 @@ export class SqliteScheduler implements Scheduler {
         .prepare(
           `INSERT INTO automations (id, kind, title, schedule, timezone, session_target, delivery,
              prompt, scratch, enabled, light_context, system, next_run_at, created_at, updated_at,
-             trigger)
+             trigger, specialist)
            VALUES (@id, @kind, @title, @schedule, @timezone, @session_target, @delivery, @prompt,
-             @scratch, @enabled, @light_context, @system, @next_run_at, @now, @now, @trigger)`,
+             @scratch, @enabled, @light_context, @system, @next_run_at, @now, @now, @trigger,
+             @specialist)`,
         )
         .run({
           id,
@@ -332,6 +338,7 @@ export class SqliteScheduler implements Scheduler {
           next_run_at: this.#nextIso(schedule, a.enabled, now),
           now: this.#iso(now),
           trigger: a.trigger === undefined ? null : JSON.stringify(a.trigger),
+          specialist: a.specialist === undefined ? null : JSON.stringify(a.specialist),
         });
       if (a.watch !== undefined) this.#upsertWatch(id, a.watch, false);
       return this.#updatedEvent(id);
@@ -383,7 +390,8 @@ export class SqliteScheduler implements Scheduler {
           `UPDATE automations SET title = @title, schedule = @schedule, timezone = @timezone,
              session_target = @session_target, delivery = @delivery, prompt = @prompt,
              scratch = @scratch, enabled = @enabled, light_context = @light_context,
-             next_run_at = @next_run_at, trigger = @trigger, updated_at = @now WHERE id = @id`,
+             next_run_at = @next_run_at, trigger = @trigger, specialist = @specialist,
+             updated_at = @now WHERE id = @id`,
         )
         .run({
           id,
@@ -403,6 +411,7 @@ export class SqliteScheduler implements Scheduler {
               : null,
           now: this.#iso(now),
           trigger: next.trigger === undefined ? null : JSON.stringify(next.trigger),
+          specialist: next.specialist == null ? null : JSON.stringify(next.specialist),
         });
       if (patch.watch !== undefined) {
         const w = current.watch;

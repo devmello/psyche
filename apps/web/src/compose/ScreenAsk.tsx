@@ -1,10 +1,12 @@
 import type { Message, ScreenCapture, ScreenImageChoice } from "@psyche/protocol";
 import {
   GatewayProvider,
+  mentionsScreen,
   type ScreenAskAnswer,
   type ScreenAskCaptureView,
   ScreenAskRegionView,
   ScreenAskView,
+  useSettings,
   useStore,
   useThread,
 } from "@psyche/ui";
@@ -28,7 +30,6 @@ import { kitClient } from "./kit-client.ts";
 
 export const SCREEN_ASK_ROUTE = "/screen-ask";
 export const SCREEN_ASK_REGION_ROUTE = "/screen-ask-region";
-const DEST_KEY = "psyche.screenAsk.destination";
 
 export type ScreenAskOpen =
   | { mode: "window" }
@@ -73,12 +74,17 @@ export function answerText(
   return [done, live].filter(Boolean).join("\n\n");
 }
 
-function readDestination(): "new" | "current" {
-  try {
-    return globalThis.localStorage?.getItem(DEST_KEY) === "current" ? "current" : "new";
-  } catch {
-    return "new";
-  }
+/**
+ * What goes with the request (spec §3.3): a pinned or dropped image as chosen; otherwise the
+ * image goes when it is a region, the owner always includes it, or the request is about the
+ * screen. With `auto` the Gateway sends the text context and the agent can look if it needs to.
+ */
+export function imageChoice(
+  choice: ScreenImageChoice,
+  o: { mode: "window" | "region"; always: boolean; text: string },
+): ScreenImageChoice {
+  if (choice !== "auto") return choice;
+  return o.mode === "region" || o.always || mentionsScreen(o.text) ? "pinned" : "auto";
 }
 
 export interface ScreenAskProps {
@@ -106,7 +112,10 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
   const [captured, setCaptured] = useState<Captured>({ status: "capturing", mode: "window" });
   const [image, setImage] = useState<ScreenImageChoice>("auto");
   const [text, setText] = useState("");
-  const [destination, setDestination] = useState<"new" | "current">(readDestination);
+  const { settings, set: setSetting } = useSettings();
+  const destination: "new" | "current" =
+    settings["screenAsk.destination"] === "current" ? "current" : "new";
+  const alwaysImage = settings["screenAsk.alwaysImage"] === true;
   const [sent, setSent] = useState<{ threadId: string; messageId: string } | null>(null);
   const [failed, setFailed] = useState(false);
   /** The capture to discard if the panel closes unsent. */
@@ -183,25 +192,37 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
     const content = text.trim();
     if (content === "" || sent) return;
     const cap = captured.status === "ready" ? captured.capture : null;
+    const choice = cap
+      ? imageChoice(image, { mode: cap.mode, always: alwaysImage, text: content })
+      : image;
+    const newChat = async () =>
+      (await store.call("threads.create", { kind: "side", title: content.slice(0, 80) })).thread.id;
+    const sendTo = (threadId: string) =>
+      store.call("chat.send", {
+        threadId,
+        content,
+        ...(cap && choice !== "dropped"
+          ? { screen: { captureId: cap.captureId, image: choice } }
+          : {}),
+      });
     try {
       let threadId: string;
       if (destination === "current") {
         const { threads } = await store.call("threads.list", { kind: "main" });
-        const main = threads[0];
-        if (!main) throw new Error("no main thread");
-        threadId = main.thread.id;
+        threadId = threads[0]?.thread.id ?? (await newChat());
       } else {
-        const { thread: created } = await store.call("threads.create", {
-          kind: "side",
-          title: content.slice(0, 80),
-        });
-        threadId = created.id;
+        threadId = await newChat();
       }
-      const res = await store.call("chat.send", {
-        threadId,
-        content,
-        ...(cap && image !== "dropped" ? { screen: { captureId: cap.captureId, image } } : {}),
-      });
+      let res: { messageId: string };
+      try {
+        res = await sendTo(threadId);
+      } catch (err) {
+        // The current chat is mid-turn: the ask goes to a new chat rather than waiting.
+        const e = err as { code?: string; details?: { reason?: string } };
+        if (e?.code !== "conflict" || e.details?.reason !== "thread_busy") throw err;
+        threadId = await newChat();
+        res = await sendTo(threadId);
+      }
       // Sent: the capture now belongs to the thread (or was dropped and is discarded here).
       if (image === "dropped") discard();
       unsent.current = null;
@@ -244,14 +265,7 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
           }
         : {})}
       destination={destination}
-      onDestination={(d) => {
-        setDestination(d);
-        try {
-          globalThis.localStorage?.setItem(DEST_KEY, d);
-        } catch {
-          // Remembering is a convenience.
-        }
-      }}
+      onDestination={(d) => void setSetting("screenAsk.destination", d).catch(() => undefined)}
       dictation={dictation}
       {...(answer ? { answer } : {})}
       {...(sent && sent.threadId !== "" ? { onOpen: () => bridge?.openThread(sent.threadId) } : {})}

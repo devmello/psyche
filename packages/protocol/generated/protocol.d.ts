@@ -1487,12 +1487,12 @@ export interface Delivery {
 export type AutomationKind = "cron" | "interval" | "watch" | "heartbeat" | "briefing" | "reminder" | "event";
 
 export interface AutomationSpecialist {
-    budget?:  SpecialistBudget;
+    budget?:  SpecialistBudgetSetting;
     deliver?: Deliver;
     role:     string;
 }
 
-export interface SpecialistBudget {
+export interface SpecialistBudgetSetting {
     costUsd?: number;
     minutes?: number;
     tokens?:  number;
@@ -1624,6 +1624,7 @@ export interface AutomationsCreateParams {
      * main | isolated | named:<id>
      */
     sessionTarget?: string;
+    specialist?:    AutomationSpecialist;
     /**
      * IANA zone; defaults to the Gateway's
      */
@@ -1707,6 +1708,7 @@ export interface AutomationsUpdateParams {
      * main | isolated | named:<id>
      */
     sessionTarget?: string;
+    specialist?:    AutomationSpecialist | null;
     /**
      * IANA zone; defaults to the Gateway's
      */
@@ -7343,12 +7345,6 @@ export interface SpecialistRole {
     skill:  string;
     source: SkillSource;
     tools:  string[];
-}
-
-export interface SpecialistBudgetSetting {
-    costUsd?: number;
-    minutes?: number;
-    tokens?:  number;
 }
 
 export interface Caps {

@@ -224,6 +224,9 @@ export const es: Partial<Catalogue> = {
   "blocks.common.viewDiff": "Ver diferencias",
   "blocks.common.open": "Abrir",
 
+  "blocks.card.status":
+    "{status, select, pending {Pendiente} running {En curso} waiting {En espera} done {Hecho} failed {Error} blocked {Bloqueado} cancelled {Cancelado} other {{status}}}{warning, select, yes {, resultado incierto} other {}}",
+  "blocks.card.unknown": "Psyche aún no puede mostrar este tipo de elemento ({type}).",
   "blocks.message.loading":
     "Cargando {what, select, approval {la aprobación} question {la pregunta} receipt {el recibo} artifact {el artefacto} file {el archivo} task {la tarea} plan {el plan} other {el elemento}}",
   "blocks.message.missing":
@@ -3432,4 +3435,51 @@ export const es: Partial<Catalogue> = {
   "settings.key.voice.conversation.reviewBeforeSend": "Revisar antes de enviar",
   "settings.key.voice.conversation.pauseMs": "Pausa antes de que Psyche responda",
   "settings.key.voice.conversation.brief": "Resumen hablado",
+
+  // Ask about my screen
+  "screenAsk.label": "Preguntar sobre tu pantalla",
+  "screenAsk.placeholder": "Pregunta sobre lo que hay en pantalla o pídele algo a Psyche…",
+  "screenAsk.send": "Preguntar",
+  "screenAsk.capturing": "Mirando tu pantalla…",
+  "screenAsk.chip.window": "{app}",
+  "screenAsk.chip.region": "Área de {app}",
+  "screenAsk.chip.textOnly": "{app} · solo texto",
+  "screenAsk.chip.none": "No se capturó nada",
+  "screenAsk.drop": "No enviar lo que hay en pantalla",
+  "screenAsk.pin": "Enviar siempre la captura de pantalla",
+  "screenAsk.unpin": "Enviar la captura solo si hace falta",
+  "screenAsk.recapture": "Volver a capturar",
+  "screenAsk.selectArea": "Seleccionar área",
+  "screenAsk.refusal.app_excluded": "Psyche no captura {app}.",
+  "screenAsk.refusal.secure_field":
+    "Hay un campo de contraseña activo, así que no hay captura de pantalla.",
+  "screenAsk.refusal.no_window": "No hay ninguna ventana que capturar.",
+  "screenAsk.refusal.permission_missing":
+    "Permite la grabación de pantalla para enviar una captura.",
+  "screenAsk.allowCapture": "Permitir",
+  "screenAsk.captureFailed": "No se pudo capturar la pantalla. Aun así puedes preguntar.",
+  "screenAsk.dest.new": "Nueva conversación",
+  "screenAsk.dest.current": "Conversación actual",
+  "screenAsk.dest.label": "Enviar a",
+  "screenAsk.mic.start": "Di tu petición",
+  "screenAsk.mic.stop": "Dejar de escuchar",
+  "screenAsk.answer.thinking": "Pensando…",
+  "screenAsk.answer.failed": "Algo salió mal. Abre la conversación para ver más.",
+  "screenAsk.open": "Abrir en Psyche",
+  "screenAsk.cancelHint": "Esc para cerrar",
+  "screenAsk.region.hint": "Arrastra para seleccionar un área. Esc mantiene la ventana completa.",
+  "screenAsk.region.label": "Selecciona un área de la pantalla",
+  "settings.screenAsk.title": "Preguntar sobre la pantalla",
+  "settings.key.screenAsk.enabled": "Preguntar sobre mi pantalla",
+  "settings.screenAsk.enabledHint":
+    "Pulsa el atajo en cualquier app para preguntar sobre lo que hay en pantalla o para que Psyche haga algo con ello. No se captura nada hasta que lo pulsas.",
+  "settings.key.screenAsk.shortcut": "Atajo",
+  "settings.screenAsk.shortcutHint":
+    "Abre el panel de preguntas. Vuelve a pulsarlo con el panel abierto para seleccionar un área.",
+  "settings.key.screenAsk.destination": "Enviar a",
+  "settings.key.screenAsk.alwaysImage": "Incluir siempre la captura de pantalla",
+  "settings.screenAsk.alwaysImageHint":
+    "Si no, Psyche solo la envía cuando tu petición trata sobre la pantalla, y solo la mira si lo necesita.",
+  "voice.phrases.screen":
+    "esto|este|esta|eso|aquí|en pantalla|en mi pantalla|qué estoy viendo|qué es esto|esta página|este error|este gráfico|esta ventana|arriba|abajo",
 };
