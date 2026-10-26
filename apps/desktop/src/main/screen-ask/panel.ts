@@ -223,7 +223,10 @@ export class ScreenAskWindow {
       webPreferences: webPreferences(this.#o.preloadPath),
     });
     overlay.setAlwaysOnTop(true, "screen-saver");
-    overlay.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    overlay.setVisibleOnAllWorkspaces(true, {
+      visibleOnFullScreen: true,
+      skipTransformProcessType: true,
+    });
     overlay.on("closed", () => {
       if (this.#overlay === overlay) this.#overlay = undefined;
     });
@@ -296,7 +299,10 @@ export class ScreenAskWindow {
       webPreferences: webPreferences(this.#o.preloadPath),
     });
     win.setAlwaysOnTop(true, "floating");
-    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    win.setVisibleOnAllWorkspaces(true, {
+      visibleOnFullScreen: true,
+      skipTransformProcessType: true,
+    });
     win.on("closed", () => {
       if (this.#win === win) this.#win = undefined;
     });

@@ -51,7 +51,12 @@ import {
   ShortcutSheet,
 } from "./components/Overlays.tsx";
 import { PaneArea, type PaneRenderer } from "./components/Panes.tsx";
-import { hasInsetTitleBar, TitleBar, titleBarInset } from "./components/TitleBar.tsx";
+import {
+  hasInsetTitleBar,
+  TITLEBAR_HEIGHT,
+  TitleBar,
+  titleBarInset,
+} from "./components/TitleBar.tsx";
 import { ShellProvider, useShell, useShellState } from "./context.tsx";
 import { matchShortcut, type ShortcutAction } from "./keyboard.ts";
 import {
@@ -926,7 +931,6 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
             {t("web.shell.skipToContent")}
           </a>
           <TitleBar chrome={platform.chrome}>
-            {inset && !compact ? sidebarToggle : null}
             {/* A side chat names where it came from (redesign §5.4). */}
             {forkedFrom ? (
               <span
@@ -1075,6 +1079,18 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
               openThread(id);
             })}
           </ThreadsDrawer>
+          {/* Last in the tree on purpose: Electron resolves drag regions in tree order, so the
+              screens' drag toolbars (later than the title bar) would otherwise turn the toggle
+              into a drag area while the sidebar is hidden, and its clicks would do nothing. */}
+          {inset && !compact ? (
+            <div
+              className="titlebar-toggle"
+              data-testid="titlebar-toggle"
+              style={{ left: titleBarInset(platform.chrome), height: TITLEBAR_HEIGHT }}
+            >
+              {sidebarToggle}
+            </div>
+          ) : null}
         </div>
       </ShellMotion>
     </UiSlotsProvider>

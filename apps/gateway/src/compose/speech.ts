@@ -335,8 +335,8 @@ export function composeSpeech(setup: SpeechSetup = {}) {
 
 /**
  * Settings of the spoken-reply features that were removed: Psyche does not speak, so a voice, its
- * speed, narration, barge-in, spoken approvals, captions, the spoken brief and the synthesis
- * order mean nothing. Kept: `voice.conversation.{enabled, key, reviewBeforeSend}`.
+ * speed, narration, barge-in, spoken approvals, captions, the spoken brief, the `voice` model
+ * role and the synthesis order mean nothing. Kept: `voice.conversation.{enabled, key, reviewBeforeSend}`.
  */
 export const STALE_SPEECH_SETTINGS = [
   "voice.conversation.voice",
@@ -355,6 +355,7 @@ export const STALE_SPEECH_SETTINGS = [
   "speech.tts.order",
   "speech.tts.voice",
   "speech.tts.personalVoice",
+  "models.voice",
 ] as const;
 
 /** Removes the stale spoken-reply settings (idempotent); returns the keys that were present. */
