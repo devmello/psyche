@@ -101,7 +101,7 @@ Disconnect revokes Psyche's access at Google, deletes the token item from the va
 | What you see | What to do |
 | --- | --- |
 | "Google is not set up on this Gateway" | Add the client id (step 2) and restart the Gateway. |
-| The Gateway does not start: "must be a {{cred:slug}} vault placeholder" | `clientSecret` or `PSYCHE_GOOGLE_CLIENT_SECRET` holds the secret itself. Store it with `psyche vault add` and use the placeholder. |
+| The Gateway does not start: "must be a `{{cred:slug}}` vault placeholder" | `clientSecret` or `PSYCHE_GOOGLE_CLIENT_SECRET` holds the secret itself. Store it with `psyche vault add` and use the placeholder. |
 | Google says `redirect_uri_mismatch` | The client is not a Desktop app client. Create one (step 1.6). |
 | Google says `access_denied` or "app not verified" with no way to continue | The app is in Testing and your account is not a test user, or the audience is Internal. Publish the app (step 1.4). |
 | Connected, then a week later Google asks you to sign in again | The app is still in Testing. Publish it and connect again. |
