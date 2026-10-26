@@ -393,3 +393,54 @@ export const FeedPostRefs = Type.Object(
   { $id: "FeedPostRefs" },
 );
 export type FeedPostRefs = Static<typeof FeedPostRefs>;
+
+// --- post-meeting notes and "Record meeting" (§4.6) ------------------------------------------
+
+/** Who is on a recording: only the owner keeps `owner` provenance; anyone else is untrusted. */
+export const RecordingSpeakers = StringEnum(["owner_only", "others"], { $id: "RecordingSpeakers" });
+export type RecordingSpeakers = Static<typeof RecordingSpeakers>;
+
+/** What became of a recording's notes: a post, or the one-time cloud question (§3 rule 7). */
+export const MeetingNotesResult = Type.Object(
+  {
+    status: StringEnum(["done", "needs_permission"]),
+    postId: Type.Optional(Id),
+    notes: Type.Optional(MeetingNotes),
+    remindersProposalId: Type.Optional(Nullable(Id)),
+    /** Set with `needs_permission`: the question the owner answers in Settings. */
+    question: Type.Optional(Type.String({ maxLength: 500 })),
+  },
+  { $id: "MeetingNotesResult" },
+);
+export type MeetingNotesResult = Static<typeof MeetingNotesResult>;
+
+/** The last recording that ended, and where its notes are. */
+export const MeetingRecordingEnded = Type.Object(
+  {
+    startedAt: IsoDateTime,
+    durationMs: Type.Integer({ minimum: 0 }),
+    reason: StringEnum(["stopped", "source_ended", "silence", "app_quit"]),
+    notes: StringEnum(["processing", "done", "needs_permission", "failed"]),
+    postId: Type.Optional(Id),
+    error: Type.Optional(Type.String({ maxLength: 500 })),
+  },
+  { $id: "MeetingRecordingEnded" },
+);
+export type MeetingRecordingEnded = Static<typeof MeetingRecordingEnded>;
+
+/** "Record meeting" state (§4.6 inputs): the consent line comes before every start. */
+export const MeetingRecordingStatus = Type.Object(
+  {
+    /** False until a Mac helper that can capture the microphone is connected. */
+    available: Type.Boolean(),
+    recording: Type.Boolean(),
+    /** Shown before every start, to say or paste ("Copy", "I've told everyone"). */
+    consentLine: Type.String({ maxLength: 500 }),
+    startedAt: Nullable(IsoDateTime),
+    /** The calendar event the recording was started from (the prep card), when any. */
+    meetingId: Nullable(Type.String()),
+    last: Type.Optional(MeetingRecordingEnded),
+  },
+  { $id: "MeetingRecordingStatus" },
+);
+export type MeetingRecordingStatus = Static<typeof MeetingRecordingStatus>;
