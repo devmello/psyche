@@ -832,6 +832,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     provider,
     model: utility ?? modelRef,
     publish,
+    broker,
+    registry,
     ...(timeZone === undefined ? {} : { timeZone }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
@@ -1042,6 +1044,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     parts,
     async stop(reason) {
       for (const part of [...parts].reverse()) await part.stop?.();
+      proactive.stop();
       vault.stop();
       await pool.stop();
       scheduler.stop();

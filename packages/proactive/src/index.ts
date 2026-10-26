@@ -134,6 +134,25 @@ export {
   type SchedulerLike,
   withProactiveJobs,
 } from "./jobs.ts";
+export {
+  createProposalHandlers,
+  type ProposalCaller,
+  type ProposalHandlers,
+} from "./proposals/handlers.ts";
+export {
+  type BatchBroker,
+  type CreateProposalInput,
+  DEFAULT_INVERSES,
+  type Inverse,
+  MAX_PROPOSAL_CALLS,
+  PROPOSAL_TTL_MS,
+  type ProposalEvent,
+  ProposalService,
+  type ProposalServiceOptions,
+  type ToolLookup,
+  UNDO_WINDOW_MS,
+} from "./proposals/service.ts";
+export { ProposalStore, type StoredProposal, toActionProposal } from "./proposals/store.ts";
 export type { SqliteDatabase, SqliteStatement } from "./sqlite.ts";
 export {
   feedTools,

@@ -1,7 +1,10 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { defineTool } from "@psyche/agent-core";
+import { insertDevice } from "@psyche/db";
 import { FakeModelProvider } from "@psyche/testing";
+import { Type } from "@sinclair/typebox";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { silentLogger } from "../src/log.ts";
@@ -88,5 +91,64 @@ describe("composition root: proactive surfaces (S15)", () => {
     expect((await proactive.goals.get(goal.id)).taskIds).toEqual([accepted.taskId]);
     const notifications = await composed.notifier.list();
     expect(notifications.map((n) => n.kind)).toEqual(["proactive"]);
+  });
+
+  it("runs an approved batch proposal through the composed broker and registry (W2)", async () => {
+    home = mkdtempSync(join(tmpdir(), "psyche-proposals-"));
+    composed = await composeGateway({
+      env: {},
+      logger: silentLogger,
+      retentionIntervalMs: 0,
+      background: false,
+      timeZone: "UTC",
+      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      model: { provider: new FakeModelProvider(), model: "fake/model" },
+    });
+    const ran: unknown[] = [];
+    composed.loop.registry.register(
+      defineTool({
+        name: "mail_set_flags",
+        description: "Mark read",
+        input: Type.Object({ ids: Type.Array(Type.String()), read: Type.Boolean() }),
+        sideEffect: "write",
+        run: async (params, ctx) => {
+          ran.push({ params, approvalId: ctx.authority?.approvalId });
+          return { output: { ok: true }, provenance: "trusted" };
+        },
+      }),
+    );
+    insertDevice(composed.db, {
+      id: "dev_mac",
+      name: "Mac",
+      platform: "macos",
+      role: "client",
+      publicKey: "AAAA",
+      scopes: ["operator.read", "operator.write", "operator.approvals"],
+    });
+    const proposals = composed.proactive.proposals;
+    expect(proposals).toBeDefined();
+    expect(Object.keys(composed.proactive.handlers)).toEqual(
+      expect.arrayContaining(["proposals.list", "proposals.approve", "proposals.undo"]),
+    );
+    const p = proposals?.create({
+      title: "Mark 2 read",
+      calls: [
+        { tool: "mail_set_flags", params: { ids: ["a"], read: true }, summary: "Mark read: a" },
+        { tool: "mail_set_flags", params: { ids: ["b"], read: true }, summary: "Mark read: b" },
+      ],
+      createdBy: { job: "mail.digest" },
+    });
+    const approved = await proposals?.approve(p?.id ?? "");
+    await new Promise((r) => setTimeout(r, 450));
+    await composed.broker.answer({
+      approvalId: approved?.issued.approval.id ?? "",
+      answerToken: approved?.issued.answerTokens.desktop ?? "",
+      decision: "approve",
+      scope: "once",
+      decidedBy: { deviceId: "dev_mac", surface: "desktop" },
+    });
+    await proposals?.idle();
+    expect(ran).toHaveLength(2);
+    expect(proposals?.get(p?.id ?? "").status).toBe("done");
   });
 });

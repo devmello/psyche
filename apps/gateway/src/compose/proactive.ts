@@ -1,17 +1,21 @@
+import type { AgentToolRegistry } from "@psyche/agent-core";
 import { getSetting, type PsycheDb } from "@psyche/db";
 import type { SqliteMemoryStore } from "@psyche/memory";
 import type { PsycheNotifier } from "@psyche/notifications";
+import type { PsychePermissionBroker } from "@psyche/permissions";
 import {
   arxivSource,
   createFeedHandlers,
   createGoalHandlers,
   createIdeaHandlers,
+  createProposalHandlers,
   FeedService,
   type FeedSource,
   GoalsService,
   HEARTBEAT_TASK_BUDGET,
   hackerNewsSource,
   IdeasService,
+  ProposalService,
   publicFetch,
   rssSource,
   type SignalsProvider,
@@ -26,9 +30,9 @@ import {
   type SqliteScheduler,
 } from "@psyche/scheduler";
 import type { SqliteTaskEngine, TaskWorkerPool } from "@psyche/tasks";
-import type { HandlerDef } from "../context.ts";
+import type { Call, HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
-import { mountParamsOnly } from "./handlers.ts";
+import { mountParamsOnly, surfaceOf } from "./handlers.ts";
 
 /**
  * Proactive surfaces (S15; features O2, O5–O9): goals with check-ins on the scheduler, the
@@ -75,17 +79,24 @@ export interface ProactiveSetup {
   logger?: Logger;
   /** Connector signals for Ideas (unanswered mail, subscriptions, trips); S09 supplies them. */
   signals?: SignalsProvider;
+  /** Batch proposals (mail and meeting workflows §8.1): the broker the composition hands out. */
+  broker?: PsychePermissionBroker;
+  /** The loop's tool registry: approved proposals run their calls through it. */
+  registry?: AgentToolRegistry;
 }
 
 export interface ComposedProactive {
   readonly goals: GoalsService;
   readonly feed: FeedService;
   readonly ideas: IdeasService;
+  /** Batch proposals, when the composition gave a broker and a registry. */
+  readonly proposals: ProposalService | undefined;
   readonly handlers: Record<string, HandlerDef>;
   /** The scheduler's launcher: proactive jobs in-process, the heartbeat bounded, the rest to `inner`. */
   launcher(inner: RunLauncher, pool: TaskWorkerPool): RunLauncher;
   /** After the Gateway listens: re-create check-ins the scheduler lost, drop orphans. */
   start(): Promise<void>;
+  stop(): void;
 }
 
 export function composeProactive(setup: ProactiveSetup): ComposedProactive {
@@ -102,6 +113,8 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     timeZone,
     logger,
     signals,
+    broker,
+    registry,
   } = setup;
   const goals = new GoalsService({
     db: db.sqlite,
@@ -141,14 +154,41 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     onError: (err) =>
       logger?.log("warn", "idea mining step failed", { code: PsycheError.from(err).code }),
   });
+  const proposals =
+    broker === undefined || registry === undefined
+      ? undefined
+      : new ProposalService({
+          db: db.sqlite,
+          clock,
+          broker,
+          tools: registry,
+          mainThread: () => sessions.resolve("main", { automation: {} as never, runId: "" }),
+          onEvent: (e) => publish(e.event, e.payload),
+          onError: (err) =>
+            logger?.log("warn", "proposal run failed", { code: PsycheError.from(err).code }),
+        });
+  const proposalHandlers: Record<string, HandlerDef> = {};
+  if (proposals !== undefined) {
+    // `proposals.approve` hands the caller the answer token of its own surface only (§3.7).
+    for (const [name, fn] of Object.entries(createProposalHandlers(proposals))) {
+      proposalHandlers[name] = {
+        run: (call: Call, params: never) =>
+          (fn as (p: unknown, c: { surface: string }) => Promise<unknown>)(params, {
+            surface: surfaceOf(db, call.identity.deviceId),
+          }),
+      };
+    }
+  }
   return {
     goals,
     feed,
     ideas,
+    proposals,
     handlers: {
       ...mountParamsOnly(createGoalHandlers(goals) as never),
       ...mountParamsOnly(createFeedHandlers(feed) as never),
       ...mountParamsOnly(createIdeaHandlers(ideas) as never),
+      ...proposalHandlers,
     },
     launcher: (inner, pool) =>
       withProactiveJobs(inner, {
@@ -165,6 +205,9 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
       } catch (err) {
         logger?.log("warn", "proactive schedule sync failed", { code: PsycheError.from(err).code });
       }
+    },
+    stop() {
+      proposals?.stop();
     },
   };
 }

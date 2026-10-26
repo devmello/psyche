@@ -77,7 +77,27 @@ export const goalLinks = sqliteTable("goal_links", {
   createdAt: text("created_at").notNull(),
 });
 
-export const s15Schema = { feedPosts, ideas, goals, goalMilestones, goalLinks };
+// 202610251900_proactive_proposals
+export const actionProposals = sqliteTable("action_proposals", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  calls: text("calls").notNull(),
+  status: text("status").notNull(),
+  createdBy: text("created_by").notNull(),
+  threadId: text("thread_id"),
+  postId: text("post_id"),
+  approvalId: text("approval_id"),
+  taint: integer("taint").notNull(),
+  taintSources: text("taint_sources"),
+  results: text("results"),
+  undoOf: text("undo_of"),
+  finishedAt: text("finished_at"),
+  createdAt: text("created_at").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const s15Schema = { feedPosts, ideas, goals, goalMilestones, goalLinks, actionProposals };
 
 export type FeedPostRow = typeof feedPosts.$inferSelect;
 export type IdeaRow = typeof ideas.$inferSelect;
