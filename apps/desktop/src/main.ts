@@ -37,6 +37,7 @@ import { loadOrCreateDeviceKey } from "./lib/device-key.ts";
 import {
   checkCallable,
   checkClipboardText,
+  checkComposerText,
   checkExternalUrl,
   checkHttpUrl,
   checkRoute,
@@ -513,6 +514,11 @@ function registerIpc(): void {
   // The section is checked against a slug pattern in settingsRoute().
   on(IPC.windowOpenSettings, (_e, arg) =>
     windows?.showSettings(typeof arg === "string" ? arg : undefined),
+  );
+  // Settings → Connectors "Try it" (#677): the main window comes forward with the text in its
+  // composer, unsent.
+  on(IPC.windowPrefillComposer, (_e, arg) =>
+    command({ type: "prefillComposer", text: checkComposerText(arg) }),
   );
   handle(IPC.dictationGetStatus, () => dictation?.status);
   handle(IPC.dictationRecheck, async () => {

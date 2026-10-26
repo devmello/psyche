@@ -214,6 +214,11 @@
         "payload": "#/$defs/IdeaUpdatedPayload"
       },
       {
+        "description": "A person, organisation, project or place changed in the memory graph.",
+        "name": "memory.entity.updated",
+        "payload": "#/$defs/MemoryEntityUpdatedPayload"
+      },
+      {
         "description": "A workspace file was created, changed or deleted (by a tool, the API, a job, or outside Psyche).",
         "name": "memory.file.changed",
         "payload": "#/$defs/MemoryFileChangedPayload"
@@ -222,6 +227,16 @@
         "description": "A memory job (flush, dreaming, reindex, import) started or finished.",
         "name": "memory.job.updated",
         "payload": "#/$defs/MemoryJobUpdatedPayload"
+      },
+      {
+        "description": "An open loop was created, confirmed, completed, snoozed or dismissed.",
+        "name": "memory.loop.updated",
+        "payload": "#/$defs/MemoryLoopUpdatedPayload"
+      },
+      {
+        "description": "The graph suggests a merge or a project for the owner to confirm.",
+        "name": "memory.suggestion.created",
+        "payload": "#/$defs/MemorySuggestionCreatedPayload"
       },
       {
         "description": "A node connected, disconnected or changed capabilities.",
@@ -1271,6 +1286,126 @@
         "sideEffecting": false
       },
       {
+        "description": "The owner creates a person, organisation, project or place. Side-effecting.",
+        "name": "memory.entities.create",
+        "params": "#/$defs/MemoryEntitiesCreateParams",
+        "result": "#/$defs/MemoryEntitiesCreateResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Marks a relation wrong; it is retracted and not proposed again. Side-effecting.",
+        "name": "memory.entities.edges.retract",
+        "params": "#/$defs/MemoryEntitiesEdgesRetractParams",
+        "result": "#/$defs/MemoryEntitiesEdgesRetractResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Sets an owner relation from the allowlist. Side-effecting.",
+        "name": "memory.entities.edges.set",
+        "params": "#/$defs/MemoryEntitiesEdgesSetParams",
+        "result": "#/$defs/MemoryEntitiesEdgesSetResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Marks a fact wrong: it is retracted and the same value is never proposed again for that entity. Side-effecting.",
+        "name": "memory.entities.facts.retract",
+        "params": "#/$defs/MemoryEntitiesFactsRetractParams",
+        "result": "#/$defs/MemoryEntitiesFactsRetractResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Sets an owner fact; a current value for the attribute is superseded, not deleted. Sensitive traits are refused. Side-effecting.",
+        "name": "memory.entities.facts.set",
+        "params": "#/$defs/MemoryEntitiesFactsSetParams",
+        "result": "#/$defs/MemoryEntitiesFactsSetResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Deletes an entity and everything about it, and blocklists its identifiers so ingest never recreates it. Side-effecting.",
+        "name": "memory.entities.forget",
+        "params": "#/$defs/MemoryEntitiesForgetParams",
+        "result": "#/$defs/MemoryEntitiesForgetResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "One entity with its identifiers, current facts and relations, open loops and last 10 interactions.",
+        "name": "memory.entities.get",
+        "params": "#/$defs/MemoryEntitiesGetParams",
+        "result": "#/$defs/GraphEntityDetail",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Every version of an entity's facts and relations, current and superseded, newest first.",
+        "name": "memory.entities.history",
+        "params": "#/$defs/MemoryEntitiesHistoryParams",
+        "result": "#/$defs/MemoryEntitiesHistoryResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "An entity's interactions, newest first: headers and links, never bodies.",
+        "name": "memory.entities.interactions",
+        "params": "#/$defs/MemoryEntitiesInteractionsParams",
+        "result": "#/$defs/MemoryEntitiesInteractionsResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Merges entities of one kind into `into`; reversible with split. Side-effecting.",
+        "name": "memory.entities.merge",
+        "params": "#/$defs/MemoryEntitiesMergeParams",
+        "result": "#/$defs/MemoryEntitiesMergeResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "People, organisations, projects and places ranked by name match, two-way contact recency and frequency.",
+        "name": "memory.entities.search",
+        "params": "#/$defs/MemoryEntitiesSearchParams",
+        "result": "#/$defs/MemoryEntitiesSearchResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Moves identifiers (and their interactions) to a new entity; the pair is never suggested for merging again. Side-effecting.",
+        "name": "memory.entities.split",
+        "params": "#/$defs/MemoryEntitiesSplitParams",
+        "result": "#/$defs/MemoryEntitiesSplitResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Merge and project suggestions waiting for the owner.",
+        "name": "memory.entities.suggestions",
+        "params": "#/$defs/MemoryEntitiesSuggestionsParams",
+        "result": "#/$defs/MemoryEntitiesSuggestionsResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Answers a suggestion; a rejected merge or project is never suggested again. Side-effecting.",
+        "name": "memory.entities.suggestions.answer",
+        "params": "#/$defs/MemoryEntitiesSuggestionsAnswerParams",
+        "result": "#/$defs/MemoryEntitiesSuggestionsAnswerResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "The owner edits an entity's name, aliases, status, pin or tracking. Side-effecting.",
+        "name": "memory.entities.update",
+        "params": "#/$defs/MemoryEntitiesUpdateParams",
+        "result": "#/$defs/MemoryEntitiesUpdateResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "Why a fact is believed: the claim with its source chunks and provenance.",
         "name": "memory.explain",
         "params": "#/$defs/MemoryExplainParams",
@@ -1311,10 +1446,34 @@
         "sideEffecting": true
       },
       {
+        "description": "Graph health: per-source counts and last ingest, last model pass, budget used, loop precision.",
+        "name": "memory.graph.status",
+        "params": "#/$defs/MemoryGraphStatusParams",
+        "result": "#/$defs/GraphStatus",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Imports memory from another assistant as data: parsed into agent-provenance claims, scanned and size-capped (security §8). Side-effecting.",
         "name": "memory.import",
         "params": "#/$defs/MemoryImportParams",
         "result": "#/$defs/MemoryImportResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Open loops, oldest first, filtered by status, direction, person, project or due date.",
+        "name": "memory.loops.list",
+        "params": "#/$defs/MemoryLoopsListParams",
+        "result": "#/$defs/MemoryLoopsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Confirms, completes, snoozes or dismisses a loop, or edits its text or due date. Side-effecting.",
+        "name": "memory.loops.update",
+        "params": "#/$defs/MemoryLoopsUpdateParams",
+        "result": "#/$defs/MemoryLoopsUpdateResult",
         "scope": "operator.write",
         "sideEffecting": true
       },
@@ -11765,6 +11924,81 @@
       ],
       "type": "string"
     },
+    "EntitySummary": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/GraphEntityKind"
+        },
+        "name": {
+          "type": "string"
+        },
+        "subtitle": {
+          "anyOf": [
+            {
+              "description": "One line, e.g. \"Acme\" or \"Active · 3 people\"",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "$ref": "#/$defs/GraphEntityStatus"
+        },
+        "projectStatus": {
+          "$ref": "#/$defs/GraphProjectStatus"
+        },
+        "lastInteractionAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "openLoops": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "pinned": {
+          "type": "boolean"
+        },
+        "isOwner": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "status",
+        "openLoops",
+        "pinned",
+        "isOwner"
+      ],
+      "type": "object"
+    },
     "ErrorCode": {
       "description": "Machine-readable error code",
       "enum": [
@@ -13262,6 +13496,1144 @@
       ],
       "type": "object"
     },
+    "GraphDirection": {
+      "enum": [
+        "in",
+        "out",
+        "both",
+        "none"
+      ],
+      "type": "string"
+    },
+    "GraphEdge": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "src": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "dst": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "rel": {
+          "$ref": "#/$defs/GraphEdgeRel"
+        },
+        "label": {
+          "$ref": "#/$defs/GraphRelationshipLabel"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "sources": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "validFrom": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "validTo": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "supersededBy": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "retractedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "src",
+        "dst",
+        "rel",
+        "provenance",
+        "confidence",
+        "sources",
+        "validFrom"
+      ],
+      "type": "object"
+    },
+    "GraphEdgeRel": {
+      "enum": [
+        "works_at",
+        "member_of",
+        "stakeholder_of",
+        "located_at",
+        "reports_to",
+        "related_to",
+        "part_of"
+      ],
+      "type": "string"
+    },
+    "GraphEntity": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/GraphEntityKind"
+        },
+        "name": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "aliases": {
+          "items": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/GraphEntityStatus"
+        },
+        "mergedInto": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "isOwner": {
+          "description": "The owner's own person entity (exactly one)",
+          "type": "boolean"
+        },
+        "pinned": {
+          "type": "boolean"
+        },
+        "hidden": {
+          "description": "Don't track: nothing new is stored about them",
+          "type": "boolean"
+        },
+        "projectStatus": {
+          "$ref": "#/$defs/GraphProjectStatus"
+        },
+        "dueAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "description": "Model-written (agent provenance), dated",
+              "maxLength": 400,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "summaryAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastInteractionAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cardPath": {
+          "anyOf": [
+            {
+              "description": "Workspace card, e.g. \"people/sam-lee.md\"",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "updatedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "aliases",
+        "status",
+        "isOwner",
+        "pinned",
+        "hidden",
+        "createdAt",
+        "updatedAt"
+      ],
+      "type": "object"
+    },
+    "GraphEntityDetail": {
+      "properties": {
+        "entity": {
+          "$ref": "#/$defs/GraphEntity"
+        },
+        "identifiers": {
+          "items": {
+            "$ref": "#/$defs/GraphIdentifier"
+          },
+          "type": "array"
+        },
+        "facts": {
+          "description": "Current facts, owner first, newest first",
+          "items": {
+            "$ref": "#/$defs/GraphFact"
+          },
+          "type": "array"
+        },
+        "edges": {
+          "description": "Current relations from or to this entity",
+          "items": {
+            "$ref": "#/$defs/GraphEdge"
+          },
+          "type": "array"
+        },
+        "related": {
+          "description": "Every entity the edges point to",
+          "items": {
+            "$ref": "#/$defs/EntitySummary"
+          },
+          "type": "array"
+        },
+        "openLoops": {
+          "items": {
+            "$ref": "#/$defs/GraphLoop"
+          },
+          "type": "array"
+        },
+        "recentInteractions": {
+          "items": {
+            "$ref": "#/$defs/GraphInteraction"
+          },
+          "maxItems": 10,
+          "type": "array"
+        },
+        "etag": {
+          "description": "Of the card; for memory.entities.update if-match",
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity",
+        "identifiers",
+        "facts",
+        "edges",
+        "related",
+        "openLoops",
+        "recentInteractions",
+        "etag"
+      ],
+      "type": "object"
+    },
+    "GraphEntityKind": {
+      "description": "person, organisation, project or place",
+      "enum": [
+        "person",
+        "org",
+        "project",
+        "place"
+      ],
+      "type": "string"
+    },
+    "GraphEntityStatus": {
+      "enum": [
+        "active",
+        "archived",
+        "merged"
+      ],
+      "type": "string"
+    },
+    "GraphFact": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "attribute": {
+          "$ref": "#/$defs/GraphFactAttribute"
+        },
+        "value": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "sources": {
+          "description": "Interaction, chunk, Contacts or lesson references",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "description": "The quoted span it came from",
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "validFrom": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "validTo": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "recordedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "supersededBy": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "retractedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "entityId",
+        "attribute",
+        "value",
+        "provenance",
+        "confidence",
+        "sources",
+        "validFrom",
+        "recordedAt"
+      ],
+      "type": "object"
+    },
+    "GraphFactAttribute": {
+      "enum": [
+        "role",
+        "title",
+        "employer",
+        "team",
+        "email_pref",
+        "timezone",
+        "city",
+        "birthday",
+        "relationship_to_owner",
+        "preference",
+        "note",
+        "status",
+        "next_step",
+        "budget_note",
+        "deadline"
+      ],
+      "type": "string"
+    },
+    "GraphIdentifier": {
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/GraphIdentifierKind"
+        },
+        "value": {
+          "description": "Display form (the stored key is normalised: lower-case email, E.164 phone)",
+          "maxLength": 512,
+          "type": "string"
+        },
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "source": {
+          "description": "Connector or origin that produced it",
+          "maxLength": 120,
+          "type": "string"
+        },
+        "linkedBy": {
+          "$ref": "#/$defs/GraphLinkedBy"
+        },
+        "verified": {
+          "description": "From Contacts or confirmed by the owner",
+          "type": "boolean"
+        },
+        "shared": {
+          "description": "Seen with several display names (a family or team inbox): never resolves alone",
+          "type": "boolean"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value",
+        "entityId",
+        "source",
+        "linkedBy",
+        "verified",
+        "shared",
+        "createdAt"
+      ],
+      "type": "object"
+    },
+    "GraphIdentifierKind": {
+      "enum": [
+        "email",
+        "phone",
+        "contact",
+        "channel",
+        "domain",
+        "calendar",
+        "url"
+      ],
+      "type": "string"
+    },
+    "GraphInteraction": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/GraphInteractionKind"
+        },
+        "source": {
+          "description": "Connector id",
+          "maxLength": 120,
+          "type": "string"
+        },
+        "occurredAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "direction": {
+          "$ref": "#/$defs/GraphDirection"
+        },
+        "subject": {
+          "anyOf": [
+            {
+              "description": "Untrusted, truncated",
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "threadKey": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "link": {
+          "anyOf": [
+            {
+              "description": "message://, calendar:// or the connector's",
+              "maxLength": 1024,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "projectId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "participants": {
+          "items": {
+            "properties": {
+              "entityId": {
+                "description": "ULID in production",
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              "role": {
+                "$ref": "#/$defs/GraphParticipantRole"
+              }
+            },
+            "required": [
+              "entityId",
+              "role"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "source",
+        "occurredAt",
+        "direction",
+        "participants"
+      ],
+      "type": "object"
+    },
+    "GraphInteractionKind": {
+      "enum": [
+        "mail",
+        "message",
+        "meeting",
+        "call",
+        "note",
+        "chat",
+        "task"
+      ],
+      "type": "string"
+    },
+    "GraphLinkedBy": {
+      "description": "Who attached it to the entity; model links count only after the owner confirms",
+      "enum": [
+        "rule",
+        "owner",
+        "model"
+      ],
+      "type": "string"
+    },
+    "GraphLoop": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "direction": {
+          "$ref": "#/$defs/GraphLoopDirection"
+        },
+        "text": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "description": "The quoted sentence",
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "counterpartId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "projectId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dueAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "$ref": "#/$defs/GraphLoopStatus"
+        },
+        "sourceInteractionId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "detectedBy": {
+          "$ref": "#/$defs/GraphLoopDetectedBy"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "closedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "closedBy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GraphLoopClosedBy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "direction",
+        "text",
+        "status",
+        "provenance",
+        "confidence",
+        "detectedBy",
+        "createdAt"
+      ],
+      "type": "object"
+    },
+    "GraphLoopClosedBy": {
+      "enum": [
+        "owner",
+        "reply_seen",
+        "due_passed"
+      ],
+      "type": "string"
+    },
+    "GraphLoopDetectedBy": {
+      "enum": [
+        "rule",
+        "model",
+        "owner"
+      ],
+      "type": "string"
+    },
+    "GraphLoopDirection": {
+      "enum": [
+        "i_owe",
+        "waiting_on"
+      ],
+      "type": "string"
+    },
+    "GraphLoopDirectionFilter": {
+      "enum": [
+        "i_owe",
+        "waiting_on"
+      ],
+      "type": "string"
+    },
+    "GraphLoopStatus": {
+      "enum": [
+        "suggested",
+        "open",
+        "snoozed",
+        "done",
+        "dismissed"
+      ],
+      "type": "string"
+    },
+    "GraphParticipantRole": {
+      "enum": [
+        "from",
+        "to",
+        "cc",
+        "attendee",
+        "organizer",
+        "mentioned"
+      ],
+      "type": "string"
+    },
+    "GraphProjectStatus": {
+      "enum": [
+        "active",
+        "paused",
+        "done"
+      ],
+      "type": "string"
+    },
+    "GraphRelationshipLabel": {
+      "enum": [
+        "partner",
+        "parent",
+        "child",
+        "sibling",
+        "friend",
+        "colleague",
+        "manager",
+        "report",
+        "client",
+        "vendor",
+        "teacher",
+        "doctor",
+        "other"
+      ],
+      "type": "string"
+    },
+    "GraphSource": {
+      "enum": [
+        "contacts",
+        "mail",
+        "calendar",
+        "messages",
+        "notes",
+        "chats"
+      ],
+      "type": "string"
+    },
+    "GraphStatus": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "sources": {
+          "items": {
+            "properties": {
+              "source": {
+                "$ref": "#/$defs/GraphSource"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "entities": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "interactions": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "lastIngestAt": {
+                "anyOf": [
+                  {
+                    "description": "ISO-8601 timestamp (UTC)",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "source",
+              "enabled",
+              "entities",
+              "interactions"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "counts": {
+          "properties": {
+            "people": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "orgs": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "projects": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "places": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "openLoops": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "pendingSuggestions": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "people",
+            "orgs",
+            "projects",
+            "places",
+            "openLoops",
+            "pendingSuggestions"
+          ],
+          "type": "object"
+        },
+        "lastModelPassAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "budget": {
+          "properties": {
+            "entitiesUsed": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "tokensUsed": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "maxEntities": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "maxTokens": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "entitiesUsed",
+            "tokensUsed",
+            "maxEntities",
+            "maxTokens"
+          ],
+          "type": "object"
+        },
+        "loopPrecision": {
+          "description": "Suggested loops confirmed vs dismissed per source over 30 days",
+          "items": {
+            "properties": {
+              "source": {
+                "$ref": "#/$defs/GraphSource"
+              },
+              "confirmed": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "dismissed": {
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "source",
+              "confirmed",
+              "dismissed"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "enabled",
+        "sources",
+        "counts",
+        "budget",
+        "loopPrecision"
+      ],
+      "type": "object"
+    },
+    "GraphSuggestion": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/GraphSuggestionKind"
+        },
+        "entityIds": {
+          "description": "merge: the entities; project: the proposed members",
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "description": "project: the proposed name",
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "description": "Why it was suggested, in plain words",
+          "maxLength": 300,
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/GraphSuggestionStatus"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "entityIds",
+        "reason",
+        "status",
+        "createdAt"
+      ],
+      "type": "object"
+    },
+    "GraphSuggestionAnswer": {
+      "enum": [
+        "accept",
+        "reject",
+        "later"
+      ],
+      "type": "string"
+    },
+    "GraphSuggestionFilter": {
+      "description": "Default pending",
+      "enum": [
+        "pending",
+        "later"
+      ],
+      "type": "string"
+    },
+    "GraphSuggestionKind": {
+      "enum": [
+        "merge",
+        "project"
+      ],
+      "type": "string"
+    },
+    "GraphSuggestionStatus": {
+      "enum": [
+        "pending",
+        "accepted",
+        "rejected",
+        "later"
+      ],
+      "type": "string"
+    },
+    "GraphWriteSource": {
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/GraphWriteSourceKind"
+        },
+        "ref": {
+          "description": "e.g. \"lesson:<id>\" or a thread id",
+          "maxLength": 200,
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "GraphWriteSourceKind": {
+      "description": "The card or file, the teaching loop, or the owner's chat",
+      "enum": [
+        "owner_edit",
+        "owner_feedback",
+        "chat"
+      ],
+      "type": "string"
+    },
     "HighlightRange": {
       "additionalItems": false,
       "items": [
@@ -14732,6 +16104,711 @@
       ],
       "type": "object"
     },
+    "MemoryEntitiesCreateParams": {
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/GraphEntityKind"
+        },
+        "name": {
+          "description": "Display name",
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "aliases": {
+          "description": "Other names",
+          "items": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "identifiers": {
+          "description": "Emails, phones, handles; refused if another entity has one",
+          "items": {
+            "properties": {
+              "kind": {
+                "$ref": "#/$defs/GraphIdentifierKind"
+              },
+              "value": {
+                "maxLength": 512,
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "projectStatus": {
+          "$ref": "#/$defs/GraphProjectStatus"
+        }
+      },
+      "required": [
+        "kind",
+        "name"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesCreateResult": {
+      "properties": {
+        "entity": {
+          "$ref": "#/$defs/GraphEntity"
+        }
+      },
+      "required": [
+        "entity"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesEdgesRetractParams": {
+      "properties": {
+        "edgeId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/GraphWriteSource"
+        }
+      },
+      "required": [
+        "edgeId"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesEdgesRetractResult": {
+      "properties": {
+        "edge": {
+          "$ref": "#/$defs/GraphEdge"
+        }
+      },
+      "required": [
+        "edge"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesEdgesSetParams": {
+      "properties": {
+        "src": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "rel": {
+          "$ref": "#/$defs/GraphEdgeRel"
+        },
+        "dst": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "label": {
+          "$ref": "#/$defs/GraphRelationshipLabel"
+        },
+        "source": {
+          "$ref": "#/$defs/GraphWriteSource"
+        }
+      },
+      "required": [
+        "src",
+        "rel",
+        "dst"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesEdgesSetResult": {
+      "properties": {
+        "edge": {
+          "$ref": "#/$defs/GraphEdge"
+        },
+        "superseded": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "edge"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesFactsRetractParams": {
+      "properties": {
+        "factId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/GraphWriteSource"
+        }
+      },
+      "required": [
+        "factId"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesFactsRetractResult": {
+      "properties": {
+        "fact": {
+          "$ref": "#/$defs/GraphFact"
+        }
+      },
+      "required": [
+        "fact"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesFactsSetParams": {
+      "properties": {
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "attribute": {
+          "$ref": "#/$defs/GraphFactAttribute"
+        },
+        "value": {
+          "description": "The owner's value",
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/GraphWriteSource"
+        }
+      },
+      "required": [
+        "entityId",
+        "attribute",
+        "value"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesFactsSetResult": {
+      "properties": {
+        "fact": {
+          "$ref": "#/$defs/GraphFact"
+        },
+        "superseded": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "fact"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesForgetParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "dryRun": {
+          "description": "Report counts without deleting",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesForgetResult": {
+      "properties": {
+        "removed": {
+          "properties": {
+            "identifiers": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "facts": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "edges": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "interactions": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "loops": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "identifiers",
+            "facts",
+            "edges",
+            "interactions",
+            "loops"
+          ],
+          "type": "object"
+        },
+        "cardPath": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "removed",
+        "dryRun"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesGetParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesHistoryParams": {
+      "properties": {
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "attribute": {
+          "$ref": "#/$defs/GraphFactAttribute"
+        }
+      },
+      "required": [
+        "entityId"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesHistoryResult": {
+      "properties": {
+        "facts": {
+          "items": {
+            "$ref": "#/$defs/GraphFact"
+          },
+          "type": "array"
+        },
+        "edges": {
+          "items": {
+            "$ref": "#/$defs/GraphEdge"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "facts",
+        "edges"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesInteractionsParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "cursor": {
+          "description": "Opaque cursor",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesInteractionsResult": {
+      "properties": {
+        "interactions": {
+          "items": {
+            "$ref": "#/$defs/GraphInteraction"
+          },
+          "type": "array"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "description": "Opaque cursor",
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "interactions"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesMergeParams": {
+      "properties": {
+        "ids": {
+          "description": "Entities to merge",
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 10,
+          "minItems": 2,
+          "type": "array"
+        },
+        "into": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "dryRun": {
+          "description": "Report what would move",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ids",
+        "into"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesMergeResult": {
+      "properties": {
+        "entity": {
+          "$ref": "#/$defs/GraphEntity"
+        },
+        "movedIdentifiers": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "movedFacts": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "entity",
+        "movedIdentifiers",
+        "movedFacts",
+        "dryRun"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesSearchParams": {
+      "properties": {
+        "q": {
+          "description": "Name, alias, email, phone or keyword",
+          "maxLength": 500,
+          "type": "string"
+        },
+        "kinds": {
+          "description": "Only these entity kinds",
+          "items": {
+            "$ref": "#/$defs/GraphEntityKind"
+          },
+          "maxItems": 4,
+          "type": "array"
+        },
+        "limit": {
+          "description": "At most this many (default 20)",
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "q"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesSearchResult": {
+      "properties": {
+        "entities": {
+          "items": {
+            "$ref": "#/$defs/EntitySummary"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "entities"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesSplitParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "identifiers": {
+          "description": "Identifiers that belong to someone else",
+          "items": {
+            "properties": {
+              "kind": {
+                "$ref": "#/$defs/GraphIdentifierKind"
+              },
+              "value": {
+                "maxLength": 512,
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "type": "array"
+        },
+        "name": {
+          "description": "Name of the new entity",
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "identifiers",
+        "name"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesSplitResult": {
+      "properties": {
+        "entity": {
+          "$ref": "#/$defs/GraphEntity"
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "entity",
+        "dryRun"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesSuggestionsAnswerParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "answer": {
+          "$ref": "#/$defs/GraphSuggestionAnswer"
+        }
+      },
+      "required": [
+        "id",
+        "answer"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesSuggestionsAnswerResult": {
+      "properties": {
+        "suggestion": {
+          "$ref": "#/$defs/GraphSuggestion"
+        },
+        "entity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GraphEntity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "suggestion"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesSuggestionsParams": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/GraphSuggestionFilter"
+        }
+      },
+      "type": "object"
+    },
+    "MemoryEntitiesSuggestionsResult": {
+      "properties": {
+        "suggestions": {
+          "items": {
+            "$ref": "#/$defs/GraphSuggestion"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "suggestions"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesUpdateParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "description": "New name",
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "aliases": {
+          "description": "Replaces aliases",
+          "items": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/GraphEntityStatus"
+        },
+        "projectStatus": {
+          "$ref": "#/$defs/GraphProjectStatus"
+        },
+        "pinned": {
+          "description": "Keep at the top and in nightly passes",
+          "type": "boolean"
+        },
+        "hidden": {
+          "description": "Don't track: block new data about them",
+          "type": "boolean"
+        },
+        "etag": {
+          "description": "If-match on the card",
+          "maxLength": 128,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "MemoryEntitiesUpdateResult": {
+      "properties": {
+        "entity": {
+          "$ref": "#/$defs/GraphEntity"
+        }
+      },
+      "required": [
+        "entity"
+      ],
+      "type": "object"
+    },
+    "MemoryEntityUpdatedPayload": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/GraphEntityKind"
+        },
+        "changed": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "changed"
+      ],
+      "type": "object"
+    },
     "MemoryExplainParams": {
       "properties": {
         "claimId": {
@@ -14953,6 +17030,10 @@
       ],
       "type": "object"
     },
+    "MemoryGraphStatusParams": {
+      "properties": {},
+      "type": "object"
+    },
     "MemoryHit": {
       "properties": {
         "chunk": {
@@ -15133,6 +17214,135 @@
       },
       "required": [
         "job"
+      ],
+      "type": "object"
+    },
+    "MemoryLoopUpdatedPayload": {
+      "properties": {
+        "loop": {
+          "$ref": "#/$defs/GraphLoop"
+        }
+      },
+      "required": [
+        "loop"
+      ],
+      "type": "object"
+    },
+    "MemoryLoopsListParams": {
+      "properties": {
+        "status": {
+          "description": "Default suggested and open",
+          "items": {
+            "$ref": "#/$defs/GraphLoopStatus"
+          },
+          "maxItems": 5,
+          "type": "array"
+        },
+        "direction": {
+          "$ref": "#/$defs/GraphLoopDirectionFilter"
+        },
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "projectId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "dueBefore": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "cursor": {
+          "description": "Opaque cursor",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "MemoryLoopsListResult": {
+      "properties": {
+        "loops": {
+          "items": {
+            "$ref": "#/$defs/GraphLoop"
+          },
+          "type": "array"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "description": "Opaque cursor",
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "loops"
+      ],
+      "type": "object"
+    },
+    "MemoryLoopsUpdateParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/GraphLoopStatus"
+        },
+        "dueAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "null clears it"
+        },
+        "text": {
+          "description": "Rephrase it",
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "MemoryLoopsUpdateResult": {
+      "properties": {
+        "loop": {
+          "$ref": "#/$defs/GraphLoop"
+        }
+      },
+      "required": [
+        "loop"
       ],
       "type": "object"
     },
@@ -15461,6 +17671,17 @@
         "chunks",
         "claims",
         "lastJobs"
+      ],
+      "type": "object"
+    },
+    "MemorySuggestionCreatedPayload": {
+      "properties": {
+        "suggestion": {
+          "$ref": "#/$defs/GraphSuggestion"
+        }
+      },
+      "required": [
+        "suggestion"
       ],
       "type": "object"
     },
@@ -18989,7 +21210,9 @@
         "feed",
         "ideas",
         "goals",
-        "connectors"
+        "connectors",
+        "people",
+        "projects"
       ],
       "type": "string"
     },
@@ -19106,7 +21329,9 @@
         "feed",
         "idea",
         "goal",
-        "connector"
+        "connector",
+        "person",
+        "project"
       ],
       "type": "string"
     },
@@ -19175,7 +21400,9 @@
         "feed",
         "ideas",
         "goals",
-        "connectors"
+        "connectors",
+        "people",
+        "projects"
       ],
       "type": "string"
     },

@@ -12,5 +12,6 @@ export * from "./framework/types.ts";
 export * from "./google/index.ts";
 export * from "./mail/index.ts";
 export * from "./microsoft/index.ts";
+export * from "./obsidian/connector.ts";
 export * from "./shopping/index.ts";
 export * from "./web/index.ts";
