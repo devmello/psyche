@@ -13,6 +13,7 @@ import {
   type McpProposal,
   type McpServerInput,
   type McpServerStatus,
+  mcpTrustFor,
   PsycheError,
 } from "@psyche/protocol";
 import type { HandlerDef } from "../context.ts";
@@ -77,14 +78,18 @@ function canonical(value: unknown): string {
   return JSON.stringify(value);
 }
 
-/** The `mcp.servers` entry for an owner's input; trust is always `unknown` (never bundled). */
+/**
+ * The `mcp.servers` entry for an owner's input. Trust follows where the server comes from
+ * (`mcpTrustFor`: an official package or vendor endpoint is `verified`, anything else `unknown`);
+ * never `bundled`.
+ */
 export function serverConfig(input: McpServerInput): PsycheMcpServerConfig {
   const t = input.transport;
   if (t.kind === "stdio") {
     return {
       id: input.id,
       name: input.name,
-      trust: "unknown",
+      trust: mcpTrustFor({ kind: "stdio", command: t.command }),
       transport: {
         kind: "stdio",
         command: [...t.command],
@@ -96,7 +101,7 @@ export function serverConfig(input: McpServerInput): PsycheMcpServerConfig {
   return {
     id: input.id,
     name: input.name,
-    trust: "unknown",
+    trust: mcpTrustFor({ kind: "http", url: t.url }),
     transport: { kind: "http", url: t.url },
     ...(t.auth === undefined ? {} : { auth: t.auth }),
   };
