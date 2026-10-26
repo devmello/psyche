@@ -1,6 +1,16 @@
 import { createHash } from "node:crypto";
-import { mkdir, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import {
+  appendFile,
+  mkdir,
+  readdir,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
+import { extname, isAbsolute, join, relative, resolve } from "node:path";
 import {
   FsQuarantineWriter,
   type LibraryImport,
@@ -26,6 +36,8 @@ import {
   type MethodParams,
   type MethodResult,
   PsycheError,
+  UPLOAD_CHUNK_BYTES,
+  UPLOAD_MAX_BYTES,
 } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
 import { decodeOffset, encodeOffset } from "../handlers/threads.ts";
@@ -256,10 +268,146 @@ function requireItem(db: PsycheDb, itemId: string): LibraryItem {
   return item;
 }
 
-/** `library.list`, `library.get`, `library.delete` (scopes from the protocol, checked upstream). */
+/** A chunked upload in progress (`library.upload`), staged on disk until its last chunk. */
+interface Staged {
+  deviceId: string;
+  name: string;
+  mime: string;
+  threadId: string | null;
+  file: string;
+  size: number;
+  touched: number;
+}
+
+/** A staged upload nobody finished is dropped after this long. */
+const UPLOAD_STALE_MS = 10 * 60 * 1000;
+/** Uploads one device may have in flight. */
+const UPLOADS_PER_DEVICE = 8;
+
+const EXTENSION_MIME: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".pdf": "application/pdf",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".txt": "text/plain",
+  ".md": "text/markdown",
+  ".csv": "text/csv",
+  ".json": "application/json",
+};
+
+/** The declared mime type, else one from the extension, else opaque bytes. */
+function uploadMime(declared: string | undefined, name: string): string {
+  const d = declared?.trim().toLowerCase();
+  if (d !== undefined && d !== "" && d !== "application/octet-stream") return d;
+  return EXTENSION_MIME[extname(name).toLowerCase()] ?? "application/octet-stream";
+}
+
+/** `library.list`, `library.get`, `library.upload`, `library.delete` (scopes from the protocol). */
 export function libraryHandlers(setup: LibrarySetup): Record<string, HandlerDef> {
   const { db, home } = setup;
+  const staged = new Map<string, Staged>();
+  const dropStale = async (now: number) => {
+    for (const [id, u] of staged) {
+      if (now - u.touched < UPLOAD_STALE_MS) continue;
+      staged.delete(id);
+      await rm(u.file, { force: true }).catch(() => undefined);
+    }
+  };
   return {
+    "library.upload": {
+      run: async (
+        call: Call,
+        params: MethodParams<"library.upload">,
+      ): Promise<MethodResult<"library.upload">> => {
+        const now = Date.now();
+        await dropStale(now);
+        const chunk = Buffer.from(params.bytes, "base64");
+        if (chunk.byteLength > UPLOAD_CHUNK_BYTES) {
+          throw new PsycheError("invalid_params", "upload chunk is too large");
+        }
+        const dir = join(libraryRoot(home), "uploads");
+        let uploadId = params.uploadId;
+        let u: Staged | undefined;
+        if (uploadId === undefined) {
+          const mine = [...staged.values()].filter((s) => s.deviceId === call.identity.deviceId);
+          if (mine.length >= UPLOADS_PER_DEVICE) {
+            throw new PsycheError("rate_limited", "too many uploads in progress");
+          }
+          uploadId = db.newId();
+          await mkdir(dir, { recursive: true, mode: 0o700 });
+          u = {
+            deviceId: call.identity.deviceId,
+            name: safeFilename(params.name),
+            mime: uploadMime(params.mime, params.name),
+            threadId: params.threadId ?? null,
+            file: join(dir, `.${uploadId}.part`),
+            size: 0,
+            touched: now,
+          };
+          await writeFile(u.file, "", { mode: 0o600 });
+          staged.set(uploadId, u);
+        } else {
+          u = staged.get(uploadId);
+          if (u === undefined || u.deviceId !== call.identity.deviceId) {
+            throw new PsycheError("not_found", `upload ${uploadId} not found`);
+          }
+        }
+        const upload = u;
+        const abandon = async () => {
+          staged.delete(uploadId as string);
+          await rm(upload.file, { force: true }).catch(() => undefined);
+        };
+        if (upload.size + chunk.byteLength > UPLOAD_MAX_BYTES) {
+          await abandon();
+          throw new PsycheError(
+            "invalid_params",
+            `files over ${UPLOAD_MAX_BYTES / (1024 * 1024)} MiB cannot be attached`,
+          );
+        }
+        try {
+          await appendFile(upload.file, chunk);
+        } catch (err) {
+          await abandon();
+          throw fsError(err, upload.name);
+        }
+        upload.size += chunk.byteLength;
+        upload.touched = now;
+        if (!params.final) return { uploadId, received: upload.size };
+        if (upload.size === 0) {
+          await abandon();
+          throw new PsycheError("invalid_params", `${upload.name} is empty`);
+        }
+        const id = db.newId();
+        const path = `uploads/${id}-${upload.name}`;
+        const stored = join(libraryRoot(home), path);
+        try {
+          const bytes = await readFile(upload.file);
+          await rename(upload.file, stored);
+          const item = await indexOrRemove(db, stored, {
+            id,
+            kind: kindOfMime(upload.mime),
+            name: upload.name,
+            mime: upload.mime,
+            path,
+            size: upload.size,
+            sha256: `sha256:${createHash("sha256").update(bytes).digest("hex")}`,
+            origin: "upload",
+            threadId: upload.threadId,
+            tags: [],
+            source: null,
+          });
+          staged.delete(uploadId);
+          return { uploadId, received: upload.size, item };
+        } catch (err) {
+          await abandon();
+          throw err;
+        }
+      },
+    },
     "library.list": {
       run: (_call: Call, params: MethodParams<"library.list">): MethodResult<"library.list"> => {
         const offset = decodeOffset(params.cursor);

@@ -56,6 +56,11 @@ export interface TurnInput {
   text: string;
   attachments?: { libraryItemId: string }[];
   /**
+   * The attachments' extracted text (documents, capped), which the model reads after `text`. Kept
+   * apart from `text` so it never counts as what the owner said (the learner, a task's goal).
+   */
+  attachmentText?: string;
+  /**
    * Images the model sees with the message (Ask about my screen: a pinned capture). Base64; the
    * turn's caller widens taint for them when they are untrusted (`taintSources`).
    */

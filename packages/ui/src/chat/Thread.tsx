@@ -10,8 +10,10 @@ import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } 
 import { type DisclosureLevel, DisclosureProvider } from "../blocks/disclosure.tsx";
 import { indexThreadBlocks, ThreadBlocksProvider } from "../blocks/thread-blocks.tsx";
 import {
+  type GatewayCall,
   useCall,
   useConnection,
+  useGatewayQuery,
   useRunsList,
   useSpecialistJobs,
   useSpecialistRoles,
@@ -26,6 +28,7 @@ import { usePersona, useSlots } from "../slots.tsx";
 import { SpecialistSpawns } from "../specialists/SpawnLine.tsx";
 import { VoiceComposer } from "../voice/composer-voice.tsx";
 import { ApprovalDock } from "./ApprovalDock.tsx";
+import { attachSupport, modelCapabilities, uploadFile } from "./attachments.ts";
 import { type CommandName, parseCommand } from "./commands.ts";
 import { FollowUpQueue } from "./FollowUpQueue.tsx";
 import { MessageView } from "./MessageView.tsx";
@@ -41,6 +44,7 @@ import {
   useElementHeight,
 } from "./ThreadChrome.tsx";
 import { TranscriptSkeleton } from "./TranscriptSkeleton.tsx";
+import { useAttachments } from "./useAttachments.ts";
 import { useBottomAnchor } from "./useBottomAnchor.ts";
 import { useRunningTool } from "./WorkingIndicator.tsx";
 
@@ -52,7 +56,6 @@ interface DisplayMessage {
 
 export interface ChatThreadProps {
   threadId: string;
-  onAttach?: () => void;
   onDictate?: () => void;
   /** Fixed clock for cards (stories, tests). */
   now?: number;
@@ -142,7 +145,6 @@ function NoticeBar({
  */
 export function ChatThread({
   threadId,
-  onAttach,
   onDictate,
   now,
   disclosure,
@@ -164,6 +166,13 @@ export function ChatThread({
   const [mode, setMode] = useState<QueueMode>("followUp");
   const [notice, setNotice] = useState<CommandNotice | null>(null);
   const offline = connection !== "open";
+  // The + button shows when the thread's model can take files (unknown shows it; documents work
+  // on any chat model, images need vision). Capabilities come from `models.list`: no new probe.
+  const models = useGatewayQuery("models.list", {});
+  const support = attachSupport(modelCapabilities(models.data, view.thread?.thread.modelRef));
+  const attachments = useAttachments(support, (file, signal) =>
+    uploadFile(call as GatewayCall, file, { threadId, signal }),
+  );
 
   const display = useMemo<DisplayMessage[]>(() => {
     const byId = new Map(view.messages.map((m) => [m.id, m]));
@@ -267,9 +276,15 @@ export function ChatThread({
       }
       const queued = view.running && mode === "followUp";
       const replyToMessageId = quoting?.id ?? null;
+      // The finished uploads go with this message; the chips clear once it is on its way.
+      const sentIds = attachments.ids;
       const attempt = async (): Promise<void> => {
         try {
-          await view.send(parsed.text, { mode, replyToMessageId });
+          await view.send(parsed.text, {
+            mode,
+            replyToMessageId,
+            ...(sentIds.length > 0 ? { attachments: sentIds } : {}),
+          });
         } catch (err) {
           // The optimistic bubble is gone; keep the text one click from going out again.
           setSentAt(null);
@@ -290,9 +305,10 @@ export function ChatThread({
       if (!queued) setSentAt(Date.now());
       setQuoting(null);
       setMode("followUp");
+      attachments.clear();
       await attempt();
     },
-    [view, mode, quoting],
+    [view, mode, quoting, attachments.ids, attachments.clear],
   );
 
   runCommandRef.current = runCommand;
@@ -729,7 +745,8 @@ export function ChatThread({
                   onClearQuote={() => setQuoting(null)}
                   mode={mode}
                   onStop={() => void view.cancel()}
-                  {...(onAttach ? { onAttach } : {})}
+                  {...(attachments.attach ? { attach: attachments.attach } : {})}
+                  sendBlocked={attachments.uploading}
                   {...(onDictate ? { onDictate } : {})}
                 />
               </div>

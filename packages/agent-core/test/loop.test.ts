@@ -50,6 +50,25 @@ describe("text-only turn", () => {
     });
   });
 
+  it("gives the model the attachments' extracted text after the message, not as what the owner said", async () => {
+    const h = harness({ script: [say("Summary")] });
+    const input = turnInput("summarize");
+    input.input.attachments = [{ libraryItemId: "lib_1" }];
+    input.input.attachmentText = "[attached file: a.txt]\nhello\n[end of attached file]";
+    for await (const _ of h.loop.startTurn(input)) {
+      // drain
+    }
+    expect(h.provider.requests[0]?.messages[0]).toEqual({
+      role: "user",
+      parts: [
+        {
+          type: "text",
+          text: "summarize\n\n[attached file: a.txt]\nhello\n[end of attached file]",
+        },
+      ],
+    });
+  });
+
   it("keeps provider-native reasoning verbatim in the next request", async () => {
     const signed = { signature: "abc", thinking: "secret chain" };
     const h = harness({

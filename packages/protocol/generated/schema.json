@@ -1345,6 +1345,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Uploads a file into the Library in base64 chunks (the first chunk omits uploadId; the last sets final and returns the item, origin upload, not quarantined: the owner chose it). invalid_params for a file over 25 MiB or an empty one. Attach the item's id to chat.send. Side-effecting.",
+        "name": "library.upload",
+        "params": "#/$defs/LibraryUploadParams",
+        "result": "#/$defs/LibraryUploadResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "Returns the newest matching log lines, oldest first, with the subsystems seen. No bodies or secrets.",
         "name": "logs.tail",
         "params": "#/$defs/LogsTailParams",
@@ -19113,6 +19121,68 @@
       },
       "required": [
         "items"
+      ],
+      "type": "object"
+    },
+    "LibraryUploadParams": {
+      "properties": {
+        "name": {
+          "description": "the file's name",
+          "maxLength": 255,
+          "minLength": 1,
+          "type": "string"
+        },
+        "mime": {
+          "maxLength": 255,
+          "type": "string"
+        },
+        "uploadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "bytes": {
+          "contentEncoding": "base64",
+          "maxLength": 614400,
+          "type": "string"
+        },
+        "final": {
+          "type": "boolean"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "bytes",
+        "final"
+      ],
+      "type": "object"
+    },
+    "LibraryUploadResult": {
+      "properties": {
+        "uploadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "received": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "item": {
+          "$ref": "#/$defs/LibraryItem"
+        }
+      },
+      "required": [
+        "uploadId",
+        "received"
       ],
       "type": "object"
     },
