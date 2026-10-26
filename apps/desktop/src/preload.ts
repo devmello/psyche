@@ -123,6 +123,8 @@ const bridge = {
     popOutPane: (route: string, title: string) => invoke(IPC.windowPopOut, { route, title }),
     closeWindow: () => ipcRenderer.send(IPC.windowClose),
     openSettings: (section?: string) => ipcRenderer.send(IPC.windowOpenSettings, section ?? null),
+    /** Fills the main window's composer and brings it forward; never sends (#677). */
+    prefillComposer: (text: string) => ipcRenderer.send(IPC.windowPrefillComposer, { text }),
     onCommand: (cb: (c: unknown) => void) => listen(IPC.shellCommand, cb),
   },
   notify: {

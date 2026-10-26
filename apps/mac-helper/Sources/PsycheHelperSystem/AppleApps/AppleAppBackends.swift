@@ -67,6 +67,15 @@ public protocol NotesBackend: Sendable {
     func list(folder: String?, limit: Int) async throws -> [NoteSummaryRecord]
     func read(id: String) async throws -> (NoteSummaryRecord, html: String, text: String)
     func create(title: String, html: String, folder: String?) async throws -> NoteSummaryRecord
+    // Wave 1 (docs/connectors/apple-apps-2026.md §4.4).
+    /// Matched by Notes (`whose`), newest modified first; each with the start of its plain text.
+    func search(query: String, folder: String?, since: Date?, limit: Int) async throws -> [(NoteSummaryRecord, text: String)]
+    func folders() async throws -> [NoteFolderRecord]
+    func attachments(id: String) async throws -> [(id: String, name: String)]
+    /// Appends HTML at the end; returns the note and its new body.
+    func append(id: String, html: String) async throws -> (NoteSummaryRecord, html: String)
+    /// Replaces the body and / or the name; returns the note and its body.
+    func update(id: String, title: String?, html: String?) async throws -> (NoteSummaryRecord, html: String)
 }
 
 public protocol SafariBackend: Sendable {
@@ -1005,6 +1014,98 @@ public final class NotesScriptingBackend: NotesBackend, @unchecked Sendable {
             return my psyche_line(n)
           end tell
         end psyche_create
+        -- Wave 1 (docs/connectors/apple-apps-2026.md §4.4, N1–N4). Fixed text; inputs are arguments.
+        on psyche_date(parts)
+          set dt to current date
+          set day of dt to 1
+          set year of dt to (item 1 of parts as integer)
+          set month of dt to (item 2 of parts as integer)
+          set day of dt to (item 3 of parts as integer)
+          set time of dt to (item 4 of parts as integer)
+          return dt
+        end psyche_date
+        on psyche_search(q, folderName, sinceParts)
+          set s to my psyche_date(sinceParts)
+          set fs to character id 31
+          tell application "Notes"
+            if folderName is "" and q is "" then
+              set ids to id of (notes whose modification date ≥ s)
+              set ds to modification date of (notes whose modification date ≥ s)
+            else if folderName is "" then
+              set ids to id of (notes whose (name contains q or plaintext contains q) and modification date ≥ s)
+              set ds to modification date of (notes whose (name contains q or plaintext contains q) and modification date ≥ s)
+            else if q is "" then
+              set ids to id of (notes of folder folderName whose modification date ≥ s)
+              set ds to modification date of (notes of folder folderName whose modification date ≥ s)
+            else
+              set ids to id of (notes of folder folderName whose (name contains q or plaintext contains q) and modification date ≥ s)
+              set ds to modification date of (notes of folder folderName whose (name contains q or plaintext contains q) and modification date ≥ s)
+            end if
+          end tell
+          set out to {}
+          repeat with i from 1 to (count of ids)
+            set end of out to ((item i of ids) as text) & fs & my psyche_iso(item i of ds)
+          end repeat
+          return my psyche_join(out, character id 30)
+        end psyche_search
+        on psyche_lines(idList, maxChars)
+          set fs to character id 31
+          set out to {}
+          tell application "Notes"
+            repeat with nid in idList
+              set n to note id (nid as text)
+              set t to my psyche_clean(plaintext of n)
+              if (length of t) > (maxChars as integer) then set t to text 1 thru (maxChars as integer) of t
+              set end of out to my psyche_line(n) & fs & t
+            end repeat
+          end tell
+          return my psyche_join(out, character id 30)
+        end psyche_lines
+        on psyche_walk(f, acctName, pid, out)
+          set fs to character id 31
+          tell application "Notes"
+            set end of out to (id of f as text) & fs & my psyche_clean(name of f) & fs & my psyche_clean(acctName) & fs & pid & fs & ((count of notes of f) as text)
+            repeat with g in folders of f
+              my psyche_walk(g, acctName, (id of f as text), out)
+            end repeat
+          end tell
+        end psyche_walk
+        on psyche_folders()
+          set out to {}
+          tell application "Notes"
+            repeat with a in accounts
+              repeat with f in folders of a
+                my psyche_walk(f, (name of a), "", out)
+              end repeat
+            end repeat
+          end tell
+          return my psyche_join(out, character id 30)
+        end psyche_folders
+        on psyche_attachments(nid)
+          set fs to character id 31
+          set out to {}
+          tell application "Notes"
+            repeat with a in attachments of note id nid
+              set end of out to (id of a as text) & fs & my psyche_clean(name of a)
+            end repeat
+          end tell
+          return my psyche_join(out, character id 30)
+        end psyche_attachments
+        on psyche_append(nid, frag)
+          tell application "Notes"
+            set n to note id nid
+            set body of n to (body of n) & frag
+            return my psyche_line(n) & (character id 31) & my psyche_clean(body of n)
+          end tell
+        end psyche_append
+        on psyche_update(nid, newName, newBody)
+          tell application "Notes"
+            set n to note id nid
+            if newBody is not "" then set body of n to newBody
+            if newName is not "" then set name of n to newName
+            return my psyche_line(n) & (character id 31) & my psyche_clean(body of n)
+          end tell
+        end psyche_update
         """
 
     public init() {}
@@ -1028,6 +1129,42 @@ public final class NotesScriptingBackend: NotesBackend, @unchecked Sendable {
         let out = try await ScriptHandler.call(Self.source, handler: "psyche_create", [html, folder ?? ""], app: Self.bundleId)
         guard let f = ScriptRecords.parse(out, fields: 4).first else { throw CapabilityError(.unavailable, reason: "script_error", "Notes did not return the new note") }
         return Self.summary(f)
+    }
+
+    // MARK: Wave 1
+
+    public func search(query: String, folder: String?, since: Date?, limit: Int) async throws -> [(NoteSummaryRecord, text: String)] {
+        let parts = MailSearchFilter.dateParts(since ?? Date(timeIntervalSince1970: 0))
+        let matches = try await ScriptHandler.call(Self.source, handler: "psyche_search", [query, folder ?? "", parts], app: Self.bundleId)
+        let ids = NotesWave1.newest(ScriptRecords.parse(matches, fields: 2), limit: limit)
+        if ids.isEmpty { return [] }
+        let out = try await ScriptHandler.call(Self.source, handler: "psyche_lines", [ids, "4000"], app: Self.bundleId)
+        return ScriptRecords.parse(out, fields: 5).map { (Self.summary(Array($0[0..<4])), text: $0[4]) }
+    }
+
+    public func folders() async throws -> [NoteFolderRecord] {
+        let out = try await ScriptHandler.call(Self.source, handler: "psyche_folders", [], app: Self.bundleId)
+        return NoteFolderRecord.dedupe(ScriptRecords.parse(out, fields: 5).map {
+            NoteFolderRecord(id: $0[0], name: $0[1], account: $0[2], parentId: $0[3].isEmpty ? nil : $0[3], noteCount: Int($0[4]) ?? 0)
+        })
+    }
+
+    public func attachments(id: String) async throws -> [(id: String, name: String)] {
+        let out = try await ScriptHandler.call(Self.source, handler: "psyche_attachments", [id], app: Self.bundleId)
+        return ScriptRecords.parse(out, fields: 2).map { (id: $0[0], name: $0[1]) }
+    }
+
+    func noteAndBody(_ out: String?) throws -> (NoteSummaryRecord, html: String) {
+        guard let f = ScriptRecords.parse(out, fields: 5).first else { throw CapabilityError(.unavailable, reason: "script_error", "Notes did not return the note") }
+        return (Self.summary(Array(f[0..<4])), html: f[4])
+    }
+
+    public func append(id: String, html: String) async throws -> (NoteSummaryRecord, html: String) {
+        try noteAndBody(try await ScriptHandler.call(Self.source, handler: "psyche_append", [id, html], app: Self.bundleId))
+    }
+
+    public func update(id: String, title: String?, html: String?) async throws -> (NoteSummaryRecord, html: String) {
+        try noteAndBody(try await ScriptHandler.call(Self.source, handler: "psyche_update", [id, title ?? "", html ?? ""], app: Self.bundleId))
     }
 }
 
