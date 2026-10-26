@@ -14,6 +14,7 @@ import {
   readPersona,
 } from "./persona-edit.ts";
 import type { SqliteMemoryStore } from "./store.ts";
+import type { TeachingStore } from "./teaching/store.ts";
 
 /**
  * `memory.*` method handlers for the Gateway (S01). The caller is a paired device that already
@@ -71,6 +72,11 @@ function updatedAt(store: SqliteMemoryStore, path: string): string {
 export interface MemoryHandlerOptions {
   /** Utility model for `memory.persona.edit { instruction }` (H9). */
   persona?: PersonaModel;
+  /**
+   * The teaching loop's records (docs/agent/teaching-loop-2026.md §3.5): exported as
+   * `lessons.json` and `feedback.json`, cleared by `memory.reset`.
+   */
+  teaching?: TeachingStore;
 }
 
 export function createMemoryHandlers(
@@ -185,7 +191,10 @@ export function createMemoryHandlers(
     },
 
     async "memory.export"() {
-      const { filename, data } = await exportMemory(store);
+      const { filename, data } = await exportMemory(
+        store,
+        options.teaching === undefined ? {} : { teaching: options.teaching },
+      );
       return {
         filename,
         mime: "application/zip",
@@ -195,7 +204,9 @@ export function createMemoryHandlers(
     },
 
     async "memory.reset"(p) {
-      return store.reset({ dryRun: p.dryRun === true });
+      const result = await store.reset({ dryRun: p.dryRun === true });
+      if (p.dryRun !== true) options.teaching?.clear();
+      return result;
     },
 
     async "memory.status"() {

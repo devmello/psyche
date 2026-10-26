@@ -26,6 +26,7 @@ import { VoiceNoteTranscoder } from "./transcode/ffmpeg.ts";
 export * from "./adapters.ts";
 export * from "./audio.ts";
 export * from "./catalog.ts";
+export * from "./conversation/index.ts";
 export * from "./engines/cloud.ts";
 export * from "./engines/kokoro.ts";
 export * from "./engines/node.ts";

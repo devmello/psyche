@@ -1,6 +1,6 @@
 import type { GraphSource, GraphStatus } from "@psyche/protocol";
 import { Download, UserRound } from "lucide-react";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import {
   Dialog,
@@ -16,6 +16,7 @@ import { formatTime } from "../../lib/format.ts";
 import { ConnectedEntityCard } from "../../people/ConnectedEntityCard.tsx";
 import { usePersona, useSlots } from "../../slots.tsx";
 import type { ExportFile } from "./DataControlsSection.tsx";
+import { PeoplePrivacy } from "./PeoplePrivacy.tsx";
 import {
   ErrorNotice,
   Group,
@@ -29,8 +30,8 @@ import {
 /**
  * Settings → Privacy → People & projects (docs/memory/people-and-projects-2026.md §6.7, §7): the
  * graph on or off, sources one by one with what each produced, how long interactions are kept,
- * names in replies, the nightly learning pass and its budget, "What Psyche knows about me" and
- * export. Everything stays on this Mac; every source is off until the owner turns it on.
+ * names in replies, the nightly learning pass and its budget, "What Psyche knows about me",
+ * export, and the privacy controls (blocklist, delete by source, forget everything). Everything stays on this Mac; every source is off until the owner turns it on.
  */
 
 export const GRAPH_SETTING = "memory.graph";
@@ -100,6 +101,8 @@ export interface PeoplePanelProps {
   onExport?: () => void;
   busy?: boolean;
   notice?: { kind: "ok" | "error"; text: string } | null;
+  /** Blocklist, delete by source and forget everything (the connected section's). */
+  privacy?: ReactNode;
 }
 
 export function PeoplePanel({
@@ -115,6 +118,7 @@ export function PeoplePanel({
   onExport,
   busy = false,
   notice = null,
+  privacy,
 }: PeoplePanelProps): ReactElement {
   const set = (patch: Partial<GraphSettings>) => onChange({ ...settings, ...patch });
   const sourceStatus = (s: GraphSource) => status?.sources.find((x) => x.source === s);
@@ -272,6 +276,7 @@ export function PeoplePanel({
             </Button>
           </div>
         </Group>
+        {privacy}
       </LoadGate>
     </SectionFrame>
   );
@@ -313,6 +318,15 @@ export function PeopleSection({ onExportReady }: PeopleSectionProps): ReactEleme
         busy={busy}
         notice={notice ?? (form.writeError ? { kind: "error", text: form.writeError } : null)}
         {...(owner ? { onOpenOwnCard: () => setOwnOpen(true) } : {})}
+        privacy={
+          <PeoplePrivacy
+            status={status.data ?? null}
+            onChanged={() => {
+              status.reload();
+              form.reload();
+            }}
+          />
+        }
         onExport={() => {
           setBusy(true);
           setNotice(null);

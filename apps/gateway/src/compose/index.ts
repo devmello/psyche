@@ -127,6 +127,7 @@ import {
   createOwnPorts,
 } from "./services.ts";
 import { composeSkills } from "./skills.ts";
+import { createSpecialistHost } from "./specialists.ts";
 import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
 import {
   type ComposedTeaching,
@@ -719,6 +720,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     broker: executorBroker,
     surfaces: ["desktop", "web"],
     publish: (event, payload, threadId) => publish(event, payload as never, threadId),
+    onForgotten: (factId, threadId) => teachingRef?.onLearnedUndo(factId, threadId),
+  });
+  // Background specialists (docs/agent/specialists-2026.md, #683): roles from the role skills,
+  // jobs as a subagent thread + Task, one sanitized result.
+  const specialists = createSpecialistHost({
+    db,
+    tasks,
+    broker: loopBroker,
+    roles: skills.roles,
+    models: { primary: modelRef, ...(utility === undefined ? {} : { utility }) },
+    now: () => clock.now(),
   });
   // The teaching loop (#679): the owner's feedback → lessons written where they belong.
   const teaching = composeTeaching({
@@ -733,6 +745,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     scheduler,
     // Entity and person-scoped lessons write through the people graph (S07, #651).
     ...(people === undefined ? {} : { graph: people.graph }),
+    tasks,
+    // "Used n lessons": the lessons each run's assembled prompt carried (teaching loop §5.1).
+    explain: (runId) => loop.explainContext(runId),
+    ...(gwOptions.retentionIntervalMs === undefined
+      ? {}
+      : { retentionIntervalMs: gwOptions.retentionIntervalMs }),
     surfaces: ["desktop", "web"],
     askRules: teachingAskRules({
       db,
@@ -750,6 +768,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     publish: (event, payload, threadId) => publish(event, payload as never, threadId),
   });
   teachingRef = teaching;
+  parts.push(teaching.part);
   const loop = createAgentLoop({
     // Model-side history survives a restart (issue #52); secrets the vault knows are masked.
     state: new SqliteThreadStateStore(db, redactor),
@@ -774,6 +793,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     onOwnerTurn: userProfile.onOwnerTurn,
     // Incognito threads are memory-only (E9, security §8): the loop never flushes them.
     isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
+    specialists,
     // Reasoning steps for the step log (setting agent.showReasoning, default on), masked.
     showReasoning: () => getSetting(db, "agent.showReasoning")?.value !== false,
     redact: (text) => redactor.redact(text),
@@ -794,6 +814,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       // A trace write never fails the call.
     }
   });
+  // Awaited by the loop before its `end` event, so a chat run's lessons are known before the
+  // controller commits the transcript and publishes `run.updated`.
+  loop.hooks.on("agent_end", (ctx) =>
+    teaching.onRunEnd({
+      runId: ctx.runId,
+      ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
+      subagent: ctx.subagent,
+    }),
+  );
   const pool = new TaskWorkerPool({
     engine: tasks,
     loop,
@@ -877,7 +906,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   );
   const handlers: Record<string, HandlerDef> = {
     ...mountPermissions(db, createPermissionHandlers(rawBroker, audit), tokens),
-    ...mountParamsOnly(createMemoryHandlers(memory) as never),
+    ...mountParamsOnly(createMemoryHandlers(memory, { teaching: teaching.service.store }) as never),
     ...mountParamsOnly(userProfile.handlers as never),
     ...teaching.handlers,
     ...mountParamsOnly(

@@ -13,6 +13,7 @@ import {
 import { t } from "../../i18n/core.ts";
 import { formatTime } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
+import { GrowthCardItems } from "../../teaching/GrowthCard.tsx";
 import {
   feedKind,
   feedKindLabel,
@@ -61,7 +62,7 @@ export function FeedPostCard({
   return (
     <article
       aria-labelledby={titleId}
-      data-kind={kind}
+      data-kind={post.growth ? "growth" : kind}
       className={cn(
         // Level 1 without an outline (§3.5); the briefing is the wider hero at the top (§5.6).
         "group/post flex flex-col gap-2 rounded-lg bg-surface-raised p-4 shadow-elevation-1",
@@ -71,7 +72,7 @@ export function FeedPostCard({
     >
       <p className="text-caption text-label-secondary">
         <span className={cn(kind === "exploration" ? "text-accent-11" : "")}>
-          {feedKindLabel(post)}
+          {post.growth ? t("screens.growth.card.kind") : feedKindLabel(post)}
         </span>
         {kind === "briefing" ? <span> · {formatTime(post.createdAt)}</span> : null}
       </p>
@@ -82,6 +83,8 @@ export function FeedPostCard({
       <Markdown className="text-reading text-label-primary [&_a]:text-inherit [&_a]:underline [&_a]:decoration-dotted [&_a]:underline-offset-2 [&_a:hover]:decoration-solid [&_a]:rounded-sm [&_a:focus-visible]:outline-2 [&_a:focus-visible]:outline-ring">
         {withCitationLinks(post.bodyMd, post.citations)}
       </Markdown>
+      {/* The weekly "What I learned" card (teaching loop §5.4): its review items. */}
+      {post.growth ? <GrowthCardItems postId={post.id} card={post.growth} /> : null}
 
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
         {sources.length > 0 ? (

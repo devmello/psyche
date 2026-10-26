@@ -559,7 +559,7 @@ export class ConnectorRegistry {
         },
         execute: (callId, params, signal) => this.#run(record.id, tool, callId, params, signal),
       };
-      if (tool.describeCall !== undefined) reg.describeCall = tool.describeCall;
+      reg.describeCall = (params) => describeWithRule(record.id, tool, params);
       out.push(registry.register(reg));
     }
     return out;
@@ -581,7 +581,7 @@ export class ConnectorRegistry {
         retryable: true,
       });
     }
-    const desc: ToolCallDescription | undefined = tool.describeCall?.(params);
+    const desc: ToolCallDescription | undefined = describeWithRule(connectorId, tool, params);
     // The more severe of the spec's class and the per-call description (AgentLoop contract).
     const effect = moreSevere(tool.sideEffect, desc?.sideEffect);
     const writes = !READ_ONLY.includes(effect);
@@ -679,6 +679,8 @@ export class ConnectorRegistry {
           toolCallId: callId,
           approvalId: approvalId ?? null,
           ...(out.externalRefs === undefined ? {} : { externalRefs: out.externalRefs }),
+          // Which rule let the call through: an approval, a grant, or the owner's matrix (#747).
+          ...(authority === undefined ? {} : { payload: { rule: authority.rule } }),
         });
         receiptId = r.id;
       }
@@ -754,6 +756,27 @@ function moreSevere(a: SideEffect, b: SideEffect | undefined): SideEffect {
 }
 
 /** Connector tools use the MCP naming so allow / ask / deny rules look the same (ToolSpec). */
+/**
+ * The tool's own description plus its action-matrix key (#747): `{id: <connectorId>, action:
+ * <tool.action>}`, so the broker applies the owner's Settings → Connectors rule for the group. A
+ * connector may narrow the key to a sub-key of its own group (`shortcuts.run/<shortcutId>`),
+ * never name another connector or group.
+ */
+export function describeWithRule(
+  connectorId: string,
+  tool: ConnectorTool,
+  params: unknown,
+): ToolCallDescription {
+  const desc = tool.describeCall?.(params);
+  const own = desc?.connectorRule;
+  const narrowed =
+    own !== undefined && own.id === connectorId && own.action.startsWith(`${tool.action}/`);
+  return {
+    ...(desc ?? {}),
+    connectorRule: narrowed ? { ...own } : { id: connectorId, action: tool.action },
+  };
+}
+
 export function toolName(connectorId: string, tool: string): `mcp__${string}__${string}` {
   return `mcp__${connectorId.replace(/[^a-z0-9-]/g, "-")}__${tool.replace(/[^A-Za-z0-9_-]/g, "_")}`;
 }

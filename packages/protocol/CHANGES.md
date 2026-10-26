@@ -18,6 +18,29 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (S15, #670 W6: meeting prep)
+
+- `NotifyInput` gains optional `breakQuietHours`: deliver this one notification through quiet hours. Meeting prep sets it when the meeting itself falls inside quiet hours (§4.5 acceptance 3); otherwise only the kinds in `quietHours.breakthrough` interrupt, as before. A TypeScript contract field only; no generated files change.
+### v1 additive — 2026-10-25 (S17: voice conversation, V-G #691)
+
+For S17 (`packages/speech` `VoiceConversation`, V-G), S14 (helper, V-H #692), the UI session (V-U #693), S02 (agent-core voice turns), S03 (router). Contract of docs/voice/voice-mode-2026.md §7.
+
+- **New `voice.conversation.*` methods** (all `operator.write`, none idempotency-keyed):
+  - `start {threadId?, mode: push | tap | handsfree, format, language?, voice?}` → `{conversationId, engine, location}`;
+  - `audio {conversationId, seq, audio}`;
+  - `turn {conversationId, action: begin | end}`;
+  - `interrupt {conversationId, stage: suspect | confirmed, playedMs?}`;
+  - `played {conversationId, utteranceId, playedMs, done}`;
+  - `stop {conversationId}`.
+  Schemas `VoiceConversationMode`, `VoiceConversationPhase`, `VoiceConversationEndReason`, `VoiceConversationReason`, `VoiceSpeakLevel`, `VoiceNarrateLevel`, `VoiceApprovalTier`, `VoiceTurnAction`, `VoiceInterruptStage`, and `VOICE_CONVERSATION_SETTING_KEYS` (14 `voice.conversation.*` keys).
+- **New events** to the starting device only: `voice.conversation.state` (`phase`, `reason?`, `approvalId?`, `prompt?`, `windowMs?`, `listening`), `.caption`, `.speech` (PCM), `.step` and `.ended`.
+- **New `InputVia` (`"voice"`)**, used as optional `ApprovalAnswer.via` (answered by a spoken phrase after a readback; chat's tiers, never `deviceOnly`) and optional `Message.via` (spoken by the owner).
+- **Contract `StartTurnInput.voice?: VoiceTurnOptions`** (`speak`, `narrate`, `language?`): the loop adds the voice-turn prompt section and runs with thinking off where the model allows. Fakes need no change.
+- **`PickableModelRole` and `ModelRoles` gain `voice`** (the chat model for voice turns). Outside the protocol, as allowed for new enum values: the router's `MODEL_ROLES` gains `voice`, which falls back to the primary chain like `utility` and `vision`; the Gateway's `ROLE_SETTING` gains `models.voice`, and its role restore and `roles()` include it.
+- **`dictation.watch`** takes optional `keys: [{key, role: dictation | voice}]` (≤ 2); `DictationKeyPayload.role?` (`DictationKeyRole`). The single `key` form is unchanged.
+- **New `schemas/speech-conversation.ts`** with the helper's speech shapes for V-H: `HelperSpeechVoice` (`quality`, `personalVoice`, `installed?`), `HelperSynthesizeParams` (`speed?` 0.5–2, `utteranceId?`), `speech.prepare` params and result, `SpeechTranscribePreset` (`long | short`), `PersonalVoiceAuthorization` and `HelperSpeechTimings`. These describe helper capabilities and register no client methods.
+- **Swift.** Every new enum has an `$id` except `voice.conversation.caption.role`. Its values equal custom connectors' `drafted`, and quicktype merges enums with equal values, so an id would rename that Swift enum. The generated Swift changes only by additions plus five initializers that gained an optional trailing parameter (`ApprovalAnswer`, `Message`, `DictationKeyPayload`, `DictationWatchParams`, `ModelRoles`). The helper's two `DictationKeyPayload` sites pass `role: nil`, and `swift build --target PsycheHelperSystem` passes.
+
 ### v1 additive — 2026-10-25 (T1, #679: teaching loop store and routing)
 
 - `ApprovalRequestInput` gains optional `fromLesson { lessonId, feedbackId, because }`, copied by the broker to `ApprovalRequest.fromLesson` (added in #678) so a lesson's card can show "Because you said: …". `FakePermissionBroker` copies it too.

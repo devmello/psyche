@@ -1,5 +1,6 @@
 import type {
   EntitySummary,
+  GraphBlocklistEntry,
   GraphEdge,
   GraphEntity,
   GraphEntityDetail,
@@ -204,6 +205,8 @@ export interface GraphWorld {
   suggestions: GraphSuggestion[];
   /** Card files' Notes sections, by entity id. */
   notes: Record<string, string>;
+  /** Addresses, phones and domains Psyche never models again (hints masked). */
+  blocklist: GraphBlocklistEntry[];
   status: GraphStatus;
 }
 
@@ -479,6 +482,15 @@ export function graphWorld(): GraphWorld {
       },
     ],
     notes: { [P.samLee]: "Prefers short agendas. Ask about the Berlin move after the launch." },
+    blocklist: [
+      {
+        id: "blk_jordan",
+        kind: "email",
+        hint: "j•••@example.com",
+        createdAt: "2026-10-02T12:00:00Z",
+      },
+      { id: "blk_promo", kind: "domain", hint: "deals.example", createdAt: "2026-09-20T08:00:00Z" },
+    ],
     status: {
       enabled: true,
       sources: [
