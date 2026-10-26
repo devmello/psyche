@@ -1,9 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import type { ReactNode } from "react";
 import type { FixtureWorld } from "../fixtures/index.ts";
 import { applyRunTrace, TRACE_IDS } from "../fixtures/runs.ts";
 import { STORY_NOW, withWorld } from "../stories/harness.tsx";
 import { OverviewRun } from "./OverviewRun.tsx";
 import { OverviewScreen } from "./OverviewScreen.tsx";
+import { RecentSection } from "./RecentSection.tsx";
+import { UpcomingSection } from "./UpcomingSection.tsx";
 
 /**
  * Now & next, Upcoming and Recent runs on the Overview, and the Timeline page
@@ -104,5 +107,29 @@ export const TimelinePage: Story = {
     <div className="flex h-dvh min-h-0 flex-col overflow-auto bg-canvas">
       <OverviewRun runId={TRACE_IDS.runs.failed} onBack={() => {}} now={STORY_NOW} />
     </div>
+  ),
+};
+
+function Column({ children }: { children: ReactNode }) {
+  return <div className="mx-auto flex max-w-[1040px] flex-col gap-4 bg-canvas p-6">{children}</div>;
+}
+
+/** Upcoming alone: Today (the heartbeat as one "every 45 min" row), Later, and Paused (1). */
+export const Upcoming: Story = {
+  decorators: [withWorld({ edit: trace })],
+  render: () => (
+    <Column>
+      <UpcomingSection now={STORY_NOW} />
+    </Column>
+  ),
+};
+
+/** Recent runs alone: filters, search and finished runs, newest first. */
+export const Recent: Story = {
+  decorators: [withWorld({ edit: trace })],
+  render: () => (
+    <Column>
+      <RecentSection period="30d" now={STORY_NOW} />
+    </Column>
   ),
 };
