@@ -8,6 +8,7 @@ import {
   type FeedbackContext,
   LessonWriter,
   type RouterProposal,
+  retireUnanswered,
   TeachingService,
   TeachingStore,
 } from "../src/teaching/index.ts";
@@ -53,10 +54,24 @@ async function setup() {
     settings: () => ({ ...DEFAULT_TEACHING_SETTINGS, review: "auto" }),
     surfaces: ["desktop"],
   });
-  const teach = async (text: string, statement: string, person = "jane@example.com") => {
+  const teach = async (
+    text: string,
+    statement: string,
+    person = "jane@example.com",
+    replaces?: string,
+  ) => {
     clock.advance(60_000);
     provider.script([
-      reply([{ kind: "style", statement, value: statement, scope: "person", person }]),
+      reply([
+        {
+          kind: "style",
+          statement,
+          value: statement,
+          scope: "person",
+          person,
+          ...(replaces === undefined ? {} : { replaces }),
+        },
+      ]),
     ]);
     return (
       (await service.give({ target: message, kind: "correction", text }, owner)).lesson?.id ?? ""
@@ -74,7 +89,9 @@ async function setup() {
     }
   };
   const card = () => buildWeeklyCard(store, env.store, { clock });
-  return { env, clock, store, service, teach, implicit, card };
+  const sweep = () => retireUnanswered(service, env.store, { clock });
+  const read = async (path: string) => (await env.store.readFile(path))?.content ?? "";
+  return { env, clock, store, service, teach, implicit, card, sweep, read };
 }
 
 describe("the weekly card (§5.4)", () => {
@@ -143,5 +160,51 @@ describe("the weekly card (§5.4)", () => {
     const items = h.card()?.growth.items ?? [];
     expect(items).toHaveLength(7);
     expect(items.filter((i) => i.type === "lesson")).toHaveLength(3);
+  });
+});
+
+describe("an unanswered Still true? (§3.3 ageing)", () => {
+  it("moves the lesson to dormant after two weeks: out of the file, the replaced line not back", async () => {
+    const h = await setup();
+    const first = await h.teach("short", "Replies to Jane are short");
+    const second = await h.teach(
+      "very short",
+      "Replies to Jane are one line",
+      "jane@example.com",
+      first,
+    );
+    expect(h.store.getLesson(first)?.status).toBe("superseded");
+    h.clock.advance(61 * DAY);
+    expect(h.card()?.growth.items).toEqual([
+      expect.objectContaining({ type: "retire", lessonId: second }),
+    ]);
+    h.clock.advance(13 * DAY);
+    expect(await h.sweep()).toBe(0);
+    h.clock.advance(2 * DAY);
+    expect(await h.sweep()).toBe(1);
+    expect(h.store.getLesson(second)?.status).toBe("dormant");
+    const user = await h.read("USER.md");
+    expect(user).not.toContain(second);
+    expect(user).not.toContain("Replies to Jane are short");
+    // Kept for history: still listed, never asked about again.
+    h.clock.advance(7 * DAY);
+    expect(h.card()).toBeUndefined();
+    expect(await h.sweep()).toBe(0);
+  });
+
+  it("leaves a lesson the owner kept, edited or that was used after the question", async () => {
+    const h = await setup();
+    const kept = await h.teach("short", "Replies to Jane are short");
+    const used = await h.teach("brief", "Replies to Sam are brief", "sam@example.com");
+    h.clock.advance(61 * DAY);
+    expect(h.card()?.growth.items.map((i) => i.type)).toEqual(["retire", "retire"]);
+    h.clock.advance(DAY);
+    h.service.confirm(kept);
+    h.service.markApplied([used]);
+    h.clock.advance(15 * DAY);
+    expect(await h.sweep()).toBe(0);
+    expect(h.store.getLesson(kept)?.status).toBe("confirmed");
+    expect(h.store.getLesson(used)?.status).toBe("active");
+    expect(await h.read("USER.md")).toContain(kept);
   });
 });

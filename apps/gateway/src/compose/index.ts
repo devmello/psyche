@@ -21,6 +21,7 @@ import {
   consolidateLessons,
   createMemoryHandlers,
   createMemoryStore,
+  retireUnanswered,
   type SqliteMemoryStore,
 } from "@psyche/memory";
 import {
@@ -973,7 +974,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       async () => {
         if (!teachingSettings(db).enabled) return undefined;
         const r = await consolidateLessons(teaching.service, memory, { clock });
-        return `lessons: ${r.merged} merged, ${r.promoted} promoted, ${r.proposed} proposed, ${r.flagged} flagged`;
+        // "Still true?" left unanswered: the lesson goes dormant (teaching loop §3.3).
+        const dormant = await retireUnanswered(teaching.service, memory, { clock });
+        return `lessons: ${r.merged} merged, ${r.promoted} promoted, ${r.proposed} proposed, ${r.flagged} flagged, ${dormant} dormant`;
       },
     ],
   );
