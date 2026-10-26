@@ -87,6 +87,11 @@ export const APPLE_APP_ACTIONS: Readonly<Record<string, AppleAppAction>> = {
   "contacts.read": read("apple.contacts", "read"),
   "contacts.create": write("apple.contacts", "create"),
   "contacts.update": write("apple.contacts", "update"),
+  // Files in granted folders (wave 1, §4.8; #639).
+  "files.recent": read("apple.files", "recent"),
+  "files.move": write("apple.files", "move"),
+  "files.rename": write("apple.files", "rename"),
+  "files.trash": write("apple.files", "trash", "connector_action", { sideEffect: "destructive" }),
   "finder.list": read("apple.finder", "list"),
   "finder.reveal": read("apple.finder", "reveal"),
   "safari.tabs": read("apple.safari", "tabs"),

@@ -37,6 +37,10 @@ const ALL = [
   "mail.read",
   "mail.draft",
   "mail.send",
+  "files.recent",
+  "files.move",
+  "files.rename",
+  "files.trash",
   "safari.tabs",
   "safari.current_tab",
   "safari.tab_text",
@@ -216,6 +220,7 @@ describe("Apple app connectors (#528)", () => {
       ["apple:music", "apple-music", true],
       ["apple:safari", "apple-safari", true],
       ["chrome:tabs", "chrome-tabs", true],
+      ["apple:files", "apple-files", true],
     ]);
     expect(appleCatalogueEntry("mail").actions.find((a) => a.id === "mail.send")).toMatchObject({
       sideEffect: "destructive",
@@ -996,5 +1001,35 @@ describe("Safari and Chrome wave 1 (#639)", () => {
     const { registry } = make(helper);
     const r = await registry.connect({ catalogueId: "chrome-tabs", scopeMode: "read" });
     expect(r.config.permission).toMatchObject({ kind: "automation", target: "com.google.Chrome" });
+  });
+});
+
+describe("Files in shared folders wave 1 (#639)", () => {
+  it("connects without a macOS grant or probe; reads list, moves ask, trash is destructive", async () => {
+    const helper = new FakeHelper();
+    const { registry, run, tools } = make(helper);
+    const r = await registry.connect({ catalogueId: "apple-files", scopeMode: "read_act" });
+    expect(r.status).toBe("connected");
+    expect(helper.calls).toEqual([]); // no permissions.status, no probe
+    await run("mcp__apple-1__files_recent")({ folder: "~/Downloads", contentTypes: ["pdf"] });
+    expect(helper.calls).toEqual([
+      { capability: "files.recent", params: { folder: "~/Downloads", contentTypes: ["pdf"] } },
+    ]);
+    await expect(
+      run("mcp__apple-1__files_move")({
+        items: [{ path: "~/Downloads/a.pdf", to: "~/Documents/Taxes" }],
+      }),
+    ).rejects.toMatchObject({ code: "approval_required" });
+    await expect(
+      run("mcp__apple-1__files_trash")({ paths: ["~/Downloads/old.dmg"] }),
+    ).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    expect(appleCatalogueEntry("files").actions.map((a) => [a.id, a.sideEffect])).toEqual([
+      ["files.read", "read"],
+      ["files.organize", "write"],
+      ["files.trash", "destructive"],
+    ]);
+    expect([...tools.keys()]).toContain("mcp__apple-1__files_trash");
   });
 });
