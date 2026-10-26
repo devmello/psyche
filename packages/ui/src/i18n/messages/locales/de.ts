@@ -3425,4 +3425,5 @@ export const de: Partial<Catalogue> = {
     "Sonst sendet Psyche es nur, wenn sich deine Anfrage auf den Bildschirm bezieht, und sieht es sich nur an, wenn es nötig ist.",
   "voice.phrases.screen":
     "das|dies|diese|dieser|hier|auf dem bildschirm|auf meinem bildschirm|was sehe ich da|diese seite|dieser fehler|diese fehlermeldung|dieses diagramm|dieses fenster|oben|unten",
+  "specialists.card.fromAutomation": "Von deiner Automation {name}",
 };

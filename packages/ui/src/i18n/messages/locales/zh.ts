@@ -3201,4 +3201,5 @@ export const zh: Partial<Catalogue> = {
     "否则，Psyche 只在你的请求与屏幕有关时才发送截屏，并且只在需要时才查看。",
   "voice.phrases.screen":
     "这个|这|那个|这里|屏幕|屏幕上|我在看什么|这是什么|这个页面|这个错误|这个报错|这个图表|这个窗口|上面|下面",
+  "specialists.card.fromAutomation": "来自你的自动化 {name}",
 };

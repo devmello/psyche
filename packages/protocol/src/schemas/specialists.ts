@@ -101,6 +101,12 @@ export const SpecialistResult = Type.Object(
 );
 export type SpecialistResult = Static<typeof SpecialistResult>;
 
+export const SpecialistAutomation = Type.Object(
+  { id: Id, title: Type.String({ maxLength: 200 }) },
+  { $id: "SpecialistAutomation" },
+);
+export type SpecialistAutomation = Static<typeof SpecialistAutomation>;
+
 /** The `specialist` block on a Task (specialists §7.1). */
 export const SpecialistSpec = Type.Object(
   {
@@ -121,6 +127,8 @@ export const SpecialistSpec = Type.Object(
     /** Where the job stands in the specialist queue; null once it has started. */
     queuePosition: Nullable(Type.Integer({ minimum: 1 })),
     result: Nullable(SpecialistResult),
+    /** The automation that started the job, when one did ("From your automation {title}"). */
+    automation: Type.Optional(SpecialistAutomation),
     /** The approvals the job will likely ask for, computed at spawn (informational, §4.4). */
     preflight: Type.Optional(Type.Array(ApprovalHint, { maxItems: 16 })),
     /**
@@ -210,6 +218,8 @@ export const SpecialistJob = Type.Object(
     /** The last step's label, for the row's second line. */
     lastStep: Nullable(Type.String({ maxLength: 200 })),
     /** The spawn's pre-flight: approvals the job will likely ask for (informational, §4.4). */
+    /** The automation that started the job, when one did. */
+    automation: Type.Optional(SpecialistAutomation),
     preflight: Type.Optional(Type.Array(ApprovalHint, { maxItems: 16 })),
     createdAt: IsoDateTime,
     updatedAt: IsoDateTime,

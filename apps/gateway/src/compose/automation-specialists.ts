@@ -99,7 +99,12 @@ export function withAutomationSpecialists(
         deps.now(),
       );
       // No run spawned it: the automation did, and the card says so ("From your automation").
-      const spec = { ...built, parentRunId: null, rootRunId: null };
+      const spec = {
+        ...built,
+        parentRunId: null,
+        rootRunId: null,
+        automation: { id: request.automation.id, title: request.automation.title.slice(0, 200) },
+      };
       const job = await deps.host.createJob({
         spec,
         title: request.automation.title,

@@ -28661,6 +28661,25 @@
       ],
       "type": "object"
     },
+    "SpecialistAutomation": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "type": "object"
+    },
     "SpecialistBudgetSetting": {
       "properties": {
         "tokens": {
@@ -28846,6 +28865,9 @@
               "type": "null"
             }
           ]
+        },
+        "automation": {
+          "$ref": "#/$defs/SpecialistAutomation"
         },
         "preflight": {
           "items": {
@@ -29382,6 +29404,9 @@
               "type": "null"
             }
           ]
+        },
+        "automation": {
+          "$ref": "#/$defs/SpecialistAutomation"
         },
         "preflight": {
           "items": {

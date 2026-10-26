@@ -3307,4 +3307,5 @@ export const pt: Partial<Catalogue> = {
     "Caso contrário, o Psyche só a envia quando seu pedido é sobre a tela, e só olha para ela se precisar.",
   "voice.phrases.screen":
     "isso|esse|essa|este|esta|aqui|na tela|na minha tela|o que estou vendo|o que é isso|essa página|esse erro|esse gráfico|essa janela|acima",
+  "specialists.card.fromAutomation": "Da sua automação {name}",
 };

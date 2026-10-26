@@ -7251,6 +7251,7 @@ export interface SpecialistSpawnedPayload {
 }
 
 export interface SpecialistJob {
+    automation?:    SpecialistAutomation;
     budget:         RunBudget;
     createdAt:      string;
     deadline?:      null | string;
@@ -7270,6 +7271,11 @@ export interface SpecialistJob {
     threadId:  string;
     title:     string;
     updatedAt: string;
+}
+
+export interface SpecialistAutomation {
+    id:    string;
+    title: string;
 }
 
 export interface ApprovalHint {
@@ -7509,6 +7515,7 @@ export interface PlanStep {
 export type PlanStepStatus = "pending" | "running" | "done" | "failed" | "skipped";
 
 export interface SpecialistSpec {
+    automation?:    SpecialistAutomation;
     budget:         RunBudget;
     budgetPause?:   BudgetPause | null;
     deadline?:      null | string;

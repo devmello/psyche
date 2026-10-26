@@ -924,6 +924,7 @@
 //   let skillsSetEnabledParams = try? JSONDecoder().decode(SkillsSetEnabledParams.self, from: jsonData)
 //   let skillsSetEnabledResult = try? JSONDecoder().decode(SkillsSetEnabledResult.self, from: jsonData)
 //   let sourcedLine = try? JSONDecoder().decode(SourcedLine.self, from: jsonData)
+//   let specialistAutomation = try? JSONDecoder().decode(SpecialistAutomation.self, from: jsonData)
 //   let specialistBudgetSetting = try? JSONDecoder().decode(SpecialistBudgetSetting.self, from: jsonData)
 //   let specialistFinding = try? JSONDecoder().decode(SpecialistFinding.self, from: jsonData)
 //   let specialistInputs = try? JSONDecoder().decode(SpecialistInputs.self, from: jsonData)
@@ -21408,6 +21409,7 @@ public struct SpecialistSpawnedPayload: Codable, Sendable {
 
 // MARK: - SpecialistJob
 public struct SpecialistJob: Codable, Sendable {
+    public let automation: SpecialistAutomation?
     public let budget: RunBudget
     public let createdAt: String
     public let deadline: String?
@@ -21427,6 +21429,7 @@ public struct SpecialistJob: Codable, Sendable {
     public let updatedAt: String
 
     public enum CodingKeys: String, CodingKey {
+        case automation = "automation"
         case budget = "budget"
         case createdAt = "createdAt"
         case deadline = "deadline"
@@ -21445,7 +21448,8 @@ public struct SpecialistJob: Codable, Sendable {
         case updatedAt = "updatedAt"
     }
 
-    public init(budget: RunBudget, createdAt: String, deadline: String?, lastStep: String?, parentRunID: String?, parentThreadID: String, preflight: [ApprovalHint]?, queuePosition: Int?, result: SpecialistResult?, role: String, runID: String?, status: StatusElement, taskID: String, threadID: String, title: String, updatedAt: String) {
+    public init(automation: SpecialistAutomation?, budget: RunBudget, createdAt: String, deadline: String?, lastStep: String?, parentRunID: String?, parentThreadID: String, preflight: [ApprovalHint]?, queuePosition: Int?, result: SpecialistResult?, role: String, runID: String?, status: StatusElement, taskID: String, threadID: String, title: String, updatedAt: String) {
+        self.automation = automation
         self.budget = budget
         self.createdAt = createdAt
         self.deadline = deadline
@@ -21462,6 +21466,22 @@ public struct SpecialistJob: Codable, Sendable {
         self.threadID = threadID
         self.title = title
         self.updatedAt = updatedAt
+    }
+}
+
+// MARK: - SpecialistAutomation
+public struct SpecialistAutomation: Codable, Sendable {
+    public let id: String
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case title = "title"
+    }
+
+    public init(id: String, title: String) {
+        self.id = id
+        self.title = title
     }
 }
 
@@ -22075,6 +22095,7 @@ public enum PlanStepStatus: String, Codable, Sendable {
 
 // MARK: - SpecialistSpec
 public struct SpecialistSpec: Codable, Sendable {
+    public let automation: SpecialistAutomation?
     public let budget: RunBudget
     public let budgetPause: BudgetPause?
     public let deadline: String?
@@ -22095,6 +22116,7 @@ public struct SpecialistSpec: Codable, Sendable {
     public let tools: [String]
 
     public enum CodingKeys: String, CodingKey {
+        case automation = "automation"
         case budget = "budget"
         case budgetPause = "budgetPause"
         case deadline = "deadline"
@@ -22114,7 +22136,8 @@ public struct SpecialistSpec: Codable, Sendable {
         case tools = "tools"
     }
 
-    public init(budget: RunBudget, budgetPause: BudgetPause?, deadline: String?, deliver: Deliver, inputs: SpecialistInputs, model: String, parentRunID: String?, parentThreadID: String, permissionMode: PermissionMode, planApproved: Bool?, planFirst: Bool, preflight: [ApprovalHint]?, queuePosition: Int?, result: SpecialistResult?, role: String, rootRunID: String?, tools: [String]) {
+    public init(automation: SpecialistAutomation?, budget: RunBudget, budgetPause: BudgetPause?, deadline: String?, deliver: Deliver, inputs: SpecialistInputs, model: String, parentRunID: String?, parentThreadID: String, permissionMode: PermissionMode, planApproved: Bool?, planFirst: Bool, preflight: [ApprovalHint]?, queuePosition: Int?, result: SpecialistResult?, role: String, rootRunID: String?, tools: [String]) {
+        self.automation = automation
         self.budget = budget
         self.budgetPause = budgetPause
         self.deadline = deadline

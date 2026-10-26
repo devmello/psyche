@@ -1129,6 +1129,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         tasks,
         roles: skills.roles,
         now: () => clock.now(),
+        raise: (taskId, patch) =>
+          raiseSpecialistBudget({ tasks, host: specialists }, taskId, patch),
         poke: () => specialistPool.poke(),
       }) as never,
     ),

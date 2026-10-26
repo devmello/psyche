@@ -3331,4 +3331,5 @@ export const it: Partial<Catalogue> = {
     "Altrimenti Psyche la invia solo quando la richiesta riguarda lo schermo e la guarda solo se ne ha bisogno.",
   "voice.phrases.screen":
     "questo|questa|quello|quella|qui|qua|sullo schermo|sul mio schermo|cosa sto guardando|questa pagina|questo errore|questo grafico|questa finestra|sopra|sotto",
+  "specialists.card.fromAutomation": "Dalla tua automazione {name}",
 };

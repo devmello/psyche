@@ -172,6 +172,11 @@ export function SpecialistResultCard({
           {headline(job, roleLabel)}
         </p>
         {r.summary ? <p className="text-label-primary">{r.summary}</p> : null}
+        {job.automation ? (
+          <p className="text-callout text-label-secondary" data-testid="from-automation">
+            {t("specialists.card.fromAutomation", { name: job.automation.title })}
+          </p>
+        ) : null}
       </div>
 
       {r.findings.length > 0 ? (

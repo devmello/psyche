@@ -3278,4 +3278,5 @@ export const ko: Partial<Catalogue> = {
     "이 옵션이 꺼져 있으면 Psyche는 요청이 화면에 관한 것일 때만 스크린샷을 보내고, 필요할 때만 확인합니다.",
   "voice.phrases.screen":
     "이거|이것|저거|그거|여기|화면|화면에|지금 보고 있는|이 페이지|이 오류|이 에러|이 차트|이 창|위에|아래",
+  "specialists.card.fromAutomation": "자동화 {name}에서",
 };
