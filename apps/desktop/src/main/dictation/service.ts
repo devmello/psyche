@@ -7,7 +7,7 @@ import {
   parseDictationSettings,
   type SystemDictation,
 } from "./controller.ts";
-import { FnGesture } from "./fn-gesture.ts";
+import { KeyGesture } from "./key-gesture.ts";
 
 /** System Settings › Privacy & Security › Accessibility (Psyche Helper needs the grant). */
 export const ACCESSIBILITY_SETTINGS_URL =
@@ -38,8 +38,8 @@ export interface DictationServiceOptions {
    * opens the voice pop-up (the ask panel) with it (`VoiceKeyListener`).
    */
   onVoiceKey?: (down: boolean) => void;
-  /** fn was double-tapped: open "Ask about my screen". */
-  onFnDoubleTap?: () => void;
+  /** The dictation or voice key was double-tapped: open "Ask about my screen". */
+  onKeyDoubleTap?: () => void;
   /** Talk with Psyche was turned on or off (its key is armed or not): the pop-up's window. */
   onVoiceEnabled?: (on: boolean) => void;
 }
@@ -80,20 +80,20 @@ export class DictationService implements VoiceKeySource {
   #hotkeyTaken = "";
   #status: DictationStatus = { helper: "offline", accessibility: "unknown", watching: false };
 
-  // fn is also the input-source key: it needs a 250 ms hold (see fn-gesture.ts) to act.
-  readonly #fnVoice: FnGesture;
-  readonly #fnDictation: FnGesture;
+  // A key needs a 250 ms hold to act (fn doubles as the input-source key); see key-gesture.ts.
+  readonly #keyVoice: KeyGesture;
+  readonly #keyDictation: KeyGesture;
 
   constructor(opts: DictationServiceOptions) {
     this.#o = opts;
     const gesture = (hold: (down: boolean) => void) =>
-      new FnGesture({
+      new KeyGesture({
         onHoldStart: () => hold(true),
         onHoldEnd: () => hold(false),
-        onDoubleTap: () => this.#o.onFnDoubleTap?.(),
+        onDoubleTap: () => this.#o.onKeyDoubleTap?.(),
       });
-    this.#fnVoice = gesture((down) => this.#o.onVoiceKey?.(down));
-    this.#fnDictation = gesture((down) => this.#o.dictation.onKey(down));
+    this.#keyVoice = gesture((down) => this.#o.onVoiceKey?.(down));
+    this.#keyDictation = gesture((down) => this.#o.dictation.onKey(down));
   }
 
   get watching(): boolean {
@@ -146,13 +146,11 @@ export class DictationService implements VoiceKeySource {
       if (typeof p.down !== "boolean") return;
       if (p.role === "voice") {
         if (p.key !== this.#voiceKey) return;
-        if (p.key === "fn") this.#fnVoice.key(p.down);
-        else this.#o.onVoiceKey?.(p.down);
+        this.#keyVoice.key(p.down);
         return;
       }
       if (p.key !== this.#settings.key) return;
-      if (p.key === "fn") this.#fnDictation.key(p.down);
-      else this.#o.dictation.onKey(p.down);
+      this.#keyDictation.key(p.down);
     } else if (event === "voice.segment") {
       const seg = p.segment as { text?: unknown; final?: unknown } | undefined;
       if (typeof p.sessionId === "string" && typeof seg?.text === "string")
@@ -175,14 +173,14 @@ export class DictationService implements VoiceKeySource {
   onDisconnected(): void {
     this.#watching = false;
     this.#update({ helper: "offline", watching: false });
-    this.#fnVoice.reset();
-    this.#fnDictation.reset();
+    this.#keyVoice.reset();
+    this.#keyDictation.reset();
     this.#o.dictation.cancel();
   }
 
   dispose(): void {
-    this.#fnVoice.reset();
-    this.#fnDictation.reset();
+    this.#keyVoice.reset();
+    this.#keyDictation.reset();
     this.#registerHotkey("");
     this.#o.dictation.cancel();
   }
