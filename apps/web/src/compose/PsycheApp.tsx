@@ -25,6 +25,10 @@ import {
   mailSettings,
   OnboardingFlow,
   type OnboardingResult,
+  OverviewRunPlaceholder,
+  OverviewScreen,
+  overviewHref,
+  parseOverviewPeriod,
   type RailItem,
   SearchScreen,
   ThreadContextDialog,
@@ -239,6 +243,24 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
         <LibraryScreen
           section={section}
           onSectionChange={(next) => navigate(`/library/${next}`)}
+        />,
+      );
+    }
+    case "overview": {
+      // `/overview[?period=7d|30d|all]` is "{persona} & you"; `/overview/run/<id>` is the
+      // Timeline's future home (O5), a placeholder until then (agent-overview-2026 §3).
+      if (parts[1] === "run" && parts[2] !== undefined) {
+        return page(
+          "Overview",
+          <OverviewRunPlaceholder runId={parts[2]} onBack={() => navigate("/overview")} />,
+        );
+      }
+      return page(
+        "Overview",
+        <OverviewScreen
+          period={parseOverviewPeriod(query)}
+          onPeriodChange={(period) => navigate(overviewHref(period))}
+          onTry={(kind) => navigate(kind === "connectMail" ? "/settings/mail" : "/chat")}
         />,
       );
     }

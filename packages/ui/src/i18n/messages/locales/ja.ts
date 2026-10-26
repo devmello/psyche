@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { canvas } from "./canvas/ja.ts";
 import { mailMeetings } from "./mail-meetings/ja.ts";
+import { overview } from "./overview/ja.ts";
 import { workflows } from "./workflows/ja.ts";
 
 /** Japanese catalogue (ja). Same ids as `en`; missing ids fall back to English. */
@@ -9,6 +10,8 @@ export const ja: Partial<Catalogue> = {
   ...mailMeetings,
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
+  // the Overview screen (docs/design/agent-overview-2026.md)
+  ...overview,
   // the output canvas (docs/design/chat-experience-2026.md §4.2)
   ...canvas,
   "common.cancel": "キャンセル",

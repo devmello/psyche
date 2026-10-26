@@ -224,7 +224,7 @@ describe("the composed app on the web host (A8)", () => {
     // Bottom tab bar: the five phone tabs, no Search and no Settings in the rail.
     const rail = screen.getByTestId("rail");
     const labels = Array.from(rail.querySelectorAll("button")).map((b) => b.textContent?.trim());
-    expect(labels).toEqual(["Chat", "Feed", "Ideas", "Goals", "Library"]);
+    expect(labels).toEqual(["Chat", "Feed", "Ideas", "Goals", "Library", "Overview"]);
     expect(calls.some((c) => c.method === "settings.get")).toBe(true);
     await act(async () => {
       window.innerWidth = 1280;
@@ -308,6 +308,33 @@ describe("the composed app on the web host (A8)", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Add a goal" }));
     await waitFor(() => expect(window.location.pathname).toBe("/goals/01JBXY6Q8Z00000000000000G1"));
     expect(created).toEqual({ title: "Learn to swim", category: "other" });
+  });
+});
+
+describe("the Overview route (agent-overview-2026 §3)", () => {
+  it("renders /overview as '{persona} & you' and keeps the period in the URL", async () => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", "/overview?period=30d");
+    const { platform } = webPlatform();
+    render(<PsycheApp platform={platform} />);
+    const screenEl = await screen.findByTestId("screen-overview");
+    expect(within(screenEl).getByRole("heading", { level: 1, name: "Flash & you" })).toBeTruthy();
+    const month = within(screenEl).getByRole("radio", { name: "Month" });
+    expect(month.getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(within(screenEl).getByRole("radio", { name: "All time" }));
+    await waitFor(() => expect(window.location.search).toBe("?period=all"));
+    fireEvent.click(within(screenEl).getByRole("radio", { name: "Week" }));
+    await waitFor(() => expect(window.location.search).toBe(""));
+    expect(window.location.pathname).toBe("/overview");
+  });
+
+  it("routes /overview/run/<id> to the placeholder", async () => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", "/overview/run/01JBXY6Q8Z00000000000000R1");
+    const { platform } = webPlatform();
+    render(<PsycheApp platform={platform} />);
+    const run = await screen.findByTestId("overview-run");
+    expect(run.getAttribute("data-run-id")).toBe("01JBXY6Q8Z00000000000000R1");
   });
 });
 

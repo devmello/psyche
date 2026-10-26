@@ -1,0 +1,35 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Overview screen strings (de); merged into `../de.ts`. */
+export const overview: Partial<Catalogue> = {
+  "overview.title": "{name} & du",
+  "overview.screen": "Übersicht",
+  "overview.period.label": "Zeitraum",
+  "overview.period.week": "Woche",
+  "overview.period.month": "Monat",
+  "overview.period.all": "Gesamt",
+  "overview.range.since": "Seit {date}",
+  "overview.range.allTime": "Gesamter Zeitraum",
+  "overview.jump.label": "Zu einem Abschnitt springen",
+  "overview.section.now": "Jetzt & als Nächstes",
+  "overview.section.activity": "Aktivität",
+  "overview.section.growth": "Entwicklung",
+  "overview.section.people": "Personen & Projekte",
+  "overview.section.built": "Für dich erstellt",
+  "overview.section.specialists": "Spezialisten",
+  "overview.section.upcoming": "Geplant",
+  "overview.section.recent": "Letzte Läufe",
+  "overview.section.empty": "Hier ist noch nichts.",
+  "overview.newUser.title": "{name} lernt dich kennen",
+  "overview.newUser.body":
+    "In einer Woche siehst du, was {name} für dich getan hat, was es gelernt hat und welche Personen und Projekte es im Blick behält.",
+  "overview.newUser.try": "Probier aus",
+  "overview.newUser.planWeek": "{name} bitten, deine Woche zu planen",
+  "overview.newUser.morningBrief": "Einen Morgenüberblick einrichten",
+  "overview.newUser.connectMail": "Dein E-Mail-Konto verbinden",
+  "overview.run.title": "Lauf",
+  "overview.run.placeholder": "Der Ablauf des Laufs zieht hierher um.",
+  "overview.run.back": "Zurück zur Übersicht",
+  "shell.rail.overview": "Übersicht",
+  "shell.sidebar.openOverview": "Übersicht öffnen",
+};
