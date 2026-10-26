@@ -1,8 +1,8 @@
-import type { MethodParams, SpecialistJob, SpecialistRole } from "@psyche/protocol";
+import type { MethodParams, RunBudget, SpecialistJob, SpecialistRole } from "@psyche/protocol";
 import { useCallback, useMemo } from "react";
-import { type LoadState, useLoader } from "./hooks.ts";
+import { type LoadState, useLoader, useTask } from "./hooks.ts";
 import { useStore, useStoreState } from "./provider.tsx";
-import type { UiState } from "./state.ts";
+import { put, type UiState } from "./state.ts";
 import type { GatewayStore } from "./store.ts";
 
 /**
@@ -94,4 +94,69 @@ export function useSpecialistRoles(): LoadState & {
   const list = roles ?? EMPTY_ROLES;
   const role = useCallback((id: string) => list.find((r) => r.role === id) ?? null, [list]);
   return { ...load, roles: list, role };
+}
+
+/** The limits a `tasks.update` budget asks for, in the job's own shape (minutes → wallMs). */
+function limitOf(
+  prev: RunBudget["limit"],
+  budget: NonNullable<MethodParams<"tasks.update">["budget"]>,
+): RunBudget["limit"] {
+  return {
+    ...prev,
+    ...(budget.tokens === undefined ? {} : { tokens: budget.tokens }),
+    ...(budget.costUsd === undefined ? {} : { costUsd: budget.costUsd }),
+    ...(budget.minutes === undefined ? {} : { wallMs: budget.minutes * 60_000 }),
+  };
+}
+
+function withJob(s: UiState, taskId: string, patch: (j: SpecialistJob) => SpecialistJob): UiState {
+  const job = s.specialistJobs[taskId];
+  return job === undefined
+    ? s
+    : { ...s, specialistJobs: { ...s.specialistJobs, [taskId]: patch(job) } };
+}
+
+/**
+ * The owner's controls for one running job (specialists §4.7): steer it (`tasks.steer`), pause,
+ * resume or stop it (`tasks.pause / resume / cancel`), and give it more (`tasks.update`, capped by
+ * the role in the Gateway). `task` is the job's Task, whose status tells paused from working.
+ */
+export function useSpecialistControls(taskId: string) {
+  const store = useStore();
+  const { task, pause, resume, cancel } = useTask(taskId);
+  const steer = useCallback(
+    async (text: string) => {
+      const r = await store.call("tasks.steer", { taskId, text });
+      store.update((s) => put(s, "tasks", r.task));
+    },
+    [store, taskId],
+  );
+  const giveMore = useCallback(
+    (budget: NonNullable<MethodParams<"tasks.update">["budget"]>) =>
+      store.mutate({
+        optimistic: (s) =>
+          withJob(s, taskId, (j) => ({
+            ...j,
+            budget: { ...j.budget, limit: limitOf(j.budget.limit, budget) },
+          })),
+        run: () => store.call("tasks.update", { taskId, budget }),
+        commit: (s, r) => {
+          const limit = r.task.specialist?.budget.limit;
+          const next = put(s, "tasks", r.task);
+          return withJob(next, taskId, (j) => ({
+            ...j,
+            budget: { ...j.budget, limit: limit ?? limitOf(j.budget.limit, budget) },
+          }));
+        },
+      }),
+    [store, taskId],
+  );
+  return {
+    task,
+    steer,
+    giveMore,
+    pause: () => pause(taskId),
+    resume: () => resume(taskId),
+    cancel: () => cancel(taskId),
+  };
 }

@@ -1,10 +1,13 @@
 import type { Catalogue } from "../index.ts";
+import { canvas } from "./canvas/it.ts";
 import { workflows } from "./workflows/it.ts";
 
 /** Italian catalogue (it). Same ids as `en`; missing ids fall back to English. */
 export const it: Partial<Catalogue> = {
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
+  // the output canvas (docs/design/chat-experience-2026.md §4.2)
+  ...canvas,
   "common.cancel": "Annulla",
   "common.close": "Chiudi",
   "common.save": "Salva",
@@ -3361,6 +3364,32 @@ export const it: Partial<Catalogue> = {
   "settings.key.voice.conversation.pauseMs": "Pausa prima che Psyche risponda",
   "settings.key.voice.conversation.brief": "Rassegna parlata",
 
+  // specialist controls (specialists §4.7) and the approval context line (§4.4)
+  "specialists.control.menu": "Altro per {title}",
+  "specialists.control.steerLabel": "Dire qualcosa al {role} su {title}",
+  "specialists.control.steerPlaceholder": "Di’ qualcosa al {role}…",
+  "specialists.control.steerHint": "Lo legge prima del passo successivo.",
+  "specialists.control.send": "Invia",
+  "specialists.control.steered": "Inviato al {role}.",
+  "specialists.control.pause": "Metti in pausa",
+  "specialists.control.resume": "Riprendi",
+  "specialists.control.giveMore": "Dagli di più…",
+  "specialists.control.stop": "Ferma…",
+  "specialists.control.giveMoreTitle": "Dare di più al {role}?",
+  "specialists.control.giveMoreBody":
+    "Aumenta della metà il budget per {title}, fino al massimo consentito dalle Impostazioni per questo ruolo.",
+  "specialists.control.moreTokens": "Token: {from} → {to}",
+  "specialists.control.moreCost": "Costo: {from} → {to}",
+  "specialists.control.moreTime": "Tempo: {from, number} → {to, number} min",
+  "specialists.control.atCap": "Ha già il massimo consentito dalle Impostazioni per questo ruolo.",
+  "specialists.control.giveMoreConfirm": "Dagli di più",
+  "specialists.control.stopTitle": "Fermare il {role}?",
+  "specialists.control.stopBody":
+    "Si ferma subito e non finirà {title}. Quello che ha già fatto resta in Attività.",
+  "specialists.control.stopConfirm": "Fermalo",
+  "specialists.control.failed": "Psyche non è riuscito a farlo: {reason}",
+  "blocks.approval.specialist":
+    "{hasTask, select, true {Per «{task}» · } other {}}{role} avviato da {agent}{hasThread, select, true { in {thread}} other {}}",
   // Ask about my screen
   "screenAsk.label": "Chiedi del tuo schermo",
   "screenAsk.placeholder": "Chiedi di ciò che è sullo schermo o chiedi a Psyche di fare qualcosa…",

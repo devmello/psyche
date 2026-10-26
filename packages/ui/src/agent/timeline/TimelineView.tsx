@@ -4,6 +4,7 @@ import { useReducedMotionConfig } from "motion/react";
 import {
   type KeyboardEvent,
   type ReactElement,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -95,6 +96,8 @@ export interface TimelineViewProps extends StepLinks {
   onStop?: () => void;
   onPause?: () => void;
   onRetry?: () => void;
+  /** Extra header controls (a specialist job's, specialists §4.7). */
+  controls?: ReactNode;
   /** Opens the account behind an authorisation failure. */
   onReconnect?: (step: RunStep) => void;
   onCopyLink?: (stepId: string | null) => void;
@@ -114,6 +117,7 @@ export function TimelineView({
   onStop,
   onPause,
   onRetry,
+  controls,
   onReconnect,
   onCopyLink,
   threadTitle,
@@ -516,6 +520,7 @@ export function TimelineView({
         {...(onStop ? { onStop } : {})}
         {...(onPause ? { onPause } : {})}
         {...(onRetry ? { onRetry } : {})}
+        {...(controls ? { controls } : {})}
         onExport={doExport}
         {...(onCopyLink ? { onCopyLink: () => onCopyLink(selectedId) } : {})}
         onDelete={() => void deleteTrace()}

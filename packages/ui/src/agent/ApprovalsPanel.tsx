@@ -30,18 +30,23 @@ function decidedWhere(by: unknown): string {
 export function useApprovalQueue() {
   const approvals = useApprovals();
   const tasks = useStoreState((s) => s.tasks);
+  const threads = useStoreState((s) => s.threads);
   const { pending } = approvals;
   const split = useMemo(() => {
     const live: ApprovalView[] = [];
     const deferred: ApprovalView[] = [];
     for (const v of pending) {
       const taskId = v.approval.requestedBy.taskId;
-      const unattended = taskId != null && tasks[taskId]?.createdFrom === "automation";
+      const task = taskId == null ? undefined : tasks[taskId];
+      // An automation's run, or a specialist an automation started (no parent run, §4.10).
+      const unattended =
+        task?.createdFrom === "automation" ||
+        (task?.createdFrom === "subagent" && task.specialist?.parentRunId === null);
       (unattended && !v.canAnswer ? deferred : live).push(v);
     }
     return { live, deferred };
   }, [pending, tasks]);
-  return { ...approvals, ...split, tasks };
+  return { ...approvals, ...split, tasks, threads };
 }
 
 function recentLine(v: ApprovalView): { text: string; variant: "success" | "danger" | "muted" } {
@@ -71,7 +76,7 @@ const SECTIONS = [
  */
 export function ApprovalsPanel({ now: fixedNow }: { now?: number }): ReactElement {
   const now = useNow(1000, fixedNow);
-  const { live, deferred, recent, answer, loading, tasks } = useApprovalQueue();
+  const { live, deferred, recent, answer, loading, tasks, threads } = useApprovalQueue();
   const persona = usePersona();
   const slots = useSlots();
   const grants = useGatewayQuery("grants.list", {});
@@ -132,6 +137,11 @@ export function ApprovalsPanel({ now: fixedNow }: { now?: number }): ReactElemen
                   persona={persona.name}
                   taskTitle={task?.title ?? null}
                   createdFrom={task?.createdFrom ?? null}
+                  parentThreadTitle={
+                    task?.specialist
+                      ? (threads[task.specialist.parentThreadId]?.thread.title ?? null)
+                      : null
+                  }
                   otherSurfaces={v.approval.surfaces.filter((s) => s !== "desktop" && s !== "web")}
                   onAnswer={(d, scope) => answer(v.approval.id, d, scope)}
                   now={now}
