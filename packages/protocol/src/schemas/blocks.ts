@@ -67,6 +67,21 @@ export const FileBlock = Type.Object(
   { type: Type.Literal("file"), libraryItemId: Id },
   { $id: "FileBlock" },
 );
+/**
+ * What a user message was about (Feed "Ask about this"), shown as a compact quoted card. The title
+ * and host come from fetched web content (untrusted): render them as plain text.
+ */
+export const ContextBlock = Type.Object(
+  {
+    type: Type.Literal("context"),
+    kind: Type.Literal("feed_item"),
+    id: Id,
+    title: Type.String({ maxLength: 300 }),
+    url: Type.Optional(Type.String({ maxLength: 2000 })),
+    source: Type.Optional(Type.String({ maxLength: 200 })),
+  },
+  { $id: "ContextBlock" },
+);
 export const ReceiptBlock = Type.Object(
   { type: Type.Literal("receipt"), receiptId: Id },
   { $id: "ReceiptBlock" },
@@ -180,6 +195,7 @@ export const Block = Type.Union(
     QuestionBlock,
     ArtifactBlock,
     FileBlock,
+    ContextBlock,
     ReceiptBlock,
     TaskBlock,
     WrapUpBlock,

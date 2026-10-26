@@ -19,6 +19,17 @@ export const ChatSendResult = Type.Object(
   { $id: "ChatSendResult" },
 );
 
+/**
+ * What a message is asking about (Feed "Ask about this"): the Gateway resolves it, gives the agent
+ * the item's text as untrusted context ahead of the message, and records a `context` block on the
+ * user message so the transcript keeps showing what the question was about.
+ */
+export const ChatContextRef = Type.Object(
+  { kind: Type.Literal("feed_item"), id: Id },
+  { $id: "ChatContextRef" },
+);
+export type ChatContextRef = Static<typeof ChatContextRef>;
+
 const QueuedMessageResult = Type.Object({ messageId: Id }, { $id: "QueuedMessageResult" });
 
 /** A follow-up waiting for the current turn to settle (feature E3: visible, removable queue). */
@@ -65,6 +76,11 @@ export const ChatMethods = {
        * relevance rule, and widens the turn's taint (screen content is untrusted).
        */
       screen: Type.Optional(ChatScreenRef),
+      /**
+       * Ask about this (Feed): the item the message is about. Fetched web text in it is untrusted,
+       * so the turn starts tainted. Only for a turn that starts now: a busy thread refuses it.
+       */
+      context: Type.Optional(ChatContextRef),
     }),
     result: ChatSendResult,
     scope: "operator.write",

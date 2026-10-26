@@ -1,13 +1,14 @@
 import { listAllMessages, listMessagesPage, listQueue } from "@psyche/db";
 import {
   type Block,
+  type ChatContextRef,
   type ChatScreenRef,
   type Message,
   PsycheError,
   type QueueMode,
   type Thread,
 } from "@psyche/protocol";
-import type { Call, HandlerDef, ResolvedScreen } from "../context.ts";
+import type { Call, HandlerDef, ResolvedChatContext, ResolvedScreen } from "../context.ts";
 import { requireThread } from "./threads.ts";
 
 const DEFAULT_PAGE = 100;
@@ -29,6 +30,7 @@ function send(
     replyToMessageId?: string;
     redo?: { messageId: string; instruction?: string; withoutLessons?: boolean };
     screen?: ChatScreenRef;
+    context?: ChatContextRef;
   },
   mode: QueueMode | undefined,
 ) {
@@ -43,6 +45,14 @@ function send(
       deviceId: call.identity.deviceId,
       threadId: params.threadId,
     });
+  }
+  // Ask about this: the feed item's untrusted text, the card for the transcript, and its taint.
+  let context: ResolvedChatContext | undefined;
+  if (params.context !== undefined) {
+    const resolve = call.ctx.chatContext.resolve;
+    if (resolve === null)
+      throw new PsycheError("unavailable", "Ask about this is not available here");
+    context = resolve(params.context);
   }
   const redo = params.redo;
   if (redo !== undefined) {
@@ -69,13 +79,16 @@ function send(
       threadId: params.threadId,
       content: params.content,
       ...(attachments.length === 0 ? {} : { attachments }),
-      ...(screen === undefined
+      ...(screen === undefined && context === undefined
         ? {}
         : {
-            preamble: screen.preamble,
-            images: screen.images,
-            taintSources: screen.taintSources,
+            preamble: [screen?.preamble, context?.preamble]
+              .filter((p): p is string => p !== undefined)
+              .join("\n\n"),
+            taintSources: [...(screen?.taintSources ?? []), ...(context?.taintSources ?? [])],
           }),
+      ...(screen === undefined ? {} : { images: screen.images }),
+      ...(context === undefined ? {} : { contextBlocks: [context.block] }),
       ...(params.replyToMessageId === undefined
         ? {}
         : { replyToMessageId: params.replyToMessageId }),
@@ -112,6 +125,8 @@ function blockToMarkdown(block: Block): string {
       return [`> ${block.recap}`, ...(block.ask ? [`> ${block.ask}`] : [])].join("\n");
     case "file":
       return `[file ${block.libraryItemId}]`;
+    case "context":
+      return `[about: ${block.title}${block.url === undefined ? "" : ` ${block.url}`}]`;
     case "artifact":
       return `[artifact ${block.artifactId}${block.preview ? `: ${block.preview}` : ""}]`;
     case "approval":

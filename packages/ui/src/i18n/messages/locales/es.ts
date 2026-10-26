@@ -2591,7 +2591,6 @@ export const es: Partial<Catalogue> = {
   "screens.feed.sources": "Fuentes",
   "screens.feed.feedbackOn": "Opinión sobre {title}",
   "screens.feed.like": "Me gusta",
-  "screens.feed.ask": "Preguntar a {name}",
   "screens.feed.moreFeedback": "Más opiniones sobre {title}",
   "screens.feed.follow": "Seguir: {topic}",
   "screens.feed.followTopic": "Seguir el tema",

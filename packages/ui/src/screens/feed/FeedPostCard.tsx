@@ -29,10 +29,9 @@ export type FeedFeedbackValue = NonNullable<FeedPost["feedback"]>;
 
 export interface FeedPostCardProps {
   post: FeedPost;
-  /** Persona name for "Ask Wren". */
-  persona?: string;
   /** Records feedback; `null` clears it. The topic travels with follow_topic. */
   onFeedback?: (post: FeedPost, feedback: FeedFeedbackValue | null, topic?: string) => void;
+  /** "Ask about this": opens a chat with the post as context. */
   onAsk?: (post: FeedPost) => void;
   /** Workflow posts: the inline batch card for a proposal (mail-and-meetings-2026 §7.2). */
   renderBatch?: (proposalId: string, close: () => void) => ReactNode;
@@ -43,7 +42,7 @@ export interface FeedPostCardProps {
  * Feed post card (docs/design/redesign-2026.md §5.6): a level-1 card without an outline. Kind line
  * (text-caption), title (text-title-2), body (text-reading) with citation markers, then one footer
  * row: the sources (count, favicon-shaped tiles and names) leading and the feedback trailing.
- * Like, Save and Ask are ghost icon buttons shown on hover or focus; Follow topic, Not interested
+ * Like, Save and Ask about this are ghost icon buttons shown on hover or focus; Follow topic, Not interested
  * and Hide source sit under ⋯. The briefing is the hero: wider, with 24 px padding. A post with a
  * structured `card` (digest, meeting prep, meeting notes) renders as that workflow card.
  */
@@ -60,13 +59,7 @@ export function FeedPostCard(props: FeedPostCardProps): ReactElement {
   return <StandardPostCard {...props} />;
 }
 
-function StandardPostCard({
-  post,
-  persona = "Wren",
-  onFeedback,
-  onAsk,
-  className,
-}: FeedPostCardProps): ReactElement {
+function StandardPostCard({ post, onFeedback, onAsk, className }: FeedPostCardProps): ReactElement {
   const titleId = useId();
   const sources = feedSources(post);
   const topic = feedTopic(post);
@@ -175,8 +168,8 @@ function StandardPostCard({
               type="button"
               size="icon-sm"
               variant="ghost"
-              aria-label={t("screens.feed.ask", { name: persona })}
-              title={t("screens.feed.ask", { name: persona })}
+              aria-label={t("screens.feed.askAbout")}
+              title={t("screens.feed.askAbout")}
               onClick={() => onAsk(post)}
               className="text-label-secondary"
             >

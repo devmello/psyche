@@ -2506,7 +2506,6 @@ export const hi: Partial<Catalogue> = {
   "screens.feed.sources": "स्रोत",
   "screens.feed.feedbackOn": "{title} पर प्रतिक्रिया",
   "screens.feed.like": "पसंद",
-  "screens.feed.ask": "{name} से पूछें",
   "screens.feed.moreFeedback": "{title} पर और प्रतिक्रिया",
   "screens.feed.follow": "फ़ॉलो करें: {topic}",
   "screens.feed.followTopic": "विषय फ़ॉलो करें",

@@ -2428,7 +2428,6 @@ export const zh: Partial<Catalogue> = {
   "screens.feed.sources": "来源",
   "screens.feed.feedbackOn": "对 {title} 的反馈",
   "screens.feed.like": "喜欢",
-  "screens.feed.ask": "询问 {name}",
   "screens.feed.moreFeedback": "对 {title} 的更多反馈",
   "screens.feed.follow": "关注：{topic}",
   "screens.feed.followTopic": "关注话题",
