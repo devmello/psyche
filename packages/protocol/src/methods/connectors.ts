@@ -82,6 +82,22 @@ export const ConnectorsMethods = {
     description:
       "Side-effecting: sets allow / ask / deny per action; destructive and financial actions refuse allow.",
   }),
+  "connectors.configure": defineMethod({
+    params: Type.Object({
+      connectorId: Id,
+      /**
+       * Non-secret settings merged into the connector's `config` key by key; `null` removes a key.
+       * E.g. `shortcutRules` (`{<shortcut id>: "off" | "ask" | "allow"}`) on `apple:shortcuts`, or
+       * `vaultPath` and `dailyFolder` on `obsidian`. Secrets stay `{{cred:slug}}` placeholders.
+       */
+      config: Type.Record(Type.String(), Type.Unknown()),
+    }),
+    result: Type.Object({ connector: Connector }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: merges non-secret settings into a connector's config (null removes a key) without reconnecting it; announced by connectors.updated.",
+  }),
   "connectors.list": defineMethod({
     params: Type.Object({}),
     result: Type.Object({ connectors: Type.Array(Connector) }),

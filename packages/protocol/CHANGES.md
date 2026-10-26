@@ -18,6 +18,24 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-25 (S15, #670 W1: mail and meeting workflows)
+
+For S15 (W, #670), the skills (S, #671), the UI (U, #672) and the helper (H, #673): the shapes of docs/workflows/mail-and-meetings-2026.md. All new fields are optional, new enum values are appended, and new schemas are new names.
+
+- New `schemas/workflows.ts`: `ActionCall`, `ActionProposal` (+ `ActionProposalStatus`, `ActionCallResult`), `AutomationTrigger` (+ `WorkflowEventSource`, `WorkflowEventFilter`), `WorkflowEvent`, `MailThreadRef`, `DigestCategory`, `DigestAction`, `DigestItem`, `DigestGroup`, `DigestLoop` (a graph `GraphLoop` with the digest's `shownCount`), `InboxDigest`, `SourcedLine`, `MeetingAttendee`, `MeetingPrep`, `MeetingActionItem`, `MeetingNotes`, `WorkflowCard`, `FeedPostKind`, `FeedPostRefs`.
+- `ApprovalKind` gains `batch` (one approval bound to the ordered calls of a proposal, write-only, once). `packages/channels` gets its label.
+- `AutomationKind` gains `event`; `Automation.trigger`; `AutomationRun.trigger` gains `event`; `AutomationRun.events`; `UpcomingItem.trigger` / `lastRunAt`.
+- `FeedPost.kind`, `FeedPost.refs`, `FeedPost.card`.
+- New methods `proposals.list | get | approve | dismiss | undo`; new event `proposal.updated`. Follow-ups use the memory graph's loops (`GraphLoop`, `memory.loops.*`, #650), not a second store.
+### v1 additive — 2026-10-25 (S14, #673 H: long-form transcription and calendar.changed)
+
+For W6 (#670) and the helper's H1 / H2, docs/workflows/mail-and-meetings-2026.md §8.4. All new names.
+
+- `schemas/speech.ts`: `SpeechTranscribeFileParams {path, locale?, vocabulary?, maxDurationMs?}` (≤ `SPEECH_FILE_MAX_DURATION_MS`, 4 h), `SpeechTranscribeFileResult {text, segments, engine, language, audioMs, chunks}`, `SpeechNodeEngine`, the streamed `SpeechProgressEvent` (`speech.progress`) and `SPEECH_FILE_CAPABILITIES`.
+- `schemas/apple-apps.ts`: `AppleCalendarWatchParams` and `AppleCalendarChangedEvent` (`calendar.changed {at, coalesced}`), streamed by the helper's `calendar.watch`. A node event is tied to an invocation, so the Gateway holds one `calendar.watch` open, as it does `messages.watch`.
+### v1 additive — 2026-10-26 (U, #640: connector settings from Settings → Connectors)
+
+For the UI session (U) and S09 (G, #639): `connectors.configure {connectorId, config}` merges non-secret keys into a connector's `config` (`null` removes one) without reconnecting it. Settings writes `apple:shortcuts`' `config.shortcutRules` (`off` / `ask` / `allow` per shortcut id) and Obsidian's `config.vaultPath` and `config.dailyFolder` through it. G implements the handler.
 ### v1 additive — 2026-10-26 (S09 for S14 #719: Things auth token)
 
 - `ThingsUpdateParams.authToken?` and `ThingsCompleteParams.authToken?`: Things' URL-scheme auth token, which the Gateway fills in from the vault for that call only. The model never writes it, no card shows it, and the helper neither logs nor stores it.

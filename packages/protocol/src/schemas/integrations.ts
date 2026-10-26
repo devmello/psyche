@@ -1,5 +1,6 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, JsonObject, Nullable, StringEnum, Usage } from "../common.ts";
+import { AutomationTrigger, WorkflowEvent } from "./workflows.ts";
 
 /** Data model §6 — metadata mirror only; secrets never cross the protocol. */
 export const CredentialKind = StringEnum(
@@ -328,10 +329,11 @@ export const ChannelIdentity = Type.Object(
 export type ChannelIdentity = Static<typeof ChannelIdentity>;
 
 export const AutomationKind = StringEnum(
-  ["cron", "interval", "watch", "heartbeat", "briefing", "reminder"],
+  ["cron", "interval", "watch", "heartbeat", "briefing", "reminder", "event"],
   {
     $id: "AutomationKind",
-    description: "`reminder` is a one-shot: `schedule` is an ISO-8601 instant",
+    description:
+      "`reminder` is a one-shot: `schedule` is an ISO-8601 instant. `event` runs on its `trigger` (mail and meeting workflows §4.7), and its `schedule` is empty",
   },
 );
 export type AutomationKind = Static<typeof AutomationKind>;
@@ -390,6 +392,8 @@ export const Automation = Type.Object(
     lightContext: Type.Optional(
       Type.Boolean({ description: "Heartbeat: skip workspace bootstrap files (feature O2)" }),
     ),
+    /** `kind: "event"`: what starts a run (docs/workflows/mail-and-meetings-2026.md §4.7). */
+    trigger: Type.Optional(AutomationTrigger),
     /** Run each occurrence as a background specialist job (docs/agent/specialists-2026.md §4.10). */
     specialist: Type.Optional(
       Type.Object({
@@ -422,7 +426,7 @@ export const AutomationRun = Type.Object(
     automationId: Id,
     threadId: Nullable(Id),
     taskId: Nullable(Id),
-    trigger: StringEnum(["schedule", "manual"]),
+    trigger: StringEnum(["schedule", "manual", "event"]),
     scheduledFor: IsoDateTime,
     coalesced: Type.Integer({ minimum: 1, description: "Missed ticks folded into this run" }),
     startedAt: IsoDateTime,
@@ -430,6 +434,8 @@ export const AutomationRun = Type.Object(
     status: AutomationRunStatus,
     summary: Nullable(Type.String()),
     notificationId: Nullable(Id),
+    /** `trigger: "event"`: the events folded into this run (`coalesced` counts them). */
+    events: Type.Optional(Type.Array(WorkflowEvent, { maxItems: 200 })),
     /** The agent run that did the work (its trace: `runs.get`). */
     runId: Nullable(Id),
     usage: Type.Optional(Usage),
@@ -450,6 +456,9 @@ export const UpcomingItem = Type.Object(
     taskId: Type.Optional(Id),
     schedule: Type.Optional(Type.String()),
     timezone: Type.Optional(Type.String()),
+    /** Event automations: what starts them ("On new mail from Dana"), with no next time. */
+    trigger: Type.Optional(AutomationTrigger),
+    lastRunAt: Type.Optional(Nullable(IsoDateTime)),
   },
   { $id: "UpcomingItem" },
 );

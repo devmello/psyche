@@ -79,7 +79,13 @@ import type {
 
 export { ago, at, FIXTURE_NOW, fakeHex, fakeSha, IDS, inMinutes, PERSONA, today } from "./ids.ts";
 export { growthFeedPost, LEARNING_IDS } from "./learning.ts";
-export { appleConnectors, connectorCatalogue, type UsageSummary } from "./settings.ts";
+export {
+  appleConnectors,
+  appleShortcuts,
+  connectorCatalogue,
+  shortcutsAndObsidian,
+  type UsageSummary,
+} from "./settings.ts";
 export { subscriptionUsageSummary, usageSummary } from "./usage.ts";
 
 export interface FixtureWorld {
@@ -223,6 +229,7 @@ export {
   TRACE_IDS,
   traceAutomationRuns,
   traceFrames,
+  traceLongRun,
   tracePayloads,
   traceRuns,
   traceSteps,

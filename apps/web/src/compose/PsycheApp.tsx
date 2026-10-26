@@ -141,6 +141,8 @@ function RoutedAgentSheet({
     onTabChange: (tab: AgentTab) =>
       navigate(agentSheetHref(tab, sheet.back ? { back: sheet.back } : {})),
     ...(sheet.taskId === undefined ? {} : { taskId: sheet.taskId }),
+    ...(sheet.runId === undefined ? {} : { runId: sheet.runId }),
+    ...(sheet.stepId === undefined ? {} : { stepId: sheet.stepId }),
     ...(sheet.file === undefined ? {} : { file: sheet.file }),
     onClose: close,
   };

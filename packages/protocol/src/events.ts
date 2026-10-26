@@ -36,6 +36,7 @@ import { InputRequest, Task, TaskAction } from "./schemas/tasks.ts";
 import { Message, Run, RunBudget, Thread } from "./schemas/threads.ts";
 import { ToolCall } from "./schemas/tools.ts";
 import { VmUpdatedPayload } from "./schemas/vm.ts";
+import { ActionProposal } from "./schemas/workflows.ts";
 
 /**
  * Server-pushed events (data model §11; architecture §4.2 step 5). Each arrives in an
@@ -407,6 +408,11 @@ export const Events = {
     payload: Type.Object({ draft: SkillDraft }),
     description:
       "The agent proposed a skill from a repeated routine, or a draft was edited, accepted, installed, dismissed or expired (T3).",
+  }),
+  "proposal.updated": defineEvent({
+    payload: Type.Object({ proposal: ActionProposal }),
+    description:
+      "A batch proposal was created, sent for approval, ran (per-call results), was dismissed, expired or offered an undo (mail and meeting workflows §8.1).",
   }),
 } as const;
 
