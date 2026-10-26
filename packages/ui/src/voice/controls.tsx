@@ -3,6 +3,7 @@ import type { ReactElement } from "react";
 import { Button } from "../components/ui/button.tsx";
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
+import { Disclosure } from "../motion/index.ts";
 
 /**
  * Composer dictation in the kit's chat (#690). The host owns capture (the shell's `VoiceCapture`)
@@ -78,31 +79,38 @@ export function ComposerVoiceButtons({
   );
 }
 
-/** The line above the composer: what dictation hears. */
-export function ComposerVoiceBar({ voice }: { voice: ComposerVoice }): ReactElement | null {
+/**
+ * The line above the composer: what dictation hears. It opens and closes with `Disclosure`, so the
+ * composer glides instead of jumping when dictation starts and stops (smoothness-2026 C13).
+ */
+export function ComposerVoiceBar({ voice }: { voice: ComposerVoice }): ReactElement {
   const { dictation } = voice;
+  let line: ReactElement | null = null;
   if (dictation?.phase === "unavailable" && dictation.reason) {
-    return (
-      <p role="status" className="px-3 text-callout text-label-secondary">
+    line = (
+      <p role="status" className="px-3 pb-1 text-callout text-label-secondary">
         {dictation.reason}
       </p>
     );
-  }
-  if (dictation?.phase === "listening" || dictation?.phase === "finishing") {
-    return (
+  } else if (dictation?.phase === "listening" || dictation?.phase === "finishing") {
+    line = (
       <p
         role="status"
         aria-live="polite"
-        className="flex min-w-0 items-center gap-2 px-3 text-callout text-label-secondary"
+        className="flex min-w-0 items-center gap-2 px-3 pb-1 text-callout text-label-secondary"
         data-testid="dictation-status"
       >
         <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-danger" />
         <span className="shrink-0">{t("web.chat.listening")}</span>
+        {/* The words are not read out as they change: the phase is announced once, and the text
+            lands in the field when dictation ends. */}
         {dictation.partial ? (
-          <span className="min-w-0 truncate text-label-primary">{dictation.partial}</span>
+          <span aria-hidden="true" className="min-w-0 truncate text-label-primary">
+            {dictation.partial}
+          </span>
         ) : null}
       </p>
     );
   }
-  return null;
+  return <Disclosure open={line !== null}>{line}</Disclosure>;
 }
