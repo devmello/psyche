@@ -2,6 +2,7 @@
 export const screenAsk = {
   "screenAsk.label": "Ask about your screen",
   "screenAsk.placeholder": "Ask about what's on screen, or ask Psyche to do something…",
+  "screenAsk.voice.placeholder": "Ask Psyche anything…",
   "screenAsk.send": "Ask",
   "screenAsk.capturing": "Looking at your screen…",
   "screenAsk.chip.window": "{app}",
@@ -30,4 +31,15 @@ export const screenAsk = {
   "screenAsk.cancelHint": "Esc to close",
   "screenAsk.region.hint": "Drag to select an area. Esc keeps the whole window.",
   "screenAsk.region.label": "Select an area of the screen",
+  "settings.screenAsk.title": "Ask about screen",
+  "settings.key.screenAsk.enabled": "Ask about my screen",
+  "settings.screenAsk.enabledHint":
+    "Press the shortcut in any app to ask about what's on screen, or to have Psyche do something with it. Nothing is captured until you press it.",
+  "settings.key.screenAsk.shortcut": "Shortcut",
+  "settings.screenAsk.shortcutHint":
+    "Opens the ask panel. Press it again while the panel is open to select an area.",
+  "settings.key.screenAsk.destination": "Send to",
+  "settings.key.screenAsk.alwaysImage": "Always include the screenshot",
+  "settings.screenAsk.alwaysImageHint":
+    "Otherwise Psyche sends it only when your request is about the screen, and looks at it only if it needs to.",
 } as const;

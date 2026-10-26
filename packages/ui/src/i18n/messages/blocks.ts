@@ -5,6 +5,15 @@ export const blocks = {
   "blocks.common.viewDiff": "View diff",
   "blocks.common.open": "Open",
 
+  "blocks.card.status":
+    "{status, select, pending {Pending} running {Running} waiting {Waiting} done {Done} failed {Failed} blocked {Blocked} cancelled {Cancelled} other {{status}}}{warning, select, yes {, outcome unknown} other {}}",
+  "blocks.card.unknown": "Psyche can't show this kind of item yet ({type}).",
+  "blocks.toolView.show": "Show result",
+  "blocks.toolView.loading": "Loading the result…",
+  "blocks.toolView.none": "The result isn't kept for this action.",
+  "blocks.toolView.more": "{count, plural, one {# more} other {# more}}",
+  "blocks.toolView.empty": "No results.",
+  "blocks.toolView.untitled": "Untitled",
   "blocks.message.loading":
     "Loading {what, select, approval {approval} question {question} receipt {receipt} artifact {artifact} file {file} task {task} plan {plan} other {item}}",
   "blocks.message.missing":
@@ -89,6 +98,8 @@ export const blocks = {
   "blocks.approval.requestedBy": "Requested by",
   "blocks.approval.requester":
     '{persona}{hasTask, select, true { · task "{task}"} other {}}{hasFrom, select, true { (from {from})} other {}}{hasAgent, select, true { · {agent}} other {}}',
+  "blocks.approval.specialist":
+    '{hasTask, select, true {For "{task}" · } other {}}{role} started by {agent}{hasThread, select, true { in {thread}} other {}}',
   "blocks.approval.whyAsked": "Why asked",
   "blocks.approval.stale":
     "Psyche restarted, so this card is out of date. It will be re-issued if it is still needed.",

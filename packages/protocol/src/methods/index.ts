@@ -44,7 +44,6 @@ import { VaultMethods } from "./vault.ts";
 import { ViewMethods } from "./view.ts";
 import { VmMethods } from "./vm.ts";
 import { VoiceMethods } from "./voice.ts";
-import { VoiceConversationMethods } from "./voice-conversation.ts";
 import { MeetingsMethods, ProposalsMethods } from "./workflows.ts";
 
 export * from "./approvals.ts";
@@ -90,7 +89,7 @@ export * from "./vault.ts";
 export * from "./view.ts";
 export * from "./vm.ts";
 export * from "./voice.ts";
-export * from "./voice-conversation.ts";
+export * from "./voice-settings.ts";
 export * from "./workflows.ts";
 
 /**
@@ -132,7 +131,6 @@ export const Methods = {
   ...IdeasMethods,
   ...GoalsMethods,
   ...VoiceMethods,
-  ...VoiceConversationMethods,
   ...VmMethods,
   ...RunsMethods,
   ...DictationMethods,

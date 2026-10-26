@@ -229,6 +229,10 @@ describe("OnboardingFlow", () => {
     await userEvent.click(screen.getByRole("button", { name: "Connect" }));
     await screen.findByRole("list", { name: "Your accounts" });
     await next();
+    // Google is a mail account, so the mail and meetings decision screen follows (§7.5).
+    expect(heading().textContent).toContain("Mail and meetings");
+    await userEvent.click(screen.getByRole("switch", { name: "Track replies you’re waiting on" }));
+    await next();
     await userEvent.type(screen.getByLabelText("API key"), "k");
     await userEvent.click(screen.getByRole("button", { name: "Save to vault" }));
     await userEvent.click(await screen.findByRole("button", { name: "Run check" }));
@@ -261,6 +265,7 @@ describe("OnboardingFlow", () => {
         toolCheck: "passed",
       },
       workspace: "vm",
+      mail: { digest: true, prep: true, followups: false, voice: false, notes: true },
     });
   });
 

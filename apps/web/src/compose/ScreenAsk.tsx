@@ -1,10 +1,14 @@
 import type { Message, ScreenCapture, ScreenImageChoice } from "@psyche/protocol";
 import {
   GatewayProvider,
+  mentionsScreen,
+  readVoiceSettings,
   type ScreenAskAnswer,
   type ScreenAskCaptureView,
   ScreenAskRegionView,
   ScreenAskView,
+  t,
+  useSettings,
   useStore,
   useThread,
 } from "@psyche/ui";
@@ -17,6 +21,7 @@ import {
   type VoiceState,
 } from "../shell/voice.ts";
 import { kitClient } from "./kit-client.ts";
+import { PushToTalk } from "./push-to-talk.ts";
 
 /**
  * The ask panel's renderer (docs/design/screen-ask-2026.md): the desktop opens it on the ask
@@ -24,14 +29,22 @@ import { kitClient } from "./kit-client.ts";
  * right then (never in the background), shows the chip, takes the request typed or spoken, and
  * sends it with `chat.send.screen` to a new chat or the current one. The answer streams in the
  * panel; Open in Psyche shows the thread. Esc before sending discards the capture.
+ *
+ * Voice mode is the voice pop-up (Psyche never speaks): the voice key held in any app opens the
+ * panel with no screen context and dictates while held. Letting go finishes the dictation; the
+ * words are sent as a plain `chat.send` unless Review before sending
+ * (`voice.conversation.reviewBeforeSend`) is on, which leaves them in the input for Return. The
+ * answer streams in as text. Holding the key again, even while an answer streams, starts a fresh
+ * ask; Esc closes without sending.
  */
 
 export const SCREEN_ASK_ROUTE = "/screen-ask";
 export const SCREEN_ASK_REGION_ROUTE = "/screen-ask-region";
-const DEST_KEY = "psyche.screenAsk.destination";
 
 export type ScreenAskOpen =
   | { mode: "window" }
+  /** Voice mode: no screen context, dictation starts at once. */
+  | { mode: "voice" }
   | { mode: "region"; rect: { x: number; y: number; width: number; height: number } };
 
 /** What the desktop's ask panel window offers its renderer (preload `screenAsk`). */
@@ -42,11 +55,14 @@ export interface ScreenAskBridge {
   resize(height: number): void;
   selectArea(): void;
   region(rect: { x: number; y: number; width: number; height: number } | null): void;
+  /** The voice key going down / up from any app (push-to-talk in voice mode). */
+  onVoiceKey?(cb: (down: boolean) => void): () => void;
 }
 
 export function parseOpen(arg: unknown): ScreenAskOpen | null {
   const a = arg as { mode?: unknown; rect?: Record<string, unknown> } | null;
   if (a?.mode === "window") return { mode: "window" };
+  if (a?.mode === "voice") return { mode: "voice" };
   if (a?.mode === "region" && a.rect) {
     const { x, y, width, height } = a.rect;
     if ([x, y, width, height].every((n) => typeof n === "number" && Number.isFinite(n)))
@@ -73,12 +89,17 @@ export function answerText(
   return [done, live].filter(Boolean).join("\n\n");
 }
 
-function readDestination(): "new" | "current" {
-  try {
-    return globalThis.localStorage?.getItem(DEST_KEY) === "current" ? "current" : "new";
-  } catch {
-    return "new";
-  }
+/**
+ * What goes with the request (spec §3.3): a pinned or dropped image as chosen; otherwise the
+ * image goes when it is a region, the owner always includes it, or the request is about the
+ * screen. With `auto` the Gateway sends the text context and the agent can look if it needs to.
+ */
+export function imageChoice(
+  choice: ScreenImageChoice,
+  o: { mode: "window" | "region"; always: boolean; text: string },
+): ScreenImageChoice {
+  if (choice !== "auto") return choice;
+  return o.mode === "region" || o.always || mentionsScreen(o.text) ? "pinned" : "auto";
 }
 
 export interface ScreenAskProps {
@@ -96,6 +117,7 @@ export function ScreenAsk({ platform, bridge }: ScreenAskProps): ReactElement {
 }
 
 type Captured =
+  | { status: "none" }
   | { status: "capturing"; mode: "window" | "region" }
   | { status: "ready"; capture: ScreenCapture }
   | { status: "failed"; mode: "window" | "region" };
@@ -106,7 +128,11 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
   const [captured, setCaptured] = useState<Captured>({ status: "capturing", mode: "window" });
   const [image, setImage] = useState<ScreenImageChoice>("auto");
   const [text, setText] = useState("");
-  const [destination, setDestination] = useState<"new" | "current">(readDestination);
+  const { settings, set: setSetting } = useSettings();
+  const destination: "new" | "current" =
+    settings["screenAsk.destination"] === "current" ? "current" : "new";
+  const alwaysImage = settings["screenAsk.alwaysImage"] === true;
+  const review = readVoiceSettings(settings).reviewBeforeSend;
   const [sent, setSent] = useState<{ threadId: string; messageId: string } | null>(null);
   const [failed, setFailed] = useState(false);
   /** The capture to discard if the panel closes unsent. */
@@ -123,6 +149,10 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
     async (o: ScreenAskOpen) => {
       const gen = ++generation.current;
       discard();
+      if (o.mode === "voice") {
+        setCaptured({ status: "none" });
+        return;
+      }
       setCaptured({ status: "capturing", mode: o.mode });
       setImage("auto");
       try {
@@ -143,32 +173,76 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
     [store, discard],
   );
 
+  /** What is open now, for the voice key's handler (IPC order: the open comes before the key). */
+  const openRef = useRef<ScreenAskOpen | null>(null);
+  /** Set on submit (before `sent` renders), cleared by a fresh ask. */
+  const sentRef = useRef(false);
+
+  const append = (said: string) =>
+    setText((t) => (t.trim() === "" ? said : `${t.trimEnd()} ${said}`));
+  /** The voice key was let go: voice mode sends at once unless the owner reviews first. */
+  const onDictated = (said: string) => {
+    if (openRef.current?.mode === "voice" && !review && !sentRef.current) void submit(said);
+    else append(said);
+  };
+  const dictation = usePanelDictation(platform, append, onDictated);
+  const { ptt } = dictation;
+
   useEffect(
     () =>
       bridge?.onOpen((arg) => {
         const o = parseOpen(arg);
         if (!o) return;
+        openRef.current = o;
         setOpen(o);
         // A fresh trigger (window) starts over; a region replaces the capture and keeps the text.
-        if (o.mode === "window") {
+        if (o.mode !== "region") {
+          sentRef.current = false;
           setText("");
           setSent(null);
           setFailed(false);
         }
         void capture(o);
+        // Voice mode listens at once: the held voice key is what opened it. Started here, in IPC
+        // order, so the key's own down is a repeat and its up always finds this dictation.
+        if (o.mode === "voice") ptt.down();
       }),
-    [bridge, capture],
+    [bridge, capture, ptt],
   );
 
   const close = useCallback(() => {
     generation.current++;
+    ptt.cancel();
     if (!sent) discard();
+    openRef.current = null;
     setOpen(null);
     bridge?.done();
-  }, [bridge, discard, sent]);
+  }, [bridge, discard, sent, ptt]);
 
-  const dictation = usePanelDictation(platform, (said) =>
-    setText((t) => (t.trim() === "" ? said : `${t.trimEnd()} ${said}`)),
+  // Push-to-talk: down starts (a fresh ask if one was already sent), up finishes.
+  useEffect(
+    () =>
+      bridge?.onVoiceKey?.((down) => {
+        if (!down) {
+          ptt.up();
+          return;
+        }
+        if (openRef.current === null || ptt.held) return;
+        if (sentRef.current) {
+          // Nothing is spoken, so there is nothing to interrupt: the answer stays in its thread.
+          const o: ScreenAskOpen = { mode: "voice" };
+          openRef.current = o;
+          sentRef.current = false;
+          generation.current++;
+          setCaptured({ status: "none" });
+          setText("");
+          setSent(null);
+          setFailed(false);
+          setOpen(o);
+        }
+        ptt.down();
+      }),
+    [bridge, ptt],
   );
 
   const thread = useThread(sent?.threadId ?? null);
@@ -179,29 +253,43 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
     return { status: thread.running || body === "" ? "streaming" : "done", text: body };
   }, [sent, failed, thread.messages, thread.streaming, thread.running, thread.failedRuns]);
 
-  const submit = async () => {
-    const content = text.trim();
-    if (content === "" || sent) return;
+  const submit = async (said?: string) => {
+    const content = (said ?? text).trim();
+    if (content === "" || sentRef.current) return;
+    sentRef.current = true;
+    if (said !== undefined) setText(said);
     const cap = captured.status === "ready" ? captured.capture : null;
+    const choice = cap
+      ? imageChoice(image, { mode: cap.mode, always: alwaysImage, text: content })
+      : image;
+    const newChat = async () =>
+      (await store.call("threads.create", { kind: "side", title: content.slice(0, 80) })).thread.id;
+    const sendTo = (threadId: string) =>
+      store.call("chat.send", {
+        threadId,
+        content,
+        ...(cap && choice !== "dropped"
+          ? { screen: { captureId: cap.captureId, image: choice } }
+          : {}),
+      });
     try {
       let threadId: string;
       if (destination === "current") {
         const { threads } = await store.call("threads.list", { kind: "main" });
-        const main = threads[0];
-        if (!main) throw new Error("no main thread");
-        threadId = main.thread.id;
+        threadId = threads[0]?.thread.id ?? (await newChat());
       } else {
-        const { thread: created } = await store.call("threads.create", {
-          kind: "side",
-          title: content.slice(0, 80),
-        });
-        threadId = created.id;
+        threadId = await newChat();
       }
-      const res = await store.call("chat.send", {
-        threadId,
-        content,
-        ...(cap && image !== "dropped" ? { screen: { captureId: cap.captureId, image } } : {}),
-      });
+      let res: { messageId: string };
+      try {
+        res = await sendTo(threadId);
+      } catch (err) {
+        // The current chat is mid-turn: the ask goes to a new chat rather than waiting.
+        const e = err as { code?: string; details?: { reason?: string } };
+        if (e?.code !== "conflict" || e.details?.reason !== "thread_busy") throw err;
+        threadId = await newChat();
+        res = await sendTo(threadId);
+      }
       // Sent: the capture now belongs to the thread (or was dropped and is discarded here).
       if (image === "dropped") discard();
       unsent.current = null;
@@ -213,21 +301,24 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
   };
 
   if (open === null) return null;
-  const view: ScreenAskCaptureView =
-    captured.status === "ready"
-      ? {
-          status: "ready",
-          mode: captured.capture.mode,
-          thumbnail: captured.capture.thumbnail ?? null,
-          appName: captured.capture.context?.appName ?? null,
-          ...(captured.capture.refusal ? { refusal: captured.capture.refusal } : {}),
-          image,
-        }
-      : { status: captured.status, mode: captured.mode, thumbnail: null, appName: null, image };
+  const view: ScreenAskCaptureView | undefined =
+    captured.status === "none"
+      ? undefined
+      : captured.status === "ready"
+        ? {
+            status: "ready",
+            mode: captured.capture.mode,
+            thumbnail: captured.capture.thumbnail ?? null,
+            appName: captured.capture.context?.appName ?? null,
+            ...(captured.capture.refusal ? { refusal: captured.capture.refusal } : {}),
+            image,
+          }
+        : { status: captured.status, mode: captured.mode, thumbnail: null, appName: null, image };
 
   return (
     <ScreenAskView
-      capture={view}
+      {...(view ? { capture: view } : {})}
+      {...(open.mode === "voice" ? { placeholder: t("screenAsk.voice.placeholder") } : {})}
       text={text}
       onText={setText}
       onSubmit={() => void submit()}
@@ -244,14 +335,7 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
           }
         : {})}
       destination={destination}
-      onDestination={(d) => {
-        setDestination(d);
-        try {
-          globalThis.localStorage?.setItem(DEST_KEY, d);
-        } catch {
-          // Remembering is a convenience.
-        }
-      }}
+      onDestination={(d) => void setSetting("screenAsk.destination", d).catch(() => undefined)}
       dictation={dictation}
       {...(answer ? { answer } : {})}
       {...(sent && sent.threadId !== "" ? { onOpen: () => bridge?.openThread(sent.threadId) } : {})}
@@ -260,18 +344,35 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
   );
 }
 
-/** The composer's dictation (the same `VoiceCapture` and engine), as one mic toggle. */
-function usePanelDictation(platform: ShellPlatform, onText: (said: string) => void) {
+/**
+ * The composer's dictation (the same `VoiceCapture` and engine), as one mic toggle plus
+ * push-to-talk for the voice key. `onText` takes words from the mic button or a session the
+ * Gateway ended; `onDictated` takes what push-to-talk heard when the key came up.
+ */
+function usePanelDictation(
+  platform: ShellPlatform,
+  onText: (said: string) => void,
+  onDictated: (said: string) => void,
+) {
   const [state, setState] = useState<VoiceState>({ phase: "idle" });
   const sink = useRef(onText);
   sink.current = onText;
-  const capture = useMemo(
-    () =>
-      new VoiceCapture((m, p) => platform.gateway.call(m, p), microphoneSource(), setState, {
-        onInterrupted: (said) => sink.current(said),
-      }),
-    [platform],
-  );
+  const dictated = useRef(onDictated);
+  dictated.current = onDictated;
+  const { capture, ptt } = useMemo(() => {
+    let ptt: PushToTalk | undefined;
+    const capture = new VoiceCapture(
+      (m, p) => platform.gateway.call(m, p),
+      microphoneSource(),
+      (s) => {
+        setState(s);
+        ptt?.onState(s);
+      },
+      { onInterrupted: (said) => sink.current(said) },
+    );
+    ptt = new PushToTalk(capture, (said) => dictated.current(said));
+    return { capture, ptt };
+  }, [platform]);
   useEffect(() => {
     const off = platform.gateway.onEvent((e) => {
       const p = e.payload as { sessionId?: string; segment?: VoiceSegment; reason?: string };
@@ -290,6 +391,7 @@ function usePanelDictation(platform: ShellPlatform, onText: (said: string) => vo
     phase: state.phase,
     ...("partial" in state ? { partial: state.partial } : {}),
     ...(state.phase === "unavailable" ? { reason: state.reason } : {}),
+    ptt,
     toggle: () => {
       if (state.phase === "listening")
         void capture.stop().then((said) => {

@@ -5,7 +5,15 @@ import { createDbSessionResolver, SqliteScheduler } from "@psyche/scheduler";
 import { FakeClock, FakeMemoryStore, FakeModelProvider, FakeNotifier } from "@psyche/testing";
 import { Type } from "@sinclair/typebox";
 import { describe, expect, it } from "vitest";
-import { DigestService, FeedStore, ProposalService, RULES_PATH } from "../src/index.ts";
+import {
+  addBusinessDays,
+  DigestService,
+  type DigestServiceOptions,
+  digestSchedule,
+  FeedStore,
+  ProposalService,
+  RULES_PATH,
+} from "../src/index.ts";
 import { asleep, RecordingLauncher, testDb } from "./helpers.ts";
 
 /** The inbox digest (docs/workflows/mail-and-meetings-2026.md §4.1, §4.2; #670 W4) on fixtures. */
@@ -95,7 +103,14 @@ function classifier(request: ModelRequest): ModelEvent[] {
   return say(JSON.stringify(out));
 }
 
-function rig(options: { inbox?: Msg[]; loops?: GraphLoop[]; knownDomains?: string[] } = {}) {
+function rig(
+  options: {
+    inbox?: Msg[];
+    loops?: GraphLoop[];
+    knownDomains?: string[];
+    extra?: Partial<DigestServiceOptions>;
+  } = {},
+) {
   const clock = new FakeClock(T0);
   const db = testDb(clock);
   const inbox = options.inbox ?? fixtureInbox();
@@ -186,6 +201,7 @@ function rig(options: { inbox?: Msg[]; loops?: GraphLoop[]; knownDomains?: strin
       ? {}
       : { knownDomains: async () => options.knownDomains ?? [] }),
     timezone: "UTC",
+    ...options.extra,
   });
   return { clock, db, digest, proposals, broker, notifier, provider, memory, feed, sent, inbox };
 }
@@ -383,5 +399,86 @@ describe("the digest job", () => {
     expect(scheduler.runs(a.id).runs[0]).toMatchObject({ status: "no_reply" });
     // Same day, same dedupe key: one notification row however often it runs.
     expect(await r.notifier.list()).toHaveLength(1);
+  });
+});
+
+describe("the digest honours Settings → Mail & meetings", () => {
+  const quiet = [
+    { id: "m1", from: "Colleague 0 <c0@acme.example>", subject: "FYI", body: "Shipped it." },
+  ];
+
+  it("'notify only when something needs you' posts a quiet inbox without any notification", async () => {
+    const r = rig({ inbox: quiet, extra: { notifyOnlyWhenNeeded: () => true } });
+    const out = await r.digest.run();
+    expect(out.notified).toBe(false);
+    expect(await r.notifier.list()).toEqual([]);
+    expect(r.feed.list({}).posts).toHaveLength(1);
+  });
+
+  it("read-only keeps the digest but proposes nothing", async () => {
+    const r = rig({ extra: { readOnly: () => true } });
+    const out = await r.digest.run();
+    expect(out.digest.groups.every((g) => g.proposalId === null)).toBe(true);
+    expect(out.post.refs?.proposalIds ?? []).toEqual([]);
+    expect(out.digest.needsYou.length).toBeGreaterThan(0);
+  });
+
+  const loop: GraphLoop = {
+    id: "loop_w",
+    direction: "waiting_on",
+    text: "Dana to send the contract",
+    evidence: null,
+    counterpartId: null,
+    projectId: null,
+    dueAt: null,
+    status: "open",
+    sourceInteractionId: null,
+    provenance: "owner",
+    confidence: 0.9,
+    detectedBy: "rule",
+    // A Monday: three business days later is Thursday.
+    createdAt: "2026-10-26T00:00:00.000Z",
+    closedAt: null,
+    closedBy: null,
+  };
+
+  it("a loop with no date waits the owner's business days before it shows", async () => {
+    const r = rig({
+      inbox: [],
+      loops: [loop],
+      extra: { followups: () => ({ enabled: true, waitDays: 3, showTwice: true }) },
+    });
+    expect((await r.digest.run()).digest.waitingOn).toEqual([]);
+    r.clock.set(Date.parse("2026-10-29T07:30:00Z"));
+    expect((await r.digest.run()).digest.waitingOn).toHaveLength(1);
+    expect(addBusinessDays(Date.parse("2026-10-30T00:00:00Z"), 1)).toBe(
+      Date.parse("2026-11-02T00:00:00Z"),
+    );
+  });
+
+  it("follow-ups off hides the group; 'show at most twice' off keeps showing a loop", async () => {
+    const off = rig({
+      inbox: [],
+      loops: [{ ...loop, dueAt: "2026-10-25T00:00:00.000Z" }],
+      extra: { followups: () => ({ enabled: false }) },
+    });
+    expect((await off.digest.run()).digest.waitingOn).toEqual([]);
+
+    const forever = rig({
+      inbox: [],
+      loops: [{ ...loop, dueAt: "2026-10-25T00:00:00.000Z" }],
+      extra: { followups: () => ({ enabled: true, waitDays: 1, showTwice: false }) },
+    });
+    for (let day = 1; day <= 4; day += 1) {
+      expect((await forever.digest.run()).digest.waitingOn.map((w) => w.shownCount)).toEqual([day]);
+      forever.clock.advance(86_400_000);
+    }
+  });
+
+  it("turns the owner's time and days into a cron, and falls back on nonsense", () => {
+    expect(digestSchedule("07:30", "weekdays")).toBe("30 7 * * 1-5");
+    expect(digestSchedule("9:05", "everyday")).toBe("5 9 * * *");
+    expect(digestSchedule("25:99", "weekdays")).toBe("30 7 * * 1-5");
+    expect(digestSchedule(undefined, "everyday")).toBe("30 7 * * *");
   });
 });

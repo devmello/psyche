@@ -27,6 +27,7 @@ import { DataControlsPanel } from "./DataControlsSection.tsx";
 import { DevicesPanel } from "./DevicesSection.tsx";
 import { FileAccessPanel } from "./FileAccessSection.tsx";
 import { LanguageGroup } from "./LanguageSettings.tsx";
+import { MailMeetingsPanel } from "./MailMeetingsSection.tsx";
 import { ModelProvidersPanel, providerInfoFromSummary } from "./ModelSection.tsx";
 import { PermissionsPanel } from "./PermissionsSection.tsx";
 import { PersonaPanel } from "./PersonaSection.tsx";
@@ -673,6 +674,57 @@ export const VoiceToggleMode: Story = {
 };
 export const VoiceError: Story = {
   render: () => <VoicePanel {...form} error="timeout" onRetry={noop} />,
+};
+
+// --- Mail & meetings ---------------------------------------------------------------------------
+
+const mailValues = {
+  ...values,
+  "mail.digest.enabled": true,
+  "mail.followups.enabled": true,
+  "meetings.prep.enabled": true,
+  "meetings.notes.enabled": true,
+  "meetings.notes.folder": "~/Documents/Recordings",
+  "mail.schedulingLink": "https://cal.example/alex",
+};
+const mailProps = {
+  onChange: noop,
+  values: mailValues,
+  accounts: [
+    { id: "conn_gmail", label: "Gmail · alex@gmail.example" },
+    { id: "conn_apple_mail", label: "Apple Mail · iCloud" },
+  ],
+  localModels: ["ollama/qwen3-8b"],
+  onAsk: noop,
+  onOpenConnectors: noop,
+};
+
+export const MailMeetingsOn: Story = {
+  render: () => <MailMeetingsPanel {...mailProps} />,
+};
+export const MailMeetingsDefaults: Story = {
+  render: () => <MailMeetingsPanel {...mailProps} values={values} />,
+};
+export const MailMeetingsPaused: Story = {
+  render: () => (
+    <MailMeetingsPanel {...mailProps} values={{ ...mailValues, "workflows.paused": true }} />
+  ),
+};
+export const MailMeetingsReadOnlyNoAccounts: Story = {
+  render: () => (
+    <MailMeetingsPanel
+      {...mailProps}
+      accounts={[]}
+      localModels={[]}
+      values={{ ...mailValues, "workflows.readOnly": true }}
+    />
+  ),
+};
+export const MailMeetingsLoading: Story = {
+  render: () => <MailMeetingsPanel {...mailProps} values={{}} loading />,
+};
+export const MailMeetingsError: Story = {
+  render: () => <MailMeetingsPanel {...mailProps} values={{}} error="timeout" onRetry={noop} />,
 };
 
 const dataProps = {

@@ -42,6 +42,28 @@ import type { EventScheduler } from "./watch.ts";
  */
 
 export const MAIL_DIGEST_JOB = "mail-digest";
+
+/** `ms` plus `days` business days (Monday to Friday, in UTC; the wait is a day count, not a time). */
+export function addBusinessDays(ms: number, days: number): number {
+  const d = new Date(ms);
+  let left = Math.max(0, Math.floor(days));
+  while (left > 0) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    const wd = d.getUTCDay();
+    if (wd !== 0 && wd !== 6) left -= 1;
+  }
+  return d.getTime();
+}
+
+/**
+ * The digest's cron from Settings: `time` is "HH:MM" local, `days` "weekdays" or "everyday".
+ * Anything unusable falls back to the default (07:30 on weekdays).
+ */
+export function digestSchedule(time: unknown, days: unknown): string {
+  const m = typeof time === "string" ? /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(time.trim()) : null;
+  if (m === null) return days === "everyday" ? "30 7 * * *" : DEFAULT_DIGEST_SCHEDULE;
+  return `${Number(m[2])} ${Number(m[1])} * * ${days === "everyday" ? "*" : "1-5"}`;
+}
 export const DEFAULT_DIGEST_SCHEDULE = "30 7 * * 1-5";
 export const RULES_PATH = "mail/RULES.md";
 const CURSOR_SOURCE = "mail.digest";
@@ -55,6 +77,8 @@ export interface DigestServiceOptions {
   tools: ToolLookup;
   memory: Pick<MemoryStore, "readFile" | "writeFile">;
   proposals?: ProposalService;
+  /** Read-only mode (Settings → Mail & meetings): reads and writes notes, but proposes nothing. */
+  readOnly?: () => boolean;
   feed: FeedStore;
   notifier?: Pick<Notifier, "notify">;
   /** The utility model for classification; without it everything left after the pre-sort is FYI. */
@@ -73,6 +97,14 @@ export interface DigestServiceOptions {
   /** Domains of people the owner knows, for lookalike detection (default: domains seen often). */
   knownDomains?: () => Promise<string[]>;
   accounts?: () => { apple: boolean; gmail: boolean };
+  /** "Notify only when something needs you": a digest with nothing for the owner posts silently. */
+  notifyOnlyWhenNeeded?: () => boolean;
+  /**
+   * Follow-ups in the digest (Settings): `enabled` (default on), the wait in business days before
+   * a loop without its own due date shows (default 0: at once), and `showTwice` (default on: a loop shows
+   * in at most two digests).
+   */
+  followups?: () => { enabled?: boolean; waitDays?: number; showTwice?: boolean };
   timezone?: string;
   newId?: () => string;
   onFeedEvent?: (event: FeedEvent) => void;
@@ -107,6 +139,11 @@ export class DigestService {
 
   constructor(options: DigestServiceOptions) {
     this.#o = options;
+  }
+
+  /** The proposal service, unless the owner turned on read-only: then nothing is proposed. */
+  get #proposals(): ProposalService | undefined {
+    return this.#o.readOnly?.() === true ? undefined : this.#o.proposals;
   }
 
   #id(): string {
@@ -398,8 +435,8 @@ export class DigestService {
       });
       const title = `${verb === "read" ? "Mark" : "Archive"} ${list.length} ${noun}${verb === "read" ? " read" : ""}`;
       let proposalId: string | null = null;
-      if (calls.length > 0 && this.#o.proposals !== undefined) {
-        const p = this.#o.proposals.create({
+      if (calls.length > 0 && this.#proposals !== undefined) {
+        const p = this.#proposals.create({
           title,
           calls,
           createdBy: { job: "mail.digest" },
@@ -417,14 +454,19 @@ export class DigestService {
 
     // Follow-ups: the graph's due waiting-on loops, each shown in at most two digests (§4.2).
     const waitingOn: DigestLoop[] = [];
-    for (const loop of (await this.#o.loops?.()) ?? []) {
+    const follow = this.#o.followups?.() ?? {};
+    const wait = follow.waitDays ?? 0;
+    for (const loop of follow.enabled === false ? [] : ((await this.#o.loops?.()) ?? [])) {
       if (loop.direction !== "waiting_on" || loop.status !== "open") continue;
       if (loop.dueAt != null && loop.dueAt > now) continue;
+      // No date of its own: it waits the owner's default (business days) from when it began.
+      if (loop.dueAt == null && toIso(addBusinessDays(Date.parse(loop.createdAt), wait)) > now)
+        continue;
       const row = this.#o.db
         .prepare("SELECT shown_count FROM digest_loops WHERE loop_id = ?")
         .get(loop.id) as { shown_count: number } | undefined;
       const shown = row?.shown_count ?? 0;
-      if (shown >= PROACTIVITY_BUDGET.mail.nudgeShowMax) continue;
+      if (follow.showTwice !== false && shown >= PROACTIVITY_BUDGET.mail.nudgeShowMax) continue;
       this.#o.db
         .prepare(
           `INSERT INTO digest_loops (loop_id, shown_count, last_shown_at) VALUES (?, 1, ?)
@@ -491,7 +533,10 @@ export class DigestService {
 
     // One notification a day; the OS only when something needs you (§3 rule 5).
     let notified = false;
-    if (this.#o.notifier !== undefined) {
+    if (
+      this.#o.notifier !== undefined &&
+      !(need === 0 && this.#o.notifyOnlyWhenNeeded?.() === true)
+    ) {
       await this.#o.notifier.notify({
         kind: "briefing",
         title,

@@ -1,5 +1,7 @@
 # Voice mode 2026: specification and plan
 
+> **Superseded in part (2026-10-26).** Psyche no longer speaks. Voice is speech-to-text into the ask panel: hold the voice key, speak, let go, and the answer appears as text in the pop-up. The spoken-reply parts of this spec (voices, speech synthesis, sentence streaming to audio, barge-in, readback, captions, spoken briefs and the speaking states) no longer apply. The key, review-before-sending and dictation parts still do. See [../design/screen-ask-2026.md §9](../design/screen-ask-2026.md#9-voice-mode-the-voice-pop-up).
+
 **Owner:** S17 (speech). **Status:** spec, 2026-10-25. **Issues:** epic #696; V-G #691, V-H #692, V-U #693; bug #690. **Asked by:** the owner ("full voice mode would be cool too").
 
 Research behind this plan, with sources:

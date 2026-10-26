@@ -9,13 +9,14 @@ import { Badge } from "../components/ui/badge.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group.tsx";
-import { useTask, useTasks } from "../data/index.ts";
+import { useSpecialistJob, useTask, useTasks } from "../data/index.ts";
 import { useStoreState } from "../data/provider.tsx";
 import { useRunsList } from "../data/runs.ts";
 import { t } from "../i18n/core.ts";
 import { formatRelative, formatTime } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 import { useSlots } from "../slots.tsx";
+import { SpecialistControls } from "../specialists/Controls.tsx";
 import { agentTimelineHref } from "./AgentSheet.tsx";
 import { MissionControl, TASK_GLYPH } from "./MissionControl.tsx";
 
@@ -321,6 +322,8 @@ export function RunTimeline({
   now?: number;
 }): ReactElement {
   const q = useTask(taskId ?? null);
+  // A specialist's job gets its own controls: steer, pause or resume, give it more, stop (§4.7).
+  const { job } = useSpecialistJob(q.task?.createdFrom === "subagent" ? (taskId ?? null) : null);
   const slots = useSlots();
   const receipts = useStoreState((s) => s.receipts);
   const artifacts = useStoreState((s) => s.artifacts);
@@ -362,8 +365,9 @@ export function RunTimeline({
         : {})}
       {...(stepId ? { initialStepId: stepId } : {})}
       {...(now === undefined ? {} : { now })}
-      {...(task && live ? { onPause: () => void q.pause(task.id) } : {})}
-      {...(task && live ? { onStop: () => void q.cancel(task.id) } : {})}
+      {...(job ? { controls: <SpecialistControls job={job} /> } : {})}
+      {...(task && live && !job ? { onPause: () => void q.pause(task.id) } : {})}
+      {...(task && live && !job ? { onStop: () => void q.cancel(task.id) } : {})}
       {...(task && ended ? { onRetry: () => void q.retry(task.id) } : {})}
     />
   );

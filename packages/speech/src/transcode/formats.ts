@@ -2,7 +2,7 @@ import type { AudioFormat, ChannelType } from "@psyche/protocol";
 
 /**
  * Voice-note formats per channel (feature N11, architecture §4.10; research KQ2 / KQ6).
- * Synthesize once to PCM, then encode per channel:
+ * Encode PCM per container:
  *
  * - OGG/Opus 48 kHz mono: Telegram `sendVoice`, WhatsApp PTT (Cloud API: "OPUS codecs only…
  *   mono input only"), Signal.

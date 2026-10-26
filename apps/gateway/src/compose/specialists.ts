@@ -53,6 +53,7 @@ export interface SpecialistHostDeps {
   poke?: () => void;
   /** Delivery (specialists §4.2, §6.2): the Inbox card, events, the parent thread's line. */
   notifier?: Pick<Notifier, "notify">;
+  /** Publishes events; with it a reported result is also posted to the spawning thread. */
   publish?: <E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string) => void;
 }
 
@@ -196,6 +197,30 @@ export function createSpecialistHost(deps: SpecialistHostDeps): SpecialistHost {
     return out;
   };
 
+  /**
+   * The result also goes to the thread that spawned the job as a `specialist_result` block
+   * (chat-experience-2026 §4.5, decision 7); Feed and Inbox read the same job, so both stay. The
+   * parent's turn may still hold the transcript: try as no writer, then as the parent run, and
+   * never fail the report over it.
+   */
+  const postResult = (taskId: string, threadId: string, parentRunId: string | null): void => {
+    if (deps.publish === undefined) return;
+    const block = { type: "specialist_result" as const, taskId };
+    for (const writer of parentRunId === null ? [null] : [null, parentRunId]) {
+      try {
+        const message = appendMessage(
+          db,
+          { threadId, role: "system", blocks: [block], provenance: "agent", runId: null },
+          { expectedWriterRunId: writer },
+        );
+        deps.publish("chat.message", { message }, threadId);
+        return;
+      } catch {
+        // Try the next writer.
+      }
+    }
+  };
+
   return {
     roles,
     async createJob(input: SpecialistJobInput) {
@@ -215,6 +240,7 @@ export function createSpecialistHost(deps: SpecialistHostDeps): SpecialistHost {
         title: input.title,
         goal: input.brief,
         createdFrom: "subagent",
+        ...(input.unattended === true ? { mode: "unattended" as const } : {}),
         ...(input.taint ? { taint: true, taintSources: input.taintSources } : {}),
         specialist: input.spec,
       });
@@ -237,13 +263,14 @@ export function createSpecialistHost(deps: SpecialistHostDeps): SpecialistHost {
       const clean = sanitizeReport(report);
       const receipts = (await deps.broker.listReceipts({ taskId })).map((r) => r.id);
       let stored: SpecialistResult | undefined;
-      let fresh = false;
+      let first: { parentThreadId: string; parentRunId: string | null } | undefined;
       await tasks.updateSpecialist(taskId, (spec) => {
         // One result per job: a second report keeps the first (§4.2).
         if (spec.result != null) {
           stored = spec.result;
           return spec;
         }
+        first = { parentThreadId: spec.parentThreadId, parentRunId: spec.parentRunId ?? null };
         stored = {
           outcome: clean.outcome,
           summary: clean.summary,
@@ -255,10 +282,10 @@ export function createSpecialistHost(deps: SpecialistHostDeps): SpecialistHost {
           tainted: meta.tainted,
           ...(meta.stopReason === undefined ? {} : { stopReason: meta.stopReason }),
         };
-        fresh = true;
         return { ...spec, result: stored };
       });
-      if (fresh) await deliver(deps, taskId, stored as SpecialistResult);
+      if (first !== undefined) postResult(taskId, first.parentThreadId, first.parentRunId);
+      if (first !== undefined) await deliver(deps, taskId, stored as SpecialistResult);
       return stored as SpecialistResult;
     },
     async promptSection() {
@@ -363,8 +390,8 @@ export function resultTitle(role: string, title: string, result: SpecialistResul
 }
 
 /**
- * Exactly one delivery per job: the `specialist_result` notification (the Inbox card), the
- * `specialist.result` event, and one line in the parent thread pointing at it.
+ * Exactly one delivery per job: the `specialist_result` notification (the Inbox card) and the
+ * `specialist.result` event. The parent thread's `specialist_result` block is `postResult`'s.
  */
 async function deliver(
   deps: SpecialistHostDeps,
@@ -393,30 +420,6 @@ async function deliver(
     { taskId, runId: null, parentRunId: spec.parentRunId ?? null, result, notificationId },
     spec.parentThreadId,
   );
-  const line =
-    spec.deliver === "thread"
-      ? `${resultTitle(spec.role, task.title, result)}: ${result.summary}`
-      : `${resultTitle(spec.role, task.title, result)}. The result is in your Inbox.`;
-  const block = { type: "text" as const, md: line };
-  for (const writer of [null, spec.parentRunId ?? null]) {
-    try {
-      const message = appendMessage(
-        deps.db,
-        {
-          threadId: spec.parentThreadId,
-          role: "system",
-          blocks: [block, { type: "task", taskId }],
-          provenance: "system",
-          runId: null,
-        },
-        { expectedWriterRunId: writer },
-      );
-      deps.publish?.("chat.message", { message }, spec.parentThreadId);
-      return;
-    } catch {
-      // The parent run may hold the transcript: try as that run, else skip the line.
-    }
-  }
 }
 
 /**

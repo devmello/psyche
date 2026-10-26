@@ -205,3 +205,28 @@ export function preflightLabel(hint: ApprovalHint): string {
     ? label
     : t("specialists.preflight.estimate", { label, n: hint.estimate });
 }
+
+/** What "Give it more" asks for: each limit +50% (§4.6), never above the role's caps. */
+export function moreBudget(
+  limit: SpecialistJob["budget"]["limit"],
+  caps?: SpecialistRole["caps"],
+): { tokens?: number; costUsd?: number; minutes?: number } {
+  const grow = (
+    n: number | null | undefined,
+    cap: number | undefined,
+    round: (x: number) => number,
+  ) =>
+    n == null ? undefined : Math.max(n, Math.min(round(n * 1.5), cap ?? Number.POSITIVE_INFINITY));
+  const tokens = grow(limit.tokens, caps?.tokens, Math.round);
+  const costUsd = grow(limit.costUsd, caps?.costUsd, (x) => Math.round(x * 100) / 100);
+  const minutes = grow(
+    limit.wallMs == null ? undefined : Math.round(limit.wallMs / 60_000),
+    caps?.minutes,
+    Math.round,
+  );
+  return {
+    ...(tokens === undefined ? {} : { tokens }),
+    ...(costUsd === undefined ? {} : { costUsd }),
+    ...(minutes === undefined ? {} : { minutes }),
+  };
+}

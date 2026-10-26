@@ -18,6 +18,7 @@ import { FeedScreen } from "../src/screens/feed/FeedScreen.tsx";
 import { InboxScreen } from "../src/screens/inbox/InboxScreen.tsx";
 import { headline, jobLine, preflightLabel } from "../src/specialists/model.ts";
 import { usageLine } from "../src/specialists/ResultCard.tsx";
+import { SpecialistSpawns } from "../src/specialists/SpawnLine.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
 const NOW = Date.parse(FIXTURE_NOW);
@@ -193,7 +194,7 @@ describe("the parent thread's line (specialists §6.1)", () => {
     );
     // The job's own pre-flight, from the spawn.
     expect(working.textContent).toContain("Will ask before opening new sites (about 5)");
-    await userEvent.click(within(working).getByRole("button"));
+    await userEvent.click(within(working).getByRole("button", { name: /started/ }));
     expect(navigate).toHaveBeenCalledWith(`/agent/activity/run/${SPECIALIST_IDS.runs.working}`);
 
     // A new job arrives live, then the working one delivers.
@@ -228,6 +229,70 @@ describe("the parent thread's line (specialists §6.1)", () => {
   });
 });
 
+describe("the owner's controls on a running job (specialists §4.7)", () => {
+  function renderLine() {
+    const ref: { gateway?: MockGateway } = {};
+    render(
+      <StoryWorld
+        edit={(w) => void withSpecialists(w)}
+        onGateway={(g) => {
+          ref.gateway = g;
+        }}
+      >
+        <SpecialistSpawns jobs={[job(T.working)]} />
+      </StoryWorld>,
+    );
+    return ref;
+  }
+  const calls = (g: MockGateway | undefined, method: string) =>
+    (g?.calls ?? []).filter((c) => c.method === method);
+
+  it("steers with the text the owner typed", async () => {
+    const ref = renderLine();
+    const line = (await screen.findAllByTestId("specialist-spawn"))[0] as HTMLElement;
+    await userEvent.click(within(line).getByRole("button", { name: /Tell the researcher/ }));
+    await userEvent.type(await screen.findByPlaceholderText("Tell the researcher…"), "Skip fund C");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(calls(ref.gateway, "tasks.steer")).toHaveLength(1));
+    expect(calls(ref.gateway, "tasks.steer")[0]?.params).toMatchObject({
+      taskId: T.working,
+      text: "Skip fund C",
+    });
+  });
+
+  it("asks before stopping, and before giving it more, then calls the Gateway", async () => {
+    const ref = renderLine();
+    const line = (await screen.findAllByTestId("specialist-spawn"))[0] as HTMLElement;
+    const menu = () => within(line).getByRole("button", { name: /More for/ });
+    await userEvent.click(menu());
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Stop…" }));
+    expect(calls(ref.gateway, "tasks.cancel")).toHaveLength(0);
+    await userEvent.click(await screen.findByRole("button", { name: "Stop it" }));
+    await waitFor(() => expect(calls(ref.gateway, "tasks.cancel")).toHaveLength(1));
+
+    await userEvent.click(menu());
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Give it more…" }));
+    expect(await screen.findByTestId("give-more-lines")).toBeTruthy();
+    expect(calls(ref.gateway, "tasks.update")).toHaveLength(0);
+    await userEvent.click(screen.getByRole("button", { name: "Give it more" }));
+    await waitFor(() => expect(calls(ref.gateway, "tasks.update")).toHaveLength(1));
+    expect(calls(ref.gateway, "tasks.update")[0]?.params).toMatchObject({
+      taskId: T.working,
+      budget: { tokens: expect.any(Number) },
+    });
+  });
+
+  it("offers nothing once the job has ended", async () => {
+    render(
+      <StoryWorld edit={(w) => void withSpecialists(w)}>
+        <SpecialistSpawns jobs={[job(T.done)]} />
+      </StoryWorld>,
+    );
+    await screen.findByTestId("specialist-spawn");
+    expect(screen.queryByTestId("specialist-controls")).toBeNull();
+  });
+});
+
 describe("specialist results in the Feed (specialists §6.2)", () => {
   const feed = (on: boolean) =>
     render(
@@ -258,5 +323,25 @@ describe("specialist results in the Feed (specialists §6.2)", () => {
     expect(within(section).getByText("Noise-cancelling headphones under $300")).toBeTruthy();
     // The cancelled job is from five hours ago, still today; the queue never shows.
     expect(within(section).queryByText("Birthday gift ideas for Sam")).toBeNull();
+  });
+});
+
+describe("specialist_result block (chat experience §4.5)", () => {
+  it("renders the job's result card in a system message", async () => {
+    const { MessageView } = await import("../src/chat/MessageView.tsx");
+    const message = {
+      id: "m_spec",
+      threadId: IDS.threads.main,
+      role: "system",
+      provenance: "agent",
+      blocks: [{ type: "specialist_result", taskId: SPECIALIST_IDS.tasks.done }],
+      createdAt: "2026-10-18T10:00:00Z",
+    } as never;
+    render(
+      <StoryWorld edit={(w) => void withSpecialists(w)}>
+        <MessageView message={message} />
+      </StoryWorld>,
+    );
+    expect(await screen.findByRole("article", { name: /result:/ })).toBeTruthy();
   });
 });

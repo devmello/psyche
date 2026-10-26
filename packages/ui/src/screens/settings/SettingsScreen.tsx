@@ -8,6 +8,7 @@ import {
   Info,
   KeyRound,
   type LucideIcon,
+  Mail,
   MessagesSquare,
   Mic,
   MonitorCog,
@@ -48,6 +49,7 @@ import { CredentialsSection } from "./CredentialsSection.tsx";
 import { DataControlsSection, type ExportFile } from "./DataControlsSection.tsx";
 import { DevicesSection } from "./DevicesSection.tsx";
 import { FileAccessSection } from "./FileAccessSection.tsx";
+import { MailMeetingsSection } from "./MailMeetingsSection.tsx";
 import { McpSection } from "./McpSection.tsx";
 import { ModelSection } from "./ModelSection.tsx";
 import { PeopleSection } from "./PeopleSection.tsx";
@@ -89,6 +91,7 @@ export type SettingsSectionId =
   | "credentials"
   | "appearance"
   | "voice"
+  | "mail"
   | "data"
   | "people"
   | "server"
@@ -128,6 +131,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionEntry[] = [
   entry("credentials", KeyRound),
   entry("appearance", Palette),
   entry("voice", Mic),
+  entry("mail", Mail),
   entry("data", Trash2),
   entry("people", Users),
   entry("server", Server),
@@ -142,7 +146,7 @@ export const SETTINGS_GROUPS: readonly {
   id: SettingsGroupId;
   sections: readonly SettingsSectionId[];
 }[] = [
-  { id: "general", sections: ["model", "persona", "appearance", "voice", "usage"] },
+  { id: "general", sections: ["model", "persona", "appearance", "voice", "mail", "usage"] },
   {
     id: "access",
     sections: [
@@ -180,6 +184,9 @@ export function sectionForKey(key: string): SettingsSectionId | null {
     persona: "persona",
     vm: "vm",
     voice: "voice",
+    mail: "mail",
+    meetings: "mail",
+    workflows: "mail",
     vault: "credentials",
     channels: "channels",
     mcp: "mcp",
@@ -334,6 +341,8 @@ export function SettingsSectionView({
       return <AppearanceSection />;
     case "voice":
       return <VoiceSection />;
+    case "mail":
+      return <MailMeetingsSection />;
     case "data":
       return <DataControlsSection {...opt("onExportReady", s.onExportReady)} />;
     case "people":

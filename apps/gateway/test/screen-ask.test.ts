@@ -6,7 +6,12 @@ import type { ModelEvent, ModelRequest } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
-import { SCREEN_LOOK_TOOL, screenPreamble, screenTaint } from "../src/compose/screen-ask.ts";
+import {
+  SCREEN_LOOK_TOOL,
+  type ScreenCapturer,
+  screenPreamble,
+  screenTaint,
+} from "../src/compose/screen-ask.ts";
 import { isUnreachableCapability } from "../src/handlers/nodes.ts";
 import { silentLogger } from "../src/log.ts";
 import { expireScreenFrames } from "../src/retention.ts";
@@ -285,5 +290,38 @@ describe("screen ask (Gateway)", () => {
     expect(expireScreenFrames(c.db, home, "", "")).toBe(0);
     expect(expireScreenFrames(c.db, home, "", now)).toBe(1);
     expect(item(c, cap.libraryItemId)).toBeUndefined();
+  });
+
+  it("takes the capture from a pluggable ScreenCapturer", async () => {
+    home = mkdtempSync(join(tmpdir(), "psyche-screen-"));
+    const asked: unknown[] = [];
+    const capturer: ScreenCapturer = {
+      async capture(params) {
+        asked.push(params);
+        return {
+          image: FRAME,
+          width: 10,
+          height: 10,
+          context: { ...CONTEXT, appName: "Other OS app" },
+        };
+      },
+    };
+    composed = await composeGateway({
+      env: {},
+      logger: silentLogger,
+      retentionIntervalMs: 0,
+      background: false,
+      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      model: { provider: FakeModelProvider.script([say("ok")]), model: "fake/model" },
+      screenAsk: { capturer: () => capturer },
+    });
+    const desk = await desktopClient(composed.gateway);
+    clients.push(desk);
+    // No Mac helper is connected: the custom capturer answers.
+    const cap = (await desk.call("screen.capture", { mode: "window" })) as {
+      context: { appName: string };
+    };
+    expect(cap.context.appName).toBe("Other OS app");
+    expect(asked).toEqual([{ mode: "window" }]);
   });
 });

@@ -109,8 +109,36 @@ export function screenTaint(context: ScreenContext | null): TaintSource {
   return { sourceKind: "screen", ...(origin ? { origin } : {}) };
 }
 
+/**
+ * What takes the capture (docs/design/screen-ask-2026.md): the Mac helper's `screen.context`
+ * today, another platform's capture tomorrow. Returns the frame (base64 JPEG) and the text
+ * context; throws `unavailable` when nothing can capture here.
+ */
+export interface ScreenCapturer {
+  capture(params: ScreenContextParams): Promise<ScreenContextResult>;
+}
+
+/** The newest live Mac helper node's `screen.context`. */
+export function helperScreenCapturer(gateway: () => Gateway | null): ScreenCapturer {
+  return {
+    async capture(params) {
+      const node = dictationNode(gateway, "screen.context");
+      if (!node) {
+        throw new PsycheError("unavailable", "the Psyche helper is not running on this Mac", {
+          retryable: true,
+        });
+      }
+      return unwrap(
+        await node.invoke("screen.context", params, { timeoutMs: CAPTURE_TIMEOUT_MS }),
+      ) as ScreenContextResult;
+    },
+  };
+}
+
 export interface ScreenAskOptions {
   ttlMs?: number;
+  /** Default: the Mac helper. */
+  capturer?: (gateway: () => Gateway | null) => ScreenCapturer;
 }
 
 export function composeScreenAsk(opts: ScreenAskOptions = {}) {
@@ -118,6 +146,7 @@ export function composeScreenAsk(opts: ScreenAskOptions = {}) {
     const ttlMs = opts.ttlMs ?? SCREEN_CAPTURE_TTL_MS;
     const { db, home } = services;
     let gateway: Gateway | null = null;
+    const capturer = (opts.capturer ?? helperScreenCapturer)(() => gateway);
     const held = new Map<string, Held>();
     /** The capture `screen.look` may read in each thread: the latest ask's, not attached. */
     const lookable = new Map<string, string>();
@@ -149,15 +178,7 @@ export function composeScreenAsk(opts: ScreenAskOptions = {}) {
       "screen.capture": {
         async run(call: Call, params: ScreenContextParams): Promise<ScreenCapture> {
           requireDesktop(call);
-          const node = dictationNode(() => gateway, "screen.context");
-          if (!node) {
-            throw new PsycheError("unavailable", "the Psyche helper is not running on this Mac", {
-              retryable: true,
-            });
-          }
-          const r = unwrap(
-            await node.invoke("screen.context", params, { timeoutMs: CAPTURE_TIMEOUT_MS }),
-          ) as ScreenContextResult;
+          const r = await capturer.capture(params);
           const id = db.newId();
           let libraryItemId: string | null = null;
           let path: string | null = null;

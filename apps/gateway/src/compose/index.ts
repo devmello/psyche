@@ -28,6 +28,7 @@ import {
   CliAdapter,
   type CliAdapterDeps,
   createModelRouter,
+  isLocalKind,
   isSubscriptionKind,
   type KeySource,
   KeyValueProbeStore,
@@ -84,7 +85,9 @@ import { createLogger } from "../log.ts";
 import { taskRunTrace } from "../run-trace/tasks.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
+import { artifactContextProvider, composeArtifacts } from "./artifacts.ts";
 import { attentionHandlers, OwnerAttention, parkWhenUnwatched } from "./attention.ts";
+import { withAutomationSpecialists } from "./automation-specialists.ts";
 import { bootstrapAdminHandlers } from "./bootstrap-admin.ts";
 import { CallContexts } from "./call-context.ts";
 import { ChannelConversations } from "./channel-conversations.ts";
@@ -126,7 +129,7 @@ import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { protectedRoots } from "./protected-paths.ts";
 import { createRateLimits } from "./rate-limits.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
-import { composeScreenAsk } from "./screen-ask.ts";
+import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
 import {
   type ApprovalRelay,
   type ComposedPart,
@@ -141,7 +144,12 @@ import {
   specialistHandlers,
   withSpecialistProgress,
 } from "./specialists.ts";
-import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
+import {
+  composeSpeech,
+  type MeetingIngest,
+  type SpeechSetup,
+  speechSetupFromEnv,
+} from "./speech.ts";
 import { taskUpdateHandlers } from "./task-controls.ts";
 import {
   type ComposedTeaching,
@@ -158,6 +166,7 @@ import { createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 import { composeWebTools, type WebToolsSetup } from "./web-tools.ts";
 import { ensureWeeklyCardAutomation, withWeeklyCard } from "./weekly-card.ts";
+import { WORKFLOW_SETTING_KEYS } from "./workflow-settings.ts";
 
 /**
  * Composition root for `psyched` (INT-1): the real agent loop, model router, Permission Broker,
@@ -211,6 +220,8 @@ export interface ComposeOptions
    * process runner prefix (default: `speechSetupFromEnv`).
    */
   speech?: SpeechSetup;
+  /** Ask about my screen is always mounted; this swaps what takes the capture (default: the Mac helper). */
+  screenAsk?: ScreenAskOptions;
   /**
    * Passkey assertions for approvals that require authentication (purchase, credential fill,
    * host exec; security §3.7). Helper (Touch ID) assertions go to the helper part's verifier.
@@ -689,7 +700,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     skills.part,
     composeSpeech(speechSetup ?? speechSetupFromEnv(gwOptions.env)),
     composeDictation(),
-    composeScreenAsk(),
+    composeScreenAsk(gwOptions.screenAsk),
+    // Canvas artifacts (chat-experience-2026 §4.3): the version store and `artifact.*` tools.
+    composeArtifacts,
     composePayments(paymentsSetupFromEnv(gwOptions.env)),
     // Web passkeys (issue #79): unavailable until gateway.publicOrigin is an https origin. A
     // caller-supplied `presence` verifier takes the passkey role instead.
@@ -799,7 +812,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     slots: specialistSlots,
     poke: () => pokeSpecialists(),
     notifier,
-    publish,
+    publish: (event, payload, threadId) => publish(event, payload as never, threadId),
   });
   // The teaching loop (#679): the owner's feedback → lessons written where they belong.
   const teaching = composeTeaching({
@@ -855,7 +868,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     approvalSurfaces: ["desktop", "web"],
     skills: skills.loader,
     ...(compaction === undefined ? {} : { compaction }),
-    contextProviders: [otherChats.provider],
+    contextProviders: [
+      otherChats.provider,
+      ...(people === undefined ? [] : [people.recall]),
+      artifactContextProvider(db),
+    ],
     contextLimits: context.contextLimits,
     onContextUsage: context.onContextUsage,
     onCompaction: context.onCompaction,
@@ -946,6 +963,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     claim: { origins: ["subagent"], perParentLimit: 2 },
   });
   pokeSpecialists = () => specialistPool.poke();
+  const speechPart = parts.find(
+    (p): p is ComposedPart & { meetings: MeetingIngest } => "meetings" in p,
+  );
   // S15: goal check-ins and the Feed run in-process; the heartbeat gets its 5k-token budget (O2).
   const proactive = composeProactive({
     db,
@@ -961,6 +981,25 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     registry,
     // Ideas proposes folding a skill's lessons into it once it has three (teaching loop §6).
     skillUpdates: () => skills.updates(),
+    // Post-meeting notes transcribe on the Mac through the speech part (§4.6). Record meeting
+    // stays unavailable until a helper offers microphone capture.
+    meetings: {
+      home: config.home,
+      primary: modelRef,
+      primaryIsRemote: () => {
+        const providers = "router" in modelSetup ? modelSetup.router.providers : [];
+        const p = providers.find((c) => c.id === modelRef.split("/")[0]);
+        return p !== undefined && !isLocalKind(p.kind);
+      },
+      ...(speechPart === undefined
+        ? {}
+        : {
+            transcriber: speechPart.meetings,
+            transcriberAvailable: () => speechPart.meetings.available(),
+          }),
+    },
+    // The people graph while the owner has it on: prep's attendees and loops, notes' loops.
+    graph: () => (people?.settings().enabled === true ? people.graph : undefined),
     ...(timeZone === undefined ? {} : { timeZone }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
@@ -989,25 +1028,29 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   for (const tool of webTools.tools) registry.register(tool);
   // The dreaming automation runs memory dreaming and the people graph pass in-process.
   // Dreaming, then the lesson pass (teaching loop §6, #681), then the people graph pass.
-  launcher = people.launcher(
-    // The weekly "What I learned" Feed post (teaching loop §5.4) runs in-process too.
-    withWeeklyCard(proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool), {
-      store: teaching.service.store,
-      memory,
-      clock,
-      enabled: () =>
-        teachingSettings(db).enabled && getSetting(db, "teaching.weeklyCard")?.value !== false,
-      post: (card) => proactive.feed.postGrowth(card),
-    }),
-    [
-      async () => {
-        if (!teachingSettings(db).enabled) return undefined;
-        const r = await consolidateLessons(teaching.service, memory, { clock });
-        // "Still true?" left unanswered: the lesson goes dormant (teaching loop §3.3).
-        const dormant = await retireUnanswered(teaching.service, memory, { clock });
-        return `lessons: ${r.merged} merged, ${r.promoted} promoted, ${r.proposed} proposed, ${r.flagged} flagged, ${dormant} dormant`;
-      },
-    ],
+  // Automations with a `specialist` run as unattended specialist jobs (specialists §4.10).
+  launcher = withAutomationSpecialists(
+    people.launcher(
+      // The weekly "What I learned" Feed post (teaching loop §5.4) runs in-process too.
+      withWeeklyCard(proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool), {
+        store: teaching.service.store,
+        memory,
+        clock,
+        enabled: () =>
+          teachingSettings(db).enabled && getSetting(db, "teaching.weeklyCard")?.value !== false,
+        post: (card) => proactive.feed.postGrowth(card),
+      }),
+      [
+        async () => {
+          if (!teachingSettings(db).enabled) return undefined;
+          const r = await consolidateLessons(teaching.service, memory, { clock });
+          // "Still true?" left unanswered: the lesson goes dormant (teaching loop §3.3).
+          const dormant = await retireUnanswered(teaching.service, memory, { clock });
+          return `lessons: ${r.merged} merged, ${r.promoted} promoted, ${r.proposed} proposed, ${r.flagged} flagged, ${dormant} dormant`;
+        },
+      ],
+    ),
+    { db, tasks, host: specialists, now: () => clock.now() },
   );
   scheduler.subscribe((e) => publish(e.event, e.payload as never));
 
@@ -1024,6 +1067,32 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       folders: () => rawBroker.policy.folders ?? [],
     }),
   );
+  // A device that goes away ends the meeting recording it was capturing (§4.6).
+  const meetingsDisconnect = (deviceId: string) => proactive.meetings?.deviceGone(deviceId);
+  let unsubscribeWorkflows: (() => void) | undefined;
+  parts.push({
+    start: (gw) => {
+      gw.context.deviceDisconnected.add(meetingsDisconnect);
+      // Settings → Mail & meetings: a changed key re-syncs the jobs' schedules (the digest's time
+      // and days, the mail check cadence, each workflow's switch). Everything else is read per run.
+      unsubscribeWorkflows = gw.bus.subscribe(["operator.read"], (frame) => {
+        const f = JSON.parse(frame) as {
+          event?: string;
+          payload?: { entries?: { key: string }[] };
+        };
+        if (f.event !== "settings.changed") return;
+        const keys: readonly string[] = WORKFLOW_SETTING_KEYS;
+        if ((f.payload?.entries ?? []).some((e) => keys.includes(e.key))) {
+          void proactive.syncWorkflowSchedules();
+        }
+      });
+    },
+    stop: () => {
+      gatewayRef?.context.deviceDisconnected.delete(meetingsDisconnect);
+      unsubscribeWorkflows?.();
+      unsubscribeWorkflows = undefined;
+    },
+  });
   parts.push(otherChats.part());
   parts.push(people.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone));
   // Code plugins (T4): off until the owner turns on `plugins.enabled`.
@@ -1289,7 +1358,6 @@ export {
 export type { ApprovalRelay, ComposedPart, ComposeServices, OwnPorts } from "./services.ts";
 export {
   composeSpeech,
-  dbMessageSource,
   FsAudioLibrary,
   type SpeechSetup,
   speechNode,

@@ -11,7 +11,10 @@ export type AutomationInput = Omit<
   "id" | "nextRunAt" | "lastRunAt" | "lastStatus" | "createdAt" | "updatedAt"
 >;
 
-export type AutomationPatch = Partial<AutomationInput>;
+/** `specialist: null` clears it (the automation runs as a plain Task again). */
+export type AutomationPatch = Partial<Omit<AutomationInput, "specialist">> & {
+  specialist?: AutomationInput["specialist"] | null;
+};
 
 export interface ScheduledRun {
   automationId: string;

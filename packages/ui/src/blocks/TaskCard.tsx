@@ -1,10 +1,10 @@
 import type { Task, TaskStatus } from "@psyche/protocol";
 import { CircleAlert, CircleCheck, CirclePause, CircleX, Hand, Loader } from "lucide-react";
 import type { ReactElement } from "react";
-import { Button } from "../components/ui/button.tsx";
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { Checklist } from "./Checklist.tsx";
+import { Card, type CardAction, fromTaskStatus } from "./card.tsx";
 
 const TASK_STATUSES: readonly TaskStatus[] = [
   "queued",
@@ -56,7 +56,7 @@ export interface TaskCardProps {
   onRetry?: (task: Task) => void;
 }
 
-/** Task block with live status (UI design §3.2, §3.14). */
+/** Task block with live status (UI design §3.2, §3.14), on the card shell. */
 export function TaskCard({
   task,
   onOpen,
@@ -67,51 +67,57 @@ export function TaskCard({
 }: TaskCardProps): ReactElement {
   const live = task.status === "running" || task.status === "queued";
   const current = task.checklist.find((c) => c.status === "in_progress");
+  const failed = task.status === "failed" || task.status === "cancelled";
+  const actions: CardAction[] = [];
+  if (live && onPause)
+    actions.push({
+      id: "pause",
+      label: t("blocks.task.pause"),
+      kind: "send",
+      onSelect: () => onPause(task),
+    });
+  if (task.status === "paused" && onResume)
+    actions.push({
+      id: "resume",
+      label: t("blocks.task.resume"),
+      kind: "send",
+      onSelect: () => onResume(task),
+    });
+  if ((live || task.status === "paused") && onCancel)
+    actions.push({
+      id: "cancel",
+      label: t("common.cancel"),
+      kind: "send",
+      onSelect: () => onCancel(task),
+    });
+  if (failed && onRetry)
+    actions.push({
+      id: "retry",
+      label: t("common.retry"),
+      kind: "send",
+      primary: true,
+      onSelect: () => onRetry(task),
+    });
+  if (onOpen)
+    actions.push({
+      id: "open",
+      label: t("blocks.task.openActivity"),
+      kind: "open",
+      primary: !(failed && onRetry),
+      onSelect: () => onOpen(task),
+    });
   return (
-    <article
-      aria-label={t("blocks.task.label", {
-        title: task.title,
-        status: TASK_STATUS_LABEL[task.status],
-      })}
-      className="my-2 rounded-lg border border-gray-6 bg-gray-2 p-3 psy-enter"
+    <Card
+      label={t("blocks.task.label", { title: task.title, status: TASK_STATUS_LABEL[task.status] })}
+      status={fromTaskStatus(task.status)}
+      title={task.title}
+      meta={`${TASK_STATUS_LABEL[task.status]}${current ? ` · ${current.text}` : ""}`}
+      live={live}
+      actions={actions}
+      createdAt={task.createdAt}
     >
-      <div className="flex items-center gap-2">
-        <TaskStatusIcon status={task.status} />
-        <h3 className="min-w-0 flex-1 truncate text-sm font-semibold">{task.title}</h3>
-        <span className="text-xs text-muted-foreground" aria-live={live ? "polite" : undefined}>
-          {TASK_STATUS_LABEL[task.status]}
-          {current ? ` · ${current.text}` : ""}
-        </span>
-      </div>
-      {task.summary ? <p className="mt-1 text-sm text-gray-11">{task.summary}</p> : null}
+      {task.summary ? <p className="text-body text-label-secondary">{task.summary}</p> : null}
       {task.checklist.length > 0 ? <Checklist items={task.checklist} /> : null}
-      <div className="mt-2 flex flex-wrap gap-2">
-        {onOpen ? (
-          <Button size="sm" variant="outline" onClick={() => onOpen(task)}>
-            {t("blocks.task.openActivity")}
-          </Button>
-        ) : null}
-        {live && onPause ? (
-          <Button size="sm" variant="ghost" onClick={() => onPause(task)}>
-            {t("blocks.task.pause")}
-          </Button>
-        ) : null}
-        {task.status === "paused" && onResume ? (
-          <Button size="sm" variant="ghost" onClick={() => onResume(task)}>
-            {t("blocks.task.resume")}
-          </Button>
-        ) : null}
-        {(live || task.status === "paused") && onCancel ? (
-          <Button size="sm" variant="ghost" onClick={() => onCancel(task)}>
-            {t("common.cancel")}
-          </Button>
-        ) : null}
-        {(task.status === "failed" || task.status === "cancelled") && onRetry ? (
-          <Button size="sm" variant="ghost" onClick={() => onRetry(task)}>
-            {t("common.retry")}
-          </Button>
-        ) : null}
-      </div>
-    </article>
+    </Card>
   );
 }

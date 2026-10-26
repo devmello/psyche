@@ -29,7 +29,10 @@ const role = {
   approvals: ["new_origin" as const],
 };
 
-function setup(slots = 3) {
+function setup(
+  slots = 3,
+  published: Array<{ event: string; payload?: unknown; threadId?: string; blocks?: unknown }> = [],
+) {
   const clock = new FakeClock();
   const ids = createIdGenerator({ prefix: "db" });
   const db = openDb(":memory:", {
@@ -59,10 +62,6 @@ function setup(slots = 3) {
   const broker = new FakePermissionBroker({ clock });
   const pokes = { n: 0 };
   const notifier = new FakeNotifier({ clock });
-  const published: { event: string; payload: unknown; threadId?: string }[] = [];
-  const publish = (event: string, payload: unknown, threadId?: string) => {
-    published.push({ event, payload, ...(threadId === undefined ? {} : { threadId }) });
-  };
   const host = createSpecialistHost({
     db,
     tasks,
@@ -75,7 +74,15 @@ function setup(slots = 3) {
       pokes.n += 1;
     },
     notifier,
-    publish: publish as never,
+    publish: (event: string, payload: unknown, threadId?: string) => {
+      const message = (payload as { message?: { blocks: unknown } }).message;
+      published.push({
+        event,
+        payload,
+        ...(threadId === undefined ? {} : { threadId }),
+        blocks: message?.blocks,
+      });
+    },
   });
   return { db, tasks, host, clock, pokes, notifier, published, roles };
 }
@@ -180,6 +187,35 @@ describe("the Gateway's specialist host (#683)", () => {
     expect((await host.jobs("thr_parent"))[0]?.status).toBe("done");
   });
 
+  it("posts the first result to the spawning thread as a specialist_result block, once", async () => {
+    const published: Array<{ event: string; threadId?: string; blocks?: unknown }> = [];
+    const { host, db } = setup(3, published);
+    const job = await host.createJob({
+      spec: spec("thr_parent"),
+      title: "Apartments",
+      brief: "b",
+      incognito: false,
+      taint: false,
+      taintSources: [],
+    });
+    await host.report(job.taskId, { outcome: "done", summary: "ok" }, { tainted: false });
+    await host.report(job.taskId, { outcome: "failed", summary: "later" }, { tainted: false });
+    const lines = published
+      .filter((e) => e.event === "chat.message")
+      .map(({ event, threadId, blocks }) => ({ event, threadId, blocks }));
+    expect(lines).toEqual([
+      {
+        event: "chat.message",
+        threadId: "thr_parent",
+        blocks: [{ type: "specialist_result", taskId: job.taskId }],
+      },
+    ]);
+    const rows = db.sqlite
+      .prepare("SELECT role FROM messages WHERE thread_id = 'thr_parent'")
+      .all() as Array<{ role: string }>;
+    expect(rows).toEqual([{ role: "system" }]);
+  });
+
   it("defuse leaves ordinary text alone", () => {
     expect(defuse("Three flats under $2,500 <near the office>")).toBe(
       "Three flats under $2,500 <near the office>",
@@ -261,7 +297,7 @@ describe("the Gateway's specialist host (#683)", () => {
     expect(await host.budgetDecision(job.taskId)).toBe("raised");
   });
 
-  it("delivers each job once: the Inbox card, specialist.result and a line in the parent thread", async () => {
+  it("delivers each job once: the Inbox card, specialist.result and one specialist_result block", async () => {
     const { db, host, notifier, published } = setup();
     const job = await host.createJob({
       spec: spec("thr_parent"),
@@ -294,10 +330,12 @@ describe("the Gateway's specialist host (#683)", () => {
     expect(results[0]?.payload).toMatchObject({ taskId: job.taskId, notificationId: cards[0]?.id });
     const line = listAllMessages(db, "thr_parent").at(-1);
     expect(line).toMatchObject({ role: "system" });
-    expect(line?.blocks).toEqual([
-      { type: "text", md: "Researcher finished Apartments. The result is in your Inbox." },
-      { type: "task", taskId: job.taskId },
-    ]);
+    expect(line?.blocks).toEqual([{ type: "specialist_result", taskId: job.taskId }]);
+    expect(
+      listAllMessages(db, "thr_parent").filter((m) =>
+        m.blocks.some((b) => b.type === "specialist_result"),
+      ),
+    ).toHaveLength(1);
   });
 
   it("formats the row line with cost when priced", () => {

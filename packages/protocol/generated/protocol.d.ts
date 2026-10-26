@@ -1106,6 +1106,123 @@ export interface ArtifactBlock {
 
 export type ArtifactBlockType = "artifact";
 
+export interface ArtifactTable {
+    columns: string[];
+    rows:    Array<ArtifactCell[]>;
+}
+
+export type ArtifactCell = boolean | number | null | string;
+
+export interface ArtifactUpdatedPayload {
+    artifact: Artifact;
+    version:  ArtifactVersion;
+}
+
+export interface Artifact {
+    bytes?:        number;
+    id:            string;
+    language?:     string;
+    libraryItemId: string;
+    nameSlug:      string;
+    sourceRef?:    null | string;
+    threadId?:     null | string;
+    title:         string;
+    type:          ArtifactType;
+    untrusted?:    boolean;
+    updatedAt:     string;
+    version:       number;
+}
+
+export type ArtifactType = "markdown" | "html" | "react" | "pdf" | "sheet" | "itinerary" | "dashboard" | "doc" | "code" | "table" | "image";
+
+export interface ArtifactVersion {
+    artifactId:    string;
+    author:        ArtifactAuthor;
+    bytes:         number;
+    createdAt:     string;
+    hash:          string;
+    kind:          ArtifactVersionKind;
+    ops?:          ArtifactOp[];
+    restoredFrom?: number;
+    runId?:        null | string;
+    summary:       string;
+    toolCallId?:   null | string;
+    version:       number;
+}
+
+export type ArtifactAuthor = "agent" | "user" | "specialist";
+
+export type ArtifactVersionKind = "snapshot" | "ops";
+
+export interface ArtifactOp {
+    new?:     string;
+    old?:     string;
+    op:       Op;
+    after?:   string;
+    text?:    string;
+    content?: string;
+    cell?:    string;
+    value?:   ArtifactCell;
+    range?:   string;
+    values?:  ValueElement[];
+    at?:      number;
+    rows?:    Array<ArtifactCell[]>;
+    count?:   number;
+    name?:    string;
+    view?:    ArtifactTableView;
+}
+
+export type Op = "replace" | "insert" | "rewrite" | "set" | "setRange" | "addRows" | "deleteRows" | "addColumn" | "view";
+
+export type ValueElement = ArtifactCell[] | boolean | number | null | string;
+
+export interface ArtifactTableView {
+    filter?: Filter | null;
+    sort?:   Sort | null;
+}
+
+export interface Filter {
+    column:   string;
+    contains: string;
+}
+
+export interface Sort {
+    column: string;
+    dir:    Dir;
+}
+
+export type Dir = "asc" | "desc";
+
+export interface ArtifactsCreateParams {
+    content:   string;
+    language?: string;
+    threadId?: string;
+    title:     string;
+    type:      ArtifactType;
+}
+
+export interface ArtifactsCreateResult {
+    artifact:  Artifact;
+    conflict?: ArtifactConflict;
+    ref:       ArtifactRef;
+}
+
+export interface ArtifactConflict {
+    base:   number;
+    latest: number;
+    missed: ArtifactVersion[];
+}
+
+export interface ArtifactRef {
+    artifactId: string;
+    bytes:      number;
+    hash:       string;
+    summary:    string;
+    title:      string;
+    type:       ArtifactType;
+    version:    number;
+}
+
 export interface ArtifactsGetParams {
     artifactId: string;
 }
@@ -1114,18 +1231,70 @@ export interface ArtifactsGetResult {
     artifact: Artifact;
 }
 
-export interface Artifact {
-    id:            string;
-    libraryItemId: string;
-    nameSlug:      string;
-    sourceRef?:    null | string;
-    title:         string;
-    type:          ArtifactType;
-    updatedAt:     string;
-    version:       number;
+export interface ArtifactsListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?:   string;
+    limit?:    number;
+    threadId?: string;
 }
 
-export type ArtifactType = "markdown" | "html" | "react" | "pdf" | "sheet" | "itinerary" | "dashboard";
+export interface ArtifactsListResult {
+    artifacts:   Artifact[];
+    nextCursor?: null | string;
+}
+
+export interface ArtifactsReadParams {
+    artifactId: string;
+    lines?:     Lines;
+    version?:   number;
+}
+
+export interface Lines {
+    from: number;
+    to:   number;
+}
+
+export interface ArtifactsReadResult {
+    artifactId: string;
+    content:    string;
+    totalLines: number;
+    type:       ArtifactType;
+    version:    number;
+    view?:      ArtifactTableView;
+}
+
+export interface ArtifactsRestoreParams {
+    artifactId: string;
+    version:    number;
+}
+
+export interface ArtifactsRestoreResult {
+    artifact:  Artifact;
+    conflict?: ArtifactConflict;
+    ref:       ArtifactRef;
+}
+
+export interface ArtifactsUpdateParams {
+    artifactId: string;
+    base:       number;
+    ops:        ArtifactOp[];
+}
+
+export interface ArtifactsUpdateResult {
+    artifact:  Artifact;
+    conflict?: ArtifactConflict;
+    ref:       ArtifactRef;
+}
+
+export interface ArtifactsVersionsParams {
+    artifactId: string;
+}
+
+export interface ArtifactsVersionsResult {
+    versions: ArtifactVersion[];
+}
 
 export interface AttentionReportParams {
     /**
@@ -1215,14 +1384,12 @@ export interface AuditListParams {
      */
     kindPrefix?: string;
     limit?:      number;
-    order?:      Order;
+    order?:      Dir;
     since?:      string;
     sinceSeq?:   number;
     taskId?:     string;
     until?:      string;
 }
-
-export type Order = "asc" | "desc";
 
 export interface AuditListResult {
     entries: AuditEntry[];
@@ -1320,12 +1487,12 @@ export interface Delivery {
 export type AutomationKind = "cron" | "interval" | "watch" | "heartbeat" | "briefing" | "reminder" | "event";
 
 export interface AutomationSpecialist {
-    budget?:  SpecialistBudget;
+    budget?:  SpecialistBudgetSetting;
     deliver?: Deliver;
     role:     string;
 }
 
-export interface SpecialistBudget {
+export interface SpecialistBudgetSetting {
     costUsd?: number;
     minutes?: number;
     tokens?:  number;
@@ -1457,6 +1624,7 @@ export interface AutomationsCreateParams {
      * main | isolated | named:<id>
      */
     sessionTarget?: string;
+    specialist?:    AutomationSpecialist;
     /**
      * IANA zone; defaults to the Gateway's
      */
@@ -1540,6 +1708,7 @@ export interface AutomationsUpdateParams {
      * main | isolated | named:<id>
      */
     sessionTarget?: string;
+    specialist?:    AutomationSpecialist | null;
     /**
      * IANA zone; defaults to the Gateway's
      */
@@ -2244,7 +2413,7 @@ export interface CompactionSummary {
 
 export type BlockTrigger = "auto" | "manual";
 
-export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "receipt" | "task" | "wrap_up" | "related_threads" | "compaction" | "learned" | "taught";
+export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "receipt" | "task" | "wrap_up" | "related_threads" | "compaction" | "learned" | "taught" | "specialist_result";
 
 export interface ChatCancelParams {
     runId?:   string;
@@ -4067,28 +4236,9 @@ export interface GrowthItem {
 
 export type GrowthItemType = "lesson" | "milestone";
 
-export interface HelperSpeechPrepareParams {
-    /**
-     * How long to keep it warm without use (default 120 000)
-     */
-    keepWarmMs?: number;
-    language?:   string;
-    voice?:      string;
-}
-
-export interface HelperSpeechPrepareResult {
-    prepared:  boolean;
-    prepareMs: number;
-    /**
-     * The voice id that was prepared
-     */
-    voice: string;
-}
-
 export interface HelperSpeechTimings {
-    finalizeMs?:            FinalizeMS;
-    firstPartialMs?:        FirstPartialMS;
-    synthesisFirstAudioMs?: number;
+    finalizeMs?:     FinalizeMS;
+    firstPartialMs?: FirstPartialMS;
 }
 
 export interface FinalizeMS {
@@ -4100,56 +4250,6 @@ export interface FirstPartialMS {
     long?:  number;
     short?: number;
 }
-
-export interface HelperSpeechVoice {
-    /**
-     * AVSpeechSynthesisVoice identifier
-     */
-    id: string;
-    /**
-     * The voice's assets are on disk (premium voices need a download)
-     */
-    installed?: boolean;
-    /**
-     * BCP 47
-     */
-    language: string;
-    name:     string;
-    /**
-     * Apple Personal Voice: non-commercial use only
-     */
-    personalVoice: boolean;
-    quality:       SpeechVoiceQuality;
-}
-
-export type SpeechVoiceQuality = "default" | "enhanced" | "premium";
-
-export interface HelperSynthesizeParams {
-    format?: SpeechPCMEncoding;
-    /**
-     * Opt in to the owner's Personal Voice
-     */
-    personalVoice?: boolean;
-    /**
-     * 0 slowest … 1 fastest; 0.5 ≈ normal
-     */
-    rate?: number;
-    /**
-     * Multiplier of the voice's normal rate (1 = normal); wins over rate
-     */
-    speed?: number;
-    text:   string;
-    /**
-     * Echoed on every speech.audio event
-     */
-    utteranceId?: string;
-    /**
-     * Voice id from speech.voices
-     */
-    voice?: string;
-}
-
-export type SpeechPCMEncoding = "pcm_s16le" | "pcm_f32le";
 
 export interface IdeaUpdatedPayload {
     idea: Idea;
@@ -4472,6 +4572,10 @@ export interface MeetingRecordingEnded {
 
 export type Notes = "processing" | "done" | "needs_permission" | "failed";
 
+/**
+ * Why the capturing device stopped: the owner (default), the microphone ended, five minutes
+ * of silence, or the conference app quit
+ */
 export type MeetingRecordingEndedReason = "stopped" | "source_ended" | "silence" | "app_quit";
 
 export interface MeetingsNotesCreateParams {
@@ -4483,9 +4587,28 @@ export interface MeetingsNotesCreateParams {
 
 export type RecordingSpeakers = "owner_only" | "others";
 
+export interface MeetingsRecordPushParams {
+    /**
+     * Base64 mono PCM s16le at 16 kHz (the format `voice.push` takes)
+     */
+    audio: string;
+    /**
+     * 0, 1, 2… per recording; out of order is rejected
+     */
+    seq: number;
+}
+
 export interface MeetingsRecordStartParams {
     consentConfirmed: boolean;
     meetingId?:       string;
+}
+
+export interface MeetingsRecordStopParams {
+    /**
+     * Why the capturing device stopped: the owner (default), the microphone ended, five minutes
+     * of silence, or the conference app quit
+     */
+    reason?: MeetingRecordingEndedReason;
 }
 
 export interface MemoryClaimsConfirmParams {
@@ -5488,7 +5611,6 @@ export interface ModelsListResult {
 export interface ModelRoles {
     primary?: string;
     utility?: string;
-    voice?:   string;
 }
 
 export interface ModelsProbeParams {
@@ -5514,7 +5636,7 @@ export interface ModelsSetRoleParams {
     role:      PickableModelRole;
 }
 
-export type PickableModelRole = "primary" | "utility" | "voice";
+export type PickableModelRole = "primary" | "utility";
 
 export interface ModelsSetRoleResult {
     roles: ModelRoles;
@@ -5757,8 +5879,6 @@ export interface PersonaUpdatedPayload {
     changed:         string[];
     identity:        PersonaIdentity;
 }
-
-export type PersonalVoiceAuthorization = "authorized" | "denied" | "notDetermined" | "unsupported";
 
 export interface PlanBlock {
     planId: string;
@@ -7059,6 +7179,13 @@ export interface Step {
     status: string;
 }
 
+export interface SpecialistResultBlock {
+    taskId: string;
+    type:   SpecialistResultBlockType;
+}
+
+export type SpecialistResultBlockType = "specialist_result";
+
 export interface SpecialistResultPayload {
     notificationId?: null | string;
     parentRunId?:    null | string;
@@ -7178,12 +7305,6 @@ export interface SpecialistRole {
     tools:  string[];
 }
 
-export interface SpecialistBudgetSetting {
-    costUsd?: number;
-    minutes?: number;
-    tokens?:  number;
-}
-
 export interface Caps {
     costUsd?: number;
     maxHours: number;
@@ -7196,25 +7317,6 @@ export type PermissionMode = "plan" | "manual" | "balanced" | "auto";
 export type ModelClass = "utility" | "primary" | "harness" | "vision";
 
 export type SpecialistResultKind = "findings" | "draft" | "changes" | "plan" | "items";
-
-export interface SpeechAudioPayload {
-    /**
-     * Base64 PCM
-     */
-    audio:    string;
-    format:   AudioFormat;
-    last:     boolean;
-    seq:      number;
-    streamId: string;
-}
-
-export interface AudioFormat {
-    channels:   number;
-    encoding:   Encoding;
-    sampleRate: number;
-}
-
-export type Encoding = "pcm_s16le" | "pcm_f32le" | "opus" | "mp3" | "wav" | "caf";
 
 export interface SpeechProgressEvent {
     /**
@@ -7232,40 +7334,6 @@ export interface SpeechProgressEvent {
 }
 
 export type SpeechProgressEventType = "speech.progress";
-
-export interface SpeechReadAloudCancelParams {
-    streamId: string;
-}
-
-export interface SpeechReadAloudCompletedPayload {
-    durationMs: number;
-    item:       LibraryItem;
-    messageId:  string;
-    streamId:   string;
-}
-
-export interface SpeechReadAloudFailedPayload {
-    error:     ErrorPayload;
-    messageId: string;
-    streamId:  string;
-}
-
-export interface SpeechReadAloudParams {
-    messageId: string;
-    /**
-     * Default true. false: stream speech.audio only, save no Library item and emit no
-     * speech.readAloud.completed (voice mode, feature Q5)
-     */
-    save?: boolean;
-    /**
-     * <engine>:<voice>
-     */
-    voice?: string;
-}
-
-export interface SpeechReadAloudResult {
-    streamId: string;
-}
 
 export interface SpeechTranscribeFileParams {
     /**
@@ -7322,48 +7390,6 @@ export interface TranscriptSegment {
 }
 
 export type SpeechTranscribePreset = "long" | "short";
-
-export interface SpeechVoicesParams {
-    /**
-     * The persona's current <engine>:<voice>
-     */
-    personaVoice?: string;
-}
-
-export interface SpeechVoicesResult {
-    default?: null | string;
-    /**
-     * Synthesis engines in order that could not list voices now
-     */
-    unavailable: string[];
-    voices:      SpeechVoice[];
-}
-
-export interface SpeechVoice {
-    /**
-     * The voice the settings or the persona select now
-     */
-    default: boolean;
-    engine:  string;
-    id:      string;
-    /**
-     * BCP 47, or * for any
-     */
-    language: string;
-    local:    boolean;
-    location: SpeechEngineLocation;
-    name:     string;
-    /**
-     * Apple Personal Voice: non-commercial use only
-     */
-    nonCommercial?: boolean;
-    /**
-     * <engine>:<voice>, the form IDENTITY.md voice: takes
-     */
-    ref: string;
-}
-
-export type SpeechEngineLocation = "node" | "gateway" | "client" | "cloud";
 
 export interface TaskActionPayload {
     action: TaskAction;
@@ -8694,136 +8720,9 @@ export interface VMUpdatedPayload {
     nodeId: string;
 }
 
-export type VoiceApprovalTier = "off" | "write" | "write_destructive";
-
 export interface VoiceCancelParams {
     sessionId: string;
 }
-
-export interface VoiceConversationAudioParams {
-    /**
-     * Base64 PCM in the start format
-     */
-    audio:          string;
-    conversationId: string;
-    /**
-     * 0, 1, 2… per conversation; in order
-     */
-    seq: number;
-}
-
-export interface VoiceConversationCaptionPayload {
-    conversationId: string;
-    final:          boolean;
-    role:           Drafted;
-    text:           string;
-    utteranceId:    string;
-}
-
-export interface VoiceConversationEndedPayload {
-    conversationId: string;
-    error?:         ErrorPayload;
-    reason:         VoiceConversationEndReason;
-}
-
-export type VoiceConversationEndReason = "stopped" | "idle" | "locked" | "error" | "disconnected";
-
-export interface VoiceConversationInterruptParams {
-    conversationId: string;
-    playedMs?:      number;
-    stage:          VoiceInterruptStage;
-}
-
-/**
- * suspect: the client VAD heard speech and ducked playback; confirmed: a key press stopped
- * it
- */
-export type VoiceInterruptStage = "suspect" | "confirmed";
-
-export interface VoiceConversationPlayedParams {
-    conversationId: string;
-    /**
-     * The utterance played to its end
-     */
-    done:        boolean;
-    playedMs:    number;
-    utteranceId: string;
-}
-
-export interface VoiceConversationSpeechPayload {
-    /**
-     * Base64 PCM
-     */
-    audio:          string;
-    conversationId: string;
-    format:         AudioFormat;
-    /**
-     * The utterance's last chunk
-     */
-    last:        boolean;
-    seq:         number;
-    utteranceId: string;
-}
-
-export interface VoiceConversationStartParams {
-    format: AudioFormat;
-    /**
-     * BCP 47
-     */
-    language?: string;
-    mode:      VoiceConversationMode;
-    threadId?: string;
-    /**
-     * <engine>:<voice>
-     */
-    voice?: string;
-}
-
-export type VoiceConversationMode = "push" | "tap" | "handsfree";
-
-export interface VoiceConversationStartResult {
-    conversationId: string;
-    engine:         string;
-    location:       SpeechEngineLocation;
-}
-
-export interface VoiceConversationStatePayload {
-    approvalId?:    string;
-    conversationId: string;
-    listening:      boolean;
-    phase:          VoiceConversationPhase;
-    prompt?:        string;
-    reason?:        VoiceConversationReason;
-    windowMs?:      number;
-}
-
-export type VoiceConversationPhase = "listening" | "heard" | "thinking" | "speaking" | "waiting" | "ended";
-
-/**
- * Waiting for an approval or a question, a confirmed barge-in, nothing heard
- */
-export type VoiceConversationReason = "approval" | "question" | "barge_in" | "no_speech";
-
-export interface VoiceConversationStepPayload {
-    conversationId: string;
-    /**
-     * The narration text as shown
-     */
-    label:      string;
-    status:     ToolCallStatus;
-    toolCallId: string;
-}
-
-export interface VoiceConversationStopParams {
-    conversationId: string;
-}
-
-export interface VoiceConversationTurnParams {
-    action:         VoiceTurnAction;
-    conversationId: string;
-}
-
-export type VoiceTurnAction = "begin" | "end";
 
 export interface VoiceEndedPayload {
     error?:    ErrorPayload;
@@ -8875,8 +8774,6 @@ export interface Transcript {
     text:      string;
 }
 
-export type VoiceNarrateLevel = "off" | "brief" | "steps";
-
 export interface VoicePushParams {
     /**
      * Base64 PCM in the session format
@@ -8893,8 +8790,6 @@ export interface VoiceSegmentPayload {
     segment:   TranscriptSegment;
     sessionId: string;
 }
-
-export type VoiceSpeakLevel = "brief" | "full";
 
 export interface VoiceStartParams {
     format: AudioFormat;
@@ -8913,11 +8808,21 @@ export interface VoiceStartParams {
     vocabulary?: string[];
 }
 
+export interface AudioFormat {
+    channels:   number;
+    encoding:   Encoding;
+    sampleRate: number;
+}
+
+export type Encoding = "pcm_s16le" | "pcm_f32le" | "opus" | "mp3" | "wav" | "caf";
+
 export interface VoiceStartResult {
     engine:    string;
     location:  SpeechEngineLocation;
     sessionId: null | string;
 }
+
+export type SpeechEngineLocation = "node" | "gateway" | "client" | "cloud";
 
 export interface VoiceStopParams {
     sessionId: string;

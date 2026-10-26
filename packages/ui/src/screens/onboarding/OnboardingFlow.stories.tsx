@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { withWorld } from "../../stories/harness.tsx";
+import { MailStep } from "./MailStep.tsx";
 import { OnboardingFlow } from "./OnboardingFlow.tsx";
 import { ConnectorsStep, PermissionsStep } from "./OnboardingSteps.tsx";
 
@@ -94,6 +95,32 @@ export const ConnectorsFailed: Story = {
       error="Psyche couldn't connect that account (the sign-in window was closed)."
     />
   ),
+};
+
+const mailConnected = [
+  { type: "apple:mail", label: "Apple Mail", mode: "read_act" as const },
+  { type: "google", label: "Google (Gmail, Calendar, Drive)", mode: "read" as const },
+];
+
+/** The mail and meetings decision screen (§7.5): offered once a mail account is connected. */
+export const MailDecision: Story = {
+  args: { defaultStep: "mail", initial: { persona: wren, connectors: mailConnected } },
+};
+export const MailDecisionNoneOn: Story = {
+  args: {
+    defaultStep: "mail",
+    initial: { persona: wren, connectors: mailConnected },
+  },
+  render: (args) => (
+    <MailStep
+      persona={args.initial?.persona?.name ?? "Wren"}
+      value={{ digest: false, prep: false, followups: false, voice: false, notes: false }}
+      onChange={noop}
+    />
+  ),
+};
+export const DoneWithMail: Story = {
+  args: { defaultStep: "done", initial: { persona: wren, connectors: mailConnected } },
 };
 
 export const ModelCloudKey: Story = {

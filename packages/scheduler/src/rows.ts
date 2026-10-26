@@ -27,6 +27,8 @@ export interface AutomationRow {
   updated_at: string;
   /** 202610252000_scheduler_event-triggers: the trigger of `kind: event`. */
   trigger?: string | null;
+  /** 202610262100_scheduler_automation-specialist: run each occurrence as a specialist job. */
+  specialist?: string | null;
 }
 
 export interface RunRow {
@@ -98,6 +100,7 @@ export function automationFromRow(r: AutomationRow, w?: WatchRow): Automation {
   if (r.light_context !== null) a.lightContext = r.light_context === 1;
   if (w !== undefined) a.watch = watchConfigFromRow(w);
   if (r.trigger != null) a.trigger = JSON.parse(r.trigger) as AutomationTrigger;
+  if (r.specialist != null) a.specialist = JSON.parse(r.specialist) as Automation["specialist"];
   return a;
 }
 

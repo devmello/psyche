@@ -57,6 +57,8 @@ export interface SpecialistJobInput {
   incognito: boolean;
   taint: boolean;
   taintSources: TaintSource[];
+  /** An automation's job (§4.10): it never asks inline; approvals wait in the queue. */
+  unattended?: boolean;
 }
 
 /** What the runtime knows that the report doesn't (§4.2). */

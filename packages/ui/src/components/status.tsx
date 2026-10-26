@@ -9,6 +9,7 @@ import {
   LoaderCircle,
   Pause,
   RotateCw,
+  ShieldX,
   X,
 } from "lucide-react";
 import { useReducedMotionConfig } from "motion/react";
@@ -24,6 +25,7 @@ export type StatusKind =
   | "waiting"
   | "paused"
   | "cancelled"
+  | "blocked"
   | "pending";
 
 /**
@@ -39,6 +41,7 @@ const GLYPH = {
   waiting: { Icon: Clock, tone: "text-approval-text" },
   paused: { Icon: Pause, tone: "text-label-tertiary" },
   cancelled: { Icon: Ban, tone: "text-label-tertiary" },
+  blocked: { Icon: ShieldX, tone: "text-danger-text" },
   pending: { Icon: CircleDashed, tone: "text-label-tertiary" },
   thinking: { Icon: Brain, tone: "text-label-secondary" },
   retried: { Icon: RotateCw, tone: "text-approval-text" },

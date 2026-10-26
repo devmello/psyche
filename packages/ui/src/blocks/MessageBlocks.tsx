@@ -1,7 +1,7 @@
 import type { Block, Message } from "@psyche/protocol";
 import { ArrowDown } from "lucide-react";
 import * as m from "motion/react-m";
-import type { ReactElement, ReactNode } from "react";
+import { type ReactElement, type ReactNode, useEffect } from "react";
 import { Avatar } from "../avatar/Avatar.tsx";
 import { StatusGlyph } from "../components/status.tsx";
 import {
@@ -17,15 +17,18 @@ import { t } from "../i18n/core.ts";
 import { displaySummary } from "../lib/cards.ts";
 import { fade, motionSpring, Presence, spring } from "../motion/index.ts";
 import { usePersona, useSlots } from "../slots.tsx";
+import { SpecialistResultBlockView } from "../specialists/SpecialistResultBlock.tsx";
 import { ReceiptFeedback } from "../teaching/ReceiptFeedback.tsx";
 import { LearnedLine, TaughtLine } from "../teaching/TaughtLine.tsx";
 import { focusApproval } from "./ApprovalCard.tsx";
 import { ArtifactCard, FileCard } from "./ArtifactCard.tsx";
 import { Checklist, PlanCard } from "./Checklist.tsx";
+import { useEntersLater } from "./card-enter.tsx";
 import { Markdown } from "./Markdown.tsx";
 import { QuestionCard } from "./QuestionCard.tsx";
 import { ReceiptLine } from "./Receipt.tsx";
 import { RelatedThreads } from "./RelatedThreads.tsx";
+import { type BlockContext, RegisteredBlock, registerBlock } from "./registry.tsx";
 import { TaskCard } from "./TaskCard.tsx";
 import { type ToolCallItem, ToolRun } from "./ToolRun.tsx";
 import { blocksToShow, useThreadBlocks } from "./thread-blocks.tsx";
@@ -151,15 +154,42 @@ function ReceiptBlockView({ receiptId }: { receiptId: string }): ReactElement {
   );
 }
 
+/** Artifacts the canvas already opened on its own this session (never twice). */
+const autoOpened = new Set<string>();
+
 function ArtifactBlockView({
   artifactId,
   preview,
+  runId,
 }: {
   artifactId: string;
   preview?: string | undefined;
+  runId?: string | null | undefined;
 }): ReactElement {
   const { artifact, loading } = useArtifact(artifactId);
   const slots = useSlots();
+  // Auto-open (chat-experience-2026 §4.2, decision 3): only a new artifact arriving live from
+  // the owner's own run in this chat opens the canvas; history, automations, channels and
+  // specialists leave just the card.
+  const live = useEntersLater(artifact?.updatedAt ?? null);
+  const foreground = useStoreState((s) => {
+    const run = runId == null ? undefined : s.runs[runId];
+    // An unknown run is not assumed to be the owner's: no auto-open without knowing.
+    return (
+      run !== undefined &&
+      (run.origin === undefined || run.origin === "owner") &&
+      run.taskId === null &&
+      run.automationRunId === null &&
+      run.parentRunId === null &&
+      run.specialist === undefined
+    );
+  });
+  useEffect(() => {
+    if (artifact === null || !live || !foreground || artifact.version !== 1) return;
+    if (slots.openArtifact === undefined || autoOpened.has(artifact.id)) return;
+    autoOpened.add(artifact.id);
+    slots.openArtifact(artifact);
+  }, [artifact, live, foreground, slots.openArtifact]);
   if (artifact === null)
     return loading ? <Skeleton what="artifact" /> : <Missing what="artifact" />;
   return (
@@ -245,6 +275,12 @@ export function MessageBlocks({
   const out: ReactNode[] = [];
   // One row per tool call and one notice per approval across the thread (#569, #555).
   const blocks = blocksToShow(message, useThreadBlocks());
+  const ctx: BlockContext = {
+    message,
+    pinChecklist,
+    onWrapUpAction,
+    untrusted: message.provenance === "untrusted",
+  };
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i] as Block;
     const key = `${message.id}:${i}`;
@@ -258,15 +294,7 @@ export function MessageBlocks({
       out.push(<ToolRunBlock key={key} blocks={run} />);
       continue;
     }
-    out.push(
-      <BlockView
-        key={key}
-        block={b}
-        pinChecklist={pinChecklist}
-        onWrapUpAction={onWrapUpAction}
-        untrusted={message.provenance === "untrusted"}
-      />,
-    );
+    out.push(<RegisteredBlock key={key} block={b} ctx={ctx} />);
   }
   if (streamingText)
     out.push(
@@ -278,49 +306,57 @@ export function MessageBlocks({
   return <>{out}</>;
 }
 
-function BlockView({
-  block: b,
-  pinChecklist,
-  onWrapUpAction,
-  untrusted,
-}: {
-  block: Block;
-  pinChecklist: boolean;
-  onWrapUpAction?: ((message: string) => void) | undefined;
-  untrusted: boolean;
-}): ReactElement | null {
-  switch (b.type) {
-    case "text":
-      return (
-        <div className={untrusted ? "border-s-2 border-untrusted ps-2" : undefined}>
-          <Markdown>{b.md}</Markdown>
-        </div>
-      );
-    case "checklist":
-      return <Checklist items={b.items} pinned={pinChecklist} />;
-    case "plan":
-      return <PlanBlockView planId={b.planId} />;
-    case "approval":
-      return <ApprovalPointer approvalId={b.approvalId} />;
-    case "question":
-      return <QuestionBlockView inputRequestId={b.inputRequestId} />;
-    case "artifact":
-      return <ArtifactBlockView artifactId={b.artifactId} preview={b.preview} />;
-    case "file":
-      return <FileBlockView libraryItemId={b.libraryItemId} />;
-    case "receipt":
-      return <ReceiptBlockView receiptId={b.receiptId} />;
-    case "task":
-      return <TaskBlockView taskId={b.taskId} />;
-    case "wrap_up":
-      return <WrapUpBox block={b} {...(onWrapUpAction ? { onAction: onWrapUpAction } : {})} />;
-    case "related_threads":
-      return <RelatedThreads block={b} />;
-    case "learned":
-      return <LearnedLine items={b.items} />;
-    case "taught":
-      return <TaughtLine feedbackId={b.feedbackId} lessonId={b.lessonId} statement={b.statement} />;
-    default:
-      return null;
-  }
-}
+/** The built-in block types (data model §9.1), registered at load. */
+registerBlock("text", {
+  View: ({ block, ctx }) => (
+    <div className={ctx.untrusted ? "border-s-2 border-untrusted ps-2" : undefined}>
+      <Markdown>{block.md}</Markdown>
+    </div>
+  ),
+});
+registerBlock("checklist", {
+  View: ({ block, ctx }) => <Checklist items={block.items} pinned={ctx.pinChecklist} />,
+});
+registerBlock("plan", { View: ({ block }) => <PlanBlockView planId={block.planId} /> });
+registerBlock("approval", {
+  View: ({ block }) => <ApprovalPointer approvalId={block.approvalId} />,
+});
+registerBlock("question", {
+  View: ({ block }) => <QuestionBlockView inputRequestId={block.inputRequestId} />,
+});
+registerBlock("artifact", {
+  View: ({ block, ctx }) => (
+    <ArtifactBlockView
+      artifactId={block.artifactId}
+      preview={block.preview}
+      runId={ctx.message.runId}
+    />
+  ),
+});
+registerBlock("file", {
+  View: ({ block }) => <FileBlockView libraryItemId={block.libraryItemId} />,
+});
+registerBlock("receipt", { View: ({ block }) => <ReceiptBlockView receiptId={block.receiptId} /> });
+registerBlock("task", { View: ({ block }) => <TaskBlockView taskId={block.taskId} /> });
+registerBlock("wrap_up", {
+  View: ({ block, ctx }) => (
+    <WrapUpBox block={block} {...(ctx.onWrapUpAction ? { onAction: ctx.onWrapUpAction } : {})} />
+  ),
+});
+registerBlock("related_threads", { View: ({ block }) => <RelatedThreads block={block} /> });
+registerBlock("learned", { View: ({ block }) => <LearnedLine items={block.items} /> });
+registerBlock("taught", {
+  View: ({ block }) => (
+    <TaughtLine
+      feedbackId={block.feedbackId}
+      lessonId={block.lessonId}
+      statement={block.statement}
+    />
+  ),
+});
+registerBlock("specialist_result", {
+  View: ({ block }) => <SpecialistResultBlockView taskId={block.taskId} />,
+});
+// Folded into runs above, and drawn by MessageView as a system notice.
+registerBlock("tool_call", { View: () => null });
+registerBlock("compaction", { View: () => null });

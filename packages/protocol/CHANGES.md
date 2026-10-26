@@ -22,6 +22,35 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 - `SpecialistSpec.budgetPause?` (`{inputRequestId, reason, raised?}`, nullable): the job is paused on its budget question. `raised` means `tasks.update` raised the limits.
 - `SpecialistSpec.planApproved?`: a plan-first job's plan was approved. No new enum values.
+### v1 additive — 2026-10-26 (U, #672: one source for the mail and meeting setting defaults)
+
+- New plain export `MAIL_MEETING_SETTING_DEFAULTS` (and `MailMeetingSettingKey`): the value each `mail.*`, `meetings.*` and `workflows.*` setting has when unset. The Gateway and Settings → Mail & meetings both read it. No schema, method or event changes, so nothing to regenerate.
+### v1 breaking, signed off by the integrator — 2026-10-26 (S17: remove text-to-speech, #691 / #693)
+
+The owner removed all text-to-speech: voice is speech to text into the ask panel, and answers are text. Nothing in the repo calls any of the following any more (the consumers were removed first: UI #836, helper #839, speech/Gateway #848).
+
+- **Removed methods:** `speech.readAloud`, `speech.readAloud.cancel`, `speech.voices` and every `voice.conversation.*` method. **Removed events:** `speech.audio`, `speech.readAloud.completed`, `speech.readAloud.failed` and every `voice.conversation.*` event. Schemas `SpeechVoice`, the `VoiceConversation*`, `VoiceSpeakLevel`, `VoiceNarrateLevel`, `VoiceApprovalTier`, `VoiceTurnAction`, `VoiceInterruptStage` types and the helper's synthesis shapes (`HelperSynthesizeParams`, `HelperSpeechVoice`, `HelperSpeechPrepare*`, `PersonalVoiceAuthorization`, `SpeechVoiceQuality`, `SpeechPcmEncoding`) are gone.
+- **`VOICE_CONVERSATION_SETTING_KEYS`** keeps `enabled`, `key` and `reviewBeforeSend`.
+- **`voice` model role removed** from `PickableModelRole` and `ModelRoles` (and the router's `MODEL_ROLES`); the Gateway deletes the stale `models.voice` setting.
+- **Kept:** `voice.*` dictation, `voice.memo.save`, `dictation.watch` with two keys and `DictationKeyPayload.role`, `SpeechTranscribePreset` and `HelperSpeechTimings` (without `synthesisFirstAudioMs`), and `Message.via` / `ApprovalAnswer.via` (`"voice"`), which are stored fields no code sets any more.
+- **Swift:** the generated file shrinks by about 730 lines; `AudioFormat`, `Encoding` and `SpeechEngineLocation` are now generated from the dictation shapes. `swift build --build-tests` and `swift test` (247 tests) pass; the helper uses none of the removed types.
+
+### v1 additive — 2026-10-26 (chat experience phase 2: `specialist_result` block, docs/design/chat-experience-2026.md §4.5)
+
+- New `Block` variant `specialist_result {taskId}` (`SpecialistResultBlock`): a specialist job's result in the thread that spawned it, in addition to Feed and Inbox. Swift `Block` is one struct with optional fields, so no switch site changes.
+
+### v1 additive — 2026-10-26 (W, #670: Record meeting captured by the owner's device, docs/workflows/mail-and-meetings-2026.md §4.6)
+
+- New `meetings.record.push {seq, audio}` (`operator.write`): one chunk (base64 mono PCM s16le, 16 kHz, ≤ 512 000 chars) of the running recording, from the device that started it. The recording ends by itself after two minutes without chunks or when that device disconnects.
+- `meetings.record.stop` gains optional `reason: stopped | source_ended | silence | app_quit`.
+### v1 additive — 2026-10-26 (chat experience phase 2: artifacts, docs/design/chat-experience-2026.md §4.3–4.4)
+
+- `ArtifactType` gains `doc`, `code`, `table`, `image` (appended). `Artifact` gains optional `threadId`, `language`, `untrusted`, `bytes`.
+- New types `ArtifactAuthor` (agent | user | specialist), `ArtifactOp` (text: replace | insert | rewrite; table: set | setRange | addRows | deleteRows | addColumn | view), `ArtifactCell`, `ArtifactTable`, `ArtifactTableView`, `ArtifactRef` (what tool results carry instead of content), `ArtifactVersion`, `ArtifactConflict`.
+- New methods `artifacts.list`, `artifacts.read {version?, lines?}`, `artifacts.versions`, and side-effecting `artifacts.create`, `artifacts.update {base, ops}` (stale base → `conflict`, nothing written), `artifacts.restore`. `artifacts.get`'s description now points at `artifacts.read`.
+- New event `artifact.updated {artifact, version}`.
+- No Swift switch sites change (the helper never decodes artifacts).
+
 ### v1 additive — 2026-10-26 (W, #670: post-meeting notes and Record meeting, docs/workflows/mail-and-meetings-2026.md §4.6)
 
 - **New `meetings.*` methods:** `meetings.notes.create {libraryItemId, startedAt?, title?, speakers?}` → `MeetingNotesResult {status: done | needs_permission, postId?, notes?, remindersProposalId?, question?}` (`operator.write`); `meetings.record.status {}` → `MeetingRecordingStatus` (`operator.read`); `meetings.record.start {consentConfirmed, meetingId?}` and `meetings.record.stop {}` → `MeetingRecordingStatus` (`operator.write`). A start without `consentConfirmed: true` is refused.

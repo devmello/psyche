@@ -1,15 +1,12 @@
 import { type MethodParams, type MethodResult, PsycheError } from "@psyche/protocol";
-import type { VoiceConversationManager } from "./conversation/conversation.ts";
 import type { VoiceMemoService } from "./memo.ts";
-import type { ReadAloudService } from "./readAloud.ts";
 import type { VoiceCallContext, VoiceSessionManager, VoiceStartParams } from "./voice.ts";
-import type { VoiceCatalog } from "./voices.ts";
 
 /**
- * `voice.*`, `voice.memo.save`, `speech.readAloud` and `speech.voices` handlers for the Gateway
+ * `voice.*` dictation and `voice.memo.save` handlers for the Gateway
  * (S01), like `createMemoryHandlers` / `createTaskHandlers`. Params arrive validated against the
  * protocol schemas and the caller already passed the method's scope check; the second argument
- * is the calling device (sessions, read-aloud audio and memo events belong to it). Events are
+ * is the calling device (sessions and memo events belong to it). Events are
  * delivered by the `emit` callbacks the services were built with.
  *
  * Mount with a small adapter that passes `{deviceId: call.identity.deviceId, caller}` where
@@ -22,16 +19,7 @@ export type SpeechMethod =
   | "voice.push"
   | "voice.stop"
   | "voice.cancel"
-  | "voice.memo.save"
-  | "speech.readAloud"
-  | "speech.readAloud.cancel"
-  | "speech.voices"
-  | "voice.conversation.start"
-  | "voice.conversation.audio"
-  | "voice.conversation.turn"
-  | "voice.conversation.interrupt"
-  | "voice.conversation.played"
-  | "voice.conversation.stop";
+  | "voice.memo.save";
 
 export const SPEECH_METHODS: readonly SpeechMethod[] = [
   "voice.start",
@@ -39,15 +27,6 @@ export const SPEECH_METHODS: readonly SpeechMethod[] = [
   "voice.stop",
   "voice.cancel",
   "voice.memo.save",
-  "speech.readAloud",
-  "speech.readAloud.cancel",
-  "speech.voices",
-  "voice.conversation.start",
-  "voice.conversation.audio",
-  "voice.conversation.turn",
-  "voice.conversation.interrupt",
-  "voice.conversation.played",
-  "voice.conversation.stop",
 ];
 
 export type SpeechHandlers = {
@@ -58,12 +37,6 @@ export interface SpeechHandlerDeps {
   voice: VoiceSessionManager;
   /** Without it `voice.memo.save` answers `unavailable`. */
   memos?: VoiceMemoService;
-  /** Without it `speech.readAloud` answers `unavailable`. */
-  readAloud?: ReadAloudService;
-  /** Without it `speech.voices` answers `unavailable`. */
-  catalog?: VoiceCatalog;
-  /** Without it the `voice.conversation.*` methods answer `unavailable`. */
-  conversations?: VoiceConversationManager;
 }
 
 function need<T>(dep: T | undefined, what: string): T {
@@ -115,70 +88,6 @@ export function createSpeechHandlers(deps: SpeechHandlerDeps): SpeechHandlers {
         blocks: r.blocks,
         durationMs: Math.round(r.durationMs),
       };
-    },
-
-    async "speech.readAloud"(p, ctx) {
-      const readAloud = need(deps.readAloud, "read-aloud");
-      const { streamId } = readAloud.start(p.messageId, ctx.deviceId, {
-        ...(p.voice === undefined ? {} : { voice: p.voice }),
-        ...(p.save === undefined ? {} : { save: p.save }),
-      });
-      return { streamId };
-    },
-
-    async "speech.readAloud.cancel"(p, ctx) {
-      need(deps.readAloud, "read-aloud").cancel(p.streamId, ctx.deviceId);
-      return { ok: true };
-    },
-
-    async "speech.voices"(p) {
-      const catalog = need(deps.catalog, "the voice catalog");
-      const r = await catalog.list(
-        p.personaVoice === undefined ? {} : { personaVoice: p.personaVoice },
-      );
-      return {
-        voices: r.voices.map((v) => ({
-          ref: v.ref,
-          engine: v.engine,
-          location: v.location,
-          id: v.id,
-          name: v.name,
-          language: v.language,
-          local: v.local,
-          default: v.default,
-          ...(v.nonCommercial === true ? { nonCommercial: true } : {}),
-        })),
-        default: r.default,
-        unavailable: r.unavailable,
-      };
-    },
-    async "voice.conversation.start"(p, ctx) {
-      return need(deps.conversations, "voice conversation").start(p, ctx);
-    },
-
-    async "voice.conversation.audio"(p, ctx) {
-      need(deps.conversations, "voice conversation").audio(p, ctx);
-      return {};
-    },
-
-    async "voice.conversation.turn"(p, ctx) {
-      need(deps.conversations, "voice conversation").turn(p, ctx);
-      return {};
-    },
-
-    async "voice.conversation.interrupt"(p, ctx) {
-      need(deps.conversations, "voice conversation").interrupt(p, ctx);
-      return {};
-    },
-
-    async "voice.conversation.played"(p, ctx) {
-      need(deps.conversations, "voice conversation").played(p, ctx);
-      return {};
-    },
-
-    async "voice.conversation.stop"(p, ctx) {
-      need(deps.conversations, "voice conversation").stop(p, ctx);
-      return { ok: true };
     },
   };
 }

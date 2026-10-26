@@ -12,6 +12,7 @@ class FakeWindow {
     on: (ev: string, fn: () => void) => this.#wcOn.set(ev, fn),
     send: (channel: string, payload: unknown) => this.sent.push([channel, payload]),
     isLoading: () => this.loading,
+    focus: () => undefined,
   };
   destroyed = false;
   visible = false;
@@ -87,6 +88,7 @@ vi.mock("electron", () => ({
 const { ScreenAskWindow, clampHeight, panelBounds, parseThread, regionRect } = await import(
   "../../src/main/screen-ask/panel.ts"
 );
+const { voicePopup } = await import("../../src/main/screen-ask/voice-key.ts");
 
 function make() {
   const opened: string[] = [];
@@ -161,6 +163,18 @@ describe("ScreenAskWindow", () => {
     expect(panel.visible && panel.focused).toBe(true);
   });
 
+  it("voice mode opens the same panel with no capture, and never starts region select", () => {
+    const { ask, live } = make();
+    ask.setEnabled(true);
+    ask.setEnabled(true, "voice");
+    const panel = live()[0] as FakeWindow;
+    panel.finishLoad();
+    ask.trigger("voice");
+    expect(panel.sent).toEqual([[IPC.screenAskOpen, { mode: "voice" }]]);
+    ask.trigger("voice");
+    expect(live()).toHaveLength(1);
+  });
+
   it("a second trigger while open selects an area; the dragged box goes to the panel", () => {
     const { ask, live, send } = make();
     ask.setEnabled(true);
@@ -224,5 +238,67 @@ describe("ScreenAskWindow", () => {
     expect(live()).toHaveLength(0);
     ask.resume();
     expect(live()).toHaveLength(1);
+  });
+
+  it("exists while either Ask about screen or Talk with Psyche is on", () => {
+    const { ask, live } = make();
+    // Voice only: the window is warm and the voice key opens it; screen capture stays off.
+    ask.setEnabled(true, "voice");
+    expect(live()).toHaveLength(1);
+    const panel = live()[0] as FakeWindow;
+    panel.finishLoad();
+    ask.trigger();
+    expect(panel.visible).toBe(false);
+    ask.selectArea();
+    expect(live()).toHaveLength(1);
+    ask.trigger("voice");
+    expect(panel.sent).toEqual([[IPC.screenAskOpen, { mode: "voice" }]]);
+    expect(panel.visible).toBe(true);
+    // Screen on too, then off again: the same window stays for voice.
+    ask.setEnabled(true, "screen");
+    ask.setEnabled(false, "screen");
+    expect(live()).toEqual([panel]);
+    expect(ask.enabled("screen")).toBe(false);
+    expect(ask.enabled("voice")).toBe(true);
+    // Both off: the window goes.
+    ask.setEnabled(false, "voice");
+    expect(live()).toHaveLength(0);
+  });
+
+  it("screen only: the voice key opens nothing", () => {
+    const { ask, live } = make();
+    ask.setEnabled(true);
+    const panel = live()[0] as FakeWindow;
+    panel.finishLoad();
+    ask.trigger("voice");
+    expect(panel.sent).toEqual([]);
+    expect(panel.visible).toBe(false);
+  });
+});
+
+describe("voicePopup", () => {
+  it("key down opens voice mode, both edges reach the renderer, and enabled keeps the window", () => {
+    const calls: string[] = [];
+    const panel = {
+      trigger: (mode: "voice") => calls.push(`trigger:${mode}`),
+      setEnabled: (on: boolean, source: string) => calls.push(`enabled:${source}:${on}`),
+    };
+    const keys: boolean[] = [];
+    const l = voicePopup(
+      () => panel,
+      (down) => keys.push(down),
+    );
+    l.onVoiceEnabled(true);
+    l.onVoiceKey(true);
+    l.onVoiceKey(false);
+    l.onVoiceEnabled(false);
+    expect(calls).toEqual(["enabled:voice:true", "trigger:voice", "enabled:voice:false"]);
+    expect(keys).toEqual([true, false]);
+    // No panel yet (before app ready): the key still reaches the renderers.
+    voicePopup(
+      () => undefined,
+      (down) => keys.push(down),
+    ).onVoiceKey(true);
+    expect(keys).toEqual([true, false, true]);
   });
 });

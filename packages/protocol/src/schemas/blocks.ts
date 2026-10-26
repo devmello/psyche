@@ -160,6 +160,16 @@ export const TaughtBlock = Type.Object(
   { $id: "TaughtBlock" },
 );
 
+/**
+ * A specialist job's result as a transcript block (docs/design/chat-experience-2026.md §4.5):
+ * posted in the thread that spawned the job when it reports; the same result also stays in the
+ * Feed and Inbox. The card reads the job (`specialists.get`) by `taskId`, so nothing is copied.
+ */
+export const SpecialistResultBlock = Type.Object(
+  { type: Type.Literal("specialist_result"), taskId: Id },
+  { $id: "SpecialistResultBlock" },
+);
+
 export const Block = Type.Union(
   [
     TextBlock,
@@ -177,6 +187,7 @@ export const Block = Type.Union(
     CompactionBlock,
     LearnedBlock,
     TaughtBlock,
+    SpecialistResultBlock,
   ],
   { $id: "Block" },
 );
