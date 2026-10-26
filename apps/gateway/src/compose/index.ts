@@ -28,6 +28,7 @@ import {
   CliAdapter,
   type CliAdapterDeps,
   createModelRouter,
+  isLocalKind,
   isSubscriptionKind,
   type KeySource,
   KeyValueProbeStore,
@@ -133,7 +134,12 @@ import {
 } from "./services.ts";
 import { composeSkills } from "./skills.ts";
 import { createSpecialistHost } from "./specialists.ts";
-import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
+import {
+  composeSpeech,
+  type MeetingIngest,
+  type SpeechSetup,
+  speechSetupFromEnv,
+} from "./speech.ts";
 import {
   type ComposedTeaching,
   composeTeaching,
@@ -917,6 +923,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     claim: { origins: ["subagent"], perParentLimit: 2 },
   });
   pokeSpecialists = () => specialistPool.poke();
+  const speechPart = parts.find(
+    (p): p is ComposedPart & { meetings: MeetingIngest } => "meetings" in p,
+  );
   // S15: goal check-ins and the Feed run in-process; the heartbeat gets its 5k-token budget (O2).
   const proactive = composeProactive({
     db,
@@ -932,6 +941,20 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     registry,
     // Ideas proposes folding a skill's lessons into it once it has three (teaching loop §6).
     skillUpdates: () => skills.updates(),
+    // Post-meeting notes transcribe on the Mac through the speech part (§4.6). Record meeting
+    // stays unavailable until a helper offers microphone capture.
+    meetings: {
+      home: config.home,
+      primary: modelRef,
+      primaryIsRemote: () => {
+        const providers = "router" in modelSetup ? modelSetup.router.providers : [];
+        const p = providers.find((c) => c.id === modelRef.split("/")[0]);
+        return p !== undefined && !isLocalKind(p.kind);
+      },
+      ...(speechPart === undefined ? {} : { transcriber: speechPart.meetings }),
+    },
+    // The people graph while the owner has it on: prep's attendees and loops, notes' loops.
+    graph: () => (people?.settings().enabled === true ? people.graph : undefined),
     ...(timeZone === undefined ? {} : { timeZone }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
