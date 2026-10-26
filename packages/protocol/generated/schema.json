@@ -6382,6 +6382,47 @@
       ],
       "type": "object"
     },
+    "ArtifactMarkerPatch": {
+      "properties": {
+        "lat": {
+          "maximum": 90,
+          "minimum": -90,
+          "type": "number"
+        },
+        "lng": {
+          "maximum": 180,
+          "minimum": -180,
+          "type": "number"
+        },
+        "label": {
+          "maxLength": 120,
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "maxLength": 400,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "link": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
     "ArtifactOp": {
       "anyOf": [
         {
@@ -6625,45 +6666,7 @@
               "type": "string"
             },
             "set": {
-              "properties": {
-                "lat": {
-                  "maximum": 90,
-                  "minimum": -90,
-                  "type": "number"
-                },
-                "lng": {
-                  "maximum": 180,
-                  "minimum": -180,
-                  "type": "number"
-                },
-                "label": {
-                  "maxLength": 120,
-                  "type": "string"
-                },
-                "note": {
-                  "anyOf": [
-                    {
-                      "maxLength": 400,
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "link": {
-                  "anyOf": [
-                    {
-                      "maxLength": 1000,
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                }
-              },
-              "type": "object"
+              "$ref": "#/$defs/ArtifactMarkerPatch"
             }
           },
           "required": [
