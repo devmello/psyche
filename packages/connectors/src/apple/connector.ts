@@ -1710,7 +1710,15 @@ class AppleConnector implements Connector {
         execute: (params, ctx) => this.#run(spec, params, ctx),
       };
       if (spec.binding !== undefined) {
-        tool.describeCall = (p) => binding(this.id, spec, p) as ToolCallDescription;
+        tool.describeCall = (p) => {
+          const desc = binding(this.id, spec, p) as ToolCallDescription;
+          // Per-shortcut rules (`config.shortcutRules`) reach the broker as a sub-key of the
+          // group (#747): the Gateway maps "off" to deny for exactly this shortcut.
+          const id = (p as { id?: unknown } | null)?.id;
+          return spec.capability === "shortcuts.run" && typeof id === "string" && id !== ""
+            ? { ...desc, connectorRule: { id: this.id, action: `${spec.action}/${id}` } }
+            : desc;
+        };
       }
       return tool;
     });
