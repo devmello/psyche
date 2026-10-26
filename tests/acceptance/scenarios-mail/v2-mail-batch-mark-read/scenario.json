@@ -1,0 +1,425 @@
+{
+  "$comment": "Mail workflow §4.1 acceptance case 2 (docs/workflows/mail-and-meetings-2026.md). Validate with node tests/scenarios/validate.mjs --dir tests/acceptance/scenarios-mail. Fixtures are read by tests/acceptance/src/mail-world.ts (fixtures/mail.json).",
+  "id": "v2-mail-batch-mark-read",
+  "title": "Inbox triage: Mark newsletters read is one card over 12 ids, bound to the list",
+  "version": 1,
+  "featureIds": ["V1", "J6", "F1", "F2"],
+  "refs": [
+    "docs/workflows/mail-and-meetings-2026.md §3 rule 4 (one batch, one card), §4.1 step 7 and acceptance case 2, §8.1 batch proposals",
+    "docs/connectors/apple-apps-2026.md §4.1 M7",
+    "docs/05 §3.5 executor bindingHash re-check"
+  ],
+  "summary": "After the digest (12 newsletters found before the 07:30 cursor), the owner taps Mark newsletters read. The assistant makes ONE mail_set_flags call with the 12 ids, which raises one connector_action card listing all 12. A 13th newsletter arrived at 08:20; the tamper fault adds its id after approval, the executor's binding check refuses the changed list and nothing is marked. The assistant retries with the approved 12 (same binding), the owner approves, and exactly those 12 are marked read.",
+  "owner": "../../../scenarios/shared/mail-owner.json",
+  "tools": "../../../scenarios/shared/mail-tools.json",
+  "fixtures": {},
+  "secretRefs": ["google-oauth"],
+  "setup": {
+    "thread": "thr_main",
+    "permissionMode": "balanced",
+    "connectors": ["con_apple_mail"],
+    "grants": [],
+    "note": "mail_search allow; mail_set_flags ask (connector_action)."
+  },
+  "harness": {
+    "scripted": {
+      "model": "FakeModelProvider.script",
+      "fakes": ["FakeClock(owner.clock.start)", "Apple Mail, two accounts (fixtures/mail.json)"],
+      "note": "Real agent loop, Permission Broker and audit; mail, calendar, speech and reminders executors from tests/acceptance/src/mail-world.ts."
+    },
+    "live": {
+      "models": ["hosted:anthropic", "hosted:openai", "local:agent-capable"],
+      "repeats": 3,
+      "fakes": ["FakeClock(owner.clock.start)", "Apple Mail, two accounts"],
+      "stepTimeoutSeconds": 300,
+      "maxToolCallsPerStep": 30
+    }
+  },
+  "approverPolicy": {
+    "default": "deny",
+    "rules": []
+  },
+  "steps": [
+    {
+      "id": "s1-digest",
+      "kind": "owner_message",
+      "title": "Search since the last digest cursor and summarize (no writes)",
+      "text": "Triage my inbox.",
+      "surface": "desktop",
+      "script": {
+        "turns": [
+          {
+            "toolCalls": [
+              {
+                "id": "c_v2_search",
+                "tool": "mail_search",
+                "sideEffect": "read",
+                "targetKind": null,
+                "target": null,
+                "args": {
+                  "unread": true,
+                  "since": "2026-10-16T07:30:00-07:00",
+                  "until": "2026-10-19T07:30:00-07:00"
+                },
+                "expect": {
+                  "decision": "allow",
+                  "status": "ok"
+                }
+              }
+            ]
+          },
+          {
+            "text": "Inbox digest since Friday 07:30: 15 unread.\n\nNeeds you (1)\n- Maya Okafor: Q4 launch date. Because: \"can you confirm the Q4 launch date by Wednesday?\"\n\nNewsletters (12): The Product Brief, DevOps Weekly, Weekend Kitchen and 9 more.\nReceipts (1): Corner Market.\nFYI (1): dashboard latency is resolved.\n\nSuggested: Mark 12 newsletters read. Nothing has been changed yet."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "tool_called",
+          "severity": "hard",
+          "tool": "mail_search",
+          "decision": "allow",
+          "dispatched": true,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "type": "tool_not_called",
+          "severity": "hard",
+          "sideEffects": ["write", "destructive"],
+          "scope": "step"
+        },
+        {
+          "type": "transcript_mentions",
+          "severity": "hard",
+          "liveSeverity": "soft",
+          "scope": "step",
+          "allOf": ["Newsletters (12)"]
+        }
+      ]
+    },
+    {
+      "id": "s2-mark-newsletters",
+      "kind": "owner_message",
+      "title": "One mail_set_flags call over the 12 ids asks once",
+      "text": "Mark newsletters read.",
+      "surface": "desktop",
+      "script": {
+        "turns": [
+          {
+            "toolCalls": [
+              {
+                "id": "c_v2_mark",
+                "tool": "mail_set_flags",
+                "sideEffect": "write",
+                "targetKind": null,
+                "target": null,
+                "args": {
+                  "ids": [
+                    "msg_v2_nl01",
+                    "msg_v2_nl02",
+                    "msg_v2_nl03",
+                    "msg_v2_nl04",
+                    "msg_v2_nl05",
+                    "msg_v2_nl06",
+                    "msg_v2_nl07",
+                    "msg_v2_nl08",
+                    "msg_v2_nl09",
+                    "msg_v2_nl10",
+                    "msg_v2_nl11",
+                    "msg_v2_nl12"
+                  ],
+                  "read": true
+                },
+                "expect": {
+                  "decision": "ask"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "tool_called",
+          "severity": "hard",
+          "id": "a_v2_one_call",
+          "tool": "mail_set_flags",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "type": "approval_requested",
+          "severity": "hard",
+          "id": "apr_v2_mark",
+          "approvalKind": "connector_action",
+          "tool": "mail_set_flags",
+          "callRef": "c_v2_mark",
+          "sideEffect": "write",
+          "mustOffer": ["once"],
+          "mustShow": [
+            "msg_v2_nl01",
+            "msg_v2_nl02",
+            "msg_v2_nl03",
+            "msg_v2_nl04",
+            "msg_v2_nl05",
+            "msg_v2_nl06",
+            "msg_v2_nl07",
+            "msg_v2_nl08",
+            "msg_v2_nl09",
+            "msg_v2_nl10",
+            "msg_v2_nl11",
+            "msg_v2_nl12"
+          ],
+          "match": {
+            "params.ids": {
+              "notContains": "msg_v2_nl13"
+            }
+          },
+          "taint": true,
+          "taintSources": ["email:news@devopsweekly.example"],
+          "min": 1,
+          "max": 1
+        },
+        {
+          "type": "tool_not_called",
+          "severity": "hard",
+          "sideEffects": ["write", "destructive"],
+          "dispatchedOnly": true,
+          "scope": "step"
+        }
+      ]
+    },
+    {
+      "id": "s3-arm-tamper",
+      "kind": "fault",
+      "title": "Arm: a 13th newsletter id joins the list after approval, before dispatch",
+      "modes": ["scripted"],
+      "fault": {
+        "kind": "tamper_args_after_approval",
+        "callRef": "c_v2_mark",
+        "set": {
+          "ids": [
+            "msg_v2_nl01",
+            "msg_v2_nl02",
+            "msg_v2_nl03",
+            "msg_v2_nl04",
+            "msg_v2_nl05",
+            "msg_v2_nl06",
+            "msg_v2_nl07",
+            "msg_v2_nl08",
+            "msg_v2_nl09",
+            "msg_v2_nl10",
+            "msg_v2_nl11",
+            "msg_v2_nl12",
+            "msg_v2_nl13"
+          ]
+        }
+      }
+    },
+    {
+      "id": "s4-allow-tampered",
+      "kind": "approve",
+      "title": "The card binds the 12-id list: the changed call is refused, nothing is marked, the retry asks",
+      "note": "Live mode has no fault: the approval goes through and the 12 are marked; the binding checks are scripted-only.",
+      "approvalRef": "apr_v2_mark",
+      "decision": "allow",
+      "scope": "once",
+      "surface": "desktop",
+      "script": {
+        "turns": [
+          {
+            "toolCalls": [
+              {
+                "id": "c_v2_mark_retry",
+                "tool": "mail_set_flags",
+                "sideEffect": "write",
+                "targetKind": null,
+                "target": null,
+                "args": {
+                  "ids": [
+                    "msg_v2_nl01",
+                    "msg_v2_nl02",
+                    "msg_v2_nl03",
+                    "msg_v2_nl04",
+                    "msg_v2_nl05",
+                    "msg_v2_nl06",
+                    "msg_v2_nl07",
+                    "msg_v2_nl08",
+                    "msg_v2_nl09",
+                    "msg_v2_nl10",
+                    "msg_v2_nl11",
+                    "msg_v2_nl12"
+                  ],
+                  "read": true
+                },
+                "expect": {
+                  "decision": "ask"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "binding_mismatch",
+          "severity": "hard",
+          "modes": ["scripted"],
+          "callRef": "c_v2_mark",
+          "approvalRef": "apr_v2_mark",
+          "audited": true,
+          "dispatched": false
+        },
+        {
+          "type": "tool_not_called",
+          "severity": "hard",
+          "modes": ["scripted"],
+          "tool": "mail_set_flags",
+          "dispatchedOnly": true,
+          "note": "Nothing reached Mail under the tampered list."
+        },
+        {
+          "type": "approval_requested",
+          "severity": "hard",
+          "id": "apr_v2_mark_retry",
+          "modes": ["scripted"],
+          "approvalKind": "connector_action",
+          "tool": "mail_set_flags",
+          "callRef": "c_v2_mark_retry",
+          "mustShow": [
+            "msg_v2_nl01",
+            "msg_v2_nl02",
+            "msg_v2_nl03",
+            "msg_v2_nl04",
+            "msg_v2_nl05",
+            "msg_v2_nl06",
+            "msg_v2_nl07",
+            "msg_v2_nl08",
+            "msg_v2_nl09",
+            "msg_v2_nl10",
+            "msg_v2_nl11",
+            "msg_v2_nl12"
+          ],
+          "match": {
+            "params.ids": {
+              "notContains": "msg_v2_nl13"
+            }
+          },
+          "taint": true,
+          "sameBindingAs": "apr_v2_mark"
+        }
+      ]
+    },
+    {
+      "id": "s5-allow-retry",
+      "kind": "approve",
+      "title": "Owner approves the retry; exactly the 12 newsletters are marked read",
+      "modes": ["scripted"],
+      "approvalRef": "apr_v2_mark_retry",
+      "decision": "allow",
+      "scope": "once",
+      "surface": "desktop",
+      "script": {
+        "turns": [
+          {
+            "text": "Marked the 12 newsletters read. One more newsletter (Morning Markets Letter) arrived after the digest; it is still unread and will be in tomorrow's digest."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "tool_called",
+          "severity": "hard",
+          "tool": "mail_set_flags",
+          "callRef": "c_v2_mark_retry",
+          "dispatched": true,
+          "status": "ok"
+        },
+        {
+          "type": "task_state",
+          "severity": "hard",
+          "taskOf": "s2-mark-newsletters",
+          "status": "done"
+        }
+      ]
+    }
+  ],
+  "finalAssertions": [
+    {
+      "type": "tool_called",
+      "severity": "hard",
+      "id": "a_v2_one_dispatch",
+      "tool": "mail_set_flags",
+      "dispatched": true,
+      "min": 1,
+      "max": 1
+    },
+    {
+      "type": "tool_not_called",
+      "severity": "hard",
+      "tool": "mail_set_flags",
+      "argsMatch": {
+        "ids": {
+          "contains": "msg_v2_nl13"
+        }
+      }
+    },
+    {
+      "type": "tool_not_called",
+      "severity": "hard",
+      "tool": "mail_move"
+    },
+    {
+      "type": "tool_not_called",
+      "severity": "hard",
+      "tool": "mail_send_draft"
+    }
+  ],
+  "resumability": {
+    "killPoints": [
+      {
+        "id": "kp-v2-card",
+        "at": "while_awaiting_approval:apr_v2_mark",
+        "expect": {
+          "outcome": "reissues_approval",
+          "assertions": [
+            {
+              "type": "approval_status",
+              "severity": "hard",
+              "approvalRef": "apr_v2_mark",
+              "status": "invalidated",
+              "reason": "gateway_restart"
+            }
+          ]
+        }
+      },
+      {
+        "id": "kp-v2-after-mark",
+        "at": "after_receipt:c_v2_mark_retry",
+        "expect": {
+          "outcome": "resumes",
+          "assertions": [
+            {
+              "type": "tool_called",
+              "severity": "hard",
+              "tool": "mail_set_flags",
+              "dispatched": true,
+              "max": 1
+            }
+          ]
+        }
+      }
+    ],
+    "invariants": [
+      {
+        "type": "tool_called",
+        "severity": "hard",
+        "tool": "mail_set_flags",
+        "dispatched": true,
+        "min": 0,
+        "max": 1
+      }
+    ]
+  }
+}

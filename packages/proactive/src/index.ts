@@ -206,6 +206,31 @@ export {
   OFF_HOURS_POLL_MS,
 } from "./mail/watch.ts";
 export {
+  MeetingNotesService,
+  type MeetingNotesServiceOptions,
+  type MeetingTranscriber,
+  type NotesOutcome,
+  type RecordingInput,
+  type TheyOweLoop,
+  type TranscriptInput,
+} from "./meetings/notes.ts";
+export {
+  type CalendarEvent,
+  MEETING_PREP_JOB,
+  MeetingPrepService,
+  type MeetingPrepServiceOptions,
+  type PlanResult,
+  PREP_PLANNER_SCHEDULE,
+  type PrepScope,
+} from "./meetings/prep.ts";
+export {
+  type AudioCapture,
+  type CapturedAudio,
+  CONSENT_LINE,
+  MeetingRecorder,
+  type MeetingRecording,
+} from "./meetings/recorder.ts";
+export {
   createProposalHandlers,
   type ProposalCaller,
   type ProposalHandlers,

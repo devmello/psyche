@@ -40,6 +40,8 @@ export const chat = {
   "chat.commands.forget.description": "Retract what is remembered about something",
   "chat.commands.remember.hint": "fact",
   "chat.commands.remember.description": "Note a fact in today's memory",
+  "chat.commands.teach.hint": "what to do instead",
+  "chat.commands.teach.description": "Correct the last reply, and remember it",
   "chat.commands.plan.hint": "goal",
   "chat.commands.plan.description": "Switch this thread to plan mode (read-only)",
   "chat.commands.status.description": "Show model, mode and running work",
@@ -108,6 +110,7 @@ export const chat = {
   "chat.teach.usedLessons": "{count, plural, one {Used # lesson} other {Used # lessons}}",
   "chat.teach.usedLessonsList": "Lessons used for this answer",
   "chat.teach.redoWithout": "Redo without lessons",
+  "chat.teach.notLikeThisStep": "Not like this: {step}",
   "chat.learned.label": "Learned:",
   "chat.learned.undo": 'Undo "{text}"',
   "chat.learned.undone": "Removed. Psyche won't keep it.",
@@ -136,6 +139,8 @@ export const chat = {
   "chat.thread.schedulePrompt":
     "/schedule {request}\n\nCreate this as an automation with your schedule tool, then tell me what you set up.",
   "chat.thread.remembered": "Noted in {path}.",
+  "chat.thread.taught": "Psyche will remember: {lesson}",
+  "chat.thread.teachNothing": "There is no reply to correct yet.",
   "chat.thread.forgetNothing": 'Nothing remembered matches "{subject}".',
   "chat.thread.forgetPreview":
     'Forgetting "{subject}" retracts {claims, plural, one {# claim} other {# claims}} and {chunks, plural, one {# indexed note} other {# indexed notes}}{hasFiles, select, true {, editing {files}} other {}}.',

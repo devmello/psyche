@@ -15,6 +15,7 @@ public enum SpeechLimits {
     public static let minDurationMs = 1000
     public static let maxSynthesisTextLength = 5000
     public static let maxStreamIdLength = 128
+    public static let maxUtteranceIdLength = 64
     public static let maxVoiceIdLength = 256
     /// Decoded bytes per `speech.audio_push` (its base64 stays well under the 1 MiB frame limit).
     public static let maxPushBytes = 512 * 1024
@@ -71,6 +72,14 @@ public enum SpeechValidation {
 
 // MARK: - speech.transcribe_stream
 
+/// `long`: dictation and memos (the default). `short`: conversation turns of about a minute or
+/// less: DictationTranscriber with the short-form hint and frequent finalization, as Apple's
+/// `progressiveShortDictation` preset (voice mode V-H H3).
+public enum SpeechPreset: String, Codable, Sendable, CaseIterable {
+    case long
+    case short
+}
+
 /// Raw `speech.transcribe_stream` params; `validated()` applies defaults and limits.
 public struct TranscribeStreamParams: Decodable, Sendable, Equatable {
     public var source: SpeechSource
@@ -79,17 +88,20 @@ public struct TranscribeStreamParams: Decodable, Sendable, Equatable {
     public var format: PCMAudioFormat?
     public var maxDurationMs: Int?
     public var volatile: Bool
+    public var preset: SpeechPreset
 
-    public init(source: SpeechSource = .microphone, locale: String? = nil, vocabulary: [String]? = nil, format: PCMAudioFormat? = nil, maxDurationMs: Int? = nil, volatile: Bool = true) {
+    public init(source: SpeechSource = .microphone, locale: String? = nil, vocabulary: [String]? = nil, format: PCMAudioFormat? = nil, maxDurationMs: Int? = nil,
+                volatile: Bool = true, preset: SpeechPreset = .long) {
         self.source = source
         self.locale = locale
         self.vocabulary = vocabulary
         self.format = format
         self.maxDurationMs = maxDurationMs
         self.volatile = volatile
+        self.preset = preset
     }
 
-    enum CodingKeys: String, CodingKey { case source, locale, vocabulary, format, maxDurationMs, volatile }
+    enum CodingKeys: String, CodingKey { case source, locale, vocabulary, format, maxDurationMs, volatile, preset }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -99,6 +111,7 @@ public struct TranscribeStreamParams: Decodable, Sendable, Equatable {
         format = try c.decodeIfPresent(PCMAudioFormat.self, forKey: .format)
         maxDurationMs = try c.decodeIfPresent(Int.self, forKey: .maxDurationMs)
         volatile = try c.decodeIfPresent(Bool.self, forKey: .volatile) ?? true
+        preset = try c.decodeIfPresent(SpeechPreset.self, forKey: .preset) ?? .long
     }
 
     public func validated() throws -> TranscribeRequest {
@@ -120,7 +133,7 @@ public struct TranscribeStreamParams: Decodable, Sendable, Equatable {
             }
             try format.validate()
         }
-        return TranscribeRequest(source: source, locale: locale, vocabulary: vocabulary, format: format, maxDurationMs: maxDuration, volatile: volatile)
+        return TranscribeRequest(source: source, locale: locale, vocabulary: vocabulary, format: format, maxDurationMs: maxDuration, volatile: volatile, preset: preset)
     }
 }
 
@@ -132,14 +145,16 @@ public struct TranscribeRequest: Sendable, Equatable {
     public var format: PCMAudioFormat?
     public var maxDurationMs: Int
     public var volatile: Bool
+    public var preset: SpeechPreset
 
-    public init(source: SpeechSource, locale: String?, vocabulary: [String], format: PCMAudioFormat?, maxDurationMs: Int, volatile: Bool) {
+    public init(source: SpeechSource, locale: String?, vocabulary: [String], format: PCMAudioFormat?, maxDurationMs: Int, volatile: Bool, preset: SpeechPreset = .long) {
         self.source = source
         self.locale = locale
         self.vocabulary = vocabulary
         self.format = format
         self.maxDurationMs = maxDurationMs
         self.volatile = volatile
+        self.preset = preset
     }
 }
 
@@ -187,26 +202,35 @@ public struct SynthesizeParams: Decodable, Sendable, Equatable {
     public var voice: String?
     /// 0 (slowest) … 1 (fastest); 0.5 is the system default rate.
     public var rate: Double?
+    /// Multiplier of the voice's normal speed (0.5–2); wins over `rate` (voice mode V-H H2).
+    public var speed: Double?
     public var personalVoice: Bool
     public var format: PCMEncoding
+    /// Echoed on every `speech.audio` event, so the Gateway can match audio to its sentence.
+    public var utteranceId: String?
 
-    public init(text: String, voice: String? = nil, rate: Double? = nil, personalVoice: Bool = false, format: PCMEncoding = .pcmS16le) {
+    public init(text: String, voice: String? = nil, rate: Double? = nil, speed: Double? = nil, personalVoice: Bool = false,
+                format: PCMEncoding = .pcmS16le, utteranceId: String? = nil) {
         self.text = text
         self.voice = voice
         self.rate = rate
+        self.speed = speed
         self.personalVoice = personalVoice
         self.format = format
+        self.utteranceId = utteranceId
     }
 
-    enum CodingKeys: String, CodingKey { case text, voice, rate, personalVoice, format }
+    enum CodingKeys: String, CodingKey { case text, voice, rate, speed, personalVoice, format, utteranceId }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         text = try c.decode(String.self, forKey: .text)
         voice = try c.decodeIfPresent(String.self, forKey: .voice)
         rate = try c.decodeIfPresent(Double.self, forKey: .rate)
+        speed = try c.decodeIfPresent(Double.self, forKey: .speed)
         personalVoice = try c.decodeIfPresent(Bool.self, forKey: .personalVoice) ?? false
         format = try c.decodeIfPresent(PCMEncoding.self, forKey: .format) ?? .pcmS16le
+        utteranceId = try c.decodeIfPresent(String.self, forKey: .utteranceId)
     }
 
     public func validated() throws -> SynthesizeParams {
@@ -222,6 +246,20 @@ public struct SynthesizeParams: Decodable, Sendable, Equatable {
         if let rate, !(0...1).contains(rate) {
             throw CapabilityError.invalidParams("rate must be between 0 and 1", field: "rate")
         }
+        if let speed, !(SpeechRate.minSpeed...SpeechRate.maxSpeed).contains(speed) {
+            throw CapabilityError.invalidParams("speed must be between \(SpeechRate.minSpeed) and \(SpeechRate.maxSpeed)", field: "speed")
+        }
+        if let utteranceId, utteranceId.isEmpty || utteranceId.count > SpeechLimits.maxUtteranceIdLength {
+            throw CapabilityError.invalidParams("utteranceId is 1–\(SpeechLimits.maxUtteranceIdLength) characters", field: "utteranceId")
+        }
         return self
+    }
+
+    /// The `AVSpeechUtterance.rate` to use: from `speed` when given, else from `rate` (0…1 across
+    /// the system range), else nil (the voice's default).
+    public func utteranceRate(min lo: Float, max hi: Float) -> Float? {
+        if let speed { return SpeechRate.utteranceRate(speed: speed) }
+        if let rate { return lo + Float(rate) * (hi - lo) }
+        return nil
     }
 }

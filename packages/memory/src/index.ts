@@ -19,6 +19,7 @@ export * from "./graph/handlers.ts";
 export * from "./graph/ingest.ts";
 export * from "./graph/model-pass.ts";
 export * from "./graph/normalize.ts";
+export * from "./graph/poll.ts";
 export * from "./graph/projects.ts";
 export * from "./graph/store.ts";
 export * from "./graph/tools.ts";

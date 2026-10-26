@@ -1,0 +1,98 @@
+{
+  "$comment": "Tool registry for the mail and meeting workflows (tests/acceptance/scenarios-mail; docs/workflows/mail-and-meetings-2026.md §3, §4.1, §4.4, §4.6). Model-facing names as in apple-tools.json, plus mail_reply_draft, mail_move, calendar_find_free_time and speech.transcribe_file. Reads return untrusted content (mail, calendar, transcripts of other people); writes ask with connector_action; sends are destructive, ask with send_email and are never allowed silently. Executors: tests/acceptance/src/mail-world.ts.",
+  "version": 1,
+  "tools": [
+    {
+      "name": "mail_search",
+      "sideEffect": "read",
+      "targetKind": null,
+      "provenanceOut": "untrusted",
+      "connector": "apple:mail",
+      "note": "M1: account, mailbox, unread, since / until, from, query; newest first; `bulk` when the message has List-Unsubscribe or Precedence: bulk."
+    },
+    {
+      "name": "mail_read",
+      "sideEffect": "read",
+      "targetKind": null,
+      "provenanceOut": "untrusted",
+      "connector": "apple:mail",
+      "note": "M4: one message with headers and its `link` (message://<Message-ID>)."
+    },
+    {
+      "name": "mail_set_flags",
+      "sideEffect": "write",
+      "targetKind": null,
+      "provenanceOut": "trusted",
+      "connector": "apple:mail",
+      "approvalKind": "connector_action",
+      "receiptKind": "mail.flags",
+      "note": "M7: read / flagged status for up to 100 ids; the card binds the whole id list."
+    },
+    {
+      "name": "mail_move",
+      "sideEffect": "write",
+      "targetKind": null,
+      "provenanceOut": "trusted",
+      "connector": "apple:mail",
+      "approvalKind": "connector_action",
+      "receiptKind": "mail.move",
+      "note": "M8: move up to 100 ids to a mailbox (Archive, a folder). No scenario calls it yet."
+    },
+    {
+      "name": "mail_reply_draft",
+      "sideEffect": "write",
+      "targetKind": null,
+      "provenanceOut": "trusted",
+      "connector": "apple:mail",
+      "approvalKind": "connector_action",
+      "receiptKind": "email.draft",
+      "note": "M5: a saved reply draft to the message's sender, not sent (§3 rule 2)."
+    },
+    {
+      "name": "mail_forward_draft",
+      "sideEffect": "write",
+      "targetKind": "recipient",
+      "provenanceOut": "trusted",
+      "connector": "apple:mail",
+      "approvalKind": "connector_action",
+      "receiptKind": "email.draft",
+      "note": "M5: a saved forward draft, not sent. Only hijacked probes call it here."
+    },
+    {
+      "name": "mail_send_draft",
+      "sideEffect": "destructive",
+      "targetKind": null,
+      "provenanceOut": "trusted",
+      "connector": "apple:mail",
+      "approvalKind": "send_email",
+      "receiptKind": "email.send",
+      "note": "M6: sends a saved draft. No workflow calls it on its own; assertions check it never runs."
+    },
+    {
+      "name": "calendar_find_free_time",
+      "sideEffect": "read",
+      "targetKind": null,
+      "provenanceOut": "untrusted",
+      "connector": "apple:calendar",
+      "note": "§4.4 step 2: ranked free slots in a window for a duration, inside working hours, with a buffer around other meetings."
+    },
+    {
+      "name": "speech.transcribe_file",
+      "sideEffect": "read",
+      "targetKind": null,
+      "provenanceOut": "untrusted",
+      "connector": "speech:local",
+      "note": "§8.4: on-device long-form transcription of an owner-chosen file; a meeting transcript holds other people's words, so it is untrusted."
+    },
+    {
+      "name": "reminders_create",
+      "sideEffect": "write",
+      "targetKind": null,
+      "provenanceOut": "trusted",
+      "connector": "apple:reminders",
+      "approvalKind": "connector_action",
+      "receiptKind": "reminder.create",
+      "note": "R2: title, list, due, notes, url."
+    }
+  ]
+}

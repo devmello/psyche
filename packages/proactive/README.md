@@ -277,6 +277,21 @@ agent loop's registry (architecture §4.3 built-ins "`goal.*`, `idea.*`, `feed.*
 - **`SchedulingService.proposeTimes({via, messageId, durationMin?, recipientTimezone?, holds?, who?})`** reads `calendar_free_busy`, picks three weekday slots in working hours with a 15-minute buffer (one per day), drafts the reply with both time zones and, when asked, proposes three tentative holds as one batch. `mail.schedulingLink` is offered only when set. `confirm({reply, slots, ...})` turns a reply that picks a slot into one card for the event; an ambiguous reply returns a question. Releasing the other holds is a separate approval, because deletes are destructive and cannot be batched.
 - **Agent tools:** `mail.draft_reply` and `mail.propose_times` (side effect `none`, untrusted results); they only propose.
 
+### Meeting prep and post-meeting notes (§4.5, §4.6, #670 W6)
+
+- **`MeetingPrepService`:** a planner (`*/30 7-21 * * *`) reads the next 26 hours of `calendar_list_events`. It prepares meetings with someone else on them that the owner did not decline and that are not all-day. By default the meeting must also have someone outside the owner's domains or related mail (`meetings.prep.scope: "all"` widens it).
+  - Each meeting gets two one-shot `reminder` automations: the prep run at T − 2 h (morning meetings at 07:00) and the delivery at T − 60 min. They are recorded in `meeting_preps`. Moving the event moves both, cancelling it removes them, and past meetings drop theirs.
+  - A recurring meeting with the same title and attendees and no new mail since the last occurrence is "nothing new": `digestLinesToday()` feeds `DigestService.meetingLines`.
+  - The prep run is read-only: attendees (`person`, else `contacts_search`), the last 3 threads with each, their open loops (`loops`), matching notes, and the last meeting's decisions and action items (`previousNotes`). Every line cites its source. The utility model writes only "why" and, when the invitation has no agenda, up to 4 agenda bullets, with the invitation fenced as untrusted; the prep is always tainted.
+  - The prep is one Feed post (`kind: "meeting_prep"`). Delivery is one `reminder` notification with Join, at most 4 a day. Thin preps (fewer than 2 sourced items) stay silent. `breakQuietHours` is set only when the meeting itself is inside quiet hours (`isQuiet`). In the Gateway it is off until `meetings.prep.enabled`.
+- **`MeetingNotesService`:**
+  - `fromRecording` refuses recordings over 4 h, transcribes through an injected `MeetingTranscriber` (`VoiceMemoService.ingestMeeting`), then calls `fromTranscript`.
+  - `fromTranscript` matches the overlapping calendar event, then summarizes: one primary-model pass up to 60 minutes, or 30-minute chunks on the utility model above that. It produces a summary, decisions and action items with timestamps, where quotes must appear in the transcript, plus open questions.
+  - The owner's items become one batch proposal of `reminders_create` (or `things_add`). Other people's items become "they owe you" loops (`addLoop`). Items with no clear owner are listed as unassigned.
+  - The output is one Feed post (`kind: "meeting_notes"`, labelled AI-written) and one `task_done` notification. With only a cloud model and no permission it asks once (`input_needed`) and does nothing else.
+  - `recapDraft(postId, {to?})` writes a recap from the notes alone, addressed to the accepted attendees (editable). It is saved only through a `mail_draft` proposal.
+- **`MeetingRecorder`:** capture starts only after `consentConfirmed`. The source ends it (5 minutes of silence, the conference app quits) or `stop()` does.
+
 ## Gateway wiring
 
 `composeProactive({ db, clock, scheduler, notifier, tasks, publish, timeZone, logger })` in

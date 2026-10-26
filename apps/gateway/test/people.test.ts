@@ -242,4 +242,39 @@ describe("people and projects graph in the Gateway (#651)", () => {
     const prep = c.people.meetingPrep({ source: event.source, externalRef: event.id });
     expect(prep?.attendees.map((a) => a.entity.name)).toEqual(expect.arrayContaining(["Sam Lee"]));
   });
+
+  it("refreshes what a run looked at shortly after, at most three entities, when afterRun is on", async () => {
+    const reply = (summary: string): ModelEvent[] => [
+      { type: "text_delta", text: JSON.stringify({ summary, facts: [], loops: [] }) },
+      {
+        type: "usage",
+        usage: { input: 500, output: 50, cacheRead: 0, cacheWrite: 0, reasoning: 0, costUsd: 0 },
+      },
+      { type: "finish", reason: "stop" },
+    ];
+    const c = await compose([reply("Leads design at Acme."), reply("x"), reply("y"), reply("z")]);
+    load(c);
+    enable(c, { enabled: true, model: { afterRun: false } });
+    const lookup = c.loop.registry.get("people_lookup");
+    await lookup?.run?.({ query: "Dana Fox" }, ctx("t1"));
+    expect(await c.people.afterRun()).toBeUndefined();
+
+    enable(c, { enabled: true });
+    await lookup?.run?.({ query: "Dana Fox" }, ctx("t1"));
+    const report = await c.people.afterRun();
+    expect(report?.entities).toBe(1);
+    expect(c.people.graph.getEntity(byName(c, "Dana Fox"))?.summary).toBe("Leads design at Acme.");
+    // Nothing pending: a second flush does nothing.
+    expect(await c.people.afterRun()).toBeUndefined();
+
+    // A meeting prep touches its attendees, capped at three.
+    const event = WORLD.events.find(
+      (e: { attendees?: unknown[] }) => (e.attendees?.length ?? 0) >= 2,
+    );
+    const meeting = c.people.meetingPrep({ source: event.source, externalRef: event.id });
+    await c.loop.registry.get("meeting_prep")?.run?.({ event_id: meeting?.meeting.id }, ctx("t1"));
+    const second = await c.people.afterRun();
+    expect((second?.entities ?? 0) + (second?.skipped ?? 0)).toBeLessThanOrEqual(3);
+    expect((second?.entities ?? 0) + (second?.skipped ?? 0)).toBeGreaterThan(0);
+  });
 });
