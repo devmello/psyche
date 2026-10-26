@@ -6,6 +6,7 @@ import { useStore } from "../../data/provider.tsx";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { useSlots } from "../../slots.tsx";
+import { ProposalBatchCard } from "./BatchCard.tsx";
 import { DigestCard, type DigestLoopAction } from "./DigestCard.tsx";
 import { MeetingNotesCard } from "./MeetingNotesCard.tsx";
 import { MeetingPrepCard } from "./MeetingPrepCard.tsx";
@@ -15,7 +16,7 @@ export interface WorkflowPostCardProps {
   post: FeedPost & { card: NonNullable<FeedPost["card"]> };
   /** The focused card holds the one accent primary (redesign-2026 §5.6). */
   focused?: boolean;
-  /** The inline batch card for a proposal (§7.2); absent → the batch buttons are hidden. */
+  /** The inline batch card for a proposal (§7.2); absent → the Gateway-backed one. */
   renderBatch?: (proposalId: string, close: () => void) => ReactNode;
   now?: number;
   className?: string;
@@ -38,6 +39,7 @@ export function WorkflowPostCard({
   const { openExternal, navigate } = useSlots();
   const prefill = usePrefillComposer();
   const card = post.card;
+  const batch = renderBatch ?? ((id: string) => <ProposalBatchCard proposalId={id} />);
   const common = {
     ...(now === undefined ? {} : { now }),
     ...(className ? { className } : {}),
@@ -81,7 +83,7 @@ export function WorkflowPostCard({
           digest={card.digest}
           onAction={onItem}
           onLoop={onLoop}
-          {...(renderBatch ? { renderBatch } : {})}
+          renderBatch={batch}
           {...(navigate ? { onSettings: () => navigate("/settings/mail") } : {})}
           {...common}
         />
@@ -108,7 +110,7 @@ export function WorkflowPostCard({
         <MeetingNotesCard
           notes={card.notes}
           focused={focused}
-          {...(renderBatch ? { renderBatch } : {})}
+          renderBatch={batch}
           {...(prefill
             ? { onDraftRecap: () => prefill(t("workflows.ask.recap", { title: card.notes.title })) }
             : {})}

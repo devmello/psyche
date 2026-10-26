@@ -1,4 +1,5 @@
 import type {
+  ActionProposal,
   ConnectorCatalogueEntry,
   ContextLimits,
   ContextUsage,
@@ -78,6 +79,7 @@ import type { MockSkillSource } from "../fixtures/skills.ts";
 import type { ConnectionState, GatewayClient, GatewayEvent, RequestOptions } from "./client.ts";
 import { toBase64 } from "./files.ts";
 import { emptyGraph, graphHandlers } from "./mock-graph.ts";
+import { type ProposalMockContext, proposalHandlers, settleBatch } from "./mock-proposals.ts";
 
 /**
  * In-memory Gateway for stories and tests (no network). It speaks the protocol exactly: every
@@ -127,6 +129,9 @@ export interface MockWorld {
   searchHits: SearchHit[];
   /** The people and projects graph (`memory.entities.*`); absent → empty. */
   graph?: GraphWorld;
+  /** Batch proposals (`proposals.*`) and the calls that fail when one runs, by proposal id. */
+  proposals?: ActionProposal[];
+  proposalFailures?: Record<string, Record<number, string>>;
   skills: SkillDetails[];
   skillSources: Record<string, MockSkillSource>;
   skillDrafts: SkillDraft[];
@@ -854,6 +859,20 @@ export class MockGateway implements GatewayClient {
     return entry ?? fail("not_found", `no configured provider serves ${ref}`);
   }
 
+  private proposalContext(): ProposalMockContext {
+    return {
+      proposals: () => {
+        this.world.proposals ??= [];
+        return this.world.proposals;
+      },
+      approvals: () => this.world.approvals,
+      answerTokens: () => this.world.answerTokens,
+      failures: () => this.world.proposalFailures ?? {},
+      now: () => this.now(),
+      emit: (event, payload) => this.emit(event, payload),
+    };
+  }
+
   private readonly handlers: { [M in MethodName]?: (params: MethodParams<M>) => unknown } = {
     ...graphHandlers({
       graph: () => {
@@ -864,6 +883,7 @@ export class MockGateway implements GatewayClient {
       emit: (event, payload) => this.emit(event, payload),
       settings: () => this.world.settings,
     }),
+    ...proposalHandlers(this.proposalContext()),
     "events.subscribe": () => ({ stateVersion: this.stateVersion }),
 
     "threads.list": (p) => ({
@@ -1255,6 +1275,7 @@ export class MockGateway implements GatewayClient {
       };
       this.replace("approvals", decided);
       this.emit("approval.updated", { approval: decided });
+      settleBatch(this.proposalContext(), decided);
       return { approval: decided, grant: null };
     },
     "grants.list": (p) => ({
