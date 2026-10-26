@@ -105,7 +105,14 @@ Nightly at 03:00 local, as a system automation in `@psyche/scheduler` (`ensureDr
 - Messages give one interaction per conversation per day.
 - Projects the owner names in chat are created.
 
-The shared fixture world is `tests/fixtures/graph/world.json`. The model pass and the `memory.entities.*` handlers follow in the next PR.
+The shared fixture world is `tests/fixtures/graph/world.json`.
+
+- **Model pass (`model-pass.ts`, `runGraphModelPass`):** per entity with new interactions, one tool-less utility-model turn. It reads facts, the owner's corrections, the last 20 interaction headers (quoted as data) and up to 5 excerpts of the owner's own messages, and returns JSON. Facts and loops sourced from owner-authored items are `agent`/open; anything sourced from received items is `untrusted`/suggested. Unknown sources, forbidden attributes, sensitive or instruction-like values, and owner-only attributes are dropped. It has an input-hash cache, per-night entity and token caps, and deferral.
+- **Projects (`projects.ts`):** confirmed projects claim interactions that name them and gain members (`system`). Repeated two-word subject phrases across three or more interactions with two or more people become project suggestions.
+- **Handlers (`handlers.ts`, `createGraphHandlers`):** every `memory.entities.*`, `memory.loops.*` and `memory.graph.status` method as owner writes. Cards are refreshed after each change. Forget also removes the card and the person's mentions in notes.
+- **Tools and recall (`tools.ts`):** `GraphTools` provides `people_lookup` (asks which one when names clash and contact strength is within 3×), `project_brief`, `waiting_on`, `meeting_prep` and `loop_update` (refused in tainted or incognito turns). Results carry `provenance: "untrusted"` when they show subjects, summaries, unverified facts or suggested loops. `entityRecall` gives one line per unambiguously named entity, private sessions only.
+
+Gateway wiring (pollers, events, card edits, the nightly pass in dreaming, tool registration, recall in context, the Search adapter, the meeting-prep job) follows in the last PR.
 
 ## Imports
 
