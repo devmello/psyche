@@ -160,6 +160,7 @@ import { createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 import { composeWebTools, type WebToolsSetup } from "./web-tools.ts";
 import { ensureWeeklyCardAutomation, withWeeklyCard } from "./weekly-card.ts";
+import { WORKFLOW_SETTING_KEYS } from "./workflow-settings.ts";
 
 /**
  * Composition root for `psyched` (INT-1): the real agent loop, model router, Permission Broker,
@@ -1048,12 +1049,28 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   );
   // A device that goes away ends the meeting recording it was capturing (§4.6).
   const meetingsDisconnect = (deviceId: string) => proactive.meetings?.deviceGone(deviceId);
+  let unsubscribeWorkflows: (() => void) | undefined;
   parts.push({
     start: (gw) => {
       gw.context.deviceDisconnected.add(meetingsDisconnect);
+      // Settings → Mail & meetings: a changed key re-syncs the jobs' schedules (the digest's time
+      // and days, the mail check cadence, each workflow's switch). Everything else is read per run.
+      unsubscribeWorkflows = gw.bus.subscribe(["operator.read"], (frame) => {
+        const f = JSON.parse(frame) as {
+          event?: string;
+          payload?: { entries?: { key: string }[] };
+        };
+        if (f.event !== "settings.changed") return;
+        const keys: readonly string[] = WORKFLOW_SETTING_KEYS;
+        if ((f.payload?.entries ?? []).some((e) => keys.includes(e.key))) {
+          void proactive.syncWorkflowSchedules();
+        }
+      });
     },
     stop: () => {
       gatewayRef?.context.deviceDisconnected.delete(meetingsDisconnect);
+      unsubscribeWorkflows?.();
+      unsubscribeWorkflows = undefined;
     },
   });
   parts.push(otherChats.part());

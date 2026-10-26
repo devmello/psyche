@@ -11,7 +11,12 @@ import { createIdGenerator, FakeClock, FakeModelProvider, FakeNotifier } from "@
 import { Type } from "@sinclair/typebox";
 import { describe, expect, it } from "vitest";
 import { FeedStore } from "../src/feed/store.ts";
-import { type CalendarEvent, MeetingPrepService, withProactiveJobs } from "../src/index.ts";
+import {
+  type CalendarEvent,
+  MeetingPrepService,
+  type MeetingPrepServiceOptions,
+  withProactiveJobs,
+} from "../src/index.ts";
 import { asleep, RecordingLauncher, testDb } from "./helpers.ts";
 
 /** Meeting prep (spec §4.5; #670 W6) on the real scheduler with fake calendar and mail tools. */
@@ -125,7 +130,7 @@ const PREVIOUS: MeetingNotes = {
   provenance: "untrusted",
 };
 
-function rig(start = at(7)) {
+function rig(start = at(7), extra: Partial<MeetingPrepServiceOptions> = {}) {
   const clock = new FakeClock(start);
   const db = testDb(clock);
   const ids = createIdGenerator({ prefix: "s" });
@@ -240,6 +245,7 @@ function rig(start = at(7)) {
       return h >= 22 || h < 7;
     },
     timezone: "UTC",
+    ...extra,
   });
   const service = prep;
   const runTo = async (ms: number) => {
@@ -445,5 +451,42 @@ describe("meeting prep (§4.5)", () => {
     for (let h = 8; h <= 16; h += 1) await r.runTo(at(h));
     expect(r.feed.list({}).posts.filter((p) => p.kind === "meeting_prep")).toHaveLength(6);
     expect(r.notices.filter((n) => n.kind === "reminder")).toHaveLength(4);
+  });
+});
+
+describe("prep follows Settings → Mail & meetings", () => {
+  const daySpread = () =>
+    [11, 12, 13, 14, 15, 16].map((h) => ({
+      id: `x${h}`,
+      title: "Dana / Sam",
+      start: iso(at(h)),
+      end: iso(at(h, 30)),
+      attendees: [ME, person("Dana Park", "dana@client.example")],
+    }));
+
+  it("a lower daily cap makes the rest silent posts, and it cannot be raised past four", async () => {
+    const two = rig(at(7), { dailyCap: () => 2 });
+    two.setCalendar(daySpread());
+    await two.prep.plan();
+    for (let h = 8; h <= 16; h += 1) await two.runTo(at(h));
+    expect(two.notices.filter((n) => n.kind === "reminder")).toHaveLength(2);
+
+    const ten = rig(at(7), { dailyCap: () => 10 });
+    ten.setCalendar(daySpread());
+    await ten.prep.plan();
+    for (let h = 8; h <= 16; h += 1) await ten.runTo(at(h));
+    expect(ten.notices.filter((n) => n.kind === "reminder")).toHaveLength(4);
+  });
+
+  it("the owner's lead times decide when the prep runs and when the notice arrives", async () => {
+    const r = rig(at(7), { leadMs: () => 30 * 60_000, notifyLeadMs: () => 10 * 60_000 });
+    r.setCalendar([daySpread()[3] as CalendarEvent]);
+    await r.prep.plan();
+    const row = r.prep.rows().find((x) => x.event_id === "x14");
+    expect(row).toBeDefined();
+    const autos = await r.scheduler.list();
+    const when = (id: string | null) => autos.find((a) => a.id === id)?.nextRunAt;
+    expect(when(row?.prep_automation_id ?? null)).toBe(iso(at(13, 30)));
+    expect(when(row?.notify_automation_id ?? null)).toBe(iso(at(13, 50)));
   });
 });
