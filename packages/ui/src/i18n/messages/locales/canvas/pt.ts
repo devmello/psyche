@@ -42,7 +42,7 @@ export const canvas: Partial<Catalogue> = {
   "map.gesture.mobile": "Use dois dedos para mover o mapa",
   "settings.map.title": "Mapas",
   "settings.map.privacy":
-    "Mostrar um mapa pede a um servidor de blocos a área que você vê, então esse servidor pode saber aproximadamente onde você olha. Desative os blocos para ver os lugares só em lista, ou use seu próprio servidor.",
+    "Mostrar um mapa pede a um servidor de blocos a área que você vê, então esse servidor pode saber aproximadamente onde você olha. Desative os blocos para ver os lugares só em lista, ou use seu próprio servidor. Os pedidos passam pelo seu Gateway, então o servidor de blocos vê o Gateway, não o seu dispositivo.",
   "settings.map.tiles": "Mostrar blocos do mapa",
   "settings.map.tilesHint": "Desativado mostra os lugares em lista, sem pedidos de mapa.",
   "settings.map.style": "URL de estilo do servidor de blocos",

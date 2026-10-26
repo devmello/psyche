@@ -126,3 +126,17 @@ describe("map canvas fixture", () => {
     expect(CANVAS_IDS.map).toBe("art_canvas_map");
   });
 });
+
+describe("tile proxy URLs", () => {
+  it("routes third-party requests through the same-origin proxy and leaves the rest", async () => {
+    const { proxiedUrl } = await import("../src/map/map-model.ts");
+    const page = "https://psyche.example";
+    const out = proxiedUrl("https://tiles.openfreemap.org/planet/1/2/3.pbf?v=1", page);
+    expect(out.startsWith(`${page}/maps/o/`)).toBe(true);
+    expect(out.endsWith("/planet/1/2/3.pbf?v=1")).toBe(true);
+    const seg = out.slice(`${page}/maps/o/`.length).split("/")[0] as string;
+    expect(atob(seg.replace(/-/g, "+").replace(/_/g, "/"))).toBe("https://tiles.openfreemap.org");
+    expect(proxiedUrl(`${page}/x`, page)).toBe(`${page}/x`);
+    expect(proxiedUrl("blob:abc", page)).toBe("blob:abc");
+  });
+});

@@ -42,7 +42,7 @@ export const canvas: Partial<Catalogue> = {
   "map.gesture.mobile": "두 손가락으로 지도를 움직이세요",
   "settings.map.title": "지도",
   "settings.map.privacy":
-    "지도를 표시하면 보고 있는 영역을 타일 서버에 요청하므로 서버가 대략 어디를 보는지 알 수 있습니다. 타일을 끄면 장소를 목록으로만 보여 주며, 직접 운영하는 타일 서버를 쓸 수도 있습니다.",
+    "지도를 표시하면 보고 있는 영역을 타일 서버에 요청하므로 서버가 대략 어디를 보는지 알 수 있습니다. 타일을 끄면 장소를 목록으로만 보여 주며, 직접 운영하는 타일 서버를 쓸 수도 있습니다. 요청은 Gateway를 거치므로 타일 서버에는 기기가 아니라 Gateway가 보입니다.",
   "settings.map.tiles": "지도 타일 표시",
   "settings.map.tilesHint": "끄면 지도 요청 없이 장소를 목록으로 보여 줍니다.",
   "settings.map.style": "타일 서버 스타일 URL",

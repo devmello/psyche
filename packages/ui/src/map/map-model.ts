@@ -46,6 +46,26 @@ export function mapSourceOf(settings: Readonly<Record<string, unknown>>): MapSou
   };
 }
 
+/** The route the Gateway serves tiles from (`apps/gateway/src/map-proxy.ts`). */
+export const MAP_PROXY_PATH = "/maps/o/";
+
+/**
+ * Rewrites a MapLibre request to the Gateway's same-origin tile proxy, so the page's CSP never has
+ * to name a tile host and the tile host sees the Gateway, not the viewer. Same-origin and non-http
+ * URLs pass through. Used as MapLibre's `transformRequest`.
+ */
+export function proxiedUrl(url: string, pageOrigin: string): string {
+  let u: URL;
+  try {
+    u = new URL(url, pageOrigin);
+  } catch {
+    return url;
+  }
+  if (u.origin === pageOrigin || (u.protocol !== "https:" && u.protocol !== "http:")) return url;
+  const seg = btoa(u.origin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return `${pageOrigin}${MAP_PROXY_PATH}${seg}${u.pathname}${u.search}`;
+}
+
 /** Parses a map artifact's content; null when it is not a usable map. */
 export function parseMapContent(content: string): ArtifactMap | null {
   let v: unknown;

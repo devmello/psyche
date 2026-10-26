@@ -41,7 +41,7 @@ export const canvas: Partial<Catalogue> = {
   "map.gesture.mobile": "用两根手指移动地图",
   "settings.map.title": "地图",
   "settings.map.privacy":
-    "显示地图会向瓦片服务器请求你查看的区域,服务器因此大致知道你在看哪里。关闭瓦片则只以列表显示地点,也可以使用自己的瓦片服务器。",
+    "显示地图会向瓦片服务器请求你查看的区域,服务器因此大致知道你在看哪里。关闭瓦片则只以列表显示地点,也可以使用自己的瓦片服务器。请求经由你的 Gateway 转发,因此瓦片服务器看到的是 Gateway,而不是你的设备。",
   "settings.map.tiles": "显示地图瓦片",
   "settings.map.tilesHint": "关闭后以列表显示地点,不发出地图请求。",
   "settings.map.style": "瓦片服务器样式 URL",

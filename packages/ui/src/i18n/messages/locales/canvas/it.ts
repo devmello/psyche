@@ -44,7 +44,7 @@ export const canvas: Partial<Catalogue> = {
   "map.gesture.mobile": "Usa due dita per spostare la mappa",
   "settings.map.title": "Mappe",
   "settings.map.privacy":
-    "Mostrare una mappa chiede a un server di riquadri l’area che guardi, quindi quel server può sapere più o meno dove guardi. Disattiva i riquadri per vedere i luoghi solo come elenco, oppure usa un tuo server.",
+    "Mostrare una mappa chiede a un server di riquadri l’area che guardi, quindi quel server può sapere più o meno dove guardi. Disattiva i riquadri per vedere i luoghi solo come elenco, oppure usa un tuo server. Le richieste passano dal tuo Gateway, quindi il server di riquadri vede il Gateway, non il tuo dispositivo.",
   "settings.map.tiles": "Mostra i riquadri della mappa",
   "settings.map.tilesHint": "Disattivato mostra i luoghi come elenco senza richieste di mappa.",
   "settings.map.style": "URL di stile del server di riquadri",

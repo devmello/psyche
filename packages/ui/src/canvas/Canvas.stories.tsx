@@ -47,9 +47,15 @@ export const Chart: Story = {
   ),
 };
 
+/** Tiles off keeps the baseline offline-stable; the live map is `Chat/Map / Inline Live`. */
+const withMapTilesOff = (world: object) => {
+  withCanvas(world);
+  (world as { settings: Record<string, unknown> }).settings["ui.map.tiles"] = false;
+};
+
 export const Places: Story = {
   render: () => (
-    <StoryWorld edit={withCanvas}>
+    <StoryWorld edit={withMapTilesOff}>
       <Frame id={CANVAS_IDS.map} />
     </StoryWorld>
   ),
