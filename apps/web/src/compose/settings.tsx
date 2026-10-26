@@ -225,7 +225,7 @@ export function settingsRoute(
   if (section === null) return null;
   return (
     <section
-      className="flex min-h-0 flex-1 flex-col overflow-auto p-6"
+      className="flex min-h-0 flex-1 flex-col overflow-auto"
       aria-label={t("web.settings.label")}
       data-testid="settings"
     >
