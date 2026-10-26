@@ -226,6 +226,12 @@ export const pt: Partial<Catalogue> = {
   "blocks.card.status":
     "{status, select, pending {Pendente} running {Em execução} waiting {Aguardando} done {Concluído} failed {Falhou} blocked {Bloqueado} cancelled {Cancelado} other {{status}}}{warning, select, yes {, resultado incerto} other {}}",
   "blocks.card.unknown": "O Psyche ainda não consegue mostrar este tipo de item ({type}).",
+  "blocks.toolView.show": "Mostrar resultado",
+  "blocks.toolView.loading": "Carregando o resultado…",
+  "blocks.toolView.none": "O resultado desta ação não é guardado.",
+  "blocks.toolView.more": "{count, plural, one {mais #} other {mais #}}",
+  "blocks.toolView.empty": "Nenhum resultado.",
+  "blocks.toolView.untitled": "Sem título",
   "blocks.message.loading":
     "Carregando {what, select, approval {aprovação} question {pergunta} receipt {recibo} artifact {artefato} file {arquivo} task {tarefa} plan {plano} other {item}}",
   "blocks.message.missing":

@@ -13,7 +13,6 @@ import {
   type PairingDecidedEvent,
 } from "../src/service.ts";
 import { MemoryChannelStore } from "../src/store/memory.ts";
-import { FakeVoiceTranscoder, VoiceNotes } from "../src/voice.ts";
 
 export const OWNER = "1001";
 export const FRIEND = "2002";
@@ -26,7 +25,6 @@ export interface Harness {
   broker: FakePermissionBroker;
   notifier: FakeNotifier;
   speech: FakeSpeechEngine;
-  transcoder: FakeVoiceTranscoder;
   service: ChannelService;
   delivered: ChannelInboundEvent[];
   ingested: LibraryIngestInput[];
@@ -57,7 +55,6 @@ export async function harness(
   const broker = new FakePermissionBroker({ clock });
   const notifier = new FakeNotifier();
   const speech = new FakeSpeechEngine();
-  const transcoder = new FakeVoiceTranscoder();
   const delivered: ChannelInboundEvent[] = [];
   const ingested: LibraryIngestInput[] = [];
   const events: { event: string; payload: unknown }[] = [];
@@ -74,7 +71,6 @@ export async function harness(
     clock,
     notifier,
     speech,
-    voice: new VoiceNotes({ speech, transcoder }),
     sink: {
       deliver: async (e) => {
         delivered.push(e);
@@ -121,7 +117,6 @@ export async function harness(
     broker,
     notifier,
     speech,
-    transcoder,
     service,
     delivered,
     ingested,

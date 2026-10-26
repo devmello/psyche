@@ -445,6 +445,28 @@ describe("macOS permission and single instances (#549)", () => {
     expect(events.at(-1)).toMatchObject({ type: "status", status: "needs_auth" });
   });
 
+  it("connects when the probe finds nothing (not_found): the app answered, so Automation works", async () => {
+    for (const catalogueId of ["apple-notes", "apple-reminders", "apple-contacts"]) {
+      const helper = new FakeHelper();
+      helper.refuse = {
+        code: "not_found",
+        message: "The item was not found",
+        details: { reason: "not_found" },
+      };
+      const { registry } = reg(helper);
+      const r = await registry.connect({ catalogueId, scopeMode: "read" });
+      expect(r.status).toBe("connected");
+    }
+  });
+
+  it("still fails a probe that is neither a permission nor not_found, and names the app", async () => {
+    const helper = new FakeHelper();
+    helper.refuse = { code: "unavailable", message: "boom", details: { reason: "script_error" } };
+    await expect(
+      reg(helper).registry.connect({ catalogueId: "apple-notes", scopeMode: "read" }),
+    ).rejects.toThrow(/Apple Notes: boom/);
+  });
+
   it("asks for Reminders when macOS has not decided, and connects when the owner allows it", async () => {
     const helper = new FakeHelper();
     helper.grant = "notDetermined";

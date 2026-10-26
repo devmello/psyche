@@ -5,7 +5,6 @@ import { PCM_16K_MONO } from "../src/audio.ts";
 import {
   DEFAULT_SPEECH_SETTINGS,
   type EngineEntry,
-  parseVoiceRef,
   RoutedSpeechEngine,
   SpeechEngineSelector,
 } from "../src/policy.ts";
@@ -13,16 +12,12 @@ import {
 function entry(
   id: string,
   location: EngineEntry["location"],
-  opts: { up?: boolean; synth?: boolean; engine?: SpeechEngine; stream?: boolean } = {},
+  opts: { up?: boolean; engine?: SpeechEngine; stream?: boolean } = {},
 ): EngineEntry {
   const e: EngineEntry = {
     id,
     location,
-    supports: {
-      transcribe: opts.synth !== true,
-      stream: opts.stream ?? opts.synth !== true,
-      synthesize: opts.synth === true,
-    },
+    supports: { transcribe: true, stream: opts.stream ?? true },
     available: async () => opts.up ?? true,
   };
   if (location !== "client") e.engine = opts.engine ?? new FakeSpeechEngine();
@@ -33,9 +28,7 @@ function selector(up: { mac?: boolean; whisper?: boolean } = {}) {
   return new SpeechEngineSelector()
     .register(entry("mac-node", "node", { up: up.mac ?? true }))
     .register(entry("whisper", "gateway", { up: up.whisper ?? true }))
-    .register(entry("web-speech", "client"))
-    .register(entry("kokoro", "gateway", { synth: true }))
-    .register(entry("elevenlabs", "cloud", { synth: true }));
+    .register(entry("web-speech", "client"));
 }
 
 describe("engine selection policy (Q1, ADR-014)", () => {
@@ -85,40 +78,12 @@ describe("engine selection policy (Q1, ADR-014)", () => {
     expect((await s.select({ purpose: "file" })).id).toBe("whisper");
   });
 
-  it("puts a persona voice's engine first for synthesis and passes the voice id", async () => {
-    const s = selector();
-    s.configure({
-      ...DEFAULT_SPEECH_SETTINGS,
-      tts: { order: ["kokoro"], voice: "kokoro:af_heart" },
-    });
-    expect(await s.select({ purpose: "synthesize" })).toMatchObject({
-      id: "kokoro",
-      voice: "af_heart",
-    });
-    // A persona pinned to a cloud voice wins even though cloud is not in the default order.
-    expect(await s.select({ purpose: "synthesize", voice: "elevenlabs:rachel" })).toMatchObject({
-      id: "elevenlabs",
-      voice: "rachel",
-    });
-    // A voice for another engine is not passed to the fallback engine.
-    s.configure({ ...DEFAULT_SPEECH_SETTINGS, tts: { order: ["kokoro"] } });
-    const sel = await s.select({ purpose: "synthesize", voice: "missing:x" });
-    expect(sel.id).toBe("kokoro");
-    expect(sel.voice).toBeUndefined();
-  });
-
-  it("parses voice references", () => {
-    expect(parseVoiceRef("kokoro:af_heart")).toEqual({ engine: "kokoro", voice: "af_heart" });
-    expect(parseVoiceRef("af_heart")).toEqual({ voice: "af_heart" });
-    expect(parseVoiceRef(undefined)).toEqual({});
-  });
-
   it("rejects a server-side entry without an engine", () => {
     expect(() =>
       new SpeechEngineSelector().register({
         id: "x",
         location: "gateway",
-        supports: { transcribe: true, stream: true, synthesize: false },
+        supports: { transcribe: true, stream: true },
         available: async () => true,
       }),
     ).toThrow(PsycheError);
@@ -136,24 +101,17 @@ describe("RoutedSpeechEngine", () => {
         seen.push(o);
         return whisper.transcribeFile(d, f, o);
       },
-      synthesize: (t, o) => whisper.synthesize(t, o),
-      voices: () => whisper.voices(),
     };
     const s = new SpeechEngineSelector({
       stt: { order: ["whisper"], language: "en-US", vocabulary: ["Pip"] },
-      tts: { order: ["kokoro"], voice: "kokoro:af_heart" },
-    })
-      .register(entry("whisper", "gateway", { engine: spy }))
-      .register(entry("kokoro", "gateway", { synth: true }));
+    }).register(entry("whisper", "gateway", { engine: spy }));
     const routed = new RoutedSpeechEngine(s);
     const t = await routed.transcribeFile(new Uint8Array(320), PCM_16K_MONO, {
       vocabulary: ["Alice"],
     });
     expect(t.text).toBe("call alice");
     expect(seen[0]).toMatchObject({ language: "en-US", vocabulary: ["Alice", "Pip"] });
-    const voices = await routed.voices();
-    expect(voices.map((v) => v.id)).toEqual(["kokoro:fake-en"]);
     const caps = await routed.capabilities();
-    expect(caps).toMatchObject({ synthesis: true, streaming: true });
+    expect(caps).toMatchObject({ streaming: true });
   });
 });

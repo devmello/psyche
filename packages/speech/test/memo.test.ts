@@ -4,6 +4,7 @@ import type { LibraryItem, SpeechEngine, TranscribeOptions } from "@psyche/proto
 import { FakeSpeechEngine, FakeTaskEngine } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { decodeWav, encodeWav, PCM_16K_MONO } from "../src/audio.ts";
+import type { LibrarySaveInput, LibraryWriter } from "../src/library.ts";
 import {
   analyzeTranscript,
   looksLikeTask,
@@ -14,7 +15,6 @@ import {
 } from "../src/memo.ts";
 import { type EngineEntry, SpeechEngineSelector } from "../src/policy.ts";
 import { toBase64 } from "../src/queue.ts";
-import type { LibrarySaveInput, LibraryWriter } from "../src/readAloud.ts";
 import { VoiceNoteTranscoder } from "../src/transcode/ffmpeg.ts";
 import { VoiceSessionManager } from "../src/voice.ts";
 import { FIXTURES, ffmpegAvailable, remindAliceClip } from "./helpers.ts";
@@ -33,8 +33,6 @@ function scripted(text: string) {
       calls.push({ bytes: d.byteLength, options: o });
       return fake.transcribeFile(d, f, o);
     },
-    synthesize: (t, o) => fake.synthesize(t, o),
-    voices: () => fake.voices(),
   };
   return { engine, calls };
 }
@@ -266,11 +264,11 @@ describe("voice memo pipeline (Q4 / N11)", () => {
     const entry: EngineEntry = {
       id: "whisper",
       location: "gateway",
-      supports: { transcribe: true, stream: true, synthesize: false },
+      supports: { transcribe: true, stream: true },
       engine,
       available: async () => true,
     };
-    const selector = new SpeechEngineSelector({ stt: { order: ["whisper"] }, tts: { order: [] } });
+    const selector = new SpeechEngineSelector({ stt: { order: ["whisper"] } });
     selector.register(entry);
     const manager = new VoiceSessionManager({ selector, emit: () => {}, newId: () => "vs_memo" });
     const ctx = { deviceId: "dev_1", caller: "desktop" as const };
