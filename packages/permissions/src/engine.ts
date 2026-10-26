@@ -1,5 +1,5 @@
 import type { ApprovalKind, GrantScope, JsonObject, SideEffect } from "@psyche/protocol";
-import { appleAppConnector, appleAppEffect } from "./apple-apps.ts";
+import { appleAppAction, appleAppConnector, appleAppEffect } from "./apple-apps.ts";
 import { appCap, effectiveTier, TIER_RANK, tierRequired } from "./apps.ts";
 import { type Binding, bindingFor, genericBindingFor, readsCwdConfig } from "./binding.ts";
 import {
@@ -8,6 +8,7 @@ import {
   CLASSIFIER_TIMEOUT_MS,
   classifyFailClosed,
 } from "./classifier.ts";
+import { matrixFloor, matrixRule } from "./connector-matrix.ts";
 import {
   ALL_SCOPES,
   allowedScopes,
@@ -397,15 +398,24 @@ export class PolicyEngine {
       mcpConnector(call.tool) ??
       appleAppConnector(call.tool);
     if (connector !== undefined) {
+      // The owner's matrix entry for the action group (Settings → Connectors, #747); an older
+      // `policy.connectors` entry under the tool's own name still applies when the group has none.
+      const matrix = p.config.connectors?.[connector.id];
+      const legacy = appleAppAction(call.tool)?.action ?? mcpConnector(call.tool)?.action;
+      const configured =
+        matrixRule(matrix, connector.action) ??
+        (legacy === undefined ? undefined : matrixRule(matrix, legacy));
       // Apple app adapters (J6) carry defaults, and `alwaysAsk` actions never become silent.
-      const effect = appleAppEffect(
-        call.tool,
-        p.config.connectors?.[connector.id]?.[connector.action],
-      );
+      const effect = appleAppEffect(call.tool, configured);
       const rule = `connector:${connector.id}/${connector.action}`;
       if (effect === "deny") return done("deny", rule, "connector matrix denies this action");
       if (effect === "ask") floors.push({ rule, reason: "connector matrix asks" });
-      if (effect === "allow") allowances.push({ rule });
+      if (effect === "allow") {
+        // Hard floors: an owner `allow` never silences sends, destructive or device-only calls.
+        const floor = matrixFloor(kind, se);
+        if (floor === undefined) allowances.push({ rule });
+        else floors.push({ rule: `${rule}:floor`, reason: floor });
+      }
     }
 
     if (origin !== undefined) {
@@ -495,7 +505,11 @@ export class PolicyEngine {
     // Security §11: write+ tools of unknown-tier MCP servers ask every time, whatever grants
     // exist (#280). MCP calls arrive as `connector_action` from @psyche/mcp-host with the tier in
     // meta; an `mcp__` tool that names no tier counts as unknown.
-    const mcpTier = call.meta?.mcpTier ?? (call.tool.startsWith("mcp__") ? "unknown" : undefined);
+    // First-party connector tools (`@psyche/connectors` registry) are `mcp__` named too, but carry
+    // their action group as `connectorRule` and no MCP tier: the owner's matrix governs them.
+    const firstParty = call.connectorRule !== undefined && call.meta?.mcpTier === undefined;
+    const mcpTier =
+      call.meta?.mcpTier ?? (call.tool.startsWith("mcp__") && !firstParty ? "unknown" : undefined);
     if (
       (kind === "mcp_tool" || kind === "connector_action") &&
       mcpTier === "unknown" &&

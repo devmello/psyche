@@ -13,8 +13,10 @@ import {
   type ConnectorEvent,
   type ConnectorFactory,
   ConnectorRegistry,
+  type ConnectorTool,
   canonicalJSON,
   connectorHandlers,
+  describeWithRule,
   REMOTE_MCP_PRESETS,
   sha256,
   toolCallBindingHash,
@@ -474,6 +476,8 @@ describe("standing grants (ToolRunContext.authority)", () => {
     await expect(call("keyed")).resolves.toMatchObject({ output: "written", receiptId: "r" });
     expect(executed).toEqual([byGrant]);
     expect(receipts).toEqual([expect.objectContaining({ kind: "demo.write", approvalId: null })]);
+    // The receipt says which rule let the call through (#747).
+    expect(receipts).toEqual([expect.objectContaining({ payload: { rule: "grant:grt_1" } })]);
   });
 
   it("a grant the ledger no longer has, or that expired, is refused", async () => {
@@ -534,5 +538,58 @@ describe("standing grants (ToolRunContext.authority)", () => {
       code: "binding_mismatch",
       message: expect.stringContaining("not_found"),
     });
+  });
+});
+
+describe("action-matrix key on every connector call (#747)", () => {
+  const tool = (describeCall?: ConnectorTool["describeCall"]): ConnectorTool => ({
+    name: "run",
+    action: "demo.run",
+    description: "r",
+    inputSchema: { type: "object" },
+    sideEffect: "write",
+    execute: async () => ({ output: "ok", provenance: "untrusted" }),
+    ...(describeCall === undefined ? {} : { describeCall }),
+  });
+
+  it("stamps the connector id and the tool's action group", () => {
+    expect(describeWithRule("demo-1", tool(), {})).toEqual({
+      connectorRule: { id: "demo-1", action: "demo.run" },
+    });
+    expect(
+      describeWithRule(
+        "demo-1",
+        tool(() => ({ kind: "connector_action", grantKey: "k" })),
+        {},
+      ),
+    ).toEqual({
+      kind: "connector_action",
+      grantKey: "k",
+      connectorRule: { id: "demo-1", action: "demo.run" },
+    });
+  });
+
+  it("lets a connector narrow to a sub-key of its own group, never widen or move", () => {
+    const narrow = tool(() => ({ connectorRule: { id: "demo-1", action: "demo.run/S1" } }));
+    expect(describeWithRule("demo-1", narrow, {}).connectorRule).toEqual({
+      id: "demo-1",
+      action: "demo.run/S1",
+    });
+    for (const rule of [
+      { id: "demo-1", action: "demo.read" },
+      { id: "demo-1", action: "demo.runner" },
+      { id: "other", action: "demo.run/S1" },
+    ]) {
+      expect(
+        describeWithRule(
+          "demo-1",
+          tool(() => ({ connectorRule: rule })),
+          {},
+        ).connectorRule,
+      ).toEqual({
+        id: "demo-1",
+        action: "demo.run",
+      });
+    }
   });
 });
