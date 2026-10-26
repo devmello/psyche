@@ -133,6 +133,8 @@ export const messages = sqliteTable("messages", {
   channelRef: text("channel_ref"),
   runId: text("run_id"),
   createdAt: text("created_at").notNull(),
+  /** `voice` for a message the owner spoke (migration 202610261900); NULL otherwise. */
+  via: text("via"),
 });
 
 export const runs = sqliteTable("runs", {

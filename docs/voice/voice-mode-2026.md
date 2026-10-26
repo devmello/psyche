@@ -518,6 +518,15 @@ The helper additions are in V-H's brief.
 
 ## 11. Decisions the owner should confirm
 
+**Decided 2026-10-26** (relayed by the integrator):
+1. No wake word in this plan. The hook stays, so a keyword spotter can be added later behind a setting.
+2. "Writes only" stays the default for approving by voice.
+3. The spoken brief defaults to "On Listen". Onboarding offers "When I'm at the Mac" as a choice, not the default.
+4. Right ⌘ is the voice key.
+5. The `voice` role defaults to the primary model. Onboarding shows the faster option with its one-line trade-off, not pre-selected.
+
+The questions as they were asked:
+
 1. **Wake word.** Not built (§4.4). A keyword spotter (microWakeWord, 52–60 KB, Apache-2.0) is not a language model, but the rule's text says "any other local model". Yes or no?
 2. **Approve by voice.** Default "Writes only". Should "Writes and deletes" be the default for an owner who mostly uses voice? Security §16 item 6 is still open for chat as well.
 3. **Spoken brief.** Default "On Listen", which never speaks unprompted. "When I'm at the Mac" speaks the brief at the first unlock after its time. Should that be the default?

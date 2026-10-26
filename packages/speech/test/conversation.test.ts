@@ -17,6 +17,7 @@ import {
   type VoiceTurnInput,
   type VoiceTurnPort,
 } from "../src/conversation/conversation.ts";
+import { narrationLabel } from "../src/conversation/narration.ts";
 import { SpokenText } from "../src/conversation/spoken.ts";
 import { PcmVad } from "../src/conversation/vad.ts";
 import { createSpeechHandlers } from "../src/handlers.ts";
@@ -559,5 +560,139 @@ describe("conversation VAD", () => {
     expect(events).toEqual(["start"]);
     vad.push(tonePcm([[300, 0]]), PCM_16K_MONO);
     expect(events).toEqual(["start", "end"]);
+  });
+});
+
+describe("narration of tool steps (spec §4.5)", () => {
+  async function thinking(narrate: "off" | "brief" | "steps") {
+    const t = setup(["what's on today"], { settings: { narrate } });
+    await t.manager.start({ mode: "handsfree", format: PCM_16K_MONO }, t.ctx);
+    await sayTurn(t);
+    expect(t.phases().at(-1)).toBe("thinking");
+    return t;
+  }
+
+  it("brief: one phrase for a step still running after 1.5 s, before the answer only", async () => {
+    const t = await thinking("brief");
+    t.turns.emit({
+      type: "step",
+      toolCallId: "tc1",
+      label: "Checking your calendar",
+      status: "running",
+    });
+    await flush();
+    await vi.advanceTimersByTimeAsync(1_499);
+    expect(t.voice.said).toEqual([]);
+    await vi.advanceTimersByTimeAsync(1);
+    await flush();
+    expect(t.voice.said).toEqual(["Checking your calendar."]);
+    // A second slow step in the same turn says nothing more.
+    t.turns.emit({
+      type: "step",
+      toolCallId: "tc2",
+      label: "Working on your mail",
+      status: "running",
+    });
+    await flush();
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(t.voice.said).toEqual(["Checking your calendar."]);
+  });
+
+  it("brief: a quick step says nothing, and nothing once the answer is being spoken", async () => {
+    const t = await thinking("brief");
+    t.turns.emit({
+      type: "step",
+      toolCallId: "tc1",
+      label: "Checking your calendar",
+      status: "running",
+    });
+    await flush();
+    await vi.advanceTimersByTimeAsync(800);
+    t.turns.emit({
+      type: "step",
+      toolCallId: "tc1",
+      label: "Checking your calendar",
+      status: "ok",
+    });
+    await flush();
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(t.voice.said).toEqual([]);
+    t.turns.emit({ type: "delta", text: "You have two meetings today, both before lunch. " });
+    t.turns.emit({ type: "step", toolCallId: "tc2", label: "Looking that up", status: "running" });
+    await flush();
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(t.voice.said).toEqual(["You have two meetings today, both before lunch."]);
+  });
+
+  it("steps: each step once as it starts; off: never", async () => {
+    const steps = await thinking("steps");
+    steps.turns.emit({
+      type: "step",
+      toolCallId: "tc1",
+      label: "Checking your calendar",
+      status: "running",
+    });
+    steps.turns.emit({
+      type: "step",
+      toolCallId: "tc1",
+      label: "Checking your calendar",
+      status: "ok",
+    });
+    steps.turns.emit({
+      type: "step",
+      toolCallId: "tc2",
+      label: "Working on your mail",
+      status: "running",
+    });
+    await flush();
+    expect(steps.voice.said).toEqual(["Checking your calendar.", "Working on your mail."]);
+    steps.manager.endAll();
+
+    const off = await thinking("off");
+    off.turns.emit({
+      type: "step",
+      toolCallId: "tc1",
+      label: "Checking your calendar",
+      status: "running",
+    });
+    await flush();
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(off.voice.said).toEqual([]);
+  });
+
+  it("labels steps from the tool name only", () => {
+    expect(narrationLabel("calendar_list_events")).toBe("Checking your calendar");
+    expect(narrationLabel("mail_search")).toBe("Working on your mail");
+    expect(narrationLabel("send_email")).toBe("Working on your mail");
+    expect(narrationLabel("web_search")).toBe("Looking that up");
+    expect(narrationLabel("mcp__notion__notes.list")).toBe("Looking in your notes");
+    expect(narrationLabel("something_new")).toBe("Working on it");
+  });
+});
+
+describe("the owner's switch", () => {
+  it("refuses to start while voice conversation is off", async () => {
+    const t = setup([]);
+    let on = false;
+    const selector = new SpeechEngineSelector({ stt: { order: ["mac-node"] }, tts: { order: [] } });
+    selector.register({
+      id: "mac-node",
+      location: "node",
+      supports: { transcribe: true, stream: true, synthesize: true },
+      engine: t.stt.engine(),
+      available: async () => true,
+    });
+    const m = new VoiceConversationManager({
+      selector,
+      tts: t.voice.engine(),
+      turns: t.turns.port,
+      emit: () => {},
+      enabled: () => on,
+    });
+    await expect(m.start({ mode: "push", format: PCM_16K_MONO }, t.ctx)).rejects.toMatchObject({
+      code: "policy_denied",
+    });
+    on = true;
+    expect((await m.start({ mode: "push", format: PCM_16K_MONO }, t.ctx)).location).toBe("node");
   });
 });
