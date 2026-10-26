@@ -3377,6 +3377,7 @@ export const fr: Partial<Catalogue> = {
   "screenAsk.label": "Poser une question sur votre écran",
   "screenAsk.placeholder":
     "Posez une question sur ce qui est à l’écran ou demandez quelque chose à Psyche…",
+  "screenAsk.voice.placeholder": "Demandez ce que vous voulez à Psyche…",
   "screenAsk.send": "Demander",
   "screenAsk.capturing": "Psyche regarde votre écran…",
   "screenAsk.chip.window": "{app}",

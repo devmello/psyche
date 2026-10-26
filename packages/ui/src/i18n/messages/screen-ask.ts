@@ -2,6 +2,7 @@
 export const screenAsk = {
   "screenAsk.label": "Ask about your screen",
   "screenAsk.placeholder": "Ask about what's on screen, or ask Psyche to do something…",
+  "screenAsk.voice.placeholder": "Ask Psyche anything…",
   "screenAsk.send": "Ask",
   "screenAsk.capturing": "Looking at your screen…",
   "screenAsk.chip.window": "{app}",

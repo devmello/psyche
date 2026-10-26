@@ -3452,6 +3452,7 @@ export const de: Partial<Catalogue> = {
   "screenAsk.label": "Zu deinem Bildschirm fragen",
   "screenAsk.placeholder":
     "Frag zu dem, was auf dem Bildschirm ist, oder lass Psyche etwas erledigen …",
+  "screenAsk.voice.placeholder": "Frag Psyche etwas …",
   "screenAsk.send": "Fragen",
   "screenAsk.capturing": "Psyche sieht sich deinen Bildschirm an …",
   "screenAsk.chip.window": "{app}",

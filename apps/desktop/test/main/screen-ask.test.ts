@@ -12,6 +12,7 @@ class FakeWindow {
     on: (ev: string, fn: () => void) => this.#wcOn.set(ev, fn),
     send: (channel: string, payload: unknown) => this.sent.push([channel, payload]),
     isLoading: () => this.loading,
+    focus: () => undefined,
   };
   destroyed = false;
   visible = false;
@@ -159,6 +160,17 @@ describe("ScreenAskWindow", () => {
     panel.finishLoad();
     expect(panel.sent).toEqual([[IPC.screenAskOpen, { mode: "window" }]]);
     expect(panel.visible && panel.focused).toBe(true);
+  });
+
+  it("voice mode opens the same panel with no capture, and never starts region select", () => {
+    const { ask, live } = make();
+    ask.setEnabled(true);
+    const panel = live()[0] as FakeWindow;
+    panel.finishLoad();
+    ask.trigger("voice");
+    expect(panel.sent).toEqual([[IPC.screenAskOpen, { mode: "voice" }]]);
+    ask.trigger("voice");
+    expect(live()).toHaveLength(1);
   });
 
   it("a second trigger while open selects an area; the dragged box goes to the panel", () => {
