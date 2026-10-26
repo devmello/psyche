@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { canvas } from "./canvas/ja.ts";
 import { charts } from "./charts/ja.ts";
+import { links } from "./links/ja.ts";
 import { mailMeetings } from "./mail-meetings/ja.ts";
 import { overview } from "./overview/ja.ts";
 import { workflows } from "./workflows/ja.ts";
@@ -9,6 +10,8 @@ import { workflows } from "./workflows/ja.ts";
 export const ja: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
   ...mailMeetings,
+  // link menu and the "Open links in" setting
+  ...links,
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
   // the Overview screen (docs/design/agent-overview-2026.md)

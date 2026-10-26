@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { canvas } from "./canvas/ko.ts";
 import { charts } from "./charts/ko.ts";
+import { links } from "./links/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
 import { overview } from "./overview/ko.ts";
 import { workflows } from "./workflows/ko.ts";
@@ -9,6 +10,8 @@ import { workflows } from "./workflows/ko.ts";
 export const ko: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
   ...mailMeetings,
+  // link menu and the "Open links in" setting
+  ...links,
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
   // the Overview screen (docs/design/agent-overview-2026.md)

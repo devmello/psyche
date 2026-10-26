@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 import { Streamdown } from "streamdown";
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
+import { SafeLink } from "../links/SafeLink.tsx";
 import { psycheCodePlugin } from "./highlighter.ts";
 
 export interface MarkdownProps {
@@ -48,14 +49,9 @@ export function Markdown({ children, streaming = false, className }: MarkdownPro
         ),
         a: ({ href, children: label }) =>
           href ? (
-            <a
-              href={href}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="text-accent-11 underline underline-offset-2"
-            >
+            <SafeLink href={href} className="text-accent-11 underline underline-offset-2">
               {label}
-            </a>
+            </SafeLink>
           ) : (
             <span>{label}</span>
           ),

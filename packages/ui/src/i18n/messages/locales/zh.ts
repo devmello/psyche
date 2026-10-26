@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { canvas } from "./canvas/zh.ts";
 import { charts } from "./charts/zh.ts";
+import { links } from "./links/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
 import { overview } from "./overview/zh.ts";
 import { workflows } from "./workflows/zh.ts";
@@ -9,6 +10,8 @@ import { workflows } from "./workflows/zh.ts";
 export const zh: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
   ...mailMeetings,
+  // link menu and the "Open links in" setting
+  ...links,
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
   // the Overview screen (docs/design/agent-overview-2026.md)

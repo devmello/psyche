@@ -131,14 +131,22 @@ export function checkComposerText(v: unknown): string {
   return str(IPC.windowPrefillComposer, rec(IPC.windowPrefillComposer, v).text, "text", 4_000);
 }
 
-/** Pages the renderer may open in the system browser: https only, no userinfo (#505). */
+/**
+ * Pages the renderer may open in the system browser: http, https and mailto only, no userinfo
+ * (#505). `file:`, `javascript:` and custom schemes never reach `shell.openExternal`.
+ */
 export function checkExternalUrl(v: unknown): string {
-  const url = checkHttpUrl(
-    IPC.openExternal,
-    str(IPC.openExternal, rec(IPC.openExternal, v).url, "url"),
-  );
-  if (!url.startsWith("https://")) throw new IpcPayloadError(IPC.openExternal, "url must be https");
-  return url;
+  const raw = str(IPC.openExternal, rec(IPC.openExternal, v).url, "url");
+  if (/^mailto:/i.test(raw.trim())) {
+    let u: URL;
+    try {
+      u = new URL(raw.trim());
+    } catch {
+      throw new IpcPayloadError(IPC.openExternal, "url is not valid");
+    }
+    return u.href;
+  }
+  return checkHttpUrl(IPC.openExternal, raw);
 }
 
 /** Methods the renderer may call through main: any protocol method except the handshake. */

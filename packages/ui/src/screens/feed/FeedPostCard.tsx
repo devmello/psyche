@@ -13,6 +13,7 @@ import {
 import { t } from "../../i18n/core.ts";
 import { formatTime } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
+import { SafeLink } from "../../links/SafeLink.tsx";
 import { GrowthCardItems } from "../../teaching/GrowthCard.tsx";
 import { WorkflowPostCard } from "../workflows/WorkflowPostCard.tsx";
 import {
@@ -115,10 +116,8 @@ function StandardPostCard({
             >
               {sources.map((s) => (
                 <li key={s.name}>
-                  <a
+                  <SafeLink
                     href={s.url}
-                    target="_blank"
-                    rel="noreferrer noopener"
                     className="inline-flex items-center gap-1.5 rounded-xs hover:text-label-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring"
                   >
                     {/* A favicon-shaped tile: 16 px, radius-xs. Psyche fetches no remote favicons. */}
@@ -129,7 +128,7 @@ function StandardPostCard({
                       {s.letter}
                     </span>
                     {s.name}
-                  </a>
+                  </SafeLink>
                 </li>
               ))}
             </ul>

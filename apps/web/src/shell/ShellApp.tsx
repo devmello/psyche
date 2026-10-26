@@ -489,16 +489,29 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     },
     [prefillWindow, platform.windows, kitStore, navigate],
   );
-  const kitSlots = useMemo<UiSlots>(
-    () => ({ navigate, prefillComposer }),
-    [navigate, prefillComposer],
-  );
-
   const dispatch = useCallback(
     (action: LayoutAction) => {
       if (threadId) layout.dispatch(threadId, action, env());
     },
     [layout, threadId, env],
+  );
+
+  // A chat link's "Open in Psyche": a tab in the built-in browser, shown in the pane. Without a
+  // browser (the web build) or an open thread it goes to the default browser instead.
+  const openInPsyche = useCallback(
+    async (url: string) => {
+      const browser = platform.browser;
+      if (browser && threadId) {
+        await browser.openTab(url);
+        dispatch({ type: "open", pane: "browser" });
+      } else if (platform.external) await platform.external.open(url);
+      else globalThis.open?.(url, "_blank", "noopener,noreferrer");
+    },
+    [platform, threadId, dispatch],
+  );
+  const kitSlots = useMemo<UiSlots>(
+    () => ({ navigate, prefillComposer, openInPsyche }),
+    [navigate, prefillComposer, openInPsyche],
   );
 
   // The main chat always exists (docs/06 §4.13); create it once if the Gateway has none yet.
