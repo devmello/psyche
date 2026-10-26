@@ -23,6 +23,9 @@ import { Kbd } from "../../components/ui/kbd.tsx";
 import { useSearch } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
+import { entityDetail } from "../../people/EntityRow.tsx";
+import { EntityMonogram } from "../../people/glyphs.tsx";
+import type { EntitySummary } from "../../people/types.ts";
 import type { PaletteAction } from "../../shell/CommandPalette.tsx";
 import { isMac } from "../../shell/shortcuts.ts";
 import { Highlight, highlightTerms, SCOPE_ICON } from "./search-parts.tsx";
@@ -47,21 +50,44 @@ import {
 /** A row of the surface: an action (palette only) or a search hit. */
 export type SurfaceItem =
   | { kind: "action"; key: string; action: PaletteAction }
-  | { kind: "hit"; key: string; hit: SearchHit };
+  | { kind: "hit"; key: string; hit: SearchHit }
+  | { kind: "entity"; key: string; entity: EntitySummary };
 
 export interface SurfaceGroup {
-  id: SearchScope | "actions";
+  id: SearchScope | "actions" | "people" | "projects";
   label: string;
   items: SurfaceItem[];
 }
 
-/** Hits by kind in the index's order, best first; matching actions last (§5.5). */
+/**
+ * People and Projects first (docs/memory/people-and-projects-2026.md §6.4), then hits by kind in
+ * the index's order, best first; matching actions last (§5.5).
+ */
 export function surfaceGroups(
   hits: readonly SearchHit[],
   actions: readonly PaletteAction[],
   text: string,
+  entities: readonly EntitySummary[] = [],
 ): SurfaceGroup[] {
-  const groups: SurfaceGroup[] = SCOPE_ORDER.map((scope) => ({
+  const entityGroup = (id: "people" | "projects", label: string, rows: EntitySummary[]) => ({
+    id,
+    label,
+    items: rows.map(
+      (entity): SurfaceItem => ({ kind: "entity", key: `entity:${entity.id}`, entity }),
+    ),
+  });
+  const people = entityGroup(
+    "people",
+    t("people.group.people"),
+    entities.filter((e) => e.kind !== "project"),
+  );
+  const projects = entityGroup(
+    "projects",
+    t("people.group.projects"),
+    entities.filter((e) => e.kind === "project"),
+  );
+  const groups: SurfaceGroup[] = [people, projects].filter((g) => g.items.length > 0);
+  const scoped: SurfaceGroup[] = SCOPE_ORDER.map((scope) => ({
     id: scope,
     label: SCOPE_LABEL[scope],
     items: hits
@@ -69,6 +95,7 @@ export function surfaceGroups(
       .sort((a, b) => b.score - a.score)
       .map((hit): SurfaceItem => ({ kind: "hit", key: `${hit.scope}:${hit.id}`, hit })),
   })).filter((g) => g.items.length > 0);
+  groups.push(...scoped);
   const needle = text.trim().toLowerCase();
   const matching = actions.filter((a) => needle === "" || a.label.toLowerCase().includes(needle));
   if (matching.length > 0)
@@ -117,6 +144,13 @@ export interface SearchSurfaceProps {
   /** Show the preview column (the host decides by width: ≥ 1080 px). */
   preview?: boolean;
   autoFocus?: boolean;
+  /** People and projects matching the query (`memory.entities.search`), shown first. */
+  entities?: readonly EntitySummary[];
+  onOpenEntity?: (entity: EntitySummary) => void;
+  /** The card for the selected person or project in the preview column. */
+  renderEntityPreview?: (entity: EntitySummary) => ReactNode;
+  /** The clock for "last talked …" lines. */
+  now?: number;
 }
 
 export function SearchSurface({
@@ -135,6 +169,10 @@ export function SearchSurface({
   onRunAction,
   preview = false,
   autoFocus = false,
+  entities = [],
+  onOpenEntity,
+  renderEntityPreview,
+  now = Date.now(),
 }: SearchSurfaceProps): ReactElement {
   const baseId = useId();
   const listId = `${baseId}-list`;
@@ -145,8 +183,14 @@ export function SearchSurface({
   const palette = variant === "palette";
   const searching = !blank && !(parsed.queryText === "" && parsed.types.length === 0);
   const groups = useMemo(
-    () => surfaceGroups(searching ? hits : [], palette ? actions : [], parsed.text),
-    [searching, hits, palette, actions, parsed.text],
+    () =>
+      surfaceGroups(
+        searching ? hits : [],
+        palette ? actions : [],
+        parsed.text,
+        searching ? entities : [],
+      ),
+    [searching, hits, palette, actions, parsed.text, entities],
   );
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
   // Each keystroke (or a new result set) puts the selection back on the best result: the index
@@ -187,6 +231,7 @@ export function SearchSurface({
   const choose = (item: SurfaceItem | undefined, sideChat = false) => {
     if (!item) return;
     if (item.kind === "action") onRunAction?.(item.action);
+    else if (item.kind === "entity") onOpenEntity?.(item.entity);
     else if (sideChat && onOpenInSideChat) onOpenInSideChat(item.hit);
     else onOpen?.(item.hit);
   };
@@ -265,7 +310,7 @@ export function SearchSurface({
     results = (
       <>
         <p className="sr-only" role="status">
-          {t("screens.search.results", { n: flat.filter((i) => i.kind === "hit").length })}
+          {t("screens.search.results", { n: flat.filter((i) => i.kind !== "action").length })}
         </p>
         <div
           ref={listRef}
@@ -304,7 +349,7 @@ export function SearchSurface({
                     )}
                     data-testid="search-option"
                   >
-                    <SurfaceRow item={item} terms={terms} />
+                    <SurfaceRow item={item} terms={terms} now={now} />
                   </div>
                 );
               })}
@@ -492,7 +537,8 @@ export function SearchSurface({
           <aside
             aria-label={t("shell.search.preview")}
             className={cn(
-              "flex w-72 shrink-0 flex-col gap-3 p-4",
+              "flex shrink-0 flex-col gap-3 p-4",
+              current.kind === "entity" && renderEntityPreview ? "w-96" : "w-72",
               palette
                 ? "overflow-y-auto border-s border-separator"
                 : "rounded-lg bg-surface-raised shadow-elevation-1",
@@ -502,6 +548,8 @@ export function SearchSurface({
             <SurfacePreview
               item={current}
               terms={terms}
+              now={now}
+              {...(renderEntityPreview ? { renderEntityPreview } : {})}
               onOpen={() => choose(current)}
               {...(onOpenInSideChat && current.kind === "hit"
                 ? { onSideChat: () => choose(current, true) }
@@ -537,10 +585,31 @@ export function SearchSurface({
 function SurfaceRow({
   item,
   terms,
+  now,
 }: {
   item: SurfaceItem;
   terms: readonly string[];
+  now: number;
 }): ReactElement {
+  if (item.kind === "entity") {
+    const detail = entityDetail(item.entity, now);
+    return (
+      <>
+        <EntityMonogram kind={item.entity.kind} name={item.entity.name} className="mx-0.5" />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-body font-medium text-label-primary">
+            <Highlight text={item.entity.name} terms={terms} />
+          </span>
+          {detail ? (
+            <>
+              <span className="sr-only">: </span>
+              <span className="truncate text-callout text-label-secondary">{detail}</span>
+            </>
+          ) : null}
+        </span>
+      </>
+    );
+  }
   if (item.kind === "action") {
     return (
       <>
@@ -595,14 +664,39 @@ function SurfaceRow({
 function SurfacePreview({
   item,
   terms,
+  now,
   onOpen,
   onSideChat,
+  renderEntityPreview,
 }: {
   item: SurfaceItem;
   terms: readonly string[];
+  now: number;
   onOpen: () => void;
   onSideChat?: () => void;
+  renderEntityPreview?: (entity: EntitySummary) => ReactNode;
 }): ReactElement {
+  if (item.kind === "entity") {
+    if (renderEntityPreview) return <>{renderEntityPreview(item.entity)}</>;
+    const detail = entityDetail(item.entity, now);
+    return (
+      <>
+        <span className="inline-flex items-center gap-1.5 text-caption text-label-tertiary">
+          {t(`people.kind.${item.entity.kind}`)}
+        </span>
+        <p className="text-title-3 text-label-primary">
+          <Highlight text={item.entity.name} terms={terms} />
+        </p>
+        {detail ? <p className="text-callout text-label-secondary">{detail}</p> : null}
+        <div className="mt-auto flex flex-wrap gap-2">
+          <Button size="sm" onClick={onOpen}>
+            <CornerDownLeft aria-hidden="true" />
+            {t("shell.search.open")}
+          </Button>
+        </div>
+      </>
+    );
+  }
   if (item.kind === "action") {
     return (
       <>
