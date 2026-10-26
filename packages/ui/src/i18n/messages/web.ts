@@ -27,7 +27,6 @@ export const web = {
   "web.files.pickError": "Psyche couldn't open the folder chooser ({error}). Nothing changed.",
   "web.files.choose": "Choose a folder…",
   "web.files.chooseHint": "Shared read only; switch it to read and write in the list below.",
-  "web.agent.label": "Agent",
   "web.onboarding.title": "Set up Psyche",
   "web.onboarding.saveError": "Could not save your agent: {error}",
 

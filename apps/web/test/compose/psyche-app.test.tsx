@@ -95,6 +95,41 @@ describe("the agent sheet over the chat (redesign §5.7)", () => {
   });
 });
 
+describe("the agent sheet over the current section (#614)", () => {
+  it("the Feed's Schedule opens the sheet over the feed and closing returns to /feed", async () => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", "/feed");
+    const { platform } = webPlatform();
+    render(<PsycheApp platform={platform} />);
+    const feed = await screen.findByTestId("screen-feed");
+    fireEvent.click(within(feed).getByRole("button", { name: "Schedule" }));
+    const sheet = await screen.findByTestId("agent-sheet");
+    expect(window.location.pathname).toBe("/agent/upcoming");
+    expect(
+      within(sheet)
+        .getByRole("tab", { name: /Upcoming/ })
+        .getAttribute("aria-selected"),
+    ).toBe("true");
+    // The feed stays mounted underneath (inert behind the modal sheet), not the chat, and the
+    // sidebar still marks Feed.
+    expect(screen.getByTestId("screen-feed")).toBe(feed);
+    expect(screen.queryByTestId("kit-chat")).toBeNull();
+    const current = screen
+      .getByTestId("sidebar")
+      .querySelector('[aria-current="page"]')
+      ?.textContent?.trim();
+    expect(current).toMatch(/^Feed/);
+    // Tabs change the route and keep the feed beneath.
+    fireEvent.click(within(sheet).getByRole("tab", { name: /Activity/ }));
+    await waitFor(() => expect(window.location.pathname).toBe("/agent/activity"));
+    expect(screen.getByTestId("screen-feed")).toBe(feed);
+    fireEvent.keyDown(screen.getByTestId("agent-sheet"), { key: "Escape" });
+    await waitFor(() => expect(window.location.pathname).toBe("/feed"));
+    await waitFor(() => expect(screen.queryByTestId("agent-sheet")).toBeNull());
+    expect(screen.getByTestId("screen-feed")).toBe(feed);
+  });
+});
+
 describe("the composed app on the web host (A8)", () => {
   it("renders the kit's chat column with the persona and the phone layout below 720 px", async () => {
     window.innerWidth = 390;
