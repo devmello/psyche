@@ -1,7 +1,9 @@
+import * as m from "motion/react-m";
 import type { ReactElement, ReactNode } from "react";
 import { Card, type CardAction } from "../blocks/card.tsx";
 import { t } from "../i18n/core.ts";
 import type { MessageId } from "../i18n/index.ts";
+import { duration, fadeRise } from "../motion/index.ts";
 
 /** The Overview's section anchors, in page order (agent-overview-2026 §5.1). */
 export const OVERVIEW_SECTIONS = [
@@ -42,7 +44,25 @@ export function OverviewSection({
 }: OverviewSectionProps): ReactElement {
   const title = sectionTitle(id);
   return (
-    <div id={id} className="scroll-mt-16" data-testid={`overview-${id}`}>
+    // Each section fades and rises in once, staggered by its place on the page (capped, so the
+    // last ones do not wait); motion.md §4.1. Reduced motion keeps the fade.
+    <m.div
+      id={id}
+      // A period change resizes sections; the ones below glide to their new place.
+      layout="position"
+      className="scroll-mt-16"
+      data-testid={`overview-${id}`}
+      initial={fadeRise.initial}
+      animate={{
+        ...fadeRise.animate,
+        transition: {
+          ...fadeRise.animate.transition,
+          delay:
+            (Math.min(OVERVIEW_SECTIONS.indexOf(id), duration.staggerMax) * duration.staggerStep) /
+            1000,
+        },
+      }}
+    >
       <Card
         label={title}
         variant="framed"
@@ -56,6 +76,6 @@ export function OverviewSection({
           <p className="text-callout text-label-tertiary">{t("overview.section.empty")}</p>
         )}
       </Card>
-    </div>
+    </m.div>
   );
 }
