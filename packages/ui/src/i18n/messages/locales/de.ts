@@ -232,6 +232,9 @@ export const de: Partial<Catalogue> = {
   "blocks.common.viewDiff": "Diff anzeigen",
   "blocks.common.open": "Öffnen",
 
+  "blocks.card.status":
+    "{status, select, pending {Ausstehend} running {Läuft} waiting {Wartet} done {Fertig} failed {Fehlgeschlagen} blocked {Blockiert} cancelled {Abgebrochen} other {{status}}}{warning, select, yes {, Ergebnis unklar} other {}}",
+  "blocks.card.unknown": "Psyche kann diese Art von Element noch nicht anzeigen ({type}).",
   "blocks.message.loading":
     "{what, select, approval {Genehmigung} question {Frage} receipt {Beleg} artifact {Artefakt} file {Datei} task {Aufgabe} plan {Plan} other {Element}} wird geladen",
   "blocks.message.missing":
@@ -3447,4 +3450,53 @@ export const de: Partial<Catalogue> = {
   "settings.key.voice.conversation.reviewBeforeSend": "Vor dem Senden prüfen",
   "settings.key.voice.conversation.pauseMs": "Pause, bevor Psyche antwortet",
   "settings.key.voice.conversation.brief": "Gesprochenes Briefing",
+
+  // Ask about my screen
+  "screenAsk.label": "Zu deinem Bildschirm fragen",
+  "screenAsk.placeholder":
+    "Frag zu dem, was auf dem Bildschirm ist, oder lass Psyche etwas erledigen …",
+  "screenAsk.send": "Fragen",
+  "screenAsk.capturing": "Psyche sieht sich deinen Bildschirm an …",
+  "screenAsk.chip.window": "{app}",
+  "screenAsk.chip.region": "Bereich von {app}",
+  "screenAsk.chip.textOnly": "{app} · nur Text",
+  "screenAsk.chip.none": "Nichts aufgenommen",
+  "screenAsk.drop": "Bildschirminhalt nicht senden",
+  "screenAsk.pin": "Bildschirmfoto immer senden",
+  "screenAsk.unpin": "Bildschirmfoto nur bei Bedarf senden",
+  "screenAsk.recapture": "Erneut aufnehmen",
+  "screenAsk.selectArea": "Bereich auswählen",
+  "screenAsk.refusal.app_excluded": "Psyche nimmt {app} nicht auf.",
+  "screenAsk.refusal.secure_field":
+    "Ein Passwortfeld ist aktiv, daher gibt es kein Bildschirmfoto.",
+  "screenAsk.refusal.no_window": "Kein Fenster zum Aufnehmen.",
+  "screenAsk.refusal.permission_missing":
+    "Erlaube die Bildschirmaufnahme, um ein Bildschirmfoto zu senden.",
+  "screenAsk.allowCapture": "Erlauben",
+  "screenAsk.captureFailed":
+    "Der Bildschirm konnte nicht aufgenommen werden. Du kannst trotzdem fragen.",
+  "screenAsk.dest.new": "Neuer Chat",
+  "screenAsk.dest.current": "Aktueller Chat",
+  "screenAsk.dest.label": "Senden an",
+  "screenAsk.mic.start": "Anfrage sprechen",
+  "screenAsk.mic.stop": "Zuhören beenden",
+  "screenAsk.answer.thinking": "Denkt nach …",
+  "screenAsk.answer.failed": "Etwas ist schiefgelaufen. Öffne den Chat für Details.",
+  "screenAsk.open": "In Psyche öffnen",
+  "screenAsk.cancelHint": "Esc zum Schließen",
+  "screenAsk.region.hint": "Ziehe, um einen Bereich auszuwählen. Esc behält das ganze Fenster.",
+  "screenAsk.region.label": "Bereich des Bildschirms auswählen",
+  "settings.screenAsk.title": "Zum Bildschirm fragen",
+  "settings.key.screenAsk.enabled": "Zu meinem Bildschirm fragen",
+  "settings.screenAsk.enabledHint":
+    "Drück den Kurzbefehl in einer beliebigen App, um zu dem zu fragen, was auf dem Bildschirm ist, oder um Psyche etwas damit erledigen zu lassen. Erst wenn du ihn drückst, wird etwas aufgenommen.",
+  "settings.key.screenAsk.shortcut": "Kurzbefehl",
+  "settings.screenAsk.shortcutHint":
+    "Öffnet das Fragefeld. Drück ihn erneut, während das Feld offen ist, um einen Bereich auszuwählen.",
+  "settings.key.screenAsk.destination": "Senden an",
+  "settings.key.screenAsk.alwaysImage": "Bildschirmfoto immer mitsenden",
+  "settings.screenAsk.alwaysImageHint":
+    "Sonst sendet Psyche es nur, wenn sich deine Anfrage auf den Bildschirm bezieht, und sieht es sich nur an, wenn es nötig ist.",
+  "voice.phrases.screen":
+    "das|dies|diese|dieser|hier|auf dem bildschirm|auf meinem bildschirm|was sehe ich da|diese seite|dieser fehler|diese fehlermeldung|dieses diagramm|dieses fenster|oben|unten",
 };

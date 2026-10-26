@@ -84,6 +84,14 @@ export const IPC = {
   // Voice HUD only (HUD → main): the conversation ended, or open its thread in Psyche.
   voiceHudDone: "psyche:voice-hud:done",
   voiceHudOpenThread: "psyche:voice-hud:open-thread",
+  // Ask about my screen (docs/design/screen-ask-2026.md): main → panel what to capture; panel →
+  // main hide, open the thread, resize, select an area; region overlay → main the dragged box.
+  screenAskOpen: "psyche:screen-ask:open",
+  screenAskDone: "psyche:screen-ask:done",
+  screenAskOpenThread: "psyche:screen-ask:open-thread",
+  screenAskResize: "psyche:screen-ask:resize",
+  screenAskSelectArea: "psyche:screen-ask:select-area",
+  screenAskRegion: "psyche:screen-ask:region",
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];

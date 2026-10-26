@@ -221,6 +221,9 @@ export const hi: Partial<Catalogue> = {
   "blocks.common.viewDiff": "डिफ़ देखें",
   "blocks.common.open": "खोलें",
 
+  "blocks.card.status":
+    "{status, select, pending {लंबित} running {चल रहा है} waiting {प्रतीक्षा में} done {हो गया} failed {विफल} blocked {अवरुद्ध} cancelled {रद्द} other {{status}}}{warning, select, yes {, परिणाम अनिश्चित} other {}}",
+  "blocks.card.unknown": "Psyche अभी इस प्रकार का आइटम नहीं दिखा सकता ({type})।",
   "blocks.message.loading":
     "{what, select, approval {स्वीकृति} question {सवाल} receipt {रसीद} artifact {आर्टिफ़ैक्ट} file {फ़ाइल} task {टास्क} plan {योजना} other {आइटम}} लोड हो रहा है",
   "blocks.message.missing":
@@ -3319,4 +3322,49 @@ export const hi: Partial<Catalogue> = {
   "settings.key.voice.conversation.reviewBeforeSend": "भेजने से पहले देखें",
   "settings.key.voice.conversation.pauseMs": "Psyche के जवाब देने से पहले विराम",
   "settings.key.voice.conversation.brief": "बोला गया ब्रीफ़",
+
+  // Ask about my screen
+  "screenAsk.label": "अपनी स्क्रीन के बारे में पूछें",
+  "screenAsk.placeholder": "स्क्रीन पर जो है उसके बारे में पूछें, या Psyche से कुछ करवाएँ…",
+  "screenAsk.send": "पूछें",
+  "screenAsk.capturing": "आपकी स्क्रीन देखी जा रही है…",
+  "screenAsk.chip.window": "{app}",
+  "screenAsk.chip.region": "{app} का हिस्सा",
+  "screenAsk.chip.textOnly": "{app} · केवल टेक्स्ट",
+  "screenAsk.chip.none": "कुछ कैप्चर नहीं हुआ",
+  "screenAsk.drop": "स्क्रीन पर जो है उसे न भेजें",
+  "screenAsk.pin": "स्क्रीनशॉट हमेशा भेजें",
+  "screenAsk.unpin": "स्क्रीनशॉट सिर्फ़ ज़रूरत होने पर भेजें",
+  "screenAsk.recapture": "फिर से कैप्चर करें",
+  "screenAsk.selectArea": "हिस्सा चुनें",
+  "screenAsk.refusal.app_excluded": "Psyche {app} को कैप्चर नहीं करता।",
+  "screenAsk.refusal.secure_field": "पासवर्ड फ़ील्ड पर फ़ोकस है, इसलिए कोई स्क्रीनशॉट नहीं है।",
+  "screenAsk.refusal.no_window": "कैप्चर करने के लिए कोई विंडो नहीं है।",
+  "screenAsk.refusal.permission_missing": "स्क्रीनशॉट भेजने के लिए स्क्रीन कैप्चर की अनुमति दें।",
+  "screenAsk.allowCapture": "अनुमति दें",
+  "screenAsk.captureFailed": "स्क्रीन कैप्चर नहीं हो सकी। आप फिर भी पूछ सकते हैं।",
+  "screenAsk.dest.new": "नई चैट",
+  "screenAsk.dest.current": "मौजूदा चैट",
+  "screenAsk.dest.label": "यहाँ भेजें",
+  "screenAsk.mic.start": "अपना अनुरोध बोलें",
+  "screenAsk.mic.stop": "सुनना बंद करें",
+  "screenAsk.answer.thinking": "सोच रहा है…",
+  "screenAsk.answer.failed": "कुछ गड़बड़ हो गई। ज़्यादा जानने के लिए चैट खोलें।",
+  "screenAsk.open": "Psyche में खोलें",
+  "screenAsk.cancelHint": "बंद करने के लिए Esc",
+  "screenAsk.region.hint": "कोई हिस्सा चुनने के लिए खींचें। Esc पूरी विंडो रखता है।",
+  "screenAsk.region.label": "स्क्रीन का कोई हिस्सा चुनें",
+  "settings.screenAsk.title": "स्क्रीन के बारे में पूछें",
+  "settings.key.screenAsk.enabled": "मेरी स्क्रीन के बारे में पूछें",
+  "settings.screenAsk.enabledHint":
+    "स्क्रीन पर जो है उसके बारे में पूछने, या Psyche से उसके साथ कुछ करवाने के लिए किसी भी ऐप में शॉर्टकट दबाएँ। जब तक आप इसे नहीं दबाते, कुछ भी कैप्चर नहीं होता।",
+  "settings.key.screenAsk.shortcut": "शॉर्टकट",
+  "settings.screenAsk.shortcutHint":
+    "पूछने वाला पैनल खोलता है। पैनल खुला होने पर इसे फिर से दबाएँ, तो कोई हिस्सा चुन सकते हैं।",
+  "settings.key.screenAsk.destination": "यहाँ भेजें",
+  "settings.key.screenAsk.alwaysImage": "स्क्रीनशॉट हमेशा शामिल करें",
+  "settings.screenAsk.alwaysImageHint":
+    "नहीं तो Psyche इसे सिर्फ़ तब भेजता है जब आपका अनुरोध स्क्रीन के बारे में हो, और ज़रूरत होने पर ही इसे देखता है।",
+  "voice.phrases.screen":
+    "यह|ये|वह|इस|यहाँ|स्क्रीन पर|मेरी स्क्रीन पर|मैं क्या देख रहा हूँ|यह क्या है|यह पेज|यह एरर|यह चार्ट|यह विंडो|ऊपर|नीचे",
 };

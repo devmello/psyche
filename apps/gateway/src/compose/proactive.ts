@@ -1,9 +1,10 @@
 import type { AgentToolRegistry } from "@psyche/agent-core";
 import { getSetting, type PsycheDb } from "@psyche/db";
-import type { SqliteMemoryStore } from "@psyche/memory";
+import type { GraphStore, SqliteMemoryStore } from "@psyche/memory";
 import type { PsycheNotifier } from "@psyche/notifications";
 import type { PsychePermissionBroker } from "@psyche/permissions";
 import {
+  type AudioCapture,
   appleMailSource,
   arxivSource,
   createFeedHandlers,
@@ -21,6 +22,7 @@ import {
   IdeasService,
   MailWatcher,
   MeetingPrepService,
+  type MeetingTranscriber,
   ProposalService,
   publicFetch,
   rssSource,
@@ -42,6 +44,7 @@ import type { SqliteTaskEngine, TaskWorkerPool } from "@psyche/tasks";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 import { mountParamsOnly, surfaceOf } from "./handlers.ts";
+import { type ComposedMeetings, composeMeetings, graphPrepHooks } from "./meetings.ts";
 
 /**
  * Proactive surfaces (S15; features O2, O5–O9): goals with check-ins on the scheduler, the
@@ -94,6 +97,19 @@ export interface ProactiveSetup {
   broker?: PsychePermissionBroker;
   /** The loop's tool registry: approved proposals run their calls through it. */
   registry?: AgentToolRegistry;
+  /** Post-meeting notes and Record meeting (§4.6); off without a registry. */
+  meetings?: {
+    home: string;
+    /** The summary model; default `model`. */
+    primary?: ModelRef;
+    primaryIsRemote?: () => boolean;
+    /** The speech part's long-form transcription on the Mac. */
+    transcriber?: MeetingTranscriber;
+    /** The helper microphone, once a helper offers capture. */
+    capture?: () => AudioCapture | undefined;
+  };
+  /** The people graph while it is on: prep reads people and loops, notes add loops. */
+  graph?: () => GraphStore | undefined;
 }
 
 export interface ComposedProactive {
@@ -108,6 +124,8 @@ export interface ComposedProactive {
   readonly proposals: ProposalService | undefined;
   /** Meeting prep (§4.5), off until the owner turns it on (`meetings.prep.enabled`). */
   readonly meetingPrep: MeetingPrepService | undefined;
+  /** Post-meeting notes and Record meeting (§4.6), when the composition gave `meetings`. */
+  readonly meetings: ComposedMeetings | undefined;
   /** The owner's writing style (§4.3), refreshed nightly only when `mail.voice.enabled`. */
   readonly voice: VoiceService | undefined;
   /** Reply drafts in the owner's voice, saved through one approval card (§4.3). */
@@ -139,6 +157,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     skillUpdates,
     broker,
     registry,
+    graph,
   } = setup;
   const goals = new GoalsService({
     db: db.sqlite,
@@ -216,6 +235,8 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           provider,
           model,
           ownerAddresses,
+          // Attendees and open loops from the people graph (§4.5 steps 2–3), when it is on.
+          ...(graph === undefined ? {} : graphPrepHooks(graph)),
           scope: () =>
             getSetting(db, "meetings.prep.scope")?.value === "all" ? "all" : "external",
           ...(timeZone === undefined ? {} : { timezone: timeZone }),
@@ -281,6 +302,34 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           now: () => clock.now(),
           ...(typeof link === "string" && link !== "" ? { schedulingLink: link } : {}),
         });
+  const meetings =
+    registry === undefined || setup.meetings === undefined
+      ? undefined
+      : composeMeetings({
+          db,
+          clock,
+          home: setup.meetings.home,
+          tools: registry,
+          feed: feed.store,
+          notifier,
+          ...(proposals === undefined ? {} : { proposals }),
+          provider,
+          primary: setup.meetings.primary ?? model,
+          utility: model,
+          ...(setup.meetings.primaryIsRemote === undefined
+            ? {}
+            : { primaryIsRemote: setup.meetings.primaryIsRemote }),
+          ...(setup.meetings.transcriber === undefined
+            ? {}
+            : { transcriber: setup.meetings.transcriber }),
+          ...(setup.meetings.capture === undefined ? {} : { capture: setup.meetings.capture }),
+          ...(graph === undefined ? {} : { graph }),
+          ownerAddresses,
+          ...(timeZone === undefined ? {} : { timezone: timeZone }),
+          publish: (event, payload) => publish(event, payload),
+          onFeedEvent: (e) => publish(e.event, e.payload as never),
+          ...(logger === undefined ? {} : { logger }),
+        });
   const proposalHandlers: Record<string, HandlerDef> = {};
   if (proposals !== undefined) {
     // `proposals.approve` hands the caller the answer token of its own surface only (§3.7).
@@ -301,6 +350,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     digest,
     proposals,
     meetingPrep,
+    meetings,
     voice,
     drafts,
     scheduling,
@@ -309,6 +359,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
       ...mountParamsOnly(createFeedHandlers(feed) as never),
       ...mountParamsOnly(createIdeaHandlers(ideas) as never),
       ...proposalHandlers,
+      ...(meetings?.handlers ?? {}),
     },
     launcher: (inner, pool) =>
       withProactiveJobs(inner, {

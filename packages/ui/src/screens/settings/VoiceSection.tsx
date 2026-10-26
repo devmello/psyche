@@ -44,6 +44,59 @@ export interface SystemDictationProps {
   onRecheck?: () => void;
   /** Desktop: asks main whether another app holds a shortcut before it is saved. */
   onCheckShortcut?: (accelerator: string) => Promise<ShortcutCheck>;
+  /** Desktop: the same check for the Ask about screen shortcut. */
+  onCheckScreenShortcut?: (accelerator: string) => Promise<ShortcutCheck>;
+}
+
+/** Ask about my screen (docs/design/screen-ask-2026.md §6): desktop only. */
+export function ScreenAskGroup({
+  values,
+  onChange,
+  onCheck,
+}: Pick<SettingsFormProps, "values" | "onChange"> & {
+  onCheck?: (accelerator: string) => Promise<ShortcutCheck>;
+}): ReactElement {
+  const enabled = bool(values, "screenAsk.enabled", true);
+  return (
+    <Group title={t("settings.screenAsk.title")}>
+      <SwitchField
+        label={t("settings.key.screenAsk.enabled")}
+        description={t("settings.screenAsk.enabledHint")}
+        checked={enabled}
+        settingKey="screenAsk.enabled"
+        onChange={(on) => onChange("screenAsk.enabled", on)}
+      />
+      {enabled ? (
+        <>
+          <ShortcutRecorder
+            label={t("settings.key.screenAsk.shortcut")}
+            description={t("settings.screenAsk.shortcutHint")}
+            value={str(values, "screenAsk.shortcut", "Alt+Shift+Space")}
+            onChange={(v) => onChange("screenAsk.shortcut", v)}
+            {...(onCheck ? { onCheck } : {})}
+          />
+          <RadioField
+            label={t("settings.key.screenAsk.destination")}
+            inline
+            value={str(values, "screenAsk.destination", "new")}
+            settingKey="screenAsk.destination"
+            onChange={(v) => onChange("screenAsk.destination", v)}
+            options={[
+              { value: "new", label: t("screenAsk.dest.new") },
+              { value: "current", label: t("screenAsk.dest.current") },
+            ]}
+          />
+          <SwitchField
+            label={t("settings.key.screenAsk.alwaysImage")}
+            description={t("settings.screenAsk.alwaysImageHint")}
+            checked={bool(values, "screenAsk.alwaysImage", false)}
+            settingKey="screenAsk.alwaysImage"
+            onChange={(on) => onChange("screenAsk.alwaysImage", on)}
+          />
+        </>
+      ) : null}
+    </Group>
+  );
 }
 
 const PTT_KEYS = ["fn", "rightOption", "rightCommand"] as const;
@@ -316,6 +369,7 @@ export function VoicePanel({
   onOpenAccessibility,
   onRecheck,
   onCheckShortcut,
+  onCheckScreenShortcut,
   voices,
   onGetVoices,
 }: SettingsFormProps & LoadProps & SystemDictationProps & VoiceChoices): ReactElement {
@@ -390,6 +444,13 @@ export function VoicePanel({
               {...(system.hotkeyTaken ? { takenNow: system.hotkeyTaken } : {})}
             />
           </Group>
+        ) : null}
+        {system ? (
+          <ScreenAskGroup
+            values={values}
+            onChange={onChange}
+            {...(onCheckScreenShortcut ? { onCheck: onCheckScreenShortcut } : {})}
+          />
         ) : null}
         <VoiceConversationGroup
           values={values}

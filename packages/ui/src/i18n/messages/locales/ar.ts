@@ -222,6 +222,9 @@ export const ar: Partial<Catalogue> = {
   "blocks.common.viewDiff": "عرض الفروق",
   "blocks.common.open": "فتح",
 
+  "blocks.card.status":
+    "{status, select, pending {معلّق} running {قيد التشغيل} waiting {في الانتظار} done {تم} failed {فشل} blocked {محظور} cancelled {أُلغي} other {{status}}}{warning, select, yes {، النتيجة غير مؤكدة} other {}}",
+  "blocks.card.unknown": "لا يستطيع Psyche عرض هذا النوع من العناصر بعد ({type}).",
   "blocks.message.loading":
     "جارٍ تحميل {what, select, approval {الموافقة} question {السؤال} receipt {الإيصال} artifact {المُخرَج} file {الملف} task {المهمة} plan {الخطة} other {العنصر}}",
   "blocks.message.missing":
@@ -3333,4 +3336,49 @@ export const ar: Partial<Catalogue> = {
   "settings.key.voice.conversation.reviewBeforeSend": "المراجعة قبل الإرسال",
   "settings.key.voice.conversation.pauseMs": "مهلة قبل أن يرد Psyche",
   "settings.key.voice.conversation.brief": "الملخص المنطوق",
+
+  // Ask about my screen
+  "screenAsk.label": "اسأل عن شاشتك",
+  "screenAsk.placeholder": "اسأل عمّا يظهر على الشاشة، أو اطلب من Psyche أن يفعل شيئًا…",
+  "screenAsk.send": "اسأل",
+  "screenAsk.capturing": "جارٍ النظر إلى شاشتك…",
+  "screenAsk.chip.window": "{app}",
+  "screenAsk.chip.region": "جزء من {app}",
+  "screenAsk.chip.textOnly": "{app} · نص فقط",
+  "screenAsk.chip.none": "لم يُلتقط شيء",
+  "screenAsk.drop": "لا ترسل ما على الشاشة",
+  "screenAsk.pin": "أرسل لقطة الشاشة دائمًا",
+  "screenAsk.unpin": "أرسل لقطة الشاشة عند الحاجة فقط",
+  "screenAsk.recapture": "التقط مجددًا",
+  "screenAsk.selectArea": "حدد منطقة",
+  "screenAsk.refusal.app_excluded": "لا يلتقط Psyche {app}.",
+  "screenAsk.refusal.secure_field": "حقل كلمة مرور في وضع التركيز، لذا لا توجد لقطة شاشة.",
+  "screenAsk.refusal.no_window": "لا توجد نافذة لالتقاطها.",
+  "screenAsk.refusal.permission_missing": "اسمح بتسجيل الشاشة لإرسال لقطة شاشة.",
+  "screenAsk.allowCapture": "سماح",
+  "screenAsk.captureFailed": "تعذّر التقاط الشاشة. لا يزال بإمكانك السؤال.",
+  "screenAsk.dest.new": "دردشة جديدة",
+  "screenAsk.dest.current": "الدردشة الحالية",
+  "screenAsk.dest.label": "إرسال إلى",
+  "screenAsk.mic.start": "قل طلبك",
+  "screenAsk.mic.stop": "إيقاف الاستماع",
+  "screenAsk.answer.thinking": "جارٍ التفكير…",
+  "screenAsk.answer.failed": "حدث خطأ ما. افتح الدردشة لمعرفة المزيد.",
+  "screenAsk.open": "فتح في Psyche",
+  "screenAsk.cancelHint": "Esc للإغلاق",
+  "screenAsk.region.hint": "اسحب لتحديد منطقة. يُبقي Esc النافذة كاملة.",
+  "screenAsk.region.label": "حدد منطقة من الشاشة",
+  "settings.screenAsk.title": "السؤال عن الشاشة",
+  "settings.key.screenAsk.enabled": "السؤال عن شاشتي",
+  "settings.screenAsk.enabledHint":
+    "اضغط الاختصار في أي تطبيق لتسأل عمّا يظهر على الشاشة، أو لتطلب من Psyche أن يفعل به شيئًا. لا يُلتقط أي شيء حتى تضغطه.",
+  "settings.key.screenAsk.shortcut": "الاختصار",
+  "settings.screenAsk.shortcutHint":
+    "يفتح لوحة السؤال. اضغطه مرة أخرى أثناء فتح اللوحة لتحديد منطقة.",
+  "settings.key.screenAsk.destination": "إرسال إلى",
+  "settings.key.screenAsk.alwaysImage": "تضمين لقطة الشاشة دائمًا",
+  "settings.screenAsk.alwaysImageHint":
+    "وإلا فإن Psyche يرسلها فقط عندما يتعلق طلبك بالشاشة، ولا ينظر إليها إلا إذا احتاج إلى ذلك.",
+  "voice.phrases.screen":
+    "هذا|هذه|ذلك|تلك|هنا|على الشاشة|على شاشتي|ماذا أرى|ما هذا|هذه الصفحة|هذا الخطأ|هذا الرسم البياني|هذه النافذة|أعلاه|بالأسفل",
 };
