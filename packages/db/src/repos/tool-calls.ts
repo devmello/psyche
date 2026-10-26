@@ -29,6 +29,8 @@ export interface ToolCallUpsert {
   readonly resultRef?: string | null;
   readonly provenanceOut?: ProvenanceOut;
   readonly receiptId?: string | null;
+  /** The run-trace step that shows the call. */
+  readonly stepId?: string;
 }
 
 const TERMINAL: readonly ToolCallStatus[] = ["ok", "failed", "uncertain", "blocked"];
@@ -61,6 +63,7 @@ export function upsertToolCall(db: PsycheDb, input: ToolCallUpsert): ToolCall {
         resultRef: input.resultRef ?? null,
         provenanceOut: input.provenanceOut ?? "trusted",
         receiptId: input.receiptId ?? null,
+        stepId: input.stepId ?? null,
         startedAt: at,
         endedAt,
         status: input.status,
@@ -89,6 +92,7 @@ export function upsertToolCall(db: PsycheDb, input: ToolCallUpsert): ToolCall {
   if (input.resultRef !== undefined) set.resultRef = input.resultRef;
   if (input.provenanceOut !== undefined) set.provenanceOut = input.provenanceOut;
   if (input.receiptId !== undefined) set.receiptId = input.receiptId;
+  if (input.stepId !== undefined) set.stepId = input.stepId;
   const row = db.drizzle
     .update(toolCalls)
     .set(set)
@@ -144,6 +148,10 @@ export interface NewToolPayload {
   readonly kind: "params" | "result" | "screenshot";
   readonly mime: string;
   readonly data: Uint8Array;
+  /** The run-trace step it belongs to (`runs.step`). */
+  readonly stepId?: string;
+  /** Over the 1 MB cap: the head and tail were kept (run trace §4.5). */
+  readonly truncated?: boolean;
 }
 
 /** Stores a payload and returns its `result_ref` form, `payload:<id>`. */
@@ -158,6 +166,8 @@ export function putToolPayload(db: PsycheDb, input: NewToolPayload): string {
       mime: input.mime,
       data: Buffer.from(input.data),
       createdAt: db.now(),
+      stepId: input.stepId ?? null,
+      truncated: input.truncated === true ? 1 : 0,
     })
     .run();
   return `payload:${id}`;

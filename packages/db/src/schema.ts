@@ -7,7 +7,7 @@
  * keys as BLOB) so drizzle rows and raw better-sqlite3 rows look the same. `src/mappers.ts`
  * converts rows into the `@psyche/protocol` shapes.
  */
-import { blob, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { blob, integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { connectorsSchema } from "./schema-connectors.ts";
 import { notificationsSchema } from "./schema-notifications.ts";
 import { permissionsSchema } from "./schema-permissions.ts";
@@ -147,6 +147,21 @@ export const runs = sqliteTable("runs", {
   usage: text("usage").notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+  // Run trace (migration 202610251300_gateway_run-trace).
+  kind: text("kind"),
+  title: text("title"),
+  parentRunId: text("parent_run_id"),
+  rootRunId: text("root_run_id"),
+  taskId: text("task_id"),
+  automationRunId: text("automation_run_id"),
+  origin: text("origin"),
+  budget: text("budget"),
+  deadline: text("deadline"),
+  specialist: text("specialist"),
+  note: text("note"),
+  stepCount: integer("step_count").notNull().default(0),
+  currentStepId: text("current_step_id"),
+  lastStepAt: text("last_step_at"),
 });
 
 export const toolCalls = sqliteTable("tool_calls", {
@@ -171,6 +186,7 @@ export const toolCalls = sqliteTable("tool_calls", {
   status: text("status").notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+  stepId: text("step_id"),
 });
 
 export const chatQueue = sqliteTable("chat_queue", {
@@ -194,7 +210,45 @@ export const toolPayloads = sqliteTable("tool_payloads", {
   mime: text("mime").notNull(),
   data: blob("data", { mode: "buffer" }).notNull(),
   createdAt: text("created_at").notNull(),
+  stepId: text("step_id"),
+  truncated: integer("truncated").notNull().default(0),
 });
+
+/** Run-trace steps (run trace §4.2): the RunStep as JSON plus the retained thinking text. */
+export const runSteps = sqliteTable(
+  "run_steps",
+  {
+    runId: text("run_id").notNull(),
+    id: text("id").notNull(),
+    seq: integer("seq").notNull(),
+    kind: text("kind").notNull(),
+    status: text("status").notNull(),
+    toolCallId: text("tool_call_id"),
+    data: text("data").notNull(),
+    textFull: text("text_full"),
+    textExpiresAt: text("text_expires_at"),
+    startedAt: text("started_at").notNull(),
+    endedAt: text("ended_at"),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.runId, t.id] })],
+);
+
+/** Frames Psyche saw during a run (run trace §4.2). */
+export const runFrames = sqliteTable(
+  "run_frames",
+  {
+    runId: text("run_id").notNull(),
+    seq: integer("seq").notNull(),
+    at: text("at").notNull(),
+    stepId: text("step_id"),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    path: text("path"),
+    expiredAt: text("expired_at"),
+  },
+  (t) => [primaryKey({ columns: [t.runId, t.seq] })],
+);
 
 /** WebAuthn passkeys per device (issue #79). */
 export const passkeys = sqliteTable("passkeys", {
@@ -251,6 +305,7 @@ export const usage = sqliteTable("usage", {
   reasoning: integer("reasoning").notNull(),
   costUsd: real("cost_usd").notNull(),
   createdAt: text("created_at").notNull(),
+  stepId: text("step_id"),
 });
 
 // §9 Library index (P4; migration 202610221000_gateway_library-items) -------------------------
@@ -313,6 +368,8 @@ export const schema = {
   toolCalls,
   chatQueue,
   toolPayloads,
+  runSteps,
+  runFrames,
   gatewayIdempotency,
   agentThreadState,
   passkeys,
@@ -349,6 +406,8 @@ export type ToolCallRow = typeof toolCalls.$inferSelect;
 export type NewToolCallRow = typeof toolCalls.$inferInsert;
 export type ChatQueueRow = typeof chatQueue.$inferSelect;
 export type ToolPayloadRow = typeof toolPayloads.$inferSelect;
+export type RunStepRow = typeof runSteps.$inferSelect;
+export type RunFrameRow = typeof runFrames.$inferSelect;
 export type GatewayIdempotencyRow = typeof gatewayIdempotency.$inferSelect;
 export type SettingRow = typeof settings.$inferSelect;
 export type NewSettingRow = typeof settings.$inferInsert;

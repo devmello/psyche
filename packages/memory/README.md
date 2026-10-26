@@ -98,7 +98,21 @@ Nightly at 03:00 local, as a system automation in `@psyche/scheduler` (`ensureDr
 - forget, with a hashed identifier blocklist and `secure_delete`;
 - retention, status, export and reset.
 
-Cards, ingest, the model pass and the `memory.entities.*` handlers follow in the next PRs.
+`cards.ts` renders each entity as `people/<slug>.md` / `projects/<slug>.md` (≤ 2,000 characters; hidden `<!--f:id-->` / `<!--l:id-->` markers). `CardSync` writes cards as a job; the agent cannot write them. It also turns the owner's edits back into corrections: changed or added facts become owner facts, deleted lines are retractions, ticked loops are done, deleted loops are dismissed, Notes are kept verbatim, and front-matter emails and phones are linked (or suggested for merging when they belong to someone else). `ingest.ts` (`GraphIngester`) is the deterministic pass over connector-neutral records:
+- Contacts are owner facts (title, birthday, works-at, related names), and Contacts re-ingest respects the owner's corrections.
+- Mail creates people past the threshold, skips bulk, machine and role senders, marks shared addresses, records direction, and applies the 3-day no-reply rule with reply-closes.
+- Calendar attendees become people, never rooms.
+- Messages give one interaction per conversation per day.
+- Projects the owner names in chat are created.
+
+The shared fixture world is `tests/fixtures/graph/world.json`.
+
+- **Model pass (`model-pass.ts`, `runGraphModelPass`):** per entity with new interactions, one tool-less utility-model turn. It reads facts, the owner's corrections, the last 20 interaction headers (quoted as data) and up to 5 excerpts of the owner's own messages, and returns JSON. Facts and loops sourced from owner-authored items are `agent`/open; anything sourced from received items is `untrusted`/suggested. Unknown sources, forbidden attributes, sensitive or instruction-like values, and owner-only attributes are dropped. It has an input-hash cache, per-night entity and token caps, and deferral.
+- **Projects (`projects.ts`):** confirmed projects claim interactions that name them and gain members (`system`). Repeated two-word subject phrases across three or more interactions with two or more people become project suggestions.
+- **Handlers (`handlers.ts`, `createGraphHandlers`):** every `memory.entities.*`, `memory.loops.*` and `memory.graph.status` method as owner writes. Cards are refreshed after each change. Forget also removes the card and the person's mentions in notes.
+- **Tools and recall (`tools.ts`):** `GraphTools` provides `people_lookup` (asks which one when names clash and contact strength is within 3×), `project_brief`, `waiting_on`, `meeting_prep` and `loop_update` (refused in tainted or incognito turns). Results carry `provenance: "untrusted"` when they show subjects, summaries, unverified facts or suggested loops. `entityRecall` gives one line per unambiguously named entity, private sessions only.
+
+Gateway wiring (pollers, events, card edits, the nightly pass in dreaming, tool registration, recall in context, the Search adapter, the meeting-prep job) follows in the last PR.
 
 ## The teaching loop (#679)
 

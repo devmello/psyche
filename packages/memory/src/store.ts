@@ -49,6 +49,7 @@ import {
   BOOTSTRAP_FILE,
   dailyNoteDate,
   dailyNotePath,
+  isGraphCard,
   isIndexed,
   isProtected,
   PERSONA_FILES,
@@ -679,6 +680,10 @@ export class SqliteMemoryStore implements MemoryStore {
     approvalId: string | undefined,
     request: Parameters<ApprovalCheck>[1],
   ): Promise<void> {
+    if (isGraphCard(path) && actor === "agent") {
+      // Cards are written by the graph and edited by the owner; the agent uses the graph tools.
+      fail("policy_denied", "people and project cards are edited in Psyche or by you");
+    }
     if (path === BOOTSTRAP_FILE && actor === "agent" && request.operation !== "delete") {
       // Injected into every private session while it exists: the agent may only delete it.
       fail("policy_denied", "BOOTSTRAP.md can only be deleted by the agent");
@@ -818,6 +823,10 @@ export class SqliteMemoryStore implements MemoryStore {
     if (isProtected(src) || isProtected(dst)) {
       const p = isProtected(dst) ? dst : src;
       await this.#checkProtected(p, provenance, actor, options.approvalId, { ...request, path: p });
+    }
+    if (isGraphCard(src) || isGraphCard(dst)) {
+      const p = isGraphCard(dst) ? dst : src;
+      await this.#checkProtected(p, provenance, actor, undefined, { ...request, path: p });
     }
     if (dst === BOOTSTRAP_FILE || src === BOOTSTRAP_FILE) {
       await this.#checkProtected(BOOTSTRAP_FILE, provenance, actor, undefined, {

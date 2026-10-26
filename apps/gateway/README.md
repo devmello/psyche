@@ -103,7 +103,11 @@ On boot (`src/recovery.ts`): runs still `running` fail with `gateway_restart`, t
 
 ## Retention
 
-Hourly (`src/retention.ts`): level-3 tool payloads (`tool_payloads`) older than `cleanupPeriodDays`, expired incognito threads (`thread.deleted` is emitted), idempotency results older than 7 days. Receipts and audit entries are never touched.
+Hourly (`src/retention.ts`): level-3 tool payloads (`tool_payloads`) older than `cleanupPeriodDays`, expired incognito threads (`thread.deleted` is emitted), idempotency results older than 7 days. Run trace (docs/design/run-trace-2026.md §4.3): a thinking step's full text after `data.reasoningRetentionDays` (default 7; 0 keeps only the summary line), and frame images after `data.replayRetentionDays` (default 7; the frame row stays, marked expired). Receipts and audit entries are never touched.
+
+## Run trace
+
+`src/run-trace/sink.ts` is the one sink for every run's steps (run trace §4.2): the session controller feeds it each agent event, the loop's `onSubagentEvent` feeds helper runs (their own `runs` rows with `parentRunId` and `rootRunId`), and `tool_result_persist` stores tool inputs and outputs as `tool_payloads` (1 MB each, head and tail past it) with 2 KB previews on the step. Thinking steps keep the `chat.reasoning` stepId; other steps get `stp_` ids, carried on `ToolCall.stepId`. Every stored or streamed string goes through `traceRedact` (the vault's `SecretRedactor` and credential-like URL parameters). Incognito runs stream `run.step` but are never written. `runs.*` is in `src/handlers/runs.ts`; `runs.export` writes `psyche-trace+json` v1 (a .zip with frames) or Markdown, inline up to 8 MB, else to the Library.
 
 ## Public API (`src/index.ts`)
 

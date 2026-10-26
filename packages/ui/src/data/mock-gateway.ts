@@ -70,10 +70,12 @@ import {
   validateResult,
 } from "@psyche/protocol";
 import type { MockFileNode } from "../fixtures/files.ts";
-import { connectorCatalogue } from "../fixtures/settings.ts";
+import type { GraphWorld } from "../fixtures/people.ts";
+import { appleShortcuts, connectorCatalogue } from "../fixtures/settings.ts";
 import type { MockSkillSource } from "../fixtures/skills.ts";
 import type { ConnectionState, GatewayClient, GatewayEvent, RequestOptions } from "./client.ts";
 import { toBase64 } from "./files.ts";
+import { emptyGraph, graphHandlers } from "./mock-graph.ts";
 
 /**
  * In-memory Gateway for stories and tests (no network). It speaks the protocol exactly: every
@@ -121,6 +123,8 @@ export interface MockWorld {
   memoryFiles: Record<string, string>;
   memoryClaims: MemoryClaim[];
   searchHits: SearchHit[];
+  /** The people and projects graph (`memory.entities.*`); absent → empty. */
+  graph?: GraphWorld;
   skills: SkillDetails[];
   skillSources: Record<string, MockSkillSource>;
   skillDrafts: SkillDraft[];
@@ -135,6 +139,8 @@ export interface MockWorld {
   appleGrant?: "granted" | "denied" | "notDetermined";
   /** `connectors.catalogue`; absent → the fixture catalogue (accounts and the Apple apps). */
   catalogue?: ConnectorCatalogueEntry[];
+  /** The helper's `shortcuts.list` through `nodes.invoke`; absent → the fixture shortcuts. */
+  shortcuts?: unknown[];
   /** The last turn's context usage by thread id (`threads.contextUsage`). */
   contextUsage?: Record<string, ContextUsage>;
   /** Each thread's own context limits (`threads.setContextLimits`). */
@@ -816,6 +822,14 @@ export class MockGateway implements GatewayClient {
   }
 
   private readonly handlers: { [M in MethodName]?: (params: MethodParams<M>) => unknown } = {
+    ...graphHandlers({
+      graph: () => {
+        this.world.graph ??= emptyGraph();
+        return this.world.graph;
+      },
+      now: () => this.now(),
+      emit: (event, payload) => this.emit(event, payload),
+    }),
     "events.subscribe": () => ({ stateVersion: this.stateVersion }),
 
     "threads.list": (p) => ({
@@ -1828,6 +1842,18 @@ export class MockGateway implements GatewayClient {
 
     "connectors.list": () => ({ connectors: this.world.connectors }),
     "connectors.catalogue": () => ({ entries: this.world.catalogue ?? connectorCatalogue() }),
+    "connectors.configure": (p) => {
+      const c = this.find(this.world.connectors, p.connectorId, "connector");
+      const config: Record<string, unknown> = { ...c.config };
+      for (const [k, v] of Object.entries(p.config)) {
+        if (v === null) delete config[k];
+        else config[k] = v;
+      }
+      const next: Connector = { ...c, config, updatedAt: this.now() };
+      this.world.connectors = this.world.connectors.map((x) => (x.id === c.id ? next : x));
+      this.emit("connectors.updated", { connector: next, reason: "updated" });
+      return { connector: next };
+    },
     "connectors.connect": (p) => {
       if (this.world.connectorConnect === "unavailable")
         fail("not_implemented", "connectors.connect is not available on this Gateway");
@@ -2145,6 +2171,16 @@ export class MockGateway implements GatewayClient {
     }),
     "devices.pairing.list": () => ({ pairingRequests: this.world.pairingRequests }),
     "nodes.list": () => ({ nodes: this.world.nodes }),
+    "nodes.invoke": (p) => {
+      this.find(this.world.nodes, p.nodeId, "node");
+      if (p.capability !== "shortcuts.list")
+        fail("not_implemented", `MockGateway does not invoke ${p.capability}`);
+      return {
+        invocationId: this.id("inv"),
+        ok: true,
+        result: { shortcuts: this.world.shortcuts ?? appleShortcuts() },
+      };
+    },
     "vault.list": () => ({ credentials: this.world.credentials }),
     "vault.add": (p) => {
       // The mock never keeps the secret. Like the vault, it refuses card-like numbers.

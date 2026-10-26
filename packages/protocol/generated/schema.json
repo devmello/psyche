@@ -329,6 +329,21 @@
         "payload": "#/$defs/SkillUpdateStatus"
       },
       {
+        "description": "A specialist job's latest step and budget use; at most one per child step, coalesced to 1/s. Labels only, never tool payloads or thinking text.",
+        "name": "specialist.progress",
+        "payload": "#/$defs/SpecialistProgressPayload"
+      },
+      {
+        "description": "A specialist job ended with its one result (done, partial, failed or cancelled). Text fields are sanitized; a tainted result is untrusted data.",
+        "name": "specialist.result",
+        "payload": "#/$defs/SpecialistResultPayload"
+      },
+      {
+        "description": "A background specialist job was created (queued or started) by a run or an automation (docs/agent/specialists-2026.md §7.3).",
+        "name": "specialist.spawned",
+        "payload": "#/$defs/SpecialistSpawnedPayload"
+      },
+      {
         "description": "One chunk of read-aloud PCM for progressive playback; last marks the end of audio.",
         "name": "speech.audio",
         "payload": "#/$defs/SpeechAudioPayload"
@@ -872,6 +887,14 @@
         "result": "#/$defs/ConnectorsCatalogueResult",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting: merges non-secret settings into a connector's config (null removes a key) without reconnecting it; announced by connectors.updated.",
+        "name": "connectors.configure",
+        "params": "#/$defs/ConnectorsConfigureParams",
+        "result": "#/$defs/ConnectorsConfigureResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
       },
       {
         "description": "Side-effecting: starts connecting (or re-authorizing) a connector. OAuth connectors return at once with the consent page in `authorization`; the result arrives as connectors.updated.",
@@ -2130,6 +2153,22 @@
         "sideEffecting": true
       },
       {
+        "description": "Lists specialist jobs, newest first: queued (with their place), working, needing the owner, and finished with their result.",
+        "name": "specialists.jobs",
+        "params": "#/$defs/SpecialistsJobsParams",
+        "result": "#/$defs/SpecialistsJobsResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists the specialist roles (from skills with a specialist section) with the owner's settings: on/off, model, budgets, caps and max mode.",
+        "name": "specialists.list",
+        "params": "#/$defs/SpecialistsListParams",
+        "result": "#/$defs/SpecialistsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Side-effecting: reads a message aloud, streams speech.audio events and saves the clip as a Library audio item.",
         "name": "speech.readAloud",
         "params": "#/$defs/SpeechReadAloudParams",
@@ -2205,6 +2244,22 @@
         "description": "Starts a new attempt of a failed or cancelled task, optionally from a step. Side-effecting: a duplicate would start a second attempt.",
         "name": "tasks.retry",
         "params": "#/$defs/TasksRetryParams",
+        "result": "#/$defs/TaskResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Steers a running task (a specialist job): the text reaches the running turn as owner guidance, or opens its next turn when parked. Side-effecting: a duplicate would steer twice.",
+        "name": "tasks.steer",
+        "params": "#/$defs/TasksSteerParams",
+        "result": "#/$defs/TaskResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Changes a specialist job's budget limits or deadline (owner only; capped by Settings). A paused-on-budget job resumes. Side-effecting: a duplicate would apply twice.",
+        "name": "tasks.update",
+        "params": "#/$defs/TasksUpdateParams",
         "result": "#/$defs/TaskResult",
         "scope": "operator.write",
         "sideEffecting": true
@@ -5154,6 +5209,28 @@
       ],
       "type": "object"
     },
+    "ApprovalHint": {
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/ApprovalKind"
+        },
+        "label": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "estimate": {
+          "description": "How many, roughly",
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "label"
+      ],
+      "type": "object"
+    },
     "ApprovalKind": {
       "enum": [
         "exec",
@@ -5259,6 +5336,17 @@
               "type": "string"
             },
             "agent": {
+              "type": "string"
+            },
+            "parentRunId": {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "specialist": {
+              "maxLength": 64,
+              "minLength": 1,
               "type": "string"
             }
           },
@@ -6338,6 +6426,43 @@
         "lightContext": {
           "description": "Heartbeat: skip workspace bootstrap files (feature O2)",
           "type": "boolean"
+        },
+        "specialist": {
+          "properties": {
+            "role": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "budget": {
+              "properties": {
+                "tokens": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "costUsd": {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                "minutes": {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            },
+            "deliver": {
+              "enum": [
+                "inbox",
+                "thread"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "role"
+          ],
+          "type": "object"
         }
       },
       "required": [
@@ -10177,6 +10302,38 @@
       },
       "required": [
         "entries"
+      ],
+      "type": "object"
+    },
+    "ConnectorsConfigureParams": {
+      "properties": {
+        "connectorId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "config": {
+          "patternProperties": {
+            "^(.*)$": {}
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "connectorId",
+        "config"
+      ],
+      "type": "object"
+    },
+    "ConnectorsConfigureResult": {
+      "properties": {
+        "connector": {
+          "$ref": "#/$defs/Connector"
+        }
+      },
+      "required": [
+        "connector"
       ],
       "type": "object"
     },
@@ -20649,7 +20806,8 @@
         "proactive",
         "briefing",
         "reminder",
-        "system"
+        "system",
+        "specialist_result"
       ],
       "type": "string"
     },
@@ -25509,6 +25667,818 @@
       ],
       "type": "object"
     },
+    "SpecialistBudgetSetting": {
+      "properties": {
+        "tokens": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "costUsd": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "minutes": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "SpecialistFinding": {
+      "properties": {
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "detail": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "sources": {
+          "items": {
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "maxItems": 10,
+          "type": "array"
+        }
+      },
+      "required": [
+        "title",
+        "detail"
+      ],
+      "type": "object"
+    },
+    "SpecialistInputs": {
+      "properties": {
+        "libraryItemIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array"
+        },
+        "folders": {
+          "items": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
+        "urls": {
+          "items": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array"
+        }
+      },
+      "required": [
+        "libraryItemIds",
+        "folders",
+        "urls"
+      ],
+      "type": "object"
+    },
+    "SpecialistJob": {
+      "properties": {
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "runId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "parentThreadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "parentRunId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "role": {
+          "description": "researcher | shopper | coder | organizer | writer | planner, or a skill-defined role",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "working",
+            "needs_you",
+            "done",
+            "partial",
+            "failed",
+            "cancelled"
+          ],
+          "type": "string"
+        },
+        "queuePosition": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "budget": {
+          "$ref": "#/$defs/RunBudget"
+        },
+        "deadline": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastStep": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "updatedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpecialistResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "taskId",
+        "threadId",
+        "parentThreadId",
+        "role",
+        "title",
+        "status",
+        "budget",
+        "createdAt",
+        "updatedAt"
+      ],
+      "type": "object"
+    },
+    "SpecialistOutcome": {
+      "enum": [
+        "done",
+        "partial",
+        "failed",
+        "cancelled"
+      ],
+      "type": "string"
+    },
+    "SpecialistProgressPayload": {
+      "properties": {
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "runId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "step": {
+          "properties": {
+            "id": {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "label": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "label",
+            "status"
+          ],
+          "type": "object"
+        },
+        "budget": {
+          "$ref": "#/$defs/RunBudget"
+        }
+      },
+      "required": [
+        "taskId",
+        "runId",
+        "step",
+        "budget"
+      ],
+      "type": "object"
+    },
+    "SpecialistResult": {
+      "properties": {
+        "outcome": {
+          "$ref": "#/$defs/SpecialistOutcome"
+        },
+        "summary": {
+          "maxLength": 600,
+          "type": "string"
+        },
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/SpecialistFinding"
+          },
+          "maxItems": 12,
+          "type": "array"
+        },
+        "artifacts": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array"
+        },
+        "next": {
+          "items": {
+            "properties": {
+              "label": {
+                "maxLength": 60,
+                "minLength": 1,
+                "type": "string"
+              },
+              "message": {
+                "maxLength": 300,
+                "type": "string"
+              }
+            },
+            "required": [
+              "label",
+              "message"
+            ],
+            "type": "object"
+          },
+          "maxItems": 2,
+          "type": "array"
+        },
+        "gaps": {
+          "items": {
+            "maxLength": 300,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "type": "array"
+        },
+        "receipts": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "tainted": {
+          "type": "boolean"
+        },
+        "stopReason": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "evaluator": {
+          "properties": {
+            "verdict": {
+              "enum": [
+                "done",
+                "reopen",
+                "escalate"
+              ],
+              "type": "string"
+            },
+            "reason": {
+              "maxLength": 300,
+              "type": "string"
+            }
+          },
+          "required": [
+            "verdict",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "defaultsUsed": {
+          "items": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "type": "array"
+        }
+      },
+      "required": [
+        "outcome",
+        "summary",
+        "findings",
+        "artifacts",
+        "next",
+        "gaps",
+        "receipts",
+        "tainted"
+      ],
+      "type": "object"
+    },
+    "SpecialistResultKind": {
+      "enum": [
+        "findings",
+        "draft",
+        "changes",
+        "plan",
+        "items"
+      ],
+      "type": "string"
+    },
+    "SpecialistResultPayload": {
+      "properties": {
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "runId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parentRunId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "result": {
+          "$ref": "#/$defs/SpecialistResult"
+        },
+        "notificationId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "taskId",
+        "result"
+      ],
+      "type": "object"
+    },
+    "SpecialistRole": {
+      "properties": {
+        "role": {
+          "description": "researcher | shopper | coder | organizer | writer | planner, or a skill-defined role",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 60,
+          "minLength": 1,
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "skill": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "bundled",
+            "workspace",
+            "home"
+          ],
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "modelClass": {
+          "enum": [
+            "utility",
+            "primary",
+            "harness",
+            "vision"
+          ],
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "description": "provider/model",
+              "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "maxMode": {
+          "$ref": "#/$defs/PermissionMode"
+        },
+        "tools": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "result": {
+          "$ref": "#/$defs/SpecialistResultKind"
+        },
+        "planFirst": {
+          "type": "boolean"
+        },
+        "budget": {
+          "$ref": "#/$defs/SpecialistBudgetSetting"
+        },
+        "caps": {
+          "properties": {
+            "tokens": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "costUsd": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "minutes": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "maxHours": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "maxHours"
+          ],
+          "type": "object"
+        },
+        "approvals": {
+          "items": {
+            "$ref": "#/$defs/ApprovalKind"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "role",
+        "label",
+        "description",
+        "skill",
+        "source",
+        "enabled",
+        "modelClass",
+        "maxMode",
+        "tools",
+        "result",
+        "planFirst",
+        "budget",
+        "caps",
+        "approvals"
+      ],
+      "type": "object"
+    },
+    "SpecialistSpawnedPayload": {
+      "properties": {
+        "job": {
+          "$ref": "#/$defs/SpecialistJob"
+        }
+      },
+      "required": [
+        "job"
+      ],
+      "type": "object"
+    },
+    "SpecialistSpec": {
+      "properties": {
+        "role": {
+          "description": "researcher | shopper | coder | organizer | writer | planner, or a skill-defined role",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "type": "string"
+        },
+        "parentRunId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parentThreadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "rootRunId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "model": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        },
+        "tools": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "permissionMode": {
+          "$ref": "#/$defs/PermissionMode"
+        },
+        "budget": {
+          "$ref": "#/$defs/RunBudget"
+        },
+        "deadline": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "inputs": {
+          "$ref": "#/$defs/SpecialistInputs"
+        },
+        "deliver": {
+          "enum": [
+            "inbox",
+            "thread"
+          ],
+          "type": "string"
+        },
+        "planFirst": {
+          "type": "boolean"
+        },
+        "queuePosition": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "result": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpecialistResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "role",
+        "parentThreadId",
+        "model",
+        "tools",
+        "permissionMode",
+        "budget",
+        "inputs",
+        "deliver",
+        "planFirst"
+      ],
+      "type": "object"
+    },
+    "SpecialistsJobsParams": {
+      "properties": {
+        "status": {
+          "items": {
+            "anyOf": [
+              {
+                "const": "queued",
+                "type": "string"
+              },
+              {
+                "const": "working",
+                "type": "string"
+              },
+              {
+                "const": "needs_you",
+                "type": "string"
+              },
+              {
+                "const": "done",
+                "type": "string"
+              },
+              {
+                "const": "partial",
+                "type": "string"
+              },
+              {
+                "const": "failed",
+                "type": "string"
+              },
+              {
+                "const": "cancelled",
+                "type": "string"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "cursor": {
+          "description": "Opaque cursor",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "SpecialistsJobsResult": {
+      "properties": {
+        "jobs": {
+          "items": {
+            "$ref": "#/$defs/SpecialistJob"
+          },
+          "type": "array"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "description": "Opaque cursor",
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "jobs"
+      ],
+      "type": "object"
+    },
+    "SpecialistsListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "SpecialistsListResult": {
+      "properties": {
+        "roles": {
+          "items": {
+            "$ref": "#/$defs/SpecialistRole"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "roles"
+      ],
+      "type": "object"
+    },
     "SpeechAudioPayload": {
       "properties": {
         "streamId": {
@@ -25936,6 +26906,9 @@
             "$ref": "#/$defs/TaintSource"
           },
           "type": "array"
+        },
+        "specialist": {
+          "$ref": "#/$defs/SpecialistSpec"
         },
         "createdAt": {
           "description": "ISO-8601 timestamp (UTC)",
@@ -26382,6 +27355,62 @@
       ],
       "type": "object"
     },
+    "TasksSteerParams": {
+      "properties": {
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "taskId",
+        "text"
+      ],
+      "type": "object"
+    },
+    "TasksUpdateParams": {
+      "properties": {
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "budget": {
+          "properties": {
+            "tokens": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "costUsd": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "minutes": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "deadline": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "taskId"
+      ],
+      "type": "object"
+    },
     "TaughtBlock": {
       "properties": {
         "type": {
@@ -26768,6 +27797,12 @@
     },
     "ThingsCompleteParams": {
       "properties": {
+        "authToken": {
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
         "id": {
           "type": "string"
         },
@@ -26915,6 +27950,12 @@
     },
     "ThingsUpdateParams": {
       "properties": {
+        "authToken": {
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
         "id": {
           "type": "string"
         },
