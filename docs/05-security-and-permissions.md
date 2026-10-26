@@ -247,6 +247,25 @@ Receipt:
 
 An `uncertain` receipt (timeout after dispatch) is never retried automatically; the evaluator queries the provider or asks the owner (openclaw notes, 1f–1g).
 
+### 3.12 Connector action matrix (Settings → Connectors)
+
+The owner sets Allow / Ask / Deny per connector **action group** (`mail.read`, `mail.organize`, `mail.send`, `reminders.write`, …). Settings saves the rules as `permissions.connectors.<connectorId>`. The Gateway layers them over `permissions.connectors` from `permissions.policy` (the owner's Settings rule wins) and applies them to both the broker and the connector executor's own matrix (#747). Settings saves a connector's whole matrix, so the broker takes only the rules that differ from the catalogue default. An echoed default is not a choice: a default-allow read keeps its first-read card, and a direct `node.*` write keeps asking.
+
+- **Resolving the group.** The connectors registry stamps every connector tool call with `connectorRule: {id: <connectorId>, action: <group>}`. A connector may only narrow it to a sub-key of its own group, such as `shortcuts.run/<shortcutId>`. Only the Gateway writes sub-key rules, and only from the owner's own settings. A sub-key's rule overrides the group's, except that a group deny always wins; the connector executor uses the same order.
+- **Decisions.**
+  - allow: no card.
+  - ask: a card (`connector:<id>/<group>`).
+  - deny: refused before any card, with a receipt whose `payload.rule` names the rule.
+  - No entry: the mode default.
+  - First-party connector calls are not treated as unknown-tier MCP (§11). A third-party MCP server's tier floor still applies.
+- **Hard floors.** An owner `allow` never silences these: sends (`send_email`, `message_send`), `destructive` and `financial` calls, and device-only or authentication kinds (§3.7). They ask, with rule `connector:<id>/<group>:floor`; a deny still refuses them. Taint escalation (§3.6) and manual mode apply as for any allowance.
+- **Shortcuts.** `config.shortcutRules` maps to `shortcuts.run/<id>`.
+  - Off: the connector refuses it before any card, and the broker denies it.
+  - Allow: the connector describes that one shortcut as a write, so it runs without a card. Taint escalation still applies.
+  - Any other shortcut is destructive and asks.
+- **Direct helper calls.** `node.*` Apple app calls follow the same groups: `APPLE_APP_ACTIONS` rows carry the group, and the rules of an `apple:<app>` record also land under `apple.<app>`. An older `permissions.policy` entry keyed by the bare action name still applies when the group has none.
+- **Receipts.** Every connector write's receipt records the deciding rule (`payload.rule`): an approval, a grant, or the matrix.
+
 ---
 
 ## 4. Credential Broker specification

@@ -85,6 +85,22 @@ export interface StartTurnInput {
    * re-send. A rejection blocks the call: it is not dispatched.
    */
   beforeDispatch?: (call: DispatchIntent) => Promise<void>;
+  /**
+   * A spoken turn (docs/voice/voice-mode-2026.md §4.5): the loop adds the voice-turn section to
+   * the system prompt (lead with a short spoken answer, details after a blank line, never claim
+   * "done" before the tool reports success) and runs with thinking off where the model allows.
+   */
+  voice?: VoiceTurnOptions;
+}
+
+/** How a voice turn is spoken (`StartTurnInput.voice`). */
+export interface VoiceTurnOptions {
+  /** `brief`: the spoken lead only; `full`: the whole answer, flattened. */
+  speak: "brief" | "full";
+  /** Tool-step narration: `off`, `brief` (slow steps only) or `steps` (every step). */
+  narrate: "off" | "brief" | "steps";
+  /** BCP 47 language of the conversation, for the section's wording. */
+  language?: string;
 }
 
 /** A tool call the loop is about to dispatch (`StartTurnInput.beforeDispatch`). */

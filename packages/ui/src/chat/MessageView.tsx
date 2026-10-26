@@ -15,6 +15,13 @@ import { t } from "../i18n/core.ts";
 import { formatTime } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
 import { usePersona } from "../slots.tsx";
+import {
+  FeedbackButtons,
+  FeedbackNote,
+  UsedLessons,
+  useMessageFeedback,
+} from "../teaching/FeedbackActions.tsx";
+import { TaughtLine } from "../teaching/TaughtLine.tsx";
 import { CompactionMessage } from "./context/connected.tsx";
 
 /** First text of a message, for quotes and previews. */
@@ -64,6 +71,7 @@ export function MessageView({
   const persona = usePersona();
   const editId = useId();
   const [editing, setEditing] = useState<string | null>(null);
+  const feedback = useMessageFeedback(message);
   const canEdit = onEdit !== undefined && message.role === "user";
   const time = formatTime(message.createdAt);
   const quote = quoted ? (
@@ -86,6 +94,11 @@ export function MessageView({
             <p key={i}>{b.md}</p>
           ) : b.type === "compaction" ? (
             <CompactionMessage key={b.compactionId} message={message} block={b} />
+          ) : b.type === "taught" ? (
+            // The Gateway's note after teaching (teaching loop §5.1), quiet and start-aligned.
+            <div key={b.feedbackId} className="ps-7 text-start">
+              <TaughtLine feedbackId={b.feedbackId} lessonId={b.lessonId} statement={b.statement} />
+            </div>
           ) : null,
         )}
       </div>
@@ -197,7 +210,7 @@ export function MessageView({
   return (
     <article
       id={`message-${message.id}`}
-      className={cn("group/message", showHeader || fromTask ? "mt-5" : "mt-2")}
+      className={cn("group/message relative", showHeader || fromTask ? "mt-5" : "mt-2")}
       aria-label={t("chat.message.agentLabel", { name: persona.name, time })}
       data-role="agent"
     >
@@ -208,6 +221,13 @@ export function MessageView({
           {t("chat.message.fromTask", { title: fromTask.title })}
           <span className="flex-1 border-t-[0.5px] border-separator-strong" aria-hidden="true" />
         </p>
+      ) : null}
+      {!showHeader && !streamingText ? (
+        // Without a header row, the actions float at the top end on hover (no layout shift).
+        <FeedbackButtons
+          feedback={feedback}
+          className="absolute end-0 -top-1 rounded-md bg-canvas"
+        />
       ) : null}
       {showHeader ? (
         <div className="mb-1 flex h-6 items-center gap-2">
@@ -220,7 +240,10 @@ export function MessageView({
           />
           <span className="text-headline text-label-primary">{persona.name}</span>
           {hoverTime}
-          <span className="ms-auto">{actions}</span>
+          <span className="ms-auto flex items-center gap-0.5">
+            {streamingText ? null : <FeedbackButtons feedback={feedback} />}
+            {actions}
+          </span>
         </div>
       ) : null}
       <div className="ps-7">
@@ -231,6 +254,9 @@ export function MessageView({
           pinChecklist={pinChecklist}
           {...(onWrapUpAction ? { onWrapUpAction } : {})}
         />
+        {/* Teaching (§5.1): the note after Teach and "Used n lessons", only when there is one. */}
+        <FeedbackNote feedback={feedback} />
+        <UsedLessons message={message} />
       </div>
     </article>
   );

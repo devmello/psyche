@@ -919,6 +919,7 @@ export interface ApprovalAnswer {
     decision:    DecisionEnum;
     presence?:   PresenceAssertion;
     scope?:      GrantScope;
+    via?:        InputVia;
 }
 
 export type DecisionEnum = "approve" | "deny";
@@ -940,6 +941,8 @@ export interface PresenceAssertion {
 export type PresenceAssertionKind = "webauthn" | "helper";
 
 export type GrantScope = "once" | "task" | "site" | "session" | "always";
+
+export type InputVia = "voice";
 
 export interface ApprovalBlock {
     approvalId: string;
@@ -2321,6 +2324,7 @@ export interface Message {
     runId?:            null | string;
     seq:               number;
     threadId:          string;
+    via?:              InputVia;
 }
 
 export interface ChannelRef {
@@ -3027,12 +3031,15 @@ export interface DictationKeyPayload {
     /**
      * ISO time the helper saw the change
      */
-    at:   string;
-    down: boolean;
-    key:  DictationKey;
+    at:    string;
+    down:  boolean;
+    key:   DictationKey;
+    role?: DictationKeyRole;
 }
 
 export type DictationKey = "fn" | "rightOption" | "rightCommand";
+
+export type DictationKeyRole = "dictation" | "voice";
 
 export interface DictationTargetResult {
     target?: DictationTarget | null;
@@ -3043,6 +3050,16 @@ export interface DictationWatchParams {
      * null stops watching
      */
     key: DictationKey | null;
+    /**
+     * Watch up to two keys with roles (dictation, voice); takes precedence over key. Keys and
+     * roles must differ.
+     */
+    keys?: Key[];
+}
+
+export interface Key {
+    key:  DictationKey;
+    role: DictationKeyRole;
 }
 
 export interface DictationWatchResult {
@@ -4050,6 +4067,90 @@ export interface GrowthItem {
 }
 
 export type GrowthItemType = "lesson" | "milestone";
+
+export interface HelperSpeechPrepareParams {
+    /**
+     * How long to keep it warm without use (default 120 000)
+     */
+    keepWarmMs?: number;
+    language?:   string;
+    voice?:      string;
+}
+
+export interface HelperSpeechPrepareResult {
+    prepared:  boolean;
+    prepareMs: number;
+    /**
+     * The voice id that was prepared
+     */
+    voice: string;
+}
+
+export interface HelperSpeechTimings {
+    finalizeMs?:            FinalizeMS;
+    firstPartialMs?:        FirstPartialMS;
+    synthesisFirstAudioMs?: number;
+}
+
+export interface FinalizeMS {
+    long?:  number;
+    short?: number;
+}
+
+export interface FirstPartialMS {
+    long?:  number;
+    short?: number;
+}
+
+export interface HelperSpeechVoice {
+    /**
+     * AVSpeechSynthesisVoice identifier
+     */
+    id: string;
+    /**
+     * The voice's assets are on disk (premium voices need a download)
+     */
+    installed?: boolean;
+    /**
+     * BCP 47
+     */
+    language: string;
+    name:     string;
+    /**
+     * Apple Personal Voice: non-commercial use only
+     */
+    personalVoice: boolean;
+    quality:       SpeechVoiceQuality;
+}
+
+export type SpeechVoiceQuality = "default" | "enhanced" | "premium";
+
+export interface HelperSynthesizeParams {
+    format?: SpeechPCMEncoding;
+    /**
+     * Opt in to the owner's Personal Voice
+     */
+    personalVoice?: boolean;
+    /**
+     * 0 slowest … 1 fastest; 0.5 ≈ normal
+     */
+    rate?: number;
+    /**
+     * Multiplier of the voice's normal rate (1 = normal); wins over rate
+     */
+    speed?: number;
+    text:   string;
+    /**
+     * Echoed on every speech.audio event
+     */
+    utteranceId?: string;
+    /**
+     * Voice id from speech.voices
+     */
+    voice?: string;
+}
+
+export type SpeechPCMEncoding = "pcm_s16le" | "pcm_f32le";
 
 export interface IdeaUpdatedPayload {
     idea: Idea;
@@ -5342,6 +5443,7 @@ export interface ModelsListResult {
 export interface ModelRoles {
     primary?: string;
     utility?: string;
+    voice?:   string;
 }
 
 export interface ModelsProbeParams {
@@ -5367,7 +5469,7 @@ export interface ModelsSetRoleParams {
     role:      PickableModelRole;
 }
 
-export type PickableModelRole = "primary" | "utility";
+export type PickableModelRole = "primary" | "utility" | "voice";
 
 export interface ModelsSetRoleResult {
     roles: ModelRoles;
@@ -5610,6 +5712,8 @@ export interface PersonaUpdatedPayload {
     changed:         string[];
     identity:        PersonaIdentity;
 }
+
+export type PersonalVoiceAuthorization = "authorized" | "denied" | "notDetermined" | "unsupported";
 
 export interface PlanBlock {
     planId: string;
@@ -7100,6 +7204,8 @@ export interface TranscriptSegment {
     text:    string;
 }
 
+export type SpeechTranscribePreset = "long" | "short";
+
 export interface SpeechVoicesParams {
     /**
      * The persona's current <engine>:<voice>
@@ -8462,9 +8568,136 @@ export interface VMUpdatedPayload {
     nodeId: string;
 }
 
+export type VoiceApprovalTier = "off" | "write" | "write_destructive";
+
 export interface VoiceCancelParams {
     sessionId: string;
 }
+
+export interface VoiceConversationAudioParams {
+    /**
+     * Base64 PCM in the start format
+     */
+    audio:          string;
+    conversationId: string;
+    /**
+     * 0, 1, 2… per conversation; in order
+     */
+    seq: number;
+}
+
+export interface VoiceConversationCaptionPayload {
+    conversationId: string;
+    final:          boolean;
+    role:           Drafted;
+    text:           string;
+    utteranceId:    string;
+}
+
+export interface VoiceConversationEndedPayload {
+    conversationId: string;
+    error?:         ErrorPayload;
+    reason:         VoiceConversationEndReason;
+}
+
+export type VoiceConversationEndReason = "stopped" | "idle" | "locked" | "error" | "disconnected";
+
+export interface VoiceConversationInterruptParams {
+    conversationId: string;
+    playedMs?:      number;
+    stage:          VoiceInterruptStage;
+}
+
+/**
+ * suspect: the client VAD heard speech and ducked playback; confirmed: a key press stopped
+ * it
+ */
+export type VoiceInterruptStage = "suspect" | "confirmed";
+
+export interface VoiceConversationPlayedParams {
+    conversationId: string;
+    /**
+     * The utterance played to its end
+     */
+    done:        boolean;
+    playedMs:    number;
+    utteranceId: string;
+}
+
+export interface VoiceConversationSpeechPayload {
+    /**
+     * Base64 PCM
+     */
+    audio:          string;
+    conversationId: string;
+    format:         AudioFormat;
+    /**
+     * The utterance's last chunk
+     */
+    last:        boolean;
+    seq:         number;
+    utteranceId: string;
+}
+
+export interface VoiceConversationStartParams {
+    format: AudioFormat;
+    /**
+     * BCP 47
+     */
+    language?: string;
+    mode:      VoiceConversationMode;
+    threadId?: string;
+    /**
+     * <engine>:<voice>
+     */
+    voice?: string;
+}
+
+export type VoiceConversationMode = "push" | "tap" | "handsfree";
+
+export interface VoiceConversationStartResult {
+    conversationId: string;
+    engine:         string;
+    location:       SpeechEngineLocation;
+}
+
+export interface VoiceConversationStatePayload {
+    approvalId?:    string;
+    conversationId: string;
+    listening:      boolean;
+    phase:          VoiceConversationPhase;
+    prompt?:        string;
+    reason?:        VoiceConversationReason;
+    windowMs?:      number;
+}
+
+export type VoiceConversationPhase = "listening" | "heard" | "thinking" | "speaking" | "waiting" | "ended";
+
+/**
+ * Waiting for an approval or a question, a confirmed barge-in, nothing heard
+ */
+export type VoiceConversationReason = "approval" | "question" | "barge_in" | "no_speech";
+
+export interface VoiceConversationStepPayload {
+    conversationId: string;
+    /**
+     * The narration text as shown
+     */
+    label:      string;
+    status:     ToolCallStatus;
+    toolCallId: string;
+}
+
+export interface VoiceConversationStopParams {
+    conversationId: string;
+}
+
+export interface VoiceConversationTurnParams {
+    action:         VoiceTurnAction;
+    conversationId: string;
+}
+
+export type VoiceTurnAction = "begin" | "end";
 
 export interface VoiceEndedPayload {
     error?:    ErrorPayload;
@@ -8516,6 +8749,8 @@ export interface Transcript {
     text:      string;
 }
 
+export type VoiceNarrateLevel = "off" | "brief" | "steps";
+
 export interface VoicePushParams {
     /**
      * Base64 PCM in the session format
@@ -8532,6 +8767,8 @@ export interface VoiceSegmentPayload {
     segment:   TranscriptSegment;
     sessionId: string;
 }
+
+export type VoiceSpeakLevel = "brief" | "full";
 
 export interface VoiceStartParams {
     format: AudioFormat;

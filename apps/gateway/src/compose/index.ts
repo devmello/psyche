@@ -746,6 +746,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // Entity and person-scoped lessons write through the people graph (S07, #651).
     ...(people === undefined ? {} : { graph: people.graph }),
     tasks,
+    // "Used n lessons": the lessons each run's assembled prompt carried (teaching loop §5.1).
+    explain: (runId) => loop.explainContext(runId),
     ...(gwOptions.retentionIntervalMs === undefined
       ? {}
       : { retentionIntervalMs: gwOptions.retentionIntervalMs }),
@@ -812,6 +814,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       // A trace write never fails the call.
     }
   });
+  // Awaited by the loop before its `end` event, so a chat run's lessons are known before the
+  // controller commits the transcript and publishes `run.updated`.
+  loop.hooks.on("agent_end", (ctx) =>
+    teaching.onRunEnd({
+      runId: ctx.runId,
+      ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
+      subagent: ctx.subagent,
+    }),
+  );
   const pool = new TaskWorkerPool({
     engine: tasks,
     loop,
@@ -832,6 +843,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     provider,
     model: utility ?? modelRef,
     publish,
+    broker,
+    registry,
     ...(timeZone === undefined ? {} : { timeZone }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
@@ -840,6 +853,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     goals: proactive.goals,
     ideas: proactive.ideas,
     feed: proactive.feed,
+    ...(proactive.drafts === undefined ? {} : { drafts: proactive.drafts }),
+    ...(proactive.scheduling === undefined ? {} : { scheduling: proactive.scheduling }),
     clock,
   })) {
     registry.register(tool);
@@ -1042,6 +1057,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     parts,
     async stop(reason) {
       for (const part of [...parts].reverse()) await part.stop?.();
+      proactive.stop();
       vault.stop();
       await pool.stop();
       scheduler.stop();

@@ -24,8 +24,8 @@ import { describeError } from "../i18n/errors.ts";
 import { LayoutMotion, Presence } from "../motion/index.ts";
 import { usePersona, useSlots } from "../slots.tsx";
 import { SpecialistSpawns } from "../specialists/SpawnLine.tsx";
+import { VoiceComposer } from "../voice/composer-voice.tsx";
 import { ApprovalDock } from "./ApprovalDock.tsx";
-import { Composer } from "./Composer.tsx";
 import { type CommandName, parseCommand } from "./commands.ts";
 import { FollowUpQueue } from "./FollowUpQueue.tsx";
 import { MessageView } from "./MessageView.tsx";
@@ -686,7 +686,8 @@ export function ChatThread({
                   }}
                 />
                 {notice ? <NoticeBar notice={notice} onDismiss={() => setNotice(null)} /> : null}
-                <Composer
+                <VoiceComposer
+                  threadId={threadId}
                   persona={persona.name}
                   running={view.running}
                   disabled={offline}

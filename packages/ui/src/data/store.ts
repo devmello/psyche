@@ -564,12 +564,22 @@ export class GatewayStore {
       case "skills.updated":
       case "skills.draft.updated":
         return invalidate(s, ["skills."]);
+      // The teaching loop: lessons, feedback and Growth reload together.
+      case "feedback.recorded":
+      case "lesson.changed":
+      case "growth.updated":
+        return invalidateTeaching(s);
       case "gateway.shutdown":
         return { ...s, connection: "offline" };
       default:
         return s;
     }
   }
+}
+
+/** Marks the teaching loop's queries (lessons, feedback, Growth) as needing a reload. */
+export function invalidateTeaching(s: UiState): UiState {
+  return invalidate(s, ["memory.lessons.", "feedback.", "growth."]);
 }
 
 /** Marks generic queries whose method starts with one of `prefixes` as needing a reload. */

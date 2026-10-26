@@ -53,6 +53,10 @@ export function createTaskLauncher(options: {
         goal: request.prompt,
         createdFrom: "automation",
         mode: "unattended",
+        // Event runs read mail, invitations or recordings: the task starts tainted (§3.6).
+        ...(request.taintSources === undefined || request.taintSources.length === 0
+          ? {}
+          : { taint: true, taintSources: request.taintSources }),
         ...(options.budget === undefined ? {} : { budget: options.budget }),
       });
       const result = settle(task.id);

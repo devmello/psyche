@@ -54,6 +54,13 @@ export class ApprovalTokens {
             return issued;
           };
         }
+        if (key === "requestBatch") {
+          return async (...args: Parameters<PsychePermissionBroker["requestBatch"]>) => {
+            const issued = await target.requestBatch(...args);
+            this.remember(issued);
+            return issued;
+          };
+        }
         if (key === "reissue") {
           return async () => {
             const issued = await target.reissue();
