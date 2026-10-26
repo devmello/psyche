@@ -209,6 +209,11 @@ export const ArtifactType = StringEnum(
     "code",
     "table",
     "image",
+    // Phase 5 types (docs/design/chat-experience-2026.md §4.2): our own chart spec, Mermaid text, a
+    // unified diff. `html` (above) joins them behind the sandbox.
+    "chart",
+    "diagram",
+    "diff",
   ],
   {
     $id: "ArtifactType",

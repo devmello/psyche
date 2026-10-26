@@ -6264,6 +6264,80 @@
         }
       ]
     },
+    "ArtifactChart": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "bar",
+            "line",
+            "area",
+            "pie"
+          ],
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "xLabel": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "yLabel": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "categories": {
+          "items": {
+            "maxLength": 80,
+            "type": "string"
+          },
+          "maxItems": 200,
+          "type": "array"
+        },
+        "series": {
+          "items": {
+            "properties": {
+              "name": {
+                "maxLength": 80,
+                "type": "string"
+              },
+              "values": {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "maxItems": 200,
+                "type": "array"
+              }
+            },
+            "required": [
+              "name",
+              "values"
+            ],
+            "type": "object"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "type": "array"
+        },
+        "stacked": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "categories",
+        "series"
+      ],
+      "type": "object"
+    },
     "ArtifactConflict": {
       "properties": {
         "base": {
@@ -6486,6 +6560,25 @@
             "view"
           ],
           "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "patch",
+              "type": "string"
+            },
+            "patch": {
+              "patternProperties": {
+                "^(.*)$": {}
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "op",
+            "patch"
+          ],
+          "type": "object"
         }
       ]
     },
@@ -6621,7 +6714,10 @@
         "doc",
         "code",
         "table",
-        "image"
+        "image",
+        "chart",
+        "diagram",
+        "diff"
       ],
       "type": "string"
     },
