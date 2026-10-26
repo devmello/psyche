@@ -18,6 +18,9 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (S15, #670 W6: meeting prep)
+
+- `NotifyInput` gains optional `breakQuietHours`: deliver this one notification through quiet hours. Meeting prep sets it when the meeting itself falls inside quiet hours (§4.5 acceptance 3); otherwise only the kinds in `quietHours.breakthrough` interrupt, as before. A TypeScript contract field only; no generated files change.
 ### v1 additive — 2026-10-25 (S17: voice conversation, V-G #691)
 
 For S17 (`packages/speech` `VoiceConversation`, V-G), S14 (helper, V-H #692), the UI session (V-U #693), S02 (agent-core voice turns), S03 (router). Contract of docs/voice/voice-mode-2026.md §7.

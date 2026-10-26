@@ -24,6 +24,9 @@ Bundled skills are instructions for specific jobs. They tell the agent how to do
 | `email-to-task` | P1 | M5, J6 (§6, §7.4 flow 1) | `/email-to-task` |
 | `meeting-prep` | P1 | M5, J6, O1 (§6, §7.4 flow 2) | `/meeting-prep` |
 | `downloads-cleanup` | P1 | P9 (§6, §7.4 flow 6) | `/downloads-cleanup` |
+| `follow-up-tracking` | P1 | M5, H1 (mail-and-meetings §4.2) | `/follow-up-tracking` |
+| `scheduling-over-email` | P1 | V2, M5, O4 (§4.4) | `/scheduling-over-email` |
+| `meeting-notes` | P1 | Q2, M5, O1 (§4.6) | `/meeting-notes` |
 
 T5 makes five skills P0; these are the five whose scenarios (V1, V2, V7) and subsystems (I) are P0.
 
@@ -59,6 +62,8 @@ Every bundled skill has, in this order: **Tools**, **Approvals you should expect
 ## Tool names
 
 **Apple app flows (docs/connectors/apple-apps-2026.md, #641).** The skills added for the Apple apps, and the Apple steps in `inbox-triage` and `calendar-planning`, use the real model-facing names: the helper capability with `_` (`mail_set_flags`, `notes_append`, `calendar_find_free_time`). Their `requires.tools` use families (`notes.*`, `reminders.*`, `contacts.*`, `music.*`, `files.*`, `shortcuts.*`, `email.*`, `calendar.*`) that `packages/skills/src/gating.ts` `TOOL_CAPABILITIES` maps to those tools, with a Settings hint when they are missing. Each of these skills has two few-shot **Examples**.
+
+**Mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md, #671).** These skills use the Gateway's workflow tools where they exist: `mail.draft_reply` (voice, commitments, a card that saves the draft) and `mail.propose_times` (free times written into a reply draft). They fall back to the plain mail and calendar tools. `speech.*` (`speech.transcribe_file`) and `proposals.*` are gating families. Every one of these skills ends at a draft, a proposal or a card; none sends.
 
 **Default automations.** A skill may suggest one under `metadata.psyche.automation` (`title`, `kind`, `schedule`, `prompt`, `enabled: false`). It is never created by itself. `morning-brief` offers it once and creates it with `schedule` only on the owner's yes; Settings can show the same suggestion as a switch.
 

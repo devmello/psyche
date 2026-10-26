@@ -41,6 +41,7 @@ When the agent has no name yet, use "your agent" in Psyche copy until onboarding
 | step | span, event, action (in the chat) | One thing the agent did inside a task: thought, used a tool, asked, waited (docs/design/run-trace-2026.md §3.1) |
 | Timeline | trace, run view, log | The full view of one task's steps over time, in the agent sheet |
 | helper | subagent, child agent | Work the agent handed to a parallel copy of itself |
+| specialist | sub-agent, worker, bot | A background job with a named role (the researcher, the shopper…) that delivers one result to the Inbox (docs/agent/specialists-2026.md) |
 | automation | cron, routine, schedule | A scheduled job in Upcoming |
 | receipt | log, confirmation | The record of an external write |
 | Library | files, drive | `library/` |
