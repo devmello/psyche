@@ -31,6 +31,7 @@ import {
   type RunStatus,
   type TaintSource,
   type Thread,
+  type VoiceTurnOptions,
 } from "@psyche/protocol";
 import type { GatewayContext } from "../context.ts";
 
@@ -66,6 +67,12 @@ export interface SendInput {
    * follow-ups; channels send only to an idle thread.
    */
   taintSources?: TaintSource[];
+  /**
+   * A spoken turn from a voice conversation (docs/voice/voice-mode-2026.md §4.2): the message is
+   * stored with `via: "voice"` and the turn starts with `StartTurnInput.voice`. Not kept for
+   * queued follow-ups (`chat_queue`); the conversation sends an `interrupt` instead.
+   */
+  voice?: VoiceTurnOptions;
 }
 
 type Emit = <E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string) => void;
@@ -202,6 +209,7 @@ export class SessionController {
         input.requester,
         input.provenance,
         quote,
+        input.voice,
       );
       this.#noteTaint(run.id, input.taintSources);
       return { messageId, runId: run.id, queued: false };
@@ -238,6 +246,7 @@ export class SessionController {
           provenance: input.provenance === "agent" ? "agent" : messageProvenance(input.requester),
           replyToMessageId: quote?.messageId ?? null,
           runId: active,
+          ...(input.voice === undefined ? {} : { via: "voice" as const }),
         },
         { expectedWriterRunId: active },
       );
@@ -265,6 +274,7 @@ export class SessionController {
       input.requester,
       input.provenance,
       quote,
+      input.voice,
     );
     this.#noteTaint(run.id, input.taintSources);
     return { messageId, runId: run.id, queued: false };
@@ -299,7 +309,9 @@ export class SessionController {
     requester?: Requester,
     provenance: "owner" | "agent" = "owner",
     quote?: Quote,
+    voice?: VoiceTurnOptions,
   ): { messageId: string; run: Run } {
+    const via = voice === undefined ? {} : { via: "voice" as const };
     const { db } = this.#ctx;
     const agentContent = withQuote(quote, content);
     if (supersedes === null) {
@@ -313,6 +325,7 @@ export class SessionController {
           blocks: userBlocks(content, attachments),
           provenance: provenance === "agent" ? "agent" : messageProvenance(requester),
           replyToMessageId: quote?.messageId ?? null,
+          ...via,
         },
         { expectedWriterRunId: null },
       );
@@ -327,7 +340,7 @@ export class SessionController {
       this.#bump();
       hooks.emit("run.updated", { run }, thread.id);
       hooks.afterCommit(() =>
-        this.#startTurn(thread, run.id, agentContent, attachments, requester),
+        this.#startTurn(thread, run.id, agentContent, attachments, requester, voice),
       );
       return { messageId: message.id, run };
     }
@@ -347,13 +360,16 @@ export class SessionController {
         provenance: provenance === "agent" ? "agent" : messageProvenance(requester),
         replyToMessageId: quote?.messageId ?? null,
         runId: run.id,
+        ...via,
       },
       { expectedWriterRunId: run.id },
     );
     this.#bump();
     hooks.emit("chat.message", { message }, thread.id);
     hooks.emit("run.updated", { run }, thread.id);
-    hooks.afterCommit(() => this.#startTurn(thread, run.id, agentContent, attachments, requester));
+    hooks.afterCommit(() =>
+      this.#startTurn(thread, run.id, agentContent, attachments, requester, voice),
+    );
     return { messageId: message.id, run };
   }
 
@@ -541,12 +557,13 @@ export class SessionController {
     content: string,
     attachments: readonly string[],
     requester?: Requester,
+    voice?: VoiceTurnOptions,
   ): void {
     if (this.#stopping || this.#closing.has(thread.id)) return;
     const abort = new AbortController();
     const turn: ActiveTurn = { runId, abort, detached: false, done: Promise.resolve() };
     this.#active.set(thread.id, turn);
-    turn.done = this.#runTurn(thread, turn, content, attachments, requester)
+    turn.done = this.#runTurn(thread, turn, content, attachments, requester, voice)
       .catch((err) => this.#warn("turn crashed", err))
       .finally(() => {
         if (this.#active.get(thread.id) === turn) this.#active.delete(thread.id);
@@ -560,6 +577,7 @@ export class SessionController {
     content: string,
     attachments: readonly string[],
     requester?: Requester,
+    voice?: VoiceTurnOptions,
   ): Promise<void> {
     const { db, bus, agent } = this.#ctx;
     const { runId } = turn;
@@ -643,6 +661,7 @@ export class SessionController {
         signal: turn.abort.signal,
         ...(requester === undefined ? {} : { requester }),
         ...(inputTaint === undefined ? {} : { taintSources: inputTaint }),
+        ...(voice === undefined ? {} : { voice }),
       });
       for await (const event of stream) {
         if (turn.detached || this.activeRunId(threadId) !== runId) {

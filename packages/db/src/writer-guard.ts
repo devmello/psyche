@@ -30,6 +30,8 @@ export interface NewMessage {
   readonly channelRef?: ChannelRef | null;
   readonly runId?: string | null;
   readonly createdAt?: string;
+  /** `voice`: the owner spoke it (voice conversation). */
+  readonly via?: "voice";
 }
 
 export interface AppendOptions {
@@ -134,6 +136,7 @@ export function appendMessage(db: PsycheDb, msg: NewMessage, opts: AppendOptions
           channelRef: encodeJson(msg.channelRef ?? undefined),
           runId: msg.runId ?? null,
           createdAt,
+          via: msg.via ?? null,
         })
         .returning()
         .get();

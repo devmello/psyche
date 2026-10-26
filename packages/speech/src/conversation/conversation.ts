@@ -16,6 +16,7 @@ import { bytesPerSample, isPcm } from "../audio.ts";
 import type { EngineLocation, SpeechCaller, SpeechEngineSelector } from "../policy.ts";
 import { AsyncQueue, fromBase64, toBase64 } from "../queue.ts";
 import { mergeVocabulary } from "../vocabulary.ts";
+import { NARRATE_SLOW_MS } from "./narration.ts";
 import { type SpeakLevel, SpokenText } from "./spoken.ts";
 import { PcmVad } from "./vad.ts";
 
@@ -152,6 +153,11 @@ export interface VoiceConversationOptions {
   newId?: () => string;
   /** Pre-roll kept for a new turn (default 600 ms). */
   prerollMs?: number;
+  /**
+   * The owner's switch (`voice.conversation.enabled`, off by default): `start` refuses with
+   * `policy_denied` while it is off. Without the option, conversations are allowed (tests).
+   */
+  enabled?: () => boolean | Promise<boolean>;
 }
 
 /** One base64 chunk may carry at most 1 s of 48 kHz stereo f32, as `voice.push`. */
@@ -180,6 +186,12 @@ interface Reply {
   current: { id: string; text: string; durationMs: number } | undefined;
   /** Speech stopped (barge-in or stop); later deltas are shown, not spoken. */
   muted: boolean;
+  /** Narration timers for running steps (`brief`), or a marker that a step was said (`steps`). */
+  slow: Map<string, Timer | null>;
+  /** A narration phrase was spoken this turn (`brief` says at most one). */
+  narrated: boolean;
+  /** Answer text was spoken this turn (narration stops once the answer starts). */
+  answered: boolean;
 }
 
 type Timer = ReturnType<typeof setTimeout>;
@@ -340,6 +352,7 @@ export class VoiceConversation {
     }
     this.#dropTurn();
     if (this.#reply !== undefined) {
+      this.#clearSlow(this.#reply);
       this.#reply.muted = true;
       this.#reply.abort.abort();
       this.#reply = undefined;
@@ -522,6 +535,9 @@ export class VoiceConversation {
       unplayed: new Set(),
       current: undefined,
       muted: false,
+      slow: new Map(),
+      narrated: false,
+      answered: false,
     };
     this.#reply = reply;
     const voice: VoiceTurnOptions = {
@@ -538,8 +554,11 @@ export class VoiceConversation {
         signal: reply.abort.signal,
       })) {
         if (this.#ended || this.#reply !== reply) return;
-        if (e.type === "delta") this.#queueSentences(reply, reply.spoken.push(e.text));
-        else if (e.type === "step") {
+        if (e.type === "delta") {
+          const sentences = reply.spoken.push(e.text);
+          if (sentences.length > 0) reply.answered = true;
+          this.#queueSentences(reply, sentences);
+        } else if (e.type === "step") {
           this.#emit({
             event: "voice.conversation.step",
             payload: {
@@ -549,6 +568,7 @@ export class VoiceConversation {
               status: e.status,
             },
           });
+          this.#narrate(reply, e.toolCallId, e.label, e.status);
         } else if (e.type === "waiting") {
           this.#state("waiting", {
             reason: e.reason,
@@ -569,9 +589,47 @@ export class VoiceConversation {
       return;
     }
     if (this.#ended || this.#reply !== reply) return;
+    this.#clearSlow(reply);
     this.#queueSentences(reply, reply.spoken.finish());
     reply.runDone = true;
     this.#maybeReplyFinished();
+  }
+
+  /**
+   * Narration (spec §4.5): `steps` says each step's label once as it starts. `brief` says one
+   * phrase per turn, for a step still running after 1.5 s, and only before the answer started.
+   */
+  #narrate(reply: Reply, toolCallId: string, label: string, status: string): void {
+    const level = this.#settings.narrate;
+    if (level === "off" || reply.muted) return;
+    const running = status === "running" || status === "pending";
+    if (!running) {
+      const t = reply.slow.get(toolCallId);
+      if (t != null) clearTimeout(t);
+      if (level === "brief") reply.slow.delete(toolCallId);
+      return;
+    }
+    if (reply.slow.has(toolCallId)) return;
+    if (level === "steps") {
+      reply.slow.set(toolCallId, null);
+      this.#queueSentences(reply, [`${label}.`]);
+      return;
+    }
+    if (reply.narrated || reply.answered) return;
+    reply.slow.set(
+      toolCallId,
+      setTimeout(() => {
+        reply.slow.delete(toolCallId);
+        if (reply.narrated || reply.answered || reply.muted || this.#reply !== reply) return;
+        reply.narrated = true;
+        this.#queueSentences(reply, [`${label}.`]);
+      }, NARRATE_SLOW_MS),
+    );
+  }
+
+  #clearSlow(reply: Reply): void {
+    for (const t of reply.slow.values()) if (t != null) clearTimeout(t);
+    reply.slow.clear();
   }
 
   #queueSentences(reply: Reply, sentences: string[]): void {
@@ -782,6 +840,12 @@ export class VoiceConversationManager {
     }
     if (p.format.sampleRate < 8_000 || p.format.sampleRate > 48_000) {
       throw new PsycheError("invalid_params", "sample rate must be 8–48 kHz");
+    }
+    if (this.#opts.enabled !== undefined && (await this.#opts.enabled()) !== true) {
+      throw new PsycheError(
+        "policy_denied",
+        "Voice conversation is off. Turn it on in Settings → Voice & dictation.",
+      );
     }
     const sel = await this.#opts.selector.select({ purpose: "dictation", caller: ctx.caller });
     if (sel.engine === undefined || sel.location === "client") {

@@ -52,6 +52,7 @@ import {
   type ToolSpec,
   type ToolUpdate,
   type Usage,
+  type VoiceTurnOptions,
 } from "@psyche/protocol";
 import {
   type HarnessAction,
@@ -133,6 +134,7 @@ import {
   systemClock,
   toIso,
 } from "./util.ts";
+import { PRIMARY_ROLE_REF, VOICE_ROLE_REF, voiceTurnSection } from "./voice-turn.ts";
 
 type MaybePromise<T> = T | Promise<T>;
 
@@ -329,6 +331,8 @@ interface RunState {
   ownerText: string;
   /** Who asked for the turn (security §9); absent means the owner. */
   requester?: Requester;
+  /** A spoken turn (voice conversation): the voice-turn section and the `voice` model role. */
+  voice?: VoiceTurnOptions;
   abort: AbortController;
   steer: string[];
   taint: boolean;
@@ -620,6 +624,7 @@ export class PsycheAgentLoop implements AgentLoop {
       ownerText: ownerSent ? input.input.text : "",
       ...(requester === undefined ? {} : { requester }),
       ...(input.beforeDispatch === undefined ? {} : { beforeDispatch: input.beforeDispatch }),
+      ...(input.voice === undefined ? {} : { voice: input.voice }),
       abort,
       steer: [],
       taint: false,
@@ -793,7 +798,9 @@ export class PsycheAgentLoop implements AgentLoop {
   }
 
   async #resolveModel(run: RunState): Promise<ModelRef> {
-    let model = run.model;
+    // A spoken turn uses the router's `voice` role, which falls back to the primary chain.
+    let model =
+      run.voice !== undefined && run.model === PRIMARY_ROLE_REF ? VOICE_ROLE_REF : run.model;
     for (const hook of this.hooks.handlers("before_model_resolve")) {
       const r = await hook({ ...runRef(run), model });
       if (r?.model !== undefined) model = r.model;
@@ -1218,6 +1225,7 @@ export class PsycheAgentLoop implements AgentLoop {
         });
       }
     }
+    if (run.voice !== undefined) sections.push(voiceTurnSection(run.voice));
     for (const hook of this.hooks.handlers("before_prompt_build")) {
       const r = await hook({
         ...runRef(run),

@@ -135,6 +135,8 @@ export const messages = sqliteTable("messages", {
   createdAt: text("created_at").notNull(),
   // 202610261300_gateway_messages-lessons-applied.sql (teaching loop, LessonRef[] JSON)
   lessonsApplied: text("lessons_applied"),
+  /** `voice` for a message the owner spoke (migration 202610261900); NULL otherwise. */
+  via: text("via"),
 });
 
 export const runs = sqliteTable("runs", {
