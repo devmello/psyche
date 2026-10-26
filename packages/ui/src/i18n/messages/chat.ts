@@ -63,6 +63,17 @@ export const chat = {
   "chat.composer.placeholder": "Message {persona}…",
   "chat.composer.label": "Message {persona}",
   "chat.composer.attach": "Attach files",
+  "chat.attach.list": "Attached files",
+  "chat.attach.remove": "Remove {name}",
+  "chat.attach.uploading": "Uploading {name}",
+  "chat.attach.failed": "{name} didn't upload",
+  "chat.attach.dismiss": "Dismiss",
+  "chat.attach.refused.image":
+    "{name}: this model can't read images, so only documents (PDF, Word, Excel, text) can be attached",
+  "chat.attach.refused.type":
+    "{name}: Psyche can't read this kind of file. Attach a PDF, Word, Excel, text or image file",
+  "chat.attach.refused.size": "{name} is too large to attach (images 5 MB, documents 25 MB)",
+  "chat.attach.refused.count": "{name}: up to 8 files go with a message",
   "chat.composer.dictate": "Dictate (hold fn)",
   "chat.composer.hintIdle": "Type / for commands",
   "chat.composer.hintFollowUp": "Sends when {persona} finishes this turn",

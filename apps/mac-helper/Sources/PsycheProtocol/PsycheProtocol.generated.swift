@@ -531,6 +531,8 @@
 //   let libraryItemKind = try? JSONDecoder().decode(LibraryItemKind.self, from: jsonData)
 //   let libraryListParams = try? JSONDecoder().decode(LibraryListParams.self, from: jsonData)
 //   let libraryListResult = try? JSONDecoder().decode(LibraryListResult.self, from: jsonData)
+//   let libraryUploadParams = try? JSONDecoder().decode(LibraryUploadParams.self, from: jsonData)
+//   let libraryUploadResult = try? JSONDecoder().decode(LibraryUploadResult.self, from: jsonData)
 //   let linkPaymentMethod = try? JSONDecoder().decode(LinkPaymentMethod.self, from: jsonData)
 //   let logLevel = try? JSONDecoder().decode(LogLevel.self, from: jsonData)
 //   let logLine = try? JSONDecoder().decode(LogLine.self, from: jsonData)
@@ -13874,6 +13876,54 @@ public struct LibraryListResult: Codable, Sendable {
     public init(items: [LibraryItem], nextCursor: String?) {
         self.items = items
         self.nextCursor = nextCursor
+    }
+}
+
+// MARK: - LibraryUploadParams
+public struct LibraryUploadParams: Codable, Sendable {
+    public let bytes: String
+    public let libraryUploadParamsFinal: Bool
+    public let mime: String?
+    /// the file's name
+    public let name: String
+    public let threadID: String?
+    public let uploadID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case libraryUploadParamsFinal = "final"
+        case mime = "mime"
+        case name = "name"
+        case threadID = "threadId"
+        case uploadID = "uploadId"
+    }
+
+    public init(bytes: String, libraryUploadParamsFinal: Bool, mime: String?, name: String, threadID: String?, uploadID: String?) {
+        self.bytes = bytes
+        self.libraryUploadParamsFinal = libraryUploadParamsFinal
+        self.mime = mime
+        self.name = name
+        self.threadID = threadID
+        self.uploadID = uploadID
+    }
+}
+
+// MARK: - LibraryUploadResult
+public struct LibraryUploadResult: Codable, Sendable {
+    public let item: LibraryItem?
+    public let received: Int
+    public let uploadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case item = "item"
+        case received = "received"
+        case uploadID = "uploadId"
+    }
+
+    public init(item: LibraryItem?, received: Int, uploadID: String) {
+        self.item = item
+        self.received = received
+        self.uploadID = uploadID
     }
 }
 

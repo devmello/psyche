@@ -1552,6 +1552,25 @@ export class MockGateway implements GatewayClient {
       nextCursor: null,
     }),
     "library.get": (p) => ({ item: this.find(this.world.library, p.itemId, "library item") }),
+    "library.upload": (p) => {
+      const item: LibraryItem = {
+        id: this.id("lib"),
+        kind: (p.mime ?? "").startsWith("image/") ? "image" : "document",
+        name: p.name,
+        mime: p.mime ?? mockMime(p.name),
+        path: `uploads/${p.name}`,
+        size: 0,
+        sha256: "sha256:mock",
+        origin: "upload",
+        threadId: p.threadId ?? null,
+        taskId: null,
+        tags: [],
+        textExtractRef: null,
+        createdAt: this.now(),
+      };
+      this.world.library = [item, ...this.world.library];
+      return { uploadId: p.uploadId ?? this.id("up"), received: 0, item };
+    },
     "library.delete": (p) => {
       this.world.library = this.world.library.filter((i) => i.id !== p.itemId);
       return { ok: true };
