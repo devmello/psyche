@@ -26505,6 +26505,42 @@
         },
         "replay": {
           "$ref": "#/$defs/SkillDraftReplay"
+        },
+        "update": {
+          "properties": {
+            "skill": {
+              "type": "string"
+            },
+            "baseHash": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "lessonIds": {
+              "items": {
+                "description": "ULID in production",
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 50,
+              "type": "array"
+            },
+            "acceptance": {
+              "items": {
+                "maxLength": 400,
+                "type": "string"
+              },
+              "maxItems": 50,
+              "type": "array"
+            }
+          },
+          "required": [
+            "skill",
+            "baseHash",
+            "lessonIds",
+            "acceptance"
+          ],
+          "type": "object"
         }
       },
       "required": [

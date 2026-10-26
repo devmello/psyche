@@ -34,8 +34,10 @@ import {
   mineNotes,
   type SequenceOptions,
   type SignalsProvider,
+  type SkillUpdatesProvider,
   sequenceCandidates,
   signalCandidates,
+  skillUpdateCandidates,
 } from "./mining.ts";
 import { IdeaStore, type StoredIdea, toIdea } from "./store.ts";
 
@@ -76,6 +78,8 @@ export interface IdeasServiceOptions {
   goals?: GoalsService;
   notifier?: Pick<Notifier, "notify">;
   signals?: SignalsProvider;
+  /** Skill-update drafts for skills with three or more lessons (teaching loop §6). */
+  skillUpdates?: SkillUpdatesProvider;
   newId?: () => string;
   timezone?: string;
   onEvent?: (event: IdeaEvent) => void;
@@ -252,6 +256,12 @@ export class IdeasService {
         candidates.push(...mineGoals(states));
       });
     }
+    if (this.#o.skillUpdates !== undefined) {
+      const updates = this.#o.skillUpdates;
+      await attempt("skills", async () => {
+        candidates.push(...skillUpdateCandidates(await updates()));
+      });
+    }
     if (this.#o.signals !== undefined) {
       const signals = this.#o.signals;
       await attempt("connectors", async () => {
@@ -372,7 +382,10 @@ export class IdeasService {
     let resultRef: string;
     const wantsAutomation =
       params.recurring === true || (action.type === "automation" && params.recurring !== false);
-    if (action.type === "goal_cadence") {
+    if (action.type === "skill_update") {
+      // The draft has its own accept (replay, trust card, approval): the idea only points to it.
+      resultRef = `skill_draft:${action.draftId}`;
+    } else if (action.type === "goal_cadence") {
       if (this.#o.goals === undefined)
         throw new PsycheError("unavailable", "goals are not configured");
       await this.#o.goals.update(action.goalId, {

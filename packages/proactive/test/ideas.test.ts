@@ -39,7 +39,13 @@ function seedRun(db: PsycheDb, threadId: string, day: number, tools: string[]): 
 
 const EXPORT = ["gmail.search", "pdf.read", "sheet.append", "gmail.draft"];
 
-function rig(options: { signals?: ConnectorSignal[]; notes?: Record<string, string> } = {}) {
+function rig(
+  options: {
+    signals?: ConnectorSignal[];
+    notes?: Record<string, string>;
+    skillUpdates?: { skill: string; draftId: string; lessons: number }[];
+  } = {},
+) {
   const clock = new FakeClock(T0);
   const db = testDb(clock);
   const notifier = new FakeNotifier({ clock });
@@ -84,6 +90,9 @@ function rig(options: { signals?: ConnectorSignal[]; notes?: Record<string, stri
     goals,
     notifier,
     signals: async () => signals,
+    ...(options.skillUpdates === undefined
+      ? {}
+      : { skillUpdates: async () => options.skillUpdates ?? [] }),
     newId: () => ids.next("idea"),
     timezone: "UTC",
     onEvent: (e) => events.push(e),
@@ -218,6 +227,28 @@ describe("connector signals and untrusted text", () => {
       at: "2026-11-03T08:00:00Z",
     },
   ];
+
+  it("a skill with three lessons: one skill-update idea, and accepting opens its draft, no task", async () => {
+    const updates = [{ skill: "invoices", draftId: "skd_9", lessons: 3 }];
+    const { ideas, tasks } = rig({ skillUpdates: updates });
+    const { queued } = await ideas.mine();
+    const idea = queued.find((i) => i.patternKey === "skill-update:skd_9");
+    expect(idea).toMatchObject({
+      kind: "skill",
+      source: "teaching",
+      untrusted: false,
+      action: { type: "skill_update", skill: "invoices", draftId: "skd_9" },
+    });
+    // Mined again: the same draft is never proposed twice.
+    expect((await ideas.mine()).queued.some((i) => i.patternKey === "skill-update:skd_9")).toBe(
+      false,
+    );
+    await ideas.deliver();
+    const out = await ideas.accept({ ideaId: idea?.id ?? "" });
+    expect(out).toMatchObject({ taskId: null, automationId: null });
+    expect(out.idea).toMatchObject({ status: "accepted", resultRef: "skill_draft:skd_9" });
+    expect(await tasks.list()).toEqual([]);
+  });
 
   it("an accepted email idea is a tainted task card in the main thread, untrusted text quoted", async () => {
     const { ideas, tasks, main } = rig({ signals });

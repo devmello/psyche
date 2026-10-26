@@ -19720,6 +19720,7 @@ public struct SkillDraft: Codable, Sendable {
     /// Full SKILL.md, editable by the owner while open
     public let text: String
     public let threadID: String
+    public let update: SkillDraftUpdate?
     public let updatedAt: String
 
     public enum CodingKeys: String, CodingKey {
@@ -19740,10 +19741,11 @@ public struct SkillDraft: Codable, Sendable {
         case tainted = "tainted"
         case text = "text"
         case threadID = "threadId"
+        case update = "update"
         case updatedAt = "updatedAt"
     }
 
-    public init(approvalID: String?, createdAt: String, description: String, edited: Bool, id: String, installProposalID: String?, manifest: SkillManifest, name: String, occurrences: Int, redactions: Int, replay: SkillDraftReplay?, signature: String, status: SkillDraftStatus, steps: [SkillDraftStep], tainted: Bool, text: String, threadID: String, updatedAt: String) {
+    public init(approvalID: String?, createdAt: String, description: String, edited: Bool, id: String, installProposalID: String?, manifest: SkillManifest, name: String, occurrences: Int, redactions: Int, replay: SkillDraftReplay?, signature: String, status: SkillDraftStatus, steps: [SkillDraftStep], tainted: Bool, text: String, threadID: String, update: SkillDraftUpdate?, updatedAt: String) {
         self.approvalID = approvalID
         self.createdAt = createdAt
         self.description = description
@@ -19761,6 +19763,7 @@ public struct SkillDraft: Codable, Sendable {
         self.tainted = tainted
         self.text = text
         self.threadID = threadID
+        self.update = update
         self.updatedAt = updatedAt
     }
 }
@@ -19809,6 +19812,28 @@ public struct SkillDraftStep: Codable, Sendable {
         self.sideEffect = sideEffect
         self.summary = summary
         self.tool = tool
+    }
+}
+
+// MARK: - SkillDraftUpdate
+public struct SkillDraftUpdate: Codable, Sendable {
+    public let acceptance: [String]
+    public let baseHash: String
+    public let lessonIDS: [String]
+    public let skill: String
+
+    public enum CodingKeys: String, CodingKey {
+        case acceptance = "acceptance"
+        case baseHash = "baseHash"
+        case lessonIDS = "lessonIds"
+        case skill = "skill"
+    }
+
+    public init(acceptance: [String], baseHash: String, lessonIDS: [String], skill: String) {
+        self.acceptance = acceptance
+        self.baseHash = baseHash
+        self.lessonIDS = lessonIDS
+        self.skill = skill
     }
 }
 
