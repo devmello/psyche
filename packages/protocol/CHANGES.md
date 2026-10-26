@@ -18,6 +18,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (screen-ask: Ask about my screen, docs/design/screen-ask-2026.md)
+
+- **New `screen.*` methods** (desktop shell only, `operator.write`): `screen.capture {mode: window | region, rect?, maxWidth?, maxHeight?}` → `ScreenCapture {captureId, libraryItemId, thumbnail, width, height, mode, context, refusal?, expiresAt}`; `screen.discard {captureId}` → `{discarded}`. An unsent capture expires after `SCREEN_CAPTURE_TTL_MS` (10 min).
+- Helper capability `screen.context` takes `ScreenContextParams` and returns `ScreenContextResult {image (base64 JPEG) | null, width, height, context, refusal?}`; never reachable through `nodes.invoke` or agent tools.
+- New types `ScreenContext {appName, bundleId, windowTitle, selectedText, url}`, `ScreenRect`, `ScreenCaptureMode`, `ScreenCaptureRefusal`, `ScreenImageChoice`, `ChatScreenRef`.
+- `chat.send` gains optional `screen: ChatScreenRef {captureId, image: auto | pinned | dropped}`.
+
 ### v1 additive — 2026-10-26 (S02, #683 part 2a: the specialist pool)
 
 - `ClaimOptions` gains `origins?`, `excludeOrigins?` and `perParentLimit?` (the chat pool excludes `subagent` jobs; the specialist pool claims only them, at most N running per parent thread). `FakeTaskEngine.claim` honours them.

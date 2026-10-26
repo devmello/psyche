@@ -32,6 +32,7 @@ import { QuestionsMethods } from "./questions.ts";
 import { ArtifactsMethods, ReceiptsMethods } from "./receipts.ts";
 import { RunsMethods } from "./runs.ts";
 import { SandboxMethods } from "./sandbox.ts";
+import { ScreenMethods } from "./screen.ts";
 import { SearchMethods } from "./search.ts";
 import { SettingsMethods } from "./settings.ts";
 import { SkillsMethods } from "./skills.ts";
@@ -78,6 +79,7 @@ export * from "./questions.ts";
 export * from "./receipts.ts";
 export * from "./runs.ts";
 export * from "./sandbox.ts";
+export * from "./screen.ts";
 export * from "./search.ts";
 export * from "./settings.ts";
 export * from "./skills.ts";
@@ -145,6 +147,7 @@ export const Methods = {
   ...FeedbackMethods,
   ...LessonsMethods,
   ...GrowthMethods,
+  ...ScreenMethods,
 } as const;
 
 export type MethodName = keyof typeof Methods;

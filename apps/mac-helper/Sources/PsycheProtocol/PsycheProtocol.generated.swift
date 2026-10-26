@@ -239,6 +239,7 @@
 //   let chatQueueRemoveResult = try? JSONDecoder().decode(ChatQueueRemoveResult.self, from: jsonData)
 //   let chatQueueUpdatedPayload = try? JSONDecoder().decode(ChatQueueUpdatedPayload.self, from: jsonData)
 //   let chatReasoningPayload = try? JSONDecoder().decode(ChatReasoningPayload.self, from: jsonData)
+//   let chatScreenRef = try? JSONDecoder().decode(ChatScreenRef.self, from: jsonData)
 //   let chatSendParams = try? JSONDecoder().decode(ChatSendParams.self, from: jsonData)
 //   let chatSendResult = try? JSONDecoder().decode(ChatSendResult.self, from: jsonData)
 //   let chatSteerParams = try? JSONDecoder().decode(ChatSteerParams.self, from: jsonData)
@@ -825,6 +826,16 @@
 //   let sandboxStatusParams = try? JSONDecoder().decode(SandboxStatusParams.self, from: jsonData)
 //   let sandboxStatusResult = try? JSONDecoder().decode(SandboxStatusResult.self, from: jsonData)
 //   let scanFinding = try? JSONDecoder().decode(ScanFinding.self, from: jsonData)
+//   let screenCapture = try? JSONDecoder().decode(ScreenCapture.self, from: jsonData)
+//   let screenCaptureMode = try? JSONDecoder().decode(ScreenCaptureMode.self, from: jsonData)
+//   let screenCaptureRefusal = try? JSONDecoder().decode(ScreenCaptureRefusal.self, from: jsonData)
+//   let screenContext = try? JSONDecoder().decode(ScreenContext.self, from: jsonData)
+//   let screenContextParams = try? JSONDecoder().decode(ScreenContextParams.self, from: jsonData)
+//   let screenContextResult = try? JSONDecoder().decode(ScreenContextResult.self, from: jsonData)
+//   let screenDiscardParams = try? JSONDecoder().decode(ScreenDiscardParams.self, from: jsonData)
+//   let screenDiscardResult = try? JSONDecoder().decode(ScreenDiscardResult.self, from: jsonData)
+//   let screenImageChoice = try? JSONDecoder().decode(ScreenImageChoice.self, from: jsonData)
+//   let screenRect = try? JSONDecoder().decode(ScreenRect.self, from: jsonData)
 //   let searchGroup = try? JSONDecoder().decode(SearchGroup.self, from: jsonData)
 //   let searchHit = try? JSONDecoder().decode(SearchHit.self, from: jsonData)
 //   let searchHitGroup = try? JSONDecoder().decode(SearchHitGroup.self, from: jsonData)
@@ -7355,6 +7366,7 @@ public struct ChatSendParams: Codable, Sendable {
     public let mode: QueueMode?
     public let redo: Redo?
     public let replyToMessageID: String?
+    public let screen: ChatScreenRef?
     public let threadID: String
 
     public enum CodingKeys: String, CodingKey {
@@ -7363,15 +7375,17 @@ public struct ChatSendParams: Codable, Sendable {
         case mode = "mode"
         case redo = "redo"
         case replyToMessageID = "replyToMessageId"
+        case screen = "screen"
         case threadID = "threadId"
     }
 
-    public init(attachments: [String]?, content: String, mode: QueueMode?, redo: Redo?, replyToMessageID: String?, threadID: String) {
+    public init(attachments: [String]?, content: String, mode: QueueMode?, redo: Redo?, replyToMessageID: String?, screen: ChatScreenRef?, threadID: String) {
         self.attachments = attachments
         self.content = content
         self.mode = mode
         self.redo = redo
         self.replyToMessageID = replyToMessageID
+        self.screen = screen
         self.threadID = threadID
     }
 }
@@ -7399,6 +7413,28 @@ public struct Redo: Codable, Sendable {
         self.messageID = messageID
         self.withoutLessons = withoutLessons
     }
+}
+
+// MARK: - ChatScreenRef
+public struct ChatScreenRef: Codable, Sendable {
+    public let captureID: String
+    public let image: ScreenImageChoice
+
+    public enum CodingKeys: String, CodingKey {
+        case captureID = "captureId"
+        case image = "image"
+    }
+
+    public init(captureID: String, image: ScreenImageChoice) {
+        self.captureID = captureID
+        self.image = image
+    }
+}
+
+public enum ScreenImageChoice: String, Codable, Sendable {
+    case auto = "auto"
+    case dropped = "dropped"
+    case pinned = "pinned"
 }
 
 // MARK: - ChatSendResult
@@ -19095,6 +19131,175 @@ public enum SandboxBackend: String, Codable, Sendable {
     case docker = "docker"
     case none = "none"
     case podman = "podman"
+}
+
+// MARK: - ScreenCapture
+public struct ScreenCapture: Codable, Sendable {
+    public let captureID: String
+    public let context: ScreenContext?
+    public let expiresAt: String
+    public let height: Int
+    public let libraryItemID: String?
+    public let mode: ScreenCaptureMode
+    public let refusal: ScreenCaptureRefusal?
+    public let thumbnail: String?
+    public let width: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case captureID = "captureId"
+        case context = "context"
+        case expiresAt = "expiresAt"
+        case height = "height"
+        case libraryItemID = "libraryItemId"
+        case mode = "mode"
+        case refusal = "refusal"
+        case thumbnail = "thumbnail"
+        case width = "width"
+    }
+
+    public init(captureID: String, context: ScreenContext?, expiresAt: String, height: Int, libraryItemID: String?, mode: ScreenCaptureMode, refusal: ScreenCaptureRefusal?, thumbnail: String?, width: Int) {
+        self.captureID = captureID
+        self.context = context
+        self.expiresAt = expiresAt
+        self.height = height
+        self.libraryItemID = libraryItemID
+        self.mode = mode
+        self.refusal = refusal
+        self.thumbnail = thumbnail
+        self.width = width
+    }
+}
+
+// MARK: - ScreenContext
+public struct ScreenContext: Codable, Sendable {
+    public let appName: String
+    public let bundleID: String?
+    public let selectedText: String?
+    public let url: String?
+    public let windowTitle: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case appName = "appName"
+        case bundleID = "bundleId"
+        case selectedText = "selectedText"
+        case url = "url"
+        case windowTitle = "windowTitle"
+    }
+
+    public init(appName: String, bundleID: String?, selectedText: String?, url: String?, windowTitle: String?) {
+        self.appName = appName
+        self.bundleID = bundleID
+        self.selectedText = selectedText
+        self.url = url
+        self.windowTitle = windowTitle
+    }
+}
+
+public enum ScreenCaptureMode: String, Codable, Sendable {
+    case region = "region"
+    case window = "window"
+}
+
+public enum ScreenCaptureRefusal: String, Codable, Sendable {
+    case appExcluded = "app_excluded"
+    case noWindow = "no_window"
+    case permissionMissing = "permission_missing"
+    case secureField = "secure_field"
+}
+
+// MARK: - ScreenContextParams
+public struct ScreenContextParams: Codable, Sendable {
+    public let maxHeight: Int?
+    public let maxWidth: Int?
+    public let mode: ScreenCaptureMode
+    public let rect: ScreenRect?
+
+    public enum CodingKeys: String, CodingKey {
+        case maxHeight = "maxHeight"
+        case maxWidth = "maxWidth"
+        case mode = "mode"
+        case rect = "rect"
+    }
+
+    public init(maxHeight: Int?, maxWidth: Int?, mode: ScreenCaptureMode, rect: ScreenRect?) {
+        self.maxHeight = maxHeight
+        self.maxWidth = maxWidth
+        self.mode = mode
+        self.rect = rect
+    }
+}
+
+// MARK: - ScreenRect
+public struct ScreenRect: Codable, Sendable {
+    public let height: Double
+    public let width: Double
+    public let x: Double
+    public let y: Double
+
+    public enum CodingKeys: String, CodingKey {
+        case height = "height"
+        case width = "width"
+        case x = "x"
+        case y = "y"
+    }
+
+    public init(height: Double, width: Double, x: Double, y: Double) {
+        self.height = height
+        self.width = width
+        self.x = x
+        self.y = y
+    }
+}
+
+// MARK: - ScreenContextResult
+public struct ScreenContextResult: Codable, Sendable {
+    public let context: ScreenContext?
+    public let height: Int
+    public let image: String?
+    public let refusal: ScreenCaptureRefusal?
+    public let width: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case context = "context"
+        case height = "height"
+        case image = "image"
+        case refusal = "refusal"
+        case width = "width"
+    }
+
+    public init(context: ScreenContext?, height: Int, image: String?, refusal: ScreenCaptureRefusal?, width: Int) {
+        self.context = context
+        self.height = height
+        self.image = image
+        self.refusal = refusal
+        self.width = width
+    }
+}
+
+// MARK: - ScreenDiscardParams
+public struct ScreenDiscardParams: Codable, Sendable {
+    public let captureID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case captureID = "captureId"
+    }
+
+    public init(captureID: String) {
+        self.captureID = captureID
+    }
+}
+
+// MARK: - ScreenDiscardResult
+public struct ScreenDiscardResult: Codable, Sendable {
+    public let discarded: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case discarded = "discarded"
+    }
+
+    public init(discarded: Bool) {
+        self.discarded = discarded
+    }
 }
 
 // MARK: - SearchQueryParams
