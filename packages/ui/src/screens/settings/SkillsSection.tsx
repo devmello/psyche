@@ -1,5 +1,6 @@
 import { sanitizeBlock, sanitizeDisplay } from "@psyche/permissions/cards";
 import type {
+  Lesson,
   SkillDetails,
   SkillInstallSource,
   SkillManifest,
@@ -16,6 +17,8 @@ import { answerApproval, useApproval, useCall, useGatewayQuery } from "../../dat
 import { useStore } from "../../data/provider.tsx";
 import { t } from "../../i18n/core.ts";
 import { usePersona } from "../../slots.tsx";
+import { useLessons } from "../../teaching/hooks.ts";
+import { LessonMark } from "../../teaching/LessonMark.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import { SkillSuggestions } from "./SkillDraftCard.tsx";
 import {
@@ -344,15 +347,19 @@ export interface SkillsPanelProps extends LoadProps {
   onReviewUpdate?: (skill: SkillDetails) => void;
   /** Agent-proposed drafts (T3), shown above the installed skills. */
   suggestions?: ReactNode;
+  /** Lessons written to skills' `LESSONS.md` (teaching loop §5.2): "3 lessons from you". */
+  lessons?: readonly Lesson[];
 }
 
 function SkillRow({
   skill,
+  lessons = [],
   onToggle,
   onRemove,
   onReviewUpdate,
 }: {
   skill: SkillDetails;
+  lessons?: readonly Lesson[];
   onToggle?: SkillsPanelProps["onToggle"];
   onRemove?: SkillsPanelProps["onRemove"];
   onReviewUpdate?: SkillsPanelProps["onReviewUpdate"];
@@ -429,6 +436,21 @@ function SkillRow({
           </p>
         </details>
       ) : null}
+      {lessons.length > 0 ? (
+        <details className="text-xs text-muted-foreground" data-testid="skill-lessons">
+          <summary className="cursor-pointer">
+            {t("screens.lessons.inFile", { n: lessons.length })}
+          </summary>
+          <ul className="mt-1 flex flex-col gap-1.5">
+            {lessons.map((l) => (
+              <li key={l.id} className="flex flex-col gap-0.5">
+                <span className="text-callout text-label-primary">{l.statement}</span>
+                <LessonMark lesson={l} />
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
       {skill.status !== "active" && skill.reasons.length > 0 ? (
         <p className="text-xs text-muted-foreground">
           {skill.reasons.map((r) => show(r)).join("; ")}
@@ -460,6 +482,7 @@ export function SkillsPanel({
   onCheckUpdates,
   onReviewUpdate,
   suggestions,
+  lessons = [],
   loading,
   error,
   onRetry,
@@ -568,7 +591,14 @@ export function SkillsPanel({
           ) : (
             <ul className="flex flex-col divide-y divide-gray-6">
               {installed.map((s) => (
-                <SkillRow key={`${s.source}:${s.name}`} skill={s} {...rowProps} />
+                <SkillRow
+                  key={`${s.source}:${s.name}`}
+                  skill={s}
+                  lessons={lessons.filter(
+                    (l) => l.destination.type === "skill" && l.destination.skill === s.name,
+                  )}
+                  {...rowProps}
+                />
               ))}
             </ul>
           )}
@@ -579,7 +609,14 @@ export function SkillsPanel({
           ) : (
             <ul className="flex flex-col divide-y divide-gray-6">
               {bundled.map((s) => (
-                <SkillRow key={`${s.source}:${s.name}`} skill={s} {...rowProps} />
+                <SkillRow
+                  key={`${s.source}:${s.name}`}
+                  skill={s}
+                  lessons={lessons.filter(
+                    (l) => l.destination.type === "skill" && l.destination.skill === s.name,
+                  )}
+                  {...rowProps}
+                />
               ))}
             </ul>
           )}
@@ -673,6 +710,7 @@ export function SkillsSection({
   const call = useCall();
   const q = useGatewayQuery("skills.list", {});
   const draftsQ = useGatewayQuery("skills.drafts.list", { status: "open" });
+  const skillLessons = useLessons({ destination: "skill" });
   const persona = usePersona().name;
   const [review, setReview] = useState<{ proposal: SkillProposal; approvalId: string } | null>(
     null,
@@ -730,6 +768,7 @@ export function SkillsSection({
   return (
     <SkillsPanel
       skills={q.data?.skills ?? []}
+      lessons={skillLessons.lessons}
       loading={q.loading && q.data === undefined}
       error={q.error}
       onRetry={q.reload}
