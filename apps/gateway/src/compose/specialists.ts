@@ -35,6 +35,10 @@ export interface SpecialistHostDeps {
   /** Router roles: `primary` and the optional `utility` model. */
   models: { primary: ModelRef; utility?: ModelRef };
   now: () => number;
+  /** The specialist pool's slots (`specialists.maxConcurrent`). */
+  slots?: () => number;
+  /** Wake the specialist pool after a spawn. */
+  poke?: () => void;
 }
 
 const setting = (db: PsycheDb, key: string): unknown => getSetting(db, key)?.value;
@@ -95,7 +99,7 @@ export function sanitizeReport(r: SpecialistReportInput): SpecialistReportInput 
   };
 }
 
-function jobOf(task: Task): SpecialistJob | undefined {
+function jobOf(task: Task, queuePosition: number | null = null): SpecialistJob | undefined {
   const s = task.specialist;
   if (s === undefined) return undefined;
   const status: SpecialistJob["status"] =
@@ -121,10 +125,11 @@ function jobOf(task: Task): SpecialistJob | undefined {
     role: s.role,
     title: task.title,
     status,
-    queuePosition: s.queuePosition ?? null,
+    queuePosition: task.status === "queued" ? queuePosition : null,
     budget: s.budget,
     deadline: s.deadline ?? null,
     lastStep: null,
+    ...(s.preflight === undefined ? {} : { preflight: s.preflight }),
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
     result: s.result ?? null,
@@ -133,6 +138,25 @@ function jobOf(task: Task): SpecialistJob | undefined {
 
 export function createSpecialistHost(deps: SpecialistHostDeps): SpecialistHost {
   const { db, tasks } = deps;
+  /**
+   * Places in the specialist queue, oldest first, once every slot is busy: a queued job's
+   * position is its rank among queued jobs past the free slots (specialists §4.5).
+   */
+  const positions = async (): Promise<Map<string, number>> => {
+    const specialistTasks = (await tasks.list({ status: ["queued", "running"] })).filter(
+      (t) => t.createdFrom === "subagent" && t.specialist !== undefined,
+    );
+    const running = specialistTasks.filter((t) => t.status === "running").length;
+    const queued = specialistTasks
+      .filter((t) => t.status === "queued")
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+    const free = Math.max(0, (deps.slots?.() ?? 3) - running);
+    const out = new Map<string, number>();
+    queued.forEach((t, i) => {
+      if (i >= free) out.set(t.id, i - free + 1);
+    });
+    return out;
+  };
   const roles = async (): Promise<SpecialistRoleDef[]> => {
     const out: SpecialistRoleDef[] = [];
     for (const r of await deps.roles.specialistRoles()) {
@@ -179,16 +203,15 @@ export function createSpecialistHost(deps: SpecialistHostDeps): SpecialistHost {
         ...(input.taint ? { taint: true, taintSources: input.taintSources } : {}),
         specialist: input.spec,
       });
-      return {
-        taskId: task.id,
-        threadId: thread.id,
-        queuePosition: input.spec.queuePosition ?? null,
-      };
+      const queuePosition = (await positions()).get(task.id) ?? null;
+      deps.poke?.();
+      return { taskId: task.id, threadId: thread.id, queuePosition };
     },
     async jobs(parentThreadId: string) {
       const all = await tasks.list({});
+      const place = await positions();
       return all
-        .map(jobOf)
+        .map((t) => jobOf(t, place.get(t.id) ?? null))
         .filter((j): j is SpecialistJob => j !== undefined && j.parentThreadId === parentThreadId)
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     },

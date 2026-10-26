@@ -235,6 +235,8 @@ export interface ComposedGateway {
   readonly memory: SqliteMemoryStore;
   readonly tasks: SqliteTaskEngine;
   readonly pool: TaskWorkerPool;
+  /** Background specialists' own pool (docs/agent/specialists-2026.md §4.5). */
+  readonly specialistPool: TaskWorkerPool;
   readonly scheduler: SqliteScheduler;
   readonly notifier: PsycheNotifier;
   readonly proactive: ComposedProactive;
@@ -742,6 +744,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
   // Background specialists (docs/agent/specialists-2026.md, #683): roles from the role skills,
   // jobs as a subagent thread + Task, one sanitized result.
+  // The specialist pool is created after the loop; spawning pokes it through this late binding.
+  let pokeSpecialists = (): void => {};
+  const specialistSlots = (): number => {
+    const v = getSetting(db, "specialists.maxConcurrent")?.value;
+    return typeof v === "number" && Number.isInteger(v) ? Math.min(6, Math.max(1, v)) : 3;
+  };
   const specialists = createSpecialistHost({
     db,
     tasks,
@@ -749,6 +757,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     roles: skills.roles,
     models: { primary: modelRef, ...(utility === undefined ? {} : { utility }) },
     now: () => clock.now(),
+    slots: specialistSlots,
+    poke: () => pokeSpecialists(),
   });
   // The teaching loop (#679): the owner's feedback → lessons written where they belong.
   const teaching = composeTeaching({
@@ -849,7 +859,24 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     notifier,
     tools: registry,
     ...(taskPollMs === undefined ? {} : { pollMs: taskPollMs }),
+    // Specialist jobs run in their own pool, so they never take the chat tasks' slots.
+    claim: { excludeOrigins: ["subagent"] },
   });
+  // Background specialists (specialists §4.5): their own slots (Settings, 1–6, default 3), FIFO,
+  // at most 2 running per parent thread; a job parked on the owner frees its slot.
+  const specialistPool = new TaskWorkerPool({
+    engine: tasks,
+    loop,
+    clock,
+    broker,
+    notifier,
+    tools: registry,
+    owner: "specialist",
+    concurrency: specialistSlots(),
+    ...(taskPollMs === undefined ? {} : { pollMs: taskPollMs }),
+    claim: { origins: ["subagent"], perParentLimit: 2 },
+  });
+  pokeSpecialists = () => specialistPool.poke();
   // S15: goal check-ins and the Feed run in-process; the heartbeat gets its 5k-token budget (O2).
   const proactive = composeProactive({
     db,
@@ -1044,6 +1071,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
 
   if (background) {
     pool.start();
+    specialistPool.start();
     try {
       await pool.onApprovalsReissued(tokens.takeReissued());
     } catch (err) {
@@ -1065,6 +1093,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     memory,
     tasks,
     pool,
+    specialistPool,
     scheduler,
     notifier,
     proactive,
@@ -1078,6 +1107,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       proactive.stop();
       vault.stop();
       await pool.stop();
+      await specialistPool.stop();
       scheduler.stop();
       memory.unwatch();
       unsubscribePolicy();

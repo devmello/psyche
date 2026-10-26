@@ -114,6 +114,7 @@ describe("spec building (specialists §4.1)", () => {
     // Deadline capped at maxHours (24 h).
     expect(s.deadline).toBe("2026-10-27T00:00:00.000Z");
     expect(s.rootRunId).toBe("run_1");
+    expect(s.preflight).toEqual([{ kind: "new_origin", label: "Will ask before opening new sites" }]);
   });
 });
 

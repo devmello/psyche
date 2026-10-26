@@ -18,6 +18,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (S02, #683 part 2a: the specialist pool)
+
+- `ClaimOptions` gains `origins?`, `excludeOrigins?` and `perParentLimit?` (the chat pool excludes `subagent` jobs; the specialist pool claims only them, at most N running per parent thread). `FakeTaskEngine.claim` honours them.
+- `SpecialistSpec.preflight?` and `SpecialistJob.preflight?` (`ApprovalHint[]`): the spawn's pre-flight, stored on the job so cards and the spawn line read it directly. No new enum values.
+
 ### v1 additive — 2026-10-26 (S15, #670 W6: meeting prep)
 
 - `NotifyInput` gains optional `breakQuietHours`: deliver this one notification through quiet hours. Meeting prep sets it when the meeting itself falls inside quiet hours (§4.5 acceptance 3); otherwise only the kinds in `quietHours.breakthrough` interrupt, as before. A TypeScript contract field only; no generated files change.

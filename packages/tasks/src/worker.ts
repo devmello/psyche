@@ -2,6 +2,7 @@ import type {
   AgentEvent,
   AgentLoop,
   ApprovalRequest,
+  ClaimOptions,
   Clock,
   InputRequest,
   IssuedApproval,
@@ -61,6 +62,12 @@ export interface TaskWorkerPoolOptions {
   newRunId?: () => string;
   /** Applied when a task has no budget of its own. */
   defaultBudget?: TaskBudget;
+  /**
+   * Which tasks this pool claims (docs/agent/specialists-2026.md §4.5): the specialist pool
+   * claims only `subagent` jobs, at most `perParentLimit` per parent thread; the chat pool
+   * excludes them.
+   */
+  claim?: Pick<ClaimOptions, "origins" | "excludeOrigins" | "perParentLimit">;
   onError?: (error: unknown) => void;
 }
 
@@ -265,10 +272,11 @@ export class TaskWorkerPool {
   ): Promise<TurnReport | undefined> {
     const { engine, loop } = this.#o;
     const owner = options.owner ?? `${this.#o.owner}/0`;
-    const claimOpts =
-      options.taskId === undefined
-        ? { leaseMs: this.#o.leaseMs }
-        : { leaseMs: this.#o.leaseMs, taskId: options.taskId };
+    const claimOpts: ClaimOptions = {
+      leaseMs: this.#o.leaseMs,
+      ...this.#o.claim,
+      ...(options.taskId === undefined ? {} : { taskId: options.taskId }),
+    };
     let lease = await engine.claim(owner, claimOpts);
     if (lease === undefined) return undefined;
     const taskId = lease.taskId;
