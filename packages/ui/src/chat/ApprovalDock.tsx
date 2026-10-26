@@ -1,4 +1,5 @@
 import { ShieldCheck } from "lucide-react";
+import * as m from "motion/react-m";
 import { type ReactElement, useEffect, useState } from "react";
 import { ApprovalCard, FOCUS_APPROVAL_EVENT } from "../blocks/ApprovalCard.tsx";
 import { useApprovals, useStoreState } from "../data/index.ts";
@@ -7,7 +8,7 @@ import { displaySummary } from "../lib/cards.ts";
 import { formatCountdown } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
-import { Presence } from "../motion/index.ts";
+import { fade, Presence } from "../motion/index.ts";
 import { usePersona } from "../slots.tsx";
 
 /**
@@ -76,15 +77,18 @@ export function ApprovalDock({
         // A deck (redesign-2026 §5.3): the most urgent card in full, the others as 8 px edges
         // peeking below it. The card is never clipped; its binding rows scroll when they run long.
         <div className="relative" style={{ paddingBottom: edges * 6 }} data-testid="approval-deck">
-          {Array.from({ length: edges }, (_, i) => (
-            <span
-              // biome-ignore lint/suspicious/noArrayIndexKey: decorative layers, fixed order
-              key={i}
-              aria-hidden="true"
-              className="absolute h-10 rounded-b-lg bg-surface-raised shadow-elevation-1"
-              style={{ insetInline: (edges - i) * 10, bottom: i * 6 }}
-            />
-          ))}
+          <Presence initial={false}>
+            {Array.from({ length: edges }, (_, i) => (
+              <m.span
+                // biome-ignore lint/suspicious/noArrayIndexKey: decorative layers, fixed order
+                key={i}
+                aria-hidden="true"
+                className="absolute h-10 rounded-b-lg bg-surface-raised shadow-elevation-1"
+                style={{ insetInline: (edges - i) * 10, bottom: i * 6 }}
+                {...fade}
+              />
+            ))}
+          </Presence>
           <Presence mode="popLayout" initial={false}>
             {(() => {
               const taskId = open.approval.requestedBy.taskId;
