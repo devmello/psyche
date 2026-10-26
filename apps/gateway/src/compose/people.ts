@@ -7,6 +7,8 @@ import {
   ensureDreamingAutomation,
   type GraphEvent,
   type GraphHandlers,
+  type GraphPollReport,
+  type GraphSourceAdapter,
   GraphStore,
   GraphTools,
   graphToolSpecs,
@@ -18,6 +20,7 @@ import {
   meetingPrep,
   type NightlyStep,
   runGraphModelPass,
+  runGraphPoll,
   type SchedulerLike,
   type SqliteMemoryStore,
   suggestProjects,
@@ -105,7 +108,12 @@ export interface PeopleDeps {
   publish: (event: GraphEvent["event"] | "settings.changed", payload: unknown) => void;
   /** Registers a tool; returns its unregister function. */
   register: (tool: AgentToolRegistration) => () => unknown;
+  /** Deterministic pass interval (§5.1, default 15 minutes); 0 disables the timer (tests). */
+  pollIntervalMs?: number;
+  logger?: { log(level: "warn", msg: string, fields?: Record<string, unknown>): void };
 }
+
+export const DEFAULT_GRAPH_POLL_MS = 15 * 60_000;
 
 export interface People {
   readonly graph: GraphStore;
@@ -128,6 +136,10 @@ export interface People {
     externalRef?: string;
     when?: string;
   }): MeetingPrep | undefined;
+  /** The connected apps' ingest adapters, read at each poll (bound once connectors exist). */
+  useSources(adapters: () => Promise<GraphSourceAdapter[]> | GraphSourceAdapter[]): void;
+  /** One deterministic pass over the enabled sources; also run after a connector sync. */
+  poll(signal?: AbortSignal): Promise<GraphPollReport | undefined>;
   /** The nightly graph step, for tests. */
   readonly nightly: NightlyStep;
   part(scheduler: SchedulerLike, timezone: string): ComposedPart;
@@ -306,6 +318,34 @@ export function composePeople(deps: PeopleDeps): People {
     }
   };
 
+  let sources: () => Promise<GraphSourceAdapter[]> | GraphSourceAdapter[] = () => [];
+  let polling: Promise<GraphPollReport | undefined> | null = null;
+  const poll = (signal?: AbortSignal): Promise<GraphPollReport | undefined> => {
+    // One round at a time: a slow connector never stacks passes.
+    if (polling !== null) return polling;
+    const s = settings();
+    if (!s.enabled || !Object.values(s.sources).some((on) => on === true))
+      return Promise.resolve(undefined);
+    polling = (async () => {
+      const adapters = await sources();
+      const report = await runGraphPoll(store, adapters, {
+        enabled: s.sources,
+        clock,
+        ...(signal === undefined ? {} : { signal }),
+      });
+      for (const a of report.adapters)
+        if (!a.ok)
+          deps.logger?.log("warn", "people graph ingest failed", {
+            adapter: a.id,
+            source: a.source,
+          });
+      return report;
+    })().finally(() => {
+      polling = null;
+    });
+    return polling;
+  };
+
   return {
     graph: store,
     cards,
@@ -320,10 +360,16 @@ export function composePeople(deps: PeopleDeps): People {
     },
     sync,
     launcher: (inner) => withDreaming(memory, inner, {}, [nightly]),
+    useSources(adapters) {
+      sources = adapters;
+    },
+    poll,
     meetingPrep: (query) => meetingPrep(store, { ...query, now: clock.now() }),
     nightly,
     part(scheduler, timezone) {
       let unsubscribe: (() => void) | undefined;
+      let timer: ReturnType<typeof setInterval> | undefined;
+      const interval = deps.pollIntervalMs ?? DEFAULT_GRAPH_POLL_MS;
       return {
         handlers: mountParamsOnly(handlers as never),
         async start(gateway: Gateway) {
@@ -338,9 +384,14 @@ export function composePeople(deps: PeopleDeps): People {
               if (entry.key === GRAPH_SETTING) sync(entry.value);
           });
           await ensureDreamingAutomation(scheduler, { timezone });
+          if (interval > 0) {
+            timer = setInterval(() => void poll().catch(() => undefined), interval);
+            timer.unref?.();
+          }
         },
         stop() {
           unsubscribe?.();
+          if (timer !== undefined) clearInterval(timer);
         },
       };
     },
