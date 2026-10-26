@@ -87,6 +87,7 @@ import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
 import { artifactContextProvider, composeArtifacts } from "./artifacts.ts";
 import { attentionHandlers, OwnerAttention, parkWhenUnwatched } from "./attention.ts";
+import { createAutoTitler } from "./auto-title.ts";
 import { withAutomationSpecialists } from "./automation-specialists.ts";
 import { bootstrapAdminHandlers } from "./bootstrap-admin.ts";
 import { CallContexts } from "./call-context.ts";
@@ -1094,6 +1095,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       unsubscribeWorkflows = undefined;
     },
   });
+  // New chats get a short title after the first reply (heuristic at once, then the utility model).
+  parts.push(
+    createAutoTitler({
+      db,
+      provider,
+      model: utility ?? modelRef,
+      redactor,
+      publish: (event, payload, threadId) => publish(event, payload as never, threadId),
+      ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+    }).part(),
+  );
   parts.push(otherChats.part());
   parts.push(people.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone));
   // Code plugins (T4): off until the owner turns on `plugins.enabled`.
