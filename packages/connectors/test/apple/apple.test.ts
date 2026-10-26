@@ -233,6 +233,23 @@ describe("Apple app connectors (#528)", () => {
     expect(helper.calls).toEqual([{ capability: "notes.list", params: { limit: 10 } }]);
   });
 
+  it("mail_search lists unread mail since a date: no query needed, filters go to the helper (#626)", async () => {
+    const helper = new FakeHelper();
+    const { registry, tools, run } = make(helper);
+    await registry.connect({ catalogueId: "apple-mail", scopeMode: "read" });
+    helper.calls.length = 0;
+    const tool = tools.get("mcp__apple-1__mail_search") as unknown as {
+      spec: { inputSchema: { required?: string[]; properties: Record<string, unknown> } };
+    };
+    expect(tool.spec.inputSchema.required ?? []).toEqual([]);
+    expect(Object.keys(tool.spec.inputSchema.properties)).toEqual(
+      expect.arrayContaining(["query", "unread", "since", "until", "from"]),
+    );
+    const params = { unread: true, since: "2026-10-24T00:00:00Z", from: "billing@", limit: 10 };
+    await run("mcp__apple-1__mail_search")(params);
+    expect(helper.calls).toEqual([{ capability: "mail.search", params }]);
+  });
+
   it("a write asks: refused without an approval, and reaches the helper with it", async () => {
     const helper = new FakeHelper();
     const params = { title: "Eggs", priority: 1 };

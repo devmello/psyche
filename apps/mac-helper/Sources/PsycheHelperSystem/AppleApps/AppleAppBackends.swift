@@ -23,7 +23,8 @@ public protocol RemindersBackend: Sendable {
 }
 
 public protocol MailBackend: Sendable {
-    func search(query: String, mailbox: String?, account: String?, limit: Int) async throws -> [MailSummaryRecord]
+    /// Newest first (#626).
+    func search(_ filter: MailSearchFilter, mailbox: String?, account: String?, limit: Int) async throws -> [MailSummaryRecord]
     func read(id: String, mailbox: String?, account: String?, maxLength: Int) async throws -> (MailSummaryRecord, to: [String], cc: [String], body: String)
     /// Saves a draft, or sends when `send` (only ever called with an approval).
     func compose(_ draft: MailDraft, send: Bool) async throws
@@ -351,18 +352,58 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
             return (id of m as text) & fs & my psyche_clean(name of mailbox of m) & fs & my psyche_clean(name of account of mailbox of m) & fs & my psyche_clean(subject of m) & fs & my psyche_clean(sender of m) & fs & my psyche_iso(date received of m) & fs & (read status of m as text)
           end tell
         end psyche_line
-        on psyche_search(q, mboxName, acctName, lim)
+        on psyche_date(parts)
+          set dt to current date
+          set day of dt to 1
+          set year of dt to (item 1 of parts as integer)
+          set month of dt to (item 2 of parts as integer)
+          set day of dt to (item 3 of parts as integer)
+          set time of dt to (item 4 of parts as integer)
+          return dt
+        end psyche_date
+        -- #626: every filter is evaluated by Mail in one whose clause. The script text is fixed;
+        -- the inputs are handler arguments. An unused text filter picks another variant (an
+        -- empty "contains" is not reliable in Mail), the date window is always applied, and
+        -- "read status is r1 or read status is r2" covers unread / read / both.
+        on psyche_match(q, f, rs1, rs2, sinceParts, untilParts, mboxName, acctName)
+          set s to my psyche_date(sinceParts)
+          set u to my psyche_date(untilParts)
+          set r1 to (rs1 is "true")
+          set r2 to (rs2 is "true")
+          set fs to character id 31
+          tell application "Mail"
+            set src to my psyche_source(mboxName, acctName)
+            if q is not "" and f is not "" then
+              set ids to id of (messages of src whose (subject contains q or sender contains q) and sender contains f and date received ≥ s and date received < u and (read status is r1 or read status is r2))
+              set ds to date received of (messages of src whose (subject contains q or sender contains q) and sender contains f and date received ≥ s and date received < u and (read status is r1 or read status is r2))
+            else if q is not "" then
+              set ids to id of (messages of src whose (subject contains q or sender contains q) and date received ≥ s and date received < u and (read status is r1 or read status is r2))
+              set ds to date received of (messages of src whose (subject contains q or sender contains q) and date received ≥ s and date received < u and (read status is r1 or read status is r2))
+            else if f is not "" then
+              set ids to id of (messages of src whose sender contains f and date received ≥ s and date received < u and (read status is r1 or read status is r2))
+              set ds to date received of (messages of src whose sender contains f and date received ≥ s and date received < u and (read status is r1 or read status is r2))
+            else
+              set ids to id of (messages of src whose date received ≥ s and date received < u and (read status is r1 or read status is r2))
+              set ds to date received of (messages of src whose date received ≥ s and date received < u and (read status is r1 or read status is r2))
+            end if
+          end tell
+          set out to {}
+          repeat with i from 1 to (count of ids)
+            set end of out to ((item i of ids) as text) & fs & my psyche_iso(item i of ds)
+          end repeat
+          return my psyche_join(out, character id 30)
+        end psyche_match
+        on psyche_lines(idList, mboxName, acctName)
           set out to {}
           tell application "Mail"
             set src to my psyche_source(mboxName, acctName)
-            set found to (messages of src whose subject contains q or sender contains q)
-            repeat with m in found
-              if (count of out) ≥ (lim as integer) then exit repeat
+            repeat with mid in idList
+              set m to first message of src whose id is (mid as integer)
               set end of out to my psyche_line(m)
             end repeat
           end tell
           return my psyche_join(out, character id 30)
-        end psyche_search
+        end psyche_lines
         on psyche_read(mid, mboxName, acctName, maxLen)
           set fs to character id 31
           tell application "Mail"
@@ -409,8 +450,17 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
                           date: AppleDates.fromAppleScript(f[5]) ?? AppleDates.string(Date(timeIntervalSince1970: 0)), read: f[6] == "true")
     }
 
-    public func search(query: String, mailbox: String?, account: String?, limit: Int) async throws -> [MailSummaryRecord] {
-        let out = try await ScriptHandler.call(Self.source, handler: "psyche_search", [query, mailbox ?? "", account ?? "", "\(limit)"], app: Self.bundleId)
+    public func search(_ filter: MailSearchFilter, mailbox: String?, account: String?, limit: Int) async throws -> [MailSummaryRecord] {
+        let (rs1, rs2) = filter.readStatus
+        let matches = try await ScriptHandler.call(
+            Self.source, handler: "psyche_match",
+            [filter.query, filter.from, rs1, rs2, filter.sinceParts(), filter.untilParts(), mailbox ?? "", account ?? ""],
+            app: Self.bundleId)
+        // Newest first: Mail's own order is per mailbox, so sort the matches' dates here and
+        // read only the `limit` newest messages.
+        let ids = MailSearchFilter.newest(ScriptRecords.parse(matches, fields: 2), limit: limit)
+        if ids.isEmpty { return [] }
+        let out = try await ScriptHandler.call(Self.source, handler: "psyche_lines", [ids, mailbox ?? "", account ?? ""], app: Self.bundleId)
         return ScriptRecords.parse(out, fields: 7).map(Self.summary)
     }
 

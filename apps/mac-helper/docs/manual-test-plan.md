@@ -193,6 +193,7 @@ Spike 06 restarted a 16 GB host under two guests plus an install. Never run thes
 | 12.2 | Grant Full Disk Access, `messages.read {handle: "<contact>", limit: 20}` | The last 20 messages, ascending, texts match Messages.app (including ones only in `attributedBody`) (J7 done-when, read half) |
 | 12.3 | `messages.chats {limit: 10}` | Newest first; group names and participants right; SMS chats `service: sms` |
 | 12.4 | `messages.watch {}`; receive a text, a tapback, a photo and a voice note | One `messages.new` per poll; tapback as `reaction`; photo / voice as metadata (`isVoiceNote: true`), no paths |
+| 12.4a | `mail.search {unread: true, since: <yesterday>}`, then `{from: "<a sender>"}`, then `{}` (#626) | Only unread mail received since yesterday, newest first; then only that sender; then the inbox, newest first. A large inbox answers in seconds |
 | 12.5 | `messages.send` without `approvalId` | `approval_required`; nothing sent |
 | 12.6 | Approved `messages.send {to: "<contact>", text: "test \"quote\""}` | Automation prompt once (Messages launched hidden if closed); the text arrives verbatim; receipt has no text (J7 done-when, send half) |
 | 12.7 | Deny Automation in Settings, send again | `forbidden/automation_denied` |

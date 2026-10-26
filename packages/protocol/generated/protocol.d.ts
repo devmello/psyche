@@ -107,16 +107,23 @@ export interface AppleMailMessageSummary {
     subject: string;
 }
 
+/**
+ * Results come newest first.
+ */
 export interface AppleMailSearchParams {
+    from?:  string;
     limit?: number;
     /**
      * Default: inbox
      */
     mailbox?: string;
     /**
-     * Matched against subject and sender
+     * Matched against subject and sender; absent or empty matches every message
      */
-    query: string;
+    query?:  string;
+    since?:  string;
+    unread?: boolean;
+    until?:  string;
 }
 
 export interface AppleNote {

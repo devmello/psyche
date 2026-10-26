@@ -1110,24 +1110,37 @@ public struct AppleMailMessageSummary: Codable, Sendable {
     }
 }
 
+/// Results come newest first.
 // MARK: - AppleMailSearchParams
 public struct AppleMailSearchParams: Codable, Sendable {
+    public let from: String?
     public let limit: Int?
     /// Default: inbox
     public let mailbox: String?
-    /// Matched against subject and sender
-    public let query: String
+    /// Matched against subject and sender; absent or empty matches every message
+    public let query: String?
+    public let since: String?
+    public let unread: Bool?
+    public let until: String?
 
     public enum CodingKeys: String, CodingKey {
+        case from = "from"
         case limit = "limit"
         case mailbox = "mailbox"
         case query = "query"
+        case since = "since"
+        case unread = "unread"
+        case until = "until"
     }
 
-    public init(limit: Int?, mailbox: String?, query: String) {
+    public init(from: String?, limit: Int?, mailbox: String?, query: String?, since: String?, unread: Bool?, until: String?) {
+        self.from = from
         self.limit = limit
         self.mailbox = mailbox
         self.query = query
+        self.since = since
+        self.unread = unread
+        self.until = until
     }
 }
 

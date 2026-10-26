@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-25 (S09 + S14, #626: Apple Mail search filters)
+
+For S14 (the helper's `mail.search`) and S09 (the Apple Mail connector's `mail_search` tool).
+
+- `AppleMailSearchParams.query` is optional now (absent or empty matches every message), and new optional `unread` (true unread only, false read only), `since` / `until` (date received) and `from` (sender contains). Results come newest first.
+
 ### v1 additive — 2026-10-25 (#599 the sidebar's usage footer)
 
 For S11 (the sidebar footer) and S01 (the Gateway handler, `apps/gateway/src/compose/usage-summary.ts`).
