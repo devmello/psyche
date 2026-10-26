@@ -37,6 +37,8 @@ import type { ComposerAttach } from "./useAttachments.ts";
 /** Every composer command, as typed (feature C9). */
 /** The capsule's height at one line (§3.7). */
 const ONE_LINE_PX = 44;
+/** No key for this long: typing has stopped and the capsule may animate again. */
+const TYPING_IDLE_MS = 400;
 
 export const SLASH_COMMANDS: readonly string[] = COMMANDS.map((c) => `/${c.name}`);
 
@@ -142,6 +144,16 @@ export function Composer({
   const round =
     "size-7 rounded-full cursor-default [&_svg:not([class*='size-'])]:size-4 disabled:opacity-100";
   const pickerRef = useRef<HTMLInputElement>(null);
+  // Typing never animates the capsule (motion.md rule 4): while keys are coming, a wrapped line
+  // grows it at once; chips, the menu and a pasted block still glide on `layout`.
+  const [typing, setTyping] = useState(false);
+  const typingIdle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const markTyping = () => {
+    setTyping(true);
+    clearTimeout(typingIdle.current);
+    typingIdle.current = setTimeout(() => setTyping(false), TYPING_IDLE_MS);
+  };
+  useEffect(() => () => clearTimeout(typingIdle.current), []);
   // A chip that appears (Ask about this) puts the cursor in the input.
   const hasContext = context != null;
   useEffect(() => {
@@ -167,9 +179,7 @@ export function Composer({
     // spring.smooth up to 40% of the window, then scrolls. On focus a 1 px ring hairline inside.
     <m.div
       ref={capsuleRef}
-      layout
-      // Other surfaces (the pop-up) morph from this id.
-      layoutId="psyche-composer"
+      layout={!typing}
       transition={motionSpring(spring.smooth)}
       className="group/composer relative"
       data-testid="composer-capsule"
@@ -368,6 +378,7 @@ export function Composer({
               aria-label={t("chat.composer.label", { persona })}
               data-composer-input=""
               onKeyDown={(e) => {
+                if (e.key.length === 1 || e.key === "Backspace" || e.key === "Delete") markTyping();
                 // Files still uploading: Return waits for them, like the Send button.
                 if (sendBlocked && e.key === "Enter" && !e.shiftKey && !menu.open) {
                   e.preventDefault();
