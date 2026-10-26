@@ -387,3 +387,112 @@
     mask-position: 0 0;
   }
 }
+
+/*
+  The startup splash (#595; StartupSplashView): the app's canvas, the mark, a lantern glow
+  breathing behind it while Psyche starts. The body appears only if pairing takes longer than
+  300 ms (redesign §5.9). The whole splash is a window drag region except its buttons.
+*/
+.startup-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--canvas);
+  color: var(--label-primary);
+  -webkit-app-region: drag;
+  app-region: drag;
+  transition: opacity var(--duration-medium, 220ms) var(--ease-exit, ease-in);
+}
+.startup-splash[data-leaving] {
+  opacity: 0;
+  pointer-events: none;
+}
+.startup-splash-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 360px;
+  padding: 24px;
+  text-align: center;
+  animation: psy-splash-in var(--duration-medium, 220ms) var(--ease-enter, ease-out) 300ms both;
+}
+.startup-splash-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  margin-bottom: 12px;
+}
+.startup-splash-mark svg {
+  position: relative;
+  overflow: visible;
+}
+.startup-splash-lantern {
+  position: absolute;
+  inset: -36px;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in oklch, var(--accent-9) 32%, transparent),
+    transparent
+  );
+  opacity: 0.55;
+  animation: psy-lantern 2.8s ease-in-out 0.8s infinite alternate both;
+}
+:root[data-theme="dark"] .startup-splash-lantern {
+  background: radial-gradient(
+    closest-side,
+    color-mix(in oklch, var(--accent-9) 34%, transparent),
+    transparent
+  );
+}
+.startup-splash[data-tone="error"] .startup-splash-lantern {
+  animation: none;
+  opacity: 0.2;
+}
+.startup-splash-wordmark {
+  margin: 0;
+  font-size: 20px;
+  line-height: 26px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.startup-splash-status {
+  margin: 0;
+  min-height: 18px;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--label-secondary);
+}
+.startup-splash-actions,
+.startup-splash-actions button {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+@keyframes psy-splash-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes psy-lantern {
+  from {
+    opacity: 0.35;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 0.8;
+    transform: scale(1.06);
+  }
+}
+/* Reduced motion: no breathing (the draw and the flight are skipped in the component). */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-reduce-motion="false"]) .startup-splash-lantern {
+    animation: none;
+  }
+}
+:root[data-reduce-motion="true"] .startup-splash-lantern {
+  animation: none;
+}

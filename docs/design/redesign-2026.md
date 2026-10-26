@@ -474,8 +474,9 @@ Wireframes are layout-level. Every string goes through the catalogue.
 
 - **Splash:**
   - The window opens with `backgroundColor` = `--canvas`.
-  - The Psyche mark (48 px, `--label-tertiary`) fades in after 300 ms only if pairing hasn't finished.
-  - Once pairing finishes, the mark and the app crossfade over `duration.medium`. There's no spinner.
+  - After 300 ms, only if pairing hasn't finished, the Psyche mark (72 px) draws itself in on `spring.gentle`: the ring in `--accent-9`, then the psi in `--label-primary`. A lantern glow (the accent, radial) breathes behind it while Psyche starts. The wordmark and the status line rise in beneath. There's no progress bar (amended by #595, `StartupSplashView` in the kit).
+  - Once pairing finishes, the mark flies into the chat toolbar's avatar (`[data-splash-target]`) and fades as the splash does, in 280 ms, transform and opacity only. The flight is a measured FLIP rather than a `layoutId`, so the avatar never carries a shared-layout id that would animate it on every sidebar or pane change. Without the avatar (onboarding), the mark fades with the splash.
+  - Reduced motion: no draw, no breathing, no flight; one crossfade. The failure state keeps the reason, Show logs and Retry.
 - **Onboarding:**
   - **Layout:**
     - A single centred column, 560 px wide, on `--canvas`, with the Psyche mark at the top.
