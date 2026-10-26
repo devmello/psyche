@@ -797,6 +797,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     now: () => clock.now(),
     slots: specialistSlots,
     poke: () => pokeSpecialists(),
+    publish: (event, payload, threadId) => publish(event, payload as never, threadId),
   });
   // The teaching loop (#679): the owner's feedback → lessons written where they belong.
   const teaching = composeTeaching({

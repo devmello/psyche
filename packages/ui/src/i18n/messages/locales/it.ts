@@ -226,6 +226,7 @@ export const it: Partial<Catalogue> = {
   "blocks.card.status":
     "{status, select, pending {In sospeso} running {In corso} waiting {In attesa} done {Fatto} failed {Non riuscito} blocked {Bloccato} cancelled {Annullato} other {{status}}}{warning, select, yes {, esito incerto} other {}}",
   "blocks.card.unknown": "Psyche non può ancora mostrare questo tipo di elemento ({type}).",
+  "specialists.block.label": "Risultato di {role}: {title}",
   "blocks.toolView.show": "Mostra risultato",
   "blocks.toolView.loading": "Caricamento del risultato…",
   "blocks.toolView.none": "Il risultato di questa azione non viene conservato.",
