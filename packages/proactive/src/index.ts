@@ -104,9 +104,12 @@ export {
   mineNotes,
   type SequencePattern,
   type SignalsProvider,
+  type SkillUpdateCandidate,
+  type SkillUpdatesProvider,
   sequenceCandidates,
   signalCandidates,
   skillDraft,
+  skillUpdateCandidates,
   type ToolRun,
 } from "./ideas/mining.ts";
 export {

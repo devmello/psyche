@@ -1,9 +1,10 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PsycheError, type SkillDraft } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
 import { type RoutineInput, routineSignature, SkillDrafts } from "../src/drafts.ts";
 import { createSkillsHandlers } from "../src/handlers.ts";
-import { approve, setup } from "./helpers.ts";
+import { approve, setup, skillMd, writeSkill } from "./helpers.ts";
 
 /** Feature T3: drafts from repeated routines, never installed by themselves. */
 
@@ -243,5 +244,68 @@ describe("accepting a draft", () => {
     expect((await handlers["skills.drafts.list"]({ status: "installed" })).drafts).toHaveLength(1);
     // Installed: the same routine is not proposed again.
     expect(d.propose(routine({ threadId: "thr_5" }))).toBeUndefined();
+  });
+});
+
+describe("skill updates that fold in lessons (teaching loop §6)", () => {
+  const lessons = [
+    { id: "ls_aaaaaaaa", text: "Search Mail before the web for receipts" },
+    { id: "ls_bbbbbbbb", text: "Name the CSV by week number" },
+    { id: "ls_cccccccc", text: "Skip invoices under 5 euros" },
+  ];
+  const bundled = (t: ReturnType<typeof setup>) =>
+    writeSkill(t.bundledDir, "invoices", {
+      body: "# Invoices\n\nExport the week's invoices.\n",
+      files: {
+        "acceptance.md": "# Acceptance: invoices\n\n- [ ] The CSV has one row per invoice\n",
+        "scripts/sum.sh": "echo sum\n",
+      },
+    });
+
+  it("drafts once with three lessons, folds them in, and adds acceptance lines on install", async () => {
+    const { t, d } = drafts();
+    bundled(t);
+    // The lessons file lives in the workspace and is never part of the update.
+    mkdirSync(join(t.workspaceDir, "invoices"), { recursive: true });
+    writeFileSync(join(t.workspaceDir, "invoices", "LESSONS.md"), "# Lessons\n");
+    expect(d.proposeUpdate("invoices", lessons.slice(0, 2))).toBeUndefined();
+    const draft = d.proposeUpdate("invoices", lessons) as SkillDraft;
+    expect(draft.update).toMatchObject({
+      skill: "invoices",
+      lessonIds: ["ls_aaaaaaaa", "ls_bbbbbbbb", "ls_cccccccc"],
+    });
+    expect(draft.text).toContain(
+      "## What you taught me\n\n- Search Mail before the web for receipts",
+    );
+    expect(draft.text.startsWith("---\nname: invoices")).toBe(true);
+    expect(d.proposeUpdate("invoices", [...lessons].reverse())).toBeUndefined();
+    expect(d.replay(draft)).toMatchObject({ ok: true, problems: [] });
+
+    const handlers = createSkillsHandlers(t.loader, { broker: t.broker, drafts: d });
+    const { proposal } = await handlers["skills.drafts.accept"]({ draftId: draft.id });
+    await t.loader.install(proposal.id, await approve(t.broker, t.clock, proposal));
+    const installed = await t.loader.load("invoices");
+    expect(installed?.source).toBe("home");
+    expect(installed?.body).toContain("Skip invoices under 5 euros");
+    const home = join(t.homeDir, "invoices");
+    const acceptance = readFileSync(join(home, "acceptance.md"), "utf8");
+    expect(acceptance).toContain("- [ ] The CSV has one row per invoice");
+    expect(acceptance).toContain("- [ ] Name the CSV by week number (lesson:ls_bbbbbbbb)");
+    expect(readFileSync(join(home, "scripts", "sum.sh"), "utf8")).toBe("echo sum\n");
+    expect(existsSync(join(home, "LESSONS.md"))).toBe(false);
+  });
+
+  it("does not replay once the skill changed, and never updates the owner's workspace skills", () => {
+    const { t, d } = drafts();
+    const dir = bundled(t);
+    const draft = d.proposeUpdate("invoices", lessons) as SkillDraft;
+    writeFileSync(join(dir, "SKILL.md"), skillMd("invoices", { body: "# Changed\n" }));
+    const reloaded = new SkillDrafts({ dir: join(t.homeDir, ".drafts"), loader: t.make() });
+    expect(reloaded.replay(draft).problems).toEqual([
+      "invoices changed since this update was drafted",
+    ]);
+
+    writeSkill(t.workspaceDir, "mine", {});
+    expect(d.proposeUpdate("mine", lessons)).toBeUndefined();
   });
 });

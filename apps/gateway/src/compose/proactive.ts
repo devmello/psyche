@@ -26,6 +26,7 @@ import {
   rssSource,
   SchedulingService,
   type SignalsProvider,
+  type SkillUpdatesProvider,
   VoiceService,
   withProactiveJobs,
 } from "@psyche/proactive";
@@ -87,6 +88,8 @@ export interface ProactiveSetup {
   logger?: Logger;
   /** Connector signals for Ideas (unanswered mail, subscriptions, trips); S09 supplies them. */
   signals?: SignalsProvider;
+  /** Skill-update drafts for skills with enough lessons (teaching loop §6). */
+  skillUpdates?: SkillUpdatesProvider;
   /** Batch proposals (mail and meeting workflows §8.1): the broker the composition hands out. */
   broker?: PsychePermissionBroker;
   /** The loop's tool registry: approved proposals run their calls through it. */
@@ -133,6 +136,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     timeZone,
     logger,
     signals,
+    skillUpdates,
     broker,
     registry,
   } = setup;
@@ -169,6 +173,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     goals,
     notifier,
     ...(signals === undefined ? {} : { signals }),
+    ...(skillUpdates === undefined ? {} : { skillUpdates }),
     ...(timeZone === undefined ? {} : { timezone: timeZone }),
     onEvent: (e) => publish(e.event, e.payload),
     onError: (err) =>
