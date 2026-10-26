@@ -185,14 +185,23 @@ describe("connector action matrix → broker (#747)", () => {
       { kind: "mail.organize", payload: { rule: "connector:apple-mail/mail.organize" } },
     ]);
 
-    // A shortcut turned off is denied before any card; one set to allow still asks.
-    const off = await c.broker.decide(intent(shortcuts, "shortcuts_run", { id: "S1" }), CTX);
-    expect(off).toMatchObject({
-      decision: "deny",
-      rule: "connector:apple-shortcuts/shortcuts.run/S1",
+    // A shortcut turned off is refused before any card (by the connector, #727, and the broker
+    // has `shortcuts.run/S1: deny` too); one the owner allowed runs without a card.
+    expect(() => intent(shortcuts, "shortcuts_run", { id: "S1" })).toThrow(
+      /turned this shortcut off/,
+    );
+    expect(c.broker.policy.connectors?.["apple-shortcuts"]).toMatchObject({
+      "shortcuts.run/S1": "deny",
+      "shortcuts.run/S2": "allow",
     });
     const allowed = await c.broker.decide(intent(shortcuts, "shortcuts_run", { id: "S2" }), CTX);
-    expect(allowed).toMatchObject({ decision: "ask" });
+    expect(allowed).toMatchObject({
+      decision: "allow",
+      rule: "connector:apple-shortcuts/shortcuts.run/S2",
+    });
+    // Any other shortcut is destructive: a card.
+    const other = await c.broker.decide(intent(shortcuts, "shortcuts_run", { id: "S3" }), CTX);
+    expect(other).toMatchObject({ decision: "ask" });
   });
 
   it("a new permissions.policy keeps the owner's Settings rules", async () => {

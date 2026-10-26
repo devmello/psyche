@@ -121,8 +121,9 @@ describe("connector action matrix in the broker (#747)", () => {
   });
 
   describe("per-shortcut rules (config.shortcutRules → shortcuts.run/<id>)", () => {
-    const run = (id: string) =>
-      connectorCall("shortcuts_run", `shortcuts.run/${id}`, "destructive", "connector_action", {
+    // The connector describes an allowed shortcut as a write and any other as destructive (#727).
+    const run = (id: string, se: SideEffect = "destructive") =>
+      connectorCall("shortcuts_run", `shortcuts.run/${id}`, se, "connector_action", {
         connectorRule: { id: "apple-shortcuts", action: `shortcuts.run/${id}` },
       });
 
@@ -135,17 +136,21 @@ describe("connector action matrix in the broker (#747)", () => {
       expect((await h.broker.decide(run("S2"), CTX)).decision).toBe("ask");
     });
 
-    it("allow still asks: a run's side effect is unknown (destructive floor)", async () => {
-      const h = broker({ "shortcuts.run/S1": "allow" }, "apple-shortcuts");
-      expect(await h.broker.decide(run("S1"), CTX)).toMatchObject({
-        decision: "ask",
-        rule: "connector:apple-shortcuts/shortcuts.run/S1:floor",
+    it("allow lifts the card for that shortcut, over the group's ask", async () => {
+      const h = broker({ "shortcuts.run": "ask", "shortcuts.run/S1": "allow" }, "apple-shortcuts");
+      expect(await h.broker.decide(run("S1", "write"), CTX)).toMatchObject({
+        decision: "allow",
+        rule: "connector:apple-shortcuts/shortcuts.run/S1",
       });
+      // Described as destructive (not allowed by the connector), the floor still asks.
+      expect((await h.broker.decide(run("S1"), CTX)).rule).toBe(
+        "connector:apple-shortcuts/shortcuts.run/S1:floor",
+      );
     });
 
-    it("a sub-key never loosens its group", async () => {
+    it("a group deny always wins over a sub-key", async () => {
       const h = broker({ "shortcuts.run": "deny", "shortcuts.run/S1": "allow" }, "apple-shortcuts");
-      expect((await h.broker.decide(run("S1"), CTX)).decision).toBe("deny");
+      expect((await h.broker.decide(run("S1", "write"), CTX)).decision).toBe("deny");
     });
   });
 
@@ -157,7 +162,8 @@ describe("connector action matrix in the broker (#747)", () => {
   it("matrixRule and matrixFloor", () => {
     expect(matrixRule(undefined, "a")).toBeUndefined();
     expect(matrixRule({ a: "allow", "a/x": "ask" }, "a/x")).toBe("ask");
-    expect(matrixRule({ a: "ask", "a/x": "allow" }, "a/x")).toBe("ask");
+    expect(matrixRule({ a: "ask", "a/x": "allow" }, "a/x")).toBe("allow");
+    expect(matrixRule({ a: "deny", "a/x": "allow" }, "a/x")).toBe("deny");
     expect(matrixRule({ a: "allow" }, "a/x")).toBe("allow");
     expect(matrixRule({ a: "bogus" }, "a")).toBeUndefined();
     expect(matrixFloor("connector_action", "write")).toBeUndefined();

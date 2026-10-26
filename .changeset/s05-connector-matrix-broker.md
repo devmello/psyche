@@ -8,5 +8,5 @@ The broker now applies the owner's Settings → Connectors rules (Allow / Ask / 
 - **Registry:** stamps each call with its group; connector-write receipts record the deciding rule.
 - **Broker:** allow → no card; ask → card; deny → refused, with a receipt.
 - **Hard floors:** sends, destructive, financial and device-only calls always ask.
-- **Shortcuts:** a shortcut set to off is denied.
+- **Shortcuts:** each shortcut's rule applies (off → denied, allow → no card).
 - **Gateway:** syncs `permissions.connectors.*` and `shortcutRules` into the broker policy and the executor's matrix. Direct Apple helper calls follow the same groups.

@@ -4,12 +4,12 @@ import { AUTH_KINDS, DEVICE_ONLY_KINDS, SEVERITY } from "./kinds.ts";
 /**
  * The owner's connector action matrix (security §3.11 `permissions.connectors`; Settings →
  * Connectors, #747). Keys are a connector's action groups (`mail.organize`), or a narrower
- * `<group>/<sub-key>` a connector names per call (`shortcuts.run/<shortcutId>`): the stricter of
- * the sub-key's and the group's entry applies, so a sub-key can never loosen its group.
+ * `<group>/<sub-key>` a connector names per call (`shortcuts.run/<shortcutId>`, from the owner's
+ * per-shortcut setting): the owner's sub-key entry overrides the group's, except that a group
+ * `deny` always wins (the same order as the connector executor, #727). Only the Gateway writes
+ * sub-key entries, from the owner's own settings; the hard floors still apply.
  */
 export type MatrixRule = "allow" | "ask" | "deny";
-
-const STRICTNESS: Record<MatrixRule, number> = { allow: 0, ask: 1, deny: 2 };
 
 const isRule = (v: unknown): v is MatrixRule => v === "allow" || v === "ask" || v === "deny";
 
@@ -19,12 +19,13 @@ export function matrixRule(
   action: string,
 ): MatrixRule | undefined {
   if (matrix === undefined) return undefined;
+  const own = matrix[action];
   const slash = action.indexOf("/");
-  const rules = [matrix[action], slash > 0 ? matrix[action.slice(0, slash)] : undefined].filter(
-    isRule,
-  );
-  if (rules.length === 0) return undefined;
-  return rules.reduce((a, b) => (STRICTNESS[b] > STRICTNESS[a] ? b : a));
+  if (slash <= 0) return isRule(own) ? own : undefined;
+  const group = matrix[action.slice(0, slash)];
+  if (group === "deny") return "deny";
+  if (isRule(own)) return own;
+  return isRule(group) ? group : undefined;
 }
 
 /** Kinds that put a message in someone else's hands: an owner `allow` never makes them silent. */
