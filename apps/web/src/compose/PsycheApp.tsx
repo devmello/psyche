@@ -1,3 +1,4 @@
+import type { Artifact } from "@psyche/protocol";
 import {
   AgentHeader,
   AgentSheet,
@@ -42,8 +43,14 @@ import { ConnectedStartupSplash } from "../shell/components/StartupSplash.tsx";
 import { TitleBar } from "../shell/components/TitleBar.tsx";
 import { useShellVoiceTerminal } from "../shell/components/voice-terminal.ts";
 import type { ShellPlatform, SystemAppearance } from "../shell/platform.ts";
-import { type ChatSlotContext, ShellApp, type ShellSlots } from "../shell/ShellApp.tsx";
+import {
+  type ChatSlotContext,
+  openArtifactAction,
+  ShellApp,
+  type ShellSlots,
+} from "../shell/ShellApp.tsx";
 import { chatFileSlots } from "./attachments.tsx";
+import { ComposedCanvas } from "./canvas.tsx";
 import { useMacHelper } from "./helper.tsx";
 import { kitClient } from "./kit-client.ts";
 import { checkModel, saveProviderKey, verifySetup } from "./model-setup.ts";
@@ -75,10 +82,14 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
   // File blocks open in the Files pane (P4); a ref keeps the slots stable across renders.
   const openPane = useRef(ctx.openPane);
   openPane.current = ctx.openPane;
+  const openArtifact = useRef(ctx.openArtifact);
+  openArtifact.current = ctx.openArtifact;
   const voiceTerminal = useShellVoiceTerminal();
   const fileSlots = useMemo(
     () => ({
       ...chatFileSlots((pane, target) => openPane.current(pane, target)),
+      // Artifact cards (and auto-open, §4.2) show the artifact in the canvas pane.
+      openArtifact: (artifact: Artifact) => openArtifact.current(artifact.id, artifact.title),
       // Composer dictation and voice mode (#690): the shell's capture, drawn by the kit.
       useComposerVoice: useShellComposerVoice,
       // Voice conversation (voice-mode-2026 §6.1): the renderer is the audio terminal.
@@ -477,6 +488,13 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
       pane: (pane, ctx) =>
         pane.pane === "files" ? (
           <ComposedFilesPane target={pane.target} navigate={ctx.navigate} />
+        ) : pane.pane === "artifact" && (pane.artifactId ?? pane.target) ? (
+          // The output canvas (chat-experience-2026 §4.2): one pane, its artifact swapped in.
+          <ComposedCanvas
+            artifactId={(pane.artifactId ?? pane.target) as string}
+            threadId={ctx.threadId}
+            onOpen={(id, title) => ctx.dispatch(openArtifactAction(id, title))}
+          />
         ) : null,
     }),
     [platform],
