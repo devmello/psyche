@@ -634,9 +634,11 @@ export type AppleCalendarDeleteEventParams = Static<typeof AppleCalendarDeleteEv
 
 /**
  * `calendar.watch` (streaming, #673 H2; docs/workflows/mail-and-meetings-2026.md §8.4): observes
- * `EKEventStoreChanged` and emits one `AppleCalendarChangedEvent` per quiet period: changes are
- * debounced to 30 s, so a sync that touches many events yields one event. EventKit does not say
- * what changed; the Gateway re-reads the window it cares about. Runs until cancelled.
+ * `EKEventStoreChanged` and debounces it to 30 s: a change opens a 30 s window, every change in it
+ * is folded in, and one `AppleCalendarChangedEvent` goes out when the window closes. So a sync
+ * that touches many events yields one event, and none comes later than 30 s after the change that
+ * opened its window. EventKit does not say what changed; the Gateway re-reads the window it cares
+ * about. Runs until cancelled.
  */
 export const AppleCalendarWatchParams = Type.Object(
   {},
