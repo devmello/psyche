@@ -217,6 +217,9 @@ export const ko: Partial<Catalogue> = {
   "blocks.common.hide": "가리기",
   "blocks.common.viewDiff": "변경 사항 보기",
   "blocks.common.open": "열기",
+  "blocks.card.status":
+    "{status, select, pending {대기 중} running {실행 중} waiting {기다리는 중} done {완료} failed {실패} blocked {차단됨} cancelled {취소됨} other {{status}}}{warning, select, yes {, 결과 불확실} other {}}",
+  "blocks.card.unknown": "Psyche에서 아직 이 유형의 항목을 표시할 수 없습니다({type}).",
   "blocks.message.loading":
     "{what, select, approval {승인} question {질문} receipt {영수증} artifact {아티팩트} file {파일} task {작업} plan {계획} other {항목}} 로드 중",
   "blocks.message.missing":
