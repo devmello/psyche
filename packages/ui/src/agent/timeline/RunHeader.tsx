@@ -55,8 +55,9 @@ function stateLabel(status: RunStatus): string {
   return t(`agent.timeline.state.${key}` as MessageId);
 }
 
-export function runTitle(run: Run): string {
-  return run.title?.trim() || t("agent.timeline.untitled");
+/** The task's title; a chat task without one reads as its thread ("Lisbon trip"). */
+export function runTitle(run: Run, threadTitle?: string | null): string {
+  return run.title?.trim() || threadTitle?.trim() || t("agent.timeline.untitled");
 }
 
 export interface RunHeaderProps {
@@ -122,7 +123,7 @@ export function RunHeader({
           morph
           className="size-4 shrink-0"
         />
-        <h2 className="min-w-0 flex-1 truncate text-title-3">{runTitle(run)}</h2>
+        <h2 className="min-w-0 flex-1 truncate text-title-3">{runTitle(run, threadTitle)}</h2>
         {/* biome-ignore lint/a11y/useSemanticElements: a segmented control of pressed buttons */}
         <div role="group" aria-label={t("agent.timeline.view")} className="flex shrink-0">
           {(["waterfall", "list"] as const).map((m) => (
