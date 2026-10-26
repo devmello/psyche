@@ -717,7 +717,14 @@
 //   let transcriptSegment = try? JSONDecoder().decode(TranscriptSegment.self, from: jsonData)
 //   let upcomingItem = try? JSONDecoder().decode(UpcomingItem.self, from: jsonData)
 //   let usage = try? JSONDecoder().decode(Usage.self, from: jsonData)
+//   let usageByModel = try? JSONDecoder().decode(UsageByModel.self, from: jsonData)
+//   let usageDay = try? JSONDecoder().decode(UsageDay.self, from: jsonData)
+//   let usagePlanWindow = try? JSONDecoder().decode(UsagePlanWindow.self, from: jsonData)
 //   let usageRecord = try? JSONDecoder().decode(UsageRecord.self, from: jsonData)
+//   let usageSummaryParams = try? JSONDecoder().decode(UsageSummaryParams.self, from: jsonData)
+//   let usageSummaryResult = try? JSONDecoder().decode(UsageSummaryResult.self, from: jsonData)
+//   let usageTally = try? JSONDecoder().decode(UsageTally.self, from: jsonData)
+//   let usageToday = try? JSONDecoder().decode(UsageToday.self, from: jsonData)
 //   let vaultAddParams = try? JSONDecoder().decode(VaultAddParams.self, from: jsonData)
 //   let vaultAddResult = try? JSONDecoder().decode(VaultAddResult.self, from: jsonData)
 //   let vaultConfirmRecoveryParams = try? JSONDecoder().decode(VaultConfirmRecoveryParams.self, from: jsonData)
@@ -15120,6 +15127,160 @@ public struct UsageRecord: Codable, Sendable {
         self.output = output
         self.reasoning = reasoning
         self.runID = runID
+    }
+}
+
+// MARK: - UsageSummaryParams
+public struct UsageSummaryParams: Codable, Sendable {
+    public let days: Int?
+    public let timeZone: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case days = "days"
+        case timeZone = "timeZone"
+    }
+
+    public init(days: Int?, timeZone: String?) {
+        self.days = days
+        self.timeZone = timeZone
+    }
+}
+
+// MARK: - UsageSummaryResult
+public struct UsageSummaryResult: Codable, Sendable {
+    public let budgetUsd: Double?
+    public let byModel: [UsageByModel]
+    public let days: [UsageDay]
+    public let month: UsageTally
+    public let planWindow: UsagePlanWindow?
+    public let primary: String?
+    public let today: UsageToday
+
+    public enum CodingKeys: String, CodingKey {
+        case budgetUsd = "budgetUsd"
+        case byModel = "byModel"
+        case days = "days"
+        case month = "month"
+        case planWindow = "planWindow"
+        case primary = "primary"
+        case today = "today"
+    }
+
+    public init(budgetUsd: Double?, byModel: [UsageByModel], days: [UsageDay], month: UsageTally, planWindow: UsagePlanWindow?, primary: String?, today: UsageToday) {
+        self.budgetUsd = budgetUsd
+        self.byModel = byModel
+        self.days = days
+        self.month = month
+        self.planWindow = planWindow
+        self.primary = primary
+        self.today = today
+    }
+}
+
+// MARK: - UsageByModel
+public struct UsageByModel: Codable, Sendable {
+    public let costUsd: Double
+    public let modelRef: String
+    public let subscription: Bool
+    public let tokens: Int
+    public let turns: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case costUsd = "costUsd"
+        case modelRef = "modelRef"
+        case subscription = "subscription"
+        case tokens = "tokens"
+        case turns = "turns"
+    }
+
+    public init(costUsd: Double, modelRef: String, subscription: Bool, tokens: Int, turns: Int) {
+        self.costUsd = costUsd
+        self.modelRef = modelRef
+        self.subscription = subscription
+        self.tokens = tokens
+        self.turns = turns
+    }
+}
+
+// MARK: - UsageDay
+public struct UsageDay: Codable, Sendable {
+    public let costUsd: Double
+    public let date: String
+    public let tokens: Int
+    public let turns: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case costUsd = "costUsd"
+        case date = "date"
+        case tokens = "tokens"
+        case turns = "turns"
+    }
+
+    public init(costUsd: Double, date: String, tokens: Int, turns: Int) {
+        self.costUsd = costUsd
+        self.date = date
+        self.tokens = tokens
+        self.turns = turns
+    }
+}
+
+// MARK: - UsageTally
+public struct UsageTally: Codable, Sendable {
+    public let costUsd: Double
+    public let tokens: Int
+    public let turns: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case costUsd = "costUsd"
+        case tokens = "tokens"
+        case turns = "turns"
+    }
+
+    public init(costUsd: Double, tokens: Int, turns: Int) {
+        self.costUsd = costUsd
+        self.tokens = tokens
+        self.turns = turns
+    }
+}
+
+// MARK: - UsagePlanWindow
+public struct UsagePlanWindow: Codable, Sendable {
+    public let modelRef: String
+    public let resetsAt: String
+    public let usedFraction: Double
+
+    public enum CodingKeys: String, CodingKey {
+        case modelRef = "modelRef"
+        case resetsAt = "resetsAt"
+        case usedFraction = "usedFraction"
+    }
+
+    public init(modelRef: String, resetsAt: String, usedFraction: Double) {
+        self.modelRef = modelRef
+        self.resetsAt = resetsAt
+        self.usedFraction = usedFraction
+    }
+}
+
+// MARK: - UsageToday
+public struct UsageToday: Codable, Sendable {
+    public let byModel: [UsageByModel]
+    public let costUsd: Double
+    public let tokens: Int
+    public let turns: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case byModel = "byModel"
+        case costUsd = "costUsd"
+        case tokens = "tokens"
+        case turns = "turns"
+    }
+
+    public init(byModel: [UsageByModel], costUsd: Double, tokens: Int, turns: Int) {
+        self.byModel = byModel
+        self.costUsd = costUsd
+        self.tokens = tokens
+        self.turns = turns
     }
 }
 

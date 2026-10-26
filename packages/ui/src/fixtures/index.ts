@@ -53,6 +53,7 @@ import {
 } from "./settings.ts";
 import { type MockSkillSource, skillDrafts, skillSources, skills } from "./skills.ts";
 import { artifacts, inputRequests, library, receipts, taskActions, tasks } from "./tasks.ts";
+import { usageSummary } from "./usage.ts";
 
 /**
  * The deterministic fixture world shared by Storybook stories, tests and the MockGateway.
@@ -63,12 +64,14 @@ import type {
   ContextLimits,
   ContextUsage,
   EndpointProbe,
+  MethodResult,
   ModelProviderSummary,
   ModelRoles,
 } from "@psyche/protocol";
 
 export { ago, at, FIXTURE_NOW, fakeHex, fakeSha, IDS, inMinutes, PERSONA, today } from "./ids.ts";
 export type { UsageSummary } from "./settings.ts";
+export { subscriptionUsageSummary, usageSummary } from "./usage.ts";
 
 export interface FixtureWorld {
   threads: ThreadListEntry[];
@@ -132,12 +135,15 @@ export interface FixtureWorld {
   modelProviders?: ModelProviderSummary[];
   modelRoles?: ModelRoles;
   modelProbes?: Record<string, EndpointProbe>;
+  /** `usage.summary` (#599). */
+  usageSummary?: MethodResult<"usage.summary">;
 }
 
 /** Builds a fresh world; every call returns a deep copy, so callers may mutate freely. */
 export function createFixtureWorld(): FixtureWorld {
   return structuredClone<FixtureWorld>({
     threads: threads(),
+    usageSummary: usageSummary(),
     messages: messages(),
     runs: runs(),
     toolCalls: toolCalls(),

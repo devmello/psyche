@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { usageSummary } from "../../../../packages/ui/src/fixtures/usage.ts";
 import type { GatewayEvent, GatewayStatus } from "../../src/client/index.ts";
 import { ONBOARDED_KEY, PsycheApp } from "../../src/compose/PsycheApp.tsx";
 import type { ShellPlatform } from "../../src/shell/platform.ts";
@@ -122,6 +123,33 @@ describe("the composed app on the web host (A8)", () => {
       window.dispatchEvent(new Event("resize"));
     });
     await waitFor(() => expect(shell.getAttribute("data-compact")).toBe("false"));
+  });
+
+  it("shows usage under the persona in the sidebar footer (#599)", async () => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", "/feed");
+    const { platform } = webPlatform();
+    const call = platform.gateway.call;
+    const asked: unknown[] = [];
+    platform.gateway.call = async (method, params, options) => {
+      if (method !== "usage.summary") return call(method, params, options);
+      asked.push(params);
+      return usageSummary();
+    };
+    render(<PsycheApp platform={platform} />);
+    const footer = await screen.findByTestId("usage-footer");
+    expect(footer.textContent).toContain("$0.42 today · 18k tokens");
+    expect(screen.getByTestId("sidebar-footer").textContent).toContain("Flash");
+    expect(asked[0]).toMatchObject({ days: 7 });
+  });
+
+  it("shows no usage line when the Gateway can't answer usage.summary", async () => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", "/feed");
+    const { platform } = webPlatform();
+    render(<PsycheApp platform={platform} />);
+    await screen.findByTestId("sidebar-footer");
+    expect(screen.queryByTestId("usage-footer")).toBeNull();
   });
 
   it("gates on onboarding when the Gateway has no completedAt", async () => {

@@ -124,6 +124,8 @@ export interface MockWorld {
   contextUsage?: Record<string, ContextUsage>;
   /** Each thread's own context limits (`threads.setContextLimits`). */
   contextLimits?: Record<string, ContextLimits>;
+  /** `usage.summary` (#599); absent → an empty week. */
+  usageSummary?: MethodResult<"usage.summary">;
 }
 
 /** The model window the mock reports when a thread has no usage yet. */
@@ -1190,6 +1192,18 @@ export class MockGateway implements GatewayClient {
       return { entry, stateVersion: this.stateVersion };
     },
 
+    "usage.summary": () =>
+      structuredClone(
+        this.world.usageSummary ?? {
+          days: [],
+          today: { tokens: 0, costUsd: 0, turns: 0, byModel: [] },
+          byModel: [],
+          month: { tokens: 0, costUsd: 0, turns: 0 },
+          budgetUsd: null,
+          primary: null,
+          planWindow: null,
+        },
+      ),
     "models.list": () => ({
       providers: this.world.modelProviders ?? [],
       roles: this.world.modelRoles ?? {},

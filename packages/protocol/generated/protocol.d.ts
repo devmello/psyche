@@ -5039,6 +5039,55 @@ export interface UsageRecord {
     runId?:     null | string;
 }
 
+export interface UsageSummaryParams {
+    days?:     number;
+    timeZone?: string;
+}
+
+export interface UsageSummaryResult {
+    budgetUsd?:  number | null;
+    byModel:     UsageByModel[];
+    days:        UsageDay[];
+    month:       UsageTally;
+    planWindow?: UsagePlanWindow | null;
+    primary?:    null | string;
+    today:       UsageToday;
+}
+
+export interface UsageByModel {
+    costUsd:      number;
+    modelRef:     string;
+    subscription: boolean;
+    tokens:       number;
+    turns:        number;
+}
+
+export interface UsageDay {
+    costUsd: number;
+    date:    string;
+    tokens:  number;
+    turns:   number;
+}
+
+export interface UsageTally {
+    costUsd: number;
+    tokens:  number;
+    turns:   number;
+}
+
+export interface UsagePlanWindow {
+    modelRef:     string;
+    resetsAt:     string;
+    usedFraction: number;
+}
+
+export interface UsageToday {
+    byModel: UsageByModel[];
+    costUsd: number;
+    tokens:  number;
+    turns:   number;
+}
+
 export interface VaultAddParams {
     bindings:            CredentialBinding[];
     kind:                CredentialKind;

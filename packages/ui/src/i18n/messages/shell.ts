@@ -115,4 +115,18 @@ export const shell = {
   "shell.compact.mode": "Permission mode",
   "shell.compact.model": "Choose a model…",
   "shell.compact.modelCurrent": "Model: {model}",
+  "shell.usage.apiLine": "{cost} today · {tokens} tokens",
+  "shell.usage.subscriptionLine":
+    "{turns, plural, one {# turn} other {# turns}} today · ≈ {tokens} tokens",
+  "shell.usage.none": "No usage today",
+  "shell.usage.label": "{line}. Usage details; opens Settings → Usage",
+  "shell.usage.labelNamed": "{name}: {line}. Usage details; opens Settings → Usage",
+  "shell.usage.week": "This week by model",
+  "shell.usage.turnsTokens": "{turns, plural, one {# turn} other {# turns}} · {tokens}",
+  "shell.usage.costTokens": "{cost} · {tokens}",
+  "shell.usage.budget": "{spent} of {budget} this month ({pct})",
+  "shell.usage.month": "{cost} this month",
+  "shell.usage.window": "{pct} of the plan window used · resets {when}",
+  "shell.usage.noWindow": "The plan's limit window isn't available from this CLI.",
+  "shell.usage.openHint": "Click for Settings → Usage.",
 } as const;

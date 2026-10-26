@@ -13,4 +13,5 @@ export * from "./tasks.ts";
 export * from "./teach.ts";
 export * from "./threads.ts";
 export * from "./tools.ts";
+export * from "./usage.ts";
 export * from "./vm.ts";

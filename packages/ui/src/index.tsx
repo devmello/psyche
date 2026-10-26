@@ -223,6 +223,23 @@ export {
 } from "./shell/ThreadList.tsx";
 export { ThreadsDrawer } from "./shell/ThreadsDrawer.tsx";
 export {
+  BudgetBar,
+  budgetFraction,
+  budgetTone,
+  ConnectedUsageFooter,
+  PlanRing,
+  Sparkline,
+  UsageCard,
+  UsageFooter,
+  type UsageFooterProps,
+  UsageGraphic,
+  type UsageLead,
+  type UsageSummaryData,
+  usageLead,
+  usageLine,
+  useUsageSummary,
+} from "./shell/UsageFooter.tsx";
+export {
   type EditorSlotProps,
   type UiSlots,
   UiSlotsProvider,
