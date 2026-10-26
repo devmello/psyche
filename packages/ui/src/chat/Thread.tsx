@@ -610,7 +610,7 @@ export function ChatThread({
   const columnRef = useRef<HTMLDivElement>(null);
   const stackRef = useRef<HTMLDivElement>(null);
   const stackHeight = useElementHeight(stackRef);
-  const anchorVersion = `${display.length}:${display.at(-1)?.message.blocks.length ?? 0}:${display.at(-1)?.streamingText?.length ?? 0}:${working}:${steps.length}:${steps.at(-1)?.status ?? ""}`;
+  const anchorVersion = `${stackHeight}:${display.length}:${display.at(-1)?.message.blocks.length ?? 0}:${display.at(-1)?.streamingText?.length ?? 0}:${working}:${steps.length}:${steps.at(-1)?.status ?? ""}`;
   const { away, jump } = useBottomAnchor(viewportRef, columnRef, anchorVersion);
   const empty = display.length === 0 && !view.loading;
 

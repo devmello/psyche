@@ -1,6 +1,7 @@
 import type { RunStep } from "@psyche/protocol";
 import { ArrowLeft } from "lucide-react";
 import { useReducedMotionConfig } from "motion/react";
+import * as m from "motion/react-m";
 import {
   type KeyboardEvent,
   type ReactElement,
@@ -21,6 +22,7 @@ import { useRun, useRunFrames, useRunSteps } from "../../data/runs.ts";
 import { t } from "../../i18n/core.ts";
 import { formatTime } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
+import { Disclosure, fade } from "../../motion/index.ts";
 import { FailureBanner } from "./FailureBanner.tsx";
 import { Thumbs } from "./FrameViewer.tsx";
 import { timelineAction, zoomStep } from "./keyboard.ts";
@@ -431,6 +433,13 @@ export function TimelineView({
     [exportTrace],
   );
 
+  // A view switch fades the new view in; the first render does not.
+  const viewKey = mode === "list" || compact ? "list" : "waterfall";
+  const shownView = useRef<string | null>(null);
+  useEffect(() => {
+    shownView.current = viewKey;
+  });
+
   const frameAt = replay?.t ?? end;
   const shownFrame =
     frameSeq ??
@@ -522,39 +531,57 @@ export function TimelineView({
         onDelete={() => void deleteTrace()}
         leading={onBack ? <BackButton onBack={onBack} /> : undefined}
       />
-      {run.status === "failed" && failed?.step ? (
-        <FailureBanner
-          step={failed.step}
-          {...(onRetry ? { onRetry } : {})}
-          {...(onReconnect ? { onReconnect: () => onReconnect(failed.step as RunStep) } : {})}
-          onShowStep={() => {
-            select(failed.id, true);
-            setTab("output");
-          }}
-        />
-      ) : null}
-      {range ? (
-        <p className="flex items-center gap-2 text-callout text-label-secondary tabular-nums">
-          {t("agent.timeline.range", {
-            from: formatTime(new Date(range.from).toISOString()),
-            to: formatTime(new Date(range.to).toISOString()),
-          })}
-          <Button size="xs" variant="ghost" onClick={() => setRange(null)}>
-            {t("agent.timeline.clearRange")}
-          </Button>
-        </p>
-      ) : null}
+      {/* Banner and range line open and close with height + opacity, not by popping (C15). */}
+      <Disclosure open={run.status === "failed" && failed?.step !== undefined}>
+        {failed?.step ? (
+          <FailureBanner
+            step={failed.step}
+            {...(onRetry ? { onRetry } : {})}
+            {...(onReconnect ? { onReconnect: () => onReconnect(failed.step as RunStep) } : {})}
+            onShowStep={() => {
+              select(failed.id, true);
+              setTab("output");
+            }}
+          />
+        ) : null}
+      </Disclosure>
+      <Disclosure open={range !== null}>
+        {range ? (
+          <p className="flex items-center gap-2 text-callout text-label-secondary tabular-nums">
+            {t("agent.timeline.range", {
+              from: formatTime(new Date(range.from).toISOString()),
+              to: formatTime(new Date(range.to).toISOString()),
+            })}
+            <Button size="xs" variant="ghost" onClick={() => setRange(null)}>
+              {t("agent.timeline.clearRange")}
+            </Button>
+          </p>
+        ) : null}
+      </Disclosure>
       {showInspectorOnly ? (
-        <div className="flex min-h-0 flex-1 flex-col gap-2">
+        <m.div
+          key="inspector-only"
+          initial={fade.initial}
+          animate={fade.animate}
+          className="flex min-h-0 flex-1 flex-col gap-2"
+        >
           <Button size="xs" variant="ghost" className="self-start" onClick={() => setPushed(false)}>
             <ArrowLeft aria-hidden="true" className="rtl:rotate-180" />{" "}
             {t("agent.timeline.steps.label")}
           </Button>
           {inspector}
-        </div>
+        </m.div>
       ) : (
         <div className={cn("flex min-h-0 flex-1 gap-4", side ? "flex-row" : "flex-col")}>
-          <div className="flex min-h-[12rem] min-w-0 flex-1 flex-col">
+          {/* List and waterfall crossfade on a switch (C15); a fresh key per view. */}
+          <m.div
+            key={viewKey}
+            initial={
+              shownView.current !== null && shownView.current !== viewKey ? fade.initial : false
+            }
+            animate={fade.animate}
+            className="flex min-h-[12rem] min-w-0 flex-1 flex-col"
+          >
             {mode === "list" || compact ? (
               <ListView
                 rows={listRows}
@@ -585,9 +612,10 @@ export function TimelineView({
                 label={t("agent.timeline.steps.label")}
               />
             )}
-          </div>
+          </m.div>
           {compact ? null : (
-            <div
+            <m.div
+              layout="position"
               className={cn(
                 "flex min-h-0 flex-col",
                 side
@@ -596,7 +624,7 @@ export function TimelineView({
               )}
             >
               {inspector}
-            </div>
+            </m.div>
           )}
         </div>
       )}
