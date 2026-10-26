@@ -21,11 +21,11 @@ For a big clean-up (months of mail, filing and labelling at scale), start the **
 ## Tools
 
 - Apple Mail: `mail_search` (`unread`, `since`), `mail_read`, `mail_set_flags` (read, flagged), `mail_move` (folder, Archive), `mail_save_attachments`. Gmail: `gmail_search_threads`, `gmail_read_thread`, `gmail_modify_labels`, `gmail_save_attachment`.
-- `proposals_create` (one batch card for a group's actions), `people_lookup`, `waiting_on`, `memory` (read `mail/RULES.md`), `ask_user`
+- `people_lookup`, `waiting_on`, `memory` (read `mail/RULES.md`), `ask_user`, `reminders_create`
 
 ## Approvals you should expect
 
-- Each group's actions go on **one batch card** (`proposals_create`): exact calls, approved once. A batch holds only reversible writes (mark read, flag, move, archive, reminders, save attachment), at most 100 calls. A changed list needs a new card.
+- **One group, one card.** In the daily digest Psyche turns each group's actions into one batch card (exact calls, approved once, bound to the whole list). In chat, do the same by making one call over all the ids (`mail_set_flags {ids: [...]}`), so the owner sees one card. Only reversible writes are batched (mark read, flag, move, archive, reminders, save attachment), at most 100 at a time.
 - **Never in a batch, never from triage:** sends, forwards, deletes. Drafts go through `reply-drafting`, and each send gets its own `send_email` card.
 
 ## Steps
@@ -61,7 +61,7 @@ Waiting on: Dana, Q4 timeline (since Oct 9) - Draft a nudge
 **Owner:** "Triage my inbox."
 1. `mail_search {unread: true, since: <last digest>}` and `mail_read` per thread: 40 threads.
 2. Sort: 3 Needs you (each with Because), 12 newsletters, 8 receipts, 2 to screen, 15 FYI.
-3. Reply with the digest, then `proposals_create {title: "Mark 12 newsletters read", calls: [12 × mail_set_flags]}` and one for the receipts.
+3. Reply with the digest and offer "Mark 12 newsletters read" and "Archive 8 receipts". On yes: `mail_set_flags {ids: [12 ids], read: true}` (one card), then `mail_move {ids: [8 ids], to: "Archive"}` (one card).
 
 **Owner:** "Always archive mail from deals@shop.example." (a Screen item)
 1. Add one line to `mail/RULES.md` (`memory`).

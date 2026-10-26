@@ -18,7 +18,7 @@ Write the reply the owner would have written, save it as a draft, and leave the 
 
 ## Tools
 
-- Email: `mail_read` / `gmail_read_thread`, `mail_reply_draft` / `gmail_create_draft` (saved in the owner's mail app, never sent)
+- Email: `mail.draft_reply` (writes the reply in the owner's voice from `mail/VOICE.md`, returns the commitments, and opens a card that saves the draft; `tone`: shorter, warmer, more_formal, more_direct). Without it: `mail_read` / `gmail_read_thread`, then `mail_reply_draft` / `gmail_create_draft`. Nothing here sends.
 - Messages: `messages.read`, `messages.send` (iMessage, Telegram and other channels; `voice: true` for a voice note where supported)
 - `memory` (read `mail/VOICE.md` and `mail/voice-samples.jsonl`), `people_lookup` (relationship, last threads, open loops), `ask_user`
 
@@ -43,10 +43,10 @@ Write the reply the owner would have written, save it as a draft, and leave the 
 **Owner:** "Reply to Dana: Tuesday works, but I need the budget first."
 1. `mail_read {id}`; `people_lookup {query: "dana@contoso.example"}` returns a colleague.
 2. `VOICE.md`: colleagues get "Hi Dana," and "Thanks, Sam".
-3. Draft: "Hi Dana, Tuesday works. Could you send the budget before then? Thanks, Sam". Commitment: "Tuesday works". `mail_reply_draft {id, body}` (one card).
+3. `mail.draft_reply {via: "apple", messageId, instruction: "Tuesday works, but I need the budget first"}` returns "Hi Dana, Tuesday works. Could you send the budget before then? Thanks, Sam", commitment "Tuesday works", and the save card.
 
 **Owner:** "Shorter."
-1. Redraft the same draft at about half the length, keeping the commitment sentence, and update it in place.
+1. `mail.draft_reply {…, tone: "shorter"}`: about half the length, the commitment sentence kept, the same card updated.
 
 ## Rules
 
