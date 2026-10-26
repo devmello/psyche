@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { usageSummary } from "../../../../packages/ui/src/fixtures/usage.ts";
 import type { GatewayEvent, GatewayStatus } from "../../src/client/index.ts";
 import { ONBOARDED_KEY, PsycheApp } from "../../src/compose/PsycheApp.tsx";
-import type { ShellPlatform } from "../../src/shell/platform.ts";
+import type { ShellCommand, ShellPlatform } from "../../src/shell/platform.ts";
 
 afterEach(cleanup);
 
@@ -174,6 +174,32 @@ describe("the agent sheet over the current section (#614)", () => {
     await waitFor(() => expect(window.location.pathname).toBe("/feed"));
     await waitFor(() => expect(screen.queryByTestId("agent-sheet")).toBeNull());
     expect(screen.getByTestId("screen-feed")).toBe(feed);
+  });
+});
+
+describe("Try it fills the chat composer (#677)", () => {
+  it("a prefillComposer command opens the chat with the text in the composer, unsent", async () => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", "/feed");
+    const { platform, calls } = webPlatform();
+    let emit: ((c: ShellCommand) => void) | undefined;
+    platform.windows = {
+      popOutPane: async () => {},
+      closeWindow: () => {},
+      onCommand: (cb) => {
+        emit = cb;
+        return () => {};
+      },
+    };
+    render(<PsycheApp platform={platform} />);
+    await screen.findByTestId("screen-feed");
+    act(() => emit?.({ type: "prefillComposer", text: "What's on my calendar today?" }));
+    await waitFor(() => expect(window.location.pathname).toBe("/chat"));
+    const composer = (await screen.findByRole("textbox", {
+      name: "Message Flash",
+    })) as HTMLTextAreaElement;
+    await waitFor(() => expect(composer.value).toBe("What's on my calendar today?"));
+    expect(calls.some((c) => c.method === "chat.send")).toBe(false);
   });
 });
 

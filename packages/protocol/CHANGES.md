@@ -18,6 +18,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-25 (S07 memory: people and projects graph, #650)
+
+- New schemas in `schemas/graph.ts` (docs/memory/people-and-projects-2026.md §4, §6.1): `GraphEntityKind`, `GraphEntityStatus`, `GraphProjectStatus`, `GraphIdentifierKind`, `GraphIdentifier`, `GraphFactAttribute` (allowlist; no sensitive traits), `GraphRelationshipLabel`, `GraphWriteSource`, `GraphFact` (provenance, evidence, validity, supersession), `GraphEdgeRel`, `GraphEdge`, `GraphInteractionKind`, `GraphParticipantRole`, `GraphInteraction` (headers and links, no bodies), `GraphLoopStatus`, `GraphLoop`, `GraphEntity`, `EntitySummary`, `GraphEntityDetail`, `GraphSuggestion`, `GraphSource`, `GraphStatus`.
+- New methods: `memory.entities.search | get | interactions | create | update | facts.set | facts.retract | edges.set | edges.retract | history | merge | split | suggestions | suggestions.answer | forget` (`forget` is `operator.admin`), `memory.loops.list | update`, `memory.graph.status`.
+- New events: `memory.entity.updated`, `memory.loop.updated`, `memory.suggestion.created`.
+- `SearchIndexDocKind` gains `person` and `project`; `SearchScope` and `SearchGroup` gain `people` and `projects` (the search package and the Search screen's exhaustive maps get matching entries).
+
 ### v1 additive — 2026-10-25 (S09, #637: Apple app capabilities, wave 1)
 
 For S14 / the helper session (H, #638) and S09 (G, #639): the shapes of docs/connectors/apple-apps-2026.md wave 1. All new fields are optional and all new schemas are new names.
