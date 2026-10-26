@@ -23,13 +23,17 @@ import {
   type ErrorCode,
   type EventName,
   type EventPayload,
+  type FeedbackEvent,
   type FeedPost,
   FILE_CHUNK_BYTES,
   type Goal,
   type GoalMilestone,
   type Grant,
+  type GrowthSummary,
+  type GrowthWindow,
   type Idea,
   type InputRequest,
+  type Lesson,
   type LibraryItem,
   type LinkPaymentMethod,
   type McpProposal,
@@ -40,6 +44,7 @@ import {
   type MethodName,
   type MethodParams,
   type MethodResult,
+  type Milestone,
   type NodeInfo,
   type Notification,
   type PairingRequest,
@@ -65,10 +70,12 @@ import {
   validateResult,
 } from "@psyche/protocol";
 import type { MockFileNode } from "../fixtures/files.ts";
+import type { GraphWorld } from "../fixtures/people.ts";
 import { connectorCatalogue } from "../fixtures/settings.ts";
 import type { MockSkillSource } from "../fixtures/skills.ts";
 import type { ConnectionState, GatewayClient, GatewayEvent, RequestOptions } from "./client.ts";
 import { toBase64 } from "./files.ts";
+import { emptyGraph, graphHandlers } from "./mock-graph.ts";
 
 /**
  * In-memory Gateway for stories and tests (no network). It speaks the protocol exactly: every
@@ -116,6 +123,8 @@ export interface MockWorld {
   memoryFiles: Record<string, string>;
   memoryClaims: MemoryClaim[];
   searchHits: SearchHit[];
+  /** The people and projects graph (`memory.entities.*`); absent → empty. */
+  graph?: GraphWorld;
   skills: SkillDetails[];
   skillSources: Record<string, MockSkillSource>;
   skillDrafts: SkillDraft[];
@@ -136,6 +145,10 @@ export interface MockWorld {
   contextLimits?: Record<string, ContextLimits>;
   /** `usage.summary` (#599); absent → an empty week. */
   usageSummary?: MethodResult<"usage.summary">;
+  /** The teaching loop (T0 #678). */
+  feedbackEvents: FeedbackEvent[];
+  lessons: Lesson[];
+  milestones: Milestone[];
   /** Run-trace steps (`runs.*`, `run.step`); `fixtures/runs.ts` has a world of them. */
   runSteps?: RunStep[];
   /** Frames by run id. */
@@ -150,6 +163,9 @@ export interface MockWorld {
 export const MOCK_CONTEXT_WINDOW = 200_000;
 
 export const EMPTY_WORLD: MockWorld = {
+  feedbackEvents: [],
+  lessons: [],
+  milestones: [],
   threads: [],
   messages: [],
   runs: [],
@@ -641,6 +657,78 @@ export class MockGateway implements GatewayClient {
     if (!ok) fail("forbidden", `${path} is outside every granted folder`);
   }
 
+  /** Replaces a lesson in place, keeping the list newest first. */
+  private putLesson(lesson: Lesson): void {
+    this.world.lessons = this.world.lessons.map((l) => (l.id === lesson.id ? lesson : l));
+  }
+
+  /** A small `growth.summary` over the fixture world (lessons, two metrics, milestones). */
+  private growthSummary(window: GrowthWindow): GrowthSummary {
+    const days = window === "7d" ? 7 : window === "30d" ? 30 : 36_500;
+    const from = Date.parse(this.now()) - days * 86_400_000;
+    const inWindow = (iso: string | null | undefined) =>
+      typeof iso === "string" && Date.parse(iso) >= from;
+    const lessons = this.world.lessons;
+    const live = lessons.filter((l) => l.status !== "forgotten" && l.status !== "superseded");
+    const drafts = this.world.feedbackEvents.filter((e) => e.target.type === "draft");
+    const edited = drafts.filter((e) => e.kind === "draft_edited");
+    const metric = (
+      id: GrowthSummary["metrics"][number]["id"],
+      count: number,
+      total: number,
+      evidence: string[],
+    ): GrowthSummary["metrics"][number] => ({
+      id,
+      count,
+      total,
+      // Rates only with enough history (teaching loop §3.4).
+      rate: total >= 10 ? count / total : null,
+      previousCount: null,
+      previousTotal: null,
+      previousRate: null,
+      evidence: evidence.slice(0, 50),
+    });
+    const timeline: GrowthSummary["timeline"] = [
+      ...live
+        .filter((l) => inWindow(l.createdAt))
+        .map((lesson) => ({ type: "lesson" as const, at: lesson.createdAt, lesson })),
+      ...this.world.milestones
+        .filter((m) => inWindow(m.at))
+        .map((milestone) => ({ type: "milestone" as const, at: milestone.at, milestone })),
+    ].sort((a, b) => b.at.localeCompare(a.at));
+    const first = [
+      ...lessons.map((l) => l.createdAt),
+      ...this.world.feedbackEvents.map((e) => e.createdAt),
+    ].sort()[0];
+    return {
+      window,
+      lessons: {
+        learned: lessons.filter((l) => inWindow(l.createdAt) && l.status !== "superseded").length,
+        refined: lessons.filter((l) => inWindow(l.createdAt) && l.refinedCount > 0).length,
+        confirmed: lessons.filter((l) => inWindow(l.confirmedAt)).length,
+        forgotten: lessons.filter((l) => inWindow(l.forgottenAt)).length,
+      },
+      metrics: [
+        metric(
+          "drafts_sent_as_is",
+          drafts.length - edited.length,
+          drafts.length,
+          edited.map((e) => e.id),
+        ),
+        metric(
+          "corrections_applied",
+          this.world.feedbackEvents.filter((e) => e.kind === "correction" && e.lessonId !== null)
+            .length,
+          this.world.feedbackEvents.filter((e) => e.kind === "correction").length,
+          this.world.feedbackEvents.filter((e) => e.kind === "correction").map((e) => e.id),
+        ),
+      ],
+      milestones: this.world.milestones.filter((m) => inWindow(m.at)),
+      timeline,
+      since: first ?? null,
+    };
+  }
+
   private replace<K extends keyof MockWorld>(key: K, entity: { id: string }): void {
     const list = this.world[key] as unknown as { id: string }[];
     (this.world[key] as unknown) = [...list.filter((x) => x.id !== entity.id), entity];
@@ -732,6 +820,14 @@ export class MockGateway implements GatewayClient {
   }
 
   private readonly handlers: { [M in MethodName]?: (params: MethodParams<M>) => unknown } = {
+    ...graphHandlers({
+      graph: () => {
+        this.world.graph ??= emptyGraph();
+        return this.world.graph;
+      },
+      now: () => this.now(),
+      emit: (event, payload) => this.emit(event, payload),
+    }),
     "events.subscribe": () => ({ stateVersion: this.stateVersion }),
 
     "threads.list": (p) => ({
@@ -1211,6 +1307,150 @@ export class MockGateway implements GatewayClient {
       this.world.library = this.world.library.filter((i) => i.id !== p.itemId);
       return { ok: true };
     },
+
+    // --- The teaching loop (T0 #678; docs/agent/teaching-loop-2026.md §7) ---------------
+    "feedback.give": (p) => {
+      const event: FeedbackEvent = {
+        id: this.id("fb"),
+        kind: p.kind,
+        target: p.target,
+        text: p.text ?? null,
+        reason: p.reason ?? null,
+        scope: p.scope ?? null,
+        detail: null,
+        surface: "desktop",
+        lessonId: null,
+        createdAt: this.now(),
+      };
+      // Helpful never creates a lesson; "just this time" fixes the answer without one.
+      let lesson: Lesson | null = null;
+      if (p.kind !== "helpful" && p.scope !== "once" && (p.text ?? p.reason) !== undefined) {
+        lesson = {
+          id: this.id("ls"),
+          kind: "style",
+          origin: "stated",
+          statement: p.text ?? "Keep it closer to what you asked for.",
+          scope:
+            p.scope === "always" || p.scope === undefined
+              ? { global: true }
+              : { taskKind: p.scope },
+          destination: {
+            type: "file",
+            path: "USER.md",
+            section: "Preferences",
+            lineId: this.id("line"),
+          },
+          previous: null,
+          value: `- ${p.text ?? "Keep it closer to what you asked for."}`,
+          sources: [event.id],
+          confidence: p.kind === "correction" ? 0.9 : 0.6,
+          status: "active",
+          refinedCount: 0,
+          supersedes: null,
+          lastAppliedAt: null,
+          createdAt: this.now(),
+          confirmedAt: null,
+          forgottenAt: null,
+        };
+        event.lessonId = lesson.id;
+        this.world.lessons = [lesson, ...this.world.lessons];
+        this.emit("lesson.changed", { lessonId: lesson.id, status: lesson.status, lesson });
+      }
+      this.world.feedbackEvents = [event, ...this.world.feedbackEvents];
+      this.emit("feedback.recorded", { event });
+      this.emit("growth.updated", {});
+      return { event, lesson, approval: null };
+    },
+    "feedback.list": (p) => ({
+      events: this.world.feedbackEvents.filter(
+        (e) =>
+          (p.kind === undefined || e.kind === p.kind) &&
+          (p.targetType === undefined || e.target.type === p.targetType) &&
+          (p.since === undefined || e.createdAt >= p.since),
+      ),
+      nextCursor: null,
+    }),
+    "feedback.delete": (p) => {
+      this.find(this.world.feedbackEvents, p.eventId, "feedback event");
+      this.world.feedbackEvents = this.world.feedbackEvents.filter((e) => e.id !== p.eventId);
+      return { ok: true };
+    },
+    "memory.lessons.list": (p) => ({
+      lessons: this.world.lessons.filter(
+        (l) =>
+          (p.status === undefined ? l.status !== "forgotten" : p.status.includes(l.status)) &&
+          (p.kind === undefined || l.kind === p.kind) &&
+          (p.destination === undefined || l.destination.type === p.destination) &&
+          (p.since === undefined || l.createdAt >= p.since),
+      ),
+      nextCursor: null,
+    }),
+    "memory.lessons.get": (p) => {
+      const lesson = this.find(this.world.lessons, p.lessonId, "lesson");
+      const history: Lesson[] = [];
+      let prev = lesson.supersedes;
+      while (prev !== null) {
+        const older = this.world.lessons.find((l) => l.id === prev);
+        if (older === undefined) break;
+        history.push(older);
+        prev = older.supersedes;
+      }
+      return {
+        lesson,
+        sources: this.world.feedbackEvents.filter((e) => lesson.sources.includes(e.id)),
+        diff: { before: lesson.previous, after: lesson.value },
+        history,
+      };
+    },
+    "memory.lessons.confirm": (p) => {
+      const lesson: Lesson = {
+        ...this.find(this.world.lessons, p.lessonId, "lesson"),
+        status: "confirmed",
+        confidence: 1,
+        confirmedAt: this.now(),
+      };
+      this.putLesson(lesson);
+      this.emit("lesson.changed", { lessonId: lesson.id, status: lesson.status, lesson });
+      return { lesson };
+    },
+    "memory.lessons.edit": (p) => {
+      const lesson: Lesson = {
+        ...this.find(this.world.lessons, p.lessonId, "lesson"),
+        value: p.value,
+      };
+      this.putLesson(lesson);
+      this.emit("lesson.changed", { lessonId: lesson.id, status: lesson.status, lesson });
+      return { lesson, approval: null };
+    },
+    "memory.lessons.forget": (p) => {
+      const lesson: Lesson = {
+        ...this.find(this.world.lessons, p.lessonId, "lesson"),
+        status: "forgotten",
+        forgottenAt: this.now(),
+      };
+      this.putLesson(lesson);
+      if (p.purgeSources === true)
+        this.world.feedbackEvents = this.world.feedbackEvents.filter(
+          (e) => !lesson.sources.includes(e.id),
+        );
+      this.emit("lesson.changed", { lessonId: lesson.id, status: lesson.status, lesson });
+      this.emit("growth.updated", {});
+      return { lesson };
+    },
+    "memory.lessons.forgetAll": (p) => {
+      const lessons = this.world.lessons.filter((l) => l.status !== "forgotten").length;
+      const events = this.world.feedbackEvents.length;
+      if (p.dryRun !== true) {
+        const now = this.now();
+        this.world.lessons = this.world.lessons.map((l) =>
+          l.status === "forgotten" ? l : { ...l, status: "forgotten", forgottenAt: now },
+        );
+        this.world.feedbackEvents = [];
+        this.emit("growth.updated", {});
+      }
+      return { lessons, events, dryRun: p.dryRun === true };
+    },
+    "growth.summary": (p) => ({ summary: this.growthSummary(p.window) }),
 
     "feed.list": () => ({
       posts: this.world.feed,

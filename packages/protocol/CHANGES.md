@@ -18,6 +18,15 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-25 (E, #678: the teaching loop)
+
+For T1 (#679), T2 (#680) and T3 (#681), docs/agent/teaching-loop-2026.md §3 and §7. All new fields are optional and all new schemas are new names.
+
+- Schemas (`schemas/learning.ts`): `FeedbackKind`, `FeedbackTarget`, `FeedbackReason`, `FeedbackScope`, `FeedbackEvent`, `LessonKind`, `LessonOrigin`, `LessonStatus`, `LessonScope`, `LessonDestination`, `Lesson`, `LessonRef`, `GrowthWindow`, `GrowthMetric`, `Milestone`, `GrowthItem`, `GrowthSummary`, `GrowthCardItem`, `GrowthCard`, `TeachingImplicitSignals`, and `TEACHING_SETTING_DEFAULTS` for the keys `teaching.enabled`, `teaching.implicit`, `teaching.surfaces`, `teaching.paused`, `teaching.weeklyCard`.
+- Methods: `feedback.give / list / delete`, `memory.lessons.list / get / confirm / edit / forget / forgetAll` (forgetAll presence-gated, operator.admin), `growth.summary`.
+- Events: `feedback.recorded`, `lesson.changed`, `growth.updated`.
+- Block `taught` ("Psyche will remember: …").
+- Optional fields: `Message.lessonsApplied`, `Task.lessonsApplied`, `FeedPost.growth` (the weekly card), `chat.send` `redo { messageId, instruction?, withoutLessons? }`, `ApprovalRequest.fromLesson { lessonId, feedbackId, because }`.
 ### v1 additive — 2026-10-25 (S01, #660: run trace T1)
 
 For T2 (#661), T3 (#662) and S02's specialists: the step model of docs/design/run-trace-2026.md §4. Everything is optional or new; old clients ignore `run.step`.
