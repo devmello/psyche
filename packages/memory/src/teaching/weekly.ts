@@ -2,6 +2,7 @@ import type { Clock, FeedbackEvent, GrowthCard, GrowthCardItem } from "@psyche/p
 import type { SqliteMemoryStore } from "../store.ts";
 import { confidenceWords } from "./confidence.ts";
 import { lessonFlags } from "./consolidate.ts";
+import type { TeachingService } from "./service.ts";
 import { LIVE_STATUSES, type StoredLesson, type TeachingStore, weekOf } from "./store.ts";
 
 /**
@@ -25,6 +26,8 @@ const QUESTION_MIN = 3;
 const QUESTION_WINDOW_DAYS = 30;
 const RETIRE_AFTER_DAYS = 60;
 const ASK_AGAIN_DAYS = 28;
+/** A "Still true?" left unanswered this long moves the lesson to dormant (§3.3, §5.4). */
+export const RETIRE_UNANSWERED_DAYS = 14;
 const LEDGER_KEY = "teaching.weekly";
 
 interface Ledger {
@@ -219,4 +222,43 @@ export function buildWeeklyCard(
     bodyMd: `${parts.join(", ")}. Keep, edit or forget each one below.`,
     growth: { weekOf: week, items: shown },
   };
+}
+
+/**
+ * The nightly half of ageing (§3.3): a lesson the weekly card asked "Still true?" about that
+ * nobody answered within `RETIRE_UNANSWERED_DAYS` (no Keep, edit or use since, not forgotten)
+ * goes dormant through `TeachingService.retire`. Returns how many did.
+ */
+export async function retireUnanswered(
+  service: TeachingService,
+  memory: SqliteMemoryStore,
+  options: { clock?: Clock } = {},
+): Promise<number> {
+  const nowMs = (options.clock ?? { now: () => Date.now() }).now();
+  const ledger: Ledger = {
+    asked: {},
+    shownFlags: {},
+    ...(memory.getState<Ledger>(LEDGER_KEY) ?? {}),
+  };
+  let retired = 0;
+  let changed = false;
+  for (const [key, askedAt] of Object.entries(ledger.asked)) {
+    if (!key.startsWith("r:")) continue;
+    if (nowMs - Date.parse(askedAt) < RETIRE_UNANSWERED_DAYS * DAY_MS) continue;
+    const lesson = service.store.getLesson(key.slice(2));
+    const answered =
+      lesson === undefined ||
+      !LIVE_STATUSES.includes(lesson.status) ||
+      [lesson.lastConfirmedAt, lesson.lastAppliedAt, lesson.updatedAt].some(
+        (t) => t != null && t > askedAt,
+      );
+    delete ledger.asked[key];
+    changed = true;
+    if (answered || (lesson.destination.type !== "file" && lesson.destination.type !== "skill"))
+      continue;
+    await service.retire(lesson.id);
+    retired++;
+  }
+  if (changed) memory.setState(LEDGER_KEY, ledger);
+  return retired;
 }

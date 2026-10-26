@@ -675,6 +675,28 @@ export class TeachingService {
     };
   }
 
+  /**
+   * "Still true?" went unanswered (§3.3 Ageing): the lesson goes `dormant`. Its line leaves the
+   * file it was written to (so it is out of the prompt) without bringing back the line it once
+   * replaced, and anything dreaming derived from it goes too; the lesson and its history stay, so
+   * the owner can confirm or forget it later. Only lessons that live as lines (workspace files,
+   * a skill's LESSONS.md) age this way; graph facts and automation fields are state, not prompt.
+   */
+  async retire(lessonId: string): Promise<Lesson> {
+    const lesson = this.#lesson(lessonId);
+    if (!LIVE_STATUSES.includes(lesson.status)) return publicLesson(lesson);
+    const type = lesson.destination.type;
+    if (type !== "file" && type !== "skill") {
+      fail("conflict", `a ${type} lesson does not age out of the prompt`);
+    }
+    await this.#d.writer.remove({ ...lesson, previous: null });
+    await this.#d.writer.removeDerived(lessonId);
+    const updated = this.#d.store.updateLesson(lessonId, { status: "dormant" });
+    this.#audit("teaching.lesson.dormant", { lessonId });
+    this.#changed(updated);
+    return publicLesson(updated);
+  }
+
   confirm(lessonId: string): Lesson {
     const lesson = this.#lesson(lessonId);
     if (!["active", "confirmed", "dormant"].includes(lesson.status)) {
