@@ -27,7 +27,6 @@ export interface AppearanceSettings {
   theme: "auto" | Appearance;
   accentSeed: string;
   gray: GrayFamily;
-  density: "comfortable" | "compact";
   /** `system` follows `prefers-reduced-motion`. */
   reduceMotion: boolean | "system";
   contrast: "standard" | "high";
@@ -37,7 +36,6 @@ export const DEFAULT_APPEARANCE: AppearanceSettings = {
   theme: "auto",
   accentSeed: DEFAULT_ACCENT_SEED,
   gray: "auto",
-  density: "comfortable",
   reduceMotion: "system",
   contrast: "standard",
 };
@@ -55,8 +53,6 @@ export function appearanceFromSettings(settings: Record<string, unknown>): Appea
     ["auto", "neutral", "slate", "mauve", "sage", "olive", "sand"].includes(gray)
   )
     out.gray = gray as GrayFamily;
-  const density = settings["appearance.density"];
-  if (density === "comfortable" || density === "compact") out.density = density;
   const motion = settings["appearance.reduceMotion"];
   if (typeof motion === "boolean" || motion === "system") out.reduceMotion = motion;
   const contrast = settings["appearance.contrast"];
@@ -95,7 +91,7 @@ export interface ThemeProviderProps {
   settings?: Partial<AppearanceSettings>;
   children?: ReactNode;
   /**
-   * Element that receives `data-theme`, `data-density`, `data-reduce-motion` and
+   * Element that receives `data-theme`, `data-reduce-motion` and
    * `data-contrast`. Defaults to `document.documentElement`; stories pass their own root.
    */
   target?: HTMLElement | null;
@@ -132,23 +128,21 @@ export function ThemeProvider({ settings, children, target }: ThemeProviderProps
     const root = target ?? (typeof document === "undefined" ? null : document.documentElement);
     if (root === null) return;
     root.dataset.theme = resolved;
-    root.dataset.density = merged.density;
     root.dataset.reduceMotion = String(reduceMotion);
     root.dataset.contrast = merged.contrast;
     root.style.colorScheme = resolved;
-  }, [target, resolved, merged.density, reduceMotion, merged.contrast]);
+  }, [target, resolved, reduceMotion, merged.contrast]);
 
-  const { theme: themeSetting, gray, density, contrast, reduceMotion: motionSetting } = merged;
+  const { theme: themeSetting, gray, contrast, reduceMotion: motionSetting } = merged;
   const normalized = useMemo<AppearanceSettings>(
     () => ({
       theme: themeSetting,
       accentSeed: seed,
       gray,
-      density,
       contrast,
       reduceMotion: motionSetting,
     }),
-    [themeSetting, seed, gray, density, contrast, motionSetting],
+    [themeSetting, seed, gray, contrast, motionSetting],
   );
   const value = useMemo<ThemeContextValue>(
     () => ({ settings: normalized, resolved, reduceMotion, theme }),

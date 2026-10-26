@@ -112,11 +112,6 @@
   --ring: var(--accent-11);
 }
 
-/* Density sets the base unit to 3.5 or 4 px (§4.10). */
-:root[data-density="compact"] {
-  --spacing: 3.5px;
-}
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

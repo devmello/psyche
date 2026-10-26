@@ -190,8 +190,12 @@ describe("Settings → Appearance → Language and region", () => {
     );
     const region = (await screen.findByLabelText("Region format")) as HTMLSelectElement;
     expect(region.value).toBe("system");
-    expect(screen.getByRole("option", { name: "System (British English)" })).toBeTruthy();
-    expect(screen.getByText(/Example: 2 March 2026, 10:30, 1,234,567\.89/)).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Match system (British English)" })).toBeTruthy();
+    // Only languages with a catalogue; the region list is separate.
+    expect(
+      screen.getByText(/text is in English for now\. More languages will follow/),
+    ).toBeTruthy();
+    expect(screen.getByText("Tue, 27 Oct 2026 · 14:05 · 1,234.5 · US$4.20")).toBeTruthy();
     await userEvent.selectOptions(region, "de-DE");
     const calls = () =>
       (gw as unknown as MockGateway).calls.filter((c) => c.method === "settings.set");
@@ -199,7 +203,9 @@ describe("Settings → Appearance → Language and region", () => {
       expect(calls().map((c) => c.params)).toContainEqual({ key: "ui.locale", value: "de-DE" }),
     );
     // The app remounts in the new locale: the example follows it.
-    expect(await screen.findByText(/Example: 2\. März 2026, 10:30, 1\.234\.567,89/)).toBeTruthy();
+    expect(
+      await screen.findByText(/Di\., 27\. Okt\. 2026 · 14:05 · 1\.234,5 · 4,20\s\$/),
+    ).toBeTruthy();
     await userEvent.click(screen.getByRole("radio", { name: "Right to left" }));
     await waitFor(() =>
       expect(calls().map((c) => c.params)).toContainEqual({ key: "ui.direction", value: "rtl" }),

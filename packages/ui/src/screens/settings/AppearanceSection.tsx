@@ -28,7 +28,7 @@ import {
   SwitchField,
   useSettingsForm,
 } from "./shared.tsx";
-import { GlassAdvanced, GlassPresetField } from "./TranslucencySettings.tsx";
+import { GlassSwitch } from "./TranslucencySettings.tsx";
 
 /** Appearance (UI design §3.18, color system §4.8, theming API §4.10). */
 
@@ -294,17 +294,6 @@ export function AppearancePanel({
             onChange={(v) => onChange("appearance.gray", v)}
             options={GRAY_FAMILIES.map((g) => ({ value: g, label: grayLabel(g) }))}
           />
-          <RadioField
-            label={t("settings.key.appearance.density")}
-            inline
-            value={a.density}
-            settingKey="appearance.density"
-            onChange={(v) => onChange("appearance.density", v)}
-            options={[
-              { value: "comfortable", label: t("settings.appearance.density.comfortable") },
-              { value: "compact", label: t("settings.appearance.density.compact") },
-            ]}
-          />
         </Group>
 
         <Group title={t("settings.appearance.accent")}>
@@ -343,7 +332,7 @@ export function AppearancePanel({
         </Group>
 
         <Group title={t("settings.appearance.transparency")}>
-          <GlassPresetField values={values} onChange={onChange} />
+          <GlassSwitch values={values} onChange={onChange} />
           <SwitchField
             label={t("settings.key.appearance.reduceTransparency")}
             description={t("settings.appearance.reduceTransparencyHint")}
@@ -354,7 +343,6 @@ export function AppearancePanel({
             settingKey={REDUCE_TRANSPARENCY_SETTING}
             onChange={(v) => onChange(REDUCE_TRANSPARENCY_SETTING, v)}
           />
-          <GlassAdvanced values={values} onChange={onChange} />
         </Group>
 
         <LanguageGroup values={values} onChange={onChange} />
