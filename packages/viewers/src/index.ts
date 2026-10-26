@@ -3,6 +3,7 @@
  * React components are exported here; `@psyche/viewers/core` has the DOM-free parts.
  */
 export * from "./core/index.ts";
+export { type LineMark, type LineMarksConfig, lineMarks } from "./core/line-marks.ts";
 export { markdownExtensions, richPreview } from "./core/markdown-editor.ts";
 export { ArtifactFrame, type ArtifactFrameProps } from "./react/ArtifactFrame.tsx";
 export { ArtifactViewer, type ArtifactViewerProps } from "./react/ArtifactViewer.tsx";

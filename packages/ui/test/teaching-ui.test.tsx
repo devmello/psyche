@@ -1,9 +1,9 @@
 import type { Message } from "@psyche/protocol";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
-import { SoulMemoryPanel } from "../src/agent/SoulMemoryPanel.tsx";
+import { MemoryFileEditor, SoulMemoryPanel } from "../src/agent/SoulMemoryPanel.tsx";
 import { UpcomingPanel } from "../src/agent/UpcomingPanel.tsx";
 import { MessageView } from "../src/chat/MessageView.tsx";
 import { GatewayProvider, GatewayStore } from "../src/data/index.ts";
@@ -188,5 +188,37 @@ describe("Marks (teaching loop §5.2)", () => {
     setup(<UpcomingPanel now={Date.parse(FIXTURE_NOW)} />);
     expect(await screen.findByRole("button", { name: /Learned from you on/ })).toBeTruthy();
     expect(screen.getByText(/Changed from your feedback/)).toBeTruthy();
+  });
+});
+
+describe("The editor slot's margin marks (teaching loop §5.2)", () => {
+  it("passes each lesson-owned line as a mark, and a mark opens that lesson", async () => {
+    const seen: { marks?: readonly { id: string; text: string; label: string }[] } = {};
+    let activate: ((id: string) => void) | undefined;
+    const gateway = new MockGateway(createFixtureWorld(), { now: () => FIXTURE_NOW });
+    const store = new GatewayStore(gateway, { now: () => FIXTURE_NOW });
+    render(
+      <GatewayProvider client={gateway} store={store}>
+        <UiSlotsProvider
+          value={{
+            renderEditor: (p) => {
+              if (p.marks) seen.marks = p.marks;
+              activate = p.onMarkActivate;
+              return <textarea aria-label="slot editor" readOnly value={p.value} />;
+            },
+          }}
+        >
+          <MemoryFileEditor path="USER.md" budget={4000} />
+        </UiSlotsProvider>
+      </GatewayProvider>,
+    );
+    await waitFor(() => expect(seen.marks).toHaveLength(1));
+    expect(seen.marks?.[0]).toMatchObject({
+      id: L.janeShort,
+      text: expect.stringContaining("Jane Ortiz"),
+      label: expect.stringMatching(/^Learned from you on .*Show details$/),
+    });
+    act(() => activate?.(L.janeShort));
+    expect(await screen.findByTestId("lesson-details")).toBeTruthy();
   });
 });

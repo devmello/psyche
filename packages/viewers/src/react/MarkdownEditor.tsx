@@ -2,6 +2,7 @@ import { unifiedMergeView } from "@codemirror/merge";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { type LineMark, lineMarks } from "../core/line-marks.ts";
 import {
   DocumentSession,
   type DocumentStore,
@@ -31,6 +32,10 @@ export interface MarkdownEditorProps {
   remote?: { content: string; etag: string };
   readOnly?: boolean;
   onSaved?: (state: { content: string; etag: string }) => void;
+  /** Margin marks beside lines, by line text (the teaching loop's "Learned from you"). */
+  marks?: readonly LineMark[];
+  /** A mark's button was activated. */
+  onMarkActivate?: (id: string) => void;
 }
 
 /**
@@ -97,6 +102,14 @@ function EditorBody(
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const richSlot = useRef(new Compartment());
+  const marksSlot = useRef(new Compartment());
+  // The latest callback, so a re-render with a new function does not rebuild the gutter.
+  const onMark = useRef(props.onMarkActivate);
+  onMark.current = props.onMarkActivate;
+  const marksExtension = (marks: readonly LineMark[] | undefined) =>
+    marks === undefined || marks.length === 0
+      ? []
+      : lineMarks({ marks, onActivate: (id) => onMark.current?.(id) });
 
   // The editing view (rich / source). Created once; content is synced from the session.
   // biome-ignore lint/correctness/useExhaustiveDependencies: created once per session.
@@ -109,6 +122,7 @@ function EditorBody(
         extensions: [
           markdownExtensions({ ...(props.readOnly ? { readOnly: true } : {}) }),
           richSlot.current.of(mode === "rich" ? richPreview : []),
+          marksSlot.current.of(marksExtension(props.marks)),
           EditorView.contentAttributes.of({ "aria-label": `${props.path} editor` }),
           EditorView.updateListener.of((u) => {
             if (u.docChanged) session.edit(u.state.doc.toString());
@@ -128,6 +142,11 @@ function EditorBody(
       effects: richSlot.current.reconfigure(mode === "rich" ? richPreview : []),
     });
   }, [mode]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reconfigures only when the marks change.
+  useEffect(() => {
+    view.current?.dispatch({ effects: marksSlot.current.reconfigure(marksExtension(props.marks)) });
+  }, [props.marks]);
 
   // Session → editor (discard, conflict resolution, frontmatter panel, remote follow).
   useEffect(() => {

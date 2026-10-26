@@ -284,6 +284,7 @@ export {
   useUsageSummary,
 } from "./shell/UsageFooter.tsx";
 export {
+  type EditorLineMark,
   type EditorSlotProps,
   type UiSlots,
   UiSlotsProvider,
