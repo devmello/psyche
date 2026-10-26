@@ -153,7 +153,11 @@ export function ApprovalsPanel({
   useEffect(() => {
     if (!decided) return;
     setDecidedOpen(true);
-    decidedRef.current?.scrollIntoView?.({ block: "start" });
+    // After the disclosure has opened and the cards above have laid out.
+    const frame = requestAnimationFrame(() =>
+      decidedRef.current?.scrollIntoView?.({ block: "start" }),
+    );
+    return () => cancelAnimationFrame(frame);
   }, [decided]);
   const overview = routeLink("/overview", slots.navigate);
   const empty = live.length === 0 && questions.open.length === 0;

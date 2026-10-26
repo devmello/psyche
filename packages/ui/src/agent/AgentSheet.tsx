@@ -360,6 +360,12 @@ export function AgentSheet({
       <SheetContent
         side={side}
         data-testid="agent-sheet"
+        // Focus lands on the selected segment, not on the Now / next link under the name.
+        initialFocus={() =>
+          document.querySelector<HTMLElement>(
+            '[data-testid="agent-sheet"] [role="tab"][aria-selected="true"]',
+          )
+        }
         className={cn(
           "gap-0",
           // A 420 px right sheet (redesign §5.7) on the opaque overlay surface at level 3 over a
