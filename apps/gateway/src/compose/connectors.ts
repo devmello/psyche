@@ -19,6 +19,7 @@ import {
   imapFactory,
   jmapFactory,
   type LibrarySink,
+  obsidianFactory,
   REMOTE_MCP_PRESETS,
   SqliteConnectorStore,
   type StoredTokens,
@@ -27,6 +28,7 @@ import {
   type WebFetchFactoryOptions,
   type WebSearchFactoryOptions,
 } from "@psyche/connectors";
+import { assertGranted, assertNoSymlinks, assertNotProtected } from "@psyche/files";
 import {
   type CredentialBroker,
   type CredentialRevokedEvent,
@@ -38,6 +40,7 @@ import type { Call, HandlerDef } from "../context.ts";
 import type { Gateway } from "../server.ts";
 import { fetchLimit, taskOrigins } from "./fetch-origins.ts";
 import { type MailCredentials, mailCredentials } from "./mail-credentials.ts";
+import { protectedRoots } from "./protected-paths.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -129,6 +132,15 @@ function defaultFactories(
   const factories = [
     // Apple Notes, Reminders, Calendar and Mail through the paired Mac helper (#528).
     ...appleFactories({ helper }),
+    // Obsidian (#639): the vault is a shared folder; every path passes the same checks as the
+    // file tools (granted folder and its mode, protected roots, no symlinks).
+    obsidianFactory({
+      access: async (path, mode) => {
+        assertNotProtected(path, protectedRoots(services.home));
+        assertGranted(path, services.rawBroker.policy.folders ?? [], mode);
+        await assertNoSymlinks(path);
+      },
+    }),
     googleFactory({
       openBrowser: setup.openBrowser ?? noBrowser,
       ...(setup.oauthTimeoutMs === undefined ? {} : { timeoutMs: setup.oauthTimeoutMs }),
