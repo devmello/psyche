@@ -3,13 +3,14 @@ import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { getMessage, getSetting } from "@psyche/db";
+import { getMessage, getSetting, setSetting } from "@psyche/db";
 import { defaultDenyRead } from "@psyche/mcp-host";
 import type { LibraryItem, NodeClient, NodeInfo } from "@psyche/protocol";
 import { PsycheError, VOICE_CONVERSATION_SETTING_KEYS as VC } from "@psyche/protocol";
 import {
   createSpeechHandlers,
   createSpeechStack,
+  isRetiredVoiceRef,
   type LibrarySaveInput,
   type LibraryWriter,
   LocalProcessRunner,
@@ -240,6 +241,7 @@ export function composeSpeech(setup: SpeechSetup = {}) {
   return (services: ComposeServices): ComposedPart => {
     let gateway: Gateway | null = null;
     const { db } = services;
+    migrateRetiredVoices(services);
     const prefix = speechPrefix(setup, services);
     const runner =
       prefix === undefined
@@ -316,6 +318,41 @@ export function composeSpeech(setup: SpeechSetup = {}) {
       },
     };
   };
+}
+
+/** Settings that hold an `<engine>:<voice>` ref the owner picked. */
+export const VOICE_REF_SETTINGS = [VC.voice, "speech.tts.voice"] as const;
+
+/**
+ * Moves an owner who picked the OpenAI cloud voice to the default voice, once, with a notice:
+ * OpenAI's TTS endpoints shut down on 2027-01-06 and the engine was removed
+ * (docs/voice/voice-mode-2026.md §2, #691). `null` means "best installed voice for the language".
+ */
+export function migrateRetiredVoices(
+  services: Pick<ComposeServices, "db" | "notifier" | "logger">,
+): string[] {
+  const moved: string[] = [];
+  for (const key of VOICE_REF_SETTINGS) {
+    if (!isRetiredVoiceRef(getSetting(services.db, key)?.value)) continue;
+    setSetting(services.db, key, null);
+    moved.push(key);
+  }
+  if (moved.length > 0) {
+    services.notifier
+      .notify({
+        kind: "system",
+        route: "/settings/voice",
+        title: "Psyche's voice changed",
+        body: "OpenAI is retiring the voice you picked, so Psyche now uses the default voice. You can choose another in Settings → Voice & dictation.",
+        dedupeKey: "speech:voice-retired:openai",
+      })
+      .catch((err) =>
+        services.logger?.log("warn", "voice migration notice failed", {
+          code: PsycheError.from(err).code,
+        }),
+      );
+  }
+  return moved;
 }
 
 /**

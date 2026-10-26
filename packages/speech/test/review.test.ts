@@ -215,11 +215,12 @@ describe("review fixes", () => {
   it("8: cloud TTS cancels the response body when the consumer stops early", async () => {
     let cancelled = false;
     const engine = new CloudTtsEngine({
-      provider: "openai",
+      provider: "elevenlabs",
+      defaultVoice: "voice-1",
       apiKey: async () =>
         new ResolvedSecret("sk-test-review-0000", {
           credentialId: "c",
-          target: { kind: "origin", value: "https://api.openai.com" },
+          target: { kind: "origin", value: "https://api.elevenlabs.io" },
         }),
       fetch: async () =>
         new Response(
