@@ -40,7 +40,7 @@ import { VaultMethods } from "./vault.ts";
 import { ViewMethods } from "./view.ts";
 import { VmMethods } from "./vm.ts";
 import { VoiceMethods } from "./voice.ts";
-import { FollowupsMethods, ProposalsMethods } from "./workflows.ts";
+import { ProposalsMethods } from "./workflows.ts";
 
 export * from "./approvals.ts";
 export * from "./attention.ts";
@@ -131,7 +131,6 @@ export const Methods = {
   ...ModelsMethods,
   ...UsageMethods,
   ...ProposalsMethods,
-  ...FollowupsMethods,
 } as const;
 
 export type MethodName = keyof typeof Methods;

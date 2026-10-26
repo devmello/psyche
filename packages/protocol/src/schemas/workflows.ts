@@ -1,5 +1,6 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, JsonObject, Nullable, Provenance, StringEnum } from "../common.ts";
+import { GraphLoop } from "./graph.ts";
 import { TaintSource } from "./permissions.ts";
 
 /**
@@ -211,43 +212,23 @@ export const DigestGroup = Type.Object(
 );
 export type DigestGroup = Static<typeof DigestGroup>;
 
-export const OpenLoopKind = StringEnum(["waiting_on", "owed_by_me"], { $id: "OpenLoopKind" });
-export const OpenLoopStatus = StringEnum(["open", "resolved", "snoozed", "stale"], {
-  $id: "OpenLoopStatus",
-});
-
-export const LoopPerson = Type.Object(
+/**
+ * Follow-ups are the memory graph's open loops (`GraphLoop`, `memory.loops.*`; docs/memory/
+ * people-and-projects-2026.md §4.6). The digest shows the due `waiting_on` ones; how often a
+ * loop was shown in a digest is the digest's own state (`DigestLoop.shownCount`).
+ */
+export const DigestLoop = Type.Object(
   {
-    personId: Type.Optional(Id),
-    name: Type.Optional(Type.String({ maxLength: 200 })),
-    email: Type.Optional(Type.String({ maxLength: 320 })),
-  },
-  { $id: "LoopPerson" },
-);
-export type LoopPerson = Static<typeof LoopPerson>;
-
-/** A "waiting on" or "owed by me" item (§4.2, §4.6; the memory graph's open loops). */
-export const OpenLoop = Type.Object(
-  {
-    id: Id,
-    kind: OpenLoopKind,
-    people: Type.Array(LoopPerson, { minItems: 1 }),
+    loop: GraphLoop,
+    /** The counterpart's display name, resolved for the card. */
+    counterpart: Type.Optional(Type.String({ maxLength: 200 })),
     thread: Type.Optional(MailThreadRef),
-    meetingId: Type.Optional(Type.String()),
-    summary: Type.String({ maxLength: 300 }),
-    dueAt: Nullable(IsoDateTime),
-    status: OpenLoopStatus,
-    /** How many digests showed it (at most twice, then stale). */
-    shownCount: Type.Integer({ minimum: 0 }),
-    snoozedUntil: Type.Optional(Nullable(IsoDateTime)),
-    source: StringEnum(["sent_mail", "meeting", "chat"]),
-    provenance: Provenance,
-    createdAt: IsoDateTime,
-    resolvedAt: Type.Optional(Nullable(IsoDateTime)),
+    /** Digests that showed it, this one included (at most twice, then it goes quiet). */
+    shownCount: Type.Integer({ minimum: 1 }),
   },
-  { $id: "OpenLoop" },
+  { $id: "DigestLoop" },
 );
-export type OpenLoop = Static<typeof OpenLoop>;
+export type DigestLoop = Static<typeof DigestLoop>;
 
 /** The daily digest card's content (§4.1, §7.1). */
 export const InboxDigest = Type.Object(
@@ -262,7 +243,7 @@ export const InboxDigest = Type.Object(
     }),
     needsYou: Type.Array(DigestItem),
     groups: Type.Array(DigestGroup),
-    waitingOn: Type.Array(OpenLoop),
+    waitingOn: Type.Array(DigestLoop),
     screen: Type.Array(DigestItem),
     unverified: Type.Array(DigestItem),
     taint: Type.Boolean({
@@ -317,7 +298,7 @@ export const MeetingPrep = Type.Object(
     joinUrl: Type.Optional(Type.String()),
     attendees: Type.Array(MeetingAttendee),
     why: Type.Optional(SourcedLine),
-    openLoops: Type.Array(OpenLoop),
+    openLoops: Type.Array(GraphLoop),
     lastTime: Type.Array(SourcedLine),
     worthReading: Type.Array(SourcedLine, { maxItems: 3 }),
     agenda: Type.Array(Type.String({ maxLength: 200 }), { maxItems: 4 }),
@@ -335,7 +316,7 @@ export const MeetingActionItem = Type.Object(
     dueAt: Type.Optional(Nullable(IsoDateTime)),
     quote: Type.Optional(Type.String({ maxLength: 200 })),
     atMs: Type.Optional(Type.Integer({ minimum: 0, description: "Offset into the recording" })),
-    /** The proposal that would create it (owner's items), or the loop it became (others'). */
+    /** The proposal that would create it (owner's items), or the graph loop it became (others'). */
     proposalId: Type.Optional(Nullable(Id)),
     loopId: Type.Optional(Nullable(Id)),
   },

@@ -65,7 +65,8 @@ export interface FakeSchedulerOptions {
 /**
  * In-memory scheduler (architecture §4.11). `interval` / `heartbeat` / `watch` automations use
  * ISO-8601 durations; `cron` / `briefing` use 5-field cron in UTC (timezones are ignored by the
- * fake); `reminder` is a one-shot at the ISO-8601 instant in `schedule`. Missed ticks are
+ * fake); `reminder` is a one-shot at the ISO-8601 instant in `schedule`; `event` automations
+ * never get a `nextRunAt` (they run on their trigger). Missed ticks are
  * coalesced into one run. Every run is recorded in `runs`.
  */
 export class FakeScheduler implements Scheduler {
@@ -81,6 +82,8 @@ export class FakeScheduler implements Scheduler {
 
   /** Next fire time after `after`; `undefined` once a one-shot `reminder` has passed. */
   #next(a: Pick<Automation, "kind" | "schedule">, after: number): number | undefined {
+    // Event automations run on their trigger, never on a clock.
+    if (a.kind === "event") return undefined;
     if (a.kind === "reminder") {
       const at = Date.parse(a.schedule);
       if (Number.isNaN(at)) return fail("invalid_params", `bad instant: ${a.schedule}`);

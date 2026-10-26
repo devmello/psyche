@@ -338,6 +338,7 @@
 //   let digestCategory = try? JSONDecoder().decode(DigestCategory.self, from: jsonData)
 //   let digestGroup = try? JSONDecoder().decode(DigestGroup.self, from: jsonData)
 //   let digestItem = try? JSONDecoder().decode(DigestItem.self, from: jsonData)
+//   let digestLoop = try? JSONDecoder().decode(DigestLoop.self, from: jsonData)
 //   let dmPolicy = try? JSONDecoder().decode(DmPolicy.self, from: jsonData)
 //   let documentsConvertParams = try? JSONDecoder().decode(DocumentsConvertParams.self, from: jsonData)
 //   let documentsConvertResult = try? JSONDecoder().decode(DocumentsConvertResult.self, from: jsonData)
@@ -371,12 +372,6 @@
 //   let filesListResult = try? JSONDecoder().decode(FilesListResult.self, from: jsonData)
 //   let filesReadParams = try? JSONDecoder().decode(FilesReadParams.self, from: jsonData)
 //   let filesReadResult = try? JSONDecoder().decode(FilesReadResult.self, from: jsonData)
-//   let followupAction = try? JSONDecoder().decode(FollowupAction.self, from: jsonData)
-//   let followupUpdatedPayload = try? JSONDecoder().decode(FollowupUpdatedPayload.self, from: jsonData)
-//   let followupsListParams = try? JSONDecoder().decode(FollowupsListParams.self, from: jsonData)
-//   let followupsListResult = try? JSONDecoder().decode(FollowupsListResult.self, from: jsonData)
-//   let followupsUpdateParams = try? JSONDecoder().decode(FollowupsUpdateParams.self, from: jsonData)
-//   let followupsUpdateResult = try? JSONDecoder().decode(FollowupsUpdateResult.self, from: jsonData)
 //   let frame = try? JSONDecoder().decode(Frame.self, from: jsonData)
 //   let gatewayShutdownPayload = try? JSONDecoder().decode(GatewayShutdownPayload.self, from: jsonData)
 //   let goal = try? JSONDecoder().decode(Goal.self, from: jsonData)
@@ -467,7 +462,6 @@
 //   let logLine = try? JSONDecoder().decode(LogLine.self, from: jsonData)
 //   let logsTailParams = try? JSONDecoder().decode(LogsTailParams.self, from: jsonData)
 //   let logsTailResult = try? JSONDecoder().decode(LogsTailResult.self, from: jsonData)
-//   let loopPerson = try? JSONDecoder().decode(LoopPerson.self, from: jsonData)
 //   let mailThreadRef = try? JSONDecoder().decode(MailThreadRef.self, from: jsonData)
 //   let mCPAddParams = try? JSONDecoder().decode(MCPAddParams.self, from: jsonData)
 //   let mCPAddResult = try? JSONDecoder().decode(MCPAddResult.self, from: jsonData)
@@ -636,9 +630,6 @@
 //   let notificationsResolveResult = try? JSONDecoder().decode(NotificationsResolveResult.self, from: jsonData)
 //   let okResult = try? JSONDecoder().decode(OkResult.self, from: jsonData)
 //   let onePasswordRef = try? JSONDecoder().decode(OnePasswordRef.self, from: jsonData)
-//   let openLoop = try? JSONDecoder().decode(OpenLoop.self, from: jsonData)
-//   let openLoopKind = try? JSONDecoder().decode(OpenLoopKind.self, from: jsonData)
-//   let openLoopStatus = try? JSONDecoder().decode(OpenLoopStatus.self, from: jsonData)
 //   let pairingRequest = try? JSONDecoder().decode(PairingRequest.self, from: jsonData)
 //   let pairingRequestedPayload = try? JSONDecoder().decode(PairingRequestedPayload.self, from: jsonData)
 //   let pairingStatus = try? JSONDecoder().decode(PairingStatus.self, from: jsonData)
@@ -9083,7 +9074,7 @@ public struct InboxDigest: Codable, Sendable {
     public let until: String
     public let unverified: [DigestItem]
     public let usedCloudModel: Bool?
-    public let waitingOn: [OpenLoop]
+    public let waitingOn: [DigestLoop]
 
     public enum CodingKeys: String, CodingKey {
         case accounts = "accounts"
@@ -9101,7 +9092,7 @@ public struct InboxDigest: Codable, Sendable {
         case waitingOn = "waitingOn"
     }
 
-    public init(accounts: [String], counts: [String: Int], createdAt: String, groups: [DigestGroup], id: String, needsYou: [DigestItem], screen: [DigestItem], since: String, taint: Bool, until: String, unverified: [DigestItem], usedCloudModel: Bool?, waitingOn: [OpenLoop]) {
+    public init(accounts: [String], counts: [String: Int], createdAt: String, groups: [DigestGroup], id: String, needsYou: [DigestItem], screen: [DigestItem], since: String, taint: Bool, until: String, unverified: [DigestItem], usedCloudModel: Bool?, waitingOn: [DigestLoop]) {
         self.accounts = accounts
         self.counts = counts
         self.createdAt = createdAt
@@ -9221,93 +9212,107 @@ public struct MailThreadRef: Codable, Sendable {
     }
 }
 
-// MARK: - OpenLoop
-public struct OpenLoop: Codable, Sendable {
-    public let createdAt: String
-    public let dueAt: String?
-    public let id: String
-    public let kind: OpenLoopKind
-    public let meetingID: String?
-    public let people: [LoopPerson]
-    public let provenance: Provenance
-    public let resolvedAt: String?
+// MARK: - DigestLoop
+public struct DigestLoop: Codable, Sendable {
+    public let counterpart: String?
+    public let loop: GraphLoop
     public let shownCount: Int
-    public let snoozedUntil: String?
-    public let source: OpenLoopSource
-    public let status: OpenLoopStatus
-    public let summary: String
     public let thread: MailThreadRef?
 
     public enum CodingKeys: String, CodingKey {
-        case createdAt = "createdAt"
-        case dueAt = "dueAt"
-        case id = "id"
-        case kind = "kind"
-        case meetingID = "meetingId"
-        case people = "people"
-        case provenance = "provenance"
-        case resolvedAt = "resolvedAt"
+        case counterpart = "counterpart"
+        case loop = "loop"
         case shownCount = "shownCount"
-        case snoozedUntil = "snoozedUntil"
-        case source = "source"
-        case status = "status"
-        case summary = "summary"
         case thread = "thread"
     }
 
-    public init(createdAt: String, dueAt: String?, id: String, kind: OpenLoopKind, meetingID: String?, people: [LoopPerson], provenance: Provenance, resolvedAt: String?, shownCount: Int, snoozedUntil: String?, source: OpenLoopSource, status: OpenLoopStatus, summary: String, thread: MailThreadRef?) {
-        self.createdAt = createdAt
-        self.dueAt = dueAt
-        self.id = id
-        self.kind = kind
-        self.meetingID = meetingID
-        self.people = people
-        self.provenance = provenance
-        self.resolvedAt = resolvedAt
+    public init(counterpart: String?, loop: GraphLoop, shownCount: Int, thread: MailThreadRef?) {
+        self.counterpart = counterpart
+        self.loop = loop
         self.shownCount = shownCount
-        self.snoozedUntil = snoozedUntil
-        self.source = source
-        self.status = status
-        self.summary = summary
         self.thread = thread
     }
 }
 
-public enum OpenLoopKind: String, Codable, Sendable {
-    case owedByMe = "owed_by_me"
+// MARK: - GraphLoop
+public struct GraphLoop: Codable, Sendable {
+    public let closedAt: String?
+    public let closedBy: GraphLoopClosedBy?
+    public let confidence: Double
+    public let counterpartID: String?
+    public let createdAt: String
+    public let detectedBy: GraphLoopDetectedBy
+    public let direction: GraphLoopDirectionFilter
+    public let dueAt: String?
+    public let evidence: String?
+    public let id: String
+    public let projectID: String?
+    public let provenance: Provenance
+    public let sourceInteractionID: String?
+    public let status: GraphLoopStatus
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case closedAt = "closedAt"
+        case closedBy = "closedBy"
+        case confidence = "confidence"
+        case counterpartID = "counterpartId"
+        case createdAt = "createdAt"
+        case detectedBy = "detectedBy"
+        case direction = "direction"
+        case dueAt = "dueAt"
+        case evidence = "evidence"
+        case id = "id"
+        case projectID = "projectId"
+        case provenance = "provenance"
+        case sourceInteractionID = "sourceInteractionId"
+        case status = "status"
+        case text = "text"
+    }
+
+    public init(closedAt: String?, closedBy: GraphLoopClosedBy?, confidence: Double, counterpartID: String?, createdAt: String, detectedBy: GraphLoopDetectedBy, direction: GraphLoopDirectionFilter, dueAt: String?, evidence: String?, id: String, projectID: String?, provenance: Provenance, sourceInteractionID: String?, status: GraphLoopStatus, text: String) {
+        self.closedAt = closedAt
+        self.closedBy = closedBy
+        self.confidence = confidence
+        self.counterpartID = counterpartID
+        self.createdAt = createdAt
+        self.detectedBy = detectedBy
+        self.direction = direction
+        self.dueAt = dueAt
+        self.evidence = evidence
+        self.id = id
+        self.projectID = projectID
+        self.provenance = provenance
+        self.sourceInteractionID = sourceInteractionID
+        self.status = status
+        self.text = text
+    }
+}
+
+public enum GraphLoopClosedBy: String, Codable, Sendable {
+    case duePassed = "due_passed"
+    case owner = "owner"
+    case replySeen = "reply_seen"
+}
+
+/// Who attached it to the entity; model links count only after the owner confirms
+public enum GraphLoopDetectedBy: String, Codable, Sendable {
+    case model = "model"
+    case owner = "owner"
+    case rule = "rule"
+}
+
+public enum GraphLoopDirectionFilter: String, Codable, Sendable {
+    case iOwe = "i_owe"
     case waitingOn = "waiting_on"
 }
 
-// MARK: - LoopPerson
-public struct LoopPerson: Codable, Sendable {
-    public let email: String?
-    public let name: String?
-    public let personID: String?
-
-    public enum CodingKeys: String, CodingKey {
-        case email = "email"
-        case name = "name"
-        case personID = "personId"
-    }
-
-    public init(email: String?, name: String?, personID: String?) {
-        self.email = email
-        self.name = name
-        self.personID = personID
-    }
-}
-
-public enum OpenLoopSource: String, Codable, Sendable {
-    case chat = "chat"
-    case meeting = "meeting"
-    case sentMail = "sent_mail"
-}
-
-public enum OpenLoopStatus: String, Codable, Sendable {
-    case openLoopStatusOpen = "open"
-    case resolved = "resolved"
+public enum GraphLoopStatus: String, Codable, Sendable {
+    case dismissed = "dismissed"
+    case done = "done"
+    case graphLoopStatusOpen = "open"
     case snoozed = "snoozed"
-    case stale = "stale"
+    case suggested = "suggested"
 }
 
 // MARK: - MeetingNotes
@@ -9442,7 +9447,7 @@ public struct MeetingPrep: Codable, Sendable {
     public let lastTime: [SourcedLine]
     /// The calendar event id
     public let meetingID: String
-    public let openLoops: [OpenLoop]
+    public let openLoops: [GraphLoop]
     public let startAt: String
     public let taint: Bool
     public let title: String
@@ -9465,7 +9470,7 @@ public struct MeetingPrep: Codable, Sendable {
         case worthReading = "worthReading"
     }
 
-    public init(agenda: [String], attendees: [MeetingAttendee], calendarID: String?, endAt: String?, joinURL: String?, lastTime: [SourcedLine], meetingID: String, openLoops: [OpenLoop], startAt: String, taint: Bool, title: String, why: SourcedLine?, worthReading: [SourcedLine]) {
+    public init(agenda: [String], attendees: [MeetingAttendee], calendarID: String?, endAt: String?, joinURL: String?, lastTime: [SourcedLine], meetingID: String, openLoops: [GraphLoop], startAt: String, taint: Bool, title: String, why: SourcedLine?, worthReading: [SourcedLine]) {
         self.agenda = agenda
         self.attendees = attendees
         self.calendarID = calendarID
@@ -9862,97 +9867,6 @@ public struct FilesReadResult: Codable, Sendable {
         self.nextOffset = nextOffset
         self.offset = offset
         self.size = size
-    }
-}
-
-// MARK: - FollowupUpdatedPayload
-public struct FollowupUpdatedPayload: Codable, Sendable {
-    public let loop: OpenLoop
-
-    public enum CodingKeys: String, CodingKey {
-        case loop = "loop"
-    }
-
-    public init(loop: OpenLoop) {
-        self.loop = loop
-    }
-}
-
-// MARK: - FollowupsListParams
-public struct FollowupsListParams: Codable, Sendable {
-    /// Opaque cursor
-    public let cursor: String?
-    public let kind: OpenLoopKind?
-    public let limit: Int?
-    public let status: [OpenLoopStatus]?
-
-    public enum CodingKeys: String, CodingKey {
-        case cursor = "cursor"
-        case kind = "kind"
-        case limit = "limit"
-        case status = "status"
-    }
-
-    public init(cursor: String?, kind: OpenLoopKind?, limit: Int?, status: [OpenLoopStatus]?) {
-        self.cursor = cursor
-        self.kind = kind
-        self.limit = limit
-        self.status = status
-    }
-}
-
-// MARK: - FollowupsListResult
-public struct FollowupsListResult: Codable, Sendable {
-    public let loops: [OpenLoop]
-    public let nextCursor: String?
-
-    public enum CodingKeys: String, CodingKey {
-        case loops = "loops"
-        case nextCursor = "nextCursor"
-    }
-
-    public init(loops: [OpenLoop], nextCursor: String?) {
-        self.loops = loops
-        self.nextCursor = nextCursor
-    }
-}
-
-// MARK: - FollowupsUpdateParams
-public struct FollowupsUpdateParams: Codable, Sendable {
-    public let action: FollowupAction
-    public let loopID: String
-    public let until: String?
-
-    public enum CodingKeys: String, CodingKey {
-        case action = "action"
-        case loopID = "loopId"
-        case until = "until"
-    }
-
-    public init(action: FollowupAction, loopID: String, until: String?) {
-        self.action = action
-        self.loopID = loopID
-        self.until = until
-    }
-}
-
-public enum FollowupAction: String, Codable, Sendable {
-    case reopen = "reopen"
-    case resolve = "resolve"
-    case snooze = "snooze"
-    case stop = "stop"
-}
-
-// MARK: - FollowupsUpdateResult
-public struct FollowupsUpdateResult: Codable, Sendable {
-    public let loop: OpenLoop
-
-    public enum CodingKeys: String, CodingKey {
-        case loop = "loop"
-    }
-
-    public init(loop: OpenLoop) {
-        self.loop = loop
     }
 }
 
@@ -10879,87 +10793,6 @@ public enum GraphIdentifierKind: String, Codable, Sendable {
     case email = "email"
     case phone = "phone"
     case url = "url"
-}
-
-/// Who attached it to the entity; model links count only after the owner confirms
-public enum GraphLoopDetectedBy: String, Codable, Sendable {
-    case model = "model"
-    case owner = "owner"
-    case rule = "rule"
-}
-
-// MARK: - GraphLoop
-public struct GraphLoop: Codable, Sendable {
-    public let closedAt: String?
-    public let closedBy: GraphLoopClosedBy?
-    public let confidence: Double
-    public let counterpartID: String?
-    public let createdAt: String
-    public let detectedBy: GraphLoopDetectedBy
-    public let direction: GraphLoopDirectionFilter
-    public let dueAt: String?
-    public let evidence: String?
-    public let id: String
-    public let projectID: String?
-    public let provenance: Provenance
-    public let sourceInteractionID: String?
-    public let status: GraphLoopStatus
-    public let text: String
-
-    public enum CodingKeys: String, CodingKey {
-        case closedAt = "closedAt"
-        case closedBy = "closedBy"
-        case confidence = "confidence"
-        case counterpartID = "counterpartId"
-        case createdAt = "createdAt"
-        case detectedBy = "detectedBy"
-        case direction = "direction"
-        case dueAt = "dueAt"
-        case evidence = "evidence"
-        case id = "id"
-        case projectID = "projectId"
-        case provenance = "provenance"
-        case sourceInteractionID = "sourceInteractionId"
-        case status = "status"
-        case text = "text"
-    }
-
-    public init(closedAt: String?, closedBy: GraphLoopClosedBy?, confidence: Double, counterpartID: String?, createdAt: String, detectedBy: GraphLoopDetectedBy, direction: GraphLoopDirectionFilter, dueAt: String?, evidence: String?, id: String, projectID: String?, provenance: Provenance, sourceInteractionID: String?, status: GraphLoopStatus, text: String) {
-        self.closedAt = closedAt
-        self.closedBy = closedBy
-        self.confidence = confidence
-        self.counterpartID = counterpartID
-        self.createdAt = createdAt
-        self.detectedBy = detectedBy
-        self.direction = direction
-        self.dueAt = dueAt
-        self.evidence = evidence
-        self.id = id
-        self.projectID = projectID
-        self.provenance = provenance
-        self.sourceInteractionID = sourceInteractionID
-        self.status = status
-        self.text = text
-    }
-}
-
-public enum GraphLoopClosedBy: String, Codable, Sendable {
-    case duePassed = "due_passed"
-    case owner = "owner"
-    case replySeen = "reply_seen"
-}
-
-public enum GraphLoopDirectionFilter: String, Codable, Sendable {
-    case iOwe = "i_owe"
-    case waitingOn = "waiting_on"
-}
-
-public enum GraphLoopStatus: String, Codable, Sendable {
-    case dismissed = "dismissed"
-    case done = "done"
-    case graphLoopStatusOpen = "open"
-    case snoozed = "snoozed"
-    case suggested = "suggested"
 }
 
 // MARK: - GraphInteraction
@@ -19939,7 +19772,7 @@ public struct VaultLinkExternalParams: Codable, Sendable {
     public let name: String
     public let ref: Ref
     public let slug: String?
-    public let source: VaultLinkExternalParamsSource
+    public let source: SourceEnum
 
     public enum CodingKeys: String, CodingKey {
         case bindings = "bindings"
@@ -19951,7 +19784,7 @@ public struct VaultLinkExternalParams: Codable, Sendable {
         case source = "source"
     }
 
-    public init(bindings: [CredentialBinding], fields: [Field]?, kind: VaultLinkExternalParamsKind, name: String, ref: Ref, slug: String?, source: VaultLinkExternalParamsSource) {
+    public init(bindings: [CredentialBinding], fields: [Field]?, kind: VaultLinkExternalParamsKind, name: String, ref: Ref, slug: String?, source: SourceEnum) {
         self.bindings = bindings
         self.fields = fields
         self.kind = kind
@@ -19994,7 +19827,7 @@ public struct Ref: Codable, Sendable {
     }
 }
 
-public enum VaultLinkExternalParamsSource: String, Codable, Sendable {
+public enum SourceEnum: String, Codable, Sendable {
     case bitwarden = "bitwarden"
     case the1Password = "1password"
 }

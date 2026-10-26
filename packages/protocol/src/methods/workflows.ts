@@ -1,19 +1,13 @@
 import { Type } from "@sinclair/typebox";
-import { Id, IsoDateTime, Nullable, StringEnum } from "../common.ts";
+import { Id } from "../common.ts";
 import { ApprovalRequest } from "../schemas/permissions.ts";
-import {
-  ActionProposal,
-  ActionProposalStatus,
-  OpenLoop,
-  OpenLoopKind,
-  OpenLoopStatus,
-} from "../schemas/workflows.ts";
+import { ActionProposal, ActionProposalStatus } from "../schemas/workflows.ts";
 import { SurfaceAnswerToken } from "./approvals.ts";
 import { defineMethod, nextCursor, pageParams } from "./define.ts";
 
 /**
- * `proposals.*` (batch proposals, docs/workflows/mail-and-meetings-2026.md §8.1) and
- * `followups.*` (the Follow-ups page, §4.2, §7.1).
+ * `proposals.*`: batch proposals (docs/workflows/mail-and-meetings-2026.md §8.1). Follow-ups
+ * are the memory graph's loops (`memory.loops.*`).
  */
 export const ProposalsMethods = {
   "proposals.list": defineMethod({
@@ -61,30 +55,5 @@ export const ProposalsMethods = {
     sideEffecting: true,
     description:
       "Offers the inverse proposal of a finished one (reversible mail actions only, within 30 s); it needs its own approval. Side-effecting.",
-  }),
-} as const;
-
-export const FollowupsMethods = {
-  "followups.list": defineMethod({
-    params: Type.Object({
-      status: Type.Optional(Type.Array(OpenLoopStatus)),
-      kind: Type.Optional(OpenLoopKind),
-      ...pageParams,
-    }),
-    result: Type.Object({ loops: Type.Array(OpenLoop), ...nextCursor }),
-    scope: "operator.read",
-    description: "Lists follow-ups (default: open), soonest due first.",
-  }),
-  "followups.update": defineMethod({
-    params: Type.Object({
-      loopId: Id,
-      action: StringEnum(["resolve", "snooze", "stop", "reopen"], { $id: "FollowupAction" }),
-      until: Type.Optional(Nullable(IsoDateTime)),
-    }),
-    result: Type.Object({ loop: OpenLoop }),
-    scope: "operator.write",
-    sideEffecting: true,
-    description:
-      "Resolves, snoozes (until a time), stops tracking or reopens a follow-up. Side-effecting.",
   }),
 } as const;

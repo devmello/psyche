@@ -199,11 +199,6 @@
         "payload": "#/$defs/FeedUpdatedPayload"
       },
       {
-        "description": "A follow-up was detected, shown, snoozed, resolved (a reply landed) or went stale (§4.2).",
-        "name": "followup.updated",
-        "payload": "#/$defs/FollowupUpdatedPayload"
-      },
-      {
         "description": "The Gateway is shutting down; clients reconnect with backoff.",
         "name": "gateway.shutdown",
         "payload": "#/$defs/GatewayShutdownPayload"
@@ -1094,22 +1089,6 @@
         "result": "#/$defs/FilesReadResult",
         "scope": "operator.read",
         "sideEffecting": false
-      },
-      {
-        "description": "Lists follow-ups (default: open), soonest due first.",
-        "name": "followups.list",
-        "params": "#/$defs/FollowupsListParams",
-        "result": "#/$defs/FollowupsListResult",
-        "scope": "operator.read",
-        "sideEffecting": false
-      },
-      {
-        "description": "Resolves, snoozes (until a time), stops tracking or reopens a follow-up. Side-effecting.",
-        "name": "followups.update",
-        "params": "#/$defs/FollowupsUpdateParams",
-        "result": "#/$defs/FollowupsUpdateResult",
-        "scope": "operator.write",
-        "sideEffecting": true
       },
       {
         "description": "Archives a goal and disables its check-ins. Side-effecting.",
@@ -12118,6 +12097,29 @@
       ],
       "type": "object"
     },
+    "DigestLoop": {
+      "properties": {
+        "loop": {
+          "$ref": "#/$defs/GraphLoop"
+        },
+        "counterpart": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "thread": {
+          "$ref": "#/$defs/MailThreadRef"
+        },
+        "shownCount": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "loop",
+        "shownCount"
+      ],
+      "type": "object"
+    },
     "DmPolicy": {
       "enum": [
         "pairing",
@@ -13018,119 +13020,6 @@
         "size",
         "offset",
         "bytes"
-      ],
-      "type": "object"
-    },
-    "FollowupAction": {
-      "enum": [
-        "resolve",
-        "snooze",
-        "stop",
-        "reopen"
-      ],
-      "type": "string"
-    },
-    "FollowupUpdatedPayload": {
-      "properties": {
-        "loop": {
-          "$ref": "#/$defs/OpenLoop"
-        }
-      },
-      "required": [
-        "loop"
-      ],
-      "type": "object"
-    },
-    "FollowupsListParams": {
-      "properties": {
-        "status": {
-          "items": {
-            "$ref": "#/$defs/OpenLoopStatus"
-          },
-          "type": "array"
-        },
-        "kind": {
-          "$ref": "#/$defs/OpenLoopKind"
-        },
-        "cursor": {
-          "description": "Opaque cursor",
-          "maxLength": 512,
-          "minLength": 1,
-          "type": "string"
-        },
-        "limit": {
-          "maximum": 500,
-          "minimum": 1,
-          "type": "integer"
-        }
-      },
-      "type": "object"
-    },
-    "FollowupsListResult": {
-      "properties": {
-        "loops": {
-          "items": {
-            "$ref": "#/$defs/OpenLoop"
-          },
-          "type": "array"
-        },
-        "nextCursor": {
-          "anyOf": [
-            {
-              "description": "Opaque cursor",
-              "maxLength": 512,
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      },
-      "required": [
-        "loops"
-      ],
-      "type": "object"
-    },
-    "FollowupsUpdateParams": {
-      "properties": {
-        "loopId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "action": {
-          "$ref": "#/$defs/FollowupAction"
-        },
-        "until": {
-          "anyOf": [
-            {
-              "description": "ISO-8601 timestamp (UTC)",
-              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      },
-      "required": [
-        "loopId",
-        "action"
-      ],
-      "type": "object"
-    },
-    "FollowupsUpdateResult": {
-      "properties": {
-        "loop": {
-          "$ref": "#/$defs/OpenLoop"
-        }
-      },
-      "required": [
-        "loop"
       ],
       "type": "object"
     },
@@ -15523,7 +15412,7 @@
         },
         "waitingOn": {
           "items": {
-            "$ref": "#/$defs/OpenLoop"
+            "$ref": "#/$defs/DigestLoop"
           },
           "type": "array"
         },
@@ -16092,25 +15981,6 @@
         "subsystems",
         "truncated"
       ],
-      "type": "object"
-    },
-    "LoopPerson": {
-      "properties": {
-        "personId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "name": {
-          "maxLength": 200,
-          "type": "string"
-        },
-        "email": {
-          "maxLength": 320,
-          "type": "string"
-        }
-      },
       "type": "object"
     },
     "MailThreadRef": {
@@ -16807,7 +16677,7 @@
         },
         "openLoops": {
           "items": {
-            "$ref": "#/$defs/OpenLoop"
+            "$ref": "#/$defs/GraphLoop"
           },
           "type": "array"
         },
@@ -20269,123 +20139,6 @@
         "item"
       ],
       "type": "object"
-    },
-    "OpenLoop": {
-      "properties": {
-        "id": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "kind": {
-          "$ref": "#/$defs/OpenLoopKind"
-        },
-        "people": {
-          "items": {
-            "$ref": "#/$defs/LoopPerson"
-          },
-          "minItems": 1,
-          "type": "array"
-        },
-        "thread": {
-          "$ref": "#/$defs/MailThreadRef"
-        },
-        "meetingId": {
-          "type": "string"
-        },
-        "summary": {
-          "maxLength": 300,
-          "type": "string"
-        },
-        "dueAt": {
-          "anyOf": [
-            {
-              "description": "ISO-8601 timestamp (UTC)",
-              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "status": {
-          "$ref": "#/$defs/OpenLoopStatus"
-        },
-        "shownCount": {
-          "minimum": 0,
-          "type": "integer"
-        },
-        "snoozedUntil": {
-          "anyOf": [
-            {
-              "description": "ISO-8601 timestamp (UTC)",
-              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "source": {
-          "enum": [
-            "sent_mail",
-            "meeting",
-            "chat"
-          ],
-          "type": "string"
-        },
-        "provenance": {
-          "$ref": "#/$defs/Provenance"
-        },
-        "createdAt": {
-          "description": "ISO-8601 timestamp (UTC)",
-          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
-          "type": "string"
-        },
-        "resolvedAt": {
-          "anyOf": [
-            {
-              "description": "ISO-8601 timestamp (UTC)",
-              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      },
-      "required": [
-        "id",
-        "kind",
-        "people",
-        "summary",
-        "status",
-        "shownCount",
-        "source",
-        "provenance",
-        "createdAt"
-      ],
-      "type": "object"
-    },
-    "OpenLoopKind": {
-      "enum": [
-        "waiting_on",
-        "owed_by_me"
-      ],
-      "type": "string"
-    },
-    "OpenLoopStatus": {
-      "enum": [
-        "open",
-        "resolved",
-        "snoozed",
-        "stale"
-      ],
-      "type": "string"
     },
     "PairingRequest": {
       "properties": {

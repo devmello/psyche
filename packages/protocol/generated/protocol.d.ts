@@ -3082,7 +3082,7 @@ export interface InboxDigest {
     until:           string;
     unverified:      DigestItem[];
     usedCloudModel?: boolean;
-    waitingOn:       OpenLoop[];
+    waitingOn:       DigestLoop[];
 }
 
 export interface DigestGroup {
@@ -3117,34 +3117,41 @@ export interface MailThreadRef {
     threadId:   string;
 }
 
-export interface OpenLoop {
-    createdAt:     string;
-    dueAt?:        null | string;
-    id:            string;
-    kind:          OpenLoopKind;
-    meetingId?:    string;
-    people:        LoopPerson[];
-    provenance:    Provenance;
-    resolvedAt?:   null | string;
-    shownCount:    number;
-    snoozedUntil?: null | string;
-    source:        OpenLoopSource;
-    status:        OpenLoopStatus;
-    summary:       string;
-    thread?:       MailThreadRef;
+export interface DigestLoop {
+    counterpart?: string;
+    loop:         GraphLoop;
+    shownCount:   number;
+    thread?:      MailThreadRef;
 }
 
-export type OpenLoopKind = "waiting_on" | "owed_by_me";
-
-export interface LoopPerson {
-    email?:    string;
-    name?:     string;
-    personId?: string;
+export interface GraphLoop {
+    closedAt?:            null | string;
+    closedBy?:            GraphLoopClosedBy | null;
+    confidence:           number;
+    counterpartId?:       null | string;
+    createdAt:            string;
+    detectedBy:           GraphLoopDetectedBy;
+    direction:            GraphLoopDirectionFilter;
+    dueAt?:               null | string;
+    evidence?:            null | string;
+    id:                   string;
+    projectId?:           null | string;
+    provenance:           Provenance;
+    sourceInteractionId?: null | string;
+    status:               GraphLoopStatus;
+    text:                 string;
 }
 
-export type OpenLoopSource = "sent_mail" | "meeting" | "chat";
+export type GraphLoopClosedBy = "owner" | "reply_seen" | "due_passed";
 
-export type OpenLoopStatus = "open" | "resolved" | "snoozed" | "stale";
+/**
+ * Who attached it to the entity; model links count only after the owner confirms
+ */
+export type GraphLoopDetectedBy = "rule" | "model" | "owner";
+
+export type GraphLoopDirectionFilter = "i_owe" | "waiting_on";
+
+export type GraphLoopStatus = "suggested" | "open" | "snoozed" | "done" | "dismissed";
 
 export interface MeetingNotes {
     actionItems:       MeetingActionItem[];
@@ -3199,7 +3206,7 @@ export interface MeetingPrep {
      * The calendar event id
      */
     meetingId:    string;
-    openLoops:    OpenLoop[];
+    openLoops:    GraphLoop[];
     startAt:      string;
     taint:        boolean;
     title:        string;
@@ -3350,37 +3357,6 @@ export interface FilesReadResult {
      * the whole content's size in bytes
      */
     size: number;
-}
-
-export interface FollowupUpdatedPayload {
-    loop: OpenLoop;
-}
-
-export interface FollowupsListParams {
-    /**
-     * Opaque cursor
-     */
-    cursor?: string;
-    kind?:   OpenLoopKind;
-    limit?:  number;
-    status?: OpenLoopStatus[];
-}
-
-export interface FollowupsListResult {
-    loops:       OpenLoop[];
-    nextCursor?: null | string;
-}
-
-export interface FollowupsUpdateParams {
-    action: FollowupAction;
-    loopId: string;
-    until?: null | string;
-}
-
-export type FollowupAction = "resolve" | "snooze" | "stop" | "reopen";
-
-export interface FollowupsUpdateResult {
-    loop: OpenLoop;
 }
 
 export interface Frame {
@@ -3692,35 +3668,6 @@ export interface GraphIdentifier {
 }
 
 export type GraphIdentifierKind = "email" | "phone" | "contact" | "channel" | "domain" | "calendar" | "url";
-
-/**
- * Who attached it to the entity; model links count only after the owner confirms
- */
-export type GraphLoopDetectedBy = "rule" | "owner" | "model";
-
-export interface GraphLoop {
-    closedAt?:            null | string;
-    closedBy?:            GraphLoopClosedBy | null;
-    confidence:           number;
-    counterpartId?:       null | string;
-    createdAt:            string;
-    detectedBy:           GraphLoopDetectedBy;
-    direction:            GraphLoopDirectionFilter;
-    dueAt?:               null | string;
-    evidence?:            null | string;
-    id:                   string;
-    projectId?:           null | string;
-    provenance:           Provenance;
-    sourceInteractionId?: null | string;
-    status:               GraphLoopStatus;
-    text:                 string;
-}
-
-export type GraphLoopClosedBy = "owner" | "reply_seen" | "due_passed";
-
-export type GraphLoopDirectionFilter = "i_owe" | "waiting_on";
-
-export type GraphLoopStatus = "suggested" | "open" | "snoozed" | "done" | "dismissed";
 
 export interface GraphInteraction {
     direction:    GraphDirection;
@@ -6905,7 +6852,7 @@ export interface VaultLinkExternalParams {
     name:     string;
     ref:      Ref;
     slug?:    string;
-    source:   VaultLinkExternalParamsSource;
+    source:   SourceEnum;
 }
 
 export type Field = "username" | "password" | "totp" | "token" | "privateKey" | "text";
@@ -6917,7 +6864,7 @@ export interface Ref {
     vault?: string;
 }
 
-export type VaultLinkExternalParamsSource = "1password" | "bitwarden";
+export type SourceEnum = "1password" | "bitwarden";
 
 export interface VaultLinkExternalResult {
     credential: CredentialMeta;
