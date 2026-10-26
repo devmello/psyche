@@ -1,6 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
 import {
   Id,
+  InputVia,
   IsoDateTime,
   ModelRef,
   Nullable,
@@ -85,6 +86,8 @@ export const Message = Type.Object(
      * §5.1). Filled by the Gateway when it assembles the prompt; absent when none applied.
      */
     lessonsApplied: Type.Optional(Type.Array(LessonRef, { maxItems: 20 })),
+    /** `voice`: the owner spoke this message in a voice conversation (the waveform glyph). */
+    via: Type.Optional(InputVia),
   },
   { $id: "Message" },
 );

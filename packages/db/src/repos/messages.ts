@@ -100,3 +100,23 @@ export function copyMessagesForFork(
   })();
   return ids;
 }
+
+/**
+ * The lessons the Gateway put in a run's prompt (teaching loop §5.1, `Message.lessonsApplied`):
+ * set on the run's agent messages once the run's transcript is committed. Returns the updated
+ * messages, for `chat.message`. Never set by a client.
+ */
+export function setRunLessonsApplied(
+  db: PsycheDb,
+  runId: string,
+  refs: readonly NonNullable<Message["lessonsApplied"]>[number][],
+): Message[] {
+  if (refs.length === 0) return [];
+  const rows = db.drizzle
+    .update(messages)
+    .set({ lessonsApplied: JSON.stringify(refs.slice(0, 20)) })
+    .where(and(eq(messages.runId, runId), eq(messages.role, "agent")))
+    .returning()
+    .all();
+  return rows.map(messageFromRow);
+}

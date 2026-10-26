@@ -5,6 +5,7 @@ import {
   getThread,
   listMessagesPage,
   type PsycheDb,
+  setRunLessonsApplied,
 } from "@psyche/db";
 import {
   type AskRules,
@@ -24,12 +25,14 @@ import {
   type AuditLog,
   type Block,
   type Clock,
+  type ContextExplanation,
   type EventName,
   type EventPayload,
   type FeedbackTarget,
   type FeedPost,
   type GrantScope,
   type Idea,
+  type LessonRef,
   type MethodParams,
   type MethodResult,
   type ModelProvider,
@@ -75,8 +78,12 @@ export interface TeachingComposeDeps {
   askRules: AskRules;
   /** The people graph, once the Gateway composes it (S07 part 3). */
   graph?: GraphStore;
-  /** Task outcomes for `growth.summary`. */
-  tasks: Pick<TaskEngine, "list">;
+  /** Task outcomes for `growth.summary`, and the lessons a task's runs used. */
+  tasks: Pick<TaskEngine, "list"> & {
+    setLessonsApplied?(taskId: string, refs: readonly LessonRef[]): unknown;
+  };
+  /** The assembled prompt of a run (`AgentLoop.explainContext`), for `lessonsApplied`. */
+  explain?: (runId: string) => Promise<ContextExplanation | undefined>;
   /** How often retention runs (default daily; 0 turns the timer off). */
   retentionIntervalMs?: number;
   publish<E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string): void;
@@ -121,8 +128,23 @@ export interface ComposedTeaching {
   resume(): Promise<void>;
   /** The owner undid a learned fact (`memory.forgetLearned`): `undo` evidence. */
   onLearnedUndo(factId: string, threadId: string | undefined): void;
+  /**
+   * A run ended (agent-core `agent_end`): the lessons its prompt carried become
+   * `lessonsApplied` on its agent messages (once the transcript is committed) or its task, and
+   * their `lastAppliedAt` moves.
+   */
+  onRunEnd(run: { runId: string; taskId?: string; subagent?: boolean }): Promise<void>;
   /** Bus observers (task cancels, Feed and Ideas feedback, redo) and the retention timer. */
   part: ComposedPart;
+}
+
+/**
+ * Lesson ids an assembled prompt carries: the `[ls_…]` tags of lesson-owned lines (SOUL.md,
+ * AGENTS.md, USER.md, a skill's LESSONS.md) and `lesson:ls_…` on learned facts. What the owner
+ * can read in those files is exactly what the agent used (§4 rule 7).
+ */
+export function lessonIdsIn(text: string): string[] {
+  return [...new Set([...text.matchAll(/\bls_[a-z0-9]{8,64}\b/g)].map((m) => m[0]))];
 }
 
 /** A task the owner cancelled this soon after it started counts as an undo (§3.1). */
@@ -459,6 +481,41 @@ export function composeTeaching(deps: TeachingComposeDeps): ComposedTeaching {
     );
   };
 
+  // Chat runs whose lessons wait for the run's committed transcript (`run.updated`).
+  const pendingRuns = new Map<string, LessonRef[]>();
+  const onRunEnd = async (run: { runId: string; taskId?: string; subagent?: boolean }) => {
+    if (run.subagent === true || deps.explain === undefined) return;
+    const explanation = await deps.explain(run.runId).catch(() => undefined);
+    if (explanation === undefined) return;
+    const refs: LessonRef[] = [];
+    for (const id of lessonIdsIn(explanation.system)) {
+      const l = store.getLesson(id);
+      if (l === undefined || (l.status !== "active" && l.status !== "confirmed")) continue;
+      refs.push({ lessonId: l.id, statement: l.statement, kind: l.kind });
+      if (refs.length === 20) break;
+    }
+    if (refs.length === 0) return;
+    service.markApplied(refs.map((r) => r.lessonId));
+    if (run.taskId !== undefined) {
+      try {
+        deps.tasks.setLessonsApplied?.(run.taskId, refs);
+      } catch {
+        // The task is gone: nothing to mark.
+      }
+      return;
+    }
+    pendingRuns.set(run.runId, refs);
+    if (pendingRuns.size > 200) pendingRuns.delete(pendingRuns.keys().next().value as string);
+  };
+  const applyRun = (runId: string, threadId: string | undefined) => {
+    const refs = pendingRuns.get(runId);
+    if (refs === undefined) return;
+    pendingRuns.delete(runId);
+    for (const message of setRunLessonsApplied(db, runId, refs)) {
+      deps.publish("chat.message", { message }, threadId ?? message.threadId);
+    }
+  };
+
   const onFrame = (frame: string) => {
     let f: { event?: string; payload?: Record<string, unknown> };
     try {
@@ -466,7 +523,13 @@ export function composeTeaching(deps: TeachingComposeDeps): ComposedTeaching {
     } catch {
       return;
     }
-    if (f.event === "task.updated") {
+    if (f.event === "run.updated") {
+      const r = f.payload?.run as { id?: string; threadId?: string; status?: string } | undefined;
+      // Settled runs only: the controller has committed the agent's messages by then.
+      if (r?.id !== undefined && r.status !== "running" && r.status !== "queued") {
+        applyRun(r.id, r.threadId);
+      }
+    } else if (f.event === "task.updated") {
       const task = f.payload?.task as Task | undefined;
       if (task?.status !== "cancelled") return;
       const took = Date.parse(task.updatedAt) - Date.parse(task.createdAt);
@@ -529,6 +592,7 @@ export function composeTeaching(deps: TeachingComposeDeps): ComposedTeaching {
     observeApproval,
     resume: () => service.resume(),
     onLearnedUndo,
+    onRunEnd,
     part,
   };
 }

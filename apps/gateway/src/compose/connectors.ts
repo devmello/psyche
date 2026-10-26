@@ -51,6 +51,7 @@ import {
 import { VaultTokenVault } from "@psyche/vault";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Gateway } from "../server.ts";
+import { connectorMatrixSync } from "./connector-matrix.ts";
 import { fetchLimit, taskOrigins } from "./fetch-origins.ts";
 import { indexedConnectorLibrary } from "./library.ts";
 import { type MailCredentials, mailCredentials } from "./mail-credentials.ts";
@@ -468,6 +469,9 @@ export function composeConnectors(
   };
 
   const unregisterFreeTime = services.tools.register(freeTimeTool(services, registry));
+  // Settings → Connectors rules reach the broker and the executor (#747).
+  const matrix = connectorMatrixSync(services, registry);
+  let unsubscribeMatrix: (() => void) | undefined;
 
   return {
     registry,
@@ -475,6 +479,18 @@ export function composeConnectors(
     handlers,
     start(gw) {
       gateway = gw;
+      unsubscribeMatrix = gw.bus.subscribe(["operator.read"], (frame) => {
+        const f = JSON.parse(frame) as {
+          event?: string;
+          payload?: { entries?: { key: string }[] };
+        };
+        if (f.event === "connectors.updated") void matrix.sync();
+        if (f.event !== "settings.changed") return;
+        if ((f.payload?.entries ?? []).some((e) => matrix.follows(e.key))) {
+          matrix.applyNow();
+          void matrix.sync();
+        }
+      });
       // After a restart: duplicates of one-per-machine connectors go (#549, oldest kept), then
       // connected records come back (tools registered, tokens from the vault).
       void (async () => {
@@ -488,6 +504,7 @@ export function composeConnectors(
             .catch(() => undefined);
         }
         await registry.restore();
+        await matrix.sync();
       })().catch((err) =>
         log?.log("warn", "connector restore failed", { code: PsycheError.from(err).code }),
       );
@@ -496,6 +513,7 @@ export function composeConnectors(
       timer.unref?.();
     },
     async stop() {
+      unsubscribeMatrix?.();
       unregisterFreeTime();
       unregisterDraft();
       unsubscribeRevoked();

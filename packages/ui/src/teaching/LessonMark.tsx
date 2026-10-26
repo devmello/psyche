@@ -60,7 +60,7 @@ export function LessonMark({
 }
 
 /** "- Explain first" → "- Short replies": the lesson's change as a unified diff of lines. */
-function ChangeLines({
+export function ChangeLines({
   before,
   after,
 }: {

@@ -48,12 +48,18 @@ export const DictationTarget = Type.Object(
 );
 export type DictationTarget = Static<typeof DictationTarget>;
 
+/** What a watched key does: system dictation, or talking to Psyche (voice conversation). */
+export const DictationKeyRole = StringEnum(["dictation", "voice"], { $id: "DictationKeyRole" });
+export type DictationKeyRole = Static<typeof DictationKeyRole>;
+
 /** Streamed by the helper's `dictation.watch` and forwarded as the `dictation.key` event. */
 export const DictationKeyPayload = Type.Object(
   {
     key: DictationKey,
     down: Type.Boolean(),
     at: Type.String({ description: "ISO time the helper saw the change" }),
+    /** Set when the watch named roles (`keys`); absent for a single-key watch. */
+    role: Type.Optional(DictationKeyRole),
   },
   { $id: "DictationKeyPayload" },
 );
@@ -90,6 +96,14 @@ export const DictationMethods = {
   "dictation.watch": defineMethod({
     params: Type.Object({
       key: Type.Union([DictationKey, Type.Null()], { description: "null stops watching" }),
+      keys: Type.Optional(
+        Type.Array(Type.Object({ key: DictationKey, role: DictationKeyRole }), {
+          minItems: 1,
+          maxItems: 2,
+          description:
+            "Watch up to two keys with roles (dictation, voice); takes precedence over key. Keys and roles must differ.",
+        }),
+      ),
     }),
     result: Type.Object({ watching: Type.Boolean() }),
     scope: "operator.write",

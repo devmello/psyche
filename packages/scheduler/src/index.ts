@@ -1,4 +1,5 @@
 export * from "./delivery.ts";
+export * from "./events.ts";
 export * from "./handlers.ts";
 export * from "./launcher.ts";
 export * from "./prompt.ts";
