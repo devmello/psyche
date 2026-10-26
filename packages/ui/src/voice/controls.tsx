@@ -39,6 +39,8 @@ export interface ComposerVoiceMode {
   toggle: () => void;
   pushStart: () => void;
   pushEnd: () => void;
+  /** The Voice button's tooltip ("Talk with Wren (hold Right ⌘)"). */
+  title?: string;
 }
 
 export interface ComposerVoice {
@@ -78,7 +80,7 @@ export function ComposerVoiceButtons({
           className={className}
           aria-pressed={voiceMode.active}
           aria-label={t("web.chat.voice")}
-          title={t("web.chat.voiceModeTitle")}
+          title={voiceMode.title ?? t("web.chat.voiceModeTitle")}
           onClick={voiceMode.toggle}
           disabled={disabled}
           data-testid="voice-mode-toggle"
