@@ -98,6 +98,7 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
       popOutPane: async (route, title) => void (await b.windows.popOutPane(route, title)),
       closeWindow: () => b.windows.closeWindow(),
       openSettings: (section) => b.windows.openSettings(section),
+      prefillComposer: (text) => b.windows.prefillComposer(text),
       onCommand: (cb) => b.windows.onCommand((c) => cb(c as ShellCommand)),
     },
     notify: { show: (n) => b.notify.show(n) },

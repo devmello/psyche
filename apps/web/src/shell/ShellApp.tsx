@@ -20,6 +20,7 @@ import {
   t,
   type UiSlots,
   UiSlotsProvider,
+  useStore,
 } from "@psyche/ui";
 import {
   type CSSProperties,
@@ -448,7 +449,27 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   );
 
   // The kit's own links (Goals' Add a goal, a failed run's Settings → Models) use the shell's route.
-  const kitSlots = useMemo<UiSlots>(() => ({ navigate }), [navigate]);
+  // Settings → Connectors "Try it" (#677): the text waits in the kit's store until the chat's
+  // composer takes it, and the chat shows (the current thread when one is open). From the
+  // desktop's Settings window, main brings the main window forward and does the same there.
+  // Never sends.
+  const kitStore = useStore();
+  const prefillWindow = settingsWindow ? platform.windows?.prefillComposer : undefined;
+  const prefillComposer = useCallback(
+    (text: string) => {
+      if (prefillWindow) {
+        prefillWindow.call(platform.windows, text);
+        return;
+      }
+      kitStore.update((s) => ({ ...s, composerPrefill: text }));
+      if (!/^\/chat(\/|$|\?)/.test(routeRef.current)) navigate("/chat");
+    },
+    [prefillWindow, platform.windows, kitStore, navigate],
+  );
+  const kitSlots = useMemo<UiSlots>(
+    () => ({ navigate, prefillComposer }),
+    [navigate, prefillComposer],
+  );
 
   const dispatch = useCallback(
     (action: LayoutAction) => {
@@ -554,12 +575,22 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         if (c.type === "navigate") navigate(c.route);
         if (c.type === "newSideChat") newSideChat();
         if (c.type === "palette") setOverlay("palette");
+        if (c.type === "prefillComposer") prefillComposer(c.text);
         if (c.type === "closeThreadView") {
           if (popOutPane || route === "/quick") platform.windows?.closeWindow();
           else if (routeThreadId && routeThreadId !== mainThread?.id) navigate("/chat");
         }
       }),
-    [platform.windows, navigate, newSideChat, popOutPane, route, routeThreadId, mainThread?.id],
+    [
+      platform.windows,
+      navigate,
+      newSideChat,
+      prefillComposer,
+      popOutPane,
+      route,
+      routeThreadId,
+      mainThread?.id,
+    ],
   );
 
   const run = useCallback(
