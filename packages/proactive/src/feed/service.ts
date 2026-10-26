@@ -419,6 +419,38 @@ export class FeedService {
     return { posts, batchId, reports, usedModel: ranked.usedModel, usage };
   }
 
+  /**
+   * The weekly "What I learned" post (teaching loop §5.4): the review items come from the teaching
+   * loop; the Feed only stores and announces it. Agent voice, no citations, never exploration.
+   */
+  postGrowth(input: {
+    title: string;
+    bodyMd: string;
+    growth: NonNullable<FeedPost["growth"]>;
+  }): FeedPost {
+    const createdAt = toIso(this.#o.clock.now());
+    const post: StoredPost = {
+      id: this.#id(),
+      title: input.title,
+      bodyMd: input.bodyMd,
+      citations: [],
+      cluster: null,
+      score: 1,
+      reasons: ["growth"],
+      exploration: false,
+      briefingId: null,
+      feedback: null,
+      createdAt,
+      batchId: this.#id(),
+      kind: "suggestion",
+      growth: input.growth,
+    };
+    this.store.insert(post);
+    const out = toFeedPost(post);
+    this.#emit({ event: "feed.updated", payload: { posts: [out] } });
+    return out;
+  }
+
   // --- read + feedback -------------------------------------------------------------------------
 
   async list(

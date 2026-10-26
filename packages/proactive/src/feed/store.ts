@@ -18,6 +18,7 @@ interface PostRow {
   kind?: string | null;
   refs?: string | null;
   card?: string | null;
+  growth?: string | null;
 }
 
 export interface StoredPost extends FeedPost {
@@ -46,6 +47,9 @@ function fromRow(r: PostRow): StoredPost {
     ...(r.card == null
       ? {}
       : { card: parseJson<NonNullable<FeedPost["card"]>>(r.card, null as never) }),
+    ...(r.growth == null
+      ? {}
+      : { growth: parseJson<NonNullable<FeedPost["growth"]>>(r.growth, null as never) }),
   };
 }
 
@@ -68,9 +72,9 @@ export class FeedStore {
     this.#db
       .prepare(
         `INSERT INTO feed_posts (id, title, body_md, citations, cluster, score, reasons, exploration,
-           briefing_id, feedback, batch_id, created_at, kind, refs, card)
+           briefing_id, feedback, batch_id, created_at, kind, refs, card, growth)
          VALUES (@id, @title, @body_md, @citations, @cluster, @score, @reasons, @exploration,
-           @briefing_id, @feedback, @batch_id, @created_at, @kind, @refs, @card)`,
+           @briefing_id, @feedback, @batch_id, @created_at, @kind, @refs, @card, @growth)`,
       )
       .run({
         id: post.id,
@@ -88,6 +92,7 @@ export class FeedStore {
         kind: post.kind ?? null,
         refs: post.refs === undefined ? null : JSON.stringify(post.refs),
         card: post.card === undefined ? null : JSON.stringify(post.card),
+        growth: post.growth === undefined ? null : JSON.stringify(post.growth),
       });
   }
 

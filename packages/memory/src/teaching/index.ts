@@ -10,6 +10,7 @@ export * from "./lines.ts";
 export * from "./router.ts";
 export * from "./service.ts";
 export * from "./store.ts";
+export * from "./weekly.ts";
 export * from "./writers.ts";
 
 /**
