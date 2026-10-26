@@ -1,9 +1,11 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { setSetting } from "@psyche/db";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
+import { conversationSettings } from "../src/compose/speech.ts";
 import { silentLogger } from "../src/log.ts";
 import { FakeNode, type FakeNodeHandler } from "./fake-node.ts";
 import { desktopClient, newDeviceKey, type TestClient } from "./helpers.ts";
@@ -177,5 +179,57 @@ describe("speech over the wire (S17 handlers mounted by the Gateway)", () => {
       audio: Buffer.alloc(320).toString("base64"),
     });
     expect(push.ok).toBe(false);
+  });
+});
+
+describe("voice conversation over the wire (V-G, docs/voice/voice-mode-2026.md)", () => {
+  it("refuses while Settings has it off, then starts on the helper's engine and stops", async () => {
+    const c = await setup();
+    helper = await FakeNode.connect(c.gateway.config.nodeSocketPath, {
+      origin: c.gateway.origin,
+      secret: c.gateway.handshakeSecret,
+      handlers: speechHelper(),
+    });
+    const desk = await desktopClient(c.gateway);
+    clients.push(desk);
+    const params = {
+      mode: "push",
+      format: { encoding: "pcm_s16le", sampleRate: 16_000, channels: 1 },
+    };
+    const off = await desk.request("voice.conversation.start", params);
+    expect(off.ok).toBe(false);
+    expect((off as { error?: { code: string } }).error?.code).toBe("policy_denied");
+
+    setSetting(c.gateway.context.db, "voice.conversation.enabled", true);
+    const started = await desk.call<{ conversationId: string; location: string; engine: string }>(
+      "voice.conversation.start",
+      params,
+    );
+    expect(started).toMatchObject({ location: "node", engine: "mac-node" });
+    const state = await desk.waitForEvent((e) => e.event === "voice.conversation.state");
+    expect(state.payload).toMatchObject({
+      conversationId: started.conversationId,
+      phase: "listening",
+      listening: false,
+    });
+    expect(
+      await desk.call("voice.conversation.stop", { conversationId: started.conversationId }),
+    ).toEqual({ ok: true });
+    const ended = await desk.waitForEvent((e) => e.event === "voice.conversation.ended");
+    expect(ended.payload).toEqual({ conversationId: started.conversationId, reason: "stopped" });
+  });
+
+  it("reads the owner's speak, narrate and pause settings, clamped", () => {
+    const values: Record<string, unknown> = {
+      "voice.conversation.speak": "full",
+      "voice.conversation.narrate": "steps",
+      "voice.conversation.pauseMs": 9_000,
+    };
+    expect(conversationSettings((k) => values[k])).toEqual({
+      speak: "full",
+      narrate: "steps",
+      pauseMs: 2_000,
+    });
+    expect(conversationSettings(() => "nonsense")).toEqual({});
   });
 });

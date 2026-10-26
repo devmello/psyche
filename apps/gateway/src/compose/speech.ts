@@ -6,7 +6,7 @@ import { basename, join } from "node:path";
 import { getMessage, getSetting } from "@psyche/db";
 import { defaultDenyRead } from "@psyche/mcp-host";
 import type { LibraryItem, NodeClient, NodeInfo } from "@psyche/protocol";
-import { PsycheError } from "@psyche/protocol";
+import { PsycheError, VOICE_CONVERSATION_SETTING_KEYS as VC } from "@psyche/protocol";
 import {
   createSpeechHandlers,
   createSpeechStack,
@@ -20,6 +20,8 @@ import {
   SPEECH_METHODS,
   type SpeechCaller,
   VoiceCatalog,
+  VoiceConversationManager,
+  type VoiceConversationSettings,
   VoiceMemoService,
   VoiceSessionManager,
 } from "@psyche/speech";
@@ -29,6 +31,7 @@ import type { Gateway } from "../server.ts";
 import { surfaceOf } from "./handlers.ts";
 import { indexSavedAudio } from "./library.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
+import { chatVoiceTurns } from "./voice-turns.ts";
 
 /**
  * Speech (S17, features Q1–Q3) mounted on the Gateway: `voice.*`, `voice.memo.save`,
@@ -264,11 +267,21 @@ export function composeSpeech(setup: SpeechSetup = {}) {
       library,
       transcoder: stack.transcoder,
     });
+    const setting = (key: string): unknown => getSetting(db, key)?.value;
+    const conversations = new VoiceConversationManager({
+      selector: stack.selector,
+      tts: stack.engine,
+      turns: chatVoiceTurns(() => gateway),
+      emit: toDevice,
+      enabled: () => setting(VC.enabled) === true,
+      settings: () => conversationSettings(setting),
+    });
     const fns = createSpeechHandlers({
       voice,
       memos,
       readAloud,
       catalog: new VoiceCatalog(stack.selector),
+      conversations,
     });
 
     const caller = (call: Call): SpeechCaller =>
@@ -284,7 +297,10 @@ export function composeSpeech(setup: SpeechSetup = {}) {
           fn(params, { deviceId: call.identity.deviceId, caller: caller(call) }),
       };
     }
-    const onDisconnect = (deviceId: string) => voice.cancelAll(deviceId);
+    const onDisconnect = (deviceId: string) => {
+      voice.cancelAll(deviceId);
+      conversations.endForDevice(deviceId, "disconnected");
+    };
     return {
       handlers,
       start(gw) {
@@ -294,8 +310,25 @@ export function composeSpeech(setup: SpeechSetup = {}) {
       stop() {
         gateway?.context.deviceDisconnected.delete(onDisconnect);
         voice.cancelAll();
+        conversations.endAll();
         gateway = null;
       },
     };
   };
+}
+
+/** The owner's voice conversation settings (spec §6.4), defaulted where unset or invalid. */
+export function conversationSettings(
+  setting: (key: string) => unknown,
+): Partial<VoiceConversationSettings> {
+  const out: Partial<VoiceConversationSettings> = {};
+  const speak = setting(VC.speak);
+  if (speak === "brief" || speak === "full") out.speak = speak;
+  const narrate = setting(VC.narrate);
+  if (narrate === "off" || narrate === "brief" || narrate === "steps") out.narrate = narrate;
+  const pause = setting(VC.pauseMs);
+  if (typeof pause === "number" && Number.isFinite(pause)) {
+    out.pauseMs = Math.min(2_000, Math.max(500, Math.round(pause)));
+  }
+  return out;
 }

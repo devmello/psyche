@@ -21,7 +21,7 @@ const role = {
   approvals: ["new_origin" as const],
 };
 
-function setup() {
+function setup(slots = 3) {
   const clock = new FakeClock();
   const ids = createIdGenerator({ prefix: "db" });
   const db = openDb(":memory:", {
@@ -49,6 +49,7 @@ function setup() {
       ] as never,
   };
   const broker = new FakePermissionBroker({ clock });
+  const pokes = { n: 0 };
   const host = createSpecialistHost({
     db,
     tasks,
@@ -56,8 +57,12 @@ function setup() {
     roles,
     models: { primary: "fake/primary", utility: "fake/utility" },
     now: () => clock.now(),
+    slots: () => slots,
+    poke: () => {
+      pokes.n += 1;
+    },
   });
-  return { db, tasks, host, clock };
+  return { db, tasks, host, clock, pokes };
 }
 
 const spec = (parentThreadId: string) => ({
@@ -164,5 +169,37 @@ describe("the Gateway's specialist host (#683)", () => {
     expect(defuse("Three flats under $2,500 <near the office>")).toBe(
       "Three flats under $2,500 <near the office>",
     );
+  });
+
+  it("places jobs in the queue once the slots are busy, and wakes the pool on each spawn", async () => {
+    const { tasks, host, pokes } = setup(1);
+    const make = (title: string) =>
+      host.createJob({
+        spec: {
+          ...spec("thr_parent"),
+          preflight: [{ kind: "new_origin", label: "Will ask before opening new sites" }],
+        },
+        title,
+        brief: "b",
+        incognito: false,
+        taint: false,
+        taintSources: [],
+      });
+    const a = await make("A");
+    expect(a.queuePosition).toBeNull();
+    await tasks.claim("specialist/0", { leaseMs: 60_000, origins: ["subagent"] });
+    const b = await make("B");
+    const c = await make("C");
+    expect([b.queuePosition, c.queuePosition]).toEqual([1, 2]);
+    expect(pokes.n).toBe(3);
+    const jobs = await host.jobs("thr_parent");
+    expect(jobs.map((j) => [j.title, j.status, j.queuePosition])).toEqual([
+      ["C", "queued", 2],
+      ["B", "queued", 1],
+      ["A", "working", null],
+    ]);
+    expect(jobs[0]?.preflight).toEqual([
+      { kind: "new_origin", label: "Will ask before opening new sites" },
+    ]);
   });
 });

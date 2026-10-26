@@ -52,7 +52,13 @@ Q3 is done when "a message can be played and saved as a file". `speech.readAloud
 - **Waiting.** A run waiting for an approval or a question puts the conversation in `waiting`, with the card on screen and the mic not transcribed. Answering by voice is G3.
 - **Endings.** Stop, 30 s idle (hands-free), a new start on the same device, and `endForDevice` (lock, sleep, disconnect) or `endAll` (shutdown). Every ending aborts transcription and synthesis and reports `listening: false`.
 
-The Gateway wiring (the turn port over the chat path, the agent-core voice-turn section, the mount) is V-G's next PR.
+- **Narration** (`narrate`). `steps` says each tool step's label once as it starts. `brief` (default) says one phrase per turn, for a step still running after 1.5 s and only before the answer started. `off` says nothing. Labels come from `narrationLabel(tool)`, fixed templates by tool family ("Checking your calendar"), never from the model or the tool's arguments.
+- **The Gateway** mounts it in `apps/gateway/src/compose/speech.ts`:
+  - **`chatVoiceTurns`** sends the owner's words through the session controller as a `via: "voice"` owner message with `StartTurnInput.voice`. A spoken turn interrupts a running one. It maps the run's bus events into `VoiceTurnEvent`s.
+  - **`enabled`** reads `voice.conversation.enabled`: off by default, and `start` refuses with `policy_denied` while it is off.
+  - **Settings** `voice.conversation.{speak, narrate, pauseMs}` apply per conversation.
+  - **Endings.** A disconnect ends the device's conversation; shutdown ends all of them.
+- **Voice turns in agent-core.** `StartTurnInput.voice` adds a fixed "voice turn" section (lead with a short spoken answer, details after a blank line, never "done" before the tool reports success). `router/primary` moves to `router/voice`, which falls back to the primary chain.
 
 ## Voice mode (Q5)
 

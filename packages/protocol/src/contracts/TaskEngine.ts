@@ -60,6 +60,15 @@ export interface ClaimOptions {
   leaseMs: number;
   /** Claim this task specifically instead of the next claimable one. */
   taskId?: string;
+  /** Only tasks created from one of these origins (the specialist pool claims `subagent`). */
+  origins?: TaskOrigin[];
+  /** Never tasks created from these origins (the chat pool leaves specialists to their pool). */
+  excludeOrigins?: TaskOrigin[];
+  /**
+   * Specialist jobs: skip a job whose parent thread already has this many specialist jobs
+   * running, so one conversation can't hold every slot (docs/agent/specialists-2026.md §4.5).
+   */
+  perParentLimit?: number;
 }
 
 export interface CheckpointInput {

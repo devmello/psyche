@@ -223,6 +223,7 @@ export function buildSpecialistSpec(
     planFirst: req.planFirst ?? role.planFirst,
     queuePosition: null,
     result: null,
+    preflight: preflight(role, minMode(parent.permissionMode, role.maxMode)),
   };
 }
 

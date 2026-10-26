@@ -192,7 +192,11 @@ export function untilPrimaryPicked<R extends ModelProvider & { role(role: "prima
   router: R,
 ): R {
   async function* stream(request: ModelRequest, ...rest: unknown[]): AsyncIterable<ModelEvent> {
-    const routed = request.model === "router/primary" || request.model === "router/utility";
+    // The roles that fall back to the primary chain (voice turns use `router/voice`).
+    const routed =
+      request.model === "router/primary" ||
+      request.model === "router/utility" ||
+      request.model === "router/voice";
     if (routed && router.role("primary") === undefined) {
       yield { type: "text_delta", text: NOT_PICKED_TEXT };
       yield { type: "finish", reason: "error" };
