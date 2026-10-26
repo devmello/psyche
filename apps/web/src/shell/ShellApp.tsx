@@ -85,6 +85,19 @@ export function isChatRoute(route: string): boolean {
   return /^\/(chat|agent)(\/|$|\?)/.test(route);
 }
 
+/** The agent sheet's routes (redesign §5.7): `/agent/<tab>[/<task>][?file=]`. */
+export function isAgentRoute(route: string): boolean {
+  return /^\/agent(\/|$|\?)/.test(route);
+}
+
+/**
+ * The route under the agent sheet (#614): the current route, or under `/agent/*` the section the
+ * sheet opened over (`last`), so the sheet opens over whatever screen the owner is on.
+ */
+export function underlyingRoute(route: string, last: string): string {
+  return isAgentRoute(route) ? last : route;
+}
+
 /** The bar's width over a collapsed sidebar: the traffic lights plus the show-sidebar button. */
 const COLLAPSED_CHROME_LEAD = 128;
 
@@ -121,6 +134,16 @@ function isTextTarget(t: EventTarget | null): boolean {
 export interface ShellSlots {
   chat?: (threadId: string, ctx: ChatSlotContext) => ReactNode;
   section?: (route: string, navigate: (to: string) => void) => ReactNode | null;
+  /**
+   * The agent sheet over a section (#614). `route` is the `/agent/*` route, or null once it
+   * closed (keep the last one while the sheet animates out); `onClose` returns to the section.
+   * Over the chat, the chat slot opens the sheet itself from `ChatSlotContext.route`.
+   */
+  agentSheet?: (props: {
+    route: string | null;
+    navigate: (to: string) => void;
+    onClose: () => void;
+  }) => ReactNode;
   /** The sidebar (redesign §5.1): destinations, threads and the persona footer. */
   sidebar?: (props: SidebarSlotProps) => ReactNode;
   /** The threads alone, for the compact drawer (§5.11). */
@@ -258,6 +281,11 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   const gatewayRun = useGatewayRun(platform);
   const pairingGrace = usePairingGrace(status, platform.kind === "desktop");
   const [route, setRoute] = useState(initialRoute);
+  // The section under the agent sheet (#614): the last route outside `/agent/*`. Feed, Goals, …
+  // stay mounted beneath the sheet and closing it returns there; a cold `/agent/*` sits on Chat.
+  const baseRef = useRef(isAgentRoute(route) ? "/chat" : route);
+  if (!isAgentRoute(route)) baseRef.current = route;
+  const base = baseRef.current;
   const [sidebarOpen, setSidebarOpen] = useState(
     () => platform.storage.get(SIDEBAR_OPEN_KEY) !== "false",
   );
@@ -277,7 +305,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   const createdMain = useRef(false);
 
   const mainThread: Thread | undefined = threads.find((x) => x.thread.kind === "main")?.thread;
-  const routeThreadId = /^\/chat\/([^/]+)/.exec(route)?.[1];
+  const routeThreadId = /^\/chat\/([^/]+)/.exec(base)?.[1];
   const threadId = routeThreadId ?? mainThread?.id ?? null;
   const thread = threads.find((x) => x.thread.id === threadId)?.thread ?? null;
   const popOutPane = /^\/chat\/[^/]+\/pane\/([^/]+)$/.exec(route)?.[1];
@@ -316,8 +344,11 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         }
       } else if (settingsWindow) return;
       // A new destination crossfades the content column (motion.md §4.5); a thread switch inside
-      // Chat, or anything on the same screen, changes in place.
-      const crossfade = destinationFor(to) !== destinationFor(routeRef.current);
+      // Chat, or anything on the same screen, changes in place. The agent sheet opening or
+      // closing over a section keeps that section where it is (#614).
+      const crossfade =
+        destinationFor(underlyingRoute(to, baseRef.current)) !==
+        destinationFor(underlyingRoute(routeRef.current, baseRef.current));
       if (crossfade) startTransition(() => setRoute(to));
       else setRoute(to);
       try {
@@ -659,15 +690,16 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     );
   }
 
-  // The agent sheet opens over the chat (redesign §5.7): `/agent/*` keeps the chat mounted
-  // underneath, and the chat slot opens the sheet for the route.
-  const onChat = isChatRoute(route);
+  // The agent sheet opens over the current section (redesign §5.7, #614): `/agent/*` keeps what
+  // was showing mounted underneath. Over the chat, the chat slot opens the sheet for the route;
+  // over any other section the `agentSheet` slot does.
+  const onChat = isChatRoute(base);
   const inset = hasInsetTitleBar(platform.chrome);
   const barTitle = onChat
     ? thread?.kind === "main" || thread === null
       ? t("web.threads.mainChat")
       : thread.title || t("web.threads.sideChat")
-    : sectionTitle(route);
+    : sectionTitle(base);
   const parent =
     onChat && thread?.parentThreadId
       ? threads.find((x) => x.thread.id === thread.parentThreadId)?.thread
@@ -698,7 +730,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     );
   const sidebar = slots.sidebar ? (
     slots.sidebar({
-      route,
+      route: base,
       navigate,
       threadId,
       onOpenThread: openThread,
@@ -711,7 +743,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     })
   ) : (
     <ShellSidebar
-      route={route}
+      route={base}
       onNavigate={navigate}
       width={sidebarMode === "rail" ? SIDEBAR_RAIL.width : sidebarWidth}
       rail={sidebarMode === "rail"}
@@ -741,7 +773,14 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         focusToken={focusToken}
       />
     ) : (
-      (slots.section?.(route, navigate) ?? <SectionPlaceholder route={route} />)
+      <>
+        {slots.section?.(base, navigate) ?? <SectionPlaceholder route={base} />}
+        {slots.agentSheet?.({
+          route: isAgentRoute(route) ? route : null,
+          navigate,
+          onClose: () => navigate(baseRef.current),
+        })}
+      </>
     );
   return (
     <UiSlotsProvider value={kitSlots}>
@@ -856,7 +895,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
             ) : null}
             {compact ? (
               <div className="tab-bar-slot" data-testid="rail">
-                <TabBar active={destinationFor(route)} onNavigate={navigate} />
+                <TabBar active={destinationFor(base)} onNavigate={navigate} />
               </div>
             ) : null}
             {slots.palette ? (

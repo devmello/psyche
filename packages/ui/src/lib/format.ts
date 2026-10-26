@@ -5,19 +5,17 @@ import { activeI18n, t } from "../i18n/core.ts";
  * from the catalogue (`time.*`) and numbers and dates follow the active format locale (A12).
  */
 
-/** A clock time in the active format locale ("14:05"; 24-hour, UTC as before #608). */
+/**
+ * A clock time on the owner's clock, in the region's hour cycle ("2:05 PM" in the US, "14:05" in
+ * the UK; #608). The time zone is the runtime's unless the i18n pins one (tests and stories).
+ */
 export function formatTime(iso: string): string {
-  return activeI18n().time(iso, {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "UTC",
-  });
+  return activeI18n().time(iso, { hour: "numeric", minute: "2-digit" });
 }
 
-/** A short date in the active format locale ("Oct 2", "2 Oct", "2. Okt."). */
+/** A short date on the owner's calendar, in the region format ("Oct 2", "2 Oct", "2. Okt."). */
 export function formatDate(iso: string): string {
-  return activeI18n().date(iso, { month: "short", day: "numeric", timeZone: "UTC" });
+  return activeI18n().date(iso, { month: "short", day: "numeric" });
 }
 
 /** "12 s", "3 min", "1 h 5 min". */

@@ -6,7 +6,7 @@ import type { GatewayEvent } from "../../src/client/connection.ts";
 import type { GatewayStatus } from "../../src/client/status.ts";
 import { SHORTCUTS } from "../../src/shell/keyboard.ts";
 import type { ShellPlatform } from "../../src/shell/platform.ts";
-import { isChatRoute, ShellApp } from "../../src/shell/ShellApp.tsx";
+import { isAgentRoute, isChatRoute, ShellApp, underlyingRoute } from "../../src/shell/ShellApp.tsx";
 
 afterEach(() => {
   cleanup();
@@ -183,6 +183,14 @@ describe("the sidebar toggle and the compact rail (#598)", () => {
 });
 
 describe("the agent sheet's routes (redesign §5.7)", () => {
+  it("remembers the section under the sheet (#614)", () => {
+    expect(isAgentRoute("/agent/upcoming")).toBe(true);
+    expect(isAgentRoute("/agent")).toBe(true);
+    expect(isAgentRoute("/agentx")).toBe(false);
+    expect(underlyingRoute("/agent/upcoming", "/feed")).toBe("/feed");
+    expect(underlyingRoute("/goals/g1", "/feed")).toBe("/goals/g1");
+  });
+
   it("keeps the chat mounted under /agent/*", async () => {
     expect(isChatRoute("/agent/activity")).toBe(true);
     expect(isChatRoute("/chat/t1")).toBe(true);

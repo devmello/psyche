@@ -42,11 +42,13 @@ export {
   DEFAULT_BRIEF_SCHEDULE,
   FEED_BRIEF_JOB,
   FEED_BRIEFING_JOB,
+  FEED_INSTRUCTIONS_PATH,
   type FeedEvent,
   FeedService,
   type FeedServiceOptions,
   type GenerateResult,
   LEDGER_PATH,
+  MAX_FEED_INSTRUCTIONS,
   toFeedPost,
 } from "./feed/service.ts";
 export {

@@ -1,5 +1,10 @@
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
+import { createI18n, setActiveI18n, setDefaultTimeZone } from "../src/i18n/core.ts";
+
+// Stable formats for assertions: US English in UTC (the app follows the owner's region and clock).
+setDefaultTimeZone("UTC");
+setActiveI18n(createI18n({ locale: "en-US" }));
 
 // jsdom lacks these browser APIs; Base UI, Streamdown and the theme provider touch them.
 if (typeof window.matchMedia !== "function") {

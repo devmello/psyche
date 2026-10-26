@@ -20,6 +20,8 @@ export interface I18n {
   /** The catalogue's locale; also the document's `lang`. */
   readonly messageLocale: string;
   readonly dir: Direction;
+  /** The time zone dates and times are shown in; undefined is the runtime's (the owner's). */
+  readonly timeZone: string | undefined;
   t(id: MessageId, values?: MessageValues): string;
   number(n: number, options?: Intl.NumberFormatOptions): string;
   percent(fraction: number, options?: Intl.NumberFormatOptions): string;
@@ -32,6 +34,18 @@ export interface I18n {
 export interface I18nOptions {
   locale?: string;
   direction?: DirectionSetting;
+  /** Pins a time zone (tests and stories use "UTC"); else `setDefaultTimeZone`'s, else the runtime's. */
+  timeZone?: string;
+}
+
+let defaultTimeZone: string | undefined;
+
+/**
+ * The time zone for i18n instances created without one. Unset in the app, so times follow the
+ * owner's clock; Storybook and the test setups pin "UTC" so baselines and assertions are stable.
+ */
+export function setDefaultTimeZone(timeZone: string | undefined): void {
+  defaultTimeZone = timeZone;
 }
 
 const toDate = (v: string | number | Date) => (v instanceof Date ? v : new Date(v));
@@ -41,6 +55,7 @@ export function createI18n(options: I18nOptions = {}): I18n {
   const messageLocale = messageLocaleFor(locale);
   const dir = resolveDirection(options.direction ?? "auto", messageLocale);
   const catalogue = CATALOGUES[messageLocale] ?? en;
+  const timeZone = options.timeZone ?? defaultTimeZone;
   const compiled = new Map<MessageId, IntlMessageFormat>();
   const numbers = new Map<string, Intl.NumberFormat>();
   const dates = new Map<string, Intl.DateTimeFormat>();
@@ -53,7 +68,12 @@ export function createI18n(options: I18nOptions = {}): I18n {
     }
     return f;
   };
-  const dateFormat = (o: Intl.DateTimeFormatOptions) => {
+  // An explicit `timeZone` wins (calendar days stored as UTC midnight stay in UTC).
+  const dateFormat = (requested: Intl.DateTimeFormatOptions) => {
+    const o =
+      timeZone === undefined || requested.timeZone !== undefined
+        ? requested
+        : { ...requested, timeZone };
     const key = JSON.stringify(o);
     let f = dates.get(key);
     if (f === undefined) {
@@ -73,6 +93,7 @@ export function createI18n(options: I18nOptions = {}): I18n {
     locale,
     messageLocale,
     dir,
+    timeZone,
     t(id, values) {
       let f = compiled.get(id);
       if (f === undefined) {

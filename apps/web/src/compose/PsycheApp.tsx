@@ -1,6 +1,5 @@
 import {
   AgentHeader,
-  AgentRouteSheet,
   AgentSheet,
   AppearanceProvider,
   agentSheetHref,
@@ -130,26 +129,38 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
   );
 }
 
-function agentRoute(route: string, navigate: (to: string) => void): ReactNode | null {
-  // `/agent/*` opens the 420 px agent sheet over the canvas, never a full-width page; closing
-  // it returns to `?from=` (the Feed's Schedule passes `/feed`, #614) or else the chat (redesign
-  // §5.7). Library's and Ideas' "Open in editor" pass `?file=`.
-  const sheet = agentSheetRoute(route);
+/**
+ * The agent sheet over a section (#614): the Feed's Schedule, Settings' tasks and the kit's
+ * `/agent/*` links open it over the screen the owner is on, which stays mounted; closing it
+ * returns there. Over the chat, `KitChat` opens it instead. Library's and Ideas' "Open in
+ * editor" pass `?file=`. The last route is kept while the sheet animates out.
+ */
+function SectionAgentSheet({
+  route,
+  navigate,
+  onClose,
+}: {
+  route: string | null;
+  navigate: (to: string) => void;
+  onClose: () => void;
+}): ReactElement | null {
+  const routed = route === null ? null : agentSheetRoute(route);
+  const lastRouted = useRef(routed);
+  if (routed !== null) lastRouted.current = routed;
+  const sheet = routed ?? lastRouted.current;
   if (sheet === null) return null;
   return (
-    <section
-      className="flex min-h-0 flex-1 flex-col bg-canvas"
-      aria-label={t("web.agent.label")}
-      data-testid="agent-route"
-    >
-      <AgentRouteSheet
-        route={sheet}
-        onTabChange={(next) =>
-          navigate(agentSheetHref(next, sheet.back ? { back: sheet.back } : {}))
-        }
-        onClose={() => navigate(sheet.back ?? "/chat")}
-      />
-    </section>
+    <AgentSheet
+      open={routed !== null}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      tab={sheet.tab}
+      onTabChange={(tab) => navigate(`/agent/${tab}`)}
+      {...(sheet.taskId === undefined ? {} : { taskId: sheet.taskId })}
+      {...(sheet.file === undefined ? {} : { file: sheet.file })}
+      onClose={onClose}
+    />
   );
 }
 
@@ -426,9 +437,8 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
     () => ({
       chat: (threadId, ctx) => <KitChat threadId={threadId} ctx={ctx} />,
       section: (route, navigate) =>
-        settingsRoute(route, navigate, platform) ??
-        agentRoute(route, navigate) ??
-        screenRoute(route, navigate),
+        settingsRoute(route, navigate, platform) ?? screenRoute(route, navigate),
+      agentSheet: (p) => <SectionAgentSheet {...p} />,
       // The 2026 sidebar (redesign §5.1); the compact drawer shows its threads alone (§5.11).
       sidebar: (p) => (
         <ConnectedSidebar

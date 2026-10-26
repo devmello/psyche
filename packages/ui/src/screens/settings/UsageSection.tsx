@@ -9,7 +9,7 @@ import {
 } from "../../components/ui/table.tsx";
 import type { UsageSummary } from "../../fixtures/index.ts";
 import { activeI18n, t } from "../../i18n/core.ts";
-import { formatDate, formatTime } from "../../lib/format.ts";
+import { formatTime } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
 import { useSlots } from "../../slots.tsx";
 import { EmptyNotice, Group, LoadGate, type LoadProps, SectionFrame } from "./shared.tsx";
@@ -99,8 +99,17 @@ export function UsagePanel({ usage, loading, error, onRetry }: UsagePanelProps):
           <>
             <Group
               title={t("settings.usage.period", {
-                start: formatDate(usage.periodStart),
-                end: formatDate(usage.periodEnd),
+                // Billing periods are calendar days (UTC midnight), not instants.
+                start: activeI18n().date(usage.periodStart, {
+                  month: "short",
+                  day: "numeric",
+                  timeZone: "UTC",
+                }),
+                end: activeI18n().date(usage.periodEnd, {
+                  month: "short",
+                  day: "numeric",
+                  timeZone: "UTC",
+                }),
               })}
               description={t("settings.usage.spent", {
                 spent: usd(usage.spentUsd),
@@ -176,7 +185,7 @@ export function UsagePanel({ usage, loading, error, onRetry }: UsagePanelProps):
               <ul className="flex flex-col gap-1">
                 {usage.records.map((r) => (
                   <li key={r.id} className="flex flex-wrap items-baseline gap-x-3 text-xs">
-                    <span className="w-12 tabular-nums text-muted-foreground">
+                    <span className="min-w-12 whitespace-nowrap tabular-nums text-muted-foreground">
                       {formatTime(r.createdAt)}
                     </span>
                     <code className="font-mono">{r.modelRef}</code>

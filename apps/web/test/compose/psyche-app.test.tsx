@@ -95,7 +95,7 @@ describe("the agent sheet over the chat (redesign §5.7)", () => {
   });
 });
 
-describe("the Feed's instructions and schedule sheets (#614)", () => {
+describe("the Feed's instructions sheet (#614)", () => {
   it("opens /feed/instructions over the feed and closes back to /feed", async () => {
     window.innerWidth = 1280;
     window.history.replaceState(null, "", "/feed/instructions");
@@ -107,22 +107,40 @@ describe("the Feed's instructions and schedule sheets (#614)", () => {
     await waitFor(() => expect(window.location.pathname).toBe("/feed"));
     await waitFor(() => expect(screen.queryByTestId("feed-instructions")).toBeNull());
   });
+});
 
-  it("closes Upcoming opened from the Feed's Schedule back to /feed", async () => {
+describe("the agent sheet over the current section (#614)", () => {
+  it("the Feed's Schedule opens the sheet over the feed and closing returns to /feed", async () => {
     window.innerWidth = 1280;
     window.history.replaceState(null, "", "/feed");
     const { platform } = webPlatform();
     render(<PsycheApp platform={platform} />);
-    await screen.findByTestId("screen-feed");
-    fireEvent.click(await screen.findByRole("button", { name: "Schedule" }));
+    const feed = await screen.findByTestId("screen-feed");
+    fireEvent.click(within(feed).getByRole("button", { name: "Schedule" }));
     const sheet = await screen.findByTestId("agent-sheet");
+    expect(window.location.pathname).toBe("/agent/upcoming");
     expect(
       within(sheet)
         .getByRole("tab", { name: /Upcoming/ })
         .getAttribute("aria-selected"),
     ).toBe("true");
-    fireEvent.keyDown(sheet, { key: "Escape" });
+    // The feed stays mounted underneath (inert behind the modal sheet), not the chat, and the
+    // sidebar still marks Feed.
+    expect(screen.getByTestId("screen-feed")).toBe(feed);
+    expect(screen.queryByTestId("kit-chat")).toBeNull();
+    const current = screen
+      .getByTestId("sidebar")
+      .querySelector('[aria-current="page"]')
+      ?.textContent?.trim();
+    expect(current).toMatch(/^Feed/);
+    // Tabs change the route and keep the feed beneath.
+    fireEvent.click(within(sheet).getByRole("tab", { name: /Activity/ }));
+    await waitFor(() => expect(window.location.pathname).toBe("/agent/activity"));
+    expect(screen.getByTestId("screen-feed")).toBe(feed);
+    fireEvent.keyDown(screen.getByTestId("agent-sheet"), { key: "Escape" });
     await waitFor(() => expect(window.location.pathname).toBe("/feed"));
+    await waitFor(() => expect(screen.queryByTestId("agent-sheet")).toBeNull());
+    expect(screen.getByTestId("screen-feed")).toBe(feed);
   });
 });
 

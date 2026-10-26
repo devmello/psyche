@@ -94,6 +94,12 @@ sources ──▶ candidate pool ──▶ dedupe by url ──▶ clusters (cos
     deliverable (titles and first citations) that the scheduler delivers once (inbox `briefing`,
     thread or channel); no posts → `no_reply`.
   - `readLedger()`.
+  - `readInstructions()`: the owner's free text in `feed/INSTRUCTIONS.md` ("What should I write
+    about", #614; written by the Feed's instructions sheet through `memory.write`). HTML comments
+    are dropped and the text is capped at 4,000 characters. Each batch places it in the rerank and
+    post-writer prompts ahead of the `interests.md` lines, and posts ranked with it carry the
+    reason `feed instructions`. It does not steer recall: an instruction to avoid a topic would
+    otherwise pull that topic in. A missing or comment-only file means no instructions.
 - Sources: `rssSource(url)`, `hackerNewsSource()`, `arxivSource()` (one query per top topic),
   `providedSource(id, kind, provider)` for saved items, connector summaries and a Bluesky
   Jetstream tap supplied by other packages, `searchGaps(search, topics)`. All reads go through the

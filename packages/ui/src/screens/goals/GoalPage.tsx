@@ -46,9 +46,9 @@ import {
 } from "./goal-plan.ts";
 import { MilestoneTrack } from "./MilestoneTrack.tsx";
 
-/** "Mon 08:00" in UTC, like the rest of the kit's times. */
+/** "Mon 8:00 AM" on the owner's clock, in the region format. */
 export function formatWhen(iso: string): string {
-  const day = activeI18n().date(iso, { weekday: "short", timeZone: "UTC" });
+  const day = activeI18n().date(iso, { weekday: "short" });
   return `${day} ${formatTime(iso)}`;
 }
 
