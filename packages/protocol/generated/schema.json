@@ -1390,12 +1390,52 @@
         "sideEffecting": true
       },
       {
+        "description": "The env variables and bearer token a server is configured with, by name, and whether each is set. Never a value. not_found for an unknown server.",
+        "name": "mcp.secrets",
+        "params": "#/$defs/McpSecretsParams",
+        "result": "#/$defs/McpSecretsResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting: stores a new value for one of the server's env variables (or its bearer token) in the vault, bound to that server, and restarts the server so it takes effect. A value kept in plain config moves to the vault. The value travels client to Gateway only. not_found for an unknown server or name; unavailable while the vault is locked.",
+        "name": "mcp.secrets.replace",
+        "params": "#/$defs/McpSecretsReplaceParams",
+        "result": "#/$defs/McpSecretsReplaceResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Side-effecting: turns a server off without removing it (its tools unregister, it stops, its grants are revoked) or back on (it starts again; secrets ask for their own approval). not_found for an unknown server.",
+        "name": "mcp.setEnabled",
+        "params": "#/$defs/McpSetEnabledParams",
+        "result": "#/$defs/McpSetEnabledResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "The MCP launcher in use and each configured server's trust, transport and network reach.",
         "name": "mcp.status",
         "params": "#/$defs/McpStatusParams",
         "result": "#/$defs/McpStatusResult",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "A configured server's tools (name, description, side effect when annotated) and whether each is offered to the agent. Descriptions are server-authored: render as data. not_found for an unknown server.",
+        "name": "mcp.tools",
+        "params": "#/$defs/McpToolsParams",
+        "result": "#/$defs/McpToolsResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting: offers a tool to the agent or withholds it (kept in the server's mcp.servers entry; the server keeps running and its grants stay). A tool the description scan blocked stays off. not_found for an unknown server or tool.",
+        "name": "mcp.tools.set",
+        "params": "#/$defs/McpToolsSetParams",
+        "result": "#/$defs/McpToolsSetResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
       },
       {
         "description": "Writes meeting notes from a Library recording: transcribed on the Mac (up to 4 h), matched to the overlapping calendar event, summarized into one meeting_notes Feed post. Proposes, never sends. Side-effecting.",
@@ -19613,6 +19653,69 @@
       ],
       "type": "object"
     },
+    "McpSecretsParams": {
+      "properties": {
+        "serverId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "serverId"
+      ],
+      "type": "object"
+    },
+    "McpSecretsReplaceParams": {
+      "properties": {
+        "serverId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "serverId",
+        "name",
+        "value"
+      ],
+      "type": "object"
+    },
+    "McpSecretsReplaceResult": {
+      "properties": {
+        "secret": {
+          "$ref": "#/$defs/McpServerSecret"
+        }
+      },
+      "required": [
+        "secret"
+      ],
+      "type": "object"
+    },
+    "McpSecretsResult": {
+      "properties": {
+        "secrets": {
+          "items": {
+            "$ref": "#/$defs/McpServerSecret"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "secrets"
+      ],
+      "type": "object"
+    },
     "McpServerInput": {
       "properties": {
         "id": {
@@ -19740,6 +19843,29 @@
       ],
       "type": "object"
     },
+    "McpServerSecret": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "storage": {
+          "enum": [
+            "vault",
+            "config"
+          ],
+          "type": "string"
+        },
+        "isSet": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "storage",
+        "isSet"
+      ],
+      "type": "object"
+    },
     "McpServerStatus": {
       "properties": {
         "id": {
@@ -19768,6 +19894,9 @@
         },
         "connected": {
           "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -19777,6 +19906,65 @@
         "transport",
         "network",
         "connected"
+      ],
+      "type": "object"
+    },
+    "McpServerTool": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sideEffect": {
+          "enum": [
+            "read",
+            "write",
+            "destructive"
+          ],
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "blocked": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "enabled",
+        "blocked"
+      ],
+      "type": "object"
+    },
+    "McpSetEnabledParams": {
+      "properties": {
+        "serverId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "serverId",
+        "enabled"
+      ],
+      "type": "object"
+    },
+    "McpSetEnabledResult": {
+      "properties": {
+        "server": {
+          "$ref": "#/$defs/McpServerStatus"
+        }
+      },
+      "required": [
+        "server"
       ],
       "type": "object"
     },
@@ -19804,6 +19992,74 @@
       "required": [
         "launcher",
         "servers"
+      ],
+      "type": "object"
+    },
+    "McpToolsParams": {
+      "properties": {
+        "serverId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "serverId"
+      ],
+      "type": "object"
+    },
+    "McpToolsResult": {
+      "properties": {
+        "tools": {
+          "items": {
+            "$ref": "#/$defs/McpServerTool"
+          },
+          "type": "array"
+        },
+        "available": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "tools",
+        "available"
+      ],
+      "type": "object"
+    },
+    "McpToolsSetParams": {
+      "properties": {
+        "serverId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "tool": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "serverId",
+        "tool",
+        "enabled"
+      ],
+      "type": "object"
+    },
+    "McpToolsSetResult": {
+      "properties": {
+        "tools": {
+          "items": {
+            "$ref": "#/$defs/McpServerTool"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "tools"
       ],
       "type": "object"
     },
