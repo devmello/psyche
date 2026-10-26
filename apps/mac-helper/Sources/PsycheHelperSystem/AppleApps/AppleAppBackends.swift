@@ -990,7 +990,11 @@ public final class NotesScriptingBackend: NotesBackend, @unchecked Sendable {
         on psyche_line(n)
           set fs to character id 31
           tell application "Notes"
-            return (id of n as text) & fs & my psyche_clean(name of container of n) & fs & my psyche_clean(name of n) & fs & my psyche_iso(modification date of n)
+            set cname to ""
+            try
+              set cname to name of container of n
+            end try
+            return (id of n as text) & fs & my psyche_clean(cname) & fs & my psyche_clean(name of n) & fs & my psyche_iso(modification date of n)
           end tell
         end psyche_line
         on psyche_list(folderName, lim)
