@@ -111,6 +111,7 @@ export const chat = {
   "chat.teach.usedLessonsList": "Lessons used for this answer",
   "chat.teach.redoWithout": "Redo without lessons",
   "chat.teach.notLikeThisStep": "Not like this: {step}",
+  "chat.receipt.more": "More for {summary}",
   "chat.learned.label": "Learned:",
   "chat.learned.undo": 'Undo "{text}"',
   "chat.learned.undone": "Removed. Psyche won't keep it.",
