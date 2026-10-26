@@ -23,6 +23,7 @@ import { t } from "../../i18n/core.ts";
 import { formatTime } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
 import { Disclosure, fade } from "../../motion/index.ts";
+import { countAtOrBefore, useReplayClock } from "./clock.ts";
 import { FailureBanner } from "./FailureBanner.tsx";
 import { Thumbs } from "./FrameViewer.tsx";
 import { timelineAction, zoomStep } from "./keyboard.ts";
@@ -69,6 +70,9 @@ const SIDE_BY_SIDE = 900;
 const INSPECTOR_PX = 360;
 /** Compact web: the waterfall becomes a list of rows and the inspector a pushed screen. */
 const COMPACT = 520;
+
+/** While playing, React state commits at least this often so time-driven labels stay current. */
+const LABEL_COMMIT_MS = 1000;
 
 type Replay = { t: number; how: "scrub" | "jump" } | null;
 
@@ -162,6 +166,7 @@ export function TimelineView({
   const [speed, setSpeed] = useState<ReplaySpeed>(1);
   const [skipWaits, setSkipWaits] = useState(true);
   const [stopAtFailures, setStopAtFailures] = useState(true);
+  const replayClock = useReplayClock();
   const [frameSeq, setFrameSeq] = useState<number | null>(null);
 
   const childKey = children.map((c) => c.id).join(",");
@@ -190,6 +195,11 @@ export function TimelineView({
   const flat = useMemo(() => allRows(fullRows), [fullRows]);
   const flatSteps = useMemo(() => flat.flatMap((r) => (r.step ? [r.step] : [])), [flat]);
   const events = useMemo(() => eventTimes(flatSteps), [flatSteps]);
+  // Everything that changes what replay shows: step starts and ends, and when frames arrived.
+  const discrete = useMemo(
+    () => [...new Set([...events, ...frames.flatMap((f) => ms(f.at) ?? [])])].sort((a, b) => a - b),
+    [events, frames],
+  );
   const failures = useMemo(() => failureTimes(flatSteps), [flatSteps]);
 
   // Fold defaults once there are rows; a failed task opens on its failed step's Output (§3.3).
@@ -290,21 +300,47 @@ export function TimelineView({
       }, REDUCED_STEP_MS);
       return () => clearInterval(id);
     }
+    // The clock ticks in a ref-backed store the playhead and scrubber write to the DOM from; React
+    // state commits only when the step set or frame changes, and about once a second for labels.
     let last = performance.now();
+    let t = replayClock.get();
+    let committed = countAtOrBefore(discrete, t);
+    let committedAt = last;
     let frame = requestAnimationFrame(function loop(ts) {
       const dt = ts - last;
       last = ts;
-      let stop = false;
-      setReplay((r) => {
-        const res = advance(r?.t ?? start, dt, { ...opts, speed });
-        stop = res.stop !== null;
-        return { t: res.t, how: "scrub" };
-      });
-      if (stop) setPlaying(false);
+      const res = advance(t, dt, { ...opts, speed });
+      t = res.t;
+      replayClock.set(t);
+      const seen = countAtOrBefore(discrete, t);
+      if (res.stop !== null || seen !== committed || ts - committedAt >= LABEL_COMMIT_MS) {
+        committed = seen;
+        committedAt = ts;
+        setReplay({ t, how: "scrub" });
+      }
+      if (res.stop !== null) setPlaying(false);
       else frame = requestAnimationFrame(loop);
     });
     return () => cancelAnimationFrame(frame);
-  }, [playing, reduce, end, gaps, skipWaits, stopAtFailures, failures, events, speed, start]);
+  }, [
+    playing,
+    reduce,
+    end,
+    gaps,
+    skipWaits,
+    stopAtFailures,
+    failures,
+    events,
+    speed,
+    start,
+    replayClock,
+    discrete,
+  ]);
+
+  // Keep the clock on the committed time whenever React state moves it (seek, jump, live).
+  useEffect(() => {
+    replayClock.set(replay?.t ?? end);
+  }, [replayClock, replay, end]);
 
   const playPause = useCallback(() => {
     if (playing) {
@@ -367,12 +403,12 @@ export function TimelineView({
         playPause();
         break;
       case "eventBack": {
-        const at = prevEvent(events, replay?.t ?? end);
+        const at = prevEvent(events, replay ? replayClock.get() : end);
         if (at !== null) seek(at);
         break;
       }
       case "eventForward": {
-        const at = nextEvent(events, replay?.t ?? start);
+        const at = nextEvent(events, replay ? replayClock.get() : start);
         if (at !== null) seek(at);
         break;
       }
@@ -603,6 +639,7 @@ export function TimelineView({
                 gridRef={gridRef}
                 scrollRef={scrollRef}
                 playhead={replay?.t ?? null}
+                clock={replayClock}
                 dimAfter={replay?.how === "jump"}
                 onSeek={seek}
                 onRange={setRange}
@@ -632,6 +669,7 @@ export function TimelineView({
         start={start}
         end={end}
         at={replay?.t ?? end}
+        clock={replayClock}
         gaps={gaps}
         markers={markers}
         live={running && replay === null}
@@ -650,11 +688,11 @@ export function TimelineView({
           setReplay(null);
         }}
         onPrevEvent={() => {
-          const at = prevEvent(events, replay?.t ?? end);
+          const at = prevEvent(events, replay ? replayClock.get() : end);
           if (at !== null) seek(at);
         }}
         onNextEvent={() => {
-          const at = nextEvent(events, replay?.t ?? start);
+          const at = nextEvent(events, replay ? replayClock.get() : start);
           if (at !== null) seek(at);
         }}
         frames={

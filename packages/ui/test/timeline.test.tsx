@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import type { ReactNode } from "react";
-import { describe, expect, it } from "vitest";
+import { Profiler, type ReactNode } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { agentSheetRoute, agentTimelineHref } from "../src/agent/AgentSheet.tsx";
 import { timelineAction, zoomStep } from "../src/agent/timeline/keyboard.ts";
 import {
@@ -315,5 +315,46 @@ describe("TimelineView", () => {
     });
     const list = screen.getByRole("list", { name: "Steps" });
     expect(within(list).getAllByRole("listitem")).toHaveLength(1);
+  });
+});
+
+describe("TimelineView replay clock (smoothness C14)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("plays N frames without re-rendering the view N times, yet the playhead moves", async () => {
+    const queue: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => queue.push(cb));
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+    const { wrapper } = setup();
+    let commits = 0;
+    render(
+      <Profiler
+        id="timeline"
+        onRender={() => {
+          commits += 1;
+        }}
+      >
+        <TimelineView runId={R.done} now={NOW} />
+      </Profiler>,
+      { wrapper },
+    );
+    await screen.findByRole("treegrid");
+    fireEvent.click(screen.getByRole("button", { name: "16×" }));
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+    const thumb = () => screen.getByRole("slider").querySelector<HTMLElement>("[data-playhead]");
+    const slider = screen.getByRole("slider");
+    const before = commits;
+    const startX = thumb()?.style.insetInlineStart;
+    const FRAMES = 120;
+    const t0 = performance.now();
+    for (let i = 1; i <= FRAMES; i += 1) {
+      const cb = queue.shift();
+      if (!cb) break;
+      act(() => cb(t0 + i * 16));
+    }
+    expect(thumb()?.style.insetInlineStart).not.toBe(startX);
+    expect(Number(slider.getAttribute("aria-valuenow"))).toBeGreaterThan(0);
+    // Commits only for discrete changes (steps appearing, frames, ~1 Hz labels), not per frame.
+    expect(commits - before).toBeLessThan(FRAMES / 4);
   });
 });

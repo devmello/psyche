@@ -20,6 +20,7 @@ import type { MessageId } from "../../i18n/index.ts";
 import { formatTime } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
 import { tokens as formatTokens, usd } from "../../screens/settings/UsageSection.tsx";
+import type { ReplayClock } from "./clock.ts";
 import type { VisibleRow } from "./model.ts";
 import { ROW_HEIGHT, useVirtualRows } from "./virtual.ts";
 
@@ -44,6 +45,8 @@ export interface WaterfallProps {
   scrollRef: RefObject<HTMLDivElement | null>;
   /** The replay playhead (null when following live or showing the end). */
   playhead: number | null;
+  /** The live replay clock: the playhead line follows it without a re-render. */
+  clock?: ReplayClock;
   /** Dim rows that start after the playhead (click-a-step while replaying). */
   dimAfter: boolean;
   onSeek: (at: number) => void;
@@ -82,6 +85,7 @@ export function Waterfall({
   gridRef,
   scrollRef,
   playhead,
+  clock,
   dimAfter,
   onSeek,
   onRange,
@@ -223,7 +227,13 @@ export function Waterfall({
                   data-range=""
                 />
               ) : null}
-              {playhead !== null ? <Playhead scale={scale} at={playhead} /> : null}
+              {playhead !== null ? (
+                <Playhead
+                  scale={scale}
+                  at={playhead}
+                  {...(clock ? { subscribe: clock.subscribe } : {})}
+                />
+              ) : null}
             </div>
             {rows.slice(start, end).map((row, i) => {
               const index = start + i;
