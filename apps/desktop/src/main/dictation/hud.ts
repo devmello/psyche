@@ -94,7 +94,10 @@ export class HudWindow implements DictationHud, DictationCapture {
       },
     });
     win.setAlwaysOnTop(true, "screen-saver");
-    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    win.setVisibleOnAllWorkspaces(true, {
+      visibleOnFullScreen: true,
+      skipTransformProcessType: true,
+    });
     win.setIgnoreMouseEvents(true);
     win.on("closed", () => {
       if (this.#win === win) {

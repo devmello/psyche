@@ -439,7 +439,7 @@ importers:
         specifier: 6.0.0
         version: 6.0.0
       mermaid:
-        specifier: ^11.17.2
+        specifier: 11.17.2
         version: 11.17.2
       pdfjs-dist:
         specifier: 6.4.299

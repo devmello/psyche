@@ -235,6 +235,32 @@ describe("the toolbar clear of the traffic lights (#624)", () => {
     expect(frame.style.getPropertyValue("--chrome-lead")).toBe("128px");
   });
 
+  it("the desktop's toggle reopens the collapsed sidebar and sits after the screens in the tree", async () => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", "/feed");
+    const { platform, storage } = platformWith({ "shell.sidebar.open": "false" });
+    platform.chrome = chrome;
+    platform.kind = "desktop";
+    render(<ShellApp platform={platform} />);
+    const frame = screen.getByTestId("app-frame");
+    const holder = screen.getByTestId("titlebar-toggle");
+    // Electron resolves drag regions in tree order: a toolbar after the toggle would swallow it.
+    expect(holder.parentElement).toBe(frame);
+    expect(frame.lastElementChild).toBe(holder);
+    expect(screen.getByTestId("titlebar").contains(holder)).toBe(false);
+    expect(holder.style.left).toBe("86px");
+    fireEvent.click(within(holder).getByRole("button", { name: "Show the sidebar" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("shell").getAttribute("data-sidebar")).toBe("open"),
+    );
+    expect(storage.get("shell.sidebar.open")).toBe("true");
+    // ...and hides it again from the same spot.
+    fireEvent.click(within(holder).getByRole("button", { name: "Hide the sidebar" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("shell").getAttribute("data-sidebar")).toBe("collapsed"),
+    );
+  });
+
   it("the web has no lights: no inset, whatever the sidebar does", () => {
     window.innerWidth = 1280;
     window.history.replaceState(null, "", "/feed");
