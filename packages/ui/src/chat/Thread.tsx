@@ -20,6 +20,7 @@ import { type CommandName, parseCommand } from "./commands.ts";
 import { FollowUpQueue } from "./FollowUpQueue.tsx";
 import { MessageView } from "./MessageView.tsx";
 import { OfflineBanner } from "./OfflineBanner.tsx";
+import { ComposerPrefill } from "./prefill.ts";
 import { failureAnchors, RunFailure } from "./RunFailure.tsx";
 import { RunStepLog, useRunSteps } from "./RunStepLog.tsx";
 import {
@@ -581,6 +582,7 @@ export function ChatThread({
             >
               <div className="pointer-events-auto mx-auto flex w-full max-w-[680px] flex-col gap-2">
                 <Presence>{away ? <JumpToLatest key="jump" onJump={jump} /> : null}</Presence>
+                <ComposerPrefill />
                 {empty ? <ComposerSuggestions /> : null}
                 <ApprovalDock
                   threadId={threadId}

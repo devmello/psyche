@@ -43,6 +43,7 @@ export const TOOL_CAPABILITIES: Readonly<
     hint: "connect Gmail or Apple Mail in Settings → Connectors",
   },
   "calendar.*": {
+    // `calendar_find_free_time` (the Gateway's free-slot finder) is one of these.
     tools: ["calendar_*", "calendar.*"],
     label: "a calendar",
     hint: "connect Google Calendar or Apple Calendar in Settings → Connectors",
@@ -91,6 +92,39 @@ export const TOOL_CAPABILITIES: Readonly<
     tools: ["exec"],
     label: "the sandbox",
     hint: "the sandbox needs Docker or the VM (Settings → Server)",
+  },
+  // Apple apps, wave 1 (docs/connectors/apple-apps-2026.md §4, §7.3): the model-facing tool is
+  // the helper capability with `_` (`notes.append` → `notes_append`).
+  "notes.*": {
+    tools: ["notes_*"],
+    label: "notes",
+    hint: "connect Apple Notes in Settings → Connectors",
+  },
+  "reminders.*": {
+    tools: ["reminders_*"],
+    label: "reminders",
+    hint: "connect Apple Reminders in Settings → Connectors",
+  },
+  "contacts.*": {
+    tools: ["contacts_*"],
+    label: "contacts",
+    hint: "connect Apple Contacts or Google Contacts in Settings → Connectors",
+  },
+  "music.*": {
+    tools: ["music_*"],
+    label: "music playback",
+    hint: "connect Apple Music or Spotify in Settings → Connectors",
+  },
+  "files.*": {
+    tools: ["files_*"],
+    label: "your Mac's files",
+    hint: "turn on Files in Settings → Connectors and share the folder in Settings → File access",
+  },
+  "shortcuts.*": {
+    // `apps.shortcut_run` / `apps.shortcuts_list` are the names before the Shortcuts app.
+    tools: ["shortcuts_*", "apps.shortcut*"],
+    label: "Shortcuts",
+    hint: "connect Shortcuts in Settings → Connectors",
   },
 };
 

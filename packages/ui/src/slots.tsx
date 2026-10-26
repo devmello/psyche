@@ -33,6 +33,11 @@ export interface UiSlots {
   writeClipboard?: (text: string) => Promise<void>;
   /** Opens an https page in the system browser (a connector's sign-in; #505). */
   openExternal?: (url: string) => Promise<void>;
+  /**
+   * Puts text in the chat composer and shows the chat (Settings → Connectors "Try it", #640).
+   * Hosts whose Settings is a separate window supply it; otherwise the kit opens `/chat` itself.
+   */
+  prefillComposer?: (text: string) => void;
   /** Persona shown in agent messages and cards. */
   persona?: { name: string; creature?: string; imageSrc?: string };
 }

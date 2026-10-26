@@ -1,0 +1,114 @@
+{
+  "$comment": "Tool registry for the Apple app flows (tests/acceptance/scenarios-apple; docs/connectors/apple-apps-2026.md §3, §4, §7.4). Model-facing names: the helper capability with `_` (mail.set_flags -> mail_set_flags). Reads are allowed and return untrusted content (mail, notes, calendar invitations, contacts); writes ask with connector_action; sends ask with send_email and are never allowed silently. Executors: tests/acceptance/src/apple-world.ts.",
+  "version": 1,
+  "tools": [
+    {
+      "name": "mail_search",
+      "sideEffect": "read",
+      "targetKind": null,
+      "provenanceOut": "untrusted",
+      "connector": "apple:mail",
+      "note": "M1: unread, since / until, from, text; newest first."
+    },
+    {
+      "name": "mail_read",
+      "sideEffect": "read",
+      "targetKind": null,
+      "provenanceOut": "untrusted",
+      "connector": "apple:mail",
+      "note": "M4: one message with its `link` (message://<Message-ID>)."
+    },
+    {
+      "name": "mail_set_flags",
+      "sideEffect": "write",
+      "targetKind": null,
+      "provenanceOut": "trusted",
+      "connector": "apple:mail",
+      "approvalKind": "connector_action",
+      "receiptKind": "mail.flags",
+      "note": "M7: read / flagged status for up to 100 ids."
+    },
+    {
+      "name": "mail_forward_draft",
+      "sideEffect": "write",
+      "targetKind": "recipient",
+      "provenanceOut": "trusted",
+      "connector": "apple:mail",
+      "approvalKind": "connector_action",
+      "receiptKind": "mail.draft",
+      "note": "M5: a saved forward draft, not sent. Only hijacked probes call it here."
+    },
+    {
+      "name": "mail_send_draft",
+      "sideEffect": "destructive",
+      "targetKind": null,
+      "provenanceOut": "trusted",
+      "connector": "apple:mail",
+      "approvalKind": "send_email",
+      "receiptKind": "email.send",
+      "note": "M6: sends a saved draft. No flow calls it; assertions check it never runs."
+    },
+    {
+      "name": "reminders_create",
+      "sideEffect": "write",
+      "targetKind": null,
+      "provenanceOut": "trusted",
+      "connector": "apple:reminders",
+      "approvalKind": "connector_action",
+      "receiptKind": "reminder.create",
+      "note": "R2: title, list, due, notes, url (the mail link from M4)."
+    },
+    {
+      "name": "calendar_list_events",
+      "sideEffect": "read",
+      "targetKind": null,
+      "provenanceOut": "untrusted",
+      "connector": "apple:calendar",
+      "note": "C1: events in a window with attendees, organizer, notes; invitations are untrusted."
+    },
+    {
+      "name": "contacts_search",
+      "sideEffect": "read",
+      "targetKind": null,
+      "provenanceOut": "untrusted",
+      "connector": "apple:contacts",
+      "note": "P1: name, email, phone, organization."
+    },
+    {
+      "name": "notes_search",
+      "sideEffect": "read",
+      "targetKind": null,
+      "provenanceOut": "untrusted",
+      "connector": "apple:notes",
+      "note": "N1: title and body text; newest first."
+    },
+    {
+      "name": "notes_read",
+      "sideEffect": "read",
+      "targetKind": null,
+      "provenanceOut": "untrusted",
+      "connector": "apple:notes",
+      "note": "N2: one note's body."
+    },
+    {
+      "name": "notes_create",
+      "sideEffect": "write",
+      "targetKind": null,
+      "provenanceOut": "trusted",
+      "connector": "apple:notes",
+      "approvalKind": "connector_action",
+      "receiptKind": "note.create",
+      "note": "N5: title, body, folder."
+    },
+    {
+      "name": "notes_append",
+      "sideEffect": "write",
+      "targetKind": null,
+      "provenanceOut": "trusted",
+      "connector": "apple:notes",
+      "approvalKind": "connector_action",
+      "receiptKind": "note.append",
+      "note": "N3: text at the end of one note; the card binds the note id."
+    }
+  ]
+}

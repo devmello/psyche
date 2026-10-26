@@ -13,8 +13,12 @@ const BUNDLED = [
   "browsing",
   "calendar-planning",
   "document-filling",
+  "downloads-cleanup",
+  "email-to-task",
   "inbox-triage",
+  "meeting-prep",
   "memory-hygiene",
+  "morning-brief",
   "reply-drafting",
   "research-brief",
   "shopping-compare",
@@ -77,6 +81,42 @@ describe("bundled skills (T1 done-when)", () => {
       "needs email: connect Gmail or Apple Mail in Settings → Connectors",
     );
     expect((await loader.promptIndex()).included).not.toContain("inbox-triage");
+  });
+
+  it("the Apple app skills load with the wave-1 tools and say what is missing without them", async () => {
+    const apple = [
+      "calendar_list_events",
+      "calendar_find_free_time",
+      "reminders_list",
+      "reminders_create",
+      "mail_search",
+      "mail_read",
+      "mail_set_flags",
+      "notes_search",
+      "notes_append",
+      "contacts_search",
+      "files_recent",
+      "files_move",
+      "files_trash",
+    ];
+    const status = async (tools: string[]) => {
+      const loader = new FsSkillLoader({
+        homeDir: tempDir(),
+        bundledDir: BUNDLED_DIR,
+        gate: { ...OPEN_GATE, tools },
+      });
+      return new Map((await loader.listDetailed()).map((s) => [s.name, s]));
+    };
+    const on = await status(apple);
+    for (const n of ["morning-brief", "email-to-task", "meeting-prep", "downloads-cleanup"])
+      expect(on.get(n)?.status, n).toBe("active");
+    const off = await status(["calendar_list_events"]);
+    expect(off.get("morning-brief")?.status).toBe("active");
+    expect(off.get("meeting-prep")?.reasons).toEqual([
+      "needs notes: connect Apple Notes in Settings → Connectors",
+    ]);
+    expect(off.get("downloads-cleanup")?.reasons[0]).toContain("turn on Files");
+    expect(off.get("email-to-task")?.status).toBe("ineligible");
   });
 
   it("re-gates when the tool set changes, even while watching (#506)", async () => {
