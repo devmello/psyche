@@ -137,6 +137,37 @@ describe("gating", () => {
     expect(evaluateGates(r, OPEN_GATE).eligible).toBe(true);
   });
 
+  it("maps the Apple app families to their wave-1 tools (apple-apps-2026 §7.3)", () => {
+    const families: [string, string, string][] = [
+      ["notes.*", "notes_append", "connect Apple Notes"],
+      ["reminders.*", "reminders_complete", "connect Apple Reminders"],
+      ["contacts.*", "contacts_search", "connect Apple Contacts or Google Contacts"],
+      ["music.*", "music_play", "connect Apple Music or Spotify"],
+      ["files.*", "files_recent", "turn on Files in Settings → Connectors"],
+      ["shortcuts.*", "shortcuts_run", "connect Shortcuts"],
+      ["email.*", "mail_set_flags", "connect Gmail or Apple Mail"],
+      ["calendar.*", "calendar_find_free_time", "connect Google Calendar or Apple Calendar"],
+    ];
+    for (const [family, tool, hint] of families) {
+      const r = { ...req, tools: [family] };
+      expect(evaluateGates(r, { ...OPEN_GATE, tools: [tool] }).eligible, family).toBe(true);
+      const missing = evaluateGates(r, { ...OPEN_GATE, tools: ["read_file"] }).missing;
+      expect(missing[0], family).toContain(hint);
+    }
+    // The pre-Shortcuts-app names still satisfy shortcuts.*.
+    expect(
+      evaluateGates(
+        { ...req, tools: ["shortcuts.*"] },
+        { ...OPEN_GATE, tools: ["apps.shortcut_run"] },
+      ).eligible,
+    ).toBe(true);
+    // A family never matches a lookalike prefix.
+    expect(
+      evaluateGates({ ...req, tools: ["notes.*"] }, { ...OPEN_GATE, tools: ["notesy_read"] })
+        .eligible,
+    ).toBe(false);
+  });
+
   it("maps capability names to the Gateway's tools and says what to do (#506)", () => {
     const r = {
       ...req,
