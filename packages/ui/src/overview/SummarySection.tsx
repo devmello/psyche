@@ -20,7 +20,7 @@ import {
   PERIOD_WORD,
   summaryKinds,
   taskSpark,
-  tasksOf,
+  tasksDone,
 } from "./summaryModel.ts";
 
 export interface OverviewSummaryProps {
@@ -84,7 +84,7 @@ export function SummaryBody({
   // All time has no previous window, so no deltas at all (§5.4).
   const prev = previous != null && compare !== null ? previous : null;
   const decided = approvalsDecided(totals);
-  const okPct = okPercent(totals.runsDone, totals.runsFailed);
+  const okPct = okPercent(totals.runsByKind.automation.done, totals.runsByKind.automation.failed);
 
   return (
     <div className="flex flex-col gap-4">
@@ -93,10 +93,10 @@ export function SummaryBody({
         <StatTile
           testId="overview-tile-tasks"
           label={i18n.t("overview.summary.tile.tasks")}
-          value={tasksOf(totals)}
-          {...(prev === null ? {} : { previous: tasksOf(prev), periodLabel: vs })}
+          value={tasksDone(totals)}
+          {...(prev === null ? {} : { previous: tasksDone(prev), periodLabel: vs })}
           spark={taskSpark(days)}
-          {...linkProps(recentLink(period, { filter: "tasks" }, onNavigate))}
+          {...linkProps(recentLink(period, { filter: "tasks", status: "done" }, onNavigate))}
         />
         <StatTile
           testId="overview-tile-automations"
@@ -108,7 +108,7 @@ export function SummaryBody({
             okPct === null ? undefined : (
               <RunHealth
                 pct={okPct}
-                failed={totals.runsFailed}
+                failed={totals.runsByKind.automation.failed}
                 failedLink={recentLink(period, { filter: "failed" }, onNavigate)}
               />
             )
@@ -164,7 +164,7 @@ function Sentence({
   const args = {
     period: PERIOD_WORD[period],
     name,
-    tasks: tasksOf(totals),
+    tasks: tasksDone(totals),
     automations: totals.runs.automation,
   };
   const first = i18n.t(`overview.summary.sentence.${kinds}` as MessageId, args);

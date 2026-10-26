@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (O4b, agent overview: per-kind run outcomes in `insights.summary`)
+
+- `InsightTotals.runsByKind`: `{task, chat, automation, subagent}`, each `{done, failed}`, counted over the same runs as `runsDone` / `runsFailed` (so the done and failed sums match). Lets the Overview show "tasks done" (task plus chat, status done) and an automation-only success rate. Response-only addition: no new methods, events or enum values, no migration; Swift gains the field only.
+
 ### v1 additive — 2026-10-26 (O1, agent overview: `insights.summary`, docs/design/agent-overview-2026.md §6.2)
 
 - New read-only method `insights.summary` (`operator.read`): `{window: "7d" | "30d" | "all", timeZone?}` returns `range`, `firstActivityAt`, `totals` and `previous` (`InsightTotals`, `previous` null for `all`), `days` (`InsightDay[]`, zeros included; 7, 30 or 371 for `all`) and `topEntities` (`InsightEntity[]`, at most 12). New schemas `InsightTotals`, `InsightDay`, `InsightEntity`. No new events, no new enum values, no migration; Swift gains the method only.

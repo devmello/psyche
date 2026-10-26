@@ -19,7 +19,7 @@ import {
   okPercent,
   summaryKinds,
   taskSpark,
-  tasksOf,
+  tasksDone,
 } from "../src/overview/summaryModel.ts";
 import { STORY_NOW, StoryWorld } from "../src/stories/harness.tsx";
 
@@ -33,16 +33,26 @@ describe("the Recent runs filter in the URL", () => {
     expect(recentHref("7d")).toBe("/overview");
     expect(recentHref("30d", { filter: "failed" })).toBe("/overview?period=30d&filter=failed");
     expect(recentHref("7d", { day: "2026-10-14" })).toBe("/overview?day=2026-10-14");
+    expect(recentHref("30d", { filter: "tasks", status: "done" })).toBe(
+      "/overview?period=30d&filter=tasks&status=done",
+    );
+    expect(parseRecentFilter("/overview?period=30d&filter=tasks&status=done")).toEqual({
+      filter: "tasks",
+      status: "done",
+      day: null,
+    });
     expect(parseRecentFilter("/overview?period=30d&filter=failed&day=2026-10-14")).toEqual({
       filter: "failed",
+      status: null,
       day: "2026-10-14",
     });
     expect(parseRecentFilter("filter=tasks#recent").filter).toBe("tasks");
   });
 
   it("ignores anything it does not know", () => {
-    expect(parseRecentFilter("/overview?filter=bogus&day=yesterday")).toEqual({
+    expect(parseRecentFilter("/overview?filter=bogus&status=weird&day=yesterday")).toEqual({
       filter: "all",
+      status: null,
       day: null,
     });
     expect(recentHref("7d", { day: "nope" })).toBe("/overview");
@@ -62,9 +72,10 @@ describe("the Recent runs filter in the URL", () => {
 describe("summary maths", () => {
   const month = insightsFixtures("typical")["30d"];
 
-  it("counts tasks as task plus chat runs and approvals as decided ones", () => {
+  it("counts tasks done as task plus chat runs with status done, and approvals as decided", () => {
     const t = month.totals;
-    expect(tasksOf(t)).toBe(t.runs.task + t.runs.chat);
+    expect(tasksDone(t)).toBe(t.runsByKind.task.done + t.runsByKind.chat.done);
+    expect(tasksDone(t)).toBeLessThanOrEqual(t.runs.task + t.runs.chat);
     expect(approvalsDecided(t)).toBe(
       t.approvals.approved + t.approvals.denied + t.approvals.expired,
     );
@@ -79,9 +90,16 @@ describe("summary maths", () => {
 
   it("drops a clause when its number is 0", () => {
     const base = month.totals;
-    const zero = { ...base, runs: { ...base.runs, task: 0, chat: 0, automation: 0 } };
+    const none = { done: 0, failed: 0 };
+    const zero = {
+      ...base,
+      runs: { ...base.runs, task: 0, chat: 0, automation: 0 },
+      runsByKind: { ...base.runsByKind, task: none, chat: none, automation: none },
+    };
     expect(summaryKinds(base)).toBe("both");
-    expect(summaryKinds({ ...zero, runs: { ...zero.runs, task: 3 } })).toBe("tasks");
+    expect(
+      summaryKinds({ ...zero, runsByKind: { ...zero.runsByKind, task: { done: 3, failed: 0 } } }),
+    ).toBe("tasks");
     expect(summaryKinds({ ...zero, runs: { ...zero.runs, automation: 2 } })).toBe("automations");
     expect(summaryKinds(zero)).toBe("none");
   });
@@ -123,11 +141,12 @@ describe("Summary", () => {
 
     const tasks = await screen.findByTestId("overview-tile-tasks");
     expect(within(tasks).getByRole("link").getAttribute("href")).toBe(
-      "/overview?period=30d&filter=tasks",
+      "/overview?period=30d&filter=tasks&status=done",
     );
     fireEvent.click(within(tasks).getByRole("link"));
-    expect(onNavigate).toHaveBeenCalledWith("/overview?period=30d&filter=tasks");
+    expect(onNavigate).toHaveBeenCalledWith("/overview?period=30d&filter=tasks&status=done");
 
+    expect(within(tasks).getByText("Tasks done")).toBeTruthy();
     const autos = screen.getByTestId("overview-tile-automations");
     expect(within(autos).getByTestId("overview-run-health").textContent).toMatch(/ok/);
     const failed = within(autos).getByRole("link", { name: /failed/ });

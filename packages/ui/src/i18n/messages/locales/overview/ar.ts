@@ -24,9 +24,9 @@ export const overview: Partial<Catalogue> = {
   "overview.error.load": "تعذّر التحميل",
   "overview.summary.label": "الملخص",
   "overview.summary.sentence.both":
-    "{period, select, week {هذا الأسبوع} month {هذا الشهر} other {إجمالًا}}، تولّى {name} من أجلك {tasks, plural, zero {لا مهام ولا محادثات} one {مهمة أو محادثة واحدة} two {مهمتين أو محادثتين} few {# مهام ومحادثات} many {# مهمة ومحادثة} other {# مهمة ومحادثة}} وشغّل {automations, plural, zero {لا أتمتة} one {أتمتة واحدة} two {أتمتتين} few {# عمليات أتمتة} many {# أتمتة} other {# أتمتة}}.",
+    "{period, select, week {هذا الأسبوع} month {هذا الشهر} other {إجمالًا}}، أنجز {name} من أجلك {tasks, plural, zero {لا مهام ولا محادثات} one {مهمة أو محادثة واحدة} two {مهمتين أو محادثتين} few {# مهام ومحادثات} many {# مهمة ومحادثة} other {# مهمة ومحادثة}} وشغّل {automations, plural, zero {لا أتمتة} one {أتمتة واحدة} two {أتمتتين} few {# عمليات أتمتة} many {# أتمتة} other {# أتمتة}}.",
   "overview.summary.sentence.tasks":
-    "{period, select, week {هذا الأسبوع} month {هذا الشهر} other {إجمالًا}}، تولّى {name} من أجلك {tasks, plural, zero {لا مهام ولا محادثات} one {مهمة أو محادثة واحدة} two {مهمتين أو محادثتين} few {# مهام ومحادثات} many {# مهمة ومحادثة} other {# مهمة ومحادثة}}.",
+    "{period, select, week {هذا الأسبوع} month {هذا الشهر} other {إجمالًا}}، أنجز {name} من أجلك {tasks, plural, zero {لا مهام ولا محادثات} one {مهمة أو محادثة واحدة} two {مهمتين أو محادثتين} few {# مهام ومحادثات} many {# مهمة ومحادثة} other {# مهمة ومحادثة}}.",
   "overview.summary.sentence.automations":
     "{period, select, week {هذا الأسبوع} month {هذا الشهر} other {إجمالًا}}، شغّل {name} من أجلك {automations, plural, zero {لا أتمتة} one {أتمتة واحدة} two {أتمتتين} few {# عمليات أتمتة} many {# أتمتة} other {# أتمتة}}.",
   "overview.summary.sentence.none":
@@ -35,7 +35,7 @@ export const overview: Partial<Catalogue> = {
     "تعلّم {name} منك {n, plural, zero {لا دروس} one {درسًا واحدًا} two {درسين} few {# دروس} many {# درسًا} other {# درس}}.",
   "overview.summary.quiet":
     "{period, select, week {لا شيء هذا الأسبوع.} month {لا شيء هذا الشهر.} other {لا شيء بعد.}}",
-  "overview.summary.tile.tasks": "المهام والمحادثات",
+  "overview.summary.tile.tasks": "المهام المنجزة",
   "overview.summary.tile.automations": "الأتمتة المُشغَّلة",
   "overview.summary.tile.approvals": "الموافقات المحسومة",
   "overview.summary.tile.lessons": "الدروس المتعلَّمة",
