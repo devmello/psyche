@@ -3,6 +3,7 @@ import { canvas } from "./canvas/ko.ts";
 import { charts } from "./charts/ko.ts";
 import { mailMeetings } from "./mail-meetings/ko.ts";
 import { overview } from "./overview/ko.ts";
+import { overviewGrowth } from "./overview-growth/ko.ts";
 import { workflows } from "./workflows/ko.ts";
 
 /** Korean catalogue (ko). Same ids as `en`; missing ids fall back to English. */
@@ -13,6 +14,8 @@ export const ko: Partial<Catalogue> = {
   ...workflows,
   // the Overview screen (docs/design/agent-overview-2026.md)
   ...overview,
+  // Overview Growth and People & projects (docs/design/agent-overview-2026.md §5.4)
+  ...overviewGrowth,
   // the output canvas (docs/design/chat-experience-2026.md §4.2)
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)

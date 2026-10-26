@@ -1,0 +1,62 @@
+import type { Catalogue } from "../../index.ts";
+
+/** Overview Growth and People & projects strings (fr); merged into `../fr.ts`. */
+export const overviewGrowth: Partial<Catalogue> = {
+  "overview.meta.7d": "7 derniers jours",
+  "overview.meta.30d": "30 derniers jours",
+  "overview.meta.all": "Depuis toujours",
+  "overview.growth.loading": "Chargement de la progression",
+  "overview.growth.loadFailed": "Impossible de charger la progression",
+  "overview.growth.empty": "Rien n’a encore été appris sur cette période.",
+  "overview.growth.counts": "Leçons de cette période",
+  "overview.growth.learned": "{n, plural, one {# leçon apprise} other {# leçons apprises}}",
+  "overview.growth.refined": "{n, plural, one {# affinée} other {# affinées}}",
+  "overview.growth.confirmed": "{n, plural, one {# confirmée} other {# confirmées}}",
+  "overview.growth.forgotten": "{n, plural, one {# oubliée} other {# oubliées}}",
+  "overview.growth.milestones": "Étapes marquantes",
+  "overview.growth.seeAll": "Voir toutes les leçons",
+  "overview.growth.sheetTitle": "Ce que {agent} a appris",
+  "overview.growth.evidenceTitle": "Événements derrière « {metric} »",
+  "overview.growth.card.thisWeek": "Leçons de cette semaine ({n})",
+  "overview.growth.card.week": "Leçons de la semaine du {date} ({n})",
+  "overview.growth.card.review": "Passer en revue",
+  "overview.growth.card.sheetTitle": "Ce que {agent} a appris cette semaine",
+  "overview.growth.card.sheetDescription": "Gardez, modifiez ou oubliez ce que {agent} a retenu.",
+  "overview.people.loading": "Chargement des personnes et des projets",
+  "overview.people.loadFailed": "Impossible de charger les personnes et les projets",
+  "overview.people.paused":
+    "Le graphe des personnes et des projets est en pause : rien n’est suivi. Activez-le dans les réglages pour le voir ici.",
+  "overview.people.empty":
+    "Personne pour l’instant sur cette période. Les personnes et les projets apparaissent ici dès que {agent} travaille avec eux pour vous.",
+  "overview.people.map": "Carte des personnes et des projets",
+  "overview.people.mapHint":
+    "Les flèches passent d’une personne ou d’un projet à l’autre, les plus actifs d’abord. Entrée en ouvre un.",
+  "overview.people.caption":
+    "Plus près de vous signifie plus récent. Plus grand signifie plus d’interactions. Les cercles sont des personnes ; les carrés, des projets et des organisations.",
+  "overview.people.you": "Vous",
+  "overview.people.ring.0": "Cette semaine",
+  "overview.people.ring.1": "Ce mois-ci",
+  "overview.people.ring.2": "Avant",
+  "overview.people.kind.person": "Personne",
+  "overview.people.kind.org": "Organisation",
+  "overview.people.kind.project": "Projet",
+  "overview.people.kind.place": "Lieu",
+  "overview.people.interactions": "{n, plural, one {# interaction} other {# interactions}}",
+  "overview.people.openLoops": "{n, plural, one {# point en suspens} other {# points en suspens}}",
+  "overview.people.last": "Dernière interaction {when}",
+  "overview.people.node": "{name}, {kind}. {interactions}. Dernière interaction {when}. {loops}.",
+  "overview.people.detailHint":
+    "Survolez ou placez le focus sur une personne ou un projet pour voir ses détails.",
+  "overview.people.counts":
+    "{people, plural, one {# personne} other {# personnes}} · {projects, plural, one {# projet} other {# projets}} · {loops, plural, one {# point en suspens} other {# points en suspens}}",
+  "overview.people.ranked": "{name} {n}",
+  "overview.people.showList": "Afficher en liste",
+  "overview.people.showMap": "Afficher la carte",
+  "overview.people.seeAll": "Tout voir",
+  "overview.people.list": "Personnes et projets, les plus actifs d’abord",
+  "overview.people.table.name": "Nom",
+  "overview.people.table.kind": "Type",
+  "overview.people.table.interactions": "Interactions",
+  "overview.people.table.last": "Dernière interaction",
+  "overview.people.table.loops": "Points en suspens",
+};
