@@ -877,7 +877,6 @@ export const es: Partial<Catalogue> = {
   "settings.nav.model": "Modelo y proveedores",
   "settings.nav.persona": "Personalidad",
   "settings.nav.connectors": "Conectores",
-  "settings.nav.mcp": "Servidores MCP",
   "settings.nav.skills": "Habilidades",
   "settings.nav.permissions": "Permisos",
   "settings.nav.computerUse": "Uso del ordenador",
@@ -1485,11 +1484,8 @@ export const es: Partial<Catalogue> = {
   "settings.connectors.catalog.appleMail": "Mail de Apple",
   "settings.connectors.catalog.mcp": "Servidor MCP",
   "settings.connectors.catalog.slack": "Slack",
-  "settings.connectors.mcpExplain":
-    "Los servidores MCP conectan servidores de herramientas externos que hablan el Model Context Protocol. Añade uno en Ajustes → Servidores MCP.",
   "settings.connectors.slackExplain":
     "Slack es un canal: ahí hablas con Psyche. Configúralo en Ajustes → Canales.",
-  "settings.connectors.openMcp": "Abrir Servidores MCP",
   "settings.connectors.openChannels": "Abrir Canales",
   "settings.connectors.status.connected": "Conectado",
   "settings.connectors.status.disconnected": "Desconectado",
@@ -1516,10 +1512,6 @@ export const es: Partial<Catalogue> = {
   "settings.connectors.accountType": "Tipo de cuenta",
   "settings.connectors.whatCan": "¿Qué puede hacer {persona} con ella?",
   "settings.connectors.continue": "Continuar para iniciar sesión",
-  "settings.mcp.title": "Servidores MCP",
-  "settings.mcp.description":
-    "Servidores de herramientas externos que hablan el Model Context Protocol. Los servidores de comando se ejecutan en un entorno aislado; cada uno se comprueba y se aprueba antes de que Psyche pueda usar sus herramientas.",
-  "settings.mcp.loadLabel": "los servidores MCP",
   "settings.mcp.empty":
     "Aún no hay servidores MCP. Añade uno para darle sus herramientas a Psyche.",
   "settings.mcp.add": "Añadir servidor MCP",
@@ -2591,7 +2583,6 @@ export const es: Partial<Catalogue> = {
   "screens.feed.sources": "Fuentes",
   "screens.feed.feedbackOn": "Opinión sobre {title}",
   "screens.feed.like": "Me gusta",
-  "screens.feed.ask": "Preguntar a {name}",
   "screens.feed.moreFeedback": "Más opiniones sobre {title}",
   "screens.feed.follow": "Seguir: {topic}",
   "screens.feed.followTopic": "Seguir el tema",
@@ -3404,7 +3395,6 @@ export const es: Partial<Catalogue> = {
   "screenAsk.answer.thinking": "Pensando…",
   "screenAsk.answer.failed": "Algo salió mal. Abre la conversación para ver más.",
   "screenAsk.open": "Abrir en Psyche",
-  "screenAsk.cancelHint": "Esc para cerrar",
   "screenAsk.region.hint": "Arrastra para seleccionar un área. Esc mantiene la ventana completa.",
   "screenAsk.region.label": "Selecciona un área de la pantalla",
   "settings.screenAsk.title": "Preguntar sobre la pantalla",

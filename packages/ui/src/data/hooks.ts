@@ -4,6 +4,8 @@ import type {
   ArtifactOp,
   ArtifactVersion,
   Automation,
+  Block,
+  ChatContextRef,
   CompactionResult,
   ContextLimits,
   FeedPost,
@@ -393,6 +395,7 @@ export function useThread(threadId: string | null) {
       mode: QueueMode | undefined,
       replyToMessageId?: string | null,
       attachments?: readonly string[],
+      context?: SendContext,
     ) => {
       if (threadId === null) return;
       const pendingId = `pending-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
@@ -402,7 +405,15 @@ export function useThread(threadId: string | null) {
       // the request settles, and a failed send leaves nothing behind for the caller to retry.
       return store.mutate({
         optimistic: (s) =>
-          withPendingUserMessage(s, threadId, pendingId, content, createdAt, baseSeq),
+          withPendingUserMessage(
+            s,
+            threadId,
+            pendingId,
+            content,
+            createdAt,
+            baseSeq,
+            context?.block,
+          ),
         run: () =>
           store.call("chat.send", {
             threadId,
@@ -410,6 +421,7 @@ export function useThread(threadId: string | null) {
             ...(mode ? { mode } : {}),
             ...(replyToMessageId ? { replyToMessageId } : {}),
             ...(attachments && attachments.length > 0 ? { attachments: [...attachments] } : {}),
+            ...(context ? { context: context.ref } : {}),
           }),
       });
     },
@@ -429,10 +441,22 @@ export function useThread(threadId: string | null) {
         replyToMessageId?: string | null;
         /** Library item ids (finished uploads) sent with the message. */
         attachments?: readonly string[];
+        /** What the message is about (Feed "Ask about this"); sent at once, never queued. */
+        context?: SendContext;
       } = {},
     ) => {
       if (threadId === null) return;
       const mode = options.mode ?? "followUp";
+      if (options.context) {
+        await sendNow(
+          content,
+          view.running ? mode : undefined,
+          options.replyToMessageId ?? null,
+          options.attachments,
+          options.context,
+        );
+        return;
+      }
       if (view.running && mode === "followUp") {
         const item: QueuedFollowUp = {
           id: `queued-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
@@ -1413,6 +1437,12 @@ export function useStreamingText(messageId: string): string | null {
   return useStoreState((s) => s.streaming[messageId]?.text ?? null);
 }
 
+/** What a message is about: the ref the Gateway resolves, and the card shown before it answers. */
+export interface SendContext {
+  ref: ChatContextRef;
+  block: Extract<Block, { type: "context" }>;
+}
+
 /** A user message the Gateway has not echoed yet; skipped once the real one is in the store. */
 function withPendingUserMessage(
   s: UiState,
@@ -1421,6 +1451,7 @@ function withPendingUserMessage(
   content: string,
   createdAt: string,
   baseSeq: number,
+  context?: Extract<Block, { type: "context" }>,
 ): UiState {
   const list = s.messages[threadId] ?? EMPTY;
   const echoed = list.some(
@@ -1435,7 +1466,7 @@ function withPendingUserMessage(
     threadId,
     seq: Math.max(baseSeq, list[list.length - 1]?.seq ?? -1) + 1,
     role: "user",
-    blocks: [{ type: "text", md: content }],
+    blocks: [...(context ? [context] : []), { type: "text", md: content }],
     providerNative: null,
     provenance: "owner",
     replyToMessageId: null,

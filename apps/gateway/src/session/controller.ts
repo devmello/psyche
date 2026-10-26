@@ -41,13 +41,21 @@ type TurnImages = { mime: string; data: string }[];
 interface TurnExtra {
   preamble?: string;
   images?: TurnImages;
+  /** What the message is about (Ask about this), recorded ahead of its text. */
+  contextBlocks?: Block[];
 }
 
 function turnExtra(input: SendInput): TurnExtra | undefined {
-  if (input.preamble === undefined && (input.images ?? []).length === 0) return undefined;
+  if (
+    input.preamble === undefined &&
+    (input.images ?? []).length === 0 &&
+    (input.contextBlocks ?? []).length === 0
+  )
+    return undefined;
   return {
     ...(input.preamble === undefined ? {} : { preamble: input.preamble }),
     ...((input.images ?? []).length === 0 ? {} : { images: input.images }),
+    ...((input.contextBlocks ?? []).length === 0 ? {} : { contextBlocks: input.contextBlocks }),
   };
 }
 
@@ -89,6 +97,8 @@ export interface SendInput {
   preamble?: string;
   /** Images the model sees with the message (a pinned screen capture); same rule as `preamble`. */
   images?: { mime: string; data: string }[];
+  /** The cards of what the message is about (Ask about this), shown ahead of its text; same rule. */
+  contextBlocks?: Block[];
 }
 
 type Emit = <E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string) => void;
@@ -162,8 +172,13 @@ export function withQuote(quote: Quote | undefined, content: string): string {
   return `[Replying to ${whose} ${quote.messageId}]\n> ${quote.text}\n\n${content}`;
 }
 
-function userBlocks(content: string, attachments: readonly string[]): Block[] {
+function userBlocks(
+  content: string,
+  attachments: readonly string[],
+  contextBlocks: readonly Block[] = [],
+): Block[] {
   return [
+    ...contextBlocks,
     { type: "text", md: content },
     ...attachments.map((id): Block => ({ type: "file", libraryItemId: id })),
   ];
@@ -343,7 +358,7 @@ export class SessionController {
           ...(messageId ? { id: messageId } : {}),
           threadId: thread.id,
           role: "user",
-          blocks: userBlocks(content, attachments),
+          blocks: userBlocks(content, attachments, extra?.contextBlocks),
           provenance: provenance === "agent" ? "agent" : messageProvenance(requester),
           replyToMessageId: quote?.messageId ?? null,
         },
@@ -376,7 +391,7 @@ export class SessionController {
       {
         threadId: thread.id,
         role: "user",
-        blocks: userBlocks(content, attachments),
+        blocks: userBlocks(content, attachments, extra?.contextBlocks),
         provenance: provenance === "agent" ? "agent" : messageProvenance(requester),
         replyToMessageId: quote?.messageId ?? null,
         runId: run.id,

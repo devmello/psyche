@@ -857,7 +857,6 @@ export const hi: Partial<Catalogue> = {
   "settings.nav.model": "मॉडल और प्रदाता",
   "settings.nav.persona": "पर्सोना",
   "settings.nav.connectors": "कनेक्टर",
-  "settings.nav.mcp": "MCP सर्वर",
   "settings.nav.skills": "स्किल",
   "settings.nav.permissions": "अनुमतियाँ",
   "settings.nav.computerUse": "कंप्यूटर उपयोग",
@@ -1444,11 +1443,8 @@ export const hi: Partial<Catalogue> = {
   "settings.connectors.catalog.appleMail": "Apple मेल",
   "settings.connectors.catalog.mcp": "MCP सर्वर",
   "settings.connectors.catalog.slack": "Slack",
-  "settings.connectors.mcpExplain":
-    "MCP सर्वर ऐसे बाहरी टूल सर्वर जोड़ते हैं जो Model Context Protocol बोलते हैं। सेटिंग्ज़ → MCP सर्वर में एक जोड़ें।",
   "settings.connectors.slackExplain":
     "Slack एक चैनल है: आप वहाँ Psyche से चैट करते हैं। इसे सेटिंग्ज़ → चैनल में सेट अप करें।",
-  "settings.connectors.openMcp": "MCP सर्वर खोलें",
   "settings.connectors.openChannels": "चैनल खोलें",
   "settings.connectors.status.connected": "कनेक्टेड",
   "settings.connectors.status.disconnected": "डिस्कनेक्टेड",
@@ -1475,10 +1471,6 @@ export const hi: Partial<Catalogue> = {
   "settings.connectors.accountType": "खाता प्रकार",
   "settings.connectors.whatCan": "{persona} इसके साथ क्या कर सकता है?",
   "settings.connectors.continue": "साइन इन के लिए आगे बढ़ें",
-  "settings.mcp.title": "MCP सर्वर",
-  "settings.mcp.description":
-    "बाहरी टूल सर्वर जो Model Context Protocol बोलते हैं। कमांड सर्वर सैंडबॉक्स में चलते हैं; Psyche के इसके टूल उपयोग करने से पहले हर एक की जाँच और स्वीकृति होती है।",
-  "settings.mcp.loadLabel": "MCP सर्वर",
   "settings.mcp.empty": "अभी कोई MCP सर्वर नहीं। Psyche को इसके टूल देने के लिए एक जोड़ें।",
   "settings.mcp.add": "MCP सर्वर जोड़ें",
   "settings.mcp.addHint":
@@ -2506,7 +2498,6 @@ export const hi: Partial<Catalogue> = {
   "screens.feed.sources": "स्रोत",
   "screens.feed.feedbackOn": "{title} पर प्रतिक्रिया",
   "screens.feed.like": "पसंद",
-  "screens.feed.ask": "{name} से पूछें",
   "screens.feed.moreFeedback": "{title} पर और प्रतिक्रिया",
   "screens.feed.follow": "फ़ॉलो करें: {topic}",
   "screens.feed.followTopic": "विषय फ़ॉलो करें",
@@ -3294,7 +3285,6 @@ export const hi: Partial<Catalogue> = {
   "screenAsk.answer.thinking": "सोच रहा है…",
   "screenAsk.answer.failed": "कुछ गड़बड़ हो गई। ज़्यादा जानने के लिए चैट खोलें।",
   "screenAsk.open": "Psyche में खोलें",
-  "screenAsk.cancelHint": "बंद करने के लिए Esc",
   "screenAsk.region.hint": "कोई हिस्सा चुनने के लिए खींचें। Esc पूरी विंडो रखता है।",
   "screenAsk.region.label": "स्क्रीन का कोई हिस्सा चुनें",
   "settings.screenAsk.title": "स्क्रीन के बारे में पूछें",

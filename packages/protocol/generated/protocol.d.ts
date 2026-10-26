@@ -2408,6 +2408,11 @@ export interface Block {
     artifactId?:     string;
     preview?:        string;
     libraryItemId?:  string;
+    id?:             string;
+    kind?:           BlockKind;
+    source?:         string;
+    title?:          string;
+    url?:            string;
     receiptId?:      string;
     taskId?:         string;
     actions?:        WrapUpAction[];
@@ -2446,6 +2451,8 @@ export type LearnedFactKind = "name" | "preference" | "routine" | "person" | "pr
 
 export type ChecklistItemStatus = "pending" | "in_progress" | "completed";
 
+export type BlockKind = "feed_item";
+
 export interface Replaced {
     fromMessageId?: null | string;
     toMessageId?:   null | string;
@@ -2463,7 +2470,7 @@ export interface CompactionSummary {
 
 export type BlockTrigger = "auto" | "manual";
 
-export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "receipt" | "task" | "wrap_up" | "related_threads" | "compaction" | "learned" | "taught" | "specialist_result";
+export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "context" | "receipt" | "task" | "wrap_up" | "related_threads" | "compaction" | "learned" | "taught" | "specialist_result";
 
 export interface ChatCancelParams {
     runId?:   string;
@@ -2614,11 +2621,17 @@ export interface ChatSendParams {
      */
     attachments?:      string[];
     content:           string;
+    context?:          ChatContextRef;
     mode?:             QueueMode;
     redo?:             Redo;
     replyToMessageId?: string;
     screen?:           ChatScreenRef;
     threadId:          string;
+}
+
+export interface ChatContextRef {
+    id:   string;
+    kind: BlockKind;
 }
 
 export type QueueMode = "steer" | "followUp" | "interrupt";
@@ -3055,6 +3068,17 @@ export interface ConnectorsUpdatedPayload {
 }
 
 export type ConnectorsUpdatedPayloadReason = "connected" | "authorization_failed" | "disconnected" | "needs_auth" | "removed" | "updated";
+
+export interface ContextBlock {
+    id:      string;
+    kind:    BlockKind;
+    source?: string;
+    title:   string;
+    type:    ContextBlockType;
+    url?:    string;
+}
+
+export type ContextBlockType = "context";
 
 export interface CredentialUpdatedPayload {
     change:            Change;

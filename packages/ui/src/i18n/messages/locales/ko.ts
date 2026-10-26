@@ -843,7 +843,6 @@ export const ko: Partial<Catalogue> = {
   "settings.nav.model": "모델 및 제공업체",
   "settings.nav.persona": "페르소나",
   "settings.nav.connectors": "커넥터",
-  "settings.nav.mcp": "MCP 서버",
   "settings.nav.skills": "스킬",
   "settings.nav.permissions": "권한",
   "settings.nav.computerUse": "컴퓨터 사용",
@@ -1420,11 +1419,8 @@ export const ko: Partial<Catalogue> = {
   "settings.connectors.catalog.appleMail": "Apple Mail",
   "settings.connectors.catalog.mcp": "MCP 서버",
   "settings.connectors.catalog.slack": "Slack",
-  "settings.connectors.mcpExplain":
-    "MCP 서버는 Model Context Protocol을 사용하는 외부 도구 서버를 연결합니다. 설정 → MCP 서버에서 추가하십시오.",
   "settings.connectors.slackExplain":
     "Slack은 채널입니다. 그곳에서 Psyche와 대화합니다. 설정 → 채널에서 설정하십시오.",
-  "settings.connectors.openMcp": "MCP 서버 열기",
   "settings.connectors.openChannels": "채널 열기",
   "settings.connectors.status.connected": "연결됨",
   "settings.connectors.status.disconnected": "연결 해제됨",
@@ -1451,10 +1447,6 @@ export const ko: Partial<Catalogue> = {
   "settings.connectors.accountType": "계정 유형",
   "settings.connectors.whatCan": "{persona}이(가) 이것으로 무엇을 할 수 있습니까?",
   "settings.connectors.continue": "계속해서 로그인",
-  "settings.mcp.title": "MCP 서버",
-  "settings.mcp.description":
-    "Model Context Protocol을 사용하는 외부 도구 서버입니다. 명령 서버는 샌드박스에서 실행되며, Psyche가 도구를 사용하기 전에 각각 점검하고 승인합니다.",
-  "settings.mcp.loadLabel": "MCP 서버",
   "settings.mcp.empty": "아직 MCP 서버가 없습니다. 추가하여 Psyche에 도구를 제공하십시오.",
   "settings.mcp.add": "MCP 서버 추가",
   "settings.mcp.addHint":
@@ -2487,7 +2479,6 @@ export const ko: Partial<Catalogue> = {
   "screens.feed.sources": "출처",
   "screens.feed.feedbackOn": "{title}에 대한 피드백",
   "screens.feed.like": "좋아요",
-  "screens.feed.ask": "{name}에게 묻기",
   "screens.feed.moreFeedback": "{title}에 대한 추가 피드백",
   "screens.feed.follow": "팔로우: {topic}",
   "screens.feed.followTopic": "주제 팔로우",
@@ -3276,7 +3267,6 @@ export const ko: Partial<Catalogue> = {
   "screenAsk.answer.thinking": "생각하는 중…",
   "screenAsk.answer.failed": "문제가 발생했습니다. 자세한 내용은 채팅을 여세요.",
   "screenAsk.open": "Psyche에서 열기",
-  "screenAsk.cancelHint": "Esc를 눌러 닫기",
   "screenAsk.region.hint": "드래그하여 영역을 선택하세요. Esc를 누르면 창 전체를 유지합니다.",
   "screenAsk.region.label": "화면의 영역 선택",
   "settings.screenAsk.title": "화면에 대해 묻기",

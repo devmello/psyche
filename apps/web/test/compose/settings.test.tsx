@@ -64,6 +64,11 @@ describe("policy ↔ folder grants", () => {
     expect(settingsSectionOf("/settings/general")).toBe("model");
     expect(settingsSectionOf("/chat")).toBeNull();
   });
+
+  it("sends the old /settings/mcp route to Connectors", () => {
+    expect(settingsSectionOf("/settings/mcp")).toBe("connectors");
+    expect(settingsSectionOf("/settings/connectors/add-mcp")).toBe("connectors");
+  });
 });
 
 function platformWith(pickFolder: (() => Promise<string | null>) | undefined): ShellPlatform {

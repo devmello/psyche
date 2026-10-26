@@ -3,18 +3,23 @@ import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { FIXTURE_NOW } from "../src/fixtures/index.ts";
-import { offeredCatalog } from "../src/screens/settings/ConnectorsSection.tsx";
-import { serverId, splitCommand, toServerInput } from "../src/screens/settings/McpSection.tsx";
+import { type ConnectorsView, offeredCatalog } from "../src/screens/settings/ConnectorsSection.tsx";
+import { serverId, splitCommand, toServerInput } from "../src/screens/settings/mcp-input.ts";
 import { SettingsScreen, type SettingsSectionId } from "../src/screens/settings/SettingsScreen.tsx";
+import { parseSettingsRoute } from "../src/screens/settings/settings-route.ts";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
-/** #529: Settings → MCP servers (probe, trust card, add, remove) and the connector catalog rows. */
+/** #529: MCP servers inside Settings → Connectors (probe, trust card, add, remove) and the catalog rows. */
 
-function setup(section: SettingsSectionId): () => MockGateway {
+function setup(section: SettingsSectionId, connectorsView?: ConnectorsView): () => MockGateway {
   let gw: MockGateway | null = null;
   render(
     <StoryWorld onGateway={(g) => (gw = g)}>
-      <SettingsScreen now={Date.parse(FIXTURE_NOW)} defaultSection={section} />
+      <SettingsScreen
+        now={Date.parse(FIXTURE_NOW)}
+        defaultSection={section}
+        {...(connectorsView === undefined ? {} : { connectorsView })}
+      />
     </StoryWorld>,
   );
   return () => {
@@ -55,7 +60,7 @@ describe("MCP server input", () => {
 });
 
 describe("connector catalog (#529)", () => {
-  it("offers only what the Gateway implements, plus the MCP and Slack rows in Settings", () => {
+  it("offers only what the Gateway implements, plus the Custom MCP server and Slack rows", () => {
     const types = (rows: readonly { type: string }[]) => rows.map((r) => r.type);
     expect(types(offeredCatalog(new Set(["google", "apple:notes"])))).toEqual([
       "google",
@@ -66,29 +71,39 @@ describe("connector catalog (#529)", () => {
     // Onboarding: real connectors only.
     expect(types(offeredCatalog(new Set(["google"]), { navigation: false }))).toEqual(["google"]);
   });
+});
 
-  it("the MCP row explains MCP and opens Settings → MCP servers; Slack opens Channels", async () => {
-    setup("connectors");
-    await waitFor(async () => {
-      await userEvent.click(
-        screen.getAllByRole("button", { name: "Connect an account" })[0] as HTMLElement,
-      );
-      expect(screen.getByLabelText("Account type")).toBeTruthy();
+describe("old MCP route", () => {
+  it("redirects /settings/mcp to Connectors with the MCP servers showing", () => {
+    expect(parseSettingsRoute("/settings/mcp")).toEqual({ section: "connectors", view: "mcp" });
+    expect(parseSettingsRoute("/settings/connectors/add-mcp")).toEqual({
+      section: "connectors",
+      view: "add-mcp",
     });
-    await userEvent.selectOptions(screen.getByLabelText("Account type"), "mcp");
-    expect(
-      screen.getByText(/plug in external tool servers that speak the Model Context Protocol/),
-    ).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "Open MCP servers" }));
-    expect(await screen.findByRole("heading", { level: 2, name: "MCP servers" })).toBeTruthy();
+    expect(parseSettingsRoute("/settings/connectors")).toEqual({ section: "connectors" });
+  });
+
+  it("has no MCP section in the nav", () => {
+    setup("connectors");
+    const nav = screen.getByRole("navigation", { name: "Settings sections" });
+    expect(within(nav).queryByRole("button", { name: /MCP/ })).toBeNull();
+  });
+
+  it("opens Connectors on the MCP filter, listing only MCP servers", async () => {
+    setup("connectors", "mcp");
+    const notion = await screen.findByRole("article", { name: "Notion" });
+    expect(within(notion).getByText("MCP")).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "MCP servers" }).getAttribute("aria-checked")).toBe(
+      "true",
+    );
+    expect(screen.queryByRole("article", { name: /Gmail|Google/ })).toBeNull();
   });
 });
 
-describe("Settings → MCP servers", () => {
+describe("Connectors → Custom MCP server", () => {
   it("checks a command server, shows the trust card, and adds it once approved", async () => {
-    const gateway = setup("mcp");
-    await userEvent.click(await screen.findByRole("button", { name: "Add MCP server" }));
-    await userEvent.type(screen.getByLabelText("Name"), "Files");
+    const gateway = setup("connectors", "add-mcp");
+    await userEvent.type(await screen.findByLabelText("Name"), "Files");
     await userEvent.type(screen.getAllByLabelText("Command").at(-1) as HTMLElement, "npx -y files");
     await userEvent.click(screen.getByRole("button", { name: "Check server" }));
 
@@ -112,7 +127,23 @@ describe("Settings → MCP servers", () => {
 
     expect(await screen.findByText("Added Files.")).toBeTruthy();
     expect(methods(gateway())).toContain("mcp.add");
+    // The new server is a row like any connector: name, status, MCP and trust badges.
     const row = await screen.findByRole("article", { name: "Files" });
     expect(within(row).getByText("Connected")).toBeTruthy();
+    expect(within(row).getByText("MCP")).toBeTruthy();
+    expect(within(row).getByText("Trust: unverified")).toBeTruthy();
+  });
+
+  it("is a row of the Add connector form", async () => {
+    const gateway = setup("connectors");
+    await waitFor(async () => {
+      await userEvent.click(
+        screen.getAllByRole("button", { name: "Add connector" })[0] as HTMLElement,
+      );
+      expect(screen.getByLabelText("Connector type")).toBeTruthy();
+    });
+    await userEvent.selectOptions(screen.getByLabelText("Connector type"), "mcp");
+    expect(screen.getByRole("button", { name: "Check server" })).toBeTruthy();
+    expect(methods(gateway())).not.toContain("mcp.probe");
   });
 });

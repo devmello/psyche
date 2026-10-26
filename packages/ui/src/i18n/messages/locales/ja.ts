@@ -837,7 +837,6 @@ export const ja: Partial<Catalogue> = {
   "settings.nav.model": "モデルとプロバイダ",
   "settings.nav.persona": "ペルソナ",
   "settings.nav.connectors": "コネクタ",
-  "settings.nav.mcp": "MCPサーバ",
   "settings.nav.skills": "スキル",
   "settings.nav.permissions": "権限",
   "settings.nav.computerUse": "コンピュータ操作",
@@ -1420,11 +1419,8 @@ export const ja: Partial<Catalogue> = {
   "settings.connectors.catalog.appleMail": "Appleのメール",
   "settings.connectors.catalog.mcp": "MCPサーバ",
   "settings.connectors.catalog.slack": "Slack",
-  "settings.connectors.mcpExplain":
-    "MCPサーバは、Model Context Protocolに対応した外部のツールサーバを組み込みます。設定 → MCPサーバで追加してください。",
   "settings.connectors.slackExplain":
     "Slackはチャンネルです。そこでPsycheとチャットできます。設定 → チャンネルで設定してください。",
-  "settings.connectors.openMcp": "MCPサーバを開く",
   "settings.connectors.openChannels": "チャンネルを開く",
   "settings.connectors.status.connected": "接続済み",
   "settings.connectors.status.disconnected": "接続解除",
@@ -1451,10 +1447,6 @@ export const ja: Partial<Catalogue> = {
   "settings.connectors.accountType": "アカウントの種類",
   "settings.connectors.whatCan": "{persona}に何を許可しますか？",
   "settings.connectors.continue": "サインインに進む",
-  "settings.mcp.title": "MCPサーバ",
-  "settings.mcp.description":
-    "Model Context Protocolに対応した外部のツールサーバ。コマンド型のサーバはサンドボックスで実行され、Psycheがそのツールを使う前に、それぞれ確認と承認が行われます。",
-  "settings.mcp.loadLabel": "MCPサーバ",
   "settings.mcp.empty": "MCPサーバはまだありません。追加してPsycheにツールを与えましょう。",
   "settings.mcp.add": "MCPサーバを追加",
   "settings.mcp.addHint":
@@ -2502,7 +2494,6 @@ export const ja: Partial<Catalogue> = {
   "screens.feed.sources": "ソース",
   "screens.feed.feedbackOn": "{title}へのフィードバック",
   "screens.feed.like": "いいね",
-  "screens.feed.ask": "{name}に聞く",
   "screens.feed.moreFeedback": "{title}へのその他のフィードバック",
   "screens.feed.follow": "フォロー：{topic}",
   "screens.feed.followTopic": "トピックをフォロー",
@@ -3295,7 +3286,6 @@ export const ja: Partial<Catalogue> = {
   "screenAsk.answer.thinking": "考え中…",
   "screenAsk.answer.failed": "問題が起きました。詳しくはチャットを開いてください。",
   "screenAsk.open": "Psycheで開く",
-  "screenAsk.cancelHint": "Escで閉じる",
   "screenAsk.region.hint": "ドラッグして範囲を選択します。Escでウインドウ全体のままにします。",
   "screenAsk.region.label": "画面の範囲を選択",
   "settings.screenAsk.title": "画面について質問",

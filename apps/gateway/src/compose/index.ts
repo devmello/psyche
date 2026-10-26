@@ -96,6 +96,7 @@ import { composeComputer } from "./computer.ts";
 import { createContext } from "./context.ts";
 import { composeConversion } from "./convert.ts";
 import { composeDictation } from "./dictation.ts";
+import { feedContextResolver } from "./feed-context.ts";
 import { filesHandlers } from "./files.ts";
 import {
   mountParamsOnly,
@@ -1279,6 +1280,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   );
   ownPorts.add(gateway.port, "gateway (bound)");
   for (const part of parts) await part.start?.(gateway);
+  // Ask about this (Feed): `chat.send.context` names a feed item the agent reads as untrusted data.
+  gateway.context.chatContext.resolve = feedContextResolver(proactive.feed.store);
   await proactive.start();
   await ensureWeeklyCardAutomation(scheduler, {
     timezone: timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,

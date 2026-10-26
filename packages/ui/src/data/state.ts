@@ -4,6 +4,7 @@ import type {
   Artifact,
   ArtifactVersion,
   Block,
+  ChatContextRef,
   ContextLimits,
   ContextUsage,
   EffectiveContextLimits,
@@ -93,6 +94,16 @@ export interface ThreadContextEntry {
 }
 
 /** Normalized client state. Every collection is keyed by id. */
+/** The chip in the composer: the item, and the card the sent message shows. */
+export interface ComposerContext {
+  threadId: string;
+  ref: ChatContextRef;
+  title: string;
+  /** Source name or host. */
+  source: string | null;
+  url: string | null;
+}
+
 export interface UiState {
   connection: ConnectionState;
   /** Highest stateVersion seen on an event or a versioned result. */
@@ -149,6 +160,8 @@ export interface UiState {
   settings: Dict<unknown>;
   /** Text waiting to fill the chat composer (a "Try it" request from Settings, #640). */
   composerPrefill: string | null;
+  /** What the next message in a thread is about ("Ask about this" on a Feed item); one send. */
+  composerContext: ComposerContext | null;
   memoryEtags: Dict<string | null>;
   queries: Dict<QueryEntry>;
   /** Sandbox Mac guests as `vm.updated` last reported them, by `<nodeId>/<guest name>`. */
@@ -198,6 +211,7 @@ export const INITIAL_STATE: UiState = {
   goals: {},
   settings: {},
   composerPrefill: null,
+  composerContext: null,
   memoryEtags: {},
   queries: {},
   vmGuests: {},

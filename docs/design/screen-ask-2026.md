@@ -71,7 +71,7 @@ These reuse onboarding's existing flows; the panel doesn't add its own.
   - **New thread by default**, titled from the request. Asking about the screen is usually a side question.
   - A **Send to current chat** toggle in the panel (remembered) sends into the main window's current thread instead.
   - In both cases `chat.send` carries `attachments: [libraryItemId]` when the image goes, and a new optional `screen: { captureId, image: "auto" | "pinned" | "dropped" }`. That field lets the Gateway attach the text context, apply §3.3 and widen taint.
-- **The answer** streams inline in the panel. The panel grows to at most 480 × 360 pt and scrolls. **Open in Psyche** opens the thread in the main window, like the voice HUD's click.
+- **The answer** streams inline in the panel. The panel grows to at most 560 × 560 pt (§10) and scrolls. **Open in Psyche** opens the thread in the main window, like the voice HUD's click.
 - **Doing, not just answering:** "fill this form", "reply to this email" and the like run as normal agent turns. Every action goes through the broker and approvals as usual. Approvals show in the panel, and the panel stays open while one is pending.
 - **Dismissing:** Esc cancels at any point. Before sending, it discards the capture. While answering, it hides the panel and the turn carries on in the thread. Clicking outside hides the panel without cancelling.
 
@@ -121,3 +121,34 @@ Psyche doesn't speak. Voice is speech-to-text into this panel, so the panel is t
 - **Inside a screen ask:** the voice key dictates into the open panel and keeps the capture. It never sends by itself there.
 - **Window:** the panel window exists while either Ask about screen or Talk with Psyche is on. The screen shortcut, the menu items, the window capture and region mode follow Ask about screen only.
 - **Seams:** in desktop main, a `VoiceKeySource` reports the voice key (`DictationService` over the helper's `dictation.watch` on macOS), and `voicePopup()` wires it to the panel. Screen capture goes through the Gateway's `screen.capture`, which asks the node that offers `screen.context`. Another platform supplies these two pieces.
+
+## 10. Redesign: Siri-simple (2026-10-26)
+
+**The owner's words:** the panel is extremely hard to read, far too complicated, should feel like Siri, and should show the app's own chat elements in the answer.
+
+### 10.1 Research (short, and honest about what it found)
+
+A quick pass over macOS 26 Siri, Raycast AI's Quick AI, the ChatGPT launcher (⌥Space) and Spotlight. Public sources were thin on Siri's exact visuals, so what follows is split into what the sources showed and what we are deciding ourselves.
+
+- **Seen in the sources:** all four open from one global key into a single text bar with Return as the one action; context (a window screenshot in ChatGPT's case) arrives as an attachment next to the input, picked from a list of open windows and gated on Screen Recording; follow-ups stay in the same surface and the full chat lives in a separate window; Liquid Glass reads well over dark wallpapers and poorly over light or busy ones.
+- **Not found (unverified):** Siri's exact orb or glow behaviour, its listening/thinking states, panel radius, width and maximum height. We took Apple's direction (a compact bar with a glow that carries the state) as a design intent, not as a measurement.
+- **Patterns we adopt:** one input line; the capture as a small thumbnail chip you can remove; one minimal state indicator; a response that grows downward from the bar; a solid, near-opaque material so legibility never depends on the wallpaper.
+
+### 10.2 Why it was unreadable
+
+1. **The surface was glass in a window of its own.** The panel is a transparent Electron window, and `GlassSurface` draws `backdrop-filter` plus a thin tint. A backdrop filter only samples pixels inside its own window, and here those are empty, so the tint sat straight on the user's wallpaper at partial opacity. Text contrast depended on whatever was behind the panel.
+2. **No theme in that renderer.** `/screen-ask` mounted without `AppearanceProvider`, so `data-theme`, the generated colour scales, `color-scheme` and Reduce motion were never applied. The panel was always the light palette, whatever macOS was set to, and ignored the owner's accent and contrast settings.
+3. **Low-contrast text.** Placeholder, chip and hint text used `label-tertiary` (gated at 3:1 for metadata), not the 4.5:1 `label-secondary`.
+
+### 10.3 The design
+
+- **Surface:** opaque `surface-overlay` (white in light, `gray-2` in dark), a 0.5 px `separator-strong` border, no blur, no tint. The window stays transparent only for the rounded corners and uses the native shadow. The renderer now mounts `AppearanceProvider`, so light/dark, accent, contrast and Reduce motion match the main window.
+- **Collapsed:** one 56 px bar, fully rounded: orb · chip (thumbnail, app name, ✕) · input "Ask about your screen…" · ⋯ · mic · send. Nothing else. Return sends, Shift+Return adds a line.
+- **State = the orb**, not text rows. Idle: a quiet orb. Listening: a wide breathing halo. Thinking: a turning ring. Answering: a steady halo. Each state also differs in shape, so the reduced-motion frame (the single resolver stops every loop) still tells them apart.
+- **⋯** opens an inline row under the bar (a popup would be clipped by the small window): Capture again, Select area, Always send the screenshot, Send to new or current chat. Dropped: the dropped chip is gone; Capture again brings it back.
+- **Answer:** grows downward from the bar, up to 560 pt tall in all, then scrolls inside. It is the chat's own `MessageBlocks`, so text, tool runs, artifact and file cards, maps and charts look as in the main chat, and the plain text stream uses the same smooth-streaming buffer. A card's Open, and **Open in Psyche**, continue the thread in the main window.
+- **Esc** closes from anywhere in the panel, answering or not. Motion uses `--duration-short` and `--ease-standard`.
+- **Size:** 560 pt wide (was 480); 72 pt for one bar up to 560 pt (was 120–360).
+
+### 10.4 Left as it was
+Approvals still show only as the pointer line that says to open the thread; the panel has no approval dock, so they are answered in Psyche. The settings (shortcut, send-to default, always include) stay in Settings → Voice & dictation.
