@@ -10,12 +10,18 @@ public enum SpeechCapabilities {
     ///   - preflight: TCC preflight for microphone / speech recognition. Defaults to the live checks;
     ///     the integrator may pass the shared `permissions.*` preflight instead.
     ///   - registry: active streams (shared by transcribe / audio_push / stop).
+    ///   - fileBackend: `speech.transcribe_file` audio and engine (default `AVAudioFile` + on-device engine).
+    ///   - fileRoots: folders `speech.transcribe_file` may read (default: the granted folders and the Library).
     public static func make(
         preflight: (any PermissionPreflight)? = nil,
         registry: SpeechStreamRegistry = SpeechStreamRegistry(),
-        log: HelperLog = HelperLog()
+        log: HelperLog = HelperLog(),
+        fileBackend: (any LongFormAudioBackend)? = nil,
+        fileRoots: (@Sendable () -> FinderRoots)? = nil
     ) -> [any CapabilityHandler] {
         let preflight = preflight ?? SpeechPermissionPreflight()
+        let fileBackend = fileBackend ?? LiveLongFormBackend(preflight: preflight)
+        let fileRoots = fileRoots ?? { LongFormTranscription.roots() }
         let format = Schema.object(
             [
                 "encoding": Schema.string("PCM sample encoding (little-endian, interleaved)", enum: PCMEncoding.allCases.map(\.rawValue)),
@@ -45,6 +51,27 @@ public enum SpeechCapabilities {
                 permissions: []
             )) { ctx in
                 try await SpeechTranscription.run(ctx, registry: registry, preflight: preflight, log: log)
+            },
+
+            Capability(CapabilitySpec(
+                name: "speech.transcribe_file",
+                description: "Transcribe an audio file in a granted folder or the Library on device (up to 4 h), in chunks of about 10 minutes with overlap, streaming speech.progress events. Engine: SpeechAnalyzer (DictationTranscriber with a vocabulary) or on-device SFSpeechRecognizer. The transcript is untrusted: other people may be speaking.",
+                sideEffect: .read,
+                targetKind: .path,
+                inputSchema: Schema.object([
+                    "path": Schema.string("Absolute path of an audio file in a granted folder or the Library", maxLength: LongFormLimits.maxPathLength),
+                    "locale": Schema.string("BCP-47 language tag (default: the Mac's locale)", maxLength: 35),
+                    "vocabulary": Schema.array(
+                        Schema.string(maxLength: SpeechLimits.maxVocabularyEntryLength),
+                        description: "Custom vocabulary (names, terms)", maxItems: SpeechLimits.maxVocabularyEntries),
+                    "maxDurationMs": Schema.integer(
+                        "Refuse longer files (default and ceiling \(LongFormLimits.maxDurationMs))", min: SpeechLimits.minDurationMs, max: LongFormLimits.maxDurationMs),
+                ], required: ["path"]),
+                streaming: true,
+                // speechRecognition is checked per chunk for the SFSpeech engine.
+                permissions: []
+            )) { ctx in
+                try await LongFormTranscription.run(ctx, backend: fileBackend, roots: fileRoots(), log: log)
             },
 
             Capability(CapabilitySpec(

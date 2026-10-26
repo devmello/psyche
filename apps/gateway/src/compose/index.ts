@@ -19,9 +19,7 @@ import {
   brokerApprovalCheck,
   createMemoryHandlers,
   createMemoryStore,
-  ensureDreamingAutomation,
   type SqliteMemoryStore,
-  withDreaming,
 } from "@psyche/memory";
 import {
   CliAdapter,
@@ -116,6 +114,7 @@ import {
 import { createOtherChats, type OtherChats } from "./other-chats.ts";
 import { composePasskeys } from "./passkeys.ts";
 import { composePayments, paymentsSetupFromEnv } from "./payments.ts";
+import { composePeople, type People } from "./people.ts";
 import { composePlugins } from "./plugins.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { protectedRoots } from "./protected-paths.ts";
@@ -226,6 +225,8 @@ export interface ComposedGateway {
   readonly loop: PsycheAgentLoop;
   /** E12 "From your other chats": the digests and the turn context provider. */
   readonly otherChats: OtherChats;
+  /** The people and projects graph (#651). */
+  readonly people: People;
   readonly broker: PsychePermissionBroker;
   readonly audit: HashChainAuditLog;
   readonly memory: SqliteMemoryStore;
@@ -541,6 +542,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   };
   await restoreModelSettings(modelSettings);
   const modelPins = modelPinsFor(provider);
+  // The people graph is composed once the tool registry exists; card edits reach it from here.
+  let people: People | undefined;
   const memory = await createMemoryStore({
     db,
     workspaceDir: join(config.home, "workspace"),
@@ -549,7 +552,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     approvals: brokerApprovalCheck(broker),
     audit,
     flush: { provider, model: utility ?? modelRef },
-    onEvent: (e) => publish(e.event, e.payload as never),
+    onEvent: (e) => {
+      publish(e.event, e.payload as never);
+      people?.onMemoryEvent(e);
+    },
   });
 
   const tasks = new SqliteTaskEngine({ db, clock });
@@ -578,6 +584,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     threadTools({ db, gateway: () => gatewayRef }),
   );
   crossThread.sync(getSetting(db, CROSS_THREAD_SETTING)?.value);
+  // People and projects (#651): handlers, owner-only agent tools, search docs, the nightly pass.
+  people = composePeople({
+    db,
+    clock,
+    memory,
+    provider,
+    model: utility ?? modelRef,
+    publish: (event, payload) => publish(event, payload as never),
+    register: (tool) => registry.register(tool),
+  });
   const calls = new CallContexts();
   const ownPorts = createOwnPorts();
   ownPorts.add(config.port, "gateway (configured)");
@@ -715,6 +731,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     clock,
     audit,
     scheduler,
+    // Entity and person-scoped lessons write through the people graph (S07, #651).
+    ...(people === undefined ? {} : { graph: people.graph }),
     surfaces: ["desktop", "web"],
     askRules: teachingAskRules({
       db,
@@ -820,12 +838,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     webSetup,
   );
   for (const tool of webTools.tools) registry.register(tool);
-  // Nightly dreaming runs in-process for its automation (S07 `withDreaming`); everything else
-  // goes on to the proactive jobs and the task pool.
-  launcher = withDreaming(
-    memory,
-    proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool),
-  );
+  // The dreaming automation runs memory dreaming and the people graph pass in-process.
+  launcher = people.launcher(proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool));
   scheduler.subscribe((e) => publish(e.event, e.payload as never));
 
   // C10: Claude Code behind harness.delegate, only once the owner configured harness.claudeCode.
@@ -842,6 +856,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }),
   );
   parts.push(otherChats.part());
+  parts.push(people.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone));
   // Code plugins (T4): off until the owner turns on `plugins.enabled`.
   parts.push(
     composePlugins({
@@ -973,14 +988,6 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   ownPorts.add(gateway.port, "gateway (bound)");
   for (const part of parts) await part.start?.(gateway);
   await proactive.start();
-  // Dreaming was only ever scheduled in tests (teaching loop §6): one system automation, 03:00.
-  await ensureDreamingAutomation(scheduler, {
-    timezone: timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
-  }).catch((err: unknown) =>
-    gwOptions.logger?.log("warn", "dreaming automation not scheduled", {
-      code: PsycheError.from(err).code,
-    }),
-  );
   // Lesson cards that were open at shutdown are awaited again (or settled).
   await teaching.resume().catch(() => undefined);
 
@@ -1001,6 +1008,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     db,
     loop,
     otherChats,
+    people,
     broker,
     audit,
     memory,

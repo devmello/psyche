@@ -161,6 +161,8 @@ See the speech section of the README for engine selection. On macOS 26+:
 | 10.5 | `speech.synthesize {text}` | PCM chunks play back cleanly; `nonCommercial: false` |
 | 10.6 | `personalVoice: true` with and without Personal Voice authorization | Uses it and flags `nonCommercial: true` / falls back to a system voice |
 | 10.6a | `contacts.list {limit: 500, fields: ["name"]}` before / after granting Contacts | No prompt and `forbidden/permission_denied` / names in family-name order, no phones or emails; `truncated` when over the limit |
+| 10.6b | `speech.transcribe_file {path}` on a 60–90 min test recording of your own in a granted folder (not someone else's meeting) | `speech.progress` after each 10-minute chunk; one result with no repeated or missing sentence at the 10:00 / 20:00 marks; `audioMs` matches the file; `provenance: untrusted` |
+| 10.6c | The same with a path outside the granted folders, a folder, a text file, and a file over `maxDurationMs` | `policy_denied/outside_granted_folders`, `not_found`, `invalid_params/unsupported_audio`, `invalid_params/too_long`, each before any audio is read |
 | 10.7 | macOS 15 machine | SFSpeechRecognizer on-device engine; Speech Recognition prompt |
 
 ## 11. VM mode (L1–L5): run on a host with more than 16 GB, one guest at a time
@@ -214,6 +216,7 @@ Spike 06 restarted a 16 GB host under two guests plus an install. Never run thes
 | 12.3c | `reminders.complete {title: "<one open title>"}`, then with a title two reminders share, then `{id, completed: false}`; `reminders.set_flagged {id, flagged: true}`; `reminders.delete {id}` | Completed; `reminder_ambiguous` listing both ids; reopened; the flag shows in Reminders; gone (the Gateway asked first) |
 | 12.2a | Calendar wave 1 (§4.3): `calendar.list_events {from, to, query: "standup"}` on a Zoom / Meet invite with attendees | Only matching events; `conferenceUrl` is the meeting link; attendees with their statuses and the organizer marked |
 | 12.2b | `calendar.free_busy {from, to}` over a day with a busy, a tentative and a free event | Two blocks (busy, tentative) in start order, no titles |
+| 12.2d | `calendar.watch {}` held open on a test calendar, then add three events within 10 s, then one more a minute later | One `calendar.changed {coalesced ≥ 3}` about 30 s after the first add, then one more; nothing while idle; without Calendars access `permission_missing` and no prompt |
 | 12.2c | `calendar.create_event {…, alarms: [{relativeMinutes: -10}], recurrence: {frequency: daily, count: 3}, availability: free}`; `calendar.update_event {id, recurrence: null}`; `calendar.delete_event {id, span: future}` on a series | Alert 10 min before, three days, shown as free; the repeat removed; that day and later gone, earlier ones kept |
 | 12.7a | Notes wave 1 (§4.4): `notes.search {query: "<word in a body>"}`, `{folder, modifiedSince}`; `notes.folders {}` | Matches by body as well as title, newest first, with a snippet around the word; the folder tree with nested folders under their parent and note counts |
 | 12.7b | `notes.read {id}` on a note with an image; `notes.append {id, text: "eggs\nbread", checklist: true}` | `attachments` lists the image; two "☐" lines at the end, the rest of the note untouched |
