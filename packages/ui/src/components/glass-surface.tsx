@@ -71,6 +71,8 @@ function readEnvironment(): GlassEnvironment {
     backdrop:
       supports("backdrop-filter", "blur(1px)") || supports("-webkit-backdrop-filter", "blur(1px)"),
     reduceTransparency:
+      // The Opaque preset (Settings → Appearance → Translucency) behaves like Reduce Transparency.
+      root.dataset.glassPreset === "opaque" ||
       root.dataset.reduceTransparency === "true" ||
       (root.dataset.reduceTransparency !== "false" &&
         media("(prefers-reduced-transparency: reduce)")),
@@ -79,6 +81,17 @@ function readEnvironment(): GlassEnvironment {
       (root.dataset.contrast !== "standard" && media("(prefers-contrast: more)")),
     inactive: root.dataset.windowActive === "false",
   };
+}
+
+/**
+ * The Translucency setting's refraction strength (`--glass-refraction` on the root, 0–2, default
+ * 1), read when a surface renders; GlassSurface re-renders on the root's style changes.
+ */
+function glassRefractionScale(): number {
+  if (typeof document === "undefined" || typeof getComputedStyle !== "function") return 1;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue("--glass-refraction");
+  const n = Number.parseFloat(raw);
+  return Number.isFinite(n) ? Math.min(2, Math.max(0, n)) : 1;
 }
 
 /** The document's glass environment, kept current as settings and media queries change. */
@@ -91,6 +104,8 @@ export function useGlassEnvironment(): GlassEnvironment {
       attributes: true,
       attributeFilter: [
         "data-glass",
+        "data-glass-preset",
+        "style",
         "data-reduce-transparency",
         "data-contrast",
         "data-window-active",
@@ -156,6 +171,7 @@ export function GlassSurface({
 }: GlassSurfaceProps): ReactElement {
   const live = useGlassEnvironment();
   const env = { ...live, ...environment };
+  const lens = strength * glassRefractionScale();
   const impl = resolveGlassImpl(requested, env);
   const ref = useRef<HTMLElement>(null);
   const filterId = `glass-lens-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
@@ -202,10 +218,12 @@ export function GlassSurface({
     backgroundColor: TINT[impl][variant],
     backdropFilter: backdrop,
     WebkitBackdropFilter: backdrop,
+    // Liquid Glass optics (research/liquid-glass.md §1.3): the inner top highlight and soft lower
+    // edge come from the material tokens, so light and dark are tuned separately.
     boxShadow:
       impl === "opaque"
         ? "0 0 0 1px var(--separator-strong)"
-        : "inset 0 0.5px 0 oklch(1 0 0 / 45%), inset 0 -0.5px 0 oklch(1 0 0 / 12%), var(--elevation-2)",
+        : "var(--material-glass-highlight), var(--elevation-2)",
     ...style,
   };
 
@@ -241,7 +259,7 @@ export function GlassSurface({
             <feDisplacementMap
               in="SourceGraphic"
               in2="map"
-              scale={strength}
+              scale={lens}
               xChannelSelector="R"
               yChannelSelector="G"
             />
@@ -262,7 +280,9 @@ export function GlassSurface({
             WebkitMaskComposite: "xor",
             mask: "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
             maskComposite: "exclude",
-            opacity: variant === "clear" ? 0.8 : 0.6,
+            // The specular rim (design.css --glass-rim): brighter in light, quieter in dark.
+            opacity:
+              variant === "clear" ? "calc(var(--glass-rim, 0.6) * 1.3)" : "var(--glass-rim, 0.6)",
           }}
         />
       ) : null}

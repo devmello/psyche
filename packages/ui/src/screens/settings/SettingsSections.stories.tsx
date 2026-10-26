@@ -606,10 +606,6 @@ export const CredentialsLoading: Story = {
 // --- Appearance --------------------------------------------------------------------------------
 
 export const AppearanceDefault: Story = { render: () => <AppearancePanel {...form} /> };
-/** The desktop window adds the translucent sidebar switch. */
-export const AppearanceDesktop: Story = {
-  render: () => <AppearancePanel {...form} supportsVibrancy />,
-};
 export const AppearanceNudgedSeed: Story = {
   render: () => (
     <AppearancePanel

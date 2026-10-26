@@ -659,7 +659,7 @@ Superseded by redesign §3.5 and §3.4. There are no borders.
 | 2 | Popovers, menus, palette | `.material-glass` + `shadow-elevation-2` |
 | 3 | Sheets, dialogs | Opaque `--surface-overlay` + `shadow-elevation-3` + scrim |
 
-Dark mode steps surfaces up instead of deepening shadows. Glass is chrome-only, at most two surfaces at once, and never stacked. The materials table is in redesign §3.4 (sidebar vibrancy behind a setting; refraction capsules for toolbar groups and the composer; CSS glass for popovers).
+Dark mode steps surfaces up instead of deepening shadows. Glass is chrome-only, at most two surfaces at once, and never stacked. The materials table is in redesign §3.4 (an opaque sidebar, since native vibrancy flickered and was dropped in #597; refraction capsules for toolbar groups and the composer; CSS glass for popovers).
 
 ### 4.5 Motion
 

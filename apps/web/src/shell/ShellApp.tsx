@@ -19,6 +19,7 @@ import {
   UiSlotsProvider,
 } from "@psyche/ui";
 import {
+  type CSSProperties,
   type ReactElement,
   type ReactNode,
   startTransition,
@@ -83,6 +84,9 @@ export function sectionTitle(route: string): string {
 export function isChatRoute(route: string): boolean {
   return /^\/(chat|agent)(\/|$|\?)/.test(route);
 }
+
+/** The bar's width over a collapsed sidebar: the traffic lights plus the show-sidebar button. */
+const COLLAPSED_CHROME_LEAD = 128;
 
 /** The Settings window's routes (`/window/settings/:section`), opened by the desktop main. */
 export const SETTINGS_WINDOW_PREFIX = "/window/settings";
@@ -742,7 +746,19 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   return (
     <UiSlotsProvider value={kitSlots}>
       <ShellMotion>
-        <div className="app-frame" data-testid="app-frame">
+        <div
+          className="app-frame"
+          data-testid="app-frame"
+          // Unified chrome on the desktop (#597; redesign §4): the bar is a drag strip over the
+          // sidebar only (the traffic lights sit in its material) and each screen's toolbar is
+          // the drag region over the canvas.
+          data-chrome={inset && !compact ? "inset" : undefined}
+          style={
+            {
+              "--chrome-lead": `${sidebarOpen ? sidebarWidth : COLLAPSED_CHROME_LEAD}px`,
+            } as CSSProperties
+          }
+        >
           <a className="skip-link" href="#main">
             {t("web.shell.skipToContent")}
           </a>
@@ -790,8 +806,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
             data-testid="shell"
           >
             {compact ? null : (
-              // `rail-slot` keeps shell.css's vibrancy rule from painting the canvas behind the
-              // sidebar (A2); the class goes when A3 renames the shell's structure.
+              // `rail-slot` is what the native-glass spike (desktop main/glass.ts) makes clear.
               <SidebarPresence
                 open={sidebarOpen}
                 className="sidebar-slot rail-slot"

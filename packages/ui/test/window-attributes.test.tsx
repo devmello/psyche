@@ -1,10 +1,10 @@
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { GLASS_PRESET_SETTING, GLASS_TINT_SETTING } from "../src/lib/glass-settings.ts";
 import { medianFps } from "../src/motion/fps-probe.ts";
 import {
   AppearanceProvider,
   REDUCE_TRANSPARENCY_SETTING,
-  VIBRANCY_SETTING,
 } from "../src/shell/AppearanceProvider.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
@@ -14,7 +14,6 @@ const root = () => document.documentElement.dataset;
 
 function mount(
   settings: Record<string, unknown>,
-  supportsVibrancy: boolean,
   system: { reduceTransparency: boolean; highContrast: boolean } | null = null,
 ) {
   return render(
@@ -25,7 +24,7 @@ function mount(
         for (const [k, v] of Object.entries(settings)) if (v === undefined) delete w.settings[k];
       }}
     >
-      <AppearanceProvider supportsVibrancy={supportsVibrancy} system={system}>
+      <AppearanceProvider system={system}>
         <p>content</p>
       </AppearanceProvider>
     </StoryWorld>,
@@ -33,40 +32,49 @@ function mount(
 }
 
 describe("window attributes (docs/design/redesign-2026.md §3.4, §4)", () => {
-  it("marks vibrancy only where the host can draw the native material", async () => {
-    mount({ [VIBRANCY_SETTING]: true }, true);
-    await waitFor(() => expect(root().vibrancy).toBe("true"));
+  it("applies the Translucency preset and values to the root (#597)", async () => {
+    mount({ [GLASS_PRESET_SETTING]: "clear", [GLASS_TINT_SETTING]: 50 });
+    await waitFor(() => expect(root().glassPreset).toBe("clear"));
+    const style = document.documentElement.style;
+    expect(style.getPropertyValue("--glass-tint")).toBe("50%");
+    expect(style.getPropertyValue("--glass-blur")).toBe("10px");
+    expect(style.getPropertyValue("--glass-refraction")).toBe("1.3");
     cleanup();
-    mount({ [VIBRANCY_SETTING]: true }, false);
-    await waitFor(() => expect(root().vibrancy).toBe("false"));
+    expect(style.getPropertyValue("--glass-tint")).toBe("");
   });
 
   it("follows the OS for transparency unless the owner chose", async () => {
-    mount({}, false);
+    mount({});
     await waitFor(() => expect(root().reduceTransparency).toBeUndefined());
     cleanup();
-    mount({ [REDUCE_TRANSPARENCY_SETTING]: true }, false);
+    mount({ [REDUCE_TRANSPARENCY_SETTING]: true });
     await waitFor(() => expect(root().reduceTransparency).toBe("true"));
   });
 
   it("applies macOS Reduce Transparency and Increase Contrast unless the owner chose", async () => {
-    mount({ "appearance.contrast": undefined }, true, {
-      reduceTransparency: true,
-      highContrast: true,
-    });
+    mount(
+      { "appearance.contrast": undefined },
+      {
+        reduceTransparency: true,
+        highContrast: true,
+      },
+    );
     await waitFor(() => expect(root().reduceTransparency).toBe("true"));
     await waitFor(() => expect(root().contrast).toBe("high"));
     cleanup();
-    mount({ [REDUCE_TRANSPARENCY_SETTING]: false, "appearance.contrast": "standard" }, true, {
-      reduceTransparency: true,
-      highContrast: true,
-    });
+    mount(
+      { [REDUCE_TRANSPARENCY_SETTING]: false, "appearance.contrast": "standard" },
+      {
+        reduceTransparency: true,
+        highContrast: true,
+      },
+    );
     await waitFor(() => expect(root().reduceTransparency).toBe("false"));
     await waitFor(() => expect(root().contrast).toBe("standard"));
   });
 
   it("tracks whether the window is key", async () => {
-    mount({}, false);
+    mount({});
     await act(async () => window.dispatchEvent(new Event("blur")));
     expect(root().windowActive).toBe(String(document.hasFocus()));
   });

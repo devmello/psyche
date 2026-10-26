@@ -48,7 +48,7 @@ import {
 import { NotificationRelay } from "./lib/notify-relay.ts";
 import { pairingEdge } from "./lib/pairing-edge.ts";
 import { realChromeOpenCommand, realChromeProfileDir } from "./lib/real-chrome.ts";
-import { VibrancyController } from "./lib/vibrancy.ts";
+import { WindowTheme } from "./lib/window-theme.ts";
 import { ZoomController } from "./lib/zoom.ts";
 import { bootstrapAdminIfNeeded } from "./main/bootstrap-admin.ts";
 import { BridgeClient } from "./main/bridge/bridge-client.ts";
@@ -176,16 +176,14 @@ function systemAppearance(): { reduceTransparency: boolean; highContrast: boolea
   };
 }
 
-const vibrancy = new VibrancyController({
+const windowTheme = new WindowTheme({
   targets: () => windows?.chromeWindows() ?? [],
   call: (method, params) => requireGateway().call(method, params),
-  canvas: () => canvasColor(nativeTheme.shouldUseDarkColors),
-  supported: process.platform === "darwin",
-  blocked: () => {
-    const a = systemAppearance();
-    return a.reduceTransparency || a.highContrast;
+  setThemeSource: (source) => {
+    nativeTheme.themeSource = source;
   },
-  warn: (message) => console.warn(`[vibrancy] ${message}`),
+  canvas: () => canvasColor(nativeTheme.shouldUseDarkColors),
+  warn: (message) => console.warn(`[theme] ${message}`),
 });
 const pendingCommands: ShellCommand[] = [];
 let quittingEntirely = false;
@@ -608,7 +606,7 @@ function onGatewayEvent(e: {
   if (e.event === "settings.changed") {
     const entries = (p.entries as { key: string; value: unknown }[] | undefined) ?? [];
     zoom.onSettingsChanged(entries);
-    vibrancy.onSettingsChanged(entries);
+    windowTheme.onSettingsChanged(entries);
   }
   if (e.event === "notification.created") {
     const d = relay.decide(p.notification as PsycheNotification);
@@ -683,7 +681,7 @@ function lockDownDefaultSession(): void {
 void app.whenReady().then(async () => {
   await decideSplash();
   nativeTheme.on("updated", () => {
-    vibrancy.refresh();
+    windowTheme.refresh();
     broadcast(IPC.systemAppearance, systemAppearance());
   });
   // 120 Hz check (docs/design/motion.md §5): compare with the renderer's rAF probe.
@@ -724,9 +722,9 @@ void app.whenReady().then(async () => {
     mainOptions: glassWindowOptions(glass),
     // The stored zoom wins over Electron's own per-origin memory on every load.
     onViewCreated: (wc) => wc.on("did-finish-load", () => zoom.applyTo(wc)),
-    // Native glass replaces vibrancy (electron-liquid-glass: never both, or it "looks blurry").
+    // The native-glass spike keeps its window transparent; every other window paints the canvas.
     onChromeWindowCreated: (win, view) => {
-      if (glass !== "native") vibrancy.applyTo({ win, view });
+      if (glass !== "native") windowTheme.applyTo({ win, view });
     },
     onMainCreated: (win, view) => {
       view.webContents.once("did-finish-load", () => {
@@ -812,7 +810,7 @@ void app.whenReady().then(async () => {
       void refreshHelperPresence();
       void refreshApprovals();
       void zoom.load();
-      void vibrancy.load();
+      void windowTheme.load();
       void dictation?.load();
       void bootstrapAdminIfNeeded({
         packaged: app.isPackaged,

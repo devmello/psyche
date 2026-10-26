@@ -65,8 +65,11 @@ export const settings = {
   "settings.key.appearance.reduceMotion": "Reduce motion",
   "settings.key.appearance.contrast": "High contrast",
   "settings.key.appearance.zoom": "Zoom",
-  "settings.key.appearance.vibrancy": "Translucent sidebar",
   "settings.key.appearance.reduceTransparency": "Reduce transparency",
+  "settings.key.appearance.glass": "Glass",
+  "settings.key.appearance.glassTint": "Tint",
+  "settings.key.appearance.glassBlur": "Blur",
+  "settings.key.appearance.glassRefraction": "Refraction",
   "settings.key.backup.schedule": "Backup schedule",
   "settings.key.browser.realChrome": "Real-Chrome mode",
   "settings.key.browser.botAuth": "Web Bot Auth",
@@ -463,9 +466,18 @@ export const settings = {
   "settings.appearance.motionContrast": "Motion and contrast",
   "settings.appearance.followSystem": "Follow the system",
   "settings.appearance.contrastHint": "Stronger borders, darker text and 2 px focus rings.",
-  "settings.appearance.transparency": "Transparency",
-  "settings.appearance.vibrancyHint":
-    "The sidebar shows the desktop through the macOS sidebar material. Off by default until it is checked on macOS 26.",
+  "settings.appearance.transparency": "Translucency",
+  "settings.appearance.glass.clear": "Clear",
+  "settings.appearance.glass.regular": "Regular",
+  "settings.appearance.glass.opaque": "Opaque",
+  "settings.appearance.glass.clearHint":
+    "More of what's behind shows through the toolbar controls, composer and menus.",
+  "settings.appearance.glass.regularHint":
+    "Frosted glass on the toolbar controls, composer and menus, as macOS draws it.",
+  "settings.appearance.glass.opaqueHint": "Solid surfaces everywhere; nothing shows through.",
+  "settings.appearance.glass.advanced": "Advanced",
+  "settings.appearance.glass.opaqueAdvanced": "Choose Clear or Regular to tune the glass.",
+  "settings.appearance.glass.reset": "Reset to preset",
   "settings.appearance.reduceTransparencyHint":
     "Menus, popovers and the composer become opaque. Follows the system setting until you change it here.",
 

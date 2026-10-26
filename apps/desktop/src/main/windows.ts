@@ -37,7 +37,7 @@ export interface AppWindows {
   popOut(route: string, title: string): void;
   /** Opens (or focuses) the Settings window on a section (⌘,; redesign §4). */
   showSettings(section?: string): void;
-  /** The windows with app chrome (main, Settings) and their app views, for vibrancy. */
+  /** The windows with app chrome (main, Settings) and their app views, for the canvas colour. */
   chromeWindows(): { win: BaseWindow; view: WebContentsView }[];
   toggleQuickEntry(): void;
   hideQuickEntry(): void;
@@ -61,7 +61,7 @@ export interface WindowOptions {
   splash?: () => boolean;
   /** The layout e2e sizes the window past CI's small screen (#561). */
   anySize?: boolean;
-  /** A chrome window (main, Settings) was made: vibrancy and the like. */
+  /** A chrome window (main, Settings) was made: the native theme and the like. */
   onChromeWindowCreated?: (win: BaseWindow, view: WebContentsView) => void;
   /** Where the Settings window's bounds are remembered (#596); unset, it always opens centred. */
   settingsBoundsFile?: string;

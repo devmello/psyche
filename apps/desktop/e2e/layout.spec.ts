@@ -358,8 +358,10 @@ for (const [width, height] of [
     const bar = await box(page, "titlebar");
     expect(bar.height).toBe(52);
     await expect(page.getByTestId("titlebar")).toContainText("Main chat");
+    // Unified chrome (#597; redesign §4): no bar row across the window. The shell starts at the
+    // top; the bar is a drag strip over the sidebar only, so the lights sit on the sidebar.
     const shell = await box(page, "shell");
-    expect(shell.y, `${tag}: shell below the bar`).toBeGreaterThanOrEqual(bar.y + bar.height - 1);
+    expect(shell.y, `${tag}: shell from the top`).toBeLessThanOrEqual(1);
     expect(
       await intruders(page, await trafficLights()),
       `${tag}: under the traffic lights`,
@@ -371,6 +373,9 @@ for (const [width, height] of [
     expect(sidebar.x, `${tag}: sidebar at the start edge`).toBeLessThanOrEqual(1);
     expect(sidebar.width, `${tag}: sidebar width`).toBeGreaterThanOrEqual(220);
     expect(sidebar.width, `${tag}: sidebar width`).toBeLessThanOrEqual(320);
+    expect(bar.width, `${tag}: the bar covers the sidebar only`).toBeLessThanOrEqual(
+      sidebar.width + 1,
+    );
     // The sidebar and the content column start on the same line, and the agent header is the
     // content column's first row.
     const content = await box(page, "content");

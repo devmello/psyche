@@ -38,13 +38,39 @@
     The CSS rung (popovers, menus, palette) is --material-glass; GlassSurface's refraction rung
     (toolbar control groups, composer) and the clear variant (controls over media) have their own.
   */
-  --material-glass: color-mix(in oklch, var(--surface-overlay) 72%, transparent);
-  --material-glass-refraction: color-mix(in oklch, var(--surface-overlay) 50%, transparent);
-  --material-glass-clear: color-mix(in oklch, var(--surface-overlay) 15%, transparent);
-  --material-glass-highlight: inset 0 0.5px 0 oklch(1 0 0 / 40%);
-  --material-blur: blur(20px) saturate(1.6);
-  --material-blur-refraction: blur(10px) saturate(1.8);
-  --material-blur-clear: blur(4px) saturate(1.4);
+  /*
+    Tunable inputs (Settings → Appearance → Translucency; AppearanceProvider sets them on the root
+    from the Clear / Regular / Opaque preset and the Advanced sliders). The accessibility and
+    inactive-window rules below override the computed materials, so they always win.
+  */
+  --glass-tint: 72%;
+  --glass-tint-refraction: 50%;
+  --glass-tint-clear: 15%;
+  --glass-blur: 20px;
+  --glass-blur-refraction: 10px;
+  --glass-blur-clear: 4px;
+  /* Light glass lifts saturation less than dark (the owner's light-mode note, #597). */
+  --glass-saturate: 1.35;
+  /* Specular rim strength (GlassSurface's 1 px gradient ring). */
+  --glass-rim: 0.65;
+  /* Refraction strength multiplier for GlassSurface's lens (0–2). */
+  --glass-refraction: 1;
+  --material-glass: color-mix(in oklch, var(--surface-overlay) var(--glass-tint), transparent);
+  --material-glass-refraction: color-mix(
+    in oklch,
+    var(--surface-overlay) var(--glass-tint-refraction),
+    transparent
+  );
+  --material-glass-clear: color-mix(
+    in oklch,
+    var(--surface-overlay) var(--glass-tint-clear),
+    transparent
+  );
+  /* Liquid Glass optics (research/liquid-glass.md §1.3): a top inner highlight and a soft lower edge. */
+  --material-glass-highlight: inset 0 1px 0 oklch(1 0 0 / 55%), inset 0 -0.5px 0 oklch(0 0 0 / 6%);
+  --material-blur: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  --material-blur-refraction: blur(var(--glass-blur-refraction)) saturate(var(--glass-saturate));
+  --material-blur-clear: blur(var(--glass-blur-clear)) saturate(var(--glass-saturate));
 
   /*
     The window's corner radius is drawn by the system (macOS 27: one smaller radius for every
@@ -59,6 +85,8 @@
 }
 
 :root[data-theme="dark"] {
+  --glass-saturate: 1.7;
+  --glass-rim: 0.38;
   /* One step above the canvas; gray-3 would drop the accent focus ring under 3:1. */
   --surface-raised: var(--gray-2);
   --surface-overlay: var(--gray-2);
@@ -71,7 +99,7 @@
   --separator: oklch(1 0 0 / 9%);
   --separator-strong: oklch(1 0 0 / 16%);
 
-  --material-glass-highlight: inset 0 0.5px 0 oklch(1 0 0 / 10%);
+  --material-glass-highlight: inset 0 1px 0 oklch(1 0 0 / 14%), inset 0 -0.5px 0 oklch(0 0 0 / 30%);
 
   /* Dark mode steps surfaces up instead of deepening shadows. */
   --elevation-1: 0 0 0 0.5px oklch(1 0 0 / 8%);
@@ -122,7 +150,8 @@
 }
 
 /* Reduce Transparency (§3.4): every material becomes opaque. */
-:root[data-reduce-transparency="true"] {
+:root[data-reduce-transparency="true"],
+:root[data-glass-preset="opaque"] {
   --material-glass: var(--surface-overlay);
   --material-glass-refraction: var(--surface-overlay);
   --material-glass-clear: var(--surface-overlay);
@@ -254,12 +283,17 @@
     -webkit-app-region: no-drag;
     app-region: no-drag;
   }
-  /* The sidebar region: transparent over native vibrancy (A2), opaque otherwise. */
+  /*
+    The sidebar region: opaque (#597 dropped native vibrancy, which flickered over the transparent
+    view). With the unified chrome the traffic lights sit on it, and it meets the canvas through
+    one hairline, the same edge the toolbars use.
+  */
   .material-sidebar {
     background-color: var(--surface-sidebar);
+    box-shadow: inset -0.5px 0 0 var(--separator-strong);
   }
-  :root[data-vibrancy="true"] .material-sidebar {
-    background-color: transparent;
+  [dir="rtl"] .material-sidebar {
+    box-shadow: inset 0.5px 0 0 var(--separator-strong);
   }
   /* Scroll edge (§3.4): content fades under a toolbar instead of a hard border. */
   .scroll-edge-top {

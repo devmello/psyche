@@ -179,7 +179,7 @@ Every glass surface is a `GlassSurface` with a fallback ladder: **native → ref
 
 | Surface | Desktop (Electron) | Web, Chromium | Web, Safari / Firefox |
 | --- | --- | --- | --- |
-| **Sidebar**, including the Settings window sidebar | Native `vibrancy: "sidebar"`, `visualEffectState: "followWindow"`, `transparent: false`, behind `appearance.vibrancy` (**off by default** until verified on macOS 27) | Opaque `--surface-sidebar` | Opaque |
+| **Sidebar**, including the Settings window sidebar | Opaque `--surface-sidebar` with the traffic lights on it (**amended by #597**: native `vibrancy: "sidebar"` was built, then dropped because it flickered; see §4) | Opaque `--surface-sidebar` | Opaque |
 | **Toolbar row** (52 px) | **No material.** Opaque canvas with a 24 px scroll-edge fade | Same | Same |
 | **Toolbar control groups** (mode and model pills, bell, ⋯) | `ToolbarGroup` → `GlassSurface impl="refraction"` capsule | Refraction | CSS blur |
 | **Composer** | `GlassSurface impl="refraction"`, radius = height / 2 | Refraction | CSS blur |
@@ -284,17 +284,18 @@ Target:
 |  › Archived (1)   |        │ Message Wren…                  (mic)(↑) │ glass  |
 |  (av) Wren · ⚙    |        ╰──────────────────────────────────────────╯        |
 +-------------------+------------------------------------------------------------+
-  sidebar 248 px, vibrancy                content: opaque --canvas
+  sidebar 248 px, opaque                  content: opaque --canvas
 ```
 
 - **Title bar style:**
   - `titleBarStyle: "hidden"` + `trafficLightPosition: { x: 20, y: 19 }`. This is what Claude desktop uses (`hidden`, about 16.5/16.5).
   - With `hidden`, the lights sit on the sidebar material, which is the macOS 26 look: the lights belong to the sidebar pane.
   - y 19 centres the 14 px lights in the 52 px toolbar row. Apple publishes no inset, so the toolbar height is measured at runtime and the position recomputed with zoom (`setWindowButtonPosition`), as Claude does.
-- **Sidebar vibrancy:**
-  - `vibrancy: "sidebar"`, `visualEffectState: "followWindow"` (inactive windows lose the material, as the HIG requires).
-  - `transparent` stays false. The web contents' root background is transparent and the content column paints `--canvas`.
-  - Only one vibrancy material is possible per window, which is why the toolbar and overlays use CSS glass.
+- **Sidebar vibrancy (dropped, #597):**
+  - Built as `vibrancy: "sidebar"` over a transparent `WebContentsView`. On macOS 27 with Electron 44, Chromium's GPU compositor left translucent paints uncleared between frames: the 18% selection pill built up to solid accent and left trails as it moved, which the owner saw as flicker (the same class of bug as electron/electron#42336).
+  - Only `--disable-gpu-compositing` fixed it, which costs the whole window its animation budget and makes glass blur expensive. The owner chose to drop the native material.
+  - The sidebar is opaque `--surface-sidebar`. The unified chrome stays: no title-bar row, the traffic lights on the sidebar, each screen's toolbar is the drag region, one hairline between sidebar and canvas.
+  - `nativeTheme.themeSource` follows `appearance.theme`, so the window background and native UI match the app, not the macOS appearance.
 - **Window background and inactive state:**
   - `backgroundColor`: the `--canvas` hex for the current appearance (light `#fcfcfb`, dark `#151515`), set from `nativeTheme` before `show`, to remove the white flash.
   - `data-window-active` on `<html>`, set from `focus`/`blur`. When inactive, the selection pill turns gray, the toolbar labels go to `--label-tertiary`, and the accent is removed from icons.
@@ -768,7 +769,7 @@ Each workstream has disjoint file ownership and uses at most 2 subagents. Locall
 1. **One sidebar instead of the rail plus the thread list** (§5.1). This amends docs/06 §2.1 and §3.1.
 2. **Settings in their own window on desktop** (§4, §5.8). The web client keeps the route.
 3. **13 px chrome and 15 px reading text** (§3.2). This replaces the 15 px everywhere from docs/06 §4.2.
-4. **Native sidebar vibrancy, default on, behind a setting.** It falls back to opaque if it misbehaves on macOS 26 (§3.4).
+4. ~~**Native sidebar vibrancy, default on, behind a setting.**~~ Dropped in #597: it flickered over the transparent view (§4). Glass stays on floating chrome, tuned in Settings → Appearance → Translucency.
 5. **Adding `motion@14.6` as a dependency.** About 14 KiB gz initial plus lazy chunks (§7.1).
 
 ## Sources

@@ -124,3 +124,54 @@
   color: var(--label-tertiary, currentColor);
   margin-inline-end: 2px;
 }
+
+/*
+  Unified chrome on the desktop (#597; docs/design/redesign-2026.md §4): no title-bar row across
+  the window. The bar is a transparent drag strip over the sidebar only, so the traffic lights sit
+  on the sidebar (Finder, Notes, System Settings); the sidebar runs the full height;
+  each screen's own 52 px toolbar is the drag region over the opaque canvas, its controls clickable.
+*/
+.app-frame[data-chrome="inset"] {
+  position: relative;
+}
+.app-frame[data-chrome="inset"] > .titlebar {
+  position: absolute;
+  top: 0;
+  inset-inline-start: 0;
+  z-index: 30;
+  width: var(--chrome-lead, 248px);
+  background: transparent;
+  border-bottom: 0;
+}
+/* The window title stays native (Mission Control, the Window menu); the strip shows no text. */
+.app-frame[data-chrome="inset"] > .titlebar .title,
+.app-frame[data-chrome="inset"] > .titlebar .title-fork {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.app-frame[data-chrome="inset"] .sidebar-slot .material-sidebar {
+  padding-top: 52px;
+}
+.app-frame[data-chrome="inset"]
+  .shell-content
+  :is([data-slot="toolbar"], [data-testid="kit-chat"] > header:first-child) {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+.app-frame[data-chrome="inset"]
+  .shell-content
+  :is([data-slot="toolbar"], [data-testid="kit-chat"] > header:first-child)
+  :is(button, a, input, select, textarea, [role="button"], [role="menuitem"], [data-no-drag]) {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+/* With the sidebar collapsed, the toolbars start after the lights and the show-sidebar button. */
+.app-frame[data-chrome="inset"]
+  .shell-sidebar-layout[data-sidebar="collapsed"]
+  :is([data-slot="toolbar"], [data-testid="kit-chat"] > header:first-child) {
+  padding-inline-start: calc(var(--chrome-lead, 128px) + 4px);
+}

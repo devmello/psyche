@@ -159,8 +159,6 @@ export {
   AppearanceProvider,
   type AppearanceProviderProps,
   REDUCE_TRANSPARENCY_SETTING,
-  useSupportsVibrancy,
-  VIBRANCY_SETTING,
 } from "./shell/AppearanceProvider.tsx";
 // Shell pieces.
 export { AppShell, type AppShellProps } from "./shell/AppShell.tsx";
