@@ -4,8 +4,10 @@ import {
   type NodeClient,
   type NodeInvokeResult,
   PsycheError,
+  SPEECH_FILE_MAX_DURATION_MS,
   type SpeechCapabilities,
   type SpeechEngine,
+  type SpeechProgressEvent,
   type SynthesizeOptions,
   type TranscribeOptions,
   type Transcript,
@@ -31,9 +33,15 @@ import { sequenceSegments } from "../stream.ts";
  * `speech.audio_push {streamId, data, final?}` (≤ 512 KiB decoded each); the last push carries
  * `final: true`. Synthesis: `speech.synthesize {text ≤ 5000, voice?, format}` emits
  * `{type: "speech.audio", seq, data, format}`.
+ *
+ * Long-form files (#673 H1): `speech.transcribe_file {path, locale?, vocabulary?, maxDurationMs?}`
+ * reads a recording in a granted folder or the Library on the Mac itself (no audio crosses the
+ * node protocol), emits `{type: "speech.progress", processedMs, totalMs, fraction, chunk, chunks}`
+ * after each ~10-minute chunk and resolves with `{text, segments, engine, language, audioMs, chunks}`.
  */
 export const NODE_SPEECH_CAPABILITIES = {
   transcribeStream: "speech.transcribe_stream",
+  transcribeFile: "speech.transcribe_file",
   audioPush: "speech.audio_push",
   stop: "speech.stop",
   synthesize: "speech.synthesize",
@@ -49,7 +57,33 @@ export const NODE_SPEECH_LIMITS = {
   maxSynthesisText: 5_000,
   /** Helper accepts 1 s … 10 min per stream. */
   maxDurationMs: 10 * 60 * 1000,
+  /** `speech.transcribe_file` takes recordings up to 4 h. */
+  maxFileDurationMs: SPEECH_FILE_MAX_DURATION_MS,
 } as const;
+
+export interface PathTranscribeOptions extends TranscribeOptions {
+  /** Refuse longer recordings (default and ceiling 4 h). */
+  maxDurationMs?: number;
+  onProgress?: (progress: SpeechProgressEvent) => void;
+}
+
+/** A long-form transcript: segment times are from the start of the recording. */
+export interface PathTranscript extends Transcript {
+  audioMs: number;
+  engine: string;
+  chunks: number;
+}
+
+/** Transcribes a recording where it lies on the Mac (`speech.transcribe_file`). */
+export interface PathTranscriber {
+  transcribePath(path: string, options?: PathTranscribeOptions): Promise<PathTranscript>;
+}
+
+/**
+ * Head room for one `speech.transcribe_file` call: the analyzer runs much faster than real time,
+ * so the recording's own length plus 10 minutes is generous.
+ */
+const FILE_TIMEOUT_PAD_MS = 10 * 60_000;
 
 export interface NodeSpeechEngineOptions {
   /** Resolves the Mac node to use now, or `undefined` when none is online. */
@@ -84,7 +118,7 @@ interface HelperTranscript {
   language?: string;
 }
 
-export class NodeSpeechEngine implements SpeechEngine {
+export class NodeSpeechEngine implements SpeechEngine, PathTranscriber {
   readonly #opts: NodeSpeechEngineOptions;
   /** Voice id → is a Personal Voice, from the last `speech.voices` answer. */
   #known = new Map<string, boolean>();
@@ -145,6 +179,41 @@ export class NodeSpeechEngine implements SpeechEngine {
     }
     const r = await run.result;
     const t: Transcript = { text: r.text ?? "", segments: (r.segments ?? []).map(segment) };
+    if (r.language !== undefined) t.language = r.language;
+    return t;
+  }
+
+  /** `speech.transcribe_file`: a recording in a granted folder or the Library, up to 4 h. */
+  async transcribePath(path: string, options: PathTranscribeOptions = {}): Promise<PathTranscript> {
+    const maxDurationMs = options.maxDurationMs ?? NODE_SPEECH_LIMITS.maxFileDurationMs;
+    if (maxDurationMs > NODE_SPEECH_LIMITS.maxFileDurationMs || maxDurationMs < 1000) {
+      throw new PsycheError("invalid_params", "maxDurationMs is 1 s … 4 h");
+    }
+    const node = await this.#node();
+    const params: Record<string, unknown> = { path, maxDurationMs };
+    if (options.language !== undefined) params.locale = options.language;
+    const vocab = helperVocabulary(options.vocabulary);
+    if (vocab.length > 0) params.vocabulary = vocab;
+    const res = await node.invoke(NODE_SPEECH_CAPABILITIES.transcribeFile, params, {
+      ...this.#invokeOptions(options.signal, maxDurationMs + FILE_TIMEOUT_PAD_MS),
+      onEvent: (e) => {
+        const ev = e.data as SpeechProgressEvent | null;
+        if (ev?.type === "speech.progress") options.onProgress?.(ev);
+      },
+    });
+    if (!res.ok) throw toError(res);
+    const r = (res.result ?? {}) as HelperTranscript & {
+      engine?: string;
+      audioMs?: number;
+      chunks?: number;
+    };
+    const t: PathTranscript = {
+      text: r.text ?? "",
+      segments: (r.segments ?? []).map(segment),
+      audioMs: r.audioMs ?? 0,
+      engine: r.engine ?? "unknown",
+      chunks: r.chunks ?? 1,
+    };
     if (r.language !== undefined) t.language = r.language;
     return t;
   }
