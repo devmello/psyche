@@ -632,6 +632,32 @@ export const AppleCalendarDeleteEventParams = Type.Object(
 );
 export type AppleCalendarDeleteEventParams = Static<typeof AppleCalendarDeleteEventParams>;
 
+/**
+ * `calendar.watch` (streaming, #673 H2; docs/workflows/mail-and-meetings-2026.md §8.4): observes
+ * `EKEventStoreChanged` and emits one `AppleCalendarChangedEvent` per quiet period: changes are
+ * debounced to 30 s, so a sync that touches many events yields one event. EventKit does not say
+ * what changed; the Gateway re-reads the window it cares about. Runs until cancelled.
+ */
+export const AppleCalendarWatchParams = Type.Object(
+  {},
+  { $id: "AppleCalendarWatchParams", additionalProperties: false },
+);
+export type AppleCalendarWatchParams = Static<typeof AppleCalendarWatchParams>;
+
+/** `node.event` data streamed by `calendar.watch`. */
+export const AppleCalendarChangedEvent = Type.Object(
+  {
+    type: Type.Literal("calendar.changed"),
+    at: IsoDateTime,
+    coalesced: Type.Integer({
+      minimum: 1,
+      description: "EKEventStoreChanged notifications folded into this event",
+    }),
+  },
+  { $id: "AppleCalendarChangedEvent" },
+);
+export type AppleCalendarChangedEvent = Static<typeof AppleCalendarChangedEvent>;
+
 // --- Notes (N1–N4) -----------------------------------------------------------------------------
 
 /** `notes.search` (N1): matched by Notes itself (title and body), newest modified first. */

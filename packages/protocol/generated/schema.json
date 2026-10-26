@@ -2710,6 +2710,30 @@
       ],
       "type": "object"
     },
+    "AppleCalendarChangedEvent": {
+      "properties": {
+        "type": {
+          "const": "calendar.changed",
+          "type": "string"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "coalesced": {
+          "description": "EKEventStoreChanged notifications folded into this event",
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "type",
+        "at",
+        "coalesced"
+      ],
+      "type": "object"
+    },
     "AppleCalendarDeleteEventParams": {
       "properties": {
         "id": {
@@ -3084,6 +3108,11 @@
         "from",
         "to"
       ],
+      "type": "object"
+    },
+    "AppleCalendarWatchParams": {
+      "additionalProperties": false,
+      "properties": {},
       "type": "object"
     },
     "AppleContact": {
@@ -26478,6 +26507,54 @@
       ],
       "type": "string"
     },
+    "SpeechNodeEngine": {
+      "enum": [
+        "speechAnalyzer",
+        "dictationTranscriber",
+        "sfSpeech"
+      ],
+      "type": "string"
+    },
+    "SpeechProgressEvent": {
+      "properties": {
+        "type": {
+          "const": "speech.progress",
+          "type": "string"
+        },
+        "processedMs": {
+          "description": "Audio transcribed so far",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "totalMs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "fraction": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "chunk": {
+          "description": "Chunks finished",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "chunks": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "type",
+        "processedMs",
+        "totalMs",
+        "fraction",
+        "chunk",
+        "chunks"
+      ],
+      "type": "object"
+    },
     "SpeechReadAloudCancelParams": {
       "properties": {
         "streamId": {
@@ -26575,6 +26652,81 @@
       },
       "required": [
         "streamId"
+      ],
+      "type": "object"
+    },
+    "SpeechTranscribeFileParams": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "description": "Absolute path of an audio file in a granted folder or the Library (m4a, caf, wav, aiff, mp3, …)",
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        },
+        "locale": {
+          "description": "BCP-47 tag (default: the Mac's locale)",
+          "maxLength": 35,
+          "type": "string"
+        },
+        "vocabulary": {
+          "description": "Names and terms; selects DictationTranscriber with contextual strings",
+          "items": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "maxDurationMs": {
+          "description": "Refuse longer files (default and ceiling 4 h)",
+          "maximum": 14400000,
+          "minimum": 1000,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "SpeechTranscribeFileResult": {
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "segments": {
+          "description": "Final segments in time order",
+          "items": {
+            "$ref": "#/$defs/TranscriptSegment"
+          },
+          "type": "array"
+        },
+        "engine": {
+          "$ref": "#/$defs/SpeechNodeEngine"
+        },
+        "language": {
+          "description": "BCP-47 tag of the locale used",
+          "type": "string"
+        },
+        "audioMs": {
+          "description": "Duration of the file",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "chunks": {
+          "description": "How many chunks the file was split into",
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "text",
+        "segments",
+        "engine",
+        "language",
+        "audioMs",
+        "chunks"
       ],
       "type": "object"
     },

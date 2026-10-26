@@ -18,6 +18,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-25 (S14, #673 H: long-form transcription and calendar.changed)
+
+For W6 (#670) and the helper's H1 / H2, docs/workflows/mail-and-meetings-2026.md §8.4. All new names.
+
+- `schemas/speech.ts`: `SpeechTranscribeFileParams {path, locale?, vocabulary?, maxDurationMs?}` (≤ `SPEECH_FILE_MAX_DURATION_MS`, 4 h), `SpeechTranscribeFileResult {text, segments, engine, language, audioMs, chunks}`, `SpeechNodeEngine`, the streamed `SpeechProgressEvent` (`speech.progress`) and `SPEECH_FILE_CAPABILITIES`.
+- `schemas/apple-apps.ts`: `AppleCalendarWatchParams` and `AppleCalendarChangedEvent` (`calendar.changed {at, coalesced}`), streamed by the helper's `calendar.watch`. A node event is tied to an invocation, so the Gateway holds one `calendar.watch` open, as it does `messages.watch`.
+
 ### v1 additive — 2026-10-25 (E, #678: the teaching loop)
 
 For T1 (#679), T2 (#680) and T3 (#681), docs/agent/teaching-loop-2026.md §3 and §7. All new fields are optional and all new schemas are new names.
