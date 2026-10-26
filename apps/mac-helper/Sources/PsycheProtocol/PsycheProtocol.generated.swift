@@ -935,6 +935,7 @@
 //   let specialistOutcome = try? JSONDecoder().decode(SpecialistOutcome.self, from: jsonData)
 //   let specialistProgressPayload = try? JSONDecoder().decode(SpecialistProgressPayload.self, from: jsonData)
 //   let specialistResult = try? JSONDecoder().decode(SpecialistResult.self, from: jsonData)
+//   let specialistResultBlock = try? JSONDecoder().decode(SpecialistResultBlock.self, from: jsonData)
 //   let specialistResultKind = try? JSONDecoder().decode(SpecialistResultKind.self, from: jsonData)
 //   let specialistResultPayload = try? JSONDecoder().decode(SpecialistResultPayload.self, from: jsonData)
 //   let specialistRole = try? JSONDecoder().decode(SpecialistRole.self, from: jsonData)
@@ -7570,6 +7571,7 @@ public enum BlockType: String, Codable, Sendable {
     case question = "question"
     case receipt = "receipt"
     case relatedThreads = "related_threads"
+    case specialistResult = "specialist_result"
     case task = "task"
     case taught = "taught"
     case text = "text"
@@ -21349,6 +21351,26 @@ public struct Step: Codable, Sendable {
         self.label = label
         self.status = status
     }
+}
+
+// MARK: - SpecialistResultBlock
+public struct SpecialistResultBlock: Codable, Sendable {
+    public let taskID: String
+    public let type: SpecialistResultBlockType
+
+    public enum CodingKeys: String, CodingKey {
+        case taskID = "taskId"
+        case type = "type"
+    }
+
+    public init(taskID: String, type: SpecialistResultBlockType) {
+        self.taskID = taskID
+        self.type = type
+    }
+}
+
+public enum SpecialistResultBlockType: String, Codable, Sendable {
+    case specialistResult = "specialist_result"
 }
 
 // MARK: - SpecialistResultPayload

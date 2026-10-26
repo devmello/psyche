@@ -78,6 +78,7 @@ import {
 } from "./main/permissions/permissions.ts";
 import { ScreenAskWindow } from "./main/screen-ask/panel.ts";
 import { ScreenAskShortcut } from "./main/screen-ask/settings.ts";
+import { voicePopup } from "./main/screen-ask/voice-key.ts";
 import { shouldShowSplash } from "./main/splash.ts";
 import { startShell } from "./main/startup.ts";
 import {
@@ -910,11 +911,12 @@ void app.whenReady().then(async () => {
     warn: (m) => console.warn(`[dictation] ${m}`),
     onStatus: (s) => broadcast(IPC.dictationStatus, s),
     // The voice key (held from any app) opens the ask panel in voice mode: speak, and the answer
-    // appears as text. The panel dictates through the renderer, which owns the microphone.
-    onVoiceKey: (down) => {
-      if (down) screenAsk?.trigger("voice");
-      broadcast(IPC.voiceKey, { down });
-    },
+    // appears as text. The panel dictates through the renderer, which owns the microphone, and
+    // Talk with Psyche keeps the panel window even with Ask about screen off.
+    ...voicePopup(
+      () => screenAsk,
+      (down) => broadcast(IPC.voiceKey, { down }),
+    ),
   });
   // A locked or sleeping Mac closes the panel and frees the microphone.
   powerMonitor.on("lock-screen", () => {
@@ -997,7 +999,7 @@ void app.whenReady().then(async () => {
     call: (m, p) => requireGateway().call(m, p),
     ...(skipShortcuts ? {} : { shortcuts: globalShortcut }),
     trigger: () => screenAsk?.trigger(),
-    setEnabled: (on) => screenAsk?.setEnabled(on),
+    setEnabled: (on) => screenAsk?.setEnabled(on, "screen"),
     warn: (m) => console.warn(`[screen-ask] ${m}`),
   });
   screenAskShortcut.apply(screenAskShortcut.settings);

@@ -3189,12 +3189,13 @@ export const ko: Partial<Catalogue> = {
   "voice.settings.title": "음성 대화",
   "voice.settings.enabled": "Psyche와 대화",
   "voice.settings.enabledHint":
-    "모든 앱에서 음성 키를 길게 누르거나 채팅에서 음성을 클릭한 다음 말하십시오.",
+    "모든 앱에서 음성 키를 길게 누른 채 말하십시오. 답변은 팝업에 텍스트로 표시되며, Psyche는 말하지 않습니다.",
   "voice.settings.key": "음성 키",
   "voice.settings.keyHint": "받아쓰기 키와 달라야 합니다.",
   "voice.settings.keyClash": "받아쓰기 키입니다. 다른 키를 선택하십시오.",
   "voice.settings.review": "보내기 전에 검토",
-  "voice.settings.reviewHint": "Psyche가 들은 내용을 보여 주므로 보내기 전에 고칠 수 있습니다.",
+  "voice.settings.reviewHint":
+    "Psyche가 들은 내용을 팝업에 남겨 두므로 고친 다음 Return 키를 누를 수 있습니다. 끄면 키를 놓을 때 전송됩니다.",
   "voice.onboarding.hint": "{key} 키를 길게 눌러 {name}에게 말하십시오.",
   "settings.key.voice.conversation.key": "음성 키",
   "settings.key.voice.conversation.reviewBeforeSend": "보내기 전에 검토",

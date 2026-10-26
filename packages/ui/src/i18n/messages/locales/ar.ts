@@ -3217,12 +3217,13 @@ export const ar: Partial<Catalogue> = {
   "voice.settings.title": "المحادثة الصوتية",
   "voice.settings.enabled": "التحدث مع Psyche",
   "voice.settings.enabledHint":
-    "اضغط مطوّلًا على مفتاح الصوت في أي تطبيق، أو اضغط «صوت» في الدردشة، وتحدّث.",
+    "اضغط مطوّلًا على مفتاح الصوت في أي تطبيق وتحدّث. يظهر الرد نصًا في نافذة منبثقة؛ لا يتكلم Psyche.",
   "voice.settings.key": "مفتاح الصوت",
   "voice.settings.keyHint": "يجب أن يختلف عن مفتاح الإملاء.",
   "voice.settings.keyClash": "هذا مفتاح الإملاء. اختر مفتاحًا آخر.",
   "voice.settings.review": "المراجعة قبل الإرسال",
-  "voice.settings.reviewHint": "يعرض ما سمعه Psyche لتتمكن من تصحيحه قبل إرساله.",
+  "voice.settings.reviewHint":
+    "يُبقي ما سمعه Psyche في النافذة المنبثقة لتصحّحه ثم تضغط Return. عند الإيقاف، يُرسَل حين تُفلت المفتاح.",
   "voice.onboarding.hint": "اضغط مطوّلًا على {key} للتحدث مع {name}.",
   "settings.key.voice.conversation.key": "مفتاح الصوت",
   "settings.key.voice.conversation.reviewBeforeSend": "المراجعة قبل الإرسال",

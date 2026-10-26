@@ -10,12 +10,13 @@ export const voice = {
   "voice.settings.title": "Voice conversation",
   "voice.settings.enabled": "Talk with Psyche",
   "voice.settings.enabledHint":
-    "Hold the voice key in any app, or tap Voice in the chat, and talk.",
+    "Hold the voice key in any app and speak. The answer appears as text in a pop-up; Psyche doesn't speak.",
   "voice.settings.key": "Voice key",
   "voice.settings.keyHint": "It must differ from the dictation key.",
   "voice.settings.keyClash": "That's the dictation key. Pick another one.",
   "voice.settings.review": "Review before sending",
-  "voice.settings.reviewHint": "Shows what Psyche heard so you can fix it before it goes.",
+  "voice.settings.reviewHint":
+    "Keeps what Psyche heard in the pop-up so you can fix it and press Return. Off, it's sent when you let go of the key.",
 
   "voice.onboarding.hint": "Hold {key} to talk to {name}.",
 

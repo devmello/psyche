@@ -8520,6 +8520,9 @@
         },
         {
           "$ref": "#/$defs/TaughtBlock"
+        },
+        {
+          "$ref": "#/$defs/SpecialistResultBlock"
         }
       ]
     },
@@ -29204,6 +29207,25 @@
         "gaps",
         "receipts",
         "tainted"
+      ],
+      "type": "object"
+    },
+    "SpecialistResultBlock": {
+      "properties": {
+        "type": {
+          "const": "specialist_result",
+          "type": "string"
+        },
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "taskId"
       ],
       "type": "object"
     },

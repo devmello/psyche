@@ -253,7 +253,21 @@ export interface ChatSlotContext {
   openModelPicker: () => void;
   /** Opens a pane beside the chat, e.g. the Files pane on a Library item (§2.4). */
   openPane: (pane: PaneInstance["pane"], target?: string | null) => void;
+  /** Shows an artifact in the canvas: one pane per thread, its artifact swapped in place. */
+  openArtifact: (artifactId: string, title?: string) => void;
 }
+
+/** The one canvas pane (docs/design/chat-experience-2026.md §4.2): recents are its own tabs. */
+export const CANVAS_PANE_ID = "p_canvas";
+
+/** The layout action that shows an artifact in the canvas pane. */
+export const openArtifactAction = (artifactId: string, title?: string): LayoutAction => ({
+  type: "open",
+  pane: "artifact",
+  paneId: CANVAS_PANE_ID,
+  artifactId,
+  ...(title === undefined ? {} : { title }),
+});
 
 export function ShellApp({
   platform,
@@ -864,6 +878,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         setPermissionMode,
         openModelPicker: () => setOverlay("model"),
         openPane: (pane, target) => dispatch({ type: "open", pane, target: target ?? null }),
+        openArtifact: (artifactId, title) => dispatch(openArtifactAction(artifactId, title)),
       })
     ) : onChat ? (
       <ChatView

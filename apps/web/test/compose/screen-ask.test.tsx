@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { GatewayEvent, GatewayStatus } from "../../src/client/index.ts";
 import {
   answerText,
@@ -10,6 +10,12 @@ import {
   type ScreenAskBridge,
 } from "../../src/compose/ScreenAsk.tsx";
 import type { ShellPlatform } from "../../src/shell/platform.ts";
+
+// No microphone in tests: frames never come, and the Gateway's segments carry the words.
+vi.mock("../../src/shell/voice.ts", async (importActual) => ({
+  ...(await importActual<typeof import("../../src/shell/voice.ts")>()),
+  microphoneSource: () => ({ start: async () => () => {} }),
+}));
 
 afterEach(cleanup);
 
@@ -30,7 +36,10 @@ const CAPTURE = {
   expiresAt: "2026-10-26T10:10:00Z",
 };
 
-function setup(opts: { busyMain?: boolean } = {}) {
+function setup(
+  opts: { busyMain?: boolean; voice?: boolean; settings?: Record<string, unknown> } = {},
+) {
+  let voiceSessions = 0;
   const listeners = new Set<(e: GatewayEvent) => void>();
   const status: GatewayStatus = { phase: "paired", health: "ok", attempt: 0 };
   const calls: [string, unknown][] = [];
@@ -47,7 +56,12 @@ function setup(opts: { busyMain?: boolean } = {}) {
           return { thread: { id: "th_new", kind: "side", title: "x" } };
         if (method === "threads.list")
           return { threads: [{ thread: { id: "th_main", kind: "main" } }], nextCursor: null };
-        if (method === "settings.get") return { settings: {}, stateVersion: 1 };
+        if (method === "settings.get") return { settings: opts.settings ?? {}, stateVersion: 1 };
+        if (method === "voice.start" && opts.voice) {
+          voiceSessions++;
+          return { sessionId: `vs_${voiceSessions}`, location: "node" };
+        }
+        if (method === "voice.stop") return { transcript: { text: "what time is it" } };
         if (method === "settings.set") {
           const p = params as { key: string; value: unknown };
           return { entry: { key: p.key, value: p.value }, stateVersion: 2 };
@@ -75,6 +89,7 @@ function setup(opts: { busyMain?: boolean } = {}) {
     notify: { show: () => {} },
   };
   let opener: ((o: unknown) => void) | undefined;
+  let keyer: ((down: boolean) => void) | undefined;
   const bridged: string[] = [];
   const bridge: ScreenAskBridge = {
     onOpen: (cb) => {
@@ -88,9 +103,20 @@ function setup(opts: { busyMain?: boolean } = {}) {
     resize: () => {},
     selectArea: () => bridged.push("selectArea"),
     region: () => {},
+    onVoiceKey: (cb) => {
+      keyer = cb;
+      return () => {
+        keyer = undefined;
+      };
+    },
   };
   const open = (o: unknown) => act(() => opener?.(o));
-  return { platform, bridge, calls, bridged, open };
+  const key = (down: boolean) => act(() => keyer?.(down));
+  const emit = (event: string, payload: unknown) =>
+    act(() => {
+      for (const l of listeners) l({ event, payload, seq: 0, stateVersion: 0 });
+    });
+  return { platform, bridge, calls, bridged, open, key, emit };
 }
 
 describe("parseOpen", () => {
@@ -244,5 +270,101 @@ describe("ScreenAsk", () => {
     const sent = calls.find(([m]) => m === "chat.send")?.[1] as Record<string, unknown>;
     expect(sent.screen).toBeUndefined();
     expect(sent.content).toBe("what time is it");
+  });
+});
+
+describe("ScreenAsk voice pop-up (push-to-talk)", () => {
+  const box = () => screen.getByRole("textbox") as HTMLTextAreaElement;
+  const listening = (calls: [string, unknown][], n = 1) =>
+    waitFor(() => expect(calls.filter(([m]) => m === "voice.start")).toHaveLength(n));
+
+  it("shows the words live while the key is down, sends on release, and streams a text answer", async () => {
+    const { platform, bridge, calls, open, key, emit } = setup({ voice: true });
+    render(<ScreenAsk platform={platform} bridge={bridge} />);
+    // Main opens the panel on key down, then forwards the key itself (a repeat here).
+    open({ mode: "voice" });
+    key(true);
+    await listening(calls);
+    emit("voice.segment", { sessionId: "vs_1", segment: { text: "what time", final: false } });
+    await waitFor(() => expect(box().value).toBe("what time"));
+    key(false);
+    await waitFor(() => expect(calls.some(([m]) => m === "chat.send")).toBe(true));
+    expect(calls.find(([m]) => m === "chat.send")?.[1]).toEqual({
+      threadId: "th_new",
+      content: "what time is it",
+    });
+    expect(calls.some(([m]) => m === "screen.capture")).toBe(false);
+    expect(calls.filter(([m]) => m === "voice.start")).toHaveLength(1);
+    // The question stays; the answer area and Open in Psyche follow.
+    await waitFor(() => screen.getByRole("button", { name: "Open in Psyche" }));
+    expect(box().value).toBe("what time is it");
+    expect(screen.getByText("Thinking…")).toBeTruthy();
+  });
+
+  it("Review before sending leaves the words in the input for Return", async () => {
+    const { platform, bridge, calls, open, key } = setup({
+      voice: true,
+      settings: { "voice.conversation.reviewBeforeSend": true },
+    });
+    render(<ScreenAsk platform={platform} bridge={bridge} />);
+    await waitFor(() => expect(calls.some(([m]) => m === "settings.get")).toBe(true));
+    open({ mode: "voice" });
+    await listening(calls);
+    key(false);
+    await waitFor(() => expect(box().value).toBe("what time is it"));
+    expect(calls.some(([m]) => m === "chat.send")).toBe(false);
+    fireEvent.change(box(), { target: { value: "what time is it in Paris" } });
+    fireEvent.keyDown(box(), { key: "Enter" });
+    await waitFor(() => expect(calls.some(([m]) => m === "chat.send")).toBe(true));
+    expect(calls.find(([m]) => m === "chat.send")?.[1]).toMatchObject({
+      content: "what time is it in Paris",
+    });
+  });
+
+  it("holding the key again after an answer starts a fresh dictation and a fresh ask", async () => {
+    const { platform, bridge, calls, open, key } = setup({ voice: true });
+    render(<ScreenAsk platform={platform} bridge={bridge} />);
+    open({ mode: "voice" });
+    await listening(calls);
+    key(false);
+    await waitFor(() => screen.getByRole("button", { name: "Open in Psyche" }));
+    key(true);
+    await listening(calls, 2);
+    expect(screen.queryByRole("button", { name: "Open in Psyche" })).toBeNull();
+    expect(box().value).toBe("");
+    key(false);
+    await waitFor(() => expect(calls.filter(([m]) => m === "chat.send")).toHaveLength(2));
+    // Nothing was spoken, so nothing was cancelled.
+    expect(calls.some(([m]) => m === "voice.cancel")).toBe(false);
+  });
+
+  it("Esc while listening closes without sending", async () => {
+    const { platform, bridge, calls, bridged, open, key } = setup({ voice: true });
+    render(<ScreenAsk platform={platform} bridge={bridge} />);
+    open({ mode: "voice" });
+    await listening(calls);
+    fireEvent.keyDown(screen.getByTestId("screen-ask"), { key: "Escape" });
+    expect(bridged).toEqual(["done"]);
+    expect(calls).toContainEqual(["voice.cancel", { sessionId: "vs_1" }]);
+    key(false);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(calls.some(([m]) => m === "chat.send" || m === "voice.stop")).toBe(false);
+    // A key with the panel closed starts nothing (main reopens it first).
+    key(true);
+    expect(calls.filter(([m]) => m === "voice.start")).toHaveLength(1);
+  });
+
+  it("in a screen ask the key dictates into the input and never sends by itself", async () => {
+    const { platform, bridge, calls, open, key } = setup({ voice: true });
+    render(<ScreenAsk platform={platform} bridge={bridge} />);
+    open({ mode: "window" });
+    await waitFor(() =>
+      expect(screen.getByTestId("screen-ask-chip").textContent).toContain("Safari"),
+    );
+    key(true);
+    await listening(calls);
+    key(false);
+    await waitFor(() => expect(box().value).toBe("what time is it"));
+    expect(calls.some(([m]) => m === "chat.send")).toBe(false);
   });
 });

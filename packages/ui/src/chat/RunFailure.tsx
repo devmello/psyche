@@ -1,6 +1,7 @@
 import type { Message, Run } from "@psyche/protocol";
 import { CircleAlert } from "lucide-react";
 import { type ReactElement, useId, useState } from "react";
+import { Card } from "../blocks/card.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { t } from "../i18n/core.ts";
 import { useSlots } from "../slots.tsx";
@@ -43,9 +44,11 @@ export function RunFailure({ run }: { run: Run }): ReactElement {
   const error = run.error ?? "";
   const credential = isCredentialFailure(error);
   return (
-    <div
+    <Card
+      variant="pinned"
       role="alert"
-      className="mt-3 ms-7 flex items-start gap-2 rounded-lg bg-surface-raised px-4 py-3 text-body shadow-elevation-1"
+      label={credential ? t("chat.runFailed.credential") : t("chat.runFailed.generic")}
+      className="mt-3 ms-7 flex items-start gap-2 text-body"
       data-testid="run-failure"
     >
       <CircleAlert className="mt-0.5 size-4 shrink-0 text-danger-text" aria-hidden="true" />
@@ -83,6 +86,6 @@ export function RunFailure({ run }: { run: Run }): ReactElement {
           </p>
         ) : null}
       </div>
-    </div>
+    </Card>
   );
 }

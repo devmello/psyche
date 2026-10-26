@@ -12,11 +12,9 @@ import { describe, expect, it } from "vitest";
 const ALLOWED: Record<string, string> = {
   "blocks/card.tsx": "the shell itself",
   "blocks/ApprovalCard.tsx": "the dock card morphs into the transcript row (layoutId)",
-  "blocks/QuestionCard.tsx": "multi-step form inside the dock; migrates with the dock",
   "blocks/Checklist.tsx": "the pinned checklist is a list surface, not a card",
   "chat/ApprovalDock.tsx": "dock container above the composer",
   "chat/FollowUpQueue.tsx": "composer-attached queue",
-  "chat/RunFailure.tsx": "role=alert with a details disclosure",
   "chat/Thread.tsx": "composer and thread chrome",
   "chat/ThreadChrome.tsx": "thread header chrome",
   "people/EntityCard.tsx": "people sheet cards; Output-class migration (phase 6)",

@@ -2413,7 +2413,7 @@ export interface CompactionSummary {
 
 export type BlockTrigger = "auto" | "manual";
 
-export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "receipt" | "task" | "wrap_up" | "related_threads" | "compaction" | "learned" | "taught";
+export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "receipt" | "task" | "wrap_up" | "related_threads" | "compaction" | "learned" | "taught" | "specialist_result";
 
 export interface ChatCancelParams {
     runId?:   string;
@@ -7250,6 +7250,13 @@ export interface Step {
     label:  string;
     status: string;
 }
+
+export interface SpecialistResultBlock {
+    taskId: string;
+    type:   SpecialistResultBlockType;
+}
+
+export type SpecialistResultBlockType = "specialist_result";
 
 export interface SpecialistResultPayload {
     notificationId?: null | string;

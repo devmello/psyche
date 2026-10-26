@@ -3114,12 +3114,14 @@ export const zh: Partial<Catalogue> = {
   "voice.key.rightCommand": "右侧 ⌘",
   "voice.settings.title": "语音对话",
   "voice.settings.enabled": "与 Psyche 对话",
-  "voice.settings.enabledHint": "在任何 App 中按住语音键，或点按聊天中的“语音”，然后开始说话。",
+  "voice.settings.enabledHint":
+    "在任何 App 中按住语音键并说话。回答会以文字形式显示在弹出窗口中；Psyche 不会说话。",
   "voice.settings.key": "语音键",
   "voice.settings.keyHint": "必须与听写键不同。",
   "voice.settings.keyClash": "这是听写键。请选择其他按键。",
   "voice.settings.review": "发送前检查",
-  "voice.settings.reviewHint": "显示 Psyche 听到的内容，方便你在发送前修改。",
+  "voice.settings.reviewHint":
+    "将 Psyche 听到的内容保留在弹出窗口中，方便你修改后按 Return 发送。关闭时，松开按键即发送。",
   "voice.onboarding.hint": "按住 {key} 与 {name} 对话。",
   "settings.key.voice.conversation.key": "语音键",
   "settings.key.voice.conversation.reviewBeforeSend": "发送前检查",
