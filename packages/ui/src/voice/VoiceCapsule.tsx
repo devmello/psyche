@@ -1,9 +1,10 @@
-import { AudioLines, Mic, MicOff, Square, X } from "lucide-react";
+import { ArrowUp, AudioLines, Mic, MicOff, Square, Trash2, X } from "lucide-react";
 import * as m from "motion/react-m";
 import { type KeyboardEvent, type ReactElement, useEffect, useState } from "react";
 import { GlassSurface } from "../components/glass-surface.tsx";
 import { StatusGlyph, stepStatusKind } from "../components/status.tsx";
 import { Button } from "../components/ui/button.tsx";
+import { Textarea } from "../components/ui/textarea.tsx";
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { motionSpring, spring } from "../motion/tokens.ts";
@@ -17,7 +18,8 @@ import type { VoiceSettings } from "./settings.ts";
  * `layoutId`, `spring.smooth`; a crossfade under reduced motion). Inside: the lantern, one caption
  * line, the step line while it works, the controls (hold to talk / tap to talk, Mute, Stop
  * speaking, End) and the Mic on chip, which always matches capture. Waiting on an approval it
- * says "Say 'send it' or 'cancel'" while a 10 s ring drains on the lantern.
+ * says "Say 'send it' or 'cancel'" while a 10 s ring drains on the lantern. With "Review before
+ * sending" on, the owner's words wait in an editable field with Send and Discard (§4.10).
  *
  * Keyboard (§4.10): Space holds to talk (push) or taps (tap), Esc ends, ⌘. stops speaking. State
  * changes are announced politely; Psyche's caption is not, so speech isn't heard twice.
@@ -29,6 +31,8 @@ export interface VoiceCapsuleProps {
   onTalk: (action: "begin" | "end") => void;
   onToggleMute: () => void;
   onStopSpeaking: () => void;
+  /** Review before sending: send the held words (as edited) or discard them. */
+  onReview?: (action: "send" | "discard", text?: string) => void;
   onEnd: () => void;
   levels?: () => { input: number; output: number };
   /** A fixed clock for stories (the readback window). */
@@ -63,7 +67,7 @@ export function stateLabel(s: VoiceSession, mode: VoiceSettings["mode"]): string
     case "speaking":
       return t("voice.state.speaking");
     case "waiting":
-      return t("voice.state.waiting");
+      return s.reason === "review" ? t("voice.state.review") : t("voice.state.waiting");
     default:
       return "";
   }
@@ -87,6 +91,7 @@ export function VoiceCapsule({
   onTalk,
   onToggleMute,
   onStopSpeaking,
+  onReview,
   onEnd,
   levels,
   now,
@@ -102,6 +107,7 @@ export function VoiceCapsule({
   const busy = session.phase === "thinking" || session.phase === "starting";
   const readback = session.phase === "waiting" && session.reason === "approval";
   const caption = settings.captions ? session.caption : null;
+  const draft = onReview ? session.draft : null;
 
   const press = () => {
     if (settings.mode === "push") {
@@ -122,13 +128,13 @@ export function VoiceCapsule({
     } else if (e.key === "." && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       onStopSpeaking();
-    } else if (e.key === " " && !e.repeat && (e.target as HTMLElement).tagName !== "BUTTON") {
+    } else if (e.key === " " && !e.repeat && !typingTarget(e.target)) {
       e.preventDefault();
       press();
     }
   };
   const onKeyUp = (e: KeyboardEvent<HTMLElement>) => {
-    if (e.key === " " && (e.target as HTMLElement).tagName !== "BUTTON") {
+    if (e.key === " " && !typingTarget(e.target)) {
       e.preventDefault();
       release();
     }
@@ -182,7 +188,15 @@ export function VoiceCapsule({
                 </span>
               ) : null}
             </p>
-            {readback ? (
+            {draft && onReview ? (
+              <ReviewDraft
+                key={draft.utteranceId}
+                text={draft.text}
+                name={persona.name}
+                compact={hud}
+                onReview={onReview}
+              />
+            ) : readback ? (
               <p className="truncate text-body text-label-primary" data-testid="voice-readback">
                 {t("voice.readback", {
                   approve: t("voice.readbackApprove"),
@@ -317,5 +331,88 @@ export function VoiceCapsule({
         </div>
       </GlassSurface>
     </m.div>
+  );
+}
+
+/** Keys typed into a field or pressed on a button aren't the capsule's Space. */
+function typingTarget(target: EventTarget): boolean {
+  const tag = (target as HTMLElement).tagName;
+  return tag === "BUTTON" || tag === "TEXTAREA" || tag === "INPUT";
+}
+
+/**
+ * The owner's words held for review (§4.10). In the capsule they are editable, and Return sends
+ * (Shift-Return for a new line). The HUD shows them with Send and Discard; editing happens in
+ * the app.
+ */
+function ReviewDraft({
+  text,
+  name,
+  compact,
+  onReview,
+}: {
+  text: string;
+  name: string;
+  compact: boolean;
+  onReview: (action: "send" | "discard", text?: string) => void;
+}): ReactElement {
+  const [value, setValue] = useState(text);
+  const send = () => {
+    const edited = value.trim();
+    if (edited === "") onReview("discard");
+    else onReview("send", edited === text ? undefined : edited);
+  };
+  const buttons = (
+    <div className="flex shrink-0 items-center gap-1">
+      <Button
+        size={compact ? "icon-sm" : "sm"}
+        {...(compact ? { "aria-label": t("voice.review.send") } : {})}
+        onClick={send}
+        data-testid="voice-review-send"
+      >
+        <ArrowUp aria-hidden="true" />
+        {compact ? null : t("voice.review.send")}
+      </Button>
+      <Button
+        size={compact ? "icon-sm" : "sm"}
+        variant="ghost"
+        {...(compact ? { "aria-label": t("voice.review.discard") } : {})}
+        onClick={() => onReview("discard")}
+        data-testid="voice-review-discard"
+      >
+        <Trash2 aria-hidden="true" />
+        {compact ? null : t("voice.review.discard")}
+      </Button>
+    </div>
+  );
+  if (compact) {
+    return (
+      <div className="flex min-w-0 items-center gap-1" data-testid="voice-review">
+        <p dir="auto" className="min-w-0 flex-1 truncate text-body text-label-primary">
+          {text}
+        </p>
+        {buttons}
+      </div>
+    );
+  }
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5" data-testid="voice-review">
+      <Textarea
+        dir="auto"
+        rows={2}
+        value={value}
+        aria-label={t("voice.review.label", { name })}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            send();
+          }
+        }}
+        className="min-h-0 resize-none text-body"
+        data-testid="voice-review-text"
+      />
+      {buttons}
+    </div>
   );
 }

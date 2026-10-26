@@ -162,6 +162,54 @@ describe("the voice capsule on the MockGateway", () => {
     expect(screen.getByTestId("composer-capsule")).toBeTruthy();
   });
 
+  it("holds the owner's words for review, sends them as edited, or discards them (§4.10)", async () => {
+    const ref = setup({ "voice.conversation.reviewBeforeSend": true });
+    await userEvent.click(await screen.findByRole("button", { name: "Voice" }));
+    const capsule = await screen.findByTestId("voice-capsule");
+    await waitFor(() => expect(ref.gateway?.voiceConversation).toBeTruthy());
+    const review = (utteranceId: string, draft: string) =>
+      emit(ref.gateway, "voice.conversation.state", {
+        phase: "waiting",
+        reason: "review",
+        draft,
+        utteranceId,
+        listening: false,
+      });
+
+    review("u1", "Tell Sam I'm running late");
+    expect(within(capsule).getByRole("status").textContent).toContain("Check your words");
+    expect(within(capsule).getByTestId("mic-chip").textContent).toBe("Mic off");
+    const field = within(capsule).getByRole("textbox", { name: /heard/ });
+    expect((field as HTMLTextAreaElement).value).toBe("Tell Sam I'm running late");
+    // Space types into the field; it doesn't start a turn.
+    await userEvent.clear(field);
+    await userEvent.type(field, "Tell Sam I'm ten minutes late{Enter}");
+    expect(ref.terminal?.calls.some((c) => c.method === "voice.conversation.turn")).toBe(false);
+    expect(ref.terminal?.calls.at(-1)).toEqual({
+      method: "voice.conversation.review",
+      params: {
+        conversationId: ref.gateway?.voiceConversation,
+        utteranceId: "u1",
+        action: "send",
+        text: "Tell Sam I'm ten minutes late",
+      },
+    });
+
+    // Sent unchanged, the draft goes as heard; Discard drops it.
+    emit(ref.gateway, "voice.conversation.state", { phase: "thinking", listening: false });
+    expect(within(capsule).queryByTestId("voice-review")).toBeNull();
+    review("u2", "Call mom");
+    await userEvent.click(within(capsule).getByTestId("voice-review-send"));
+    expect(ref.terminal?.calls.at(-1)?.params).toMatchObject({ utteranceId: "u2", action: "send" });
+    expect(ref.terminal?.calls.at(-1)?.params).not.toHaveProperty("text");
+    review("u3", "Never mind");
+    await userEvent.click(within(capsule).getByTestId("voice-review-discard"));
+    expect(ref.terminal?.calls.at(-1)?.params).toMatchObject({
+      utteranceId: "u3",
+      action: "discard",
+    });
+  });
+
   it("mutes hands-free (the mic chip goes off) and ends with End", async () => {
     const ref = setup({ "voice.conversation.mode": "handsfree" });
     await userEvent.click(await screen.findByRole("button", { name: "Voice" }));

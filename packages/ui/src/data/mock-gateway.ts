@@ -1169,6 +1169,7 @@ export class MockGateway implements GatewayClient {
     "voice.conversation.turn": () => ({}),
     "voice.conversation.interrupt": () => ({}),
     "voice.conversation.played": () => ({}),
+    "voice.conversation.review": () => ({}),
     "voice.conversation.stop": (p) => {
       if (this.voiceConversation === p.conversationId) this.voiceConversation = null;
       return { ok: true as const };

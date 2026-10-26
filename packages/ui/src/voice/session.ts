@@ -31,6 +31,8 @@ export interface VoiceSession {
   windowMs: number | null;
   /** When the listening window opened (epoch ms), for the draining ring. */
   windowAt: number | null;
+  /** Review before sending (§4.10): the owner's words the Gateway holds until they send them. */
+  draft: { utteranceId: string; text: string } | null;
   /** The one caption line: the owner's words while listening, Psyche's sentence while speaking. */
   caption: { role: "owner" | "agent"; text: string; final: boolean } | null;
   /** The step line while it works ("Checking your calendar"). */
@@ -51,6 +53,7 @@ export const IDLE_SESSION: VoiceSession = {
   prompt: null,
   windowMs: null,
   windowAt: null,
+  draft: null,
   caption: null,
   step: null,
   ended: null,
@@ -102,6 +105,10 @@ export function voiceReducer(s: VoiceSession, a: VoiceAction): VoiceSession {
         prompt: waiting ? (p.prompt ?? null) : null,
         windowMs: waiting ? (p.windowMs ?? null) : null,
         windowAt: waiting && p.windowMs !== undefined ? a.at : null,
+        draft:
+          waiting && p.reason === "review" && p.draft !== undefined && p.utteranceId !== undefined
+            ? { utteranceId: p.utteranceId, text: p.draft }
+            : null,
         // A new turn of the owner's starts with an empty caption; the step line clears when
         // Psyche starts speaking or listens again.
         caption: p.phase === "listening" && s.phase !== "listening" ? null : s.caption,

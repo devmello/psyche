@@ -16,6 +16,7 @@ export interface VoiceHudViewProps {
   onTalk: (action: "begin" | "end") => void;
   onToggleMute: () => void;
   onStopSpeaking: () => void;
+  onReview?: (action: "send" | "discard", text?: string) => void;
   onEnd: () => void;
   onOpen: () => void;
   levels?: () => { input: number; output: number };

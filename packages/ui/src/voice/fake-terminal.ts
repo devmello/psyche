@@ -58,6 +58,16 @@ export class FakeVoiceTerminal implements VoiceTerminal {
       });
   }
 
+  review(utteranceId: string, action: "send" | "discard", text?: string): void {
+    if (this.conversationId)
+      this.call("voice.conversation.review", {
+        conversationId: this.conversationId,
+        utteranceId,
+        action,
+        ...(text === undefined ? {} : { text }),
+      });
+  }
+
   end(): void {
     if (this.conversationId)
       this.call("voice.conversation.stop", { conversationId: this.conversationId });
