@@ -703,6 +703,25 @@ public enum AppleAppsCapabilities {
         var title: String
         var body: String
         var folder: String?
+        /// Wave 1 (N5): text (default) or markdown.
+        var format: String?
+    }
+    struct NotesSearch: Decodable {
+        var query: String?
+        var folder: String?
+        var modifiedSince: String?
+        var limit: Int?
+    }
+    struct NoteAppend: Decodable {
+        var id: String
+        var text: String
+        var checklist: Bool?
+    }
+    struct NoteUpdate: Decodable {
+        var id: String
+        var previousBodySha256: String
+        var title: String?
+        var body: String?
     }
 
     static func notes(_ b: Backends) -> [any CapabilityHandler] {
@@ -723,24 +742,99 @@ public enum AppleAppsCapabilities {
                 guard p.id.hasPrefix("x-coredata://") else { throw CapabilityError.invalidParams("id is a Notes id (x-coredata://…)", field: "id") }
                 let max = min(200_000, Swift.max(100, p.maxLength ?? 50_000))
                 let (summary, html, plain) = try await b.notes.read(id: p.id)
+                // N2 / N4: attachments are listed; bodySha256 (of the whole body) is what notes.update binds to.
+                let atts = (try? await b.notes.attachments(id: p.id)) ?? []
                 return CapabilityOutput(untrusted([
                     "note": ["summary": try json(summary), "html": .string(String(html.prefix(max))), "text": .string(String(plain.prefix(max))),
-                             "truncated": .bool(html.count > max || plain.count > max)],
+                             "truncated": .bool(html.count > max || plain.count > max), "bodySha256": .string(NotesWave1.bodyHash(html)),
+                             "attachments": .array(atts.map { ["id": .string($0.id), "name": .string($0.name)] })],
                 ]))
             },
 
             Capability(CapabilitySpec(
-                name: "notes.create", description: "Create a note from a title and plain text (HTML is escaped), in a folder or the default one.",
+                name: "notes.create",
+                description: "Create a note from a title and plain text (HTML is escaped) or Markdown (format: markdown: headings, lists, bold, italic, code, http(s) links), in a folder or the default one.",
                 sideEffect: .write,
-                inputSchema: Schema.object(["title": Schema.string(maxLength: 300), "body": Schema.string(maxLength: 100_000), "folder": Schema.string(maxLength: 200)],
+                inputSchema: Schema.object(["title": Schema.string(maxLength: 300), "body": Schema.string(maxLength: 100_000), "folder": Schema.string(maxLength: 200),
+                                            "format": Schema.string(enum: ["text", "markdown"])],
                                            required: ["title", "body"]),
                 receiptKind: "connector_action"
             )) { ctx in
                 let p = try ctx.decode(NoteCreate.self)
                 try text(p.title, max: 300, field: "title", required: true)
                 try text(p.body, max: 100_000, field: "body")
-                let n = try await b.notes.create(title: p.title, html: NotesHTML.body(title: p.title, text: p.body), folder: p.folder)
+                guard ["text", "markdown"].contains(p.format ?? "text") else { throw CapabilityError.invalidParams("format is text or markdown", field: "format") }
+                let html = p.format == "markdown" ? NotesMarkdown.html(title: p.title, markdown: p.body) : NotesHTML.body(title: p.title, text: p.body)
+                let n = try await b.notes.create(title: p.title, html: html, folder: p.folder)
                 return CapabilityOutput(["note": try json(n)], receipt: ReceiptDraft(outcome: .ok, summary: "Created note \(p.title)", externalRefs: ["noteId": .string(n.id)]))
+            },
+        ] + notesWave1(b)
+    }
+
+    // MARK: Notes wave 1 (docs/connectors/apple-apps-2026.md §4.4, N1–N4)
+
+    static func notesWave1(_ b: Backends) -> [any CapabilityHandler] {
+        [
+            Capability(CapabilitySpec(
+                name: "notes.search",
+                description: "Find notes by text in the title or body (matched by Notes), optionally in a folder and modified since a date, newest modified first, each with a snippet. Read-only; untrusted.",
+                sideEffect: .read,
+                inputSchema: Schema.object(["query": Schema.string("Text in the title or body", maxLength: 200), "folder": Schema.string(maxLength: 200),
+                                            "modifiedSince": isoSchema, "limit": limitSchema])
+            )) { ctx in
+                let p = try ctx.decode(NotesSearch.self)
+                try text(p.query, max: 200, field: "query")
+                let since = try p.modifiedSince.map { try AppleDates.param($0, field: "modifiedSince") }
+                let found = try await b.notes.search(query: p.query ?? "", folder: p.folder, since: since, limit: try limit(p.limit, default: 20))
+                let notes = found.map { (n, t) -> NoteSummaryRecord in
+                    var n = n
+                    n.snippet = NotesWave1.snippet(t, query: p.query ?? "")
+                    return n
+                }
+                return untrustedList("notes", try json(notes))
+            },
+
+            Capability(CapabilitySpec(
+                name: "notes.folders", description: "The Notes folder tree: id, name, account, parent folder and note count. Read-only.", sideEffect: .read
+            )) { _ in untrustedList("folders", try json(try await b.notes.folders())) },
+
+            Capability(CapabilitySpec(
+                name: "notes.append",
+                description: "Add plain text (HTML is escaped) at the end of a note; checklist: true puts each line on its own \"☐\" line.",
+                sideEffect: .write,
+                inputSchema: Schema.object(["id": Schema.string(), "text": Schema.string(maxLength: 100_000), "checklist": Schema.boolean()], required: ["id", "text"]),
+                receiptKind: "connector_action"
+            )) { ctx in
+                let p = try ctx.decode(NoteAppend.self)
+                try NotesWave1.checkId(p.id)
+                try text(p.text, max: 100_000, field: "text", required: true)
+                let (n, html) = try await b.notes.append(id: p.id, html: NotesWave1.appendHTML(p.text, checklist: p.checklist ?? false))
+                return CapabilityOutput(["note": try json(n), "bodySha256": .string(NotesWave1.bodyHash(html))],
+                                        receipt: ReceiptDraft(outcome: .ok, summary: "Added to note \(n.title)", externalRefs: ["noteId": .string(n.id)]))
+            },
+
+            Capability(CapabilitySpec(
+                name: "notes.update",
+                description: "Replace a note's body (plain text, HTML escaped) and / or rename it. Needs previousBodySha256 from notes.read: refused if the note changed since (no blind overwrite).",
+                sideEffect: .write,
+                inputSchema: Schema.object(["id": Schema.string(), "previousBodySha256": Schema.string(maxLength: 64),
+                                            "title": Schema.string(maxLength: 300), "body": Schema.string(maxLength: 100_000)], required: ["id", "previousBodySha256"]),
+                receiptKind: "connector_action"
+            )) { ctx in
+                let p = try ctx.decode(NoteUpdate.self)
+                try NotesWave1.checkId(p.id)
+                try text(p.title, max: 300, field: "title")
+                try text(p.body, max: 100_000, field: "body")
+                guard p.title != nil || p.body != nil else { throw CapabilityError.invalidParams("give title and / or body", field: "body") }
+                if let t = p.title, t.trimmingCharacters(in: .whitespaces).isEmpty { throw CapabilityError.invalidParams("title is empty", field: "title") }
+                let (current, html, _) = try await b.notes.read(id: p.id)
+                guard NotesWave1.bodyHash(html) == p.previousBodySha256.lowercased() else {
+                    throw CapabilityError(.bindingMismatch, reason: "note_changed", "The note changed since it was read. Read it again before replacing it.")
+                }
+                let newHTML = p.body.map { NotesHTML.body(title: p.title ?? current.title, text: $0) }
+                let (n, after) = try await b.notes.update(id: p.id, title: p.body == nil ? p.title : nil, html: newHTML)
+                return CapabilityOutput(["note": try json(n), "bodySha256": .string(NotesWave1.bodyHash(after))],
+                                        receipt: ReceiptDraft(outcome: .ok, summary: "Updated note \(n.title)", externalRefs: ["noteId": .string(n.id)]))
             },
         ]
     }

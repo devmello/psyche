@@ -139,8 +139,33 @@ private final class Fakes: CalendarBackend, RemindersBackend, MailBackend, Notes
         [NoteSummaryRecord(id: "x-coredata://A/ICNote/p1", folder: "Notes", title: "Groceries", modified: "2026-10-19T08:00:00Z")]
     }
     func read(id: String) async throws -> (NoteSummaryRecord, html: String, text: String) { (try await list(folder: nil, limit: 1)[0], "<div>milk</div>", "milk") }
+    var createdNoteHTML: [String] = []
+    var appended: [String] = []
+    var updates: [(String?, String?)] = []
     func create(title: String, html: String, folder: String?) async throws -> NoteSummaryRecord {
-        NoteSummaryRecord(id: "x-coredata://A/ICNote/p2", folder: folder ?? "Notes", title: title, modified: "2026-10-19T08:00:00Z")
+        lock.withLock { createdNoteHTML.append(html) }
+        return NoteSummaryRecord(id: "x-coredata://A/ICNote/p2", folder: folder ?? "Notes", title: title, modified: "2026-10-19T08:00:00Z")
+    }
+    // Notes wave 1.
+    func search(query: String, folder: String?, since: Date?, limit: Int) async throws -> [(NoteSummaryRecord, text: String)] {
+        [(NoteSummaryRecord(id: "x-coredata://A/ICNote/p1", folder: "Notes", title: "Groceries", modified: "2026-10-19T08:00:00Z"),
+          text: "Groceries\nmilk, eggs and the oat milk from the corner shop")]
+    }
+    func folders() async throws -> [NoteFolderRecord] {
+        NoteFolderRecord.dedupe([
+            NoteFolderRecord(id: "F1", name: "Notes", account: "iCloud", parentId: nil, noteCount: 3),
+            NoteFolderRecord(id: "F2", name: "Trips", account: "iCloud", parentId: nil, noteCount: 1),
+            NoteFolderRecord(id: "F2", name: "Trips", account: "iCloud", parentId: "F1", noteCount: 1),
+        ])
+    }
+    func attachments(id: String) async throws -> [(id: String, name: String)] { [(id: "x-coredata://A/ICAttachment/a1", name: "scan.pdf")] }
+    func append(id: String, html: String) async throws -> (NoteSummaryRecord, html: String) {
+        lock.withLock { appended.append(html) }
+        return (try await list(folder: nil, limit: 1)[0], html: "<div>milk</div>" + html)
+    }
+    func update(id: String, title: String?, html: String?) async throws -> (NoteSummaryRecord, html: String) {
+        lock.withLock { updates.append((title, html)) }
+        return (try await list(folder: nil, limit: 1)[0], html: html ?? "<div>milk</div>")
     }
     func tabs() async throws -> [SafariTabRecord] {
         [SafariTabRecord(window: 0, index: 0, title: "Docs", url: "https://example.com/a", current: false),
@@ -190,12 +215,14 @@ struct AppleAppsTests {
             "mail.save_attachments",
             // Reminders and Calendar wave 1 (§4.2–4.3).
             "reminders.complete", "reminders.delete", "reminders.set_flagged", "calendar.free_busy", "calendar.delete_event",
+            // Notes wave 1 (§4.4).
+            "notes.search", "notes.folders", "notes.append", "notes.update",
         ]
         let h = Harness()
         #expect(Set(h.registry.ordered.map(\.spec.name)) == matrix)
         let writes: Set = ["calendar.create_event", "calendar.update_event", "reminders.create", "reminders.update", "mail.draft", "mail.send", "notes.create", "safari.open_url",
                            "mail.reply_draft", "mail.forward_draft", "mail.send_draft", "mail.set_flags", "mail.move", "mail.save_attachments",
-                           "reminders.complete", "reminders.set_flagged"]
+                           "reminders.complete", "reminders.set_flagged", "notes.append", "notes.update"]
         let destructive: Set = ["reminders.delete", "calendar.delete_event"]
         for c in h.registry.ordered {
             let expected: SideEffect = destructive.contains(c.spec.name) ? .destructive : writes.contains(c.spec.name) ? .write : .read
@@ -450,10 +477,11 @@ struct MailWave1RulesTests {
 /// Opt in with PSYCHE_OSACOMPILE=1.
 @Suite("Mail script compiles")
 struct MailScriptCompileTests {
-    @Test func compiles() throws {
+    @Test(arguments: ["mail", "notes", "reminders"]) func compiles(_ app: String) throws {
         guard ProcessInfo.processInfo.environment["PSYCHE_OSACOMPILE"] == "1" else { return }
-        let src = FileManager.default.temporaryDirectory.appendingPathComponent("mail-\(UUID().uuidString).applescript")
-        try MailScriptingBackend.source.write(to: src, atomically: true, encoding: .utf8)
+        let src = FileManager.default.temporaryDirectory.appendingPathComponent("\(app)-\(UUID().uuidString).applescript")
+        let text = ["mail": MailScriptingBackend.source, "notes": NotesScriptingBackend.source, "reminders": EventKitBackend.flagScript][app]!
+        try text.write(to: src, atomically: true, encoding: .utf8)
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/osacompile")
         p.arguments = ["-o", src.deletingPathExtension().appendingPathExtension("scpt").path, src.path]
@@ -576,5 +604,70 @@ struct RemindersCalendarRulesTests {
         #expect(throws: CapabilityError.self) { try RecurrenceSpec(frequency: "hourly").validate() }
         #expect(throws: CapabilityError.self) { try RecurrenceSpec(frequency: "weekly", daysOfWeek: ["mo", "mo"]).validate() }
         try RecurrenceSpec(frequency: "weekly", interval: 2, daysOfWeek: ["fr"], until: "2027-01-01T00:00:00Z").validate()
+    }
+}
+
+@Suite("Notes wave 1 (apple-apps-2026 §4.4)")
+struct NotesWave1Tests {
+    @Test func searchFoldersAndRead() async throws {
+        let h = Harness()
+        let found = try await h.invoke("notes.search", ["query": "oat milk"])
+        let notes = try decode([NoteSummaryRecord].self, found.result["notes"])
+        #expect(notes.first?.snippet?.contains("oat milk") == true && found.result["provenance"] == "untrusted")
+        let folders = try decode([NoteFolderRecord].self, try await h.invoke("notes.folders").result["folders"])
+        #expect(folders.map(\.id) == ["F1", "F2"] && folders[1].parentId == "F1")
+        let read = try await h.invoke("notes.read", ["id": "x-coredata://A/ICNote/p1"])
+        #expect(read.result["note"]?["bodySha256"] == .string(NotesWave1.bodyHash("<div>milk</div>")))
+        #expect(read.result["note"]?["attachments"]?.arrayValue?.first?["name"] == "scan.pdf")
+    }
+
+    @Test func appendEscapesAndUpdateIsBoundToTheBodyRead() async throws {
+        let h = Harness()
+        let a = try await h.invoke("notes.append", ["id": "x-coredata://A/ICNote/p1", "text": "eggs <b>\nbread", "checklist": true])
+        #expect(h.fakes.appended == ["<div>☐ eggs &lt;b&gt;</div><div>☐ bread</div>"] && a.receipt?.outcome == .ok)
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("notes.append", ["id": "note-1", "text": "x"]) }
+        do {
+            _ = try await h.invoke("notes.update", ["id": "x-coredata://A/ICNote/p1", "previousBodySha256": .string(String(repeating: "0", count: 64)), "body": "new"])
+            Issue.record("expected note_changed")
+        } catch let e as CapabilityError { #expect(e.reason == "note_changed" && e.code == .bindingMismatch) }
+        #expect(h.fakes.updates.isEmpty)
+        let ok = try await h.invoke("notes.update", ["id": "x-coredata://A/ICNote/p1", "previousBodySha256": .string(NotesWave1.bodyHash("<div>milk</div>")),
+                                                     "body": "oat milk"])
+        #expect(h.fakes.updates.first?.1 == NotesHTML.body(title: "Groceries", text: "oat milk") && ok.result["bodySha256"] != nil)
+        _ = try await h.invoke("notes.update", ["id": "x-coredata://A/ICNote/p1", "previousBodySha256": .string(NotesWave1.bodyHash("<div>milk</div>")),
+                                                "title": "Shopping"])
+        #expect(h.fakes.updates.last?.0 == "Shopping" && h.fakes.updates.last?.1 == nil)
+    }
+
+    @Test func createWithMarkdown() async throws {
+        let h = Harness()
+        _ = try await h.invoke("notes.create", ["title": "Plan", "body": "# Steps\n- **one**\n- two", "format": "markdown"])
+        #expect(h.fakes.createdNoteHTML.last == "<div><h1>Plan</h1></div><div><h2>Steps</h2></div><ul><li><b>one</b></li><li>two</li></ul>")
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("notes.create", ["title": "x", "body": "y", "format": "rtf"]) }
+    }
+
+    @Test func outputsDecodeAsTheGeneratedProtocolTypes() async throws {
+        let h = Harness()
+        _ = try decode([AppleNoteSummary].self, try await h.invoke("notes.search", ["query": "milk"]).result["notes"])
+        _ = try decode([AppleNoteFolder].self, try await h.invoke("notes.folders").result["folders"])
+        _ = try decode(AppleNote.self, try await h.invoke("notes.read", ["id": "x-coredata://A/ICNote/p1"]).result["note"])
+    }
+}
+
+@Suite("Notes wave 1: pure rules")
+struct NotesWave1RulesTests {
+    @Test func markdownNeverBecomesRawHTML() {
+        let h = NotesMarkdown.html(title: "T", markdown: "<script>x</script>\n[click](javascript:alert(1))\n[ok](https://a.example/x?a=1&b=2)\n1. first\n*it* and `c`")
+        #expect(!h.contains("<script>") && h.contains("&lt;script&gt;"))
+        #expect(!h.contains("href=\"javascript") && h.contains("<a href=\"https://a.example/x?a=1&amp;b=2\">ok</a>"))
+        #expect(h.contains("<ol><li>first</li></ol>") && h.contains("<i>it</i>") && h.contains("<tt>c</tt>"))
+    }
+
+    @Test func snippetsAndAppends() {
+        let long = String(repeating: "a ", count: 200) + "needle" + String(repeating: " b", count: 200)
+        let s = NotesWave1.snippet(long, query: "NEEDLE", radius: 20)
+        #expect(s.hasPrefix("…") && s.hasSuffix("…") && s.contains("needle") && s.count < 60)
+        #expect(NotesWave1.snippet("line one\nline two", query: "") == "line one line two")
+        #expect(NotesWave1.appendHTML("a\n\nb", checklist: false) == "<div>a</div><div><br></div><div>b</div>")
     }
 }
