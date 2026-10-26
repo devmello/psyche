@@ -22,6 +22,7 @@ import {
   Sparkles,
   Trash2,
   Users,
+  Workflow,
 } from "lucide-react";
 import {
   type KeyboardEvent,
@@ -55,6 +56,7 @@ import { PersonaSection } from "./PersonaSection.tsx";
 import { ServerSection } from "./ServerSection.tsx";
 import { SettingsApprovalProvider } from "./SettingsApproval.tsx";
 import { SkillsSection } from "./SkillsSection.tsx";
+import { SpecialistsSection } from "./SpecialistsSection.tsx";
 import { SETTING_LABELS } from "./setting-labels.ts";
 import type {
   AboutInfo,
@@ -76,6 +78,7 @@ export type SettingsSectionId =
   | "connectors"
   | "mcp"
   | "skills"
+  | "specialists"
   | "permissions"
   | "computer-use"
   | "browser"
@@ -114,6 +117,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionEntry[] = [
   entry("connectors", Plug),
   entry("mcp", Cable),
   entry("skills", Puzzle),
+  entry("specialists", Workflow),
   entry("permissions", ShieldCheck),
   entry("computer-use", MousePointerClick),
   entry("browser", Globe),
@@ -146,6 +150,7 @@ export const SETTINGS_GROUPS: readonly {
       "connectors",
       "mcp",
       "skills",
+      "specialists",
       "credentials",
       "computer-use",
       "browser",
@@ -179,6 +184,7 @@ export function sectionForKey(key: string): SettingsSectionId | null {
     channels: "channels",
     mcp: "mcp",
     skills: "skills",
+    specialists: "specialists",
   };
   return byRoot[root] ?? null;
 }
@@ -293,6 +299,8 @@ export function SettingsSectionView({
       );
     case "skills":
       return <SkillsSection {...opt("now", s.now)} {...opt("onPickFolder", s.onPickSkillFolder)} />;
+    case "specialists":
+      return <SpecialistsSection />;
     case "permissions":
       return <PermissionsSection {...opt("now", s.now)} />;
     case "computer-use":

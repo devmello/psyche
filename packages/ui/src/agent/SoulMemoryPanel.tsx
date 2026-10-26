@@ -1,4 +1,4 @@
-import type { MemoryHit, Provenance } from "@psyche/protocol";
+import type { Lesson, MemoryHit, Provenance } from "@psyche/protocol";
 import {
   ChevronRight,
   Download,
@@ -36,7 +36,7 @@ import { cn } from "../lib/utils.ts";
 import { PeopleSheetSection } from "../people/PeopleSheetSection.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
 import { lessonsAt, useLessons } from "../teaching/hooks.ts";
-import { LessonMark } from "../teaching/LessonMark.tsx";
+import { LessonMark, lessonMarkLabel } from "../teaching/LessonMark.tsx";
 
 /** Persona files and their budgets (architecture §4.2: 20k per file, 4k for USER.md). */
 export const PERSONA_FILES = [
@@ -104,6 +104,9 @@ export function MemoryFileEditor({ path, budget }: { path: string; budget: numbe
   const setDraft = (value: string | null) => setEdit(value === null ? null : { path, value });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // Lines the teaching loop wrote here: listed with their marks, and marked in the editor margin.
+  const lessons = lessonsAt(useLessons({ destination: "file" }).lessons, path);
+  const [openLesson, setOpenLesson] = useState<string | null>(null);
   if (file === null) {
     return loading ? (
       <Skeleton className="h-48" />
@@ -152,9 +155,20 @@ export function MemoryFileEditor({ path, budget }: { path: string; budget: numbe
       {path === "MEMORY.md" ? (
         <p className="text-callout text-label-secondary">{t("agent.memory.dreaming")}</p>
       ) : null}
-      <FileLessons path={path} />
+      <FileLessons lessons={lessons} openId={openLesson} onOpenChange={setOpenLesson} />
       {slots.renderEditor ? (
-        slots.renderEditor({ path, value, onChange: setDraft, budget })
+        slots.renderEditor({
+          path,
+          value,
+          onChange: setDraft,
+          budget,
+          ...(lessons.length > 0
+            ? {
+                marks: lessons.map((l) => ({ id: l.id, text: l.value, label: lessonMarkLabel(l) })),
+                onMarkActivate: setOpenLesson,
+              }
+            : {}),
+        })
       ) : (
         <Textarea
           aria-label={t("agent.memory.contents", { path })}
@@ -177,8 +191,16 @@ export function MemoryFileEditor({ path, budget }: { path: string; budget: numbe
  * from you · 25 Oct · Refined 3 times", opening the statement, sources, change and Keep / Edit /
  * Forget.
  */
-function FileLessons({ path }: { path: string }): ReactElement | null {
-  const lessons = lessonsAt(useLessons({ destination: "file" }).lessons, path);
+function FileLessons({
+  lessons,
+  openId,
+  onOpenChange,
+}: {
+  lessons: readonly Lesson[];
+  /** The lesson whose popover the editor's margin mark opened. */
+  openId: string | null;
+  onOpenChange: (id: string | null) => void;
+}): ReactElement | null {
   if (lessons.length === 0) return null;
   return (
     <section aria-label={t("screens.lessons.fileList")} data-testid="file-lessons">
@@ -187,7 +209,11 @@ function FileLessons({ path }: { path: string }): ReactElement | null {
         {lessons.map((l) => (
           <li key={l.id} className="flex flex-col gap-0.5 border-s-2 border-separator-strong ps-2">
             <span className="font-mono text-mono text-label-primary">{l.value}</span>
-            <LessonMark lesson={l} />
+            <LessonMark
+              lesson={l}
+              open={openId === l.id}
+              onOpenChange={(open) => onOpenChange(open ? l.id : null)}
+            />
           </li>
         ))}
       </ul>

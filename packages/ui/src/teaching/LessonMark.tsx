@@ -20,13 +20,23 @@ export function LessonMark({
   lesson,
   variant = "learned",
   className,
+  open: openProp,
+  onOpenChange,
 }: {
   lesson: Lesson;
   /** `automation`: "Changed from your feedback · date" on a parameter a lesson set. */
   variant?: "learned" | "automation";
   className?: string;
+  /** Controlled: the editor's margin mark opens this popover (teaching loop §5.2). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }): ReactElement {
-  const [open, setOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const open = openProp ?? ownOpen;
+  const setOpen = (next: boolean) => {
+    setOwnOpen(next);
+    onOpenChange?.(next);
+  };
   const date = formatDate(lesson.createdAt);
   const n = lesson.refinedCount;
   return (
@@ -39,7 +49,7 @@ export function LessonMark({
               "inline-flex max-w-full items-center gap-1.5 rounded-sm text-start text-caption text-label-secondary outline-none hover:text-label-primary focus-visible:ring-3 focus-visible:ring-ring",
               className,
             )}
-            aria-label={t("screens.lessons.markLabel", { date, n })}
+            aria-label={lessonMarkLabel(lesson)}
             data-testid="lesson-mark"
           />
         }
@@ -57,6 +67,14 @@ export function LessonMark({
       </PopoverContent>
     </Popover>
   );
+}
+
+/** The mark's accessible name: "Learned from you on 25 Oct, refined 3 times. Show details". */
+export function lessonMarkLabel(lesson: Lesson): string {
+  return t("screens.lessons.markLabel", {
+    date: formatDate(lesson.createdAt),
+    n: lesson.refinedCount,
+  });
 }
 
 /** "- Explain first" → "- Short replies": the lesson's change as a unified diff of lines. */
