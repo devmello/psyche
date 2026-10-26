@@ -2,7 +2,6 @@ import type { FeedPost } from "@psyche/protocol";
 import { CalendarClock, CircleAlert, Loader, Newspaper, PenLine } from "lucide-react";
 import { type ReactElement, type ReactNode, useState } from "react";
 import { toast } from "sonner";
-import { agentSheetHref } from "../../agent/AgentSheet.tsx";
 import { EmptyState, ErrorState, LoadingCards, useDelayedFlag } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { useFeed, useSettings } from "../../data/hooks.ts";
@@ -228,8 +227,8 @@ export interface FeedScreenProps {
   /** Closing the instructions sheet; defaults to navigating back to `/feed`. */
   onCloseInstructions?: () => void;
   /**
-   * Defaults to the agent sheet's Upcoming tab over the Feed, closing back to `/feed`
-   * (`/agent/upcoming?from=%2Ffeed`), where briefings are scheduled.
+   * Defaults to the Overview's Upcoming section (`/overview#upcoming`), where briefings are
+   * scheduled.
    */
   onSchedule?: () => void;
   /** Defaults to `feed.generate` through `useFeed().generate`. */
@@ -308,7 +307,7 @@ export function FeedScreen({
     if (onCloseInstructions) onCloseInstructions();
     else if (instructionsOpen !== undefined) navigate?.("/feed");
   };
-  const schedule = onSchedule ?? (() => navigate?.(agentSheetHref("upcoming", { back: "/feed" })));
+  const schedule = onSchedule ?? (() => navigate?.("/overview#upcoming"));
 
   return (
     <>

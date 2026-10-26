@@ -1,4 +1,4 @@
-import { CalendarClock, Fingerprint, ListChecks, ShieldCheck, Sprout, X } from "lucide-react";
+import { ArrowRight, Fingerprint, ShieldCheck, X } from "lucide-react";
 import { type ReactElement, type ReactNode, useEffect } from "react";
 import { Avatar } from "../avatar/Avatar.tsx";
 import { Badge } from "../components/ui/badge.tsx";
@@ -11,17 +11,57 @@ import {
   SheetTitle,
 } from "../components/ui/sheet.tsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs.tsx";
+import { useQuestions } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
-import { usePersona } from "../slots.tsx";
-import { GrowthPanel } from "../teaching/GrowthPanel.tsx";
-import { ActivityPanel } from "./ActivityPanel.tsx";
+import { routeLink } from "../overview/overviewLinks.ts";
+import { usePersona, useSlots } from "../slots.tsx";
 import { ApprovalsPanel, useApprovalQueue } from "./ApprovalsPanel.tsx";
+import { NowNextLine } from "./NowNextLine.tsx";
 import { SoulMemoryPanel } from "./SoulMemoryPanel.tsx";
-import { UpcomingPanel } from "./UpcomingPanel.tsx";
 import { useAgentStatus } from "./useAgentState.ts";
 
-export type AgentTab = "activity" | "approvals" | "upcoming" | "soul" | "growth";
+/** The two segments of the sheet (agent-overview-2026 §4.1). */
+export type AgentTab = "approvals" | "soul";
+/** Tabs an old link may name: Activity, Upcoming and Growth moved to the Overview. */
+export type LegacyAgentTab = "activity" | "upcoming" | "growth";
+export type AgentRouteTab = AgentTab | LegacyAgentTab;
+
+/** The segment a route opens; the moved tabs fall back to Approvals (they redirect anyway). */
+export const sheetTab = (tab: AgentRouteTab): AgentTab => (tab === "soul" ? "soul" : "approvals");
+
+const LAST_TAB_KEY = "psyche.agentSheet.tab";
+
+/** The segment used last on this device, or null. Storage can throw or be empty. */
+export function lastAgentTab(): AgentTab | null {
+  try {
+    const v = window.localStorage.getItem(LAST_TAB_KEY);
+    return v === "approvals" || v === "soul" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+export function rememberAgentTab(tab: AgentTab): void {
+  try {
+    window.localStorage.setItem(LAST_TAB_KEY, tab);
+  } catch {
+    // A private window or blocked storage: the sheet still works.
+  }
+}
+
+/** What approvals and questions are waiting: the Approvals badge and the default segment. */
+export function useNeedsYouCount(): number {
+  const { live } = useApprovalQueue();
+  const questions = useQuestions();
+  return live.length + questions.open.length;
+}
+
+/** Approvals when something needs you, otherwise the segment used last (else Approvals). */
+export function useDefaultAgentTab(): AgentTab {
+  const count = useNeedsYouCount();
+  return count > 0 ? "approvals" : (lastAgentTab() ?? "approvals");
+}
 
 /**
  * The sheet's header (redesign §5.7, docs/06 §4.7): the 64 px avatar (which carries the state),
@@ -30,13 +70,19 @@ export type AgentTab = "activity" | "approvals" | "upcoming" | "soul" | "growth"
  */
 export function AgentIdentity({
   title = (name) => <h2 className="text-title-2 text-label-primary">{name}</h2>,
-  description = (text) => <p className="text-callout text-label-secondary">{text}</p>,
+  description = (line) => <div>{line}</div>,
+  now,
 }: {
   title?: (name: string) => ReactNode;
-  description?: (text: string) => ReactNode;
+  /** Wraps the Now / next line; the modal sheet passes its dialog description. */
+  description?: (line: ReactNode) => ReactNode;
+  now?: number;
 }): ReactElement {
   const persona = usePersona();
   const status = useAgentStatus();
+  const navigate = useSlots().navigate;
+  // A plain click goes in-app (closing the sheet); a ⌘-click follows the link and keeps it open.
+  const overview = routeLink("/overview", navigate);
   return (
     <div className="flex min-h-16 items-center gap-3" data-testid="agent-identity">
       <Avatar
@@ -49,15 +95,27 @@ export function AgentIdentity({
       />
       <div className="flex min-w-0 flex-col gap-0.5">
         {title(persona.name)}
-        {description(status.snippet)}
+        {description(<NowNextLine {...(now === undefined ? {} : { now })} />)}
+        <a
+          href={overview.href}
+          onClick={overview.onClick}
+          data-testid="agent-open-overview"
+          className="inline-flex w-fit items-center gap-1 rounded-sm text-callout text-accent-11 underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {t("agent.sheet.openOverview")}
+          <ArrowRight aria-hidden="true" className="size-3.5 rtl:rotate-180" />
+        </a>
       </div>
     </div>
   );
 }
 
-/** What an `/agent/*` route opens: the tab, a task in Activity, a file in Soul & Memory. */
+/** What an `/agent/*` route opens: the tab, a file or a person in Soul & Memory. */
 export interface AgentSheetRoute {
-  tab: AgentTab;
+  /** The moved tabs still parse so old links resolve (the shell redirects them). */
+  tab: AgentRouteTab;
+  /** `/agent/approvals?view=decided` (or `#decided`) opens "Decided recently" expanded. */
+  view?: "decided";
   taskId?: string;
   /** A task's Timeline (`/agent/activity/run/:runId[?step=:stepId]`, run trace §3.3). */
   runId?: string;
@@ -74,11 +132,16 @@ function appPath(value: string | null): string | undefined {
   return value !== null && /^\/(?![/\\])/.test(value) ? value : undefined;
 }
 
-/** `/agent/upcoming?from=%2Ffeed`: the sheet route that returns to `back` when closed. */
-export function agentSheetHref(tab: AgentTab, options: { back?: string } = {}): string {
-  return options.back === undefined
-    ? `/agent/${tab}`
-    : `/agent/${tab}?from=${encodeURIComponent(options.back)}`;
+/** `/agent/approvals?view=decided&from=%2Ffeed`: the sheet route that returns to `back` when closed. */
+export function agentSheetHref(
+  tab: AgentTab,
+  options: { back?: string; view?: "decided" } = {},
+): string {
+  const query = new URLSearchParams();
+  if (options.view) query.set("view", options.view);
+  if (options.back !== undefined) query.set("from", options.back);
+  const qs = query.toString();
+  return qs ? `/agent/${tab}?${qs}` : `/agent/${tab}`;
 }
 
 /** `/agent/activity/run/run_…?step=stp_…`: a task's Timeline in Activity (run trace §3.3). */
@@ -93,13 +156,13 @@ export function agentTimelineHref(
   return `/agent/activity/run/${encodeURIComponent(runId)}${qs ? `?${qs}` : ""}`;
 }
 
-/**
- * Five tabs fit the 400 px panel when each is as wide as its label (not equal widths) and the
- * padding tightens in narrow containers; icons already hide there.
- */
-const TAB = "min-w-0 flex-auto @max-md:px-1";
-
-const ROUTE_TABS: readonly AgentTab[] = ["activity", "approvals", "upcoming", "soul", "growth"];
+const ROUTE_TABS: readonly AgentRouteTab[] = [
+  "activity",
+  "approvals",
+  "upcoming",
+  "soul",
+  "growth",
+];
 
 /**
  * Reads `/agent/<tab>[/<taskId>][?file=…][&from=/feed]`. The chat column opens its sheet from this so the
@@ -111,14 +174,17 @@ export function agentSheetRoute(route: string): AgentSheetRoute | null {
       route,
     );
   if (m === null) return null;
-  const tab = ROUTE_TABS.find((x) => x === m[1]) ?? "activity";
-  const query = new URLSearchParams(route.split("?")[1] ?? "");
+  const tab = ROUTE_TABS.find((x) => x === m[1]) ?? "approvals";
+  const [beforeHash = "", hash] = route.split("#");
+  const query = new URLSearchParams(beforeHash.split("?")[1] ?? "");
+  const decided = tab === "approvals" && (query.get("view") === "decided" || hash === "decided");
   const file = query.get("file") ?? undefined;
   const entity = query.get("entity") ?? undefined;
   const back = appPath(query.get("from"));
   const stepId = query.get("step") ?? undefined;
   return {
     tab,
+    ...(decided ? { view: "decided" as const } : {}),
     ...(m[2] === undefined ? {} : { runId: decodeURIComponent(m[2]) }),
     ...(m[2] !== undefined && stepId ? { stepId } : {}),
     ...(m[3] === undefined ? {} : { taskId: m[3] }),
@@ -131,11 +197,8 @@ export function agentSheetRoute(route: string): AgentSheetRoute | null {
 export interface AgentSheetBodyProps {
   tab: AgentTab;
   onTabChange: (tab: AgentTab) => void;
-  /** Open Activity on this task (`/agent/activity/:taskId`). */
-  taskId?: string;
-  /** Open Activity on this run's Timeline, at a step (`/agent/activity/run/:runId?step=`). */
-  runId?: string;
-  stepId?: string;
+  /** Approvals opens "Decided recently" expanded (`/agent/approvals?view=decided`). */
+  view?: "decided";
   now?: number;
   onStartIncognito?: () => void;
   /** Show the avatar, name and status above the tabs (the modal sheet renders its own). */
@@ -153,13 +216,11 @@ export interface AgentSheetBodyProps {
   escapeAnywhere?: boolean;
 }
 
-/** The five tabs behind the avatar (UI design §2.3), also used by the `/agent/*` routes. */
+/** The two segments behind the avatar (agent-overview-2026 §4.1), also used by `/agent/*` routes. */
 export function AgentSheetBody({
   tab,
   onTabChange,
-  taskId,
-  runId,
-  stepId,
+  view,
   now,
   onStartIncognito,
   header = true,
@@ -179,14 +240,14 @@ export function AgentSheetBody({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose, escapeAnywhere]);
-  // The badge counts what the Approvals panel lists under "Needs you", so the two always agree.
-  const { live } = useApprovalQueue();
+  // The badge counts what the Approvals panel lists under "Needs you" and Questions.
+  const needs = useNeedsYouCount();
   return (
     <div className="@container flex min-h-0 flex-1 flex-col gap-4">
       {header ? (
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <AgentIdentity />
+            <AgentIdentity {...(now === undefined ? {} : { now })} />
           </div>
           {onClose ? (
             <Button
@@ -204,48 +265,33 @@ export function AgentSheetBody({
       ) : null}
       <Tabs
         value={tab}
-        onValueChange={(v) => onTabChange(v as AgentTab)}
+        onValueChange={(v) => {
+          rememberAgentTab(v as AgentTab);
+          onTabChange(v as AgentTab);
+        }}
         className="flex min-h-0 flex-1 flex-col gap-3"
       >
-        {/* The tabs are a segmented control under the header (§5.7). */}
+        {/* Two segments, full width: about 190 px per label at 420 px (§4.1). */}
         <TabsList aria-label={t("agent.sheet.tabs")} className="w-full">
-          <TabsTrigger value="activity" className={TAB}>
-            <ListChecks aria-hidden="true" className="@max-md:hidden" /> {t("agent.sheet.activity")}
-          </TabsTrigger>
-          <TabsTrigger value="approvals" className={TAB}>
+          <TabsTrigger value="approvals" className="min-w-0 flex-1">
             <ShieldCheck aria-hidden="true" className="@max-md:hidden" />{" "}
             {t("agent.sheet.approvals")}
-            {live.length > 0 ? (
+            {needs > 0 ? (
               <Badge variant="approval" className="h-4 px-1.5 tabular-nums">
-                {live.length}
+                {needs}
               </Badge>
             ) : null}
           </TabsTrigger>
-          <TabsTrigger value="upcoming" className={TAB}>
-            <CalendarClock aria-hidden="true" className="@max-md:hidden" />{" "}
-            {t("agent.sheet.upcoming")}
-          </TabsTrigger>
-          <TabsTrigger value="soul" className={TAB}>
+          <TabsTrigger value="soul" className="min-w-0 flex-1">
             <Fingerprint aria-hidden="true" className="@max-md:hidden" /> {t("agent.sheet.soul")}
-          </TabsTrigger>
-          <TabsTrigger value="growth" className={TAB}>
-            <Sprout aria-hidden="true" className="@max-md:hidden" /> {t("agent.sheet.growth")}
           </TabsTrigger>
         </TabsList>
         <div className="-mx-2 min-h-0 flex-1 overflow-y-auto px-2 pt-1 pb-4">
-          <TabsContent value="activity">
-            <ActivityPanel
-              {...(taskId ? { initialTaskId: taskId } : {})}
-              {...(runId ? { initialRunId: runId } : {})}
-              {...(stepId ? { initialStepId: stepId } : {})}
-              {...(now === undefined ? {} : { now })}
-            />
-          </TabsContent>
           <TabsContent value="approvals">
-            <ApprovalsPanel {...(now === undefined ? {} : { now })} />
-          </TabsContent>
-          <TabsContent value="upcoming">
-            <UpcomingPanel {...(now === undefined ? {} : { now })} />
+            <ApprovalsPanel
+              {...(now === undefined ? {} : { now })}
+              {...(view === "decided" ? { decided: true } : {})}
+            />
           </TabsContent>
           <TabsContent value="soul">
             <SoulMemoryPanel
@@ -254,9 +300,6 @@ export function AgentSheetBody({
               {...(entity ? { initialEntity: entity } : {})}
               {...(onStartIncognito ? { onStartIncognito } : {})}
             />
-          </TabsContent>
-          <TabsContent value="growth">
-            <GrowthPanel />
           </TabsContent>
         </div>
       </Tabs>
@@ -335,12 +378,13 @@ export function AgentSheet({
         ) : null}
         <SheetHeader className="px-5 pt-5 pb-3">
           <AgentIdentity
+            {...(body.now === undefined ? {} : { now: body.now })}
             title={(name) => (
               <SheetTitle className="text-title-2 text-label-primary">{name}</SheetTitle>
             )}
-            description={(text) => (
-              <SheetDescription className="text-callout text-label-secondary">
-                {text}
+            description={(line) => (
+              <SheetDescription className="text-callout text-label-secondary" render={<div />}>
+                {line}
               </SheetDescription>
             )}
           />
@@ -354,12 +398,9 @@ export function AgentSheet({
 }
 
 export interface AgentRouteSheetProps
-  extends Omit<
-    AgentSheetBodyProps,
-    "header" | "tab" | "taskId" | "runId" | "stepId" | "file" | "onClose"
-  > {
+  extends Omit<AgentSheetBodyProps, "header" | "tab" | "view" | "file" | "onClose"> {
   route: AgentSheetRoute;
-  /** Switches tabs by changing the route, e.g. to `/agent/upcoming`. */
+  /** Switches tabs by changing the route, e.g. to `/agent/soul`. */
   onTabChange: (tab: AgentTab) => void;
   /** Closing the sheet (×, Escape, the backdrop) leaves the route, e.g. back to `/chat`. */
   onClose: () => void;
@@ -381,11 +422,9 @@ export function AgentRouteSheet({
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
-      tab={route.tab}
+      tab={sheetTab(route.tab)}
       onTabChange={onTabChange}
-      {...(route.taskId === undefined ? {} : { taskId: route.taskId })}
-      {...(route.runId === undefined ? {} : { runId: route.runId })}
-      {...(route.stepId === undefined ? {} : { stepId: route.stepId })}
+      {...(route.view === undefined ? {} : { view: route.view })}
       {...(route.file === undefined ? {} : { file: route.file })}
       {...body}
     />

@@ -461,7 +461,7 @@ export function ActivityPanel({
     );
   }
   return (
-    <section aria-label={t("agent.sheet.activity")} className="flex flex-col gap-3">
+    <section aria-label={t("agent.activity.tasks")} className="flex flex-col gap-3">
       {tasks.error && tasks.all.length === 0 ? (
         <p className="px-2 text-body">
           {t("agent.activity.loadFailed", { reason: tasks.error })}{" "}

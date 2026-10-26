@@ -63,7 +63,7 @@ export function evidenceTarget(ref: string | null): { route: string | null; href
     case "task":
       return { route: `/agent/activity/${id}`, href: null };
     case "tasks":
-      return { route: "/agent/activity", href: null };
+      return { route: "/overview#now", href: null };
     case "goal":
       return { route: `/goals/${id}`, href: null };
     case "connector":

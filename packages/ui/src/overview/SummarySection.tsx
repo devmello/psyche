@@ -122,7 +122,10 @@ export function SummaryBody({
           {...(prev === null ? {} : { previous: approvalsDecided(prev), periodLabel: vs })}
           subline={<Decisions totals={totals.approvals} />}
           {...linkProps(
-            routeLink(agentSheetHref("approvals", { back: overviewHref(period) }), onNavigate),
+            routeLink(
+              agentSheetHref("approvals", { back: overviewHref(period), view: "decided" }),
+              onNavigate,
+            ),
           )}
         />
         {growth === undefined ? (

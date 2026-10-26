@@ -10,7 +10,7 @@ describe("the agent sheet beside the content (#625)", () => {
     render(
       <StoryWorld>
         <input aria-label="Composer" />
-        <AgentSheetPanel tab="activity" onTabChange={() => {}} onClose={onClose} now={STORY_NOW} />
+        <AgentSheetPanel tab="approvals" onTabChange={() => {}} onClose={onClose} now={STORY_NOW} />
       </StoryWorld>,
     );
     const panel = screen.getByRole("complementary", { name: "Agent" });
@@ -19,7 +19,7 @@ describe("the agent sheet beside the content (#625)", () => {
     // Escape elsewhere in the window (the composer) doesn't close it.
     fireEvent.keyDown(screen.getByRole("textbox", { name: "Composer" }), { key: "Escape" });
     expect(onClose).not.toHaveBeenCalled();
-    fireEvent.keyDown(within(panel).getByRole("tab", { name: /Activity/ }), { key: "Escape" });
+    fireEvent.keyDown(within(panel).getByRole("tab", { name: /Approvals/ }), { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
     fireEvent.click(within(panel).getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalledTimes(2);
@@ -29,7 +29,7 @@ describe("the agent sheet beside the content (#625)", () => {
     window.innerWidth = 1440;
     const { unmount } = render(
       <StoryWorld>
-        <AppShell route="/feed" onNavigate={() => {}} defaultSheet="upcoming" compact={false} />
+        <AppShell route="/feed" onNavigate={() => {}} defaultSheet="approvals" compact={false} />
       </StoryWorld>,
     );
     expect(screen.getByTestId("agent-sheet").getAttribute("data-presentation")).toBe("inline");
@@ -39,7 +39,7 @@ describe("the agent sheet beside the content (#625)", () => {
     window.innerWidth = 960;
     const narrow = render(
       <StoryWorld>
-        <AppShell route="/feed" onNavigate={() => {}} defaultSheet="upcoming" compact={false} />
+        <AppShell route="/feed" onNavigate={() => {}} defaultSheet="approvals" compact={false} />
       </StoryWorld>,
     );
     expect(screen.getByRole("dialog")).toBeTruthy();
@@ -47,7 +47,7 @@ describe("the agent sheet beside the content (#625)", () => {
     narrow.unmount();
     render(
       <StoryWorld>
-        <AppShell route="/feed" onNavigate={() => {}} defaultSheet="upcoming" compact />
+        <AppShell route="/feed" onNavigate={() => {}} defaultSheet="approvals" compact />
       </StoryWorld>,
     );
     expect(screen.getByRole("dialog")).toBeTruthy();

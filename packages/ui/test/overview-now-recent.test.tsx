@@ -91,8 +91,8 @@ describe("old agent routes", () => {
     expect(to("/agent/growth")).toBe("/overview#growth");
     expect(to("/agent/activity/run/run_1")).toBe("/overview/run/run_1");
     expect(to("/agent/activity/run/run_1?step=stp_2")).toBe("/overview/run/run_1?step=stp_2");
-    // A task, Approvals and Soul & Memory stay in the sheet.
-    expect(to("/agent/activity/task_1")).toBeNull();
+    expect(to("/agent/activity/task_1")).toBe("/overview#now");
+    // Approvals and Soul & Memory stay in the sheet.
     expect(to("/agent/approvals")).toBeNull();
     expect(to("/agent/soul?file=SOUL.md")).toBeNull();
   });

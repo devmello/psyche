@@ -366,7 +366,7 @@ export function UpcomingPanel({
   return (
     <ul
       className="flex flex-col divide-y divide-separator px-2"
-      aria-label={t("agent.sheet.upcoming")}
+      aria-label={t("agent.activity.nextUp")}
     >
       {sorted.map((a) => (
         <UpcomingRow key={a.id} automation={a} now={now} {...rowProps(a)} />

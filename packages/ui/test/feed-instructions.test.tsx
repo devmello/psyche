@@ -179,10 +179,10 @@ describe("the Feed instructions sheet (issue #614)", () => {
 });
 
 describe("Schedule over the Feed (issue #614)", () => {
-  it("opens the agent sheet's Upcoming tab and closes back to /feed", async () => {
+  it("opens the Overview's Upcoming section", async () => {
     const { user, navigate } = setup(<FeedScreen />);
     await user.click(await screen.findByRole("button", { name: "Schedule" }));
-    expect(navigate).toHaveBeenCalledWith("/agent/upcoming?from=%2Ffeed");
+    expect(navigate).toHaveBeenCalledWith("/overview#upcoming");
     expect(agentSheetRoute("/agent/upcoming?from=%2Ffeed")).toEqual({
       tab: "upcoming",
       back: "/feed",
