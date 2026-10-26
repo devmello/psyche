@@ -1,6 +1,7 @@
 import type { Artifact, LibraryItem, Receipt, Task } from "@psyche/protocol";
 import { createContext, type ReactElement, type ReactNode, useContext, useMemo } from "react";
 import type { PreviewSlot } from "./blocks/ArtifactCard.tsx";
+import type { UseComposerVoice } from "./voice/controls.tsx";
 
 /**
  * What the shell plugs into the kit: navigation (routes from UI design §2.7), pane commands and
@@ -38,6 +39,11 @@ export interface UiSlots {
    * Hosts whose Settings is a separate window supply it; otherwise the kit opens `/chat` itself.
    */
   prefillComposer?: (text: string) => void;
+  /**
+   * The host's composer dictation and voice conversation (#690): a hook, called with the open
+   * thread and a sink for dictated text, that returns their state for the kit to draw.
+   */
+  useComposerVoice?: UseComposerVoice;
   /** Persona shown in agent messages and cards. */
   persona?: { name: string; creature?: string; imageSrc?: string };
 }
