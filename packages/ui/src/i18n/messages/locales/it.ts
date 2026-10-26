@@ -3240,13 +3240,13 @@ export const it: Partial<Catalogue> = {
   "voice.settings.title": "Conversazione vocale",
   "voice.settings.enabled": "Parla con Psyche",
   "voice.settings.enabledHint":
-    "Tieni premuto il tasto voce in qualsiasi app, oppure fai clic su Voce nella chat, e parla.",
+    "Tieni premuto il tasto voce in qualsiasi app e parla. La risposta appare come testo in un pop-up; Psyche non parla.",
   "voice.settings.key": "Tasto voce",
   "voice.settings.keyHint": "Deve essere diverso dal tasto di dettatura.",
   "voice.settings.keyClash": "È il tasto di dettatura. Scegline un altro.",
   "voice.settings.review": "Rivedi prima di inviare",
   "voice.settings.reviewHint":
-    "Mostra cosa ha sentito Psyche, così puoi correggerlo prima dell’invio.",
+    "Lascia ciò che Psyche ha sentito nel pop-up, così puoi correggerlo e premere Invio. Se è disattivato, viene inviato quando rilasci il tasto.",
   "voice.onboarding.hint": "Tieni premuto {key} per parlare con {name}.",
   "settings.key.voice.conversation.key": "Tasto voce",
   "settings.key.voice.conversation.reviewBeforeSend": "Rivedi prima di inviare",

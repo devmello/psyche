@@ -3316,13 +3316,13 @@ export const es: Partial<Catalogue> = {
   "voice.settings.title": "Conversación de voz",
   "voice.settings.enabled": "Hablar con Psyche",
   "voice.settings.enabledHint":
-    "Mantén pulsada la tecla de voz en cualquier app, o toca Voz en el chat, y habla.",
+    "Mantén pulsada la tecla de voz en cualquier app y habla. La respuesta aparece como texto en una ventana emergente; Psyche no habla.",
   "voice.settings.key": "Tecla de voz",
   "voice.settings.keyHint": "Debe ser distinta de la tecla de dictado.",
   "voice.settings.keyClash": "Esa es la tecla de dictado. Elige otra.",
   "voice.settings.review": "Revisar antes de enviar",
   "voice.settings.reviewHint":
-    "Muestra lo que Psyche oyó para que puedas corregirlo antes de enviarlo.",
+    "Deja lo que Psyche oyó en la ventana emergente para que lo corrijas y pulses Return. Si está desactivado, se envía al soltar la tecla.",
   "voice.onboarding.hint": "Mantén pulsada {key} para hablar con {name}.",
   "settings.key.voice.conversation.key": "Tecla de voz",
   "settings.key.voice.conversation.reviewBeforeSend": "Revisar antes de enviar",

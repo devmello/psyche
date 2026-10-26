@@ -1,3 +1,4 @@
+import type { VoiceKeySource } from "../screen-ask/voice-key.ts";
 import {
   DEFAULT_DICTATION_SETTINGS,
   DICTATION_SETTING_KEYS,
@@ -32,11 +33,11 @@ export interface DictationServiceOptions {
   warn?: (message: string) => void;
   onStatus?: (status: DictationStatus) => void;
   /**
-   * The voice conversation key went down or up (docs/voice/voice-mode-2026.md §4.1): the helper
-   * watches it beside the dictation key, and main forwards it to the app's audio terminal.
+   * The voice key went down or up: the helper watches it beside the dictation key, and main
+   * opens the voice pop-up (the ask panel) with it (`VoiceKeyListener`).
    */
   onVoiceKey?: (down: boolean) => void;
-  /** Voice conversation was turned on or off (its key is armed or not), for the voice HUD. */
+  /** Talk with Psyche was turned on or off (its key is armed or not): the pop-up's window. */
   onVoiceEnabled?: (on: boolean) => void;
 }
 
@@ -64,8 +65,10 @@ export function parseVoiceKey(
  * the `voice.*` settings once paired, arms the helper's hold-to-talk watch (`dictation.watch`),
  * registers the toggle hotkey in the main process, and routes `dictation.key`, `voice.segment`,
  * `settings.changed` and `node.updated` (the helper came back) to the controller.
+ *
+ * It is also the macOS `VoiceKeySource`: the voice key comes from the same helper watch.
  */
-export class DictationService {
+export class DictationService implements VoiceKeySource {
   readonly #o: DictationServiceOptions;
   #settings: DictationSettings = DEFAULT_DICTATION_SETTINGS;
   #voiceKey: DictationKey | null = null;

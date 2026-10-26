@@ -11,7 +11,14 @@ import { IPC } from "../../lib/ipc.ts";
  * were looking at stays frontmost and is what the helper captures. Pressing the shortcut again
  * while it is open (or its Select area button) opens the region overlay: a dimmed full-display
  * window at `/screen-ask-region` where you drag a box. Psyche's windows are never captured.
+ *
+ * The same panel is the voice pop-up (`trigger("voice")`, no capture). So the window exists while
+ * either Ask about screen or Talk with Psyche is on (`setEnabled(on, source)`); the window
+ * capture, region overlay and menu items follow Ask about screen only.
  */
+
+/** What keeps the panel window: the screen shortcut, or the voice key. */
+export type PanelSource = "screen" | "voice";
 
 export const SCREEN_ASK_ROUTE = "/screen-ask";
 export const SCREEN_ASK_REGION_ROUTE = "/screen-ask-region";
@@ -98,7 +105,7 @@ export class ScreenAskWindow {
   #win: BrowserWindow | undefined;
   #overlay: BrowserWindow | undefined;
   #overlayDisplay: Rect | undefined;
-  #enabled = false;
+  readonly #sources = new Set<PanelSource>();
   #suspended = false;
   /** An open sent before the renderer loaded, delivered on did-finish-load. */
   #pending: ScreenAskOpen | undefined;
@@ -162,14 +169,25 @@ export class ScreenAskWindow {
     return this.#win !== undefined && !this.#win.isDestroyed() && this.#win.isVisible();
   }
 
-  setEnabled(on: boolean): void {
-    this.#enabled = on;
-    if (on) this.#warm();
+  /** Turns one source on or off; the window is warm while any source is on. */
+  setEnabled(on: boolean, source: PanelSource = "screen"): void {
+    if (on) this.#sources.add(source);
+    else this.#sources.delete(source);
+    if (this.#sources.size > 0) this.#warm();
     else this.destroy();
   }
 
-  /** The shortcut or the menu item: open with a window capture, or go to region mode if open. */
+  /** Whether `source` is on now. */
+  enabled(source: PanelSource): boolean {
+    return this.#sources.has(source);
+  }
+
+  /**
+   * The shortcut or the menu item: open with a window capture, or go to region mode if open.
+   * The voice key: open in voice mode (or just focus the open panel; its renderer dictates).
+   */
   trigger(mode: "window" | "voice" = "window"): void {
+    if (!this.#sources.has(mode === "voice" ? "voice" : "screen")) return;
     if (this.isOpen()) {
       if (mode === "window") this.selectArea();
       else this.contents()?.focus();
@@ -186,7 +204,7 @@ export class ScreenAskWindow {
 
   /** Opens the region overlay on the display with the pointer. */
   selectArea(): void {
-    if (!this.#enabled || this.#suspended) return;
+    if (!this.#sources.has("screen") || this.#suspended) return;
     this.#closeOverlay();
     const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
     const b = display.bounds;
@@ -261,7 +279,7 @@ export class ScreenAskWindow {
   }
 
   #warm(): BrowserWindow | undefined {
-    if (!this.#enabled || this.#suspended) return undefined;
+    if (this.#sources.size === 0 || this.#suspended) return undefined;
     if (this.#win && !this.#win.isDestroyed()) return this.#win;
     const win = new BrowserWindow({
       width: SCREEN_ASK_WIDTH,

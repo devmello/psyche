@@ -3206,12 +3206,13 @@ export const ja: Partial<Catalogue> = {
   "voice.settings.title": "音声会話",
   "voice.settings.enabled": "Psycheと話す",
   "voice.settings.enabledHint":
-    "どのアプリでも音声キーを長押しするか、チャットの「音声」をクリックして話しかけます。",
+    "どのアプリでも音声キーを長押しして話しかけます。回答はポップアップにテキストで表示されます。Psycheは話しません。",
   "voice.settings.key": "音声キー",
   "voice.settings.keyHint": "音声入力のキーとは別のキーにする必要があります。",
   "voice.settings.keyClash": "それは音声入力のキーです。別のキーを選んでください。",
   "voice.settings.review": "送信前に確認",
-  "voice.settings.reviewHint": "Psycheが聞き取った内容を表示するので、送信前に修正できます。",
+  "voice.settings.reviewHint":
+    "Psycheが聞き取った内容をポップアップに残すので、修正してからReturnキーで送信できます。オフの場合は、キーを離すと送信されます。",
   "voice.onboarding.hint": "{key}を長押しして{name}に話しかけます。",
   "settings.key.voice.conversation.key": "音声キー",
   "settings.key.voice.conversation.reviewBeforeSend": "送信前に確認",
