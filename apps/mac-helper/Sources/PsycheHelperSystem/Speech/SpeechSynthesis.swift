@@ -347,3 +347,22 @@ private final class SynthesisJob: @unchecked Sendable {
         self.synthesizer = nil
     }
 }
+
+/// Personal Voice authorization. Live: `AVSpeechSynthesizer`; tests pass a fake.
+public protocol PersonalVoiceAuthorizer: Sendable {
+    /// One of `PersonalVoiceAuth.statuses`; never prompts.
+    func status() -> String
+    /// Shows the system prompt (only ever called while the status is `notDetermined`).
+    func request() async -> String
+}
+
+public struct LivePersonalVoiceAuthorizer: PersonalVoiceAuthorizer {
+    public init() {}
+
+    public func status() -> String { SpeechSynthesis.personalVoiceStatus() }
+
+    public func request() async -> String {
+        _ = await AVSpeechSynthesizer.requestPersonalVoiceAuthorization()
+        return SpeechSynthesis.personalVoiceStatus()
+    }
+}

@@ -34,8 +34,8 @@ struct SpeechCapabilitiesTests {
 
     @Test func manifest() {
         let specs = SpeechCapabilities.make(preflight: DenyAll(), registry: registry).map(\.spec)
-        #expect(specs.map(\.name) == ["speech.transcribe_stream", "speech.transcribe_file", "speech.audio_push", "speech.stop", "speech.synthesize", "speech.prepare", "speech.voices", "speech.status"])
-        #expect(specs.allSatisfy { $0.sideEffect == .read })
+        #expect(specs.map(\.name) == ["speech.transcribe_stream", "speech.transcribe_file", "speech.audio_push", "speech.stop", "speech.synthesize", "speech.prepare", "speech.personal_voice.authorize", "speech.voices", "speech.status"])
+        #expect(specs.filter { $0.sideEffect != .read }.map(\.name) == ["speech.personal_voice.authorize"])
         #expect(specs.filter(\.streaming).map(\.name) == ["speech.transcribe_stream", "speech.transcribe_file", "speech.synthesize"])
         _ = CapabilityRegistry(SpeechCapabilities.make(preflight: DenyAll(), registry: registry))
     }

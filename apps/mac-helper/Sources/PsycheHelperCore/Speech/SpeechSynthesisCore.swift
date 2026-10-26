@@ -120,3 +120,19 @@ public func elapsedMs(_ from: ContinuousClock.Instant, _ to: ContinuousClock.Ins
     let d = to - from
     return Int(d.components.seconds * 1000 + d.components.attoseconds / 1_000_000_000_000_000)
 }
+
+/// `speech.personal_voice.authorize` (voice mode V-H H4): macOS asks the owner once. After that the
+/// answer stands and only System Settings changes it, so the helper never prompts again.
+public enum PersonalVoiceAuth {
+    public static let statuses = ["authorized", "denied", "notDetermined", "unsupported"]
+
+    /// Prompt only while nothing has been decided.
+    public static func shouldPrompt(_ status: String) -> Bool { status == "notDetermined" }
+
+    /// `{status, prompted, settingsHint?}`.
+    public static func result(status: String, prompted: Bool) -> JSONValue {
+        var o: [String: JSONValue] = ["status": .string(statuses.contains(status) ? status : "unsupported"), "prompted": .bool(prompted)]
+        if status == "denied" { o["settingsHint"] = "System Settings › Accessibility › Personal Voice: allow Psyche" }
+        return .object(o)
+    }
+}
