@@ -1,3 +1,7 @@
+import {
+  MAIL_MEETING_SETTING_DEFAULTS as DEFAULTS,
+  type MailMeetingSettingKey,
+} from "@psyche/protocol";
 import { type ReactElement, useEffect, useId, useState } from "react";
 import { usePrefillComposer } from "../../chat/prefill.ts";
 import { Button } from "../../components/ui/button.tsx";
@@ -22,15 +26,24 @@ import {
 } from "./shared.tsx";
 
 /**
- * Defaults shown when a key is unset are the Gateway's own (spec §4): prep 120 min ahead and a
- * notice 60 min ahead, mail checks every 10 min while active and hourly otherwise.
- *
  * Settings → Mail & meetings (docs/workflows/mail-and-meetings-2026.md §7.3), under General:
  * the two master switches (pause, read-only), then one grouped list per workflow. Every switch
  * is a Gateway setting (`mail.*`, `meetings.*`, `workflows.*`); the jobs read them when they
  * run, so a change takes effect on the next run. The voice profile and the sender rules are
  * workspace files: View, Edit and Reset hand the owner's request to the composer.
  */
+
+type KeysOf<T> = {
+  [K in MailMeetingSettingKey]: (typeof DEFAULTS)[K] extends T ? K : never;
+}[MailMeetingSettingKey];
+
+// Unset keys read the shared defaults (`@psyche/protocol`), the same table the Gateway reads.
+const flag = (values: SettingsFormProps["values"], key: KeysOf<boolean>) =>
+  bool(values, key, DEFAULTS[key]);
+const count = (values: SettingsFormProps["values"], key: KeysOf<number>) =>
+  num(values, key, DEFAULTS[key]);
+const text = (values: SettingsFormProps["values"], key: KeysOf<string>) =>
+  str(values, key, DEFAULTS[key]);
 
 /** Connector types that are mail accounts. */
 const MAIL_TYPES = new Set(["google", "microsoft", "imap", "apple:mail"]);
@@ -158,15 +171,15 @@ export function MailMeetingsPanel({
   onAsk,
   onOpenConnectors,
 }: MailMeetingsPanelProps): ReactElement {
-  const paused = bool(values, "workflows.paused", false);
-  const readOnly = bool(values, "workflows.readOnly", false);
+  const paused = flag(values, "workflows.paused");
+  const readOnly = flag(values, "workflows.readOnly");
   // Paused stops every job, so the rest of the page is set aside but stays readable.
   const off = paused;
-  const prepOn = bool(values, "meetings.prep.enabled", false);
-  const digestOn = bool(values, "mail.digest.enabled", false);
-  const followupsOn = bool(values, "mail.followups.enabled", false);
-  const notesOn = bool(values, "meetings.notes.enabled", false);
-  const localModel = str(values, "mail.draft.localModel", "");
+  const prepOn = flag(values, "meetings.prep.enabled");
+  const digestOn = flag(values, "mail.digest.enabled");
+  const followupsOn = flag(values, "mail.followups.enabled");
+  const notesOn = flag(values, "meetings.notes.enabled");
+  const localModel = text(values, "mail.draft.localModel");
   const ask = (id: Parameters<typeof t>[0]) => () => onAsk?.(t(id));
 
   return (
@@ -234,14 +247,14 @@ export function MailMeetingsPanel({
           />
           <TimeRow
             label={t("settings.mail.digest.time")}
-            value={str(values, "mail.digest.time", "07:30")}
+            value={text(values, "mail.digest.time")}
             disabled={off || !digestOn}
             onCommit={(v) => onChange("mail.digest.time", v)}
           />
           <SelectRow
             label={t("settings.mail.digest.days")}
             settingKey="mail.digest.days"
-            value={str(values, "mail.digest.days", "weekdays")}
+            value={text(values, "mail.digest.days")}
             disabled={off || !digestOn}
             options={[
               { value: "weekdays", label: t("settings.mail.digest.days.weekdays") },
@@ -253,7 +266,7 @@ export function MailMeetingsPanel({
             label={t("settings.key.mail.digest.onlyWhenNeeded")}
             description={t("settings.mail.digest.onlyWhenNeeded.hint")}
             settingKey="mail.digest.onlyWhenNeeded"
-            checked={bool(values, "mail.digest.onlyWhenNeeded", false)}
+            checked={flag(values, "mail.digest.onlyWhenNeeded")}
             disabled={off || !digestOn}
             onChange={(v) => onChange("mail.digest.onlyWhenNeeded", v)}
           />
@@ -290,7 +303,7 @@ export function MailMeetingsPanel({
           <SelectRow
             label={t("settings.mail.followups.waitDays")}
             settingKey="mail.followups.waitDays"
-            value={String(num(values, "mail.followups.waitDays", 3))}
+            value={String(count(values, "mail.followups.waitDays"))}
             disabled={off || !followupsOn}
             options={opts([1, 2, 3, 5, 7], (n) => t("settings.mail.followups.days", { n }))}
             onChange={(v) => onChange("mail.followups.waitDays", Number(v))}
@@ -299,7 +312,7 @@ export function MailMeetingsPanel({
             label={t("settings.key.mail.followups.showTwice")}
             description={t("settings.mail.followups.showTwice.hint")}
             settingKey="mail.followups.showTwice"
-            checked={bool(values, "mail.followups.showTwice", true)}
+            checked={flag(values, "mail.followups.showTwice")}
             disabled={off || !followupsOn}
             onChange={(v) => onChange("mail.followups.showTwice", v)}
           />
@@ -310,7 +323,7 @@ export function MailMeetingsPanel({
             label={t("settings.key.mail.voice.enabled")}
             description={t("settings.mail.voice.learn.hint")}
             settingKey="mail.voice.enabled"
-            checked={bool(values, "mail.voice.enabled", false)}
+            checked={flag(values, "mail.voice.enabled")}
             disabled={off}
             onChange={(v) => onChange("mail.voice.enabled", v)}
           />
@@ -385,7 +398,7 @@ export function MailMeetingsPanel({
               </div>
               <NativeSelect
                 aria-label={t("settings.mail.schedule.hoursFrom")}
-                value={String(num(values, "mail.schedule.hoursStart", 9))}
+                value={String(count(values, "mail.schedule.hoursStart"))}
                 disabled={off}
                 onChange={(e) => onChange("mail.schedule.hoursStart", Number(e.target.value))}
               >
@@ -400,7 +413,7 @@ export function MailMeetingsPanel({
               </NativeSelect>
               <NativeSelect
                 aria-label={t("settings.mail.schedule.hoursTo")}
-                value={String(num(values, "mail.schedule.hoursEnd", 17))}
+                value={String(count(values, "mail.schedule.hoursEnd"))}
                 disabled={off}
                 onChange={(e) => onChange("mail.schedule.hoursEnd", Number(e.target.value))}
               >
@@ -419,7 +432,7 @@ export function MailMeetingsPanel({
             label={t("settings.key.mail.schedule.bufferMin")}
             hint={t("settings.mail.schedule.buffer.hint")}
             settingKey="mail.schedule.bufferMin"
-            value={String(num(values, "mail.schedule.bufferMin", 15))}
+            value={String(count(values, "mail.schedule.bufferMin"))}
             disabled={off}
             options={[
               { value: "0", label: t("settings.mail.schedule.noBuffer") },
@@ -431,7 +444,7 @@ export function MailMeetingsPanel({
             label={t("settings.key.mail.schedule.focusTime")}
             description={t("settings.mail.schedule.focusTime.hint")}
             settingKey="mail.schedule.focusTime"
-            checked={bool(values, "mail.schedule.focusTime", false)}
+            checked={flag(values, "mail.schedule.focusTime")}
             disabled={off}
             onChange={(v) => onChange("mail.schedule.focusTime", v)}
           />
@@ -439,7 +452,7 @@ export function MailMeetingsPanel({
             label={t("settings.key.mail.schedulingLink")}
             description={t("settings.mail.schedule.link.hint")}
             settingKey="mail.schedulingLink"
-            value={str(values, "mail.schedulingLink", "")}
+            value={text(values, "mail.schedulingLink")}
             placeholder={t("settings.mail.schedule.link.placeholder")}
             maxLength={500}
             onCommit={(v) => onChange("mail.schedulingLink", v)}
@@ -461,14 +474,14 @@ export function MailMeetingsPanel({
             label={t("settings.key.meetings.prep.scope")}
             description={t("settings.mail.prep.scope.hint")}
             settingKey="meetings.prep.scope"
-            checked={str(values, "meetings.prep.scope", "external") !== "all"}
+            checked={text(values, "meetings.prep.scope") !== "all"}
             disabled={off || !prepOn}
             onChange={(v) => onChange("meetings.prep.scope", v ? "external" : "all")}
           />
           <SelectRow
             label={t("settings.mail.prep.leadMin")}
             settingKey="meetings.prep.leadMin"
-            value={String(num(values, "meetings.prep.leadMin", 120))}
+            value={String(count(values, "meetings.prep.leadMin"))}
             disabled={off || !prepOn}
             options={opts([30, 60, 120, 240], minutes)}
             onChange={(v) => onChange("meetings.prep.leadMin", Number(v))}
@@ -476,7 +489,7 @@ export function MailMeetingsPanel({
           <SelectRow
             label={t("settings.mail.prep.notifyMin")}
             settingKey="meetings.prep.notifyMin"
-            value={String(num(values, "meetings.prep.notifyMin", 60))}
+            value={String(count(values, "meetings.prep.notifyMin"))}
             disabled={off || !prepOn}
             options={opts([5, 10, 15, 30, 60], minutes)}
             onChange={(v) => onChange("meetings.prep.notifyMin", Number(v))}
@@ -485,14 +498,14 @@ export function MailMeetingsPanel({
             label={t("settings.key.meetings.prep.saveToNotes")}
             description={t("settings.mail.prep.saveToNotes.hint")}
             settingKey="meetings.prep.saveToNotes"
-            checked={bool(values, "meetings.prep.saveToNotes", false)}
+            checked={flag(values, "meetings.prep.saveToNotes")}
             disabled={off || !prepOn}
             onChange={(v) => onChange("meetings.prep.saveToNotes", v)}
           />
           <SelectRow
             label={t("settings.mail.prep.dailyCap")}
             settingKey="meetings.prep.dailyCap"
-            value={String(num(values, "meetings.prep.dailyCap", 4))}
+            value={String(count(values, "meetings.prep.dailyCap"))}
             disabled={off || !prepOn}
             options={opts([1, 2, 3, 4], (n) => String(n))}
             onChange={(v) => onChange("meetings.prep.dailyCap", Number(v))}
@@ -512,7 +525,7 @@ export function MailMeetingsPanel({
             label={t("settings.mail.notes.folder")}
             description={t("settings.mail.notes.folder.hint")}
             settingKey="meetings.notes.folder"
-            value={str(values, "meetings.notes.folder", "")}
+            value={text(values, "meetings.notes.folder")}
             placeholder={t("settings.mail.notes.folder.placeholder")}
             maxLength={1024}
             onCommit={(v) => onChange("meetings.notes.folder", v)}
@@ -520,7 +533,7 @@ export function MailMeetingsPanel({
           <SelectRow
             label={t("settings.mail.notes.tasksApp")}
             settingKey="meetings.notes.tasksApp"
-            value={str(values, "meetings.notes.tasksApp", "reminders")}
+            value={text(values, "meetings.notes.tasksApp")}
             disabled={off || !notesOn}
             options={[
               { value: "reminders", label: t("settings.mail.notes.tasksApp.reminders") },
@@ -532,7 +545,7 @@ export function MailMeetingsPanel({
             label={t("settings.key.meetings.notes.recapDraft")}
             description={t("settings.mail.notes.recap.hint")}
             settingKey="meetings.notes.recapDraft"
-            checked={bool(values, "meetings.notes.recapDraft", false)}
+            checked={flag(values, "meetings.notes.recapDraft")}
             disabled={off || !notesOn}
             onChange={(v) => onChange("meetings.notes.recapDraft", v)}
           />
@@ -552,7 +565,7 @@ export function MailMeetingsPanel({
             label={t("settings.key.meetings.notes.cloudSummary")}
             description={t("settings.mail.notes.cloud.hint")}
             settingKey="meetings.notes.cloudSummary"
-            checked={bool(values, "meetings.notes.cloudSummary", false)}
+            checked={flag(values, "meetings.notes.cloudSummary")}
             disabled={off || !notesOn}
             onChange={(v) => onChange("meetings.notes.cloudSummary", v)}
           />
@@ -565,7 +578,7 @@ export function MailMeetingsPanel({
           <SelectRow
             label={t("settings.mail.poll.active")}
             settingKey="mail.poll.activeMin"
-            value={String(num(values, "mail.poll.activeMin", 10))}
+            value={String(count(values, "mail.poll.activeMin"))}
             disabled={off}
             options={opts([1, 2, 5, 10, 15], minutes)}
             onChange={(v) => onChange("mail.poll.activeMin", Number(v))}
@@ -573,7 +586,7 @@ export function MailMeetingsPanel({
           <SelectRow
             label={t("settings.mail.poll.idle")}
             settingKey="mail.poll.idleMin"
-            value={String(num(values, "mail.poll.idleMin", 60))}
+            value={String(count(values, "mail.poll.idleMin"))}
             disabled={off}
             options={opts([15, 30, 60, 120], minutes)}
             onChange={(v) => onChange("mail.poll.idleMin", Number(v))}

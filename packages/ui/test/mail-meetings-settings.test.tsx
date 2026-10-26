@@ -1,3 +1,4 @@
+import { MAIL_MEETING_SETTING_DEFAULTS as D } from "@psyche/protocol";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -85,10 +86,12 @@ describe("Settings → Mail & meetings", () => {
     render(<MailMeetingsPanel {...base} />);
     const value = (name: string) =>
       (screen.getByRole("combobox", { name }) as HTMLSelectElement).value;
-    expect(value("Prepare ahead of the meeting")).toBe("120");
-    expect(value("Tell me before it starts")).toBe("60");
-    expect(value("While you’re active")).toBe("10");
-    expect(value("Otherwise")).toBe("60");
+    expect(value("Prepare ahead of the meeting")).toBe(String(D["meetings.prep.leadMin"]));
+    expect(value("Tell me before it starts")).toBe(String(D["meetings.prep.notifyMin"]));
+    expect(value("While you’re active")).toBe(String(D["mail.poll.activeMin"]));
+    expect(value("Otherwise")).toBe(String(D["mail.poll.idleMin"]));
+    expect(value("Wait before it shows up")).toBe(String(D["mail.followups.waitDays"]));
+    expect(value("Most preps a day")).toBe(String(D["meetings.prep.dailyCap"]));
   });
 
   it("hands View, Edit and Reset of the voice profile to the composer", async () => {

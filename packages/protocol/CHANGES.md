@@ -18,6 +18,9 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (U, #672: one source for the mail and meeting setting defaults)
+
+- New plain export `MAIL_MEETING_SETTING_DEFAULTS` (and `MailMeetingSettingKey`): the value each `mail.*`, `meetings.*` and `workflows.*` setting has when unset. The Gateway and Settings → Mail & meetings both read it. No schema, method or event changes, so nothing to regenerate.
 ### v1 additive — 2026-10-26 (W, #670: Record meeting captured by the owner's device, docs/workflows/mail-and-meetings-2026.md §4.6)
 
 - New `meetings.record.push {seq, audio}` (`operator.write`): one chunk (base64 mono PCM s16le, 16 kHz, ≤ 512 000 chars) of the running recording, from the device that started it. The recording ends by itself after two minutes without chunks or when that device disconnects.
