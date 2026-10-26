@@ -885,6 +885,59 @@ describe("voice conversation turns over the chat path (chatVoiceTurns)", () => {
     expect(agent.turns.at(-1)?.voice).toEqual({ speak: "brief", narrate: "brief" });
   });
 
+  it("hands the conversation the pending approval as its card shows it", async () => {
+    const c = await setup();
+    const thread = await newThread(c);
+    agent.script([
+      { type: "wait", gate: "approve" },
+      { type: "end", outcome: "final" },
+    ]);
+    const turns = chatVoiceTurns(() => t.gateway).send({
+      threadId: thread.id,
+      deviceId: "dev_voice",
+      text: "reply to Alice",
+      voice: { speak: "brief", narrate: "off" },
+      signal: new AbortController().signal,
+    });
+    await agent.started(1);
+    const runId = agent.turns.at(-1)?.runId as string;
+    t.gateway.context.bus.publish(
+      "approval.created",
+      {
+        approval: {
+          id: "apr_9",
+          kind: "send_email",
+          summary: 'Send reply "Running late" to alice@example.org',
+          sideEffect: "write",
+          requestedBy: { runId, taskId: null, threadId: thread.id },
+          deviceOnly: false,
+          requiresAuthentication: false,
+          taint: false,
+          scopesOffered: ["once", "task"],
+        },
+      } as never,
+      thread.id,
+    );
+    agent.open("approve");
+    const events: VoiceTurnEvent[] = [];
+    for await (const e of turns) events.push(e);
+    expect(events[0]).toEqual({
+      type: "waiting",
+      reason: "approval",
+      approvalId: "apr_9",
+      approval: {
+        id: "apr_9",
+        summary: 'Send reply "Running late" to alice@example.org',
+        sideEffect: "write",
+        deviceOnly: false,
+        requiresAuthentication: false,
+        taint: false,
+        scopesOffered: ["once", "task"],
+      },
+    });
+    expect(events.at(-1)).toEqual({ type: "done", status: "done" });
+  });
+
   it("interrupts a running turn and refuses when there is no main thread", async () => {
     const c = await setup();
     const thread = await newThread(c);

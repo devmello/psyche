@@ -623,6 +623,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     db,
     clock,
     home: config.home,
+    approvalTokens: tokens,
     broker: executorBroker,
     rawBroker,
     channelConversations,

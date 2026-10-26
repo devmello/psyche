@@ -78,7 +78,20 @@ export function chatVoiceTurns(gateway: () => Gateway | null): VoiceTurnPort {
             const a = p.approval as ApprovalRequest | undefined;
             if (a?.requestedBy.runId !== runId) return;
             waiting = true;
-            out.push({ type: "waiting", reason: "approval", approvalId: a.id });
+            out.push({
+              type: "waiting",
+              reason: "approval",
+              approvalId: a.id,
+              approval: {
+                id: a.id,
+                summary: a.summary,
+                ...(a.sideEffect === undefined ? {} : { sideEffect: a.sideEffect }),
+                deviceOnly: a.deviceOnly,
+                requiresAuthentication: a.requiresAuthentication,
+                taint: a.taint,
+                scopesOffered: a.scopesOffered,
+              },
+            });
             return;
           }
           case "question.created": {

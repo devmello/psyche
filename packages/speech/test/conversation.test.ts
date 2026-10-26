@@ -11,6 +11,11 @@ import { FakeSpeechEngine } from "@psyche/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PCM_16K_MONO } from "../src/audio.ts";
 import {
+  matchApprovalPhrase,
+  planVoiceApproval,
+  type VoiceApprovalInfo,
+} from "../src/conversation/approvals.ts";
+import {
   type VoiceConversationEvent,
   VoiceConversationManager,
   type VoiceTurnEvent,
@@ -694,5 +699,263 @@ describe("the owner's switch", () => {
     });
     on = true;
     expect((await m.start({ mode: "push", format: PCM_16K_MONO }, t.ctx)).location).toBe("node");
+  });
+});
+
+describe("approvals by voice (spec §4.6)", () => {
+  const approval = (over: Partial<VoiceApprovalInfo> = {}): VoiceApprovalInfo => ({
+    id: "apr_1",
+    summary: 'Send reply "Running late" to alice@example.org',
+    sideEffect: "write",
+    deviceOnly: false,
+    requiresAuthentication: false,
+    taint: false,
+    scopesOffered: ["once", "task"],
+    ...over,
+  });
+
+  async function waitingFor(
+    texts: string[],
+    info: VoiceApprovalInfo,
+    opts: {
+      tier?: "off" | "write" | "write_destructive";
+      port?: boolean;
+      mode?: "handsfree" | "push";
+    } = {},
+  ) {
+    const answers: { approvalId: string; decision: string; utterance: string }[] = [];
+    const t = setup(texts, { settings: { approvals: opts.tier ?? "write" } });
+    // Rebuild the manager with an approvals port (setup() has none).
+    const selector = new SpeechEngineSelector({ stt: { order: ["mac-node"] }, tts: { order: [] } });
+    selector.register({
+      id: "mac-node",
+      location: "node",
+      supports: { transcribe: true, stream: true, synthesize: true },
+      engine: t.stt.engine(),
+      available: async () => true,
+    });
+    let n = 0;
+    const manager = new VoiceConversationManager({
+      selector,
+      tts: t.voice.engine(),
+      turns: t.turns.port,
+      emit: (d, e) => t.events.push([d, e]),
+      settings: () => ({ approvals: opts.tier ?? "write" }),
+      newId: () => `vc_${++n}`,
+      ...(opts.port === false
+        ? {}
+        : {
+            approvals: {
+              answer: async (a: { approvalId: string; decision: string; utterance: string }) => {
+                answers.push({
+                  approvalId: a.approvalId,
+                  decision: a.decision,
+                  utterance: a.utterance,
+                });
+              },
+            },
+          }),
+    });
+    let seq = 0;
+    const feed = (amp: number, ms: number) => {
+      for (let x = 0; x < ms; x += 100) {
+        manager.audio(
+          { conversationId: "vc_1", seq: seq++, audio: toBase64(tonePcm([[100, amp]])) },
+          t.ctx,
+        );
+      }
+    };
+    const mode = opts.mode ?? "handsfree";
+    await manager.start({ mode, format: PCM_16K_MONO }, t.ctx);
+    if (mode === "push") {
+      manager.turn({ conversationId: "vc_1", action: "begin" }, t.ctx);
+      feed(0.3, 500);
+      manager.turn({ conversationId: "vc_1", action: "end" }, t.ctx);
+    } else {
+      feed(0, 300);
+      feed(0.3, 800);
+      feed(0, 700);
+    }
+    await flush();
+    t.turns.emit({ type: "waiting", reason: "approval", approvalId: info.id, approval: info });
+    await flush();
+    const utterances = () => [
+      ...new Set(t.of("voice.conversation.speech").map((s) => s.utteranceId)),
+    ];
+    const playAll = () => {
+      for (const id of utterances()) {
+        manager.played(
+          { conversationId: "vc_1", utteranceId: id, playedMs: 200, done: true },
+          t.ctx,
+        );
+      }
+    };
+    return { ...t, manager, feed, answers, playAll, utterances };
+  }
+
+  it("reads the approval back, listens after it played, and approves on an exact phrase", async () => {
+    const t = await waitingFor(["send the note to Alice", "yes, send it"], approval());
+    expect(t.voice.said.at(-1)).toBe(
+      'Send reply "Running late" to alice@example.org. Say "yes" to approve, or "no" to cancel.',
+    );
+    // Not listening during the readback.
+    expect(t.of("voice.conversation.state").at(-1)?.listening).toBe(false);
+    t.playAll();
+    expect(t.of("voice.conversation.state").at(-1)).toMatchObject({
+      phase: "waiting",
+      reason: "approval",
+      approvalId: "apr_1",
+      windowMs: 10_000,
+      listening: true,
+    });
+    t.feed(0.3, 500);
+    t.feed(0, 700);
+    await flush();
+    expect(t.answers).toEqual([
+      { approvalId: "apr_1", decision: "approve", utterance: "yes, send it" },
+    ]);
+    expect(t.voice.said.at(-1)).toBe("Okay.");
+    expect(t.phases().at(-1)).not.toBe("waiting");
+    // The answer never became a chat turn.
+    expect(t.turns.sends).toHaveLength(1);
+  });
+
+  it("denies on 'no', and leaves anything else on screen", async () => {
+    const deny = await waitingFor(["send it", "no"], approval());
+    deny.playAll();
+    deny.feed(0.3, 400);
+    deny.feed(0, 700);
+    await flush();
+    expect(deny.answers.map((a) => a.decision)).toEqual(["deny"]);
+    expect(deny.voice.said.at(-1)).toBe("Cancelled.");
+
+    const vague = await waitingFor(["send it", "yes but change the subject first"], approval());
+    vague.playAll();
+    vague.feed(0.3, 800);
+    vague.feed(0, 700);
+    await flush();
+    expect(vague.answers).toEqual([]);
+    expect(vague.voice.said.at(-1)).toBe("I'll leave it on screen.");
+    expect(vague.of("voice.conversation.state").at(-1)).toMatchObject({
+      phase: "waiting",
+      listening: false,
+    });
+  });
+
+  it("closes the window after 10 s of silence, and when the card is answered on screen", async () => {
+    const t = await waitingFor(["send it"], approval());
+    t.playAll();
+    await vi.advanceTimersByTimeAsync(10_000);
+    await flush();
+    expect(t.answers).toEqual([]);
+    expect(t.voice.said.at(-1)).toBe("I'll leave it on screen.");
+
+    const card = await waitingFor(["send it", "yes"], approval());
+    card.playAll();
+    card.turns.emit({ type: "resumed" });
+    await flush();
+    card.feed(0.3, 400);
+    card.feed(0, 700);
+    await flush();
+    expect(card.answers).toEqual([]);
+  });
+
+  it("never answers device-only, Touch ID or out-of-tier approvals by voice", async () => {
+    const touch = await waitingFor(
+      ["buy it", "yes"],
+      approval({ deviceOnly: true, sideEffect: "financial" }),
+    );
+    expect(touch.voice.said.at(-1)).toBe("That needs your Touch ID on screen.");
+    touch.playAll();
+    touch.feed(0.3, 400);
+    touch.feed(0, 700);
+    await flush();
+    expect(touch.answers).toEqual([]);
+
+    const destructive = await waitingFor(
+      ["delete it", "yes"],
+      approval({ sideEffect: "destructive" }),
+    );
+    expect(destructive.voice.said.at(-1)).toBe("I need your approval on screen.");
+    const allowed = await waitingFor(
+      ["delete it", "yes"],
+      approval({ sideEffect: "destructive" }),
+      {
+        tier: "write_destructive",
+      },
+    );
+    expect(allowed.voice.said.at(-1)).toMatch(/Say "yes" to approve/);
+
+    const noPort = await waitingFor(["send it"], approval(), { port: false });
+    expect(noPort.voice.said.at(-1)).toBe("I need your approval on screen.");
+  });
+
+  it("only lets voice deny in a tainted turn", async () => {
+    const yes = await waitingFor(["send it", "yes"], approval({ taint: true }));
+    expect(yes.voice.said.at(-1)).toMatch(/approve it on screen\. Say "no" to cancel\.$/);
+    yes.playAll();
+    yes.feed(0.3, 400);
+    yes.feed(0, 700);
+    await flush();
+    expect(yes.answers).toEqual([]);
+
+    const no = await waitingFor(["send it", "no"], approval({ taint: true }));
+    no.playAll();
+    no.feed(0.3, 400);
+    no.feed(0, 700);
+    await flush();
+    expect(no.answers.map((a) => a.decision)).toEqual(["deny"]);
+  });
+
+  it("answers with the key in push-to-talk, and opens the window anyway without played reports", async () => {
+    const push = await waitingFor(["send it", "yes"], approval(), { mode: "push" });
+    push.playAll();
+    expect(push.of("voice.conversation.state").at(-1)).toMatchObject({
+      phase: "waiting",
+      listening: true,
+    });
+    push.manager.turn({ conversationId: "vc_1", action: "begin" }, push.ctx);
+    push.feed(0.3, 300);
+    push.manager.turn({ conversationId: "vc_1", action: "end" }, push.ctx);
+    await flush();
+    expect(push.answers.map((a) => a.decision)).toEqual(["approve"]);
+
+    const silent = await waitingFor(["send it", "yes"], approval());
+    expect(silent.of("voice.conversation.state").at(-1)?.listening).toBe(false);
+    await vi.advanceTimersByTimeAsync(2_500);
+    expect(silent.of("voice.conversation.state").at(-1)).toMatchObject({ listening: true });
+  });
+
+  it("lets the owner answer over the readback without muting the rest of the reply", async () => {
+    const t = await waitingFor(["send it", "yes"], approval());
+    expect(t.of("voice.conversation.state").at(-1)?.listening).toBe(false);
+    t.manager.interrupt({ conversationId: "vc_1", stage: "suspect" }, t.ctx);
+    expect(t.of("voice.conversation.state").at(-1)).toMatchObject({
+      phase: "waiting",
+      listening: true,
+    });
+    t.feed(0.3, 400);
+    t.feed(0, 700);
+    await flush();
+    expect(t.answers.map((a) => a.decision)).toEqual(["approve"]);
+    t.turns.emit({ type: "resumed" });
+    t.turns.emit({ type: "delta", text: "Sent the reply to Alice, it went out just now. " });
+    await flush();
+    expect(t.voice.said.at(-1)).toBe("Sent the reply to Alice, it went out just now.");
+  });
+
+  it("matches only whole phrases, and plans by tier", () => {
+    expect(matchApprovalPhrase("Yes, send it.")).toBe("approve");
+    expect(matchApprovalPhrase("No thanks")).toBe("deny");
+    expect(matchApprovalPhrase("yes please")).toBe("approve");
+    expect(matchApprovalPhrase("no, send it")).toBeUndefined();
+    expect(matchApprovalPhrase("I said yes yesterday")).toBeUndefined();
+    expect(matchApprovalPhrase("")).toBeUndefined();
+    expect(planVoiceApproval(approval(), "off").mode).toBe("card");
+    expect(planVoiceApproval(approval(), "write").mode).toBe("answer");
+    expect(planVoiceApproval(approval({ scopesOffered: ["task"] }), "write").mode).toBe("card");
+    expect(
+      planVoiceApproval(approval({ requiresAuthentication: true }), "write_destructive").mode,
+    ).toBe("card");
   });
 });

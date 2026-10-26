@@ -49,7 +49,18 @@ Q3 is done when "a message can be played and saved as a file". `speech.readAloud
   - Each sentence is synthesized as soon as it is complete and streamed as `voice.conversation.speech`, with `last` on its final chunk.
 - **What was heard.** The conversation listens again only after every utterance was reported `played … done`, plus a 600 ms echo hold.
 - **Barge-in.** A client `interrupt {stage: "suspect"}` opens a tentative turn. A transcribed word that isn't in the sentence being spoken confirms it, which stops synthesis, closes that sentence's caption and keeps the owner's turn. With no such word within 1 s the reply goes on. `confirmed` (a key press) stops at once.
-- **Waiting.** A run waiting for an approval or a question puts the conversation in `waiting`, with the card on screen and the mic not transcribed. Answering by voice is G3.
+- **Approvals by voice** (`conversation/approvals.ts`, spec §4.6). A run waiting for an approval puts the conversation in `waiting`, and the card is on screen as always. `planVoiceApproval` applies chat's tiers:
+  - voice answers `write` approvals by default (`voice.conversation.approvals`: `off`, `write`, `write_destructive`);
+  - never `deviceOnly` or Touch ID approvals ("That needs your Touch ID on screen.");
+  - only `once`;
+  - in a tainted turn, only "no".
+
+  When voice may answer:
+  - **Readback.** Psyche reads the broker's own summary with "Say 'yes' to approve, or 'no' to cancel."
+  - **Window.** Psyche listens for 10 s once the client reports the readback played (or after its length plus 2 s), or at once if the owner talks over it. Push-to-talk answers with the key.
+  - **Matching.** `matchApprovalPhrase` accepts only a whole phrase from a fixed list. "no, send it" and "I said yes" are no answer, and anything else is "I'll leave it on screen."
+  - **Answering.** The Gateway answers through the broker as this device's own card (`voiceApprovals`: the device's surface token, scope `once`, `via: "voice"` in the audit entry). The answer never becomes a chat turn.
+- **Questions** (`ask_user`) are announced ("I have a question for you on screen.") and answered on the card; answering them by voice is a follow-up.
 - **Endings.** Stop, 30 s idle (hands-free), a new start on the same device, and `endForDevice` (lock, sleep, disconnect) or `endAll` (shutdown). Every ending aborts transcription and synthesis and reports `listening: false`.
 
 - **Narration** (`narrate`). `steps` says each tool step's label once as it starts. `brief` (default) says one phrase per turn, for a step still running after 1.5 s and only before the answer started. `off` says nothing. Labels come from `narrationLabel(tool)`, fixed templates by tool family ("Checking your calendar"), never from the model or the tool's arguments.

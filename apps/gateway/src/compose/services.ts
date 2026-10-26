@@ -21,6 +21,7 @@ import type { HandlerDef } from "../context.ts";
 import type { PublicRoute, WebhookRoute } from "../http.ts";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
+import type { ApprovalTokens } from "./approval-tokens.ts";
 import type { OwnerAttention } from "./attention.ts";
 import type { CallContexts } from "./call-context.ts";
 import type { ChannelConversations } from "./channel-conversations.ts";
@@ -63,6 +64,12 @@ export interface ComposeServices {
   readonly ownPorts: OwnPorts;
   /** Security §10 rate limits (inbound chat per sender, `web_fetch` per Task), audited. */
   readonly rateLimits: ComposeRateLimits;
+  /**
+   * Each approval's single-use answer token per surface (security §3.7). The voice conversation
+   * answers a spoken approval with its own device's surface token, exactly as that device's card
+   * would.
+   */
+  readonly approvalTokens: Pick<ApprovalTokens, "tokenFor">;
 }
 
 export interface OwnPorts {
