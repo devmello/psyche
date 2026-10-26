@@ -88,6 +88,22 @@
   --trace-tool: var(--accent-9);
   --trace-waiting: var(--amber-11);
   --trace-failed: var(--tomato-9);
+
+  /*
+    Overview charts (agent-overview-2026 §5.6): a 3-series categorical set, each >= 3:1 on
+    --surface-raised (contrast-gate test). --success reads as "good", so the middle series uses
+    the info hue instead; chat is neutral. Heatmap: five accent steps for non-zero days (the
+    bucket edges are the owner's own quantiles), plus a neutral "none" fill; dark has its own.
+  */
+  --chart-1: var(--accent-9);
+  --chart-2: var(--sky-11);
+  --chart-3: var(--label-tertiary);
+  --heat-0: var(--fill-tertiary);
+  --heat-1: var(--accent-a4);
+  --heat-2: var(--accent-a5);
+  --heat-3: var(--accent-a7);
+  --heat-4: var(--accent-a8);
+  --heat-5: var(--accent-a9);
 }
 
 :root[data-theme="dark"] {
@@ -97,6 +113,13 @@
   /* One step above the canvas; gray-3 would drop the accent focus ring under 3:1. */
   --surface-raised: var(--gray-2);
   --surface-overlay: var(--gray-2);
+
+  --chart-2: var(--sky-9);
+  --heat-1: var(--accent-a3);
+  --heat-2: var(--accent-a5);
+  --heat-3: var(--accent-a6);
+  --heat-4: var(--accent-a8);
+  --heat-5: var(--accent-a9);
 
   --fill-primary: oklch(1 0 0 / 14%);
   --fill-secondary: oklch(1 0 0 / 10%);
@@ -185,6 +208,9 @@
   --color-label-primary: var(--label-primary);
   --color-label-secondary: var(--label-secondary);
   --color-label-tertiary: var(--label-tertiary);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
   --color-label-quaternary: var(--label-quaternary);
   --color-fill-primary: var(--fill-primary);
   --color-fill-secondary: var(--fill-secondary);

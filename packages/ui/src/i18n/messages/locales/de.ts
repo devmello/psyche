@@ -1,5 +1,6 @@
 import type { Catalogue } from "../index.ts";
 import { canvas } from "./canvas/de.ts";
+import { charts } from "./charts/de.ts";
 import { mailMeetings } from "./mail-meetings/de.ts";
 import { workflows } from "./workflows/de.ts";
 
@@ -11,6 +12,8 @@ export const de: Partial<Catalogue> = {
   ...workflows,
   // the output canvas (docs/design/chat-experience-2026.md §4.2)
   ...canvas,
+  // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
+  ...charts,
   // common
   "common.cancel": "Abbrechen",
   "common.close": "Schließen",

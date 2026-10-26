@@ -82,6 +82,15 @@ for (const mode of ["light", "dark"] as const) {
           NON_TEXT,
         ],
         [`trace failed bar on ${surface}`, sem("tomato-9"), bg, NON_TEXT],
+        // Overview chart series (styles/design.css --chart-*; agent-overview-2026 §5.6).
+        [`chart series 1 (accent) on ${surface}`, accent(9), bg, NON_TEXT],
+        [
+          `chart series 2 (info) on ${surface}`,
+          sem(mode === "light" ? "sky-11" : "sky-9"),
+          bg,
+          NON_TEXT,
+        ],
+        [`chart series 3 (neutral) on ${surface}`, gray(10), bg, NON_TEXT],
       ]),
     ];
     for (const [name, fg, bg, min] of pairs) {
