@@ -3,6 +3,7 @@ import { canvas } from "./canvas/de.ts";
 import { charts } from "./charts/de.ts";
 import { mailMeetings } from "./mail-meetings/de.ts";
 import { overview } from "./overview/de.ts";
+import { overviewGrowth } from "./overview-growth/de.ts";
 import { workflows } from "./workflows/de.ts";
 
 /** German catalogue (de). Same ids as `en`; missing ids fall back to English. */
@@ -13,6 +14,8 @@ export const de: Partial<Catalogue> = {
   ...workflows,
   // the Overview screen (docs/design/agent-overview-2026.md)
   ...overview,
+  // Overview Growth and People & projects (docs/design/agent-overview-2026.md §5.4)
+  ...overviewGrowth,
   // the output canvas (docs/design/chat-experience-2026.md §4.2)
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)

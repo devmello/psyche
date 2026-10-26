@@ -21,6 +21,9 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 ### v1 additive — 2026-10-26 (chat map widget)
 
 - `ArtifactType` gains `map` (at the end). New schemas `ArtifactMap` and `ArtifactMapMarker` (the JSON content: markers, optional `routes` polylines and `bounds`) and `ArtifactOp` gains `addMarker`, `removeMarker` and `updateMarker`. Swift gains the cases and structs; no hand-written switch needed changes.
+### v1 additive — 2026-10-26 (O4b, agent overview: per-kind run outcomes in `insights.summary`)
+
+- `InsightTotals.runsByKind`: `{task, chat, automation, subagent}`, each `{done, failed}`, counted over the same runs as `runsDone` / `runsFailed` (so the done and failed sums match). Lets the Overview show "tasks done" (task plus chat, status done) and an automation-only success rate. Response-only addition: no new methods, events or enum values, no migration; Swift gains the field only.
 
 ### v1 additive — 2026-10-26 (O1, agent overview: `insights.summary`, docs/design/agent-overview-2026.md §6.2)
 

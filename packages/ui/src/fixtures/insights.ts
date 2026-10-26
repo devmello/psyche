@@ -62,6 +62,25 @@ function allDays(profile: Profile): InsightDay[] {
   });
 }
 
+/** Splits `failed` across the kinds in proportion to their runs; the rest of each kind is done. */
+function byKind(
+  runs: { task: number; chat: number; automation: number },
+  failed: number,
+  subagent: number,
+): InsightTotals["runsByKind"] {
+  const total = runs.task + runs.chat + runs.automation;
+  const share = (n: number) => (total === 0 ? 0 : Math.min(n, Math.round((failed * n) / total)));
+  const automationFailed = share(runs.automation);
+  const taskFailed = share(runs.task);
+  const chatFailed = Math.max(0, Math.min(runs.chat, failed - automationFailed - taskFailed));
+  return {
+    task: { done: runs.task - taskFailed, failed: taskFailed },
+    chat: { done: runs.chat - chatFailed, failed: chatFailed },
+    automation: { done: runs.automation - automationFailed, failed: automationFailed },
+    subagent: { done: subagent, failed: 0 },
+  };
+}
+
 function totalsOf(days: readonly InsightDay[], scale: number): InsightTotals {
   const sum = (pick: (d: InsightDay) => number) => days.reduce((n, d) => n + pick(d), 0);
   const task = sum((d) => d.runs.task);
@@ -79,6 +98,7 @@ function totalsOf(days: readonly InsightDay[], scale: number): InsightTotals {
     runs: { task, chat, automation, subagent: k(task * 0.6) },
     runsDone: runs - failed,
     runsFailed: failed,
+    runsByKind: byKind({ task, chat, automation }, failed, k(task * 0.6)),
     wallMs: sum((d) => d.wallMs),
     approvals: { approved: k(runs * 0.35), denied: k(runs * 0.02), expired: k(runs * 0.01) },
     artifacts: { created: k(runs * 0.12), versions: k(runs * 0.3), charts: k(runs * 0.03) },

@@ -13378,6 +13378,7 @@ public struct InsightTotals: Codable, Sendable {
     public let artifacts: Artifacts
     public let busiestDay: BusiestDay?
     public let runs: InsightTotalsRuns
+    public let runsByKind: RunsByKind
     public let runsDone: Int
     public let runsFailed: Int
     public let specialists: Specialists
@@ -13389,6 +13390,7 @@ public struct InsightTotals: Codable, Sendable {
         case artifacts = "artifacts"
         case busiestDay = "busiestDay"
         case runs = "runs"
+        case runsByKind = "runsByKind"
         case runsDone = "runsDone"
         case runsFailed = "runsFailed"
         case specialists = "specialists"
@@ -13396,11 +13398,12 @@ public struct InsightTotals: Codable, Sendable {
         case wallMS = "wallMs"
     }
 
-    public init(approvals: Approvals, artifacts: Artifacts, busiestDay: BusiestDay?, runs: InsightTotalsRuns, runsDone: Int, runsFailed: Int, specialists: Specialists, topAutomation: TopAutomation?, wallMS: Int) {
+    public init(approvals: Approvals, artifacts: Artifacts, busiestDay: BusiestDay?, runs: InsightTotalsRuns, runsByKind: RunsByKind, runsDone: Int, runsFailed: Int, specialists: Specialists, topAutomation: TopAutomation?, wallMS: Int) {
         self.approvals = approvals
         self.artifacts = artifacts
         self.busiestDay = busiestDay
         self.runs = runs
+        self.runsByKind = runsByKind
         self.runsDone = runsDone
         self.runsFailed = runsFailed
         self.specialists = specialists
@@ -13482,6 +13485,92 @@ public struct InsightTotalsRuns: Codable, Sendable {
         self.chat = chat
         self.subagent = subagent
         self.task = task
+    }
+}
+
+// MARK: - RunsByKind
+public struct RunsByKind: Codable, Sendable {
+    public let automation: AutomationClass
+    public let chat: Chat
+    public let subagent: Subagent
+    public let task: TaskClass
+
+    public enum CodingKeys: String, CodingKey {
+        case automation = "automation"
+        case chat = "chat"
+        case subagent = "subagent"
+        case task = "task"
+    }
+
+    public init(automation: AutomationClass, chat: Chat, subagent: Subagent, task: TaskClass) {
+        self.automation = automation
+        self.chat = chat
+        self.subagent = subagent
+        self.task = task
+    }
+}
+
+// MARK: - AutomationClass
+public struct AutomationClass: Codable, Sendable {
+    public let done: Int
+    public let failed: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case done = "done"
+        case failed = "failed"
+    }
+
+    public init(done: Int, failed: Int) {
+        self.done = done
+        self.failed = failed
+    }
+}
+
+// MARK: - Chat
+public struct Chat: Codable, Sendable {
+    public let done: Int
+    public let failed: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case done = "done"
+        case failed = "failed"
+    }
+
+    public init(done: Int, failed: Int) {
+        self.done = done
+        self.failed = failed
+    }
+}
+
+// MARK: - Subagent
+public struct Subagent: Codable, Sendable {
+    public let done: Int
+    public let failed: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case done = "done"
+        case failed = "failed"
+    }
+
+    public init(done: Int, failed: Int) {
+        self.done = done
+        self.failed = failed
+    }
+}
+
+// MARK: - TaskClass
+public struct TaskClass: Codable, Sendable {
+    public let done: Int
+    public let failed: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case done = "done"
+        case failed = "failed"
+    }
+
+    public init(done: Int, failed: Int) {
+        self.done = done
+        self.failed = failed
     }
 }
 

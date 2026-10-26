@@ -18163,6 +18163,85 @@
           "minimum": 0,
           "type": "integer"
         },
+        "runsByKind": {
+          "properties": {
+            "task": {
+              "properties": {
+                "done": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "failed": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "done",
+                "failed"
+              ],
+              "type": "object"
+            },
+            "chat": {
+              "properties": {
+                "done": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "failed": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "done",
+                "failed"
+              ],
+              "type": "object"
+            },
+            "automation": {
+              "properties": {
+                "done": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "failed": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "done",
+                "failed"
+              ],
+              "type": "object"
+            },
+            "subagent": {
+              "properties": {
+                "done": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "failed": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "done",
+                "failed"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "task",
+            "chat",
+            "automation",
+            "subagent"
+          ],
+          "type": "object"
+        },
         "wallMs": {
           "minimum": 0,
           "type": "integer"
@@ -18291,6 +18370,7 @@
         "runs",
         "runsDone",
         "runsFailed",
+        "runsByKind",
         "wallMs",
         "approvals",
         "artifacts",
