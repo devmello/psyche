@@ -1030,7 +1030,7 @@ struct ShortcutsWave1RulesTests {
 
 @Suite("Things wave 1 (apple-apps-2026 §5)")
 struct ThingsWave1Tests {
-    let token = "Ab12Cd34Ef56Gh78"
+    let token = "faketoken"
 
     @Test func listAndWrites() async throws {
         let h = Harness()
