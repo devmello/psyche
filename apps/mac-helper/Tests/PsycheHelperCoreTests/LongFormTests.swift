@@ -105,16 +105,45 @@ struct LongFormTests {
         var all: [JSONValue] { lock.withLock { items } }
     }
 
+    /// A window timer the test opens by hand, so no assertion depends on how fast a runner is.
+    actor Gate {
+        private var permits = 0
+        private var waiters: [CheckedContinuation<Void, Never>] = []
+        func acquire() async {
+            if permits > 0 { permits -= 1; return }
+            await withCheckedContinuation { waiters.append($0) }
+        }
+        func release() {
+            if waiters.isEmpty { permits += 1 } else { waiters.removeFirst().resume() }
+        }
+    }
+
     @Test func calendarChangesFoldIntoOneEventPerWindow() async throws {
-        let (changes, feed) = AsyncStream.makeStream(of: Void.self)
         let events = Events()
+        let gate = Gate()
         let at = Date(timeIntervalSince1970: 1_792_000_000)
-        let run = _Concurrency.Task { await CalendarWatchCore.run(changes: changes, debounce: .milliseconds(150), now: { at }, emit: { events.add($0) }) }
-        for _ in 0..<5 { feed.yield() }
-        try await _Concurrency.Task.sleep(for: .milliseconds(400))
-        feed.yield()
-        feed.finish()
-        #expect(await run.value == 2)
+        // The stream is pulled one change at a time, so the closure runs only after the previous
+        // change was folded in: five changes open one window, the sixth comes after it closed.
+        let counter = Events()
+        let changes = AsyncStream<Void> {
+            let n = counter.all.count
+            counter.add(.null)
+            switch n {
+            case 0..<5: return ()
+            case 5:
+                await gate.release()  // closes the first window
+                while events.all.count < 1 { await _Concurrency.Task.yield() }
+                return ()
+            case 6:
+                await gate.release()  // closes the second window
+                while events.all.count < 2 { await _Concurrency.Task.yield() }
+                return nil
+            default: return nil
+            }
+        }
+        let sent = await CalendarWatchCore.run(changes: changes, debounce: .seconds(30), now: { at },
+                                               sleep: { _ in await gate.acquire() }, emit: { events.add($0) })
+        #expect(sent == 2)
         let decoded = try events.all.map { try JSONDecoder().decode(AppleCalendarChangedEvent.self, from: JSONEncoder().encode($0)) }
         #expect(decoded.map(\.coalesced) == [5, 1])
         #expect(decoded.allSatisfy { $0.type == .calendarChanged && $0.at == AppleDates.string(at) })
