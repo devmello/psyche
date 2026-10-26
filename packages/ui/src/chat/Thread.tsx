@@ -40,6 +40,7 @@ import {
   JumpToLatest,
   useElementHeight,
 } from "./ThreadChrome.tsx";
+import { TranscriptSkeleton } from "./TranscriptSkeleton.tsx";
 import { useBottomAnchor } from "./useBottomAnchor.ts";
 import { useRunningTool } from "./WorkingIndicator.tsx";
 
@@ -585,6 +586,7 @@ export function ChatThread({
                 data-testid="conversation-column"
               >
                 {empty ? <EmptyThread /> : null}
+                <TranscriptSkeleton loading={view.loading && display.length === 0} />
                 <ThreadBlocksProvider index={blockIndex}>
                   <ThreadPrimitive.Messages>
                     {({ message }) => {
