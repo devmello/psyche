@@ -112,11 +112,10 @@ export function createSearchHandlers(index: SqliteSearchIndex): SearchHandlers {
         // `threads` shows one result per conversation; `messages` alone lists every message.
         collapse: scopes.includes("threads") || !scopes.includes("messages"),
       });
-      const hits: SearchHit[] = [];
-      for (const h of res.hits) {
+      const wire = (h: RichHit): SearchHit | undefined => {
         const scope = scopeOf(h);
-        if (scope === undefined) continue;
-        hits.push({
+        if (scope === undefined) return undefined;
+        return {
           scope,
           id: h.id,
           title: h.title,
@@ -124,9 +123,25 @@ export function createSearchHandlers(index: SqliteSearchIndex): SearchHandlers {
           score: h.score,
           threadId: h.threadId ?? null,
           route: routeOf(h),
-        });
-      }
-      return { hits };
+          kind: h.kind,
+          group: h.group,
+          provenance: h.provenance,
+          createdAt: h.createdAt,
+          snippetHighlights: h.snippetHighlights,
+          titleHighlights: h.titleHighlights,
+        };
+      };
+      const hits = res.hits.flatMap((h) => wire(h) ?? []);
+      return {
+        hits,
+        groups: res.groups.map((g) => ({
+          group: g.group,
+          count: g.count,
+          hits: g.hits.flatMap((h) => wire(h) ?? []),
+        })),
+        total: res.total,
+        warnings: res.warnings,
+      };
     },
   };
 }

@@ -89,7 +89,7 @@ Tests: provider parsing against recorded DuckDuckGo and Brave responses, the rat
 
 ## What is stubbed
 
-- `search.query` returns only the wire scopes the protocol has (`threads, messages, tasks, memory, library, feed`); ideas, goals and connector hits need the `protocol:` PR that adds those scopes and the richer hit fields (group, provenance, highlights).
+- The Gateway composes the main index in `apps/gateway/src/compose/search.ts` (S1 of [docs/design/search-2026.md](../../docs/design/search-2026.md)): `state/search.sqlite`, the indexer on every bus event (one ordered queue), and `search.query` for the owner. Hits carry kind, group, provenance, `createdAt` and highlight ranges; the result carries `groups`, `total` and `warnings`.
 - Library text extraction (S13) and connector cache feeds (S09) call `libraryDoc` / `connectorDoc` themselves; there are no events for them yet. Connector opt-in is the caller's decision; `removeSource("connector:<id>")` drops a connector the owner stops indexing.
 - Rebuild from the stores (`indexMany` over threads/messages/tasks) is the Gateway's job at startup when the file is new.
 - `sessions_search` for the agent (S2) is M2.
