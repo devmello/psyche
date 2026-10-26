@@ -314,6 +314,12 @@ export {
   type LanternState,
 } from "./voice/Lantern.tsx";
 export {
+  matchApproval,
+  normalizeUtterance,
+  type VoicePhraseList,
+  voicePhrases,
+} from "./voice/phrases.ts";
+export {
   IDLE_SESSION,
   micOn,
   sessionActive,
