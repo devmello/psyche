@@ -90,6 +90,7 @@ describe("cloud voices (keys from the vault)", () => {
     const requests: { url: string; init: RequestInit }[] = [];
     const engine = new CloudTtsEngine({
       provider: "elevenlabs",
+      transport: "http",
       apiKey: async () => secret(),
       defaultVoice: "voice-1",
       fetch: async (url, init) => {
@@ -121,6 +122,7 @@ describe("cloud voices (keys from the vault)", () => {
     registerSecret(KEY, "elevenlabs");
     const engine = new CloudTtsEngine({
       provider: "elevenlabs",
+      transport: "http",
       apiKey: async () => secret(),
       defaultVoice: "voice-1",
       fetch: async () => new Response(`bad key ${KEY}`, { status: 401 }),
@@ -128,6 +130,132 @@ describe("cloud voices (keys from the vault)", () => {
     const err = await collect(engine.synthesize("hi")).catch((e: unknown) => e);
     expect(err).toMatchObject({ code: "unauthorized" });
     assertNoSecrets({ message: (err as Error).message });
+  });
+
+  /** A scripted ElevenLabs `/stream-input` socket. */
+  function fakeSocket(script: (sent: string[], s: FakeSocket) => void) {
+    const sockets: FakeSocket[] = [];
+    const open = (url: string) => {
+      const s = new FakeSocket(url, script);
+      sockets.push(s);
+      queueMicrotask(() => s.emit("open", {}));
+      return s;
+    };
+    return { open, sockets };
+  }
+
+  class FakeSocket {
+    readonly sent: string[] = [];
+    closed: number | undefined;
+    readonly #listeners = new Map<string, ((e: never) => void)[]>();
+    readonly url: string;
+    readonly script: (sent: string[], s: FakeSocket) => void;
+    constructor(url: string, script: (sent: string[], s: FakeSocket) => void) {
+      this.url = url;
+      this.script = script;
+    }
+    addEventListener(type: string, fn: (e: never) => void) {
+      this.#listeners.set(type, [...(this.#listeners.get(type) ?? []), fn]);
+    }
+    emit(type: string, e: unknown) {
+      for (const fn of this.#listeners.get(type) ?? []) fn(e as never);
+    }
+    send(data: string) {
+      this.sent.push(data);
+      this.script(this.sent, this);
+    }
+    close(code?: number) {
+      if (this.closed !== undefined) return;
+      this.closed = code ?? 1005;
+      this.emit("close", { code: this.closed });
+    }
+    message(doc: unknown) {
+      this.emit("message", { data: JSON.stringify(doc) });
+    }
+  }
+
+  const pcm = (n: number) => Buffer.from(new Uint8Array(n)).toString("base64");
+
+  it("streams over the stream-input socket with the key only in the first message", async () => {
+    registerSecret(KEY, "elevenlabs");
+    const { open, sockets } = fakeSocket((sent, s) => {
+      if (JSON.parse(sent.at(-1) ?? "{}").text !== "") return;
+      // Flush: two frames (one odd-sized, as the network may split them), then final.
+      s.message({ audio: pcm(3) });
+      s.message({ audio: pcm(5), isFinal: null });
+      s.message({ isFinal: true });
+      s.close(1000);
+    });
+    const engine = new CloudTtsEngine({
+      provider: "elevenlabs",
+      apiKey: async () => secret(),
+      defaultVoice: "voice/1",
+      webSocket: open,
+      fetch: async () => {
+        throw new Error("the socket path never uses HTTP");
+      },
+    });
+    const chunks = await collect(engine.synthesize("Hello there. How are you?"));
+    expect(chunks.map((c) => c.data.byteLength)).toEqual([2, 6]);
+    const ws = sockets[0];
+    expect(ws?.url).toBe(
+      "wss://api.elevenlabs.io/v1/text-to-speech/voice%2F1/stream-input?model_id=eleven_flash_v2_5&output_format=pcm_24000&auto_mode=true",
+    );
+    expect(ws?.url).not.toContain(KEY);
+    const sent = (ws?.sent ?? []).map((m) => JSON.parse(m) as Record<string, unknown>);
+    expect(sent[0]).toEqual({ text: " ", xi_api_key: KEY });
+    expect(sent.slice(1)).toEqual([{ text: "Hello there. How are you? " }, { text: "" }]);
+    expect(ws?.closed).toBe(1000);
+    assertNoSecrets({ chunks: chunks.map((c) => c.format), caps: await engine.capabilities() });
+  });
+
+  it("maps a socket auth error without echoing provider text, and closes on abort", async () => {
+    registerSecret(KEY, "elevenlabs");
+    const failing = fakeSocket((sent, s) => {
+      if (sent.length === 1) s.message({ error: "auth_error", message: `bad key ${KEY}` });
+    });
+    const engine = new CloudTtsEngine({
+      provider: "elevenlabs",
+      apiKey: async () => secret(),
+      defaultVoice: "voice-1",
+      webSocket: failing.open,
+    });
+    const err = await collect(engine.synthesize("hi")).catch((e: unknown) => e);
+    expect(err).toMatchObject({ code: "unauthorized" });
+    assertNoSecrets({ message: (err as Error).message });
+    expect(failing.sockets[0]?.closed).toBe(1000);
+
+    // A consumer that stops after the first frame closes the socket at once.
+    const endless = fakeSocket((sent, s) => {
+      if (sent.length === 1) s.message({ audio: pcm(4) });
+    });
+    const ac = new AbortController();
+    const engine2 = new CloudTtsEngine({
+      provider: "elevenlabs",
+      apiKey: async () => secret(),
+      defaultVoice: "voice-1",
+      webSocket: endless.open,
+    });
+    for await (const _ of engine2.synthesize("hello", { signal: ac.signal })) {
+      ac.abort();
+    }
+    expect(endless.sockets[0]?.closed).toBe(1000);
+  });
+
+  it("treats an abnormal close before the final frame as unavailable", async () => {
+    const dropped = fakeSocket((sent, s) => {
+      if (JSON.parse(sent.at(-1) ?? "{}").text === "") s.close(1011);
+    });
+    const engine = new CloudTtsEngine({
+      provider: "elevenlabs",
+      apiKey: async () => secret(),
+      defaultVoice: "voice-1",
+      webSocket: dropped.open,
+    });
+    await expect(collect(engine.synthesize("hi"))).rejects.toMatchObject({
+      code: "unavailable",
+      retryable: true,
+    });
   });
 
   it("retires saved OpenAI voice refs (TTS endpoints shut down 2027-01-06)", () => {
@@ -143,6 +271,7 @@ describe("cloud voices (keys from the vault)", () => {
     let header: string | null = null;
     const engine = new CloudTtsEngine({
       provider: "elevenlabs",
+      transport: "http",
       apiKey: async () => secret(),
       fetch: async (url, init) => {
         urls.push(String(url));

@@ -216,6 +216,7 @@ describe("review fixes", () => {
     let cancelled = false;
     const engine = new CloudTtsEngine({
       provider: "elevenlabs",
+      transport: "http",
       defaultVoice: "voice-1",
       apiKey: async () =>
         new ResolvedSecret("sk-test-review-0000", {

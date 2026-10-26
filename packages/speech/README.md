@@ -122,7 +122,7 @@ Measured on an Apple M5 (16 GB, macOS 27.0.1) on 2026-10-19 unless marked otherw
 | Web Speech | web client | yes | browser-dependent | — | Chrome sends audio to Google; last resort |
 | Kokoro-82M q8 (ONNX, CPU) | Gateway | per sentence | RTF 0.47–0.60 (6 s of audio in 2.8–3.6 s) | +110–220 MB RSS | Linux x64 not measured; expect slower |
 | AVSpeechSynthesizer (Mac node) | helper | per utterance | — | — | Personal Voice has non-commercial terms |
-| ElevenLabs | cloud | per request | network-bound | — | 24 kHz PCM requested |
+| ElevenLabs | cloud | per request | 100–150 ms to first audio over the `stream-input` WebSocket (`auto_mode`) | — | 24 kHz PCM requested; key in the socket's first message, never the URL; `transport: "http"` keeps `/stream` |
 
 **Streaming dictation with whisper.cpp** is VAD-gated chunked inference: a 30 ms-frame energy VAD with an adaptive noise floor finds utterances (210 ms pre-roll, 600 ms of silence ends one, 15 s cap); while an utterance grows the engine re-transcribes it every second of speech and emits a volatile partial; at its end it emits the final. Custom vocabulary and the tail of the previous final go into whisper's `--prompt`. File transcription uses the same splitter (25 s cap) because tiny/base models stop decoding after a long pause and silently drop the rest.
 
