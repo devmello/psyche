@@ -69,6 +69,15 @@ What each one can do:
 
 Reading is allowed by default. Every change asks first, and sending mail always asks with the exact recipients, subject and text, even if you set it to allow. Notes, reminders, events and mail are untrusted content (see [approvals.md](approvals.md#untrusted-content)). Deleting notes, reminders or events is not offered.
 
+## Obsidian
+
+Psyche reads and writes an Obsidian vault as the plain Markdown folder it is: no plugin, and Obsidian does not need to be running.
+
+1. Share the vault folder in Settings → File access: read only, or read and write if Psyche may add to notes.
+2. Connect Obsidian in Settings → Connectors and choose that folder (it must contain the `.obsidian` folder).
+
+Psyche can then search notes by their text, read them, add to the end of a note, keep today's daily note (in the folder set in Obsidian's Daily notes settings; files named `YYYY-MM-DD.md`), and create notes. Every change asks first unless you allow it, and note contents are untrusted content. You can connect more than one vault.
+
 ## MCP servers
 
 MCP servers plug in external tool servers that speak the Model Context Protocol. Each one gives Psyche a set of tools, such as searching a wiki or managing tickets. Add them in Settings → MCP servers:
