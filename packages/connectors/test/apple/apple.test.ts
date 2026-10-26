@@ -37,6 +37,12 @@ const ALL = [
   "mail.read",
   "mail.draft",
   "mail.send",
+  "safari.tabs",
+  "safari.current_tab",
+  "safari.tab_text",
+  "safari.add_reading_list",
+  "chrome.tabs",
+  "chrome.current_tab",
   "music.now_playing",
   "music.control",
   "music.search_library",
@@ -208,6 +214,8 @@ describe("Apple app connectors (#528)", () => {
       ["apple:mail", "apple-mail", true],
       ["apple:contacts", "apple-contacts", true],
       ["apple:music", "apple-music", true],
+      ["apple:safari", "apple-safari", true],
+      ["chrome:tabs", "chrome-tabs", true],
     ]);
     expect(appleCatalogueEntry("mail").actions.find((a) => a.id === "mail.send")).toMatchObject({
       sideEffect: "destructive",
@@ -956,5 +964,38 @@ describe("Music and Spotify wave 1 (#639)", () => {
       "mcp__apple-1__music_now_playing",
       "mcp__apple-1__music_search_library",
     ]);
+  });
+});
+
+describe("Safari and Chrome wave 1 (#639)", () => {
+  it("Safari reads tabs and page text (untrusted) and adds to the Reading List with an approval", async () => {
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "apple-safari", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    const out = (await run("mcp__apple-1__safari_tab_text")({ maxLength: 5000 })) as unknown as {
+      provenance: string;
+    };
+    expect(out.provenance).toBe("untrusted");
+    expect(helper.calls).toEqual([{ capability: "safari.tab_text", params: { maxLength: 5000 } }]);
+    await expect(
+      run("mcp__apple-1__safari_add_reading_list")({ url: "https://example.org/a" }),
+    ).rejects.toMatchObject({ code: "approval_required" });
+  });
+
+  it("Chrome is a Google connector over the same helper route, read-only", async () => {
+    const e = appleCatalogueEntry("chrome");
+    expect(e).toMatchObject({
+      type: "chrome:tabs",
+      id: "chrome-tabs",
+      vendor: "Google",
+      singleInstance: true,
+    });
+    expect(e.scopes.read_act).toEqual(["chrome.tabs", "chrome.current_tab"]);
+    const helper = new FakeHelper();
+    helper.grant = "denied";
+    const { registry } = make(helper);
+    const r = await registry.connect({ catalogueId: "chrome-tabs", scopeMode: "read" });
+    expect(r.config.permission).toMatchObject({ kind: "automation", target: "com.google.Chrome" });
   });
 });
