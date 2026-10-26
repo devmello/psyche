@@ -130,7 +130,9 @@ export function runRetention(ctx: GatewayContext): RetentionReport {
     try {
       removeFrameFile(ctx.config.home, f.runId, f.path);
     } catch (err) {
-      ctx.log.log("warn", "frame file not removed", { code: (err as { code?: string }).code ?? null });
+      ctx.log.log("warn", "frame file not removed", {
+        code: (err as { code?: string }).code ?? null,
+      });
     }
   }
   for (const threadId of report.expiredThreads)
