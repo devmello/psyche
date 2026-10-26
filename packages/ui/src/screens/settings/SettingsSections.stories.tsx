@@ -2,6 +2,8 @@ import type { ApprovalRequest } from "@psyche/protocol";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ApprovalCard } from "../../blocks/ApprovalCard.tsx";
 import {
+  appleConnectors,
+  connectorCatalogue,
   createFixtureWorld,
   FIXTURE_NOW,
   IDS,
@@ -192,6 +194,19 @@ export const ConnectorsError: Story = {
 };
 export const ConnectorsConnectFlow: Story = {
   render: () => <ConnectorsPanel {...connectorProps} connectors={world.connectors} defaultAdding />,
+};
+/** Apple apps on this Mac (#640): action groups, the macOS grant and "Try it". */
+export const ConnectorsAppleApps: Story = {
+  render: () => (
+    <ConnectorsPanel
+      {...connectorProps}
+      connectors={appleConnectors()}
+      catalogue={connectorCatalogue()}
+      onRuleChange={noop}
+      onTry={noop}
+      defaultCapabilitiesOpen
+    />
+  ),
 };
 
 // --- Permissions -------------------------------------------------------------------------------

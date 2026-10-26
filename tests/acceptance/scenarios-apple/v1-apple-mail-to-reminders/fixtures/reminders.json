@@ -1,0 +1,16 @@
+{
+  "$comment": "Apple Reminders fixture for v1-apple-mail-to-reminders: the owner's lists and existing reminders. reminders_create allocates rem_0001, rem_0002, ...",
+  "lists": [
+    { "id": "list_reminders", "name": "Reminders", "default": true },
+    { "id": "list_work", "name": "Work" }
+  ],
+  "reminders": [
+    {
+      "id": "rem_fx_001",
+      "list": "Reminders",
+      "title": "Renew passport",
+      "due": "2026-10-23T09:00:00-07:00",
+      "completed": false
+    }
+  ]
+}
