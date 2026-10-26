@@ -1,6 +1,6 @@
-import { AnimatePresence, type HTMLMotionProps } from "motion/react";
+import { AnimatePresence, type HTMLMotionProps, useReducedMotionConfig } from "motion/react";
 import * as m from "motion/react-m";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { duration, ease, motionSpring, spring } from "./tokens.ts";
 
 /**
@@ -65,3 +65,77 @@ export function ListItem({
 
 /** Exit animations for unmounting children; `popLayout` lets siblings close the gap. */
 export const Presence = AnimatePresence;
+
+/**
+ * Expanding detail (smoothness-2026 C10): height and opacity on `spring.smooth`, exit at the
+ * short fade. Reduced motion keeps the opacity fade and drops the height. `children` mount only
+ * while `open`.
+ */
+export function Disclosure({
+  open,
+  children,
+  ...props
+}: Omit<HTMLMotionProps<"div">, "children"> & {
+  open: boolean;
+  children?: ReactNode;
+}): ReactElement {
+  const reduce = useReducedMotionConfig() === true;
+  const out = seconds(duration.short * duration.exitFactor);
+  return (
+    <Presence initial={false}>
+      {open ? (
+        <m.div
+          key="disclosure"
+          initial={reduce ? { opacity: 0 } : { height: 0, opacity: 0 }}
+          animate={{
+            ...(reduce ? {} : { height: "auto" }),
+            opacity: 1,
+            transition: {
+              height: motionSpring(spring.smooth),
+              opacity: { duration: seconds(duration.short), ease: [...ease.standard] },
+            },
+          }}
+          exit={{
+            ...(reduce ? {} : { height: 0 }),
+            opacity: 0,
+            transition: {
+              height: motionSpring(spring.smooth),
+              opacity: { duration: out, ease: [...ease.exit] },
+            },
+          }}
+          style={{ overflow: "hidden" }}
+          {...props}
+        >
+          {children}
+        </m.div>
+      ) : null}
+    </Presence>
+  );
+}
+
+/** The working pulse runs this many cycles, then rests at full opacity (under 5 s, WCAG 2.2.2). */
+const PULSE_CYCLES = 4;
+const PULSE_KEYFRAMES = Array.from({ length: PULSE_CYCLES * 2 + 1 }, (_, i) =>
+  i % 2 === 0 ? 1 : 0.4,
+);
+
+/**
+ * The one working pulse (motion.md §4.6): a dot easing 100% → 40% → 100% on `duration.pulse`
+ * (a full cycle), linear, ending at 100%. Static under reduced motion, where the text says it.
+ */
+export function WorkingPulse({ className }: { className?: string }): ReactElement {
+  const reduce = useReducedMotionConfig() === true;
+  return (
+    <m.span
+      className={className ?? "size-2 shrink-0 rounded-full bg-label-secondary"}
+      aria-hidden="true"
+      data-testid="working-pulse"
+      {...(reduce
+        ? {}
+        : {
+            animate: { opacity: PULSE_KEYFRAMES },
+            transition: { duration: seconds(duration.pulse) * PULSE_CYCLES, ease: "linear" },
+          })}
+    />
+  );
+}

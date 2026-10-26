@@ -18,6 +18,8 @@ export const duration = {
   exitFactor: 0.7,
   /** No loading UI before this (docs/06 §3.0). */
   skeletonDelay: 150,
+  /** The working pulse's period (motion.md §4.6): 40% → 100%, linear. */
+  pulse: 1200,
   /** Per-item list stagger, capped at `staggerMax` items. */
   staggerStep: 20,
   staggerMax: 5,
