@@ -129,6 +129,7 @@ export function createSearchHandlers(index: SqliteSearchIndex): SearchHandlers {
           createdAt: h.createdAt,
           snippetHighlights: h.snippetHighlights,
           titleHighlights: h.titleHighlights,
+          ...(h.match === undefined ? {} : { match: h.match }),
         };
       };
       const hits = res.hits.flatMap((h) => wire(h) ?? []);

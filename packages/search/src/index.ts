@@ -4,14 +4,17 @@ import { SqliteSearchIndex, type SqliteSearchIndexOptions } from "./sqlite-index
 
 export * from "./adapters.ts";
 export * from "./backfill.ts";
+export * from "./fake-embedder.ts";
 export * from "./graph.ts";
 export * from "./handlers.ts";
 export * from "./highlight.ts";
 export * from "./indexer.ts";
 export * from "./memory.ts";
+export * from "./onnx-embedder.ts";
 export * from "./query-parser.ts";
 export * from "./ranking.ts";
 export * from "./schema.ts";
+export * from "./semantic.ts";
 export * from "./sqlite-index.ts";
 export * from "./types.ts";
 export * from "./web/index.ts";

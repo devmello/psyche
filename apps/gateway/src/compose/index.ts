@@ -134,6 +134,7 @@ import { createRateLimits } from "./rate-limits.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
 import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
 import { type ComposedSearch, composeSearch } from "./search.ts";
+import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
 import {
   type ApprovalRelay,
   type ComposedPart,
@@ -237,6 +238,8 @@ export interface ComposeOptions
    * mode, else the keychain through a connected Mac helper.
    */
   vault?: VaultSetup;
+  /** Semantic search engines (S3; tests pass fakes so no model downloads or runs). */
+  semanticEngines?: SemanticEngines;
   /** Built-in `web.search` / `web.fetch` network seams (#557; tests replay fixtures). */
   web?: WebToolsSetup;
 }
@@ -1120,6 +1123,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     feed: proactive.feed,
     ideas: proactive.ideas,
     goals: proactive.goals,
+    // `search.semantic.engine: router`: the `embedding` role, local providers only (S3).
+    routerEmbedder: () => routerEmbedder(router),
+    ...(gwOptions.semanticEngines === undefined
+      ? {}
+      : { semanticEngines: gwOptions.semanticEngines }),
     now: () => clock.now(),
     // Tests reconcile the Library by hand.
     ...(background ? {} : { librarySyncMs: 0 }),

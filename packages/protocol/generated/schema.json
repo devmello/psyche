@@ -28065,6 +28065,9 @@
             "$ref": "#/$defs/HighlightRange"
           },
           "type": "array"
+        },
+        "match": {
+          "$ref": "#/$defs/SearchMatch"
         }
       },
       "required": [
@@ -28125,6 +28128,9 @@
         },
         "backfill": {
           "$ref": "#/$defs/SearchBackfillStatus"
+        },
+        "semantic": {
+          "$ref": "#/$defs/SearchSemanticStatus"
         }
       },
       "required": [
@@ -28132,6 +28138,14 @@
         "backfill"
       ],
       "type": "object"
+    },
+    "SearchMatch": {
+      "enum": [
+        "lexical",
+        "semantic",
+        "both"
+      ],
+      "type": "string"
     },
     "SearchQueryParams": {
       "properties": {
@@ -28219,6 +28233,89 @@
         "projects"
       ],
       "type": "string"
+    },
+    "SearchSemanticBlock": {
+      "enum": [
+        "no_embedding_model",
+        "cloud_not_allowed"
+      ],
+      "type": "string"
+    },
+    "SearchSemanticEngine": {
+      "enum": [
+        "builtin",
+        "router"
+      ],
+      "type": "string"
+    },
+    "SearchSemanticState": {
+      "enum": [
+        "off",
+        "downloading",
+        "loading",
+        "indexing",
+        "ready",
+        "error",
+        "blocked"
+      ],
+      "type": "string"
+    },
+    "SearchSemanticStatus": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "engine": {
+          "$ref": "#/$defs/SearchSemanticEngine"
+        },
+        "state": {
+          "$ref": "#/$defs/SearchSemanticState"
+        },
+        "model": {
+          "description": "Vector space in use, e.g. builtin/multilingual-e5-small",
+          "type": "string"
+        },
+        "dims": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "vectors": {
+          "description": "Chunk vectors stored",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "done": {
+          "description": "Documents embedded in this pass",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "total": {
+          "description": "Documents pending when it started",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "receivedBytes": {
+          "description": "Model download",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "totalBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "blocked": {
+          "$ref": "#/$defs/SearchSemanticBlock"
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "enabled",
+        "engine",
+        "state"
+      ],
+      "type": "object"
     },
     "SearchStatusParams": {
       "properties": {},

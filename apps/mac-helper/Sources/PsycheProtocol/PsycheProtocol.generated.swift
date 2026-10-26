@@ -883,11 +883,16 @@
 //   let searchHitGroup = try? JSONDecoder().decode(SearchHitGroup.self, from: jsonData)
 //   let searchIndexDocKind = try? JSONDecoder().decode(SearchIndexDocKind.self, from: jsonData)
 //   let searchIndexStatus = try? JSONDecoder().decode(SearchIndexStatus.self, from: jsonData)
+//   let searchMatch = try? JSONDecoder().decode(SearchMatch.self, from: jsonData)
 //   let searchQueryParams = try? JSONDecoder().decode(SearchQueryParams.self, from: jsonData)
 //   let searchQueryResult = try? JSONDecoder().decode(SearchQueryResult.self, from: jsonData)
 //   let searchReindexParams = try? JSONDecoder().decode(SearchReindexParams.self, from: jsonData)
 //   let searchReindexResult = try? JSONDecoder().decode(SearchReindexResult.self, from: jsonData)
 //   let searchScope = try? JSONDecoder().decode(SearchScope.self, from: jsonData)
+//   let searchSemanticBlock = try? JSONDecoder().decode(SearchSemanticBlock.self, from: jsonData)
+//   let searchSemanticEngine = try? JSONDecoder().decode(SearchSemanticEngine.self, from: jsonData)
+//   let searchSemanticState = try? JSONDecoder().decode(SearchSemanticState.self, from: jsonData)
+//   let searchSemanticStatus = try? JSONDecoder().decode(SearchSemanticStatus.self, from: jsonData)
 //   let searchStatusParams = try? JSONDecoder().decode(SearchStatusParams.self, from: jsonData)
 //   let settingEntry = try? JSONDecoder().decode(SettingEntry.self, from: jsonData)
 //   let settings = try? JSONDecoder().decode(Settings.self, from: jsonData)
@@ -20630,15 +20635,18 @@ public struct SearchIndexStatus: Codable, Sendable {
     public let backfill: SearchBackfillStatus
     /// Documents in the index
     public let docs: Int
+    public let semantic: SearchSemanticStatus?
 
     public enum CodingKeys: String, CodingKey {
         case backfill = "backfill"
         case docs = "docs"
+        case semantic = "semantic"
     }
 
-    public init(backfill: SearchBackfillStatus, docs: Int) {
+    public init(backfill: SearchBackfillStatus, docs: Int, semantic: SearchSemanticStatus?) {
         self.backfill = backfill
         self.docs = docs
+        self.semantic = semantic
     }
 }
 
@@ -20679,6 +20687,77 @@ public enum SearchBackfillState: String, Codable, Sendable {
     case error = "error"
     case idle = "idle"
     case running = "running"
+}
+
+// MARK: - SearchSemanticStatus
+public struct SearchSemanticStatus: Codable, Sendable {
+    public let blocked: SearchSemanticBlock?
+    public let dims: Int?
+    /// Documents embedded in this pass
+    public let done: Int?
+    public let enabled: Bool
+    public let engine: SearchSemanticEngine
+    public let error: String?
+    /// Vector space in use, e.g. builtin/multilingual-e5-small
+    public let model: String?
+    /// Model download
+    public let receivedBytes: Int?
+    public let state: SearchSemanticState
+    /// Documents pending when it started
+    public let total: Int?
+    public let totalBytes: Int?
+    /// Chunk vectors stored
+    public let vectors: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case blocked = "blocked"
+        case dims = "dims"
+        case done = "done"
+        case enabled = "enabled"
+        case engine = "engine"
+        case error = "error"
+        case model = "model"
+        case receivedBytes = "receivedBytes"
+        case state = "state"
+        case total = "total"
+        case totalBytes = "totalBytes"
+        case vectors = "vectors"
+    }
+
+    public init(blocked: SearchSemanticBlock?, dims: Int?, done: Int?, enabled: Bool, engine: SearchSemanticEngine, error: String?, model: String?, receivedBytes: Int?, state: SearchSemanticState, total: Int?, totalBytes: Int?, vectors: Int?) {
+        self.blocked = blocked
+        self.dims = dims
+        self.done = done
+        self.enabled = enabled
+        self.engine = engine
+        self.error = error
+        self.model = model
+        self.receivedBytes = receivedBytes
+        self.state = state
+        self.total = total
+        self.totalBytes = totalBytes
+        self.vectors = vectors
+    }
+}
+
+public enum SearchSemanticBlock: String, Codable, Sendable {
+    case cloudNotAllowed = "cloud_not_allowed"
+    case noEmbeddingModel = "no_embedding_model"
+}
+
+public enum SearchSemanticEngine: String, Codable, Sendable {
+    case builtin = "builtin"
+    case router = "router"
+}
+
+public enum SearchSemanticState: String, Codable, Sendable {
+    case blocked = "blocked"
+    case downloading = "downloading"
+    case error = "error"
+    case indexing = "indexing"
+    case loading = "loading"
+    case off = "off"
+    case ready = "ready"
 }
 
 // MARK: - SearchQueryParams
@@ -20777,6 +20856,7 @@ public struct SearchHit: Codable, Sendable {
     public let group: SearchGroup?
     public let id: String
     public let kind: SearchIndexDocKind?
+    public let match: SearchMatch?
     public let provenance: Provenance?
     public let route: String?
     public let scope: SearchScope
@@ -20792,6 +20872,7 @@ public struct SearchHit: Codable, Sendable {
         case group = "group"
         case id = "id"
         case kind = "kind"
+        case match = "match"
         case provenance = "provenance"
         case route = "route"
         case scope = "scope"
@@ -20803,11 +20884,12 @@ public struct SearchHit: Codable, Sendable {
         case titleHighlights = "titleHighlights"
     }
 
-    public init(createdAt: Int?, group: SearchGroup?, id: String, kind: SearchIndexDocKind?, provenance: Provenance?, route: String?, scope: SearchScope, score: Double, snippet: String, snippetHighlights: [[Int]]?, threadID: String?, title: String, titleHighlights: [[Int]]?) {
+    public init(createdAt: Int?, group: SearchGroup?, id: String, kind: SearchIndexDocKind?, match: SearchMatch?, provenance: Provenance?, route: String?, scope: SearchScope, score: Double, snippet: String, snippetHighlights: [[Int]]?, threadID: String?, title: String, titleHighlights: [[Int]]?) {
         self.createdAt = createdAt
         self.group = group
         self.id = id
         self.kind = kind
+        self.match = match
         self.provenance = provenance
         self.route = route
         self.scope = scope
@@ -20832,6 +20914,12 @@ public enum SearchIndexDocKind: String, Codable, Sendable {
     case project = "project"
     case task = "task"
     case thread = "thread"
+}
+
+public enum SearchMatch: String, Codable, Sendable {
+    case both = "both"
+    case lexical = "lexical"
+    case semantic = "semantic"
 }
 
 // MARK: - SearchReindexResult

@@ -145,9 +145,13 @@ function walk(dir, visit, onDir) {
 
 const PLATFORM_TOKEN = /(darwin|linux|linuxmusl|win32|android|freebsd|openbsd|sunos|aix)-/;
 
+const PLATFORM_DIRS = new Set(["darwin", "linux", "win32", "android", "freebsd", "openbsd"]);
+
 /**
  * Packages ship prebuilt addons for every platform (`prebuilds/linux-x64.node`, …). Keep only
  * this bundle's `darwin-<arch>`: the rest is dead weight that would also have to be signed.
+ * onnxruntime-node (on-device search embeddings) lays them out as `bin/napi-v6/<platform>/<arch>/`
+ * (~300 MB for all of them): only `darwin/<arch>` stays.
  */
 export function pruneForeignPrebuilds(appDir, arch) {
   let removed = 0;
@@ -155,6 +159,23 @@ export function pruneForeignPrebuilds(appDir, arch) {
     appDir,
     () => {},
     (p, name) => {
+      if (/^napi-v\d+$/.test(name)) {
+        for (const platformDir of readdirSync(p)) {
+          if (!PLATFORM_DIRS.has(platformDir)) continue;
+          if (platformDir !== "darwin") {
+            rmSync(join(p, platformDir), { recursive: true, force: true });
+            removed++;
+            continue;
+          }
+          for (const a of readdirSync(join(p, platformDir))) {
+            if (a !== arch) {
+              rmSync(join(p, platformDir, a), { recursive: true, force: true });
+              removed++;
+            }
+          }
+        }
+        return true;
+      }
       if (name !== "prebuilds") return true;
       for (const entry of readdirSync(p)) {
         if (PLATFORM_TOKEN.test(entry) && !entry.startsWith(`darwin-${arch}`)) {

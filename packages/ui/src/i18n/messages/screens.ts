@@ -29,6 +29,8 @@ export const screens = {
   "screens.search.indexFailed": "Indexing stopped: {reason}",
   "screens.search.rebuild": "Rebuild search index",
   "screens.search.rebuilding": "Rebuilding…",
+  "screens.search.related": "Related",
+  "screens.search.relatedHint": "Found by meaning: it may not contain the words you typed.",
   "screens.search.withoutFilters": "Search without filters",
   "screens.search.clear": "Clear search",
   "screens.search.nothing":

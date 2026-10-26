@@ -19,8 +19,9 @@ import {
   toFtsExclusion,
   toFtsMatch,
 } from "./query-parser.ts";
-import { fuse } from "./ranking.ts";
+import { fuse, RRF_K } from "./ranking.ts";
 import { ensureSearchSchema } from "./schema.ts";
+import { SemanticBusyError, type SemanticCandidate, type SemanticSearch } from "./semantic.ts";
 import {
   GROUP_OF_KIND,
   GROUP_ORDER,
@@ -49,6 +50,9 @@ export interface SqliteSearchIndexOptions {
   /** Minutes east of UTC for calendar dates in queries (default 0). */
   tzOffsetMinutes?: number;
 }
+
+/** Semantic candidates (documents) fused into one search. */
+const SEMANTIC_K = 50;
 
 interface DocRow {
   rowid: number;
@@ -104,6 +108,7 @@ export class SqliteSearchIndex implements SearchIndex {
   #tz: number;
   #upsert: Database.Statement;
   #delete: Database.Statement;
+  #semantic: SemanticSearch | undefined;
 
   constructor(db: Database.Database, options: SqliteSearchIndexOptions = {}) {
     this.db = db;
@@ -135,9 +140,18 @@ export class SqliteSearchIndex implements SearchIndex {
 
   // --- Writes ----------------------------------------------------------------------------------
 
+  /**
+   * Fuses nearest-neighbour hits into `search` (docs/design/search-2026.md §5.8); `undefined`
+   * searches lexically only. Writes are handed to it to embed in the background.
+   */
+  setSemantic(semantic: SemanticSearch | undefined): void {
+    this.#semantic = semantic;
+  }
+
   /** Upserts by id. Incognito documents are never stored; indexing one deletes the old row. */
   async index(doc: SearchDoc): Promise<void> {
     this.#write(doc);
+    this.#semantic?.schedule?.();
   }
 
   /** Upserts many documents in one transaction (backfill, rebuild). */
@@ -149,6 +163,7 @@ export class SqliteSearchIndex implements SearchIndex {
         n += 1;
       }
     })();
+    if (n > 0) this.#semantic?.schedule?.();
     return n;
   }
 
@@ -290,6 +305,19 @@ export class SqliteSearchIndex implements SearchIndex {
     }
 
     const collapse = request.collapse ?? true;
+    const warnings = [...parsed.warnings];
+    const semantic = await this.#semanticCandidates(parsed, warnings);
+    if (semantic.length > 0) {
+      return this.#hybrid(parsed, where, semantic, {
+        viewer,
+        kinds,
+        collapse,
+        limit,
+        groupLimit,
+        warnings,
+        started,
+      });
+    }
     const ranked = this.#rank(parsed, where, { collapse, limit, groupLimit });
     const local = this.#materialize(parsed, ranked.rows);
     const byRid = new Map(ranked.rows.map((r, i) => [r.rid, local[i]] as const));
@@ -326,8 +354,173 @@ export class SqliteSearchIndex implements SearchIndex {
         return r === undefined || r.count === 0 ? [] : [r];
       }),
       total,
-      warnings: parsed.warnings,
+      warnings,
       tookMs: Math.round((performance.now() - started) * 10) / 10,
+    };
+  }
+
+  /** Nearest documents for the free text, or `[]` (off, filter-only query, busy, too short). */
+  async #semanticCandidates(parsed: ParsedQuery, warnings: string[]): Promise<SemanticCandidate[]> {
+    if (this.#semantic === undefined || parsed.matchesNothing || parsed.terms.length === 0)
+      return [];
+    try {
+      return await this.#semantic.candidates(parsed.text, SEMANTIC_K);
+    } catch (err) {
+      // A slow or failing embedder never fails the search: it runs lexically and says so.
+      warnings.push(err instanceof SemanticBusyError ? "semantic_busy" : "semantic_unavailable");
+      return [];
+    }
+  }
+
+  /**
+   * Lexical and semantic results fused by reciprocal rank (k = 60). Semantic candidates pass the
+   * same filters as lexical rows (viewer scope, `in:`, dates, `-excluded`), so a vector can never
+   * surface a document the viewer could not find by its words. With collapsing, a semantic hit on
+   * a message of a thread the lexical side already found merges into that result.
+   */
+  async #hybrid(
+    parsed: ParsedQuery,
+    where: Where,
+    semantic: SemanticCandidate[],
+    o: {
+      viewer: SearchViewer;
+      kinds: SearchIndexDocKind[] | undefined;
+      collapse: boolean;
+      limit: number;
+      groupLimit: number;
+      warnings: string[];
+      started: number;
+    },
+  ): Promise<SearchResponse> {
+    const depth = Math.max(o.limit, SEMANTIC_K);
+    const ranked = this.#rank(parsed, where, {
+      collapse: o.collapse,
+      limit: depth,
+      groupLimit: Math.max(o.groupLimit, 20),
+    });
+    const lexRids = ranked.rows.map((r) => r.rid);
+    const lexSet = new Set(lexRids);
+    const keyOf = new Map<number, string>();
+    if (lexRids.length > 0) {
+      const rows = this.db
+        .prepare(
+          `SELECT rowid AS rid, collapse_key AS ck FROM search_docs WHERE rowid IN (${lexRids.map(() => "?").join(", ")})`,
+        )
+        .all(...lexRids) as { rid: number; ck: string }[];
+      for (const r of rows) keyOf.set(r.rid, r.ck);
+    }
+    const ridOfKey = new Map<string, number>();
+    for (const r of ranked.rows) {
+      const ck = keyOf.get(r.rid);
+      if (ck !== undefined && !ridOfKey.has(ck)) ridOfKey.set(ck, r.rid);
+    }
+
+    // Semantic candidates through the same filters.
+    const ids = semantic.map((c) => c.docId);
+    const sql = [`d.id IN (${ids.map(() => "?").join(", ")})`, ...where.sql];
+    const params: unknown[] = [...ids, ...where.params];
+    const exclusion = toFtsExclusion(parsed.excluded);
+    if (exclusion !== undefined) {
+      sql.push("d.rowid NOT IN (SELECT rowid FROM search_fts WHERE search_fts MATCH ?)");
+      params.push(exclusion);
+    }
+    const allowed = this.db
+      .prepare(
+        `SELECT d.rowid AS rid, d.id AS id, d.grp AS grp, d.collapse_key AS ck FROM search_docs d WHERE ${sql.join(" AND ")}`,
+      )
+      .all(...params) as { rid: number; id: string; grp: SearchGroup; ck: string }[];
+    const byId = new Map(allowed.map((a) => [a.id, a]));
+    const semRank = new Map<number, number>();
+    const chunkOf = new Map<number, string>();
+    const grpOf = new Map<number, SearchGroup>(ranked.rows.map((r) => [r.rid, r.grp]));
+    const seenKeys = new Set<string>();
+    for (const c of semantic) {
+      const a = byId.get(c.docId);
+      if (a === undefined) continue;
+      const key = o.collapse ? a.ck : a.id;
+      if (seenKeys.has(key)) continue;
+      seenKeys.add(key);
+      const rid = (o.collapse ? ridOfKey.get(a.ck) : undefined) ?? a.rid;
+      semRank.set(rid, semRank.size + 1);
+      grpOf.set(rid, grpOf.get(rid) ?? a.grp);
+      if (!lexSet.has(rid)) chunkOf.set(rid, c.chunk);
+    }
+
+    const fused = new Map<number, number>();
+    ranked.rows.forEach((r, i) => {
+      fused.set(r.rid, 1 / (RRF_K + i + 1));
+    });
+    for (const [rid, rank] of semRank) fused.set(rid, (fused.get(rid) ?? 0) + 1 / (RRF_K + rank));
+    const order = [...fused.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0]);
+
+    const semanticOnly = new Map<SearchGroup, number>();
+    for (const rid of chunkOf.keys()) {
+      const g = grpOf.get(rid);
+      if (g !== undefined) semanticOnly.set(g, (semanticOnly.get(g) ?? 0) + 1);
+    }
+    const flatRids = order.slice(0, o.limit).map(([rid]) => rid);
+    const perGroup = new Map<SearchGroup, number[]>();
+    for (const [rid] of order) {
+      const g = grpOf.get(rid);
+      if (g === undefined) continue;
+      const list = perGroup.get(g) ?? [];
+      if (list.length < o.groupLimit) list.push(rid);
+      perGroup.set(g, list);
+    }
+    const wanted = [...new Set([...flatRids, ...[...perGroup.values()].flat()])];
+    const tokens = highlightTokens(parsed);
+    const hitOf = this.#materializeByRid(
+      parsed,
+      wanted.map((rid) => ({
+        rid,
+        grp: grpOf.get(rid) as SearchGroup,
+        score: fused.get(rid) ?? 0,
+        grn: 0,
+        rn: 0,
+      })),
+    );
+    for (const [rid, hit] of hitOf) {
+      const chunk = chunkOf.get(rid);
+      const lexical = lexSet.has(rid);
+      hit.match = lexical && semRank.has(rid) ? "both" : lexical ? "lexical" : "semantic";
+      if (chunk !== undefined) {
+        // No FTS match to mark: the best chunk's opening, with any literal query words marked.
+        const snip = snippetFor(chunk, tokens);
+        hit.snippet = snip.text;
+        hit.snippetHighlights = snip.ranges;
+      }
+    }
+
+    const groups = new Map<SearchGroup, GroupResult>();
+    for (const g of new Set([...ranked.groupCounts.keys(), ...semanticOnly.keys()])) {
+      groups.set(g, {
+        group: g,
+        count: (ranked.groupCounts.get(g) ?? 0) + (semanticOnly.get(g) ?? 0),
+        hits: (perGroup.get(g) ?? []).flatMap((rid) => hitOf.get(rid) ?? []),
+      });
+    }
+    const flatLocal = flatRids.flatMap((rid) => hitOf.get(rid) ?? []);
+    let total = ranked.total + chunkOf.size;
+    let flat = flatLocal;
+    const memory = await this.#searchMemory(parsed, o.viewer, o.kinds, o.groupLimit, o.limit);
+    if (memory.length > 0) {
+      groups.set("memory", {
+        group: "memory",
+        count: memory.length,
+        hits: memory.slice(0, o.groupLimit),
+      });
+      total += memory.length;
+      flat = fuse([flatLocal, memory]).slice(0, o.limit);
+    }
+    return {
+      hits: flat,
+      groups: GROUP_ORDER.flatMap((g) => {
+        const r = groups.get(g);
+        return r === undefined || r.count === 0 ? [] : [r];
+      }),
+      total,
+      warnings: o.warnings,
+      tookMs: Math.round((performance.now() - o.started) * 10) / 10,
     };
   }
 
@@ -490,7 +683,12 @@ export class SqliteSearchIndex implements SearchIndex {
 
   /** Loads rows and builds snippets and highlights for the ranked rowids only. */
   #materialize(parsed: ParsedQuery, ranked: RankedRow[]): RichHit[] {
-    if (ranked.length === 0) return [];
+    return [...this.#materializeByRid(parsed, ranked).values()];
+  }
+
+  /** `#materialize` keyed by rowid, in `ranked` order (rows that vanished are left out). */
+  #materializeByRid(parsed: ParsedQuery, ranked: RankedRow[]): Map<number, RichHit> {
+    if (ranked.length === 0) return new Map();
     const rids = ranked.map((r) => r.rid);
     const placeholders = rids.map(() => "?").join(", ");
     const docs = this.db
@@ -514,9 +712,10 @@ export class SqliteSearchIndex implements SearchIndex {
       for (const r of rows) marked.set(r.rid, r);
     }
     const tokens = highlightTokens(parsed);
-    return ranked.flatMap((r) => {
+    const out = new Map<number, RichHit>();
+    for (const r of ranked) {
       const d = rowsById.get(r.rid);
-      if (d === undefined) return [];
+      if (d === undefined) continue;
       const m = marked.get(r.rid);
       const snip =
         m?.snip.includes(HL_OPEN) === true && m !== undefined
@@ -539,8 +738,9 @@ export class SqliteSearchIndex implements SearchIndex {
       if (d.parent_id !== null) hit.parentId = d.parent_id;
       if (d.sender !== null) hit.from = d.sender;
       if (d.mime !== null) hit.mime = d.mime;
-      return [hit];
-    });
+      out.set(r.rid, hit);
+    }
+    return out;
   }
 }
 
