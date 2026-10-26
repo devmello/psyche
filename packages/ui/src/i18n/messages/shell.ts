@@ -119,6 +119,7 @@ export const shell = {
   "shell.usage.subscriptionLine":
     "{turns, plural, one {# turn} other {# turns}} today · ≈ {tokens} tokens",
   "shell.usage.none": "No usage today",
+  "shell.usage.turnsOnly": "{turns, plural, one {# turn} other {# turns}} today",
   "shell.usage.label": "{line}. Usage details; opens Settings → Usage",
   "shell.usage.labelNamed": "{name}: {line}. Usage details; opens Settings → Usage",
   "shell.usage.week": "This week by model",

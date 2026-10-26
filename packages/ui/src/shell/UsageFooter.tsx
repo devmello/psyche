@@ -22,13 +22,36 @@ import { useReducedMotion } from "../theme/ThemeProvider.tsx";
 export type UsageSummaryData = MethodResult<"usage.summary">;
 export type UsageLead = "api" | "subscription" | "none";
 
-/** Which kind of usage leads: the primary model's, else today's busiest model's. */
-export function usageLead(s: UsageSummaryData): UsageLead {
+/** Provider kinds that drive a subscription through its CLI (no per-token cost). */
+const SUBSCRIPTION_KINDS = new Set(["claude-code", "codex"]);
+
+/**
+ * Whether a model is a subscription CLI's: from the providers' kinds (`models.list`) when known,
+ * else from the provider id itself (`claude-code/haiku`).
+ */
+export function isSubscriptionModel(
+  modelRef: string | null | undefined,
+  providers?: readonly { id: string; kind: string }[],
+): boolean | undefined {
+  if (!modelRef) return undefined;
+  const id = modelRef.split("/")[0] ?? "";
+  const kind = providers?.find((p) => p.id === id)?.kind;
+  if (kind !== undefined) return SUBSCRIPTION_KINDS.has(kind);
+  return SUBSCRIPTION_KINDS.has(id) ? true : undefined;
+}
+
+/**
+ * Which kind of usage leads (#606): the primary model's provider kind when known, else the
+ * primary's or today's busiest model's flag in the summary. "none" only when nothing tells.
+ */
+export function usageLead(s: UsageSummaryData, primarySubscription?: boolean): UsageLead {
+  const known = primarySubscription ?? isSubscriptionModel(s.primary);
+  if (known !== undefined) return known ? "subscription" : "api";
   const models = [...s.today.byModel, ...s.byModel];
-  if (models.length === 0 && s.today.turns === 0) return "none";
   const primary = s.primary ? models.find((x) => x.modelRef === s.primary) : undefined;
   const lead = primary ?? s.today.byModel[0] ?? s.byModel[0];
-  return lead?.subscription ? "subscription" : "api";
+  if (lead === undefined) return s.primary ? "api" : "none";
+  return lead.subscription ? "subscription" : "api";
 }
 
 /** Share of the monthly budget spent, or null without a budget. */
@@ -44,15 +67,20 @@ export function budgetTone(fraction: number): "ok" | "warning" | "danger" {
   return "ok";
 }
 
-/** The second line's text. */
-export function usageLine(s: UsageSummaryData): string {
-  const lead = usageLead(s);
-  if (lead === "none") return t("shell.usage.none");
+/**
+ * The second line's text: "No usage today" rather than zeros; a subscription counts turns (and
+ * tokens when the CLI reports them), never dollars.
+ */
+export function usageLine(s: UsageSummaryData, primarySubscription?: boolean): string {
+  const lead = usageLead(s, primarySubscription);
+  if (lead === "none" || s.today.turns === 0) return t("shell.usage.none");
   if (lead === "subscription")
-    return t("shell.usage.subscriptionLine", {
-      turns: s.today.turns,
-      tokens: formatTokens(s.today.tokens),
-    });
+    return s.today.tokens > 0
+      ? t("shell.usage.subscriptionLine", {
+          turns: s.today.turns,
+          tokens: formatTokens(s.today.tokens),
+        })
+      : t("shell.usage.turnsOnly", { turns: s.today.turns });
   return t("shell.usage.apiLine", {
     cost: usd(s.today.costUsd),
     tokens: formatTokens(s.today.tokens),
@@ -202,17 +230,21 @@ export function PlanRing({
 export function UsageGraphic({
   summary,
   mini = false,
+  primarySubscription,
 }: {
   summary: UsageSummaryData;
   /** The rail's 20 px form. */
   mini?: boolean;
+  primarySubscription?: boolean;
 }): ReactElement | null {
-  const lead = usageLead(summary);
+  const lead = usageLead(summary, primarySubscription);
   if (lead === "none") return null;
   if (lead === "subscription" && summary.planWindow)
     return <PlanRing fraction={summary.planWindow.usedFraction} />;
   const budget = lead === "api" ? budgetFraction(summary) : null;
   if (budget !== null) return <BudgetBar fraction={budget} width={mini ? 20 : 40} />;
+  // A week with no usage draws nothing rather than a flat line.
+  if (summary.days.every((d) => d.turns === 0)) return null;
   return <Sparkline values={series(summary, lead)} width={mini ? 20 : 40} />;
 }
 
@@ -222,13 +254,19 @@ function modelName(ref: string): string {
 }
 
 /** The hover/focus card: the week by model, the month, the budget or plan window. */
-export function UsageCard({ summary }: { summary: UsageSummaryData }): ReactElement {
-  const lead = usageLead(summary);
+export function UsageCard({
+  summary,
+  primarySubscription,
+}: {
+  summary: UsageSummaryData;
+  primarySubscription?: boolean;
+}): ReactElement {
+  const lead = usageLead(summary, primarySubscription);
   const budget = budgetFraction(summary);
   const i18n = activeI18n();
   return (
     <div className="flex flex-col gap-2 text-callout" data-testid="usage-card">
-      <p className="text-headline text-label-primary">{usageLine(summary)}</p>
+      <p className="text-headline text-label-primary">{usageLine(summary, primarySubscription)}</p>
       {summary.byModel.length > 0 ? (
         <section className="flex flex-col gap-1">
           <h3 className="text-caption text-label-tertiary">{t("shell.usage.week")}</h3>
@@ -311,6 +349,8 @@ export interface UsageFooterProps {
   variant?: "full" | "rail";
   /** The persona's name: the full block's first line, beside the graphic. */
   name?: string;
+  /** The primary model is a subscription CLI's (from `models.list`); decides the variant. */
+  primarySubscription?: boolean;
   onOpenUsage?: () => void;
 }
 
@@ -322,9 +362,11 @@ export function UsageFooter({
   summary,
   variant = "full",
   name,
+  primarySubscription,
   onOpenUsage,
 }: UsageFooterProps): ReactElement {
-  const line = usageLine(summary);
+  const line = usageLine(summary, primarySubscription);
+  const kind = primarySubscription === undefined ? {} : { primarySubscription };
   const rail = variant === "rail";
   return (
     <HoverCard>
@@ -346,21 +388,21 @@ export function UsageFooter({
         }
       >
         {rail ? (
-          <UsageGraphic summary={summary} mini />
+          <UsageGraphic summary={summary} mini {...kind} />
         ) : (
           <>
             <span className="flex min-w-0 items-center gap-2">
               <span className="min-w-0 flex-1 truncate text-headline text-label-primary">
                 {name}
               </span>
-              <UsageGraphic summary={summary} />
+              <UsageGraphic summary={summary} {...kind} />
             </span>
             <span className="min-w-0 truncate text-callout text-label-tertiary">{line}</span>
           </>
         )}
       </HoverCardTrigger>
       <HoverCardContent side={rail ? "right" : "top"} align="start" className="w-72">
-        <UsageCard summary={summary} />
+        <UsageCard summary={summary} {...kind} />
       </HoverCardContent>
     </HoverCard>
   );
@@ -374,9 +416,26 @@ export function ConnectedUsageFooter(
   props: Omit<UsageFooterProps, "summary">,
 ): ReactElement | null {
   const summary = useUsageSummary();
+  const primarySubscription = usePrimarySubscription(summary?.primary);
   if (summary === undefined)
     return props.variant === "rail" ? null : (
       <span className="min-w-0 truncate text-headline">{props.name}</span>
     );
-  return <UsageFooter summary={summary} {...props} />;
+  return (
+    <UsageFooter
+      summary={summary}
+      {...props}
+      {...(primarySubscription === undefined ? {} : { primarySubscription })}
+    />
+  );
+}
+
+/** Whether the primary model's provider is a subscription CLI, from `models.list` (#606). */
+export function usePrimarySubscription(primary: string | null | undefined): boolean | undefined {
+  const models = useGatewayQuery("models.list", {}, { enabled: Boolean(primary) });
+  const providers = models.data?.providers;
+  return useMemo(
+    () => isSubscriptionModel(primary, Array.isArray(providers) ? providers : undefined),
+    [primary, providers],
+  );
 }

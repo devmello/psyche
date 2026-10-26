@@ -4,10 +4,12 @@ import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { subscriptionUsageSummary, usageSummary } from "../src/fixtures/usage.ts";
+import { sampleSubscriptionProviders } from "../src/screens/settings/sample-data.ts";
 import { ShellMotion } from "../src/shell/motion.tsx";
 import { ConnectedSidebar } from "../src/shell/Sidebar.tsx";
 import {
   budgetTone,
+  isSubscriptionModel,
   UsageFooter,
   type UsageSummaryData,
   usageLead,
@@ -39,9 +41,41 @@ describe("what the usage footer leads with (#599)", () => {
       ...usageSummary(),
       today: { tokens: 0, costUsd: 0, turns: 0, byModel: [] },
       byModel: [],
+      primary: null,
     };
     expect(usageLead(empty)).toBe("none");
     expect(usageLine(empty)).toBe("No usage today");
+  });
+
+  it("takes the variant from the primary model's provider kind before any usage (#606)", () => {
+    const fresh: UsageSummaryData = {
+      ...usageSummary(),
+      days: usageSummary().days.map((d) => ({ ...d, tokens: 0, costUsd: 0, turns: 0 })),
+      today: { tokens: 0, costUsd: 0, turns: 0, byModel: [] },
+      byModel: [],
+      primary: "claude-code/haiku",
+    };
+    expect(usageLead(fresh)).toBe("subscription");
+    // No zeros: "No usage today", and no graphic for an empty week.
+    expect(usageLine(fresh)).toBe("No usage today");
+    // The providers' kinds win over the id (a provider named "cc" of kind claude-code).
+    expect(isSubscriptionModel("cc/haiku", [{ id: "cc", kind: "claude-code" }])).toBe(true);
+    expect(isSubscriptionModel("anthropic/x", [{ id: "anthropic", kind: "anthropic" }])).toBe(
+      false,
+    );
+    expect(isSubscriptionModel("acme/x")).toBeUndefined();
+    expect(usageLead({ ...fresh, primary: "cc/haiku" }, true)).toBe("subscription");
+    expect(usageLead({ ...fresh, primary: "claude-code/haiku" }, false)).toBe("api");
+  });
+
+  it("a subscription whose CLI reports no tokens says turns only, never $0.00", () => {
+    const turnsOnly: UsageSummaryData = {
+      ...subscriptionUsageSummary(),
+      today: { tokens: 0, costUsd: 0, turns: 3, byModel: [] },
+      primary: "claude-code/haiku",
+    };
+    expect(usageLine(turnsOnly)).toBe("3 turns today");
+    expect(usageLine(turnsOnly)).not.toMatch(/\$/);
   });
 
   it("shifts the budget tone at 80 % and 100 %", () => {
@@ -116,6 +150,39 @@ describe("UsageFooter", () => {
 });
 
 describe("the connected footer", () => {
+  it("leads with turns when the primary's provider is a subscription CLI by kind (#606)", async () => {
+    render(
+      <StoryWorld
+        edit={(w) => {
+          w.usageSummary = {
+            ...usageSummary(),
+            today: { tokens: 0, costUsd: 0, turns: 4, byModel: [] },
+            byModel: [],
+            primary: "cc/haiku",
+          };
+          // A provider named "cc" of kind claude-code: the kind decides, not the id.
+          w.modelProviders = sampleSubscriptionProviders().map((p) =>
+            p.kind === "claude-code" ? { ...p, id: "cc" } : p,
+          );
+        }}
+      >
+        <ShellMotion>
+          <ConnectedSidebar
+            route="/feed"
+            onNavigate={() => {}}
+            activeThreadId={null}
+            onOpenThread={() => {}}
+            now={STORY_NOW}
+          />
+        </ShellMotion>
+      </StoryWorld>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("usage-footer").textContent).toContain("4 turns today"),
+    );
+    expect(screen.getByTestId("usage-footer").textContent).not.toMatch(/\$/);
+  });
+
   it("reads usage.summary in this device's time zone and refreshes after a run ends", async () => {
     let gateway: MockGateway | undefined;
     render(
