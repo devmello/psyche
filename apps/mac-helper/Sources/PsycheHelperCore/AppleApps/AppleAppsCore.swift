@@ -113,6 +113,61 @@ public struct MailSummaryRecord: Codable, Sendable, Equatable {
     }
 }
 
+/// `mail.search` filters (#626). Everything is matched inside Mail (a `whose` clause), never by
+/// reading every message into the helper.
+public struct MailSearchFilter: Sendable, Equatable {
+    /// Subject or sender contains this; empty matches every message.
+    public var query: String
+    /// true: unread only; false: read only; nil: both.
+    public var unread: Bool?
+    /// Received at or after `since`, and before `until`.
+    public var since: Date?
+    public var until: Date?
+    /// The sender contains this (name or address); empty: any sender.
+    public var from: String
+
+    public init(query: String = "", unread: Bool? = nil, since: Date? = nil, until: Date? = nil, from: String = "") {
+        self.query = query
+        self.unread = unread
+        self.since = since
+        self.until = until
+        self.from = from
+    }
+
+    /// The window the script always applies: an open end becomes a far bound.
+    static let earliest = Date(timeIntervalSince1970: 0)
+    static let latest = Date(timeIntervalSince1970: 4_102_444_800) // 2100-01-01
+
+    /// `{year, month, day, seconds into the day}` in local time, as AppleScript builds a date.
+    public static func dateParts(_ d: Date, timeZone: TimeZone = .current) -> [String] {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = timeZone
+        let c = cal.dateComponents([.year, .month, .day, .hour, .minute, .second], from: d)
+        let secs = (c.hour ?? 0) * 3600 + (c.minute ?? 0) * 60 + (c.second ?? 0)
+        return ["\(c.year ?? 1970)", "\(c.month ?? 1)", "\(c.day ?? 1)", "\(secs)"]
+    }
+
+    public func sinceParts(timeZone: TimeZone = .current) -> [String] { Self.dateParts(since ?? Self.earliest, timeZone: timeZone) }
+    public func untilParts(timeZone: TimeZone = .current) -> [String] { Self.dateParts(until ?? Self.latest, timeZone: timeZone) }
+
+    /// `read status is r1 or read status is r2`: unread only (false, false), read only (true,
+    /// true), either (true, false). One clause, no extra script variants.
+    public var readStatus: (String, String) {
+        switch unread {
+        case .some(true): return ("false", "false")
+        case .some(false): return ("true", "true")
+        case .none: return ("true", "false")
+        }
+    }
+
+    /// The ids of the newest `limit` matches, from the script's `id, local date` pairs.
+    public static func newest(_ pairs: [[String]], limit: Int) -> [String] {
+        let dated = pairs.compactMap { p -> (String, String)? in p.count == 2 ? (p[0], p[1]) : nil }
+        // `«class isot»` text sorts as it reads: yyyy-MM-ddTHH:mm:ss.
+        return dated.sorted { $0.1 > $1.1 }.prefix(max(0, limit)).map(\.0)
+    }
+}
+
 public struct NoteSummaryRecord: Codable, Sendable, Equatable {
     public var id: String
     public var folder: String

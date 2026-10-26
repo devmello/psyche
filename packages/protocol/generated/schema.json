@@ -2628,15 +2628,33 @@
       "type": "object"
     },
     "AppleMailSearchParams": {
+      "description": "Results come newest first.",
       "properties": {
         "query": {
-          "description": "Matched against subject and sender",
+          "description": "Matched against subject and sender; absent or empty matches every message",
           "maxLength": 200,
-          "minLength": 1,
           "type": "string"
         },
         "mailbox": {
           "description": "Default: inbox",
+          "type": "string"
+        },
+        "unread": {
+          "type": "boolean"
+        },
+        "since": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "until": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "from": {
+          "maxLength": 320,
+          "minLength": 1,
           "type": "string"
         },
         "limit": {
@@ -2645,9 +2663,6 @@
           "type": "integer"
         }
       },
-      "required": [
-        "query"
-      ],
       "type": "object"
     },
     "AppleNote": {

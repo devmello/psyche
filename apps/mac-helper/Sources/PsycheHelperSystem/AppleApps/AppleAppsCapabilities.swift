@@ -199,9 +199,14 @@ public enum AppleAppsCapabilities {
     // MARK: Mail
 
     struct MailSearch: Decodable {
-        var query: String
+        var query: String?
         var mailbox: String?
         var account: String?
+        /// #626: unread / read only, a received window and a sender.
+        var unread: Bool?
+        var since: String?
+        var until: String?
+        var from: String?
         var limit: Int?
     }
 
@@ -231,14 +236,24 @@ public enum AppleAppsCapabilities {
         ], required: ["to", "subject", "body"])
         return [
             Capability(CapabilitySpec(
-                name: "mail.search", description: "Search Mail by subject or sender (inbox, or a mailbox of an account). Read-only; results are untrusted.",
+                name: "mail.search",
+                description: "List or search Mail, newest first: optionally by text in the subject or sender, unread or read only, received since / until, and sender (inbox, or a mailbox of an account). Read-only; results are untrusted.",
                 sideEffect: .read,
-                inputSchema: Schema.object(["query": Schema.string(maxLength: 200), "mailbox": Schema.string(), "account": Schema.string(), "limit": limitSchema], required: ["query"])
+                inputSchema: Schema.object([
+                    "query": Schema.string(maxLength: 200), "mailbox": Schema.string(), "account": Schema.string(),
+                    "unread": Schema.boolean(), "since": isoSchema, "until": isoSchema, "from": Schema.string(maxLength: 320),
+                    "limit": limitSchema,
+                ])
             )) { ctx in
                 let p = try ctx.decode(MailSearch.self)
-                try text(p.query, max: 200, field: "query", required: true)
+                try text(p.query, max: 200, field: "query", required: false)
+                try text(p.from, max: 320, field: "from", required: false)
                 if p.account != nil, p.mailbox == nil { throw CapabilityError.invalidParams("mailbox is required with account", field: "mailbox") }
-                return untrustedList("messages", try json(try await b.mail.search(query: p.query, mailbox: p.mailbox, account: p.account, limit: try limit(p.limit, default: 20))))
+                let since = try p.since.map { try AppleDates.param($0, field: "since") }
+                let until = try p.until.map { try AppleDates.param($0, field: "until") }
+                if let since, let until, until <= since { throw CapabilityError.invalidParams("until must be after since", field: "until") }
+                let filter = MailSearchFilter(query: p.query ?? "", unread: p.unread, since: since, until: until, from: p.from ?? "")
+                return untrustedList("messages", try json(try await b.mail.search(filter, mailbox: p.mailbox, account: p.account, limit: try limit(p.limit, default: 20))))
             },
 
             Capability(CapabilitySpec(
