@@ -20,6 +20,48 @@ export const overview: Partial<Catalogue> = {
   "overview.section.upcoming": "À venir",
   "overview.section.recent": "Exécutions récentes",
   "overview.section.empty": "Rien ici pour l’instant.",
+  "overview.loading": "Chargement",
+  "overview.error.load": "Chargement impossible",
+  "overview.summary.label": "Résumé",
+  "overview.summary.sentence.both":
+    "{period, select, week {Cette semaine} month {Ce mois-ci} other {Au total}}, {name} a traité {tasks, plural, one {# tâche ou conversation} other {# tâches et conversations}} et lancé {automations, plural, one {# automatisation} other {# automatisations}} pour toi.",
+  "overview.summary.sentence.tasks":
+    "{period, select, week {Cette semaine} month {Ce mois-ci} other {Au total}}, {name} a traité {tasks, plural, one {# tâche ou conversation} other {# tâches et conversations}} pour toi.",
+  "overview.summary.sentence.automations":
+    "{period, select, week {Cette semaine} month {Ce mois-ci} other {Au total}}, {name} a lancé {automations, plural, one {# automatisation} other {# automatisations}} pour toi.",
+  "overview.summary.sentence.none":
+    "{period, select, week {Rien ne s’est exécuté cette semaine.} month {Rien ne s’est exécuté ce mois-ci.} other {Rien ne s’est encore exécuté.}}",
+  "overview.summary.sentence.lessons":
+    "{name} a appris {n, plural, one {# leçon} other {# leçons}} avec toi.",
+  "overview.summary.quiet":
+    "{period, select, week {Rien cette semaine.} month {Rien ce mois-ci.} other {Rien pour l’instant.}}",
+  "overview.summary.tile.tasks": "Tâches et conversations",
+  "overview.summary.tile.automations": "Automatisations exécutées",
+  "overview.summary.tile.approvals": "Approbations traitées",
+  "overview.summary.tile.lessons": "Leçons apprises",
+  "overview.summary.vs.week": "la semaine dernière",
+  "overview.summary.vs.month": "le mois dernier",
+  "overview.summary.runsOk": "{pct} des exécutions réussies",
+  "overview.summary.failed": "{n} en échec",
+  "overview.summary.approved": "{n} approuvées",
+  "overview.summary.denied": "{n} refusées",
+  "overview.summary.expired": "{n} expirées",
+  "overview.summary.confirmed": "{n} confirmées",
+  "overview.activity.meta":
+    "{period, select, week {7 derniers jours} month {30 derniers jours} other {Toute la période}}",
+  "overview.activity.label": "Exécutions par jour",
+  "overview.activity.series.tasks": "Tâches",
+  "overview.activity.series.automations": "Automatisations",
+  "overview.activity.series.chat": "Conversations",
+  "overview.activity.n.tasks": "{n, plural, one {# tâche} other {# tâches}}",
+  "overview.activity.n.automations":
+    "{n, plural, one {# automatisation} other {# automatisations}}",
+  "overview.activity.n.chat": "{n, plural, one {# conversation} other {# conversations}}",
+  "overview.activity.dayTime": "{duration} d’exécution",
+  "overview.activity.busiest":
+    "Jour le plus chargé : {date} · {n, plural, one {# exécution} other {# exécutions}}",
+  "overview.activity.worked": "{name} a travaillé {duration} (temps d’exécution mesuré)",
+  "overview.activity.topAutomation": "Automatisation la plus exécutée : {title} · {n}×",
   "overview.newUser.title": "{name} apprend à te connaître",
   "overview.newUser.body":
     "Dans une semaine, tu verras ce que {name} a fait pour toi, ce qu’il a appris, ainsi que les personnes et les projets qu’il garde en tête.",

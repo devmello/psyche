@@ -20,6 +20,47 @@ export const overview: Partial<Catalogue> = {
   "overview.section.upcoming": "Geplant",
   "overview.section.recent": "Letzte Läufe",
   "overview.section.empty": "Hier ist noch nichts.",
+  "overview.loading": "Wird geladen",
+  "overview.error.load": "Konnte nicht geladen werden",
+  "overview.summary.label": "Zusammenfassung",
+  "overview.summary.sentence.both":
+    "{period, select, week {Diese Woche} month {Diesen Monat} other {Insgesamt}} hat {name} für dich {tasks, plural, one {# Aufgabe oder Chat} other {# Aufgaben und Chats}} bearbeitet und {automations, plural, one {# Automatisierung} other {# Automatisierungen}} ausgeführt.",
+  "overview.summary.sentence.tasks":
+    "{period, select, week {Diese Woche} month {Diesen Monat} other {Insgesamt}} hat {name} für dich {tasks, plural, one {# Aufgabe oder Chat} other {# Aufgaben und Chats}} bearbeitet.",
+  "overview.summary.sentence.automations":
+    "{period, select, week {Diese Woche} month {Diesen Monat} other {Insgesamt}} hat {name} für dich {automations, plural, one {# Automatisierung} other {# Automatisierungen}} ausgeführt.",
+  "overview.summary.sentence.none":
+    "{period, select, week {Diese Woche lief nichts.} month {Diesen Monat lief nichts.} other {Bisher lief nichts.}}",
+  "overview.summary.sentence.lessons":
+    "{name} hat {n, plural, one {# Lektion} other {# Lektionen}} von dir gelernt.",
+  "overview.summary.quiet":
+    "{period, select, week {Diese Woche nichts.} month {Diesen Monat nichts.} other {Noch nichts.}}",
+  "overview.summary.tile.tasks": "Aufgaben und Chats",
+  "overview.summary.tile.automations": "Ausgeführte Automatisierungen",
+  "overview.summary.tile.approvals": "Entschiedene Freigaben",
+  "overview.summary.tile.lessons": "Gelernte Lektionen",
+  "overview.summary.vs.week": "letzte Woche",
+  "overview.summary.vs.month": "letzten Monat",
+  "overview.summary.runsOk": "{pct} der Läufe ok",
+  "overview.summary.failed": "{n} fehlgeschlagen",
+  "overview.summary.approved": "{n} genehmigt",
+  "overview.summary.denied": "{n} abgelehnt",
+  "overview.summary.expired": "{n} abgelaufen",
+  "overview.summary.confirmed": "{n} bestätigt",
+  "overview.activity.meta":
+    "{period, select, week {Letzte 7 Tage} month {Letzte 30 Tage} other {Gesamt}}",
+  "overview.activity.label": "Läufe pro Tag",
+  "overview.activity.series.tasks": "Aufgaben",
+  "overview.activity.series.automations": "Automatisierungen",
+  "overview.activity.series.chat": "Chat",
+  "overview.activity.n.tasks": "{n, plural, one {# Aufgabe} other {# Aufgaben}}",
+  "overview.activity.n.automations":
+    "{n, plural, one {# Automatisierung} other {# Automatisierungen}}",
+  "overview.activity.n.chat": "{n, plural, one {# Chat} other {# Chats}}",
+  "overview.activity.dayTime": "{duration} Laufzeit",
+  "overview.activity.busiest": "Aktivster Tag: {date} · {n, plural, one {# Lauf} other {# Läufe}}",
+  "overview.activity.worked": "{name} hat {duration} gearbeitet (gemessene Laufzeit)",
+  "overview.activity.topAutomation": "Am häufigsten ausgeführte Automatisierung: {title} · {n}×",
   "overview.newUser.title": "{name} lernt dich kennen",
   "overview.newUser.body":
     "In einer Woche siehst du, was {name} für dich getan hat, was es gelernt hat und welche Personen und Projekte es im Blick behält.",

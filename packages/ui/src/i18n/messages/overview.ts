@@ -27,6 +27,51 @@ export const overview = {
   "overview.section.upcoming": "Upcoming",
   "overview.section.recent": "Recent runs",
   "overview.section.empty": "Nothing here yet.",
+  "overview.loading": "Loading",
+  "overview.error.load": "Couldn’t load",
+
+  // Summary (§5.4): the sentence is chosen from these templates over the computed totals. A clause
+  // is dropped when its number is 0. `period` is week | month | all.
+  "overview.summary.label": "Summary",
+  "overview.summary.sentence.both":
+    "{period, select, week {This week} month {This month} other {Overall}}, {name} handled {tasks, plural, one {# task or chat} other {# tasks and chats}} and ran {automations, plural, one {# automation} other {# automations}} for you.",
+  "overview.summary.sentence.tasks":
+    "{period, select, week {This week} month {This month} other {Overall}}, {name} handled {tasks, plural, one {# task or chat} other {# tasks and chats}} for you.",
+  "overview.summary.sentence.automations":
+    "{period, select, week {This week} month {This month} other {Overall}}, {name} ran {automations, plural, one {# automation} other {# automations}} for you.",
+  "overview.summary.sentence.none":
+    "{period, select, week {Nothing ran this week.} month {Nothing ran this month.} other {Nothing has run yet.}}",
+  "overview.summary.sentence.lessons":
+    "{name} learned {n, plural, one {# lesson} other {# lessons}} from you.",
+  "overview.summary.quiet":
+    "{period, select, week {Nothing this week.} month {Nothing this month.} other {Nothing yet.}}",
+  "overview.summary.tile.tasks": "Tasks and chats",
+  "overview.summary.tile.automations": "Automations run",
+  "overview.summary.tile.approvals": "Approvals decided",
+  "overview.summary.tile.lessons": "Lessons learned",
+  "overview.summary.vs.week": "last week",
+  "overview.summary.vs.month": "last month",
+  "overview.summary.runsOk": "{pct} of runs ok",
+  "overview.summary.failed": "{n} failed",
+  "overview.summary.approved": "{n} approved",
+  "overview.summary.denied": "{n} denied",
+  "overview.summary.expired": "{n} expired",
+  "overview.summary.confirmed": "{n} confirmed",
+
+  // Activity (§5.4).
+  "overview.activity.meta":
+    "{period, select, week {Last 7 days} month {Last 30 days} other {All time}}",
+  "overview.activity.label": "Runs per day",
+  "overview.activity.series.tasks": "Tasks",
+  "overview.activity.series.automations": "Automations",
+  "overview.activity.series.chat": "Chat",
+  "overview.activity.n.tasks": "{n, plural, one {# task} other {# tasks}}",
+  "overview.activity.n.automations": "{n, plural, one {# automation} other {# automations}}",
+  "overview.activity.n.chat": "{n, plural, one {# chat} other {# chats}}",
+  "overview.activity.dayTime": "{duration} of run time",
+  "overview.activity.busiest": "Busiest day: {date} · {n, plural, one {# run} other {# runs}}",
+  "overview.activity.worked": "{name} worked {duration} (measured run time)",
+  "overview.activity.topAutomation": "Most-run automation: {title} · {n}×",
 
   // The new-user state (§5.5).
   "overview.newUser.title": "{name} is getting to know you",
