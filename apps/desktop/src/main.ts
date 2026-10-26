@@ -76,6 +76,7 @@ import {
   PERMISSION_KINDS,
   type PermissionKind,
 } from "./main/permissions/permissions.ts";
+import { ScreenAskWindow } from "./main/screen-ask/panel.ts";
 import { shouldShowSplash } from "./main/splash.ts";
 import { startShell } from "./main/startup.ts";
 import {
@@ -166,6 +167,7 @@ let helper: HelperLauncher | undefined;
 let thisDeviceId: string | undefined;
 let hud: HudWindow | undefined;
 let voiceHud: VoiceHudWindow | undefined;
+let screenAsk: ScreenAskWindow | undefined;
 let dictation: DictationService | undefined;
 const relay = new NotificationRelay();
 const zoom = new ZoomController({
@@ -201,6 +203,8 @@ function broadcast(channel: string, payload: unknown): void {
   for (const wc of windows?.appContents() ?? []) wc.send(channel, payload);
   // The voice HUD runs the app renderer too: it needs Gateway events and the system signals.
   voiceHud?.contents()?.send(channel, payload);
+  // So does the ask panel: it streams the answer from Gateway events.
+  screenAsk?.contents()?.send(channel, payload);
 }
 
 /** Native → shell commands go to the main window only; queued until it has loaded. */
@@ -237,7 +241,9 @@ app.on("web-contents-created", (_e, contents) => {
 
 function trusted(event: IpcMainInvokeEvent | IpcMainEvent): boolean {
   return (
-    (windows?.isAppContents(event.sender) === true || voiceHud?.owns(event.sender) === true) &&
+    (windows?.isAppContents(event.sender) === true ||
+      voiceHud?.owns(event.sender) === true ||
+      screenAsk?.owns(event.sender) === true) &&
     isAppUrl(event.senderFrame?.url)
   );
 }
@@ -693,7 +699,8 @@ function lockDownDefaultSession(): void {
       permission === "media" &&
       (windows?.isAppContents(wc) === true ||
         hud?.owns(wc) === true ||
-        voiceHud?.owns(wc) === true) &&
+        voiceHud?.owns(wc) === true ||
+        screenAsk?.owns(wc) === true) &&
       isAppUrl(details.requestingUrl) &&
       (details as { mediaTypes?: string[] }).mediaTypes?.every((t) => t === "audio") === true;
     callback(ok);
@@ -704,7 +711,8 @@ function lockDownDefaultSession(): void {
       wc !== null &&
       (windows?.isAppContents(wc) === true ||
         hud?.owns(wc) === true ||
-        voiceHud?.owns(wc) === true) &&
+        voiceHud?.owns(wc) === true ||
+        screenAsk?.owns(wc) === true) &&
       isAppUrl(origin),
   );
 }
@@ -884,6 +892,13 @@ void app.whenReady().then(async () => {
     preloadPath: preloadPath(),
     onOpenThread: (threadId) => command({ type: "navigate", route: threadRoute(threadId) }),
   });
+  // Ask about my screen (docs/design/screen-ask-2026.md): the ask panel and its region overlay.
+  screenAsk = new ScreenAskWindow({
+    url: (route) => new URL(route, rendererUrl).toString(),
+    preloadPath: preloadPath(),
+    onOpenThread: (threadId) => command({ type: "navigate", route: threadRoute(threadId) }),
+  });
+  screenAsk.setEnabled(true);
   const controller = new SystemDictation({
     call: (m, p) => requireGateway().call(m, p),
     hud,
@@ -909,13 +924,21 @@ void app.whenReady().then(async () => {
   powerMonitor.on("lock-screen", () => {
     broadcast(IPC.voiceSystem, { event: "lock" });
     voiceHud?.suspend();
+    screenAsk?.suspend();
   });
   powerMonitor.on("suspend", () => {
     broadcast(IPC.voiceSystem, { event: "suspend" });
     voiceHud?.suspend();
+    screenAsk?.suspend();
   });
-  powerMonitor.on("unlock-screen", () => voiceHud?.resume());
-  powerMonitor.on("resume", () => voiceHud?.resume());
+  powerMonitor.on("unlock-screen", () => {
+    voiceHud?.resume();
+    screenAsk?.resume();
+  });
+  powerMonitor.on("resume", () => {
+    voiceHud?.resume();
+    screenAsk?.resume();
+  });
   terminal = new TerminalHost({ call: (m, p) => requireGateway().call(m, p) });
   terminal.onData((sessionId, data) => broadcast(IPC.terminalData, { sessionId, data }));
   terminal.onExit((sessionId, exitCode) => broadcast(IPC.terminalExit, { sessionId, exitCode }));
@@ -963,6 +986,7 @@ void app.whenReady().then(async () => {
       open: () => windows?.showMain(),
       newSideChat: () => command({ type: "newSideChat" }),
       quickEntry: () => windows?.toggleQuickEntry(),
+      askScreen: () => screenAsk?.trigger(),
       openApprovals: () => command({ type: "navigate", route: "/agent/approvals" }),
       closeWindow: () => windows?.main()?.close(),
       quitApp: () => app.quit(),
@@ -976,6 +1000,12 @@ void app.whenReady().then(async () => {
     (!app.isPackaged && process.env.PSYCHE_DISABLE_GLOBAL_SHORTCUTS === "1");
   if (!skipShortcuts && !globalShortcut.register("Alt+Space", () => windows?.toggleQuickEntry()))
     globalShortcut.register("Control+Alt+Space", () => windows?.toggleQuickEntry());
+  // Ask about my screen: ⌥⇧Space, or ⌃⌥⇧Space when another utility owns it (spec §2).
+  if (!skipShortcuts && !globalShortcut.register("Alt+Shift+Space", () => screenAsk?.trigger()))
+    globalShortcut.register("Control+Alt+Shift+Space", () => screenAsk?.trigger());
+  app.dock?.setMenu(
+    Menu.buildFromTemplate([{ label: "Ask about screen", click: () => screenAsk?.trigger() }]),
+  );
 
   // The window shows first and comes forward; the Gateway starts behind it (issue #441).
   let shownAt: number | undefined;
@@ -1028,6 +1058,7 @@ app.on("will-quit", () => {
   dictation?.dispose();
   hud?.destroy();
   voiceHud?.destroy();
+  screenAsk?.destroy();
   globalShortcut.unregisterAll();
 });
 
