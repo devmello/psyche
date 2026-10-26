@@ -1,4 +1,5 @@
 import { type MethodParams, type MethodResult, PsycheError } from "@psyche/protocol";
+import type { VoiceConversationManager } from "./conversation/conversation.ts";
 import type { VoiceMemoService } from "./memo.ts";
 import type { ReadAloudService } from "./readAloud.ts";
 import type { VoiceCallContext, VoiceSessionManager, VoiceStartParams } from "./voice.ts";
@@ -24,7 +25,13 @@ export type SpeechMethod =
   | "voice.memo.save"
   | "speech.readAloud"
   | "speech.readAloud.cancel"
-  | "speech.voices";
+  | "speech.voices"
+  | "voice.conversation.start"
+  | "voice.conversation.audio"
+  | "voice.conversation.turn"
+  | "voice.conversation.interrupt"
+  | "voice.conversation.played"
+  | "voice.conversation.stop";
 
 export const SPEECH_METHODS: readonly SpeechMethod[] = [
   "voice.start",
@@ -35,6 +42,12 @@ export const SPEECH_METHODS: readonly SpeechMethod[] = [
   "speech.readAloud",
   "speech.readAloud.cancel",
   "speech.voices",
+  "voice.conversation.start",
+  "voice.conversation.audio",
+  "voice.conversation.turn",
+  "voice.conversation.interrupt",
+  "voice.conversation.played",
+  "voice.conversation.stop",
 ];
 
 export type SpeechHandlers = {
@@ -49,6 +62,8 @@ export interface SpeechHandlerDeps {
   readAloud?: ReadAloudService;
   /** Without it `speech.voices` answers `unavailable`. */
   catalog?: VoiceCatalog;
+  /** Without it the `voice.conversation.*` methods answer `unavailable`. */
+  conversations?: VoiceConversationManager;
 }
 
 function need<T>(dep: T | undefined, what: string): T {
@@ -136,6 +151,34 @@ export function createSpeechHandlers(deps: SpeechHandlerDeps): SpeechHandlers {
         default: r.default,
         unavailable: r.unavailable,
       };
+    },
+    async "voice.conversation.start"(p, ctx) {
+      return need(deps.conversations, "voice conversation").start(p, ctx);
+    },
+
+    async "voice.conversation.audio"(p, ctx) {
+      need(deps.conversations, "voice conversation").audio(p, ctx);
+      return {};
+    },
+
+    async "voice.conversation.turn"(p, ctx) {
+      need(deps.conversations, "voice conversation").turn(p, ctx);
+      return {};
+    },
+
+    async "voice.conversation.interrupt"(p, ctx) {
+      need(deps.conversations, "voice conversation").interrupt(p, ctx);
+      return {};
+    },
+
+    async "voice.conversation.played"(p, ctx) {
+      need(deps.conversations, "voice conversation").played(p, ctx);
+      return {};
+    },
+
+    async "voice.conversation.stop"(p, ctx) {
+      need(deps.conversations, "voice conversation").stop(p, ctx);
+      return { ok: true };
     },
   };
 }
