@@ -161,6 +161,7 @@ See the speech section of the README for engine selection. On macOS 26+:
 | 10.4 | Two microphone streams | Second → `conflict/microphone_busy` |
 | 10.5 | `speech.synthesize {text}` | PCM chunks play back cleanly; `nonCommercial: false` |
 | 10.6 | `personalVoice: true` with and without Personal Voice authorization | Uses it and flags `nonCommercial: true` / falls back to a system voice |
+| 10.6f | On a Mac with a Personal Voice and authorization not yet decided: `speech.voices`, `speech.status`, then `speech.personal_voice.authorize` twice | No prompt from voices or status; one system prompt on the first authorize (`prompted: true`); the second answers with the same status and `prompted: false`; after Don't Allow, `settingsHint` names System Settings |
 | 10.6d | `speech.prepare {language: "en-US"}`, then `speech.synthesize {text, utteranceId: "u1"}` three times, then `speech.status` | `prepared: true`; every `speech.audio` carries `utteranceId: "u1"`; `warm: true` on the synthesize results; `timings.synthesisFirstAudioMs` under 100 ms after the first; nothing plays through the speakers |
 | 10.6e | `speech.synthesize {text, speed: 0.8}`, `{speed: 1}`, `{speed: 1.5}` on one sentence | `durationMs` roughly 1.1×, 1× and 0.67× of the normal one (slow speeds are coarse; see the README) |
 | 10.6a | `contacts.list {limit: 500, fields: ["name"]}` before / after granting Contacts | No prompt and `forbidden/permission_denied` / names in family-name order, no phones or emails; `truncated` when over the limit |
