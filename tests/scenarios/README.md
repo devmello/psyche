@@ -185,3 +185,12 @@ INT-3 additionally kills at `randomKills` random points per scenario (25 across 
 ## What validate.mjs checks
 
 Schema conformance; fixture paths exist; step, call and assertion ids are unique; every `messageId`, `threadId`, `attachmentId`, `eventId` and `siteId` referenced in scripts or assertions exists in that scenario's fixtures; every `approve` step and `approvalRef` points to an earlier `approval_requested`; script calls match the tool registry; destructive cards offer only `once` / `task`; captures are defined before use; kill points reference real calls, approvals and event numbers; attachment sizes and SHA-256 match; calendar offsets match their time zone (DST); site pages exist, stay under 4 KB and use fictional hosts; search results point at manifest pages; scripted slots are valid against the fixture calendar after earlier scripted updates; every `secretRef` exists in the registry; and no file contains a registry secret value or a pattern the repository's secret-grep gate rejects.
+
+## People and projects (`people-*.md`)
+
+The questions in docs/memory/people-and-projects-2026.md §8, one file each: `people-who-is-sam`, `people-waiting-on-sam-lee`, `people-prep-2pm`, `people-kitchen-remodel`, `people-triage`, `people-correction`, `people-forget`. They are written for the §8 fixture world in `tests/fixtures/graph/` (PG1). Each file has:
+- the owner's message;
+- the expected tool calls (`people_lookup`, `project_brief`, `waiting_on`, `meeting_prep`, `loop_update`, plus mail, calendar and notes tools);
+- the expected answer, what must not happen, and the privacy rules.
+
+`packages/skills/test/people.test.ts` checks their structure and tool names. PG1 runs them against the graph once its fixture world and tools exist. They are Markdown, not `scenario.json`, so `validate.mjs` and `check:scenarios` skip them.

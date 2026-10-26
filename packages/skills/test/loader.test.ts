@@ -113,7 +113,7 @@ describe("bundled skills (T1 done-when)", () => {
     const off = await status(["calendar_list_events"]);
     expect(off.get("morning-brief")?.status).toBe("active");
     expect(off.get("meeting-prep")?.reasons).toEqual([
-      "needs notes: connect Apple Notes in Settings → Connectors",
+      "needs People & projects or notes (turn on People & projects in Settings → Memory; connect Apple Notes in Settings → Connectors)",
     ]);
     expect(off.get("downloads-cleanup")?.reasons[0]).toContain("turn on Files");
     expect(off.get("email-to-task")?.status).toBe("ineligible");

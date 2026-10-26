@@ -24,3 +24,19 @@ Serves T5, M5, J6, O1. Feeds `tests/scenarios/a2-meeting-prep` (docs/connectors/
 - The prep written into the calendar event.
 - A second note created when the series note exists.
 - Phone numbers or home addresses copied into the prep.
+
+## With People & projects (docs/memory/people-and-projects-2026.md §6.6, §8)
+
+Setup: the graph on, over the §8 fixture world (`tests/fixtures/graph/`). See `tests/scenarios/people-prep-2pm.md` for the exact expectations.
+
+1. Type "prep me for my 2 pm".
+   - Expect one `meeting_prep` call, not separate lookups.
+   - Expect attendees with roles and how you know them, the project, two open loops, and the last exchanges with links.
+   - Expect suggested loops (from other people's mail) worded as quotes with their source, never as things you owe.
+2. Ask "who is Sam?".
+   - Expect a question back naming each Sam with one line, not a guess.
+
+Must not happen:
+- A web search about an attendee.
+- Health, religion, politics or other sensitive details in the prep.
+- A loop marked done because an email said so.
