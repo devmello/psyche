@@ -71,6 +71,11 @@ export const APPLE_APP_ACTIONS: Readonly<Record<string, AppleAppAction>> = {
   "notes.list": read("apple.notes", "list"),
   "notes.read": read("apple.notes", "read"),
   "notes.create": write("apple.notes", "create"),
+  // Wave 1 (docs/connectors/apple-apps-2026.md §4.4; #639).
+  "notes.search": read("apple.notes", "search"),
+  "notes.folders": read("apple.notes", "folders"),
+  "notes.append": write("apple.notes", "append"),
+  "notes.update": write("apple.notes", "update"),
   "finder.list": read("apple.finder", "list"),
   "finder.reveal": read("apple.finder", "reveal"),
   "safari.tabs": read("apple.safari", "tabs"),
