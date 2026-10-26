@@ -20,6 +20,12 @@ export const overview: Partial<Catalogue> = {
   "overview.section.upcoming": "今後の予定",
   "overview.section.recent": "最近の実行",
   "overview.section.empty": "まだ何もありません。",
+  "overview.built.meta": "{count, plural, other {#件の成果物}}",
+  "overview.built.seeAll": "すべて表示",
+  "overview.built.open": "{title}を開く",
+  "overview.built.empty": "この期間に作成されたものはまだありません。",
+  "overview.specialists.meta": "{count, plural, other {#件の結果}}",
+  "overview.specialists.empty": "この期間の専門エージェントの結果はありません。",
   "overview.newUser.title": "{name}はあなたのことを知り始めています",
   "overview.newUser.body":
     "1週間後には、{name}があなたのために行ったこと、学んだこと、把握している人物やプロジェクトが表示されます。",

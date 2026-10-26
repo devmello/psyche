@@ -76,8 +76,10 @@ describe("OverviewScreen", () => {
     expect(screen.getByTestId("overview-range").textContent).toMatch(/\d/);
   });
 
-  it("renders every section anchor as a framed card and lists them in the jump bar", () => {
+  it("renders every section anchor as a framed card and lists them in the jump bar", async () => {
     renderOverview();
+    // Specialists appears once its roles load (it is hidden while none is enabled).
+    await screen.findByTestId("overview-specialists");
     for (const id of OVERVIEW_SECTIONS) {
       const section = document.getElementById(id);
       expect(section, id).not.toBeNull();

@@ -20,6 +20,12 @@ export const overview: Partial<Catalogue> = {
   "overview.section.upcoming": "Próximamente",
   "overview.section.recent": "Ejecuciones recientes",
   "overview.section.empty": "Aún no hay nada aquí.",
+  "overview.built.meta": "{count, plural, one {# artefacto} other {# artefactos}}",
+  "overview.built.seeAll": "Ver todo",
+  "overview.built.open": "Abrir {title}",
+  "overview.built.empty": "Aún no se ha creado nada en este período.",
+  "overview.specialists.meta": "{count, plural, one {# resultado} other {# resultados}}",
+  "overview.specialists.empty": "No hay resultados de especialistas en este período.",
   "overview.newUser.title": "{name} está empezando a conocerte",
   "overview.newUser.body":
     "En una semana verás lo que {name} hizo por ti, lo que aprendió y las personas y proyectos que tiene en cuenta.",
