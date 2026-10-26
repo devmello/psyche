@@ -1,6 +1,6 @@
-import { AnimatePresence, type HTMLMotionProps } from "motion/react";
+import { AnimatePresence, type HTMLMotionProps, useAnimate } from "motion/react";
 import * as m from "motion/react-m";
-import { type ReactElement, type ReactNode, ViewTransition } from "react";
+import { type ReactElement, type ReactNode, useEffect, ViewTransition } from "react";
 import { LayoutMotion } from "../motion/MotionProvider.tsx";
 import { duration, ease, motionSpring, spring } from "../motion/tokens.ts";
 import { useReducedMotion } from "../theme/ThemeProvider.tsx";
@@ -63,15 +63,37 @@ export function SidebarPresence({
 
 /**
  * A column that reflows when its neighbours come and go (sidebar, panes): it animates its
- * position from where it was (FLIP), never its width. Reduced motion reflows instantly.
+ * position from where it was (FLIP), never its width. The text rewraps at frame 0 while the
+ * column slides, so a change of width (not of the window) dips the column to 60% opacity and
+ * fades it back over `duration.short`: a compositor-only crossfade that hides the rewrap
+ * (smoothness-2026 C18, motion.md §4.3). Reduced motion reflows instantly.
  */
 export function ReflowColumn({
   children,
   ...props
-}: Omit<HTMLMotionProps<"main">, "layout">): ReactElement {
+}: Omit<HTMLMotionProps<"main">, "layout" | "ref">): ReactElement {
   const reduce = useReducedMotion();
+  const [scope, animate] = useAnimate<HTMLElement>();
+  useEffect(() => {
+    const el = scope.current;
+    if (reduce || !el || typeof ResizeObserver === "undefined") return;
+    let width = el.getBoundingClientRect().width;
+    let viewport = window.innerWidth;
+    const ro = new ResizeObserver(() => {
+      const next = el.getBoundingClientRect().width;
+      const resized = window.innerWidth !== viewport;
+      viewport = window.innerWidth;
+      if (!resized && Math.abs(next - width) > 1) {
+        void animate(el, { opacity: [0.6, 1] }, fadeShort);
+      }
+      width = next;
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [reduce, scope, animate]);
   return (
     <m.main
+      ref={scope}
       layout={reduce ? false : "position"}
       transition={motionSpring(spring.smooth)}
       {...props}

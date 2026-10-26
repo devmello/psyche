@@ -112,6 +112,9 @@ const LABELLED_KEYS = [
   "ui.transcriptMode",
   "ui.language",
   "ui.links.openIn",
+  "ui.map.tiles",
+  "ui.map.styleUrl",
+  "ui.map.styleUrlDark",
   "ui.locale",
   "ui.direction",
 ] as const;

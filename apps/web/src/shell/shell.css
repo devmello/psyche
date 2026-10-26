@@ -518,7 +518,9 @@ button {
 @media (prefers-reduced-motion: reduce) {
   :root:not([data-reduce-motion="false"]) * {
     /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override component transitions */
-    transition-duration: 0ms !important;
+    transition-property: opacity !important;
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override component transitions */
+    transition-duration: var(--duration-short) !important;
     /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override component animations */
     animation: none !important;
   }
@@ -526,7 +528,9 @@ button {
 /* The app's own Reduce motion setting (Appearance), whatever the OS says. */
 :root[data-reduce-motion="true"] * {
   /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override component transitions */
-  transition-duration: 0ms !important;
+  transition-property: opacity !important;
+  /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override component transitions */
+  transition-duration: var(--duration-short) !important;
   /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override component animations */
   animation: none !important;
 }

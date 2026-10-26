@@ -4,6 +4,7 @@
 */
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "streamdown/styles.css";
 @import "./theme-default.css";
 @import "./semantic.css";
 @import "./motion.css";
@@ -400,14 +401,15 @@
   }
 }
 
-/* Reduced motion (§4.5): loops become static frames, transitions become 0 ms opacity changes. */
+/* Reduced motion (§4.5): loops become static frames, transitions keep only their opacity fade, at --duration-short (§7). */
 @media (prefers-reduced-motion: reduce) {
   :root:not([data-reduce-motion="false"]) *,
   :root:not([data-reduce-motion="false"]) *::before,
   :root:not([data-reduce-motion="false"]) *::after {
     animation-duration: 0ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0ms !important;
+    transition-property: opacity !important;
+    transition-duration: var(--duration-short) !important;
   }
 }
 :root[data-reduce-motion="true"] *,
@@ -415,5 +417,6 @@
 :root[data-reduce-motion="true"] *::after {
   animation-duration: 0ms !important;
   animation-iteration-count: 1 !important;
-  transition-duration: 0ms !important;
+  transition-property: opacity !important;
+  transition-duration: var(--duration-short) !important;
 }

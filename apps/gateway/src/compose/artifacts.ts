@@ -153,12 +153,13 @@ const CreateInput = Type.Object({
     Type.Literal("chart"),
     Type.Literal("diagram"),
     Type.Literal("diff"),
+    Type.Literal("map"),
     Type.Literal("html"),
   ]),
   title: Type.String({ minLength: 1, maxLength: 200 }),
   content: Type.String({
     description:
-      "doc: markdown. code: the source. table: CSV with a header row, or JSON {columns, rows}. chart: JSON {kind: bar|line|area|pie, categories, series: [{name, values}]}. diagram: Mermaid text. diff: a unified diff. html: one self-contained HTML document (inline CSS and script only; it runs in a sandbox with no network, so never reference outside URLs).",
+      "doc: markdown. code: the source. table: CSV with a header row, or JSON {columns, rows}. chart: JSON {kind: bar|line|area|pie, categories, series: [{name, values}]}. diagram: Mermaid text. diff: a unified diff. map: JSON {title?, markers: [{id, lat, lng, label, note?, link?}], routes?: [{label?, points: [[lat, lng], ...]}]} (only for places whose coordinates you already have from connector results or web search; never guess coordinates). html: one self-contained HTML document (inline CSS and script only; it runs in a sandbox with no network, so never reference outside URLs).",
   }),
   language: Type.Optional(Type.String({ maxLength: 40, description: "code only, e.g. ts, py" })),
 });
@@ -229,7 +230,14 @@ export function artifactTools(store: ArtifactStore): AgentToolRegistration[] {
           (ctx as Partial<TurnToolContext>).turn?.emitBlock({
             type: "artifact",
             artifactId: w.artifact.id,
-            preview: p.type === "table" ? "sheet" : p.type === "chart" ? "dashboard" : "markdown",
+            preview:
+              p.type === "table"
+                ? "sheet"
+                : p.type === "chart"
+                  ? "dashboard"
+                  : p.type === "map"
+                    ? "map"
+                    : "markdown",
           });
           return { output: w.ref, provenance: "trusted" };
         } catch (e) {
@@ -240,7 +248,7 @@ export function artifactTools(store: ArtifactStore): AgentToolRegistration[] {
     defineTool({
       name: "artifact.update",
       description:
-        'Edit a canvas artifact with small ops on version `base`. Text: {op:"replace", old, new} (old must match exactly once; include enough context), {op:"insert", after, text} (after="" inserts at the start), {op:"rewrite", content} only when most of it changes. Charts: {op:"patch", patch} is a JSON merge patch onto the spec (arrays are replaced whole; null deletes a key). Tables (A1 = first data row): {op:"set", cell:"B3", value}, {op:"setRange", range, values}, {op:"addRows", rows, at?}, {op:"deleteRows", at, count}, {op:"addColumn", name, values?}, {op:"view", view:{sort?, filter?}}. If the user edited it since `base`, you get a conflict with what changed; nothing is written.',
+        'Edit a canvas artifact with small ops on version `base`. Text: {op:"replace", old, new} (old must match exactly once; include enough context), {op:"insert", after, text} (after="" inserts at the start), {op:"rewrite", content} only when most of it changes. Charts: {op:"patch", patch} is a JSON merge patch onto the spec (arrays are replaced whole; null deletes a key). Maps: {op:"addMarker", marker}, {op:"removeMarker", id}, {op:"updateMarker", id, set:{lat?, lng?, label?, note?, link?}}. Tables (A1 = first data row): {op:"set", cell:"B3", value}, {op:"setRange", range, values}, {op:"addRows", rows, at?}, {op:"deleteRows", at, count}, {op:"addColumn", name, values?}, {op:"view", view:{sort?, filter?}}. If the user edited it since `base`, you get a conflict with what changed; nothing is written.',
       input: UpdateInput,
       sideEffect: "none",
       describeCall: (p) => ({ summary: `Edited artifact (${p.ops.length} ops)` }),

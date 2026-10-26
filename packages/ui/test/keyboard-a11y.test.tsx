@@ -131,14 +131,16 @@ describe("onboarding by keyboard", () => {
       </StoryWorld>,
     );
     const heading = () => screen.getByRole("heading", { level: 1 });
-    const first = heading().textContent;
+    // The mail step joins the flow once accounts load, so "of N" can change; the step may not.
+    const stepOf = () => heading().textContent?.replace(/of \d+/, "of N");
+    const first = stepOf();
     screen.getByRole("button", { name: "Next" }).focus();
     await userEvent.keyboard("{Enter}");
-    await waitFor(() => expect(heading().textContent).not.toBe(first));
+    await waitFor(() => expect(stepOf()).not.toBe(first));
     await waitFor(() => expect(document.activeElement).toBe(heading()));
     screen.getByRole("button", { name: "Back" }).focus();
     await userEvent.keyboard("{Enter}");
-    await waitFor(() => expect(heading().textContent).toBe(first));
+    await waitFor(() => expect(stepOf()).toBe(first));
     expect(document.activeElement).toBe(heading());
   });
 });

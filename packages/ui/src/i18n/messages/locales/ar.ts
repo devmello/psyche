@@ -4,6 +4,7 @@ import { charts } from "./charts/ar.ts";
 import { links } from "./links/ar.ts";
 import { mailMeetings } from "./mail-meetings/ar.ts";
 import { overview } from "./overview/ar.ts";
+import { overviewGrowth } from "./overview-growth/ar.ts";
 import { workflows } from "./workflows/ar.ts";
 
 /** Arabic catalogue (ar). Same ids as `en`; missing ids fall back to English. */
@@ -16,6 +17,8 @@ export const ar: Partial<Catalogue> = {
   ...workflows,
   // the Overview screen (docs/design/agent-overview-2026.md)
   ...overview,
+  // Overview Growth and People & projects (docs/design/agent-overview-2026.md §5.4)
+  ...overviewGrowth,
   // the output canvas (docs/design/chat-experience-2026.md §4.2)
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
@@ -395,6 +398,7 @@ export const ar: Partial<Catalogue> = {
   "blocks.artifact.kind.html": "صفحة ويب",
   "blocks.artifact.kind.markdown": "مستند",
   "blocks.artifact.kind.dashboard": "لوحة معلومات",
+  "blocks.artifact.kind.map": "خريطة",
   "blocks.artifact.label": "مُخرَج: {title}",
   "blocks.artifact.meta": "{kind} · الإصدار {version} · {date}",
   "blocks.artifact.save": "حفظ في المكتبة",

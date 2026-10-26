@@ -35,6 +35,13 @@ type Refresher = () => Promise<void>;
  * - Mutations may carry an optimistic overlay, removed when the request settles (the server's
  *   answer or the events it caused replace it; a failure rolls it back).
  */
+const scheduleFrame = (cb: () => void): number =>
+  typeof requestAnimationFrame === "function"
+    ? requestAnimationFrame(() => cb())
+    : (setTimeout(cb, 16) as unknown as number);
+const cancelFrame = (id: number): void =>
+  typeof cancelAnimationFrame === "function" ? cancelAnimationFrame(id) : clearTimeout(id);
+
 export class GatewayStore {
   readonly client: GatewayClient;
   /**
@@ -106,7 +113,32 @@ export class GatewayStore {
 
   private recompute(): void {
     this.snapshot = this.overlays.reduce((s, o) => o.apply(s), this.base);
+    this.cancelPendingNotify();
     for (const l of this.listeners) l();
+  }
+
+  private notifyFrame: number | undefined;
+
+  private cancelPendingNotify(): void {
+    if (this.notifyFrame === undefined) return;
+    cancelFrame(this.notifyFrame);
+    this.notifyFrame = undefined;
+  }
+
+  /**
+   * Streaming deltas can arrive hundreds of times a second. The state still folds each one in at
+   * once (so reads are never stale), but subscribers are told at most once per animation frame, so
+   * React renders once per frame however bursty the stream is. Any other update notifies at once
+   * and takes the pending notification with it.
+   */
+  private updateCoalesced(fn: (s: UiState) => UiState): void {
+    this.base = fn(this.base);
+    this.snapshot = this.overlays.reduce((s, o) => o.apply(s), this.base);
+    if (this.notifyFrame !== undefined) return;
+    this.notifyFrame = scheduleFrame(() => {
+      this.notifyFrame = undefined;
+      for (const l of this.listeners) l();
+    });
   }
 
   // --- Requests --------------------------------------------------------------------------------
@@ -285,7 +317,8 @@ export class GatewayStore {
     const last = this.base.lastSeq;
     // A duplicate or late event (seq ≤ last) is applied idempotently but never moves seq back.
     const gap = last !== null && e.seq > last + 1;
-    this.update((s) =>
+    const apply = e.event === "chat.delta" ? "updateCoalesced" : "update";
+    this[apply]((s) =>
       this.reduce(
         {
           ...s,

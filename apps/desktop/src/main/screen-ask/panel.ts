@@ -125,7 +125,8 @@ export class ScreenAskWindow {
     ipcMain.on(IPC.screenAskResize, (e: IpcMainEvent, arg: unknown) => {
       if (!this.owns(e.sender) || !this.#win || this.#win.isDestroyed()) return;
       const b = this.#win.getBounds();
-      this.#win.setBounds({ ...b, height: clampHeight((arg as { height?: unknown })?.height) });
+      const height = clampHeight((arg as { height?: unknown })?.height);
+      if (height !== b.height) this.#win.setBounds({ ...b, height });
     });
     ipcMain.on(IPC.screenAskSelectArea, (e: IpcMainEvent) => {
       if (this.owns(e.sender)) this.selectArea();

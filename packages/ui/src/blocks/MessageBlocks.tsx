@@ -15,6 +15,7 @@ import {
 } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { displaySummary } from "../lib/cards.ts";
+import { MapBlock } from "../map/MapBlock.tsx";
 import { fade, motionSpring, Presence, spring } from "../motion/index.ts";
 import { usePersona, useSlots } from "../slots.tsx";
 import { SpecialistResultBlockView } from "../specialists/SpecialistResultBlock.tsx";
@@ -192,6 +193,7 @@ function ArtifactBlockView({
   }, [artifact, live, foreground, slots.openArtifact]);
   if (artifact === null)
     return loading ? <Skeleton what="artifact" /> : <Missing what="artifact" />;
+  if (artifact.type === "map") return <MapBlock artifact={artifact} />;
   return (
     <ArtifactCard
       artifact={artifact}

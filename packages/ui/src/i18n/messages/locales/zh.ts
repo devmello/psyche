@@ -4,6 +4,7 @@ import { charts } from "./charts/zh.ts";
 import { links } from "./links/zh.ts";
 import { mailMeetings } from "./mail-meetings/zh.ts";
 import { overview } from "./overview/zh.ts";
+import { overviewGrowth } from "./overview-growth/zh.ts";
 import { workflows } from "./workflows/zh.ts";
 
 /** Simplified Chinese catalogue (zh). Same ids as `en`; missing ids fall back to English. */
@@ -16,6 +17,8 @@ export const zh: Partial<Catalogue> = {
   ...workflows,
   // the Overview screen (docs/design/agent-overview-2026.md)
   ...overview,
+  // Overview Growth and People & projects (docs/design/agent-overview-2026.md §5.4)
+  ...overviewGrowth,
   // the output canvas (docs/design/chat-experience-2026.md §4.2)
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
@@ -385,6 +388,7 @@ export const zh: Partial<Catalogue> = {
   "blocks.artifact.kind.html": "网页",
   "blocks.artifact.kind.markdown": "文稿",
   "blocks.artifact.kind.dashboard": "仪表盘",
+  "blocks.artifact.kind.map": "地图",
   "blocks.artifact.label": "成果：{title}",
   "blocks.artifact.meta": "{kind} · v{version} · {date}",
   "blocks.artifact.save": "存储到资料库",

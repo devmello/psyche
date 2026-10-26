@@ -91,6 +91,8 @@
 //   let artifactCell = try? JSONDecoder().decode(ArtifactCell.self, from: jsonData)
 //   let artifactChart = try? JSONDecoder().decode(ArtifactChart.self, from: jsonData)
 //   let artifactConflict = try? JSONDecoder().decode(ArtifactConflict.self, from: jsonData)
+//   let artifactMap = try? JSONDecoder().decode(ArtifactMap.self, from: jsonData)
+//   let artifactMapMarker = try? JSONDecoder().decode(ArtifactMapMarker.self, from: jsonData)
 //   let artifactOp = try? JSONDecoder().decode(ArtifactOp.self, from: jsonData)
 //   let artifactRef = try? JSONDecoder().decode(ArtifactRef.self, from: jsonData)
 //   let artifactTable = try? JSONDecoder().decode(ArtifactTable.self, from: jsonData)
@@ -3795,6 +3797,72 @@ public struct Series: Codable, Sendable {
     }
 }
 
+// MARK: - ArtifactMap
+public struct ArtifactMap: Codable, Sendable {
+    public let bounds: [Double]?
+    public let markers: [ArtifactMapMarker]
+    public let routes: [Route]?
+    public let title: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case bounds = "bounds"
+        case markers = "markers"
+        case routes = "routes"
+        case title = "title"
+    }
+
+    public init(bounds: [Double]?, markers: [ArtifactMapMarker], routes: [Route]?, title: String?) {
+        self.bounds = bounds
+        self.markers = markers
+        self.routes = routes
+        self.title = title
+    }
+}
+
+// MARK: - ArtifactMapMarker
+public struct ArtifactMapMarker: Codable, Sendable {
+    public let id: String
+    public let label: String
+    public let lat: Double
+    public let link: String?
+    public let lng: Double
+    public let note: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case label = "label"
+        case lat = "lat"
+        case link = "link"
+        case lng = "lng"
+        case note = "note"
+    }
+
+    public init(id: String, label: String, lat: Double, link: String?, lng: Double, note: String?) {
+        self.id = id
+        self.label = label
+        self.lat = lat
+        self.link = link
+        self.lng = lng
+        self.note = note
+    }
+}
+
+// MARK: - Route
+public struct Route: Codable, Sendable {
+    public let label: String?
+    public let points: [[Double]]
+
+    public enum CodingKeys: String, CodingKey {
+        case label = "label"
+        case points = "points"
+    }
+
+    public init(label: String?, points: [[Double]]) {
+        self.label = label
+        self.points = points
+    }
+}
+
 // MARK: - ArtifactTable
 public struct ArtifactTable: Codable, Sendable {
     public let columns: [String]
@@ -3925,6 +3993,7 @@ public enum ArtifactType: String, Codable, Sendable {
     case html = "html"
     case image = "image"
     case itinerary = "itinerary"
+    case map = "map"
     case markdown = "markdown"
     case pdf = "pdf"
     case react = "react"
@@ -4006,6 +4075,9 @@ public struct ArtifactOp: Codable, Sendable {
     public let count: Int?
     public let name: String?
     public let view: ArtifactTableView?
+    public let marker: ArtifactMapMarker?
+    public let id: String?
+    public let artifactOpSet: Set?
     public let patch: [String: JSONAny]?
 
     public enum CodingKeys: String, CodingKey {
@@ -4024,10 +4096,13 @@ public struct ArtifactOp: Codable, Sendable {
         case count = "count"
         case name = "name"
         case view = "view"
+        case marker = "marker"
+        case id = "id"
+        case artifactOpSet = "set"
         case patch = "patch"
     }
 
-    public init(new: String?, old: String?, op: Op, after: String?, text: String?, content: String?, cell: String?, value: ArtifactCell?, range: String?, values: [ValueElement]?, at: Int?, rows: [[ArtifactCell]]?, count: Int?, name: String?, view: ArtifactTableView?, patch: [String: JSONAny]?) {
+    public init(new: String?, old: String?, op: Op, after: String?, text: String?, content: String?, cell: String?, value: ArtifactCell?, range: String?, values: [ValueElement]?, at: Int?, rows: [[ArtifactCell]]?, count: Int?, name: String?, view: ArtifactTableView?, marker: ArtifactMapMarker?, id: String?, artifactOpSet: Set?, patch: [String: JSONAny]?) {
         self.new = new
         self.old = old
         self.op = op
@@ -4043,20 +4118,51 @@ public struct ArtifactOp: Codable, Sendable {
         self.count = count
         self.name = name
         self.view = view
+        self.marker = marker
+        self.id = id
+        self.artifactOpSet = artifactOpSet
         self.patch = patch
+    }
+}
+
+// MARK: - Set
+public struct Set: Codable, Sendable {
+    public let label: String?
+    public let lat: Double?
+    public let link: String?
+    public let lng: Double?
+    public let note: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case label = "label"
+        case lat = "lat"
+        case link = "link"
+        case lng = "lng"
+        case note = "note"
+    }
+
+    public init(label: String?, lat: Double?, link: String?, lng: Double?, note: String?) {
+        self.label = label
+        self.lat = lat
+        self.link = link
+        self.lng = lng
+        self.note = note
     }
 }
 
 public enum Op: String, Codable, Sendable {
     case addColumn = "addColumn"
+    case addMarker = "addMarker"
     case addRows = "addRows"
     case deleteRows = "deleteRows"
     case insert = "insert"
     case opSet = "set"
     case patch = "patch"
+    case removeMarker = "removeMarker"
     case replace = "replace"
     case rewrite = "rewrite"
     case setRange = "setRange"
+    case updateMarker = "updateMarker"
     case view = "view"
 }
 
@@ -13272,6 +13378,7 @@ public struct InsightTotals: Codable, Sendable {
     public let artifacts: Artifacts
     public let busiestDay: BusiestDay?
     public let runs: InsightTotalsRuns
+    public let runsByKind: RunsByKind
     public let runsDone: Int
     public let runsFailed: Int
     public let specialists: Specialists
@@ -13283,6 +13390,7 @@ public struct InsightTotals: Codable, Sendable {
         case artifacts = "artifacts"
         case busiestDay = "busiestDay"
         case runs = "runs"
+        case runsByKind = "runsByKind"
         case runsDone = "runsDone"
         case runsFailed = "runsFailed"
         case specialists = "specialists"
@@ -13290,11 +13398,12 @@ public struct InsightTotals: Codable, Sendable {
         case wallMS = "wallMs"
     }
 
-    public init(approvals: Approvals, artifacts: Artifacts, busiestDay: BusiestDay?, runs: InsightTotalsRuns, runsDone: Int, runsFailed: Int, specialists: Specialists, topAutomation: TopAutomation?, wallMS: Int) {
+    public init(approvals: Approvals, artifacts: Artifacts, busiestDay: BusiestDay?, runs: InsightTotalsRuns, runsByKind: RunsByKind, runsDone: Int, runsFailed: Int, specialists: Specialists, topAutomation: TopAutomation?, wallMS: Int) {
         self.approvals = approvals
         self.artifacts = artifacts
         self.busiestDay = busiestDay
         self.runs = runs
+        self.runsByKind = runsByKind
         self.runsDone = runsDone
         self.runsFailed = runsFailed
         self.specialists = specialists
@@ -13376,6 +13485,92 @@ public struct InsightTotalsRuns: Codable, Sendable {
         self.chat = chat
         self.subagent = subagent
         self.task = task
+    }
+}
+
+// MARK: - RunsByKind
+public struct RunsByKind: Codable, Sendable {
+    public let automation: AutomationClass
+    public let chat: Chat
+    public let subagent: Subagent
+    public let task: TaskClass
+
+    public enum CodingKeys: String, CodingKey {
+        case automation = "automation"
+        case chat = "chat"
+        case subagent = "subagent"
+        case task = "task"
+    }
+
+    public init(automation: AutomationClass, chat: Chat, subagent: Subagent, task: TaskClass) {
+        self.automation = automation
+        self.chat = chat
+        self.subagent = subagent
+        self.task = task
+    }
+}
+
+// MARK: - AutomationClass
+public struct AutomationClass: Codable, Sendable {
+    public let done: Int
+    public let failed: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case done = "done"
+        case failed = "failed"
+    }
+
+    public init(done: Int, failed: Int) {
+        self.done = done
+        self.failed = failed
+    }
+}
+
+// MARK: - Chat
+public struct Chat: Codable, Sendable {
+    public let done: Int
+    public let failed: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case done = "done"
+        case failed = "failed"
+    }
+
+    public init(done: Int, failed: Int) {
+        self.done = done
+        self.failed = failed
+    }
+}
+
+// MARK: - Subagent
+public struct Subagent: Codable, Sendable {
+    public let done: Int
+    public let failed: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case done = "done"
+        case failed = "failed"
+    }
+
+    public init(done: Int, failed: Int) {
+        self.done = done
+        self.failed = failed
+    }
+}
+
+// MARK: - TaskClass
+public struct TaskClass: Codable, Sendable {
+    public let done: Int
+    public let failed: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case done = "done"
+        case failed = "failed"
+    }
+
+    public init(done: Int, failed: Int) {
+        self.done = done
+        self.failed = failed
     }
 }
 

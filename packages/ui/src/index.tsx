@@ -230,6 +230,19 @@ export {
 export * from "./lib/format.ts";
 export { cn } from "./lib/utils.ts";
 export * from "./links/index.ts";
+export { MapBlock } from "./map/MapBlock.tsx";
+export { MapList } from "./map/MapList.tsx";
+export { MapPanel } from "./map/MapPanel.tsx";
+export {
+  DEFAULT_STYLE_DARK,
+  DEFAULT_STYLE_LIGHT,
+  type MapSource,
+  mapSourceOf,
+  parseMapContent,
+  safeLink,
+  validStyleUrl,
+  viewBounds,
+} from "./map/map-model.ts";
 export { FPS_PROBE_KEY, medianFps, startFpsProbe } from "./motion/fps-probe.ts";
 export * from "./overview/index.ts";
 export {

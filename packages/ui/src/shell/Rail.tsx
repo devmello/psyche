@@ -83,7 +83,7 @@ export const RAIL_ITEMS: readonly {
  * opens over the chat, so `/agent/*` belongs to Chat.
  */
 export function destinationFor(route: string): RailItem | null {
-  const first = route.split(/[/?]/)[1] ?? "";
+  const first = route.split(/[/?#]/)[1] ?? "";
   if (first === "agent") return "chat";
   return RAIL_ITEMS.find((i) => i.id === first)?.id ?? null;
 }

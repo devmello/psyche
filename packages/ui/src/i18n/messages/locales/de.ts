@@ -4,6 +4,7 @@ import { charts } from "./charts/de.ts";
 import { links } from "./links/de.ts";
 import { mailMeetings } from "./mail-meetings/de.ts";
 import { overview } from "./overview/de.ts";
+import { overviewGrowth } from "./overview-growth/de.ts";
 import { workflows } from "./workflows/de.ts";
 
 /** German catalogue (de). Same ids as `en`; missing ids fall back to English. */
@@ -16,6 +17,8 @@ export const de: Partial<Catalogue> = {
   ...workflows,
   // the Overview screen (docs/design/agent-overview-2026.md)
   ...overview,
+  // Overview Growth and People & projects (docs/design/agent-overview-2026.md §5.4)
+  ...overviewGrowth,
   // the output canvas (docs/design/chat-experience-2026.md §4.2)
   ...canvas,
   // overview chart primitives (docs/design/agent-overview-2026.md §5.7)
@@ -403,6 +406,7 @@ export const de: Partial<Catalogue> = {
   "blocks.artifact.kind.html": "Webseite",
   "blocks.artifact.kind.markdown": "Dokument",
   "blocks.artifact.kind.dashboard": "Dashboard",
+  "blocks.artifact.kind.map": "Karte",
   "blocks.artifact.label": "Artefakt: {title}",
   "blocks.artifact.meta": "{kind} · v{version} · {date}",
   "blocks.artifact.save": "In Mediathek sichern",

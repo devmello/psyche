@@ -74,7 +74,7 @@ Workstream A generates CSS custom properties from `tokens.ts`. CSS can't hand of
 | Never animates | Animates |
 | --- | --- |
 | Typing, the caret, and text selection | Things entering or leaving: cards, rows, toasts, popovers, sheets, panes |
-| Streamed tokens. They appear as they arrive; there is no per-word fade | A change of place: selection pill, tab indicator, list reorder, sidebar collapse, approval → receipt |
+| Streamed tokens never move or scale. They are released one frame at a time and may fade in by opacity only (§4.6) | A change of place: selection pill, tab indicator, list reorder, sidebar collapse, approval → receipt |
 | Scroll position, except "jump to latest" (smooth scroll ≤ 300 ms; instant under reduced motion) | A change of state that needs noticing: status dot colour, check-mark draw, milestone fill |
 | Hover except colour/fill (no lift, no scale, no shadow growth) | Progress: determinate bars, the working indicator |
 | Window resize, and layout during a horizontal resize (Motion blocks it anyway) | Route changes: a 150–220 ms crossfade, never a slide |
@@ -108,7 +108,7 @@ Workstream A generates CSS custom properties from `tokens.ts`. CSS can't hand of
 ### 4.3 Sheets, dialogs, panes, the sidebar
 - **Sheet / agent sheet:** slides in from its edge (x 100% → 0) on `spring.gentle`. The backdrop fades over `duration.long`. Exit is the same spring in reverse, and is interruptible: a second ⌘⇧A mid-open reverses it from where it is.
 - **Dialog / alert:** opacity + scale 0.98 → 1 on `spring.snappy`. The backdrop fades 0 → 20% black over `duration.medium`. Alerts never slide.
-- **Pane open/close:** the pane column animates its *x* from off-edge on `spring.smooth`. The chat column reflows with `layout` (FLIP) and is never animated by width. Closing a pane is the reverse, and focus returns to the opener immediately.
+- **Pane open/close:** the pane column animates its *x* from off-edge on `spring.smooth`. The chat column reflows with `layout="position"` (FLIP) and is never animated by width; because its text rewraps at frame 0, a change of the column's width (not of the window) also crossfades it: opacity 0.6 → 1 over `duration.short`. Closing a pane is the reverse, and focus returns to the opener immediately.
 - **Sidebar collapse (⌘B):** the sidebar translates −100% on `spring.gentle` while the content column reflows with `layout`. Labels don't fade separately.
 
 ### 4.4 Shared-layout moves (`layoutId`)
@@ -128,7 +128,7 @@ Workstream A generates CSS custom properties from `tokens.ts`. CSS can't hand of
 - **Why it's limited:** a view transition freezes the old screen as an image and blocks hit-testing during the update, so it's kept short and never used inside the chat column.
 
 ### 4.6 Streaming text and the working state
-- Text is appended without animation. The block-level cards that arrive whole (plan, approval, question, artifact, receipt) use the list enter (§4.1).
+- Streamed text is paced, not animated in space. `useSmoothText` (`lib/smooth-text.ts`) releases deltas once per animation frame at a rate that follows the backlog (catch-up time constant 90 ms, floor 90 chars/s) and drains the tail within 250 ms of the end of the stream. Each newly arrived word fades in by opacity only (140 ms, `ease-out`; no transform, blur or slide, which jank). Finished blocks are memoized and never re-render. Under reduced motion the text appears at once with no fade. The block-level cards that arrive whole (plan, approval, question, artifact, receipt) use the list enter (§4.1).
 - The "Wren is working…" line uses one shared opacity pulse: 1.2 s period, 40% → 100%, linear. The avatar's working loop (two frames at 1.5 Hz, docs/06 §4.5) runs only while a task runs, and stops at the end of the run. Under reduced motion both are static, and the state is carried by the text.
 - New messages don't push the viewport: the transcript stays anchored to the bottom only when the user is already within 72 px of it (docs/06 §3.2). Otherwise a "jump to latest" pill fades in.
 
@@ -192,7 +192,7 @@ The run trace ([run-trace-2026.md](run-trace-2026.md) §3.7) follows one rule: o
 
 ## 7. Reduced-motion table
 
-All of this applies when the OS has Reduce Motion on or Appearance → Reduce motion is set (`data-reduce-motion="true"`).
+All of this applies when the OS has Reduce Motion on or Appearance → Reduce motion is set (`data-reduce-motion="true"`). The global rule keeps `opacity` transitions at `--duration-short` and drops every other transition property, so the fades below survive; it does not zero all transitions.
 
 | Animation | Default | Reduced |
 | --- | --- | --- |

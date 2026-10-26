@@ -6,8 +6,11 @@ import { cn } from "../lib/utils.ts";
 import { ScreenToolbar } from "../screens/feed/ScreenToolbar.tsx";
 import { SegmentedRadio } from "../screens/settings/SegmentedRadio.tsx";
 import { usePersona } from "../slots.tsx";
+import { OverviewActivity } from "./ActivitySection.tsx";
 import { BuiltForYou, Specialists } from "./BuiltSpecialists.tsx";
 import { isNewUser, type OverviewData, useOverviewData } from "./data.ts";
+import { GrowthAndPeople } from "./GrowthAndPeople.tsx";
+import { NowSection } from "./NowSection.tsx";
 import {
   OVERVIEW_SECTIONS,
   OverviewSection,
@@ -15,6 +18,9 @@ import {
   sectionTitle,
 } from "./OverviewSection.tsx";
 import { formatPeriodRange, OVERVIEW_PERIODS, type OverviewPeriod, periodLabel } from "./period.ts";
+import { RecentSection } from "./RecentSection.tsx";
+import { OverviewSummary } from "./SummarySection.tsx";
+import { UpcomingSection } from "./UpcomingSection.tsx";
 
 /** The "Try" chips of the new-user card (§5.5); the host turns each into a real action. */
 export type OverviewTry = "planWeek" | "morningBrief" | "connectMail";
@@ -30,8 +36,14 @@ export interface OverviewScreenProps {
   data?: OverviewData;
   /** A "Try" chip was chosen in the new-user state. */
   onTry?: (kind: OverviewTry) => void;
+  /** The shell's `navigate`: tiles, bars and facts link to filtered Recent runs through it. */
+  onNavigate?: (to: string) => void;
+  /** The current route, so the chart marks the day Recent runs is filtered to. */
+  route?: string;
   /** Epoch ms for the range line and the new-user threshold (stories pin it). */
   now?: number;
+  /** Scrolls this section into view on arrival (`/overview#upcoming`). */
+  anchor?: string;
 }
 
 /** Sections shown while the owner is new: Now & next and Upcoming are useful from day one (§5.5). */
@@ -48,7 +60,10 @@ export function OverviewScreen({
   onPeriodChange,
   data,
   onTry,
+  onNavigate,
+  route,
   now,
+  anchor,
 }: OverviewScreenProps): ReactElement {
   const persona = usePersona();
   const fromHook = useOverviewData();
@@ -62,6 +77,12 @@ export function OverviewScreen({
       fresh ? OVERVIEW_SECTIONS.filter((s) => NEW_USER_SECTIONS.includes(s)) : OVERVIEW_SECTIONS,
     [fresh],
   );
+
+  // An arrival at `/overview#upcoming` (the old sheet tabs redirect here) scrolls to the section.
+  useEffect(() => {
+    if (anchor === undefined) return;
+    document.getElementById(anchor)?.scrollIntoView?.({ block: "start" });
+  }, [anchor]);
 
   return (
     <div className="@container/overview flex min-h-0 flex-1 flex-col" data-testid="overview">
@@ -84,11 +105,28 @@ export function OverviewScreen({
         {/* Section cards are h3s; this keeps the outline h1 → h2 → h3. */}
         <h2 className="sr-only">{t("overview.screen")}</h2>
         {fresh ? <GettingToKnowYou name={persona.name} onTry={onTry} /> : null}
+        {fresh ? null : <OverviewSummary period={period} onNavigate={onNavigate} />}
         {visible.map((id) =>
-          id === "built" ? (
+          id === "now" ? (
+            <NowSection key={id} {...(now === undefined ? {} : { now })} />
+          ) : id === "activity" ? (
+            <OverviewActivity key={id} period={period} onNavigate={onNavigate} route={route} />
+          ) : id === "growth" ? (
+            <GrowthAndPeople key={id} period={period} now={at} />
+          ) : id === "people" ? null : id === "built" ? (
             <BuiltForYou key={id} period={period} now={at} />
           ) : id === "specialists" ? (
             <Specialists key={id} period={period} now={at} />
+          ) : id === "upcoming" ? (
+            <UpcomingSection key={id} {...(now === undefined ? {} : { now })} />
+          ) : id === "recent" ? (
+            <RecentSection
+              key={id}
+              period={period}
+              route={route}
+              onNavigate={onNavigate}
+              now={at}
+            />
           ) : (
             <OverviewSection key={id} id={id} />
           ),
@@ -175,32 +213,5 @@ function JumpBar({ sections }: { sections: readonly OverviewSectionId[] }): Reac
         </nav>
       </div>
     </>
-  );
-}
-
-export interface OverviewRunPlaceholderProps {
-  runId: string;
-  onBack: () => void;
-}
-
-/** `/overview/run/<id>` until O5 moves the Timeline here. */
-export function OverviewRunPlaceholder({
-  runId,
-  onBack,
-}: OverviewRunPlaceholderProps): ReactElement {
-  return (
-    <div
-      className="mx-auto flex w-full max-w-[calc(1040px+3rem)] flex-col gap-4 px-4 py-6 md:px-6"
-      data-testid="overview-run"
-      data-run-id={runId}
-    >
-      <h1 className="text-title-1 text-label-primary">{t("overview.run.title")}</h1>
-      <p className="text-body text-label-secondary">{t("overview.run.placeholder")}</p>
-      <div>
-        <Button variant="secondary" size="sm" onClick={onBack}>
-          {t("overview.run.back")}
-        </Button>
-      </div>
-    </div>
   );
 }

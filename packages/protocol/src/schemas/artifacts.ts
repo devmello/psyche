@@ -56,6 +56,49 @@ export const ArtifactChart = Type.Object(
 );
 export type ArtifactChart = Static<typeof ArtifactChart>;
 
+const Lat = Type.Number({ minimum: -90, maximum: 90 });
+const Lng = Type.Number({ minimum: -180, maximum: 180 });
+
+/** One place on a `map` artifact. `id` is how patch ops address it. */
+export const ArtifactMapMarker = Type.Object(
+  {
+    id: Type.String({ minLength: 1, maxLength: 40 }),
+    lat: Lat,
+    lng: Lng,
+    label: Type.String({ maxLength: 120 }),
+    note: Type.Optional(Type.String({ maxLength: 400 })),
+    /** An http(s) link the marker's popup offers (checked again by the client before use). */
+    link: Type.Optional(Type.String({ maxLength: 1000 })),
+  },
+  { $id: "ArtifactMapMarker" },
+);
+export type ArtifactMapMarker = Static<typeof ArtifactMapMarker>;
+
+/**
+ * The content of a `map` artifact (JSON): places the client draws on a map, or lists when it has
+ * no tiles. The agent emits data only; coordinates come from connector results or web search, never
+ * from a paid geocoder. Routes are polylines of `[lat, lng]` points.
+ */
+export const ArtifactMap = Type.Object(
+  {
+    title: Type.Optional(Type.String({ maxLength: 200 })),
+    markers: Type.Array(ArtifactMapMarker, { maxItems: 500 }),
+    routes: Type.Optional(
+      Type.Array(
+        Type.Object({
+          label: Type.Optional(Type.String({ maxLength: 120 })),
+          points: Type.Array(Type.Tuple([Lat, Lng]), { minItems: 2, maxItems: 2000 }),
+        }),
+        { maxItems: 20 },
+      ),
+    ),
+    /** `[south, west, north, east]`; fitted to the markers when omitted. */
+    bounds: Type.Optional(Type.Tuple([Lat, Lng, Lat, Lng])),
+  },
+  { $id: "ArtifactMap" },
+);
+export type ArtifactMap = Static<typeof ArtifactMap>;
+
 /** An A1 cell (`B3`) or range (`A1:C4`) reference into a table artifact. */
 const A1 = Type.String({ pattern: "^[A-Z]{1,3}[1-9][0-9]{0,5}$" });
 const A1Range = Type.String({
@@ -80,7 +123,7 @@ export type ArtifactTableView = Static<typeof ArtifactTableView>;
  * One edit. Text types (`doc`, `code`): `replace` (`old` must match exactly once, else the update
  * fails fast), `insert` after an exact-once anchor (empty anchor = at the start), or `rewrite`
  * (the fallback; counted). Tables: `set`, `setRange`, `addRows`, `deleteRows`, `addColumn`, and
- * `view` (sort and filter metadata). Charts: `patch` (JSON merge patch). Header row is not addressable: `A1` is the first data row.
+ * `view` (sort and filter metadata). Charts: `patch` (JSON merge patch). Maps: `addMarker`, `removeMarker`, `updateMarker`, `patch`. Header row is not addressable: `A1` is the first data row.
  */
 export const ArtifactOp = Type.Union(
   [
@@ -115,6 +158,21 @@ export const ArtifactOp = Type.Union(
       at: Type.Optional(Type.Integer({ minimum: 0 })),
     }),
     Type.Object({ op: Type.Literal("view"), view: ArtifactTableView }),
+    /** `map`: add, remove or update one marker by id. */
+    Type.Object({ op: Type.Literal("addMarker"), marker: ArtifactMapMarker }),
+    Type.Object({ op: Type.Literal("removeMarker"), id: Type.String({ minLength: 1 }) }),
+    Type.Object({
+      op: Type.Literal("updateMarker"),
+      id: Type.String({ minLength: 1 }),
+      /** Fields to change; `null` clears `note` or `link`. */
+      set: Type.Object({
+        lat: Type.Optional(Lat),
+        lng: Type.Optional(Lng),
+        label: Type.Optional(Type.String({ maxLength: 120 })),
+        note: Type.Optional(Nullable(Type.String({ maxLength: 400 }))),
+        link: Type.Optional(Nullable(Type.String({ maxLength: 1000 }))),
+      }),
+    }),
     /** `chart`: a JSON merge patch (RFC 7386) onto the spec; arrays are replaced whole. */
     Type.Object({
       op: Type.Literal("patch"),

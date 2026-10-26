@@ -1,7 +1,7 @@
 import type { Run } from "@psyche/protocol";
 import { ChevronRight } from "lucide-react";
 import * as m from "motion/react-m";
-import { type ReactElement, useMemo, useState } from "react";
+import { type ReactElement, useMemo, useRef, useState } from "react";
 import { StatusGlyph } from "../../components/status.tsx";
 import { formatStepDuration, LiveDuration } from "../../components/steps/LiveDuration.tsx";
 import { useRun, useStoreState } from "../../data/index.ts";
@@ -12,6 +12,13 @@ import { fade, motionSpring, Presence, spring } from "../../motion/index.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { activeStep, lastEventAt, STALL_MS, summarizeRun, timelineRoute } from "./model.ts";
 import { StepAnnouncer, StepList } from "./StepList.tsx";
+
+/**
+ * Runs whose summary the owner opened. The trace mounts at the end of the column while the run
+ * has no reply and above the reply once it starts (a different place in the tree), so the choice
+ * lives here rather than in component state.
+ */
+const openedRuns = new Set<string>();
 
 const LIVE: readonly Run["status"][] = ["running", "awaiting_approval", "awaiting_input"];
 
@@ -48,7 +55,17 @@ export function RunTrace({
   const receipts = useStoreState((s) => s.receipts);
   const live = run !== null && LIVE.includes(run.status);
   const now = useNow(1000, live ? fixedNow : (fixedNow ?? 0));
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpenState] = useState(defaultOpen || openedRuns.has(runId));
+  const setOpen = (next: (v: boolean) => boolean) =>
+    setOpenState((v) => {
+      const value = next(v);
+      if (value) openedRuns.add(runId);
+      else openedRuns.delete(runId);
+      return value;
+    });
+  // True once this trace has rendered the live form: the summary then fades in over it.
+  const wasLive = useRef(false);
+  if (live) wasLive.current = true;
   if (run === null || top.length === 0) return null;
 
   const listLabel = t("chat.steps.label");
@@ -114,7 +131,11 @@ export function RunTrace({
       data-testid="run-trace"
       data-state="done"
     >
-      <div className="flex min-h-7 items-center gap-1">
+      <m.div
+        className="flex min-h-7 items-center gap-1"
+        initial={wasLive.current ? { opacity: 0 } : false}
+        animate={{ opacity: 1, transition: fade.animate.transition }}
+      >
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -154,7 +175,7 @@ export function RunTrace({
             {t("chat.steps.timeline")} <span aria-hidden="true">›</span>
           </button>
         )}
-      </div>
+      </m.div>
       <Presence initial={false}>
         {expanded ? (
           <m.div key="rows" {...fade}>

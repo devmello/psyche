@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { motionSpring, spring, springPhysics } from "../src/motion/tokens.ts";
 
@@ -32,9 +34,7 @@ describe("motion tokens (docs/design/motion.md §2.3)", () => {
 
 describe("motion CSS and literals (docs/design/motion.md §8)", () => {
   it("styles/motion.css is generated from the tokens", async () => {
-    const { readFileSync } = await import("node:fs");
     const { motionCss } = await import("../src/motion/css.ts");
-    const { join } = await import("node:path");
     const css = readFileSync(join(process.cwd(), "src/styles/motion.css"), "utf8");
     expect(css, "run `pnpm --filter @psyche/ui gen:motion`").toBe(motionCss());
   });
@@ -68,7 +68,9 @@ describe("motion CSS and literals (docs/design/motion.md §8)", () => {
       if (/^(styles|motion)\//.test(rel) || !/\.tsx?$/.test(rel) || rel.endsWith(".stories.tsx"))
         continue;
       const hits = [
-        ...readFileSync(file, "utf8").matchAll(/\b(duration-\d+|transition-all|cubic-bezier\()/g),
+        ...readFileSync(file, "utf8").matchAll(
+          /\b(duration-\d+|duration-\[|ease-\[|transition-all|transition-\[(?:width|height)|cubic-bezier\()/g,
+        ),
       ];
       if (hits.length > 0)
         offenders.set(
@@ -78,7 +80,14 @@ describe("motion CSS and literals (docs/design/motion.md §8)", () => {
     }
     // Known exceptions. drawer.tsx follows Base UI's swipe physics; the rest are listed in the A3
     // PR for their owners to move onto tokens. This list may only shrink.
-    const known = ["components/ui/drawer.tsx", "blocks/RelatedThreads.tsx"];
+    // The width-animating progress bars (smoothness-2026 C19) move to `scaleX` when their owners
+    // next touch them.
+    const known = [
+      "components/ui/drawer.tsx",
+      "blocks/RelatedThreads.tsx",
+      "components/ui/progress.tsx",
+      "screens/onboarding/OnboardingFlow.tsx",
+    ];
     expect([...offenders.keys()].filter((f) => !known.includes(f))).toEqual([]);
     for (const f of known.filter((k) => k !== "components/ui/drawer.tsx"))
       expect(offenders.has(f), `${f} is clean now: remove it from the known list`).toBe(true);
@@ -92,13 +101,20 @@ describe("run-trace motion (docs/design/motion.md §4.9)", () => {
   });
 
   it("grows bars and slides sparklines with transform only", async () => {
-    const { readFileSync } = await import("node:fs");
-    const { join } = await import("node:path");
     const read = (f: string) => readFileSync(join(process.cwd(), "src/components", f), "utf8");
     const bar = read("timeline/Timeline.tsx");
     expect(bar).toMatch(/transform \$\{TICK_MS\}ms linear/);
     expect(bar).not.toMatch(/transition[^\n]*width/);
     const spark = read("sparkline.tsx");
     expect(spark).toContain("initial={live && !reduce && generation > 0 ? { x: step } : false}");
+  });
+});
+
+describe("reduced-motion CSS keeps opacity fades (docs/design/smoothness-2026.md §3.6)", () => {
+  it("global kill switches fade opacity at --duration-short instead of 0 ms", () => {
+    const css = readFileSync(join(process.cwd(), "src/styles/index.css"), "utf8");
+    expect(css).not.toMatch(/transition-duration:\s*0ms/);
+    expect(css).toMatch(/transition-property:\s*opacity !important/);
+    expect(css).toMatch(/transition-duration:\s*var\(--duration-short\) !important/);
   });
 });
