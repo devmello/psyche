@@ -78,7 +78,7 @@ describe("motion CSS and literals (docs/design/motion.md §8)", () => {
     }
     // Known exceptions. drawer.tsx follows Base UI's swipe physics; the rest are listed in the A3
     // PR for their owners to move onto tokens. This list may only shrink.
-    const known = ["components/ui/drawer.tsx", "blocks/RelatedThreads.tsx", "blocks/ToolRun.tsx"];
+    const known = ["components/ui/drawer.tsx", "blocks/RelatedThreads.tsx"];
     expect([...offenders.keys()].filter((f) => !known.includes(f))).toEqual([]);
     for (const f of known.filter((k) => k !== "components/ui/drawer.tsx"))
       expect(offenders.has(f), `${f} is clean now: remove it from the known list`).toBe(true);

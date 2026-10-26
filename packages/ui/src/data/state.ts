@@ -23,6 +23,24 @@ import type {
 import type { ConnectionState } from "./client.ts";
 
 /** A text delta stream for an agent message that has not been committed yet. */
+/**
+ * One reasoning step of a running agent message (`chat.reasoning`, #633): the streamed text, or
+ * the provider's summary when that is all it gives. Shown in the run's step log only, never
+ * persisted, and dropped when the run ends.
+ */
+export interface ReasoningStep {
+  threadId: string;
+  runId: string;
+  stepId: string;
+  text: string;
+  summary: string | null;
+  done: boolean;
+  /** When the first event of the step arrived (ISO, the store's clock). */
+  startedAt: string;
+  /** When the last event of the step arrived. */
+  updatedAt: string;
+}
+
 export interface StreamingMessage {
   threadId: string;
   messageId: string;
@@ -77,6 +95,8 @@ export interface UiState {
   messages: Dict<readonly Message[]>;
   historyCursor: Dict<string | null>;
   streaming: Dict<StreamingMessage>;
+  /** Reasoning steps of runs in progress, by step id (#633). */
+  reasoning: Dict<ReasoningStep>;
   queue: readonly QueuedFollowUp[];
   runs: Dict<Run>;
   toolCalls: Dict<ToolCall>;
@@ -117,6 +137,7 @@ export const INITIAL_STATE: UiState = {
   messages: {},
   historyCursor: {},
   streaming: {},
+  reasoning: {},
   queue: [],
   runs: {},
   toolCalls: {},
