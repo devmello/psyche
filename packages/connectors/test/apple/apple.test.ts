@@ -37,6 +37,8 @@ const ALL = [
   "mail.read",
   "mail.draft",
   "mail.send",
+  "shortcuts.list",
+  "shortcuts.run",
   "files.recent",
   "files.move",
   "files.rename",
@@ -221,6 +223,7 @@ describe("Apple app connectors (#528)", () => {
       ["apple:safari", "apple-safari", true],
       ["chrome:tabs", "chrome-tabs", true],
       ["apple:files", "apple-files", true],
+      ["apple:shortcuts", "apple-shortcuts", true],
     ]);
     expect(appleCatalogueEntry("mail").actions.find((a) => a.id === "mail.send")).toMatchObject({
       sideEffect: "destructive",
@@ -1031,5 +1034,49 @@ describe("Files in shared folders wave 1 (#639)", () => {
       ["files.trash", "destructive"],
     ]);
     expect([...tools.keys()]).toContain("mcp__apple-1__files_trash");
+  });
+});
+
+describe("Shortcuts wave 1 (#639)", () => {
+  it("lists shortcuts as a read; every run asks, and shortcuts turned off never run", async () => {
+    const e = appleCatalogueEntry("shortcuts");
+    expect(e.actions.map((a) => [a.id, a.sideEffect, a.defaultRule])).toEqual([
+      ["shortcuts.read", "read", "allow"],
+      ["shortcuts.run", "destructive", "ask"],
+    ]);
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    const r = await registry.connect({ catalogueId: "apple-shortcuts", scopeMode: "read_act" });
+    expect(r.status).toBe("connected");
+    helper.calls.length = 0;
+    await run("mcp__apple-1__shortcuts_list")({});
+    await expect(run("mcp__apple-1__shortcuts_run")({ id: "S1" })).rejects.toMatchObject({
+      code: "approval_required",
+    });
+
+    // The owner turned S2 off: refused before any approval or helper call.
+    const runTool = appleFactories({ helper: () => helper })
+      .find((f) => f.entry.id === "apple-shortcuts")
+      ?.create({ id: "apple-1", type: "apple:shortcuts" } as never, {} as never)
+      .tools()
+      .find((t) => t.name === "shortcuts_run");
+    // Even with a valid approval for this very call.
+    const off = make(helper, {
+      id: "ap_k",
+      tool: "mcp__apple-1__shortcuts_run",
+      params: { id: "S2" },
+      desc: runTool?.describeCall?.({ id: "S2" }),
+    });
+    await off.registry.connect({
+      catalogueId: "apple-shortcuts",
+      scopeMode: "read_act",
+      config: { shortcutRules: { S2: "off" } },
+    });
+    helper.calls.length = 0;
+    await expect(off.run("mcp__apple-1__shortcuts_run")({ id: "S2" })).rejects.toMatchObject({
+      code: "policy_denied",
+      details: { reason: "shortcut_off" },
+    });
+    expect(helper.calls).toEqual([]);
   });
 });
