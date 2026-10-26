@@ -2,6 +2,7 @@ import { type Static, Type } from "@sinclair/typebox";
 import {
   GrantScope,
   Id,
+  InputVia,
   IsoDateTime,
   JsonObject,
   Nullable,
@@ -160,6 +161,8 @@ export const ApprovalAnswer = Type.Object(
     decision: StringEnum(["approve", "deny"]),
     scope: Type.Optional(GrantScope),
     presence: Type.Optional(PresenceAssertionSchema),
+    /** `voice`: answered by a spoken phrase after a readback (docs/voice/voice-mode-2026.md §4.6). */
+    via: Type.Optional(InputVia),
   },
   { $id: "ApprovalAnswer" },
 );
