@@ -133,7 +133,7 @@ const CHANNEL_NAME: Record<string, string> = {
 };
 
 /** "Delivers to Main and Telegram", "Delivers nothing unless something needs you" (§3.16). */
-function useDeliverySentence(): (a: Automation) => string {
+export function useDeliverySentence(): (a: Automation) => string {
   const { all: threadList, main } = useThreads();
   const channels = useGatewayQuery("channels.list", {});
   return (a) => {
@@ -288,6 +288,46 @@ export function UpcomingRow({
 
 const SNOOZE_MS = 60 * 60 * 1000;
 
+/** The props `UpcomingRow` needs for one automation: delivery, lesson and its actions. */
+export type UpcomingRowProps = Omit<Parameters<typeof UpcomingRow>[0], "automation" | "now">;
+
+/**
+ * The row actions of Upcoming (run now, pause, delete, reminder snooze/done), shared by the
+ * agent sheet and the Overview's Upcoming section. `q` is the `useAutomations()` result.
+ */
+export function useUpcomingRowProps(
+  q: ReturnType<typeof useAutomations>,
+  now: number,
+  onEdit?: (automation: Automation) => void,
+): (a: Automation) => UpcomingRowProps {
+  const lessons = useLessons({ destination: "automation" }).lessons;
+  const call = useCall();
+  const deliverySentence = useDeliverySentence();
+  return (a) => ({
+    delivery: deliverySentence(a),
+    lesson:
+      lessons.find(
+        (l) => l.destination.type === "automation" && l.destination.automationId === a.id,
+      ) ?? null,
+    onRun: () => void q.runNow(a.id),
+    onToggle: () => void q.setEnabled(a.id, !a.enabled),
+    onDelete: () => void q.remove(a.id),
+    ...(isReminder(a)
+      ? {
+          onSnooze: async () => {
+            await call("automations.update", {
+              automationId: a.id,
+              schedule: snoozedSchedule(a, SNOOZE_MS, now),
+            });
+            q.reload();
+          },
+          onDone: () => void q.remove(a.id),
+        }
+      : {}),
+    ...(onEdit ? { onEdit: () => onEdit(a) } : {}),
+  });
+}
+
 /** Agent sheet → Upcoming (UI design §3.16): reminders, scheduled tasks, watches, heartbeat. */
 export function UpcomingPanel({
   now: fixedNow,
@@ -298,9 +338,7 @@ export function UpcomingPanel({
 }): ReactElement {
   const now = useNow(30_000, fixedNow);
   const q = useAutomations();
-  const lessons = useLessons({ destination: "automation" }).lessons;
-  const call = useCall();
-  const deliverySentence = useDeliverySentence();
+  const rowProps = useUpcomingRowProps(q, now, onEdit);
   if (q.loading && q.automations.length === 0) {
     return (
       <div className="flex flex-col gap-2" role="status" aria-label={t("agent.upcoming.loading")}>
@@ -331,33 +369,7 @@ export function UpcomingPanel({
       aria-label={t("agent.sheet.upcoming")}
     >
       {sorted.map((a) => (
-        <UpcomingRow
-          key={a.id}
-          automation={a}
-          now={now}
-          delivery={deliverySentence(a)}
-          lesson={
-            lessons.find(
-              (l) => l.destination.type === "automation" && l.destination.automationId === a.id,
-            ) ?? null
-          }
-          onRun={() => void q.runNow(a.id)}
-          onToggle={() => void q.setEnabled(a.id, !a.enabled)}
-          onDelete={() => void q.remove(a.id)}
-          {...(isReminder(a)
-            ? {
-                onSnooze: async () => {
-                  await call("automations.update", {
-                    automationId: a.id,
-                    schedule: snoozedSchedule(a, SNOOZE_MS, now),
-                  });
-                  q.reload();
-                },
-                onDone: () => void q.remove(a.id),
-              }
-            : {})}
-          {...(onEdit ? { onEdit: () => onEdit(a) } : {})}
-        />
+        <UpcomingRow key={a.id} automation={a} now={now} {...rowProps(a)} />
       ))}
     </ul>
   );

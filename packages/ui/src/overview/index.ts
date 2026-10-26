@@ -1,7 +1,7 @@
 export { isNewUser, NEW_USER_DAYS, type OverviewData, useOverviewData } from "./data.ts";
+export { NowSection } from "./NowSection.tsx";
+export { OverviewRun, type OverviewRunProps } from "./OverviewRun.tsx";
 export {
-  OverviewRunPlaceholder,
-  type OverviewRunPlaceholderProps,
   OverviewScreen,
   type OverviewScreenProps,
   type OverviewTry,
@@ -24,3 +24,25 @@ export {
   periodLabel,
   useOverviewPeriod,
 } from "./period.ts";
+export { RecentSection, type RecentSectionProps } from "./RecentSection.tsx";
+export {
+  DEFAULT_RECENT_FILTER,
+  overviewAnchor,
+  overviewRunHref,
+  parseRecentFilter,
+  RECENT_FILTERS,
+  type RecentFilter,
+  recentRunsQuery,
+  withRecentFilter,
+} from "./recent.ts";
+export { overviewRedirect } from "./redirects.ts";
+export { UpcomingSection } from "./UpcomingSection.tsx";
+export {
+  cadenceMs,
+  dayOffset,
+  groupUpcoming,
+  isFrequent,
+  UPCOMING_GROUPS,
+  type UpcomingEntry,
+  type UpcomingGroup,
+} from "./upcoming-groups.ts";

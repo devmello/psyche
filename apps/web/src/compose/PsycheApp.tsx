@@ -25,10 +25,14 @@ import {
   mailSettings,
   OnboardingFlow,
   type OnboardingResult,
-  OverviewRunPlaceholder,
+  OverviewRun,
   OverviewScreen,
+  overviewAnchor,
   overviewHref,
+  overviewRedirect,
+  overviewRunHref,
   parseOverviewPeriod,
+  parseRecentFilter,
   type RailItem,
   SearchScreen,
   ThreadContextDialog,
@@ -41,6 +45,7 @@ import {
   useStore,
   useThread,
   useThreadExport,
+  withRecentFilter,
 } from "@psyche/ui";
 import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useShellComposerVoice } from "../shell/components/composer-voice.ts";
@@ -152,8 +157,15 @@ function RoutedAgentSheet({
   onClose: () => void;
 }): ReactElement | null {
   const routed = route === null ? null : agentSheetRoute(route);
+  // Activity, Upcoming and Growth moved to the Overview (agent-overview-2026 §3): the old
+  // routes still parse, and are sent on here (`?step=` is kept on a run's Timeline).
+  const redirect = routed === null ? null : overviewRedirect(routed);
+  useEffect(() => {
+    if (redirect !== null) navigate(redirect);
+  }, [redirect, navigate]);
   const lastRouted = useRef(routed);
-  if (routed !== null) lastRouted.current = routed;
+  if (routed !== null && redirect === null) lastRouted.current = routed;
+  if (redirect !== null) return null;
   const sheet = routed ?? lastRouted.current;
   if (sheet === null) return null;
   const close = () => (sheet.back ? navigate(sheet.back) : onClose());
@@ -191,7 +203,7 @@ export function railItemFor(route: string): RailItem | null {
  * notification inbox, each the UI kit's connected screen in a scrolling page.
  */
 export function screenRoute(route: string, navigate: (to: string) => void): ReactNode | null {
-  const [path = "", query = ""] = route.split("?");
+  const [path = "", query = ""] = route.split("#")[0]?.split("?") ?? [];
   const parts = path.split("/").filter(Boolean);
   const page = (label: string, child: ReactNode) => (
     <section
@@ -247,19 +259,33 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
       );
     }
     case "overview": {
-      // `/overview[?period=7d|30d|all]` is "{persona} & you"; `/overview/run/<id>` is the
-      // Timeline's future home (O5), a placeholder until then (agent-overview-2026 §3).
+      // `/overview[?period=7d|30d|all][&filter=all|failed|automation|chat][#section]` is
+      // "{persona} & you"; `/overview/run/<id>[?step=]` is a run's Timeline at full width
+      // (agent-overview-2026 §3).
       if (parts[1] === "run" && parts[2] !== undefined) {
         return page(
           "Overview",
-          <OverviewRunPlaceholder runId={parts[2]} onBack={() => navigate("/overview")} />,
+          <OverviewRun
+            runId={decodeURIComponent(parts[2])}
+            {...(new URLSearchParams(query).get("step")
+              ? { stepId: new URLSearchParams(query).get("step") as string }
+              : {})}
+            onBack={() => navigate("/overview")}
+            onOpenRun={(child) => navigate(overviewRunHref(child))}
+          />,
         );
       }
+      const period = parseOverviewPeriod(query);
+      const filter = parseRecentFilter(query);
+      const anchor = overviewAnchor(route);
       return page(
         "Overview",
         <OverviewScreen
-          period={parseOverviewPeriod(query)}
-          onPeriodChange={(period) => navigate(overviewHref(period))}
+          period={period}
+          onPeriodChange={(next) => navigate(withRecentFilter(overviewHref(next), filter))}
+          recentFilter={filter}
+          onRecentFilterChange={(next) => navigate(withRecentFilter(overviewHref(period), next))}
+          {...(anchor === undefined ? {} : { anchor })}
           onTry={(kind) => navigate(kind === "connectMail" ? "/settings/mail" : "/chat")}
         />,
       );

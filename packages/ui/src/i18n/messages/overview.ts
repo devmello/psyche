@@ -37,8 +37,21 @@ export const overview = {
   "overview.newUser.morningBrief": "Set up a morning brief",
   "overview.newUser.connectMail": "Connect your mail",
 
-  // /overview/run/<id>, until the Timeline moves here.
+  // /overview/run/<id>: the Timeline page. Its back link reads `overview.title`.
   "overview.run.title": "Run",
-  "overview.run.placeholder": "The run timeline is moving here.",
-  "overview.run.back": "Back to Overview",
+
+  // Now & next (§5.4); "Next up", the empty lines and the run rows reuse `agent.activity.*`.
+  "overview.now.needsYou": "{n, plural, one {# thing needs you} other {# things need you}}",
+  "overview.now.review": "Review",
+  "overview.now.running": "Running now",
+
+  // Upcoming groups and the paused disclosure.
+  "overview.upcoming.today": "Today",
+  "overview.upcoming.tomorrow": "Tomorrow",
+  "overview.upcoming.week": "This week",
+  "overview.upcoming.later": "Later",
+  "overview.upcoming.paused": "Paused ({n, number})",
+
+  // Recent runs paging.
+  "overview.recent.more": "Show more",
 } as const;

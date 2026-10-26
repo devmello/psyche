@@ -77,7 +77,7 @@ function webPlatform() {
 describe("the agent sheet over the chat (redesign §5.7)", () => {
   it("opens from /agent/<tab> over the mounted chat and closes back to the thread", async () => {
     window.innerWidth = 1280;
-    window.history.replaceState(null, "", "/agent/upcoming");
+    window.history.replaceState(null, "", "/agent/approvals");
     const { platform } = webPlatform();
     render(<PsycheApp platform={platform} />);
     const sheet = await screen.findByTestId("agent-sheet");
@@ -86,8 +86,8 @@ describe("the agent sheet over the chat (redesign §5.7)", () => {
       await screen.findByRole("textbox", { name: "Message Flash", hidden: true }),
     ).toBeTruthy();
     // The route picks the tab.
-    const upcoming = within(sheet).getByRole("tab", { name: /Upcoming/ });
-    expect(upcoming.getAttribute("aria-selected")).toBe("true");
+    const approvals = within(sheet).getByRole("tab", { name: /Approvals/ });
+    expect(approvals.getAttribute("aria-selected")).toBe("true");
     // Closing (Escape) leaves the route for this thread.
     fireEvent.keyDown(sheet, { key: "Escape" });
     await waitFor(() => expect(window.location.pathname).toBe(`/chat/${MAIN.id}`));
@@ -112,7 +112,7 @@ describe("the Feed's instructions sheet (#614)", () => {
 describe("the agent sheet beside the content (#625)", () => {
   it("sits beside the chat on a wide window: the chat stays usable and Escape there keeps it", async () => {
     window.innerWidth = 1280;
-    window.history.replaceState(null, "", "/agent/activity");
+    window.history.replaceState(null, "", "/agent/approvals");
     const { platform } = webPlatform();
     render(<PsycheApp platform={platform} />);
     const sheet = await screen.findByTestId("agent-sheet");
@@ -123,8 +123,8 @@ describe("the agent sheet beside the content (#625)", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
     // Escape in the composer belongs to the composer; Escape in the sheet closes it.
     fireEvent.keyDown(composer, { key: "Escape" });
-    expect(window.location.pathname).toBe("/agent/activity");
-    fireEvent.keyDown(within(sheet).getByRole("tab", { name: /Activity/ }), { key: "Escape" });
+    expect(window.location.pathname).toBe("/agent/approvals");
+    fireEvent.keyDown(within(sheet).getByRole("tab", { name: /Approvals/ }), { key: "Escape" });
     await waitFor(() => expect(window.location.pathname).toBe(`/chat/${MAIN.id}`));
     await waitFor(() => expect(screen.queryByTestId("agent-sheet")).toBeNull());
   });
@@ -132,7 +132,7 @@ describe("the agent sheet beside the content (#625)", () => {
   it("stays the modal overlay when the window is too narrow for both", async () => {
     // 900 px: wider than the compact breakpoint, but 900 − 248 − 400 < 480.
     window.innerWidth = 900;
-    window.history.replaceState(null, "", "/agent/upcoming");
+    window.history.replaceState(null, "", "/agent/approvals");
     const { platform } = webPlatform();
     render(<PsycheApp platform={platform} />);
     const sheet = await screen.findByTestId("agent-sheet");
@@ -143,37 +143,55 @@ describe("the agent sheet beside the content (#625)", () => {
 });
 
 describe("the agent sheet over the current section (#614)", () => {
-  it("the Feed's Schedule opens the sheet over the feed and closing returns to /feed", async () => {
+  it("the Feed's Schedule opens the Overview's Upcoming, and Approvals still opens the sheet over the feed", async () => {
     window.innerWidth = 1280;
     window.history.replaceState(null, "", "/feed");
     const { platform } = webPlatform();
     render(<PsycheApp platform={platform} />);
     const feed = await screen.findByTestId("screen-feed");
     fireEvent.click(within(feed).getByRole("button", { name: "Schedule" }));
+    // Upcoming moved to the Overview (agent-overview-2026 O5): the old route redirects there.
+    await screen.findByTestId("screen-overview");
+    await waitFor(() => expect(window.location.pathname).toBe("/overview"));
+    expect(window.location.hash).toBe("#upcoming");
+    expect(screen.queryByTestId("agent-sheet")).toBeNull();
+  });
+
+  it("keeps Approvals in the sheet over the section underneath", async () => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", "/agent/approvals?from=%2Ffeed");
+    const { platform } = webPlatform();
+    render(<PsycheApp platform={platform} />);
     const sheet = await screen.findByTestId("agent-sheet");
-    expect(window.location.pathname).toBe("/agent/upcoming");
-    expect(
-      within(sheet)
-        .getByRole("tab", { name: /Upcoming/ })
-        .getAttribute("aria-selected"),
-    ).toBe("true");
-    // The feed stays mounted beside the sheet, not the chat, and the
-    // sidebar still marks Feed.
-    expect(screen.getByTestId("screen-feed")).toBe(feed);
+    const feed = await screen.findByTestId("screen-feed");
     expect(screen.queryByTestId("kit-chat")).toBeNull();
-    const current = screen
-      .getByTestId("sidebar")
-      .querySelector('[aria-current="page"]')
-      ?.textContent?.trim();
-    expect(current).toMatch(/^Feed/);
-    // Tabs change the route and keep the feed beneath.
-    fireEvent.click(within(sheet).getByRole("tab", { name: /Activity/ }));
-    await waitFor(() => expect(window.location.pathname).toBe("/agent/activity"));
-    expect(screen.getByTestId("screen-feed")).toBe(feed);
-    fireEvent.keyDown(screen.getByTestId("agent-sheet"), { key: "Escape" });
+    fireEvent.keyDown(sheet, { key: "Escape" });
     await waitFor(() => expect(window.location.pathname).toBe("/feed"));
     await waitFor(() => expect(screen.queryByTestId("agent-sheet")).toBeNull());
     expect(screen.getByTestId("screen-feed")).toBe(feed);
+  });
+});
+
+describe("old agent routes redirect to the Overview (agent-overview-2026 O5)", () => {
+  it.each([
+    ["/agent/activity", "/overview", "#now", ""],
+    ["/agent/upcoming", "/overview", "#upcoming", ""],
+    ["/agent/growth", "/overview", "#growth", ""],
+    [
+      "/agent/activity/run/01JBXY6Q8Z00000000000000R1?step=stp_1",
+      "/overview/run/01JBXY6Q8Z00000000000000R1",
+      "",
+      "?step=stp_1",
+    ],
+  ])("%s", async (from, pathname, hash, search) => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", from);
+    const { platform } = webPlatform();
+    render(<PsycheApp platform={platform} />);
+    await waitFor(() => expect(window.location.pathname).toBe(pathname));
+    expect(window.location.hash).toBe(hash);
+    expect(window.location.search).toBe(search);
+    expect(screen.queryByTestId("agent-sheet")).toBeNull();
   });
 });
 
@@ -328,13 +346,16 @@ describe("the Overview route (agent-overview-2026 §3)", () => {
     expect(window.location.pathname).toBe("/overview");
   });
 
-  it("routes /overview/run/<id> to the placeholder", async () => {
+  it("routes /overview/run/<id> to the Timeline with a back link to the Overview", async () => {
     window.innerWidth = 1280;
     window.history.replaceState(null, "", "/overview/run/01JBXY6Q8Z00000000000000R1");
     const { platform } = webPlatform();
     render(<PsycheApp platform={platform} />);
     const run = await screen.findByTestId("overview-run");
     expect(run.getAttribute("data-run-id")).toBe("01JBXY6Q8Z00000000000000R1");
+    fireEvent.click(within(run).getByRole("button", { name: "Flash & you" }));
+    await waitFor(() => expect(window.location.pathname).toBe("/overview"));
+    expect(await screen.findByRole("heading", { level: 1, name: "Flash & you" })).toBeTruthy();
   });
 });
 

@@ -7,6 +7,7 @@ import { ScreenToolbar } from "../screens/feed/ScreenToolbar.tsx";
 import { SegmentedRadio } from "../screens/settings/SegmentedRadio.tsx";
 import { usePersona } from "../slots.tsx";
 import { isNewUser, type OverviewData, useOverviewData } from "./data.ts";
+import { NowSection } from "./NowSection.tsx";
 import {
   OVERVIEW_SECTIONS,
   OverviewSection,
@@ -14,6 +15,9 @@ import {
   sectionTitle,
 } from "./OverviewSection.tsx";
 import { formatPeriodRange, OVERVIEW_PERIODS, type OverviewPeriod, periodLabel } from "./period.ts";
+import { RecentSection } from "./RecentSection.tsx";
+import type { RecentFilter } from "./recent.ts";
+import { UpcomingSection } from "./UpcomingSection.tsx";
 
 /** The "Try" chips of the new-user card (§5.5); the host turns each into a real action. */
 export type OverviewTry = "planWeek" | "morningBrief" | "connectMail";
@@ -31,6 +35,11 @@ export interface OverviewScreenProps {
   onTry?: (kind: OverviewTry) => void;
   /** Epoch ms for the range line and the new-user threshold (stories pin it). */
   now?: number;
+  /** Recent runs' filter, held in the route as `?filter=` (all|failed|automation|chat). */
+  recentFilter?: RecentFilter;
+  onRecentFilterChange?: (filter: RecentFilter) => void;
+  /** Scrolls this section into view on arrival (`/overview#upcoming`). */
+  anchor?: string;
 }
 
 /** Sections shown while the owner is new: Now & next and Upcoming are useful from day one (§5.5). */
@@ -48,6 +57,9 @@ export function OverviewScreen({
   data,
   onTry,
   now,
+  recentFilter,
+  onRecentFilterChange,
+  anchor,
 }: OverviewScreenProps): ReactElement {
   const persona = usePersona();
   const fromHook = useOverviewData();
@@ -61,6 +73,12 @@ export function OverviewScreen({
       fresh ? OVERVIEW_SECTIONS.filter((s) => NEW_USER_SECTIONS.includes(s)) : OVERVIEW_SECTIONS,
     [fresh],
   );
+
+  // An arrival at `/overview#upcoming` (the old sheet tabs redirect here) scrolls to the section.
+  useEffect(() => {
+    if (anchor === undefined) return;
+    document.getElementById(anchor)?.scrollIntoView?.({ block: "start" });
+  }, [anchor]);
 
   return (
     <div className="@container/overview flex min-h-0 flex-1 flex-col" data-testid="overview">
@@ -83,9 +101,24 @@ export function OverviewScreen({
         {/* Section cards are h3s; this keeps the outline h1 → h2 → h3. */}
         <h2 className="sr-only">{t("overview.screen")}</h2>
         {fresh ? <GettingToKnowYou name={persona.name} onTry={onTry} /> : null}
-        {visible.map((id) => (
-          <OverviewSection key={id} id={id} />
-        ))}
+        {visible.map((id) =>
+          id === "now" ? (
+            <NowSection key={id} {...(now === undefined ? {} : { now })} />
+          ) : id === "upcoming" ? (
+            <UpcomingSection key={id} {...(now === undefined ? {} : { now })} />
+          ) : id === "recent" ? (
+            <RecentSection
+              key={id}
+              {...(recentFilter === undefined ? {} : { filter: recentFilter })}
+              {...(onRecentFilterChange === undefined
+                ? {}
+                : { onFilterChange: onRecentFilterChange })}
+              {...(now === undefined ? {} : { now })}
+            />
+          ) : (
+            <OverviewSection key={id} id={id} />
+          ),
+        )}
       </div>
     </div>
   );
@@ -168,32 +201,5 @@ function JumpBar({ sections }: { sections: readonly OverviewSectionId[] }): Reac
         </nav>
       </div>
     </>
-  );
-}
-
-export interface OverviewRunPlaceholderProps {
-  runId: string;
-  onBack: () => void;
-}
-
-/** `/overview/run/<id>` until O5 moves the Timeline here. */
-export function OverviewRunPlaceholder({
-  runId,
-  onBack,
-}: OverviewRunPlaceholderProps): ReactElement {
-  return (
-    <div
-      className="mx-auto flex w-full max-w-[calc(1040px+3rem)] flex-col gap-4 px-4 py-6 md:px-6"
-      data-testid="overview-run"
-      data-run-id={runId}
-    >
-      <h1 className="text-title-1 text-label-primary">{t("overview.run.title")}</h1>
-      <p className="text-body text-label-secondary">{t("overview.run.placeholder")}</p>
-      <div>
-        <Button variant="secondary" size="sm" onClick={onBack}>
-          {t("overview.run.back")}
-        </Button>
-      </div>
-    </div>
   );
 }

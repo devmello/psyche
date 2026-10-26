@@ -52,7 +52,7 @@ export function usualDuration(durationsMs: readonly number[] | undefined): numbe
   return sorted[Math.floor(sorted.length / 2)] ?? null;
 }
 
-function Row({
+export function Row({
   glyph,
   glyphLabel,
   title,
@@ -136,7 +136,7 @@ function Item({ children }: { id: string; children: ReactNode }): ReactElement {
   return <ListItem>{children}</ListItem>;
 }
 
-function recentDetail(run: RunSummary, now: number): string {
+export function recentDetail(run: RunSummary, now: number): string {
   const start = Date.parse(run.startedAt);
   const end = run.endedAt ? Date.parse(run.endedAt) : now;
   const duration = formatStepDuration(end - start);
@@ -148,7 +148,7 @@ function recentDetail(run: RunSummary, now: number): string {
   });
 }
 
-function stateLabel(status: RunStatus): string {
+export function stateLabel(status: RunStatus): string {
   return t(
     `agent.timeline.state.${status === "awaiting_approval" || status === "awaiting_input" ? "waiting" : status}` as Parameters<
       typeof t
@@ -156,8 +156,78 @@ function stateLabel(status: RunStatus): string {
   );
 }
 
+/** Now: one running run with its current step, live elapsed time and activity sparkline. */
+export function NowRunRow({
+  run: r,
+  title,
+  now,
+  onOpenRun,
+}: {
+  run: RunSummary;
+  title: string;
+  now: number;
+  onOpenRun: (runId: string) => void;
+}): ReactElement {
+  return (
+    <Row
+      glyph={r.currentStep ? stepStatusKind(r.currentStep.status) : runGlyph(r.status)}
+      glyphLabel={stateLabel(r.status)}
+      title={title}
+      {...(r.kind === "automation" ? { tag: t("agent.activity.automation") } : {})}
+      detail={r.currentStep?.label ?? stateLabel(r.status)}
+      trailing={
+        <>
+          <LiveDuration startedAt={Date.parse(r.startedAt)} now={now} />
+          {r.activity ? (
+            <Sparkline
+              values={r.activity}
+              live
+              label={t("agent.activity.sparkSteps")}
+              testId="activity-sparkline"
+            />
+          ) : null}
+        </>
+      }
+      onOpen={() => onOpenRun(r.id)}
+      openLabel={t("agent.activity.openTimeline", { title })}
+    />
+  );
+}
+
+/** Recent: one finished run, its outcome and when it started. */
+export function RecentRunRow({
+  run: r,
+  title,
+  now,
+  onOpenRun,
+}: {
+  run: RunSummary;
+  title: string;
+  now: number;
+  onOpenRun: (runId: string) => void;
+}): ReactElement {
+  return (
+    <Row
+      glyph={runGlyph(r.status)}
+      glyphLabel={stateLabel(r.status)}
+      title={title}
+      {...(r.kind === "automation" ? { tag: t("agent.activity.automation") } : {})}
+      detail={recentDetail(r, now)}
+      trailing={
+        <time dateTime={r.startedAt}>
+          {now - Date.parse(r.startedAt) < 86_400_000
+            ? formatTime(r.startedAt)
+            : formatRelative(r.startedAt, now)}
+        </time>
+      }
+      onOpen={() => onOpenRun(r.id)}
+      openLabel={t("agent.activity.openTimeline", { title })}
+    />
+  );
+}
+
 /** Next up: one automation with its countdown, usual duration and last runs. */
-function NextRow({
+export function NextRow({
   automation,
   now,
   onOpenRun,
@@ -364,28 +434,7 @@ export function MissionControl({
           <Items>
             {nowRuns.map((r) => (
               <Item key={r.id} id={r.id}>
-                <Row
-                  glyph={r.currentStep ? stepStatusKind(r.currentStep.status) : runGlyph(r.status)}
-                  glyphLabel={stateLabel(r.status)}
-                  title={title(r)}
-                  {...(r.kind === "automation" ? { tag: t("agent.activity.automation") } : {})}
-                  detail={r.currentStep?.label ?? stateLabel(r.status)}
-                  trailing={
-                    <>
-                      <LiveDuration startedAt={Date.parse(r.startedAt)} now={now} />
-                      {r.activity ? (
-                        <Sparkline
-                          values={r.activity}
-                          live
-                          label={t("agent.activity.sparkSteps")}
-                          testId="activity-sparkline"
-                        />
-                      ) : null}
-                    </>
-                  }
-                  onOpen={() => onOpenRun(r.id)}
-                  openLabel={t("agent.activity.openTimeline", { title: title(r) })}
-                />
+                <NowRunRow run={r} title={title(r)} now={now} onOpenRun={onOpenRun} />
               </Item>
             ))}
             {tasksNow.map((x) => (
@@ -480,22 +529,7 @@ export function MissionControl({
                 at: r.startedAt,
                 node: (
                   <Item key={r.id} id={r.id}>
-                    <Row
-                      glyph={runGlyph(r.status)}
-                      glyphLabel={stateLabel(r.status)}
-                      title={title(r)}
-                      {...(r.kind === "automation" ? { tag: t("agent.activity.automation") } : {})}
-                      detail={recentDetail(r, now)}
-                      trailing={
-                        <time dateTime={r.startedAt}>
-                          {now - Date.parse(r.startedAt) < 86_400_000
-                            ? formatTime(r.startedAt)
-                            : formatRelative(r.startedAt, now)}
-                        </time>
-                      }
-                      onOpen={() => onOpenRun(r.id)}
-                      openLabel={t("agent.activity.openTimeline", { title: title(r) })}
-                    />
+                    <RecentRunRow run={r} title={title(r)} now={now} onOpenRun={onOpenRun} />
                   </Item>
                 ),
               })),

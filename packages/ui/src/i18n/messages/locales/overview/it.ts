@@ -28,8 +28,16 @@ export const overview: Partial<Catalogue> = {
   "overview.newUser.morningBrief": "Imposta un riepilogo del mattino",
   "overview.newUser.connectMail": "Collega la tua posta",
   "overview.run.title": "Esecuzione",
-  "overview.run.placeholder": "La cronologia dell’esecuzione si sta spostando qui.",
-  "overview.run.back": "Torna alla panoramica",
   "shell.rail.overview": "Panoramica",
   "shell.sidebar.openOverview": "Apri la panoramica",
+  "overview.now.needsYou":
+    "{n, plural, one {# cosa ha bisogno di te} many {# di cose hanno bisogno di te} other {# cose hanno bisogno di te}}",
+  "overview.now.review": "Rivedi",
+  "overview.now.running": "In corso ora",
+  "overview.upcoming.today": "Oggi",
+  "overview.upcoming.tomorrow": "Domani",
+  "overview.upcoming.week": "Questa settimana",
+  "overview.upcoming.later": "Più avanti",
+  "overview.upcoming.paused": "In pausa ({n, number})",
+  "overview.recent.more": "Mostra altro",
 };

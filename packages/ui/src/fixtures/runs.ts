@@ -411,6 +411,18 @@ export function runTraceWorld() {
   };
 }
 
+/** Puts the run-trace runs, steps and frames into a world (`StoryWorld`'s `edit`). */
+export function applyRunTrace(
+  w: { runs: Run[] } & Partial<ReturnType<typeof runTraceWorld>>,
+): void {
+  const tw = runTraceWorld();
+  w.runs = [...w.runs.filter((r) => !tw.runs.some((x) => x.id === r.id)), ...tw.runs];
+  w.runSteps = tw.runSteps;
+  w.runFrames = tw.runFrames;
+  w.runPayloads = tw.runPayloads;
+  w.automationRuns = tw.automationRuns;
+}
+
 /**
  * T3: a long task for the waterfall's virtualisation (2,000 steps, the §4.5 cap): tool steps of
  * 1–4 s in a row, every 25th failing once and retried, every 40th a parallel pair.
