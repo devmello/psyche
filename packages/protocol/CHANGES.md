@@ -18,6 +18,22 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-25 (S09, #637: Apple app capabilities, wave 1)
+
+For S14 / the helper session (H, #638) and S09 (G, #639): the shapes of docs/connectors/apple-apps-2026.md wave 1. All new fields are optional and all new schemas are new names.
+
+- Shared: `AppleAlarm` (relative minutes or an absolute time), `AppleRecurrence` (an RRULE subset).
+- Calendar: `AppleCalendarEvent` gains `attendees` (read-only), `conferenceUrl`, `alarms`, `recurrence`, `availability`; `AppleCalendarListEventsParams.query`; `AppleCalendarEventInput` / `AppleCalendarEventUpdate` gain `alarms`, `recurrence`, `availability`. New `AppleCalendarFreeBusyParams` + `AppleBusyBlock` (C2), `AppleCalendarDeleteEventParams` (C4).
+- Reminders: `AppleReminder` gains `url`, `flagged`, `alarms`, `recurrence`; `AppleRemindersListParams` gains `overdue`, `dueToday`, `flagged`, `query`; `AppleReminderInput` gains `url`, `alarm`, `recurrence`. New `AppleRemindersCompleteParams` (R3), `AppleRemindersDeleteParams` (R4), `AppleRemindersSetFlaggedParams` (R5).
+- Mail: `AppleMailMessageSummary` gains `flagged`, `link` (`message://`); `AppleMailMessage` gains `attachments`. New `AppleMailMailbox` (M2), `AppleMailSelectedParams` (M3), `AppleMailReplyDraftParams` / `AppleMailForwardDraftParams` / `AppleMailDraftRef` (M5), `AppleMailSendDraftParams` (M6), `AppleMailSetFlagsParams` (M7), `AppleMailMoveParams` (M8), `AppleMailSaveAttachmentsParams` + `AppleSavedFile` (M9).
+- Notes: `AppleNoteSummary.snippet`, `AppleNote.attachments` / `bodySha256`, `AppleNoteInput.format` (text / markdown). New `AppleNotesSearchParams` (N1), `AppleNoteFolder` (N2), `AppleNotesAppendParams` (N3), `AppleNotesUpdateParams` (N4, bound to `previousBodySha256`).
+- Contacts (new): `AppleContactSummary`, `AppleContact`, `AppleContactsSearchParams`, `AppleContactInput`, `AppleContactUpdate`.
+- Music (new): `AppleNowPlaying`, `AppleMusicControlParams`, `AppleMusicSearchParams`, `AppleMusicItem`, `AppleMusicPlayParams` (Music and Spotify).
+- Safari / Chrome: `AppleTabTextParams` + `AppleTabText` (S1), `AppleReadingListParams` (S3); Chrome tabs reuse `AppleSafariTab`.
+- Files (new): `AppleFileItem`, `AppleFilesRecentParams`, `AppleFilesMoveParams`, `AppleFilesRenameParams`, `AppleFilesTrashParams`.
+- Shortcuts (new): `AppleShortcut`, `AppleShortcutsRunParams`, `AppleShortcutResult`.
+- Things 3 (new): `ThingsTodo`, `ThingsListParams`, `ThingsAddParams`, `ThingsUpdateParams`, `ThingsCompleteParams`.
+
 ### v1 additive — 2026-10-25 (S02, #632: reasoning steps)
 
 - Event `chat.reasoning { threadId, runId, stepId, delta?, summary?, done? }`: one step per contiguous reasoning block of a running agent message, for the run's step log. Transient (never persisted); off when the setting `agent.showReasoning` is `false`.
