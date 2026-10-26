@@ -1441,7 +1441,8 @@ export class MockGateway implements GatewayClient {
       const a = this.find(this.world.artifacts, p.artifactId, "artifact");
       const h = this.artifactHistory(a.id);
       const content = h.contents[p.version - 1];
-      if (content === undefined) return fail("not_found", `artifact ${a.id} has no version ${p.version}`);
+      if (content === undefined)
+        return fail("not_found", `artifact ${a.id} has no version ${p.version}`);
       return this.writeArtifactVersion(a, content, h.views[p.version - 1] ?? null, {
         restoredFrom: p.version,
       });
