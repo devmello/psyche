@@ -82,8 +82,10 @@ const LABEL: Record<AppleApp, string> = {
 
 const DESCRIPTION: Record<AppleApp, string> = {
   notes: "Read and create notes in the Notes app on your Mac.",
-  reminders: "Read, add and complete reminders in the Reminders app on your Mac.",
-  calendar: "Read and add events in the Calendar app on your Mac.",
+  reminders:
+    "Read reminders in the Reminders app on your Mac (due today, overdue, flagged, by text); add them with links, alarms and repeats; complete, flag and delete them.",
+  calendar:
+    "Read events in the Calendar app on your Mac with their attendees and meeting links, find busy and free time; add, change and delete events (invitations go by mail).",
   mail: "Read and search mail in the Mail app on your Mac, including unread mail, mail since a date and the email you have selected; mark read, flag, file and archive, save attachments; draft replies and forwards, and send only with your approval.",
 };
 
@@ -102,8 +104,15 @@ const ACTIONS: Record<AppleApp, ConnectorAction[]> = {
     { id: "reminders.read", title: "Read reminders", sideEffect: "read", defaultRule: "allow" },
     {
       id: "reminders.write",
-      title: "Add and change reminders",
+      title: "Add, change, complete and flag reminders",
       sideEffect: "write",
+      approvalKind: "connector_action",
+      defaultRule: "ask",
+    },
+    {
+      id: "reminders.delete",
+      title: "Delete reminders",
+      sideEffect: "destructive",
       approvalKind: "connector_action",
       defaultRule: "ask",
     },
@@ -114,6 +123,13 @@ const ACTIONS: Record<AppleApp, ConnectorAction[]> = {
       id: "calendar.write",
       title: "Add and change events",
       sideEffect: "write",
+      approvalKind: "calendar_write",
+      defaultRule: "ask",
+    },
+    {
+      id: "calendar.delete",
+      title: "Delete events",
+      sideEffect: "destructive",
       approvalKind: "calendar_write",
       defaultRule: "ask",
     },
@@ -182,6 +198,35 @@ const mailFields = {
   body: { type: "string", maxLength: 100_000 },
 };
 
+/** AppleAlarm / AppleRecurrence (#637), as the model-facing schema. */
+const alarmSchema = {
+  anyOf: [
+    {
+      type: "object",
+      properties: { relativeMinutes: { type: "integer", minimum: -40_320, maximum: 0 } },
+      required: ["relativeMinutes"],
+      additionalProperties: false,
+    },
+    { type: "object", properties: { at: iso }, required: ["at"], additionalProperties: false },
+  ],
+};
+const recurrenceSchema = {
+  type: "object",
+  properties: {
+    frequency: { type: "string", enum: ["daily", "weekly", "monthly", "yearly"] },
+    interval: { type: "integer", minimum: 1, maximum: 999 },
+    daysOfWeek: {
+      type: "array",
+      items: { type: "string", enum: ["mo", "tu", "we", "th", "fr", "sa", "su"] },
+      maxItems: 7,
+    },
+    until: iso,
+    count: { type: "integer", minimum: 1, maximum: 999 },
+  },
+  required: ["frequency"],
+  additionalProperties: false,
+};
+
 const eventFields = {
   calendarId: { type: "string" },
   title: { type: "string", minLength: 1, maxLength: 500 },
@@ -191,6 +236,9 @@ const eventFields = {
   location: { type: "string", maxLength: 500 },
   notes: { type: "string", maxLength: 10_000 },
   url: { type: "string", maxLength: 2_000 },
+  alarms: { type: "array", items: alarmSchema, maxItems: 5 },
+  recurrence: { anyOf: [recurrenceSchema, { type: "null" }] },
+  availability: { type: "string", enum: ["busy", "free"] },
 };
 
 const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
@@ -250,11 +298,16 @@ const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
       name: "reminders_list",
       capability: "reminders.list",
       action: "reminders.read",
-      description: "List reminders, optionally by list, completion and due date.",
+      description:
+        'List reminders, soonest due first. Filters: listIds, completed, dueBefore, overdue (open and past due), dueToday, flagged, query (text in title or notes). For "what\'s due today": { dueToday: true, completed: false }.',
       inputSchema: obj({
         listIds: { type: "array", items: { type: "string" }, maxItems: 50 },
         completed: { type: "boolean" },
         dueBefore: iso,
+        overdue: { type: "boolean" },
+        dueToday: { type: "boolean" },
+        flagged: { type: "boolean" },
+        query: { type: "string", maxLength: 200 },
         limit,
       }),
       sideEffect: "read",
@@ -263,7 +316,8 @@ const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
       name: "reminders_create",
       capability: "reminders.create",
       action: "reminders.write",
-      description: "Add a reminder (default list unless listId). Priority 1 is high, 9 low.",
+      description:
+        "Add a reminder (default list unless listId). Priority 1 is high, 9 low. url keeps a link with it (e.g. a mail's message:// link), alarm reminds at a time or minutes before due, recurrence repeats it.",
       inputSchema: obj(
         {
           listId: { type: "string" },
@@ -271,6 +325,9 @@ const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
           notes: { type: "string", maxLength: 10_000 },
           due: iso,
           priority: { type: "integer", minimum: 0, maximum: 9 },
+          url: { type: "string", maxLength: 2_000 },
+          alarm: alarmSchema,
+          recurrence: recurrenceSchema,
         },
         ["title"],
       ),
@@ -296,6 +353,39 @@ const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
       sideEffect: "write",
       binding: "action",
     },
+    {
+      name: "reminders_complete",
+      capability: "reminders.complete",
+      action: "reminders.write",
+      description:
+        'Mark a reminder done by id, or by its exact title in a list ("done with the dentist one"). completed: false reopens it.',
+      inputSchema: obj({
+        id: { type: "string" },
+        title: { type: "string", maxLength: 500 },
+        listId: { type: "string" },
+        completed: { type: "boolean" },
+      }),
+      sideEffect: "write",
+      binding: "action",
+    },
+    {
+      name: "reminders_set_flagged",
+      capability: "reminders.set_flagged",
+      action: "reminders.write",
+      description: "Flag or unflag a reminder.",
+      inputSchema: obj({ id: { type: "string" }, flagged: { type: "boolean" } }, ["id", "flagged"]),
+      sideEffect: "write",
+      binding: "action",
+    },
+    {
+      name: "reminders_delete",
+      capability: "reminders.delete",
+      action: "reminders.delete",
+      description: "Delete a reminder. Prefer reminders_complete for something that is done.",
+      inputSchema: obj({ id: { type: "string" } }, ["id"]),
+      sideEffect: "destructive",
+      binding: "action",
+    },
   ],
   calendar: [
     {
@@ -310,12 +400,14 @@ const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
       name: "calendar_list_events",
       capability: "calendar.list_events",
       action: "calendar.read",
-      description: "Events between from and to (at most 366 days), optionally in some calendars.",
+      description:
+        "Events between from and to (at most 366 days), optionally in some calendars or matching query (title, location, notes). Events include attendees (read-only) and conferenceUrl, the meeting link to join.",
       inputSchema: obj(
         {
           from: iso,
           to: iso,
           calendarIds: { type: "array", items: { type: "string" }, maxItems: 50 },
+          query: { type: "string", maxLength: 200 },
           limit,
         },
         ["from", "to"],
@@ -326,7 +418,8 @@ const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
       name: "calendar_create_event",
       capability: "calendar.create_event",
       action: "calendar.write",
-      description: "Add an event (default calendar unless calendarId).",
+      description:
+        "Add an event (default calendar unless calendarId), with optional alarms, recurrence and availability (free for a soft hold). It cannot invite attendees: Calendar's API cannot, so invitations go out by mail.",
       inputSchema: obj(eventFields, ["title", "start", "end"]),
       sideEffect: "write",
       binding: "calendar",
@@ -346,6 +439,35 @@ const TOOLS: Record<AppleApp, AppleToolSpec[]> = {
         ["id"],
       ),
       sideEffect: "write",
+      binding: "calendar",
+    },
+    {
+      name: "calendar_free_busy",
+      capability: "calendar.free_busy",
+      action: "calendar.read",
+      description:
+        "Busy blocks between from and to (at most 62 days) across calendars (default all), in start order: use it to find free time before proposing or blocking a slot.",
+      inputSchema: obj(
+        {
+          from: iso,
+          to: iso,
+          calendarIds: { type: "array", items: { type: "string" }, maxItems: 50 },
+        },
+        ["from", "to"],
+      ),
+      sideEffect: "read",
+    },
+    {
+      name: "calendar_delete_event",
+      capability: "calendar.delete_event",
+      action: "calendar.delete",
+      description:
+        "Delete an event; span: future also deletes the later ones of a recurring series. Prefer moving or declining events someone else organized.",
+      inputSchema: obj(
+        { id: { type: "string" }, span: { type: "string", enum: ["this", "future"] } },
+        ["id"],
+      ),
+      sideEffect: "destructive",
       binding: "calendar",
     },
   ],

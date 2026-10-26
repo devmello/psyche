@@ -43,6 +43,16 @@ export const APPLE_APP_ACTIONS: Readonly<Record<string, AppleAppAction>> = {
   "reminders.list": read("apple.reminders", "list"),
   "reminders.create": write("apple.reminders", "create"),
   "reminders.update": write("apple.reminders", "update"),
+  // Wave 1 (docs/connectors/apple-apps-2026.md §4.2, §4.3; #639).
+  "reminders.complete": write("apple.reminders", "complete"),
+  "reminders.set_flagged": write("apple.reminders", "set_flagged"),
+  "reminders.delete": write("apple.reminders", "delete", "connector_action", {
+    sideEffect: "destructive",
+  }),
+  "calendar.free_busy": read("apple.calendar", "free_busy"),
+  "calendar.delete_event": write("apple.calendar", "delete_event", "calendar_write", {
+    sideEffect: "destructive",
+  }),
   "mail.search": read("apple.mail", "search"),
   "mail.read": read("apple.mail", "read"),
   "mail.draft": write("apple.mail", "draft"),

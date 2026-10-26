@@ -37,6 +37,11 @@ const ALL = [
   "mail.read",
   "mail.draft",
   "mail.send",
+  "reminders.complete",
+  "reminders.set_flagged",
+  "reminders.delete",
+  "calendar.free_busy",
+  "calendar.delete_event",
   "mail.mailboxes",
   "mail.selected",
   "mail.reply_draft",
@@ -703,6 +708,90 @@ describe("Apple Mail wave 1 (#639)", () => {
         "mail.move",
         "mail.save_attachments",
       ]),
+    );
+  });
+});
+
+describe("Apple Reminders and Calendar wave 1 (#639)", () => {
+  const toolOf = (app: number, type: string, name: string) =>
+    appleFactories({ helper: () => new FakeHelper() })
+      [app]?.create({ id: "apple-1", type } as never, {} as never)
+      .tools()
+      .find((t) => t.name === name);
+
+  it("adds delete groups that always ask, and keeps reads allowed", () => {
+    expect(
+      appleCatalogueEntry("reminders").actions.map((a) => [a.id, a.sideEffect, a.defaultRule]),
+    ).toEqual([
+      ["reminders.read", "read", "allow"],
+      ["reminders.write", "write", "ask"],
+      ["reminders.delete", "destructive", "ask"],
+    ]);
+    expect(
+      appleCatalogueEntry("calendar").actions.map((a) => [a.id, a.sideEffect, a.approvalKind]),
+    ).toEqual([
+      ["calendar.read", "read", undefined],
+      ["calendar.write", "write", "calendar_write"],
+      ["calendar.delete", "destructive", "calendar_write"],
+    ]);
+  });
+
+  it("reminders_list takes the due / overdue / flagged / text filters straight to the helper", async () => {
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "apple-reminders", scopeMode: "read" });
+    helper.calls.length = 0;
+    const params = { dueToday: true, completed: false, flagged: true, query: "dentist" };
+    await run("mcp__apple-1__reminders_list")(params);
+    expect(helper.calls).toEqual([{ capability: "reminders.list", params }]);
+  });
+
+  it("reminders_create carries a mail link, an alarm and a recurrence; complete and delete ask", async () => {
+    const create = toolOf(1, "apple:reminders", "reminders_create");
+    if (!create) throw new Error("reminders_create is missing");
+    expect(Object.keys((create.inputSchema as { properties: object }).properties)).toEqual(
+      expect.arrayContaining(["url", "alarm", "recurrence"]),
+    );
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "apple-reminders", scopeMode: "read_act" });
+    await expect(run("mcp__apple-1__reminders_complete")({ id: "R1" })).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    await expect(run("mcp__apple-1__reminders_delete")({ id: "R1" })).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    const del = toolOf(1, "apple:reminders", "reminders_delete");
+    expect(del?.sideEffect).toBe("destructive");
+  });
+
+  it("calendar_free_busy is a read; calendar_delete_event binds calendar_write and asks", async () => {
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "apple-calendar", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    const window = { from: "2026-10-26T00:00:00Z", to: "2026-10-31T00:00:00Z" };
+    await run("mcp__apple-1__calendar_free_busy")(window);
+    expect(helper.calls).toEqual([{ capability: "calendar.free_busy", params: window }]);
+    expect(
+      toolOf(2, "apple:calendar", "calendar_delete_event")?.describeCall?.({ id: "E1" }),
+    ).toMatchObject({
+      kind: "calendar_write",
+      bindingFields: { tool: "calendar_delete_event" },
+    });
+    await expect(run("mcp__apple-1__calendar_delete_event")({ id: "E1" })).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    // Read-only connections never get the delete tool.
+    const ro = make(new FakeHelper());
+    await ro.registry.connect({ catalogueId: "apple-calendar", scopeMode: "read" });
+    expect([...ro.tools.keys()]).not.toContain("mcp__apple-1__calendar_delete_event");
+    expect([...ro.tools.keys()]).toContain("mcp__apple-1__calendar_free_busy");
+  });
+
+  it("the event tools say invitations go by mail", () => {
+    expect(toolOf(2, "apple:calendar", "calendar_create_event")?.description).toMatch(
+      /invitations go out by mail/,
     );
   });
 });
