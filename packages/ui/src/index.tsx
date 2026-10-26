@@ -227,6 +227,7 @@ export {
   budgetFraction,
   budgetTone,
   ConnectedUsageFooter,
+  isSubscriptionModel,
   PlanRing,
   Sparkline,
   UsageCard,
@@ -237,6 +238,7 @@ export {
   type UsageSummaryData,
   usageLead,
   usageLine,
+  usePrimarySubscription,
   useUsageSummary,
 } from "./shell/UsageFooter.tsx";
 export {
