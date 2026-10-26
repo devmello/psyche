@@ -45,22 +45,36 @@ export function ownerMatrices(settings: Record<string, unknown>): Map<string, Ma
   return out;
 }
 
-/** `policy.connectors` with the owner's Settings rules layered over `permissions.policy`'s. */
+/**
+ * `policy.connectors` for the broker: `permissions.policy`'s entries with the owner's Settings
+ * rules on top, for the connector and (Apple apps) for `apple.<app>`, which direct `node.*`
+ * calls use.
+ *
+ * Settings saves a connector's whole matrix, so a rule equal to its catalogue default is an echo,
+ * not a choice: it stays out, and the broker keeps its own defaults until the owner changes a
+ * group (a default `allow` read keeps the first-read card; node writes keep asking).
+ */
 export function brokerConnectors(
   base: PolicyConfig["connectors"],
   owner: ReadonlyMap<string, Matrix>,
   records: readonly Pick<ConnectorRecord, "id" | "type" | "config">[],
+  defaults: (type: string) => Readonly<Record<string, string>> | undefined = () => undefined,
 ): NonNullable<PolicyConfig["connectors"]> {
   const out: Record<string, Matrix> = {};
-  for (const [id, m] of Object.entries(base ?? {})) out[id] = { ...m };
   const layer = (id: string, m: Matrix) => {
     out[id] = { ...(out[id] ?? {}), ...m };
   };
-  for (const [id, m] of owner) layer(id, m);
+  for (const [id, m] of Object.entries(base ?? {})) layer(id, rulesOf(m));
+  const types = new Map(records.map((r) => [r.id, r.type]));
+  for (const [id, m] of owner) {
+    const type = types.get(id);
+    const d = (type === undefined ? undefined : defaults(type)) ?? {};
+    const chosen = Object.fromEntries(Object.entries(m).filter(([k, v]) => d[k] !== v));
+    layer(id, chosen);
+    const appleKey = type === undefined ? undefined : appleConnectorKey(type);
+    if (appleKey !== undefined) layer(appleKey, chosen);
+  }
   for (const r of records) {
-    const appleKey = appleConnectorKey(r.type);
-    const m = owner.get(r.id);
-    if (appleKey !== undefined && m !== undefined) layer(appleKey, m);
     const shortcuts = r.config.shortcutRules;
     if (typeof shortcuts === "object" && shortcuts !== null && !Array.isArray(shortcuts)) {
       const sub: Matrix = {};
@@ -97,6 +111,12 @@ export function connectorMatrixSync(
   let running: Promise<void> | undefined;
   let again = false;
   let records: ConnectorRecord[] = [];
+  const defaultsByType = new Map(
+    registry
+      .catalogue()
+      .map((e) => [e.type, Object.fromEntries(e.actions.map((a) => [a.id, a.defaultRule]))]),
+  );
+  const defaultsFor = (type: string) => defaultsByType.get(type);
 
   function applyBroker(): void {
     const owner = ownerMatrices(getSettings(db));
@@ -104,7 +124,7 @@ export function connectorMatrixSync(
     try {
       rawBroker.setPolicy({
         ...rawBroker.policy,
-        connectors: brokerConnectors(policy?.connectors, owner, records),
+        connectors: brokerConnectors(policy?.connectors, owner, records, defaultsFor),
       });
     } catch (err) {
       warn("applying connector rules to the broker failed", err);

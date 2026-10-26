@@ -164,6 +164,7 @@ See the speech section of the README for engine selection. On macOS 26+:
 | 10.6b | `speech.transcribe_file {path}` on a 60–90 min test recording of your own in a granted folder (not someone else's meeting) | `speech.progress` after each 10-minute chunk; one result with no repeated or missing sentence at the 10:00 / 20:00 marks; `audioMs` matches the file; `provenance: untrusted` |
 | 10.6c | The same with a path outside the granted folders, a folder, a text file, and a file over `maxDurationMs` | `policy_denied/outside_granted_folders`, `not_found`, `invalid_params/unsupported_audio`, `invalid_params/too_long`, each before any audio is read |
 | 10.7 | macOS 15 machine | SFSpeechRecognizer on-device engine; Speech Recognition prompt |
+| 10.8 | `dictation.watch {key: null, keys: [{key: fn, role: dictation}, {key: rightOption, role: voice}]}`; hold each key, then both, then fn+arrow | One initial `down: false` per key with its role; each hold and release reports its own key and role; fn+arrow ends the fn hold at once; `dictation.watch {key: fn}` alone still sends events without `role` |
 
 ## 11. VM mode (L1–L5): run on a host with more than 16 GB, one guest at a time
 
