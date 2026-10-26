@@ -181,6 +181,17 @@ private final class Fakes: CalendarBackend, RemindersBackend, MailBackend, Notes
     func reveal(_ path: String) async throws { lock.withLock { revealed.append(path) } }
 }
 
+final class FakeThings: ThingsBackend, @unchecked Sendable {
+    let lock = NSLock()
+    var opened: [URL] = []
+    var installed = true
+    func list(_ list: String, name: String?, query: String, limit: Int) async throws -> [ThingsTodoRecord] {
+        [ThingsTodoRecord(id: "AbCdEf1234567890XyZ123", title: "Renew passport", notes: "", status: "open", when: "2026-10-31", deadline: nil,
+                          project: nil, area: "Admin", tags: ["errand"], modified: "2026-10-20T08:00:00Z")]
+    }
+    func open(_ url: URL) async throws { lock.withLock { opened.append(url) } }
+}
+
 final class FakeShortcuts: ShortcutsBackend, @unchecked Sendable {
     let lock = NSLock()
     var runs: [(String, String?, TimeInterval)] = []
@@ -280,12 +291,14 @@ private struct Harness {
     let chrome = FakeChrome()
     let trashed = TrashLog()
     let shortcuts = FakeShortcuts()
+    let things = FakeThings()
     init(roots: [String] = []) {
         let f = fakes
         let st = staging
         registry = CapabilityRegistry(AppleAppsCapabilities.make(.init(
             calendar: f, reminders: f, mail: f, notes: f, safari: f, finder: f, roots: { FinderRoots(roots: roots) }, staging: { st }, contacts: people,
-            music: player, chrome: chrome, trash: { [trashed] url in try trashed.trash(url) }, shortcuts: shortcuts)))
+            music: player, chrome: chrome, trash: { [trashed] url in try trashed.trash(url) }, shortcuts: shortcuts,
+            things: things)))
     }
     func invoke(_ name: String, _ params: JSONValue = [:], approvalId: String? = nil) async throws -> CapabilityOutput {
         let h = try #require(registry[name])
@@ -322,13 +335,16 @@ struct AppleAppsTests {
             "files.recent", "files.move", "files.rename", "files.trash",
             // Shortcuts wave 1 (§4.9).
             "shortcuts.list", "shortcuts.run",
+            // Things 3 wave 1 (§5).
+            "things.list", "things.add", "things.update", "things.complete",
         ]
         let h = Harness()
         #expect(Set(h.registry.ordered.map(\.spec.name)) == matrix)
         let writes: Set = ["calendar.create_event", "calendar.update_event", "reminders.create", "reminders.update", "mail.draft", "mail.send", "notes.create", "safari.open_url",
                            "mail.reply_draft", "mail.forward_draft", "mail.send_draft", "mail.set_flags", "mail.move", "mail.save_attachments",
                            "reminders.complete", "reminders.set_flagged", "notes.append", "notes.update", "contacts.create", "contacts.update",
-                           "music.control", "music.play", "safari.add_reading_list", "files.move", "files.rename"]
+                           "music.control", "music.play", "safari.add_reading_list", "files.move", "files.rename",
+                           "things.add", "things.update", "things.complete"]
         let destructive: Set = ["reminders.delete", "calendar.delete_event", "files.trash", "shortcuts.run"]
         for c in h.registry.ordered {
             let expected: SideEffect = destructive.contains(c.spec.name) ? .destructive : writes.contains(c.spec.name) ? .write : .read
@@ -583,13 +599,15 @@ struct MailWave1RulesTests {
 /// Opt in with PSYCHE_OSACOMPILE=1.
 @Suite("Mail script compiles")
 struct MailScriptCompileTests {
-    @Test(arguments: ["mail", "notes", "reminders", "music", "spotify", "music-library", "safari", "chrome", "shortcuts"]) func compiles(_ app: String) throws {
+    @Test(arguments: ["mail", "notes", "reminders", "music", "spotify", "music-library", "safari", "chrome", "shortcuts", "things"]) func compiles(_ app: String) throws {
         guard ProcessInfo.processInfo.environment["PSYCHE_OSACOMPILE"] == "1" else { return }
+        // Compiling against an app that is not installed would ask "Where is …?" on screen.
+        if app == "things", !ThingsScriptingBackend().installed { return }
         let src = FileManager.default.temporaryDirectory.appendingPathComponent("\(app)-\(UUID().uuidString).applescript")
         let text = ["mail": MailScriptingBackend.source, "notes": NotesScriptingBackend.source, "reminders": EventKitBackend.flagScript,
                     "music": MusicScriptingBackend.source("music"), "spotify": MusicScriptingBackend.source("spotify"),
                     "music-library": MusicScriptingBackend.libraryScript, "safari": SafariScriptingBackend.source,
-                    "chrome": ChromeScriptingBackend.source, "shortcuts": LiveShortcutsBackend.source][app]!
+                    "chrome": ChromeScriptingBackend.source, "shortcuts": LiveShortcutsBackend.source, "things": ThingsScriptingBackend.source][app]!
         try text.write(to: src, atomically: true, encoding: .utf8)
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/osacompile")
@@ -1007,5 +1025,34 @@ struct ShortcutsWave1RulesTests {
         #expect(ShortcutsWave1.result("[1, 2]").outputType == "json" && ShortcutsWave1.result("{oops").outputType == "text")
         let big = ShortcutsWave1.result(String(repeating: "x", count: 100_001))
         #expect(big.truncated && big.output.count == 100_000 && big.outputType == "text")
+    }
+}
+
+@Suite("Things wave 1 (apple-apps-2026 §5)")
+struct ThingsWave1Tests {
+    let token = "Ab12Cd34Ef56Gh78"
+
+    @Test func listAndWrites() async throws {
+        let h = Harness()
+        let todos = try decode([ThingsTodoRecord].self, try await h.invoke("things.list", ["list": "today"]).result["todos"])
+        #expect(todos.first?.title == "Renew passport")
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("things.list", ["list": "project"]) }
+        _ = try await h.invoke("things.add", ["title": "Renew passport & visa", "when": "2026-10-31", "tags": ["errand"], "checklist": ["photo", "form"]])
+        let add = try #require(h.things.opened.last?.absoluteString)
+        #expect(add.hasPrefix("things:///add?title=Renew%20passport%20%26%20visa") && add.contains("checklist-items=photo%0Aform") && !add.contains("auth-token"))
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("things.add", ["title": "x", "when": "next week"]) }
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("things.add", ["title": "x", "tags": ["a,b"]]) }
+        _ = try await h.invoke("things.update", ["id": "AbCdEf1234567890XyZ123", "authToken": .string(token), "deadline": .null])
+        let up = try #require(h.things.opened.last?.absoluteString)
+        #expect(up.contains("auth-token=\(token)") && up.contains("deadline=&") || up.hasSuffix("deadline="))
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("things.update", ["id": "AbCdEf1234567890XyZ123"]) }
+        await #expect(throws: CapabilityError.self) { _ = try await h.invoke("things.update", ["id": "x&y=z", "authToken": .string(token)]) }
+        _ = try await h.invoke("things.complete", ["id": "AbCdEf1234567890XyZ123", "authToken": .string(token), "status": "canceled"])
+        #expect(h.things.opened.last?.absoluteString.contains("canceled=true") == true)
+    }
+
+    @Test func outputsDecodeAsTheGeneratedProtocolTypes() async throws {
+        let h = Harness()
+        _ = try decode([ThingsTodo].self, try await h.invoke("things.list", ["list": "inbox"]).result["todos"])
     }
 }

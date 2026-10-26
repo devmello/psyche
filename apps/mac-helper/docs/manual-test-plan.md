@@ -234,6 +234,9 @@ Spike 06 restarted a 16 GB host under two guests plus an install. Never run thes
 | 12.12a | Shortcuts wave 1 (§4.9): `shortcuts.list {}` | Every shortcut with its id, folder, accepts input and action count (Automation of Shortcuts Events asked once); if refused, names and ids from the CLI |
 | 12.12b | `shortcuts.run {id: <a shortcut that returns a dictionary>}`, `{id: <one with text input>, input: "hi"}`, `{id: <one with a Wait 30 s>, timeoutSeconds: 5}` | `outputType: json`; the text echoed back; `timeout` after 5 s |
 | 12.12c | `apps.shortcut_run {name}` and `apps.shortcuts_list {}` | Same behaviour as before (names) |
+| 12.13a | Things wave 1 (with Things 3 installed): `things.list {list: today}`, `{list: project, name: <a project>, query: <word>}` | Today's to-dos with when / deadline / tags; only that project's matching to-dos (Automation of Things asked once) |
+| 12.13b | `things.add {title, when: "2026-11-01", tags: [<existing tag>], checklist: [a, b]}` | In Things for that day with the tag and two checklist items; Things not brought to the front |
+| 12.13c | `things.update {id, authToken, deadline: null, addTags: [x]}`, `things.complete {id, authToken, status: canceled}`; then with a wrong token | Deadline cleared, tag added; canceled; Things shows its own "wrong token" message and nothing changes |
 | 12.6a | Mail wave 1 (apple-apps-2026 §4.1): `mail.mailboxes {}` | Every account's mailboxes, nested ones as `Parent/Child`, unread counts match Mail's sidebar; the unified `INBOX` first; `special` set for inbox / sent / drafts / junk / trash / archive |
 | 12.6b | Select two messages in Mail, `mail.selected {}`; then quit Mail and call it again | The two, newest first, each with a `message://` link that opens it; with Mail quit: `[]` and Mail stays closed |
 | 12.6c | `mail.read {id}` on a message with attachments | `summary.link` opens the message from a reminder; `attachments` lists names, sizes and types (nothing saved) |

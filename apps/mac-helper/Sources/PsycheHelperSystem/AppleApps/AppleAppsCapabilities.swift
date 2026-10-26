@@ -26,6 +26,8 @@ public enum AppleAppsCapabilities {
         public var trash: @Sendable (URL) throws -> URL?
         /// Shortcuts wave 1 (K1–K2).
         public var shortcuts: any ShortcutsBackend
+        /// Things 3 wave 1.
+        public var things: any ThingsBackend
 
         public init(
             calendar: any CalendarBackend, reminders: any RemindersBackend, mail: any MailBackend, notes: any NotesBackend,
@@ -39,7 +41,8 @@ public enum AppleAppsCapabilities {
                 try FileManager.default.trashItem(at: url, resultingItemURL: &out)
                 return out as URL?
             },
-            shortcuts: any ShortcutsBackend = LiveShortcutsBackend()
+            shortcuts: any ShortcutsBackend = LiveShortcutsBackend(),
+            things: any ThingsBackend = ThingsScriptingBackend()
         ) {
             self.calendar = calendar
             self.reminders = reminders
@@ -54,6 +57,7 @@ public enum AppleAppsCapabilities {
             self.chrome = chrome
             self.trash = trash
             self.shortcuts = shortcuts
+            self.things = things
         }
 
         /// `$PSYCHE_HOME/helper/staging` (0700).
@@ -70,7 +74,7 @@ public enum AppleAppsCapabilities {
     }
 
     public static func make(_ b: Backends) -> [any CapabilityHandler] {
-        calendar(b) + calendarWave1(b) + reminders(b) + remindersWave1(b) + mail(b) + notes(b) + finder(b) + safari(b) + contactsWave1(b) + musicWave1(b) + filesWave1(b) + shortcutsWave1(b)
+        calendar(b) + calendarWave1(b) + reminders(b) + remindersWave1(b) + mail(b) + notes(b) + finder(b) + safari(b) + contactsWave1(b) + musicWave1(b) + filesWave1(b) + shortcutsWave1(b) + thingsWave1(b)
     }
 
     // MARK: Helpers
@@ -474,6 +478,146 @@ public enum AppleAppsCapabilities {
                 let out = try await b.shortcuts.run(p.id, input: p.input, timeout: TimeInterval(t))
                 return CapabilityOutput(untrusted(["result": try json(ShortcutsWave1.result(out))]),
                                         receipt: ReceiptDraft(outcome: .ok, summary: "Ran a shortcut", externalRefs: ["shortcutId": .string(p.id)]))
+            },
+        ]
+    }
+
+    // MARK: Things 3 wave 1 (docs/connectors/apple-apps-2026.md §5; AppleScript reads, URL writes)
+
+    struct ThingsList: Decodable {
+        var list: String
+        var name: String?
+        var query: String?
+        var limit: Int?
+    }
+    struct ThingsAdd: Decodable {
+        var title: String
+        var notes: String?
+        var when: String?
+        var deadline: String?
+        var tags: [String]?
+        var list: String?
+        var checklist: [String]?
+    }
+    struct ThingsUpdate: Decodable {
+        var id: String
+        var authToken: String
+        var title: String?
+        var appendNotes: String?
+        var when: String?
+        var deadline: String??
+        var addTags: [String]?
+
+        enum CodingKeys: String, CodingKey { case id, authToken, title, appendNotes, when, deadline, addTags }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            id = try c.decode(String.self, forKey: .id)
+            authToken = try c.decode(String.self, forKey: .authToken)
+            title = try c.decodeIfPresent(String.self, forKey: .title)
+            appendNotes = try c.decodeIfPresent(String.self, forKey: .appendNotes)
+            when = try c.decodeIfPresent(String.self, forKey: .when)
+            deadline = c.contains(.deadline) ? .some(try c.decodeIfPresent(String.self, forKey: .deadline)) : .none
+            addTags = try c.decodeIfPresent([String].self, forKey: .addTags)
+        }
+    }
+    struct ThingsComplete: Decodable {
+        var id: String
+        var authToken: String
+        var status: String?
+    }
+
+    static func checkToken(_ t: String) throws {
+        guard (8...200).contains(t.count), t.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }) else {
+            throw CapabilityError.invalidParams("authToken is the Things auth token (from Settings → General → Things URLs)", field: "authToken")
+        }
+    }
+
+    static func thingsWave1(_ b: Backends) -> [any CapabilityHandler] {
+        let whenSchema = Schema.string("today, tomorrow, evening, anytime, someday or YYYY-MM-DD", maxLength: 10)
+        let tokenSchema = Schema.string("The owner's Things auth token, filled in by the Gateway from the vault; never stored by the helper", maxLength: 200)
+        return [
+            Capability(CapabilitySpec(
+                name: "things.list",
+                description: "To-dos in a Things list (inbox, today, upcoming, anytime, someday, logbook) or a named project, area or tag, in the list's own order; query matches the title or notes. Read-only; untrusted.",
+                sideEffect: .read,
+                inputSchema: Schema.object(["list": Schema.string(enum: ThingsWave1.lists), "name": Schema.string("The project, area or tag", maxLength: 200),
+                                            "query": Schema.string(maxLength: 200), "limit": limitSchema], required: ["list"])
+            )) { ctx in
+                let p = try ctx.decode(ThingsList.self)
+                guard ThingsWave1.lists.contains(p.list) else { throw CapabilityError.invalidParams("unknown list", field: "list") }
+                if ["project", "area", "tag"].contains(p.list), (p.name ?? "").trimmingCharacters(in: .whitespaces).isEmpty {
+                    throw CapabilityError.invalidParams("name is required with \(p.list)", field: "name")
+                }
+                try text(p.name, max: 200, field: "name")
+                try text(p.query, max: 200, field: "query")
+                return untrustedList("todos", try json(try await b.things.list(p.list, name: p.name, query: p.query ?? "", limit: try limit(p.limit, default: 50))))
+            },
+            Capability(CapabilitySpec(
+                name: "things.add",
+                description: "Add a to-do to Things (Inbox, or a project / area by name): title, notes, when, deadline, tags, checklist. Through Things' URL scheme; no token needed.",
+                sideEffect: .write, targetKind: .app,
+                inputSchema: Schema.object(["title": Schema.string(maxLength: 500), "notes": Schema.string(maxLength: 10_000), "when": whenSchema,
+                                            "deadline": Schema.string("YYYY-MM-DD", maxLength: 10), "tags": Schema.array(Schema.string(maxLength: 100), maxItems: 20),
+                                            "list": Schema.string("A project or area name", maxLength: 200),
+                                            "checklist": Schema.array(Schema.string(maxLength: 500), maxItems: 50)], required: ["title"]),
+                receiptKind: "connector_action"
+            )) { ctx in
+                let p = try ctx.decode(ThingsAdd.self)
+                try text(p.title, max: 500, field: "title", required: true)
+                try text(p.notes, max: 10_000, field: "notes")
+                try text(p.list, max: 200, field: "list")
+                if let w = p.when { try ThingsWave1.checkWhen(w) }
+                if let d = p.deadline, !ThingsWave1.isDate(d) { throw CapabilityError.invalidParams("deadline is YYYY-MM-DD", field: "deadline") }
+                try ThingsWave1.checkTags(p.tags ?? [], field: "tags")
+                guard (p.checklist ?? []).count <= 50, (p.checklist ?? []).allSatisfy({ $0.count <= 500 && !$0.contains(where: \.isNewline) }) else {
+                    throw CapabilityError.invalidParams("up to 50 checklist items, one line each", field: "checklist")
+                }
+                guard let url = ThingsWave1.addURL(title: p.title, notes: p.notes, when: p.when, deadline: p.deadline, tags: p.tags, list: p.list,
+                                                   checklist: p.checklist) else { throw CapabilityError.invalidParams("could not build the Things URL") }
+                try await b.things.open(url)
+                return CapabilityOutput(["added": true], receipt: ReceiptDraft(outcome: .ok, summary: "Added a to-do to Things"))
+            },
+            Capability(CapabilitySpec(
+                name: "things.update",
+                description: "Change a Things to-do: title, append to its notes, when, deadline (null clears), add tags. Needs the owner's Things auth token (the Gateway fills it from the vault).",
+                sideEffect: .write, targetKind: .app,
+                inputSchema: Schema.object(["id": Schema.string(maxLength: 64), "authToken": tokenSchema, "title": Schema.string(maxLength: 500),
+                                            "appendNotes": Schema.string(maxLength: 10_000), "when": whenSchema, "deadline": Schema.string("YYYY-MM-DD, or null to clear", maxLength: 10),
+                                            "addTags": Schema.array(Schema.string(maxLength: 100), maxItems: 20)], required: ["id", "authToken"]),
+                receiptKind: "connector_action"
+            )) { ctx in
+                let p = try ctx.decode(ThingsUpdate.self)
+                try ThingsWave1.checkId(p.id)
+                try checkToken(p.authToken)
+                try text(p.title, max: 500, field: "title")
+                try text(p.appendNotes, max: 10_000, field: "appendNotes")
+                if let w = p.when { try ThingsWave1.checkWhen(w) }
+                if case .some(.some(let d)) = p.deadline, !ThingsWave1.isDate(d) { throw CapabilityError.invalidParams("deadline is YYYY-MM-DD", field: "deadline") }
+                try ThingsWave1.checkTags(p.addTags ?? [], field: "addTags")
+                guard let url = ThingsWave1.updateURL(id: p.id, authToken: p.authToken, title: p.title, appendNotes: p.appendNotes, when: p.when,
+                                                      deadline: p.deadline, addTags: p.addTags) else { throw CapabilityError.invalidParams("could not build the Things URL") }
+                try await b.things.open(url)
+                return CapabilityOutput(["updated": true], receipt: ReceiptDraft(outcome: .ok, summary: "Updated a Things to-do", externalRefs: ["todoId": .string(p.id)]))
+            },
+            Capability(CapabilitySpec(
+                name: "things.complete",
+                description: "Complete, cancel or reopen a Things to-do (status completed by default). Needs the owner's Things auth token (the Gateway fills it from the vault).",
+                sideEffect: .write, targetKind: .app,
+                inputSchema: Schema.object(["id": Schema.string(maxLength: 64), "authToken": tokenSchema,
+                                            "status": Schema.string(enum: ["completed", "canceled", "open"])], required: ["id", "authToken"]),
+                receiptKind: "connector_action"
+            )) { ctx in
+                let p = try ctx.decode(ThingsComplete.self)
+                try ThingsWave1.checkId(p.id)
+                try checkToken(p.authToken)
+                let status = p.status ?? "completed"
+                guard ["completed", "canceled", "open"].contains(status) else { throw CapabilityError.invalidParams("status is completed, canceled or open", field: "status") }
+                guard let url = ThingsWave1.updateURL(id: p.id, authToken: p.authToken, title: nil, appendNotes: nil, when: nil, deadline: .none, addTags: nil,
+                                                      completed: status == "canceled" ? nil : status == "completed",
+                                                      canceled: status == "canceled" ? true : nil) else { throw CapabilityError.invalidParams("could not build the Things URL") }
+                try await b.things.open(url)
+                return CapabilityOutput(["status": .string(status)], receipt: ReceiptDraft(outcome: .ok, summary: "Marked a Things to-do \(status)", externalRefs: ["todoId": .string(p.id)]))
             },
         ]
     }
