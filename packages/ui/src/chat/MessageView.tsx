@@ -1,5 +1,5 @@
 import type { Message, Task } from "@psyche/protocol";
-import { CornerUpLeft, Ellipsis, GitBranch, Pencil } from "lucide-react";
+import { CornerUpLeft, Ellipsis, GitBranch, GraduationCap, Pencil } from "lucide-react";
 import { type ReactElement, useId, useState } from "react";
 import { Avatar } from "../avatar/Avatar.tsx";
 import { MessageBlocks } from "../blocks/MessageBlocks.tsx";
@@ -17,8 +17,8 @@ import { formatTime } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
 import { usePersona } from "../slots.tsx";
 import {
-  FeedbackButtons,
   FeedbackNote,
+  TeachPanel,
   UsedLessons,
   useMessageFeedback,
 } from "../teaching/FeedbackActions.tsx";
@@ -111,8 +111,10 @@ export function MessageView({
     );
   }
 
+  // Teaching lives in the ⋯ menu (no thumbs): it saves a local lesson, never provider feedback.
+  const canTeach = message.role === "agent" && !streamingText;
   const actions =
-    onReply || onFork || canEdit ? (
+    onReply || onFork || canEdit || canTeach ? (
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -141,6 +143,11 @@ export function MessageView({
           {canEdit ? (
             <DropdownMenuItem onClick={() => setEditing(messageText(message))}>
               <Pencil aria-hidden="true" /> {t("chat.message.editResend")}
+            </DropdownMenuItem>
+          ) : null}
+          {canTeach ? (
+            <DropdownMenuItem onClick={() => feedback.setOpen(true)}>
+              <GraduationCap aria-hidden="true" /> {t("chat.teach.dialog")}
             </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>
@@ -228,12 +235,9 @@ export function MessageView({
           <span className="flex-1 border-t-[0.5px] border-separator-strong" aria-hidden="true" />
         </p>
       ) : null}
-      {!showHeader && !streamingText ? (
-        // Without a header row, the actions float at the top end on hover (no layout shift).
-        <FeedbackButtons
-          feedback={feedback}
-          className="absolute end-0 -top-1 rounded-md bg-canvas"
-        />
+      {!showHeader && actions ? (
+        // Without a header row, ⋯ sits in the empty avatar gutter so it never covers the text.
+        <span className="absolute start-0 top-0">{actions}</span>
       ) : null}
       {showHeader ? (
         <div className="mb-1 flex h-6 items-center gap-2">
@@ -246,10 +250,7 @@ export function MessageView({
           />
           <span className="text-headline text-label-primary">{persona.name}</span>
           {hoverTime}
-          <span className="ms-auto flex items-center gap-0.5">
-            {streamingText ? null : <FeedbackButtons feedback={feedback} />}
-            {actions}
-          </span>
+          <span className="ms-auto flex items-center gap-0.5">{actions}</span>
         </div>
       ) : null}
       <div className="ps-7">
@@ -261,6 +262,7 @@ export function MessageView({
           {...(onWrapUpAction ? { onWrapUpAction } : {})}
         />
         {/* Teaching (§5.1): the note after Teach and "Used n lessons", only when there is one. */}
+        <TeachPanel feedback={feedback} />
         <FeedbackNote feedback={feedback} />
         <UsedLessons message={message} />
       </div>
