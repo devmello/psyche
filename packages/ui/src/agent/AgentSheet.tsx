@@ -59,23 +59,40 @@ export interface AgentSheetRoute {
   tab: AgentTab;
   taskId?: string;
   file?: string;
+  /** Where closing the sheet returns to (`?from=/feed`); the chat when absent. */
+  back?: string;
+}
+
+/** A same-app path (`/feed`), never a protocol-relative or external URL. */
+function appPath(value: string | null): string | undefined {
+  return value !== null && /^\/(?![/\\])/.test(value) ? value : undefined;
+}
+
+/** `/agent/upcoming?from=%2Ffeed`: the sheet route that returns to `back` when closed. */
+export function agentSheetHref(tab: AgentTab, options: { back?: string } = {}): string {
+  return options.back === undefined
+    ? `/agent/${tab}`
+    : `/agent/${tab}?from=${encodeURIComponent(options.back)}`;
 }
 
 const ROUTE_TABS: readonly AgentTab[] = ["activity", "approvals", "upcoming", "soul"];
 
 /**
- * Reads `/agent/<tab>[/<taskId>][?file=…]`. The chat column opens its sheet from this so the
+ * Reads `/agent/<tab>[/<taskId>][?file=…][&from=/feed]`. The chat column opens its sheet from this so the
  * routes render the same sheet over the chat, never a full-width page (redesign §5.7).
  */
 export function agentSheetRoute(route: string): AgentSheetRoute | null {
   const m = /^\/agent\/(activity|approvals|upcoming|soul)(?:\/([^/?]+))?/.exec(route);
   if (m === null) return null;
   const tab = ROUTE_TABS.find((x) => x === m[1]) ?? "activity";
-  const file = new URLSearchParams(route.split("?")[1] ?? "").get("file") ?? undefined;
+  const query = new URLSearchParams(route.split("?")[1] ?? "");
+  const file = query.get("file") ?? undefined;
+  const back = appPath(query.get("from"));
   return {
     tab,
     ...(m[2] === undefined ? {} : { taskId: m[2] }),
     ...(file ? { file } : {}),
+    ...(back ? { back } : {}),
   };
 }
 

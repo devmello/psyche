@@ -95,6 +95,37 @@ describe("the agent sheet over the chat (redesign §5.7)", () => {
   });
 });
 
+describe("the Feed's instructions and schedule sheets (#614)", () => {
+  it("opens /feed/instructions over the feed and closes back to /feed", async () => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", "/feed/instructions");
+    const { platform } = webPlatform();
+    render(<PsycheApp platform={platform} />);
+    const sheet = await screen.findByTestId("feed-instructions");
+    expect(await screen.findByTestId("screen-feed")).toBeTruthy();
+    fireEvent.keyDown(sheet, { key: "Escape" });
+    await waitFor(() => expect(window.location.pathname).toBe("/feed"));
+    await waitFor(() => expect(screen.queryByTestId("feed-instructions")).toBeNull());
+  });
+
+  it("closes Upcoming opened from the Feed's Schedule back to /feed", async () => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", "/feed");
+    const { platform } = webPlatform();
+    render(<PsycheApp platform={platform} />);
+    await screen.findByTestId("screen-feed");
+    fireEvent.click(await screen.findByRole("button", { name: "Schedule" }));
+    const sheet = await screen.findByTestId("agent-sheet");
+    expect(
+      within(sheet)
+        .getByRole("tab", { name: /Upcoming/ })
+        .getAttribute("aria-selected"),
+    ).toBe("true");
+    fireEvent.keyDown(sheet, { key: "Escape" });
+    await waitFor(() => expect(window.location.pathname).toBe("/feed"));
+  });
+});
+
 describe("the composed app on the web host (A8)", () => {
   it("renders the kit's chat column with the persona and the phone layout below 720 px", async () => {
     window.innerWidth = 390;

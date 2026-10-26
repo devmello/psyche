@@ -2,6 +2,7 @@ import type { FeedPost } from "@psyche/protocol";
 import { CalendarClock, CircleAlert, Loader, Newspaper, PenLine } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { toast } from "sonner";
+import { agentSheetHref } from "../../agent/AgentSheet.tsx";
 import { EmptyState, ErrorState, LoadingCards, useDelayedFlag } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { useFeed } from "../../data/hooks.ts";
@@ -10,6 +11,7 @@ import { describeError } from "../../i18n/errors.ts";
 import { formatTime } from "../../lib/format.ts";
 import { ListItem } from "../../motion/index.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
+import { FeedInstructionsSheet } from "./FeedInstructionsSheet.tsx";
 import { type FeedFeedbackValue, FeedPostCard } from "./FeedPostCard.tsx";
 import { feedKind, feedTopic, primarySource } from "./feed-post.ts";
 import { ScreenColumn, ScreenToolbar, ToolbarLabel } from "./ScreenToolbar.tsx";
@@ -210,9 +212,19 @@ export function FeedView({
 export interface FeedScreenProps {
   /** Opens a side chat seeded with the post (Psyche decision, §3.9). */
   onAsk?: (post: FeedPost) => void;
-  /** Defaults to navigating to `/feed/instructions`. */
+  /**
+   * Replaces the built-in instructions sheet. By default the button opens the Feed instructions
+   * sheet over the feed and navigates to `/feed/instructions` (issue #614).
+   */
   onEditInstructions?: () => void;
-  /** Defaults to navigating to `/agent/upcoming`, where briefings are edited. */
+  /** The route has the instructions sheet open (`/feed/instructions`). */
+  instructionsOpen?: boolean;
+  /** Closing the instructions sheet; defaults to navigating back to `/feed`. */
+  onCloseInstructions?: () => void;
+  /**
+   * Defaults to the agent sheet's Upcoming tab over the Feed, closing back to `/feed`
+   * (`/agent/upcoming?from=%2Ffeed`), where briefings are scheduled.
+   */
   onSchedule?: () => void;
   /** Defaults to `feed.generate` through `useFeed().generate`. */
   onGenerate?: () => Promise<unknown> | undefined;
@@ -235,6 +247,8 @@ const FEEDBACK_TOAST: Record<FeedFeedbackValue, (post: FeedPost) => string> = {
 export function FeedScreen({
   onAsk,
   onEditInstructions,
+  instructionsOpen,
+  onCloseInstructions,
   onSchedule,
   onGenerate,
   sourceFailures,
@@ -269,26 +283,52 @@ export function FeedScreen({
       .finally(() => setGenerating(false));
   };
 
-  const editInstructions = onEditInstructions ?? (() => navigate?.("/feed/instructions"));
-  const schedule = onSchedule ?? (() => navigate?.("/agent/upcoming"));
+  // The sheet opens at once and the route follows, so it works with or without a router.
+  const [ownOpen, setOwnOpen] = useState(false);
+  const editorOpen = instructionsOpen ?? ownOpen;
+  const editInstructions =
+    onEditInstructions ??
+    (() => {
+      setOwnOpen(true);
+      navigate?.("/feed/instructions");
+    });
+  const closeInstructions = () => {
+    setOwnOpen(false);
+    if (onCloseInstructions) onCloseInstructions();
+    else if (instructionsOpen !== undefined) navigate?.("/feed");
+  };
+  const schedule = onSchedule ?? (() => navigate?.(agentSheetHref("upcoming", { back: "/feed" })));
 
   return (
-    <FeedView
-      posts={feed.posts}
-      nextBriefAt={feed.nextBriefAt}
-      loading={feed.posts.length === 0 && feed.loading}
-      loadingDelayMs={150}
-      error={feed.posts.length === 0 ? feed.error : null}
-      onRetry={feed.reload}
-      generating={generating}
-      persona={persona.name}
-      onFeedback={giveFeedback}
-      onEditInstructions={editInstructions}
-      onSchedule={schedule}
-      onGenerate={generate}
-      onOpenRoute={(route) => navigate?.(route)}
-      {...(onAsk ? { onAsk } : {})}
-      {...(sourceFailures ? { sourceFailures } : {})}
-    />
+    <>
+      <FeedView
+        posts={feed.posts}
+        nextBriefAt={feed.nextBriefAt}
+        loading={feed.posts.length === 0 && feed.loading}
+        loadingDelayMs={150}
+        error={feed.posts.length === 0 ? feed.error : null}
+        onRetry={feed.reload}
+        generating={generating}
+        persona={persona.name}
+        onFeedback={giveFeedback}
+        onEditInstructions={editInstructions}
+        onSchedule={schedule}
+        onGenerate={generate}
+        onOpenRoute={(route) => navigate?.(route)}
+        {...(onAsk ? { onAsk } : {})}
+        {...(sourceFailures ? { sourceFailures } : {})}
+      />
+      {onEditInstructions ? null : (
+        <FeedInstructionsSheet
+          open={editorOpen}
+          onClose={closeInstructions}
+          onSchedule={() => {
+            setOwnOpen(false);
+            schedule();
+          }}
+          onGenerate={() => (onGenerate ? onGenerate() : feed.generate())}
+        />
+      )}
+    </>
   );
 }
