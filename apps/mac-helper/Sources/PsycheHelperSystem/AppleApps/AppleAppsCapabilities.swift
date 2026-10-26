@@ -16,11 +16,14 @@ public enum AppleAppsCapabilities {
         public var roots: @Sendable () -> FinderRoots
         /// Where `mail.save_attachments` stages files for the Library (the Gateway imports them).
         public var staging: @Sendable () -> URL
+        /// Contacts wave 1 (P1–P3).
+        public var contacts: any ContactsBackend
 
         public init(
             calendar: any CalendarBackend, reminders: any RemindersBackend, mail: any MailBackend, notes: any NotesBackend,
             safari: any SafariBackend, finder: any FinderBackend, roots: @escaping @Sendable () -> FinderRoots,
-            staging: @escaping @Sendable () -> URL = { Backends.stagingDir() }
+            staging: @escaping @Sendable () -> URL = { Backends.stagingDir() },
+            contacts: any ContactsBackend = ContactsStoreBackend()
         ) {
             self.calendar = calendar
             self.reminders = reminders
@@ -30,6 +33,7 @@ public enum AppleAppsCapabilities {
             self.finder = finder
             self.roots = roots
             self.staging = staging
+            self.contacts = contacts
         }
 
         /// `$PSYCHE_HOME/helper/staging` (0700).
@@ -46,7 +50,7 @@ public enum AppleAppsCapabilities {
     }
 
     public static func make(_ b: Backends) -> [any CapabilityHandler] {
-        calendar(b) + calendarWave1(b) + reminders(b) + remindersWave1(b) + mail(b) + notes(b) + finder(b) + safari(b)
+        calendar(b) + calendarWave1(b) + reminders(b) + remindersWave1(b) + mail(b) + notes(b) + finder(b) + safari(b) + contactsWave1(b)
     }
 
     // MARK: Helpers
@@ -254,6 +258,85 @@ public enum AppleAppsCapabilities {
                 try await b.reminders.setFlagged(id: p.id, flagged: p.flagged)
                 return CapabilityOutput(["flagged": .bool(p.flagged)], receipt: ReceiptDraft(outcome: .ok, summary: p.flagged ? "Flagged a reminder" : "Unflagged a reminder",
                                                                                           externalRefs: ["reminderId": .string(p.id)]))
+            },
+        ]
+    }
+
+    // MARK: Contacts wave 1 (docs/connectors/apple-apps-2026.md §4.5, P1–P3)
+
+    struct ContactsSearch: Decodable {
+        var query: String
+        var limit: Int?
+    }
+    struct ContactRef: Decodable { var id: String }
+
+    static let labeledSchema = Schema.array(Schema.object(["label": Schema.string("home, work, mobile, … or empty", maxLength: 100),
+                                                           "value": Schema.string(maxLength: 320)], required: ["label", "value"]), maxItems: 10)
+    static let contactFields: [String: JSONValue] = [
+        "givenName": Schema.string(maxLength: 200), "familyName": Schema.string(maxLength: 200), "organization": Schema.string(maxLength: 200),
+        "jobTitle": Schema.string(maxLength: 200), "birthday": Schema.string("YYYY-MM-DD, or --MM-DD without a year", maxLength: 10),
+    ]
+
+    static func checkContactFields(givenName: String?, familyName: String?, organization: String?, jobTitle: String?, birthday: String?,
+                                   emails: [LabeledValueRecord], phones: [LabeledValueRecord]) throws {
+        for (v, f) in [(givenName, "givenName"), (familyName, "familyName"), (organization, "organization"), (jobTitle, "jobTitle")] {
+            try text(v, max: 200, field: f)
+        }
+        if let b = birthday { _ = try ContactsWave1.birthday(b) }
+        guard emails.count <= 10, phones.count <= 10 else { throw CapabilityError.invalidParams("at most 10 emails and 10 phones", field: "emails") }
+        for e in emails { try ContactsWave1.checkEmail(e.value, field: "emails"); try text(e.label, max: 100, field: "emails") }
+        for p in phones { try ContactsWave1.checkPhone(p.value, field: "phones"); try text(p.label, max: 100, field: "phones") }
+    }
+
+    static func contactsWave1(_ b: Backends) -> [any CapabilityHandler] {
+        [
+            Capability(CapabilitySpec(
+                name: "contacts.search",
+                description: "Find people by name, email, phone or company, best match first (id, name, organization, emails, phones). Asks for Contacts access on first use. Read-only.",
+                sideEffect: .read,
+                inputSchema: Schema.object(["query": Schema.string("A name, email, phone or company", maxLength: 200), "limit": limitSchema], required: ["query"])
+            )) { ctx in
+                let p = try ctx.decode(ContactsSearch.self)
+                try text(p.query, max: 200, field: "query", required: true)
+                return untrustedList("contacts", try json(ContactsWave1.search(try await b.contacts.summaries(), query: p.query, limit: try limit(p.limit, default: 20))))
+            },
+            Capability(CapabilitySpec(
+                name: "contacts.read",
+                description: "One contact: names, organization, job title, emails, phones, addresses, URLs, birthday and groups (never the note). Read-only.",
+                sideEffect: .read, inputSchema: Schema.object(["id": Schema.string()], required: ["id"])
+            )) { ctx in
+                let p = try ctx.decode(ContactRef.self)
+                try text(p.id, max: 200, field: "id", required: true)
+                return CapabilityOutput(untrusted(["contact": try json(try await b.contacts.read(id: p.id))]))
+            },
+            Capability(CapabilitySpec(
+                name: "contacts.create",
+                description: "Add a contact (\"save this sender\"): names, organization, job title, birthday, emails and phones with labels.",
+                sideEffect: .write,
+                inputSchema: Schema.object(contactFields.merging(["emails": labeledSchema, "phones": labeledSchema]) { a, _ in a }),
+                receiptKind: "connector_action"
+            )) { ctx in
+                let p = try ctx.decode(ContactInputRecord.self)
+                try checkContactFields(givenName: p.givenName, familyName: p.familyName, organization: p.organization, jobTitle: p.jobTitle,
+                                       birthday: p.birthday, emails: p.emails ?? [], phones: p.phones ?? [])
+                let named = [p.givenName, p.familyName, p.organization].contains { !($0 ?? "").trimmingCharacters(in: .whitespaces).isEmpty }
+                guard named else { throw CapabilityError.invalidParams("give a name or an organization", field: "givenName") }
+                let c = try await b.contacts.create(p)
+                return CapabilityOutput(["contact": try json(c)], receipt: ReceiptDraft(outcome: .ok, summary: "Added a contact", externalRefs: ["contactId": .string(c.id)]))
+            },
+            Capability(CapabilitySpec(
+                name: "contacts.update",
+                description: "Change a contact's names, organization, job title or birthday, and add emails or phones (never removes or replaces them).",
+                sideEffect: .write,
+                inputSchema: Schema.object(contactFields.merging(["id": Schema.string(), "addEmails": labeledSchema, "addPhones": labeledSchema]) { a, _ in a },
+                                           required: ["id"]),
+                receiptKind: "connector_action"
+            )) { ctx in
+                let p = try ctx.decode(ContactUpdateRecord.self)
+                try checkContactFields(givenName: p.givenName, familyName: p.familyName, organization: p.organization, jobTitle: p.jobTitle,
+                                       birthday: p.birthday, emails: p.addEmails ?? [], phones: p.addPhones ?? [])
+                let c = try await b.contacts.update(p)
+                return CapabilityOutput(["contact": try json(c)], receipt: ReceiptDraft(outcome: .ok, summary: "Updated a contact", externalRefs: ["contactId": .string(c.id)]))
             },
         ]
     }
