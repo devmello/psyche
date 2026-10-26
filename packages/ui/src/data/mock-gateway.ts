@@ -829,6 +829,7 @@ export class MockGateway implements GatewayClient {
       },
       now: () => this.now(),
       emit: (event, payload) => this.emit(event, payload),
+      settings: () => this.world.settings,
     }),
     "events.subscribe": () => ({ stateVersion: this.stateVersion }),
 

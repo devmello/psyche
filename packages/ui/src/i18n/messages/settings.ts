@@ -1567,4 +1567,51 @@ export const settings = {
   "settings.people.exportHint":
     "A zip of your memory with graph.json (people, projects, facts and loops) and every card file.",
   "settings.people.exportButton": "Export people and projects",
+  "settings.people.blocked": "Blocked",
+  "settings.people.blockedHint":
+    "Psyche never learns about these again. A blocked domain covers every address at it; existing cards stay until you forget them.",
+  "settings.people.noneBlocked": "No one is blocked.",
+  "settings.people.blockedOn": "{kind} · blocked {date}",
+  "settings.people.unblock": "Unblock",
+  "settings.people.unblockLabel": "Unblock {hint}",
+  "settings.people.block": "Block",
+  "settings.people.blockKindLabel": "What to block",
+  "settings.people.blockValue": "Address, phone or domain",
+  "settings.people.blockKind.email": "Email address",
+  "settings.people.blockKind.phone": "Phone number",
+  "settings.people.blockKind.domain": "Domain",
+  "settings.people.blockKind.contact": "Contact",
+  "settings.people.blockKind.channel": "Channel",
+  "settings.people.blockKind.calendar": "Calendar",
+  "settings.people.blockKind.url": "Web address",
+  "settings.people.blockPlaceholder.email": "name@example.com",
+  "settings.people.blockPlaceholder.phone": "+1 555 0100",
+  "settings.people.blockPlaceholder.domain": "example.com",
+  "settings.people.deleteBySource": "Delete by source",
+  "settings.people.deleteBySourceHint":
+    "Removes everything one source brought in and turns it off. Facts you added yourself stay.",
+  "settings.people.nothingStored": "Nothing is stored from any source yet.",
+  "settings.people.sourceStored":
+    "{entities, plural, one {# person or project} other {# people and projects}} · {interactions, plural, one {# interaction} other {# interactions}}",
+  "settings.people.deleteSource": "Delete…",
+  "settings.people.deleteSourceLabel": "Delete what {source} brought in",
+  "settings.people.deleteSourceTitle": "Delete what {source} brought in?",
+  "settings.people.deleteSourceAfter":
+    "{source} is turned off so the next sync doesn't bring it back. Facts you added yourself stay.",
+  "settings.people.deleteSourceConfirm": "Delete",
+  "settings.people.deletedSource": "Deleted what {source} brought in.",
+  "settings.people.forgetAll": "Forget everything",
+  "settings.people.forgetAllHint":
+    "Deletes every person, project, card and loop, the blocklist too, and turns People & projects off. Your own memory files stay.",
+  "settings.people.forgetAllButton": "Forget everything…",
+  "settings.people.forgetAllTitle": "Forget everything about people and projects?",
+  "settings.people.forgetAllAfter":
+    "This can't be undone. People & projects turns off; turn it back on to start again from scratch.",
+  "settings.people.typeToConfirm": "Type “{phrase}” to confirm",
+  "settings.people.forgetAllConfirm": "Forget everything",
+  "settings.people.forgotAll": "Forgot everything about people and projects.",
+  "settings.people.counting": "Checking what would be deleted…",
+  "settings.people.previewFailed": "Psyche couldn't count what it would delete ({reason}).",
+  "settings.people.removeCounts":
+    "Psyche deletes {entities, plural, one {# person or project} other {# people and projects}}, {facts, plural, one {# fact} other {# facts}}, {interactions, plural, one {# interaction} other {# interactions}}, {loops, plural, one {# open loop} other {# open loops}} and {identifiers, plural, one {# address} other {# addresses}}.",
 } as const;
