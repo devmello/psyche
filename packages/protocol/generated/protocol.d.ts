@@ -949,6 +949,7 @@ export interface ApprovalRequest {
     details:                { [key: string]: unknown };
     deviceOnly:             boolean;
     expiresAt:              string;
+    fromLesson?:            FromLesson;
     grantId?:               null | string;
     grantKey:               string;
     id:                     string;
@@ -979,14 +980,25 @@ export interface DecidedByClass {
     senderId?: string;
 }
 
+export interface FromLesson {
+    /**
+     * The owner's feedback text
+     */
+    because:    string;
+    feedbackId: string;
+    lessonId:   string;
+}
+
 export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push";
 
 export interface RequestedBy {
-    agent?:      string;
-    runId?:      null | string;
-    taskId?:     null | string;
-    threadId?:   null | string;
-    toolCallId?: string;
+    agent?:       string;
+    parentRunId?: string;
+    runId?:       null | string;
+    specialist?:  string;
+    taskId?:      null | string;
+    threadId?:    null | string;
+    toolCallId?:  string;
 }
 
 export type SideEffect = "none" | "read" | "write" | "destructive" | "financial";
@@ -1016,6 +1028,15 @@ export interface Target {
 }
 
 export type TargetKind = "origin" | "path" | "account" | "command" | "recipient" | "app";
+
+export interface ApprovalHint {
+    /**
+     * How many, roughly
+     */
+    estimate?: number;
+    kind:      ApprovalKind;
+    label:     string;
+}
 
 export interface ApprovalResult {
     answerToken?: string;
@@ -1269,6 +1290,7 @@ export interface Automation {
      * main | isolated | named:<id>
      */
     sessionTarget: string;
+    specialist?:   AutomationSpecialist;
     timezone:      string;
     title:         string;
     updatedAt:     string;
@@ -1286,6 +1308,20 @@ export interface Delivery {
  * `reminder` is a one-shot: `schedule` is an ISO-8601 instant
  */
 export type AutomationKind = "cron" | "interval" | "watch" | "heartbeat" | "briefing" | "reminder";
+
+export interface AutomationSpecialist {
+    budget?:  SpecialistBudget;
+    deliver?: Deliver;
+    role:     string;
+}
+
+export interface SpecialistBudget {
+    costUsd?: number;
+    minutes?: number;
+    tokens?:  number;
+}
+
+export type Deliver = "inbox" | "thread";
 
 export interface WatchConfig {
     check: WatchCheck;
@@ -2106,6 +2142,10 @@ export interface Block {
     tokensAfter?:    number;
     tokensBefore?:   number;
     trigger?:        BlockTrigger;
+    feedbackId?:     string;
+    lessonId?:       null | string;
+    messageId?:      string;
+    statement?:      null | string;
 }
 
 export interface WrapUpAction {
@@ -2146,7 +2186,7 @@ export interface CompactionSummary {
 
 export type BlockTrigger = "auto" | "manual";
 
-export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "receipt" | "task" | "wrap_up" | "related_threads" | "compaction" | "learned";
+export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "receipt" | "task" | "wrap_up" | "related_threads" | "compaction" | "learned" | "taught";
 
 export interface ChatCancelParams {
     runId?:   string;
@@ -2209,6 +2249,7 @@ export interface Message {
     channelRef?:       ChannelRef | null;
     createdAt:         string;
     id:                string;
+    lessonsApplied?:   LessonRef[];
     provenance:        Provenance;
     providerNative?:   unknown;
     replyToMessageId?: null | string;
@@ -2223,6 +2264,14 @@ export interface ChannelRef {
     channel:   string;
     messageId: string;
 }
+
+export interface LessonRef {
+    kind:      LessonKind;
+    lessonId:  string;
+    statement: string;
+}
+
+export type LessonKind = "style" | "fact" | "entity" | "approach" | "parameter" | "boundary";
 
 export type Provenance = "owner" | "agent" | "untrusted" | "system";
 
@@ -2288,11 +2337,18 @@ export interface ChatSendParams {
     attachments?:      string[];
     content:           string;
     mode?:             QueueMode;
+    redo?:             Redo;
     replyToMessageId?: string;
     threadId:          string;
 }
 
 export type QueueMode = "steer" | "followUp" | "interrupt";
+
+export interface Redo {
+    instruction?:    string;
+    messageId:       string;
+    withoutLessons?: boolean;
+}
 
 export interface ChatSendResult {
     messageId: string;
@@ -3011,6 +3067,7 @@ export interface FeedPost {
      */
     exploration: boolean;
     feedback?:   FeedFeedback | null;
+    growth?:     GrowthCard;
     id:          string;
     reasons:     string[];
     score:       number;
@@ -3022,6 +3079,21 @@ export interface Citation {
     title:   string;
     url:     string;
 }
+
+export interface GrowthCard {
+    items:  GrowthCardItem[];
+    weekOf: string;
+}
+
+export interface GrowthCardItem {
+    because:   string;
+    evidence:  string[];
+    lessonId?: null | string;
+    statement: string;
+    type:      GrowthCardItemType;
+}
+
+export type GrowthCardItemType = "lesson" | "question" | "retire" | "conflict";
 
 export interface FeedGenerateParams {
     briefingId?: string;
@@ -3054,6 +3126,138 @@ export interface FeedPostPayload {
 export interface FeedUpdatedPayload {
     briefingId?: string;
     posts:       FeedPost[];
+}
+
+export interface FeedbackDeleteParams {
+    eventId: string;
+}
+
+export interface FeedbackGiveParams {
+    kind:    ExplicitFeedbackKind;
+    reason?: FeedbackReason;
+    scope?:  FeedbackScope;
+    target:  FeedbackTarget;
+    /**
+     * The owner's one-line correction ("What should I do instead?")
+     */
+    text?: string;
+}
+
+export type ExplicitFeedbackKind = "helpful" | "not_helpful" | "correction";
+
+export type FeedbackReason = "too_long" | "wrong_tone" | "wrong_facts" | "not_what_i_asked" | "should_have_asked";
+
+export type FeedbackScope = "once" | "person" | "task_kind" | "always";
+
+export interface FeedbackTarget {
+    automationId?: string;
+    id:            string;
+    skill?:        string;
+    taskId?:       string;
+    threadId?:     string;
+    type:          FeedbackTargetType;
+}
+
+export type FeedbackTargetType = "message" | "tool_call" | "task" | "approval" | "draft" | "feed_post" | "idea" | "automation_run" | "skill_run";
+
+export interface FeedbackGiveResult {
+    approval?: ApprovalRequest | null;
+    event:     FeedbackEvent;
+    lesson?:   Lesson | null;
+}
+
+export interface FeedbackEvent {
+    createdAt: string;
+    detail?:   { [key: string]: unknown } | null;
+    id:        string;
+    kind:      FeedbackKind;
+    lessonId?: null | string;
+    reason?:   FeedbackReason | null;
+    scope?:    FeedbackScope | null;
+    /**
+     * "desktop", "web" or "channel:<channelId>"
+     */
+    surface: string;
+    target:  FeedbackTarget;
+    text?:   null | string;
+}
+
+export type FeedbackKind = "helpful" | "not_helpful" | "correction" | "undo" | "draft_edited" | "approval_edited" | "approval_denied" | "dismissed" | "regenerated" | "feed" | "idea";
+
+export interface Lesson {
+    confidence:     number;
+    confirmedAt?:   null | string;
+    createdAt:      string;
+    destination:    LessonDestination;
+    forgottenAt?:   null | string;
+    id:             string;
+    kind:           LessonKind;
+    lastAppliedAt?: null | string;
+    origin:         LessonOrigin;
+    previous?:      null | string;
+    refinedCount:   number;
+    scope:          LessonScope;
+    sources:        string[];
+    statement:      string;
+    status:         LessonStatus;
+    supersedes?:    null | string;
+    value:          string;
+}
+
+export interface LessonDestination {
+    lineId?: string;
+    path?:   string;
+    /**
+     * e.g. "How I write for you"
+     */
+    section?:      string;
+    type:          DestinationEnum;
+    attribute?:    string;
+    entityId?:     string;
+    rel?:          string;
+    versionId?:    string;
+    skill?:        string;
+    automationId?: string;
+    /**
+     * e.g. "schedule", "delivery"
+     */
+    field?: string;
+}
+
+export type DestinationEnum = "file" | "graph" | "skill" | "automation";
+
+export type LessonOrigin = "stated" | "inferred";
+
+export interface LessonScope {
+    automationId?: string;
+    connector?:    string;
+    entityId?:     string;
+    global?:       boolean;
+    recipient?:    string;
+    skill?:        string;
+    taskKind?:     string;
+}
+
+export type LessonStatus = "proposed" | "active" | "confirmed" | "dormant" | "superseded" | "forgotten";
+
+export interface FeedbackListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?:     string;
+    kind?:       FeedbackKind;
+    limit?:      number;
+    since?:      string;
+    targetType?: FeedbackTargetType;
+}
+
+export interface FeedbackListResult {
+    events:      FeedbackEvent[];
+    nextCursor?: null | string;
+}
+
+export interface FeedbackRecordedPayload {
+    event: FeedbackEvent;
 }
 
 export interface FileBlock {
@@ -3191,13 +3395,13 @@ export interface GoalsArchiveResult {
 export interface GoalsCreateParams {
     cadence?:    null | string;
     category:    GoalCategory;
-    milestones?: Milestone[];
+    milestones?: MilestoneElement[];
     plan?:       { [key: string]: unknown } | null;
     timezone?:   string;
     title:       string;
 }
 
-export interface Milestone {
+export interface MilestoneElement {
     dueAt?: null | string;
     title:  string;
 }
@@ -3506,7 +3710,7 @@ export interface EntitySummary {
 }
 
 export interface GraphStatus {
-    budget:           Budget;
+    budget:           GraphStatusBudget;
     counts:           Counts;
     enabled:          boolean;
     lastModelPassAt?: null | string;
@@ -3517,7 +3721,7 @@ export interface GraphStatus {
     sources:       SourceElement[];
 }
 
-export interface Budget {
+export interface GraphStatusBudget {
     entitiesUsed: number;
     maxEntities:  number;
     maxTokens:    number;
@@ -3548,6 +3752,64 @@ export interface SourceElement {
     lastIngestAt?: null | string;
     source:        GraphSource;
 }
+
+export interface GrowthSummaryParams {
+    window: GrowthWindow;
+}
+
+export type GrowthWindow = "7d" | "30d" | "all";
+
+export interface GrowthSummaryResult {
+    summary: GrowthSummary;
+}
+
+export interface GrowthSummary {
+    lessons:    Lessons;
+    metrics:    GrowthMetric[];
+    milestones: Milestone[];
+    since?:     null | string;
+    timeline:   GrowthItem[];
+    window:     GrowthWindow;
+}
+
+export interface Lessons {
+    confirmed: number;
+    forgotten: number;
+    learned:   number;
+    refined:   number;
+}
+
+export interface GrowthMetric {
+    count:          number;
+    evidence:       string[];
+    id:             GrowthMetricID;
+    previousCount?: number | null;
+    previousRate?:  number | null;
+    previousTotal?: number | null;
+    rate?:          number | null;
+    skill?:         string;
+    total:          number;
+}
+
+export type GrowthMetricID = "drafts_sent_as_is" | "approvals_without_change" | "task_success" | "repeat_corrections" | "corrections_applied";
+
+export interface Milestone {
+    at:       string;
+    kind:     MilestoneKind;
+    ref?:     null | string;
+    subject?: null | string;
+}
+
+export type MilestoneKind = "first_week" | "first_month" | "first_lesson" | "lessons_10" | "tasks_100" | "first_automation" | "first_skill_from_routine";
+
+export interface GrowthItem {
+    at:         string;
+    lesson?:    Lesson;
+    type:       GrowthItemType;
+    milestone?: Milestone;
+}
+
+export type GrowthItemType = "lesson" | "milestone";
 
 export interface IdeaUpdatedPayload {
     idea: Idea;
@@ -3658,6 +3920,12 @@ export interface LearnedFact {
 }
 
 export type LearnedBlockType = "learned";
+
+export interface LessonChangedPayload {
+    lesson?:  Lesson;
+    lessonId: string;
+    status:   LessonStatus;
+}
 
 export interface LibraryDeleteParams {
     itemId: string;
@@ -4283,6 +4551,80 @@ export type MemoryJobKind = "flush" | "dreaming" | "reindex" | "import";
 
 export type MemoryJobStatus = "running" | "ok" | "failed" | "skipped";
 
+export interface MemoryLessonsConfirmParams {
+    lessonId: string;
+}
+
+export interface MemoryLessonsConfirmResult {
+    lesson: Lesson;
+}
+
+export interface MemoryLessonsEditParams {
+    lessonId: string;
+    /**
+     * The new line or value
+     */
+    value: string;
+}
+
+export interface MemoryLessonsEditResult {
+    approval?: ApprovalRequest | null;
+    lesson:    Lesson;
+}
+
+export interface MemoryLessonsForgetAllParams {
+    approvalId?: string;
+    dryRun?:     boolean;
+}
+
+export interface MemoryLessonsForgetAllResult {
+    dryRun:  boolean;
+    events:  number;
+    lessons: number;
+}
+
+export interface MemoryLessonsForgetParams {
+    lessonId:      string;
+    purgeSources?: boolean;
+}
+
+export interface MemoryLessonsForgetResult {
+    lesson: Lesson;
+}
+
+export interface MemoryLessonsGetParams {
+    lessonId: string;
+}
+
+export interface MemoryLessonsGetResult {
+    diff:    Diff;
+    history: Lesson[];
+    lesson:  Lesson;
+    sources: FeedbackEvent[];
+}
+
+export interface Diff {
+    after:   string;
+    before?: null | string;
+}
+
+export interface MemoryLessonsListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?:      string;
+    destination?: DestinationEnum;
+    kind?:        LessonKind;
+    limit?:       number;
+    since?:       string;
+    status?:      LessonStatus[];
+}
+
+export interface MemoryLessonsListResult {
+    lessons:     Lesson[];
+    nextCursor?: null | string;
+}
+
 export interface MemoryLoopUpdatedPayload {
     loop: GraphLoop;
 }
@@ -4846,7 +5188,7 @@ export interface NotificationAction {
     label:                   string;
 }
 
-export type NotificationKind = "approval" | "input_needed" | "task_done" | "task_failed" | "proactive" | "briefing" | "reminder" | "system";
+export type NotificationKind = "approval" | "input_needed" | "task_done" | "task_failed" | "proactive" | "briefing" | "reminder" | "system" | "specialist_result";
 
 export interface NotificationResolvedPayload {
     notification: Notification;
@@ -6074,6 +6416,147 @@ export interface SkillsSetEnabledResult {
     skill: SkillDetails;
 }
 
+export interface SpecialistProgressPayload {
+    budget: RunBudget;
+    runId:  string;
+    step:   Step;
+    taskId: string;
+}
+
+export interface Step {
+    id:     string;
+    label:  string;
+    status: string;
+}
+
+export interface SpecialistResultPayload {
+    notificationId?: null | string;
+    parentRunId?:    null | string;
+    result:          SpecialistResult;
+    runId?:          null | string;
+    taskId:          string;
+}
+
+export interface SpecialistResult {
+    artifacts:     string[];
+    defaultsUsed?: string[];
+    evaluator?:    Evaluator;
+    findings:      SpecialistFinding[];
+    gaps:          string[];
+    next:          Next[];
+    outcome:       SpecialistOutcome;
+    receipts:      string[];
+    stopReason?:   string;
+    summary:       string;
+    tainted:       boolean;
+}
+
+export interface Evaluator {
+    reason:  string;
+    verdict: Verdict;
+}
+
+export type Verdict = "done" | "reopen" | "escalate";
+
+export interface SpecialistFinding {
+    detail:   string;
+    sources?: string[];
+    title:    string;
+}
+
+export interface Next {
+    label:   string;
+    message: string;
+}
+
+export type SpecialistOutcome = "done" | "partial" | "failed" | "cancelled";
+
+export interface SpecialistSpawnedPayload {
+    job: SpecialistJob;
+}
+
+export interface SpecialistJob {
+    budget:         RunBudget;
+    createdAt:      string;
+    deadline?:      null | string;
+    lastStep?:      null | string;
+    parentRunId?:   null | string;
+    parentThreadId: string;
+    queuePosition?: number | null;
+    result?:        SpecialistResult | null;
+    /**
+     * researcher | shopper | coder | organizer | writer | planner, or a skill-defined role
+     */
+    role:      string;
+    runId?:    null | string;
+    status:    StatusElement;
+    taskId:    string;
+    threadId:  string;
+    title:     string;
+    updatedAt: string;
+}
+
+export type StatusElement = "queued" | "working" | "needs_you" | "done" | "partial" | "failed" | "cancelled";
+
+export interface SpecialistsJobsParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?:   string;
+    limit?:    number;
+    status?:   StatusElement[];
+    threadId?: string;
+}
+
+export interface SpecialistsJobsResult {
+    jobs:        SpecialistJob[];
+    nextCursor?: null | string;
+}
+
+export interface SpecialistsListResult {
+    roles: SpecialistRole[];
+}
+
+export interface SpecialistRole {
+    approvals:   ApprovalKind[];
+    budget:      SpecialistBudgetSetting;
+    caps:        Caps;
+    description: string;
+    enabled:     boolean;
+    label:       string;
+    maxMode:     PermissionMode;
+    model?:      null | string;
+    modelClass:  ModelClass;
+    planFirst:   boolean;
+    result:      SpecialistResultKind;
+    /**
+     * researcher | shopper | coder | organizer | writer | planner, or a skill-defined role
+     */
+    role:   string;
+    skill:  string;
+    source: SkillSource;
+    tools:  string[];
+}
+
+export interface SpecialistBudgetSetting {
+    costUsd?: number;
+    minutes?: number;
+    tokens?:  number;
+}
+
+export interface Caps {
+    costUsd?: number;
+    maxHours: number;
+    minutes?: number;
+    tokens?:  number;
+}
+
+export type PermissionMode = "plan" | "manual" | "balanced" | "auto";
+
+export type ModelClass = "utility" | "primary" | "harness" | "vision";
+
+export type SpecialistResultKind = "findings" | "draft" | "changes" | "plan" | "items";
+
 export interface SpeechAudioPayload {
     /**
      * Base64 PCM
@@ -6231,9 +6714,11 @@ export interface Task {
     id:                string;
     leaseOwner?:       null | string;
     leaseUntil?:       null | string;
+    lessonsApplied?:   LessonRef[];
     outcome?:          { [key: string]: unknown } | null;
     plan?:             TaskPlan | null;
     sandboxId?:        null | string;
+    specialist?:       SpecialistSpec;
     status:            TaskStatus;
     summary?:          null | string;
     /**
@@ -6265,6 +6750,32 @@ export interface PlanStep {
 }
 
 export type PlanStepStatus = "pending" | "running" | "done" | "failed" | "skipped";
+
+export interface SpecialistSpec {
+    budget:         RunBudget;
+    deadline?:      null | string;
+    deliver:        Deliver;
+    inputs:         SpecialistInputs;
+    model:          string;
+    parentRunId?:   null | string;
+    parentThreadId: string;
+    permissionMode: PermissionMode;
+    planFirst:      boolean;
+    queuePosition?: number | null;
+    result?:        SpecialistResult | null;
+    /**
+     * researcher | shopper | coder | organizer | writer | planner, or a skill-defined role
+     */
+    role:       string;
+    rootRunId?: null | string;
+    tools:      string[];
+}
+
+export interface SpecialistInputs {
+    folders:        string[];
+    libraryItemIds: string[];
+    urls:           string[];
+}
 
 export type TaskStatus = "queued" | "running" | "awaiting_input" | "awaiting_approval" | "paused" | "done" | "failed" | "cancelled";
 
@@ -6307,6 +6818,33 @@ export interface TasksRetryParams {
     fromStepId?: string;
     taskId:      string;
 }
+
+export interface TasksSteerParams {
+    taskId: string;
+    text:   string;
+}
+
+export interface TasksUpdateParams {
+    budget?:   TasksUpdateParamsBudget;
+    deadline?: string;
+    taskId:    string;
+}
+
+export interface TasksUpdateParamsBudget {
+    costUsd?: number;
+    minutes?: number;
+    tokens?:  number;
+}
+
+export interface TaughtBlock {
+    feedbackId: string;
+    lessonId?:  null | string;
+    messageId:  string;
+    statement?: null | string;
+    type:       TaughtBlockType;
+}
+
+export type TaughtBlockType = "taught";
 
 export interface TeachDraft {
     description: string;
@@ -6401,6 +6939,13 @@ export interface TeachStepEvent {
 }
 
 export type TeachStepEventType = "teach.step";
+
+export interface TeachingImplicitSignals {
+    approvalEdits: boolean;
+    dismissals:    boolean;
+    draftEdits:    boolean;
+    undo:          boolean;
+}
 
 export interface TextBlock {
     md:   string;
@@ -6555,8 +7100,6 @@ export interface Thread {
 }
 
 export type ThreadKind = "main" | "side" | "incognito" | "channel" | "automation" | "subagent";
-
-export type PermissionMode = "plan" | "manual" | "balanced" | "auto";
 
 export type TitleSource = "user" | "auto";
 

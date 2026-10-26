@@ -1,6 +1,7 @@
 import type { JsonObject } from "../common.ts";
 import type { ChecklistItem } from "../schemas/blocks.ts";
 import type { TaintSource } from "../schemas/permissions.ts";
+import type { SpecialistSpec } from "../schemas/specialists.ts";
 import type {
   InputRequest,
   Question,
@@ -37,6 +38,8 @@ export interface TaskCreateInput {
   taintSources?: TaintSource[];
   /** Where its commands run; absent means the owner's default (`vm.defaultWorkspace`). */
   workspace?: TaskWorkspace;
+  /** A background specialist's job (docs/agent/specialists-2026.md §4.1); stored on the task. */
+  specialist?: SpecialistSpec;
 }
 
 export interface TaskFilter {

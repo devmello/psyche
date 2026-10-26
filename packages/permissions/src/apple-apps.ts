@@ -43,6 +43,16 @@ export const APPLE_APP_ACTIONS: Readonly<Record<string, AppleAppAction>> = {
   "reminders.list": read("apple.reminders", "list"),
   "reminders.create": write("apple.reminders", "create"),
   "reminders.update": write("apple.reminders", "update"),
+  // Wave 1 (docs/connectors/apple-apps-2026.md §4.2, §4.3; #639).
+  "reminders.complete": write("apple.reminders", "complete"),
+  "reminders.set_flagged": write("apple.reminders", "set_flagged"),
+  "reminders.delete": write("apple.reminders", "delete", "connector_action", {
+    sideEffect: "destructive",
+  }),
+  "calendar.free_busy": read("apple.calendar", "free_busy"),
+  "calendar.delete_event": write("apple.calendar", "delete_event", "calendar_write", {
+    sideEffect: "destructive",
+  }),
   "mail.search": read("apple.mail", "search"),
   "mail.read": read("apple.mail", "read"),
   "mail.draft": write("apple.mail", "draft"),
@@ -61,10 +71,47 @@ export const APPLE_APP_ACTIONS: Readonly<Record<string, AppleAppAction>> = {
   "notes.list": read("apple.notes", "list"),
   "notes.read": read("apple.notes", "read"),
   "notes.create": write("apple.notes", "create"),
+  // Wave 1 (docs/connectors/apple-apps-2026.md §4.4; #639).
+  "notes.search": read("apple.notes", "search"),
+  "notes.folders": read("apple.notes", "folders"),
+  "notes.append": write("apple.notes", "append"),
+  "notes.update": write("apple.notes", "update"),
+  // Music and Spotify (wave 1, §4.6; #639). Direct node calls ask for writes like every other
+  // app; the connector's own matrix allows the agent's playback tools by default.
+  "music.now_playing": read("apple.music", "now_playing"),
+  "music.search_library": read("apple.music", "search_library"),
+  "music.control": write("apple.music", "control"),
+  "music.play": write("apple.music", "play"),
+  // Contacts (wave 1, docs/connectors/apple-apps-2026.md §4.5; #639).
+  "contacts.search": read("apple.contacts", "search"),
+  "contacts.read": read("apple.contacts", "read"),
+  "contacts.create": write("apple.contacts", "create"),
+  "contacts.update": write("apple.contacts", "update"),
+  // Things 3 through the same helper route (wave 1, §5; #639).
+  "things.list": read("apple.things", "list"),
+  "things.add": write("apple.things", "add"),
+  "things.update": write("apple.things", "update"),
+  "things.complete": write("apple.things", "complete"),
+  // Shortcuts (wave 1, §4.9; #639): a run's side effect is unknown, so it is destructive.
+  "shortcuts.list": read("apple.shortcuts", "list"),
+  "shortcuts.run": write("apple.shortcuts", "run", "connector_action", {
+    sideEffect: "destructive",
+  }),
+  // Files in granted folders (wave 1, §4.8; #639).
+  "files.recent": read("apple.files", "recent"),
+  "files.move": write("apple.files", "move"),
+  "files.rename": write("apple.files", "rename"),
+  "files.trash": write("apple.files", "trash", "connector_action", { sideEffect: "destructive" }),
   "finder.list": read("apple.finder", "list"),
   "finder.reveal": read("apple.finder", "reveal"),
   "safari.tabs": read("apple.safari", "tabs"),
   "safari.current_tab": read("apple.safari", "current_tab"),
+  // Wave 1 (§4.7; #639).
+  "safari.tab_text": read("apple.safari", "tab_text"),
+  // Google Chrome tabs through the same helper route (the key keeps the apple.* namespace).
+  "chrome.tabs": read("apple.chrome", "tabs"),
+  "chrome.current_tab": read("apple.chrome", "current_tab"),
+  "safari.add_reading_list": write("apple.safari", "add_reading_list"),
   // Opens a page in the user's own Safari (their cookies): asks like a new origin.
   "safari.open_url": write("apple.safari", "open_url", "new_origin"),
 };

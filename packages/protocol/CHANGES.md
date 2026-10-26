@@ -18,6 +18,15 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-25 (E, #678: the teaching loop)
+
+For T1 (#679), T2 (#680) and T3 (#681), docs/agent/teaching-loop-2026.md §3 and §7. All new fields are optional and all new schemas are new names.
+
+- Schemas (`schemas/learning.ts`): `FeedbackKind`, `FeedbackTarget`, `FeedbackReason`, `FeedbackScope`, `FeedbackEvent`, `LessonKind`, `LessonOrigin`, `LessonStatus`, `LessonScope`, `LessonDestination`, `Lesson`, `LessonRef`, `GrowthWindow`, `GrowthMetric`, `Milestone`, `GrowthItem`, `GrowthSummary`, `GrowthCardItem`, `GrowthCard`, `TeachingImplicitSignals`, and `TEACHING_SETTING_DEFAULTS` for the keys `teaching.enabled`, `teaching.implicit`, `teaching.surfaces`, `teaching.paused`, `teaching.weeklyCard`.
+- Methods: `feedback.give / list / delete`, `memory.lessons.list / get / confirm / edit / forget / forgetAll` (forgetAll presence-gated, operator.admin), `growth.summary`.
+- Events: `feedback.recorded`, `lesson.changed`, `growth.updated`.
+- Block `taught` ("Psyche will remember: …").
+- Optional fields: `Message.lessonsApplied`, `Task.lessonsApplied`, `FeedPost.growth` (the weekly card), `chat.send` `redo { messageId, instruction?, withoutLessons? }`, `ApprovalRequest.fromLesson { lessonId, feedbackId, because }`.
 ### v1 additive — 2026-10-25 (S01, #660: run trace T1)
 
 For T2 (#661), T3 (#662) and S02's specialists: the step model of docs/design/run-trace-2026.md §4. Everything is optional or new; old clients ignore `run.step`.
@@ -35,6 +44,16 @@ For T2 (#661), T3 (#662) and S02's specialists: the step model of docs/design/ru
 - New methods: `memory.entities.search | get | interactions | create | update | facts.set | facts.retract | edges.set | edges.retract | history | merge | split | suggestions | suggestions.answer | forget` (`forget` is `operator.admin`), `memory.loops.list | update`, `memory.graph.status`.
 - New events: `memory.entity.updated`, `memory.loop.updated`, `memory.suggestion.created`.
 - `SearchIndexDocKind` gains `person` and `project`; `SearchScope` and `SearchGroup` gain `people` and `projects` (the search package and the Search screen's exhaustive maps get matching entries).
+### v1 additive — 2026-10-26 (S02, #682: background specialists)
+
+Depends on the run-trace T1 additions (#660), which carry the shared `Run` fields (`kind`, `origin`, `parentRunId`, `rootRunId`, `taskId`, `budget: RunBudget`, `deadline`, `specialist {role}`), `RunSummary` and `runs.children`.
+
+- `schemas/specialists.ts`: `SpecialistSpec` (the `Task.specialist` block: role, parent ids, model, resolved tools, permission mode, `RunBudget` (retried spend in `budget.used.retried`), deadline, inputs, delivery, `planFirst`, queue position, result), `SpecialistResult` (outcome `done | partial | failed | cancelled`, summary ≤ 600, findings ≤ 12, artifacts, `next` ≤ 2, gaps, receipts, `tainted`, `stopReason`, evaluator verdict, defaults used), `SpecialistInputs`, `ApprovalHint`, `SpecialistRole` and `SpecialistJob` (status `queued | working | needs_you | done | partial | failed | cancelled`).
+- `Task.specialist?`, `TaskCreateInput.specialist?`, `ApprovalRequest.requestedBy.parentRunId?` / `.specialist?`, `NotificationKind` gains `specialist_result`, `Automation.specialist? {role, budget?, deliver?}`.
+- Methods `specialists.list`, `specialists.jobs`, `tasks.steer` (side-effecting) and `tasks.update` (side-effecting, owner-only budget or deadline change).
+- Events `specialist.spawned`, `specialist.progress` (≤ 1/s, labels only) and `specialist.result`.
+- `AgentEvent` gains `{type: "subagent", runId, messageId, toolCallId, taskId, childRunId, status, label, progress?, usage?}`, the run trace's `subagent` step.
+- Fakes: `FakeTaskEngine` stores `specialist`; `FakeAgentLoop` scripts the new event.
 
 ### v1 additive — 2026-10-25 (S09, #637: Apple app capabilities, wave 1)
 

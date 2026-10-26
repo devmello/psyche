@@ -143,6 +143,28 @@ Workstream A generates CSS custom properties from `tokens.ts`. CSS can't hand of
 - **Press:** fills step one level darker instantly (`duration.instant`), with no scale. The one exception is large tappable tiles (avatar picker, idea cards), which may scale to 0.985 on `spring.micro`. Mac buttons don't shrink.
 - **Focus:** the ring appears instantly and is never animated, because it must be visible the moment focus lands.
 
+### 4.9 Steps and the Timeline (run trace)
+The run trace ([run-trace-2026.md](run-trace-2026.md) §3.7) follows one rule: only the step that is running moves. Everything else enters, settles and stops. The kit's primitives carry it.
+
+| Element | Primitive | Full motion | Reduced motion |
+| --- | --- | --- | --- |
+| New step row | `StepRow enter` | `fadeRise` (`spring.snappy`, opacity `duration.medium`) | Appears in place |
+| Status change | `StatusGlyph morph` | Glyph crossfade over `duration.short`; a new ✓ scales 0.8 → 1 on `spring.micro`; never on first render | Swaps in place |
+| Running label | `StepRow` | `psy-shimmer` mask, removed when the step ends | Static (global rule), the glyph's label says "Running" |
+| Elapsed time | `LiveDuration` | Ticks once a second on one shared clock (`useTicker`, `TICK_MS` = 1000), tabular numbers, never animated or announced | Same |
+| Live bar | `Bar` | Laid out once to the end of the track, then grows with `transform: scaleX` on the shared clock, `transform 1000ms linear` between ticks | Steps once a second |
+| Idle gap | `GapBreak` | Static ⌇; the real length on hover | Same |
+| Playhead | `Playhead` | Follows the pointer 1:1, no spring | Same |
+| Live sparkline | `Sparkline live` | Redraws at most once a second; each new bucket slides in from the end over `duration.medium` (transform) | Redraws in place |
+| Static sparkline | `Sparkline` | Draws in once on `spring.gentle` | Drawn |
+| Log → summary row (T2) | — | Height and opacity on `spring.smooth` | Crossfade, 120 ms |
+| Summary glyph → Timeline header (T2, T3) | — | Shared `layoutId` | Crossfade |
+| Replay play (T3) | — | Bars grow at playback speed | Advances one step every 600 ms |
+
+- Everything animates transform and opacity only. The sparkline path is the one SVG redraw, capped at 1 Hz.
+- Live updates batch to one render per animation frame; the Gateway coalesces progress to 4 per second per step (run-trace §4.4).
+- Bars use the `--trace-*` colours (`styles/design.css`), each at least 3:1 on the canvas in both appearances (the contrast gate). Wait and queue segments are hatched (`psy-trace-wait`); a helper's bar is striped (`psy-trace-helper`), so kind never relies on colour alone.
+
 ## 5. Performance budget
 
 - **Frame budget:** 8.3 ms at 120 Hz. Keep main-thread work per animated frame under 4 ms. Springs are time-based, so they look identical at 60 Hz, which matters for the web client in Safari, where WebKit caps page rendering at about 60 fps.
