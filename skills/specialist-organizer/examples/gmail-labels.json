@@ -68,18 +68,9 @@
         "id": "c3",
         "name": "gmail_modify_labels",
         "input": {
-          "threadIds": [
-            "18c9a1",
-            "18c9b7",
-            "18c9d0",
-            "18ca03"
-          ],
-          "addLabelIds": [
-            "Label_12"
-          ],
-          "removeLabelIds": [
-            "INBOX"
-          ]
+          "threadIds": ["18c9a1", "18c9b7", "18c9d0", "18ca03"],
+          "addLabelIds": ["Label_12"],
+          "removeLabelIds": ["INBOX"]
         }
       },
       {
@@ -110,45 +101,32 @@
             {
               "title": "Labelled and archived Lyft ride receipt",
               "detail": "Oct 2. Added Receipts, removed from Inbox. Undo: remove Receipts from thread 18c9a1 and move it back to Inbox.",
-              "sources": [
-                "gmail:18c9a1"
-              ]
+              "sources": ["gmail:18c9a1"]
             },
             {
               "title": "Labelled and archived Apple receipt",
               "detail": "Added Receipts, removed from Inbox. Undo: remove Receipts from thread 18c9b7 and move it back to Inbox.",
-              "sources": [
-                "gmail:18c9b7"
-              ]
+              "sources": ["gmail:18c9b7"]
             },
             {
               "title": "Labelled and archived Safeway receipt",
               "detail": "Added Receipts, removed from Inbox. Undo: remove Receipts from thread 18c9d0 and move it back to Inbox.",
-              "sources": [
-                "gmail:18c9d0"
-              ]
+              "sources": ["gmail:18c9d0"]
             },
             {
               "title": "Labelled and archived Uniqlo order 1029-334",
               "detail": "Added Receipts, removed from Inbox. Undo: remove Receipts from thread 18ca03 and move it back to Inbox.",
-              "sources": [
-                "gmail:18ca03"
-              ]
+              "sources": ["gmail:18ca03"]
             },
             {
               "title": "Left as is: Figma and PG&E invoices",
               "detail": "Both are invoices, so they belong under Finance/Invoices, which doesn't exist. They're still in the Inbox with no label.",
-              "sources": [
-                "gmail:18c9c4",
-                "gmail:18c9f8"
-              ]
+              "sources": ["gmail:18c9c4", "gmail:18c9f8"]
             },
             {
               "title": "Left as is: Dana Lee, dinner receipt",
               "detail": "A 3-message thread with personal replies; the brief says not to touch those.",
-              "sources": [
-                "gmail:18c9e2"
-              ]
+              "sources": ["gmail:18c9e2"]
             }
           ],
           "artifacts": [],
@@ -265,18 +243,9 @@
     "c3": {
       "output": {
         "modified": 4,
-        "threadIds": [
-          "18c9a1",
-          "18c9b7",
-          "18c9d0",
-          "18ca03"
-        ],
-        "added": [
-          "Receipts"
-        ],
-        "removed": [
-          "INBOX"
-        ]
+        "threadIds": ["18c9a1", "18c9b7", "18c9d0", "18ca03"],
+        "added": ["Receipts"],
+        "removed": ["INBOX"]
       },
       "provenance": "trusted"
     }
@@ -288,45 +257,32 @@
       {
         "title": "Labelled and archived Lyft ride receipt",
         "detail": "Oct 2. Added Receipts, removed from Inbox. Undo: remove Receipts from thread 18c9a1 and move it back to Inbox.",
-        "sources": [
-          "gmail:18c9a1"
-        ]
+        "sources": ["gmail:18c9a1"]
       },
       {
         "title": "Labelled and archived Apple receipt",
         "detail": "Added Receipts, removed from Inbox. Undo: remove Receipts from thread 18c9b7 and move it back to Inbox.",
-        "sources": [
-          "gmail:18c9b7"
-        ]
+        "sources": ["gmail:18c9b7"]
       },
       {
         "title": "Labelled and archived Safeway receipt",
         "detail": "Added Receipts, removed from Inbox. Undo: remove Receipts from thread 18c9d0 and move it back to Inbox.",
-        "sources": [
-          "gmail:18c9d0"
-        ]
+        "sources": ["gmail:18c9d0"]
       },
       {
         "title": "Labelled and archived Uniqlo order 1029-334",
         "detail": "Added Receipts, removed from Inbox. Undo: remove Receipts from thread 18ca03 and move it back to Inbox.",
-        "sources": [
-          "gmail:18ca03"
-        ]
+        "sources": ["gmail:18ca03"]
       },
       {
         "title": "Left as is: Figma and PG&E invoices",
         "detail": "Both are invoices, so they belong under Finance/Invoices, which doesn't exist. They're still in the Inbox with no label.",
-        "sources": [
-          "gmail:18c9c4",
-          "gmail:18c9f8"
-        ]
+        "sources": ["gmail:18c9c4", "gmail:18c9f8"]
       },
       {
         "title": "Left as is: Dana Lee, dinner receipt",
         "detail": "A 3-message thread with personal replies; the brief says not to touch those.",
-        "sources": [
-          "gmail:18c9e2"
-        ]
+        "sources": ["gmail:18c9e2"]
       }
     ],
     "artifacts": [],

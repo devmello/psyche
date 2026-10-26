@@ -150,17 +150,12 @@
             {
               "title": "src/dates.ts: offset no longer stripped",
               "detail": "A regex removed everything after the seconds, dropping the time zone. parseDate now passes the string to Date unchanged. One line changed.",
-              "sources": [
-                "src/dates.ts"
-              ]
+              "sources": ["src/dates.ts"]
             },
             {
               "title": "Tests: npm test, 37 passed, 1 failed",
               "detail": "test/parse-date.test.ts passes (5 of 5). test/import.integration.test.ts failed with ECONNREFUSED on 127.0.0.1:5432, unrelated to this change.",
-              "sources": [
-                "test/parse-date.test.ts",
-                "test/import.integration.test.ts"
-              ]
+              "sources": ["test/parse-date.test.ts", "test/import.integration.test.ts"]
             }
           ],
           "artifacts": [],
@@ -196,12 +191,7 @@
   "toolResults": {
     "c1": {
       "output": {
-        "entries": [
-          "CONTRIBUTING.md",
-          "package.json",
-          "src/",
-          "test/"
-        ]
+        "entries": ["CONTRIBUTING.md", "package.json", "src/", "test/"]
       },
       "provenance": "trusted"
     },
@@ -248,17 +238,12 @@
       {
         "title": "src/dates.ts: offset no longer stripped",
         "detail": "A regex removed everything after the seconds, dropping the time zone. parseDate now passes the string to Date unchanged. One line changed.",
-        "sources": [
-          "src/dates.ts"
-        ]
+        "sources": ["src/dates.ts"]
       },
       {
         "title": "Tests: npm test, 37 passed, 1 failed",
         "detail": "test/parse-date.test.ts passes (5 of 5). test/import.integration.test.ts failed with ECONNREFUSED on 127.0.0.1:5432, unrelated to this change.",
-        "sources": [
-          "test/parse-date.test.ts",
-          "test/import.integration.test.ts"
-        ]
+        "sources": ["test/parse-date.test.ts", "test/import.integration.test.ts"]
       }
     ],
     "artifacts": [],

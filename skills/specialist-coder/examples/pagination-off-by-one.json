@@ -177,16 +177,12 @@
             {
               "title": "src/paginate.ts: start index off by one",
               "detail": "The start index was page * size; it is now (page - 1) * size, matching the one-based pages the tests and callers use. One line changed.",
-              "sources": [
-                "src/paginate.ts"
-              ]
+              "sources": ["src/paginate.ts"]
             },
             {
               "title": "Tests: npm test, 41 passed",
               "detail": "Before the fix, npx vitest run test/paginate.test.ts failed 1 of 4. After it, npm test passed 41 of 41 across 6 files.",
-              "sources": [
-                "test/paginate.test.ts"
-              ]
+              "sources": ["test/paginate.test.ts"]
             }
           ],
           "artifacts": [],
@@ -278,16 +274,12 @@
       {
         "title": "src/paginate.ts: start index off by one",
         "detail": "The start index was page * size; it is now (page - 1) * size, matching the one-based pages the tests and callers use. One line changed.",
-        "sources": [
-          "src/paginate.ts"
-        ]
+        "sources": ["src/paginate.ts"]
       },
       {
         "title": "Tests: npm test, 41 passed",
         "detail": "Before the fix, npx vitest run test/paginate.test.ts failed 1 of 4. After it, npm test passed 41 of 41 across 6 files.",
-        "sources": [
-          "test/paginate.test.ts"
-        ]
+        "sources": ["test/paginate.test.ts"]
       }
     ],
     "artifacts": [],

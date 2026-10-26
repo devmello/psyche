@@ -41,11 +41,7 @@
         "id": "c2",
         "name": "calendar_list_events",
         "input": {
-          "calendarIds": [
-            "cal_personal",
-            "cal_school",
-            "cal_work"
-          ],
+          "calendarIds": ["cal_personal", "cal_school", "cal_work"],
           "start": "2026-10-26T00:00:00-07:00",
           "end": "2026-10-31T00:00:00-07:00"
         }
@@ -126,50 +122,35 @@
             {
               "title": "Mon Oct 26, 1:00-3:00 pm PDT",
               "detail": "Outline and sources, after CS 101.",
-              "sources": [
-                "event:ev_201"
-              ]
+              "sources": ["event:ev_201"]
             },
             {
               "title": "Tue Oct 27, 9:30-11:30 am PDT",
               "detail": "Before the 3:00 pm dentist appointment.",
-              "sources": [
-                "event:ev_202"
-              ]
+              "sources": ["event:ev_202"]
             },
             {
               "title": "Wed Oct 28, 1:00-3:00 pm PDT",
               "detail": "Body sections, after CS 101.",
-              "sources": [
-                "event:ev_203"
-              ]
+              "sources": ["event:ev_203"]
             },
             {
               "title": "Thu Oct 29, 10:00 am-12:00 pm PDT",
               "detail": "Full draft and edit; the 5:00 pm shift makes the evening unusable.",
-              "sources": [
-                "event:ev_204"
-              ]
+              "sources": ["event:ev_204"]
             },
             {
               "title": "Deadline: Fri Oct 30, 5:00 pm PDT",
               "detail": "From the \"Essay draft due\" reminder. Friday has 6.5 free hours around class if a block slips.",
-              "sources": [
-                "reminder:rem_32",
-                "event:ev_205"
-              ]
+              "sources": ["reminder:rem_32", "event:ev_205"]
             },
             {
               "title": "Pay rent is due Mon Oct 26",
               "detail": "Not part of the plan; listed so it isn't missed.",
-              "sources": [
-                "reminder:rem_31"
-              ]
+              "sources": ["reminder:rem_31"]
             }
           ],
-          "artifacts": [
-            "art_pl1026"
-          ],
+          "artifacts": ["art_pl1026"],
           "next": [
             {
               "label": "Add the 4 blocks to my calendar",
@@ -327,50 +308,35 @@
       {
         "title": "Mon Oct 26, 1:00-3:00 pm PDT",
         "detail": "Outline and sources, after CS 101.",
-        "sources": [
-          "event:ev_201"
-        ]
+        "sources": ["event:ev_201"]
       },
       {
         "title": "Tue Oct 27, 9:30-11:30 am PDT",
         "detail": "Before the 3:00 pm dentist appointment.",
-        "sources": [
-          "event:ev_202"
-        ]
+        "sources": ["event:ev_202"]
       },
       {
         "title": "Wed Oct 28, 1:00-3:00 pm PDT",
         "detail": "Body sections, after CS 101.",
-        "sources": [
-          "event:ev_203"
-        ]
+        "sources": ["event:ev_203"]
       },
       {
         "title": "Thu Oct 29, 10:00 am-12:00 pm PDT",
         "detail": "Full draft and edit; the 5:00 pm shift makes the evening unusable.",
-        "sources": [
-          "event:ev_204"
-        ]
+        "sources": ["event:ev_204"]
       },
       {
         "title": "Deadline: Fri Oct 30, 5:00 pm PDT",
         "detail": "From the \"Essay draft due\" reminder. Friday has 6.5 free hours around class if a block slips.",
-        "sources": [
-          "reminder:rem_32",
-          "event:ev_205"
-        ]
+        "sources": ["reminder:rem_32", "event:ev_205"]
       },
       {
         "title": "Pay rent is due Mon Oct 26",
         "detail": "Not part of the plan; listed so it isn't missed.",
-        "sources": [
-          "reminder:rem_31"
-        ]
+        "sources": ["reminder:rem_31"]
       }
     ],
-    "artifacts": [
-      "art_pl1026"
-    ],
+    "artifacts": ["art_pl1026"],
     "next": [
       {
         "label": "Add the 4 blocks to my calendar",

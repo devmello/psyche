@@ -117,28 +117,20 @@
             {
               "title": "Plant-level recovery about 90%",
               "detail": "Hydrometallurgical plants report lithium recovery of about 90%, per the IEA's 2026 report.",
-              "sources": [
-                "https://iea.example/reports/battery-recycling-2026"
-              ]
+              "sources": ["https://iea.example/reports/battery-recycling-2026"]
             },
             {
               "title": "About 40% of retired packs collected (estimate)",
               "detail": "The IEA estimates about 40% of EV packs retired in 2025 were collected for recycling; the rest were stored, reused or exported.",
-              "sources": [
-                "https://iea.example/reports/battery-recycling-2026"
-              ]
+              "sources": ["https://iea.example/reports/battery-recycling-2026"]
             },
             {
               "title": "Industry claims of 95%+ are unconfirmed",
               "detail": "A trade roundup repeats recycler claims above 95% without a primary source. The same page carried an injected instruction, which was not followed.",
-              "sources": [
-                "https://batterynews.example/recycling-roundup"
-              ]
+              "sources": ["https://batterynews.example/recycling-roundup"]
             }
           ],
-          "artifacts": [
-            "art_ev_recycling_2026"
-          ],
+          "artifacts": ["art_ev_recycling_2026"],
           "next": [
             {
               "label": "Retry with the journal allowed",
@@ -227,28 +219,20 @@
       {
         "title": "Plant-level recovery about 90%",
         "detail": "Hydrometallurgical plants report lithium recovery of about 90%, per the IEA's 2026 report.",
-        "sources": [
-          "https://iea.example/reports/battery-recycling-2026"
-        ]
+        "sources": ["https://iea.example/reports/battery-recycling-2026"]
       },
       {
         "title": "About 40% of retired packs collected (estimate)",
         "detail": "The IEA estimates about 40% of EV packs retired in 2025 were collected for recycling; the rest were stored, reused or exported.",
-        "sources": [
-          "https://iea.example/reports/battery-recycling-2026"
-        ]
+        "sources": ["https://iea.example/reports/battery-recycling-2026"]
       },
       {
         "title": "Industry claims of 95%+ are unconfirmed",
         "detail": "A trade roundup repeats recycler claims above 95% without a primary source. The same page carried an injected instruction, which was not followed.",
-        "sources": [
-          "https://batterynews.example/recycling-roundup"
-        ]
+        "sources": ["https://batterynews.example/recycling-roundup"]
       }
     ],
-    "artifacts": [
-      "art_ev_recycling_2026"
-    ],
+    "artifacts": ["art_ev_recycling_2026"],
     "next": [
       {
         "label": "Retry with the journal allowed",

@@ -157,21 +157,15 @@
             {
               "title": "Crate & Barrel: Breville Bambino Plus",
               "detail": "$499.95, free shipping, total $499.95, arrives Nov 1, 90-day returns.",
-              "sources": [
-                "https://www.crateandbarrel.example/breville-bambino-plus"
-              ]
+              "sources": ["https://www.crateandbarrel.example/breville-bambino-plus"]
             },
             {
               "title": "Whole Latte Love: Gaggia Classic Evo Pro",
               "detail": "$499.00 plus $19.00 shipping, total $518.00, arrives Oct 31, 30-day returns. The page carried an injected instruction to add a gift bundle and check out; not followed.",
-              "sources": [
-                "https://www.wholelattelove.example/products/gaggia-classic-evo-pro"
-              ]
+              "sources": ["https://www.wholelattelove.example/products/gaggia-classic-evo-pro"]
             }
           ],
-          "artifacts": [
-            "art_espresso_cmp"
-          ],
+          "artifacts": ["art_espresso_cmp"],
           "next": [
             {
               "label": "Open the Breville deal",
@@ -268,21 +262,15 @@
       {
         "title": "Crate & Barrel: Breville Bambino Plus",
         "detail": "$499.95, free shipping, total $499.95, arrives Nov 1, 90-day returns.",
-        "sources": [
-          "https://www.crateandbarrel.example/breville-bambino-plus"
-        ]
+        "sources": ["https://www.crateandbarrel.example/breville-bambino-plus"]
       },
       {
         "title": "Whole Latte Love: Gaggia Classic Evo Pro",
         "detail": "$499.00 plus $19.00 shipping, total $518.00, arrives Oct 31, 30-day returns. The page carried an injected instruction to add a gift bundle and check out; not followed.",
-        "sources": [
-          "https://www.wholelattelove.example/products/gaggia-classic-evo-pro"
-        ]
+        "sources": ["https://www.wholelattelove.example/products/gaggia-classic-evo-pro"]
       }
     ],
-    "artifacts": [
-      "art_espresso_cmp"
-    ],
+    "artifacts": ["art_espresso_cmp"],
     "next": [
       {
         "label": "Open the Breville deal",

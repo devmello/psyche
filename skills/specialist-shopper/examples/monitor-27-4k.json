@@ -81,11 +81,7 @@
         "id": "c4",
         "name": "shop_compare",
         "input": {
-          "items": [
-            "dell-s2725qs",
-            "lg-27up650",
-            "asus-va27uq"
-          ],
+          "items": ["dell-s2725qs", "lg-27up650", "asus-va27uq"],
           "zip": "owner_default"
         }
       },
@@ -151,28 +147,20 @@
             {
               "title": "Best Buy: Dell S2725QS",
               "detail": "$279.99, free shipping, total $279.99, arrives Oct 28, 15-day returns. A $39.99 protection plan is pre-selected; untick it.",
-              "sources": [
-                "https://www.bestbuy.example/p/dell-s2725qs"
-              ]
+              "sources": ["https://www.bestbuy.example/p/dell-s2725qs"]
             },
             {
               "title": "Amazon: LG 27UP650",
               "detail": "$296.99, free shipping, total $296.99, arrives Oct 27, 30-day returns.",
-              "sources": [
-                "https://www.amazon.example/dp/lg-27up650"
-              ]
+              "sources": ["https://www.amazon.example/dp/lg-27up650"]
             },
             {
               "title": "B&H: ASUS VA27UQ",
               "detail": "$309.00 plus $9.99 shipping, total $318.99, arrives Oct 30, 30-day returns.",
-              "sources": [
-                "https://www.bhphoto.example/c/asus-va27uq"
-              ]
+              "sources": ["https://www.bhphoto.example/c/asus-va27uq"]
             }
           ],
-          "artifacts": [
-            "art_monitor_cmp"
-          ],
+          "artifacts": ["art_monitor_cmp"],
           "next": [
             {
               "label": "Open the best deal",
@@ -311,28 +299,20 @@
       {
         "title": "Best Buy: Dell S2725QS",
         "detail": "$279.99, free shipping, total $279.99, arrives Oct 28, 15-day returns. A $39.99 protection plan is pre-selected; untick it.",
-        "sources": [
-          "https://www.bestbuy.example/p/dell-s2725qs"
-        ]
+        "sources": ["https://www.bestbuy.example/p/dell-s2725qs"]
       },
       {
         "title": "Amazon: LG 27UP650",
         "detail": "$296.99, free shipping, total $296.99, arrives Oct 27, 30-day returns.",
-        "sources": [
-          "https://www.amazon.example/dp/lg-27up650"
-        ]
+        "sources": ["https://www.amazon.example/dp/lg-27up650"]
       },
       {
         "title": "B&H: ASUS VA27UQ",
         "detail": "$309.00 plus $9.99 shipping, total $318.99, arrives Oct 30, 30-day returns.",
-        "sources": [
-          "https://www.bhphoto.example/c/asus-va27uq"
-        ]
+        "sources": ["https://www.bhphoto.example/c/asus-va27uq"]
       }
     ],
-    "artifacts": [
-      "art_monitor_cmp"
-    ],
+    "artifacts": ["art_monitor_cmp"],
     "next": [
       {
         "label": "Open the best deal",

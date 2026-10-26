@@ -3,13 +3,7 @@
   "role": "writer",
   "title": "Draft the November club newsletter from notes and the season report",
   "brief": "Goal: a first draft of the Harbor Rowing Club November newsletter, about 300 words, in the owner's voice (friendly, plain, signed \"Sam\"). Sources: ~/Documents/Writing/club-notes.md, ~/Documents/Writing/season-report.pdf, and the league calendar at https://league.example/calendar for race dates. Constraints: only facts from these sources; no names beyond those in the notes. Done: a Markdown draft saved to the Library, with the numbers it uses listed and sourced.",
-  "tools": [
-    "read_file",
-    "web.fetch",
-    "write_file",
-    "memory",
-    "mail_create_draft"
-  ],
+  "tools": ["read_file", "web.fetch", "write_file", "memory", "mail_create_draft"],
   "script": [
     [
       {
@@ -107,46 +101,34 @@
             {
               "title": "Outings: 412 in October, 351 in September",
               "detail": "From the season report.",
-              "sources": [
-                "~/Documents/Writing/season-report.pdf"
-              ]
+              "sources": ["~/Documents/Writing/season-report.pdf"]
             },
             {
               "title": "38 active members, 6 new",
               "detail": "From the season report.",
-              "sources": [
-                "~/Documents/Writing/season-report.pdf"
-              ]
+              "sources": ["~/Documents/Writing/season-report.pdf"]
             },
             {
               "title": "Regattas: 3rd and 5th",
               "detail": "Head of the Lagoon 3rd of 11, Coastal Sprints 5th of 9. The draft gives places only.",
-              "sources": [
-                "~/Documents/Writing/season-report.pdf"
-              ]
+              "sources": ["~/Documents/Writing/season-report.pdf"]
             },
             {
               "title": "Dates: Nov 7, Nov 12, Nov 16",
               "detail": "Cleanup day, board meeting and winter schedule, from the board notes.",
-              "sources": [
-                "~/Documents/Writing/club-notes.md"
-              ]
+              "sources": ["~/Documents/Writing/club-notes.md"]
             },
             {
               "title": "Turkey Head on Saturday, Nov 28; entries close Nov 20",
               "detail": "From the league calendar.",
-              "sources": [
-                "https://league.example/calendar"
-              ]
+              "sources": ["https://league.example/calendar"]
             },
             {
               "title": "Length and tone",
               "detail": "About 170 words, shorter than the 300 asked, because the sources had no more to say. Friendly and plain, signed \"Sam\"."
             }
           ],
-          "artifacts": [
-            "art_nl2611"
-          ],
+          "artifacts": ["art_nl2611"],
           "next": [
             {
               "label": "Make it closer to 300 words",
@@ -217,46 +199,34 @@
       {
         "title": "Outings: 412 in October, 351 in September",
         "detail": "From the season report.",
-        "sources": [
-          "~/Documents/Writing/season-report.pdf"
-        ]
+        "sources": ["~/Documents/Writing/season-report.pdf"]
       },
       {
         "title": "38 active members, 6 new",
         "detail": "From the season report.",
-        "sources": [
-          "~/Documents/Writing/season-report.pdf"
-        ]
+        "sources": ["~/Documents/Writing/season-report.pdf"]
       },
       {
         "title": "Regattas: 3rd and 5th",
         "detail": "Head of the Lagoon 3rd of 11, Coastal Sprints 5th of 9. The draft gives places only.",
-        "sources": [
-          "~/Documents/Writing/season-report.pdf"
-        ]
+        "sources": ["~/Documents/Writing/season-report.pdf"]
       },
       {
         "title": "Dates: Nov 7, Nov 12, Nov 16",
         "detail": "Cleanup day, board meeting and winter schedule, from the board notes.",
-        "sources": [
-          "~/Documents/Writing/club-notes.md"
-        ]
+        "sources": ["~/Documents/Writing/club-notes.md"]
       },
       {
         "title": "Turkey Head on Saturday, Nov 28; entries close Nov 20",
         "detail": "From the league calendar.",
-        "sources": [
-          "https://league.example/calendar"
-        ]
+        "sources": ["https://league.example/calendar"]
       },
       {
         "title": "Length and tone",
         "detail": "About 170 words, shorter than the 300 asked, because the sources had no more to say. Friendly and plain, signed \"Sam\"."
       }
     ],
-    "artifacts": [
-      "art_nl2611"
-    ],
+    "artifacts": ["art_nl2611"],
     "next": [
       {
         "label": "Make it closer to 300 words",
