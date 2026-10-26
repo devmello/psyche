@@ -40,7 +40,6 @@ import { type HostedModelKind, isHostedModelKind } from "./model-keys.ts";
 export const ROLE_SETTING = {
   primary: "models.primary",
   utility: "models.utility",
-  voice: "models.voice",
 } as const;
 
 const KIND_LABEL: Record<ProviderKind, string> = {
@@ -105,7 +104,7 @@ export async function restoreModelSettings(setup: ModelSettingsSetup): Promise<v
     const probe = await endpoints.get(config.id);
     if (probe?.state === "reachable") adapterOf(router, config.id)?.learn(probe.models);
   }
-  for (const role of ["primary", "utility", "voice"] as const) {
+  for (const role of ["primary", "utility"] as const) {
     const ref = getSetting(db, ROLE_SETTING[role])?.value;
     if (typeof ref !== "string") continue;
     try {
@@ -130,10 +129,8 @@ export function modelSettingsHandlers(setup: ModelSettingsSetup): Record<string,
     }
     const primary = router.role("primary")?.model;
     const utility = router.role("utility")?.model;
-    const voice = router.role("voice")?.model;
     if (primary !== undefined) out.primary = primary;
     if (utility !== undefined) out.utility = utility;
-    if (voice !== undefined) out.voice = voice;
     return out;
   };
 

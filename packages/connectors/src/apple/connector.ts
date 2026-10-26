@@ -1664,7 +1664,10 @@ class AppleConnector implements Connector {
     // The probe verifies (and for Automation is the request): the helper waits while a prompt
     // is up, so allow the owner some time.
     const res = await h.invoke(PROBE[this.#app], p.probe ?? {}, { timeoutMs: 180_000 });
-    if (res.ok) {
+    // "Not found" (AppleScript -1728, an empty or odd account) means the app did answer, so
+    // Automation works: nothing to read yet is not a failed connection.
+    const answered = !res.ok && res.error?.details?.reason === "not_found";
+    if (res.ok || answered) {
       this.#waiting = false;
       return { ...base, config: config(null) };
     }

@@ -359,21 +359,6 @@
         "payload": "#/$defs/SpecialistSpawnedPayload"
       },
       {
-        "description": "One chunk of read-aloud PCM for progressive playback; last marks the end of audio.",
-        "name": "speech.audio",
-        "payload": "#/$defs/SpeechAudioPayload"
-      },
-      {
-        "description": "A read-aloud clip was saved to the Library.",
-        "name": "speech.readAloud.completed",
-        "payload": "#/$defs/SpeechReadAloudCompletedPayload"
-      },
-      {
-        "description": "A read-aloud failed before its Library item was saved.",
-        "name": "speech.readAloud.failed",
-        "payload": "#/$defs/SpeechReadAloudFailedPayload"
-      },
-      {
         "description": "A new Activity line for a task.",
         "name": "task.action",
         "payload": "#/$defs/TaskActionPayload"
@@ -427,31 +412,6 @@
         "description": "A sandbox Mac guest changed phase, resources or shares (mac helper vm.* capabilities).",
         "name": "vm.updated",
         "payload": "#/$defs/VmUpdatedPayload"
-      },
-      {
-        "description": "Live caption text for the owner's words or Psyche's spoken sentence.",
-        "name": "voice.conversation.caption",
-        "payload": "#/$defs/VoiceConversationCaptionPayload"
-      },
-      {
-        "description": "A voice conversation ended (stopped, idle, screen locked, error, disconnected).",
-        "name": "voice.conversation.ended",
-        "payload": "#/$defs/VoiceConversationEndedPayload"
-      },
-      {
-        "description": "One chunk of a spoken reply's PCM for playback; last ends the utterance.",
-        "name": "voice.conversation.speech",
-        "payload": "#/$defs/VoiceConversationSpeechPayload"
-      },
-      {
-        "description": "A voice conversation changed phase (listening, heard, thinking, speaking, waiting, ended); to the starting device only.",
-        "name": "voice.conversation.state",
-        "payload": "#/$defs/VoiceConversationStatePayload"
-      },
-      {
-        "description": "A tool step being narrated in a voice conversation, with its status.",
-        "name": "voice.conversation.step",
-        "payload": "#/$defs/VoiceConversationStepPayload"
       },
       {
         "description": "A dictation session ended (stopped, cancelled, idle timeout or engine error).",
@@ -2393,30 +2353,6 @@
         "sideEffecting": false
       },
       {
-        "description": "Side-effecting: reads a message aloud, streams speech.audio events and saves the clip as a Library audio item.",
-        "name": "speech.readAloud",
-        "params": "#/$defs/SpeechReadAloudParams",
-        "result": "#/$defs/SpeechReadAloudResult",
-        "scope": "operator.write",
-        "sideEffecting": true
-      },
-      {
-        "description": "Stops one of the caller's read-aloud streams now (voice mode barge-in, feature Q5); nothing is saved and speech.readAloud.failed reports cancelled. Unknown or finished streams answer ok.",
-        "name": "speech.readAloud.cancel",
-        "params": "#/$defs/SpeechReadAloudCancelParams",
-        "result": "#/$defs/OkResult",
-        "scope": "operator.write",
-        "sideEffecting": false
-      },
-      {
-        "description": "Lists every synthesis voice the available engines offer as <engine>:<voice> refs, for voice selection per persona.",
-        "name": "speech.voices",
-        "params": "#/$defs/SpeechVoicesParams",
-        "result": "#/$defs/SpeechVoicesResult",
-        "scope": "operator.read",
-        "sideEffecting": false
-      },
-      {
         "description": "Pages a task's Activity lines (level 1 and 2; level 3 is fetched by ref).",
         "name": "tasks.actions",
         "params": "#/$defs/TasksActionsParams",
@@ -2805,54 +2741,6 @@
         "name": "voice.cancel",
         "params": "#/$defs/VoiceCancelParams",
         "result": "#/$defs/OkResult",
-        "scope": "operator.write",
-        "sideEffecting": false
-      },
-      {
-        "description": "Appends microphone audio to the caller's voice conversation.",
-        "name": "voice.conversation.audio",
-        "params": "#/$defs/VoiceConversationAudioParams",
-        "result": "#/$defs/VoiceConversationAudioResult",
-        "scope": "operator.write",
-        "sideEffecting": false
-      },
-      {
-        "description": "Barge-in: the Gateway confirms a suspect with a transcribed word (or releases it) and stops speaking on a confirmation.",
-        "name": "voice.conversation.interrupt",
-        "params": "#/$defs/VoiceConversationInterruptParams",
-        "result": "#/$defs/VoiceConversationInterruptResult",
-        "scope": "operator.write",
-        "sideEffecting": false
-      },
-      {
-        "description": "Reports how much of a spoken utterance the owner heard.",
-        "name": "voice.conversation.played",
-        "params": "#/$defs/VoiceConversationPlayedParams",
-        "result": "#/$defs/VoiceConversationPlayedResult",
-        "scope": "operator.write",
-        "sideEffecting": false
-      },
-      {
-        "description": "Starts a voice conversation on a thread (default: the main thread), one per device; the Gateway runs the turns and speaks the replies.",
-        "name": "voice.conversation.start",
-        "params": "#/$defs/VoiceConversationStartParams",
-        "result": "#/$defs/VoiceConversationStartResult",
-        "scope": "operator.write",
-        "sideEffecting": false
-      },
-      {
-        "description": "Ends the caller's voice conversation; speech stops and the microphone closes.",
-        "name": "voice.conversation.stop",
-        "params": "#/$defs/VoiceConversationStopParams",
-        "result": "#/$defs/OkResult",
-        "scope": "operator.write",
-        "sideEffecting": false
-      },
-      {
-        "description": "Push-to-talk key down (begin) or up (end), or a tap that opens or ends a turn.",
-        "name": "voice.conversation.turn",
-        "params": "#/$defs/VoiceConversationTurnParams",
-        "result": "#/$defs/VoiceConversationTurnResult",
         "scope": "operator.write",
         "sideEffecting": false
       },
@@ -17284,52 +17172,8 @@
       ],
       "type": "string"
     },
-    "HelperSpeechPrepareParams": {
-      "properties": {
-        "voice": {
-          "maxLength": 256,
-          "type": "string"
-        },
-        "language": {
-          "maxLength": 35,
-          "type": "string"
-        },
-        "keepWarmMs": {
-          "description": "How long to keep it warm without use (default 120 000)",
-          "maximum": 600000,
-          "minimum": 1000,
-          "type": "integer"
-        }
-      },
-      "type": "object"
-    },
-    "HelperSpeechPrepareResult": {
-      "properties": {
-        "voice": {
-          "description": "The voice id that was prepared",
-          "type": "string"
-        },
-        "prepared": {
-          "type": "boolean"
-        },
-        "prepareMs": {
-          "minimum": 0,
-          "type": "integer"
-        }
-      },
-      "required": [
-        "voice",
-        "prepared",
-        "prepareMs"
-      ],
-      "type": "object"
-    },
     "HelperSpeechTimings": {
       "properties": {
-        "synthesisFirstAudioMs": {
-          "minimum": 0,
-          "type": "integer"
-        },
         "firstPartialMs": {
           "properties": {
             "long": {
@@ -17357,82 +17201,6 @@
           "type": "object"
         }
       },
-      "type": "object"
-    },
-    "HelperSpeechVoice": {
-      "properties": {
-        "id": {
-          "description": "AVSpeechSynthesisVoice identifier",
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "language": {
-          "description": "BCP 47",
-          "type": "string"
-        },
-        "quality": {
-          "$ref": "#/$defs/SpeechVoiceQuality"
-        },
-        "personalVoice": {
-          "description": "Apple Personal Voice: non-commercial use only",
-          "type": "boolean"
-        },
-        "installed": {
-          "description": "The voice's assets are on disk (premium voices need a download)",
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "language",
-        "quality",
-        "personalVoice"
-      ],
-      "type": "object"
-    },
-    "HelperSynthesizeParams": {
-      "properties": {
-        "text": {
-          "maxLength": 5000,
-          "minLength": 1,
-          "type": "string"
-        },
-        "voice": {
-          "description": "Voice id from speech.voices",
-          "maxLength": 256,
-          "type": "string"
-        },
-        "rate": {
-          "description": "0 slowest … 1 fastest; 0.5 ≈ normal",
-          "maximum": 1,
-          "minimum": 0,
-          "type": "number"
-        },
-        "speed": {
-          "description": "Multiplier of the voice's normal rate (1 = normal); wins over rate",
-          "maximum": 2,
-          "minimum": 0.5,
-          "type": "number"
-        },
-        "personalVoice": {
-          "description": "Opt in to the owner's Personal Voice",
-          "type": "boolean"
-        },
-        "format": {
-          "$ref": "#/$defs/SpeechPcmEncoding"
-        },
-        "utteranceId": {
-          "description": "Echoed on every speech.audio event",
-          "maxLength": 64,
-          "type": "string"
-        }
-      },
-      "required": [
-        "text"
-      ],
       "type": "object"
     },
     "HighlightRange": {
@@ -22791,11 +22559,6 @@
           "description": "provider/model",
           "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
           "type": "string"
-        },
-        "voice": {
-          "description": "provider/model",
-          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
-          "type": "string"
         }
       },
       "type": "object"
@@ -23996,20 +23759,10 @@
       ],
       "type": "object"
     },
-    "PersonalVoiceAuthorization": {
-      "enum": [
-        "authorized",
-        "denied",
-        "notDetermined",
-        "unsupported"
-      ],
-      "type": "string"
-    },
     "PickableModelRole": {
       "enum": [
         "primary",
-        "utility",
-        "voice"
+        "utility"
       ],
       "type": "string"
     },
@@ -29657,36 +29410,6 @@
       ],
       "type": "object"
     },
-    "SpeechAudioPayload": {
-      "properties": {
-        "streamId": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "seq": {
-          "minimum": 0,
-          "type": "integer"
-        },
-        "audio": {
-          "description": "Base64 PCM",
-          "type": "string"
-        },
-        "format": {
-          "$ref": "#/$defs/AudioFormat"
-        },
-        "last": {
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "streamId",
-        "seq",
-        "audio",
-        "format",
-        "last"
-      ],
-      "type": "object"
-    },
     "SpeechEngineLocation": {
       "enum": [
         "node",
@@ -29701,13 +29424,6 @@
         "speechAnalyzer",
         "dictationTranscriber",
         "sfSpeech"
-      ],
-      "type": "string"
-    },
-    "SpeechPcmEncoding": {
-      "enum": [
-        "pcm_s16le",
-        "pcm_f32le"
       ],
       "type": "string"
     },
@@ -29748,106 +29464,6 @@
         "fraction",
         "chunk",
         "chunks"
-      ],
-      "type": "object"
-    },
-    "SpeechReadAloudCancelParams": {
-      "properties": {
-        "streamId": {
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        }
-      },
-      "required": [
-        "streamId"
-      ],
-      "type": "object"
-    },
-    "SpeechReadAloudCompletedPayload": {
-      "properties": {
-        "streamId": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "messageId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "item": {
-          "$ref": "#/$defs/LibraryItem"
-        },
-        "durationMs": {
-          "minimum": 0,
-          "type": "integer"
-        }
-      },
-      "required": [
-        "streamId",
-        "messageId",
-        "item",
-        "durationMs"
-      ],
-      "type": "object"
-    },
-    "SpeechReadAloudFailedPayload": {
-      "properties": {
-        "streamId": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "messageId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "error": {
-          "$ref": "#/$defs/ErrorPayload"
-        }
-      },
-      "required": [
-        "streamId",
-        "messageId",
-        "error"
-      ],
-      "type": "object"
-    },
-    "SpeechReadAloudParams": {
-      "properties": {
-        "messageId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "voice": {
-          "description": "<engine>:<voice>",
-          "maxLength": 128,
-          "type": "string"
-        },
-        "save": {
-          "description": "Default true. false: stream speech.audio only, save no Library item and emit no speech.readAloud.completed (voice mode, feature Q5)",
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "messageId"
-      ],
-      "type": "object"
-    },
-    "SpeechReadAloudResult": {
-      "properties": {
-        "streamId": {
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        }
-      },
-      "required": [
-        "streamId"
       ],
       "type": "object"
     },
@@ -29932,102 +29548,6 @@
         "short"
       ],
       "type": "string"
-    },
-    "SpeechVoice": {
-      "properties": {
-        "ref": {
-          "description": "<engine>:<voice>, the form IDENTITY.md voice: takes",
-          "type": "string"
-        },
-        "engine": {
-          "type": "string"
-        },
-        "location": {
-          "$ref": "#/$defs/SpeechEngineLocation"
-        },
-        "id": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "language": {
-          "description": "BCP 47, or * for any",
-          "type": "string"
-        },
-        "local": {
-          "type": "boolean"
-        },
-        "default": {
-          "description": "The voice the settings or the persona select now",
-          "type": "boolean"
-        },
-        "nonCommercial": {
-          "description": "Apple Personal Voice: non-commercial use only",
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "ref",
-        "engine",
-        "location",
-        "id",
-        "name",
-        "language",
-        "local",
-        "default"
-      ],
-      "type": "object"
-    },
-    "SpeechVoiceQuality": {
-      "enum": [
-        "default",
-        "enhanced",
-        "premium"
-      ],
-      "type": "string"
-    },
-    "SpeechVoicesParams": {
-      "properties": {
-        "personaVoice": {
-          "description": "The persona's current <engine>:<voice>",
-          "maxLength": 128,
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "SpeechVoicesResult": {
-      "properties": {
-        "voices": {
-          "items": {
-            "$ref": "#/$defs/SpeechVoice"
-          },
-          "type": "array"
-        },
-        "default": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "unavailable": {
-          "description": "Synthesis engines in order that could not list voices now",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "voices",
-        "unavailable"
-      ],
-      "type": "object"
     },
     "SurfaceAnswerToken": {
       "minLength": 1,
@@ -34750,14 +34270,6 @@
       ],
       "type": "string"
     },
-    "VoiceApprovalTier": {
-      "enum": [
-        "off",
-        "write",
-        "write_destructive"
-      ],
-      "type": "string"
-    },
     "VoiceCancelParams": {
       "properties": {
         "sessionId": {
@@ -34769,379 +34281,6 @@
       "required": [
         "sessionId"
       ],
-      "type": "object"
-    },
-    "VoiceConversationAudioParams": {
-      "properties": {
-        "conversationId": {
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "seq": {
-          "description": "0, 1, 2… per conversation; in order",
-          "minimum": 0,
-          "type": "integer"
-        },
-        "audio": {
-          "description": "Base64 PCM in the start format",
-          "maxLength": 512000,
-          "type": "string"
-        }
-      },
-      "required": [
-        "conversationId",
-        "seq",
-        "audio"
-      ],
-      "type": "object"
-    },
-    "VoiceConversationAudioResult": {
-      "properties": {},
-      "type": "object"
-    },
-    "VoiceConversationCaptionPayload": {
-      "properties": {
-        "conversationId": {
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "role": {
-          "enum": [
-            "owner",
-            "agent"
-          ],
-          "type": "string"
-        },
-        "utteranceId": {
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "text": {
-          "type": "string"
-        },
-        "final": {
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "conversationId",
-        "role",
-        "utteranceId",
-        "text",
-        "final"
-      ],
-      "type": "object"
-    },
-    "VoiceConversationEndReason": {
-      "enum": [
-        "stopped",
-        "idle",
-        "locked",
-        "error",
-        "disconnected"
-      ],
-      "type": "string"
-    },
-    "VoiceConversationEndedPayload": {
-      "properties": {
-        "conversationId": {
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "reason": {
-          "$ref": "#/$defs/VoiceConversationEndReason"
-        },
-        "error": {
-          "$ref": "#/$defs/ErrorPayload"
-        }
-      },
-      "required": [
-        "conversationId",
-        "reason"
-      ],
-      "type": "object"
-    },
-    "VoiceConversationInterruptParams": {
-      "properties": {
-        "conversationId": {
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "stage": {
-          "$ref": "#/$defs/VoiceInterruptStage"
-        },
-        "playedMs": {
-          "minimum": 0,
-          "type": "integer"
-        }
-      },
-      "required": [
-        "conversationId",
-        "stage"
-      ],
-      "type": "object"
-    },
-    "VoiceConversationInterruptResult": {
-      "properties": {},
-      "type": "object"
-    },
-    "VoiceConversationMode": {
-      "enum": [
-        "push",
-        "tap",
-        "handsfree"
-      ],
-      "type": "string"
-    },
-    "VoiceConversationPhase": {
-      "enum": [
-        "listening",
-        "heard",
-        "thinking",
-        "speaking",
-        "waiting",
-        "ended"
-      ],
-      "type": "string"
-    },
-    "VoiceConversationPlayedParams": {
-      "properties": {
-        "conversationId": {
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "utteranceId": {
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "playedMs": {
-          "minimum": 0,
-          "type": "integer"
-        },
-        "done": {
-          "description": "The utterance played to its end",
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "conversationId",
-        "utteranceId",
-        "playedMs",
-        "done"
-      ],
-      "type": "object"
-    },
-    "VoiceConversationPlayedResult": {
-      "properties": {},
-      "type": "object"
-    },
-    "VoiceConversationReason": {
-      "description": "Waiting for an approval or a question, a confirmed barge-in, nothing heard",
-      "enum": [
-        "approval",
-        "question",
-        "barge_in",
-        "no_speech"
-      ],
-      "type": "string"
-    },
-    "VoiceConversationSpeechPayload": {
-      "properties": {
-        "conversationId": {
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "utteranceId": {
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "seq": {
-          "minimum": 0,
-          "type": "integer"
-        },
-        "audio": {
-          "description": "Base64 PCM",
-          "type": "string"
-        },
-        "format": {
-          "$ref": "#/$defs/AudioFormat"
-        },
-        "last": {
-          "description": "The utterance's last chunk",
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "conversationId",
-        "utteranceId",
-        "seq",
-        "audio",
-        "format",
-        "last"
-      ],
-      "type": "object"
-    },
-    "VoiceConversationStartParams": {
-      "properties": {
-        "threadId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "mode": {
-          "$ref": "#/$defs/VoiceConversationMode"
-        },
-        "format": {
-          "$ref": "#/$defs/AudioFormat"
-        },
-        "language": {
-          "description": "BCP 47",
-          "maxLength": 35,
-          "type": "string"
-        },
-        "voice": {
-          "description": "<engine>:<voice>",
-          "maxLength": 128,
-          "type": "string"
-        }
-      },
-      "required": [
-        "mode",
-        "format"
-      ],
-      "type": "object"
-    },
-    "VoiceConversationStartResult": {
-      "properties": {
-        "conversationId": {
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "engine": {
-          "type": "string"
-        },
-        "location": {
-          "$ref": "#/$defs/SpeechEngineLocation"
-        }
-      },
-      "required": [
-        "conversationId",
-        "engine",
-        "location"
-      ],
-      "type": "object"
-    },
-    "VoiceConversationStatePayload": {
-      "properties": {
-        "conversationId": {
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "phase": {
-          "$ref": "#/$defs/VoiceConversationPhase"
-        },
-        "reason": {
-          "$ref": "#/$defs/VoiceConversationReason"
-        },
-        "approvalId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "prompt": {
-          "maxLength": 600,
-          "type": "string"
-        },
-        "windowMs": {
-          "minimum": 0,
-          "type": "integer"
-        },
-        "listening": {
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "conversationId",
-        "phase",
-        "listening"
-      ],
-      "type": "object"
-    },
-    "VoiceConversationStepPayload": {
-      "properties": {
-        "conversationId": {
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "toolCallId": {
-          "description": "ULID in production",
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "label": {
-          "description": "The narration text as shown",
-          "maxLength": 200,
-          "type": "string"
-        },
-        "status": {
-          "$ref": "#/$defs/ToolCallStatus"
-        }
-      },
-      "required": [
-        "conversationId",
-        "toolCallId",
-        "label",
-        "status"
-      ],
-      "type": "object"
-    },
-    "VoiceConversationStopParams": {
-      "properties": {
-        "conversationId": {
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        }
-      },
-      "required": [
-        "conversationId"
-      ],
-      "type": "object"
-    },
-    "VoiceConversationTurnParams": {
-      "properties": {
-        "conversationId": {
-          "maxLength": 64,
-          "minLength": 1,
-          "type": "string"
-        },
-        "action": {
-          "$ref": "#/$defs/VoiceTurnAction"
-        }
-      },
-      "required": [
-        "conversationId",
-        "action"
-      ],
-      "type": "object"
-    },
-    "VoiceConversationTurnResult": {
-      "properties": {},
       "type": "object"
     },
     "VoiceEndReason": {
@@ -35172,14 +34311,6 @@
         "reason"
       ],
       "type": "object"
-    },
-    "VoiceInterruptStage": {
-      "description": "suspect: the client VAD heard speech and ducked playback; confirmed: a key press stopped it",
-      "enum": [
-        "suspect",
-        "confirmed"
-      ],
-      "type": "string"
     },
     "VoiceMemoContent": {
       "properties": {
@@ -35277,14 +34408,6 @@
       ],
       "type": "object"
     },
-    "VoiceNarrateLevel": {
-      "enum": [
-        "off",
-        "brief",
-        "steps"
-      ],
-      "type": "string"
-    },
     "VoicePushParams": {
       "properties": {
         "sessionId": {
@@ -35330,13 +34453,6 @@
         "segment"
       ],
       "type": "object"
-    },
-    "VoiceSpeakLevel": {
-      "enum": [
-        "brief",
-        "full"
-      ],
-      "type": "string"
     },
     "VoiceStartParams": {
       "properties": {
@@ -35424,13 +34540,6 @@
         "transcript"
       ],
       "type": "object"
-    },
-    "VoiceTurnAction": {
-      "enum": [
-        "begin",
-        "end"
-      ],
-      "type": "string"
     },
     "WatchCheck": {
       "enum": [
