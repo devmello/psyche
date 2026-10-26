@@ -5,24 +5,67 @@
 // To parse the JSON, add this file to your project and do:
 //
 //   let actionRule = try? JSONDecoder().decode(ActionRule.self, from: jsonData)
+//   let appleAlarm = try? JSONDecoder().decode(AppleAlarm.self, from: jsonData)
+//   let appleBusyBlock = try? JSONDecoder().decode(AppleBusyBlock.self, from: jsonData)
 //   let appleCalendar = try? JSONDecoder().decode(AppleCalendar.self, from: jsonData)
+//   let appleCalendarDeleteEventParams = try? JSONDecoder().decode(AppleCalendarDeleteEventParams.self, from: jsonData)
 //   let appleCalendarEvent = try? JSONDecoder().decode(AppleCalendarEvent.self, from: jsonData)
 //   let appleCalendarEventInput = try? JSONDecoder().decode(AppleCalendarEventInput.self, from: jsonData)
 //   let appleCalendarEventUpdate = try? JSONDecoder().decode(AppleCalendarEventUpdate.self, from: jsonData)
+//   let appleCalendarFreeBusyParams = try? JSONDecoder().decode(AppleCalendarFreeBusyParams.self, from: jsonData)
 //   let appleCalendarListEventsParams = try? JSONDecoder().decode(AppleCalendarListEventsParams.self, from: jsonData)
+//   let appleContact = try? JSONDecoder().decode(AppleContact.self, from: jsonData)
+//   let appleContactInput = try? JSONDecoder().decode(AppleContactInput.self, from: jsonData)
+//   let appleContactSummary = try? JSONDecoder().decode(AppleContactSummary.self, from: jsonData)
+//   let appleContactUpdate = try? JSONDecoder().decode(AppleContactUpdate.self, from: jsonData)
+//   let appleContactsSearchParams = try? JSONDecoder().decode(AppleContactsSearchParams.self, from: jsonData)
+//   let appleFileItem = try? JSONDecoder().decode(AppleFileItem.self, from: jsonData)
+//   let appleFilesMoveParams = try? JSONDecoder().decode(AppleFilesMoveParams.self, from: jsonData)
+//   let appleFilesRecentParams = try? JSONDecoder().decode(AppleFilesRecentParams.self, from: jsonData)
+//   let appleFilesRenameParams = try? JSONDecoder().decode(AppleFilesRenameParams.self, from: jsonData)
+//   let appleFilesTrashParams = try? JSONDecoder().decode(AppleFilesTrashParams.self, from: jsonData)
 //   let appleFinderEntry = try? JSONDecoder().decode(AppleFinderEntry.self, from: jsonData)
 //   let appleMailDraftInput = try? JSONDecoder().decode(AppleMailDraftInput.self, from: jsonData)
+//   let appleMailDraftRef = try? JSONDecoder().decode(AppleMailDraftRef.self, from: jsonData)
+//   let appleMailForwardDraftParams = try? JSONDecoder().decode(AppleMailForwardDraftParams.self, from: jsonData)
+//   let appleMailMailbox = try? JSONDecoder().decode(AppleMailMailbox.self, from: jsonData)
 //   let appleMailMessage = try? JSONDecoder().decode(AppleMailMessage.self, from: jsonData)
 //   let appleMailMessageSummary = try? JSONDecoder().decode(AppleMailMessageSummary.self, from: jsonData)
+//   let appleMailMoveParams = try? JSONDecoder().decode(AppleMailMoveParams.self, from: jsonData)
+//   let appleMailReplyDraftParams = try? JSONDecoder().decode(AppleMailReplyDraftParams.self, from: jsonData)
+//   let appleMailSaveAttachmentsParams = try? JSONDecoder().decode(AppleMailSaveAttachmentsParams.self, from: jsonData)
 //   let appleMailSearchParams = try? JSONDecoder().decode(AppleMailSearchParams.self, from: jsonData)
+//   let appleMailSelectedParams = try? JSONDecoder().decode(AppleMailSelectedParams.self, from: jsonData)
+//   let appleMailSendDraftParams = try? JSONDecoder().decode(AppleMailSendDraftParams.self, from: jsonData)
+//   let appleMailSetFlagsParams = try? JSONDecoder().decode(AppleMailSetFlagsParams.self, from: jsonData)
+//   let appleMusicControlParams = try? JSONDecoder().decode(AppleMusicControlParams.self, from: jsonData)
+//   let appleMusicItem = try? JSONDecoder().decode(AppleMusicItem.self, from: jsonData)
+//   let appleMusicPlayParams = try? JSONDecoder().decode(AppleMusicPlayParams.self, from: jsonData)
+//   let appleMusicSearchParams = try? JSONDecoder().decode(AppleMusicSearchParams.self, from: jsonData)
 //   let appleNote = try? JSONDecoder().decode(AppleNote.self, from: jsonData)
+//   let appleNoteFolder = try? JSONDecoder().decode(AppleNoteFolder.self, from: jsonData)
 //   let appleNoteInput = try? JSONDecoder().decode(AppleNoteInput.self, from: jsonData)
 //   let appleNoteSummary = try? JSONDecoder().decode(AppleNoteSummary.self, from: jsonData)
+//   let appleNotesAppendParams = try? JSONDecoder().decode(AppleNotesAppendParams.self, from: jsonData)
+//   let appleNotesSearchParams = try? JSONDecoder().decode(AppleNotesSearchParams.self, from: jsonData)
+//   let appleNotesUpdateParams = try? JSONDecoder().decode(AppleNotesUpdateParams.self, from: jsonData)
+//   let appleNowPlaying = try? JSONDecoder().decode(AppleNowPlaying.self, from: jsonData)
+//   let appleReadingListParams = try? JSONDecoder().decode(AppleReadingListParams.self, from: jsonData)
+//   let appleRecurrence = try? JSONDecoder().decode(AppleRecurrence.self, from: jsonData)
 //   let appleReminder = try? JSONDecoder().decode(AppleReminder.self, from: jsonData)
 //   let appleReminderInput = try? JSONDecoder().decode(AppleReminderInput.self, from: jsonData)
 //   let appleReminderUpdate = try? JSONDecoder().decode(AppleReminderUpdate.self, from: jsonData)
+//   let appleRemindersCompleteParams = try? JSONDecoder().decode(AppleRemindersCompleteParams.self, from: jsonData)
+//   let appleRemindersDeleteParams = try? JSONDecoder().decode(AppleRemindersDeleteParams.self, from: jsonData)
 //   let appleRemindersListParams = try? JSONDecoder().decode(AppleRemindersListParams.self, from: jsonData)
+//   let appleRemindersSetFlaggedParams = try? JSONDecoder().decode(AppleRemindersSetFlaggedParams.self, from: jsonData)
 //   let appleSafariTab = try? JSONDecoder().decode(AppleSafariTab.self, from: jsonData)
+//   let appleSavedFile = try? JSONDecoder().decode(AppleSavedFile.self, from: jsonData)
+//   let appleShortcut = try? JSONDecoder().decode(AppleShortcut.self, from: jsonData)
+//   let appleShortcutResult = try? JSONDecoder().decode(AppleShortcutResult.self, from: jsonData)
+//   let appleShortcutsRunParams = try? JSONDecoder().decode(AppleShortcutsRunParams.self, from: jsonData)
+//   let appleTabText = try? JSONDecoder().decode(AppleTabText.self, from: jsonData)
+//   let appleTabTextParams = try? JSONDecoder().decode(AppleTabTextParams.self, from: jsonData)
 //   let approvalAnswer = try? JSONDecoder().decode(ApprovalAnswer.self, from: jsonData)
 //   let approvalBlock = try? JSONDecoder().decode(ApprovalBlock.self, from: jsonData)
 //   let approvalCreatedPayload = try? JSONDecoder().decode(ApprovalCreatedPayload.self, from: jsonData)
@@ -683,6 +726,11 @@
 //   let teachStepKind = try? JSONDecoder().decode(TeachStepKind.self, from: jsonData)
 //   let teachTarget = try? JSONDecoder().decode(TeachTarget.self, from: jsonData)
 //   let textBlock = try? JSONDecoder().decode(TextBlock.self, from: jsonData)
+//   let thingsAddParams = try? JSONDecoder().decode(ThingsAddParams.self, from: jsonData)
+//   let thingsCompleteParams = try? JSONDecoder().decode(ThingsCompleteParams.self, from: jsonData)
+//   let thingsListParams = try? JSONDecoder().decode(ThingsListParams.self, from: jsonData)
+//   let thingsTodo = try? JSONDecoder().decode(ThingsTodo.self, from: jsonData)
+//   let thingsUpdateParams = try? JSONDecoder().decode(ThingsUpdateParams.self, from: jsonData)
 //   let thread = try? JSONDecoder().decode(Thread.self, from: jsonData)
 //   let threadActivity = try? JSONDecoder().decode(ThreadActivity.self, from: jsonData)
 //   let threadContextUpdatedPayload = try? JSONDecoder().decode(ThreadContextUpdatedPayload.self, from: jsonData)
@@ -832,6 +880,35 @@
 
 import Foundation
 
+/// Free events are left out; blocks come in start order.
+// MARK: - AppleBusyBlock
+public struct AppleBusyBlock: Codable, Sendable {
+    public let availability: AppleBusyBlockAvailability
+    public let calendarID: String
+    public let end: String
+    public let start: String
+
+    public enum CodingKeys: String, CodingKey {
+        case availability = "availability"
+        case calendarID = "calendarId"
+        case end = "end"
+        case start = "start"
+    }
+
+    public init(availability: AppleBusyBlockAvailability, calendarID: String, end: String, start: String) {
+        self.availability = availability
+        self.calendarID = calendarID
+        self.end = end
+        self.start = start
+    }
+}
+
+public enum AppleBusyBlockAvailability: String, Codable, Sendable {
+    case busy = "busy"
+    case tentative = "tentative"
+    case unavailable = "unavailable"
+}
+
 // MARK: - AppleCalendar
 public struct AppleCalendar: Codable, Sendable {
     public let color: String?
@@ -857,40 +934,80 @@ public struct AppleCalendar: Codable, Sendable {
     }
 }
 
+// MARK: - AppleCalendarDeleteEventParams
+public struct AppleCalendarDeleteEventParams: Codable, Sendable {
+    public let id: String
+    /// Recurring events: this one or this and later
+    public let span: Span?
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case span = "span"
+    }
+
+    public init(id: String, span: Span?) {
+        self.id = id
+        self.span = span
+    }
+}
+
+/// Recurring events: this one or this and later
+///
+/// Recurring events (default this)
+public enum Span: String, Codable, Sendable {
+    case future = "future"
+    case this = "this"
+}
+
 // MARK: - AppleCalendarEvent
 public struct AppleCalendarEvent: Codable, Sendable {
+    public let alarms: [AppleAlarm]?
     public let allDay: Bool
+    public let attendees: [Attendee]?
+    public let availability: AppleCalendarEventAvailability?
     public let calendarID: String
+    public let conferenceURL: String?
     public let end: String
     /// EKEvent.calendarItemIdentifier
     public let id: String
     public let location: String?
     public let notes: String?
+    public let recurrence: AppleRecurrence?
     public let recurring: Bool
     public let start: String
     public let title: String
     public let url: String?
 
     public enum CodingKeys: String, CodingKey {
+        case alarms = "alarms"
         case allDay = "allDay"
+        case attendees = "attendees"
+        case availability = "availability"
         case calendarID = "calendarId"
+        case conferenceURL = "conferenceUrl"
         case end = "end"
         case id = "id"
         case location = "location"
         case notes = "notes"
+        case recurrence = "recurrence"
         case recurring = "recurring"
         case start = "start"
         case title = "title"
         case url = "url"
     }
 
-    public init(allDay: Bool, calendarID: String, end: String, id: String, location: String?, notes: String?, recurring: Bool, start: String, title: String, url: String?) {
+    public init(alarms: [AppleAlarm]?, allDay: Bool, attendees: [Attendee]?, availability: AppleCalendarEventAvailability?, calendarID: String, conferenceURL: String?, end: String, id: String, location: String?, notes: String?, recurrence: AppleRecurrence?, recurring: Bool, start: String, title: String, url: String?) {
+        self.alarms = alarms
         self.allDay = allDay
+        self.attendees = attendees
+        self.availability = availability
         self.calendarID = calendarID
+        self.conferenceURL = conferenceURL
         self.end = end
         self.id = id
         self.location = location
         self.notes = notes
+        self.recurrence = recurrence
         self.recurring = recurring
         self.start = start
         self.title = title
@@ -898,48 +1015,171 @@ public struct AppleCalendarEvent: Codable, Sendable {
     }
 }
 
+// MARK: - AppleAlarm
+public struct AppleAlarm: Codable, Sendable {
+    /// Minutes before the start or due time (0 = at the time, -15 = 15 minutes before)
+    public let relativeMinutes: Int?
+    public let at: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case relativeMinutes = "relativeMinutes"
+        case at = "at"
+    }
+
+    public init(relativeMinutes: Int?, at: String?) {
+        self.relativeMinutes = relativeMinutes
+        self.at = at
+    }
+}
+
+// MARK: - Attendee
+public struct Attendee: Codable, Sendable {
+    public let email: String?
+    public let name: String
+    public let organizer: Bool
+    public let status: AttendeeStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case email = "email"
+        case name = "name"
+        case organizer = "organizer"
+        case status = "status"
+    }
+
+    public init(email: String?, name: String, organizer: Bool, status: AttendeeStatus) {
+        self.email = email
+        self.name = name
+        self.organizer = organizer
+        self.status = status
+    }
+}
+
+public enum AttendeeStatus: String, Codable, Sendable {
+    case accepted = "accepted"
+    case declined = "declined"
+    case pending = "pending"
+    case tentative = "tentative"
+    case unknown = "unknown"
+}
+
+public enum AppleCalendarEventAvailability: String, Codable, Sendable {
+    case busy = "busy"
+    case free = "free"
+    case tentative = "tentative"
+    case unavailable = "unavailable"
+}
+
+// MARK: - AppleRecurrence
+public struct AppleRecurrence: Codable, Sendable {
+    /// Stop after N occurrences
+    public let count: Int?
+    /// Weekly only: the days it falls on
+    public let daysOfWeek: [DaysOfWeek]?
+    /// How often it repeats
+    public let frequency: Frequency
+    /// Every N periods (default 1)
+    public let interval: Int?
+    public let until: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case count = "count"
+        case daysOfWeek = "daysOfWeek"
+        case frequency = "frequency"
+        case interval = "interval"
+        case until = "until"
+    }
+
+    public init(count: Int?, daysOfWeek: [DaysOfWeek]?, frequency: Frequency, interval: Int?, until: String?) {
+        self.count = count
+        self.daysOfWeek = daysOfWeek
+        self.frequency = frequency
+        self.interval = interval
+        self.until = until
+    }
+}
+
+public enum DaysOfWeek: String, Codable, Sendable {
+    case fr = "fr"
+    case mo = "mo"
+    case sa = "sa"
+    case su = "su"
+    case th = "th"
+    case tu = "tu"
+    case we = "we"
+}
+
+/// How often it repeats
+public enum Frequency: String, Codable, Sendable {
+    case daily = "daily"
+    case monthly = "monthly"
+    case weekly = "weekly"
+    case yearly = "yearly"
+}
+
 // MARK: - AppleCalendarEventInput
 public struct AppleCalendarEventInput: Codable, Sendable {
+    /// Replaces the alarms
+    public let alarms: [AppleAlarm]?
     public let allDay: Bool?
+    /// Show as busy or free
+    public let availability: AppleCalendarEventInputAvailability?
     /// Default: the default calendar for new events
     public let calendarID: String?
     public let end: String
     public let location: String?
     public let notes: String?
+    public let recurrence: AppleRecurrence?
     public let start: String
     public let title: String
     public let url: String?
 
     public enum CodingKeys: String, CodingKey {
+        case alarms = "alarms"
         case allDay = "allDay"
+        case availability = "availability"
         case calendarID = "calendarId"
         case end = "end"
         case location = "location"
         case notes = "notes"
+        case recurrence = "recurrence"
         case start = "start"
         case title = "title"
         case url = "url"
     }
 
-    public init(allDay: Bool?, calendarID: String?, end: String, location: String?, notes: String?, start: String, title: String, url: String?) {
+    public init(alarms: [AppleAlarm]?, allDay: Bool?, availability: AppleCalendarEventInputAvailability?, calendarID: String?, end: String, location: String?, notes: String?, recurrence: AppleRecurrence?, start: String, title: String, url: String?) {
+        self.alarms = alarms
         self.allDay = allDay
+        self.availability = availability
         self.calendarID = calendarID
         self.end = end
         self.location = location
         self.notes = notes
+        self.recurrence = recurrence
         self.start = start
         self.title = title
         self.url = url
     }
 }
 
+/// Show as busy or free
+public enum AppleCalendarEventInputAvailability: String, Codable, Sendable {
+    case busy = "busy"
+    case free = "free"
+}
+
 // MARK: - AppleCalendarEventUpdate
 public struct AppleCalendarEventUpdate: Codable, Sendable {
+    /// Replaces the alarms
+    public let alarms: [AppleAlarm]?
     public let allDay: Bool?
+    /// Show as busy or free
+    public let availability: AppleCalendarEventInputAvailability?
     public let end: String?
     public let id: String
     public let location: String?
     public let notes: String?
+    public let recurrence: AppleRecurrence?
     /// Recurring events (default this)
     public let span: Span?
     public let start: String?
@@ -947,23 +1187,29 @@ public struct AppleCalendarEventUpdate: Codable, Sendable {
     public let url: String?
 
     public enum CodingKeys: String, CodingKey {
+        case alarms = "alarms"
         case allDay = "allDay"
+        case availability = "availability"
         case end = "end"
         case id = "id"
         case location = "location"
         case notes = "notes"
+        case recurrence = "recurrence"
         case span = "span"
         case start = "start"
         case title = "title"
         case url = "url"
     }
 
-    public init(allDay: Bool?, end: String?, id: String, location: String?, notes: String?, span: Span?, start: String?, title: String?, url: String?) {
+    public init(alarms: [AppleAlarm]?, allDay: Bool?, availability: AppleCalendarEventInputAvailability?, end: String?, id: String, location: String?, notes: String?, recurrence: AppleRecurrence?, span: Span?, start: String?, title: String?, url: String?) {
+        self.alarms = alarms
         self.allDay = allDay
+        self.availability = availability
         self.end = end
         self.id = id
         self.location = location
         self.notes = notes
+        self.recurrence = recurrence
         self.span = span
         self.start = start
         self.title = title
@@ -971,10 +1217,24 @@ public struct AppleCalendarEventUpdate: Codable, Sendable {
     }
 }
 
-/// Recurring events (default this)
-public enum Span: String, Codable, Sendable {
-    case future = "future"
-    case this = "this"
+// MARK: - AppleCalendarFreeBusyParams
+public struct AppleCalendarFreeBusyParams: Codable, Sendable {
+    /// Default: every calendar
+    public let calendarIDS: [String]?
+    public let from: String
+    public let to: String
+
+    public enum CodingKeys: String, CodingKey {
+        case calendarIDS = "calendarIds"
+        case from = "from"
+        case to = "to"
+    }
+
+    public init(calendarIDS: [String]?, from: String, to: String) {
+        self.calendarIDS = calendarIDS
+        self.from = from
+        self.to = to
+    }
 }
 
 // MARK: - AppleCalendarListEventsParams
@@ -982,26 +1242,461 @@ public struct AppleCalendarListEventsParams: Codable, Sendable {
     public let calendarIDS: [String]?
     public let from: String
     public let limit: Int?
+    /// Text in the title, location or notes (C1)
+    public let query: String?
     public let to: String
 
     public enum CodingKeys: String, CodingKey {
         case calendarIDS = "calendarIds"
         case from = "from"
         case limit = "limit"
+        case query = "query"
         case to = "to"
     }
 
-    public init(calendarIDS: [String]?, from: String, limit: Int?, to: String) {
+    public init(calendarIDS: [String]?, from: String, limit: Int?, query: String?, to: String) {
         self.calendarIDS = calendarIDS
         self.from = from
         self.limit = limit
+        self.query = query
         self.to = to
+    }
+}
+
+// MARK: - AppleContact
+public struct AppleContact: Codable, Sendable {
+    public let addresses: [Address]
+    public let birthday: String?
+    public let emails: [AppleContactEmail]
+    public let familyName: String
+    public let givenName: String
+    public let groups: [String]
+    public let id: String
+    public let jobTitle: String
+    public let nickname: String
+    public let organization: String
+    public let phones: [AppleContactPhone]
+    public let urls: [URLElement]
+
+    public enum CodingKeys: String, CodingKey {
+        case addresses = "addresses"
+        case birthday = "birthday"
+        case emails = "emails"
+        case familyName = "familyName"
+        case givenName = "givenName"
+        case groups = "groups"
+        case id = "id"
+        case jobTitle = "jobTitle"
+        case nickname = "nickname"
+        case organization = "organization"
+        case phones = "phones"
+        case urls = "urls"
+    }
+
+    public init(addresses: [Address], birthday: String?, emails: [AppleContactEmail], familyName: String, givenName: String, groups: [String], id: String, jobTitle: String, nickname: String, organization: String, phones: [AppleContactPhone], urls: [URLElement]) {
+        self.addresses = addresses
+        self.birthday = birthday
+        self.emails = emails
+        self.familyName = familyName
+        self.givenName = givenName
+        self.groups = groups
+        self.id = id
+        self.jobTitle = jobTitle
+        self.nickname = nickname
+        self.organization = organization
+        self.phones = phones
+        self.urls = urls
+    }
+}
+
+// MARK: - Address
+public struct Address: Codable, Sendable {
+    public let city: String
+    public let country: String
+    public let label: String
+    public let postalCode: String
+    public let state: String
+    public let street: String
+
+    public enum CodingKeys: String, CodingKey {
+        case city = "city"
+        case country = "country"
+        case label = "label"
+        case postalCode = "postalCode"
+        case state = "state"
+        case street = "street"
+    }
+
+    public init(city: String, country: String, label: String, postalCode: String, state: String, street: String) {
+        self.city = city
+        self.country = country
+        self.label = label
+        self.postalCode = postalCode
+        self.state = state
+        self.street = street
+    }
+}
+
+// MARK: - AppleContactEmail
+public struct AppleContactEmail: Codable, Sendable {
+    /// home, work, mobile, … (empty when none)
+    public let label: String
+    public let value: String
+
+    public enum CodingKeys: String, CodingKey {
+        case label = "label"
+        case value = "value"
+    }
+
+    public init(label: String, value: String) {
+        self.label = label
+        self.value = value
+    }
+}
+
+// MARK: - AppleContactPhone
+public struct AppleContactPhone: Codable, Sendable {
+    /// home, work, mobile, … (empty when none)
+    public let label: String
+    public let value: String
+
+    public enum CodingKeys: String, CodingKey {
+        case label = "label"
+        case value = "value"
+    }
+
+    public init(label: String, value: String) {
+        self.label = label
+        self.value = value
+    }
+}
+
+// MARK: - URLElement
+public struct URLElement: Codable, Sendable {
+    /// home, work, mobile, … (empty when none)
+    public let label: String
+    public let value: String
+
+    public enum CodingKeys: String, CodingKey {
+        case label = "label"
+        case value = "value"
+    }
+
+    public init(label: String, value: String) {
+        self.label = label
+        self.value = value
+    }
+}
+
+// MARK: - AppleContactInput
+public struct AppleContactInput: Codable, Sendable {
+    /// YYYY-MM-DD or --MM-DD
+    public let birthday: String?
+    public let emails: [AppleContactInputEmail]?
+    public let familyName: String?
+    public let givenName: String?
+    public let jobTitle: String?
+    public let organization: String?
+    public let phones: [AppleContactInputPhone]?
+
+    public enum CodingKeys: String, CodingKey {
+        case birthday = "birthday"
+        case emails = "emails"
+        case familyName = "familyName"
+        case givenName = "givenName"
+        case jobTitle = "jobTitle"
+        case organization = "organization"
+        case phones = "phones"
+    }
+
+    public init(birthday: String?, emails: [AppleContactInputEmail]?, familyName: String?, givenName: String?, jobTitle: String?, organization: String?, phones: [AppleContactInputPhone]?) {
+        self.birthday = birthday
+        self.emails = emails
+        self.familyName = familyName
+        self.givenName = givenName
+        self.jobTitle = jobTitle
+        self.organization = organization
+        self.phones = phones
+    }
+}
+
+// MARK: - AppleContactInputEmail
+public struct AppleContactInputEmail: Codable, Sendable {
+    /// home, work, mobile, … (empty when none)
+    public let label: String
+    public let value: String
+
+    public enum CodingKeys: String, CodingKey {
+        case label = "label"
+        case value = "value"
+    }
+
+    public init(label: String, value: String) {
+        self.label = label
+        self.value = value
+    }
+}
+
+// MARK: - AppleContactInputPhone
+public struct AppleContactInputPhone: Codable, Sendable {
+    /// home, work, mobile, … (empty when none)
+    public let label: String
+    public let value: String
+
+    public enum CodingKeys: String, CodingKey {
+        case label = "label"
+        case value = "value"
+    }
+
+    public init(label: String, value: String) {
+        self.label = label
+        self.value = value
+    }
+}
+
+// MARK: - AppleContactSummary
+public struct AppleContactSummary: Codable, Sendable {
+    public let emails: [String]
+    public let id: String
+    public let name: String
+    public let organization: String
+    public let phones: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case emails = "emails"
+        case id = "id"
+        case name = "name"
+        case organization = "organization"
+        case phones = "phones"
+    }
+
+    public init(emails: [String], id: String, name: String, organization: String, phones: [String]) {
+        self.emails = emails
+        self.id = id
+        self.name = name
+        self.organization = organization
+        self.phones = phones
+    }
+}
+
+// MARK: - AppleContactUpdate
+public struct AppleContactUpdate: Codable, Sendable {
+    public let addEmails: [AddEmail]?
+    public let addPhones: [AddPhone]?
+    /// YYYY-MM-DD or --MM-DD
+    public let birthday: String?
+    public let familyName: String?
+    public let givenName: String?
+    public let id: String
+    public let jobTitle: String?
+    public let organization: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case addEmails = "addEmails"
+        case addPhones = "addPhones"
+        case birthday = "birthday"
+        case familyName = "familyName"
+        case givenName = "givenName"
+        case id = "id"
+        case jobTitle = "jobTitle"
+        case organization = "organization"
+    }
+
+    public init(addEmails: [AddEmail]?, addPhones: [AddPhone]?, birthday: String?, familyName: String?, givenName: String?, id: String, jobTitle: String?, organization: String?) {
+        self.addEmails = addEmails
+        self.addPhones = addPhones
+        self.birthday = birthday
+        self.familyName = familyName
+        self.givenName = givenName
+        self.id = id
+        self.jobTitle = jobTitle
+        self.organization = organization
+    }
+}
+
+// MARK: - AddEmail
+public struct AddEmail: Codable, Sendable {
+    /// home, work, mobile, … (empty when none)
+    public let label: String
+    public let value: String
+
+    public enum CodingKeys: String, CodingKey {
+        case label = "label"
+        case value = "value"
+    }
+
+    public init(label: String, value: String) {
+        self.label = label
+        self.value = value
+    }
+}
+
+// MARK: - AddPhone
+public struct AddPhone: Codable, Sendable {
+    /// home, work, mobile, … (empty when none)
+    public let label: String
+    public let value: String
+
+    public enum CodingKeys: String, CodingKey {
+        case label = "label"
+        case value = "value"
+    }
+
+    public init(label: String, value: String) {
+        self.label = label
+        self.value = value
+    }
+}
+
+/// Results come best match first.
+// MARK: - AppleContactsSearchParams
+public struct AppleContactsSearchParams: Codable, Sendable {
+    public let limit: Int?
+    /// A name, email, phone or company
+    public let query: String
+
+    public enum CodingKeys: String, CodingKey {
+        case limit = "limit"
+        case query = "query"
+    }
+
+    public init(limit: Int?, query: String) {
+        self.limit = limit
+        self.query = query
+    }
+}
+
+// MARK: - AppleFileItem
+public struct AppleFileItem: Codable, Sendable {
+    public let added: String?
+    public let contentType: String?
+    public let kind: AppleFileItemKind
+    public let modified: String?
+    public let name: String
+    public let path: String
+    public let size: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case added = "added"
+        case contentType = "contentType"
+        case kind = "kind"
+        case modified = "modified"
+        case name = "name"
+        case path = "path"
+        case size = "size"
+    }
+
+    public init(added: String?, contentType: String?, kind: AppleFileItemKind, modified: String?, name: String, path: String, size: Int?) {
+        self.added = added
+        self.contentType = contentType
+        self.kind = kind
+        self.modified = modified
+        self.name = name
+        self.path = path
+        self.size = size
+    }
+}
+
+public enum AppleFileItemKind: String, Codable, Sendable {
+    case directory = "directory"
+    case file = "file"
+    case other = "other"
+    case symlink = "symlink"
+}
+
+// MARK: - AppleFilesMoveParams
+public struct AppleFilesMoveParams: Codable, Sendable {
+    public let items: [Item]
+
+    public enum CodingKeys: String, CodingKey {
+        case items = "items"
+    }
+
+    public init(items: [Item]) {
+        self.items = items
+    }
+}
+
+// MARK: - Item
+public struct Item: Codable, Sendable {
+    /// New file name
+    public let name: String?
+    public let path: String
+    /// Destination folder (granted)
+    public let to: String
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case path = "path"
+        case to = "to"
+    }
+
+    public init(name: String?, path: String, to: String) {
+        self.name = name
+        self.path = path
+        self.to = to
+    }
+}
+
+// MARK: - AppleFilesRecentParams
+public struct AppleFilesRecentParams: Codable, Sendable {
+    public let addedBefore: String?
+    public let addedSince: String?
+    /// UTType ids or extensions (pdf, png)
+    public let contentTypes: [String]?
+    /// A granted folder, e.g. ~/Downloads
+    public let folder: String
+    public let limit: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case addedBefore = "addedBefore"
+        case addedSince = "addedSince"
+        case contentTypes = "contentTypes"
+        case folder = "folder"
+        case limit = "limit"
+    }
+
+    public init(addedBefore: String?, addedSince: String?, contentTypes: [String]?, folder: String, limit: Int?) {
+        self.addedBefore = addedBefore
+        self.addedSince = addedSince
+        self.contentTypes = contentTypes
+        self.folder = folder
+        self.limit = limit
+    }
+}
+
+// MARK: - AppleFilesRenameParams
+public struct AppleFilesRenameParams: Codable, Sendable {
+    public let name: String
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case path = "path"
+    }
+
+    public init(name: String, path: String) {
+        self.name = name
+        self.path = path
+    }
+}
+
+// MARK: - AppleFilesTrashParams
+public struct AppleFilesTrashParams: Codable, Sendable {
+    public let paths: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case paths = "paths"
+    }
+
+    public init(paths: [String]) {
+        self.paths = paths
     }
 }
 
 // MARK: - AppleFinderEntry
 public struct AppleFinderEntry: Codable, Sendable {
-    public let kind: AppleFinderEntryKind
+    public let kind: AppleFileItemKind
     public let modified: String?
     public let name: String
     public let path: String
@@ -1015,20 +1710,13 @@ public struct AppleFinderEntry: Codable, Sendable {
         case size = "size"
     }
 
-    public init(kind: AppleFinderEntryKind, modified: String?, name: String, path: String, size: Int?) {
+    public init(kind: AppleFileItemKind, modified: String?, name: String, path: String, size: Int?) {
         self.kind = kind
         self.modified = modified
         self.name = name
         self.path = path
         self.size = size
     }
-}
-
-public enum AppleFinderEntryKind: String, Codable, Sendable {
-    case directory = "directory"
-    case file = "file"
-    case other = "other"
-    case symlink = "symlink"
 }
 
 // MARK: - AppleMailDraftInput
@@ -1053,8 +1741,97 @@ public struct AppleMailDraftInput: Codable, Sendable {
     }
 }
 
+// MARK: - AppleMailDraftRef
+public struct AppleMailDraftRef: Codable, Sendable {
+    /// sha256 of the body as saved: the send binding
+    public let bodySha256: String
+    public let cc: [String]
+    public let draftID: String
+    public let subject: String
+    public let to: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case bodySha256 = "bodySha256"
+        case cc = "cc"
+        case draftID = "draftId"
+        case subject = "subject"
+        case to = "to"
+    }
+
+    public init(bodySha256: String, cc: [String], draftID: String, subject: String, to: [String]) {
+        self.bodySha256 = bodySha256
+        self.cc = cc
+        self.draftID = draftID
+        self.subject = subject
+        self.to = to
+    }
+}
+
+// MARK: - AppleMailForwardDraftParams
+public struct AppleMailForwardDraftParams: Codable, Sendable {
+    public let account: String?
+    /// Text above the forwarded message
+    public let body: String?
+    public let cc: [String]?
+    /// The message to forward
+    public let id: String
+    public let mailbox: String?
+    public let to: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case account = "account"
+        case body = "body"
+        case cc = "cc"
+        case id = "id"
+        case mailbox = "mailbox"
+        case to = "to"
+    }
+
+    public init(account: String?, body: String?, cc: [String]?, id: String, mailbox: String?, to: [String]) {
+        self.account = account
+        self.body = body
+        self.cc = cc
+        self.id = id
+        self.mailbox = mailbox
+        self.to = to
+    }
+}
+
+// MARK: - AppleMailMailbox
+public struct AppleMailMailbox: Codable, Sendable {
+    public let account: String
+    /// Mailbox name; nested ones as Parent/Child
+    public let name: String
+    public let special: Special?
+    public let unreadCount: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case account = "account"
+        case name = "name"
+        case special = "special"
+        case unreadCount = "unreadCount"
+    }
+
+    public init(account: String, name: String, special: Special?, unreadCount: Int) {
+        self.account = account
+        self.name = name
+        self.special = special
+        self.unreadCount = unreadCount
+    }
+}
+
+public enum Special: String, Codable, Sendable {
+    case archive = "archive"
+    case drafts = "drafts"
+    case inbox = "inbox"
+    case junk = "junk"
+    case sent = "sent"
+    case trash = "trash"
+}
+
 // MARK: - AppleMailMessage
 public struct AppleMailMessage: Codable, Sendable {
+    public let attachments: [AppleMailMessageAttachment]?
     /// Plain text, untrusted
     public let body: String
     public let cc: [String]
@@ -1063,6 +1840,7 @@ public struct AppleMailMessage: Codable, Sendable {
     public let truncated: Bool
 
     public enum CodingKeys: String, CodingKey {
+        case attachments = "attachments"
         case body = "body"
         case cc = "cc"
         case summary = "summary"
@@ -1070,7 +1848,8 @@ public struct AppleMailMessage: Codable, Sendable {
         case truncated = "truncated"
     }
 
-    public init(body: String, cc: [String], summary: AppleMailMessageSummary, to: [String], truncated: Bool) {
+    public init(attachments: [AppleMailMessageAttachment]?, body: String, cc: [String], summary: AppleMailMessageSummary, to: [String], truncated: Bool) {
+        self.attachments = attachments
         self.body = body
         self.cc = cc
         self.summary = summary
@@ -1079,13 +1858,35 @@ public struct AppleMailMessage: Codable, Sendable {
     }
 }
 
+// MARK: - AppleMailMessageAttachment
+public struct AppleMailMessageAttachment: Codable, Sendable {
+    public let mimeType: String?
+    public let name: String
+    public let size: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case mimeType = "mimeType"
+        case name = "name"
+        case size = "size"
+    }
+
+    public init(mimeType: String?, name: String, size: Int?) {
+        self.mimeType = mimeType
+        self.name = name
+        self.size = size
+    }
+}
+
 // MARK: - AppleMailMessageSummary
 public struct AppleMailMessageSummary: Codable, Sendable {
     public let account: String
     public let date: String
+    public let flagged: Bool?
     public let from: String
     /// Mail message id (stable within the account)
     public let id: String
+    /// message:// URL that opens this message in Mail
+    public let link: String?
     public let mailbox: String
     public let read: Bool
     public let subject: String
@@ -1093,21 +1894,158 @@ public struct AppleMailMessageSummary: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case account = "account"
         case date = "date"
+        case flagged = "flagged"
         case from = "from"
         case id = "id"
+        case link = "link"
         case mailbox = "mailbox"
         case read = "read"
         case subject = "subject"
     }
 
-    public init(account: String, date: String, from: String, id: String, mailbox: String, read: Bool, subject: String) {
+    public init(account: String, date: String, flagged: Bool?, from: String, id: String, link: String?, mailbox: String, read: Bool, subject: String) {
         self.account = account
         self.date = date
+        self.flagged = flagged
         self.from = from
         self.id = id
+        self.link = link
         self.mailbox = mailbox
         self.read = read
         self.subject = subject
+    }
+}
+
+// MARK: - AppleMailMoveParams
+public struct AppleMailMoveParams: Codable, Sendable {
+    /// Account of that mailbox
+    public let account: String?
+    /// Mail message ids from mail.search or mail.selected
+    public let ids: [String]
+    /// Mailbox the messages are in (default: inbox)
+    public let mailbox: String?
+    public let to: ToUnion
+
+    public enum CodingKeys: String, CodingKey {
+        case account = "account"
+        case ids = "ids"
+        case mailbox = "mailbox"
+        case to = "to"
+    }
+
+    public init(account: String?, ids: [String], mailbox: String?, to: ToUnion) {
+        self.account = account
+        self.ids = ids
+        self.mailbox = mailbox
+        self.to = to
+    }
+}
+
+public enum ToUnion: Codable, Sendable {
+    case enumeration(ToEnum)
+    case toClass(ToClass)
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let x = try? container.decode(ToEnum.self) {
+            self = .enumeration(x)
+            return
+        }
+        if let x = try? container.decode(ToClass.self) {
+            self = .toClass(x)
+            return
+        }
+        throw DecodingError.typeMismatch(ToUnion.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for ToUnion"))
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .enumeration(let x):
+            try container.encode(x)
+        case .toClass(let x):
+            try container.encode(x)
+        }
+    }
+}
+
+// MARK: - ToClass
+public struct ToClass: Codable, Sendable {
+    public let account: String
+    public let mailbox: String
+
+    public enum CodingKeys: String, CodingKey {
+        case account = "account"
+        case mailbox = "mailbox"
+    }
+
+    public init(account: String, mailbox: String) {
+        self.account = account
+        self.mailbox = mailbox
+    }
+}
+
+/// The account's Archive or Junk mailbox
+public enum ToEnum: String, Codable, Sendable {
+    case archive = "archive"
+    case junk = "junk"
+}
+
+// MARK: - AppleMailReplyDraftParams
+public struct AppleMailReplyDraftParams: Codable, Sendable {
+    public let account: String?
+    /// Plain text written above the quote
+    public let body: String
+    public let cc: [String]?
+    /// The message to reply to
+    public let id: String
+    public let mailbox: String?
+    /// Reply to everyone (default: sender only)
+    public let replyAll: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case account = "account"
+        case body = "body"
+        case cc = "cc"
+        case id = "id"
+        case mailbox = "mailbox"
+        case replyAll = "replyAll"
+    }
+
+    public init(account: String?, body: String, cc: [String]?, id: String, mailbox: String?, replyAll: Bool?) {
+        self.account = account
+        self.body = body
+        self.cc = cc
+        self.id = id
+        self.mailbox = mailbox
+        self.replyAll = replyAll
+    }
+}
+
+// MARK: - AppleMailSaveAttachmentsParams
+public struct AppleMailSaveAttachmentsParams: Codable, Sendable {
+    public let account: String?
+    /// A granted folder to save into; default: the Library
+    public let folder: String?
+    public let id: String
+    public let mailbox: String?
+    /// Which attachments (default: all)
+    public let names: [String]?
+
+    public enum CodingKeys: String, CodingKey {
+        case account = "account"
+        case folder = "folder"
+        case id = "id"
+        case mailbox = "mailbox"
+        case names = "names"
+    }
+
+    public init(account: String?, folder: String?, id: String, mailbox: String?, names: [String]?) {
+        self.account = account
+        self.folder = folder
+        self.id = id
+        self.mailbox = mailbox
+        self.names = names
     }
 }
 
@@ -1145,8 +2083,202 @@ public struct AppleMailSearchParams: Codable, Sendable {
     }
 }
 
+// MARK: - AppleMailSelectedParams
+public struct AppleMailSelectedParams: Codable, Sendable {
+    public let limit: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case limit = "limit"
+    }
+
+    public init(limit: Int?) {
+        self.limit = limit
+    }
+}
+
+// MARK: - AppleMailSendDraftParams
+public struct AppleMailSendDraftParams: Codable, Sendable {
+    /// AppleMailDraftRef.bodySha256
+    public let bodySha256: String
+    public let cc: [String]?
+    /// From mail.reply_draft / mail.forward_draft
+    public let draftID: String
+    public let subject: String
+    /// The draft's recipients, as AppleMailDraftRef returned them
+    public let to: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case bodySha256 = "bodySha256"
+        case cc = "cc"
+        case draftID = "draftId"
+        case subject = "subject"
+        case to = "to"
+    }
+
+    public init(bodySha256: String, cc: [String]?, draftID: String, subject: String, to: [String]) {
+        self.bodySha256 = bodySha256
+        self.cc = cc
+        self.draftID = draftID
+        self.subject = subject
+        self.to = to
+    }
+}
+
+// MARK: - AppleMailSetFlagsParams
+public struct AppleMailSetFlagsParams: Codable, Sendable {
+    /// Account of that mailbox
+    public let account: String?
+    /// 0 red, 1 orange, 2 yellow, 3 green, 4 blue, 5 purple, 6 gray
+    public let flagColor: Int?
+    public let flagged: Bool?
+    /// Mail message ids from mail.search or mail.selected
+    public let ids: [String]
+    /// Mailbox the messages are in (default: inbox)
+    public let mailbox: String?
+    /// true marks read, false unread
+    public let read: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case account = "account"
+        case flagColor = "flagColor"
+        case flagged = "flagged"
+        case ids = "ids"
+        case mailbox = "mailbox"
+        case read = "read"
+    }
+
+    public init(account: String?, flagColor: Int?, flagged: Bool?, ids: [String], mailbox: String?, read: Bool?) {
+        self.account = account
+        self.flagColor = flagColor
+        self.flagged = flagged
+        self.ids = ids
+        self.mailbox = mailbox
+        self.read = read
+    }
+}
+
+// MARK: - AppleMusicControlParams
+public struct AppleMusicControlParams: Codable, Sendable {
+    public let action: Action
+    /// Which player (default: whichever is playing, else Music)
+    public let app: App?
+    /// With action shuffle
+    public let shuffle: Bool?
+    /// With action volume
+    public let volume: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case action = "action"
+        case app = "app"
+        case shuffle = "shuffle"
+        case volume = "volume"
+    }
+
+    public init(action: Action, app: App?, shuffle: Bool?, volume: Int?) {
+        self.action = action
+        self.app = app
+        self.shuffle = shuffle
+        self.volume = volume
+    }
+}
+
+public enum Action: String, Codable, Sendable {
+    case next = "next"
+    case pause = "pause"
+    case play = "play"
+    case playpause = "playpause"
+    case previous = "previous"
+    case shuffle = "shuffle"
+    case volume = "volume"
+}
+
+/// Which player (default: whichever is playing, else Music)
+public enum App: String, Codable, Sendable {
+    case music = "music"
+    case spotify = "spotify"
+}
+
+// MARK: - AppleMusicItem
+public struct AppleMusicItem: Codable, Sendable {
+    public let album: String?
+    public let artist: String?
+    /// Music persistent ID (track, playlist) or a name key (album, artist)
+    public let id: String
+    public let kind: AppleMusicItemKind
+    public let name: String
+    public let trackCount: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case album = "album"
+        case artist = "artist"
+        case id = "id"
+        case kind = "kind"
+        case name = "name"
+        case trackCount = "trackCount"
+    }
+
+    public init(album: String?, artist: String?, id: String, kind: AppleMusicItemKind, name: String, trackCount: Int?) {
+        self.album = album
+        self.artist = artist
+        self.id = id
+        self.kind = kind
+        self.name = name
+        self.trackCount = trackCount
+    }
+}
+
+/// Default: all kinds
+public enum AppleMusicItemKind: String, Codable, Sendable {
+    case album = "album"
+    case artist = "artist"
+    case playlist = "playlist"
+    case track = "track"
+}
+
+// MARK: - AppleMusicPlayParams
+public struct AppleMusicPlayParams: Codable, Sendable {
+    public let id: String
+    public let kind: AppleMusicItemKind
+    public let shuffle: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case kind = "kind"
+        case shuffle = "shuffle"
+    }
+
+    public init(id: String, kind: AppleMusicItemKind, shuffle: Bool?) {
+        self.id = id
+        self.kind = kind
+        self.shuffle = shuffle
+    }
+}
+
+/// Results come best match first.
+// MARK: - AppleMusicSearchParams
+public struct AppleMusicSearchParams: Codable, Sendable {
+    /// Default: all kinds
+    public let kind: AppleMusicItemKind?
+    public let limit: Int?
+    public let query: String
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case limit = "limit"
+        case query = "query"
+    }
+
+    public init(kind: AppleMusicItemKind?, limit: Int?, query: String) {
+        self.kind = kind
+        self.limit = limit
+        self.query = query
+    }
+}
+
 // MARK: - AppleNote
 public struct AppleNote: Codable, Sendable {
+    public let attachments: [AppleNoteAttachment]?
+    public let bodySha256: String?
     /// Notes body HTML, untrusted
     public let html: String
     public let summary: AppleNoteSummary
@@ -1155,17 +2287,37 @@ public struct AppleNote: Codable, Sendable {
     public let truncated: Bool
 
     public enum CodingKeys: String, CodingKey {
+        case attachments = "attachments"
+        case bodySha256 = "bodySha256"
         case html = "html"
         case summary = "summary"
         case text = "text"
         case truncated = "truncated"
     }
 
-    public init(html: String, summary: AppleNoteSummary, text: String, truncated: Bool) {
+    public init(attachments: [AppleNoteAttachment]?, bodySha256: String?, html: String, summary: AppleNoteSummary, text: String, truncated: Bool) {
+        self.attachments = attachments
+        self.bodySha256 = bodySha256
         self.html = html
         self.summary = summary
         self.text = text
         self.truncated = truncated
+    }
+}
+
+// MARK: - AppleNoteAttachment
+public struct AppleNoteAttachment: Codable, Sendable {
+    public let id: String
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case name = "name"
+    }
+
+    public init(id: String, name: String) {
+        self.id = id
+        self.name = name
     }
 }
 
@@ -1174,20 +2326,48 @@ public struct AppleNoteSummary: Codable, Sendable {
     public let folder: String
     public let id: String
     public let modified: String
+    public let snippet: String?
     public let title: String
 
     public enum CodingKeys: String, CodingKey {
         case folder = "folder"
         case id = "id"
         case modified = "modified"
+        case snippet = "snippet"
         case title = "title"
     }
 
-    public init(folder: String, id: String, modified: String, title: String) {
+    public init(folder: String, id: String, modified: String, snippet: String?, title: String) {
         self.folder = folder
         self.id = id
         self.modified = modified
+        self.snippet = snippet
         self.title = title
+    }
+}
+
+// MARK: - AppleNoteFolder
+public struct AppleNoteFolder: Codable, Sendable {
+    public let account: String
+    public let id: String
+    public let name: String
+    public let noteCount: Int
+    public let parentID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case account = "account"
+        case id = "id"
+        case name = "name"
+        case noteCount = "noteCount"
+        case parentID = "parentId"
+    }
+
+    public init(account: String, id: String, name: String, noteCount: Int, parentID: String?) {
+        self.account = account
+        self.id = id
+        self.name = name
+        self.noteCount = noteCount
+        self.parentID = parentID
     }
 }
 
@@ -1196,75 +2376,247 @@ public struct AppleNoteInput: Codable, Sendable {
     /// Plain text; HTML is escaped
     public let body: String
     public let folder: String?
+    /// text (default; HTML is escaped) or markdown (macOS 27)
+    public let format: AppleNoteInputFormat?
     public let title: String
 
     public enum CodingKeys: String, CodingKey {
         case body = "body"
         case folder = "folder"
+        case format = "format"
         case title = "title"
     }
 
-    public init(body: String, folder: String?, title: String) {
+    public init(body: String, folder: String?, format: AppleNoteInputFormat?, title: String) {
         self.body = body
         self.folder = folder
+        self.format = format
         self.title = title
+    }
+}
+
+/// text (default; HTML is escaped) or markdown (macOS 27)
+public enum AppleNoteInputFormat: String, Codable, Sendable {
+    case markdown = "markdown"
+    case text = "text"
+}
+
+// MARK: - AppleNotesAppendParams
+public struct AppleNotesAppendParams: Codable, Sendable {
+    /// Each line becomes a checklist item
+    public let checklist: Bool?
+    public let id: String
+    /// Plain text; HTML is escaped
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case checklist = "checklist"
+        case id = "id"
+        case text = "text"
+    }
+
+    public init(checklist: Bool?, id: String, text: String) {
+        self.checklist = checklist
+        self.id = id
+        self.text = text
+    }
+}
+
+// MARK: - AppleNotesSearchParams
+public struct AppleNotesSearchParams: Codable, Sendable {
+    public let folder: String?
+    public let limit: Int?
+    public let modifiedSince: String?
+    /// Text in the title or body
+    public let query: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case folder = "folder"
+        case limit = "limit"
+        case modifiedSince = "modifiedSince"
+        case query = "query"
+    }
+
+    public init(folder: String?, limit: Int?, modifiedSince: String?, query: String?) {
+        self.folder = folder
+        self.limit = limit
+        self.modifiedSince = modifiedSince
+        self.query = query
+    }
+}
+
+// MARK: - AppleNotesUpdateParams
+public struct AppleNotesUpdateParams: Codable, Sendable {
+    /// Plain text; HTML is escaped
+    public let body: String?
+    public let id: String
+    /// bodySha256 from notes.read: no blind overwrite
+    public let previousBodySha256: String
+    public let title: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case body = "body"
+        case id = "id"
+        case previousBodySha256 = "previousBodySha256"
+        case title = "title"
+    }
+
+    public init(body: String?, id: String, previousBodySha256: String, title: String?) {
+        self.body = body
+        self.id = id
+        self.previousBodySha256 = previousBodySha256
+        self.title = title
+    }
+}
+
+// MARK: - AppleNowPlaying
+public struct AppleNowPlaying: Codable, Sendable {
+    public let app: App
+    public let shuffle: Bool?
+    public let state: AppleNowPlayingState
+    public let track: Track?
+    public let volume: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case app = "app"
+        case shuffle = "shuffle"
+        case state = "state"
+        case track = "track"
+        case volume = "volume"
+    }
+
+    public init(app: App, shuffle: Bool?, state: AppleNowPlayingState, track: Track?, volume: Int?) {
+        self.app = app
+        self.shuffle = shuffle
+        self.state = state
+        self.track = track
+        self.volume = volume
+    }
+}
+
+public enum AppleNowPlayingState: String, Codable, Sendable {
+    case paused = "paused"
+    case playing = "playing"
+    case stopped = "stopped"
+}
+
+// MARK: - Track
+public struct Track: Codable, Sendable {
+    public let album: String
+    public let artist: String
+    public let durationSeconds: Double?
+    public let name: String
+    public let positionSeconds: Double?
+
+    public enum CodingKeys: String, CodingKey {
+        case album = "album"
+        case artist = "artist"
+        case durationSeconds = "durationSeconds"
+        case name = "name"
+        case positionSeconds = "positionSeconds"
+    }
+
+    public init(album: String, artist: String, durationSeconds: Double?, name: String, positionSeconds: Double?) {
+        self.album = album
+        self.artist = artist
+        self.durationSeconds = durationSeconds
+        self.name = name
+        self.positionSeconds = positionSeconds
+    }
+}
+
+// MARK: - AppleReadingListParams
+public struct AppleReadingListParams: Codable, Sendable {
+    public let title: String?
+    public let url: String
+
+    public enum CodingKeys: String, CodingKey {
+        case title = "title"
+        case url = "url"
+    }
+
+    public init(title: String?, url: String) {
+        self.title = title
+        self.url = url
     }
 }
 
 // MARK: - AppleReminder
 public struct AppleReminder: Codable, Sendable {
+    public let alarms: [AppleAlarm]?
     public let completed: Bool
     public let due: String?
+    public let flagged: Bool?
     public let id: String
     public let listID: String
     public let notes: String?
     /// 0 none, 1 high … 9 low (EventKit)
     public let priority: Int
+    public let recurrence: AppleRecurrence?
     public let title: String
+    public let url: String?
 
     public enum CodingKeys: String, CodingKey {
+        case alarms = "alarms"
         case completed = "completed"
         case due = "due"
+        case flagged = "flagged"
         case id = "id"
         case listID = "listId"
         case notes = "notes"
         case priority = "priority"
+        case recurrence = "recurrence"
         case title = "title"
+        case url = "url"
     }
 
-    public init(completed: Bool, due: String?, id: String, listID: String, notes: String?, priority: Int, title: String) {
+    public init(alarms: [AppleAlarm]?, completed: Bool, due: String?, flagged: Bool?, id: String, listID: String, notes: String?, priority: Int, recurrence: AppleRecurrence?, title: String, url: String?) {
+        self.alarms = alarms
         self.completed = completed
         self.due = due
+        self.flagged = flagged
         self.id = id
         self.listID = listID
         self.notes = notes
         self.priority = priority
+        self.recurrence = recurrence
         self.title = title
+        self.url = url
     }
 }
 
 // MARK: - AppleReminderInput
 public struct AppleReminderInput: Codable, Sendable {
+    public let alarm: AppleAlarm?
     public let due: String?
     public let listID: String?
     public let notes: String?
     public let priority: Int?
+    public let recurrence: AppleRecurrence?
     public let title: String
+    /// A link to keep with it, e.g. message://<id>
+    public let url: String?
 
     public enum CodingKeys: String, CodingKey {
+        case alarm = "alarm"
         case due = "due"
         case listID = "listId"
         case notes = "notes"
         case priority = "priority"
+        case recurrence = "recurrence"
         case title = "title"
+        case url = "url"
     }
 
-    public init(due: String?, listID: String?, notes: String?, priority: Int?, title: String) {
+    public init(alarm: AppleAlarm?, due: String?, listID: String?, notes: String?, priority: Int?, recurrence: AppleRecurrence?, title: String, url: String?) {
+        self.alarm = alarm
         self.due = due
         self.listID = listID
         self.notes = notes
         self.priority = priority
+        self.recurrence = recurrence
         self.title = title
+        self.url = url
     }
 }
 
@@ -1296,25 +2648,213 @@ public struct AppleReminderUpdate: Codable, Sendable {
     }
 }
 
+// MARK: - AppleRemindersCompleteParams
+public struct AppleRemindersCompleteParams: Codable, Sendable {
+    /// false reopens it (default true)
+    public let completed: Bool?
+    public let id: String?
+    /// The list to look in with title
+    public let listID: String?
+    /// Exact title of one open reminder (when no id)
+    public let title: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case completed = "completed"
+        case id = "id"
+        case listID = "listId"
+        case title = "title"
+    }
+
+    public init(completed: Bool?, id: String?, listID: String?, title: String?) {
+        self.completed = completed
+        self.id = id
+        self.listID = listID
+        self.title = title
+    }
+}
+
+// MARK: - AppleRemindersDeleteParams
+public struct AppleRemindersDeleteParams: Codable, Sendable {
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+    }
+
+    public init(id: String) {
+        self.id = id
+    }
+}
+
+/// Results come soonest due first.
 // MARK: - AppleRemindersListParams
 public struct AppleRemindersListParams: Codable, Sendable {
     public let completed: Bool?
     public let dueBefore: String?
+    /// Only reminders due today
+    public let dueToday: Bool?
+    /// Only flagged reminders
+    public let flagged: Bool?
     public let limit: Int?
     public let listIDS: [String]?
+    /// Only open reminders past their due time
+    public let overdue: Bool?
+    /// Text in the title or notes
+    public let query: String?
 
     public enum CodingKeys: String, CodingKey {
         case completed = "completed"
         case dueBefore = "dueBefore"
+        case dueToday = "dueToday"
+        case flagged = "flagged"
         case limit = "limit"
         case listIDS = "listIds"
+        case overdue = "overdue"
+        case query = "query"
     }
 
-    public init(completed: Bool?, dueBefore: String?, limit: Int?, listIDS: [String]?) {
+    public init(completed: Bool?, dueBefore: String?, dueToday: Bool?, flagged: Bool?, limit: Int?, listIDS: [String]?, overdue: Bool?, query: String?) {
         self.completed = completed
         self.dueBefore = dueBefore
+        self.dueToday = dueToday
+        self.flagged = flagged
         self.limit = limit
         self.listIDS = listIDS
+        self.overdue = overdue
+        self.query = query
+    }
+}
+
+// MARK: - AppleRemindersSetFlaggedParams
+public struct AppleRemindersSetFlaggedParams: Codable, Sendable {
+    public let flagged: Bool
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case flagged = "flagged"
+        case id = "id"
+    }
+
+    public init(flagged: Bool, id: String) {
+        self.flagged = flagged
+        self.id = id
+    }
+}
+
+// MARK: - AppleSavedFile
+public struct AppleSavedFile: Codable, Sendable {
+    public let libraryItemID: String?
+    public let name: String
+    public let path: String?
+    public let size: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case libraryItemID = "libraryItemId"
+        case name = "name"
+        case path = "path"
+        case size = "size"
+    }
+
+    public init(libraryItemID: String?, name: String, path: String?, size: Int) {
+        self.libraryItemID = libraryItemID
+        self.name = name
+        self.path = path
+        self.size = size
+    }
+}
+
+/// Listed by name.
+// MARK: - AppleShortcut
+public struct AppleShortcut: Codable, Sendable {
+    public let acceptsInput: Bool
+    public let actionCount: Int?
+    public let folder: String?
+    /// Shortcut identifier (UUID)
+    public let id: String
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case acceptsInput = "acceptsInput"
+        case actionCount = "actionCount"
+        case folder = "folder"
+        case id = "id"
+        case name = "name"
+    }
+
+    public init(acceptsInput: Bool, actionCount: Int?, folder: String?, id: String, name: String) {
+        self.acceptsInput = acceptsInput
+        self.actionCount = actionCount
+        self.folder = folder
+        self.id = id
+        self.name = name
+    }
+}
+
+// MARK: - AppleShortcutResult
+public struct AppleShortcutResult: Codable, Sendable {
+    /// The shortcut's output as text, untrusted
+    public let output: String
+    public let outputType: OutputType
+    public let truncated: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case output = "output"
+        case outputType = "outputType"
+        case truncated = "truncated"
+    }
+
+    public init(output: String, outputType: OutputType, truncated: Bool) {
+        self.output = output
+        self.outputType = outputType
+        self.truncated = truncated
+    }
+}
+
+public enum OutputType: String, Codable, Sendable {
+    case json = "json"
+    case none = "none"
+    case text = "text"
+}
+
+// MARK: - AppleShortcutsRunParams
+public struct AppleShortcutsRunParams: Codable, Sendable {
+    /// From shortcuts.list
+    public let id: String
+    /// Text input, when it accepts input
+    public let input: String?
+    /// Default 60
+    public let timeoutSeconds: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case input = "input"
+        case timeoutSeconds = "timeoutSeconds"
+    }
+
+    public init(id: String, input: String?, timeoutSeconds: Int?) {
+        self.id = id
+        self.input = input
+        self.timeoutSeconds = timeoutSeconds
+    }
+}
+
+// MARK: - AppleTabText
+public struct AppleTabText: Codable, Sendable {
+    public let tab: AppleSafariTab
+    /// Page text, untrusted
+    public let text: String
+    public let truncated: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case tab = "tab"
+        case text = "text"
+        case truncated = "truncated"
+    }
+
+    public init(tab: AppleSafariTab, text: String, truncated: Bool) {
+        self.tab = tab
+        self.text = text
+        self.truncated = truncated
     }
 }
 
@@ -1339,6 +2879,26 @@ public struct AppleSafariTab: Codable, Sendable {
         self.index = index
         self.title = title
         self.url = url
+        self.window = window
+    }
+}
+
+// MARK: - AppleTabTextParams
+public struct AppleTabTextParams: Codable, Sendable {
+    /// Default: the current tab
+    public let index: Int?
+    public let maxLength: Int?
+    public let window: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case index = "index"
+        case maxLength = "maxLength"
+        case window = "window"
+    }
+
+    public init(index: Int?, maxLength: Int?, window: Int?) {
+        self.index = index
+        self.maxLength = maxLength
         self.window = window
     }
 }
@@ -3956,7 +5516,7 @@ public struct ChannelsAllowlistUpdateParams: Codable, Sendable {
     public let add: [String]?
     public let approvalID: String?
     public let channelID: String
-    public let list: List
+    public let list: ChannelsAllowlistUpdateParamsList
     public let remove: [String]?
 
     public enum CodingKeys: String, CodingKey {
@@ -3967,7 +5527,7 @@ public struct ChannelsAllowlistUpdateParams: Codable, Sendable {
         case remove = "remove"
     }
 
-    public init(add: [String]?, approvalID: String?, channelID: String, list: List, remove: [String]?) {
+    public init(add: [String]?, approvalID: String?, channelID: String, list: ChannelsAllowlistUpdateParamsList, remove: [String]?) {
         self.add = add
         self.approvalID = approvalID
         self.channelID = channelID
@@ -3976,7 +5536,7 @@ public struct ChannelsAllowlistUpdateParams: Codable, Sendable {
     }
 }
 
-public enum List: String, Codable, Sendable {
+public enum ChannelsAllowlistUpdateParamsList: String, Codable, Sendable {
     case allowFrom = "allowFrom"
     case groupAllowFrom = "groupAllowFrom"
     case ownerIDS = "ownerIds"
@@ -14385,6 +15945,170 @@ public struct TextBlock: Codable, Sendable {
 
 public enum TextBlockType: String, Codable, Sendable {
     case text = "text"
+}
+
+// MARK: - ThingsAddParams
+public struct ThingsAddParams: Codable, Sendable {
+    public let checklist: [String]?
+    public let deadline: String?
+    /// A project or area name (default: Inbox)
+    public let list: String?
+    public let notes: String?
+    public let tags: [String]?
+    public let title: String
+    /// today, tomorrow, evening, anytime, someday or YYYY-MM-DD
+    public let when: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case checklist = "checklist"
+        case deadline = "deadline"
+        case list = "list"
+        case notes = "notes"
+        case tags = "tags"
+        case title = "title"
+        case when = "when"
+    }
+
+    public init(checklist: [String]?, deadline: String?, list: String?, notes: String?, tags: [String]?, title: String, when: String?) {
+        self.checklist = checklist
+        self.deadline = deadline
+        self.list = list
+        self.notes = notes
+        self.tags = tags
+        self.title = title
+        self.when = when
+    }
+}
+
+// MARK: - ThingsCompleteParams
+public struct ThingsCompleteParams: Codable, Sendable {
+    public let id: String
+    /// Default completed
+    public let status: ThingsCompleteParamsStatus?
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case status = "status"
+    }
+
+    public init(id: String, status: ThingsCompleteParamsStatus?) {
+        self.id = id
+        self.status = status
+    }
+}
+
+/// Default completed
+public enum ThingsCompleteParamsStatus: String, Codable, Sendable {
+    case canceled = "canceled"
+    case completed = "completed"
+    case statusOpen = "open"
+}
+
+/// Results come in the list's own order.
+// MARK: - ThingsListParams
+public struct ThingsListParams: Codable, Sendable {
+    public let limit: Int?
+    public let list: ThingsListParamsList
+    /// The project, area or tag (with those lists)
+    public let name: String?
+    /// Text in the title or notes
+    public let query: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case limit = "limit"
+        case list = "list"
+        case name = "name"
+        case query = "query"
+    }
+
+    public init(limit: Int?, list: ThingsListParamsList, name: String?, query: String?) {
+        self.limit = limit
+        self.list = list
+        self.name = name
+        self.query = query
+    }
+}
+
+public enum ThingsListParamsList: String, Codable, Sendable {
+    case anytime = "anytime"
+    case area = "area"
+    case inbox = "inbox"
+    case logbook = "logbook"
+    case project = "project"
+    case someday = "someday"
+    case tag = "tag"
+    case today = "today"
+    case upcoming = "upcoming"
+}
+
+// MARK: - ThingsTodo
+public struct ThingsTodo: Codable, Sendable {
+    public let area: String?
+    public let deadline: String?
+    public let id: String
+    public let modified: String?
+    /// Untrusted
+    public let notes: String
+    public let project: String?
+    public let status: ThingsCompleteParamsStatus
+    public let tags: [String]
+    public let title: String
+    public let when: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case area = "area"
+        case deadline = "deadline"
+        case id = "id"
+        case modified = "modified"
+        case notes = "notes"
+        case project = "project"
+        case status = "status"
+        case tags = "tags"
+        case title = "title"
+        case when = "when"
+    }
+
+    public init(area: String?, deadline: String?, id: String, modified: String?, notes: String, project: String?, status: ThingsCompleteParamsStatus, tags: [String], title: String, when: String?) {
+        self.area = area
+        self.deadline = deadline
+        self.id = id
+        self.modified = modified
+        self.notes = notes
+        self.project = project
+        self.status = status
+        self.tags = tags
+        self.title = title
+        self.when = when
+    }
+}
+
+// MARK: - ThingsUpdateParams
+public struct ThingsUpdateParams: Codable, Sendable {
+    public let addTags: [String]?
+    public let appendNotes: String?
+    public let deadline: String?
+    public let id: String
+    public let title: String?
+    /// today, tomorrow, evening, anytime, someday or YYYY-MM-DD
+    public let when: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case addTags = "addTags"
+        case appendNotes = "appendNotes"
+        case deadline = "deadline"
+        case id = "id"
+        case title = "title"
+        case when = "when"
+    }
+
+    public init(addTags: [String]?, appendNotes: String?, deadline: String?, id: String, title: String?, when: String?) {
+        self.addTags = addTags
+        self.appendNotes = appendNotes
+        self.deadline = deadline
+        self.id = id
+        self.title = title
+        self.when = when
+    }
 }
 
 // MARK: - ThreadContextUpdatedPayload
