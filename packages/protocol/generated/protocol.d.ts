@@ -7056,7 +7056,8 @@ export interface ThingsAddParams {
 }
 
 export interface ThingsCompleteParams {
-    id: string;
+    authToken?: string;
+    id:         string;
     /**
      * Default completed
      */
@@ -7105,6 +7106,7 @@ export interface ThingsTodo {
 export interface ThingsUpdateParams {
     addTags?:     string[];
     appendNotes?: string;
+    authToken?:   string;
     deadline?:    null | string;
     id:           string;
     title?:       string;

@@ -27909,6 +27909,12 @@
     },
     "ThingsCompleteParams": {
       "properties": {
+        "authToken": {
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
         "id": {
           "type": "string"
         },
@@ -28056,6 +28062,12 @@
     },
     "ThingsUpdateParams": {
       "properties": {
+        "authToken": {
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
         "id": {
           "type": "string"
         },
