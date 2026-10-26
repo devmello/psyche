@@ -63,7 +63,7 @@ You choose **Read only** or **Read and act** when you connect; [connectors.md](c
 
 1. The Gateway opens Google's consent page in your default browser. If it cannot open a browser (on a server), the link comes to you as a notification instead. The connector shows as signing in.
 2. You sign in to Google and allow the access Psyche asks for. The first time, Psyche also asks you to approve reading the client secret from the vault; choose to allow it for this site so later token refreshes do not ask again.
-3. Google sends your browser back to `http://127.0.0.1:<port>/callback` on the Gateway's machine. The Gateway checks the answer (PKCE, a one-time state), exchanges it for tokens and stores them in the vault as an item owned by the connector. It is listed among the vault's items as "<connector id> (OAuth)".
+3. Google sends your browser back to `http://127.0.0.1:<port>/callback` on the Gateway's machine. The Gateway checks the answer (PKCE, a one-time state), exchanges it for tokens and stores them in the vault as an item owned by the connector. It is listed among the vault's items as `<connector id> (OAuth)`.
 4. The connector shows as connected, with your Google account and the scopes Google granted.
 
 You have 5 minutes to finish. If you close the page or deny access, the connector shows an error and nothing is kept; connect again to retry.

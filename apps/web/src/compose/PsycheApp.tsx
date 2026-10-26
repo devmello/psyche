@@ -144,6 +144,7 @@ function RoutedAgentSheet({
     ...(sheet.runId === undefined ? {} : { runId: sheet.runId }),
     ...(sheet.stepId === undefined ? {} : { stepId: sheet.stepId }),
     ...(sheet.file === undefined ? {} : { file: sheet.file }),
+    ...(sheet.entity === undefined ? {} : { entity: sheet.entity }),
     onClose: close,
   };
   return presentation === "inline" ? (

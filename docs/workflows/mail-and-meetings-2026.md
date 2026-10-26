@@ -199,7 +199,7 @@ Each workflow names its trigger, steps, outputs, approvals and model, and ends w
 1. Read Sent mail since the cursor (`mail_search {mailbox: Sent, since}`, Gmail `in:sent after:`). Keep messages to other people, not to the owner, lists or no-reply addresses.
 2. A cheap filter finds candidates: a question mark in the owner's own text, a request phrase ("could you", "let me know", "can you send", "please confirm"), or an attachment with a request.
 3. The utility model confirms each candidate. It answers: is a reply expected, from whom, about what (one line), and by when (an explicit date, or the default of 3 business days).
-4. Record an **open loop** through the memory graph: `open_loops.create({kind: "waiting_on", people, thread: {account, id, link}, summary, dueAt, source: "sent_mail"})` (§8.3).
+4. The loop itself is the memory graph's (`GraphLoop`, created by PG1's no-reply rule and model pass, §8.3). The digest reads the due ones with `memory.loops.list {direction: "waiting_on", dueBefore: now}`.
 
 **Resolution:**
 - A reply in the same thread from any recipient resolves the loop automatically. The check runs at every digest and on every new-mail event (§4.7).
@@ -216,7 +216,7 @@ Each workflow names its trigger, steps, outputs, approvals and model, and ends w
 1. Five sent fixture messages: 2 questions, 1 "thanks!", 1 to a mailing list and 1 with "please confirm by Thursday". Exactly 3 loops are created, and the Thursday one is due Thursday.
 2. A reply fixture lands in one thread. At the next check that loop resolves with no card.
 3. Snooze 2 days hides the loop until then. A loop already shown twice never appears again.
-4. With the memory graph absent, detection still runs and stores loops in the proactive fallback table (§8.3). A later graph migration imports them.
+4. With PG1's loop detection absent (fixtures without loops), the digest shows no "Waiting on" group and makes no error.
 
 ### 4.3 (c) Drafts in the owner's voice
 
@@ -541,17 +541,20 @@ Each output is parsed strictly, as the Feed does. An unparseable classification 
 
 As in §4.7. The protocol adds `Automation.trigger`, `AutomationKind: "event"` and `AutomationRun.trigger: "event"`. The scheduler adds the event bus, matching, coalescing, dedupe, cursors and budgets.
 
-### 8.3 From the memory graph (needs the memory session's spec)
+### 8.3 From the memory graph (docs/memory/people-and-projects-2026.md, #649)
 
-This spec needs these tools or methods. The names are what the workflows call; the graph spec may rename them.
-- **`people_lookup({email | name})`** → `{personId, name, emails, org, relationship: "family" | "friend" | "colleague" | "external" | "unknown", timeZone?, lastInteractionAt, recentThreads: [{account, threadId, subject, at}]}`
-- **`open_loops.create`, `open_loops.list({people?, kind?, status?})` and `open_loops.resolve | snooze`.**
-  - **Kinds:** `waiting_on` and `owed_by_me`.
-  - **Fields:** `thread`, `meetingId`, `summary`, `dueAt`, `source`, `status: open | resolved | snoozed | stale`.
-- **`meetings.record({eventId?, title, at, attendees, decisions, actionItems, postId})`** and `meetings.previous({attendees | seriesId})` (§4.5 step 3).
-- **Provenance:** every graph write carries its provenance, and loops from mail are `untrusted`-derived.
-
-**Fallback:** until the graph lands, `packages/proactive` keeps `followups` and `meeting_records` tables behind the same interface. A one-time import moves them into the graph.
+The graph landed its protocol (#650) while this spec was in review, so the workflows use its names:
+- **`people_lookup {query}`** (agent tool) and `memory.entities.get`: who a sender or attendee is, the relationship, last contact, and open loops.
+- **Loops:** `GraphLoop` (`i_owe` / `waiting_on`, `suggested / open / snoozed / done / dismissed`), `memory.loops.list | update`, and the `waiting_on` agent tool.
+  - PG1 (#651) owns detection: the deterministic no-reply rule on sent mail, and model-detected suggestions.
+  - PG1 also owns auto-close (`reply_seen`).
+- **This spec's follow-ups (§4.2) add no second store.** Each digest:
+  - lists the due `waiting_on` loops, as `DigestLoop`
+  - offers Draft a nudge, Snooze (`memory.loops.update {status: "snoozed"}`) and Done
+  - keeps its own `shownCount` per loop, so a loop is shown at most twice
+- **`meeting_prep {event_id}`** (agent tool) supplies attendees as cards, the project, open loops and the last 3 interactions. W6 builds the prep note (§4.5) on it.
+- **Overlap to resolve:** PG1's brief also has a meeting-prep scheduler job (15 minutes before, external attendees). W6 owns the scheduled prep, its timing (one hour before, §4.5) and its card, and PG1 provides the data. The integrator settles the split.
+- **Meeting records:** decisions and action items from §4.6 are recorded as graph interactions plus `waiting_on` loops for what others owe. The owner's own items stay proposals until approved.
 
 ### 8.4 Helper and speech
 
@@ -600,7 +603,7 @@ Brief:
 > 1. **W1, protocol:** `ActionProposal` and `proposals.*`, approval kind `batch`, `Automation.trigger` / `AutomationKind: "event"` / `AutomationRun.trigger: "event"`, `FeedPost.kind` / `refs`, and the digest, follow-up, prep and meeting-notes record shapes. Add the CHANGES.md entry, `pnpm protocol:gen` and `protocol:check`. Title: `protocol: mail and meeting workflows (part of #670)`.
 > 2. **W2, batch approvals:** the broker issues and verifies `batch` approvals (ordered binding over `{tool, canonical params}`, write-only, no `send_email`, ≤ 100 calls, once). The loop or task runner checks membership per call. Undo by inverse batch for the reversible mail tools.
 > 3. **W3, event triggers** (§4.7 items 1–9): the event bus, `mail.watch` poller (Apple Mail `mail_search` cursor, the Gmail `history.list` delta from the connectors part, IMAP `SINCE`), coalescing, dedupe, cursors, budgets, taint by source, Upcoming rows.
-> 4. **W4, digest (a) and follow-ups (b):** jobs in `packages/proactive/src/mail/` with the pre-sort, utility classification (strict parsing, FYI fallback), `mail/RULES.md` ledger, open-loop detection and resolution behind the §8.3 interface (proactive fallback tables `followups`, `meeting_records` with a migration), the digest Feed post and one notification.
+> 4. **W4, digest (a) and follow-ups (b):** jobs in `packages/proactive/src/mail/` with the pre-sort, utility classification (strict parsing, FYI fallback), `mail/RULES.md` ledger, the due graph loops in the digest (`memory.loops.*`, §8.3) with a per-loop shown count, the digest Feed post and one notification.
 > 5. **W5, voice profile and drafts (c), scheduling (d):** the `mail.voice` job (`mail/VOICE.md`, `mail/voice-samples.jsonl`, excluded from git sync and the memory index; coordinate those two exclusions with S07 in the PR), the draft builder with tone controls, slot proposals over `calendar_find_free_time`, holds and the confirm batch.
 > 6. **W6, meeting prep (e) and post-meeting (f):** the prep planner and runs, and the notes pipeline on `speech.transcribe_file` (fake engine in tests until H1 lands).
 >

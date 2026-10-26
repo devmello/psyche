@@ -13,7 +13,7 @@ import {
   SoftwareAnchorKey,
 } from "@psyche/audit";
 import { redactUrl } from "@psyche/browser";
-import { getDevice, getSetting, getThread, openDb, type PsycheDb } from "@psyche/db";
+import { getDevice, getSetting, getThread, openDb, type PsycheDb, setSetting } from "@psyche/db";
 import { fileTools } from "@psyche/files";
 import {
   brokerApprovalCheck,
@@ -114,6 +114,7 @@ import {
 import { createOtherChats, type OtherChats } from "./other-chats.ts";
 import { composePasskeys } from "./passkeys.ts";
 import { composePayments, paymentsSetupFromEnv } from "./payments.ts";
+import { composePeople, type People } from "./people.ts";
 import { composePlugins } from "./plugins.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { protectedRoots } from "./protected-paths.ts";
@@ -128,6 +129,12 @@ import {
 import { composeSkills } from "./skills.ts";
 import { createSpecialistHost } from "./specialists.ts";
 import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
+import {
+  type ComposedTeaching,
+  composeTeaching,
+  TEACHING_ASK_RULES_KEY,
+  teachingAskRules,
+} from "./teaching.ts";
 import { SqliteThreadStateStore } from "./thread-state.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
@@ -219,6 +226,8 @@ export interface ComposedGateway {
   readonly loop: PsycheAgentLoop;
   /** E12 "From your other chats": the digests and the turn context provider. */
   readonly otherChats: OtherChats;
+  /** The people and projects graph (#651). */
+  readonly people: People;
   readonly broker: PsychePermissionBroker;
   readonly audit: HashChainAuditLog;
   readonly memory: SqliteMemoryStore;
@@ -227,6 +236,8 @@ export interface ComposedGateway {
   readonly scheduler: SqliteScheduler;
   readonly notifier: PsycheNotifier;
   readonly proactive: ComposedProactive;
+  /** The teaching loop (#679): feedback, lessons and their writers. */
+  readonly teaching: ComposedTeaching;
   readonly provider: ModelProvider;
   readonly vault: Vault;
   /** Shared by the vault, its payment broker and every output path that masks. */
@@ -440,6 +451,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     policy: hostPolicy((policy ?? storedPolicy) as PolicyConfig | undefined),
   });
   const broker = withRelay(tokens.wrap(rawBroker), relays, gwOptions.logger);
+  // The teaching loop (#679) reads approval answers as implicit feedback; set once composed.
+  let teachingRef: ComposedTeaching | undefined;
   // Executors (vault fills, the browser's mid-run gate, sandbox secrets) request approvals
   // outside the loop, which announces only its own: they announce theirs here.
   const executorBroker = announcing(broker, publish);
@@ -464,6 +477,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         { approval: e.approval },
         e.approval.requestedBy.threadId ?? undefined,
       );
+      if (e.type === "approval.decided") teachingRef?.observeApproval(e.approval);
     } else if (e.type === "receipt.created") {
       publish("receipt.created", { receipt: e.receipt });
     }
@@ -529,6 +543,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   };
   await restoreModelSettings(modelSettings);
   const modelPins = modelPinsFor(provider);
+  // The people graph is composed once the tool registry exists; card edits reach it from here.
+  let people: People | undefined;
   const memory = await createMemoryStore({
     db,
     workspaceDir: join(config.home, "workspace"),
@@ -537,7 +553,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     approvals: brokerApprovalCheck(broker),
     audit,
     flush: { provider, model: utility ?? modelRef },
-    onEvent: (e) => publish(e.event, e.payload as never),
+    onEvent: (e) => {
+      publish(e.event, e.payload as never);
+      people?.onMemoryEvent(e);
+    },
   });
 
   const tasks = new SqliteTaskEngine({ db, clock });
@@ -566,6 +585,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     threadTools({ db, gateway: () => gatewayRef }),
   );
   crossThread.sync(getSetting(db, CROSS_THREAD_SETTING)?.value);
+  // People and projects (#651): handlers, owner-only agent tools, search docs, the nightly pass.
+  people = composePeople({
+    db,
+    clock,
+    memory,
+    provider,
+    model: utility ?? modelRef,
+    publish: (event, payload) => publish(event, payload as never),
+    register: (tool) => registry.register(tool),
+  });
   const calls = new CallContexts();
   const ownPorts = createOwnPorts();
   ownPorts.add(config.port, "gateway (configured)");
@@ -702,6 +731,36 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     models: { primary: modelRef, ...(utility === undefined ? {} : { utility }) },
     now: () => clock.now(),
   });
+  // The teaching loop (#679): the owner's feedback → lessons written where they belong.
+  const teaching = composeTeaching({
+    db,
+    memory,
+    provider,
+    model: utility ?? modelRef,
+    active: utility !== undefined,
+    broker: executorBroker,
+    clock,
+    audit,
+    scheduler,
+    // Entity and person-scoped lessons write through the people graph (S07, #651).
+    ...(people === undefined ? {} : { graph: people.graph }),
+    surfaces: ["desktop", "web"],
+    askRules: teachingAskRules({
+      db,
+      read: () => ({
+        ...(validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger) ?? {}),
+      }),
+      write: (next) => {
+        const entry = setSetting(db, "permissions.policy", next);
+        rawBroker.setPolicy(hostPolicy(next as PolicyConfig));
+        publish("settings.changed", { entries: [entry] });
+      },
+      owned: () => (getSetting(db, TEACHING_ASK_RULES_KEY)?.value as string[] | undefined) ?? [],
+      setOwned: (rules) => void setSetting(db, TEACHING_ASK_RULES_KEY, rules),
+    }),
+    publish: (event, payload, threadId) => publish(event, payload as never, threadId),
+  });
+  teachingRef = teaching;
   const loop = createAgentLoop({
     // Model-side history survives a restart (issue #52); secrets the vault knows are masked.
     state: new SqliteThreadStateStore(db, redactor),
@@ -791,7 +850,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     webSetup,
   );
   for (const tool of webTools.tools) registry.register(tool);
-  launcher = proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool);
+  // The dreaming automation runs memory dreaming and the people graph pass in-process.
+  launcher = people.launcher(proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool));
   scheduler.subscribe((e) => publish(e.event, e.payload as never));
 
   // C10: Claude Code behind harness.delegate, only once the owner configured harness.claudeCode.
@@ -808,6 +868,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }),
   );
   parts.push(otherChats.part());
+  parts.push(people.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone));
   // Code plugins (T4): off until the owner turns on `plugins.enabled`.
   parts.push(
     composePlugins({
@@ -826,6 +887,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...mountPermissions(db, createPermissionHandlers(rawBroker, audit), tokens),
     ...mountParamsOnly(createMemoryHandlers(memory) as never),
     ...mountParamsOnly(userProfile.handlers as never),
+    ...teaching.handlers,
     ...mountParamsOnly(
       context.handlers(
         () => loop,
@@ -938,6 +1000,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   ownPorts.add(gateway.port, "gateway (bound)");
   for (const part of parts) await part.start?.(gateway);
   await proactive.start();
+  // Lesson cards that were open at shutdown are awaited again (or settled).
+  await teaching.resume().catch(() => undefined);
 
   if (background) {
     pool.start();
@@ -956,6 +1020,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     db,
     loop,
     otherChats,
+    people,
     broker,
     audit,
     memory,
@@ -964,6 +1029,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     scheduler,
     notifier,
     proactive,
+    teaching,
     provider,
     vault: vault.vault,
     redactor,
