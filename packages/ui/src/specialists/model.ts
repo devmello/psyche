@@ -200,6 +200,9 @@ export function headline(job: SpecialistJob, label: string): string {
  * The spawn pre-flight (§4.4) from the role's declared approvals, as the runtime builds it:
  * plan-first roles show their plan first, and auto mode doesn't ask about new sites. It grants
  * nothing.
+ *
+ * TODO(#685): read `SpecialistJob.preflight` once S02 adds it to the job; this rebuild from
+ * `specialists.list` is the stand-in until then.
  */
 export function preflightHints(
   role: Pick<SpecialistRole, "approvals" | "planFirst">,
