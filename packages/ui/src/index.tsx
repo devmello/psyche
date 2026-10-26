@@ -304,6 +304,7 @@ export {
   type UseComposerVoice,
 } from "./voice/controls.tsx";
 export { useVoiceConversation, type VoiceConversation } from "./voice/conversation.ts";
+export { VoiceHudView, type VoiceHudViewProps } from "./voice/VoiceHudView.tsx";
 export { FakeVoiceTerminal } from "./voice/fake-terminal.ts";
 export {
   envelope,

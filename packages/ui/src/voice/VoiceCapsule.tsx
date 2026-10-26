@@ -135,6 +135,11 @@ export function VoiceCapsule({
   };
 
   const hud = variant === "hud";
+  const talkLabel = holding
+    ? t("voice.talkingNow")
+    : settings.mode === "push"
+      ? t("voice.holdToTalk")
+      : t("voice.tapToTalk");
   return (
     <m.div
       layoutId="psyche-composer"
@@ -225,8 +230,9 @@ export function VoiceCapsule({
           <div className="flex shrink-0 items-center gap-1">
             {settings.mode !== "handsfree" ? (
               <Button
-                size={hud ? "xs" : "sm"}
+                size={hud ? "icon-sm" : "sm"}
                 variant={holding || session.listening ? "default" : "secondary"}
+                {...(hud ? { "aria-label": talkLabel } : {})}
                 aria-pressed={holding || (settings.mode === "tap" && session.listening)}
                 aria-keyshortcuts="Space"
                 disabled={busy}
@@ -250,34 +256,32 @@ export function VoiceCapsule({
                 data-testid="voice-talk"
               >
                 <AudioLines aria-hidden="true" />
-                {holding
-                  ? t("voice.talkingNow")
-                  : settings.mode === "push"
-                    ? t("voice.holdToTalk")
-                    : t("voice.tapToTalk")}
+                {hud ? null : talkLabel}
               </Button>
             ) : (
               <Button
-                size={hud ? "xs" : "sm"}
+                size={hud ? "icon-sm" : "sm"}
                 variant="ghost"
                 aria-pressed={session.muted}
+                {...(hud ? { "aria-label": session.muted ? t("voice.unmute") : t("voice.mute") } : {})}
                 onClick={onToggleMute}
                 data-testid="voice-mute"
               >
                 {session.muted ? <MicOff aria-hidden="true" /> : <Mic aria-hidden="true" />}
-                {session.muted ? t("voice.unmute") : t("voice.mute")}
+                {hud ? null : session.muted ? t("voice.unmute") : t("voice.mute")}
               </Button>
             )}
             {speaking ? (
               <Button
-                size={hud ? "xs" : "sm"}
+                size={hud ? "icon-sm" : "sm"}
                 variant="ghost"
                 aria-keyshortcuts="Meta+."
+                {...(hud ? { "aria-label": t("voice.stopSpeaking") } : {})}
                 onClick={onStopSpeaking}
                 data-testid="voice-stop-speaking"
               >
                 <Square aria-hidden="true" className="size-3 fill-current" />
-                {t("voice.stopSpeaking")}
+                {hud ? null : t("voice.stopSpeaking")}
               </Button>
             ) : null}
             <Button
@@ -293,7 +297,8 @@ export function VoiceCapsule({
           </div>
           <span
             className={cn(
-              "flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-subheadline",
+              "flex shrink-0 items-center gap-1.5 rounded-full py-0.5 text-subheadline",
+              hud ? "px-1.5" : "px-2",
               mic ? "bg-danger-surface text-danger-text" : "bg-fill-tertiary text-label-tertiary",
             )}
             data-testid="mic-chip"
@@ -303,7 +308,9 @@ export function VoiceCapsule({
               aria-hidden="true"
               className={cn("size-1.5 rounded-full", mic ? "bg-danger" : "bg-label-tertiary")}
             />
-            {mic ? t("voice.micOn") : t("voice.micOff")}
+            <span className={hud ? "sr-only" : undefined}>
+              {mic ? t("voice.micOn") : t("voice.micOff")}
+            </span>
           </span>
         </div>
       </GlassSurface>
