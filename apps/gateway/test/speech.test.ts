@@ -5,7 +5,7 @@ import { setSetting } from "@psyche/db";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
-import { conversationSettings } from "../src/compose/speech.ts";
+import { conversationSettings, voiceApprovals } from "../src/compose/speech.ts";
 import { silentLogger } from "../src/log.ts";
 import { FakeNode, type FakeNodeHandler } from "./fake-node.ts";
 import { desktopClient, newDeviceKey, type TestClient } from "./helpers.ts";
@@ -231,5 +231,52 @@ describe("voice conversation over the wire (V-G, docs/voice/voice-mode-2026.md)"
       pauseMs: 2_000,
     });
     expect(conversationSettings(() => "nonsense")).toEqual({});
+  });
+});
+
+describe("approvals answered by voice (voiceApprovals)", () => {
+  it("answers as this device's surface with scope once and via voice, and refuses without a card", async () => {
+    const c = await setup();
+    const desk = await desktopClient(c.gateway, newDeviceKey(), "dev_voice_desk");
+    clients.push(desk);
+    const answered: unknown[] = [];
+    const services = {
+      db: c.gateway.context.db,
+      approvalTokens: {
+        tokenFor: (approvalId: string, surface: string) =>
+          approvalId === "apr_1" && surface === "desktop" ? "tok_desktop" : undefined,
+      },
+      rawBroker: {
+        answer: async (input: unknown) => {
+          answered.push(input);
+          return { status: "approved" };
+        },
+      },
+    } as unknown as Parameters<typeof voiceApprovals>[0];
+    const port = voiceApprovals(services);
+    await port.answer({
+      approvalId: "apr_1",
+      deviceId: "dev_voice_desk",
+      decision: "approve",
+      utterance: "yes send it",
+    });
+    expect(answered).toEqual([
+      {
+        approvalId: "apr_1",
+        answerToken: "tok_desktop",
+        decision: "approve",
+        scope: "once",
+        via: "voice",
+        decidedBy: { deviceId: "dev_voice_desk", surface: "desktop" },
+      },
+    ]);
+    await expect(
+      port.answer({
+        approvalId: "apr_2",
+        deviceId: "dev_voice_desk",
+        decision: "approve",
+        utterance: "yes",
+      }),
+    ).rejects.toMatchObject({ code: "forbidden" });
   });
 });

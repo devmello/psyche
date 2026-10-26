@@ -7,6 +7,7 @@ import { STORY_NOW } from "../stories/harness.tsx";
 import { Lantern, type LanternState } from "./Lantern.tsx";
 import { IDLE_SESSION, type VoiceSession } from "./session.ts";
 import { VoiceCapsule } from "./VoiceCapsule.tsx";
+import { VoiceHudView } from "./VoiceHudView.tsx";
 
 /**
  * Voice conversation (docs/voice/voice-mode-2026.md §6): the capsule in each phase, the HUD's
@@ -37,11 +38,9 @@ const session = (s: Partial<VoiceSession>): VoiceSession => ({
 function Capsule({
   s,
   mode = "push",
-  variant,
 }: {
   s: VoiceSession;
   mode?: "push" | "tap" | "handsfree";
-  variant?: "hud";
 }): ReactElement {
   return (
     <VoiceCapsule
@@ -53,7 +52,6 @@ function Capsule({
       onEnd={noop}
       levels={() => ({ input: 0.12, output: 0.15 })}
       now={STORY_NOW}
-      {...(variant ? { variant } : {})}
     />
   );
 }
@@ -144,16 +142,23 @@ export const PushReady: Story = {
   ),
 };
 
-/** The HUD's compact capsule (380 × 96 pt, §6.2). */
+/** The HUD outside the app (380 × 96 pt, §6.2): the compact capsule; clicking it opens Psyche. */
 export const Hud: Story = {
   render: () => (
     <Frame width={420}>
-      <Capsule
-        variant="hud"
-        s={session({
+      <VoiceHudView
+        session={session({
           phase: "speaking",
           caption: { role: "agent", text: "You have two meetings after lunch.", final: false },
         })}
+        settings={{ mode: "push", captions: true }}
+        onTalk={noop}
+        onToggleMute={noop}
+        onStopSpeaking={noop}
+        onEnd={noop}
+        onOpen={noop}
+        levels={() => ({ input: 0.12, output: 0.15 })}
+        now={STORY_NOW}
       />
     </Frame>
   ),

@@ -275,6 +275,7 @@ export function composeSpeech(setup: SpeechSetup = {}) {
       emit: toDevice,
       enabled: () => setting(VC.enabled) === true,
       settings: () => conversationSettings(setting),
+      approvals: voiceApprovals(services),
     });
     const fns = createSpeechHandlers({
       voice,
@@ -317,6 +318,39 @@ export function composeSpeech(setup: SpeechSetup = {}) {
   };
 }
 
+/**
+ * Approvals answered by voice (spec §4.6), through the broker exactly as the device's own card:
+ * this device's single-use surface token, scope `once`, `via: "voice"`. The conversation has
+ * already applied the tiers; the broker re-checks the token, expiry, binding and presence.
+ */
+export function voiceApprovals(services: ComposeServices) {
+  return {
+    async answer(input: {
+      approvalId: string;
+      deviceId: string;
+      decision: "approve" | "deny";
+      utterance: string;
+    }): Promise<void> {
+      const surface = surfaceOf(services.db, input.deviceId);
+      const answerToken = services.approvalTokens.tokenFor(input.approvalId, surface);
+      if (answerToken === undefined) {
+        throw new PsycheError("forbidden", "this device has no card for that approval");
+      }
+      const approval = await services.rawBroker.answer({
+        approvalId: input.approvalId,
+        answerToken,
+        decision: input.decision,
+        scope: "once",
+        via: "voice",
+        decidedBy: { deviceId: input.deviceId, surface },
+      });
+      if (approval.status === "pending") {
+        throw new PsycheError("conflict", "the approval was not decided");
+      }
+    },
+  };
+}
+
 /** The owner's voice conversation settings (spec §6.4), defaulted where unset or invalid. */
 export function conversationSettings(
   setting: (key: string) => unknown,
@@ -326,6 +360,10 @@ export function conversationSettings(
   if (speak === "brief" || speak === "full") out.speak = speak;
   const narrate = setting(VC.narrate);
   if (narrate === "off" || narrate === "brief" || narrate === "steps") out.narrate = narrate;
+  const approvals = setting(VC.approvals);
+  if (approvals === "off" || approvals === "write" || approvals === "write_destructive") {
+    out.approvals = approvals;
+  }
   const pause = setting(VC.pauseMs);
   if (typeof pause === "number" && Number.isFinite(pause)) {
     out.pauseMs = Math.min(2_000, Math.max(500, Math.round(pause)));

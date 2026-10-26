@@ -134,6 +134,14 @@ const bridge = {
   dialogs: {
     pickFolder: (opts?: { title?: string }) => invoke(IPC.dialogPickFolder, opts ?? {}),
   },
+  /**
+   * Voice conversation (V-G): the voice key going down / up from any app, and `lock` / `suspend`
+   * when the Mac locks or sleeps, so the audio terminal ends its conversation and frees the mic.
+   */
+  voice: {
+    onKey: (cb: (e: unknown) => void) => listen(IPC.voiceKey, cb),
+    onSystem: (cb: (e: unknown) => void) => listen(IPC.voiceSystem, cb),
+  },
   /** The dictation HUD window only; main ignores these from any other renderer. */
   dictation: {
     onState: (cb: (s: unknown) => void) => listen(IPC.dictationHudState, cb),
