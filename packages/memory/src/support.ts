@@ -101,7 +101,11 @@ export function brokerApprovalCheck(broker: Pick<PermissionBroker, "get">): Appr
 // --- Events ------------------------------------------------------------------------------------
 
 export type MemoryEvent =
-  | { event: "memory.file.changed"; payload: EventPayload<"memory.file.changed"> }
+  | {
+      event: "memory.file.changed";
+      /** `toolCallId` (the writing call) is for the host, which maps it to the trace step. */
+      payload: EventPayload<"memory.file.changed"> & { toolCallId?: string };
+    }
   | { event: "memory.job.updated"; payload: EventPayload<"memory.job.updated"> }
   | { event: "persona.updated"; payload: EventPayload<"persona.updated"> };
 

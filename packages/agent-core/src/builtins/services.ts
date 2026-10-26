@@ -142,9 +142,12 @@ export function memoryTool(store: MemoryStore, options: MemoryToolOptions): Agen
           `a turn that read untrusted content cannot change ${guarded}`,
         );
       }
+      // The run trace links the change to this call's step (run trace §4.2).
+      const trace = { runId: ctx.runId, toolCallId: ctx.callId };
       const write = (path: string, content: string, etag?: string) =>
         store.writeFile(path, content, {
           provenance,
+          trace,
           ...(etag === undefined ? {} : { etag }),
           ...(ctx.approvalId === undefined ? {} : { approvalId: ctx.approvalId }),
         });
@@ -182,7 +185,7 @@ export function memoryTool(store: MemoryStore, options: MemoryToolOptions): Agen
               );
             }
             const text = p.command === "create" ? p.file_text : p.insert_text;
-            const r = await store.appendDailyNote({ text, provenance, date: today });
+            const r = await store.appendDailyNote({ text, provenance, date: today, trace });
             return { output: { appended: r.path }, provenance: "trusted" };
           }
           if (p.command === "create") {
