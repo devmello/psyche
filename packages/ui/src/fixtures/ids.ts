@@ -171,6 +171,7 @@ export const IDS = {
     inputNeeded: "ntf_input_lisbon",
     taskDone: "ntf_done_price_watch",
     taskFailed: "ntf_failed_sub_audit",
+    specialistResult: "ntf_specialist_apartments",
     proactive: "ntf_idea_subscription",
     briefing: "ntf_brief_ready",
     reminder: "ntf_reminder_checkin",
@@ -222,6 +223,8 @@ export const IDS = {
     appleNotes: "conn_apple_notes",
     appleCalendar: "conn_apple_calendar",
     appleReminders: "conn_apple_reminders",
+    appleShortcuts: "conn_apple_shortcuts",
+    obsidian: "conn_obsidian",
   },
   channels: {
     telegram: "chan_telegram",

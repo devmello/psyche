@@ -124,7 +124,7 @@ extension NotificationPlan {
         switch kind {
         case .approval, .inputNeeded: return .timeSensitive
         case .proactive, .briefing: return .passive
-        case .taskDone, .taskFailed, .reminder, .system: return .active
+        case .taskDone, .taskFailed, .reminder, .system, .specialistResult: return .active
         }
     }
 
@@ -141,7 +141,7 @@ extension NotificationPlan {
             return [NotificationActionPlan(id: "open", label: "Open"), NotificationActionPlan(id: "retry", label: "Retry")]
         case .reminder:
             return [NotificationActionPlan(id: "open", label: "Open"), NotificationActionPlan(id: "snooze", label: "Snooze")]
-        case .taskDone, .proactive, .briefing, .system:
+        case .taskDone, .proactive, .briefing, .system, .specialistResult:
             return [NotificationActionPlan(id: "open", label: "Open")]
         }
     }
