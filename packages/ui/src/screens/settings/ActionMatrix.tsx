@@ -71,6 +71,24 @@ export function actionLabel(action: string): string {
   });
 }
 
+function isRule(v: unknown): v is ActionRule {
+  return v === "allow" || v === "ask" || v === "deny";
+}
+
+/** Applies `permissions.connectors.<id>` overrides from settings to each connector's matrix. */
+export function withMatrixOverrides(
+  connectors: readonly Connector[],
+  values: Readonly<Record<string, unknown>>,
+): Connector[] {
+  return connectors.map((c) => {
+    const o = values[`permissions.connectors.${c.id}`];
+    if (typeof o !== "object" || o === null) return c;
+    const matrix = { ...c.actionMatrix };
+    for (const [k, v] of Object.entries(o)) if (isRule(v)) matrix[k] = v;
+    return { ...c, actionMatrix: matrix };
+  });
+}
+
 export interface ActionMatrixProps {
   connectorLabel: string;
   matrix: Readonly<Record<string, ActionRule>>;

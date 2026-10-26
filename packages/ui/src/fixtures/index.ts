@@ -70,7 +70,7 @@ import type {
 } from "@psyche/protocol";
 
 export { ago, at, FIXTURE_NOW, fakeHex, fakeSha, IDS, inMinutes, PERSONA, today } from "./ids.ts";
-export type { UsageSummary } from "./settings.ts";
+export { appleConnectors, connectorCatalogue, type UsageSummary } from "./settings.ts";
 export { subscriptionUsageSummary, usageSummary } from "./usage.ts";
 
 export interface FixtureWorld {

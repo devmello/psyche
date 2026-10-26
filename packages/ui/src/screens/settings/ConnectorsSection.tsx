@@ -1,6 +1,7 @@
-import type { Connector } from "@psyche/protocol";
+import type { Connector, ConnectorCatalogueEntry } from "@psyche/protocol";
 import { Plug } from "lucide-react";
 import { type ReactElement, type ReactNode, useId, useState } from "react";
+import { usePrefillComposer } from "../../chat/prefill.ts";
 import { EmptyState } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
@@ -9,6 +10,8 @@ import { t } from "../../i18n/core.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { usePersona } from "../../slots.tsx";
+import { type ActionRule, withMatrixOverrides } from "./ActionMatrix.tsx";
+import { CapabilityCard } from "./ConnectorCapabilities.tsx";
 import {
   ConnectProgress,
   PermissionNotice,
@@ -25,6 +28,7 @@ import {
   SectionFrame,
   StatusChip,
   type Tone,
+  useSettingsForm,
 } from "./shared.tsx";
 
 /** Connectors (UI design §3.18; architecture §4.9). */
@@ -203,6 +207,14 @@ export interface ConnectorsPanelProps extends LoadProps {
   onCheck?: (connector: Connector) => void;
   /** "Open System Settings" for a connector waiting on a macOS grant (reconnects it, #549). */
   onGrant?: (connector: Connector) => void;
+  /** `connectors.catalogue`: each type's action groups for the Apple app cards (#640). */
+  catalogue?: readonly ConnectorCatalogueEntry[];
+  /** An action group's Allow / Ask / Deny, saved as `permissions.connectors.<id>`. */
+  onRuleChange?: (connector: Connector, action: string, rule: ActionRule) => void;
+  /** "Try it": fills the chat composer with an example request. */
+  onTry?: (text: string) => void;
+  /** Opens the Apple app cards with their groups showing (stories). */
+  defaultCapabilitiesOpen?: boolean;
 }
 
 export function ConnectorsPanel({
@@ -219,6 +231,10 @@ export function ConnectorsPanel({
   onOpenSection,
   onCheck,
   onGrant,
+  catalogue,
+  onRuleChange,
+  onTry,
+  defaultCapabilitiesOpen,
   loading,
   error,
   onRetry,
@@ -408,6 +424,19 @@ export function ConnectorsPanel({
                     {permission && c.status === "needs_auth" ? (
                       <PermissionNotice name={c.label} permission={permission} />
                     ) : null}
+                    <CapabilityCard
+                      connector={c}
+                      actions={catalogue?.find((e) => e.type === c.type)?.actions ?? []}
+                      persona={persona}
+                      {...(onRuleChange
+                        ? {
+                            onRuleChange: (action: string, rule: ActionRule) =>
+                              onRuleChange(c, action, rule),
+                          }
+                        : {})}
+                      {...(onTry ? { onTry } : {})}
+                      {...(defaultCapabilitiesOpen ? { defaultOpen: true } : {})}
+                    />
                   </article>
                 </li>
               );
@@ -518,6 +547,11 @@ export function ConnectorsSection({ persona, ...props }: ConnectorsSectionProps)
   const fallback = usePersona();
   const q = useGatewayQuery("connectors.list", {});
   const implemented = useImplementedTypes();
+  const catalogue = useGatewayQuery("connectors.catalogue", {}).data?.entries;
+  // Action-group rules are the Permissions section's `permissions.connectors.<id>` overrides.
+  const form = useSettingsForm();
+  const connectors = withMatrixOverrides(q.data?.connectors ?? [], form.values);
+  const onTry = usePrefillComposer();
   const call = useCall();
   // Built in unless the host supplies them: reconnect (for a macOS grant, the helper opens
   // System Settings) and re-check (#549).
@@ -566,7 +600,12 @@ export function ConnectorsSection({ persona, ...props }: ConnectorsSectionProps)
       onCheck={check}
       persona={persona ?? fallback.name}
       implemented={implemented}
-      connectors={q.data?.connectors ?? []}
+      {...(catalogue ? { catalogue } : {})}
+      onRuleChange={(c: Connector, action: string, rule: ActionRule) =>
+        form.onChange(`permissions.connectors.${c.id}`, { ...c.actionMatrix, [action]: rule })
+      }
+      {...(onTry ? { onTry } : {})}
+      connectors={connectors}
       loading={q.loading && q.data === undefined}
       error={q.error}
       onRetry={q.reload}

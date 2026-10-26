@@ -141,6 +141,11 @@ export interface WindowPort {
   closeWindow(): void;
   /** Opens the Settings window on a section (⌘,; docs/design/redesign-2026.md §4). */
   openSettings?(section?: string): void;
+  /**
+   * From the Settings window: brings the main window forward with `text` in its composer, unsent
+   * (Settings → Connectors "Try it", #677). Main relays it as a `prefillComposer` command.
+   */
+  prefillComposer?(text: string): void;
   /** Commands from the app menu, tray, deep links and global shortcuts. */
   onCommand(cb: (command: ShellCommand) => void): Unsubscribe;
 }
@@ -151,7 +156,9 @@ export type ShellCommand =
   | { type: "newSideChat" }
   | { type: "palette" }
   /** ⌘W: closes a pop-out or quick-entry window, or leaves the current thread view. */
-  | { type: "closeThreadView" };
+  | { type: "closeThreadView" }
+  /** Fills the chat composer without sending (from the Settings window's "Try it", #677). */
+  | { type: "prefillComposer"; text: string };
 
 export interface NotifyPort {
   /** OS notification (desktop: mac helper when present, else Electron); web: none yet. */
