@@ -265,10 +265,31 @@ export function ChatThread({
         return;
       }
       const queued = view.running && mode === "followUp";
-      await view.send(parsed.text, { mode, replyToMessageId: quoting?.id ?? null });
+      const replyToMessageId = quoting?.id ?? null;
+      const attempt = async (): Promise<void> => {
+        try {
+          await view.send(parsed.text, { mode, replyToMessageId });
+        } catch (err) {
+          // The optimistic bubble is gone; keep the text one click from going out again.
+          setSentAt(null);
+          setNotice({
+            kind: "error",
+            text: t("chat.thread.sendFailed", { reason: describeError(err) }),
+            confirm: {
+              label: t("chat.thread.retrySend"),
+              run: async () => {
+                setNotice(null);
+                if (!queued) setSentAt(Date.now());
+                await attempt();
+              },
+            },
+          });
+        }
+      };
       if (!queued) setSentAt(Date.now());
       setQuoting(null);
       setMode("followUp");
+      await attempt();
     },
     [view, mode, quoting],
   );
