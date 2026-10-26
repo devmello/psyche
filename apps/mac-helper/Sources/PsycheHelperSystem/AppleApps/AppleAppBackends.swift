@@ -26,8 +26,28 @@ public protocol MailBackend: Sendable {
     /// Newest first (#626).
     func search(_ filter: MailSearchFilter, mailbox: String?, account: String?, limit: Int) async throws -> [MailSummaryRecord]
     func read(id: String, mailbox: String?, account: String?, maxLength: Int) async throws -> (MailSummaryRecord, to: [String], cc: [String], body: String)
-    /// Saves a draft, or sends when `send` (only ever called with an approval).
-    func compose(_ draft: MailDraft, send: Bool) async throws
+    /// Saves a draft, or sends when `send` (only ever called with an approval). A saved draft
+    /// stays open in Mail (hidden) and is returned, so `sendDraft` can send it.
+    @discardableResult
+    func compose(_ draft: MailDraft, send: Bool) async throws -> MailDraftRecord?
+    // Wave 1 (docs/connectors/apple-apps-2026.md §4.1).
+    /// Every mailbox of `account` (all accounts when nil) with its unread count, plus the unified inbox.
+    func mailboxes(account: String?) async throws -> [MailboxRecord]
+    /// The messages selected in Mail's front viewer, newest first; empty when Mail is not running.
+    func selected(limit: Int) async throws -> [MailSummaryRecord]
+    /// `reply` / `forward` in Mail, `body` put above the quoted message, saved as a draft.
+    func replyDraft(id: String, mailbox: String?, account: String?, body: String, replyAll: Bool, cc: [String]) async throws -> MailDraftRecord
+    func forwardDraft(id: String, mailbox: String?, account: String?, to: [String], cc: [String], body: String) async throws -> MailDraftRecord
+    /// The open draft as it is now (nil when it is no longer open in Mail).
+    func draft(id: String) async throws -> MailDraftRecord?
+    func sendDraft(id: String) async throws
+    /// nil keeps a property as it is; `flagIndex` 0–6 also flags the message.
+    func setFlags(ids: [String], mailbox: String?, account: String?, read: Bool?, flagged: Bool?, flagIndex: Int?) async throws -> Int
+    func move(ids: [String], mailbox: String?, account: String?, to: MailWave1.Destination) async throws -> Int
+    /// Names (and MIME types, sizes) of a message's attachments, in order.
+    func attachments(id: String, mailbox: String?, account: String?) async throws -> [(name: String, mimeType: String?, bytes: Int)]
+    /// Saves attachment `index` (1-based) to `path`.
+    func saveAttachment(id: String, mailbox: String?, account: String?, index: Int, to path: String) async throws
 }
 
 public protocol NotesBackend: Sendable {
@@ -349,7 +369,7 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
         on psyche_line(m)
           set fs to character id 31
           tell application "Mail"
-            return (id of m as text) & fs & my psyche_clean(name of mailbox of m) & fs & my psyche_clean(name of account of mailbox of m) & fs & my psyche_clean(subject of m) & fs & my psyche_clean(sender of m) & fs & my psyche_iso(date received of m) & fs & (read status of m as text)
+            return (id of m as text) & fs & my psyche_clean(name of mailbox of m) & fs & my psyche_clean(name of account of mailbox of m) & fs & my psyche_clean(subject of m) & fs & my psyche_clean(sender of m) & fs & my psyche_iso(date received of m) & fs & (read status of m as text) & fs & (flagged status of m as text) & fs & my psyche_clean(message id of m)
           end tell
         end psyche_line
         on psyche_date(parts)
@@ -435,19 +455,203 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
             end tell
             if mode is "send" then
               send msg
+              return "sent"
             else
               save msg
+              return my psyche_outgoing(msg)
             end if
           end tell
-          return mode
         end psyche_compose
+        -- Wave 1 (docs/connectors/apple-apps-2026.md §4.1, M2–M9). Fixed text; inputs are arguments.
+        on psyche_outgoing(r)
+          set fs to character id 31
+          tell application "Mail"
+            set tos to {}
+            repeat with x in to recipients of r
+              set end of tos to my psyche_clean(address of x)
+            end repeat
+            set ccs to {}
+            repeat with x in cc recipients of r
+              set end of ccs to my psyche_clean(address of x)
+            end repeat
+            set subj to subject of r
+            if subj is missing value then set subj to ""
+            set b to content of r
+            if b is missing value then set b to ""
+            return (id of r as text) & fs & my psyche_clean(subj) & fs & my psyche_join(tos, character id 29) & fs & my psyche_join(ccs, character id 29) & fs & my psyche_clean(b)
+          end tell
+        end psyche_outgoing
+        on psyche_mailbox_path(mb)
+          tell application "Mail"
+            set nm to name of mb
+            set c to mb
+            repeat 8 times
+              try
+                set c to container of c
+                if class of c is not mailbox then exit repeat
+                set nm to (name of c) & "/" & nm
+              on error
+                exit repeat
+              end try
+            end repeat
+          end tell
+          return nm
+        end psyche_mailbox_path
+        on psyche_mailboxes(acctName)
+          set fs to character id 31
+          set out to {}
+          tell application "Mail"
+            if acctName is "" then set end of out to "" & fs & "INBOX" & fs & (unread count of inbox as text)
+            repeat with a in accounts
+              if acctName is "" or (name of a) is acctName then
+                repeat with mb in mailboxes of a
+                  set end of out to my psyche_clean(name of a) & fs & my psyche_clean(my psyche_mailbox_path(mb)) & fs & (unread count of mb as text)
+                end repeat
+              end if
+            end repeat
+          end tell
+          return my psyche_join(out, character id 30)
+        end psyche_mailboxes
+        on psyche_selected(lim)
+          set out to {}
+          tell application "Mail"
+            if (count of message viewers) is 0 then return ""
+            set sel to selected messages of front message viewer
+            if sel is missing value then return ""
+            set n to 0
+            repeat with m in sel
+              if n ≥ (lim as integer) then exit repeat
+              set end of out to my psyche_line(m)
+              set n to n + 1
+            end repeat
+          end tell
+          return my psyche_join(out, character id 30)
+        end psyche_selected
+        on psyche_reply(mid, mboxName, acctName, bodyText, replyAll, ccList)
+          tell application "Mail"
+            set src to my psyche_source(mboxName, acctName)
+            set m to first message of src whose id is (mid as integer)
+            if replyAll is "true" then
+              set r to reply m with reply to all without opening window
+            else
+              set r to reply m without opening window
+            end if
+            tell r
+              repeat with a in ccList
+                make new cc recipient at end of cc recipients with properties {address:(a as text)}
+              end repeat
+            end tell
+            set content of r to bodyText & return & return & (content of r)
+            save r
+            return my psyche_outgoing(r)
+          end tell
+        end psyche_reply
+        on psyche_forward(mid, mboxName, acctName, toList, ccList, bodyText)
+          tell application "Mail"
+            set src to my psyche_source(mboxName, acctName)
+            set m to first message of src whose id is (mid as integer)
+            set r to forward m without opening window
+            tell r
+              repeat with a in toList
+                make new to recipient at end of to recipients with properties {address:(a as text)}
+              end repeat
+              repeat with a in ccList
+                make new cc recipient at end of cc recipients with properties {address:(a as text)}
+              end repeat
+            end tell
+            set content of r to bodyText & return & return & (content of r)
+            save r
+            return my psyche_outgoing(r)
+          end tell
+        end psyche_forward
+        on psyche_draft(did)
+          tell application "Mail"
+            set found to (outgoing messages whose id is (did as integer))
+            if (count of found) is 0 then return ""
+            return my psyche_outgoing(item 1 of found)
+          end tell
+        end psyche_draft
+        on psyche_send_draft(did)
+          tell application "Mail"
+            send (first outgoing message whose id is (did as integer))
+          end tell
+          return "sent"
+        end psyche_send_draft
+        on psyche_flags(idList, mboxName, acctName, readMode, flagMode, flagIdx)
+          set n to 0
+          tell application "Mail"
+            set src to my psyche_source(mboxName, acctName)
+            repeat with mid in idList
+              set m to first message of src whose id is (mid as integer)
+              if readMode is "true" then set read status of m to true
+              if readMode is "false" then set read status of m to false
+              if flagMode is "false" then set flagged status of m to false
+              if flagMode is "true" then set flagged status of m to true
+              if flagIdx is not "-1" then set flag index of m to (flagIdx as integer)
+              set n to n + 1
+            end repeat
+          end tell
+          return n as text
+        end psyche_flags
+        on psyche_move(idList, mboxName, acctName, destKind, destName, destAcct)
+          set n to 0
+          tell application "Mail"
+            set src to my psyche_source(mboxName, acctName)
+            repeat with mid in idList
+              set m to first message of src whose id is (mid as integer)
+              if destKind is "archive" then
+                set target to mailbox "Archive" of account of mailbox of m
+              else if destKind is "junk" then
+                set junk mail status of m to true
+                set target to junk mailbox
+              else
+                set target to mailbox destName of account destAcct
+              end if
+              move m to target
+              set n to n + 1
+            end repeat
+          end tell
+          return n as text
+        end psyche_move
+        on psyche_attachments(mid, mboxName, acctName)
+          set fs to character id 31
+          set out to {}
+          tell application "Mail"
+            set src to my psyche_source(mboxName, acctName)
+            set m to first message of src whose id is (mid as integer)
+            repeat with a in mail attachments of m
+              set t to ""
+              try
+                set t to MIME type of a
+              end try
+              set sz to 0
+              try
+                set sz to file size of a
+              end try
+              set end of out to my psyche_clean(name of a) & fs & my psyche_clean(t) & fs & (sz as text)
+            end repeat
+          end tell
+          return my psyche_join(out, character id 30)
+        end psyche_attachments
+        on psyche_save_attachment(mid, mboxName, acctName, idx, destPath)
+          tell application "Mail"
+            set src to my psyche_source(mboxName, acctName)
+            set m to first message of src whose id is (mid as integer)
+            save (mail attachment (idx as integer) of m) in (POSIX file destPath)
+          end tell
+          return "saved"
+        end psyche_save_attachment
         """
 
     public init() {}
 
+    /// `psyche_line`: id, mailbox, account, subject, sender, date, read, flagged, Message-ID.
+    static let lineFields = 9
+
     static func summary(_ f: [String]) -> MailSummaryRecord {
         MailSummaryRecord(id: f[0], mailbox: f[1], account: f[2], subject: f[3], from: f[4],
-                          date: AppleDates.fromAppleScript(f[5]) ?? AppleDates.string(Date(timeIntervalSince1970: 0)), read: f[6] == "true")
+                          date: AppleDates.fromAppleScript(f[5]) ?? AppleDates.string(Date(timeIntervalSince1970: 0)), read: f[6] == "true",
+                          flagged: f[7] == "true", link: MailWave1.link(messageId: f[8]))
     }
 
     public func search(_ filter: MailSearchFilter, mailbox: String?, account: String?, limit: Int) async throws -> [MailSummaryRecord] {
@@ -461,19 +665,86 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
         let ids = MailSearchFilter.newest(ScriptRecords.parse(matches, fields: 2), limit: limit)
         if ids.isEmpty { return [] }
         let out = try await ScriptHandler.call(Self.source, handler: "psyche_lines", [ids, mailbox ?? "", account ?? ""], app: Self.bundleId)
-        return ScriptRecords.parse(out, fields: 7).map(Self.summary)
+        return ScriptRecords.parse(out, fields: Self.lineFields).map(Self.summary)
     }
 
     public func read(id: String, mailbox: String?, account: String?, maxLength: Int) async throws -> (MailSummaryRecord, to: [String], cc: [String], body: String) {
         let out = try await ScriptHandler.call(Self.source, handler: "psyche_read", [id, mailbox ?? "", account ?? "", "\(maxLength)"], app: Self.bundleId)
-        guard let f = ScriptRecords.parse(out, fields: 10).first else { throw CapabilityError(.notFound, reason: "message_not_found", "No message \(id)") }
+        let n = Self.lineFields
+        guard let f = ScriptRecords.parse(out, fields: n + 3).first else { throw CapabilityError(.notFound, reason: "message_not_found", "No message \(id)") }
         let split: (String) -> [String] = { $0.isEmpty ? [] : $0.components(separatedBy: "\u{1D}") }
-        return (Self.summary(Array(f[0..<7])), split(f[7]), split(f[8]), f[9])
+        return (Self.summary(Array(f[0..<n])), split(f[n]), split(f[n + 1]), f[n + 2])
     }
 
-    public func compose(_ draft: MailDraft, send: Bool) async throws {
-        _ = try await ScriptHandler.call(Self.source, handler: "psyche_compose",
-                                         [draft.to, draft.cc ?? [], draft.subject, draft.body, send ? "send" : "draft"], app: Self.bundleId)
+    @discardableResult
+    public func compose(_ draft: MailDraft, send: Bool) async throws -> MailDraftRecord? {
+        let out = try await ScriptHandler.call(Self.source, handler: "psyche_compose",
+                                               [draft.to, draft.cc ?? [], draft.subject, draft.body, send ? "send" : "draft"], app: Self.bundleId)
+        return send ? nil : Self.draftRecord(out)
+    }
+
+    // MARK: Wave 1
+
+    static func draftRecord(_ out: String?) -> MailDraftRecord? {
+        guard let f = ScriptRecords.parse(out, fields: 5).first else { return nil }
+        let split: (String) -> [String] = { $0.isEmpty ? [] : $0.components(separatedBy: "\u{1D}") }
+        return MailDraftRecord(draftId: f[0], subject: f[1], to: split(f[2]), cc: split(f[3]), body: f[4])
+    }
+
+    public func mailboxes(account: String?) async throws -> [MailboxRecord] {
+        let out = try await ScriptHandler.call(Self.source, handler: "psyche_mailboxes", [account ?? ""], app: Self.bundleId)
+        return ScriptRecords.parse(out, fields: 3).map { MailboxRecord(account: $0[0], name: $0[1], unreadCount: Int($0[2]) ?? 0) }
+    }
+
+    public func selected(limit: Int) async throws -> [MailSummaryRecord] {
+        // "This email" means the one on screen: never launch Mail just to find nothing selected.
+        guard !NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleId).isEmpty else { return [] }
+        let out = try await ScriptHandler.call(Self.source, handler: "psyche_selected", ["\(limit)"], app: Self.bundleId)
+        return MailWave1.newestFirst(ScriptRecords.parse(out, fields: Self.lineFields).map(Self.summary))
+    }
+
+    func draftOrThrow(_ out: String?) throws -> MailDraftRecord {
+        guard let d = Self.draftRecord(out) else { throw CapabilityError(.unavailable, reason: "script_error", "Mail did not return the draft") }
+        return d
+    }
+
+    public func replyDraft(id: String, mailbox: String?, account: String?, body: String, replyAll: Bool, cc: [String]) async throws -> MailDraftRecord {
+        try draftOrThrow(try await ScriptHandler.call(Self.source, handler: "psyche_reply",
+                                                      [id, mailbox ?? "", account ?? "", body, replyAll ? "true" : "false", cc], app: Self.bundleId))
+    }
+
+    public func forwardDraft(id: String, mailbox: String?, account: String?, to: [String], cc: [String], body: String) async throws -> MailDraftRecord {
+        try draftOrThrow(try await ScriptHandler.call(Self.source, handler: "psyche_forward",
+                                                      [id, mailbox ?? "", account ?? "", to, cc, body], app: Self.bundleId))
+    }
+
+    public func draft(id: String) async throws -> MailDraftRecord? {
+        Self.draftRecord(try await ScriptHandler.call(Self.source, handler: "psyche_draft", [id], app: Self.bundleId))
+    }
+
+    public func sendDraft(id: String) async throws {
+        _ = try await ScriptHandler.call(Self.source, handler: "psyche_send_draft", [id], app: Self.bundleId)
+    }
+
+    public func setFlags(ids: [String], mailbox: String?, account: String?, read: Bool?, flagged: Bool?, flagIndex: Int?) async throws -> Int {
+        let mode: (Bool?) -> String = { $0.map { $0 ? "true" : "false" } ?? "" }
+        let out = try await ScriptHandler.call(Self.source, handler: "psyche_flags",
+                                               [ids, mailbox ?? "", account ?? "", mode(read), mode(flagged), "\(flagIndex ?? -1)"], app: Self.bundleId)
+        return Int(out ?? "") ?? 0
+    }
+
+    public func move(ids: [String], mailbox: String?, account: String?, to: MailWave1.Destination) async throws -> Int {
+        let out = try await ScriptHandler.call(Self.source, handler: "psyche_move", [ids, mailbox ?? "", account ?? ""] + to.scriptArgs, app: Self.bundleId)
+        return Int(out ?? "") ?? 0
+    }
+
+    public func attachments(id: String, mailbox: String?, account: String?) async throws -> [(name: String, mimeType: String?, bytes: Int)] {
+        let out = try await ScriptHandler.call(Self.source, handler: "psyche_attachments", [id, mailbox ?? "", account ?? ""], app: Self.bundleId)
+        return ScriptRecords.parse(out, fields: 3).map { (name: $0[0], mimeType: $0[1].isEmpty ? nil : $0[1], bytes: Int($0[2]) ?? 0) }
+    }
+
+    public func saveAttachment(id: String, mailbox: String?, account: String?, index: Int, to path: String) async throws {
+        _ = try await ScriptHandler.call(Self.source, handler: "psyche_save_attachment", [id, mailbox ?? "", account ?? "", "\(index)", path], app: Self.bundleId)
     }
 }
 
