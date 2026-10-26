@@ -105,6 +105,32 @@ export const SearchHitGroup = Type.Object(
 );
 export type SearchHitGroup = Static<typeof SearchHitGroup>;
 
+/** Progress of the index backfill (docs/design/search-2026.md §5.1). */
+export const SearchBackfillStatus = Type.Object(
+  {
+    state: StringEnum(["idle", "running", "done", "error"], { $id: "SearchBackfillState" }),
+    done: Type.Integer({ minimum: 0, description: "Documents indexed by this run so far" }),
+    source: Type.Optional(
+      Type.String({ description: "Store being indexed: threads, messages, tasks, library, …" }),
+    ),
+    error: Type.Optional(Type.String()),
+    startedAt: Type.Optional(Type.Integer({ minimum: 0, description: "Epoch ms" })),
+    finishedAt: Type.Optional(Type.Integer({ minimum: 0, description: "Epoch ms" })),
+  },
+  { $id: "SearchBackfillStatus" },
+);
+export type SearchBackfillStatus = Static<typeof SearchBackfillStatus>;
+
+/** What `search.status` returns and `search.status.updated` carries. */
+export const SearchIndexStatus = Type.Object(
+  {
+    docs: Type.Integer({ minimum: 0, description: "Documents in the index" }),
+    backfill: SearchBackfillStatus,
+  },
+  { $id: "SearchIndexStatus" },
+);
+export type SearchIndexStatus = Static<typeof SearchIndexStatus>;
+
 export const SearchMethods = {
   "search.query": defineMethod({
     params: Type.Object({
@@ -122,5 +148,21 @@ export const SearchMethods = {
     }),
     scope: "operator.read",
     description: "Unified search across the given scopes (default all).",
+  }),
+  "search.status": defineMethod({
+    params: Type.Object({}),
+    result: SearchIndexStatus,
+    scope: "operator.read",
+    description: "Index size and backfill progress (Search screen, Settings → Search).",
+  }),
+  "search.reindex": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({
+      started: Type.Boolean({ description: "False when a run was already in flight" }),
+    }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Rebuilds the search index from the stores in the background; documents that no longer exist are dropped. Progress arrives as search.status.updated. Side-effecting.",
   }),
 } as const;

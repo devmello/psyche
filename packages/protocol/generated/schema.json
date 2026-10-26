@@ -324,6 +324,11 @@
         "payload": "#/$defs/RunUpdatedPayload"
       },
       {
+        "description": "Search index backfill started, progressed or finished (docs/design/search-2026.md §6).",
+        "name": "search.status.updated",
+        "payload": "#/$defs/SearchIndexStatus"
+      },
+      {
         "description": "Settings changed (including appearance), so every paired client re-themes.",
         "name": "settings.changed",
         "payload": "#/$defs/SettingsChangedPayload"
@@ -2205,6 +2210,22 @@
         "name": "search.query",
         "params": "#/$defs/SearchQueryParams",
         "result": "#/$defs/SearchQueryResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Rebuilds the search index from the stores in the background; documents that no longer exist are dropped. Progress arrives as search.status.updated. Side-effecting.",
+        "name": "search.reindex",
+        "params": "#/$defs/SearchReindexParams",
+        "result": "#/$defs/SearchReindexResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Index size and backfill progress (Search screen, Settings → Search).",
+        "name": "search.status",
+        "params": "#/$defs/SearchStatusParams",
+        "result": "#/$defs/SearchIndexStatus",
         "scope": "operator.read",
         "sideEffecting": false
       },
@@ -27856,6 +27877,49 @@
       ],
       "type": "object"
     },
+    "SearchBackfillState": {
+      "enum": [
+        "idle",
+        "running",
+        "done",
+        "error"
+      ],
+      "type": "string"
+    },
+    "SearchBackfillStatus": {
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/SearchBackfillState"
+        },
+        "done": {
+          "description": "Documents indexed by this run so far",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "source": {
+          "description": "Store being indexed: threads, messages, tasks, library, …",
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        },
+        "startedAt": {
+          "description": "Epoch ms",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "finishedAt": {
+          "description": "Epoch ms",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "state",
+        "done"
+      ],
+      "type": "object"
+    },
     "SearchGroup": {
       "enum": [
         "threads",
@@ -27990,6 +28054,23 @@
       ],
       "type": "string"
     },
+    "SearchIndexStatus": {
+      "properties": {
+        "docs": {
+          "description": "Documents in the index",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "backfill": {
+          "$ref": "#/$defs/SearchBackfillStatus"
+        }
+      },
+      "required": [
+        "docs",
+        "backfill"
+      ],
+      "type": "object"
+    },
     "SearchQueryParams": {
       "properties": {
         "query": {
@@ -28045,6 +28126,22 @@
       ],
       "type": "object"
     },
+    "SearchReindexParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "SearchReindexResult": {
+      "properties": {
+        "started": {
+          "description": "False when a run was already in flight",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "started"
+      ],
+      "type": "object"
+    },
     "SearchScope": {
       "enum": [
         "threads",
@@ -28060,6 +28157,10 @@
         "projects"
       ],
       "type": "string"
+    },
+    "SearchStatusParams": {
+      "properties": {},
+      "type": "object"
     },
     "SettingEntry": {
       "properties": {

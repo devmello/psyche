@@ -1,6 +1,9 @@
-import type { EntitySummary, SearchHit } from "@psyche/protocol";
+import type { EntitySummary, SearchHit, SearchIndexStatus } from "@psyche/protocol";
+import { RefreshCw } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
 import { Page, PageHeader } from "../../components/page.tsx";
+import { Button } from "../../components/ui/button.tsx";
+import { useSearchIndexStatus } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { ConnectedEntityCard } from "../../people/ConnectedEntityCard.tsx";
 import { useSlots } from "../../slots.tsx";
@@ -29,6 +32,54 @@ export interface SearchViewProps {
   onOpenEntity?: (entity: EntitySummary) => void;
   renderEntityPreview?: (entity: EntitySummary) => ReactNode;
   now?: number;
+  /** Backfill progress (`search.status`); a running backfill shows a status line. */
+  indexStatus?: SearchIndexStatus;
+  /** Rebuilds the index; offered when a search finds nothing or fails. */
+  onReindex?: () => void;
+  reindexing?: boolean;
+}
+
+/** "Indexing your history…" while the backfill runs; "Rebuild search index" when nothing is found. */
+function IndexStatusLine({
+  status,
+  offerRebuild,
+  onReindex,
+  reindexing = false,
+}: {
+  status: SearchIndexStatus | undefined;
+  offerRebuild: boolean;
+  onReindex: (() => void) | undefined;
+  reindexing?: boolean;
+}): ReactElement | null {
+  const backfill = status?.backfill;
+  const running = backfill?.state === "running";
+  const failed = backfill?.state === "error";
+  if (!running && !failed && !(offerRebuild && onReindex)) return null;
+  return (
+    <div
+      role="status"
+      className="mt-3 flex flex-wrap items-center gap-3 px-3 text-callout text-label-secondary"
+    >
+      {running ? (
+        <span className="flex items-center gap-2">
+          <RefreshCw
+            aria-hidden="true"
+            className="size-3.5 motion-safe:animate-spin"
+            strokeWidth={1.75}
+          />
+          {t("screens.search.indexing", { n: backfill.done })}
+        </span>
+      ) : null}
+      {failed ? (
+        <span>{t("screens.search.indexFailed", { reason: backfill.error ?? "" })}</span>
+      ) : null}
+      {!running && onReindex && (failed || offerRebuild) ? (
+        <Button variant="ghost" size="sm" disabled={reindexing} onClick={onReindex}>
+          {reindexing ? t("screens.search.rebuilding") : t("screens.search.rebuild")}
+        </Button>
+      ) : null}
+    </div>
+  );
 }
 
 /**
@@ -52,6 +103,9 @@ export function SearchView({
   onOpenEntity,
   renderEntityPreview,
   now,
+  indexStatus,
+  onReindex,
+  reindexing,
 }: SearchViewProps): ReactElement {
   const results = hits.length;
   const blank = query.trim() === "";
@@ -84,6 +138,12 @@ export function SearchView({
           {...(onOpenEntity ? { onOpenEntity } : {})}
           {...(renderEntityPreview ? { renderEntityPreview } : {})}
           {...(now !== undefined ? { now } : {})}
+        />
+        <IndexStatusLine
+          status={indexStatus}
+          offerRebuild={!blank && !loading && (error !== null || results === 0)}
+          onReindex={onReindex}
+          {...(reindexing === undefined ? {} : { reindexing })}
         />
       </Page>
     </section>
@@ -121,6 +181,7 @@ export function SearchScreen({
 }: SearchScreenProps): ReactElement {
   const { navigate } = useSlots();
   const search = useSearchSurface(initialQuery, debounceMs);
+  const index = useSearchIndexStatus();
   const wide = useMinWidth(1080);
   const open =
     onOpen ??
@@ -157,6 +218,9 @@ export function SearchScreen({
         />
       )}
       {...(now !== undefined ? { now } : {})}
+      {...(index.status === undefined ? {} : { indexStatus: index.status })}
+      onReindex={() => void index.reindex().catch(() => undefined)}
+      reindexing={index.reindexing}
     />
   );
 }

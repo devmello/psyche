@@ -2013,6 +2013,12 @@ export class MockGateway implements GatewayClient {
       };
     },
 
+    "search.status": () => ({
+      docs: this.world.searchHits.length,
+      backfill: { state: "done", done: 0 },
+    }),
+    "search.reindex": () => ({ started: true }),
+
     "memory.read": (p) => {
       const content = this.world.memoryFiles[p.path] ?? fail("not_found", `${p.path} not found`);
       return { path: p.path, content, updatedAt: this.now(), etag: etagOf(content) };

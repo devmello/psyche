@@ -1116,7 +1116,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     home: config.home,
     memory,
     tasks,
+    feed: proactive.feed,
+    ideas: proactive.ideas,
+    goals: proactive.goals,
     now: () => clock.now(),
+    // Tests reconcile the Library by hand.
+    ...(background ? {} : { librarySyncMs: 0 }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
   parts.push(search);

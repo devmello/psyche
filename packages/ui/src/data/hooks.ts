@@ -1355,6 +1355,27 @@ export function useSearch(query: string, scopes?: SearchScope[]) {
   return { ...q, hits, groups };
 }
 
+/** Index size and backfill progress, live through `search.status.updated`; `reindex` rebuilds. */
+export function useSearchIndexStatus() {
+  const store = useStore();
+  const q = useGatewayQuery("search.status", {});
+  const [requested, setRequested] = useState(false);
+  return {
+    ...q,
+    status: q.data,
+    reindexing: requested || q.data?.backfill.state === "running",
+    reindex: async () => {
+      setRequested(true);
+      try {
+        await store.call("search.reindex", {});
+        q.reload();
+      } finally {
+        setRequested(false);
+      }
+    },
+  };
+}
+
 export function useMemoryFile(path: string | null) {
   const store = useStore();
   const etag = useStoreState((s) => (path === null ? undefined : s.memoryEtags[path]));

@@ -24,6 +24,11 @@ export const screens = {
   "screens.search.searching": "Searching",
   "screens.search.failed": "Search failed",
   "screens.search.indexUnchanged": "The index is unchanged.",
+  "screens.search.indexing":
+    "Indexing your history: {n, plural, one {# item} other {# items}} so far. Results fill in as it goes.",
+  "screens.search.indexFailed": "Indexing stopped: {reason}",
+  "screens.search.rebuild": "Rebuild search index",
+  "screens.search.rebuilding": "Rebuilding…",
   "screens.search.withoutFilters": "Search without filters",
   "screens.search.clear": "Clear search",
   "screens.search.nothing":
