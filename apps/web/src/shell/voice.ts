@@ -346,7 +346,11 @@ export class VoiceCapture {
   }
 }
 
-/** Microphone source over getUserMedia + Web Audio (renderer only; audio never leaves to disk). */
+/**
+ * Microphone source over getUserMedia + Web Audio (renderer only; audio never leaves to disk).
+ * The returned stop is idempotent and releases everything; a failure after the stream opened
+ * releases it too, so the macOS microphone indicator never outlives dictation (issue #611).
+ */
 export function microphoneSource(): AudioSource {
   return {
     async start(onFrames) {
@@ -354,20 +358,39 @@ export function microphoneSource(): AudioSource {
         audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
         video: false,
       });
-      const ctx = new AudioContext();
-      const input = ctx.createMediaStreamSource(stream);
-      // ScriptProcessor keeps this free of worklet module URLs (the CSP allows 'self' scripts only).
-      const node = ctx.createScriptProcessor(4096, 1, 1);
-      node.onaudioprocess = (ev) =>
-        onFrames(ev.inputBuffer.getChannelData(0).slice(), ctx.sampleRate);
-      input.connect(node);
-      node.connect(ctx.destination);
-      return () => {
-        node.disconnect();
-        input.disconnect();
+      let ctx: AudioContext | undefined;
+      let input: MediaStreamAudioSourceNode | undefined;
+      let node: ScriptProcessorNode | undefined;
+      let stopped = false;
+      const stop = () => {
+        if (stopped) return;
+        stopped = true;
+        if (node) node.onaudioprocess = null;
+        for (const n of [node, input]) {
+          try {
+            n?.disconnect();
+          } catch {
+            // already disconnected
+          }
+        }
         for (const t of stream.getTracks()) t.stop();
-        void ctx.close();
+        if (ctx && ctx.state !== "closed") void ctx.close().catch(() => undefined);
       };
+      try {
+        ctx = new AudioContext();
+        const audio = ctx;
+        input = audio.createMediaStreamSource(stream);
+        // ScriptProcessor keeps this free of worklet module URLs (the CSP allows 'self' scripts only).
+        node = audio.createScriptProcessor(4096, 1, 1);
+        node.onaudioprocess = (ev) =>
+          onFrames(ev.inputBuffer.getChannelData(0).slice(), audio.sampleRate);
+        input.connect(node);
+        node.connect(audio.destination);
+      } catch (err) {
+        stop();
+        throw err;
+      }
+      return stop;
     },
   };
 }

@@ -1,33 +1,47 @@
 import { BrowserWindow, type IpcMainEvent, ipcMain, screen, type WebContents } from "electron";
 import { checkAudioChunk, IPC } from "../../lib/ipc.ts";
+import { CaptureLink, parseCaptureAck } from "./capture-link.ts";
 import type { DictationCapture, DictationHud, HudState } from "./controller.ts";
 
 /**
  * The floating dictation HUD (UI design §3.18): a small non-activating panel near the bottom of
  * the screen with the pointer. It never takes focus, so the app being dictated into keeps it. It
  * runs the app renderer at `/dictation-hud`, which captures the microphone (the media permission
- * handler allows it as an app renderer) and sends 16 kHz PCM chunks back here.
+ * handler allows it as an app renderer) and sends 16 kHz PCM chunks back here. The microphone is
+ * opened per session and released on every exit; `CaptureLink` destroys the window when the HUD
+ * cannot prove it let go (issue #611).
  */
 
 export const HUD_ROUTE = "/dictation-hud";
 const WIDTH = 420;
 const HEIGHT = 64;
-const STOP_ACK_MS = 800;
 
 export interface HudWindowOptions {
   url: (route: string) => string;
   preloadPath: string;
   onAudio: (chunk: string) => void;
+  warn?: (message: string) => void;
 }
 
 export class HudWindow implements DictationHud, DictationCapture {
   readonly #o: HudWindowOptions;
   #win: BrowserWindow | undefined;
   #ready: Promise<void> | undefined;
-  #captured: ((r: { ok: boolean }) => void) | undefined;
+  readonly #link: CaptureLink;
 
   constructor(opts: HudWindowOptions) {
     this.#o = opts;
+    this.#link = new CaptureLink({
+      send: (command) => {
+        const win = this.#win;
+        if (!win || win.isDestroyed()) return false;
+        win.webContents.send(IPC.dictationCapture, command);
+        return true;
+      },
+      // Destroying the window ends its renderer and with it every stream it held.
+      forceRelease: () => this.destroy(),
+      ...(opts.warn ? { warn: opts.warn } : {}),
+    });
     ipcMain.on(IPC.dictationAudio, (e: IpcMainEvent, chunk: unknown) => {
       if (!this.owns(e.sender)) return;
       try {
@@ -38,9 +52,8 @@ export class HudWindow implements DictationHud, DictationCapture {
     });
     ipcMain.on(IPC.dictationCaptured, (e: IpcMainEvent, r: unknown) => {
       if (!this.owns(e.sender)) return;
-      const ok = (r as { ok?: unknown } | null)?.ok === true;
-      this.#captured?.({ ok });
-      this.#captured = undefined;
+      const ack = parseCaptureAck(r);
+      if (ack) this.#link.onAck(ack);
     });
   }
 
@@ -87,7 +100,12 @@ export class HudWindow implements DictationHud, DictationCapture {
       if (this.#win === win) {
         this.#win = undefined;
         this.#ready = undefined;
+        this.#link.reset();
       }
+    });
+    // A crashed or killed renderer holds no streams any more.
+    win.webContents.on("render-process-gone", () => {
+      if (this.#win === win) this.#link.reset();
     });
     this.#win = win;
     this.#ready = win.loadURL(this.#o.url(HUD_ROUTE)).catch(() => undefined);
@@ -114,6 +132,8 @@ export class HudWindow implements DictationHud, DictationCapture {
   }
 
   hide(): void {
+    // A hidden HUD never keeps the microphone (the controller stops first; this is the backstop).
+    if (this.#link.capturing) void this.#link.stop();
     const win = this.#win;
     if (!win || win.isDestroyed()) return;
     win.webContents.send(IPC.dictationHudState, null);
@@ -122,31 +142,17 @@ export class HudWindow implements DictationHud, DictationCapture {
 
   async start(): Promise<void> {
     await this.warm();
-    const win = this.#win;
-    if (!win || win.isDestroyed()) throw new Error("no HUD");
-    const started = new Promise<{ ok: boolean }>((resolve) => {
-      this.#captured = resolve;
-    });
-    win.webContents.send(IPC.dictationCapture, "start");
-    const r = await Promise.race([
-      started,
-      new Promise<{ ok: boolean }>((resolve) => setTimeout(() => resolve({ ok: false }), 3_000)),
-    ]);
-    if (!r.ok) throw new Error("microphone unavailable");
+    await this.#link.start();
   }
 
-  async stop(): Promise<void> {
-    const win = this.#win;
-    if (!win || win.isDestroyed()) return;
-    const stopped = new Promise<{ ok: boolean }>((resolve) => {
-      this.#captured = resolve;
-    });
-    win.webContents.send(IPC.dictationCapture, "stop");
-    await Promise.race([stopped, new Promise((r) => setTimeout(r, STOP_ACK_MS))]);
+  stop(): Promise<void> {
+    return this.#link.stop();
   }
 
   destroy(): void {
     if (this.#win && !this.#win.isDestroyed()) this.#win.destroy();
     this.#win = undefined;
+    this.#ready = undefined;
+    this.#link.reset();
   }
 }

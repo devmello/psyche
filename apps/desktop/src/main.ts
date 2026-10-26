@@ -845,6 +845,7 @@ void app.whenReady().then(async () => {
     url: (route) => new URL(route, rendererUrl).toString(),
     preloadPath: preloadPath(),
     onAudio: (chunk) => controller.onAudio(chunk),
+    warn: (m) => console.warn(`[dictation] ${m}`),
   });
   const controller = new SystemDictation({
     call: (m, p) => requireGateway().call(m, p),

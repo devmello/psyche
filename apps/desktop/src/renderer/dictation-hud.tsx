@@ -39,40 +39,82 @@ export function pcmToBase64(pcm: Int16Array): string {
   return btoa(bin);
 }
 
-class Capture {
-  #stop: (() => void) | undefined;
+/** What getUserMedia + Web Audio hand back, narrowed so tests can fake them. */
+export interface MicDevices {
+  getUserMedia(c: MediaStreamConstraints): Promise<MediaStream>;
+  createContext(): AudioContext;
+}
+
+const browserDevices: MicDevices = {
+  getUserMedia: (c) => navigator.mediaDevices.getUserMedia(c),
+  createContext: () => new AudioContext(),
+};
+
+/**
+ * One microphone session at a time (issue #611: the orange indicator stayed on). Each start gets
+ * a generation; a stop, or a newer start, bumps it, so a start still waiting for getUserMedia
+ * drops the stream it receives instead of keeping it. `release` is idempotent and stops every
+ * track, disconnects both nodes and closes the context on every exit path.
+ */
+export class Capture {
+  readonly #devices: MicDevices;
+  #gen = 0;
+  #stream: MediaStream | undefined;
+  #ctx: AudioContext | undefined;
+  #nodes: AudioNode[] = [];
+  #processor: ScriptProcessorNode | undefined;
   #buf: Int16Array[] = [];
   #samples = 0;
+  #send: ((chunk: string) => void) | undefined;
+
+  constructor(devices: MicDevices = browserDevices) {
+    this.#devices = devices;
+  }
+
+  /** Whether any microphone track is still live (what macOS shows as the orange dot). */
+  get open(): boolean {
+    return this.#stream?.getTracks().some((t) => t.readyState === "live") ?? false;
+  }
 
   async start(send: (chunk: string) => void): Promise<void> {
-    const stream = await navigator.mediaDevices.getUserMedia({
+    this.release();
+    const gen = ++this.#gen;
+    const stream = await this.#devices.getUserMedia({
       audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
       video: false,
     });
-    const ctx = new AudioContext();
-    await ctx.resume();
-    const input = ctx.createMediaStreamSource(stream);
-    // ScriptProcessor keeps this free of worklet module URLs (the CSP allows 'self' scripts only).
-    const node = ctx.createScriptProcessor(4096, 1, 1);
-    node.onaudioprocess = (ev) => {
-      const pcm = toPcm16(ev.inputBuffer.getChannelData(0), ctx.sampleRate);
-      this.#buf.push(pcm);
-      this.#samples += pcm.length;
-      if (this.#samples >= RATE / 10) this.#flush(send);
-    };
-    input.connect(node);
-    node.connect(ctx.destination);
-    this.#stop = () => {
-      node.disconnect();
-      input.disconnect();
+    if (gen !== this.#gen) {
       for (const t of stream.getTracks()) t.stop();
-      void ctx.close();
-      this.#flush(send);
-    };
+      throw new Error("stopped before the microphone opened");
+    }
+    this.#stream = stream;
+    this.#send = send;
+    try {
+      const ctx = this.#devices.createContext();
+      this.#ctx = ctx;
+      await ctx.resume();
+      if (gen !== this.#gen) throw new Error("stopped before the microphone opened");
+      const input = ctx.createMediaStreamSource(stream);
+      // ScriptProcessor keeps this free of worklet module URLs (the CSP allows 'self' scripts only).
+      const node = ctx.createScriptProcessor(4096, 1, 1);
+      node.onaudioprocess = (ev) => {
+        const pcm = toPcm16(ev.inputBuffer.getChannelData(0), ctx.sampleRate);
+        this.#buf.push(pcm);
+        this.#samples += pcm.length;
+        if (this.#samples >= RATE / 10) this.#flush();
+      };
+      input.connect(node);
+      node.connect(ctx.destination);
+      this.#nodes = [input, node];
+      this.#processor = node;
+    } catch (err) {
+      if (gen === this.#gen) this.release();
+      throw err;
+    }
   }
 
-  #flush(send: (chunk: string) => void): void {
-    if (this.#samples === 0) return;
+  #flush(): void {
+    if (this.#samples === 0 || !this.#send) return;
     const out = new Int16Array(this.#samples);
     let o = 0;
     for (const b of this.#buf) {
@@ -81,12 +123,36 @@ class Capture {
     }
     this.#buf = [];
     this.#samples = 0;
-    send(pcmToBase64(out));
+    this.#send(pcmToBase64(out));
   }
 
+  /** Ends the session: the last audio goes out, then every resource is released. */
   stop(): void {
-    this.#stop?.();
-    this.#stop = undefined;
+    this.#flush();
+    this.release();
+  }
+
+  /** Releases everything without sending audio; safe to call any number of times. */
+  release(): void {
+    this.#gen++;
+    if (this.#processor) this.#processor.onaudioprocess = null;
+    this.#processor = undefined;
+    for (const n of this.#nodes) {
+      try {
+        n.disconnect();
+      } catch {
+        // already disconnected
+      }
+    }
+    this.#nodes = [];
+    for (const t of this.#stream?.getTracks() ?? []) t.stop();
+    this.#stream = undefined;
+    const ctx = this.#ctx;
+    this.#ctx = undefined;
+    if (ctx && ctx.state !== "closed") void ctx.close().catch(() => undefined);
+    this.#buf = [];
+    this.#samples = 0;
+    this.#send = undefined;
   }
 }
 
@@ -96,24 +162,31 @@ export function DictationHud(): ReactElement | null {
 
   useEffect(() => {
     const bridge = window.psyche.dictation;
+    const mic = capture.current;
     const offState = bridge.onState((s) => setState(s as HudState));
-    const offCapture = bridge.onCapture((command) => {
-      if (command === "start") {
-        capture.current
+    const offCapture = bridge.onCapture((raw) => {
+      const cmd = raw as { command?: unknown; id?: unknown } | null;
+      if (typeof cmd?.id !== "number") return;
+      const id = cmd.id;
+      if (cmd.command === "start") {
+        mic
           .start((chunk) => bridge.sendAudio(chunk))
           .then(
-            () => bridge.captured(true),
-            () => bridge.captured(false),
+            () => bridge.captured({ id, ok: true, open: mic.open }),
+            () => bridge.captured({ id, ok: false, open: mic.open }),
           );
-      } else if (command === "stop") {
-        capture.current.stop();
-        bridge.captured(true);
+      } else if (cmd.command === "stop") {
+        mic.stop();
+        bridge.captured({ id, ok: true, open: mic.open });
       }
     });
+    const onHide = () => mic.release();
+    window.addEventListener("pagehide", onHide);
     return () => {
       offState();
       offCapture();
-      capture.current.stop();
+      window.removeEventListener("pagehide", onHide);
+      mic.release();
     };
   }, []);
 
