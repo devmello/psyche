@@ -58,6 +58,9 @@ export function AgentIdentity({
 export interface AgentSheetRoute {
   tab: AgentTab;
   taskId?: string;
+  /** A task's Timeline (`/agent/activity/run/:runId[?step=:stepId]`, run trace §3.3). */
+  runId?: string;
+  stepId?: string;
   file?: string;
   /** Where closing the sheet returns to (`?from=/feed`); the chat when absent. */
   back?: string;
@@ -75,6 +78,18 @@ export function agentSheetHref(tab: AgentTab, options: { back?: string } = {}): 
     : `/agent/${tab}?from=${encodeURIComponent(options.back)}`;
 }
 
+/** `/agent/activity/run/run_…?step=stp_…`: a task's Timeline in Activity (run trace §3.3). */
+export function agentTimelineHref(
+  runId: string,
+  options: { stepId?: string; back?: string } = {},
+): string {
+  const query = new URLSearchParams();
+  if (options.stepId) query.set("step", options.stepId);
+  if (options.back) query.set("from", options.back);
+  const qs = query.toString();
+  return `/agent/activity/run/${encodeURIComponent(runId)}${qs ? `?${qs}` : ""}`;
+}
+
 const ROUTE_TABS: readonly AgentTab[] = ["activity", "approvals", "upcoming", "soul"];
 
 /**
@@ -82,15 +97,20 @@ const ROUTE_TABS: readonly AgentTab[] = ["activity", "approvals", "upcoming", "s
  * routes render the same sheet over the chat, never a full-width page (redesign §5.7).
  */
 export function agentSheetRoute(route: string): AgentSheetRoute | null {
-  const m = /^\/agent\/(activity|approvals|upcoming|soul)(?:\/([^/?]+))?/.exec(route);
+  const m = /^\/agent\/(activity|approvals|upcoming|soul)(?:\/run\/([^/?]+)|\/([^/?]+))?/.exec(
+    route,
+  );
   if (m === null) return null;
   const tab = ROUTE_TABS.find((x) => x === m[1]) ?? "activity";
   const query = new URLSearchParams(route.split("?")[1] ?? "");
   const file = query.get("file") ?? undefined;
   const back = appPath(query.get("from"));
+  const stepId = query.get("step") ?? undefined;
   return {
     tab,
-    ...(m[2] === undefined ? {} : { taskId: m[2] }),
+    ...(m[2] === undefined ? {} : { runId: decodeURIComponent(m[2]) }),
+    ...(m[2] !== undefined && stepId ? { stepId } : {}),
+    ...(m[3] === undefined ? {} : { taskId: m[3] }),
     ...(file ? { file } : {}),
     ...(back ? { back } : {}),
   };
@@ -101,6 +121,9 @@ export interface AgentSheetBodyProps {
   onTabChange: (tab: AgentTab) => void;
   /** Open Activity on this task (`/agent/activity/:taskId`). */
   taskId?: string;
+  /** Open Activity on this run's Timeline, at a step (`/agent/activity/run/:runId?step=`). */
+  runId?: string;
+  stepId?: string;
   now?: number;
   onStartIncognito?: () => void;
   /** Show the avatar, name and status above the tabs (the modal sheet renders its own). */
@@ -121,6 +144,8 @@ export function AgentSheetBody({
   tab,
   onTabChange,
   taskId,
+  runId,
+  stepId,
   now,
   onStartIncognito,
   header = true,
@@ -193,6 +218,8 @@ export function AgentSheetBody({
           <TabsContent value="activity">
             <ActivityPanel
               {...(taskId ? { initialTaskId: taskId } : {})}
+              {...(runId ? { initialRunId: runId } : {})}
+              {...(stepId ? { initialStepId: stepId } : {})}
               {...(now === undefined ? {} : { now })}
             />
           </TabsContent>
@@ -305,7 +332,10 @@ export function AgentSheet({
 }
 
 export interface AgentRouteSheetProps
-  extends Omit<AgentSheetBodyProps, "header" | "tab" | "taskId" | "file" | "onClose"> {
+  extends Omit<
+    AgentSheetBodyProps,
+    "header" | "tab" | "taskId" | "runId" | "stepId" | "file" | "onClose"
+  > {
   route: AgentSheetRoute;
   /** Switches tabs by changing the route, e.g. to `/agent/upcoming`. */
   onTabChange: (tab: AgentTab) => void;
@@ -332,6 +362,8 @@ export function AgentRouteSheet({
       tab={route.tab}
       onTabChange={onTabChange}
       {...(route.taskId === undefined ? {} : { taskId: route.taskId })}
+      {...(route.runId === undefined ? {} : { runId: route.runId })}
+      {...(route.stepId === undefined ? {} : { stepId: route.stepId })}
       {...(route.file === undefined ? {} : { file: route.file })}
       {...body}
     />
