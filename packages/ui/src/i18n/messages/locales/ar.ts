@@ -1,10 +1,16 @@
 import type { Catalogue } from "../index.ts";
+import { canvas } from "./canvas/ar.ts";
+import { mailMeetings } from "./mail-meetings/ar.ts";
 import { workflows } from "./workflows/ar.ts";
 
 /** Arabic catalogue (ar). Same ids as `en`; missing ids fall back to English. */
 export const ar: Partial<Catalogue> = {
+  // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...mailMeetings,
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
+  // the output canvas (docs/design/chat-experience-2026.md §4.2)
+  ...canvas,
   "common.cancel": "إلغاء",
   "common.close": "إغلاق",
   "common.save": "حفظ",
@@ -3222,6 +3228,31 @@ export const ar: Partial<Catalogue> = {
   "settings.key.voice.conversation.key": "مفتاح الصوت",
   "settings.key.voice.conversation.reviewBeforeSend": "المراجعة قبل الإرسال",
 
+  // specialist controls (specialists §4.7) and the approval context line (§4.4)
+  "specialists.control.menu": "المزيد لـ {title}",
+  "specialists.control.steerLabel": "قل شيئًا لـ{role} عن {title}",
+  "specialists.control.steerPlaceholder": "قل شيئًا لـ{role}…",
+  "specialists.control.steerHint": "يقرأ هذا قبل خطوته التالية.",
+  "specialists.control.send": "إرسال",
+  "specialists.control.steered": "أُرسل إلى {role}.",
+  "specialists.control.pause": "إيقاف مؤقت",
+  "specialists.control.resume": "استئناف",
+  "specialists.control.giveMore": "أعطه المزيد…",
+  "specialists.control.stop": "إيقاف…",
+  "specialists.control.giveMoreTitle": "هل تريد إعطاء {role} المزيد؟",
+  "specialists.control.giveMoreBody":
+    "يرفع ميزانية {title} بمقدار النصف، حتى الحد الذي تسمح به الإعدادات لهذا الدور.",
+  "specialists.control.moreTokens": "الرموز: {from} ← {to}",
+  "specialists.control.moreCost": "التكلفة: {from} ← {to}",
+  "specialists.control.moreTime": "الوقت: {from, number} ← {to, number} د",
+  "specialists.control.atCap": "وصل بالفعل إلى أقصى ما تسمح به الإعدادات لهذا الدور.",
+  "specialists.control.giveMoreConfirm": "أعطه المزيد",
+  "specialists.control.stopTitle": "هل تريد إيقاف {role}؟",
+  "specialists.control.stopBody": "يتوقف الآن ولن يُكمل {title}. ما أنجزه يبقى في النشاط.",
+  "specialists.control.stopConfirm": "أوقفه",
+  "specialists.control.failed": "تعذّر على Psyche تنفيذ ذلك: {reason}",
+  "blocks.approval.specialist":
+    "{hasTask, select, true {من أجل «{task}» · } other {}}{role} بدأه {agent}{hasThread, select, true { في {thread}} other {}}",
   // Ask about my screen
   "screenAsk.label": "اسأل عن شاشتك",
   "screenAsk.placeholder": "اسأل عمّا يظهر على الشاشة، أو اطلب من Psyche أن يفعل شيئًا…",

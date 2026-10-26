@@ -1,6 +1,7 @@
 import type { Artifact, LibraryItem, Receipt, Task } from "@psyche/protocol";
 import { createContext, type ReactElement, type ReactNode, useContext, useMemo } from "react";
 import type { PreviewSlot } from "./blocks/ArtifactCard.tsx";
+import type { ArtifactRenderProps } from "./canvas/CanvasPane.tsx";
 import type { UseComposerVoice } from "./voice/controls.tsx";
 
 /**
@@ -41,6 +42,11 @@ export interface UiSlots {
   renderPreview?: PreviewSlot;
   /** Option previews and email bodies, rendered in the artifact sandbox. */
   renderSandboxed?: (html: string) => ReactNode;
+  /**
+   * A `packages/viewers` body for a canvas artifact (code in CodeMirror, say). Return undefined
+   * to keep the kit's own rendering (chat-experience-2026 §4.2).
+   */
+  renderArtifact?: (props: ArtifactRenderProps) => ReactNode;
   /** The Markdown editor from `packages/viewers` (Rich / Source / Diff). */
   renderEditor?: (props: EditorSlotProps) => ReactNode;
   /** Writes the system clipboard (the desktop's goes through main; #507). */

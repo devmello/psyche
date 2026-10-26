@@ -1,10 +1,16 @@
 import type { Catalogue } from "../index.ts";
+import { canvas } from "./canvas/fr.ts";
+import { mailMeetings } from "./mail-meetings/fr.ts";
 import { workflows } from "./workflows/fr.ts";
 
 /** French catalogue (fr). Same ids as `en`; missing ids fall back to English. */
 export const fr: Partial<Catalogue> = {
+  // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...mailMeetings,
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
+  // the output canvas (docs/design/chat-experience-2026.md §4.2)
+  ...canvas,
   "common.cancel": "Annuler",
   "common.close": "Fermer",
   "common.save": "Enregistrer",
@@ -3259,6 +3265,32 @@ export const fr: Partial<Catalogue> = {
   "settings.key.voice.conversation.key": "Touche vocale",
   "settings.key.voice.conversation.reviewBeforeSend": "Relire avant d’envoyer",
 
+  // specialist controls (specialists §4.7) and the approval context line (§4.4)
+  "specialists.control.menu": "Plus pour {title}",
+  "specialists.control.steerLabel": "Dire quelque chose au {role} à propos de {title}",
+  "specialists.control.steerPlaceholder": "Dites quelque chose au {role}…",
+  "specialists.control.steerHint": "Il le lit avant sa prochaine étape.",
+  "specialists.control.send": "Envoyer",
+  "specialists.control.steered": "Envoyé au {role}.",
+  "specialists.control.pause": "Mettre en pause",
+  "specialists.control.resume": "Reprendre",
+  "specialists.control.giveMore": "Lui en donner plus…",
+  "specialists.control.stop": "Arrêter…",
+  "specialists.control.giveMoreTitle": "En donner plus au {role} ?",
+  "specialists.control.giveMoreBody":
+    "Augmente son budget pour {title} de moitié, dans la limite des Réglages pour ce rôle.",
+  "specialists.control.moreTokens": "Jetons : {from} → {to}",
+  "specialists.control.moreCost": "Coût : {from} → {to}",
+  "specialists.control.moreTime": "Durée : {from, number} → {to, number} min",
+  "specialists.control.atCap": "Il a déjà le maximum que les Réglages autorisent pour ce rôle.",
+  "specialists.control.giveMoreConfirm": "Lui en donner plus",
+  "specialists.control.stopTitle": "Arrêter le {role} ?",
+  "specialists.control.stopBody":
+    "Il s’arrête tout de suite et ne terminera pas {title}. Ce qu’il a déjà fait reste dans Activité.",
+  "specialists.control.stopConfirm": "L’arrêter",
+  "specialists.control.failed": "Psyche n’a pas pu le faire : {reason}",
+  "blocks.approval.specialist":
+    "{hasTask, select, true {Pour « {task} » · } other {}}{role} lancé par {agent}{hasThread, select, true { dans {thread}} other {}}",
   // Ask about my screen
   "screenAsk.label": "Poser une question sur votre écran",
   "screenAsk.placeholder":

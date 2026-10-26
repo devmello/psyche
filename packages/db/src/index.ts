@@ -11,6 +11,7 @@ export {
   runMigrations,
 } from "./migrate.ts";
 export { type OpenDbOptions, openDb, type PsycheDb } from "./open.ts";
+export * from "./repos/artifacts.ts";
 export * from "./repos/chat-queue.ts";
 export * from "./repos/devices.ts";
 export * from "./repos/idempotency.ts";

@@ -1,4 +1,5 @@
 import type {
+  ActionProposal,
   ConnectorCatalogueEntry,
   ContextLimits,
   ContextUsage,
@@ -10,6 +11,8 @@ import type {
 import {
   type ApprovalRequest,
   type Artifact,
+  type ArtifactTableView,
+  type ArtifactVersion,
   type Automation,
   type AutomationRun,
   type BotAuthStatus,
@@ -75,9 +78,11 @@ import type { MockFileNode } from "../fixtures/files.ts";
 import type { GraphWorld } from "../fixtures/people.ts";
 import { appleShortcuts, connectorCatalogue } from "../fixtures/settings.ts";
 import type { MockSkillSource } from "../fixtures/skills.ts";
+import { applyOpsLocal } from "../lib/artifact-ops.ts";
 import type { ConnectionState, GatewayClient, GatewayEvent, RequestOptions } from "./client.ts";
 import { toBase64 } from "./files.ts";
 import { emptyGraph, graphHandlers } from "./mock-graph.ts";
+import { type ProposalMockContext, proposalHandlers, settleBatch } from "./mock-proposals.ts";
 
 /**
  * In-memory Gateway for stories and tests (no network). It speaks the protocol exactly: every
@@ -99,6 +104,11 @@ export interface MockWorld {
   inputRequests: InputRequest[];
   receipts: Receipt[];
   artifacts: Artifact[];
+  /** Canvas history per artifact: content, table view and version record, index = version - 1. */
+  artifactHistory: Record<
+    string,
+    { contents: string[]; views: (ArtifactTableView | null)[]; versions: ArtifactVersion[] }
+  >;
   library: LibraryItem[];
   files: Record<string, MockFileNode>;
   notifications: Notification[];
@@ -127,6 +137,9 @@ export interface MockWorld {
   searchHits: SearchHit[];
   /** The people and projects graph (`memory.entities.*`); absent → empty. */
   graph?: GraphWorld;
+  /** Batch proposals (`proposals.*`) and the calls that fail when one runs, by proposal id. */
+  proposals?: ActionProposal[];
+  proposalFailures?: Record<string, Record<number, string>>;
   skills: SkillDetails[];
   skillSources: Record<string, MockSkillSource>;
   skillDrafts: SkillDraft[];
@@ -184,6 +197,7 @@ export const EMPTY_WORLD: MockWorld = {
   inputRequests: [],
   receipts: [],
   artifacts: [],
+  artifactHistory: {},
   library: [],
   files: {},
   notifications: [],
@@ -651,6 +665,87 @@ export class MockGateway implements GatewayClient {
       });
   }
 
+  /** A canvas artifact's history; a fixture artifact without one starts with an empty v1. */
+  private artifactHistory(id: string): MockWorld["artifactHistory"][string] {
+    const a = this.find(this.world.artifacts, id, "artifact");
+    let h = this.world.artifactHistory[id];
+    if (h === undefined) {
+      h = { contents: [], views: [], versions: [] };
+      this.world.artifactHistory[id] = h;
+    }
+    while (h.contents.length < a.version) {
+      h.contents.push("");
+      h.views.push(null);
+    }
+    while (h.versions.length < a.version) {
+      const n = h.versions.length + 1;
+      h.versions.push({
+        artifactId: id,
+        version: n,
+        author: "agent",
+        kind: n === 1 ? "snapshot" : "ops",
+        bytes: (h.contents[n - 1] ?? "").length,
+        hash: `mock${n}`,
+        summary: "",
+        runId: null,
+        toolCallId: null,
+        createdAt: a.updatedAt,
+      });
+    }
+    return h;
+  }
+
+  private artifactRef(a: Artifact) {
+    const v = this.artifactHistory(a.id).versions[a.version - 1];
+    return {
+      artifactId: a.id,
+      version: a.version,
+      type: a.type,
+      title: a.title,
+      bytes: a.bytes ?? 0,
+      hash: v?.hash ?? "",
+      summary: v?.summary ?? "",
+    };
+  }
+
+  private writeArtifactVersion(
+    a: Artifact,
+    content: string,
+    view: ArtifactTableView | null,
+    extra: { ops?: ArtifactVersion["ops"]; restoredFrom?: number },
+  ) {
+    const h = this.artifactHistory(a.id);
+    const version: ArtifactVersion = {
+      artifactId: a.id,
+      version: a.version + 1,
+      author: "user",
+      kind: extra.ops === undefined ? "snapshot" : "ops",
+      ...(extra.ops === undefined ? {} : { ops: extra.ops }),
+      bytes: content.length,
+      hash: `mock${a.version + 1}`,
+      summary:
+        extra.restoredFrom === undefined
+          ? "edited in the canvas"
+          : `restored v${extra.restoredFrom}`,
+      runId: null,
+      toolCallId: null,
+      ...(extra.restoredFrom === undefined ? {} : { restoredFrom: extra.restoredFrom }),
+      createdAt: this.now(),
+    };
+    h.contents.push(content);
+    h.views.push(view);
+    h.versions.push(version);
+    const artifact: Artifact = {
+      ...a,
+      version: version.version,
+      updatedAt: version.createdAt,
+      bytes: content.length,
+    };
+    this.replace("artifacts", artifact);
+    this.emit("artifact.updated", { artifact, version });
+    return { artifact, ref: this.artifactRef(artifact) };
+  }
+
   id(prefix: string): string {
     this.counter += 1;
     return `${prefix}_mock_${String(this.counter).padStart(4, "0")}`;
@@ -852,6 +947,20 @@ export class MockGateway implements GatewayClient {
     return entry ?? fail("not_found", `no configured provider serves ${ref}`);
   }
 
+  private proposalContext(): ProposalMockContext {
+    return {
+      proposals: () => {
+        this.world.proposals ??= [];
+        return this.world.proposals;
+      },
+      approvals: () => this.world.approvals,
+      answerTokens: () => this.world.answerTokens,
+      failures: () => this.world.proposalFailures ?? {},
+      now: () => this.now(),
+      emit: (event, payload) => this.emit(event, payload),
+    };
+  }
+
   private readonly handlers: { [M in MethodName]?: (params: MethodParams<M>) => unknown } = {
     ...graphHandlers({
       graph: () => {
@@ -862,6 +971,7 @@ export class MockGateway implements GatewayClient {
       emit: (event, payload) => this.emit(event, payload),
       settings: () => this.world.settings,
     }),
+    ...proposalHandlers(this.proposalContext()),
     "events.subscribe": () => ({ stateVersion: this.stateVersion }),
 
     "threads.list": (p) => ({
@@ -1186,6 +1296,35 @@ export class MockGateway implements GatewayClient {
     "tasks.pause": (p) => this.patchTask(p.taskId, "paused"),
     "tasks.resume": (p) => this.patchTask(p.taskId, "running"),
     "tasks.cancel": (p) => this.patchTask(p.taskId, "cancelled"),
+    "tasks.steer": (p) => {
+      const task = this.find(this.world.tasks, p.taskId, "task");
+      if (["done", "failed", "cancelled"].includes(task.status)) {
+        fail("conflict", `task ${p.taskId} is ${task.status}`);
+      }
+      return { task };
+    },
+    "tasks.update": (p) => {
+      const task = this.find(this.world.tasks, p.taskId, "task");
+      const jobs = this.world.specialistJobs ?? [];
+      const job =
+        jobs.find((j) => j.taskId === p.taskId) ??
+        fail("invalid_params", `task ${p.taskId} is not a specialist's job`);
+      const b = p.budget ?? {};
+      const limit = {
+        ...job.budget.limit,
+        ...(b.tokens === undefined ? {} : { tokens: b.tokens }),
+        ...(b.costUsd === undefined ? {} : { costUsd: b.costUsd }),
+        ...(b.minutes === undefined ? {} : { wallMs: b.minutes * 60_000 }),
+      };
+      const next: SpecialistJob = {
+        ...job,
+        budget: { ...job.budget, limit },
+        ...(p.deadline === undefined ? {} : { deadline: p.deadline }),
+        updatedAt: this.now(),
+      };
+      this.world.specialistJobs = jobs.map((j) => (j.taskId === p.taskId ? next : j));
+      return { task };
+    },
     "tasks.retry": (p) => {
       const t = this.find(this.world.tasks, p.taskId, "task");
       const task = {
@@ -1239,6 +1378,7 @@ export class MockGateway implements GatewayClient {
       };
       this.replace("approvals", decided);
       this.emit("approval.updated", { approval: decided });
+      settleBatch(this.proposalContext(), decided);
       return { approval: decided, grant: null };
     },
     "grants.list": (p) => ({
@@ -1285,6 +1425,62 @@ export class MockGateway implements GatewayClient {
     "artifacts.get": (p) => ({
       artifact: this.find(this.world.artifacts, p.artifactId, "artifact"),
     }),
+    "artifacts.list": (p) => ({
+      artifacts: this.world.artifacts
+        .filter((a) => p.threadId === undefined || a.threadId === p.threadId)
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+        .slice(0, p.limit ?? 50),
+      nextCursor: null,
+    }),
+    "artifacts.read": (p) => {
+      const a = this.find(this.world.artifacts, p.artifactId, "artifact");
+      const h = this.artifactHistory(a.id);
+      const v = p.version ?? a.version;
+      const content = h.contents[v - 1];
+      if (content === undefined) return fail("not_found", `artifact ${a.id} has no version ${v}`);
+      const view = h.views[v - 1] ?? null;
+      return {
+        artifactId: a.id,
+        version: v,
+        type: a.type,
+        content,
+        totalLines: content === "" ? 0 : content.split("\n").length,
+        ...(view === null ? {} : { view }),
+      };
+    },
+    "artifacts.versions": (p) => ({ versions: this.artifactHistory(p.artifactId).versions }),
+    "artifacts.update": (p) => {
+      const a = this.find(this.world.artifacts, p.artifactId, "artifact");
+      const h = this.artifactHistory(a.id);
+      if (p.base !== a.version)
+        return {
+          artifact: a,
+          ref: this.artifactRef(a),
+          conflict: { base: p.base, latest: a.version, missed: h.versions.slice(p.base) },
+        };
+      let next: { content: string; view: ArtifactTableView | null };
+      try {
+        next = applyOpsLocal(
+          a.type,
+          h.contents[a.version - 1] ?? "",
+          h.views[a.version - 1] ?? null,
+          p.ops,
+        );
+      } catch (e) {
+        return fail("invalid_params", (e as Error).message);
+      }
+      return this.writeArtifactVersion(a, next.content, next.view, { ops: p.ops });
+    },
+    "artifacts.restore": (p) => {
+      const a = this.find(this.world.artifacts, p.artifactId, "artifact");
+      const h = this.artifactHistory(a.id);
+      const content = h.contents[p.version - 1];
+      if (content === undefined)
+        return fail("not_found", `artifact ${a.id} has no version ${p.version}`);
+      return this.writeArtifactVersion(a, content, h.views[p.version - 1] ?? null, {
+        restoredFrom: p.version,
+      });
+    },
     "files.list": (p) => {
       this.assertGranted(p.path);
       const node = this.world.files[p.path];

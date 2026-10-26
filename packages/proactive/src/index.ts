@@ -144,9 +144,11 @@ export {
   sanitizeMailText,
 } from "./mail/classify.ts";
 export {
+  addBusinessDays,
   DEFAULT_DIGEST_SCHEDULE,
   DigestService,
   type DigestServiceOptions,
+  digestSchedule,
   MAIL_DIGEST_JOB,
   RULES_PATH,
 } from "./mail/digest.ts";

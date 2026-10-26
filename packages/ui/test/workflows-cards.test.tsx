@@ -1,21 +1,26 @@
+import type { ApprovalRequest } from "@psyche/protocol";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
+import { fakeSha } from "../src/fixtures/ids.ts";
 import {
   draftView,
   type FixtureWorld,
   inboxDigest,
+  markReadProposal,
   meetingNotes,
   meetingPrep,
   quietDigest,
+  remindersProposal,
   schedulingView,
   WORKFLOW_IDS,
   withWorkflows,
   workflowLoops,
 } from "../src/fixtures/index.ts";
 import { FeedScreen } from "../src/screens/feed/FeedScreen.tsx";
+import { BatchCard, ProposalBatchCard } from "../src/screens/workflows/BatchCard.tsx";
 import { DigestCard } from "../src/screens/workflows/DigestCard.tsx";
 import { DraftCard } from "../src/screens/workflows/DraftCard.tsx";
 import { FollowUpsCard, followUpSegment } from "../src/screens/workflows/FollowUpsCard.tsx";
@@ -24,6 +29,33 @@ import { MeetingPrepCard } from "../src/screens/workflows/MeetingPrepCard.tsx";
 import { SchedulingCard } from "../src/screens/workflows/SchedulingCard.tsx";
 import type { UiSlots } from "../src/slots.tsx";
 import { STORY_NOW, StoryWorld } from "../src/stories/harness.tsx";
+
+const batchApproval = (): ApprovalRequest => ({
+  id: "appr_x",
+  kind: "batch",
+  summary: "Mark 6 newsletters read",
+  details: {
+    title: "Mark 6 newsletters read",
+    count: 6,
+    calls: markReadProposal().calls.map((c) => c.summary),
+  },
+  bindingHash: fakeSha("test:batch"),
+  grantKey: "batch|x",
+  requestedBy: { runId: "r", taskId: null, threadId: null },
+  requestedAt: "2026-10-18T10:12:00Z",
+  expiresAt: "2026-10-18T10:22:00Z",
+  surfaces: ["desktop", "web"],
+  scopesOffered: ["once"],
+  deviceOnly: false,
+  requiresAuthentication: false,
+  sideEffect: "write",
+  taint: true,
+  status: "pending",
+  scopeGranted: null,
+  decidedBy: null,
+  decidedAt: null,
+  grantId: null,
+});
 
 /** Mail and meeting cards (docs/workflows/mail-and-meetings-2026.md §7.1, workstream U). */
 
@@ -194,6 +226,16 @@ describe("MeetingPrepCard", () => {
   });
 });
 
+describe("MeetingPrepCard Record", () => {
+  it("asks the shell to record this meeting", async () => {
+    const onRecord = vi.fn();
+    const user = userEvent.setup();
+    render(<MeetingPrepCard prep={meetingPrep()} now={STORY_NOW} onRecord={onRecord} />);
+    await user.click(screen.getByRole("button", { name: "Record meeting…" }));
+    expect(onRecord).toHaveBeenCalledWith(WORKFLOW_IDS.meeting);
+  });
+});
+
 describe("MeetingNotesCard", () => {
   it("seeks the audio, checks items and offers Add 2 to Reminders", async () => {
     const onSeek = vi.fn();
@@ -245,5 +287,142 @@ describe("workflow posts in the Feed", () => {
     const [nudge] = within(digest).getAllByRole("button", { name: "Draft a nudge" });
     await user.click(nudge as HTMLElement);
     expect(prefill).toHaveBeenCalledWith("Draft a nudge to Dana Ruiz about “contract draft”.");
+  });
+});
+
+describe("BatchCard", () => {
+  const idle = { approval: null, canAnswer: false } as const;
+
+  it("is the approval dock's surface: Deny first, once only, every call in plain words", async () => {
+    const onAnswer = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <BatchCard
+        proposal={markReadProposal("awaiting_approval", { approvalId: "appr_x" })}
+        approval={{ ...batchApproval(), scopesOffered: ["once", "always"] }}
+        canAnswer
+        onAnswer={onAnswer}
+        armDelayMs={0}
+        now={STORY_NOW}
+      />,
+    );
+    expect(screen.getByText("Mark read: Weekly digest (Acme)")).toBeTruthy();
+    // A batch never offers "always".
+    expect(screen.queryByRole("radio", { name: /always/i })).toBeNull();
+    const deny = screen.getByRole("button", { name: "Deny" });
+    const allow = screen.getByRole("button", { name: "Allow with scope" });
+    expect(deny.compareDocumentPosition(allow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Deny is preselected, so ⌘↩ answers deny until the owner picks Allow once.
+    await user.click(screen.getByRole("radio", { name: "Allow once" }));
+    await user.keyboard("{Control>}{Enter}{/Control}");
+    expect(onAnswer).toHaveBeenCalledWith("approve");
+  });
+
+  it("shows the one-row step log that expands to a row per call", async () => {
+    const user = userEvent.setup();
+    render(
+      <BatchCard
+        {...idle}
+        proposal={markReadProposal("done", {
+          createdAt: "2026-10-18T10:12:00Z",
+          updatedAt: "2026-10-18T10:12:03Z",
+          results: markReadProposal().calls.map((_, index) => ({ index, status: "ok" as const })),
+        })}
+        now={STORY_NOW}
+      />,
+    );
+    const toggle = screen.getByRole("button", { name: /6 actions · mail · 0:03/ });
+    expect(screen.queryByRole("list", { name: "Actions in this batch" })).toBeNull();
+    await user.click(toggle);
+    expect(
+      within(screen.getByRole("list", { name: "Actions in this batch" })).getAllByRole("listitem"),
+    ).toHaveLength(6);
+  });
+
+  it("names a partial failure and offers Retry for the failed ones only", async () => {
+    const onRetryFailed = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <BatchCard
+        {...idle}
+        proposal={markReadProposal("partial", {
+          results: markReadProposal().calls.map((_, index) =>
+            index === 2
+              ? { index, status: "failed" as const, error: "message moved" }
+              : { index, status: "ok" as const },
+          ),
+        })}
+        onRetryFailed={onRetryFailed}
+        now={STORY_NOW}
+        defaultExpanded
+      />,
+    );
+    expect(screen.getByText("5 of 6 done · 1 failed: message moved")).toBeTruthy();
+    expect(screen.getByText("Failed: message moved")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Retry the failed ones" }));
+    expect(onRetryFailed).toHaveBeenCalledOnce();
+  });
+
+  it("offers Undo for 30 s on a reversible batch, and not on reminders", () => {
+    const at = Date.parse("2026-10-18T10:12:03Z");
+    const done = markReadProposal("done", {
+      updatedAt: "2026-10-18T10:12:03Z",
+      results: markReadProposal().calls.map((_, index) => ({ index, status: "ok" as const })),
+    });
+    const { rerender } = render(
+      <BatchCard {...idle} proposal={done} onUndo={() => {}} now={at + 12_000} />,
+    );
+    expect(screen.getByRole("button", { name: "Undo · 18 s" })).toBeTruthy();
+    rerender(<BatchCard {...idle} proposal={done} onUndo={() => {}} now={at + 31_000} />);
+    expect(screen.queryByRole("button", { name: /^Undo/ })).toBeNull();
+    rerender(
+      <BatchCard
+        {...idle}
+        proposal={{ ...remindersProposal(), status: "done", updatedAt: "2026-10-18T10:12:03Z" }}
+        onUndo={() => {}}
+        now={at + 1_000}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /^Undo/ })).toBeNull();
+  });
+});
+
+describe("ProposalBatchCard against the MockGateway", () => {
+  it("asks for the one batch approval, runs the calls on ⌘↩ and undoes them", async () => {
+    const { user, callsTo } = setup(
+      <ProposalBatchCard proposalId={WORKFLOW_IDS.proposals.newsletters} />,
+      { edit: (w) => void withWorkflows(w) },
+    );
+    await waitFor(() => expect(callsTo("proposals.approve")).toHaveLength(1));
+    expect(await screen.findByText("Mark read: Weekly digest (Acme)")).toBeTruthy();
+    // Choose Allow (once), then wait out the 400 ms arming.
+    await user.click(screen.getByRole("radio", { name: "Allow once" }));
+    const allow = screen.getByRole("button", { name: "Allow with scope" }) as HTMLButtonElement;
+    await waitFor(() => expect(allow.disabled).toBe(false), { timeout: 2000 });
+    await user.click(allow);
+    await waitFor(() =>
+      expect(callsTo("approvals.answer")).toContainEqual(
+        expect.objectContaining({ decision: "approve", scope: "once" }),
+      ),
+    );
+    expect(await screen.findByRole("button", { name: /6 actions · mail/ })).toBeTruthy();
+    await user.click(await screen.findByRole("button", { name: /^Undo/ }));
+    await waitFor(() => expect(callsTo("proposals.undo")).toHaveLength(1));
+    // The inverse proposal asks for its own approval.
+    await waitFor(() => expect(callsTo("proposals.approve")).toHaveLength(2));
+  });
+
+  it("reports a partial failure from the Gateway", async () => {
+    const { user } = setup(<ProposalBatchCard proposalId={WORKFLOW_IDS.proposals.newsletters} />, {
+      edit: (w) => {
+        withWorkflows(w);
+        w.proposalFailures = { [WORKFLOW_IDS.proposals.newsletters]: { 1: "message moved" } };
+      },
+    });
+    await user.click(await screen.findByRole("radio", { name: "Allow once" }));
+    const allow = screen.getByRole("button", { name: "Allow with scope" }) as HTMLButtonElement;
+    await waitFor(() => expect(allow.disabled).toBe(false), { timeout: 2000 });
+    await user.click(allow);
+    expect(await screen.findByText("5 of 6 done · 1 failed: message moved")).toBeTruthy();
   });
 });

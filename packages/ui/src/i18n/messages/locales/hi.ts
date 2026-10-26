@@ -1,10 +1,16 @@
 import type { Catalogue } from "../index.ts";
+import { canvas } from "./canvas/hi.ts";
+import { mailMeetings } from "./mail-meetings/hi.ts";
 import { workflows } from "./workflows/hi.ts";
 
 /** Hindi catalogue (hi). Same ids as `en`; missing ids fall back to English. */
 export const hi: Partial<Catalogue> = {
+  // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...mailMeetings,
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
+  // the output canvas (docs/design/chat-experience-2026.md §4.2)
+  ...canvas,
   "common.cancel": "रद्द करें",
   "common.close": "बंद करें",
   "common.save": "सेव करें",
@@ -3212,6 +3218,32 @@ export const hi: Partial<Catalogue> = {
   "settings.key.voice.conversation.key": "वॉइस कुंजी",
   "settings.key.voice.conversation.reviewBeforeSend": "भेजने से पहले देखें",
 
+  // specialist controls (specialists §4.7) and the approval context line (§4.4)
+  "specialists.control.menu": "{title} के लिए और विकल्प",
+  "specialists.control.steerLabel": "{title} के बारे में {role} से कुछ कहें",
+  "specialists.control.steerPlaceholder": "{role} से कुछ कहें…",
+  "specialists.control.steerHint": "यह अगले चरण से पहले इसे पढ़ेगा।",
+  "specialists.control.send": "भेजें",
+  "specialists.control.steered": "{role} को भेज दिया।",
+  "specialists.control.pause": "रोकें",
+  "specialists.control.resume": "फिर शुरू करें",
+  "specialists.control.giveMore": "और दें…",
+  "specialists.control.stop": "बंद करें…",
+  "specialists.control.giveMoreTitle": "{role} को और दें?",
+  "specialists.control.giveMoreBody":
+    "{title} का बजट आधा बढ़ाता है, इस भूमिका के लिए सेटिंग में तय सीमा तक।",
+  "specialists.control.moreTokens": "टोकन: {from} → {to}",
+  "specialists.control.moreCost": "लागत: {from} → {to}",
+  "specialists.control.moreTime": "समय: {from, number} → {to, number} मिनट",
+  "specialists.control.atCap": "इसके पास पहले से वह अधिकतम है जो सेटिंग इस भूमिका के लिए देती है।",
+  "specialists.control.giveMoreConfirm": "और दें",
+  "specialists.control.stopTitle": "{role} को बंद करें?",
+  "specialists.control.stopBody":
+    "यह अभी रुक जाएगा और {title} पूरा नहीं करेगा। जो काम हो चुका है वह गतिविधि में रहेगा।",
+  "specialists.control.stopConfirm": "बंद करें",
+  "specialists.control.failed": "Psyche यह नहीं कर सका: {reason}",
+  "blocks.approval.specialist":
+    '{hasTask, select, true {"{task}" के लिए · } other {}}{role}, {agent} ने शुरू किया{hasThread, select, true { ({thread} में)} other {}}',
   // Ask about my screen
   "screenAsk.label": "अपनी स्क्रीन के बारे में पूछें",
   "screenAsk.placeholder": "स्क्रीन पर जो है उसके बारे में पूछें, या Psyche से कुछ करवाएँ…",

@@ -273,6 +273,8 @@ export function libraryTranscripts(
  */
 export interface MeetingIngest {
   ingestMeeting(input: MeetingRecordingInput): ReturnType<VoiceMemoService["ingestMeeting"]>;
+  /** Whether a transcriber for long recordings is online now (a helper offering the file path). */
+  available(): boolean;
 }
 
 /** Message text for read-aloud; the owner's devices may read every thread. */
@@ -319,9 +321,8 @@ export function composeSpeech(setup: SpeechSetup = {}) {
       emit: toDevice,
     });
     // Long recordings are transcribed where they lie on the Mac (`speech.transcribe_file`, §4.6).
-    const files = new NodeSpeechEngine({
-      node: speechNode(() => gateway, NODE_SPEECH_CAPABILITIES.transcribeFile),
-    });
+    const filesNode = speechNode(() => gateway, NODE_SPEECH_CAPABILITIES.transcribeFile);
+    const files = new NodeSpeechEngine({ node: filesNode });
     const memos = new VoiceMemoService({
       engine: stack.engine,
       library,
@@ -366,7 +367,10 @@ export function composeSpeech(setup: SpeechSetup = {}) {
     };
     return {
       handlers,
-      meetings: { ingestMeeting: (input) => memos.ingestMeeting(input, transcripts) },
+      meetings: {
+        ingestMeeting: (input) => memos.ingestMeeting(input, transcripts),
+        available: () => filesNode() !== undefined,
+      },
       start(gw) {
         gateway = gw;
         gw.context.deviceDisconnected.add(onDisconnect);

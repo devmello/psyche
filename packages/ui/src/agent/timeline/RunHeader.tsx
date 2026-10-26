@@ -74,6 +74,8 @@ export interface RunHeaderProps {
   onExport?: (format: "psyche-trace+json" | "markdown", includeFrames?: boolean) => void;
   onCopyLink?: () => void;
   onDelete?: () => void;
+  /** Extra controls before Export: a specialist job's steer and menu (specialists §4.7). */
+  controls?: ReactNode;
   /** The leading control (Back to Activity). */
   leading?: ReactNode;
 }
@@ -91,6 +93,7 @@ export function RunHeader({
   onExport,
   onCopyLink,
   onDelete,
+  controls,
   leading,
 }: RunHeaderProps): ReactElement {
   const running = run.status === "running";
@@ -166,6 +169,7 @@ export function RunHeader({
               <Square aria-hidden="true" /> {t("agent.timeline.stop")}
             </Button>
           ) : null}
+          {controls}
           {!running && onRetry ? (
             <Button size="xs" variant="ghost" onClick={onRetry}>
               <RotateCw aria-hidden="true" /> {t("agent.timeline.retry")}

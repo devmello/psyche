@@ -130,6 +130,11 @@ export type * from "./blocks/types.ts";
 export { WrapUpBox } from "./blocks/WrapUp.tsx";
 // Bootstrap brand pieces (inline-styled; usable without the stylesheet).
 export * from "./brand.tsx";
+export {
+  type ArtifactRenderProps,
+  CanvasPane,
+  type CanvasPaneProps,
+} from "./canvas/CanvasPane.tsx";
 // Chat column.
 export { ApprovalDock } from "./chat/ApprovalDock.tsx";
 export { Composer, type ComposerProps, SLASH_COMMANDS } from "./chat/Composer.tsx";
@@ -211,6 +216,15 @@ export {
 } from "./components/ui/toolbar.tsx";
 export * from "./data/index.ts";
 export * from "./i18n/index.ts";
+export {
+  applyOpsLocal,
+  cellFromInput,
+  columnName,
+  diffToOps,
+  setCellOp,
+  tableToCsv,
+  viewRows,
+} from "./lib/artifact-ops.ts";
 // Formatting helpers.
 export * from "./lib/format.ts";
 export { cn } from "./lib/utils.ts";

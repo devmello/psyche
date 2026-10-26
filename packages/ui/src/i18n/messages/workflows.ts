@@ -133,6 +133,24 @@ export const workflows = {
   "workflows.notes.summaryFailed": "Summary failed. The transcript is in your Library.",
   "workflows.notes.empty": "Nobody agreed to anything in this one.",
 
+  // The inline batch card and its step log (§7.2).
+  "workflows.batch.callsLabel": "Actions in this batch",
+  "workflows.batch.preparing": "Getting the approval ready…",
+  "workflows.batch.steps": "{n, plural, one {# action} other {# actions}} · {family} · {elapsed}",
+  "workflows.batch.running": "Running {n, plural, one {# action} other {# actions}}…",
+  "workflows.batch.partial": "{ok} of {n} done · {failed} failed: {error}",
+  "workflows.batch.failed":
+    "None of the {n, plural, one {# action} other {# actions}} ran: {error}",
+  "workflows.batch.showSteps": "Show each action",
+  "workflows.batch.hideSteps": "Hide the actions",
+  "workflows.batch.callError": "Failed: {error}",
+  "workflows.batch.retry": "Retry the failed ones",
+  "workflows.batch.undo": "Undo",
+  "workflows.batch.undoIn": "Undo · {seconds} s",
+  "workflows.batch.dismissed": "Not done. Nothing was changed.",
+  "workflows.batch.expired": "This expired. Nothing was changed.",
+  "workflows.batch.unknownError": "something went wrong",
+
   // What a card's action puts in the composer, in the owner's words (the agent does the rest).
   "workflows.ask.draft_reply": "Draft a reply to {sender} about “{subject}”.",
   "workflows.ask.remind": "Remind me about “{subject}” from {sender}.",

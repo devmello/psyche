@@ -1,10 +1,16 @@
 import type { Catalogue } from "../index.ts";
+import { canvas } from "./canvas/ja.ts";
+import { mailMeetings } from "./mail-meetings/ja.ts";
 import { workflows } from "./workflows/ja.ts";
 
 /** Japanese catalogue (ja). Same ids as `en`; missing ids fall back to English. */
 export const ja: Partial<Catalogue> = {
+  // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...mailMeetings,
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
+  // the output canvas (docs/design/chat-experience-2026.md §4.2)
+  ...canvas,
   "common.cancel": "キャンセル",
   "common.close": "閉じる",
   "common.save": "保存",
@@ -3211,6 +3217,32 @@ export const ja: Partial<Catalogue> = {
   "settings.key.voice.conversation.key": "音声キー",
   "settings.key.voice.conversation.reviewBeforeSend": "送信前に確認",
 
+  // specialist controls (specialists §4.7) and the approval context line (§4.4)
+  "specialists.control.menu": "{title} のその他",
+  "specialists.control.steerLabel": "{title} について{role}に伝える",
+  "specialists.control.steerPlaceholder": "{role}に伝える…",
+  "specialists.control.steerHint": "次のステップの前に読みます。",
+  "specialists.control.send": "送信",
+  "specialists.control.steered": "{role}に送りました。",
+  "specialists.control.pause": "一時停止",
+  "specialists.control.resume": "再開",
+  "specialists.control.giveMore": "もっと与える…",
+  "specialists.control.stop": "停止…",
+  "specialists.control.giveMoreTitle": "{role}にもっと与えますか？",
+  "specialists.control.giveMoreBody":
+    "{title} の予算を半分増やします。上限は、この役割の設定で許可された範囲です。",
+  "specialists.control.moreTokens": "トークン: {from} → {to}",
+  "specialists.control.moreCost": "コスト: {from} → {to}",
+  "specialists.control.moreTime": "時間: {from, number} → {to, number} 分",
+  "specialists.control.atCap": "この役割の設定で許可された上限にすでに達しています。",
+  "specialists.control.giveMoreConfirm": "もっと与える",
+  "specialists.control.stopTitle": "{role}を停止しますか？",
+  "specialists.control.stopBody":
+    "すぐに停止し、{title} は完了しません。すでに行った内容はアクティビティに残ります。",
+  "specialists.control.stopConfirm": "停止する",
+  "specialists.control.failed": "Psycheはこれを実行できませんでした: {reason}",
+  "blocks.approval.specialist":
+    "{hasTask, select, true {「{task}」の件 · } other {}}{role}（{agent}が開始{hasThread, select, true {、{thread}} other {}}）",
   // Ask about my screen
   "screenAsk.label": "画面について質問",
   "screenAsk.placeholder": "画面の内容について質問するか、Psycheに何か頼んでください…",

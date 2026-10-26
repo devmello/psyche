@@ -6,16 +6,20 @@ import { useStore } from "../../data/provider.tsx";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { useSlots } from "../../slots.tsx";
+import { ProposalBatchCard } from "./BatchCard.tsx";
 import { DigestCard, type DigestLoopAction } from "./DigestCard.tsx";
 import { MeetingNotesCard } from "./MeetingNotesCard.tsx";
 import { MeetingPrepCard } from "./MeetingPrepCard.tsx";
 import { senderName } from "./shared.tsx";
 
+/** The shell's "Record meeting" request; its consent dialog opens on it. */
+export const RECORD_MEETING_EVENT = "psyche:record-meeting";
+
 export interface WorkflowPostCardProps {
   post: FeedPost & { card: NonNullable<FeedPost["card"]> };
   /** The focused card holds the one accent primary (redesign-2026 §5.6). */
   focused?: boolean;
-  /** The inline batch card for a proposal (§7.2); absent → the batch buttons are hidden. */
+  /** The inline batch card for a proposal (§7.2); absent → the Gateway-backed one. */
   renderBatch?: (proposalId: string, close: () => void) => ReactNode;
   now?: number;
   className?: string;
@@ -38,6 +42,7 @@ export function WorkflowPostCard({
   const { openExternal, navigate } = useSlots();
   const prefill = usePrefillComposer();
   const card = post.card;
+  const batch = renderBatch ?? ((id: string) => <ProposalBatchCard proposalId={id} />);
   const common = {
     ...(now === undefined ? {} : { now }),
     ...(className ? { className } : {}),
@@ -81,7 +86,7 @@ export function WorkflowPostCard({
           digest={card.digest}
           onAction={onItem}
           onLoop={onLoop}
-          {...(renderBatch ? { renderBatch } : {})}
+          renderBatch={batch}
           {...(navigate ? { onSettings: () => navigate("/settings/mail") } : {})}
           {...common}
         />
@@ -91,6 +96,10 @@ export function WorkflowPostCard({
         <MeetingPrepCard
           prep={card.prep}
           focused={focused}
+          // The shell's consent dialog listens for this event (apps/web MeetingRecord).
+          onRecord={(meetingId) =>
+            document.dispatchEvent(new CustomEvent(RECORD_MEETING_EVENT, { detail: { meetingId } }))
+          }
           {...(openExternal
             ? {
                 onJoin: (url: string) => void openExternal(url),
@@ -108,7 +117,7 @@ export function WorkflowPostCard({
         <MeetingNotesCard
           notes={card.notes}
           focused={focused}
-          {...(renderBatch ? { renderBatch } : {})}
+          renderBatch={batch}
           {...(prefill
             ? { onDraftRecap: () => prefill(t("workflows.ask.recap", { title: card.notes.title })) }
             : {})}

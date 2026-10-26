@@ -43,6 +43,7 @@ import {
   ThreadList,
   Toasts,
 } from "./components/Chrome.tsx";
+import { MeetingRecord, requestRecordMeeting } from "./components/MeetingRecord.tsx";
 import {
   CommandPalette,
   ModelPicker,
@@ -736,6 +737,8 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     { id: "mode", label: t("web.palette.switchMode"), run: cycleMode },
     { id: "settings", label: t("web.rail.settings"), run: () => navigate("/settings/model") },
     { id: "shortcuts", label: t("web.shortcuts.title"), run: () => setOverlay("shortcuts") },
+    // Record meeting (§4.6): asks the consent question first; the palette is one entry point.
+    { id: "record-meeting", label: t("meetingRecord.palette"), run: () => requestRecordMeeting() },
   ];
 
   if (settingsWindow) {
@@ -1029,6 +1032,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
               />
             ) : null}
             {overlay === "shortcuts" ? <ShortcutSheet onClose={() => setOverlay(null)} /> : null}
+            <MeetingRecord />
             {overlay === "model" ? (
               <ModelPicker
                 current={thread?.modelRef ?? null}

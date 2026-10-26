@@ -1,6 +1,6 @@
 import type { ApprovalStatus, RunStep, TaskStatus, ToolCallStatus } from "@psyche/protocol";
 import { TriangleAlert } from "lucide-react";
-import type { ReactElement, ReactNode } from "react";
+import type { KeyboardEventHandler, ReactElement, ReactNode } from "react";
 import { StatusGlyph } from "../components/status.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { t } from "../i18n/core.ts";
@@ -114,11 +114,24 @@ export interface CardProps {
   /** Polite live region on the meta, for cards whose status changes while shown. */
   live?: boolean;
   actions?: readonly CardAction[];
+  /** Text at the start of the action bar (a wrap-up's question). */
+  actionsLead?: ReactNode;
+  /** Button size in the action bar; `sm` except for decision cards. */
+  actionSize?: "sm" | "default";
+  /** Replaces the built-in header (cards with their own header layout, e.g. workflow cards). */
+  header?: ReactNode;
+  role?: "alert" | "status";
+  /** The id of the element naming the card, when the title is drawn in `header`. */
+  labelledBy?: string;
+  onKeyDown?: KeyboardEventHandler<HTMLElement>;
+  /** Overrides the creation-time rule for the enter animation (cards that decide it themselves). */
+  animate?: boolean;
   /** Creation time: a card arriving later than the first wave enters with the list enter. */
   createdAt?: string | null;
   className?: string;
   children?: ReactNode;
   "data-testid"?: string;
+  "data-kind"?: string;
 }
 
 /**
@@ -135,22 +148,40 @@ export function Card({
   meta,
   live = false,
   actions = [],
+  actionsLead,
+  actionSize = "sm",
+  header: customHeader,
+  role,
+  labelledBy,
+  onKeyDown,
+  animate,
   createdAt,
   className,
   children,
   "data-testid": testId,
+  "data-kind": dataKind,
 }: CardProps): ReactElement {
   const later = useEntersLater(createdAt);
-  const hasHeader = icon !== undefined || title !== undefined || status !== undefined;
+  // An article may not carry the alert or status roles.
+  const Tag = role === undefined ? "article" : "div";
+  const hasHeader =
+    customHeader === undefined &&
+    (icon !== undefined || title !== undefined || status !== undefined);
   return (
-    <CardEnter animate={later}>
-      <article
-        aria-label={label}
+    <CardEnter animate={animate ?? later}>
+      <Tag
+        {...(labelledBy === undefined
+          ? { "aria-label": label }
+          : { "aria-labelledby": labelledBy })}
+        role={role}
+        onKeyDown={onKeyDown}
+        data-kind={dataKind}
         data-card={variant}
         data-status={status?.status}
         data-testid={testId}
         className={cn(VARIANT[variant], className)}
       >
+        {customHeader}
         {hasHeader ? (
           <header className="flex min-w-0 items-center gap-2">
             {status ? (
@@ -181,23 +212,36 @@ export function Card({
             ) : null}
           </header>
         ) : null}
-        {children !== undefined ? <div className={cn(hasHeader && "mt-1")}>{children}</div> : null}
-        <CardActions actions={actions} />
-      </article>
+        {children !== undefined ? (
+          <div className={cn(hasHeader && "mt-1", customHeader !== undefined && "contents")}>
+            {children}
+          </div>
+        ) : null}
+        <CardActions actions={actions} lead={actionsLead} size={actionSize} />
+      </Tag>
     </CardEnter>
   );
 }
 
 /** The action bar: the primary trails, the rest come first in reading and focus order. */
-export function CardActions({ actions }: { actions: readonly CardAction[] }): ReactElement | null {
-  if (actions.length === 0) return null;
+export function CardActions({
+  actions,
+  lead,
+  size = "sm",
+}: {
+  actions: readonly CardAction[];
+  lead?: ReactNode;
+  size?: "sm" | "default";
+}): ReactElement | null {
+  if (actions.length === 0 && lead === undefined) return null;
   const ordered = [...actions.filter((a) => !a.primary), ...actions.filter((a) => a.primary)];
   return (
     <footer className="mt-3 flex flex-wrap items-center justify-end gap-2">
+      {lead !== undefined ? <div className="me-auto">{lead}</div> : null}
       {ordered.map((a) => (
         <Button
           key={a.id}
-          size="sm"
+          size={size}
           variant={a.primary ? "default" : "secondary"}
           disabled={a.disabled}
           data-action-kind={a.kind}

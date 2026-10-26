@@ -1,11 +1,14 @@
 import { agent } from "./agent.ts";
 import { blocks } from "./blocks.ts";
+import { canvas } from "./canvas.ts";
 import { chat } from "./chat.ts";
 import { common } from "./common.ts";
 import { context } from "./context.ts";
 import { design } from "./design.ts";
 import { errors } from "./errors.ts";
 import { glass } from "./glass.ts";
+import { mailMeetings } from "./mail-meetings.ts";
+import { meetingRecord } from "./meeting-record.ts";
 import { onboarding } from "./onboarding.ts";
 import { people } from "./people.ts";
 import { screenAsk } from "./screen-ask.ts";
@@ -31,11 +34,13 @@ export const en = {
   ...errors,
   ...chat,
   ...blocks,
+  ...canvas,
   ...context,
   ...agent,
   ...shell,
   ...settings,
   ...settingsLanguage,
+  ...mailMeetings,
   ...onboarding,
   ...people,
   ...specialists,
@@ -45,6 +50,7 @@ export const en = {
   ...design,
   ...voice,
   ...screenAsk,
+  ...meetingRecord,
   ...workflows,
 } as const;
 
