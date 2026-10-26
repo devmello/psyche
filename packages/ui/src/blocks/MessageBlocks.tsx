@@ -26,6 +26,7 @@ import { ReceiptLine } from "./Receipt.tsx";
 import { RelatedThreads } from "./RelatedThreads.tsx";
 import { TaskCard } from "./TaskCard.tsx";
 import { type ToolCallItem, ToolRun } from "./ToolRun.tsx";
+import { blocksToShow, useThreadBlocks } from "./thread-blocks.tsx";
 import type { ToolCallBlock } from "./types.ts";
 import { WrapUpBox } from "./WrapUp.tsx";
 
@@ -226,18 +227,7 @@ export interface MessageBlocksProps {
  * "Approved: browser.open_tab" twice. Keeps the first; transcripts already stored render right too.
  */
 export function withoutRepeatedApprovals(blocks: readonly Block[]): readonly Block[] {
-  const seen = new Set<string>();
-  let dropped = false;
-  const out = blocks.filter((b) => {
-    if (b.type !== "approval") return true;
-    if (seen.has(b.approvalId)) {
-      dropped = true;
-      return false;
-    }
-    seen.add(b.approvalId);
-    return true;
-  });
-  return dropped ? out : blocks;
+  return blocksToShow({ id: "", blocks }, null);
 }
 
 export function MessageBlocks({
@@ -247,7 +237,8 @@ export function MessageBlocks({
   onWrapUpAction,
 }: MessageBlocksProps): ReactElement {
   const out: ReactNode[] = [];
-  const blocks = withoutRepeatedApprovals(message.blocks);
+  // One row per tool call and one notice per approval across the thread (#569, #555).
+  const blocks = blocksToShow(message, useThreadBlocks());
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i] as Block;
     const key = `${message.id}:${i}`;

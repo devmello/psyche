@@ -8,6 +8,7 @@ import type { Message, QueueMode } from "@psyche/protocol";
 import { CircleAlert, X } from "lucide-react";
 import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type DisclosureLevel, DisclosureProvider } from "../blocks/disclosure.tsx";
+import { indexThreadBlocks, ThreadBlocksProvider } from "../blocks/thread-blocks.tsx";
 import { useCall, useConnection, useStoreState, useThread, useThreads } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
@@ -436,6 +437,8 @@ export function ChatThread({
   });
 
   const byId = useMemo(() => new Map(view.messages.map((m) => [m.id, m])), [view.messages]);
+  // Tool calls and approvals that span an approval pause show once (#569).
+  const blockIndex = useMemo(() => indexThreadBlocks(view.messages), [view.messages]);
   // A failed run says so where its reply would have been (#539).
   const failures = useMemo(
     () => failureAnchors(view.messages, view.failedRuns),
@@ -507,48 +510,50 @@ export function ChatThread({
                 data-testid="conversation-column"
               >
                 {empty ? <EmptyThread /> : null}
-                <ThreadPrimitive.Messages>
-                  {({ message }) => {
-                    const [d] = getExternalStoreMessages<DisplayMessage>(message);
-                    if (d === undefined) return null;
-                    const m = d.message;
-                    const prev = display[display.indexOf(d) - 1]?.message;
-                    const lead = m.blocks[0];
-                    const fromTask =
-                      m.role === "agent" && m.runId === null && lead?.type === "task"
-                        ? (tasks[lead.taskId] ?? null)
-                        : null;
-                    const failed = failures.get(m.id) ?? [];
-                    return (
-                      <>
-                        <MessageView
-                          message={m}
-                          streamingText={d.streamingText}
-                          quoted={
-                            m.replyToMessageId ? (byId.get(m.replyToMessageId) ?? null) : null
-                          }
-                          fromTask={fromTask}
-                          pinChecklist={m.id === latestChecklistId}
-                          showHeader={
-                            prev?.role !== "agent" || fromTask !== null || prev.runId !== m.runId
-                          }
-                          onReply={setQuoting}
-                          onFork={(msg) => void fork(threadId, msg.id)}
-                          onEdit={(msg, text) => void editAndResend(msg, text)}
-                          onJumpTo={(id) =>
-                            document
-                              .getElementById(`message-${id}`)
-                              ?.scrollIntoView({ block: "center" })
-                          }
-                          onWrapUpAction={(text) => void view.send(text)}
-                        />
-                        {failed.map((run) => (
-                          <RunFailure key={run.id} run={run} />
-                        ))}
-                      </>
-                    );
-                  }}
-                </ThreadPrimitive.Messages>
+                <ThreadBlocksProvider index={blockIndex}>
+                  <ThreadPrimitive.Messages>
+                    {({ message }) => {
+                      const [d] = getExternalStoreMessages<DisplayMessage>(message);
+                      if (d === undefined) return null;
+                      const m = d.message;
+                      const prev = display[display.indexOf(d) - 1]?.message;
+                      const lead = m.blocks[0];
+                      const fromTask =
+                        m.role === "agent" && m.runId === null && lead?.type === "task"
+                          ? (tasks[lead.taskId] ?? null)
+                          : null;
+                      const failed = failures.get(m.id) ?? [];
+                      return (
+                        <>
+                          <MessageView
+                            message={m}
+                            streamingText={d.streamingText}
+                            quoted={
+                              m.replyToMessageId ? (byId.get(m.replyToMessageId) ?? null) : null
+                            }
+                            fromTask={fromTask}
+                            pinChecklist={m.id === latestChecklistId}
+                            showHeader={
+                              prev?.role !== "agent" || fromTask !== null || prev.runId !== m.runId
+                            }
+                            onReply={setQuoting}
+                            onFork={(msg) => void fork(threadId, msg.id)}
+                            onEdit={(msg, text) => void editAndResend(msg, text)}
+                            onJumpTo={(id) =>
+                              document
+                                .getElementById(`message-${id}`)
+                                ?.scrollIntoView({ block: "center" })
+                            }
+                            onWrapUpAction={(text) => void view.send(text)}
+                          />
+                          {failed.map((run) => (
+                            <RunFailure key={run.id} run={run} />
+                          ))}
+                        </>
+                      );
+                    }}
+                  </ThreadPrimitive.Messages>
+                </ThreadBlocksProvider>
                 {working ? <WorkingIndicator persona={persona.name} tool={runningTool} /> : null}
               </div>
             </ThreadPrimitive.Viewport>
