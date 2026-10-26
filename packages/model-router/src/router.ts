@@ -232,10 +232,8 @@ export class ModelRouter implements ModelProvider {
   #bindingFor(role: ModelRole): RoleBinding | undefined {
     const b = this.#roles.get(role);
     if (b !== undefined) return b;
-    // Utility, vision and voice default to the primary chain; embedding and speech must be bound.
-    return role === "utility" || role === "vision" || role === "voice"
-      ? this.#roles.get("primary")
-      : undefined;
+    // Utility and vision default to the primary chain; embedding and speech must be bound.
+    return role === "utility" || role === "vision" ? this.#roles.get("primary") : undefined;
   }
 
   async #plan(request: ModelRequest, options: RouterCallOptions): Promise<Plan> {
