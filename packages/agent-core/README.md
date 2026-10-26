@@ -157,7 +157,12 @@ Unlike a subagent, a specialist runs a job **in the background** as a Task in it
 
 **Plan first** (§4.1): a `planFirst` job runs in plan mode, with `exit_plan_mode` added to its tools, until its `plan_exit` card is approved. It then continues in its own mode (`planApproved` on its spec). A declined plan ends the job with the plan as a `partial` report.
 
-Owner runs that offer `specialist.spawn` get the "Specialists" prompt section (`specialistsPromptSection` from `@psyche/skills`). Still to come in #683: delivery (the result card and the `specialist.*` events) and the `specialists.*` methods. Steer, `tasks.update` handlers and approval context come from the specialist-controls work (#807).
+Owner runs that offer `specialist.spawn` get the "Specialists" prompt section (`specialistsPromptSection` from `@psyche/skills`). **Delivery** happens in the Gateway (`apps/gateway/src/compose/specialists.ts`). Each job ends with exactly one result:
+- a `specialist_result` notification, which is the Inbox card ("Researcher finished Apartments" · "Done · 3 findings · $0.84 · 22 min"), routed to `/tasks/<id>`;
+- a `specialist.result` event;
+- one system line in the parent thread, with a `task` block.
+
+Spawns publish `specialist.spawned`. Child steps reach the parent thread as `specialist.progress`, labels only and at most one a second. `specialists.list` and `specialists.jobs` serve Settings and mission control. Steer, the `tasks.update` handler and the approval context come from the specialist-controls work (#807).
 
 ### Harness plugins (C10)
 

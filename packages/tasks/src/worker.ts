@@ -693,7 +693,11 @@ export class TaskWorkerPool {
   async #notifyEnd(task: Task): Promise<void> {
     const n = this.#o.notifier;
     // Automation runs are delivered by the scheduler; chat-attended tasks show in the thread.
-    if (n === undefined || task.createdFrom === "automation") return;
+    // Automation runs are delivered by the scheduler and specialist jobs by their one result
+    // card (docs/agent/specialists-2026.md §4.2), so neither gets a second notification here.
+    if (n === undefined || task.createdFrom === "automation" || task.createdFrom === "subagent") {
+      return;
+    }
     try {
       await n.notify({
         kind: task.status === "done" ? "task_done" : "task_failed",

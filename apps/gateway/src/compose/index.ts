@@ -138,7 +138,12 @@ import {
 } from "./services.ts";
 import { composeSkills } from "./skills.ts";
 import { withSpecialistContext } from "./specialist-approvals.ts";
-import { createSpecialistHost, raiseSpecialistBudget } from "./specialists.ts";
+import {
+  createSpecialistHost,
+  raiseSpecialistBudget,
+  specialistHandlers,
+  withSpecialistProgress,
+} from "./specialists.ts";
 import {
   composeSpeech,
   type MeetingIngest,
@@ -806,6 +811,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     now: () => clock.now(),
     slots: specialistSlots,
     poke: () => pokeSpecialists(),
+    notifier,
     publish: (event, payload, threadId) => publish(event, payload as never, threadId),
   });
   // The teaching loop (#679): the owner's feedback → lessons written where they belong.
@@ -939,16 +945,20 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     concurrency: specialistSlots(),
     // Specialist runs are child runs in the trace, recorded like any task turn (run trace §4.2).
     newRunId: () => db.newId(),
-    trace: taskRunTrace({
-      db,
-      sink: () => gatewayRef?.context.runTrace,
-      publish,
-      modelRef,
-      onError: (err) =>
-        gwOptions.logger?.log("warn", "specialist run trace failed", {
-          code: PsycheError.from(err).code,
-        }),
-    }),
+    // Each child step also reaches the parent thread as `specialist.progress` (specialists §7.3).
+    trace: withSpecialistProgress(
+      taskRunTrace({
+        db,
+        sink: () => gatewayRef?.context.runTrace,
+        publish,
+        modelRef,
+        onError: (err) =>
+          gwOptions.logger?.log("warn", "specialist run trace failed", {
+            code: PsycheError.from(err).code,
+          }),
+      }),
+      { publish, now: () => clock.now() },
+    ),
     ...(taskPollMs === undefined ? {} : { pollMs: taskPollMs }),
     claim: { origins: ["subagent"], perParentLimit: 2 },
   });
@@ -1120,6 +1130,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         roles: skills.roles,
         now: () => clock.now(),
         poke: () => specialistPool.poke(),
+      }) as never,
+    ),
+    ...mountParamsOnly(
+      specialistHandlers({
+        db,
+        tasks,
+        roles: skills.roles,
+        host: specialists,
+        slots: specialistSlots,
       }) as never,
     ),
     ...mountParamsOnly(createAutomationHandlers(scheduler) as never),

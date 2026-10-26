@@ -13,16 +13,21 @@ import { sanitizeBlock } from "@psyche/permissions";
 import type {
   EventName,
   EventPayload,
+  MethodParams,
+  MethodResult,
   ModelRef,
+  Notifier,
   PermissionBroker,
+  RunBudget,
   SpecialistJob,
   SpecialistResult,
+  SpecialistRole,
   SpecialistSpec,
   Task,
 } from "@psyche/protocol";
 import { PsycheError } from "@psyche/protocol";
 import { type FsSkillLoader, specialistsPromptSection } from "@psyche/skills";
-import type { SqliteTaskEngine } from "@psyche/tasks";
+import type { SqliteTaskEngine, TaskTurnTrace } from "@psyche/tasks";
 import { INCOGNITO_TTL_MS } from "../handlers/threads.ts";
 
 /**
@@ -46,6 +51,8 @@ export interface SpecialistHostDeps {
   slots?: () => number;
   /** Wake the specialist pool after a spawn. */
   poke?: () => void;
+  /** Delivery (specialists §4.2, §6.2): the Inbox card, events, the parent thread's line. */
+  notifier?: Pick<Notifier, "notify">;
   /** Publishes events; with it a reported result is also posted to the spawning thread. */
   publish?: <E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string) => void;
 }
@@ -238,6 +245,9 @@ export function createSpecialistHost(deps: SpecialistHostDeps): SpecialistHost {
         specialist: input.spec,
       });
       const queuePosition = (await positions()).get(task.id) ?? null;
+      const job = jobOf(task, queuePosition);
+      if (job !== undefined)
+        deps.publish?.("specialist.spawned", { job }, input.spec.parentThreadId);
       deps.poke?.();
       return { taskId: task.id, threadId: thread.id, queuePosition };
     },
@@ -275,6 +285,7 @@ export function createSpecialistHost(deps: SpecialistHostDeps): SpecialistHost {
         return { ...spec, result: stored };
       });
       if (first !== undefined) postResult(taskId, first.parentThreadId, first.parentRunId);
+      if (first !== undefined) await deliver(deps, taskId, stored as SpecialistResult);
       return stored as SpecialistResult;
     },
     async promptSection() {
@@ -348,4 +359,172 @@ export async function raiseSpecialistBudget(
     }
   }
   return task;
+}
+
+// --- Delivery (specialists §4.2, §6.2) ----------------------------------------------------------
+
+const roleLabelOf = (role: string) => role.charAt(0).toUpperCase() + role.slice(1);
+
+/** `Done · 3 findings · $0.84 · 22 min`, the Inbox row's second line (§6.2). */
+export function resultLine(result: SpecialistResult, used: RunBudget["used"]): string {
+  const outcome = { done: "Done", partial: "Partial", failed: "Failed", cancelled: "Cancelled" }[
+    result.outcome
+  ];
+  const parts = [outcome];
+  if (result.findings.length > 0) {
+    parts.push(`${result.findings.length} finding${result.findings.length === 1 ? "" : "s"}`);
+  }
+  if (used.costUsd != null && used.costUsd > 0) parts.push(`$${used.costUsd.toFixed(2)}`);
+  const minutes = Math.round(used.wallMs / 60_000);
+  parts.push(minutes < 1 ? "under 1 min" : `${minutes} min`);
+  return parts.join(" · ");
+}
+
+/** The card's title in Psyche's voice (docs/copy, §6.2). */
+export function resultTitle(role: string, title: string, result: SpecialistResult): string {
+  const who = roleLabelOf(role);
+  if (result.outcome === "done") return `${who} finished ${title}`;
+  if (result.outcome === "partial") return `${who} stopped early on ${title}`;
+  if (result.outcome === "cancelled") return `${who} was stopped on ${title}`;
+  return `${who} couldn't finish ${title}`;
+}
+
+/**
+ * Exactly one delivery per job: the `specialist_result` notification (the Inbox card) and the
+ * `specialist.result` event. The parent thread's `specialist_result` block is `postResult`'s.
+ */
+async function deliver(
+  deps: SpecialistHostDeps,
+  taskId: string,
+  result: SpecialistResult,
+): Promise<void> {
+  const task = await deps.tasks.get(taskId);
+  const spec = task?.specialist;
+  if (task === undefined || spec === undefined) return;
+  let notificationId: string | null = null;
+  try {
+    const n = await deps.notifier?.notify({
+      kind: "specialist_result",
+      title: resultTitle(spec.role, task.title, result),
+      body: resultLine(result, spec.budget.used),
+      taskId,
+      route: `/tasks/${taskId}`,
+      dedupeKey: `specialist_result:${taskId}`,
+    });
+    notificationId = n?.id ?? null;
+  } catch {
+    // The result is stored either way; the Inbox can be rebuilt from the job.
+  }
+  deps.publish?.(
+    "specialist.result",
+    { taskId, runId: null, parentRunId: spec.parentRunId ?? null, result, notificationId },
+    spec.parentThreadId,
+  );
+}
+
+/**
+ * Wraps the specialist pool's run trace so each child step also reaches the parent thread as
+ * `specialist.progress` (labels only, at most once a second per job; §7.3).
+ */
+export function withSpecialistProgress(
+  trace: TaskTurnTrace,
+  deps: Required<Pick<SpecialistHostDeps, "publish" | "now">>,
+): TaskTurnTrace {
+  const last = new Map<string, number>();
+  return {
+    start: (turn) => trace.start(turn),
+    end: (turn, outcome, error) => {
+      last.delete(turn.taskId);
+      trace.end(turn, outcome, error);
+    },
+    event: (turn, event) => {
+      trace.event(turn, event);
+      const spec = turn.task.specialist;
+      if (spec === undefined || event.type !== "tool_call") return;
+      const now = deps.now();
+      const prev = last.get(turn.taskId);
+      if (prev !== undefined && now - prev < 1_000 && event.status === "running") return;
+      last.set(turn.taskId, now);
+      deps.publish(
+        "specialist.progress",
+        {
+          taskId: turn.taskId,
+          runId: turn.runId,
+          step: {
+            id: event.toolCallId,
+            label: (event.level1 ?? event.tool).slice(0, 200),
+            status: event.status,
+          },
+          budget: spec.budget,
+        },
+        spec.parentThreadId,
+      );
+    },
+  };
+}
+
+// --- specialists.list / specialists.jobs (§7.2) ----------------------------------------------
+
+export interface SpecialistHandlerDeps {
+  db: PsycheDb;
+  tasks: SqliteTaskEngine;
+  roles: RoleSource;
+  host: Pick<SpecialistHost, "roles">;
+  slots?: () => number;
+}
+
+export function specialistHandlers(deps: SpecialistHandlerDeps): {
+  "specialists.list": (
+    p: MethodParams<"specialists.list">,
+  ) => Promise<MethodResult<"specialists.list">>;
+  "specialists.jobs": (
+    p: MethodParams<"specialists.jobs">,
+  ) => Promise<MethodResult<"specialists.jobs">>;
+} {
+  return {
+    "specialists.list": async () => {
+      const on = new Map((await deps.host.roles()).map((r) => [r.role, r]));
+      const roles: SpecialistRole[] = (await deps.roles.specialistRoles()).map((r) => ({
+        ...r.role,
+        enabled: on.has(r.role.role),
+        model: on.get(r.role.role)?.model ?? null,
+      }));
+      return { roles };
+    },
+    "specialists.jobs": async (p) => {
+      const all = (await deps.tasks.list({})).filter((t) => t.specialist !== undefined);
+      const queued = all
+        .filter((t) => t.status === "queued")
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+      const running = all.filter((t) => t.status === "running").length;
+      const free = Math.max(0, (deps.slots?.() ?? 3) - running);
+      const place = new Map<string, number>();
+      queued.forEach((t, i) => {
+        if (i >= free) place.set(t.id, i - free + 1);
+      });
+      let jobs = all
+        .map((t) => jobOf(t, place.get(t.id) ?? null))
+        .filter((j): j is SpecialistJob => j !== undefined)
+        .filter(
+          (j) =>
+            p.threadId === undefined ||
+            j.parentThreadId === p.threadId ||
+            j.threadId === p.threadId,
+        )
+        .filter((j) => p.status === undefined || p.status.includes(j.status))
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.taskId.localeCompare(a.taskId));
+      if (p.cursor !== undefined) {
+        const at = jobs.findIndex((j) => `${j.createdAt}|${j.taskId}` === p.cursor);
+        jobs = at < 0 ? jobs : jobs.slice(at + 1);
+      }
+      const limit = p.limit ?? 50;
+      const page = jobs.slice(0, limit);
+      const tail = page.at(-1);
+      return {
+        jobs: page,
+        nextCursor:
+          jobs.length > limit && tail !== undefined ? `${tail.createdAt}|${tail.taskId}` : null,
+      };
+    },
+  };
 }
