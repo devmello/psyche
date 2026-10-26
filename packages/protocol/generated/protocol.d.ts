@@ -2398,6 +2398,7 @@ export interface ChatSendParams {
     mode?:             QueueMode;
     redo?:             Redo;
     replyToMessageId?: string;
+    screen?:           ChatScreenRef;
     threadId:          string;
 }
 
@@ -2408,6 +2409,13 @@ export interface Redo {
     messageId:       string;
     withoutLessons?: boolean;
 }
+
+export interface ChatScreenRef {
+    captureId: string;
+    image:     ScreenImageChoice;
+}
+
+export type ScreenImageChoice = "auto" | "pinned" | "dropped";
 
 export interface ChatSendResult {
     messageId: string;
@@ -6486,6 +6494,60 @@ export interface SandboxStatusResult {
 }
 
 export type SandboxBackend = "apple-container" | "docker" | "podman" | "none";
+
+export interface ScreenCapture {
+    captureId:      string;
+    context?:       ScreenContext | null;
+    expiresAt:      string;
+    height:         number;
+    libraryItemId?: null | string;
+    mode:           ScreenCaptureMode;
+    refusal?:       ScreenCaptureRefusal;
+    thumbnail?:     null | string;
+    width:          number;
+}
+
+export interface ScreenContext {
+    appName:       string;
+    bundleId?:     null | string;
+    selectedText?: null | string;
+    url?:          null | string;
+    windowTitle?:  null | string;
+}
+
+export type ScreenCaptureMode = "window" | "region";
+
+export type ScreenCaptureRefusal = "app_excluded" | "secure_field" | "no_window" | "permission_missing";
+
+export interface ScreenContextParams {
+    maxHeight?: number;
+    maxWidth?:  number;
+    mode:       ScreenCaptureMode;
+    rect?:      ScreenRect;
+}
+
+export interface ScreenRect {
+    height: number;
+    width:  number;
+    x:      number;
+    y:      number;
+}
+
+export interface ScreenContextResult {
+    context?: ScreenContext | null;
+    height:   number;
+    image?:   null | string;
+    refusal?: ScreenCaptureRefusal;
+    width:    number;
+}
+
+export interface ScreenDiscardParams {
+    captureId: string;
+}
+
+export interface ScreenDiscardResult {
+    discarded: boolean;
+}
 
 export interface SearchQueryParams {
     limit?:  number;

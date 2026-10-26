@@ -2111,6 +2111,22 @@
         "sideEffecting": false
       },
       {
+        "description": "Desktop only: captures the frontmost window (or a box) and its text context once, on the owner's ask shortcut; the frame is stored as an untrusted Library item that expires unless sent.",
+        "name": "screen.capture",
+        "params": "#/$defs/ScreenContextParams",
+        "result": "#/$defs/ScreenCapture",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Desktop only: deletes an unsent capture and its frame (✕, Esc).",
+        "name": "screen.discard",
+        "params": "#/$defs/ScreenDiscardParams",
+        "result": "#/$defs/ScreenDiscardResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
         "description": "Unified search across the given scopes (default all).",
         "name": "search.query",
         "params": "#/$defs/SearchQueryParams",
@@ -9905,6 +9921,24 @@
       ],
       "type": "object"
     },
+    "ChatScreenRef": {
+      "properties": {
+        "captureId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "image": {
+          "$ref": "#/$defs/ScreenImageChoice"
+        }
+      },
+      "required": [
+        "captureId",
+        "image"
+      ],
+      "type": "object"
+    },
     "ChatSendParams": {
       "properties": {
         "threadId": {
@@ -9959,6 +9993,9 @@
             "messageId"
           ],
           "type": "object"
+        },
+        "screen": {
+          "$ref": "#/$defs/ChatScreenRef"
         }
       },
       "required": [
@@ -25875,6 +25912,270 @@
         "rule",
         "severity",
         "message"
+      ],
+      "type": "object"
+    },
+    "ScreenCapture": {
+      "properties": {
+        "captureId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "libraryItemId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "thumbnail": {
+          "anyOf": [
+            {
+              "description": "data: URL, at most 320 px wide",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "width": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "height": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mode": {
+          "$ref": "#/$defs/ScreenCaptureMode"
+        },
+        "context": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScreenContext"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "refusal": {
+          "$ref": "#/$defs/ScreenCaptureRefusal"
+        },
+        "expiresAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "captureId",
+        "width",
+        "height",
+        "mode",
+        "expiresAt"
+      ],
+      "type": "object"
+    },
+    "ScreenCaptureMode": {
+      "enum": [
+        "window",
+        "region"
+      ],
+      "type": "string"
+    },
+    "ScreenCaptureRefusal": {
+      "enum": [
+        "app_excluded",
+        "secure_field",
+        "no_window",
+        "permission_missing"
+      ],
+      "type": "string"
+    },
+    "ScreenContext": {
+      "properties": {
+        "appName": {
+          "type": "string"
+        },
+        "bundleId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "windowTitle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "selectedText": {
+          "anyOf": [
+            {
+              "maxLength": 4000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "url": {
+          "anyOf": [
+            {
+              "description": "The focused browser window's URL",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "appName"
+      ],
+      "type": "object"
+    },
+    "ScreenContextParams": {
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/ScreenCaptureMode"
+        },
+        "rect": {
+          "$ref": "#/$defs/ScreenRect"
+        },
+        "maxWidth": {
+          "maximum": 2560,
+          "minimum": 320,
+          "type": "integer"
+        },
+        "maxHeight": {
+          "maximum": 1600,
+          "minimum": 240,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "type": "object"
+    },
+    "ScreenContextResult": {
+      "properties": {
+        "image": {
+          "anyOf": [
+            {
+              "contentEncoding": "base64",
+              "description": "JPEG",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "width": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "height": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "context": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScreenContext"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "refusal": {
+          "$ref": "#/$defs/ScreenCaptureRefusal"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
+    "ScreenDiscardParams": {
+      "properties": {
+        "captureId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "captureId"
+      ],
+      "type": "object"
+    },
+    "ScreenDiscardResult": {
+      "properties": {
+        "discarded": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "discarded"
+      ],
+      "type": "object"
+    },
+    "ScreenImageChoice": {
+      "enum": [
+        "auto",
+        "pinned",
+        "dropped"
+      ],
+      "type": "string"
+    },
+    "ScreenRect": {
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "width": {
+          "minimum": 1,
+          "type": "number"
+        },
+        "height": {
+          "minimum": 1,
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
       ],
       "type": "object"
     },

@@ -2,6 +2,7 @@ import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, Nullable, StringEnum } from "../common.ts";
 import { Message, QueueMode } from "../schemas/threads.ts";
 import { defineMethod, nextCursor, pageParams } from "./define.ts";
+import { ChatScreenRef } from "./screen.ts";
 
 /** `chat.*` (architecture §4.2 request lifecycle). Output streams as `chat.*` / `run.*` events. */
 
@@ -58,6 +59,12 @@ export const ChatMethods = {
           withoutLessons: Type.Optional(Type.Boolean()),
         }),
       ),
+      /**
+       * Ask about my screen (docs/design/screen-ask-2026.md): the `screen.capture` this message
+       * asks about. The Gateway adds its text context, attaches the frame per `image` and the
+       * relevance rule, and widens the turn's taint (screen content is untrusted).
+       */
+      screen: Type.Optional(ChatScreenRef),
     }),
     result: ChatSendResult,
     scope: "operator.write",
