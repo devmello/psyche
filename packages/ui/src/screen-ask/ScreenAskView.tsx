@@ -44,15 +44,18 @@ export interface ScreenAskAnswer {
 }
 
 export interface ScreenAskViewProps {
-  capture: ScreenAskCaptureView;
+  /** Absent for voice mode: no screen context, so no chip and no capture controls. */
+  capture?: ScreenAskCaptureView;
+  /** Overrides the input placeholder (voice mode asks anything, not only about the screen). */
+  placeholder?: string;
   text: string;
   onText: (text: string) => void;
   onSubmit: () => void;
   onCancel: () => void;
-  onDrop: () => void;
-  onTogglePin: () => void;
-  onRecapture: () => void;
-  onSelectArea: () => void;
+  onDrop?: () => void;
+  onTogglePin?: () => void;
+  onRecapture?: () => void;
+  onSelectArea?: () => void;
   /** Opens Screen Recording in System Settings (only with `permission_missing`). */
   onAllowCapture?: () => void;
   destination: "new" | "current";
@@ -106,83 +109,87 @@ export function ScreenAskView(p: ScreenAskViewProps): ReactElement {
     if (p.text.trim() !== "") p.onSubmit();
   };
   const refusal =
-    c.refusal === undefined
-      ? c.status === "failed"
-        ? t("screenAsk.captureFailed")
-        : null
-      : t(`screenAsk.refusal.${c.refusal}`, { app: c.appName ?? "" });
-  const hasCapture = c.status === "ready";
+    c === undefined
+      ? null
+      : c.refusal === undefined
+        ? c.status === "failed"
+          ? t("screenAsk.captureFailed")
+          : null
+        : t(`screenAsk.refusal.${c.refusal}`, { app: c.appName ?? "" });
+  const hasCapture = c?.status === "ready";
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: Esc anywhere in the panel closes it
     <div ref={root} className="p-2" onKeyDown={onKeyDown} data-testid="screen-ask">
       <GlassSurface impl="refraction" radius={20} as="section" aria-label={t("screenAsk.label")}>
         <div className="flex flex-col gap-2 p-3">
-          <div className="flex items-center gap-2">
-            <div
-              className={cn(
-                "flex min-w-0 items-center gap-2 rounded-md bg-fill-quaternary py-1 pr-1 pl-1 text-xs text-label-secondary",
-                c.image === "dropped" && "opacity-50",
-              )}
-              data-testid="screen-ask-chip"
-            >
-              {c.thumbnail ? (
-                <img src={c.thumbnail} alt="" className="h-8 w-12 rounded-sm object-cover" />
-              ) : null}
-              <span className="truncate">{chipLabel(c)}</span>
-              {hasCapture && c.thumbnail && c.image !== "dropped" ? (
+          {c ? (
+            <div className="flex items-center gap-2">
+              <div
+                className={cn(
+                  "flex min-w-0 items-center gap-2 rounded-md bg-fill-quaternary py-1 pr-1 pl-1 text-xs text-label-secondary",
+                  c.image === "dropped" && "opacity-50",
+                )}
+                data-testid="screen-ask-chip"
+              >
+                {c.thumbnail ? (
+                  <img src={c.thumbnail} alt="" className="h-8 w-12 rounded-sm object-cover" />
+                ) : null}
+                <span className="truncate">{chipLabel(c)}</span>
+                {hasCapture && c.thumbnail && c.image !== "dropped" ? (
+                  <Button
+                    size="icon-xs"
+                    variant="ghost"
+                    aria-pressed={c.image === "pinned"}
+                    aria-label={c.image === "pinned" ? t("screenAsk.unpin") : t("screenAsk.pin")}
+                    title={c.image === "pinned" ? t("screenAsk.unpin") : t("screenAsk.pin")}
+                    onClick={p.onTogglePin ?? (() => undefined)}
+                    disabled={sent}
+                  >
+                    {c.image === "pinned" ? <Pin /> : <PinOff />}
+                  </Button>
+                ) : null}
+                {hasCapture && c.image !== "dropped" ? (
+                  <Button
+                    size="icon-xs"
+                    variant="ghost"
+                    aria-label={t("screenAsk.drop")}
+                    title={t("screenAsk.drop")}
+                    onClick={p.onDrop ?? (() => undefined)}
+                    disabled={sent}
+                  >
+                    <X />
+                  </Button>
+                ) : null}
+              </div>
+              <div className="ml-auto flex items-center gap-1">
                 <Button
                   size="icon-xs"
                   variant="ghost"
-                  aria-pressed={c.image === "pinned"}
-                  aria-label={c.image === "pinned" ? t("screenAsk.unpin") : t("screenAsk.pin")}
-                  title={c.image === "pinned" ? t("screenAsk.unpin") : t("screenAsk.pin")}
-                  onClick={p.onTogglePin}
-                  disabled={sent}
+                  aria-label={t("screenAsk.recapture")}
+                  title={t("screenAsk.recapture")}
+                  onClick={p.onRecapture ?? (() => undefined)}
+                  disabled={sent || c.status === "capturing"}
                 >
-                  {c.image === "pinned" ? <Pin /> : <PinOff />}
+                  <RotateCw />
                 </Button>
-              ) : null}
-              {hasCapture && c.image !== "dropped" ? (
                 <Button
                   size="icon-xs"
                   variant="ghost"
-                  aria-label={t("screenAsk.drop")}
-                  title={t("screenAsk.drop")}
-                  onClick={p.onDrop}
+                  aria-label={t("screenAsk.selectArea")}
+                  title={t("screenAsk.selectArea")}
+                  onClick={p.onSelectArea ?? (() => undefined)}
                   disabled={sent}
                 >
-                  <X />
+                  <Crop />
                 </Button>
-              ) : null}
+              </div>
             </div>
-            <div className="ml-auto flex items-center gap-1">
-              <Button
-                size="icon-xs"
-                variant="ghost"
-                aria-label={t("screenAsk.recapture")}
-                title={t("screenAsk.recapture")}
-                onClick={p.onRecapture}
-                disabled={sent || c.status === "capturing"}
-              >
-                <RotateCw />
-              </Button>
-              <Button
-                size="icon-xs"
-                variant="ghost"
-                aria-label={t("screenAsk.selectArea")}
-                title={t("screenAsk.selectArea")}
-                onClick={p.onSelectArea}
-                disabled={sent}
-              >
-                <Crop />
-              </Button>
-            </div>
-          </div>
+          ) : null}
           {refusal ? (
             <p className="flex items-center gap-2 text-xs text-label-secondary" role="status">
               {refusal}
-              {c.refusal === "permission_missing" && p.onAllowCapture ? (
+              {c?.refusal === "permission_missing" && p.onAllowCapture ? (
                 <Button size="xs" variant="outline" onClick={p.onAllowCapture}>
                   {t("screenAsk.allowCapture")}
                 </Button>
@@ -194,7 +201,7 @@ export function ScreenAskView(p: ScreenAskViewProps): ReactElement {
               ref={input}
               rows={1}
               className="min-h-8 flex-1 resize-none bg-transparent py-1.5 text-sm text-label-primary outline-none placeholder:text-label-tertiary"
-              placeholder={t("screenAsk.placeholder")}
+              placeholder={p.placeholder ?? t("screenAsk.placeholder")}
               aria-label={t("screenAsk.label")}
               value={listening && p.dictation?.partial ? p.dictation.partial : p.text}
               readOnly={sent || listening}

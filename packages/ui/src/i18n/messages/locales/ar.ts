@@ -3340,6 +3340,7 @@ export const ar: Partial<Catalogue> = {
   // Ask about my screen
   "screenAsk.label": "اسأل عن شاشتك",
   "screenAsk.placeholder": "اسأل عمّا يظهر على الشاشة، أو اطلب من Psyche أن يفعل شيئًا…",
+  "screenAsk.voice.placeholder": "اسأل Psyche أي شيء…",
   "screenAsk.send": "اسأل",
   "screenAsk.capturing": "جارٍ النظر إلى شاشتك…",
   "screenAsk.chip.window": "{app}",

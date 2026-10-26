@@ -3310,6 +3310,7 @@ export const ko: Partial<Catalogue> = {
   // Ask about my screen
   "screenAsk.label": "화면에 대해 묻기",
   "screenAsk.placeholder": "화면에 있는 내용에 대해 묻거나 Psyche에게 작업을 요청하세요…",
+  "screenAsk.voice.placeholder": "Psyche에게 무엇이든 물어보세요…",
   "screenAsk.send": "묻기",
   "screenAsk.capturing": "화면을 보는 중…",
   "screenAsk.chip.window": "{app}",
