@@ -36,6 +36,13 @@
 .shell.shell-sidebar-layout > .pane-presence > .panes {
   width: 100%;
 }
+/* The agent sheet beside the content (#625): a fixed column at the window's trailing edge. */
+.shell.shell-sidebar-layout > .agent-sheet-presence {
+  flex: none;
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
 .shell-route {
   display: flex;
   flex: 1;

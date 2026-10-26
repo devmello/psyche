@@ -36,6 +36,7 @@ export const agent = {
   "agent.header.exportHtml": "Export as HTML",
 
   "agent.sheet.tabs": "Agent",
+  "agent.sheet.label": "Agent",
   "agent.sheet.activity": "Activity",
   "agent.sheet.approvals": "Approvals",
   "agent.sheet.upcoming": "Upcoming",

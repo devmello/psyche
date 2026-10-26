@@ -3,14 +3,21 @@ import { type ReactNode, useState } from "react";
 import { IDS } from "../fixtures/index.ts";
 import { STORY_NOW, withWorld } from "../stories/harness.tsx";
 import { ActivityPanel } from "./ActivityPanel.tsx";
-import { AgentRouteSheet, AgentSheet, type AgentTab } from "./AgentSheet.tsx";
+import {
+  AGENT_PANEL_WIDTH,
+  AgentRouteSheet,
+  AgentSheet,
+  AgentSheetPanel,
+  type AgentTab,
+} from "./AgentSheet.tsx";
 import { ApprovalsPanel } from "./ApprovalsPanel.tsx";
 import { SoulMemoryPanel } from "./SoulMemoryPanel.tsx";
 import { UpcomingPanel } from "./UpcomingPanel.tsx";
 
 /**
  * The agent sheet (docs/design/redesign-2026.md §5.7): a 420 px opaque right sheet (level 3, over a scrim) with a 64 px
- * header and segmented tabs, and its four panels in populated, empty, loading and error states.
+ * header and segmented tabs, and its four panels in populated, empty, loading and error states;
+ * `Inline*` is the 400 px panel the shell puts beside the content on wide windows (#625).
  * The visual baseline shoots Agent/* in light and dark.
  */
 const meta = {
@@ -37,6 +44,21 @@ function OpenSheet({ initial, side = "right" }: { initial: AgentTab; side?: "rig
 }
 
 export const Activity: Story = { render: () => <OpenSheet initial="activity" /> };
+
+/** #625: the inline panel the shell puts beside the content on wide windows. */
+function InlinePanel({ initial }: { initial: AgentTab }) {
+  const [tab, setTab] = useState<AgentTab>(initial);
+  return (
+    <div className="flex h-dvh bg-canvas">
+      <div className="min-w-0 flex-1" />
+      <div className="h-full shrink-0" style={{ width: AGENT_PANEL_WIDTH }}>
+        <AgentSheetPanel tab={tab} onTabChange={setTab} onClose={() => {}} now={STORY_NOW} />
+      </div>
+    </div>
+  );
+}
+export const Inline: Story = { render: () => <InlinePanel initial="activity" /> };
+export const InlineUpcoming: Story = { render: () => <InlinePanel initial="upcoming" /> };
 export const Approvals: Story = { render: () => <OpenSheet initial="approvals" /> };
 export const Upcoming: Story = { render: () => <OpenSheet initial="upcoming" /> };
 export const SoulAndMemory: Story = { render: () => <OpenSheet initial="soul" /> };

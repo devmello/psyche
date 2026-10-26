@@ -1,8 +1,11 @@
 import type { Thread } from "@psyche/protocol";
 import {
+  AGENT_PANEL_MIN_CONTENT,
+  AGENT_PANEL_WIDTH,
   CompactTopBar,
   clampSidebarWidth,
   destinationFor,
+  PanePresence,
   ReflowColumn,
   RouteTransition,
   ShellMotion,
@@ -28,6 +31,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { ChatView, PERMISSION_MODES, QuickEntry } from "./components/Chat.tsx";
 import {
@@ -98,6 +102,24 @@ export function underlyingRoute(route: string, last: string): string {
   return isAgentRoute(route) ? last : route;
 }
 
+/**
+ * Whether the agent sheet sits beside the content (#625) or opens as the modal overlay: beside
+ * when the window is wider than the compact breakpoint and the content column keeps at least
+ * `AGENT_PANEL_MIN_CONTENT` next to the sheet. Panes beside the chat (Files, Browser) already
+ * share the row, so with one open the sheet stays the overlay.
+ */
+export function agentSheetDocked(opts: {
+  compact: boolean;
+  contentWidth: number;
+  panesOpen?: boolean;
+}): boolean {
+  return (
+    !opts.compact &&
+    !opts.panesOpen &&
+    opts.contentWidth - AGENT_PANEL_WIDTH >= AGENT_PANEL_MIN_CONTENT
+  );
+}
+
 /** The bar's width over a collapsed sidebar: the traffic lights plus the show-sidebar button. */
 const COLLAPSED_CHROME_LEAD = 128;
 
@@ -135,12 +157,15 @@ export interface ShellSlots {
   chat?: (threadId: string, ctx: ChatSlotContext) => ReactNode;
   section?: (route: string, navigate: (to: string) => void) => ReactNode | null;
   /**
-   * The agent sheet over a section (#614). `route` is the `/agent/*` route, or null once it
-   * closed (keep the last one while the sheet animates out); `onClose` returns to the section.
-   * Over the chat, the chat slot opens the sheet itself from `ChatSlotContext.route`.
+   * The agent sheet for `/agent/*` over whatever section is underneath (#614), chat included.
+   * `inline` (#625): a column beside the content on windows wide enough for both, which the
+   * shell slides in and out; render the panel only while `route` is set. `overlay`: the modal
+   * sheet on narrower windows; `route` is null once it closed (keep the last one while the sheet
+   * animates out). `onClose` returns to the section underneath.
    */
   agentSheet?: (props: {
     route: string | null;
+    presentation: "inline" | "overlay";
     navigate: (to: string) => void;
     onClose: () => void;
   }) => ReactNode;
@@ -309,6 +334,14 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   const threadId = routeThreadId ?? mainThread?.id ?? null;
   const thread = threads.find((x) => x.thread.id === threadId)?.thread ?? null;
   const popOutPane = /^\/chat\/[^/]+\/pane\/([^/]+)$/.exec(route)?.[1];
+  // Panes beside the chat take the room the docked agent sheet would need (#625).
+  const subscribePanes = useCallback(
+    (cb: () => void) => (threadId ? layout.subscribeThread(threadId, cb) : () => {}),
+    [layout, threadId],
+  );
+  const panesOpen = useSyncExternalStore(subscribePanes, () =>
+    threadId ? layout.forThread(threadId).panes.length > 0 : false,
+  );
 
   const env = useCallback(
     (): LayoutEnv => ({
@@ -773,15 +806,20 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         focusToken={focusToken}
       />
     ) : (
-      <>
-        {slots.section?.(base, navigate) ?? <SectionPlaceholder route={base} />}
-        {slots.agentSheet?.({
-          route: isAgentRoute(route) ? route : null,
-          navigate,
-          onClose: () => navigate(baseRef.current),
-        })}
-      </>
+      (slots.section?.(base, navigate) ?? <SectionPlaceholder route={base} />)
     );
+  // The agent sheet (#614, #625): beside the content when the window has room for both, the
+  // content column shrinking from the right; the modal overlay otherwise. Closing returns to the
+  // section underneath (the chat's thread on Chat).
+  const sheetRoute = isAgentRoute(route) ? route : null;
+  const docked = agentSheetDocked({
+    compact,
+    contentWidth: env().contentWidth ?? width,
+    panesOpen: onChat && panesOpen,
+  });
+  const closeSheet = () => navigate(onChat && threadId ? `/chat/${threadId}` : baseRef.current);
+  const sheetFor = (presentation: "inline" | "overlay") =>
+    slots.agentSheet?.({ route: sheetRoute, presentation, navigate, onClose: closeSheet }) ?? null;
   return (
     <UiSlotsProvider value={kitSlots}>
       <ShellMotion>
@@ -882,6 +920,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
                   <div className="shell-route">{content}</div>
                 )}
               </RouteTransition>
+              {docked ? null : sheetFor("overlay")}
             </ReflowColumn>
             {onChat && threadId ? (
               <PaneArea
@@ -892,6 +931,15 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
                 dispatch={dispatch}
                 {...(slots.pane ? { renderPane: slots.pane, navigate } : {})}
               />
+            ) : null}
+            {docked ? (
+              <PanePresence
+                className="agent-sheet-presence"
+                style={{ width: AGENT_PANEL_WIDTH }}
+                testId="agent-sheet-column"
+              >
+                {sheetRoute === null ? null : sheetFor("inline")}
+              </PanePresence>
             ) : null}
             {compact ? (
               <div className="tab-bar-slot" data-testid="rail">

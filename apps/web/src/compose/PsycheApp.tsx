@@ -1,6 +1,8 @@
 import {
   AgentHeader,
   AgentSheet,
+  AgentSheetPanel,
+  type AgentTab,
   AppearanceProvider,
   agentSheetHref,
   agentSheetRoute,
@@ -61,15 +63,8 @@ import { ComposedFilesPane } from "./viewers.tsx";
 export const ONBOARDED_KEY = "ui.onboarding.completedAt";
 
 function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }): ReactElement {
-  // The agent sheet is a route (redesign §5.7): `/agent/<tab>[/<task>][?file=]` opens E's 420 px
-  // sheet over this chat, which stays mounted; tabs change the route, and closing it (×, Escape,
-  // the backdrop) returns to this thread. The last route is kept while the sheet animates out.
-  const routed = agentSheetRoute(ctx.route);
-  const lastRouted = useRef(routed);
-  if (routed !== null) lastRouted.current = routed;
-  const sheet = routed ?? lastRouted.current;
-  // `?from=` (the Feed's Schedule, #614) sends the close back to where the sheet was opened.
-  const backToChat = () => ctx.navigate(sheet?.back ?? `/chat/${threadId}`);
+  // The agent sheet (`/agent/*`) is the shell's (`RoutedAgentSheet`): beside this chat on wide
+  // windows, over it on narrow ones (#625); the avatar and task rows open it by route.
   const incognito = useThread(threadId).thread?.thread.kind === "incognito";
   const [limitsOpen, setLimitsOpen] = useState(false);
   const store = useStore();
@@ -111,36 +106,27 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
         />
         <ThreadContextDialog threadId={threadId} open={limitsOpen} onOpenChange={setLimitsOpen} />
         <ChatThread threadId={threadId} disclosure={level} onDisclosureChange={setLevel} />
-        <AgentSheet
-          open={routed !== null}
-          onOpenChange={(open) => {
-            if (!open) backToChat();
-          }}
-          tab={sheet?.tab ?? "activity"}
-          onTabChange={(tab) =>
-            ctx.navigate(agentSheetHref(tab, sheet?.back ? { back: sheet.back } : {}))
-          }
-          {...(sheet?.taskId === undefined ? {} : { taskId: sheet.taskId })}
-          {...(sheet?.file === undefined ? {} : { file: sheet.file })}
-          onClose={backToChat}
-        />
       </div>
     </UiSlotsProvider>
   );
 }
 
 /**
- * The agent sheet over a section (#614): the Feed's Schedule, Settings' tasks and the kit's
- * `/agent/*` links open it over the screen the owner is on, which stays mounted; closing it
- * returns there. Over the chat, `KitChat` opens it instead. Library's and Ideas' "Open in
- * editor" pass `?file=`. The last route is kept while the sheet animates out.
+ * The agent sheet for `/agent/<tab>[/<task>][?file=][&from=]` (redesign §5.7) over the section
+ * underneath, which stays mounted (#614): the avatar, the Feed's Schedule, Settings' tasks, and
+ * Library's and Ideas' "Open in editor". On wide windows it sits beside the content as the inline
+ * panel and the shell slides its column in (#625); on narrow ones it is the modal sheet, which
+ * keeps its last route while it animates out. Tabs change the route; closing (×, Escape, the
+ * backdrop) returns to the section, or to `?from=` when the sheet was opened cold (#614).
  */
-function SectionAgentSheet({
+function RoutedAgentSheet({
   route,
+  presentation,
   navigate,
   onClose,
 }: {
   route: string | null;
+  presentation: "inline" | "overlay";
   navigate: (to: string) => void;
   onClose: () => void;
 }): ReactElement | null {
@@ -149,17 +135,24 @@ function SectionAgentSheet({
   if (routed !== null) lastRouted.current = routed;
   const sheet = routed ?? lastRouted.current;
   if (sheet === null) return null;
-  return (
+  const close = () => (sheet.back ? navigate(sheet.back) : onClose());
+  const body = {
+    tab: sheet.tab,
+    onTabChange: (tab: AgentTab) =>
+      navigate(agentSheetHref(tab, sheet.back ? { back: sheet.back } : {})),
+    ...(sheet.taskId === undefined ? {} : { taskId: sheet.taskId }),
+    ...(sheet.file === undefined ? {} : { file: sheet.file }),
+    onClose: close,
+  };
+  return presentation === "inline" ? (
+    <AgentSheetPanel {...body} />
+  ) : (
     <AgentSheet
       open={routed !== null}
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open) close();
       }}
-      tab={sheet.tab}
-      onTabChange={(tab) => navigate(`/agent/${tab}`)}
-      {...(sheet.taskId === undefined ? {} : { taskId: sheet.taskId })}
-      {...(sheet.file === undefined ? {} : { file: sheet.file })}
-      onClose={onClose}
+      {...body}
     />
   );
 }
@@ -438,7 +431,7 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
       chat: (threadId, ctx) => <KitChat threadId={threadId} ctx={ctx} />,
       section: (route, navigate) =>
         settingsRoute(route, navigate, platform) ?? screenRoute(route, navigate),
-      agentSheet: (p) => <SectionAgentSheet {...p} />,
+      agentSheet: (p) => <RoutedAgentSheet {...p} />,
       // The 2026 sidebar (redesign §5.1); the compact drawer shows its threads alone (§5.11).
       sidebar: (p) => (
         <ConnectedSidebar
