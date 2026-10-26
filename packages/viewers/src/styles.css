@@ -211,6 +211,20 @@
   min-height: 0;
   overflow: auto;
 }
+/* Margin marks (teaching loop §5.2): a dot beside lines the owner's lessons wrote. */
+.psy-md-marks {
+  width: 14px;
+}
+.psy-md-mark {
+  display: block;
+  width: 6px;
+  height: 6px;
+  margin: 0.55em auto 0;
+  padding: 0;
+  border-radius: 999px;
+  background: var(--psy-accent, #6e56cf);
+  cursor: pointer;
+}
 .psy-md__conflict {
   padding: 8px;
   background: var(--psy-warning-subtle, rgba(255, 196, 0, 0.15));
