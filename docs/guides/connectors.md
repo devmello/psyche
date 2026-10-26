@@ -65,7 +65,7 @@ What each one can do:
 | Apple Notes | List notes (by folder, or matching a title) and read one | Create a note (plain text) |
 | Apple Reminders | List lists and reminders | Add a reminder, change or complete one |
 | Apple Calendar | List calendars and events (at most 366 days at a time) | Add an event, change one |
-| Apple Mail | List or search mail, newest first: unread or read only, received since / until a date, by sender or text; read a message | Save a draft; send a message |
+| Apple Mail | List or search mail, newest first (unread or read only, since / until a date, by sender or text); unread counts per mailbox; the email you have selected; read a message | Mark read or unread, flag, move or archive, save attachments; draft replies and forwards; send (always asks, with the exact recipients and text) |
 
 Reading is allowed by default. Every change asks first, and sending mail always asks with the exact recipients, subject and text, even if you set it to allow. Notes, reminders, events and mail are untrusted content (see [approvals.md](approvals.md#untrusted-content)). Deleting notes, reminders or events is not offered.
 

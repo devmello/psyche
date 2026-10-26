@@ -48,6 +48,16 @@ export const APPLE_APP_ACTIONS: Readonly<Record<string, AppleAppAction>> = {
   "mail.draft": write("apple.mail", "draft"),
   // Never send without an approval card (J6).
   "mail.send": write("apple.mail", "send", "send_email", { alwaysAsk: true }),
+  // Wave 1 (docs/connectors/apple-apps-2026.md §4.1, #639).
+  "mail.mailboxes": read("apple.mail", "mailboxes"),
+  "mail.selected": read("apple.mail", "selected"),
+  "mail.reply_draft": write("apple.mail", "reply_draft"),
+  "mail.forward_draft": write("apple.mail", "forward_draft"),
+  // Sending a saved draft is a send: always a card bound to its recipients and body.
+  "mail.send_draft": write("apple.mail", "send_draft", "send_email", { alwaysAsk: true }),
+  "mail.set_flags": write("apple.mail", "set_flags"),
+  "mail.move": write("apple.mail", "move"),
+  "mail.save_attachments": write("apple.mail", "save_attachments"),
   "notes.list": read("apple.notes", "list"),
   "notes.read": read("apple.notes", "read"),
   "notes.create": write("apple.notes", "create"),

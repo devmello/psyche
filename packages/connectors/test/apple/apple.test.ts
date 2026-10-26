@@ -37,6 +37,14 @@ const ALL = [
   "mail.read",
   "mail.draft",
   "mail.send",
+  "mail.mailboxes",
+  "mail.selected",
+  "mail.reply_draft",
+  "mail.forward_draft",
+  "mail.send_draft",
+  "mail.set_flags",
+  "mail.move",
+  "mail.save_attachments",
 ];
 
 class FakeHelper implements AppleHelper {
@@ -557,5 +565,144 @@ describe("macOS permission and single instances (#549)", () => {
       "notes-1",
     ]);
     expect(await registry.dedupe()).toEqual([]);
+  });
+});
+
+describe("Apple Mail wave 1 (#639)", () => {
+  const mailTool = (name: string) =>
+    appleFactories({ helper: () => new FakeHelper() })[3]
+      ?.create({ id: "apple-1", type: "apple:mail" } as never, {} as never)
+      .tools()
+      .find((t) => t.name === name);
+
+  it("offers reads in read-only mode and the organize, draft and send tools in read and act", async () => {
+    const read = make(new FakeHelper());
+    await read.registry.connect({ catalogueId: "apple-mail", scopeMode: "read" });
+    expect([...read.tools.keys()].sort()).toEqual(
+      ["mail_mailboxes", "mail_read", "mail_search", "mail_selected"].map(
+        (t) => `mcp__apple-1__${t}`,
+      ),
+    );
+    const act = make(new FakeHelper());
+    await act.registry.connect({ catalogueId: "apple-mail", scopeMode: "read_act" });
+    expect([...act.tools.keys()]).toEqual(
+      expect.arrayContaining(
+        [
+          "mail_reply_draft",
+          "mail_forward_draft",
+          "mail_send_draft",
+          "mail_set_flags",
+          "mail_move",
+          "mail_save_attachments",
+        ].map((t) => `mcp__apple-1__${t}`),
+      ),
+    );
+    expect(appleCatalogueEntry("mail").actions.map((a) => [a.id, a.defaultRule])).toEqual([
+      ["mail.read", "allow"],
+      ["mail.draft", "ask"],
+      ["mail.organize", "ask"],
+      ["mail.send", "ask"],
+    ]);
+  });
+
+  it("reading tools pass straight through and their output is untrusted", async () => {
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "apple-mail", scopeMode: "read" });
+    helper.calls.length = 0;
+    const out = (await run("mcp__apple-1__mail_selected")({ limit: 5 })) as unknown as {
+      provenance: string;
+    };
+    expect(out.provenance).toBe("untrusted");
+    await run("mcp__apple-1__mail_mailboxes")({});
+    expect(helper.calls).toEqual([
+      { capability: "mail.selected", params: { limit: 5 } },
+      { capability: "mail.mailboxes", params: {} },
+    ]);
+  });
+
+  it("organizing asks: refused without an approval, sent to the helper with it", async () => {
+    const helper = new FakeHelper();
+    const flags = { ids: ["41", "42"], read: true };
+    const first = make(helper);
+    await first.registry.connect({ catalogueId: "apple-mail", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    await expect(first.run("mcp__apple-1__mail_set_flags")(flags)).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    expect(helper.calls).toEqual([]);
+    const desc = mailTool("mail_move")?.describeCall?.({ ids: ["41"], to: "archive" });
+    expect(desc).toMatchObject({ kind: "connector_action", bindingFields: { tool: "mail_move" } });
+    const approved = make(helper, {
+      id: "ap_m",
+      tool: "mcp__apple-1__mail_move",
+      params: { ids: ["41"], to: "archive" },
+      desc,
+    });
+    await approved.registry.connect({ catalogueId: "apple-mail", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    await approved.run("mcp__apple-1__mail_move")({ ids: ["41"], to: "archive" });
+    expect(helper.calls).toEqual([
+      { capability: "mail.move", params: { ids: ["41"], to: "archive" }, approvalId: "ap_m" },
+    ]);
+    expect(approved.receipts).toMatchObject([{ kind: "mail.organize", outcome: "ok" }]);
+  });
+
+  it("mail_send_draft binds the draft's recipients, subject and body hash; another draft fails", async () => {
+    const helper = new FakeHelper();
+    const draft = {
+      draftId: "d-7",
+      to: ["Dana@Example.org"],
+      cc: ["boss@example.org"],
+      subject: "Re: Offsite",
+      bodySha256: "sha256:aaa",
+    };
+    const desc = mailTool("mail_send_draft")?.describeCall?.(draft);
+    expect(desc).toMatchObject({
+      kind: "send_email",
+      target: { kind: "recipient", value: "boss@example.org,dana@example.org" },
+      bindingFields: {
+        to: ["dana@example.org"],
+        cc: ["boss@example.org"],
+        subject: "Re: Offsite",
+        bodyHash: "sha256:aaa",
+        draftId: "d-7",
+      },
+    });
+    const { registry, run } = make(helper, {
+      id: "ap_s",
+      tool: "mcp__apple-1__mail_send_draft",
+      params: draft,
+      desc,
+    });
+    await registry.connect({ catalogueId: "apple-mail", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    await expect(
+      run("mcp__apple-1__mail_send_draft")({ ...draft, bodySha256: "sha256:bbb" }),
+    ).rejects.toMatchObject({ code: "binding_mismatch" });
+    await expect(
+      run("mcp__apple-1__mail_send_draft")({ ...draft, draftId: "d-8" }),
+    ).rejects.toMatchObject({ code: "binding_mismatch" });
+    expect(helper.calls).toEqual([]);
+    await run("mcp__apple-1__mail_send_draft")(draft);
+    expect(helper.calls).toEqual([
+      { capability: "mail.send_draft", params: draft, approvalId: "ap_s" },
+    ]);
+  });
+
+  it("the catalogue scopes list the new capabilities by mode", () => {
+    const e = appleCatalogueEntry("mail");
+    expect(e.scopes.read).toEqual(
+      expect.arrayContaining(["mail.search", "mail.read", "mail.mailboxes", "mail.selected"]),
+    );
+    expect(e.scopes.read).not.toContain("mail.move");
+    expect(e.scopes.read_act).toEqual(
+      expect.arrayContaining([
+        "mail.send_draft",
+        "mail.set_flags",
+        "mail.move",
+        "mail.save_attachments",
+      ]),
+    );
   });
 });
