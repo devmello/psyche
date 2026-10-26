@@ -17,6 +17,7 @@ import { t } from "../i18n/core.ts";
 import { displaySummary } from "../lib/cards.ts";
 import { fade, motionSpring, Presence, spring } from "../motion/index.ts";
 import { usePersona, useSlots } from "../slots.tsx";
+import { LearnedLine, TaughtLine } from "../teaching/TaughtLine.tsx";
 import { focusApproval } from "./ApprovalCard.tsx";
 import { ArtifactCard, FileCard } from "./ArtifactCard.tsx";
 import { Checklist, PlanCard } from "./Checklist.tsx";
@@ -310,6 +311,10 @@ function BlockView({
       return <WrapUpBox block={b} {...(onWrapUpAction ? { onAction: onWrapUpAction } : {})} />;
     case "related_threads":
       return <RelatedThreads block={b} />;
+    case "learned":
+      return <LearnedLine items={b.items} />;
+    case "taught":
+      return <TaughtLine feedbackId={b.feedbackId} lessonId={b.lessonId} statement={b.statement} />;
     default:
       return null;
   }
