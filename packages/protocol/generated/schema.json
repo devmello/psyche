@@ -1513,6 +1513,46 @@
         "sideEffecting": true
       },
       {
+        "description": "Never model this address, phone or domain again (a blocked domain covers every address at it). Existing cards stay until forgotten. Side-effecting.",
+        "name": "memory.graph.blocklist.add",
+        "params": "#/$defs/MemoryGraphBlocklistAddParams",
+        "result": "#/$defs/MemoryGraphBlocklistAddResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Identifiers ingest never models again (forgotten people and the owner's blocks).",
+        "name": "memory.graph.blocklist.list",
+        "params": "#/$defs/MemoryGraphBlocklistListParams",
+        "result": "#/$defs/MemoryGraphBlocklistListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lets ingest model a blocklisted identifier again. Side-effecting.",
+        "name": "memory.graph.blocklist.remove",
+        "params": "#/$defs/MemoryGraphBlocklistRemoveParams",
+        "result": "#/$defs/MemoryGraphBlocklistRemoveResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Removes everything that came from one source: its interactions, the facts, relations, loops and identifiers derived only from it, and people left with nothing else (their cards and search entries too). The owner's own facts stay. Turns that source off so the next sync does not bring it back. Side-effecting.",
+        "name": "memory.graph.deleteSource",
+        "params": "#/$defs/MemoryGraphDeleteSourceParams",
+        "result": "#/$defs/MemoryGraphDeleteSourceResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Deletes the whole people and projects graph (entities, interactions, facts, loops, suggestions, corrections, blocklist, cursors), every card file and the People / Projects search entries, with secure delete. Turns memory.graph off. Side-effecting.",
+        "name": "memory.graph.forgetAll",
+        "params": "#/$defs/MemoryGraphForgetAllParams",
+        "result": "#/$defs/MemoryGraphForgetAllResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Graph health: per-source counts and last ingest, last model pass, budget used, loop precision.",
         "name": "memory.graph.status",
         "params": "#/$defs/MemoryGraphStatusParams",
@@ -14194,6 +14234,47 @@
       ],
       "type": "object"
     },
+    "GraphBlockKind": {
+      "enum": [
+        "email",
+        "phone",
+        "domain"
+      ],
+      "type": "string"
+    },
+    "GraphBlocklistEntry": {
+      "properties": {
+        "id": {
+          "description": "Opaque; for memory.graph.blocklist.remove",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/GraphIdentifierKind"
+        },
+        "hint": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "createdAt"
+      ],
+      "type": "object"
+    },
     "GraphDirection": {
       "enum": [
         "in",
@@ -15050,6 +15131,38 @@
         "other"
       ],
       "type": "string"
+    },
+    "GraphRemovedCounts": {
+      "properties": {
+        "entities": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "identifiers": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "facts": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "interactions": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "loops": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "entities",
+        "identifiers",
+        "facts",
+        "interactions",
+        "loops"
+      ],
+      "type": "object"
     },
     "GraphSource": {
       "enum": [
@@ -18419,6 +18532,152 @@
         "retractedClaimIds",
         "removedChunkIds",
         "files"
+      ],
+      "type": "object"
+    },
+    "MemoryGraphBlocklistAddParams": {
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/GraphBlockKind"
+        },
+        "value": {
+          "maxLength": 320,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "type": "object"
+    },
+    "MemoryGraphBlocklistAddResult": {
+      "properties": {
+        "entry": {
+          "$ref": "#/$defs/GraphBlocklistEntry"
+        }
+      },
+      "required": [
+        "entry"
+      ],
+      "type": "object"
+    },
+    "MemoryGraphBlocklistListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "MemoryGraphBlocklistListResult": {
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/GraphBlocklistEntry"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "entries"
+      ],
+      "type": "object"
+    },
+    "MemoryGraphBlocklistRemoveParams": {
+      "properties": {
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "MemoryGraphBlocklistRemoveResult": {
+      "properties": {
+        "removed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "removed"
+      ],
+      "type": "object"
+    },
+    "MemoryGraphDeleteSourceParams": {
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/GraphSource"
+        },
+        "dryRun": {
+          "description": "Report counts without deleting",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "type": "object"
+    },
+    "MemoryGraphDeleteSourceResult": {
+      "properties": {
+        "removed": {
+          "$ref": "#/$defs/GraphRemovedCounts"
+        },
+        "cardPaths": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "removed",
+        "cardPaths",
+        "dryRun"
+      ],
+      "type": "object"
+    },
+    "MemoryGraphForgetAllParams": {
+      "properties": {
+        "confirm": {
+          "const": "forget everything",
+          "description": "Must be exactly this phrase; guards against an accidental call",
+          "type": "string"
+        },
+        "dryRun": {
+          "description": "Report counts without deleting",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "confirm"
+      ],
+      "type": "object"
+    },
+    "MemoryGraphForgetAllResult": {
+      "properties": {
+        "removed": {
+          "$ref": "#/$defs/GraphRemovedCounts"
+        },
+        "cardPaths": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "removed",
+        "cardPaths",
+        "dryRun"
       ],
       "type": "object"
     },

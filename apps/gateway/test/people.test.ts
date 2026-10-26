@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ToolRunContext } from "@psyche/agent-core";
-import { setSetting } from "@psyche/db";
+import { getSetting, setSetting } from "@psyche/db";
 import { GraphIngester, isDreamingAutomation } from "@psyche/memory";
 import type { ModelEvent } from "@psyche/protocol";
 import { SqliteSearchIndex } from "@psyche/search";
@@ -179,18 +179,67 @@ describe("people and projects graph in the Gateway (#651)", () => {
     // The dreaming automation's run reports dreaming and the graph pass together.
     const automation = (await c.scheduler.list()).find(isDreamingAutomation);
     const inner = { launch: vi.fn() };
-    const run = await c.people
-      .launcher(inner as never)
-      .launch({
-        automation,
-        run: { id: "r" },
-        threadId: "t",
-        prompt: "",
-        lightContext: true,
-      } as never);
+    const run = await c.people.launcher(inner as never).launch({
+      automation,
+      run: { id: "r" },
+      threadId: "t",
+      prompt: "",
+      lightContext: true,
+    } as never);
     const result = await run.result;
     expect(inner.launch).not.toHaveBeenCalled();
     expect(result.status).toBe("no_reply");
     expect(result.summary).toMatch(/^promoted \d+.*; people graph: /);
+  });
+
+  it("forgets everything: cards, search entries, and the graph turns off", async () => {
+    const c = await compose();
+    load(c);
+    enable(c, { enabled: true, sources: { mail: true, calendar: true } });
+    const sam = byName(c, "Sam Lee");
+    const path = (await c.people.cards.write(sam)) ?? "";
+    const index = new SqliteSearchIndex(c.db.sqlite, { now: () => Date.parse(WORLD.now) });
+    await c.people.handlers["memory.entities.update"]({ id: sam, pinned: true });
+    await vi.waitFor(async () => {
+      expect(
+        (await index.query({ q: "Sam", filters: { kinds: ["person"] } })).hits.length,
+      ).toBeGreaterThan(0);
+    });
+    const result = await c.people.handlers["memory.graph.forgetAll"]({
+      confirm: "forget everything",
+    });
+    expect(result.cardPaths).toContain(path);
+    expect(await c.memory.readFile(path)).toBeUndefined();
+    expect((await index.query({ q: "Sam", filters: { kinds: ["person"] } })).hits).toHaveLength(0);
+    expect(getSetting(c.db, GRAPH_SETTING)?.value).toMatchObject({
+      enabled: false,
+      sources: { mail: true },
+    });
+    for (const name of TOOLS) expect(c.loop.registry.get(name)).toBeUndefined();
+  });
+
+  it("deleting a source turns it off so the next sync does not bring it back", async () => {
+    const c = await compose();
+    load(c);
+    enable(c, { enabled: true, sources: { mail: true, calendar: true } });
+    const dry = await c.people.handlers["memory.graph.deleteSource"]({
+      source: "mail",
+      dryRun: true,
+    });
+    expect(getSetting(c.db, GRAPH_SETTING)?.value).toMatchObject({ sources: { mail: true } });
+    const done = await c.people.handlers["memory.graph.deleteSource"]({ source: "mail" });
+    expect(done.removed).toEqual(dry.removed);
+    expect(getSetting(c.db, GRAPH_SETTING)?.value).toMatchObject({
+      enabled: true,
+      sources: { mail: false, calendar: true },
+    });
+  });
+
+  it("gives the meeting workstream the prep data for a calendar event", async () => {
+    const c = await compose();
+    load(c);
+    const event = WORLD.events[0];
+    const prep = c.people.meetingPrep({ source: event.source, externalRef: event.id });
+    expect(prep?.attendees.map((a) => a.entity.name)).toEqual(expect.arrayContaining(["Sam Lee"]));
   });
 });

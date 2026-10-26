@@ -1,5 +1,5 @@
 import type { AgentToolRegistration } from "@psyche/agent-core";
-import { getSetting, getThread, type PsycheDb } from "@psyche/db";
+import { getSetting, getThread, type PsycheDb, setSetting } from "@psyche/db";
 import {
   assignProjects,
   CardSync,
@@ -13,7 +13,9 @@ import {
   isGraphCard,
   type Launcher,
   type LaunchRequest,
+  type MeetingPrep,
   type MemoryEvent,
+  meetingPrep,
   type NightlyStep,
   runGraphModelPass,
   type SchedulerLike,
@@ -28,7 +30,7 @@ import {
   type ModelRef,
   PsycheError,
 } from "@psyche/protocol";
-import { entityDoc, graphDocId, SqliteSearchIndex } from "@psyche/search";
+import { entityDoc, GRAPH_SEARCH_SOURCE, graphDocId, SqliteSearchIndex } from "@psyche/search";
 import type { Gateway } from "../server.ts";
 import { mountParamsOnly } from "./handlers.ts";
 import type { ComposedPart } from "./services.ts";
@@ -45,8 +47,9 @@ import type { ComposedPart } from "./services.ts";
  * - the nightly pass inside the dreaming window: project assignment and suggestions, retention,
  *   and the model pass on the `utility` role within its budget.
  *
- * Ingest from connectors (Contacts, Mail, Calendar, Messages) and the meeting-prep job come with
- * the connector adapters; entity recall waits for a context path that does not taint the turn.
+ * Ingest from connectors (Contacts, Mail, Calendar, Messages) comes with the connector adapters;
+ * the meeting-prep schedule and card belong to the mail and meetings workstream, which reads
+ * `meetingPrep`. Entity recall waits for a context path that does not taint the turn.
  */
 
 export const GRAPH_SETTING = "memory.graph";
@@ -99,7 +102,7 @@ export interface PeopleDeps {
   provider: ModelProvider;
   /** The `utility` role (local by default). */
   model: ModelRef;
-  publish: (event: GraphEvent["event"], payload: GraphEvent["payload"]) => void;
+  publish: (event: GraphEvent["event"] | "settings.changed", payload: unknown) => void;
   /** Registers a tool; returns its unregister function. */
   register: (tool: AgentToolRegistration) => () => unknown;
 }
@@ -115,6 +118,16 @@ export interface People {
   sync(value: unknown): void;
   /** Wraps the scheduler's launcher: the dreaming automation runs dreaming, then the graph pass. */
   launcher<R extends LaunchRequest, Run>(inner: Launcher<R, Run>): Launcher<R, Run>;
+  /**
+   * The data side of meeting prep (attendees, their open loops and last interactions, the
+   * project) for the mail and meetings workstream, which owns the schedule and the prep card.
+   */
+  meetingPrep(query: {
+    interactionId?: string;
+    source?: string;
+    externalRef?: string;
+    when?: string;
+  }): MeetingPrep | undefined;
   /** The nightly graph step, for tests. */
   readonly nightly: NightlyStep;
   part(scheduler: SchedulerLike, timezone: string): ComposedPart;
@@ -133,6 +146,7 @@ export function composePeople(deps: PeopleDeps): People {
   };
   // Entities the nightly pass changed, whose cards are re-rendered after it.
   let touched: Set<string> | null = null;
+  let cardSync: CardSync | undefined;
   graph = new GraphStore({
     sqlite: db.sqlite,
     clock,
@@ -142,16 +156,20 @@ export function composePeople(deps: PeopleDeps): People {
       if (e.event !== "memory.entity.updated") return;
       touched?.add(e.payload.id);
       void reindex(e.payload.id).catch(() => undefined);
+      // A deleted source changed what the card shows.
+      if (e.payload.changed.includes("source") && graph?.getEntity(e.payload.id)?.cardPath != null)
+        void cardSync?.write(e.payload.id).catch(() => undefined);
     },
   });
   const store = graph;
   const cards = new CardSync(store, memory);
+  cardSync = cards;
   let lastPass = store.cursor(LAST_PASS_CURSOR) as {
     at: string;
     entities: number;
     tokens: number;
   } | null;
-  const handlers = createGraphHandlers(store, {
+  const base = createGraphHandlers(store, {
     cards,
     memory,
     settings: () => {
@@ -169,6 +187,46 @@ export function composePeople(deps: PeopleDeps): People {
       };
     },
   });
+  const writeSetting = (value: Record<string, unknown>) => {
+    const entry = setSetting(db, GRAPH_SETTING, value);
+    deps.publish("settings.changed", { entries: [entry] });
+    sync(value);
+  };
+  const stored = () => {
+    const v = getSetting(db, GRAPH_SETTING)?.value;
+    return (typeof v === "object" && v !== null ? v : {}) as Record<string, unknown>;
+  };
+  const handlers: GraphHandlers = {
+    ...base,
+    // Keep nothing: stray card files, the search entries, and the graph turns off.
+    async "memory.graph.forgetAll"(p) {
+      const result = await base["memory.graph.forgetAll"](p);
+      if (result.dryRun) return result;
+      const removed = new Set(result.cardPaths);
+      for (const path of (await memory.listFiles()).filter(isGraphCard)) {
+        await cards.remove(path).catch(() => undefined);
+        removed.add(path);
+      }
+      await index.removeSource(GRAPH_SEARCH_SOURCE);
+      lastPass = null;
+      writeSetting({ ...stored(), enabled: false });
+      return { ...result, cardPaths: [...removed] };
+    },
+    // The source is turned off so the next sync does not bring it back.
+    async "memory.graph.deleteSource"(p) {
+      const result = await base["memory.graph.deleteSource"](p);
+      if (result.dryRun) return result;
+      const sources = stored().sources;
+      writeSetting({
+        ...stored(),
+        sources: {
+          ...(typeof sources === "object" && sources !== null ? sources : {}),
+          [p.source]: false,
+        },
+      });
+      return result;
+    },
+  };
 
   const graphTools = new GraphTools(store, { now: () => clock.now() });
   const tools: AgentToolRegistration[] = graphToolSpecs.map((spec) => ({
@@ -262,6 +320,7 @@ export function composePeople(deps: PeopleDeps): People {
     },
     sync,
     launcher: (inner) => withDreaming(memory, inner, {}, [nightly]),
+    meetingPrep: (query) => meetingPrep(store, { ...query, now: clock.now() }),
     nightly,
     part(scheduler, timezone) {
       let unsubscribe: (() => void) | undefined;

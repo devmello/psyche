@@ -406,6 +406,8 @@
 //   let grantsListResult = try? JSONDecoder().decode(GrantsListResult.self, from: jsonData)
 //   let grantsRevokeParams = try? JSONDecoder().decode(GrantsRevokeParams.self, from: jsonData)
 //   let grantsRevokeResult = try? JSONDecoder().decode(GrantsRevokeResult.self, from: jsonData)
+//   let graphBlockKind = try? JSONDecoder().decode(GraphBlockKind.self, from: jsonData)
+//   let graphBlocklistEntry = try? JSONDecoder().decode(GraphBlocklistEntry.self, from: jsonData)
 //   let graphDirection = try? JSONDecoder().decode(GraphDirection.self, from: jsonData)
 //   let graphEdge = try? JSONDecoder().decode(GraphEdge.self, from: jsonData)
 //   let graphEdgeRel = try? JSONDecoder().decode(GraphEdgeRel.self, from: jsonData)
@@ -429,6 +431,7 @@
 //   let graphParticipantRole = try? JSONDecoder().decode(GraphParticipantRole.self, from: jsonData)
 //   let graphProjectStatus = try? JSONDecoder().decode(GraphProjectStatus.self, from: jsonData)
 //   let graphRelationshipLabel = try? JSONDecoder().decode(GraphRelationshipLabel.self, from: jsonData)
+//   let graphRemovedCounts = try? JSONDecoder().decode(GraphRemovedCounts.self, from: jsonData)
 //   let graphSource = try? JSONDecoder().decode(GraphSource.self, from: jsonData)
 //   let graphStatus = try? JSONDecoder().decode(GraphStatus.self, from: jsonData)
 //   let graphSuggestion = try? JSONDecoder().decode(GraphSuggestion.self, from: jsonData)
@@ -546,6 +549,16 @@
 //   let memoryForgetLearnedResult = try? JSONDecoder().decode(MemoryForgetLearnedResult.self, from: jsonData)
 //   let memoryForgetParams = try? JSONDecoder().decode(MemoryForgetParams.self, from: jsonData)
 //   let memoryForgetResult = try? JSONDecoder().decode(MemoryForgetResult.self, from: jsonData)
+//   let memoryGraphBlocklistAddParams = try? JSONDecoder().decode(MemoryGraphBlocklistAddParams.self, from: jsonData)
+//   let memoryGraphBlocklistAddResult = try? JSONDecoder().decode(MemoryGraphBlocklistAddResult.self, from: jsonData)
+//   let memoryGraphBlocklistListParams = try? JSONDecoder().decode(MemoryGraphBlocklistListParams.self, from: jsonData)
+//   let memoryGraphBlocklistListResult = try? JSONDecoder().decode(MemoryGraphBlocklistListResult.self, from: jsonData)
+//   let memoryGraphBlocklistRemoveParams = try? JSONDecoder().decode(MemoryGraphBlocklistRemoveParams.self, from: jsonData)
+//   let memoryGraphBlocklistRemoveResult = try? JSONDecoder().decode(MemoryGraphBlocklistRemoveResult.self, from: jsonData)
+//   let memoryGraphDeleteSourceParams = try? JSONDecoder().decode(MemoryGraphDeleteSourceParams.self, from: jsonData)
+//   let memoryGraphDeleteSourceResult = try? JSONDecoder().decode(MemoryGraphDeleteSourceResult.self, from: jsonData)
+//   let memoryGraphForgetAllParams = try? JSONDecoder().decode(MemoryGraphForgetAllParams.self, from: jsonData)
+//   let memoryGraphForgetAllResult = try? JSONDecoder().decode(MemoryGraphForgetAllResult.self, from: jsonData)
 //   let memoryGraphStatusParams = try? JSONDecoder().decode(MemoryGraphStatusParams.self, from: jsonData)
 //   let memoryHit = try? JSONDecoder().decode(MemoryHit.self, from: jsonData)
 //   let memoryImportFormat = try? JSONDecoder().decode(MemoryImportFormat.self, from: jsonData)
@@ -13344,6 +13357,205 @@ public struct MemoryForgetResult: Codable, Sendable {
     }
 }
 
+// MARK: - MemoryGraphBlocklistAddParams
+public struct MemoryGraphBlocklistAddParams: Codable, Sendable {
+    public let kind: GraphBlockKind
+    public let value: String
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case value = "value"
+    }
+
+    public init(kind: GraphBlockKind, value: String) {
+        self.kind = kind
+        self.value = value
+    }
+}
+
+public enum GraphBlockKind: String, Codable, Sendable {
+    case domain = "domain"
+    case email = "email"
+    case phone = "phone"
+}
+
+// MARK: - MemoryGraphBlocklistAddResult
+public struct MemoryGraphBlocklistAddResult: Codable, Sendable {
+    public let entry: GraphBlocklistEntry
+
+    public enum CodingKeys: String, CodingKey {
+        case entry = "entry"
+    }
+
+    public init(entry: GraphBlocklistEntry) {
+        self.entry = entry
+    }
+}
+
+// MARK: - GraphBlocklistEntry
+public struct GraphBlocklistEntry: Codable, Sendable {
+    public let createdAt: String
+    public let hint: String?
+    /// Opaque; for memory.graph.blocklist.remove
+    public let id: String
+    public let kind: GraphIdentifierKind
+
+    public enum CodingKeys: String, CodingKey {
+        case createdAt = "createdAt"
+        case hint = "hint"
+        case id = "id"
+        case kind = "kind"
+    }
+
+    public init(createdAt: String, hint: String?, id: String, kind: GraphIdentifierKind) {
+        self.createdAt = createdAt
+        self.hint = hint
+        self.id = id
+        self.kind = kind
+    }
+}
+
+// MARK: - MemoryGraphBlocklistListResult
+public struct MemoryGraphBlocklistListResult: Codable, Sendable {
+    public let entries: [GraphBlocklistEntry]
+
+    public enum CodingKeys: String, CodingKey {
+        case entries = "entries"
+    }
+
+    public init(entries: [GraphBlocklistEntry]) {
+        self.entries = entries
+    }
+}
+
+// MARK: - MemoryGraphBlocklistRemoveParams
+public struct MemoryGraphBlocklistRemoveParams: Codable, Sendable {
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+    }
+
+    public init(id: String) {
+        self.id = id
+    }
+}
+
+// MARK: - MemoryGraphBlocklistRemoveResult
+public struct MemoryGraphBlocklistRemoveResult: Codable, Sendable {
+    public let removed: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case removed = "removed"
+    }
+
+    public init(removed: Bool) {
+        self.removed = removed
+    }
+}
+
+// MARK: - MemoryGraphDeleteSourceParams
+public struct MemoryGraphDeleteSourceParams: Codable, Sendable {
+    /// Report counts without deleting
+    public let dryRun: Bool?
+    public let source: GraphSource
+
+    public enum CodingKeys: String, CodingKey {
+        case dryRun = "dryRun"
+        case source = "source"
+    }
+
+    public init(dryRun: Bool?, source: GraphSource) {
+        self.dryRun = dryRun
+        self.source = source
+    }
+}
+
+// MARK: - MemoryGraphDeleteSourceResult
+public struct MemoryGraphDeleteSourceResult: Codable, Sendable {
+    public let cardPaths: [String]
+    public let dryRun: Bool
+    public let removed: GraphRemovedCounts
+
+    public enum CodingKeys: String, CodingKey {
+        case cardPaths = "cardPaths"
+        case dryRun = "dryRun"
+        case removed = "removed"
+    }
+
+    public init(cardPaths: [String], dryRun: Bool, removed: GraphRemovedCounts) {
+        self.cardPaths = cardPaths
+        self.dryRun = dryRun
+        self.removed = removed
+    }
+}
+
+// MARK: - GraphRemovedCounts
+public struct GraphRemovedCounts: Codable, Sendable {
+    public let entities: Int
+    public let facts: Int
+    public let identifiers: Int
+    public let interactions: Int
+    public let loops: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case entities = "entities"
+        case facts = "facts"
+        case identifiers = "identifiers"
+        case interactions = "interactions"
+        case loops = "loops"
+    }
+
+    public init(entities: Int, facts: Int, identifiers: Int, interactions: Int, loops: Int) {
+        self.entities = entities
+        self.facts = facts
+        self.identifiers = identifiers
+        self.interactions = interactions
+        self.loops = loops
+    }
+}
+
+// MARK: - MemoryGraphForgetAllParams
+public struct MemoryGraphForgetAllParams: Codable, Sendable {
+    /// Must be exactly this phrase; guards against an accidental call
+    public let confirm: Confirm
+    /// Report counts without deleting
+    public let dryRun: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case confirm = "confirm"
+        case dryRun = "dryRun"
+    }
+
+    public init(confirm: Confirm, dryRun: Bool?) {
+        self.confirm = confirm
+        self.dryRun = dryRun
+    }
+}
+
+public enum Confirm: String, Codable, Sendable {
+    case forgetEverything = "forget everything"
+}
+
+// MARK: - MemoryGraphForgetAllResult
+public struct MemoryGraphForgetAllResult: Codable, Sendable {
+    public let cardPaths: [String]
+    public let dryRun: Bool
+    public let removed: GraphRemovedCounts
+
+    public enum CodingKeys: String, CodingKey {
+        case cardPaths = "cardPaths"
+        case dryRun = "dryRun"
+        case removed = "removed"
+    }
+
+    public init(cardPaths: [String], dryRun: Bool, removed: GraphRemovedCounts) {
+        self.cardPaths = cardPaths
+        self.dryRun = dryRun
+        self.removed = removed
+    }
+}
+
 // MARK: - MemoryImportParams
 public struct MemoryImportParams: Codable, Sendable {
     public let content: String?
@@ -23537,6 +23749,7 @@ public typealias EmptyParams = [String: JSONAny]
 public typealias GrowthUpdatedPayload = [String: JSONAny]
 public typealias MCPStatusParams = [String: JSONAny]
 public typealias MemoryExportParams = [String: JSONAny]
+public typealias MemoryGraphBlocklistListParams = [String: JSONAny]
 public typealias MemoryGraphStatusParams = [String: JSONAny]
 public typealias MemoryPersonaGetParams = [String: JSONAny]
 public typealias MemoryStatusParams = [String: JSONAny]
