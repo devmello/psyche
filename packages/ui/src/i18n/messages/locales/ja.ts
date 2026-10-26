@@ -3297,4 +3297,5 @@ export const ja: Partial<Catalogue> = {
     "オフの場合、Psycheは依頼が画面に関するものであるときだけ送信し、必要なときだけ確認します。",
   "voice.phrases.screen":
     "これ|この|それ|その|あれ|ここ|画面|画面の|今見てる|このページ|このエラー|このグラフ|このウインドウ|上の|下の",
+  "specialists.card.fromAutomation": "オートメーション「{name}」から",
 };

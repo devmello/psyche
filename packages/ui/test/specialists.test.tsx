@@ -17,7 +17,7 @@ import {
 import { FeedScreen } from "../src/screens/feed/FeedScreen.tsx";
 import { InboxScreen } from "../src/screens/inbox/InboxScreen.tsx";
 import { headline, jobLine, preflightLabel } from "../src/specialists/model.ts";
-import { usageLine } from "../src/specialists/ResultCard.tsx";
+import { SpecialistResultCard, usageLine } from "../src/specialists/ResultCard.tsx";
 import { SpecialistSpawns } from "../src/specialists/SpawnLine.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
@@ -290,6 +290,20 @@ describe("the owner's controls on a running job (specialists §4.7)", () => {
     );
     await screen.findByTestId("specialist-spawn");
     expect(screen.queryByTestId("specialist-controls")).toBeNull();
+  });
+});
+
+describe("a job an automation started (specialists §4.10)", () => {
+  it("says so on the result card", async () => {
+    const done = { ...job(T.done), automation: { id: "aut_1", title: "Weekly price check" } };
+    render(
+      <StoryWorld edit={(w) => void withSpecialists(w)}>
+        <SpecialistResultCard job={done} roleLabel="Researcher" />
+      </StoryWorld>,
+    );
+    expect((await screen.findByTestId("from-automation")).textContent).toBe(
+      "From your automation Weekly price check",
+    );
   });
 });
 

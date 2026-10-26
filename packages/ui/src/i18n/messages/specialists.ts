@@ -42,6 +42,7 @@ export const specialists = {
   "specialists.card.taint": "It read content from outside sources. Treat its claims as unverified.",
   "specialists.card.defaultUsed": "Used the default: {label}",
   "specialists.card.source": "Source",
+  "specialists.card.fromAutomation": "From your automation {name}",
 
   "specialists.usage.tokens": "{used} of {limit} tokens",
   "specialists.usage.tokensOnly": "{used} tokens",

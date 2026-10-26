@@ -5,6 +5,7 @@ import { createIdGenerator, FakeClock, FakePermissionBroker } from "@psyche/test
 import { describe, expect, it } from "vitest";
 import { withSpecialistContext } from "../src/compose/specialist-approvals.ts";
 import type { RoleSource } from "../src/compose/specialists.ts";
+import { raiseSpecialistBudget } from "../src/compose/specialists.ts";
 import { taskUpdateHandlers } from "../src/compose/task-controls.ts";
 
 const roles: RoleSource = {
@@ -18,6 +19,11 @@ const roles: RoleSource = {
         },
       },
     ] as never,
+};
+
+const CAPS = {
+  role: "shopper",
+  caps: { tokens: 500_000, costUsd: 5, minutes: 120, maxHours: 24 },
 };
 
 const spec: SpecialistSpec = {
@@ -55,6 +61,8 @@ function setup() {
     tasks,
     roles,
     now: () => clock.now(),
+    raise: (id, patch) =>
+      raiseSpecialistBudget({ tasks, host: { roles: async () => [CAPS] as never } }, id, patch),
     poke: () => {
       pokes.n += 1;
     },
@@ -97,6 +105,28 @@ describe("tasks.update (specialists §4.7)", () => {
     await expect(
       h["tasks.update"]({ taskId: t.id, deadline: new Date(clock.now() - 1).toISOString() }),
     ).rejects.toMatchObject({ code: "invalid_params" });
+  });
+
+  it("resumes a job parked on its budget question, once, without a second +50%", async () => {
+    const { tasks, h, job } = setup();
+    const t = await job();
+    await tasks.claim("specialist/0", { leaseMs: 60_000, taskId: t.id });
+    const req = await tasks.requestInput(t.id, [
+      {
+        question: "Used its budget",
+        header: "Budget",
+        multiSelect: false,
+        options: [{ label: "Give it more" }, { label: "Stop it" }],
+      },
+    ]);
+    await tasks.updateSpecialist(t.id, (x) => ({
+      ...x,
+      budgetPause: { inputRequestId: req.id, reason: "token budget" },
+    }));
+    const { task } = await h["tasks.update"]({ taskId: t.id, budget: { tokens: 150_000 } });
+    expect(task.status).toBe("queued");
+    expect(task.specialist?.budget.limit.tokens).toBe(150_000);
+    expect(task.specialist?.budgetPause).toMatchObject({ raised: true });
   });
 
   it("refuses tasks that are not specialists' jobs, and finished jobs", async () => {

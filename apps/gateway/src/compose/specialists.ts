@@ -145,6 +145,7 @@ function jobOf(task: Task, queuePosition: number | null = null): SpecialistJob |
     budget: s.budget,
     deadline: s.deadline ?? null,
     lastStep: null,
+    ...(s.automation === undefined ? {} : { automation: s.automation }),
     ...(s.preflight === undefined ? {} : { preflight: s.preflight }),
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,

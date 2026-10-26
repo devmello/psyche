@@ -3348,4 +3348,5 @@ export const fr: Partial<Catalogue> = {
     "Sinon, Psyche ne l’envoie que si votre demande concerne l’écran, et ne la regarde que si c’est nécessaire.",
   "voice.phrases.screen":
     "ça|ceci|cela|ce|cette|ici|là|sur mon écran|je regarde quoi|cette page|cette erreur|ce graphique|cette fenêtre|en haut|en bas",
+  "specialists.card.fromAutomation": "De votre automatisation {name}",
 };
