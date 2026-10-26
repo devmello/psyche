@@ -337,3 +337,4 @@ export {
   VoiceCapsule,
   type VoiceCapsuleProps,
 } from "./voice/VoiceCapsule.tsx";
+export { VoiceHudView, type VoiceHudViewProps } from "./voice/VoiceHudView.tsx";
