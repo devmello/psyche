@@ -519,6 +519,63 @@ test("rail screens, inbox and agent sheet at 1440x900: kit chrome, no sideways s
   await page.keyboard.press("Escape");
 });
 
+test("Settings window: 920x640, centred on the main window, the main window's chrome (#596)", async () => {
+  await setWindowSize(1440, 900);
+  const opened = app.waitForEvent("window");
+  await app.evaluate(({ Menu }) => {
+    const find = (items: Electron.MenuItem[]): Electron.MenuItem | undefined => {
+      for (const item of items) {
+        if (item.label === "Settings…") return item;
+        const sub = item.submenu ? find(item.submenu.items) : undefined;
+        if (sub) return sub;
+      }
+      return undefined;
+    };
+    const item = find(Menu.getApplicationMenu()?.items ?? []);
+    if (!item) throw new Error("no Settings… menu item");
+    item.click();
+  });
+  const sp = await opened;
+  await sp.waitForSelector('[data-testid="settings-window"]');
+  const w = await app.evaluate(({ BaseWindow, screen }) => {
+    const all = BaseWindow.getAllWindows();
+    const settings = all.find((x) => x.getTitle() === "Settings");
+    const main = all.find((x) => x.getTitle() === "Psyche");
+    if (!settings || !main) throw new Error("no Settings or main window");
+    return {
+      bounds: settings.getBounds(),
+      main: main.getBounds(),
+      min: settings.getMinimumSize(),
+      lights: settings.getWindowButtonPosition(),
+      mainLights: main.getWindowButtonPosition(),
+      area: screen.getDisplayMatching(main.getBounds()).workArea,
+    };
+  });
+  expect(w.min).toEqual([760, 520]);
+  expect(w.lights).toEqual(w.mainLights);
+  // The default size, clamped to a screen smaller than it (CI).
+  expect(w.bounds.width).toBe(Math.min(920, w.area.width));
+  expect(w.bounds.height).toBe(Math.min(640, w.area.height));
+  // Centred on the main window, unless that would leave the screen.
+  const centre = (b: { x: number; width: number }) => b.x + b.width / 2;
+  const fits =
+    w.main.x + (w.main.width - w.bounds.width) / 2 >= w.area.x &&
+    w.main.x + (w.main.width + w.bounds.width) / 2 <= w.area.x + w.area.width;
+  if (fits) expect(Math.abs(centre(w.bounds) - centre(w.main))).toBeLessThanOrEqual(1);
+  // The 52 px toolbar, with nothing under the traffic lights.
+  const bar = await box(sp, "titlebar");
+  expect(bar.height).toBe(52);
+  if (!w.lights) throw new Error("no traffic-light position");
+  const lights = { x: w.lights.x - 2, y: w.lights.y - 2, width: 56, height: 18 };
+  expect(await intruders(sp, lights), "Settings: under the traffic lights").toEqual([]);
+  await shot(sp, "settings-window-1440x900");
+  await app.evaluate(({ BaseWindow }) =>
+    BaseWindow.getAllWindows()
+      .find((x) => x.getTitle() === "Settings")
+      ?.close(),
+  );
+});
+
 test("web client at 390 px: no title bar, every onboarding step, main chat", async () => {
   test.skip(!existsSync(join(webDist, "index.html")), "build apps/web first");
   let webOnboarded = false;

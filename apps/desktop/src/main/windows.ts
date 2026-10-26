@@ -1,18 +1,23 @@
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   app,
   BaseWindow,
   type BaseWindowConstructorOptions,
   nativeTheme,
+  screen,
   type WebContents,
   WebContentsView,
 } from "electron";
 import {
   canvasColor,
   mainWindowOptions,
+  SETTINGS_WINDOW_MIN,
+  SETTINGS_WINDOW_SIZE,
   settingsWindowOptions,
   TRAFFIC_LIGHTS,
 } from "./window-options.ts";
+import { type Rect, settingsWindowBounds } from "./window-placement.ts";
 
 /**
  * Windows hosting the shell (architecture §5): one main `BaseWindow` with the app in a
@@ -58,6 +63,8 @@ export interface WindowOptions {
   anySize?: boolean;
   /** A chrome window (main, Settings) was made: vibrancy and the like. */
   onChromeWindowCreated?: (win: BaseWindow, view: WebContentsView) => void;
+  /** Where the Settings window's bounds are remembered (#596); unset, it always opens centred. */
+  settingsBoundsFile?: string;
 }
 
 /** Settings section ids are short slugs (`model`, `computer-use`). */
@@ -174,8 +181,21 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
       : { titleBar: "native" };
 
   function createSettings(section?: string): { win: BaseWindow; view: WebContentsView } {
-    const win = new BaseWindow(settingsWindowOptions({ dark: nativeTheme.shouldUseDarkColors }));
+    const main = mainWin && !mainWin.isDestroyed() && mainWin.isVisible() ? mainWin : undefined;
+    const bounds = settingsWindowBounds({
+      saved: readBounds(opts.settingsBoundsFile),
+      main: main?.getBounds(),
+      workAreas: [screen.getPrimaryDisplay(), ...screen.getAllDisplays()].map((d) => d.workArea),
+      size: SETTINGS_WINDOW_SIZE,
+      min: SETTINGS_WINDOW_MIN,
+    });
+    const win = new BaseWindow({
+      ...settingsWindowOptions({ dark: nativeTheme.shouldUseDarkColors }),
+      ...bounds,
+    });
     const view = makeView(win, settingsRoute(section), insetChrome());
+    // Remembered on close, so it reopens where the owner left it (#596).
+    win.on("close", () => writeBounds(opts.settingsBoundsFile, win.getNormalBounds()));
     view.setBackgroundColor(canvasColor(nativeTheme.shouldUseDarkColors));
     view.webContents.once("did-finish-load", () => win.show());
     win.on("closed", () => {
@@ -265,4 +285,22 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
 
 export function preloadPath(): string {
   return join(app.getAppPath(), ".vite", "build", "preload.cjs");
+}
+
+function readBounds(file: string | undefined): unknown {
+  if (!file) return undefined;
+  try {
+    return JSON.parse(readFileSync(file, "utf8")) as unknown;
+  } catch {
+    return undefined; // first run, or an unreadable file: open centred
+  }
+}
+
+function writeBounds(file: string | undefined, bounds: Rect): void {
+  if (!file) return;
+  try {
+    writeFileSync(file, `${JSON.stringify(bounds)}\n`);
+  } catch (err) {
+    console.warn(`[windows] could not remember the Settings window: ${String(err)}`);
+  }
 }

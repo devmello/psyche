@@ -43,8 +43,11 @@ describe("window chrome (docs/design/redesign-2026.md §4)", () => {
 
   it("gives Settings its own window with the same chrome", () => {
     const o = settingsWindowOptions({ dark: true });
-    expect({ width: o.width, height: o.height }).toEqual(SETTINGS_WINDOW_SIZE);
+    expect({ width: o.width, height: o.height }).toEqual({ width: 920, height: 640 });
+    expect(SETTINGS_WINDOW_SIZE).toEqual({ width: 920, height: 640 });
     expect(o).toMatchObject({
+      minWidth: 760,
+      minHeight: 520,
       title: "Settings",
       show: false,
       titleBarStyle: "hidden",

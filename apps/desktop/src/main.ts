@@ -718,6 +718,7 @@ void app.whenReady().then(async () => {
   windows = createAppWindows({
     rendererUrl,
     preloadPath: preloadPath(),
+    settingsBoundsFile: join(app.getPath("userData"), "settings-window.json"),
     splash: () => splashWanted,
     anySize: wantsAnyWindowSize(app.isPackaged, process.env),
     mainOptions: glassWindowOptions(glass),
