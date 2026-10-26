@@ -135,6 +135,32 @@ export {
   withProactiveJobs,
 } from "./jobs.ts";
 export {
+  CLASSIFY_BATCH,
+  type Classified,
+  classifyBatch,
+  sanitizeMailText,
+} from "./mail/classify.ts";
+export {
+  DEFAULT_DIGEST_SCHEDULE,
+  DigestService,
+  type DigestServiceOptions,
+  MAIL_DIGEST_JOB,
+  RULES_PATH,
+} from "./mail/digest.ts";
+export { lookalikeOf, type MailItem, presort } from "./mail/presort.ts";
+export {
+  addressOf,
+  domainOf,
+  formatRule,
+  parseRules,
+  type RuleDecision,
+  type RulesFile,
+  ruleFor,
+  type SenderRule,
+  serializeRules,
+  setRule,
+} from "./mail/rules.ts";
+export {
   appleMailSource,
   type EventScheduler,
   FIRST_POLL_LOOKBACK_MS,

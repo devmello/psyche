@@ -29,6 +29,16 @@ export const PROACTIVITY_BUDGET = {
     /** Proposed ideas expire after this many days without a decision. */
     expiryDays: 14,
   },
+  mail: {
+    /** One digest notification a day (spec §3 rule 5). */
+    digestNotificationsPerDay: 1,
+    /** Unread messages one digest reads, at most. */
+    maxMessages: 200,
+    /** Message bodies read for the classifier, at most (the rest go by headers). */
+    maxBodyReads: 60,
+    /** A waiting-on loop is shown in at most this many digests, then it goes quiet. */
+    nudgeShowMax: 2,
+  },
   goals: {
     /** Inferred candidates waiting for a decision at any time (confirm cards, UI §3.11). */
     maxOpenCandidates: 3,
