@@ -358,6 +358,18 @@ export class PsychePermissionBroker implements PermissionBroker {
         trace: decision.trace,
       },
     );
+    // A connector action the owner set to Deny is refused with a receipt naming the rule (#747),
+    // so the refusal shows next to the other actions on that connector.
+    if (decision.decision === "deny" && decision.rule.startsWith("connector:")) {
+      await this.recordReceipt({
+        kind: decision.rule.slice(decision.rule.indexOf("/") + 1),
+        outcome: "failed",
+        summary: `Refused ${call.tool}: ${decision.reason ?? "the connector matrix denies it"}`,
+        taskId: ctx.taskId ?? null,
+        toolCallId: call.toolCallId ?? null,
+        payload: { rule: decision.rule, decision: "deny" },
+      });
+    }
     return decision;
   }
 
