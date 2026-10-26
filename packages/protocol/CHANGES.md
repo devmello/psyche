@@ -18,6 +18,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (U, #640: connector settings from Settings → Connectors)
+
+For the UI session (U) and S09 (G, #639): `connectors.configure {connectorId, config}` merges non-secret keys into a connector's `config` (`null` removes one) without reconnecting it. Settings writes `apple:shortcuts`' `config.shortcutRules` (`off` / `ask` / `allow` per shortcut id) and Obsidian's `config.vaultPath` and `config.dailyFolder` through it. G implements the handler.
+### v1 additive — 2026-10-26 (S09 for S14 #719: Things auth token)
+
+- `ThingsUpdateParams.authToken?` and `ThingsCompleteParams.authToken?`: Things' URL-scheme auth token, which the Gateway fills in from the vault for that call only. The model never writes it, no card shows it, and the helper neither logs nor stores it.
+
 ### v1 additive — 2026-10-25 (E, #678: the teaching loop)
 
 For T1 (#679), T2 (#680) and T3 (#681), docs/agent/teaching-loop-2026.md §3 and §7. All new fields are optional and all new schemas are new names.
@@ -44,6 +51,16 @@ For T2 (#661), T3 (#662) and S02's specialists: the step model of docs/design/ru
 - New methods: `memory.entities.search | get | interactions | create | update | facts.set | facts.retract | edges.set | edges.retract | history | merge | split | suggestions | suggestions.answer | forget` (`forget` is `operator.admin`), `memory.loops.list | update`, `memory.graph.status`.
 - New events: `memory.entity.updated`, `memory.loop.updated`, `memory.suggestion.created`.
 - `SearchIndexDocKind` gains `person` and `project`; `SearchScope` and `SearchGroup` gain `people` and `projects` (the search package and the Search screen's exhaustive maps get matching entries).
+### v1 additive — 2026-10-26 (S02, #682: background specialists)
+
+Depends on the run-trace T1 additions (#660), which carry the shared `Run` fields (`kind`, `origin`, `parentRunId`, `rootRunId`, `taskId`, `budget: RunBudget`, `deadline`, `specialist {role}`), `RunSummary` and `runs.children`.
+
+- `schemas/specialists.ts`: `SpecialistSpec` (the `Task.specialist` block: role, parent ids, model, resolved tools, permission mode, `RunBudget` (retried spend in `budget.used.retried`), deadline, inputs, delivery, `planFirst`, queue position, result), `SpecialistResult` (outcome `done | partial | failed | cancelled`, summary ≤ 600, findings ≤ 12, artifacts, `next` ≤ 2, gaps, receipts, `tainted`, `stopReason`, evaluator verdict, defaults used), `SpecialistInputs`, `ApprovalHint`, `SpecialistRole` and `SpecialistJob` (status `queued | working | needs_you | done | partial | failed | cancelled`).
+- `Task.specialist?`, `TaskCreateInput.specialist?`, `ApprovalRequest.requestedBy.parentRunId?` / `.specialist?`, `NotificationKind` gains `specialist_result`, `Automation.specialist? {role, budget?, deliver?}`.
+- Methods `specialists.list`, `specialists.jobs`, `tasks.steer` (side-effecting) and `tasks.update` (side-effecting, owner-only budget or deadline change).
+- Events `specialist.spawned`, `specialist.progress` (≤ 1/s, labels only) and `specialist.result`.
+- `AgentEvent` gains `{type: "subagent", runId, messageId, toolCallId, taskId, childRunId, status, label, progress?, usage?}`, the run trace's `subagent` step.
+- Fakes: `FakeTaskEngine` stores `specialist`; `FakeAgentLoop` scripts the new event.
 
 ### v1 additive — 2026-10-25 (S09, #637: Apple app capabilities, wave 1)
 

@@ -135,7 +135,11 @@ function defaultFactories(
 ): ConnectorFactory[] {
   const factories = [
     // Apple Notes, Reminders, Calendar and Mail through the paired Mac helper (#528).
-    ...appleFactories({ helper }),
+    // Things' auth token (#719) is a vault item read under the same once-per-credential card.
+    ...appleFactories({
+      helper,
+      approveCredential: (req, run) => mail.approve({ ...req, purpose: "tool" }, run),
+    }),
     // Obsidian (#639): the vault is a shared folder; every path passes the same checks as the
     // file tools (granted folder and its mode, protected roots, no symlinks).
     obsidianFactory({

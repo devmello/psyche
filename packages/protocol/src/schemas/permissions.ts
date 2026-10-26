@@ -91,6 +91,10 @@ export const ApprovalRequest = Type.Object(
       threadId: Nullable(Id),
       toolCallId: Type.Optional(Id),
       agent: Type.Optional(Type.String()),
+      /** The run that spawned the requesting specialist, for the card's context line. */
+      parentRunId: Type.Optional(Id),
+      /** The requesting specialist's role, when a specialist asks. */
+      specialist: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
     }),
     sideEffect: Type.Optional(SideEffect),
     targetKind: Type.Optional(TargetKind),
