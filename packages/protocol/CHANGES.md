@@ -18,6 +18,17 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-25 (S01, #660: run trace T1)
+
+For T2 (#661), T3 (#662) and S02's specialists: the step model of docs/design/run-trace-2026.md §4. Everything is optional or new; old clients ignore `run.step`.
+
+- `RunStep` (`schemas/runs.ts`) with `RunStepKind`, `RunStepStatus`, `RunStepError`, `RunStepAttempt` and `RUN_STEP_LIMITS`; `RunSummary` (Run fields + `currentStep`, `activity` (12 buckets), `durationsMs`); `RunFrame`; `RunTraceFormat`.
+- `Run` gains `kind` (`RunKind`), `origin` (`RunOrigin`), `title`, `parentRunId`, `rootRunId`, `taskId`, `automationRunId`, `stepCount`, `currentStepId`, `lastStepAt`, `budget` (`RunBudget`, the shape S02's specialists use), `deadline`, `specialist {role}`, `note`. These are the shared Run fields S02's specialists protocol reuses.
+- `ToolCall.stepId`; `AutomationRun.runId` and `usage`; `BrowserRecording.runId`; `memory.file.changed` gains `runId` and `stepId`.
+- Methods `runs.get | steps | list | children | step | frames | frame | export` (`operator.read`) and `runs.delete` (`operator.write`, side-effecting).
+- Event `run.step {runId, step}`: an upsert per change, never carrying thinking text or payload bodies.
+- `psyche-trace+json` v1 (`PsycheTrace`, `TraceStep`, `TraceRun`, `TraceChild`) and the shared recipe `buildPsycheTrace` / `traceMarkdown` / `traceAttributes` (OTel GenAI attribute names), used by the Gateway's `runs.export` and the MockGateway.
+
 ### v1 additive — 2026-10-25 (S07 memory: people and projects graph, #650)
 
 - New schemas in `schemas/graph.ts` (docs/memory/people-and-projects-2026.md §4, §6.1): `GraphEntityKind`, `GraphEntityStatus`, `GraphProjectStatus`, `GraphIdentifierKind`, `GraphIdentifier`, `GraphFactAttribute` (allowlist; no sensitive traits), `GraphRelationshipLabel`, `GraphWriteSource`, `GraphFact` (provenance, evidence, validity, supersession), `GraphEdgeRel`, `GraphEdge`, `GraphInteractionKind`, `GraphParticipantRole`, `GraphInteraction` (headers and links, no bodies), `GraphLoopStatus`, `GraphLoop`, `GraphEntity`, `EntitySummary`, `GraphEntityDetail`, `GraphSuggestion`, `GraphSource`, `GraphStatus`.
