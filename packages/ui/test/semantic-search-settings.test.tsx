@@ -42,6 +42,39 @@ describe("semantic search settings", () => {
     expect(onChange).toHaveBeenCalledWith("search.semantic.engine", "router");
   });
 
+  it("offers the cloud opt-in only for the router engine, with the warning", async () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <StoryWorld>
+        <SemanticSearchSettingsGroup
+          values={{ "search.semantic.enabled": true }}
+          onChange={onChange}
+        />
+      </StoryWorld>,
+    );
+    expect(screen.queryByRole("switch", { name: "Allow a cloud embedding service" })).toBeNull();
+    rerender(
+      <StoryWorld>
+        <SemanticSearchSettingsGroup
+          values={{ "search.semantic.enabled": true, "search.semantic.engine": "router" }}
+          onChange={onChange}
+        />
+      </StoryWorld>,
+    );
+    expect(screen.getByText(/sent to it to be indexed/)).toBeTruthy();
+    await userEvent.click(screen.getByRole("switch", { name: "Allow a cloud embedding service" }));
+    expect(onChange).toHaveBeenCalledWith("search.semantic.allowCloud", true);
+    expect(
+      semanticStatusText({
+        enabled: true,
+        engine: "router",
+        state: "ready",
+        cloud: true,
+        vectors: 3,
+      }).text,
+    ).toBe("On, with a cloud service: 3 passages indexed");
+  });
+
   it("says why it is blocked or what it indexed", () => {
     expect(
       semanticStatusText({

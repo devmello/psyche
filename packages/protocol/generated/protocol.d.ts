@@ -6959,7 +6959,11 @@ export type SearchBackfillState = "idle" | "running" | "done" | "error";
 
 export interface SearchSemanticStatus {
     blocked?: SearchSemanticBlock;
-    dims?:    number;
+    /**
+     * Text is sent to a cloud embedding service (search.semantic.allowCloud)
+     */
+    cloud?: boolean;
+    dims?:  number;
     /**
      * Documents embedded in this pass
      */

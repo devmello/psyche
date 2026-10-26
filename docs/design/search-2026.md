@@ -97,6 +97,14 @@ The built-in engine follows the same policy as `@psyche/speech` `ModelManager`:
 - They live under `$PSYCHE_HOME/models/embeddings/` with mode 0700/0600.
 - Progress is reported through `search.status`.
 
+**As built (S4):**
+
+- `search.semantic.allowCloud` is admin-only and off by default. It appears only for the router engine, with the warning in plain words.
+- A cloud-bound `embedding` role is refused until it is on.
+- While a cloud service is in use, the status carries `cloud: true` and Settings says so.
+- The provider key comes from the vault through the router, as for any model.
+- A per-model dimension option (for example `text-embedding-3-small` at 512) is left for S5, because the router's `embed` has no dimensions parameter yet.
+
 ### Privacy rule (hard)
 
 Text is sent off-device only when two conditions hold:

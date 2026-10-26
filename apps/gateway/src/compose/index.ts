@@ -1123,8 +1123,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     feed: proactive.feed,
     ideas: proactive.ideas,
     goals: proactive.goals,
-    // `search.semantic.engine: router`: the `embedding` role, local providers only (S3).
-    routerEmbedder: () => routerEmbedder(router),
+    // `search.semantic.engine: router`: the `embedding` role; a cloud one only with allowCloud (S4).
+    routerEmbedder: (allowCloud) => routerEmbedder(router, allowCloud),
     ...(gwOptions.semanticEngines === undefined
       ? {}
       : { semanticEngines: gwOptions.semanticEngines }),

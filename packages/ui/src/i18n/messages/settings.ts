@@ -79,6 +79,7 @@ export const settings = {
   "settings.key.search.web.provider": "Web search provider",
   "settings.key.search.semantic.enabled": "Semantic search (on-device)",
   "settings.key.search.semantic.engine": "Embedding engine",
+  "settings.key.search.semantic.allowCloud": "Allow a cloud embedding service",
   "settings.key.search.web.searxngUrl": "SearXNG URL",
   "settings.key.context.compactAt": "Compact at",
   "settings.key.context.keepRecentTurns": "Recent turns kept verbatim",
@@ -865,6 +866,10 @@ export const settings = {
   "settings.semanticSearch.state.indexing": "Indexing meanings: {done} of {total}",
   "settings.semanticSearch.state.ready":
     "On: {n, plural, one {# passage} other {# passages}} indexed",
+  "settings.semanticSearch.state.readyCloud":
+    "On, with a cloud service: {n, plural, one {# passage} other {# passages}} indexed",
+  "settings.semanticSearch.allowCloudHint":
+    "Only if the embedding model in Roles is a cloud service. Your chats, tasks and Library text are then sent to it to be indexed, and every search query too. Off keeps everything on this Mac.",
   "settings.semanticSearch.state.noModel":
     "No embedding model is set in Roles. Pick one, or use the built-in model.",
   "settings.semanticSearch.state.cloudBlocked":

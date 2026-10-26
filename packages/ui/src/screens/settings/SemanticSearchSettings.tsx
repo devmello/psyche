@@ -14,13 +14,15 @@ import {
 /**
  * Search, under Model & providers (docs/design/search-2026.md §3): "Semantic search (on-device)"
  * finds things by meaning as well as by words. The built-in engine downloads a small model the
- * first time; "my local model server" uses the embedding role (Ollama, LM Studio). Live status
- * comes from `search.status` / `search.status.updated`.
+ * first time; "my local model server" uses the embedding role (Ollama, LM Studio). A cloud
+ * embedding role is used only after the owner allows it (S4), with the warning in plain words.
+ * Live status comes from `search.status` / `search.status.updated`.
  */
 
 export const SEMANTIC_SEARCH_KEYS = {
   enabled: "search.semantic.enabled",
   engine: "search.semantic.engine",
+  allowCloud: "search.semantic.allowCloud",
 } as const;
 
 type Engine = "builtin" | "router";
@@ -30,7 +32,7 @@ const mb = (bytes: number) => Math.round(bytes / 1_000_000);
 /** One line saying what semantic search is doing now. */
 export function semanticStatusText(s: SearchSemanticStatus | undefined): {
   text: string;
-  tone: "success" | "danger" | "info" | "neutral";
+  tone: "success" | "danger" | "info" | "neutral" | "approval";
 } {
   switch (s?.state) {
     case undefined:
@@ -58,6 +60,11 @@ export function semanticStatusText(s: SearchSemanticStatus | undefined): {
         tone: "info",
       };
     case "ready":
+      if (s.cloud === true)
+        return {
+          text: t("settings.semanticSearch.state.readyCloud", { n: s.vectors ?? 0 }),
+          tone: "approval",
+        };
       return {
         text: t("settings.semanticSearch.state.ready", { n: s.vectors ?? 0 }),
         tone: "success",
@@ -127,6 +134,15 @@ export function SemanticSearchSettingsGroup({
               hint: t("settings.semanticSearch.engine.routerHint"),
             },
           ]}
+        />
+      ) : null}
+      {enabled && engine === "router" ? (
+        <SwitchField
+          label={t("settings.key.search.semantic.allowCloud")}
+          description={t("settings.semanticSearch.allowCloudHint")}
+          checked={bool(values, SEMANTIC_SEARCH_KEYS.allowCloud, false)}
+          onChange={(v) => onChange(SEMANTIC_SEARCH_KEYS.allowCloud, v)}
+          settingKey={SEMANTIC_SEARCH_KEYS.allowCloud}
         />
       ) : null}
     </Group>

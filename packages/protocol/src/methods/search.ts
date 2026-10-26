@@ -147,6 +147,11 @@ export const SearchSemanticStatus = Type.Object(
     ),
     receivedBytes: Type.Optional(Type.Integer({ minimum: 0, description: "Model download" })),
     totalBytes: Type.Optional(Type.Integer({ minimum: 0 })),
+    cloud: Type.Optional(
+      Type.Boolean({
+        description: "Text is sent to a cloud embedding service (search.semantic.allowCloud)",
+      }),
+    ),
     blocked: Type.Optional(
       StringEnum(["no_embedding_model", "cloud_not_allowed"], { $id: "SearchSemanticBlock" }),
     ),
