@@ -18,6 +18,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (S02, #683 part 2b: budgets and plan first)
+
+- `SpecialistSpec.budgetPause?` (`{inputRequestId, reason, raised?}`, nullable): the job is paused on its budget question. `raised` means `tasks.update` raised the limits.
+- `SpecialistSpec.planApproved?`: a plan-first job's plan was approved. No new enum values.
+
 ### v1 additive — 2026-10-26 (screen-ask: Ask about my screen, docs/design/screen-ask-2026.md)
 
 - **New `screen.*` methods** (desktop shell only, `operator.write`): `screen.capture {mode: window | region, rect?, maxWidth?, maxHeight?}` → `ScreenCapture {captureId, libraryItemId, thumbnail, width, height, mode, context, refusal?, expiresAt}`; `screen.discard {captureId}` → `{discarded}`. An unsent capture expires after `SCREEN_CAPTURE_TTL_MS` (10 min).

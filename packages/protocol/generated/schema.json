@@ -28415,6 +28415,38 @@
           },
           "maxItems": 16,
           "type": "array"
+        },
+        "budgetPause": {
+          "anyOf": [
+            {
+              "properties": {
+                "inputRequestId": {
+                  "description": "ULID in production",
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "reason": {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                "raised": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "inputRequestId",
+                "reason"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "planApproved": {
+          "type": "boolean"
         }
       },
       "required": [

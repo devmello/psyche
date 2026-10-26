@@ -64,6 +64,7 @@ import {
   type ModelRef,
   type PermissionBroker,
   PsycheError,
+  type Task,
 } from "@psyche/protocol";
 import {
   createAutomationHandlers,
@@ -132,7 +133,7 @@ import {
   createOwnPorts,
 } from "./services.ts";
 import { composeSkills } from "./skills.ts";
-import { createSpecialistHost } from "./specialists.ts";
+import { createSpecialistHost, raiseSpecialistBudget } from "./specialists.ts";
 import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
 import {
   type ComposedTeaching,
@@ -242,6 +243,14 @@ export interface ComposedGateway {
   readonly pool: TaskWorkerPool;
   /** Background specialists' own pool (docs/agent/specialists-2026.md §4.5). */
   readonly specialistPool: TaskWorkerPool;
+  /**
+   * `tasks.update` for a specialist job (specialists §4.7): raise its budget or move its
+   * deadline within the role's caps; a job paused on its budget re-queues.
+   */
+  readonly raiseSpecialistBudget: (
+    taskId: string,
+    patch: { tokens?: number; costUsd?: number; minutes?: number; deadline?: string },
+  ) => Promise<Task>;
   readonly scheduler: SqliteScheduler;
   readonly notifier: PsycheNotifier;
   readonly proactive: ComposedProactive;
@@ -1159,6 +1168,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     tasks,
     pool,
     specialistPool,
+    raiseSpecialistBudget: (taskId, patch) =>
+      raiseSpecialistBudget({ tasks, host: specialists }, taskId, patch),
     scheduler,
     notifier,
     proactive,

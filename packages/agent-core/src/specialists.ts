@@ -4,6 +4,7 @@ import {
   type ModelRef,
   type PermissionMode,
   PsycheError,
+  type Question,
   type RunBudget,
   type SpecialistFinding,
   type SpecialistJob,
@@ -87,6 +88,113 @@ export interface SpecialistHost {
   ): Promise<SpecialistResult>;
   /** The Specialists section of the main agent's prompt (`specialistsPromptSection`), or "". */
   promptSection(): Promise<string>;
+  /** Change a job's spec (budget use, a budget pause, plan approval; §4.1, §4.6). */
+  updateSpec(
+    taskId: string,
+    patch: (spec: SpecialistSpec) => SpecialistSpec,
+  ): Promise<SpecialistSpec>;
+  /**
+   * How the owner answered the job's budget pause: `raised` when `tasks.update` already raised
+   * the limits, `undefined` while the question is still open.
+   */
+  budgetDecision(taskId: string): Promise<BudgetDecision | undefined>;
+}
+
+export type BudgetDecision = "more" | "finish" | "stop" | "raised";
+
+/** The budget pause's question card (§4.6, §6.2 copy). Labels are matched by `budgetDecisionOf`. */
+export const BUDGET_PAUSE_HEADER = "Budget";
+export const BUDGET_OPTIONS = {
+  more: "Give it more",
+  finish: "Finish with what it has (Recommended)",
+  stop: "Stop it",
+} as const;
+
+export function budgetPauseQuestion(role: string, task: string, budget: string): Question {
+  return {
+    question: `The ${role} used its ${budget} budget on ${task}.`.slice(0, 500),
+    header: BUDGET_PAUSE_HEADER,
+    multiSelect: false,
+    options: [
+      { label: BUDGET_OPTIONS.finish, description: "Stop and write up what it found" },
+      { label: BUDGET_OPTIONS.more, description: "Raise its budget by half and keep going" },
+      { label: BUDGET_OPTIONS.stop, description: "Stop now without a write-up" },
+    ],
+  };
+}
+
+/** The owner's answer to the budget question; free text that matches nothing means finish. */
+export function budgetDecisionOf(answer: string | string[] | undefined): BudgetDecision {
+  const a = (Array.isArray(answer) ? answer[0] : answer)?.trim().toLowerCase() ?? "";
+  if (a.startsWith(BUDGET_OPTIONS.more.toLowerCase())) return "more";
+  if (a.startsWith(BUDGET_OPTIONS.stop.toLowerCase())) return "stop";
+  return "finish";
+}
+
+export type BudgetDimension = "tokens" | "costUsd" | "wallMs" | "steps";
+
+const DIMENSION_LABEL: Record<BudgetDimension, string> = {
+  tokens: "token",
+  costUsd: "cost",
+  wallMs: "time",
+  steps: "step",
+};
+
+export function budgetLabel(d: BudgetDimension): string {
+  return DIMENSION_LABEL[d];
+}
+
+/** Share of each limited dimension used (0..∞); unpriced cost (`null`) never counts. */
+export function budgetShares(budget: RunBudget): Partial<Record<BudgetDimension, number>> {
+  const out: Partial<Record<BudgetDimension, number>> = {};
+  const { limit, used } = budget;
+  if (limit.tokens !== undefined) out.tokens = used.tokens / limit.tokens;
+  if (limit.steps !== undefined) out.steps = used.steps / limit.steps;
+  if (limit.wallMs !== undefined) out.wallMs = used.wallMs / limit.wallMs;
+  if (limit.costUsd != null && used.costUsd != null && limit.costUsd > 0) {
+    out.costUsd = used.costUsd / limit.costUsd;
+  }
+  return out;
+}
+
+/** The first dimension at or over its limit, if any. */
+export function budgetBreach(budget: RunBudget): BudgetDimension | undefined {
+  const shares = budgetShares(budget);
+  return (Object.keys(shares) as BudgetDimension[]).find((d) => (shares[d] ?? 0) >= 1);
+}
+
+/** "Give it more": +50% on every limit that was hit or nearly hit, capped by the role (§4.6). */
+export function raiseLimits(
+  budget: RunBudget,
+  caps: SpecialistRoleDef["caps"] | undefined,
+): RunBudget["limit"] {
+  const l = budget.limit;
+  const up = (v: number | undefined, cap: number | undefined) =>
+    v === undefined
+      ? undefined
+      : cap === undefined
+        ? Math.ceil(v * 1.5)
+        : Math.min(cap, Math.ceil(v * 1.5));
+  const tokens = up(l.tokens, caps?.tokens);
+  const steps = up(l.steps, undefined);
+  const wallMs = up(l.wallMs, caps?.minutes === undefined ? undefined : caps.minutes * 60_000);
+  const costUsd =
+    l.costUsd == null
+      ? l.costUsd
+      : caps?.costUsd === undefined
+        ? Math.round(l.costUsd * 150) / 100
+        : Math.min(caps.costUsd, Math.round(l.costUsd * 150) / 100);
+  return {
+    ...(tokens === undefined ? {} : { tokens }),
+    ...(steps === undefined ? {} : { steps }),
+    ...(wallMs === undefined ? {} : { wallMs }),
+    ...(costUsd === undefined ? {} : { costUsd }),
+  };
+}
+
+/** The message that opens the tool-free wrap-up turn (§4.6). */
+export function wrapUpMessage(reason: string): string {
+  return `[${reason}] Stop working now: no more tool calls. Write your final report as plain text: what you found, with sources, and what is still missing and why.`;
 }
 
 /** The report a specialist writes with `specialist.report` (§4.2). */

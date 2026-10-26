@@ -149,7 +149,15 @@ Unlike a subagent, a specialist runs a job **in the background** as a Task in it
 - its system prompt is the base prompt, the role's prompt, and the persona files (`USER.md` only when the role's `memory` is `user`), with no skills index and no daily notes;
 - its step budget comes from `budget.limit.steps`.
 
-Owner runs that offer `specialist.spawn` get the "Specialists" prompt section (`specialistsPromptSection` from `@psyche/skills`). Still to come in later parts of #683: the specialist pool, budget pauses and plan-first, approval context, delivery cards and the `specialists.*` / `tasks.steer` / `tasks.update` handlers.
+**Budgets** (specialists §4.6): after every model call, the job's `budget.used` (steps, tokens, wall time, cost; unpriced cost never counts) is added to through `SpecialistHost.updateSpec`.
+- The job gets one `[80% of the … budget used]` marker per dimension.
+- **At a limit**, the remaining tool calls of that step don't run. An attended job then pauses on a "Budget" question card in the task (`budgetPause` on its spec): "Finish with what it has" (recommended), "Give it more" (+50%, capped by the role) or "Stop it". On its next run the loop acts on the answer through `SpecialistHost.budgetDecision`. `raised` means `tasks.update` already raised the limits, so no extra +50% is added.
+- An unattended job never pauses.
+- At the deadline, on "Finish with what it has", or at a limit in an unattended run, one tool-free wrap-up turn writes the `partial` report.
+
+**Plan first** (§4.1): a `planFirst` job runs in plan mode, with `exit_plan_mode` added to its tools, until its `plan_exit` card is approved. It then continues in its own mode (`planApproved` on its spec). A declined plan ends the job with the plan as a `partial` report.
+
+Owner runs that offer `specialist.spawn` get the "Specialists" prompt section (`specialistsPromptSection` from `@psyche/skills`). Still to come in #683: delivery (the result card and the `specialist.*` events) and the `specialists.*` methods. Steer, `tasks.update` handlers and approval context come from the specialist-controls work (#807).
 
 ### Harness plugins (C10)
 

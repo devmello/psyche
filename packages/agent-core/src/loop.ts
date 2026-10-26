@@ -102,16 +102,23 @@ import { type QuestionAnswer, validateAnswer } from "./questions.ts";
 import { ReasoningSteps } from "./reasoning.ts";
 import { type AgentToolRegistration, AgentToolRegistry, parseMcpToolName } from "./registry.ts";
 import {
+  type BudgetDimension,
+  budgetBreach,
+  budgetLabel,
+  budgetPauseQuestion,
+  budgetShares,
   buildSpecialistSpec,
   fallbackReport,
   minMode,
   preflight,
+  raiseLimits,
   type SpecialistHost,
   type SpecialistRoleDef,
   type SpecialistTurnApi,
   specialistBrief,
   specialistTools,
   toolAllowed,
+  wrapUpMessage,
 } from "./specialists.ts";
 import {
   emptyThreadState,
@@ -356,9 +363,15 @@ interface RunState {
   /** Set when this run is a background specialist's job (specialists §4.2–§4.3). */
   specialistJob?: {
     taskId: string;
+    title: string;
     spec: SpecialistSpec;
     role: SpecialistRoleDef | undefined;
     reported: boolean;
+    /** Usage of this run already added to the job's budget (§4.6). */
+    counted: { tokens: number; costUsd: number; steps: number };
+    lastAt: number;
+    /** Set when the job ends early this run (a denied plan). */
+    stop?: string;
   };
   /** The main agent's Specialists prompt section, fetched once per run. */
   specialistsPrompt?: string;
@@ -690,12 +703,17 @@ export class PsycheAgentLoop implements AgentLoop {
           const roles = await this.#o.specialists.roles();
           run.specialistJob = {
             taskId: task.id,
+            title: task.title,
             spec,
             role: roles.find((r) => r.role === spec.role),
             reported: spec.result != null,
+            counted: { tokens: 0, costUsd: 0, steps: 0 },
+            lastAt: this.#clock.now(),
           };
           // Never wider than the role allows or the parent had (specialists §4.3).
           run.permissionMode = minMode(run.permissionMode, spec.permissionMode);
+          // Plan first: research read-only until the owner approves the plan (§4.1).
+          if (spec.planFirst && spec.planApproved !== true) run.permissionMode = "plan";
         }
       }
       // Untrusted content inside the input itself: forwarded or quoted third-party text in an
@@ -816,8 +834,13 @@ export class PsycheAgentLoop implements AgentLoop {
       50;
     const maxTokens = this.#o.maxRunTokens ?? 2_000_000;
     let pendingText = "";
+    // A job resumed after a budget pause acts on the owner's answer first (§4.6).
+    const resumed = await this.#specialistResume(run);
+    if (resumed !== undefined) return resumed;
     for (;;) {
       this.#checkAbort(run);
+      const due = this.#specialistDue(run);
+      if (due !== undefined) return this.#wrapUp(run, due);
       if (run.steps >= maxSteps) {
         this.#marker(run, `[stopped: step budget of ${maxSteps} model calls reached]`);
         throw new RunEnd("failed", "step_budget_exceeded");
@@ -830,6 +853,8 @@ export class PsycheAgentLoop implements AgentLoop {
       run.emit({ type: "usage", runId: run.runId, usage: { ...run.usage } });
       if (step.finish === "cancelled") throw new RunEnd("cancelled");
       if (step.finish === "error") throw new RunEnd("failed", step.error ?? "model error");
+      const breach = await this.#specialistAccount(run);
+      if (breach !== undefined) return this.#specialistBreach(run, breach);
       if (run.usage.input + run.usage.output > maxTokens) {
         this.#marker(
           run,
@@ -842,6 +867,7 @@ export class PsycheAgentLoop implements AgentLoop {
         const results = await this.#runTools(run, step.calls);
         run.thread.messages.push({ role: "tool", parts: results });
         if (run.parked !== undefined) return "awaiting_input";
+        if (run.specialistJob?.stop !== undefined) return "final";
         this.#checkAbort(run);
         this.#drainSteer(run);
         continue;
@@ -1169,7 +1195,10 @@ export class PsycheAgentLoop implements AgentLoop {
     if (job !== undefined) {
       // The role's allowlist, never more (specialists §4.3); questions and the report always.
       const keep = (name: string) =>
-        name === "ask_user" || name === "specialist.report" || toolAllowed(name, job.spec.tools);
+        name === "ask_user" ||
+        name === "specialist.report" ||
+        (name === "exit_plan_mode" && run.permissionMode === "plan") ||
+        toolAllowed(name, job.spec.tools);
       for (const t of tools)
         if (!keep(t.spec.name)) hidden.set(t.spec.name, "not in the role's tools");
       tools = tools.filter((t) => keep(t.spec.name));
@@ -2474,6 +2503,162 @@ export class PsycheAgentLoop implements AgentLoop {
     };
   }
 
+  /** A denied plan ends a plan-first job, with the plan as its report (§4.1). */
+  async #planDenied(
+    run: RunState,
+    job: NonNullable<RunState["specialistJob"]>,
+    plan: { title: string; plan: string },
+    why: string,
+  ): Promise<void> {
+    const host = this.#o.specialists;
+    if (host === undefined || job.reported) return;
+    await host.report(
+      job.taskId,
+      {
+        outcome: "partial",
+        summary: `Plan not approved: ${plan.title}`.slice(0, 600),
+        gaps: [`The plan was ${why === "denied" ? "declined" : why}; nothing was done.`],
+        findings: [{ title: plan.title.slice(0, 200), detail: plan.plan.slice(0, 2_000) }],
+      },
+      { tainted: run.taint, stopReason: "plan_denied" },
+    );
+    job.reported = true;
+    job.stop = "plan_denied";
+  }
+
+  /** On resume after a budget pause: raise and go on, finish now, or stop (§4.6). */
+  async #specialistResume(run: RunState): Promise<RunOutcome | undefined> {
+    const job = run.specialistJob;
+    const host = this.#o.specialists;
+    if (job === undefined || host === undefined || job.spec.budgetPause == null) return undefined;
+    const decision = await host.budgetDecision(job.taskId);
+    if (decision === undefined) return undefined;
+    job.spec = await host.updateSpec(job.taskId, (x) => ({
+      ...x,
+      budgetPause: null,
+      ...(decision === "more"
+        ? { budget: { ...x.budget, limit: raiseLimits(x.budget, job.role?.caps) } }
+        : {}),
+    }));
+    if (decision === "finish") return this.#wrapUp(run, "finished at its budget, as you asked");
+    if (decision === "stop") {
+      await host.report(
+        job.taskId,
+        {
+          outcome: "partial",
+          summary: "Stopped at its budget.",
+          gaps: ["You stopped it at its budget before a write-up."],
+        },
+        { tainted: run.taint, stopReason: "owner" },
+      );
+      job.reported = true;
+      return "final";
+    }
+    return undefined;
+  }
+
+  /** The job's deadline has passed (§4.6). */
+  #specialistDue(run: RunState): string | undefined {
+    const deadline = run.specialistJob?.spec.deadline;
+    if (deadline == null || run.specialistJob?.reported === true) return undefined;
+    return this.#clock.now() >= Date.parse(deadline) ? "reached its deadline" : undefined;
+  }
+
+  /**
+   * Add this run's new usage to the job's budget after a model call, mark 80% once per
+   * dimension, and return the dimension that hit its limit (§4.6).
+   */
+  async #specialistAccount(run: RunState): Promise<BudgetDimension | undefined> {
+    const job = run.specialistJob;
+    const host = this.#o.specialists;
+    if (job === undefined || host === undefined) return undefined;
+    const now = this.#clock.now();
+    const tokens = run.usage.input + run.usage.output;
+    const delta = {
+      tokens: tokens - job.counted.tokens,
+      costUsd: run.usage.costUsd - job.counted.costUsd,
+      steps: run.steps - job.counted.steps,
+      wallMs: now - job.lastAt,
+    };
+    job.counted = { tokens, costUsd: run.usage.costUsd, steps: run.steps };
+    job.lastAt = now;
+    const before = budgetShares(job.spec.budget);
+    job.spec = await host.updateSpec(job.taskId, (x) => ({
+      ...x,
+      budget: {
+        limit: x.budget.limit,
+        used: {
+          ...x.budget.used,
+          steps: x.budget.used.steps + delta.steps,
+          tokens: x.budget.used.tokens + delta.tokens,
+          wallMs: x.budget.used.wallMs + delta.wallMs,
+          costUsd: (x.budget.used.costUsd ?? 0) + delta.costUsd,
+        },
+      },
+    }));
+    const after = budgetShares(job.spec.budget);
+    for (const d of Object.keys(after) as BudgetDimension[]) {
+      if ((before[d] ?? 0) < 0.8 && (after[d] ?? 0) >= 0.8 && (after[d] ?? 0) < 1) {
+        this.#marker(run, `[80% of the ${budgetLabel(d)} budget used]`);
+      }
+    }
+    return job.reported ? undefined : budgetBreach(job.spec.budget);
+  }
+
+  /**
+   * A job hit a budget: attended, it pauses on the owner's question (give it more, finish, stop)
+   * with the clock stopped; unattended, it writes its partial report at once (§4.6).
+   */
+  async #specialistBreach(run: RunState, dim: BudgetDimension): Promise<RunOutcome> {
+    const job = run.specialistJob as NonNullable<RunState["specialistJob"]>;
+    const host = this.#o.specialists as SpecialistHost;
+    const label = budgetLabel(dim);
+    this.#marker(run, `[stopped: ${label} budget reached]`);
+    if (run.mode === "unattended" || run.taskId === undefined || this.#o.tasks === undefined) {
+      return this.#wrapUp(run, `stopped at its ${label} budget`);
+    }
+    closeDanglingCalls(run.thread.messages, `not run: ${label} budget reached`);
+    const question = budgetPauseQuestion(job.role?.label ?? job.spec.role, job.title, label);
+    await this.#ask(run, [question]);
+    const parked = run.parked;
+    if (parked === undefined) return this.#wrapUp(run, `stopped at its ${label} budget`);
+    job.spec = await host.updateSpec(job.taskId, (x) => ({
+      ...x,
+      budgetPause: { inputRequestId: parked.id, reason: `${label} budget` },
+    }));
+    return "awaiting_input";
+  }
+
+  /** One tool-free turn that writes the job's partial report from what it has (§4.6). */
+  async #wrapUp(run: RunState, reason: string): Promise<RunOutcome> {
+    const job = run.specialistJob;
+    const host = this.#o.specialists;
+    if (job === undefined || host === undefined || job.reported) return "final";
+    // Calls the model asked for but that never ran still need results before a new message.
+    closeDanglingCalls(run.thread.messages, `not run: ${reason}`);
+    run.thread.messages.push({
+      role: "user",
+      parts: [{ type: "text", text: wrapUpMessage(reason) }],
+    });
+    run.steps += 1;
+    run.messageId = this.#ids.next("msg");
+    const { system } = await this.#prepare(run);
+    const step = await this.#callModel(run, system, []);
+    if (step.parts.length > 0) run.thread.messages.push({ role: "assistant", parts: step.parts });
+    await this.#specialistAccount(run);
+    await host.report(
+      job.taskId,
+      {
+        outcome: "partial",
+        summary: step.text.trim().slice(0, 600) || `It ${reason}.`,
+        gaps: [`It ${reason}.`],
+      },
+      { tainted: run.taint, stopReason: reason },
+    );
+    job.reported = true;
+    return "final";
+  }
+
   /** A specialist that ended without `specialist.report` still delivers one result (§4.2). */
   async #specialistFallback(run: RunState, outcome: RunOutcome): Promise<void> {
     const job = run.specialistJob;
@@ -2786,9 +2971,25 @@ export class PsycheAgentLoop implements AgentLoop {
       id: toolCallId,
       name: "exit_plan_mode",
     });
-    if (status !== "approved") return { planId, approved: false, reason: status };
+    const job = run.specialistJob;
+    if (status !== "approved") {
+      if (job !== undefined) await this.#planDenied(run, job, plan, status);
+      return { planId, approved: false, reason: status };
+    }
     const verified = await this.#o.broker.verifyBinding(issued.approval.id, binding);
-    if (!verified.ok) return { planId, approved: false, reason: verified.reason };
+    if (!verified.ok) {
+      if (job !== undefined) await this.#planDenied(run, job, plan, verified.reason);
+      return { planId, approved: false, reason: verified.reason };
+    }
+    if (job !== undefined && this.#o.specialists !== undefined) {
+      // The job continues in its own mode; later runs skip the plan (§4.1).
+      job.spec = await this.#o.specialists.updateSpec(job.taskId, (x) => ({
+        ...x,
+        planApproved: true,
+      }));
+      run.permissionMode = job.spec.permissionMode;
+      return { planId, approved: true };
+    }
     const next = this.#o.planExitMode ?? "balanced";
     run.permissionMode = next;
     this.#o.onPermissionModeChange?.(run.threadId, next);
