@@ -45,7 +45,7 @@ import { ViewMethods } from "./view.ts";
 import { VmMethods } from "./vm.ts";
 import { VoiceMethods } from "./voice.ts";
 import { VoiceConversationMethods } from "./voice-conversation.ts";
-import { ProposalsMethods } from "./workflows.ts";
+import { MeetingsMethods, ProposalsMethods } from "./workflows.ts";
 
 export * from "./approvals.ts";
 export * from "./attention.ts";
@@ -144,6 +144,7 @@ export const Methods = {
   ...ModelsMethods,
   ...UsageMethods,
   ...ProposalsMethods,
+  ...MeetingsMethods,
   ...FeedbackMethods,
   ...LessonsMethods,
   ...GrowthMethods,

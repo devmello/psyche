@@ -524,7 +524,14 @@
 //   let meetingActionItem = try? JSONDecoder().decode(MeetingActionItem.self, from: jsonData)
 //   let meetingAttendee = try? JSONDecoder().decode(MeetingAttendee.self, from: jsonData)
 //   let meetingNotes = try? JSONDecoder().decode(MeetingNotes.self, from: jsonData)
+//   let meetingNotesResult = try? JSONDecoder().decode(MeetingNotesResult.self, from: jsonData)
 //   let meetingPrep = try? JSONDecoder().decode(MeetingPrep.self, from: jsonData)
+//   let meetingRecordingEnded = try? JSONDecoder().decode(MeetingRecordingEnded.self, from: jsonData)
+//   let meetingRecordingStatus = try? JSONDecoder().decode(MeetingRecordingStatus.self, from: jsonData)
+//   let meetingsNotesCreateParams = try? JSONDecoder().decode(MeetingsNotesCreateParams.self, from: jsonData)
+//   let meetingsRecordStartParams = try? JSONDecoder().decode(MeetingsRecordStartParams.self, from: jsonData)
+//   let meetingsRecordStatusParams = try? JSONDecoder().decode(MeetingsRecordStatusParams.self, from: jsonData)
+//   let meetingsRecordStopParams = try? JSONDecoder().decode(MeetingsRecordStopParams.self, from: jsonData)
 //   let memoTaskMode = try? JSONDecoder().decode(MemoTaskMode.self, from: jsonData)
 //   let memoryChangeSource = try? JSONDecoder().decode(MemoryChangeSource.self, from: jsonData)
 //   let memoryChunk = try? JSONDecoder().decode(MemoryChunk.self, from: jsonData)
@@ -780,6 +787,7 @@
 //   let receiptsGetResult = try? JSONDecoder().decode(ReceiptsGetResult.self, from: jsonData)
 //   let receiptsListParams = try? JSONDecoder().decode(ReceiptsListParams.self, from: jsonData)
 //   let receiptsListResult = try? JSONDecoder().decode(ReceiptsListResult.self, from: jsonData)
+//   let recordingSpeakers = try? JSONDecoder().decode(RecordingSpeakers.self, from: jsonData)
 //   let relatedThread = try? JSONDecoder().decode(RelatedThread.self, from: jsonData)
 //   let relatedThreadsBlock = try? JSONDecoder().decode(RelatedThreadsBlock.self, from: jsonData)
 //   let reqFrame = try? JSONDecoder().decode(ReqFrame.self, from: jsonData)
@@ -13225,6 +13233,149 @@ public enum Launcher: String, Codable, Sendable {
     case srt = "srt"
 }
 
+// MARK: - MeetingNotesResult
+public struct MeetingNotesResult: Codable, Sendable {
+    public let notes: MeetingNotes?
+    public let postID: String?
+    public let question: String?
+    public let remindersProposalID: String?
+    public let status: MeetingNotesResultStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case notes = "notes"
+        case postID = "postId"
+        case question = "question"
+        case remindersProposalID = "remindersProposalId"
+        case status = "status"
+    }
+
+    public init(notes: MeetingNotes?, postID: String?, question: String?, remindersProposalID: String?, status: MeetingNotesResultStatus) {
+        self.notes = notes
+        self.postID = postID
+        self.question = question
+        self.remindersProposalID = remindersProposalID
+        self.status = status
+    }
+}
+
+public enum MeetingNotesResultStatus: String, Codable, Sendable {
+    case done = "done"
+    case needsPermission = "needs_permission"
+}
+
+// MARK: - MeetingRecordingStatus
+public struct MeetingRecordingStatus: Codable, Sendable {
+    public let available: Bool
+    public let consentLine: String
+    public let last: MeetingRecordingEnded?
+    public let meetingID: String?
+    public let recording: Bool
+    public let startedAt: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case available = "available"
+        case consentLine = "consentLine"
+        case last = "last"
+        case meetingID = "meetingId"
+        case recording = "recording"
+        case startedAt = "startedAt"
+    }
+
+    public init(available: Bool, consentLine: String, last: MeetingRecordingEnded?, meetingID: String?, recording: Bool, startedAt: String?) {
+        self.available = available
+        self.consentLine = consentLine
+        self.last = last
+        self.meetingID = meetingID
+        self.recording = recording
+        self.startedAt = startedAt
+    }
+}
+
+// MARK: - MeetingRecordingEnded
+public struct MeetingRecordingEnded: Codable, Sendable {
+    public let durationMS: Int
+    public let error: String?
+    public let notes: Notes
+    public let postID: String?
+    public let reason: MeetingRecordingEndedReason
+    public let startedAt: String
+
+    public enum CodingKeys: String, CodingKey {
+        case durationMS = "durationMs"
+        case error = "error"
+        case notes = "notes"
+        case postID = "postId"
+        case reason = "reason"
+        case startedAt = "startedAt"
+    }
+
+    public init(durationMS: Int, error: String?, notes: Notes, postID: String?, reason: MeetingRecordingEndedReason, startedAt: String) {
+        self.durationMS = durationMS
+        self.error = error
+        self.notes = notes
+        self.postID = postID
+        self.reason = reason
+        self.startedAt = startedAt
+    }
+}
+
+public enum Notes: String, Codable, Sendable {
+    case done = "done"
+    case failed = "failed"
+    case needsPermission = "needs_permission"
+    case processing = "processing"
+}
+
+public enum MeetingRecordingEndedReason: String, Codable, Sendable {
+    case appQuit = "app_quit"
+    case silence = "silence"
+    case sourceEnded = "source_ended"
+    case stopped = "stopped"
+}
+
+// MARK: - MeetingsNotesCreateParams
+public struct MeetingsNotesCreateParams: Codable, Sendable {
+    public let libraryItemID: String
+    public let speakers: RecordingSpeakers?
+    public let startedAt: String?
+    public let title: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case libraryItemID = "libraryItemId"
+        case speakers = "speakers"
+        case startedAt = "startedAt"
+        case title = "title"
+    }
+
+    public init(libraryItemID: String, speakers: RecordingSpeakers?, startedAt: String?, title: String?) {
+        self.libraryItemID = libraryItemID
+        self.speakers = speakers
+        self.startedAt = startedAt
+        self.title = title
+    }
+}
+
+public enum RecordingSpeakers: String, Codable, Sendable {
+    case others = "others"
+    case ownerOnly = "owner_only"
+}
+
+// MARK: - MeetingsRecordStartParams
+public struct MeetingsRecordStartParams: Codable, Sendable {
+    public let consentConfirmed: Bool
+    public let meetingID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case consentConfirmed = "consentConfirmed"
+        case meetingID = "meetingId"
+    }
+
+    public init(consentConfirmed: Bool, meetingID: String?) {
+        self.consentConfirmed = consentConfirmed
+        self.meetingID = meetingID
+    }
+}
+
 // MARK: - MemoryClaimsConfirmParams
 public struct MemoryClaimsConfirmParams: Codable, Sendable {
     public let claimID: String
@@ -25658,6 +25809,8 @@ public typealias DictationTargetParams = [String: JSONAny]
 public typealias EmptyParams = [String: JSONAny]
 public typealias GrowthUpdatedPayload = [String: JSONAny]
 public typealias MCPStatusParams = [String: JSONAny]
+public typealias MeetingsRecordStatusParams = [String: JSONAny]
+public typealias MeetingsRecordStopParams = [String: JSONAny]
 public typealias MemoryExportParams = [String: JSONAny]
 public typealias MemoryGraphBlocklistListParams = [String: JSONAny]
 public typealias MemoryGraphStatusParams = [String: JSONAny]
