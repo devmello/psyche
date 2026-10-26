@@ -8,6 +8,7 @@ import { context } from "./context.ts";
 import { design } from "./design.ts";
 import { errors } from "./errors.ts";
 import { glass } from "./glass.ts";
+import { links } from "./links.ts";
 import { mailMeetings } from "./mail-meetings.ts";
 import { meetingRecord } from "./meeting-record.ts";
 import { onboarding } from "./onboarding.ts";
@@ -33,6 +34,7 @@ import { workflows } from "./workflows.ts";
  */
 export const en = {
   ...common,
+  ...links,
   ...time,
   ...errors,
   ...chat,

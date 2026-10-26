@@ -5,6 +5,7 @@ import { usePrefillComposer } from "../../chat/prefill.ts";
 import { useStore } from "../../data/provider.tsx";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
+import { useOpenLink } from "../../links/LinkPrompt.tsx";
 import { useSlots } from "../../slots.tsx";
 import { ProposalBatchCard } from "./BatchCard.tsx";
 import { DigestCard, type DigestLoopAction } from "./DigestCard.tsx";
@@ -39,7 +40,8 @@ export function WorkflowPostCard({
   className,
 }: WorkflowPostCardProps): ReactElement {
   const store = useStore();
-  const { openExternal, navigate } = useSlots();
+  const { navigate } = useSlots();
+  const openLink = useOpenLink();
   const prefill = usePrefillComposer();
   const card = post.card;
   const batch = renderBatch ?? ((id: string) => <ProposalBatchCard proposalId={id} />);
@@ -51,7 +53,7 @@ export function WorkflowPostCard({
   const onItem = (item: DigestItem, action: DigestAction) => {
     const link = item.thread.link;
     if (action === "open") {
-      if (link) void openExternal?.(link);
+      if (link) openLink(link);
       return;
     }
     prefill?.(
@@ -100,15 +102,10 @@ export function WorkflowPostCard({
           onRecord={(meetingId) =>
             document.dispatchEvent(new CustomEvent(RECORD_MEETING_EVENT, { detail: { meetingId } }))
           }
-          {...(openExternal
-            ? {
-                onJoin: (url: string) => void openExternal(url),
-                onSource: (s) => {
-                  if (s.kind === "url" || /^(https?|message):/i.test(s.ref))
-                    void openExternal(s.ref);
-                },
-              }
-            : {})}
+          onJoin={(url: string) => openLink(url)}
+          onSource={(s) => {
+            if (s.kind === "url" || /^https?:/i.test(s.ref)) openLink(s.ref);
+          }}
           {...common}
         />
       );

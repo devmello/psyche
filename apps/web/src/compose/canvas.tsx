@@ -3,7 +3,7 @@ import {
   CanvasPane,
   UiSlotsProvider,
   useLibraryItem,
-  useSlots,
+  useOpenLink,
 } from "@psyche/ui";
 import { ArtifactFrame, ViewerHost } from "@psyche/viewers";
 import { mimeFromName } from "@psyche/viewers/core/detect";
@@ -120,7 +120,7 @@ function DiagramBody({ source }: { source: string }): ReactElement {
  * for artifacts from untrusted sources until the owner presses Run.
  */
 function HtmlBody({ props }: { props: ArtifactRenderProps }): ReactElement {
-  const { openExternal } = useSlots();
+  const openLink = useOpenLink();
   return (
     <ArtifactFrame
       html={props.content.content}
@@ -128,7 +128,7 @@ function HtmlBody({ props }: { props: ArtifactRenderProps }): ReactElement {
       version={props.content.version}
       policy={{ allowScripts: true }}
       minHeight={240}
-      onOpenLink={(href) => void openExternal?.(href)}
+      onOpenLink={(href) => openLink(href)}
     />
   );
 }

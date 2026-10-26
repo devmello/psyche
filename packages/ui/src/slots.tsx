@@ -2,6 +2,7 @@ import type { Artifact, LibraryItem, Receipt, Task } from "@psyche/protocol";
 import { createContext, type ReactElement, type ReactNode, useContext, useMemo } from "react";
 import type { PreviewSlot } from "./blocks/ArtifactCard.tsx";
 import type { ArtifactRenderProps } from "./canvas/CanvasPane.tsx";
+import { LinkPromptProvider } from "./links/LinkPrompt.tsx";
 import type { UseComposerVoice } from "./voice/controls.tsx";
 
 /**
@@ -53,6 +54,8 @@ export interface UiSlots {
   writeClipboard?: (text: string) => Promise<void>;
   /** Opens an https page in the system browser (a connector's sign-in; #505). */
   openExternal?: (url: string) => Promise<void>;
+  /** Opens an http(s) page in Psyche's own browser pane (a chat link's "Open in Psyche"). */
+  openInPsyche?: (url: string) => Promise<void> | void;
   /**
    * Puts text in the chat composer and shows the chat (Settings → Connectors "Try it", #640).
    * Hosts whose Settings is a separate window supply it; otherwise the kit opens `/chat` itself.
@@ -78,7 +81,11 @@ export function UiSlotsProvider({
 }): ReactElement {
   const parent = useContext(SlotsContext);
   const merged = useMemo(() => ({ ...parent, ...value }), [parent, value]);
-  return <SlotsContext.Provider value={merged}>{children}</SlotsContext.Provider>;
+  return (
+    <SlotsContext.Provider value={merged}>
+      <LinkPromptProvider>{children}</LinkPromptProvider>
+    </SlotsContext.Provider>
+  );
 }
 
 export function useSlots(): UiSlots {

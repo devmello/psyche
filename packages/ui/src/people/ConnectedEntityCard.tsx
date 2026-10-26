@@ -1,4 +1,5 @@
 import { type ReactElement, useState } from "react";
+import { useOpenLink } from "../links/LinkPrompt.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
 import { EntityCard, type EntityCardActions } from "./EntityCard.tsx";
 import { ForgetEntityDialog, MergeEntityDialog } from "./EntityDialogs.tsx";
@@ -31,7 +32,8 @@ export function ConnectedEntityCard({
   onForget,
   onForgotten,
 }: ConnectedEntityCardProps): ReactElement {
-  const { navigate, openExternal } = useSlots();
+  const { navigate } = useSlots();
+  const openLink = useOpenLink();
   const persona = usePersona();
   const card = useEntityCard(id, now);
   const [dialog, setDialog] = useState<"merge" | "forget" | null>(null);
@@ -58,7 +60,7 @@ export function ConnectedEntityCard({
         onSetStatus={card.setStatus}
         onTogglePin={card.togglePin}
         onOpenEntity={open}
-        {...(openExternal ? { onOpenLink: (link: string) => void openExternal(link) } : {})}
+        onOpenLink={openLink}
         onMerge={onMerge ?? (() => setDialog("merge"))}
         onForget={onForget ?? (() => setDialog("forget"))}
       />

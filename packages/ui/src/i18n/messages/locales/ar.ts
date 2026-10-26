@@ -1,6 +1,7 @@
 import type { Catalogue } from "../index.ts";
 import { canvas } from "./canvas/ar.ts";
 import { charts } from "./charts/ar.ts";
+import { links } from "./links/ar.ts";
 import { mailMeetings } from "./mail-meetings/ar.ts";
 import { overview } from "./overview/ar.ts";
 import { overviewGrowth } from "./overview-growth/ar.ts";
@@ -10,6 +11,8 @@ import { workflows } from "./workflows/ar.ts";
 export const ar: Partial<Catalogue> = {
   // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
   ...mailMeetings,
+  // link menu and the "Open links in" setting
+  ...links,
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
   // the Overview screen (docs/design/agent-overview-2026.md)
