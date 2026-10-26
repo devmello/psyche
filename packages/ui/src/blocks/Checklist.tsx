@@ -7,6 +7,7 @@ import { Badge } from "../components/ui/badge.tsx";
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { duration, ease } from "../motion/index.ts";
+import { Card } from "./card.tsx";
 
 const itemLabel = (status: ChecklistItem["status"]): string => t(`blocks.checklist.item.${status}`);
 
@@ -112,41 +113,46 @@ export function PlanCard({
   onOpen?: () => void;
 }): ReactElement {
   return (
-    <article
-      aria-label={t("blocks.plan.label", { title })}
-      className="my-2 rounded-lg border border-gray-6 bg-gray-2 p-3 psy-enter"
-    >
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold">{t("blocks.plan.title", { title })}</h3>
-        {approvedAt === null ? (
+    <Card
+      label={t("blocks.plan.label", { title })}
+      title={t("blocks.plan.title", { title })}
+      meta={
+        approvedAt === null ? (
           <Badge variant="approval">{t("blocks.plan.notApproved")}</Badge>
         ) : (
           <Badge variant="success">
             <Check aria-hidden="true" /> {t("blocks.plan.approved")}
           </Badge>
-        )}
-      </div>
-      <ol className="flex flex-col gap-1 text-sm">
+        )
+      }
+      actions={
+        onOpen
+          ? [
+              {
+                id: "open",
+                label: t("blocks.plan.open"),
+                kind: "open",
+                primary: true,
+                onSelect: onOpen,
+              },
+            ]
+          : []
+      }
+    >
+      <ol className="mt-1 flex flex-col gap-1 text-body">
         {steps.map((s, i) => (
           <li key={s.id} className="flex items-start gap-2">
-            <span className="w-4 text-end text-xs text-muted-foreground tabular-nums">{i + 1}</span>
+            <span className="w-4 text-end text-callout text-label-secondary tabular-nums">
+              {i + 1}
+            </span>
             {STEP_ICON[s.status]}
-            <span className={cn(s.status === "skipped" && "text-muted-foreground line-through")}>
+            <span className={cn(s.status === "skipped" && "text-label-secondary line-through")}>
               {s.title}
-              {s.note ? <span className="text-muted-foreground"> — {s.note}</span> : null}
+              {s.note ? <span className="text-label-secondary"> — {s.note}</span> : null}
             </span>
           </li>
         ))}
       </ol>
-      {onOpen ? (
-        <button
-          type="button"
-          onClick={onOpen}
-          className="mt-2 text-sm text-accent-11 hover:underline"
-        >
-          {t("blocks.plan.open")}
-        </button>
-      ) : null}
-    </article>
+    </Card>
   );
 }
