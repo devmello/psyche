@@ -248,6 +248,28 @@ agent loop's registry (architecture §4.3 built-ins "`goal.*`, `idea.*`, `feed.*
   - `gmailSource(tools)`: `gmail_search_threads {query: "is:unread after:<epoch>"}`; a thread's message count is part of the event id, so a new message in a known thread is a new event
 - **Events:** each source's cursor is the start of its last poll, so mail that arrives mid-poll is seen again and deduplicated rather than missed. Events carry account, ids, sender and subject; sender and subject are untrusted and travel as data only.
 
+### Inbox digest and follow-ups (§4.1, §4.2, #670 W4)
+
+`DigestService({ db, clock, scheduler, tools, memory, proposals?, feed, notifier?, provider?, model?, modelIsRemote?, loops?, isKnownPerson?, personName?, knownDomains?, timezone? })`:
+- **Collect:** unread mail since the last digest (a cursor per source): Apple Mail `mail_search` plus up to 60 `mail_read` previews, and Gmail `gmail_search_threads` snippets. At most 200 messages. Senders are recorded in `mail_senders`.
+- **Pre-sort, without a model, in this order:**
+  1. the owner's `mail/RULES.md` (allow / always archive / not now until / category)
+  2. lookalike senders of known domains, which become `unverified` and are never needs-you
+  3. automated senders and receipts, which become `notifications`
+  4. bulk senders and unsubscribe text, which become `newsletters`
+  5. first-time senders who are not known people, which become `screen`
+- **Classify the rest** on the utility model, 20 per call, sanitized (hidden text stripped) and fenced. "Needs you" and "soon" must quote a phrase that is really in the mail; otherwise the item is FYI. Unparseable output is FYI.
+- **Batch proposals:** one per bulk group, each needing one card:
+  - newsletters: mark read (`mail_set_flags` or Gmail `remove UNREAD`)
+  - notifications: archive (`mail_move` to archive or Gmail `remove INBOX`)
+  - FYI: mark read
+
+  Nothing is sent or deleted.
+- **Follow-ups:** the graph's due `waiting_on` loops (`loops`), each shown in at most two digests (`digest_loops`).
+- **Output:** one Feed post (`kind: "digest"`, `card: {type: "digest", digest}`) and one `briefing` notification per day (dedupe `mail:digest:<date>`). The notification is in-app only when nothing needs you.
+- **`setSenderRule(from, decision)`:** the card's Allow / Not now / Always archive and category moves, written to `mail/RULES.md` (which the UI may also edit with `memory.write`).
+- **Schedule:** a system cron automation (`30 7 * * 1-5`) runs in-process. In the Gateway it is off until `mail.digest.enabled` is true (§7.5: upgrades start off).
+
 ## Gateway wiring
 
 `composeProactive({ db, clock, scheduler, notifier, tasks, publish, timeZone, logger })` in

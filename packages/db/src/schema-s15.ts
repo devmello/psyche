@@ -22,6 +22,10 @@ export const feedPosts = sqliteTable("feed_posts", {
   createdAt: text("created_at").notNull(),
   // 202610211100_proactive_feed-read
   readAt: text("read_at"),
+  // 202610252100_proactive_mail-digest
+  kind: text("kind"),
+  refs: text("refs"),
+  card: text("card"),
 });
 
 export const ideas = sqliteTable("ideas", {
@@ -97,7 +101,30 @@ export const actionProposals = sqliteTable("action_proposals", {
   updatedAt: text("updated_at").notNull(),
 });
 
-export const s15Schema = { feedPosts, ideas, goals, goalMilestones, goalLinks, actionProposals };
+// 202610252100_proactive_mail-digest
+export const mailSenders = sqliteTable("mail_senders", {
+  address: text("address").primaryKey(),
+  firstSeenAt: text("first_seen_at").notNull(),
+  lastSeenAt: text("last_seen_at").notNull(),
+  messages: integer("messages").notNull(),
+});
+
+export const digestLoops = sqliteTable("digest_loops", {
+  loopId: text("loop_id").primaryKey(),
+  shownCount: integer("shown_count").notNull(),
+  lastShownAt: text("last_shown_at"),
+});
+
+export const s15Schema = {
+  feedPosts,
+  ideas,
+  goals,
+  goalMilestones,
+  goalLinks,
+  actionProposals,
+  mailSenders,
+  digestLoops,
+};
 
 export type FeedPostRow = typeof feedPosts.$inferSelect;
 export type IdeaRow = typeof ideas.$inferSelect;

@@ -10,6 +10,7 @@ import {
   createGoalHandlers,
   createIdeaHandlers,
   createProposalHandlers,
+  DigestService,
   FeedService,
   type FeedSource,
   GoalsService,
@@ -94,6 +95,8 @@ export interface ComposedProactive {
   readonly ideas: IdeasService;
   /** The new-mail poller (mail and meeting workflows §4.7); it reads mail only for listeners. */
   readonly mailWatch: MailWatcher;
+  /** The daily inbox digest (§4.1), off until the owner turns it on (`mail.digest.enabled`). */
+  readonly digest: DigestService | undefined;
   /** Batch proposals, when the composition gave a broker and a registry. */
   readonly proposals: ProposalService | undefined;
   readonly handlers: Record<string, HandlerDef>;
@@ -181,6 +184,25 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     ...(timeZone === undefined ? {} : { timezone: timeZone }),
     onError: (err) => logger?.log("warn", "mail poll failed", { code: PsycheError.from(err).code }),
   });
+  const digest =
+    registry === undefined
+      ? undefined
+      : new DigestService({
+          db: db.sqlite,
+          clock,
+          scheduler,
+          tools: registry,
+          memory,
+          ...(proposals === undefined ? {} : { proposals }),
+          feed: feed.store,
+          notifier,
+          provider,
+          model,
+          ...(timeZone === undefined ? {} : { timezone: timeZone }),
+          onFeedEvent: (e) => publish(e.event, e.payload as never),
+          onError: (err) =>
+            logger?.log("warn", "mail digest step failed", { code: PsycheError.from(err).code }),
+        });
   const proposalHandlers: Record<string, HandlerDef> = {};
   if (proposals !== undefined) {
     // `proposals.approve` hands the caller the answer token of its own surface only (§3.7).
@@ -198,6 +220,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     feed,
     ideas,
     mailWatch,
+    digest,
     proposals,
     handlers: {
       ...mountParamsOnly(createGoalHandlers(goals) as never),
@@ -207,7 +230,13 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     },
     launcher: (inner, pool) =>
       withProactiveJobs(inner, {
-        jobs: [goals.checkinJob(), feed.job(), ideas.job(), mailWatch.job()],
+        jobs: [
+          goals.checkinJob(),
+          feed.job(),
+          ideas.job(),
+          mailWatch.job(),
+          ...(digest === undefined ? [] : [digest.job()]),
+        ],
         heartbeat: createTaskLauncher({ engine: tasks, pool, budget: HEARTBEAT_TASK_BUDGET }),
         onError: (err) =>
           logger?.log("warn", "proactive job failed", { code: PsycheError.from(err).code }),
@@ -218,6 +247,10 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
         await feed.ensureDailyBrief();
         await ideas.ensureSchedules();
         await mailWatch.ensureSchedule();
+        // Upgrades start with the mail workflows off (§7.5); onboarding or Settings turn it on.
+        await digest?.ensureSchedule({
+          enabled: getSetting(db, "mail.digest.enabled")?.value === true,
+        });
       } catch (err) {
         logger?.log("warn", "proactive schedule sync failed", { code: PsycheError.from(err).code });
       }

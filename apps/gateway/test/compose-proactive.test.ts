@@ -69,6 +69,7 @@ describe("composition root: proactive surfaces (S15)", () => {
       "Daily brief",
       "Ideas: delivery window",
       "Ideas: nightly mining",
+      "Inbox digest",
       "Memory dreaming",
     ]);
 
