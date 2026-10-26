@@ -1,5 +1,6 @@
 import { Cloud, Ellipsis, ShieldAlert } from "lucide-react";
 import { type ReactElement, type ReactNode, useId } from "react";
+import { Card } from "../../blocks/card.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import {
   DropdownMenu,
@@ -48,36 +49,35 @@ export function WorkflowCardFrame({
 }: WorkflowCardFrameProps): ReactElement {
   const titleId = useId();
   return (
-    <article
-      {...(title ? { "aria-labelledby": titleId } : label ? { "aria-label": label } : {})}
+    <Card
+      label={label ?? ""}
+      {...(title ? { labelledBy: titleId } : {})}
       data-kind={dataKind}
-      className={cn(
-        "flex min-w-0 flex-col gap-3 rounded-lg bg-surface-raised p-4 shadow-elevation-1",
-        hero ? "p-6 @2xl/column:-mx-3" : "",
-        className,
-      )}
-    >
-      <div className="flex min-w-0 items-start gap-2">
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-label-secondary">
-            <span>{kind}</span>
-            {chips}
-          </p>
-          {title ? (
-            <h2 id={titleId} className="text-title-2 text-label-primary">
-              {title}
-            </h2>
-          ) : null}
+      className={cn("my-0 flex min-w-0 flex-col gap-3", hero ? "p-6 @2xl/column:-mx-3" : "", className)}
+      header={
+        <div className="flex min-w-0 items-start gap-2">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-label-secondary">
+              <span>{kind}</span>
+              {chips}
+            </p>
+            {title ? (
+              <h2 id={titleId} className="text-title-2 text-label-primary">
+                {title}
+              </h2>
+            ) : null}
+          </div>
+          {trailing}
         </div>
-        {trailing}
-      </div>
+      }
+    >
       {children}
       {footer ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-callout text-label-secondary">
           {footer}
         </div>
       ) : null}
-    </article>
+    </Card>
   );
 }
 
