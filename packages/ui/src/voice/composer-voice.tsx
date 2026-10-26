@@ -46,6 +46,7 @@ export function VoiceComposer({
         onTalk={conversation.talk}
         onToggleMute={conversation.toggleMute}
         onStopSpeaking={conversation.stopSpeaking}
+        onReview={conversation.review}
         onEnd={conversation.end}
         levels={() => conversation.terminal.levels()}
       />

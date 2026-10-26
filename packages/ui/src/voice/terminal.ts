@@ -20,6 +20,11 @@ export interface VoiceTerminal {
   mute(muted: boolean): void;
   /** Stops the reply at once (a confirmed interrupt). */
   stopSpeaking(): void;
+  /**
+   * Review before sending (§4.10): sends the held transcript (`text` when the owner edited it)
+   * or discards it (`voice.conversation.review`).
+   */
+  review(utteranceId: string, action: "send" | "discard", text?: string): void;
   /** Ends the conversation; the microphone closes. */
   end(): void;
   /** Input and output RMS now, 0–1. The lantern reads it at 30 Hz. */

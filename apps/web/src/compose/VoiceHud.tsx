@@ -162,6 +162,7 @@ function HudBody({
       onTalk={conversation.talk}
       onToggleMute={conversation.toggleMute}
       onStopSpeaking={conversation.stopSpeaking}
+      onReview={conversation.review}
       onEnd={() => {
         conversation.end();
         bridge?.done();

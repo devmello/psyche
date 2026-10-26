@@ -21,6 +21,8 @@ export interface VoiceConversation {
   talk: (action: "begin" | "end") => void;
   toggleMute: () => void;
   stopSpeaking: () => void;
+  /** Review before sending: send the held words (as edited) or discard them. */
+  review: (action: "send" | "discard", text?: string) => void;
   end: () => void;
 }
 
@@ -51,6 +53,13 @@ export function useVoiceConversation(threadId: string | null): VoiceConversation
     dispatch({ type: "muted", muted: next });
   }, [terminal, session.muted, dispatch]);
   const stopSpeaking = useCallback(() => terminal?.stopSpeaking(), [terminal]);
+  const draftId = session.draft?.utteranceId ?? null;
+  const review = useCallback(
+    (action: "send" | "discard", text?: string) => {
+      if (terminal && draftId) terminal.review(draftId, action, text);
+    },
+    [terminal, draftId],
+  );
   const end = useCallback(() => {
     terminal?.end();
     dispatch({ type: "reset" });
@@ -66,6 +75,7 @@ export function useVoiceConversation(threadId: string | null): VoiceConversation
     talk,
     toggleMute,
     stopSpeaking,
+    review,
     end,
   };
 }

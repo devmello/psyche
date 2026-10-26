@@ -178,6 +178,18 @@ export class VoiceConversationTerminal implements VoiceTerminal {
     if (this.conversationId && this.player?.playing) this.interrupt("confirmed");
   }
 
+  review(utteranceId: string, action: "send" | "discard", text?: string): void {
+    if (!this.conversationId) return;
+    void this.o
+      .call("voice.conversation.review", {
+        conversationId: this.conversationId,
+        utteranceId,
+        action,
+        ...(text === undefined ? {} : { text }),
+      })
+      .catch(() => undefined);
+  }
+
   end(): void {
     const id = this.conversationId;
     this.teardown();

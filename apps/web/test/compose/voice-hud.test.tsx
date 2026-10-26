@@ -44,6 +44,7 @@ function setup(mode = "push") {
     turn: (a) => calls.push(`turn:${a}`),
     mute: (m) => calls.push(`mute:${m}`),
     stopSpeaking: () => calls.push("stopSpeaking"),
+    review: (_id, a) => calls.push(`review:${a}`),
     end: () => calls.push("end"),
     levels: () => ({ input: 0, output: 0 }),
   };
