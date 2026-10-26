@@ -18,6 +18,7 @@ import { getDevice, getSetting, getThread, openDb, type PsycheDb, setSetting } f
 import { fileTools } from "@psyche/files";
 import {
   brokerApprovalCheck,
+  consolidateLessons,
   createMemoryHandlers,
   createMemoryStore,
   type SqliteMemoryStore,
@@ -137,6 +138,7 @@ import {
   composeTeaching,
   TEACHING_ASK_RULES_KEY,
   teachingAskRules,
+  teachingSettings,
 } from "./teaching.ts";
 import { SqliteThreadStateStore } from "./thread-state.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
@@ -952,7 +954,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   );
   for (const tool of webTools.tools) registry.register(tool);
   // The dreaming automation runs memory dreaming and the people graph pass in-process.
-  launcher = people.launcher(proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool));
+  // Dreaming, then the lesson pass (teaching loop §6, #681), then the people graph pass.
+  launcher = people.launcher(
+    proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool),
+    [
+      async () => {
+        if (!teachingSettings(db).enabled) return undefined;
+        const r = await consolidateLessons(teaching.service, memory, { clock });
+        return `lessons: ${r.merged} merged, ${r.promoted} promoted, ${r.proposed} proposed, ${r.flagged} flagged`;
+      },
+    ],
+  );
   scheduler.subscribe((e) => publish(e.event, e.payload as never));
 
   // C10: Claude Code behind harness.delegate, only once the owner configured harness.claudeCode.
