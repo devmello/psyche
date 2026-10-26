@@ -450,7 +450,13 @@ describe("the voice conversation key (V-G, docs/voice/voice-mode-2026.md §4.1)"
     const values: Record<string, unknown> = {};
     const gw = fakeGateway({ "settings.get": () => ({ settings: values }) });
     const h = harness({ gateway: gw });
-    const svc = new DictationService({ dictation: h.d, call: gw.call, onVoiceKey: () => {} });
+    const enabled: boolean[] = [];
+    const svc = new DictationService({
+      dictation: h.d,
+      call: gw.call,
+      onVoiceKey: () => {},
+      onVoiceEnabled: (on) => enabled.push(on),
+    });
     await svc.load();
     expect(watchParams(gw)).toEqual({ key: "fn" });
 
@@ -468,6 +474,8 @@ describe("the voice conversation key (V-G, docs/voice/voice-mode-2026.md §4.1)"
     await settled();
     await settled();
     expect(watchParams(gw)).toEqual({ key: null, keys: [{ key: "rightOption", role: "voice" }] });
+    // The voice HUD follows: off, off (the key collided with dictation's), then on.
+    expect(enabled).toEqual([false, false, true]);
   });
 
   it("parses the voice key with safe defaults", () => {
