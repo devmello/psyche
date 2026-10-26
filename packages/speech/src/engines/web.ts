@@ -44,7 +44,7 @@ export type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
 export const WEB_SPEECH_ENTRY: EngineEntry = {
   id: "web-speech",
   location: "client",
-  supports: { transcribe: false, stream: true, synthesize: false },
+  supports: { transcribe: false, stream: true },
   available: async () => true,
 };
 
