@@ -9,6 +9,7 @@ import {
   Message,
   ModelRoles,
   methodSpec,
+  NOTIFICATION_LISTEN_ACTION,
   PickableModelRole,
   PsycheError,
   requiresIdempotencyKey,
@@ -175,6 +176,22 @@ describe("voice.conversation.* (voice-mode-2026 §7)", () => {
       expect(codeOf(() => validateParams("voice.conversation.review", bad))).toBe("invalid_params");
     }
     expect(validateResult("voice.conversation.review", {})).toEqual({});
+  });
+
+  it("starts a conversation that first speaks a notification (Listen, spec §4.9)", () => {
+    expect(NOTIFICATION_LISTEN_ACTION).toBe("listen");
+    expect(
+      validateParams("voice.conversation.start", {
+        mode: "push",
+        format: PCM,
+        listen: { notificationId: "ntf_1" },
+      }),
+    ).toBeTruthy();
+    expect(
+      codeOf(() =>
+        validateParams("voice.conversation.start", { mode: "push", format: PCM, listen: {} }),
+      ),
+    ).toBe("invalid_params");
   });
 
   it("names the settings keys under voice.conversation", () => {

@@ -18,6 +18,14 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (S17: Listen on the spoken brief and check-ins, V-G #691)
+
+For S17 (`packages/speech`, the Gateway's brief and check-in notifications) and the voice UI. Spec docs/voice/voice-mode-2026.md §4.9.
+
+- **`voice.conversation.start` gains optional `listen: VoiceListenRequest {notificationId}`**: the conversation first speaks that notification (the daily brief or a check-in), then hands over to the owner's turn.
+- **`NOTIFICATION_LISTEN_ACTION` (`"listen"`)**: the action id the brief and check-in notifications carry; clients start a conversation with `listen` for it instead of `notifications.resolve`. TypeScript constant only.
+- **Swift.** Additions only, plus `VoiceConversationStartParams`'s initializer gaining `listen`; nothing in the helper builds it.
+
 ### v1 additive — 2026-10-26 (S17: review before sending by voice, V-G #691 / V-U #693)
 
 For S17 (`packages/speech` `VoiceConversation`) and the voice UI. Spec docs/voice/voice-mode-2026.md §4.10 ("Review before sending", setting `voice.conversation.reviewBeforeSend`, off by default).

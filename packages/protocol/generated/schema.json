@@ -33930,6 +33930,9 @@
           "description": "<engine>:<voice>",
           "maxLength": 128,
           "type": "string"
+        },
+        "listen": {
+          "$ref": "#/$defs/VoiceListenRequest"
         }
       },
       "required": [
@@ -34106,6 +34109,21 @@
         "confirmed"
       ],
       "type": "string"
+    },
+    "VoiceListenRequest": {
+      "description": "Listen (spec §4.9): speak this daily-brief or check-in notification first, then hand over to the owner's turn",
+      "properties": {
+        "notificationId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "notificationId"
+      ],
+      "type": "object"
     },
     "VoiceMemoContent": {
       "properties": {

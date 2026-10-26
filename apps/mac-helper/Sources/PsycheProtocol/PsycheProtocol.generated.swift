@@ -1128,6 +1128,7 @@
 //   let voiceEndReason = try? JSONDecoder().decode(VoiceEndReason.self, from: jsonData)
 //   let voiceEndedPayload = try? JSONDecoder().decode(VoiceEndedPayload.self, from: jsonData)
 //   let voiceInterruptStage = try? JSONDecoder().decode(VoiceInterruptStage.self, from: jsonData)
+//   let voiceListenRequest = try? JSONDecoder().decode(VoiceListenRequest.self, from: jsonData)
 //   let voiceMemoContent = try? JSONDecoder().decode(VoiceMemoContent.self, from: jsonData)
 //   let voiceMemoSaveParams = try? JSONDecoder().decode(VoiceMemoSaveParams.self, from: jsonData)
 //   let voiceMemoSaveResult = try? JSONDecoder().decode(VoiceMemoSaveResult.self, from: jsonData)
@@ -25250,6 +25251,7 @@ public struct VoiceConversationStartParams: Codable, Sendable {
     public let format: AudioFormat
     /// BCP 47
     public let language: String?
+    public let listen: VoiceListenRequest?
     public let mode: VoiceConversationMode
     public let threadID: String?
     /// <engine>:<voice>
@@ -25258,17 +25260,34 @@ public struct VoiceConversationStartParams: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case format = "format"
         case language = "language"
+        case listen = "listen"
         case mode = "mode"
         case threadID = "threadId"
         case voice = "voice"
     }
 
-    public init(format: AudioFormat, language: String?, mode: VoiceConversationMode, threadID: String?, voice: String?) {
+    public init(format: AudioFormat, language: String?, listen: VoiceListenRequest?, mode: VoiceConversationMode, threadID: String?, voice: String?) {
         self.format = format
         self.language = language
+        self.listen = listen
         self.mode = mode
         self.threadID = threadID
         self.voice = voice
+    }
+}
+
+/// Listen (spec §4.9): speak this daily-brief or check-in notification first, then hand over
+/// to the owner's turn
+// MARK: - VoiceListenRequest
+public struct VoiceListenRequest: Codable, Sendable {
+    public let notificationID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case notificationID = "notificationId"
+    }
+
+    public init(notificationID: String) {
+        self.notificationID = notificationID
     }
 }
 
