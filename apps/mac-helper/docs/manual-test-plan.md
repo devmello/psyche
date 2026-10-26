@@ -157,6 +157,7 @@ See the speech section of the README for engine selection. On macOS 26+:
 | 10.1 | `speech.transcribe_stream {source: microphone}` and speak | Microphone prompt once; first partial in < 500 ms (Q1 done-when); finals replace partials |
 | 10.2 | With `vocabulary: ["Psyche", "<a contact name>"]` | DictationTranscriber; the names come out right |
 | 10.3 | `source: push` with 16 kHz PCM chunks via `speech.audio_push`, then `speech.stop` | Same transcript as the file |
+| 10.3a | `source: push, preset: short`, then `preset: long`, five spoken questions each (your own voice, pushed from a recording you made for the test), then `speech.status` | `engine: dictationTranscriber` for short without a vocabulary; `preset` and `finalizeMs` in each result; `timings.firstPartialMs` and `finalizeMs` with `long` and `short` medians |
 | 10.4 | Two microphone streams | Second → `conflict/microphone_busy` |
 | 10.5 | `speech.synthesize {text}` | PCM chunks play back cleanly; `nonCommercial: false` |
 | 10.6 | `personalVoice: true` with and without Personal Voice authorization | Uses it and flags `nonCommercial: true` / falls back to a system voice |

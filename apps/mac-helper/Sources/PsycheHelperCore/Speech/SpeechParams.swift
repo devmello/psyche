@@ -72,6 +72,14 @@ public enum SpeechValidation {
 
 // MARK: - speech.transcribe_stream
 
+/// `long`: dictation and memos (the default). `short`: conversation turns of about a minute or
+/// less: DictationTranscriber with the short-form hint and frequent finalization, as Apple's
+/// `progressiveShortDictation` preset (voice mode V-H H3).
+public enum SpeechPreset: String, Codable, Sendable, CaseIterable {
+    case long
+    case short
+}
+
 /// Raw `speech.transcribe_stream` params; `validated()` applies defaults and limits.
 public struct TranscribeStreamParams: Decodable, Sendable, Equatable {
     public var source: SpeechSource
@@ -80,17 +88,20 @@ public struct TranscribeStreamParams: Decodable, Sendable, Equatable {
     public var format: PCMAudioFormat?
     public var maxDurationMs: Int?
     public var volatile: Bool
+    public var preset: SpeechPreset
 
-    public init(source: SpeechSource = .microphone, locale: String? = nil, vocabulary: [String]? = nil, format: PCMAudioFormat? = nil, maxDurationMs: Int? = nil, volatile: Bool = true) {
+    public init(source: SpeechSource = .microphone, locale: String? = nil, vocabulary: [String]? = nil, format: PCMAudioFormat? = nil, maxDurationMs: Int? = nil,
+                volatile: Bool = true, preset: SpeechPreset = .long) {
         self.source = source
         self.locale = locale
         self.vocabulary = vocabulary
         self.format = format
         self.maxDurationMs = maxDurationMs
         self.volatile = volatile
+        self.preset = preset
     }
 
-    enum CodingKeys: String, CodingKey { case source, locale, vocabulary, format, maxDurationMs, volatile }
+    enum CodingKeys: String, CodingKey { case source, locale, vocabulary, format, maxDurationMs, volatile, preset }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -100,6 +111,7 @@ public struct TranscribeStreamParams: Decodable, Sendable, Equatable {
         format = try c.decodeIfPresent(PCMAudioFormat.self, forKey: .format)
         maxDurationMs = try c.decodeIfPresent(Int.self, forKey: .maxDurationMs)
         volatile = try c.decodeIfPresent(Bool.self, forKey: .volatile) ?? true
+        preset = try c.decodeIfPresent(SpeechPreset.self, forKey: .preset) ?? .long
     }
 
     public func validated() throws -> TranscribeRequest {
@@ -121,7 +133,7 @@ public struct TranscribeStreamParams: Decodable, Sendable, Equatable {
             }
             try format.validate()
         }
-        return TranscribeRequest(source: source, locale: locale, vocabulary: vocabulary, format: format, maxDurationMs: maxDuration, volatile: volatile)
+        return TranscribeRequest(source: source, locale: locale, vocabulary: vocabulary, format: format, maxDurationMs: maxDuration, volatile: volatile, preset: preset)
     }
 }
 
@@ -133,14 +145,16 @@ public struct TranscribeRequest: Sendable, Equatable {
     public var format: PCMAudioFormat?
     public var maxDurationMs: Int
     public var volatile: Bool
+    public var preset: SpeechPreset
 
-    public init(source: SpeechSource, locale: String?, vocabulary: [String], format: PCMAudioFormat?, maxDurationMs: Int, volatile: Bool) {
+    public init(source: SpeechSource, locale: String?, vocabulary: [String], format: PCMAudioFormat?, maxDurationMs: Int, volatile: Bool, preset: SpeechPreset = .long) {
         self.source = source
         self.locale = locale
         self.vocabulary = vocabulary
         self.format = format
         self.maxDurationMs = maxDurationMs
         self.volatile = volatile
+        self.preset = preset
     }
 }
 

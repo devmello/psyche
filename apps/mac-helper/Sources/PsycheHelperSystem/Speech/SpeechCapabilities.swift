@@ -19,7 +19,8 @@ public enum SpeechCapabilities {
         fileBackend: (any LongFormAudioBackend)? = nil,
         fileRoots: (@Sendable () -> FinderRoots)? = nil,
         synthesis: any SynthesisBackend = LiveSynthesisBackend(),
-        timings: SpeechTimings = SpeechTimings()
+        timings: SpeechTimings = SpeechTimings(),
+        transcriptionEngine: (@Sendable (TranscribeRequest) async throws -> any TranscriptionEngine)? = nil
     ) -> [any CapabilityHandler] {
         let preflight = preflight ?? SpeechPermissionPreflight()
         let fileBackend = fileBackend ?? LiveLongFormBackend(preflight: preflight)
@@ -35,7 +36,7 @@ public enum SpeechCapabilities {
         return [
             Capability(CapabilitySpec(
                 name: "speech.transcribe_stream",
-                description: "Transcribe speech on device from the microphone or pushed PCM, streaming speech.partial / speech.final events. Engine: SpeechAnalyzer (macOS 26+; DictationTranscriber with a vocabulary) or on-device SFSpeechRecognizer. The stream id is this invocation's id; end it with speech.stop.",
+                description: "Transcribe speech on device from the microphone or pushed PCM, streaming speech.partial / speech.final events. Engine: SpeechAnalyzer (macOS 26+; DictationTranscriber with a vocabulary or preset short) or on-device SFSpeechRecognizer. The stream id is this invocation's id; end it with speech.stop.",
                 sideEffect: .read,
                 inputSchema: Schema.object([
                     "source": Schema.string("Audio source (default microphone)", enum: SpeechSource.allCases.map(\.rawValue)),
@@ -47,12 +48,13 @@ public enum SpeechCapabilities {
                     "maxDurationMs": Schema.integer(
                         "Audio cap (default \(SpeechLimits.defaultMaxDurationMs))", min: SpeechLimits.minDurationMs, max: SpeechLimits.maxDurationMs),
                     "volatile": Schema.boolean("Stream volatile partial results (default true)"),
+                    "preset": Schema.string("long (default: dictation, memos) or short (conversation turns: DictationTranscriber, short-form hint, frequent finalization)", enum: SpeechPreset.allCases.map(\.rawValue)),
                 ]),
                 streaming: true,
                 // Checked per call: microphone for source "microphone", speechRecognition for the SFSpeech engine.
                 permissions: []
             )) { ctx in
-                try await SpeechTranscription.run(ctx, registry: registry, preflight: preflight, log: log)
+                try await SpeechTranscription.run(ctx, registry: registry, preflight: preflight, log: log, timings: timings, engineFactory: transcriptionEngine)
             },
 
             Capability(CapabilitySpec(
@@ -174,6 +176,7 @@ public enum SpeechCapabilities {
         let probe = await SpeechTranscription.probe(requested)
         let defaultEngine = try? SpeechEngineSelector.select(os: os, vocabulary: [], availability: probe.availability)
         let vocabularyEngine = try? SpeechEngineSelector.select(os: os, vocabulary: ["x"], availability: probe.availability)
+        let shortEngine = try? SpeechEngineSelector.select(os: os, vocabulary: [], availability: probe.availability, preset: .short)
         var o: [String: JSONValue] = [
             "os": .string("\(os.majorVersion).\(os.minorVersion).\(os.patchVersion)"),
             "gates": ["speechAnalyzer": .bool(SpeechEngineSelector.analyzerGateOpen(os)), "minimumMajorVersion": .int(SpeechEngineSelector.analyzerMinimumMajorVersion)],
@@ -185,6 +188,7 @@ public enum SpeechCapabilities {
             ],
             "defaultEngine": defaultEngine.map { .string($0.rawValue) } ?? .null,
             "vocabularyEngine": vocabularyEngine.map { .string($0.rawValue) } ?? .null,
+            "shortPresetEngine": shortEngine.map { .string($0.rawValue) } ?? .null,
             "permissions": [
                 "microphone": .string(SpeechPermissionPreflight.microphoneStatus()),
                 "speechRecognition": .string(SpeechPermissionPreflight.speechRecognitionStatus()),
