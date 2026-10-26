@@ -6,6 +6,7 @@ import { cn } from "../lib/utils.ts";
 import { ScreenToolbar } from "../screens/feed/ScreenToolbar.tsx";
 import { SegmentedRadio } from "../screens/settings/SegmentedRadio.tsx";
 import { usePersona } from "../slots.tsx";
+import { BuiltForYou, Specialists } from "./BuiltSpecialists.tsx";
 import { isNewUser, type OverviewData, useOverviewData } from "./data.ts";
 import { GrowthAndPeople } from "./GrowthAndPeople.tsx";
 import {
@@ -87,7 +88,11 @@ export function OverviewScreen({
         {visible.map((id) =>
           id === "growth" ? (
             <GrowthAndPeople key={id} period={period} now={at} />
-          ) : id === "people" ? null : (
+          ) : id === "people" ? null : id === "built" ? (
+            <BuiltForYou key={id} period={period} now={at} />
+          ) : id === "specialists" ? (
+            <Specialists key={id} period={period} now={at} />
+          ) : (
             <OverviewSection key={id} id={id} />
           ),
         )}

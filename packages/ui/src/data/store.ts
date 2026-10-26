@@ -307,7 +307,7 @@ export class GatewayStore {
     if (this.insightsTimer !== undefined) return;
     this.insightsTimer = setTimeout(() => {
       this.insightsTimer = undefined;
-      this.update((s) => invalidate(s, ["insights."]));
+      this.update((s) => invalidate(s, ["insights.", "artifacts.list"]));
     }, INSIGHTS_DEBOUNCE_MS);
   }
 
