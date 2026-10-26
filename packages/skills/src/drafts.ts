@@ -8,7 +8,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { inferApprovalKind } from "@psyche/permissions";
 import {
   PsycheError,
@@ -22,6 +22,7 @@ import { stringify } from "yaml";
 import { NAME_PATTERN, parseSkill } from "./frontmatter.ts";
 import type { FsSkillLoader, SkillProposal } from "./loader.ts";
 import { manifestOf } from "./manifest.ts";
+import { readSkillDir, textOf } from "./tree.ts";
 
 /**
  * Agent-proposed skills (feature T3; security §11 "Agent-proposed skills stay drafts until
@@ -53,6 +54,33 @@ export interface RoutineInput {
   /** Tool names in order (consecutive repeats collapsed). */
   tools: string[];
   runs: RoutineRun[];
+}
+
+/** One lesson a skill update folds in (its id and the line's text without the tag). */
+export interface FoldedLesson {
+  id: string;
+  text: string;
+}
+
+/** Lessons a skill needs before the miner proposes folding them into its instructions (§6). */
+export const SKILL_UPDATE_MIN_LESSONS = 3;
+
+export function updateSignature(skill: string, lessonIds: readonly string[]): `sha256:${string}` {
+  return `sha256:${createHash("sha256")
+    .update(`psyche.skill-update.v1|${skill}|${[...lessonIds].sort().join(",")}`)
+    .digest("hex")}`;
+}
+
+/** `SKILL.md` with the lessons folded in as a section of their own (frontmatter unchanged). */
+export function foldLessons(skillMd: string, lessons: readonly FoldedLesson[]): string {
+  const section = [
+    "## What you taught me",
+    "",
+    ...lessons.map((l) => `- ${l.text.replace(/\s+/g, " ").trim()}`),
+  ].join("\n");
+  const at = skillMd.search(/^## What you taught me\s*$/m);
+  const base = at < 0 ? skillMd.trimEnd() : skillMd.slice(0, at).trimEnd();
+  return `${base}\n\n${section}\n`;
 }
 
 export interface SkillDraftsOptions {
@@ -243,6 +271,71 @@ export class SkillDrafts {
     return structuredClone(generated);
   }
 
+  /**
+   * Drafts an update of an installed skill that folds in `lessons` (teaching loop §6), or returns
+   * `undefined` when there are too few, the same lessons were already drafted or dismissed, the
+   * open-draft limit is reached, or the skill is the owner's own workspace skill (edited in
+   * place, never replaced by an install). Same path as any draft: replay, trust card, approval.
+   */
+  proposeUpdate(skillName: string, lessons: readonly FoldedLesson[]): SkillDraft | undefined {
+    if (lessons.length < SKILL_UPDATE_MIN_LESSONS) return undefined;
+    const base = this.#o.loader.summarySync(skillName);
+    if (base === undefined || base.source === "workspace" || base.hash === "") return undefined;
+    const store = this.#read();
+    this.#expire(store);
+    const signature = updateSignature(
+      skillName,
+      lessons.map((l) => l.id),
+    );
+    if (store.dismissed.includes(signature)) return undefined;
+    if (store.drafts.some((d) => d.signature === signature && d.status !== "expired"))
+      return undefined;
+    const maxOpen = this.#o.limits?.maxOpen ?? 5;
+    if (store.drafts.filter((d) => d.status === "open").length >= maxOpen) return undefined;
+    const dir = base.path.endsWith("SKILL.md") ? dirname(base.path) : base.path;
+    const tree = readSkillDir(dir);
+    const skillMd = textOf(tree.get("SKILL.md") ?? { bytes: new Uint8Array(), executable: false });
+    if (skillMd === undefined) return undefined;
+    const text = foldLessons(skillMd, lessons);
+    const parsed = parseSkill(text, skillName);
+    if (!parsed.ok) return undefined;
+    const manifest = manifestOf(parsed.skill.meta);
+    if (!manifest.ok) return undefined;
+    const at = iso(this.#now());
+    const draft: SkillDraft = {
+      id: this.#newId(),
+      threadId: "teaching",
+      name: skillName,
+      description: parsed.skill.meta.description,
+      text,
+      manifest: manifest.manifest as SkillDraft["manifest"],
+      steps: [],
+      occurrences: Math.max(2, lessons.length),
+      signature,
+      redactions: 0,
+      tainted: false,
+      edited: false,
+      status: "open",
+      createdAt: at,
+      updatedAt: at,
+      update: {
+        skill: skillName,
+        baseHash: base.hash,
+        lessonIds: lessons.map((l) => l.id).slice(0, 50),
+        acceptance: lessons
+          .slice(0, 50)
+          .map((l) => `- [ ] ${l.text.replace(/\s+/g, " ").trim()} (lesson:${l.id})`.slice(0, 400)),
+      },
+    };
+    store.drafts.push(draft);
+    this.#write(store);
+    this.#emit(draft, "skill.draft.proposed", {
+      update: skillName,
+      lessons: lessons.length,
+    });
+    return structuredClone(draft);
+  }
+
   /** Owner text, redacted and generalized, one line, capped; with how many values it lost. */
   scrub(text: string): { text: string; redactions: number } {
     let s = this.#o.redact === undefined ? text : this.#o.redact(text);
@@ -395,6 +488,7 @@ export class SkillDrafts {
 
   /** The routine replayed against today's tools and the draft's own recorded needs. */
   replay(draft: SkillDraft): SkillDraftReplay {
+    if (draft.update !== undefined) return this.#replayUpdate(draft);
     const problems: string[] = [];
     const recordedTools = new Set(draft.steps.map((s) => s.tool));
     const recordedKinds = new Set(
@@ -422,6 +516,46 @@ export class SkillDrafts {
   }
 
   /**
+   * An update replays against the skill it was drafted from: that skill is unchanged since, the
+   * draft asks for no tool or approval kind the skill did not already have, and every tool it
+   * names still exists.
+   */
+  #replayUpdate(draft: SkillDraft): SkillDraftReplay {
+    const problems: string[] = [];
+    const update = draft.update as NonNullable<SkillDraft["update"]>;
+    const base = this.#o.loader.summarySync(update.skill);
+    if (base === undefined) problems.push(`the skill ${update.skill} is no longer installed`);
+    else if (base.hash !== update.baseHash)
+      problems.push(`${update.skill} changed since this update was drafted`);
+    const baseManifest = base === undefined ? undefined : this.#baseManifest(base.path);
+    if (baseManifest !== undefined) {
+      const tools = draft.manifest.tools.filter((t) => !baseManifest.tools.includes(t));
+      if (tools.length > 0)
+        problems.push(`declares tools the skill did not have: ${tools.join(", ")}`);
+      const kinds = draft.manifest.permissions.filter((p) => !baseManifest.permissions.includes(p));
+      if (kinds.length > 0)
+        problems.push(`asks for approval kinds the skill did not have: ${kinds.join(", ")}`);
+    }
+    const known = this.#o.knownTools?.();
+    if (known !== undefined) {
+      const gone = draft.manifest.tools.filter((t) => !known.includes(t));
+      if (gone.length > 0) problems.push(`tools no longer available: ${gone.join(", ")}`);
+    }
+    return { ok: problems.length === 0, problems, checkedAt: iso(this.#now()) };
+  }
+
+  #baseManifest(path: string): SkillDraft["manifest"] | undefined {
+    const dir = path.endsWith("SKILL.md") ? dirname(path) : path;
+    const tree = readSkillDir(dir);
+    const text = textOf(tree.get("SKILL.md") ?? { bytes: new Uint8Array(), executable: false });
+    if (text === undefined) return undefined;
+    const parsed = parseSkill(text);
+    if (!parsed.ok) return undefined;
+    const m = manifestOf(parsed.skill.meta);
+    return m.ok ? (m.manifest as SkillDraft["manifest"]) : undefined;
+  }
+
+  /**
    * Replays the draft, then stages it from quarantine through the T2 install path. The caller
    * opens the `skill_install` card for the returned proposal and passes its id to `accepted`.
    */
@@ -445,9 +579,42 @@ export class SkillDrafts {
     const folder = join(this.#o.dir, d.id, d.name);
     rmSync(join(this.#o.dir, d.id), { recursive: true, force: true });
     mkdirSync(folder, { recursive: true, mode: 0o700 });
+    if (d.update !== undefined) this.#stageUpdate(d, folder);
     writeFileSync(join(folder, "SKILL.md"), d.text, { mode: 0o600 });
     const proposal = await this.#o.loader.proposeInstall({ kind: "path", path: folder });
     return { draft: structuredClone(d), proposal };
+  }
+
+  /**
+   * An update installs the whole skill folder (scripts and references included, never its
+   * LESSONS.md) with the folded SKILL.md and one `acceptance.md` line per folded lesson.
+   */
+  #stageUpdate(d: SkillDraft, folder: string): void {
+    const update = d.update as NonNullable<SkillDraft["update"]>;
+    const base = this.#o.loader.summarySync(update.skill);
+    if (base === undefined) return;
+    const tree = readSkillDir(base.path.endsWith("SKILL.md") ? dirname(base.path) : base.path);
+    for (const [rel, file] of tree) {
+      if (rel === "SKILL.md") continue;
+      const target = join(folder, rel);
+      mkdirSync(dirname(target), { recursive: true, mode: 0o700 });
+      writeFileSync(target, file.bytes, { mode: file.executable ? 0o700 : 0o600 });
+    }
+    const acceptance = textOf(
+      tree.get("acceptance.md") ?? { bytes: new Uint8Array(), executable: false },
+    );
+    const lines = update.acceptance.filter((l) => !(acceptance ?? "").includes(l));
+    if (lines.length > 0) {
+      const head =
+        acceptance === undefined || acceptance.trim() === ""
+          ? `# Acceptance: ${d.name}\n`
+          : acceptance.trimEnd();
+      writeFileSync(
+        join(folder, "acceptance.md"),
+        `${head}\n\n## From your lessons\n\n${lines.join("\n")}\n`,
+        { mode: 0o600 },
+      );
+    }
   }
 
   /** Records the approval card opened for an accepted draft. */

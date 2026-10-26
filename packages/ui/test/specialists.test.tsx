@@ -16,7 +16,7 @@ import {
 } from "../src/fixtures/index.ts";
 import { FeedScreen } from "../src/screens/feed/FeedScreen.tsx";
 import { InboxScreen } from "../src/screens/inbox/InboxScreen.tsx";
-import { headline, jobLine, preflightHints, preflightLabel } from "../src/specialists/model.ts";
+import { headline, jobLine, preflightLabel } from "../src/specialists/model.ts";
 import { usageLine } from "../src/specialists/ResultCard.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
@@ -68,18 +68,17 @@ describe("specialist words (specialists §6.2)", () => {
     );
   });
 
-  it("builds the pre-flight from the role: plan first, and no new-site asks in auto", () => {
-    const shopper = roles.find((r) => r.role === "shopper");
-    if (shopper === undefined) throw new Error("shopper");
-    expect(preflightHints(shopper, "balanced").map(preflightLabel)).toEqual([
-      "Will ask before opening new sites",
-      "Will ask before submitting forms",
+  it("words the runtime's pre-flight in the owner's language, with its estimate", () => {
+    expect(preflightLabel({ kind: "plan_exit", label: "x" })).toBe(
       "Will show you a plan to approve first",
-    ]);
-    expect(preflightHints(shopper, "auto").map((h) => h.kind)).not.toContain("new_origin");
+    );
     expect(preflightLabel({ kind: "new_origin", label: "x", estimate: 5 })).toBe(
       "Will ask before opening new sites (about 5)",
     );
+    // A kind the catalogue doesn't know keeps the runtime's words.
+    expect(
+      preflightLabel({ kind: "computer_action", label: "Will ask before using your Mac" }),
+    ).toBe("Will ask before using your Mac");
   });
 });
 
@@ -192,7 +191,8 @@ describe("the parent thread's line (specialists §6.1)", () => {
     expect(working.textContent).toContain(
       "Started the researcher · Compare the three pension funds",
     );
-    expect(working.textContent).toContain("Will ask before opening new sites");
+    // The job's own pre-flight, from the spawn.
+    expect(working.textContent).toContain("Will ask before opening new sites (about 5)");
     await userEvent.click(within(working).getByRole("button"));
     expect(navigate).toHaveBeenCalledWith(`/agent/activity/run/${SPECIALIST_IDS.runs.working}`);
 

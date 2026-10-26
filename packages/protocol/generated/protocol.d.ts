@@ -6752,6 +6752,7 @@ export interface SkillDraft {
      */
     text:      string;
     threadId:  string;
+    update?:   SkillDraftUpdate;
     updatedAt: string;
 }
 
@@ -6770,6 +6771,13 @@ export interface SkillDraftStep {
      */
     summary: string;
     tool:    string;
+}
+
+export interface SkillDraftUpdate {
+    acceptance: string[];
+    baseHash:   string;
+    lessonIds:  string[];
+    skill:      string;
 }
 
 export interface SkillsDraftsAcceptParams {

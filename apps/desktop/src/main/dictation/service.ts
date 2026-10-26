@@ -36,6 +36,8 @@ export interface DictationServiceOptions {
    * watches it beside the dictation key, and main forwards it to the app's audio terminal.
    */
   onVoiceKey?: (down: boolean) => void;
+  /** Voice conversation was turned on or off (its key is armed or not), for the voice HUD. */
+  onVoiceEnabled?: (on: boolean) => void;
 }
 
 /** Settings that arm the voice conversation key (spec §6.4). */
@@ -108,6 +110,7 @@ export class DictationService {
     }
     const settings = parseDictationSettings(values);
     this.#voiceKey = parseVoiceKey(values, settings);
+    this.#o.onVoiceEnabled?.(this.#voiceKey !== null);
     await this.apply(settings);
   }
 

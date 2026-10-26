@@ -291,6 +291,19 @@ export const SkillDraft = Type.Object(
     installProposalId: Type.Optional(Id),
     approvalId: Type.Optional(Id),
     replay: Type.Optional(SkillDraftReplay),
+    /**
+     * Set on an update of an installed skill that folds in what the owner taught it
+     * (docs/agent/teaching-loop-2026.md §6): the skill, the hash the draft was made from, the
+     * lessons folded in, and the lines added to its `acceptance.md`.
+     */
+    update: Type.Optional(
+      Type.Object({
+        skill: Type.String(),
+        baseHash: Sha256,
+        lessonIds: Type.Array(Id, { maxItems: 50 }),
+        acceptance: Type.Array(Type.String({ maxLength: 400 }), { maxItems: 50 }),
+      }),
+    ),
   },
   { $id: "SkillDraft" },
 );

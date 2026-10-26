@@ -1,4 +1,4 @@
-import type { PermissionMode, SpecialistJob, SpecialistRole } from "@psyche/protocol";
+import type { SpecialistJob, SpecialistRole } from "@psyche/protocol";
 import type { ReactElement } from "react";
 import { agentTimelineHref } from "../agent/AgentSheet.tsx";
 import { StatusGlyph } from "../components/status.tsx";
@@ -7,7 +7,6 @@ import { useSlots } from "../slots.tsx";
 import {
   isFinished,
   jobLine,
-  preflightHints,
   preflightLabel,
   roleGlyph,
   roleLabel,
@@ -25,18 +24,16 @@ import {
 export function SpecialistSpawnLine({
   job,
   roles,
-  mode,
 }: {
   job: SpecialistJob;
   roles?: readonly SpecialistRole[];
-  /** The parent thread's permission mode, for the pre-flight. */
-  mode?: PermissionMode;
 }): ReactElement {
   const { navigate } = useSlots();
   const role = roles?.find((r) => r.role === job.role);
   const label = roleLabel(job.role, roles);
   const Glyph = roleGlyph(job.role);
-  const hints = role && !isFinished(job) ? preflightHints(role, mode) : [];
+  // The runtime's pre-flight from the spawn; it says what the job will ask while it runs.
+  const hints = isFinished(job) ? [] : (job.preflight ?? []);
   const open = () => navigate?.(job.runId ? agentTimelineHref(job.runId) : `/chat/${job.threadId}`);
   const line = t("specialists.spawn.line", { role: roleNoun(label), title: job.title });
   return (
@@ -76,23 +73,16 @@ export function SpecialistSpawnLine({
 export function SpecialistSpawns({
   jobs,
   roles,
-  mode,
 }: {
   jobs: readonly SpecialistJob[];
   roles?: readonly SpecialistRole[];
-  mode?: PermissionMode;
 }): ReactElement | null {
   if (jobs.length === 0) return null;
   const ordered = [...jobs].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   return (
     <ul className="mt-1 mb-2 flex flex-col gap-1 ps-7" data-testid="specialist-spawns">
       {ordered.map((job) => (
-        <SpecialistSpawnLine
-          key={job.taskId}
-          job={job}
-          {...(roles ? { roles } : {})}
-          {...(mode ? { mode } : {})}
-        />
+        <SpecialistSpawnLine key={job.taskId} job={job} {...(roles ? { roles } : {})} />
       ))}
     </ul>
   );

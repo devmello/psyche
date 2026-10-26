@@ -1,7 +1,5 @@
 import type {
   ApprovalHint,
-  ApprovalKind,
-  PermissionMode,
   SpecialistJob,
   SpecialistResultKind,
   SpecialistRole,
@@ -197,24 +195,9 @@ export function headline(job: SpecialistJob, label: string): string {
 }
 
 /**
- * The spawn pre-flight (§4.4) from the role's declared approvals, as the runtime builds it:
- * plan-first roles show their plan first, and auto mode doesn't ask about new sites. It grants
- * nothing.
- *
- * TODO(#685): read `SpecialistJob.preflight` once S02 adds it to the job; this rebuild from
- * `specialists.list` is the stand-in until then.
+ * One pre-flight hint (`SpecialistJob.preflight`, §4.4) in the owner's language: the catalogue's
+ * line for its kind, else the runtime's. It grants nothing.
  */
-export function preflightHints(
-  role: Pick<SpecialistRole, "approvals" | "planFirst">,
-  mode?: PermissionMode,
-): ApprovalHint[] {
-  const kinds = new Set<ApprovalKind>(role.approvals);
-  if (role.planFirst) kinds.add("plan_exit");
-  if (mode === "auto") kinds.delete("new_origin");
-  return [...kinds].map((kind) => ({ kind, label: kind }));
-}
-
-/** One hint in the owner's language: the catalogue's line for its kind, else the runtime's. */
 export function preflightLabel(hint: ApprovalHint): string {
   const id = `specialists.preflight.${hint.kind}`;
   const label = isMessageId(id) ? t(id) : hint.label;

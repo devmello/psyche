@@ -929,6 +929,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     publish,
     broker,
     registry,
+    // Ideas proposes folding a skill's lessons into it once it has three (teaching loop §6).
+    skillUpdates: () => skills.updates(),
     ...(timeZone === undefined ? {} : { timeZone }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });

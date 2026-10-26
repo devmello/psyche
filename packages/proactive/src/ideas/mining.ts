@@ -412,6 +412,30 @@ export interface ConnectorSignal {
 
 export type SignalsProvider = () => Promise<ConnectorSignal[]>;
 
+/** A skill-update draft the Gateway made for a skill with enough lessons (teaching loop §6). */
+export interface SkillUpdateCandidate {
+  skill: string;
+  draftId: string;
+  lessons: number;
+}
+
+export type SkillUpdatesProvider = () => Promise<SkillUpdateCandidate[]>;
+
+/** One idea per draft: the owner's own lessons, so never untrusted. */
+export function skillUpdateCandidates(updates: readonly SkillUpdateCandidate[]): Candidate[] {
+  return updates.map((u) => ({
+    kind: "skill",
+    title: `Update the ${u.skill} skill with what you taught it`,
+    bodyMd: `You taught ${u.skill} ${u.lessons} lessons. I drafted an update that folds them into its instructions, with a check for each in its acceptance list. Accepting opens the draft: it is replayed against the skill and installed only after you approve it.`,
+    evidence: [{ type: "skill_update", skill: u.skill, draftId: u.draftId, lessons: u.lessons }],
+    effort: "~2 min to review",
+    source: "teaching",
+    patternKey: `skill-update:${u.draftId}`,
+    untrusted: false,
+    action: { type: "skill_update", skill: u.skill, draftId: u.draftId },
+  }));
+}
+
 /** Quotes untrusted text for a brief: single line, capped, no quote marks to break out of. */
 export function quoted(text: string, n = 120): string {
   return `"${cap(text.replace(/["“”]/g, "'"), n)}"`;

@@ -19,6 +19,7 @@ import {
   deniedToolsFromPolicy,
   type FsSkillLoader,
   provenanceOfTrust,
+  SKILL_UPDATE_MIN_LESSONS,
   SkillDrafts,
   SqliteSkillStateStore,
 } from "@psyche/skills";
@@ -57,7 +58,14 @@ export interface ComposedSkills {
   loader: SkillLoader;
   /** Background specialist roles (docs/agent/specialists-2026.md §5), once composed. */
   roles: Pick<FsSkillLoader, "specialistRoles">;
+  /**
+   * Skill-update drafts for skills with three or more lessons (teaching loop §6), for the Ideas
+   * miner: drafts what is new, then lists every open update draft.
+   */
+  updates(): Promise<{ skill: string; draftId: string; lessons: number }[]>;
 }
+
+const LESSON_LINE = /^- \d{4}-\d{2}-\d{2} \[(ls_[a-z0-9_]+)[^\]]*\] (.+)$/;
 
 /** Longest third-party description the model reads (the MCP cap, #326). */
 const MAX_DESCRIPTION_CHARS = 1_000;
@@ -139,6 +147,29 @@ export function composeSkills(opts: SkillsOptions = {}): ComposedSkills {
   const roles: Pick<FsSkillLoader, "specialistRoles"> = {
     specialistRoles: () => ready().specialistRoles(),
   };
+  let draftsRef: SkillDrafts | undefined;
+  const updates = async () => {
+    const fs = real;
+    const drafts = draftsRef;
+    if (fs === undefined || drafts === undefined) return [];
+    const names = new Set(
+      (await fs.list()).filter((s) => s.enabled && s.source !== "workspace").map((s) => s.name),
+    );
+    for (const name of names) {
+      const folded = fs.lessons(name).flatMap((line) => {
+        const m = LESSON_LINE.exec(line);
+        return m === null ? [] : [{ id: m[1] as string, text: m[2] as string }];
+      });
+      if (folded.length >= SKILL_UPDATE_MIN_LESSONS) drafts.proposeUpdate(name, folded);
+    }
+    return drafts
+      .list("open")
+      .flatMap((d) =>
+        d.update === undefined
+          ? []
+          : [{ skill: d.update.skill, draftId: d.id, lessons: d.update.lessonIds.length }],
+      );
+  };
 
   const part = (services: ComposeServices): ComposedPart => {
     const { home, publish, tools, rawBroker } = services;
@@ -181,6 +212,7 @@ export function composeSkills(opts: SkillsOptions = {}): ComposedSkills {
           .catch(() => undefined),
       onUpdate: (draft) => publish("skills.draft.updated", { draft }),
     });
+    draftsRef = drafts;
     const unregister = createSkillTools(fs).map((t) => tools.register(markedSearch(t)));
     const handlers: Record<string, HandlerDef> = {};
     const table = createSkillsHandlers(fs, {
@@ -216,5 +248,5 @@ export function composeSkills(opts: SkillsOptions = {}): ComposedSkills {
       },
     };
   };
-  return { part, loader, roles };
+  return { part, loader, roles, updates };
 }

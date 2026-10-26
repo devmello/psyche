@@ -13,7 +13,12 @@ export type IdeaAction =
       taskGoal?: string;
       goalId?: string;
     }
-  | { type: "goal_cadence"; goalId: string; cadence: string };
+  | { type: "goal_cadence"; goalId: string; cadence: string }
+  /**
+   * An update of a skill that folds in what the owner taught it (teaching loop §6): accepting
+   * opens the draft, whose own accept replays it and shows the trust card.
+   */
+  | { type: "skill_update"; skill: string; draftId: string };
 
 export interface StoredIdea extends Idea {
   /** `tools`, `memory`, `goals`, `connector:<id>`. */

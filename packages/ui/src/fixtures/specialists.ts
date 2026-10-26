@@ -1,4 +1,5 @@
 import type {
+  ApprovalHint,
   Notification,
   RunBudget,
   SpecialistJob,
@@ -184,9 +185,32 @@ function job(
     createdAt: ago(40),
     updatedAt: ago(18),
     result: null,
+    preflight: PREFLIGHT[partial.role] ?? [],
     ...partial,
   };
 }
+
+/** The spawn's pre-flight per role, in the runtime's words (agent-core `preflight`). */
+const NEW_SITES: ApprovalHint = { kind: "new_origin", label: "Will ask before opening new sites" };
+const PREFLIGHT: Record<string, ApprovalHint[]> = {
+  researcher: [{ ...NEW_SITES, estimate: 5 }],
+  shopper: [
+    NEW_SITES,
+    { kind: "browser_submit", label: "Will ask before submitting forms" },
+    { kind: "plan_exit", label: "Will show you a plan to approve first" },
+  ],
+  coder: [
+    { kind: "file_write", label: "Will ask before changing files" },
+    { kind: "exec", label: "Will ask before running commands" },
+    { kind: "plan_exit", label: "Will show you a plan to approve first" },
+  ],
+  organizer: [
+    { kind: "file_write", label: "Will ask before changing files" },
+    { kind: "calendar_write", label: "Will ask before changing your calendar" },
+  ],
+  writer: [NEW_SITES],
+  planner: [],
+};
 
 /** The done result: three findings, a brief, two receipts, read from six sites (tainted). */
 export const DONE_RESULT: SpecialistResult = result({

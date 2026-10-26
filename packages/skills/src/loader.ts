@@ -480,6 +480,13 @@ export class FsSkillLoader implements SkillLoader {
     };
   }
 
+  /** The winning skill of `name`, without its body (synchronous; for drafts and their replay). */
+  summarySync(name: string): SkillSummary | undefined {
+    this.#fresh();
+    const e = this.#winners.get(name);
+    return e === undefined ? undefined : toSummary(e.details);
+  }
+
   /** The lesson lines of a skill's `LESSONS.md` that fit the budget, oldest first. */
   lessons(name: string): string[] {
     const dir = this.#o.workspaceDir;
