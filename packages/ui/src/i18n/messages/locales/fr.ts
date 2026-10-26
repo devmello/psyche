@@ -1,7 +1,10 @@
 import type { Catalogue } from "../index.ts";
+import { workflows } from "./workflows/fr.ts";
 
 /** French catalogue (fr). Same ids as `en`; missing ids fall back to English. */
 export const fr: Partial<Catalogue> = {
+  // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
+  ...workflows,
   "common.cancel": "Annuler",
   "common.close": "Fermer",
   "common.save": "Enregistrer",

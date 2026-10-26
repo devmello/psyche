@@ -1,7 +1,10 @@
 import type { Catalogue } from "../index.ts";
+import { workflows } from "./workflows/ko.ts";
 
 /** Korean catalogue (ko). Same ids as `en`; missing ids fall back to English. */
 export const ko: Partial<Catalogue> = {
+  // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
+  ...workflows,
   // common
   "common.cancel": "취소",
   "common.close": "닫기",

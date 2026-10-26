@@ -1,7 +1,10 @@
 import type { Catalogue } from "../index.ts";
+import { workflows } from "./workflows/hi.ts";
 
 /** Hindi catalogue (hi). Same ids as `en`; missing ids fall back to English. */
 export const hi: Partial<Catalogue> = {
+  // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
+  ...workflows,
   "common.cancel": "रद्द करें",
   "common.close": "बंद करें",
   "common.save": "सेव करें",
