@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (W, #670: post-meeting notes and Record meeting, docs/workflows/mail-and-meetings-2026.md §4.6)
+
+- **New `meetings.*` methods:** `meetings.notes.create {libraryItemId, startedAt?, title?, speakers?}` → `MeetingNotesResult {status: done | needs_permission, postId?, notes?, remindersProposalId?, question?}` (`operator.write`); `meetings.record.status {}` → `MeetingRecordingStatus` (`operator.read`); `meetings.record.start {consentConfirmed, meetingId?}` and `meetings.record.stop {}` → `MeetingRecordingStatus` (`operator.write`). A start without `consentConfirmed: true` is refused.
+- New event `meetings.recording.updated` (payload `MeetingRecordingStatus`).
+- New types `RecordingSpeakers`, `MeetingNotesResult`, `MeetingRecordingEnded`, `MeetingRecordingStatus {available, recording, consentLine, startedAt, meetingId, last?}`.
+
 ### v1 additive — 2026-10-26 (screen-ask: Ask about my screen, docs/design/screen-ask-2026.md)
 
 - **New `screen.*` methods** (desktop shell only, `operator.write`): `screen.capture {mode: window | region, rect?, maxWidth?, maxHeight?}` → `ScreenCapture {captureId, libraryItemId, thumbnail, width, height, mode, context, refusal?, expiresAt}`; `screen.discard {captureId}` → `{discarded}`. An unsent capture expires after `SCREEN_CAPTURE_TTL_MS` (10 min).

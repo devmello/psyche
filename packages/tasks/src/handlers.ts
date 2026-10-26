@@ -3,6 +3,7 @@ import {
   type MethodResult,
   type PermissionBroker,
   PsycheError,
+  TERMINAL_TASK_STATUSES,
 } from "@psyche/protocol";
 import type { SqliteTaskEngine } from "./engine.ts";
 import type { TaskWorkerPool } from "./worker.ts";
@@ -14,6 +15,7 @@ type TaskMethod =
   | "tasks.resume"
   | "tasks.cancel"
   | "tasks.retry"
+  | "tasks.steer"
   | "tasks.actions";
 
 export type TaskHandlers = {
@@ -24,6 +26,8 @@ export interface TaskHandlerDeps {
   engine: SqliteTaskEngine;
   /** Woken when a handler re-queues a task. */
   pool?: TaskWorkerPool;
+  /** Further pools that run tasks (the specialist pool): woken too, and asked to steer. */
+  pools?: readonly TaskWorkerPool[];
   /** Pending approvals of a cancelled task are invalidated. */
   broker?: PermissionBroker;
 }
@@ -33,7 +37,11 @@ export interface TaskHandlerDeps {
  * them). Cancelling a live task also stops its turn through the worker pool's subscription.
  */
 export function createTaskHandlers(deps: TaskHandlerDeps): TaskHandlers {
-  const { engine, pool } = deps;
+  const { engine } = deps;
+  const pools = [...(deps.pool === undefined ? [] : [deps.pool]), ...(deps.pools ?? [])];
+  const poke = () => {
+    for (const p of pools) p.poke();
+  };
   const get = async (taskId: string) => {
     const task = await engine.get(taskId);
     if (task === undefined) throw new PsycheError("not_found", `task ${taskId} not found`);
@@ -53,7 +61,7 @@ export function createTaskHandlers(deps: TaskHandlerDeps): TaskHandlers {
     "tasks.pause": async (p) => ({ task: await engine.pause(p.taskId) }),
     "tasks.resume": async (p) => {
       const task = await engine.resume(p.taskId);
-      pool?.poke();
+      poke();
       return { task };
     },
     "tasks.cancel": async (p) => {
@@ -73,8 +81,23 @@ export function createTaskHandlers(deps: TaskHandlerDeps): TaskHandlers {
         p.taskId,
         p.fromStepId === undefined ? {} : { fromStepId: p.fromStepId },
       );
-      pool?.poke();
+      poke();
       return { task };
+    },
+    "tasks.steer": async (p) => {
+      const { task } = await get(p.taskId);
+      if (TERMINAL_TASK_STATUSES.includes(task.status)) {
+        throw new PsycheError("conflict", `task ${p.taskId} is ${task.status}`);
+      }
+      // A running turn takes it now (`AgentLoop.steer`); otherwise it opens the next turn.
+      let delivered = false;
+      for (const pl of pools) {
+        if (await pl.steer(p.taskId, p.text)) {
+          delivered = true;
+          break;
+        }
+      }
+      return { task: await engine.steer(p.taskId, p.text, delivered) };
     },
     "tasks.actions": async (p) => {
       await get(p.taskId);

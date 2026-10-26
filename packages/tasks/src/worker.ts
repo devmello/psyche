@@ -166,6 +166,9 @@ export function buildTurnInput(
           `Step ${item.stepId} was reconciled as ${item.status}${item.note === undefined ? "" : `: ${item.note}`}.`,
         );
         break;
+      case "steered":
+        lines.push(`New guidance from the owner: ${item.text}`);
+        break;
     }
   }
   return { text: lines.join("\n") };
@@ -251,6 +254,22 @@ export class TaskWorkerPool {
     }
     for (let i = 0; i < this.#o.concurrency; i += 1) {
       this.#slots.push(this.#slot(`${this.#o.owner}/${i}`));
+    }
+  }
+
+  /**
+   * `tasks.steer`: hands the text to the task's running turn (`AgentLoop.steer`). False when no
+   * turn of this pool is running it, so the caller queues it for the next turn instead.
+   */
+  async steer(taskId: string, text: string): Promise<boolean> {
+    const active = this.#active.get(taskId);
+    if (active === undefined) return false;
+    try {
+      await this.#o.loop.steer(active.runId, text);
+      return true;
+    } catch {
+      // The turn ended between the lookup and the steer.
+      return false;
     }
   }
 
