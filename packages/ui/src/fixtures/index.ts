@@ -43,6 +43,7 @@ import { messages, runs, threads, toolCalls } from "./chat.ts";
 import { fileTree, type MockFileNode } from "./files.ts";
 import { feedbackEvents, lessons, milestones } from "./learning.ts";
 import { memoryClaims, memoryFileInfos, memoryFiles, searchHits } from "./memory.ts";
+import { type GraphWorld, graphWorld } from "./people.ts";
 import { automations, feed, goals, ideas, NEXT_BRIEF_AT, notifications } from "./proactive.ts";
 import {
   channels,
@@ -124,6 +125,8 @@ export interface FixtureWorld {
   memoryClaims: MemoryClaim[];
   /** Unified search hits for the query "dentist", grouped by scope. */
   searchHits: SearchHit[];
+  /** People and projects (docs/memory/people-and-projects-2026.md §8). */
+  graph: GraphWorld;
   /** Settings → Skills (T2). */
   skills: SkillDetails[];
   /** What reviewing a folder finds: a proposal to stage, or policy violations. */
@@ -207,6 +210,7 @@ export function createFixtureWorld(): FixtureWorld {
     memoryFileInfos: memoryFileInfos(),
     memoryClaims: memoryClaims(),
     searchHits: searchHits(),
+    graph: graphWorld(),
     skills: skills(),
     skillSources: skillSources(),
     skillDrafts: skillDrafts(),

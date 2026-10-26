@@ -1,7 +1,8 @@
-import type { SearchHit } from "@psyche/protocol";
-import type { ReactElement } from "react";
+import type { EntitySummary, SearchHit } from "@psyche/protocol";
+import type { ReactElement, ReactNode } from "react";
 import { Page, PageHeader } from "../../components/page.tsx";
 import { t } from "../../i18n/core.ts";
+import { ConnectedEntityCard } from "../../people/ConnectedEntityCard.tsx";
 import { useSlots } from "../../slots.tsx";
 import { SearchSurface, useMinWidth, useSearchSurface } from "./SearchSurface.tsx";
 import { type ParsedSearchQuery, parseSearchQuery } from "./search-query.ts";
@@ -23,6 +24,11 @@ export interface SearchViewProps {
   /** Show the preview column beside the results. */
   preview?: boolean;
   autoFocus?: boolean;
+  /** People and projects for the query, shown first (docs/memory/people-and-projects-2026.md §6.4). */
+  entities?: readonly EntitySummary[];
+  onOpenEntity?: (entity: EntitySummary) => void;
+  renderEntityPreview?: (entity: EntitySummary) => ReactNode;
+  now?: number;
 }
 
 /**
@@ -42,6 +48,10 @@ export function SearchView({
   onOpenInSideChat,
   preview = false,
   autoFocus = false,
+  entities,
+  onOpenEntity,
+  renderEntityPreview,
+  now,
 }: SearchViewProps): ReactElement {
   const results = hits.length;
   const blank = query.trim() === "";
@@ -70,6 +80,10 @@ export function SearchView({
           {...(onRetry ? { onRetry } : {})}
           {...(onOpen ? { onOpen } : {})}
           {...(onOpenInSideChat ? { onOpenInSideChat } : {})}
+          {...(entities ? { entities } : {})}
+          {...(onOpenEntity ? { onOpenEntity } : {})}
+          {...(renderEntityPreview ? { renderEntityPreview } : {})}
+          {...(now !== undefined ? { now } : {})}
         />
       </Page>
     </section>
@@ -88,6 +102,10 @@ export interface SearchScreenProps {
   /** Debounce before querying the Gateway. */
   debounceMs?: number;
   autoFocus?: boolean;
+  /** Opens a person or project; defaults to Soul & Memory → People & projects. */
+  onOpenEntity?: (entity: EntitySummary) => void;
+  /** Fixed clock (stories, tests). */
+  now?: number;
 }
 
 /** Connected search: `search.query` with scopes parsed from typed filters. */
@@ -98,6 +116,8 @@ export function SearchScreen({
   onOpenInSideChat,
   debounceMs = 200,
   autoFocus = false,
+  onOpenEntity,
+  now,
 }: SearchScreenProps): ReactElement {
   const { navigate } = useSlots();
   const search = useSearchSurface(initialQuery, debounceMs);
@@ -124,6 +144,19 @@ export function SearchScreen({
       preview={wide}
       autoFocus={autoFocus}
       {...(onOpenInSideChat ? { onOpenInSideChat } : {})}
+      entities={search.entities}
+      onOpenEntity={
+        onOpenEntity ?? ((e) => navigate?.(`/agent/soul?entity=${encodeURIComponent(e.id)}`))
+      }
+      renderEntityPreview={(e) => (
+        <ConnectedEntityCard
+          id={e.id}
+          recentLimit={3}
+          className="bg-transparent p-0 shadow-none"
+          {...(now !== undefined ? { now } : {})}
+        />
+      )}
+      {...(now !== undefined ? { now } : {})}
     />
   );
 }

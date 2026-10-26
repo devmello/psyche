@@ -514,6 +514,11 @@ export class GatewayStore {
         return invalidate(s, ["devices."]);
       case "memory.job.updated":
         return invalidate(s, ["memory.status"]);
+      // The people and projects graph: every query that could show the change reloads.
+      case "memory.entity.updated":
+      case "memory.loop.updated":
+      case "memory.suggestion.created":
+        return invalidate(s, ["memory.entities.", "memory.loops.", "memory.graph."]);
       case "credential.updated":
         return invalidate(s, ["vault."]);
       case "vault.payment.updated":

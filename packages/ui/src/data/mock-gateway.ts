@@ -70,10 +70,12 @@ import {
   validateResult,
 } from "@psyche/protocol";
 import type { MockFileNode } from "../fixtures/files.ts";
+import type { GraphWorld } from "../fixtures/people.ts";
 import { connectorCatalogue } from "../fixtures/settings.ts";
 import type { MockSkillSource } from "../fixtures/skills.ts";
 import type { ConnectionState, GatewayClient, GatewayEvent, RequestOptions } from "./client.ts";
 import { toBase64 } from "./files.ts";
+import { emptyGraph, graphHandlers } from "./mock-graph.ts";
 
 /**
  * In-memory Gateway for stories and tests (no network). It speaks the protocol exactly: every
@@ -121,6 +123,8 @@ export interface MockWorld {
   memoryFiles: Record<string, string>;
   memoryClaims: MemoryClaim[];
   searchHits: SearchHit[];
+  /** The people and projects graph (`memory.entities.*`); absent → empty. */
+  graph?: GraphWorld;
   skills: SkillDetails[];
   skillSources: Record<string, MockSkillSource>;
   skillDrafts: SkillDraft[];
@@ -816,6 +820,14 @@ export class MockGateway implements GatewayClient {
   }
 
   private readonly handlers: { [M in MethodName]?: (params: MethodParams<M>) => unknown } = {
+    ...graphHandlers({
+      graph: () => {
+        this.world.graph ??= emptyGraph();
+        return this.world.graph;
+      },
+      now: () => this.now(),
+      emit: (event, payload) => this.emit(event, payload),
+    }),
     "events.subscribe": () => ({ stateVersion: this.stateVersion }),
 
     "threads.list": (p) => ({
