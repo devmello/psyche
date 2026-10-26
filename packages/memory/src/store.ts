@@ -49,6 +49,7 @@ import {
   BOOTSTRAP_FILE,
   dailyNoteDate,
   dailyNotePath,
+  isGraphCard,
   isIndexed,
   isProtected,
   PERSONA_FILES,
@@ -57,6 +58,7 @@ import {
 } from "./layout.ts";
 import {
   addLearned,
+  type LearnedFactLine,
   type LearnRefusal,
   learnedFactId,
   normalizeFact,
@@ -599,10 +601,21 @@ export class SqliteMemoryStore implements MemoryStore {
    * like an instruction, or already known (USER.md or a live claim). Returns what was written.
    */
   async learnUserFacts(
-    proposals: readonly { text: string; kind: LearnedFact["kind"] }[],
-    context: { threadId: string },
-  ): Promise<{ written: LearnedFact[]; refused: { text: string; reason: LearnRefusal }[] }> {
-    const current = (await this.readFile("USER.md"))?.content ?? "";
+    proposals: readonly { text: string; kind: LearnedFact["kind"]; lessonId?: string }[],
+    context: {
+      threadId: string;
+      /**
+       * Teaching loop (docs/agent/teaching-loop-2026.md §4): the learned fact a correction
+       * replaces. Its line goes first, so the corrected fact is not refused as a duplicate.
+       */
+      replaces?: string;
+    },
+  ): Promise<{ written: LearnedFactLine[]; refused: { text: string; reason: LearnRefusal }[] }> {
+    const original = (await this.readFile("USER.md"))?.content ?? "";
+    const current =
+      context.replaces === undefined
+        ? original
+        : (removeLearned(original, context.replaces) ?? original);
     const claims = (await this.listClaims()).map((c) => normalizeFact(c.text));
     const known = [
       ...current
@@ -610,7 +623,7 @@ export class SqliteMemoryStore implements MemoryStore {
         .map((l) => normalizeFact(l.replace(/^- \d{4}-\d{2}-\d{2} \[[^\]]*\] /, ""))),
       ...claims,
     ].filter((k) => k !== "");
-    const written: LearnedFact[] = [];
+    const written: LearnedFactLine[] = [];
     const refused: { text: string; reason: LearnRefusal }[] = [];
     const date = this.now().date;
     for (const p of proposals) {
@@ -626,6 +639,7 @@ export class SqliteMemoryStore implements MemoryStore {
         kind: p.kind,
         date,
         threadId: context.threadId,
+        ...(p.lessonId === undefined ? {} : { lessonId: p.lessonId }),
       });
       known.push(normalizeFact(text));
     }
@@ -666,6 +680,10 @@ export class SqliteMemoryStore implements MemoryStore {
     approvalId: string | undefined,
     request: Parameters<ApprovalCheck>[1],
   ): Promise<void> {
+    if (isGraphCard(path) && actor === "agent") {
+      // Cards are written by the graph and edited by the owner; the agent uses the graph tools.
+      fail("policy_denied", "people and project cards are edited in Psyche or by you");
+    }
     if (path === BOOTSTRAP_FILE && actor === "agent" && request.operation !== "delete") {
       // Injected into every private session while it exists: the agent may only delete it.
       fail("policy_denied", "BOOTSTRAP.md can only be deleted by the agent");
@@ -805,6 +823,10 @@ export class SqliteMemoryStore implements MemoryStore {
     if (isProtected(src) || isProtected(dst)) {
       const p = isProtected(dst) ? dst : src;
       await this.#checkProtected(p, provenance, actor, options.approvalId, { ...request, path: p });
+    }
+    if (isGraphCard(src) || isGraphCard(dst)) {
+      const p = isGraphCard(dst) ? dst : src;
+      await this.#checkProtected(p, provenance, actor, undefined, { ...request, path: p });
     }
     if (dst === BOOTSTRAP_FILE || src === BOOTSTRAP_FILE) {
       await this.#checkProtected(BOOTSTRAP_FILE, provenance, actor, undefined, {

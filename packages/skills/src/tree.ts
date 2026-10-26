@@ -29,6 +29,14 @@ export const DEFAULT_LIMITS: TreeLimits = {
 /** OS litter that is neither hashed nor installed. */
 const IGNORED = new Set([".DS_Store", ".git", "Thumbs.db", "__MACOSX"]);
 
+/**
+ * `LESSONS.md` at the top of a skill folder belongs to the teaching loop (docs/agent/
+ * teaching-loop-2026.md §6): the owner's approved lessons for this skill, written only by the
+ * Gateway after a card. It is not part of the skill's content: never hashed (a new lesson must
+ * not turn an approved skill back into a draft), never installed from a bundle.
+ */
+export const LESSONS_FILE = "LESSONS.md";
+
 export function sha256Hex(data: Uint8Array | string): string {
   return createHash("sha256").update(data).digest("hex");
 }
@@ -66,6 +74,7 @@ export class TreeBuilder {
     const rel = safeRelPath(path);
     if (rel === undefined) throw new PsycheError("invalid_params", `unsafe path in skill: ${path}`);
     if (rel.split("/").some((seg) => IGNORED.has(seg))) return;
+    if (rel === LESSONS_FILE) return;
     if (this.tree.size >= this.#limits.maxFiles)
       throw new PsycheError("invalid_params", `skill has more than ${this.#limits.maxFiles} files`);
     if (bytes.byteLength > this.#limits.maxFileBytes)

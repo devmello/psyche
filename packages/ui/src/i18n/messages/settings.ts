@@ -37,6 +37,7 @@ export const settings = {
   "settings.nav.appearance": "Appearance",
   "settings.nav.voice": "Voice & dictation",
   "settings.nav.data": "Data controls",
+  "settings.nav.people": "People & projects",
   "settings.nav.server": "Server & remote access",
   "settings.nav.usage": "Usage",
   "settings.nav.about": "About",
@@ -80,8 +81,10 @@ export const settings = {
   "settings.key.context.compactAt": "Compact at",
   "settings.key.context.keepRecentTurns": "Recent turns kept verbatim",
   "settings.key.data.transcriptRecall": "Transcript recall",
+  "settings.key.memory.graph": "People & projects",
   "settings.key.agent.showReasoning": "Show thinking while it works",
   "settings.key.data.replayRetentionDays": "Keep task replays for",
+  "settings.key.data.reasoningRetentionDays": "Keep thinking for",
   "settings.key.gateway.bind": "Bind address",
   "settings.key.models.primary": "Primary model",
   "settings.key.models.utility": "Utility model",
@@ -633,6 +636,8 @@ export const settings = {
   "settings.connectors.catalog.appleReminders": "Apple Reminders",
   "settings.connectors.catalog.appleCalendar": "Apple Calendar",
   "settings.connectors.catalog.appleMail": "Apple Mail",
+  "settings.connectors.catalog.appleShortcuts": "Shortcuts",
+  "settings.connectors.catalog.obsidian": "Obsidian",
   "settings.connectors.catalog.mcp": "MCP server",
   "settings.connectors.catalog.slack": "Slack",
   "settings.connectors.mcpExplain":
@@ -657,6 +662,35 @@ export const settings = {
   "settings.connectors.account": "Account",
   "settings.connectors.noAccount": "None",
   "settings.connectors.scopes": "Scopes",
+  // Shortcuts card (#640): the owner's shortcuts, each off / ask / allow.
+  "settings.connectors.configureFailed": "Psyche couldn't save {name}'s settings: {reason}",
+  "settings.shortcuts.title": "Your shortcuts",
+  "settings.shortcuts.loading": "Reading your shortcuts from this Mac…",
+  "settings.shortcuts.none": "No shortcuts in the Shortcuts app yet.",
+  "settings.shortcuts.noHelper":
+    "Open Psyche on your Mac to list your shortcuts: the helper reads them.",
+  "settings.shortcuts.failed": "Psyche couldn't read your shortcuts.",
+  "settings.shortcuts.hint":
+    "Off: never run. Ask: a card each time. Allow: runs without asking, only for shortcuts that just read.",
+  "settings.shortcuts.rule.off": "Off",
+  "settings.shortcuts.rule.ask": "Ask",
+  "settings.shortcuts.rule.allow": "Allow",
+  "settings.shortcuts.actions": "Psyche Actions",
+  "settings.shortcuts.install": "Install",
+  "settings.shortcuts.installNamed": "Install {name}",
+  "settings.shortcuts.installed": "Installed",
+  // Obsidian card (#640): the vault through File access, and the daily-note folder.
+  "settings.obsidian.vault": "Vault folder",
+  "settings.obsidian.newVault": "New vault folder",
+  "settings.obsidian.noVault": "No vault chosen",
+  "settings.obsidian.vaultHint":
+    "Psyche reads the vault through File access: share the folder, then use it.",
+  "settings.obsidian.share": "Share this folder",
+  "settings.obsidian.shared": "Shared",
+  "settings.obsidian.useVault": "Use this vault",
+  "settings.obsidian.change": "Change vault…",
+  "settings.obsidian.daily": "Daily notes folder",
+  "settings.obsidian.dailyPlaceholder": "From Obsidian's Daily notes settings",
   // Apple app cards: what the persona can do, per action group (docs/connectors/apple-apps-2026.md §7.1).
   "settings.connectors.can.title": "What {persona} can do",
   "settings.connectors.can.label": "What {persona} can do with {name}",
@@ -831,6 +865,10 @@ export const settings = {
   "settings.data.transcriptRecallHint":
     "Lets the agent search old chat transcripts, not only memory files.",
   "settings.data.days": "{n, plural, one {# day} other {# days}}",
+  "settings.data.reasoningRetentionHint":
+    "How long each step's full thinking is kept. Off keeps only a one-line summary. Thinking is never kept while “Show thinking while it works” is off.",
+  "settings.data.replayRetentionHint":
+    "The screens {persona} looked at while it worked, for the Timeline. Off keeps none.",
   "settings.data.export": "Export",
   "settings.data.exportHint": "A zip of the workspace (SOUL.md, memory, notes) and every claim.",
   "settings.data.exportEverything": "Export everything",
@@ -1479,4 +1517,101 @@ export const settings = {
   "settings.connectors.catalog.connected": "{name} (connected)",
   "settings.connect.unavailable":
     "Signing in to {name} isn't available on this Gateway yet. Set it up later in Settings → Connectors.",
+
+  "settings.people.title": "People & projects",
+  "settings.people.description":
+    "What {persona} learns about the people and projects in your life. It stays on this Mac, and every card says where each fact came from.",
+  "settings.people.loadLabel": "Loading people and projects settings",
+  "settings.people.graph": "General",
+  "settings.people.enabled": "Learn about people and projects",
+  "settings.people.enabledHint":
+    "{persona} keeps a card for the people you deal with: who they are, open loops and recent conversations. No message bodies are stored.",
+  "settings.people.entityRecall": "Use names in replies",
+  "settings.people.entityRecallHint":
+    "When you name someone in a private chat, {persona} adds one line about them. Never in groups or channels.",
+  "settings.people.sources": "Sources",
+  "settings.people.sourcesHint":
+    "Each source is off until you turn it on. Turning one off stops reading it.",
+  "settings.people.source.contacts": "Contacts",
+  "settings.people.source.mail": "Mail",
+  "settings.people.source.calendar": "Calendar",
+  "settings.people.source.messages": "Messages",
+  "settings.people.source.notes": "Notes",
+  "settings.people.source.chats": "Your chats",
+  "settings.people.sourceOff": "Off",
+  "settings.people.sourceCounts":
+    "{entities, plural, one {# person or project} other {# people and projects}} · {interactions, plural, one {# interaction} other {# interactions}} · {read, select, none {not read yet} other {read at {read}}}",
+  "settings.people.retention": "Keep interactions",
+  "settings.people.retentionLabel": "Keep interactions for",
+  "settings.people.retentionHint":
+    "Older headers and links are deleted nightly. Cards, facts and open loops stay until you forget them.",
+  "settings.people.months": "{n, plural, one {# month} other {# months}}",
+  "settings.people.learning": "Learning pass",
+  "settings.people.learningHint":
+    "Summaries, roles and open loops come from the utility model, local by default.",
+  "settings.people.budget":
+    "Tonight: {tokens, number} of {maxTokens, number} tokens, {entities, number} of {maxEntities, number} people and projects. Summaries, roles and loops come from the utility model, local by default.",
+  "settings.people.nightly": "Nightly",
+  "settings.people.nightlyHint": "Refreshes summaries and finds open loops while you sleep.",
+  "settings.people.afterRun": "After each task",
+  "settings.people.afterRunHint": "Updates the few people and projects a task touched.",
+  "settings.people.precision": "Suggested loops you kept: {list}.",
+  "settings.people.precisionItem": "{source} {confirmed, number} of {total, number}",
+  "settings.people.aboutYou": "What Psyche knows about you",
+  "settings.people.aboutYouHint":
+    "Your own card: what {persona} has learned about you, each fact with its source. Correct or delete anything.",
+  "settings.people.openOwnCard": "Open your card",
+  "settings.people.ownCardHint": "Facts about you from your profile, chats and connected apps.",
+  "settings.people.editUserMd": "Edit USER.md",
+  "settings.people.export": "Export",
+  "settings.people.exportHint":
+    "A zip of your memory with graph.json (people, projects, facts and loops) and every card file.",
+  "settings.people.exportButton": "Export people and projects",
+  "settings.people.blocked": "Blocked",
+  "settings.people.blockedHint":
+    "Psyche never learns about these again. A blocked domain covers every address at it; existing cards stay until you forget them.",
+  "settings.people.noneBlocked": "No one is blocked.",
+  "settings.people.blockedOn": "{kind} · blocked {date}",
+  "settings.people.unblock": "Unblock",
+  "settings.people.unblockLabel": "Unblock {hint}",
+  "settings.people.block": "Block",
+  "settings.people.blockKindLabel": "What to block",
+  "settings.people.blockValue": "Address, phone or domain",
+  "settings.people.blockKind.email": "Email address",
+  "settings.people.blockKind.phone": "Phone number",
+  "settings.people.blockKind.domain": "Domain",
+  "settings.people.blockKind.contact": "Contact",
+  "settings.people.blockKind.channel": "Channel",
+  "settings.people.blockKind.calendar": "Calendar",
+  "settings.people.blockKind.url": "Web address",
+  "settings.people.blockPlaceholder.email": "name@example.com",
+  "settings.people.blockPlaceholder.phone": "+1 555 0100",
+  "settings.people.blockPlaceholder.domain": "example.com",
+  "settings.people.deleteBySource": "Delete by source",
+  "settings.people.deleteBySourceHint":
+    "Removes everything one source brought in and turns it off. Facts you added yourself stay.",
+  "settings.people.nothingStored": "Nothing is stored from any source yet.",
+  "settings.people.sourceStored":
+    "{entities, plural, one {# person or project} other {# people and projects}} · {interactions, plural, one {# interaction} other {# interactions}}",
+  "settings.people.deleteSource": "Delete…",
+  "settings.people.deleteSourceLabel": "Delete what {source} brought in",
+  "settings.people.deleteSourceTitle": "Delete what {source} brought in?",
+  "settings.people.deleteSourceAfter":
+    "{source} is turned off so the next sync doesn't bring it back. Facts you added yourself stay.",
+  "settings.people.deleteSourceConfirm": "Delete",
+  "settings.people.deletedSource": "Deleted what {source} brought in.",
+  "settings.people.forgetAll": "Forget everything",
+  "settings.people.forgetAllHint":
+    "Deletes every person, project, card and loop, the blocklist too, and turns People & projects off. Your own memory files stay.",
+  "settings.people.forgetAllButton": "Forget everything…",
+  "settings.people.forgetAllTitle": "Forget everything about people and projects?",
+  "settings.people.forgetAllAfter":
+    "This can't be undone. People & projects turns off; turn it back on to start again from scratch.",
+  "settings.people.typeToConfirm": "Type “{phrase}” to confirm",
+  "settings.people.forgetAllConfirm": "Forget everything",
+  "settings.people.forgotAll": "Forgot everything about people and projects.",
+  "settings.people.counting": "Checking what would be deleted…",
+  "settings.people.previewFailed": "Psyche couldn't count what it would delete ({reason}).",
+  "settings.people.removeCounts":
+    "Psyche deletes {entities, plural, one {# person or project} other {# people and projects}}, {facts, plural, one {# fact} other {# facts}}, {interactions, plural, one {# interaction} other {# interactions}}, {loops, plural, one {# open loop} other {# open loops}} and {identifiers, plural, one {# address} other {# addresses}}.",
 } as const;

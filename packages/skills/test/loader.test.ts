@@ -54,7 +54,10 @@ describe("bundled skills (T1 done-when)", () => {
       bundledDir: BUNDLED_DIR,
       gate: OPEN_GATE,
     });
-    const list = await loader.list();
+    const all = await loader.list();
+    // The six specialist roles (specialist-*) are bundled skills too; specialist-roles.test.ts covers them.
+    const list = all.filter((s) => !s.name.startsWith("specialist-"));
+    expect(all.filter((s) => s.name.startsWith("specialist-"))).toHaveLength(6);
     expect(list.map((s) => s.name).sort()).toEqual(BUNDLED);
     expect(list.every((s) => s.source === "bundled" && s.trust === "bundled" && s.enabled)).toBe(
       true,
@@ -81,6 +84,16 @@ describe("bundled skills (T1 done-when)", () => {
       "needs email: connect Gmail or Apple Mail in Settings → Connectors",
     );
     expect((await loader.promptIndex()).included).not.toContain("inbox-triage");
+  });
+
+  it("research-brief is eligible with the built-in web.search / web.fetch (#703)", async () => {
+    const loader = new FsSkillLoader({
+      homeDir: tempDir(),
+      bundledDir: BUNDLED_DIR,
+      gate: { ...OPEN_GATE, tools: ["web.search", "web.fetch", "write_file", "memory"] },
+    });
+    const brief = (await loader.listDetailed()).find((s) => s.name === "research-brief");
+    expect(brief?.status).toBe("active");
   });
 
   it("the Apple app skills load with the wave-1 tools and say what is missing without them", async () => {

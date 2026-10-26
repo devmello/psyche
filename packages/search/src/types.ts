@@ -30,7 +30,9 @@ export type SearchGroup =
   | "feed"
   | "ideas"
   | "goals"
-  | "connectors";
+  | "connectors"
+  | "people"
+  | "projects";
 
 export const GROUP_OF_KIND: Record<SearchIndexDocKind, SearchGroup> = {
   thread: "threads",
@@ -42,9 +44,14 @@ export const GROUP_OF_KIND: Record<SearchIndexDocKind, SearchGroup> = {
   idea: "ideas",
   goal: "goals",
   connector: "connectors",
+  person: "people",
+  project: "projects",
 };
 
+/** People and Projects lead (docs/memory/people-and-projects-2026.md §6.4). */
 export const GROUP_ORDER: SearchGroup[] = [
+  "people",
+  "projects",
   "threads",
   "tasks",
   "memory",

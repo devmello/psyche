@@ -1,7 +1,7 @@
 import type { AgentEvent, AgentLoop, IssuedApproval, StartTurnInput } from "@psyche/protocol";
 import { FakePermissionBroker, type ScriptedAgentEvent } from "@psyche/testing";
 
-type Step = ScriptedAgentEvent | { type: "wait"; gate: string };
+type Step = ScriptedAgentEvent | { type: "wait"; gate: string } | { type: "do"; fn: () => void };
 
 /**
  * Agent loop driven by the test: each turn plays a script of events, pausing at `wait` steps
@@ -68,6 +68,10 @@ export class GatedAgentLoop implements AgentLoop {
         return;
       }
       if (step.type === "wait") continue;
+      if (step.type === "do") {
+        step.fn();
+        continue;
+      }
       yield { ...step, runId: input.runId } as AgentEvent;
       if (step.type === "end") return;
     }

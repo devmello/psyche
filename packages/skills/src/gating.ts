@@ -58,15 +58,16 @@ export const TOOL_CAPABILITIES: Readonly<
     label: "the agent browser",
     hint: "turn the browser on in Settings → Browser",
   },
+  // The Gateway's built-in tools (#566), plus the connector-era names as aliases (#703).
   search: {
-    tools: ["web_search"],
+    tools: ["web.search", "web_search"],
     label: "web search",
-    hint: "add a search provider key in Settings → Model & providers",
+    hint: "turn web search on in Settings → Model & providers → Web search",
   },
   fetch: {
-    tools: ["web_fetch"],
+    tools: ["web.fetch", "web_fetch"],
     label: "web pages",
-    hint: "web fetching comes with the web search provider",
+    hint: "web pages come with web search in Settings → Model & providers → Web search",
   },
   memory_search: {
     tools: ["memory"],

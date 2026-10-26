@@ -21,6 +21,7 @@ const MATRIX: Record<NotificationKind, { os: boolean; chat: boolean; interruptio
   briefing: { os: false, chat: false, interruption: "passive" },
   reminder: { os: true, chat: true, interruption: "passive" },
   system: { os: false, chat: false, interruption: "passive" },
+  specialist_result: { os: true, chat: true, interruption: "active" },
 };
 
 const config: RoutingConfig = { channelTargets: ["telegram:42"] };

@@ -33,7 +33,10 @@ import { useCall, useGatewayQuery, useMemoryFile } from "../data/index.ts";
 import { activeI18n, t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { cn } from "../lib/utils.ts";
+import { PeopleSheetSection } from "../people/PeopleSheetSection.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
+import { lessonsAt, useLessons } from "../teaching/hooks.ts";
+import { LessonMark } from "../teaching/LessonMark.tsx";
 
 /** Persona files and their budgets (architecture §4.2: 20k per file, 4k for USER.md). */
 export const PERSONA_FILES = [
@@ -149,6 +152,7 @@ export function MemoryFileEditor({ path, budget }: { path: string; budget: numbe
       {path === "MEMORY.md" ? (
         <p className="text-callout text-label-secondary">{t("agent.memory.dreaming")}</p>
       ) : null}
+      <FileLessons path={path} />
       {slots.renderEditor ? (
         slots.renderEditor({ path, value, onChange: setDraft, budget })
       ) : (
@@ -165,6 +169,29 @@ export function MemoryFileEditor({ path, budget }: { path: string; budget: numbe
         </p>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Lines the teaching loop wrote in this file (teaching loop §5.2), each with its mark: "Learned
+ * from you · 25 Oct · Refined 3 times", opening the statement, sources, change and Keep / Edit /
+ * Forget.
+ */
+function FileLessons({ path }: { path: string }): ReactElement | null {
+  const lessons = lessonsAt(useLessons({ destination: "file" }).lessons, path);
+  if (lessons.length === 0) return null;
+  return (
+    <section aria-label={t("screens.lessons.fileList")} data-testid="file-lessons">
+      <h3 className="mb-1 text-caption text-label-secondary">{t("screens.lessons.fileList")}</h3>
+      <ul className="flex flex-col gap-1.5">
+        {lessons.map((l) => (
+          <li key={l.id} className="flex flex-col gap-0.5 border-s-2 border-separator-strong ps-2">
+            <span className="font-mono text-mono text-label-primary">{l.value}</span>
+            <LessonMark lesson={l} />
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -277,11 +304,14 @@ function ResetDialog({
 /** Agent sheet → Soul & Memory (UI design §3.17). */
 export function SoulMemoryPanel({
   initialFile,
+  initialEntity,
   onStartIncognito,
   onImport,
   onExported,
 }: {
   initialFile?: string;
+  /** Opens this person's or project's card (`/agent/soul?entity=`). */
+  initialEntity?: string;
   onStartIncognito?: () => void;
   /** The shell picks the export file to import (format + content) and calls back. */
   onImport?: () => void;
@@ -298,6 +328,7 @@ export function SoulMemoryPanel({
   const paused = status.data?.paused ?? false;
   const fileBudget = PERSONA_FILES.find((f) => f.path === path)?.budget ?? 20_000;
 
+  const fileLessons = useLessons({ destination: "file" }).lessons;
   const notes = daily.data?.notes ?? [];
   // Rows open the Markdown editor in a level-3 sheet; "Open in editor" links arrive with a file.
   const [editing, setEditing] = useState<string | null>(initialFile ?? null);
@@ -347,10 +378,19 @@ export function SoulMemoryPanel({
           row(
             f.path,
             <span className="text-mono">{f.path}</span>,
-            t(`screens.soul.file.${f.key}`, { name: persona.name }),
+            <>
+              {t(`screens.soul.file.${f.key}`, { name: persona.name })}
+              {lessonsAt(fileLessons, f.path).length > 0 ? (
+                <span className="block">
+                  {t("screens.lessons.inFile", { n: lessonsAt(fileLessons, f.path).length })}
+                </span>
+              ) : null}
+            </>,
           ),
         )}
       </GroupedList>
+
+      <PeopleSheetSection {...(initialEntity ? { initialEntity } : {})} />
 
       <GroupedList
         title={t("agent.memory.dailyNotes")}

@@ -1,7 +1,8 @@
 import { Check, CircleAlert, KeyRound, Loader, Plug } from "lucide-react";
-import { type ReactElement, type ReactNode, useId, useState } from "react";
+import { type ReactElement, type ReactNode, useEffect, useId, useState } from "react";
 import { Avatar } from "../../avatar/Avatar.tsx";
 import { Button } from "../../components/ui/button.tsx";
+import { Checkbox } from "../../components/ui/checkbox.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
@@ -13,6 +14,7 @@ import { useCopy } from "../../lib/clipboard.ts";
 import { TCC_LABEL } from "../settings/ComputerUseSection.tsx";
 import {
   ConnectAccessChoice,
+  needsSetup,
   offeredCatalog,
   SCOPE_MODE_LABEL,
   type ScopeMode,
@@ -321,6 +323,26 @@ export function PermissionsStep({
 
 // --- 3 Connectors ----------------------------------------------------------------------------------
 
+/** First run on a Mac: these apps start selected (docs/connectors/apple-apps-2026.md §7.2). */
+export const DEFAULT_MAC_APPS = [
+  "apple:calendar",
+  "apple:reminders",
+  "apple:mail",
+  "apple:notes",
+] as const;
+
+/** Apps on this Mac (the helper's apps; no sign-in) as opposed to accounts that sign in online. */
+export const isOnThisMac = (type: string): boolean => type.startsWith("apple:");
+
+/** On this Mac: the default apps first, in their order, then the rest as the catalogue lists them. */
+function macOrder(a: string, b: string): number {
+  const rank = (t: string) => {
+    const i = (DEFAULT_MAC_APPS as readonly string[]).indexOf(t);
+    return i === -1 ? DEFAULT_MAC_APPS.length : i;
+  };
+  return rank(a) - rank(b);
+}
+
 export function ConnectorsStep({
   persona,
   connected,
@@ -346,12 +368,26 @@ export function ConnectorsStep({
 }): ReactElement {
   const id = useId();
   // Only real connectors here: MCP servers and Slack are added later in Settings (#529).
-  const available = offeredCatalog(implemented, { navigation: false }).filter(
-    (c) => !connected.some((x) => x.type === c.type),
+  const offered = offeredCatalog(implemented, { navigation: false }).filter(
+    (c) => !connected.some((x) => x.type === c.type) && !needsSetup(c.type),
   );
+  // "On this Mac" (the Apple apps) and "Accounts" (Google, Microsoft, IMAP), §7.2.
+  const macApps = offered
+    .filter((c) => isOnThisMac(c.type))
+    .sort((a, b) => macOrder(a.type, b.type));
+  const available = offered.filter((c) => !isOnThisMac(c.type));
   const [type, setType] = useState<string>(available[0]?.type ?? "");
   const [mode, setMode] = useState<ScopeMode>("read");
   const current = available.some((c) => c.type === type) ? type : (available[0]?.type ?? "");
+  // A first run starts with Calendar, Reminders, Mail and Notes selected; derived until the owner
+  // changes a box, since the account list may still be loading on the first render.
+  const [picked, setPicked] = useState<ReadonlySet<string> | null>(null);
+  const selected: ReadonlySet<string> =
+    picked ?? new Set(connected.length === 0 ? (DEFAULT_MAC_APPS as readonly string[]) : []);
+  const setSelected = (fn: (s: ReadonlySet<string>) => ReadonlySet<string>) =>
+    setPicked(fn(selected));
+  const chosen = macApps.filter((c) => selected.has(c.type)).map((c) => c.type);
+  const queue = useMacQueue({ connected, busy, error, onConnect, mode });
   return (
     <div className="flex flex-col gap-4">
       <p className="text-reading text-label-secondary">
@@ -422,52 +458,166 @@ export function ConnectorsStep({
       {error ? (
         <ErrorNotice what={error} did={t("onboarding.connectors.nothingConnected")} />
       ) : null}
-      {available.length === 0 ? (
-        <p className="text-sm">{t("onboarding.connectors.all")}</p>
-      ) : (
-        <div className="elevation-1 flex flex-col gap-3 rounded-lg p-4">
-          <div className="flex flex-col gap-1">
-            <Label htmlFor={`${id}-type`}>
-              {connected.length === 0
-                ? t("onboarding.connectors.account")
-                : t("onboarding.connectors.another")}
-            </Label>
-            <NativeSelect
-              id={`${id}-type`}
-              className="min-w-64"
-              value={current}
-              onChange={(e) => setType(e.target.value)}
-            >
-              {available.map((c) => (
-                <option key={c.type} value={c.type}>
+      {offered.length > 0 ? (
+        <ConnectAccessChoice
+          label={t("onboarding.connectors.what", { name: persona })}
+          value={mode}
+          onChange={setMode}
+          persona={persona}
+        />
+      ) : null}
+      {macApps.length > 0 ? (
+        <section aria-labelledby={`${id}-mac`} className="flex flex-col gap-2">
+          <h2 id={`${id}-mac`} className="px-1 text-caption text-label-secondary">
+            {t("onboarding.connectors.onThisMac")}
+          </h2>
+          <ul
+            aria-labelledby={`${id}-mac`}
+            className="flex flex-col divide-y divide-separator rounded-lg bg-surface-raised shadow-elevation-1"
+          >
+            {macApps.map((c) => (
+              <li key={c.type} className="flex min-h-9 items-center gap-2.5 px-3 py-1.5 text-body">
+                <Checkbox
+                  id={`${id}-${c.type}`}
+                  checked={selected.has(c.type)}
+                  disabled={queue.running}
+                  onCheckedChange={(on) =>
+                    setSelected((s) => {
+                      const next = new Set(s);
+                      if (on) next.add(c.type);
+                      else next.delete(c.type);
+                      return next;
+                    })
+                  }
+                />
+                <Label htmlFor={`${id}-${c.type}`} className="flex-1 font-normal">
                   {c.label}
-                </option>
-              ))}
-            </NativeSelect>
-          </div>
-          <ConnectAccessChoice
-            label={t("onboarding.connectors.what", { name: persona })}
-            value={mode}
-            onChange={setMode}
-            persona={persona}
-          />
+                </Label>
+                {queue.current === c.type ? (
+                  <Loader
+                    className="size-4 text-label-secondary motion-safe:animate-spin"
+                    aria-label={t("onboarding.connectors.connecting", { name: c.label })}
+                  />
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          <p className="px-1 text-callout text-label-secondary">
+            {t("onboarding.connectors.onThisMacHint")}
+          </p>
           <div>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              disabled={busy}
-              onClick={() => onConnect(current, mode)}
+              disabled={busy || queue.running || chosen.length === 0}
+              onClick={() => {
+                // Keep the choice as made: the defaults no longer apply once one connects.
+                setPicked(new Set(chosen));
+                queue.start(chosen);
+              }}
             >
-              {busy ? <Loader className="motion-safe:animate-spin" aria-hidden="true" /> : null}
-              {t("onboarding.connectors.connect")}
+              {queue.running ? (
+                <Loader className="motion-safe:animate-spin" aria-hidden="true" />
+              ) : null}
+              {t("onboarding.connectors.connectApps", { n: chosen.length })}
             </Button>
           </div>
-          {progress}
-        </div>
+        </section>
+      ) : null}
+      {available.length === 0 ? (
+        macApps.length === 0 ? (
+          <p className="text-sm">{t("onboarding.connectors.all")}</p>
+        ) : null
+      ) : (
+        <section aria-labelledby={`${id}-accounts`} className="flex flex-col gap-2">
+          <h2 id={`${id}-accounts`} className="px-1 text-caption text-label-secondary">
+            {t("onboarding.connectors.accounts")}
+          </h2>
+          <div className="elevation-1 flex flex-col gap-3 rounded-lg p-4">
+            <div className="flex flex-col gap-1">
+              <Label htmlFor={`${id}-type`}>
+                {connected.length === 0
+                  ? t("onboarding.connectors.account")
+                  : t("onboarding.connectors.another")}
+              </Label>
+              <NativeSelect
+                id={`${id}-type`}
+                className="min-w-64"
+                value={current}
+                onChange={(e) => setType(e.target.value)}
+              >
+                {available.map((c) => (
+                  <option key={c.type} value={c.type}>
+                    {c.label}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
+            <div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy || queue.running}
+                onClick={() => onConnect(current, mode)}
+              >
+                {busy ? <Loader className="motion-safe:animate-spin" aria-hidden="true" /> : null}
+                {t("onboarding.connectors.connect")}
+              </Button>
+            </div>
+          </div>
+        </section>
       )}
+      {progress}
     </div>
   );
+}
+
+/**
+ * Connects the selected Mac apps one at a time (§9: never every macOS prompt at once): the next
+ * starts once the last one shows up in the account list (connected, or waiting on its grant) and
+ * nothing is busy; an error stops the rest.
+ */
+function useMacQueue({
+  connected,
+  busy,
+  error,
+  onConnect,
+  mode,
+}: {
+  connected: readonly ConnectedAccount[];
+  busy: boolean;
+  error: string | null;
+  onConnect: (type: string, mode: ScopeMode) => void;
+  mode: ScopeMode;
+}): { running: boolean; current: string | null; start: (types: readonly string[]) => void } {
+  const [queue, setQueue] = useState<readonly string[]>([]);
+  const [requested, setRequested] = useState<string | null>(null);
+  const head = queue[0] ?? null;
+  const done = head !== null && connected.some((c) => c.type === head);
+  useEffect(() => {
+    if (head === null || busy) return;
+    if (done) {
+      setQueue((q) => q.slice(1));
+      return;
+    }
+    if (requested === head) {
+      // Asked, not busy, and still not listed: it failed (the error says why); stop here.
+      if (error !== null) setQueue([]);
+      return;
+    }
+    setRequested(head);
+    onConnect(head, mode);
+  }, [head, busy, done, requested, error, onConnect, mode]);
+  return {
+    running: head !== null,
+    current: head,
+    start: (types) => {
+      setRequested(null);
+      setQueue(types);
+    },
+  };
 }
 
 // --- 4 Model & provider ----------------------------------------------------------------------------

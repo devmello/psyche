@@ -1,4 +1,4 @@
-import type { Automation } from "@psyche/protocol";
+import type { Automation, Lesson } from "@psyche/protocol";
 import { CalendarClock, Ellipsis } from "lucide-react";
 import type { ReactElement } from "react";
 import { EmptyState } from "../components/page.tsx";
@@ -15,6 +15,8 @@ import { useAutomations, useCall, useGatewayQuery, useThreads } from "../data/in
 import { activeI18n, t } from "../i18n/core.ts";
 import { formatRelative } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
+import { useLessons } from "../teaching/hooks.ts";
+import { LessonMark } from "../teaching/LessonMark.tsx";
 
 const dateName = (d: Date, options: Intl.DateTimeFormatOptions) =>
   activeI18n().date(d, { ...options, timeZone: "UTC" });
@@ -179,8 +181,11 @@ export function UpcomingRow({
   onEdit,
   onSnooze,
   onDone,
+  lesson,
 }: {
   automation: Automation;
+  /** The lesson that last changed one of its parameters (teaching loop §5.2). */
+  lesson?: Lesson | null;
   now: number;
   /** The delivery target as a sentence. */
   delivery?: string;
@@ -224,6 +229,7 @@ export function UpcomingRow({
           <span className="block text-callout text-label-secondary">{a.scratch}</span>
         ) : null}
         {a.lastStatus ? <span className="mt-1 flex">{lastOutcome(a)}</span> : null}
+        {lesson ? <LessonMark lesson={lesson} variant="automation" className="mt-1" /> : null}
       </span>
       <span className="flex shrink-0 items-center gap-1">
         {reminder ? (
@@ -292,6 +298,7 @@ export function UpcomingPanel({
 }): ReactElement {
   const now = useNow(30_000, fixedNow);
   const q = useAutomations();
+  const lessons = useLessons({ destination: "automation" }).lessons;
   const call = useCall();
   const deliverySentence = useDeliverySentence();
   if (q.loading && q.automations.length === 0) {
@@ -329,6 +336,11 @@ export function UpcomingPanel({
           automation={a}
           now={now}
           delivery={deliverySentence(a)}
+          lesson={
+            lessons.find(
+              (l) => l.destination.type === "automation" && l.destination.automationId === a.id,
+            ) ?? null
+          }
           onRun={() => void q.runNow(a.id)}
           onToggle={() => void q.setEnabled(a.id, !a.enabled)}
           onDelete={() => void q.remove(a.id)}

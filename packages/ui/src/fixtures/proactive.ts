@@ -86,6 +86,19 @@ export function notifications(): Notification[] {
       readAt: "2026-10-01T12:00:00Z",
       createdAt: "2026-10-01T09:04:12Z",
     }),
+    // A background specialist's result (docs/agent/specialists-2026.md §6.2).
+    notification({
+      id: N.specialistResult,
+      kind: "specialist_result",
+      title: "Researcher finished Apartments near the office",
+      body: "Done · 3 findings · $0.84 · 22 min",
+      route: "/inbox",
+      actions: [{ id: "open", label: "Open" }],
+      surfaces: ["desktop", "notification"],
+      delivered: { desktop: "2026-10-01T08:12:00Z", notification: "2026-10-01T08:12:01Z" },
+      readAt: "2026-10-01T09:00:00Z",
+      createdAt: "2026-10-01T08:12:00Z",
+    }),
     notification({
       id: N.proactive,
       kind: "proactive",

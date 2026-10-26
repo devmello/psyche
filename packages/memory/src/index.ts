@@ -14,6 +14,14 @@ export * from "./export.ts";
 export * from "./filters.ts";
 export * from "./flush.ts";
 export * from "./git-sync.ts";
+export * from "./graph/cards.ts";
+export * from "./graph/handlers.ts";
+export * from "./graph/ingest.ts";
+export * from "./graph/model-pass.ts";
+export * from "./graph/normalize.ts";
+export * from "./graph/projects.ts";
+export * from "./graph/store.ts";
+export * from "./graph/tools.ts";
 export * from "./handlers.ts";
 export * from "./importer.ts";
 export * from "./layout.ts";
@@ -24,6 +32,7 @@ export * from "./persona-edit.ts";
 export * from "./provenance.ts";
 export * from "./store.ts";
 export * from "./support.ts";
+export * from "./teaching/index.ts";
 export * from "./tools/index.ts";
 export {
   type Embedder,

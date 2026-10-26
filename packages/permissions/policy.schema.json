@@ -95,7 +95,8 @@
               "apple_script",
               "shortcut_run",
               "git_write",
-              "git_push"
+              "git_push",
+              "batch"
             ]
           }
         },

@@ -86,6 +86,12 @@ export function canonicalCase(path: string): string {
 /** `BOOTSTRAP.md`: injected while it exists, so the agent may delete it but never write it. */
 export const BOOTSTRAP_FILE = "BOOTSTRAP.md";
 
+/** People and project cards (docs/memory/people-and-projects-2026.md §4.8): graph-written. */
+export function isGraphCard(path: string): boolean {
+  const p = canonicalCase(path);
+  return (p.startsWith("people/") || p.startsWith("projects/")) && p.endsWith(".md");
+}
+
 export function isProtected(path: string): boolean {
   return PROTECTED_FILES.has(canonicalCase(path));
 }

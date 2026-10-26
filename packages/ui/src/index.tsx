@@ -21,6 +21,7 @@ export {
   type AgentTab,
   agentSheetHref,
   agentSheetRoute,
+  agentTimelineHref,
 } from "./agent/AgentSheet.tsx";
 export { ApprovalsPanel } from "./agent/ApprovalsPanel.tsx";
 export {
@@ -30,6 +31,8 @@ export {
   ProvenanceChip,
   SoulMemoryPanel,
 } from "./agent/SoulMemoryPanel.tsx";
+// The run trace's Timeline (run trace §3.3–§3.5).
+export { TimelineView, type TimelineViewProps } from "./agent/timeline/TimelineView.tsx";
 export { scheduleSentence, UpcomingPanel, UpcomingRow } from "./agent/UpcomingPanel.tsx";
 export { type AgentStatus, useAgentStatus } from "./agent/useAgentState.ts";
 // Avatar.
@@ -115,6 +118,8 @@ export { MessageView, type MessageViewProps, messageText } from "./chat/MessageV
 export { OfflineBanner } from "./chat/OfflineBanner.tsx";
 export { ComposerPrefill, usePrefillComposer } from "./chat/prefill.ts";
 export { ChatThread, type ChatThreadProps } from "./chat/Thread.tsx";
+export { Filmstrip, type FilmstripFrame, type FilmstripProps } from "./components/filmstrip.tsx";
+export { JsonView, type JsonViewProps, redactionToken } from "./components/json-view.tsx";
 export {
   GroupedList,
   type GroupedListProps,
@@ -125,7 +130,39 @@ export {
   type PageProps,
   SectionLabel,
 } from "./components/page.tsx";
-export { StatusGlyph, type StatusGlyphProps, type StatusKind } from "./components/status.tsx";
+export { Sparkline, type SparklineProps, useThrottled } from "./components/sparkline.tsx";
+export {
+  StatusGlyph,
+  type StatusGlyphProps,
+  type StatusKind,
+  type StepStatusKind,
+  stepStatusKind,
+} from "./components/status.tsx";
+export {
+  formatElapsed,
+  formatStepDuration,
+  LiveDuration,
+  type LiveDurationProps,
+} from "./components/steps/LiveDuration.tsx";
+export { StepRow, type StepRowProps } from "./components/steps/StepRow.tsx";
+export { TICK_MS, useTicker } from "./components/steps/ticker.ts";
+export {
+  axisTicks,
+  type Gap,
+  type Interval,
+  idleGaps,
+  type TimeScale,
+  timeScale,
+} from "./components/timeline/scale.ts";
+export {
+  Bar,
+  type BarKind,
+  type BarProps,
+  type BarSegment,
+  GapBreak,
+  Playhead,
+  TimeAxis,
+} from "./components/timeline/Timeline.tsx";
 export { NativeSelect } from "./components/ui/native-select.tsx";
 export { Toaster } from "./components/ui/sonner.tsx";
 export {
@@ -235,7 +272,6 @@ export {
   ConnectedUsageFooter,
   isSubscriptionModel,
   PlanRing,
-  Sparkline,
   UsageCard,
   UsageFooter,
   type UsageFooterProps,
@@ -254,5 +290,7 @@ export {
   usePersona,
   useSlots,
 } from "./slots.tsx";
+// The teaching loop (docs/agent/teaching-loop-2026.md §5).
+export * from "./teaching/index.ts";
 // Theme and data layer.
 export * from "./theme/index.ts";

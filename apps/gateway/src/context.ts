@@ -16,6 +16,7 @@ import type { Logger } from "./log.ts";
 import type { NodeRegistry } from "./nodes/registry.ts";
 import type { PresenceState } from "./presence-gate.ts";
 import type { RateLimiter } from "./rate-limit.ts";
+import type { RunTraceSink } from "./run-trace/sink.ts";
 import type { SessionController } from "./session/controller.ts";
 
 /**
@@ -68,6 +69,15 @@ export interface LiveConnection {
 }
 
 /** Shared services every handler sees. One per Gateway process. */
+/** A `chat.send` `redo` as the Gateway saw it (who sent it, for which message). */
+export interface ChatRedo {
+  threadId: string;
+  messageId: string;
+  instruction?: string;
+  withoutLessons?: boolean;
+  deviceId: string;
+}
+
 export interface GatewayContext {
   readonly config: GatewayConfig;
   readonly db: PsycheDb;
@@ -86,6 +96,8 @@ export interface GatewayContext {
   readonly idempotency: Idempotency;
   readonly sessions: SessionController;
   readonly nodes: NodeRegistry;
+  /** The run trace's one sink (run trace §4.2): steps for every run. */
+  readonly runTrace: RunTraceSink;
   /**
    * Handlers mounted by the composition root (package APIs such as `approvals.*` or `memory.*`).
    * Gateway-owned handlers win; `startGateway` refuses a name that both define.
@@ -107,6 +119,11 @@ export interface GatewayContext {
   readonly threadModels: ThreadModelPolicy | null;
   /** Called with a device id when its last paired connection closes (parts register here). */
   readonly deviceDisconnected: Set<(deviceId: string) => void>;
+  /**
+   * Called after a `chat.send` carrying `redo` commits (teaching loop §5.1, §7): parts register
+   * here, e.g. the teaching loop records a redo with an instruction as `regenerated` feedback.
+   */
+  readonly chatRedo: Set<(redo: ChatRedo) => void>;
   serverOrigin(): string;
   connections(): Iterable<LiveConnection>;
 }

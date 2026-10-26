@@ -21,10 +21,35 @@ function decodeSeqCursor(cursor: string | undefined): number | undefined {
 
 function send(
   call: Call,
-  params: { threadId: string; content: string; attachments?: string[]; replyToMessageId?: string },
+  params: {
+    threadId: string;
+    content: string;
+    attachments?: string[];
+    replyToMessageId?: string;
+    redo?: { messageId: string; instruction?: string; withoutLessons?: boolean };
+  },
   mode: QueueMode | undefined,
 ) {
   requireThread(call, params.threadId);
+  const redo = params.redo;
+  if (redo !== undefined) {
+    // Parts (the teaching loop) hear about a redo once the send commits.
+    call.afterCommit(() => {
+      for (const listener of call.ctx.chatRedo) {
+        try {
+          listener({
+            threadId: params.threadId,
+            messageId: redo.messageId,
+            ...(redo.instruction === undefined ? {} : { instruction: redo.instruction }),
+            ...(redo.withoutLessons === undefined ? {} : { withoutLessons: redo.withoutLessons }),
+            deviceId: call.identity.deviceId,
+          });
+        } catch {
+          // A listener never fails the send.
+        }
+      }
+    });
+  }
   return call.ctx.sessions.send(
     {
       threadId: params.threadId,
@@ -77,6 +102,8 @@ function blockToMarkdown(block: Block): string {
       return `[compacted ${block.replaced.turns} earlier turns: ${block.summary.decisions.length} decisions, ${block.summary.openTasks.length} open tasks]`;
     case "learned":
       return `[learned: ${block.items.map((i) => i.text).join("; ")}]`;
+    case "taught":
+      return block.statement === null ? "[noted feedback]" : `[will remember: ${block.statement}]`;
     case "related_threads":
       return `[from your other chats: ${block.items.map((i) => i.title || i.threadId).join(", ")}]`;
   }
@@ -103,6 +130,7 @@ export const chatHandlers: Record<string, HandlerDef> = {
         attachments?: string[];
         mode?: QueueMode;
         replyToMessageId?: string;
+        redo?: { messageId: string; instruction?: string; withoutLessons?: boolean };
       },
     ) => send(call, params, params.mode),
   },

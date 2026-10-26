@@ -1,4 +1,4 @@
-import { FakeClock } from "@psyche/testing";
+import { assertNoSecrets, FakeClock, registerSecret, unregisterSecret } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import {
   type AppleHelper,
@@ -37,6 +37,39 @@ const ALL = [
   "mail.read",
   "mail.draft",
   "mail.send",
+  "things.list",
+  "things.add",
+  "things.update",
+  "things.complete",
+  "shortcuts.list",
+  "shortcuts.run",
+  "files.recent",
+  "files.move",
+  "files.rename",
+  "files.trash",
+  "safari.tabs",
+  "safari.current_tab",
+  "safari.tab_text",
+  "safari.add_reading_list",
+  "chrome.tabs",
+  "chrome.current_tab",
+  "music.now_playing",
+  "music.control",
+  "music.search_library",
+  "music.play",
+  "contacts.search",
+  "contacts.read",
+  "contacts.create",
+  "contacts.update",
+  "notes.search",
+  "notes.folders",
+  "notes.append",
+  "notes.update",
+  "reminders.complete",
+  "reminders.set_flagged",
+  "reminders.delete",
+  "calendar.free_busy",
+  "calendar.delete_event",
   "mail.mailboxes",
   "mail.selected",
   "mail.reply_draft",
@@ -85,6 +118,7 @@ class FakeHelper implements AppleHelper {
           permissions: [
             { permission: "calendars", status: this.grant },
             { permission: "reminders", status: this.grant },
+            { permission: "contacts", status: this.grant },
           ],
         },
       };
@@ -181,13 +215,20 @@ function make(
 }
 
 describe("Apple app connectors (#528)", () => {
-  it("lists four available catalogue entries, one per app", () => {
+  it("lists the available catalogue entries, one per app", () => {
     const entries = appleFactories({ helper: () => undefined }).map((f) => f.entry);
     expect(entries.map((e) => [e.type, e.id, e.available])).toEqual([
       ["apple:notes", "apple-notes", true],
       ["apple:reminders", "apple-reminders", true],
       ["apple:calendar", "apple-calendar", true],
       ["apple:mail", "apple-mail", true],
+      ["apple:contacts", "apple-contacts", true],
+      ["apple:music", "apple-music", true],
+      ["apple:safari", "apple-safari", true],
+      ["chrome:tabs", "chrome-tabs", true],
+      ["apple:files", "apple-files", true],
+      ["apple:shortcuts", "apple-shortcuts", true],
+      ["things", "things", true],
     ]);
     expect(appleCatalogueEntry("mail").actions.find((a) => a.id === "mail.send")).toMatchObject({
       sideEffect: "destructive",
@@ -218,12 +259,14 @@ describe("Apple app connectors (#528)", () => {
       type: "apple:notes",
       status: "connected",
       account: "This Mac",
-      scopes: ["notes.list", "notes.read"],
+      scopes: ["notes.list", "notes.read", "notes.search", "notes.folders"],
       config: { nodeId: "node_mac" },
     });
     expect([...tools.keys()].sort()).toEqual([
+      "mcp__apple-1__notes_folders",
       "mcp__apple-1__notes_list",
       "mcp__apple-1__notes_read",
+      "mcp__apple-1__notes_search",
     ]);
   });
 
@@ -704,5 +747,473 @@ describe("Apple Mail wave 1 (#639)", () => {
         "mail.save_attachments",
       ]),
     );
+  });
+});
+
+describe("Apple Reminders and Calendar wave 1 (#639)", () => {
+  const toolOf = (app: number, type: string, name: string) =>
+    appleFactories({ helper: () => new FakeHelper() })
+      [app]?.create({ id: "apple-1", type } as never, {} as never)
+      .tools()
+      .find((t) => t.name === name);
+
+  it("adds delete groups that always ask, and keeps reads allowed", () => {
+    expect(
+      appleCatalogueEntry("reminders").actions.map((a) => [a.id, a.sideEffect, a.defaultRule]),
+    ).toEqual([
+      ["reminders.read", "read", "allow"],
+      ["reminders.write", "write", "ask"],
+      ["reminders.delete", "destructive", "ask"],
+    ]);
+    expect(
+      appleCatalogueEntry("calendar").actions.map((a) => [a.id, a.sideEffect, a.approvalKind]),
+    ).toEqual([
+      ["calendar.read", "read", undefined],
+      ["calendar.write", "write", "calendar_write"],
+      ["calendar.delete", "destructive", "calendar_write"],
+    ]);
+  });
+
+  it("reminders_list takes the due / overdue / flagged / text filters straight to the helper", async () => {
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "apple-reminders", scopeMode: "read" });
+    helper.calls.length = 0;
+    const params = { dueToday: true, completed: false, flagged: true, query: "dentist" };
+    await run("mcp__apple-1__reminders_list")(params);
+    expect(helper.calls).toEqual([{ capability: "reminders.list", params }]);
+  });
+
+  it("reminders_create carries a mail link, an alarm and a recurrence; complete and delete ask", async () => {
+    const create = toolOf(1, "apple:reminders", "reminders_create");
+    if (!create) throw new Error("reminders_create is missing");
+    expect(Object.keys((create.inputSchema as { properties: object }).properties)).toEqual(
+      expect.arrayContaining(["url", "alarm", "recurrence"]),
+    );
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "apple-reminders", scopeMode: "read_act" });
+    await expect(run("mcp__apple-1__reminders_complete")({ id: "R1" })).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    await expect(run("mcp__apple-1__reminders_delete")({ id: "R1" })).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    const del = toolOf(1, "apple:reminders", "reminders_delete");
+    expect(del?.sideEffect).toBe("destructive");
+  });
+
+  it("calendar_free_busy is a read; calendar_delete_event binds calendar_write and asks", async () => {
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "apple-calendar", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    const window = { from: "2026-10-26T00:00:00Z", to: "2026-10-31T00:00:00Z" };
+    await run("mcp__apple-1__calendar_free_busy")(window);
+    expect(helper.calls).toEqual([{ capability: "calendar.free_busy", params: window }]);
+    expect(
+      toolOf(2, "apple:calendar", "calendar_delete_event")?.describeCall?.({ id: "E1" }),
+    ).toMatchObject({
+      kind: "calendar_write",
+      bindingFields: { tool: "calendar_delete_event" },
+    });
+    await expect(run("mcp__apple-1__calendar_delete_event")({ id: "E1" })).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    // Read-only connections never get the delete tool.
+    const ro = make(new FakeHelper());
+    await ro.registry.connect({ catalogueId: "apple-calendar", scopeMode: "read" });
+    expect([...ro.tools.keys()]).not.toContain("mcp__apple-1__calendar_delete_event");
+    expect([...ro.tools.keys()]).toContain("mcp__apple-1__calendar_free_busy");
+  });
+
+  it("the event tools say invitations go by mail", () => {
+    expect(toolOf(2, "apple:calendar", "calendar_create_event")?.description).toMatch(
+      /invitations go out by mail/,
+    );
+  });
+});
+
+describe("Apple Notes wave 1 (#639)", () => {
+  const notesTool = (name: string) =>
+    appleFactories({ helper: () => new FakeHelper() })[0]
+      ?.create({ id: "apple-1", type: "apple:notes" } as never, {} as never)
+      .tools()
+      .find((t) => t.name === name);
+
+  it("searches and lists folders as reads; append and update are an edit group that asks", async () => {
+    expect(appleCatalogueEntry("notes").actions.map((a) => [a.id, a.defaultRule])).toEqual([
+      ["notes.read", "allow"],
+      ["notes.create", "ask"],
+      ["notes.edit", "ask"],
+    ]);
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "apple-notes", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    await run("mcp__apple-1__notes_search")({
+      query: "offsite",
+      modifiedSince: "2026-10-01T00:00:00Z",
+    });
+    expect(helper.calls).toEqual([
+      {
+        capability: "notes.search",
+        params: { query: "offsite", modifiedSince: "2026-10-01T00:00:00Z" },
+      },
+    ]);
+    await expect(
+      run("mcp__apple-1__notes_append")({ id: "n1", text: "Decided: Lisbon" }),
+    ).rejects.toMatchObject({ code: "approval_required" });
+  });
+
+  it("notes_update is bound to the note and the body the agent read", async () => {
+    const edit = { id: "n1", previousBodySha256: "sha256:old", body: "New plan" };
+    const desc = notesTool("notes_update")?.describeCall?.(edit);
+    expect(desc).toMatchObject({
+      kind: "connector_action",
+      bindingFields: { tool: "notes_update", noteId: "n1", previousBodySha256: "sha256:old" },
+    });
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper, {
+      id: "ap_n",
+      tool: "mcp__apple-1__notes_update",
+      params: edit,
+      desc,
+    });
+    await registry.connect({ catalogueId: "apple-notes", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    // Another base body (the note changed since it was read) is another approval.
+    await expect(
+      run("mcp__apple-1__notes_update")({ ...edit, previousBodySha256: "sha256:newer" }),
+    ).rejects.toMatchObject({ code: "binding_mismatch" });
+    await run("mcp__apple-1__notes_update")(edit);
+    expect(helper.calls).toEqual([
+      { capability: "notes.update", params: edit, approvalId: "ap_n" },
+    ]);
+  });
+
+  it("notes_create can ask for Markdown", () => {
+    const created = notesTool("notes_create");
+    if (!created) throw new Error("notes_create is missing");
+    const props = (created.inputSchema as { properties: Record<string, unknown> }).properties;
+    expect(props.format).toEqual({ type: "string", enum: ["text", "markdown"] });
+  });
+});
+
+describe("Apple Contacts wave 1 (#639)", () => {
+  it("is a single-instance Apple app whose grant is Contacts access", async () => {
+    const e = appleCatalogueEntry("contacts");
+    expect(e).toMatchObject({
+      type: "apple:contacts",
+      id: "apple-contacts",
+      vendor: "Apple",
+      singleInstance: true,
+    });
+    expect(e.actions.map((a) => [a.id, a.defaultRule])).toEqual([
+      ["contacts.read", "allow"],
+      ["contacts.write", "ask"],
+    ]);
+    const helper = new FakeHelper();
+    helper.grant = "denied";
+    const { registry } = make(helper);
+    const r = await registry.connect({ catalogueId: "apple-contacts", scopeMode: "read" });
+    expect(r.status).toBe("needs_auth");
+    expect(r.config.permission).toMatchObject({
+      kind: "contacts",
+      settingsUrl: "x-apple.systempreferences:com.apple.preference.security?Privacy_Contacts",
+    });
+  });
+
+  it("looks people up as a read and adds them only with an approval", async () => {
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "apple-contacts", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    await run("mcp__apple-1__contacts_search")({ query: "Dana" });
+    expect(helper.calls).toEqual([{ capability: "contacts.search", params: { query: "Dana" } }]);
+    await expect(
+      run("mcp__apple-1__contacts_create")({
+        givenName: "Dana",
+        emails: [{ label: "work", value: "dana@example.org" }],
+      }),
+    ).rejects.toMatchObject({ code: "approval_required" });
+    await expect(
+      run("mcp__apple-1__contacts_update")({
+        id: "C1",
+        addPhones: [{ label: "mobile", value: "+1 555 0100" }],
+      }),
+    ).rejects.toMatchObject({ code: "approval_required" });
+  });
+});
+
+describe("Music and Spotify wave 1 (#639)", () => {
+  it("reads now-playing and searches the library; playback control is allowed by default", async () => {
+    const e = appleCatalogueEntry("music");
+    expect(e.actions.map((a) => [a.id, a.sideEffect, a.defaultRule])).toEqual([
+      ["music.read", "read", "allow"],
+      ["music.control", "write", "allow"],
+    ]);
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "apple-music", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    await run("mcp__apple-1__music_now_playing")({});
+    await run("mcp__apple-1__music_search_library")({ query: "focus", kind: "playlist" });
+    // No approval needed: the matrix allows playback (no data leaves the Mac).
+    await run("mcp__apple-1__music_control")({ action: "pause", app: "spotify" });
+    await run("mcp__apple-1__music_play")({ kind: "playlist", id: "PL1", shuffle: true });
+    expect(helper.calls.map((c) => c.capability)).toEqual([
+      "music.now_playing",
+      "music.search_library",
+      "music.control",
+      "music.play",
+    ]);
+  });
+
+  it("read-only connections get no playback control", async () => {
+    const { registry, tools } = make(new FakeHelper());
+    await registry.connect({ catalogueId: "apple-music", scopeMode: "read" });
+    expect([...tools.keys()].sort()).toEqual([
+      "mcp__apple-1__music_now_playing",
+      "mcp__apple-1__music_search_library",
+    ]);
+  });
+});
+
+describe("Safari and Chrome wave 1 (#639)", () => {
+  it("Safari reads tabs and page text (untrusted) and adds to the Reading List with an approval", async () => {
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "apple-safari", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    const out = (await run("mcp__apple-1__safari_tab_text")({ maxLength: 5000 })) as unknown as {
+      provenance: string;
+    };
+    expect(out.provenance).toBe("untrusted");
+    expect(helper.calls).toEqual([{ capability: "safari.tab_text", params: { maxLength: 5000 } }]);
+    await expect(
+      run("mcp__apple-1__safari_add_reading_list")({ url: "https://example.org/a" }),
+    ).rejects.toMatchObject({ code: "approval_required" });
+  });
+
+  it("Chrome is a Google connector over the same helper route, read-only", async () => {
+    const e = appleCatalogueEntry("chrome");
+    expect(e).toMatchObject({
+      type: "chrome:tabs",
+      id: "chrome-tabs",
+      vendor: "Google",
+      singleInstance: true,
+    });
+    expect(e.scopes.read_act).toEqual(["chrome.tabs", "chrome.current_tab"]);
+    const helper = new FakeHelper();
+    helper.grant = "denied";
+    const { registry } = make(helper);
+    const r = await registry.connect({ catalogueId: "chrome-tabs", scopeMode: "read" });
+    expect(r.config.permission).toMatchObject({ kind: "automation", target: "com.google.Chrome" });
+  });
+});
+
+describe("Files in shared folders wave 1 (#639)", () => {
+  it("connects without a macOS grant or probe; reads list, moves ask, trash is destructive", async () => {
+    const helper = new FakeHelper();
+    const { registry, run, tools } = make(helper);
+    const r = await registry.connect({ catalogueId: "apple-files", scopeMode: "read_act" });
+    expect(r.status).toBe("connected");
+    expect(helper.calls).toEqual([]); // no permissions.status, no probe
+    await run("mcp__apple-1__files_recent")({ folder: "~/Downloads", contentTypes: ["pdf"] });
+    expect(helper.calls).toEqual([
+      { capability: "files.recent", params: { folder: "~/Downloads", contentTypes: ["pdf"] } },
+    ]);
+    await expect(
+      run("mcp__apple-1__files_move")({
+        items: [{ path: "~/Downloads/a.pdf", to: "~/Documents/Taxes" }],
+      }),
+    ).rejects.toMatchObject({ code: "approval_required" });
+    await expect(
+      run("mcp__apple-1__files_trash")({ paths: ["~/Downloads/old.dmg"] }),
+    ).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    expect(appleCatalogueEntry("files").actions.map((a) => [a.id, a.sideEffect])).toEqual([
+      ["files.read", "read"],
+      ["files.organize", "write"],
+      ["files.trash", "destructive"],
+    ]);
+    expect([...tools.keys()]).toContain("mcp__apple-1__files_trash");
+  });
+});
+
+describe("Shortcuts wave 1 (#639)", () => {
+  it("lists shortcuts as a read; every run asks, and shortcuts turned off never run", async () => {
+    const e = appleCatalogueEntry("shortcuts");
+    expect(e.actions.map((a) => [a.id, a.sideEffect, a.defaultRule])).toEqual([
+      ["shortcuts.read", "read", "allow"],
+      ["shortcuts.run", "destructive", "ask"],
+    ]);
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    const r = await registry.connect({ catalogueId: "apple-shortcuts", scopeMode: "read_act" });
+    expect(r.status).toBe("connected");
+    helper.calls.length = 0;
+    await run("mcp__apple-1__shortcuts_list")({});
+    await expect(run("mcp__apple-1__shortcuts_run")({ id: "S1" })).rejects.toMatchObject({
+      code: "approval_required",
+    });
+
+    // The owner turned S2 off: refused before any approval or helper call.
+    const runTool = appleFactories({ helper: () => helper })
+      .find((f) => f.entry.id === "apple-shortcuts")
+      ?.create({ id: "apple-1", type: "apple:shortcuts" } as never, {} as never)
+      .tools()
+      .find((t) => t.name === "shortcuts_run");
+    // Even with a valid approval for this very call.
+    const off = make(helper, {
+      id: "ap_k",
+      tool: "mcp__apple-1__shortcuts_run",
+      params: { id: "S2" },
+      desc: runTool?.describeCall?.({ id: "S2" }),
+    });
+    await off.registry.connect({
+      catalogueId: "apple-shortcuts",
+      scopeMode: "read_act",
+      config: { shortcutRules: { S2: "off" } },
+    });
+    helper.calls.length = 0;
+    await expect(off.run("mcp__apple-1__shortcuts_run")({ id: "S2" })).rejects.toMatchObject({
+      code: "policy_denied",
+      details: { reason: "shortcut_off" },
+    });
+    expect(helper.calls).toEqual([]);
+  });
+});
+
+describe("Things 3 wave 1 (#639)", () => {
+  it("is a Cultured Code connector over the helper, with its own Automation grant", async () => {
+    expect(appleCatalogueEntry("things")).toMatchObject({
+      type: "things",
+      id: "things",
+      vendor: "Cultured Code",
+      singleInstance: true,
+    });
+    const helper = new FakeHelper();
+    helper.grant = "denied";
+    const { registry } = make(helper);
+    const r = await registry.connect({ catalogueId: "things", scopeMode: "read" });
+    expect(r.config.permission).toMatchObject({ target: "com.culturedcode.ThingsMac" });
+  });
+
+  it("lists as a read; add, update and complete ask", async () => {
+    const helper = new FakeHelper();
+    const { registry, run } = make(helper);
+    await registry.connect({ catalogueId: "things", scopeMode: "read_act" });
+    helper.calls.length = 0;
+    await run("mcp__apple-1__things_list")({ list: "today" });
+    expect(helper.calls).toEqual([{ capability: "things.list", params: { list: "today" } }]);
+    for (const [tool, params] of [
+      ["things_add", { title: "Renew passport", when: "2026-10-30" }],
+      ["things_update", { id: "T1", when: "tomorrow" }],
+      ["things_complete", { id: "T1" }],
+    ] as const) {
+      await expect(run(`mcp__apple-1__${tool}`)(params)).rejects.toMatchObject({
+        code: "approval_required",
+      });
+    }
+  });
+});
+
+describe("Things auth token from the vault (#719)", () => {
+  const TOKEN = "tok_ThingsAuth123";
+
+  function registry(helper: FakeHelper) {
+    const tools = new Map<string, { execute: (...a: unknown[]) => Promise<unknown> }>();
+    const fills: unknown[] = [];
+    const reg = new ConnectorRegistry({
+      factories: appleFactories({
+        helper: () => helper,
+        approveCredential: async (req) => {
+          fills.push(req);
+          return "ap_fill";
+        },
+      }),
+      context: {
+        clock: new FakeClock(),
+        fetch,
+        tokens: { load: async () => undefined, save: async () => {}, clear: async () => {} },
+        credentials: {
+          resolve: async (placeholder: string) => {
+            expect(placeholder).toBe("{{cred:things-token}}");
+            return { use: <T>(f: (v: string) => T) => f(TOKEN) };
+          },
+        } as never,
+      },
+      tools: {
+        list: () => [],
+        get: () => undefined,
+        register: (r) => {
+          tools.set(r.spec.name, r as never);
+          return () => tools.delete(r.spec.name);
+        },
+      },
+      newId: () => "things-1",
+      onEvent: () => {},
+    });
+    return { reg, tools, fills };
+  }
+
+  it("fills the token for update and complete only, and it reaches nothing but the helper", async () => {
+    registerSecret(TOKEN, "things token");
+    try {
+      const helper = new FakeHelper();
+      const { reg, tools, fills } = registry(helper);
+      await reg.connect({
+        catalogueId: "things",
+        scopeMode: "read_act",
+        config: { authToken: "{{cred:things-token}}" },
+      });
+      await reg.setMatrix("things-1", { "things.write": "allow" });
+      helper.calls.length = 0;
+      const run = (name: string, params: unknown) =>
+        (
+          tools.get(`mcp__things-1__${name}`) as { execute: (...a: unknown[]) => Promise<unknown> }
+        ).execute("c1", params, new AbortController().signal, () => {});
+      const outputs = [
+        await run("things_add", { title: "Renew passport" }),
+        await run("things_update", { id: "T1", when: "tomorrow" }),
+        await run("things_complete", { id: "T1" }),
+      ];
+      expect(
+        helper.calls.map((c) => [c.capability, (c.params as { authToken?: string }).authToken]),
+      ).toEqual([
+        ["things.add", undefined],
+        ["things.update", TOKEN],
+        ["things.complete", TOKEN],
+      ]);
+      // One credential card per call that needs it, for the connector's own vault item.
+      expect(fills).toMatchObject([
+        { connectorId: "things-1", placeholder: "{{cred:things-token}}", purpose: "tool" },
+        { connectorId: "things-1", placeholder: "{{cred:things-token}}", purpose: "tool" },
+      ]);
+      // Never in what the model or the owner sees, or in the stored record.
+      assertNoSecrets(outputs, "tool outputs");
+      assertNoSecrets(await reg.list(), "connector records");
+    } finally {
+      unregisterSecret(TOKEN);
+    }
+  });
+
+  it("asks the owner to add the token when the connector has none", async () => {
+    const helper = new FakeHelper();
+    const { reg, tools } = registry(helper);
+    await reg.connect({ catalogueId: "things", scopeMode: "read_act" });
+    await reg.setMatrix("things-1", { "things.write": "allow" });
+    helper.calls.length = 0;
+    await expect(
+      (
+        tools.get("mcp__things-1__things_complete") as {
+          execute: (...a: unknown[]) => Promise<unknown>;
+        }
+      ).execute("c1", { id: "T1" }, new AbortController().signal, () => {}),
+    ).rejects.toMatchObject({ code: "unavailable", details: { reason: "token_required" } });
+    expect(helper.calls).toEqual([]);
   });
 });

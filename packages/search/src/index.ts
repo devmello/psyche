@@ -3,6 +3,7 @@ import type Database from "better-sqlite3";
 import { SqliteSearchIndex, type SqliteSearchIndexOptions } from "./sqlite-index.ts";
 
 export * from "./adapters.ts";
+export * from "./graph.ts";
 export * from "./handlers.ts";
 export * from "./highlight.ts";
 export * from "./indexer.ts";

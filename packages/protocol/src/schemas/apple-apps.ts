@@ -632,6 +632,34 @@ export const AppleCalendarDeleteEventParams = Type.Object(
 );
 export type AppleCalendarDeleteEventParams = Static<typeof AppleCalendarDeleteEventParams>;
 
+/**
+ * `calendar.watch` (streaming, #673 H2; docs/workflows/mail-and-meetings-2026.md §8.4): observes
+ * `EKEventStoreChanged` and debounces it to 30 s: a change opens a 30 s window, every change in it
+ * is folded in, and one `AppleCalendarChangedEvent` goes out when the window closes. So a sync
+ * that touches many events yields one event, and none comes later than 30 s after the change that
+ * opened its window. EventKit does not say what changed; the Gateway re-reads the window it cares
+ * about. Runs until cancelled.
+ */
+export const AppleCalendarWatchParams = Type.Object(
+  {},
+  { $id: "AppleCalendarWatchParams", additionalProperties: false },
+);
+export type AppleCalendarWatchParams = Static<typeof AppleCalendarWatchParams>;
+
+/** `node.event` data streamed by `calendar.watch`. */
+export const AppleCalendarChangedEvent = Type.Object(
+  {
+    type: Type.Literal("calendar.changed"),
+    at: IsoDateTime,
+    coalesced: Type.Integer({
+      minimum: 1,
+      description: "EKEventStoreChanged notifications folded into this event",
+    }),
+  },
+  { $id: "AppleCalendarChangedEvent" },
+);
+export type AppleCalendarChangedEvent = Static<typeof AppleCalendarChangedEvent>;
+
 // --- Notes (N1–N4) -----------------------------------------------------------------------------
 
 /** `notes.search` (N1): matched by Notes itself (title and body), newest modified first. */
@@ -1073,6 +1101,13 @@ export type ThingsAddParams = Static<typeof ThingsAddParams>;
 /** `things.update`. */
 export const ThingsUpdateParams = Type.Object(
   {
+    /**
+     * Things' URL-scheme auth token, filled in by the Gateway from the vault for this call
+     * only (#719). Never written by the model, shown on a card, logged or stored by the helper.
+     */
+    authToken: Type.Optional(
+      Type.String({ minLength: 1, maxLength: 200, pattern: "^[A-Za-z0-9_-]+$" }),
+    ),
     id: Type.String(),
     title: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
     appendNotes: Type.Optional(Type.String({ maxLength: 10_000 })),
@@ -1087,6 +1122,13 @@ export type ThingsUpdateParams = Static<typeof ThingsUpdateParams>;
 /** `things.complete`. */
 export const ThingsCompleteParams = Type.Object(
   {
+    /**
+     * Things' URL-scheme auth token, filled in by the Gateway from the vault for this call
+     * only (#719). Never written by the model, shown on a card, logged or stored by the helper.
+     */
+    authToken: Type.Optional(
+      Type.String({ minLength: 1, maxLength: 200, pattern: "^[A-Za-z0-9_-]+$" }),
+    ),
     id: Type.String(),
     status: Type.Optional(
       StringEnum(["completed", "canceled", "open"], { description: "Default completed" }),

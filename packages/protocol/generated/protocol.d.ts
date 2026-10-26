@@ -21,6 +21,17 @@ export interface AppleCalendar {
     writable: boolean;
 }
 
+export interface AppleCalendarChangedEvent {
+    at: string;
+    /**
+     * EKEventStoreChanged notifications folded into this event
+     */
+    coalesced: number;
+    type:      AppleCalendarChangedEventType;
+}
+
+export type AppleCalendarChangedEventType = "calendar.changed";
+
 export interface AppleCalendarDeleteEventParams {
     id: string;
     /**
@@ -173,6 +184,9 @@ export interface AppleCalendarListEventsParams {
      */
     query?: string;
     to:     string;
+}
+
+export interface AppleCalendarWatchParams {
 }
 
 export interface AppleContact {
@@ -949,6 +963,7 @@ export interface ApprovalRequest {
     details:                { [key: string]: unknown };
     deviceOnly:             boolean;
     expiresAt:              string;
+    fromLesson?:            FromLesson;
     grantId?:               null | string;
     grantKey:               string;
     id:                     string;
@@ -979,14 +994,25 @@ export interface DecidedByClass {
     senderId?: string;
 }
 
-export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push";
+export interface FromLesson {
+    /**
+     * The owner's feedback text
+     */
+    because:    string;
+    feedbackId: string;
+    lessonId:   string;
+}
+
+export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push" | "batch";
 
 export interface RequestedBy {
-    agent?:      string;
-    runId?:      null | string;
-    taskId?:     null | string;
-    threadId?:   null | string;
-    toolCallId?: string;
+    agent?:       string;
+    parentRunId?: string;
+    runId?:       null | string;
+    specialist?:  string;
+    taskId?:      null | string;
+    threadId?:    null | string;
+    toolCallId?:  string;
 }
 
 export type SideEffect = "none" | "read" | "write" | "destructive" | "financial";
@@ -1016,6 +1042,15 @@ export interface Target {
 }
 
 export type TargetKind = "origin" | "path" | "account" | "command" | "recipient" | "app";
+
+export interface ApprovalHint {
+    /**
+     * How many, roughly
+     */
+    estimate?: number;
+    kind:      ApprovalKind;
+    label:     string;
+}
 
 export interface ApprovalResult {
     answerToken?: string;
@@ -1269,8 +1304,10 @@ export interface Automation {
      * main | isolated | named:<id>
      */
     sessionTarget: string;
+    specialist?:   AutomationSpecialist;
     timezone:      string;
     title:         string;
+    trigger?:      AutomationTrigger;
     updatedAt:     string;
     watch?:        WatchConfig;
 }
@@ -1283,9 +1320,53 @@ export interface Delivery {
 }
 
 /**
- * `reminder` is a one-shot: `schedule` is an ISO-8601 instant
+ * `reminder` is a one-shot: `schedule` is an ISO-8601 instant. `event` runs on its
+ * `trigger` (mail and meeting workflows §4.7), and its `schedule` is empty
  */
-export type AutomationKind = "cron" | "interval" | "watch" | "heartbeat" | "briefing" | "reminder";
+export type AutomationKind = "cron" | "interval" | "watch" | "heartbeat" | "briefing" | "reminder" | "event";
+
+export interface AutomationSpecialist {
+    budget?:  SpecialistBudget;
+    deliver?: Deliver;
+    role:     string;
+}
+
+export interface SpecialistBudget {
+    costUsd?: number;
+    minutes?: number;
+    tokens?:  number;
+}
+
+export type Deliver = "inbox" | "thread";
+
+export interface AutomationTrigger {
+    /**
+     * Events within this window fold into one run (default 120000)
+     */
+    debounceMs?: number;
+    filter?:     WorkflowEventFilter;
+    /**
+     * Beyond it runs are skipped (default 24)
+     */
+    maxRunsPerDay?: number;
+    source:         WorkflowEventSource;
+    type:           AutomationTriggerType;
+}
+
+export interface WorkflowEventFilter {
+    accounts?:    string[];
+    calendarIds?: string[];
+    /**
+     * recording.added: a granted folder
+     */
+    folder?:       string;
+    fromContains?: string;
+    mailbox?:      string;
+}
+
+export type WorkflowEventSource = "mail.received" | "calendar.changed" | "recording.added" | "followup.due";
+
+export type AutomationTriggerType = "event";
 
 export interface WatchConfig {
     check: WatchCheck;
@@ -1317,8 +1398,10 @@ export interface AutomationRun {
      */
     coalesced:       number;
     endedAt?:        null | string;
+    events?:         WorkflowEvent[];
     id:              string;
     notificationId?: null | string;
+    runId?:          null | string;
     scheduledFor:    string;
     startedAt:       string;
     status:          AutomationRunStatus;
@@ -1326,11 +1409,37 @@ export interface AutomationRun {
     taskId?:         null | string;
     threadId?:       null | string;
     trigger:         AutomationRunTrigger;
+    usage?:          Usage;
+}
+
+export interface WorkflowEvent {
+    account?:         string;
+    at:               string;
+    calendarEventId?: string;
+    from?:            string;
+    /**
+     * Source id: the dedupe key
+     */
+    id:         string;
+    messageId?: string;
+    path?:      string;
+    source:     WorkflowEventSource;
+    subject?:   string;
+    threadId?:  string;
 }
 
 export type AutomationRunStatus = "running" | "done" | "no_reply" | "failed" | "cancelled" | "skipped";
 
-export type AutomationRunTrigger = "schedule" | "manual";
+export type AutomationRunTrigger = "schedule" | "manual" | "event";
+
+export interface Usage {
+    cacheRead:  number;
+    cacheWrite: number;
+    costUsd:    number;
+    input:      number;
+    output:     number;
+    reasoning:  number;
+}
 
 export interface AutomationRunStartedPayload {
     run: AutomationRun;
@@ -1411,11 +1520,13 @@ export interface UpcomingItem {
     enabled:       boolean;
     id:            string;
     kind:          UpcomingItemKind;
+    lastRunAt?:    null | string;
     nextRunAt?:    null | string;
     schedule?:     string;
     taskId?:       string;
     timezone?:     string;
     title:         string;
+    trigger?:      AutomationTrigger;
 }
 
 export type UpcomingItemKind = "automation" | "reminder" | "briefing" | "heartbeat" | "watch" | "input_request";
@@ -1690,6 +1801,7 @@ export interface BrowserRecording {
      */
     id:             string;
     libraryItemId?: null | string;
+    runId?:         null | string;
     startedAt:      string;
     taskId?:        null | string;
     threadId?:      null | string;
@@ -2094,6 +2206,10 @@ export interface Block {
     tokensAfter?:    number;
     tokensBefore?:   number;
     trigger?:        BlockTrigger;
+    feedbackId?:     string;
+    lessonId?:       null | string;
+    messageId?:      string;
+    statement?:      null | string;
 }
 
 export interface WrapUpAction {
@@ -2134,7 +2250,7 @@ export interface CompactionSummary {
 
 export type BlockTrigger = "auto" | "manual";
 
-export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "receipt" | "task" | "wrap_up" | "related_threads" | "compaction" | "learned";
+export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "receipt" | "task" | "wrap_up" | "related_threads" | "compaction" | "learned" | "taught";
 
 export interface ChatCancelParams {
     runId?:   string;
@@ -2197,6 +2313,7 @@ export interface Message {
     channelRef?:       ChannelRef | null;
     createdAt:         string;
     id:                string;
+    lessonsApplied?:   LessonRef[];
     provenance:        Provenance;
     providerNative?:   unknown;
     replyToMessageId?: null | string;
@@ -2211,6 +2328,14 @@ export interface ChannelRef {
     channel:   string;
     messageId: string;
 }
+
+export interface LessonRef {
+    kind:      LessonKind;
+    lessonId:  string;
+    statement: string;
+}
+
+export type LessonKind = "style" | "fact" | "entity" | "approach" | "parameter" | "boundary";
 
 export type Provenance = "owner" | "agent" | "untrusted" | "system";
 
@@ -2276,11 +2401,18 @@ export interface ChatSendParams {
     attachments?:      string[];
     content:           string;
     mode?:             QueueMode;
+    redo?:             Redo;
     replyToMessageId?: string;
     threadId:          string;
 }
 
 export type QueueMode = "steer" | "followUp" | "interrupt";
+
+export interface Redo {
+    instruction?:    string;
+    messageId:       string;
+    withoutLessons?: boolean;
+}
 
 export interface ChatSendResult {
     messageId: string;
@@ -2459,35 +2591,13 @@ export interface Scopes {
     read_act: string[];
 }
 
-export interface ConnectorsConnectParams {
-    catalogueId:  string;
-    config?:      { [key: string]: unknown };
-    connectorId?: string;
-    label?:       string;
-    scopeMode:    ScopeMode;
+export interface ConnectorsConfigureParams {
+    config:      { [key: string]: unknown };
+    connectorId: string;
 }
 
-export type ScopeMode = "read" | "read_act";
-
-export interface ConnectorsConnectResult {
-    authorization?: ConnectorAuthorization;
-    connector:      Connector;
-}
-
-export interface ConnectorAuthorization {
-    /**
-     * Epoch ms
-     */
-    expiresAt: number;
-    opened:    boolean;
-    /**
-     * https consent page, or the device-code verification page
-     */
-    url: string;
-    /**
-     * Device code flow: the code to enter
-     */
-    userCode?: string;
+export interface ConnectorsConfigureResult {
+    connector: Connector;
 }
 
 export interface Connector {
@@ -2509,7 +2619,38 @@ export interface Connector {
     updatedAt: string;
 }
 
+export type ScopeMode = "read" | "read_act";
+
 export type ConnectorStatus = "connected" | "disconnected" | "error" | "needs_auth";
+
+export interface ConnectorsConnectParams {
+    catalogueId:  string;
+    config?:      { [key: string]: unknown };
+    connectorId?: string;
+    label?:       string;
+    scopeMode:    ScopeMode;
+}
+
+export interface ConnectorsConnectResult {
+    authorization?: ConnectorAuthorization;
+    connector:      Connector;
+}
+
+export interface ConnectorAuthorization {
+    /**
+     * Epoch ms
+     */
+    expiresAt: number;
+    opened:    boolean;
+    /**
+     * https consent page, or the device-code verification page
+     */
+    url: string;
+    /**
+     * Device code flow: the code to enter
+     */
+    userCode?: string;
+}
 
 export interface ConnectorsDisconnectParams {
     connectorId: string;
@@ -2565,7 +2706,7 @@ export interface CustomConnectorManifest {
     id:            string;
     name:          string;
     schemaVersion: number;
-    source?:       SourceClass;
+    source?:       CustomConnectorManifestSource;
     tools:         CustomConnectorTool[];
     version:       string;
 }
@@ -2585,15 +2726,15 @@ export interface CustomConnectorAuth {
 
 export type CustomConnectorAuthKind = "none" | "bearer" | "header" | "query" | "basic";
 
-export interface SourceClass {
+export interface CustomConnectorManifestSource {
     drafted?: Drafted;
-    kind:     SourceKind;
+    kind:     PurpleKind;
     title?:   string;
 }
 
 export type Drafted = "owner" | "agent";
 
-export type SourceKind = "openapi" | "declarative";
+export type PurpleKind = "openapi" | "declarative";
 
 export interface CustomConnectorTool {
     defaultRule?: Decision;
@@ -2602,7 +2743,7 @@ export interface CustomConnectorTool {
     name:         string;
     params:       CustomConnectorParam[];
     path:         string;
-    sideEffect:   SideEffectEnum;
+    sideEffect:   CustomConnectorToolSideEffect;
 }
 
 export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -2617,7 +2758,7 @@ export interface CustomConnectorParam {
 
 export type In = "path" | "query" | "body";
 
-export type SideEffectEnum = "read" | "write" | "destructive";
+export type CustomConnectorToolSideEffect = "read" | "write" | "destructive";
 
 export interface CustomConnectorProposalUpdate {
     /**
@@ -2951,10 +3092,8 @@ export interface EventFrame {
     payload:      unknown;
     seq:          number;
     stateVersion: number;
-    type:         EventFrameType;
+    type:         AutomationTriggerType;
 }
-
-export type EventFrameType = "event";
 
 export interface EventsSubscribeParams {
     filters?: EventFilters;
@@ -2991,6 +3130,7 @@ export interface FeedFeedbackResult {
 export interface FeedPost {
     bodyMd:      string;
     briefingId?: null | string;
+    card?:       WorkflowCard;
     citations:   Citation[];
     cluster?:    { [key: string]: unknown } | null;
     createdAt:   string;
@@ -2999,16 +3139,229 @@ export interface FeedPost {
      */
     exploration: boolean;
     feedback?:   FeedFeedback | null;
+    growth?:     GrowthCard;
     id:          string;
+    kind?:       FeedPostKind;
     reasons:     string[];
+    refs?:       FeedPostRefs;
     score:       number;
     title:       string;
 }
+
+export interface WorkflowCard {
+    digest?: InboxDigest;
+    type:    WorkflowCardType;
+    prep?:   MeetingPrep;
+    notes?:  MeetingNotes;
+}
+
+export interface InboxDigest {
+    accounts: string[];
+    /**
+     * Messages per DigestCategory
+     */
+    counts:    { [key: string]: number };
+    createdAt: string;
+    groups:    DigestGroup[];
+    id:        string;
+    needsYou:  DigestItem[];
+    screen:    DigestItem[];
+    since:     string;
+    /**
+     * Built from untrusted mail (always true when mail was read)
+     */
+    taint:           boolean;
+    until:           string;
+    unverified:      DigestItem[];
+    usedCloudModel?: boolean;
+    waitingOn:       DigestLoop[];
+}
+
+export interface DigestGroup {
+    category:    DigestCategory;
+    count:       number;
+    proposalId?: null | string;
+    /**
+     * e.g. '12 newsletters'
+     */
+    title: string;
+}
+
+export type DigestCategory = "needs_you" | "soon" | "fyi" | "newsletters" | "notifications" | "screen" | "unverified";
+
+export interface DigestItem {
+    actions:  DigestAction[];
+    because?: string;
+    category: DigestCategory;
+    summary:  string;
+    thread:   MailThreadRef;
+}
+
+export type DigestAction = "draft_reply" | "remind" | "propose_times" | "mark_read" | "move" | "archive" | "save_attachment" | "allow_sender" | "not_now" | "always_archive" | "open";
+
+export interface MailThreadRef {
+    account:    string;
+    at?:        string;
+    from?:      string;
+    link?:      string;
+    messageId?: string;
+    subject?:   string;
+    threadId:   string;
+}
+
+export interface DigestLoop {
+    counterpart?: string;
+    loop:         GraphLoop;
+    shownCount:   number;
+    thread?:      MailThreadRef;
+}
+
+export interface GraphLoop {
+    closedAt?:            null | string;
+    closedBy?:            GraphLoopClosedBy | null;
+    confidence:           number;
+    counterpartId?:       null | string;
+    createdAt:            string;
+    detectedBy:           GraphLoopDetectedBy;
+    direction:            GraphLoopDirectionFilter;
+    dueAt?:               null | string;
+    evidence?:            null | string;
+    id:                   string;
+    projectId?:           null | string;
+    provenance:           Provenance;
+    sourceInteractionId?: null | string;
+    status:               GraphLoopStatus;
+    text:                 string;
+}
+
+export type GraphLoopClosedBy = "owner" | "reply_seen" | "due_passed";
+
+/**
+ * Who attached it to the entity; model links count only after the owner confirms
+ */
+export type GraphLoopDetectedBy = "rule" | "model" | "owner";
+
+export type GraphLoopDirectionFilter = "i_owe" | "waiting_on";
+
+export type GraphLoopStatus = "suggested" | "open" | "snoozed" | "done" | "dismissed";
+
+export interface MeetingNotes {
+    actionItems:       MeetingActionItem[];
+    decisions:         DecisionElement[];
+    durationMs:        number;
+    id:                string;
+    meetingId?:        null | string;
+    model:             Model;
+    openQuestions:     string[];
+    provenance:        Provenance;
+    recordingItemId?:  null | string;
+    startedAt:         string;
+    summary:           string[];
+    title:             string;
+    transcriptItemId?: null | string;
+}
+
+export interface MeetingActionItem {
+    /**
+     * Offset into the recording
+     */
+    atMs?:       number;
+    dueAt?:      null | string;
+    loopId?:     null | string;
+    owner?:      null | string;
+    proposalId?: null | string;
+    quote?:      string;
+    text:        string;
+}
+
+export interface DecisionElement {
+    atMs?:  number;
+    quote?: string;
+    text:   string;
+}
+
+export interface Model {
+    remote: boolean;
+    role:   ModelRole;
+}
+
+export type ModelRole = "primary" | "utility" | "local";
+
+export interface MeetingPrep {
+    agenda:      string[];
+    attendees:   MeetingAttendee[];
+    calendarId?: string;
+    endAt?:      string;
+    joinUrl?:    string;
+    lastTime:    SourcedLine[];
+    /**
+     * The calendar event id
+     */
+    meetingId:    string;
+    openLoops:    GraphLoop[];
+    startAt:      string;
+    taint:        boolean;
+    title:        string;
+    why?:         SourcedLine;
+    worthReading: SourcedLine[];
+}
+
+export interface MeetingAttendee {
+    email:         string;
+    name?:         string;
+    personId?:     string;
+    relationship?: Relationship;
+    /**
+     * One line: who they are
+     */
+    summary?: string;
+}
+
+export type Relationship = "family" | "friend" | "colleague" | "external" | "unknown";
+
+export interface SourcedLine {
+    source?: SourcedLineSource;
+    text:    string;
+}
+
+export interface SourcedLineSource {
+    kind:   FluffyKind;
+    label?: string;
+    ref:    string;
+}
+
+export type FluffyKind = "thread" | "note" | "loop" | "library" | "url" | "event" | "meeting";
+
+export type WorkflowCardType = "digest" | "meeting_prep" | "meeting_notes";
 
 export interface Citation {
     source?: string;
     title:   string;
     url:     string;
+}
+
+export interface GrowthCard {
+    items:  GrowthCardItem[];
+    weekOf: string;
+}
+
+export interface GrowthCardItem {
+    because:   string;
+    evidence:  string[];
+    lessonId?: null | string;
+    statement: string;
+    type:      GrowthCardItemType;
+}
+
+export type GrowthCardItemType = "lesson" | "question" | "retire" | "conflict";
+
+export type FeedPostKind = "brief" | "briefing" | "digest" | "meeting_prep" | "meeting_notes" | "watch" | "reminder" | "suggestion" | "news" | "exploration";
+
+export interface FeedPostRefs {
+    goalId?:      string;
+    meetingId?:   string;
+    proposalIds?: string[];
+    threads?:     MailThreadRef[];
 }
 
 export interface FeedGenerateParams {
@@ -3042,6 +3395,138 @@ export interface FeedPostPayload {
 export interface FeedUpdatedPayload {
     briefingId?: string;
     posts:       FeedPost[];
+}
+
+export interface FeedbackDeleteParams {
+    eventId: string;
+}
+
+export interface FeedbackGiveParams {
+    kind:    ExplicitFeedbackKind;
+    reason?: FeedbackReason;
+    scope?:  FeedbackScope;
+    target:  FeedbackTarget;
+    /**
+     * The owner's one-line correction ("What should I do instead?")
+     */
+    text?: string;
+}
+
+export type ExplicitFeedbackKind = "helpful" | "not_helpful" | "correction";
+
+export type FeedbackReason = "too_long" | "wrong_tone" | "wrong_facts" | "not_what_i_asked" | "should_have_asked";
+
+export type FeedbackScope = "once" | "person" | "task_kind" | "always";
+
+export interface FeedbackTarget {
+    automationId?: string;
+    id:            string;
+    skill?:        string;
+    taskId?:       string;
+    threadId?:     string;
+    type:          FeedbackTargetType;
+}
+
+export type FeedbackTargetType = "message" | "tool_call" | "task" | "approval" | "draft" | "feed_post" | "idea" | "automation_run" | "skill_run";
+
+export interface FeedbackGiveResult {
+    approval?: ApprovalRequest | null;
+    event:     FeedbackEvent;
+    lesson?:   Lesson | null;
+}
+
+export interface FeedbackEvent {
+    createdAt: string;
+    detail?:   { [key: string]: unknown } | null;
+    id:        string;
+    kind:      FeedbackKind;
+    lessonId?: null | string;
+    reason?:   FeedbackReason | null;
+    scope?:    FeedbackScope | null;
+    /**
+     * "desktop", "web" or "channel:<channelId>"
+     */
+    surface: string;
+    target:  FeedbackTarget;
+    text?:   null | string;
+}
+
+export type FeedbackKind = "helpful" | "not_helpful" | "correction" | "undo" | "draft_edited" | "approval_edited" | "approval_denied" | "dismissed" | "regenerated" | "feed" | "idea";
+
+export interface Lesson {
+    confidence:     number;
+    confirmedAt?:   null | string;
+    createdAt:      string;
+    destination:    LessonDestination;
+    forgottenAt?:   null | string;
+    id:             string;
+    kind:           LessonKind;
+    lastAppliedAt?: null | string;
+    origin:         LessonOrigin;
+    previous?:      null | string;
+    refinedCount:   number;
+    scope:          LessonScope;
+    sources:        string[];
+    statement:      string;
+    status:         LessonStatus;
+    supersedes?:    null | string;
+    value:          string;
+}
+
+export interface LessonDestination {
+    lineId?: string;
+    path?:   string;
+    /**
+     * e.g. "How I write for you"
+     */
+    section?:      string;
+    type:          DestinationEnum;
+    attribute?:    string;
+    entityId?:     string;
+    rel?:          string;
+    versionId?:    string;
+    skill?:        string;
+    automationId?: string;
+    /**
+     * e.g. "schedule", "delivery"
+     */
+    field?: string;
+}
+
+export type DestinationEnum = "file" | "graph" | "skill" | "automation";
+
+export type LessonOrigin = "stated" | "inferred";
+
+export interface LessonScope {
+    automationId?: string;
+    connector?:    string;
+    entityId?:     string;
+    global?:       boolean;
+    recipient?:    string;
+    skill?:        string;
+    taskKind?:     string;
+}
+
+export type LessonStatus = "proposed" | "active" | "confirmed" | "dormant" | "superseded" | "forgotten";
+
+export interface FeedbackListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?:     string;
+    kind?:       FeedbackKind;
+    limit?:      number;
+    since?:      string;
+    targetType?: FeedbackTargetType;
+}
+
+export interface FeedbackListResult {
+    events:      FeedbackEvent[];
+    nextCursor?: null | string;
+}
+
+export interface FeedbackRecordedPayload {
+    event: FeedbackEvent;
 }
 
 export interface FileBlock {
@@ -3179,13 +3664,13 @@ export interface GoalsArchiveResult {
 export interface GoalsCreateParams {
     cadence?:    null | string;
     category:    GoalCategory;
-    milestones?: Milestone[];
+    milestones?: MilestoneElement[];
     plan?:       { [key: string]: unknown } | null;
     timezone?:   string;
     title:       string;
 }
 
-export interface Milestone {
+export interface MilestoneElement {
     dueAt?: null | string;
     title:  string;
 }
@@ -3272,11 +3757,11 @@ export interface GoalsUpdateParams {
     category?: GoalCategory;
     goalId:    string;
     plan?:     { [key: string]: unknown } | null;
-    status?:   GoalsUpdateParamsStatus;
+    status?:   GraphProjectStatus;
     title?:    string;
 }
 
-export type GoalsUpdateParamsStatus = "active" | "paused" | "done";
+export type GraphProjectStatus = "active" | "paused" | "done";
 
 export interface GoalsUpdateResult {
     goal:       Goal;
@@ -3301,6 +3786,270 @@ export interface GrantsRevokeParams {
 export interface GrantsRevokeResult {
     grant: Grant;
 }
+
+export interface GraphEntityDetail {
+    /**
+     * Current relations from or to this entity
+     */
+    edges:  GraphEdge[];
+    entity: GraphEntity;
+    /**
+     * Of the card; for memory.entities.update if-match
+     */
+    etag: string;
+    /**
+     * Current facts, owner first, newest first
+     */
+    facts:              GraphFact[];
+    identifiers:        GraphIdentifier[];
+    openLoops:          GraphLoop[];
+    recentInteractions: GraphInteraction[];
+    /**
+     * Every entity the edges point to
+     */
+    related: EntitySummary[];
+}
+
+export interface GraphEdge {
+    confidence:    number;
+    dst:           string;
+    id:            string;
+    label?:        GraphRelationshipLabel;
+    provenance:    Provenance;
+    rel:           GraphEdgeRel;
+    retractedAt?:  null | string;
+    sources:       string[];
+    src:           string;
+    supersededBy?: null | string;
+    validFrom:     string;
+    validTo?:      null | string;
+}
+
+export type GraphRelationshipLabel = "partner" | "parent" | "child" | "sibling" | "friend" | "colleague" | "manager" | "report" | "client" | "vendor" | "teacher" | "doctor" | "other";
+
+export type GraphEdgeRel = "works_at" | "member_of" | "stakeholder_of" | "located_at" | "reports_to" | "related_to" | "part_of";
+
+export interface GraphEntity {
+    aliases:   string[];
+    cardPath?: null | string;
+    createdAt: string;
+    dueAt?:    null | string;
+    /**
+     * Don't track: nothing new is stored about them
+     */
+    hidden: boolean;
+    id:     string;
+    /**
+     * The owner's own person entity (exactly one)
+     */
+    isOwner:            boolean;
+    kind:               GraphEntityKind;
+    lastInteractionAt?: null | string;
+    mergedInto?:        null | string;
+    name:               string;
+    pinned:             boolean;
+    projectStatus?:     GraphProjectStatus;
+    status:             GraphEntityStatus;
+    summary?:           null | string;
+    summaryAt?:         null | string;
+    updatedAt:          string;
+}
+
+/**
+ * person, organisation, project or place
+ */
+export type GraphEntityKind = "person" | "org" | "project" | "place";
+
+export type GraphEntityStatus = "active" | "archived" | "merged";
+
+export interface GraphFact {
+    attribute:    GraphFactAttribute;
+    confidence:   number;
+    entityId:     string;
+    evidence?:    null | string;
+    id:           string;
+    provenance:   Provenance;
+    recordedAt:   string;
+    retractedAt?: null | string;
+    /**
+     * Interaction, chunk, Contacts or lesson references
+     */
+    sources:       string[];
+    supersededBy?: null | string;
+    validFrom:     string;
+    validTo?:      null | string;
+    value:         string;
+}
+
+export type GraphFactAttribute = "role" | "title" | "employer" | "team" | "email_pref" | "timezone" | "city" | "birthday" | "relationship_to_owner" | "preference" | "note" | "status" | "next_step" | "budget_note" | "deadline";
+
+export interface GraphIdentifier {
+    createdAt: string;
+    entityId:  string;
+    kind:      GraphIdentifierKind;
+    linkedBy:  GraphLoopDetectedBy;
+    /**
+     * Seen with several display names (a family or team inbox): never resolves alone
+     */
+    shared: boolean;
+    /**
+     * Connector or origin that produced it
+     */
+    source: string;
+    /**
+     * Display form (the stored key is normalised: lower-case email, E.164 phone)
+     */
+    value: string;
+    /**
+     * From Contacts or confirmed by the owner
+     */
+    verified: boolean;
+}
+
+export type GraphIdentifierKind = "email" | "phone" | "contact" | "channel" | "domain" | "calendar" | "url";
+
+export interface GraphInteraction {
+    direction:    GraphDirection;
+    id:           string;
+    kind:         GraphInteractionKind;
+    link?:        null | string;
+    occurredAt:   string;
+    participants: Participant[];
+    projectId?:   null | string;
+    /**
+     * Connector id
+     */
+    source:     string;
+    subject?:   null | string;
+    threadKey?: null | string;
+}
+
+export type GraphDirection = "in" | "out" | "both" | "none";
+
+export type GraphInteractionKind = "mail" | "message" | "meeting" | "call" | "note" | "chat" | "task";
+
+export interface Participant {
+    entityId: string;
+    role:     GraphParticipantRole;
+}
+
+export type GraphParticipantRole = "from" | "to" | "cc" | "attendee" | "organizer" | "mentioned";
+
+export interface EntitySummary {
+    id:                 string;
+    isOwner:            boolean;
+    kind:               GraphEntityKind;
+    lastInteractionAt?: null | string;
+    name:               string;
+    openLoops:          number;
+    pinned:             boolean;
+    projectStatus?:     GraphProjectStatus;
+    status:             GraphEntityStatus;
+    subtitle?:          null | string;
+    summary?:           null | string;
+}
+
+export interface GraphStatus {
+    budget:           GraphStatusBudget;
+    counts:           Counts;
+    enabled:          boolean;
+    lastModelPassAt?: null | string;
+    /**
+     * Suggested loops confirmed vs dismissed per source over 30 days
+     */
+    loopPrecision: LoopPrecision[];
+    sources:       SourceElement[];
+}
+
+export interface GraphStatusBudget {
+    entitiesUsed: number;
+    maxEntities:  number;
+    maxTokens:    number;
+    tokensUsed:   number;
+}
+
+export interface Counts {
+    openLoops:          number;
+    orgs:               number;
+    pendingSuggestions: number;
+    people:             number;
+    places:             number;
+    projects:           number;
+}
+
+export interface LoopPrecision {
+    confirmed: number;
+    dismissed: number;
+    source:    GraphSource;
+}
+
+export type GraphSource = "contacts" | "mail" | "calendar" | "messages" | "notes" | "chats";
+
+export interface SourceElement {
+    enabled:       boolean;
+    entities:      number;
+    interactions:  number;
+    lastIngestAt?: null | string;
+    source:        GraphSource;
+}
+
+export interface GrowthSummaryParams {
+    window: GrowthWindow;
+}
+
+export type GrowthWindow = "7d" | "30d" | "all";
+
+export interface GrowthSummaryResult {
+    summary: GrowthSummary;
+}
+
+export interface GrowthSummary {
+    lessons:    Lessons;
+    metrics:    GrowthMetric[];
+    milestones: Milestone[];
+    since?:     null | string;
+    timeline:   GrowthItem[];
+    window:     GrowthWindow;
+}
+
+export interface Lessons {
+    confirmed: number;
+    forgotten: number;
+    learned:   number;
+    refined:   number;
+}
+
+export interface GrowthMetric {
+    count:          number;
+    evidence:       string[];
+    id:             GrowthMetricID;
+    previousCount?: number | null;
+    previousRate?:  number | null;
+    previousTotal?: number | null;
+    rate?:          number | null;
+    skill?:         string;
+    total:          number;
+}
+
+export type GrowthMetricID = "drafts_sent_as_is" | "approvals_without_change" | "task_success" | "repeat_corrections" | "corrections_applied";
+
+export interface Milestone {
+    at:       string;
+    kind:     MilestoneKind;
+    ref?:     null | string;
+    subject?: null | string;
+}
+
+export type MilestoneKind = "first_week" | "first_month" | "first_lesson" | "lessons_10" | "tasks_100" | "first_automation" | "first_skill_from_routine";
+
+export interface GrowthItem {
+    at:         string;
+    lesson?:    Lesson;
+    type:       GrowthItemType;
+    milestone?: Milestone;
+}
+
+export type GrowthItemType = "lesson" | "milestone";
 
 export interface IdeaUpdatedPayload {
     idea: Idea;
@@ -3411,6 +4160,12 @@ export interface LearnedFact {
 }
 
 export type LearnedBlockType = "learned";
+
+export interface LessonChangedPayload {
+    lesson?:  Lesson;
+    lessonId: string;
+    status:   LessonStatus;
+}
 
 export interface LibraryDeleteParams {
     itemId: string;
@@ -3567,7 +4322,7 @@ export interface MCPProbedTool {
     blocked:     boolean;
     description: string;
     name:        string;
-    sideEffect:  SideEffectEnum;
+    sideEffect:  CustomConnectorToolSideEffect;
     warnings:    Warning[];
 }
 
@@ -3634,6 +4389,283 @@ export interface Note {
     path:    string;
 }
 
+export interface MemoryEntitiesCreateParams {
+    /**
+     * Other names
+     */
+    aliases?: string[];
+    /**
+     * Emails, phones, handles; refused if another entity has one
+     */
+    identifiers?: MemoryEntitiesCreateParamsIdentifier[];
+    kind:         GraphEntityKind;
+    /**
+     * Display name
+     */
+    name:           string;
+    projectStatus?: GraphProjectStatus;
+}
+
+export interface MemoryEntitiesCreateParamsIdentifier {
+    kind:  GraphIdentifierKind;
+    value: string;
+}
+
+export interface MemoryEntitiesCreateResult {
+    entity: GraphEntity;
+}
+
+export interface MemoryEntitiesEdgesRetractParams {
+    edgeId:  string;
+    source?: GraphWriteSource;
+}
+
+export interface GraphWriteSource {
+    kind: GraphWriteSourceKind;
+    /**
+     * e.g. "lesson:<id>" or a thread id
+     */
+    ref?: string;
+}
+
+/**
+ * The card or file, the teaching loop, or the owner's chat
+ */
+export type GraphWriteSourceKind = "owner_edit" | "owner_feedback" | "chat";
+
+export interface MemoryEntitiesEdgesRetractResult {
+    edge: GraphEdge;
+}
+
+export interface MemoryEntitiesEdgesSetParams {
+    dst:     string;
+    label?:  GraphRelationshipLabel;
+    rel:     GraphEdgeRel;
+    source?: GraphWriteSource;
+    src:     string;
+}
+
+export interface MemoryEntitiesEdgesSetResult {
+    edge:        GraphEdge;
+    superseded?: null | string;
+}
+
+export interface MemoryEntitiesFactsRetractParams {
+    factId:  string;
+    source?: GraphWriteSource;
+}
+
+export interface MemoryEntitiesFactsRetractResult {
+    fact: GraphFact;
+}
+
+export interface MemoryEntitiesFactsSetParams {
+    attribute: GraphFactAttribute;
+    entityId:  string;
+    source?:   GraphWriteSource;
+    /**
+     * The owner's value
+     */
+    value: string;
+}
+
+export interface MemoryEntitiesFactsSetResult {
+    fact:        GraphFact;
+    superseded?: null | string;
+}
+
+export interface MemoryEntitiesForgetParams {
+    /**
+     * Report counts without deleting
+     */
+    dryRun?: boolean;
+    id:      string;
+}
+
+export interface MemoryEntitiesForgetResult {
+    cardPath?: null | string;
+    dryRun:    boolean;
+    removed:   Removed;
+}
+
+export interface Removed {
+    edges:        number;
+    facts:        number;
+    identifiers:  number;
+    interactions: number;
+    loops:        number;
+}
+
+export interface MemoryEntitiesGetParams {
+    id: string;
+}
+
+export interface MemoryEntitiesHistoryParams {
+    attribute?: GraphFactAttribute;
+    entityId:   string;
+}
+
+export interface MemoryEntitiesHistoryResult {
+    edges: GraphEdge[];
+    facts: GraphFact[];
+}
+
+export interface MemoryEntitiesInteractionsParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?: string;
+    id:      string;
+    limit?:  number;
+}
+
+export interface MemoryEntitiesInteractionsResult {
+    interactions: GraphInteraction[];
+    nextCursor?:  null | string;
+}
+
+export interface MemoryEntitiesMergeParams {
+    /**
+     * Report what would move
+     */
+    dryRun?: boolean;
+    /**
+     * Entities to merge
+     */
+    ids:  string[];
+    into: string;
+}
+
+export interface MemoryEntitiesMergeResult {
+    dryRun:           boolean;
+    entity:           GraphEntity;
+    movedFacts:       number;
+    movedIdentifiers: number;
+}
+
+export interface MemoryEntitiesSearchParams {
+    /**
+     * Only these entity kinds
+     */
+    kinds?: GraphEntityKind[];
+    /**
+     * At most this many (default 20)
+     */
+    limit?: number;
+    /**
+     * Name, alias, email, phone or keyword
+     */
+    q: string;
+}
+
+export interface MemoryEntitiesSearchResult {
+    entities: EntitySummary[];
+}
+
+export interface MemoryEntitiesSplitParams {
+    dryRun?: boolean;
+    id:      string;
+    /**
+     * Identifiers that belong to someone else
+     */
+    identifiers: MemoryEntitiesSplitParamsIdentifier[];
+    /**
+     * Name of the new entity
+     */
+    name: string;
+}
+
+export interface MemoryEntitiesSplitParamsIdentifier {
+    kind:  GraphIdentifierKind;
+    value: string;
+}
+
+export interface MemoryEntitiesSplitResult {
+    dryRun: boolean;
+    entity: GraphEntity;
+}
+
+export interface MemoryEntitiesSuggestionsAnswerParams {
+    answer: GraphSuggestionAnswer;
+    id:     string;
+}
+
+export type GraphSuggestionAnswer = "accept" | "reject" | "later";
+
+export interface MemoryEntitiesSuggestionsAnswerResult {
+    entity?:    GraphEntity | null;
+    suggestion: GraphSuggestion;
+}
+
+export interface GraphSuggestion {
+    createdAt: string;
+    /**
+     * merge: the entities; project: the proposed members
+     */
+    entityIds: string[];
+    id:        string;
+    kind:      GraphSuggestionKind;
+    name?:     null | string;
+    /**
+     * Why it was suggested, in plain words
+     */
+    reason: string;
+    status: GraphSuggestionStatus;
+}
+
+export type GraphSuggestionKind = "merge" | "project";
+
+export type GraphSuggestionStatus = "pending" | "accepted" | "rejected" | "later";
+
+export interface MemoryEntitiesSuggestionsParams {
+    status?: GraphSuggestionFilter;
+}
+
+/**
+ * Default pending
+ */
+export type GraphSuggestionFilter = "pending" | "later";
+
+export interface MemoryEntitiesSuggestionsResult {
+    suggestions: GraphSuggestion[];
+}
+
+export interface MemoryEntitiesUpdateParams {
+    /**
+     * Replaces aliases
+     */
+    aliases?: string[];
+    /**
+     * If-match on the card
+     */
+    etag?: string;
+    /**
+     * Don't track: block new data about them
+     */
+    hidden?: boolean;
+    id:      string;
+    /**
+     * New name
+     */
+    name?: string;
+    /**
+     * Keep at the top and in nightly passes
+     */
+    pinned?:        boolean;
+    projectStatus?: GraphProjectStatus;
+    status?:        GraphEntityStatus;
+}
+
+export interface MemoryEntitiesUpdateResult {
+    entity: GraphEntity;
+}
+
+export interface MemoryEntityUpdatedPayload {
+    changed: string[];
+    id:      string;
+    kind:    GraphEntityKind;
+}
+
 export interface MemoryExplainParams {
     claimId: string;
 }
@@ -3675,7 +4707,9 @@ export interface MemoryFileChangedPayload {
      */
     path:        string;
     provenance?: Provenance;
+    runId?:      string;
     source:      MemoryChangeSource;
+    stepId?:     string;
 }
 
 export type MemoryChangeSource = "tool" | "api" | "external" | "job";
@@ -3719,6 +4753,80 @@ export interface MemoryForgetResult {
     retractedClaimIds: string[];
 }
 
+export interface MemoryGraphBlocklistAddParams {
+    kind:  GraphBlockKind;
+    value: string;
+}
+
+export type GraphBlockKind = "email" | "phone" | "domain";
+
+export interface MemoryGraphBlocklistAddResult {
+    entry: GraphBlocklistEntry;
+}
+
+export interface GraphBlocklistEntry {
+    createdAt: string;
+    hint?:     null | string;
+    /**
+     * Opaque; for memory.graph.blocklist.remove
+     */
+    id:   string;
+    kind: GraphIdentifierKind;
+}
+
+export interface MemoryGraphBlocklistListResult {
+    entries: GraphBlocklistEntry[];
+}
+
+export interface MemoryGraphBlocklistRemoveParams {
+    id: string;
+}
+
+export interface MemoryGraphBlocklistRemoveResult {
+    removed: boolean;
+}
+
+export interface MemoryGraphDeleteSourceParams {
+    /**
+     * Report counts without deleting
+     */
+    dryRun?: boolean;
+    source:  GraphSource;
+}
+
+export interface MemoryGraphDeleteSourceResult {
+    cardPaths: string[];
+    dryRun:    boolean;
+    removed:   GraphRemovedCounts;
+}
+
+export interface GraphRemovedCounts {
+    entities:     number;
+    facts:        number;
+    identifiers:  number;
+    interactions: number;
+    loops:        number;
+}
+
+export interface MemoryGraphForgetAllParams {
+    /**
+     * Must be exactly this phrase; guards against an accidental call
+     */
+    confirm: Confirm;
+    /**
+     * Report counts without deleting
+     */
+    dryRun?: boolean;
+}
+
+export type Confirm = "forget everything";
+
+export interface MemoryGraphForgetAllResult {
+    cardPaths: string[];
+    dryRun:    boolean;
+    removed:   GraphRemovedCounts;
+}
+
 export interface MemoryImportParams {
     content?: string;
     dryRun?:  boolean;
@@ -3756,6 +4864,122 @@ export interface MemoryJob {
 export type MemoryJobKind = "flush" | "dreaming" | "reindex" | "import";
 
 export type MemoryJobStatus = "running" | "ok" | "failed" | "skipped";
+
+export interface MemoryLessonsConfirmParams {
+    lessonId: string;
+}
+
+export interface MemoryLessonsConfirmResult {
+    lesson: Lesson;
+}
+
+export interface MemoryLessonsEditParams {
+    lessonId: string;
+    /**
+     * The new line or value
+     */
+    value: string;
+}
+
+export interface MemoryLessonsEditResult {
+    approval?: ApprovalRequest | null;
+    lesson:    Lesson;
+}
+
+export interface MemoryLessonsForgetAllParams {
+    approvalId?: string;
+    dryRun?:     boolean;
+}
+
+export interface MemoryLessonsForgetAllResult {
+    dryRun:  boolean;
+    events:  number;
+    lessons: number;
+}
+
+export interface MemoryLessonsForgetParams {
+    lessonId:      string;
+    purgeSources?: boolean;
+}
+
+export interface MemoryLessonsForgetResult {
+    lesson: Lesson;
+}
+
+export interface MemoryLessonsGetParams {
+    lessonId: string;
+}
+
+export interface MemoryLessonsGetResult {
+    diff:    Diff;
+    history: Lesson[];
+    lesson:  Lesson;
+    sources: FeedbackEvent[];
+}
+
+export interface Diff {
+    after:   string;
+    before?: null | string;
+}
+
+export interface MemoryLessonsListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?:      string;
+    destination?: DestinationEnum;
+    kind?:        LessonKind;
+    limit?:       number;
+    since?:       string;
+    status?:      LessonStatus[];
+}
+
+export interface MemoryLessonsListResult {
+    lessons:     Lesson[];
+    nextCursor?: null | string;
+}
+
+export interface MemoryLoopUpdatedPayload {
+    loop: GraphLoop;
+}
+
+export interface MemoryLoopsListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?:    string;
+    direction?: GraphLoopDirectionFilter;
+    dueBefore?: string;
+    entityId?:  string;
+    limit?:     number;
+    projectId?: string;
+    /**
+     * Default suggested and open
+     */
+    status?: GraphLoopStatus[];
+}
+
+export interface MemoryLoopsListResult {
+    loops:       GraphLoop[];
+    nextCursor?: null | string;
+}
+
+export interface MemoryLoopsUpdateParams {
+    /**
+     * null clears it
+     */
+    dueAt?:  null | string;
+    id:      string;
+    status?: GraphLoopStatus;
+    /**
+     * Rephrase it
+     */
+    text?: string;
+}
+
+export interface MemoryLoopsUpdateResult {
+    loop: GraphLoop;
+}
 
 export interface MemoryPauseParams {
     paused: boolean;
@@ -3874,6 +5098,10 @@ export interface MemoryStatusResult {
 }
 
 export type MemoryVectorMode = "sqlite-vec" | "brute-force" | "off";
+
+export interface MemorySuggestionCreatedPayload {
+    suggestion: GraphSuggestion;
+}
 
 export interface MemoryWriteParams {
     content: string;
@@ -4274,7 +5502,7 @@ export interface NotificationAction {
     label:                   string;
 }
 
-export type NotificationKind = "approval" | "input_needed" | "task_done" | "task_failed" | "proactive" | "briefing" | "reminder" | "system";
+export type NotificationKind = "approval" | "input_needed" | "task_done" | "task_failed" | "proactive" | "briefing" | "reminder" | "system" | "specialist_result";
 
 export interface NotificationResolvedPayload {
     notification: Notification;
@@ -4517,6 +5745,182 @@ export interface PolicyRule {
     priority:  number;
 }
 
+export interface ProposalUpdatedPayload {
+    proposal: ActionProposal;
+}
+
+export interface ActionProposal {
+    approvalId?:   null | string;
+    calls:         ActionCall[];
+    createdAt:     string;
+    createdBy:     CreatedBy;
+    expiresAt:     string;
+    id:            string;
+    postId?:       null | string;
+    results?:      ActionCallResult[];
+    sideEffect:    ActionProposalSideEffect;
+    status:        ActionProposalStatus;
+    taint:         boolean;
+    taintSources?: TaintSource[];
+    title:         string;
+    undoOf?:       null | string;
+    updatedAt:     string;
+}
+
+export interface ActionCall {
+    params: { [key: string]: unknown };
+    /**
+     * One line in plain words for the card, e.g. 'Mark read: Weekly digest (Acme)'
+     */
+    summary: string;
+    /**
+     * Model-facing tool name
+     */
+    tool: string;
+}
+
+export interface CreatedBy {
+    automationId?: string;
+    /**
+     * e.g. mail.digest, meetings.notes
+     */
+    job:    string;
+    runId?: string;
+}
+
+export interface ActionCallResult {
+    error?:     string;
+    index:      number;
+    receiptId?: string;
+    status:     ActionCallResultStatus;
+}
+
+export type ActionCallResultStatus = "ok" | "failed" | "skipped";
+
+export type ActionProposalSideEffect = "write";
+
+export type ActionProposalStatus = "pending" | "awaiting_approval" | "running" | "done" | "partial" | "failed" | "dismissed" | "expired";
+
+export interface ProposalsApproveParams {
+    proposalId: string;
+}
+
+export interface ProposalsApproveResult {
+    answerToken?: string;
+    approval:     ApprovalRequest;
+    proposal:     ActionProposal;
+}
+
+export interface ProposalsDismissParams {
+    proposalId: string;
+}
+
+export interface ProposalsDismissResult {
+    proposal: ActionProposal;
+}
+
+export interface ProposalsGetParams {
+    proposalId: string;
+}
+
+export interface ProposalsGetResult {
+    proposal: ActionProposal;
+}
+
+export interface ProposalsListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?: string;
+    limit?:  number;
+    postId?: string;
+    status?: ActionProposalStatus[];
+}
+
+export interface ProposalsListResult {
+    nextCursor?: null | string;
+    proposals:   ActionProposal[];
+}
+
+export interface ProposalsUndoParams {
+    proposalId: string;
+}
+
+export interface ProposalsUndoResult {
+    proposal: ActionProposal;
+}
+
+export interface PsycheTrace {
+    children:   TraceChild[];
+    exportedAt: string;
+    format:     PsycheTraceFormat;
+    frames:     FrameElement[];
+    redacted:   boolean;
+    run:        TraceRun;
+    steps:      TraceStep[];
+    version:    number;
+}
+
+export interface TraceChild {
+    run:   TraceRun;
+    steps: TraceStep[];
+}
+
+export interface TraceRun {
+    endedAt?:     null | string;
+    id:           string;
+    kind?:        string;
+    model:        string;
+    parentRunId?: null | string;
+    startedAt:    string;
+    status:       RunStatus;
+    title?:       string;
+    usage:        Usage;
+}
+
+export type RunStatus = "running" | "done" | "failed" | "cancelled" | "awaiting_approval" | "awaiting_input";
+
+export interface TraceStep {
+    attempt:       number;
+    attributes:    { [key: string]: Attribute };
+    childRunId?:   string;
+    endedAt?:      null | string;
+    error?:        RunStepError;
+    groupId?:      string;
+    id:            string;
+    input?:        unknown;
+    kind:          RunStepKind;
+    label:         string;
+    output?:       unknown;
+    parentStepId?: string;
+    seq:           number;
+    startedAt:     string;
+    status:        RunStepStatus;
+    target?:       string;
+    thinking?:     string;
+}
+
+export type Attribute = boolean | number | string;
+
+export interface RunStepError {
+    code:      string;
+    message:   string;
+    retryable: boolean;
+}
+
+export type RunStepKind = "thinking" | "model" | "tool" | "approval" | "question" | "subagent" | "text" | "memory" | "artifact" | "note";
+
+export type RunStepStatus = "pending" | "running" | "ok" | "failed" | "waiting" | "cancelled" | "skipped";
+
+export type PsycheTraceFormat = "psyche-trace";
+
+export interface FrameElement {
+    at:      string;
+    file:    string;
+    seq:     number;
+    stepId?: null | string;
+}
+
 export interface QuestionBlock {
     inputRequestId: string;
     type:           QuestionBlockType;
@@ -4655,31 +6059,302 @@ export interface ResOkFrame {
     type:    ResErrFrameType;
 }
 
+export interface RunGetResult {
+    /**
+     * Helper and specialist runs it spawned
+     */
+    children: Run[];
+    run:      Run;
+    /**
+     * The first 500 steps; page with runs.steps
+     */
+    steps: RunStep[];
+}
+
+export interface Run {
+    attempt:          number;
+    automationRunId?: null | string;
+    budget?:          RunBudget;
+    currentStepId?:   null | string;
+    deadline?:        null | string;
+    endedAt?:         null | string;
+    error?:           null | string;
+    id:               string;
+    kind?:            RunKind;
+    lastStepAt?:      null | string;
+    modelRef:         string;
+    note?:            string;
+    origin?:          RunOrigin;
+    parentRunId?:     null | string;
+    rootRunId?:       null | string;
+    specialist?:      RunSpecialist;
+    startedAt:        string;
+    status:           RunStatus;
+    stepCount?:       number;
+    taskId?:          null | string;
+    threadId:         string;
+    title?:           string;
+    usage:            Usage;
+}
+
+export interface RunBudget {
+    limit: Limit;
+    used:  Used;
+}
+
+export interface Limit {
+    costUsd?: number | null;
+    steps?:   number;
+    tokens?:  number;
+    wallMs?:  number;
+}
+
+export interface Used {
+    costUsd?: number | null;
+    retried?: Retried;
+    steps:    number;
+    tokens:   number;
+    wallMs:   number;
+}
+
+export interface Retried {
+    costUsd?: number | null;
+    tokens:   number;
+}
+
+export type RunKind = "chat" | "task" | "automation" | "subagent";
+
+export type RunOrigin = "owner" | "automation" | "channel" | "subagent";
+
+export interface RunSpecialist {
+    role: string;
+}
+
+export interface RunStep {
+    approvalId?:     string;
+    artifactId?:     string;
+    attempt:         number;
+    attempts?:       RunStepAttempt[];
+    childRunId?:     string;
+    doneLabel?:      string;
+    endedAt?:        null | string;
+    error?:          RunStepError;
+    frames?:         Frames;
+    groupId?:        string;
+    id:              string;
+    inputRequestId?: string;
+    kind:            RunStepKind;
+    label:           string;
+    memoryPath?:     string;
+    modelRef?:       string;
+    parentStepId?:   string;
+    payloadRef?:     PayloadRef;
+    preview?:        Preview;
+    progress?:       Progress;
+    receiptId?:      string;
+    runId:           string;
+    /**
+     * Per run, monotonic from 1: the replay order
+     */
+    seq:         number;
+    startedAt:   string;
+    status:      RunStepStatus;
+    target?:     string;
+    taskId?:     string;
+    text?:       Text;
+    toolCallId?: string;
+    usage?:      Usage;
+}
+
+export interface RunStepAttempt {
+    endedAt?:  null | string;
+    error?:    RunStepError;
+    startedAt: string;
+    status:    RunStepStatus;
+}
+
+export interface Frames {
+    first: number;
+    last:  number;
+}
+
+export interface PayloadRef {
+    input?:  string;
+    output?: string;
+}
+
+export interface Preview {
+    input?:  string;
+    output?: string;
+}
+
+export interface Progress {
+    fraction?: number;
+    message?:  string;
+}
+
+export interface Text {
+    expiresAt?: string;
+    full?:      string;
+    summary:    string;
+}
+
+export interface RunIDParams {
+    runId: string;
+}
+
+export interface RunStepPayload {
+    runId: string;
+    step:  RunStep;
+}
+
 export interface RunUpdatedPayload {
     run: Run;
 }
 
-export interface Run {
-    attempt:   number;
-    endedAt?:  null | string;
-    error?:    null | string;
-    id:        string;
-    modelRef:  string;
-    startedAt: string;
-    status:    RunStatus;
-    threadId:  string;
-    usage:     Usage;
+export interface RunsChildrenResult {
+    runs: RunSummary[];
 }
 
-export type RunStatus = "running" | "done" | "failed" | "cancelled" | "awaiting_approval" | "awaiting_input";
+export interface RunSummary {
+    activity?:        number[];
+    attempt:          number;
+    automationRunId?: null | string;
+    budget?:          RunBudget;
+    currentStep?:     CurrentStep;
+    currentStepId?:   null | string;
+    deadline?:        null | string;
+    durationsMs?:     number[];
+    endedAt?:         null | string;
+    error?:           null | string;
+    id:               string;
+    kind?:            RunKind;
+    lastStepAt?:      null | string;
+    modelRef:         string;
+    note?:            string;
+    origin?:          RunOrigin;
+    parentRunId?:     null | string;
+    rootRunId?:       null | string;
+    specialist?:      RunSummarySpecialist;
+    startedAt:        string;
+    status:           RunStatus;
+    stepCount?:       number;
+    taskId?:          null | string;
+    threadId:         string;
+    title?:           string;
+    usage:            Usage;
+}
 
-export interface Usage {
-    cacheRead:  number;
-    cacheWrite: number;
-    costUsd:    number;
-    input:      number;
-    output:     number;
-    reasoning:  number;
+export interface CurrentStep {
+    label:     string;
+    startedAt: string;
+    status:    RunStepStatus;
+}
+
+export interface RunSummarySpecialist {
+    role: string;
+}
+
+export interface RunsDeleteResult {
+    ok: boolean;
+}
+
+export interface RunsExportParams {
+    format: RunTraceFormat;
+    /**
+     * psyche-trace+json only: a .zip with frames/ (never incognito)
+     */
+    includeFrames?: boolean;
+    runId:          string;
+}
+
+export type RunTraceFormat = "psyche-trace+json" | "markdown";
+
+export interface RunsExportResult {
+    dataBase64?:    string;
+    fileName:       string;
+    libraryItemId?: string;
+    mime:           string;
+}
+
+export interface RunsFrameParams {
+    runId: string;
+    seq:   number;
+    size:  Size;
+}
+
+export type Size = "thumb" | "full";
+
+export interface RunsFrameResult {
+    dataBase64: string;
+    mime:       string;
+}
+
+export interface RunsFramesParams {
+    afterSeq?: number;
+    limit?:    number;
+    runId:     string;
+    stepId?:   string;
+}
+
+export interface RunsFramesResult {
+    frames: RunFrame[];
+}
+
+export interface RunFrame {
+    at:       string;
+    expired?: boolean;
+    height:   number;
+    seq:      number;
+    stepId?:  null | string;
+    width:    number;
+}
+
+export interface RunsListParams {
+    automationId?: string;
+    /**
+     * Opaque cursor
+     */
+    cursor?:      string;
+    kind?:        RunKind;
+    limit?:       number;
+    parentRunId?: string;
+    rootRunId?:   string;
+    since?:       string;
+    status?:      RunStatus[];
+    taskId?:      string;
+    threadId?:    string;
+}
+
+export interface RunsListResult {
+    nextCursor?: null | string;
+    runs:        RunSummary[];
+}
+
+export interface RunsStepParams {
+    runId:  string;
+    stepId: string;
+}
+
+export interface RunsStepResult {
+    input?:  unknown;
+    output?: unknown;
+    step:    RunStep;
+    /**
+     * A payload was over 1 MB: head and tail kept
+     */
+    truncated: boolean;
+}
+
+export interface RunsStepsParams {
+    afterSeq?: number;
+    limit?:    number;
+    runId:     string;
+}
+
+export interface RunsStepsResult {
+    nextSeq?: number | null;
+    steps:    RunStep[];
 }
 
 export interface SandboxListResult {
@@ -4723,7 +6398,7 @@ export interface SearchQueryParams {
     scopes?: SearchScope[];
 }
 
-export type SearchScope = "threads" | "messages" | "tasks" | "memory" | "library" | "feed" | "ideas" | "goals" | "connectors";
+export type SearchScope = "threads" | "messages" | "tasks" | "memory" | "library" | "feed" | "ideas" | "goals" | "connectors" | "people" | "projects";
 
 export interface SearchQueryResult {
     groups?: SearchHitGroup[];
@@ -4744,7 +6419,7 @@ export interface SearchHitGroup {
     hits:  SearchHit[];
 }
 
-export type SearchGroup = "threads" | "tasks" | "memory" | "library" | "feed" | "ideas" | "goals" | "connectors";
+export type SearchGroup = "threads" | "tasks" | "memory" | "library" | "feed" | "ideas" | "goals" | "connectors" | "people" | "projects";
 
 export interface SearchHit {
     /**
@@ -4765,7 +6440,7 @@ export interface SearchHit {
     titleHighlights?:   Array<number[]>;
 }
 
-export type SearchIndexDocKind = "thread" | "message" | "task" | "memory" | "library" | "feed" | "idea" | "goal" | "connector";
+export type SearchIndexDocKind = "thread" | "message" | "task" | "memory" | "library" | "feed" | "idea" | "goal" | "connector" | "person" | "project";
 
 export interface SettingsChangedPayload {
     entries: SettingEntry[];
@@ -5160,6 +6835,147 @@ export interface SkillsSetEnabledResult {
     skill: SkillDetails;
 }
 
+export interface SpecialistProgressPayload {
+    budget: RunBudget;
+    runId:  string;
+    step:   Step;
+    taskId: string;
+}
+
+export interface Step {
+    id:     string;
+    label:  string;
+    status: string;
+}
+
+export interface SpecialistResultPayload {
+    notificationId?: null | string;
+    parentRunId?:    null | string;
+    result:          SpecialistResult;
+    runId?:          null | string;
+    taskId:          string;
+}
+
+export interface SpecialistResult {
+    artifacts:     string[];
+    defaultsUsed?: string[];
+    evaluator?:    Evaluator;
+    findings:      SpecialistFinding[];
+    gaps:          string[];
+    next:          Next[];
+    outcome:       SpecialistOutcome;
+    receipts:      string[];
+    stopReason?:   string;
+    summary:       string;
+    tainted:       boolean;
+}
+
+export interface Evaluator {
+    reason:  string;
+    verdict: Verdict;
+}
+
+export type Verdict = "done" | "reopen" | "escalate";
+
+export interface SpecialistFinding {
+    detail:   string;
+    sources?: string[];
+    title:    string;
+}
+
+export interface Next {
+    label:   string;
+    message: string;
+}
+
+export type SpecialistOutcome = "done" | "partial" | "failed" | "cancelled";
+
+export interface SpecialistSpawnedPayload {
+    job: SpecialistJob;
+}
+
+export interface SpecialistJob {
+    budget:         RunBudget;
+    createdAt:      string;
+    deadline?:      null | string;
+    lastStep?:      null | string;
+    parentRunId?:   null | string;
+    parentThreadId: string;
+    queuePosition?: number | null;
+    result?:        SpecialistResult | null;
+    /**
+     * researcher | shopper | coder | organizer | writer | planner, or a skill-defined role
+     */
+    role:      string;
+    runId?:    null | string;
+    status:    StatusElement;
+    taskId:    string;
+    threadId:  string;
+    title:     string;
+    updatedAt: string;
+}
+
+export type StatusElement = "queued" | "working" | "needs_you" | "done" | "partial" | "failed" | "cancelled";
+
+export interface SpecialistsJobsParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?:   string;
+    limit?:    number;
+    status?:   StatusElement[];
+    threadId?: string;
+}
+
+export interface SpecialistsJobsResult {
+    jobs:        SpecialistJob[];
+    nextCursor?: null | string;
+}
+
+export interface SpecialistsListResult {
+    roles: SpecialistRole[];
+}
+
+export interface SpecialistRole {
+    approvals:   ApprovalKind[];
+    budget:      SpecialistBudgetSetting;
+    caps:        Caps;
+    description: string;
+    enabled:     boolean;
+    label:       string;
+    maxMode:     PermissionMode;
+    model?:      null | string;
+    modelClass:  ModelClass;
+    planFirst:   boolean;
+    result:      SpecialistResultKind;
+    /**
+     * researcher | shopper | coder | organizer | writer | planner, or a skill-defined role
+     */
+    role:   string;
+    skill:  string;
+    source: SkillSource;
+    tools:  string[];
+}
+
+export interface SpecialistBudgetSetting {
+    costUsd?: number;
+    minutes?: number;
+    tokens?:  number;
+}
+
+export interface Caps {
+    costUsd?: number;
+    maxHours: number;
+    minutes?: number;
+    tokens?:  number;
+}
+
+export type PermissionMode = "plan" | "manual" | "balanced" | "auto";
+
+export type ModelClass = "utility" | "primary" | "harness" | "vision";
+
+export type SpecialistResultKind = "findings" | "draft" | "changes" | "plan" | "items";
+
 export interface SpeechAudioPayload {
     /**
      * Base64 PCM
@@ -5178,6 +6994,23 @@ export interface AudioFormat {
 }
 
 export type Encoding = "pcm_s16le" | "pcm_f32le" | "opus" | "mp3" | "wav" | "caf";
+
+export interface SpeechProgressEvent {
+    /**
+     * Chunks finished
+     */
+    chunk:    number;
+    chunks:   number;
+    fraction: number;
+    /**
+     * Audio transcribed so far
+     */
+    processedMs: number;
+    totalMs:     number;
+    type:        SpeechProgressEventType;
+}
+
+export type SpeechProgressEventType = "speech.progress";
 
 export interface SpeechReadAloudCancelParams {
     streamId: string;
@@ -5211,6 +7044,60 @@ export interface SpeechReadAloudParams {
 
 export interface SpeechReadAloudResult {
     streamId: string;
+}
+
+export interface SpeechTranscribeFileParams {
+    /**
+     * BCP-47 tag (default: the Mac's locale)
+     */
+    locale?: string;
+    /**
+     * Refuse longer files (default and ceiling 4 h)
+     */
+    maxDurationMs?: number;
+    /**
+     * Absolute path of an audio file in a granted folder or the Library (m4a, caf, wav, aiff,
+     * mp3, …)
+     */
+    path: string;
+    /**
+     * Names and terms; selects DictationTranscriber with contextual strings
+     */
+    vocabulary?: string[];
+}
+
+export interface SpeechTranscribeFileResult {
+    /**
+     * Duration of the file
+     */
+    audioMs: number;
+    /**
+     * How many chunks the file was split into
+     */
+    chunks: number;
+    engine: SpeechNodeEngine;
+    /**
+     * BCP-47 tag of the locale used
+     */
+    language: string;
+    /**
+     * Final segments in time order
+     */
+    segments: TranscriptSegment[];
+    text:     string;
+}
+
+export type SpeechNodeEngine = "speechAnalyzer" | "dictationTranscriber" | "sfSpeech";
+
+export interface TranscriptSegment {
+    confidence?: number;
+    endMs:       number;
+    /**
+     * false = volatile partial a later segment replaces
+     */
+    final:   boolean;
+    startMs: number;
+    text:    string;
 }
 
 export interface SpeechVoicesParams {
@@ -5317,9 +7204,11 @@ export interface Task {
     id:                string;
     leaseOwner?:       null | string;
     leaseUntil?:       null | string;
+    lessonsApplied?:   LessonRef[];
     outcome?:          { [key: string]: unknown } | null;
     plan?:             TaskPlan | null;
     sandboxId?:        null | string;
+    specialist?:       SpecialistSpec;
     status:            TaskStatus;
     summary?:          null | string;
     /**
@@ -5351,6 +7240,32 @@ export interface PlanStep {
 }
 
 export type PlanStepStatus = "pending" | "running" | "done" | "failed" | "skipped";
+
+export interface SpecialistSpec {
+    budget:         RunBudget;
+    deadline?:      null | string;
+    deliver:        Deliver;
+    inputs:         SpecialistInputs;
+    model:          string;
+    parentRunId?:   null | string;
+    parentThreadId: string;
+    permissionMode: PermissionMode;
+    planFirst:      boolean;
+    queuePosition?: number | null;
+    result?:        SpecialistResult | null;
+    /**
+     * researcher | shopper | coder | organizer | writer | planner, or a skill-defined role
+     */
+    role:       string;
+    rootRunId?: null | string;
+    tools:      string[];
+}
+
+export interface SpecialistInputs {
+    folders:        string[];
+    libraryItemIds: string[];
+    urls:           string[];
+}
 
 export type TaskStatus = "queued" | "running" | "awaiting_input" | "awaiting_approval" | "paused" | "done" | "failed" | "cancelled";
 
@@ -5393,6 +7308,33 @@ export interface TasksRetryParams {
     fromStepId?: string;
     taskId:      string;
 }
+
+export interface TasksSteerParams {
+    taskId: string;
+    text:   string;
+}
+
+export interface TasksUpdateParams {
+    budget?:   TasksUpdateParamsBudget;
+    deadline?: string;
+    taskId:    string;
+}
+
+export interface TasksUpdateParamsBudget {
+    costUsd?: number;
+    minutes?: number;
+    tokens?:  number;
+}
+
+export interface TaughtBlock {
+    feedbackId: string;
+    lessonId?:  null | string;
+    messageId:  string;
+    statement?: null | string;
+    type:       TaughtBlockType;
+}
+
+export type TaughtBlockType = "taught";
 
 export interface TeachDraft {
     description: string;
@@ -5488,6 +7430,13 @@ export interface TeachStepEvent {
 
 export type TeachStepEventType = "teach.step";
 
+export interface TeachingImplicitSignals {
+    approvalEdits: boolean;
+    dismissals:    boolean;
+    draftEdits:    boolean;
+    undo:          boolean;
+}
+
 export interface TextBlock {
     md:   string;
     type: TextBlockType;
@@ -5512,7 +7461,8 @@ export interface ThingsAddParams {
 }
 
 export interface ThingsCompleteParams {
-    id: string;
+    authToken?: string;
+    id:         string;
     /**
      * Default completed
      */
@@ -5561,6 +7511,7 @@ export interface ThingsTodo {
 export interface ThingsUpdateParams {
     addTags?:     string[];
     appendNotes?: string;
+    authToken?:   string;
     deadline?:    null | string;
     id:           string;
     title?:       string;
@@ -5641,8 +7592,6 @@ export interface Thread {
 }
 
 export type ThreadKind = "main" | "side" | "incognito" | "channel" | "automation" | "subagent";
-
-export type PermissionMode = "plan" | "manual" | "balanced" | "auto";
 
 export type TitleSource = "user" | "auto";
 
@@ -5738,11 +7687,11 @@ export interface ThreadActivity {
 
 export interface ThreadPreview {
     at:   string;
-    role: Role;
+    role: ThreadPreviewRole;
     text: string;
 }
 
-export type Role = "user" | "agent";
+export type ThreadPreviewRole = "user" | "agent";
 
 export interface ThreadsPinParams {
     pinned:   boolean;
@@ -5806,6 +7755,7 @@ export interface ToolCall {
     sideEffect:     SideEffect;
     startedAt:      string;
     status:         ToolCallStatus;
+    stepId?:        string;
     taintIn:        boolean;
     taintOut:       boolean;
     target?:        Target | null;
@@ -6564,17 +8514,6 @@ export interface Transcript {
     language?: string;
     segments:  TranscriptSegment[];
     text:      string;
-}
-
-export interface TranscriptSegment {
-    confidence?: number;
-    endMs:       number;
-    /**
-     * false = volatile partial a later segment replaces
-     */
-    final:   boolean;
-    startMs: number;
-    text:    string;
 }
 
 export interface VoicePushParams {

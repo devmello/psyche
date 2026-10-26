@@ -19,6 +19,8 @@ const KINDS_OF_SCOPE: Record<SearchScope, SearchIndexDocKind[]> = {
   ideas: ["idea"],
   goals: ["goal"],
   connectors: ["connector"],
+  people: ["person"],
+  projects: ["project"],
 };
 const ALL_SCOPES = Object.keys(KINDS_OF_SCOPE) as SearchScope[];
 
@@ -43,6 +45,10 @@ function scopeOf(hit: RichHit): SearchScope | undefined {
       return "goals";
     case "connector":
       return "connectors";
+    case "person":
+      return "people";
+    case "project":
+      return "projects";
     default:
       return undefined;
   }
@@ -70,6 +76,10 @@ export function routeOf(hit: RichHit): string | null {
       return `/ideas?idea=${enc(hit.id)}`;
     case "goal":
       return `/goals/${enc(hit.id)}`;
+    case "person":
+    case "project":
+      // The card in the agent sheet's People & projects section (people-and-projects §6.5).
+      return `/agent/soul?entity=${enc(hit.id.replace(/^entity:/, ""))}`;
     default:
       return null;
   }

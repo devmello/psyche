@@ -9,7 +9,7 @@ import {
 } from "node:net";
 import { join } from "node:path";
 import type { Duplex } from "node:stream";
-import { openDb, type PsycheDb } from "@psyche/db";
+import { getThread, openDb, type PsycheDb } from "@psyche/db";
 import {
   type AgentLoop,
   isMethodName,
@@ -53,7 +53,8 @@ import { presenceStateFor } from "./presence-gate.ts";
 import { resolvePeer, trustedProxyList } from "./proxy.ts";
 import { RateLimiter } from "./rate-limit.ts";
 import { type RecoveryReport, recoverAfterRestart } from "./recovery.ts";
-import { RETENTION_INTERVAL_MS, runRetention } from "./retention.ts";
+import { RETENTION_INTERVAL_MS, reasoningRetentionDays, runRetention } from "./retention.ts";
+import { RunTraceSink } from "./run-trace/sink.ts";
 import { SessionController } from "./session/controller.ts";
 import { ensureSocketDir, writeSocketPointer } from "./socket-path.ts";
 import { readStateVersion, writeStateVersion } from "./state-version.ts";
@@ -109,6 +110,11 @@ export interface GatewayOptions {
   publicRoutes?: Readonly<Record<string, PublicRoute>>;
   /** Run the retention sweep on this interval (0 disables the timer; tests call it directly). */
   retentionIntervalMs?: number;
+  /**
+   * The run trace's redactor (composition root: the vault's `SecretRedactor` and credential-like
+   * URL parameters). Every stored or streamed step text goes through it (run trace §4.6).
+   */
+  traceRedact?: (text: string) => string;
 }
 
 export interface Gateway {
@@ -191,6 +197,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     presenceState: presenceStateFor(db, options.settingsPresence ?? (() => false)),
     threadModels: options.threadModels ?? null,
     deviceDisconnected: new Set<(deviceId: string) => void>(),
+    chatRedo: new Set(),
     limits,
     failedChallenges: new RateLimiter(limits.failedChallengesPerMinute, 60_000, () =>
       now().getTime(),
@@ -203,8 +210,20 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     idempotency: new Idempotency(db),
     serverOrigin: () => origin,
     connections: () => connections,
-  } as Omit<GatewayContext, "sessions" | "nodes"> as GatewayContext;
-  Object.assign(ctx, { sessions: new SessionController(ctx), nodes: new NodeRegistry(ctx) });
+  } as Omit<GatewayContext, "sessions" | "nodes" | "runTrace"> as GatewayContext;
+  Object.assign(ctx, {
+    sessions: new SessionController(ctx),
+    nodes: new NodeRegistry(ctx),
+    runTrace: new RunTraceSink({
+      db,
+      bus,
+      now,
+      ...(options.traceRedact === undefined ? {} : { redact: options.traceRedact }),
+      reasoningRetentionDays: () => reasoningRetentionDays(db),
+      // Incognito threads are never written (run trace §4.3).
+      isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
+    }),
+  });
 
   // Security §3.7: a restart invalidates pending approvals; the broker re-issues them.
   try {

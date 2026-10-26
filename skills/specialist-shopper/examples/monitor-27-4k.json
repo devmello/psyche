@@ -1,0 +1,328 @@
+{
+  "id": "shopper-monitor-27-4k",
+  "role": "shopper",
+  "title": "Best price on a 27-inch 4K monitor under $400",
+  "brief": "Goal: find the best total price on a 27-inch 4K IPS monitor under $400 delivered. Scope: connected merchants plus one or two well-known stores; new only, no marketplace sellers. Constraints: never buy or check out; note add-ons to untick. Done: 2 to 3 options with price, shipping, total, delivery, returns and links, best total first, saved as a comparison table.",
+  "tools": [
+    "exit_plan_mode",
+    "ask_user",
+    "shop_list_merchants",
+    "shop_search",
+    "shop_compare",
+    "web.search",
+    "web.fetch",
+    "write_file",
+    "update_plan",
+    "browser.navigate",
+    "browser.screenshot"
+  ],
+  "script": [
+    [
+      {
+        "type": "tool_call",
+        "id": "c1",
+        "name": "shop_list_merchants",
+        "input": {}
+      },
+      {
+        "type": "tool_call",
+        "id": "c2",
+        "name": "shop_search",
+        "input": {
+          "query": "27 inch 4K IPS monitor",
+          "maxPrice": 400,
+          "condition": "new"
+        }
+      },
+      {
+        "type": "usage",
+        "usage": {
+          "input": 2600,
+          "output": 120,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "costUsd": 0.01
+        }
+      },
+      {
+        "type": "finish",
+        "reason": "tool_calls"
+      }
+    ],
+    [
+      {
+        "type": "tool_call",
+        "id": "c3",
+        "name": "exit_plan_mode",
+        "input": {
+          "plan": "Compare the Dell S2725QS, LG 27UP650 and ASUS VA27UQ at Best Buy, Amazon and B&H; read each product page for price, shipping, delivery and returns; save a comparison table; no cart, no checkout. Budget 300k tokens, $2, 45 minutes."
+        }
+      },
+      {
+        "type": "usage",
+        "usage": {
+          "input": 3100,
+          "output": 140,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "costUsd": 0.01
+        }
+      },
+      {
+        "type": "finish",
+        "reason": "tool_calls"
+      }
+    ],
+    [
+      {
+        "type": "tool_call",
+        "id": "c4",
+        "name": "shop_compare",
+        "input": {
+          "items": ["dell-s2725qs", "lg-27up650", "asus-va27uq"],
+          "zip": "owner_default"
+        }
+      },
+      {
+        "type": "tool_call",
+        "id": "c5",
+        "name": "web.fetch",
+        "input": {
+          "url": "https://www.bestbuy.example/p/dell-s2725qs"
+        }
+      },
+      {
+        "type": "usage",
+        "usage": {
+          "input": 4700,
+          "output": 160,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "costUsd": 0.02
+        }
+      },
+      {
+        "type": "finish",
+        "reason": "tool_calls"
+      }
+    ],
+    [
+      {
+        "type": "tool_call",
+        "id": "c6",
+        "name": "write_file",
+        "input": {
+          "path": "artifacts/monitor-27-4k-comparison.md",
+          "content": "| Option | Price | Shipping | Total | Delivery | Returns | Link |\n| --- | --- | --- | --- | --- | --- | --- |\n| Dell S2725QS at Best Buy | $279.99 | Free | $279.99 | Oct 28 | 15 days | https://www.bestbuy.example/p/dell-s2725qs |\n| LG 27UP650 at Amazon | $296.99 | Free | $296.99 | Oct 27 | 30 days | https://www.amazon.example/dp/lg-27up650 |\n| ASUS VA27UQ at B&H | $309.00 | $9.99 | $318.99 | Oct 30 | 30 days | https://www.bhphoto.example/c/asus-va27uq |\n"
+        }
+      },
+      {
+        "type": "usage",
+        "usage": {
+          "input": 6200,
+          "output": 600,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "costUsd": 0.03
+        }
+      },
+      {
+        "type": "finish",
+        "reason": "tool_calls"
+      }
+    ],
+    [
+      {
+        "type": "tool_call",
+        "id": "r1",
+        "name": "specialist.report",
+        "input": {
+          "outcome": "done",
+          "summary": "Best total: Dell S2725QS at Best Buy, $279.99 delivered Oct 28; untick the pre-selected $39.99 protection plan. Runner-up: LG 27UP650 at Amazon, $296.99, arrives a day sooner with 30-day returns. Nothing was added to a cart or bought.",
+          "findings": [
+            {
+              "title": "Best Buy: Dell S2725QS",
+              "detail": "$279.99, free shipping, total $279.99, arrives Oct 28, 15-day returns. A $39.99 protection plan is pre-selected; untick it.",
+              "sources": ["https://www.bestbuy.example/p/dell-s2725qs"]
+            },
+            {
+              "title": "Amazon: LG 27UP650",
+              "detail": "$296.99, free shipping, total $296.99, arrives Oct 27, 30-day returns.",
+              "sources": ["https://www.amazon.example/dp/lg-27up650"]
+            },
+            {
+              "title": "B&H: ASUS VA27UQ",
+              "detail": "$309.00 plus $9.99 shipping, total $318.99, arrives Oct 30, 30-day returns.",
+              "sources": ["https://www.bhphoto.example/c/asus-va27uq"]
+            }
+          ],
+          "artifacts": ["art_monitor_cmp"],
+          "next": [
+            {
+              "label": "Open the best deal",
+              "message": "Open the Best Buy page for the Dell S2725QS so I can buy it myself."
+            },
+            {
+              "label": "Watch the price",
+              "message": "Watch the Dell S2725QS at Best Buy and tell me if it drops below $260."
+            }
+          ],
+          "gaps": []
+        }
+      },
+      {
+        "type": "usage",
+        "usage": {
+          "input": 7400,
+          "output": 900,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "reasoning": 0,
+          "costUsd": 0.02
+        }
+      },
+      {
+        "type": "finish",
+        "reason": "tool_calls"
+      }
+    ]
+  ],
+  "toolResults": {
+    "c1": {
+      "output": {
+        "merchants": [
+          {
+            "id": "bestbuy",
+            "name": "Best Buy"
+          },
+          {
+            "id": "amazon",
+            "name": "Amazon"
+          },
+          {
+            "id": "bhphoto",
+            "name": "B&H"
+          }
+        ]
+      },
+      "provenance": "trusted"
+    },
+    "c2": {
+      "output": {
+        "items": [
+          {
+            "id": "dell-s2725qs",
+            "title": "Dell 27 4K UHD Monitor S2725QS",
+            "price": 279.99
+          },
+          {
+            "id": "lg-27up650",
+            "title": "LG 27UP650-W 27\" 4K UHD IPS",
+            "price": 296.99
+          },
+          {
+            "id": "asus-va27uq",
+            "title": "ASUS VA27UQ 27\" 4K",
+            "price": 309
+          }
+        ]
+      },
+      "provenance": "untrusted"
+    },
+    "c3": {
+      "output": {
+        "approved": true
+      },
+      "provenance": "trusted"
+    },
+    "c4": {
+      "output": {
+        "offers": [
+          {
+            "item": "dell-s2725qs",
+            "merchant": "Best Buy",
+            "price": 279.99,
+            "shipping": 0,
+            "total": 279.99,
+            "delivery": "2026-10-28",
+            "returns": "15 days",
+            "url": "https://www.bestbuy.example/p/dell-s2725qs"
+          },
+          {
+            "item": "lg-27up650",
+            "merchant": "Amazon",
+            "price": 296.99,
+            "shipping": 0,
+            "total": 296.99,
+            "delivery": "2026-10-27",
+            "returns": "30 days",
+            "url": "https://www.amazon.example/dp/lg-27up650"
+          },
+          {
+            "item": "asus-va27uq",
+            "merchant": "B&H",
+            "price": 309,
+            "shipping": 9.99,
+            "total": 318.99,
+            "delivery": "2026-10-30",
+            "returns": "30 days",
+            "url": "https://www.bhphoto.example/c/asus-va27uq"
+          }
+        ]
+      },
+      "provenance": "untrusted"
+    },
+    "c5": {
+      "output": {
+        "url": "https://www.bestbuy.example/p/dell-s2725qs",
+        "text": "Dell S2725QS 27\" 4K IPS, $279.99, free shipping, arrives Oct 28. Optional 2-year protection plan $39.99 (pre-selected). Returns within 15 days."
+      },
+      "provenance": "untrusted"
+    },
+    "c6": {
+      "output": {
+        "ok": true,
+        "artifactId": "art_monitor_cmp",
+        "path": "artifacts/monitor-27-4k-comparison.md"
+      },
+      "provenance": "trusted"
+    }
+  },
+  "expectedReport": {
+    "outcome": "done",
+    "summary": "Best total: Dell S2725QS at Best Buy, $279.99 delivered Oct 28; untick the pre-selected $39.99 protection plan. Runner-up: LG 27UP650 at Amazon, $296.99, arrives a day sooner with 30-day returns. Nothing was added to a cart or bought.",
+    "findings": [
+      {
+        "title": "Best Buy: Dell S2725QS",
+        "detail": "$279.99, free shipping, total $279.99, arrives Oct 28, 15-day returns. A $39.99 protection plan is pre-selected; untick it.",
+        "sources": ["https://www.bestbuy.example/p/dell-s2725qs"]
+      },
+      {
+        "title": "Amazon: LG 27UP650",
+        "detail": "$296.99, free shipping, total $296.99, arrives Oct 27, 30-day returns.",
+        "sources": ["https://www.amazon.example/dp/lg-27up650"]
+      },
+      {
+        "title": "B&H: ASUS VA27UQ",
+        "detail": "$309.00 plus $9.99 shipping, total $318.99, arrives Oct 30, 30-day returns.",
+        "sources": ["https://www.bhphoto.example/c/asus-va27uq"]
+      }
+    ],
+    "artifacts": ["art_monitor_cmp"],
+    "next": [
+      {
+        "label": "Open the best deal",
+        "message": "Open the Best Buy page for the Dell S2725QS so I can buy it myself."
+      },
+      {
+        "label": "Watch the price",
+        "message": "Watch the Dell S2725QS at Best Buy and tell me if it drops below $260."
+      }
+    ],
+    "gaps": []
+  }
+}

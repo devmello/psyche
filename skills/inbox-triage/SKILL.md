@@ -16,6 +16,8 @@ metadata:
 
 A short, honest picture of the inbox, and the busywork proposed as batches the owner approves with one tap. Nothing is ever sent from here.
 
+For a big clean-up (months of mail, filing and labelling at scale), start the **organizer** specialist with `specialist.spawn` instead; it never sends or deletes.
+
 ## Tools
 
 - Apple Mail: `mail_search` (`unread`, `since`), `mail_read`, `mail_set_flags` (read, flagged), `mail_move` (folder, Archive), `mail_save_attachments`. Gmail: `gmail_search_threads`, `gmail_read_thread`, `gmail_modify_labels`, `gmail_save_attachment`.

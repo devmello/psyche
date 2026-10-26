@@ -1,5 +1,28 @@
 import { Type } from "@sinclair/typebox";
-import { Id, IsoDateTime, Provenance, StringEnum } from "../common.ts";
+import { Id, IsoDateTime, Nullable, Provenance, StringEnum } from "../common.ts";
+import {
+  EntitySummary,
+  GraphBlocklistEntry,
+  GraphEdge,
+  GraphEdgeRel,
+  GraphEntity,
+  GraphEntityDetail,
+  GraphEntityKind,
+  GraphEntityStatus,
+  GraphFact,
+  GraphFactAttribute,
+  GraphIdentifierKind,
+  GraphInteraction,
+  GraphLoop,
+  GraphLoopStatus,
+  GraphProjectStatus,
+  GraphRelationshipLabel,
+  GraphRemovedCounts,
+  GraphSource,
+  GraphStatus,
+  GraphSuggestion,
+  GraphWriteSource,
+} from "../schemas/graph.ts";
 import {
   MemoryChunk,
   MemoryClaim,
@@ -8,7 +31,7 @@ import {
   MemoryJob,
   PersonaIdentity,
 } from "../schemas/memory.ts";
-import { defineMethod } from "./define.ts";
+import { defineMethod, nextCursor, pageParams } from "./define.ts";
 
 /** `memory.*` (architecture §4.8; data model §7). Paths are relative to the workspace. */
 
@@ -259,5 +282,318 @@ export const MemoryMethods = {
     sideEffecting: true,
     description:
       "The owner edits the persona in words or fields; IDENTITY.md is rewritten and persona.updated is emitted. Side-effecting.",
+  }),
+
+  // --- People and projects graph (docs/memory/people-and-projects-2026.md §6.1) ----------------
+  "memory.entities.search": defineMethod({
+    params: Type.Object({
+      q: Type.String({ maxLength: 500, description: "Name, alias, email, phone or keyword" }),
+      kinds: Type.Optional(
+        Type.Array(GraphEntityKind, { maxItems: 4, description: "Only these entity kinds" }),
+      ),
+      limit: Type.Optional(
+        Type.Integer({ minimum: 1, maximum: 100, description: "At most this many (default 20)" }),
+      ),
+    }),
+    result: Type.Object({ entities: Type.Array(EntitySummary) }),
+    scope: "operator.read",
+    description:
+      "People, organisations, projects and places ranked by name match, two-way contact recency and frequency.",
+  }),
+  "memory.entities.get": defineMethod({
+    params: Type.Object({ id: Id }),
+    result: GraphEntityDetail,
+    scope: "operator.read",
+    description:
+      "One entity with its identifiers, current facts and relations, open loops and last 10 interactions.",
+  }),
+  "memory.entities.interactions": defineMethod({
+    params: Type.Object({ id: Id, ...pageParams }),
+    result: Type.Object({ interactions: Type.Array(GraphInteraction), ...nextCursor }),
+    scope: "operator.read",
+    description: "An entity's interactions, newest first: headers and links, never bodies.",
+  }),
+  "memory.entities.create": defineMethod({
+    params: Type.Object({
+      kind: GraphEntityKind,
+      name: Type.String({ minLength: 1, maxLength: 200, description: "Display name" }),
+      aliases: Type.Optional(
+        Type.Array(Type.String({ maxLength: 200 }), { maxItems: 20, description: "Other names" }),
+      ),
+      identifiers: Type.Optional(
+        Type.Array(
+          Type.Object({ kind: GraphIdentifierKind, value: Type.String({ maxLength: 512 }) }),
+          {
+            maxItems: 20,
+            description: "Emails, phones, handles; refused if another entity has one",
+          },
+        ),
+      ),
+      projectStatus: Type.Optional(GraphProjectStatus),
+    }),
+    result: Type.Object({ entity: GraphEntity }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description: "The owner creates a person, organisation, project or place. Side-effecting.",
+  }),
+  "memory.entities.update": defineMethod({
+    params: Type.Object({
+      id: Id,
+      name: Type.Optional(Type.String({ minLength: 1, maxLength: 200, description: "New name" })),
+      aliases: Type.Optional(
+        Type.Array(Type.String({ maxLength: 200 }), {
+          maxItems: 20,
+          description: "Replaces aliases",
+        }),
+      ),
+      status: Type.Optional(GraphEntityStatus),
+      projectStatus: Type.Optional(GraphProjectStatus),
+      pinned: Type.Optional(Type.Boolean({ description: "Keep at the top and in nightly passes" })),
+      hidden: Type.Optional(
+        Type.Boolean({ description: "Don't track: block new data about them" }),
+      ),
+      etag: Type.Optional(Type.String({ maxLength: 128, description: "If-match on the card" })),
+    }),
+    result: Type.Object({ entity: GraphEntity }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "The owner edits an entity's name, aliases, status, pin or tracking. Side-effecting.",
+  }),
+  "memory.entities.facts.set": defineMethod({
+    params: Type.Object({
+      entityId: Id,
+      attribute: GraphFactAttribute,
+      value: Type.String({ minLength: 1, maxLength: 2000, description: "The owner's value" }),
+      source: Type.Optional(GraphWriteSource),
+    }),
+    result: Type.Object({
+      fact: GraphFact,
+      /** The previous current fact for this attribute, now superseded (kept in history). */
+      superseded: Nullable(Id),
+    }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Sets an owner fact; a current value for the attribute is superseded, not deleted. Sensitive traits are refused. Side-effecting.",
+  }),
+  "memory.entities.facts.retract": defineMethod({
+    params: Type.Object({ factId: Id, source: Type.Optional(GraphWriteSource) }),
+    result: Type.Object({ fact: GraphFact }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Marks a fact wrong: it is retracted and the same value is never proposed again for that entity. Side-effecting.",
+  }),
+  "memory.entities.edges.set": defineMethod({
+    params: Type.Object({
+      src: Id,
+      rel: GraphEdgeRel,
+      dst: Id,
+      label: Type.Optional(GraphRelationshipLabel),
+      source: Type.Optional(GraphWriteSource),
+    }),
+    result: Type.Object({ edge: GraphEdge, superseded: Nullable(Id) }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description: "Sets an owner relation from the allowlist. Side-effecting.",
+  }),
+  "memory.entities.edges.retract": defineMethod({
+    params: Type.Object({ edgeId: Id, source: Type.Optional(GraphWriteSource) }),
+    result: Type.Object({ edge: GraphEdge }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description: "Marks a relation wrong; it is retracted and not proposed again. Side-effecting.",
+  }),
+  "memory.entities.history": defineMethod({
+    params: Type.Object({
+      entityId: Id,
+      attribute: Type.Optional(GraphFactAttribute),
+    }),
+    result: Type.Object({ facts: Type.Array(GraphFact), edges: Type.Array(GraphEdge) }),
+    scope: "operator.read",
+    description:
+      "Every version of an entity's facts and relations, current and superseded, newest first.",
+  }),
+  "memory.entities.merge": defineMethod({
+    params: Type.Object({
+      ids: Type.Array(Id, { minItems: 2, maxItems: 10, description: "Entities to merge" }),
+      into: Id,
+      dryRun: Type.Optional(Type.Boolean({ description: "Report what would move" })),
+    }),
+    result: Type.Object({
+      entity: GraphEntity,
+      movedIdentifiers: Type.Integer({ minimum: 0 }),
+      movedFacts: Type.Integer({ minimum: 0 }),
+      dryRun: Type.Boolean(),
+    }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description: "Merges entities of one kind into `into`; reversible with split. Side-effecting.",
+  }),
+  "memory.entities.split": defineMethod({
+    params: Type.Object({
+      id: Id,
+      identifiers: Type.Array(
+        Type.Object({ kind: GraphIdentifierKind, value: Type.String({ maxLength: 512 }) }),
+        { minItems: 1, maxItems: 50, description: "Identifiers that belong to someone else" },
+      ),
+      name: Type.String({ minLength: 1, maxLength: 200, description: "Name of the new entity" }),
+      dryRun: Type.Optional(Type.Boolean()),
+    }),
+    result: Type.Object({ entity: GraphEntity, dryRun: Type.Boolean() }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Moves identifiers (and their interactions) to a new entity; the pair is never suggested for merging again. Side-effecting.",
+  }),
+  "memory.entities.suggestions": defineMethod({
+    params: Type.Object({
+      status: Type.Optional(
+        StringEnum(["pending", "later"], {
+          $id: "GraphSuggestionFilter",
+          description: "Default pending",
+        }),
+      ),
+    }),
+    result: Type.Object({ suggestions: Type.Array(GraphSuggestion) }),
+    scope: "operator.read",
+    description: "Merge and project suggestions waiting for the owner.",
+  }),
+  "memory.entities.suggestions.answer": defineMethod({
+    params: Type.Object({
+      id: Id,
+      answer: StringEnum(["accept", "reject", "later"], { $id: "GraphSuggestionAnswer" }),
+    }),
+    result: Type.Object({
+      suggestion: GraphSuggestion,
+      /** The merged entity or the new project, when accepted. */
+      entity: Nullable(GraphEntity),
+    }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Answers a suggestion; a rejected merge or project is never suggested again. Side-effecting.",
+  }),
+  "memory.entities.forget": defineMethod({
+    params: Type.Object({
+      id: Id,
+      dryRun: Type.Optional(Type.Boolean({ description: "Report counts without deleting" })),
+    }),
+    result: Type.Object({
+      removed: Type.Object({
+        identifiers: Type.Integer({ minimum: 0 }),
+        facts: Type.Integer({ minimum: 0 }),
+        edges: Type.Integer({ minimum: 0 }),
+        interactions: Type.Integer({ minimum: 0 }),
+        loops: Type.Integer({ minimum: 0 }),
+      }),
+      cardPath: Nullable(Type.String()),
+      dryRun: Type.Boolean(),
+    }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Deletes an entity and everything about it, and blocklists its identifiers so ingest never recreates it. Side-effecting.",
+  }),
+  "memory.loops.list": defineMethod({
+    params: Type.Object({
+      status: Type.Optional(
+        Type.Array(GraphLoopStatus, { maxItems: 5, description: "Default suggested and open" }),
+      ),
+      direction: Type.Optional(
+        StringEnum(["i_owe", "waiting_on"], { $id: "GraphLoopDirectionFilter" }),
+      ),
+      entityId: Type.Optional(Id),
+      projectId: Type.Optional(Id),
+      dueBefore: Type.Optional(IsoDateTime),
+      ...pageParams,
+    }),
+    result: Type.Object({ loops: Type.Array(GraphLoop), ...nextCursor }),
+    scope: "operator.read",
+    description:
+      "Open loops, oldest first, filtered by status, direction, person, project or due date.",
+  }),
+  "memory.loops.update": defineMethod({
+    params: Type.Object({
+      id: Id,
+      status: Type.Optional(GraphLoopStatus),
+      dueAt: Type.Optional(
+        Type.Union([IsoDateTime, Type.Null()], { description: "null clears it" }),
+      ),
+      text: Type.Optional(
+        Type.String({ minLength: 1, maxLength: 200, description: "Rephrase it" }),
+      ),
+    }),
+    result: Type.Object({ loop: GraphLoop }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Confirms, completes, snoozes or dismisses a loop, or edits its text or due date. Side-effecting.",
+  }),
+  "memory.graph.status": defineMethod({
+    params: Type.Object({}),
+    result: GraphStatus,
+    scope: "operator.read",
+    description:
+      "Graph health: per-source counts and last ingest, last model pass, budget used, loop precision.",
+  }),
+  "memory.graph.forgetAll": defineMethod({
+    params: Type.Object({
+      confirm: Type.Literal("forget everything", {
+        description: "Must be exactly this phrase; guards against an accidental call",
+      }),
+      dryRun: Type.Optional(Type.Boolean({ description: "Report counts without deleting" })),
+    }),
+    result: Type.Object({
+      removed: GraphRemovedCounts,
+      /** Card files deleted from the workspace. */
+      cardPaths: Type.Array(Type.String()),
+      dryRun: Type.Boolean(),
+    }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Deletes the whole people and projects graph (entities, interactions, facts, loops, suggestions, corrections, blocklist, cursors), every card file and the People / Projects search entries, with secure delete. Turns memory.graph off. Side-effecting.",
+  }),
+  "memory.graph.deleteSource": defineMethod({
+    params: Type.Object({
+      source: GraphSource,
+      dryRun: Type.Optional(Type.Boolean({ description: "Report counts without deleting" })),
+    }),
+    result: Type.Object({
+      removed: GraphRemovedCounts,
+      /** Cards of entities that had nothing else and were deleted. */
+      cardPaths: Type.Array(Type.String()),
+      dryRun: Type.Boolean(),
+    }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Removes everything that came from one source: its interactions, the facts, relations, loops and identifiers derived only from it, and people left with nothing else (their cards and search entries too). The owner's own facts stay. Turns that source off so the next sync does not bring it back. Side-effecting.",
+  }),
+  "memory.graph.blocklist.list": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({ entries: Type.Array(GraphBlocklistEntry) }),
+    scope: "operator.read",
+    description: "Identifiers ingest never models again (forgotten people and the owner's blocks).",
+  }),
+  "memory.graph.blocklist.add": defineMethod({
+    params: Type.Object({
+      kind: StringEnum(["email", "phone", "domain"], { $id: "GraphBlockKind" }),
+      value: Type.String({ minLength: 1, maxLength: 320 }),
+    }),
+    result: Type.Object({ entry: GraphBlocklistEntry }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Never model this address, phone or domain again (a blocked domain covers every address at it). Existing cards stay until forgotten. Side-effecting.",
+  }),
+  "memory.graph.blocklist.remove": defineMethod({
+    params: Type.Object({ id: Type.String({ minLength: 1, maxLength: 200 }) }),
+    result: Type.Object({ removed: Type.Boolean() }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description: "Lets ingest model a blocklisted identifier again. Side-effecting.",
   }),
 } as const;

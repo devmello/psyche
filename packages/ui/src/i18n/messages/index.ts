@@ -3,9 +3,11 @@ import { blocks } from "./blocks.ts";
 import { chat } from "./chat.ts";
 import { common } from "./common.ts";
 import { context } from "./context.ts";
+import { design } from "./design.ts";
 import { errors } from "./errors.ts";
 import { glass } from "./glass.ts";
 import { onboarding } from "./onboarding.ts";
+import { people } from "./people.ts";
 import { screens } from "./screens.ts";
 import { settings } from "./settings.ts";
 import { settingsLanguage } from "./settings-language.ts";
@@ -31,9 +33,11 @@ export const en = {
   ...settings,
   ...settingsLanguage,
   ...onboarding,
+  ...people,
   ...screens,
   ...web,
   ...glass,
+  ...design,
 } as const;
 
 export type MessageId = keyof typeof en;
