@@ -1,4 +1,6 @@
 // @vitest-environment happy-dom
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { ThreadListEntry } from "@psyche/protocol";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -8,6 +10,7 @@ import { SHORTCUTS } from "../../src/shell/keyboard.ts";
 import type { ShellPlatform } from "../../src/shell/platform.ts";
 import {
   agentSheetDocked,
+  chromeLead,
   isAgentRoute,
   isChatRoute,
   ShellApp,
@@ -185,6 +188,66 @@ describe("the sidebar toggle and the compact rail (#598)", () => {
     await waitFor(() => expect(again.getAttribute("data-sidebar")).toBe("open"));
     expect(again.getAttribute("data-sidebar-mode")).toBe("full");
     expect(storage.get("shell.sidebar.mode")).toBe("full");
+  });
+});
+
+describe("the toolbar clear of the traffic lights (#624)", () => {
+  const chrome = { titleBar: "inset" as const, trafficLights: { x: 18, y: 19 } };
+
+  it("full sidebar: none; compact rail: the rest of the lights' zone; hidden: all of it", () => {
+    const base = { chrome, sidebarWidth: 248 };
+    expect(chromeLead({ ...base, sidebarOpen: true, mode: "full" })).toEqual({
+      lead: 248,
+      toolbar: null,
+    });
+    // The lights (x 18 + 52 + gutter = 86) plus the 32 px toggle: 128 px from the left edge.
+    expect(chromeLead({ ...base, sidebarOpen: true, mode: "rail" })).toEqual({
+      lead: 128,
+      toolbar: 128 - 64 + 4,
+    });
+    expect(chromeLead({ ...base, sidebarOpen: false, mode: "full" })).toEqual({
+      lead: 128,
+      toolbar: 132,
+    });
+    // Lights placed further in push the toolbars further too.
+    expect(
+      chromeLead({
+        chrome: { titleBar: "inset", trafficLights: { x: 40, y: 19 } },
+        sidebarOpen: false,
+        mode: "full",
+        sidebarWidth: 248,
+      }).toolbar,
+    ).toBe(40 + 52 + 16 + 42 + 4);
+  });
+
+  it("the desktop window marks the toolbars for the inset while the sidebar is hidden", async () => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", "/feed");
+    const { platform } = platformWith({ "shell.sidebar.open": "false" });
+    platform.chrome = chrome;
+    platform.kind = "desktop";
+    render(<ShellApp platform={platform} />);
+    const frame = screen.getByTestId("app-frame");
+    expect(frame.getAttribute("data-chrome")).toBe("inset");
+    expect(frame.hasAttribute("data-toolbar-lead")).toBe(true);
+    expect(frame.style.getPropertyValue("--toolbar-lead")).toBe("132px");
+    expect(frame.style.getPropertyValue("--chrome-lead")).toBe("128px");
+  });
+
+  it("the web has no lights: no inset, whatever the sidebar does", () => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", "/feed");
+    const { platform } = platformWith({ "shell.sidebar.open": "false" });
+    render(<ShellApp platform={platform} />);
+    const frame = screen.getByTestId("app-frame");
+    expect(frame.hasAttribute("data-chrome")).toBe(false);
+    // The attribute alone does nothing without the inset chrome (the CSS needs both).
+    const css = readFileSync(join(process.cwd(), "src/shell/layout/shell-layout.css"), "utf8");
+    expect(css).toMatch(
+      /\.app-frame\[data-chrome="inset"\]\[data-toolbar-lead\]\s+\.shell-content\s+:is\(\[data-slot="toolbar"\], \[data-testid="chat-toolbar"\]\)\s*\{\s*padding-left: var\(--toolbar-lead/,
+    );
+    // The stale `<header>` selector is gone: the agent header is a div[role=toolbar].
+    expect(css).not.toContain('[data-testid="kit-chat"] > header');
   });
 });
 

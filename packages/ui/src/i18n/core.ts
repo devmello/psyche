@@ -2,17 +2,15 @@ import { type Formatters, IntlMessageFormat } from "intl-messageformat";
 import {
   type Direction,
   type DirectionSetting,
-  messageLocaleFor,
   resolveDirection,
+  resolveMessageLocale,
   runtimeLocale,
 } from "./locale.ts";
-import { type Catalogue, en, type MessageId } from "./messages/index.ts";
+import { en, type MessageId } from "./messages/index.ts";
+import { CATALOGUES } from "./messages/locales/index.ts";
 
 /** Values a message's `{placeholders}` take. */
 export type MessageValues = Readonly<Record<string, string | number | boolean | Date | null>>;
-
-/** Shipped catalogues by message locale; a missing id falls back to English. */
-const CATALOGUES: Readonly<Record<string, Partial<Catalogue>>> = { en };
 
 export interface I18n {
   /** The format locale (numbers, dates, times). */
@@ -32,7 +30,10 @@ export interface I18n {
 }
 
 export interface I18nOptions {
+  /** The format locale (numbers, dates, times). */
   locale?: string;
+  /** The text's language (`ui.language`): "system" or a shipped message locale. */
+  language?: string;
   direction?: DirectionSetting;
   /** Pins a time zone (tests and stories use "UTC"); else `setDefaultTimeZone`'s, else the runtime's. */
   timeZone?: string;
@@ -52,9 +53,9 @@ const toDate = (v: string | number | Date) => (v instanceof Date ? v : new Date(
 
 export function createI18n(options: I18nOptions = {}): I18n {
   const locale = options.locale ?? runtimeLocale();
-  const messageLocale = messageLocaleFor(locale);
+  const messageLocale = resolveMessageLocale(options.language ?? "system", locale);
   const dir = resolveDirection(options.direction ?? "auto", messageLocale);
-  const catalogue = CATALOGUES[messageLocale] ?? en;
+  const catalogue = CATALOGUES[messageLocale];
   const timeZone = options.timeZone ?? defaultTimeZone;
   const compiled = new Map<MessageId, IntlMessageFormat>();
   const numbers = new Map<string, Intl.NumberFormat>();
@@ -83,29 +84,50 @@ export function createI18n(options: I18nOptions = {}): I18n {
     return f;
   };
   // Numbers and dates inside messages follow the format locale; plural and select rules follow
-  // the message's language (English text under a French region still says "1 day").
+  // the message's own language (English text under a French region still says "1 day", and an
+  // English fallback inside another catalogue keeps English plurals).
   const formatters: Formatters = {
     getNumberFormat: (_l, o) => numberFormat(o as Intl.NumberFormatOptions | undefined),
     getDateTimeFormat: (_l, o) => dateFormat(o ?? {}),
-    getPluralRules: (_l, o) => new Intl.PluralRules(messageLocale, o),
+    getPluralRules: (l, o) => new Intl.PluralRules(l, o),
   };
+  const compile = (source: string, lang: string) =>
+    new IntlMessageFormat(source, lang, undefined, { ignoreTag: true, formatters });
+  const english = new Map<MessageId, IntlMessageFormat>();
+  const englishFor = (id: MessageId) => {
+    let f = english.get(id);
+    if (f === undefined) {
+      f = compile(en[id], "en");
+      english.set(id, f);
+    }
+    return f;
+  };
+  type Values = Record<string, string | number | boolean | Date>;
   return {
     locale,
     messageLocale,
     dir,
     timeZone,
     t(id, values) {
+      if (en[id] === undefined) return id;
       let f = compiled.get(id);
       if (f === undefined) {
-        const source = catalogue[id] ?? en[id];
-        if (source === undefined) return id;
-        f = new IntlMessageFormat(source, messageLocale, undefined, {
-          ignoreTag: true,
-          formatters,
-        });
+        // Per id: a message the catalogue lacks, or one that does not parse, is the English one.
+        const translated = catalogue[id];
+        try {
+          f = translated === undefined ? englishFor(id) : compile(translated, messageLocale);
+        } catch {
+          f = englishFor(id);
+        }
         compiled.set(id, f);
       }
-      const out = f.format(values as Record<string, string | number | boolean | Date>);
+      let out: unknown;
+      try {
+        out = f.format(values as Values);
+      } catch {
+        // A translation that names a value the code does not pass: the English one.
+        out = englishFor(id).format(values as Values);
+      }
       return typeof out === "string" ? out : String(out);
     },
     number: (n, o) => numberFormat(o).format(n),

@@ -49,7 +49,7 @@ import {
   ShortcutSheet,
 } from "./components/Overlays.tsx";
 import { PaneArea, type PaneRenderer } from "./components/Panes.tsx";
-import { hasInsetTitleBar, TitleBar } from "./components/TitleBar.tsx";
+import { hasInsetTitleBar, TitleBar, titleBarInset } from "./components/TitleBar.tsx";
 import { ShellProvider, useShell, useShellState } from "./context.tsx";
 import { matchShortcut, type ShortcutAction } from "./keyboard.ts";
 import {
@@ -62,7 +62,7 @@ import {
   randomIds,
   toViewLayout,
 } from "./layout/index.ts";
-import type { GatewayRunView, ShellPlatform } from "./platform.ts";
+import type { GatewayRunView, ShellPlatform, WindowChrome } from "./platform.ts";
 import { ShellStore } from "./store.ts";
 import "./shell.css";
 import "./layout/shell-layout.css";
@@ -122,6 +122,33 @@ export function agentSheetDocked(opts: {
 
 /** The bar's width over a collapsed sidebar: the traffic lights plus the show-sidebar button. */
 const COLLAPSED_CHROME_LEAD = 128;
+/** The sidebar toggle in the title bar (a 32 px icon button) and the gap after it. */
+const TITLEBAR_TOGGLE_ROOM = 42;
+/** The gap between the traffic-light zone and a toolbar's first control. */
+const TOOLBAR_LEAD_GAP = 4;
+
+/**
+ * The desktop's hidden-title-bar layout (#597, #624): `lead` is how far the title-bar strip runs
+ * from the window's left edge (the traffic lights, then the sidebar toggle); `toolbar` is the
+ * left padding a screen's toolbar needs to stay clear of that strip, or null when the full
+ * sidebar already covers it. The compact rail (64 px) is narrower than the lights' zone, so its
+ * toolbars keep part of the inset; with the sidebar hidden they keep all of it.
+ */
+export function chromeLead(opts: {
+  chrome: WindowChrome | undefined;
+  sidebarOpen: boolean;
+  mode: SidebarMode;
+  sidebarWidth: number;
+}): { lead: number; toolbar: number | null } {
+  const lights = Math.max(COLLAPSED_CHROME_LEAD, titleBarInset(opts.chrome) + TITLEBAR_TOGGLE_ROOM);
+  const visible = !opts.sidebarOpen
+    ? 0
+    : opts.mode === "rail"
+      ? SIDEBAR_RAIL.width
+      : opts.sidebarWidth;
+  if (visible >= lights) return { lead: visible, toolbar: null };
+  return { lead: lights, toolbar: lights - visible + TOOLBAR_LEAD_GAP };
+}
 
 /** The Settings window's routes (`/window/settings/:section`), opened by the desktop main. */
 export const SETTINGS_WINDOW_PREFIX = "/window/settings";
@@ -788,6 +815,12 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   // Without a title bar (web) the toggle shows only while the sidebar is hidden; in the sidebar's
   // own top row otherwise, at the same spot.
   const showSidebarButton = !compact && !sidebarOpen ? sidebarToggle : null;
+  const lead = chromeLead({
+    chrome: platform.chrome,
+    sidebarOpen,
+    mode: sidebarMode,
+    sidebarWidth,
+  });
   const content =
     onChat && slots.chat && threadId ? (
       slots.chat(threadId, {
@@ -830,9 +863,13 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
           // sidebar only (the traffic lights sit in its material) and each screen's toolbar is
           // the drag region over the canvas.
           data-chrome={inset && !compact ? "inset" : undefined}
+          // A hidden sidebar or the narrow rail leaves the traffic lights over the toolbars,
+          // which then start after them (#624).
+          data-toolbar-lead={lead.toolbar === null ? undefined : ""}
           style={
             {
-              "--chrome-lead": `${sidebarOpen ? sidebarWidth : COLLAPSED_CHROME_LEAD}px`,
+              "--chrome-lead": `${lead.lead}px`,
+              ...(lead.toolbar === null ? {} : { "--toolbar-lead": `${lead.toolbar}px` }),
             } as CSSProperties
           }
         >

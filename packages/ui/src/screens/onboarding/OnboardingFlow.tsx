@@ -12,7 +12,7 @@ import {
   type ScopeMode,
   useImplementedTypes,
 } from "../settings/ConnectorsSection.tsx";
-import { ConnectProgress, useConnectorConnect } from "../settings/connect-flow.tsx";
+import { ConnectProgress, permissionOf, useConnectorConnect } from "../settings/connect-flow.tsx";
 import type { TccPermission } from "../settings/types.ts";
 import {
   ConnectorsStep,
@@ -135,15 +135,26 @@ export function OnboardingFlow({
   const flow = useConnectorConnect();
   const implemented = useImplementedTypes();
   const live = useGatewayQuery("connectors.list", {}, { enabled: builtInConnect });
-  const connectors: ConnectedAccount[] = builtInConnect
-    ? (live.data?.connectors ?? [])
-        .filter((c) => c.status === "connected")
-        .map((c) => ({
-          type: c.type,
-          label: CONNECTOR_CATALOG.find((x) => x.type === c.type)?.label ?? c.label,
-          mode: c.scopeMode,
-        }))
+  // Every instance the Gateway has, with its status (#620): one waiting on a macOS permission or
+  // a sign-in is listed (and resumable), so its type is not offered again.
+  const liveConnectors = (live.data?.connectors ?? []).filter((c) => c.status !== "disconnected");
+  const accounts: ConnectedAccount[] = builtInConnect
+    ? liveConnectors.map((c) => ({
+        type: c.type,
+        label: CONNECTOR_CATALOG.find((x) => x.type === c.type)?.label ?? c.label,
+        mode: c.scopeMode,
+        status:
+          c.status === "connected" ? "connected" : c.status === "error" ? "error" : "needs_auth",
+        needs: permissionOf(c) !== null ? "permission" : "sign_in",
+        connectorId: c.id,
+      }))
     : hostConnectors;
+  // What the result and "Skip for now" count: the accounts that are connected.
+  const connectors = accounts.filter((c) => (c.status ?? "connected") === "connected");
+  const resumeConnector = (account: ConnectedAccount) => {
+    const c = liveConnectors.find((x) => x.id === account.connectorId);
+    if (c !== undefined) void flow.resume(c, account.label);
+  };
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [model, setModel] = useState<ModelChoice>(initial.model ?? defaultModelChoice("cloud"));
@@ -420,7 +431,7 @@ export function OnboardingFlow({
         {current === "connectors" ? (
           <ConnectorsStep
             persona={name}
-            connected={connectors}
+            connected={accounts}
             busy={
               builtInConnect
                 ? flow.state.phase === "starting" || flow.state.phase === "signing-in"
@@ -428,7 +439,7 @@ export function OnboardingFlow({
             }
             error={connectError}
             onConnect={(type, mode) => void connect(type, mode)}
-            {...(builtInConnect ? { implemented } : {})}
+            {...(builtInConnect ? { implemented, onResume: resumeConnector } : {})}
             {...(builtInConnect
               ? {
                   progress: (

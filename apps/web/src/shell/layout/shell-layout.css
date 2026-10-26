@@ -77,7 +77,7 @@
   inset-inline-start: 8px;
   z-index: 2;
 }
-/* Room for it at the start of the chat's header row while the sidebar is hidden. */
+/* Room for it at the start of the chat's header row while the sidebar is hidden (the web). */
 .shell-sidebar-layout[data-sidebar="collapsed"] [data-testid="kit-chat"] > :first-child {
   padding-inline-start: 64px;
 }
@@ -163,22 +163,28 @@
 .app-frame[data-chrome="inset"] .sidebar-slot .material-sidebar {
   padding-top: 52px;
 }
+/* The chat's agent header is a `div[role=toolbar]` (`chat-toolbar`), not a `<header>` (#624). */
 .app-frame[data-chrome="inset"]
   .shell-content
-  :is([data-slot="toolbar"], [data-testid="kit-chat"] > header:first-child) {
+  :is([data-slot="toolbar"], [data-testid="chat-toolbar"]) {
   -webkit-app-region: drag;
   app-region: drag;
 }
 .app-frame[data-chrome="inset"]
   .shell-content
-  :is([data-slot="toolbar"], [data-testid="kit-chat"] > header:first-child)
+  :is([data-slot="toolbar"], [data-testid="chat-toolbar"])
   :is(button, a, input, select, textarea, [role="button"], [role="menuitem"], [data-no-drag]) {
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }
-/* With the sidebar collapsed, the toolbars start after the lights and the show-sidebar button. */
-.app-frame[data-chrome="inset"]
-  .shell-sidebar-layout[data-sidebar="collapsed"]
-  :is([data-slot="toolbar"], [data-testid="kit-chat"] > header:first-child) {
-  padding-inline-start: calc(var(--chrome-lead, 128px) + 4px);
+/*
+  With the sidebar hidden, or the 64 px rail narrower than the lights' zone, the toolbars start
+  after the traffic lights and the sidebar toggle (#624; `chromeLead` in ShellApp). Physical: the
+  lights sit at a physical x whatever the reading direction. This beats the web's 64 px room for
+  the toggle over the content column.
+*/
+.app-frame[data-chrome="inset"][data-toolbar-lead]
+  .shell-content
+  :is([data-slot="toolbar"], [data-testid="chat-toolbar"]) {
+  padding-left: var(--toolbar-lead, 132px);
 }

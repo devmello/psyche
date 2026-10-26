@@ -35,6 +35,13 @@ export interface ConnectedAccount {
   type: string;
   label: string;
   mode: ScopeMode;
+  /**
+   * Where the Gateway's instance stands (#620); absent means connected (host-supplied lists).
+   * `needs_auth`: a macOS permission (`needs: "permission"`) or a sign-in (`"sign_in"`) to finish.
+   */
+  status?: "connected" | "needs_auth" | "error";
+  needs?: "permission" | "sign_in";
+  connectorId?: string;
 }
 
 export interface ModelChoice {

@@ -58,6 +58,8 @@ export const onboarding = {
   "onboarding.agent.tagline": "Vibe or tagline",
   "onboarding.agent.taglinePlaceholder": "Quiet wings, careful hands.",
   "onboarding.agent.preview": "Preview",
+  "onboarding.language.label": "Language",
+  "onboarding.language.hint": "You can change it later in Settings → Appearance.",
   "onboarding.permission.why.accessibility": "Lets {name} click, type and use apps.",
   "onboarding.permission.why.screenRecording": "Lets {name} see app windows while it works.",
   "onboarding.permission.why.notifications":
@@ -76,7 +78,13 @@ export const onboarding = {
   "onboarding.connectors.intro":
     "Decide now which accounts to connect, one at a time. {name} only sees what you connect, and you can add more later in Settings.",
   "onboarding.connectors.connected": "Connected ({n, number})",
-  "onboarding.connectors.connectedList": "Connected accounts",
+  "onboarding.connectors.connectedList": "Your accounts",
+  "onboarding.connectors.needsPermission": "Needs permission",
+  "onboarding.connectors.needsSignIn": "Needs sign-in",
+  "onboarding.connectors.failed": "Not connected",
+  "onboarding.connectors.allow": "Allow {name}",
+  "onboarding.connectors.continue": "Continue {name}",
+  "onboarding.connectors.tryAgain": "Try {name} again",
   "onboarding.connectors.none":
     "Nothing connected yet. You can skip this and connect accounts later in Settings.",
   "onboarding.connectors.nothingConnected": "Nothing was connected.",

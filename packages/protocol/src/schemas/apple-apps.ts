@@ -176,15 +176,23 @@ export type AppleMailMessage = Static<typeof AppleMailMessage>;
 
 export const AppleMailSearchParams = Type.Object(
   {
-    query: Type.String({
-      minLength: 1,
-      maxLength: 200,
-      description: "Matched against subject and sender",
-    }),
+    query: Type.Optional(
+      Type.String({
+        maxLength: 200,
+        description: "Matched against subject and sender; absent or empty matches every message",
+      }),
+    ),
     mailbox: Type.Optional(Type.String({ description: "Default: inbox" })),
+    /** #626: true = unread only, false = read only, absent = both. */
+    unread: Type.Optional(Type.Boolean()),
+    /** #626: received at or after / before this time. */
+    since: Type.Optional(IsoDateTime),
+    until: Type.Optional(IsoDateTime),
+    /** #626: the sender contains this (name or address). */
+    from: Type.Optional(Type.String({ minLength: 1, maxLength: 320 })),
     limit: Limit,
   },
-  { $id: "AppleMailSearchParams" },
+  { $id: "AppleMailSearchParams", description: "Results come newest first." },
 );
 export type AppleMailSearchParams = Static<typeof AppleMailSearchParams>;
 
