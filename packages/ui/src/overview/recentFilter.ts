@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from "react";
+import { smoothScrollBehavior } from "../lib/reduced-motion.ts";
 import { DEFAULT_OVERVIEW_PERIOD, type OverviewPeriod } from "./period.ts";
 
 /**
@@ -73,7 +74,9 @@ export function recentHref(
 
 /** Scrolls the Recent runs section into view (a no-op until it renders). */
 export function scrollToRecent(): void {
-  document.getElementById(RECENT_ANCHOR)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  document
+    .getElementById(RECENT_ANCHOR)
+    ?.scrollIntoView({ behavior: smoothScrollBehavior(), block: "start" });
 }
 
 /** The filter held in the route, and a setter that keeps the period. `navigate` is the shell's. */

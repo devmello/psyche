@@ -1,4 +1,5 @@
 import type { MouseEvent } from "react";
+import { smoothScrollBehavior } from "../lib/reduced-motion.ts";
 import type { OverviewPeriod } from "./period.ts";
 import { type RecentFilter, recentHref, scrollToRecent } from "./recentFilter.ts";
 
@@ -50,7 +51,9 @@ export function sectionLink(id: string): OverviewLink {
     onClick: (e) => {
       if (!plainClick(e)) return;
       e.preventDefault();
-      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document
+        .getElementById(id)
+        ?.scrollIntoView({ behavior: smoothScrollBehavior(), block: "start" });
     },
   };
 }
