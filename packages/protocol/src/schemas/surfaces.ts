@@ -109,6 +109,7 @@ export const NotificationKind = StringEnum(
     "briefing",
     "reminder",
     "system",
+    "specialist_result",
   ],
   { $id: "NotificationKind" },
 );

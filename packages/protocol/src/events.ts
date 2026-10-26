@@ -29,9 +29,10 @@ import {
 import { MemoryChangeSource, MemoryJob, PersonaIdentity } from "./schemas/memory.ts";
 import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
 import { RunStep } from "./schemas/runs.ts";
+import { SpecialistJob, SpecialistResult } from "./schemas/specialists.ts";
 import { FeedPost, Goal, Idea, Notification, SettingEntry } from "./schemas/surfaces.ts";
 import { InputRequest, Task, TaskAction } from "./schemas/tasks.ts";
-import { Message, Run, Thread } from "./schemas/threads.ts";
+import { Message, Run, RunBudget, Thread } from "./schemas/threads.ts";
 import { ToolCall } from "./schemas/tools.ts";
 import { VmUpdatedPayload } from "./schemas/vm.ts";
 
@@ -84,6 +85,32 @@ export const Events = {
   "run.updated": defineEvent({
     payload: Type.Object({ run: Run }),
     description: "A run changed status or usage.",
+  }),
+  "specialist.spawned": defineEvent({
+    payload: Type.Object({ job: SpecialistJob }),
+    description:
+      "A background specialist job was created (queued or started) by a run or an automation (docs/agent/specialists-2026.md §7.3).",
+  }),
+  "specialist.progress": defineEvent({
+    payload: Type.Object({
+      taskId: Id,
+      runId: Id,
+      step: Type.Object({ id: Id, label: Type.String(), status: Type.String() }),
+      budget: RunBudget,
+    }),
+    description:
+      "A specialist job's latest step and budget use; at most one per child step, coalesced to 1/s. Labels only, never tool payloads or thinking text.",
+  }),
+  "specialist.result": defineEvent({
+    payload: Type.Object({
+      taskId: Id,
+      runId: Nullable(Id),
+      parentRunId: Nullable(Id),
+      result: SpecialistResult,
+      notificationId: Nullable(Id),
+    }),
+    description:
+      "A specialist job ended with its one result (done, partial, failed or cancelled). Text fields are sanitized; a tainted result is untrusted data.",
   }),
   "run.step": defineEvent({
     payload: Type.Object({ runId: Id, step: RunStep }),

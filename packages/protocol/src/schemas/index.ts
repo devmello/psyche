@@ -10,6 +10,7 @@ export * from "./messages.ts";
 export * from "./models.ts";
 export * from "./permissions.ts";
 export * from "./runs.ts";
+export * from "./specialists.ts";
 export * from "./surfaces.ts";
 export * from "./tasks.ts";
 export * from "./teach.ts";

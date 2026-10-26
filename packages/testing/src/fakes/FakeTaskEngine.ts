@@ -92,6 +92,7 @@ export class FakeTaskEngine implements TaskEngine {
     if (input.taint !== undefined) task.taint = input.taint;
     if (input.taintSources !== undefined) task.taintSources = structuredClone(input.taintSources);
     if (input.workspace !== undefined) task.workspace = input.workspace;
+    if (input.specialist !== undefined) task.specialist = structuredClone(input.specialist);
     this.#tasks.set(task.id, task);
     return structuredClone(task);
   }

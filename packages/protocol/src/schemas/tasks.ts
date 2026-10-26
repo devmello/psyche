@@ -2,6 +2,7 @@ import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, JsonObject, Nullable, StringEnum } from "../common.ts";
 import { ChecklistItem } from "./blocks.ts";
 import { TaintSource } from "./permissions.ts";
+import { SpecialistSpec } from "./specialists.ts";
 
 /** Data model §3; architecture §4.5. */
 export const TaskStatus = StringEnum(
@@ -76,6 +77,8 @@ export const Task = Type.Object(
         description: "The creating turn's taint sources; every run starts tainted with them",
       }),
     ),
+    /** Set when the task is a background specialist's job (docs/agent/specialists-2026.md §7.1). */
+    specialist: Type.Optional(SpecialistSpec),
     createdAt: IsoDateTime,
     updatedAt: IsoDateTime,
     completedAt: Nullable(IsoDateTime),
