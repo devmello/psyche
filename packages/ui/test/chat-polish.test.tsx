@@ -31,7 +31,7 @@ describe("ReceiptLine (§3.2)", () => {
     const text = container.textContent ?? "";
     // The leading status glyph speaks "Done" (redesign §5.3).
     expect(text).toMatch(
-      /^Done Sent to jane\.ortiz@example\.com · .* · Gmail id 18c4… · \d\d:\d\d$/,
+      /^Done Sent to jane\.ortiz@example\.com · .* · Gmail id 18c4… · \d{1,2}:\d\d\s[AP]M$/,
     );
     expect(text).not.toContain("gmailThreadId");
     expect(text).not.toContain("r-107");

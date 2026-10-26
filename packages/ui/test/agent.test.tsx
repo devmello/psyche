@@ -99,7 +99,7 @@ describe("ApprovalsPanel", () => {
 
 describe("UpcomingPanel", () => {
   it("states schedules as sentences and runs one now", async () => {
-    expect(scheduleSentence({ kind: "cron", schedule: "0 7 * * 1-5" })).toBe("weekdays 07:00");
+    expect(scheduleSentence({ kind: "cron", schedule: "0 7 * * 1-5" })).toBe("weekdays 7:00 AM");
     expect(scheduleSentence({ kind: "interval", schedule: "PT6H" })).toBe("every 6 h");
     const { ref, onGateway } = withGateway();
     render(
@@ -191,7 +191,7 @@ describe("Upcoming reminders", () => {
   it("are one-shots with Snooze and Done", async () => {
     expect(isReminder({ kind: "cron", schedule: "0 17 22 10 *" })).toBe(true);
     expect(isReminder({ kind: "cron", schedule: "0 7 * * 1-5" })).toBe(false);
-    expect(scheduleSentence({ kind: "cron", schedule: "0 17 22 10 *" })).toBe("Oct 22 17:00");
+    expect(scheduleSentence({ kind: "cron", schedule: "0 17 22 10 *" })).toBe("Oct 22 5:00 PM");
     expect(
       snoozedSchedule(
         { kind: "cron", schedule: "0 17 22 10 *", nextRunAt: "2026-10-22T17:00:00Z" },

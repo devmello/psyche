@@ -1,6 +1,12 @@
 import type { Preview } from "@storybook/react-vite";
 import "../src/styles/index.css";
+import { createI18n, setActiveI18n, setDefaultTimeZone } from "../src/i18n/core.ts";
 import { ThemeProvider } from "../src/theme/ThemeProvider.tsx";
+
+// Stable baselines: US English in UTC whatever the machine's region and clock (the app follows
+// the owner's).
+setDefaultTimeZone("UTC");
+setActiveI18n(createI18n({ locale: "en-US" }));
 
 const preview: Preview = {
   globalTypes: {
