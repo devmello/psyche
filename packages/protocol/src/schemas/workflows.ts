@@ -444,3 +444,46 @@ export const MeetingRecordingStatus = Type.Object(
   { $id: "MeetingRecordingStatus" },
 );
 export type MeetingRecordingStatus = Static<typeof MeetingRecordingStatus>;
+
+// --- settings defaults (§7.3) ---------------------------------------------------------------
+
+/**
+ * The value each Settings → Mail & meetings key has when the owner has not set it. The Gateway
+ * reads unset keys through these, and Settings shows exactly these, so the page never claims a
+ * value the jobs do not use. Spec: docs/workflows/mail-and-meetings-2026.md §4 and §7.3.
+ * Minutes unless the key says otherwise; the working hours are local hours of the day.
+ */
+export const MAIL_MEETING_SETTING_DEFAULTS = {
+  "workflows.paused": false,
+  "workflows.readOnly": false,
+  "mail.digest.enabled": false,
+  "mail.digest.time": "07:30",
+  "mail.digest.days": "weekdays",
+  "mail.digest.onlyWhenNeeded": false,
+  "mail.followups.enabled": false,
+  "mail.followups.waitDays": 3,
+  "mail.followups.showTwice": true,
+  "mail.voice.enabled": false,
+  "mail.draft.localModel": "",
+  "mail.schedule.hoursStart": 9,
+  "mail.schedule.hoursEnd": 17,
+  "mail.schedule.bufferMin": 15,
+  "mail.schedule.focusTime": false,
+  "mail.schedulingLink": "",
+  "mail.poll.activeMin": 10,
+  "mail.poll.idleMin": 60,
+  "meetings.prep.enabled": false,
+  "meetings.prep.scope": "external",
+  "meetings.prep.leadMin": 120,
+  "meetings.prep.notifyMin": 60,
+  "meetings.prep.saveToNotes": false,
+  "meetings.prep.dailyCap": 4,
+  "meetings.notes.enabled": false,
+  "meetings.notes.folder": "",
+  "meetings.notes.tasksApp": "reminders",
+  "meetings.notes.recapDraft": false,
+  "meetings.notes.consentLine": "",
+  "meetings.notes.cloudSummary": false,
+} as const;
+
+export type MailMeetingSettingKey = keyof typeof MAIL_MEETING_SETTING_DEFAULTS;

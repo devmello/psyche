@@ -4,6 +4,7 @@ import { agentTimelineHref } from "../agent/AgentSheet.tsx";
 import { StatusGlyph } from "../components/status.tsx";
 import { t } from "../i18n/core.ts";
 import { useSlots } from "../slots.tsx";
+import { SpecialistControls } from "./Controls.tsx";
 import {
   isFinished,
   jobLine,
@@ -19,7 +20,8 @@ import {
  * The parent thread's line for one job it started (docs/agent/specialists-2026.md §6.1): "Started
  * the researcher · Apartments near the office", where it stands, and a link to its Timeline
  * (the job's own thread until it has a run). Until the job ends, the pre-flight says what it will
- * ask first ("Will ask before opening new sites"); it grants nothing.
+ * ask first ("Will ask before opening new sites"); it grants nothing. While it runs, the owner's
+ * controls sit at the end of the line (steer, pause or resume, give it more, stop).
  */
 export function SpecialistSpawnLine({
   job,
@@ -38,27 +40,30 @@ export function SpecialistSpawnLine({
   const line = t("specialists.spawn.line", { role: roleNoun(label), title: job.title });
   return (
     <li className="flex flex-col gap-0.5" data-testid="specialist-spawn" data-status={job.status}>
-      <button
-        type="button"
-        onClick={open}
-        aria-label={t("specialists.spawn.label", {
-          role: label,
-          title: job.title,
-          status: statusLabel(job.status),
-        })}
-        className="-mx-1 flex min-h-7 min-w-0 cursor-default items-center gap-2 rounded-sm px-1 text-start text-callout text-label-secondary outline-none hover:bg-fill-tertiary focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <StatusGlyph status={statusGlyph(job.status)} morph className="[&_svg]:size-3.5" />
-        <Glyph className="size-3.5 shrink-0 text-label-tertiary" aria-hidden="true" />
-        <span className="min-w-0 truncate">
-          <span className="text-label-primary">{line}</span>
-          <span aria-hidden="true"> · </span>
-          <span className="tabular-nums">{jobLine(job, role?.result)}</span>
-        </span>
-        <span className="ms-auto shrink-0 text-accent-11">
-          {t("specialists.action.timeline")} <span aria-hidden="true">›</span>
-        </span>
-      </button>
+      <div className="flex min-w-0 items-center gap-1">
+        <button
+          type="button"
+          onClick={open}
+          aria-label={t("specialists.spawn.label", {
+            role: label,
+            title: job.title,
+            status: statusLabel(job.status),
+          })}
+          className="-ms-1 flex min-h-7 min-w-0 flex-1 cursor-default items-center gap-2 rounded-sm px-1 text-start text-callout text-label-secondary outline-none hover:bg-fill-tertiary focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <StatusGlyph status={statusGlyph(job.status)} morph className="[&_svg]:size-3.5" />
+          <Glyph className="size-3.5 shrink-0 text-label-tertiary" aria-hidden="true" />
+          <span className="min-w-0 truncate">
+            <span className="text-label-primary">{line}</span>
+            <span aria-hidden="true"> · </span>
+            <span className="tabular-nums">{jobLine(job, role?.result)}</span>
+          </span>
+          <span className="ms-auto shrink-0 text-accent-11">
+            {t("specialists.action.timeline")} <span aria-hidden="true">›</span>
+          </span>
+        </button>
+        <SpecialistControls job={job} />
+      </div>
       {hints.length > 0 ? (
         <p className="ps-[2.875rem] text-subheadline text-label-tertiary">
           <span className="sr-only">{t("specialists.preflight.label")}: </span>

@@ -3,26 +3,23 @@ import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { getMessage, getSetting, setSetting } from "@psyche/db";
+import { deleteSettings, getLibraryItem } from "@psyche/db";
 import { defaultDenyRead } from "@psyche/mcp-host";
 import type { LibraryItem, NodeClient, NodeInfo } from "@psyche/protocol";
-import { PsycheError, VOICE_CONVERSATION_SETTING_KEYS as VC } from "@psyche/protocol";
+import { PsycheError } from "@psyche/protocol";
 import {
   createSpeechHandlers,
   createSpeechStack,
-  isRetiredVoiceRef,
   type LibrarySaveInput,
+  type LibraryTranscriptWriter,
   type LibraryWriter,
   LocalProcessRunner,
-  type MessageSource,
+  type MeetingRecordingInput,
   NODE_SPEECH_CAPABILITIES,
+  NodeSpeechEngine,
   type ProcessRunner,
-  ReadAloudService,
   SPEECH_METHODS,
   type SpeechCaller,
-  VoiceCatalog,
-  VoiceConversationManager,
-  type VoiceConversationSettings,
   VoiceMemoService,
   VoiceSessionManager,
 } from "@psyche/speech";
@@ -32,15 +29,13 @@ import type { Gateway } from "../server.ts";
 import { surfaceOf } from "./handlers.ts";
 import { indexSavedAudio } from "./library.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
-import { chatVoiceTurns } from "./voice-turns.ts";
 
 /**
- * Speech (S17, features Q1–Q3) mounted on the Gateway: `voice.*`, `voice.memo.save`,
- * `speech.readAloud`, `speech.voices`. The default engine is the Mac helper's
- * (SpeechAnalyzer, AVSpeechSynthesizer, Personal Voice) on the newest connected `mac-helper`
- * node that offers `speech.*`; whisper.cpp and Kokoro join when their models are installed.
- * Audio events go to the requesting device only; a device's dictation sessions end when its last
- * connection closes.
+ * Speech to text (S17, features Q1, Q2, Q4) mounted on the Gateway: `voice.*` dictation and
+ * `voice.memo.save`. The default engine is the Mac helper's (SpeechAnalyzer) on the newest
+ * connected `mac-helper` node that offers `speech.*`; whisper.cpp joins when its model is
+ * installed. Psyche does not speak: there is no synthesis. Segment events go to the requesting
+ * device only; a device's dictation sessions end when its last connection closes.
  */
 
 export interface SpeechSetup {
@@ -141,14 +136,19 @@ export function warnUnsandboxed(inner: ProcessRunner, services: ComposeServices)
   };
 }
 
-/** The newest live mac-helper node that offers speech (it connects after the Gateway boots). */
-export function speechNode(gateway: () => Gateway | null): () => NodeClient | undefined {
+/**
+ * The newest live mac-helper node that offers speech (it connects after the Gateway boots):
+ * `capability` is `speech.transcribe_stream` by default, `speech.transcribe_file` for recordings.
+ */
+export function speechNode(
+  gateway: () => Gateway | null,
+  capability: string = NODE_SPEECH_CAPABILITIES.transcribeStream,
+): () => NodeClient | undefined {
   return () => {
     const nodes = gateway()?.context.nodes;
     if (!nodes) return undefined;
     const offers = (n: NodeInfo) =>
-      n.kind === "mac-helper" &&
-      n.capabilities.some((c) => c.name === NODE_SPEECH_CAPABILITIES.transcribeStream);
+      n.kind === "mac-helper" && n.capabilities.some((c) => c.name === capability);
     const node = nodes
       .list()
       .filter((n) => offers(n) && nodes.isLive(n.id))
@@ -195,6 +195,8 @@ export class FsAudioLibrary implements LibraryWriter {
     await mkdir(dir, { recursive: true, mode: 0o700 });
     await writeFile(join(this.#root, rel), file.data, { mode: 0o600 });
     await chmod(join(this.#root, rel), 0o600);
+    const extractRef =
+      file.textExtract === undefined ? null : await writeExtract(this.#root, id, file.textExtract);
     const item: LibraryItem = {
       id,
       kind: file.kind ?? "audio",
@@ -207,7 +209,7 @@ export class FsAudioLibrary implements LibraryWriter {
       threadId: file.threadId,
       taskId: null,
       tags: [...file.tags],
-      textExtractRef: null,
+      textExtractRef: extractRef,
       createdAt: this.#now().toISOString(),
     };
     if (file.provenance === "untrusted") item.quarantined = true;
@@ -215,33 +217,63 @@ export class FsAudioLibrary implements LibraryWriter {
       this.#onSaved?.(item);
     } catch (err) {
       await rm(join(this.#root, rel), { force: true }).catch(() => undefined);
+      if (extractRef !== null) {
+        await rm(join(this.#root, extractRef), { force: true }).catch(() => undefined);
+      }
       throw err;
     }
     return item;
   }
 }
 
-/** Message text for read-aloud; the owner's devices may read every thread. */
-export function dbMessageSource(db: ComposeServices["db"]): MessageSource {
+/** Writes `extracts/<id>.txt` under the Library root (0700 / 0600); returns its relative path. */
+async function writeExtract(root: string, id: string, text: string): Promise<string> {
+  const rel = join("extracts", `${id}.txt`);
+  await mkdir(join(root, "extracts"), { recursive: true, mode: 0o700 });
+  await writeFile(join(root, rel), text, { mode: 0o600 });
+  await chmod(join(root, rel), 0o600);
+  return rel;
+}
+
+/**
+ * A recording already in the Library gets its meeting transcript as its text extract
+ * (docs/workflows/mail-and-meetings-2026.md §4.6 step 1); other people's words quarantine it.
+ */
+export function libraryTranscripts(
+  db: ComposeServices["db"],
+  home: string,
+): LibraryTranscriptWriter {
   return {
-    async get(messageId) {
-      const m = getMessage(db, messageId);
-      if (!m) throw new PsycheError("not_found", `message ${messageId} not found`);
-      const text = m.blocks
-        .flatMap((b) => (b.type === "text" ? [b.md] : b.type === "wrap_up" ? [b.recap] : []))
-        .join("\n\n")
-        .trim();
-      if (text === "") throw new PsycheError("invalid_params", "that message has no text to read");
-      return { text, threadId: m.threadId };
+    async setTextExtract(itemId, extract) {
+      if (getLibraryItem(db, itemId) === undefined) {
+        throw new PsycheError("not_found", `library item ${itemId} not found`);
+      }
+      const rel = await writeExtract(join(home, "library"), itemId, extract.text);
+      db.sqlite
+        .prepare(
+          `UPDATE library_items SET text_extract_ref = ?${extract.provenance === "untrusted" ? ", quarantined = 1" : ""} WHERE id = ?`,
+        )
+        .run(rel, itemId);
+      return getLibraryItem(db, itemId) as LibraryItem;
     },
   };
 }
 
+/**
+ * What post-meeting notes call to transcribe a recording on the Mac (`MeetingTranscriber` in
+ * `@psyche/proactive`): `VoiceMemoService.ingestMeeting` with the Library's transcript writer.
+ */
+export interface MeetingIngest {
+  ingestMeeting(input: MeetingRecordingInput): ReturnType<VoiceMemoService["ingestMeeting"]>;
+  /** Whether a transcriber for long recordings is online now (a helper offering the file path). */
+  available(): boolean;
+}
+
 export function composeSpeech(setup: SpeechSetup = {}) {
-  return (services: ComposeServices): ComposedPart => {
+  return (services: ComposeServices): ComposedPart & { meetings: MeetingIngest } => {
     let gateway: Gateway | null = null;
     const { db } = services;
-    migrateRetiredVoices(services);
+    removeStaleSpeechSettings(services);
     const prefix = speechPrefix(setup, services);
     const runner =
       prefix === undefined
@@ -251,41 +283,22 @@ export function composeSpeech(setup: SpeechSetup = {}) {
       home: services.home,
       runner,
       macNode: speechNode(() => gateway),
-      personalVoice: () => getSetting(db, "speech.tts.personalVoice")?.value === true,
     });
     const toDevice = (deviceId: string, e: { event: string; payload: unknown }) =>
       gateway?.bus.publishToDevice(deviceId, e.event as never, e.payload as never);
     const library = new FsAudioLibrary(services.home, undefined, indexSavedAudio(db));
     const voice = new VoiceSessionManager({ selector: stack.selector, emit: toDevice });
-    const readAloud = new ReadAloudService({
-      engine: stack.engine,
-      transcoder: stack.transcoder,
-      messages: dbMessageSource(db),
-      library,
-      emit: toDevice,
-    });
+    // Long recordings are transcribed where they lie on the Mac (`speech.transcribe_file`, §4.6).
+    const filesNode = speechNode(() => gateway, NODE_SPEECH_CAPABILITIES.transcribeFile);
+    const files = new NodeSpeechEngine({ node: filesNode });
     const memos = new VoiceMemoService({
       engine: stack.engine,
       library,
       transcoder: stack.transcoder,
+      files,
     });
-    const setting = (key: string): unknown => getSetting(db, key)?.value;
-    const conversations = new VoiceConversationManager({
-      selector: stack.selector,
-      tts: stack.engine,
-      turns: chatVoiceTurns(() => gateway),
-      emit: toDevice,
-      enabled: () => setting(VC.enabled) === true,
-      settings: () => conversationSettings(setting),
-      approvals: voiceApprovals(services),
-    });
-    const fns = createSpeechHandlers({
-      voice,
-      memos,
-      readAloud,
-      catalog: new VoiceCatalog(stack.selector),
-      conversations,
-    });
+    const transcripts = libraryTranscripts(db, services.home);
+    const fns = createSpeechHandlers({ voice, memos });
 
     const caller = (call: Call): SpeechCaller =>
       surfaceOf(db, call.identity.deviceId) === "web" ? "web" : "desktop";
@@ -300,12 +313,13 @@ export function composeSpeech(setup: SpeechSetup = {}) {
           fn(params, { deviceId: call.identity.deviceId, caller: caller(call) }),
       };
     }
-    const onDisconnect = (deviceId: string) => {
-      voice.cancelAll(deviceId);
-      conversations.endForDevice(deviceId, "disconnected");
-    };
+    const onDisconnect = (deviceId: string) => voice.cancelAll(deviceId);
     return {
       handlers,
+      meetings: {
+        ingestMeeting: (input) => memos.ingestMeeting(input, transcripts),
+        available: () => filesNode() !== undefined,
+      },
       start(gw) {
         gateway = gw;
         gw.context.deviceDisconnected.add(onDisconnect);
@@ -313,97 +327,43 @@ export function composeSpeech(setup: SpeechSetup = {}) {
       stop() {
         gateway?.context.deviceDisconnected.delete(onDisconnect);
         voice.cancelAll();
-        conversations.endAll();
         gateway = null;
       },
     };
   };
 }
 
-/** Settings that hold an `<engine>:<voice>` ref the owner picked. */
-export const VOICE_REF_SETTINGS = [VC.voice, "speech.tts.voice"] as const;
-
 /**
- * Moves an owner who picked the OpenAI cloud voice to the default voice, once, with a notice:
- * OpenAI's TTS endpoints shut down on 2027-01-06 and the engine was removed
- * (docs/voice/voice-mode-2026.md §2, #691). `null` means "best installed voice for the language".
+ * Settings of the spoken-reply features that were removed: Psyche does not speak, so a voice, its
+ * speed, narration, barge-in, spoken approvals, captions, the spoken brief, the `voice` model
+ * role and the synthesis order mean nothing. Kept: `voice.conversation.{enabled, key, reviewBeforeSend}`.
  */
-export function migrateRetiredVoices(
-  services: Pick<ComposeServices, "db" | "notifier" | "logger">,
+export const STALE_SPEECH_SETTINGS = [
+  "voice.conversation.voice",
+  "voice.conversation.rate",
+  "voice.conversation.speak",
+  "voice.conversation.narrate",
+  "voice.conversation.bargeIn",
+  "voice.conversation.approvals",
+  "voice.conversation.language",
+  "voice.conversation.captions",
+  "voice.conversation.pauseMs",
+  "voice.conversation.brief",
+  "voice.conversation.mode",
+  "voice.conversation.start",
+  "voice.conversation.reply",
+  "speech.tts.order",
+  "speech.tts.voice",
+  "speech.tts.personalVoice",
+  "models.voice",
+] as const;
+
+/** Removes the stale spoken-reply settings (idempotent); returns the keys that were present. */
+export function removeStaleSpeechSettings(
+  services: Pick<ComposeServices, "db" | "logger">,
 ): string[] {
-  const moved: string[] = [];
-  for (const key of VOICE_REF_SETTINGS) {
-    if (!isRetiredVoiceRef(getSetting(services.db, key)?.value)) continue;
-    setSetting(services.db, key, null);
-    moved.push(key);
-  }
-  if (moved.length > 0) {
-    services.notifier
-      .notify({
-        kind: "system",
-        route: "/settings/voice",
-        title: "Psyche's voice changed",
-        body: "OpenAI is retiring the voice you picked, so Psyche now uses the default voice. You can choose another in Settings → Voice & dictation.",
-        dedupeKey: "speech:voice-retired:openai",
-      })
-      .catch((err) =>
-        services.logger?.log("warn", "voice migration notice failed", {
-          code: PsycheError.from(err).code,
-        }),
-      );
-  }
-  return moved;
-}
-
-/**
- * Approvals answered by voice (spec §4.6), through the broker exactly as the device's own card:
- * this device's single-use surface token, scope `once`, `via: "voice"`. The conversation has
- * already applied the tiers; the broker re-checks the token, expiry, binding and presence.
- */
-export function voiceApprovals(services: ComposeServices) {
-  return {
-    async answer(input: {
-      approvalId: string;
-      deviceId: string;
-      decision: "approve" | "deny";
-      utterance: string;
-    }): Promise<void> {
-      const surface = surfaceOf(services.db, input.deviceId);
-      const answerToken = services.approvalTokens.tokenFor(input.approvalId, surface);
-      if (answerToken === undefined) {
-        throw new PsycheError("forbidden", "this device has no card for that approval");
-      }
-      const approval = await services.rawBroker.answer({
-        approvalId: input.approvalId,
-        answerToken,
-        decision: input.decision,
-        scope: "once",
-        via: "voice",
-        decidedBy: { deviceId: input.deviceId, surface },
-      });
-      if (approval.status === "pending") {
-        throw new PsycheError("conflict", "the approval was not decided");
-      }
-    },
-  };
-}
-
-/** The owner's voice conversation settings (spec §6.4), defaulted where unset or invalid. */
-export function conversationSettings(
-  setting: (key: string) => unknown,
-): Partial<VoiceConversationSettings> {
-  const out: Partial<VoiceConversationSettings> = {};
-  const speak = setting(VC.speak);
-  if (speak === "brief" || speak === "full") out.speak = speak;
-  const narrate = setting(VC.narrate);
-  if (narrate === "off" || narrate === "brief" || narrate === "steps") out.narrate = narrate;
-  const approvals = setting(VC.approvals);
-  if (approvals === "off" || approvals === "write" || approvals === "write_destructive") {
-    out.approvals = approvals;
-  }
-  const pause = setting(VC.pauseMs);
-  if (typeof pause === "number" && Number.isFinite(pause)) {
-    out.pauseMs = Math.min(2_000, Math.max(500, Math.round(pause)));
-  }
-  return out;
+  const removed = deleteSettings(services.db, STALE_SPEECH_SETTINGS);
+  if (removed.length > 0)
+    services.logger?.log("info", "speech.settings_removed", { removed: removed.join(",") });
+  return removed;
 }

@@ -18,6 +18,7 @@ export {
 export * from "./runs.ts";
 export * from "./specialists.ts";
 export {
+  type ArtifactContent,
   INITIAL_STATE,
   type QueuedFollowUp,
   type RunStepDetail,

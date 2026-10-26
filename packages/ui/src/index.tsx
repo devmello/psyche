@@ -68,6 +68,21 @@ export {
 export { ApprovalDetails } from "./blocks/approval-details.tsx";
 export { Checklist, PlanCard } from "./blocks/Checklist.tsx";
 export {
+  CARD_STATUSES,
+  Card as BlockCard,
+  type CardAction,
+  CardActions,
+  type CardProps,
+  type CardStatus,
+  type CardStatusInfo,
+  type CardVariant,
+  cardStatusLabel,
+  fromApprovalStatus,
+  fromStepStatus,
+  fromTaskStatus,
+  fromToolCallStatus,
+} from "./blocks/card.tsx";
+export {
   DISCLOSURE_LABEL,
   type DisclosureLevel,
   DisclosureProvider,
@@ -86,6 +101,19 @@ export {
 } from "./blocks/QuestionCard.tsx";
 export { ReceiptLine } from "./blocks/Receipt.tsx";
 export {
+  type BlockContext,
+  type BlockRenderer,
+  type BlockViewProps,
+  blockRenderer,
+  RegisteredBlock,
+  registerBlock,
+  registeredBlockTypes,
+  registerToolView,
+  type ToolViewProps,
+  toolViewFor,
+  UnknownBlock,
+} from "./blocks/registry.tsx";
+export {
   TASK_STATUS_LABEL,
   TaskCard,
   type TaskCardProps,
@@ -102,6 +130,11 @@ export type * from "./blocks/types.ts";
 export { WrapUpBox } from "./blocks/WrapUp.tsx";
 // Bootstrap brand pieces (inline-styled; usable without the stylesheet).
 export * from "./brand.tsx";
+export {
+  type ArtifactRenderProps,
+  CanvasPane,
+  type CanvasPaneProps,
+} from "./canvas/CanvasPane.tsx";
 // Chat column.
 export { ApprovalDock } from "./chat/ApprovalDock.tsx";
 export { Composer, type ComposerProps, SLASH_COMMANDS } from "./chat/Composer.tsx";
@@ -183,6 +216,15 @@ export {
 } from "./components/ui/toolbar.tsx";
 export * from "./data/index.ts";
 export * from "./i18n/index.ts";
+export {
+  applyOpsLocal,
+  cellFromInput,
+  columnName,
+  diffToOps,
+  setCellOp,
+  tableToCsv,
+  viewRows,
+} from "./lib/artifact-ops.ts";
 // Formatting helpers.
 export * from "./lib/format.ts";
 export { cn } from "./lib/utils.ts";
@@ -207,6 +249,7 @@ export * from "./screens/onboarding/index.ts";
 export * from "./screens/search/index.ts";
 export { CONTEXT_KEYS, ContextSettingsGroup } from "./screens/settings/ContextSettings.tsx";
 export * from "./screens/settings/index.ts";
+export * from "./screens/workflows/index.ts";
 export {
   AppearanceProvider,
   type AppearanceProviderProps,
@@ -304,52 +347,23 @@ export {
 export * from "./teaching/index.ts";
 // Theme and data layer.
 export * from "./theme/index.ts";
-// Voice (voice-mode-2026 §6, §8 V-U).
+// Voice: composer dictation and the screen-request phrases (Psyche answers in text).
 export {
   type ComposerDictation,
   type ComposerVoice,
   ComposerVoiceBar,
   ComposerVoiceButtons,
-  type ComposerVoiceMode,
   type UseComposerVoice,
 } from "./voice/controls.tsx";
-export { useVoiceConversation, type VoiceConversation } from "./voice/conversation.ts";
-export { FakeVoiceTerminal } from "./voice/fake-terminal.ts";
 export {
-  envelope,
-  glowFor,
-  Lantern,
-  type LanternProps,
-  type LanternState,
-} from "./voice/Lantern.tsx";
-export {
-  matchApproval,
+  mentionsScreen,
   normalizeUtterance,
   type VoicePhraseList,
   voicePhrases,
 } from "./voice/phrases.ts";
 export {
-  IDLE_SESSION,
-  micOn,
-  sessionActive,
-  useVoiceSession,
-  type VoiceAction,
-  type VoicePhase,
-  type VoiceSession,
-  voiceReducer,
-} from "./voice/session.ts";
-export {
-  LEGACY_START_KEY,
-  migrateVoiceSettings,
   readVoiceSettings,
   VOICE_DEFAULTS,
+  VOICE_KEYS,
   type VoiceSettings,
 } from "./voice/settings.ts";
-export type { VoiceTerminal } from "./voice/terminal.ts";
-export {
-  lanternState,
-  stateLabel as voiceStateLabel,
-  VoiceCapsule,
-  type VoiceCapsuleProps,
-} from "./voice/VoiceCapsule.tsx";
-export { VoiceHudView, type VoiceHudViewProps } from "./voice/VoiceHudView.tsx";

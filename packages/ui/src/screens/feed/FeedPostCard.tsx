@@ -1,6 +1,6 @@
 import type { FeedPost } from "@psyche/protocol";
 import { Bookmark, Ellipsis, EyeOff, Heart, MessageCircle, Plus, ThumbsDown } from "lucide-react";
-import { type ReactElement, useId } from "react";
+import { type ReactElement, type ReactNode, useId } from "react";
 import { Markdown } from "../../blocks/Markdown.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import {
@@ -14,6 +14,7 @@ import { t } from "../../i18n/core.ts";
 import { formatTime } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
 import { GrowthCardItems } from "../../teaching/GrowthCard.tsx";
+import { WorkflowPostCard } from "../workflows/WorkflowPostCard.tsx";
 import {
   feedKind,
   feedKindLabel,
@@ -32,6 +33,8 @@ export interface FeedPostCardProps {
   /** Records feedback; `null` clears it. The topic travels with follow_topic. */
   onFeedback?: (post: FeedPost, feedback: FeedFeedbackValue | null, topic?: string) => void;
   onAsk?: (post: FeedPost) => void;
+  /** Workflow posts: the inline batch card for a proposal (mail-and-meetings-2026 §7.2). */
+  renderBatch?: (proposalId: string, close: () => void) => ReactNode;
   className?: string;
 }
 
@@ -40,9 +43,23 @@ export interface FeedPostCardProps {
  * (text-caption), title (text-title-2), body (text-reading) with citation markers, then one footer
  * row: the sources (count, favicon-shaped tiles and names) leading and the feedback trailing.
  * Like, Save and Ask are ghost icon buttons shown on hover or focus; Follow topic, Not interested
- * and Hide source sit under ⋯. The briefing is the hero: wider, with 24 px padding.
+ * and Hide source sit under ⋯. The briefing is the hero: wider, with 24 px padding. A post with a
+ * structured `card` (digest, meeting prep, meeting notes) renders as that workflow card.
  */
-export function FeedPostCard({
+export function FeedPostCard(props: FeedPostCardProps): ReactElement {
+  const { post, renderBatch, className } = props;
+  if (post.card)
+    return (
+      <WorkflowPostCard
+        post={{ ...post, card: post.card }}
+        {...(renderBatch ? { renderBatch } : {})}
+        {...(className ? { className } : {})}
+      />
+    );
+  return <StandardPostCard {...props} />;
+}
+
+function StandardPostCard({
   post,
   persona = "Wren",
   onFeedback,

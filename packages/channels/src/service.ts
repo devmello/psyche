@@ -30,7 +30,7 @@ import { backoffDelay, RateLimiter, realSleep, type Sleep } from "./ratelimit.ts
 import type { RouteContext } from "./routing.ts";
 import { channelSettings, isWeakTransport, validateChannel } from "./settings.ts";
 import type { ChannelStore } from "./store/types.ts";
-import { INBOUND_VOICE_FORMAT, type VoiceNotes } from "./voice.ts";
+import { INBOUND_VOICE_FORMAT } from "./voice.ts";
 
 /**
  * The channel framework (feature N1–N4, N10, N11; architecture §4.10). Owns adapters, runs the
@@ -49,7 +49,6 @@ export interface ChannelServiceOptions {
   emit?: EmitEvent;
   notifier?: Notifier;
   speech?: SpeechEngine;
-  voice?: VoiceNotes;
   library?: LibraryIngest;
   logger?: ChannelLogger;
   /** `commands.ownerAllowFrom` (qualified ids, `telegram:123`). */
@@ -114,7 +113,6 @@ export class ChannelService {
   #emit: EmitEvent;
   #notifier: Notifier | undefined;
   #speech: SpeechEngine | undefined;
-  #voice: VoiceNotes | undefined;
   #library: LibraryIngest | undefined;
   #logger: ChannelLogger;
   #newId: () => string;
@@ -136,7 +134,6 @@ export class ChannelService {
     this.#emit = options.emit ?? (() => {});
     this.#notifier = options.notifier;
     this.#speech = options.speech;
-    this.#voice = options.voice;
     this.#library = options.library;
     this.#logger = options.logger ?? { warn: () => {} };
     this.#newId = options.newId ?? (() => randomUUID());
@@ -572,17 +569,6 @@ export class ChannelService {
     const { adapter } = this.#adapterFor(target.channelId);
     if (adapter.sendTyping === undefined || adapter.capabilities().typing === false) return;
     await adapter.sendTyping(target.chatId, action).catch(() => undefined);
-  }
-
-  /** Speaks `text` as a voice note in the channel's container (feature N11). */
-  async sendVoice(target: OutboundTarget, text: string, caption = ""): Promise<SendResult[]> {
-    const { channel, adapter } = this.#adapterFor(target.channelId);
-    if (this.#voice === undefined || !adapter.capabilities().voiceNotes) {
-      throw new PsycheError("not_implemented", "voice notes are not available on this channel");
-    }
-    await this.typing(target, "recording_voice");
-    const attachment = await this.#voice.attachmentFor(text, channel.type);
-    return this.send(target, caption, { format: "plain", attachments: [attachment] });
   }
 
   /** Delivers an issued (or re-issued) approval to the owner's chats. */

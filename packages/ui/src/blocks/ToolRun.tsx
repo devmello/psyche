@@ -26,6 +26,7 @@ import { formatDuration, formatTime, toolFamily } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
 import { DiffBlock } from "./DiffBlock.tsx";
 import { DISCLOSURE_KEY, useDisclosure } from "./disclosure.tsx";
+import { ToolResultPreview } from "./ToolResultPreview.tsx";
 import type { ToolCallBlock } from "./types.ts";
 
 /** One tool call: the block from the message plus the live ToolCall row when it is known. */
@@ -159,6 +160,7 @@ export function ToolCallRow({
           <DiffBlock diff={diff} className="mt-1 max-h-96 overflow-auto" />
         </details>
       ) : null}
+      {call ? <ToolResultPreview call={call} /> : null}
       {raw && call ? (
         <div className="ms-6 flex flex-col gap-1 rounded-md bg-fill-quaternary p-2">
           <div className="flex flex-wrap items-center gap-2 text-callout text-label-secondary">

@@ -43,6 +43,7 @@ import {
   ThreadList,
   Toasts,
 } from "./components/Chrome.tsx";
+import { MeetingRecord, requestRecordMeeting } from "./components/MeetingRecord.tsx";
 import {
   CommandPalette,
   ModelPicker,
@@ -50,7 +51,12 @@ import {
   ShortcutSheet,
 } from "./components/Overlays.tsx";
 import { PaneArea, type PaneRenderer } from "./components/Panes.tsx";
-import { hasInsetTitleBar, TitleBar, titleBarInset } from "./components/TitleBar.tsx";
+import {
+  hasInsetTitleBar,
+  TITLEBAR_HEIGHT,
+  TitleBar,
+  titleBarInset,
+} from "./components/TitleBar.tsx";
 import { ShellProvider, useShell, useShellState } from "./context.tsx";
 import { matchShortcut, type ShortcutAction } from "./keyboard.ts";
 import {
@@ -252,7 +258,21 @@ export interface ChatSlotContext {
   openModelPicker: () => void;
   /** Opens a pane beside the chat, e.g. the Files pane on a Library item (§2.4). */
   openPane: (pane: PaneInstance["pane"], target?: string | null) => void;
+  /** Shows an artifact in the canvas: one pane per thread, its artifact swapped in place. */
+  openArtifact: (artifactId: string, title?: string) => void;
 }
+
+/** The one canvas pane (docs/design/chat-experience-2026.md §4.2): recents are its own tabs. */
+export const CANVAS_PANE_ID = "p_canvas";
+
+/** The layout action that shows an artifact in the canvas pane. */
+export const openArtifactAction = (artifactId: string, title?: string): LayoutAction => ({
+  type: "open",
+  pane: "artifact",
+  paneId: CANVAS_PANE_ID,
+  artifactId,
+  ...(title === undefined ? {} : { title }),
+});
 
 export function ShellApp({
   platform,
@@ -736,6 +756,8 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     { id: "mode", label: t("web.palette.switchMode"), run: cycleMode },
     { id: "settings", label: t("web.rail.settings"), run: () => navigate("/settings/model") },
     { id: "shortcuts", label: t("web.shortcuts.title"), run: () => setOverlay("shortcuts") },
+    // Record meeting (§4.6): asks the consent question first; the palette is one entry point.
+    { id: "record-meeting", label: t("meetingRecord.palette"), run: () => requestRecordMeeting() },
   ];
 
   if (settingsWindow) {
@@ -861,6 +883,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         setPermissionMode,
         openModelPicker: () => setOverlay("model"),
         openPane: (pane, target) => dispatch({ type: "open", pane, target: target ?? null }),
+        openArtifact: (artifactId, title) => dispatch(openArtifactAction(artifactId, title)),
       })
     ) : onChat ? (
       <ChatView
@@ -908,7 +931,6 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
             {t("web.shell.skipToContent")}
           </a>
           <TitleBar chrome={platform.chrome}>
-            {inset && !compact ? sidebarToggle : null}
             {/* A side chat names where it came from (redesign §5.4). */}
             {forkedFrom ? (
               <span
@@ -1029,6 +1051,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
               />
             ) : null}
             {overlay === "shortcuts" ? <ShortcutSheet onClose={() => setOverlay(null)} /> : null}
+            <MeetingRecord />
             {overlay === "model" ? (
               <ModelPicker
                 current={thread?.modelRef ?? null}
@@ -1056,6 +1079,18 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
               openThread(id);
             })}
           </ThreadsDrawer>
+          {/* Last in the tree on purpose: Electron resolves drag regions in tree order, so the
+              screens' drag toolbars (later than the title bar) would otherwise turn the toggle
+              into a drag area while the sidebar is hidden, and its clicks would do nothing. */}
+          {inset && !compact ? (
+            <div
+              className="titlebar-toggle"
+              data-testid="titlebar-toggle"
+              style={{ left: titleBarInset(platform.chrome), height: TITLEBAR_HEIGHT }}
+            >
+              {sidebarToggle}
+            </div>
+          ) : null}
         </div>
       </ShellMotion>
     </UiSlotsProvider>

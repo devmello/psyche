@@ -5,6 +5,7 @@ import {
   createRun,
   createThread,
   decidePairingRequest,
+  deleteSettings,
   expirePairingRequests,
   finishRun,
   getDevice,
@@ -46,6 +47,17 @@ describe("settings", () => {
     expect(getSettings(db, ["flags.enabled", "missing"])).toEqual({ "flags.enabled": false });
     expect(getSettings(db, [])).toEqual({});
     expect(() => setSetting(db, "x", undefined)).toThrow(TypeError);
+  });
+
+  it("deletes settings and reports the keys that existed", () => {
+    const db = memoryDb();
+    setSetting(db, "a", 1);
+    setSetting(db, "b", 2);
+    setSetting(db, "c", 3);
+    expect(deleteSettings(db, ["a", "c", "missing"]).sort()).toEqual(["a", "c"]);
+    expect(getSettings(db)).toEqual({ b: 2 });
+    expect(deleteSettings(db, [])).toEqual([]);
+    expect(deleteSettings(db, ["a"])).toEqual([]);
   });
 });
 

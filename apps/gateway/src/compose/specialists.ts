@@ -8,9 +8,11 @@ import {
   type SpecialistReportMeta,
   type SpecialistRoleDef,
 } from "@psyche/agent-core";
-import { createThread, getSetting, type PsycheDb } from "@psyche/db";
+import { appendMessage, createThread, getSetting, type PsycheDb } from "@psyche/db";
 import { sanitizeBlock } from "@psyche/permissions";
 import type {
+  EventName,
+  EventPayload,
   ModelRef,
   PermissionBroker,
   SpecialistJob,
@@ -44,6 +46,8 @@ export interface SpecialistHostDeps {
   slots?: () => number;
   /** Wake the specialist pool after a spawn. */
   poke?: () => void;
+  /** Publishes events; with it a reported result is also posted to the spawning thread. */
+  publish?: <E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string) => void;
 }
 
 const setting = (db: PsycheDb, key: string): unknown => getSetting(db, key)?.value;
@@ -186,6 +190,30 @@ export function createSpecialistHost(deps: SpecialistHostDeps): SpecialistHost {
     return out;
   };
 
+  /**
+   * The result also goes to the thread that spawned the job as a `specialist_result` block
+   * (chat-experience-2026 §4.5, decision 7); Feed and Inbox read the same job, so both stay. The
+   * parent's turn may still hold the transcript: try as no writer, then as the parent run, and
+   * never fail the report over it.
+   */
+  const postResult = (taskId: string, threadId: string, parentRunId: string | null): void => {
+    if (deps.publish === undefined) return;
+    const block = { type: "specialist_result" as const, taskId };
+    for (const writer of parentRunId === null ? [null] : [null, parentRunId]) {
+      try {
+        const message = appendMessage(
+          db,
+          { threadId, role: "system", blocks: [block], provenance: "agent", runId: null },
+          { expectedWriterRunId: writer },
+        );
+        deps.publish("chat.message", { message }, threadId);
+        return;
+      } catch {
+        // Try the next writer.
+      }
+    }
+  };
+
   return {
     roles,
     async createJob(input: SpecialistJobInput) {
@@ -205,6 +233,7 @@ export function createSpecialistHost(deps: SpecialistHostDeps): SpecialistHost {
         title: input.title,
         goal: input.brief,
         createdFrom: "subagent",
+        ...(input.unattended === true ? { mode: "unattended" as const } : {}),
         ...(input.taint ? { taint: true, taintSources: input.taintSources } : {}),
         specialist: input.spec,
       });
@@ -224,12 +253,14 @@ export function createSpecialistHost(deps: SpecialistHostDeps): SpecialistHost {
       const clean = sanitizeReport(report);
       const receipts = (await deps.broker.listReceipts({ taskId })).map((r) => r.id);
       let stored: SpecialistResult | undefined;
+      let first: { parentThreadId: string; parentRunId: string | null } | undefined;
       await tasks.updateSpecialist(taskId, (spec) => {
         // One result per job: a second report keeps the first (§4.2).
         if (spec.result != null) {
           stored = spec.result;
           return spec;
         }
+        first = { parentThreadId: spec.parentThreadId, parentRunId: spec.parentRunId ?? null };
         stored = {
           outcome: clean.outcome,
           summary: clean.summary,
@@ -243,6 +274,7 @@ export function createSpecialistHost(deps: SpecialistHostDeps): SpecialistHost {
         };
         return { ...spec, result: stored };
       });
+      if (first !== undefined) postResult(taskId, first.parentThreadId, first.parentRunId);
       return stored as SpecialistResult;
     },
     async promptSection() {

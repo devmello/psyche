@@ -1059,7 +1059,15 @@ export class GraphStore {
     const same = current.find(
       (e) => e.dst === dst.id && (e.label ?? null) === (input.label ?? null),
     );
-    if (same !== undefined) return { edge: same, superseded: null };
+    if (same !== undefined) {
+      // The same relation again (the owner confirming a Contacts one): keep its new sources.
+      const merged = [...new Set([...same.sources, ...sources])];
+      if (merged.length === same.sources.length) return { edge: same, superseded: null };
+      this.#db
+        .prepare("UPDATE graph_edges SET sources = ?, updated_at = ? WHERE id = ?")
+        .run(JSON.stringify(merged), now, same.id);
+      return { edge: toEdge(this.#edgeRow(same.id) as EdgeRow), superseded: null };
+    }
     // A person works at one org and reports to one person at a time; other relations accumulate.
     const single = input.rel === "works_at" || input.rel === "reports_to";
     const prior = single ? current[0] : current.find((e) => e.dst === dst.id);

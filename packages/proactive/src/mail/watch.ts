@@ -148,6 +148,8 @@ export interface MailWatcherOptions {
   scheduler: EventScheduler;
   clock: Clock;
   sources: () => readonly MailEventSource[];
+  /** Outside active hours a poll happens at most this often (default hourly; Settings). */
+  idleMs?: () => number;
   /** Local active hours (default 08–22) and their timezone; outside them, hourly. */
   activeHours?: { start: number; end: number };
   timezone?: string;
@@ -178,12 +180,15 @@ export class MailWatcher {
 
   /** The system automation that runs the poll (interval, `[psyche:mail-watch poll]`). */
   async ensureSchedule(
-    options: { enabled?: boolean; timezone?: string } = {},
+    options: { enabled?: boolean; timezone?: string; activeMin?: number } = {},
   ): Promise<Automation> {
     const prompt = jobMarker(MAIL_WATCH_JOB, "poll");
     const fields = {
       title: "Check for new mail",
-      schedule: MAIL_WATCH_SCHEDULE,
+      schedule:
+        options.activeMin !== undefined && options.activeMin >= 1
+          ? `PT${Math.floor(options.activeMin)}M`
+          : MAIL_WATCH_SCHEDULE,
       timezone: options.timezone ?? this.#o.timezone ?? "UTC",
       sessionTarget: "main",
       delivery: {},
@@ -217,7 +222,11 @@ export class MailWatcher {
     const hour = localHour(now, tz);
     const active = hour >= start && hour < end;
     const last = this.#o.scheduler.getCursor(MAIL_WATCH_SOURCE, "lastPoll");
-    if (!active && last !== undefined && now - Date.parse(last) < OFF_HOURS_POLL_MS) {
+    if (
+      !active &&
+      last !== undefined &&
+      now - Date.parse(last) < (this.#o.idleMs?.() ?? OFF_HOURS_POLL_MS)
+    ) {
       return { published: 0, skipped: "outside active hours" };
     }
     let published = 0;

@@ -311,14 +311,14 @@ describe("the composed app on the web host (A8)", () => {
   });
 });
 
-describe("composer dictation and voice mode in the kit chat (#690)", () => {
-  it("shows the mic, starts dictation from it, and shows Voice when voice conversation is on", async () => {
+describe("composer dictation in the kit chat (#690)", () => {
+  it("shows the mic and starts dictation from it; Psyche has no spoken voice mode", async () => {
     window.innerWidth = 1280;
     window.history.replaceState(null, "", "/chat");
     const { platform, calls } = webPlatform();
     render(<PsycheApp platform={platform} />);
     const chat = await screen.findByTestId("kit-chat");
-    // The composer has the dictation mic; voice conversation is off by default, so no Voice.
+    // The composer has the dictation mic and no Voice button: answers are text.
     const mic = await within(chat).findByRole("button", { name: /Dictate/ });
     expect(within(chat).queryByTestId("voice-mode-toggle")).toBeNull();
     // A click toggles dictation: it asks the Gateway (or says why it can't listen).
@@ -332,27 +332,5 @@ describe("composer dictation and voice mode in the kit chat (#690)", () => {
           within(chat).queryByRole("status") !== null,
       ).toBe(true),
     );
-  });
-
-  it("shows the Voice button when Settings turns voice conversation on", async () => {
-    window.innerWidth = 1280;
-    window.history.replaceState(null, "", "/chat");
-    const { platform } = webPlatform();
-    const call = platform.gateway.call;
-    platform.gateway.call = async (method, params, options) => {
-      const res = await call(method, params, options);
-      if (method === "settings.get")
-        return {
-          ...(res as { settings: Record<string, unknown> }),
-          settings: {
-            ...(res as { settings: Record<string, unknown> }).settings,
-            "voice.conversation.enabled": true,
-          },
-        };
-      return res;
-    };
-    render(<PsycheApp platform={platform} />);
-    const chat = await screen.findByTestId("kit-chat");
-    expect(await within(chat).findByTestId("voice-mode-toggle")).toBeTruthy();
   });
 });

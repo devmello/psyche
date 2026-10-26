@@ -1,9 +1,9 @@
 import type { TranscriptSegment } from "@psyche/protocol";
 import { FakeNodeClient } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
-import { encodeWav, PCM_16K_MONO, PCM_24K_MONO } from "../src/audio.ts";
+import { encodeWav, PCM_16K_MONO } from "../src/audio.ts";
 import { NODE_SPEECH_CAPABILITIES, NodeSpeechEngine } from "../src/engines/node.ts";
-import { fromBase64, toBase64 } from "../src/queue.ts";
+import { fromBase64 } from "../src/queue.ts";
 import { chunks, collect } from "./helpers.ts";
 
 const cap = (name: string, streaming = false) => ({ name, sideEffect: "read" as const, streaming });
@@ -71,32 +71,6 @@ function macNode(opts: { failPush?: boolean } = {}) {
         if (p.final === true) s.finish();
         return { accepted: bytes, bufferedBytes: 0, final: p.final === true };
       },
-    })
-    .handle({
-      capability: cap(NODE_SPEECH_CAPABILITIES.synthesize, true),
-      handle: (params, emit) => {
-        const p = params as { text: string; format: string };
-        const format = { encoding: p.format, sampleRate: 22_050, channels: 1 };
-        for (let seq = 0; seq < 3; seq++) {
-          emit({
-            type: "speech.audio",
-            seq,
-            data: toBase64(new Uint8Array(p.text.length * 2)),
-            format,
-          });
-        }
-        return { format, voice: "com.apple.voice.Ava" };
-      },
-    })
-    .handle({
-      capability: cap(NODE_SPEECH_CAPABILITIES.voices),
-      handle: () => ({
-        voices: [
-          { id: "com.apple.voice.Ava", name: "Ava", language: "en-US", quality: "premium" },
-          { id: "personal.1", name: "My voice", language: "en-US", personalVoice: true },
-        ],
-        personalVoiceAuthorization: "notDetermined",
-      }),
     });
   return node;
 }
@@ -207,40 +181,5 @@ describe("NodeSpeechEngine (Mac helper speech.* capabilities)", () => {
       expect(s.final).toBe(false);
       break;
     }
-  });
-
-  it("synthesizes speech.audio chunks and lists voices", async () => {
-    const node = macNode();
-    const engine = new NodeSpeechEngine({ node: () => node });
-    const out = await collect(engine.synthesize("hello", { voice: "com.apple.voice.Ava" }));
-    expect(out).toHaveLength(3);
-    expect(out[0]?.format).toEqual({ encoding: "pcm_s16le", sampleRate: 22_050, channels: 1 });
-    expect(out[0]?.data.byteLength).toBe(10);
-    // The voice id is checked against `speech.voices` first (Personal Voice opt-in, Q3).
-    expect(node.invocations[0]?.capability).toBe("speech.voices");
-    expect(node.invocations[1]?.params).toEqual({
-      text: "hello",
-      format: "pcm_s16le",
-      voice: "com.apple.voice.Ava",
-    });
-    // Long text is split into requests within the helper's 5000-character limit.
-    const long = Array.from({ length: 400 }, () => "This is a sentence.").join(" ");
-    await collect(engine.synthesize(long, { format: PCM_24K_MONO }));
-    const texts = node.invocations
-      .filter((i) => i.capability === "speech.synthesize")
-      .slice(1)
-      .map((i) => (i.params as { text: string }).text);
-    expect(texts.length).toBeGreaterThan(1);
-    expect(texts.every((t) => t.length <= 5000)).toBe(true);
-    const voices = await engine.voices();
-    expect(voices[0]).toEqual({
-      id: "com.apple.voice.Ava",
-      name: "Ava",
-      language: "en-US",
-      local: true,
-    });
-    // Personal Voice is flagged non-commercial (Apple's terms) for the voice catalog.
-    expect(voices[1]).toMatchObject({ id: "personal.1", local: true, nonCommercial: true });
-    expect(await engine.capabilities()).toMatchObject({ streaming: true, synthesis: true });
   });
 });

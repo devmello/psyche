@@ -49,7 +49,6 @@ public enum SpeechEvent {
     public static let final = "speech.final"
     public static let started = "speech.started"
     public static let modelDownload = "speech.model_download"
-    public static let audio = "speech.audio"
 
     /// `{type: "speech.partial"|"speech.final", text, startMs, endMs, final, confidence?}`.
     public static func segment(_ s: SpeechSegment) -> JSONValue {
@@ -76,13 +75,6 @@ public enum SpeechEvent {
     public static func modelDownload(phase: DownloadPhase, locale: String, fraction: Double) -> JSONValue {
         let f = fraction.isFinite ? min(1, max(0, fraction)) : 0
         return ["type": .string(modelDownload), "phase": .string(phase.rawValue), "locale": .string(locale), "fraction": .number((f * 1000).rounded() / 1000)]
-    }
-
-    /// `{type: "speech.audio", seq, data (base64), format, utteranceId?}`.
-    public static func audio(seq: Int, data: Data, format: PCMAudioFormat, utteranceId: String? = nil) -> JSONValue {
-        var o: [String: JSONValue] = ["type": .string(audio), "seq": .int(seq), "data": .string(data.base64EncodedString()), "format": format.json]
-        if let utteranceId { o["utteranceId"] = .string(utteranceId) }
-        return .object(o)
     }
 }
 

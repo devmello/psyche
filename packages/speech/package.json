@@ -16,8 +16,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@psyche/protocol": "workspace:*",
-    "phonemize": "2.0.1"
+    "@psyche/protocol": "workspace:*"
   },
   "devDependencies": {
     "@psyche/testing": "workspace:*"

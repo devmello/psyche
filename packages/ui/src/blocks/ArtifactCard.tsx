@@ -11,10 +11,10 @@ import {
   Wallet,
 } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
-import { Button } from "../components/ui/button.tsx";
 import { activeI18n, t } from "../i18n/core.ts";
 import { formatDate } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
+import { Card, type CardAction } from "./card.tsx";
 
 /** Preview kinds the artifact block names in `preview` (data model §9.1). */
 export type ArtifactPreviewKind =
@@ -130,40 +130,43 @@ export function ArtifactCard({
   onSave,
 }: ArtifactCardProps): ReactElement {
   const kind = previewKindOf(artifact, preview);
+  const Icon = ICONS[kind];
+  const actions: CardAction[] = [];
+  if (onSave)
+    actions.push({
+      id: "save",
+      label: t("blocks.artifact.save"),
+      kind: "send",
+      onSelect: () => onSave(artifact),
+    });
+  if (onOpen)
+    actions.push({
+      id: "open",
+      label: t("blocks.common.open"),
+      kind: "open",
+      primary: true,
+      onSelect: () => onOpen(artifact),
+    });
   return (
-    <article
-      aria-label={t("blocks.artifact.label", { title: artifact.title })}
-      className="my-2 flex max-w-md overflow-hidden rounded-lg border border-gray-6 bg-gray-2 psy-enter"
+    <Card
+      label={t("blocks.artifact.label", { title: artifact.title })}
+      icon={<Icon />}
+      title={artifact.title}
+      meta={t("blocks.artifact.meta", {
+        kind: kindLabel(kind),
+        version: artifact.version,
+        date: formatDate(artifact.updatedAt),
+      })}
+      actions={actions}
+      className="max-w-md"
     >
       <div
-        className="relative w-28 shrink-0 overflow-hidden border-e border-gray-6 bg-gray-3"
+        className="relative mt-2 h-24 overflow-hidden rounded-md bg-fill-tertiary"
         aria-hidden="true"
       >
         {renderPreview?.({ artifact, kind }) ?? <Thumbnail kind={kind} />}
       </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-1 p-3">
-        <h3 className="truncate text-h3">{artifact.title}</h3>
-        <p className="text-callout text-muted-foreground">
-          {t("blocks.artifact.meta", {
-            kind: kindLabel(kind),
-            version: artifact.version,
-            date: formatDate(artifact.updatedAt),
-          })}
-        </p>
-        <div className="mt-1 flex gap-2">
-          {onOpen ? (
-            <Button size="sm" variant="outline" onClick={() => onOpen(artifact)}>
-              {t("blocks.common.open")}
-            </Button>
-          ) : null}
-          {onSave ? (
-            <Button size="sm" variant="ghost" onClick={() => onSave(artifact)}>
-              {t("blocks.artifact.save")}
-            </Button>
-          ) : null}
-        </div>
-      </div>
-    </article>
+    </Card>
   );
 }
 
@@ -194,33 +197,31 @@ export function FileCard({
 }): ReactElement {
   const Icon = iconForMime(item.mime);
   return (
-    <article
-      aria-label={t("blocks.artifact.fileLabel", { name: item.name })}
-      className="my-2 flex max-w-md items-center gap-3 rounded-lg border border-gray-6 bg-gray-2 p-2 psy-enter"
+    <Card
+      label={t("blocks.artifact.fileLabel", { name: item.name })}
+      icon={renderPreview?.({ item, kind: "file" }) ?? <Icon />}
+      title={item.name}
+      meta={`${formatBytes(item.size)} · ${item.origin}`}
+      actions={
+        onOpen
+          ? [
+              {
+                id: "open",
+                label: t("blocks.common.open"),
+                kind: "open",
+                primary: true,
+                onSelect: () => onOpen(item),
+              },
+            ]
+          : []
+      }
+      className="max-w-md"
     >
-      <div
-        className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gray-3"
-        aria-hidden="true"
-      >
-        {renderPreview?.({ item, kind: "file" }) ?? <Icon className="size-5 text-gray-9" />}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{item.name}</p>
-        <p className="flex items-center gap-1 text-xs text-muted-foreground">
-          {formatBytes(item.size)} · {item.origin}
-          {item.quarantined ? (
-            <span className="inline-flex items-center gap-0.5 text-approval-text">
-              <ShieldAlert className="size-3" aria-hidden="true" />{" "}
-              {t("blocks.artifact.quarantined")}
-            </span>
-          ) : null}
+      {item.quarantined ? (
+        <p className="inline-flex items-center gap-1 text-callout text-approval-text">
+          <ShieldAlert className="size-3" aria-hidden="true" /> {t("blocks.artifact.quarantined")}
         </p>
-      </div>
-      {onOpen ? (
-        <Button size="sm" variant="outline" onClick={() => onOpen(item)}>
-          {t("blocks.common.open")}
-        </Button>
-      ) : null}
-    </article>
+      ) : undefined}
+    </Card>
   );
 }

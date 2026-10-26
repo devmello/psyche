@@ -1189,6 +1189,12 @@ export function WhereStep({
 
 const CHECK_TONE = { ok: "success", warn: "approval" } as const;
 
+/** Done's line for mail and meetings: how many workflows are on, or that they're off. */
+function mailDoneValue(mail: NonNullable<OnboardingResult["mail"]>): string {
+  const n = Object.values(mail).filter(Boolean).length;
+  return n === 0 ? t("onboarding.mail.doneOff") : t("onboarding.mail.doneOn", { n });
+}
+
 export function DoneStep({
   result,
   checks,
@@ -1251,6 +1257,14 @@ export function DoneStep({
                   )
                 : t("onboarding.done.noneYet"),
           },
+          ...(result.mail
+            ? [
+                {
+                  term: t("onboarding.mail.done"),
+                  value: mailDoneValue(result.mail),
+                },
+              ]
+            : []),
           {
             term: t("onboarding.done.model"),
             value: (

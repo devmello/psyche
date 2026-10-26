@@ -2,9 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ResolvedSecret } from "@psyche/protocol";
-import { assertNoSecrets, clearSecrets, registerSecret } from "@psyche/testing";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   decodeWav,
   encodeWav,
@@ -14,7 +12,6 @@ import {
   toPcm16kMono,
 } from "../src/audio.ts";
 import { MODEL_CATALOG } from "../src/catalog.ts";
-import { CloudTtsEngine, isRetiredVoiceRef, packSentences } from "../src/engines/cloud.ts";
 import {
   type SpeechRecognitionEventLike,
   type SpeechRecognitionLike,
@@ -22,47 +19,7 @@ import {
 } from "../src/engines/web.ts";
 import { ModelManager } from "../src/models.ts";
 import { LocalProcessRunner } from "../src/process.ts";
-import { parseSsmlLite, splitSentences, ssmlToText } from "../src/ssml.ts";
 import { collect } from "./helpers.ts";
-
-describe("SSML-lite", () => {
-  it("parses breaks, nested prosody, say-as and paragraphs", () => {
-    expect(
-      parseSsmlLite(
-        '<speak>Hello <break time="1.5s"/> <prosody rate="slow">slow <prosody rate="50%">slower</prosody></prosody> and <say-as interpret-as="characters">API</say-as>.</speak>',
-      ),
-    ).toEqual([
-      { kind: "text", text: "Hello", rate: 1 },
-      { kind: "break", ms: 1500 },
-      { kind: "text", text: "slow", rate: 0.8 },
-      { kind: "text", text: "slower", rate: 0.5 },
-      { kind: "text", text: "and A P I .", rate: 1 },
-    ]);
-  });
-
-  it("caps breaks, ignores unknown tags and treats plain text as one run", () => {
-    expect(parseSsmlLite('<p>a</p><break time="99s"/><x-bad>b</x-bad>')).toEqual([
-      { kind: "text", text: "a", rate: 1 },
-      { kind: "break", ms: 5000 },
-      { kind: "text", text: "b", rate: 1 },
-    ]);
-    expect(parseSsmlLite("  plain   text <3 ")).toEqual([
-      { kind: "text", text: "plain text <3", rate: 1 },
-    ]);
-    expect(ssmlToText('<s>One</s><break time="1s"/><s>Two &amp; three</s>')).toBe(
-      "One Two & three",
-    );
-  });
-
-  it("splits sentences and long run-ons", () => {
-    expect(splitSentences("One. Two? Three!")).toEqual(["One.", "Two?", "Three!"]);
-    const long = Array.from({ length: 100 }, (_, i) => `word${i}`).join(" ");
-    const parts = splitSentences(long, 120);
-    expect(parts.every((p) => p.length <= 120)).toBe(true);
-    expect(parts.join(" ")).toBe(long);
-    expect(packSentences("a. b. c.", 5)).toEqual(["a. b.", "c."]);
-  });
-});
 
 describe("PCM helpers", () => {
   it("round-trips WAV and converts to 16 kHz mono", () => {
@@ -72,92 +29,6 @@ describe("PCM helpers", () => {
     expect(wav?.data.byteLength).toBe(48_000);
     expect(pcmDurationMs(toPcm16kMono(pcm, PCM_24K_MONO).byteLength, PCM_16K_MONO)).toBe(1000);
     expect(decodeWav(new TextEncoder().encode("RIFF....WAVEjunk"))).toBeUndefined();
-  });
-});
-
-describe("cloud voices (keys from the vault)", () => {
-  const KEY = "sk-test-cloud-tts-key-0123456789";
-  afterEach(() => clearSecrets());
-
-  const secret = () =>
-    new ResolvedSecret(KEY, {
-      credentialId: "cred_elevenlabs",
-      target: { kind: "origin", value: "https://api.elevenlabs.io" },
-    });
-
-  it("keeps PCM aligned across odd network reads and keeps the key out of results", async () => {
-    registerSecret(KEY, "elevenlabs");
-    const requests: { url: string; init: RequestInit }[] = [];
-    const engine = new CloudTtsEngine({
-      provider: "elevenlabs",
-      apiKey: async () => secret(),
-      defaultVoice: "voice-1",
-      fetch: async (url, init) => {
-        requests.push({ url: String(url), init: init ?? {} });
-        // Odd-sized network reads must still yield whole 16-bit samples.
-        const body = new ReadableStream<Uint8Array>({
-          start(c) {
-            c.enqueue(new Uint8Array(3));
-            c.enqueue(new Uint8Array(5));
-            c.close();
-          },
-        });
-        return new Response(body);
-      },
-    });
-    const chunks = await collect(engine.synthesize('Hello <break time="1s"/> there.'));
-    expect(chunks.map((c) => c.data.byteLength)).toEqual([2, 6]);
-    expect(chunks[0]?.format).toEqual(PCM_24K_MONO);
-    const body = JSON.parse(String(requests[0]?.init.body)) as Record<string, unknown>;
-    expect(body).toEqual({ text: "Hello there.", model_id: "eleven_flash_v2_5" });
-    assertNoSecrets({
-      chunks: chunks.map((c) => c.format),
-      body,
-      caps: await engine.capabilities(),
-    });
-  });
-
-  it("maps HTTP errors without echoing provider bodies", async () => {
-    registerSecret(KEY, "elevenlabs");
-    const engine = new CloudTtsEngine({
-      provider: "elevenlabs",
-      apiKey: async () => secret(),
-      defaultVoice: "voice-1",
-      fetch: async () => new Response(`bad key ${KEY}`, { status: 401 }),
-    });
-    const err = await collect(engine.synthesize("hi")).catch((e: unknown) => e);
-    expect(err).toMatchObject({ code: "unauthorized" });
-    assertNoSecrets({ message: (err as Error).message });
-  });
-
-  it("retires saved OpenAI voice refs (TTS endpoints shut down 2027-01-06)", () => {
-    expect(isRetiredVoiceRef("openai:marin")).toBe(true);
-    expect(isRetiredVoiceRef("elevenlabs:voice-1")).toBe(false);
-    expect(isRetiredVoiceRef("mac-node:com.apple.voice.Ava")).toBe(false);
-    expect(isRetiredVoiceRef("openai")).toBe(false);
-    expect(isRetiredVoiceRef(undefined)).toBe(false);
-  });
-
-  it("calls ElevenLabs with pcm_24000 and xi-api-key", async () => {
-    const urls: string[] = [];
-    let header: string | null = null;
-    const engine = new CloudTtsEngine({
-      provider: "elevenlabs",
-      apiKey: async () => secret(),
-      fetch: async (url, init) => {
-        urls.push(String(url));
-        header = new Headers(init?.headers).get("xi-api-key");
-        return new Response(new Uint8Array(4));
-      },
-    });
-    await expect(collect(engine.synthesize("hi"))).rejects.toMatchObject({
-      code: "invalid_params",
-    });
-    await collect(engine.synthesize("hi", { voice: "voice/1" }));
-    expect(urls.at(-1)).toBe(
-      "https://api.elevenlabs.io/v1/text-to-speech/voice%2F1/stream?output_format=pcm_24000",
-    );
-    expect(header).toBe(KEY);
   });
 });
 
@@ -245,8 +116,8 @@ describe("model download manager", () => {
       expect(s.sizeBytes).toBeGreaterThan(0);
     }
     expect(ids.has("whisper-base.en")).toBe(true);
-    expect(ids.has("kokoro-q8")).toBe(true);
-    expect(ids.has("kokoro-voice-af_heart")).toBe(true);
+    // Psyche does not speak: no synthesis models are shipped.
+    expect([...ids].some((id) => id.startsWith("kokoro"))).toBe(false);
     expect(() => new ModelManager({ catalog: MODEL_CATALOG })).not.toThrow();
   });
 });

@@ -196,7 +196,20 @@ export const LibraryItem = Type.Object(
 export type LibraryItem = Static<typeof LibraryItem>;
 
 export const ArtifactType = StringEnum(
-  ["markdown", "html", "react", "pdf", "sheet", "itinerary", "dashboard"],
+  // `doc`, `code`, `table`, `image`: canvas artifacts (docs/design/chat-experience-2026.md §4.2).
+  [
+    "markdown",
+    "html",
+    "react",
+    "pdf",
+    "sheet",
+    "itinerary",
+    "dashboard",
+    "doc",
+    "code",
+    "table",
+    "image",
+  ],
   {
     $id: "ArtifactType",
   },
@@ -212,6 +225,14 @@ export const Artifact = Type.Object(
     nameSlug: Type.String(),
     sourceRef: Nullable(Type.String()),
     updatedAt: IsoDateTime,
+    /** Canvas artifacts (chat-experience-2026 §4.2): the thread that made it, for recents. */
+    threadId: Type.Optional(Nullable(Id)),
+    /** `code` artifacts: the language id (`ts`, `py`, …). */
+    language: Type.Optional(Type.String({ maxLength: 40 })),
+    /** Derived from tainted input: the canvas marks it and keeps `html` previews off. */
+    untrusted: Type.Optional(Type.Boolean()),
+    /** Size of the latest version's content in bytes. */
+    bytes: Type.Optional(Type.Integer({ minimum: 0 })),
   },
   { $id: "Artifact" },
 );
