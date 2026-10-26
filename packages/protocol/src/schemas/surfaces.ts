@@ -1,5 +1,6 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, JsonObject, ModelRef, Nullable, StringEnum, Surface } from "../common.ts";
+import { GrowthCard } from "./learning.ts";
 
 /** Data model §8 (proactive), §9 (library), §10 (usage, settings). */
 export const Citation = Type.Object(
@@ -27,6 +28,8 @@ export const FeedPost = Type.Object(
     briefingId: Nullable(Id),
     feedback: Nullable(FeedFeedback),
     createdAt: IsoDateTime,
+    /** Set on the weekly "What I learned" post (teaching loop §5.4): its review items. */
+    growth: Type.Optional(GrowthCard),
   },
   { $id: "FeedPost" },
 );
