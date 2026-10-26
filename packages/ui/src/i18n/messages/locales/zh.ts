@@ -1,9 +1,12 @@
 import type { Catalogue } from "../index.ts";
 import { canvas } from "./canvas/zh.ts";
+import { mailMeetings } from "./mail-meetings/zh.ts";
 import { workflows } from "./workflows/zh.ts";
 
 /** Simplified Chinese catalogue (zh). Same ids as `en`; missing ids fall back to English. */
 export const zh: Partial<Catalogue> = {
+  // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...mailMeetings,
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
   // the output canvas (docs/design/chat-experience-2026.md §4.2)

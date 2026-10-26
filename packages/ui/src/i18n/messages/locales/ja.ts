@@ -1,9 +1,12 @@
 import type { Catalogue } from "../index.ts";
 import { canvas } from "./canvas/ja.ts";
+import { mailMeetings } from "./mail-meetings/ja.ts";
 import { workflows } from "./workflows/ja.ts";
 
 /** Japanese catalogue (ja). Same ids as `en`; missing ids fall back to English. */
 export const ja: Partial<Catalogue> = {
+  // mail and meetings: settings and onboarding (docs/workflows/mail-and-meetings-2026.md §7.3, §7.5)
+  ...mailMeetings,
   // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
   ...workflows,
   // the output canvas (docs/design/chat-experience-2026.md §4.2)
