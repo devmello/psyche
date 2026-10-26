@@ -18,12 +18,15 @@ public enum AppleAppsCapabilities {
         public var staging: @Sendable () -> URL
         /// Contacts wave 1 (P1–P3).
         public var contacts: any ContactsBackend
+        /// Music and Spotify wave 1 (U1–U2).
+        public var music: any MusicBackend
 
         public init(
             calendar: any CalendarBackend, reminders: any RemindersBackend, mail: any MailBackend, notes: any NotesBackend,
             safari: any SafariBackend, finder: any FinderBackend, roots: @escaping @Sendable () -> FinderRoots,
             staging: @escaping @Sendable () -> URL = { Backends.stagingDir() },
-            contacts: any ContactsBackend = ContactsStoreBackend()
+            contacts: any ContactsBackend = ContactsStoreBackend(),
+            music: any MusicBackend = MusicScriptingBackend()
         ) {
             self.calendar = calendar
             self.reminders = reminders
@@ -34,6 +37,7 @@ public enum AppleAppsCapabilities {
             self.roots = roots
             self.staging = staging
             self.contacts = contacts
+            self.music = music
         }
 
         /// `$PSYCHE_HOME/helper/staging` (0700).
@@ -50,7 +54,7 @@ public enum AppleAppsCapabilities {
     }
 
     public static func make(_ b: Backends) -> [any CapabilityHandler] {
-        calendar(b) + calendarWave1(b) + reminders(b) + remindersWave1(b) + mail(b) + notes(b) + finder(b) + safari(b) + contactsWave1(b)
+        calendar(b) + calendarWave1(b) + reminders(b) + remindersWave1(b) + mail(b) + notes(b) + finder(b) + safari(b) + contactsWave1(b) + musicWave1(b)
     }
 
     // MARK: Helpers
@@ -337,6 +341,89 @@ public enum AppleAppsCapabilities {
                                        birthday: p.birthday, emails: p.addEmails ?? [], phones: p.addPhones ?? [])
                 let c = try await b.contacts.update(p)
                 return CapabilityOutput(["contact": try json(c)], receipt: ReceiptDraft(outcome: .ok, summary: "Updated a contact", externalRefs: ["contactId": .string(c.id)]))
+            },
+        ]
+    }
+
+    // MARK: Music and Spotify wave 1 (docs/connectors/apple-apps-2026.md §4.6, U1–U2)
+
+    struct MusicApp: Decodable { var app: String? }
+    struct MusicControl: Decodable {
+        var app: String?
+        var action: String
+        var volume: Int?
+        var shuffle: Bool?
+    }
+    struct MusicSearch: Decodable {
+        var query: String
+        var kind: String?
+        var limit: Int?
+    }
+    struct MusicPlay: Decodable {
+        var kind: String
+        var id: String
+        var shuffle: Bool?
+    }
+
+    static func checkApp(_ a: String?) throws {
+        if let a, !MusicWave1.apps.contains(a) { throw CapabilityError.invalidParams("app is music or spotify", field: "app") }
+    }
+
+    static func musicWave1(_ b: Backends) -> [any CapabilityHandler] {
+        let appSchema = Schema.string("music or spotify (default: whichever is playing, else Music)", enum: MusicWave1.apps)
+        return [
+            Capability(CapabilitySpec(
+                name: "music.now_playing", description: "What Music or Spotify is playing: state, track, position, volume and shuffle. Never opens a player.",
+                sideEffect: .read, inputSchema: Schema.object(["app": appSchema])
+            )) { ctx in
+                let p = try ctx.decode(MusicApp.self)
+                try checkApp(p.app)
+                return CapabilityOutput(untrusted(["nowPlaying": try json(try await b.music.nowPlaying(app: p.app))]))
+            },
+            Capability(CapabilitySpec(
+                name: "music.control",
+                description: "Play, pause, play/pause, next, previous, set the volume (0–100) or turn shuffle on or off in Music or Spotify. Only play opens a closed player.",
+                sideEffect: .write, targetKind: .app,
+                inputSchema: Schema.object(["app": appSchema, "action": Schema.string(enum: MusicWave1.actions),
+                                            "volume": Schema.integer("With action volume", min: 0, max: 100), "shuffle": Schema.boolean("With action shuffle")],
+                                           required: ["action"]),
+                receiptKind: "connector_action"
+            )) { ctx in
+                let p = try ctx.decode(MusicControl.self)
+                try checkApp(p.app)
+                guard MusicWave1.actions.contains(p.action) else { throw CapabilityError.invalidParams("unknown action", field: "action") }
+                if p.action == "volume", !(0...100).contains(p.volume ?? -1) { throw CapabilityError.invalidParams("volume is 0–100", field: "volume") }
+                if p.action == "shuffle", p.shuffle == nil { throw CapabilityError.invalidParams("shuffle is required with action shuffle", field: "shuffle") }
+                let now = try await b.music.control(app: p.app, action: p.action, volume: p.volume, shuffle: p.shuffle)
+                return CapabilityOutput(untrusted(["nowPlaying": try json(now)]), receipt: ReceiptDraft(outcome: .ok, summary: "Music: \(p.action)"))
+            },
+            Capability(CapabilitySpec(
+                name: "music.search_library",
+                description: "Search the owner's Music library (not the Apple Music catalog) for tracks, albums, artists or playlists, best match first. Read-only.",
+                sideEffect: .read,
+                inputSchema: Schema.object(["query": Schema.string(maxLength: 200), "kind": Schema.string("Default: all kinds", enum: MusicWave1.kinds),
+                                            "limit": limitSchema], required: ["query"])
+            )) { ctx in
+                let p = try ctx.decode(MusicSearch.self)
+                try text(p.query, max: 200, field: "query", required: true)
+                if let k = p.kind, !MusicWave1.kinds.contains(k) { throw CapabilityError.invalidParams("kind is track, album, artist or playlist", field: "kind") }
+                return untrustedList("items", try json(try await b.music.searchLibrary(query: p.query, kind: p.kind, limit: try limit(p.limit, default: 20))))
+            },
+            Capability(CapabilitySpec(
+                name: "music.play",
+                description: "Play a track, album, artist or playlist from music.search_library in Music (optionally shuffled). Albums and artists play through a playlist named \"Psyche\" whose contents are replaced each time.",
+                sideEffect: .write, targetKind: .app,
+                inputSchema: Schema.object(["kind": Schema.string(enum: MusicWave1.kinds), "id": Schema.string(maxLength: 600), "shuffle": Schema.boolean()],
+                                           required: ["kind", "id"]),
+                receiptKind: "connector_action"
+            )) { ctx in
+                let p = try ctx.decode(MusicPlay.self)
+                guard MusicWave1.kinds.contains(p.kind) else { throw CapabilityError.invalidParams("kind is track, album, artist or playlist", field: "kind") }
+                if ["track", "playlist"].contains(p.kind), !MusicWave1.isPersistentId(p.id) {
+                    throw CapabilityError.invalidParams("id is a Music persistent ID from music.search_library", field: "id")
+                }
+                let now = try await b.music.play(kind: p.kind, id: p.id, shuffle: p.shuffle)
+                return CapabilityOutput(untrusted(["nowPlaying": try json(now)]), receipt: ReceiptDraft(outcome: .ok, summary: "Playing a \(p.kind)"))
             },
         ]
     }
