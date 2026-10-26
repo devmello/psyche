@@ -73,7 +73,10 @@ export class ControlledLoop implements AgentLoop {
     return new Promise((resolve) => this.#started.push(resolve));
   }
 
-  async steer(): Promise<void> {}
+  readonly steered: { runId: string; text: string }[] = [];
+  async steer(runId: string, text: string): Promise<void> {
+    this.steered.push({ runId, text });
+  }
   async followUp(): Promise<void> {}
   async cancel(runId: string): Promise<void> {
     this.cancelled.push(runId);
