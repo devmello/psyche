@@ -170,6 +170,65 @@ export function ArtifactCard({
   );
 }
 
+export interface ArtifactTileProps {
+  artifact: Artifact;
+  preview?: string;
+  renderPreview?: PreviewSlot;
+  /** Replaces the drawn thumbnail (a chart's real `ChartView`). */
+  thumbnail?: ReactNode;
+  /** Accessible name of the tile's button. */
+  label: string;
+  onOpen: (artifact: Artifact) => void;
+}
+
+/**
+ * `ArtifactCard`'s compact `preview` form for grids (agent-overview-2026 §5.4): the thumbnail,
+ * the title and "Document · v2 · Oct 20" as one button, with no card chrome of its own because a
+ * grid sits inside a section card.
+ */
+export function ArtifactTile({
+  artifact,
+  preview,
+  renderPreview,
+  thumbnail,
+  label,
+  onOpen,
+}: ArtifactTileProps): ReactElement {
+  const kind = previewKindOf(artifact, preview);
+  const Icon = ICONS[kind];
+  const kindText = artifact.type === "chart" ? t("canvas.chart") : kindLabel(kind);
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      data-testid="artifact-tile"
+      data-type={artifact.type}
+      onClick={() => onOpen(artifact)}
+      className="group flex w-full min-w-0 cursor-default flex-col gap-2 rounded-md text-start outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <span
+        className="relative block h-24 w-full overflow-hidden rounded-md bg-fill-tertiary group-hover:bg-fill-secondary"
+        aria-hidden="true"
+      >
+        {thumbnail ?? renderPreview?.({ artifact, kind }) ?? <Thumbnail kind={kind} />}
+      </span>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="flex min-w-0 items-center gap-1.5 text-callout font-medium text-label-primary">
+          <Icon className="size-3.5 shrink-0 text-label-secondary" aria-hidden="true" />
+          <span className="truncate">{artifact.title}</span>
+        </span>
+        <span className="truncate text-subheadline text-label-tertiary">
+          {t("blocks.artifact.meta", {
+            kind: kindText,
+            version: artifact.version,
+            date: formatDate(artifact.updatedAt),
+          })}
+        </span>
+      </span>
+    </button>
+  );
+}
+
 function iconForMime(mime: string) {
   if (mime.startsWith("image/")) return ImageIcon;
   if (mime.includes("sheet") || mime.includes("csv")) return Table;

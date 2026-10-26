@@ -59,6 +59,12 @@ export const overview: Partial<Catalogue> = {
   "overview.activity.busiest": "最も忙しかった日: {date} · {n, plural, other {#回の実行}}",
   "overview.activity.worked": "{name}の稼働時間: {duration}（計測した実行時間）",
   "overview.activity.topAutomation": "最も多く実行されたオートメーション: {title} · {n}回",
+  "overview.built.meta": "{count, plural, other {#件の成果物}}",
+  "overview.built.seeAll": "すべて表示",
+  "overview.built.open": "{title}を開く",
+  "overview.built.empty": "この期間に作成されたものはまだありません。",
+  "overview.specialists.meta": "{count, plural, other {#件の結果}}",
+  "overview.specialists.empty": "この期間の専門エージェントの結果はありません。",
   "overview.newUser.title": "{name}はあなたのことを知り始めています",
   "overview.newUser.body":
     "1週間後には、{name}があなたのために行ったこと、学んだこと、把握している人物やプロジェクトが表示されます。",

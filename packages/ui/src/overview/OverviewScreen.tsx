@@ -7,6 +7,7 @@ import { ScreenToolbar } from "../screens/feed/ScreenToolbar.tsx";
 import { SegmentedRadio } from "../screens/settings/SegmentedRadio.tsx";
 import { usePersona } from "../slots.tsx";
 import { OverviewActivity } from "./ActivitySection.tsx";
+import { BuiltForYou, Specialists } from "./BuiltSpecialists.tsx";
 import { isNewUser, type OverviewData, useOverviewData } from "./data.ts";
 import {
   OVERVIEW_SECTIONS,
@@ -95,6 +96,10 @@ export function OverviewScreen({
         {visible.map((id) =>
           id === "activity" ? (
             <OverviewActivity key={id} period={period} onNavigate={onNavigate} route={route} />
+          ) : id === "built" ? (
+            <BuiltForYou key={id} period={period} now={at} />
+          ) : id === "specialists" ? (
+            <Specialists key={id} period={period} now={at} />
           ) : (
             <OverviewSection key={id} id={id} />
           ),

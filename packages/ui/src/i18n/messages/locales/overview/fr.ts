@@ -62,6 +62,12 @@ export const overview: Partial<Catalogue> = {
     "Jour le plus chargé : {date} · {n, plural, one {# exécution} other {# exécutions}}",
   "overview.activity.worked": "{name} a travaillé {duration} (temps d’exécution mesuré)",
   "overview.activity.topAutomation": "Automatisation la plus exécutée : {title} · {n}×",
+  "overview.built.meta": "{count, plural, one {# artefact} other {# artefacts}}",
+  "overview.built.seeAll": "Tout afficher",
+  "overview.built.open": "Ouvrir {title}",
+  "overview.built.empty": "Rien n’a encore été créé sur cette période.",
+  "overview.specialists.meta": "{count, plural, one {# résultat} other {# résultats}}",
+  "overview.specialists.empty": "Aucun résultat de spécialiste sur cette période.",
   "overview.newUser.title": "{name} apprend à te connaître",
   "overview.newUser.body":
     "Dans une semaine, tu verras ce que {name} a fait pour toi, ce qu’il a appris, ainsi que les personnes et les projets qu’il garde en tête.",

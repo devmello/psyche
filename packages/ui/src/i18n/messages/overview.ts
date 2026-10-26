@@ -72,6 +72,12 @@ export const overview = {
   "overview.activity.busiest": "Busiest day: {date} · {n, plural, one {# run} other {# runs}}",
   "overview.activity.worked": "{name} worked {duration} (measured run time)",
   "overview.activity.topAutomation": "Most-run automation: {title} · {n}×",
+  "overview.built.meta": "{count, plural, one {# artifact} other {# artifacts}}",
+  "overview.built.seeAll": "See all",
+  "overview.built.open": "Open {title}",
+  "overview.built.empty": "Nothing built in this period yet.",
+  "overview.specialists.meta": "{count, plural, one {# result} other {# results}}",
+  "overview.specialists.empty": "No specialist results in this period.",
 
   // The new-user state (§5.5).
   "overview.newUser.title": "{name} is getting to know you",

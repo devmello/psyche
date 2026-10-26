@@ -59,6 +59,12 @@ export const overview: Partial<Catalogue> = {
   "overview.activity.busiest": "가장 바빴던 날: {date} · {n, plural, other {실행 #회}}",
   "overview.activity.worked": "{name}의 작업 시간: {duration}(측정된 실행 시간)",
   "overview.activity.topAutomation": "가장 많이 실행된 자동화: {title} · {n}회",
+  "overview.built.meta": "{count, plural, other {산출물 #개}}",
+  "overview.built.seeAll": "모두 보기",
+  "overview.built.open": "{title} 열기",
+  "overview.built.empty": "이 기간에 만든 항목이 아직 없습니다.",
+  "overview.specialists.meta": "{count, plural, other {결과 #개}}",
+  "overview.specialists.empty": "이 기간에는 전문가 결과가 없습니다.",
   "overview.newUser.title": "{name}이(가) 당신을 알아가는 중입니다",
   "overview.newUser.body":
     "일주일 후에는 {name}이(가) 해 준 일, 배운 것, 파악하고 있는 사람과 프로젝트를 볼 수 있습니다.",

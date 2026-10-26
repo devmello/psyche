@@ -58,6 +58,12 @@ export const overview: Partial<Catalogue> = {
   "overview.activity.busiest": "最忙的一天：{date} · {n, plural, other {#次运行}}",
   "overview.activity.worked": "{name}工作了 {duration}（实测运行时间）",
   "overview.activity.topAutomation": "运行最多的自动化：{title} · {n} 次",
+  "overview.built.meta": "{count, plural, other {# 个成果}}",
+  "overview.built.seeAll": "查看全部",
+  "overview.built.open": "打开{title}",
+  "overview.built.empty": "此期间还没有创建任何内容。",
+  "overview.specialists.meta": "{count, plural, other {# 条结果}}",
+  "overview.specialists.empty": "此期间没有专家结果。",
   "overview.newUser.title": "{name}正在了解你",
   "overview.newUser.body":
     "一周后，你将看到{name}为你做了什么、学到了什么，以及它记住的人物和项目。",

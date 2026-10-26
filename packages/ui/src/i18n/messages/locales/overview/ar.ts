@@ -64,6 +64,14 @@ export const overview: Partial<Catalogue> = {
     "أكثر الأيام نشاطًا: {date} · {n, plural, zero {لا عمليات تشغيل} one {تشغيل واحد} two {تشغيلان} few {# عمليات تشغيل} many {# عملية تشغيل} other {# عملية تشغيل}}",
   "overview.activity.worked": "عمل {name} لمدة {duration} (وقت التشغيل المقيس)",
   "overview.activity.topAutomation": "أكثر أتمتة تشغيلًا: {title} · {n}×",
+  "overview.built.meta":
+    "{count, plural, zero {لا عناصر} one {عنصر واحد} two {عنصران} few {# عناصر} many {# عنصرًا} other {# عنصر}}",
+  "overview.built.seeAll": "عرض الكل",
+  "overview.built.open": "فتح {title}",
+  "overview.built.empty": "لم يُنشأ شيء في هذه الفترة بعد.",
+  "overview.specialists.meta":
+    "{count, plural, zero {لا نتائج} one {نتيجة واحدة} two {نتيجتان} few {# نتائج} many {# نتيجة} other {# نتيجة}}",
+  "overview.specialists.empty": "لا توجد نتائج من المتخصصين في هذه الفترة.",
   "overview.newUser.title": "{name} يتعرّف عليك",
   "overview.newUser.body":
     "بعد أسبوع سترى ما فعله {name} من أجلك وما تعلّمه والأشخاص والمشاريع التي يتابعها.",
