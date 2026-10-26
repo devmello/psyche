@@ -55,6 +55,11 @@ export type RunOutcome =
 export interface TurnInput {
   text: string;
   attachments?: { libraryItemId: string }[];
+  /**
+   * Images the model sees with the message (Ask about my screen: a pinned capture). Base64; the
+   * turn's caller widens taint for them when they are untrusted (`taintSources`).
+   */
+  images?: { mime: string; data: string }[];
 }
 
 export interface StartTurnInput {

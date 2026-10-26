@@ -204,6 +204,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     threadModels: options.threadModels ?? null,
     deviceDisconnected: new Set<(deviceId: string) => void>(),
     chatRedo: new Set(),
+    chatScreen: { resolve: null },
     limits,
     failedChallenges: new RateLimiter(limits.failedChallengesPerMinute, 60_000, () =>
       now().getTime(),
