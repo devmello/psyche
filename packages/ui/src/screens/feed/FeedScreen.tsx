@@ -1,16 +1,18 @@
 import type { FeedPost } from "@psyche/protocol";
 import { CalendarClock, CircleAlert, Loader, Newspaper, PenLine } from "lucide-react";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { agentSheetHref } from "../../agent/AgentSheet.tsx";
 import { EmptyState, ErrorState, LoadingCards, useDelayedFlag } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
-import { useFeed } from "../../data/hooks.ts";
+import { useFeed, useSettings } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { formatTime } from "../../lib/format.ts";
+import { useNow } from "../../lib/use-now.ts";
 import { ListItem } from "../../motion/index.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
+import { FeedSpecialistResults } from "../../specialists/FeedResults.tsx";
 import { FeedInstructionsSheet } from "./FeedInstructionsSheet.tsx";
 import { type FeedFeedbackValue, FeedPostCard } from "./FeedPostCard.tsx";
 import { feedKind, feedTopic, primarySource } from "./feed-post.ts";
@@ -43,6 +45,8 @@ export interface FeedViewProps {
   onSchedule?: () => void;
   onGenerate?: () => void;
   onOpenRoute?: (route: string) => void;
+  /** Specialists' results, above the brief, when the owner turned them on (specialists §6.2). */
+  specialistResults?: ReactNode;
 }
 
 /** The Feed (UI design §3.9): a bounded daily brief with an end marker. Presentational. */
@@ -62,6 +66,7 @@ export function FeedView({
   onSchedule,
   onGenerate,
   onOpenRoute,
+  specialistResults,
 }: FeedViewProps): ReactElement {
   const nextAt = nextBriefAt === null ? null : formatTime(nextBriefAt);
   const settled = !loading && error === null;
@@ -203,6 +208,7 @@ export function FeedView({
             ))}
           </ul>
         ) : null}
+        {settled ? specialistResults : null}
         {body}
       </ScreenColumn>
     </section>
@@ -229,6 +235,8 @@ export interface FeedScreenProps {
   /** Defaults to `feed.generate` through `useFeed().generate`. */
   onGenerate?: () => Promise<unknown> | undefined;
   sourceFailures?: readonly FeedSourceFailure[];
+  /** Fixed clock (stories, tests). */
+  now?: number;
 }
 
 const FEEDBACK_TOAST: Record<FeedFeedbackValue, (post: FeedPost) => string> = {
@@ -252,10 +260,13 @@ export function FeedScreen({
   onSchedule,
   onGenerate,
   sourceFailures,
+  now: fixedNow,
 }: FeedScreenProps): ReactElement {
   const { navigate } = useSlots();
   const persona = usePersona();
   const feed = useFeed();
+  const { settings } = useSettings();
+  const now = useNow(60_000, fixedNow);
   const [generating, setGenerating] = useState(false);
 
   const giveFeedback = (post: FeedPost, value: FeedFeedbackValue | null, topic?: string) => {
@@ -315,6 +326,9 @@ export function FeedScreen({
         onSchedule={schedule}
         onGenerate={generate}
         onOpenRoute={(route) => navigate?.(route)}
+        {...(settings["specialists.showInFeed"] === true
+          ? { specialistResults: <FeedSpecialistResults now={now} /> }
+          : {})}
         {...(onAsk ? { onAsk } : {})}
         {...(sourceFailures ? { sourceFailures } : {})}
       />
