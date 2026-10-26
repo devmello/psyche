@@ -1,4 +1,10 @@
-import { type AgentToolRegistration, defineTool, type TurnToolContext } from "@psyche/agent-core";
+import {
+  type AgentToolRegistration,
+  defineTool,
+  type TurnContextProvider,
+  type TurnToolContext,
+} from "@psyche/agent-core";
+import { listArtifactsPage, listArtifactVersions, type PsycheDb } from "@psyche/db";
 import {
   ArtifactOp,
   type ArtifactVersion,
@@ -277,6 +283,61 @@ export function artifactTools(store: ArtifactStore): AgentToolRegistration[] {
       },
     }),
   ];
+}
+
+/** Artifacts the canvas manifest lists per turn (most recently updated first). */
+const MANIFEST_MAX = 8;
+/** Owner edits whose ops fit in this many characters are shown inline. */
+const EDIT_OPS_CHARS = 600;
+
+/**
+ * The canvas manifest (chat-experience-2026 §4.3 rules 3 and 4): once per owner turn, one line
+ * per artifact in the thread (id, title, type, version) and the owner's canvas edits since the
+ * agent's last version, as the same op format, each reported once. No bodies: the model reads
+ * what it needs. Titles of artifacts made from untrusted input are withheld, so the section
+ * stays owner/system data.
+ */
+export function artifactContextProvider(db: PsycheDb): TurnContextProvider {
+  const reported = new Map<string, number>();
+  return {
+    name: "canvas",
+    async provide({ threadId }) {
+      const { items } = listArtifactsPage(db, { threadId, limit: MANIFEST_MAX });
+      if (items.length === 0) return undefined;
+      const lines = items.map((a) =>
+        a.untrusted === true
+          ? `- ${a.id} ${a.type} v${a.version} [made from untrusted input; title withheld]`
+          : `- ${a.id} "${a.title.replace(/[\n"]/g, " ")}" ${a.type} v${a.version}`,
+      );
+      const edits: string[] = [];
+      for (const a of items) {
+        const versions = listArtifactVersions(db, a.id, reported.get(a.id) ?? 0).map(
+          (v) => v.version,
+        );
+        const lastOwn = versions.findLastIndex((v) => v.author !== "user");
+        const userEdits = versions.slice(lastOwn + 1).filter((v) => v.author === "user");
+        reported.set(a.id, a.version);
+        for (const v of userEdits) {
+          const ops = v.ops === undefined ? "" : JSON.stringify(v.ops);
+          edits.push(
+            `- ${a.id} v${v.version}: ${v.summary}${ops !== "" && ops.length <= EDIT_OPS_CHARS ? ` ops ${ops}` : ""}`,
+          );
+        }
+      }
+      const text = [
+        "Canvas artifacts in this chat (artifact.read to see content; artifact.update with base = the version shown):",
+        ...lines,
+        ...(edits.length === 0
+          ? []
+          : ["The owner edited these in the canvas since your last version:", ...edits]),
+      ].join("\n");
+      return {
+        trusted: true,
+        source: { sourceKind: "canvas" },
+        sections: [{ title: "Canvas", text }],
+      };
+    },
+  };
 }
 
 /** The artifacts part: the store, its methods, and the agent's tools. */

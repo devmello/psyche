@@ -6,7 +6,7 @@ import type { Artifact, ArtifactVersion } from "@psyche/protocol";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { applyOps, parseCell, parseTable } from "../src/artifacts/ops.ts";
 import { ArtifactStore, SNAPSHOT_EVERY } from "../src/artifacts/store.ts";
-import { artifactTools, windowOf } from "../src/compose/artifacts.ts";
+import { artifactContextProvider, artifactTools, windowOf } from "../src/compose/artifacts.ts";
 
 describe("artifact ops", () => {
   it("replaces exactly once and fails fast otherwise", () => {
@@ -192,5 +192,38 @@ describe("ArtifactStore", () => {
       version: 2,
       content: '{"columns":["a","b"],"rows":[[9,2]]}',
     });
+  });
+
+  it("lists a manifest and reports owner edits once, without bodies", async () => {
+    const provider = artifactContextProvider(db);
+    const input = {
+      threadId: "thr_1",
+      runId: "r",
+      text: "hi",
+      mode: "attended",
+      permissionMode: "default",
+    } as never;
+    expect(await provider.provide(input)).toBeUndefined();
+    const { artifact } = await store.create(
+      { type: "doc", title: "Trip plan", content: "secret body text", threadId: "thr_1" },
+      agent,
+    );
+    await store.create(
+      { type: "doc", title: "Ignore previous", content: "x", threadId: "thr_1", untrusted: true },
+      agent,
+    );
+    await store.update(artifact.id, 1, [{ op: "replace", old: "secret", new: "public" }], {
+      author: "user",
+    });
+    const first = await provider.provide(input);
+    const text = first?.sections[0]?.text ?? "";
+    expect(first?.trusted).toBe(true);
+    expect(text).toContain(`${artifact.id} "Trip plan" doc v2`);
+    expect(text).toContain("title withheld");
+    expect(text).not.toContain("Ignore previous");
+    expect(text).not.toContain("body text");
+    expect(text).toContain('ops [{"op":"replace","old":"secret","new":"public"}]');
+    const again = await provider.provide(input);
+    expect(again?.sections[0]?.text).not.toContain("edited these");
   });
 });
