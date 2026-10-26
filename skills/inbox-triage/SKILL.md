@@ -16,6 +16,8 @@ metadata:
 
 Give the owner a short, accurate picture of their inbox and take the busywork off them, without sending anything they haven't approved.
 
+For a big clean-up (months of mail, filing and labelling at scale), start the **organizer** specialist with `specialist.spawn` instead; it never sends or deletes.
+
 ## Tools
 
 The names depend on the account. Use the ones that exist:

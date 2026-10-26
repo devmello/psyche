@@ -2,11 +2,14 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { agentSheetRoute } from "../src/agent/AgentSheet.tsx";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import type { FixtureWorld } from "../src/fixtures/index.ts";
 import { PEOPLE_IDS } from "../src/fixtures/people.ts";
 import { ConnectedEntityCard } from "../src/people/ConnectedEntityCard.tsx";
+import { PeopleSheetSection } from "../src/people/PeopleSheetSection.tsx";
 import { SearchScreen } from "../src/screens/search/SearchScreen.tsx";
+import { PeopleSection } from "../src/screens/settings/PeopleSection.tsx";
 import type { UiSlots } from "../src/slots.tsx";
 import { STORY_NOW, StoryWorld } from "../src/stories/harness.tsx";
 
@@ -169,5 +172,201 @@ describe("Search with the graph", () => {
       callsTo("memory.entities.search").filter((c) => (c.params as { q: string }).q === "sam"),
     ).toHaveLength(0);
     expect(screen.queryByRole("group", { name: /^People/ })).toBeNull();
+  });
+});
+
+describe("Forget and Merge", () => {
+  it("shows what Forget deletes before deleting it", async () => {
+    const onForgotten = vi.fn();
+    const { callsTo, user } = setup(
+      <ConnectedEntityCard id={PEOPLE_IDS.samLee} now={STORY_NOW} onForgotten={onForgotten} />,
+    );
+    await user.click(await screen.findByRole("button", { name: "More for Sam Lee" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Forget…" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Forget Sam Lee?" });
+    expect(
+      await within(dialog).findByText(
+        /deletes the card, 5 facts, 3 open loops, 4 interactions and 2 relations/,
+      ),
+    ).toBeTruthy();
+    expect(callsTo("memory.entities.forget")[0]?.params).toEqual({
+      id: PEOPLE_IDS.samLee,
+      dryRun: true,
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Forget" }));
+    await waitFor(() =>
+      expect(callsTo("memory.entities.forget")[1]?.params).toEqual({ id: PEOPLE_IDS.samLee }),
+    );
+    await waitFor(() => expect(onForgotten).toHaveBeenCalled());
+  });
+
+  it("previews a merge, then merges into this person", async () => {
+    const { callsTo, user } = setup(<ConnectedEntityCard id={PEOPLE_IDS.samLee} now={STORY_NOW} />);
+    await user.click(await screen.findByRole("button", { name: "More for Sam Lee" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Merge…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Merge into Sam Lee" });
+    await user.type(within(dialog).getByRole("textbox", { name: "Who else is this?" }), "gmail");
+    await user.click(await within(dialog).findByRole("button", { name: /Sam L\./ }));
+    expect(
+      await within(dialog).findByText(/Moves 1 address and 0 facts from Sam L\. into Sam Lee/),
+    ).toBeTruthy();
+    expect(callsTo("memory.entities.merge")[0]?.params).toEqual({
+      ids: [PEOPLE_IDS.samLee, PEOPLE_IDS.samGmail],
+      into: PEOPLE_IDS.samLee,
+      dryRun: true,
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Merge" }));
+    await waitFor(() =>
+      expect(callsTo("memory.entities.merge")[1]?.params).toEqual({
+        ids: [PEOPLE_IDS.samLee, PEOPLE_IDS.samGmail],
+        into: PEOPLE_IDS.samLee,
+      }),
+    );
+  });
+});
+
+describe("Settings → People & projects", () => {
+  const graphOn = (w: FixtureWorld) => {
+    w.settings["memory.graph"] = {
+      enabled: true,
+      sources: {
+        contacts: true,
+        mail: true,
+        calendar: true,
+        messages: false,
+        notes: false,
+        chats: true,
+      },
+      interactionRetentionDays: 540,
+      entityRecall: true,
+      model: { nightly: true, afterRun: true, maxEntitiesPerNight: 200, maxTokensPerNight: 150000 },
+    };
+  };
+
+  it("shows each source with what it produced and the learning budget", async () => {
+    setup(<PeopleSection />, { edit: graphOn });
+    const mail = await screen.findByRole("switch", { name: "Mail" });
+    expect(mail.getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByText(/86 people and projects · 1,240 interactions · read at/)).toBeTruthy();
+    expect(screen.getByRole("switch", { name: "Messages" }).getAttribute("aria-checked")).toBe(
+      "false",
+    );
+    expect(await screen.findByText(/Tonight: 41,200 of 150,000 tokens/)).toBeTruthy();
+    expect(
+      screen.getByText(/Suggested loops you kept: Mail 14 of 17, Your chats 6 of 6/),
+    ).toBeTruthy();
+  });
+
+  it("is off by default, with every source but chats off", async () => {
+    setup(<PeopleSection />);
+    const enabled = await screen.findByRole("switch", { name: "Learn about people and projects" });
+    expect(enabled.getAttribute("aria-checked")).toBe("false");
+    expect(screen.getByRole("switch", { name: "Contacts" }).getAttribute("aria-checked")).toBe(
+      "false",
+    );
+    expect(screen.getByRole("switch", { name: "Your chats" }).getAttribute("aria-checked")).toBe(
+      "true",
+    );
+  });
+
+  it("writes the whole memory.graph setting when a source or retention changes", async () => {
+    const { callsTo, user } = setup(<PeopleSection />, { edit: graphOn });
+    await user.click(await screen.findByRole("switch", { name: "Mail" }));
+    await waitFor(() => expect(callsTo("settings.set")).toHaveLength(1));
+    expect(callsTo("settings.set")[0]?.params).toMatchObject({
+      key: "memory.graph",
+      value: {
+        enabled: true,
+        sources: { mail: false, contacts: true },
+        interactionRetentionDays: 540,
+      },
+    });
+    await user.click(screen.getByRole("radio", { name: "12 months" }));
+    await waitFor(() =>
+      expect(callsTo("settings.set").at(-1)?.params).toMatchObject({
+        value: { interactionRetentionDays: 365 },
+      }),
+    );
+  });
+
+  it("opens your own card and exports", async () => {
+    const onExportReady = vi.fn();
+    const { callsTo, user } = setup(<PeopleSection onExportReady={onExportReady} />, {
+      edit: graphOn,
+    });
+    await user.click(await screen.findByRole("button", { name: "Open your card" }));
+    const dialog = await screen.findByRole("dialog", { name: "What Psyche knows about you" });
+    expect(await within(dialog).findByRole("article", { name: "Alex Rivera" })).toBeTruthy();
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByRole("button", { name: "Export people and projects" }));
+    await waitFor(() => expect(callsTo("memory.export")).toHaveLength(1));
+    await waitFor(() => expect(onExportReady).toHaveBeenCalled());
+  });
+});
+
+describe("Soul & Memory → People & projects", () => {
+  it("lists people (not you), filters to projects, and searches", async () => {
+    const { user } = setup(<PeopleSheetSection now={STORY_NOW} />);
+    expect(await screen.findByRole("button", { name: /Sam Lee/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Dana Kim/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Alex Rivera/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Kitchen remodel/ })).toBeNull();
+    await user.click(screen.getByRole("radio", { name: "Projects" }));
+    expect(await screen.findByRole("button", { name: /Kitchen remodel/ })).toBeTruthy();
+    await user.click(screen.getByRole("radio", { name: "People" }));
+    await user.type(screen.getByRole("textbox", { name: "Search people and projects" }), "dana");
+    await waitFor(() => expect(screen.queryByRole("button", { name: /Sam Lee/ })).toBeNull());
+    expect(screen.getByRole("button", { name: /Dana Kim/ })).toBeTruthy();
+  });
+
+  it("opens a card in a sheet, and opens one directly from ?entity=", async () => {
+    const { user } = setup(<PeopleSheetSection now={STORY_NOW} />);
+    await user.click(await screen.findByRole("button", { name: /Sam Lee/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByRole("article", { name: "Sam Lee" })).toBeTruthy();
+  });
+
+  it("opens the card named in the route", async () => {
+    setup(<PeopleSheetSection now={STORY_NOW} initialEntity={PEOPLE_IDS.kitchen} />);
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByRole("article", { name: "Kitchen remodel" })).toBeTruthy();
+  });
+
+  it("answers suggestions", async () => {
+    const { callsTo, user } = setup(<PeopleSheetSection now={STORY_NOW} />);
+    await user.click(await screen.findByRole("radio", { name: "Suggestions" }));
+    expect(
+      await screen.findByRole("heading", { name: "Is Sam Lee the same as Sam L.?" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "Is this a project: Backyard fence?" }),
+    ).toBeTruthy();
+    const merge = screen.getByRole("article", { name: "Is Sam Lee the same as Sam L.?" });
+    await user.click(within(merge).getByRole("button", { name: "Confirm" }));
+    await waitFor(() =>
+      expect(callsTo("memory.entities.suggestions.answer")[0]?.params).toEqual({
+        id: "sug_merge_sam",
+        answer: "accept",
+      }),
+    );
+  });
+
+  it("lists what you're waiting on and closes a loop", async () => {
+    const { callsTo, user } = setup(<PeopleSheetSection now={STORY_NOW} />);
+    await user.click(await screen.findByRole("radio", { name: "Waiting on" }));
+    expect(await screen.findByText("Signed SOW from Sam")).toBeTruthy();
+    expect(screen.getByText("Tile samples from Dana")).toBeTruthy();
+    expect(screen.queryByText("Send Sam the revised budget")).toBeNull();
+    await user.click(screen.getByRole("checkbox", { name: "Mark “Signed SOW from Sam” done" }));
+    await waitFor(() =>
+      expect(callsTo("memory.loops.update")[0]?.params).toEqual({ id: "loop_sow", status: "done" }),
+    );
+  });
+
+  it("reads ?entity= from the sheet route", () => {
+    expect(agentSheetRoute(`/agent/soul?entity=${PEOPLE_IDS.samLee}`)).toEqual({
+      tab: "soul",
+      entity: PEOPLE_IDS.samLee,
+    });
   });
 });

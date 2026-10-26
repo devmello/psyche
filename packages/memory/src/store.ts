@@ -58,6 +58,7 @@ import {
 } from "./layout.ts";
 import {
   addLearned,
+  type LearnedFactLine,
   type LearnRefusal,
   learnedFactId,
   normalizeFact,
@@ -600,10 +601,21 @@ export class SqliteMemoryStore implements MemoryStore {
    * like an instruction, or already known (USER.md or a live claim). Returns what was written.
    */
   async learnUserFacts(
-    proposals: readonly { text: string; kind: LearnedFact["kind"] }[],
-    context: { threadId: string },
-  ): Promise<{ written: LearnedFact[]; refused: { text: string; reason: LearnRefusal }[] }> {
-    const current = (await this.readFile("USER.md"))?.content ?? "";
+    proposals: readonly { text: string; kind: LearnedFact["kind"]; lessonId?: string }[],
+    context: {
+      threadId: string;
+      /**
+       * Teaching loop (docs/agent/teaching-loop-2026.md §4): the learned fact a correction
+       * replaces. Its line goes first, so the corrected fact is not refused as a duplicate.
+       */
+      replaces?: string;
+    },
+  ): Promise<{ written: LearnedFactLine[]; refused: { text: string; reason: LearnRefusal }[] }> {
+    const original = (await this.readFile("USER.md"))?.content ?? "";
+    const current =
+      context.replaces === undefined
+        ? original
+        : (removeLearned(original, context.replaces) ?? original);
     const claims = (await this.listClaims()).map((c) => normalizeFact(c.text));
     const known = [
       ...current
@@ -611,7 +623,7 @@ export class SqliteMemoryStore implements MemoryStore {
         .map((l) => normalizeFact(l.replace(/^- \d{4}-\d{2}-\d{2} \[[^\]]*\] /, ""))),
       ...claims,
     ].filter((k) => k !== "");
-    const written: LearnedFact[] = [];
+    const written: LearnedFactLine[] = [];
     const refused: { text: string; reason: LearnRefusal }[] = [];
     const date = this.now().date;
     for (const p of proposals) {
@@ -627,6 +639,7 @@ export class SqliteMemoryStore implements MemoryStore {
         kind: p.kind,
         date,
         threadId: context.threadId,
+        ...(p.lessonId === undefined ? {} : { lessonId: p.lessonId }),
       });
       known.push(normalizeFact(text));
     }

@@ -69,6 +69,7 @@ describe("composition root: proactive surfaces (S15)", () => {
       "Daily brief",
       "Ideas: delivery window",
       "Ideas: nightly mining",
+      "Memory dreaming",
     ]);
 
     // A goal without a check-in → an idea → delivered → accepted: the check-in now exists.

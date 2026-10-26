@@ -379,6 +379,9 @@ importers:
       '@sinclair/typebox':
         specifier: 0.34.52
         version: 0.34.52
+      fflate:
+        specifier: 0.8.3
+        version: 0.8.3
       ulid:
         specifier: 3.0.2
         version: 3.0.2
