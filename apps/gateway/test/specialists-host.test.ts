@@ -1,13 +1,16 @@
 import type { SpecialistRoleDef } from "@psyche/agent-core";
-import { createThread, getThread, openDb, setSetting } from "@psyche/db";
+import { createThread, getThread, listAllMessages, openDb, setSetting } from "@psyche/db";
 import { SqliteTaskEngine } from "@psyche/tasks";
-import { createIdGenerator, FakeClock, FakePermissionBroker } from "@psyche/testing";
+import { createIdGenerator, FakeClock, FakeNotifier, FakePermissionBroker } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import {
   createSpecialistHost,
   defuse,
   type RoleSource,
   raiseSpecialistBudget,
+  resultLine,
+  specialistHandlers,
+  withSpecialistProgress,
 } from "../src/compose/specialists.ts";
 
 const role = {
@@ -55,6 +58,11 @@ function setup(slots = 3) {
   };
   const broker = new FakePermissionBroker({ clock });
   const pokes = { n: 0 };
+  const notifier = new FakeNotifier({ clock });
+  const published: { event: string; payload: unknown; threadId?: string }[] = [];
+  const publish = (event: string, payload: unknown, threadId?: string) => {
+    published.push({ event, payload, ...(threadId === undefined ? {} : { threadId }) });
+  };
   const host = createSpecialistHost({
     db,
     tasks,
@@ -66,8 +74,10 @@ function setup(slots = 3) {
     poke: () => {
       pokes.n += 1;
     },
+    notifier,
+    publish: publish as never,
   });
-  return { db, tasks, host, clock, pokes };
+  return { db, tasks, host, clock, pokes, notifier, published, roles };
 }
 
 const spec = (parentThreadId: string) => ({
@@ -249,5 +259,125 @@ describe("the Gateway's specialist host (#683)", () => {
     expect(task.specialist?.budget.limit).toMatchObject({ tokens: 1_000_000, wallMs: 3_600_000 });
     expect(task.specialist?.budgetPause).toMatchObject({ raised: true });
     expect(await host.budgetDecision(job.taskId)).toBe("raised");
+  });
+
+  it("delivers each job once: the Inbox card, specialist.result and a line in the parent thread", async () => {
+    const { db, host, notifier, published } = setup();
+    const job = await host.createJob({
+      spec: spec("thr_parent"),
+      title: "Apartments",
+      brief: "b",
+      incognito: false,
+      taint: false,
+      taintSources: [],
+    });
+    expect(published.find((e) => e.event === "specialist.spawned")).toMatchObject({
+      threadId: "thr_parent",
+      payload: { job: { taskId: job.taskId, role: "researcher", status: "queued" } },
+    });
+    await host.report(
+      job.taskId,
+      { outcome: "done", summary: "Three flats.", findings: [{ title: "A", detail: "a" }] },
+      { tainted: false },
+    );
+    await host.report(job.taskId, { outcome: "failed", summary: "again" }, { tainted: false });
+    const cards = (await notifier.list()).filter((n) => n.kind === "specialist_result");
+    expect(cards).toHaveLength(1);
+    expect(cards[0]).toMatchObject({
+      title: "Researcher finished Apartments",
+      body: "Done · 1 finding · under 1 min",
+      taskId: job.taskId,
+      route: `/tasks/${job.taskId}`,
+    });
+    const results = published.filter((e) => e.event === "specialist.result");
+    expect(results).toHaveLength(1);
+    expect(results[0]?.payload).toMatchObject({ taskId: job.taskId, notificationId: cards[0]?.id });
+    const line = listAllMessages(db, "thr_parent").at(-1);
+    expect(line).toMatchObject({ role: "system" });
+    expect(line?.blocks).toEqual([
+      { type: "text", md: "Researcher finished Apartments. The result is in your Inbox." },
+      { type: "task", taskId: job.taskId },
+    ]);
+  });
+
+  it("formats the row line with cost when priced", () => {
+    const r = {
+      outcome: "partial" as const,
+      summary: "",
+      findings: [],
+      artifacts: [],
+      next: [],
+      gaps: [],
+      receipts: [],
+      tainted: false,
+    };
+    expect(resultLine(r, { steps: 4, tokens: 900, wallMs: 22 * 60_000, costUsd: 0.84 })).toBe(
+      "Partial · $0.84 · 22 min",
+    );
+  });
+
+  it("specialists.list shows every role with its on/off and model; specialists.jobs filters and pages", async () => {
+    const { db, tasks, host, roles } = setup();
+    const handlers = specialistHandlers({ db, tasks, roles, host, slots: () => 3 });
+    const list = await handlers["specialists.list"]({});
+    expect(list.roles.map((r) => [r.role, r.enabled, r.model])).toEqual([
+      ["researcher", true, "fake/primary"],
+      ["shopper", false, null],
+    ]);
+    for (const title of ["A", "B", "C"]) {
+      await host.createJob({
+        spec: spec("thr_parent"),
+        title,
+        brief: "b",
+        incognito: false,
+        taint: false,
+        taintSources: [],
+      });
+    }
+    const page1 = await handlers["specialists.jobs"]({ threadId: "thr_parent", limit: 2 });
+    expect(page1.jobs).toHaveLength(2);
+    expect(page1.nextCursor).not.toBeNull();
+    const page2 = await handlers["specialists.jobs"]({
+      threadId: "thr_parent",
+      limit: 2,
+      cursor: page1.nextCursor as string,
+    });
+    expect(page2.jobs).toHaveLength(1);
+    expect(page2.nextCursor).toBeNull();
+    expect((await handlers["specialists.jobs"]({ status: ["done"] })).jobs).toHaveLength(0);
+  });
+
+  it("throttles specialist.progress to one running step a second per job", () => {
+    const published: { event: string; payload: unknown }[] = [];
+    let now = 0;
+    const trace = withSpecialistProgress(
+      { start: () => {}, event: () => {}, end: () => {} },
+      {
+        publish: ((event: string, payload: unknown) => published.push({ event, payload })) as never,
+        now: () => now,
+      },
+    );
+    const turn = { taskId: "t1", runId: "r1", task: { specialist: spec("thr_parent") } as never };
+    const step = (id: string, status: "running" | "ok") => ({
+      type: "tool_call" as const,
+      runId: "r1",
+      toolCallId: id,
+      tool: "web_search",
+      status,
+      level1: `Searching ${id}`,
+    });
+    trace.event(turn, step("a", "running"));
+    now = 200;
+    trace.event(turn, step("b", "running"));
+    trace.event(turn, step("a", "ok"));
+    now = 1_500;
+    trace.event(turn, step("c", "running"));
+    expect(
+      published.map((e) => (e.payload as { step: { id: string; status: string } }).step),
+    ).toEqual([
+      { id: "a", label: "Searching a", status: "running" },
+      { id: "a", label: "Searching a", status: "ok" },
+      { id: "c", label: "Searching c", status: "running" },
+    ]);
   });
 });
