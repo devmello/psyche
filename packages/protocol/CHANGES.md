@@ -18,6 +18,15 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (S17: review before sending by voice, V-G #691 / V-U #693)
+
+For S17 (`packages/speech` `VoiceConversation`) and the voice UI. Spec docs/voice/voice-mode-2026.md §4.10 ("Review before sending", setting `voice.conversation.reviewBeforeSend`, off by default).
+
+- **New method `voice.conversation.review`** (`operator.write`, not idempotency-keyed): `{conversationId, utteranceId, action: send | discard, text?}` → `{}`. `text` (1–`VOICE_REVIEW_MAX_CHARS` = 8 000) is the edited transcript; omitted, the draft is sent as heard. New enum `VoiceReviewAction`.
+- **`VoiceConversationReason` gains `review`** (appended): the conversation waits (`phase: "waiting"`) while the owner reviews their words.
+- **`voice.conversation.state` gains optional `draft`** (the transcript to review) and **`utteranceId`** (the owner caption it belongs to).
+- **Swift.** Additions only, plus `VoiceConversationStatePayload`'s initializer gaining `draft` and `utteranceID`; nothing in the helper builds or switches on these types.
+
 ### v1 additive — 2026-10-26 (screen-ask: Ask about my screen, docs/design/screen-ask-2026.md)
 
 - **New `screen.*` methods** (desktop shell only, `operator.write`): `screen.capture {mode: window | region, rect?, maxWidth?, maxHeight?}` → `ScreenCapture {captureId, libraryItemId, thumbnail, width, height, mode, context, refusal?, expiresAt}`; `screen.discard {captureId}` → `{discarded}`. An unsent capture expires after `SCREEN_CAPTURE_TTL_MS` (10 min).

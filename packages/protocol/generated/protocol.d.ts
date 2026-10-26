@@ -8696,6 +8696,18 @@ export interface VoiceConversationPlayedParams {
     utteranceId: string;
 }
 
+export interface VoiceConversationReviewParams {
+    action:         VoiceReviewAction;
+    conversationId: string;
+    /**
+     * The edited transcript to send; omitted, the draft is sent as heard
+     */
+    text?:       string;
+    utteranceId: string;
+}
+
+export type VoiceReviewAction = "send" | "discard";
+
 export interface VoiceConversationSpeechPayload {
     /**
      * Base64 PCM
@@ -8736,19 +8748,22 @@ export interface VoiceConversationStartResult {
 export interface VoiceConversationStatePayload {
     approvalId?:    string;
     conversationId: string;
+    draft?:         string;
     listening:      boolean;
     phase:          VoiceConversationPhase;
     prompt?:        string;
     reason?:        VoiceConversationReason;
+    utteranceId?:   string;
     windowMs?:      number;
 }
 
 export type VoiceConversationPhase = "listening" | "heard" | "thinking" | "speaking" | "waiting" | "ended";
 
 /**
- * Waiting for an approval or a question, a confirmed barge-in, nothing heard
+ * Waiting for an approval or a question, a confirmed barge-in, nothing heard, or the owner
+ * reviewing their words before they are sent
  */
-export type VoiceConversationReason = "approval" | "question" | "barge_in" | "no_speech";
+export type VoiceConversationReason = "approval" | "question" | "barge_in" | "no_speech" | "review";
 
 export interface VoiceConversationStepPayload {
     conversationId: string;

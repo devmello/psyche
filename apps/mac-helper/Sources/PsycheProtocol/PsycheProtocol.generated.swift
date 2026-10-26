@@ -1115,6 +1115,8 @@
 //   let voiceConversationPlayedParams = try? JSONDecoder().decode(VoiceConversationPlayedParams.self, from: jsonData)
 //   let voiceConversationPlayedResult = try? JSONDecoder().decode(VoiceConversationPlayedResult.self, from: jsonData)
 //   let voiceConversationReason = try? JSONDecoder().decode(VoiceConversationReason.self, from: jsonData)
+//   let voiceConversationReviewParams = try? JSONDecoder().decode(VoiceConversationReviewParams.self, from: jsonData)
+//   let voiceConversationReviewResult = try? JSONDecoder().decode(VoiceConversationReviewResult.self, from: jsonData)
 //   let voiceConversationSpeechPayload = try? JSONDecoder().decode(VoiceConversationSpeechPayload.self, from: jsonData)
 //   let voiceConversationStartParams = try? JSONDecoder().decode(VoiceConversationStartParams.self, from: jsonData)
 //   let voiceConversationStartResult = try? JSONDecoder().decode(VoiceConversationStartResult.self, from: jsonData)
@@ -1132,6 +1134,7 @@
 //   let voiceNarrateLevel = try? JSONDecoder().decode(VoiceNarrateLevel.self, from: jsonData)
 //   let voicePushParams = try? JSONDecoder().decode(VoicePushParams.self, from: jsonData)
 //   let voicePushResult = try? JSONDecoder().decode(VoicePushResult.self, from: jsonData)
+//   let voiceReviewAction = try? JSONDecoder().decode(VoiceReviewAction.self, from: jsonData)
 //   let voiceSegmentPayload = try? JSONDecoder().decode(VoiceSegmentPayload.self, from: jsonData)
 //   let voiceSpeakLevel = try? JSONDecoder().decode(VoiceSpeakLevel.self, from: jsonData)
 //   let voiceStartParams = try? JSONDecoder().decode(VoiceStartParams.self, from: jsonData)
@@ -25184,6 +25187,34 @@ public struct VoiceConversationPlayedParams: Codable, Sendable {
     }
 }
 
+// MARK: - VoiceConversationReviewParams
+public struct VoiceConversationReviewParams: Codable, Sendable {
+    public let action: VoiceReviewAction
+    public let conversationID: String
+    /// The edited transcript to send; omitted, the draft is sent as heard
+    public let text: String?
+    public let utteranceID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case action = "action"
+        case conversationID = "conversationId"
+        case text = "text"
+        case utteranceID = "utteranceId"
+    }
+
+    public init(action: VoiceReviewAction, conversationID: String, text: String?, utteranceID: String) {
+        self.action = action
+        self.conversationID = conversationID
+        self.text = text
+        self.utteranceID = utteranceID
+    }
+}
+
+public enum VoiceReviewAction: String, Codable, Sendable {
+    case discard = "discard"
+    case send = "send"
+}
+
 // MARK: - VoiceConversationSpeechPayload
 public struct VoiceConversationSpeechPayload: Codable, Sendable {
     /// Base64 PCM
@@ -25270,29 +25301,35 @@ public struct VoiceConversationStartResult: Codable, Sendable {
 public struct VoiceConversationStatePayload: Codable, Sendable {
     public let approvalID: String?
     public let conversationID: String
+    public let draft: String?
     public let listening: Bool
     public let phase: VoiceConversationPhase
     public let prompt: String?
     public let reason: VoiceConversationReason?
+    public let utteranceID: String?
     public let windowMS: Int?
 
     public enum CodingKeys: String, CodingKey {
         case approvalID = "approvalId"
         case conversationID = "conversationId"
+        case draft = "draft"
         case listening = "listening"
         case phase = "phase"
         case prompt = "prompt"
         case reason = "reason"
+        case utteranceID = "utteranceId"
         case windowMS = "windowMs"
     }
 
-    public init(approvalID: String?, conversationID: String, listening: Bool, phase: VoiceConversationPhase, prompt: String?, reason: VoiceConversationReason?, windowMS: Int?) {
+    public init(approvalID: String?, conversationID: String, draft: String?, listening: Bool, phase: VoiceConversationPhase, prompt: String?, reason: VoiceConversationReason?, utteranceID: String?, windowMS: Int?) {
         self.approvalID = approvalID
         self.conversationID = conversationID
+        self.draft = draft
         self.listening = listening
         self.phase = phase
         self.prompt = prompt
         self.reason = reason
+        self.utteranceID = utteranceID
         self.windowMS = windowMS
     }
 }
@@ -25306,12 +25343,14 @@ public enum VoiceConversationPhase: String, Codable, Sendable {
     case waiting = "waiting"
 }
 
-/// Waiting for an approval or a question, a confirmed barge-in, nothing heard
+/// Waiting for an approval or a question, a confirmed barge-in, nothing heard, or the owner
+/// reviewing their words before they are sent
 public enum VoiceConversationReason: String, Codable, Sendable {
     case approval = "approval"
     case bargeIn = "barge_in"
     case noSpeech = "no_speech"
     case question = "question"
+    case review = "review"
 }
 
 // MARK: - VoiceConversationStepPayload
@@ -25680,6 +25719,7 @@ public typealias VMSnapshotsResetParams = [String: JSONAny]
 public typealias VoiceConversationAudioResult = [String: JSONAny]
 public typealias VoiceConversationInterruptResult = [String: JSONAny]
 public typealias VoiceConversationPlayedResult = [String: JSONAny]
+public typealias VoiceConversationReviewResult = [String: JSONAny]
 public typealias VoiceConversationTurnResult = [String: JSONAny]
 public typealias VoicePushResult = [String: JSONAny]
 

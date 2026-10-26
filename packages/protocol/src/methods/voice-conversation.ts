@@ -66,6 +66,13 @@ export type VoiceApprovalTier = Static<typeof VoiceApprovalTier>;
 export const VoiceTurnAction = StringEnum(["begin", "end"], { $id: "VoiceTurnAction" });
 export type VoiceTurnAction = Static<typeof VoiceTurnAction>;
 
+/** What the owner did with a reviewed transcript (`voice.conversation.review`). */
+export const VoiceReviewAction = StringEnum(["send", "discard"], { $id: "VoiceReviewAction" });
+export type VoiceReviewAction = Static<typeof VoiceReviewAction>;
+
+/** The longest transcript a review shows or sends back (about five minutes of speech). */
+export const VOICE_REVIEW_MAX_CHARS = 8_000;
+
 /** Barge-in stage (`voice.conversation.interrupt`). */
 export const VoiceInterruptStage = StringEnum(["suspect", "confirmed"], {
   $id: "VoiceInterruptStage",
@@ -76,10 +83,11 @@ export type VoiceInterruptStage = Static<typeof VoiceInterruptStage>;
 
 /** Why a conversation is in its phase (`voice.conversation.state.reason`). */
 export const VoiceConversationReason = StringEnum(
-  ["approval", "question", "barge_in", "no_speech"],
+  ["approval", "question", "barge_in", "no_speech", "review"],
   {
     $id: "VoiceConversationReason",
-    description: "Waiting for an approval or a question, a confirmed barge-in, nothing heard",
+    description:
+      "Waiting for an approval or a question, a confirmed barge-in, nothing heard, or the owner reviewing their words before they are sent",
   },
 );
 export type VoiceConversationReason = Static<typeof VoiceConversationReason>;
@@ -168,6 +176,24 @@ export const VoiceConversationMethods = {
     scope: "operator.write",
     description: "Reports how much of a spoken utterance the owner heard.",
   }),
+  "voice.conversation.review": defineMethod({
+    params: Type.Object({
+      conversationId: ConversationId,
+      utteranceId: UtteranceId,
+      action: VoiceReviewAction,
+      text: Type.Optional(
+        Type.String({
+          minLength: 1,
+          maxLength: VOICE_REVIEW_MAX_CHARS,
+          description: "The edited transcript to send; omitted, the draft is sent as heard",
+        }),
+      ),
+    }),
+    result: Type.Object({}),
+    scope: "operator.write",
+    description:
+      "Review before sending (spec §4.10): sends the owner's reviewed words as the voice turn, or discards them. Only for the draft the Gateway is waiting on (state reason review).",
+  }),
   "voice.conversation.stop": defineMethod({
     params: Type.Object({ conversationId: ConversationId }),
     result: OkResult,
@@ -188,6 +214,12 @@ export const VoiceConversationStatePayload = Type.Object({
   windowMs: Type.Optional(Type.Integer({ minimum: 0 })),
   /** Whether the microphone audio is being transcribed (the "Mic on" chip). */
   listening: Type.Boolean(),
+  /**
+   * Review before sending (`reason: "review"`): the transcript waiting for the owner to edit and
+   * send with `voice.conversation.review`, and the caption's utterance it belongs to.
+   */
+  draft: Type.Optional(Type.String({ maxLength: VOICE_REVIEW_MAX_CHARS })),
+  utteranceId: Type.Optional(UtteranceId),
 });
 export const VoiceConversationCaptionPayload = Type.Object({
   conversationId: ConversationId,

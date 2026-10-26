@@ -2735,6 +2735,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Review before sending (spec §4.10): sends the owner's reviewed words as the voice turn, or discards them. Only for the draft the Gateway is waiting on (state reason review).",
+        "name": "voice.conversation.review",
+        "params": "#/$defs/VoiceConversationReviewParams",
+        "result": "#/$defs/VoiceConversationReviewResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
         "description": "Starts a voice conversation on a thread (default: the main thread), one per device; the Gateway runs the turns and speaks the replies.",
         "name": "voice.conversation.start",
         "params": "#/$defs/VoiceConversationStartParams",
@@ -33818,14 +33826,48 @@
       "type": "object"
     },
     "VoiceConversationReason": {
-      "description": "Waiting for an approval or a question, a confirmed barge-in, nothing heard",
+      "description": "Waiting for an approval or a question, a confirmed barge-in, nothing heard, or the owner reviewing their words before they are sent",
       "enum": [
         "approval",
         "question",
         "barge_in",
-        "no_speech"
+        "no_speech",
+        "review"
       ],
       "type": "string"
+    },
+    "VoiceConversationReviewParams": {
+      "properties": {
+        "conversationId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "utteranceId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "action": {
+          "$ref": "#/$defs/VoiceReviewAction"
+        },
+        "text": {
+          "description": "The edited transcript to send; omitted, the draft is sent as heard",
+          "maxLength": 8000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "conversationId",
+        "utteranceId",
+        "action"
+      ],
+      "type": "object"
+    },
+    "VoiceConversationReviewResult": {
+      "properties": {},
+      "type": "object"
     },
     "VoiceConversationSpeechPayload": {
       "properties": {
@@ -33946,6 +33988,15 @@
         },
         "listening": {
           "type": "boolean"
+        },
+        "draft": {
+          "maxLength": 8000,
+          "type": "string"
+        },
+        "utteranceId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -34188,6 +34239,13 @@
     "VoicePushResult": {
       "properties": {},
       "type": "object"
+    },
+    "VoiceReviewAction": {
+      "enum": [
+        "send",
+        "discard"
+      ],
+      "type": "string"
     },
     "VoiceSegmentPayload": {
       "properties": {

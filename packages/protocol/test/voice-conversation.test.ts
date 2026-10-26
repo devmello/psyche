@@ -13,6 +13,7 @@ import {
   PsycheError,
   requiresIdempotencyKey,
   VOICE_CONVERSATION_SETTING_KEYS,
+  VOICE_REVIEW_MAX_CHARS,
   validateEventPayload,
   validateParams,
   validateResult,
@@ -31,13 +32,14 @@ function codeOf(fn: () => unknown): ErrorCode | undefined {
 const PCM = { encoding: "pcm_s16le", sampleRate: 16_000, channels: 1 } as const;
 
 describe("voice.conversation.* (voice-mode-2026 §7)", () => {
-  it("defines the six methods as operator.write, none needing an idempotency key", () => {
+  it("defines the seven methods as operator.write, none needing an idempotency key", () => {
     for (const m of [
       "voice.conversation.start",
       "voice.conversation.audio",
       "voice.conversation.turn",
       "voice.conversation.interrupt",
       "voice.conversation.played",
+      "voice.conversation.review",
       "voice.conversation.stop",
     ] as const) {
       expect(methodSpec(m).scope, m).toBe("operator.write");
@@ -139,6 +141,40 @@ describe("voice.conversation.* (voice-mode-2026 §7)", () => {
         reason: "locked",
       }),
     ).toBeTruthy();
+  });
+
+  it("reviews a transcript before sending (spec §4.10)", () => {
+    expect(
+      validateEventPayload("voice.conversation.state", {
+        conversationId: "vc_1",
+        phase: "waiting",
+        reason: "review",
+        draft: "Tell Sam I'm running late",
+        utteranceId: "u_2",
+        listening: false,
+      }),
+    ).toBeTruthy();
+    const review = { conversationId: "vc_1", utteranceId: "u_2" };
+    expect(validateParams("voice.conversation.review", { ...review, action: "send" })).toBeTruthy();
+    expect(
+      validateParams("voice.conversation.review", {
+        ...review,
+        action: "send",
+        text: "Tell Sam I'm running ten minutes late",
+      }),
+    ).toBeTruthy();
+    expect(
+      validateParams("voice.conversation.review", { ...review, action: "discard" }),
+    ).toBeTruthy();
+    for (const bad of [
+      { ...review, action: "edit" },
+      { ...review, action: "send", text: "" },
+      { ...review, action: "send", text: "x".repeat(VOICE_REVIEW_MAX_CHARS + 1) },
+      { conversationId: "vc_1", action: "send" },
+    ]) {
+      expect(codeOf(() => validateParams("voice.conversation.review", bad))).toBe("invalid_params");
+    }
+    expect(validateResult("voice.conversation.review", {})).toEqual({});
   });
 
   it("names the settings keys under voice.conversation", () => {
