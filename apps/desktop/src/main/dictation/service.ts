@@ -1,6 +1,7 @@
 import {
   DEFAULT_DICTATION_SETTINGS,
   DICTATION_SETTING_KEYS,
+  type DictationKey,
   type DictationSettings,
   parseDictationSettings,
   type SystemDictation,
@@ -30,6 +31,30 @@ export interface DictationServiceOptions {
   shortcuts?: ShortcutRegistry;
   warn?: (message: string) => void;
   onStatus?: (status: DictationStatus) => void;
+  /**
+   * The voice conversation key went down or up (docs/voice/voice-mode-2026.md §4.1): the helper
+   * watches it beside the dictation key, and main forwards it to the app's audio terminal.
+   */
+  onVoiceKey?: (down: boolean) => void;
+}
+
+/** Settings that arm the voice conversation key (spec §6.4). */
+export const VOICE_KEY_SETTING_KEYS = [
+  "voice.conversation.enabled",
+  "voice.conversation.key",
+] as const;
+
+const VOICE_KEYS: readonly DictationKey[] = ["fn", "rightOption", "rightCommand"];
+
+/** The voice key, or null when voice conversation is off or the key collides with dictation's. */
+export function parseVoiceKey(
+  values: Record<string, unknown>,
+  dictation: DictationSettings,
+): DictationKey | null {
+  if (values["voice.conversation.enabled"] !== true) return null;
+  const raw = values["voice.conversation.key"];
+  const key = VOICE_KEYS.includes(raw as DictationKey) ? (raw as DictationKey) : "rightCommand";
+  return dictation.enabled && key === dictation.key ? null : key;
 }
 
 /**
@@ -41,6 +66,7 @@ export interface DictationServiceOptions {
 export class DictationService {
   readonly #o: DictationServiceOptions;
   #settings: DictationSettings = DEFAULT_DICTATION_SETTINGS;
+  #voiceKey: DictationKey | null = null;
   #hotkey = "";
   #watching = false;
   #hotkeyTaken = "";
@@ -71,14 +97,18 @@ export class DictationService {
   async load(): Promise<void> {
     let values: Record<string, unknown> = {};
     try {
-      const res = (await this.#o.call("settings.get", { keys: [...DICTATION_SETTING_KEYS] })) as {
+      const res = (await this.#o.call("settings.get", {
+        keys: [...DICTATION_SETTING_KEYS, ...VOICE_KEY_SETTING_KEYS],
+      })) as {
         settings?: Record<string, unknown>;
       };
       values = res?.settings ?? {};
     } catch (err) {
       this.#o.warn?.(`could not read voice settings: ${String(err)}`);
     }
-    await this.apply(parseDictationSettings(values));
+    const settings = parseDictationSettings(values);
+    this.#voiceKey = parseVoiceKey(values, settings);
+    await this.apply(settings);
   }
 
   async apply(settings: DictationSettings): Promise<void> {
@@ -92,16 +122,20 @@ export class DictationService {
   onEvent(event: string, payload: unknown): void {
     const p = (payload ?? {}) as Record<string, unknown>;
     if (event === "dictation.key") {
-      if (typeof p.down === "boolean" && p.key === this.#settings.key)
-        this.#o.dictation.onKey(p.down);
+      if (typeof p.down !== "boolean") return;
+      if (p.role === "voice") {
+        if (p.key === this.#voiceKey) this.#o.onVoiceKey?.(p.down);
+        return;
+      }
+      if (p.key === this.#settings.key) this.#o.dictation.onKey(p.down);
     } else if (event === "voice.segment") {
       const seg = p.segment as { text?: unknown; final?: unknown } | undefined;
       if (typeof p.sessionId === "string" && typeof seg?.text === "string")
         this.#o.dictation.onSegment(p.sessionId, { text: seg.text, final: seg.final === true });
     } else if (event === "settings.changed") {
       const entries = (p.entries as { key: string; value: unknown }[] | undefined) ?? [];
-      if (entries.some((e) => (DICTATION_SETTING_KEYS as readonly string[]).includes(e.key)))
-        void this.load();
+      const watched = [...DICTATION_SETTING_KEYS, ...VOICE_KEY_SETTING_KEYS] as readonly string[];
+      if (entries.some((e) => watched.includes(e.key))) void this.load();
     } else if (event === "node.updated") {
       const node = p.node as { kind?: unknown; status?: unknown } | undefined;
       if (node?.kind === "mac-helper" && node.status === "online") void this.#arm();
@@ -126,8 +160,20 @@ export class DictationService {
 
   async #arm(): Promise<void> {
     const key = this.#settings.enabled ? this.#settings.key : null;
+    // With voice conversation on, one watch carries both keys (a second watch would replace the
+    // first). A helper without two-key support keeps watching `key` only.
+    const params =
+      this.#voiceKey === null
+        ? { key }
+        : {
+            key,
+            keys: [
+              ...(key === null ? [] : [{ key, role: "dictation" as const }]),
+              { key: this.#voiceKey, role: "voice" as const },
+            ],
+          };
     try {
-      const res = (await this.#o.call("dictation.watch", { key })) as { watching?: boolean };
+      const res = (await this.#o.call("dictation.watch", params)) as { watching?: boolean };
       this.#watching = res?.watching === true;
       // A watch that armed proves the helper has Accessibility; stopping one proves nothing.
       this.#update({

@@ -21,6 +21,7 @@ import {
   Menu,
   Notification,
   nativeTheme,
+  powerMonitor,
   protocol,
   screen,
   session,
@@ -880,7 +881,11 @@ void app.whenReady().then(async () => {
       : { shortcuts: globalShortcut }),
     warn: (m) => console.warn(`[dictation] ${m}`),
     onStatus: (s) => broadcast(IPC.dictationStatus, s),
+    onVoiceKey: (down) => broadcast(IPC.voiceKey, { down }),
   });
+  // A locked or sleeping Mac ends any voice conversation: the terminal stops and frees the mic.
+  powerMonitor.on("lock-screen", () => broadcast(IPC.voiceSystem, { event: "lock" }));
+  powerMonitor.on("suspend", () => broadcast(IPC.voiceSystem, { event: "suspend" }));
   terminal = new TerminalHost({ call: (m, p) => requireGateway().call(m, p) });
   terminal.onData((sessionId, data) => broadcast(IPC.terminalData, { sessionId, data }));
   terminal.onExit((sessionId, exitCode) => broadcast(IPC.terminalExit, { sessionId, exitCode }));

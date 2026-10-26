@@ -8,6 +8,7 @@ import {
 import {
   DictationService,
   type DictationStatus,
+  parseVoiceKey,
   type ShortcutRegistry,
 } from "../../src/main/dictation/service.ts";
 
@@ -404,5 +405,86 @@ describe("dictation service", () => {
     svc.onEvent("node.updated", { node: { kind: "mac-helper", status: "offline" } });
     expect(svc.status).toMatchObject({ helper: "offline", watching: false });
     expect(statuses.at(-1)).toEqual(svc.status);
+  });
+});
+
+describe("the voice conversation key (V-G, docs/voice/voice-mode-2026.md §4.1)", () => {
+  const watchParams = (gw: ReturnType<typeof fakeGateway>) =>
+    gw.calls.filter((c) => c.method === "dictation.watch").at(-1)?.params;
+
+  it("watches the voice key in the same watch when voice conversation is on", async () => {
+    const values: Record<string, unknown> = { "voice.conversation.enabled": true };
+    const gw = fakeGateway({ "settings.get": () => ({ settings: values }) });
+    const h = harness({ gateway: gw });
+    const keys: boolean[] = [];
+    const svc = new DictationService({
+      dictation: h.d,
+      call: gw.call,
+      onVoiceKey: (d) => keys.push(d),
+    });
+    await svc.load();
+    expect(watchParams(gw)).toEqual({
+      key: "fn",
+      keys: [
+        { key: "fn", role: "dictation" },
+        { key: "rightCommand", role: "voice" },
+      ],
+    });
+
+    // Voice-role events go to the conversation, never to dictation; dictation's still work.
+    svc.onEvent("dictation.key", { key: "rightCommand", down: true, at: "", role: "voice" });
+    svc.onEvent("dictation.key", { key: "rightCommand", down: false, at: "", role: "voice" });
+    await settled();
+    expect(keys).toEqual([true, false]);
+    expect(h.d.phase).toBe("idle");
+    svc.onEvent("dictation.key", { key: "fn", down: true, at: "", role: "dictation" });
+    await settled();
+    expect(h.d.phase).toBe("listening");
+    h.d.cancel();
+    // A voice event for a key that isn't the voice key is ignored.
+    svc.onEvent("dictation.key", { key: "rightOption", down: true, at: "", role: "voice" });
+    expect(keys).toEqual([true, false]);
+  });
+
+  it("keeps the plain watch when voice is off, drops a colliding key, and follows changes", async () => {
+    const values: Record<string, unknown> = {};
+    const gw = fakeGateway({ "settings.get": () => ({ settings: values }) });
+    const h = harness({ gateway: gw });
+    const svc = new DictationService({ dictation: h.d, call: gw.call, onVoiceKey: () => {} });
+    await svc.load();
+    expect(watchParams(gw)).toEqual({ key: "fn" });
+
+    values["voice.conversation.enabled"] = true;
+    values["voice.conversation.key"] = "fn";
+    svc.onEvent("settings.changed", { entries: [{ key: "voice.conversation.key", value: "fn" }] });
+    await settled();
+    await settled();
+    expect(watchParams(gw)).toEqual({ key: "fn" });
+
+    // Dictation off, voice on: the watch carries the voice key only.
+    values["voice.systemWide"] = false;
+    values["voice.conversation.key"] = "rightOption";
+    svc.onEvent("settings.changed", { entries: [{ key: "voice.systemWide", value: false }] });
+    await settled();
+    await settled();
+    expect(watchParams(gw)).toEqual({ key: null, keys: [{ key: "rightOption", role: "voice" }] });
+  });
+
+  it("parses the voice key with safe defaults", () => {
+    const dict = { ...DEFAULT_DICTATION_SETTINGS };
+    expect(parseVoiceKey({}, dict)).toBeNull();
+    expect(parseVoiceKey({ "voice.conversation.enabled": true }, dict)).toBe("rightCommand");
+    expect(
+      parseVoiceKey({ "voice.conversation.enabled": true, "voice.conversation.key": "f13" }, dict),
+    ).toBe("rightCommand");
+    expect(
+      parseVoiceKey({ "voice.conversation.enabled": true, "voice.conversation.key": "fn" }, dict),
+    ).toBeNull();
+    expect(
+      parseVoiceKey(
+        { "voice.conversation.enabled": true, "voice.conversation.key": "fn" },
+        { ...dict, enabled: false },
+      ),
+    ).toBe("fn");
   });
 });

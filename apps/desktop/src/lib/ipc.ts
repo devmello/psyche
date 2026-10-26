@@ -77,6 +77,10 @@ export const IPC = {
   permissionsStatus: "psyche:permissions:status",
   permissionsRequest: "psyche:permissions:request",
   dictationOpenAccessibility: "psyche:dictation:open-accessibility",
+  // Voice conversation (docs/voice/voice-mode-2026.md §4.1, §4.7): main → app renderers. The
+  // voice key from the helper's watch, and screen lock / sleep, which end a conversation.
+  voiceKey: "psyche:voice:key",
+  voiceSystem: "psyche:voice:system",
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];
