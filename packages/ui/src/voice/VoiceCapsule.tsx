@@ -263,7 +263,9 @@ export function VoiceCapsule({
                 size={hud ? "icon-sm" : "sm"}
                 variant="ghost"
                 aria-pressed={session.muted}
-                {...(hud ? { "aria-label": session.muted ? t("voice.unmute") : t("voice.mute") } : {})}
+                {...(hud
+                  ? { "aria-label": session.muted ? t("voice.unmute") : t("voice.mute") }
+                  : {})}
                 onClick={onToggleMute}
                 data-testid="voice-mute"
               >
