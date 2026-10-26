@@ -7,19 +7,23 @@ import { Button } from "../../components/ui/button.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
+import { describeError } from "../../i18n/errors.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { usePersona } from "../../slots.tsx";
 import { type ActionRule, withMatrixOverrides } from "./ActionMatrix.tsx";
 import { CapabilityCard } from "./ConnectorCapabilities.tsx";
+import { ConnectedShortcutsCard, ObsidianCard, VaultField } from "./ConnectorSettingsCards.tsx";
 import {
   ConnectProgress,
   PermissionNotice,
   permissionOf,
   useConnectorConnect,
 } from "./connect-flow.tsx";
+import { folderGrants, POLICY_KEY, policyWithFolders } from "./FileAccessSection.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import {
+  ErrorNotice,
   GROUP_ROWS,
   Group,
   LoadGate,
@@ -87,6 +91,8 @@ type CatalogType =
   | "apple:reminders"
   | "apple:calendar"
   | "apple:mail"
+  | "apple:shortcuts"
+  | "obsidian"
   | "mcp"
   | "slack";
 
@@ -99,6 +105,8 @@ const CATALOG_ID = {
   "apple:reminders": "appleReminders",
   "apple:calendar": "appleCalendar",
   "apple:mail": "appleMail",
+  "apple:shortcuts": "appleShortcuts",
+  obsidian: "obsidian",
   mcp: "mcp",
   slack: "slack",
 } as const satisfies Record<CatalogType, string>;
@@ -127,6 +135,8 @@ export const CONNECTOR_CATALOG = [
   catalogEntry("apple:reminders"),
   catalogEntry("apple:calendar"),
   catalogEntry("apple:mail"),
+  catalogEntry("apple:shortcuts"),
+  catalogEntry("obsidian"),
   catalogEntry("mcp"),
   catalogEntry("slack"),
 ] as const;
@@ -145,6 +155,14 @@ export function offeredCatalog(
       ? options.navigation !== false
       : implemented === undefined || implemented.has(c.type),
   );
+}
+
+/**
+ * Types that need a setting chosen before they can connect (Obsidian: its vault folder), so they
+ * are set up in Settings → Connectors rather than from onboarding's lists (#640).
+ */
+export function needsSetup(type: string): boolean {
+  return type === "obsidian";
 }
 
 /** One per machine (the Gateway's `singleInstance`, #549): offered once, then shown Connected. */
@@ -191,10 +209,17 @@ export interface ConnectorsPanelProps extends LoadProps {
   connectors: readonly Connector[];
   persona: string;
   now?: number;
-  onConnect?: (type: string, mode: ScopeMode) => void;
+  /** `config`: what a connector needs to connect (Obsidian's `vaultPath`). */
+  onConnect?: (type: string, mode: ScopeMode, config?: Record<string, unknown>) => void;
   onReconnect?: (connector: Connector) => void;
   onDisconnect?: (connector: Connector) => void;
   onRemove?: (connector: Connector) => void;
+  /** Shared folders (File access); Obsidian's vault is one of them. */
+  sharedFolders?: readonly string[];
+  /** Shares a folder through File access (read-only, or read-and-write for read and act). */
+  onShareFolder?: (path: string, mode: ScopeMode) => void;
+  /** Saves a connector's own settings (`connectors.configure`): shortcut rules, the vault. */
+  onConfigure?: (connector: Connector, config: Record<string, unknown>) => void;
   /** Opens with the connect form showing (stories). */
   defaultAdding?: boolean;
   /** The sign-in under way, shown above the list (#505). */
@@ -231,6 +256,9 @@ export function ConnectorsPanel({
   onOpenSection,
   onCheck,
   onGrant,
+  sharedFolders = [],
+  onShareFolder,
+  onConfigure,
   catalogue,
   onRuleChange,
   onTry,
@@ -276,9 +304,12 @@ export function ConnectorsPanel({
               new Set(connectors.filter((c) => c.status !== "disconnected").map((c) => c.type))
             }
             {...(onOpenSection ? { onOpenSection } : {})}
+            sharedFolders={sharedFolders}
+            {...(onShareFolder ? { onShareFolder } : {})}
             onCancel={() => setAdding(false)}
-            onConnect={(type, mode) => {
-              onConnect(type, mode);
+            onConnect={(type, mode, config) => {
+              if (config === undefined) onConnect(type, mode);
+              else onConnect(type, mode, config);
               setAdding(false);
             }}
           />
@@ -437,6 +468,32 @@ export function ConnectorsPanel({
                       {...(onTry ? { onTry } : {})}
                       {...(defaultCapabilitiesOpen ? { defaultOpen: true } : {})}
                     />
+                    {c.type === "apple:shortcuts" && c.status === "connected" ? (
+                      <ConnectedShortcutsCard
+                        connector={c}
+                        {...(onConfigure
+                          ? {
+                              onConfigure: (config: Record<string, unknown>) =>
+                                onConfigure(c, config),
+                            }
+                          : {})}
+                      />
+                    ) : null}
+                    {c.type === "obsidian" ? (
+                      <ObsidianCard
+                        connector={c}
+                        granted={sharedFolders}
+                        {...(onShareFolder
+                          ? { onShare: (path: string) => onShareFolder(path, c.scopeMode) }
+                          : {})}
+                        {...(onConfigure
+                          ? {
+                              onConfigure: (config: Record<string, unknown>) =>
+                                onConfigure(c, config),
+                            }
+                          : {})}
+                      />
+                    ) : null}
                   </article>
                 </li>
               );
@@ -455,13 +512,17 @@ function ConnectForm({
   onConnect,
   onCancel,
   onOpenSection,
+  sharedFolders,
+  onShareFolder,
 }: {
   persona: string;
   implemented: ReadonlySet<string> | undefined;
   connectedTypes: ReadonlySet<string>;
-  onConnect: (type: string, mode: ScopeMode) => void;
+  onConnect: (type: string, mode: ScopeMode, config?: Record<string, unknown>) => void;
   onCancel: () => void;
   onOpenSection?: (section: "mcp" | "channels") => void;
+  sharedFolders: readonly string[];
+  onShareFolder?: (path: string, mode: ScopeMode) => void;
 }): ReactElement {
   const id = useId();
   const rows = offeredCatalog(implemented, { navigation: onOpenSection !== undefined });
@@ -472,6 +533,11 @@ function ConnectForm({
   const type = open.some((c) => c.type === picked) ? picked : (open[0]?.type ?? "");
   const opens = rows.find((c) => c.type === type)?.opens;
   const [mode, setMode] = useState<ScopeMode>("read");
+  // Obsidian connects to a vault folder shared through File access (#640).
+  const [vault, setVault] = useState("");
+  const vaultPath = vault.trim();
+  const needsVault = needsSetup(type);
+  const vaultReady = !needsVault || (vaultPath !== "" && sharedFolders.includes(vaultPath));
   return (
     <Group title={t("settings.connectors.connect")}>
       <div className="flex flex-col gap-1">
@@ -500,12 +566,22 @@ function ConnectForm({
           )}
         </p>
       ) : (
-        <ConnectAccessChoice
-          label={t("settings.connectors.whatCan", { persona })}
-          value={mode}
-          onChange={setMode}
-          persona={persona}
-        />
+        <>
+          <ConnectAccessChoice
+            label={t("settings.connectors.whatCan", { persona })}
+            value={mode}
+            onChange={setMode}
+            persona={persona}
+          />
+          {needsVault ? (
+            <VaultField
+              value={vault}
+              onChange={setVault}
+              granted={sharedFolders}
+              {...(onShareFolder ? { onShare: (path: string) => onShareFolder(path, mode) } : {})}
+            />
+          ) : null}
+        </>
       )}
       <div className="flex gap-2">
         {opens !== undefined ? (
@@ -518,8 +594,10 @@ function ConnectForm({
           <Button
             type="button"
             size="sm"
-            disabled={type === ""}
-            onClick={() => onConnect(type, mode)}
+            disabled={type === "" || !vaultReady}
+            onClick={() =>
+              needsVault ? onConnect(type, mode, { vaultPath }) : onConnect(type, mode)
+            }
           >
             {t("settings.connectors.continue")}
           </Button>
@@ -553,6 +631,7 @@ export function ConnectorsSection({ persona, ...props }: ConnectorsSectionProps)
   const connectors = withMatrixOverrides(q.data?.connectors ?? [], form.values);
   const onTry = usePrefillComposer();
   const call = useCall();
+  const [configureError, setConfigureError] = useState<string | null>(null);
   // Built in unless the host supplies them: reconnect (for a macOS grant, the helper opens
   // System Settings) and re-check (#549).
   const reconnect = async (c: Connector, action: "check" | "open_settings") => {
@@ -574,41 +653,72 @@ export function ConnectorsSection({ persona, ...props }: ConnectorsSectionProps)
   const flow = useConnectorConnect();
   const builtIn = props.onConnect === undefined;
   return (
-    <ConnectorsPanel
-      {...props}
-      {...(builtIn
-        ? {
-            onConnect: (type: string, mode: ScopeMode) =>
-              void flow.start(
-                type,
-                mode,
-                CONNECTOR_CATALOG.find((c) => c.type === type)?.label ?? type,
+    <div className="flex flex-col gap-3">
+      <ConnectorsPanel
+        {...props}
+        {...(builtIn
+          ? {
+              onConnect: (type: string, mode: ScopeMode, config?: Record<string, unknown>) =>
+                void flow.start(
+                  type,
+                  mode,
+                  CONNECTOR_CATALOG.find((c) => c.type === type)?.label ?? type,
+                  config,
+                ),
+              connectProgress: (
+                <ConnectProgress
+                  state={flow.state}
+                  onOpen={(url) => void flow.open(url)}
+                  onCancel={flow.cancel}
+                  onRetry={flow.retry}
+                  onOpenSettings={() => void flow.openSettings()}
+                  onRecheck={() => void flow.recheck()}
+                />
               ),
-            connectProgress: (
-              <ConnectProgress
-                state={flow.state}
-                onOpen={(url) => void flow.open(url)}
-                onCancel={flow.cancel}
-                onRetry={flow.retry}
-                onOpenSettings={() => void flow.openSettings()}
-                onRecheck={() => void flow.recheck()}
-              />
-            ),
-          }
-        : {})}
-      onGrant={(c: Connector) => void reconnect(c, "open_settings")}
-      onCheck={check}
-      persona={persona ?? fallback.name}
-      implemented={implemented}
-      {...(catalogue ? { catalogue } : {})}
-      onRuleChange={(c: Connector, action: string, rule: ActionRule) =>
-        form.onChange(`permissions.connectors.${c.id}`, { ...c.actionMatrix, [action]: rule })
-      }
-      {...(onTry ? { onTry } : {})}
-      connectors={connectors}
-      loading={q.loading && q.data === undefined}
-      error={q.error}
-      onRetry={q.reload}
-    />
+            }
+          : {})}
+        onGrant={(c: Connector) => void reconnect(c, "open_settings")}
+        onCheck={check}
+        persona={persona ?? fallback.name}
+        implemented={implemented}
+        {...(catalogue ? { catalogue } : {})}
+        onRuleChange={(c: Connector, action: string, rule: ActionRule) =>
+          form.onChange(`permissions.connectors.${c.id}`, { ...c.actionMatrix, [action]: rule })
+        }
+        {...(onTry ? { onTry } : {})}
+        sharedFolders={folderGrants(form.values).map((g) => g.path)}
+        onShareFolder={(path: string, mode: ScopeMode) => {
+          const grants = folderGrants(form.values).filter((g) => g.path !== path);
+          form.onChange(
+            POLICY_KEY,
+            policyWithFolders(form.values, [
+              ...grants,
+              { path, access: mode === "read_act" ? "rw" : "ro" },
+            ]),
+          );
+        }}
+        onConfigure={(c: Connector, config: Record<string, unknown>) => {
+          setConfigureError(null);
+          void call("connectors.configure", { connectorId: c.id, config }).then(
+            () => q.reload(),
+            (err: unknown) => {
+              setConfigureError(
+                t("settings.connectors.configureFailed", {
+                  name: c.label,
+                  reason: describeError(err),
+                }),
+              );
+              q.reload();
+            },
+          );
+        }}
+        connectors={connectors}
+        loading={q.loading && q.data === undefined}
+        error={q.error}
+        onRetry={q.reload}
+      />
+      {form.writeError ? <ErrorNotice what={form.writeError} did="" /> : null}
+      {configureError ? <ErrorNotice what={configureError} /> : null}
+    </div>
   );
 }

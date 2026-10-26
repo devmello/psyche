@@ -24,6 +24,9 @@ For W6 (#670) and the helper's H1 / H2, docs/workflows/mail-and-meetings-2026.md
 
 - `schemas/speech.ts`: `SpeechTranscribeFileParams {path, locale?, vocabulary?, maxDurationMs?}` (≤ `SPEECH_FILE_MAX_DURATION_MS`, 4 h), `SpeechTranscribeFileResult {text, segments, engine, language, audioMs, chunks}`, `SpeechNodeEngine`, the streamed `SpeechProgressEvent` (`speech.progress`) and `SPEECH_FILE_CAPABILITIES`.
 - `schemas/apple-apps.ts`: `AppleCalendarWatchParams` and `AppleCalendarChangedEvent` (`calendar.changed {at, coalesced}`), streamed by the helper's `calendar.watch`. A node event is tied to an invocation, so the Gateway holds one `calendar.watch` open, as it does `messages.watch`.
+### v1 additive — 2026-10-26 (U, #640: connector settings from Settings → Connectors)
+
+For the UI session (U) and S09 (G, #639): `connectors.configure {connectorId, config}` merges non-secret keys into a connector's `config` (`null` removes one) without reconnecting it. Settings writes `apple:shortcuts`' `config.shortcutRules` (`off` / `ask` / `allow` per shortcut id) and Obsidian's `config.vaultPath` and `config.dailyFolder` through it. G implements the handler.
 ### v1 additive — 2026-10-26 (S09 for S14 #719: Things auth token)
 
 - `ThingsUpdateParams.authToken?` and `ThingsCompleteParams.authToken?`: Things' URL-scheme auth token, which the Gateway fills in from the vault for that call only. The model never writes it, no card shows it, and the helper neither logs nor stores it.
