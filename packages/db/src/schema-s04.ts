@@ -2,7 +2,7 @@
  * drizzle mirrors of the S04 tables (`migrations/*_tasks_*.sql`, `*_scheduler_*.sql`). Owner:
  * S04 (`packages/tasks`, `packages/scheduler`). Same conventions as `schema.ts`.
  */
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 // §3 Tasks -----------------------------------------------------------------------------------
 
@@ -94,6 +94,8 @@ export const automations = sqliteTable("automations", {
   lastStatus: text("last_status"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+  // 202610252000_scheduler_event-triggers (S15 W3): the AutomationTrigger of `kind: event`.
+  trigger: text("trigger"),
 });
 
 export const automationRuns = sqliteTable("automation_runs", {
@@ -110,6 +112,7 @@ export const automationRuns = sqliteTable("automation_runs", {
   summary: text("summary"),
   notificationId: text("notification_id"),
   createdAt: text("created_at").notNull(),
+  events: text("events"),
 });
 
 export const watches = sqliteTable("watches", {
@@ -127,6 +130,35 @@ export const watches = sqliteTable("watches", {
   updatedAt: text("updated_at").notNull(),
 });
 
+// Event triggers (202610252000_scheduler_event-triggers; S15 W3, #670).
+export const automationEventSeen = sqliteTable(
+  "automation_event_seen",
+  {
+    automationId: text("automation_id").notNull(),
+    eventId: text("event_id").notNull(),
+    seenAt: text("seen_at").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.automationId, t.eventId] })],
+);
+
+export const automationEventQueue = sqliteTable("automation_event_queue", {
+  id: text("id").primaryKey(),
+  automationId: text("automation_id").notNull(),
+  event: text("event").notNull(),
+  receivedAt: text("received_at").notNull(),
+});
+
+export const eventCursors = sqliteTable(
+  "event_cursors",
+  {
+    source: text("source").notNull(),
+    key: text("key").notNull(),
+    cursor: text("cursor").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.source, t.key] })],
+);
+
 /** Every S04 table, merged into `schema` in `schema.ts`. */
 export const s04Schema = {
   tasks,
@@ -136,4 +168,7 @@ export const s04Schema = {
   automations,
   automationRuns,
   watches,
+  automationEventSeen,
+  automationEventQueue,
+  eventCursors,
 };

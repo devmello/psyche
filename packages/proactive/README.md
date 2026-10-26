@@ -238,6 +238,16 @@ agent loop's registry (architecture §4.3 built-ins "`goal.*`, `idea.*`, `feed.*
 - `createProposalHandlers(proposals)`: `proposals.list | get | approve | dismiss | undo`; `approve` returns the caller's own surface's answer token only.
 - **Known gap:** the agent loop's `before_tool_call` hooks and plugins do not run for batch calls. The broker's decision at request time does. Tracked for S02 in the W2 PR.
 
+### New-mail poller (§4.7, #670 W3)
+
+`MailWatcher({ scheduler, clock, sources, activeHours?, timezone?, wanted?, onError? })`:
+- **Cadence:** a system `interval` automation (`PT10M`, `[psyche:mail-watch poll]`) runs `poll()` in-process. Outside active hours (default 08–22) it polls at most hourly.
+- **Reads:** nothing is read unless an enabled `mail.received` event automation exists (`wanted`). It makes no model call.
+- **Sources:**
+  - `appleMailSource(tools)`: `mail_search {unread: true, since}`
+  - `gmailSource(tools)`: `gmail_search_threads {query: "is:unread after:<epoch>"}`; a thread's message count is part of the event id, so a new message in a known thread is a new event
+- **Events:** each source's cursor is the start of its last poll, so mail that arrives mid-poll is seen again and deduplicated rather than missed. Events carry account, ids, sender and subject; sender and subject are untrusted and travel as data only.
+
 ## Gateway wiring
 
 `composeProactive({ db, clock, scheduler, notifier, tasks, publish, timeZone, logger })` in
