@@ -99,6 +99,13 @@ export type VoiceConversationReason = Static<typeof VoiceConversationReason>;
 export const VoiceCaptionRole = StringEnum(["owner", "agent"]);
 export type VoiceCaptionRole = Static<typeof VoiceCaptionRole>;
 
+/**
+ * The notification action that starts a voice conversation speaking that notification (spec
+ * §4.9): the daily brief and check-ins carry it. Clients start `voice.conversation.start
+ * {listen}` for it instead of `notifications.resolve`.
+ */
+export const NOTIFICATION_LISTEN_ACTION = "listen";
+
 /** Owner settings for voice conversation (spec §6.4); the Gateway reads them per conversation. */
 export const VOICE_CONVERSATION_SETTING_KEYS = {
   enabled: "voice.conversation.enabled",
@@ -125,6 +132,16 @@ export const VoiceConversationMethods = {
       format: AudioFormatSchema,
       language: Type.Optional(Type.String({ maxLength: 35, description: "BCP 47" })),
       voice: Type.Optional(Type.String({ maxLength: 128, description: "<engine>:<voice>" })),
+      listen: Type.Optional(
+        Type.Object(
+          { notificationId: Id },
+          {
+            $id: "VoiceListenRequest",
+            description:
+              "Listen (spec §4.9): speak this daily-brief or check-in notification first, then hand over to the owner's turn",
+          },
+        ),
+      ),
     }),
     result: Type.Object({
       conversationId: ConversationId,

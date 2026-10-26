@@ -8729,12 +8729,21 @@ export interface VoiceConversationStartParams {
      * BCP 47
      */
     language?: string;
+    listen?:   VoiceListenRequest;
     mode:      VoiceConversationMode;
     threadId?: string;
     /**
      * <engine>:<voice>
      */
     voice?: string;
+}
+
+/**
+ * Listen (spec §4.9): speak this daily-brief or check-in notification first, then hand over
+ * to the owner's turn
+ */
+export interface VoiceListenRequest {
+    notificationId: string;
 }
 
 export type VoiceConversationMode = "push" | "tap" | "handsfree";
