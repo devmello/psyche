@@ -17,7 +17,6 @@ import { MemoryChannelStore } from "../../src/store/memory.ts";
 
 const ME = "psyche@example.org";
 const OWNER = "owner@example.org";
-const FRIEND = "friend@example.org";
 
 class FakeMailbox implements EmailTransport {
   inbox: EmailInbound[] = [];

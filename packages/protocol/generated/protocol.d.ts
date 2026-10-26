@@ -2527,35 +2527,13 @@ export interface Scopes {
     read_act: string[];
 }
 
-export interface ConnectorsConnectParams {
-    catalogueId:  string;
-    config?:      { [key: string]: unknown };
-    connectorId?: string;
-    label?:       string;
-    scopeMode:    ScopeMode;
+export interface ConnectorsConfigureParams {
+    config:      { [key: string]: unknown };
+    connectorId: string;
 }
 
-export type ScopeMode = "read" | "read_act";
-
-export interface ConnectorsConnectResult {
-    authorization?: ConnectorAuthorization;
-    connector:      Connector;
-}
-
-export interface ConnectorAuthorization {
-    /**
-     * Epoch ms
-     */
-    expiresAt: number;
-    opened:    boolean;
-    /**
-     * https consent page, or the device-code verification page
-     */
-    url: string;
-    /**
-     * Device code flow: the code to enter
-     */
-    userCode?: string;
+export interface ConnectorsConfigureResult {
+    connector: Connector;
 }
 
 export interface Connector {
@@ -2577,7 +2555,38 @@ export interface Connector {
     updatedAt: string;
 }
 
+export type ScopeMode = "read" | "read_act";
+
 export type ConnectorStatus = "connected" | "disconnected" | "error" | "needs_auth";
+
+export interface ConnectorsConnectParams {
+    catalogueId:  string;
+    config?:      { [key: string]: unknown };
+    connectorId?: string;
+    label?:       string;
+    scopeMode:    ScopeMode;
+}
+
+export interface ConnectorsConnectResult {
+    authorization?: ConnectorAuthorization;
+    connector:      Connector;
+}
+
+export interface ConnectorAuthorization {
+    /**
+     * Epoch ms
+     */
+    expiresAt: number;
+    opened:    boolean;
+    /**
+     * https consent page, or the device-code verification page
+     */
+    url: string;
+    /**
+     * Device code flow: the code to enter
+     */
+    userCode?: string;
+}
 
 export interface ConnectorsDisconnectParams {
     connectorId: string;
@@ -6971,7 +6980,8 @@ export interface ThingsAddParams {
 }
 
 export interface ThingsCompleteParams {
-    id: string;
+    authToken?: string;
+    id:         string;
     /**
      * Default completed
      */
@@ -7020,6 +7030,7 @@ export interface ThingsTodo {
 export interface ThingsUpdateParams {
     addTags?:     string[];
     appendNotes?: string;
+    authToken?:   string;
     deadline?:    null | string;
     id:           string;
     title?:       string;

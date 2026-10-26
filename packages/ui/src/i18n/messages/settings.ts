@@ -634,6 +634,8 @@ export const settings = {
   "settings.connectors.catalog.appleReminders": "Apple Reminders",
   "settings.connectors.catalog.appleCalendar": "Apple Calendar",
   "settings.connectors.catalog.appleMail": "Apple Mail",
+  "settings.connectors.catalog.appleShortcuts": "Shortcuts",
+  "settings.connectors.catalog.obsidian": "Obsidian",
   "settings.connectors.catalog.mcp": "MCP server",
   "settings.connectors.catalog.slack": "Slack",
   "settings.connectors.mcpExplain":
@@ -658,6 +660,35 @@ export const settings = {
   "settings.connectors.account": "Account",
   "settings.connectors.noAccount": "None",
   "settings.connectors.scopes": "Scopes",
+  // Shortcuts card (#640): the owner's shortcuts, each off / ask / allow.
+  "settings.connectors.configureFailed": "Psyche couldn't save {name}'s settings: {reason}",
+  "settings.shortcuts.title": "Your shortcuts",
+  "settings.shortcuts.loading": "Reading your shortcuts from this Mac…",
+  "settings.shortcuts.none": "No shortcuts in the Shortcuts app yet.",
+  "settings.shortcuts.noHelper":
+    "Open Psyche on your Mac to list your shortcuts: the helper reads them.",
+  "settings.shortcuts.failed": "Psyche couldn't read your shortcuts.",
+  "settings.shortcuts.hint":
+    "Off: never run. Ask: a card each time. Allow: runs without asking, only for shortcuts that just read.",
+  "settings.shortcuts.rule.off": "Off",
+  "settings.shortcuts.rule.ask": "Ask",
+  "settings.shortcuts.rule.allow": "Allow",
+  "settings.shortcuts.actions": "Psyche Actions",
+  "settings.shortcuts.install": "Install",
+  "settings.shortcuts.installNamed": "Install {name}",
+  "settings.shortcuts.installed": "Installed",
+  // Obsidian card (#640): the vault through File access, and the daily-note folder.
+  "settings.obsidian.vault": "Vault folder",
+  "settings.obsidian.newVault": "New vault folder",
+  "settings.obsidian.noVault": "No vault chosen",
+  "settings.obsidian.vaultHint":
+    "Psyche reads the vault through File access: share the folder, then use it.",
+  "settings.obsidian.share": "Share this folder",
+  "settings.obsidian.shared": "Shared",
+  "settings.obsidian.useVault": "Use this vault",
+  "settings.obsidian.change": "Change vault…",
+  "settings.obsidian.daily": "Daily notes folder",
+  "settings.obsidian.dailyPlaceholder": "From Obsidian's Daily notes settings",
   // Apple app cards: what the persona can do, per action group (docs/connectors/apple-apps-2026.md §7.1).
   "settings.connectors.can.title": "What {persona} can do",
   "settings.connectors.can.label": "What {persona} can do with {name}",

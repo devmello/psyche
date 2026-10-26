@@ -539,6 +539,13 @@ export class GraphStore {
     this.#touched(id, ["summary"]);
   }
 
+  /** Records a model pass that produced no usable summary, so unchanged input is skipped. */
+  markModelPass(id: string, inputHash: string): void {
+    this.#db
+      .prepare("UPDATE graph_entities SET summary_at = ?, summary_hash = ? WHERE id = ?")
+      .run(this.#now(), inputHash, id);
+  }
+
   summaryHash(id: string): string | null {
     return this.#entityRow(id)?.summary_hash ?? null;
   }
@@ -1732,6 +1739,114 @@ export class GraphStore {
         .run(cutoff).changes;
     })();
     return { interactions: old.length, archived };
+  }
+
+  // --- model pass and project support ---------------------------------------------------------
+
+  /** People and projects with new interactions since their last summary, pinned first (§5.2). */
+  pendingForModel(limit: number): { id: string; kind: GraphEntityKind; fresh: number }[] {
+    return this.#db
+      .prepare(
+        `SELECT e.id AS id, e.kind AS kind, count(DISTINCT i.id) AS fresh
+           FROM graph_entities e
+           JOIN graph_participants p ON p.entity_id = e.id
+           JOIN graph_interactions i ON i.id = p.interaction_id
+          WHERE e.status = 'active' AND e.hidden = 0 AND e.is_owner = 0 AND e.kind IN ('person', 'org')
+            AND i.created_at > COALESCE(e.summary_at, '')
+          GROUP BY e.id
+         UNION ALL
+         SELECT e.id, e.kind, count(DISTINCT i.id)
+           FROM graph_entities e JOIN graph_interactions i ON i.project_id = e.id
+          WHERE e.status = 'active' AND e.kind = 'project' AND i.created_at > COALESCE(e.summary_at, '')
+          GROUP BY e.id
+          ORDER BY fresh DESC
+          LIMIT ?`,
+      )
+      .all(limit * 2)
+      .map((r) => r as { id: string; kind: GraphEntityKind; fresh: number })
+      .sort(
+        (a, b) =>
+          Number(this.getEntity(b.id)?.pinned ?? false) -
+            Number(this.getEntity(a.id)?.pinned ?? false) || b.fresh - a.fresh,
+      )
+      .slice(0, limit);
+  }
+
+  /** Interactions of a project (by `project_id`), newest first. */
+  projectInteractions(projectId: string, limit = 20): GraphInteraction[] {
+    const ids = (
+      this.#db
+        .prepare(
+          "SELECT id FROM graph_interactions WHERE project_id = ? ORDER BY occurred_at DESC, id DESC LIMIT ?",
+        )
+        .all(projectId, limit) as { id: string }[]
+    ).map((r) => r.id);
+    return ids
+      .map((id) => this.interaction(id))
+      .filter((i): i is GraphInteraction => i !== undefined);
+  }
+
+  interaction(id: string): GraphInteraction | undefined {
+    const r = this.#db.prepare("SELECT * FROM graph_interactions WHERE id = ?").get(id) as
+      | {
+          id: string;
+          kind: GraphInteractionKind;
+          source: string;
+          occurred_at: string;
+          direction: GraphInteraction["direction"];
+          subject: string | null;
+          thread_key: string | null;
+          link: string | null;
+          project_id: string | null;
+        }
+      | undefined;
+    if (r === undefined) return undefined;
+    const participants = (
+      this.#db
+        .prepare("SELECT entity_id, role FROM graph_participants WHERE interaction_id = ?")
+        .all(id) as { entity_id: string; role: GraphParticipantRole }[]
+    ).map((p) => ({ entityId: p.entity_id, role: p.role }));
+    return {
+      id: r.id,
+      kind: r.kind,
+      source: r.source,
+      occurredAt: r.occurred_at,
+      direction: r.direction,
+      subject: r.subject,
+      threadKey: r.thread_key,
+      link: r.link,
+      projectId: r.project_id,
+      participants,
+    };
+  }
+
+  /** Interactions in a window (project assignment and clustering), oldest first. */
+  interactionsBetween(fromIso: string, toIso: string): GraphInteraction[] {
+    const ids = (
+      this.#db
+        .prepare(
+          "SELECT id FROM graph_interactions WHERE occurred_at >= ? AND occurred_at <= ? ORDER BY occurred_at, id",
+        )
+        .all(fromIso, toIso) as { id: string }[]
+    ).map((r) => r.id);
+    return ids
+      .map((id) => this.interaction(id))
+      .filter((i): i is GraphInteraction => i !== undefined);
+  }
+
+  setInteractionProject(interactionId: string, projectId: string | null): void {
+    this.#db
+      .prepare("UPDATE graph_interactions SET project_id = ? WHERE id = ?")
+      .run(projectId, interactionId);
+  }
+
+  /** The owner's recent corrections of an entity's facts (attribute and value), newest first. */
+  retractedFacts(entityId: string, limit = 5): { attribute: GraphFactAttribute; value: string }[] {
+    return this.#db
+      .prepare(
+        "SELECT attribute, value FROM graph_facts WHERE entity_id = ? AND retracted_at IS NOT NULL ORDER BY retracted_at DESC LIMIT ?",
+      )
+      .all(entityId, limit) as { attribute: GraphFactAttribute; value: string }[];
   }
 
   // --- reads, search, status, export -----------------------------------------------------------
