@@ -64,6 +64,8 @@ export interface DigestServiceOptions {
   modelIsRemote?: boolean;
   /** The graph's due `waiting_on` loops (`memory.loops.list`); none until the graph is wired. */
   loops?: () => Promise<GraphLoop[]>;
+  /** One line per recurring meeting skipped as "nothing new since last time" (§4.5). */
+  meetingLines?: () => string[];
   /** Whether a sender is someone the owner knows (the graph, Contacts). */
   isKnownPerson?: (address: string) => Promise<boolean>;
   /** A loop counterpart's display name. */
@@ -464,6 +466,7 @@ export class DigestService {
       ...(waitingOn.length === 0
         ? []
         : [`- Waiting on ${waitingOn.length} repl${waitingOn.length === 1 ? "y" : "ies"}`]),
+      ...(this.#o.meetingLines?.() ?? []).map((l) => `- ${l}`),
     ].join("\n");
     const post: StoredPost = {
       id: postId,
