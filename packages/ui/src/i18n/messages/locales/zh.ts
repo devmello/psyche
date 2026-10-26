@@ -1,7 +1,10 @@
 import type { Catalogue } from "../index.ts";
+import { workflows } from "./workflows/zh.ts";
 
 /** Simplified Chinese catalogue (zh). Same ids as `en`; missing ids fall back to English. */
 export const zh: Partial<Catalogue> = {
+  // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
+  ...workflows,
   "common.cancel": "取消",
   "common.close": "关闭",
   "common.save": "存储",

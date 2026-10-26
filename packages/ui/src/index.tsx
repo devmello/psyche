@@ -235,6 +235,7 @@ export * from "./screens/onboarding/index.ts";
 export * from "./screens/search/index.ts";
 export { CONTEXT_KEYS, ContextSettingsGroup } from "./screens/settings/ContextSettings.tsx";
 export * from "./screens/settings/index.ts";
+export * from "./screens/workflows/index.ts";
 export {
   AppearanceProvider,
   type AppearanceProviderProps,

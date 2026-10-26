@@ -260,3 +260,15 @@ export {
   specialistTasks,
   withSpecialists,
 } from "./specialists.ts";
+export {
+  draftView,
+  inboxDigest,
+  meetingNotes,
+  meetingPrep,
+  quietDigest,
+  schedulingView,
+  WORKFLOW_IDS,
+  withWorkflows,
+  workflowLoops,
+  workflowPosts,
+} from "./workflows.ts";
