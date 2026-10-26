@@ -140,6 +140,7 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
   const alwaysImage = settings["screenAsk.alwaysImage"] === true;
   const review = readVoiceSettings(settings).reviewBeforeSend;
   const [sent, setSent] = useState<{ threadId: string; messageId: string } | null>(null);
+  const [sending, setSending] = useState(false);
   const [failed, setFailed] = useState(false);
   /** The capture to discard if the panel closes unsent. */
   const unsent = useRef<string | null>(null);
@@ -204,6 +205,7 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
         // A fresh trigger (window) starts over; a region replaces the capture and keeps the text.
         if (o.mode !== "region") {
           sentRef.current = false;
+          setSending(false);
           setText("");
           setSent(null);
           setFailed(false);
@@ -239,6 +241,7 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
           const o: ScreenAskOpen = { mode: "voice" };
           openRef.current = o;
           sentRef.current = false;
+          setSending(false);
           generation.current++;
           setCaptured({ status: "none" });
           setText("");
@@ -253,17 +256,19 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
 
   const thread = useThread(sent?.threadId ?? null);
   const answer: ScreenAskAnswer | undefined = useMemo(() => {
-    if (!sent) return undefined;
+    // Return clears the form in the same frame: the ask is "sending" until the thread exists.
+    if (!sent) return sending ? { status: "sending", messages: [] } : undefined;
     if (failed || thread.failedRuns.length > 0) return { status: "failed", messages: [] };
     const parts = answerParts(thread.messages, sent.messageId, thread.streaming);
     const empty = parts.messages.length === 0 && parts.streamingText === "";
     return { status: thread.running || empty ? "streaming" : "done", ...parts };
-  }, [sent, failed, thread.messages, thread.streaming, thread.running, thread.failedRuns]);
+  }, [sent, sending, failed, thread.messages, thread.streaming, thread.running, thread.failedRuns]);
 
   const submit = async (said?: string) => {
     const content = (said ?? text).trim();
     if (content === "" || sentRef.current) return;
     sentRef.current = true;
+    setSending(true);
     if (said !== undefined) setText(said);
     const cap = captured.status === "ready" ? captured.capture : null;
     const choice = cap
@@ -301,8 +306,10 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
       if (image === "dropped") discard();
       unsent.current = null;
       setSent({ threadId, messageId: res.messageId });
+      setSending(false);
     } catch {
       setSent({ threadId: "", messageId: "" });
+      setSending(false);
       setFailed(true);
     }
   };

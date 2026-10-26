@@ -82,6 +82,41 @@ describe("ScreenAskView (Siri-simple)", () => {
     expect(screen.queryByTestId("screen-ask-answer")).toBeNull();
   });
 
+  it("sending: the form locks and the orb thinks before the thread exists", () => {
+    view({ text: "q", answer: { status: "sending", messages: [] } });
+    expect(screen.getByTestId("screen-ask-orb").dataset.state).toBe("thinking");
+    expect(screen.queryByRole("button", { name: "Ask" })).toBeNull();
+    expect(
+      (screen.getByPlaceholderText("Ask about your screen…") as HTMLTextAreaElement).readOnly,
+    ).toBe(true);
+  });
+
+  it("reserves the chip's thumbnail slot while capturing", () => {
+    view({ capture: { ...ready, status: "capturing", thumbnail: null } });
+    expect(screen.getByTestId("screen-ask-thumb-slot")).toBeTruthy();
+  });
+
+  it("holds the live region back until the answer is complete", () => {
+    const { container, rerender } = view({
+      text: "q",
+      answer: { status: "streaming", messages: [], streamingText: "Hi" },
+    });
+    const live = () => container.querySelector("[aria-live=polite]");
+    expect(live()?.getAttribute("aria-busy")).toBe("true");
+    rerender(
+      <ScreenAskView
+        text="q"
+        onText={noop}
+        onSubmit={noop}
+        onCancel={noop}
+        destination="new"
+        onDestination={noop}
+        answer={{ status: "done", messages: [agent("m", "Hi")] }}
+      />,
+    );
+    expect(live()?.getAttribute("aria-busy")).toBe("false");
+  });
+
   it("answers with the chat's renderer, in a scroll area with a maximum height", () => {
     const onOpen = vi.fn();
     view({
