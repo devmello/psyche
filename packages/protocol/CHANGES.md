@@ -27,6 +27,9 @@ For S15 (W, #670), the skills (S, #671), the UI (U, #672) and the helper (H, #67
 - `AutomationKind` gains `event`; `Automation.trigger`; `AutomationRun.trigger` gains `event`; `AutomationRun.events`; `UpcomingItem.trigger` / `lastRunAt`.
 - `FeedPost.kind`, `FeedPost.refs`, `FeedPost.card`.
 - New methods `proposals.list | get | approve | dismiss | undo`; new event `proposal.updated`. Follow-ups use the memory graph's loops (`GraphLoop`, `memory.loops.*`, #650), not a second store.
+### v1 additive — 2026-10-26 (U, #640: connector settings from Settings → Connectors)
+
+For the UI session (U) and S09 (G, #639): `connectors.configure {connectorId, config}` merges non-secret keys into a connector's `config` (`null` removes one) without reconnecting it. Settings writes `apple:shortcuts`' `config.shortcutRules` (`off` / `ask` / `allow` per shortcut id) and Obsidian's `config.vaultPath` and `config.dailyFolder` through it. G implements the handler.
 ### v1 additive — 2026-10-26 (S09 for S14 #719: Things auth token)
 
 - `ThingsUpdateParams.authToken?` and `ThingsCompleteParams.authToken?`: Things' URL-scheme auth token, which the Gateway fills in from the vault for that call only. The model never writes it, no card shows it, and the helper neither logs nor stores it.

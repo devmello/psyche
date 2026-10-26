@@ -894,6 +894,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Side-effecting: merges non-secret settings into a connector's config (null removes a key) without reconnecting it; announced by connectors.updated.",
+        "name": "connectors.configure",
+        "params": "#/$defs/ConnectorsConfigureParams",
+        "result": "#/$defs/ConnectorsConfigureResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Side-effecting: starts connecting (or re-authorizing) a connector. OAuth connectors return at once with the consent page in `authorization`; the result arrives as connectors.updated.",
         "name": "connectors.connect",
         "params": "#/$defs/ConnectorsConnectParams",
@@ -10591,6 +10599,38 @@
       },
       "required": [
         "entries"
+      ],
+      "type": "object"
+    },
+    "ConnectorsConfigureParams": {
+      "properties": {
+        "connectorId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "config": {
+          "patternProperties": {
+            "^(.*)$": {}
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "connectorId",
+        "config"
+      ],
+      "type": "object"
+    },
+    "ConnectorsConfigureResult": {
+      "properties": {
+        "connector": {
+          "$ref": "#/$defs/Connector"
+        }
+      },
+      "required": [
+        "connector"
       ],
       "type": "object"
     },
