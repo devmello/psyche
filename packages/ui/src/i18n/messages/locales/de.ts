@@ -884,7 +884,6 @@ export const de: Partial<Catalogue> = {
   "settings.nav.model": "Modell & Anbieter",
   "settings.nav.persona": "Persona",
   "settings.nav.connectors": "Verbindungen",
-  "settings.nav.mcp": "MCP-Server",
   "settings.nav.skills": "Skills",
   "settings.nav.permissions": "Berechtigungen",
   "settings.nav.computerUse": "Computersteuerung",
@@ -1487,11 +1486,8 @@ export const de: Partial<Catalogue> = {
   "settings.connectors.catalog.appleMail": "Apple Mail",
   "settings.connectors.catalog.mcp": "MCP-Server",
   "settings.connectors.catalog.slack": "Slack",
-  "settings.connectors.mcpExplain":
-    "MCP-Server binden externe Werkzeugserver ein, die das Model Context Protocol sprechen. Füge einen unter „Einstellungen“ → „MCP-Server“ hinzu.",
   "settings.connectors.slackExplain":
     "Slack ist ein Kanal: Du chattest dort mit Psyche. Richte es unter „Einstellungen“ → „Kanäle“ ein.",
-  "settings.connectors.openMcp": "MCP-Server öffnen",
   "settings.connectors.openChannels": "Kanäle öffnen",
   "settings.connectors.status.connected": "Verbunden",
   "settings.connectors.status.disconnected": "Getrennt",
@@ -1518,10 +1514,6 @@ export const de: Partial<Catalogue> = {
   "settings.connectors.accountType": "Account-Typ",
   "settings.connectors.whatCan": "Was darf {persona} damit tun?",
   "settings.connectors.continue": "Weiter zur Anmeldung",
-  "settings.mcp.title": "MCP-Server",
-  "settings.mcp.description":
-    "Externe Werkzeugserver, die das Model Context Protocol sprechen. Befehlsserver laufen in der Sandbox; jeder wird geprüft und bestätigt, bevor Psyche seine Werkzeuge verwenden kann.",
-  "settings.mcp.loadLabel": "MCP-Server",
   "settings.mcp.empty":
     "Noch keine MCP-Server. Füge einen hinzu, um Psyche seine Werkzeuge zu geben.",
   "settings.mcp.add": "MCP-Server hinzufügen",

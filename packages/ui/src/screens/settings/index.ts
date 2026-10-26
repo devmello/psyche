@@ -36,6 +36,7 @@ export {
   type ConnectorsPanelProps,
   ConnectorsSection,
   type ConnectorsSectionProps,
+  type ConnectorsView,
   type ScopeMode,
 } from "./ConnectorsSection.tsx";
 export {
@@ -132,6 +133,7 @@ export {
   type SkillTrustCardProps,
   skillSourceOf,
 } from "./SkillsSection.tsx";
+export { parseSettingsRoute, type SettingsTarget } from "./settings-route.ts";
 export { useSettingsForm } from "./shared.tsx";
 export type {
   AboutInfo,

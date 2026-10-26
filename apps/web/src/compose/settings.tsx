@@ -6,7 +6,7 @@ import {
   describeError,
   FileAccessPanel,
   type FolderGrant,
-  SETTINGS_SECTIONS,
+  parseSettingsRoute,
   SettingsScreen,
   type SettingsSectionId,
   t,
@@ -178,9 +178,7 @@ export function WebDevicesSettings({ platform }: { platform: ShellPlatform }): R
 }
 
 export function settingsSectionOf(route: string): SettingsSectionId | null {
-  const m = /^\/settings(?:\/([^/?#]+))?/.exec(route);
-  if (m === null) return null;
-  return SETTINGS_SECTIONS.find((s) => s.id === m[1])?.id ?? "model";
+  return parseSettingsRoute(route)?.section ?? null;
 }
 
 /** Voice & dictation with the desktop's system-wide dictation status (J9, Q2). */
@@ -236,8 +234,10 @@ export function settingsRoute(
   navigate: (to: string) => void,
   platform: ShellPlatform,
 ): ReactNode | null {
-  const section = settingsSectionOf(route);
-  if (section === null) return null;
+  // `/settings/mcp` (the old MCP section) lands on Connectors with the MCP servers showing.
+  const target = parseSettingsRoute(route);
+  if (target === null) return null;
+  const { section, view } = target;
   return (
     <section
       className="flex min-h-0 flex-1 flex-col overflow-auto"
@@ -246,6 +246,7 @@ export function settingsRoute(
     >
       <SettingsScreen
         section={section}
+        {...(view === undefined ? {} : { connectorsView: view })}
         onSectionChange={(id) => navigate(`/settings/${id}`)}
         onOpenTask={(taskId) => navigate(`/agent/activity/${taskId}`)}
         {...(platform.dialogs?.pickFolder

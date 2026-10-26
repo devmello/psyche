@@ -1,10 +1,9 @@
 import type { Connector, ConnectorCatalogueEntry } from "@psyche/protocol";
 import { Plug } from "lucide-react";
-import { type ReactElement, type ReactNode, useId, useState } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 import { usePrefillComposer } from "../../chat/prefill.ts";
 import { EmptyState } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
-import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
@@ -12,172 +11,50 @@ import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { usePersona } from "../../slots.tsx";
 import { type ActionRule, withMatrixOverrides } from "./ActionMatrix.tsx";
+import { ConnectForm } from "./ConnectForm.tsx";
 import { CapabilityCard } from "./ConnectorCapabilities.tsx";
-import { ConnectedShortcutsCard, ObsidianCard, VaultField } from "./ConnectorSettingsCards.tsx";
+import { ConnectorIcon } from "./ConnectorIcon.tsx";
+import { ConnectedShortcutsCard, ObsidianCard } from "./ConnectorSettingsCards.tsx";
 import {
   ConnectProgress,
   PermissionNotice,
   permissionOf,
   useConnectorConnect,
 } from "./connect-flow.tsx";
+import {
+  CONNECTOR_CATALOG,
+  SCOPE_MODE_LABEL,
+  type ScopeMode,
+  useImplementedTypes,
+} from "./connector-catalog.tsx";
 import { folderGrants, POLICY_KEY, policyWithFolders } from "./FileAccessSection.tsx";
+import { McpServerRow } from "./McpServerDetail.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
+import { SegmentedRadio } from "./SegmentedRadio.tsx";
 import {
   ErrorNotice,
   GROUP_ROWS,
-  Group,
   LoadGate,
   type LoadProps,
-  RadioField,
   SectionFrame,
   StatusChip,
   type Tone,
   useSettingsForm,
 } from "./shared.tsx";
+import { type McpState, useMcp } from "./use-mcp.tsx";
 
-/** Connectors (UI design §3.18; architecture §4.9). */
+/** Connectors (UI design §3.18; architecture §4.9): connected accounts and MCP servers, one list. */
 
-export type ScopeMode = Connector["scopeMode"];
-
-/** "Read only" / "Read and act", read in the active language on each access. */
-export const SCOPE_MODE_LABEL: Readonly<Record<ScopeMode, string>> = {
-  get read() {
-    return t("settings.connectors.scope.read");
-  },
-  get read_act() {
-    return t("settings.connectors.scope.read_act");
-  },
-};
-
-/** Read-only vs read-and-act, asked on every connect (Muse asks whether to read mail or also send). */
-export function ConnectAccessChoice({
-  label,
-  value,
-  onChange,
-  persona,
-}: {
-  label: string;
-  value: ScopeMode;
-  onChange: (mode: ScopeMode) => void;
-  persona: string;
-}): ReactElement {
-  return (
-    <RadioField
-      label={label}
-      value={value}
-      onChange={onChange}
-      options={[
-        {
-          value: "read",
-          label: SCOPE_MODE_LABEL.read,
-          hint: t("settings.connectors.scope.readHint", { persona }),
-        },
-        {
-          value: "read_act",
-          label: SCOPE_MODE_LABEL.read_act,
-          hint: t("settings.connectors.scope.readActHint", { persona }),
-        },
-      ]}
-    />
-  );
-}
-
-/** Connector types offered in the connect flow (and onboarding). */
-type CatalogType =
-  | "google"
-  | "microsoft"
-  | "imap"
-  | "apple:notes"
-  | "apple:reminders"
-  | "apple:calendar"
-  | "apple:mail"
-  | "apple:shortcuts"
-  | "obsidian"
-  | "mcp"
-  | "slack";
-
-/** Message ids for connector types (ids can't hold the type's colon). */
-const CATALOG_ID = {
-  google: "google",
-  microsoft: "microsoft",
-  imap: "imap",
-  "apple:notes": "appleNotes",
-  "apple:reminders": "appleReminders",
-  "apple:calendar": "appleCalendar",
-  "apple:mail": "appleMail",
-  "apple:shortcuts": "appleShortcuts",
-  obsidian: "obsidian",
-  mcp: "mcp",
-  slack: "slack",
-} as const satisfies Record<CatalogType, string>;
-
-/**
- * Rows that are not connectors: they open the Settings section where that thing is added
- * (#529). MCP servers have their own section; Slack is a channel, not an account to connect.
- */
-const OPENS: Partial<Record<CatalogType, "mcp" | "channels">> = { mcp: "mcp", slack: "channels" };
-
-const catalogEntry = <T extends CatalogType>(type: T) => ({
-  type,
-  /** Set for rows that open another Settings section instead of connecting. */
-  opens: OPENS[type],
-  /** The connector's name, in the active language. */
-  get label(): string {
-    return t(`settings.connectors.catalog.${CATALOG_ID[type as CatalogType]}`);
-  },
-});
-
-export const CONNECTOR_CATALOG = [
-  catalogEntry("google"),
-  catalogEntry("microsoft"),
-  catalogEntry("imap"),
-  catalogEntry("apple:notes"),
-  catalogEntry("apple:reminders"),
-  catalogEntry("apple:calendar"),
-  catalogEntry("apple:mail"),
-  catalogEntry("apple:shortcuts"),
-  catalogEntry("obsidian"),
-  catalogEntry("mcp"),
-  catalogEntry("slack"),
-] as const;
-
-/**
- * The catalog rows to offer: navigation rows always, connectors only when the Gateway's
- * catalogue has an available entry for the type (#529: nothing offered can fail with "no
- * connector implementation"). `implemented` undefined (not loaded yet) offers the connectors too.
- */
-export function offeredCatalog(
-  implemented: ReadonlySet<string> | undefined,
-  options: { navigation?: boolean } = {},
-) {
-  return CONNECTOR_CATALOG.filter((c) =>
-    c.opens !== undefined
-      ? options.navigation !== false
-      : implemented === undefined || implemented.has(c.type),
-  );
-}
-
-/**
- * Types that need a setting chosen before they can connect (Obsidian: its vault folder), so they
- * are set up in Settings → Connectors rather than from onboarding's lists (#640).
- */
-export function needsSetup(type: string): boolean {
-  return type === "obsidian";
-}
-
-/** One per machine (the Gateway's `singleInstance`, #549): offered once, then shown Connected. */
-export function isSingleInstance(type: string): boolean {
-  return type.startsWith("apple:");
-}
-
-/** Connector types the Gateway can connect: its catalogue's available entries. */
-export function useImplementedTypes(): ReadonlySet<string> | undefined {
-  const q = useGatewayQuery("connectors.catalogue", {});
-  const entries = q.data?.entries;
-  return entries === undefined
-    ? undefined
-    : new Set(entries.filter((e) => e.available).map((e) => e.type));
-}
+export {
+  CONNECTOR_CATALOG,
+  ConnectAccessChoice,
+  isSingleInstance,
+  needsSetup,
+  offeredCatalog,
+  SCOPE_MODE_LABEL,
+  type ScopeMode,
+  useImplementedTypes,
+} from "./connector-catalog.tsx";
 
 const STATUS_TONE: Record<Connector["status"], Tone> = {
   connected: "success",
@@ -190,6 +67,7 @@ const STATUS_TONE: Record<Connector["status"], Tone> = {
 function trustTierLabel(tier: string): string {
   if (tier === "built-in") return t("settings.connectors.trust.builtIn");
   if (tier === "unverified") return t("settings.connectors.trust.unverified");
+  if (tier === "verified") return t("settings.connectors.trust.verified");
   return tier;
 }
 
@@ -204,6 +82,8 @@ function lastUsed(c: Connector): string | null {
   const at = c.lastSync?.at;
   return typeof at === "string" ? at : null;
 }
+
+export type ConnectorFilter = "all" | "apps" | "mcp";
 
 export interface ConnectorsPanelProps extends LoadProps {
   connectors: readonly Connector[];
@@ -226,8 +106,14 @@ export interface ConnectorsPanelProps extends LoadProps {
   connectProgress?: ReactNode;
   /** Connector types the Gateway can connect; undefined offers every catalog row. */
   implemented?: ReadonlySet<string> | undefined;
-  /** Opens another Settings section (the MCP and Slack rows). */
-  onOpenSection?: (section: "mcp" | "channels") => void;
+  /** Opens another Settings section (the Slack row). */
+  onOpenSection?: (section: "channels") => void;
+  /** MCP servers, listed with the connectors and added from the catalogue's Custom MCP server row. */
+  mcp?: McpState;
+  /** Which connectors to list first (the old MCP route lands on `mcp`). */
+  defaultFilter?: ConnectorFilter;
+  /** The catalogue row the add form starts on (stories, the "Add MCP server" shortcut). */
+  defaultAddType?: string;
   /** Re-reads a connector's state (`connectors.status`): a macOS grant given meanwhile (#549). */
   onCheck?: (connector: Connector) => void;
   /** "Open System Settings" for a connector waiting on a macOS grant (reconnects it, #549). */
@@ -254,6 +140,9 @@ export function ConnectorsPanel({
   connectProgress,
   implemented,
   onOpenSection,
+  mcp,
+  defaultFilter = "all",
+  defaultAddType,
   onCheck,
   onGrant,
   sharedFolders = [],
@@ -276,18 +165,34 @@ export function ConnectorsPanel({
       else next.add(id);
       return next;
     });
-  const [adding, setAdding] = useState(defaultAdding);
+  const [adding, setAdding] = useState(defaultAdding || defaultAddType !== undefined);
+  const [addType, setAddType] = useState(defaultAddType);
+  const [filter, setFilter] = useState<ConnectorFilter>(defaultFilter);
+  const isMcp = (c: Connector) => c.type === "mcp";
+  const apps = connectors.filter((c) => !isMcp(c));
+  const servers = mcp?.servers ?? [];
+  const mcpConnectors = connectors.filter(isMcp);
+  const showApps = filter !== "mcp";
+  const showMcp = filter !== "apps";
+  const rows = [...(showApps ? apps : []), ...(showMcp ? mcpConnectors : [])];
+  const mcpCount = mcpConnectors.length + servers.length;
+  const total = apps.length + mcpCount;
+  const startAdding = (type?: string) => {
+    setAddType(type);
+    setAdding(true);
+  };
   const addButton = onConnect ? (
-    <Button type="button" size="sm" onClick={() => setAdding(true)} disabled={adding}>
+    <Button type="button" size="sm" onClick={() => startAdding()} disabled={adding}>
       <Plug aria-hidden="true" /> {t("settings.connectors.connect")}
     </Button>
   ) : null;
+  const review = mcp?.review ?? null;
   return (
     <SectionFrame
       title={t("settings.connectors.title")}
       description={t("settings.connectors.description")}
       // One primary action: the header's button, or the empty state's when nothing is connected.
-      actions={connectors.length > 0 || loading || error ? addButton : null}
+      actions={total > 0 || loading || error ? addButton : null}
     >
       <LoadGate
         label={t("settings.connectors.loadLabel")}
@@ -296,25 +201,50 @@ export function ConnectorsPanel({
         {...(onRetry ? { onRetry } : {})}
       >
         {connectProgress}
+        <div role="status" className="text-sm empty:hidden">
+          {mcp?.notice ? <p>{mcp.notice}</p> : null}
+        </div>
+        {mcp?.actionError ? (
+          <ErrorNotice what={mcp.actionError} did={t("settings.skills.nothingChanged")} />
+        ) : null}
+        {review}
         {adding && onConnect ? (
-          <ConnectForm
-            persona={persona}
-            implemented={implemented}
-            connectedTypes={
-              new Set(connectors.filter((c) => c.status !== "disconnected").map((c) => c.type))
-            }
-            {...(onOpenSection ? { onOpenSection } : {})}
-            sharedFolders={sharedFolders}
-            {...(onShareFolder ? { onShareFolder } : {})}
-            onCancel={() => setAdding(false)}
-            onConnect={(type, mode, config) => {
-              if (config === undefined) onConnect(type, mode);
-              else onConnect(type, mode, config);
-              setAdding(false);
-            }}
+          // Hidden, not unmounted, while the trust card is open: cancelling it returns to the form.
+          <div hidden={review !== null}>
+            <ConnectForm
+              persona={persona}
+              initialType={addType}
+              {...(mcp ? { mcp } : {})}
+              implemented={implemented}
+              connectedTypes={
+                new Set(connectors.filter((c) => c.status !== "disconnected").map((c) => c.type))
+              }
+              {...(onOpenSection ? { onOpenSection } : {})}
+              sharedFolders={sharedFolders}
+              {...(onShareFolder ? { onShareFolder } : {})}
+              onCancel={() => setAdding(false)}
+              onConnect={(type, mode, config) => {
+                if (config === undefined) onConnect(type, mode);
+                else onConnect(type, mode, config);
+                setAdding(false);
+              }}
+            />
+          </div>
+        ) : null}
+        {total > 0 || filter !== "all" ? (
+          <SegmentedRadio
+            label={t("settings.connectors.filter.label")}
+            value={filter}
+            onChange={setFilter}
+            className="self-start"
+            options={[
+              { value: "all", label: t("settings.connectors.filter.all") },
+              { value: "apps", label: t("settings.connectors.filter.apps") },
+              { value: "mcp", label: t("settings.connectors.filter.mcp") },
+            ]}
           />
         ) : null}
-        {connectors.length === 0 ? (
+        {rows.length === 0 && (!showMcp || servers.length === 0) ? (
           adding ? null : (
             <EmptyState
               icon={Plug}
@@ -322,19 +252,22 @@ export function ConnectorsPanel({
               {...(onConnect
                 ? {
                     action: {
-                      label: t("settings.connectors.connect"),
-                      onClick: () => setAdding(true),
+                      label:
+                        filter === "mcp" ? t("settings.mcp.add") : t("settings.connectors.connect"),
+                      onClick: () => startAdding(filter === "mcp" ? "mcp" : undefined),
                     },
                   }
                 : {})}
             >
-              {t("settings.connectors.empty", { persona })}
+              {filter === "mcp"
+                ? t("settings.mcp.empty")
+                : t("settings.connectors.empty", { persona })}
             </EmptyState>
           )
         ) : (
           // A grouped inset list, one row per account (redesign §5.8); scopes are technical names.
           <ul className={GROUP_ROWS}>
-            {connectors.map((c) => {
+            {rows.map((c) => {
               const used = lastUsed(c);
               const permission = permissionOf(c);
               const technical = shownScopes.has(c.id);
@@ -342,6 +275,7 @@ export function ConnectorsPanel({
                 <li key={c.id}>
                   <article aria-label={c.label} className="flex flex-col gap-1.5">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <ConnectorIcon type={c.type} />
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="text-headline text-label-primary">{c.label}</h3>
@@ -350,6 +284,9 @@ export function ConnectorsPanel({
                               ? t("settings.connectors.status.needsPermission")
                               : t(`settings.connectors.status.${c.status}`)}
                           </StatusChip>
+                          {isMcp(c) ? (
+                            <StatusChip tone="neutral">{t("settings.mcp.badge")}</StatusChip>
+                          ) : null}
                           <StatusChip tone="neutral">{SCOPE_MODE_LABEL[c.scopeMode]}</StatusChip>
                           <StatusChip tone={trustTier(c) === "built-in" ? "info" : "approval"}>
                             {t("settings.connectors.trust", { tier: trustTierLabel(trustTier(c)) })}
@@ -498,115 +435,17 @@ export function ConnectorsPanel({
                 </li>
               );
             })}
+            {showMcp
+              ? servers.map((s) => (
+                  <li key={s.id}>
+                    <McpServerRow server={s} {...(mcp ? { onRemove: mcp.remove } : {})} />
+                  </li>
+                ))
+              : null}
           </ul>
         )}
       </LoadGate>
     </SectionFrame>
-  );
-}
-
-function ConnectForm({
-  persona,
-  implemented,
-  connectedTypes,
-  onConnect,
-  onCancel,
-  onOpenSection,
-  sharedFolders,
-  onShareFolder,
-}: {
-  persona: string;
-  implemented: ReadonlySet<string> | undefined;
-  connectedTypes: ReadonlySet<string>;
-  onConnect: (type: string, mode: ScopeMode, config?: Record<string, unknown>) => void;
-  onCancel: () => void;
-  onOpenSection?: (section: "mcp" | "channels") => void;
-  sharedFolders: readonly string[];
-  onShareFolder?: (path: string, mode: ScopeMode) => void;
-}): ReactElement {
-  const id = useId();
-  const rows = offeredCatalog(implemented, { navigation: onOpenSection !== undefined });
-  // A one-per-machine connector that is already there is listed as Connected, not offered.
-  const taken = (type: string) => isSingleInstance(type) && connectedTypes.has(type);
-  const open = rows.filter((c) => !taken(c.type));
-  const [picked, setType] = useState<string>(open[0]?.type ?? "");
-  const type = open.some((c) => c.type === picked) ? picked : (open[0]?.type ?? "");
-  const opens = rows.find((c) => c.type === type)?.opens;
-  const [mode, setMode] = useState<ScopeMode>("read");
-  // Obsidian connects to a vault folder shared through File access (#640).
-  const [vault, setVault] = useState("");
-  const vaultPath = vault.trim();
-  const needsVault = needsSetup(type);
-  const vaultReady = !needsVault || (vaultPath !== "" && sharedFolders.includes(vaultPath));
-  return (
-    <Group title={t("settings.connectors.connect")}>
-      <div className="flex flex-col gap-1">
-        <label htmlFor={`${id}-type`} className="font-medium">
-          {t("settings.connectors.accountType")}
-        </label>
-        <NativeSelect
-          id={`${id}-type`}
-          className="min-w-56"
-          value={type}
-          onChange={(e) => setType(e.target.value)}
-        >
-          {rows.map((c) => (
-            <option key={c.type} value={c.type} disabled={taken(c.type)}>
-              {taken(c.type)
-                ? t("settings.connectors.catalog.connected", { name: c.label })
-                : c.label}
-            </option>
-          ))}
-        </NativeSelect>
-      </div>
-      {opens !== undefined ? (
-        <p className="text-sm text-muted-foreground">
-          {t(
-            opens === "mcp" ? "settings.connectors.mcpExplain" : "settings.connectors.slackExplain",
-          )}
-        </p>
-      ) : (
-        <>
-          <ConnectAccessChoice
-            label={t("settings.connectors.whatCan", { persona })}
-            value={mode}
-            onChange={setMode}
-            persona={persona}
-          />
-          {needsVault ? (
-            <VaultField
-              value={vault}
-              onChange={setVault}
-              granted={sharedFolders}
-              {...(onShareFolder ? { onShare: (path: string) => onShareFolder(path, mode) } : {})}
-            />
-          ) : null}
-        </>
-      )}
-      <div className="flex gap-2">
-        {opens !== undefined ? (
-          <Button type="button" size="sm" onClick={() => onOpenSection?.(opens)}>
-            {t(
-              opens === "mcp" ? "settings.connectors.openMcp" : "settings.connectors.openChannels",
-            )}
-          </Button>
-        ) : (
-          <Button
-            type="button"
-            size="sm"
-            disabled={type === "" || !vaultReady}
-            onClick={() =>
-              needsVault ? onConnect(type, mode, { vaultPath }) : onConnect(type, mode)
-            }
-          >
-            {t("settings.connectors.continue")}
-          </Button>
-        )}
-        <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-          {t("common.cancel")}
-        </Button>
-      </div>
-    </Group>
   );
 }
 
@@ -618,11 +457,21 @@ export interface ConnectorsSectionProps {
   onReconnect?: (connector: Connector) => void;
   onDisconnect?: (connector: Connector) => void;
   onRemove?: (connector: Connector) => void;
-  onOpenSection?: (section: "mcp" | "channels") => void;
+  onOpenSection?: (section: "channels") => void;
+  /** Where the section opens: the MCP servers only, or with the Add MCP server form showing. */
+  view?: ConnectorsView;
 }
 
-export function ConnectorsSection({ persona, ...props }: ConnectorsSectionProps): ReactElement {
+export type ConnectorsView = "mcp" | "add-mcp";
+
+export function ConnectorsSection({
+  persona,
+  view,
+  now,
+  ...props
+}: ConnectorsSectionProps): ReactElement {
   const fallback = usePersona();
+  const mcp = useMcp(now);
   const q = useGatewayQuery("connectors.list", {});
   const implemented = useImplementedTypes();
   const catalogue = useGatewayQuery("connectors.catalogue", {}).data?.entries;
@@ -655,7 +504,13 @@ export function ConnectorsSection({ persona, ...props }: ConnectorsSectionProps)
   return (
     <div className="flex flex-col gap-3">
       <ConnectorsPanel
+        // A new landing (⌘K "Add MCP server") starts the panel over on that view.
+        key={view ?? "default"}
         {...props}
+        {...(now === undefined ? {} : { now })}
+        mcp={mcp}
+        {...(view === undefined ? {} : { defaultFilter: "mcp" as const })}
+        {...(view === "add-mcp" ? { defaultAddType: "mcp" } : {})}
         {...(builtIn
           ? {
               onConnect: (type: string, mode: ScopeMode, config?: Record<string, unknown>) =>

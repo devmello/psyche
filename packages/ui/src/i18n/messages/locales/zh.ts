@@ -843,7 +843,6 @@ export const zh: Partial<Catalogue> = {
   "settings.nav.model": "模型与提供商",
   "settings.nav.persona": "角色",
   "settings.nav.connectors": "连接器",
-  "settings.nav.mcp": "MCP 服务器",
   "settings.nav.skills": "技能",
   "settings.nav.permissions": "权限",
   "settings.nav.computerUse": "电脑使用",
@@ -1407,11 +1406,8 @@ export const zh: Partial<Catalogue> = {
   "settings.connectors.catalog.appleMail": "Apple 邮件",
   "settings.connectors.catalog.mcp": "MCP 服务器",
   "settings.connectors.catalog.slack": "Slack",
-  "settings.connectors.mcpExplain":
-    "MCP 服务器用于接入使用 Model Context Protocol 的外部工具服务器。请在“设置 → MCP 服务器”中添加。",
   "settings.connectors.slackExplain":
     "Slack 是一个渠道：你在那里与 Psyche 聊天。请在“设置 → 渠道”中设置。",
-  "settings.connectors.openMcp": "打开 MCP 服务器",
   "settings.connectors.openChannels": "打开渠道",
   "settings.connectors.status.connected": "已连接",
   "settings.connectors.status.disconnected": "已断开",
@@ -1437,10 +1433,6 @@ export const zh: Partial<Catalogue> = {
   "settings.connectors.accountType": "账户类型",
   "settings.connectors.whatCan": "{persona} 可以用它做什么？",
   "settings.connectors.continue": "继续登录",
-  "settings.mcp.title": "MCP 服务器",
-  "settings.mcp.description":
-    "使用 Model Context Protocol 的外部工具服务器。命令型服务器在沙盒中运行；每个服务器都会先经检查和批准，Psyche 才能使用其工具。",
-  "settings.mcp.loadLabel": "MCP 服务器",
   "settings.mcp.empty": "还没有 MCP 服务器。添加一个，为 Psyche 提供工具。",
   "settings.mcp.add": "添加 MCP 服务器",
   "settings.mcp.addHint": "Psyche 会在沙盒中启动该服务器，列出其工具，并在添加前请你批准。",

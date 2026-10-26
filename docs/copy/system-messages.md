@@ -192,7 +192,7 @@ One status vocabulary everywhere: **Queued**, **Working**, **Needs you**, **Done
 | Goals | "Tell {agent} a goal in chat, or add one here." | **Add a goal** |
 | Library | "Files {agent} makes or receives show up here." | **Add files** |
 | Search, no results | "Nothing matches "{query}"." | **Clear filters** |
-| Connectors | "No accounts connected." | **Connect an account** |
+| Connectors | "No accounts connected." | **Add connector** |
 | Credentials | "The vault is empty. {agent} uses your sign-ins in its browser first, and asks you to type passwords yourself." | **Add item** |
 | Daily notes | "No notes yet today." | — |
 | Grants ledger | "No standing approvals." | — |

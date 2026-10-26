@@ -46,6 +46,7 @@ import {
   sampleSettings,
 } from "./sample-data.ts";
 import { UsagePanel } from "./UsageSection.tsx";
+import type { McpState } from "./use-mcp.tsx";
 import { VmPanel } from "./VmSection.tsx";
 import { VoicePanel } from "./VoiceSection.tsx";
 
@@ -196,6 +197,60 @@ export const ConnectorsError: Story = {
 };
 export const ConnectorsConnectFlow: Story = {
   render: () => <ConnectorsPanel {...connectorProps} connectors={world.connectors} defaultAdding />,
+};
+const mcpServers: McpState["servers"] = [
+  {
+    id: "files",
+    name: "Files",
+    trust: "unknown",
+    transport: "stdio",
+    network: false,
+    connected: true,
+  },
+  {
+    id: "linear",
+    name: "Linear",
+    trust: "verified",
+    transport: "http",
+    network: true,
+    connected: false,
+  },
+];
+const mcpState = (servers: McpState["servers"]): McpState => ({
+  servers,
+  launcher: "srt",
+  loading: false,
+  error: null,
+  reload: noop,
+  checking: false,
+  actionError: null,
+  notice: null,
+  review: null,
+  check: noop,
+  remove: noop,
+});
+/** Built-in connectors and MCP servers in one list: the same row, an MCP badge and a trust badge. */
+export const ConnectorsWithMcpServers: Story = {
+  render: () => (
+    <ConnectorsPanel {...connectorProps} connectors={world.connectors} mcp={mcpState(mcpServers)} />
+  ),
+};
+/** The Custom MCP server row of Add connector: its form opens in place. */
+export const ConnectorsAddMcpServer: Story = {
+  render: () => (
+    <ConnectorsPanel
+      {...connectorProps}
+      connectors={world.connectors}
+      mcp={mcpState(mcpServers)}
+      defaultAddType="mcp"
+    />
+  ),
+};
+/** The MCP filter with no servers yet (the old MCP route lands here). */
+export const ConnectorsMcpEmpty: Story = {
+  render: () => (
+    <ConnectorsPanel {...connectorProps} connectors={[]} mcp={mcpState([])} defaultFilter="mcp" />
+  ),
 };
 /** Shortcuts (the helper's list, off / ask / allow) and an Obsidian vault (#640). */
 export const ConnectorsShortcutsAndObsidian: Story = {
