@@ -153,11 +153,12 @@ const CreateInput = Type.Object({
     Type.Literal("chart"),
     Type.Literal("diagram"),
     Type.Literal("diff"),
+    Type.Literal("html"),
   ]),
   title: Type.String({ minLength: 1, maxLength: 200 }),
   content: Type.String({
     description:
-      "doc: markdown. code: the source. table: CSV with a header row, or JSON {columns, rows}. chart: JSON {kind: bar|line|area|pie, categories, series: [{name, values}]}. diagram: Mermaid text. diff: a unified diff.",
+      "doc: markdown. code: the source. table: CSV with a header row, or JSON {columns, rows}. chart: JSON {kind: bar|line|area|pie, categories, series: [{name, values}]}. diagram: Mermaid text. diff: a unified diff. html: one self-contained HTML document (inline CSS and script only; it runs in a sandbox with no network, so never reference outside URLs).",
   }),
   language: Type.Optional(Type.String({ maxLength: 40, description: "code only, e.g. ts, py" })),
 });

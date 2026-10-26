@@ -7,6 +7,8 @@ export const CANVAS_IDS = {
   table: "art_canvas_table",
   chart: "art_canvas_chart",
   diff: "art_canvas_diff",
+  html: "art_canvas_html",
+  htmlUntrusted: "art_canvas_html_untrusted",
 } as const;
 
 const DOC_V1 = "# Lisbon, 3 days\n\n## Day 1\n- Alfama walk\n- Dinner in Bairro Alto\n";
@@ -40,6 +42,8 @@ const DIFF = `--- a/itinerary.md
 +- Pastéis in Belém
  - Dinner in Bairro Alto
 `;
+
+const HTML = '<h1>Packing list</h1><button onclick="alert(1)">Open</button>';
 
 const at = (min: number) => new Date(Date.parse(FIXTURE_NOW) - min * 60_000).toISOString();
 
@@ -119,8 +123,27 @@ export function canvasFixtures(): {
     threadId: IDS.threads.lisbon,
     bytes: DIFF.length,
   };
+  const html: Artifact = {
+    id: CANVAS_IDS.html,
+    libraryItemId: "lib_canvas_html",
+    type: "html",
+    title: "Packing page",
+    version: 1,
+    nameSlug: "packing-page",
+    sourceRef: null,
+    updatedAt: at(11),
+    threadId: IDS.threads.lisbon,
+    bytes: HTML.length,
+  };
+  const htmlUntrusted: Artifact = {
+    ...html,
+    id: CANVAS_IDS.htmlUntrusted,
+    title: "Page from an email",
+    updatedAt: at(12),
+    untrusted: true,
+  };
   return {
-    artifacts: [doc, table, chart, diff],
+    artifacts: [doc, table, chart, diff, html, htmlUntrusted],
     artifactHistory: {
       [doc.id]: {
         contents: [DOC_V1, DOC_V2, DOC_V3],
@@ -140,6 +163,16 @@ export function canvasFixtures(): {
         contents: [DIFF],
         views: [null],
         versions: [version(diff.id, 1, "specialist", "4 lines", 9)],
+      },
+      [html.id]: {
+        contents: [HTML],
+        views: [null],
+        versions: [version(html.id, 1, "agent", "1 lines", 11)],
+      },
+      [htmlUntrusted.id]: {
+        contents: [HTML],
+        views: [null],
+        versions: [version(htmlUntrusted.id, 1, "agent", "1 lines", 12)],
       },
       [table.id]: {
         contents: [TABLE],

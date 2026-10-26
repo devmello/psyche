@@ -3,6 +3,10 @@ import type { Catalogue } from "../../index.ts";
 /** Output canvas strings (hi); merged into `../hi.ts`. */
 export const canvas: Partial<Catalogue> = {
   "canvas.chart": "चार्ट",
+  "canvas.htmlOff":
+    "यह अविश्वसनीय सामग्री से आया है, इसलिए पूर्वावलोकन बंद है। केवल तभी चलाएँ जब आप इस पर भरोसा करते हों। यह बिना नेटवर्क वाले सैंडबॉक्स में चलता है।",
+  "canvas.htmlRun": "चलाएँ",
+  "canvas.htmlNoPreview": "यह होस्ट HTML का पूर्वावलोकन नहीं कर सकता; स्रोत दिखाया गया है।",
   "canvas.label": "कैनवास: {title}",
   "canvas.recents": "हाल के आउटपुट",
   "canvas.loading": "लोड हो रहा है…",

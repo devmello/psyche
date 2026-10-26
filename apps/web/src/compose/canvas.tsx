@@ -1,5 +1,11 @@
-import { type ArtifactRenderProps, CanvasPane, UiSlotsProvider, useLibraryItem } from "@psyche/ui";
-import { ViewerHost } from "@psyche/viewers";
+import {
+  type ArtifactRenderProps,
+  CanvasPane,
+  UiSlotsProvider,
+  useLibraryItem,
+  useSlots,
+} from "@psyche/ui";
+import { ArtifactFrame, ViewerHost } from "@psyche/viewers";
 import { mimeFromName } from "@psyche/viewers/core/detect";
 import { type ReactElement, type ReactNode, useCallback, useEffect, useId, useState } from "react";
 import { ConnectedFileViewer } from "./viewers.tsx";
@@ -106,7 +112,29 @@ function DiagramBody({ source }: { source: string }): ReactElement {
   );
 }
 
+/**
+ * An HTML artifact in the artifact sandbox (docs/design/chat-experience-2026.md §4.6): an
+ * `<iframe sandbox="allow-scripts">` without `allow-same-origin` (an opaque origin), a CSP with
+ * `connect-src 'none'`, `form-action 'none'`, no frames, workers or remote images, links opened
+ * only on a real click through the host, and a typed postMessage bridge. The kit keeps this off
+ * for artifacts from untrusted sources until the owner presses Run.
+ */
+function HtmlBody({ props }: { props: ArtifactRenderProps }): ReactElement {
+  const { openExternal } = useSlots();
+  return (
+    <ArtifactFrame
+      html={props.content.content}
+      title={props.artifact.title}
+      version={props.content.version}
+      policy={{ allowScripts: true }}
+      minHeight={240}
+      onOpenLink={(href) => void openExternal?.(href)}
+    />
+  );
+}
+
 export function renderArtifact(props: ArtifactRenderProps): ReactNode {
+  if (props.artifact.type === "html" && !props.editing) return <HtmlBody props={props} />;
   if (props.artifact.type === "diagram" && !props.editing)
     return <DiagramBody source={props.content.content} />;
   if (props.artifact.type === "code" && !props.editing) return <CodeBody props={props} />;
