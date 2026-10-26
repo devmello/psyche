@@ -2,6 +2,7 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { PROTOCOL_VERSION } from "@psyche/protocol";
+import { handleMapProxy, MAP_PROXY_PREFIX } from "./map-proxy.ts";
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -21,6 +22,7 @@ const CSP = [
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
+  "worker-src 'self' blob:",
   "connect-src 'self'",
   "frame-ancestors 'none'",
   "base-uri 'none'",
@@ -30,6 +32,8 @@ const CSP = [
 export interface HttpDeps {
   webRoot: string | null;
   version: string;
+  /** The tile origins the map proxy may reach (read per request); no proxy route without it. */
+  mapOrigins?: () => string[];
 }
 
 function send(res: ServerResponse, status: number, body: string, type = "application/json"): void {
@@ -160,6 +164,10 @@ export function handleHttp(req: IncomingMessage, res: ServerResponse, deps: Http
       200,
       JSON.stringify({ name: "psyched", version: deps.version, protocolVersion: PROTOCOL_VERSION }),
     );
+    return;
+  }
+  if (url.pathname.startsWith(MAP_PROXY_PREFIX) && deps.mapOrigins !== undefined) {
+    void handleMapProxy(req, res, deps.mapOrigins);
     return;
   }
   serveStatic(url.pathname, res, deps.webRoot);

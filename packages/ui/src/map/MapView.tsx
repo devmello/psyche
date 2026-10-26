@@ -3,7 +3,13 @@ import { type ReactElement, useEffect, useRef, useState } from "react";
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { useTheme } from "../theme/ThemeProvider.tsx";
-import { type MapSource, markersGeoJson, routesGeoJson, viewBounds } from "./map-model.ts";
+import {
+  type MapSource,
+  markersGeoJson,
+  proxiedUrl,
+  routesGeoJson,
+  viewBounds,
+} from "./map-model.ts";
 
 /**
  * The tiled map (MapLibre GL JS, loaded on first use so the main bundle stays lean). It draws the
@@ -71,6 +77,7 @@ export function MapView({
             "CooperativeGesturesHandler.MacHelpText": t("map.gesture.mac"),
             "CooperativeGesturesHandler.MobileHelpText": t("map.gesture.mobile"),
           },
+          transformRequest: (url) => ({ url: proxiedUrl(url, window.location.origin) }),
           dragRotate: false,
           pitchWithRotate: false,
           fadeDuration: 0,

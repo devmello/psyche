@@ -42,7 +42,7 @@ export const canvas: Partial<Catalogue> = {
   "map.gesture.mobile": "Utilisez deux doigts pour déplacer la carte",
   "settings.map.title": "Cartes",
   "settings.map.privacy":
-    "Afficher une carte demande à un serveur de tuiles la zone que vous regardez ; il peut donc savoir à peu près où vous regardez. Désactivez les tuiles pour voir les lieux en liste seulement, ou utilisez votre propre serveur.",
+    "Afficher une carte demande à un serveur de tuiles la zone que vous regardez ; il peut donc savoir à peu près où vous regardez. Désactivez les tuiles pour voir les lieux en liste seulement, ou utilisez votre propre serveur. Les requêtes passent par votre Gateway : le serveur de tuiles voit le Gateway, pas votre appareil.",
   "settings.map.tiles": "Afficher les tuiles de carte",
   "settings.map.tilesHint": "Désactivé affiche les lieux en liste, sans requête de carte.",
   "settings.map.style": "URL de style du serveur de tuiles",

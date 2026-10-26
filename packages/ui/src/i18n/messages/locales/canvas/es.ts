@@ -42,7 +42,7 @@ export const canvas: Partial<Catalogue> = {
   "map.gesture.mobile": "Usa dos dedos para mover el mapa",
   "settings.map.title": "Mapas",
   "settings.map.privacy":
-    "Mostrar un mapa pide al servidor de teselas la zona que miras, así que ese servidor puede saber aproximadamente dónde miras. Desactiva las teselas para ver los lugares solo en lista, o usa tu propio servidor.",
+    "Mostrar un mapa pide al servidor de teselas la zona que miras, así que ese servidor puede saber aproximadamente dónde miras. Desactiva las teselas para ver los lugares solo en lista, o usa tu propio servidor. Las peticiones pasan por tu Gateway, así que el servidor de teselas ve el Gateway, no tu dispositivo.",
   "settings.map.tiles": "Mostrar teselas del mapa",
   "settings.map.tilesHint": "Desactivado muestra los lugares en una lista sin peticiones de mapa.",
   "settings.map.style": "URL de estilo del servidor de teselas",
