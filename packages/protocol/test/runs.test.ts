@@ -341,11 +341,11 @@ describe("psyche-trace+json v1", () => {
           text: undefined,
           childRunId: "run_helper",
         },
-      ],
+      ] as unknown as RunStep[],
       tools: { [toolStep.id]: "web.search" },
       payloads: { [toolStep.id]: { input: { q: "SFO" }, output: "5 flights" } },
       thinking: { [thinkingStep.id]: "full text" },
-      children: [{ run: helperRun, steps: [helperStep] }],
+      children: [{ run: helperRun, steps: [helperStep] as unknown as RunStep[] }],
       frames: [{ seq: 1, at: AT, stepId: toolStep.id }],
     });
     expect(check(PsycheTrace, trace)).toBe(true);

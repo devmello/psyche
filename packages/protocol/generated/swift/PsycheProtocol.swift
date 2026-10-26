@@ -15698,22 +15698,41 @@ public struct Limit: Codable, Sendable {
 // MARK: - Used
 public struct Used: Codable, Sendable {
     public let costUsd: Double?
+    public let retried: Retried?
     public let steps: Int
     public let tokens: Int
     public let wallMS: Int
 
     public enum CodingKeys: String, CodingKey {
         case costUsd = "costUsd"
+        case retried = "retried"
         case steps = "steps"
         case tokens = "tokens"
         case wallMS = "wallMs"
     }
 
-    public init(costUsd: Double?, steps: Int, tokens: Int, wallMS: Int) {
+    public init(costUsd: Double?, retried: Retried?, steps: Int, tokens: Int, wallMS: Int) {
         self.costUsd = costUsd
+        self.retried = retried
         self.steps = steps
         self.tokens = tokens
         self.wallMS = wallMS
+    }
+}
+
+// MARK: - Retried
+public struct Retried: Codable, Sendable {
+    public let costUsd: Double?
+    public let tokens: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case costUsd = "costUsd"
+        case tokens = "tokens"
+    }
+
+    public init(costUsd: Double?, tokens: Int) {
+        self.costUsd = costUsd
+        self.tokens = tokens
     }
 }
 

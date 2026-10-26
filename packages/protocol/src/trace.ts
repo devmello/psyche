@@ -30,7 +30,7 @@ export interface TraceRunInput {
 export interface TraceInput extends TraceRunInput {
   exportedAt: string;
   children?: readonly TraceRunInput[];
-  frames?: readonly { seq: number; at: string; stepId: string | null }[];
+  frames?: readonly { seq: number; at: string; stepId?: string | null }[];
 }
 
 const OPERATION: Partial<Record<RunStep["kind"], string>> = {
@@ -120,7 +120,7 @@ export function buildPsycheTrace(input: TraceInput): PsycheTrace {
     frames: (input.frames ?? []).map((f) => ({
       seq: f.seq,
       at: f.at,
-      stepId: f.stepId,
+      stepId: f.stepId ?? null,
       file: `frames/${f.seq}.jpg`,
     })),
   };

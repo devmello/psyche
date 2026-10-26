@@ -21284,20 +21284,27 @@
         "limit": {
           "properties": {
             "steps": {
-              "minimum": 0,
+              "minimum": 1,
               "type": "integer"
             },
             "tokens": {
-              "minimum": 0,
+              "minimum": 1,
               "type": "integer"
             },
             "wallMs": {
-              "minimum": 0,
+              "minimum": 1,
               "type": "integer"
             },
             "costUsd": {
-              "minimum": 0,
-              "type": "number"
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           },
           "type": "object"
@@ -21326,6 +21333,29 @@
                   "type": "null"
                 }
               ]
+            },
+            "retried": {
+              "properties": {
+                "tokens": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "costUsd": {
+                  "anyOf": [
+                    {
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "tokens"
+              ],
+              "type": "object"
             }
           },
           "required": [

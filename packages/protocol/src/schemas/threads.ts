@@ -99,20 +99,30 @@ export const RunOrigin = StringEnum(["owner", "automation", "channel", "subagent
 });
 export type RunOrigin = Static<typeof RunOrigin>;
 
-/** A run's budget and what it used; `costUsd` is null for unpriced subscription runs. */
+/**
+ * A run's budget and what it used (run-trace §4.2; docs/agent/specialists-2026.md §4.6).
+ * `costUsd` is null for unpriced (subscription) runs; clients show "—".
+ */
 export const RunBudget = Type.Object(
   {
     limit: Type.Object({
-      steps: Type.Optional(Type.Integer({ minimum: 0 })),
-      tokens: Type.Optional(Type.Integer({ minimum: 0 })),
-      wallMs: Type.Optional(Type.Integer({ minimum: 0 })),
-      costUsd: Type.Optional(Type.Number({ minimum: 0 })),
+      steps: Type.Optional(Type.Integer({ minimum: 1 })),
+      tokens: Type.Optional(Type.Integer({ minimum: 1 })),
+      wallMs: Type.Optional(Type.Integer({ minimum: 1 })),
+      costUsd: Type.Optional(Nullable(Type.Number({ minimum: 0 }))),
     }),
     used: Type.Object({
       steps: Type.Integer({ minimum: 0 }),
       tokens: Type.Integer({ minimum: 0 }),
       wallMs: Type.Integer({ minimum: 0 }),
-      costUsd: Nullable(Type.Number({ minimum: 0 })),
+      costUsd: Type.Optional(Nullable(Type.Number({ minimum: 0 }))),
+      /** Spent on calls retried after provider or transport errors (specialists §4.6). */
+      retried: Type.Optional(
+        Type.Object({
+          tokens: Type.Integer({ minimum: 0 }),
+          costUsd: Nullable(Type.Number({ minimum: 0 })),
+        }),
+      ),
     }),
   },
   { $id: "RunBudget" },

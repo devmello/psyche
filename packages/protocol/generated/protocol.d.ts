@@ -5342,7 +5342,7 @@ export interface RunBudget {
 }
 
 export interface Limit {
-    costUsd?: number;
+    costUsd?: number | null;
     steps?:   number;
     tokens?:  number;
     wallMs?:  number;
@@ -5350,9 +5350,15 @@ export interface Limit {
 
 export interface Used {
     costUsd?: number | null;
+    retried?: Retried;
     steps:    number;
     tokens:   number;
     wallMs:   number;
+}
+
+export interface Retried {
+    costUsd?: number | null;
+    tokens:   number;
 }
 
 export type RunKind = "chat" | "task" | "automation" | "subagent";
