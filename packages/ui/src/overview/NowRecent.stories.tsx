@@ -1,11 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useState } from "react";
 import type { FixtureWorld } from "../fixtures/index.ts";
 import { applyRunTrace, TRACE_IDS } from "../fixtures/runs.ts";
 import { STORY_NOW, withWorld } from "../stories/harness.tsx";
 import { OverviewRun } from "./OverviewRun.tsx";
 import { OverviewScreen } from "./OverviewScreen.tsx";
-import type { RecentFilter } from "./recent.ts";
 
 /**
  * Now & next, Upcoming and Recent runs on the Overview, and the Timeline page
@@ -36,13 +34,12 @@ function trace(w: FixtureWorld): void {
 function Page({
   firstActivityAt = SIX_WEEKS_AGO,
   width,
-  initialFilter = "all",
+  route = "/overview?period=30d",
 }: {
   firstActivityAt?: string | null;
   width?: number;
-  initialFilter?: RecentFilter;
+  route?: string;
 }) {
-  const [filter, setFilter] = useState<RecentFilter>(initialFilter);
   return (
     <div
       className="flex h-dvh min-h-0 flex-col overflow-auto bg-canvas"
@@ -53,8 +50,8 @@ function Page({
         onPeriodChange={() => {}}
         data={{ firstActivityAt }}
         now={STORY_NOW}
-        recentFilter={filter}
-        onRecentFilterChange={setFilter}
+        route={route}
+        onNavigate={() => {}}
       />
     </div>
   );
@@ -75,7 +72,7 @@ export const Compact: Story = {
 /** Recent runs filtered to failures, the way a "4 failed" link lands. */
 export const FailedFilter: Story = {
   decorators: [withWorld({ edit: trace })],
-  render: () => <Page initialFilter="failed" />,
+  render: () => <Page route="/overview?period=30d&filter=failed" />,
 };
 
 /** Nothing running, nothing scheduled, no runs: the quiet empty lines. */

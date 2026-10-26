@@ -8,16 +8,15 @@ import {
   dayOffset,
   groupUpcoming,
   isFrequent,
+  matchesRecent,
   NowSection,
   OverviewRun,
   overviewAnchor,
   overviewRedirect,
   overviewRunHref,
-  parseRecentFilter,
   RecentSection,
   recentRunsQuery,
   UpcomingSection,
-  withRecentFilter,
 } from "../src/overview/index.ts";
 import { STORY_NOW, StoryWorld, type StoryWorldProps } from "../src/stories/harness.tsx";
 
@@ -25,31 +24,39 @@ afterEach(cleanup);
 
 const HOUR = 3_600_000;
 
-describe("the recent filter in the URL", () => {
-  it("parses ?filter= and falls back to all", () => {
-    expect(parseRecentFilter("/overview?filter=failed")).toBe("failed");
-    expect(parseRecentFilter("/overview?period=30d&filter=automation#recent")).toBe("automation");
-    expect(parseRecentFilter("filter=chat")).toBe("chat");
-    expect(parseRecentFilter("/overview?filter=nope")).toBe("all");
-    expect(parseRecentFilter("/overview")).toBe("all");
+describe("the recent filter's query", () => {
+  const NOW = STORY_NOW;
+  const none = { filter: "all", day: null } as const;
+
+  it("asks the Gateway for finished runs in the period, narrowed by outcome or kind", () => {
+    const since = new Date(NOW - 29 * 24 * HOUR).toISOString();
+    expect(recentRunsQuery("30d", none, NOW)).toEqual({
+      status: ["done", "failed", "cancelled"],
+      since,
+    });
+    expect(recentRunsQuery("30d", { filter: "failed", day: null }, NOW).status).toEqual(["failed"]);
+    expect(recentRunsQuery("30d", { filter: "automations", day: null }, NOW).kind).toBe(
+      "automation",
+    );
+    expect(recentRunsQuery("30d", { filter: "chat", day: null }, NOW).kind).toBe("chat");
+    expect(recentRunsQuery("30d", { filter: "tasks", day: null }, NOW).status).toEqual(["done"]);
+    // All time has no lower bound; a day filter wins over the period.
+    expect(recentRunsQuery("all", none, NOW).since).toBeUndefined();
+    expect(recentRunsQuery("7d", { filter: "all", day: "2026-09-01" }, NOW).since).toMatch(
+      /^2026-08-31T/,
+    );
   });
 
-  it("writes it back, keeping the period and the hash, and leaving all clean", () => {
-    expect(withRecentFilter("/overview", "failed")).toBe("/overview?filter=failed");
-    expect(withRecentFilter("/overview?period=30d", "chat")).toBe(
-      "/overview?period=30d&filter=chat",
-    );
-    expect(withRecentFilter("/overview?period=30d&filter=chat", "all")).toBe(
-      "/overview?period=30d",
-    );
-    expect(withRecentFilter("/overview?filter=failed#recent", "all")).toBe("/overview#recent");
-  });
-
-  it("asks the Gateway for finished runs, narrowed by outcome or kind", () => {
-    expect(recentRunsQuery("all")).toEqual({ status: ["done", "failed", "cancelled"] });
-    expect(recentRunsQuery("failed")).toEqual({ status: ["failed"] });
-    expect(recentRunsQuery("automation").kind).toBe("automation");
-    expect(recentRunsQuery("chat").kind).toBe("chat");
+  it("does the rest in the client: task and chat kinds, one calendar day in the time zone", () => {
+    const run = (kind: "task" | "chat" | "automation", startedAt: string) => ({ kind, startedAt });
+    const tasks = { filter: "tasks", day: null } as const;
+    expect(matchesRecent(run("task", "2026-10-14T10:00:00Z"), tasks)).toBe(true);
+    expect(matchesRecent(run("chat", "2026-10-14T10:00:00Z"), tasks)).toBe(true);
+    expect(matchesRecent(run("automation", "2026-10-14T10:00:00Z"), tasks)).toBe(false);
+    const day = { filter: "all", day: "2026-10-14" } as const;
+    expect(matchesRecent(run("task", "2026-10-14T23:30:00Z"), day, "UTC")).toBe(true);
+    expect(matchesRecent(run("task", "2026-10-14T23:30:00Z"), day, "Asia/Tokyo")).toBe(false);
+    expect(matchesRecent(run("task", "2026-10-15T00:30:00Z"), day, "UTC")).toBe(false);
   });
 
   it("builds the Timeline route and reads a section anchor", () => {
@@ -190,38 +197,61 @@ describe("Upcoming", () => {
 });
 
 describe("Recent runs", () => {
-  it("filters to failed runs, searches by title, and opens the Timeline", async () => {
+  it("filters to failed runs through the route, searches by title, and opens the Timeline", async () => {
     const navigate = vi.fn();
-    const onFilterChange = vi.fn();
-    world(
-      { slots: { navigate } },
-      <RecentSection now={STORY_NOW} onFilterChange={onFilterChange} />,
+    const onNavigate = vi.fn();
+    const ui = (route: string) => (
+      <StoryWorld slots={{ navigate }} edit={applyRunTrace}>
+        <RecentSection period="30d" route={route} onNavigate={onNavigate} now={STORY_NOW} />
+      </StoryWorld>
     );
+    const { rerender } = render(ui("/overview?period=30d"));
     const list = await screen.findByTestId("overview-recent-list");
     expect(within(list).getByText("Lisbon research")).toBeTruthy();
     expect(within(list).getByText("Subscription audit")).toBeTruthy();
 
+    // A chip writes the filter into the URL (and keeps the period).
     fireEvent.click(screen.getByRole("button", { name: "Failed" }));
-    expect(onFilterChange).toHaveBeenCalledWith("failed");
+    expect(onNavigate).toHaveBeenCalledWith("/overview?period=30d&filter=failed");
+
+    // The route is the state: with ?filter=failed only the failed run is listed.
+    rerender(ui("/overview?period=30d&filter=failed"));
     await waitFor(() => expect(screen.queryByText("Lisbon research")).toBeNull());
-    const failed = await screen.findByRole("button", { name: /Subscription audit/ });
-    fireEvent.click(failed);
+    expect(screen.getByRole("button", { name: "Failed" }).getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /Subscription audit/ }));
     expect(navigate).toHaveBeenCalledWith(expect.stringMatching(/^\/overview\/run\//));
 
-    fireEvent.click(screen.getByRole("button", { name: "All" }));
+    rerender(ui("/overview?period=30d"));
     await screen.findByText("Lisbon research");
     fireEvent.change(screen.getByRole("searchbox"), { target: { value: "lisbon" } });
     expect(screen.queryByText("Subscription audit")).toBeNull();
     expect(screen.getByText("Lisbon research")).toBeTruthy();
   });
 
-  it("follows the filter held in the route", async () => {
-    world({}, <RecentSection now={STORY_NOW} filter="automation" />);
-    await screen.findAllByText("Morning brief");
-    expect(screen.queryByText("Lisbon research")).toBeNull();
-    expect(screen.getByRole("button", { name: "Automations" }).getAttribute("aria-pressed")).toBe(
-      "true",
+  it("keeps its own filter when there is no router", async () => {
+    world({}, <RecentSection period="30d" now={STORY_NOW} />);
+    await screen.findByText("Lisbon research");
+    fireEvent.click(screen.getByRole("button", { name: "Automations" }));
+    await waitFor(() => expect(screen.queryByText("Lisbon research")).toBeNull());
+    expect((await screen.findAllByText("Morning brief")).length).toBeGreaterThan(0);
+  });
+
+  it("shows the Tasks chip and the day chip a tile or bar links to, and clears the day", async () => {
+    const onNavigate = vi.fn();
+    world(
+      {},
+      <RecentSection
+        period="30d"
+        route="/overview?filter=tasks&day=2026-10-18"
+        onNavigate={onNavigate}
+        now={STORY_NOW}
+      />,
     );
+    expect(await screen.findByRole("button", { name: "Tasks" })).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: /Clear the 2026-10-18 filter/ }));
+    expect(onNavigate).toHaveBeenCalledWith("/overview?period=30d&filter=tasks");
   });
 
   it("pages by cursor", async () => {
@@ -241,7 +271,7 @@ describe("Recent runs", () => {
           }
         },
       },
-      <RecentSection now={STORY_NOW} />,
+      <RecentSection period="30d" now={STORY_NOW} />,
     );
     const list = await screen.findByTestId("overview-recent-list");
     const before = within(list).getAllByRole("listitem").length;

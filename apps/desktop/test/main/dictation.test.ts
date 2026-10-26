@@ -5,7 +5,7 @@ import {
   parseDictationSettings,
   SystemDictation,
 } from "../../src/main/dictation/controller.ts";
-import { FN_HOLD_MS } from "../../src/main/dictation/fn-gesture.ts";
+import { KEY_DOUBLE_TAP_GAP_MS, KEY_HOLD_MS } from "../../src/main/dictation/key-gesture.ts";
 import {
   DictationService,
   type DictationStatus,
@@ -334,7 +334,7 @@ describe("dictation service", () => {
     await settled();
     expect(h.d.phase).toBe("idle");
     svc.onEvent("dictation.key", { key: "fn", down: true, at: "" });
-    await new Promise((r) => setTimeout(r, FN_HOLD_MS + 20));
+    await new Promise((r) => setTimeout(r, KEY_HOLD_MS + 20));
     await settled();
     expect(h.d.phase).toBe("listening");
     svc.onEvent("voice.segment", { sessionId: "vs_1", segment: { text: "hi", final: true } });
@@ -435,12 +435,13 @@ describe("the voice conversation key (V-G, docs/voice/voice-mode-2026.md §4.1)"
 
     // Voice-role events go to the conversation, never to dictation; dictation's still work.
     svc.onEvent("dictation.key", { key: "rightCommand", down: true, at: "", role: "voice" });
+    await new Promise((r) => setTimeout(r, KEY_HOLD_MS + 20));
     svc.onEvent("dictation.key", { key: "rightCommand", down: false, at: "", role: "voice" });
     await settled();
     expect(keys).toEqual([true, false]);
     expect(h.d.phase).toBe("idle");
     svc.onEvent("dictation.key", { key: "fn", down: true, at: "", role: "dictation" });
-    await new Promise((r) => setTimeout(r, FN_HOLD_MS + 20));
+    await new Promise((r) => setTimeout(r, KEY_HOLD_MS + 20));
     await settled();
     expect(h.d.phase).toBe("listening");
     h.d.cancel();
@@ -498,4 +499,70 @@ describe("the voice conversation key (V-G, docs/voice/voice-mode-2026.md §4.1)"
       ),
     ).toBe("fn");
   });
+});
+
+describe.each(["fn", "rightOption", "rightCommand"] as const)("%s gestures", (key) => {
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const setup = async (role: "dictation" | "voice") => {
+    const values: Record<string, unknown> = {
+      "voice.conversation.enabled": role === "voice",
+      "voice.conversation.key": key,
+      "voice.pushToTalk": key,
+    };
+    if (role === "voice") values["voice.systemWide"] = false;
+    const gw = fakeGateway({ "settings.get": () => ({ settings: values }) });
+    const h = harness({ gateway: gw });
+    const voice: boolean[] = [];
+    let doubles = 0;
+    const svc = new DictationService({
+      dictation: h.d,
+      call: gw.call,
+      onVoiceKey: (d) => voice.push(d),
+      onKeyDoubleTap: () => doubles++,
+    });
+    await svc.load();
+    const send = (down: boolean) => svc.onEvent("dictation.key", { key, down, at: "", role });
+    return { h, voice, send, doubles: () => doubles };
+  };
+
+  it.each(["dictation", "voice"] as const)("%s role: a quick tap does nothing", async (role) => {
+    const t = await setup(role);
+    t.send(true);
+    await sleep(20);
+    t.send(false);
+    await sleep(KEY_DOUBLE_TAP_GAP_MS + 30);
+    expect(t.h.d.phase).toBe("idle");
+    expect(t.voice).toEqual([]);
+    expect(t.doubles()).toBe(0);
+  });
+
+  it.each(["dictation", "voice"] as const)("%s role: a hold starts", async (role) => {
+    const t = await setup(role);
+    t.send(true);
+    await sleep(KEY_HOLD_MS + 20);
+    await settled();
+    if (role === "voice") expect(t.voice).toEqual([true]);
+    else expect(t.h.d.phase).toBe("listening");
+    t.send(false);
+    if (role === "voice") expect(t.voice).toEqual([true, false]);
+    t.h.d.cancel();
+  });
+
+  it.each(["dictation", "voice"] as const)(
+    "%s role: a double tap fires once, no dictation",
+    async (role) => {
+      const t = await setup(role);
+      t.send(true);
+      await sleep(20);
+      t.send(false);
+      await sleep(50);
+      t.send(true);
+      await sleep(20);
+      t.send(false);
+      await sleep(KEY_HOLD_MS + 20);
+      expect(t.doubles()).toBe(1);
+      expect(t.h.d.phase).toBe("idle");
+      expect(t.voice).toEqual([]);
+    },
+  );
 });

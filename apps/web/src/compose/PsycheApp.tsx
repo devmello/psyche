@@ -28,12 +28,12 @@ import {
   OverviewRun,
   OverviewScreen,
   overviewAnchor,
-  overviewHref,
   overviewRedirect,
   overviewRunHref,
   parseOverviewPeriod,
   parseRecentFilter,
   type RailItem,
+  recentHref,
   SearchScreen,
   ThreadContextDialog,
   ThreadContextMeter,
@@ -45,7 +45,6 @@ import {
   useStore,
   useThread,
   useThreadExport,
-  withRecentFilter,
 } from "@psyche/ui";
 import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useShellComposerVoice } from "../shell/components/composer-voice.ts";
@@ -282,9 +281,9 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
         "Overview",
         <OverviewScreen
           period={period}
-          onPeriodChange={(next) => navigate(withRecentFilter(overviewHref(next), filter))}
-          recentFilter={filter}
-          onRecentFilterChange={(next) => navigate(withRecentFilter(overviewHref(period), next))}
+          onPeriodChange={(next) => navigate(recentHref(next, filter))}
+          onNavigate={navigate}
+          route={route}
           {...(anchor === undefined ? {} : { anchor })}
           onTry={(kind) => navigate(kind === "connectMail" ? "/settings/mail" : "/chat")}
         />,

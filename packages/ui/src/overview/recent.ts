@@ -1,43 +1,63 @@
+import type { RunSummary } from "@psyche/protocol";
 import type { RunsFilter } from "../data/runs.ts";
+import { type OverviewPeriod, periodDays } from "./period.ts";
+import type { RecentFilter } from "./recentFilter.ts";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const FINISHED = ["done", "failed", "cancelled"] as const;
 
 /**
- * The Recent runs filter (agent-overview-2026 §5.4), held in the route as `?filter=` so a link
- * reproduces the list: `/overview?filter=failed`. `all` leaves the URL clean.
+ * The `runs.list` params for the Recent runs section (agent-overview-2026 §5.4): finished runs
+ * in the period, narrowed by what the filter can ask the Gateway for. `tasks` (kinds task and
+ * chat) and `day` need `matchesRecent` on top, since `runs.list` takes one kind.
  */
-export const RECENT_FILTERS = ["all", "failed", "automation", "chat"] as const;
-export type RecentFilter = (typeof RECENT_FILTERS)[number];
-export const DEFAULT_RECENT_FILTER: RecentFilter = "all";
-
-/** `?filter=` from a route or query string; anything unknown is `all`. */
-export function parseRecentFilter(routeOrQuery: string): RecentFilter {
-  const query = routeOrQuery.includes("?") ? (routeOrQuery.split("?")[1] ?? "") : routeOrQuery;
-  const raw = new URLSearchParams(query.split("#")[0]).get("filter");
-  return RECENT_FILTERS.find((f) => f === raw) ?? DEFAULT_RECENT_FILTER;
-}
-
-/** `href` with the filter set (or cleared for `all`), keeping its other query and its hash. */
-export function withRecentFilter(href: string, filter: RecentFilter): string {
-  const [rest = "", hash] = href.split("#");
-  const [path = "", search = ""] = rest.split("?");
-  const query = new URLSearchParams(search);
-  if (filter === DEFAULT_RECENT_FILTER) query.delete("filter");
-  else query.set("filter", filter);
-  const qs = query.toString();
-  return `${path}${qs ? `?${qs}` : ""}${hash === undefined ? "" : `#${hash}`}`;
-}
-
-/** The `runs.list` params for a filter: finished runs, narrowed by outcome or kind. */
-export function recentRunsQuery(filter: RecentFilter): RunsFilter {
-  switch (filter) {
+export function recentRunsQuery(
+  period: OverviewPeriod,
+  filter: RecentFilter,
+  now: number,
+): RunsFilter {
+  const days = periodDays(period);
+  // A day filter wins over the period; 14 h of slack covers every time zone's start of that day.
+  const since =
+    filter.day !== null
+      ? { since: new Date(Date.parse(`${filter.day}T00:00:00Z`) - 14 * 3_600_000).toISOString() }
+      : days === null
+        ? {}
+        : { since: new Date(now - (days - 1) * DAY_MS).toISOString() };
+  switch (filter.filter) {
     case "failed":
-      return { status: ["failed"] };
-    case "automation":
-      return { status: ["done", "failed", "cancelled"], kind: "automation" };
+      return { status: ["failed"], ...since };
+    case "tasks":
+      return { status: ["done"], ...since };
+    case "automations":
+      return { status: [...FINISHED], kind: "automation", ...since };
     case "chat":
-      return { status: ["done", "failed", "cancelled"], kind: "chat" };
+      return { status: [...FINISHED], kind: "chat", ...since };
     default:
-      return { status: ["done", "failed", "cancelled"] };
+      return { status: [...FINISHED], ...since };
   }
+}
+
+/** `YYYY-MM-DD` of an instant in `timeZone` (the device's when absent). */
+function calendarDay(at: number, timeZone?: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    ...(timeZone ? { timeZone } : {}),
+  }).format(at);
+}
+
+/** The part of a filter `runs.list` cannot do: task + chat kinds, and one calendar day. */
+export function matchesRecent(
+  run: Pick<RunSummary, "kind" | "startedAt">,
+  filter: RecentFilter,
+  timeZone?: string,
+): boolean {
+  if (filter.filter === "tasks" && run.kind !== "task" && run.kind !== "chat") return false;
+  if (filter.day === null) return true;
+  const at = Date.parse(run.startedAt);
+  return !Number.isNaN(at) && calendarDay(at, timeZone) === filter.day;
 }
 
 /** `/overview/run/<runId>[?step=<stepId>]`: a run's Timeline at full width (§3). */

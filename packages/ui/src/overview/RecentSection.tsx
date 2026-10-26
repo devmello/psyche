@@ -1,5 +1,5 @@
 import type { RunSummary } from "@psyche/protocol";
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { type ReactElement, useMemo, useState } from "react";
 import { RecentRunRow } from "../agent/MissionControl.tsx";
 import { runTitle } from "../agent/timeline/RunHeader.tsx";
@@ -10,69 +10,102 @@ import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group.tsx"
 import { useThreads } from "../data/index.ts";
 import { useStore, useStoreState } from "../data/provider.tsx";
 import { useRunsList } from "../data/runs.ts";
-import { t } from "../i18n/core.ts";
+import { activeI18n, t } from "../i18n/core.ts";
 import { useNow } from "../lib/use-now.ts";
 import { useSlots } from "../slots.tsx";
 import { OverviewSection } from "./OverviewSection.tsx";
+import type { OverviewPeriod } from "./period.ts";
+import { matchesRecent, overviewRunHref, recentRunsQuery } from "./recent.ts";
 import {
-  DEFAULT_RECENT_FILTER,
-  overviewRunHref,
-  RECENT_FILTERS,
+  NO_RECENT_FILTER,
+  parseRecentFilter,
   type RecentFilter,
-  recentRunsQuery,
-} from "./recent.ts";
+  type RecentFilterKind,
+  recentHref,
+} from "./recentFilter.ts";
 
 const FILTER_LABEL = {
   all: "agent.activity.filterAll",
-  failed: "agent.activity.filterFailed",
-  automation: "agent.activity.filterAutomations",
+  tasks: "overview.recent.filterTasks",
+  automations: "agent.activity.filterAutomations",
   chat: "agent.activity.filterChat",
-} as const satisfies Record<RecentFilter, string>;
+  failed: "agent.activity.filterFailed",
+} as const satisfies Record<RecentFilterKind, string>;
+
+/** The four chips of the spec; Tasks (the summary tile's link) shows only while it is chosen. */
+const CHIPS: readonly RecentFilterKind[] = ["all", "failed", "automations", "chat"];
+const CHIPS_WITH_TASKS: readonly RecentFilterKind[] = [
+  "all",
+  "tasks",
+  "failed",
+  "automations",
+  "chat",
+];
 
 const PAGE = 25;
 
 export interface RecentSectionProps {
-  /** The filter in the route (`?filter=`). Without it the section keeps its own. */
-  filter?: RecentFilter;
-  onFilterChange?: (filter: RecentFilter) => void;
-  now?: number;
+  period: OverviewPeriod;
+  /** The current route: its `?filter=` and `?day=` are the filter (`recentFilter.ts`, O4). */
+  route?: string;
+  /** The shell's `navigate`. Without it (a story, a test) the section keeps its filter itself. */
+  onNavigate?: ((to: string) => void) | undefined;
+  now?: number | undefined;
 }
 
 /**
- * Recent runs (agent-overview-2026 §5.4): finished runs, newest first, filtered All / Failed /
- * Automations / Chat and searched by title, cursor-paged through `runs.list`. Rows open the
- * Timeline at `/overview/run/<id>`.
+ * Recent runs (agent-overview-2026 §5.4): finished runs in the period, newest first, filtered
+ * All / Failed / Automations / Chat (and Tasks or one day when a tile or bar linked here), searched
+ * by title and cursor-paged through `runs.list`. Rows open the Timeline at `/overview/run/<id>`.
  */
 export function RecentSection({
-  filter: routed,
-  onFilterChange,
+  period,
+  route,
+  onNavigate,
   now: fixedNow,
 }: RecentSectionProps): ReactElement {
-  const [local, setLocal] = useState<RecentFilter>(DEFAULT_RECENT_FILTER);
-  const filter = routed ?? local;
+  const [local, setLocal] = useState<RecentFilter>(() => parseRecentFilter(route ?? ""));
+  const filter = onNavigate === undefined ? local : parseRecentFilter(route ?? "");
   const setFilter = (next: RecentFilter) => {
-    setLocal(next);
-    onFilterChange?.(next);
+    if (onNavigate === undefined) setLocal(next);
+    else onNavigate(recentHref(period, next));
   };
   const [query, setQuery] = useState("");
+  const i18n = activeI18n();
+  const chips = filter.filter === "tasks" ? CHIPS_WITH_TASKS : CHIPS;
   return (
     <OverviewSection id="recent">
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2 px-2">
           <ToggleGroup
             aria-label={t("agent.activity.recentFilter")}
-            value={[filter]}
+            value={[filter.filter]}
             onValueChange={(v) => {
-              const next = RECENT_FILTERS.find((f) => f === v[0]);
-              if (next !== undefined) setFilter(next);
+              const next = chips.find((f) => f === v[0]);
+              if (next !== undefined) setFilter({ filter: next, day: filter.day });
             }}
           >
-            {RECENT_FILTERS.map((f) => (
+            {chips.map((f) => (
               <ToggleGroupItem key={f} value={f} size="sm">
                 {t(FILTER_LABEL[f])}
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
+          {filter.day !== null ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setFilter({ ...NO_RECENT_FILTER, filter: filter.filter })}
+              aria-label={t("overview.recent.clearDay", { date: filter.day })}
+            >
+              {i18n.date(`${filter.day}T12:00:00Z`, {
+                month: "short",
+                day: "numeric",
+                timeZone: "UTC",
+              })}
+              <X aria-hidden="true" />
+            </Button>
+          ) : null}
           <div className="relative min-w-32 flex-1">
             <Search
               aria-hidden="true"
@@ -89,17 +122,25 @@ export function RecentSection({
           </div>
         </div>
         {/* A new filter is a new list: its pages start over. */}
-        <RecentList key={filter} filter={filter} query={query} now={fixedNow} />
+        <RecentList
+          key={`${period}|${filter.filter}|${filter.day ?? ""}`}
+          period={period}
+          filter={filter}
+          query={query}
+          now={fixedNow}
+        />
       </div>
     </OverviewSection>
   );
 }
 
 function RecentList({
+  period,
   filter,
   query,
   now: fixedNow,
 }: {
+  period: OverviewPeriod;
   filter: RecentFilter;
   query: string;
   now: number | undefined;
@@ -107,7 +148,12 @@ function RecentList({
   const now = useNow(30_000, fixedNow);
   const navigate = useSlots().navigate;
   const store = useStore();
-  const params = useMemo(() => ({ ...recentRunsQuery(filter), limit: PAGE }), [filter]);
+  // The window is read once per list, so a ticking clock never re-queries.
+  const [asked] = useState(() => now);
+  const params = useMemo(
+    () => ({ ...recentRunsQuery(period, filter, asked), limit: PAGE }),
+    [period, filter, asked],
+  );
   const first = useRunsList(params);
   // Pages after the first come straight from `runs.list`; the first stays live.
   const [more, setMore] = useState<{
@@ -119,6 +165,7 @@ function RecentList({
   useThreads();
   const threads = useStoreState((s) => s.threads);
   const title = (r: RunSummary) => runTitle(r, threads[r.threadId]?.thread.title);
+  const timeZone = activeI18n().timeZone;
 
   const cursor = more.cursor === undefined ? first.nextCursor : more.cursor;
   const loadMore = async () => {
@@ -149,6 +196,7 @@ function RecentList({
       seen.add(r.id);
       return r.parentRunId == null;
     })
+    .filter((r) => matchesRecent(r, filter, timeZone))
     .filter((r) => title(r).toLowerCase().includes(needle));
 
   if (first.loading && first.runs.length === 0) {
@@ -173,13 +221,12 @@ function RecentList({
       </p>
     );
   }
+  const unfiltered = filter.filter === "all" && filter.day === null && needle === "";
   return (
     <>
       {rows.length === 0 ? (
         <p className="px-2 py-2 text-body text-label-secondary">
-          {needle || filter !== DEFAULT_RECENT_FILTER
-            ? t("agent.activity.noMatches")
-            : t("agent.activity.noRecent")}
+          {unfiltered ? t("agent.activity.noRecent") : t("agent.activity.noMatches")}
         </p>
       ) : (
         <ul className="flex flex-col" data-testid="overview-recent-list">

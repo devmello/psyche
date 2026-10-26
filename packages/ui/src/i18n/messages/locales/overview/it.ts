@@ -20,6 +20,53 @@ export const overview: Partial<Catalogue> = {
   "overview.section.upcoming": "In arrivo",
   "overview.section.recent": "Esecuzioni recenti",
   "overview.section.empty": "Qui non c’è ancora nulla.",
+  "overview.loading": "Caricamento",
+  "overview.error.load": "Impossibile caricare",
+  "overview.summary.label": "Riepilogo",
+  "overview.summary.sentence.both":
+    "{period, select, week {Questa settimana} month {Questo mese} other {In totale}}, {name} ha gestito {tasks, plural, one {# attività o chat} other {# attività e chat}} e ha eseguito {automations, plural, one {# automazione} other {# automazioni}} per te.",
+  "overview.summary.sentence.tasks":
+    "{period, select, week {Questa settimana} month {Questo mese} other {In totale}}, {name} ha gestito {tasks, plural, one {# attività o chat} other {# attività e chat}} per te.",
+  "overview.summary.sentence.automations":
+    "{period, select, week {Questa settimana} month {Questo mese} other {In totale}}, {name} ha eseguito {automations, plural, one {# automazione} other {# automazioni}} per te.",
+  "overview.summary.sentence.none":
+    "{period, select, week {Questa settimana non è stato eseguito nulla.} month {Questo mese non è stato eseguito nulla.} other {Finora non è stato eseguito nulla.}}",
+  "overview.summary.sentence.lessons":
+    "{name} ha imparato {n, plural, one {# lezione} other {# lezioni}} da te.",
+  "overview.summary.quiet":
+    "{period, select, week {Niente questa settimana.} month {Niente questo mese.} other {Ancora niente.}}",
+  "overview.summary.tile.tasks": "Attività e chat",
+  "overview.summary.tile.automations": "Automazioni eseguite",
+  "overview.summary.tile.approvals": "Approvazioni decise",
+  "overview.summary.tile.lessons": "Lezioni apprese",
+  "overview.summary.vs.week": "la settimana scorsa",
+  "overview.summary.vs.month": "il mese scorso",
+  "overview.summary.runsOk": "{pct} delle esecuzioni riuscite",
+  "overview.summary.failed": "{n} non riuscite",
+  "overview.summary.approved": "{n} approvate",
+  "overview.summary.denied": "{n} negate",
+  "overview.summary.expired": "{n} scadute",
+  "overview.summary.confirmed": "{n} confermate",
+  "overview.activity.meta":
+    "{period, select, week {Ultimi 7 giorni} month {Ultimi 30 giorni} other {Sempre}}",
+  "overview.activity.label": "Esecuzioni al giorno",
+  "overview.activity.series.tasks": "Attività",
+  "overview.activity.series.automations": "Automazioni",
+  "overview.activity.series.chat": "Chat",
+  "overview.activity.n.tasks": "{n, plural, one {# attività} other {# attività}}",
+  "overview.activity.n.automations": "{n, plural, one {# automazione} other {# automazioni}}",
+  "overview.activity.n.chat": "{n, plural, one {# chat} other {# chat}}",
+  "overview.activity.dayTime": "{duration} di esecuzione",
+  "overview.activity.busiest":
+    "Giorno più intenso: {date} · {n, plural, one {# esecuzione} other {# esecuzioni}}",
+  "overview.activity.worked": "{name} ha lavorato {duration} (tempo di esecuzione misurato)",
+  "overview.activity.topAutomation": "Automazione più eseguita: {title} · {n}×",
+  "overview.built.meta": "{count, plural, one {# artefatto} other {# artefatti}}",
+  "overview.built.seeAll": "Mostra tutto",
+  "overview.built.open": "Apri {title}",
+  "overview.built.empty": "Non è stato ancora creato nulla in questo periodo.",
+  "overview.specialists.meta": "{count, plural, one {# risultato} other {# risultati}}",
+  "overview.specialists.empty": "Nessun risultato degli specialisti in questo periodo.",
   "overview.newUser.title": "{name} sta imparando a conoscerti",
   "overview.newUser.body":
     "Tra una settimana vedrai cosa ha fatto {name} per te, cosa ha imparato e quali persone e progetti tiene d’occhio.",
@@ -39,5 +86,7 @@ export const overview: Partial<Catalogue> = {
   "overview.upcoming.week": "Questa settimana",
   "overview.upcoming.later": "Più avanti",
   "overview.upcoming.paused": "In pausa ({n, number})",
+  "overview.recent.filterTasks": "Attività",
+  "overview.recent.clearDay": "Rimuovi il filtro del {date}",
   "overview.recent.more": "Mostra altro",
 };
