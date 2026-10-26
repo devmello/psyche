@@ -672,7 +672,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
           setOverlay("model");
           return true;
         case "agentActivity":
-          navigate("/agent/activity");
+          navigate("/agent/approvals");
           return true;
         case "agentApprovals":
           navigate("/agent/approvals");

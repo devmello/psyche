@@ -164,7 +164,7 @@ export const web = {
   "web.shortcut.toggleTerminalPane": "Terminal pane",
   "web.shortcut.permissionMode": "Permission mode",
   "web.shortcut.modelPicker": "Model picker",
-  "web.shortcut.agentActivity": "Agent sheet: Activity",
+  "web.shortcut.agentActivity": "Agent sheet",
   "web.shortcut.agentApprovals": "Agent sheet: Approvals",
   "web.shortcut.closePane": "Close focused pane",
   "web.shortcut.shortcutList": "Shortcut list",

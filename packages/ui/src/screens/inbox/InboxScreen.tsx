@@ -614,7 +614,7 @@ export function InboxScreen({ now: fixedNow, onOpen }: InboxScreenProps): ReactE
             toast.error(t("screens.inbox.markFailed", { reason: describeError(err) }));
           });
       }}
-      onOpenActivity={() => navigate?.("/agent/activity")}
+      onOpenActivity={() => navigate?.("/overview#now")}
       renderRow={(n) => {
         const row = (
           <ConnectedInboxRow

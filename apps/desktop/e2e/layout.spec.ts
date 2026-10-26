@@ -510,11 +510,9 @@ test("rail screens, inbox and agent sheet at 1440x900: kit chrome, no sideways s
   await shot(page, "screen-inbox-1440x900");
 
   await rail.getByRole("button", { name: /^Chat/ }).click();
-  await page.getByRole("button", { name: /activity, approvals, upcoming and memory/ }).click();
+  await page.getByRole("button", { name: /approvals and memory/ }).click();
   for (const [tab, id] of [
-    ["Activity", "activity"],
     ["Approvals", "approvals"],
-    ["Upcoming", "upcoming"],
     ["Soul & Memory", "soul"],
   ] as const) {
     await page.getByRole("tab", { name: new RegExp(`^${tab}`) }).click();

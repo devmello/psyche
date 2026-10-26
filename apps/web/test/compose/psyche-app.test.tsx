@@ -103,6 +103,28 @@ describe("the agent sheet over the chat (redesign §5.7)", () => {
   });
 });
 
+describe("the slim agent sheet (agent-overview-2026 O6)", () => {
+  it("opens /agent/approvals?view=decided with Decided recently expanded", async () => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", "/agent/approvals?view=decided");
+    const { platform } = webPlatform();
+    render(<PsycheApp platform={platform} />);
+    const sheet = await screen.findByTestId("agent-sheet");
+    const decided = await within(sheet).findByRole("button", { name: /^Decided recently/ });
+    expect(decided.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("the avatar opens the sheet at Approvals", async () => {
+    window.innerWidth = 1280;
+    window.localStorage.clear();
+    window.history.replaceState(null, "", `/chat/${MAIN.id}`);
+    const { platform } = webPlatform();
+    render(<PsycheApp platform={platform} />);
+    fireEvent.click(await screen.findByRole("button", { name: /^Open Flash/ }));
+    await waitFor(() => expect(window.location.pathname).toBe("/agent/approvals"));
+  });
+});
+
 describe("the Feed's instructions sheet (#614)", () => {
   it("opens /feed/instructions over the feed and closes back to /feed", async () => {
     window.innerWidth = 1280;

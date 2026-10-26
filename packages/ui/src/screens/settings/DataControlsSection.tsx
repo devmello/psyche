@@ -310,7 +310,7 @@ export function DataControlsSection({ onExportReady }: DataControlsSectionProps)
           onChange={form.onChange}
           persona={persona.name}
           busy={busy}
-          {...(navigate ? { onOpenGrowth: () => navigate("/agent/growth") } : {})}
+          {...(navigate ? { onOpenGrowth: () => navigate("/overview#growth") } : {})}
           onForgetAll={() =>
             void act(async () => {
               const r = await call("memory.lessons.forgetAll", {});

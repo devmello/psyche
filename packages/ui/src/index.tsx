@@ -12,6 +12,7 @@ export {
   AGENT_PANEL_WIDTH,
   AgentRouteSheet,
   type AgentRouteSheetProps,
+  type AgentRouteTab,
   AgentSheet,
   AgentSheetBody,
   AgentSheetPanel,
@@ -22,6 +23,10 @@ export {
   agentSheetHref,
   agentSheetRoute,
   agentTimelineHref,
+  lastAgentTab,
+  rememberAgentTab,
+  sheetTab,
+  useDefaultAgentTab,
 } from "./agent/AgentSheet.tsx";
 export { ApprovalsPanel } from "./agent/ApprovalsPanel.tsx";
 export {

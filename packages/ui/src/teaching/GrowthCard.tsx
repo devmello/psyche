@@ -139,7 +139,7 @@ export function GrowthCardItems({
           size="sm"
           variant="link"
           className="self-start px-0"
-          onClick={() => navigate("/agent/growth")}
+          onClick={() => navigate("/overview#growth")}
         >
           {t("screens.growth.card.open")}
         </Button>

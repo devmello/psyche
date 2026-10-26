@@ -153,7 +153,9 @@ describe("Summary", () => {
     expect(failed.getAttribute("href")).toBe("/overview?period=30d&filter=failed");
 
     const approvals = screen.getByTestId("overview-tile-approvals");
-    expect(within(approvals).getByRole("link").getAttribute("href")).toContain("/agent/approvals");
+    expect(within(approvals).getByRole("link").getAttribute("href")).toBe(
+      "/agent/approvals?view=decided&from=%2Foverview%3Fperiod%3D30d",
+    );
     expect(within(approvals).getByTestId("overview-decisions").textContent).toMatch(/approved/);
     await waitFor(() => screen.getByTestId("overview-tile-lessons"));
   });
