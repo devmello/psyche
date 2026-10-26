@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { LearnedFact } from "@psyche/protocol";
 import { blockingKinds, looksLikeInstruction } from "./filters.ts";
+import type { ProfileField } from "./profile-fields.ts";
 
 /**
  * `USER.md`'s dated "Learned" section (feature #509): facts about the owner distilled from the
@@ -11,11 +12,16 @@ import { blockingKinds, looksLikeInstruction } from "./filters.ts";
 
 export const LEARNED_HEADING = "## Learned (dated; from your chats)";
 const LINE =
-  /^- (\d{4}-\d{2}-\d{2}) \[(lf_[a-z0-9]{6,32}) thread:([^\]\s]+) (\w+)(?: lesson:(ls_[a-z0-9_]+))?\] (.+)$/;
+  /^- (\d{4}-\d{2}-\d{2}) \[(lf_[a-z0-9]{6,32}) thread:([^\]\s]+) (\w+)(?: field:(name|timezone|work|home_city))?(?: lesson:(ls_[a-z0-9_]+))?\] (.+)$/;
 
 /** A learned fact, optionally written by a teaching-loop lesson (docs/agent/teaching-loop-2026.md §4). */
 export interface LearnedFactLine extends LearnedFact {
   lessonId?: string;
+  /**
+   * The USER.md header field this fact filled (`field:` in the line), set only for facts from the
+   * owner's own words. The line stays as provenance for the header value.
+   */
+  field?: ProfileField;
 }
 
 export interface LearnedLine extends LearnedFactLine {
@@ -34,8 +40,9 @@ export function parseLearned(content: string): LearnedLine[] {
       factId: m[2] as string,
       threadId: m[3] as string,
       kind: m[4] as LearnedFact["kind"],
-      ...(m[5] === undefined ? {} : { lessonId: m[5] }),
-      text: m[6] as string,
+      ...(m[5] === undefined ? {} : { field: m[5] as ProfileField }),
+      ...(m[6] === undefined ? {} : { lessonId: m[6] }),
+      text: m[7] as string,
     });
   });
   return out;
@@ -74,7 +81,8 @@ export function refuseFact(text: string, known: readonly string[]): LearnRefusal
 /** Adds lines under the Learned heading (creating the section at the end of the file). */
 export function formatLearned(f: LearnedFactLine): string {
   const lesson = f.lessonId === undefined ? "" : ` lesson:${f.lessonId}`;
-  return `- ${f.date} [${f.factId} thread:${f.threadId} ${f.kind}${lesson}] ${f.text.replace(/\s+/g, " ").trim()}`;
+  const field = f.field === undefined ? "" : ` field:${f.field}`;
+  return `- ${f.date} [${f.factId} thread:${f.threadId} ${f.kind}${field}${lesson}] ${f.text.replace(/\s+/g, " ").trim()}`;
 }
 
 export function addLearned(content: string, facts: readonly LearnedFactLine[]): string {

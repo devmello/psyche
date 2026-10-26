@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { listMessagesPage } from "@psyche/db";
@@ -48,7 +48,13 @@ function scripted(): ModelProvider & { learnCalls: string[] } {
         p.learnCalls.push(text);
         const facts = text.includes("Avery")
           ? [
-              { text: "Goes by Avery", kind: "name" },
+              { text: "Goes by Avery", kind: "name", field: "name", value: "Avery" },
+              {
+                text: "Timezone is Pacific time",
+                kind: "preference",
+                field: "timezone",
+                value: "America/Los_Angeles",
+              },
               { text: "Prefers tea over coffee", kind: "preference" },
               // A health detail the model should not have proposed: memory refuses it.
               { text: "Takes insulin every morning", kind: "routine" },
@@ -77,6 +83,20 @@ describe("parseProposals", () => {
   it("keeps well-formed facts, defaults the kind and ignores anything else", () => {
     expect(parseProposals('Here: {"facts":[{"text":" Likes jazz ","kind":"x"}]}')).toEqual([
       { text: "Likes jazz", kind: "other" },
+    ]);
+    expect(
+      parseProposals(
+        '{"facts":[{"text":"Timezone is Pacific time","kind":"preference","field":"timezone","value":"America/Los_Angeles"},{"text":"Is a student","kind":"other","field":"bogus","value":"x"},{"text":"Lives in Santa Cruz","kind":"other","field":"home_city"}]}',
+      ),
+    ).toEqual([
+      {
+        text: "Timezone is Pacific time",
+        kind: "preference",
+        field: "timezone",
+        value: "America/Los_Angeles",
+      },
+      { text: "Is a student", kind: "other" },
+      { text: "Lives in Santa Cruz", kind: "other" },
     ]);
     expect(parseProposals("nothing")).toEqual([]);
     expect(parseProposals('{"facts":"no"}')).toEqual([]);
@@ -115,13 +135,23 @@ describe("learning about the owner (Gateway)", () => {
     await turn("I'm Avery, and I always prefer tea over coffee.");
     const note = await waitFor(learnedNote);
     const items = (note.blocks[0] as { items: LearnedFact[] }).items;
-    expect(items.map((i) => i.text)).toEqual(["Goes by Avery", "Prefers tea over coffee"]);
+    expect(items.map((i) => i.text)).toEqual([
+      "Goes by Avery",
+      "Timezone is Pacific time",
+      "Prefers tea over coffee",
+    ]);
     expect(items.every((i) => i.threadId === thread.id)).toBe(true);
     const user = (await gw.memory.readFile("USER.md"))?.content ?? "";
     expect(user).toContain("## Learned");
     expect(user).toContain(`thread:${thread.id}`);
     expect(user).toContain("Prefers tea over coffee");
     expect(user).not.toContain("insulin");
+    // The structured fields are filled in place; the Learned lines stay as provenance.
+    expect(user).toContain("- Name: Avery\n");
+    expect(user).toContain("- Timezone: America/Los_Angeles (Pacific)\n");
+    expect(user).toMatch(
+      /\[lf_[a-z0-9]+ thread:\S+ preference field:timezone\] Timezone is Pacific/,
+    );
     const audits = await gw.audit.list({ kind: "memory.user_profile.learned" });
     expect(audits).toHaveLength(1);
     // The audit names ids and reasons, never the text.
@@ -150,5 +180,22 @@ describe("learning about the owner (Gateway)", () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(model.learnCalls.length).toBe(calls);
     expect((await gw.memory.readFile("USER.md"))?.content).not.toContain("Maya");
+  }, 30_000);
+
+  it("uses the owner's USER.md timezone for the store's days", async () => {
+    home = mkdtempSync(join(tmpdir(), "psyche-user-tz-"));
+    mkdirSync(join(home, "workspace"), { recursive: true });
+    writeFileSync(
+      join(home, "workspace", "USER.md"),
+      "# About the owner\n\n- Name:\n- Timezone: Asia/Tokyo (a note)\n",
+    );
+    composed = await composeGateway({
+      logger: silentLogger,
+      retentionIntervalMs: 0,
+      background: false,
+      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      model: { provider: scripted(), model: "scripted/main", utilityModel: "scripted/utility" },
+    });
+    expect(composed.memory.timeZone).toBe("Asia/Tokyo");
   }, 30_000);
 });
