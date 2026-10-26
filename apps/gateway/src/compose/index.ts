@@ -597,7 +597,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     publish: (event, payload) => publish(event, payload as never),
     register: (tool) => registry.register(tool),
     // Tests drive `people.poll()` by hand.
-    ...(background ? {} : { pollIntervalMs: 0 }),
+    ...(background ? {} : { pollIntervalMs: 0, afterRunDelayMs: 0 }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
   const calls = new CallContexts();
