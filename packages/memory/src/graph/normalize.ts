@@ -50,7 +50,10 @@ export function normalizeIdentifier(
     case "phone":
       return normalizePhone(v, defaultCountry);
     case "domain":
-      return v.toLowerCase().replace(/^www\./, "").replace(/\.$/, "");
+      return v
+        .toLowerCase()
+        .replace(/^www\./, "")
+        .replace(/\.$/, "");
     case "channel":
       return v.toLowerCase();
     default:

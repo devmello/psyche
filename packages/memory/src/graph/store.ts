@@ -32,13 +32,7 @@ import { monotonicFactory } from "ulid";
 import { oneLine } from "../daily.ts";
 import { blockingKinds, looksLikeInstruction } from "../filters.ts";
 import { trustRank } from "../provenance.ts";
-import {
-  blockHash,
-  normalizeIdentifier,
-  normalizeName,
-  sha256,
-  slugify,
-} from "./normalize.ts";
+import { blockHash, normalizeIdentifier, normalizeName, sha256, slugify } from "./normalize.ts";
 
 /**
  * The people and projects graph (docs/memory/people-and-projects-2026.md §4). The database is the
@@ -405,7 +399,8 @@ export class GraphStore {
   }): GraphEntity {
     const name = clip(input.name, 200);
     if (name === null) fail("invalid_params", "an entity needs a name");
-    if (blockingKinds(name, true).length > 0) fail("policy_denied", "names cannot hold credentials");
+    if (blockingKinds(name, true).length > 0)
+      fail("policy_denied", "names cannot hold credentials");
     const source = input.source ?? "owner";
     for (const ident of input.identifiers ?? []) {
       const norm = normalizeIdentifier(ident.kind, ident.value, this.#country);
@@ -447,7 +442,10 @@ export class GraphStore {
       }
     })();
     this.#reindex(id);
-    this.#emit({ event: "memory.entity.updated", payload: { id, kind: input.kind, changed: ["created"] } });
+    this.#emit({
+      event: "memory.entity.updated",
+      payload: { id, kind: input.kind, changed: ["created"] },
+    });
     return this.getEntity(id) as GraphEntity;
   }
 
@@ -505,8 +503,15 @@ export class GraphStore {
       for (const [key, column, value] of flags) {
         if (value === undefined) continue;
         if (key === "projectStatus" && row.kind !== "project") continue;
-        if (key === "notes" && typeof value === "string" && blockingKinds(value, false).length > 0) {
-          fail("policy_denied", "notes cannot hold credentials, card or account numbers, ids or health details");
+        if (
+          key === "notes" &&
+          typeof value === "string" &&
+          blockingKinds(value, false).length > 0
+        ) {
+          fail(
+            "policy_denied",
+            "notes cannot hold credentials, card or account numbers, ids or health details",
+          );
         }
         this.#db.prepare(`UPDATE graph_entities SET ${column} = ? WHERE id = ?`).run(value, id);
         changed.push(key);
@@ -527,7 +532,9 @@ export class GraphStore {
       return;
     }
     this.#db
-      .prepare("UPDATE graph_entities SET summary = ?, summary_at = ?, summary_hash = ? WHERE id = ?")
+      .prepare(
+        "UPDATE graph_entities SET summary = ?, summary_at = ?, summary_hash = ? WHERE id = ?",
+      )
       .run(text, this.#now(), inputHash, id);
     this.#touched(id, ["summary"]);
   }
@@ -553,7 +560,14 @@ export class GraphStore {
 
   /** A free card path for an entity: `people/sam-lee.md`, `people/sam-lee-2.md`, … */
   cardPathFor(entity: GraphEntity): string {
-    const dir = entity.kind === "project" ? "projects" : entity.kind === "person" ? "people" : entity.kind === "org" ? "people/orgs" : "people/places";
+    const dir =
+      entity.kind === "project"
+        ? "projects"
+        : entity.kind === "person"
+          ? "people"
+          : entity.kind === "org"
+            ? "people/orgs"
+            : "people/places";
     const base = slugify(entity.name);
     for (let n = 1; n < 1000; n++) {
       const path = `${dir}/${n === 1 ? base : `${base}-${n}`}.md`;
@@ -635,13 +649,24 @@ export class GraphStore {
         `INSERT INTO graph_identifiers (kind, value_norm, value_display, entity_id, source, linked_by, verified, shared, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)`,
       )
-      .run(kind, norm, value.trim(), id, opts.source, opts.linkedBy, opts.verified === true ? 1 : 0, this.#now());
+      .run(
+        kind,
+        norm,
+        value.trim(),
+        id,
+        opts.source,
+        opts.linkedBy,
+        opts.verified === true ? 1 : 0,
+        this.#now(),
+      );
   }
 
   unlinkIdentifier(kind: GraphIdentifierKind, value: string): void {
     const norm = normalizeIdentifier(kind, value, this.#country);
     if (norm === undefined) return;
-    this.#db.prepare("DELETE FROM graph_identifiers WHERE kind = ? AND value_norm = ?").run(kind, norm);
+    this.#db
+      .prepare("DELETE FROM graph_identifiers WHERE kind = ? AND value_norm = ?")
+      .run(kind, norm);
   }
 
   /** An address seen with several display names (a family or team inbox) never resolves alone. */
@@ -657,7 +682,9 @@ export class GraphStore {
     const norm = normalizeIdentifier(kind as GraphIdentifierKind, valueDisplay, this.#country);
     if (norm === undefined) return;
     this.#db
-      .prepare("INSERT OR IGNORE INTO graph_blocklist (kind, value_hash, created_at) VALUES (?, ?, ?)")
+      .prepare(
+        "INSERT OR IGNORE INTO graph_blocklist (kind, value_hash, created_at) VALUES (?, ?, ?)",
+      )
       .run(kind, blockHash(kind, norm), this.#now());
   }
 
@@ -686,7 +713,9 @@ export class GraphStore {
   #factRows(entityId: string, current: boolean, attribute?: GraphFactAttribute): FactRow[] {
     const where = [
       "entity_id = ?",
-      ...(current ? ["superseded_by IS NULL", "retracted_at IS NULL", "(valid_to IS NULL OR valid_to > ?)"] : []),
+      ...(current
+        ? ["superseded_by IS NULL", "retracted_at IS NULL", "(valid_to IS NULL OR valid_to > ?)"]
+        : []),
       ...(attribute === undefined ? [] : ["attribute = ?"]),
     ].join(" AND ");
     const params: unknown[] = [entityId];
@@ -701,7 +730,11 @@ export class GraphStore {
   facts(entityId: string): GraphFact[] {
     return this.#factRows(entityId, true)
       .map(toFact)
-      .sort((a, b) => trustRank(b.provenance) - trustRank(a.provenance) || b.recordedAt.localeCompare(a.recordedAt));
+      .sort(
+        (a, b) =>
+          trustRank(b.provenance) - trustRank(a.provenance) ||
+          b.recordedAt.localeCompare(a.recordedAt),
+      );
   }
 
   #rejected(kind: "wrong_fact" | "wrong_edge", entityId: string, keyHash: string): boolean {
@@ -712,9 +745,16 @@ export class GraphStore {
     );
   }
 
-  #feedback(kind: string, entityId: string | null, otherId: string | null, keyHash: string | null): void {
+  #feedback(
+    kind: string,
+    entityId: string | null,
+    otherId: string | null,
+    keyHash: string | null,
+  ): void {
     this.#db
-      .prepare("INSERT INTO graph_feedback (id, kind, entity_id, other_id, key_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .prepare(
+        "INSERT INTO graph_feedback (id, kind, entity_id, other_id, key_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+      )
       .run(this.#id("fb"), kind, entityId, otherId, keyHash, this.#now());
   }
 
@@ -730,7 +770,8 @@ export class GraphStore {
       if (owner) fail(code, message);
       return undefined;
     };
-    if (!FACT_ATTRIBUTES.includes(input.attribute)) return refuse("invalid_params", "unknown attribute");
+    if (!FACT_ATTRIBUTES.includes(input.attribute))
+      return refuse("invalid_params", "unknown attribute");
     const value = clip(input.value, 2000);
     if (value === null) return refuse("invalid_params", "a fact needs a value");
     if (OWNER_ONLY_ATTRIBUTES.has(input.attribute) && !owner && input.provenance !== "system") {
@@ -742,7 +783,8 @@ export class GraphStore {
         "facts cannot hold credentials, card or account numbers, government ids or health details",
       );
     }
-    if (!owner && looksLikeInstruction(value)) return refuse("policy_denied", "instruction-like text");
+    if (!owner && looksLikeInstruction(value))
+      return refuse("policy_denied", "instruction-like text");
     const keyHash = factKeyHash(input.attribute, value);
     if (!owner && this.#rejected("wrong_fact", entity.id, keyHash)) return undefined;
     const now = this.#now();
@@ -767,7 +809,10 @@ export class GraphStore {
     const prior = current[0];
     if (prior !== undefined && !MULTI_VALUED.has(input.attribute)) {
       // A model never overrides what the owner said.
-      if (trustRank(prior.provenance) > trustRank(input.provenance) && prior.provenance === "owner") {
+      if (
+        trustRank(prior.provenance) > trustRank(input.provenance) &&
+        prior.provenance === "owner"
+      ) {
         return undefined;
       }
     }
@@ -796,7 +841,9 @@ export class GraphStore {
         );
       if (prior !== undefined && !MULTI_VALUED.has(input.attribute)) {
         this.#db
-          .prepare("UPDATE graph_facts SET superseded_by = ?, valid_to = ?, updated_at = ? WHERE id = ?")
+          .prepare(
+            "UPDATE graph_facts SET superseded_by = ?, valid_to = ?, updated_at = ? WHERE id = ?",
+          )
           .run(id, now, now, prior.id);
       }
     })();
@@ -814,7 +861,9 @@ export class GraphStore {
   }
 
   #factRow(id: string): FactRow | undefined {
-    return this.#db.prepare("SELECT * FROM graph_facts WHERE id = ?").get(id) as FactRow | undefined;
+    return this.#db.prepare("SELECT * FROM graph_facts WHERE id = ?").get(id) as
+      | FactRow
+      | undefined;
   }
 
   getFact(id: string): GraphFact | undefined {
@@ -830,7 +879,9 @@ export class GraphStore {
     const sources = [...new Set([...(JSON.parse(row.sources) as string[]), ...sourceRef(source)])];
     this.#db.transaction(() => {
       this.#db
-        .prepare("UPDATE graph_facts SET retracted_at = ?, valid_to = COALESCE(valid_to, ?), sources = ?, updated_at = ? WHERE id = ?")
+        .prepare(
+          "UPDATE graph_facts SET retracted_at = ?, valid_to = COALESCE(valid_to, ?), sources = ?, updated_at = ? WHERE id = ?",
+        )
         .run(now, now, JSON.stringify(sources), now, id);
       this.#feedback("wrong_fact", row.entity_id, null, factKeyHash(row.attribute, row.value));
     })();
@@ -839,13 +890,18 @@ export class GraphStore {
   }
 
   /** Every version, newest first (`memory.entities.history`). */
-  history(entityId: string, attribute?: GraphFactAttribute): { facts: GraphFact[]; edges: GraphEdge[] } {
+  history(
+    entityId: string,
+    attribute?: GraphFactAttribute,
+  ): { facts: GraphFact[]; edges: GraphEdge[] } {
     const facts = this.#factRows(entityId, false, attribute).map(toFact);
     const edges =
       attribute === undefined
         ? (
             this.#db
-              .prepare("SELECT * FROM graph_edges WHERE src = ? OR dst = ? ORDER BY created_at DESC, id DESC")
+              .prepare(
+                "SELECT * FROM graph_edges WHERE src = ? OR dst = ? ORDER BY created_at DESC, id DESC",
+              )
               .all(entityId, entityId) as EdgeRow[]
           ).map(toEdge)
         : [];
@@ -855,7 +911,9 @@ export class GraphStore {
   // --- edges -----------------------------------------------------------------------------------
 
   #edgeRow(id: string): EdgeRow | undefined {
-    return this.#db.prepare("SELECT * FROM graph_edges WHERE id = ?").get(id) as EdgeRow | undefined;
+    return this.#db.prepare("SELECT * FROM graph_edges WHERE id = ?").get(id) as
+      | EdgeRow
+      | undefined;
   }
 
   edges(entityId: string): GraphEdge[] {
@@ -882,9 +940,16 @@ export class GraphStore {
     if (src.id === dst.id) return refuse("invalid_params", "an entity cannot relate to itself");
     const [srcKinds, dstKinds] = REL_KINDS[input.rel];
     if (!srcKinds.includes(src.kind) || !dstKinds.includes(dst.kind)) {
-      return refuse("invalid_params", `${input.rel} does not connect a ${src.kind} to a ${dst.kind}`);
+      return refuse(
+        "invalid_params",
+        `${input.rel} does not connect a ${src.kind} to a ${dst.kind}`,
+      );
     }
-    if ((OWNER_ONLY_RELS.has(input.rel) || input.label !== undefined) && !owner && input.provenance !== "system") {
+    if (
+      (OWNER_ONLY_RELS.has(input.rel) || input.label !== undefined) &&
+      !owner &&
+      input.provenance !== "system"
+    ) {
       return refuse("policy_denied", "personal relations are set by the owner only");
     }
     const keyHash = sha256(`${input.rel}\n${dst.id}`);
@@ -892,7 +957,9 @@ export class GraphStore {
     const now = this.#now();
     const sources = [...new Set([...(input.sources ?? []), ...sourceRef(input.source)])];
     const current = this.edges(src.id).filter((e) => e.src === src.id && e.rel === input.rel);
-    const same = current.find((e) => e.dst === dst.id && (e.label ?? null) === (input.label ?? null));
+    const same = current.find(
+      (e) => e.dst === dst.id && (e.label ?? null) === (input.label ?? null),
+    );
     if (same !== undefined) return { edge: same, superseded: null };
     // A person works at one org and reports to one person at a time; other relations accumulate.
     const single = input.rel === "works_at" || input.rel === "reports_to";
@@ -905,11 +972,24 @@ export class GraphStore {
           `INSERT INTO graph_edges (id, src, dst, rel, label, provenance, confidence, sources, valid_from, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
-        .run(id, src.id, dst.id, input.rel, input.label ?? null, input.provenance,
-          Math.min(1, Math.max(0, input.confidence ?? (owner ? 1 : 0.6))), JSON.stringify(sources), now, now, now);
+        .run(
+          id,
+          src.id,
+          dst.id,
+          input.rel,
+          input.label ?? null,
+          input.provenance,
+          Math.min(1, Math.max(0, input.confidence ?? (owner ? 1 : 0.6))),
+          JSON.stringify(sources),
+          now,
+          now,
+          now,
+        );
       if (prior !== undefined) {
         this.#db
-          .prepare("UPDATE graph_edges SET superseded_by = ?, valid_to = ?, updated_at = ? WHERE id = ?")
+          .prepare(
+            "UPDATE graph_edges SET superseded_by = ?, valid_to = ?, updated_at = ? WHERE id = ?",
+          )
           .run(id, now, now, prior.id);
       }
     })();
@@ -925,7 +1005,9 @@ export class GraphStore {
     const sources = [...new Set([...(JSON.parse(row.sources) as string[]), ...sourceRef(source)])];
     this.#db.transaction(() => {
       this.#db
-        .prepare("UPDATE graph_edges SET retracted_at = ?, valid_to = COALESCE(valid_to, ?), sources = ?, updated_at = ? WHERE id = ?")
+        .prepare(
+          "UPDATE graph_edges SET retracted_at = ?, valid_to = COALESCE(valid_to, ?), sources = ?, updated_at = ? WHERE id = ?",
+        )
         .run(now, now, JSON.stringify(sources), now, id);
       this.#feedback("wrong_edge", row.src, row.dst, sha256(`${row.rel}\n${row.dst}`));
     })();
@@ -939,7 +1021,8 @@ export class GraphStore {
   /** Idempotent by `(source, externalRef)`; participants are replaced. Never stores a body. */
   upsertInteraction(input: InteractionInput): string {
     const subject = clip(input.subject, SUBJECT_CHARS);
-    const safeSubject = subject !== null && blockingKinds(subject, true).length > 0 ? null : subject;
+    const safeSubject =
+      subject !== null && blockingKinds(subject, true).length > 0 ? null : subject;
     const existing = this.#db
       .prepare("SELECT id FROM graph_interactions WHERE source = ? AND external_ref = ?")
       .get(input.source, input.externalRef) as { id: string } | undefined;
@@ -951,14 +1034,33 @@ export class GraphStore {
             `INSERT INTO graph_interactions (id, kind, source, external_ref, occurred_at, direction, subject, thread_key, link, project_id, created_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           )
-          .run(id, input.kind, input.source, input.externalRef, input.occurredAt, input.direction,
-            safeSubject, clip(input.threadKey, 512), clip(input.link, 1024), input.projectId ?? null, this.#now());
+          .run(
+            id,
+            input.kind,
+            input.source,
+            input.externalRef,
+            input.occurredAt,
+            input.direction,
+            safeSubject,
+            clip(input.threadKey, 512),
+            clip(input.link, 1024),
+            input.projectId ?? null,
+            this.#now(),
+          );
       } else {
         this.#db
           .prepare(
             "UPDATE graph_interactions SET occurred_at = ?, direction = ?, subject = ?, thread_key = ?, link = ?, project_id = COALESCE(?, project_id) WHERE id = ?",
           )
-          .run(input.occurredAt, input.direction, safeSubject, clip(input.threadKey, 512), clip(input.link, 1024), input.projectId ?? null, id);
+          .run(
+            input.occurredAt,
+            input.direction,
+            safeSubject,
+            clip(input.threadKey, 512),
+            clip(input.link, 1024),
+            input.projectId ?? null,
+            id,
+          );
         this.#db.prepare("DELETE FROM graph_participants WHERE interaction_id = ?").run(id);
       }
       const insert = this.#db.prepare(
@@ -993,17 +1095,27 @@ export class GraphStore {
   #dropDerived(ids: string[]): void {
     if (ids.length === 0) return;
     const set = new Set(ids);
-    const rows = this.#db.prepare("SELECT id, sources FROM graph_facts").all() as { id: string; sources: string }[];
+    const rows = this.#db.prepare("SELECT id, sources FROM graph_facts").all() as {
+      id: string;
+      sources: string;
+    }[];
     const del = this.#db.prepare("DELETE FROM graph_facts WHERE id = ?");
     for (const r of rows) {
       const sources = JSON.parse(r.sources) as string[];
       if (sources.length > 0 && sources.every((s) => set.has(s))) del.run(r.id);
     }
     const marks = ids.map(() => "?").join(", ");
-    this.#db.prepare(`DELETE FROM graph_loops WHERE source_interaction_id IN (${marks}) AND detected_by != 'owner'`).run(...ids);
+    this.#db
+      .prepare(
+        `DELETE FROM graph_loops WHERE source_interaction_id IN (${marks}) AND detected_by != 'owner'`,
+      )
+      .run(...ids);
   }
 
-  interactions(entityId: string, opts: { limit?: number; before?: string } = {}): GraphInteraction[] {
+  interactions(
+    entityId: string,
+    opts: { limit?: number; before?: string } = {},
+  ): GraphInteraction[] {
     const limit = Math.min(Math.max(1, opts.limit ?? 20), 200);
     const rows = this.#db
       .prepare(
@@ -1022,7 +1134,9 @@ export class GraphStore {
       link: string | null;
       project_id: string | null;
     }[];
-    const participants = this.#db.prepare("SELECT entity_id, role FROM graph_participants WHERE interaction_id = ?");
+    const participants = this.#db.prepare(
+      "SELECT entity_id, role FROM graph_participants WHERE interaction_id = ?",
+    );
     return rows.map((r) => ({
       id: r.id,
       kind: r.kind,
@@ -1033,7 +1147,9 @@ export class GraphStore {
       threadKey: r.thread_key,
       link: r.link,
       projectId: r.project_id,
-      participants: (participants.all(r.id) as { entity_id: string; role: GraphParticipantRole }[]).map((p) => ({
+      participants: (
+        participants.all(r.id) as { entity_id: string; role: GraphParticipantRole }[]
+      ).map((p) => ({
         entityId: p.entity_id,
         role: p.role,
       })),
@@ -1068,25 +1184,34 @@ export class GraphStore {
   // --- loops -----------------------------------------------------------------------------------
 
   #loopRow(id: string): LoopRow | undefined {
-    return this.#db.prepare("SELECT * FROM graph_loops WHERE id = ?").get(id) as LoopRow | undefined;
+    return this.#db.prepare("SELECT * FROM graph_loops WHERE id = ?").get(id) as
+      | LoopRow
+      | undefined;
   }
 
   /** Creates a loop unless the same one is already open or was dismissed (returns undefined). */
   addLoop(input: LoopInput): GraphLoop | undefined {
     const text = clip(input.text, 200);
     if (text === null) return undefined;
-    if (blockingKinds(text, false).length > 0 || (input.provenance !== "owner" && looksLikeInstruction(text))) {
+    if (
+      blockingKinds(text, false).length > 0 ||
+      (input.provenance !== "owner" && looksLikeInstruction(text))
+    ) {
       return undefined;
     }
     // Third-party text never opens a loop on its own authority (§5.3).
     const status: GraphLoopStatus =
       input.provenance === "untrusted" && input.status === "open" ? "suggested" : input.status;
-    const counterpart = input.counterpartId === undefined || input.counterpartId === null ? null : this.resolveMerged(input.counterpartId);
+    const counterpart =
+      input.counterpartId === undefined || input.counterpartId === null
+        ? null
+        : this.resolveMerged(input.counterpartId);
     const dedupe = sha256(`${input.direction}\n${counterpart ?? ""}\n${normalizeName(text)}`);
     const prior = this.#db
       .prepare("SELECT * FROM graph_loops WHERE dedupe_key = ? ORDER BY created_at DESC LIMIT 1")
       .get(dedupe) as LoopRow | undefined;
-    if (prior !== undefined && (prior.status !== "done" || input.provenance !== "owner")) return undefined;
+    if (prior !== undefined && (prior.status !== "done" || input.provenance !== "owner"))
+      return undefined;
     const id = this.#id("loop");
     const now = this.#now();
     this.#db
@@ -1095,9 +1220,23 @@ export class GraphStore {
            source_interaction_id, provenance, confidence, detected_by, dedupe_key, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(id, input.direction, text, clip(input.evidence, EVIDENCE_CHARS), counterpart, input.projectId ?? null,
-        input.dueAt ?? null, status, input.sourceInteractionId ?? null, input.provenance,
-        Math.min(1, Math.max(0, input.confidence ?? 0.6)), input.detectedBy, dedupe, now, now);
+      .run(
+        id,
+        input.direction,
+        text,
+        clip(input.evidence, EVIDENCE_CHARS),
+        counterpart,
+        input.projectId ?? null,
+        input.dueAt ?? null,
+        status,
+        input.sourceInteractionId ?? null,
+        input.provenance,
+        Math.min(1, Math.max(0, input.confidence ?? 0.6)),
+        input.detectedBy,
+        dedupe,
+        now,
+        now,
+      );
     const loop = toLoop(this.#loopRow(id) as LoopRow);
     this.#emit({ event: "memory.loop.updated", payload: { loop } });
     if (counterpart !== null) this.#touched(counterpart, ["loops"]);
@@ -1111,7 +1250,12 @@ export class GraphStore {
 
   updateLoop(
     id: string,
-    patch: { status?: GraphLoopStatus; dueAt?: string | null; text?: string; closedBy?: GraphLoop["closedBy"] },
+    patch: {
+      status?: GraphLoopStatus;
+      dueAt?: string | null;
+      text?: string;
+      closedBy?: GraphLoop["closedBy"];
+    },
   ): GraphLoop {
     const row = this.#loopRow(id);
     if (row === undefined) fail("not_found", "no such loop");
@@ -1123,26 +1267,38 @@ export class GraphStore {
       .prepare(
         "UPDATE graph_loops SET status = ?, due_at = ?, text = ?, closed_at = ?, closed_by = ?, updated_at = ? WHERE id = ?",
       )
-      .run(status, patch.dueAt === undefined ? row.due_at : patch.dueAt, text,
+      .run(
+        status,
+        patch.dueAt === undefined ? row.due_at : patch.dueAt,
+        text,
         closing ? now : status === "done" || status === "dismissed" ? row.closed_at : null,
-        closing ? (patch.closedBy ?? "owner") : status === "done" || status === "dismissed" ? row.closed_by : null,
-        now, id);
-    if (closing && status === "dismissed") this.#feedback("dismissed_loop", row.counterpart_id, null, row.dedupe_key);
+        closing
+          ? (patch.closedBy ?? "owner")
+          : status === "done" || status === "dismissed"
+            ? row.closed_by
+            : null,
+        now,
+        id,
+      );
+    if (closing && status === "dismissed")
+      this.#feedback("dismissed_loop", row.counterpart_id, null, row.dedupe_key);
     const loop = toLoop(this.#loopRow(id) as LoopRow);
     this.#emit({ event: "memory.loop.updated", payload: { loop } });
     if (row.counterpart_id !== null) this.#touched(row.counterpart_id, ["loops"]);
     return loop;
   }
 
-  loops(filter: {
-    status?: GraphLoopStatus[];
-    direction?: GraphLoop["direction"];
-    entityId?: string;
-    projectId?: string;
-    dueBefore?: string;
-    limit?: number;
-    after?: string;
-  } = {}): GraphLoop[] {
+  loops(
+    filter: {
+      status?: GraphLoopStatus[];
+      direction?: GraphLoop["direction"];
+      entityId?: string;
+      projectId?: string;
+      dueBefore?: string;
+      limit?: number;
+      after?: string;
+    } = {},
+  ): GraphLoop[] {
     const status = filter.status ?? ["suggested", "open"];
     const clauses = [`status IN (${status.map(() => "?").join(", ")})`];
     const params: unknown[] = [...status];
@@ -1169,7 +1325,9 @@ export class GraphStore {
     const limit = Math.min(Math.max(1, filter.limit ?? 100), 500);
     return (
       this.#db
-        .prepare(`SELECT * FROM graph_loops WHERE ${clauses.join(" AND ")} ORDER BY created_at, id LIMIT ?`)
+        .prepare(
+          `SELECT * FROM graph_loops WHERE ${clauses.join(" AND ")} ORDER BY created_at, id LIMIT ?`,
+        )
         .all(...params, limit) as LoopRow[]
     ).map(toLoop);
   }
@@ -1177,7 +1335,12 @@ export class GraphStore {
   // --- suggestions -----------------------------------------------------------------------------
 
   /** Records a suggestion unless the same one was ever made before (accepted or rejected). */
-  suggest(input: { kind: GraphSuggestion["kind"]; entityIds: string[]; name?: string | null; reason: string }): GraphSuggestion | undefined {
+  suggest(input: {
+    kind: GraphSuggestion["kind"];
+    entityIds: string[];
+    name?: string | null;
+    reason: string;
+  }): GraphSuggestion | undefined {
     const ids = [...new Set(input.entityIds.map((id) => this.resolveMerged(id)))].sort();
     if (input.kind === "merge") {
       if (ids.length < 2) return undefined;
@@ -1191,18 +1354,38 @@ export class GraphStore {
     }
     const name = clip(input.name, 200);
     const keyHash =
-      input.kind === "merge" ? sha256(`merge\n${ids.join("\n")}`) : sha256(`project\n${normalizeName(name ?? "")}`);
-    if (input.kind === "project" && this.#db.prepare("SELECT 1 FROM graph_feedback WHERE kind = 'not_project' AND key_hash = ?").get(keyHash) !== undefined) {
+      input.kind === "merge"
+        ? sha256(`merge\n${ids.join("\n")}`)
+        : sha256(`project\n${normalizeName(name ?? "")}`);
+    if (
+      input.kind === "project" &&
+      this.#db
+        .prepare("SELECT 1 FROM graph_feedback WHERE kind = 'not_project' AND key_hash = ?")
+        .get(keyHash) !== undefined
+    ) {
       return undefined;
     }
-    if (this.#db.prepare("SELECT 1 FROM graph_suggestions WHERE key_hash = ?").get(keyHash) !== undefined) return undefined;
+    if (
+      this.#db.prepare("SELECT 1 FROM graph_suggestions WHERE key_hash = ?").get(keyHash) !==
+      undefined
+    )
+      return undefined;
     const id = this.#id("sug");
     const now = this.#now();
     this.#db
       .prepare(
         "INSERT INTO graph_suggestions (id, kind, entity_ids, name, reason, status, key_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?)",
       )
-      .run(id, input.kind, JSON.stringify(ids), name, clip(input.reason, 300) ?? "", keyHash, now, now);
+      .run(
+        id,
+        input.kind,
+        JSON.stringify(ids),
+        name,
+        clip(input.reason, 300) ?? "",
+        keyHash,
+        now,
+        now,
+      );
     const suggestion = this.getSuggestion(id) as GraphSuggestion;
     this.#emit({ event: "memory.suggestion.created", payload: { suggestion } });
     return suggestion;
@@ -1210,7 +1393,15 @@ export class GraphStore {
 
   getSuggestion(id: string): GraphSuggestion | undefined {
     const r = this.#db.prepare("SELECT * FROM graph_suggestions WHERE id = ?").get(id) as
-      | { id: string; kind: GraphSuggestion["kind"]; entity_ids: string; name: string | null; reason: string; status: GraphSuggestion["status"]; created_at: string }
+      | {
+          id: string;
+          kind: GraphSuggestion["kind"];
+          entity_ids: string;
+          name: string | null;
+          reason: string;
+          status: GraphSuggestion["status"];
+          created_at: string;
+        }
       | undefined;
     if (r === undefined) return undefined;
     return {
@@ -1226,51 +1417,84 @@ export class GraphStore {
 
   suggestions(status: ("pending" | "later")[] = ["pending"]): GraphSuggestion[] {
     const rows = this.#db
-      .prepare(`SELECT id FROM graph_suggestions WHERE status IN (${status.map(() => "?").join(", ")}) ORDER BY created_at, id`)
+      .prepare(
+        `SELECT id FROM graph_suggestions WHERE status IN (${status.map(() => "?").join(", ")}) ORDER BY created_at, id`,
+      )
       .all(...status) as { id: string }[];
     return rows.map((r) => this.getSuggestion(r.id) as GraphSuggestion);
   }
 
-  answerSuggestion(id: string, answer: "accept" | "reject" | "later"): { suggestion: GraphSuggestion; entity: GraphEntity | null } {
+  answerSuggestion(
+    id: string,
+    answer: "accept" | "reject" | "later",
+  ): { suggestion: GraphSuggestion; entity: GraphEntity | null } {
     const s = this.getSuggestion(id);
     if (s === undefined) fail("not_found", "no such suggestion");
     let entity: GraphEntity | null = null;
     if (answer === "accept") {
       if (s.kind === "merge") {
         const [into, ...rest] = s.entityIds;
-        if (into !== undefined && rest.length > 0) entity = this.merge([into, ...rest], into).entity;
+        if (into !== undefined && rest.length > 0)
+          entity = this.merge([into, ...rest], into).entity;
       } else {
         entity = this.createEntity({ kind: "project", name: s.name ?? "Untitled project" });
         for (const member of s.entityIds) {
           const m = this.#entityRow(member);
-          if (m?.kind === "person") this.setEdge({ src: member, rel: "member_of", dst: entity.id, provenance: "owner" });
-          else if (m?.kind === "org") this.setEdge({ src: member, rel: "stakeholder_of", dst: entity.id, provenance: "owner" });
+          if (m?.kind === "person")
+            this.setEdge({ src: member, rel: "member_of", dst: entity.id, provenance: "owner" });
+          else if (m?.kind === "org")
+            this.setEdge({
+              src: member,
+              rel: "stakeholder_of",
+              dst: entity.id,
+              provenance: "owner",
+            });
         }
       }
     } else if (answer === "reject") {
       const [a, b] = s.entityIds;
-      if (s.kind === "merge" && a !== undefined && b !== undefined) this.#feedback("do_not_merge", a, b, null);
-      if (s.kind === "project") this.#feedback("not_project", null, null, sha256(`project\n${normalizeName(s.name ?? "")}`));
+      if (s.kind === "merge" && a !== undefined && b !== undefined)
+        this.#feedback("do_not_merge", a, b, null);
+      if (s.kind === "project")
+        this.#feedback(
+          "not_project",
+          null,
+          null,
+          sha256(`project\n${normalizeName(s.name ?? "")}`),
+        );
     }
     const status = answer === "accept" ? "accepted" : answer === "reject" ? "rejected" : "later";
-    this.#db.prepare("UPDATE graph_suggestions SET status = ?, updated_at = ? WHERE id = ?").run(status, this.#now(), id);
+    this.#db
+      .prepare("UPDATE graph_suggestions SET status = ?, updated_at = ? WHERE id = ?")
+      .run(status, this.#now(), id);
     return { suggestion: this.getSuggestion(id) as GraphSuggestion, entity };
   }
 
   // --- merge, split, forget --------------------------------------------------------------------
 
-  merge(ids: string[], into: string, dryRun = false): { entity: GraphEntity; movedIdentifiers: number; movedFacts: number; dryRun: boolean } {
+  merge(
+    ids: string[],
+    into: string,
+    dryRun = false,
+  ): { entity: GraphEntity; movedIdentifiers: number; movedFacts: number; dryRun: boolean } {
     const target = this.#entityRow(into);
     if (target === undefined) fail("not_found", "no such entity");
-    const others = [...new Set(ids.map((id) => this.resolveMerged(id)))].filter((id) => id !== into);
+    const others = [...new Set(ids.map((id) => this.resolveMerged(id)))].filter(
+      (id) => id !== into,
+    );
     let movedIdentifiers = 0;
     let movedFacts = 0;
     for (const id of others) {
       const row = this.#entityRow(id);
       if (row === undefined) fail("not_found", "no such entity");
       if (row.kind !== target.kind) fail("invalid_params", "only entities of one kind merge");
-      if (row.is_owner === 1 && target.is_owner !== 1) fail("invalid_params", "merge others into the owner, not the owner away");
-      movedIdentifiers += (this.#db.prepare("SELECT count(*) AS n FROM graph_identifiers WHERE entity_id = ?").get(id) as { n: number }).n;
+      if (row.is_owner === 1 && target.is_owner !== 1)
+        fail("invalid_params", "merge others into the owner, not the owner away");
+      movedIdentifiers += (
+        this.#db
+          .prepare("SELECT count(*) AS n FROM graph_identifiers WHERE entity_id = ?")
+          .get(id) as { n: number }
+      ).n;
       movedFacts += this.#factRows(id, true).length;
     }
     if (!dryRun) {
@@ -1279,21 +1503,41 @@ export class GraphStore {
         for (const id of others) {
           const row = this.#entityRow(id) as EntityRow;
           this.addAlias(into, row.name, "merge");
-          this.#db.prepare("UPDATE graph_identifiers SET entity_id = ? WHERE entity_id = ?").run(into, id);
-          this.#db.prepare("INSERT OR IGNORE INTO graph_aliases (entity_id, alias_norm, alias, source, created_at) SELECT ?, alias_norm, alias, source, created_at FROM graph_aliases WHERE entity_id = ?").run(into, id);
-          this.#db.prepare("UPDATE graph_facts SET entity_id = ? WHERE entity_id = ?").run(into, id);
+          this.#db
+            .prepare("UPDATE graph_identifiers SET entity_id = ? WHERE entity_id = ?")
+            .run(into, id);
+          this.#db
+            .prepare(
+              "INSERT OR IGNORE INTO graph_aliases (entity_id, alias_norm, alias, source, created_at) SELECT ?, alias_norm, alias, source, created_at FROM graph_aliases WHERE entity_id = ?",
+            )
+            .run(into, id);
+          this.#db
+            .prepare("UPDATE graph_facts SET entity_id = ? WHERE entity_id = ?")
+            .run(into, id);
           this.#db.prepare("UPDATE graph_edges SET src = ? WHERE src = ?").run(into, id);
           this.#db.prepare("UPDATE graph_edges SET dst = ? WHERE dst = ?").run(into, id);
-          this.#db.prepare("UPDATE OR IGNORE graph_participants SET entity_id = ? WHERE entity_id = ?").run(into, id);
-          this.#db.prepare("DELETE FROM graph_participants WHERE entity_id = ?").run(id);
-          this.#db.prepare("UPDATE graph_loops SET counterpart_id = ? WHERE counterpart_id = ?").run(into, id);
-          this.#db.prepare("UPDATE graph_loops SET project_id = ? WHERE project_id = ?").run(into, id);
-          this.#db.prepare("UPDATE graph_interactions SET project_id = ? WHERE project_id = ?").run(into, id);
           this.#db
-            .prepare("UPDATE graph_entities SET status = 'merged', merged_into = ?, card_path = NULL, updated_at = ? WHERE id = ?")
+            .prepare("UPDATE OR IGNORE graph_participants SET entity_id = ? WHERE entity_id = ?")
+            .run(into, id);
+          this.#db.prepare("DELETE FROM graph_participants WHERE entity_id = ?").run(id);
+          this.#db
+            .prepare("UPDATE graph_loops SET counterpart_id = ? WHERE counterpart_id = ?")
+            .run(into, id);
+          this.#db
+            .prepare("UPDATE graph_loops SET project_id = ? WHERE project_id = ?")
+            .run(into, id);
+          this.#db
+            .prepare("UPDATE graph_interactions SET project_id = ? WHERE project_id = ?")
+            .run(into, id);
+          this.#db
+            .prepare(
+              "UPDATE graph_entities SET status = 'merged', merged_into = ?, card_path = NULL, updated_at = ? WHERE id = ?",
+            )
             .run(into, now, id);
           this.#db
-            .prepare("UPDATE graph_entities SET last_interaction_at = MAX(COALESCE(last_interaction_at, ''), COALESCE(?, '')) WHERE id = ?")
+            .prepare(
+              "UPDATE graph_entities SET last_interaction_at = MAX(COALESCE(last_interaction_at, ''), COALESCE(?, '')) WHERE id = ?",
+            )
             .run(row.last_interaction_at, into);
           this.#feedback("merge", into, id, null);
           this.#db.prepare("DELETE FROM graph_fts WHERE entity_id = ?").run(id);
@@ -1305,14 +1549,28 @@ export class GraphStore {
   }
 
   /** Moves identifiers (and the interactions they explain) to a new entity; never re-suggested. */
-  split(id: string, identifiers: { kind: GraphIdentifierKind; value: string }[], name: string, dryRun = false): { entity: GraphEntity; dryRun: boolean } {
+  split(
+    id: string,
+    identifiers: { kind: GraphIdentifierKind; value: string }[],
+    name: string,
+    dryRun = false,
+  ): { entity: GraphEntity; dryRun: boolean } {
     const row = this.#entityRow(id);
     if (row === undefined) fail("not_found", "no such entity");
     const mine = identifiers.filter((i) => this.resolveIdentifier(i.kind, i.value) === id);
-    if (mine.length === 0) fail("invalid_params", "none of those identifiers belong to this entity");
+    if (mine.length === 0)
+      fail("invalid_params", "none of those identifiers belong to this entity");
     if (dryRun) {
       return {
-        entity: { ...toEntity(row, []), id: "ent_preview", name, aliases: [], isOwner: false, pinned: false, hidden: false },
+        entity: {
+          ...toEntity(row, []),
+          id: "ent_preview",
+          name,
+          aliases: [],
+          isOwner: false,
+          pinned: false,
+          hidden: false,
+        },
         dryRun,
       };
     }
@@ -1321,7 +1579,11 @@ export class GraphStore {
       created = this.createEntity({ kind: row.kind, name, source: "owner" });
       for (const i of mine) {
         this.unlinkIdentifier(i.kind, i.value);
-        this.linkIdentifier(created.id, i.kind, i.value, { source: "owner", linkedBy: "owner", verified: true });
+        this.linkIdentifier(created.id, i.kind, i.value, {
+          source: "owner",
+          linkedBy: "owner",
+          verified: true,
+        });
       }
       this.#feedback("do_not_merge", id, created.id, null);
     })();
@@ -1334,16 +1596,30 @@ export class GraphStore {
    * Deletes an entity and everything about it; its identifiers are blocklisted (hashes) so
    * ingest never recreates it. Runs with `secure_delete` so freed pages are zeroed (§4.9).
    */
-  forget(id: string, dryRun = false): {
-    removed: { identifiers: number; facts: number; edges: number; interactions: number; loops: number };
+  forget(
+    id: string,
+    dryRun = false,
+  ): {
+    removed: {
+      identifiers: number;
+      facts: number;
+      edges: number;
+      interactions: number;
+      loops: number;
+    };
     cardPath: string | null;
     names: string[];
     dryRun: boolean;
   } {
     const row = this.#entityRow(id);
     if (row === undefined) fail("not_found", "no such entity");
-    if (row.is_owner === 1) fail("policy_denied", "the owner's own entity is cleared from Settings, not forgotten");
-    const merged = (this.#db.prepare("SELECT id FROM graph_entities WHERE merged_into = ?").all(id) as { id: string }[]).map((r) => r.id);
+    if (row.is_owner === 1)
+      fail("policy_denied", "the owner's own entity is cleared from Settings, not forgotten");
+    const merged = (
+      this.#db.prepare("SELECT id FROM graph_entities WHERE merged_into = ?").all(id) as {
+        id: string;
+      }[]
+    ).map((r) => r.id);
     const ids = [id, ...merged];
     const marks = ids.map(() => "?").join(", ");
     const count = (sql: string) => (this.#db.prepare(sql).get(...ids) as { n: number }).n;
@@ -1357,11 +1633,25 @@ export class GraphStore {
         .all(...ids, ...ids) as { id: string }[]
     ).map((r) => r.id);
     const removed = {
-      identifiers: count(`SELECT count(*) AS n FROM graph_identifiers WHERE entity_id IN (${marks})`),
+      identifiers: count(
+        `SELECT count(*) AS n FROM graph_identifiers WHERE entity_id IN (${marks})`,
+      ),
       facts: count(`SELECT count(*) AS n FROM graph_facts WHERE entity_id IN (${marks})`),
-      edges: (this.#db.prepare(`SELECT count(*) AS n FROM graph_edges WHERE src IN (${marks}) OR dst IN (${marks})`).get(...ids, ...ids) as { n: number }).n,
+      edges: (
+        this.#db
+          .prepare(
+            `SELECT count(*) AS n FROM graph_edges WHERE src IN (${marks}) OR dst IN (${marks})`,
+          )
+          .get(...ids, ...ids) as { n: number }
+      ).n,
       interactions: soleInteractions.length,
-      loops: (this.#db.prepare(`SELECT count(*) AS n FROM graph_loops WHERE counterpart_id IN (${marks}) OR project_id IN (${marks})`).get(...ids, ...ids) as { n: number }).n,
+      loops: (
+        this.#db
+          .prepare(
+            `SELECT count(*) AS n FROM graph_loops WHERE counterpart_id IN (${marks}) OR project_id IN (${marks})`,
+          )
+          .get(...ids, ...ids) as { n: number }
+      ).n,
     };
     const names = [row.name, ...this.#aliases(id)];
     if (dryRun) return { removed, cardPath: row.card_path, names, dryRun };
@@ -1369,13 +1659,30 @@ export class GraphStore {
     this.#db.pragma("secure_delete = ON");
     try {
       this.#db.transaction(() => {
-        for (const ident of ids.flatMap((e) => this.identifiers(e))) this.#block(ident.kind, ident.value);
-        this.#db.prepare(`DELETE FROM graph_loops WHERE counterpart_id IN (${marks}) OR project_id IN (${marks})`).run(...ids, ...ids);
+        for (const ident of ids.flatMap((e) => this.identifiers(e)))
+          this.#block(ident.kind, ident.value);
+        this.#db
+          .prepare(
+            `DELETE FROM graph_loops WHERE counterpart_id IN (${marks}) OR project_id IN (${marks})`,
+          )
+          .run(...ids, ...ids);
         if (soleInteractions.length > 0) {
-          this.#db.prepare(`DELETE FROM graph_interactions WHERE id IN (${soleInteractions.map(() => "?").join(", ")})`).run(...soleInteractions);
+          this.#db
+            .prepare(
+              `DELETE FROM graph_interactions WHERE id IN (${soleInteractions.map(() => "?").join(", ")})`,
+            )
+            .run(...soleInteractions);
         }
-        this.#db.prepare(`DELETE FROM graph_suggestions WHERE ${ids.map(() => "entity_ids LIKE ?").join(" OR ")}`).run(...ids.map((e) => `%"${e}"%`));
-        this.#db.prepare(`DELETE FROM graph_feedback WHERE entity_id IN (${marks}) OR other_id IN (${marks})`).run(...ids, ...ids);
+        this.#db
+          .prepare(
+            `DELETE FROM graph_suggestions WHERE ${ids.map(() => "entity_ids LIKE ?").join(" OR ")}`,
+          )
+          .run(...ids.map((e) => `%"${e}"%`));
+        this.#db
+          .prepare(
+            `DELETE FROM graph_feedback WHERE entity_id IN (${marks}) OR other_id IN (${marks})`,
+          )
+          .run(...ids, ...ids);
         this.#db.prepare(`DELETE FROM graph_fts WHERE entity_id IN (${marks})`).run(...ids);
         // Cascades remove identifiers, aliases, facts, edges and participants.
         this.#db.prepare(`DELETE FROM graph_entities WHERE id IN (${marks})`).run(...ids);
@@ -1385,19 +1692,30 @@ export class GraphStore {
     } finally {
       this.#db.pragma(`secure_delete = ${before === 1 ? "ON" : "OFF"}`);
     }
-    this.#emit({ event: "memory.entity.updated", payload: { id, kind: row.kind, changed: ["forgotten"] } });
+    this.#emit({
+      event: "memory.entity.updated",
+      payload: { id, kind: row.kind, changed: ["forgotten"] },
+    });
     return { removed, cardPath: row.card_path, names, dryRun };
   }
 
   /** Deletes interactions past retention and archives entities with nothing left (§4.9). */
   retention(): { interactions: number; archived: number } {
     const cutoff = new Date(this.#clock.now() - this.#retentionDays * DAY_MS).toISOString();
-    const old = (this.#db.prepare("SELECT id FROM graph_interactions WHERE occurred_at < ?").all(cutoff) as { id: string }[]).map((r) => r.id);
+    const old = (
+      this.#db.prepare("SELECT id FROM graph_interactions WHERE occurred_at < ?").all(cutoff) as {
+        id: string;
+      }[]
+    ).map((r) => r.id);
     let archived = 0;
     this.#db.transaction(() => {
       for (let i = 0; i < old.length; i += 500) {
         const batch = old.slice(i, i + 500);
-        this.#db.prepare(`DELETE FROM graph_interactions WHERE id IN (${batch.map(() => "?").join(", ")})`).run(...batch);
+        this.#db
+          .prepare(
+            `DELETE FROM graph_interactions WHERE id IN (${batch.map(() => "?").join(", ")})`,
+          )
+          .run(...batch);
       }
       archived = this.#db
         .prepare(
@@ -1418,16 +1736,21 @@ export class GraphStore {
     if (e === undefined) return undefined;
     const openLoops = (
       this.#db
-        .prepare("SELECT count(*) AS n FROM graph_loops WHERE (counterpart_id = ? OR project_id = ?) AND status IN ('open', 'suggested')")
+        .prepare(
+          "SELECT count(*) AS n FROM graph_loops WHERE (counterpart_id = ? OR project_id = ?) AND status IN ('open', 'suggested')",
+        )
         .get(id, id) as { n: number }
     ).n;
     let subtitle: string | null = null;
     if (e.kind === "person") {
       const org = this.edges(id).find((x) => x.rel === "works_at" && x.src === id);
       subtitle = org === undefined ? null : (this.#entityRow(org.dst)?.name ?? null);
-      if (subtitle === null) subtitle = this.facts(id).find((f) => f.attribute === "employer")?.value ?? null;
+      if (subtitle === null)
+        subtitle = this.facts(id).find((f) => f.attribute === "employer")?.value ?? null;
     } else if (e.kind === "project") {
-      const members = this.edges(id).filter((x) => x.dst === id && (x.rel === "member_of" || x.rel === "stakeholder_of")).length;
+      const members = this.edges(id).filter(
+        (x) => x.dst === id && (x.rel === "member_of" || x.rel === "stakeholder_of"),
+      ).length;
       subtitle = `${e.projectStatus ?? "active"} · ${members} ${members === 1 ? "person" : "people"}`;
     }
     return {
@@ -1454,7 +1777,9 @@ export class GraphStore {
       .filter((s): s is EntitySummary => s !== undefined);
     const openLoops = (
       this.#db
-        .prepare("SELECT * FROM graph_loops WHERE (counterpart_id = ? OR project_id = ?) AND status IN ('open', 'suggested', 'snoozed') ORDER BY created_at, id")
+        .prepare(
+          "SELECT * FROM graph_loops WHERE (counterpart_id = ? OR project_id = ?) AND status IN ('open', 'suggested', 'snoozed') ORDER BY created_at, id",
+        )
         .all(id, id) as LoopRow[]
     ).map(toLoop);
     return {
@@ -1483,25 +1808,28 @@ export class GraphStore {
       .map((f) => f.value)
       .join(" ");
     this.#db
-      .prepare("INSERT INTO graph_fts (entity_id, name, aliases, facts, summary) VALUES (?, ?, ?, ?, ?)")
+      .prepare(
+        "INSERT INTO graph_fts (entity_id, name, aliases, facts, summary) VALUES (?, ?, ?, ?, ?)",
+      )
       .run(id, row.name, `${aliases} ${idents}`.trim(), facts, row.summary ?? "");
   }
 
   /** Name, alias, email and fact matches, ranked by match and two-way contact strength. */
-  search(q: string, opts: { kinds?: GraphEntityKind[]; limit?: number; includeArchived?: boolean } = {}): EntitySummary[] {
+  search(
+    q: string,
+    opts: { kinds?: GraphEntityKind[]; limit?: number; includeArchived?: boolean } = {},
+  ): EntitySummary[] {
     const limit = Math.min(Math.max(1, opts.limit ?? 20), 100);
     const terms = (normalizeName(q).match(/[\p{L}\p{N}]+/gu) ?? []).slice(0, 12);
     const kinds = opts.kinds ?? ["person", "org", "project", "place"];
     let ids: { id: string; rank: number }[];
     if (terms.length === 0) {
-      ids = (
-        this.#db
-          .prepare(
-            `SELECT id, 0 AS rank FROM graph_entities WHERE status ${opts.includeArchived ? "!= 'merged'" : "= 'active'"} AND kind IN (${kinds.map(() => "?").join(", ")})
+      ids = this.#db
+        .prepare(
+          `SELECT id, 0 AS rank FROM graph_entities WHERE status ${opts.includeArchived ? "!= 'merged'" : "= 'active'"} AND kind IN (${kinds.map(() => "?").join(", ")})
              ORDER BY pinned DESC, COALESCE(last_interaction_at, '') DESC, sort_name LIMIT ?`,
-          )
-          .all(...kinds, limit) as { id: string; rank: number }[]
-      );
+        )
+        .all(...kinds, limit) as { id: string; rank: number }[];
     } else {
       // Exact identifier lookups first (an email or phone typed in full).
       const exact = new Set<string>();
@@ -1511,7 +1839,9 @@ export class GraphStore {
       }
       const match = terms.map((t) => `"${t}"*`).join(" ");
       const rows = this.#db
-        .prepare("SELECT entity_id AS id, bm25(graph_fts, 0, 10, 6, 2, 1) AS rank FROM graph_fts WHERE graph_fts MATCH ? ORDER BY rank LIMIT 200")
+        .prepare(
+          "SELECT entity_id AS id, bm25(graph_fts, 0, 10, 6, 2, 1) AS rank FROM graph_fts WHERE graph_fts MATCH ? ORDER BY rank LIMIT 200",
+        )
         .all(match) as { id: string; rank: number }[];
       ids = [...[...exact].map((id) => ({ id, rank: -1e9 })), ...rows];
     }
@@ -1522,11 +1852,19 @@ export class GraphStore {
       seen.add(id);
       const row = this.#entityRow(id);
       if (row === undefined || !kinds.includes(row.kind)) continue;
-      if (row.status === "merged" || (row.status === "archived" && opts.includeArchived !== true)) continue;
+      if (row.status === "merged" || (row.status === "archived" && opts.includeArchived !== true))
+        continue;
       const s = this.summary(id);
       if (s === undefined) continue;
-      const nameHit = terms.length > 0 && terms.every((t) => row.sort_name.split(" ").some((w) => w.startsWith(t))) ? 2 : 0;
-      out.push({ s, score: -rank + nameHit * 5 + Math.log1p(this.strength(id)) * 3 + (row.pinned === 1 ? 2 : 0) });
+      const nameHit =
+        terms.length > 0 &&
+        terms.every((t) => row.sort_name.split(" ").some((w) => w.startsWith(t)))
+          ? 2
+          : 0;
+      out.push({
+        s,
+        score: -rank + nameHit * 5 + Math.log1p(this.strength(id)) * 3 + (row.pinned === 1 ? 2 : 0),
+      });
     }
     return out
       .sort((a, b) => b.score - a.score || a.s.name.localeCompare(b.s.name))
@@ -1539,19 +1877,25 @@ export class GraphStore {
     const k = kinds ?? ["person", "org", "project", "place"];
     return (
       this.#db
-        .prepare(`SELECT * FROM graph_entities WHERE status = 'active' AND kind IN (${k.map(() => "?").join(", ")}) ORDER BY sort_name, id`)
+        .prepare(
+          `SELECT * FROM graph_entities WHERE status = 'active' AND kind IN (${k.map(() => "?").join(", ")}) ORDER BY sort_name, id`,
+        )
         .all(...k) as EntityRow[]
     ).map((r) => toEntity(r, this.#aliases(r.id)));
   }
 
   cursor(source: string): unknown {
-    const row = this.#db.prepare("SELECT cursor FROM graph_cursors WHERE source = ?").get(source) as { cursor: string } | undefined;
+    const row = this.#db.prepare("SELECT cursor FROM graph_cursors WHERE source = ?").get(source) as
+      | { cursor: string }
+      | undefined;
     return row === undefined ? undefined : JSON.parse(row.cursor);
   }
 
   setCursor(source: string, cursor: unknown): void {
     this.#db
-      .prepare("INSERT INTO graph_cursors (source, cursor, updated_at) VALUES (?, ?, ?) ON CONFLICT (source) DO UPDATE SET cursor = excluded.cursor, updated_at = excluded.updated_at")
+      .prepare(
+        "INSERT INTO graph_cursors (source, cursor, updated_at) VALUES (?, ?, ?) ON CONFLICT (source) DO UPDATE SET cursor = excluded.cursor, updated_at = excluded.updated_at",
+      )
       .run(source, JSON.stringify(cursor ?? null), this.#now());
   }
 
@@ -1562,7 +1906,11 @@ export class GraphStore {
     budget?: GraphStatus["budget"];
   }): GraphStatus {
     const kindCount = (kind: string) =>
-      (this.#db.prepare("SELECT count(*) AS n FROM graph_entities WHERE kind = ? AND status = 'active'").get(kind) as { n: number }).n;
+      (
+        this.#db
+          .prepare("SELECT count(*) AS n FROM graph_entities WHERE kind = ? AND status = 'active'")
+          .get(kind) as { n: number }
+      ).n;
     const since = new Date(this.#clock.now() - 30 * DAY_MS).toISOString();
     const SOURCES: GraphSource[] = ["contacts", "mail", "calendar", "messages", "notes", "chats"];
     const kindOfSource: Record<GraphSource, string[]> = {
@@ -1580,13 +1928,25 @@ export class GraphStore {
         const interactions =
           kinds.length === 0
             ? 0
-            : (this.#db.prepare(`SELECT count(*) AS n FROM graph_interactions WHERE kind IN (${kinds.map(() => "?").join(", ")})`).get(...kinds) as { n: number }).n;
+            : (
+                this.#db
+                  .prepare(
+                    `SELECT count(*) AS n FROM graph_interactions WHERE kind IN (${kinds.map(() => "?").join(", ")})`,
+                  )
+                  .get(...kinds) as { n: number }
+              ).n;
         const entities = (
           this.#db
-            .prepare("SELECT count(DISTINCT entity_id) AS n FROM graph_identifiers WHERE source LIKE ?")
+            .prepare(
+              "SELECT count(DISTINCT entity_id) AS n FROM graph_identifiers WHERE source LIKE ?",
+            )
             .get(`%${source}%`) as { n: number }
         ).n;
-        const last = this.#db.prepare("SELECT updated_at FROM graph_cursors WHERE source LIKE ? ORDER BY updated_at DESC LIMIT 1").get(`%${source}%`) as { updated_at: string } | undefined;
+        const last = this.#db
+          .prepare(
+            "SELECT updated_at FROM graph_cursors WHERE source LIKE ? ORDER BY updated_at DESC LIMIT 1",
+          )
+          .get(`%${source}%`) as { updated_at: string } | undefined;
         return {
           source,
           enabled: settings.sources[source] === true,
@@ -1600,11 +1960,24 @@ export class GraphStore {
         orgs: kindCount("org"),
         projects: kindCount("project"),
         places: kindCount("place"),
-        openLoops: (this.#db.prepare("SELECT count(*) AS n FROM graph_loops WHERE status IN ('open', 'suggested')").get() as { n: number }).n,
-        pendingSuggestions: (this.#db.prepare("SELECT count(*) AS n FROM graph_suggestions WHERE status = 'pending'").get() as { n: number }).n,
+        openLoops: (
+          this.#db
+            .prepare("SELECT count(*) AS n FROM graph_loops WHERE status IN ('open', 'suggested')")
+            .get() as { n: number }
+        ).n,
+        pendingSuggestions: (
+          this.#db
+            .prepare("SELECT count(*) AS n FROM graph_suggestions WHERE status = 'pending'")
+            .get() as { n: number }
+        ).n,
       },
       lastModelPassAt: settings.lastModelPassAt ?? null,
-      budget: settings.budget ?? { entitiesUsed: 0, tokensUsed: 0, maxEntities: 200, maxTokens: 150_000 },
+      budget: settings.budget ?? {
+        entitiesUsed: 0,
+        tokensUsed: 0,
+        maxEntities: 200,
+        maxTokens: 150_000,
+      },
       loopPrecision: SOURCES.map((source) => {
         const kinds = kindOfSource[source];
         if (kinds.length === 0) return { source, confirmed: 0, dismissed: 0 };
@@ -1630,11 +2003,17 @@ export class GraphStore {
       facts: this.history(e.id).facts,
       notes: this.notes(e.id),
     }));
-    const edges = (this.#db.prepare("SELECT * FROM graph_edges ORDER BY created_at, id").all() as EdgeRow[]).map(toEdge);
-    const loops = (this.#db.prepare("SELECT * FROM graph_loops ORDER BY created_at, id").all() as LoopRow[]).map(toLoop);
-    const interactions = (
-      this.#db.prepare("SELECT id, kind, source, occurred_at, direction, link, project_id FROM graph_interactions ORDER BY occurred_at, id").all() as Record<string, unknown>[]
-    );
+    const edges = (
+      this.#db.prepare("SELECT * FROM graph_edges ORDER BY created_at, id").all() as EdgeRow[]
+    ).map(toEdge);
+    const loops = (
+      this.#db.prepare("SELECT * FROM graph_loops ORDER BY created_at, id").all() as LoopRow[]
+    ).map(toLoop);
+    const interactions = this.#db
+      .prepare(
+        "SELECT id, kind, source, occurred_at, direction, link, project_id FROM graph_interactions ORDER BY occurred_at, id",
+      )
+      .all() as Record<string, unknown>[];
     return { version: 1, exportedAt: this.#now(), entities, edges, loops, interactions };
   }
 
