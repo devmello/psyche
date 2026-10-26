@@ -910,8 +910,8 @@ void app.whenReady().then(async () => {
       : { shortcuts: globalShortcut }),
     warn: (m) => console.warn(`[dictation] ${m}`),
     onStatus: (s) => broadcast(IPC.dictationStatus, s),
-    // Double-tapping fn opens "Ask about my screen", like the shortcut.
-    onFnDoubleTap: () => screenAsk?.trigger("window"),
+    // Double-tapping the voice or dictation key opens "Ask about my screen", like the shortcut.
+    onKeyDoubleTap: () => screenAsk?.trigger("window"),
     // The voice key (held from any app) opens the ask panel in voice mode: speak, and the answer
     // appears as text. The panel dictates through the renderer, which owns the microphone, and
     // Talk with Psyche keeps the panel window even with Ask about screen off.
