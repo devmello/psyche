@@ -2,7 +2,12 @@ import type { Artifact, ArtifactTableView, ArtifactVersion } from "@psyche/proto
 import { FIXTURE_NOW, IDS } from "./ids.ts";
 
 /** Canvas artifacts with history for stories and tests (chat-experience-2026 §4.2). */
-export const CANVAS_IDS = { doc: "art_canvas_doc", table: "art_canvas_table" } as const;
+export const CANVAS_IDS = {
+  doc: "art_canvas_doc",
+  table: "art_canvas_table",
+  chart: "art_canvas_chart",
+  diff: "art_canvas_diff",
+} as const;
 
 const DOC_V1 = "# Lisbon, 3 days\n\n## Day 1\n- Alfama walk\n- Dinner in Bairro Alto\n";
 const DOC_V2 = `${DOC_V1}\n## Day 2\n- Belém and the tower\n`;
@@ -15,6 +20,26 @@ const TABLE = JSON.stringify({
     ["Tram passes", "You", 24],
   ],
 });
+
+const CHART = JSON.stringify({
+  kind: "bar",
+  title: "Trip cost by item",
+  yLabel: "EUR",
+  categories: ["Flights", "Hotel", "Tram passes", "Food"],
+  series: [
+    { name: "Planned", values: [400, 700, 30, 220] },
+    { name: "Actual", values: [412, 690, 24, 260] },
+  ],
+});
+const DIFF = `--- a/itinerary.md
++++ b/itinerary.md
+@@ -1,4 +1,5 @@
+ # Lisbon, 3 days
+-- Alfama walk
++- Alfama walk, tram 28 back
++- Pastéis in Belém
+ - Dinner in Bairro Alto
+`;
 
 const at = (min: number) => new Date(Date.parse(FIXTURE_NOW) - min * 60_000).toISOString();
 
@@ -70,8 +95,32 @@ export function canvasFixtures(): {
     threadId: IDS.threads.lisbon,
     bytes: TABLE.length,
   };
+  const chart: Artifact = {
+    id: CANVAS_IDS.chart,
+    libraryItemId: "lib_canvas_chart",
+    type: "chart",
+    title: "Trip cost chart",
+    version: 1,
+    nameSlug: "trip-cost-chart",
+    sourceRef: null,
+    updatedAt: at(8),
+    threadId: IDS.threads.lisbon,
+    bytes: CHART.length,
+  };
+  const diff: Artifact = {
+    id: CANVAS_IDS.diff,
+    libraryItemId: "lib_canvas_diff",
+    type: "diff",
+    title: "Itinerary changes",
+    version: 1,
+    nameSlug: "itinerary-changes",
+    sourceRef: null,
+    updatedAt: at(9),
+    threadId: IDS.threads.lisbon,
+    bytes: DIFF.length,
+  };
   return {
-    artifacts: [doc, table],
+    artifacts: [doc, table, chart, diff],
     artifactHistory: {
       [doc.id]: {
         contents: [DOC_V1, DOC_V2, DOC_V3],
@@ -81,6 +130,16 @@ export function canvasFixtures(): {
           version(doc.id, 2, "agent", "1 insert (+3 lines); 9 lines", 12),
           version(doc.id, 3, "user", "1 replace (+0 lines); 9 lines", 2),
         ],
+      },
+      [chart.id]: {
+        contents: [CHART],
+        views: [null],
+        versions: [version(chart.id, 1, "agent", "bar chart, 2 series × 4 points", 8)],
+      },
+      [diff.id]: {
+        contents: [DIFF],
+        views: [null],
+        versions: [version(diff.id, 1, "specialist", "4 lines", 9)],
       },
       [table.id]: {
         contents: [TABLE],

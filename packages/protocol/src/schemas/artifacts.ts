@@ -31,6 +31,31 @@ export const ArtifactTable = Type.Object(
 );
 export type ArtifactTable = Static<typeof ArtifactTable>;
 
+/**
+ * The content of a `chart` artifact (JSON), rendered by the client: no model-written JavaScript
+ * (docs/design/chat-experience-2026.md §4.2, decision 4). `categories` label the x axis (or the
+ * slices of a pie); each series has one value per category.
+ */
+export const ArtifactChart = Type.Object(
+  {
+    kind: StringEnum(["bar", "line", "area", "pie"]),
+    title: Type.Optional(Type.String({ maxLength: 200 })),
+    xLabel: Type.Optional(Type.String({ maxLength: 80 })),
+    yLabel: Type.Optional(Type.String({ maxLength: 80 })),
+    categories: Type.Array(Type.String({ maxLength: 80 }), { maxItems: 200 }),
+    series: Type.Array(
+      Type.Object({
+        name: Type.String({ maxLength: 80 }),
+        values: Type.Array(Type.Union([Type.Number(), Type.Null()]), { maxItems: 200 }),
+      }),
+      { minItems: 1, maxItems: 12 },
+    ),
+    stacked: Type.Optional(Type.Boolean()),
+  },
+  { $id: "ArtifactChart" },
+);
+export type ArtifactChart = Static<typeof ArtifactChart>;
+
 /** An A1 cell (`B3`) or range (`A1:C4`) reference into a table artifact. */
 const A1 = Type.String({ pattern: "^[A-Z]{1,3}[1-9][0-9]{0,5}$" });
 const A1Range = Type.String({
@@ -55,7 +80,7 @@ export type ArtifactTableView = Static<typeof ArtifactTableView>;
  * One edit. Text types (`doc`, `code`): `replace` (`old` must match exactly once, else the update
  * fails fast), `insert` after an exact-once anchor (empty anchor = at the start), or `rewrite`
  * (the fallback; counted). Tables: `set`, `setRange`, `addRows`, `deleteRows`, `addColumn`, and
- * `view` (sort and filter metadata). Header row is not addressable: `A1` is the first data row.
+ * `view` (sort and filter metadata). Charts: `patch` (JSON merge patch). Header row is not addressable: `A1` is the first data row.
  */
 export const ArtifactOp = Type.Union(
   [
@@ -90,6 +115,11 @@ export const ArtifactOp = Type.Union(
       at: Type.Optional(Type.Integer({ minimum: 0 })),
     }),
     Type.Object({ op: Type.Literal("view"), view: ArtifactTableView }),
+    /** `chart`: a JSON merge patch (RFC 7386) onto the spec; arrays are replaced whole. */
+    Type.Object({
+      op: Type.Literal("patch"),
+      patch: Type.Record(Type.String(), Type.Unknown()),
+    }),
   ],
   { $id: "ArtifactOp" },
 );
