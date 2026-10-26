@@ -10,6 +10,7 @@ import { Textarea } from "../../components/ui/textarea.tsx";
 import { t } from "../../i18n/core.ts";
 import { usePersona } from "../../slots.tsx";
 import {
+  bool,
   ErrorNotice,
   Group,
   LoadGate,
@@ -17,6 +18,7 @@ import {
   SectionFrame,
   SettingHint,
   type SettingsFormProps,
+  SwitchField,
   str,
   TextSetting,
   useSettingsForm,
@@ -206,6 +208,16 @@ export function PersonaPanel({
               </p>
             ) : null}
           </div>
+        </Group>
+
+        <Group title={t("settings.persona.whileWorking")}>
+          <SwitchField
+            label={t("settings.key.agent.showReasoning")}
+            description={t("settings.persona.showReasoningHint", { persona: name })}
+            checked={bool(values, "agent.showReasoning", true)}
+            settingKey="agent.showReasoning"
+            onChange={(v) => onChange("agent.showReasoning", v)}
+          />
         </Group>
       </LoadGate>
     </SectionFrame>

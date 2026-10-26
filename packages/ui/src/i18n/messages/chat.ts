@@ -157,6 +157,8 @@ export const chat = {
   "chat.steps.question": "Asked: {question}",
   "chat.steps.answered": "Answered: {question}",
   "chat.steps.writing": "Writing the reply…",
+  "chat.steps.thinking": "Thinking: {text}",
+  "chat.steps.thinkingEmpty": "Thinking…",
   "chat.steps.status.running": "running",
   "chat.steps.status.done": "done",
   "chat.steps.status.failed": "failed",
