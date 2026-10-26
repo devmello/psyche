@@ -21,7 +21,10 @@ const role = {
   approvals: ["new_origin" as const],
 };
 
-function setup(slots = 3) {
+function setup(
+  slots = 3,
+  published: Array<{ event: string; threadId?: string; blocks?: unknown }> = [],
+) {
   const clock = new FakeClock();
   const ids = createIdGenerator({ prefix: "db" });
   const db = openDb(":memory:", {
@@ -60,6 +63,14 @@ function setup(slots = 3) {
     slots: () => slots,
     poke: () => {
       pokes.n += 1;
+    },
+    publish: (event, payload, threadId) => {
+      const message = (payload as { message?: { blocks: unknown } }).message;
+      published.push({
+        event,
+        ...(threadId === undefined ? {} : { threadId }),
+        blocks: message?.blocks,
+      });
     },
   });
   return { db, tasks, host, clock, pokes };
@@ -163,6 +174,32 @@ describe("the Gateway's specialist host (#683)", () => {
     );
     expect(again.summary).toBe(result.summary);
     expect((await host.jobs("thr_parent"))[0]?.status).toBe("done");
+  });
+
+  it("posts the first result to the spawning thread as a specialist_result block, once", async () => {
+    const published: Array<{ event: string; threadId?: string; blocks?: unknown }> = [];
+    const { host, db } = setup(3, published);
+    const job = await host.createJob({
+      spec: spec("thr_parent"),
+      title: "Apartments",
+      brief: "b",
+      incognito: false,
+      taint: false,
+      taintSources: [],
+    });
+    await host.report(job.taskId, { outcome: "done", summary: "ok" }, { tainted: false });
+    await host.report(job.taskId, { outcome: "failed", summary: "later" }, { tainted: false });
+    expect(published).toEqual([
+      {
+        event: "chat.message",
+        threadId: "thr_parent",
+        blocks: [{ type: "specialist_result", taskId: job.taskId }],
+      },
+    ]);
+    const rows = db.sqlite
+      .prepare("SELECT role FROM messages WHERE thread_id = 'thr_parent'")
+      .all() as Array<{ role: string }>;
+    expect(rows).toEqual([{ role: "system" }]);
   });
 
   it("defuse leaves ordinary text alone", () => {

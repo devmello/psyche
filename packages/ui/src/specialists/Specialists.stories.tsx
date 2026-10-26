@@ -16,6 +16,7 @@ import { STORY_NOW, withWorld } from "../stories/harness.tsx";
 import { SpecialistRow } from "./InboxRow.tsx";
 import { roleLabel } from "./model.ts";
 import { SpecialistResultCard } from "./ResultCard.tsx";
+import { SpecialistResultBlockView } from "./SpecialistResultBlock.tsx";
 
 /** Background specialists (docs/agent/specialists-2026.md §6): result cards, rows and spawns. */
 const meta = {
@@ -118,6 +119,16 @@ export const SpawnLines: Story = {
   render: () => (
     <div style={{ height: 820 }}>
       <ChatThread threadId={IDS.threads.main} now={STORY_NOW} />
+    </div>
+  ),
+};
+
+/** A result in the thread that spawned it (chat-experience-2026 §4.5): the block's card. */
+export const ResultInThread: Story = {
+  render: () => (
+    <div className="mx-auto flex max-w-[640px] flex-col p-6">
+      <SpecialistResultBlockView taskId={T.done} />
+      <SpecialistResultBlockView taskId={T.partial} />
     </div>
   ),
 };

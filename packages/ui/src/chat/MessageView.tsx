@@ -3,6 +3,7 @@ import { CornerUpLeft, Ellipsis, GitBranch, Pencil } from "lucide-react";
 import { type ReactElement, useId, useState } from "react";
 import { Avatar } from "../avatar/Avatar.tsx";
 import { MessageBlocks } from "../blocks/MessageBlocks.tsx";
+import { RegisteredBlock } from "../blocks/registry.tsx";
 import { Button } from "../components/ui/button.tsx";
 import {
   DropdownMenu,
@@ -94,6 +95,11 @@ export function MessageView({
             <p key={i}>{b.md}</p>
           ) : b.type === "compaction" ? (
             <CompactionMessage key={b.compactionId} message={message} block={b} />
+          ) : b.type === "specialist_result" ? (
+            // A specialist's result in the thread that spawned it (chat experience §4.5).
+            <div key={b.taskId} className="mt-1 text-start">
+              <RegisteredBlock block={b} ctx={{ message, pinChecklist: false, untrusted: false }} />
+            </div>
           ) : b.type === "taught" ? (
             // The Gateway's note after teaching (teaching loop §5.1), quiet and start-aligned.
             <div key={b.feedbackId} className="ps-7 text-start">
