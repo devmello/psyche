@@ -317,7 +317,11 @@ export interface DictationPort {
   /** Opens System Settings › Privacy & Security › Accessibility. */
   openAccessibilitySettings(): void;
   /** Whether another app holds a shortcut, asked before Settings saves the toggle hotkey. */
-  checkHotkey?(accelerator: string): Promise<"ok" | "taken" | "invalid">;
+  checkHotkey?(
+    accelerator: string,
+    /** Which shortcut it is for: dictation's toggle (default) or Ask about screen. */
+    purpose?: "dictation" | "screenAsk",
+  ): Promise<"ok" | "taken" | "invalid">;
 }
 
 /** localStorage-backed store that degrades to memory (private windows, blocked storage). */

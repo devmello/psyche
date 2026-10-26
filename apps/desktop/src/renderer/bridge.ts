@@ -139,8 +139,8 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
       getStatus: () => b.dictation.getStatus() as Promise<SystemDictationStatus>,
       onStatus: (cb) => b.dictation.onStatus((s) => cb(s as SystemDictationStatus)),
       recheck: () => b.dictation.recheck() as Promise<SystemDictationStatus>,
-      checkHotkey: (accelerator) =>
-        b.dictation.checkHotkey(accelerator) as Promise<"ok" | "taken" | "invalid">,
+      checkHotkey: (accelerator, purpose) =>
+        b.dictation.checkHotkey(accelerator, purpose) as Promise<"ok" | "taken" | "invalid">,
       openAccessibilitySettings: () => b.dictation.openAccessibilitySettings(),
     },
   };

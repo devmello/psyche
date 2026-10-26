@@ -3318,4 +3318,51 @@ export const ja: Partial<Catalogue> = {
   "settings.key.voice.conversation.reviewBeforeSend": "送信前に確認",
   "settings.key.voice.conversation.pauseMs": "Psycheが返答するまでの間",
   "settings.key.voice.conversation.brief": "音声ブリーフィング",
+
+  // Ask about my screen
+  "screenAsk.label": "画面について質問",
+  "screenAsk.placeholder": "画面の内容について質問するか、Psycheに何か頼んでください…",
+  "screenAsk.send": "質問",
+  "screenAsk.capturing": "画面を確認中…",
+  "screenAsk.chip.window": "{app}",
+  "screenAsk.chip.region": "{app}の一部",
+  "screenAsk.chip.textOnly": "{app} · テキストのみ",
+  "screenAsk.chip.none": "何も取り込まれていません",
+  "screenAsk.drop": "画面の内容を送信しない",
+  "screenAsk.pin": "スクリーンショットを常に送信",
+  "screenAsk.unpin": "必要なときだけスクリーンショットを送信",
+  "screenAsk.recapture": "もう一度取り込む",
+  "screenAsk.selectArea": "範囲を選択",
+  "screenAsk.refusal.app_excluded": "Psycheは{app}を取り込みません。",
+  "screenAsk.refusal.secure_field":
+    "パスワード欄にフォーカスがあるため、スクリーンショットはありません。",
+  "screenAsk.refusal.no_window": "取り込めるウインドウがありません。",
+  "screenAsk.refusal.permission_missing":
+    "スクリーンショットを送信するには画面収録を許可してください。",
+  "screenAsk.allowCapture": "許可",
+  "screenAsk.captureFailed": "画面を取り込めませんでした。質問はそのままできます。",
+  "screenAsk.dest.new": "新しいチャット",
+  "screenAsk.dest.current": "現在のチャット",
+  "screenAsk.dest.label": "送信先",
+  "screenAsk.mic.start": "話して依頼",
+  "screenAsk.mic.stop": "聞き取りを停止",
+  "screenAsk.answer.thinking": "考え中…",
+  "screenAsk.answer.failed": "問題が起きました。詳しくはチャットを開いてください。",
+  "screenAsk.open": "Psycheで開く",
+  "screenAsk.cancelHint": "Escで閉じる",
+  "screenAsk.region.hint": "ドラッグして範囲を選択します。Escでウインドウ全体のままにします。",
+  "screenAsk.region.label": "画面の範囲を選択",
+  "settings.screenAsk.title": "画面について質問",
+  "settings.key.screenAsk.enabled": "自分の画面について質問",
+  "settings.screenAsk.enabledHint":
+    "どのアプリでもショートカットを押すと、画面の内容について質問したり、Psycheにそれを使って何かしてもらったりできます。押すまでは何も取り込まれません。",
+  "settings.key.screenAsk.shortcut": "ショートカット",
+  "settings.screenAsk.shortcutHint":
+    "質問パネルを開きます。パネルが開いているときにもう一度押すと範囲を選択できます。",
+  "settings.key.screenAsk.destination": "送信先",
+  "settings.key.screenAsk.alwaysImage": "スクリーンショットを常に含める",
+  "settings.screenAsk.alwaysImageHint":
+    "オフの場合、Psycheは依頼が画面に関するものであるときだけ送信し、必要なときだけ確認します。",
+  "voice.phrases.screen":
+    "これ|この|それ|その|あれ|ここ|画面|画面の|今見てる|このページ|このエラー|このグラフ|このウインドウ|上の|下の",
 };
