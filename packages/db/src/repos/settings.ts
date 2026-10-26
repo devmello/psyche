@@ -41,3 +41,14 @@ export function setSetting(db: PsycheDb, key: string, value: unknown): SettingEn
     .get();
   return settingFromRow(row);
 }
+
+/** Removes settings; returns the keys that existed. Missing keys are ignored. */
+export function deleteSettings(db: PsycheDb, keys: readonly string[]): string[] {
+  if (keys.length === 0) return [];
+  return db.drizzle
+    .delete(settings)
+    .where(inArray(settings.key, [...keys]))
+    .returning({ key: settings.key })
+    .all()
+    .map((r) => r.key);
+}

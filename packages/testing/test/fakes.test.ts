@@ -461,7 +461,5 @@ describe("FakeSpeechEngine", () => {
     );
     expect(segs.map((s) => s.final)).toEqual([false, false, false, true]);
     expect(segs.at(-1)?.text).toBe("book a table");
-    const chunks = await collect(e.synthesize("hi"));
-    expect(chunks.length).toBeGreaterThan(0);
   });
 });

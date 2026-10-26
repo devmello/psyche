@@ -1327,7 +1327,6 @@ export {
 export type { ApprovalRelay, ComposedPart, ComposeServices, OwnPorts } from "./services.ts";
 export {
   composeSpeech,
-  dbMessageSource,
   FsAudioLibrary,
   type SpeechSetup,
   speechNode,

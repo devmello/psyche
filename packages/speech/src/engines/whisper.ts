@@ -2,7 +2,6 @@ import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  type AudioChunk,
   type AudioFormat,
   PsycheError,
   type SpeechCapabilities,
@@ -10,7 +9,6 @@ import {
   type TranscribeOptions,
   type Transcript,
   type TranscriptSegment,
-  type Voice,
 } from "@psyche/protocol";
 import {
   assertPcmFormat,
@@ -277,7 +275,6 @@ export class WhisperEngine implements SpeechEngine {
     return {
       engine: `whisper.cpp (${this.#opts.backend.name})`,
       streaming: true,
-      synthesis: false,
       languages: this.#opts.englishOnly === true ? ["en"] : ["auto"],
     };
   }
@@ -421,15 +418,6 @@ export class WhisperEngine implements SpeechEngine {
     if (options.signal?.aborted === true) return;
     const seg = await finalize();
     if (seg !== undefined) yield seg;
-  }
-
-  // biome-ignore lint/correctness/useYield: whisper.cpp does not synthesize
-  async *synthesize(): AsyncIterable<AudioChunk> {
-    throw new PsycheError("not_implemented", "whisper.cpp does not synthesize speech");
-  }
-
-  async voices(): Promise<Voice[]> {
-    return [];
   }
 }
 

@@ -61,24 +61,6 @@ describe("voice notes (N11)", () => {
     });
     expect(h.delivered[1]?.taintSources).toEqual([]);
   });
-
-  it("send: synthesizes once and transcodes once per container", async () => {
-    const h = await harness();
-    await h.service.sendVoice({ channelId: h.channel.id, chatId: OWNER }, "Dinner is at seven.");
-    await h.service.sendVoice({ channelId: h.channel.id, chatId: OWNER }, "Dinner is at seven.");
-    expect(h.speech.synthesized).toEqual(["Dinner is at seven."]);
-    expect(h.transcoder.calls.map((c) => c.target)).toEqual(["ogg_opus"]);
-    const voice = h.adapter.sent.filter((s) => s.attachments !== undefined);
-    expect(voice).toHaveLength(2);
-    expect(voice[0]?.attachments?.[0]).toMatchObject({
-      kind: "voice",
-      mime: "audio/ogg",
-      name: "voice.ogg",
-    });
-    expect(h.adapter.sent.some((s) => s.kind === "typing" && s.text === "recording_voice")).toBe(
-      true,
-    );
-  });
 });
 
 describe("outbound", () => {

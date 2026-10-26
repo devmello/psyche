@@ -1,4 +1,4 @@
-import { type NodeClient, type NodeInvokeOptions, ResolvedSecret } from "@psyche/protocol";
+import type { NodeClient, NodeInvokeOptions } from "@psyche/protocol";
 import { FakeNodeClient, FakeSpeechEngine } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import {
@@ -8,11 +8,9 @@ import {
   StreamingResampler,
   toPcm16kMono,
 } from "../src/audio.ts";
-import { CloudTtsEngine } from "../src/engines/cloud.ts";
 import { NODE_SPEECH_CAPABILITIES, NodeSpeechEngine } from "../src/engines/node.ts";
 import { WhisperEngine, type WhisperRequest } from "../src/engines/whisper.ts";
 import { SpeechEngineSelector } from "../src/policy.ts";
-import { toBase64 } from "../src/queue.ts";
 import { whisperPrompt } from "../src/vocabulary.ts";
 import { VoiceSessionManager } from "../src/voice.ts";
 import { chunks, collect, tonePcm } from "./helpers.ts";
@@ -57,21 +55,15 @@ function startingHelper(onPush?: (p: { data: string; final?: boolean }) => void)
 }
 
 describe("review fixes", () => {
-  it("1: node stream and synthesis calls get timeouts beyond the 60 s registry default", async () => {
-    const node = startingHelper().handle({
-      capability: cap(NODE_SPEECH_CAPABILITIES.synthesize),
-      handle: () => ({}),
-    });
+  it("1: node stream calls get timeouts beyond the 60 s registry default", async () => {
+    const node = startingHelper();
     const { client, options } = recording(node);
     const engine = new NodeSpeechEngine({ node: () => client });
     await collect(engine.transcribeStream(chunks(new Uint8Array(4), 4), PCM_16K_MONO)).catch(
       () => {},
     );
-    await collect(engine.synthesize("hi"));
     const stream = options.find(([c]) => c === "speech.transcribe_stream")?.[1];
-    const synth = options.find(([c]) => c === "speech.synthesize")?.[1];
     expect(stream?.timeoutMs).toBeGreaterThanOrEqual(10 * 60_000);
-    expect(synth?.timeoutMs).toBeGreaterThan(60_000);
   });
 
   it("2: crafted WAV headers and PCM formats are refused before allocating", () => {
@@ -93,28 +85,6 @@ describe("review fixes", () => {
     expect(() => toPcm16kMono(new Uint8Array(4), { ...PCM_16K_MONO, channels: 0 })).toThrow(
       /channel/,
     );
-  });
-
-  it("3: stopping a node synthesis early does not wait for the helper", async () => {
-    const node = new FakeNodeClient().handle({
-      capability: cap(NODE_SPEECH_CAPABILITIES.synthesize),
-      handle: async (_p, emit) => {
-        emit({
-          type: "speech.audio",
-          seq: 0,
-          data: toBase64(new Uint8Array(4)),
-          format: PCM_16K_MONO,
-        });
-        await sleep(2_000);
-        return {};
-      },
-    });
-    const { client, options } = recording(node);
-    const engine = new NodeSpeechEngine({ node: () => client });
-    const t0 = Date.now();
-    for await (const _ of engine.synthesize("hello")) break;
-    expect(Date.now() - t0).toBeLessThan(500);
-    expect(options[0]?.[1]?.signal?.aborted).toBe(true);
   });
 
   it("4: a helper failure mid-stream reaches the consumer while the mic is idle", async () => {
@@ -140,11 +110,11 @@ describe("review fixes", () => {
   });
 
   it("5: concurrent voice.start calls cannot exceed the per-device cap", async () => {
-    const selector = new SpeechEngineSelector({ stt: { order: ["whisper"] }, tts: { order: [] } });
+    const selector = new SpeechEngineSelector({ stt: { order: ["whisper"] } });
     selector.register({
       id: "whisper",
       location: "gateway",
-      supports: { transcribe: true, stream: true, synthesize: false },
+      supports: { transcribe: true, stream: true },
       engine: new FakeSpeechEngine(),
       available: async () => true,
     });
@@ -210,32 +180,6 @@ describe("review fixes", () => {
     for (let i = 1; i < joined.length; i++) {
       expect((joined[i] ?? 0) - (joined[i - 1] ?? 0)).toBeCloseTo(1.5 / 300, 6);
     }
-  });
-
-  it("8: cloud TTS cancels the response body when the consumer stops early", async () => {
-    let cancelled = false;
-    const engine = new CloudTtsEngine({
-      provider: "elevenlabs",
-      defaultVoice: "voice-1",
-      apiKey: async () =>
-        new ResolvedSecret("sk-test-review-0000", {
-          credentialId: "c",
-          target: { kind: "origin", value: "https://api.elevenlabs.io" },
-        }),
-      fetch: async () =>
-        new Response(
-          new ReadableStream<Uint8Array>({
-            pull(c) {
-              c.enqueue(new Uint8Array(4));
-            },
-            cancel() {
-              cancelled = true;
-            },
-          }),
-        ),
-    });
-    for await (const _ of engine.synthesize("hello")) break;
-    expect(cancelled).toBe(true);
   });
 
   it("9: an already-aborted signal stops node transcription before any push", async () => {
