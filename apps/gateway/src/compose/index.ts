@@ -696,15 +696,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const connectorsPart = parts.find(
     (p): p is ComposedPart & { registry: ConnectorRegistry } => "registry" in p && "mail" in p,
   );
-  if (connectorsPart !== undefined) {
-    people.useSources(() =>
-      graphSourceAdapters({
-        connectors: () => connectorsPart.registry.list(),
-        tools: services.tools,
-        clock,
-      }),
-    );
-  }
+  people.useSources(() =>
+    graphSourceAdapters({
+      connectors: async () => (connectorsPart === undefined ? [] : connectorsPart.registry.list()),
+      tools: services.tools,
+      clock,
+      db,
+    }),
+  );
 
   // scheduler → launcher → worker pool → loop → scheduler: the launcher is bound once the pool exists.
   let launcher: RunLauncher | null = null;
