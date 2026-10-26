@@ -43,6 +43,8 @@ export const IPC = {
   windowPopOut: "psyche:window:pop-out",
   windowClose: "psyche:window:close",
   windowOpenSettings: "psyche:window:open-settings",
+  /** Settings → Connectors "Try it" (#677): fill the main window's composer, without sending. */
+  windowPrefillComposer: "psyche:window:prefill-composer",
   shellCommand: "psyche:shell:command",
   notifyShow: "psyche:notify:show",
   // The bundled Mac helper's launch and pairing state (onboarding, Settings → Devices).
@@ -110,6 +112,11 @@ export function rec(channel: string, v: unknown): Record<string, unknown> {
 /** Text the renderer may put on the clipboard: a non-empty string up to 64 KiB. */
 export function checkClipboardText(v: unknown): string {
   return str(IPC.clipboardWrite, rec(IPC.clipboardWrite, v).text, "text", 65_536);
+}
+
+/** Composer text from another window ("Try it", #677): a non-empty string up to 4,000 chars. */
+export function checkComposerText(v: unknown): string {
+  return str(IPC.windowPrefillComposer, rec(IPC.windowPrefillComposer, v).text, "text", 4_000);
 }
 
 /** Pages the renderer may open in the system browser: https only, no userinfo (#505). */

@@ -22,6 +22,14 @@ export {
   LOCKED_APPS,
 } from "./ComputerUseSection.tsx";
 export {
+  alwaysAsks,
+  appleApp,
+  CapabilityCard,
+  type CapabilityCardProps,
+  grantName,
+  tryRequests,
+} from "./ConnectorCapabilities.tsx";
+export {
   CONNECTOR_CATALOG,
   ConnectAccessChoice,
   ConnectorsPanel,

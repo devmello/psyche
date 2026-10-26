@@ -10,16 +10,29 @@ import PsycheProtocol
 
 public protocol CalendarBackend: Sendable {
     func calendars() async throws -> [CalendarRecord]
-    func events(from: Date, to: Date, calendarIds: [String]?, limit: Int) async throws -> [CalendarEventRecord]
+    /// Start order; `query` matches the title, location or notes (C1).
+    func events(from: Date, to: Date, calendarIds: [String]?, query: String?, limit: Int) async throws -> [CalendarEventRecord]
     func create(_ input: CalendarEventInput) async throws -> CalendarEventRecord
     func update(_ update: CalendarEventPatch) async throws -> CalendarEventRecord
+    // Wave 1 (C2, C4).
+    func freeBusy(from: Date, to: Date, calendarIds: [String]?) async throws -> [BusyBlockRecord]
+    func deleteEvent(id: String, span: String?) async throws
 }
 
 public protocol RemindersBackend: Sendable {
     func lists() async throws -> [CalendarRecord]
-    func reminders(listIds: [String]?, completed: Bool?, dueBefore: Date?, limit: Int) async throws -> [ReminderRecord]
+    /// Soonest due first, after `filter` (R1).
+    func reminders(listIds: [String]?, completed: Bool?, dueBefore: Date?, filter: ReminderQuery, limit: Int) async throws -> [ReminderRecord]
     func create(_ input: ReminderInput) async throws -> ReminderRecord
     func update(_ patch: ReminderPatch) async throws -> ReminderRecord
+    // Wave 1 (R3–R5).
+    /// By id, or the one open reminder with exactly `title` (in `listId` when given).
+    func complete(id: String?, title: String?, listId: String?, completed: Bool) async throws -> ReminderRecord
+    func delete(id: String) async throws
+    /// EventKit has no flag: Reminders scripting.
+    func setFlagged(id: String, flagged: Bool) async throws
+    /// EventKit ids of flagged reminders (Reminders scripting).
+    func flaggedIds() async throws -> Set<String>
 }
 
 public protocol MailBackend: Sendable {
@@ -54,6 +67,15 @@ public protocol NotesBackend: Sendable {
     func list(folder: String?, limit: Int) async throws -> [NoteSummaryRecord]
     func read(id: String) async throws -> (NoteSummaryRecord, html: String, text: String)
     func create(title: String, html: String, folder: String?) async throws -> NoteSummaryRecord
+    // Wave 1 (docs/connectors/apple-apps-2026.md §4.4).
+    /// Matched by Notes (`whose`), newest modified first; each with the start of its plain text.
+    func search(query: String, folder: String?, since: Date?, limit: Int) async throws -> [(NoteSummaryRecord, text: String)]
+    func folders() async throws -> [NoteFolderRecord]
+    func attachments(id: String) async throws -> [(id: String, name: String)]
+    /// Appends HTML at the end; returns the note and its new body.
+    func append(id: String, html: String) async throws -> (NoteSummaryRecord, html: String)
+    /// Replaces the body and / or the name; returns the note and its body.
+    func update(id: String, title: String?, html: String?) async throws -> (NoteSummaryRecord, html: String)
 }
 
 public protocol SafariBackend: Sendable {
@@ -76,6 +98,10 @@ public struct CalendarEventInput: Decodable, Sendable {
     public var location: String?
     public var notes: String?
     public var url: String?
+    // Wave 1 (C3).
+    public var alarms: [AlarmSpec]?
+    public var recurrence: RecurrenceSpec?
+    public var availability: String?
 }
 
 public struct CalendarEventPatch: Decodable, Sendable {
@@ -88,6 +114,28 @@ public struct CalendarEventPatch: Decodable, Sendable {
     public var notes: String?
     public var url: String?
     public var span: String?
+    // Wave 1 (C3): `recurrence: null` removes it; absent leaves it.
+    public var alarms: [AlarmSpec]?
+    public var recurrence: RecurrenceSpec??
+    public var availability: String?
+
+    enum CodingKeys: String, CodingKey { case id, title, start, end, allDay, location, notes, url, span, alarms, recurrence, availability }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        title = try c.decodeIfPresent(String.self, forKey: .title)
+        start = try c.decodeIfPresent(String.self, forKey: .start)
+        end = try c.decodeIfPresent(String.self, forKey: .end)
+        allDay = try c.decodeIfPresent(Bool.self, forKey: .allDay)
+        location = try c.decodeIfPresent(String.self, forKey: .location)
+        notes = try c.decodeIfPresent(String.self, forKey: .notes)
+        url = try c.decodeIfPresent(String.self, forKey: .url)
+        span = try c.decodeIfPresent(String.self, forKey: .span)
+        alarms = try c.decodeIfPresent([AlarmSpec].self, forKey: .alarms)
+        recurrence = c.contains(.recurrence) ? .some(try c.decodeIfPresent(RecurrenceSpec.self, forKey: .recurrence)) : .none
+        availability = try c.decodeIfPresent(String.self, forKey: .availability)
+    }
 }
 
 public struct ReminderInput: Decodable, Sendable {
@@ -96,6 +144,10 @@ public struct ReminderInput: Decodable, Sendable {
     public var notes: String?
     public var due: String?
     public var priority: Int?
+    // Wave 1 (R2).
+    public var url: String?
+    public var alarm: AlarmSpec?
+    public var recurrence: RecurrenceSpec?
 }
 
 public struct ReminderPatch: Decodable, Sendable {
@@ -158,13 +210,82 @@ public final class EventKitBackend: CalendarBackend, RemindersBackend, @unchecke
     static func record(_ e: EKEvent) -> CalendarEventRecord {
         CalendarEventRecord(id: e.calendarItemIdentifier, calendarId: e.calendar?.calendarIdentifier ?? "", title: e.title ?? "",
                     start: AppleDates.string(e.startDate), end: AppleDates.string(e.endDate), allDay: e.isAllDay,
-                    location: e.location, notes: e.notes, url: e.url?.absoluteString, recurring: e.hasRecurrenceRules)
+                    location: e.location, notes: e.notes, url: e.url?.absoluteString, recurring: e.hasRecurrenceRules,
+                    attendees: (e.attendees ?? []).map { Self.attendee($0, organizer: e.organizer) },
+                    conferenceUrl: ConferenceLinks.find([e.url?.absoluteString, e.location, e.notes]),
+                    alarms: (e.alarms ?? []).compactMap(Self.alarm), recurrence: e.recurrenceRules?.first.map(Self.recurrence),
+                    availability: Self.availability(e.availability))
     }
 
     static func record(_ r: EKReminder) -> ReminderRecord {
         ReminderRecord(id: r.calendarItemIdentifier, listId: r.calendar?.calendarIdentifier ?? "", title: r.title ?? "", notes: r.notes,
                        due: r.dueDateComponents.flatMap { Calendar.current.date(from: $0) }.map(AppleDates.string), completed: r.isCompleted,
-                       priority: r.priority)
+                       priority: r.priority, url: r.url?.absoluteString, alarms: (r.alarms ?? []).compactMap(Self.alarm),
+                       recurrence: r.recurrenceRules?.first.map(Self.recurrence))
+    }
+
+    // MARK: Wave 1 mapping (alarms, recurrence, attendees, availability)
+
+    static func alarm(_ a: EKAlarm) -> AlarmSpec? {
+        if let d = a.absoluteDate { return .absolute(AppleDates.string(d)) }
+        return .relative(minutes: min(0, Int((a.relativeOffset / 60).rounded())))
+    }
+
+    static func ekAlarm(_ a: AlarmSpec) throws -> EKAlarm {
+        switch a {
+        case .relative(let m): return EKAlarm(relativeOffset: TimeInterval(m * 60))
+        case .absolute(let at): return EKAlarm(absoluteDate: try AppleDates.param(at, field: "alarm.at"))
+        }
+    }
+
+    static let frequencies: [EKRecurrenceFrequency: String] = [.daily: "daily", .weekly: "weekly", .monthly: "monthly", .yearly: "yearly"]
+
+    static func recurrence(_ r: EKRecurrenceRule) -> RecurrenceSpec {
+        RecurrenceSpec(
+            frequency: frequencies[r.frequency] ?? "daily", interval: r.interval == 1 ? nil : r.interval,
+            daysOfWeek: r.daysOfTheWeek.map { $0.map { RecurrenceSpec.days[max(0, $0.dayOfTheWeek.rawValue - 1)] } },
+            until: r.recurrenceEnd?.endDate.map(AppleDates.string),
+            count: r.recurrenceEnd.flatMap { $0.occurrenceCount > 0 ? $0.occurrenceCount : nil })
+    }
+
+    static func ekRecurrence(_ r: RecurrenceSpec) throws -> EKRecurrenceRule {
+        try r.validate()
+        let freq = frequencies.first { $0.value == r.frequency }?.key ?? .daily
+        let days = r.daysOfWeek?.compactMap { d -> EKRecurrenceDayOfWeek? in
+            guard let i = RecurrenceSpec.days.firstIndex(of: d), let w = EKWeekday(rawValue: i + 1) else { return nil }
+            return EKRecurrenceDayOfWeek(w)
+        }
+        let end: EKRecurrenceEnd? = try r.until.map { EKRecurrenceEnd(end: try AppleDates.param($0, field: "recurrence.until")) }
+            ?? r.count.map { EKRecurrenceEnd(occurrenceCount: $0) }
+        return EKRecurrenceRule(recurrenceWith: freq, interval: r.interval ?? 1, daysOfTheWeek: days, daysOfTheMonth: nil,
+                                monthsOfTheYear: nil, weeksOfTheYear: nil, daysOfTheYear: nil, setPositions: nil, end: end)
+    }
+
+    static func availability(_ a: EKEventAvailability) -> String? {
+        switch a {
+        case .busy: "busy"
+        case .free: "free"
+        case .tentative: "tentative"
+        case .unavailable: "unavailable"
+        default: nil
+        }
+    }
+
+    static func attendee(_ p: EKParticipant, organizer: EKParticipant?) -> AttendeeRecord {
+        let email = p.url.absoluteString.lowercased().hasPrefix("mailto:") ? String(p.url.absoluteString.dropFirst(7)) : nil
+        let status: String
+        switch p.participantStatus {
+        case .accepted: status = "accepted"
+        case .declined: status = "declined"
+        case .tentative: status = "tentative"
+        case .pending: status = "pending"
+        default: status = "unknown"
+        }
+        return AttendeeRecord(name: p.name ?? email ?? "", email: email, status: status, organizer: organizer.map { $0.url == p.url } ?? false)
+    }
+
+    static func checkAlarms(_ xs: [AlarmSpec]?) throws {
+        if let xs, xs.count > 5 { throw CapabilityError.invalidParams("at most 5 alarms", field: "alarms") }
     }
 
     func calendars(_ ids: [String]?, type: EKEntityType) -> [EKCalendar]? {
@@ -182,10 +303,31 @@ public final class EventKitBackend: CalendarBackend, RemindersBackend, @unchecke
         return store.calendars(for: .event).map(Self.record)
     }
 
-    public func events(from: Date, to: Date, calendarIds: [String]?, limit: Int) async throws -> [CalendarEventRecord] {
+    public func events(from: Date, to: Date, calendarIds: [String]?, query: String?, limit: Int) async throws -> [CalendarEventRecord] {
         try await ensure(.event)
         let pred = store.predicateForEvents(withStart: from, end: to, calendars: calendars(calendarIds, type: .event))
-        return store.events(matching: pred).sorted { $0.startDate < $1.startDate }.prefix(limit).map(Self.record)
+        let q = (query ?? "").trimmingCharacters(in: .whitespaces).lowercased()
+        return store.events(matching: pred).filter { e in
+            q.isEmpty || [e.title, e.location, e.notes].contains { ($0 ?? "").lowercased().contains(q) }
+        }.sorted { $0.startDate < $1.startDate }.prefix(limit).map(Self.record)
+    }
+
+    public func freeBusy(from: Date, to: Date, calendarIds: [String]?) async throws -> [BusyBlockRecord] {
+        try await ensure(.event)
+        let pred = store.predicateForEvents(withStart: from, end: to, calendars: calendars(calendarIds, type: .event))
+        return BusyBlockRecord.blocks(store.events(matching: pred).map {
+            BusyBlockRecord(start: AppleDates.string($0.startDate), end: AppleDates.string($0.endDate), calendarId: $0.calendar?.calendarIdentifier ?? "",
+                            availability: Self.availability($0.availability) ?? "busy")
+        })
+    }
+
+    public func deleteEvent(id: String, span: String?) async throws {
+        try await ensure(.event)
+        guard let e = store.calendarItem(withIdentifier: id) as? EKEvent else {
+            throw CapabilityError(.notFound, reason: "event_not_found", "No event \(id)")
+        }
+        guard e.calendar?.allowsContentModifications ?? false else { throw CapabilityError(.forbidden, reason: "calendar_read_only", "The event's calendar is read-only") }
+        do { try store.remove(e, span: span == "future" ? .futureEvents : .thisEvent, commit: true) } catch { throw Self.saveError(error) }
     }
 
     func apply(_ e: EKEvent, title: String?, start: String?, end: String?, allDay: Bool?, location: String?, notes: String?, url: String?) throws {
@@ -199,6 +341,17 @@ public final class EventKitBackend: CalendarBackend, RemindersBackend, @unchecke
         guard e.endDate >= e.startDate else { throw CapabilityError.invalidParams("end is before start", field: "end") }
     }
 
+    /// Alarms replace the existing ones; `recurrence` `.some(nil)` removes it; availability busy / free.
+    func applyWave1(_ e: EKEvent, alarms: [AlarmSpec]?, recurrence: RecurrenceSpec??, availability: String?) throws {
+        try Self.checkAlarms(alarms)
+        if let alarms { e.alarms = try alarms.map(Self.ekAlarm) }
+        if case .some(let r) = recurrence { e.recurrenceRules = try r.map { [try Self.ekRecurrence($0)] } }
+        if let a = availability {
+            guard a == "busy" || a == "free" else { throw CapabilityError.invalidParams("availability is busy or free", field: "availability") }
+            e.availability = a == "busy" ? .busy : .free
+        }
+    }
+
     public func create(_ input: CalendarEventInput) async throws -> CalendarEventRecord {
         try await ensure(.event)
         let e = EKEvent(eventStore: store)
@@ -208,6 +361,7 @@ public final class EventKitBackend: CalendarBackend, RemindersBackend, @unchecke
         guard cal.allowsContentModifications else { throw CapabilityError(.forbidden, reason: "calendar_read_only", "\(cal.title) is read-only") }
         e.calendar = cal
         try apply(e, title: input.title, start: input.start, end: input.end, allDay: input.allDay, location: input.location, notes: input.notes, url: input.url)
+        try applyWave1(e, alarms: input.alarms, recurrence: input.recurrence.map { .some($0) } ?? .none, availability: input.availability)
         do { try store.save(e, span: .thisEvent, commit: true) } catch { throw Self.saveError(error) }
         return Self.record(e)
     }
@@ -218,6 +372,7 @@ public final class EventKitBackend: CalendarBackend, RemindersBackend, @unchecke
             throw CapabilityError(.notFound, reason: "event_not_found", "No event \(p.id)")
         }
         try apply(e, title: p.title, start: p.start, end: p.end, allDay: p.allDay, location: p.location, notes: p.notes, url: p.url)
+        try applyWave1(e, alarms: p.alarms, recurrence: p.recurrence, availability: p.availability)
         do { try store.save(e, span: p.span == "future" ? .futureEvents : .thisEvent, commit: true) } catch { throw Self.saveError(error) }
         return Self.record(e)
     }
@@ -230,7 +385,7 @@ public final class EventKitBackend: CalendarBackend, RemindersBackend, @unchecke
 
     struct Box: @unchecked Sendable { let items: [EKReminder] }
 
-    public func reminders(listIds: [String]?, completed: Bool?, dueBefore: Date?, limit: Int) async throws -> [ReminderRecord] {
+    public func reminders(listIds: [String]?, completed: Bool?, dueBefore: Date?, filter: ReminderQuery, limit: Int) async throws -> [ReminderRecord] {
         try await ensure(.reminder)
         let cals = calendars(listIds, type: .reminder)
         let pred: NSPredicate =
@@ -240,10 +395,11 @@ public final class EventKitBackend: CalendarBackend, RemindersBackend, @unchecke
             case nil: store.predicateForReminders(in: cals)
             }
         let box: Box = await withCheckedContinuation { c in store.fetchReminders(matching: pred) { c.resume(returning: Box(items: $0 ?? [])) } }
-        return box.items.map(Self.record).filter { r in
+        let items = box.items.map(Self.record).filter { r in
             guard let dueBefore else { return true }
             return r.due.flatMap(AppleDates.parse).map { $0 <= dueBefore } ?? false
-        }.prefix(limit).map { $0 }
+        }
+        return filter.apply(items, now: Date(), limit: limit)
     }
 
     static func components(_ iso: String) throws -> DateComponents {
@@ -262,6 +418,12 @@ public final class EventKitBackend: CalendarBackend, RemindersBackend, @unchecke
         r.notes = input.notes
         if let due = input.due { r.dueDateComponents = try Self.components(due) }
         if let p = input.priority { r.priority = p }
+        if let u = input.url { r.url = URL(string: u) }
+        if let a = input.alarm { r.alarms = [try Self.ekAlarm(a)] }
+        if let rec = input.recurrence {
+            guard input.due != nil else { throw CapabilityError.invalidParams("a repeating reminder needs a due date", field: "recurrence") }
+            r.recurrenceRules = [try Self.ekRecurrence(rec)]
+        }
         do { try store.save(r, commit: true) } catch { throw Self.saveError(error) }
         return Self.record(r)
     }
@@ -278,6 +440,69 @@ public final class EventKitBackend: CalendarBackend, RemindersBackend, @unchecke
         if let pr = p.priority { r.priority = pr }
         do { try store.save(r, commit: true) } catch { throw Self.saveError(error) }
         return Self.record(r)
+    }
+
+    // MARK: Reminders wave 1 (R3–R5)
+
+    public func complete(id: String?, title: String?, listId: String?, completed: Bool) async throws -> ReminderRecord {
+        try await ensure(.reminder)
+        let r: EKReminder
+        if let id {
+            guard let found = store.calendarItem(withIdentifier: id) as? EKReminder else {
+                throw CapabilityError(.notFound, reason: "reminder_not_found", "No reminder \(id)")
+            }
+            r = found
+        } else {
+            let t = (title ?? "").trimmingCharacters(in: .whitespaces)
+            let cals = listId.map { calendars([$0], type: .reminder) ?? [] }
+            let pred = completed ? store.predicateForIncompleteReminders(withDueDateStarting: nil, ending: nil, calendars: cals)
+                : store.predicateForCompletedReminders(withCompletionDateStarting: nil, ending: nil, calendars: cals)
+            let box: Box = await withCheckedContinuation { c in store.fetchReminders(matching: pred) { c.resume(returning: Box(items: $0 ?? [])) } }
+            let matches = box.items.filter { ($0.title ?? "") == t }
+            guard let one = matches.first else { throw CapabilityError(.notFound, reason: "reminder_not_found", "No \(completed ? "open" : "completed") reminder titled \(t)") }
+            guard matches.count == 1 else {
+                throw CapabilityError(.conflict, reason: "reminder_ambiguous", "\(matches.count) reminders are titled \(t); give its id or a listId",
+                                      details: ["ids": .array(matches.map { .string($0.calendarItemIdentifier) })])
+            }
+            r = one
+        }
+        r.isCompleted = completed
+        do { try store.save(r, commit: true) } catch { throw Self.saveError(error) }
+        return Self.record(r)
+    }
+
+    public func delete(id: String) async throws {
+        try await ensure(.reminder)
+        guard let r = store.calendarItem(withIdentifier: id) as? EKReminder else {
+            throw CapabilityError(.notFound, reason: "reminder_not_found", "No reminder \(id)")
+        }
+        do { try store.remove(r, commit: true) } catch { throw Self.saveError(error) }
+    }
+
+    static let remindersApp = "com.apple.reminders"
+    static let flagScript = ScriptHandler.prelude + """
+        on psyche_flagged()
+          tell application "Reminders"
+            set ids to id of (reminders whose flagged is true and completed is false)
+          end tell
+          return my psyche_join(ids, character id 30)
+        end psyche_flagged
+        on psyche_set_flagged(rid, f)
+          tell application "Reminders"
+            set flagged of reminder id ("x-apple-reminder://" & rid) to (f is "true")
+          end tell
+          return "ok"
+        end psyche_set_flagged
+        """
+
+    public func setFlagged(id: String, flagged: Bool) async throws {
+        guard !id.isEmpty, !id.contains("/"), id.count <= 200 else { throw CapabilityError.invalidParams("id is a reminder id", field: "id") }
+        _ = try await ScriptHandler.call(Self.flagScript, handler: "psyche_set_flagged", [id, flagged ? "true" : "false"], app: Self.remindersApp)
+    }
+
+    public func flaggedIds() async throws -> Set<String> {
+        let out = try await ScriptHandler.call(Self.flagScript, handler: "psyche_flagged", [], app: Self.remindersApp)
+        return Set((out ?? "").components(separatedBy: "\u{1E}").filter { !$0.isEmpty }.map(ReminderQuery.eventKitId))
     }
 }
 
@@ -789,6 +1014,98 @@ public final class NotesScriptingBackend: NotesBackend, @unchecked Sendable {
             return my psyche_line(n)
           end tell
         end psyche_create
+        -- Wave 1 (docs/connectors/apple-apps-2026.md §4.4, N1–N4). Fixed text; inputs are arguments.
+        on psyche_date(parts)
+          set dt to current date
+          set day of dt to 1
+          set year of dt to (item 1 of parts as integer)
+          set month of dt to (item 2 of parts as integer)
+          set day of dt to (item 3 of parts as integer)
+          set time of dt to (item 4 of parts as integer)
+          return dt
+        end psyche_date
+        on psyche_search(q, folderName, sinceParts)
+          set s to my psyche_date(sinceParts)
+          set fs to character id 31
+          tell application "Notes"
+            if folderName is "" and q is "" then
+              set ids to id of (notes whose modification date ≥ s)
+              set ds to modification date of (notes whose modification date ≥ s)
+            else if folderName is "" then
+              set ids to id of (notes whose (name contains q or plaintext contains q) and modification date ≥ s)
+              set ds to modification date of (notes whose (name contains q or plaintext contains q) and modification date ≥ s)
+            else if q is "" then
+              set ids to id of (notes of folder folderName whose modification date ≥ s)
+              set ds to modification date of (notes of folder folderName whose modification date ≥ s)
+            else
+              set ids to id of (notes of folder folderName whose (name contains q or plaintext contains q) and modification date ≥ s)
+              set ds to modification date of (notes of folder folderName whose (name contains q or plaintext contains q) and modification date ≥ s)
+            end if
+          end tell
+          set out to {}
+          repeat with i from 1 to (count of ids)
+            set end of out to ((item i of ids) as text) & fs & my psyche_iso(item i of ds)
+          end repeat
+          return my psyche_join(out, character id 30)
+        end psyche_search
+        on psyche_lines(idList, maxChars)
+          set fs to character id 31
+          set out to {}
+          tell application "Notes"
+            repeat with nid in idList
+              set n to note id (nid as text)
+              set t to my psyche_clean(plaintext of n)
+              if (length of t) > (maxChars as integer) then set t to text 1 thru (maxChars as integer) of t
+              set end of out to my psyche_line(n) & fs & t
+            end repeat
+          end tell
+          return my psyche_join(out, character id 30)
+        end psyche_lines
+        on psyche_walk(f, acctName, pid, out)
+          set fs to character id 31
+          tell application "Notes"
+            set end of out to (id of f as text) & fs & my psyche_clean(name of f) & fs & my psyche_clean(acctName) & fs & pid & fs & ((count of notes of f) as text)
+            repeat with g in folders of f
+              my psyche_walk(g, acctName, (id of f as text), out)
+            end repeat
+          end tell
+        end psyche_walk
+        on psyche_folders()
+          set out to {}
+          tell application "Notes"
+            repeat with a in accounts
+              repeat with f in folders of a
+                my psyche_walk(f, (name of a), "", out)
+              end repeat
+            end repeat
+          end tell
+          return my psyche_join(out, character id 30)
+        end psyche_folders
+        on psyche_attachments(nid)
+          set fs to character id 31
+          set out to {}
+          tell application "Notes"
+            repeat with a in attachments of note id nid
+              set end of out to (id of a as text) & fs & my psyche_clean(name of a)
+            end repeat
+          end tell
+          return my psyche_join(out, character id 30)
+        end psyche_attachments
+        on psyche_append(nid, frag)
+          tell application "Notes"
+            set n to note id nid
+            set body of n to (body of n) & frag
+            return my psyche_line(n) & (character id 31) & my psyche_clean(body of n)
+          end tell
+        end psyche_append
+        on psyche_update(nid, newName, newBody)
+          tell application "Notes"
+            set n to note id nid
+            if newBody is not "" then set body of n to newBody
+            if newName is not "" then set name of n to newName
+            return my psyche_line(n) & (character id 31) & my psyche_clean(body of n)
+          end tell
+        end psyche_update
         """
 
     public init() {}
@@ -812,6 +1129,42 @@ public final class NotesScriptingBackend: NotesBackend, @unchecked Sendable {
         let out = try await ScriptHandler.call(Self.source, handler: "psyche_create", [html, folder ?? ""], app: Self.bundleId)
         guard let f = ScriptRecords.parse(out, fields: 4).first else { throw CapabilityError(.unavailable, reason: "script_error", "Notes did not return the new note") }
         return Self.summary(f)
+    }
+
+    // MARK: Wave 1
+
+    public func search(query: String, folder: String?, since: Date?, limit: Int) async throws -> [(NoteSummaryRecord, text: String)] {
+        let parts = MailSearchFilter.dateParts(since ?? Date(timeIntervalSince1970: 0))
+        let matches = try await ScriptHandler.call(Self.source, handler: "psyche_search", [query, folder ?? "", parts], app: Self.bundleId)
+        let ids = NotesWave1.newest(ScriptRecords.parse(matches, fields: 2), limit: limit)
+        if ids.isEmpty { return [] }
+        let out = try await ScriptHandler.call(Self.source, handler: "psyche_lines", [ids, "4000"], app: Self.bundleId)
+        return ScriptRecords.parse(out, fields: 5).map { (Self.summary(Array($0[0..<4])), text: $0[4]) }
+    }
+
+    public func folders() async throws -> [NoteFolderRecord] {
+        let out = try await ScriptHandler.call(Self.source, handler: "psyche_folders", [], app: Self.bundleId)
+        return NoteFolderRecord.dedupe(ScriptRecords.parse(out, fields: 5).map {
+            NoteFolderRecord(id: $0[0], name: $0[1], account: $0[2], parentId: $0[3].isEmpty ? nil : $0[3], noteCount: Int($0[4]) ?? 0)
+        })
+    }
+
+    public func attachments(id: String) async throws -> [(id: String, name: String)] {
+        let out = try await ScriptHandler.call(Self.source, handler: "psyche_attachments", [id], app: Self.bundleId)
+        return ScriptRecords.parse(out, fields: 2).map { (id: $0[0], name: $0[1]) }
+    }
+
+    func noteAndBody(_ out: String?) throws -> (NoteSummaryRecord, html: String) {
+        guard let f = ScriptRecords.parse(out, fields: 5).first else { throw CapabilityError(.unavailable, reason: "script_error", "Notes did not return the note") }
+        return (Self.summary(Array(f[0..<4])), html: f[4])
+    }
+
+    public func append(id: String, html: String) async throws -> (NoteSummaryRecord, html: String) {
+        try noteAndBody(try await ScriptHandler.call(Self.source, handler: "psyche_append", [id, html], app: Self.bundleId))
+    }
+
+    public func update(id: String, title: String?, html: String?) async throws -> (NoteSummaryRecord, html: String) {
+        try noteAndBody(try await ScriptHandler.call(Self.source, handler: "psyche_update", [id, title ?? "", html ?? ""], app: Self.bundleId))
     }
 }
 

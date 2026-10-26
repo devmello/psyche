@@ -38,6 +38,9 @@ When the agent has no name yet, use "your agent" in Psyche copy until onboarding
 | approval | permission request, consent | An ApprovalRequest card |
 | allow once / allow for this task / allow for this site / always allow / deny | approve, accept, reject | Grant scopes on the card |
 | task | job, run, workflow | A Task in Activity |
+| step | span, event, action (in the chat) | One thing the agent did inside a task: thought, used a tool, asked, waited (docs/design/run-trace-2026.md §3.1) |
+| Timeline | trace, run view, log | The full view of one task's steps over time, in the agent sheet |
+| helper | subagent, child agent | Work the agent handed to a parallel copy of itself |
 | automation | cron, routine, schedule | A scheduled job in Upcoming |
 | receipt | log, confirmation | The record of an external write |
 | Library | files, drive | `library/` |

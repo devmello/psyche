@@ -19,6 +19,8 @@ const KINDS_OF_SCOPE: Record<SearchScope, SearchIndexDocKind[]> = {
   ideas: ["idea"],
   goals: ["goal"],
   connectors: ["connector"],
+  people: ["person"],
+  projects: ["project"],
 };
 const ALL_SCOPES = Object.keys(KINDS_OF_SCOPE) as SearchScope[];
 

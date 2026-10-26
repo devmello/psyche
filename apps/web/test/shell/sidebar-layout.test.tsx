@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ThreadListEntry } from "@psyche/protocol";
+import { usePrefillComposer } from "@psyche/ui";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { GatewayEvent } from "../../src/client/connection.ts";
@@ -248,6 +249,34 @@ describe("the toolbar clear of the traffic lights (#624)", () => {
     );
     // The stale `<header>` selector is gone: the agent header is a div[role=toolbar].
     expect(css).not.toContain('[data-testid="kit-chat"] > header');
+  });
+});
+
+describe("Try it from the desktop's Settings window (#677)", () => {
+  function TryIt() {
+    const prefill = usePrefillComposer();
+    return (
+      <button type="button" onClick={() => prefill?.("Summarise my unread mail")}>
+        Try it
+      </button>
+    );
+  }
+
+  it("sends the text to the main window over the bridge instead of navigating", async () => {
+    window.history.replaceState(null, "", "/window/settings/connectors");
+    const { platform } = platformWith();
+    const sent: string[] = [];
+    platform.kind = "desktop";
+    platform.windows = {
+      popOutPane: async () => {},
+      closeWindow: () => {},
+      onCommand: () => () => {},
+      prefillComposer: (text) => sent.push(text),
+    };
+    render(<ShellApp platform={platform} slots={{ section: () => <TryIt /> }} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Try it" }));
+    expect(sent).toEqual(["Summarise my unread mail"]);
+    expect(window.location.pathname).toBe("/window/settings/connectors");
   });
 });
 
