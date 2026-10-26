@@ -18,6 +18,14 @@ export const duration = {
   exitFactor: 0.7,
   /** No loading UI before this (docs/06 §3.0). */
   skeletonDelay: 150,
+  /** Route crossfade between rail screens (motion.md §4.5) and its reduced-motion form. */
+  route: 180,
+  routeReduced: 120,
+  /** The startup splash's body waits this long for pairing, then fades in (redesign §5.9). */
+  splashDelay: 300,
+  /** The splash lantern's breathing period and its start delay. */
+  lantern: 2800,
+  lanternDelay: 800,
   /** The working pulse's period (motion.md §4.6): 40% → 100%, linear. */
   pulse: 1200,
   /** Per-item list stagger, capped at `staggerMax` items. */
@@ -31,6 +39,12 @@ export const ease = {
   enter: [0.16, 1, 0.3, 1],
   exit: [0.4, 0, 1, 1],
 } as const satisfies Record<string, readonly [number, number, number, number]>;
+
+/** Constant speed: progress fills, shimmer, the working pulse. The one non-bezier easing. */
+export const easeLinear = "linear" as const;
+
+/** The incoming route rises this far (px), exiting content does not move (motion.md §4.5). */
+export const routeRisePx = 4;
 
 export interface SpringToken {
   /** Perceptual duration in seconds (SwiftUI `duration`). */

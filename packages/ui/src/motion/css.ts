@@ -1,4 +1,4 @@
-import { duration, ease, type SpringToken, spring, springPhysics } from "./tokens.ts";
+import { duration, ease, routeRisePx, type SpringToken, spring, springPhysics } from "./tokens.ts";
 
 /**
  * CSS forms of the motion tokens (docs/design/motion.md §2.4): durations, easing curves and
@@ -56,6 +56,16 @@ export function motionCss(): string {
     lines.push(`  --duration-${name}: ${duration[name]}ms;`);
     lines.push(`  --duration-${name}-exit: ${Math.round(duration[name] * duration.exitFactor)}ms;`);
   }
+  for (const [name, css] of [
+    ["route", "route"],
+    ["routeReduced", "route-reduced"],
+    ["splashDelay", "splash-delay"],
+    ["lantern", "lantern"],
+    ["lanternDelay", "lantern-delay"],
+  ] as const)
+    lines.push(`  --duration-${css}: ${duration[name]}ms;`);
+  lines.push(`  --route-rise: ${routeRisePx}px;`);
+  lines.push("  --ease-linear: linear;");
   for (const [name, p] of Object.entries(ease)) lines.push(`  --ease-${name}: ${bezier(p)};`);
   for (const [name, s] of Object.entries(spring)) {
     lines.push(`  --spring-${name}: ${springLinear(s)};`);

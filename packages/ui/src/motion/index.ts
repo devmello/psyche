@@ -13,7 +13,9 @@ export {
 export {
   duration,
   ease,
+  easeLinear,
   motionSpring,
+  routeRisePx,
   type SpringName,
   type SpringToken,
   spring,

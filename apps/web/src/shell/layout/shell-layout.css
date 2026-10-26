@@ -88,10 +88,10 @@
   120 ms (React does not do this for us).
 */
 ::view-transition-old(.psy-route) {
-  animation: psy-route-out 180ms var(--ease-exit, ease-in) both;
+  animation: psy-route-out var(--duration-route, 180ms) var(--ease-exit, ease-in) both;
 }
 ::view-transition-new(.psy-route) {
-  animation: psy-route-in 180ms var(--ease-enter, ease-out) both;
+  animation: psy-route-in var(--duration-route, 180ms) var(--ease-enter, ease-out) both;
 }
 @keyframes psy-route-out {
   to {
@@ -101,7 +101,7 @@
 @keyframes psy-route-in {
   from {
     opacity: 0;
-    transform: translateY(4px);
+    transform: translateY(var(--route-rise, 4px));
   }
 }
 @keyframes psy-route-fade {
@@ -112,7 +112,7 @@
 @media (prefers-reduced-motion: reduce) {
   :root:not([data-reduce-motion="false"])::view-transition-old(.psy-route),
   :root:not([data-reduce-motion="false"])::view-transition-new(.psy-route) {
-    animation-duration: 120ms;
+    animation-duration: var(--duration-route-reduced, 120ms);
   }
   :root:not([data-reduce-motion="false"])::view-transition-new(.psy-route) {
     animation-name: psy-route-fade;
@@ -120,7 +120,7 @@
 }
 :root[data-reduce-motion="true"]::view-transition-old(.psy-route),
 :root[data-reduce-motion="true"]::view-transition-new(.psy-route) {
-  animation-duration: 120ms;
+  animation-duration: var(--duration-route-reduced, 120ms);
 }
 :root[data-reduce-motion="true"]::view-transition-new(.psy-route) {
   animation-name: psy-route-fade;
