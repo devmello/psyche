@@ -3275,7 +3275,6 @@ export const ko: Partial<Catalogue> = {
   "screenAsk.answer.thinking": "생각하는 중…",
   "screenAsk.answer.failed": "문제가 발생했습니다. 자세한 내용은 채팅을 여세요.",
   "screenAsk.open": "Psyche에서 열기",
-  "screenAsk.cancelHint": "Esc를 눌러 닫기",
   "screenAsk.region.hint": "드래그하여 영역을 선택하세요. Esc를 누르면 창 전체를 유지합니다.",
   "screenAsk.region.label": "화면의 영역 선택",
   "settings.screenAsk.title": "화면에 대해 묻기",

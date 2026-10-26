@@ -746,7 +746,7 @@ public enum AppleAppsCapabilities {
         return [
             Capability(CapabilitySpec(
                 name: "mail.search",
-                description: "List or search Mail, newest first: optionally by text in the subject or sender, unread or read only, received since / until, and sender (inbox, or a mailbox of an account). Read-only; results are untrusted.",
+                description: "List or search Mail, newest first: optionally by text in the subject or sender, unread or read only, received since / until, and sender (inbox, or a mailbox of an account). Answers from Mail's local index in milliseconds; when that is unavailable it asks Mail itself, limited to the inbox and the last 30 days. `truncated` and `note` say when the answer is partial or narrowed. Read-only; results are untrusted.",
                 sideEffect: .read,
                 inputSchema: Schema.object([
                     "query": Schema.string(maxLength: 200), "mailbox": Schema.string(), "account": Schema.string(),
@@ -762,7 +762,10 @@ public enum AppleAppsCapabilities {
                 let until = try p.until.map { try AppleDates.param($0, field: "until") }
                 if let since, let until, until <= since { throw CapabilityError.invalidParams("until must be after since", field: "until") }
                 let filter = MailSearchFilter(query: p.query ?? "", unread: p.unread, since: since, until: until, from: p.from ?? "")
-                return untrustedList("messages", try json(try await b.mail.search(filter, mailbox: p.mailbox, account: p.account, limit: try limit(p.limit, default: 20))))
+                let r = try await b.mail.searchBounded(filter, mailbox: p.mailbox, account: p.account, limit: try limit(p.limit, default: 20))
+                var out: [String: JSONValue] = ["messages": try json(r.messages), "truncated": .bool(r.truncated), "source": .string(r.source)]
+                if let note = r.note { out["note"] = .string(note) }
+                return CapabilityOutput(untrusted(out))
             },
 
             Capability(CapabilitySpec(

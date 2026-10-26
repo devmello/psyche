@@ -3293,7 +3293,6 @@ export const hi: Partial<Catalogue> = {
   "screenAsk.answer.thinking": "सोच रहा है…",
   "screenAsk.answer.failed": "कुछ गड़बड़ हो गई। ज़्यादा जानने के लिए चैट खोलें।",
   "screenAsk.open": "Psyche में खोलें",
-  "screenAsk.cancelHint": "बंद करने के लिए Esc",
   "screenAsk.region.hint": "कोई हिस्सा चुनने के लिए खींचें। Esc पूरी विंडो रखता है।",
   "screenAsk.region.label": "स्क्रीन का कोई हिस्सा चुनें",
   "settings.screenAsk.title": "स्क्रीन के बारे में पूछें",

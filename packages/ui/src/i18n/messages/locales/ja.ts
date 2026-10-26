@@ -3294,7 +3294,6 @@ export const ja: Partial<Catalogue> = {
   "screenAsk.answer.thinking": "考え中…",
   "screenAsk.answer.failed": "問題が起きました。詳しくはチャットを開いてください。",
   "screenAsk.open": "Psycheで開く",
-  "screenAsk.cancelHint": "Escで閉じる",
   "screenAsk.region.hint": "ドラッグして範囲を選択します。Escでウインドウ全体のままにします。",
   "screenAsk.region.label": "画面の範囲を選択",
   "settings.screenAsk.title": "画面について質問",

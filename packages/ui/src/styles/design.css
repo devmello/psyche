@@ -653,3 +653,78 @@
   animation: none;
   transition: none;
 }
+
+/*
+  The ask panel (docs/design/screen-ask-2026.md, "Redesign: Siri-simple"): an opaque surface, a
+  small orb for the state and a panel that fades in. Transitions and keyframes use the motion
+  tokens; the global reduced-motion rule stops the loops, so each orb state also differs in shape.
+*/
+.psy-orb {
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle at 35% 30%,
+    color-mix(in oklch, white 65%, var(--accent-9)),
+    var(--accent-9) 55%,
+    var(--accent-11)
+  );
+}
+.psy-orb::before,
+.psy-orb::after {
+  content: "";
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+}
+/* The halo: wide while listening, steady while answering, faint otherwise. */
+.psy-orb::before {
+  inset: -6px;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in oklch, var(--accent-9) 45%, transparent),
+    transparent
+  );
+  opacity: 0.35;
+  transition:
+    opacity var(--duration-short) var(--ease-standard),
+    transform var(--duration-short) var(--ease-standard);
+}
+.psy-orb[data-state="listening"]::before {
+  opacity: 1;
+  transform: scale(1.25);
+  animation: psy-orb-breathe 1.4s ease-in-out infinite;
+}
+.psy-orb[data-state="answering"]::before {
+  opacity: 0.8;
+}
+/* The ring: an arc that turns while thinking. */
+.psy-orb::after {
+  inset: -4px;
+  opacity: 0;
+  background: conic-gradient(from 0deg, transparent 0 55%, var(--accent-9) 100%);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+  transition: opacity var(--duration-short) var(--ease-standard);
+}
+.psy-orb[data-state="thinking"]::after {
+  opacity: 1;
+  animation: psy-orb-spin 1s linear infinite;
+}
+@keyframes psy-orb-breathe {
+  50% {
+    transform: scale(1.5);
+    opacity: 0.6;
+  }
+}
+@keyframes psy-orb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.psy-ask-in {
+  animation: psy-ask-in var(--duration-short) var(--ease-standard) both;
+}
+@keyframes psy-ask-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}

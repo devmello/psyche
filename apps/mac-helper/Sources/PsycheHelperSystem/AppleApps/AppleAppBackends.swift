@@ -35,9 +35,18 @@ public protocol RemindersBackend: Sendable {
     func flaggedIds() async throws -> Set<String>
 }
 
+extension MailBackend {
+    public func searchBounded(_ filter: MailSearchFilter, mailbox: String?, account: String?, limit: Int) async throws -> MailSearchResult {
+        MailSearchResult(messages: try await search(filter, mailbox: mailbox, account: account, limit: limit))
+    }
+}
+
 public protocol MailBackend: Sendable {
     /// Newest first (#626).
     func search(_ filter: MailSearchFilter, mailbox: String?, account: String?, limit: Int) async throws -> [MailSummaryRecord]
+    /// `search` with how it was answered: bounded by a deadline, with `truncated` when it stopped
+    /// early. Backends that cannot truncate keep the default.
+    func searchBounded(_ filter: MailSearchFilter, mailbox: String?, account: String?, limit: Int) async throws -> MailSearchResult
     func read(id: String, mailbox: String?, account: String?, maxLength: Int) async throws -> (MailSummaryRecord, to: [String], cc: [String], body: String)
     /// Saves a draft, or sends when `send` (only ever called with an approval). A saved draft
     /// stays open in Mail (hidden) and is returned, so `sendDraft` can send it.
@@ -547,6 +556,7 @@ enum ScriptHandler {
                     switch number {
                     case -1743: cont.resume(throwing: CapabilityError(.forbidden, reason: "automation_denied", "Automation was denied for \(bundleId)", details: ["permission": "automation", "target": .string(bundleId)]))
                     case -1728, -1719: cont.resume(throwing: CapabilityError(.notFound, reason: "not_found", "The item was not found"))
+                    case -1712: cont.resume(throwing: CapabilityError(.unavailable, reason: "script_timeout", "\(bundleId) took too long to answer", details: ["osaError": .int(number)]))
                     default: cont.resume(throwing: CapabilityError(.unavailable, reason: "script_error", "The app could not complete the request", details: ["osaError": .int(number)]))
                     }
                     return
@@ -627,6 +637,7 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
           set r1 to (rs1 is "true")
           set r2 to (rs2 is "true")
           set fs to character id 31
+          with timeout of 12 seconds
           tell application "Mail"
             set src to my psyche_source(mboxName, acctName)
             if q is not "" and f is not "" then
@@ -643,23 +654,45 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
               set ds to date received of (messages of src whose date received ≥ s and date received < u and (read status is r1 or read status is r2))
             end if
           end tell
+          end timeout
           set out to {}
           repeat with i from 1 to (count of ids)
             set end of out to ((item i of ids) as text) & fs & my psyche_iso(item i of ds)
           end repeat
           return my psyche_join(out, character id 30)
         end psyche_match
+        -- Bounded: past ten seconds it returns the lines read so far (the caller flags the gap),
+        -- and a message that vanished meanwhile is skipped rather than failing the whole list.
         on psyche_lines(idList, mboxName, acctName)
           set out to {}
-          tell application "Mail"
-            set src to my psyche_source(mboxName, acctName)
-            repeat with mid in idList
-              set m to first message of src whose id is (mid as integer)
-              set end of out to my psyche_line(m)
-            end repeat
-          end tell
+          set t0 to current date
+          with timeout of 15 seconds
+            tell application "Mail"
+              set src to my psyche_source(mboxName, acctName)
+              repeat with mid in idList
+                if ((current date) - t0) > 10 then exit repeat
+                try
+                  set m to first message of src whose id is (mid as integer)
+                  set end of out to my psyche_line(m)
+                end try
+              end repeat
+            end tell
+          end timeout
           return my psyche_join(out, character id 30)
         end psyche_lines
+        -- Account id (the UUID in a mailbox URL) and name, to name the account of an indexed message.
+        on psyche_accounts()
+          set fs to character id 31
+          set out to {}
+          with timeout of 5 seconds
+            tell application "Mail"
+              repeat with a in accounts
+                set end of out to (id of a as text) & fs & my psyche_clean(name of a)
+              end repeat
+            end tell
+          end timeout
+          return my psyche_join(out, character id 30)
+        end psyche_accounts
         on psyche_read(mid, mboxName, acctName, maxLen)
           set fs to character id 31
           tell application "Mail"
@@ -879,7 +912,23 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
         end psyche_save_attachment
         """
 
-    public init() {}
+    /// Where the Envelope Index lives (nil: the default under the home folder). Tests point it at a fixture.
+    private let indexPath: @Sendable () throws -> String
+    /// The whole search stops by here, well inside the Gateway's 60 s invoke timeout.
+    private let budget: TimeInterval
+    private let lock = NSLock()
+    private var index: MailEnvelopeIndex?
+    private var accountNames: (at: Date, names: [String: String])?
+
+    /// Replaces the live account lookup (tests: no Apple Event to the owner's Mail).
+    private let accountLookup: (@Sendable () async -> [String: String])?
+
+    public init(indexPath: (@Sendable () throws -> String)? = nil, budget: TimeInterval = 20,
+                accountLookup: (@Sendable () async -> [String: String])? = nil) {
+        self.indexPath = indexPath ?? { try MailEnvelopeIndex.defaultPath() }
+        self.budget = budget
+        self.accountLookup = accountLookup
+    }
 
     /// `psyche_line`: id, mailbox, account, subject, sender, date, read, flagged, Message-ID.
     static let lineFields = 9
@@ -890,18 +939,126 @@ public final class MailScriptingBackend: MailBackend, @unchecked Sendable {
                           flagged: f[7] == "true", link: MailWave1.link(messageId: f[8]))
     }
 
+    /// What the AppleScript fallback scans when the owner gave no start date: Mail evaluates a
+    /// `whose` clause message by message, so an open range over every mailbox can take minutes.
+    static let fallbackDays = 30
+
     public func search(_ filter: MailSearchFilter, mailbox: String?, account: String?, limit: Int) async throws -> [MailSummaryRecord] {
+        try await searchBounded(filter, mailbox: mailbox, account: account, limit: limit).messages
+    }
+
+    public func searchBounded(_ filter: MailSearchFilter, mailbox: String?, account: String?, limit: Int) async throws -> MailSearchResult {
+        let deadline = Date().addingTimeInterval(budget)
+        var why: String?
+        do {
+            if let result = try await searchIndex(filter, mailbox: mailbox, account: account, limit: limit, deadline: deadline) { return result }
+        } catch MailIndexError.noAccess {
+            why = "Mail's search index needs Full Disk Access for Psyche (Helper), so this used Mail itself"
+        } catch {
+            why = "Mail's search index could not be read, so this used Mail itself"
+        }
+        return try await searchScript(filter, mailbox: mailbox, account: account, limit: limit, why: why)
+    }
+
+    /// nil: the index cannot answer this one (an account it cannot name); the script does.
+    private func searchIndex(_ filter: MailSearchFilter, mailbox: String?, account: String?, limit: Int, deadline: Date) async throws -> MailSearchResult? {
+        let idx = try openIndex()
+        let names = await accountNames()
+        var accountId: String?
+        if let account {
+            // The index names accounts by UUID; Mail names them by title.
+            guard let id = names.first(where: { $0.value == account })?.key else { return nil }
+            accountId = id
+        }
+        // Off the main thread and the cooperative pool's fast path: SQLite blocks while it reads.
+        return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<MailSearchResult?, Error>) in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    cont.resume(returning: try idx.search(filter, mailbox: mailbox, accountId: accountId, limit: limit, accountNames: names, deadline: deadline))
+                } catch MailIndexError.unknownAccount {
+                    cont.resume(returning: nil)
+                } catch {
+                    cont.resume(throwing: error)
+                }
+            }
+        }
+    }
+
+    private func openIndex() throws -> MailEnvelopeIndex {
+        lock.lock()
+        defer { lock.unlock() }
+        if let index { return index }
+        let opened = try MailEnvelopeIndex(path: try indexPath())
+        index = opened
+        return opened
+    }
+
+    /// Account UUID → name, best effort: only when Mail is already running and Automation is
+    /// granted (a search never launches Mail or raises a prompt), kept for five minutes.
+    private func accountNames() async -> [String: String] {
+        if let accountLookup { return await accountLookup() }
+        let cached = cachedAccountNames()
+        if let cached, Date().timeIntervalSince(cached.at) < 300 { return cached.names }
+        guard !NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleId).isEmpty,
+              AutomationPermission.state(bundleId: Self.bundleId, ask: false) == .granted,
+              let out = try? await ScriptHandler.call(Self.source, handler: "psyche_accounts", [], app: Self.bundleId)
+        else { return cached?.names ?? [:] }
+        var names: [String: String] = [:]
+        for f in ScriptRecords.parse(out, fields: 2) { names[f[0]] = f[1] }
+        storeAccountNames(names)
+        return names
+    }
+
+    // NSLock cannot be held in async code, so the state is touched only in these.
+    private func cachedAccountNames() -> (at: Date, names: [String: String])? {
+        lock.lock()
+        defer { lock.unlock() }
+        return accountNames
+    }
+
+    private func storeAccountNames(_ names: [String: String]) {
+        lock.lock()
+        defer { lock.unlock() }
+        accountNames = (Date(), names)
+    }
+
+    /// Mail's own `whose` queries, bounded: inbox (or the named mailbox), the last 30 days unless
+    /// the owner chose a start, and a time budget that returns what it has. A query Mail cannot
+    /// answer in time is a clear error, not a silent hang.
+    private func searchScript(_ filter: MailSearchFilter, mailbox: String?, account: String?, limit: Int, why: String?) async throws -> MailSearchResult {
+        var filter = filter
+        var notes: [String] = []
+        if let why { notes.append(why) }
+        if filter.since == nil {
+            filter.since = Date().addingTimeInterval(-Double(Self.fallbackDays) * 86_400)
+            notes.append("Searched the last \(Self.fallbackDays) days; pass since to look further back")
+        }
         let (rs1, rs2) = filter.readStatus
-        let matches = try await ScriptHandler.call(
-            Self.source, handler: "psyche_match",
-            [filter.query, filter.from, rs1, rs2, filter.sinceParts(), filter.untilParts(), mailbox ?? "", account ?? ""],
-            app: Self.bundleId)
+        let tooSlow = CapabilityError(.unavailable, reason: "search_timeout",
+                                      "Mail search took too long. Narrow it: a shorter date range, a sender, or one mailbox.", retryable: false)
+        let matches: String?
+        do {
+            matches = try await ScriptHandler.call(
+                Self.source, handler: "psyche_match",
+                [filter.query, filter.from, rs1, rs2, filter.sinceParts(), filter.untilParts(), mailbox ?? "", account ?? ""],
+                app: Self.bundleId)
+        } catch let e as CapabilityError where e.reason == "script_timeout" {
+            throw tooSlow
+        }
         // Newest first: Mail's own order is per mailbox, so sort the matches' dates here and
         // read only the `limit` newest messages.
         let ids = MailSearchFilter.newest(ScriptRecords.parse(matches, fields: 2), limit: limit)
-        if ids.isEmpty { return [] }
-        let out = try await ScriptHandler.call(Self.source, handler: "psyche_lines", [ids, mailbox ?? "", account ?? ""], app: Self.bundleId)
-        return ScriptRecords.parse(out, fields: Self.lineFields).map(Self.summary)
+        if ids.isEmpty { return MailSearchResult(messages: [], source: "mail", note: notes.isEmpty ? nil : notes.joined(separator: ". ") + ".") }
+        let out: String?
+        do {
+            out = try await ScriptHandler.call(Self.source, handler: "psyche_lines", [ids, mailbox ?? "", account ?? ""], app: Self.bundleId)
+        } catch let e as CapabilityError where e.reason == "script_timeout" {
+            throw tooSlow
+        }
+        let messages = ScriptRecords.parse(out, fields: Self.lineFields).map(Self.summary)
+        let truncated = messages.count < ids.count
+        if truncated { notes.append("Mail was slow: only \(messages.count) of the newest \(ids.count) matches could be read") }
+        return MailSearchResult(messages: messages, truncated: truncated, source: "mail", note: notes.isEmpty ? nil : notes.joined(separator: ". ") + ".")
     }
 
     public func read(id: String, mailbox: String?, account: String?, maxLength: Int) async throws -> (MailSummaryRecord, to: [String], cc: [String], body: String) {
@@ -1057,6 +1214,7 @@ public final class NotesScriptingBackend: NotesBackend, @unchecked Sendable {
               set ds to modification date of (notes of folder folderName whose (name contains q or plaintext contains q) and modification date ≥ s)
             end if
           end tell
+          end timeout
           set out to {}
           repeat with i from 1 to (count of ids)
             set end of out to ((item i of ids) as text) & fs & my psyche_iso(item i of ds)

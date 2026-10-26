@@ -1,5 +1,6 @@
 import type { Message, ScreenCapture, ScreenImageChoice } from "@psyche/protocol";
 import {
+  AppearanceProvider,
   GatewayProvider,
   mentionsScreen,
   readVoiceSettings,
@@ -8,6 +9,8 @@ import {
   ScreenAskRegionView,
   ScreenAskView,
   t,
+  type UiSlots,
+  UiSlotsProvider,
   useSettings,
   useStore,
   useThread,
@@ -74,19 +77,18 @@ export function parseOpen(arg: unknown): ScreenAskOpen | null {
   return null;
 }
 
-/** The agent's reply to `messageId`: the text of every agent message after it, or what streams. */
-export function answerText(
+/**
+ * The agent's reply to `messageId`: every agent message after it, for the chat's block renderer,
+ * and the text still streaming in.
+ */
+export function answerParts(
   messages: readonly Message[],
   messageId: string,
   streaming: readonly { text: string }[],
-): string {
+): { messages: Message[]; streamingText: string } {
   const at = messages.findIndex((m) => m.id === messageId);
   const after = at === -1 ? [] : messages.slice(at + 1).filter((m) => m.role === "agent");
-  const done = after
-    .flatMap((m) => m.blocks.flatMap((b) => (b.type === "text" ? [b.md] : [])))
-    .join("\n\n");
-  const live = streaming.map((s) => s.text).join("");
-  return [done, live].filter(Boolean).join("\n\n");
+  return { messages: after, streamingText: streaming.map((s) => s.text).join("") };
 }
 
 /**
@@ -111,7 +113,11 @@ export function ScreenAsk({ platform, bridge }: ScreenAskProps): ReactElement {
   const client = useMemo(() => kitClient(platform.gateway), [platform]);
   return (
     <GatewayProvider client={client}>
-      <ScreenAskBody platform={platform} {...(bridge ? { bridge } : {})} />
+      {/* This window is its own renderer: without the provider it gets no theme (always light, no
+          colour scales), which is what made the panel unreadable. */}
+      <AppearanceProvider>
+        <ScreenAskBody platform={platform} {...(bridge ? { bridge } : {})} />
+      </AppearanceProvider>
     </GatewayProvider>
   );
 }
@@ -248,9 +254,10 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
   const thread = useThread(sent?.threadId ?? null);
   const answer: ScreenAskAnswer | undefined = useMemo(() => {
     if (!sent) return undefined;
-    if (failed || thread.failedRuns.length > 0) return { status: "failed", text: "" };
-    const body = answerText(thread.messages, sent.messageId, thread.streaming);
-    return { status: thread.running || body === "" ? "streaming" : "done", text: body };
+    if (failed || thread.failedRuns.length > 0) return { status: "failed", messages: [] };
+    const parts = answerParts(thread.messages, sent.messageId, thread.streaming);
+    const empty = parts.messages.length === 0 && parts.streamingText === "";
+    return { status: thread.running || empty ? "streaming" : "done", ...parts };
   }, [sent, failed, thread.messages, thread.streaming, thread.running, thread.failedRuns]);
 
   const submit = async (said?: string) => {
@@ -300,6 +307,19 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
     }
   };
 
+  // A card's Open lands in the thread in the main window.
+  const slots = useMemo<UiSlots>(() => {
+    const threadId = sent?.threadId;
+    if (!bridge || !threadId) return {};
+    const openThread = () => bridge.openThread(threadId);
+    return {
+      openArtifact: openThread,
+      openLibraryItem: openThread,
+      openTask: openThread,
+      openReceipt: openThread,
+    };
+  }, [bridge, sent?.threadId]);
+
   if (open === null) return null;
   const view: ScreenAskCaptureView | undefined =
     captured.status === "none"
@@ -316,31 +336,35 @@ function ScreenAskBody({ platform, bridge }: ScreenAskProps): ReactElement | nul
         : { status: captured.status, mode: captured.mode, thumbnail: null, appName: null, image };
 
   return (
-    <ScreenAskView
-      {...(view ? { capture: view } : {})}
-      {...(open.mode === "voice" ? { placeholder: t("screenAsk.voice.placeholder") } : {})}
-      text={text}
-      onText={setText}
-      onSubmit={() => void submit()}
-      onCancel={close}
-      onDrop={() => setImage("dropped")}
-      onTogglePin={() => setImage((i) => (i === "pinned" ? "auto" : "pinned"))}
-      onRecapture={() => void capture(open.mode === "region" ? open : { mode: "window" })}
-      onSelectArea={() => bridge?.selectArea()}
-      {...(platform.permissions
-        ? {
-            onAllowCapture: () => {
-              void platform.permissions?.request("screenRecording").then(() => capture(open));
-            },
-          }
-        : {})}
-      destination={destination}
-      onDestination={(d) => void setSetting("screenAsk.destination", d).catch(() => undefined)}
-      dictation={dictation}
-      {...(answer ? { answer } : {})}
-      {...(sent && sent.threadId !== "" ? { onOpen: () => bridge?.openThread(sent.threadId) } : {})}
-      {...(bridge ? { onHeight: (h: number) => bridge.resize(h) } : {})}
-    />
+    <UiSlotsProvider value={slots}>
+      <ScreenAskView
+        {...(view ? { capture: view } : {})}
+        {...(open.mode === "voice" ? { placeholder: t("screenAsk.voice.placeholder") } : {})}
+        text={text}
+        onText={setText}
+        onSubmit={() => void submit()}
+        onCancel={close}
+        onDrop={() => setImage("dropped")}
+        onTogglePin={() => setImage((i) => (i === "pinned" ? "auto" : "pinned"))}
+        onRecapture={() => void capture(open.mode === "region" ? open : { mode: "window" })}
+        onSelectArea={() => bridge?.selectArea()}
+        {...(platform.permissions
+          ? {
+              onAllowCapture: () => {
+                void platform.permissions?.request("screenRecording").then(() => capture(open));
+              },
+            }
+          : {})}
+        destination={destination}
+        onDestination={(d) => void setSetting("screenAsk.destination", d).catch(() => undefined)}
+        dictation={dictation}
+        {...(answer ? { answer } : {})}
+        {...(sent && sent.threadId !== ""
+          ? { onOpen: () => bridge?.openThread(sent.threadId) }
+          : {})}
+        {...(bridge ? { onHeight: (h: number) => bridge.resize(h) } : {})}
+      />
+    </UiSlotsProvider>
   );
 }
 
