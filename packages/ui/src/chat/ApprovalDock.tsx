@@ -76,7 +76,14 @@ export function ApprovalDock({
       {open ? (
         // A deck (redesign-2026 §5.3): the most urgent card in full, the others as 8 px edges
         // peeking below it. The card is never clipped; its binding rows scroll when they run long.
-        <div className="relative" style={{ paddingBottom: edges * 6 }} data-testid="approval-deck">
+        // `layout="position"` lets what follows the deck slide to its place when an edge arrives or
+        // leaves (the padding steps by 6 px), instead of jumping.
+        <m.div
+          layout="position"
+          className="relative"
+          style={{ paddingBottom: edges * 6 }}
+          data-testid="approval-deck"
+        >
           <Presence initial={false}>
             {Array.from({ length: edges }, (_, i) => (
               <m.span
@@ -129,34 +136,38 @@ export function ApprovalDock({
               );
             })()}
           </Presence>
-        </div>
+        </m.div>
       ) : null}
-      {next ? (
-        // "2 more": shows the next card (most urgent first); its name says which one.
-        <button
-          type="button"
-          onClick={() => setOpenId(next.approval.id)}
-          className="inline-flex h-6 cursor-default items-center gap-1.5 self-center rounded-full px-2.5 text-callout text-label-secondary outline-none transition-colors duration-(--duration-micro) ease-(--ease-standard) hover:bg-fill-tertiary hover:text-label-primary focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label={t("chat.approval.nextLabel", {
-            more: t("chat.approval.others", { n: others.length }),
-            summary: displaySummary(next.approval),
-            countdown: formatCountdown(Date.parse(next.approval.expiresAt) - now),
-          })}
-        >
-          <ShieldCheck className="size-3.5 text-approval-text" aria-hidden="true" />
-          {t("chat.approval.others", { n: others.length })}
-          <span
-            className={cn(
-              "tabular-nums",
-              Date.parse(next.approval.expiresAt) - now < 60_000
-                ? "text-danger-text"
-                : "text-label-tertiary",
-            )}
-          >
-            · {formatCountdown(Date.parse(next.approval.expiresAt) - now)}
-          </span>
-        </button>
-      ) : null}
+      <Presence initial={false}>
+        {next ? (
+          <m.div key="more" layout="position" className="flex justify-center" {...fade}>
+            {/* "2 more": shows the next card (most urgent first); its name says which one. */}
+            <button
+              type="button"
+              onClick={() => setOpenId(next.approval.id)}
+              className="inline-flex h-6 cursor-default items-center gap-1.5 self-center rounded-full px-2.5 text-callout text-label-secondary outline-none transition-colors duration-(--duration-micro) ease-(--ease-standard) hover:bg-fill-tertiary hover:text-label-primary focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={t("chat.approval.nextLabel", {
+                more: t("chat.approval.others", { n: others.length }),
+                summary: displaySummary(next.approval),
+                countdown: formatCountdown(Date.parse(next.approval.expiresAt) - now),
+              })}
+            >
+              <ShieldCheck className="size-3.5 text-approval-text" aria-hidden="true" />
+              {t("chat.approval.others", { n: others.length })}
+              <span
+                className={cn(
+                  "tabular-nums",
+                  Date.parse(next.approval.expiresAt) - now < 60_000
+                    ? "text-danger-text"
+                    : "text-label-tertiary",
+                )}
+              >
+                · {formatCountdown(Date.parse(next.approval.expiresAt) - now)}
+              </span>
+            </button>
+          </m.div>
+        ) : null}
+      </Presence>
     </div>
   );
 }
