@@ -1,7 +1,10 @@
 import type { Catalogue } from "../index.ts";
+import { workflows } from "./workflows/pt.ts";
 
 /** Portuguese catalogue (pt, Brazil). Same ids as `en`; missing ids fall back to English. */
 export const pt: Partial<Catalogue> = {
+  // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
+  ...workflows,
   "common.cancel": "Cancelar",
   "common.close": "Fechar",
   "common.save": "Salvar",
@@ -3334,9 +3337,36 @@ export const pt: Partial<Catalogue> = {
   "settings.key.voice.conversation.pauseMs": "Pausa antes de o Psyche responder",
   "settings.key.voice.conversation.brief": "Resumo falado",
 
+  // specialist controls (specialists §4.7) and the approval context line (§4.4)
+  "specialists.control.menu": "Mais para {title}",
+  "specialists.control.steerLabel": "Dizer algo ao {role} sobre {title}",
+  "specialists.control.steerPlaceholder": "Diga algo ao {role}…",
+  "specialists.control.steerHint": "Ele lê isso antes do próximo passo.",
+  "specialists.control.send": "Enviar",
+  "specialists.control.steered": "Enviado ao {role}.",
+  "specialists.control.pause": "Pausar",
+  "specialists.control.resume": "Retomar",
+  "specialists.control.giveMore": "Dar mais…",
+  "specialists.control.stop": "Parar…",
+  "specialists.control.giveMoreTitle": "Dar mais ao {role}?",
+  "specialists.control.giveMoreBody":
+    "Aumenta o orçamento de {title} em metade, até o máximo que os Ajustes permitem para este papel.",
+  "specialists.control.moreTokens": "Tokens: {from} → {to}",
+  "specialists.control.moreCost": "Custo: {from} → {to}",
+  "specialists.control.moreTime": "Tempo: {from, number} → {to, number} min",
+  "specialists.control.atCap": "Ele já tem o máximo que os Ajustes permitem para este papel.",
+  "specialists.control.giveMoreConfirm": "Dar mais",
+  "specialists.control.stopTitle": "Parar o {role}?",
+  "specialists.control.stopBody":
+    "Ele para agora e não vai terminar {title}. O que já fez fica em Atividade.",
+  "specialists.control.stopConfirm": "Parar",
+  "specialists.control.failed": "O Psyche não conseguiu fazer isso: {reason}",
+  "blocks.approval.specialist":
+    "{hasTask, select, true {Para “{task}” · } other {}}{role} iniciado por {agent}{hasThread, select, true { em {thread}} other {}}",
   // Ask about my screen
   "screenAsk.label": "Perguntar sobre sua tela",
   "screenAsk.placeholder": "Pergunte sobre o que está na tela ou peça algo ao Psyche…",
+  "screenAsk.voice.placeholder": "Pergunte qualquer coisa ao Psyche…",
   "screenAsk.send": "Perguntar",
   "screenAsk.capturing": "Olhando sua tela…",
   "screenAsk.chip.window": "{app}",

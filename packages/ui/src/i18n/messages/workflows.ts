@@ -1,0 +1,167 @@
+/**
+ * Mail and meeting workflow cards (`screens/workflows/`; docs/workflows/mail-and-meetings-2026.md
+ * §7). Every id here is translated in all shipped catalogues (`locales/workflows/`), which
+ * `test/workflows-catalogues.test.ts` checks per locale.
+ */
+export const workflows = {
+  // Kind lines (text-caption) and the chips every card shares (§3 rules 3 and 7).
+  "workflows.kind.digest": "Inbox",
+  "workflows.kind.followUps": "Follow-ups",
+  "workflows.kind.draft": "Draft reply",
+  "workflows.kind.scheduling": "Scheduling",
+  "workflows.kind.meetingPrep": "Meeting prep",
+  "workflows.kind.meetingNotes": "Meeting notes",
+  "workflows.taint": "Contains text from {sender}",
+  "workflows.taintOthers": "Contains text from others",
+  "workflows.cloud": "Cloud",
+  "workflows.cloudHint": "A cloud model read this. Turn on local models in Settings → Models.",
+  "workflows.aiWritten": "Written by AI",
+  "workflows.openInMail": "Open in Mail",
+  "workflows.loadFailed": "Couldn't load this card.",
+  "workflows.more": "More for {subject}",
+
+  // The digest card (§7.1, §4.1).
+  "workflows.digest.header":
+    "{time} · {n, plural, =0 {nothing needs you} one {# needs you} other {# need you}}",
+  "workflows.digest.label": "Inbox digest",
+  "workflows.digest.needsYou": "Needs you",
+  "workflows.digest.because": "Because: {reason}",
+  "workflows.digest.action.draft_reply": "Draft reply",
+  "workflows.digest.action.remind": "Remind me",
+  "workflows.digest.action.propose_times": "Propose times",
+  "workflows.digest.action.mark_read": "Mark read",
+  "workflows.digest.action.move": "Move…",
+  "workflows.digest.action.archive": "Archive",
+  "workflows.digest.action.save_attachment": "Save attachment",
+  "workflows.digest.action.allow_sender": "Allow",
+  "workflows.digest.action.not_now": "Not now",
+  "workflows.digest.action.always_archive": "Always archive",
+  "workflows.digest.action.open": "Open in Mail",
+  "workflows.digest.everythingElse": "Everything else",
+  "workflows.digest.doIt": "Do it",
+  "workflows.digest.waitingOn": "Waiting on",
+  "workflows.digest.nudge": "Draft a nudge",
+  "workflows.digest.snooze": "Snooze",
+  "workflows.digest.done": "Done",
+  "workflows.digest.screen": "New senders",
+  "workflows.digest.unverified": "Couldn't verify the sender",
+  "workflows.digest.unverifiedHint": "These say they're from someone they may not be.",
+  "workflows.digest.updated": "Updated {time}",
+  "workflows.digest.settings": "Settings",
+  "workflows.digest.quiet":
+    "Nothing needs you. {n, plural, =0 {Your inbox is quiet.} one {# message sorted.} other {# messages sorted.}}",
+  "workflows.digest.someone": "Someone",
+
+  // Follow-ups (§7.1, §4.2): the memory graph's open loops.
+  "workflows.followUps.title": "Replies and promises",
+  "workflows.followUps.segments": "Show",
+  "workflows.followUps.segment.waiting": "Waiting on",
+  "workflows.followUps.segment.owe": "You owe",
+  "workflows.followUps.segment.stale": "Stale",
+  "workflows.followUps.empty.waiting": "No one owes you a reply.",
+  "workflows.followUps.empty.owe": "You're all caught up.",
+  "workflows.followUps.empty.stale": "Nothing has gone quiet.",
+  "workflows.followUps.age": "{days} ago",
+  "workflows.followUps.due": "due {date}",
+  "workflows.followUps.shownTwice": "Shown twice: it won't come up again.",
+
+  // The draft card (§7.1, §4.3).
+  "workflows.draft.to": "To {to}",
+  "workflows.draft.tone": "Tone",
+  "workflows.draft.tone.shorter": "Shorter",
+  "workflows.draft.tone.warmer": "Warmer",
+  "workflows.draft.tone.more_formal": "More formal",
+  "workflows.draft.tone.more_direct": "More direct",
+  "workflows.draft.rewriting": "Rewriting…",
+  "workflows.draft.send": "Send",
+  "workflows.draft.saved": "Saved in your Drafts",
+  "workflows.draft.sent": "Sent",
+  "workflows.draft.voice": "In your voice",
+  "workflows.draft.commitments": "Check before sending: it says {list}.",
+  "workflows.draft.showAll": "Show the whole draft",
+  "workflows.draft.showLess": "Show less",
+
+  // The scheduling card (§7.1, §4.4).
+  "workflows.scheduling.title": "Times for {subject}",
+  "workflows.scheduling.slots": "Suggested times",
+  "workflows.scheduling.theirs": "{time} for them",
+  "workflows.scheduling.hold": "Hold these times",
+  "workflows.scheduling.draftReply": "Draft reply",
+  "workflows.scheduling.held":
+    "{n, plural, one {# time held} other {# times held}} on your calendar",
+  "workflows.scheduling.picked": "They picked {slot}",
+  "workflows.scheduling.confirm":
+    "Create event{n, plural, =0 {} one { · Release # hold} other { · Release # holds}}",
+  "workflows.scheduling.empty": "No free time fits in the next two weeks.",
+  "workflows.scheduling.link": "Or send your scheduling link",
+
+  // The meeting prep card (§7.1, §4.5).
+  "workflows.prep.when": "{time} · {when}",
+  "workflows.prep.attendees": "Attendees",
+  "workflows.prep.why": "Why this meeting",
+  "workflows.prep.openLoops": "Open loops",
+  "workflows.prep.youOwe": "You owe: {text}",
+  "workflows.prep.theyOwe": "Waiting on: {text}",
+  "workflows.prep.lastTime": "Last time",
+  "workflows.prep.worthReading": "Worth reading",
+  "workflows.prep.agenda": "Suggested agenda",
+  "workflows.prep.join": "Join",
+  "workflows.prep.started": "{title} · started {time}",
+  "workflows.prep.showPrep": "Show prep",
+  "workflows.prep.source": "Open {label}",
+  "workflows.prep.nothingNew": "Nothing new since you last met.",
+  "workflows.prep.external": "Outside your team",
+
+  // The meeting notes card (§7.1, §4.6).
+  "workflows.notes.length": "{duration} recording",
+  "workflows.notes.summary": "Summary",
+  "workflows.notes.decisions": "Decisions",
+  "workflows.notes.actionItems": "Action items",
+  "workflows.notes.openQuestions": "Open questions",
+  "workflows.notes.seek": "Play from {time}",
+  "workflows.notes.ownerYou": "You",
+  "workflows.notes.ownerNone": "No owner",
+  "workflows.notes.due": "due {date}",
+  "workflows.notes.addTo":
+    "Add {n, plural, one {# item} other {# items}} to {app, select, things {Things} other {Reminders}}",
+  "workflows.notes.recap": "Draft recap email",
+  "workflows.notes.transcript": "Open transcript",
+  "workflows.notes.private":
+    "Only you see these notes. Audio and transcripts are never uploaded, reused or used for training.",
+  "workflows.notes.privateCloud":
+    "Only you see these notes. The transcript went to a cloud model you allowed; audio is never uploaded.",
+  "workflows.notes.summaryFailed": "Summary failed. The transcript is in your Library.",
+  "workflows.notes.empty": "Nobody agreed to anything in this one.",
+
+  // The inline batch card and its step log (§7.2).
+  "workflows.batch.callsLabel": "Actions in this batch",
+  "workflows.batch.preparing": "Getting the approval ready…",
+  "workflows.batch.steps": "{n, plural, one {# action} other {# actions}} · {family} · {elapsed}",
+  "workflows.batch.running": "Running {n, plural, one {# action} other {# actions}}…",
+  "workflows.batch.partial": "{ok} of {n} done · {failed} failed: {error}",
+  "workflows.batch.failed":
+    "None of the {n, plural, one {# action} other {# actions}} ran: {error}",
+  "workflows.batch.showSteps": "Show each action",
+  "workflows.batch.hideSteps": "Hide the actions",
+  "workflows.batch.callError": "Failed: {error}",
+  "workflows.batch.retry": "Retry the failed ones",
+  "workflows.batch.undo": "Undo",
+  "workflows.batch.undoIn": "Undo · {seconds} s",
+  "workflows.batch.dismissed": "Not done. Nothing was changed.",
+  "workflows.batch.expired": "This expired. Nothing was changed.",
+  "workflows.batch.unknownError": "something went wrong",
+
+  // What a card's action puts in the composer, in the owner's words (the agent does the rest).
+  "workflows.ask.draft_reply": "Draft a reply to {sender} about “{subject}”.",
+  "workflows.ask.remind": "Remind me about “{subject}” from {sender}.",
+  "workflows.ask.propose_times": "Propose times to {sender} for “{subject}”.",
+  "workflows.ask.save_attachment": "Save the attachment from {sender} (“{subject}”).",
+  "workflows.ask.mark_read": "Mark “{subject}” from {sender} as read.",
+  "workflows.ask.archive": "Archive “{subject}” from {sender}.",
+  "workflows.ask.move": "Move “{subject}” from {sender} to another mailbox.",
+  "workflows.ask.allow_sender": "Allow mail from {sender}.",
+  "workflows.ask.not_now": "Leave {sender} in the screen for now.",
+  "workflows.ask.always_archive": "Always archive mail from {sender}.",
+  "workflows.ask.nudge": "Draft a nudge to {name} about “{text}”.",
+  "workflows.ask.recap": "Draft a recap email for “{title}”.",
+} as const;

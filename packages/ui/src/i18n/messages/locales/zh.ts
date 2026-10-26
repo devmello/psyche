@@ -1,7 +1,10 @@
 import type { Catalogue } from "../index.ts";
+import { workflows } from "./workflows/zh.ts";
 
 /** Simplified Chinese catalogue (zh). Same ids as `en`; missing ids fall back to English. */
 export const zh: Partial<Catalogue> = {
+  // mail and meeting workflows (docs/workflows/mail-and-meetings-2026.md §7)
+  ...workflows,
   "common.cancel": "取消",
   "common.close": "关闭",
   "common.save": "存储",
@@ -3227,9 +3230,34 @@ export const zh: Partial<Catalogue> = {
   "settings.key.voice.conversation.pauseMs": "Psyche 回复前的停顿",
   "settings.key.voice.conversation.brief": "语音简报",
 
+  // specialist controls (specialists §4.7) and the approval context line (§4.4)
+  "specialists.control.menu": "{title} 的更多操作",
+  "specialists.control.steerLabel": "就 {title} 对{role}说点什么",
+  "specialists.control.steerPlaceholder": "对{role}说点什么…",
+  "specialists.control.steerHint": "它会在下一步之前读到。",
+  "specialists.control.send": "发送",
+  "specialists.control.steered": "已发送给{role}。",
+  "specialists.control.pause": "暂停",
+  "specialists.control.resume": "继续",
+  "specialists.control.giveMore": "给它更多…",
+  "specialists.control.stop": "停止…",
+  "specialists.control.giveMoreTitle": "给{role}更多额度？",
+  "specialists.control.giveMoreBody": "将 {title} 的预算提高一半，上限为设置中此角色允许的数值。",
+  "specialists.control.moreTokens": "令牌：{from} → {to}",
+  "specialists.control.moreCost": "费用：{from} → {to}",
+  "specialists.control.moreTime": "时间：{from, number} → {to, number} 分钟",
+  "specialists.control.atCap": "它已达到设置中此角色允许的上限。",
+  "specialists.control.giveMoreConfirm": "给它更多",
+  "specialists.control.stopTitle": "停止{role}？",
+  "specialists.control.stopBody": "它会立即停止，不会完成 {title}。已完成的内容保留在活动中。",
+  "specialists.control.stopConfirm": "停止",
+  "specialists.control.failed": "Psyche 无法完成：{reason}",
+  "blocks.approval.specialist":
+    "{hasTask, select, true {关于“{task}” · } other {}}{role}，由{agent}启动{hasThread, select, true {，位于{thread}} other {}}",
   // Ask about my screen
   "screenAsk.label": "询问屏幕内容",
   "screenAsk.placeholder": "询问屏幕上的内容，或让 Psyche 做点什么…",
+  "screenAsk.voice.placeholder": "向 Psyche 提问任何事…",
   "screenAsk.send": "询问",
   "screenAsk.capturing": "正在查看你的屏幕…",
   "screenAsk.chip.window": "{app}",

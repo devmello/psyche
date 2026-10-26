@@ -23,6 +23,8 @@ const TOP = 12;
 /** What the panel's renderer is told to capture. */
 export type ScreenAskOpen =
   | { mode: "window" }
+  /** Voice pop-up: the same panel with no screen context; dictation starts at once. */
+  | { mode: "voice" }
   | { mode: "region"; rect: { x: number; y: number; width: number; height: number } };
 
 type Rect = { x: number; y: number; width: number; height: number };
@@ -167,16 +169,17 @@ export class ScreenAskWindow {
   }
 
   /** The shortcut or the menu item: open with a window capture, or go to region mode if open. */
-  trigger(): void {
+  trigger(mode: "window" | "voice" = "window"): void {
     if (this.isOpen()) {
-      this.selectArea();
+      if (mode === "window") this.selectArea();
+      else this.contents()?.focus();
       return;
     }
     const win = this.#warm();
     if (!win) return;
     const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
     win.setBounds(panelBounds(display.workArea, MIN_HEIGHT));
-    this.#send({ mode: "window" });
+    this.#send({ mode });
     win.show();
     win.focus();
   }
