@@ -8,6 +8,10 @@ export { markdownExtensions, richPreview } from "./core/markdown-editor.ts";
 export { ArtifactFrame, type ArtifactFrameProps } from "./react/ArtifactFrame.tsx";
 export { ArtifactViewer, type ArtifactViewerProps } from "./react/ArtifactViewer.tsx";
 export { CodeView, CodeViewer } from "./react/CodeViewer.tsx";
+export {
+  ControlledMarkdownEditor,
+  type ControlledMarkdownEditorProps,
+} from "./react/ControlledMarkdownEditor.tsx";
 export type { ViewerComponent, ViewerComponentMap, ViewerProps } from "./react/contract.ts";
 export { DocumentViewer } from "./react/DocumentViewer.tsx";
 export { EmailViewer, type EmailViewerProps } from "./react/EmailViewer.tsx";
