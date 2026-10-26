@@ -1,0 +1,239 @@
+{
+  "$comment": "Copy of apple-owner.json (the shared owner Avery Lin, devices, clock and matrices) for the mail and meeting workflows in tests/acceptance/scenarios-mail (docs/workflows/mail-and-meetings-2026.md). Additions: Apple Mail serves two accounts (work owner@example.com, personal avery.lin@example.net); mail_reply_draft / mail_move ask; calendar_find_free_time allow; the on-device speech engine (speech.transcribe_file allow); Dana Whitfield's time zone (Europe/Berlin) for §4.4. Do not edit apple-owner.json for these; keep the shared fields in step with it.",
+  "version": 1,
+  "owner": {
+    "name": "Avery Lin",
+    "email": "owner@example.com",
+    "timezone": "America/Los_Angeles",
+    "locale": "en-US",
+    "workingHours": {
+      "days": ["MO", "TU", "WE", "TH", "FR"],
+      "start": "09:00",
+      "end": "17:30",
+      "noMeetingsBefore": "09:00",
+      "lunch": {
+        "start": "12:00",
+        "end": "13:00",
+        "protected": true
+      }
+    },
+    "ownerChatIds": {
+      "webchat": "owner",
+      "telegram": 700000101
+    },
+    "people": [
+      {
+        "name": "Maya Okafor",
+        "email": "maya@example.com",
+        "relation": "manager"
+      },
+      {
+        "name": "Jordan Reyes",
+        "email": "jordan@example.com",
+        "relation": "direct report"
+      },
+      {
+        "name": "Sam Kim",
+        "email": "sam.kim@example.com",
+        "relation": "colleague"
+      },
+      {
+        "name": "Dana Whitfield",
+        "email": "dana@example.org",
+        "relation": "external, prospective partner, Berlin",
+        "timezone": "Europe/Berlin"
+      },
+      {
+        "name": "Priya Nair",
+        "email": "priya@partner.example.net",
+        "relation": "external partner, London"
+      },
+      {
+        "name": "Lena Park",
+        "email": "lena@studio.example.net",
+        "relation": "friend, designer"
+      },
+      {
+        "name": "Alex Lin",
+        "email": "alex.lin@example.net",
+        "relation": "sibling"
+      }
+    ],
+    "accounts": [
+      {
+        "email": "owner@example.com",
+        "kind": "work",
+        "route": "apple:mail"
+      },
+      {
+        "email": "avery.lin@example.net",
+        "kind": "personal",
+        "route": "apple:mail"
+      }
+    ]
+  },
+  "agent": {
+    "name": "Wren",
+    "persona": "calm, concise, asks before acting"
+  },
+  "devices": [
+    {
+      "id": "dev_mbp",
+      "name": "Avery's MacBook Pro",
+      "platform": "macos",
+      "role": "both",
+      "scopes": ["operator.read", "operator.write", "operator.approvals", "operator.admin", "node"]
+    }
+  ],
+  "permissions": {
+    "defaultMode": "balanced",
+    "approvals": {
+      "ttlMinutes": 30
+    },
+    "$comment": "Connector matrices list only what the owner set explicitly. `allow` acts as a standing grant for that action; an unset action falls through to the mode default (docs/05 §3.2-§3.3). gmail.draft and calendar writes are deliberately unset: in balanced they ask, and the scenarios check that a `task` grant from the first card covers later drafts. Apple app matrices follow the connector plan §3: reads allow, writes ask, sends ask and never allow. Mail workflows (§3): drafts and flag changes ask, sends ask and never allow; free/busy and on-device transcription of an owner-chosen file are allowed.",
+    "connectors": {
+      "google": {
+        "gmail.read": "allow",
+        "gmail.send": "ask",
+        "gmail.delete": "deny",
+        "calendar.read": "allow",
+        "calendar.delete": "ask",
+        "drive.write": "deny"
+      },
+      "search:brave": {
+        "search.web": "allow"
+      },
+      "shopping": {
+        "shop.compare": "allow",
+        "shop.view_cart": "allow"
+      },
+      "travel": {
+        "travel.search_flights": "allow"
+      },
+      "apple:mail": {
+        "mail_search": "allow",
+        "mail_read": "allow",
+        "mail_set_flags": "ask",
+        "mail_forward_draft": "ask",
+        "mail_send_draft": "ask",
+        "mail_reply_draft": "ask",
+        "mail_move": "ask"
+      },
+      "apple:reminders": {
+        "reminders_create": "ask"
+      },
+      "apple:calendar": {
+        "calendar_list_events": "allow",
+        "calendar_find_free_time": "allow"
+      },
+      "apple:contacts": {
+        "contacts_search": "allow"
+      },
+      "apple:notes": {
+        "notes_search": "allow",
+        "notes_read": "allow",
+        "notes_create": "ask",
+        "notes_append": "ask"
+      },
+      "speech:local": {
+        "speech.transcribe_file": "allow"
+      }
+    },
+    "standingGrants": [
+      {
+        "id": "grt_fx_energy_agency",
+        "scope": "site",
+        "kind": "new_origin",
+        "subject": {
+          "origin": "https://energy-agency.example"
+        },
+        "createdAt": "2026-10-02T17:12:00Z",
+        "expiresAt": "2026-11-01T17:12:00Z",
+        "uses": 3,
+        "$comment": "Read grant from an earlier research task; V7 checks that it is honored (no card)."
+      }
+    ]
+  },
+  "connectors": [
+    {
+      "id": "con_google",
+      "type": "google",
+      "account": "owner@example.com",
+      "scopeMode": "read_act",
+      "scopes": ["gmail.modify", "calendar", "drive.file"],
+      "secretRef": "google-oauth"
+    },
+    {
+      "id": "con_search_brave",
+      "type": "search:brave",
+      "account": "brave",
+      "scopeMode": "read",
+      "secretRef": "brave-search-key"
+    },
+    {
+      "id": "con_shopping",
+      "type": "shopping",
+      "account": "stores",
+      "scopeMode": "read_act",
+      "$comment": "No credential: the stores are fixture sites the owner allowlisted (v3-shopping)."
+    },
+    {
+      "id": "con_travel",
+      "type": "travel",
+      "account": "airlines",
+      "scopeMode": "read_act",
+      "$comment": "No credential: the airlines are fixture sites the owner allowlisted (v4-travel)."
+    },
+    {
+      "id": "con_apple_mail",
+      "type": "apple:mail",
+      "account": "dev_mbp",
+      "scopeMode": "read_act",
+      "$comment": "Local helper on the paired Mac (Automation: Mail); a TCC grant, no credential. Mail.app holds two accounts: owner@example.com (work) and avery.lin@example.net (personal)."
+    },
+    {
+      "id": "con_apple_reminders",
+      "type": "apple:reminders",
+      "account": "dev_mbp",
+      "scopeMode": "read_act",
+      "$comment": "Local helper on the paired Mac (Reminders access); a TCC grant, no credential."
+    },
+    {
+      "id": "con_apple_calendar",
+      "type": "apple:calendar",
+      "account": "dev_mbp",
+      "scopeMode": "read_act",
+      "$comment": "Local helper on the paired Mac (Calendars full access); a TCC grant, no credential."
+    },
+    {
+      "id": "con_apple_contacts",
+      "type": "apple:contacts",
+      "account": "dev_mbp",
+      "scopeMode": "read_act",
+      "$comment": "Local helper on the paired Mac (Contacts access); a TCC grant, no credential."
+    },
+    {
+      "id": "con_apple_notes",
+      "type": "apple:notes",
+      "account": "dev_mbp",
+      "scopeMode": "read_act",
+      "$comment": "Local helper on the paired Mac (Automation: Notes); a TCC grant, no credential."
+    },
+    {
+      "id": "con_speech_local",
+      "type": "speech:local",
+      "account": "dev_mbp",
+      "scopeMode": "read",
+      "$comment": "On-device SpeechAnalyzer through the helper (§8.4); files the owner chose only, no credential."
+    }
+  ],
+  "clock": {
+    "start": "2026-10-19T08:30:00-07:00",
+    "$comment": "Monday. FakeClock is frozen between steps and moves only on advance_clock steps. US DST ends 2026-11-01; UK DST ended 2026-10-25, so London is 7 h ahead of the owner from Oct 25 to Nov 1 and 8 h otherwise."
+  },
+  "thread": {
+    "id": "thr_main",
+    "kind": "main",
+    "permissionMode": "balanced"
+  }
+}

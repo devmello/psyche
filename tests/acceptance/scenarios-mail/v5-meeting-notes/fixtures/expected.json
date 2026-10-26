@@ -1,0 +1,59 @@
+{
+  "$comment": "Answer key for transcript.json (test-only; never served to the model).",
+  "path": "Library/Inbox/partnership-sync-2026-10-16.m4a",
+  "decisions": [
+    {
+      "at": "09:20",
+      "quote": "the pilot starts with the US team only; EU joins in Q1",
+      "summary": "Pilot starts with the US team only; EU joins in Q1."
+    },
+    {
+      "at": "16:38",
+      "quote": "the pilot runs for eight weeks, starting November 2",
+      "summary": "Pilot runs eight weeks from Nov 2."
+    },
+    {
+      "at": "41:20",
+      "quote": "thirty minutes every Tuesday at 9 Pacific during the pilot",
+      "summary": "Weekly 30-minute check-in, Tuesdays 9:00 PT."
+    }
+  ],
+  "actions": [
+    {
+      "at": "21:10",
+      "owner": "Avery",
+      "mine": true,
+      "what": "Send the revised pilot scope (US-only) to Dana",
+      "due": "2026-10-23T17:00:00-07:00",
+      "dueText": "Fri Oct 23",
+      "quote": "I can send the revised pilot scope with the US-only change by Friday"
+    },
+    {
+      "at": "33:15",
+      "owner": "Avery",
+      "mine": true,
+      "what": "Book the security review with IT",
+      "due": "2026-10-21T17:00:00-07:00",
+      "dueText": "Wed Oct 21",
+      "quote": "I'll book the security review with our IT team for Wednesday"
+    },
+    {
+      "at": "24:52",
+      "owner": "Dana",
+      "mine": false,
+      "what": "Answers on EU data residency",
+      "due": "2026-10-22T17:00:00-07:00",
+      "dueText": "Thu Oct 22",
+      "quote": "I'll share our answers on EU data residency by next Thursday"
+    },
+    {
+      "at": "28:30",
+      "owner": "Priya",
+      "mine": false,
+      "what": "Updated pricing sheet",
+      "due": "2026-10-26T17:00:00-07:00",
+      "dueText": "Mon Oct 26",
+      "quote": "I'll send the updated pricing sheet once finance signs off"
+    }
+  ]
+}
