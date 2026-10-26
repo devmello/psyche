@@ -105,6 +105,8 @@ export interface MeetingNotesServiceOptions {
   feed: FeedStore;
   notifier?: Pick<Notifier, "notify">;
   proposals?: ProposalService;
+  /** Read-only mode (Settings → Mail & meetings): reads and writes notes, but proposes nothing. */
+  readOnly?: () => boolean;
   provider?: ModelProvider;
   /** The summary model; `utility` maps chunks above 60 minutes. */
   primary?: ModelRef;
@@ -116,6 +118,10 @@ export interface MeetingNotesServiceOptions {
   addLoop?: (loop: TheyOweLoop) => Promise<{ id: string } | undefined>;
   /** Names the transcript may use for the owner ("Sam"); "I" and "me" always count. */
   ownerNames?: () => readonly string[];
+  /** Where the owner's action items go (Settings): Reminders (default) or Things, if connected. */
+  tasksApp?: () => "reminders" | "things";
+  /** Offer a recap email draft after every meeting (Settings); it is still only a draft card. */
+  recapDraftDefault?: () => boolean;
   /** The owner's own addresses, left out of a recap's recipients. */
   ownerAddresses?: () => Promise<string[]>;
   timezone?: string;
@@ -163,6 +169,11 @@ export class MeetingNotesService {
 
   constructor(options: MeetingNotesServiceOptions) {
     this.#o = options;
+  }
+
+  /** The proposal service, unless the owner turned on read-only: then nothing is proposed. */
+  get #proposals(): ProposalService | undefined {
+    return this.#o.readOnly?.() === true ? undefined : this.#o.proposals;
   }
 
   get #tz(): string {
@@ -298,9 +309,10 @@ export class MeetingNotesService {
     // The owner's items: one card of reminders. Others': loops. Unassigned: listed only.
     const mine = merged.actionItems.filter((a) => a.owner === "owner");
     let remindersProposalId: string | null = null;
-    if (mine.length > 0 && this.#o.proposals !== undefined) {
-      const tool =
-        this.#o.tools.get("reminders_create") !== undefined ? "reminders_create" : "things_add";
+    if (mine.length > 0 && this.#proposals !== undefined) {
+      const wanted = this.#o.tasksApp?.() === "things" ? "things_add" : "reminders_create";
+      const other = wanted === "things_add" ? "reminders_create" : "things_add";
+      const tool = this.#o.tools.get(wanted) !== undefined ? wanted : other;
       const calls: ActionCall[] = mine.map((a) => ({
         tool,
         params:
@@ -317,7 +329,7 @@ export class MeetingNotesService {
               },
         summary: `Remind me: ${a.text.slice(0, 200)}`,
       }));
-      remindersProposalId = this.#o.proposals.create({
+      remindersProposalId = this.#proposals.create({
         title: `Add ${mine.length} reminder${mine.length === 1 ? "" : "s"} from ${title}`.slice(
           0,
           200,
@@ -409,6 +421,10 @@ export class MeetingNotesService {
       route: `/feed/${postId}`,
       dedupeKey: `meeting:notes:${postId}`,
     });
+    if (this.#o.recapDraftDefault?.() === true) {
+      // A draft card for the accepted attendees; nothing is sent (§4.6 step 4).
+      await this.recapDraft(postId).catch((err) => this.#o.onError?.(err));
+    }
     return { status: "done", notes, postId, remindersProposalId, loopIds };
   }
 
@@ -543,8 +559,8 @@ export class MeetingNotesService {
     ].join("\n");
     let proposalId: string | null = null;
     const tool = options.via === "gmail" ? "gmail_create_draft" : "mail_draft";
-    if (this.#o.proposals !== undefined && to.length > 0 && this.#o.tools.get(tool) !== undefined) {
-      proposalId = this.#o.proposals.create({
+    if (this.#proposals !== undefined && to.length > 0 && this.#o.tools.get(tool) !== undefined) {
+      proposalId = this.#proposals.create({
         title: `Save the recap draft to ${to.length} ${to.length === 1 ? "person" : "people"}`,
         calls: [{ tool, params: { to, subject, body }, summary: `Draft: ${subject}` }],
         createdBy: { job: "meetings.recap" },

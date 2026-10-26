@@ -96,19 +96,6 @@ struct SpeechPCMTests {
         #expect(PCMConvert.float32(fromF32LE: Data([1, 2, 3])).isEmpty)
     }
 
-    @Test func chunkSizes() {
-        #expect(PCMChunker.maxRawBytes(bytesPerFrame: 2) == 49152)
-        #expect(PCMChunker.maxRawBytes(bytesPerFrame: 8) == 49152)
-        #expect(PCMChunker.maxRawBytes(bytesPerFrame: 6) % 6 == 0)
-        let data = Data(count: 49152 * 2 + 100)
-        let chunks = PCMChunker.split(data, bytesPerFrame: 2)
-        #expect(chunks.map(\.count) == [49152, 49152, 100])
-        #expect(chunks.allSatisfy { $0.base64EncodedString().utf8.count <= PCMChunker.defaultMaxEncodedBytes })
-        #expect(chunks.reduce(Data(), +) == data)
-        #expect(PCMChunker.split(Data(), bytesPerFrame: 2).isEmpty)
-        #expect(PCMChunker.split(Data(count: 10), bytesPerFrame: 4, maxEncodedBytes: 8).map(\.count) == [4, 4, 2])
-    }
-
     @Test func frameAligner() {
         var a = PCMFrameAligner(bytesPerFrame: 4)
         #expect(a.append(Data([1, 2, 3])).isEmpty)
@@ -204,18 +191,6 @@ struct SpeechParamsTests {
         #expect((try? AudioPushParams(streamId: "s", data: max).validated()) != nil)
         #expect(throws: CapabilityError.self) { try decode(AudioPushParams.self, ["data": ""]) }
     }
-
-    @Test func synthesize() throws {
-        let p = try decode(SynthesizeParams.self, ["text": "Hello"]).validated()
-        #expect(p == SynthesizeParams(text: "Hello", voice: nil, rate: nil, personalVoice: false, format: .pcmS16le))
-        #expect(try decode(SynthesizeParams.self, ["text": "Hi", "format": "pcm_f32le", "personalVoice": true]).validated().format == .pcmF32le)
-        #expect(throws: CapabilityError.self) { try SynthesizeParams(text: "  ").validated() }
-        #expect(throws: CapabilityError.self) { try SynthesizeParams(text: String(repeating: "a", count: 5001)).validated() }
-        #expect((try? SynthesizeParams(text: String(repeating: "a", count: 5000)).validated()) != nil)
-        #expect(throws: CapabilityError.self) { try SynthesizeParams(text: "a", rate: 1.5).validated() }
-        #expect(throws: CapabilityError.self) { try SynthesizeParams(text: "a", voice: "").validated() }
-        #expect(throws: CapabilityError.self) { try decode(SynthesizeParams.self, ["text": "a", "format": "mp3"]) }
-    }
 }
 
 @Suite("speech events")
@@ -236,9 +211,6 @@ struct SpeechEventTests {
 
     @Test func otherEvents() {
         let f = PCMAudioFormat(encoding: .pcmS16le, sampleRate: 22050, channels: 1)
-        #expect(SpeechEvent.audio(seq: 3, data: Data([0, 1]), format: f) == [
-            "type": "speech.audio", "seq": 3, "data": "AAE=", "format": ["encoding": "pcm_s16le", "sampleRate": 22050, "channels": 1],
-        ])
         #expect(SpeechEvent.modelDownload(phase: .progress, locale: "en-US", fraction: 0.12345) == [
             "type": "speech.model_download", "phase": "progress", "locale": "en-US", "fraction": .number(0.123),
         ])

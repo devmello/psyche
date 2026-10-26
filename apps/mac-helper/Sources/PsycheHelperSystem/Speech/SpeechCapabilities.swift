@@ -18,10 +18,8 @@ public enum SpeechCapabilities {
         log: HelperLog = HelperLog(),
         fileBackend: (any LongFormAudioBackend)? = nil,
         fileRoots: (@Sendable () -> FinderRoots)? = nil,
-        synthesis: any SynthesisBackend = LiveSynthesisBackend(),
         timings: SpeechTimings = SpeechTimings(),
-        transcriptionEngine: (@Sendable (TranscribeRequest) async throws -> any TranscriptionEngine)? = nil,
-        personalVoice: any PersonalVoiceAuthorizer = LivePersonalVoiceAuthorizer()
+        transcriptionEngine: (@Sendable (TranscribeRequest) async throws -> any TranscriptionEngine)? = nil
     ) -> [any CapabilityHandler] {
         let preflight = preflight ?? SpeechPermissionPreflight()
         let fileBackend = fileBackend ?? LiveLongFormBackend(preflight: preflight)
@@ -106,73 +104,6 @@ public enum SpeechCapabilities {
             },
 
             Capability(CapabilitySpec(
-                name: "speech.synthesize",
-                description: "Synthesize speech on device with AVSpeechSynthesizer, streaming speech.audio PCM chunks to the caller (the helper never plays audio). speed (0.5–2× normal) wins over rate; utteranceId is echoed on every chunk. A synthesizer stays warm per voice between sentences. Personal Voice only with personalVoice: true and Personal Voice authorization; its output is for personal, non-commercial use.",
-                sideEffect: .read,
-                inputSchema: Schema.object([
-                    "text": Schema.string("Text to speak", maxLength: SpeechLimits.maxSynthesisTextLength),
-                    "voice": Schema.string("Voice id from speech.voices", maxLength: SpeechLimits.maxVoiceIdLength),
-                    "rate": Schema.number("0 (slowest) … 1 (fastest); 0.5 ≈ normal", min: 0, max: 1),
-                    "speed": Schema.number("Multiplier of the voice's normal speed; wins over rate", min: SpeechRate.minSpeed, max: SpeechRate.maxSpeed),
-                    "personalVoice": Schema.boolean("Opt in to the user's Personal Voice (default false)"),
-                    "format": Schema.string("Output encoding (default pcm_s16le)", enum: PCMEncoding.allCases.map(\.rawValue)),
-                    "utteranceId": Schema.string("Echoed on every speech.audio event", maxLength: SpeechLimits.maxUtteranceIdLength),
-                ], required: ["text"]),
-                streaming: true
-            )) { ctx in
-                let p = try ctx.decode(SynthesizeParams.self).validated()
-                return try await SpeechSynthesis.run(p, backend: synthesis, timings: timings, emit: ctx.emit)
-            },
-
-            Capability(CapabilitySpec(
-                name: "speech.prepare",
-                description: "Keep a synthesizer warm for a voice (or the best installed voice for a language) so a conversation's first sentence starts fast: renders a short phrase that is thrown away, never played. It stays warm for keepWarmMs without use (default 120 s).",
-                sideEffect: .read,
-                inputSchema: Schema.object([
-                    "voice": Schema.string("Voice id from speech.voices", maxLength: SpeechLimits.maxVoiceIdLength),
-                    "language": Schema.string("BCP-47 tag; picks premium, then enhanced, then default", maxLength: 35),
-                    "keepWarmMs": Schema.integer("Default 120000", min: SpeechPrepareParams.keepWarmRange.lowerBound, max: SpeechPrepareParams.keepWarmRange.upperBound),
-                ])
-            )) { ctx in
-                let p = try ctx.decode(SpeechPrepareParams.self).validated()
-                let clock = ContinuousClock()
-                let started = clock.now
-                let voice = try await synthesis.prepare(voice: p.voice, language: p.language, keepWarmMs: p.keepWarmMs ?? SpeechPrepareParams.defaultKeepWarmMs)
-                return CapabilityOutput(["voice": .string(voice.id), "prepared": true, "prepareMs": .int(elapsedMs(started, clock.now))])
-            },
-
-            Capability(CapabilitySpec(
-                name: "speech.personal_voice.authorize",
-                description: "Ask macOS for Personal Voice authorization. Only on an explicit owner action (Settings); it prompts once, while nothing is decided, and otherwise answers with the current status. Personal Voice output is for personal, non-commercial use.",
-                sideEffect: .write,
-                inputSchema: Schema.object([:]),
-                receiptKind: "permission_request"
-            )) { _ in
-                let before = personalVoice.status()
-                let prompted = PersonalVoiceAuth.shouldPrompt(before)
-                let status = prompted ? await personalVoice.request() : before
-                let receipt = ReceiptDraft(outcome: .ok, summary: prompted ? "Asked macOS for Personal Voice: \(status)" : "Personal Voice is \(status); macOS was not asked again")
-                return CapabilityOutput(PersonalVoiceAuth.result(status: status, prompted: prompted), receipt: receipt)
-            },
-
-            Capability(CapabilitySpec(
-                name: "speech.voices",
-                description: "List installed speech synthesis voices {id, name, language, quality, personalVoice, installed}.",
-                sideEffect: .read,
-                inputSchema: Schema.object(["language": Schema.string("Filter by language prefix, e.g. en or en-GB", maxLength: 35)])
-            )) { ctx in
-                struct P: Decodable { var language: String? }
-                let prefix = try ctx.decode(P.self).language?.lowercased().replacingOccurrences(of: "_", with: "-")
-                let voices = AVSpeechSynthesisVoice.speechVoices()
-                    .filter { v in prefix.map { v.language.lowercased().hasPrefix($0) } ?? true }
-                    .sorted { ($0.language, $0.name) < ($1.language, $1.name) }
-                return CapabilityOutput([
-                    "voices": .array(voices.map(SpeechSynthesis.voiceJSON)),
-                    "personalVoiceAuthorization": .string(SpeechSynthesis.personalVoiceStatus()),
-                ])
-            },
-
-            Capability(CapabilitySpec(
                 name: "speech.status",
                 description: "Speech engines available on this Mac, OS gates, SpeechTranscriber locales, permission state and active streams.",
                 sideEffect: .read,
@@ -207,7 +138,6 @@ public enum SpeechCapabilities {
             "permissions": [
                 "microphone": .string(SpeechPermissionPreflight.microphoneStatus()),
                 "speechRecognition": .string(SpeechPermissionPreflight.speechRecognitionStatus()),
-                "personalVoice": .string(SpeechSynthesis.personalVoiceStatus()),
             ],
             "activeStreams": .int(registry.activeCount),
             "timings": timings.json,

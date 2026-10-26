@@ -7,6 +7,7 @@ import {
   appleMailSource,
   gmailSource,
   MailWatcher,
+  type MailWatcherOptions,
   OFF_HOURS_POLL_MS,
   withProactiveJobs,
 } from "../src/index.ts";
@@ -16,7 +17,7 @@ import { asleep, RecordingLauncher, testDb } from "./helpers.ts";
 
 const NOON = Date.parse("2026-10-26T12:00:00Z");
 
-function rig(start = NOON) {
+function rig(start = NOON, extra: Partial<MailWatcherOptions> = {}) {
   const clock = new FakeClock(start);
   const db = testDb(clock);
   const agent = new RecordingLauncher();
@@ -66,6 +67,7 @@ function rig(start = NOON) {
     clock,
     sources: () => [appleMailSource({ get: (n) => tools.get(n) })],
     timezone: "UTC",
+    ...extra,
   });
   return { clock, scheduler, agent, inbox, queries, watcher, tools };
 }
@@ -177,5 +179,34 @@ describe("mail watch", () => {
     });
     expect(await watcher.poll()).toEqual({ published: 1 });
     expect(errors).toEqual([]);
+  });
+});
+
+describe("the poll cadence follows Settings → Mail & meetings", () => {
+  const listen = (r: ReturnType<typeof rig>) =>
+    r.scheduler.create({
+      kind: "event",
+      title: "x",
+      schedule: "",
+      timezone: "UTC",
+      prompt: "x",
+      trigger: { type: "event", source: "mail.received" },
+    });
+
+  it("the owner's idle cadence replaces the hourly default outside active hours", async () => {
+    const night = Date.parse("2026-10-26T23:30:00Z");
+    const r = rig(night, { idleMs: () => 15 * 60_000 });
+    await listen(r);
+    expect((await r.watcher.poll()).skipped).toBeUndefined();
+    r.clock.advance(10 * 60_000);
+    expect((await r.watcher.poll()).skipped).toBe("outside active hours");
+    r.clock.advance(6 * 60_000);
+    expect((await r.watcher.poll()).skipped).toBeUndefined();
+  });
+
+  it("the active cadence is the system automation's interval", async () => {
+    const r = rig();
+    expect((await r.watcher.ensureSchedule({ activeMin: 2 })).schedule).toBe("PT2M");
+    expect((await r.watcher.ensureSchedule({})).schedule).toBe("PT10M");
   });
 });

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyBudget,
   assembleContext,
+  CANVAS_GUIDANCE,
   DEFAULT_CONTEXT_BUDGETS,
   renderSystemPrompt,
 } from "../src/index.ts";
@@ -182,5 +183,30 @@ describe("context budgets (C2)", () => {
       },
     ]);
     expect(out.match(/<\/section>/g)).toHaveLength(1);
+  });
+
+  it("adds the canvas output guidance only when the artifact tools are registered", async () => {
+    const tool = (name: string) => ({
+      name,
+      description: name,
+      inputSchema: {},
+      sideEffect: "none" as const,
+      provenanceOut: "trusted" as const,
+    });
+    const tools = async (names: string[]) =>
+      (
+        await assembleContext({
+          basePrompt: "base",
+          tools: names.map(tool),
+          permissionMode: "balanced",
+          runMode: "attended",
+          now: clock.now(),
+          timeZone: "UTC",
+          budgets: DEFAULT_CONTEXT_BUDGETS,
+        })
+      ).sections.find((x) => x.id === "tools")?.text ?? "";
+    expect(await tools(["artifact.create", "artifact.update"])).toContain(CANVAS_GUIDANCE);
+    expect(await tools(["read_file"])).not.toContain(CANVAS_GUIDANCE);
+    expect(CANVAS_GUIDANCE.length).toBeLessThan(420);
   });
 });

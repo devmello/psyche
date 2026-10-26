@@ -80,6 +80,8 @@ export interface DraftServiceOptions {
   tools: ToolLookup;
   voice?: VoiceService;
   proposals?: ProposalService;
+  /** Read-only mode (Settings → Mail & meetings): reads and writes notes, but proposes nothing. */
+  readOnly?: () => boolean;
   /** The primary model (or a local one the owner pinned). */
   provider?: ModelProvider;
   model?: ModelRef;
@@ -101,6 +103,11 @@ export class DraftService {
 
   constructor(options: DraftServiceOptions) {
     this.#o = options;
+  }
+
+  /** The proposal service, unless the owner turned on read-only: then nothing is proposed. */
+  get #proposals(): ProposalService | undefined {
+    return this.#o.readOnly?.() === true ? undefined : this.#o.proposals;
   }
 
   async #thread(r: DraftRequest): Promise<Thread> {
@@ -185,7 +192,7 @@ export class DraftService {
     }
     if (body === "") throw new PsycheError("unavailable", "the draft could not be written");
     let proposalId: string | null = null;
-    if (this.#o.proposals !== undefined) {
+    if (this.#proposals !== undefined) {
       const call: ActionCall =
         r.via === "apple"
           ? {
@@ -216,7 +223,7 @@ export class DraftService {
         const taintSources: TaintSource[] = [
           { sourceKind: "email", sender: cleanHeader(thread.from, 200) },
         ];
-        proposalId = this.#o.proposals.create({
+        proposalId = this.#proposals.create({
           title: `Save draft: ${cleanHeader(subject, 120)}`,
           calls: [call],
           createdBy: { job: "mail.draft" },

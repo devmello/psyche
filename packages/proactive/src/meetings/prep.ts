@@ -95,8 +95,10 @@ export interface MeetingPrepServiceOptions {
   }) => Promise<MeetingNotes | undefined>;
   /** Whether quiet hours cover an instant; a meeting inside them breaks through. */
   isQuiet?: (ms: number) => boolean;
-  leadMs?: number;
-  notifyLeadMs?: number;
+  leadMs?: number | (() => number);
+  notifyLeadMs?: number | (() => number);
+  /** Prep notifications a day (Settings, 1–4; default 4); later preps are silent posts. */
+  dailyCap?: () => number;
   timezone?: string;
   onFeedEvent?: (e: FeedEvent) => void;
   onError?: (error: unknown) => void;
@@ -248,8 +250,10 @@ export class MeetingPrepService {
   }
 
   #times(startMs: number, now: number): { prepAt: number; notifyAt: number } {
-    const lead = this.#o.leadMs ?? PROACTIVITY_BUDGET.meetings.prepLeadMs;
-    const notifyLead = this.#o.notifyLeadMs ?? PROACTIVITY_BUDGET.meetings.notifyLeadMs;
+    const pick = (v: number | (() => number) | undefined, fallback: number) =>
+      (typeof v === "function" ? v() : v) ?? fallback;
+    const lead = pick(this.#o.leadMs, PROACTIVITY_BUDGET.meetings.prepLeadMs);
+    const notifyLead = pick(this.#o.notifyLeadMs, PROACTIVITY_BUDGET.meetings.notifyLeadMs);
     const notifyAt = Math.max(now, startMs - notifyLead);
     let prepAt = startMs - lead;
     // Meetings before 10:00 are prepared with the morning run (07:00), not in the night.
@@ -639,7 +643,12 @@ export class MeetingPrepService {
     const sent = this.#o.db
       .prepare("SELECT COUNT(*) AS n FROM meeting_preps WHERE notified_at >= ?")
       .get(toIso(dayStart)) as { n: number };
-    if (sent.n >= PROACTIVITY_BUDGET.meetings.prepNotificationsPerDay) return false;
+    // The owner may lower the daily cap, never raise it past the budget.
+    const cap = Math.min(
+      PROACTIVITY_BUDGET.meetings.prepNotificationsPerDay,
+      Math.max(1, Math.floor(this.#o.dailyCap?.() ?? Number.POSITIVE_INFINITY)),
+    );
+    if (sent.n >= cap) return false;
     const post = this.#o.feed.get(row.post_id);
     const prep = post?.card?.type === "meeting_prep" ? post.card.prep : undefined;
     if (prep === undefined) return false;
