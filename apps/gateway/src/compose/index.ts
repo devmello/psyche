@@ -13,6 +13,7 @@ import {
   SoftwareAnchorKey,
 } from "@psyche/audit";
 import { redactUrl } from "@psyche/browser";
+import type { ConnectorRegistry } from "@psyche/connectors";
 import { getDevice, getSetting, getThread, openDb, type PsycheDb, setSetting } from "@psyche/db";
 import { fileTools } from "@psyche/files";
 import {
@@ -115,6 +116,7 @@ import { createOtherChats, type OtherChats } from "./other-chats.ts";
 import { composePasskeys } from "./passkeys.ts";
 import { composePayments, paymentsSetupFromEnv } from "./payments.ts";
 import { composePeople, type People } from "./people.ts";
+import { graphSourceAdapters } from "./people-sources.ts";
 import { composePlugins } from "./plugins.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { protectedRoots } from "./protected-paths.ts";
@@ -594,6 +596,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     model: utility ?? modelRef,
     publish: (event, payload) => publish(event, payload as never),
     register: (tool) => registry.register(tool),
+    // Tests drive `people.poll()` by hand.
+    ...(background ? {} : { pollIntervalMs: 0 }),
+    ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
   const calls = new CallContexts();
   const ownPorts = createOwnPorts();
@@ -674,6 +679,19 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       localProject = part.localProject;
       localProjectSupplied = true;
     }
+  }
+  // The people graph's deterministic pass reads the connected apps through their tools (#732).
+  const connectorsPart = parts.find(
+    (p): p is ComposedPart & { registry: ConnectorRegistry } => "registry" in p && "mail" in p,
+  );
+  if (connectorsPart !== undefined) {
+    people.useSources(() =>
+      graphSourceAdapters({
+        connectors: () => connectorsPart.registry.list(),
+        tools: services.tools,
+        clock,
+      }),
+    );
   }
 
   // scheduler → launcher → worker pool → loop → scheduler: the launcher is bound once the pool exists.
