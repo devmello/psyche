@@ -20,6 +20,7 @@ import {
   hackerNewsSource,
   IdeasService,
   MailWatcher,
+  MeetingPrepService,
   ProposalService,
   publicFetch,
   rssSource,
@@ -102,6 +103,8 @@ export interface ComposedProactive {
   readonly digest: DigestService | undefined;
   /** Batch proposals, when the composition gave a broker and a registry. */
   readonly proposals: ProposalService | undefined;
+  /** Meeting prep (§4.5), off until the owner turns it on (`meetings.prep.enabled`). */
+  readonly meetingPrep: MeetingPrepService | undefined;
   /** The owner's writing style (§4.3), refreshed nightly only when `mail.voice.enabled`. */
   readonly voice: VoiceService | undefined;
   /** Reply drafts in the owner's voice, saved through one approval card (§4.3). */
@@ -193,6 +196,28 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     ...(timeZone === undefined ? {} : { timezone: timeZone }),
     onError: (err) => logger?.log("warn", "mail poll failed", { code: PsycheError.from(err).code }),
   });
+  // The owner's own addresses tell their text from quoted mail (§4.3); Settings fills them.
+  const ownerAddresses = async () => stringList(getSetting(db, "mail.ownerAddresses")?.value);
+  const meetingPrep =
+    registry === undefined
+      ? undefined
+      : new MeetingPrepService({
+          db: db.sqlite,
+          clock,
+          scheduler,
+          tools: registry,
+          feed: feed.store,
+          notifier,
+          provider,
+          model,
+          ownerAddresses,
+          scope: () =>
+            getSetting(db, "meetings.prep.scope")?.value === "all" ? "all" : "external",
+          ...(timeZone === undefined ? {} : { timezone: timeZone }),
+          onFeedEvent: (e) => publish(e.event, e.payload as never),
+          onError: (err) =>
+            logger?.log("warn", "meeting prep step failed", { code: PsycheError.from(err).code }),
+        });
   const digest =
     registry === undefined
       ? undefined
@@ -209,11 +234,12 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           model,
           ...(timeZone === undefined ? {} : { timezone: timeZone }),
           onFeedEvent: (e) => publish(e.event, e.payload as never),
+          ...(meetingPrep === undefined
+            ? {}
+            : { meetingLines: () => meetingPrep.digestLinesToday() }),
           onError: (err) =>
             logger?.log("warn", "mail digest step failed", { code: PsycheError.from(err).code }),
         });
-  // The owner's own addresses tell their text from quoted mail (§4.3); Settings fills them.
-  const ownerAddresses = async () => stringList(getSetting(db, "mail.ownerAddresses")?.value);
   const voice =
     registry === undefined
       ? undefined
@@ -269,6 +295,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     mailWatch,
     digest,
     proposals,
+    meetingPrep,
     voice,
     drafts,
     scheduling,
@@ -287,6 +314,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           mailWatch.job(),
           ...(digest === undefined ? [] : [digest.job()]),
           ...(voice === undefined ? [] : [voice.job()]),
+          ...(meetingPrep === undefined ? [] : [meetingPrep.job()]),
         ],
         heartbeat: createTaskLauncher({ engine: tasks, pool, budget: HEARTBEAT_TASK_BUDGET }),
         onError: (err) =>
@@ -301,6 +329,10 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
         // Upgrades start with the mail workflows off (§7.5); onboarding or Settings turn it on.
         await digest?.ensureSchedule({
           enabled: getSetting(db, "mail.digest.enabled")?.value === true,
+        });
+        await meetingPrep?.ensureSchedule({
+          enabled: getSetting(db, "meetings.prep.enabled")?.value === true,
+          ...(timeZone === undefined ? {} : { timezone: timeZone }),
         });
         await voice?.ensureSchedule({
           enabled: getSetting(db, "mail.voice.enabled")?.value === true,

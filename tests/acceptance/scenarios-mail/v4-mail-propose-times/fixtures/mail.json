@@ -1,0 +1,40 @@
+{
+  "$comment": "§4.4 acceptance case 1: Dana's meeting request (Date header +0200, Berlin summer time; Berlin is on CET, +0100, from Oct 25). Read by tests/acceptance/src/mail-world.ts.",
+  "messages": [
+    {
+      "id": "msg_v4_dana",
+      "messageId": "pilot-walkthrough-0416@example.org",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Dana Whitfield",
+        "email": "dana@example.org"
+      },
+      "to": ["owner@example.com"],
+      "subject": "30 min next week?",
+      "date": "2026-10-16T17:42:00+02:00",
+      "read": false,
+      "flagged": false,
+      "headers": {
+        "Date": "Fri, 16 Oct 2026 17:42:00 +0200"
+      },
+      "body": "Hi Avery,\n\nCan we meet for 30 min next week? I'd like to walk you through the pilot plan before it goes to legal. Anything in your morning works best for me, as I'm in Berlin.\n\nBest,\nDana"
+    },
+    {
+      "id": "msg_v4_sam",
+      "messageId": "latency-0419@example.com",
+      "account": "owner@example.com",
+      "mailbox": "INBOX",
+      "from": {
+        "name": "Sam Kim",
+        "email": "sam.kim@example.com"
+      },
+      "to": ["owner@example.com"],
+      "subject": "Dashboard latency is back to normal",
+      "date": "2026-10-19T06:58:00-07:00",
+      "read": false,
+      "flagged": false,
+      "body": "The dashboard latency issue from Friday is resolved. Postmortem to follow."
+    }
+  ]
+}

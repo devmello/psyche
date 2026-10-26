@@ -60,11 +60,14 @@ type Given = MethodResult<"feedback.give">;
  */
 export function TeachForm({
   person,
+  reasons = FEEDBACK_REASONS,
   onTeach,
   onCancel,
 }: {
   /** Offers "For {person}" when the answer was for someone. */
   person?: string | null;
+  /** The reason chips offered (a step: didn't do what I asked, wrong facts, should have asked). */
+  reasons?: readonly FeedbackReason[];
   onTeach: (input: {
     reason?: FeedbackReason;
     text?: string;
@@ -110,7 +113,7 @@ export function TeachForm({
         <legend className="mb-1.5 text-caption text-label-secondary">
           {t("chat.teach.reasons")}
         </legend>
-        {FEEDBACK_REASONS.map((r) => (
+        {reasons.map((r) => (
           <Chip key={r} pressed={reason === r} onClick={() => setReason(reason === r ? null : r)}>
             {t(`chat.teach.reason.${r}`)}
           </Chip>

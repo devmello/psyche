@@ -8,7 +8,7 @@ import { FakeClock, FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { GRAPH_SETTING } from "../src/compose/people.ts";
-import { cloudEvents, graphSourceAdapters } from "../src/compose/people-sources.ts";
+import { cloudEvents, graphSourceAdapters, parseAddresses } from "../src/compose/people-sources.ts";
 import { silentLogger } from "../src/log.ts";
 
 const NOW = Date.parse("2026-10-18T20:00:00Z");
@@ -187,8 +187,187 @@ describe("people graph ingest adapters (#732)", () => {
       tools: fakeTools({}),
       clock,
     });
-    expect(adapters.map((a) => a.id)).toEqual(["contacts:ms-1", "calendar:ms-1"]);
+    expect(adapters.map((a) => a.id)).toEqual(["contacts:ms-1", "calendar:ms-1", "mail:ms-1"]);
     expect(await adapters[1]?.ownerIdentities?.()).toEqual({ emails: ["pat@kim.example"] });
+  });
+});
+
+describe("mail adapters (#732)", () => {
+  const signal = new AbortController().signal;
+
+  it("parses address headers without merging on display names", () => {
+    expect(
+      parseAddresses(
+        'Sam Lee <sam@acme.com>, "Fox, Dana" <dana@acme.com>, nina@acme.com, not an address',
+      ),
+    ).toEqual([
+      { email: "sam@acme.com", name: "Sam Lee" },
+      { email: "dana@acme.com", name: "Fox, Dana" },
+      { email: "nina@acme.com" },
+    ]);
+    expect(parseAddresses(["a@b.example", "C <c@d.example>"])).toEqual([
+      { email: "a@b.example" },
+      { email: "c@d.example", name: "C" },
+    ]);
+  });
+
+  it("Apple Mail: senders from summaries, recipients only for the owner's sent mail", async () => {
+    const tools = fakeTools({
+      [toolName("apple-mail-1", "mail_search")]: () => ({
+        messages: [
+          {
+            id: "1",
+            mailbox: "INBOX",
+            account: "iCloud",
+            subject: "Kickoff notes",
+            from: "Sam Lee <sam@acme.com>",
+            date: "2026-10-17T09:00:00Z",
+            read: true,
+            link: "message://%3Ckick%40acme.com%3E",
+          },
+          {
+            id: "2",
+            mailbox: "Sent Messages",
+            account: "iCloud",
+            subject: "Re: Kickoff notes",
+            from: "Pat Kim <pat@kim.example>",
+            date: "2026-10-17T10:00:00Z",
+            read: true,
+          },
+        ],
+      }),
+      [toolName("apple-mail-1", "mail_read")]: (p) => ({
+        message: {
+          summary: { id: p.id },
+          to: ["Sam Lee <sam@acme.com>"],
+          cc: [],
+          body: "Thanks Sam, can you send the deck by Friday?",
+        },
+      }),
+    });
+    const [adapter] = await graphSourceAdapters({
+      connectors: async () => [record("apple-mail-1", "apple:mail")],
+      tools,
+      clock,
+    });
+    const pulled = await adapter?.pull(null, signal);
+    expect(pulled?.mails).toEqual([
+      {
+        source: "apple:mail",
+        messageId: "kick@acme.com",
+        date: "2026-10-17T09:00:00.000Z",
+        from: { email: "sam@acme.com", name: "Sam Lee" },
+        subject: "Kickoff notes",
+        link: "message://%3Ckick%40acme.com%3E",
+      },
+      {
+        source: "apple:mail",
+        messageId: "2",
+        date: "2026-10-17T10:00:00.000Z",
+        from: { email: "pat@kim.example", name: "Pat Kim" },
+        subject: "Re: Kickoff notes",
+        to: [{ email: "sam@acme.com", name: "Sam Lee" }],
+        cc: [],
+        ownerSnippet: "Thanks Sam, can you send the deck by Friday?",
+      },
+    ]);
+    expect(tools.calls.filter((c) => c.name.endsWith("mail_read"))).toHaveLength(1);
+    expect(tools.calls[0]?.params.since).toBe(new Date(NOW - 30 * 86_400_000).toISOString());
+    expect(pulled?.cursor).toEqual({ since: "2026-10-17T10:00:00.000Z" });
+  });
+
+  it("Gmail: reads threads for headers and resumes a backlog instead of skipping it", async () => {
+    let page = 0;
+    const tools = fakeTools({
+      [toolName("google-1", "gmail_search_threads")]: (p) => {
+        page++;
+        const base = p.pageToken === undefined ? 0 : Number(p.pageToken);
+        return {
+          threads: Array.from({ length: 50 }, (_, i) => ({ id: `t${base + i}` })),
+          nextPageToken: String(base + 50),
+        };
+      },
+      [toolName("google-1", "gmail_read_thread")]: (p) => ({
+        id: p.threadId,
+        messages: [
+          {
+            id: `m-${p.threadId}`,
+            threadId: p.threadId,
+            from: "Nina Patel <nina@acme.com>",
+            to: "pat@kim.example",
+            cc: "",
+            date: "Sat, 17 Oct 2026 09:00:00 +0000",
+            subject: `About ${p.threadId}`,
+            messageId: `<${p.threadId}@acme.com>`,
+            body: "third-party body, never kept",
+          },
+        ],
+      }),
+    });
+    const [, mail] = await graphSourceAdapters({
+      connectors: async () => [record("google-1", "google", "pat@kim.example")],
+      tools,
+      clock,
+    });
+    expect(mail?.id).toBe("mail:google-1");
+    const first = await mail?.pull(null, signal);
+    expect(first?.mails).toHaveLength(50);
+    expect(first?.mails?.[0]).toMatchObject({
+      source: "google:mail",
+      messageId: "t0@acme.com",
+      from: { email: "nina@acme.com", name: "Nina Patel" },
+      to: [{ email: "pat@kim.example" }],
+      threadKey: "t0",
+    });
+    expect(JSON.stringify(first?.mails)).not.toContain("third-party body");
+    expect(first?.cursor).toMatchObject({ resume: { all: "50" } });
+    const second = await mail?.pull(first?.cursor, signal);
+    expect(second?.mails?.[0]?.threadKey).toBe("t50");
+    expect(page).toBe(2);
+  });
+
+  it("IMAP / Outlook: inbox and Sent, recipients from the summary, a missing Sent folder is fine", async () => {
+    const tools = fakeTools({
+      [toolName("imap-1", "mail_search_messages")]: (p) => {
+        if (p.mailbox === "Sent") throw new Error("no such mailbox");
+        return {
+          messages: [
+            {
+              id: "42",
+              mailbox: "INBOX",
+              subject: "Invoice",
+              from: "Rita Gomez <rita@buildright.example>",
+              to: "Pat Kim <pat@kim.example>, Mo Chen <mo@studiomo.example>",
+              date: "2026-10-16T08:00:00Z",
+              snippet: "…",
+              unread: false,
+              flags: [],
+            },
+          ],
+          nextPageToken: null,
+        };
+      },
+    });
+    const [adapter] = await graphSourceAdapters({
+      connectors: async () => [record("imap-1", "imap", "pat@kim.example")],
+      tools,
+      clock,
+    });
+    const pulled = await adapter?.pull(null, signal);
+    expect(pulled?.mails).toEqual([
+      {
+        source: "imap:mail",
+        messageId: "42",
+        date: "2026-10-16T08:00:00.000Z",
+        from: { email: "rita@buildright.example", name: "Rita Gomez" },
+        to: [
+          { email: "pat@kim.example", name: "Pat Kim" },
+          { email: "mo@studiomo.example", name: "Mo Chen" },
+        ],
+        subject: "Invoice",
+      },
+    ]);
+    expect(pulled?.cursor).toEqual({ since: "2026-10-16T08:00:00.000Z" });
   });
 });
 
@@ -226,7 +405,7 @@ describe("the Gateway's deterministic pass", () => {
     );
     // Off by default, then the graph on but calendar off: nothing is read.
     expect(await c.people.poll()).toBeUndefined();
-    setSetting(c.db, GRAPH_SETTING, { enabled: true, sources: { mail: true } });
+    setSetting(c.db, GRAPH_SETTING, { enabled: true, sources: { contacts: true } });
     const none = await c.people.poll();
     expect(none?.adapters).toEqual([]);
     expect(tools.calls).toHaveLength(0);

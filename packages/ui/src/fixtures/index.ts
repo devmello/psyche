@@ -32,6 +32,8 @@ import type {
   SearchHit,
   SkillDetails,
   SkillDraft,
+  SpecialistJob,
+  SpecialistRole,
   Task,
   TaskAction,
   ThreadListEntry,
@@ -60,6 +62,7 @@ import {
   usage,
 } from "./settings.ts";
 import { type MockSkillSource, skillDrafts, skillSources, skills } from "./skills.ts";
+import { specialistJobs, specialistRoles } from "./specialists.ts";
 import { artifacts, inputRequests, library, receipts, taskActions, tasks } from "./tasks.ts";
 import { usageSummary } from "./usage.ts";
 
@@ -163,6 +166,9 @@ export interface FixtureWorld {
   runFrames?: Record<string, RunFrame[]>;
   runPayloads?: Record<string, { input?: unknown; output?: unknown }>;
   automationRuns?: AutomationRun[];
+  /** Background specialists (`fixtures/specialists.ts`). */
+  specialistRoles?: SpecialistRole[];
+  specialistJobs?: SpecialistJob[];
 }
 
 /** Builds a fresh world; every call returns a deep copy, so callers may mutate freely. */
@@ -221,6 +227,8 @@ export function createFixtureWorld(): FixtureWorld {
     skillSources: skillSources(),
     skillDrafts: skillDrafts(),
     usage: usage(),
+    specialistRoles: specialistRoles(),
+    specialistJobs: specialistJobs(),
   });
 }
 export { FILE_ROOTS, fileRootGrants, fileTree, type MockFileNode } from "./files.ts";
@@ -243,3 +251,12 @@ export {
   skills,
   stagedSkillProposal,
 } from "./skills.ts";
+export {
+  DONE_RESULT,
+  SPECIALIST_IDS,
+  specialistJobs,
+  specialistNotifications,
+  specialistRoles,
+  specialistTasks,
+  withSpecialists,
+} from "./specialists.ts";
