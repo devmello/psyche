@@ -352,6 +352,23 @@ export function ApprovalDetails({
           <Rest details={d} shown={["tool", "trustTier", "args", "argsPreview", "toolsListHash"]} />
         </dl>
       );
+    case "batch": {
+      // One line per call in plain words (mail-and-meetings-2026 §7.2); the binding is under ⋯.
+      const calls = Array.isArray(d.calls) ? (d.calls as unknown[]).map(String) : [];
+      return (
+        <ol
+          aria-label={t("workflows.batch.callsLabel")}
+          className="flex flex-col divide-y divide-separator rounded-md bg-fill-quaternary px-3"
+        >
+          {calls.map((c, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: the bound list never reorders
+            <li key={i} className="py-1.5 text-callout text-label-primary">
+              {c}
+            </li>
+          ))}
+        </ol>
+      );
+    }
     default:
       return (
         <dl>
