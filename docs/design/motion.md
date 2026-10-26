@@ -192,7 +192,7 @@ The run trace ([run-trace-2026.md](run-trace-2026.md) §3.7) follows one rule: o
 
 ## 7. Reduced-motion table
 
-All of this applies when the OS has Reduce Motion on or Appearance → Reduce motion is set (`data-reduce-motion="true"`).
+All of this applies when the OS has Reduce Motion on or Appearance → Reduce motion is set (`data-reduce-motion="true"`). The global rule keeps `opacity` transitions at `--duration-short` and drops every other transition property, so the fades below survive; it does not zero all transitions.
 
 | Animation | Default | Reduced |
 | --- | --- | --- |
