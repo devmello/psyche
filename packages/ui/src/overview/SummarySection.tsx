@@ -3,7 +3,6 @@ import { Check, Clock, X } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
 import { agentSheetHref } from "../agent/AgentSheet.tsx";
 import { StatTile } from "../components/charts/StatTile.tsx";
-import { Button } from "../components/ui/button.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
 import { useGatewayQuery } from "../data/hooks.ts";
 import { type InsightsSummary, useInsights } from "../data/insights.ts";
@@ -12,6 +11,7 @@ import type { MessageId } from "../i18n/index.ts";
 import { usePersona } from "../slots.tsx";
 import { type OverviewLink, recentLink, routeLink, sectionLink } from "./overviewLinks.ts";
 import { type OverviewPeriod, overviewHref } from "./period.ts";
+import { DelayedSkeleton, LoadFailed, useSectionStatus } from "./SectionState.tsx";
 import {
   approvalsDecided,
   automationSpark,
@@ -38,13 +38,17 @@ export function OverviewSummary({ period, onNavigate }: OverviewSummaryProps): R
   const i18n = useI18n();
   const insights = useInsights(period);
   const growth = useGatewayQuery("growth.summary", { window: period });
+  // Only `insights.summary` gates the sentence and tiles; Growth has its own Lessons-tile state.
+  const status = useSectionStatus("summary", [
+    { ...insights, has: insights.data !== undefined, key: period },
+  ]);
   return (
     <section aria-label={i18n.t("overview.summary.label")} data-testid="overview-summary">
       {insights.data === undefined ? (
-        insights.error === null ? (
-          <SummarySkeleton />
+        status.phase === "error" ? (
+          <LoadFailed onRetry={status.reload} />
         ) : (
-          <LoadFailed onRetry={insights.reload} />
+          <SummarySkeleton />
         )
       ) : (
         <SummaryBody
@@ -255,17 +259,26 @@ function LessonsPlaceholder({
       </div>
     );
   }
-  return <Skeleton className="min-h-24" data-testid="overview-tile-lessons-loading" />;
+  return (
+    <DelayedSkeleton
+      label={i18n.t("overview.section.loading", {
+        section: i18n.t("overview.summary.tile.lessons"),
+      })}
+      testId="overview-tile-lessons-loading"
+      className="min-h-24"
+    >
+      <Skeleton className="min-h-24" />
+    </DelayedSkeleton>
+  );
 }
 
 function SummarySkeleton(): ReactElement {
   const i18n = useI18n();
   return (
-    <div
+    <DelayedSkeleton
+      label={i18n.t("overview.section.loading", { section: i18n.t("overview.summary.label") })}
+      testId="overview-summary-loading"
       className="flex flex-col gap-4"
-      role="status"
-      aria-label={i18n.t("overview.loading")}
-      data-testid="overview-summary-loading"
     >
       <Skeleton className="h-7 w-3/4" />
       <div className="grid grid-cols-2 gap-4 @min-[880px]/overview:grid-cols-4">
@@ -273,28 +286,6 @@ function SummarySkeleton(): ReactElement {
           <Skeleton key={i} className="h-24" />
         ))}
       </div>
-    </div>
-  );
-}
-
-/** The section-level failure: "Couldn’t load · Retry". Only this section fails (§5.5). */
-export function LoadFailed({ onRetry }: { onRetry: (() => void) | undefined }): ReactElement {
-  const i18n = useI18n();
-  return (
-    <div
-      role="alert"
-      className="flex items-center gap-2 text-callout text-label-secondary"
-      data-testid="overview-load-failed"
-    >
-      <span>{i18n.t("overview.error.load")}</span>
-      {onRetry === undefined ? null : (
-        <>
-          <span aria-hidden="true">·</span>
-          <Button size="sm" variant="ghost" onClick={onRetry}>
-            {i18n.t("common.retry")}
-          </Button>
-        </>
-      )}
-    </div>
+    </DelayedSkeleton>
   );
 }

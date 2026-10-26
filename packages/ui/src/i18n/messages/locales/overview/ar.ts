@@ -22,6 +22,9 @@ export const overview: Partial<Catalogue> = {
   "overview.section.empty": "لا يوجد شيء هنا بعد.",
   "overview.loading": "جارٍ التحميل",
   "overview.error.load": "تعذّر التحميل",
+  "overview.error.section": "تعذّر تحميل {section}",
+  "overview.section.loading": "جارٍ تحميل {section}",
+  "overview.lastUpdated": "آخر تحديث {time}",
   "overview.summary.label": "الملخص",
   "overview.summary.sentence.both":
     "{period, select, week {هذا الأسبوع} month {هذا الشهر} other {إجمالًا}}، أنجز {name} من أجلك {tasks, plural, zero {لا مهام ولا محادثات} one {مهمة أو محادثة واحدة} two {مهمتين أو محادثتين} few {# مهام ومحادثات} many {# مهمة ومحادثة} other {# مهمة ومحادثة}} وشغّل {automations, plural, zero {لا أتمتة} one {أتمتة واحدة} two {أتمتتين} few {# عمليات أتمتة} many {# أتمتة} other {# أتمتة}}.",

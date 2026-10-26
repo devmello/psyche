@@ -22,6 +22,9 @@ export const overview: Partial<Catalogue> = {
   "overview.section.empty": "아직 아무것도 없습니다.",
   "overview.loading": "불러오는 중",
   "overview.error.load": "불러오지 못했습니다",
+  "overview.error.section": "{section}을(를) 불러오지 못했습니다",
+  "overview.section.loading": "{section} 불러오는 중",
+  "overview.lastUpdated": "마지막 업데이트 {time}",
   "overview.summary.label": "요약",
   "overview.summary.sentence.both":
     "{period, select, week {이번 주} month {이번 달} other {지금까지}} {name}이(가) 회원님을 위해 {tasks, plural, other {작업과 채팅 #건}}을 완료하고 {automations, plural, other {자동화 #건}}을 실행했습니다.",

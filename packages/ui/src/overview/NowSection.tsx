@@ -10,6 +10,7 @@ import { useNow } from "../lib/use-now.ts";
 import { usePersona, useSlots } from "../slots.tsx";
 import { OverviewSection } from "./OverviewSection.tsx";
 import { overviewRunHref } from "./recent.ts";
+import { SectionBody, SkeletonRows, useSectionStatus } from "./SectionState.tsx";
 import { useUpcomingEntries } from "./useUpcomingEntries.ts";
 
 /** How many scheduled things "Next up" shows; the Upcoming section has the rest (§5.4). */
@@ -32,7 +33,14 @@ export function NowSection({ now: fixedNow }: { now?: number }): ReactElement {
   const live = useRunsList({ status: ["running"] });
   useThreads();
   const threads = useStoreState((s) => s.threads);
-  const { entries } = useUpcomingEntries();
+  const upcoming = useUpcomingEntries();
+  const { entries } = upcoming;
+  const status = useSectionStatus("now", [
+    { ...approvals, key: "approvals" },
+    { ...questions, key: "questions" },
+    { ...live, key: "running" },
+    { ...upcoming, key: "upcoming" },
+  ]);
 
   const running = live.runs.filter((r) => r.parentRunId == null);
   const needs = approvals.live.length + questions.open.length;
@@ -42,62 +50,69 @@ export function NowSection({ now: fixedNow }: { now?: number }): ReactElement {
 
   return (
     <OverviewSection id="now">
-      <div className="flex flex-col gap-3" data-testid="overview-now-body">
-        {needs > 0 ? (
-          <Row
-            glyph="waiting"
-            glyphLabel={t("agent.activity.waitingApproval")}
-            title={t("overview.now.needsYou", { n: needs })}
-            detail={t("overview.now.review")}
-            {...(navigate
-              ? {
-                  onOpen: () => navigate("/agent/approvals"),
-                  openLabel: t("overview.now.needsYou", { n: needs }),
-                }
-              : {})}
-          />
-        ) : null}
-        {running.length > 0 ? (
-          <section aria-label={t("overview.now.running")} className="flex flex-col gap-0.5">
-            <Heading>{t("overview.now.running")}</Heading>
-            <ul className="flex flex-col">
-              {running.map((r) => (
-                <li key={r.id}>
-                  <NowRunRow
-                    run={r}
-                    title={runTitle(r, threads[r.threadId]?.thread.title)}
-                    now={now}
-                    onOpenRun={openRun}
-                  />
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-        {next.length > 0 ? (
-          <section aria-label={t("agent.activity.nextUp")} className="flex flex-col gap-0.5">
-            <Heading>{t("agent.activity.nextUp")}</Heading>
-            <ul className="flex flex-col">
-              {next.map((a) => (
-                <li key={a.id}>
-                  <NextRow automation={a} now={now} onOpenRun={openRun} />
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-        {needs === 0 && running.length === 0 ? (
-          <p className="px-2 text-body text-label-secondary">
-            {firstNext?.nextRunAt
-              ? t("agent.activity.emptyNext", {
-                  name: persona.name,
-                  title: firstNext.title,
-                  when: formatRelative(firstNext.nextRunAt, now),
-                })
-              : t("agent.activity.empty")}
-          </p>
-        ) : null}
-      </div>
+      <SectionBody
+        id="now"
+        status={status}
+        reserve="min-h-28"
+        skeleton={<SkeletonRows count={2} />}
+      >
+        <div className="flex flex-col gap-3" data-testid="overview-now-body">
+          {needs > 0 ? (
+            <Row
+              glyph="waiting"
+              glyphLabel={t("agent.activity.waitingApproval")}
+              title={t("overview.now.needsYou", { n: needs })}
+              detail={t("overview.now.review")}
+              {...(navigate
+                ? {
+                    onOpen: () => navigate("/agent/approvals"),
+                    openLabel: t("overview.now.needsYou", { n: needs }),
+                  }
+                : {})}
+            />
+          ) : null}
+          {running.length > 0 ? (
+            <section aria-label={t("overview.now.running")} className="flex flex-col gap-0.5">
+              <Heading>{t("overview.now.running")}</Heading>
+              <ul className="flex flex-col">
+                {running.map((r) => (
+                  <li key={r.id}>
+                    <NowRunRow
+                      run={r}
+                      title={runTitle(r, threads[r.threadId]?.thread.title)}
+                      now={now}
+                      onOpenRun={openRun}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+          {next.length > 0 ? (
+            <section aria-label={t("agent.activity.nextUp")} className="flex flex-col gap-0.5">
+              <Heading>{t("agent.activity.nextUp")}</Heading>
+              <ul className="flex flex-col">
+                {next.map((a) => (
+                  <li key={a.id}>
+                    <NextRow automation={a} now={now} onOpenRun={openRun} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+          {needs === 0 && running.length === 0 ? (
+            <p className="px-2 text-body text-label-secondary">
+              {firstNext?.nextRunAt
+                ? t("agent.activity.emptyNext", {
+                    name: persona.name,
+                    title: firstNext.title,
+                    when: formatRelative(firstNext.nextRunAt, now),
+                  })
+                : t("agent.activity.empty")}
+            </p>
+          ) : null}
+        </div>
+      </SectionBody>
     </OverviewSection>
   );
 }

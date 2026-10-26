@@ -5,7 +5,6 @@ import { RecentRunRow } from "../agent/MissionControl.tsx";
 import { runTitle } from "../agent/timeline/RunHeader.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { Input } from "../components/ui/input.tsx";
-import { Skeleton } from "../components/ui/skeleton.tsx";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group.tsx";
 import { useThreads } from "../data/index.ts";
 import { useStore, useStoreState } from "../data/provider.tsx";
@@ -23,6 +22,7 @@ import {
   type RecentFilterKind,
   recentHref,
 } from "./recentFilter.ts";
+import { SectionBody, SkeletonRows, useSectionStatus } from "./SectionState.tsx";
 
 const FILTER_LABEL = {
   all: "agent.activity.filterAll",
@@ -157,6 +157,7 @@ function RecentList({
     [period, filter, asked],
   );
   const first = useRunsList(params);
+  const status = useSectionStatus("recent", [{ ...first, key: JSON.stringify(params) }]);
   // Pages after the first come straight from `runs.list`; the first stays live.
   const [more, setMore] = useState<{
     runs: readonly RunSummary[];
@@ -201,26 +202,18 @@ function RecentList({
     .filter((r) => matchesRecent(r, filter, timeZone))
     .filter((r) => title(r).toLowerCase().includes(needle));
 
-  if (first.loading && first.runs.length === 0) {
+  if (status.phase !== "ready") {
     return (
-      <div
-        className="flex flex-col gap-1 px-2"
-        role="status"
-        aria-label={t("agent.activity.loading")}
-      >
-        <Skeleton className="h-10" />
-        <Skeleton className="h-10" />
+      <div className="px-2">
+        <SectionBody
+          id="recent"
+          status={status}
+          reserve="min-h-24"
+          skeleton={<SkeletonRows count={3} />}
+        >
+          {null}
+        </SectionBody>
       </div>
-    );
-  }
-  if (first.error && first.runs.length === 0) {
-    return (
-      <p className="px-2 text-body">
-        {t("agent.activity.loadFailed", { reason: first.error })}{" "}
-        <button type="button" className="text-accent-11 underline" onClick={first.reload}>
-          {t("agent.activity.tryAgain")}
-        </button>
-      </p>
     );
   }
   const unfiltered = filter.filter === "all" && filter.day === null && needle === "";

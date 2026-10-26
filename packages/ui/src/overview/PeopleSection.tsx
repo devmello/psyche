@@ -19,6 +19,7 @@ import { OverviewSection } from "./OverviewSection.tsx";
 import { entityFacts, kindLabel, PeopleMap } from "./PeopleMap.tsx";
 import { MAP_LIMIT, rankEntities, shapeOf } from "./peopleLayout.ts";
 import type { OverviewPeriod } from "./period.ts";
+import { SectionBody, useSectionStatus } from "./SectionState.tsx";
 
 /** Below this container width the list is the default view (§5.4: "the map has the list equivalent"). */
 const COMPACT_BELOW = 720;
@@ -90,24 +91,26 @@ export function PeopleSection({ period, now, compact }: PeopleSectionProps): Rea
     });
   }
 
+  const loadStatus = useSectionStatus("people", [
+    { ...insights, has: insights.data !== undefined, key: period },
+    { ...status, has: status.data !== undefined, key: "graph" },
+  ]);
   let body: ReactNode;
-  if (insights.data === undefined) {
-    body = insights.error ? (
-      <p className="text-callout text-label-secondary" role="alert">
-        {t("overview.people.loadFailed")} ·{" "}
-        <button
-          type="button"
-          className="rounded-sm text-accent-11 underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          onClick={insights.reload}
-        >
-          {t("common.retry")}
-        </button>
-      </p>
-    ) : (
-      <div className="flex flex-col gap-2" role="status" aria-label={t("overview.people.loading")}>
-        <Skeleton className="h-40" />
-        <Skeleton className="h-5 w-2/3" />
-      </div>
+  if (insights.data === undefined || status.data === undefined) {
+    body = (
+      <SectionBody
+        id="people"
+        status={loadStatus}
+        reserve="min-h-56"
+        skeleton={
+          <>
+            <Skeleton className="h-40" />
+            <Skeleton className="h-5 w-2/3" />
+          </>
+        }
+      >
+        {null}
+      </SectionBody>
     );
   } else if (paused) {
     body = (

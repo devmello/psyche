@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
+import type { MockGateway } from "../data/mock-gateway.ts";
 import type { InsightsFixtureState } from "../fixtures/index.ts";
-import { STORY_NOW, StoryWorld, withWorld } from "../stories/harness.tsx";
+import { InLocale, STORY_NOW, StoryWorld, withWorld } from "../stories/harness.tsx";
 import { OverviewScreen } from "./OverviewScreen.tsx";
 import type { OverviewPeriod } from "./period.ts";
 import { insightsWorld } from "./storyWorld.ts";
@@ -28,20 +29,44 @@ function Page({
   firstActivityAt,
   width,
   insights = "typical",
+  locale,
+  latency,
+  failing = [],
 }: {
   initial?: OverviewPeriod;
   firstActivityAt: string | null;
   width?: number;
   /** What `insights.summary` answers (null: a quiet install, every period empty). */
   insights?: InsightsFixtureState | null;
+  /** Renders the page in this locale (`dir` follows it). */
+  locale?: string;
+  /** Delay of every Gateway answer in ms (a huge value keeps the page loading). */
+  latency?: number;
+  /** Gateway methods that always fail, so those sections show "Couldn’t load · Retry". */
+  failing?: readonly string[];
 }) {
   const [period, setPeriod] = useState<OverviewPeriod>(initial);
-  return (
+  const failAlways = (gateway: MockGateway): void => {
+    if (failing.length === 0) return;
+    const call = gateway.request.bind(gateway) as (method: string, ...rest: unknown[]) => unknown;
+    (gateway as unknown as { request: unknown }).request = async (
+      method: string,
+      ...rest: unknown[]
+    ) => {
+      if (failing.includes(method)) throw new Error(`${method} is down`);
+      return call(method, ...rest);
+    };
+  };
+  const page = (
     <div
       className="flex h-dvh min-h-0 flex-col overflow-auto bg-canvas"
       style={width === undefined ? {} : { width }}
     >
-      <StoryWorld edit={insightsWorld(insights)}>
+      <StoryWorld
+        edit={insightsWorld(insights)}
+        onGateway={failAlways}
+        {...(latency === undefined ? {} : { options: { latency } })}
+      >
         <OverviewScreen
           period={period}
           onPeriodChange={setPeriod}
@@ -51,6 +76,7 @@ function Page({
       </StoryWorld>
     </div>
   );
+  return locale === undefined ? page : <InLocale locale={locale}>{page}</InLocale>;
 }
 
 /** Desktop: all eight section anchors as framed cards. */
@@ -79,4 +105,40 @@ export const Month: Story = {
 /** §5.5 sparse period: tiles show 0, the chart an empty axis and "Nothing this week." */
 export const QuietWeek: Story = {
   render: () => <Page firstActivityAt={SIX_WEEKS_AGO} insights={null} />,
+};
+
+/** §5.5 loading: every section's skeleton, shown after the 150 ms delay in space that is reserved. */
+export const Loading: Story = {
+  render: () => <Page firstActivityAt={SIX_WEEKS_AGO} latency={3_600_000} />,
+};
+
+/** §5.5 error: Summary, Activity, Growth, People, Now and Recent fail alone; the rest still load. */
+export const SectionErrors: Story = {
+  render: () => (
+    <Page
+      firstActivityAt={SIX_WEEKS_AGO}
+      initial="30d"
+      failing={["insights.summary", "growth.summary", "runs.list"]}
+    />
+  ),
+};
+
+/** §5.8 long strings: German labels must not clip the tiles or the period control. */
+export const DesktopDe: Story = {
+  render: () => <Page firstActivityAt={SIX_WEEKS_AGO} initial="30d" locale="de-DE" />,
+};
+
+/** §5.8 long strings: Japanese in the same layout. */
+export const DesktopJa: Story = {
+  render: () => <Page firstActivityAt={SIX_WEEKS_AGO} initial="30d" locale="ja-JP" />,
+};
+
+/** §5.8 RTL: Arabic mirrors the time axis, the heatmap and the sparklines in one column. */
+export const CompactAr: Story = {
+  render: () => <Page firstActivityAt={SIX_WEEKS_AGO} initial="30d" width={390} locale="ar" />,
+};
+
+/** §5.8 RTL: Arabic on desktop, the full page mirrored. */
+export const DesktopAr: Story = {
+  render: () => <Page firstActivityAt={SIX_WEEKS_AGO} initial="30d" locale="ar" />,
 };

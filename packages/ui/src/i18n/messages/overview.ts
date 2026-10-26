@@ -29,6 +29,9 @@ export const overview = {
   "overview.section.empty": "Nothing here yet.",
   "overview.loading": "Loading",
   "overview.error.load": "Couldn’t load",
+  "overview.error.section": "Couldn’t load {section}",
+  "overview.section.loading": "Loading {section}",
+  "overview.lastUpdated": "Last updated {time}",
 
   // Summary (§5.4): the sentence is chosen from these templates over the computed totals. A clause
   // is dropped when its number is 0. `period` is week | month | all.

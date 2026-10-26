@@ -2,6 +2,7 @@ import type { Artifact, SpecialistJob } from "@psyche/protocol";
 import { type ReactElement, useMemo } from "react";
 import { ArtifactTile } from "../blocks/ArtifactCard.tsx";
 import { ChartView } from "../canvas/ChartView.tsx";
+import { Skeleton } from "../components/ui/skeleton.tsx";
 import { useArtifactContent, useInsights, useRecentArtifacts } from "../data/index.ts";
 import { useSpecialistJobs, useSpecialistRoles } from "../data/specialists.ts";
 import { t } from "../i18n/core.ts";
@@ -9,6 +10,7 @@ import { useSlots } from "../slots.tsx";
 import { SpecialistRow, useSpecialistActions } from "../specialists/InboxRow.tsx";
 import { OverviewSection } from "./OverviewSection.tsx";
 import { type OverviewPeriod, periodDays } from "./period.ts";
+import { SectionBody, SkeletonRows, useSectionStatus } from "./SectionState.tsx";
 
 /**
  * "Built for you" and "Specialists" (docs/design/agent-overview-2026.md §5.4). Each is its own
@@ -92,7 +94,9 @@ function BuiltTile({
 export function BuiltForYou({ period, now, onOpenArtifact }: OverviewPeriodProps): ReactElement {
   const { navigate, openArtifact } = useSlots();
   const { data } = useInsights(period);
-  const { artifacts } = useRecentArtifacts(BUILT_LIMIT);
+  const recent = useRecentArtifacts(BUILT_LIMIT);
+  const { artifacts } = recent;
+  const status = useSectionStatus("built", [{ ...recent, key: "artifacts" }]);
   const shown = useMemo(
     () => artifacts.filter((a) => inPeriod(a.updatedAt, period, now)).slice(0, BUILT_LIMIT),
     [artifacts, period, now],
@@ -117,17 +121,33 @@ export function BuiltForYou({ period, now, onOpenArtifact }: OverviewPeriodProps
         },
       ]}
     >
-      {shown.length === 0 ? (
-        <p className="text-callout text-label-tertiary">{t("overview.built.empty")}</p>
-      ) : (
-        <ul className="grid grid-cols-1 gap-3 @min-[480px]/overview:grid-cols-2 @min-[720px]/overview:grid-cols-4">
-          {shown.map((a) => (
-            <li key={a.id} className="min-w-0">
-              <BuiltTile artifact={a} onOpen={open} />
-            </li>
-          ))}
-        </ul>
-      )}
+      <SectionBody
+        id="built"
+        status={status}
+        reserve="min-h-32"
+        skeleton={
+          <div className="grid grid-cols-1 gap-3 @min-[480px]/overview:grid-cols-2 @min-[720px]/overview:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton
+                key={i}
+                className={i < 1 ? "h-32" : "hidden h-32 @min-[480px]/overview:block"}
+              />
+            ))}
+          </div>
+        }
+      >
+        {shown.length === 0 ? (
+          <p className="text-callout text-label-tertiary">{t("overview.built.empty")}</p>
+        ) : (
+          <ul className="grid grid-cols-1 gap-3 @min-[480px]/overview:grid-cols-2 @min-[720px]/overview:grid-cols-4">
+            {shown.map((a) => (
+              <li key={a.id} className="min-w-0">
+                <BuiltTile artifact={a} onOpen={open} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </SectionBody>
     </OverviewSection>
   );
 }
@@ -147,9 +167,15 @@ function JobRow({
 
 /** The latest finished specialist results; hidden when no specialist role is enabled. */
 export function Specialists({ period, now }: OverviewPeriodProps): ReactElement | null {
-  const { roles } = useSpecialistRoles();
+  const rolesLoad = useSpecialistRoles();
+  const { roles } = rolesLoad;
   const { data } = useInsights(period);
-  const { jobs } = useSpecialistJobs({ status: RESULT_STATUSES });
+  const jobsLoad = useSpecialistJobs({ status: RESULT_STATUSES });
+  const { jobs } = jobsLoad;
+  const status = useSectionStatus("specialists", [
+    { ...rolesLoad, key: "roles" },
+    { ...jobsLoad, key: "jobs" },
+  ]);
   const shown = useMemo(
     () =>
       jobs
@@ -158,7 +184,10 @@ export function Specialists({ period, now }: OverviewPeriodProps): ReactElement 
         .slice(0, SPECIALIST_LIMIT),
     [jobs, period, now],
   );
-  if (!roles.some((r) => r.enabled)) return null;
+  // Until the roles are known the section can't say whether it exists, so it stays out of the
+  // page (no "empty" flash for an owner without specialists); a failed load shows Retry.
+  if (status.phase === "loading") return null;
+  if (status.phase === "ready" && !roles.some((r) => r.enabled)) return null;
   const count = data
     ? data.totals.specialists.done +
       data.totals.specialists.partial +
@@ -169,17 +198,24 @@ export function Specialists({ period, now }: OverviewPeriodProps): ReactElement 
       id="specialists"
       {...(count === null ? {} : { meta: t("overview.specialists.meta", { count }) })}
     >
-      {shown.length === 0 ? (
-        <p className="text-callout text-label-tertiary">{t("overview.specialists.empty")}</p>
-      ) : (
-        <ul className="-mx-3 flex flex-col">
-          {shown.map((job) => (
-            <li key={job.taskId}>
-              <JobRow job={job} roles={roles} now={now} />
-            </li>
-          ))}
-        </ul>
-      )}
+      <SectionBody
+        id="specialists"
+        status={status}
+        reserve="min-h-24"
+        skeleton={<SkeletonRows count={3} />}
+      >
+        {shown.length === 0 ? (
+          <p className="text-callout text-label-tertiary">{t("overview.specialists.empty")}</p>
+        ) : (
+          <ul className="-mx-3 flex flex-col">
+            {shown.map((job) => (
+              <li key={job.taskId}>
+                <JobRow job={job} roles={roles} now={now} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </SectionBody>
     </OverviewSection>
   );
 }

@@ -22,6 +22,9 @@ export const overview: Partial<Catalogue> = {
   "overview.section.empty": "まだ何もありません。",
   "overview.loading": "読み込み中",
   "overview.error.load": "読み込めませんでした",
+  "overview.error.section": "{section}を読み込めませんでした",
+  "overview.section.loading": "{section}を読み込み中",
+  "overview.lastUpdated": "最終更新 {time}",
   "overview.summary.label": "サマリー",
   "overview.summary.sentence.both":
     "{period, select, week {今週} month {今月} other {これまでに}}、{name}はあなたのために{tasks, plural, other {#件のタスクとチャット}}を完了し、{automations, plural, other {#件のオートメーション}}を実行しました。",
