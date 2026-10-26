@@ -213,6 +213,9 @@ export const zh: Partial<Catalogue> = {
   "blocks.common.viewDiff": "查看差异",
   "blocks.common.open": "打开",
 
+  "blocks.card.status":
+    "{status, select, pending {待处理} running {运行中} waiting {等待中} done {完成} failed {失败} blocked {已阻止} cancelled {已取消} other {{status}}}{warning, select, yes {，结果不确定} other {}}",
+  "blocks.card.unknown": "Psyche 暂时无法显示此类项目（{type}）。",
   "blocks.message.loading":
     "正在载入{what, select, approval {审批} question {问题} receipt {回执} artifact {成果} file {文件} task {任务} plan {计划} other {项目}}",
   "blocks.message.missing":

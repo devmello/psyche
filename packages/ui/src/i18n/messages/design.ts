@@ -13,6 +13,7 @@ export const design = {
   "design.status.waiting": "Waiting for you",
   "design.status.pending": "Not started",
   "design.status.cancelled": "Stopped",
+  "design.status.blocked": "Blocked",
   "design.status.paused": "Paused",
   "design.status.thinking": "Thinking",
   "design.status.retried": "Retried",

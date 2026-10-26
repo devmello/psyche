@@ -219,6 +219,9 @@ export const ar: Partial<Catalogue> = {
   "blocks.common.viewDiff": "عرض الفروق",
   "blocks.common.open": "فتح",
 
+  "blocks.card.status":
+    "{status, select, pending {معلّق} running {قيد التشغيل} waiting {في الانتظار} done {تم} failed {فشل} blocked {محظور} cancelled {أُلغي} other {{status}}}{warning, select, yes {، النتيجة غير مؤكدة} other {}}",
+  "blocks.card.unknown": "لا يستطيع Psyche عرض هذا النوع من العناصر بعد ({type}).",
   "blocks.message.loading":
     "جارٍ تحميل {what, select, approval {الموافقة} question {السؤال} receipt {الإيصال} artifact {المُخرَج} file {الملف} task {المهمة} plan {الخطة} other {العنصر}}",
   "blocks.message.missing":

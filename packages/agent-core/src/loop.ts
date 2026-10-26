@@ -119,7 +119,7 @@ import {
   type ThreadState,
   type ThreadStateStore,
 } from "./state.ts";
-import type { TurnContextProvider } from "./turn-context.ts";
+import { TRUSTED_CONTEXT_CAP, type TurnContextProvider } from "./turn-context.ts";
 import {
   bindingHash,
   dedupeSources,
@@ -988,13 +988,18 @@ export class PsycheAgentLoop implements AgentLoop {
 
   /**
    * Turn context providers (E12): once per owner turn, never for a subagent or a non-owner
-   * requester. Sections are untrusted and taint the run; a block goes into the reply.
+   * requester. Sections are untrusted and taint the run; a block goes into the reply. A `trusted`
+   * provider's sections (owner/system data only) are neither, and only reach the owner's own turn.
    */
   async #provideContext(run: RunState): Promise<ContextSection[]> {
     const providers = this.#o.contextProviders ?? [];
     if (providers.length === 0 || run.subagent !== undefined || run.ownerText.trim() === "")
       return [];
     const out: ContextSection[] = [];
+    const ownerOnly =
+      run.specialistJob === undefined &&
+      (run.requester === undefined ||
+        (run.requester.role === "owner" && run.requester.toolAllow === undefined));
     for (const provider of providers) {
       const got = await withDeadline(
         provider.name,
@@ -1008,6 +1013,28 @@ export class PsycheAgentLoop implements AgentLoop {
         }),
       ).catch(() => undefined);
       if (got === undefined) continue;
+      if (got.trusted === true) {
+        // Owner/system data only (entity recall): never in a delegated, specialist or peer run.
+        if (!ownerOnly) continue;
+        got.sections
+          .filter((x) => x.text.trim() !== "")
+          .forEach((sec, i) => {
+            const text = sec.text.trim();
+            out.push({
+              id: `context:${provider.name}:${i}`,
+              kind: "hook",
+              title: sec.title,
+              source: `context:${provider.name}`,
+              text:
+                text.length > TRUSTED_CONTEXT_CAP ? `${text.slice(0, TRUSTED_CONTEXT_CAP)}…` : text,
+              budget: TRUSTED_CONTEXT_CAP,
+              originalChars: text.length,
+              ...(text.length > TRUSTED_CONTEXT_CAP ? { truncated: true } : {}),
+            });
+          });
+        if (got.block !== undefined) this.#block(run, got.block);
+        continue;
+      }
       const sections = got.sections.filter((x) => x.text.trim() !== "");
       sections.forEach((sec, i) => {
         out.push({
