@@ -14,22 +14,6 @@
   --shell-danger: var(--danger, #e54d2e);
   color-scheme: light dark;
 }
-/*
- * Native sidebar vibrancy (desktop, opt-in; redesign §3.4, §4): the window shows the macOS
- * material wherever the renderer is transparent, so the document goes transparent and every
- * column except the sidebar paints the canvas.
- */
-:root[data-vibrancy="true"],
-:root[data-vibrancy="true"] body,
-:root[data-vibrancy="true"] #root {
-  background: transparent;
-}
-:root[data-vibrancy="true"] .shell > :not(.rail-slot):not(.threads-slot):not(.rail):not(.threads) {
-  background: var(--canvas);
-}
-:root[data-vibrancy="true"] .titlebar {
-  background: transparent;
-}
 html,
 body,
 #root {

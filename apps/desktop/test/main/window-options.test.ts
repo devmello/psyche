@@ -21,7 +21,6 @@ describe("the main window's size (#561)", () => {
       show: false,
       titleBarStyle: "hidden",
       trafficLightPosition: { x: 20, y: 19 },
-      visualEffectState: "followWindow",
       backgroundColor: CANVAS_COLOR.light,
     });
     expect(o).not.toHaveProperty("enableLargerThanScreen");

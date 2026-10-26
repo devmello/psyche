@@ -139,7 +139,7 @@ describe("Appearance", () => {
     expect(settingCall(gateway(), "appearance.accentSeed")).toBeUndefined();
   });
 
-  it("shows the translucent sidebar switch only where the window can draw it", async () => {
+  it("sets the Translucency preset and its values, and reduce transparency (#597)", async () => {
     const { gateway } = setup({ defaultSection: "appearance" });
     const reduce = await screen.findByRole("switch", { name: "Reduce transparency" });
     expect(screen.queryByRole("switch", { name: "Translucent sidebar" })).toBeNull();
@@ -149,11 +149,10 @@ describe("Appearance", () => {
     );
 
     const onChange = vi.fn();
-    render(<AppearancePanel values={{}} onChange={onChange} supportsVibrancy />);
-    const vibrancy = screen.getByRole("switch", { name: "Translucent sidebar" });
-    expect(vibrancy.getAttribute("aria-checked")).toBe("false");
-    await userEvent.click(vibrancy);
-    expect(onChange).toHaveBeenCalledWith("appearance.vibrancy", true);
+    const panel = render(<AppearancePanel values={{}} onChange={onChange} />);
+    await userEvent.click(within(panel.container).getByRole("button", { name: "Clear" }));
+    expect(onChange).toHaveBeenCalledWith("appearance.glass", "clear");
+    expect(onChange).toHaveBeenCalledWith("appearance.glassTint", 38);
   });
 });
 

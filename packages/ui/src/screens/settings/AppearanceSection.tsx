@@ -6,11 +6,7 @@ import { Label } from "../../components/ui/label.tsx";
 import { RadioGroup } from "../../components/ui/radio-group.tsx";
 import { activeI18n, t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
-import {
-  REDUCE_TRANSPARENCY_SETTING,
-  useSupportsVibrancy,
-  VIBRANCY_SETTING,
-} from "../../shell/AppearanceProvider.tsx";
+import { REDUCE_TRANSPARENCY_SETTING } from "../../shell/AppearanceProvider.tsx";
 import {
   DEFAULT_ACCENT_SEED,
   GRAY_FAMILIES,
@@ -32,6 +28,7 @@ import {
   SwitchField,
   useSettingsForm,
 } from "./shared.tsx";
+import { GlassAdvanced, GlassPresetField } from "./TranslucencySettings.tsx";
 
 /** Appearance (UI design §3.18, color system §4.8, theming API §4.10). */
 
@@ -244,12 +241,7 @@ export function AppearancePanel({
   loading,
   error,
   onRetry,
-  supportsVibrancy = false,
-}: SettingsFormProps &
-  LoadProps & {
-    /** The desktop window can draw the native sidebar material (shows the vibrancy switch). */
-    supportsVibrancy?: boolean;
-  }): ReactElement {
+}: SettingsFormProps & LoadProps): ReactElement {
   const a = appearanceFromSettings(values);
   const theme = useMemo(
     () => generateTheme({ accentSeed: a.accentSeed, gray: a.gray }),
@@ -351,15 +343,7 @@ export function AppearancePanel({
         </Group>
 
         <Group title={t("settings.appearance.transparency")}>
-          {supportsVibrancy ? (
-            <SwitchField
-              label={t("settings.key.appearance.vibrancy")}
-              description={t("settings.appearance.vibrancyHint")}
-              checked={values[VIBRANCY_SETTING] === true}
-              settingKey={VIBRANCY_SETTING}
-              onChange={(v) => onChange(VIBRANCY_SETTING, v)}
-            />
-          ) : null}
+          <GlassPresetField values={values} onChange={onChange} />
           <SwitchField
             label={t("settings.key.appearance.reduceTransparency")}
             description={t("settings.appearance.reduceTransparencyHint")}
@@ -370,6 +354,7 @@ export function AppearancePanel({
             settingKey={REDUCE_TRANSPARENCY_SETTING}
             onChange={(v) => onChange(REDUCE_TRANSPARENCY_SETTING, v)}
           />
+          <GlassAdvanced values={values} onChange={onChange} />
         </Group>
 
         <LanguageGroup values={values} onChange={onChange} />
@@ -380,7 +365,6 @@ export function AppearancePanel({
 
 export function AppearanceSection(): ReactElement {
   const form = useSettingsForm();
-  const supportsVibrancy = useSupportsVibrancy();
   return (
     <div className="flex flex-col gap-3">
       <AppearancePanel
@@ -390,7 +374,6 @@ export function AppearanceSection(): ReactElement {
         loading={form.loading && Object.keys(form.values).length === 0}
         error={form.error}
         onRetry={form.reload}
-        supportsVibrancy={supportsVibrancy}
       />
       {form.writeError ? <ErrorNotice what={form.writeError} did="" /> : null}
     </div>

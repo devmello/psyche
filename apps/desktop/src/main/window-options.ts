@@ -8,8 +8,8 @@ import type { BaseWindowConstructorOptions } from "electron";
  * Window chrome (docs/design/redesign-2026.md §4): a hidden title bar whose traffic lights sit
  * on the sidebar, vertically centred in the 52 px unified toolbar row (`TITLEBAR_HEIGHT` in the
  * web shell); an opaque background in the canvas colour so nothing flashes white before the
- * first paint; `visualEffectState: "followWindow"` so the optional sidebar vibrancy dims with
- * an inactive window, as the HIG asks.
+ * first paint (the native theme follows `appearance.theme`, lib/window-theme.ts). No native
+ * vibrancy: it flickered over the transparent view (#597).
  */
 
 /** Where the traffic lights sit (window points), centred in the 52 px toolbar row. */
@@ -35,7 +35,6 @@ function chromeOptions(dark: boolean): BaseWindowConstructorOptions {
     titleBarStyle: "hidden",
     trafficLightPosition: { ...TRAFFIC_LIGHTS },
     backgroundColor: canvasColor(dark),
-    visualEffectState: "followWindow",
   };
 }
 
