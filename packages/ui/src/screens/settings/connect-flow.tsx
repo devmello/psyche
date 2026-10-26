@@ -167,9 +167,19 @@ export function useConnectorConnect() {
     return () => clearTimeout(timer);
   }, [state]);
 
-  const start = useCallback(
-    async (type: string, mode: ScopeMode, label: string) => {
-      last.current = { type, mode, label };
+  /**
+   * One `connectors.connect` and what it leads to: connected, a macOS permission to give, a
+   * sign-in to finish, or a refusal. `connectorId` resumes an existing instance (#620): a
+   * waiting macOS grant is asked for again (`permissionAction: "check"`, #570), an OAuth one
+   * restarts its sign-in.
+   */
+  const connectWith = useCallback(
+    async (
+      type: string,
+      mode: ScopeMode,
+      label: string,
+      resume?: { connectorId: string; permission: boolean },
+    ): Promise<void> => {
       setState({ phase: "starting", type, label });
       try {
         // The catalogue names the entry to connect; older Gateways without it take the type.
@@ -181,6 +191,12 @@ export function useConnectorConnect() {
           catalogueId,
           scopeMode: mode,
           label,
+          ...(resume === undefined
+            ? {}
+            : {
+                connectorId: resume.connectorId,
+                ...(resume.permission ? { config: { permissionAction: "check" } } : {}),
+              }),
         });
         const permission = permissionOf(res.connector);
         if (res.connector.status === "connected") {
@@ -211,13 +227,26 @@ export function useConnectorConnect() {
       } catch (err) {
         const code = errorCode(err);
         const reason = (err as { details?: { reason?: unknown } }).details?.reason;
-        if (code === "conflict" && reason === "already_connected") {
-          const existing = (err as { details?: { connectorId?: unknown } }).details?.connectorId;
+        if (code === "conflict" && reason === "already_connected" && resume === undefined) {
+          // One per machine and already there (#549). Only a connected one is done; one still
+          // waiting on a permission, a sign-in or an error is resumed instead (#620).
+          const id = (err as { details?: { connectorId?: unknown } }).details?.connectorId;
+          const existing = await store
+            .call("connectors.list", {})
+            .then((r) => r.connectors.find((c) => c.id === id))
+            .catch(() => undefined);
+          if (existing !== undefined && existing.status !== "connected") {
+            await connectWith(type, existing.scopeMode, label, {
+              connectorId: existing.id,
+              permission: permissionOf(existing) !== null,
+            });
+            return;
+          }
           setState({
             phase: "already-connected",
             type,
             label,
-            connectorId: typeof existing === "string" ? existing : "",
+            connectorId: typeof id === "string" ? id : "",
           });
           return;
         }
@@ -231,6 +260,26 @@ export function useConnectorConnect() {
       }
     },
     [store, open],
+  );
+
+  const start = useCallback(
+    async (type: string, mode: ScopeMode, label: string) => {
+      last.current = { type, mode, label };
+      await connectWith(type, mode, label);
+    },
+    [connectWith],
+  );
+
+  /** Continues an instance that is not connected yet: its permission, sign-in or error (#620). */
+  const resume = useCallback(
+    async (connector: Connector, label: string) => {
+      last.current = { type: connector.type, mode: connector.scopeMode, label };
+      await connectWith(connector.type, connector.scopeMode, label, {
+        connectorId: connector.id,
+        permission: permissionOf(connector) !== null,
+      });
+    },
+    [connectWith],
   );
 
   const cancel = useCallback(() => {
@@ -288,7 +337,7 @@ export function useConnectorConnect() {
   const openSettings = useCallback(() => retryPermission("open_settings"), [retryPermission]);
   const recheck = useCallback(() => retryPermission("check"), [retryPermission]);
 
-  return { state, start, cancel, retry, open, openSettings, recheck };
+  return { state, start, resume, cancel, retry, open, openSettings, recheck };
 }
 
 /** What the connect flow is doing, under the Connect button. */
