@@ -126,10 +126,9 @@ export const ModelProviderSummary = Type.Object(
 export type ModelProviderSummary = Static<typeof ModelProviderSummary>;
 
 /**
- * Roles the owner picks in Settings (the router also has embedding, vision and speech). `voice`
- * picks the chat model for voice turns and defaults to the primary model (voice-mode-2026 §5).
+ * Roles the owner picks in Settings (the router also has embedding, vision and speech).
  */
-export const PickableModelRole = StringEnum(["primary", "utility", "voice"], {
+export const PickableModelRole = StringEnum(["primary", "utility"], {
   $id: "PickableModelRole",
 });
 export type PickableModelRole = Static<typeof PickableModelRole>;
@@ -138,7 +137,6 @@ export const ModelRoles = Type.Object(
   {
     primary: Type.Optional(ModelRef),
     utility: Type.Optional(ModelRef),
-    voice: Type.Optional(ModelRef),
   },
   { $id: "ModelRoles" },
 );
