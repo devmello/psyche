@@ -1,10 +1,9 @@
 import { sanitizeDisplay } from "@psyche/permissions/cards";
-import type { McpProposal, McpServerStatus } from "@psyche/protocol";
+import type { McpProposal, McpServerInput, McpServerStatus } from "@psyche/protocol";
 import { type ReactNode, useState } from "react";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { McpTrustCard } from "./McpTrustCard.tsx";
-import { type McpDraft, toServerInput } from "./mcp-input.ts";
 import { TrustApproval } from "./SkillsSection.tsx";
 import { messageOf } from "./shared.tsx";
 
@@ -16,6 +15,18 @@ import { messageOf } from "./shared.tsx";
  */
 
 const show = (s: string, max = 64) => sanitizeDisplay(s, max);
+
+/**
+ * A key a preset needs: stored in the vault (bound to this server) just before the probe, and
+ * referenced from the server's config as `{{cred:slug}}`. Removed again if the server is not added.
+ */
+export interface McpSecret {
+  slug: string;
+  name: string;
+  token: string;
+  /** For a remote server's bearer header. */
+  header?: { name: string; prefix: string };
+}
 
 export interface McpState {
   servers: readonly McpServerStatus[];
@@ -30,25 +41,33 @@ export interface McpState {
   notice: string | null;
   /** The trust card under review, with its approval. */
   review: ReactNode;
-  check: (draft: McpDraft) => void;
+  check: (input: McpServerInput, secrets?: readonly McpSecret[]) => void;
   remove: (server: McpServerStatus) => void;
 }
 
 export function useMcp(now?: number): McpState {
   const call = useCall();
   const q = useGatewayQuery("mcp.status", {});
-  const [proposal, setProposal] = useState<{ proposal: McpProposal; approvalId: string } | null>(
-    null,
-  );
+  const [proposal, setProposal] = useState<{
+    proposal: McpProposal;
+    approvalId: string;
+    /** Vault items stored for this probe; deleted unless the server is added. */
+    credentialIds: readonly string[];
+  } | null>(null);
   const [checking, setChecking] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  const dropSecrets = (ids: readonly string[]) => {
+    for (const credentialId of ids) void call("vault.delete", { credentialId }).catch(() => {});
+  };
 
   const decided = (status: "approved" | "denied" | "expired" | "invalidated") => {
     const current = proposal;
     if (current === null) return;
     setProposal(null);
     if (status !== "approved") {
+      dropSecrets(current.credentialIds);
       setNotice(
         status === "denied"
           ? t("settings.mcp.denied", { name: show(current.proposal.server.name) })
@@ -61,7 +80,10 @@ export function useMcp(now?: number): McpState {
         q.reload();
         setNotice(t("settings.mcp.added", { name: show(current.proposal.server.name) }));
       },
-      (err: unknown) => setActionError(messageOf(err)),
+      (err: unknown) => {
+        dropSecrets(current.credentialIds);
+        setActionError(messageOf(err));
+      },
     );
   };
 
@@ -76,7 +98,13 @@ export function useMcp(now?: number): McpState {
     notice,
     review:
       proposal === null ? null : (
-        <McpTrustCard proposal={proposal.proposal} onCancel={() => setProposal(null)}>
+        <McpTrustCard
+          proposal={proposal.proposal}
+          onCancel={() => {
+            dropSecrets(proposal.credentialIds);
+            setProposal(null);
+          }}
+        >
           <TrustApproval
             key={proposal.approvalId}
             approvalId={proposal.approvalId}
@@ -85,15 +113,32 @@ export function useMcp(now?: number): McpState {
           />
         </McpTrustCard>
       ),
-    check: (d) => {
+    check: (input, secrets = []) => {
       setActionError(null);
       setNotice(null);
       setChecking(true);
-      call("mcp.probe", { server: toServerInput(d) })
-        .then(
-          (r) => setProposal({ proposal: r.proposal, approvalId: r.approval.id }),
-          (err: unknown) => setActionError(messageOf(err)),
-        )
+      const stored: string[] = [];
+      (async () => {
+        for (const k of secrets) {
+          const r = await call("vault.add", {
+            kind: "api_key",
+            name: k.name,
+            slug: k.slug,
+            bindings: [{ connector: `mcp:${input.id}` }],
+            secret: {
+              token: k.token,
+              ...(k.header ? { headerName: k.header.name, headerPrefix: k.header.prefix } : {}),
+            },
+          });
+          stored.push(r.credential.id);
+        }
+        const r = await call("mcp.probe", { server: input });
+        setProposal({ proposal: r.proposal, approvalId: r.approval.id, credentialIds: stored });
+      })()
+        .catch((err: unknown) => {
+          dropSecrets(stored);
+          setActionError(messageOf(err));
+        })
         .finally(() => setChecking(false));
     },
     remove: (s) => {

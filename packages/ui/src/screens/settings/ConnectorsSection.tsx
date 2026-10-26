@@ -214,6 +214,7 @@ export function ConnectorsPanel({
             <ConnectForm
               persona={persona}
               initialType={addType}
+              {...(onTry ? { onTry } : {})}
               {...(mcp ? { mcp } : {})}
               implemented={implemented}
               connectedTypes={
@@ -438,7 +439,11 @@ export function ConnectorsPanel({
             {showMcp
               ? servers.map((s) => (
                   <li key={s.id}>
-                    <McpServerRow server={s} {...(mcp ? { onRemove: mcp.remove } : {})} />
+                    <McpServerRow
+                      server={s}
+                      {...(mcp ? { onRemove: mcp.remove } : {})}
+                      {...(onTry ? { onTry } : {})}
+                    />
                   </li>
                 ))
               : null}

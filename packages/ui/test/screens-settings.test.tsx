@@ -293,6 +293,7 @@ describe("Connectors", () => {
     expect(screen.getAllByText("Trust: community")).toHaveLength(1);
 
     await userEvent.click(screen.getByRole("button", { name: "Add connector" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Google/ }));
     await userEvent.click(screen.getByRole("radio", { name: /^Read and act/ }));
     await userEvent.click(screen.getByRole("button", { name: "Continue to sign in" }));
     expect(onConnect).toHaveBeenCalledWith("google", "read_act");
@@ -1329,6 +1330,7 @@ describe("Settings → Connectors connects for real (#505)", () => {
     // The list loads again once the mock connection opens; click the settled empty state.
     await waitFor(async () => {
       await userEvent.click(screen.getByRole("button", { name: "Add connector" }));
+      await userEvent.click(screen.getByRole("button", { name: /^Google/ }));
       expect(screen.getByRole("button", { name: "Continue to sign in" })).toBeTruthy();
     });
     await userEvent.click(screen.getByRole("button", { name: "Continue to sign in" }));

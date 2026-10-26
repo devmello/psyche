@@ -140,9 +140,9 @@ describe("Connectors → Custom MCP server", () => {
       await userEvent.click(
         screen.getAllByRole("button", { name: "Add connector" })[0] as HTMLElement,
       );
-      expect(screen.getByLabelText("Connector type")).toBeTruthy();
+      expect(screen.getByRole("searchbox", { name: "Search connectors" })).toBeTruthy();
     });
-    await userEvent.selectOptions(screen.getByLabelText("Connector type"), "mcp");
+    await userEvent.click(screen.getByRole("button", { name: /Custom MCP server/ }));
     expect(screen.getByRole("button", { name: "Check server" })).toBeTruthy();
     expect(methods(gateway())).not.toContain("mcp.probe");
   });
