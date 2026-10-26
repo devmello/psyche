@@ -1,6 +1,14 @@
-import { appendMessage, getMessage, getSetting, getThread, type PsycheDb } from "@psyche/db";
+import {
+  appendMessage,
+  getMessage,
+  getSetting,
+  getThread,
+  listMessagesPage,
+  type PsycheDb,
+} from "@psyche/db";
 import {
   type AskRules,
+  computeGrowth,
   type GraphStore,
   graphEntityResolver,
   LessonWriter,
@@ -19,7 +27,9 @@ import {
   type EventName,
   type EventPayload,
   type FeedbackTarget,
+  type FeedPost,
   type GrantScope,
+  type Idea,
   type MethodParams,
   type MethodResult,
   type ModelProvider,
@@ -27,11 +37,15 @@ import {
   type PermissionBroker,
   type Scheduler,
   type Surface,
+  type Task,
+  type TaskEngine,
   TEACHING_SETTING_DEFAULTS,
   type TeachingImplicitSignals,
 } from "@psyche/protocol";
-import type { Call, HandlerDef } from "../context.ts";
+import type { Call, ChatRedo, HandlerDef } from "../context.ts";
+import type { Gateway } from "../server.ts";
 import { surfaceOf } from "./handlers.ts";
+import type { ComposedPart } from "./services.ts";
 import { userProfileConfig } from "./user-profile.ts";
 
 /**
@@ -61,6 +75,10 @@ export interface TeachingComposeDeps {
   askRules: AskRules;
   /** The people graph, once the Gateway composes it (S07 part 3). */
   graph?: GraphStore;
+  /** Task outcomes for `growth.summary`. */
+  tasks: Pick<TaskEngine, "list">;
+  /** How often retention runs (default daily; 0 turns the timer off). */
+  retentionIntervalMs?: number;
   publish<E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string): void;
 }
 
@@ -101,7 +119,16 @@ export interface ComposedTeaching {
   observeApproval(approval: ApprovalRequest): void;
   /** Gateway boot: re-await lesson cards that were open at shutdown. */
   resume(): Promise<void>;
+  /** The owner undid a learned fact (`memory.forgetLearned`): `undo` evidence. */
+  onLearnedUndo(factId: string, threadId: string | undefined): void;
+  /** Bus observers (task cancels, Feed and Ideas feedback, redo) and the retention timer. */
+  part: ComposedPart;
 }
+
+/** A task the owner cancelled this soon after it started counts as an undo (§3.1). */
+export const QUICK_CANCEL_MS = 30_000;
+/** Who an observed signal is from: the owner's own app (the bus only carries owner actions). */
+const APP = { sender: { kind: "device", deviceId: "app" }, surface: "app" } as const;
 
 export function composeTeaching(deps: TeachingComposeDeps): ComposedTeaching {
   const { db } = deps;
@@ -334,7 +361,176 @@ export function composeTeaching(deps: TeachingComposeDeps): ComposedTeaching {
       .catch(() => undefined); // switched off, paused or incognito: nothing recorded
   };
 
-  return { service, handlers, observeApproval, resume: () => service.resume() };
+  handlers["growth.summary"] = {
+    run: async (_call: Call, params: MethodParams<"growth.summary">) => {
+      const approvals = await deps.broker.list();
+      const tasks = (await deps.tasks.list()) as Task[];
+      const automations = db.sqlite
+        .prepare("SELECT id, title, created_at, system FROM automations")
+        .all() as { id: string; title: string; created_at: string; system: number }[];
+      const started = db.sqlite.prepare("SELECT MIN(created_at) AS at FROM threads").get() as {
+        at: string | null;
+      };
+      const summary = computeGrowth(params.window, {
+        now: deps.clock.now(),
+        events: store.allEvents(),
+        lessons: store.allLessons(),
+        weekly: store.weekly(),
+        approvals: approvals.map((a) => ({
+          id: a.id,
+          kind: a.kind,
+          status: a.status,
+          decidedAt: a.decidedAt ?? null,
+          scopesOffered: a.scopesOffered,
+          scopeGranted: a.scopeGranted ?? null,
+          ...(a.fromLesson === undefined ? {} : { fromLesson: a.fromLesson }),
+        })),
+        tasks: tasks.map((t) => ({
+          id: t.id,
+          status: t.status,
+          completedAt: t.completedAt ?? null,
+        })),
+        automations: automations.map((a) => ({
+          id: a.id,
+          title: a.title,
+          createdAt: a.created_at,
+          system: a.system === 1,
+        })),
+        startedAt: started.at,
+      });
+      return { summary } satisfies MethodResult<"growth.summary">;
+    },
+  };
+  // Presence-gated in `presence-gate.ts` like memory.reset; a dry run only counts.
+  handlers["memory.lessons.forgetAll"] = {
+    run: async (_call: Call, params: MethodParams<"memory.lessons.forgetAll">) => {
+      const dryRun = params.dryRun === true;
+      const r = await service.forgetAll({ dryRun });
+      if (!dryRun) growthChanged();
+      return { ...r, dryRun } satisfies MethodResult<"memory.lessons.forgetAll">;
+    },
+  };
+
+  /** Records an observed signal once; switched-off, paused or incognito ones are dropped. */
+  const observe = (
+    kind: "undo" | "feed" | "idea" | "regenerated",
+    target: FeedbackTarget,
+    detail: Record<string, unknown> | undefined,
+    text?: string,
+    sender: { kind: "device"; deviceId: string } = APP.sender,
+    surface: string = APP.surface,
+  ) => {
+    const thread = target.threadId === undefined ? undefined : getThread(db, target.threadId);
+    void service
+      .give(
+        {
+          target,
+          kind,
+          ...(text === undefined ? {} : { text }),
+          ...(detail === undefined ? {} : { detail }),
+        },
+        { sender, surface, incognito: thread?.kind === "incognito" },
+      )
+      .catch(() => undefined);
+  };
+
+  /** The same signal on the same target is recorded once (events can repeat on the bus). */
+  const seen = (type: FeedbackTarget["type"], id: string, key: string): boolean => {
+    const last = store.listEvents({ targetType: type, targetId: id, limit: 1 }).events[0];
+    return last !== undefined && JSON.stringify(last.detail ?? {}).includes(key);
+  };
+
+  const onLearnedUndo = (factId: string, threadId: string | undefined) => {
+    // The "Learned: …" note the fact was shown in, when it is still there.
+    const note =
+      threadId === undefined
+        ? undefined
+        : listMessagesPage(db, threadId, { limit: 200 }).messages.find((m) =>
+            m.blocks.some((b) => b.type === "learned" && b.items.some((i) => i.factId === factId)),
+          );
+    observe(
+      "undo",
+      {
+        type: "message",
+        id: note?.id ?? factId,
+        ...(threadId === undefined ? {} : { threadId }),
+      },
+      { what: "learned_fact", factId },
+    );
+  };
+
+  const onFrame = (frame: string) => {
+    let f: { event?: string; payload?: Record<string, unknown> };
+    try {
+      f = JSON.parse(frame) as typeof f;
+    } catch {
+      return;
+    }
+    if (f.event === "task.updated") {
+      const task = f.payload?.task as Task | undefined;
+      if (task?.status !== "cancelled") return;
+      const took = Date.parse(task.updatedAt) - Date.parse(task.createdAt);
+      if (!(took >= 0 && took <= QUICK_CANCEL_MS) || seen("task", task.id, "quick_cancel")) return;
+      observe(
+        "undo",
+        { type: "task", id: task.id, threadId: task.threadId, taskId: task.id },
+        { what: "quick_cancel", afterMs: took },
+      );
+    } else if (f.event === "feed.post") {
+      const post = f.payload?.post as FeedPost | undefined;
+      if (post?.feedback == null || seen("feed_post", post.id, `"${post.feedback}"`)) return;
+      observe("feed", { type: "feed_post", id: post.id }, { feedback: post.feedback });
+    } else if (f.event === "idea.updated") {
+      const idea = f.payload?.idea as Idea | undefined;
+      if (idea?.status !== "dismissed" || seen("idea", idea.id, '"dismissed"')) return;
+      observe("idea", { type: "idea", id: idea.id }, { status: "dismissed", kind: idea.kind });
+    }
+  };
+
+  const onRedo = (redo: ChatRedo) => {
+    // A redo with the owner's instruction ("shorter") is feedback on the redone message (0.6).
+    if (redo.instruction === undefined) return;
+    observe(
+      "regenerated",
+      { type: "message", id: redo.messageId, threadId: redo.threadId },
+      redo.withoutLessons === true ? { withoutLessons: true } : undefined,
+      redo.instruction,
+      { kind: "device", deviceId: redo.deviceId },
+      surfaceOf(db, redo.deviceId),
+    );
+  };
+
+  let unsubscribe: (() => void) | undefined;
+  let gatewayRef: Gateway | undefined;
+  let timer: ReturnType<typeof setInterval> | undefined;
+  const part: ComposedPart = {
+    start(gateway: Gateway) {
+      gatewayRef = gateway;
+      unsubscribe = gateway.bus.subscribe(["operator.read"], onFrame);
+      gateway.context.chatRedo.add(onRedo);
+      service.retain();
+      const every = deps.retentionIntervalMs ?? 24 * 3_600_000;
+      if (every > 0) {
+        timer = setInterval(() => service.retain(), every);
+        timer.unref?.();
+      }
+    },
+    stop() {
+      unsubscribe?.();
+      gatewayRef?.context.chatRedo.delete(onRedo);
+      if (timer !== undefined) clearInterval(timer);
+      if (growthTimer !== undefined) clearTimeout(growthTimer);
+    },
+  };
+
+  return {
+    service,
+    handlers,
+    observeApproval,
+    resume: () => service.resume(),
+    onLearnedUndo,
+    part,
+  };
 }
 
 /**

@@ -703,6 +703,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     broker: executorBroker,
     surfaces: ["desktop", "web"],
     publish: (event, payload, threadId) => publish(event, payload as never, threadId),
+    onForgotten: (factId, threadId) => teachingRef?.onLearnedUndo(factId, threadId),
   });
   // The teaching loop (#679): the owner's feedback → lessons written where they belong.
   const teaching = composeTeaching({
@@ -715,6 +716,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     clock,
     audit,
     scheduler,
+    tasks,
+    ...(gwOptions.retentionIntervalMs === undefined
+      ? {}
+      : { retentionIntervalMs: gwOptions.retentionIntervalMs }),
     surfaces: ["desktop", "web"],
     askRules: teachingAskRules({
       db,
@@ -732,6 +737,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     publish: (event, payload, threadId) => publish(event, payload as never, threadId),
   });
   teachingRef = teaching;
+  parts.push(teaching.part);
   const loop = createAgentLoop({
     // Model-side history survives a restart (issue #52); secrets the vault knows are masked.
     state: new SqliteThreadStateStore(db, redactor),
@@ -858,7 +864,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   );
   const handlers: Record<string, HandlerDef> = {
     ...mountPermissions(db, createPermissionHandlers(rawBroker, audit), tokens),
-    ...mountParamsOnly(createMemoryHandlers(memory) as never),
+    ...mountParamsOnly(createMemoryHandlers(memory, { teaching: teaching.service.store }) as never),
     ...mountParamsOnly(userProfile.handlers as never),
     ...teaching.handlers,
     ...mountParamsOnly(

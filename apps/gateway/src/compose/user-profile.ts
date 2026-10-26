@@ -1,6 +1,6 @@
 import { hashCanonical } from "@psyche/audit";
 import { appendMessage, getSetting, getThread, type PsycheDb } from "@psyche/db";
-import type { SqliteMemoryStore } from "@psyche/memory";
+import { parseLearned, type SqliteMemoryStore } from "@psyche/memory";
 import type {
   AuditLog,
   Block,
@@ -93,6 +93,8 @@ export interface UserProfileDeps {
   broker: PermissionBroker;
   surfaces: Surface[];
   publish(event: "chat.message", payload: { message: Message }, threadId: string): void;
+  /** The owner undid a learned fact (teaching loop §3.1: `undo` evidence). */
+  onForgotten?: (factId: string, threadId: string | undefined) => void;
 }
 
 export function createUserProfile(deps: UserProfileDeps) {
@@ -190,7 +192,10 @@ export function createUserProfile(deps: UserProfileDeps) {
 
   const handlers = {
     "memory.forgetLearned": async (p: { factId: string }) => {
+      const before = (await deps.memory.readFile("USER.md"))?.content ?? "";
+      const threadId = parseLearned(before).find((f) => f.factId === p.factId)?.threadId;
       const removed = await deps.memory.forgetLearned(p.factId);
+      if (removed) deps.onForgotten?.(p.factId, threadId);
       await deps.audit
         .append({
           kind: "memory.user_profile.forgotten",
