@@ -332,6 +332,47 @@ export const libraryItems = sqliteTable("library_items", {
   createdAt: text("created_at").notNull(),
 });
 
+// Canvas artifacts (chat-experience-2026 §4.4; migration 202610262200_gateway_artifacts) ---------
+
+export const artifacts = sqliteTable("artifacts", {
+  id: text("id").primaryKey(),
+  libraryItemId: text("library_item_id").notNull(),
+  type: text("type").notNull(),
+  title: text("title").notNull(),
+  nameSlug: text("name_slug").notNull(),
+  language: text("language"),
+  threadId: text("thread_id"),
+  untrusted: integer("untrusted").notNull(),
+  version: integer("version").notNull(),
+  content: text("content").notNull(),
+  view: text("view"),
+  bytes: integer("bytes").notNull(),
+  hash: text("hash").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const artifactVersions = sqliteTable(
+  "artifact_versions",
+  {
+    artifactId: text("artifact_id").notNull(),
+    version: integer("version").notNull(),
+    author: text("author").notNull(),
+    kind: text("kind").notNull(),
+    ops: text("ops"),
+    snapshot: text("snapshot"),
+    view: text("view"),
+    bytes: integer("bytes").notNull(),
+    hash: text("hash").notNull(),
+    summary: text("summary").notNull(),
+    runId: text("run_id"),
+    toolCallId: text("tool_call_id"),
+    restoredFrom: integer("restored_from"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.artifactId, t.version] })],
+);
+
 // §6 Credentials (metadata mirror; owner S06, migration 202610191000_vault_credentials) --------
 
 export const credentialMeta = sqliteTable("credential_meta", {
@@ -380,6 +421,8 @@ export const schema = {
   settings,
   usage,
   libraryItems,
+  artifacts,
+  artifactVersions,
   ...s04Schema,
   ...permissionsSchema,
   credentialMeta,
@@ -421,3 +464,5 @@ export type UsageRow = typeof usage.$inferSelect;
 export type NewUsageRow = typeof usage.$inferInsert;
 export type LibraryItemRow = typeof libraryItems.$inferSelect;
 export type NewLibraryItemRow = typeof libraryItems.$inferInsert;
+export type ArtifactRow = typeof artifacts.$inferSelect;
+export type ArtifactVersionRow = typeof artifactVersions.$inferSelect;
