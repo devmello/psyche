@@ -48,6 +48,8 @@ export interface TaskRow {
   workspace: string | null;
   /** JSON `SpecialistSpec` when the task is a background specialist's job (specialists §7.1). */
   specialist: string | null;
+  /** JSON array of `LessonRef` (teaching loop): lessons its runs' prompts used; NULL when none. */
+  lessons_applied: string | null;
 }
 
 export interface CheckpointRow {
@@ -122,6 +124,8 @@ export function taskFromRow(r: TaskRow): Task {
   if (r.workspace === "sandbox" || r.workspace === "vm") task.workspace = r.workspace;
   const specialist = parseJson<SpecialistSpec>(r.specialist ?? null);
   if (specialist !== null) task.specialist = specialist;
+  const lessons = parseJson<NonNullable<Task["lessonsApplied"]>>(r.lessons_applied ?? null);
+  if (lessons !== null && lessons.length > 0) task.lessonsApplied = lessons;
   return task;
 }
 

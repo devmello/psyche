@@ -746,6 +746,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // Entity and person-scoped lessons write through the people graph (S07, #651).
     ...(people === undefined ? {} : { graph: people.graph }),
     tasks,
+    // "Used n lessons": the lessons each run's assembled prompt carried (teaching loop §5.1).
+    explain: (runId) => loop.explainContext(runId),
     ...(gwOptions.retentionIntervalMs === undefined
       ? {}
       : { retentionIntervalMs: gwOptions.retentionIntervalMs }),
@@ -812,6 +814,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       // A trace write never fails the call.
     }
   });
+  // Awaited by the loop before its `end` event, so a chat run's lessons are known before the
+  // controller commits the transcript and publishes `run.updated`.
+  loop.hooks.on("agent_end", (ctx) =>
+    teaching.onRunEnd({
+      runId: ctx.runId,
+      ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
+      subagent: ctx.subagent,
+    }),
+  );
   const pool = new TaskWorkerPool({
     engine: tasks,
     loop,
