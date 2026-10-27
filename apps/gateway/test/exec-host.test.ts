@@ -145,6 +145,7 @@ const requestPermission = () =>
     allowConnectorAsk: async (connector, group) => {
       connectorAsks.push([connector, group]);
       setPolicy({ ...policy, connectors: { "apple.mail": { [group]: "ask" } } });
+      return true;
     },
     connectorConnected: async () => connected,
     sandboxReady: () => "path" in srt,
@@ -320,7 +321,7 @@ describe("exec_host: missing permission → request → retry", () => {
     expect(a.requiresAuthentication).toBe(true);
     await answer(a.id);
     expect((await pend).output).toMatchObject({ granted: true });
-    expect(connectorAsks).toEqual([["apple-mail", (denied.missing as { group: string }).group]]);
+    expect(connectorAsks).toEqual([["apple.mail", (denied.missing as { group: string }).group]]);
     expect((await broker.decide(send, ctxD)).decision).toBe("ask");
   });
 

@@ -31,18 +31,16 @@ export interface RequestPermissionDeps {
   execHostEnabled(): boolean;
   /** Turns `exec_host` on in `permissions.policy` (after the owner's Enable). */
   enableExecHost(): Promise<void>;
-  /** Sets one action group of a connector from deny to ask (after the owner's Enable). */
-  allowConnectorAsk(connector: string, group: string): Promise<void>;
+  /**
+   * Sets one action group from deny to ask (after the owner's Enable) on the connector the key
+   * names: a connector id, or the broker's `apple.<app>` for that app's records. False when no
+   * connector matches.
+   */
+  allowConnectorAsk(connector: string, group: string): Promise<boolean>;
   /** Whether the connector is connected now (re-check after the owner's "Check again"). */
   connectorConnected(connector: string): Promise<boolean>;
   /** Whether srt is installed now. */
   sandboxReady(): boolean | Promise<boolean>;
-}
-
-/** `apple.mail` (the broker's key) and `apple-mail` (the connector id) name one connector. */
-export function connectorIdOf(key: string): string {
-  const m = /^apple\.(.+)$/.exec(key);
-  return m?.[1] === undefined ? key : `apple-${m[1]}`;
 }
 
 function cardText(need: MissingPermission): { summary: string; sideEffect: "write" | "none" } {
@@ -51,7 +49,7 @@ function cardText(need: MissingPermission): { summary: string; sideEffect: "writ
       return { summary: "Turn on: run commands on this Mac", sideEffect: "write" };
     case "connector_action":
       return {
-        summary: `Let ${connectorIdOf(need.connector)} ask before ${need.group}`,
+        summary: `Let ${need.connector} ask before ${need.group}`,
         sideEffect: "write",
       };
     case "connector":
@@ -70,7 +68,7 @@ async function alreadyThere(
   need: MissingPermission,
 ): Promise<boolean> {
   if (need.need === "capability") return deps.execHostEnabled();
-  if (need.need === "connector") return deps.connectorConnected(connectorIdOf(need.connector));
+  if (need.need === "connector") return deps.connectorConnected(need.connector);
   if (need.need === "sandbox") return deps.sandboxReady();
   return false;
 }
@@ -81,11 +79,10 @@ async function apply(deps: RequestPermissionDeps, need: MissingPermission): Prom
       await deps.enableExecHost();
       return true;
     case "connector_action":
-      await deps.allowConnectorAsk(connectorIdOf(need.connector), need.group);
-      return true;
+      return deps.allowConnectorAsk(need.connector, need.group);
     case "connector":
     case "macos_access":
-      return deps.connectorConnected(connectorIdOf(need.connector));
+      return deps.connectorConnected(need.connector);
     case "sandbox":
       return deps.sandboxReady();
     case "folder":

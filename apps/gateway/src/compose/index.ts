@@ -44,6 +44,7 @@ import {
   toGatewayEvent,
 } from "@psyche/notifications";
 import {
+  appleConnectorKey,
   compilePolicy,
   createPermissionHandlers,
   DENY_ALL_LOOPBACK,
@@ -716,15 +717,23 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         savePolicy({ ...current, exec: { ...(current.exec ?? {}), execHostEnabled: true } });
       },
       allowConnectorAsk: async (connector, group) => {
-        const key = `${CONNECTOR_MATRIX_PREFIX}${connector}`;
-        const current = getSetting(db, key)?.value;
-        const matrix =
-          typeof current === "object" && current !== null && !Array.isArray(current)
-            ? (current as Record<string, unknown>)
-            : {};
-        // Deny becomes ask, never allow: every call of the group still asks.
-        const entry = setSetting(db, key, { ...matrix, [group]: "ask" });
-        publish("settings.changed", { entries: [entry] });
+        // `apple.<app>` (direct helper calls) names every record of that app (#747).
+        const records = (await connectorsPart?.registry.list().catch(() => [])) ?? [];
+        const ids = records
+          .filter((r) => r.id === connector || appleConnectorKey(r.type) === connector)
+          .map((r) => r.id);
+        for (const id of ids) {
+          const key = `${CONNECTOR_MATRIX_PREFIX}${id}`;
+          const current = getSetting(db, key)?.value;
+          const matrix =
+            typeof current === "object" && current !== null && !Array.isArray(current)
+              ? (current as Record<string, unknown>)
+              : {};
+          // Deny becomes ask, never allow: every call of the group still asks.
+          const entry = setSetting(db, key, { ...matrix, [group]: "ask" });
+          publish("settings.changed", { entries: [entry] });
+        }
+        return ids.length > 0;
       },
       connectorConnected: async (connector) => {
         const record = await connectorsPart?.registry.get(connector).catch(() => undefined);
