@@ -12,6 +12,7 @@ import {
   type PsycheMcpHost,
   type PsycheMcpServerConfig,
   registerMcpServerTools,
+  resolvingSrtLauncher,
   type SandboxStdioHost,
   type StdioLauncher,
   srtLauncher,
@@ -29,6 +30,7 @@ import { mcpAddHandlers } from "./mcp-add.ts";
 import { mcpGrantRevocation } from "./mcp-grants.ts";
 import { mcpManageHandlers } from "./mcp-manage.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
+import type { SrtResolver } from "./srt.ts";
 
 /**
  * The MCP host as the Gateway mounts it (architecture §4.9, security §11, K5). The owner's
@@ -49,6 +51,8 @@ export const MCP_SERVERS_SETTING = "mcp.servers";
 export interface McpSetup {
   /** Absolute path of `srt` (`@anthropic-ai/sandbox-runtime`) for stdio servers. */
   srtPath?: string;
+  /** Finds `srt` at each launch instead (Settings or a new install, no restart); wins over `srtPath`. */
+  srt?: SrtResolver;
   /** Run stdio servers in their own sandbox container instead of under srt (M3, flagged). */
   container?: SandboxStdioHost & { dispose?(): Promise<void> };
   /**
@@ -74,6 +78,13 @@ function launcherFor(services: ComposeServices, setup: McpSetup): StdioLauncher 
       sandbox: setup.container,
       ...(setup.egressAllowlist === undefined ? {} : { egressAllowlist: setup.egressAllowlist }),
       ...(setup.egressRevoke === undefined ? {} : { egressRevoke: setup.egressRevoke }),
+    });
+  }
+  if (setup.srt !== undefined) {
+    return resolvingSrtLauncher({
+      resolve: () => setup.srt?.resolve() ?? Promise.resolve({ missing: true, reason: "none" }),
+      settingsDir: join(services.home, "mcp", "srt"),
+      psycheHome: services.home,
     });
   }
   if (setup.srtPath !== undefined) {
@@ -372,12 +383,12 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
   };
 
   let unsubscribe: (() => void) | undefined;
-  const launcherKind =
-    setup.container !== undefined
-      ? ("container" as const)
-      : setup.srtPath !== undefined
-        ? ("srt" as const)
-        : ("none" as const);
+  // What `mcp.status` reports: with a resolving srt launcher, whether srt is there right now.
+  const launcherKind = async (): Promise<"container" | "srt" | "none"> => {
+    if (setup.container !== undefined) return "container";
+    if (setup.srt !== undefined) return (await launcher?.ready?.()) === true ? "srt" : "none";
+    return setup.srtPath !== undefined ? "srt" : "none";
+  };
   const statusOf = (c: PsycheMcpServerConfig) => {
     const http = c.transport.kind === "http";
     return {
@@ -403,8 +414,8 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
     handlers: {
       // For `psyche security audit` (security §11 "MCP servers") and Settings → MCP.
       "mcp.status": {
-        run: () => ({
-          launcher: launcherKind,
+        run: async () => ({
+          launcher: await launcherKind(),
           servers: [...known.values()].map(statusOf),
         }),
       },

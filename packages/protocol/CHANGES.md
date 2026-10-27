@@ -25,6 +25,14 @@ For the `exec_host` and `request_permission` agent tools (Gateway `compose/exec-
 - `ApprovalKind` gains `permission_request` (at the end; device-only, `once` only; needs presence when it turns something on). `details` carry `need` and `reason`.
 - New schema `MissingPermission`, with variants `MissingFolder`, `MissingCapability`, `MissingConnectorAction`, `MissingConnector`, `MissingMacosAccess` and `MissingSandbox`. `DecisionResult` (the broker contract) gains optional `missing`.
 - `ApprovalAnswer` gains optional `unsandboxed: "UNSANDBOXED"`. It applies only to an `exec_host` approval answered `once`, and runs that one command without srt.
+### v1 additive — 2026-10-27 (guided sandbox setup, srt first)
+
+For Settings → Connectors, onboarding's Sandbox step and host exec (which reuses the srt lookup).
+
+- New method `sandbox.setup` (`operator.read`): `ready` (srt is available), `srt` (`SandboxSrtStatus`: `available`, `path`, `source` env | setting | detected, `version`, `problem` not_found | not_absolute | not_executable) and `containers` (`SandboxContainerSetup`: `recommended`, `backends` of `SandboxSetupBackend` {`kind`, `supported`, `installed`, `running`, `version`}, `ready`, `active`, `restartNeeded`). It never installs or starts anything.
+- `sandbox.status` result gains optional `srt: SandboxSrtStatus`.
+- New setting key `exec.srtPath` (an `exec.*` security key: `operator.admin` plus fresh presence): where `srt` is, when it isn't on PATH. `PSYCHE_SRT_PATH` still overrides it.
+- New schemas `SandboxContainerBackend`, `SandboxSrtStatus`, `SandboxSrtSource`, `SandboxSrtProblem`, `SandboxSetupBackend`, `SandboxContainerSetup`; Swift gains the types.
 
 ### v1 additive — 2026-10-27 (memory recall mode)
 

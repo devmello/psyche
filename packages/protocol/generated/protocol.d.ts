@@ -7007,6 +7007,59 @@ export type SandboxNetwork = "none" | "proxy";
 
 export type SandboxStatus = "creating" | "running" | "stopped" | "error";
 
+export interface SandboxSetupResult {
+    containers: SandboxContainerSetup;
+    /**
+     * srt is available, so command servers can run
+     */
+    ready: boolean;
+    srt:   SandboxSrtStatus;
+}
+
+export interface SandboxContainerSetup {
+    active:   SandboxBackend;
+    backends: SandboxSetupBackend[];
+    /**
+     * A runtime is running now (detected fresh, not at boot)
+     */
+    ready:       boolean;
+    recommended: SandboxContainerBackend;
+    /**
+     * A runtime is running but this Gateway started without one: restart it
+     */
+    restartNeeded: boolean;
+}
+
+export type SandboxBackend = "apple-container" | "docker" | "podman" | "none";
+
+export interface SandboxSetupBackend {
+    installed: boolean;
+    kind:      SandboxContainerBackend;
+    /**
+     * It answers now, so a sandbox could start on it
+     */
+    running: boolean;
+    /**
+     * This Mac can use it (Apple container needs macOS 26 on Apple silicon)
+     */
+    supported: boolean;
+    version?:  null | string;
+}
+
+export type SandboxContainerBackend = "apple-container" | "docker" | "podman";
+
+export interface SandboxSrtStatus {
+    available: boolean;
+    path?:     null | string;
+    problem?:  SandboxSrtProblem | null;
+    source?:   SandboxSrtSource | null;
+    version?:  null | string;
+}
+
+export type SandboxSrtProblem = "not_found" | "not_absolute" | "not_executable";
+
+export type SandboxSrtSource = "env" | "setting" | "detected";
+
 export interface SandboxStatusParams {
     sandboxId?: string;
 }
@@ -7019,9 +7072,8 @@ export interface SandboxStatusResult {
     backend:   SandboxBackend;
     egress?:   boolean;
     sandbox?:  SandboxInfo | null;
+    srt?:      SandboxSrtStatus;
 }
-
-export type SandboxBackend = "apple-container" | "docker" | "podman" | "none";
 
 export interface ScreenCapture {
     captureId:      string;

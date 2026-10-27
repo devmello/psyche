@@ -2222,6 +2222,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Looks again for the sandboxes on this computer, for the guided setup: srt first (Seatbelt, commands run on the Mac without reading Psyche's private data), then the optional container runtimes (supported, installed, running, recommended, restart needed). Never installs or starts anything.",
+        "name": "sandbox.setup",
+        "params": "#/$defs/SandboxSetupParams",
+        "result": "#/$defs/SandboxSetupResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Reports the container backend and, with sandboxId, one sandbox's state.",
         "name": "sandbox.status",
         "params": "#/$defs/SandboxStatusParams",
@@ -27995,6 +28003,46 @@
       ],
       "type": "string"
     },
+    "SandboxContainerBackend": {
+      "enum": [
+        "apple-container",
+        "docker",
+        "podman"
+      ],
+      "type": "string"
+    },
+    "SandboxContainerSetup": {
+      "properties": {
+        "recommended": {
+          "$ref": "#/$defs/SandboxContainerBackend"
+        },
+        "backends": {
+          "items": {
+            "$ref": "#/$defs/SandboxSetupBackend"
+          },
+          "type": "array"
+        },
+        "ready": {
+          "description": "A runtime is running now (detected fresh, not at boot)",
+          "type": "boolean"
+        },
+        "active": {
+          "$ref": "#/$defs/SandboxBackend"
+        },
+        "restartNeeded": {
+          "description": "A runtime is running but this Gateway started without one: restart it",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "recommended",
+        "backends",
+        "ready",
+        "active",
+        "restartNeeded"
+      ],
+      "type": "object"
+    },
     "SandboxInfo": {
       "properties": {
         "id": {
@@ -28090,6 +28138,132 @@
       ],
       "type": "string"
     },
+    "SandboxSetupBackend": {
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/SandboxContainerBackend"
+        },
+        "supported": {
+          "description": "This Mac can use it (Apple container needs macOS 26 on Apple silicon)",
+          "type": "boolean"
+        },
+        "installed": {
+          "type": "boolean"
+        },
+        "running": {
+          "description": "It answers now, so a sandbox could start on it",
+          "type": "boolean"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "supported",
+        "installed",
+        "running"
+      ],
+      "type": "object"
+    },
+    "SandboxSetupParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "SandboxSetupResult": {
+      "properties": {
+        "ready": {
+          "description": "srt is available, so command servers can run",
+          "type": "boolean"
+        },
+        "srt": {
+          "$ref": "#/$defs/SandboxSrtStatus"
+        },
+        "containers": {
+          "$ref": "#/$defs/SandboxContainerSetup"
+        }
+      },
+      "required": [
+        "ready",
+        "srt",
+        "containers"
+      ],
+      "type": "object"
+    },
+    "SandboxSrtProblem": {
+      "enum": [
+        "not_found",
+        "not_absolute",
+        "not_executable"
+      ],
+      "type": "string"
+    },
+    "SandboxSrtSource": {
+      "enum": [
+        "env",
+        "setting",
+        "detected"
+      ],
+      "type": "string"
+    },
+    "SandboxSrtStatus": {
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SandboxSrtSource"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "problem": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SandboxSrtProblem"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "available"
+      ],
+      "type": "object"
+    },
     "SandboxStatus": {
       "enum": [
         "creating",
@@ -28131,6 +28305,9 @@
         },
         "egress": {
           "type": "boolean"
+        },
+        "srt": {
+          "$ref": "#/$defs/SandboxSrtStatus"
         }
       },
       "required": [

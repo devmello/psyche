@@ -75,6 +75,7 @@ export const settings = {
   "settings.key.browser.realChrome": "Real-Chrome mode",
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "Allow computer use",
+  "settings.key.exec.srtPath": "srt location",
   "settings.key.computerUse.apps": "App access",
   "settings.key.context.maxTokens": "Context limit",
   "settings.key.search.web.provider": "Web search provider",
@@ -795,6 +796,68 @@ export const settings = {
     "A program on this computer, run in the sandbox with no access to your files.",
   "settings.mcp.kind.commandUnavailable":
     "This Gateway has no sandbox for commands, so only URL servers can be added.",
+  "settings.sandbox.setUp": "Set up sandbox",
+  "settings.mcp.sandboxHelp": "Command servers need a sandbox on this Mac.",
+  "settings.sandbox.title": "Set up the sandbox",
+  "settings.sandbox.why":
+    "Commands run on your Mac with access to your files, but can't read your vault, keys or Psyche's private data.",
+  "settings.sandbox.whyHow":
+    "Psyche uses srt, Anthropic's sandbox runtime, which runs each local MCP command server under macOS's own sandbox. No virtual machine is needed.",
+  "settings.sandbox.privacy":
+    "Psyche installs nothing on its own. You run each step below, or open the download yourself.",
+  "settings.sandbox.checking": "Looking at this Mac…",
+  "settings.sandbox.checkAgain": "Check again",
+  "settings.sandbox.done": "Done",
+  "settings.sandbox.copy": "Copy",
+  "settings.sandbox.copied": "Copied",
+  "settings.sandbox.ready": "Ready",
+  "settings.sandbox.srt.ready": "srt is set up at {path}. Command servers can be added.",
+  "settings.sandbox.srt.missing.title": "Install srt",
+  "settings.sandbox.srt.missing.body":
+    "srt comes from npm. If the command asks for permission to write, run it with your own account's rights; Psyche never runs it for you.",
+  "settings.sandbox.srt.install": "Install it with npm",
+  "settings.sandbox.srt.link": "Read about srt on GitHub",
+  "settings.sandbox.srt.thenCheck": "Then check again",
+  "settings.sandbox.srt.thenCheckBody":
+    "Psyche finds srt on your PATH, in Homebrew's and npm's folders, without a restart.",
+  "settings.sandbox.srt.broken":
+    "The srt at {path} can't be used: {problem, select, not_absolute {the path must start with /} not_executable {there's no program there that can run} other {it wasn't found}}.",
+  "settings.sandbox.srt.fromEnv":
+    "PSYCHE_SRT_PATH sets this location, so it can't be changed here.",
+  "settings.sandbox.srt.choose": "srt is somewhere else",
+  "settings.sandbox.srt.path": "Full path to srt",
+  "settings.sandbox.srt.use": "Use this srt",
+  "settings.sandbox.srt.useHint":
+    "Saving it asks you to confirm on this device, because it decides what runs your commands.",
+  "settings.sandbox.containers.title": "Stronger isolation (optional)",
+  "settings.sandbox.containers.body":
+    "A container runtime runs code in its own Linux machine with no access to your Mac's files: for code the agent runs and some file conversions. Command servers keep using srt unless the Gateway is set to use containers.",
+  "settings.sandbox.containers.ready": "{runtime} is running.",
+  "settings.sandbox.runtime.appleContainer": "Apple container",
+  "settings.sandbox.runtime.docker": "Docker",
+  "settings.sandbox.runtime.podman": "Podman",
+  "settings.sandbox.missing.title": "Install {runtime}",
+  "settings.sandbox.missing.appleContainer":
+    "Apple's container runtime gives each sandbox its own lightweight VM. It needs macOS 26 on Apple silicon and an installer you approve with your Mac password.",
+  "settings.sandbox.missing.docker":
+    "Docker through Colima is free and lightweight; Docker Desktop is the point-and-click choice.",
+  "settings.sandbox.step.download": "Download and open the installer",
+  "settings.sandbox.step.downloadLink": "Open the Apple container releases",
+  "settings.sandbox.step.start": "Start it",
+  "settings.sandbox.step.install": "Install it with Homebrew",
+  "settings.sandbox.step.orDesktop": "Or download Docker Desktop and open it once",
+  "settings.sandbox.step.desktopLink": "Open the Docker Desktop download",
+  "settings.sandbox.stopped.title": "{runtime} is installed but not running",
+  "settings.sandbox.stopped.appleContainer": "Start its system service, then check again.",
+  "settings.sandbox.stopped.docker":
+    "Start the Docker daemon (open Docker Desktop, or run the command below), then check again.",
+  "settings.sandbox.stopped.podman": "Start the Podman machine, then check again.",
+  "settings.sandbox.restart.title": "{runtime} is running. Restart the Gateway to use it",
+  "settings.sandbox.restart.body":
+    "The Gateway looked for a container runtime when it started and found none. Restart it, then it picks up {runtime}.",
+  "settings.sandbox.restart.step": "Restart the Gateway",
+  "settings.sandbox.without":
+    "Without srt, Psyche can still use URL servers and your connectors, but it can't run local MCP command servers.",
   "settings.mcp.kind.url": "URL",
   "settings.mcp.kind.urlHint": "A server on the internet, reached over HTTPS.",
   "settings.mcp.command": "Command",

@@ -6,6 +6,7 @@ import { Textarea } from "../../components/ui/textarea.tsx";
 import { t } from "../../i18n/core.ts";
 import { EMPTY_DRAFT, type McpDraft, splitCommand, toServerInput } from "./mcp-input.ts";
 import { type ImportedServer, type ImportResult, parseMcpJson, withImported } from "./mcp-json.ts";
+import { SandboxNotice } from "./SandboxNotice.tsx";
 import { RadioField } from "./shared.tsx";
 import type { McpState } from "./use-mcp.tsx";
 
@@ -18,11 +19,14 @@ export function McpAddForm({
   checking,
   onCheck,
   onCancel,
+  onSandboxReady,
 }: {
   commandsAllowed: boolean;
   checking: boolean;
   onCheck: McpState["check"];
   onCancel: () => void;
+  /** After the guided sandbox setup: reload what the Gateway allows. */
+  onSandboxReady?: (() => void) | undefined;
 }): ReactElement {
   const id = useId();
   const [d, setD] = useState<McpDraft>({
@@ -166,6 +170,9 @@ export function McpAddForm({
           },
         ]}
       />
+      {!commandsAllowed && onSandboxReady ? (
+        <SandboxNotice message={t("settings.mcp.sandboxHelp")} onReady={onSandboxReady} />
+      ) : null}
       {d.kind === "command" ? (
         <>
           <div className="flex flex-col gap-1">

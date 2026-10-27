@@ -38,7 +38,7 @@ describe("OnboardingFlow", () => {
     const list = steps().getByRole("list");
     expect(list.tagName).toBe("OL");
     const items = steps().getAllByRole("listitem");
-    expect(items).toHaveLength(6);
+    expect(items).toHaveLength(7);
     expect(items[0]?.getAttribute("aria-current")).toBe("step");
     expect(items[0]?.textContent).toContain("Meet your agent");
     expect((screen.getByRole("button", { name: /Back/ }) as HTMLButtonElement).disabled).toBe(true);
@@ -233,6 +233,9 @@ describe("OnboardingFlow", () => {
     expect(heading().textContent).toContain("Mail and meetings");
     await userEvent.click(screen.getByRole("switch", { name: "Track replies you’re waiting on" }));
     await next();
+    // The optional Sandbox step: the mock Gateway already has one.
+    expect(heading().textContent).toContain("Sandbox");
+    await next();
     await userEvent.type(screen.getByLabelText("API key"), "k");
     await userEvent.click(screen.getByRole("button", { name: "Save to vault" }));
     await userEvent.click(await screen.findByRole("button", { name: "Run check" }));
@@ -378,13 +381,13 @@ describe("Onboarding where this window can't ask macOS (web, #554)", () => {
   it("leaves out Permissions and says on Done they are set up in the Mac app", async () => {
     const { onStepChange } = setup({ macPermissions: false });
     const items = steps().getAllByRole("listitem");
-    expect(items).toHaveLength(5);
+    expect(items).toHaveLength(6);
     expect(steps().queryByText("Permissions")).toBeNull();
     expect(screen.queryByRole("button", { name: /Allow/ })).toBeNull();
     await next();
     expect(heading().textContent).toContain("Connect");
     expect(onStepChange).toHaveBeenLastCalledWith("connectors");
-    expect(heading().querySelector(".sr-only")?.textContent).toContain("Step 2 of 5");
+    expect(heading().querySelector(".sr-only")?.textContent).toContain("Step 2 of 6");
   });
 
   it("a /onboarding/permissions route lands on the next step", () => {
@@ -421,8 +424,8 @@ describe("Onboarding polish (UI design §3.19)", () => {
   it("skips Connectors with nothing connected", async () => {
     const { onStepChange } = setup({ defaultStep: "connectors" });
     await userEvent.click(screen.getByRole("button", { name: "Skip for now" }));
-    expect(onStepChange).toHaveBeenLastCalledWith("model");
-    expect(heading().textContent).toContain("Model & provider");
+    expect(onStepChange).toHaveBeenLastCalledWith("sandbox");
+    expect(heading().textContent).toContain("Sandbox");
   });
 
   it("picks the model from a list, with another model as an escape hatch", async () => {

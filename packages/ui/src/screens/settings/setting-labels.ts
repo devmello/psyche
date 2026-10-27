@@ -27,6 +27,7 @@ const LABELLED_KEYS = [
   "computerUse.enabled",
   "computerUse.apps",
   "context.maxTokens",
+  "exec.srtPath",
   "context.compactAt",
   "context.keepRecentTurns",
   "data.transcriptRecall",

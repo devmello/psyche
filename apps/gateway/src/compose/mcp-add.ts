@@ -133,7 +133,9 @@ export function mcpAddHandlers(deps: McpAddDeps): Record<string, HandlerDef> {
     const launcher = deps.hostOptions?.launcher ?? deps.launcher;
     if (
       config.transport.kind === "stdio" &&
-      (launcher === undefined || launcher.isolation === "none")
+      (launcher === undefined ||
+        launcher.isolation === "none" ||
+        (launcher.ready !== undefined && !(await launcher.ready())))
     ) {
       throw new PsycheError(
         "unavailable",

@@ -302,6 +302,37 @@ export class MockGateway implements GatewayClient {
   private skillProposals = new Map<string, SkillProposal>();
   /** Settings → MCP (#529): added servers and probes waiting for their trust card. */
   readonly mcpServers: McpServerStatus[] = [];
+  /** How stdio MCP servers run; tests set `"none"` for a Gateway with no sandbox. */
+  mcpLauncher: "srt" | "container" | "none" = "srt";
+  /** What `sandbox.setup` finds (guided setup); tests change it between "Check again"s. */
+  sandboxSetup: MethodResult<"sandbox.setup"> = {
+    ready: true,
+    srt: {
+      available: true,
+      path: "/opt/homebrew/bin/srt",
+      source: "detected",
+      version: "1.0.0",
+      problem: null,
+    },
+    containers: {
+      recommended: "apple-container",
+      backends: [
+        {
+          kind: "apple-container",
+          supported: true,
+          installed: false,
+          running: false,
+          version: null,
+        },
+        { kind: "docker", supported: true, installed: false, running: false, version: null },
+        { kind: "podman", supported: true, installed: false, running: false, version: null },
+      ],
+      ready: false,
+      active: "none",
+      restartNeeded: false,
+    },
+  };
+
   private mcpProposals = new Map<string, { proposal: McpProposal; approvalId: string }>();
   /** What an added server's detail shows: its tools (the owner's switches) and secrets by name. */
   private mcpDetail = new Map<string, { tools: McpServerTool[]; secrets: McpServerSecret[] }>();
@@ -2282,7 +2313,7 @@ export class MockGateway implements GatewayClient {
           trust: x.trust,
         })),
     }),
-    "mcp.status": () => ({ launcher: "srt" as const, servers: this.mcpServers }),
+    "mcp.status": () => ({ launcher: this.mcpLauncher, servers: this.mcpServers }),
     "mcp.probe": (p) => {
       if (this.mcpServers.some((x) => x.id === p.server.id))
         fail("conflict", `an MCP server with id ${p.server.id} exists`);
@@ -2819,6 +2850,7 @@ export class MockGateway implements GatewayClient {
       available: true,
       sandbox: null,
     }),
+    "sandbox.setup": () => structuredClone(this.sandboxSetup),
   };
 
   private decidePairing(

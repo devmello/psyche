@@ -24,6 +24,8 @@ export {
   mcpSandboxScope,
   type OpenedLaunch,
   type PreparedLaunch,
+  type ResolvingSrtLauncherOptions,
+  resolvingSrtLauncher,
   SANDBOX_WORKSPACE,
   type SandboxStdioHost,
   type SandboxStdioProcess,
