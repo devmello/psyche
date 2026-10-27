@@ -150,9 +150,9 @@ Storage items (none costs RAM):
 | # | Change | Saving | Trade-off | Risk |
 |---|---|---|---|---|
 | S1 | `strip` the helper binary before signing (Swift `-Xlinker -dead_strip`, `strip -x` or full) | −16 MB (`strip -x`) to −20 MB (full) of the helper's 30 MB | crash logs need the dSYM, kept as a build artifact | low |
-| S2 | One Vite build for the desktop renderer and the web client (two HTML entries, shared chunks), the desktop's `app://` handler reading it from `Resources/psyched/app/apps/web/dist` | ≈ −30 MB (the two 31 MB asset folders share only 1 MB byte for byte, but they are the same modules) | none | medium: the files leave `app.asar` integrity and are sealed by codesign instead (the app's `app://` handler must still refuse paths outside that folder) |
+| S2 | One UI copy: the web client becomes a third entry (`web.html`) of the desktop renderer build, and the packaged Gateway serves it from `app.asar` instead of its own `apps/web/dist` (the other direction would move the renderer out of the asar's integrity check) | ≈ −30 MB (the two 31 MB asset folders share only 1 MB byte for byte, but they are the same modules) | none | **done**: the files stay in `app.asar`; the Gateway checks the header against `ElectronAsarIntegrity` and each file against its SHA-256 before serving |
 | S3 | DMG as ULMO (LZMA) instead of ULFO | −42% measured on a 297 MB DMG (297 → 172), so ≈ −80 MB on today's 198 | copying the app out of the DMG went from 3.1 s to 7.7 s, once at install; mounting is unchanged | low; **owner's call** (one-time latency) |
-| S4 | Drop `libvk_swiftshader.dylib` | −16 MB | none on Metal Macs; a blank web view on a Mac with no usable GPU | medium; test with `--disable-gpu` and WebGL pages first |
+| S4 | Drop `libvk_swiftshader.dylib` | −16.6 MB | none: tested on Electron 44 with the library removed (GPU on: same feature status, WebGL and WebGPU; `--disable-gpu`: software compositing paints, WebGL off as in the stock build, since Chromium only falls back to SwiftShader with `--enable-unsafe-swiftshader`) | low; **done** |
 | S5 | Trimmed ICU data | – | – | **refuted**: the browser pane renders arbitrary sites, and `icudtl.dat` sits inside the signed Electron framework |
 | S6 | Grammar and locale trimming in the UI chunks | part of S2's 31 MB | rarely used languages highlight as plain text | low; after S2 |
 
@@ -179,6 +179,8 @@ Storage items (none costs RAM):
 | #932 | `deploy/scripts/memory-budget.mjs`, budgets in `deploy/size-budget.json`, `PSYCHE_PERF_HOLD` | guard only |
 | #933 | Lean renderer entry for the screen-ask panel, region overlay and dictation HUD | warm panel 72 → 54 MB footprint, heap 24 → 16 MB, static JS 8.2 → 4.4 MiB |
 | #934 | AI SDK providers and the MCP SDK loaded on first use; esbuild code splitting | Gateway 128 → 92 MB footprint, heap 31 → 25 MB; first chat turn +9 ms once |
+| #936 | SwiftShader removed before signing (`src/packaging/swiftshader.ts`) | Electron Framework −16.6 MB on disk; RAM unchanged |
+| (this PR) | One UI copy: the web client is a third entry of the desktop renderer build, served by the packaged Gateway from `app.asar` (header and per-file integrity checked) | `Resources/psyched` 196 → 164 MiB; renderer build +28 KB; RAM unchanged |
 
 Measured by the guard on the packaged tree (`build-psyched.mjs`, the bundle's own Node) after #934:
 **91 MB footprint, 26 MB heap, 5.6 MiB of bundle JS** (entry plus chunks). The budgets are now 105 /
@@ -207,5 +209,4 @@ Still open, by measured size:
   `GatewayProvider` and the i18n catalog. Splitting those per namespace would bring the warm panel
   from 54 MB toward an empty renderer's 19 MB, and would also shrink the main window's 8 MB entry
   (item 6).
-- **Item 4**, discarding background tabs (owner's call). **S2**, one UI build (≈ −30 MB disk).
-  **S3**, ULMO (owner's call). **S4**, SwiftShader (needs a no-GPU test).
+- **Item 4**, discarding background tabs (owner's call). **S3**, ULMO (owner's call).
