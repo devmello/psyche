@@ -26,7 +26,7 @@ import { convertRequest } from "./convert-request.ts";
 import { StreamConverter } from "./convert-stream.ts";
 import { type KeySource, keyInjectingFetch, NO_KEYS } from "./credentials.ts";
 import { classifyError, ModelCallError } from "./errors.ts";
-import { buildProvider } from "./factory.ts";
+import { buildProvider, loadProviderPackage } from "./factory.ts";
 import { Prices } from "./prices.ts";
 import { formatModelRef, parseModelRef } from "./refs.ts";
 import { thinkingPrefix } from "./thinking.ts";
@@ -132,7 +132,8 @@ export class AiSdkAdapter implements ModelProvider {
   }
 
   /** The AI SDK model for one model id (exposed for tests and `prepareStep` hooks). */
-  languageModel(modelId: string, profileId?: string): LanguageModelV4 {
+  async languageModel(modelId: string, profileId?: string): Promise<LanguageModelV4> {
+    await loadProviderPackage(this.config.kind);
     return this.#provider(this.#profile(profileId)).language(modelId);
   }
 
@@ -238,6 +239,7 @@ export class AiSdkAdapter implements ModelProvider {
     let model: LanguageModelV4;
     let call: ReturnType<typeof convertRequest>;
     try {
+      await loadProviderPackage(this.config.kind);
       // Local mistakes (bad image URL, missing baseURL) are the request's fault, not the
       // provider's: no cooldown, no fallback.
       model = this.#provider(profile).language(modelId);
@@ -341,6 +343,7 @@ export class AiSdkAdapter implements ModelProvider {
       throw new PsycheError("invalid_params", `no embedding model for ${this.id}`);
     if (texts.length === 0) return [];
     const prefix = nomicPrefix(modelId, options.task ?? "document");
+    await loadProviderPackage(this.config.kind);
     const model = this.#embeddingModel(modelId);
     const max = (await model.maxEmbeddingsPerCall) ?? texts.length;
     const out: number[][] = [];

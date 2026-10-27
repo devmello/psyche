@@ -1,14 +1,70 @@
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { createGoogle } from "@ai-sdk/google";
-import { createOpenAI } from "@ai-sdk/openai";
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import type { createAnthropic } from "@ai-sdk/anthropic";
+import type { createGoogle } from "@ai-sdk/google";
+import type { createOpenAI } from "@ai-sdk/openai";
+import type { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { EmbeddingModelV4, LanguageModelV4 } from "@ai-sdk/provider";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import type { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { PsycheError } from "@psyche/protocol";
-import { createOllama } from "ollama-ai-provider-v2";
+import type { createOllama } from "ollama-ai-provider-v2";
 import { compatFetch, transformCompatRequest } from "./compat.ts";
-import type { ProviderConfig } from "./config.ts";
+import type { ProviderConfig, ProviderKind } from "./config.ts";
 import { KEY_SENTINEL } from "./credentials.ts";
+
+/**
+ * The AI SDK provider packages, imported on first use (docs/design/lightweight-2026.md): each
+ * costs 1–2 MB of heap and a Gateway talks to one or two providers, so the rest never load.
+ */
+interface Packages {
+  anthropic?: typeof createAnthropic;
+  google?: typeof createGoogle;
+  openai?: typeof createOpenAI;
+  openaiCompatible?: typeof createOpenAICompatible;
+  openrouter?: typeof createOpenRouter;
+  ollama?: typeof createOllama;
+}
+const packages: Packages = {};
+
+/** Imports the package `kind` needs; `buildProvider` for that kind works once this resolved. */
+export async function loadProviderPackage(kind: ProviderKind): Promise<void> {
+  switch (kind) {
+    case "anthropic":
+    case "anthropic-compatible":
+      packages.anthropic ??= (await import("@ai-sdk/anthropic")).createAnthropic;
+      return;
+    case "openai":
+      packages.openai ??= (await import("@ai-sdk/openai")).createOpenAI;
+      return;
+    case "google":
+      packages.google ??= (await import("@ai-sdk/google")).createGoogle;
+      return;
+    case "openrouter":
+      packages.openrouter ??= (await import("@openrouter/ai-sdk-provider")).createOpenRouter;
+      return;
+    case "ollama":
+      packages.ollama ??= (await import("ollama-ai-provider-v2")).createOllama;
+      return;
+    case "openai-compatible":
+    case "llamacpp":
+    case "lmstudio":
+      packages.openaiCompatible ??= (
+        await import("@ai-sdk/openai-compatible")
+      ).createOpenAICompatible;
+      return;
+    case "claude-code":
+    case "codex":
+      return;
+  }
+}
+
+function loaded<T>(fn: T | undefined, kind: ProviderKind): T {
+  if (fn === undefined) {
+    throw new PsycheError(
+      "internal",
+      `provider package for ${kind} not loaded (loadProviderPackage)`,
+    );
+  }
+  return fn;
+}
 
 /**
  * Hosted defaults, passed explicitly so the packages never read `ANTHROPIC_BASE_URL`,
@@ -46,7 +102,7 @@ function needBaseURL(config: ProviderConfig): string {
 }
 
 /**
- * Build the AI SDK provider for one config. `fetch` is the key-injecting wrapper for the
+ * Build the AI SDK provider for one config, after `loadProviderPackage(config.kind)`. `fetch` is the key-injecting wrapper for the
  * profile in use; packages get `KEY_SENTINEL` as their key so they never hold the real one
  * and never fall back to environment variables.
  */
@@ -65,7 +121,7 @@ export function buildProvider(config: ProviderConfig, fetch: typeof globalThis.f
           ? needBaseURL(config)
           : (config.baseURL ?? HOSTED_DEFAULT_BASE_URLS.anthropic);
       if (headers !== undefined) settings.headers = headers;
-      const p = createAnthropic(settings);
+      const p = loaded(packages.anthropic, config.kind)(settings);
       return { language: (id) => p.languageModel(id) };
     }
     case "openai": {
@@ -76,7 +132,7 @@ export function buildProvider(config: ProviderConfig, fetch: typeof globalThis.f
       };
       settings.baseURL = config.baseURL ?? HOSTED_DEFAULT_BASE_URLS.openai;
       if (headers !== undefined) settings.headers = headers;
-      const p = createOpenAI(settings);
+      const p = loaded(packages.openai, config.kind)(settings);
       return { language: (id) => p.responses(id), embedding: (id) => p.embedding(id) };
     }
     case "google": {
@@ -87,7 +143,7 @@ export function buildProvider(config: ProviderConfig, fetch: typeof globalThis.f
       };
       settings.baseURL = config.baseURL ?? HOSTED_DEFAULT_BASE_URLS.google;
       if (headers !== undefined) settings.headers = headers;
-      const p = createGoogle(settings);
+      const p = loaded(packages.google, config.kind)(settings);
       return {
         language: (id) =>
           config.googleApi === "generate-content" ? p.languageModel(id) : p.interactions(id),
@@ -105,7 +161,7 @@ export function buildProvider(config: ProviderConfig, fetch: typeof globalThis.f
       if (config.attribution?.url !== undefined) settings.appUrl = config.attribution.url;
       if (config.attribution?.title !== undefined) settings.appName = config.attribution.title;
       if (headers !== undefined) settings.headers = headers;
-      const p = createOpenRouter(settings);
+      const p = loaded(packages.openrouter, config.kind)(settings);
       return {
         language: (id) => p.chat(id) as unknown as LanguageModelV4,
         embedding: (id) => p.textEmbeddingModel(id) as unknown as EmbeddingModelV4,
@@ -120,7 +176,7 @@ export function buildProvider(config: ProviderConfig, fetch: typeof globalThis.f
         includeUsage: true,
       };
       if (headers !== undefined) settings.headers = headers;
-      const p = createOpenAICompatible(settings);
+      const p = loaded(packages.openaiCompatible, config.kind)(settings);
       return { language: (id) => p.chatModel(id), embedding: (id) => p.embeddingModel(id) };
     }
     case "llamacpp":
@@ -139,7 +195,7 @@ export function buildProvider(config: ProviderConfig, fetch: typeof globalThis.f
         transformRequestBody: (body) => transformCompatRequest(kind, body),
       };
       if (headers !== undefined) settings.headers = headers;
-      const p = createOpenAICompatible(settings);
+      const p = loaded(packages.openaiCompatible, config.kind)(settings);
       return { language: (id) => p.chatModel(id), embedding: (id) => p.embeddingModel(id) };
     }
     case "claude-code":
@@ -156,7 +212,7 @@ export function buildProvider(config: ProviderConfig, fetch: typeof globalThis.f
         compatibility: "strict",
       };
       if (headers !== undefined) settings.headers = headers;
-      const p = createOllama(settings);
+      const p = loaded(packages.ollama, config.kind)(settings);
       return { language: (id) => p.chat(id), embedding: (id) => p.embedding(id) };
     }
   }

@@ -782,11 +782,17 @@ process.stdout.write(JSON.stringify({ greet: greet("x"), native: native(), pure:
         },
         external: ["native-thing"],
       });
-      expect(Object.keys(sizes).sort()).toEqual([
+      // Shared code may land in chunk-<hash>.mjs files next to the entries (code splitting).
+      expect(
+        Object.keys(sizes)
+          .filter((f) => !/\/chunk-[^/]+\.mjs$/.test(f))
+          .sort(),
+      ).toEqual([
         "apps/cli/dist/main.mjs",
         "apps/gateway/dist/extract-worker.mjs",
         "apps/gateway/dist/main.mjs",
       ]);
+      for (const f of Object.keys(sizes)) expect(f.startsWith("apps/")).toBe(true);
       const main = readFileSync(join(app, "apps/gateway/dist/main.mjs"), "utf8");
       expect(main).toContain("hello "); // the workspace package is inside
       expect(main).toMatch(/["']pure["']/); // so is the pure dependency
