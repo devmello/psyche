@@ -41,6 +41,8 @@ export const ApprovalKind = StringEnum(
     "shortcut_run",
     "git_write",
     "git_push",
+    /** The agent asks for a folder it cannot reach; the owner's own pick is what gets granted. */
+    "folder_access",
     /** One approval for a listed set of `write` calls (an `ActionProposal`), once only. */
     "batch",
   ],
@@ -160,6 +162,11 @@ export const ApprovalAnswer = Type.Object(
     answerToken: Type.String({ minLength: 1 }),
     decision: StringEnum(["approve", "deny"]),
     scope: Type.Optional(GrantScope),
+    /**
+     * `folder_access` only: the folder the owner picked (native picker). This path, resolved by
+     * the Gateway, is what is granted, never the agent's own string.
+     */
+    folderPath: Type.Optional(Type.String({ minLength: 1, maxLength: 4096 })),
     presence: Type.Optional(PresenceAssertionSchema),
     /** `voice`: answered by a spoken phrase after a readback (docs/voice/voice-mode-2026.md §4.6). */
     via: Type.Optional(InputVia),

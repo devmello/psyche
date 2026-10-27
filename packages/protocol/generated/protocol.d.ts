@@ -917,6 +917,7 @@ export interface ApprovalAnswer {
     answerToken: string;
     approvalId:  string;
     decision:    DecisionEnum;
+    folderPath?: string;
     presence?:   PresenceAssertion;
     scope?:      GrantScope;
     via?:        InputVia;
@@ -1006,7 +1007,7 @@ export interface FromLesson {
     lessonId:   string;
 }
 
-export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push" | "batch";
+export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push" | "folder_access" | "batch";
 
 export interface RequestedBy {
     agent?:       string;

@@ -1087,6 +1087,7 @@ export const settings = {
   "settings.files.ro": "Read only",
   "settings.files.rw": "Read and write",
   "settings.files.stopSharing": "Stop sharing {path}",
+  "settings.files.revoke": "Revoke",
   "settings.files.pathPlaceholder": "~/Documents/Taxes",
   "settings.files.title": "File access",
   "settings.files.description":
@@ -1094,7 +1095,7 @@ export const settings = {
   "settings.files.loadLabel": "file access",
   "settings.files.folders": "Folders",
   "settings.files.foldersHint":
-    "Read only lets it open and search; read and write also lets it save changes, each one shown in the Diff pane.",
+    "Read only lets it open and search; read and write also lets it save changes, each one shown in the Diff pane. Folders you pick with Always allow in chat are listed here; Revoke ends the access.",
   "settings.files.sharedFolders": "Shared folders",
   "settings.files.noFolders": "No folders shared. {persona} works only in its own workspace.",
   "settings.files.shareFolder": "Share a folder",

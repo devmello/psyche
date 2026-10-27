@@ -1,5 +1,7 @@
-import { getSettings, setSetting } from "@psyche/db";
+import { getSetting, getSettings, setSetting } from "@psyche/db";
+import { assertFolderGrantable } from "@psyche/permissions";
 import { isAdminSettingKey, PsycheError } from "@psyche/protocol";
+import { protectedRoots } from "../compose/protected-paths.ts";
 import type { Call, HandlerDef } from "../context.ts";
 import { requireFreshPresence } from "../presence-gate.ts";
 import { INTERNAL_SETTING_PREFIX } from "../state-version.ts";
@@ -32,6 +34,23 @@ export function needsPresence(key: string): boolean {
   return PRESENCE_ROOTS.includes(root) || PRESENCE_KEYS.some((re) => re.test(key));
 }
 
+/** A folder newly added to the policy must not be a sensitive root (security §3.5). */
+async function checkNewFolders(call: Call, value: unknown): Promise<void> {
+  const folders = (value as { folders?: unknown } | null)?.folders;
+  if (!Array.isArray(folders)) return;
+  const stored = (
+    getSetting(call.ctx.db, "permissions.policy")?.value as
+      | { folders?: { path?: unknown }[] }
+      | undefined
+  )?.folders;
+  const known = new Set((stored ?? []).map((f) => f.path));
+  const home = call.ctx.config.home;
+  for (const f of folders as { path?: unknown }[]) {
+    if (typeof f?.path !== "string" || known.has(f.path)) continue;
+    await assertFolderGrantable(f.path, { psycheHome: home, protectedRoots: protectedRoots(home) });
+  }
+}
+
 export const settingsHandlers: Record<string, HandlerDef> = {
   "settings.get": {
     run(call: Call, params: { keys?: string[] }) {
@@ -56,6 +75,7 @@ export const settingsHandlers: Record<string, HandlerDef> = {
       if (isAdminSettingKey(key) && !call.identity.scopes.includes("operator.admin")) {
         throw new PsycheError("forbidden", `Changing ${key} requires operator.admin`);
       }
+      if (key === "permissions.policy") await checkNewFolders(call, value);
       // Fresh presence once a verifier was enrolled (helper Touch ID, passkeys); admin only before.
       if (needsPresence(key)) {
         await requireFreshPresence(

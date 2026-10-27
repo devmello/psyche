@@ -696,9 +696,18 @@ export function useApprovals() {
   return {
     ...load,
     ...views,
-    answer: (id: string, decision: "approve" | "deny", scope?: GrantScope) =>
-      answerApproval(store, id, decision, scope),
+    answer: (
+      id: string,
+      decision: "approve" | "deny",
+      scope?: GrantScope,
+      extras?: ApprovalExtras,
+    ) => answerApproval(store, id, decision, scope, extras),
   };
+}
+
+/** What an answer carries besides the decision: the folder the owner picked (`folder_access`). */
+export interface ApprovalExtras {
+  folderPath?: string;
 }
 
 export async function answerApproval(
@@ -706,6 +715,7 @@ export async function answerApproval(
   approvalId: string,
   decision: "approve" | "deny",
   scope?: GrantScope,
+  extras?: ApprovalExtras,
 ) {
   const token = store.getState().answerTokens[approvalId];
   if (token === undefined) {
@@ -727,6 +737,9 @@ export async function answerApproval(
         answerToken: token,
         decision,
         ...(decision === "approve" && scope !== undefined ? { scope } : {}),
+        ...(decision === "approve" && extras?.folderPath !== undefined
+          ? { folderPath: extras.folderPath }
+          : {}),
         ...(presence === undefined ? {} : { presence }),
       }),
     commit: (s, r) => {
@@ -766,10 +779,10 @@ export function useApproval(approvalId: string | null) {
     approval: approval ?? null,
     canAnswer,
     stale,
-    answer: (decision: "approve" | "deny", scope?: GrantScope) =>
+    answer: (decision: "approve" | "deny", scope?: GrantScope, extras?: ApprovalExtras) =>
       approvalId === null
         ? Promise.reject(new Error("no approval"))
-        : answerApproval(store, approvalId, decision, scope),
+        : answerApproval(store, approvalId, decision, scope, extras),
   };
 }
 

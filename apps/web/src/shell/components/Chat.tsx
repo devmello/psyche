@@ -98,9 +98,13 @@ function useCountdown(expiresAt: string): string {
  * ShellApp). S12 ships the full card; this is the structural stand-in with the same rules.
  */
 export function ApprovalDock({ approval }: { approval: ApprovalRequest }): ReactElement {
-  const { store } = useShell();
+  const { store, platform } = useShell();
   const [armed, setArmed] = useState(false);
   const [scope, setScope] = useState(approval.scopesOffered[0] ?? "once");
+  // folder_access: the owner's own pick is what is granted, not the agent's path.
+  const isFolder = approval.kind === "folder_access";
+  const [folder, setFolder] = useState("");
+  const pickFolder = platform.dialogs?.pickFolder;
   const countdown = useCountdown(approval.expiresAt);
   // biome-ignore lint/correctness/useExhaustiveDependencies: re-arm the 400 ms delay per approval
   useEffect(() => {
@@ -110,7 +114,12 @@ export function ApprovalDock({ approval }: { approval: ApprovalRequest }): React
   }, [approval.id]);
   const answer = (decision: "approve" | "deny") =>
     void store
-      .answerApproval(approval.id, decision, decision === "approve" ? scope : undefined)
+      .answerApproval(
+        approval.id,
+        decision,
+        decision === "approve" ? scope : undefined,
+        isFolder && folder !== "" ? { folderPath: folder } : undefined,
+      )
       .catch(() => store.toast(t("web.approval.answerFailed"), "error"));
   return (
     <fieldset
@@ -155,6 +164,32 @@ export function ApprovalDock({ approval }: { approval: ApprovalRequest }): React
           </label>
         ))}
       </fieldset>
+      {isFolder ? (
+        <div className="row" data-testid="folder-pick">
+          {pickFolder ? (
+            <>
+              <code>{folder === "" ? t("web.approval.folderNone") : folder}</code>
+              <button
+                type="button"
+                onClick={() =>
+                  void pickFolder({ title: t("web.approval.folderPickTitle") }).then(
+                    (picked) => picked !== null && setFolder(picked),
+                    () => store.toast(t("web.approval.answerFailed"), "error"),
+                  )
+                }
+              >
+                {t("web.approval.folderChoose")}
+              </button>
+            </>
+          ) : (
+            <input
+              aria-label={t("web.approval.folderPath")}
+              value={folder}
+              onChange={(e) => setFolder(e.target.value.trim())}
+            />
+          )}
+        </div>
+      ) : null}
       <div style={{ fontSize: 12, color: "var(--shell-muted)" }}>
         {t("web.approval.binding", { hash: approval.bindingHash.slice(0, 15) })}
       </div>
@@ -164,7 +199,7 @@ export function ApprovalDock({ approval }: { approval: ApprovalRequest }): React
         </button>
         <button
           type="button"
-          disabled={!armed}
+          disabled={!armed || (isFolder && folder === "")}
           onClick={() => answer("approve")}
           data-action="approve"
         >

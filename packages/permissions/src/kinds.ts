@@ -22,6 +22,8 @@ export const DEVICE_ONLY_KINDS: readonly ApprovalKind[] = [
   "skill_install",
   // A script drives an app with the owner's Automation grant; approved on the Mac only (#268).
   "apple_script",
+  // The owner picks the folder in the native picker; a chat reply could not.
+  "folder_access",
 ];
 
 /** `authenticationRequired` on the Mac (security §3.7). */
@@ -148,6 +150,8 @@ export function allowedScopes(
     ].includes(kind)
   )
     return ["once"];
+  // A folder is granted for this conversation (`once`) or kept in Settings until revoked (`always`).
+  if (kind === "folder_access") return ["once", "always"];
   if (kind === "credential_fill") return ["once", "site"];
   // Security §5.4: exec_host offers `once` or an `always` bound to exact argv + cwd + binary.
   if (kind === "exec_host") return ["once", "always"];

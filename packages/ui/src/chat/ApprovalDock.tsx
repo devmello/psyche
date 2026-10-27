@@ -119,8 +119,8 @@ export function ApprovalDock({
                   otherSurfaces={open.approval.surfaces.filter(
                     (s) => s !== "desktop" && s !== "web",
                   )}
-                  onAnswer={async (decision, scope) => {
-                    await answer(open.approval.id, decision, scope);
+                  onAnswer={async (decision, scope, extras) => {
+                    await answer(open.approval.id, decision, scope, extras);
                     // The next card focuses its heading as it mounts; with none left, focus
                     // returns to the composer instead of falling to the page (a11y-audit C3).
                     if (mine.length <= 1) {

@@ -3238,6 +3238,7 @@ public struct ApprovalAnswer: Codable, Sendable {
     public let answerToken: String
     public let approvalID: String
     public let decision: DecisionEnum
+    public let folderPath: String?
     public let presence: PresenceAssertion?
     public let scope: GrantScope?
     public let via: InputVia?
@@ -3246,15 +3247,17 @@ public struct ApprovalAnswer: Codable, Sendable {
         case answerToken = "answerToken"
         case approvalID = "approvalId"
         case decision = "decision"
+        case folderPath = "folderPath"
         case presence = "presence"
         case scope = "scope"
         case via = "via"
     }
 
-    public init(answerToken: String, approvalID: String, decision: DecisionEnum, presence: PresenceAssertion?, scope: GrantScope?, via: InputVia?) {
+    public init(answerToken: String, approvalID: String, decision: DecisionEnum, folderPath: String?, presence: PresenceAssertion?, scope: GrantScope?, via: InputVia?) {
         self.answerToken = answerToken
         self.approvalID = approvalID
         self.decision = decision
+        self.folderPath = folderPath
         self.presence = presence
         self.scope = scope
         self.via = via
@@ -3485,6 +3488,7 @@ public enum ApprovalKind: String, Codable, Sendable {
     case exec = "exec"
     case execHost = "exec_host"
     case fileWrite = "file_write"
+    case folderAccess = "folder_access"
     case gitPush = "git_push"
     case gitWrite = "git_write"
     case mcpTool = "mcp_tool"

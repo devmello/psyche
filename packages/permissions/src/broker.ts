@@ -52,6 +52,7 @@ import {
   targetKey,
   taskKey,
 } from "./engine.ts";
+import { type FolderAccessEnv, type FolderGrantEntry, resolveFolderPick } from "./folder-access.ts";
 import {
   AUTH_KINDS,
   allowedScopes,
@@ -135,6 +136,15 @@ export interface PermissionBrokerOptions {
   revocations?: RevocationLedger;
   /** The channel layer's view of its conversations; without it no reply authority is issued. */
   channelConversations?: ChannelConversationLookup;
+  /**
+   * Folder access the agent asks for (`folder_access`, security §3.5). `env` names the sensitive
+   * roots a pick is refused under; `persist` stores an `always` grant (Settings → File access).
+   * Without it a `folder_access` approval can only be denied.
+   */
+  folderAccess?: {
+    env: () => FolderAccessEnv;
+    persist: (entry: FolderGrantEntry) => Promise<void>;
+  };
 }
 
 type GrantFields = { grantFields?: JsonObject };
@@ -207,6 +217,9 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #answerTimes = new Map<string, number[]>();
   readonly #channelConversations: ChannelConversationLookup | undefined;
   readonly #replyTimes = new Map<string, number[]>();
+  readonly #folderAccess: PermissionBrokerOptions["folderAccess"];
+  /** thread → folders allowed for that conversation only; gone at `/new` and at a restart. */
+  readonly #sessionFolders = new Map<string, FolderGrantEntry[]>();
 
   constructor(options: PermissionBrokerOptions) {
     this.clock = options.clock ?? { now: () => Date.now() };
@@ -227,6 +240,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#onEvent = options.onEvent;
     this.#revocations = options.revocations;
     this.#channelConversations = options.channelConversations;
+    this.#folderAccess = options.folderAccess;
     const ulid = monotonicFactory();
     this.#newId = options.newId ?? ((prefix) => `${prefix}_${ulid(this.clock.now())}`);
     this.#bootId = options.bootId ?? this.#newId("boot");
@@ -240,6 +254,7 @@ export class PsychePermissionBroker implements PermissionBroker {
       policy: () => this.#policy,
       task: (ctx) => this.#task(ctx),
       peekTask: (ctx) => this.#tasks.get(taskKey(ctx)),
+      sessionFolders: (threadId) => this.#sessionFolders.get(threadId) ?? [],
       matchGrant: (key, kind, se, ctx, origin) => this.#matchGrant(key, kind, se, ctx, origin),
       useGrant: (rec, hash) => this.#useGrant(rec, hash),
       hooks: options.hooks ?? [],
@@ -792,6 +807,9 @@ export class PsychePermissionBroker implements PermissionBroker {
     );
     if (input.typedConfirmation !== undefined)
       scopesOffered = scopesOffered.filter((s) => s === "once");
+    // Taint always overrides standing grants (§3.6): a tainted folder request is never kept.
+    if (input.kind === "folder_access" && (input.taint || input.context?.taint === true))
+      scopesOffered = scopesOffered.filter((s) => s === "once");
     if (scopesOffered.length === 0) scopesOffered = ["once"];
 
     const details = sanitizeDetails(input.details) as JsonObject;
@@ -1157,6 +1175,48 @@ export class PsychePermissionBroker implements PermissionBroker {
       }
     }
 
+    // The folder the owner picked is what is granted, never the agent's string (security §3.5).
+    let folderPick: FolderGrantEntry | undefined;
+    if (input.decision === "approve" && a.kind === "folder_access") {
+      if (this.#folderAccess === undefined || input.folderPath === undefined) {
+        return this.#reject(
+          rec,
+          id,
+          by,
+          "folder_missing",
+          "invalid_params",
+          "pick the folder to share",
+        );
+      }
+      if (scope === "once" && a.requestedBy.threadId == null) {
+        return this.#reject(
+          rec,
+          id,
+          by,
+          "folder_no_thread",
+          "invalid_params",
+          "this request has no conversation",
+        );
+      }
+      try {
+        folderPick = {
+          path: await resolveFolderPick(input.folderPath, this.#folderAccess.env()),
+          mode: a.details.access === "rw" ? "rw" : "ro",
+        };
+      } catch (err) {
+        await this.#log(
+          "approval.answer_rejected",
+          actorOf(by),
+          { approvalId: id },
+          {
+            reason: "folder_refused",
+            status: a.status,
+          },
+        );
+        throw err;
+      }
+    }
+
     // First authorized answer wins: re-read, check, mark the token and decide atomically.
     // Re-read the clock after the awaited approver and presence checks (review #14).
     const now = this.clock.now();
@@ -1180,7 +1240,10 @@ export class PsychePermissionBroker implements PermissionBroker {
         fa.scopeGranted = scope;
         // A batch becomes one approved, once-only approval per listed call (§8.1).
         if (fa.kind === "batch") this.#mintBatchChildren(fresh, by, now);
-        if (fa.kind === "batch" && scope === "always") {
+        if (fa.kind === "folder_access" && folderPick !== undefined) {
+          // Not a ledger grant: `always` lives in Settings → File access, `once` in the thread.
+          fa.details = { ...fa.details, granted: { ...folderPick } };
+        } else if (fa.kind === "batch" && scope === "always") {
           // The one batch grant: prep notes only. It binds the calls' own key, not the batch's.
           grant = this.#newPrepNoteGrant(fresh, by, now);
           if (grant === undefined) fa.scopeGranted = "once";
@@ -1208,6 +1271,9 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#timers.get(id)?.();
     this.#timers.delete(id);
     const fa = decided.approval;
+    if (fa.status === "approved" && folderPick !== undefined) {
+      await this.#applyFolder(fa, folderPick, scope, by);
+    }
     const { call, context } = decided.input;
     if (fa.status === "approved" && call !== undefined && context !== undefined) {
       const tk = targetKey(call);
@@ -1254,6 +1320,41 @@ export class PsychePermissionBroker implements PermissionBroker {
     }
     this.#settled(fa, "approval.decided");
     return structuredClone(fa);
+  }
+
+  /** Makes an approved pick usable now: this conversation's roots, or Settings for `always`. */
+  async #applyFolder(
+    fa: ApprovalRequest,
+    pick: FolderGrantEntry,
+    scope: GrantScope,
+    by: DecidedBy,
+  ): Promise<void> {
+    const threadId = fa.requestedBy.threadId;
+    let kept: GrantScope = scope;
+    if (scope === "always") {
+      try {
+        await this.#folderAccess?.persist(pick);
+      } catch {
+        // Not stored: the folder still works for this conversation, and the record says so.
+        kept = "once";
+        await this.#log("folder.persist_failed", actorOf(by), { approvalId: fa.id }, { ...pick });
+      }
+    }
+    if (kept === "once" && threadId != null) {
+      const roots = this.#sessionFolders.get(threadId) ?? [];
+      this.#sessionFolders.set(threadId, [...roots.filter((r) => r.path !== pick.path), pick]);
+    }
+    await this.#log(
+      "folder.granted",
+      actorOf(by),
+      { approvalId: fa.id, ...(threadId == null ? {} : { threadId }) },
+      { path: pick.path, mode: pick.mode, scope: kept, taint: fa.taint },
+    );
+  }
+
+  /** Folders allowed for one conversation (`once`), for the file executors behind the broker. */
+  sessionFolders(threadId: string): readonly FolderGrantEntry[] {
+    return this.#sessionFolders.get(threadId) ?? [];
   }
 
   /**
@@ -1834,6 +1935,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   /** `/new` in a thread: its `session` grants end. */
   endSession(threadId: string): Promise<Grant[]> {
     this.#tasks.delete(`thread:${threadId}`);
+    this.#sessionFolders.delete(threadId);
     return this.#revokeWhere(
       (g) => g.grant.scope === "session" && g.meta.threadId === threadId,
       "session_ended",

@@ -99,6 +99,8 @@ export interface DryRun {
 
 export interface EngineDeps {
   policy(): CompiledPolicy;
+  /** Folders the owner allowed for one conversation only (`folder_access`, scope `once`). */
+  sessionFolders?(threadId: string): readonly { path: string; mode: "ro" | "rw" }[];
   /** The Task's state, created on first use (`decide`). */
   task(ctx: PolicyContext): TaskState;
   /** The Task's state if the broker has one, without creating it (`preview`). */
@@ -208,12 +210,20 @@ export class PolicyEngine {
     this.#d = deps;
   }
 
-  folderFor(path: string): { path: string; mode: "ro" | "rw"; workspace: boolean } | undefined {
+  folderFor(
+    path: string,
+    threadId?: string,
+  ): { path: string; mode: "ro" | "rw"; workspace: boolean } | undefined {
     const p = this.#d.policy();
     for (const root of p.workspaceRoots) {
       if (isUnder(path, root)) return { path: root, mode: "rw", workspace: true };
     }
-    for (const f of p.folders) if (isUnder(path, f.path)) return { ...f, workspace: false };
+    // The longest root decides, whether Settings or this conversation granted it.
+    const roots = [
+      ...p.folders,
+      ...(threadId === undefined ? [] : (this.#d.sessionFolders?.(threadId) ?? [])),
+    ].sort((a, b) => b.path.length - a.path.length);
+    for (const f of roots) if (isUnder(path, f.path)) return { ...f, workspace: false };
     return undefined;
   }
 
@@ -485,7 +495,7 @@ export class PolicyEngine {
       } catch {
         return done("deny", "folder:invalid_path", "file targets must be absolute paths");
       }
-      const folder = this.folderFor(path);
+      const folder = this.folderFor(path, ctx.threadId);
       if (folder === undefined)
         return done("deny", "folder:not_granted", `${path} is outside every granted folder`);
       if (folder.mode === "ro" && SEVERITY[se] >= SEVERITY.write) {

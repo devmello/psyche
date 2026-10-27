@@ -18,6 +18,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-26 (folder access requested from chat)
+
+For the `request_folder_access` agent tool (Gateway `compose/folder-access.ts`), S05 (`folder_access` kind, scopes and taint) and the chat approval card.
+
+- `ApprovalKind` gains `folder_access` (device-only; `once` or `always`, `once` only when tainted). The card's `details` carry `requestedPath`, `reason` and `access` (`ro` / `rw`); the decided approval's `details.granted` is `{path, mode}`, the folder the owner picked.
+- `ApprovalAnswer` gains optional `folderPath`: the folder the owner picked in the native picker. Required to approve a `folder_access` approval; the Gateway resolves it to its real path and refuses sensitive roots (`forbidden`).
+
 ### v1 additive — 2026-10-26 (chat map widget)
 
 - `ArtifactType` gains `map` (at the end). New schemas `ArtifactMap` and `ArtifactMapMarker` (the JSON content: markers, optional `routes` polylines and `bounds`) and `ArtifactOp` gains `addMarker`, `removeMarker` and `updateMarker`. Swift gains the cases and structs; no hand-written switch needed changes.
