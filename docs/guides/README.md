@@ -20,6 +20,7 @@ No release has been published yet. Until the first one, run Psyche from a source
 | [upgrade.md](upgrade.md) | A new version is out, or you need to go back to an older one. |
 | [vm-guest-images.md](vm-guest-images.md) | You want to build a prebuilt sandbox Mac image, or create a sandbox Mac from one. |
 | [translating.md](translating.md) | You want dates and numbers in another region format, or (contributors) to translate Psyche or keep new UI text translatable. |
+| [monorepo-layout.md](monorepo-layout.md) | You are a contributor: where each platform lives, how CI picks jobs, sparse checkouts, and keeping many worktrees small. |
 
 ## Where your data lives
 

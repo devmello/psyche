@@ -11,9 +11,9 @@
     "pnpm": ">=12.0.0"
   },
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev --parallel",
-    "typecheck": "turbo run typecheck",
+    "build": "sh scripts/dev/turbo.sh run build",
+    "dev": "sh scripts/dev/turbo.sh run dev --parallel",
+    "typecheck": "sh scripts/dev/turbo.sh run typecheck",
     "lint": "biome check --max-diagnostics=200 .",
     "lint:fix": "biome check --write --max-diagnostics=200 .",
     "i18n:check": "tsx scripts/i18n-check.ts",
@@ -32,7 +32,14 @@
     "docs:check": "pnpm --filter @psyche/site docs:check",
     "app:build": "sh deploy/macos/build-local.sh",
     "app:install": "sh deploy/macos/install-local.sh",
-    "app:ship": "sh deploy/macos/build-local.sh && sh deploy/macos/install-local.sh"
+    "app:ship": "sh deploy/macos/build-local.sh && sh deploy/macos/install-local.sh",
+    "postinstall": "node scripts/dev/postinstall.mjs",
+    "clean": "sh scripts/dev/clean.sh",
+    "worktrees:prune": "sh scripts/dev/worktrees-prune.sh",
+    "disk:report": "sh scripts/dev/disk-report.sh",
+    "cache:prune": "sh scripts/dev/cache-prune.sh",
+    "electron:prime": "sh scripts/dev/electron-dist.sh prime",
+    "sparse": "sh scripts/dev/sparse.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

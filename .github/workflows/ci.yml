@@ -30,6 +30,9 @@ env:
 jobs:
   ci:
     name: ci (${{ matrix.os }})
+    # Skipped when a change touches only native app folders (see the `changes` job).
+    needs: changes
+    if: needs.changes.outputs.ts == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -103,14 +106,20 @@ jobs:
             echo "apps/mac-helper/Tests does not exist yet; skipping swift test."
           fi
 
-  # Did this push or PR touch the protocol or the Swift helper? (#731: a protocol enum addition,
-  # #714, broke the helper's exhaustive switches, and nothing built Swift until #730.)
+  # Which platforms did this push or PR touch? One job answers for all of them, so each platform job
+  # below (and the Windows, iOS and Android jobs to come, see docs/guides/monorepo-layout.md) runs only
+  # when its own paths or the shared protocol changed. (#731: a protocol enum addition, #714, broke the
+  # helper's exhaustive switches, and nothing built Swift until #730.)
   changes:
-    name: helper changes
+    name: changes
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
+      ts: ${{ steps.diff.outputs.ts }}
       helper: ${{ steps.diff.outputs.helper }}
+      windows: ${{ steps.diff.outputs.windows }}
+      ios: ${{ steps.diff.outputs.ios }}
+      android: ${{ steps.diff.outputs.android }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -124,22 +133,42 @@ jobs:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PUSH_BEFORE: ${{ github.event.before }}
         run: |
+          set_all() {
+            for k in ts helper windows ios android; do echo "$k=$1" >> "$GITHUB_OUTPUT"; done
+          }
           case "$EVENT" in
             pull_request) base="$(git merge-base "$PR_BASE" HEAD)" ;;
             push) base="$PUSH_BEFORE" ;;
             *) base="" ;;
           esac
-          # A manual run, a tag, a new branch or an unknown base: build the helper.
+          # A manual run, a tag, a new branch or an unknown base: run everything.
           if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] \
             || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
-            echo "helper=true" >> "$GITHUB_OUTPUT"
+            set_all true
             exit 0
           fi
-          if git diff --name-only "$base" HEAD | grep -qE '^(packages/protocol/|apps/mac-helper/)'; then
-            echo "helper=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "helper=false" >> "$GITHUB_OUTPUT"
+          files="$(git diff --name-only "$base" HEAD)"
+          # A change to this workflow can break any job: run everything.
+          if echo "$files" | grep -qE '^\.github/workflows/ci\.yml$'; then
+            set_all true
+            exit 0
           fi
+          # Per-platform filters. The shared protocol (codegen target of every client) is in each.
+          flag() { echo "$files" | grep -qE "$2" && echo "$1=true" || echo "$1=false"; }
+          {
+            flag helper '^(packages/protocol/|packages/swift/|apps/mac-helper/)'
+            flag windows '^(packages/protocol/|apps/windows-helper/)'
+            flag ios '^(packages/protocol/|packages/swift/|apps/ios/)'
+            flag android '^(packages/protocol/|apps/android/)'
+            # The TypeScript job runs unless every changed file belongs to a native app folder. The
+            # generated protocol structs count as TypeScript: its codegen freshness check guards them.
+            if [ -n "$files" ] && ! echo "$files" | grep -qvE '^(apps/(mac-helper|windows-helper|ios|android)/|packages/swift/)' \
+              && ! echo "$files" | grep -q 'PsycheProtocol/'; then
+              echo "ts=false"
+            else
+              echo "ts=true"
+            fi
+          } >> "$GITHUB_OUTPUT"
 
   # The Swift helper builds and its suites pass whenever the protocol or the helper changes, on
   # pull requests and on pushes to main, so a protocol change that breaks it is red before merge.

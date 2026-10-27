@@ -20,6 +20,18 @@ git worktree add ../psyche-s05 -b ws/s05-permissions origin/main
 
 Rebase on `main` at least daily. Commit early and often with [Conventional Commits](https://www.conventionalcommits.org/) (`feat(permissions): bind approvals to argv+cwd`, `fix(db): ...`, `docs: ...`).
 
+## Disk & worktrees
+
+Every session has its own worktree, and a worktree reports about 2.6 GB with `du`. That number is mostly APFS clones of pnpm's global store (`~/Library/pnpm/store/v11`) and is not real disk: a fresh `pnpm install` writes about 35 MB, and the Electron `dist` (308 MB) is cloned from one shared copy. Full details are in [`docs/guides/monorepo-layout.md`](docs/guides/monorepo-layout.md).
+
+- Run `pnpm electron:prime` once per Electron version so new worktrees clone `dist` instead of extracting it.
+- `pnpm disk:report` shows what your worktrees really own and the sizes of the shared stores. Use `df` before and after, not `du`, to measure anything.
+- `pnpm clean` removes build outputs in the current checkout (`dist`, `out`, `.vite`, `.turbo`, `storybook-static`, `test-results`, `coverage`, `.build`); it never touches source or `node_modules`.
+- When your PR is merged, remove your worktree. `pnpm worktrees:prune` lists the finished ones (merged, clean, not in use) and removes them with `--yes`.
+- `pnpm sparse core` (or `mac`, `windows`, `mobile`) checks out only the folders you need; `pnpm sparse all` undoes it.
+- Builds share one Turbo cache under `~/Library/Caches/psyche/turbo`, capped at 5 GB (`pnpm cache:prune`). Do not set `PLAYWRIGHT_BROWSERS_PATH`, `GRADLE_USER_HOME` or a per-repo Xcode `DerivedData`; the global defaults are shared on purpose.
+- pnpm 12 reads its settings (`packageImportMethod`, `sideEffectsCache`, `storeDir`) from `pnpm-workspace.yaml`. A root `.npmrc` does not apply them.
+
 ## Pull requests
 
 - Keep PRs small: under ~800 changed lines (generated files and the lockfile aside).
