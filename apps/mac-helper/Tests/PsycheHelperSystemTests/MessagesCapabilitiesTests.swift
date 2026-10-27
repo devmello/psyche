@@ -2,6 +2,7 @@ import Foundation
 import PsycheHelperCore
 import PsycheHelperSystem
 import PsycheProtocol
+import SQLite3
 import Testing
 
 private actor Sent {
@@ -54,11 +55,43 @@ struct MessagesCapabilitiesTests {
     @Test func manifestDeclaresSideEffects() {
         let r = registry(sent: Sent())
         let specs = Dictionary(uniqueKeysWithValues: r.ordered.map { ($0.spec.name, $0.spec) })
-        #expect(Set(specs.keys) == ["messages.status", "messages.chats", "messages.read", "messages.watch", "messages.send"])
+        #expect(Set(specs.keys) == ["messages.status", "messages.chats", "messages.read", "messages.watch", "messages.send",
+                                    "messages.graph_chats", "messages.graph_read"])
         #expect(specs["messages.send"]?.sideEffect == .destructive && specs["messages.send"]?.targetKind == .recipient)
         #expect(specs["messages.send"]?.receiptKind == "message_send")
         #expect(specs["messages.watch"]?.streaming == true && specs["messages.watch"]?.sideEffect == .read)
         #expect(specs["messages.status"]?.sideEffect == SideEffect.none)
+    }
+
+    @Test func graphCapabilitiesAreReadOnlyWithAMessageReadReceipt() {
+        let specs = Dictionary(uniqueKeysWithValues: registry(sent: Sent()).ordered.map { ($0.spec.name, $0.spec) })
+        for name in ["messages.graph_chats", "messages.graph_read"] {
+            #expect(specs[name]?.sideEffect == .read, "\(name)")
+            #expect(specs[name]?.receiptKind == "message_read", "\(name)")
+        }
+        #expect(specs["messages.chats"]?.receiptKind == nil && specs["messages.read"]?.receiptKind == nil)
+    }
+
+    @Test func graphReadIsMetadataOnlyUnlessTextIsRequested() async throws {
+        let path = makeGraphFixture()
+        let r = registry(sent: Sent(), dbPath: path)
+
+        let chats = try await call(r, "messages.graph_chats", [:])
+        #expect(chats.result["chats"] == [["chatId": "iMessage;-;+15551110000", "handles": ["+15551110000"], "isGroup": false]])
+
+        let out = try await call(r, "messages.graph_read", [:])
+        let wire = String(decoding: try JSONEncoder().encode(out.result), as: UTF8.self)
+        #expect(!wire.contains("SECRET-BODY") && !wire.contains("\"text\""))
+        #expect(out.result["cursor"] == 2 && out.result["hasMore"] == false)
+        #expect(out.result["messages"] == [
+            ["chatId": "iMessage;-;+15551110000", "handle": "+15551110000", "sentAt": "2025-10-24T12:00:00.000Z", "direction": "in"],
+            ["chatId": "iMessage;-;+15551110000", "sentAt": "2025-10-24T12:00:10.000Z", "direction": "out"],
+        ])
+
+        let withText = try await call(r, "messages.graph_read", ["includeText": true, "sinceCursor": 1])
+        #expect(withText.result["messages"] == [
+            ["chatId": "iMessage;-;+15551110000", "sentAt": "2025-10-24T12:00:10.000Z", "direction": "out", "text": "SECRET-BODY out"],
+        ])
     }
 
     @Test func sendNeedsAnApprovalAndNeverRunsAScriptWithoutOne() async throws {
@@ -125,4 +158,35 @@ struct MessagesCapabilitiesTests {
         #expect(out.result["fullDiskAccess"] == false && out.result["automation"] == "granted")
         #expect(await sent.asked == [false])
     }
+}
+
+/// A minimal chat.db: one 1:1 chat with an inbound and an outbound message.
+private func makeGraphFixture() -> String {
+    let dir = NSTemporaryDirectory() + "psyche-graph-\(UUID().uuidString)"
+    try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+    let path = dir + "/chat.db"
+    var db: OpaquePointer?
+    sqlite3_open(path, &db)
+    defer { sqlite3_close(db) }
+    let sql = """
+        CREATE TABLE handle (ROWID INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL, service TEXT NOT NULL);
+        CREATE TABLE chat (ROWID INTEGER PRIMARY KEY AUTOINCREMENT, guid TEXT UNIQUE NOT NULL, style INTEGER,
+                           chat_identifier TEXT, service_name TEXT, display_name TEXT);
+        CREATE TABLE chat_handle_join (chat_id INTEGER, handle_id INTEGER);
+        CREATE TABLE message (ROWID INTEGER PRIMARY KEY AUTOINCREMENT, guid TEXT UNIQUE NOT NULL, text TEXT,
+                              attributedBody BLOB, handle_id INTEGER DEFAULT 0, service TEXT, date INTEGER,
+                              is_from_me INTEGER DEFAULT 0, associated_message_type INTEGER DEFAULT 0);
+        CREATE TABLE chat_message_join (chat_id INTEGER, message_id INTEGER);
+        CREATE TABLE attachment (ROWID INTEGER PRIMARY KEY AUTOINCREMENT, guid TEXT);
+        INSERT INTO handle (id, service) VALUES ('+15551110000', 'iMessage');
+        INSERT INTO chat (guid, style, chat_identifier, service_name, display_name)
+            VALUES ('iMessage;-;+15551110000', 45, '+15551110000', 'iMessage', 'Private Name');
+        INSERT INTO chat_handle_join VALUES (1, 1);
+        INSERT INTO message (guid, text, handle_id, service, date, is_from_me) VALUES ('a', 'SECRET-BODY in', 1, 'iMessage', 783000000000000000, 0);
+        INSERT INTO message (guid, text, handle_id, service, date, is_from_me) VALUES ('b', 'SECRET-BODY out', 0, 'iMessage', 783000010000000000, 1);
+        INSERT INTO chat_message_join VALUES (1, 1);
+        INSERT INTO chat_message_join VALUES (1, 2);
+        """
+    if sqlite3_exec(db, sql, nil, nil, nil) != SQLITE_OK { fatalError(String(cString: sqlite3_errmsg(db))) }
+    return path
 }
