@@ -7,6 +7,7 @@ export * from "./frames.ts";
 export * from "./mcp-official.ts";
 export * from "./methods/index.ts";
 export * from "./node.ts";
+export * from "./prep-note.ts";
 export * from "./schemas/index.ts";
 export * from "./trace.ts";
 export * from "./version.ts";

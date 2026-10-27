@@ -249,6 +249,42 @@ describe("Permissions", () => {
     );
   });
 
+  it("lists the prep-note grant by what it covers and revokes it from the ledger", async () => {
+    const { gateway } = setup(
+      { defaultSection: "permissions" },
+      {
+        edit: (w) => {
+          w.grants.push({
+            id: "grant_prep_notes",
+            kind: "connector_action",
+            scope: "always",
+            grantKey: "notes_create|connector_action:apple-notes:notes_create:title-prefix:Prep:",
+            subject: { tool: "notes_create", titlePrefix: "Prep:", acceptsTaint: true },
+            binding: null,
+            expiresAt: "2027-01-17T10:00:00Z",
+            useCount: 2,
+            lastUsedAt: null,
+            createdFromApprovalId: "apr_batch_1",
+            taskId: null,
+            createdAt: "2026-10-18T09:58:00Z",
+            revokedAt: null,
+          });
+        },
+      },
+    );
+    const ledger = await screen.findByRole("table", { name: "Grants ledger" });
+    // Named for its one title class, not by the raw grant key.
+    expect(within(ledger).queryByText(/title-prefix/)).toBeNull();
+    await userEvent.click(
+      within(ledger).getByRole("button", { name: 'Revoke Notes titled "Prep:" (meeting prep)' }),
+    );
+    await waitFor(() =>
+      expect(callsOf(gateway(), "grants.revoke")[0]?.params).toEqual({
+        grantId: "grant_prep_notes",
+      }),
+    );
+  });
+
   it("shows Grants revoked when an MCP tools/list hash changed", async () => {
     setup(
       { defaultSection: "permissions" },

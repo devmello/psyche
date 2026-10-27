@@ -99,6 +99,9 @@ export function grantSubject(g: Grant): string {
       origin: (text("origin") ?? g.grantKey).replace(/^https?:\/\//, ""),
       access: text("access") ?? "r",
     });
+  // The standing grant for meeting-prep notes covers one title class, so it says so (security §3.5).
+  if (g.kind === "connector_action" && text("titlePrefix") === "Prep:")
+    return t("settings.permissions.subject.prepNotes");
   if (g.kind === "connector_action" || g.kind === "mcp_tool")
     return text("action") ?? text("tool") ?? g.grantKey;
   if (g.kind === "exec" && Array.isArray(s.argv)) {

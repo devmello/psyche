@@ -76,6 +76,7 @@ export const blocks = {
   "blocks.approval.scope.site": "Allow for this site",
   "blocks.approval.scope.session": "Allow for this session",
   "blocks.approval.scope.always": "Always allow",
+  "blocks.approval.scope.prepNotes": "Always for prep notes",
   "blocks.approval.scopeGranted.once": "allow once",
   "blocks.approval.scopeGranted.task": "allow for this task",
   "blocks.approval.scopeGranted.site": "allow for this site",

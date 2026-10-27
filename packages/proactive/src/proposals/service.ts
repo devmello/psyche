@@ -312,7 +312,10 @@ export class ProposalService {
       status: "awaiting_approval",
       approvalId: issued.approval.id,
     });
-    return { proposal: toActionProposal(next), issued };
+    // A standing grant for prep notes approved the batch inside requestBatch, before the proposal
+    // knew its approval id, so no `approval.decided` reached #onBroker: run it now.
+    if (issued.approval.status === "approved") this.#start(next);
+    return { proposal: toActionProposal(this.#get(id)), issued };
   }
 
   dismiss(id: string): ActionProposal {
@@ -362,14 +365,18 @@ export class ProposalService {
     const p = this.store.byApproval(a.id);
     if (p === undefined || p.status !== "awaiting_approval") return;
     if (e.type === "approval.decided" && a.status === "approved") {
-      const run = this.#run(p).catch((err) => this.#o.onError?.(err));
-      const tracked = run.finally(() => this.#inflight.delete(tracked));
-      this.#inflight.add(tracked);
+      this.#start(p);
     } else if (e.type === "approval.decided") {
       this.#save({ ...p, status: "dismissed" });
     } else if (e.type === "approval.expired" || e.type === "approval.invalidated") {
       this.#save({ ...p, status: "expired" });
     }
+  }
+
+  #start(p: StoredProposal): void {
+    const run = this.#run(p).catch((err) => this.#o.onError?.(err));
+    const tracked = run.finally(() => this.#inflight.delete(tracked));
+    this.#inflight.add(tracked);
   }
 
   async #run(start: StoredProposal): Promise<void> {

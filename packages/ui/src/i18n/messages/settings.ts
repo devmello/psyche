@@ -1242,6 +1242,7 @@ export const settings = {
   "settings.permissions.subject.emailAny": "to any recipient",
   "settings.permissions.subject.calendarNamed": "calendar {id}",
   "settings.permissions.subject.calendar": "calendar",
+  "settings.permissions.subject.prepNotes": 'Notes titled "Prep:" (meeting prep)',
   "settings.permissions.title": "Permissions",
   "settings.permissions.description":
     "What runs on its own, what asks first and what never happens.",

@@ -1,5 +1,7 @@
 import {
+  isPrepNoteTitle,
   type JsonObject,
+  PREP_NOTE_GRANT_CLASS,
   PsycheError,
   type SideEffect,
   type ToolCallDescription,
@@ -1557,6 +1559,10 @@ function binding(
       grantKey: `connector_action:${connectorId}:${spec.name}`,
     };
   }
+  // A Prep-titled note is its own narrow class (security §3.5): the title decides the key, from
+  // the real arguments, so a standing grant for prep notes can never cover another title.
+  const prepNote =
+    spec.name === "notes_create" && isPrepNoteTitle((params as { title?: unknown } | null)?.title);
   return {
     kind: spec.binding === "calendar" ? "calendar_write" : "connector_action",
     target: { kind: "account", value: connectorId },
@@ -1565,7 +1571,7 @@ function binding(
       tool: spec.name,
       paramsHash: sha256(canonicalJSON(params ?? {})),
     },
-    grantKey: `${spec.binding === "calendar" ? "calendar_write" : "connector_action"}:${connectorId}:${spec.name}`,
+    grantKey: `${spec.binding === "calendar" ? "calendar_write" : "connector_action"}:${connectorId}:${spec.name}${prepNote ? `:${PREP_NOTE_GRANT_CLASS}` : ""}`,
   };
 }
 

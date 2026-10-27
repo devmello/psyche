@@ -17,9 +17,11 @@ import {
   type GrantFilter,
   type GrantScope,
   type IssuedApproval,
+  isPrepNoteCall,
   type JsonObject,
   type Notifier,
   type PermissionBroker,
+  PREP_NOTE_TITLE_PREFIX,
   type PreviewResult,
   PsycheError,
   type Receipt,
@@ -522,10 +524,15 @@ export class PsychePermissionBroker implements PermissionBroker {
       fail("invalid_params", `a batch holds 1 to ${MAX_BATCH_CALLS} calls`);
     }
     const children: BatchChild[] = [];
+    // Per child: the live prep-note standing grant that covers it (security §3.4), and whether
+    // the decision already used it (an `allow` does; a taint `ask` is used only if all are covered).
+    const byGrant: { grant: StoredGrant; used: boolean }[] = [];
     for (const [i, c] of input.children.entries()) {
       const d = await this.decide(c.call, input.context);
       const kind = d.approvalKind ?? c.call.kind ?? inferApprovalKind(c.call.tool);
       const at = `call ${i + 1} (${c.call.tool})`;
+      const covering = this.#prepGrantFor(c.call, d, kind, input.context);
+      if (covering !== undefined) byGrant.push(covering);
       if (d.decision === "deny") {
         fail("policy_denied", `${at} is denied: ${d.reason ?? d.rule}`);
       }
@@ -553,6 +560,10 @@ export class PsychePermissionBroker implements PermissionBroker {
       });
     }
     const hash = bindingHash("batch", { children: children.map((c) => c.bindingHash) });
+    // Every call is a Prep-titled `notes_create`: the card may offer the narrow `always` grant
+    // for prep notes, and a live grant that covers every call approves the batch without a card.
+    const prepNotes = children.length > 0 && children.every((c) => this.#isPrepChild(c));
+    const covered = prepNotes ? byGrant : [];
     const issued = this.#issue({
       kind: "batch",
       summary: input.title,
@@ -567,15 +578,99 @@ export class PsychePermissionBroker implements PermissionBroker {
       requestedBy: { ...input.requestedBy },
       sideEffect: "write",
       surfaces: input.surfaces,
-      scopesOffered: ["once"],
+      scopesOffered: prepNotes ? ["once", "always"] : ["once"],
       taint: input.context.taint,
       ...(input.taintSources === undefined ? {} : { taintSources: input.taintSources }),
       ...(input.ttlMs === undefined ? {} : { ttlMs: input.ttlMs }),
       context: structuredClone(input.context),
       batch: { children },
     });
+    if (prepNotes && covered.length === children.length) {
+      for (const [i, c] of covered.entries()) {
+        const child = children[i];
+        if (c.used || child === undefined) continue;
+        // Re-read: one grant may cover several calls, each counting its own use.
+        this.#useGrant(this.#store.getGrant(c.grant.grant.id) ?? c.grant, child.bindingHash);
+      }
+      const first = covered[0];
+      if (first !== undefined) return await this.#approveBatchByGrant(issued, first.grant);
+    }
     await this.#afterIssue(issued.approval);
     return issued;
+  }
+
+  /** A batch child that is a Prep-titled `notes_create`, keyed by the connector's own class. */
+  #isPrepChild(c: BatchChild): boolean {
+    return isPrepNoteCall({ tool: c.call.tool, params: c.call.params, grantKey: c.grantKey });
+  }
+
+  /**
+   * The live prep-note grant that covers this call, or undefined. A decision of `allow` under a
+   * grant already used it. A decision of `ask` for `taint:new_target` is covered only by an
+   * `always` grant the owner gave on a card that showed the taint (`acceptsTaint`); the match is
+   * on the grant key the real arguments give, so another title or tool never matches. The caller
+   * uses the grant only when the whole batch is covered.
+   */
+  #prepGrantFor(
+    call: PolicyCall,
+    d: PolicyDecision,
+    kind: ApprovalKind,
+    ctx: PolicyContext,
+  ): { grant: StoredGrant; used: boolean } | undefined {
+    const grantKey = d.grantKey ?? call.grantKey;
+    if (grantKey === undefined || !isPrepNoteCall({ ...call, grantKey })) return undefined;
+    if (d.decision === "allow") {
+      const used = d.grantId === undefined ? undefined : this.#store.getGrant(d.grantId);
+      return used === undefined ? undefined : { grant: used, used: true };
+    }
+    if (d.decision !== "ask" || d.rule !== "taint:new_target") return undefined;
+    const g = this.#matchGrant(grantKey, kind, d.sideEffect, ctx, undefined);
+    if (g === undefined || g.grant.scope !== "always" || g.grant.subject.acceptsTaint !== true) {
+      return undefined;
+    }
+    return { grant: g, used: false };
+  }
+
+  /**
+   * The batch is approved by a standing grant: no card, no notification. It is recorded as
+   * approved under that grant (`scopeGranted: always`, `grantId`) with one minted child per call,
+   * exactly as an answered card would leave it.
+   */
+  async #approveBatchByGrant(issued: IssuedApproval, grant: StoredGrant): Promise<IssuedApproval> {
+    const now = this.clock.now();
+    const decided = this.#store.transaction(() => {
+      const rec = this.#store.getApproval(issued.approval.id);
+      if (rec === undefined) return undefined;
+      const a = rec.approval;
+      a.status = "approved";
+      a.scopeGranted = "always";
+      a.decidedBy = null;
+      a.decidedAt = new Date(now).toISOString();
+      a.grantId = grant.grant.id;
+      for (const t of rec.tokens) t.usedAt = a.decidedAt;
+      this.#mintBatchChildren(rec, null, now);
+      this.#store.updateApproval(rec);
+      return rec;
+    });
+    this.#timers.get(issued.approval.id)?.();
+    this.#timers.delete(issued.approval.id);
+    if (decided === undefined) return issued;
+    const a = decided.approval;
+    await this.#log(
+      "approval.decided",
+      { type: "system" },
+      { approvalId: a.id },
+      {
+        decision: "allow",
+        grantScope: "always",
+        grantId: grant.grant.id,
+        bindingHash: a.bindingHash,
+        taint: a.taint,
+        via: "grant",
+      },
+    );
+    this.#settled(a, "approval.decided");
+    return { approval: structuredClone(a), answerTokens: {} };
   }
 
   /**
@@ -603,7 +698,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     return out;
   }
 
-  #mintBatchChildren(batch: StoredApproval, by: DecidedBy, now: number): void {
+  #mintBatchChildren(batch: StoredApproval, by: DecidedBy | null, now: number): void {
     const children = batch.input.batch?.children ?? [];
     const at = new Date(now).toISOString();
     const expiresAt = new Date(now + BATCH_CHILD_TTL_MS).toISOString();
@@ -626,7 +721,7 @@ export class PsychePermissionBroker implements PermissionBroker {
         taint: batch.approval.taint,
         status: "approved",
         scopeGranted: "once",
-        decidedBy: structuredClone(by),
+        decidedBy: by === null ? null : structuredClone(by),
         requestedAt: at,
         expiresAt,
         decidedAt: at,
@@ -1095,7 +1190,15 @@ export class PsychePermissionBroker implements PermissionBroker {
         fa.scopeGranted = scope;
         // A batch becomes one approved, once-only approval per listed call (§8.1).
         if (fa.kind === "batch") this.#mintBatchChildren(fresh, by, now);
-        if (scope !== "once") {
+        if (fa.kind === "batch" && scope === "always") {
+          // The one batch grant: prep notes only. It binds the calls' own key, not the batch's.
+          grant = this.#newPrepNoteGrant(fresh, by, now);
+          if (grant === undefined) fa.scopeGranted = "once";
+          else {
+            this.#store.insertGrant(grant);
+            fa.grantId = grant.grant.id;
+          }
+        } else if (scope !== "once") {
           grant = this.#newGrant(fresh, scope, by, now);
           this.#store.insertGrant(grant);
           fa.grantId = grant.grant.id;
@@ -1161,6 +1264,58 @@ export class PsychePermissionBroker implements PermissionBroker {
     }
     this.#settled(fa, "approval.decided");
     return structuredClone(fa);
+  }
+
+  /**
+   * The `always` grant of an approved prep-note batch (security §3.4, §3.5): the calls' own
+   * grant key (`notes_create` with a `Prep:` title), `createdFrom` the batch approval, 90 days.
+   * Undefined unless every call is a Prep-titled `notes_create` under one key.
+   */
+  #newPrepNoteGrant(rec: StoredApproval, by: DecidedBy, now: number): StoredGrant | undefined {
+    const a = rec.approval;
+    const children = rec.input.batch?.children ?? [];
+    const first = children[0];
+    if (first === undefined) return undefined;
+    if (!children.every((c) => this.#isPrepChild(c) && c.grantKey === first.grantKey)) {
+      return undefined;
+    }
+    const target = first.call.target;
+    return {
+      grant: {
+        id: this.#newId("grt"),
+        kind: first.kind,
+        scope: "always",
+        grantKey: first.grantKey,
+        subject: {
+          grantKey: first.grantKey,
+          tool: first.call.tool,
+          titlePrefix: PREP_NOTE_TITLE_PREFIX,
+          ...(target === undefined ? {} : { target }),
+          sideEffect: "write",
+          // Given on a card that named its taint: the owner accepted calendar-derived content.
+          ...(a.taint ? { acceptsTaint: true } : {}),
+        },
+        binding: { bindingHash: first.bindingHash },
+        expiresAt: new Date(now + this.#ttl().always).toISOString(),
+        useCount: 0,
+        lastUsedAt: null,
+        createdFromApprovalId: a.id,
+        taskId: null,
+        createdAt: new Date(now).toISOString(),
+        revokedAt: null,
+      },
+      meta: {
+        sideEffect: "write",
+        sessionId: null,
+        threadId: null,
+        origin: null,
+        createdByDeviceId: "deviceId" in by ? by.deviceId : null,
+        maxUses: null,
+        lastUsedBindingHash: null,
+        revokedReason: null,
+        requesterId: requesterKey(rec.input.context?.requester),
+      },
+    };
   }
 
   #newGrant(
