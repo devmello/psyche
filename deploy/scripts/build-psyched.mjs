@@ -12,6 +12,8 @@
 //   com.psyche.gateway.plist.template   LaunchAgent with {{PSYCHED}} and {{PSYCHE_HOME}}
 //   build-info.json            {version, commit, node, arch, builtAt, bytes}
 //
+// The bundle's size is held to deploy/size-budget.json (psychedMB); the build fails above it.
+//
 // Native addons (better-sqlite3, node-pty, sqlite-vec, …) are installed for the host by pnpm, so
 // build each arch on a host of that arch (the release workflow uses an Intel runner for x64); the
 // script checks every .node file's architecture and refuses a mismatch. The build fails when the
@@ -40,6 +42,8 @@ import { homedir, arch as hostArch, platform, tmpdir } from "node:os";
 import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { findPins } from "./node-pins.mjs";
+import { prunePackageWaste } from "./prune-package-waste.mjs";
+import { checkBudget, treeSize } from "./size-budget.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)), "../..");
 
@@ -475,6 +479,49 @@ function smokeSkills(bundle, home) {
   process.stdout.write(`smoke: ${skills.length} bundled skills load\n`);
 }
 
+/**
+ * Loads each native addon and the libraries pruned the hardest with the bundle's own runtime, from
+ * the workspace package that depends on them: a file `prune-package-waste.mjs` took that the
+ * runtime needs fails here, not on the owner's Mac. The Gateway boot does not reach all of them
+ * (the vault, the browser and PDF extraction are lazy).
+ */
+function smokeNative(bundle, home) {
+  const app = join(bundle, "app");
+  const script = `
+    import { createRequire } from "node:module";
+    const need = (pkg) => createRequire(${JSON.stringify(`${app}/packages/`)} + pkg + "/package.json");
+    const Sqlite = need("search")("better-sqlite3");
+    const db = new Sqlite(":memory:");
+    need("memory")("sqlite-vec").load(db);
+    const Cipher = need("vault")("better-sqlite3-multiple-ciphers");
+    const vault = new Cipher(${JSON.stringify(join(home, "native-check.db"))});
+    vault.pragma("cipher='sqlcipher'");
+    vault.pragma("key='smoke'");
+    vault.prepare("create table t (a)").run();
+    if (typeof need("browser")("playwright-core").chromium.launch !== "function") throw new Error("playwright-core");
+    if (!need("connectors")("turndown")) throw new Error("turndown");
+    const { pdfSource } = await import(${JSON.stringify(pathToFileURL(join(app, "packages/files/src/extract/pdf.ts")).href)});
+    await pdfSource(new TextEncoder().encode("%PDF-1.4\n")).then(() => { throw new Error("pdf.js accepted junk"); }, (e) => {
+      if (!/unreadable PDF/.test(e.message)) throw e;
+    });
+    process.stdout.write(JSON.stringify({ sqlite: db.prepare("select sqlite_version() v").get().v, vec: db.prepare("select vec_version() v").get().v }));
+  `;
+  const out = execFileSync(
+    join(bundle, "runtime/node"),
+    ["--disable-warning=ExperimentalWarning", "--input-type=module", "-e", script],
+    {
+      cwd: app,
+      encoding: "utf8",
+      env: { PATH: "/usr/bin:/bin", HOME: home },
+      stdio: ["ignore", "pipe", "ignore"],
+    },
+  );
+  const v = JSON.parse(out);
+  process.stdout.write(
+    `smoke: native modules load (sqlite ${v.sqlite}, sqlite-vec ${v.vec}, sqlcipher, playwright-core, turndown, pdf.js)\n`,
+  );
+}
+
 export const PSYCHED_LAUNCHER = `#!/bin/sh
 # Psyche Gateway (psyched) from Psyche.app. Needs only PSYCHE_HOME; no Node, PATH or checkout.
 # A 4 MB young generation keeps an idle Gateway near 200 MB instead of ≈ 330 MB.
@@ -519,6 +566,7 @@ async function smoke(bundle) {
     if (health?.ok !== true) throw new Error(`/healthz answered ${JSON.stringify(health)}`);
     process.stdout.write(`smoke: psyched healthy at ${origin}/healthz with only PSYCHE_HOME set\n`);
     smokeSkills(bundle, home);
+    smokeNative(bundle, home);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
@@ -607,6 +655,10 @@ async function main(argv) {
 
   const pruned = pruneForeignPrebuilds(app, arch);
   process.stdout.write(`pruned ${pruned} prebuilt addon(s) for other platforms\n`);
+  const waste = prunePackageWaste(app);
+  process.stdout.write(
+    `pruned ${(waste.installed / 1e6).toFixed(0)} MB of docs/tests/sources from ${waste.packages} package(s), ${(waste.workspaces / 1e6).toFixed(1)} MB of workspace tests, ${(waste.dupes / 1e6).toFixed(0)} MB of duplicate libraries\n`,
+  );
   const bad = checkAddons(app, arch);
   if (bad.length) throw new Error(`native addons for the wrong architecture:\n${bad.join("\n")}`);
 
@@ -639,6 +691,7 @@ async function main(argv) {
   process.stdout.write(
     `built ${bundle} (${(bytes / 1e6).toFixed(0)} MB, Node ${version}, darwin-${arch})\n`,
   );
+  process.stdout.write(`${checkBudget("psychedMB", treeSize(bundle))}\n`);
 
   if (argv.includes("--smoke")) await smoke(bundle);
 }

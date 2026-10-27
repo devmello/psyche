@@ -34,6 +34,9 @@ case "$arch" in arm64|x64) ;; *) echo "arch must be arm64 or x64" >&2; exit 2 ;;
 case "$version" in *[!0-9A-Za-z.-]*|"") echo "bad version: $version" >&2; exit 2 ;; esac
 [ -d "$app" ] || { echo "no app bundle at $app" >&2; exit 2; }
 command -v hdiutil >/dev/null || { echo "make-dmg.sh needs macOS (hdiutil)" >&2; exit 2; }
+# Size budget (deploy/size-budget.json): fail before the slow steps, not after notarization.
+budget="$here/../scripts/size-budget.mjs"
+node "$budget" appMB "$app" >&2
 
 mkdir -p "$out"
 dmg="$out/Psyche-$version-$arch.dmg"
@@ -111,6 +114,8 @@ if [ "$laid_out" != 1 ]; then
   rm -rf "$stage/.background"
   hdiutil create -volname "$volname" -srcfolder "$stage" -fs APFS -format ULFO -ov "$dmg" >/dev/null
 fi
+
+node "$budget" dmgMB "$dmg" >&2
 
 if [ -n "${PSYCHE_SIGN_IDENTITY:-}" ]; then
   codesign --force --timestamp --sign "$PSYCHE_SIGN_IDENTITY" "$dmg"

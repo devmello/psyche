@@ -1,6 +1,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -544,6 +545,168 @@ describe("deploy/scripts/build-psyched.mjs foreign prebuilds", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("deploy/scripts/prune-package-waste.mjs (app size, phase 1)", () => {
+  /** A pnpm store with the packages the Gateway ships, each with files it does and does not load. */
+  function fixture(): string {
+    const app = mkdtempSync(join(tmpdir(), "psyche-waste-"));
+    const put = (rel: string, text = "x") => {
+      mkdirSync(dirname(join(app, rel)), { recursive: true });
+      writeFileSync(join(app, rel), text);
+    };
+    const pkg = (id: string, name: string) => `node_modules/.pnpm/${id}/node_modules/${name}`;
+    const sqlite = pkg("better-sqlite3@13.0.3", "better-sqlite3");
+    for (const f of [
+      "lib/index.js",
+      "prebuilds/darwin-arm64.node",
+      "package.json",
+      "LICENSE",
+      "deps/sqlite3/sqlite3.c",
+      "src/better_sqlite3.cpp",
+      "build/Release/obj.target/x.o",
+      "binding.gyp",
+      "README.md",
+    ])
+      put(`${sqlite}/${f}`);
+    const pdf = pkg("pdfjs-dist@6.4.299", "pdfjs-dist");
+    for (const f of [
+      "legacy/build/pdf.mjs",
+      "legacy/build/pdf.worker.mjs",
+      "legacy/build/pdf.min.mjs",
+      "legacy/build/pdf.mjs.map",
+      "legacy/web/viewer.mjs",
+      "build/pdf.mjs",
+      "web/viewer.html",
+      "image_decoders/pdf.image_decoders.mjs",
+      "cmaps/Adobe-Japan1-0.bcmap",
+      "standard_fonts/FoxitSans.pfb",
+      "wasm/openjpeg.wasm",
+      "LICENSE",
+    ])
+      put(`${pdf}/${f}`);
+    const pw = pkg("playwright-core@1.64.1", "playwright-core");
+    for (const f of ["lib/coreBundle.js", "lib/vite/traceViewer/index.html", "index.js"])
+      put(`${pw}/${f}`);
+    // A scoped package with tests, docs, declarations and a licence next to its code.
+    const ai = pkg("@ai-sdk+gateway@4.0.0", "@ai-sdk/gateway");
+    for (const f of [
+      "dist/index.mjs",
+      "dist/index.d.ts",
+      "dist/index.mjs.map",
+      "test/a.test.js",
+      "docs/guide.md",
+      "CHANGELOG.md",
+      "LICENSE.md",
+      ".eslintrc.json",
+      "package.json",
+    ])
+      put(`${ai}/${f}`);
+    // Workspace sources: tests and changelogs go, the code stays.
+    for (const f of [
+      "packages/db/src/index.ts",
+      "packages/db/src/index.test.ts",
+      "packages/db/test/a.test.ts",
+      "packages/db/migrations/0001.sql",
+      "packages/db/vitest.config.ts",
+      "packages/db/CHANGELOG.md",
+    ])
+      put(f);
+    // onnxruntime ships its dylib twice, as two copies instead of a link.
+    const ort = `${pkg("onnxruntime-node@1.30.0", "onnxruntime-node")}/bin/napi-v6/darwin/arm64`;
+    put(`${ort}/libonnxruntime.1.30.0.dylib`, "dylib-bytes");
+    put(`${ort}/libonnxruntime.1.dylib`, "dylib-bytes");
+    put(`${ort}/onnxruntime_binding.node`, "binding");
+    return app;
+  }
+  const all = (dir: string, base = dir): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() && !e.isSymbolicLink()
+        ? all(join(dir, e.name), base)
+        : [join(dir, e.name).slice(base.length + 1)],
+    );
+
+  it("cuts sources, docs, tests and unused builds, and keeps what the Gateway loads", async () => {
+    const { prunePackageWaste } = await import(resolve(deploy, "scripts/prune-package-waste.mjs"));
+    const app = fixture();
+    try {
+      const r = prunePackageWaste(app);
+      expect(r.installed).toBeGreaterThan(0);
+      const left = all(app).sort();
+      const pnpm = "node_modules/.pnpm";
+      expect(left.filter((f) => f.includes("better-sqlite3"))).toEqual([
+        `${pnpm}/better-sqlite3@13.0.3/node_modules/better-sqlite3/LICENSE`,
+        `${pnpm}/better-sqlite3@13.0.3/node_modules/better-sqlite3/lib/index.js`,
+        `${pnpm}/better-sqlite3@13.0.3/node_modules/better-sqlite3/package.json`,
+        `${pnpm}/better-sqlite3@13.0.3/node_modules/better-sqlite3/prebuilds/darwin-arm64.node`,
+      ]);
+      const pdf = `${pnpm}/pdfjs-dist@6.4.299/node_modules/pdfjs-dist`;
+      expect(left.filter((f) => f.startsWith(pdf))).toEqual([
+        `${pdf}/LICENSE`,
+        `${pdf}/cmaps/Adobe-Japan1-0.bcmap`,
+        `${pdf}/legacy/build/pdf.mjs`,
+        `${pdf}/legacy/build/pdf.worker.mjs`,
+        `${pdf}/standard_fonts/FoxitSans.pfb`,
+        `${pdf}/wasm/openjpeg.wasm`,
+      ]);
+      const pw = `${pnpm}/playwright-core@1.64.1/node_modules/playwright-core`;
+      expect(left.filter((f) => f.startsWith(pw))).toEqual([
+        `${pw}/index.js`,
+        `${pw}/lib/coreBundle.js`,
+      ]);
+      const ai = `${pnpm}/@ai-sdk+gateway@4.0.0/node_modules/@ai-sdk/gateway`;
+      expect(left.filter((f) => f.startsWith(ai))).toEqual([
+        `${ai}/LICENSE.md`,
+        `${ai}/dist/index.mjs`,
+        `${ai}/package.json`,
+      ]);
+      expect(left.filter((f) => f.startsWith("packages/"))).toEqual([
+        "packages/db/migrations/0001.sql",
+        "packages/db/src/index.ts",
+      ]);
+    } finally {
+      rmSync(app, { recursive: true, force: true });
+    }
+  });
+
+  it("links onnxruntime's second copy of its dylib to the first instead of shipping both", async () => {
+    const { prunePackageWaste } = await import(resolve(deploy, "scripts/prune-package-waste.mjs"));
+    const app = fixture();
+    try {
+      const r = prunePackageWaste(app);
+      expect(r.dupes).toBe("dylib-bytes".length);
+      const dir = join(
+        app,
+        "node_modules/.pnpm/onnxruntime-node@1.30.0/node_modules/onnxruntime-node/bin/napi-v6/darwin/arm64",
+      );
+      expect(lstatSync(join(dir, "libonnxruntime.1.dylib")).isSymbolicLink()).toBe(true);
+      expect(readFileSync(join(dir, "libonnxruntime.1.dylib"), "utf8")).toBe("dylib-bytes");
+      expect(lstatSync(join(dir, "libonnxruntime.1.30.0.dylib")).isSymbolicLink()).toBe(false);
+    } finally {
+      rmSync(app, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("deploy/scripts/size-budget.mjs", () => {
+  it("passes under the limit, fails over it, and can be skipped", async () => {
+    const { checkBudget } = await import(resolve(deploy, "scripts/size-budget.mjs"));
+    const limits = { psychedMB: 100 };
+    expect(checkBudget("psychedMB", 99.5, limits)).toContain("99.5 MiB of 100 MiB");
+    expect(() => checkBudget("psychedMB", 100.5, limits)).toThrow(/over the budget/);
+    expect(() => checkBudget("appMB", 1, limits)).toThrow(/no "appMB"/);
+    process.env.PSYCHE_SIZE_BUDGET = "skip";
+    try {
+      expect(checkBudget("psychedMB", 500, limits)).toContain("skipped");
+    } finally {
+      delete process.env.PSYCHE_SIZE_BUDGET;
+    }
+  });
+
+  it("holds every kind to a number in deploy/size-budget.json", () => {
+    const b = JSON.parse(read("size-budget.json")) as Record<string, number>;
+    for (const k of ["psychedMB", "appMB", "dmgMB"]) expect(b[k], k).toBeGreaterThan(0);
   });
 });
 
