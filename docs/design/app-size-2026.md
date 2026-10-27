@@ -195,3 +195,11 @@ With the library shipped and the fuse off, the installed app is 510 MiB and the 
   grammars, is a bigger saving than anything left in `node_modules`.
 - A Node built `--without-intl` / small-ICU and without the inspector would be roughly 40–50 MiB
   smaller than the official 93 MiB binary, at the price of building and pinning our own runtime in CI.
+
+## Helper: strip before signing
+
+`apps/mac-helper/scripts/build-app.sh` (release) writes a dSYM next to the bundle
+(`dist/PsycheHelper.app.dSYM`, not shipped), then runs a full `strip` on the copy inside the app
+before `codesign`. `psyche-helper` goes from 29.7 to 10.1 MiB (31,145,840 to 10,632,096 bytes):
+`__LINKEDIT` (symbols) shrinks from 21.0 to 1.4 MiB, `__TEXT` is unchanged. Runtime RAM is
+unchanged. `PSYCHE_HELPER_STRIP=x` (strip -x) or `none` overrides it.
