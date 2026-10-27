@@ -18,6 +18,14 @@ export function perfProbeFile(env: NodeJS.ProcessEnv = process.env): string | un
   return env[PERF_FIRST_PAINT_ENV] || undefined;
 }
 
+/**
+ * PSYCHE_PERF_HOLD=1 keeps a measured run alive after the first paint, still isolated from the
+ * owner's machine, so a memory measurement can sample the processes (docs/design/lightweight-2026.md).
+ */
+export function perfHold(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.PSYCHE_PERF_HOLD === "1";
+}
+
 /** Epoch milliseconds, so the launcher can subtract its own spawn time on the same clock. */
 export interface FirstPaintRecord {
   stage: "started" | "ready" | "loaded" | "painted" | "no-paint" | "error";

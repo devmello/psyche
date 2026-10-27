@@ -18,6 +18,9 @@ export const KINDS = {
   dmgMB: "the DMG",
 };
 
+// gatewayIdleFootprintMB, gatewayIdleHeapMB and gatewayBundleMB live in the same file but need a
+// running Gateway: memory-budget.mjs measures and checks them.
+
 export function budgets(file = BUDGET_FILE) {
   return JSON.parse(readFileSync(file, "utf8"));
 }

@@ -69,7 +69,7 @@ import {
 } from "./main/glass.ts";
 import { HelperLauncher, helperCanHoldKeychain } from "./main/helper-launcher.ts";
 import { buildAppMenu } from "./main/menu.ts";
-import { perfProbeFile, startProbe, watchFirstPaint } from "./main/perf-probe.ts";
+import { perfHold, perfProbeFile, startProbe, watchFirstPaint } from "./main/perf-probe.ts";
 import {
   createPermissions,
   notificationStateOf,
@@ -1034,7 +1034,7 @@ void app.whenReady().then(async () => {
   });
   const measured = windows.mainContents();
   if (perfProbe !== undefined && measured) {
-    watchFirstPaint(measured, perfProbe, () => app.quit(), {
+    watchFirstPaint(measured, perfProbe, () => (perfHold() ? undefined : app.quit()), {
       ...(shownAt === undefined ? {} : { shownAt }),
     });
   }
