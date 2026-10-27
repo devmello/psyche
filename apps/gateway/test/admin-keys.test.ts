@@ -18,10 +18,14 @@ describe("isAdminSettingKey", () => {
     expect(isAdminSettingKey(key)).toBe(true);
   });
 
-  it.each(["appearance.theme", "ui.density", "notifications.sound"])(
-    "treats %s as an ordinary setting",
-    (key) => {
-      expect(isAdminSettingKey(key)).toBe(false);
-    },
-  );
+  it.each([
+    "appearance.theme",
+    "ui.density",
+    "notifications.sound",
+    "notifications.quietHours.enabled",
+    "notifications.quietHours.start",
+    "notifications.quietHours.end",
+  ])("treats %s as an ordinary setting", (key) => {
+    expect(isAdminSettingKey(key)).toBe(false);
+  });
 });

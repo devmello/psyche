@@ -80,6 +80,9 @@ const LABELLED_KEYS = [
   "voice.conversation.enabled",
   "voice.conversation.key",
   "voice.conversation.reviewBeforeSend",
+  "notifications.quietHours.enabled",
+  "notifications.quietHours.start",
+  "notifications.quietHours.end",
   // Mail & meetings (docs/workflows/mail-and-meetings-2026.md §7.3)
   "workflows.paused",
   "workflows.readOnly",

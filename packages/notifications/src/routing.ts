@@ -98,9 +98,11 @@ export function planDelivery(
   options: { breakQuietHours?: boolean } = {},
 ): DeliveryPlan[] {
   const qh = config.quietHours ?? null;
+  // A kind whose OS interruption level is time-sensitive (approvals) always comes through.
   const quiet =
     qh !== null &&
     options.breakQuietHours !== true &&
+    interruptionFor(config, kind) !== "timeSensitive" &&
     !breaksThrough(qh, kind) &&
     isQuietAt(qh, now);
   const until = quiet ? quietEndsAt(qh, now) : undefined;

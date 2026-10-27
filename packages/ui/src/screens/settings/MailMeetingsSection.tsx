@@ -95,7 +95,7 @@ function SelectRow({
 }
 
 /** A time of day ("07:30") that commits on blur or Return. */
-function TimeRow({
+export function TimeRow({
   label,
   value,
   onCommit,

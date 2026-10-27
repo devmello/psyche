@@ -1,6 +1,7 @@
 import type { Connector } from "@psyche/protocol";
 import {
   Activity,
+  Bell,
   Bot,
   FolderLock,
   Globe,
@@ -50,6 +51,7 @@ import { DevicesSection } from "./DevicesSection.tsx";
 import { FileAccessSection } from "./FileAccessSection.tsx";
 import { MailMeetingsSection } from "./MailMeetingsSection.tsx";
 import { ModelSection } from "./ModelSection.tsx";
+import { NotificationsSection } from "./NotificationsSection.tsx";
 import { PeopleSection } from "./PeopleSection.tsx";
 import { PermissionsSection } from "./PermissionsSection.tsx";
 import { PersonaSection } from "./PersonaSection.tsx";
@@ -87,6 +89,7 @@ export type SettingsSectionId =
   | "channels"
   | "credentials"
   | "appearance"
+  | "notifications"
   | "voice"
   | "mail"
   | "data"
@@ -126,6 +129,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionEntry[] = [
   entry("channels", MessagesSquare),
   entry("credentials", KeyRound),
   entry("appearance", Palette),
+  entry("notifications", Bell),
   entry("voice", Mic),
   entry("mail", Mail),
   entry("data", Trash2),
@@ -142,7 +146,10 @@ export const SETTINGS_GROUPS: readonly {
   id: SettingsGroupId;
   sections: readonly SettingsSectionId[];
 }[] = [
-  { id: "general", sections: ["model", "persona", "appearance", "voice", "mail", "usage"] },
+  {
+    id: "general",
+    sections: ["model", "persona", "appearance", "notifications", "voice", "mail", "usage"],
+  },
   {
     id: "access",
     sections: [
@@ -175,6 +182,7 @@ export function sectionForKey(key: string): SettingsSectionId | null {
     gateway: "server",
     memory: "people",
     models: "model",
+    notifications: "notifications",
     permissions: "permissions",
     persona: "persona",
     vm: "vm",
@@ -338,6 +346,8 @@ export function SettingsSectionView({
       );
     case "appearance":
       return <AppearanceSection />;
+    case "notifications":
+      return <NotificationsSection />;
     case "voice":
       return <VoiceSection />;
     case "mail":
