@@ -61,6 +61,17 @@ export interface TaskState {
   downgraded: boolean;
 }
 
+/** A dry run's Task state: a copy of the broker's (or a fresh one), shared by the dry run's intents. */
+function dryTask(dry: DryRun, d: EngineDeps, ctx: PolicyContext): TaskState {
+  const key = taskKey(ctx);
+  let s = dry.scratch.get(key);
+  if (s === undefined) {
+    s = structuredClone(d.peekTask(ctx)) ?? newTaskState();
+    dry.scratch.set(key, s);
+  }
+  return s;
+}
+
 export function newTaskState(): TaskState {
   return {
     touched: new Set(),
@@ -72,9 +83,26 @@ export function newTaskState(): TaskState {
   };
 }
 
+/** The key a Task's state lives under: its task id, else its thread (plan and chat turns). */
+export function taskKey(ctx: Pick<PolicyContext, "taskId" | "threadId">): string {
+  return ctx.taskId ?? `thread:${ctx.threadId}`;
+}
+
+/**
+ * A dry run (`PermissionBroker.preview`). Task state is copied into `scratch` on first use, so the
+ * evaluation can mark sources touched and approved targets without changing the broker's own state.
+ * Grants are not consumed and the classifier is not called (see `#once`).
+ */
+export interface DryRun {
+  scratch: Map<string, TaskState>;
+}
+
 export interface EngineDeps {
   policy(): CompiledPolicy;
+  /** The Task's state, created on first use (`decide`). */
   task(ctx: PolicyContext): TaskState;
+  /** The Task's state if the broker has one, without creating it (`preview`). */
+  peekTask(ctx: PolicyContext): TaskState | undefined;
   matchGrant(
     grantKey: string,
     kind: ApprovalKind,
@@ -237,12 +265,16 @@ export class PolicyEngine {
     return b;
   }
 
-  async evaluate(original: PolicyCall, ctx: PolicyContext): Promise<Evaluation> {
+  /**
+   * The one evaluation both `decide` and `preview` run (security §3.3). With `dry`, the evaluation
+   * consumes no grant, calls no classifier and changes no Task state: it only reads.
+   */
+  async evaluate(original: PolicyCall, ctx: PolicyContext, dry?: DryRun): Promise<Evaluation> {
     const trace: string[] = [];
     let call = original;
     let rewritten = false;
     for (let round = 0; ; round += 1) {
-      const r = await this.#once(call, ctx, trace, rewritten);
+      const r = await this.#once(call, ctx, trace, rewritten, dry);
       if (!("rewrite" in r)) return r;
       trace.push(`hook:rewrite(${r.hook})`);
       if (round >= 2) {
@@ -304,6 +336,7 @@ export class PolicyEngine {
     ctx: PolicyContext,
     trace: string[],
     rewritten: boolean,
+    dry: DryRun | undefined,
   ): Promise<Evaluation | { rewrite: PolicyCall; hook: string }> {
     const d = this.#d;
     const p = d.policy();
@@ -312,7 +345,7 @@ export class PolicyEngine {
     const se = effectiveSideEffect(call.tool, call.sideEffect);
     if (se !== call.sideEffect) trace.push(`floor:${call.sideEffect}->${se}`);
     const tainted = ctx.taint || ctx.initiator === "mcp_app";
-    const state = d.task(ctx);
+    const state = dry === undefined ? d.task(ctx) : dryTask(dry, d, ctx);
     const mode =
       state.downgraded && ctx.permissionMode === "auto" ? "balanced" : ctx.permissionMode;
     const origin = originOf(call);
@@ -672,6 +705,11 @@ export class PolicyEngine {
       // 7. Classifier: residual writes in auto mode.
       let classifier: PolicyDecision["classifier"];
       if (mode === "auto" && se === "write") {
+        // A dry run cannot call the classifier (a model call, with audit and breaker effects), so
+        // it reports the residual write as asking; the label decides only when the call runs.
+        if (dry !== undefined) {
+          return ask("classifier:deferred", "the action classifier decides when the call runs");
+        }
         trace.push("step7:classifier");
         const c = await this.#classify(call, ctx, state, allowed, origin);
         classifier = { label: c.label, reason: c.reason };
@@ -681,10 +719,14 @@ export class PolicyEngine {
       }
       if (tk !== undefined && SEVERITY[se] <= SEVERITY.read) state.touched.add(tk);
       if (allowed.grant !== undefined) {
-        const used = d.useGrant(allowed.grant, binding.bindingHash);
+        // A dry run names the grant it would use without counting a use of it.
+        const grantId =
+          dry === undefined
+            ? d.useGrant(allowed.grant, binding.bindingHash).grant.id
+            : allowed.grant.grant.id;
         return done("allow", allowed.rule, undefined, {
           binding,
-          grantId: used.grant.id,
+          grantId,
           classifier,
         });
       }

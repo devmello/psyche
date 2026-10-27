@@ -119,6 +119,8 @@ For every tool call and `node.invoke`, the first terminal result wins:
 
 `ask` creates an ApprovalRequest and parks the turn or Task in `awaiting_approval`; unattended runs defer it into the approvals queue with a notification and continue without that action (architecture §4.3).
 
+**Dry run.** `PermissionBroker.preview` (#686) runs steps 1–6 with the same code and no side effect: no grant is used, no approval, receipt or audit entry is written, no circuit breaker moves and no Task state changes. Step 7 previews as `classifier:deferred`, an `ask`, because the classifier is a model call that only runs when the call does. Hooks run in a dry run too, so they must be pure.
+
 ### 3.4 Grant scopes, TTLs, use counter
 
 | Scope | Matches | Lifetime (default) | Uses |

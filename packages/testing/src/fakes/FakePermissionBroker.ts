@@ -16,6 +16,7 @@ import {
   type GrantScope,
   type IssuedApproval,
   type PermissionBroker,
+  type PreviewResult,
   PsycheError,
   type Receipt,
   type ReceiptInput,
@@ -227,6 +228,21 @@ export class FakePermissionBroker implements PermissionBroker {
     const result = this.#evaluate(call, ctx);
     this.decisions.push({ call: structuredClone(call), ctx: { ...ctx }, result: { ...result } });
     return result;
+  }
+
+  /** Dry run: the same rules as `decide`, nothing recorded and no sweep. */
+  async preview(intents: ToolCallIntent[], ctx: DecisionContext): Promise<PreviewResult[]> {
+    return intents.map((call) => {
+      const result = this.#evaluate(call, ctx);
+      return {
+        tool: call.tool,
+        decision: result.decision,
+        rule: result.rule,
+        ...(result.reason === undefined ? {} : { reason: result.reason }),
+        ...(result.approvalKind === undefined ? {} : { approvalKind: result.approvalKind }),
+        ...(result.scopesOffered === undefined ? {} : { scopesOffered: result.scopesOffered }),
+      };
+    });
   }
 
   #evaluate(call: ToolCallIntent, ctx: DecisionContext): DecisionResult {
