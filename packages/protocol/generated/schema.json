@@ -5650,6 +5650,10 @@
           "minLength": 1,
           "type": "string"
         },
+        "unsandboxed": {
+          "const": "UNSANDBOXED",
+          "type": "string"
+        },
         "presence": {
           "$ref": "#/$defs/PresenceAssertion"
         },
@@ -5748,7 +5752,8 @@
         "git_write",
         "git_push",
         "folder_access",
-        "batch"
+        "batch",
+        "permission_request"
       ],
       "type": "string"
     },
@@ -23722,6 +23727,151 @@
         "first_skill_from_routine"
       ],
       "type": "string"
+    },
+    "MissingCapability": {
+      "properties": {
+        "need": {
+          "const": "capability",
+          "type": "string"
+        },
+        "capability": {
+          "enum": [
+            "exec_host"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "need",
+        "capability"
+      ],
+      "type": "object"
+    },
+    "MissingConnector": {
+      "properties": {
+        "need": {
+          "const": "connector",
+          "type": "string"
+        },
+        "connector": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "need",
+        "connector"
+      ],
+      "type": "object"
+    },
+    "MissingConnectorAction": {
+      "properties": {
+        "need": {
+          "const": "connector_action",
+          "type": "string"
+        },
+        "connector": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "group": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "need",
+        "connector",
+        "group"
+      ],
+      "type": "object"
+    },
+    "MissingFolder": {
+      "properties": {
+        "need": {
+          "const": "folder",
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        },
+        "access": {
+          "enum": [
+            "read",
+            "read_write"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "need",
+        "path",
+        "access"
+      ],
+      "type": "object"
+    },
+    "MissingMacosAccess": {
+      "properties": {
+        "need": {
+          "const": "macos_access",
+          "type": "string"
+        },
+        "connector": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "need",
+        "connector",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "MissingPermission": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MissingFolder"
+        },
+        {
+          "$ref": "#/$defs/MissingCapability"
+        },
+        {
+          "$ref": "#/$defs/MissingConnectorAction"
+        },
+        {
+          "$ref": "#/$defs/MissingConnector"
+        },
+        {
+          "$ref": "#/$defs/MissingMacosAccess"
+        },
+        {
+          "$ref": "#/$defs/MissingSandbox"
+        }
+      ]
+    },
+    "MissingSandbox": {
+      "properties": {
+        "need": {
+          "const": "sandbox",
+          "type": "string"
+        }
+      },
+      "required": [
+        "need"
+      ],
+      "type": "object"
     },
     "ModelCapabilityGuess": {
       "properties": {

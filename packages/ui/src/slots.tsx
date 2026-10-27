@@ -1,4 +1,4 @@
-import type { Artifact, LibraryItem, Receipt, Task } from "@psyche/protocol";
+import type { Artifact, LibraryItem, MissingPermission, Receipt, Task } from "@psyche/protocol";
 import { createContext, type ReactElement, type ReactNode, useContext, useMemo } from "react";
 import type { PreviewSlot } from "./blocks/ArtifactCard.tsx";
 import type { ArtifactRenderProps } from "./canvas/CanvasPane.tsx";
@@ -66,6 +66,16 @@ export interface UiSlots {
    * thread and a sink for dictated text, that returns their state for the kit to draw.
    */
   useComposerVoice?: UseComposerVoice;
+  /**
+   * A permission card's fix-it button (security §3.13): `open` goes where the owner fixes it
+   * (Connectors, the macOS System Settings pane, the sandbox setup), `check` re-reads macOS
+   * access before the card's Check again. The chat's approval dock supplies it. `true` means the
+   * owner finished fixing it there (the sandbox setup reported srt ready).
+   */
+  permissionAction?: (
+    need: MissingPermission,
+    action: "open" | "check",
+  ) => Promise<boolean | undefined> | boolean | undefined;
   /** The host's native folder picker; resolves to the real path, or null when cancelled. */
   pickFolder?: (opts?: { title?: string }) => Promise<string | null>;
   /** Persona shown in agent messages and cards. */

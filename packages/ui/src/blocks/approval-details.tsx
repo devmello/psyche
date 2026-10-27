@@ -133,6 +133,27 @@ export function ApprovalIds({ approval }: { approval: ApprovalRequest }): ReactE
   );
 }
 
+/** One line for a `MissingPermission` (`permission_request` cards). */
+export function needText(need: unknown): string {
+  const n = (typeof need === "object" && need !== null ? need : {}) as Record<string, unknown>;
+  const kind = typeof n.need === "string" ? n.need : "";
+  const connector = String(n.connector ?? "").replace(/^apple[.-]/, "Apple ");
+  switch (kind) {
+    case "capability":
+    case "sandbox":
+      return t(`blocks.permission.need.${kind}`);
+    case "connector_action":
+      return t("blocks.permission.need.connector_action", { connector, group: str(n.group) });
+    case "connector":
+    case "macos_access":
+      return t(`blocks.permission.need.${kind}`, { connector });
+    case "folder":
+      return t("blocks.permission.need.folder", { path: str(n.path) });
+    default:
+      return str(need);
+  }
+}
+
 export function ApprovalDetails({
   approval,
   persona = t("blocks.common.theAgent"),
@@ -172,11 +193,46 @@ export function ApprovalDetails({
           <Row label={t("blocks.details.in")}>{str(d.cwd)}</Row>
           {env.length > 0 ? <Row label={t("blocks.details.envNames")}>{env.join(", ")}</Row> : null}
           {approval.kind === "exec_host" ? (
-            <Row label={t("blocks.details.runs")}>
-              <span className="text-danger-text">{t("blocks.details.runsOnHost")}</span>
-            </Row>
+            <>
+              {/* The program that runs, after PATH and symlinks (security §5.4); its hash binds. */}
+              {d.executable !== undefined ? (
+                <Row label={t("blocks.details.executable")}>
+                  <Code>{str(d.executable)}</Code>
+                </Row>
+              ) : null}
+              <Row label={t("blocks.details.network")}>
+                {Array.isArray(d.allowedDomains) && d.allowedDomains.length > 0
+                  ? (d.allowedDomains as unknown[]).map(String).join(", ")
+                  : t("blocks.details.networkNone")}
+              </Row>
+              <Row label={t("blocks.details.runs")}>
+                {d.sandbox === "srt" ? (
+                  t("blocks.details.runsSandboxed")
+                ) : d.sandbox === "missing" ? (
+                  <span className="text-danger-text">
+                    {t("blocks.details.runsNoSandbox", { reason: str(d.sandboxMissingReason) })}
+                  </span>
+                ) : (
+                  <span className="text-danger-text">{t("blocks.details.runsOnHost")}</span>
+                )}
+              </Row>
+            </>
           ) : null}
-          <Rest details={d} shown={["command", "cwd", "argv", "env"]} />
+          <Rest
+            details={d}
+            shown={[
+              "command",
+              "cwd",
+              "argv",
+              "env",
+              "executable",
+              "allowedDomains",
+              "sandbox",
+              "sandboxMissingReason",
+              "unsandboxedWord",
+              "unsandboxed",
+            ]}
+          />
         </dl>
       );
     }
@@ -307,6 +363,15 @@ export function ApprovalDetails({
             <Row label={t("blocks.details.paths")}>{str(d.paths)}</Row>
           ) : null}
           <Rest details={d} shown={["repo", "operation", "branch", "message", "paths"]} />
+        </dl>
+      );
+    case "permission_request":
+      // What a denial named as missing (security §3.13); the agent's reason is its own words.
+      return (
+        <dl>
+          <Row label={t("blocks.details.needed")}>{needText(d.need)}</Row>
+          <Row label={t("blocks.details.neededWhy")}>{str(d.reason)}</Row>
+          <Rest details={d} shown={["need", "reason"]} />
         </dl>
       );
     case "folder_access":

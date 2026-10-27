@@ -26,6 +26,7 @@ import type { OwnerAttention } from "./attention.ts";
 import type { CallContexts } from "./call-context.ts";
 import type { ChannelConversations } from "./channel-conversations.ts";
 import type { ComposeRateLimits } from "./rate-limits.ts";
+import type { SrtResolver } from "./srt.ts";
 
 /**
  * What the composition root hands to the INT-2 subsystems (browser, connectors, channels).
@@ -38,6 +39,8 @@ export interface ComposeServices {
   readonly home: string;
   /** The broker the agent loop uses (answer tokens, channel delivery). */
   readonly broker: PermissionBroker;
+  /** The Gateway's one srt lookup (`compose/srt.ts`): host commands and srt-launched parts. */
+  readonly srt?: SrtResolver;
   /** The package broker itself, for callers that need more than the contract. */
   readonly rawBroker: PsychePermissionBroker;
   readonly audit: HashChainAuditLog;

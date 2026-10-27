@@ -1,7 +1,7 @@
 import { Radio as RadioPrimitive } from "@base-ui/react/radio";
 import { RadioGroup as RadioGroupPrimitive } from "@base-ui/react/radio-group";
 import { renderForSurface, sanitizeApproval } from "@psyche/permissions/cards";
-import type { ApprovalRequest, GrantScope } from "@psyche/protocol";
+import type { ApprovalRequest, GrantScope, MissingPermission } from "@psyche/protocol";
 import { CircleAlert, Ellipsis, Fingerprint, ShieldCheck } from "lucide-react";
 import * as m from "motion/react-m";
 import {
@@ -70,7 +70,7 @@ export interface ApprovalCardProps {
   onAnswer?: (
     decision: "approve" | "deny",
     scope?: GrantScope,
-    extras?: { folderPath?: string },
+    extras?: { folderPath?: string; unsandboxed?: "UNSANDBOXED" },
   ) => unknown;
   /** Fixed clock (stories, tests). */
   now?: number;
@@ -172,8 +172,22 @@ export function ApprovalCard({
   const [showIds, setShowIds] = useState(false);
   // folder_access: the folder the owner picks is what is granted, never the agent's string.
   const isFolder = raw.kind === "folder_access";
-  const { pickFolder } = useSlots();
+  const { pickFolder, permissionAction } = useSlots();
   const [folder, setFolder] = useState("");
+  // exec_host (security §5.4): srt unless the owner types the word, which allows this run only.
+  const rawDetails = raw.details as Record<string, unknown>;
+  const isExecHost = raw.kind === "exec_host";
+  const unsandboxedWord =
+    typeof rawDetails.unsandboxedWord === "string" ? rawDetails.unsandboxedWord : "UNSANDBOXED";
+  // Set up from this card's "Set up sandbox": the run re-resolves srt, so the card follows.
+  const [sandboxSetUp, setSandboxSetUp] = useState(false);
+  const sandboxReady = rawDetails.sandbox === "srt" || sandboxSetUp;
+  const [typed, setTyped] = useState("");
+  const unsandboxed = isExecHost && typed === unsandboxedWord;
+  // permission_request (§3.13): Enable turns a setting on; the rest are fixed elsewhere, then checked.
+  const isPermission = raw.kind === "permission_request";
+  const need = (isPermission ? rawDetails.need : undefined) as MissingPermission | undefined;
+  const enables = need?.need === "capability" || need?.need === "connector_action";
 
   useEffect(() => {
     if (!autoFocus) return;
@@ -217,10 +231,18 @@ export function ApprovalCard({
     setBusy(true);
     setError(null);
     try {
+      // macOS access: re-read the grant first, so the Gateway's check sees what was just allowed.
+      if (decision === "approve" && need?.need === "macos_access") {
+        await permissionAction?.(need, "check");
+      }
       await onAnswer?.(
         decision,
-        scope,
-        isFolder && decision === "approve" && folder !== "" ? { folderPath: folder } : undefined,
+        unsandboxed && scope !== undefined ? "once" : scope,
+        isFolder && decision === "approve" && folder !== ""
+          ? { folderPath: folder }
+          : unsandboxed && decision === "approve"
+            ? { unsandboxed: "UNSANDBOXED" }
+            : undefined,
       );
     } catch (err) {
       setError(describeError(err));
@@ -262,9 +284,18 @@ export function ApprovalCard({
           .filter(Boolean)
           .join("; ");
 
+  const permissionLabel = enables
+    ? t("blocks.permission.enable")
+    : t("blocks.permission.checkAgain");
   const offeredScopes: { value: ApprovalChoice; short: string; long: string; hint?: string }[] = [
     ...(offered.includes("once")
-      ? [{ value: "once" as const, short: scopeLabel("once"), long: scopeLabel("once") }]
+      ? [
+          {
+            value: "once" as const,
+            short: isPermission ? permissionLabel : scopeLabel("once"),
+            long: isPermission ? permissionLabel : scopeLabel("once"),
+          },
+        ]
       : []),
     ...(offered.includes("task")
       ? [
@@ -285,7 +316,7 @@ export function ApprovalCard({
           },
         ]
       : []),
-    ...(hasAlways
+    ...(hasAlways && !unsandboxed
       ? [
           {
             value: "always" as const,
@@ -305,7 +336,12 @@ export function ApprovalCard({
       : []),
     { value: "deny", short: t("blocks.approval.deny"), long: t("blocks.approval.deny") },
   ];
-  const canAllow = armed && !busy && choice !== "deny" && (!isFolder || folder !== "");
+  const canAllow =
+    armed &&
+    !busy &&
+    choice !== "deny" &&
+    (!isFolder || folder !== "") &&
+    (!isExecHost || sandboxReady || unsandboxed);
   const specialist = approval.requestedBy.specialist;
   // A specialist asks (specialists §4.4): "For {task} · Shopper started by Psyche in Main chat".
   const requester = specialist
@@ -501,6 +537,92 @@ export function ApprovalCard({
         </div>
       ) : null}
 
+      {interactive && isExecHost ? (
+        <div className="mt-3 flex flex-col gap-1.5" data-testid="exec-host-sandbox">
+          <p
+            className={cn(
+              "text-callout",
+              sandboxReady ? "text-label-secondary" : "text-danger-text",
+            )}
+          >
+            {sandboxReady
+              ? t("blocks.execHost.sandboxed", { word: unsandboxedWord })
+              : t("blocks.execHost.noSandbox", { word: unsandboxedWord })}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={typed}
+              onChange={(e) => {
+                const v = e.target.value.trim();
+                setTyped(v);
+                if (v === unsandboxedWord && choice === "always") setChoice("once");
+              }}
+              aria-label={t("blocks.execHost.typeLabel", { word: unsandboxedWord })}
+              placeholder={unsandboxedWord}
+              autoComplete="off"
+              spellCheck={false}
+              className="h-7 min-w-0 flex-1 rounded-md bg-fill-secondary px-2 font-mono text-callout outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            {!sandboxReady && permissionAction ? (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={() => {
+                  setError(null);
+                  Promise.resolve(permissionAction({ need: "sandbox" }, "open")).then(
+                    (ready) => {
+                      if (ready === true) setSandboxSetUp(true);
+                    },
+                    (err: unknown) => setError(describeError(err)),
+                  );
+                }}
+              >
+                {t("blocks.execHost.setUp")}
+              </Button>
+            ) : null}
+          </div>
+          {unsandboxed ? (
+            <p className="text-callout text-label-secondary">
+              {t("blocks.execHost.unsandboxedOnce")}
+            </p>
+          ) : !sandboxReady ? (
+            <p className="text-callout text-label-secondary">
+              {t("blocks.execHost.mustType", { word: unsandboxedWord })}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {interactive && isPermission && need !== undefined ? (
+        <div className="mt-3 flex flex-col gap-1.5" data-testid="permission-request">
+          <p className="text-callout text-label-secondary">
+            {enables ? t("blocks.permission.enableHint") : t("blocks.permission.checkHint")}
+          </p>
+          {!enables && permissionAction ? (
+            <div>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={() => {
+                  setError(null);
+                  Promise.resolve(permissionAction(need, "open")).catch((err: unknown) =>
+                    setError(describeError(err)),
+                  );
+                }}
+              >
+                {need.need === "macos_access"
+                  ? t("blocks.permission.openSystemSettings")
+                  : need.need === "sandbox"
+                    ? t("blocks.permission.setUpSandbox")
+                    : t("blocks.permission.openConnectors")}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {interactive ? (
         <>
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -619,7 +741,7 @@ export function ApprovalCard({
             aria-keyshortcuts="Meta+Enter Control+Enter"
             aria-describedby={hintId}
           >
-            {t("chat.approval.allow")}
+            {isPermission ? permissionLabel : t("chat.approval.allow")}
             <kbd className="font-sans text-callout opacity-70">⌘↩</kbd>
             {!armed ? (
               <m.span

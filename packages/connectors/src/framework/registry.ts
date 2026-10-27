@@ -579,6 +579,7 @@ export class ConnectorRegistry {
     if (live === undefined || record.status !== "connected") {
       throw new PsycheError("unavailable", `connector ${connectorId} is not connected`, {
         retryable: true,
+        details: { missing: { need: "connector", connector: connectorId } },
       });
     }
     const desc: ToolCallDescription | undefined = describeWithRule(connectorId, tool, params);
@@ -590,7 +591,13 @@ export class ConnectorRegistry {
     const own = tool.ruleFor?.(params);
     if (own !== undefined && rule !== "deny") rule = own;
     if (rule === "allow" && NO_STANDING.includes(effect)) rule = "ask";
-    if (rule === "deny") throw new PsycheError("policy_denied", `${tool.action} is set to deny`);
+    if (rule === "deny") {
+      throw new PsycheError("policy_denied", `${tool.action} is set to deny`, {
+        details: {
+          missing: { need: "connector_action", connector: connectorId, group: tool.action },
+        },
+      });
+    }
     if (writes && record.scopeMode === "read") {
       throw new PsycheError("policy_denied", "this connection is read-only");
     }

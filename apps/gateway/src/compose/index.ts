@@ -44,6 +44,7 @@ import {
   toGatewayEvent,
 } from "@psyche/notifications";
 import {
+  appleConnectorKey,
   compilePolicy,
   createPermissionHandlers,
   DENY_ALL_LOOPBACK,
@@ -97,12 +98,14 @@ import { bootstrapAdminHandlers } from "./bootstrap-admin.ts";
 import { CallContexts } from "./call-context.ts";
 import { ChannelConversations } from "./channel-conversations.ts";
 import { composeComputer } from "./computer.ts";
+import { CONNECTOR_MATRIX_PREFIX } from "./connector-matrix.ts";
 import { createContext } from "./context.ts";
 import { composeConversion } from "./convert.ts";
 import { composeDictation } from "./dictation.ts";
+import { type ExecHostDeps, execHostTool } from "./exec-host.ts";
 import { feedContextResolver } from "./feed-context.ts";
 import { filesHandlers } from "./files.ts";
-import { requestFolderAccessTool, withFolder } from "./folder-access.ts";
+import { withFolder } from "./folder-access.ts";
 import {
   mountParamsOnly,
   mountPermissions,
@@ -142,6 +145,7 @@ import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { protectedRoots } from "./protected-paths.ts";
 import { notifierRouting } from "./quiet-hours.ts";
 import { createRateLimits } from "./rate-limits.ts";
+import { requestPermissionTool } from "./request-permission.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
 import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
 import { type ComposedSearch, composeSearch } from "./search.ts";
@@ -166,6 +170,7 @@ import {
   type SpeechSetup,
   speechSetupFromEnv,
 } from "./speech.ts";
+import { createSrtResolver, type SrtResolver } from "./srt.ts";
 import { taskUpdateHandlers } from "./task-controls.ts";
 import {
   type ComposedTeaching,
@@ -236,6 +241,8 @@ export interface ComposeOptions
    * process runner prefix (default: `speechSetupFromEnv`).
    */
   speech?: SpeechSetup;
+  /** `exec_host` (security §5.4): where srt is, and the process driver (tests mock both). */
+  execHost?: Partial<Pick<ExecHostDeps, "srt" | "driver" | "userHome">>;
   /** Ask about my screen is always mounted; this swaps what takes the capture (default: the Mac helper). */
   screenAsk?: ScreenAskOptions;
   /**
@@ -380,6 +387,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     compaction,
     parts: extraParts = [],
     speech: speechSetup,
+    execHost: execHostSetup = {},
     presence = NO_PRESENCE,
     vault: vaultSetup,
     web: webSetup,
@@ -686,8 +694,68 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     protectedRoots: () => protectedRoots(config.home),
   }))
     registry.register(tool);
+  // Security §3.13: one way to ask for whatever a denial or error named as missing (a folder,
+  // exec_host, a connector group set to deny, a connector, macOS access, the sandbox).
+  const savePolicy = (next: PolicyConfig) => {
+    const entry = setSetting(db, "permissions.policy", next);
+    rawBroker.setPolicy(hostPolicy(next));
+    publish("settings.changed", { entries: [entry] });
+  };
+  // The Gateway's one srt lookup (`PSYCHE_SRT_PATH`, `exec.srtPath`, then found on this Mac):
+  // host commands and every part that runs under srt share it (`services.srt`).
+  const srt: SrtResolver = createSrtResolver({ db }, gwOptions.env ?? process.env);
+  const execHostSrt = execHostSetup.srt ?? srt;
   registry.register(
-    requestFolderAccessTool({ broker: executorBroker, surfaces: ["desktop", "web"] }),
+    requestPermissionTool({
+      broker: executorBroker,
+      surfaces: ["desktop", "web"],
+      execHostEnabled: () => rawBroker.policy.exec?.execHostEnabled === true,
+      enableExecHost: async () => {
+        const current =
+          validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger) ?? {};
+        savePolicy({ ...current, exec: { ...(current.exec ?? {}), execHostEnabled: true } });
+      },
+      allowConnectorAsk: async (connector, group) => {
+        // `apple.<app>` (direct helper calls) names every record of that app (#747).
+        const records = (await connectorsPart?.registry.list().catch(() => [])) ?? [];
+        const ids = records
+          .filter((r) => r.id === connector || appleConnectorKey(r.type) === connector)
+          .map((r) => r.id);
+        for (const id of ids) {
+          const key = `${CONNECTOR_MATRIX_PREFIX}${id}`;
+          const current = getSetting(db, key)?.value;
+          const matrix =
+            typeof current === "object" && current !== null && !Array.isArray(current)
+              ? (current as Record<string, unknown>)
+              : {};
+          // Deny becomes ask, never allow: every call of the group still asks.
+          const entry = setSetting(db, key, { ...matrix, [group]: "ask" });
+          publish("settings.changed", { entries: [entry] });
+        }
+        return ids.length > 0;
+      },
+      connectorConnected: async (connector) => {
+        const record = await connectorsPart?.registry.get(connector).catch(() => undefined);
+        return record?.status === "connected";
+      },
+      sandboxReady: async () => "path" in (await execHostSrt.resolve()),
+    }),
+  );
+  // "Run commands on this Mac" (security §5.4): registered always, so a call while it is off is
+  // denied with a request the owner can answer; the broker keeps it off until they turn it on.
+  registry.register(
+    execHostTool({
+      broker: executorBroker,
+      vault: vault.vault,
+      folders: (threadId) => [
+        ...(rawBroker.policy.folders ?? []),
+        ...rawBroker.sessionFolders(threadId),
+      ],
+      srt: execHostSrt,
+      home: config.home,
+      ...(execHostSetup.driver === undefined ? {} : { driver: execHostSetup.driver }),
+      ...(execHostSetup.userHome === undefined ? {} : { userHome: execHostSetup.userHome }),
+    }),
   );
   // E12 cross-thread awareness: registered only while the owner has turned it on.
   let gatewayRef: Gateway | null = null;
@@ -714,6 +782,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   ownPorts.add(config.port, "gateway (configured)");
   const services: ComposeServices = {
     db,
+    srt,
     clock,
     home: config.home,
     approvalTokens: tokens,

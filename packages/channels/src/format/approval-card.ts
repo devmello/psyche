@@ -38,6 +38,7 @@ const KIND_LABELS: Record<ApprovalKind, string> = {
   git_push: "Push to a git remote",
   folder_access: "Share a folder",
   batch: "Approve a batch of actions",
+  permission_request: "Grant a missing permission",
 };
 
 /** Short label for answer confirmations ("Approved: Send an email."). */

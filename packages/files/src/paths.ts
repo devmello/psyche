@@ -45,10 +45,17 @@ export function assertGranted(
     }
   }
   if (best === undefined) {
-    throw new PsycheError("forbidden", `${path} is outside every granted folder`);
+    // Security §3.13: the agent may ask for it with request_permission.
+    throw new PsycheError("forbidden", `${path} is outside every granted folder`, {
+      details: {
+        missing: { need: "folder", path, access: access === "write" ? "read_write" : "read" },
+      },
+    });
   }
   if (access === "write" && best.mode !== "rw") {
-    throw new PsycheError("forbidden", `${best.path} is granted read-only`);
+    throw new PsycheError("forbidden", `${best.path} is granted read-only`, {
+      details: { missing: { need: "folder", path: best.path, access: "read_write" } },
+    });
   }
 }
 

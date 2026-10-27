@@ -21,6 +21,7 @@ export * from "./folder-access.ts";
 export * from "./friction.ts";
 export * from "./handlers.ts";
 export * from "./kinds.ts";
+export * from "./missing.ts";
 export * from "./policy.ts";
 export * from "./prohibitions.ts";
 export * from "./requester.ts";

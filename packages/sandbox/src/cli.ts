@@ -25,6 +25,13 @@ export interface CliOptions {
   /** Hard host-side limit; SIGKILL when exceeded (container clients may ignore SIGTERM). */
   timeoutMs?: number;
   env?: NodeJS.ProcessEnv;
+  /** Working directory; the Gateway's own when absent. */
+  cwd?: string;
+  /**
+   * Start the process in its own process group, so `kill` and the timeout reach everything it
+   * started (a host command's children, `exec_host`).
+   */
+  processGroup?: boolean;
 }
 
 export interface CliProcess {
@@ -87,8 +94,21 @@ function startProcess(file: string, args: readonly string[], options: CliOptions
     shell: false,
     stdio: [options.input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
     env: options.env ?? process.env,
+    ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
+    ...(options.processGroup === true ? { detached: true } : {}),
     windowsHide: true,
   });
+  const signalAll = (signal: NodeJS.Signals) => {
+    if (options.processGroup === true && child.pid !== undefined) {
+      try {
+        process.kill(-child.pid, signal);
+        return;
+      } catch {
+        // The group is gone; fall back to the child itself.
+      }
+    }
+    child.kill(signal);
+  };
   const out = new CappedBuffer(options.maxBytes ?? DEFAULT_MAX_BYTES);
   const err = new CappedBuffer(options.maxBytes ?? DEFAULT_MAX_BYTES);
   child.stdout?.on("data", (c: Buffer) => out.push(c));
@@ -101,7 +121,7 @@ function startProcess(file: string, args: readonly string[], options: CliOptions
   }
   let timer: NodeJS.Timeout | undefined;
   if (options.timeoutMs !== undefined) {
-    timer = setTimeout(() => child.kill("SIGKILL"), options.timeoutMs);
+    timer = setTimeout(() => signalAll("SIGKILL"), options.timeoutMs);
     timer.unref();
   }
   const done = new Promise<CliResult>((resolve, reject) => {
@@ -126,7 +146,7 @@ function startProcess(file: string, args: readonly string[], options: CliOptions
     pid: child.pid,
     done,
     kill: (signal = "SIGKILL") => {
-      if (child.exitCode === null && child.signalCode === null) child.kill(signal);
+      if (child.exitCode === null && child.signalCode === null) signalAll(signal);
     },
   };
 }

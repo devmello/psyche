@@ -15,6 +15,7 @@ import type {
   ApprovalStatus,
   DecidedBy,
   Grant,
+  MissingPermission,
   Receipt,
   TaintSource,
 } from "../schemas/permissions.ts";
@@ -141,6 +142,8 @@ export interface DecisionResult {
   bindingHash?: string;
   grantKey?: string;
   grantId?: string;
+  /** Set on some `deny`s: what the owner could grant on a `request_permission` card. */
+  missing?: MissingPermission;
 }
 
 /**
