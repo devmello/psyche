@@ -3,7 +3,7 @@ import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { deleteSettings, getLibraryItem } from "@psyche/db";
+import { deleteSettings, getLibraryItem, getSetting, type PsycheDb } from "@psyche/db";
 import { defaultDenyRead } from "@psyche/mcp-host";
 import type { LibraryItem, NodeClient, NodeInfo } from "@psyche/protocol";
 import { PsycheError } from "@psyche/protocol";
@@ -17,6 +17,8 @@ import {
   type MeetingRecordingInput,
   NODE_SPEECH_CAPABILITIES,
   NodeSpeechEngine,
+  OpenAiAudioTranscriber,
+  type PathTranscriber,
   type ProcessRunner,
   SPEECH_METHODS,
   type SpeechCaller,
@@ -260,6 +262,24 @@ export function libraryTranscripts(
 }
 
 /**
+ * The owner's transcription endpoint (`meetings.transcribe.endpoint`, Settings → Mail & meetings),
+ * or `undefined` when none is set or the address is refused (https, or http on this Mac only).
+ */
+export function transcriptionEndpoint(db: PsycheDb): OpenAiAudioTranscriber | undefined {
+  const url = getSetting(db, "meetings.transcribe.endpoint")?.value;
+  if (typeof url !== "string" || url.trim() === "") return undefined;
+  const model = getSetting(db, "meetings.transcribe.model")?.value;
+  try {
+    return new OpenAiAudioTranscriber({
+      baseUrl: url.trim(),
+      model: typeof model === "string" && model.trim() !== "" ? model.trim() : "whisper-1",
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * What post-meeting notes call to transcribe a recording on the Mac (`MeetingTranscriber` in
  * `@psyche/proactive`): `VoiceMemoService.ingestMeeting` with the Library's transcript writer.
  */
@@ -290,7 +310,24 @@ export function composeSpeech(setup: SpeechSetup = {}) {
     const voice = new VoiceSessionManager({ selector: stack.selector, emit: toDevice });
     // Long recordings are transcribed where they lie on the Mac (`speech.transcribe_file`, §4.6).
     const filesNode = speechNode(() => gateway, NODE_SPEECH_CAPABILITIES.transcribeFile);
-    const files = new NodeSpeechEngine({ node: filesNode });
+    const onMac = new NodeSpeechEngine({ node: filesNode });
+    const endpoint = () => transcriptionEndpoint(db);
+    // The Mac helper first (on the device, no network); else the owner's OpenAI-compatible
+    // endpoint, so meeting notes work on platforms without the helper (#842 item 5).
+    const files: PathTranscriber = {
+      transcribePath: (path, options) => {
+        if (filesNode() !== undefined) return onMac.transcribePath(path, options);
+        const other = endpoint();
+        if (other === undefined) {
+          throw new PsycheError(
+            "unavailable",
+            "long recordings need the Mac helper or a transcription endpoint in Settings",
+            { retryable: true },
+          );
+        }
+        return other.transcribePath(path, options);
+      },
+    };
     const memos = new VoiceMemoService({
       engine: stack.engine,
       library,
@@ -318,7 +355,7 @@ export function composeSpeech(setup: SpeechSetup = {}) {
       handlers,
       meetings: {
         ingestMeeting: (input) => memos.ingestMeeting(input, transcripts),
-        available: () => filesNode() !== undefined,
+        available: () => filesNode() !== undefined || endpoint() !== undefined,
       },
       start(gw) {
         gateway = gw;

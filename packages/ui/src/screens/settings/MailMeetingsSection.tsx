@@ -530,6 +530,23 @@ export function MailMeetingsPanel({
             maxLength={1024}
             onCommit={(v) => onChange("meetings.notes.folder", v)}
           />
+          <TextSetting
+            label={t("settings.mail.transcribe.endpoint")}
+            description={t("settings.mail.transcribe.endpoint.hint")}
+            settingKey="meetings.transcribe.endpoint"
+            value={text(values, "meetings.transcribe.endpoint")}
+            placeholder={t("settings.mail.transcribe.endpoint.placeholder")}
+            maxLength={500}
+            onCommit={(v) => onChange("meetings.transcribe.endpoint", v)}
+          />
+          <TextSetting
+            label={t("settings.mail.transcribe.model")}
+            settingKey="meetings.transcribe.model"
+            value={text(values, "meetings.transcribe.model")}
+            placeholder={t("settings.mail.transcribe.model.placeholder")}
+            maxLength={120}
+            onCommit={(v) => onChange("meetings.transcribe.model", v)}
+          />
           <SelectRow
             label={t("settings.mail.notes.tasksApp")}
             settingKey="meetings.notes.tasksApp"

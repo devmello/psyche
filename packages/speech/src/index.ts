@@ -18,6 +18,7 @@ export * from "./adapters.ts";
 export * from "./audio.ts";
 export * from "./catalog.ts";
 export * from "./engines/node.ts";
+export * from "./engines/openai-audio.ts";
 export * from "./engines/web.ts";
 export * from "./engines/whisper.ts";
 export * from "./handlers.ts";

@@ -484,6 +484,8 @@ export const MAIL_MEETING_SETTING_DEFAULTS = {
   "meetings.notes.recapDraft": false,
   "meetings.notes.consentLine": "",
   "meetings.notes.cloudSummary": false,
+  "meetings.transcribe.endpoint": "",
+  "meetings.transcribe.model": "whisper-1",
 } as const;
 
 export type MailMeetingSettingKey = keyof typeof MAIL_MEETING_SETTING_DEFAULTS;

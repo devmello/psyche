@@ -107,6 +107,8 @@ const LABELLED_KEYS = [
   "meetings.prep.dailyCap",
   "meetings.notes.enabled",
   "meetings.notes.folder",
+  "meetings.transcribe.endpoint",
+  "meetings.transcribe.model",
   "meetings.notes.tasksApp",
   "meetings.notes.recapDraft",
   "meetings.notes.consentLine",
