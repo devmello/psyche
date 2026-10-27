@@ -159,6 +159,31 @@ function fingerprint(e: CalendarEvent): string {
     .slice(0, 32);
 }
 
+/** A notes title as a match key: a recurring meeting keeps its title, so case and spacing are noise. */
+function noteTitleKey(title: string): string {
+  return title.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+/**
+ * The last meeting notes for the same series (§4.5 step 3, "the previous meeting's notes"): the
+ * newest `meeting_notes` Feed post whose title matches. Notes carry no attendees, so the title is
+ * the series. The notes are the owner's own Feed content and stay fenced as untrusted in the prompt.
+ */
+export function lastMeetingNotes(db: SqliteDatabase, title: string): MeetingNotes | undefined {
+  const want = noteTitleKey(title);
+  const rows = db
+    .prepare(
+      "SELECT card FROM feed_posts WHERE kind = 'meeting_notes' ORDER BY created_at DESC LIMIT 200",
+    )
+    .all() as { card: string | null }[];
+  for (const row of rows) {
+    const card = parseJson<{ type?: string; notes?: MeetingNotes } | null>(row.card, null);
+    if (card?.type !== "meeting_notes" || card.notes === undefined) continue;
+    if (noteTitleKey(card.notes.title) === want) return card.notes;
+  }
+  return undefined;
+}
+
 export class MeetingPrepService {
   readonly #o: MeetingPrepServiceOptions;
 
