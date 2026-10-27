@@ -8,9 +8,10 @@ import type {
   GraphPull,
   GraphSourceAdapter,
   MailRecord,
+  MessageRecord,
   NoteRecord,
 } from "@psyche/memory";
-import type { Clock, ToolRegistry } from "@psyche/protocol";
+import type { Clock, NodeClient, ToolRegistry } from "@psyche/protocol";
 
 /**
  * Ingest adapters for the people graph (docs/memory/people-and-projects-2026.md §5.1): each
@@ -35,7 +36,12 @@ export interface SourceDeps {
   clock: Clock;
   /** The owner's chats with Psyche (the `chats` source); absent in connector-only tests. */
   db?: PsycheDb;
+  /** The live Mac helper for the `messages` source (#763); undefined while none is connected. */
+  messages?: () => MessagesHelper | undefined;
 }
+
+/** The helper's client, as the Messages source uses it: only `invoke`, which never throws. */
+export type MessagesHelper = Pick<NodeClient, "invoke">;
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -691,6 +697,143 @@ function chatsAdapter(deps: SourceDeps, db: PsycheDb): GraphSourceAdapter {
   };
 }
 
+// --- messages (the Mac helper's metadata, #763) ----------------------------------------------
+
+/** Chats read per pass for participants, and messages per page; at most this many pages a pass. */
+const MESSAGES_CHATS = 200;
+const MESSAGES_PAGE = 200;
+const MESSAGES_PAGES_PER_PASS = 5;
+const MESSAGES_TIMEOUT_MS = 30_000;
+
+/** One message as the helper's metadata read returns it: never a body (`text` is not read). */
+interface MessageMeta {
+  chatId: string;
+  handle?: string;
+  sentAt: string;
+  direction: "in" | "out";
+}
+
+/** `messages.graph_read` (the helper) → metadata rows; anything malformed is dropped. */
+function messageMetas(output: unknown): {
+  rows: MessageMeta[];
+  cursor: number | null;
+  hasMore: boolean;
+} {
+  const list = isObj(output) && Array.isArray(output.messages) ? output.messages : [];
+  const rows: MessageMeta[] = [];
+  for (const m of list) {
+    if (!isObj(m)) continue;
+    const chatId = str(m.chatId);
+    const sentAt = str(m.sentAt);
+    if (chatId === undefined || sentAt === undefined) continue;
+    if (m.direction !== "in" && m.direction !== "out") continue;
+    const handle = str(m.handle);
+    rows.push({
+      chatId,
+      sentAt,
+      direction: m.direction,
+      ...(handle === undefined ? {} : { handle }),
+    });
+  }
+  const cursor = isObj(output) && typeof output.cursor === "number" ? output.cursor : null;
+  return { rows, cursor, hasMore: isObj(output) && output.hasMore === true };
+}
+
+/**
+ * The chats the helper lists (`messages.graph_chats`): each chat's other participants and whether
+ * it is a group. A chat missing from the list is treated as a group, so no person is created from it.
+ */
+function messageChats(output: unknown): Map<string, { handles: string[]; isGroup: boolean }> {
+  const out = new Map<string, { handles: string[]; isGroup: boolean }>();
+  const list = isObj(output) && Array.isArray(output.chats) ? output.chats : [];
+  for (const c of list) {
+    if (!isObj(c)) continue;
+    const chatId = str(c.chatId);
+    if (chatId === undefined) continue;
+    out.set(chatId, { handles: strs(c.handles), isGroup: c.isGroup === true });
+  }
+  return out;
+}
+
+/**
+ * Apple Messages through the Mac helper's read-only metadata capabilities (`messages.graph_chats`,
+ * `messages.graph_read`): who the owner talks with and when, never message text. The helper is
+ * called directly by this ingest path; no agent tool reaches these (the broker denies them). One
+ * interaction per conversation per day (ingest), so the pass groups rows by chat and day.
+ */
+function messagesAdapter(helper: () => MessagesHelper | undefined): GraphSourceAdapter {
+  return {
+    id: "messages:imessage",
+    source: "messages",
+    async pull(cursor, signal): Promise<GraphPull> {
+      const client = helper();
+      if (client === undefined) throw new Error("no Mac helper offers Messages");
+      const chatsOut = await helperCall(
+        client,
+        "messages.graph_chats",
+        { limit: MESSAGES_CHATS },
+        signal,
+      );
+      const chats = messageChats(chatsOut);
+      const rows: MessageMeta[] = [];
+      let row = isObj(cursor) && typeof cursor.row === "number" ? cursor.row : undefined;
+      // First pass: the newest page only. Later passes page forward from the stored row.
+      for (let page = 0; page < MESSAGES_PAGES_PER_PASS && !signal.aborted; page += 1) {
+        const out = await helperCall(
+          client,
+          "messages.graph_read",
+          row === undefined ? { limit: MESSAGES_PAGE } : { sinceCursor: row, limit: MESSAGES_PAGE },
+          signal,
+        );
+        const read = messageMetas(out);
+        rows.push(...read.rows);
+        if (read.cursor !== null) row = read.cursor;
+        if (!read.hasMore || row === undefined) break;
+      }
+      const days = new Map<
+        string,
+        { chatId: string; date: string; handles: Set<string>; ownerSpoke: boolean }
+      >();
+      for (const m of rows) {
+        const key = `${m.chatId}\u0000${m.sentAt.slice(0, 10)}`;
+        let day = days.get(key);
+        if (day === undefined) {
+          day = { chatId: m.chatId, date: m.sentAt, handles: new Set(), ownerSpoke: false };
+          days.set(key, day);
+        }
+        if (m.sentAt > day.date) day.date = m.sentAt;
+        if (m.direction === "out") day.ownerSpoke = true;
+        else if (m.handle !== undefined) day.handles.add(m.handle);
+      }
+      const messages: MessageRecord[] = [...days.values()].map((day) => {
+        const meta = chats.get(day.chatId);
+        const handles = new Set([...(meta?.handles ?? []), ...day.handles]);
+        return {
+          source: "imessage",
+          chatId: day.chatId,
+          date: day.date,
+          handles: [...handles].map((value) => ({ value })),
+          ownerSpoke: day.ownerSpoke,
+          isGroup: meta === undefined ? true : meta.isGroup,
+        };
+      });
+      return { messages, cursor: row === undefined ? null : { row } };
+    },
+  };
+}
+
+/** One helper capability; a refusal or an offline helper throws, so the pass reports the source. */
+async function helperCall(
+  client: MessagesHelper,
+  capability: string,
+  params: Obj,
+  signal: AbortSignal,
+): Promise<unknown> {
+  const res = await client.invoke(capability, params, { signal, timeoutMs: MESSAGES_TIMEOUT_MS });
+  if (!res.ok) throw new Error(`${capability} failed: ${res.error?.code ?? "unknown"}`);
+  return res.result;
+}
+
 /** The adapters for every connected app that can feed the graph. */
 export async function graphSourceAdapters(deps: SourceDeps): Promise<GraphSourceAdapter[]> {
   const adapters: GraphSourceAdapter[] = [];
@@ -705,5 +848,6 @@ export async function graphSourceAdapters(deps: SourceDeps): Promise<GraphSource
     if (record.type === "apple:notes") adapters.push(notesAdapter(deps, record));
   }
   if (deps.db !== undefined) adapters.push(chatsAdapter(deps, deps.db));
+  if (deps.messages !== undefined) adapters.push(messagesAdapter(deps.messages));
   return adapters;
 }

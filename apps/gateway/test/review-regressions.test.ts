@@ -194,6 +194,10 @@ describe("S01 review regressions", () => {
     ]) {
       expect(isUnreachableCapability(name), name).toBe(true);
     }
+    // The people graph's Messages metadata (#763): its ingest path calls the helper directly.
+    for (const name of ["messages.graph_chats", "messages.graph_read"]) {
+      expect(isUnreachableCapability(name), name).toBe(true);
+    }
     for (const name of [
       "calendar.list_events",
       "vaulted.door",

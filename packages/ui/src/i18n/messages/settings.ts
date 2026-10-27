@@ -1656,6 +1656,7 @@ export const settings = {
   "settings.people.source.mail": "Mail",
   "settings.people.source.calendar": "Calendar",
   "settings.people.source.messages": "Messages",
+  "settings.people.source.messagesHint": "Uses who you message and when, never message text.",
   "settings.people.source.notes": "Notes",
   "settings.people.source.chats": "Your chats",
   "settings.people.sourceOff": "Off",
