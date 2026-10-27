@@ -129,7 +129,7 @@ RAM items first. "Saving" is footprint unless it says heap.
 | 1 | Gateway bundled with esbuild | −25 MB Gateway, always | none | done | **#929, merged** |
 | 2 | Release the main window's renderer while the app sits in the menu bar | −90 MB renderer, plus GPU surfaces when retained (up to −200 MB measured) | reopening after the release takes ≈ 0.5 s instead of instant | medium (window lifecycle, state restore) | **needs the owner's call** (> 300 ms) |
 | 3 | A lean entry for the screen-ask panel and dictation HUD (only their components, not the app barrel) | −35 to −50 MB while the panel is warm, which is always when Ask about screen is on | none (it opens faster cold) | low | **#933**: 72 → 54 MB |
-| 4 | Discard background browser tabs the agent is not using after N minutes idle | −20 to −50 MB per tab | the tab reloads when shown again, and form state is lost | medium (agent tasks, take-control) | **needs the owner's call** |
+| 4 | Discard background browser tabs after 15 minutes idle (never the active tab, a task's tab, a tab under take-control or in use over CDP, a popped-out, loading or audible tab) | measured: a Wikipedia tab's 51 MB freed; −20 to −50 MB per tab | the tab reloads when shown again (≈ 1 s for Wikipedia), losing scroll and form state | owner approved; **done** |
 | 5 | Lazy Gateway subsystems: MCP client, AI SDK providers on first use, grammy, turndown, with esbuild `splitting` so lazy code stays out of the bundle's source string | up to −12 MB heap (upper bound) | first use of each costs 10–60 ms once | low/medium (async factory in the model router) | **#934**: Gateway 128 → 92 MB (providers, MCP SDK, splitting; grammy and turndown left) |
 | 6 | Lazy routes in the main renderer (8 MB entry) | est. −10 MB per window, faster first paint | a route's first open loads its chunk (tens of ms) | low | do after 3 |
 | 7 | Regression guard: settled idle Gateway footprint and heap, and bundle size, with budgets | protects the above | none | none | **#932**, budgets tightened after #934 |
@@ -181,7 +181,8 @@ Storage items (none costs RAM):
 | #934 | AI SDK providers and the MCP SDK loaded on first use; esbuild code splitting | Gateway 128 → 92 MB footprint, heap 31 → 25 MB; first chat turn +9 ms once |
 | #936 | SwiftShader removed before signing (`src/packaging/swiftshader.ts`) | Electron Framework −16.6 MB on disk; RAM unchanged |
 | #937 | One UI copy: the web client is a third entry of the desktop renderer build, served by the packaged Gateway from `app.asar` (header and per-file integrity checked) | `Resources/psyched` 196 → 164 MiB; renderer build +28 KB; RAM unchanged |
-| (this PR) | DMG compressed with LZMA (ULMO) | DMG 172 → 130 MB; install copy +3.2 s once; budget `dmgMB` 210 → 150 |
+| #938 | DMG compressed with LZMA (ULMO) | DMG 172 → 130 MB; install copy +3.2 s once; budget `dmgMB` 210 → 150 |
+| (this PR) | Idle background browser tabs discarded after 15 min | −51 MB for a discarded Wikipedia tab; restore ≈ 1 s on activation |
 
 Measured by the guard on the packaged tree (`build-psyched.mjs`, the bundle's own Node) after #934:
 **91 MB footprint, 26 MB heap, 5.6 MiB of bundle JS** (entry plus chunks). The budgets are now 105 /
@@ -210,4 +211,3 @@ Still open, by measured size:
   `GatewayProvider` and the i18n catalog. Splitting those per namespace would bring the warm panel
   from 54 MB toward an empty renderer's 19 MB, and would also shrink the main window's 8 MB entry
   (item 6).
-- **Item 4**, discarding background tabs (owner approved; in progress).
