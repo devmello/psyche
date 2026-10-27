@@ -17,6 +17,7 @@ import {
 } from "./src/packaging/bundle-resources.ts";
 import { pruneLocales } from "./src/packaging/locales.ts";
 import { macSigningOptions, signingIdentity } from "./src/packaging/signing-config.ts";
+import { pruneSwiftShader } from "./src/packaging/swiftshader.ts";
 
 /**
  * Electron Forge 8 config (architecture §5; security §11, §12).
@@ -113,6 +114,7 @@ const config: ForgeConfig = {
       // buildPath is Contents/Resources/app; osx-sign runs after this hook and seals the bundle.
       const resourcesDir = dirname(buildPath);
       pruneLocales(dirname(resourcesDir));
+      pruneSwiftShader(dirname(resourcesDir));
       copyBundleResources(bundleSources(process.env, repoRoot, arch), resourcesDir, arch, {
         allowPartial: allowPartial(process.env),
         warn: (m) => console.warn(m),
