@@ -13,6 +13,9 @@
 #   PSYCHE_HELPER_VERSION  CFBundleShortVersionString (default: HelperVersion.current)
 #   PSYCHE_HELPER_BUILD    CFBundleVersion (default: the commit count)
 #   PSYCHE_HELPER_ARCH     arm64 or x86_64 (default: the host's)
+#   PSYCHE_HELPER_DSYM     where to write the dSYM of the unstripped binary (release builds only;
+#                          default: next to the bundle, "<bundle>.dSYM", outside the app so it does not ship)
+#   PSYCHE_HELPER_STRIP    full (default: strip), x (strip -x, keeps global symbols) or none
 #   --install              copy the bundle to ~/Applications/Psyche Helper.app. TCC grants key on the
 #                          signature, bundle id and path: keep using one fixed path.
 set -eu
@@ -52,6 +55,19 @@ BIN="$(swift build --package-path "$HERE" -c "$CONFIG" $ARCH_ARGS --show-bin-pat
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/psyche-helper"
+# Release: keep the symbols in a dSYM (crash logs stay symbolicatable), then strip the shipped copy
+# before codesign (the signature covers the stripped bytes). Symbols were 21.7 of 30.8 MB.
+if [ "$CONFIG" = release ]; then
+  DSYM="${PSYCHE_HELPER_DSYM:-$APP.dSYM}"
+  rm -rf "$DSYM"
+  dsymutil "$BIN" -o "$DSYM" 2>/dev/null
+  case "${PSYCHE_HELPER_STRIP:-full}" in
+    full) strip "$APP/Contents/MacOS/psyche-helper" ;;
+    x) strip -x "$APP/Contents/MacOS/psyche-helper" ;;
+    none) ;;
+    *) echo "PSYCHE_HELPER_STRIP must be full, x or none" >&2; exit 64 ;;
+  esac
+fi
 cp "$HERE/Support/Info.plist" "$APP/Contents/Info.plist"
 # Localized name ("Psyche (Helper)") for prompts, Privacy & Security and Finder (#541).
 ditto "$HERE/Support/en.lproj" "$APP/Contents/Resources/en.lproj"
