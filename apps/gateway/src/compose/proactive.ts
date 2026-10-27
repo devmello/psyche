@@ -317,6 +317,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           readOnly,
           provider,
           model,
+          draftModel: () => settings().draftModel,
           ownerAddresses,
         });
   const link = getSetting(db, "mail.schedulingLink")?.value;
@@ -329,6 +330,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           ...(proposals === undefined ? {} : { proposals }),
           readOnly,
           timezone: timeZone ?? "UTC",
+          schedule: () => settings().schedule,
           now: () => clock.now(),
           ...(typeof link === "string" && link !== "" ? { schedulingLink: link } : {}),
         });

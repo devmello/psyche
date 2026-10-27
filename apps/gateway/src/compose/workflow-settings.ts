@@ -1,6 +1,6 @@
 import { getSetting, type PsycheDb } from "@psyche/db";
 import type { LaunchResult, ProactiveJob } from "@psyche/proactive";
-import { PsycheError } from "@psyche/protocol";
+import { type ModelRef, PsycheError } from "@psyche/protocol";
 
 /**
  * Settings → Mail & meetings (docs/workflows/mail-and-meetings-2026.md §7.3) as the Gateway's mail
@@ -24,6 +24,10 @@ export const WORKFLOW_SETTING_KEYS = [
   "mail.followups.waitDays",
   "mail.followups.showTwice",
   "mail.voice.enabled",
+  "mail.draft.localModel",
+  "mail.schedule.hoursStart",
+  "mail.schedule.hoursEnd",
+  "mail.schedule.bufferMin",
   "mail.poll.activeMin",
   "mail.poll.idleMin",
   "meetings.prep.enabled",
@@ -50,6 +54,10 @@ export interface WorkflowSettings {
   digest: { enabled: boolean; time: unknown; days: unknown; onlyWhenNeeded: boolean };
   followups: { enabled: boolean; waitDays: number; showTwice: boolean };
   voiceEnabled: boolean;
+  /** "Draft with a local model": a `provider/model` ref; unset = the primary model. */
+  draftModel: ModelRef | undefined;
+  /** Scheduling (§4.4): working hours in local time and the buffer either side of meetings. */
+  schedule: { workingHours: { start: number; end: number }; bufferMin: number };
   /** Minutes between mail checks while active / the least between checks otherwise; unset = default. */
   poll: { activeMin: number | undefined; idleMin: number | undefined };
   prep: {
@@ -76,6 +84,23 @@ function whole(v: unknown, min: number, max: number): number | undefined {
     : undefined;
 }
 
+/** A `provider/model` ref from Settings; anything else means "no pin". */
+function localModelRef(v: unknown): ModelRef | undefined {
+  return typeof v === "string" && /^[a-z0-9][a-z0-9_.-]*\/\S+$/.test(v.trim())
+    ? (v.trim() as ModelRef)
+    : undefined;
+}
+
+/** Working hours default 9–17 and a 15-minute buffer, as the scheduling service assumes. */
+function scheduleSettings(get: (key: string) => unknown): WorkflowSettings["schedule"] {
+  const start = whole(get("mail.schedule.hoursStart"), 0, 23) ?? 9;
+  const end = whole(get("mail.schedule.hoursEnd"), 1, 24) ?? 17;
+  return {
+    workingHours: start < end ? { start, end } : { start: 9, end: 17 },
+    bufferMin: whole(get("mail.schedule.bufferMin"), 0, 120) ?? 15,
+  };
+}
+
 export function workflowSettings(db: PsycheDb): WorkflowSettings {
   const get = (key: string): unknown => getSetting(db, key)?.value;
   const consent = get("meetings.notes.consentLine");
@@ -95,6 +120,8 @@ export function workflowSettings(db: PsycheDb): WorkflowSettings {
       showTwice: get("mail.followups.showTwice") !== false,
     },
     voiceEnabled: bool(get("mail.voice.enabled")),
+    draftModel: localModelRef(get("mail.draft.localModel")),
+    schedule: scheduleSettings(get),
     poll: {
       activeMin: whole(get("mail.poll.activeMin"), 1, 60),
       idleMin: whole(get("mail.poll.idleMin"), 1, 24 * 60),

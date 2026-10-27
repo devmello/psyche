@@ -137,6 +137,11 @@ export interface SchedulingServiceOptions {
   readOnly?: () => boolean;
   timezone: string;
   workingHours?: { start: number; end: number };
+  /**
+   * Settings → Mail & meetings → Scheduling (`mail.schedule.*`), read on every proposal. Wins over
+   * `workingHours`; the buffer is the gap kept either side of other meetings.
+   */
+  schedule?: () => { workingHours: { start: number; end: number }; bufferMin: number };
   now: () => number;
   /** A scheduling link the owner set in Settings; offered only then (meetings [37][55]). */
   schedulingLink?: string;
@@ -192,13 +197,16 @@ export class SchedulingService {
     const from = now + 3_600_000;
     const to = now + (r.withinDays ?? 7) * 86_400_000;
     const busy = await this.#busy(from, to);
+    const schedule = this.#o.schedule?.();
+    const workingHours = schedule?.workingHours ?? this.#o.workingHours;
     const slots = findSlots({
       busy,
       from,
       to,
       durationMin: r.durationMin ?? 30,
       timezone: this.#o.timezone,
-      ...(this.#o.workingHours === undefined ? {} : { workingHours: this.#o.workingHours }),
+      ...(workingHours === undefined ? {} : { workingHours }),
+      ...(schedule === undefined ? {} : { bufferMin: schedule.bufferMin }),
     });
     const lines = slots
       .map((s) => `- ${formatSlot(s, this.#o.timezone, r.recipientTimezone)}`)
