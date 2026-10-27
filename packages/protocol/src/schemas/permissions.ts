@@ -32,7 +32,7 @@ export const MissingPermission = Type.Union(
       {
         need: Type.Literal("capability"),
         /** A capability that is off until the owner turns it on. */
-        capability: StringEnum(["exec_host"]),
+        capability: StringEnum(["exec_host"], { $id: "GatedCapability" }),
       },
       { $id: "MissingCapability" },
     ),
