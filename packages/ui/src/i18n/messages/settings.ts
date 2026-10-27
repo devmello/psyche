@@ -795,6 +795,45 @@ export const settings = {
     "A program on this computer, run in the sandbox with no access to your files.",
   "settings.mcp.kind.commandUnavailable":
     "This Gateway has no sandbox for commands, so only URL servers can be added.",
+  "settings.sandbox.setUp": "Set up sandbox",
+  "settings.mcp.sandboxHelp": "Command servers need a sandbox on this Mac.",
+  "settings.sandbox.title": "Set up the sandbox",
+  "settings.sandbox.why":
+    "The sandbox runs local MCP command servers isolated from your Mac: each in its own container, with no access to your files and the network only where you allow it. Psyche never runs them on the host instead.",
+  "settings.sandbox.privacy":
+    "Psyche installs nothing on its own. You run each step below, or open the download yourself.",
+  "settings.sandbox.checking": "Looking at this Mac…",
+  "settings.sandbox.checkAgain": "Check again",
+  "settings.sandbox.done": "Done",
+  "settings.sandbox.copy": "Copy",
+  "settings.sandbox.copied": "Copied",
+  "settings.sandbox.ready": "Ready",
+  "settings.sandbox.readyBody": "{runtime} is running. Command servers can be added.",
+  "settings.sandbox.runtime.appleContainer": "Apple container",
+  "settings.sandbox.runtime.docker": "Docker",
+  "settings.sandbox.runtime.podman": "Podman",
+  "settings.sandbox.missing.title": "Install {runtime}",
+  "settings.sandbox.missing.appleContainer":
+    "Apple's container runtime gives each sandbox its own lightweight VM. It needs macOS 26 on Apple silicon and an installer you approve with your Mac password.",
+  "settings.sandbox.missing.docker":
+    "Docker (through Colima or Docker Desktop) is the way to get a sandbox on this Mac. Colima is free and lightweight; Docker Desktop is the point-and-click choice.",
+  "settings.sandbox.step.download": "Download and open the installer",
+  "settings.sandbox.step.downloadLink": "Open the Apple container releases",
+  "settings.sandbox.step.start": "Start it",
+  "settings.sandbox.step.install": "Install it with Homebrew",
+  "settings.sandbox.step.orDesktop": "Or download Docker Desktop and open it once",
+  "settings.sandbox.step.desktopLink": "Open the Docker Desktop download",
+  "settings.sandbox.stopped.title": "{runtime} is installed but not running",
+  "settings.sandbox.stopped.appleContainer": "Start its system service, then check again.",
+  "settings.sandbox.stopped.docker":
+    "Start the Docker daemon (open Docker Desktop, or run the command below), then check again.",
+  "settings.sandbox.stopped.podman": "Start the Podman machine, then check again.",
+  "settings.sandbox.restart.title": "{runtime} is running. Restart the Gateway to use it",
+  "settings.sandbox.restart.body":
+    "The Gateway looked for a sandbox when it started and found none. Restart it, then it picks up {runtime}.",
+  "settings.sandbox.restart.step": "Restart the Gateway",
+  "settings.sandbox.without":
+    "Without a sandbox, Psyche can still use URL servers and your connectors, but it can't run local MCP command servers, run code for you or convert some files.",
   "settings.mcp.kind.url": "URL",
   "settings.mcp.kind.urlHint": "A server on the internet, reached over HTTPS.",
   "settings.mcp.command": "Command",

@@ -160,12 +160,19 @@ export function partsFromEnv(
     }),
   );
   if (env.PSYCHE_MCP !== "off") {
-    parts.push((s) => {
+    parts.push(async (s) => {
       const runner = sandbox?.runner;
       const egress = sandbox?.egress;
+      // A container runtime on this Mac is the default launcher (each server in its own sandbox
+      // container); `PSYCHE_SRT_PATH` alone keeps srt, and `PSYCHE_MCP_LAUNCHER` still chooses.
+      const hasContainers =
+        runner !== undefined && (await runner.backends().catch(() => [])).length > 0;
+      const container =
+        env.PSYCHE_MCP_LAUNCHER === "container" ||
+        (env.PSYCHE_MCP_LAUNCHER === undefined && !env.PSYCHE_SRT_PATH && hasContainers);
       return composeMcp(s, {
         // The sandbox part's runner (not disposed by the MCP part) and its egress allowlists.
-        ...(env.PSYCHE_MCP_LAUNCHER === "container" && runner !== undefined && egress !== undefined
+        ...(container && runner !== undefined && egress !== undefined
           ? {
               container: {
                 ensureSandbox: (scope, options) => runner.ensureSandbox(scope, options),

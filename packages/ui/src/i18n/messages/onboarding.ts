@@ -3,6 +3,7 @@ export const onboarding = {
   "onboarding.step.agent": "Meet your agent",
   "onboarding.step.permissions": "Permissions",
   "onboarding.step.connectors": "Connectors",
+  "onboarding.step.sandbox": "Sandbox (optional)",
   "onboarding.step.model": "Model & provider",
   "onboarding.step.where": "Where {name} works",
   "onboarding.step.done": "Done",

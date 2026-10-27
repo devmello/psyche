@@ -2222,6 +2222,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Looks at the container runtimes on this computer again, for the guided sandbox setup: which are supported, installed and running, which one to install, and whether the Gateway must restart to use one. Never installs or starts anything.",
+        "name": "sandbox.setup",
+        "params": "#/$defs/SandboxSetupParams",
+        "result": "#/$defs/SandboxSetupResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Reports the container backend and, with sandboxId, one sandbox's state.",
         "name": "sandbox.status",
         "params": "#/$defs/SandboxStatusParams",
@@ -27845,6 +27853,14 @@
       ],
       "type": "string"
     },
+    "SandboxContainerBackend": {
+      "enum": [
+        "apple-container",
+        "docker",
+        "podman"
+      ],
+      "type": "string"
+    },
     "SandboxInfo": {
       "properties": {
         "id": {
@@ -27939,6 +27955,77 @@
         "proxy"
       ],
       "type": "string"
+    },
+    "SandboxSetupBackend": {
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/SandboxContainerBackend"
+        },
+        "supported": {
+          "description": "This Mac can use it (Apple container needs macOS 26 on Apple silicon)",
+          "type": "boolean"
+        },
+        "installed": {
+          "type": "boolean"
+        },
+        "running": {
+          "description": "It answers now, so a sandbox could start on it",
+          "type": "boolean"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "supported",
+        "installed",
+        "running"
+      ],
+      "type": "object"
+    },
+    "SandboxSetupParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "SandboxSetupResult": {
+      "properties": {
+        "recommended": {
+          "$ref": "#/$defs/SandboxContainerBackend"
+        },
+        "backends": {
+          "items": {
+            "$ref": "#/$defs/SandboxSetupBackend"
+          },
+          "type": "array"
+        },
+        "ready": {
+          "description": "A runtime is running now (detected fresh, not at boot)",
+          "type": "boolean"
+        },
+        "active": {
+          "$ref": "#/$defs/SandboxBackend"
+        },
+        "restartNeeded": {
+          "description": "A runtime is running but this Gateway started without one: restart it",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "recommended",
+        "backends",
+        "ready",
+        "active",
+        "restartNeeded"
+      ],
+      "type": "object"
     },
     "SandboxStatus": {
       "enum": [

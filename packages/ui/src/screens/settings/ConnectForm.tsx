@@ -170,6 +170,7 @@ export function ConnectForm({
           checking={mcp.checking}
           onCheck={mcp.check}
           onCancel={onCancel}
+          onSandboxReady={mcp.reload}
         />
       ) : preset && mcp ? (
         <McpPresetForm preset={preset} mcp={mcp} onCancel={onCancel} onTry={onTry} />

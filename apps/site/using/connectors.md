@@ -28,10 +28,12 @@ Each entry has:
 An environment value can be a vault placeholder such as `{{cred:notion-token}}`. Each one asks you before it is filled.
 :::
 
-Local (stdio) servers must run isolated. Start the Gateway with one of:
+Local (stdio) servers must run isolated. When the Gateway finds a container runtime at start (Apple `container`, Docker or Podman), each runs in its own sandbox container, reaching the network only through Psyche's egress proxy and the server's allowlist. Otherwise:
 
-- `PSYCHE_SRT_PATH` pointing at `srt`, to run each stdio server under it; or
-- `PSYCHE_MCP_LAUNCHER=container`, to run each in its own sandbox container, reaching the network only through Psyche's egress proxy and the server's allowlist.
+- `PSYCHE_SRT_PATH` pointing at `srt` runs each stdio server under it; or
+- `PSYCHE_MCP_LAUNCHER=container` asks for the container launcher explicitly (any other value turns the automatic choice off).
+
+Without a sandbox, the add page says so and offers **Set up sandbox**: a short walkthrough that finds which runtime this Mac has, shows the commands or official download to get one running (Psyche installs nothing itself), and checks again. Onboarding offers the same as an optional step.
 
 With neither, stdio servers that are not bundled are refused and only remote servers run. `PSYCHE_MCP=off` turns MCP off. `psyche doctor` and `psyche security audit` report which launcher is in use and each server's trust, transport and network reach.
 

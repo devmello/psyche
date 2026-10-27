@@ -1,6 +1,11 @@
 import type { CliDriver, CliResult } from "@psyche/sandbox";
 import { describe, expect, it } from "vitest";
-import { composeSandbox, type DevServerSink, devServerBridge } from "../src/compose/sandbox.ts";
+import {
+  composeSandbox,
+  type DevServerSink,
+  devServerBridge,
+  sandboxSetupHandler,
+} from "../src/compose/sandbox.ts";
 import type { ComposeServices } from "../src/compose/services.ts";
 
 /** A container CLI that runs nothing: inspect says "absent", the listener probe answers `probe`. */
@@ -147,5 +152,60 @@ describe("sandbox.status (for psyche security audit)", () => {
       egress: true,
     });
     await part.stop?.();
+  });
+});
+
+describe("sandbox.setup (guided setup)", () => {
+  /** A Mac whose runtimes are described by `present`: path of the CLI, and what its probe says. */
+  const mac = (
+    present: Record<string, string | null>,
+    macosVersion = "26.1",
+  ): import("@psyche/sandbox").DetectDeps => ({
+    platform: "darwin",
+    arch: "arm64",
+    env: {},
+    which: async (c) => (c in present ? `/usr/local/bin/${c}` : null),
+    macosVersion: async () => macosVersion,
+    probe: async (cli) => present[cli.split("/").pop() ?? ""] ?? null,
+  });
+  const run = (deps: import("@psyche/sandbox").DetectDeps, active: () => Promise<never>) =>
+    sandboxSetupHandler(active as never, deps).run();
+
+  it("reports nothing installed and recommends Apple container on macOS 26", async () => {
+    const r = await run(mac({}), async () => "none" as never);
+    expect(r).toMatchObject({ recommended: "apple-container", ready: false, restartNeeded: false });
+    expect(r.backends.map((b) => [b.kind, b.supported, b.installed, b.running])).toEqual([
+      ["apple-container", true, false, false],
+      ["docker", true, false, false],
+      ["podman", true, false, false],
+    ]);
+  });
+
+  it("sees Docker installed but its daemon stopped", async () => {
+    const r = await run(mac({ docker: null }), async () => "none" as never);
+    expect(r.ready).toBe(false);
+    expect(r.backends.find((b) => b.kind === "docker")).toMatchObject({
+      installed: true,
+      running: false,
+      version: null,
+    });
+  });
+
+  it("asks for a restart when a runtime runs that the Gateway booted without", async () => {
+    const r = await run(mac({ container: "1.5.0" }), async () => "none" as never);
+    expect(r).toMatchObject({ ready: true, active: "none", restartNeeded: true });
+    const booted = await run(mac({ container: "1.5.0" }), async () => "apple-container" as never);
+    expect(booted).toMatchObject({ ready: true, restartNeeded: false });
+  });
+
+  it("recommends Docker where Apple container cannot run, and never lists it as installed", async () => {
+    const r = await run(mac({ container: "1.5.0" }, "15.4"), async () => "none" as never);
+    expect(r.recommended).toBe("docker");
+    expect(r.backends[0]).toMatchObject({
+      kind: "apple-container",
+      supported: false,
+      installed: false,
+    });
+    expect(r.ready).toBe(false);
   });
 });

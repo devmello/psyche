@@ -154,6 +154,7 @@ const REQUIRED_METHODS: MethodName[] = [
   "browser.snapshot",
   "sandbox.list",
   "sandbox.status",
+  "sandbox.setup",
   "events.subscribe",
   "node.invoke",
   "node.event",

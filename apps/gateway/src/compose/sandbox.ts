@@ -5,9 +5,12 @@ import {
   type ContainerSandboxRunnerOptions,
   createSandboxEgress,
   createSandboxRunner,
+  type DetectDeps,
   type DevServerEvent,
   FileProvenanceStore,
+  inspectBackends,
   type SandboxEgress,
+  systemDetectDeps,
 } from "@psyche/sandbox";
 import type { Gateway } from "../server.ts";
 import { execTool } from "./exec-tool.ts";
@@ -45,6 +48,36 @@ export interface SandboxSetup {
   vm?: ComposedVm;
   /** Whether this host has a container backend (`composeSandboxIfAvailable` detects it). */
   containers?: boolean;
+  /** How `sandbox.setup` looks at this Mac; tests mock the runtime here. */
+  detectDeps?: DetectDeps;
+}
+
+/**
+ * `sandbox.setup` (guided setup): looks at the runtimes again on every call, so "Check again"
+ * sees one the owner just installed or started. `active` is what this Gateway booted with; a
+ * runtime found now that it did not boot with needs a Gateway restart before it is used.
+ * Read-only: it never installs or starts anything.
+ */
+export function sandboxSetupHandler(active: () => Promise<SandboxBackend>, deps?: DetectDeps) {
+  return {
+    run: async () => {
+      const d = deps ?? systemDetectDeps();
+      const backends = (await inspectBackends(d)).map((b) => ({
+        kind: b.kind,
+        supported: b.supported,
+        installed: b.installed,
+        running: b.running,
+        version: b.version,
+      }));
+      const now = await active();
+      const ready = backends.some((b) => b.running);
+      // Apple's `container` where it runs (ADR-008); Docker through Colima or Docker Desktop elsewhere.
+      const recommended = backends.find((b) => b.kind === "apple-container")?.supported
+        ? ("apple-container" as const)
+        : ("docker" as const);
+      return { recommended, backends, ready, active: now, restartNeeded: ready && now === "none" };
+    },
+  };
 }
 
 export interface ComposedSandbox extends ComposedPart {
@@ -157,6 +190,7 @@ export function composeSandbox(
     const first = (await runner.backends().catch(() => []))[0];
     return first === "apple-container" || first === "docker" || first === "podman" ? first : "none";
   };
+  const setupHandler = sandboxSetupHandler(backend, setup.detectDeps);
   return {
     runner,
     egress,
@@ -170,6 +204,7 @@ export function composeSandbox(
           return { backend: b, available: b !== "none", sandbox: null, egress: true };
         },
       },
+      "sandbox.setup": setupHandler,
     },
     start(gateway: Gateway) {
       if (setup.vm === undefined) return;
@@ -216,6 +251,7 @@ export async function composeSandboxIfAvailable(
       "sandbox.status": {
         run: () => ({ backend: "none" as const, available: false, sandbox: null, egress: false }),
       },
+      "sandbox.setup": sandboxSetupHandler(async () => "none", setup.detectDeps),
     },
   };
 }
