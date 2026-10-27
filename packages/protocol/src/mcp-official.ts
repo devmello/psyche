@@ -59,7 +59,9 @@ function plainSpec(spec: string): string | undefined {
 
 /** Whether `name` is one of the MCP project's reference servers (`@modelcontextprotocol/server-*`). */
 function isReferenceServer(name: string): boolean {
-  return name.startsWith(`${MCP_SCOPE}server-`) && name.length > MCP_SCOPE.length + "server-".length;
+  return (
+    name.startsWith(`${MCP_SCOPE}server-`) && name.length > MCP_SCOPE.length + "server-".length
+  );
 }
 
 /** The official package a stdio command runs, or undefined. Only `npx [-y]` / `uvx` launches. */

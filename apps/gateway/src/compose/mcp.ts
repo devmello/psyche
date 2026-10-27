@@ -356,14 +356,12 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
     for (const [id, reg] of registrations) {
       if (choices(known.get(id)) === offered.get(id)) continue;
       offered.set(id, choices(known.get(id)));
-      await reg
-        .sync()
-        .catch((err) =>
-          warn("mcp tools re-registration failed", {
-            serverId: id,
-            code: PsycheError.from(err).code,
-          }),
-        );
+      await reg.sync().catch((err) =>
+        warn("mcp tools re-registration failed", {
+          serverId: id,
+          code: PsycheError.from(err).code,
+        }),
+      );
     }
   };
   // Changes apply in order, one at a time.
