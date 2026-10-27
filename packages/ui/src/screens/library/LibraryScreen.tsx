@@ -29,6 +29,7 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
+import { requestChatFocus } from "../../chat/focus-request.ts";
 import { EmptyState, ErrorState, LoadingCards, useDelayedFlag } from "../../components/page.tsx";
 import { Badge } from "../../components/ui/badge.tsx";
 import { Button } from "../../components/ui/button.tsx";
@@ -42,7 +43,7 @@ import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover.tsx";
 import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs.tsx";
 import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group.tsx";
-import { useLibrary, useTasks } from "../../data/hooks.ts";
+import { useCall, useLibrary, useTasks } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { formatDate } from "../../lib/format.ts";
@@ -52,6 +53,7 @@ import { usePersona, useSlots } from "../../slots.tsx";
 import { ScreenColumn, ScreenToolbar, ToolbarLabel } from "../feed/ScreenToolbar.tsx";
 import {
   applyFilters,
+  artifactIdOf,
   DATE_FILTERS,
   type DateFilter,
   fileType,
@@ -73,6 +75,10 @@ export interface LibraryItemActions {
   onSendToChat?: (item: LibraryItem) => void;
   onTrust?: (item: LibraryItem) => void;
   onOpenTask?: (taskId: string) => void;
+  /** An artifact: its chat, scrolled to the message that made it, with the artifact open. */
+  onOpenInChat?: (item: LibraryItem) => void;
+  /** An artifact opened on its own, without its chat (`onOpen` goes to the chat). */
+  onOpenViewer?: (item: LibraryItem) => void;
 }
 
 export interface LibraryItemViewProps extends LibraryItemActions {
@@ -103,11 +109,26 @@ function ItemIcon({ item, className }: { item: LibraryItem; className?: string }
 function itemActions(item: LibraryItem, a: LibraryItemActions) {
   const system = item.kind === "system";
   const list: { id: string; label: string; icon: ReactElement; run: () => void }[] = [];
-  if (a.onOpen) {
-    const open = a.onOpen;
+  if (item.kind === "artifact" && a.onOpenInChat) {
+    const inChat = a.onOpenInChat;
     list.push({
-      id: "open",
-      label: system ? t("screens.library.openInEditor") : t("screens.library.open"),
+      id: "open-in-chat",
+      label: t("screens.library.openInChat"),
+      icon: <MessageCircle aria-hidden="true" />,
+      run: () => inChat(item),
+    });
+  }
+  const openPlain = item.kind === "artifact" && a.onOpenViewer ? a.onOpenViewer : a.onOpen;
+  if (openPlain) {
+    const open = openPlain;
+    list.push({
+      // The card's own button is "Open"; an artifact's card goes to its chat, so its viewer entry stays in the menu.
+      id: item.kind === "artifact" && a.onOpenViewer ? "open-viewer" : "open",
+      label: system
+        ? t("screens.library.openInEditor")
+        : item.kind === "artifact" && a.onOpenViewer
+          ? t("screens.library.openInViewer")
+          : t("screens.library.open"),
       icon: system ? <PenLine aria-hidden="true" /> : <FolderOpen aria-hidden="true" />,
       run: () => open(item),
     });
@@ -835,7 +856,53 @@ export function LibraryScreen({
     [library.items, trusted],
   );
 
+  const call = useCall();
+  const openStandalone = (item: LibraryItem) => openLibraryItem?.(item);
+  /** An artifact opens in the chat that made it; without one, in the viewer with a quiet note. */
+  const openInChat = (item: LibraryItem) => {
+    const artifactId = artifactIdOf(item);
+    void (async () => {
+      const byId =
+        artifactId === null
+          ? null
+          : await call("artifacts.get", { artifactId }).then(
+              (r) => r.artifact,
+              () => null,
+            );
+      const artifact =
+        byId ??
+        (await call("artifacts.list", { limit: 200 }).then(
+          (r) => r.artifacts.find((a) => a.libraryItemId === item.id) ?? null,
+          () => null,
+        ));
+      // The thread recorded at creation (a fork keeps its own copy of the message, not the origin).
+      const threadId = artifact?.threadId ?? item.threadId;
+      const thread =
+        threadId == null
+          ? null
+          : await call("threads.get", { threadId }).then(
+              (r) => r.thread,
+              () => null,
+            );
+      if (thread === null || threadId == null) {
+        toast(t("screens.library.chatUnavailable"));
+        openStandalone(item);
+        return;
+      }
+      requestChatFocus({
+        threadId,
+        messageId: artifact?.messageId ?? null,
+        artifactId: artifact?.id ?? null,
+      });
+      navigate?.(`/chat/${threadId}`);
+    })();
+  };
+
   const open = (item: LibraryItem) => {
+    if (item.kind === "artifact") {
+      openInChat(item);
+      return;
+    }
     if (item.kind === "system") {
       navigate?.(`/agent/soul?file=${encodeURIComponent(workspacePath(item))}`);
       return;
@@ -882,6 +949,8 @@ export function LibraryScreen({
       onOpenChat={() => navigate?.("/chat")}
       now={now}
       onOpen={open}
+      onOpenInChat={openInChat}
+      onOpenViewer={openStandalone}
       onOpenTask={(id) => navigate?.(`/agent/activity/${id}`)}
       {...(onTrust ? { onTrust: trust } : {})}
       {...(onReveal ? { onReveal } : {})}

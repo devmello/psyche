@@ -5,13 +5,14 @@ import type {
   ArtifactTableView,
   ArtifactVersion,
 } from "@psyche/protocol";
-import { and, asc, desc, eq, gt, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, like, lte, sql } from "drizzle-orm";
 import type { PsycheDb } from "../open.ts";
 import {
   type ArtifactRow,
   type ArtifactVersionRow,
   artifacts,
   artifactVersions,
+  messages,
 } from "../schema.ts";
 
 /**
@@ -35,6 +36,7 @@ export interface NewArtifact {
   nameSlug: string;
   language?: string | null;
   threadId?: string | null;
+  runId?: string | null;
   untrusted?: boolean;
   content: string;
   bytes: number;
@@ -77,6 +79,8 @@ export function artifactFromRow(row: ArtifactRow): Artifact {
     sourceRef: null,
     updatedAt: row.updatedAt,
     threadId: row.threadId,
+    runId: row.runId,
+    messageId: row.messageId,
     bytes: row.bytes,
   };
   if (row.language !== null) a.language = row.language;
@@ -132,6 +136,7 @@ export function insertArtifact(
         nameSlug: input.nameSlug,
         language: input.language ?? null,
         threadId: input.threadId ?? null,
+        runId: input.runId ?? null,
         untrusted: input.untrusted === true ? 1 : 0,
         version: 1,
         content: input.content,
@@ -281,4 +286,46 @@ export function artifactVersionChain(
     .orderBy(asc(artifactVersions.version))
     .all()
     .map(artifactVersionFromRow);
+}
+
+/**
+ * The message in the artifact's own thread that holds its block: the first whose blocks name it,
+ * else the first agent message of the run that made it. Forks copy messages into other threads,
+ * so the search stays in `threadId`. Null while the turn has not committed its message yet.
+ */
+export function findArtifactMessageId(
+  db: PsycheDb,
+  a: Pick<Artifact, "id" | "threadId" | "runId">,
+): string | null {
+  if (a.threadId == null) return null;
+  const byBlock = db.drizzle
+    .select({ id: messages.id })
+    .from(messages)
+    .where(
+      and(
+        eq(messages.threadId, a.threadId),
+        like(messages.blocks, `%"artifactId":"${a.id.replace(/[%_\\]/g, "")}"%`),
+      ),
+    )
+    .orderBy(asc(messages.seq))
+    .get();
+  if (byBlock !== undefined) return byBlock.id;
+  if (a.runId == null) return null;
+  const byRun = db.drizzle
+    .select({ id: messages.id })
+    .from(messages)
+    .where(
+      and(
+        eq(messages.threadId, a.threadId),
+        eq(messages.runId, a.runId),
+        eq(messages.role, "agent"),
+      ),
+    )
+    .orderBy(asc(messages.seq))
+    .get();
+  return byRun?.id ?? null;
+}
+
+export function setArtifactMessageId(db: PsycheDb, id: string, messageId: string): void {
+  db.drizzle.update(artifacts).set({ messageId }).where(eq(artifacts.id, id)).run();
 }

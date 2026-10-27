@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { getChatFocusRequestForTest as useChatFocusRequestSnapshot } from "../src/chat/focus-request.ts";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { createFixtureWorld, type FixtureWorld, IDS } from "../src/fixtures/index.ts";
 import { LibraryScreen } from "../src/screens/library/LibraryScreen.tsx";
@@ -224,6 +225,87 @@ describe("LibraryScreen", () => {
     expect(onSendToChat).toHaveBeenCalledWith(
       expect.objectContaining({ id: IDS.library.intakeForm }),
     );
+  });
+
+  describe("opening an artifact", () => {
+    const itineraryItem = "Open Tuesday, Oct 20";
+    const bound = (w: FixtureWorld) => {
+      const a = w.artifacts.find((x) => x.id === IDS.artifacts.itinerary);
+      if (a === undefined) throw new Error("fixture");
+      a.threadId = IDS.threads.dentist;
+      a.messageId = "msg_made_it";
+    };
+
+    it("goes to the chat it came from, asking the thread to land on the message", async () => {
+      const openLibraryItem = vi.fn();
+      const { navigate, user } = setup(<LibraryScreen now={STORY_NOW} section="artifacts" />, {
+        edit: bound,
+        slots: { openLibraryItem },
+      });
+      const card = (await screen.findByText("Tuesday, Oct 20")).closest("article") as HTMLElement;
+      await user.dblClick(within(card).getByRole("button", { name: itineraryItem }));
+      await waitFor(() => expect(navigate).toHaveBeenCalledWith(`/chat/${IDS.threads.dentist}`));
+      expect(openLibraryItem).not.toHaveBeenCalled();
+      expect(useChatFocusRequestSnapshot()).toEqual({
+        threadId: IDS.threads.dentist,
+        messageId: "msg_made_it",
+        artifactId: IDS.artifacts.itinerary,
+      });
+    });
+
+    it("offers Open in chat in the menu, next to Open in viewer", async () => {
+      const openLibraryItem = vi.fn();
+      const { navigate, user } = setup(<LibraryScreen now={STORY_NOW} section="artifacts" />, {
+        edit: bound,
+        slots: { openLibraryItem },
+      });
+      const card = (await screen.findByText("Tuesday, Oct 20")).closest("article") as HTMLElement;
+      await user.click(
+        within(card).getByRole("button", { name: "More actions for Tuesday, Oct 20" }),
+      );
+      await user.click(await screen.findByRole("menuitem", { name: "Open in viewer" }));
+      expect(openLibraryItem).toHaveBeenCalledWith(
+        expect.objectContaining({ id: IDS.library.itinerary }),
+      );
+      await user.click(
+        within(card).getByRole("button", { name: "More actions for Tuesday, Oct 20" }),
+      );
+      await user.click(await screen.findByRole("menuitem", { name: "Open in chat" }));
+      await waitFor(() => expect(navigate).toHaveBeenCalledWith(`/chat/${IDS.threads.dentist}`));
+    });
+
+    it("opens the viewer with a quiet note when the chat is gone or never existed", async () => {
+      const openLibraryItem = vi.fn();
+      const { navigate, user } = setup(<LibraryScreen now={STORY_NOW} section="artifacts" />, {
+        edit: (w) => {
+          bound(w);
+          w.threads = w.threads.filter((t) => t.thread.id !== IDS.threads.dentist);
+        },
+        slots: { openLibraryItem },
+      });
+      const card = (await screen.findByText("Tuesday, Oct 20")).closest("article") as HTMLElement;
+      await user.dblClick(within(card).getByRole("button", { name: itineraryItem }));
+      await waitFor(() =>
+        expect(openLibraryItem).toHaveBeenCalledWith(
+          expect.objectContaining({ id: IDS.library.itinerary }),
+        ),
+      );
+      expect(navigate).not.toHaveBeenCalled();
+      expect(await screen.findByText("The original chat isn't available.")).toBeTruthy();
+      // Made outside a chat (no thread recorded anywhere): same fallback.
+      const plan = (await screen.findByText("half-marathon-plan.pdf")).closest(
+        "article",
+      ) as HTMLElement;
+      await user.dblClick(
+        within(plan).getByRole("button", { name: "Open half-marathon-plan.pdf" }),
+      );
+      await waitFor(() =>
+        expect(openLibraryItem).toHaveBeenCalledWith(
+          expect.objectContaining({ id: IDS.library.planPdf }),
+        ),
+      );
+      expect(navigate).not.toHaveBeenCalled();
+    });
   });
 
   it("switches tabs and opens system files in the editor", async () => {

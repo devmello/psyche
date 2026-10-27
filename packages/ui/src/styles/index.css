@@ -346,6 +346,20 @@
   }
 }
 
+/* A message the Library's "Open in chat" landed on: a brief accent wash that fades out. */
+[data-flash="true"] {
+  animation: psy-flash 1.8s var(--ease-enter) both;
+  border-radius: var(--radius-lg, 12px);
+}
+@keyframes psy-flash {
+  from {
+    background-color: color-mix(in oklab, var(--accent, currentColor) 22%, transparent);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
 @keyframes psy-rise {
   from {
     opacity: 0;

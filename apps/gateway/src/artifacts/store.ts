@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import {
   appendArtifactVersion,
   artifactVersionChain,
+  findArtifactMessageId,
   getArtifact,
   getLibraryItem,
   insertArtifact,
@@ -11,6 +12,7 @@ import {
   listArtifactVersions,
   type PsycheDb,
   type StoredArtifact,
+  setArtifactMessageId,
   upsertLibraryItemByPath,
 } from "@psyche/db";
 import {
@@ -141,6 +143,18 @@ export class ArtifactStore {
     return listArtifactsPage(this.#d.db, options);
   }
 
+  /**
+   * `artifact` with its origin message filled in. The message is committed after the artifact is
+   * created, so it is found (and remembered) on a later read; this also backfills older rows.
+   */
+  withOrigin(artifact: Artifact): Artifact {
+    if (artifact.messageId != null || artifact.threadId == null) return artifact;
+    const messageId = findArtifactMessageId(this.#d.db, artifact);
+    if (messageId === null) return artifact;
+    setArtifactMessageId(this.#d.db, artifact.id, messageId);
+    return { ...artifact, messageId };
+  }
+
   versions(id: string): ArtifactVersion[] {
     this.get(id);
     return listArtifactVersions(this.#d.db, id).map((v) => v.version);
@@ -185,6 +199,7 @@ export class ArtifactStore {
         nameSlug: slug,
         language: input.language ?? null,
         threadId: input.threadId ?? null,
+        runId: trace.runId ?? null,
         untrusted: input.untrusted === true,
         content,
         bytes: bytesOf(content),

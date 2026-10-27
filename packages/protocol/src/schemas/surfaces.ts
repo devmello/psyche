@@ -233,6 +233,13 @@ export const Artifact = Type.Object(
     updatedAt: IsoDateTime,
     /** Canvas artifacts (chat-experience-2026 §4.2): the thread that made it, for recents. */
     threadId: Type.Optional(Nullable(Id)),
+    /** The run that made it (null for the user's own and for imports). */
+    runId: Type.Optional(Nullable(Id)),
+    /**
+     * The message in `threadId` that holds its artifact block, for "open in chat". Null until
+     * that message is committed; absent when there is no source chat.
+     */
+    messageId: Type.Optional(Nullable(Id)),
     /** `code` artifacts: the language id (`ts`, `py`, …). */
     language: Type.Optional(Type.String({ maxLength: 40 })),
     /** Derived from tainted input: the canvas marks it and keeps `html` previews off. */
