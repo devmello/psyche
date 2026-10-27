@@ -104,6 +104,13 @@ export interface ComposedMeetings {
   readonly notes: MeetingNotesService;
   readonly record: RecordMeeting;
   readonly handlers: Record<string, HandlerDef>;
+  /** `meetings.notes.create` as a function: the recordings-folder card's approved action runs it. */
+  createNotes(p: {
+    libraryItemId: string;
+    startedAt?: string;
+    title?: string;
+    speakers?: RecordingSpeakers;
+  }): Promise<MeetingNotesResult>;
   /** A device went away: a recording it was capturing ends and its notes are written. */
   deviceGone(deviceId: string): void;
 }
@@ -146,32 +153,31 @@ export function composeMeetings(setup: MeetingsSetup): ComposedMeetings {
     ...(setup.runningApps === undefined ? {} : { runningApps: setup.runningApps }),
     ...(setup.logger === undefined ? {} : { logger: setup.logger }),
   });
-  const params = mountParamsOnly({
-    "meetings.notes.create": async (p: {
-      libraryItemId: string;
-      startedAt?: string;
-      title?: string;
-      speakers?: RecordingSpeakers;
-    }): Promise<MeetingNotesResult> => {
-      assertNotesAllowed(workflowSettings(db));
-      const item = getLibraryItem(db, p.libraryItemId);
-      if (item === undefined) {
-        throw new PsycheError("not_found", `library item ${p.libraryItemId} not found`);
-      }
-      if (!/^(audio|video)\//.test(item.mime)) {
-        throw new PsycheError("invalid_params", "meeting notes need an audio recording");
-      }
-      const out = await notes.fromRecording({
-        path: join(home, "library", item.path),
-        library: { existing: item },
-        startedAt: p.startedAt ?? item.createdAt,
-        title: p.title ?? basename(item.name, extname(item.name)),
-        threadId: item.threadId,
-        ...(p.speakers === undefined ? {} : { speakers: p.speakers }),
-      });
-      return notesResult(out);
-    },
-  } as never);
+  const createNotes = async (p: {
+    libraryItemId: string;
+    startedAt?: string;
+    title?: string;
+    speakers?: RecordingSpeakers;
+  }): Promise<MeetingNotesResult> => {
+    assertNotesAllowed(workflowSettings(db));
+    const item = getLibraryItem(db, p.libraryItemId);
+    if (item === undefined) {
+      throw new PsycheError("not_found", `library item ${p.libraryItemId} not found`);
+    }
+    if (!/^(audio|video)\//.test(item.mime)) {
+      throw new PsycheError("invalid_params", "meeting notes need an audio recording");
+    }
+    const out = await notes.fromRecording({
+      path: join(home, "library", item.path),
+      library: { existing: item },
+      startedAt: p.startedAt ?? item.createdAt,
+      title: p.title ?? basename(item.name, extname(item.name)),
+      threadId: item.threadId,
+      ...(p.speakers === undefined ? {} : { speakers: p.speakers }),
+    });
+    return notesResult(out);
+  };
+  const params = mountParamsOnly({ "meetings.notes.create": createNotes } as never);
   // The recording belongs to the device that started it: only that device pushes audio.
   const byDevice = (fn: (p: never, deviceId: string) => Promise<unknown>): HandlerDef => ({
     run: (call: Call, p: never) => fn(p, call.identity.deviceId),
@@ -190,7 +196,7 @@ export function composeMeetings(setup: MeetingsSetup): ComposedMeetings {
       record.stop(p.reason),
     ),
   };
-  return { notes, record, handlers, deviceGone: (id) => record.deviceGone(id) };
+  return { notes, record, handlers, createNotes, deviceGone: (id) => record.deviceGone(id) };
 }
 
 function notesResult(out: NotesOutcome): MeetingNotesResult {
