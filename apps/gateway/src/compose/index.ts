@@ -1036,6 +1036,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     },
     // The people graph while the owner has it on: prep's attendees and loops, notes' loops.
     graph: () => (people?.settings().enabled === true ? people.graph : undefined),
+    // The recordings-folder watch reads only inside these (#953).
+    folders: () => rawBroker.policy.folders ?? [],
     ...(timeZone === undefined ? {} : { timeZone }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });

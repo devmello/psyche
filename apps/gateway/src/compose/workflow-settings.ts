@@ -1,3 +1,5 @@
+import { homedir } from "node:os";
+import { isAbsolute, join, resolve } from "node:path";
 import { getSetting, type PsycheDb } from "@psyche/db";
 import type { LaunchResult, ProactiveJob } from "@psyche/proactive";
 import { type ModelRef, PsycheError } from "@psyche/protocol";
@@ -37,6 +39,7 @@ export const WORKFLOW_SETTING_KEYS = [
   "meetings.prep.saveToNotes",
   "meetings.prep.dailyCap",
   "meetings.notes.enabled",
+  "meetings.notes.folder",
   "meetings.notes.tasksApp",
   "meetings.notes.recapDraft",
   "meetings.notes.consentLine",
@@ -76,10 +79,24 @@ export interface WorkflowSettings {
     recapDraft: boolean;
     consentLine: string | undefined;
     cloudSummary: boolean;
+    /** The recordings folder to watch for new audio (#953); unset = the watch is off. */
+    folder: string | undefined;
   };
 }
 
 const bool = (v: unknown): boolean => v === true;
+
+/**
+ * The recordings folder from Settings as an absolute path (`~/` is the owner's home); anything
+ * else (empty, relative, NUL) means "no folder".
+ */
+function folderPath(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const raw = v.trim();
+  if (raw === "" || raw.length > 4096 || raw.includes("\0")) return undefined;
+  const p = raw === "~" || raw.startsWith("~/") ? join(homedir(), raw.slice(1)) : raw;
+  return isAbsolute(p) ? resolve(p) : undefined;
+}
 
 function whole(v: unknown, min: number, max: number): number | undefined {
   return typeof v === "number" && Number.isFinite(v) && v >= min && v <= max
@@ -146,6 +163,7 @@ export function workflowSettings(db: PsycheDb): WorkflowSettings {
           ? consent.trim().slice(0, 300)
           : undefined,
       cloudSummary: bool(get("meetings.notes.cloudSummary")),
+      folder: folderPath(get("meetings.notes.folder")),
     },
   };
 }

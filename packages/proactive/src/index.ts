@@ -220,6 +220,19 @@ export {
   type TranscriptInput,
 } from "./meetings/notes.ts";
 export {
+  type CursorStore,
+  type FolderFile,
+  MAX_RECORDING_BYTES,
+  NOTES_AUDIO_EXTENSIONS,
+  NOTES_CREATE_TOOL,
+  NOTES_FOLDER_JOB,
+  NOTES_FOLDER_SCHEDULE,
+  NOTES_FOLDER_SOURCE,
+  type NotesFolderOptions,
+  type NotesFolderScan,
+  NotesFolderWatcher,
+} from "./meetings/notes-folder.ts";
+export {
   type CalendarEvent,
   lastMeetingNotes,
   MEETING_PREP_JOB,

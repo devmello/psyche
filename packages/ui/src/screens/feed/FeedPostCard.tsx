@@ -1,6 +1,6 @@
 import type { FeedPost } from "@psyche/protocol";
 import { Bookmark, Ellipsis, EyeOff, Heart, MessageCircle, Plus, ThumbsDown } from "lucide-react";
-import { type ReactElement, type ReactNode, useId } from "react";
+import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { Markdown } from "../../blocks/Markdown.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import {
@@ -15,6 +15,7 @@ import { formatTime } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
 import { SafeLink } from "../../links/SafeLink.tsx";
 import { GrowthCardItems } from "../../teaching/GrowthCard.tsx";
+import { ProposalBatchCard } from "../workflows/BatchCard.tsx";
 import { WorkflowPostCard } from "../workflows/WorkflowPostCard.tsx";
 import {
   feedKind,
@@ -59,7 +60,17 @@ export function FeedPostCard(props: FeedPostCardProps): ReactElement {
   return <StandardPostCard {...props} />;
 }
 
-function StandardPostCard({ post, onFeedback, onAsk, className }: FeedPostCardProps): ReactElement {
+function StandardPostCard({
+  post,
+  onFeedback,
+  onAsk,
+  renderBatch,
+  className,
+}: FeedPostCardProps): ReactElement {
+  // An offer (a new recording, say) carries its action as a proposal; opening it asks for the
+  // one approval, so it is shown only when the owner chooses to review it.
+  const proposalIds = post.refs?.proposalIds ?? [];
+  const [reviewing, setReviewing] = useState(false);
   const titleId = useId();
   const sources = feedSources(post);
   const topic = feedTopic(post);
@@ -96,6 +107,23 @@ function StandardPostCard({ post, onFeedback, onAsk, className }: FeedPostCardPr
       </Markdown>
       {/* The weekly "What I learned" card (teaching loop §5.4): its review items. */}
       {post.growth ? <GrowthCardItems postId={post.id} card={post.growth} /> : null}
+      {proposalIds.length > 0 ? (
+        reviewing ? (
+          proposalIds.map((id) =>
+            renderBatch ? (
+              <div key={id}>{renderBatch(id, () => setReviewing(false))}</div>
+            ) : (
+              <ProposalBatchCard key={id} proposalId={id} />
+            ),
+          )
+        ) : (
+          <div>
+            <Button type="button" size="sm" onClick={() => setReviewing(true)}>
+              {t("screens.feed.reviewAction")}
+            </Button>
+          </div>
+        )
+      ) : null}
 
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
         {sources.length > 0 ? (

@@ -199,6 +199,7 @@ export const screens = {
   "screens.feed.feedbackOn": "Feedback on {title}",
   "screens.feed.like": "Like",
   "screens.feed.askAbout": "Ask about this",
+  "screens.feed.reviewAction": "Review and approve",
   "screens.feed.askFailed": "Couldn't start a chat about this: {reason}",
   "screens.feed.moreFeedback": "More feedback on {title}",
   "screens.feed.follow": "Follow: {topic}",

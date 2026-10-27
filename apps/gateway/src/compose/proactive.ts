@@ -1,5 +1,6 @@
-import type { AgentToolRegistry } from "@psyche/agent-core";
+import { type AgentToolRegistry, defineTool } from "@psyche/agent-core";
 import { getSetting, type PsycheDb, setSetting } from "@psyche/db";
+import type { GrantedFolder } from "@psyche/files";
 import type { GraphStore, SqliteMemoryStore } from "@psyche/memory";
 import type { PsycheNotifier } from "@psyche/notifications";
 import type { PsychePermissionBroker } from "@psyche/permissions";
@@ -25,6 +26,8 @@ import {
   MailWatcher,
   MeetingPrepService,
   type MeetingTranscriber,
+  NOTES_CREATE_TOOL,
+  NotesFolderWatcher,
   OFF_HOURS_POLL_MS,
   ProposalService,
   publicFetch,
@@ -44,12 +47,15 @@ import {
   type SqliteScheduler,
 } from "@psyche/scheduler";
 import type { SqliteTaskEngine, TaskWorkerPool } from "@psyche/tasks";
+import { Type } from "@sinclair/typebox";
 import { ulid } from "ulid";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 import { mountParamsOnly, surfaceOf } from "./handlers.ts";
 import { type ComposedMeetings, composeMeetings, graphPrepHooks } from "./meetings.ts";
+import { recordingsFolderIo } from "./notes-folder.ts";
 import {
+  notesRefusal,
   pausable,
   UPGRADE_CARD_SETTING,
   WORKFLOW_SETTING_KEYS,
@@ -124,6 +130,11 @@ export interface ProactiveSetup {
   };
   /** The people graph while it is on: prep reads people and loops, notes add loops. */
   graph?: () => GraphStore | undefined;
+  /**
+   * The granted folders (`permissions.policy.folders`). The recordings-folder watch
+   * (`meetings.notes.folder`, #953) scans only a folder inside one; without this it never scans.
+   */
+  folders?: () => readonly GrantedFolder[];
 }
 
 export interface ComposedProactive {
@@ -140,6 +151,8 @@ export interface ComposedProactive {
   readonly meetingPrep: MeetingPrepService | undefined;
   /** Post-meeting notes and Record meeting (§4.6), when the composition gave `meetings`. */
   readonly meetings: ComposedMeetings | undefined;
+  /** New recordings in `meetings.notes.folder` offered as notes cards (#953). */
+  readonly notesFolder: NotesFolderWatcher | undefined;
   /** The owner's writing style (§4.3), refreshed nightly only when `mail.voice.enabled`. */
   readonly voice: VoiceService | undefined;
   /** Reply drafts in the owner's voice, saved through one approval card (§4.3). */
@@ -216,6 +229,26 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     onError: (err) =>
       logger?.log("warn", "idea mining step failed", { code: PsycheError.from(err).code }),
   });
+  // `meetings.notes.create` as a tool, for the recordings-folder card (#953): only proposals can
+  // run it (it is not in the agent's registry), and the approval is what starts the notes.
+  let meetingsRef: ComposedMeetings | undefined;
+  const notesCreateTool = defineTool({
+    name: NOTES_CREATE_TOOL,
+    description: "Write meeting notes from a Library recording (the recordings-folder card).",
+    input: Type.Object({
+      libraryItemId: Type.String({ minLength: 1 }),
+      title: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
+    }),
+    sideEffect: "write",
+    provenanceOut: "trusted",
+    run: async (p) => {
+      if (meetingsRef === undefined) throw new PsycheError("unavailable", "meeting notes are off");
+      const out = await meetingsRef.createNotes(p);
+      return out.status === "done"
+        ? { output: { status: "done", postId: out.postId }, provenance: "trusted" as const }
+        : { output: out.question, provenance: "trusted" as const, isError: true };
+    },
+  });
   const proposals =
     broker === undefined || registry === undefined
       ? undefined
@@ -223,7 +256,9 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           db: db.sqlite,
           clock,
           broker,
-          tools: registry,
+          tools: {
+            get: (name) => (name === NOTES_CREATE_TOOL ? notesCreateTool : registry.get(name)),
+          },
           mainThread: () => sessions.resolve("main", { automation: {} as never, runId: "" }),
           onEvent: (e) => publish(e.event, e.payload),
           onError: (err) =>
@@ -375,6 +410,33 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           onFeedEvent: (e) => publish(e.event, e.payload as never),
           ...(logger === undefined ? {} : { logger }),
         });
+  meetingsRef = meetings;
+  // #953: new audio in `meetings.notes.folder` is copied into the Library and offered as one
+  // Feed card; its single approval runs `meetings.notes.create` on the copy.
+  const notesFolder =
+    proposals === undefined || meetings === undefined || setup.meetings === undefined
+      ? undefined
+      : setup.folders === undefined
+        ? undefined
+        : new NotesFolderWatcher({
+            clock,
+            cursors: scheduler,
+            feed: feed.store,
+            proposals,
+            folder: () => settings().notes.folder,
+            refusal: () => notesRefusal(settings()),
+            ...recordingsFolderIo({
+              db,
+              home: setup.meetings.home,
+              folders: setup.folders,
+            }),
+            onFeedEvent: (e) => publish(e.event, e.payload as never),
+            onSkip: (reason) => logger?.log("info", "recordings folder not scanned", { reason }),
+            onError: (err) =>
+              logger?.log("warn", "recordings folder scan failed", {
+                code: PsycheError.from(err).code,
+              }),
+          });
   const proposalHandlers: Record<string, HandlerDef> = {};
   if (proposals !== undefined) {
     // `proposals.approve` hands the caller the answer token of its own surface only (§3.7).
@@ -404,6 +466,10 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
         ...tz,
       });
       await meetingPrep?.ensureSchedule({ enabled: w.prep.enabled, ...tz });
+      await notesFolder?.ensureSchedule(scheduler, {
+        enabled: w.notes.enabled && w.notes.folder !== undefined,
+        ...tz,
+      });
       await voice?.ensureSchedule({ enabled: w.voiceEnabled, ...tz });
     } catch (err) {
       logger?.log("warn", "workflow schedule sync failed", { code: PsycheError.from(err).code });
@@ -461,6 +527,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     proposals,
     meetingPrep,
     meetings,
+    notesFolder,
     voice,
     drafts,
     scheduling,
@@ -482,6 +549,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           ...(digest === undefined ? [] : [pausable(digest.job(), paused)]),
           ...(voice === undefined ? [] : [pausable(voice.job(), paused)]),
           ...(meetingPrep === undefined ? [] : [pausable(meetingPrep.job(), paused)]),
+          ...(notesFolder === undefined ? [] : [pausable(notesFolder.job(), paused)]),
         ],
         heartbeat: createTaskLauncher({ engine: tasks, pool, budget: HEARTBEAT_TASK_BUDGET }),
         onError: (err) =>
