@@ -11,6 +11,37 @@ import { t } from "../../i18n/core.ts";
 import { SandboxSetup } from "./SandboxSetup.tsx";
 
 /**
+ * The guided sandbox setup in a dialog, over whatever opened it (a connector form, an approval
+ * card's "Set up sandbox"). Once srt is ready, `onReady` runs and the dialog closes.
+ */
+export function SandboxSetupDialog({
+  open,
+  onOpenChange,
+  onReady,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onReady?: (() => void) | undefined;
+}): ReactElement {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>{t("settings.sandbox.title")}</DialogTitle>
+          <DialogDescription className="sr-only">{t("settings.sandbox.why")}</DialogDescription>
+        </DialogHeader>
+        <SandboxSetup
+          onReady={() => {
+            onReady?.();
+            onOpenChange(false);
+          }}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
  * "This Gateway has no sandbox for commands" with the way out: a "Set up sandbox" button that
  * opens the walkthrough over the form, so nothing typed there is lost. Once the sandbox is
  * ready, `onReady` lets the form reload what the Gateway allows and the dialog closes.
@@ -31,20 +62,7 @@ export function SandboxNotice({
           {t("settings.sandbox.setUp")}
         </Button>
       </p>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>{t("settings.sandbox.title")}</DialogTitle>
-            <DialogDescription className="sr-only">{t("settings.sandbox.why")}</DialogDescription>
-          </DialogHeader>
-          <SandboxSetup
-            onReady={() => {
-              onReady();
-              setOpen(false);
-            }}
-          />
-        </DialogContent>
-      </Dialog>
+      <SandboxSetupDialog open={open} onOpenChange={setOpen} onReady={onReady} />
     </>
   );
 }
