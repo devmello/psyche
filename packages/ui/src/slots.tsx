@@ -66,6 +66,8 @@ export interface UiSlots {
    * thread and a sink for dictated text, that returns their state for the kit to draw.
    */
   useComposerVoice?: UseComposerVoice;
+  /** The host's native folder picker; resolves to the real path, or null when cancelled. */
+  pickFolder?: (opts?: { title?: string }) => Promise<string | null>;
   /** Persona shown in agent messages and cards. */
   persona?: { name: string; creature?: string; imageSrc?: string };
 }

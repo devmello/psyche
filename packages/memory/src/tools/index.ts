@@ -115,7 +115,7 @@ function spec(
 export const memoryToolSpecs: readonly ToolSpec[] = [
   spec(
     "memory",
-    "Read and edit your memory files under /memories (the workspace): view, create, str_replace, insert, delete, rename. Daily notes in /memories/memory/ are append-only. SOUL.md, IDENTITY.md, USER.md, MEMORY.md and AGENTS.md change only with the owner's approval.",
+    "Read and edit your memory files under /memories (the workspace): view, create, str_replace, insert, delete, rename. Daily notes in /memories/memory/ are append-only. SOUL.md, IDENTITY.md, USER.md, MEMORY.md and AGENTS.md change only with the owner's approval. What the owner tells you about themselves (name, timezone, work, education, skills, people, preferences, a resume they attach) is saved to USER.md automatically after the turn and the chat shows what was saved; do not ask to edit USER.md for that.",
     MemoryCommandToolSchema,
     "write",
   ),

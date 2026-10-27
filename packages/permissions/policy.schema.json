@@ -96,6 +96,7 @@
               "shortcut_run",
               "git_write",
               "git_push",
+              "folder_access",
               "batch"
             ]
           }

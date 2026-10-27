@@ -36,6 +36,7 @@ const KIND_LABELS: Record<ApprovalKind, string> = {
   shortcut_run: "Run a Shortcut",
   git_write: "Change a git repository",
   git_push: "Push to a git remote",
+  folder_access: "Share a folder",
   batch: "Approve a batch of actions",
 };
 

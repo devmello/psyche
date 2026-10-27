@@ -16,6 +16,8 @@ export interface ThreadBlockIndex {
   toolLatest: ReadonlyMap<string, ToolCallBlock>;
   /** approvalId → the first message that shows it. */
   approvalHome: ReadonlyMap<string, string>;
+  /** inputRequestId → the first message that shows its question card. */
+  questionHome?: ReadonlyMap<string, string>;
   /**
    * The run in progress (#623): its tool calls and approvals show in the run's step log under
    * the last message, so the transcript leaves them out until the run ends.
@@ -33,6 +35,7 @@ export function indexThreadBlocks(messages: readonly Message[]): ThreadBlockInde
   const toolHome = new Map<string, string>();
   const toolLatest = new Map<string, ToolCallBlock>();
   const approvalHome = new Map<string, string>();
+  const questionHome = new Map<string, string>();
   for (const m of messages) {
     for (const b of m.blocks) {
       if (b.type === "tool_call") {
@@ -40,10 +43,12 @@ export function indexThreadBlocks(messages: readonly Message[]): ThreadBlockInde
         toolLatest.set(b.toolCallId, b);
       } else if (b.type === "approval" && !approvalHome.has(b.approvalId)) {
         approvalHome.set(b.approvalId, m.id);
+      } else if (b.type === "question" && !questionHome.has(b.inputRequestId)) {
+        questionHome.set(b.inputRequestId, m.id);
       }
     }
   }
-  return { toolHome, toolLatest, approvalHome };
+  return { toolHome, toolLatest, approvalHome, questionHome };
 }
 
 /**
@@ -56,6 +61,7 @@ export function blocksToShow(
   index: ThreadBlockIndex | null,
 ): readonly Block[] {
   const seenApprovals = new Set<string>();
+  const seenQuestions = new Set<string>();
   let changed = false;
   const out: Block[] = [];
   const live =
@@ -75,6 +81,17 @@ export function blocksToShow(
         continue;
       }
       seenApprovals.add(b.approvalId);
+      out.push(b);
+      continue;
+    }
+    if (b.type === "question") {
+      // The same question was recorded twice in stored transcripts: one card per question.
+      const elsewhere = (index?.questionHome?.get(b.inputRequestId) ?? message.id) !== message.id;
+      if (elsewhere || seenQuestions.has(b.inputRequestId)) {
+        changed = true;
+        continue;
+      }
+      seenQuestions.add(b.inputRequestId);
       out.push(b);
       continue;
     }

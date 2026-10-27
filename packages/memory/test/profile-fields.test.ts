@@ -175,13 +175,14 @@ describe("store.learnUserFacts with fields", () => {
       work: "Student at UCSC",
     });
     const lines = parseLearned(user);
-    expect(lines.map((l) => [l.kind, l.field, l.text])).toEqual([
-      ["preference", "timezone", "Timezone is Pacific time"],
-      ["other", "work", "Is a UCSC student"],
-      ["preference", undefined, "Prefers tea over coffee"],
+    expect(lines.map((l) => [l.kind, l.field, l.section, l.text])).toEqual([
+      // A preference is a bullet of its section, not a Learned line.
+      ["preference", undefined, "preferences", "Prefers tea over coffee"],
+      ["preference", "timezone", undefined, "Timezone is Pacific time"],
+      ["other", "work", undefined, "Is a UCSC student"],
     ]);
-    // Everything outside the header and the new section is as it was.
-    expect(user.replace(/\n+## Learned[\s\S]*$/, "")).toBe(
+    // Everything outside the header and the new sections is as it was.
+    expect(user.replace(/\n+## Preferences[\s\S]*$/, "")).toBe(
       TEMPLATE.replace("- Timezone:", "- Timezone: America/Los_Angeles (Pacific)")
         .replace("- Work or study:", "- Work or study: Student at UCSC")
         .replace(/\s+$/, ""),

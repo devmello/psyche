@@ -47,6 +47,7 @@ import {
   compilePolicy,
   createPermissionHandlers,
   DENY_ALL_LOOPBACK,
+  type FolderGrantEntry,
   type LocalProjectVerifier,
   type PolicyConfig,
   type PresenceVerifier,
@@ -101,6 +102,7 @@ import { composeConversion } from "./convert.ts";
 import { composeDictation } from "./dictation.ts";
 import { feedContextResolver } from "./feed-context.ts";
 import { filesHandlers } from "./files.ts";
+import { requestFolderAccessTool, withFolder } from "./folder-access.ts";
 import {
   mountParamsOnly,
   mountPermissions,
@@ -482,7 +484,21 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // Inbound channel decisions (filled by the channels part) back the broker's reply authority.
   const channelConversations = new ChannelConversations();
   const attention = new OwnerAttention(() => clock.now());
+  // `Always allow` on a folder request lands in Settings → File access (permissions.policy.folders).
+  const persistFolder = async (entry: FolderGrantEntry) => {
+    const next = withFolder(
+      validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger) ?? {},
+      entry,
+    );
+    const saved = setSetting(db, "permissions.policy", next);
+    rawBroker.setPolicy(hostPolicy(next));
+    publish("settings.changed", { entries: [saved] });
+  };
   const rawBroker = new PsychePermissionBroker({
+    folderAccess: {
+      env: () => ({ psycheHome: config.home, protectedRoots: protectedRoots(config.home) }),
+      persist: persistFolder,
+    },
     channelConversations: (ref) => channelConversations.get(ref),
     approvers: {
       async device(deviceId) {
@@ -662,10 +678,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // P9 file tools (#49); the executors re-check the live granted folders behind the broker.
   for (const tool of fileTools({
     // No folder list means nothing is granted (#287), never "only the broker checks".
-    folders: () => rawBroker.policy.folders ?? [],
+    // This conversation's "Allow once" folders count beside the owner's (request_folder_access).
+    folders: (scope) => [
+      ...(rawBroker.policy.folders ?? []),
+      ...(scope === undefined ? [] : rawBroker.sessionFolders(scope.threadId)),
+    ],
     protectedRoots: () => protectedRoots(config.home),
   }))
     registry.register(tool);
+  registry.register(
+    requestFolderAccessTool({ broker: executorBroker, surfaces: ["desktop", "web"] }),
+  );
   // E12 cross-thread awareness: registered only while the owner has turned it on.
   let gatewayRef: Gateway | null = null;
   const crossThread = crossThreadToggle(
@@ -839,6 +862,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
   const userProfile = createUserProfile({
     db,
+    home: config.home,
     memory,
     provider,
     model: utility ?? modelRef,
@@ -909,7 +933,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   parts.push(teaching.part);
   const loop = createAgentLoop({
     // Model-side history survives a restart (issue #52); secrets the vault knows are masked.
-    state: new SqliteThreadStateStore(db, redactor),
+    state: new SqliteThreadStateStore(db, redactor, config.home),
     provider,
     model: modelRef,
     ...(utility === undefined ? {} : { utilityModel: utility }),

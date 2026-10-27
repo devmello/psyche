@@ -120,7 +120,7 @@ export function memoryTool(store: MemoryStore, options: MemoryToolOptions): Agen
   return defineTool({
     name: "memory",
     description:
-      "Your workspace memory (memory_20250818 commands: view, create, str_replace, insert, delete, rename). Daily notes live in memory/YYYY-MM-DD.md and are append-only. SOUL.md, IDENTITY.md, USER.md, AGENTS.md and MEMORY.md change only with the owner's approval.",
+      "Your workspace memory (memory_20250818 commands: view, create, str_replace, insert, delete, rename). Daily notes live in memory/YYYY-MM-DD.md and are append-only. SOUL.md, IDENTITY.md, USER.md, AGENTS.md and MEMORY.md change only with the owner's approval. What the owner tells you about themselves (name, timezone, work, education, skills, people, preferences, a resume they attach) is saved to USER.md automatically after the turn and the chat shows what was saved; do not ask to edit USER.md for that.",
     input: MemoryInput,
     sideEffect: "none",
     targetKind: "path",

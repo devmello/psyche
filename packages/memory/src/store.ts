@@ -75,6 +75,7 @@ import {
   repairHeader,
   setHeaderField,
 } from "./profile-fields.ts";
+import { addSectionFacts, type ProfileSection } from "./profile-sections.ts";
 import {
   isProvenance,
   leastTrusted,
@@ -180,6 +181,17 @@ function fail(code: PsycheError["code"], message: string): never {
 function randomSuffix(): string {
   return Math.random().toString(36).slice(2, 10);
 }
+
+/** The profile section a learned fact of each kind goes in when the extractor names none. */
+const KIND_SECTION: Partial<Record<LearnedFact["kind"], ProfileSection>> = {
+  preference: "preferences",
+  person: "people",
+  project: "projects",
+};
+
+/** An email address, a link or a phone number. */
+const CONTACT_DETAIL =
+  /[\w.+-]+@[\w-]+\.\w|https?:\/\/|www\.|\+?\(?\b\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/i;
 
 /** `memory_state` key of the one-time USER.md header repair (`repairUserHeader`). */
 const USER_HEADER_REPAIR = "migration.userHeaderFields.v1";
@@ -653,6 +665,8 @@ export class SqliteMemoryStore implements MemoryStore {
       /** The USER.md header field the fact states, with its value (the extractor's `field`). */
       field?: ProfileField;
       value?: string;
+      /** The USER.md profile section the fact belongs in (the extractor's `section`). */
+      section?: ProfileSection;
     }[],
     context: {
       threadId: string;
@@ -662,8 +676,10 @@ export class SqliteMemoryStore implements MemoryStore {
        */
       replaces?: string;
       /**
-       * The facts come from the owner's own words. Only then does a `field` fill the header;
-       * anything else (a web page, an email, a tool result) stays a plain Learned line.
+       * The facts come from the owner's own words (what they typed, or a file they uploaded
+       * themselves). Only then does a `field` fill the header and a `section` (or a preference,
+       * person or project) become a profile-section bullet; anything else (a web page, an email,
+       * a tool result, a lesson) stays a plain Learned line.
        */
       ownerWords?: boolean;
     },
@@ -677,7 +693,11 @@ export class SqliteMemoryStore implements MemoryStore {
     const known = [
       ...current
         .split("\n")
-        .map((l) => normalizeFact(l.replace(/^- \d{4}-\d{2}-\d{2} \[[^\]]*\] /, ""))),
+        .map((l) =>
+          normalizeFact(
+            l.replace(/^- \d{4}-\d{2}-\d{2} \[[^\]]*\] /, "").replace(/<!--.*?-->/g, ""),
+          ),
+        ),
       ...claims,
     ].filter((k) => k !== "");
     const written: LearnedFactLine[] = [];
@@ -696,6 +716,17 @@ export class SqliteMemoryStore implements MemoryStore {
           ? normalizeFieldValue(p.field, p.value)
           : undefined;
       const field = value === undefined ? undefined : p.field;
+      // A header fact keeps its Learned line as provenance; other facts of the owner's own words
+      // go in their profile section (the extractor's, else the kind's).
+      const section =
+        context.ownerWords !== true || field !== undefined
+          ? undefined
+          : (p.section ?? KIND_SECTION[p.kind]);
+      // A profile is not an address book: contact details from a resume stay out of USER.md.
+      if (section !== undefined && CONTACT_DETAIL.test(text)) {
+        refused.push({ text: p.text, reason: "sensitive" });
+        continue;
+      }
       written.push({
         factId: learnedFactId(text, context.threadId),
         text,
@@ -704,12 +735,20 @@ export class SqliteMemoryStore implements MemoryStore {
         threadId: context.threadId,
         ...(p.lessonId === undefined ? {} : { lessonId: p.lessonId }),
         ...(field === undefined ? {} : { field }),
+        ...(section === undefined ? {} : { section }),
       });
       if (field !== undefined && value !== undefined) header.push({ field, value, date });
       known.push(normalizeFact(text));
     }
     if (written.length > 0) {
-      let next = addLearned(current, written);
+      let next = addLearned(
+        current,
+        written.filter((f) => f.section === undefined),
+      );
+      next = addSectionFacts(
+        next,
+        written.flatMap((f) => (f.section === undefined ? [] : [{ ...f, section: f.section }])),
+      );
       // Latest wins: the owner's own newer words replace the header value, the same value is a
       // no-op, and an older statement never overwrites a newer one.
       const stated = parseLearned(current);
@@ -731,7 +770,10 @@ export class SqliteMemoryStore implements MemoryStore {
     if (this.#state(USER_HEADER_REPAIR) !== undefined) return [];
     const file = await this.readFile("USER.md");
     if (file === undefined) return [];
-    const { content, filled } = repairHeader(file.content, parseLearned(file.content));
+    const { content, filled } = repairHeader(
+      file.content,
+      parseLearned(file.content).filter((l) => l.section === undefined),
+    );
     if (content !== file.content) {
       await this.write("USER.md", content, { provenance: "owner", actor: "job", source: "job" });
     }

@@ -5637,6 +5637,11 @@
         "scope": {
           "$ref": "#/$defs/GrantScope"
         },
+        "folderPath": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        },
         "presence": {
           "$ref": "#/$defs/PresenceAssertion"
         },
@@ -5734,6 +5739,7 @@
         "shortcut_run",
         "git_write",
         "git_push",
+        "folder_access",
         "batch"
       ],
       "type": "string"

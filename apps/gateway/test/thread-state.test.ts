@@ -1,10 +1,10 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getAgentThreadState } from "@psyche/db";
+import { deleteAgentThreadState, getAgentThreadState } from "@psyche/db";
 import type { Thread } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   type ComposedGateway,
   composeGateway,
@@ -24,6 +24,8 @@ afterEach(async () => {
   if (home) rmSync(home, { recursive: true, force: true });
 });
 
+const provider = new FakeModelProvider();
+
 function compose(): Promise<ComposedGateway> {
   return composeGateway({
     env: {},
@@ -31,7 +33,7 @@ function compose(): Promise<ComposedGateway> {
     retentionIntervalMs: 0,
     background: false,
     config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
-    model: { provider: new FakeModelProvider(), model: "fake/model" },
+    model: { provider, model: "fake/model" },
   });
 }
 
@@ -96,5 +98,121 @@ describe("durable agent thread state (issue #52)", () => {
     };
     expect(raw.state).not.toContain("s3cr3t-value-123");
     expect(raw.state).toContain("[redacted]");
+  });
+
+  it("rebuilds the model's history, attachment included, when the state is gone", async () => {
+    home = mkdtempSync(join(tmpdir(), "psyche-state-"));
+    composed = await compose();
+    const desk = await desktopClient(composed.gateway);
+    clients.push(desk);
+    const { thread } = await desk.call<{ thread: Thread }>(
+      "threads.create",
+      { kind: "side" },
+      ik(),
+    );
+    const up = await desk.call<{ item?: { id: string } }>(
+      "library.upload",
+      {
+        name: "resume.txt",
+        bytes: Buffer.from("Ada Lovelace, analytical engines").toString("base64"),
+        final: true,
+      },
+      ik(),
+    );
+    provider.enqueue([
+      { type: "text_delta", text: "Cut Nova to 5 bullets. Want a revised version?" },
+      { type: "finish", reason: "stop" },
+    ]);
+    await desk.call(
+      "chat.send",
+      { threadId: thread.id, content: "review my resume", attachments: [up.item?.id] },
+      ik(),
+    );
+    await composed.gateway.context.sessions.idle();
+
+    // Eviction: the model-side state is gone while the transcript the owner sees stays.
+    deleteAgentThreadState(composed.db, thread.id);
+    provider.requests.length = 0;
+    await desk.call("chat.send", { threadId: thread.id, content: "yes write a revised one" }, ik());
+    await composed.gateway.context.sessions.idle();
+
+    const sent = JSON.stringify(provider.requests.at(0)?.messages);
+    expect(sent).toContain("review my resume");
+    expect(sent).toContain("Ada Lovelace, analytical engines");
+    expect(sent).toContain("Want a revised version?");
+    // The new message is in the request once, not twice.
+    expect(sent.split("yes write a revised one").length - 1).toBe(1);
+  });
+
+  it("gives a fork the history it shows", async () => {
+    home = mkdtempSync(join(tmpdir(), "psyche-state-"));
+    composed = await compose();
+    const desk = await desktopClient(composed.gateway);
+    clients.push(desk);
+    const { thread } = await desk.call<{ thread: Thread }>(
+      "threads.create",
+      { kind: "side" },
+      ik(),
+    );
+    await desk.call("chat.send", { threadId: thread.id, content: "the blue door is mine" }, ik());
+    await composed.gateway.context.sessions.idle();
+    const msgs = await desk.call<{ messages: { id: string }[] }>("chat.history", {
+      threadId: thread.id,
+    });
+    const last = msgs.messages.at(-1) as { id: string };
+    const { thread: fork } = await desk.call<{ thread: Thread }>(
+      "threads.fork",
+      {
+        threadId: thread.id,
+        messageId: last.id,
+      },
+      ik(),
+    );
+    provider.requests.length = 0;
+    await desk.call("chat.send", { threadId: fork.id, content: "which door?" }, ik());
+    await composed.gateway.context.sessions.idle();
+    expect(JSON.stringify(provider.requests.at(0)?.messages)).toContain("the blue door is mine");
+  });
+
+  it("stores one question block for an ask_user call", async () => {
+    home = mkdtempSync(join(tmpdir(), "psyche-state-"));
+    composed = await compose();
+    const desk = await desktopClient(composed.gateway);
+    clients.push(desk);
+    const { thread } = await desk.call<{ thread: Thread }>(
+      "threads.create",
+      { kind: "side" },
+      ik(),
+    );
+    provider.enqueue([
+      {
+        type: "tool_call",
+        id: "c1",
+        name: "ask_user",
+        input: {
+          questions: [
+            {
+              question: "Which role?",
+              header: "Role",
+              multiSelect: false,
+              options: [{ label: "Firmware" }, { label: "ML" }],
+            },
+          ],
+        },
+      },
+      { type: "finish", reason: "tool_calls" },
+    ]);
+    await desk.call("chat.send", { threadId: thread.id, content: "revise it" }, ik());
+    await vi.waitFor(() => expect(composed?.loop.openQuestions(thread.id)).toHaveLength(1));
+    const open = composed.loop.openQuestions(thread.id)[0];
+    await composed.loop.cancel(composed.gateway.context.sessions.activeRunId(thread.id) ?? "");
+    await composed.gateway.context.sessions.idle();
+    const history = await desk.call<{ messages: { blocks: { type: string }[] }[] }>(
+      "chat.history",
+      { threadId: thread.id },
+    );
+    const cards = history.messages.flatMap((m) => m.blocks).filter((b) => b.type === "question");
+    expect(open).toBeDefined();
+    expect(cards).toHaveLength(1);
   });
 });

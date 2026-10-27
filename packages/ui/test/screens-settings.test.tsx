@@ -982,6 +982,24 @@ describe("File access (folder grants live in permissions.policy)", () => {
     expect(settingCall(gateway(), "permissions.folders")).toBeUndefined();
   });
 
+  it("Revoke removes an always-allowed folder from the policy the broker applies", async () => {
+    const { gateway } = setup(
+      { defaultSection: "files" },
+      { edit: (w) => Object.assign(w.settings, { "permissions.policy": policy }) },
+    );
+    const list = await screen.findByRole("list", { name: "Shared folders" });
+    expect(within(list).getByDisplayValue("Read and write")).toBeTruthy();
+    await userEvent.click(
+      within(list).getByRole("button", { name: "Stop sharing /Users/me/Notes" }),
+    );
+    await waitFor(() =>
+      expect(settingValue(gateway(), "permissions.policy")).toEqual({
+        defaultMode: "manual",
+        folders: [],
+      }),
+    );
+  });
+
   it("the Permissions summary lists the policy's folders", async () => {
     setup(
       { defaultSection: "permissions" },

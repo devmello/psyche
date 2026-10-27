@@ -309,6 +309,22 @@ export function ApprovalDetails({
           <Rest details={d} shown={["repo", "operation", "branch", "message", "paths"]} />
         </dl>
       );
+    case "folder_access":
+      // The agent's words are a request; the folder granted is the one the owner picks.
+      return (
+        <dl>
+          <Row label={t("blocks.details.requestedFolder")}>
+            <Code>{str(d.requestedPath)}</Code>
+          </Row>
+          <Row label={t("blocks.details.folderReason")}>{str(d.reason)}</Row>
+          <Row label={t("blocks.details.folderAccess")}>
+            {d.access === "rw"
+              ? t("blocks.details.folderAccess.rw")
+              : t("blocks.details.folderAccess.ro")}
+          </Row>
+          <Rest details={d} shown={["requestedPath", "reason", "access"]} />
+        </dl>
+      );
     case "git_push":
       // The binding: remote, its URL, branch and the exact commit, all as rows (a commit hash
       // would otherwise count as a level-2 id and hide in Details).

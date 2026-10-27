@@ -524,9 +524,15 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     },
     [platform, threadId, openBrowser],
   );
+  const pickFolder = platform.dialogs?.pickFolder;
   const kitSlots = useMemo<UiSlots>(
-    () => ({ navigate, prefillComposer, openInPsyche }),
-    [navigate, prefillComposer, openInPsyche],
+    () => ({
+      navigate,
+      prefillComposer,
+      openInPsyche,
+      ...(pickFolder === undefined ? {} : { pickFolder }),
+    }),
+    [navigate, prefillComposer, openInPsyche, pickFolder],
   );
 
   // The main chat always exists (docs/06 §4.13); create it once if the Gateway has none yet.

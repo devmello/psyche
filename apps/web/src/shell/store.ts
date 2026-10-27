@@ -232,6 +232,7 @@ export class ShellStore {
     approvalId: string,
     decision: "approve" | "deny",
     scope?: string,
+    extras?: { folderPath?: string },
   ): Promise<void> {
     let token = this.state.answerTokens[approvalId];
     if (!token) {
@@ -247,6 +248,7 @@ export class ShellStore {
       answerToken: token,
       decision,
       ...(scope ? { scope } : {}),
+      ...(decision === "approve" && extras?.folderPath ? { folderPath: extras.folderPath } : {}),
     });
     const { [approvalId]: _used, ...rest } = this.state.answerTokens;
     this.set({
