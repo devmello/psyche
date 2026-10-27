@@ -1,6 +1,7 @@
 // Builds the self-contained Gateway bundle for Psyche.app (docs/archive/status/s22.md "Packaging layout").
 //
 //   node deploy/scripts/build-psyched.mjs [--arch arm64|x64] [--out <dir>] [--skip-web-build] [--smoke]
+//   node deploy/scripts/build-psyched.mjs --smoke-only [--out <dir>]     smoke an already built bundle
 //
 // Output: apps/gateway/dist-bin/darwin-<arch>/psyched/
 //   psyched, psyche            /bin/sh launchers (no PATH needed): runtime/node + app/apps/*/src/main.ts
@@ -501,7 +502,7 @@ function smokeNative(bundle, home) {
     if (typeof need("browser")("playwright-core").chromium.launch !== "function") throw new Error("playwright-core");
     if (!need("connectors")("turndown")) throw new Error("turndown");
     const { pdfSource } = await import(${JSON.stringify(pathToFileURL(join(app, "packages/files/src/extract/pdf.ts")).href)});
-    await pdfSource(new TextEncoder().encode("%PDF-1.4\n")).then(() => { throw new Error("pdf.js accepted junk"); }, (e) => {
+    await pdfSource(new TextEncoder().encode("%PDF-1.4\\n")).then(() => { throw new Error("pdf.js accepted junk"); }, (e) => {
       if (!/unreadable PDF/.test(e.message)) throw e;
     });
     process.stdout.write(JSON.stringify({ sqlite: db.prepare("select sqlite_version() v").get().v, vec: db.prepare("select vec_version() v").get().v }));
@@ -513,7 +514,7 @@ function smokeNative(bundle, home) {
       cwd: app,
       encoding: "utf8",
       env: { PATH: "/usr/bin:/bin", HOME: home },
-      stdio: ["ignore", "pipe", "ignore"],
+      stdio: ["ignore", "pipe", "inherit"],
     },
   );
   const v = JSON.parse(out);
@@ -588,6 +589,7 @@ async function main(argv) {
   const out = resolve(opt("--out") ?? join(ROOT, "apps/gateway/dist-bin", `darwin-${arch}`));
   const bundle = join(out, "psyched");
   const app = join(bundle, "app");
+  if (argv.includes("--smoke-only")) return smoke(bundle);
   const version = pinnedNodeVersion();
   rmSync(bundle, { recursive: true, force: true });
   mkdirSync(join(bundle, "runtime"), { recursive: true });
