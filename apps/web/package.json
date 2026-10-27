@@ -26,6 +26,10 @@
       "types": "./src/compose/index.ts",
       "default": "./src/compose/index.ts"
     },
+    "./compose/screen-ask": {
+      "types": "./src/compose/ScreenAsk.tsx",
+      "default": "./src/compose/ScreenAsk.tsx"
+    },
     "./compose/onboarding": {
       "types": "./src/compose/onboarding.ts",
       "default": "./src/compose/onboarding.ts"

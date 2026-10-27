@@ -1,6 +1,8 @@
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { contentType, resolveAppPath } from "../src/lib/app-path.ts";
+import { contentType, PANEL_ROUTES, resolveAppPath } from "../src/lib/app-path.ts";
+import { HUD_ROUTE } from "../src/main/dictation/hud.ts";
+import { SCREEN_ASK_REGION_ROUTE, SCREEN_ASK_ROUTE } from "../src/main/screen-ask/panel.ts";
 
 const root = resolve("/opt/Psyche/renderer");
 
@@ -11,6 +13,16 @@ describe("app:// paths", () => {
     );
     expect(resolveAppPath(root, "app://psyche/")).toBe(join(root, "index.html"));
     expect(resolveAppPath(root, "app://psyche/chat/t1/pane/p1")).toBe(join(root, "index.html"));
+  });
+
+  it("serves panel.html for the small windows' routes", () => {
+    expect([...PANEL_ROUTES].sort()).toEqual(
+      [SCREEN_ASK_ROUTE, SCREEN_ASK_REGION_ROUTE, HUD_ROUTE].sort(),
+    );
+    for (const route of PANEL_ROUTES) {
+      expect(resolveAppPath(root, `app://psyche${route}`)).toBe(join(root, "panel.html"));
+    }
+    expect(resolveAppPath(root, "app://psyche/screen-ask/x")).toBe(join(root, "index.html"));
   });
 
   it("refuses traversal, other hosts and schemes", () => {

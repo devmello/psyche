@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
+import { PANEL_ROUTES } from "./src/lib/app-path.ts";
 
 const projectDir = fileURLToPath(new URL(".", import.meta.url));
 
@@ -32,6 +33,21 @@ function devCsp(): Plugin {
   };
 }
 
+/** Dev server: the small windows' routes load panel.html, as `resolveAppPath` does when packaged. */
+function panelRoutes(): Plugin {
+  return {
+    name: "psyche:panel-routes",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        const path = req.url?.split("?")[0];
+        if (path !== undefined && PANEL_ROUTES.includes(path)) req.url = "/panel.html";
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig({
   root: `${projectDir}src/renderer`,
   // Forge defaults to "./"; nested routes (/chat/:id/pane/:paneId pop-outs) need absolute assets.
@@ -40,6 +56,13 @@ export default defineConfig({
     // Forge's main process loads .vite/renderer/<name>/index.html relative to the app path.
     outDir: `${projectDir}.vite/renderer/main_window`,
     emptyOutDir: true,
+    // Two entries: the app, and the always-warm small windows (renderer/panel.tsx).
+    rollupOptions: {
+      input: {
+        index: `${projectDir}src/renderer/index.html`,
+        panel: `${projectDir}src/renderer/panel.html`,
+      },
+    },
   },
   resolve: {
     // Forge enables preserveSymlinks; with pnpm workspaces that duplicates React. Turn it off.
@@ -47,5 +70,5 @@ export default defineConfig({
     dedupe: ["react", "react-dom"],
   },
   define: { __PSYCHE_APP_VERSION__: JSON.stringify(APP_VERSION) },
-  plugins: [react(), tailwindcss(), devCsp()],
+  plugins: [react(), tailwindcss(), devCsp(), panelRoutes()],
 });
