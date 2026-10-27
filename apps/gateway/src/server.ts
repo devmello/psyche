@@ -249,6 +249,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     const serve = () =>
       handleHttp(req, res, {
         webRoot: config.webRoot,
+        webAsar: config.webAsar,
         version: GATEWAY_VERSION,
         mapOrigins: () => allowedMapOrigins((key) => getSetting(db, key)?.value),
       });
