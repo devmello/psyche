@@ -66,7 +66,7 @@ Checked and left alone:
 
 ## Phase 2: onnxruntime on demand (Apple silicon)
 
-Psyche.app for arm64 no longer ships `libonnxruntime` (44 MB; 42 MB of the DMG). The package's JS
+Psyche.app for arm64 no longer ships `libonnxruntime` (44 MiB installed, about 11 MiB of the DMG, which compresses it ~3.5:1). The package's JS
 and its 0.3 MB napi binding stay, so Linux, Docker and the dev checkout are unchanged, and so is the
 Intel app (Microsoft publishes no 1.30 macOS x86_64 archive to download).
 
