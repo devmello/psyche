@@ -1488,6 +1488,25 @@ export function appleCatalogueEntry(app: AppleApp): CatalogueEntry {
   };
 }
 
+/** The helper's TCC refusals (codes or reasons), which the owner fixes in System Settings. */
+const TCC_REASONS = new Set([
+  "automation_denied",
+  "automation_not_granted",
+  "permission_missing",
+  "permission_denied",
+  "full_disk_access_missing",
+]);
+
+/** The TCC reason behind a helper error, if it is one. */
+export function macosAccessReason(
+  code: string | undefined,
+  reason: string | undefined,
+): string | undefined {
+  if (reason !== undefined && TCC_REASONS.has(reason)) return reason;
+  if (code !== undefined && TCC_REASONS.has(code)) return code;
+  return undefined;
+}
+
 /** No helper, or one without the app adapters: what the owner sees on connect and on use. */
 export function needsHelper(app: AppleApp): PsycheError {
   return new PsycheError(
@@ -1845,6 +1864,14 @@ class AppleConnector implements Connector {
           ? "Mail search took too long — narrow it (a shorter date range, a sender, or one mailbox)"
           : `${spec.capability} took too long`
         : (res.error?.message ?? "the helper refused");
+      const reason =
+        typeof res.error?.details?.reason === "string"
+          ? res.error.details.reason
+          : timedOut
+            ? "timeout"
+            : undefined;
+      // macOS has not granted the helper access (TCC): the agent may ask the owner (§3.12).
+      const tcc = macosAccessReason(res.error?.code, reason);
       throw new PsycheError(
         res.error?.code === "approval_required" ? "approval_required" : "unavailable",
         `${LABEL[this.#app]}: ${message}`,
@@ -1852,11 +1879,16 @@ class AppleConnector implements Connector {
           details: {
             capability: spec.capability,
             helperCode: res.error?.code ?? "unknown",
-            ...(typeof res.error?.details?.reason === "string"
-              ? { reason: res.error.details.reason }
-              : timedOut
-                ? { reason: "timeout" }
-                : {}),
+            ...(reason === undefined ? {} : { reason }),
+            ...(tcc === undefined
+              ? {}
+              : {
+                  missing: {
+                    need: "macos_access",
+                    connector: this.id,
+                    reason: tcc,
+                  },
+                }),
           },
         },
       );

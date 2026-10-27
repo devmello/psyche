@@ -914,13 +914,14 @@ export interface AppleTabTextParams {
 }
 
 export interface ApprovalAnswer {
-    answerToken: string;
-    approvalId:  string;
-    decision:    DecisionEnum;
-    folderPath?: string;
-    presence?:   PresenceAssertion;
-    scope?:      GrantScope;
-    via?:        InputVia;
+    answerToken:  string;
+    approvalId:   string;
+    decision:     DecisionEnum;
+    folderPath?:  string;
+    presence?:    PresenceAssertion;
+    scope?:       GrantScope;
+    unsandboxed?: Unsandboxed;
+    via?:         InputVia;
 }
 
 export type DecisionEnum = "approve" | "deny";
@@ -942,6 +943,8 @@ export interface PresenceAssertion {
 export type PresenceAssertionKind = "webauthn" | "helper";
 
 export type GrantScope = "once" | "task" | "site" | "session" | "always";
+
+export type Unsandboxed = "UNSANDBOXED";
 
 export type InputVia = "voice";
 
@@ -1007,7 +1010,7 @@ export interface FromLesson {
     lessonId:   string;
 }
 
-export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push" | "folder_access" | "batch";
+export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push" | "folder_access" | "batch" | "permission_request";
 
 export interface RequestedBy {
     agent?:       string;
@@ -2917,7 +2920,7 @@ export interface CustomConnectorProposal {
     grantKey:  string;
     hash:      string;
     id:        string;
-    kind:      CustomConnectorProposalKind;
+    kind:      NeedEnum;
     manifest:  CustomConnectorManifest;
     scopeMode: ScopeMode;
     text:      string;
@@ -2934,7 +2937,7 @@ export interface Finding {
 
 export type Severity = "info" | "warn" | "high";
 
-export type CustomConnectorProposalKind = "connector";
+export type NeedEnum = "connector";
 
 export interface CustomConnectorManifest {
     auth:          CustomConnectorAuth;
@@ -5829,6 +5832,64 @@ export interface MessagesWatchParams {
     intervalMs?:    number;
     sinceCursor?:   number;
 }
+
+export interface MissingCapability {
+    capability: Capability;
+    need:       MissingCapabilityNeed;
+}
+
+export type Capability = "exec_host";
+
+export type MissingCapabilityNeed = "capability";
+
+export interface MissingConnector {
+    connector: string;
+    need:      NeedEnum;
+}
+
+export interface MissingConnectorAction {
+    connector: string;
+    group:     string;
+    need:      MissingConnectorActionNeed;
+}
+
+export type MissingConnectorActionNeed = "connector_action";
+
+export interface MissingFolder {
+    access: Access;
+    need:   MissingFolderNeed;
+    path:   string;
+}
+
+export type Access = "read" | "read_write";
+
+export type MissingFolderNeed = "folder";
+
+export interface MissingMacosAccess {
+    connector: string;
+    need:      MissingMacosAccessNeed;
+    reason:    string;
+}
+
+export type MissingMacosAccessNeed = "macos_access";
+
+export interface MissingPermission {
+    access?:     Access;
+    need:        MissingPermissionNeed;
+    path?:       string;
+    capability?: Capability;
+    connector?:  string;
+    group?:      string;
+    reason?:     string;
+}
+
+export type MissingPermissionNeed = "folder" | "capability" | "connector_action" | "connector" | "macos_access" | "sandbox";
+
+export interface MissingSandbox {
+    need: MissingSandboxNeed;
+}
+
+export type MissingSandboxNeed = "sandbox";
 
 export interface ModelsCheckParams {
     ref: string;

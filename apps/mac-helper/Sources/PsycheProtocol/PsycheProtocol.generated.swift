@@ -712,6 +712,13 @@
 //   let messagesWatchParams = try? JSONDecoder().decode(MessagesWatchParams.self, from: jsonData)
 //   let milestone = try? JSONDecoder().decode(Milestone.self, from: jsonData)
 //   let milestoneKind = try? JSONDecoder().decode(MilestoneKind.self, from: jsonData)
+//   let missingCapability = try? JSONDecoder().decode(MissingCapability.self, from: jsonData)
+//   let missingConnector = try? JSONDecoder().decode(MissingConnector.self, from: jsonData)
+//   let missingConnectorAction = try? JSONDecoder().decode(MissingConnectorAction.self, from: jsonData)
+//   let missingFolder = try? JSONDecoder().decode(MissingFolder.self, from: jsonData)
+//   let missingMacosAccess = try? JSONDecoder().decode(MissingMacosAccess.self, from: jsonData)
+//   let missingPermission = try? JSONDecoder().decode(MissingPermission.self, from: jsonData)
+//   let missingSandbox = try? JSONDecoder().decode(MissingSandbox.self, from: jsonData)
 //   let modelCapabilityGuess = try? JSONDecoder().decode(ModelCapabilityGuess.self, from: jsonData)
 //   let modelFactSource = try? JSONDecoder().decode(ModelFactSource.self, from: jsonData)
 //   let modelProviderSummary = try? JSONDecoder().decode(ModelProviderSummary.self, from: jsonData)
@@ -3245,6 +3252,7 @@ public struct ApprovalAnswer: Codable, Sendable {
     public let folderPath: String?
     public let presence: PresenceAssertion?
     public let scope: GrantScope?
+    public let unsandboxed: Unsandboxed?
     public let via: InputVia?
 
     public enum CodingKeys: String, CodingKey {
@@ -3254,16 +3262,18 @@ public struct ApprovalAnswer: Codable, Sendable {
         case folderPath = "folderPath"
         case presence = "presence"
         case scope = "scope"
+        case unsandboxed = "unsandboxed"
         case via = "via"
     }
 
-    public init(answerToken: String, approvalID: String, decision: DecisionEnum, folderPath: String?, presence: PresenceAssertion?, scope: GrantScope?, via: InputVia?) {
+    public init(answerToken: String, approvalID: String, decision: DecisionEnum, folderPath: String?, presence: PresenceAssertion?, scope: GrantScope?, unsandboxed: Unsandboxed?, via: InputVia?) {
         self.answerToken = answerToken
         self.approvalID = approvalID
         self.decision = decision
         self.folderPath = folderPath
         self.presence = presence
         self.scope = scope
+        self.unsandboxed = unsandboxed
         self.via = via
     }
 }
@@ -3309,6 +3319,10 @@ public enum GrantScope: String, Codable, Sendable {
     case session = "session"
     case site = "site"
     case task = "task"
+}
+
+public enum Unsandboxed: String, Codable, Sendable {
+    case unsandboxed = "UNSANDBOXED"
 }
 
 public enum InputVia: String, Codable, Sendable {
@@ -3500,6 +3514,7 @@ public enum ApprovalKind: String, Codable, Sendable {
     case messageSend = "message_send"
     case newOrigin = "new_origin"
     case pairing = "pairing"
+    case permissionRequest = "permission_request"
     case planExit = "plan_exit"
     case policyChange = "policy_change"
     case purchase = "purchase"
@@ -8991,7 +9006,7 @@ public struct CustomConnectorProposal: Codable, Sendable {
     public let grantKey: String
     public let hash: String
     public let id: String
-    public let kind: CustomConnectorProposalKind
+    public let kind: NeedEnum
     public let manifest: CustomConnectorManifest
     public let scopeMode: ScopeMode
     public let text: String
@@ -9012,7 +9027,7 @@ public struct CustomConnectorProposal: Codable, Sendable {
         case update = "update"
     }
 
-    public init(approvalKind: ApprovalKindEnum, bindingHash: String, expiresAt: Int, findings: [Finding], grantKey: String, hash: String, id: String, kind: CustomConnectorProposalKind, manifest: CustomConnectorManifest, scopeMode: ScopeMode, text: String, update: CustomConnectorProposalUpdate?) {
+    public init(approvalKind: ApprovalKindEnum, bindingHash: String, expiresAt: Int, findings: [Finding], grantKey: String, hash: String, id: String, kind: NeedEnum, manifest: CustomConnectorManifest, scopeMode: ScopeMode, text: String, update: CustomConnectorProposalUpdate?) {
         self.approvalKind = approvalKind
         self.bindingHash = bindingHash
         self.expiresAt = expiresAt
@@ -9057,7 +9072,7 @@ public enum Severity: String, Codable, Sendable {
     case warn = "warn"
 }
 
-public enum CustomConnectorProposalKind: String, Codable, Sendable {
+public enum NeedEnum: String, Codable, Sendable {
     case connector = "connector"
 }
 
@@ -17343,6 +17358,177 @@ public struct MessagesWatchParams: Codable, Sendable {
         self.intervalMS = intervalMS
         self.sinceCursor = sinceCursor
     }
+}
+
+// MARK: - MissingCapability
+public struct MissingCapability: Codable, Sendable {
+    public let capability: Capability
+    public let need: MissingCapabilityNeed
+
+    public enum CodingKeys: String, CodingKey {
+        case capability = "capability"
+        case need = "need"
+    }
+
+    public init(capability: Capability, need: MissingCapabilityNeed) {
+        self.capability = capability
+        self.need = need
+    }
+}
+
+public enum Capability: String, Codable, Sendable {
+    case execHost = "exec_host"
+}
+
+public enum MissingCapabilityNeed: String, Codable, Sendable {
+    case capability = "capability"
+}
+
+// MARK: - MissingConnector
+public struct MissingConnector: Codable, Sendable {
+    public let connector: String
+    public let need: NeedEnum
+
+    public enum CodingKeys: String, CodingKey {
+        case connector = "connector"
+        case need = "need"
+    }
+
+    public init(connector: String, need: NeedEnum) {
+        self.connector = connector
+        self.need = need
+    }
+}
+
+// MARK: - MissingConnectorAction
+public struct MissingConnectorAction: Codable, Sendable {
+    public let connector: String
+    public let group: String
+    public let need: MissingConnectorActionNeed
+
+    public enum CodingKeys: String, CodingKey {
+        case connector = "connector"
+        case group = "group"
+        case need = "need"
+    }
+
+    public init(connector: String, group: String, need: MissingConnectorActionNeed) {
+        self.connector = connector
+        self.group = group
+        self.need = need
+    }
+}
+
+public enum MissingConnectorActionNeed: String, Codable, Sendable {
+    case connectorAction = "connector_action"
+}
+
+// MARK: - MissingFolder
+public struct MissingFolder: Codable, Sendable {
+    public let access: Access
+    public let need: MissingFolderNeed
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case access = "access"
+        case need = "need"
+        case path = "path"
+    }
+
+    public init(access: Access, need: MissingFolderNeed, path: String) {
+        self.access = access
+        self.need = need
+        self.path = path
+    }
+}
+
+public enum Access: String, Codable, Sendable {
+    case read = "read"
+    case readWrite = "read_write"
+}
+
+public enum MissingFolderNeed: String, Codable, Sendable {
+    case folder = "folder"
+}
+
+// MARK: - MissingMacosAccess
+public struct MissingMacosAccess: Codable, Sendable {
+    public let connector: String
+    public let need: MissingMacosAccessNeed
+    public let reason: String
+
+    public enum CodingKeys: String, CodingKey {
+        case connector = "connector"
+        case need = "need"
+        case reason = "reason"
+    }
+
+    public init(connector: String, need: MissingMacosAccessNeed, reason: String) {
+        self.connector = connector
+        self.need = need
+        self.reason = reason
+    }
+}
+
+public enum MissingMacosAccessNeed: String, Codable, Sendable {
+    case macosAccess = "macos_access"
+}
+
+// MARK: - MissingPermission
+public struct MissingPermission: Codable, Sendable {
+    public let access: Access?
+    public let need: MissingPermissionNeed
+    public let path: String?
+    public let capability: Capability?
+    public let connector: String?
+    public let group: String?
+    public let reason: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case access = "access"
+        case need = "need"
+        case path = "path"
+        case capability = "capability"
+        case connector = "connector"
+        case group = "group"
+        case reason = "reason"
+    }
+
+    public init(access: Access?, need: MissingPermissionNeed, path: String?, capability: Capability?, connector: String?, group: String?, reason: String?) {
+        self.access = access
+        self.need = need
+        self.path = path
+        self.capability = capability
+        self.connector = connector
+        self.group = group
+        self.reason = reason
+    }
+}
+
+public enum MissingPermissionNeed: String, Codable, Sendable {
+    case capability = "capability"
+    case connector = "connector"
+    case connectorAction = "connector_action"
+    case folder = "folder"
+    case macosAccess = "macos_access"
+    case sandbox = "sandbox"
+}
+
+// MARK: - MissingSandbox
+public struct MissingSandbox: Codable, Sendable {
+    public let need: MissingSandboxNeed
+
+    public enum CodingKeys: String, CodingKey {
+        case need = "need"
+    }
+
+    public init(need: MissingSandboxNeed) {
+        self.need = need
+    }
+}
+
+public enum MissingSandboxNeed: String, Codable, Sendable {
+    case sandbox = "sandbox"
 }
 
 // MARK: - ModelsCheckParams

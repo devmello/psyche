@@ -499,7 +499,9 @@ describe("grant scopes and the ledger", () => {
   });
 
   it("exec_host always grants refuse cwd-config executables unless their config is bound (design-14)", async () => {
-    const h = makeBroker({ policy: { exec: { execHostEnabled: true } } });
+    const h = makeBroker({
+      policy: { exec: { execHostEnabled: true }, folders: [{ path: "/tmp", mode: "rw" }] },
+    });
     const git = (cwdConfigHashes?: Record<string, string>) =>
       call("exec_host", "destructive", undefined, {
         binding: {

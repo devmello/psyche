@@ -14,6 +14,61 @@ import {
   TargetKind,
 } from "../common.ts";
 
+/**
+ * What a denied or failed call was missing (security §3.12): a tool error or a broker denial
+ * names it, and the agent passes it to `request_permission` so the owner can decide on a card.
+ */
+export const MissingPermission = Type.Union(
+  [
+    Type.Object(
+      {
+        need: Type.Literal("folder"),
+        path: Type.String({ minLength: 1, maxLength: 4096 }),
+        access: StringEnum(["read", "read_write"]),
+      },
+      { $id: "MissingFolder" },
+    ),
+    Type.Object(
+      {
+        need: Type.Literal("capability"),
+        /** A capability that is off until the owner turns it on. */
+        capability: StringEnum(["exec_host"]),
+      },
+      { $id: "MissingCapability" },
+    ),
+    Type.Object(
+      {
+        need: Type.Literal("connector_action"),
+        /** The broker's connector key (`apple.mail`, an MCP server id). */
+        connector: Type.String({ minLength: 1, maxLength: 200 }),
+        /** The action group the owner's matrix denies (`mail.send`). */
+        group: Type.String({ minLength: 1, maxLength: 200 }),
+      },
+      { $id: "MissingConnectorAction" },
+    ),
+    Type.Object(
+      {
+        need: Type.Literal("connector"),
+        /** A connector that is not connected (`apple-mail`, `google`). */
+        connector: Type.String({ minLength: 1, maxLength: 200 }),
+      },
+      { $id: "MissingConnector" },
+    ),
+    Type.Object(
+      {
+        need: Type.Literal("macos_access"),
+        connector: Type.String({ minLength: 1, maxLength: 200 }),
+        /** The helper's reason (`automation_denied`, `permission_missing`, …). */
+        reason: Type.String({ minLength: 1, maxLength: 200 }),
+      },
+      { $id: "MissingMacosAccess" },
+    ),
+    Type.Object({ need: Type.Literal("sandbox") }, { $id: "MissingSandbox" }),
+  ],
+  { $id: "MissingPermission" },
+);
+export type MissingPermission = Static<typeof MissingPermission>;
+
 /** Data model §4. */
 export const ApprovalKind = StringEnum(
   [
@@ -45,6 +100,11 @@ export const ApprovalKind = StringEnum(
     "folder_access",
     /** One approval for a listed set of `write` calls (an `ActionProposal`), once only. */
     "batch",
+    /**
+     * `request_permission`: the agent asks the owner to turn on a capability, loosen a connector
+     * action, connect a connector or grant macOS access it found missing (security §3.12).
+     */
+    "permission_request",
   ],
   { $id: "ApprovalKind" },
 );
@@ -167,6 +227,11 @@ export const ApprovalAnswer = Type.Object(
      * the Gateway, is what is granted, never the agent's own string.
      */
     folderPath: Type.Optional(Type.String({ minLength: 1, maxLength: 4096 })),
+    /**
+     * `exec_host` only, with `scope: "once"`: the owner typed this word on the card to run this
+     * one command without srt (security §5.4).
+     */
+    unsandboxed: Type.Optional(Type.Literal("UNSANDBOXED")),
     presence: Type.Optional(PresenceAssertionSchema),
     /** `voice`: answered by a spoken phrase after a readback (docs/voice/voice-mode-2026.md §4.6). */
     via: Type.Optional(InputVia),

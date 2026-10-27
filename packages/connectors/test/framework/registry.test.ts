@@ -314,8 +314,20 @@ describe("write enforcement fails closed", () => {
             .get(`mcp__demo-1__${name}`)
             ?.execute("c", { x: 1 }, new AbortController().signal, () => {}),
         );
-    return { call, verified };
+    return { call, verified, registry, tools };
   };
+
+  it("a group set to deny names the connector action the agent may ask for (§3.12)", async () => {
+    const { call, registry, tools } = setup({});
+    await call("write").catch(() => undefined);
+    await registry.setMatrix("demo-1", { "demo.write": "deny" });
+    await expect(
+      tools.get("mcp__demo-1__write")?.execute("c", { x: 1 }, new AbortController().signal, () => {}),
+    ).rejects.toMatchObject({
+      code: "policy_denied",
+      details: { missing: { need: "connector_action", connector: "demo-1", group: "demo.write" } },
+    });
+  });
 
   it("an ask write with no approval resolver is refused", async () => {
     await expect(setup({}).call("write")).rejects.toMatchObject({ code: "approval_required" });

@@ -51,7 +51,9 @@ describe("review fixes", () => {
   });
 
   it("#2: an exec_host always grant does not cover other stdin or network", async () => {
-    const h = makeBroker({ policy: { exec: { execHostEnabled: true } } });
+    const h = makeBroker({
+      policy: { exec: { execHostEnabled: true }, folders: [{ path: "/tmp", mode: "rw" }] },
+    });
     const sh = (stdin: string, network: "none" | "proxy") =>
       call("exec_host", "destructive", undefined, {
         binding: {

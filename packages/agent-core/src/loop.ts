@@ -88,6 +88,7 @@ import {
   renderSystemPrompt,
 } from "./context.ts";
 import { type Evaluation, evaluateTask } from "./evaluator.ts";
+import { missingHint, missingOf } from "./missing-permission.ts";
 import { EventQueue } from "./events.ts";
 import { type HookMap, HookRegistry } from "./hooks.ts";
 import {
@@ -1971,7 +1972,12 @@ export class PsycheAgentLoop implements AgentLoop {
     this.#checkAbort(run);
     gated.decision = decision;
     if (decision.decision === "deny") {
-      return this.#finishBlocked(run, gated, `denied: ${decision.reason ?? decision.rule}`);
+      const why = `denied: ${decision.reason ?? decision.rule}`;
+      return this.#finishBlocked(
+        run,
+        gated,
+        decision.missing === undefined ? why : `${why}. ${missingHint(decision.missing)}`,
+      );
     }
     if (call.name === NOTIFY_TOOL && decision.decision === "allow") {
       // #307: past the budget, a notification needs the owner's yes, asked once at a time.
@@ -2345,8 +2351,12 @@ export class PsycheAgentLoop implements AgentLoop {
       if (err instanceof RunEnd) throw err;
       if (run.abort.signal.aborted) throw abortReason(run) ?? new RunEnd("cancelled");
       // An external executor's error text may quote third-party content.
+      const missing = missingOf(err);
       result = {
-        output: { error: errorMessage(err) },
+        output: {
+          error: errorMessage(err),
+          ...(missing === undefined ? {} : { missing, hint: missingHint(missing) }),
+        },
         isError: true,
         provenance: reg.run === undefined ? "untrusted" : reg.spec.provenanceOut,
       };

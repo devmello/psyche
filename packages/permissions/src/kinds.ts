@@ -24,6 +24,8 @@ export const DEVICE_ONLY_KINDS: readonly ApprovalKind[] = [
   "apple_script",
   // The owner picks the folder in the native picker; a chat reply could not.
   "folder_access",
+  // Turning a capability on, or opening System Settings, happens on the Mac (§3.12).
+  "permission_request",
 ];
 
 /** `authenticationRequired` on the Mac (security §3.7). */
@@ -147,6 +149,8 @@ export function allowedScopes(
       "shortcut_run",
       // A push publishes exact commits with the owner's credentials (V10).
       "git_push",
+      // A setting is turned on until revoked in Settings, never a grant (§3.12).
+      "permission_request",
     ].includes(kind)
   )
     return ["once"];

@@ -9,6 +9,7 @@ import {
   classifyFailClosed,
 } from "./classifier.ts";
 import { matrixFloor, matrixRule } from "./connector-matrix.ts";
+import { missingFor } from "./missing.ts";
 import {
   ALL_SCOPES,
   allowedScopes,
@@ -332,6 +333,14 @@ export class PolicyEngine {
       d.bindingHash = x.binding.bindingHash;
       d.grantKey = x.binding.grantKey;
     }
+    if (decision === "deny") {
+      const fields = {
+        ...((call.params as Record<string, unknown> | undefined) ?? {}),
+        ...((x.binding?.fields as Record<string, unknown> | undefined) ?? {}),
+      };
+      const missing = missingFor(rule, call, x.se, fields);
+      if (missing !== undefined) d.missing = missing;
+    }
     if (decision === "ask") {
       d.approvalKind = x.kind;
       d.scopesOffered = x.scopes ?? allowedScopes(x.se, x.kind);
@@ -503,6 +512,24 @@ export class PolicyEngine {
       }
       allowances.push({ rule: folder.workspace ? "folder:workspace" : `folder:${folder.mode}` });
     }
+    if (kind === "exec_host") {
+      // Security §5.4: a host command runs only in a folder the owner granted. It grants no
+      // allowance: every call still asks unless an `always` grant covers it exactly.
+      // The loop sends a precomputed binding, so the arguments carry the cwd there.
+      const raw =
+        (binding.fields as { cwd?: unknown }).cwd ?? (call.params as { cwd?: unknown })?.cwd;
+      let cwd: string;
+      try {
+        cwd = canonicalPath(typeof raw === "string" ? raw : "");
+      } catch {
+        return done("deny", "folder:invalid_path", "exec_host needs an absolute cwd");
+      }
+      if (this.folderFor(cwd, ctx.threadId) === undefined) {
+        return done("deny", "folder:not_granted", `${cwd} is outside every granted folder`, {
+          binding,
+        });
+      }
+    }
     if (kind === "memory_protected_write") {
       floors.push({ rule: "memory:protected_path", reason: "protected memory files always ask" });
     }
@@ -568,9 +595,12 @@ export class PolicyEngine {
     let noAlways = false;
     if (kind === "exec_host") {
       const b = (call.binding ?? {}) as { executable?: unknown; cwdConfigHashes?: unknown };
+      // Without binding fields (the loop's precomputed binding) argv[0] names the program.
+      const argv0 = (call.params as { argv?: unknown[] } | undefined)?.argv?.[0];
+      const executable = typeof b.executable === "string" ? b.executable : argv0;
       noAlways =
-        typeof b.executable === "string" &&
-        readsCwdConfig(b.executable) &&
+        typeof executable === "string" &&
+        readsCwdConfig(executable) &&
         b.cwdConfigHashes === undefined;
     }
 
@@ -657,6 +687,15 @@ export class PolicyEngine {
           reason: "exec with network or outside writes in a tainted turn",
         };
       }
+      // Security §5.4 / §3.6: a host command in a tainted turn always asks and is offered
+      // `once` only; no standing grant covers it and no exemption applies.
+      if (kind === "exec_host") {
+        escalation = {
+          rule: escalation?.rule ?? "taint:exec_host",
+          reason: escalation?.reason ?? "a command on this Mac in a tainted turn",
+          scopes: ["once"],
+        };
+      }
       if (escalation !== undefined) trace.push(escalation.rule);
     }
 
@@ -711,7 +750,8 @@ export class PolicyEngine {
       else if (SEVERITY[se] <= SEVERITY.write) allowed = allowances[0];
     }
     if (allowed !== undefined) {
-      if (escalation !== undefined) return ask(escalation.rule, escalation.reason);
+      if (escalation !== undefined)
+      return ask(escalation.rule, escalation.reason, escalation.scopes);
       // 7. Classifier: residual writes in auto mode.
       let classifier: PolicyDecision["classifier"];
       if (mode === "auto" && se === "write") {
@@ -745,7 +785,8 @@ export class PolicyEngine {
 
     // 6. Mode default (security §3.2).
     trace.push("step6:mode_default");
-    if (escalation !== undefined) return ask(escalation.rule, escalation.reason);
+    if (escalation !== undefined)
+      return ask(escalation.rule, escalation.reason, escalation.scopes);
     const modeRule = `mode:${mode}/${se}`;
     switch (se) {
       case "none":

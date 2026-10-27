@@ -783,7 +783,11 @@ export class PsychePermissionBroker implements PermissionBroker {
     }
     const se = input.sideEffect;
     const deviceOnly = isDeviceOnly(input.kind, se, this.#policy.config.approvals?.deviceOnly);
-    const requiresAuthentication = AUTH_KINDS.includes(input.kind) || se === "financial";
+    // A permission request that turns something on needs fresh presence, like the setting itself.
+    const requiresAuthentication =
+      AUTH_KINDS.includes(input.kind) ||
+      se === "financial" ||
+      (input.kind === "permission_request" && se !== "none");
     // A non-owner requester never sees the card for their own request (security §9).
     const requester = input.context?.requester;
     const own = new Set(requesterSurfaces(requester));
@@ -1175,6 +1179,20 @@ export class PsychePermissionBroker implements PermissionBroker {
       }
     }
 
+    // Security §5.4: `UNSANDBOXED` typed on an exec_host card runs that one command without srt.
+    if (input.unsandboxed !== undefined) {
+      if (input.decision !== "approve" || a.kind !== "exec_host" || scope !== "once") {
+        return this.#reject(
+          rec,
+          id,
+          by,
+          "unsandboxed_not_offered",
+          "invalid_params",
+          "UNSANDBOXED applies to approving one exec_host command once",
+        );
+      }
+    }
+
     // The folder the owner picked is what is granted, never the agent's string (security §3.5).
     let folderPick: FolderGrantEntry | undefined;
     if (input.decision === "approve" && a.kind === "folder_access") {
@@ -1240,6 +1258,9 @@ export class PsychePermissionBroker implements PermissionBroker {
         fa.scopeGranted = scope;
         // A batch becomes one approved, once-only approval per listed call (§8.1).
         if (fa.kind === "batch") this.#mintBatchChildren(fresh, by, now);
+        if (fa.kind === "exec_host" && input.unsandboxed !== undefined) {
+          fa.details = { ...fa.details, unsandboxed: true };
+        }
         if (fa.kind === "folder_access" && folderPick !== undefined) {
           // Not a ledger grant: `always` lives in Settings → File access, `once` in the thread.
           fa.details = { ...fa.details, granted: { ...folderPick } };

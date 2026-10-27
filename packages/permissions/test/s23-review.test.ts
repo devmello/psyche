@@ -221,7 +221,9 @@ describe("design-14: exec bindings", () => {
   });
 
   it("#1: a changed cwd config hash no longer matches the exec_host always grant", async () => {
-    const h = makeBroker({ policy: { exec: { execHostEnabled: true } } });
+    const h = makeBroker({
+      policy: { exec: { execHostEnabled: true }, folders: [{ path: "/tmp", mode: "rw" }] },
+    });
     const git = (cfg: string) =>
       call("exec_host", "destructive", undefined, {
         binding: {

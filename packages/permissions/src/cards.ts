@@ -128,6 +128,7 @@ const KIND_TITLES: Record<string, string> = {
   git_write: "Change git repository",
   git_push: "Push to git remote",
   folder_access: "Open a folder",
+  permission_request: "Permission needed",
 };
 
 /** Detail keys shown first, in this order, per kind. */
