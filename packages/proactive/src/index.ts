@@ -221,6 +221,7 @@ export {
 } from "./meetings/notes.ts";
 export {
   type CalendarEvent,
+  lastMeetingNotes,
   MEETING_PREP_JOB,
   MeetingPrepService,
   type MeetingPrepServiceOptions,
