@@ -63,3 +63,40 @@ Checked and left alone:
 | `Resources/psyched` | 344 MiB | 245 MiB |
 | Psyche.app installed | 651 MiB | 561 MiB |
 | DMG | 283 MiB (297 MB) | 249 MiB (261 MB) |
+
+## Phase 2: onnxruntime on demand (Apple silicon)
+
+Psyche.app for arm64 no longer ships `libonnxruntime` (44 MiB installed, about 11 MiB of the DMG, which compresses it ~3.5:1). The package's JS
+and its 0.3 MB napi binding stay, so Linux, Docker and the dev checkout are unchanged, and so is the
+Intel app (Microsoft publishes no 1.30 macOS x86_64 archive to download).
+
+First enable of Settings → Search → Semantic (on-device), engine `builtin`:
+
+1. `apps/gateway/src/compose/ort-runtime.ts` downloads Microsoft's release archive
+   (`onnxruntime-osx-arm64-1.30.0.tgz`, 42 MB, HTTPS, SHA-256 pinned in
+   `packages/search/src/ort-runtime.ts`) with the model manager, like the embedding model: progress
+   (counted into the same bar as the model, so the total is archive + model), `.part` file, hash
+   checked while streaming, nothing under the real name until it matches. Then the archive is deleted.
+2. `installOrtRuntime` extracts the one library by name, checks its own SHA-256, copies
+   `onnxruntime-node` and `onnxruntime-common` from the app next to it and renames the tree into
+   `$PSYCHE_HOME/runtimes/onnxruntime-1.30.0-darwin-arm64/` (the binding finds `libonnxruntime.1.dylib`
+   through `@loader_path`).
+3. `loadOrt` imports from there. It prefers the installed package when that carries its library.
+
+Lexical search never imports onnxruntime; offline or a failed download leaves semantic search in its
+error state and lexical search untouched. Bumping `onnxruntime-node` means bumping the pins in the
+same change (the binding and the library must be the same version).
+
+### Open decision: Developer ID builds and library validation
+
+The release build signs with the hardened runtime, without `disable-library-validation`
+(`apps/desktop/entitlements.plist` says so on purpose). Measured on the bundled Node copied and
+re-signed with `--options runtime` and the app's entitlements: it refuses to `dlopen` a library
+signed by anyone else ("library load disallowed by system policy"), and loads it once the Node binary
+has `com.apple.security.cs.disable-library-validation`. Microsoft's dylib is signed by Microsoft
+(team UBF8T346G9), so **in a notarized build the downloaded runtime will not load** until Psyche
+either gives `Resources/psyched/runtime/node` that entitlement (only that binary; it already runs
+arbitrary JS and loads native addons) or ships the library again (+44 MB). Until the owner decides,
+the load failure is reported as `OrtRuntimeBlockedError` with that explanation, and ad-hoc and local
+builds (no hardened runtime) work. The one-line change, if chosen: a second entitlements file for
+that binary in `apps/desktop/src/packaging/signing-config.ts` (`optionsForFile`).

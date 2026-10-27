@@ -689,6 +689,53 @@ describe("deploy/scripts/prune-package-waste.mjs (app size, phase 1)", () => {
   });
 });
 
+describe("deploy/scripts/prune-package-waste.mjs onnxruntime on demand (app size, phase 2)", () => {
+  it("drops the native library on Apple silicon builds and keeps the JS and the binding", async () => {
+    const { prunePackageWaste } = await import(resolve(deploy, "scripts/prune-package-waste.mjs"));
+    const app = mkdtempSync(join(tmpdir(), "psyche-ort-drop-"));
+    try {
+      const dir = join(
+        app,
+        "node_modules/.pnpm/onnxruntime-node@1.30.0/node_modules/onnxruntime-node/bin/napi-v6/darwin/arm64",
+      );
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, "libonnxruntime.1.30.0.dylib"), "x".repeat(1000));
+      symlinkSync("libonnxruntime.1.30.0.dylib", join(dir, "libonnxruntime.1.dylib"));
+      writeFileSync(join(dir, "onnxruntime_binding.node"), "binding");
+      writeFileSync(join(dir, "../../../../package.json"), "{}");
+      const r = prunePackageWaste(app, { arch: "arm64" });
+      expect(r.onDemand).toBeGreaterThanOrEqual(1000);
+      expect(readdirSync(dir)).toEqual(["onnxruntime_binding.node"]);
+      expect(existsSync(join(dir, "../../../../package.json"))).toBe(true);
+    } finally {
+      rmSync(app, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps the library (deduplicated) in the Intel build, which has no release to download", async () => {
+    const { prunePackageWaste } = await import(resolve(deploy, "scripts/prune-package-waste.mjs"));
+    const app = mkdtempSync(join(tmpdir(), "psyche-ort-keep-"));
+    try {
+      const dir = join(
+        app,
+        "node_modules/.pnpm/onnxruntime-node@1.30.0/node_modules/onnxruntime-node/bin/napi-v6/darwin/x64",
+      );
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, "libonnxruntime.1.30.0.dylib"), "lib");
+      writeFileSync(join(dir, "libonnxruntime.1.dylib"), "lib");
+      const r = prunePackageWaste(app, { arch: "x64" });
+      expect(r.onDemand).toBe(0);
+      expect(r.dupes).toBe(3);
+      expect(readdirSync(dir).sort()).toEqual([
+        "libonnxruntime.1.30.0.dylib",
+        "libonnxruntime.1.dylib",
+      ]);
+    } finally {
+      rmSync(app, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("deploy/scripts/size-budget.mjs", () => {
   it("passes under the limit, fails over it, and can be skipped", async () => {
     const { checkBudget } = await import(resolve(deploy, "scripts/size-budget.mjs"));
