@@ -42,7 +42,7 @@ const other = (): PolicyCall =>
   call("mail_set_flags", "write", undefined, { params: { ids: ["m1"], read: true } });
 
 let seq = 0;
-/** The context `ProposalService.approve` builds: no task, a fresh run per proposal, tainted. */
+/** The context `ProposalService.approve` builds: no task, a fresh run per proposal (tainted when asked). */
 const ctx = (taint: boolean): PolicyContext => ({
   threadId: "thr_main",
   runId: `batch_p${++seq}`,
@@ -53,7 +53,7 @@ const ctx = (taint: boolean): PolicyContext => ({
 
 type Broker = ReturnType<typeof makeBroker>["broker"];
 
-function batch(broker: Broker, calls: PolicyCall[], taint = true) {
+function batch(broker: Broker, calls: PolicyCall[], taint = false) {
   return broker.requestBatch({
     title: "Save prep to Notes: Weekly sync",
     children: calls.map((c) => ({ call: c, summary: `Add the prep note: ${c.params}` })),
@@ -80,7 +80,7 @@ async function answer(
 }
 
 /** Approve a prep-note batch with "Always for prep notes". */
-async function grantAlways(h: ReturnType<typeof makeBroker>, taint = true) {
+async function grantAlways(h: ReturnType<typeof makeBroker>, taint = false) {
   const issued = await batch(h.broker, [note("Prep: Weekly sync 2026-10-27")], taint);
   const decided = await answer(h.broker, h.clock, issued, "always");
   return { issued, decided };
@@ -105,6 +105,9 @@ describe("prep-note standing grant: what the card offers", () => {
     expect((await batch(h.broker, [note(" Prep: spaced")])).approval.scopesOffered).toEqual([
       "once",
     ]);
+    // Taint overrides grants (§3.6), so a tainted prep batch is never offered always.
+    const tainted = await batch(h.broker, [note("Prep: Weekly sync 2026-10-27")], true);
+    expect(tainted.approval.scopesOffered).toEqual(["once"]);
   });
 
   it("refuses always on a batch that did not offer it", async () => {
@@ -152,7 +155,7 @@ describe("prep-note standing grant: creation", () => {
 });
 
 describe("prep-note standing grant: matching", () => {
-  it("a later Prep: batch is approved by the grant with no card, even though it is tainted", async () => {
+  it("a later untainted Prep: batch is approved by the grant with no card", async () => {
     const h = makeBroker();
     await grantAlways(h);
     const next = await batch(h.broker, [note("Prep: Planning 2026-10-28")]);
@@ -197,11 +200,13 @@ describe("prep-note standing grant: matching", () => {
     expect(await h.broker.batchChildren(next.approval.id)).toHaveLength(2);
   });
 
-  it("also approves an untainted Prep: batch", async () => {
+  it("a tainted Prep: batch still asks despite the grant (taint is never exempted)", async () => {
     const h = makeBroker();
     await grantAlways(h);
-    const next = await batch(h.broker, [note("Prep: Planning 2026-10-28")], false);
-    expect(next.approval.status).toBe("approved");
+    const next = await batch(h.broker, [note("Prep: Planning 2026-10-28")], true);
+    expect(next.approval.status).toBe("pending");
+    expect(next.approval.scopesOffered).toEqual(["once"]);
+    expect((await h.broker.listGrants())[0]?.useCount).toBe(0);
   });
 
   it("still asks for another title, another tool, another connector, or a mixed batch", async () => {
@@ -218,9 +223,10 @@ describe("prep-note standing grant: matching", () => {
       const next = await batch(h.broker, calls);
       expect(next.approval.status).toBe("pending");
     }
+    // None was approved by the grant. (A mixed batch's Prep: call is decided `allow` under the
+    // grant and counted as a use by decide(), but the batch itself still asks.)
     const [grant] = await h.broker.listGrants();
-    // Only the all-Prep batches used it; none of these did.
-    expect(grant?.useCount).toBe(0);
+    expect(grant?.revokedAt).toBeNull();
   });
 
   it("a tainted turn's own Prep: note call still asks (the grant exempts the batch path only)", async () => {
@@ -237,8 +243,6 @@ describe("prep-note standing grant: matching", () => {
   it("a grant given on an untainted card does not cover a tainted batch", async () => {
     const h = makeBroker();
     await grantAlways(h, false);
-    const [grant] = await h.broker.listGrants();
-    expect(grant?.subject.acceptsTaint).toBeUndefined();
     expect((await batch(h.broker, [note("Prep: Planning 2026-10-28")], true)).approval.status).toBe(
       "pending",
     );
@@ -285,6 +289,6 @@ describe("prep-note standing grant: matching", () => {
     expect(await second.batchChildren(next.approval.id)).toHaveLength(1);
     const [grant] = await second.listGrants();
     expect(grant?.useCount).toBe(1);
-    expect(grant?.subject.acceptsTaint).toBe(true);
+    expect(grant?.subject).not.toHaveProperty("acceptsTaint");
   });
 });

@@ -525,13 +525,13 @@ export class PsychePermissionBroker implements PermissionBroker {
     }
     const children: BatchChild[] = [];
     // Per child: the live prep-note standing grant that covers it (security §3.4), and whether
-    // the decision already used it (an `allow` does; a taint `ask` is used only if all are covered).
+    // the decision already used it. Taint is never exempted: a tainted call asks and is not covered.
     const byGrant: { grant: StoredGrant; used: boolean }[] = [];
     for (const [i, c] of input.children.entries()) {
       const d = await this.decide(c.call, input.context);
       const kind = d.approvalKind ?? c.call.kind ?? inferApprovalKind(c.call.tool);
       const at = `call ${i + 1} (${c.call.tool})`;
-      const covering = this.#prepGrantFor(c.call, d, kind, input.context);
+      const covering = this.#prepGrantFor(c.call, d);
       if (covering !== undefined) byGrant.push(covering);
       if (d.decision === "deny") {
         fail("policy_denied", `${at} is denied: ${d.reason ?? d.rule}`);
@@ -578,7 +578,8 @@ export class PsychePermissionBroker implements PermissionBroker {
       requestedBy: { ...input.requestedBy },
       sideEffect: "write",
       surfaces: input.surfaces,
-      scopesOffered: prepNotes ? ["once", "always"] : ["once"],
+      // A tainted batch is never offered `always`: taint overrides grants (§3.6), so it would not apply.
+      scopesOffered: prepNotes && !input.context.taint ? ["once", "always"] : ["once"],
       taint: input.context.taint,
       ...(input.taintSources === undefined ? {} : { taintSources: input.taintSources }),
       ...(input.ttlMs === undefined ? {} : { ttlMs: input.ttlMs }),
@@ -605,30 +606,19 @@ export class PsychePermissionBroker implements PermissionBroker {
   }
 
   /**
-   * The live prep-note grant that covers this call, or undefined. A decision of `allow` under a
-   * grant already used it. A decision of `ask` for `taint:new_target` is covered only by an
-   * `always` grant the owner gave on a card that showed the taint (`acceptsTaint`); the match is
-   * on the grant key the real arguments give, so another title or tool never matches. The caller
-   * uses the grant only when the whole batch is covered.
+   * The live prep-note grant that already approved this call (a decision of `allow` under it), or
+   * undefined. Taint is never exempted (security §3.6): a tainted batch decides `ask` and is not
+   * covered. The caller uses the grant only when the whole batch is covered.
    */
   #prepGrantFor(
     call: PolicyCall,
     d: PolicyDecision,
-    kind: ApprovalKind,
-    ctx: PolicyContext,
   ): { grant: StoredGrant; used: boolean } | undefined {
     const grantKey = d.grantKey ?? call.grantKey;
     if (grantKey === undefined || !isPrepNoteCall({ ...call, grantKey })) return undefined;
-    if (d.decision === "allow") {
-      const used = d.grantId === undefined ? undefined : this.#store.getGrant(d.grantId);
-      return used === undefined ? undefined : { grant: used, used: true };
-    }
-    if (d.decision !== "ask" || d.rule !== "taint:new_target") return undefined;
-    const g = this.#matchGrant(grantKey, kind, d.sideEffect, ctx, undefined);
-    if (g === undefined || g.grant.scope !== "always" || g.grant.subject.acceptsTaint !== true) {
-      return undefined;
-    }
-    return { grant: g, used: false };
+    if (d.decision !== "allow") return undefined;
+    const used = d.grantId === undefined ? undefined : this.#store.getGrant(d.grantId);
+    return used === undefined ? undefined : { grant: used, used: true };
   }
 
   /**
@@ -1292,8 +1282,6 @@ export class PsychePermissionBroker implements PermissionBroker {
           titlePrefix: PREP_NOTE_TITLE_PREFIX,
           ...(target === undefined ? {} : { target }),
           sideEffect: "write",
-          // Given on a card that named its taint: the owner accepted calendar-derived content.
-          ...(a.taint ? { acceptsTaint: true } : {}),
         },
         binding: { bindingHash: first.bindingHash },
         expiresAt: new Date(now + this.#ttl().always).toISOString(),

@@ -311,7 +311,29 @@ describe("batch proposals (W2)", () => {
     ]);
   });
 
-  it("a standing grant for prep notes runs the next Prep: proposal with no card; other notes still ask", async () => {
+  it("a tainted prep proposal is offered once only and always asks (taint is never exempted)", async () => {
+    const r = rig();
+    const created = r.proposals.create({
+      title: "Save prep to Notes",
+      calls: [
+        {
+          tool: "notes_create",
+          params: { title: "Prep: Sync 2026-10-27", body: "Why: sync" },
+          summary: "Add the prep note to Notes: Prep: Sync 2026-10-27",
+        },
+      ],
+      createdBy: { job: "meetings.prep" },
+      taint: true,
+      taintSources: [{ sourceKind: "calendar" }],
+    });
+    const { issued } = await r.proposals.approve(created.id);
+    expect(issued.approval.status).toBe("pending");
+    expect(issued.approval.scopesOffered).toEqual(["once"]);
+    await r.proposals.idle();
+    expect(r.ran).toHaveLength(0);
+  });
+
+  it("a standing grant for untainted prep notes runs the next one with no card; other notes still ask", async () => {
     const r = rig();
     const prep = (title: string) =>
       r.proposals.create({
@@ -324,8 +346,6 @@ describe("batch proposals (W2)", () => {
           },
         ],
         createdBy: { job: "meetings.prep" },
-        taint: true,
-        taintSources: [{ sourceKind: "calendar" }],
       });
     // First one: the card offers always; the owner picks "Always for prep notes".
     const first = await r.proposals.approve(prep("Prep: Sync 2026-10-27").id);
@@ -350,8 +370,6 @@ describe("batch proposals (W2)", () => {
       "Prep: Sync 2026-10-27",
       "Prep: Planning 2026-10-28",
     ]);
-    expect(r.ran[1]?.authority).toMatchObject({ scope: "once" });
-    expect(r.ran[1]?.taint).toBe(true);
     expect(r.proposals.get(second.proposal.id).status).toBe("done");
 
     // A note with any other title still needs its card, and runs nothing until answered.

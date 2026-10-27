@@ -36,6 +36,7 @@ import {
   SchedulingService,
   type SignalsProvider,
   type SkillUpdatesProvider,
+  type ToolLookup,
   VoiceService,
   withProactiveJobs,
 } from "@psyche/proactive";
@@ -261,7 +262,10 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           clock,
           broker,
           tools: {
-            get: (name) => (name === NOTES_CREATE_TOOL ? notesCreateTool : registry.get(name)),
+            get: (name) =>
+              name === NOTES_CREATE_TOOL
+                ? notesCreateTool
+                : connectorToolLookup(registry).get(name),
           },
           mainThread: () => sessions.resolve("main", { automation: {} as never, runId: "" }),
           onEvent: (e) => publish(e.event, e.payload),
@@ -294,7 +298,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           db: db.sqlite,
           clock,
           scheduler,
-          tools: registry,
+          tools: connectorToolLookup(registry),
           feed: feed.store,
           notifier,
           provider,
@@ -600,4 +604,22 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
 
 function stringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+}
+
+/**
+ * Proactive jobs name connector tools bare (`notes_create`); the loop's registry holds them as
+ * `mcp__<connector>__<tool>`. An exact name wins, then the first connector tool with that name.
+ */
+export function connectorToolLookup(registry: AgentToolRegistry): ToolLookup {
+  return {
+    get(name) {
+      const exact = registry.get(name);
+      if (exact !== undefined) return exact;
+      const suffix = `__${name}`;
+      const match = registry
+        .list()
+        .find((s) => s.name.startsWith("mcp__") && s.name.endsWith(suffix));
+      return match === undefined ? undefined : registry.get(match.name);
+    },
+  };
 }
