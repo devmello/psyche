@@ -10,7 +10,6 @@ import {
   type SemanticProgress,
 } from "@psyche/search";
 import { ModelManager } from "@psyche/speech";
-import { ensureOrtRuntime, ortRuntimeDownloadBytes } from "./ort-runtime.ts";
 
 /**
  * Semantic search on the Gateway (docs/design/search-2026.md §3, S3): reads the owner's settings,
@@ -18,9 +17,7 @@ import { ensureOrtRuntime, ortRuntimeDownloadBytes } from "./ort-runtime.ts";
  *
  * - `search.semantic.enabled` (default off): turning it off drops every stored vector.
  * - `search.semantic.engine`: `builtin` (default) runs an ONNX model on the CPU, downloaded on the
- *   first enable (pinned URL and SHA-256, `$PSYCHE_HOME/models/embeddings/`), with progress. On
- *   Apple silicon the onnxruntime library downloads the same way first (`$PSYCHE_HOME/runtimes/`;
- *   ./ort-runtime.ts), as Psyche.app does not ship it; lexical search never needs either;
+ *   first enable (pinned URL and SHA-256, `$PSYCHE_HOME/models/embeddings/`), with progress;
  *   `router` uses the model router's `embedding` role (Ollama, LM Studio, another local server).
  *   A role bound to a cloud provider is refused (`blocked: cloud_not_allowed`) unless
  * - `search.semantic.allowCloud` (S4, default off, admin-only like every `search.*` key) is on:
@@ -71,29 +68,16 @@ export interface SemanticEngines {
     | { blocked: "no_embedding_model" | "cloud_not_allowed" };
 }
 
-/** The real engines: ModelManager downloads, onnxruntime-node runs. `fetchImpl` is for tests. */
+/** The real engines: ModelManager downloads, onnxruntime-node runs. */
 export function defaultSemanticEngines(
   home: string,
   router: SemanticEngines["router"],
-  fetchImpl?: typeof fetch,
 ): SemanticEngines {
   return {
     async builtin(spec, onDownload, signal) {
       const files = [spec.model, spec.tokenizer];
-      // The runtime first, when this build does not carry it: its bytes count toward the progress.
-      const runtimeBytes = ortRuntimeDownloadBytes({ home });
-      if (runtimeBytes > 0) {
-        await ensureOrtRuntime({
-          home,
-          signal,
-          ...(fetchImpl === undefined ? {} : { fetch: fetchImpl }),
-          onProgress: (received) =>
-            onDownload(received, runtimeBytes + files.reduce((n, f) => n + f.sizeBytes, 0)),
-        });
-      }
       const manager = new ModelManager({
         home,
-        ...(fetchImpl === undefined ? {} : { fetch: fetchImpl }),
         catalog: files.map((f) => ({
           id: f.file,
           engine: "embeddings",
@@ -104,8 +88,8 @@ export function defaultSemanticEngines(
           license: spec.license,
         })),
       });
-      const total = runtimeBytes + files.reduce((n, f) => n + f.sizeBytes, 0);
-      let before = runtimeBytes;
+      const total = files.reduce((n, f) => n + f.sizeBytes, 0);
+      let before = 0;
       const paths: string[] = [];
       for (const f of files) {
         const offset = before;
@@ -119,7 +103,7 @@ export function defaultSemanticEngines(
       }
       onDownload(total, total);
       const [modelPath, tokenizerPath] = paths as [string, string];
-      return createOnnxEmbedder({ spec, modelPath, tokenizerPath, runtime: { home } });
+      return createOnnxEmbedder({ spec, modelPath, tokenizerPath });
     },
     router,
   };

@@ -64,48 +64,36 @@ Checked and left alone:
 | Psyche.app installed | 651 MiB | 561 MiB |
 | DMG | 283 MiB (297 MB) | 249 MiB (261 MB) |
 
-## Phase 2: onnxruntime on demand (Apple silicon)
+## Phase 2: onnxruntime on demand (tried, then reversed)
 
-Psyche.app for arm64 no longer ships `libonnxruntime` (44 MiB installed, about 11 MiB of the DMG, which compresses it ~3.5:1). The package's JS
-and its 0.3 MB napi binding stay, so Linux, Docker and the dev checkout are unchanged, and so is the
-Intel app (Microsoft publishes no 1.30 macOS x86_64 archive to download).
+#926 dropped `libonnxruntime` (44 MiB installed, about 11 MiB of the DMG, which compresses it ~3.5:1)
+from the Apple silicon app and downloaded Microsoft's pinned release the first time on-device semantic
+search was turned on. It worked (installed from the real archive and ran an inference), taking
+Psyche.app from 561 to 519 MiB, **but not in a notarized build**: the release build uses the hardened
+runtime without `disable-library-validation` (`apps/desktop/entitlements.plist`, on purpose). Measured
+on the bundled Node copied and re-signed with `--options runtime` and the app's entitlements, it
+refuses to `dlopen` a library signed by anyone else ("library load disallowed by system policy") and
+loads it only once the Node binary has `com.apple.security.cs.disable-library-validation`.
+Microsoft's dylib is signed by Microsoft (team UBF8T346G9), so the downloaded runtime would not have
+loaded in a Developer ID build unless that one binary got the entitlement.
 
-First enable of Settings → Search → Semantic (on-device), engine `builtin`:
+**Decision (owner): ship the library inside the app and keep library validation.** The download path
+(`packages/search/src/ort-runtime.ts`, `apps/gateway/src/compose/ort-runtime.ts`) is removed. The
+toggle Settings → Search → Semantic (on-device) and the embedding model download are as before. What
+stays from phase 1: only `darwin/<arch>` of `bin/napi-v6` ships, and the library's second copy is a link
+to the first (`libonnxruntime.1.dylib` → `.1.30.0.dylib`), so the app carries one 44 MiB library, signed
+with the app like every other native file. The Intel build keeps its `darwin/x64` runtime the same way.
 
-1. `apps/gateway/src/compose/ort-runtime.ts` downloads Microsoft's release archive
-   (`onnxruntime-osx-arm64-1.30.0.tgz`, 42 MB, HTTPS, SHA-256 pinned in
-   `packages/search/src/ort-runtime.ts`) with the model manager, like the embedding model: progress
-   (counted into the same bar as the model, so the total is archive + model), `.part` file, hash
-   checked while streaming, nothing under the real name until it matches. Then the archive is deleted.
-2. `installOrtRuntime` extracts the one library by name, checks its own SHA-256, copies
-   `onnxruntime-node` and `onnxruntime-common` from the app next to it and renames the tree into
-   `$PSYCHE_HOME/runtimes/onnxruntime-1.30.0-darwin-arm64/` (the binding finds `libonnxruntime.1.dylib`
-   through `@loader_path`).
-3. `loadOrt` imports from there. It prefers the installed package when that carries its library.
-
-Lexical search never imports onnxruntime; offline or a failed download leaves semantic search in its
-error state and lexical search untouched. Bumping `onnxruntime-node` means bumping the pins in the
-same change (the binding and the library must be the same version).
-
-### Open decision: Developer ID builds and library validation
-
-The release build signs with the hardened runtime, without `disable-library-validation`
-(`apps/desktop/entitlements.plist` says so on purpose). Measured on the bundled Node copied and
-re-signed with `--options runtime` and the app's entitlements: it refuses to `dlopen` a library
-signed by anyone else ("library load disallowed by system policy"), and loads it once the Node binary
-has `com.apple.security.cs.disable-library-validation`. Microsoft's dylib is signed by Microsoft
-(team UBF8T346G9), so **in a notarized build the downloaded runtime will not load** until Psyche
-either gives `Resources/psyched/runtime/node` that entitlement (only that binary; it already runs
-arbitrary JS and loads native addons) or ships the library again (+44 MB). Until the owner decides,
-the load failure is reported as `OrtRuntimeBlockedError` with that explanation, and ad-hoc and local
-builds (no hardened runtime) work. The one-line change, if chosen: a second entitlements file for
-that binary in `apps/desktop/src/packaging/signing-config.ts` (`optionsForFile`).
+If the size has to come out again, the options are: give `Resources/psyched/runtime/node` the
+entitlement through a second entitlements file in `signing-config.ts`' `optionsForFile` (the download
+code is in the history of #926), or load the model with a smaller runtime. Neither is needed for the
+under-500 MiB goal.
 
 ## Phase 3: one Node runtime instead of two
 
 Today Psyche.app holds Electron's Node (inside `Electron Framework`) and a second, official Node 24.22.0
 (`Resources/psyched/runtime/node`, 93 MiB installed, 34 MiB gzip) that runs the Gateway LaunchAgent.
-Everything below was measured on this machine with the phase 2 bundle (psyched 202 MiB).
+Everything below was measured on this machine; sizes are from the phase 2 build (psyched 202 MiB), where onnxruntime was not bundled, so add 44 MiB to the installed totals now that it ships again.
 
 ### Can the LaunchAgent run on Electron's Node?
 
@@ -177,12 +165,12 @@ It is a refactor with a migration-path risk, so it is a proposal, not part of th
 | | MiB |
 |---|---|
 | Original | 651 |
-| After phases 1 and 2 | 519 |
-| + esbuild bundle (safe, proposed) | ≈ 473 |
-| + Electron's Node instead of the bundled one (fuse decision) | ≈ 380 |
+| After phase 1, onnxruntime shipped (current) | 561 |
+| + esbuild Gateway bundle (estimate, next PR) | ≈ 515 |
+| + Electron's Node instead of the bundled one (fuse; owner said no) | ≈ 422 |
 
-Under 500 is reachable without touching the fuse. The 300–400 range needs the second Node gone, or
-smaller things I would try before asking for the fuse:
+With the library shipped and the fuse off, the esbuild bundle gets to about 515 MiB; under 500 needs
+one or two of the smaller things below, and 300–400 needs the second Node gone:
 
 - `libvk_swiftshader.dylib` (16 MiB): the software Vulkan fallback for machines without a usable GPU.
   Removing it risks a blank window on those; test with `--disable-gpu` first.

@@ -486,7 +486,7 @@ function smokeSkills(bundle, home) {
  * runtime needs fails here, not on the owner's Mac. The Gateway boot does not reach all of them
  * (the vault, the browser and PDF extraction are lazy).
  */
-function smokeNative(bundle, home, arch) {
+function smokeNative(bundle, home) {
   const app = join(bundle, "app");
   const script = `
     import { createRequire } from "node:module";
@@ -505,9 +505,6 @@ function smokeNative(bundle, home, arch) {
     await pdfSource(new TextEncoder().encode("%PDF-1.4\\n")).then(() => { throw new Error("pdf.js accepted junk"); }, (e) => {
       if (!/unreadable PDF/.test(e.message)) throw e;
     });
-    const { ortRuntimeState } = await import(${JSON.stringify(pathToFileURL(join(app, "packages/search/src/ort-runtime.ts")).href)});
-    const ort = ortRuntimeState({ home: ${JSON.stringify(home)} });
-    if (ort !== ${JSON.stringify(arch === "arm64" ? "missing" : "bundled")}) throw new Error("onnxruntime state " + ort);
     process.stdout.write(JSON.stringify({ sqlite: db.prepare("select sqlite_version() v").get().v, vec: db.prepare("select vec_version() v").get().v }));
   `;
   const out = execFileSync(
@@ -522,7 +519,7 @@ function smokeNative(bundle, home, arch) {
   );
   const v = JSON.parse(out);
   process.stdout.write(
-    `smoke: native modules load (sqlite ${v.sqlite}, sqlite-vec ${v.vec}, sqlcipher, playwright-core, turndown, pdf.js; onnxruntime ${arch === "arm64" ? "downloads on demand" : "bundled"})\n`,
+    `smoke: native modules load (sqlite ${v.sqlite}, sqlite-vec ${v.vec}, sqlcipher, playwright-core, turndown, pdf.js)\n`,
   );
 }
 
@@ -541,7 +538,7 @@ ${COMPILE_CACHE}
 exec "$here/runtime/node" --disable-warning=ExperimentalWarning "$here/app/apps/cli/src/main.ts" "$@"
 `;
 
-async function smoke(bundle, arch) {
+async function smoke(bundle) {
   const home = mkdtempSync(join("/tmp", "psy-smoke-"));
   try {
     const child = spawn(join(bundle, "psyched"), [], {
@@ -570,7 +567,7 @@ async function smoke(bundle, arch) {
     if (health?.ok !== true) throw new Error(`/healthz answered ${JSON.stringify(health)}`);
     process.stdout.write(`smoke: psyched healthy at ${origin}/healthz with only PSYCHE_HOME set\n`);
     smokeSkills(bundle, home);
-    smokeNative(bundle, home, arch);
+    smokeNative(bundle, home);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
@@ -592,7 +589,7 @@ async function main(argv) {
   const out = resolve(opt("--out") ?? join(ROOT, "apps/gateway/dist-bin", `darwin-${arch}`));
   const bundle = join(out, "psyched");
   const app = join(bundle, "app");
-  if (argv.includes("--smoke-only")) return smoke(bundle, arch);
+  if (argv.includes("--smoke-only")) return smoke(bundle);
   const version = pinnedNodeVersion();
   rmSync(bundle, { recursive: true, force: true });
   mkdirSync(join(bundle, "runtime"), { recursive: true });
@@ -660,9 +657,9 @@ async function main(argv) {
 
   const pruned = pruneForeignPrebuilds(app, arch);
   process.stdout.write(`pruned ${pruned} prebuilt addon(s) for other platforms\n`);
-  const waste = prunePackageWaste(app, { arch });
+  const waste = prunePackageWaste(app);
   process.stdout.write(
-    `pruned ${(waste.installed / 1e6).toFixed(0)} MB of docs/tests/sources from ${waste.packages} package(s), ${(waste.workspaces / 1e6).toFixed(1)} MB of workspace tests, ${(waste.dupes / 1e6).toFixed(0)} MB of duplicate libraries, ${(waste.onDemand / 1e6).toFixed(0)} MB of onnxruntime (downloaded on demand)\n`,
+    `pruned ${(waste.installed / 1e6).toFixed(0)} MB of docs/tests/sources from ${waste.packages} package(s), ${(waste.workspaces / 1e6).toFixed(1)} MB of workspace tests, ${(waste.dupes / 1e6).toFixed(0)} MB of duplicate libraries\n`,
   );
   const bad = checkAddons(app, arch);
   if (bad.length) throw new Error(`native addons for the wrong architecture:\n${bad.join("\n")}`);
@@ -698,7 +695,7 @@ async function main(argv) {
   );
   process.stdout.write(`${checkBudget("psychedMB", treeSize(bundle))}\n`);
 
-  if (argv.includes("--smoke")) await smoke(bundle, arch);
+  if (argv.includes("--smoke")) await smoke(bundle);
 }
 
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
