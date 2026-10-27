@@ -1,5 +1,8 @@
 {
   "psychedMB": 205,
   "appMB": 530,
-  "dmgMB": 210
+  "dmgMB": 210,
+  "gatewayIdleFootprintMB": 140,
+  "gatewayIdleHeapMB": 36,
+  "gatewayBundleMB": 6.5
 }

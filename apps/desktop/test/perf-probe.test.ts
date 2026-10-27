@@ -2,13 +2,21 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { perfProbeFile, startProbe, watchFirstPaint } from "../src/main/perf-probe.ts";
+import { perfHold, perfProbeFile, startProbe, watchFirstPaint } from "../src/main/perf-probe.ts";
 
 describe("perf-probe", () => {
   it("is off unless PSYCHE_PERF_FIRST_PAINT_FILE names a file", () => {
     expect(perfProbeFile({})).toBeUndefined();
     expect(perfProbeFile({ PSYCHE_PERF_FIRST_PAINT_FILE: "" })).toBeUndefined();
     expect(perfProbeFile({ PSYCHE_PERF_FIRST_PAINT_FILE: "/tmp/x.json" })).toBe("/tmp/x.json");
+  });
+
+  it("holds a measured run only for PSYCHE_PERF_HOLD=1", () => {
+    expect([
+      perfHold({}),
+      perfHold({ PSYCHE_PERF_HOLD: "0" }),
+      perfHold({ PSYCHE_PERF_HOLD: "1" }),
+    ]).toEqual([false, false, true]);
   });
 
   const page = {
