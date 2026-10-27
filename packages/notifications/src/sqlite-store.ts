@@ -1,4 +1,6 @@
 import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+import { assetPath } from "@psyche/assets";
 import type { Notification } from "@psyche/protocol";
 import type { NotificationStore, StoreListFilter } from "./store.ts";
 import type { DeliveryRecord, DeliveryStatus, StoredNotification } from "./types.ts";
@@ -17,9 +19,8 @@ export interface SqliteDatabase {
 }
 
 /** The DDL for `notifications` and `notification_deliveries`. */
-export const NOTIFICATIONS_MIGRATION_URL = new URL(
-  "../migrations/202610190200_notifications_init.sql",
-  import.meta.url,
+export const NOTIFICATIONS_MIGRATION_URL = pathToFileURL(
+  assetPath("packages/notifications/migrations/202610190200_notifications_init.sql"),
 );
 
 export function notificationsMigrationSql(): string {

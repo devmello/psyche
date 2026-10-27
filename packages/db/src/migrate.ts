@@ -11,7 +11,7 @@
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { assetDir } from "@psyche/assets";
 import type Database from "better-sqlite3";
 import type { DbLogger } from "./types.ts";
 
@@ -19,7 +19,7 @@ import type { DbLogger } from "./types.ts";
 export const MIGRATION_FILE_PATTERN = /^\d{12}_[a-z0-9-]+_[a-z0-9_-]+\.sql$/;
 
 /** The migrations shipped with this package. */
-export const DEFAULT_MIGRATIONS_DIR = fileURLToPath(new URL("../migrations/", import.meta.url));
+export const DEFAULT_MIGRATIONS_DIR = assetDir("packages/db/migrations");
 
 export interface MigrationFile {
   /** File name without `.sql`; the primary key in `_migrations`. */

@@ -4,12 +4,14 @@
 //   node deploy/scripts/build-psyched.mjs --smoke-only [--out <dir>]     smoke an already built bundle
 //
 // Output: apps/gateway/dist-bin/darwin-<arch>/psyched/
-//   psyched, psyche            /bin/sh launchers (no PATH needed): runtime/node + app/apps/*/src/main.ts
+//   psyched, psyche            /bin/sh launchers (no PATH needed): runtime/node + app/apps/*/dist/main.mjs
 //   runtime/node               the official Node build of the version deploy/scripts/node-pins.mjs pins,
 //                              SHA-256 checked against nodejs.org's SHASUMS256.txt
-//   app/                       the workspace subset with production dependencies, run by Node's type
-//                              stripping exactly like the Docker image (packages read migrations and
-//                              templates next to their sources, so nothing is bundled)
+//   app/                       the Gateway and the CLI bundled by esbuild (apps/gateway/dist/main.mjs,
+//                              extract-worker.mjs, apps/cli/dist/main.mjs; bundle-gateway.mjs), the
+//                              files that sit next to the code (migrations, templates, skills, the
+//                              web client; found through @psyche/assets) and node_modules with only
+//                              the packages that cannot be bundled (native addons, pdf.js, playwright)
 //   com.psyche.gateway.plist.template   LaunchAgent with {{PSYCHED}} and {{PSYCHE_HOME}}
 //   build-info.json            {version, commit, node, arch, builtAt, bytes}
 //
@@ -19,8 +21,9 @@
 // build each arch on a host of that arch (the release workflow uses an Intel runner for x64); the
 // script checks every .node file's architecture and refuses a mismatch. The build fails when the
 // bundled skills folder (app/skills) is missing or a skill has no SKILL.md (#506). --smoke starts
-// the built psyched with only PSYCHE_HOME set, waits for /healthz, then loads and lists the shipped
-// skills with the bundle's runtime.
+// the built psyched with only PSYCHE_HOME set and waits for /healthz, runs `psyched --bundle-check`
+// (migrations on a fresh database, templates, skills, the web client, a PDF through the extraction
+// worker) and loads the external packages, all with the bundle's own runtime.
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -33,16 +36,17 @@ import {
   readdirSync,
   readFileSync,
   realpathSync,
-  rmdirSync,
   rmSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { builtinModules } from "node:module";
 import { homedir, arch as hostArch, platform, tmpdir } from "node:os";
-import { join, relative, resolve, sep } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { bundleGateway, discardSources } from "./bundle-gateway.mjs";
 import { findPins } from "./node-pins.mjs";
+import { depNames, prunePnpmStore, removeDanglingLinks } from "./pnpm-store.mjs";
 import { prunePackageWaste } from "./prune-package-waste.mjs";
 import { checkBudget, treeSize } from "./size-budget.mjs";
 
@@ -236,34 +240,6 @@ export function workspaceClosure(appDir, subsets = SERVER_SUBSETS) {
   return { all, closure };
 }
 
-/** Dependency names in a node_modules dir (scoped ones as `@scope/name`), skipping dot entries. */
-function depNames(nm) {
-  if (!existsSync(nm)) return [];
-  const names = [];
-  for (const e of readdirSync(nm)) {
-    if (e.startsWith(".")) continue;
-    if (e.startsWith("@")) for (const sub of readdirSync(join(nm, e))) names.push(`${e}/${sub}`);
-    else names.push(e);
-  }
-  return names;
-}
-
-/** Removes symlinks that point nowhere (left by dropped packages), recursing into scopes. */
-function removeDanglingLinks(dir) {
-  if (!existsSync(dir)) return;
-  for (const e of readdirSync(dir)) {
-    const p = join(dir, e);
-    const st = lstatSync(p, { throwIfNoEntry: false });
-    if (!st) continue;
-    if (st.isSymbolicLink()) {
-      if (!existsSync(p)) unlinkSync(p);
-    } else if (st.isDirectory() && (e.startsWith("@") || e === ".bin")) {
-      removeDanglingLinks(p);
-      if (readdirSync(p).length === 0) rmdirSync(p);
-    }
-  }
-}
-
 /** Every link in the tree that points nowhere, wherever it is; returns how many were removed. */
 function removeAllDanglingLinks(dir) {
   let n = 0;
@@ -318,38 +294,11 @@ export function pruneToServerSubset(
     }
   }
 
-  // Mark every .pnpm entry reachable through the symlink graph.
-  // Real path: symlinks resolve to it (macOS's /var is /private/var).
-  const pnpm = realpathSync(join(appDir, "node_modules", ".pnpm"));
-  const keep = new Set();
-  const queue = [];
-  const follow = (nm, self) => {
-    for (const dep of depNames(nm)) {
-      if (dep === self || drop.includes(dep)) continue;
-      let real;
-      try {
-        real = realpathSync(join(nm, dep));
-      } catch {
-        continue;
-      }
-      const rel = relative(pnpm, real);
-      if (rel.startsWith("..")) continue; // a workspace package
-      const id = rel.split(sep)[0];
-      if (keep.has(id)) continue;
-      keep.add(id);
-      queue.push([join(pnpm, id, "node_modules"), dep]);
-    }
-  };
-  for (const [, pkg] of closure) follow(join(appDir, pkg.dir, "node_modules"), null);
-  while (queue.length) follow(...queue.pop());
-  for (const id of readdirSync(pnpm)) {
-    if (id === "node_modules" || id.startsWith(".") || keep.has(id)) continue;
-    if (!lstatSync(join(pnpm, id)).isDirectory()) continue;
-    rmSync(join(pnpm, id), { recursive: true, force: true });
-    stats.packages++;
-  }
-  for (const id of keep) removeDanglingLinks(join(pnpm, id, "node_modules"));
-  removeDanglingLinks(join(pnpm, "node_modules"));
+  stats.packages = prunePnpmStore(
+    appDir,
+    [...closure].map(([, pkg]) => join(appDir, pkg.dir, "node_modules")),
+    drop,
+  );
   removeDanglingLinks(join(appDir, "node_modules"));
   for (const [, pkg] of closure) removeDanglingLinks(join(appDir, pkg.dir, "node_modules"));
 
@@ -449,35 +398,27 @@ export function checkShippedSkills(appDir) {
 }
 
 /**
- * Loads the shipped skills with the bundle's own runtime and `@psyche/skills`, the way the
- * Gateway does, and prints each with its status. Tool gating is left open here (the smoke has no
- * agent); a skill that is invalid, blocked or fails its hash fails the smoke.
+ * Runs `psyched --bundle-check` (apps/gateway/src/bundle-check.ts) with the bundle's own runtime and a
+ * fresh home: migrations on a new database, the templates, the skills (all of those shipped must
+ * load), the web client, the sandbox image context, the MCP bridge, and a PDF through the
+ * extraction worker, each found through @psyche/assets from where the bundle sits.
  */
-function smokeSkills(bundle, home) {
+function smokeBundle(bundle, home) {
   const app = join(bundle, "app");
-  const script = `
-    const { createSkillLoader } = await import(${JSON.stringify(pathToFileURL(join(app, "packages/skills/src/index.ts")).href)});
-    const loader = createSkillLoader({ homeDir: ${JSON.stringify(join(home, "skills"))}, bundledDir: ${JSON.stringify(join(app, "skills"))} });
-    const skills = (await loader.listDetailed()).filter((s) => s.source === "bundled");
-    process.stdout.write(JSON.stringify(skills.map((s) => ({ name: s.name, status: s.status, reasons: s.reasons }))));
-  `;
-  const out = execFileSync(
-    join(bundle, "runtime/node"),
-    ["--disable-warning=ExperimentalWarning", "--input-type=module", "-e", script],
-    { cwd: app, encoding: "utf8", env: { PATH: "/usr/bin:/bin", HOME: home } },
-  );
-  const skills = JSON.parse(out);
+  const out = execFileSync(join(bundle, "psyched"), ["--bundle-check"], {
+    encoding: "utf8",
+    env: { PSYCHE_HOME: home },
+    stdio: ["ignore", "pipe", "inherit"],
+  });
+  const check = JSON.parse(out.trim().split("\n").pop());
   const shipped = checkShippedSkills(app);
-  const bad = skills.filter((s) => ["invalid", "blocked", "hash_mismatch"].includes(s.status));
-  for (const s of skills)
-    process.stdout.write(
-      `smoke: skill ${s.name}: ${s.status}${s.reasons.length ? ` (${s.reasons.join("; ")})` : ""}\n`,
-    );
-  if (skills.length !== shipped.length)
-    throw new Error(`the bundle loads ${skills.length} of ${shipped.length} shipped skills`);
-  if (bad.length)
-    throw new Error(`bundled skills that do not load: ${bad.map((s) => s.name).join(", ")}`);
-  process.stdout.write(`smoke: ${skills.length} bundled skills load\n`);
+  if (check.skills !== shipped.length)
+    throw new Error(`the bundle loads ${check.skills} of ${shipped.length} shipped skills`);
+  if (check.root !== realpathSync(app))
+    throw new Error(`the bundle looks for its assets in ${check.root}, not ${app}`);
+  process.stdout.write(
+    `smoke: bundle check ok: ${check.migrations} migrations on a fresh database, ${check.templates} templates, ${check.skills} bundled skills, a PDF through the extraction worker\n`,
+  );
 }
 
 /**
@@ -490,21 +431,17 @@ function smokeNative(bundle, home) {
   const app = join(bundle, "app");
   const script = `
     import { createRequire } from "node:module";
-    const need = (pkg) => createRequire(${JSON.stringify(`${app}/packages/`)} + pkg + "/package.json");
-    const Sqlite = need("search")("better-sqlite3");
+    const need = createRequire(${JSON.stringify(`${app}/apps/gateway/dist/main.mjs`)});
+    const Sqlite = need("better-sqlite3");
     const db = new Sqlite(":memory:");
-    need("memory")("sqlite-vec").load(db);
-    const Cipher = need("vault")("better-sqlite3-multiple-ciphers");
+    need("sqlite-vec").load(db);
+    const Cipher = need("better-sqlite3-multiple-ciphers");
     const vault = new Cipher(${JSON.stringify(join(home, "native-check.db"))});
     vault.pragma("cipher='sqlcipher'");
     vault.pragma("key='smoke'");
     vault.prepare("create table t (a)").run();
-    if (typeof need("browser")("playwright-core").chromium.launch !== "function") throw new Error("playwright-core");
-    if (!need("connectors")("turndown")) throw new Error("turndown");
-    const { pdfSource } = await import(${JSON.stringify(pathToFileURL(join(app, "packages/files/src/extract/pdf.ts")).href)});
-    await pdfSource(new TextEncoder().encode("%PDF-1.4\\n")).then(() => { throw new Error("pdf.js accepted junk"); }, (e) => {
-      if (!/unreadable PDF/.test(e.message)) throw e;
-    });
+    if (typeof need("playwright-core").chromium.launch !== "function") throw new Error("playwright-core");
+    if (typeof need("onnxruntime-node").InferenceSession !== "function") throw new Error("onnxruntime-node");
     process.stdout.write(JSON.stringify({ sqlite: db.prepare("select sqlite_version() v").get().v, vec: db.prepare("select vec_version() v").get().v }));
   `;
   const out = execFileSync(
@@ -519,7 +456,7 @@ function smokeNative(bundle, home) {
   );
   const v = JSON.parse(out);
   process.stdout.write(
-    `smoke: native modules load (sqlite ${v.sqlite}, sqlite-vec ${v.vec}, sqlcipher, playwright-core, turndown, pdf.js)\n`,
+    `smoke: external packages load (sqlite ${v.sqlite}, sqlite-vec ${v.vec}, sqlcipher, playwright-core, onnxruntime)\n`,
   );
 }
 
@@ -528,14 +465,14 @@ export const PSYCHED_LAUNCHER = `#!/bin/sh
 # A 4 MB young generation keeps an idle Gateway near 200 MB instead of ≈ 330 MB.
 ${RESOLVE_HERE}
 ${COMPILE_CACHE}
-exec "$here/runtime/node" --max-semi-space-size=4 --disable-warning=ExperimentalWarning "$here/app/apps/gateway/src/main.ts" "$@"
+exec "$here/runtime/node" --max-semi-space-size=4 --disable-warning=ExperimentalWarning "$here/app/apps/gateway/dist/main.mjs" "$@"
 `;
 
 export const PSYCHE_LAUNCHER = `#!/bin/sh
 # The psyche CLI from Psyche.app, on the same runtime as psyched.
 ${RESOLVE_HERE}
 ${COMPILE_CACHE}
-exec "$here/runtime/node" --disable-warning=ExperimentalWarning "$here/app/apps/cli/src/main.ts" "$@"
+exec "$here/runtime/node" --disable-warning=ExperimentalWarning "$here/app/apps/cli/dist/main.mjs" "$@"
 `;
 
 async function smoke(bundle) {
@@ -566,7 +503,7 @@ async function smoke(bundle) {
     child.kill("SIGTERM");
     if (health?.ok !== true) throw new Error(`/healthz answered ${JSON.stringify(health)}`);
     process.stdout.write(`smoke: psyched healthy at ${origin}/healthz with only PSYCHE_HOME set\n`);
-    smokeSkills(bundle, home);
+    smokeBundle(bundle, home);
     smokeNative(bundle, home);
   } finally {
     rmSync(home, { recursive: true, force: true });
@@ -654,6 +591,15 @@ async function main(argv) {
   process.stdout.write(`bundled skills: ${shippedSkills.join(", ")}\n`);
   const missing = checkImports(app);
   if (missing.length) throw new Error(`imports that no longer resolve:\n${missing.join("\n")}`);
+
+  const bundles = await bundleGateway(app, { root: ROOT });
+  const dropped = discardSources(app);
+  const sizes = Object.entries(bundles)
+    .map(([f, n]) => `${f} ${(n / 1e6).toFixed(1)} MB`)
+    .join(", ");
+  process.stdout.write(
+    `bundled with esbuild: ${sizes}; sources dropped, ${dropped.external.length} external package(s) kept (${dropped.external.join(", ")}), ${dropped.packages} more pnpm entries removed\n`,
+  );
 
   const pruned = pruneForeignPrebuilds(app, arch);
   process.stdout.write(`pruned ${pruned} prebuilt addon(s) for other platforms\n`);

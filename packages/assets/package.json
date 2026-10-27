@@ -1,0 +1,21 @@
+{
+  "name": "@psyche/assets",
+  "version": "0.3.0-alpha.0",
+  "private": true,
+  "description": "Where the files that ship next to the code live (migrations, templates, skills, the web client): one answer for the source tree and for the bundled Gateway.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "files": [
+    "src"
+  ]
+}

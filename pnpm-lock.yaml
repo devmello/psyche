@@ -179,6 +179,9 @@ importers:
       '@types/node':
         specifier: 24.19.2
         version: 24.19.2
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
       tsx:
         specifier: 4.23.15
         version: 4.23.15
@@ -197,6 +200,9 @@ importers:
 
   apps/cli:
     dependencies:
+      '@psyche/assets':
+        specifier: workspace:*
+        version: link:../../packages/assets
       '@psyche/backup':
         specifier: workspace:*
         version: link:../../packages/backup
@@ -301,6 +307,9 @@ importers:
       '@psyche/agent-core':
         specifier: workspace:*
         version: link:../../packages/agent-core
+      '@psyche/assets':
+        specifier: workspace:*
+        version: link:../../packages/assets
       '@psyche/audit':
         specifier: workspace:*
         version: link:../../packages/audit
@@ -510,6 +519,8 @@ importers:
         specifier: workspace:*
         version: link:../testing
 
+  packages/assets: {}
+
   packages/audit:
     dependencies:
       '@psyche/protocol':
@@ -581,6 +592,9 @@ importers:
 
   packages/connectors:
     dependencies:
+      '@psyche/assets':
+        specifier: workspace:*
+        version: link:../assets
       '@psyche/permissions':
         specifier: workspace:*
         version: link:../permissions
@@ -612,6 +626,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@psyche/assets':
+        specifier: workspace:*
+        version: link:../assets
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -637,6 +654,9 @@ importers:
       '@psyche/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@psyche/assets':
+        specifier: workspace:*
+        version: link:../assets
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -687,6 +707,9 @@ importers:
 
   packages/memory:
     dependencies:
+      '@psyche/assets':
+        specifier: workspace:*
+        version: link:../assets
       '@psyche/db':
         specifier: workspace:*
         version: link:../db
@@ -742,6 +765,9 @@ importers:
       '@openrouter/ai-sdk-provider':
         specifier: 3.1.0
         version: 3.1.0(ai@7.0.143(zod@4.6.7))(zod@4.6.7)
+      '@psyche/assets':
+        specifier: workspace:*
+        version: link:../assets
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -764,6 +790,9 @@ importers:
 
   packages/notifications:
     dependencies:
+      '@psyche/assets':
+        specifier: workspace:*
+        version: link:../assets
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -877,6 +906,9 @@ importers:
 
   packages/sandbox:
     dependencies:
+      '@psyche/assets':
+        specifier: workspace:*
+        version: link:../assets
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol

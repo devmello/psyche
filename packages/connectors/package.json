@@ -16,6 +16,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@psyche/assets": "workspace:*",
     "@psyche/permissions": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "@sinclair/typebox": "0.34.52",

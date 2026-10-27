@@ -16,6 +16,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@psyche/assets": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "ulid": "3.0.2"
   },

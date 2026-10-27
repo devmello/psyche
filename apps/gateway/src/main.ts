@@ -9,6 +9,11 @@ import {
 import { createLogger } from "./log.ts";
 
 const args = process.argv.slice(2);
+if (args[0] === "--bundle-check") {
+  const { bundleCheck } = await import("./bundle-check.ts");
+  process.stdout.write(`${JSON.stringify(await bundleCheck())}\n`);
+  process.exit(0);
+}
 if (args.length > 0) process.exit(runCli(args));
 
 const log = createLogger();

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
+import { assetPath } from "@psyche/assets";
 import { DEFAULT_GATEWAY_HOST, DEFAULT_GATEWAY_PORT, PsycheError } from "@psyche/protocol";
 import type { RateLimitSettings } from "./compose/rate-limits.ts";
 import { trustedProxyList } from "./proxy.ts";
@@ -410,7 +411,7 @@ export function resolveConfig(
       ? overrides.publicOrigin
       : (env.PSYCHE_PUBLIC_ORIGIN ?? file.publicOrigin ?? null),
   );
-  const defaultWebRoot = resolve(import.meta.dirname, "../../web/dist");
+  const defaultWebRoot = assetPath("apps/web/dist");
   return {
     home,
     host,

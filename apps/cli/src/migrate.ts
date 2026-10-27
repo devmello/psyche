@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
+import { assetPath } from "@psyche/assets";
 
 /**
  * Upgrade checks (roadmap v1.0, "migration guides"; docs/guides/upgrade.md).
@@ -54,7 +55,7 @@ export function migrationsFromDir(dir: string): MigrationRef[] {
 export function knownMigrations(): MigrationRef[] | null {
   if (typeof __PSYCHE_MIGRATIONS__ === "string")
     return JSON.parse(__PSYCHE_MIGRATIONS__) as MigrationRef[];
-  const dir = resolve(import.meta.dirname, "../../../packages/db/migrations");
+  const dir = assetPath("packages/db/migrations");
   return existsSync(dir) ? migrationsFromDir(dir) : null;
 }
 
