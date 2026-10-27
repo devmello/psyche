@@ -195,6 +195,29 @@ describe("hard prohibitions", () => {
     expect(d2.rule).toBe("prohibition:account_creation");
   });
 
+  it("no agent or tool call reaches the people graph's Messages reads (#763)", async () => {
+    // Even an owner-initiated, allow-all call: only the graph's ingest path calls these.
+    const { broker } = makeBroker({ policy: permissive, psycheHome: "/Users/o/.psyche" });
+    for (const tool of [
+      "messages.graph_chats",
+      "messages.graph_read",
+      "node.messages.graph_chats",
+      "node.messages.graph_read",
+    ]) {
+      for (const initiator of ["owner", "agent"] as const) {
+        const d = await broker.decide(call(tool, "read"), {
+          ...CTX,
+          permissionMode: "auto",
+          initiator,
+        });
+        expect(d, `${tool} ${initiator}`).toMatchObject({
+          decision: "deny",
+          rule: "prohibition:graph_ingest_only",
+        });
+      }
+    }
+  });
+
   it("no tool edits settings, grants, pairing or Psyche's own state", async () => {
     for (const tool of [
       "settings.set",

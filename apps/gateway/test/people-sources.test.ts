@@ -514,3 +514,137 @@ describe("the Gateway's deterministic pass", () => {
     expect(c.people.graph.interactions(nina ?? "")).toHaveLength(1);
   });
 });
+
+describe("messages source (#763)", () => {
+  /** A fake Mac helper: `replies[capability]` answers each call; every call is recorded. */
+  function fakeHelper(replies: Record<string, (params: Record<string, unknown>) => unknown>) {
+    const calls: { capability: string; params: Record<string, unknown> }[] = [];
+    return {
+      calls,
+      async invoke(capability: string, params: unknown) {
+        calls.push({ capability, params: params as Record<string, unknown> });
+        const reply = replies[capability];
+        if (reply === undefined)
+          return { ok: false, error: { code: "not_found" as const, message: "x" } };
+        return { ok: true, result: reply(params as Record<string, unknown>) };
+      },
+    };
+  }
+
+  const ONE_TO_ONE = "iMessage;-;+15550001111";
+  const GROUP = "iMessage;+;chat-group";
+  const CHATS = {
+    chats: [
+      { chatId: ONE_TO_ONE, handles: ["+15550001111"], isGroup: false },
+      { chatId: GROUP, handles: ["+15550002222", "pat@kim.example"], isGroup: true },
+    ],
+  };
+  // `text` is what a body-returning read would add: the adapter must never copy it.
+  const READ = {
+    cursor: 12,
+    hasMore: false,
+    messages: [
+      {
+        chatId: ONE_TO_ONE,
+        handle: "+15550001111",
+        sentAt: "2026-10-18T15:00:00.000Z",
+        direction: "in",
+        text: "SECRET-1",
+      },
+      {
+        chatId: ONE_TO_ONE,
+        sentAt: "2026-10-18T16:00:00.000Z",
+        direction: "out",
+        text: "SECRET-2",
+      },
+      {
+        chatId: GROUP,
+        handle: "+15550002222",
+        sentAt: "2026-10-18T17:00:00.000Z",
+        direction: "in",
+      },
+    ],
+  };
+
+  it("reads metadata only and writes one interaction per conversation per day", async () => {
+    const helper = fakeHelper({
+      "messages.graph_chats": () => CHATS,
+      "messages.graph_read": () => READ,
+    });
+    const [adapter] = await graphSourceAdapters({
+      connectors: async () => [],
+      tools: fakeTools({}),
+      clock,
+      messages: () => helper,
+    });
+    expect(adapter?.source).toBe("messages");
+    const pull = await adapter?.pull(null, new AbortController().signal);
+    expect(pull?.messages).toEqual([
+      {
+        source: "imessage",
+        chatId: ONE_TO_ONE,
+        date: "2026-10-18T16:00:00.000Z",
+        handles: [{ value: "+15550001111" }],
+        ownerSpoke: true,
+        isGroup: false,
+      },
+      {
+        source: "imessage",
+        chatId: GROUP,
+        date: "2026-10-18T17:00:00.000Z",
+        handles: [{ value: "+15550002222" }, { value: "pat@kim.example" }],
+        ownerSpoke: false,
+        isGroup: true,
+      },
+    ]);
+    expect(JSON.stringify(pull)).not.toContain("SECRET");
+    expect(pull?.cursor).toEqual({ row: 12 });
+    // The first pass reads the newest page, with no body flag and no cursor. The ingest never asks
+    // for text (`includeText` stays off, and no owner setting turns it on).
+    expect(helper.calls.some((c) => "includeText" in c.params)).toBe(false);
+    expect(helper.calls).toEqual([
+      { capability: "messages.graph_chats", params: { limit: 200 } },
+      { capability: "messages.graph_read", params: { limit: 200 } },
+    ]);
+  });
+
+  it("pages forward from the stored row, and throws while no helper is live", async () => {
+    const helper = fakeHelper({
+      "messages.graph_chats": () => CHATS,
+      "messages.graph_read": (p) =>
+        p.sinceCursor === 1
+          ? { cursor: 5, hasMore: true, messages: [READ.messages[0]] }
+          : { cursor: 9, hasMore: false, messages: [] },
+    });
+    const [adapter] = await graphSourceAdapters({
+      connectors: async () => [],
+      tools: fakeTools({}),
+      clock,
+      messages: () => helper,
+    });
+    const pull = await adapter?.pull({ row: 1 }, new AbortController().signal);
+    expect(pull?.cursor).toEqual({ row: 9 });
+    expect(helper.calls.slice(1).map((c) => c.params)).toEqual([
+      { sinceCursor: 1, limit: 200 },
+      { sinceCursor: 5, limit: 200 },
+    ]);
+    const offline = await graphSourceAdapters({
+      connectors: async () => [],
+      tools: fakeTools({}),
+      clock,
+      messages: () => undefined,
+    });
+    await expect(offline[0]?.pull(null, new AbortController().signal)).rejects.toThrow(
+      "no Mac helper",
+    );
+  });
+
+  it("is absent unless the Gateway wires a helper", async () => {
+    const adapters = await graphSourceAdapters({
+      connectors: async () => [],
+      tools: fakeTools({}),
+      clock,
+    });
+    expect(adapters.map((a) => a.source)).not.toContain("messages");
+  });
+});

@@ -212,6 +212,8 @@ const ACCOUNT_CREATION_TOOL =
 const CAPTCHA = /captcha|recaptcha|hcaptcha|turnstile|arkose|funcaptcha/i;
 const CONTROL_PLANE_TOOL =
   /^(settings|config|grants|approvals|devices|device|pairing|policy|permissions|vault|security|gateway)[._]/i;
+/** The helper's metadata reads for the people graph (#763): only its ingest path may call them. */
+const GRAPH_INGEST_TOOL = /^(node\.)?messages\.graph_/i;
 const PERMANENT_RM = new Set(["rm", "rmdir", "shred", "srm", "unlink"]);
 export const CONFIRMATION_WORD = "DELETE";
 
@@ -307,6 +309,10 @@ export async function checkProhibitions(
   // Edits to the Permission Broker, grant ledger, security config or pairing from a tool call.
   if (CONTROL_PLANE_TOOL.test(tool)) {
     return deny("control_plane", "settings, grants, devices and pairing have no tool path");
+  }
+  // Messages metadata for the people graph never reaches a tool or an agent, whatever the policy.
+  if (GRAPH_INGEST_TOOL.test(tool)) {
+    return deny("graph_ingest_only", "Messages metadata is read only by the people graph's ingest");
   }
   const path = targetPath(call);
   if (path !== undefined && env.psycheHome !== undefined) {

@@ -763,12 +763,23 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const connectorsPart = parts.find(
     (p): p is ComposedPart & { registry: ConnectorRegistry } => "registry" in p && "mail" in p,
   );
+  // The Mac helper that offers the people graph's Messages metadata reads (#763), when one is live.
+  const graphMessagesHelper = () => {
+    const nodes = gatewayRef?.context.nodes;
+    const node = nodes
+      ?.list()
+      .find(
+        (n) => nodes.isLive(n.id) && n.capabilities.some((c) => c.name === "messages.graph_read"),
+      );
+    return node === undefined ? undefined : nodes?.client(node.id);
+  };
   people.useSources(() =>
     graphSourceAdapters({
       connectors: async () => (connectorsPart === undefined ? [] : connectorsPart.registry.list()),
       tools: services.tools,
       clock,
       db,
+      messages: graphMessagesHelper,
     }),
   );
 
