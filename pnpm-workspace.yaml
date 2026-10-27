@@ -39,6 +39,18 @@ minimumReleaseAge: 1440
 engineStrict: true
 autoInstallPeers: true
 
+# Disk (docs/guides/monorepo-layout.md, CONTRIBUTING.md "Disk & worktrees"). pnpm 12 reads its settings
+# from this file only: the same keys in a root .npmrc have no effect (checked with `pnpm config list`).
+# The store stays global (default: ~/Library/pnpm/store/v11), so every worktree shares one copy.
+# `clone-or-copy` imports with APFS clones (copy-on-write: a worktree's node_modules costs almost no
+# disk) and falls back to a plain copy; it never hardlinks, so editing a file in one worktree cannot
+# change another's or the store's.
+packageImportMethod: clone-or-copy
+# Build results of allowBuilds packages (node-pty's native build) are stored once in the store and
+# restored into each worktree instead of being rebuilt. Electron 44 has no install script (its dist is
+# extracted on first launch), so scripts/dev/electron-dist.sh shares that one instead.
+sideEffectsCache: true
+
 # Electron Forge refuses to run under pnpm unless node-linker=hoisted or an explicit hoist
 # pattern is configured. Keep the isolated layout and publicly hoist only Electron itself
 # (the desktop bundles everything else with Vite).
