@@ -1,7 +1,7 @@
 {
   "psychedMB": 205,
   "appMB": 530,
-  "dmgMB": 210,
+  "dmgMB": 150,
   "gatewayIdleFootprintMB": 105,
   "gatewayIdleHeapMB": 30,
   "gatewayBundleMB": 6.5

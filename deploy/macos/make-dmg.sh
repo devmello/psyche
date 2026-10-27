@@ -15,6 +15,9 @@
 #   APPLE_API_KEY (path to the .p8), APPLE_API_KEY_ID, APPLE_API_ISSUER     (preferred), or
 #   APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID
 # Never commit real values; CI passes them from repository secrets.
+#   PSYCHE_DMG_FORMAT      ULMO (LZMA, the default: about 40% smaller than ULFO; copying the app out
+#                          at install takes a few seconds longer, docs/design/lightweight-2026.md S3)
+#                          or ULFO (LZFSE, faster to expand)
 #   PSYCHE_DMG_LAYOUT      1 lays out the Finder window over the background. This scripts Finder,
 #                          which raises a one-time Automation prompt on a desktop Mac, so it is off
 #                          by default and on in CI (CI=true). 0 forces it off.
@@ -28,6 +31,8 @@ out="${4:?out-dir}"
 here="$(cd "$(dirname "$0")" && pwd)"
 entitlements="${PSYCHE_ENTITLEMENTS:-$here/../../apps/desktop/entitlements.plist}"
 background="${PSYCHE_DMG_BACKGROUND:-$here/dmg-background.png}"
+format="${PSYCHE_DMG_FORMAT:-ULMO}"
+case "$format" in ULMO | ULFO) ;; *) echo "PSYCHE_DMG_FORMAT must be ULMO or ULFO" >&2; exit 64 ;; esac
 if [ "${CI:-}" = true ]; then layout="${PSYCHE_DMG_LAYOUT:-1}"; else layout="${PSYCHE_DMG_LAYOUT:-0}"; fi
 
 case "$arch" in arm64|x64) ;; *) echo "arch must be arm64 or x64" >&2; exit 2 ;; esac
@@ -106,13 +111,13 @@ APPLESCRIPT
   fi
   [ -n "$mnt" ] && hdiutil detach "$mnt" -quiet || true
   if [ "$laid_out" = 1 ]; then
-    hdiutil convert "$rw" -format ULFO -o "$dmg" >/dev/null
+    hdiutil convert "$rw" -format "$format" -o "$dmg" >/dev/null
   fi
   rm -rf "$(dirname "$rw")"
 fi
 if [ "$laid_out" != 1 ]; then
   rm -rf "$stage/.background"
-  hdiutil create -volname "$volname" -srcfolder "$stage" -fs APFS -format ULFO -ov "$dmg" >/dev/null
+  hdiutil create -volname "$volname" -srcfolder "$stage" -fs APFS -format "$format" -ov "$dmg" >/dev/null
 fi
 
 node "$budget" dmgMB "$dmg" >&2
