@@ -148,7 +148,7 @@ function FolderList({
                 onClick={() => onChange(folders.filter((x) => x.path !== f.path))}
                 aria-label={t("settings.files.stopSharing", { path: f.path })}
               >
-                {t("common.remove")}
+                {t("settings.files.revoke")}
               </Button>
             </li>
           ))}

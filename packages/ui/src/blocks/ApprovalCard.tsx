@@ -27,6 +27,7 @@ import { formatCountdown, formatRelative } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
 import { easeLinear, fade, motionSpring, spring } from "../motion/index.ts";
+import { useSlots } from "../slots.tsx";
 import { roleLabel } from "../specialists/model.ts";
 import { ApprovalDetails, ApprovalIds } from "./approval-details.tsx";
 
@@ -66,7 +67,11 @@ export interface ApprovalCardProps {
   mode?: string;
   /** Surface labels for "Also sent to" (other than this one). */
   otherSurfaces?: readonly string[];
-  onAnswer?: (decision: "approve" | "deny", scope?: GrantScope) => unknown;
+  onAnswer?: (
+    decision: "approve" | "deny",
+    scope?: GrantScope,
+    extras?: { folderPath?: string },
+  ) => unknown;
   /** Fixed clock (stories, tests). */
   now?: number;
   /** Move focus to the heading on mount unless the user is typing (§4.11). */
@@ -165,6 +170,10 @@ export function ApprovalCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showIds, setShowIds] = useState(false);
+  // folder_access: the folder the owner picks is what is granted, never the agent's string.
+  const isFolder = raw.kind === "folder_access";
+  const { pickFolder } = useSlots();
+  const [folder, setFolder] = useState("");
 
   useEffect(() => {
     if (!autoFocus) return;
@@ -208,7 +217,11 @@ export function ApprovalCard({
     setBusy(true);
     setError(null);
     try {
-      await onAnswer?.(decision, scope);
+      await onAnswer?.(
+        decision,
+        scope,
+        isFolder && decision === "approve" && folder !== "" ? { folderPath: folder } : undefined,
+      );
     } catch (err) {
       setError(describeError(err));
     } finally {
@@ -280,7 +293,9 @@ export function ApprovalCard({
             short:
               approval.kind === "batch"
                 ? t("blocks.approval.scope.prepNotes")
-                : t("chat.approval.segment.always"),
+                : isFolder
+                  ? scopeLabel("always")
+                  : t("chat.approval.segment.always"),
             long:
               approval.kind === "batch"
                 ? t("blocks.approval.scope.prepNotes")
@@ -290,7 +305,7 @@ export function ApprovalCard({
       : []),
     { value: "deny", short: t("blocks.approval.deny"), long: t("blocks.approval.deny") },
   ];
-  const canAllow = armed && !busy && choice !== "deny";
+  const canAllow = armed && !busy && choice !== "deny" && (!isFolder || folder !== "");
   const specialist = approval.requestedBy.specialist;
   // A specialist asks (specialists §4.4): "For {task} · Shopper started by Psyche in Main chat".
   const requester = specialist
@@ -434,6 +449,58 @@ export function ApprovalCard({
               : (status ?? "")}
       </p>
 
+      {interactive && isFolder ? (
+        <div className="mt-3 flex flex-col gap-1.5" data-testid="folder-pick">
+          <label className="text-callout text-label-secondary" htmlFor={`${headingId}-folder`}>
+            {t("blocks.folder.title")}
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            {pickFolder ? (
+              <>
+                <code
+                  id={`${headingId}-folder`}
+                  className="min-w-0 flex-1 truncate font-mono text-callout"
+                  data-testid="folder-picked"
+                >
+                  {folder === "" ? t("blocks.folder.mustPick") : folder}
+                </code>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => {
+                    setError(null);
+                    pickFolder({ title: t("blocks.folder.pickTitle", { persona }) }).then(
+                      (picked) => {
+                        if (picked !== null) setFolder(picked);
+                      },
+                      (err) =>
+                        setError(t("blocks.folder.pickError", { error: describeError(err) })),
+                    );
+                  }}
+                >
+                  {folder === "" ? t("blocks.folder.choose") : t("blocks.folder.change")}
+                </Button>
+              </>
+            ) : (
+              // No native picker (a browser): the owner confirms the path by typing it.
+              <input
+                id={`${headingId}-folder`}
+                value={folder}
+                onChange={(e) => setFolder(e.target.value.trim())}
+                aria-label={t("blocks.folder.pathLabel")}
+                placeholder="/"
+                className="h-7 min-w-0 flex-1 rounded-md bg-fill-secondary px-2 font-mono text-callout outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            )}
+          </div>
+          <p className="text-callout text-label-secondary">
+            {t("blocks.folder.exact")} {t("blocks.folder.scope")}
+            {approval.taint ? ` ${t("blocks.folder.onceOnly")}` : ""}
+          </p>
+        </div>
+      ) : null}
+
       {interactive ? (
         <>
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -469,7 +536,7 @@ export function ApprovalCard({
                 </RadioPrimitive.Root>
               ))}
             </RadioGroupPrimitive>
-            {hasAlways ? (
+            {hasAlways && !isFolder ? (
               <>
                 <label className="sr-only" htmlFor={`${headingId}-until`}>
                   {t("blocks.approval.alwaysUntil")}

@@ -127,6 +127,7 @@ const KIND_TITLES: Record<string, string> = {
   shortcut_run: "Run Shortcut",
   git_write: "Change git repository",
   git_push: "Push to git remote",
+  folder_access: "Open a folder",
 };
 
 /** Detail keys shown first, in this order, per kind. */

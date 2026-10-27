@@ -41,7 +41,7 @@ export interface FileToolsOptions {
    * The owner's granted folders (`permissions.policy.folders`), read on every call. When set,
    * the executors refuse paths outside them (and writes outside `rw` ones) behind the broker.
    */
-  folders?: () => readonly GrantedFolder[] | undefined;
+  folders?: (scope?: { threadId: string }) => readonly GrantedFolder[] | undefined;
   /**
    * Locations refused for every read and write whatever is granted: Psyche's own home and the
    * owner's credential stores (security §5.3, #285).
@@ -160,9 +160,10 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
   /** Inside a protected root: never read, searched or listed, even under a granted folder. */
   const isProtected = (path: string) =>
     (options.protectedRoots?.() ?? []).some((r) => isUnder(path, canonicalTarget(r)));
-  const granted = (path: string, access: "read" | "write") => {
+  const granted = (path: string, access: "read" | "write", ctx: ToolRunContext) => {
     assertNotProtected(path, options.protectedRoots?.());
-    assertGranted(path, options.folders?.(), access);
+    // The conversation's own roots (`request_folder_access`, "Allow once") count too.
+    assertGranted(path, options.folders?.({ threadId: ctx.threadId }), access);
   };
   /**
    * Records what a write leaves behind. `inherits` is the file's content before an edit: an edit
@@ -210,7 +211,7 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
     describeCall: (p) => ({ target: { kind: "path", value: canonicalTarget(p.path) } }),
     async run(p, ctx) {
       const path = canonicalTarget(p.path);
-      granted(path, "read");
+      granted(path, "read", ctx);
       if (p.page !== undefined && p.offset !== undefined) {
         throw new PsycheError("invalid_params", "pass offset or page, not both");
       }
@@ -314,7 +315,7 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
     },
     async run(p, ctx) {
       const path = canonicalTarget(p.path);
-      granted(path, "write");
+      granted(path, "write", ctx);
       const data = Buffer.from(p.content, "utf8");
       if (data.byteLength > MAX_WRITE_BYTES) {
         throw new PsycheError("invalid_params", `content exceeds ${MAX_WRITE_BYTES} bytes`);
@@ -372,7 +373,7 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
     },
     async run(p, ctx) {
       const path = canonicalTarget(p.path);
-      granted(path, "write");
+      granted(path, "write", ctx);
       if (p.old_string === p.new_string) {
         throw new PsycheError("invalid_params", "old_string and new_string are identical");
       }
@@ -443,9 +444,9 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
     targetKind: "path",
     provenanceOut: "untrusted",
     describeCall: (p) => ({ target: { kind: "path", value: canonicalTarget(p.path) } }),
-    async run(p) {
+    async run(p, ctx) {
       const path = canonicalTarget(p.path);
-      granted(path, "read");
+      granted(path, "read", ctx);
       await assertNoSymlinks(path);
       let all: import("node:fs").Dirent[];
       try {
@@ -498,7 +499,7 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
     describeCall: (p) => ({ target: { kind: "path", value: canonicalTarget(p.path) } }),
     async run(p, ctx) {
       const root = canonicalTarget(p.path);
-      granted(root, "read");
+      granted(root, "read", ctx);
       await assertNoSymlinks(root);
       const fold = (s: string) => (p.case_sensitive === true ? s : s.toLowerCase());
       const needle = fold(p.query);
