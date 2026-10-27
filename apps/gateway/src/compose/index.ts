@@ -821,6 +821,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // section. It runs on the utility model, so only when one is configured (the router always has one).
   const userProfile = createUserProfile({
     db,
+    home: config.home,
     memory,
     provider,
     model: utility ?? modelRef,

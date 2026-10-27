@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { LearnedFact } from "@psyche/protocol";
 import { blockingKinds, looksLikeInstruction } from "./filters.ts";
 import type { ProfileField } from "./profile-fields.ts";
+import { type ProfileSection, parseSectionFacts, SECTION_LINE } from "./profile-sections.ts";
 
 /**
  * `USER.md`'s dated "Learned" section (feature #509): facts about the owner distilled from the
@@ -22,6 +23,11 @@ export interface LearnedFactLine extends LearnedFact {
    * owner's own words. The line stays as provenance for the header value.
    */
   field?: ProfileField;
+  /**
+   * The USER.md profile section the fact is a bullet of (Education, Work history, Skills, …)
+   * instead of a Learned line; set only for facts from the owner's own words.
+   */
+  section?: ProfileSection;
 }
 
 export interface LearnedLine extends LearnedFactLine {
@@ -45,7 +51,18 @@ export function parseLearned(content: string): LearnedLine[] {
       text: m[7] as string,
     });
   });
-  return out;
+  for (const f of parseSectionFacts(content)) {
+    out.push({ ...f, kind: (KINDS.has(f.kind) ? f.kind : "other") as LearnedFact["kind"] });
+  }
+  return out.sort((a, b) => a.line - b.line);
+}
+
+const KINDS = new Set(["name", "preference", "routine", "person", "project", "other"]);
+
+/** The fact id of a Learned line or a profile-section bullet. */
+function factIdOf(raw: string): string | undefined {
+  const l = raw.trimEnd();
+  return LINE.exec(l)?.[2] ?? SECTION_LINE.exec(l)?.[2];
 }
 
 /** Lowercase words only: "Prefers tea." and "prefers  tea" are the same fact. */
@@ -113,7 +130,7 @@ export function removeLearned(
   restore?: string,
 ): string | undefined {
   const lines = content.split("\n");
-  const i = lines.findIndex((l) => LINE.exec(l.trimEnd())?.[2] === factId);
+  const i = lines.findIndex((l) => factIdOf(l) === factId);
   if (i < 0) return undefined;
   if (restore === undefined) lines.splice(i, 1);
   else lines[i] = restore;
@@ -122,5 +139,5 @@ export function removeLearned(
 
 /** The raw line of a learned fact, or `undefined`. */
 export function learnedLine(content: string, factId: string): string | undefined {
-  return content.split("\n").find((l) => LINE.exec(l.trimEnd())?.[2] === factId);
+  return content.split("\n").find((l) => factIdOf(l) === factId);
 }

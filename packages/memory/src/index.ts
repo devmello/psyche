@@ -31,6 +31,7 @@ export * from "./paths.ts";
 export * from "./persona.ts";
 export * from "./persona-edit.ts";
 export * from "./profile-fields.ts";
+export * from "./profile-sections.ts";
 export * from "./provenance.ts";
 export * from "./store.ts";
 export * from "./support.ts";
