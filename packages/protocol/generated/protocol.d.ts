@@ -5834,11 +5834,11 @@ export interface MessagesWatchParams {
 }
 
 export interface MissingCapability {
-    capability: Capability;
+    capability: GatedCapability;
     need:       MissingCapabilityNeed;
 }
 
-export type Capability = "exec_host";
+export type GatedCapability = "exec_host";
 
 export type MissingCapabilityNeed = "capability";
 
@@ -5877,7 +5877,7 @@ export interface MissingPermission {
     access?:     Access;
     need:        MissingPermissionNeed;
     path?:       string;
-    capability?: Capability;
+    capability?: GatedCapability;
     connector?:  string;
     group?:      string;
     reason?:     string;

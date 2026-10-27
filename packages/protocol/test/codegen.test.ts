@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import {
   buildSchemaDocument,
@@ -108,6 +108,26 @@ describe("codegen", () => {
       .map((m) => m[1])
       .filter((n) => stdlib.includes(n ?? ""));
     expect(shadowed, "name these schemas with $id").toEqual([]);
+    // The helper imports PsycheProtocol beside its own modules; a generated `Capability` clashed with PsycheHelperCore's.
+    const helperSources = new URL("../../../apps/mac-helper/Sources/", import.meta.url);
+    const helperTypes = new Set<string>();
+    for (const file of await readdir(helperSources, { recursive: true })) {
+      if (!file.endsWith(".swift") || file.startsWith("PsycheProtocol")) continue;
+      const text = await readFile(new URL(file, helperSources), "utf8");
+      for (const m of text.matchAll(
+        /^public (?:final )?(?:struct|enum|class|protocol|actor) (\w+)/gm,
+      )) {
+        if (m[1] !== undefined) helperTypes.add(m[1]);
+      }
+    }
+    const clashes = [...swift.matchAll(/^public (?:struct|enum|class) (\w+)/gm)]
+      .map((m) => m[1] ?? "")
+      .filter((n) => helperTypes.has(n))
+      // Already shared and unambiguous at every use; renaming them is a separate change.
+      .filter((n) => n !== "GraphDirection" && n !== "Vsock");
+    expect(clashes, "name these schemas with $id so they don't clash with helper types").toEqual(
+      [],
+    );
     expect(outputs.get(OUTPUT_FILES.swiftHelper)).toBe(swift);
     expect(outputs.get(OUTPUT_FILES.typescript)).toContain("export interface ConnectParams");
   });

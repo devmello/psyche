@@ -421,6 +421,7 @@
 //   let filesReadParams = try? JSONDecoder().decode(FilesReadParams.self, from: jsonData)
 //   let filesReadResult = try? JSONDecoder().decode(FilesReadResult.self, from: jsonData)
 //   let frame = try? JSONDecoder().decode(Frame.self, from: jsonData)
+//   let gatedCapability = try? JSONDecoder().decode(GatedCapability.self, from: jsonData)
 //   let gatewayShutdownPayload = try? JSONDecoder().decode(GatewayShutdownPayload.self, from: jsonData)
 //   let goal = try? JSONDecoder().decode(Goal.self, from: jsonData)
 //   let goalCategory = try? JSONDecoder().decode(GoalCategory.self, from: jsonData)
@@ -17370,7 +17371,7 @@ public struct MessagesWatchParams: Codable, Sendable {
 
 // MARK: - MissingCapability
 public struct MissingCapability: Codable, Sendable {
-    public let capability: Capability
+    public let capability: GatedCapability
     public let need: MissingCapabilityNeed
 
     public enum CodingKeys: String, CodingKey {
@@ -17378,13 +17379,13 @@ public struct MissingCapability: Codable, Sendable {
         case need = "need"
     }
 
-    public init(capability: Capability, need: MissingCapabilityNeed) {
+    public init(capability: GatedCapability, need: MissingCapabilityNeed) {
         self.capability = capability
         self.need = need
     }
 }
 
-public enum Capability: String, Codable, Sendable {
+public enum GatedCapability: String, Codable, Sendable {
     case execHost = "exec_host"
 }
 
@@ -17487,7 +17488,7 @@ public struct MissingPermission: Codable, Sendable {
     public let access: Access?
     public let need: MissingPermissionNeed
     public let path: String?
-    public let capability: Capability?
+    public let capability: GatedCapability?
     public let connector: String?
     public let group: String?
     public let reason: String?
@@ -17502,7 +17503,7 @@ public struct MissingPermission: Codable, Sendable {
         case reason = "reason"
     }
 
-    public init(access: Access?, need: MissingPermissionNeed, path: String?, capability: Capability?, connector: String?, group: String?, reason: String?) {
+    public init(access: Access?, need: MissingPermissionNeed, path: String?, capability: GatedCapability?, connector: String?, group: String?, reason: String?) {
         self.access = access
         self.need = need
         self.path = path

@@ -15264,6 +15264,12 @@
       "minLength": 1,
       "type": "string"
     },
+    "GatedCapability": {
+      "enum": [
+        "exec_host"
+      ],
+      "type": "string"
+    },
     "GatewayShutdownPayload": {
       "properties": {
         "reason": {
@@ -23735,10 +23741,7 @@
           "type": "string"
         },
         "capability": {
-          "enum": [
-            "exec_host"
-          ],
-          "type": "string"
+          "$ref": "#/$defs/GatedCapability"
         }
       },
       "required": [
