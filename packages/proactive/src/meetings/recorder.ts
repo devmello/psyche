@@ -10,6 +10,18 @@ import { PsycheError } from "@psyche/protocol";
 export const CONSENT_LINE =
   "Quick note: I'm recording this meeting so I can take notes afterwards. Tell me if you'd rather I didn't.";
 
+/**
+ * Conference apps (macOS bundle ids) whose quitting ends a Record meeting (§4.6). A browser call
+ * has no app of its own to watch, so it ends by silence only.
+ */
+export const CONFERENCE_APP_BUNDLES: readonly string[] = [
+  "us.zoom.xos",
+  "com.microsoft.teams2",
+  "com.microsoft.teams",
+  "com.cisco.webexmeetingsapp",
+  "com.apple.FaceTime",
+];
+
 export interface CapturedAudio {
   path: string;
   startedAt: string;

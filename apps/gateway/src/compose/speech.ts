@@ -287,6 +287,8 @@ export interface MeetingIngest {
   ingestMeeting(input: MeetingRecordingInput): ReturnType<VoiceMemoService["ingestMeeting"]>;
   /** Whether a transcriber for long recordings is online now (a helper offering the file path). */
   available(): boolean;
+  /** The bundle ids of the apps running now, from the helper; `undefined` when it is offline. */
+  runningApps(): Promise<string[] | undefined>;
 }
 
 export function composeSpeech(setup: SpeechSetup = {}) {
@@ -310,6 +312,7 @@ export function composeSpeech(setup: SpeechSetup = {}) {
     const voice = new VoiceSessionManager({ selector: stack.selector, emit: toDevice });
     // Long recordings are transcribed where they lie on the Mac (`speech.transcribe_file`, §4.6).
     const filesNode = speechNode(() => gateway, NODE_SPEECH_CAPABILITIES.transcribeFile);
+    const appsNode = speechNode(() => gateway, "apps.list");
     const onMac = new NodeSpeechEngine({ node: filesNode });
     const endpoint = () => transcriptionEndpoint(db);
     // The Mac helper first (on the device, no network); else the owner's OpenAI-compatible
@@ -356,6 +359,14 @@ export function composeSpeech(setup: SpeechSetup = {}) {
       meetings: {
         ingestMeeting: (input) => memos.ingestMeeting(input, transcripts),
         available: () => filesNode() !== undefined || endpoint() !== undefined,
+        runningApps: async () => {
+          const node = appsNode();
+          if (node === undefined) return undefined;
+          const res = await node.invoke("apps.list", {});
+          if (!res.ok) return undefined;
+          const apps = (res.result as { apps?: { bundleId?: unknown }[] } | undefined)?.apps ?? [];
+          return apps.flatMap((a) => (typeof a.bundleId === "string" ? [a.bundleId] : []));
+        },
       },
       start(gw) {
         gateway = gw;

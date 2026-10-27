@@ -232,6 +232,7 @@ export {
 export {
   type AudioCapture,
   type CapturedAudio,
+  CONFERENCE_APP_BUNDLES,
   CONSENT_LINE,
   MeetingRecorder,
   type MeetingRecording,

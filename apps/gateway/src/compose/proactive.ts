@@ -119,6 +119,8 @@ export interface ProactiveSetup {
     transcriberAvailable?: () => boolean;
     /** The helper microphone, once a helper offers capture. */
     capture?: () => AudioCapture | undefined;
+    /** The running apps' bundle ids from the helper; Record meeting ends when a conference app quits. */
+    runningApps?: () => Promise<readonly string[] | undefined>;
   };
   /** The people graph while it is on: prep reads people and loops, notes add loops. */
   graph?: () => GraphStore | undefined;
@@ -363,6 +365,9 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
             ? {}
             : { transcriberAvailable: setup.meetings.transcriberAvailable }),
           ...(setup.meetings.capture === undefined ? {} : { capture: setup.meetings.capture }),
+          ...(setup.meetings.runningApps === undefined
+            ? {}
+            : { runningApps: setup.meetings.runningApps }),
           ...(graph === undefined ? {} : { graph }),
           ownerAddresses,
           ...(timeZone === undefined ? {} : { timezone: timeZone }),
