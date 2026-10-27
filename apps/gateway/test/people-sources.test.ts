@@ -599,7 +599,9 @@ describe("messages source (#763)", () => {
     ]);
     expect(JSON.stringify(pull)).not.toContain("SECRET");
     expect(pull?.cursor).toEqual({ row: 12 });
-    // The first pass reads the newest page, with no body flag and no cursor.
+    // The first pass reads the newest page, with no body flag and no cursor. The ingest never asks
+    // for text (`includeText` stays off, and no owner setting turns it on).
+    expect(helper.calls.some((c) => "includeText" in c.params)).toBe(false);
     expect(helper.calls).toEqual([
       { capability: "messages.graph_chats", params: { limit: 200 } },
       { capability: "messages.graph_read", params: { limit: 200 } },

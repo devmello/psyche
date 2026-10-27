@@ -201,6 +201,7 @@ describe("hard prohibitions", () => {
     for (const tool of [
       "messages.graph_chats",
       "messages.graph_read",
+      "node.messages.graph_chats",
       "node.messages.graph_read",
     ]) {
       for (const initiator of ["owner", "agent"] as const) {
