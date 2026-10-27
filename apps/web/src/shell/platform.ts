@@ -62,6 +62,8 @@ export interface BrowserTabView {
   taskId: string | null;
   taskTitle: string | null;
   openerTabId: string | null;
+  /** Renderer closed after a long idle to free RAM; it reloads on open. */
+  discarded?: boolean;
 }
 
 export interface BrowserHostState {

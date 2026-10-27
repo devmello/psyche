@@ -49,6 +49,12 @@ export interface BrowserHostOptions {
   profileName?: string;
   /** Take-control idle release (default 1.5 s). */
   idleMs?: number;
+  /** Discard a background tab's renderer after this much idle time (default 15 min). */
+  discardAfterMs?: number;
+  /** How often the discard sweep runs (default 60 s). */
+  discardCheckMs?: number;
+  /** Clock for idle tracking (tests). */
+  now?: () => number;
 }
 
 export interface BrowserHostEvents extends BridgeHostEvents {
@@ -62,8 +68,15 @@ export interface BrowserHostEvents extends BridgeHostEvents {
 
 interface Tab {
   id: string;
+  /** Replaced by `restoreTab`; while `discarded` it is a destroyed leftover, never touch it. */
   view: WebContentsView;
   wc: WebContents;
+  /** The renderer was closed to free RAM; the entry stays and `restoreTab` recreates it. */
+  discarded: boolean;
+  /** What a discarded tab shows in the list and comes back with. */
+  snapshot: { url: string; title: string; zoom: number };
+  /** Last activation, navigation, load, input or agent use (ms, host clock). */
+  lastActive: number;
   partition: string;
   profile: BridgeProfile;
   openerTabId: string | null;
@@ -90,6 +103,8 @@ interface Tab {
 }
 
 const STATE_THROTTLE_MS = 50;
+export const DISCARD_AFTER_MS = 15 * 60_000;
+const DISCARD_CHECK_MS = 60_000;
 const HIGHLIGHT_MS = 600;
 const DEFAULT_BOUNDS: Rect = { x: 0, y: 0, width: 1280, height: 800 };
 /** Action-highlight outline (accent) and fill (transparent). */
@@ -131,6 +146,9 @@ export class BrowserHost implements BridgeTabHost {
   private readonly userData: string;
   private readonly profileName: string;
   private readonly idleMs: number | undefined;
+  private readonly discardAfterMs: number;
+  private readonly now: () => number;
+  private discardTimer: ReturnType<typeof setInterval> | undefined;
   private readonly emitter = new TypedEmitter<BrowserHostEvents>();
   private readonly tabs = new Map<string, Tab>();
   private readonly byWebContents = new Map<number, Tab>();
@@ -152,6 +170,13 @@ export class BrowserHost implements BridgeTabHost {
     this.userData = opts.userData;
     this.profileName = opts.profileName ?? DEFAULT_PROFILE_NAME;
     this.idleMs = opts.idleMs;
+    this.discardAfterMs = opts.discardAfterMs ?? DISCARD_AFTER_MS;
+    this.now = opts.now ?? Date.now;
+    this.discardTimer = setInterval(
+      () => this.discardIdleTabs(),
+      opts.discardCheckMs ?? DISCARD_CHECK_MS,
+    );
+    this.discardTimer.unref();
   }
 
   // ── events ──────────────────────────────────────────────────────────────────────────────
@@ -179,6 +204,24 @@ export class BrowserHost implements BridgeTabHost {
   }
 
   private view(t: Tab): BrowserTabView {
+    if (t.discarded) {
+      return {
+        tabId: t.id,
+        url: t.snapshot.url,
+        title: t.snapshot.title,
+        profile: t.profile,
+        controller: t.control.state,
+        loading: false,
+        canGoBack: false,
+        canGoForward: false,
+        zoomFactor: t.snapshot.zoom,
+        status: t.status,
+        taskId: t.taskId,
+        taskTitle: t.taskTitle,
+        openerTabId: t.openerTabId,
+        discarded: true,
+      };
+    }
     const alive = !t.wc.isDestroyed();
     return {
       tabId: t.id,
@@ -198,11 +241,11 @@ export class BrowserHost implements BridgeTabHost {
   }
 
   private bridgeTab(t: Tab): BridgeTab {
-    const alive = !t.wc.isDestroyed();
+    const alive = !t.discarded && !t.wc.isDestroyed();
     const tab: BridgeTab = {
       tabId: t.id,
-      url: alive ? t.wc.getURL() : "",
-      title: alive ? t.wc.getTitle() : "",
+      url: t.discarded ? t.snapshot.url : alive ? t.wc.getURL() : "",
+      title: t.discarded ? t.snapshot.title : alive ? t.wc.getTitle() : "",
       partition: t.partition,
       profile: t.profile,
       attached: t.attached,
@@ -281,9 +324,15 @@ export class BrowserHost implements BridgeTabHost {
     return [...this.tabs.values()].map((t) => this.bridgeTab(t));
   }
 
-  private need(tabId: string): Tab {
+  /**
+   * The tab for a bridge or renderer call. Touches its idle clock and, unless `restore` is false,
+   * brings a discarded tab back first so no caller ever sees a destroyed view.
+   */
+  private need(tabId: string, restore = true): Tab {
     const t = this.tabs.get(tabId);
     if (t === undefined || t.closing) throw new PsycheError("tab_not_found", `no tab ${tabId}`);
+    t.lastActive = this.now();
+    if (restore && t.discarded) this.restoreTab(t);
     return t;
   }
 
@@ -312,9 +361,9 @@ export class BrowserHost implements BridgeTabHost {
   }
 
   async close(tabId: string): Promise<void> {
-    const t = this.need(tabId);
+    const t = this.need(tabId, false);
     t.closing = true;
-    if (t.wc.isDestroyed()) {
+    if (t.discarded || t.wc.isDestroyed()) {
       this.removeTab(t);
       return;
     }
@@ -337,13 +386,13 @@ export class BrowserHost implements BridgeTabHost {
 
   async activateTab(tabId: string): Promise<void> {
     this.need(tabId);
-    this.active = tabId;
+    this.setActive(tabId);
     this.layout();
     this.scheduleState();
   }
 
   setTask(tabId: string, taskId: string | null, taskTitle: string | null): void {
-    const t = this.need(tabId);
+    const t = this.need(tabId, false);
     t.taskId = taskId;
     t.taskTitle = taskTitle;
     this.updated(t);
@@ -370,6 +419,9 @@ export class BrowserHost implements BridgeTabHost {
       id,
       view,
       wc,
+      discarded: false,
+      snapshot: { url: "", title: "", zoom: 1 },
+      lastActive: this.now(),
       partition: o.partition,
       profile: o.profile,
       openerTabId: o.openerTabId,
@@ -393,12 +445,13 @@ export class BrowserHost implements BridgeTabHost {
     };
     this.tabs.set(id, t);
     this.byWebContents.set(wc.id, t);
+    this.wireControl(t);
     this.wireTab(t);
     this.attachDebugger(t);
     view.setBounds(this.lastBounds);
     view.setVisible(false);
     this.win.contentView.addChildView(view);
-    if (!o.background || this.active === null) this.active = id;
+    if (!o.background || this.active === null) this.setActive(id);
     this.layout();
     this.emitter.emit("tabCreated", { tab: this.bridgeTab(t) });
     this.scheduleState();
@@ -414,14 +467,16 @@ export class BrowserHost implements BridgeTabHost {
     t.control.dispose();
     for (const u of t.subs.splice(0)) u();
     try {
-      if (t.popOut !== undefined && !t.popOut.isDestroyed()) {
+      if (t.discarded) {
+        // The view is already off the window.
+      } else if (t.popOut !== undefined && !t.popOut.isDestroyed()) {
         t.popOut.contentView.removeChildView(t.view);
         t.popOut.destroy();
       } else if (!this.win.isDestroyed()) this.win.contentView.removeChildView(t.view);
     } catch {
       // The window is already gone.
     }
-    if (this.active === t.id) this.active = [...this.tabs.keys()].at(-1) ?? null;
+    if (this.active === t.id) this.setActive([...this.tabs.keys()].at(-1) ?? null);
     this.layout();
     this.emitter.emit("tabClosed", { tabId: t.id });
     this.scheduleState();
@@ -432,15 +487,21 @@ export class BrowserHost implements BridgeTabHost {
     return !t.navigated && url === "about:blank";
   }
 
-  private wireTab(t: Tab): void {
-    const wc = t.wc;
+  /** Once per tab: the control arbiter outlives its renderer. */
+  private wireControl(t: Tab): void {
     t.subs.push(
       t.control.onChange((state, via) => {
         this.emitter.emit("controlChanged", { tabId: t.id, state, via });
         this.scheduleState();
       }),
     );
+  }
+
+  /** Per WebContents: runs again when a discarded tab is restored. */
+  private wireTab(t: Tab): void {
+    const wc = t.wc;
     wc.on("before-input-event", (_e, input) => {
+      t.lastActive = this.now();
       t.control.onBeforeInputEvent(input.type);
       // CDP `Input.*` never fires before-input-event: a key here is always the owner.
       if (input.type === "keyDown" || input.type === "rawKeyDown") {
@@ -448,6 +509,7 @@ export class BrowserHost implements BridgeTabHost {
       }
     });
     wc.on("input-event", (_e, ev) => {
+      t.lastActive = this.now();
       t.control.onInputEvent(ev.type);
       // A click is the owner's only while none of the agent's Input.* commands is in flight
       // (its mouse echoes arrive inside the sendCommand await; take-control.ts).
@@ -476,6 +538,7 @@ export class BrowserHost implements BridgeTabHost {
       this.updated(t);
     });
     wc.on("did-navigate", () => {
+      t.lastActive = this.now();
       t.navigated = true;
       this.updated(t);
     });
@@ -483,10 +546,19 @@ export class BrowserHost implements BridgeTabHost {
       if (isMainFrame) this.updated(t);
     });
     wc.on("page-title-updated", () => this.updated(t));
-    wc.on("did-start-loading", () => this.scheduleState());
-    wc.on("did-stop-loading", () => this.scheduleState());
+    wc.on("did-start-loading", () => {
+      t.lastActive = this.now();
+      this.scheduleState();
+    });
+    wc.on("did-stop-loading", () => {
+      t.lastActive = this.now();
+      this.scheduleState();
+    });
     wc.on("zoom-changed", () => this.scheduleState());
-    wc.on("destroyed", () => this.removeTab(t));
+    wc.on("destroyed", () => {
+      // A discard closes the old WebContents on purpose; the tab entry stays.
+      if (t.wc === wc && !t.discarded) this.removeTab(t);
+    });
 
     wc.setWindowOpenHandler((details) => {
       if (!isAllowedNavigationUrl(details.url) && details.url !== "about:blank")
@@ -516,6 +588,9 @@ export class BrowserHost implements BridgeTabHost {
     const dbg = wc.debugger;
     dbg.on("message", (_e, method: string, params: unknown, sessionId: string) => {
       const sid = sessionId === "" ? undefined : sessionId;
+      if (t.enabled.has(domainKey(sid, method.slice(0, method.indexOf("."))))) {
+        t.lastActive = this.now();
+      }
       t.policy.observeEvent(method, params, sid);
       const domain = method.slice(0, method.indexOf("."));
       if (!t.enabled.has(domainKey(sid, domain))) return;
@@ -537,7 +612,7 @@ export class BrowserHost implements BridgeTabHost {
       t.screencast.clear();
       const requested = t.detachRequested;
       t.detachRequested = false;
-      if (t.closing || wc.isDestroyed()) return;
+      if (t.closing || t.wc !== wc || wc.isDestroyed()) return;
       if (!requested) this.emitter.emit("debuggerDetached", { tabId: t.id, reason });
       this.updated(t);
     });
@@ -566,8 +641,8 @@ export class BrowserHost implements BridgeTabHost {
   }
 
   async detach(tabId: string): Promise<void> {
-    const t = this.need(tabId);
-    if (!t.wc.debugger.isAttached()) return;
+    const t = this.need(tabId, false);
+    if (t.discarded || !t.wc.debugger.isAttached()) return;
     t.detachRequested = true;
     t.wc.debugger.detach();
   }
@@ -640,6 +715,7 @@ export class BrowserHost implements BridgeTabHost {
       });
     } finally {
       if (isInput) t.control.agentInputEnd(method, params);
+      t.lastActive = this.now();
     }
     t.policy.observeResult(method, params, result, {
       generation,
@@ -658,6 +734,85 @@ export class BrowserHost implements BridgeTabHost {
     else if (verb === "disable") t.enabled.delete(domainKey(sessionId, domain));
     if (method === "Page.startScreencast") t.screencast.add(sessionId ?? "");
     else if (method === "Page.stopScreencast") t.screencast.delete(sessionId ?? "");
+  }
+
+  // ── idle discard ────────────────────────────────────────────────────────────────────────
+
+  private setActive(id: string | null): void {
+    const now = this.now();
+    const prev = this.active === null ? undefined : this.tabs.get(this.active);
+    // The idle clock of a tab starts when it leaves the screen, not when it was last opened.
+    if (prev !== undefined) prev.lastActive = now;
+    this.active = id;
+    const next = id === null ? undefined : this.tabs.get(id);
+    if (next !== undefined) next.lastActive = now;
+  }
+
+  /** Why a tab must keep its renderer; when in doubt it stays. */
+  private keepAlive(t: Tab, now: number): boolean {
+    if (t.discarded || t.closing || t.id === this.active) return true;
+    if (now - t.lastActive < this.discardAfterMs) return true;
+    if (t.taskId !== null) return true;
+    if (t.popOut !== undefined) return true;
+    // Every tab starts "agent"-controlled; only the owner's hold is a distinct state.
+    if (t.control.state !== "agent" || t.control.agentInputDepth > 0) return true;
+    // The Gateway enabled CDP domains or a screencast here: an agent session is using it.
+    if (t.enabled.size > 0 || t.screencast.size > 0) return true;
+    const wc = t.wc;
+    if (wc.isDestroyed() || wc.isLoading() || wc.isCurrentlyAudible()) return true;
+    return false;
+  }
+
+  private discardIdleTabs(): void {
+    if (this.disposed || this.win.isDestroyed()) return;
+    const now = this.now();
+    for (const t of this.tabs.values()) if (!this.keepAlive(t, now)) this.discardTab(t);
+  }
+
+  /** Closes the renderer and keeps the entry; `restoreTab` brings it back on the same partition. */
+  private discardTab(t: Tab): void {
+    const wc = t.wc;
+    t.snapshot = { url: wc.getURL(), title: wc.getTitle(), zoom: wc.getZoomFactor() };
+    t.discarded = true;
+    this.byWebContents.delete(wc.id);
+    clearTimeout(t.highlightTimer);
+    t.policy.reset();
+    t.enabled.clear();
+    t.screencast.clear();
+    t.attached = false;
+    try {
+      this.win.contentView.removeChildView(t.view);
+    } catch {
+      // Already off the window.
+    }
+    wc.close();
+    this.emitter.emit("tabUpdated", { tab: this.bridgeTab(t) });
+    this.scheduleState();
+  }
+
+  private restoreTab(t: Tab): void {
+    this.prepareSession(t.partition);
+    const view = new WebContentsView({ webPreferences: tabPrefs(t.partition) });
+    t.view = view;
+    t.wc = view.webContents;
+    t.discarded = false;
+    t.navigated = false;
+    t.lastActive = this.now();
+    this.byWebContents.set(t.wc.id, t);
+    this.wireTab(t);
+    this.attachDebugger(t);
+    view.setBounds(this.lastBounds);
+    view.setVisible(false);
+    this.win.contentView.addChildView(view);
+    if (t.snapshot.zoom !== 1) t.wc.setZoomFactor(t.snapshot.zoom);
+    if (isAllowedNavigationUrl(t.snapshot.url)) {
+      void t.wc.loadURL(t.snapshot.url).catch(() => {
+        // Load failures surface as navigation state.
+      });
+    }
+    this.layout();
+    this.emitter.emit("tabUpdated", { tab: this.bridgeTab(t) });
+    this.scheduleState();
   }
 
   // ── status pill and highlight ───────────────────────────────────────────────────────────
@@ -726,7 +881,7 @@ export class BrowserHost implements BridgeTabHost {
     this.refreshVisibility();
     if (this.win.isDestroyed()) return;
     for (const t of this.tabs.values()) {
-      if (t.popOut !== undefined) continue;
+      if (t.popOut !== undefined || t.discarded) continue;
       // Hidden tabs keep realistic bounds so pages lay out and screencast at the pane's size.
       t.view.setBounds(this.lastBounds);
       t.view.setVisible(this.viewport !== null && t.id === this.active);
@@ -734,7 +889,13 @@ export class BrowserHost implements BridgeTabHost {
   }
 
   async navigate(tabId: string, action: BrowserNav): Promise<void> {
+    const wasDiscarded = this.tabs.get(tabId)?.discarded === true;
     const t = this.need(tabId);
+    // Restoring already loads the remembered URL; reload, stop and history have nothing more to do.
+    if (wasDiscarded) {
+      this.scheduleState();
+      return;
+    }
     const wc = t.wc;
     switch (action) {
       case "back":
@@ -781,7 +942,7 @@ export class BrowserHost implements BridgeTabHost {
 
   /** Sticky Take control (the button) or Release. */
   async setControl(tabId: string, take: boolean): Promise<void> {
-    this.need(tabId).control.setSticky(take);
+    this.need(tabId, false).control.setSticky(take);
   }
 
   /** Moves a tab into its own window, or back into the pane when it is already out. */
@@ -883,9 +1044,10 @@ export class BrowserHost implements BridgeTabHost {
   dispose(): void {
     this.disposed = true;
     clearTimeout(this.stateTimer);
+    clearInterval(this.discardTimer);
     for (const t of [...this.tabs.values()]) {
       t.closing = true;
-      if (!t.wc.isDestroyed()) t.wc.close();
+      if (!t.discarded && !t.wc.isDestroyed()) t.wc.close();
       this.removeTab(t);
     }
   }
