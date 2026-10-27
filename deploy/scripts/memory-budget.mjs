@@ -15,10 +15,10 @@
 // touches ~/.psyche, Psyche.app or the LaunchAgent. Off macOS the footprint and heap are skipped (only
 // the bundle size is checked). PSYCHE_SIZE_BUDGET=skip turns the check off.
 import { execFileSync, spawn } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { arch, platform } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { budgets } from "./size-budget.mjs";
 
@@ -139,7 +139,13 @@ async function main(argv) {
   const entry = join(bundle, "app/apps/gateway/dist/main.mjs");
   let size;
   try {
-    size = statSync(entry).size / 1048576;
+    // The entry plus its code-split chunks (bundle-gateway.mjs): lazy code still ships.
+    const dist = dirname(entry);
+    statSync(entry);
+    size =
+      readdirSync(dist)
+        .filter((f) => f.endsWith(".mjs"))
+        .reduce((n, f) => n + statSync(join(dist, f)).size, 0) / 1048576;
   } catch {
     throw new Error(
       `${entry} not found: build the tree first (node deploy/scripts/build-psyched.mjs)`,

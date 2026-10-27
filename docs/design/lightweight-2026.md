@@ -128,11 +128,11 @@ RAM items first. "Saving" is footprint unless it says heap.
 |---|---|---|---|---|---|
 | 1 | Gateway bundled with esbuild | −25 MB Gateway, always | none | done | **#929, merged** |
 | 2 | Release the main window's renderer while the app sits in the menu bar | −90 MB renderer, plus GPU surfaces when retained (up to −200 MB measured) | reopening after the release takes ≈ 0.5 s instead of instant | medium (window lifecycle, state restore) | **needs the owner's call** (> 300 ms) |
-| 3 | A lean entry for the screen-ask panel and dictation HUD (only their components, not the app barrel) | −35 to −50 MB while the panel is warm, which is always when Ask about screen is on | none (it opens faster cold) | low | do |
+| 3 | A lean entry for the screen-ask panel and dictation HUD (only their components, not the app barrel) | −35 to −50 MB while the panel is warm, which is always when Ask about screen is on | none (it opens faster cold) | low | **#933**: 72 → 54 MB |
 | 4 | Discard background browser tabs the agent is not using after N minutes idle | −20 to −50 MB per tab | the tab reloads when shown again, and form state is lost | medium (agent tasks, take-control) | **needs the owner's call** |
-| 5 | Lazy Gateway subsystems: MCP client, AI SDK providers on first use, grammy, turndown, with esbuild `splitting` so lazy code stays out of the bundle's source string | up to −12 MB heap (upper bound) | first use of each costs 10–60 ms once | low/medium (async factory in the model router) | do, measure |
+| 5 | Lazy Gateway subsystems: MCP client, AI SDK providers on first use, grammy, turndown, with esbuild `splitting` so lazy code stays out of the bundle's source string | up to −12 MB heap (upper bound) | first use of each costs 10–60 ms once | low/medium (async factory in the model router) | **#934**: Gateway 128 → 92 MB (providers, MCP SDK, splitting; grammy and turndown left) |
 | 6 | Lazy routes in the main renderer (8 MB entry) | est. −10 MB per window, faster first paint | a route's first open loads its chunk (tens of ms) | low | do after 3 |
-| 7 | Regression guard: settled idle Gateway footprint and heap, and bundle size, with budgets | protects the above | none | none | do |
+| 7 | Regression guard: settled idle Gateway footprint and heap, and bundle size, with budgets | protects the above | none | none | **#932**, budgets tightened after #934 |
 
 Refuted or deferred, with reasons:
 
@@ -175,3 +175,37 @@ Storage items (none costs RAM):
 | PR | Change | Before → after |
 |---|---|---|
 | #929 | esbuild Gateway bundle | Gateway settled idle 152 → 127 MB footprint, heap 58 → 31 MB |
+| #931 | `strip` the helper before signing (dSYM kept outside the app) | `psyche-helper` 31.1 → 10.6 MB on disk; RAM unchanged |
+| #932 | `deploy/scripts/memory-budget.mjs`, budgets in `deploy/size-budget.json`, `PSYCHE_PERF_HOLD` | guard only |
+| #933 | Lean renderer entry for the screen-ask panel, region overlay and dictation HUD | warm panel 72 → 54 MB footprint, heap 24 → 16 MB, static JS 8.2 → 4.4 MiB |
+| #934 | AI SDK providers and the MCP SDK loaded on first use; esbuild code splitting | Gateway 128 → 92 MB footprint, heap 31 → 25 MB; first chat turn +9 ms once |
+
+Measured by the guard on the packaged tree (`build-psyched.mjs`, the bundle's own Node) after #934:
+**91 MB footprint, 26 MB heap, 5.6 MiB of bundle JS** (entry plus chunks). The budgets are now 105 /
+30 / 6.5.
+
+Where #934's saving came from: code splitting alone takes the Gateway from 128 to 118 MB (lazy code
+that was already behind `import()`, such as the browser driver and document extraction, leaves the
+resident source string; heap goes up 2 MB from per-chunk overhead). The new lazy boundaries take it
+from 118 to 92 MB.
+
+What #934 left, with the reason:
+
+- **grammy** (Telegram, ≤ 3.3 MB). `composeChannels` is a synchronous compose part, and
+  `ChannelAdapter.capabilities()` and `onInbound()` are synchronous too, so a lazy Telegram needs
+  either an async part or a wrapper adapter that buffers handlers. The SMS and Discord adapters also
+  import helpers (`readCapped`, approval constants) from `telegram/adapter.ts`, and those would move
+  to a shared module first.
+- **turndown** (≤ 1.8 MB). It sits behind the synchronous `htmlToMarkdown`, which Google mail MIME
+  parsing calls from synchronous code.
+
+Still open, by measured size:
+
+- **Item 2**, releasing the main renderer in the menu bar (−90 to −200 MB). It waits on the owner
+  because reopening then takes about 0.5 s.
+- **The panel's shared chunk.** `ScreenAsk` reaches most of `@psyche/ui` through the store,
+  `GatewayProvider` and the i18n catalog. Splitting those per namespace would bring the warm panel
+  from 54 MB toward an empty renderer's 19 MB, and would also shrink the main window's 8 MB entry
+  (item 6).
+- **Item 4**, discarding background tabs (owner's call). **S2**, one UI build (≈ −30 MB disk).
+  **S3**, ULMO (owner's call). **S4**, SwiftShader (needs a no-GPU test).
