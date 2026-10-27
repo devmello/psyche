@@ -670,6 +670,9 @@ export class PsycheAgentLoop implements AgentLoop {
     this.#ranHere.add(runId);
     let outcome: RunOutcome = "final";
     let error: string | undefined;
+    // `run.thread` starts empty: it is saved only once the stored thread was read into it, so a
+    // turn cancelled first (or one whose read failed) never overwrites the owner's history.
+    let threadLoaded = false;
     try {
       if (input.signal?.aborted === true) throw new RunEnd("cancelled", "signal");
       emit({ type: "run.status", runId, status: "running" });
@@ -681,6 +684,7 @@ export class PsycheAgentLoop implements AgentLoop {
               checklist: [],
               ...(child.summary === undefined ? {} : { summary: child.summary }),
             };
+      threadLoaded = true;
       // A subagent works for a parent that may already have read untrusted content; it starts
       // with the parent's sources so its cards name the real origins (design-08).
       if (child?.parent.taint === true) {
@@ -767,7 +771,7 @@ export class PsycheAgentLoop implements AgentLoop {
       if (run.taint) run.thread.taint = { sources: dedupeSources(run.taintSources) };
       else delete run.thread.taint;
       try {
-        await this.#state.save(threadId, run.thread);
+        if (threadLoaded) await this.#state.save(threadId, run.thread);
       } catch (err) {
         if (outcome !== "failed") {
           outcome = "failed";
