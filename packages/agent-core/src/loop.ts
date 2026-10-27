@@ -282,6 +282,8 @@ export interface AgentLoopOptions {
     runId: string;
     taskId?: string;
     ownerText: string;
+    /** The owner's message carried Library attachments (the learner reads the owner's uploads). */
+    attached?: boolean;
     /** The turn read untrusted content (the owner's words are still the owner's). */
     taint: boolean;
   }) => Promise<void> | void;
@@ -338,6 +340,8 @@ interface RunState {
   permissionMode: PermissionMode;
   /** The owner's own words this turn (target matching); empty for a non-owner requester. */
   ownerText: string;
+  /** The owner's own message carried Library attachments (#509: the learner reads uploads). */
+  ownerAttached: boolean;
   /** Who asked for the turn (security §9); absent means the owner. */
   requester?: Requester;
   abort: AbortController;
@@ -635,6 +639,7 @@ export class PsycheAgentLoop implements AgentLoop {
       permissionMode: input.permissionMode,
       // Only the owner's words name targets the agent may act on (security §3.6, §9).
       ownerText: ownerSent ? input.input.text : "",
+      ownerAttached: ownerSent && (input.input.attachments?.length ?? 0) > 0,
       ...(requester === undefined ? {} : { requester }),
       ...(input.beforeDispatch === undefined ? {} : { beforeDispatch: input.beforeDispatch }),
       abort,
@@ -777,7 +782,7 @@ export class PsycheAgentLoop implements AgentLoop {
     // turns of the owner's own threads only; never a subagent, a non-owner, or an automation.
     if (
       this.#o.onOwnerTurn !== undefined &&
-      run.ownerText.trim() !== "" &&
+      (run.ownerText.trim() !== "" || run.ownerAttached) &&
       run.subagent === undefined &&
       run.mode === "attended" &&
       (outcome === "final" || outcome === "awaiting_approval" || outcome === "awaiting_input")
@@ -787,6 +792,7 @@ export class PsycheAgentLoop implements AgentLoop {
         runId,
         ...(run.taskId === undefined ? {} : { taskId: run.taskId }),
         ownerText: run.ownerText,
+        ...(run.ownerAttached ? { attached: true } : {}),
         taint: run.taint,
       };
       void Promise.resolve()
