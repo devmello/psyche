@@ -1,14 +1,13 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
-import { assetPath } from "@psyche/assets";
+import { assetPath, assetsRoot } from "@psyche/assets";
 import { DEFAULT_GATEWAY_HOST, DEFAULT_GATEWAY_PORT, PsycheError } from "@psyche/protocol";
 import type { RateLimitSettings } from "./compose/rate-limits.ts";
 import { trustedProxyList } from "./proxy.ts";
-
 import { resolveNodeSocketPath } from "./socket-path.ts";
-
 import { type BindMode, containerAddress, readGatewayToken } from "./transport-gate.ts";
+import { packagedAsar } from "./web-asar.ts";
 
 /** Resolved Gateway configuration (feature A5 subset; see README "Config keys"). */
 export interface GatewayConfig {
@@ -23,6 +22,11 @@ export interface GatewayConfig {
   nodeSocketPath: string;
   /** Built web UI served at `/` when present, default `apps/web/dist`. */
   webRoot: string | null;
+  /**
+   * Psyche.app's `app.asar`, whose renderer build carries the web client (`web-asar.ts`); used
+   * when `webRoot` has no build, which is how the app ships. `null` outside the app.
+   */
+  webAsar: string | null;
   /**
    * The public HTTPS origin the web client is served from behind a proxy (`gateway.publicOrigin`
    * or `PSYCHE_PUBLIC_ORIGIN`). Passkeys use its host as the WebAuthn RP ID; `null` = none.
@@ -420,6 +424,12 @@ export function resolveConfig(
     nodeSocketPath: resolveNodeSocketPath(home, overrides.nodeSocketPath ?? env.PSYCHE_NODE_SOCKET),
     webRoot:
       overrides.webRoot === undefined ? (env.PSYCHE_WEB_ROOT ?? defaultWebRoot) : overrides.webRoot,
+    webAsar:
+      overrides.webAsar !== undefined
+        ? overrides.webAsar
+        : overrides.webRoot === undefined && env.PSYCHE_WEB_ROOT === undefined
+          ? packagedAsar(assetsRoot(env))
+          : null,
     publicOrigin,
     allowedOrigins: overrides.allowedOrigins ??
       env.PSYCHE_ALLOWED_ORIGINS?.split(",").filter(Boolean) ?? [

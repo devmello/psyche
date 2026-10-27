@@ -18,6 +18,7 @@ import {
 import { pruneLocales } from "./src/packaging/locales.ts";
 import { macSigningOptions, signingIdentity } from "./src/packaging/signing-config.ts";
 import { pruneSwiftShader } from "./src/packaging/swiftshader.ts";
+import { dropGatewayWebCopy } from "./src/packaging/web-copy.ts";
 
 /**
  * Electron Forge 8 config (architecture §5; security §11, §12).
@@ -119,6 +120,8 @@ const config: ForgeConfig = {
         allowPartial: allowPartial(process.env),
         warn: (m) => console.warn(m),
       });
+      // One UI copy: the Gateway serves the web client from app.asar (src/packaging/web-copy.ts).
+      dropGatewayWebCopy(buildPath, resourcesDir);
       if (isMacHost)
         verifyNestedHelper(join(resourcesDir, HELPER_APP_NAME), signingIdentity(process.env));
     },

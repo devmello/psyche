@@ -1,8 +1,9 @@
 import { createReadStream, existsSync, statSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { extname, join, normalize, resolve, sep } from "node:path";
+import { extname, join, normalize, posix, resolve, sep } from "node:path";
 import { PROTOCOL_VERSION } from "@psyche/protocol";
 import { handleMapProxy, MAP_PROXY_PREFIX } from "./map-proxy.ts";
+import { ASAR_WEB_INDEX, AsarWebRoot } from "./web-asar.ts";
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -31,6 +32,8 @@ const CSP = [
 
 export interface HttpDeps {
   webRoot: string | null;
+  /** Psyche.app's app.asar, the web client's source when `webRoot` has no build. */
+  webAsar?: string | null;
   version: string;
   /** The tile origins the map proxy may reach (read per request); no proxy route without it. */
   mapOrigins?: () => string[];
@@ -170,7 +173,58 @@ export function handleHttp(req: IncomingMessage, res: ServerResponse, deps: Http
     void handleMapProxy(req, res, deps.mapOrigins);
     return;
   }
+  if (
+    (deps.webRoot === null || !existsSync(join(deps.webRoot, "index.html"))) &&
+    deps.webAsar != null
+  ) {
+    serveFromAsar(url.pathname, res, deps.webAsar);
+    return;
+  }
   serveStatic(url.pathname, res, deps.webRoot);
+}
+
+const asarRoots = new Map<string, AsarWebRoot | Error>();
+
+/**
+ * The web client out of app.asar: `web.html` for `/` and every route, its assets as they are, and
+ * nothing else from the archive (the desktop's own pages are not the web client).
+ */
+function serveFromAsar(pathname: string, res: ServerResponse, asar: string): void {
+  let web = asarRoots.get(asar);
+  if (web === undefined) {
+    try {
+      web = AsarWebRoot.open(asar);
+    } catch (err) {
+      web = err instanceof Error ? err : new Error(String(err));
+    }
+    asarRoots.set(asar, web);
+  }
+  if (web instanceof Error) {
+    send(res, 500, JSON.stringify({ ok: false, error: "web UI unavailable" }));
+    return;
+  }
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    send(res, 400, JSON.stringify({ ok: false, error: "bad path" }));
+    return;
+  }
+  const rel = posix.normalize(decoded).replace(/^\/+/, "");
+  const file = rel !== "" && extname(rel) !== ".html" && web.has(rel) ? rel : ASAR_WEB_INDEX;
+  const body = web.read(file);
+  if (body === null) {
+    send(res, 500, JSON.stringify({ ok: false, error: "web UI file failed its integrity check" }));
+    return;
+  }
+  res.writeHead(200, {
+    "content-type": MIME[extname(file)] ?? "application/octet-stream",
+    "content-security-policy": CSP,
+    "x-content-type-options": "nosniff",
+    "referrer-policy": "no-referrer",
+    "cache-control": file === ASAR_WEB_INDEX ? "no-store" : "public, max-age=3600",
+  });
+  res.end(body);
 }
 
 function serveStatic(pathname: string, res: ServerResponse, webRoot: string | null): void {
