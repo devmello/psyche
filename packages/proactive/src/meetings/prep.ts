@@ -26,7 +26,7 @@ import { cleanHeader, sanitizeMailText } from "../mail/classify.ts";
 import { domainOf } from "../mail/rules.ts";
 import { localParts } from "../mail/scheduling.ts";
 import { readTool } from "../mail/tools.ts";
-import type { ToolLookup } from "../proposals/service.ts";
+import type { ProposalService, ToolLookup } from "../proposals/service.ts";
 import { parseJson, type SqliteDatabase, toIso } from "../sqlite.ts";
 
 /**
@@ -95,6 +95,10 @@ export interface MeetingPrepServiceOptions {
   }) => Promise<MeetingNotes | undefined>;
   /** Whether quiet hours cover an instant; a meeting inside them breaks through. */
   isQuiet?: (ms: number) => boolean;
+  /** Settings → Meeting prep → "Also save to Notes" (`meetings.prep.saveToNotes`), read per prep. */
+  saveToNotes?: () => boolean;
+  /** Batch proposals (§8.1): the note-writing call goes through the broker and an approval card. */
+  proposals?: Pick<ProposalService, "create">;
   leadMs?: number | (() => number);
   notifyLeadMs?: number | (() => number);
   /** Prep notifications a day (Settings, 1–4; default 4); later preps are silent posts. */
@@ -602,7 +606,37 @@ export class MeetingPrepService {
         "UPDATE meeting_preps SET status = 'prepared', post_id = ?, thin = ?, taint = 1, updated_at = ? WHERE event_id = ?",
       )
       .run(postId, thin ? 1 : 0, nowIso, eventId);
+    if (!thin) this.#proposeNote(Date.parse(row.start_at), prep.title, body, postId);
     return prep;
+  }
+
+  /**
+   * "Also save to Notes" (§4.5 step 5): one batch proposal that writes the prep note with
+   * `notes_create`. The owner approves the card; the broker decides the call, so nothing is
+   * written silently. Thin preps are not saved, and no proposal is made when Notes is not connected.
+   */
+  #proposeNote(startMs: number, title: string, body: string, postId: string): void {
+    if (this.#o.saveToNotes?.() !== true || this.#o.proposals === undefined) return;
+    if (this.#o.tools.get("notes_create") === undefined) return;
+    const day = new Date(startMs).toLocaleDateString("en-CA", { timeZone: this.#tz });
+    try {
+      this.#o.proposals.create({
+        title: `Save prep to Notes: ${title}`.slice(0, 200),
+        calls: [
+          {
+            tool: "notes_create",
+            params: { title: `Prep: ${title} ${day}`.slice(0, 300), body },
+            summary: `Add the prep note to Notes: Prep: ${title} ${day}`.slice(0, 300),
+          },
+        ],
+        createdBy: { job: "meetings.prep" },
+        postId,
+        taint: true,
+        taintSources: [{ sourceKind: "calendar" }],
+      });
+    } catch (err) {
+      this.#o.onError?.(err);
+    }
   }
 
   async #write(

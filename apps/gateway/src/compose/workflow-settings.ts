@@ -34,6 +34,7 @@ export const WORKFLOW_SETTING_KEYS = [
   "meetings.prep.scope",
   "meetings.prep.leadMin",
   "meetings.prep.notifyMin",
+  "meetings.prep.saveToNotes",
   "meetings.prep.dailyCap",
   "meetings.notes.enabled",
   "meetings.notes.tasksApp",
@@ -65,6 +66,8 @@ export interface WorkflowSettings {
     scope: "external" | "all";
     leadMin: number;
     notifyMin: number;
+    /** "Also save to Notes": each prep note is proposed for `notes_create` (one approval each). */
+    saveToNotes: boolean;
     dailyCap: number;
   };
   notes: {
@@ -131,6 +134,7 @@ export function workflowSettings(db: PsycheDb): WorkflowSettings {
       scope: get("meetings.prep.scope") === "all" ? "all" : "external",
       leadMin: whole(get("meetings.prep.leadMin"), 5, 24 * 60) ?? PREP_LEAD_MIN,
       notifyMin: whole(get("meetings.prep.notifyMin"), 1, 24 * 60) ?? PREP_NOTIFY_MIN,
+      saveToNotes: bool(get("meetings.prep.saveToNotes")),
       dailyCap: whole(get("meetings.prep.dailyCap"), 1, 4) ?? 4,
     },
     notes: {
