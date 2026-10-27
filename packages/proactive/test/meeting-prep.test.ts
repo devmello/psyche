@@ -17,6 +17,7 @@ import {
   type MeetingPrepServiceOptions,
   withProactiveJobs,
 } from "../src/index.ts";
+import type { CreateProposalInput } from "../src/proposals/service.ts";
 import { asleep, RecordingLauncher, testDb } from "./helpers.ts";
 
 /** Meeting prep (spec §4.5; #670 W6) on the real scheduler with fake calendar and mail tools. */
@@ -194,6 +195,7 @@ function rig(start = at(7), extra: Partial<MeetingPrepServiceOptions> = {}) {
       t("notes_search", () => ({ notes: [{ id: "n1", title: "Dana pilot ideas" }] })),
     ],
     ["mail_send", t("mail_send", () => ({ ok: true }), "write")],
+    ["notes_create", t("notes_create", () => ({ id: "n2" }), "write")],
   ]);
   const feed = new FeedStore(db.sqlite);
   const provider = new FakeModelProvider();
@@ -488,5 +490,45 @@ describe("prep follows Settings → Mail & meetings", () => {
     const when = (id: string | null) => autos.find((a) => a.id === id)?.nextRunAt;
     expect(when(row?.prep_automation_id ?? null)).toBe(iso(at(13, 30)));
     expect(when(row?.notify_automation_id ?? null)).toBe(iso(at(13, 50)));
+  });
+});
+
+describe("prep saves to Notes only through an approval (#842 item 1)", () => {
+  it("proposes the note as a notes_create call with a taint, and writes nothing itself", async () => {
+    const created: CreateProposalInput[] = [];
+    const r = rig(at(7), {
+      saveToNotes: () => true,
+      proposals: {
+        create: (input) => {
+          created.push(input as CreateProposalInput);
+          return { id: `p${created.length}` } as never;
+        },
+      },
+    });
+    await r.prep.plan();
+    await r.runTo(at(12));
+    const dana = created.find((c) => c.title === "Save prep to Notes: Dana / Sam");
+    expect(dana).toBeDefined();
+    expect(dana?.calls.map((c) => c.tool)).toEqual(["notes_create"]);
+    expect(dana?.calls[0]?.params).toMatchObject({ title: "Prep: Dana / Sam 2026-10-26" });
+    expect(dana?.taint).toBe(true);
+    const post = r.feed.list({}).posts.find((p) => p.refs?.meetingId === "e1");
+    expect(dana?.postId).toBe(post?.id);
+    expect(r.writes).not.toContain("notes_create");
+  });
+
+  it("proposes nothing while the owner has not turned it on", async () => {
+    const created: CreateProposalInput[] = [];
+    const r = rig(at(7), {
+      proposals: {
+        create: (input) => {
+          created.push(input as CreateProposalInput);
+          return { id: "p" } as never;
+        },
+      },
+    });
+    await r.prep.plan();
+    await r.runTo(at(12));
+    expect(created).toEqual([]);
   });
 });

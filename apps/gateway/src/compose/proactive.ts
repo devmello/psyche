@@ -259,6 +259,8 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           provider,
           model,
           ownerAddresses,
+          ...(proposals === undefined ? {} : { proposals }),
+          saveToNotes: () => settings().prep.saveToNotes,
           // The previous occurrence's notes for the same series (§4.5 step 3).
           previousNotes: async ({ title }) => lastMeetingNotes(db.sqlite, title),
           // Attendees and open loops from the people graph (§4.5 steps 2–3), when it is on.
