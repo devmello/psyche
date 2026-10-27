@@ -28,12 +28,15 @@ Each entry has:
 An environment value can be a vault placeholder such as `{{cred:notion-token}}`. Each one asks you before it is filled.
 :::
 
-Local (stdio) servers must run isolated. When the Gateway finds a container runtime at start (Apple `container`, Docker or Podman), each runs in its own sandbox container, reaching the network only through Psyche's egress proxy and the server's allowlist. Otherwise:
+Local (stdio) servers must run isolated. By default they run under `srt` (Anthropic's sandbox runtime, on macOS's Seatbelt, no VM): an ordinary process on your Mac that can read your files but not your vault, keys or Psyche's private data, writes only to its own scratch folder and reaches only the hosts it declares. Psyche looks for `srt` at every launch, in this order:
 
-- `PSYCHE_SRT_PATH` pointing at `srt` runs each stdio server under it; or
-- `PSYCHE_MCP_LAUNCHER=container` asks for the container launcher explicitly (any other value turns the automatic choice off).
+- `PSYCHE_SRT_PATH`, an override;
+- the `exec.srtPath` setting, chosen in the walkthrough below (it asks you to confirm on this device);
+- `srt` on PATH, in Homebrew's and npm's folders, or next to the Gateway's Node.
 
-Without a sandbox, the add page says so and offers **Set up sandbox**: a short walkthrough that finds which runtime this Mac has, shows the commands or official download to get one running (Psyche installs nothing itself), and checks again. Onboarding offers the same as an optional step.
+`PSYCHE_MCP_LAUNCHER=container` runs each server in its own sandbox container instead, reaching the network only through Psyche's egress proxy and the server's allowlist.
+
+Without a sandbox, the add page says so and offers **Set up sandbox**: a short walkthrough that shows the install command (`npm install -g @anthropic-ai/sandbox-runtime`) and checks again. Psyche installs nothing itself. A container runtime (Apple `container`, Colima or Docker Desktop) is listed there as optional stronger isolation. Onboarding offers the same as an optional step.
 
 With neither, stdio servers that are not bundled are refused and only remote servers run. `PSYCHE_MCP=off` turns MCP off. `psyche doctor` and `psyche security audit` report which launcher is in use and each server's trust, transport and network reach.
 

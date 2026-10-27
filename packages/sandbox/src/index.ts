@@ -41,4 +41,5 @@ export {
   type EgressProxyConfig,
   type EgressTunnelHandler,
 } from "./runner.ts";
+export * from "./srt.ts";
 export type { OpenStdioOptions, SandboxStdio, SandboxStdioReceipt } from "./stdio.ts";

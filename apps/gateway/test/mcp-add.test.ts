@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { type ComposedMcp, composeMcp } from "../src/compose/mcp.ts";
 import type { ComposeServices } from "../src/compose/services.ts";
+import type { SrtResolver } from "../src/compose/srt.ts";
 import { adminClient, ik, type TestClient } from "./helpers.ts";
 
 /** #529: adding an MCP server from Settings → MCP: sandboxed probe, trust card, add, remove. */
@@ -40,7 +41,7 @@ afterEach(async () => {
   if (home) rmSync(home, { recursive: true, force: true });
 });
 
-async function setup(withLauncher = true) {
+async function setup(withLauncher: boolean | SrtResolver = true) {
   home = mkdtempSync(join(tmpdir(), "psyche-mcp-add-"));
   let mcp: ComposedMcp | undefined;
   let services: ComposeServices | undefined;
@@ -52,7 +53,14 @@ async function setup(withLauncher = true) {
     parts: [
       (s) => {
         services = s;
-        mcp = composeMcp(s, withLauncher ? { hostOptions: { launcher: fakeSrt } } : {});
+        mcp = composeMcp(
+          s,
+          typeof withLauncher === "object"
+            ? { srt: withLauncher }
+            : withLauncher
+              ? { hostOptions: { launcher: fakeSrt } }
+              : {},
+        );
         return mcp;
       },
     ],
@@ -156,5 +164,22 @@ describe("Settings → MCP add flow (#529)", () => {
     await expect(
       owner.call("mcp.add", { proposalId: "mcpp_nope", approvalId: "ap_nope" }, ik()),
     ).rejects.toThrow(/"code":"approval_expired"/);
+  });
+
+  it("uses srt as soon as it is found, without a restart", async () => {
+    let path: string | null = null;
+    const srt: SrtResolver = {
+      resolve: async () => (path === null ? { missing: true, reason: "not_found" } : { path }),
+      inspect: async () => {
+        throw new Error("unused");
+      },
+    };
+    const { owner } = await setup(srt);
+    expect(await owner.call("mcp.status", {})).toMatchObject({ launcher: "none" });
+    await expect(owner.call("mcp.probe", { server: echo() }, ik())).rejects.toThrow(
+      /"reason":"no_launcher"/,
+    );
+    path = "/opt/homebrew/bin/srt";
+    expect(await owner.call("mcp.status", {})).toMatchObject({ launcher: "srt" });
   });
 });

@@ -6947,6 +6947,15 @@ export type SandboxNetwork = "none" | "proxy";
 export type SandboxStatus = "creating" | "running" | "stopped" | "error";
 
 export interface SandboxSetupResult {
+    containers: SandboxContainerSetup;
+    /**
+     * srt is available, so command servers can run
+     */
+    ready: boolean;
+    srt:   SandboxSrtStatus;
+}
+
+export interface SandboxContainerSetup {
     active:   SandboxBackend;
     backends: SandboxSetupBackend[];
     /**
@@ -6978,6 +6987,18 @@ export interface SandboxSetupBackend {
 
 export type SandboxContainerBackend = "apple-container" | "docker" | "podman";
 
+export interface SandboxSrtStatus {
+    available: boolean;
+    path?:     null | string;
+    problem?:  SandboxSrtProblem | null;
+    source?:   SandboxSrtSource | null;
+    version?:  null | string;
+}
+
+export type SandboxSrtProblem = "not_found" | "not_absolute" | "not_executable";
+
+export type SandboxSrtSource = "env" | "setting" | "detected";
+
 export interface SandboxStatusParams {
     sandboxId?: string;
 }
@@ -6990,6 +7011,7 @@ export interface SandboxStatusResult {
     backend:   SandboxBackend;
     egress?:   boolean;
     sandbox?:  SandboxInfo | null;
+    srt?:      SandboxSrtStatus;
 }
 
 export interface ScreenCapture {

@@ -18,11 +18,14 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
-### v1 additive — 2026-10-27 (guided sandbox setup)
+### v1 additive — 2026-10-27 (guided sandbox setup, srt first)
 
-For Settings → Connectors and onboarding's Sandbox step.
+For Settings → Connectors, onboarding's Sandbox step and host exec (which reuses the srt lookup).
 
-- New method `sandbox.setup` (`operator.read`): looks at the container runtimes again and returns `recommended`, `backends` (`SandboxSetupBackend`: `kind`, `supported`, `installed`, `running`, `version`), `ready`, `active` and `restartNeeded`. It never installs or starts anything. New schemas `SandboxContainerBackend` and `SandboxSetupBackend`; Swift gains the types.
+- New method `sandbox.setup` (`operator.read`): `ready` (srt is available), `srt` (`SandboxSrtStatus`: `available`, `path`, `source` env | setting | detected, `version`, `problem` not_found | not_absolute | not_executable) and `containers` (`SandboxContainerSetup`: `recommended`, `backends` of `SandboxSetupBackend` {`kind`, `supported`, `installed`, `running`, `version`}, `ready`, `active`, `restartNeeded`). It never installs or starts anything.
+- `sandbox.status` result gains optional `srt: SandboxSrtStatus`.
+- New setting key `exec.srtPath` (an `exec.*` security key: `operator.admin` plus fresh presence): where `srt` is, when it isn't on PATH. `PSYCHE_SRT_PATH` still overrides it.
+- New schemas `SandboxContainerBackend`, `SandboxSrtStatus`, `SandboxSrtSource`, `SandboxSrtProblem`, `SandboxSetupBackend`, `SandboxContainerSetup`; Swift gains the types.
 
 ### v1 additive — 2026-10-27 (memory recall mode)
 

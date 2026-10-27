@@ -29,6 +29,24 @@ export const SandboxContainerBackend = StringEnum(["apple-container", "docker", 
 });
 export type SandboxContainerBackend = Static<typeof SandboxContainerBackend>;
 
+/**
+ * `srt` (Anthropic's sandbox-runtime, Seatbelt on macOS): how host commands run sandboxed with
+ * no VM. Found from `PSYCHE_SRT_PATH`, the `exec.srtPath` setting, or PATH and the usual folders.
+ */
+export const SandboxSrtStatus = Type.Object(
+  {
+    available: Type.Boolean(),
+    path: Nullable(Type.String()),
+    source: Nullable(StringEnum(["env", "setting", "detected"], { $id: "SandboxSrtSource" })),
+    version: Nullable(Type.String()),
+    problem: Nullable(
+      StringEnum(["not_found", "not_absolute", "not_executable"], { $id: "SandboxSrtProblem" }),
+    ),
+  },
+  { $id: "SandboxSrtStatus" },
+);
+export type SandboxSrtStatus = Static<typeof SandboxSrtStatus>;
+
 /** One container runtime as the guided setup sees it. */
 export const SandboxSetupBackend = Type.Object(
   {
@@ -43,6 +61,21 @@ export const SandboxSetupBackend = Type.Object(
   { $id: "SandboxSetupBackend" },
 );
 export type SandboxSetupBackend = Static<typeof SandboxSetupBackend>;
+
+/** The optional container runtimes (stronger isolation: a Linux VM per sandbox). */
+export const SandboxContainerSetup = Type.Object(
+  {
+    recommended: SandboxContainerBackend,
+    backends: Type.Array(SandboxSetupBackend),
+    ready: Type.Boolean({ description: "A runtime is running now (detected fresh, not at boot)" }),
+    active: SandboxBackend,
+    restartNeeded: Type.Boolean({
+      description: "A runtime is running but this Gateway started without one: restart it",
+    }),
+  },
+  { $id: "SandboxContainerSetup" },
+);
+export type SandboxContainerSetup = Static<typeof SandboxContainerSetup>;
 
 export const SandboxMethods = {
   "sandbox.list": defineMethod({
@@ -61,6 +94,8 @@ export const SandboxMethods = {
       sandbox: Nullable(SandboxInfo),
       /** The host egress proxy for `network: "proxy"` sandboxes is running (security §5.2, K4). */
       egress: Type.Optional(Type.Boolean()),
+      /** `srt` for host commands (stdio MCP servers, host exec), looked up now. */
+      srt: Type.Optional(SandboxSrtStatus),
     }),
     scope: "operator.read",
     description: "Reports the container backend and, with sandboxId, one sandbox's state.",
@@ -68,18 +103,12 @@ export const SandboxMethods = {
   "sandbox.setup": defineMethod({
     params: Type.Object({}),
     result: Type.Object({
-      recommended: SandboxContainerBackend,
-      backends: Type.Array(SandboxSetupBackend),
-      ready: Type.Boolean({
-        description: "A runtime is running now (detected fresh, not at boot)",
-      }),
-      active: SandboxBackend,
-      restartNeeded: Type.Boolean({
-        description: "A runtime is running but this Gateway started without one: restart it",
-      }),
+      ready: Type.Boolean({ description: "srt is available, so command servers can run" }),
+      srt: SandboxSrtStatus,
+      containers: SandboxContainerSetup,
     }),
     scope: "operator.read",
     description:
-      "Looks at the container runtimes on this computer again, for the guided sandbox setup: which are supported, installed and running, which one to install, and whether the Gateway must restart to use one. Never installs or starts anything.",
+      "Looks again for the sandboxes on this computer, for the guided setup: srt first (Seatbelt, commands run on the Mac without reading Psyche's private data), then the optional container runtimes (supported, installed, running, recommended, restart needed). Never installs or starts anything.",
   }),
 } as const;

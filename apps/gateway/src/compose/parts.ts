@@ -11,6 +11,7 @@ import { composeHelper } from "./helper.ts";
 import { composeMcp } from "./mcp.ts";
 import { type ComposedSandbox, composeSandboxIfAvailable, type SandboxSetup } from "./sandbox.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
+import { createSrtResolver, type SrtResolver } from "./srt.ts";
 import { type ComposedVm, composeVm } from "./vm.ts";
 
 type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | ComposedPart;
@@ -37,7 +38,8 @@ type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | Compos
  * - the coding helper (V10, `code.*`; `PSYCHE_CODING=off` skips it): repositories in granted
  *   folders, `code.run` in the sandbox part's runner when there is one, host git without hooks;
  * - the MCP host (`mcp.servers` in settings; `PSYCHE_MCP=off` skips it): stdio servers under
- *   `srt` at `PSYCHE_SRT_PATH`, or each in its own sandbox container with
+ *   `srt` (`PSYCHE_SRT_PATH`, the `exec.srtPath` setting, or found on this Mac; looked up at each
+ *   launch), or each in its own sandbox container with
  *   `PSYCHE_MCP_LAUNCHER=container` (needs the sandbox part; network only through its egress
  *   proxy and the server's allowlist); without either only HTTP servers run.
  */
@@ -69,6 +71,12 @@ export function partsFromEnv(
   let browser: ComposedBrowser | undefined;
   let sandbox: ComposedSandbox | undefined;
   let vm: ComposedVm | undefined;
+  // One `srt` lookup for every part that runs host commands under it (MCP, sandbox status).
+  let srt: SrtResolver | undefined;
+  const srtFor = (s: ComposeServices) => {
+    srt ??= createSrtResolver(s, env);
+    return srt;
+  };
   if (env.PSYCHE_BROWSER !== "off") {
     // Logged out by default (I15). `PSYCHE_BROWSER_PARTITION=profile|clean|auto` and the
     // comma-separated `PSYCHE_BROWSER_SIGNED_IN_ORIGINS` (used by `auto`) stand in until
@@ -118,6 +126,7 @@ export function partsFromEnv(
     // Parts compose in order, so the browser (when mounted) exists by now.
     parts.push(async (s) => {
       const part = await composeSandboxIfAvailable(s, {
+        srt: srtFor(s),
         ...(overrides.sandboxRunner === undefined ? {} : { runner: overrides.sandboxRunner }),
         ...(browser === undefined ? {} : { devServers: browser.devServers }),
         ...(vm === undefined ? {} : { vm }),
@@ -160,16 +169,12 @@ export function partsFromEnv(
     }),
   );
   if (env.PSYCHE_MCP !== "off") {
-    parts.push(async (s) => {
+    parts.push((s) => {
       const runner = sandbox?.runner;
       const egress = sandbox?.egress;
-      // A container runtime on this Mac is the default launcher (each server in its own sandbox
-      // container); `PSYCHE_SRT_PATH` alone keeps srt, and `PSYCHE_MCP_LAUNCHER` still chooses.
-      const hasContainers =
-        runner !== undefined && (await runner.backends().catch(() => [])).length > 0;
-      const container =
-        env.PSYCHE_MCP_LAUNCHER === "container" ||
-        (env.PSYCHE_MCP_LAUNCHER === undefined && !env.PSYCHE_SRT_PATH && hasContainers);
+      // srt first (Seatbelt, no VM): found at each launch, so installing it or choosing it in
+      // Settings needs no restart. `PSYCHE_MCP_LAUNCHER=container` asks for containers instead.
+      const container = env.PSYCHE_MCP_LAUNCHER === "container";
       return composeMcp(s, {
         // The sandbox part's runner (not disposed by the MCP part) and its egress allowlists.
         ...(container && runner !== undefined && egress !== undefined
@@ -180,9 +185,7 @@ export function partsFromEnv(
               },
               egressAllowlist: (scope, hosts) => egress.egressAllowlist(scope, hosts),
             }
-          : env.PSYCHE_SRT_PATH
-            ? { srtPath: env.PSYCHE_SRT_PATH }
-            : {}),
+          : { srt: srtFor(s) }),
       });
     });
   }

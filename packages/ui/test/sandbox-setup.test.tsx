@@ -20,7 +20,7 @@ const backend = (
   running: boolean,
 ) => ({ kind, supported: true, installed, running, version: running ? "1" : null });
 
-const MISSING: Setup = {
+const NO_CONTAINERS: Setup["containers"] = {
   recommended: "apple-container",
   backends: [
     backend("apple-container", false, false),
@@ -31,24 +31,29 @@ const MISSING: Setup = {
   active: "none",
   restartNeeded: false,
 };
-const DOCKER_STOPPED: Setup = {
-  ...MISSING,
-  backends: [
-    backend("apple-container", false, false),
-    backend("docker", true, false),
-    backend("podman", false, false),
-  ],
+const NO_SRT: Setup["srt"] = {
+  available: false,
+  path: null,
+  source: null,
+  version: null,
+  problem: "not_found",
 };
+const MISSING: Setup = { ready: false, srt: NO_SRT, containers: NO_CONTAINERS };
 const READY: Setup = {
-  ...MISSING,
-  backends: [
-    backend("apple-container", true, true),
-    backend("docker", false, false),
-    backend("podman", false, false),
-  ],
   ready: true,
-  active: "apple-container",
+  srt: {
+    available: true,
+    path: "/opt/homebrew/bin/srt",
+    source: "detected",
+    version: "1.0.0",
+    problem: null,
+  },
+  containers: NO_CONTAINERS,
 };
+const withContainers = (containers: Partial<Setup["containers"]>): Setup => ({
+  ...MISSING,
+  containers: { ...NO_CONTAINERS, ...containers },
+});
 
 function world(seed: (g: MockGateway) => void, children: React.ReactNode): () => MockGateway {
   let gw: MockGateway | null = null;
@@ -114,8 +119,8 @@ describe("Set up sandbox button", () => {
     );
     await userEvent.click(screen.getByRole("button", { name: "Set up sandbox" }));
     const dialog = await screen.findByRole("dialog", { name: "Set up the sandbox" });
-    expect(await within(dialog).findByText("Install Apple container")).toBeTruthy();
-    expect(within(dialog).getAllByText(/isolated from your Mac/).length).toBeGreaterThan(0);
+    expect(await within(dialog).findByText("Install srt")).toBeTruthy();
+    expect(within(dialog).getAllByText(/run on your Mac/).length).toBeGreaterThan(0);
 
     gw().sandboxSetup = READY;
     await userEvent.click(within(dialog).getByRole("button", { name: "Check again" }));
@@ -125,16 +130,17 @@ describe("Set up sandbox button", () => {
 });
 
 describe("SandboxSetup walkthrough", () => {
-  it("missing: the recommended runtime's download and start command, nothing run", async () => {
+  it("missing: srt first, with the npm command and its page, nothing run", async () => {
     const gw = world(
       (g) => {
         g.sandboxSetup = MISSING;
       },
       <SandboxSetup />,
     );
-    expect(await screen.findByText("Install Apple container")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Open the Apple container releases" })).toBeTruthy();
-    expect(screen.getByText("container system start")).toBeTruthy();
+    expect(await screen.findByText("Install srt")).toBeTruthy();
+    expect(screen.getByText(/can't read your vault, keys or Psyche's private data/)).toBeTruthy();
+    expect(screen.getByText("npm install -g @anthropic-ai/sandbox-runtime")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Read about srt on GitHub" })).toBeTruthy();
     // Only looks: the walkthrough calls nothing but the read-only detection.
     expect(
       gw()
@@ -143,22 +149,78 @@ describe("SandboxSetup walkthrough", () => {
     ).toEqual(["sandbox.setup"]);
   });
 
-  it("missing where Apple container can't run: Colima or Docker Desktop", async () => {
-    world(
+  it("ready once srt is found, and Check again looks again", async () => {
+    const gw = world(
       (g) => {
-        g.sandboxSetup = { ...MISSING, recommended: "docker" };
+        g.sandboxSetup = MISSING;
       },
       <SandboxSetup />,
     );
-    expect(await screen.findByText("Install Docker")).toBeTruthy();
-    expect(screen.getByText("brew install colima docker")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Open the Docker Desktop download" })).toBeTruthy();
+    await screen.findByText("Install srt");
+    gw().sandboxSetup = READY;
+    await userEvent.click(screen.getByRole("button", { name: "Check again" }));
+    expect(await screen.findByRole("status")).toBeTruthy();
+    expect(screen.getByText(/srt is set up at \/opt\/homebrew\/bin\/srt/)).toBeTruthy();
   });
 
-  it("installed but not running: how to start it", async () => {
+  it("saves a chosen srt location as exec.srtPath, then checks again", async () => {
+    const gw = world(
+      (g) => {
+        g.sandboxSetup = MISSING;
+      },
+      <SandboxSetup />,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "srt is somewhere else" }));
+    const use = screen.getByRole("button", { name: "Use this srt" }) as HTMLButtonElement;
+    expect(use.disabled).toBe(true);
+    await userEvent.type(screen.getByLabelText("Full path to srt"), "/Users/me/bin/srt");
+    gw().sandboxSetup = {
+      ...READY,
+      srt: { ...READY.srt, path: "/Users/me/bin/srt", source: "setting" },
+    };
+    await userEvent.click(use);
+    await waitFor(() =>
+      expect(gw().calls.find((c) => c.method === "settings.set")?.params).toEqual({
+        key: "exec.srtPath",
+        value: "/Users/me/bin/srt",
+      }),
+    );
+    expect(await screen.findByText(/srt is set up at \/Users\/me\/bin\/srt/)).toBeTruthy();
+  });
+
+  it("says why a chosen srt can't be used", async () => {
     world(
       (g) => {
-        g.sandboxSetup = DOCKER_STOPPED;
+        g.sandboxSetup = {
+          ...MISSING,
+          srt: { ...NO_SRT, path: "/nope/srt", source: "setting", problem: "not_executable" },
+        };
+      },
+      <SandboxSetup />,
+    );
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(screen.getByText(/The srt at \/nope\/srt can't be used/)).toBeTruthy();
+  });
+
+  it("offers containers only as the optional stronger isolation", async () => {
+    world(
+      (g) => {
+        g.sandboxSetup = withContainers({ recommended: "docker" });
+      },
+      <SandboxSetup />,
+    );
+    const more = await screen.findByText("Stronger isolation (optional)");
+    expect(more.closest("details")?.open).toBe(false);
+    expect(screen.getByText("Install Docker")).toBeTruthy();
+    expect(screen.getByText("brew install colima docker")).toBeTruthy();
+  });
+
+  it("containers: installed but not running", async () => {
+    world(
+      (g) => {
+        g.sandboxSetup = withContainers({
+          backends: [backend("apple-container", false, false), backend("docker", true, false)],
+        });
       },
       <SandboxSetup />,
     );
@@ -166,28 +228,18 @@ describe("SandboxSetup walkthrough", () => {
     expect(screen.getByText("colima start")).toBeTruthy();
   });
 
-  it("running but the Gateway started without it: restart", async () => {
+  it("containers: running but the Gateway started without one", async () => {
     world(
       (g) => {
-        g.sandboxSetup = { ...READY, active: "none", restartNeeded: true };
+        g.sandboxSetup = withContainers({
+          backends: [backend("apple-container", true, true)],
+          ready: true,
+          restartNeeded: true,
+        });
       },
       <SandboxSetup />,
     );
     expect(await screen.findByText(/Restart the Gateway to use it/)).toBeTruthy();
-  });
-
-  it("ready, and Check again looks again", async () => {
-    const gw = world(
-      (g) => {
-        g.sandboxSetup = DOCKER_STOPPED;
-      },
-      <SandboxSetup />,
-    );
-    await screen.findByText("Docker is installed but not running");
-    gw().sandboxSetup = READY;
-    await userEvent.click(screen.getByRole("button", { name: "Check again" }));
-    expect(await screen.findByRole("status")).toBeTruthy();
-    expect(screen.getByText("Ready")).toBeTruthy();
   });
 });
 
@@ -203,7 +255,7 @@ describe("Onboarding → Sandbox", () => {
   it("is optional: says what is lost and skips to the next step", async () => {
     flow(MISSING);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("Sandbox (optional)");
-    expect(await screen.findByText(/can't run local MCP command servers/)).toBeTruthy();
+    expect(await screen.findByText(/Without srt/)).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Skip for now" }));
     expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("Model & provider");
   });
@@ -212,6 +264,6 @@ describe("Onboarding → Sandbox", () => {
     flow(READY);
     expect(await screen.findByText("Ready")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Skip for now" })).toBeNull();
-    expect(screen.queryByText(/can't run local MCP command servers/)).toBeNull();
+    expect(screen.queryByText(/Without srt/)).toBeNull();
   });
 });

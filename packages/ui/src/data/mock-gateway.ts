@@ -306,22 +306,33 @@ export class MockGateway implements GatewayClient {
   mcpLauncher: "srt" | "container" | "none" = "srt";
   /** What `sandbox.setup` finds (guided setup); tests change it between "Check again"s. */
   sandboxSetup: MethodResult<"sandbox.setup"> = {
-    recommended: "apple-container",
-    backends: [
-      {
-        kind: "apple-container",
-        supported: true,
-        installed: true,
-        running: true,
-        version: "1.5.0",
-      },
-      { kind: "docker", supported: true, installed: false, running: false, version: null },
-      { kind: "podman", supported: true, installed: false, running: false, version: null },
-    ],
     ready: true,
-    active: "apple-container",
-    restartNeeded: false,
+    srt: {
+      available: true,
+      path: "/opt/homebrew/bin/srt",
+      source: "detected",
+      version: "1.0.0",
+      problem: null,
+    },
+    containers: {
+      recommended: "apple-container",
+      backends: [
+        {
+          kind: "apple-container",
+          supported: true,
+          installed: false,
+          running: false,
+          version: null,
+        },
+        { kind: "docker", supported: true, installed: false, running: false, version: null },
+        { kind: "podman", supported: true, installed: false, running: false, version: null },
+      ],
+      ready: false,
+      active: "none",
+      restartNeeded: false,
+    },
   };
+
   private mcpProposals = new Map<string, { proposal: McpProposal; approvalId: string }>();
   /** What an added server's detail shows: its tools (the owner's switches) and secrets by name. */
   private mcpDetail = new Map<string, { tools: McpServerTool[]; secrets: McpServerSecret[] }>();
