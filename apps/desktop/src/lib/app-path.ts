@@ -4,11 +4,19 @@ import { extname, normalize, resolve, sep } from "node:path";
  * Maps an `app://psyche/<path>` request onto the built renderer directory. The renderer leaves
  * `file://` (security §12): a custom standard scheme gets its own origin, so the
  * `GrantFileProtocolExtraPrivileges` fuse can be off. Paths that escape the root are refused;
- * extensionless paths are app routes and get `index.html` (client-side routing, docs/06 §2.7).
+ * extensionless paths are app routes and get `index.html` (client-side routing, docs/06 §2.7), except
+ * the small windows' routes, which get `panel.html` (docs/design/lightweight-2026.md).
  */
 export const APP_SCHEME = "app";
 export const APP_HOST = "psyche";
 export const APP_ORIGIN = `${APP_SCHEME}://${APP_HOST}`;
+
+/** Routes served by the panel entry (panel.html): the screen-ask panel, its overlay, the HUD. */
+export const PANEL_ROUTES: readonly string[] = [
+  "/screen-ask",
+  "/screen-ask-region",
+  "/dictation-hud",
+];
 
 export function resolveAppPath(root: string, requestUrl: string): string | null {
   let url: URL;
@@ -25,7 +33,12 @@ export function resolveAppPath(root: string, requestUrl: string): string | null 
     return null;
   }
   if (pathname.includes("\0")) return null;
-  const rel = extname(pathname) === "" ? "index.html" : pathname.replace(/^\/+/, "");
+  const rel =
+    extname(pathname) !== ""
+      ? pathname.replace(/^\/+/, "")
+      : PANEL_ROUTES.includes(pathname)
+        ? "panel.html"
+        : "index.html";
   const base = resolve(root);
   const full = resolve(base, normalize(rel));
   if (full !== base && !full.startsWith(base + sep)) return null;
