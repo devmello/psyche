@@ -943,7 +943,7 @@ export function composeChannels(
     const { sessions, bus } = gw.context;
     if (sessions.activeRunId(threadId) !== null) {
       // Held in memory rather than the durable follow-up queue: `chat_queue.device_id` names a
-      // paired device, which a chat sender is not (gap: docs/status/int-2.md).
+      // paired device, which a chat sender is not (gap: docs/archive/status/int-2.md).
       const list = waiting.get(threadId) ?? [];
       list.push(pending);
       waiting.set(threadId, list);
@@ -1010,7 +1010,7 @@ export function composeChannels(
     // session controller still records every turn as owner text with MEMORY.md injected and the
     // full tool set, so designated persons, allowed senders and groups (no memory, persona
     // overlay, tool allowlist) wait for S01 to carry the rest of `RouteContext` into a turn
-    // (docs/status/int-2.md).
+    // (docs/archive/status/int-2.md).
     if (route.role !== "owner" || !route.injectMemory) {
       await reply(target, "Psyche can't take requests in this chat yet.");
       return;

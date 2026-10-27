@@ -2,7 +2,7 @@
 
 Status: draft v0.1 (2026-10-18), **amended 2026-10-25 by the 2026 redesign**: where this document disagrees with [design/redesign-2026.md](design/redesign-2026.md), [design/motion.md](design/motion.md) or [design/research/liquid-glass.md](design/research/liquid-glass.md) §6, those win. §2.1, §3.1 and §4 below are updated to match. Companion documents: [00-vision-and-principles.md](00-vision-and-principles.md), [02-architecture.md](02-architecture.md), [03-feature-spec.md](03-feature-spec.md), [04-data-model.md](04-data-model.md), [05-security-and-permissions.md](05-security-and-permissions.md), [07-tech-decisions.md](07-tech-decisions.md).
 
-References. *(muse notes, Qn)* = `research_notes/.../meta_muse_app.md`; *(claude notes, Qn)* = `claude_desktop_and_peers.md`; *(blocks notes, section)* = `models_memory_mcp_ui_feed.md`; *(harness notes, KQn)* = `opendots_openclaw_harnesses.md`; *(arch §n)* = `02-architecture.md`. Where the notes are silent the text says so and labels the choice **Psyche decision**. Component names follow the architecture document.
+References. *(muse notes, Qn)* = `docs/archive/research-notes/.../meta_muse_app.md`; *(claude notes, Qn)* = `claude_desktop_and_peers.md`; *(blocks notes, section)* = `models_memory_mcp_ui_feed.md`; *(harness notes, KQn)* = `opendots_openclaw_harnesses.md`; *(arch §n)* = `02-architecture.md`. Where the notes are silent the text says so and labels the choice **Psyche decision**. Component names follow the architecture document.
 
 ---
 

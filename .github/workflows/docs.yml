@@ -1,13 +1,13 @@
-# Builds the documentation site (site/, VitePress) and publishes it to GitHub Pages.
+# Builds the documentation site (apps/site, VitePress) and publishes it to GitHub Pages.
 # Pushes to main only: pull requests never deploy, and nothing here runs on forks' PRs.
-# Owner setting required once: Settings → Pages → Source: GitHub Actions (docs/status/s20.md).
+# Owner setting required once: Settings → Pages → Source: GitHub Actions (docs/archive/status/s20.md).
 name: docs
 
 on:
   push:
     branches: [main]
     paths:
-      - "site/**"
+      - "apps/site/**"
       - "docs/guides/**"
       - "docs/release-notes/**"
       - "apps/cli/src/**"
@@ -62,7 +62,7 @@ jobs:
       - name: Upload the site
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: site/.vitepress/dist
+          path: apps/site/.vitepress/dist
 
   deploy:
     name: docs / deploy

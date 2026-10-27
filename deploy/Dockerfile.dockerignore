@@ -8,9 +8,8 @@
 .git
 .claude
 apps/mac-helper
-spikes
-research_notes
-reports
+apps/site
+docs/archive
 tests/corpus
 **/*.log
 .env

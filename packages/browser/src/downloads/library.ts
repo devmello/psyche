@@ -6,7 +6,7 @@ import type { SniffResult } from "./sniff.ts";
 /**
  * Where quarantined downloads go (feature I9; architecture §12 `library/quarantine/`). No
  * protocol contract exists for the Library yet, so this package defines the narrow writer it
- * needs; the Library owner implements it (request in docs/status/s08.md). Files are never
+ * needs; the Library owner implements it (request in docs/archive/status/s08.md). Files are never
  * opened or executed here.
  */
 export interface QuarantinedFile {

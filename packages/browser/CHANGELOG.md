@@ -1,5 +1,15 @@
 # @psyche/browser
 
+## Unreleased (pre-0.3.0)
+
+### Minor Changes
+
+- Web Bot Auth (I14): the browser signs document requests of profile tabs with the vault's Ed25519 key for sites that ask (`Accept-Signature`) or the owner lists; the vault creates and rotates the key (schema v2 allows `signing_key`); the Gateway serves the key directory and `browser.botAuth.status | rotate`; the desktop allows narrow document `Fetch` and merges signature headers into the real request.
+
+### Patch Changes
+
+- Run trace T1, Gateway sink (#660): `run_steps` and `run_frames`, one sink for chat and helper runs, `runs.*` with `psyche-trace+json` v1 and Markdown export, retention of thinking text (`data.reasoningRetentionDays`) and frames (`data.replayRetentionDays`), and redaction at write. `@psyche/browser` exports `redactUrl`.
+
 ## 0.3.0-alpha.0
 
 ### Minor Changes

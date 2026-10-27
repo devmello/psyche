@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * The self-contained Gateway bundle for Psyche.app (deploy/scripts/build-psyched.mjs; docs/status/
+ * The self-contained Gateway bundle for Psyche.app (deploy/scripts/build-psyched.mjs; docs/archive/status/
  * s22.md "Packaging layout"). Runs only when a bundle has been built on this machine
  * (`node deploy/scripts/build-psyched.mjs`): it starts the built `psyched` with nothing but
  * PSYCHE_HOME in its environment (no PATH, no Node, no checkout) and checks /healthz.

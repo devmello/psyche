@@ -1,6 +1,6 @@
 # tests/acceptance
 
-**Owner:** INT-3. Milestone 1 to 3 acceptance (prompts/int-3-acceptance.md): the checks behind [SCORECARD.md](SCORECARD.md). Criteria: docs/03-feature-spec.md "Cross-cutting acceptance criteria" and section V; docs/08-roadmap.md Milestones 1 to 3. Scenarios and fixtures belong to S18 (tests/scenarios); this package automates them.
+**Owner:** INT-3. Milestone 1 to 3 acceptance (docs/archive/prompts/int-3-acceptance.md): the checks behind [SCORECARD.md](SCORECARD.md). Criteria: docs/03-feature-spec.md "Cross-cutting acceptance criteria" and section V; docs/08-roadmap.md Milestones 1 to 3. Scenarios and fixtures belong to S18 (tests/scenarios); this package automates them.
 
 ```
 offline/   scenarios.test.ts     V1, V2, V3, V4, V7 through S18's scripted runner; known failures stay tracked by issue

@@ -1,5 +1,26 @@
 # @psyche/desktop
 
+## Unreleased (pre-0.3.0)
+
+### Minor Changes
+
+- Localization groundwork (A12):
+  - an ICU message catalogue with `t()`, `I18nProvider` and `describeError` for Gateway errors;
+  - locale-aware formatting from the macOS region format, with Settings → Appearance → Language and region (`ui.locale`, `ui.direction`);
+  - `pnpm i18n:check` against hard-coded UI text and missing ids, with a shrink-only baseline;
+  - the chat's context UI extracted and right-to-left safe.
+- Voice conversation key (V-G G4, #691): with voice conversation on, the helper's watch carries the voice key beside the dictation key (one watch, two roles), and the app renderers get `psyche.voice.onKey` and `psyche.voice.onSystem` (screen lock and sleep) to drive and end conversations.
+- Voice HUD window (V-G, #691, spec §6.2): with voice conversation on, main keeps a warm, hidden, non-activating panel running the renderer at `/voice-hud` and shows it top-centre when the voice key goes down in any app. The preload bridge gains `psyche.voiceHud.{done, openThread}`; main accepts them only from the HUD window. `done` destroys the window (freeing the microphone) and warms a fresh one; `openThread` also brings up the main window on that thread. Screen lock and sleep destroy it until the Mac is back. The HUD may call the Gateway and use the microphone like an app renderer.
+- Remove spoken output from the UI: the voice capsule, lantern, voice HUD window, the shell's voice mode, the Voice button and the voice, speed, narration, barge-in, approval and brief settings. Voice is speech-to-text: the voice key opens the ask panel in voice mode and the answer is text. Settings keeps "Talk with Psyche", the voice key and "Review before sending".
+- The ask panel is the voice pop-up (part of #693): hold the voice key, speak, and let go. The words are sent as a plain chat (or left in the input when Review before sending is on) and the answer appears as text. The panel window now exists when Ask about screen or Talk with Psyche is on; screen capture still follows Ask about screen. A `VoiceKeySource` seam in desktop main keeps the macOS key watch replaceable.
+
+### Patch Changes
+
+- Web Bot Auth (I14): the browser signs document requests of profile tabs with the vault's Ed25519 key for sites that ask (`Accept-Signature`) or the owner lists; the vault creates and rotates the key (schema v2 allows `signing_key`); the Gateway serves the key directory and `browser.botAuth.status | rotate`; the desktop allows narrow document `Fetch` and merges signature headers into the real request.
+- Bundled skills map their capability names to the Gateway's real tools and say why they are unavailable; gating follows the live tool set; the psyched build fails without its skills folder and the smoke lists the shipped skills (#506).
+- Subscription CLIs are found under launchd (#530): `claude` and `codex` resolve from PSYCHE_CLAUDE_PATH / PSYCHE_CODEX_PATH, PATH, Homebrew and user install directories, and the login shell; the probe shows the resolved path; the LaunchAgent plist sets a PATH with Homebrew first.
+- The Mac helper no longer synthesizes speech: `speech.synthesize`, `speech.prepare`, `speech.voices` and `speech.personal_voice.authorize` are gone, and `speech.status` no longer reports Personal Voice or `synthesisFirstAudioMs`. Speech-to-text is unchanged (part of #692).
+
 ## 0.3.0-alpha.0
 
 ### Minor Changes

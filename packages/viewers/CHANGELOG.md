@@ -1,5 +1,12 @@
 # @psyche/viewers
 
+## Unreleased (pre-0.3.0)
+
+### Minor Changes
+
+- Teaching loop (#680): margin marks in the Markdown editor. `MarkdownEditor` takes `marks` (a line's text and a tooltip) and `onMarkActivate`, and draws a dot in a gutter beside each matching line; the gutter only exists while there are marks. The editor slot passes them through: Soul & Memory gives every lesson-owned line a mark, and activating one opens that lesson in the "Learned from you" list. The gutter is aria-hidden, so its dots are a pointer-only cue and the list stays the keyboard and VoiceOver path.
+- The composed app (web and desktop) fills the kit's `renderEditor` slot with the viewers' Markdown editor, so Soul & Memory edits persona files in Rich / Source / Diff. Lines the teaching loop wrote show their margin mark. `ControlledMarkdownEditor` is the controlled form: the host keeps the draft, budget, Save and Discard, and `MarkdownEditor` gains `chrome: "modes"` to show only the mode switch.
+
 ## 0.3.0-alpha.0
 
 ### Minor Changes

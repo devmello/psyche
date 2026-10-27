@@ -1,6 +1,6 @@
 import Foundation
 
-// Hand-written wire envelopes for docs/plans/s00.md "Wire spec v1". Names carry a `Wire` prefix so
+// Hand-written wire envelopes for docs/archive/plans/s00.md "Wire spec v1". Names carry a `Wire` prefix so
 // they never collide with the generated models in PsycheProtocol.generated.swift.
 
 /// Any JSON value, for `params` / `payload` / `details`.

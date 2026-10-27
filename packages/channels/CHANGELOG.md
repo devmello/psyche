@@ -1,5 +1,22 @@
 # @psyche/channels
 
+## Unreleased (pre-0.3.0)
+
+### Minor Changes
+
+- SMS channel over Twilio (N9): a signed, replay-checked webhook at `POST /channels/sms/twilio`, which is off unless the `PSYCHE_SMS_*` variables are set. SMS senders are always weak: they pair and chat as non-owners (chat-only, no tools) and never answer approvals.
+- Discord channel adapter (N8): the gateway websocket and REST without an SDK, Approve / Deny buttons, pairing in DMs, a fatal health detail for a rejected token, and Gateway wiring from `PSYCHE_DISCORD_BOT_TOKEN(_FILE)` + `PSYCHE_DISCORD_ACCOUNT`.
+- Signal channel adapter (N7) over the owner's own signal-cli JSON-RPC daemon socket (`node:net`, no SDK). It refuses account-changing methods, checks the socket's ownership and permissions before connecting, reconnects with back-off up to 60 s, maps DMs, groups, quotes and attachments, and answers approvals with 👍 / 👎 reactions only. Gateway wiring comes from `PSYCHE_SIGNAL_SOCKET` + `PSYCHE_SIGNAL_NUMBER`.
+- Remove all text-to-speech from the Gateway side: synthesis in `@psyche/speech` (Kokoro, ElevenLabs, read-aloud, voice catalog, the voice conversation manager), the voice-turn prompt section and `StartTurnInput.voice`, channel voice-note sending, and the synthesis half of the `SpeechEngine` contract. Speech to text is unchanged. The Gateway removes the stale voice and synthesis settings on start (`deleteSettings` in `@psyche/db`).
+
+### Patch Changes
+
+- Slack channel over Socket Mode (N8) with button approvals; channel transport secrets as Gateway-owned vault items (`channels.secrets.*`).
+- Email as a channel over the mail connector's IMAP + SMTP backend (N9): threads as conversations, replies only to the sender under the reply authority; email is a weak transport.
+- SMS webhook refusals are empty 403s counted and audited per claimed sender against the inbound limit; docs/05 §9 documents webhook channels (the provider signature replaces the transport gate).
+- WhatsApp as a channel over Meta's Cloud API (N6), with no SDK and no Baileys. The webhook (GET verify-token handshake, POST signed with the app secret over the raw body) is mounted only when configured. The adapter keeps the 24-hour service window, sends approval reply buttons that carry only a nonce, downloads media only from the media host, and reads its three secrets from env or the vault. WhatsApp senders are strong, set by the single constant `WHATSAPP_IDENTITY_STRENGTH`. Gateway webhook routes can now declare GET as well as POST.
+- Mail and meeting workflow shapes (#670 W1): batch proposals and the `batch` approval kind, event triggers for automations, `FeedPost.kind` / `refs` / `card`, digest (with the graph's loops), meeting-prep and meeting-notes records, `proposals.*` methods and the `proposal.updated` event.
+
 ## 0.3.0-alpha.0
 
 ### Minor Changes

@@ -3,7 +3,7 @@ import type { ComposeServices } from "./services.ts";
 
 /**
  * The origins a `web_fetch` call's Task may read, for its per-hop redirect check (#72; security
- * §6, I7). Tasks have no stored origin set yet (docs/status/s05.md), so the set is what the
+ * §6, I7). Tasks have no stored origin set yet (docs/archive/status/s05.md), so the set is what the
  * owner approved: live `new_origin` grants scoped to this call's Task, plus `site` and `always`
  * grants. `session` grants are left out because the grant does not say which thread they belong
  * to, so a redirect into a session-approved origin is refused and asked as its own call.

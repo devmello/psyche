@@ -2,7 +2,7 @@
 
 Shown to users as **Psyche (Helper)**; see [Name in macOS](#name-in-macos-541).
 
-**Owner:** S14 (`prompts/s14-mac-helper.md`). Feature ids: A9, J1–J5, O10 (OS delivery), Q1 (engines), G1 (keychain), later J6, J7, J9, L1–L5 ([docs/03-feature-spec.md](../../docs/03-feature-spec.md)).
+**Owner:** S14 (`docs/archive/prompts/s14-mac-helper.md`). Feature ids: A9, J1–J5, O10 (OS delivery), Q1 (engines), G1 (keychain), later J6, J7, J9, L1–L5 ([docs/03-feature-spec.md](../../docs/03-feature-spec.md)).
 
 `Psyche Helper.app` (`com.psyche.helper`, ADR-001, ADR-020) is the signed Swift app that holds every macOS permission Psyche uses and offers them to the Gateway as a **node** (architecture §6, §7): Accessibility-driven computer use, screenshots, Apple Events and Shortcuts, the keychain with Touch ID, actionable notifications and on-device speech. It is not a pnpm package (no `package.json`; the root vitest config skips it).
 
@@ -20,7 +20,7 @@ Requires macOS 15+ (ADR-016) and Swift 6. CI builds with the macOS 26 SDK; newer
 
 `psyche-helper` with no flags stays connected to the Gateway's node socket (`$PSYCHE_NODE_SOCKET`, else `$PSYCHE_HOME/run/node.sock`), pairs, declares its manifest and serves `node.invoke`, reconnecting with capped backoff (0.5 s → 30 s; 5 s while pairing is pending). `--handshake-only` keeps the S00 smoke test (exit 0 paired/pending, 2 socket missing, 3 denied, 4 timeout); `--challenge-only` stops after the challenge.
 
-One helper runs per `$PSYCHE_HOME`. It holds `$PSYCHE_HOME/run/helper.lock`, and a second copy exits 0 before loading anything. A helper running from an `.app` checks its own executable every 30 s. When the executable is replaced or removed (upgrade, Trash), it exits with 75, so a LaunchAgent restarts the new binary and the desktop's next `open` starts the bundled one. Bundled layout and launch contract: `docs/status/s14.md` "Packaging".
+One helper runs per `$PSYCHE_HOME`. It holds `$PSYCHE_HOME/run/helper.lock`, and a second copy exits 0 before loading anything. A helper running from an `.app` checks its own executable every 30 s. When the executable is replaced or removed (upgrade, Trash), it exits with 75, so a LaunchAgent restarts the new binary and the desktop's next `open` starts the bundled one. Bundled layout and launch contract: `docs/archive/status/s14.md` "Packaging".
 
 **Never run the binary from a shell for real use.** TCC attributes a shell child to its responsible process (the terminal, or the Claude Code CLI), so grants would go to the wrong app (spike 04). Launch the bundle through LaunchServices (`open`) or launchd.
 
@@ -38,7 +38,7 @@ One helper runs per `$PSYCHE_HOME`. It holds `$PSYCHE_HOME/run/helper.lock`, and
 
 ## Node protocol
 
-Wire spec v1 (`docs/plans/s00.md`). After `connect` (with `capabilities` = the manifest) and `connect.verify`:
+Wire spec v1 (`docs/archive/plans/s00.md`). After `connect` (with `capabilities` = the manifest) and `connect.verify`:
 
 ```
 Gateway → req node.invoke {invocationId, capability, params, approvalId?}
@@ -225,7 +225,7 @@ One microphone stream at a time (`microphone_busy`), at most 4 streams, 8 MiB pu
 
 ### VM mode (L1–L5)
 
-One sandbox Mac per user on Virtualization.framework, following spike 06 (`docs/spikes/spike-06-vz-provisioning.md`). Shapes live in `packages/protocol` `schemas/vm.ts`. Clients call these capabilities through `nodes.invoke`; the Permission Broker gates the writes.
+One sandbox Mac per user on Virtualization.framework, following spike 06 (`docs/archive/spikes-docs/spike-06-vz-provisioning.md`). Shapes live in `packages/protocol` `schemas/vm.ts`. Clients call these capabilities through `nodes.invoke`; the Permission Broker gates the writes.
 
 | Area | Capabilities | Notes |
 | --- | --- | --- |

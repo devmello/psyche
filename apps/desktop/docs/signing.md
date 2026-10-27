@@ -71,7 +71,7 @@ build command to run; `PSYCHE_PACKAGE_ALLOW_PARTIAL=1` packages without it (dev 
 builds). `PSYCHE_PSYCHED_DIR` and `PSYCHE_HELPER_APP` point at other builds.
 
 1. `PsycheHelper.app` arrives signed by its own build with its own entitlements
-   (docs/status/s14.md "Packaging"). The package step only verifies it (`codesign --verify
+   (docs/archive/status/s14.md "Packaging"). The package step only verifies it (`codesign --verify
    --strict`) and fails when it is ad-hoc while the app has a Developer ID.
 2. osx-sign signs everything else inside out with the same identity: Electron's helpers and
    frameworks, node-pty, and only the Mach-O files under `psyched/` (`runtime/node`, `.node`,

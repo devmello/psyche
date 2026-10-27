@@ -1,6 +1,6 @@
 -- S15 notifications inbox (data model §8 `notifications`, plus routing state).
 -- Shipped in @psyche/notifications until S01 registers it under packages/db/migrations
--- (adding it there needs a matching drizzle table in @psyche/db's schema.ts; see docs/status/s15.md).
+-- (adding it there needs a matching drizzle table in @psyche/db's schema.ts; see docs/archive/status/s15.md).
 CREATE TABLE IF NOT EXISTS notifications (
   id TEXT PRIMARY KEY NOT NULL,
   kind TEXT NOT NULL CHECK (kind IN ('approval', 'input_needed', 'task_done', 'task_failed', 'proactive', 'briefing', 'reminder', 'system')),

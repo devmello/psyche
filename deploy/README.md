@@ -1,6 +1,6 @@
 # deploy/
 
-**Owner:** S22 (`prompts/s22-cli-deploy.md`). Features A7 (Gateway supervision on macOS), A11 (Linux server packaging), U4 (backups); architecture §3.2 (topologies), §12 (storage); security §10 (control plane), §14 (data handling).
+**Owner:** S22 (`docs/archive/prompts/s22-cli-deploy.md`). Features A7 (Gateway supervision on macOS), A11 (Linux server packaging), U4 (backups); architecture §3.2 (topologies), §12 (storage); security §10 (control plane), §14 (data handling).
 
 Every recipe runs the same `psyched` with the same rules: it binds `127.0.0.1` only, keeps its state in `$PSYCHE_HOME` (mode 0700), serves a bare unauthenticated `GET /healthz`, and pairs every client (desktop, web, phone, CLI) as a device the owner approves. Remote access always goes through Tailscale Serve, Cloudflare Tunnel + Access, or an SSH tunnel; never through an open port.
 
@@ -17,7 +17,7 @@ Every recipe runs the same `psyched` with the same rules: it binds `127.0.0.1` o
 | `backup/` | Backup, restore and verify scripts for Compose deployments |
 | `browser/` | The Compose `browser` sidecar: pinned Playwright base, `playwright` from `package-lock.json` (`npm ci`) |
 | `homebrew/` | Cask (desktop app) and formula (`psyche` CLI) templates for the `devmello/psyche` tap |
-| `macos/build-helper.sh` | `apps/mac-helper/dist/PsycheHelper.app` (com.psyche.helper) for `Psyche.app/Contents/Resources`; Developer ID with `PSYCHE_SIGN_IDENTITY`, else ad-hoc (TCC grants do not survive ad-hoc upgrades). Owner: S14; contract in `docs/status/s14.md` "Packaging" |
+| `macos/build-helper.sh` | `apps/mac-helper/dist/PsycheHelper.app` (com.psyche.helper) for `Psyche.app/Contents/Resources`; Developer ID with `PSYCHE_SIGN_IDENTITY`, else ad-hoc (TCC grants do not survive ad-hoc upgrades). Owner: S14; contract in `docs/archive/status/s14.md` "Packaging" |
 | `macos/build-guest-image.sh` | A checksummed sandbox Mac image (L7) built in a throwaway `PSYCHE_HOME`: IPSW → provisioned guest → Psyche installed → TCC pre-granted → `<id>/` (+ `.aar` with `--archive`). Needs a macOS 27 host with ≥ 24 GB. Owner: S14; guide `docs/guides/vm-guest-images.md` |
 | `macos/make-dmg.sh` | `Psyche-<version>-<arch>.dmg` and its `.sha256` from a packaged app: an Applications link, plus with `PSYCHE_DMG_LAYOUT=1` (default in CI only, since it scripts Finder) the window layout over `macos/dmg-background.png` (drawn by `macos/make-background.mjs`); signs, notarizes and staples with a Developer ID, otherwise ad-hoc (`apps/desktop/docs/signing.md`) |
 | `scripts/build-psyched.mjs` | The self-contained Gateway bundle for Psyche.app (`apps/gateway/dist-bin/darwin-<arch>/psyched/`): Node 24 runtime checked against nodejs.org, the Gateway and CLI sources with production dependencies, launchers, plist template. `--smoke` starts it with only `PSYCHE_HOME` and checks `/healthz` |

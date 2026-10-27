@@ -43,7 +43,7 @@ Build features against fakes, for example `FakeModelProvider.script([[{type: "te
 
 - Fakes simplify policy (no classifier, no sensitive-category list, read asks only in `manual`), scheduling (UTC-only cron subset) and search ranking (term overlap). Contracts without a conformance suite yet: AgentLoop, Scheduler, BrowserDriver, McpHost, ChannelAdapter, SkillLoader, SpeechEngine, ViewerRegistry.
 - Injection runner: the reference gate stands in for S02's `before_tool_call` until it lands; no probe scanner (`flagged_instruction_like` is reported as unchecked); `ApprovalRequest` has no taint-source list, so `approval.taintSources` is unchecked.
-- No scenario runner or mock Gateway server yet. The resumability harness's `crash: "instant"` mode documents a known duplicate-send gap (see `docs/status/s18.md`).
+- No scenario runner or mock Gateway server yet. The resumability harness's `crash: "instant"` mode documents a known duplicate-send gap (see `docs/archive/status/s18.md`).
 
 ## How this package maps to the docs
 
@@ -53,4 +53,4 @@ Build features against fakes, for example `FakeModelProvider.script([[{type: "te
 
 ## Rules
 
-Edit only this package (see `prompts/_shared-rules.md`). Cross-package needs go through `packages/protocol` contracts and the fakes here.
+Edit only this package (see `docs/archive/prompts/_shared-rules.md`). Cross-package needs go through `packages/protocol` contracts and the fakes here.

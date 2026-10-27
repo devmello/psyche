@@ -1,6 +1,6 @@
 # @psyche/desktop
 
-**Owner:** S11 (`prompts/s11-desktop-web-shell.md`). Features A6, A7, E10, I1, I5, I6, I11, K6, D5, O10 (desktop relay), Q1 (composer UI) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md). Design: [architecture §5, §8](../../docs/02-architecture.md), [UI design](../../docs/06-ui-design.md), [security §6, §10, §12](../../docs/05-security-and-permissions.md), [spike 01](../../docs/spikes/spike-01-cdp-bridge.md).
+**Owner:** S11 (`docs/archive/prompts/s11-desktop-web-shell.md`). Features A6, A7, E10, I1, I5, I6, I11, K6, D5, O10 (desktop relay), Q1 (composer UI) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md). Design: [architecture §5, §8](../../docs/02-architecture.md), [UI design](../../docs/06-ui-design.md), [security §6, §10, §12](../../docs/05-security-and-permissions.md), [spike 01](../../docs/archive/spikes-docs/spike-01-cdp-bridge.md).
 
 Electron 44 shell (`Psyche.app`). It renders the shared React shell from `@psyche/web/shell`, holds the Gateway connection and the device key in the main process, hosts the agent's embedded browser and its CDP bridge, runs terminal PTYs the Gateway chooses, relays notifications, and keeps a menu-bar item so work continues after the window closes. It decides nothing: approvals are rendered and answered through the Gateway.
 

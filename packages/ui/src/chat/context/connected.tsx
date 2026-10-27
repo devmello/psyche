@@ -32,7 +32,7 @@ import {
 } from "./types.ts";
 
 /**
- * The context UI bound to the Gateway (agent-core's context protocol, docs/status/s02.md): the
+ * The context UI bound to the Gateway (agent-core's context protocol, docs/archive/status/s02.md): the
  * header meter, "Compact now", this chat's own limits and the compaction markers.
  */
 

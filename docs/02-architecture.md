@@ -1,6 +1,6 @@
 # Psyche — System Architecture
 
-Status: draft v0.1 (2026-10-18). Companion documents: [00-vision-and-principles.md](00-vision-and-principles.md), [03-feature-spec.md](03-feature-spec.md), [04-data-model.md](04-data-model.md), [05-security-and-permissions.md](05-security-and-permissions.md), [06-ui-design.md](06-ui-design.md), [07-tech-decisions.md](07-tech-decisions.md), [08-roadmap.md](08-roadmap.md). Evidence for every external claim lives in `research_notes/` and the synthesized report in `reports/`.
+Status: draft v0.1 (2026-10-18). Companion documents: [00-vision-and-principles.md](00-vision-and-principles.md), [03-feature-spec.md](03-feature-spec.md), [04-data-model.md](04-data-model.md), [05-security-and-permissions.md](05-security-and-permissions.md), [06-ui-design.md](06-ui-design.md), [07-tech-decisions.md](07-tech-decisions.md), [08-roadmap.md](08-roadmap.md). Evidence for every external claim lives in `docs/archive/research-notes/` and the synthesized report in `reports/`.
 
 ---
 

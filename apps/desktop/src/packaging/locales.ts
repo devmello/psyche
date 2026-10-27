@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 /**
  * The UI is English only, so the packaged app ships Chromium's English locale and drops the other
- * 109 (≈ 48 MB, reports/v1-bundle-size.md). macOS then offers the app in English only, and Chromium
+ * 109 (≈ 48 MB, docs/archive/reports/v1-bundle-size.md). macOS then offers the app in English only, and Chromium
  * falls back to en-US for its own strings (spell check menus, form validation messages). A
  * translated UI adds its locales here.
  */

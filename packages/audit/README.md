@@ -1,6 +1,6 @@
 # @psyche/audit
 
-**Owner:** S05 (`prompts/s05-permissions-audit.md`). Feature ids: U3 and the audit side of F1–F12 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
+**Owner:** S05 (`docs/archive/prompts/s05-permissions-audit.md`). Feature ids: U3 and the audit side of F1–F12 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
 
 Hash-chained append-only audit log, the receipts store, strict canonical JSON and the redaction every log line passes through. Implements the `AuditLog` contract and passes `describeAuditLogConformance` (memory and file stores).
 

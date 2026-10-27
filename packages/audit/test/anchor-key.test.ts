@@ -6,7 +6,7 @@ import { ANCHOR_KEY_FILE, SoftwareAnchorKey } from "../src/anchor-key.ts";
 import { createAuditLog } from "../src/log.ts";
 import { ANCHOR_FILE, FileAuditStore } from "../src/store.ts";
 
-/** Signed anchors (security §15.1, docs/status/s05.md §2 gap 6). */
+/** Signed anchors (security §15.1, docs/archive/status/s05.md §2 gap 6). */
 
 const homes: string[] = [];
 afterEach(() => {

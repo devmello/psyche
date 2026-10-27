@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type { Runner } from "./supervisor.ts";
 
 /**
- * Starts the bundled Mac helper (docs/status/s14.md "Packaging"): LaunchServices, never a child
+ * Starts the bundled Mac helper (docs/archive/status/s14.md "Packaging"): LaunchServices, never a child
  * process, so TCC attributes its prompts and grants to PsycheHelper.app and not to Psyche.app:
  *
  *   /usr/bin/open -g -j [--env PSYCHE_HOME=<home>] <Resources>/PsycheHelper.app

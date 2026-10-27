@@ -47,7 +47,7 @@ Run `computer.ax_tree` against each app with the window frontmost, then again in
 | 3.4 | Mail (account configured) | Message list as table rows; message body as `webarea` |
 | 3.5 | Reminders | Rows with title, date, status; onboarding sheets visible when present |
 | 3.6 | System Settings › Appearance | `#com.apple.settings.*` identifiers; `selected` on the active theme |
-| 3.7 | Electron app (spikes/ax-snapshot/electron-form), frontmost | `webarea` appears within ~3 s; labels from `<label>`; `ph=` placeholders |
+| 3.7 | Electron app (docs/archive/spikes/ax-snapshot/electron-form), frontmost | `webarea` appears within ~3 s; labels from `<label>`; `ph=` placeholders |
 | 3.8 | A React-based Electron form | `set` on a controlled input fires React's onChange (the value sticks after blur) |
 | 3.9 | Same Electron app in the background | Sparse tree → `hint: sparse_tree…` |
 | 3.10 | Password field focused (Safari login, any app) | Value `•••`, `secure` flag, never walked into |
@@ -254,7 +254,7 @@ Spike 06 restarted a 16 GB host under two guests plus an install. Never run thes
 
 ## 14. Install from DMG (bundled helper)
 
-The contract is in `docs/status/s14.md` "Packaging". Build a DMG with `deploy/macos/build-helper.sh`, then `electron-forge package`, then `deploy/macos/make-dmg.sh`. Run each row twice:
+The contract is in `docs/archive/status/s14.md` "Packaging". Build a DMG with `deploy/macos/build-helper.sh`, then `electron-forge package`, then `deploy/macos/make-dmg.sh`. Run each row twice:
 
 - **Developer ID:** `PSYCHE_SIGN_IDENTITY` set and notarized.
 - **Ad-hoc:** no identity.

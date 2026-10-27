@@ -1,4 +1,4 @@
-// Cross-package contracts (prompts/_shared-rules.md "Contracts and fakes").
+// Cross-package contracts (docs/archive/prompts/_shared-rules.md "Contracts and fakes").
 // Each has an in-memory fake in `@psyche/testing`; see ./README.md.
 export * from "./AgentLoop.ts";
 export * from "./AuditLog.ts";

@@ -20,9 +20,20 @@ Psyche is the open alternative to Meta's Muse: one persistent conversation with 
 | [docs/07-tech-decisions.md](docs/07-tech-decisions.md) | ADRs: Electron + Swift helper, TypeScript Gateway, own loop on AI SDK v7, SQLite + Markdown memory, binding-hash approvals, vault, browser drivers, sandbox, VM, MCP, channels, proactivity, UI libraries, speech, licenses |
 | [docs/08-roadmap.md](docs/08-roadmap.md) | Milestones 0–3 and v1.0, spikes, workstreams, risks, metrics |
 | [docs/09-execution-plan.md](docs/09-execution-plan.md) | How to build it with many parallel Claude Code sessions : ownership map, waves, coordination rules, session roster |
-| [prompts/](prompts/README.md) | One ready-to-paste prompt per session: bootstrap/integrator, 20 workstreams, 6 spikes, 3 integration sessions, plus sandbox, CLI/deploy and adversarial-review sessions |
-| [reports/Psyche personal agent landscape.md](reports/Psyche%20personal%20agent%20landscape.md) | Research report: what Muse, the Claude desktop app, OpenMuse, OpenClaw, Codex/ChatGPT and browser-agent frameworks do, and what to build on |
-| [research_notes/](research_notes/Psyche%20personal%20agent%20landscape/) | Seven sourced research files (~1 MB, ~2,000 citations) behind the report |
+| [docs/archive/](docs/archive/README.md) | How Psyche was built, kept for reference and not current: the per-session prompts, spike write-ups and prototypes, status logs, design reviews, the research report and the sourced research notes behind it |
+
+## Repository layout
+
+| Path | What is in it |
+| --- | --- |
+| `apps/` | Things you run: `gateway` (`psyched`), `desktop` (Electron), `web`, `cli`, `mac-helper` (Swift), `node` and `site` (this documentation site) |
+| `packages/` | One library per subsystem, shared by the apps: `protocol`, `agent-core`, `permissions`, `vault`, `memory`, `ui` and the rest |
+| `docs/` | The design documents (`00`–`09`), guides, release notes and per-topic design; `docs/archive/` holds the build history |
+| `deploy/` | Dockerfiles, Compose, launchd and systemd files, macOS packaging and release scripts |
+| `scripts/` | Repository checks used by CI (`scripts/ci/`) and the i18n baseline |
+| `tests/` | Integration and acceptance tests, the injection corpus and scenario fixtures |
+| `skills/` | The `SKILL.md` skills that ship with Psyche |
+| `templates/` | The default persona files (`SOUL.md`, `AGENTS.md`, `USER.md`, …) written at onboarding |
 
 ## Guides
 
@@ -62,7 +73,7 @@ PSYCHE_MODEL=ollama/qwen3.8:27b pnpm --filter @psyche/gateway start
 pnpm --filter @psyche/desktop dev
 ```
 
-For a local model, install Ollama and pull an `agent-capable` model first (`ollama pull qwen3.8:27b`), then use `PSYCHE_MODEL=ollama/qwen3.8:27b` (and `PSYCHE_OLLAMA_URL` for a non-default server). Without `PSYCHE_MODEL`, `psyched` still starts and answers each turn with "No model is configured yet". Grant the agent a folder from Settings → File access ("Choose a folder…" on the desktop, or a typed path on the web), or by setting `permissions.policy` to `{"folders":[{"path":"/Users/you/Notes","mode":"rw"}]}` from the CLI; either way the device needs `operator.admin` (`psyched devices grant`), and the broker applies the grant without a restart. Remaining gaps per package are in [docs/status/int-1.md](docs/status/int-1.md).
+For a local model, install Ollama and pull an `agent-capable` model first (`ollama pull qwen3.8:27b`), then use `PSYCHE_MODEL=ollama/qwen3.8:27b` (and `PSYCHE_OLLAMA_URL` for a non-default server). Without `PSYCHE_MODEL`, `psyched` still starts and answers each turn with "No model is configured yet". Grant the agent a folder from Settings → File access ("Choose a folder…" on the desktop, or a typed path on the web), or by setting `permissions.policy` to `{"folders":[{"path":"/Users/you/Notes","mode":"rw"}]}` from the CLI; either way the device needs `operator.admin` (`psyched devices grant`), and the broker applies the grant without a restart. Remaining gaps per package are in [docs/archive/status/int-1.md](docs/archive/status/int-1.md).
 
 ## Architecture in one picture
 

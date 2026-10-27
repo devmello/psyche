@@ -6,7 +6,7 @@ import { type DeviceScope, Nullable } from "../common.ts";
 /**
  * Registry helpers shared by the client method families (`src/methods/*.ts`), the event
  * registry (`src/events.ts`), the node protocol (`src/node.ts`) and the browser bridge
- * (`src/bridge.ts`). Wire spec v1 in `docs/plans/s00.md`.
+ * (`src/bridge.ts`). Wire spec v1 in `docs/archive/plans/s00.md`.
  */
 
 /** Scope a caller's device token must carry; `"none"` only for the pre-pairing handshake. */

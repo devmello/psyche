@@ -1,6 +1,6 @@
 # Psyche — Landscape Summary (what others do, and what we take from them)
 
-Status: v0.1 (2026-10-18). This is the two-page version. The full research report (about 14,700 words, 534 inline citations) is at [`reports/Psyche personal agent landscape.md`](../reports/Psyche%20personal%20agent%20landscape.md); the seven sourced note files behind it are in [`research_notes/Psyche personal agent landscape/`](../research_notes/Psyche%20personal%20agent%20landscape/). Everything below was current on 2026-10-18.
+Status: v0.1 (2026-10-18). This is the two-page version. The full research report (about 14,700 words, 534 inline citations) is at [`docs/archive/reports/Psyche personal agent landscape.md`](../docs/archive/reports/Psyche%20personal%20agent%20landscape.md); the seven sourced note files behind it are in [`docs/archive/research-notes/Psyche personal agent landscape/`](../docs/archive/research-notes/Psyche%20personal%20agent%20landscape/). Everything below was current on 2026-10-18.
 
 ## Corrections to the original brief
 

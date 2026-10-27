@@ -3,7 +3,7 @@ import { ErrorPayload, PsycheError } from "./errors.ts";
 import { createValidator } from "./methods/define.ts";
 
 /**
- * WS / NDJSON frames (wire spec v1 in `docs/plans/s00.md`; architecture §11; data model §11).
+ * WS / NDJSON frames (wire spec v1 in `docs/archive/plans/s00.md`; architecture §11; data model §11).
  * One JSON frame per WebSocket text message, or per line on the node and browser-bridge sockets.
  * Frames are closed objects: unknown envelope keys are rejected. Method params, results and
  * event payloads are validated separately against the registry (`validateParams`,

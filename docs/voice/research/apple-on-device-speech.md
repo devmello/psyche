@@ -92,7 +92,7 @@ Research for the voice conversation mode spec (S17). Researched 2026-10-25 again
   - `speechVoices()` lists only installed voices, and there is no public API to list or start downloads (developer reports in [20]; no Apple API found).
   - Third-party apps may use any installed voice except Siri voices.
 - **Siri voices:** Apple: Siri voices "are not available through the AVSpeechSynthesizer API". If one is the selected system voice, the API falls back to another voice for the same language [16].
-  - Psyche's own spike saw consistent behaviour: the Siri "natural" voices were listed for the Apple-signed `swift` interpreter but not for the compiled spike binary (`spikes/dictation/tts.swift`).
+  - Psyche's own spike saw consistent behaviour: the Siri "natural" voices were listed for the Apple-signed `swift` interpreter but not for the compiled spike binary (`docs/archive/spikes/dictation/tts.swift`).
   - Voice mode must not promise Siri-quality voices.
 - **Licence for system voices:** the macOS 26 licence §2.F allows System Voices "while running the Apple Software" and for the user's own "personal, non-commercial use" [19].
   - Psyche is self-hosted for the owner, so speaking replies on the owner's Mac fits that clause.
@@ -266,7 +266,7 @@ Research for the voice conversation mode spec (S17). Researched 2026-10-25 again
     - The result has `nonCommercial: true` for Personal Voice.
   - `speech.voices` and `speech.status`.
   - Limits: one microphone stream at a time, at most 4 streams.
-- **Measured** (spike 03, `docs/spikes/spike-03-speechanalyzer.md`, M5, macOS 27.0.1):
+- **Measured** (spike 03, `docs/archive/spikes-docs/spike-03-speechanalyzer.md`, M5, macOS 27.0.1):
   - First correct partial: 0.61 s (`SpeechTranscriber`) and 0.82 s (`DictationTranscriber` + vocabulary).
   - Final after end of input: 0.08–0.19 s and 0.27–0.55 s.
   - WER: 5.3% and 3.0–3.4%.

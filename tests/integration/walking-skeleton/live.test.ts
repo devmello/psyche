@@ -6,12 +6,12 @@ import { afterAll, describe, expect, it } from "vitest";
 import { type Skeleton, startSkeleton } from "./harness.ts";
 
 /**
- * The walking skeleton against a live model (prompts/int-1-walking-skeleton.md). Opt in with
+ * The walking skeleton against a live model (docs/archive/prompts/int-1-walking-skeleton.md). Opt in with
  * `PSYCHE_LIVE_TESTS=1 PSYCHE_MODEL=<provider>/<model>` plus the provider's key variable
  * (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`) or, for a local `agent-capable` model,
  * `PSYCHE_MODEL=ollama/<model>` (optionally `PSYCHE_OLLAMA_URL`). A live model words things its
  * own way, so this checks outcomes (file written with a receipt, question answered, checklist and
- * wrap-up shown, task done) rather than exact blocks, and prints the timings for docs/status/int-1.md.
+ * wrap-up shown, task done) rather than exact blocks, and prints the timings for docs/archive/status/int-1.md.
  */
 
 const LIVE = process.env.PSYCHE_LIVE_TESTS === "1" && !!process.env.PSYCHE_MODEL;

@@ -207,7 +207,7 @@ export interface ShellPlatform {
   passkeys?: PasskeyHost;
   /** Desktop only: macOS privacy permissions for onboarding and Settings (issue #384). */
   permissions?: PermissionsPort;
-  /** Desktop only: the bundled Mac helper the app launches (docs/status/s14.md "Packaging"). */
+  /** Desktop only: the bundled Mac helper the app launches (docs/archive/status/s14.md "Packaging"). */
   helper?: HelperPort;
   /** Desktop only: the macOS region format; the web uses the browser's language (A12). */
   locale?: LocalePort;

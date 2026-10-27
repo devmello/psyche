@@ -1,6 +1,6 @@
 # @psyche/browser
 
-**Owner:** S08 (`prompts/s08-browser.md`). **Features:** I2–I4, I7–I10, I12 (except the element picker) and I15 ([docs/03-feature-spec.md](../../docs/03-feature-spec.md)).
+**Owner:** S08 (`docs/archive/prompts/s08-browser.md`). **Features:** I2–I4, I7–I10, I12 (except the element picker) and I15 ([docs/03-feature-spec.md](../../docs/03-feature-spec.md)).
 
 This package is the agent-owned browser. It has:
 
@@ -288,7 +288,7 @@ Loopback is not the web: `localhost:<port>` may be the owner's Vite app or a loc
 
 ## Stubbed or pending
 
-See [docs/status/s08.md](../../docs/status/s08.md):
+See [docs/archive/status/s08.md](../../docs/archive/status/s08.md):
 
 - `BrowserDriverEx` methods are local until the `protocol:` PR lands.
 - `LibraryWriter` is local; `FsQuarantineWriter` is the stand-in.

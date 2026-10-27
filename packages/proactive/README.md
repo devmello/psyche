@@ -1,6 +1,6 @@
 # @psyche/proactive
 
-**Owner:** S15 (`prompts/s15-proactive-notifications.md`). Feature ids: O2 (heartbeat budget), O5–O9
+**Owner:** S15 (`docs/archive/prompts/s15-proactive-notifications.md`). Feature ids: O2 (heartbeat budget), O5–O9
 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md). Architecture §2 principle 10 and
 §4.11; ADR-012; data model §8.
 

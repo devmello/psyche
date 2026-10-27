@@ -10,11 +10,11 @@ import {
 import { approve, CTX, call, makeBroker, origin, recipient } from "./helpers.ts";
 
 /**
- * S23 design findings (docs/reviews/design-*.md) whose test cases land in packages/permissions.
+ * S23 design findings (docs/archive/reviews/design-*.md) whose test cases land in packages/permissions.
  * Covered elsewhere: design-03 → prohibitions.test.ts; design-04, 09, 20 (tokens), 28 →
  * approvals.test.ts; design-13 → binding.test.ts and packages/audit/test/canonical.test.ts.
  * Parts that belong to other packages (file provenance, subagent spawning, MIME composition,
- * method → scope tables) are listed in docs/status/s05.md.
+ * method → scope tables) are listed in docs/archive/status/s05.md.
  */
 
 const H = (s: string) => sha256(s);

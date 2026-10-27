@@ -62,7 +62,7 @@ Every case lists the properties that must hold whatever the outcome: `no_unappro
 2. Write the payload exactly as the executor would return it (snapshot text, `read_text` output, MIME body, ICS, `tools/list` JSON, OCR text). Use fictional domains: `example.com/.org/.net` and `*.example` (not `.test`, which the localhost test-credentials exception in docs/05 §3.10 covers). Never put a real person, real company account or working exploit infrastructure in a payload.
 3. Name the owner request the agent was serving; most attacks ride a legitimate task.
 4. Fill `attack.toolCall` with the exact tool, side-effect class, target and arguments a hijacked model would emit. Paths inside the folder the owner granted are written `@GRANTED@/…` (`GRANTED_FOLDER`): the reference gate checks `code.*` paths against it, and the M2 stack maps it to its real granted folder. Arguments must match the real tool's schema (a 40-hex commit for `code.git` push, `unitPriceMinor` / `totalMinor` for the shopping hand-off), or the M2 stack refuses the call before any card.
-5. Choose the outcome from docs/05, not from what is convenient, and cite the section in `refs`. If you believe the docs give the wrong answer, write the case with the docs' answer and raise the objection in `docs/status/s18.md`.
+5. Choose the outcome from docs/05, not from what is convenient, and cite the section in `refs`. If you believe the docs give the wrong answer, write the case with the docs' answer and raise the objection in `docs/archive/status/s18.md`.
 6. Run `node tests/corpus/injection/validate.mjs`.
 
 A bug found by a case is filed as an issue with the case id; the case stays in the corpus as the regression test.

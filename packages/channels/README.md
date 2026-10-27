@@ -1,8 +1,8 @@
 # @psyche/channels
 
-**Owner:** S10 (`prompts/s10-channels.md`). Features N1–N5, N7 (Signal), N8 (Discord), N10, N11 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md); architecture §4.10; security §9; ADR-011.
+**Owner:** S10 (`docs/archive/prompts/s10-channels.md`). Features N1–N5, N7 (Signal), N8 (Discord), N10, N11 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md); architecture §4.10; security §9; ADR-011.
 
-**Owner:** S10 (`prompts/s10-channels.md`). Features N1–N6 (WhatsApp over the Cloud API), N8 (Discord, Slack), N9 (SMS, email), N10, N11 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md); architecture §4.10; security §9; ADR-011.
+**Owner:** S10 (`docs/archive/prompts/s10-channels.md`). Features N1–N6 (WhatsApp over the Cloud API), N8 (Discord, Slack), N9 (SMS, email), N10, N11 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md); architecture §4.10; security §9; ADR-011.
 
 Lets the owner (and people the owner designates) reach Psyche from chat apps. It contains the channel framework, authorization copied from OpenClaw (pairing, allowlists, owner identity, identity links, group mention gating), approvals over chat, voice notes, and the WebChat, Telegram, Discord and iMessage adapters.
 
@@ -31,7 +31,7 @@ Link a person's senders in an identity with `delegatedPersona` (overlay name) an
 
 `deliverApproval(issued)` sends cards to every `<channel>:<peerId>` surface whose peer is an owner. WebChat is excluded, because web clients answer on the device approval card under `operator.approvals`. A failed send on one surface does not stop delivery to the others. Telegram gets inline buttons; channels without buttons get a `/approve <ref> approve|deny` fallback. Card text is `renderForSurface(surface, approval)` from `@psyche/permissions/cards`, the one renderer every surface uses (design-12): a fixed plain-text template (action class and target first), every value sanitized (line breaks become `⏎`, hidden characters become `⟨U+XXXX⟩`, IDN hosts shown in punycode), no parse mode. A card that does not fit is replaced by "Open on your Mac to review." and cannot be answered from chat; it is never truncated. A `deviceOnly`, financial or forbidden-kind approval (and `destructive` without opt-in) gets the header and "Answer this on your Mac." only: no arguments, no buttons, no `/approve` ref. Answers are accepted only from owner identities and always with scope `once`. Broker errors map to short replies (expired, already answered, replaced after restart, too quick).
 
-These never reach chat: `deviceOnly` requests, `financial`, `purchase`, `credential_fill`, `exec_host`, `policy_change` and `pairing`. `destructive` is excluded too unless the channel sets `config.allowDestructiveApprovals` (see the doc conflict in `docs/status/s10.md`). `config.ownerDevice` is recorded but unlocks nothing, because security §3.7 and §9 do not allow it.
+These never reach chat: `deviceOnly` requests, `financial`, `purchase`, `credential_fill`, `exec_host`, `policy_change` and `pairing`. `destructive` is excluded too unless the channel sets `config.allowDestructiveApprovals` (see the doc conflict in `docs/archive/status/s10.md`). `config.ownerDevice` is recorded but unlocks nothing, because security §3.7 and §9 do not allow it.
 
 ## iMessage (N5)
 
@@ -170,4 +170,4 @@ Get your id with `/whoami` after pairing once, or from the pairing request. Keep
 - `VoiceTranscoder` is a port with `FakeVoiceTranscoder` until S17 ships the ffmpeg / afconvert transcoder in `@psyche/speech`.
 - `LibraryIngest`, `InboundSink` and `EmitEvent` are ports the Gateway wires. There is no Library contract yet.
 - Telegram webhook mode (`handleUpdate` is public for it), polls, reactions, and editing a card after it is answered are not done.
-- iMessage: outbound attachments and voice bubbles (CAF), inbound attachment bytes, polls (macOS 26+) and question cards are not done. The Gateway registers the adapter only when `ChannelsSetup.imessage` supplies an `authorizeSend`; no default authorizer ships yet (see `docs/status/s10.md`).
+- iMessage: outbound attachments and voice bubbles (CAF), inbound attachment bytes, polls (macOS 26+) and question cards are not done. The Gateway registers the adapter only when `ChannelsSetup.imessage` supplies an `authorizeSend`; no default authorizer ships yet (see `docs/archive/status/s10.md`).

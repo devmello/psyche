@@ -1,5 +1,29 @@
 # @psyche/agent-core
 
+## Unreleased (pre-0.3.0)
+
+### Minor Changes
+
+- T4 code plugins: agent-core's `AgentPluginRegistry` (context, before_tool_call, after_tool_call, agent_end, evaluate), `@psyche/plugins` (manifest, skill trust card install, one permission-restricted Node process per plugin) and the Gateway's `plugins.*` methods behind the `plugins.enabled` setting (off by default).
+- E12 "From your other chats": turn context providers in the loop; the Gateway keeps digests of the owner's chats and, with `threads.otherChats` on, brings matching ones into a turn as untrusted context with a `related_threads` block in the reply (audited); `thread_read` asks on its first read of each chat.
+- C10: a Claude Code harness behind `harness.delegate`. The `claude` CLI runs headless in its own sandbox (repo mounted, network only to the Anthropic API, key from the vault per session) and every tool call it makes asks Psyche first through a `PreToolUse` hook relay; edits ask as `file_write`, commands as `exec`, pushes as `git_push`. Harness actions can now name their approval kind. Registered only with the `harness.claudeCode` setting; Codex and pi are stubs.
+- Context usage per chat (exact prompt tokens with a breakdown), owner-set limits (thread → settings → model; never exceeded) and structured auto-compaction that keeps the plan, with `threads.contextUsage`, `threads.setContextLimits`, `threads.compact` and `thread.context.updated`.
+- Agent-proposed skills (T3): routine detection over the loop's in-process hooks, redacted and rate-limited skill drafts that install only through the T2 trust card, and the "Suggested by" card in Settings → Skills.
+- Learning about the owner (#509): agent-core's `onOwnerTurn` hook; memory's dated Learned section in USER.md (`learnUserFacts`, `forgetLearned`) behind the sensitive and instruction filters; the Gateway's `memory.userProfile` switch, utility-model evaluator, `learned` chat note, audit entries and `memory.forgetLearned`.
+- Stream reasoning steps as `chat.reasoning` (#632): the loop turns the model router's reasoning deltas into redacted, transient steps (setting `agent.showReasoning`, default on) and the Gateway publishes them without persisting them.
+- Background specialists, part 1 (#683): `specialist.spawn`, `specialist.report` and `specialist.status`; specialist runs with their role's prompt, model, tool allowlist and clamped mode; the Specialists prompt section; `tasks.specialist` storage with `updateSpecialist`; the Gateway's specialist host (roles from the role skills and Settings, a subagent thread and task per job, one sanitized result).
+- Voice turns (V-G G2, #691): the Gateway mounts the voice conversation over the chat path (spoken messages stored with `via: "voice"`, off until Settings turns it on), agent-core adds the voice-turn prompt section and the `voice` model role, tool steps are narrated from fixed labels, and `messages.via` is stored.
+- Background specialists, part 2a (#683): a dedicated specialist pool (`specialists.maxConcurrent`, default 3, at most 2 per parent thread) with queue positions; the chat pool no longer claims specialist jobs; `ClaimOptions` origin and per-parent filters; the spawn pre-flight stored on `SpecialistSpec` and returned on `SpecialistJob`.
+- Background specialists, part 2b (#683): per-job budget accounting with an 80% marker; at a limit an attended job pauses on a "Budget" question (finish, give it more, stop) and an unattended one writes its partial report; deadlines; the tool-free wrap-up turn; plan-first jobs; `raiseSpecialistBudget` for `tasks.update`.
+- Remove all text-to-speech from the Gateway side: synthesis in `@psyche/speech` (Kokoro, ElevenLabs, read-aloud, voice catalog, the voice conversation manager), the voice-turn prompt section and `StartTurnInput.voice`, channel voice-note sending, and the synthesis half of the `SpeechEngine` contract. Speech to text is unchanged. The Gateway removes the stale voice and synthesis settings on start (`deleteSettings` in `@psyche/db`).
+- Attach files in the chat composer. A + button shows when the thread's model can take files (from `models.list`; unknown shows it, a model without vision is offered documents only and says why an image was refused, an embeddings model hides it). Picked, dropped or pasted files become removable chips that upload through the new chunked `library.upload` (25 MiB, origin `upload`), and their Library ids go in `chat.send` `attachments`. The Gateway gives the agent images as image parts (4 per message, 5 MB each) and PDF, DOCX, XLSX and text files as capped extracted text (32k characters each, 96k per message) in the new `TurnInput.attachmentText`, kept out of what the owner said.
+
+### Patch Changes
+
+- The loop's `compaction` option (`thresholdRatio`, `keepRecentTurns`) applies again when the owner set no context limits, so the memory flush before compaction runs where it is configured.
+- Run trace T1, part 3 (#660): task, automation and specialist turns are recorded through the run-trace sink (`TaskWorkerPoolOptions.trace`); automation runs name their agent run and usage; memory writes name their run and step; computer-use screenshots become run frames.
+- When the canvas tools are registered the tools section carries one short output-guidance paragraph: canvas for substantial output, small update ops, one line in chat, tables as data.
+
 ## 0.3.0-alpha.0
 
 ### Minor Changes

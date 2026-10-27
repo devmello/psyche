@@ -1,6 +1,6 @@
 # @psyche/connectors
 
-**Owner:** S09 (`prompts/s09-mcp-connectors.md`). Features M4 (directory data), M5 (Google), M8 (web search and fetch), M11 (action matrices) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md). Later: M6 Microsoft, M7 IMAP / JMAP, M10 shopping helpers.
+**Owner:** S09 (`docs/archive/prompts/s09-mcp-connectors.md`). Features M4 (directory data), M5 (Google), M8 (web search and fetch), M11 (action matrices) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md). Later: M6 Microsoft, M7 IMAP / JMAP, M10 shopping helpers.
 
 First-party connectors behind one framework: a `Connector` interface, a `ConnectorRegistry` that enforces the owner's action matrix and scope mode, a catalogue for the Connectors directory, and `connectors.*` API handlers for the Gateway.
 
@@ -101,7 +101,7 @@ Tools:
 - **Contacts**: `contacts_search` (read).
 - **OneDrive**: `onedrive_list`, `onedrive_download` (to the Library, 25 MB, untrusted), `onedrive_upload` (text, 4 MB, `connector_action`), limited to Psyche's app folder; not offered in `read` mode (Graph has no read-only app-folder scope).
 
-Sync polls Graph delta queries (inbox messages and a −7 / +365 day `calendarView`), restarting on 410 / `syncStateNotFound`. Change-notification subscriptions are not used: they need a public HTTPS webhook (see docs/status/s09.md).
+Sync polls Graph delta queries (inbox messages and a −7 / +365 day `calendarView`), restarting on 410 / `syncStateNotFound`. Change-notification subscriptions are not used: they need a public HTTPS webhook (see docs/archive/status/s09.md).
 
 ## Custom connectors (M9)
 

@@ -230,7 +230,7 @@ function TaskBlockView({ taskId }: { taskId: string }): ReactElement {
 }
 
 function PlanBlockView({ planId }: { planId: string }): ReactElement {
-  // `planId` names the task whose approved plan this is (docs/status/s12.md, gap 2).
+  // `planId` names the task whose approved plan this is (docs/archive/status/s12.md, gap 2).
   const { task, loading } = useTask(planId);
   const slots = useSlots();
   if (task === null) return loading ? <Skeleton what="plan" /> : <Missing what="plan" />;

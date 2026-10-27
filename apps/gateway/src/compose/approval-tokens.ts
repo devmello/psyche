@@ -33,7 +33,7 @@ export class ApprovalTokens {
     return this.#tokens.get(approvalId)?.[surface];
   }
 
-  /** The approvals re-issued at boot, handed once to the worker pool (docs/status/s04.md). */
+  /** The approvals re-issued at boot, handed once to the worker pool (docs/archive/status/s04.md). */
   takeReissued(): IssuedApproval[] {
     const out = this.#reissued;
     this.#reissued = [];

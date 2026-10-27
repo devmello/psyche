@@ -77,7 +77,7 @@ export interface ConnectorRecord {
   updatedAt: string;
 }
 
-/** Persistence seam until the `connectors` table lands in packages/db (see docs/status/s09.md). */
+/** Persistence seam until the `connectors` table lands in packages/db (see docs/archive/status/s09.md). */
 export interface ConnectorStore {
   get(id: string): Promise<ConnectorRecord | undefined>;
   list(): Promise<ConnectorRecord[]>;

@@ -1,6 +1,6 @@
 # @psyche/scheduler
 
-**Owner:** S04 (`prompts/s04-tasks-scheduler.md`). Feature ids: O1, O4 (O2, O3), D6 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
+**Owner:** S04 (`docs/archive/prompts/s04-tasks-scheduler.md`). Feature ids: O1, O4 (O2, O3), D6 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
 
 This package holds automations, the heartbeat and watches, and catches up after the machine sleeps. Every job has a durable `next_run_at` in SQLite, and one host timer is armed for the earliest due job. When the timer fires, or when the laptop wakes and calls `wake()`, every automation that is due runs once, however many ticks it missed.
 

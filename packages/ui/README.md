@@ -1,6 +1,6 @@
 # @psyche/ui
 
-**Owner:** S12 (`prompts/s12-ui-kit.md`). Feature ids: E4, E8 (cards), F3, C4 (UI), O6/O8/O9 (screens), P7 (screen), S1 (UI), R2, R3, U1 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md). Spec: [docs/06-ui-design.md](../../docs/06-ui-design.md).
+**Owner:** S12 (`docs/archive/prompts/s12-ui-kit.md`). Feature ids: E4, E8 (cards), F3, C4 (UI), O6/O8/O9 (screens), P7 (screen), S1 (UI), R2, R3, U1 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md). Spec: [docs/06-ui-design.md](../../docs/06-ui-design.md).
 
 The React kit that psyche-desktop and psyche-web host: message blocks, approval and question cards, the agent header and sheet, every screen, the avatar system, theming and typed Gateway hooks. It renders typed Gateway data deterministically and never decides anything itself (UI design §1.2): approvals are answered with this surface's single-use token, credentials are never shown, model output is sanitized.
 
@@ -98,8 +98,8 @@ The spec is [docs/design/redesign-2026.md](../../docs/design/redesign-2026.md) a
 
 ## What is stubbed or missing
 
-See [docs/status/s12.md](../../docs/status/s12.md): protocol gaps (task origin on messages, plan entity, Broker reason, usage summary, …), the Broker expiry choices under "Always allow", and items that wait on other sessions (viewers, panes, OS permission prompts).
+See [docs/archive/status/s12.md](../../docs/archive/status/s12.md): protocol gaps (task origin on messages, plan entity, Broker reason, usage summary, …), the Broker expiry choices under "Always allow", and items that wait on other sessions (viewers, panes, OS permission prompts).
 
 ## Rules
 
-Edit only this package (see `prompts/_shared-rules.md`). Cross-package needs go through `packages/protocol`; viewers come in through slots.
+Edit only this package (see `docs/archive/prompts/_shared-rules.md`). Cross-package needs go through `packages/protocol`; viewers come in through slots.

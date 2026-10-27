@@ -20,7 +20,7 @@ import { DriverBase, type DriverDeps, newId, type SessionState, type TabState } 
 
 /**
  * playwright-core is loaded when a session first needs Chromium, not when the Gateway boots: it
- * was ≈ 75 ms of every start, browser on or off (docs/status/v1-perf.md).
+ * was ≈ 75 ms of every start, browser on or off (docs/archive/status/v1-perf.md).
  */
 const chromium = async (): Promise<BrowserType> => (await import("playwright-core")).chromium;
 

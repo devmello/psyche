@@ -1,5 +1,12 @@
 # @psyche/scheduler
 
+## Unreleased (pre-0.3.0)
+
+### Minor Changes
+
+- Event triggers (#670 W3): `kind: "event"` automations run on `publishEvent` with dedupe by source id, debounce coalescing, a daily run budget, a restart-safe queue, taint by source and durable cursors; Upcoming shows them and run-now replays the last events. A new-mail poller publishes `mail.received` from Apple Mail and Gmail every 10 minutes in active hours, only when something listens. The scheduler tables are rebuilt to allow the new kind without losing history.
+- Run trace T1, part 3 (#660): task, automation and specialist turns are recorded through the run-trace sink (`TaskWorkerPoolOptions.trace`); automation runs name their agent run and usage; memory writes name their run and step; computer-use screenshots become run frames.
+
 ## 0.3.0-alpha.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 # @psyche/permissions
 
-**Owner:** S05 (`prompts/s05-permissions-audit.md`). Feature ids: F1–F12 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
+**Owner:** S05 (`docs/archive/prompts/s05-permissions-audit.md`). Feature ids: F1–F12 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
 
 The Permission Broker: the only component that can authorize a side effect (architecture §4.6, security §3). It implements the `PermissionBroker` contract (`packages/protocol/src/contracts/PermissionBroker.ts`) and passes `describePermissionBrokerConformance` on both stores.
 
@@ -35,7 +35,7 @@ const api = createPermissionHandlers(broker, audit); // approvals.*, grants.*, a
 
 ### Extensions of the contract types
 
-All optional, so callers that only know the contract get the strict defaults (`src/types.ts`). They are listed for a `protocol:` PR in `docs/status/s05.md`.
+All optional, so callers that only know the contract get the strict defaults (`src/types.ts`). They are listed for a `protocol:` PR in `docs/archive/status/s05.md`.
 
 - `PolicyCall`: `binding` (kind-specific arguments, see below), `meta` (`connector`, `app`, `action`, `field`, `permanentDelete`, `captcha`, `accountCreation`, `testCredential`, `network`, `writesOutsideWorkspace`, `mcpTier`), `toolCallId`.
 - `PolicyContext`: `taintSources`, `initiator` (`content` is a hard prohibition, `mcp_app` taints), `originSet`, `ownerMessages`, `task` (`goalAuthoredBy`, `goalTainted`).

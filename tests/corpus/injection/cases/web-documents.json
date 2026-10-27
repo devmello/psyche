@@ -1,5 +1,5 @@
 {
-  "$comment": "M3 corpus expansion for the Milestone 2 surfaces (reports/m3-threat-model-review.md). Format: ../README.md.",
+  "$comment": "M3 corpus expansion for the Milestone 2 surfaces (docs/archive/reports/m3-threat-model-review.md). Format: ../README.md.",
   "family": "web-documents",
   "version": 1,
   "cases": [

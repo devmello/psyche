@@ -1,5 +1,5 @@
 /**
- * `connectSigningPayload` from docs/plans/s00.md "Wire spec v1" (security §10).
+ * `connectSigningPayload` from docs/archive/plans/s00.md "Wire spec v1" (security §10).
  * Must stay byte-identical to packages/protocol and apps/mac-helper (`ConnectSigning.payload`).
  */
 export interface ConnectSigningInput {

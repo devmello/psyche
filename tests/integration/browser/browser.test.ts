@@ -154,7 +154,7 @@ describe("INT-2 scenario 1: browser from chat", () => {
   });
 
   afterAll(async () => {
-    // biome-ignore lint/suspicious/noConsole: the timings go to docs/status (INT-2).
+    // biome-ignore lint/suspicious/noConsole: the timings go to docs/archive/status (INT-2).
     console.log(`INT-2 browser timings ${JSON.stringify(timings)}`);
     desktop?.disconnect();
     await sk?.stop();

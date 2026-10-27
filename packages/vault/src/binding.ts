@@ -226,7 +226,7 @@ export interface CredentialFillBindingInput {
 /**
  * Fields of the `credential_fill` binding hash (security §3.5: item id, origin, field selector
  * with element name / type, field). Data model §4.2 lists `tab id` instead of the field; the
- * security doc wins (S23 design-13, objection in docs/status/s06.md).
+ * security doc wins (S23 design-13, objection in docs/archive/status/s06.md).
  */
 export function credentialFillFields(input: CredentialFillBindingInput): Record<string, unknown> {
   const out: Record<string, unknown> = {

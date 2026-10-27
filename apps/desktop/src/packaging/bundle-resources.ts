@@ -4,8 +4,8 @@ import { dirname, join, sep } from "node:path";
 import type { BuildEnv } from "./signing-config.ts";
 
 /**
- * The pieces that make Psyche.app self-contained (docs/status/s22.md "Packaging layout",
- * docs/status/s14.md "Packaging"). Paths are relative to `Psyche.app/Contents/Resources/`:
+ * The pieces that make Psyche.app self-contained (docs/archive/status/s22.md "Packaging layout",
+ * docs/archive/status/s14.md "Packaging"). Paths are relative to `Psyche.app/Contents/Resources/`:
  *
  *   psyched/                         S22's Gateway bundle, copied verbatim (never into app.asar)
  *   launchd/com.psyche.gateway.plist the LaunchAgent template ({{PSYCHED}}, {{PSYCHE_HOME}}),

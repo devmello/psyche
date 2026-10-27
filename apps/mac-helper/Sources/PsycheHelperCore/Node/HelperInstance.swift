@@ -1,6 +1,6 @@
 import Foundation
 
-/// One helper per `$PSYCHE_HOME` (packaging contract, docs/status/s14.md): the desktop runs
+/// One helper per `$PSYCHE_HOME` (packaging contract, docs/archive/status/s14.md): the desktop runs
 /// `open` on every start, so a second copy must find the lock taken and exit quietly.
 public final class SingleInstanceLock: @unchecked Sendable {
     private let fd: Int32

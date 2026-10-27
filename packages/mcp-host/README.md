@@ -1,6 +1,6 @@
 # @psyche/mcp-host
 
-**Owner:** S09 (`prompts/s09-mcp-connectors.md`). Features M1, M2, M3 (container launcher; `.mcpb` later) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
+**Owner:** S09 (`docs/archive/prompts/s09-mcp-connectors.md`). Features M1, M2, M3 (container launcher; `.mcpb` later) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
 
 How Psyche talks to MCP servers safely: the `McpHost` implementation on the MCP TypeScript SDK v2 (`@modelcontextprotocol/client` 2.3.1).
 

@@ -1,6 +1,6 @@
 # @psyche/cli (`psyche`)
 
-**Owner:** S22 (`prompts/s22-cli-deploy.md`). Features A7, A10, A11, U2 (export), U4 (backups) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md); architecture §3.2, §11, §12, §14; security §10, §14.
+**Owner:** S22 (`docs/archive/prompts/s22-cli-deploy.md`). Features A7, A10, A11, U2 (export), U4 (backups) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md); architecture §3.2, §11, §12, §14; security §10, §14.
 
 `psyche` is a thin client of the Gateway's WebSocket API. It never opens `state/psyche.sqlite`. It pairs as its own device (Ed25519 key in `$PSYCHE_HOME/cli/device.json`, 0600, `deviceFamily: "cli"`), signs the connect challenge, and calls protocol methods with params validated against `@psyche/protocol` before they leave. Side-effecting methods carry an idempotency key. It never presents the handshake secret and is never auto-paired.
 

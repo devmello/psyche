@@ -1,5 +1,19 @@
 # @psyche/testing
 
+## Unreleased (pre-0.3.0)
+
+### Minor Changes
+
+- Background specialists (#682): `SpecialistSpec` on tasks, `SpecialistResult`, roles and jobs, `specialists.list` / `specialists.jobs`, `tasks.steer` / `tasks.update`, the `specialist.*` events, the `specialist_result` notification kind, `Automation.specialist` and the `subagent` agent event.
+- Background specialists, part 2a (#683): a dedicated specialist pool (`specialists.maxConcurrent`, default 3, at most 2 per parent thread) with queue positions; the chat pool no longer claims specialist jobs; `ClaimOptions` origin and per-parent filters; the spawn pre-flight stored on `SpecialistSpec` and returned on `SpecialistJob`.
+
+### Patch Changes
+
+- Web Bot Auth (I14): optional `CredentialBroker.botAuthKey()` / `rotateBotAuthKey()`, `BotAuthStatus`, and the `browser.botAuth.status | rotate` methods; the fake broker signs with a real Ed25519 key.
+- Mail and meeting workflow shapes (#670 W1): batch proposals and the `batch` approval kind, event triggers for automations, `FeedPost.kind` / `refs` / `card`, digest (with the graph's loops), meeting-prep and meeting-notes records, `proposals.*` methods and the `proposal.updated` event.
+- The teaching loop's store and routing (#679): feedback events and lessons in the Gateway database, the lesson router with deterministic refusals and one destination per lesson, writers for SOUL.md, AGENTS.md, USER.md, the people graph, skills' LESSONS.md and automations, `feedback.*` and `memory.lessons.*` in the Gateway, approval answers as implicit evidence, and nightly dreaming scheduled at compose time.
+- Remove all text-to-speech from the Gateway side: synthesis in `@psyche/speech` (Kokoro, ElevenLabs, read-aloud, voice catalog, the voice conversation manager), the voice-turn prompt section and `StartTurnInput.voice`, channel voice-note sending, and the synthesis half of the `SpeechEngine` contract. Speech to text is unchanged. The Gateway removes the stale voice and synthesis settings on start (`deleteSettings` in `@psyche/db`).
+
 ## 0.3.0-alpha.0
 
 ### Minor Changes

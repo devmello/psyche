@@ -1,6 +1,6 @@
 # @psyche/skills
 
-**Owner:** S16 (`prompts/s16-search-skills.md`). Feature ids: T1, T2, T5 (loading side) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
+**Owner:** S16 (`docs/archive/prompts/s16-search-skills.md`). Feature ids: T1, T2, T5 (loading side) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
 
 How `SKILL.md` files are discovered, checked, indexed into the prompt, read by the agent, installed and trusted. A skill is instructions for a job; **it never grants a tool or a permission**.
 

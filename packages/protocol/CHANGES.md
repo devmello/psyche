@@ -409,7 +409,7 @@ For S14 (helper `vm.*`), S01 (sandbox runner "vm" mode, `vm.updated` rebroadcast
 - `VmPhase` gains `paused` and `saved` (appended).
 - `VmGuest` gains optional `display`, `clipboard` (the existing `VmClipboardMode`: paste-only / bidirectional / off), `vault` (`VmVaultPlacement`: host / guest), `agent` (`VmGuestAgentStatus`), `psycheInstalled`, `permissionsGranted`, `savedState`, `transfers` (`VmTransfer[]`).
 - New `VmConfigureParams`, `VmCopyInParams`, `VmCopyOutParams`; `VmProgressEvent.type` gains `vm.psyche_install` and `vm.permissions`.
-### v1 additive — 2026-10-19 (M3 gateway hardening, docs/status/s05.md §2)
+### v1 additive — 2026-10-19 (M3 gateway hardening, docs/archive/status/s05.md §2)
 
 - Error code `presence_required`: a security change needs fresh presence and no verifier on this Gateway can give one (presence was enrolled, then every passkey and helper key was lost or revoked). The UI tells the owner to add a passkey or register the helper's key.
 - Optional `approvalId` on `devices.approve`, `channels.configure`, `channels.allowlist.update`, `channels.pairing.approve`, `channels.identities.upsert`, `memory.reset`, `backup.delete` and `passkeys.register.finish`: the same fresh-presence round trip `settings.set` already has (the first call fails `approval_required` with `details.approvalId`; retry with it once the device-only `policy_change` card is approved).
@@ -645,7 +645,7 @@ Additive, for S06 (vault), S08 (browser fill), S09 (connector OAuth), S11/S12 (S
 - `FakeCredentialBroker`: checks `element` for browser resolves, never matches opaque (`"null"`) origins (S23 design-13), implements `ConnectorCredentialStore`. Conformance: a browser-fill element case.
 ### 2026-10-19 — browser bridge amendments and `view.report` (S11)
 
-Needed by S11 (desktop) and S08 (CDP driver); from `docs/spikes/spike-01-cdp-bridge.md`.
+Needed by S11 (desktop) and S08 (CDP driver); from `docs/archive/spikes-docs/spike-01-cdp-bridge.md`.
 
 - `BRIDGE_MAX_FRAME_BYTES` (16 MiB) and `parseFrame(raw, { maxBytes })`: raw AX trees exceed 1 MiB. Other transports keep `MAX_FRAME_BYTES`.
 - `ErrorCode` gains `user_in_control`, `debugger_detached`, `tab_not_found`, `method_not_allowed`.

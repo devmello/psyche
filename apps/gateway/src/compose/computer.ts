@@ -634,7 +634,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     // #267: every action names the app the broker and the owner decided about, and the tier an
     // approval covered. The helper refuses when the app under a point or ref is another one, and
     // an approval for a click never becomes an interact allowance.
-    // The helper's contract (docs/status/s14.md, #266 / #267): `approval: {app, tier}` with every
+    // The helper's contract (docs/archive/status/s14.md, #266 / #267): `approval: {app, tier}` with every
     // approved `computer.*` / `apps.focus` call; without it the helper treats the call as
     // unapproved.
     const approvable = inv.session || inv.capability === "apps.focus";

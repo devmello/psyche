@@ -18,7 +18,7 @@ The contract everything compiles against: TypeBox schemas for the domain model, 
 | `src/contracts/` | Cross-package interfaces; fakes live in `@psyche/testing` | see `src/contracts/README.md` |
 | `scripts/gen.ts`, `generated/` | Codegen output (committed; CI checks freshness) | ADR-015 |
 
-The binding wire details (handshake, signing payload, transports) are in [docs/plans/s00.md](../../docs/plans/s00.md) "Wire spec v1".
+The binding wire details (handshake, signing payload, transports) are in [docs/archive/plans/s00.md](../../docs/archive/plans/s00.md) "Wire spec v1".
 
 ## Usage
 

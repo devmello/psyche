@@ -372,7 +372,7 @@ describe("scenario 2: Google with the scripted model (CI-safe)", () => {
     // Sanity: the checker would have seen them (the fake did use the token).
     expect(fake.requests.some((r) => r.auth === `Bearer ${ACCESS_TOKEN}`)).toBe(true);
     timings.scenarioMs = Date.now() - T0;
-    // biome-ignore lint/suspicious/noConsole: the timings go to docs/status (INT-2).
+    // biome-ignore lint/suspicious/noConsole: the timings go to docs/archive/status (INT-2).
     console.log(`INT-2 timings ${JSON.stringify(timings)}`);
   });
 

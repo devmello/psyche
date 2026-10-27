@@ -1,6 +1,6 @@
 # Psyche — Security and Permissions
 
-Status: draft v0.1 (2026-10-18). Companion to [02-architecture.md](02-architecture.md), whose vocabulary this document uses unchanged. Evidence lives in `research_notes/`; inline references use short names: *browser/credentials notes* (`agent_browser_and_credentials.md`), *openclaw notes* (`opendots_openclaw_harnesses.md`), *claude-desktop notes* (`claude_desktop_and_peers.md`), *macos notes* (`macos_vm_and_integration.md`), *shopping/messaging/server notes* (`shopping_messaging_server_docs.md`), *models/memory/MCP notes* (`models_memory_mcp_ui_feed.md`).
+Status: draft v0.1 (2026-10-18). Companion to [02-architecture.md](02-architecture.md), whose vocabulary this document uses unchanged. Evidence lives in `docs/archive/research-notes/`; inline references use short names: *browser/credentials notes* (`agent_browser_and_credentials.md`), *openclaw notes* (`opendots_openclaw_harnesses.md`), *claude-desktop notes* (`claude_desktop_and_peers.md`), *macos notes* (`macos_vm_and_integration.md`), *shopping/messaging/server notes* (`shopping_messaging_server_docs.md`), *models/memory/MCP notes* (`models_memory_mcp_ui_feed.md`).
 
 MUST / MUST NOT / SHOULD are normative. Numbers labelled "default" are Psyche design decisions unless a reference is given. Where the notes record an unknown, this document says so.
 
@@ -288,7 +288,7 @@ The owner sets Allow / Ask / Deny per connector **action group** (`mail.read`, `
 
 ### 4.3.1 Key storage on unsigned builds
 
-Decided 2026-10-20 for the packaged desktop's first run from scratch (docs/status/s11.md "Packaging"). An ad-hoc or profile-less build of Psyche Helper has no keychain access group, so the Keychain slot above fails with `errSecMissingEntitlement`. Nothing else may block a no-terminal install.
+Decided 2026-10-20 for the packaged desktop's first run from scratch (docs/archive/status/s11.md "Packaging"). An ad-hoc or profile-less build of Psyche Helper has no keychain access group, so the Keychain slot above fails with `errSecMissingEntitlement`. Nothing else may block a no-terminal install.
 
 **Vault slot**
 - **Automatic.** The packaged desktop gives the Gateway a key file only when the bundled helper cannot hold the Keychain slot, i.e. it is not team-signed with an embedded provisioning profile.

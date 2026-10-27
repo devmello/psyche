@@ -1,5 +1,21 @@
 # @psyche/skills
 
+## Unreleased (pre-0.3.0)
+
+### Minor Changes
+
+- Agent-proposed skills (T3): routine detection over the loop's in-process hooks, redacted and rate-limited skill drafts that install only through the T2 trust card, and the "Suggested by" card in Settings → Skills.
+- Background specialist roles: six bundled `specialist-*` skills with their `specialist` sections, acceptance scripts and examples; the loader validates the section, resolves role allowlists and lists roles (`specialistRoles()`), plus the base prompt's "Specialists" section (#684).
+
+### Patch Changes
+
+- Bundled skills map their capability names to the Gateway's real tools and say why they are unavailable; gating follows the live tool set; the psyched build fails without its skills folder and the smoke lists the shipped skills (#506).
+- Apple app capability families for skill gating (`notes.*`, `reminders.*`, `contacts.*`, `music.*`, `files.*`, `shortcuts.*`) with Settings hints (part of #641).
+- Bundled skills for the Apple app flows: morning-brief (with a default weekday automation the owner can turn on), email-to-task, meeting-prep and downloads-cleanup; inbox-triage and calendar-planning use the Apple Mail and Calendar tools and say that EventKit cannot invite attendees (part of #641).
+- People and projects flows (PG3): meeting-prep on `meeting_prep` / `people_lookup`, people-aware inbox triage, Waiting on / You owe in the brief and the weekly review, People & projects in memory-hygiene, agent guidance for the five tools, and gating hints (part of #653).
+- The teaching loop's store and routing (#679): feedback events and lessons in the Gateway database, the lesson router with deterministic refusals and one destination per lesson, writers for SOUL.md, AGENTS.md, USER.md, the people graph, skills' LESSONS.md and automations, `feedback.*` and `memory.lessons.*` in the Gateway, approval answers as implicit evidence, and nightly dreaming scheduled at compose time.
+- Mail and meeting workflow skills (part of #671): six-group inbox triage with "Because:" and batches, reply drafts in the owner's voice (drafts only), follow-up-tracking, scheduling-over-email, meeting-notes, the meeting-prep §4.5 format, and the `speech.*` / `proposals.*` gating families.
+
 ## 0.3.0-alpha.0
 
 ### Minor Changes
