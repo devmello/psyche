@@ -1,26 +1,59 @@
 # Psyche
 
-**An open-source, self-hosted personal AI agent for macOS (and your own server).**
+**An open-source, self-hosted personal AI agent.** Psyche is an open-source take on Meta's Muse: one persistent conversation with a named agent that remembers you in files you can read. It runs on your Mac or on your own Linux server, keeps your data there, and asks before it does anything that changes something.
 
-Psyche is the open alternative to Meta's Muse: one persistent conversation with a named, customizable agent that remembers you in files you can read, browses in a browser you can watch and take over, reads and sends your mail and messages, fills forms, shops, runs commands in a sandbox, controls your Mac apps, writes you a Feed, proposes Ideas, tracks Goals, and keeps working after you close the window. It asks before anything that matters, keeps a receipt for everything it does, never sees your passwords, and runs on whichever model you choose, including local ones. Run it on your Mac, inside a macOS virtual machine that Psyche creates, or on a Linux server that answers you on Telegram or iMessage.
+> **Status: alpha (v0.3).** The macOS desktop app is built from source; there is no signed release yet. Windows is planned. Linux is supported for the Gateway (server mode) only, not the desktop app.
 
-> Status: **Milestone 1 integration**. The packages are on `main` and the walking skeleton (below) runs end to end against a scripted model in CI. The documents below are the architecture and implementation plan.
+## What it does
 
-## Documents
+- **Chat with artifacts.** One main thread plus side chats. Replies can include previews of files, email, the browser, and interactive artifacts that update in place.
+- **Ask about my screen.** A hotkey opens a small panel over whatever you're looking at. Psyche sends the window's context, and the image only when your request is about the screen. See [docs/design/screen-ask-2026.md](docs/design/screen-ask-2026.md).
+- **Feed and Search.** Search covers your threads, files and memory, and runs on-device. The Feed is a set of agent-written posts from your interests. Both are still being finished; see [docs/design/search-2026.md](docs/design/search-2026.md) and [docs/03-feature-spec.md](docs/03-feature-spec.md) §O.
+- **Connectors and MCP.** Apple Notes, Reminders, Calendar and Mail through the Mac helper; Gmail and Google Calendar with your own OAuth client; MCP servers from Settings. What works today is in [docs/guides/connectors.md](docs/guides/connectors.md).
+- **Background specialists.** Delegated agents with their own tools and approvals, for work that outlives the chat. Planned: [docs/agent/specialists-2026.md](docs/agent/specialists-2026.md).
+- **Mail and meetings.** Mail and calendar tools are available through connectors; meeting capture and the mail and meeting workflows are planned in [docs/workflows/mail-and-meetings-2026.md](docs/workflows/mail-and-meetings-2026.md).
+- **Voice dictation.** Hold a key and speak; the words appear as text for you to review. Psyche does not speak back.
+- **Permissions and approvals.** Every change goes through a Permission Broker. Approval cards show the exact action, and content from the web or from files can never approve anything. Each external write leaves a receipt.
+- **Browser and sandbox.** A browser you can watch and take over, and a command sandbox with no network by default.
+- **Secrets stay out of the model.** Passwords and keys live in an encrypted vault and are filled in at the last step.
+- **Your model, your choice.** Anthropic, OpenAI, Ollama and other OpenAI-compatible providers, including local models.
 
-| Doc | What it answers |
-| --- | --- |
-| [docs/00-vision-and-principles.md](docs/00-vision-and-principles.md) | What Psyche is, who it is for, what "imitate Muse" means, non-goals, v1.0 success criteria |
-| [docs/01-landscape.md](docs/01-landscape.md) | Two-page summary of the research: corrections to the brief, what to imitate and avoid from Muse, how Claude desktop / OpenMuse / OpenClaw implement each capability, technology picks, gaps |
-| [docs/02-architecture.md](docs/02-architecture.md) | Processes, deployment topologies, Gateway internals (agent loop, tasks, Permission Broker, Credential Broker, memory, MCP, channels, scheduler), desktop shell, Mac helper, browser, sandbox, VM mode, protocol, storage |
-| [docs/03-feature-spec.md](docs/03-feature-spec.md) | **Everything that needs to be implemented**, ~190 items with priorities and "done when" criteria, plus end-to-end acceptance scenarios |
-| [docs/04-data-model.md](docs/04-data-model.md) | SQLite schema, vault schema, workspace file formats, message blocks, approval and receipt shapes, audit entries, retention |
-| [docs/05-security-and-permissions.md](docs/05-security-and-permissions.md) | Threat model, permission model, credential handling, sandboxing, prompt-injection defenses, channel authorization, remote access, supply chain, VM mode, audit |
-| [docs/06-ui-design.md](docs/06-ui-design.md) | Information architecture, screen-by-screen specs with wireframes, design language, component inventory, theming, accessibility, keyboard map |
-| [docs/07-tech-decisions.md](docs/07-tech-decisions.md) | ADRs: Electron + Swift helper, TypeScript Gateway, own loop on AI SDK v7, SQLite + Markdown memory, binding-hash approvals, vault, browser drivers, sandbox, VM, MCP, channels, proactivity, UI libraries, speech, licenses |
-| [docs/08-roadmap.md](docs/08-roadmap.md) | Milestones 0–3 and v1.0, spikes, workstreams, risks, metrics |
-| [docs/09-execution-plan.md](docs/09-execution-plan.md) | How to build it with many parallel Claude Code sessions : ownership map, waves, coordination rules, session roster |
-| [docs/archive/](docs/archive/README.md) | How Psyche was built, kept for reference and not current: the per-session prompts, spike write-ups and prototypes, status logs, design reviews, the research report and the sourced research notes behind it |
+## Install
+
+**On a Mac (from source, until a signed release exists):**
+
+```bash
+pnpm install
+pnpm app:ship
+```
+
+`pnpm app:ship` builds `dist/Psyche-*.dmg` and installs it into `/Applications`; `pnpm app:build` and `pnpm app:install` do each step on its own. Installing resets Psyche's local data, so pass `--keep-data` to keep it. Details are in [docs/guides/getting-started.md](docs/guides/getting-started.md).
+
+**On a Linux server:** Docker Compose, with the Gateway on loopback. See [docs/guides/server-mode.md](docs/guides/server-mode.md). When releases are published, the DMG and image paths are in [docs/guides/install.md](docs/guides/install.md).
+
+## Quick start for developers
+
+Requires Node 24+ and pnpm 12+ (the repo pins pnpm 12.4.1).
+
+```bash
+pnpm install
+pnpm dev                                    # all apps through Turborepo
+pnpm --filter @psyche/gateway start         # the Gateway (psyched) on 127.0.0.1:7979
+pnpm --filter @psyche/desktop dev           # the desktop app
+```
+
+To run the Gateway with a model, set `PSYCHE_MODEL`, for example `PSYCHE_MODEL=anthropic/claude-sonnet-5-5` with `ANTHROPIC_API_KEY`, or `PSYCHE_MODEL=ollama/qwen3.8:27b` for a local model. Without a model, the Gateway starts and answers "No model is configured yet".
+
+Checks:
+
+```bash
+pnpm test                                   # unit tests (Vitest)
+pnpm typecheck
+pnpm lint
+pnpm --filter @psyche/integration-tests test   # the walking-skeleton scenario, with a scripted model
+```
+
+Contributors: read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 
 ## Repository layout
 
@@ -35,81 +68,15 @@ Psyche is the open alternative to Meta's Muse: one persistent conversation with 
 | `skills/` | The `SKILL.md` skills that ship with Psyche |
 | `templates/` | The default persona files (`SOUL.md`, `AGENTS.md`, `USER.md`, …) written at onboarding |
 
-## Guides
+## Documentation
 
-For people running Psyche rather than building it: [docs/guides/](docs/guides/README.md). Start with [install](docs/guides/install.md), then [backup and restore](docs/guides/backup-restore.md), [upgrade](docs/guides/upgrade.md) and [move to another machine](docs/guides/migrate.md).
+- **Using Psyche:** [docs/guides/](docs/guides/README.md), starting with [getting-started](docs/guides/getting-started.md), [approvals](docs/guides/approvals.md) and [memory and persona](docs/guides/memory-and-persona.md).
+- **How it is built:** [docs/00-vision-and-principles.md](docs/00-vision-and-principles.md), [02-architecture](docs/02-architecture.md), [03-feature-spec](docs/03-feature-spec.md), [05-security-and-permissions](docs/05-security-and-permissions.md), [07-tech-decisions](docs/07-tech-decisions.md) and [08-roadmap](docs/08-roadmap.md).
+- **Design notes:** [docs/design/](docs/design/) and [docs/agent/](docs/agent/).
+- **History:** [docs/archive/](docs/archive/README.md) holds past build prompts, spikes, reviews and status logs. It is kept for reference and is not current.
 
-## Run the skeleton
+## Contributing, security and license
 
-The walking skeleton is one path through the real Gateway, agent loop, model router, Permission Broker, memory and task engine: onboarding writes the persona files, a chat turn streams, the agent reads a file in a granted folder and proposes a write, you approve it once and get a receipt, it asks a question with chips, the checklist and wrap-up box update, a delegated task keeps running after the window closes, the memory flush writes today's daily note, and the workspace exports as a zip.
-
-```bash
-pnpm install
-pnpm --filter @psyche/integration-tests test
-```
-
-That runs the scenario in [tests/integration/walking-skeleton/](tests/integration/walking-skeleton/) with the scripted model, as CI does. The same scenario runs in the desktop app (Playwright for Electron, macOS):
-
-```bash
-pnpm --filter @psyche/desktop package
-```
-
-```bash
-pnpm --filter @psyche/integration-tests e2e
-```
- To run it against a live model (Anthropic, OpenAI or a local `agent-capable` model through Ollama), set the model and its key:
-
-```bash
-PSYCHE_LIVE_TESTS=1 PSYCHE_MODEL=anthropic/claude-sonnet-5-5 ANTHROPIC_API_KEY=… pnpm --filter @psyche/integration-tests exec vitest run live
-```
-
-To run the Gateway itself (`psyched`) with a model, then point the desktop app at it:
-
-```bash
-PSYCHE_MODEL=ollama/qwen3.8:27b pnpm --filter @psyche/gateway start
-```
-
-```bash
-pnpm --filter @psyche/desktop dev
-```
-
-For a local model, install Ollama and pull an `agent-capable` model first (`ollama pull qwen3.8:27b`), then use `PSYCHE_MODEL=ollama/qwen3.8:27b` (and `PSYCHE_OLLAMA_URL` for a non-default server). Without `PSYCHE_MODEL`, `psyched` still starts and answers each turn with "No model is configured yet". Grant the agent a folder from Settings → File access ("Choose a folder…" on the desktop, or a typed path on the web), or by setting `permissions.policy` to `{"folders":[{"path":"/Users/you/Notes","mode":"rw"}]}` from the CLI; either way the device needs `operator.admin` (`psyched devices grant`), and the broker applies the grant without a restart. Remaining gaps per package are in [docs/archive/status/int-1.md](docs/archive/status/int-1.md).
-
-## Architecture in one picture
-
-```
- Clients ──────────────┐            ┌──────────── Executors ─────────────┐
- Psyche.app (Electron) │  WS/loop   │ embedded browser (CDP)             │
- web UI (same React)   ├──────────▶ │ Linux sandbox (Apple container /   │
- Telegram / iMessage / │            │   Docker), nonroot, no network     │
- WhatsApp / Signal …   │            │ Psyche Helper.app (Swift node):    │
-                       │            │   AX/input, screenshots, Apple     │
-   psyched — the Gateway (Node 24)  │   Events, Keychain + Touch ID,     │
-   sessions · agent loop · model    │   notifications, SpeechAnalyzer,   │
-   router · task engine · Permission│   Messages, Virtualization         │
-   Broker · Credential Broker ·     │ optional macOS guest VM running    │
-   memory files + index · MCP host  │   the whole stack                  │
-   · channels · scheduler · Feed/   │ remote nodes                       │
-   Ideas/Goals · search · audit     └────────────────────────────────────┘
-```
-
-Same Gateway on a Mac (launchd) or a Linux server (Docker Compose). State in `~/.psyche`: `state/psyche.sqlite`, `workspace/` (`SOUL.md`, `IDENTITY.md`, `USER.md`, `MEMORY.md`, daily notes), `vault/` (SQLCipher), `library/`, `browser/profiles/`, `audit/`.
-
-## Principles
-
-1. One conversation, one agent, one identity. 2. Evidence is not permission. 3. Approvals are capabilities, not chat. 4. Every external write leaves a receipt. 5. The model never sees a secret. 6. Memory is files you can read. 7. Work keeps going. 8. Sandbox is the boundary, approvals are the policy. 9. Local first, loopback by default. 10. Proactivity is bounded and confirmable.
-
-## What it borrows, and from whom
-
-- **Muse** (Meta, Sept 2026): surfaces (Chat, Search, Feed, Ideas, Goals, Library), the agent sheet behind the avatar (Activity, Approvals, Upcoming, Soul & Memory), editable Soul / Identity / Memory files, browser Take control, approval scopes, per-connector and per-app permission matrices, persona customization.
-- **Claude desktop app**: the pane workspace (chat, browser, terminal, files, diff, plan, tasks), agent-driven pane RPC, computer-use tiers and a signed helper, plan mode and the pinned checklist, structured questions, Electron + Swift stack.
-- **OpenClaw**: one Gateway with a typed WS protocol, device pairing, `dmPolicy` pairing/allowlists for channels, the workspace files and injection budgets, pre-compaction memory flush, nightly consolidation, approvals bound to exact arguments, security lessons from its 2026 incidents.
-- **OpenMuse** (CopilotKit): durable tasks with SQL leases, the review → dispatch → receipt contract, the nonroot network-less container, the separate browser worker with persistent profiles, the Documents pipeline.
-
-## Planned stack
-
-TypeScript / Node 24 · Electron 44 · React 19 · Tailwind 4 · shadcn/ui v4 · assistant-ui · AI SDK v7 providers with an own router · SQLite (FTS5 + sqlite-vec) · SQLCipher vault · MCP TypeScript SDK v2 (spec 2026-07-28) · Playwright (sidecar) · Swift helper (Accessibility, ScreenCaptureKit, Keychain, UNUserNotificationCenter, SpeechAnalyzer, EventKit, Virtualization.framework) · Apple `container` / Docker · grammY · PDF.js 6 · SheetJS CE + Univer · MDXEditor · CodeMirror 6 + Shiki · Kokoro TTS.
-
-## License
-
-Proposed Apache-2.0 (see ADR-019). Not final.
+- [CONTRIBUTING.md](CONTRIBUTING.md): how to work in the repo and what is expected of a change.
+- [SECURITY.md](SECURITY.md): how to report a vulnerability. Please don't open a public issue for one.
+- [LICENSE](LICENSE): Apache-2.0.
