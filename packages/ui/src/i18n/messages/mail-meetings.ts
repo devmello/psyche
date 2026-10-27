@@ -91,6 +91,12 @@ export const mailMeetings = {
   "settings.mail.notes.folder": "Recordings folder",
   "settings.mail.notes.folder.hint": "A folder Wren may read. Grant it under File access.",
   "settings.mail.notes.folder.placeholder": "~/Documents/Recordings",
+  "settings.mail.transcribe.endpoint": "Transcription endpoint",
+  "settings.mail.transcribe.endpoint.hint":
+    "Optional. An OpenAI-compatible /v1/audio/transcriptions server (for example whisper.cpp on this Mac). Used when the Mac helper is not running. Audio goes only to this address: https, or http on 127.0.0.1.",
+  "settings.mail.transcribe.endpoint.placeholder": "http://127.0.0.1:8080",
+  "settings.mail.transcribe.model": "Transcription model",
+  "settings.mail.transcribe.model.placeholder": "whisper-1",
   "settings.mail.notes.tasksApp": "Add action items to",
   "settings.mail.notes.tasksApp.reminders": "Reminders",
   "settings.mail.notes.tasksApp.things": "Things",
@@ -137,6 +143,8 @@ export const mailMeetings = {
   "settings.key.meetings.notes.tasksApp": "Add action items to",
   "settings.key.meetings.notes.recapDraft": "Draft a recap email",
   "settings.key.meetings.notes.consentLine": "Recording consent line",
+  "settings.key.meetings.transcribe.endpoint": "Transcription endpoint",
+  "settings.key.meetings.transcribe.model": "Transcription model",
   "settings.key.meetings.notes.cloudSummary": "Summarize with a cloud model",
 
   // Onboarding decision screen (§7.5)
