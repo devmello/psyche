@@ -71,6 +71,17 @@ export interface WindowOptions {
   onPopOutClosed?: (route: string) => void;
   /** Where the Settings window's bounds are remembered (#596); unset, it always opens centred. */
   settingsBoundsFile?: string;
+  /**
+   * Frees the main window's app renderer after it has been hidden this long (the menu bar, owner
+   * decision 2026-10-26; docs/design/lightweight-2026.md item 2). The window and the agent's tab
+   * views stay; showing it again makes a new app view on the route it left, shown at once over
+   * the page's static skeleton. Unset keeps the renderer forever.
+   */
+  releaseHiddenAfterMs?: number;
+  /** Asked before a release; false keeps the renderer (unsent text) and tries again later. */
+  canRelease?: (wc: WebContents) => Promise<boolean>;
+  /** Every main app view, the first and each one made after a release: per-page wiring. */
+  onMainViewCreated?: (win: BaseWindow, view: WebContentsView) => void;
 }
 
 /** Settings section ids are short slugs (`model`, `computer-use`). */
@@ -136,6 +147,10 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
     });
     win.contentView.addChildView(view, 0); // index 0: agent tab views stay above the app view
     const layout = () => {
+      if (view.webContents.isDestroyed()) {
+        win.off("resize", layout); // a released main view
+        return;
+      }
       const { width, height } = win.getContentBounds();
       view.setBounds({ x: 0, y: 0, width, height });
     };
@@ -152,6 +167,59 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
     return view;
   }
 
+  function makeMainView(win: BaseWindow, route: string, chrome: ChromeArg): WebContentsView {
+    const view = makeView(win, route, chrome);
+    view.setBackgroundColor(canvasColor(nativeTheme.shouldUseDarkColors));
+    mainView = view;
+    opts.onMainViewCreated?.(win, view);
+    return view;
+  }
+
+  // The main renderer's release while hidden (`releaseHiddenAfterMs`).
+  let releaseTimer: ReturnType<typeof setTimeout> | undefined;
+  let releasedRoute: string | undefined;
+  const disarmRelease = () => {
+    if (releaseTimer !== undefined) clearTimeout(releaseTimer);
+    releaseTimer = undefined;
+  };
+  const armRelease = () => {
+    disarmRelease();
+    const ms = opts.releaseHiddenAfterMs;
+    if (ms === undefined || ms <= 0) return;
+    releaseTimer = setTimeout(() => void releaseMain(), ms);
+  };
+  async function releaseMain(): Promise<void> {
+    releaseTimer = undefined;
+    const win = mainWin;
+    const view = mainView;
+    if (quitting || !win || win.isDestroyed() || win.isVisible() || !view) return;
+    const wc = view.webContents;
+    if (wc.isDestroyed()) return;
+    const ok = (await opts.canRelease?.(wc).catch(() => false)) ?? true;
+    // Shown again, or released already, while the renderer was asked.
+    if (win.isDestroyed() || win.isVisible() || mainView !== view || wc.isDestroyed()) return;
+    if (!ok) {
+      armRelease();
+      return;
+    }
+    releasedRoute = routeOf(wc.getURL());
+    mainView = undefined;
+    win.contentView.removeChildView(view);
+    views.delete(wc);
+    wc.close();
+  }
+  /** The app route of a renderer URL (path, query, hash), or undefined when it is not the app's. */
+  const routeOf = (url: string): string | undefined => {
+    try {
+      const u = new URL(url);
+      const base = new URL(opts.rendererUrl);
+      if (u.protocol !== base.protocol || u.host !== base.host) return undefined;
+      return `${u.pathname}${u.search}${u.hash}`;
+    } catch {
+      return undefined;
+    }
+  };
+
   function createMain(): BaseWindow {
     const win = new BaseWindow({
       ...mainWindowOptions({
@@ -160,13 +228,13 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
       }),
       ...opts.mainOptions,
     });
-    const view = makeView(win, "/chat", {
+    const view = makeMainView(win, "/chat", {
       ...insetChrome(),
       ...(opts.splash?.() ? { splash: true } : {}),
     });
-    view.setBackgroundColor(canvasColor(nativeTheme.shouldUseDarkColors));
-    mainView = view;
     view.webContents.once("did-finish-load", () => win.show());
+    win.on("hide", armRelease);
+    win.on("show", disarmRelease);
     // "Close window" hides it: the agent browser's tab views live in this window and keep
     // working (feature A7, I11). Only quitting destroys it.
     win.on("close", (event) => {
@@ -175,6 +243,7 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
       win.hide();
     });
     win.on("closed", () => {
+      disarmRelease();
       mainWin = undefined;
       mainView = undefined;
       opts.onMainClosed?.();
@@ -243,6 +312,14 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
     },
     showMain() {
       const win = mainWin ?? createMain();
+      if (mainView === undefined) {
+        // Released while hidden: a new app view on the route it left. The window shows at once,
+        // over the canvas colour and index.html's skeleton, while the app loads (no splash: the
+        // Gateway is already up).
+        const view = makeMainView(win, releasedRoute ?? "/chat", insetChrome());
+        releasedRoute = undefined;
+        opts.onChromeWindowCreated?.(win, view);
+      }
       if (win.isMinimized()) win.restore();
       win.show();
       win.focus();
