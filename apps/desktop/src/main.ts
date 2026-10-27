@@ -803,6 +803,8 @@ void app.whenReady().then(async () => {
         window: win,
         psycheHome: home,
         userData: app.getPath("userData"),
+        // Dev and test runs may shorten the idle time before a background tab is discarded.
+        ...tabDiscardOverride(app.isPackaged, process.env),
       });
       browser.on("state", (s) => broadcast(IPC.browserState, s));
       // Pause-when-unwatched (#272): pane visibility and owner input go to the Gateway.
@@ -1082,3 +1084,13 @@ app.on("before-quit", () => {
   tray?.destroy();
   if (!quittingEntirely) void supervisor?.onAppQuit();
 });
+
+/** PSYCHE_TAB_DISCARD_MS (unpackaged runs only): idle time before a background tab is discarded. */
+function tabDiscardOverride(
+  packaged: boolean,
+  env: NodeJS.ProcessEnv,
+): { discardAfterMs?: number; discardCheckMs?: number } {
+  const ms = packaged ? Number.NaN : Number(env.PSYCHE_TAB_DISCARD_MS ?? Number.NaN);
+  if (!Number.isFinite(ms) || ms <= 0) return {};
+  return { discardAfterMs: ms, discardCheckMs: Math.min(ms, 60_000) };
+}
