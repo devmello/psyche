@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
-import { fileURLToPath } from "node:url";
+import { assetPath } from "@psyche/assets";
 
 /**
  * The loopback half of Psyche's MCP tool bridge for the subscription CLIs. A CLI run gets a
@@ -36,7 +36,7 @@ export interface BridgeChannel {
 export const BRIDGE_SERVER_NAME = "psyche";
 
 /** Path of the stdio relay script the CLI runs. */
-export const BRIDGE_SCRIPT = fileURLToPath(new URL("./mcp-stdio-bridge.mjs", import.meta.url));
+export const BRIDGE_SCRIPT = assetPath("packages/model-router/src/cli/mcp-stdio-bridge.mjs");
 
 const PROTOCOL_VERSION = "2025-06-18";
 

@@ -1,4 +1,4 @@
-import { fileURLToPath } from "node:url";
+import { assetDir } from "@psyche/assets";
 import versions from "../../../deploy/sandbox-image/versions.json" with { type: "json" };
 import { buildArgs, type ContainerBackendKind } from "./backends.ts";
 import { type CliDriver, nodeCliDriver, runCli } from "./cli.ts";
@@ -8,9 +8,7 @@ export type ImageVariant = "core" | "base" | "full";
 export const IMAGE_ENV = "PSYCHE_SANDBOX_IMAGE";
 
 /** Directory holding the Dockerfile (`deploy/sandbox-image`). */
-export const IMAGE_CONTEXT_DIR = fileURLToPath(
-  new URL("../../../deploy/sandbox-image/", import.meta.url),
-);
+export const IMAGE_CONTEXT_DIR = assetDir("deploy/sandbox-image");
 
 export const imageVersions = versions;
 

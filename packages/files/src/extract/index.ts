@@ -1,4 +1,5 @@
 import { Worker } from "node:worker_threads";
+import { entryUrl } from "@psyche/assets";
 import { PsycheError } from "@psyche/protocol";
 import type { ExtractRequest } from "./document.ts";
 import type { DocumentFormat, DocumentPage } from "./pager.ts";
@@ -70,12 +71,15 @@ export function extractDocument(
       reject(new PsycheError("cancelled", "cancelled"));
       return;
     }
-    const worker = new Worker(new URL("./worker.ts", import.meta.url), {
-      resourceLimits: {
-        maxOldGenerationSizeMb: EXTRACT_LIMITS.heapMb,
-        maxYoungGenerationSizeMb: 64,
+    const worker = new Worker(
+      entryUrl(new URL("./worker.ts", import.meta.url), "extract-worker.mjs"),
+      {
+        resourceLimits: {
+          maxOldGenerationSizeMb: EXTRACT_LIMITS.heapMb,
+          maxYoungGenerationSizeMb: 64,
+        },
       },
-    });
+    );
     let settled = false;
     const finish = (err: PsycheError | undefined, page?: DocumentPage) => {
       if (settled) return;

@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { attachRoutineDetector, PsycheAgentLoop } from "@psyche/agent-core";
+import { assetDir } from "@psyche/assets";
 import { redactSensitive } from "@psyche/audit";
 import { getThread } from "@psyche/db";
 import {
@@ -112,7 +112,7 @@ function markedSearch(tool: ToolRegistration): ToolRegistration {
   };
 }
 
-const REPO_SKILLS = fileURLToPath(new URL("../../../../skills/", import.meta.url));
+const REPO_SKILLS = assetDir("skills");
 
 function bundledDirFor(opts: SkillsOptions): string | undefined {
   if (opts.bundledDir === null) return undefined;

@@ -471,7 +471,7 @@ describe("deploy/scripts/build-psyched.mjs launchers", () => {
         // A stand-in runtime that prints the entry point it was given.
         writeFileSync(
           join(bundle, "runtime", "node"),
-          '#!/bin/sh\nfor a; do case $a in *.ts) printf "%s\\n" "$a" ;; esac; done\n',
+          '#!/bin/sh\nfor a; do case $a in *.mjs) printf "%s\\n" "$a" ;; esac; done\n',
           {
             mode: 0o755,
           },
@@ -484,13 +484,13 @@ describe("deploy/scripts/build-psyched.mjs launchers", () => {
         symlinkSync("../Psyche.app/Contents/Resources/psyched/psyched", join(bin, "psyched"));
         symlinkSync(join(bin, "psyche"), join(bin, "psyche2"));
         const runIt = (p: string) => execFileSync(p, [], { encoding: "utf8" }).trim();
-        expect(runIt(join(bin, "psyche"))).toBe(join(bundle, "app/apps/cli/src/main.ts"));
-        expect(runIt(join(bin, "psyche2"))).toBe(join(bundle, "app/apps/cli/src/main.ts"));
+        expect(runIt(join(bin, "psyche"))).toBe(join(bundle, "app/apps/cli/dist/main.mjs"));
+        expect(runIt(join(bin, "psyche2"))).toBe(join(bundle, "app/apps/cli/dist/main.mjs"));
         expect(runIt(join(bin, "psyched"))).toBe(
           // Not normalized: the launcher keeps the relative link's `..`.
-          `${bin}/../Psyche.app/Contents/Resources/psyched/app/apps/gateway/src/main.ts`,
+          `${bin}/../Psyche.app/Contents/Resources/psyched/app/apps/gateway/dist/main.mjs`,
         );
-        expect(runIt(join(bundle, "psyched"))).toBe(join(bundle, "app/apps/gateway/src/main.ts"));
+        expect(runIt(join(bundle, "psyched"))).toBe(join(bundle, "app/apps/gateway/dist/main.mjs"));
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }
@@ -683,6 +683,169 @@ describe("deploy/scripts/prune-package-waste.mjs (app size, phase 1)", () => {
       expect(lstatSync(join(dir, "libonnxruntime.1.dylib")).isSymbolicLink()).toBe(true);
       expect(readFileSync(join(dir, "libonnxruntime.1.dylib"), "utf8")).toBe("dylib-bytes");
       expect(lstatSync(join(dir, "libonnxruntime.1.30.0.dylib")).isSymbolicLink()).toBe(false);
+    } finally {
+      rmSync(app, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("deploy/scripts/bundle-gateway.mjs (app size, esbuild bundle)", () => {
+  /** A miniature exported tree in pnpm's layout: workspace packages, a bundled dep, an external one, assets. */
+  function tree(): string {
+    const app = mkdtempSync(join(tmpdir(), "psyche-bundle-"));
+    const put = (rel: string, text = "x") => {
+      mkdirSync(dirname(join(app, rel)), { recursive: true });
+      writeFileSync(join(app, rel), text);
+    };
+    const link = (from: string, to: string) => {
+      mkdirSync(dirname(join(app, from)), { recursive: true });
+      symlinkSync(to, join(app, from));
+    };
+    put("package.json", "{}");
+    put("README.md");
+    put(
+      "apps/gateway/src/main.ts",
+      `import { greet } from "@psyche/lib";
+import native from "native-thing";
+import pure from "pure-js";
+process.stdout.write(JSON.stringify({ greet: greet("x"), native: native(), pure: pure(), url: Boolean(globalThis.__PSYCHE_BUNDLE_URL__) }));
+`,
+    );
+    put("apps/gateway/package.json", "{}");
+    put("apps/cli/src/main.ts", `console.log("cli");`);
+    put(
+      "packages/lib/package.json",
+      '{"name":"@psyche/lib","type":"module","exports":{".":"./src/index.ts"}}',
+    );
+    put("packages/lib/src/index.ts", `export const greet = (n: string): string => "hello " + n;`);
+    put("packages/lib/test/a.test.ts");
+    put("packages/db/migrations/0001.sql", "create table t (a);");
+    put("packages/files/src/extract/worker.ts", `console.log("worker");`);
+    put("skills/a/SKILL.md", "---\nname: a\n---");
+    put("templates/T.md");
+    put("apps/web/dist/index.html", "<html>");
+    put("apps/web/src/main.tsx");
+    put("deploy/sandbox-image/Dockerfile", "FROM scratch");
+    put("deploy/other/x.sh");
+    put("packages/model-router/src/cli/mcp-stdio-bridge.mjs");
+    put("packages/model-router/src/cli/other.ts");
+    const store = "node_modules/.pnpm";
+    put(`${store}/pure-js@1.0.0/node_modules/pure-js/index.js`, "module.exports = () => 'pure';");
+    put(
+      `${store}/pure-js@1.0.0/node_modules/pure-js/package.json`,
+      '{"name":"pure-js","main":"index.js"}',
+    );
+    put(
+      `${store}/native-thing@1.0.0/node_modules/native-thing/index.js`,
+      "module.exports = () => 'native';",
+    );
+    put(
+      `${store}/native-thing@1.0.0/node_modules/native-thing/package.json`,
+      '{"name":"native-thing","main":"index.js"}',
+    );
+    put(`${store}/native-dep@1.0.0/node_modules/native-dep/index.js`);
+    put(`${store}/unused@1.0.0/node_modules/unused/index.js`);
+    link(
+      `${store}/native-thing@1.0.0/node_modules/native-dep`,
+      "../../native-dep@1.0.0/node_modules/native-dep",
+    );
+    link(
+      "apps/gateway/node_modules/pure-js",
+      "../../../node_modules/.pnpm/pure-js@1.0.0/node_modules/pure-js",
+    );
+    link(
+      "apps/gateway/node_modules/native-thing",
+      "../../../node_modules/.pnpm/native-thing@1.0.0/node_modules/native-thing",
+    );
+    link("apps/gateway/node_modules/@psyche/lib", "../../../../packages/lib");
+    // pnpm's hoisted store links the workspace packages too; they dangle once the sources go.
+    link(`${store}/node_modules/@psyche/lib`, "../../../../packages/lib");
+    return app;
+  }
+  const all = (dir: string, base = dir): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() && !e.isSymbolicLink()
+        ? all(join(dir, e.name), base)
+        : [join(dir, e.name).slice(base.length + 1)],
+    );
+
+  it("bundles the entries with the workspace and pure dependencies inside, and an external outside", async () => {
+    const { bundleGateway } = await import(resolve(deploy, "scripts/bundle-gateway.mjs"));
+    const app = tree();
+    try {
+      const sizes = await bundleGateway(app, {
+        root: resolve(deploy, ".."),
+        entries: {
+          "apps/gateway/dist/main": "apps/gateway/src/main.ts",
+          "apps/gateway/dist/extract-worker": "packages/files/src/extract/worker.ts",
+          "apps/cli/dist/main": "apps/cli/src/main.ts",
+        },
+        external: ["native-thing"],
+      });
+      expect(Object.keys(sizes).sort()).toEqual([
+        "apps/cli/dist/main.mjs",
+        "apps/gateway/dist/extract-worker.mjs",
+        "apps/gateway/dist/main.mjs",
+      ]);
+      const main = readFileSync(join(app, "apps/gateway/dist/main.mjs"), "utf8");
+      expect(main).toContain("hello "); // the workspace package is inside
+      expect(main).toMatch(/["']pure["']/); // so is the pure dependency
+      expect(main).not.toMatch(/["']native["']/);
+      expect(main).toContain("native-thing"); // still an import, resolved from node_modules at run time
+      expect(main.startsWith("globalThis.__PSYCHE_BUNDLE_URL__")).toBe(true);
+    } finally {
+      rmSync(app, { recursive: true, force: true });
+    }
+  });
+
+  it("drops the sources but keeps assets and the external package with its dependencies", async () => {
+    const { bundleGateway, discardSources } = await import(
+      resolve(deploy, "scripts/bundle-gateway.mjs")
+    );
+    const app = tree();
+    try {
+      await bundleGateway(app, {
+        root: resolve(deploy, ".."),
+        entries: { "apps/gateway/dist/main": "apps/gateway/src/main.ts" },
+        external: ["native-thing"],
+      });
+      const r = discardSources(app, { external: ["native-thing"] });
+      expect(r.external).toEqual(["native-thing"]);
+      expect(all(app).sort()).toEqual([
+        "apps/gateway/dist/main.mjs",
+        "apps/web/dist/index.html",
+        "deploy/sandbox-image/Dockerfile",
+        "node_modules/.pnpm/native-dep@1.0.0/node_modules/native-dep/index.js",
+        "node_modules/.pnpm/native-thing@1.0.0/node_modules/native-dep", // pnpm's link to its dependency
+        "node_modules/.pnpm/native-thing@1.0.0/node_modules/native-thing/index.js",
+        "node_modules/.pnpm/native-thing@1.0.0/node_modules/native-thing/package.json",
+        "node_modules/native-thing", // the link the bundles resolve it through
+        "packages/db/migrations/0001.sql",
+        "packages/model-router/src/cli/mcp-stdio-bridge.mjs",
+        "skills/a/SKILL.md",
+        "templates/T.md",
+      ]);
+      expect(lstatSync(join(app, "node_modules/native-thing")).isSymbolicLink()).toBe(true);
+      expect(readFileSync(join(app, "node_modules/native-thing/index.js"), "utf8")).toContain(
+        "native",
+      );
+      expect(existsSync(join(app, "node_modules/.pnpm/unused@1.0.0"))).toBe(false);
+      // codesign cannot seal a link to nothing: none may be left.
+      expect(existsSync(join(app, "node_modules/.pnpm/node_modules/@psyche/lib"))).toBe(false);
+      const links = execFileSync("find", [app, "-type", "l"], { encoding: "utf8" })
+        .split("\n")
+        .filter(Boolean);
+      expect(links.filter((l) => !existsSync(l))).toEqual([]);
+      // The bundle still runs from its place in the tree: externals resolve, the bundle announces itself.
+      const out = execFileSync(process.execPath, [join(app, "apps/gateway/dist/main.mjs")], {
+        encoding: "utf8",
+      });
+      expect(JSON.parse(out)).toEqual({
+        greet: "hello x",
+        native: "native",
+        pure: "pure",
+        url: true,
+      });
     } finally {
       rmSync(app, { recursive: true, force: true });
     }

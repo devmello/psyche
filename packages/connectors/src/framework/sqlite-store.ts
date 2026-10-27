@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { assetPath } from "@psyche/assets";
 import type { ConnectorRecord, ConnectorStore } from "./types.ts";
 
 /** The slice of better-sqlite3's `Database` this store uses (`@psyche/db`'s `PsycheDb.sqlite`). */
@@ -13,7 +14,7 @@ export interface ConnectorSqlite {
 
 /** The DDL (identical to `packages/db/migrations/202610241000_connectors_init.sql`; a test checks). */
 export function connectorsMigrationSql(): string {
-  return readFileSync(new URL("../../migrations/connectors_init.sql", import.meta.url), "utf8");
+  return readFileSync(assetPath("packages/connectors/migrations/connectors_init.sql"), "utf8");
 }
 
 interface Row {

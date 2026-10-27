@@ -141,36 +141,51 @@ only change that reaches the 300–400 MiB target, so it is worth the owner's de
 the owner accepts it, the work is: fuse on (or the daemon mode), `ELECTRON_RUN_AS_NODE` in those three
 spawns and in both launchers, and a packaging test that boots the Gateway on the app's binary.
 
-### The alternative that is safe: bundle the Gateway with esbuild
+### Done instead: the Gateway and the CLI are bundled with esbuild
 
-`esbuild apps/gateway/src/main.ts --bundle --platform=node --format=esm --minify` with the native and
-lazily-loaded packages external (`better-sqlite3`, the cipher fork, sqlite-vec, onnxruntime-node,
-playwright-core, pdfjs-dist, domino, turndown) produces **one 5.3 MB file** (10.8 MB unminified; a
-`createRequire` banner is needed for CommonJS dependencies). That replaces most of `node_modules`
-(64.5 MiB, of which 20.8 MiB are the externals) and the workspace sources (`packages` 9.7 MiB,
-`apps/gateway` 1.3 MiB, apart from migrations, templates and skills).
+`deploy/scripts/bundle-gateway.mjs` (run by `build-psyched.mjs`) bundles three entries into the exported
+tree, minified, ESM, Node 24 target:
 
-Tried: it starts and then stops at the first asset lookup (`scandir …/migrations/`), because 11 of the
-Gateway's modules find their files next to their own source with `import.meta.url`
-(`apps/gateway/src/config.ts`, `compose/skills.ts`, `apps/cli/src/migrate.ts`,
-`packages/db/src/migrate.ts`, `connectors/framework/sqlite-store.ts`, `files/extract/index.ts`,
-`memory/src/store.ts` and `vector.ts`, `model-router/src/cli/bridge.ts`,
-`notifications/src/sqlite-store.ts`, `sandbox/src/image.ts`). Those need one "assets root"
-helper that the bundle points at a copied `migrations/`, `templates/` and `skills/`, plus a smoke
-that starts the bundle. Savings: about 46 MiB (64.5 + 9.7 + 1.3 − 5.3 − assets) and a faster start.
-It is a refactor with a migration-path risk, so it is a proposal, not part of this PR.
+- `apps/gateway/dist/main.mjs` (5.8 MB) is psyched;
+- `apps/gateway/dist/extract-worker.mjs` is the document-extraction worker thread (`@psyche/files`);
+- `apps/cli/dist/main.mjs` (0.6 MB) is `psyche`.
+
+Kept external, as real packages in `node_modules`: the native addons (`better-sqlite3`, the cipher fork,
+`sqlite-vec`, `onnxruntime-node`) and the libraries that read their own files at run time (`pdfjs-dist`,
+`playwright-core`). Everything else, the workspace and pure-JS dependencies, is inside the bundles. Then
+`discardSources` deletes every workspace source (only the assets below survive), links the external
+packages into `app/node_modules` and removes every pnpm store entry they do not reach, plus the
+workspace links that dangle (codesign cannot seal a link to nothing).
+
+**Assets root.** The 11 modules that located migrations, templates, skills, the web client, the sandbox
+image context and the MCP bridge through `import.meta.url` now ask `@psyche/assets` (`packages/assets`).
+`assetPath("packages/db/migrations")` is the same relative path below one root in a checkout and in the
+bundle: the root is `PSYCHE_ASSETS_ROOT`, else three directories above a bundle (each bundle's banner
+sets `globalThis.__PSYCHE_BUNDLE_URL__`), else the repository root. `entryUrl()` does the same for the
+extraction worker. What stays next to the bundles: `skills/`, `templates/`, `deploy/sandbox-image/`,
+`apps/web/dist/`, the three `migrations/` folders and `mcp-stdio-bridge.mjs`.
+
+**Smoke.** `psyched --bundle-check` (`apps/gateway/src/bundle-check.ts`) opens a fresh database and runs
+all migrations, reads the connector and notification migrations and the templates, loads every bundled
+skill, finds the web client, the sandbox context and the bridge, and extracts a PDF through the worker
+thread. `build-psyched.mjs --smoke` runs it with the bundle's own Node, after the `/healthz` boot, plus
+a load of each external package (SQLite, sqlite-vec, SQLCipher, playwright-core, onnxruntime).
+`deploy/scripts/upgrade-roundtrip.mjs` (CLI pairing, online backup, restore, second boot) also passes
+against the bundle's launchers.
+
+Result: `Resources/psyched` 245 → 196 MiB, Psyche.app 561 → 510 MiB, DMG 247 → 198 MiB.
 
 ### Where that leaves the target (arm64, installed)
 
 | | MiB |
 |---|---|
 | Original | 651 |
-| After phase 1, onnxruntime shipped (current) | 561 |
-| + esbuild Gateway bundle (estimate, next PR) | ≈ 515 |
-| + Electron's Node instead of the bundled one (fuse; owner said no) | ≈ 422 |
+| After phase 1, onnxruntime shipped | 561 |
+| + esbuild Gateway bundle (measured) | **510** |
+| + Electron's Node instead of the bundled one (fuse; owner said no) | ≈ 417 |
 
-With the library shipped and the fuse off, the esbuild bundle gets to about 515 MiB; under 500 needs
-one or two of the smaller things below, and 300–400 needs the second Node gone:
+With the library shipped and the fuse off, the installed app is 510 MiB and the DMG 198 MiB. Under
+500 needs one of the smaller things below; 300–400 needs the second Node gone:
 
 - `libvk_swiftshader.dylib` (16 MiB): the software Vulkan fallback for machines without a usable GPU.
   Removing it risks a blank window on those; test with `--disable-gpu` first.

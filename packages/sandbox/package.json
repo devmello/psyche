@@ -18,6 +18,7 @@
     "sandbox:build": "node bin/smoke.ts --build-only"
   },
   "dependencies": {
+    "@psyche/assets": "workspace:*",
     "@psyche/protocol": "workspace:*"
   },
   "devDependencies": {

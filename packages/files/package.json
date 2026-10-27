@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@psyche/agent-core": "workspace:*",
+    "@psyche/assets": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "@sinclair/typebox": "0.34.52",
     "pdfjs-dist": "6.4.299"

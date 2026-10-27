@@ -17,6 +17,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@psyche/assets": "workspace:*",
     "@psyche/backup": "workspace:*",
     "@psyche/permissions": "workspace:*",
     "@psyche/protocol": "workspace:*"
