@@ -68,6 +68,7 @@ describe("composition root: proactive surfaces (S15)", () => {
     const system = (await scheduler.list()).map((a) => a.title).sort();
     expect(system).toEqual([
       "Check for new mail",
+      "Check the recordings folder",
       "Daily brief",
       "Ideas: delivery window",
       "Ideas: nightly mining",
@@ -75,6 +76,7 @@ describe("composition root: proactive surfaces (S15)", () => {
       "Learn my writing style",
       "Meeting prep",
       "Memory dreaming",
+      "Offer focus time",
       "What I learned this week",
     ]);
 

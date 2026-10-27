@@ -259,7 +259,7 @@ describe("Permissions", () => {
             kind: "connector_action",
             scope: "always",
             grantKey: "notes_create|connector_action:apple-notes:notes_create:title-prefix:Prep:",
-            subject: { tool: "notes_create", titlePrefix: "Prep:", acceptsTaint: true },
+            subject: { tool: "notes_create", titlePrefix: "Prep:" },
             binding: null,
             expiresAt: "2027-01-17T10:00:00Z",
             useCount: 2,
