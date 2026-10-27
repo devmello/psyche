@@ -20,11 +20,13 @@ import {
   type JsonObject,
   type Notifier,
   type PermissionBroker,
+  type PreviewResult,
   PsycheError,
   type Receipt,
   type ReceiptInput,
   type SideEffect,
   type Surface,
+  type ToolCallIntent,
 } from "@psyche/protocol";
 import { monotonicFactory } from "ulid";
 import { type Binding, bindingFor, bindingHash } from "./binding.ts";
@@ -39,18 +41,21 @@ import {
 } from "./channel-reply.ts";
 import { type ActionClassifier, RulesClassifier } from "./classifier.ts";
 import {
+  type DryRun,
   newTaskState,
   PolicyEngine,
   type PolicyHook,
   safeOrigin,
   type TaskState,
   targetKey,
+  taskKey,
 } from "./engine.ts";
 import {
   AUTH_KINDS,
   allowedScopes,
   DEVICE_ONLY_KINDS,
   inferApprovalKind,
+  isDeviceOnly,
   SEVERITY,
 } from "./kinds.ts";
 import { type CompiledPolicy, compilePolicy, type PolicyConfig } from "./policy.ts";
@@ -232,6 +237,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.engine = new PolicyEngine({
       policy: () => this.#policy,
       task: (ctx) => this.#task(ctx),
+      peekTask: (ctx) => this.#tasks.get(taskKey(ctx)),
       matchGrant: (key, kind, se, ctx, origin) => this.#matchGrant(key, kind, se, ctx, origin),
       useGrant: (rec, hash) => this.#useGrant(rec, hash),
       hooks: options.hooks ?? [],
@@ -282,7 +288,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   }
 
   #task(ctx: PolicyContext): TaskState {
-    const key = ctx.taskId ?? `thread:${ctx.threadId}`;
+    const key = taskKey(ctx);
     let s = this.#tasks.get(key);
     if (s === undefined) {
       s = newTaskState();
@@ -371,6 +377,37 @@ export class PsychePermissionBroker implements PermissionBroker {
       });
     }
     return decision;
+  }
+
+  /**
+   * Dry-run `decide` (§4.4 pre-flight, #686): the same evaluation, with no side effect. It skips
+   * the sweep, grant use, the classifier, the audit entry, the receipt and the recent-decision
+   * cache, and it never writes the broker's Task state (the engine works on copies). Hooks still
+   * run, as they do in `decide`, so they must be pure.
+   */
+  async preview(intents: ToolCallIntent[], ctx: PolicyContext): Promise<PreviewResult[]> {
+    const dry: DryRun = { scratch: new Map() };
+    const out: PreviewResult[] = [];
+    for (const intent of intents) {
+      const call = structuredClone(intent) as PolicyCall;
+      const { decision } = await this.engine.evaluate(call, ctx, dry);
+      const kind = decision.approvalKind;
+      const deviceOnly =
+        decision.decision === "ask" &&
+        kind !== undefined &&
+        isDeviceOnly(kind, decision.sideEffect, this.#policy.config.approvals?.deviceOnly);
+      out.push({
+        tool: call.tool,
+        decision: deviceOnly ? "device-only" : decision.decision,
+        rule: decision.rule,
+        ...(decision.reason === undefined ? {} : { reason: decision.reason }),
+        ...(kind === undefined || decision.decision !== "ask" ? {} : { approvalKind: kind }),
+        ...(decision.scopesOffered === undefined || decision.decision !== "ask"
+          ? {}
+          : { scopesOffered: decision.scopesOffered }),
+      });
+    }
+    return out;
   }
 
   async #onClassified(
@@ -645,12 +682,7 @@ export class PsychePermissionBroker implements PermissionBroker {
         input.sideEffect = recent.decision.sideEffect;
     }
     const se = input.sideEffect;
-    const extraDeviceOnly = this.#policy.config.approvals?.deviceOnly ?? [];
-    const deviceOnly =
-      DEVICE_ONLY_KINDS.includes(input.kind) ||
-      extraDeviceOnly.includes(input.kind) ||
-      se === "destructive" ||
-      se === "financial";
+    const deviceOnly = isDeviceOnly(input.kind, se, this.#policy.config.approvals?.deviceOnly);
     const requiresAuthentication = AUTH_KINDS.includes(input.kind) || se === "financial";
     // A non-owner requester never sees the card for their own request (security §9).
     const requester = input.context?.requester;

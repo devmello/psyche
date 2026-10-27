@@ -7,6 +7,7 @@ import {
   type Grant,
   type IssuedApproval,
   type PermissionBroker,
+  type PreviewResult,
   PsycheError,
   type Receipt,
   type ReceiptInput,
@@ -41,6 +42,20 @@ export class UnavailableAgentLoop implements AgentLoop {
 export class LockedPermissionBroker implements PermissionBroker {
   readonly #receipts: Receipt[] = [];
   #n = 0;
+
+  async preview(intents: ToolCallIntent[]): Promise<PreviewResult[]> {
+    return Promise.all(
+      intents.map(async (call) => {
+        const d = await this.decide(call);
+        return {
+          tool: call.tool,
+          decision: d.decision,
+          rule: d.rule,
+          ...(d.reason === undefined ? {} : { reason: d.reason }),
+        };
+      }),
+    );
+  }
 
   async decide(call: ToolCallIntent): Promise<DecisionResult> {
     if (call.sideEffect === "none" || call.sideEffect === "read") {

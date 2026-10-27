@@ -282,6 +282,25 @@ describe("the owner's controls on a running job (specialists §4.7)", () => {
     });
   });
 
+  it("shows the pre-flight from the dry run: each previewed ask, counted", async () => {
+    const previewed: SpecialistJob = {
+      ...job(T.working),
+      preflight: [
+        { kind: "new_origin", label: "Will ask before opening new sites", estimate: 3 },
+        { kind: "send_email", label: "Will ask before sending email" },
+      ],
+    };
+    render(
+      <StoryWorld edit={(w) => void withSpecialists(w)}>
+        <SpecialistSpawns jobs={[previewed]} />
+      </StoryWorld>,
+    );
+    const line = (await screen.findAllByTestId("specialist-spawn"))[0] as HTMLElement;
+    expect(line.textContent).toContain(
+      "Will ask before opening new sites (about 3) · Will ask before sending email",
+    );
+  });
+
   it("offers nothing once the job has ended", async () => {
     render(
       <StoryWorld edit={(w) => void withSpecialists(w)}>

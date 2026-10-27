@@ -160,6 +160,15 @@ class GatewayBroker implements PermissionBroker {
     return this.inner.decide(pc, this.#context(ctx));
   }
 
+  /** Dry run with the same enrichment as `decide`, so the preview sees what the decision sees. */
+  preview(intents: ToolCallIntent[], ctx: DecisionContext) {
+    const calls = intents.map((call): PolicyCall => {
+      const connector = connectorOf(this.s.toolInfo.get(call.tool));
+      return { ...call, ...(connector === undefined ? {} : { meta: { connector } }) };
+    });
+    return this.inner.preview(calls, this.#context(ctx));
+  }
+
   async requestApproval(raw: ApprovalRequestInput): Promise<IssuedApproval> {
     const input: ApprovalRequestInput =
       raw.context === undefined ? raw : { ...raw, context: this.#context(raw.context) };

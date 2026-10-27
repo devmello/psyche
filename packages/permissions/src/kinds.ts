@@ -34,6 +34,23 @@ export const AUTH_KINDS: readonly ApprovalKind[] = [
   "apple_script",
 ];
 
+/**
+ * Whether an approval's card is device-only (never in chat): the device-only kinds, the owner's
+ * extra kinds (`approvals.deviceOnly`), and every destructive or financial action (security §3.7).
+ */
+export function isDeviceOnly(
+  kind: ApprovalKind,
+  se: SideEffect,
+  extraDeviceOnly: readonly ApprovalKind[] = [],
+): boolean {
+  return (
+    DEVICE_ONLY_KINDS.includes(kind) ||
+    extraDeviceOnly.includes(kind) ||
+    se === "destructive" ||
+    se === "financial"
+  );
+}
+
 export const FILE_TOOLS = new Set([
   "read_file",
   "write_file",

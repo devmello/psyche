@@ -1,6 +1,7 @@
 import {
   type AgentEvent,
   type AgentLoop,
+  type ApprovalHint,
   type ApprovalKind,
   type ApprovalRequest,
   type ApprovalStatus,
@@ -110,11 +111,14 @@ import {
   fallbackReport,
   minMode,
   preflight,
+  previewedPreflight,
   raiseLimits,
+  type SpawnRequest,
   type SpecialistHost,
   type SpecialistRoleDef,
   type SpecialistTurnApi,
   specialistBrief,
+  specialistIntents,
   specialistTools,
   toolAllowed,
   wrapUpMessage,
@@ -2489,6 +2493,7 @@ export class PsycheAgentLoop implements AgentLoop {
           },
           this.#clock.now(),
         );
+        spec.preflight = await this.#spawnPreflight(run, spec, req);
         const job = await host.createJob({
           spec,
           title: req.title,
@@ -2531,6 +2536,36 @@ export class PsycheAgentLoop implements AgentLoop {
         return { jobs, tainted: jobs.some((j) => j.result?.tainted === true) };
       },
     };
+  }
+
+  /**
+   * The spawn's pre-flight (§4.4, #686): the asks the brief's URLs would get, from a dry run of the
+   * broker. The child's thread and task do not exist yet, so the dry run uses a thread no session
+   * grant matches (the child's will not match either) and a new Task, where every target is new.
+   * The declared list stays when the spawn names no URL, or when the dry run fails: the pre-flight
+   * is informational and never blocks a spawn.
+   */
+  async #spawnPreflight(
+    run: RunState,
+    spec: SpecialistSpec,
+    req: SpawnRequest,
+  ): Promise<ApprovalHint[]> {
+    const declared = spec.preflight ?? [];
+    const intents = specialistIntents(req.inputs?.urls ?? []);
+    if (intents.length === 0) return declared;
+    try {
+      const previews = await this.#o.broker.preview(intents, {
+        threadId: "specialist:pending",
+        runId: run.runId,
+        permissionMode: spec.permissionMode,
+        taint: run.taint,
+        taintSources: run.taintSources.map((x) => ({ ...x })) as TaintSource[],
+        newTarget: true,
+      });
+      return previewedPreflight(declared, previews) ?? declared;
+    } catch {
+      return declared;
+    }
   }
 
   /** A denied plan ends a plan-first job, with the plan as its report (§4.1). */

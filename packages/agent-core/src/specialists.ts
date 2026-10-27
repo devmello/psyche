@@ -3,6 +3,7 @@ import {
   type ApprovalKind,
   type ModelRef,
   type PermissionMode,
+  type PreviewResult,
   PsycheError,
   type Question,
   type RunBudget,
@@ -12,6 +13,7 @@ import {
   type SpecialistResultKind,
   type SpecialistSpec,
   type TaintSource,
+  type ToolCallIntent,
 } from "@psyche/protocol";
 import { Type } from "@sinclair/typebox";
 import type { TurnToolContext } from "./builtins/turn.ts";
@@ -21,6 +23,7 @@ import {
   SPECIALIST_WITHHELD,
   type ToolRunContext,
 } from "./registry.ts";
+import { paramsHash } from "./util.ts";
 
 /**
  * Background specialists (docs/agent/specialists-2026.md §4): a named role runs a job in the
@@ -272,26 +275,89 @@ export function clampDeadline(
   return new Date(Math.min(at, latest)).toISOString();
 }
 
+/** Psyche's words for an approval a job will likely ask for (§4.4). */
+const HINT_LABELS: Partial<Record<ApprovalKind, string>> = {
+  new_origin: "Will ask before opening new sites",
+  file_write: "Will ask before changing files",
+  send_email: "Will ask before sending email",
+  calendar_write: "Will ask before changing your calendar",
+  exec: "Will ask before running commands",
+  browser_submit: "Will ask before submitting forms",
+  credential_fill: "Will ask before using a saved login",
+  connector_action: "Will ask before acting in your apps",
+  plan_exit: "Will show you a plan to approve first",
+};
+
+export function hintLabel(kind: ApprovalKind): string {
+  return HINT_LABELS[kind] ?? `Will ask before ${kind.replaceAll("_", " ")} actions`;
+}
+
 /** Informational pre-flight from the role's declared approvals (§4.4). It grants nothing. */
 export function preflight(role: SpecialistRoleDef, mode: PermissionMode): ApprovalHint[] {
-  const labels: Partial<Record<ApprovalKind, string>> = {
-    new_origin: "Will ask before opening new sites",
-    file_write: "Will ask before changing files",
-    send_email: "Will ask before sending email",
-    calendar_write: "Will ask before changing your calendar",
-    exec: "Will ask before running commands",
-    browser_submit: "Will ask before submitting forms",
-    credential_fill: "Will ask before using a saved login",
-    connector_action: "Will ask before acting in your apps",
-    plan_exit: "Will show you a plan to approve first",
-  };
   const kinds = new Set(role.approvals);
   if (role.planFirst) kinds.add("plan_exit");
   if (mode === "auto") kinds.delete("new_origin");
-  return [...kinds].map((kind) => ({
+  return [...kinds].map((kind) => ({ kind, label: hintLabel(kind) }));
+}
+
+/** The approval kind every navigation intent (`browser.navigate`) gets. */
+const NAVIGATION_KIND: ApprovalKind = "new_origin";
+
+/**
+ * The calls a spawn can foresee from its inputs (§4.4, #686): one navigation per URL the brief
+ * names. Granted folders are read through the folder allowance, so they add no ask.
+ */
+export function specialistIntents(urls: readonly string[]): ToolCallIntent[] {
+  const intents: ToolCallIntent[] = [];
+  for (const url of urls) {
+    const origin = httpOrigin(url);
+    if (origin === undefined) continue;
+    const params = { url };
+    intents.push({
+      tool: "browser.navigate",
+      sideEffect: "read",
+      targetKind: "origin",
+      target: { kind: "origin", value: origin },
+      params,
+      paramsHash: paramsHash(params),
+    });
+  }
+  return intents;
+}
+
+function httpOrigin(url: string): string | undefined {
+  try {
+    const origin = new URL(url).origin;
+    return origin === "null" ? undefined : origin;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The spawn's pre-flight from a dry run (§4.4, #686). Each ask the known calls would get is shown
+ * exactly, counted when there are several. A declared hint for a kind no call was previewed for
+ * stays, since the child may still make a call the spawn cannot foresee. Undefined when nothing was
+ * previewed, so the declared list stands.
+ */
+export function previewedPreflight(
+  declared: ApprovalHint[],
+  previews: readonly PreviewResult[],
+): ApprovalHint[] | undefined {
+  if (previews.length === 0) return undefined;
+  const counts = new Map<ApprovalKind, number>();
+  for (const p of previews) {
+    if ((p.decision !== "ask" && p.decision !== "device-only") || p.approvalKind === undefined) {
+      continue;
+    }
+    counts.set(p.approvalKind, (counts.get(p.approvalKind) ?? 0) + 1);
+  }
+  const shown: ApprovalHint[] = [...counts].map(([kind, n]) => ({
     kind,
-    label: labels[kind] ?? `Will ask before ${kind.replaceAll("_", " ")} actions`,
+    label: hintLabel(kind),
+    ...(n > 1 ? { estimate: n } : {}),
   }));
+  return [...shown, ...declared.filter((h) => h.kind !== NAVIGATION_KIND)];
 }
 
 export interface ParentRunFacts {

@@ -143,6 +143,23 @@ export interface DecisionResult {
   grantId?: string;
 }
 
+/**
+ * What `preview` says an intent would get: `decide`'s decision with `device-only` for an ask whose
+ * card is device-only (security §3.7; destructive and financial asks are device-only too).
+ */
+export type PreviewDecision = "allow" | "ask" | "deny" | "device-only";
+
+export interface PreviewResult {
+  tool: string;
+  decision: PreviewDecision;
+  /** The deciding rule, as `decide` reports it (`mode:balanced/read:new_source`, `grant:<id>`, …). */
+  rule: string;
+  reason?: string;
+  /** Set for `ask` and `device-only`: the approval the call would create. */
+  approvalKind?: ApprovalKind;
+  scopesOffered?: GrantScope[];
+}
+
 export interface ApprovalRequestInput {
   kind: ApprovalKind;
   summary: string;
@@ -217,6 +234,13 @@ export interface GrantFilter {
 
 export interface PermissionBroker {
   decide(call: ToolCallIntent, ctx: DecisionContext): Promise<DecisionResult>;
+  /**
+   * Dry-run `decide` for each intent, in order, with the same rules (§4.4 pre-flight, #686).
+   * Strictly side-effect free: no grant is used or created, no ApprovalRequest, no receipt, no
+   * audit entry, no circuit-breaker or task-state change. Intents in one call see each other's
+   * effect on the Task as they would in sequence, but nothing is kept.
+   */
+  preview(intents: ToolCallIntent[], ctx: DecisionContext): Promise<PreviewResult[]>;
   requestApproval(input: ApprovalRequestInput): Promise<IssuedApproval>;
   /**
    * Record an answer. Rejects (PsycheError) when the request already has an answer
