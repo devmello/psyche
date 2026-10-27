@@ -25,6 +25,7 @@ import {
   PermissionsStep,
   WhereStep,
 } from "./OnboardingSteps.tsx";
+import { SandboxStep } from "./SandboxStep.tsx";
 import {
   type ConnectedAccount,
   type MailChoices,
@@ -65,6 +66,8 @@ export function stepLabel(step: OnboardingStepId, persona: string): string {
       return t("onboarding.step.connectors");
     case "mail":
       return t("onboarding.step.mail");
+    case "sandbox":
+      return t("onboarding.step.sandbox");
     case "model":
       return t("onboarding.step.model");
     case "where":
@@ -166,6 +169,7 @@ export function OnboardingFlow({
   const index = steps.indexOf(current);
   const [reached, setReached] = useState(index);
   const [mail, setMail] = useState<MailChoices>(MAIL_DEFAULTS);
+  const [sandboxReady, setSandboxReady] = useState(false);
   const resumeConnector = (account: ConnectedAccount) => {
     const c = liveConnectors.find((x) => x.id === account.connectorId);
     if (c !== undefined) void flow.resume(c, account.label);
@@ -473,6 +477,7 @@ export function OnboardingFlow({
           />
         ) : null}
         {current === "mail" ? <MailStep persona={name} value={mail} onChange={setMail} /> : null}
+        {current === "sandbox" ? <SandboxStep onReadyChange={setSandboxReady} /> : null}
         {current === "model" ? (
           <ModelStep
             value={model}
@@ -518,7 +523,8 @@ export function OnboardingFlow({
           <ArrowLeft aria-hidden="true" className="rtl:rotate-180" /> {t("onboarding.back")}
         </Button>
         <span className="ms-auto" />
-        {current === "connectors" && connectors.length === 0 ? (
+        {(current === "connectors" && connectors.length === 0) ||
+        (current === "sandbox" && !sandboxReady) ? (
           <Button
             type="button"
             variant="plain"

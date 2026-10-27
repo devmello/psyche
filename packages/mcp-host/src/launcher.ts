@@ -65,6 +65,8 @@ export interface StdioLauncher {
   open?(spec: StdioLaunchSpec, signal?: AbortSignal): Promise<OpenedLaunch>;
   /** The server was removed: drop any state kept for it (sandbox volume, egress allowlist). */
   forget?(serverId: string): Promise<void>;
+  /** Whether it can launch now (a resolving launcher whose sandbox may not be installed yet). */
+  ready?(): Promise<boolean>;
 }
 
 /** A launcher whose command the host spawns (`srt`, direct). */
@@ -187,6 +189,34 @@ export function srtLauncher(options: SrtLauncherOptions): SpawnLauncher {
           await rm(scratch, { recursive: true, force: true });
         },
       };
+    },
+  };
+}
+
+export interface ResolvingSrtLauncherOptions extends Omit<SrtLauncherOptions, "srtPath"> {
+  /** Finds `srt` now: the owner may install it or pick it in Settings while the Gateway runs. */
+  resolve(): Promise<{ path: string } | { missing: true; reason: string }>;
+}
+
+/**
+ * `srtLauncher` with the path looked up at each launch, so a newly installed or chosen `srt`
+ * is used without a restart. Without one, a launch is refused (`unavailable`), never run bare.
+ */
+export function resolvingSrtLauncher(options: ResolvingSrtLauncherOptions): SpawnLauncher {
+  const { resolve, ...rest } = options;
+  return {
+    isolation: "srt",
+    async ready() {
+      return "path" in (await resolve());
+    },
+    async prepare(spec) {
+      const found = await resolve();
+      if (!("path" in found)) {
+        throw new PsycheError("unavailable", `srt is not available (${found.reason})`, {
+          details: { reason: "no_launcher" },
+        });
+      }
+      return srtLauncher({ ...rest, srtPath: found.path }).prepare(spec);
     },
   };
 }

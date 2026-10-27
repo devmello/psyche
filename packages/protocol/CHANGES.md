@@ -18,6 +18,15 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-27 (guided sandbox setup, srt first)
+
+For Settings → Connectors, onboarding's Sandbox step and host exec (which reuses the srt lookup).
+
+- New method `sandbox.setup` (`operator.read`): `ready` (srt is available), `srt` (`SandboxSrtStatus`: `available`, `path`, `source` env | setting | detected, `version`, `problem` not_found | not_absolute | not_executable) and `containers` (`SandboxContainerSetup`: `recommended`, `backends` of `SandboxSetupBackend` {`kind`, `supported`, `installed`, `running`, `version`}, `ready`, `active`, `restartNeeded`). It never installs or starts anything.
+- `sandbox.status` result gains optional `srt: SandboxSrtStatus`.
+- New setting key `exec.srtPath` (an `exec.*` security key: `operator.admin` plus fresh presence): where `srt` is, when it isn't on PATH. `PSYCHE_SRT_PATH` still overrides it.
+- New schemas `SandboxContainerBackend`, `SandboxSrtStatus`, `SandboxSrtSource`, `SandboxSrtProblem`, `SandboxSetupBackend`, `SandboxContainerSetup`; Swift gains the types.
+
 ### v1 additive — 2026-10-27 (memory recall mode)
 
 - New setting key `memory.recall.mode` (`markdown` default | `embeddings`; exported as `MEMORY_RECALL_MODE_SETTING`, `MemoryRecallMode`). `memory.status` result gains optional `recall: MemoryRecallStatus` (`mode`, `state` off | semantic | text_only, `fallback` model_missing | no_embedding_model | cloud_not_allowed | error, `model`, `vectors`, `chunks`). New schemas `MemoryRecallStatus`, `MemoryRecallMode`, `MemoryRecallState`, `MemoryRecallFallback`; Swift gains the types and the optional field.

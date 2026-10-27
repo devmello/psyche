@@ -9,6 +9,7 @@ export type OnboardingStepId =
   | "permissions"
   | "connectors"
   | "mail"
+  | "sandbox"
   | "model"
   | "where"
   | "done";
@@ -18,6 +19,7 @@ export const ONBOARDING_STEP_IDS: readonly OnboardingStepId[] = [
   "permissions",
   "connectors",
   "mail",
+  "sandbox",
   "model",
   "where",
   "done",

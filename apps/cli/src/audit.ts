@@ -336,7 +336,7 @@ export function auditRules(s: Snapshot, now: Date): AuditReport {
         id: "mcp.no_launcher",
         severity: "low",
         message: `${refused.length} stdio MCP server(s) are refused: no sandbox launcher (srt or a container) is configured: ${refused.map((x) => x.id).join(", ")}`,
-        fix: "Set PSYCHE_SRT_PATH, or PSYCHE_MCP_LAUNCHER=container with a sandbox backend; they never run unsandboxed",
+        fix: "Install srt (Settings → Connectors → Set up sandbox), set PSYCHE_SRT_PATH, or PSYCHE_MCP_LAUNCHER=container with a sandbox backend; they never run unsandboxed",
       });
     }
   } else if (mcpServers.length) {

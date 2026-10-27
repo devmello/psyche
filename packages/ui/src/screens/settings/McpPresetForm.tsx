@@ -5,6 +5,7 @@ import { Label } from "../../components/ui/label.tsx";
 import { t } from "../../i18n/core.ts";
 import { SafeLink } from "../../links/SafeLink.tsx";
 import { type McpPreset, missingFields, presetServer, presetText } from "./mcp-preset-build.ts";
+import { SandboxNotice } from "./SandboxNotice.tsx";
 import type { McpState } from "./use-mcp.tsx";
 
 /**
@@ -61,7 +62,7 @@ export function McpPresetForm({
         </div>
       ))}
       {commandless ? (
-        <p className="text-sm text-muted-foreground">{t("settings.mcp.kind.commandUnavailable")}</p>
+        <SandboxNotice message={t("settings.mcp.kind.commandUnavailable")} onReady={mcp.reload} />
       ) : null}
       <div className="flex flex-col gap-1 rounded-md bg-fill-quaternary px-3 py-2 text-callout">
         <span className="text-label-secondary">{t("gallery.tryAsking")}</span>

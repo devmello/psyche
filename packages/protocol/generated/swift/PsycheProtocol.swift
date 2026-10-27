@@ -874,10 +874,18 @@
 //   let runsStepsParams = try? JSONDecoder().decode(RunsStepsParams.self, from: jsonData)
 //   let runsStepsResult = try? JSONDecoder().decode(RunsStepsResult.self, from: jsonData)
 //   let sandboxBackend = try? JSONDecoder().decode(SandboxBackend.self, from: jsonData)
+//   let sandboxContainerBackend = try? JSONDecoder().decode(SandboxContainerBackend.self, from: jsonData)
+//   let sandboxContainerSetup = try? JSONDecoder().decode(SandboxContainerSetup.self, from: jsonData)
 //   let sandboxInfo = try? JSONDecoder().decode(SandboxInfo.self, from: jsonData)
 //   let sandboxListParams = try? JSONDecoder().decode(SandboxListParams.self, from: jsonData)
 //   let sandboxListResult = try? JSONDecoder().decode(SandboxListResult.self, from: jsonData)
 //   let sandboxNetwork = try? JSONDecoder().decode(SandboxNetwork.self, from: jsonData)
+//   let sandboxSetupBackend = try? JSONDecoder().decode(SandboxSetupBackend.self, from: jsonData)
+//   let sandboxSetupParams = try? JSONDecoder().decode(SandboxSetupParams.self, from: jsonData)
+//   let sandboxSetupResult = try? JSONDecoder().decode(SandboxSetupResult.self, from: jsonData)
+//   let sandboxSrtProblem = try? JSONDecoder().decode(SandboxSrtProblem.self, from: jsonData)
+//   let sandboxSrtSource = try? JSONDecoder().decode(SandboxSrtSource.self, from: jsonData)
+//   let sandboxSrtStatus = try? JSONDecoder().decode(SandboxSrtStatus.self, from: jsonData)
 //   let sandboxStatus = try? JSONDecoder().decode(SandboxStatus.self, from: jsonData)
 //   let sandboxStatusParams = try? JSONDecoder().decode(SandboxStatusParams.self, from: jsonData)
 //   let sandboxStatusResult = try? JSONDecoder().decode(SandboxStatusResult.self, from: jsonData)
@@ -20696,6 +20704,130 @@ public enum SandboxStatus: String, Codable, Sendable {
     case stopped = "stopped"
 }
 
+// MARK: - SandboxSetupResult
+public struct SandboxSetupResult: Codable, Sendable {
+    public let containers: SandboxContainerSetup
+    /// srt is available, so command servers can run
+    public let ready: Bool
+    public let srt: SandboxSrtStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case containers = "containers"
+        case ready = "ready"
+        case srt = "srt"
+    }
+
+    public init(containers: SandboxContainerSetup, ready: Bool, srt: SandboxSrtStatus) {
+        self.containers = containers
+        self.ready = ready
+        self.srt = srt
+    }
+}
+
+// MARK: - SandboxContainerSetup
+public struct SandboxContainerSetup: Codable, Sendable {
+    public let active: SandboxBackend
+    public let backends: [SandboxSetupBackend]
+    /// A runtime is running now (detected fresh, not at boot)
+    public let ready: Bool
+    public let recommended: SandboxContainerBackend
+    /// A runtime is running but this Gateway started without one: restart it
+    public let restartNeeded: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case active = "active"
+        case backends = "backends"
+        case ready = "ready"
+        case recommended = "recommended"
+        case restartNeeded = "restartNeeded"
+    }
+
+    public init(active: SandboxBackend, backends: [SandboxSetupBackend], ready: Bool, recommended: SandboxContainerBackend, restartNeeded: Bool) {
+        self.active = active
+        self.backends = backends
+        self.ready = ready
+        self.recommended = recommended
+        self.restartNeeded = restartNeeded
+    }
+}
+
+public enum SandboxBackend: String, Codable, Sendable {
+    case appleContainer = "apple-container"
+    case docker = "docker"
+    case none = "none"
+    case podman = "podman"
+}
+
+// MARK: - SandboxSetupBackend
+public struct SandboxSetupBackend: Codable, Sendable {
+    public let installed: Bool
+    public let kind: SandboxContainerBackend
+    /// It answers now, so a sandbox could start on it
+    public let running: Bool
+    /// This Mac can use it (Apple container needs macOS 26 on Apple silicon)
+    public let supported: Bool
+    public let version: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case installed = "installed"
+        case kind = "kind"
+        case running = "running"
+        case supported = "supported"
+        case version = "version"
+    }
+
+    public init(installed: Bool, kind: SandboxContainerBackend, running: Bool, supported: Bool, version: String?) {
+        self.installed = installed
+        self.kind = kind
+        self.running = running
+        self.supported = supported
+        self.version = version
+    }
+}
+
+public enum SandboxContainerBackend: String, Codable, Sendable {
+    case appleContainer = "apple-container"
+    case docker = "docker"
+    case podman = "podman"
+}
+
+// MARK: - SandboxSrtStatus
+public struct SandboxSrtStatus: Codable, Sendable {
+    public let available: Bool
+    public let path: String?
+    public let problem: SandboxSrtProblem?
+    public let source: SandboxSrtSource?
+    public let version: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case available = "available"
+        case path = "path"
+        case problem = "problem"
+        case source = "source"
+        case version = "version"
+    }
+
+    public init(available: Bool, path: String?, problem: SandboxSrtProblem?, source: SandboxSrtSource?, version: String?) {
+        self.available = available
+        self.path = path
+        self.problem = problem
+        self.source = source
+        self.version = version
+    }
+}
+
+public enum SandboxSrtProblem: String, Codable, Sendable {
+    case notAbsolute = "not_absolute"
+    case notExecutable = "not_executable"
+    case notFound = "not_found"
+}
+
+public enum SandboxSrtSource: String, Codable, Sendable {
+    case detected = "detected"
+    case env = "env"
+    case setting = "setting"
+}
+
 // MARK: - SandboxStatusParams
 public struct SandboxStatusParams: Codable, Sendable {
     public let sandboxID: String?
@@ -20716,27 +20848,23 @@ public struct SandboxStatusResult: Codable, Sendable {
     public let backend: SandboxBackend
     public let egress: Bool?
     public let sandbox: SandboxInfo?
+    public let srt: SandboxSrtStatus?
 
     public enum CodingKeys: String, CodingKey {
         case available = "available"
         case backend = "backend"
         case egress = "egress"
         case sandbox = "sandbox"
+        case srt = "srt"
     }
 
-    public init(available: Bool, backend: SandboxBackend, egress: Bool?, sandbox: SandboxInfo?) {
+    public init(available: Bool, backend: SandboxBackend, egress: Bool?, sandbox: SandboxInfo?, srt: SandboxSrtStatus?) {
         self.available = available
         self.backend = backend
         self.egress = egress
         self.sandbox = sandbox
+        self.srt = srt
     }
-}
-
-public enum SandboxBackend: String, Codable, Sendable {
-    case appleContainer = "apple-container"
-    case docker = "docker"
-    case none = "none"
-    case podman = "podman"
 }
 
 // MARK: - ScreenCapture
@@ -26966,6 +27094,7 @@ public typealias PasskeysListParams = [String: JSONAny]
 public typealias PasskeysReauthBeginParams = [String: JSONAny]
 public typealias PasskeysRegisterBeginParams = [String: JSONAny]
 public typealias SandboxListParams = [String: JSONAny]
+public typealias SandboxSetupParams = [String: JSONAny]
 public typealias SearchReindexParams = [String: JSONAny]
 public typealias SearchStatusParams = [String: JSONAny]
 public typealias Settings = [String: JSONAny]

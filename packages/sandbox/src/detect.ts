@@ -92,6 +92,43 @@ export async function detectBackends(
   return found;
 }
 
+/** What one backend looks like on this Mac, for the guided setup (Settings, onboarding). */
+export interface BackendInspection {
+  kind: ContainerBackendKind;
+  /** This Mac can use it (Apple `container` needs macOS 26 on Apple silicon). */
+  supported: boolean;
+  /** Its CLI is on this Mac. */
+  installed: boolean;
+  /** The probe succeeded: the daemon (or, for Apple `container`, the CLI) answers. */
+  running: boolean;
+  version: string | null;
+}
+
+/** Every backend this platform knows, each with how far along it is; detection stops at the first failure. */
+export async function inspectBackends(
+  deps: DetectDeps,
+  options: DetectOptions = {},
+): Promise<BackendInspection[]> {
+  const out: BackendInspection[] = [];
+  for (const kind of preferenceOrder(deps.platform)) {
+    const supported =
+      kind !== "apple-container" ||
+      (deps.platform === "darwin" &&
+        deps.arch === "arm64" &&
+        majorVersion(await deps.macosVersion()) >= 26);
+    const cli = supported ? await deps.which(options.cliPaths?.[kind] ?? DEFAULT_CLI[kind]) : null;
+    const version = cli === null ? null : await deps.probe(cli, PROBES[kind]);
+    out.push({
+      kind,
+      supported,
+      installed: cli !== null,
+      running: version !== null,
+      version,
+    });
+  }
+  return out;
+}
+
 /**
  * Directories searched after `PATH`. A Gateway started by launchd gets a minimal PATH, so the
  * usual install locations of the three CLIs are listed explicitly.

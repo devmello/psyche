@@ -5,13 +5,18 @@ import {
   type ContainerSandboxRunnerOptions,
   createSandboxEgress,
   createSandboxRunner,
+  type DetectDeps,
   type DevServerEvent,
   FileProvenanceStore,
+  inspectBackends,
   type SandboxEgress,
+  type SrtStatus,
+  systemDetectDeps,
 } from "@psyche/sandbox";
 import type { Gateway } from "../server.ts";
 import { execTool } from "./exec-tool.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
+import type { SrtResolver } from "./srt.ts";
 import type { ComposedVm } from "./vm.ts";
 
 /**
@@ -45,7 +50,63 @@ export interface SandboxSetup {
   vm?: ComposedVm;
   /** Whether this host has a container backend (`composeSandboxIfAvailable` detects it). */
   containers?: boolean;
+  /** How `sandbox.setup` looks at this Mac; tests mock the runtime here. */
+  detectDeps?: DetectDeps;
+  /** Where `srt` is (shared with the MCP part), for `sandbox.status` and `sandbox.setup`. */
+  srt?: SrtResolver;
 }
+
+/**
+ * `sandbox.setup` (guided setup): looks again on every call, so "Check again" sees what the
+ * owner just installed, started or chose. srt (Seatbelt, no VM) is what command servers need;
+ * container runtimes are the optional stronger isolation. `active` is the container backend this
+ * Gateway booted with; one found now that it did not boot with needs a restart. Read-only: it
+ * never installs or starts anything.
+ */
+export function sandboxSetupHandler(
+  active: () => Promise<SandboxBackend>,
+  srt: SrtResolver | undefined,
+  deps?: DetectDeps,
+) {
+  return {
+    run: async () => {
+      const d = deps ?? systemDetectDeps();
+      const backends = (await inspectBackends(d)).map((b) => ({
+        kind: b.kind,
+        supported: b.supported,
+        installed: b.installed,
+        running: b.running,
+        version: b.version,
+      }));
+      const now = await active();
+      const running = backends.some((b) => b.running);
+      // Apple's `container` where it runs (ADR-008); Docker through Colima or Docker Desktop elsewhere.
+      const recommended = backends.find((b) => b.kind === "apple-container")?.supported
+        ? ("apple-container" as const)
+        : ("docker" as const);
+      const s = srt === undefined ? NO_SRT : await srt.inspect();
+      return {
+        ready: s.available,
+        srt: s,
+        containers: {
+          recommended,
+          backends,
+          ready: running,
+          active: now,
+          restartNeeded: running && now === "none",
+        },
+      };
+    },
+  };
+}
+
+const NO_SRT: SrtStatus = {
+  available: false,
+  path: null,
+  source: null,
+  version: null,
+  problem: "not_found",
+};
 
 export interface ComposedSandbox extends ComposedPart {
   readonly runner: ContainerSandboxRunner;
@@ -157,6 +218,7 @@ export function composeSandbox(
     const first = (await runner.backends().catch(() => []))[0];
     return first === "apple-container" || first === "docker" || first === "podman" ? first : "none";
   };
+  const setupHandler = sandboxSetupHandler(backend, setup.srt, setup.detectDeps);
   return {
     runner,
     egress,
@@ -167,9 +229,16 @@ export function composeSandbox(
       "sandbox.status": {
         run: async () => {
           const b = await backend();
-          return { backend: b, available: b !== "none", sandbox: null, egress: true };
+          return {
+            backend: b,
+            available: b !== "none",
+            sandbox: null,
+            egress: true,
+            ...(setup.srt === undefined ? {} : { srt: await setup.srt.inspect() }),
+          };
         },
       },
+      "sandbox.setup": setupHandler,
     },
     start(gateway: Gateway) {
       if (setup.vm === undefined) return;
@@ -214,8 +283,15 @@ export async function composeSandboxIfAvailable(
   return {
     handlers: {
       "sandbox.status": {
-        run: () => ({ backend: "none" as const, available: false, sandbox: null, egress: false }),
+        run: async () => ({
+          backend: "none" as const,
+          available: false,
+          sandbox: null,
+          egress: false,
+          ...(setup.srt === undefined ? {} : { srt: await setup.srt.inspect() }),
+        }),
       },
+      "sandbox.setup": sandboxSetupHandler(async () => "none", setup.srt, setup.detectDeps),
     },
   };
 }
