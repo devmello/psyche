@@ -276,8 +276,15 @@ export function ApprovalCard({
       ? [
           {
             value: "always" as const,
-            short: t("chat.approval.segment.always"),
-            long: scopeLabel("always"),
+            // A batch card offers `always` only for the prep note (security §3.4): name what it covers.
+            short:
+              approval.kind === "batch"
+                ? t("blocks.approval.scope.prepNotes")
+                : t("chat.approval.segment.always"),
+            long:
+              approval.kind === "batch"
+                ? t("blocks.approval.scope.prepNotes")
+                : scopeLabel("always"),
           },
         ]
       : []),

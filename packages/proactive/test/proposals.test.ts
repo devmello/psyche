@@ -57,6 +57,25 @@ function rig() {
       }),
     ],
     [
+      "notes_create",
+      defineTool({
+        name: "notes_create",
+        description: "Create a note",
+        input: Type.Object({ title: Type.String(), body: Type.String() }),
+        sideEffect: "write",
+        // What the Apple connector describes (security §3.5): a Prep: title is its own class.
+        describeCall: (p) => ({
+          kind: "connector_action",
+          target: { kind: "account", value: "apple-notes" },
+          bindingFields: { connectorId: "apple-notes", tool: "notes_create" },
+          grantKey: `connector_action:apple-notes:notes_create${
+            String(p.title).startsWith("Prep:") ? ":title-prefix:Prep:" : ""
+          }`,
+        }),
+        run: record("notes_create"),
+      }),
+    ],
+    [
       "mail_send_draft",
       defineTool({
         name: "mail_send_draft",
@@ -290,6 +309,64 @@ describe("batch proposals (W2)", () => {
     expect(r.proposals.list({ status: ["expired"] }).proposals.map((x) => x.id)).toEqual([
       stale.id,
     ]);
+  });
+
+  it("a standing grant for prep notes runs the next Prep: proposal with no card; other notes still ask", async () => {
+    const r = rig();
+    const prep = (title: string) =>
+      r.proposals.create({
+        title: "Save prep to Notes",
+        calls: [
+          {
+            tool: "notes_create",
+            params: { title, body: "Why: sync" },
+            summary: `Add the prep note to Notes: ${title}`,
+          },
+        ],
+        createdBy: { job: "meetings.prep" },
+        taint: true,
+        taintSources: [{ sourceKind: "calendar" }],
+      });
+    // First one: the card offers always; the owner picks "Always for prep notes".
+    const first = await r.proposals.approve(prep("Prep: Sync 2026-10-27").id);
+    expect(first.issued.approval.scopesOffered).toEqual(["once", "always"]);
+    r.clock.advance(500);
+    await r.broker.answer({
+      approvalId: first.issued.approval.id,
+      answerToken: first.issued.answerTokens.desktop ?? "",
+      decision: "approve",
+      scope: "always",
+      decidedBy: { deviceId: "dev_mac", surface: "desktop" },
+    });
+    await r.proposals.idle();
+    expect(r.ran.map((x) => x.tool)).toEqual(["notes_create"]);
+
+    // Second one: approved inside approve(), runs, no token to answer.
+    const second = await r.proposals.approve(prep("Prep: Planning 2026-10-28").id);
+    expect(second.issued.approval).toMatchObject({ status: "approved", scopeGranted: "always" });
+    expect(second.issued.answerTokens).toEqual({});
+    await r.proposals.idle();
+    expect(r.ran.map((x) => (x.params as { title: string }).title)).toEqual([
+      "Prep: Sync 2026-10-27",
+      "Prep: Planning 2026-10-28",
+    ]);
+    expect(r.ran[1]?.authority).toMatchObject({ scope: "once" });
+    expect(r.ran[1]?.taint).toBe(true);
+    expect(r.proposals.get(second.proposal.id).status).toBe("done");
+
+    // A note with any other title still needs its card, and runs nothing until answered.
+    const plain = await r.proposals.approve(prep("Groceries").id);
+    expect(plain.issued.approval.status).toBe("pending");
+    expect(plain.issued.approval.scopesOffered).toEqual(["once"]);
+    await r.proposals.idle();
+    expect(r.ran).toHaveLength(2);
+
+    // Revoked in Settings → Permissions: the next prep note asks again.
+    const [grant] = await r.broker.listGrants();
+    await r.broker.revokeGrant(grant?.id ?? "");
+    const after = await r.proposals.approve(prep("Prep: Retro 2026-10-29").id);
+    expect(after.issued.approval.status).toBe("pending");
+    expect(r.ran).toHaveLength(2);
   });
 
   it("handlers: approve hands the caller its own surface's token only", async () => {
