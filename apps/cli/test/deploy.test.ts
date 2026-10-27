@@ -758,6 +758,8 @@ process.stdout.write(JSON.stringify({ greet: greet("x"), native: native(), pure:
       "../../../node_modules/.pnpm/native-thing@1.0.0/node_modules/native-thing",
     );
     link("apps/gateway/node_modules/@psyche/lib", "../../../../packages/lib");
+    // pnpm's hoisted store links the workspace packages too; they dangle once the sources go.
+    link(`${store}/node_modules/@psyche/lib`, "../../../../packages/lib");
     return app;
   }
   const all = (dir: string, base = dir): string[] =>
@@ -828,6 +830,12 @@ process.stdout.write(JSON.stringify({ greet: greet("x"), native: native(), pure:
         "native",
       );
       expect(existsSync(join(app, "node_modules/.pnpm/unused@1.0.0"))).toBe(false);
+      // codesign cannot seal a link to nothing: none may be left.
+      expect(existsSync(join(app, "node_modules/.pnpm/node_modules/@psyche/lib"))).toBe(false);
+      const links = execFileSync("find", [app, "-type", "l"], { encoding: "utf8" })
+        .split("\n")
+        .filter(Boolean);
+      expect(links.filter((l) => !existsSync(l))).toEqual([]);
       // The bundle still runs from its place in the tree: externals resolve, the bundle announces itself.
       const out = execFileSync(process.execPath, [join(app, "apps/gateway/dist/main.mjs")], {
         encoding: "utf8",

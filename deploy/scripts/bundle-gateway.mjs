@@ -23,7 +23,7 @@ import {
 } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join, relative } from "node:path";
-import { prunePnpmStore, removeDanglingLinks } from "./pnpm-store.mjs";
+import { prunePnpmStore, removeAllDanglingLinks } from "./pnpm-store.mjs";
 
 /** Output (relative to the app dir, no extension) → entry source. */
 export const ENTRIES = {
@@ -159,6 +159,8 @@ export function discardSources(appDir, { external = EXTERNAL, keep = ASSET_PATHS
       if (statSync(p).isDirectory() && !keep.includes(rel)) keepOnly(p, appDir, keep);
     } else rmSync(p, { recursive: true, force: true });
   }
-  removeDanglingLinks(nm);
+  // The store's workspace links (`.pnpm/node_modules/@psyche/*`) point at the sources just deleted, and
+  // codesign cannot seal a link to nothing.
+  removeAllDanglingLinks(appDir);
   return { external: [...installs.keys()], packages };
 }

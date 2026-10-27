@@ -77,3 +77,20 @@ export function prunePnpmStore(appDir, roots, drop = []) {
   removeDanglingLinks(join(pnpm, "node_modules"));
   return removed;
 }
+
+/** Every link in the tree that points nowhere, wherever it is; returns how many were removed. */
+export function removeAllDanglingLinks(dir) {
+  let n = 0;
+  for (const e of readdirSync(dir)) {
+    const p = join(dir, e);
+    const st = lstatSync(p, { throwIfNoEntry: false });
+    if (!st) continue;
+    if (st.isSymbolicLink()) {
+      if (!existsSync(p)) {
+        unlinkSync(p);
+        n++;
+      }
+    } else if (st.isDirectory()) n += removeAllDanglingLinks(p);
+  }
+  return n;
+}

@@ -37,7 +37,6 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
-  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { builtinModules } from "node:module";
@@ -46,7 +45,12 @@ import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bundleGateway, discardSources } from "./bundle-gateway.mjs";
 import { findPins } from "./node-pins.mjs";
-import { depNames, prunePnpmStore, removeDanglingLinks } from "./pnpm-store.mjs";
+import {
+  depNames,
+  prunePnpmStore,
+  removeAllDanglingLinks,
+  removeDanglingLinks,
+} from "./pnpm-store.mjs";
 import { prunePackageWaste } from "./prune-package-waste.mjs";
 import { checkBudget, treeSize } from "./size-budget.mjs";
 
@@ -238,23 +242,6 @@ export function workspaceClosure(appDir, subsets = SERVER_SUBSETS) {
     for (const d of deps) if (all.has(d)) queue.push(d);
   }
   return { all, closure };
-}
-
-/** Every link in the tree that points nowhere, wherever it is; returns how many were removed. */
-function removeAllDanglingLinks(dir) {
-  let n = 0;
-  for (const e of readdirSync(dir)) {
-    const p = join(dir, e);
-    const st = lstatSync(p, { throwIfNoEntry: false });
-    if (!st) continue;
-    if (st.isSymbolicLink()) {
-      if (!existsSync(p)) {
-        unlinkSync(p);
-        n++;
-      }
-    } else if (st.isDirectory()) n += removeAllDanglingLinks(p);
-  }
-  return n;
 }
 
 /**
