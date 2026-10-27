@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { chmod, cp, mkdir, readFile, rename, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
@@ -126,6 +126,16 @@ export function ortRuntimeState(options: OrtRuntimeOptions = {}): OrtRuntimeStat
   }
 }
 
+/** A package installed next to `pkg` (pnpm links it beside) or in a parent `node_modules`. Its `exports` may hide package.json, so no resolve(). */
+function siblingPackage(pkg: string, name: string): string | undefined {
+  for (let dir = dirname(realpathSync(pkg)); ; dir = dirname(dir)) {
+    const candidate =
+      basename(dir) === "node_modules" ? join(dir, name) : join(dir, "node_modules", name);
+    if (existsSync(join(candidate, "package.json"))) return realpathSync(candidate);
+    if (dirname(dir) === dir) return undefined;
+  }
+}
+
 async function sha256File(path: string): Promise<string> {
   return createHash("sha256")
     .update(await readFile(path))
@@ -145,9 +155,8 @@ export async function installOrtRuntime(
   const dest = ortRuntimeDir(spec, options);
   const pkg = installedPackageDir(options);
   if (pkg === undefined) throw new Error("onnxruntime-node is not installed");
-  const common = dirname(
-    createRequire(join(pkg, "package.json")).resolve("onnxruntime-common/package.json"),
-  );
+  const common = siblingPackage(pkg, "onnxruntime-common");
+  if (common === undefined) throw new Error("onnxruntime-common is not installed");
   if (ortRuntimeState(options) === "installed") return dest;
 
   const stage = `${dest}.part-${process.pid}`;

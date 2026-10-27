@@ -67,7 +67,10 @@ function fakePackage(root: string, withLibrary = false): string {
   for (const p of ["darwin/arm64", "darwin/x64", "linux/x64", "win32/x64"])
     mk(join(pkg, "bin/napi-v6", p, "onnxruntime_binding.node"), `binding-${p}`);
   if (withLibrary) mk(join(pkg, "bin/napi-v6/darwin/arm64/libonnxruntime.1.dylib"), "lib");
-  mk(join(root, "node_modules/onnxruntime-common/package.json"), '{"name":"onnxruntime-common"}');
+  mk(
+    join(root, "node_modules/onnxruntime-common/package.json"),
+    '{"name":"onnxruntime-common","exports":{".":"./index.js"}}',
+  );
   return pkg;
 }
 

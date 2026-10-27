@@ -56,7 +56,7 @@ function fakePackage(root: string): string {
   mkdirSync(join(root, "node_modules/onnxruntime-common"), { recursive: true });
   writeFileSync(
     join(root, "node_modules/onnxruntime-common/package.json"),
-    '{"name":"onnxruntime-common"}',
+    '{"name":"onnxruntime-common","exports":{".":"./index.js"}}',
   );
   return pkg;
 }
