@@ -8,7 +8,6 @@ import {
   canAttach,
   chipsReducer,
   type Refused,
-  uploadFile,
   uploading,
 } from "./attachments.ts";
 

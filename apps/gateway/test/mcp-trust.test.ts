@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
-import { serverConfig } from "../src/compose/mcp-add.ts";
 import { type ComposedMcp, composeMcp, MCP_SERVERS_SETTING } from "../src/compose/mcp.ts";
+import { serverConfig } from "../src/compose/mcp-add.ts";
 import { adminClient, ik, type TestClient } from "./helpers.ts";
 
 /**
@@ -69,8 +69,10 @@ describe("verified MCP trust", () => {
     const input = (transport: Parameters<typeof serverConfig>[0]["transport"]) =>
       serverConfig({ id: "x-server", name: "X", transport });
     expect(
-      input({ kind: "stdio", command: ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/"] })
-        .trust,
+      input({
+        kind: "stdio",
+        command: ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/"],
+      }).trust,
     ).toBe("verified");
     expect(input({ kind: "http", url: "https://mcp.linear.app/mcp" }).trust).toBe("verified");
     expect(input({ kind: "stdio", command: ["npx", "-y", "left-pad-mcp"] }).trust).toBe("unknown");
