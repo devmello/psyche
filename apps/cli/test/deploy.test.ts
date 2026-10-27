@@ -416,6 +416,12 @@ describe("deploy/macos/make-dmg.sh (no Developer ID)", () => {
           encoding: "utf8",
         });
         expect(readFileSync(join(out, "Psyche-1.2.3-arm64.dmg.sha256"), "utf8")).toBe(sum);
+        // LZMA by default (docs/design/lightweight-2026.md S3).
+        const info = execFileSync("/usr/bin/hdiutil", ["imageinfo", dmg as string], {
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "ignore"],
+        });
+        expect(info).toMatch(/Format: ULMO/);
 
         const mnt = join(dir, "mnt");
         mkdirSync(mnt);
