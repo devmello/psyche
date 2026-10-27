@@ -47,6 +47,12 @@ export function mapFinishReason(reason: LanguageModelV4FinishReason): {
         reason: "error",
         error: `server_error: provider finished with ${reason.raw ?? "error"}`,
       };
+    case "interrupted":
+      // Output may be truncated; surface it as an error rather than a clean stop.
+      return {
+        reason: "error",
+        error: "stream_interrupted: provider stream ended without a completion signal",
+      };
   }
 }
 
