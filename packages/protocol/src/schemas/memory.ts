@@ -121,3 +121,33 @@ export const LearnedFact = Type.Object(
   { $id: "LearnedFact" },
 );
 export type LearnedFact = Static<typeof LearnedFact>;
+
+/** Setting `memory.recall.mode`: Markdown only (default) or Markdown plus an embeddings index. */
+export const MEMORY_RECALL_MODE_SETTING = "memory.recall.mode";
+export const MemoryRecallMode = StringEnum(["markdown", "embeddings"], { $id: "MemoryRecallMode" });
+export type MemoryRecallMode = Static<typeof MemoryRecallMode>;
+
+/**
+ * How memory recall works now (`memory.status.recall`). With `mode: embeddings` the Markdown
+ * files stay the source of truth and an index of their chunks gives each turn the most relevant
+ * memories. `state`: `off` (Markdown only), `semantic` (meaning and words), `text_only` (the
+ * embedding model is not available, `fallback` says why: recall matches words only).
+ */
+export const MemoryRecallStatus = Type.Object(
+  {
+    mode: MemoryRecallMode,
+    state: StringEnum(["off", "semantic", "text_only"], { $id: "MemoryRecallState" }),
+    fallback: Type.Optional(
+      StringEnum(["model_missing", "no_embedding_model", "cloud_not_allowed", "error"], {
+        $id: "MemoryRecallFallback",
+      }),
+    ),
+    model: Type.Optional(
+      Type.String({ description: "Vector space, e.g. builtin/multilingual-e5-small" }),
+    ),
+    vectors: Type.Optional(Type.Integer({ minimum: 0, description: "Memory chunks embedded" })),
+    chunks: Type.Optional(Type.Integer({ minimum: 0, description: "Memory chunks indexed" })),
+  },
+  { $id: "MemoryRecallStatus" },
+);
+export type MemoryRecallStatus = Static<typeof MemoryRecallStatus>;

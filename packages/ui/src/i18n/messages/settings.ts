@@ -85,6 +85,7 @@ export const settings = {
   "settings.key.context.compactAt": "Compact at",
   "settings.key.context.keepRecentTurns": "Recent turns kept verbatim",
   "settings.key.data.transcriptRecall": "Transcript recall",
+  "settings.key.memory.recall.mode": "How memory is recalled",
   "settings.key.ui.map.tiles": "Map tiles",
   "settings.key.ui.map.styleUrl": "Map style URL",
   "settings.key.ui.map.styleUrlDark": "Map style URL (dark)",
@@ -996,6 +997,22 @@ export const settings = {
   "settings.data.days": "{n, plural, one {# day} other {# days}}",
   "settings.data.reasoningRetentionHint":
     "How long each step's full thinking is kept. Off keeps only a one-line summary. Thinking is never kept while “Show thinking while it works” is off.",
+  "settings.data.recallModeHint":
+    "Your Markdown memory files stay the source of truth either way. Embeddings add an index so each turn can pull in the memories closest in meaning.",
+  "settings.data.recallMode.markdown": "Markdown only",
+  "settings.data.recallMode.markdownHint": "Read the files and match words. Nothing extra to run.",
+  "settings.data.recallMode.embeddings": "Markdown plus embeddings",
+  "settings.data.recallMode.embeddingsHint":
+    "Uses the same embedding choice as Search. The model loads when needed and is freed when idle.",
+  "settings.data.recallState.off": "Markdown only.",
+  "settings.data.recallState.semantic":
+    "Recalling by meaning and words: {vectors} of {chunks} memory passages indexed.",
+  "settings.data.recallState.modelMissing":
+    "The embedding model is not downloaded yet, so recall matches words only. Turn on Semantic search under Model & providers to download it.",
+  "settings.data.recallState.cloudBlocked":
+    "The embedding service is not allowed to receive your memory, so recall matches words only.",
+  "settings.data.recallState.textOnly":
+    "No embedding model is available, so recall matches words only.",
   "settings.data.replayRetentionHint":
     "The screens {persona} looked at while it worked, for the Timeline. Off keeps none.",
   "settings.data.export": "Export",

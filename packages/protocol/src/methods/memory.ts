@@ -29,6 +29,7 @@ import {
   MemoryFileInfo,
   MemoryHit,
   MemoryJob,
+  MemoryRecallStatus,
   PersonaIdentity,
 } from "../schemas/memory.ts";
 import { defineMethod, nextCursor, pageParams } from "./define.ts";
@@ -235,9 +236,11 @@ export const MemoryMethods = {
       chunks: Type.Integer({ minimum: 0 }),
       claims: Type.Integer({ minimum: 0 }),
       lastJobs: Type.Array(MemoryJob),
+      recall: Type.Optional(MemoryRecallStatus),
     }),
     scope: "operator.read",
-    description: "Memory health for the Soul & Memory sheet: pause flag, index mode, counts, jobs.",
+    description:
+      "Memory health for the Soul & Memory sheet: pause flag, index mode, counts, jobs, recall mode.",
   }),
   "memory.pause": defineMethod({
     params: Type.Object({ paused: Type.Boolean() }),

@@ -5636,8 +5636,33 @@ export interface MemoryStatusResult {
     files:        number;
     lastJobs:     MemoryJob[];
     paused:       boolean;
+    recall?:      MemoryRecallStatus;
     vectorSearch: MemoryVectorMode;
 }
+
+export interface MemoryRecallStatus {
+    /**
+     * Memory chunks indexed
+     */
+    chunks?:   number;
+    fallback?: MemoryRecallFallback;
+    mode:      MemoryRecallMode;
+    /**
+     * Vector space, e.g. builtin/multilingual-e5-small
+     */
+    model?: string;
+    state:  MemoryRecallState;
+    /**
+     * Memory chunks embedded
+     */
+    vectors?: number;
+}
+
+export type MemoryRecallFallback = "model_missing" | "no_embedding_model" | "cloud_not_allowed" | "error";
+
+export type MemoryRecallMode = "markdown" | "embeddings";
+
+export type MemoryRecallState = "off" | "semantic" | "text_only";
 
 export type MemoryVectorMode = "sqlite-vec" | "brute-force" | "off";
 

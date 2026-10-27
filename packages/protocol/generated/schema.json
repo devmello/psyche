@@ -1838,7 +1838,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Memory health for the Soul & Memory sheet: pause flag, index mode, counts, jobs.",
+        "description": "Memory health for the Soul & Memory sheet: pause flag, index mode, counts, jobs, recall mode.",
         "name": "memory.status",
         "params": "#/$defs/MemoryStatusParams",
         "result": "#/$defs/MemoryStatusResult",
@@ -2278,7 +2278,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Sets one setting. Every key outside the cosmetic allowlist (appearance, ui, editor, shortcuts, locale, notifications.sound, notifications.badges) also needs operator.admin. Security keys (permissions, exec, vault, devices, gateway, owner identities, channel DM / allow policies) also need fresh user presence once the Gateway has a presence verifier: the first call fails approval_required with details.approvalId (a device-only policy_change card bound to the key and value); retry with that approvalId after approving. Once presence was enrolled, a Gateway whose verifiers can no longer verify fails presence_required instead of falling back to operator.admin alone. Side-effecting.",
+        "description": "Sets one setting. Every key outside the cosmetic allowlist (appearance, ui, editor, shortcuts, locale, notifications.sound, notifications.badges, notifications.quietHours) also needs operator.admin. Security keys (permissions, exec, vault, devices, gateway, owner identities, channel DM / allow policies) also need fresh user presence once the Gateway has a presence verifier: the first call fails approval_required with details.approvalId (a device-only policy_change card bound to the key and value); retry with that approvalId after approving. Once presence was enrolled, a Gateway whose verifiers can no longer verify fails presence_required instead of falling back to operator.admin alone. Side-effecting.",
         "name": "settings.set",
         "params": "#/$defs/SettingsSetParams",
         "result": "#/$defs/SettingsSetResult",
@@ -22698,6 +22698,62 @@
       ],
       "type": "object"
     },
+    "MemoryRecallFallback": {
+      "enum": [
+        "model_missing",
+        "no_embedding_model",
+        "cloud_not_allowed",
+        "error"
+      ],
+      "type": "string"
+    },
+    "MemoryRecallMode": {
+      "enum": [
+        "markdown",
+        "embeddings"
+      ],
+      "type": "string"
+    },
+    "MemoryRecallState": {
+      "enum": [
+        "off",
+        "semantic",
+        "text_only"
+      ],
+      "type": "string"
+    },
+    "MemoryRecallStatus": {
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/MemoryRecallMode"
+        },
+        "state": {
+          "$ref": "#/$defs/MemoryRecallState"
+        },
+        "fallback": {
+          "$ref": "#/$defs/MemoryRecallFallback"
+        },
+        "model": {
+          "description": "Vector space, e.g. builtin/multilingual-e5-small",
+          "type": "string"
+        },
+        "vectors": {
+          "description": "Memory chunks embedded",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "chunks": {
+          "description": "Memory chunks indexed",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "mode",
+        "state"
+      ],
+      "type": "object"
+    },
     "MemoryRememberParams": {
       "properties": {
         "text": {
@@ -22844,6 +22900,9 @@
             "$ref": "#/$defs/MemoryJob"
           },
           "type": "array"
+        },
+        "recall": {
+          "$ref": "#/$defs/MemoryRecallStatus"
         }
       },
       "required": [

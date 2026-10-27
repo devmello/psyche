@@ -158,3 +158,46 @@ export async function bootstrapContext(
     ...(identity === undefined ? {} : { identity }),
   };
 }
+
+export interface MemoryRecallOptions {
+  /** Snippets at most (default 6). */
+  limit?: number;
+  /** Characters across the snippets (default 1,600). */
+  maxChars?: number;
+}
+
+/**
+ * Recall for one turn (setting `memory.recall.mode: embeddings`): the memory chunks most
+ * relevant to `query`, as `- [path] text` lines, for the owner's private sessions. Only `owner`
+ * and `agent` chunks (never `untrusted` or `system`), and none of the files the persona block
+ * and the daily notes already inject in full, so the section is trusted and adds what the prompt
+ * would otherwise miss. Uses whatever the index has: meaning and words with an embedder, words
+ * only without one (the plain text fallback).
+ */
+export async function memoryRecall(
+  store: SqliteMemoryStore,
+  query: string,
+  options: MemoryRecallOptions = {},
+): Promise<string[]> {
+  if (query.trim().length < 3) return [];
+  const limit = options.limit ?? 6;
+  let room = options.maxChars ?? 1_600;
+  const today = store.now().date;
+  const injected = new Set([
+    ...FILES_BY_SESSION.private,
+    dailyNotePath(today),
+    dailyNotePath(previousDate(today)),
+  ]);
+  const hits = await store.search(query, { limit: limit * 3, provenance: ["owner", "agent"] });
+  const out: string[] = [];
+  for (const h of hits) {
+    if (out.length >= limit || room <= 0) break;
+    if (injected.has(h.chunk.source)) continue;
+    const text = stripComments(h.chunk.text).replace(/\s+/g, " ").trim();
+    if (text === "") continue;
+    const line = `- [${h.chunk.source}] ${cut(text, Math.min(400, room))}`;
+    room -= line.length;
+    out.push(line);
+  }
+  return out;
+}

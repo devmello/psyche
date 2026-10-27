@@ -7,6 +7,7 @@ import {
   createSearchHandlers,
   libraryDoc,
   OWNER,
+  type SearchEmbedder,
   SearchIndexer,
   SemanticIndex,
   SqliteSearchIndex,
@@ -45,6 +46,8 @@ export interface ComposedSearch extends ComposedPart {
   readonly semantic: SemanticIndex;
   /** Resolves when the semantic settings in effect are applied (download and model load). */
   semanticReady(): Promise<void>;
+  /** The embedder semantic search uses now, if any (shared with memory recall). */
+  embedder(): SearchEmbedder | undefined;
   /** Resolves once every event seen so far is indexed (tests, the backfill). */
   idle(): Promise<void>;
   status(): Promise<SearchIndexStatus>;
@@ -62,6 +65,8 @@ export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
   librarySyncMs?: number;
   /** Pause between backfill pages (default 10 ms). */
   backfillPauseMs?: number;
+  /** Semantic search's state changed (memory recall follows its embedder). */
+  onSemanticChange?: () => void;
   /** Embedders for semantic search; defaults download and run the on-device model. */
   semanticEngines?: SemanticEngines;
   /** The router's `embedding` role for `search.semantic.engine: router`. */
@@ -101,10 +106,12 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
     backfill,
     semantic: controller.status(),
   });
-  const publishStatus = () =>
+  const publishStatus = () => {
+    deps.onSemanticChange?.();
     void statusOf(backfill.status()).then((st) =>
       gateway?.bus.publish("search.status.updated", st),
     );
+  };
   let lastSemanticAt = 0;
   const semantic = new SemanticIndex(index.db, {
     ...deps.semanticOptions,
@@ -182,6 +189,7 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
     backfill,
     semantic,
     semanticReady: () => applySemantic(),
+    embedder: () => controller.embedder(),
     handlers,
     idle: () => queue,
     status: () => statusOf(backfill.status()),

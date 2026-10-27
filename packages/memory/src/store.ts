@@ -194,6 +194,9 @@ export class SqliteMemoryStore implements MemoryStore {
   readonly timeZone: string;
   readonly #db: Database.Database;
   readonly #index: MemoryIndex;
+  readonly #sqliteVec: boolean;
+  /** Whether the KNN index was set up for vectors (sqlite-vec tried) yet. */
+  #vecLoaded: boolean;
   readonly #newId: () => string;
   readonly #approvals: ApprovalCheck;
   readonly #templatesDir: string | null;
@@ -223,7 +226,9 @@ export class SqliteMemoryStore implements MemoryStore {
     this.#flush = options.flush;
     ensureDir(options.workspaceDir);
     this.root = options.workspaceDir;
-    const useVec = options.embedder !== undefined && options.sqliteVec !== false;
+    this.#sqliteVec = options.sqliteVec !== false;
+    const useVec = options.embedder !== undefined && this.#sqliteVec;
+    this.#vecLoaded = options.embedder !== undefined;
     const vector = new VectorIndex(this.#db, useVec && tryLoadSqliteVec(this.#db));
     this.#index = new MemoryIndex({
       sqlite: this.#db,
@@ -334,6 +339,34 @@ export class SqliteMemoryStore implements MemoryStore {
     writeFileSync(tmp, content, { mode: FILE_MODE });
     renameSync(tmp, abs);
     return statSync(abs).mtimeMs;
+  }
+
+  /**
+   * Memory recall with embeddings (setting `memory.recall.mode`): sets the embedder the index
+   * uses, or none. The Markdown files stay the source of truth; with an embedder every chunk is
+   * embedded in the background (and each change re-embeds only its new chunks), and `search`
+   * fuses meaning with words. `undefined` turns it off and drops the stored vectors; search
+   * then matches words only. sqlite-vec is loaded the first time an embedder is set.
+   */
+  setEmbedder(embedder: Embedder | undefined): void {
+    if (embedder === undefined) {
+      if (this.#index.vectorMode === "off") return;
+      this.#index.setEmbedder(undefined);
+      this.#index.dropEmbeddings();
+      return;
+    }
+    let vector: VectorIndex | undefined;
+    if (!this.#vecLoaded) {
+      this.#vecLoaded = true;
+      vector = new VectorIndex(this.#db, this.#sqliteVec && tryLoadSqliteVec(this.#db));
+    }
+    this.#index.setEmbedder(embedder, vector);
+    this.#scheduleEmbedding();
+  }
+
+  /** Chunks indexed and chunks embedded by the current embedder (for `memory.status`). */
+  embeddingCounts(): { chunks: number; vectors: number } {
+    return this.#index.embeddingCounts();
   }
 
   #scheduleEmbedding(): void {

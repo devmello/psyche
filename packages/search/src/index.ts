@@ -9,6 +9,7 @@ export * from "./graph.ts";
 export * from "./handlers.ts";
 export * from "./highlight.ts";
 export * from "./indexer.ts";
+export * from "./lazy-embedder.ts";
 export * from "./memory.ts";
 export * from "./onnx-embedder.ts";
 export * from "./query-parser.ts";

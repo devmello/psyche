@@ -673,6 +673,10 @@
 //   let memoryPersonaGetResult = try? JSONDecoder().decode(MemoryPersonaGetResult.self, from: jsonData)
 //   let memoryReadParams = try? JSONDecoder().decode(MemoryReadParams.self, from: jsonData)
 //   let memoryReadResult = try? JSONDecoder().decode(MemoryReadResult.self, from: jsonData)
+//   let memoryRecallFallback = try? JSONDecoder().decode(MemoryRecallFallback.self, from: jsonData)
+//   let memoryRecallMode = try? JSONDecoder().decode(MemoryRecallMode.self, from: jsonData)
+//   let memoryRecallState = try? JSONDecoder().decode(MemoryRecallState.self, from: jsonData)
+//   let memoryRecallStatus = try? JSONDecoder().decode(MemoryRecallStatus.self, from: jsonData)
 //   let memoryRememberParams = try? JSONDecoder().decode(MemoryRememberParams.self, from: jsonData)
 //   let memoryRememberResult = try? JSONDecoder().decode(MemoryRememberResult.self, from: jsonData)
 //   let memoryResetParams = try? JSONDecoder().decode(MemoryResetParams.self, from: jsonData)
@@ -16823,6 +16827,7 @@ public struct MemoryStatusResult: Codable, Sendable {
     public let files: Int
     public let lastJobs: [MemoryJob]
     public let paused: Bool
+    public let recall: MemoryRecallStatus?
     public let vectorSearch: MemoryVectorMode
 
     public enum CodingKeys: String, CodingKey {
@@ -16831,17 +16836,68 @@ public struct MemoryStatusResult: Codable, Sendable {
         case files = "files"
         case lastJobs = "lastJobs"
         case paused = "paused"
+        case recall = "recall"
         case vectorSearch = "vectorSearch"
     }
 
-    public init(chunks: Int, claims: Int, files: Int, lastJobs: [MemoryJob], paused: Bool, vectorSearch: MemoryVectorMode) {
+    public init(chunks: Int, claims: Int, files: Int, lastJobs: [MemoryJob], paused: Bool, recall: MemoryRecallStatus?, vectorSearch: MemoryVectorMode) {
         self.chunks = chunks
         self.claims = claims
         self.files = files
         self.lastJobs = lastJobs
         self.paused = paused
+        self.recall = recall
         self.vectorSearch = vectorSearch
     }
+}
+
+// MARK: - MemoryRecallStatus
+public struct MemoryRecallStatus: Codable, Sendable {
+    /// Memory chunks indexed
+    public let chunks: Int?
+    public let fallback: MemoryRecallFallback?
+    public let mode: MemoryRecallMode
+    /// Vector space, e.g. builtin/multilingual-e5-small
+    public let model: String?
+    public let state: MemoryRecallState
+    /// Memory chunks embedded
+    public let vectors: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case chunks = "chunks"
+        case fallback = "fallback"
+        case mode = "mode"
+        case model = "model"
+        case state = "state"
+        case vectors = "vectors"
+    }
+
+    public init(chunks: Int?, fallback: MemoryRecallFallback?, mode: MemoryRecallMode, model: String?, state: MemoryRecallState, vectors: Int?) {
+        self.chunks = chunks
+        self.fallback = fallback
+        self.mode = mode
+        self.model = model
+        self.state = state
+        self.vectors = vectors
+    }
+}
+
+public enum MemoryRecallFallback: String, Codable, Sendable {
+    case cloudNotAllowed = "cloud_not_allowed"
+    case error = "error"
+    case modelMissing = "model_missing"
+    case noEmbeddingModel = "no_embedding_model"
+}
+
+public enum MemoryRecallMode: String, Codable, Sendable {
+    case embeddings = "embeddings"
+    case markdown = "markdown"
+}
+
+public enum MemoryRecallState: String, Codable, Sendable {
+    case off = "off"
+    case semantic = "semantic"
+    case textOnly = "text_only"
 }
 
 public enum MemoryVectorMode: String, Codable, Sendable {
