@@ -45,7 +45,7 @@ export function assertGranted(
     }
   }
   if (best === undefined) {
-    // Security §3.12: the agent may ask for it with request_permission.
+    // Security §3.13: the agent may ask for it with request_permission.
     throw new PsycheError("forbidden", `${path} is outside every granted folder`, {
       details: {
         missing: { need: "folder", path, access: access === "write" ? "read_write" : "read" },

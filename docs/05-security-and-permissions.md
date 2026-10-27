@@ -148,14 +148,14 @@ For every tool call and `node.invoke`, the first terminal result wins:
 | `write_file` / `edit_file` | real path; operation; SHA-256 of resulting content | folder-grant root + operation |
 | `messages.send` / channel send | channel; account; canonical recipient id; body hash; attachment hashes | channel + account + recipient |
 | MCP tool call | server id; tool name; `tools/list` hash; args hash | server + tool + `tools/list` hash |
-| `folder_access` (`request_folder_access`) | requested path hint; reason; access (`ro` / `rw`); thread; tool call id | folder-class `folder_access` + access (no reusable ledger grant: the granted folder is stored as a folder grant, below) |
+| `folder_access` (`request_permission` with a folder need) | requested path hint; reason; access (`ro` / `rw`); thread; tool call id | folder-class `folder_access` + access (no reusable ledger grant: the granted folder is stored as a folder grant, below) |
 | Apple Notes `notes_create` | connector id; tool name; args hash | connector + tool; **plus** the class `title-prefix:Prep:` when the title starts with `Prep:` (NFC, case-sensitive) |
 
 **One recipe for tool calls.** An approval the agent loop obtains for a tool call binds the envelope `bindingHash(kind, {tool, paramsHash, fields})`, where `paramsHash = sha256(canonicalJSON(params))` and `fields` are the kind's fields above as the tool's description gives them. Every verifier recomputes it with the same shared function (`toolCallBindingHash` in `@psyche/protocol/binding`): the loop at dispatch, the connector registry, and the vault before it resolves a credential. The vault never accepts a hash from its caller. It derives the fill fields itself (item id, origin, field, selector, element, executor) from the fill it is about to resolve, takes the tool and params of the call, and has the broker compare the result with the approval record. A `once` approval fills at most once: the loop consumes it at the broker right before dispatch, and the vault separately allows one fill per approval id (`credential_uses`). A fill request the vault builds itself (`requestFill`, no tool call) binds the bare fields.
 
 **Prep-note grant.** A batch approval (§8.1 of the mail-and-meetings workflow) is `once` only, with one exception: when every call in it is a `notes_create` whose title starts with `Prep:` (the meeting-prep "save to Notes" proposal), the card also offers `always` as **Always for prep notes**. The grant binds the calls' own `grantKey` (the `Prep:` class above, computed from the real arguments when the call is decided), so a note with any other title, or any other tool, has a different key and still asks. It has the `always` lifetime (90 days), `createdFrom` is the batch approval, and it is listed and revoked in Settings → Permissions like any grant. A batch with any other call, or a tainted batch, is never offered `always`, and taint is never exempted by this grant (§3.6): a tainted prep batch always asks. A later proposal whose every call is covered is approved by the grant without a card (recorded `approval.decided` with `via: grant`).
 
-**Folder access.** When a file tool reports a path outside every granted folder, the agent may call `request_folder_access` (path hint, reason, `read` or `read_write`). It raises a device-only `folder_access` card. The card shows the hint, the reason and the access level; the owner picks the folder with the native picker (the web has a typed path the owner confirms), and the pick, never the agent's string, is what is granted. The Gateway resolves the pick to its real path (symlinks and `..` first) and refuses `/`, the home root, `~/Library`, `~/.ssh` and the other credential stores, `$PSYCHE_HOME`, system roots, and any folder that contains one of them. The grant is exactly the picked folder and what is inside it, never a parent. **Allow once** gives the folder to that conversation (ends at `/new` and at a restart) and the file tools use it in the same turn; **Always allow** adds it to `permissions.policy.folders`, which Settings → File access lists with its access level and **Revoke**; Deny grants nothing. A request from a tainted turn offers `once` only, and the Broker narrows it again at issue and at answer: taint overrides standing grants here as everywhere (§3.6), with no exception. Settings and `settings.set` apply the same refusals to a folder typed or picked there. The Gateway is an unsandboxed LaunchAgent, so no security-scoped bookmark is needed; the grant is a plain real path.
+**Folder access.** When a file tool reports a path outside every granted folder, the agent may call `request_permission` with `{need: "folder", path, access: "read" | "read_write"}` and a reason (§3.13; it replaced `request_folder_access`). It raises a device-only `folder_access` card. The card shows the hint, the reason and the access level; the owner picks the folder with the native picker (the web has a typed path the owner confirms), and the pick, never the agent's string, is what is granted. The Gateway resolves the pick to its real path (symlinks and `..` first) and refuses `/`, the home root, `~/Library`, `~/.ssh` and the other credential stores, `$PSYCHE_HOME`, system roots, and any folder that contains one of them. The grant is exactly the picked folder and what is inside it, never a parent. **Allow once** gives the folder to that conversation (ends at `/new` and at a restart) and the file tools use it in the same turn; **Always allow** adds it to `permissions.policy.folders`, which Settings → File access lists with its access level and **Revoke**; Deny grants nothing. A request from a tainted turn offers `once` only, and the Broker narrows it again at issue and at answer: taint overrides standing grants here as everywhere (§3.6), with no exception. Settings and `settings.set` apply the same refusals to a folder typed or picked there. The Gateway is an unsandboxed LaunchAgent, so no security-scoped bookmark is needed; the grant is a plain real path.
 
 ### 3.6 Taint
 
@@ -274,6 +274,28 @@ The owner sets Allow / Ask / Deny per connector **action group** (`mail.read`, `
 - **Direct helper calls.** `node.*` Apple app calls follow the same groups: `APPLE_APP_ACTIONS` rows carry the group, and the rules of an `apple:<app>` record also land under `apple.<app>`. An older `permissions.policy` entry keyed by the bare action name still applies when the group has none.
 - **Receipts.** Every connector write's receipt records the deciding rule (`payload.rule`): an approval, a grant, or the matrix.
 
+### 3.13 Missing permissions and `request_permission`
+
+A tool that is refused because something is not granted or not turned on tells the agent what is missing, and the agent asks for it instead of giving up. Nothing here grants anything: the owner decides on a card.
+
+- **What names a missing permission.** A broker denial carries `missing` (protocol `MissingPermission`) for three rules only:
+  - `folder:not_granted` and `folder:read_only` name a folder and `read` / `read_write`;
+  - `exec_host:disabled` names the capability `exec_host`;
+  - `connector:<id>/<group>` (a group set to Deny) names that connector action.
+
+  Tool errors carry it in `details.missing`:
+  - the file tools' own folder check;
+  - the connector executor's deny and "not connected";
+  - the Apple app connector's TCC refusals (`automation_denied`, `automation_not_granted`, `permission_missing`, `permission_denied`, `full_disk_access_missing`);
+  - `exec_host` without srt (`sandbox`).
+
+  No other denial names anything: prohibitions, deny rules, plan mode, taint, classifier refusals and requester limits cannot be asked away. The loop passes the object to the model with one instruction to ask with `request_permission`, and the base prompt says to ask once and retry only if granted.
+- **`request_permission({need, reason})`.** One card per request:
+  - a **folder** is the `folder_access` card above;
+  - **`capability`** (`exec_host`) and **`connector_action`** raise a device-only `permission_request` card with fresh presence (Touch ID or a passkey), offered `once` only. Enable turns the capability on in `permissions.policy`, or sets that group from Deny to **Ask** (never Allow), so every call still asks. The change stays until the owner turns it off in Settings. A tainted turn cannot make these changes (§3.6, no exception): the tool refuses without a card and tells the agent to point the owner at Settings;
+  - **`connector`**, **`macos_access`** and **`sandbox`** raise a device-only `permission_request` card without presence that grants nothing. The card's button opens Settings → Connectors, or the connector's grant flow, where the helper opens the right System Settings pane. Check again re-reads the macOS grant, and the Gateway then re-checks the connector's status or srt and tells the agent whether it is there now.
+- Unattended runs and non-owner requesters get an error, never a card. Revocation stays in Settings.
+
 ---
 
 ## 4. Credential Broker specification
@@ -390,7 +412,17 @@ Host-side helpers (LibreOffice, ffmpeg, converters) and stdio MCP servers run un
 
 ### 5.4 `exec_host`, no fallback, PTY rules
 
-`exec_host` is Off by default, always asks (`once`, or `always` bound to exact argv + cwd + resolved executable + env subset, 30-day expiry), runs under an srt profile unless the owner types `UNSANDBOXED` on the card, and is `deviceOnly`. Without a sandbox backend, `exec` returns an error; there is never a fallback to the host shell (openclaw notes, 1h). A PTY the user opened in the terminal pane is the user's and the agent cannot type into it; an agent PTY runs inside the container, requires a `session`-scoped approval, is shown live, keeps its last 128 KB for the receipt, and stops on Esc.
+`exec_host` is Off by default, always asks (`once`, or `always` bound to exact argv + cwd + resolved executable + env subset, 30-day expiry), runs under an srt profile unless the owner types `UNSANDBOXED` on the card, and is `deviceOnly`.
+
+*Status (implemented):*
+- **Turning it on.** Settings → File access → "Run commands on this Mac" writes `exec.execHostEnabled`, or a chat asks with `request_permission` (§3.13). The tool is always offered to the model, and while it is off the broker denies it with the missing capability.
+- **Where it runs.** The cwd must lie inside a granted folder: the broker checks it before any card, and the tool checks it again after resolving symlinks.
+- **What it runs.** A bare `argv[0]` is looked up only in a fixed PATH (`/opt/homebrew/bin`, `/usr/local/bin`, `/usr/bin`, `/bin`, `/usr/sbin`, `/sbin`), never in one the agent passes. The environment is fixed (PATH, HOME, USER, LANG, TMPDIR) plus the explicit env the card shows. PATH, HOME, `DYLD_*`, `LD_*`, `NODE_OPTIONS` and similar names are refused, and so are vault placeholders.
+- **The card.** It shows argv, cwd, env, the resolved program and whether srt is available.
+- **Binding and taint.** `always` follows the §3.5 binding, including the binary's SHA-256, which is hashed again right before the run. An executable that reads its cwd's config (`git`, `make`, `npm`, …) is offered `once` unless those config hashes are bound (design-14). A tainted turn is offered `once` only, and no standing grant covers it.
+- **The srt profile.** It denies reads of `$PSYCHE_HOME` (vault, state, audit, browser profiles), `~/.ssh`, `~/Library/Keychains`, the browser profiles and the usual credential files. Writes are allowed only in a scratch directory and the cwd's granted folder when that grant is read-write. Network goes only to `allowedDomains`, which the card shows, and the escape hatches are off.
+- **UNSANDBOXED.** It is typed on the card and sent as `approvals.answer.unsandboxed`. The Broker accepts it only for `exec_host` approved `once`, and it applies to that one run, in a read-write folder. Without srt, the card says so, offers "Set up sandbox", and can run only with that word.
+- **Limits.** Runs have a 60-second default timeout (10 minutes at most) and 128 KB per stream, with output masked by the vault redactor. Esc or Stop kills the process group, and an interrupted run's receipt is `uncertain`. Without a sandbox backend, `exec` returns an error; there is never a fallback to the host shell (openclaw notes, 1h). A PTY the user opened in the terminal pane is the user's and the agent cannot type into it; an agent PTY runs inside the container, requires a `session`-scoped approval, is shown live, keeps its last 128 KB for the receipt, and stops on Esc.
 
 ---
 

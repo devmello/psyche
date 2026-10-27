@@ -4,7 +4,7 @@ import { missingOf } from "../src/index.ts";
 import { call, harness, resultsIn, runTurn, say, spec } from "./harness.ts";
 
 /**
- * Missing permissions reach the model (security §3.12): a broker denial that names one, and a
+ * Missing permissions reach the model (security §3.13): a broker denial that names one, and a
  * tool error whose `details.missing` names one, carry it with the request_permission hint.
  */
 

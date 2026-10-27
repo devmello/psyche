@@ -24,7 +24,7 @@ import { withFolder } from "../src/compose/folder-access.ts";
 import { requestPermissionTool } from "../src/compose/request-permission.ts";
 
 /**
- * `exec_host` (security §5.4) and the missing-permission flow (§3.12) below the loop: the broker
+ * `exec_host` (security §5.4) and the missing-permission flow (§3.13) below the loop: the broker
  * decides the call the way the loop builds it, a denial names what is missing, request_permission
  * raises the card, and the retry is decided again. srt is mocked (never run); the process driver
  * records what would start.
@@ -35,7 +35,8 @@ const home = join(root, "home");
 const psycheHome = join(home, ".psyche");
 const project = join(home, "Projects", "app");
 const outside = join(home, "Elsewhere");
-for (const d of [project, outside, join(home, ".ssh"), psycheHome]) mkdirSync(d, { recursive: true });
+for (const d of [project, outside, join(home, ".ssh"), psycheHome])
+  mkdirSync(d, { recursive: true });
 
 const DEVICE = { deviceId: "dev_mac" };
 let broker: PsychePermissionBroker;
@@ -286,11 +287,7 @@ describe("exec_host: missing permission → request → retry", () => {
     expect(denied).toMatchObject({ decision: "deny", rule: "folder:not_granted" });
     expect(denied.missing).toEqual({ need: "folder", path: outside, access: "read_write" });
 
-    const pend = run(
-      requestPermission(),
-      { need: denied.missing, reason: "build it" },
-      ctx(),
-    );
+    const pend = run(requestPermission(), { need: denied.missing, reason: "build it" }, ctx());
     const a = await pending();
     expect(a.kind).toBe("folder_access");
     await answer(a.id, { folderPath: outside });
@@ -308,7 +305,12 @@ describe("exec_host: missing permission → request → retry", () => {
       params: { to: "a@b.c" },
       paramsHash: paramsHash({ to: "a@b.c" }),
     };
-    const ctxD = { threadId: "thr_1", runId: "run_1", permissionMode: "balanced" as const, taint: false };
+    const ctxD = {
+      threadId: "thr_1",
+      runId: "run_1",
+      permissionMode: "balanced" as const,
+      taint: false,
+    };
     const denied = await broker.decide(send, ctxD);
     expect(denied.decision).toBe("deny");
     expect(denied.missing).toMatchObject({ need: "connector_action", connector: "apple.mail" });
@@ -363,8 +365,9 @@ describe("exec_host: running", () => {
     expect(s?.args.slice(2)).toEqual(["--", realpathSync("/bin/echo"), "hi"]);
     expect(s?.options).toMatchObject({ cwd: project, processGroup: true });
     expect(s?.options?.env?.PATH).not.toContain(home);
-    const fs = (s?.settings as { filesystem: { denyRead: string[]; allowWrite: string[] } })
-      .filesystem;
+    const fs = (
+      s?.settings as { filesystem: { denyRead: string[]; allowWrite: string[] } } | undefined
+    )?.filesystem ?? { denyRead: [], allowWrite: [] };
     for (const p of [
       join(psycheHome, "vault"),
       join(psycheHome, "state"),
@@ -393,7 +396,10 @@ describe("exec_host: running", () => {
     srt = { missing: true, reason: "srt is not installed" };
     const t = execHost();
     const a = await card(t, echo);
-    expect(a.details).toMatchObject({ sandbox: "missing", sandboxMissingReason: "srt is not installed" });
+    expect(a.details).toMatchObject({
+      sandbox: "missing",
+      sandboxMissingReason: "srt is not installed",
+    });
     await answer(a.id);
     await expect(run(t, echo, ctx({ approvalId: a.id }))).rejects.toMatchObject({
       code: "unavailable",

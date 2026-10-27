@@ -317,12 +317,14 @@ describe("write enforcement fails closed", () => {
     return { call, verified, registry, tools };
   };
 
-  it("a group set to deny names the connector action the agent may ask for (§3.12)", async () => {
+  it("a group set to deny names the connector action the agent may ask for (§3.13)", async () => {
     const { call, registry, tools } = setup({});
     await call("write").catch(() => undefined);
     await registry.setMatrix("demo-1", { "demo.write": "deny" });
     await expect(
-      tools.get("mcp__demo-1__write")?.execute("c", { x: 1 }, new AbortController().signal, () => {}),
+      tools
+        .get("mcp__demo-1__write")
+        ?.execute("c", { x: 1 }, new AbortController().signal, () => {}),
     ).rejects.toMatchObject({
       code: "policy_denied",
       details: { missing: { need: "connector_action", connector: "demo-1", group: "demo.write" } },

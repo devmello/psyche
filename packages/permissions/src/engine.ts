@@ -9,7 +9,6 @@ import {
   classifyFailClosed,
 } from "./classifier.ts";
 import { matrixFloor, matrixRule } from "./connector-matrix.ts";
-import { missingFor } from "./missing.ts";
 import {
   ALL_SCOPES,
   allowedScopes,
@@ -21,6 +20,7 @@ import {
   mcpConnector,
   SEVERITY,
 } from "./kinds.ts";
+import { missingFor } from "./missing.ts";
 import { type CompiledPolicy, isSensitiveHost, ruleMatches } from "./policy.ts";
 import { checkProhibitions, type LocalProjectVerifier } from "./prohibitions.ts";
 import { checkRequester } from "./requester.ts";
@@ -751,7 +751,7 @@ export class PolicyEngine {
     }
     if (allowed !== undefined) {
       if (escalation !== undefined)
-      return ask(escalation.rule, escalation.reason, escalation.scopes);
+        return ask(escalation.rule, escalation.reason, escalation.scopes);
       // 7. Classifier: residual writes in auto mode.
       let classifier: PolicyDecision["classifier"];
       if (mode === "auto" && se === "write") {
@@ -785,8 +785,7 @@ export class PolicyEngine {
 
     // 6. Mode default (security §3.2).
     trace.push("step6:mode_default");
-    if (escalation !== undefined)
-      return ask(escalation.rule, escalation.reason, escalation.scopes);
+    if (escalation !== undefined) return ask(escalation.rule, escalation.reason, escalation.scopes);
     const modeRule = `mode:${mode}/${se}`;
     switch (se) {
       case "none":

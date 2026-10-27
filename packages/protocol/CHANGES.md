@@ -18,6 +18,14 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-27 (exec_host and missing permissions)
+
+For the `exec_host` and `request_permission` agent tools (Gateway `compose/exec-host.ts`, `compose/request-permission.ts`; security §5.4, §3.13).
+
+- `ApprovalKind` gains `permission_request` (at the end; device-only, `once` only; needs presence when it turns something on). `details` carry `need` and `reason`.
+- New schema `MissingPermission`, with variants `MissingFolder`, `MissingCapability`, `MissingConnectorAction`, `MissingConnector`, `MissingMacosAccess` and `MissingSandbox`. `DecisionResult` (the broker contract) gains optional `missing`.
+- `ApprovalAnswer` gains optional `unsandboxed: "UNSANDBOXED"`. It applies only to an `exec_host` approval answered `once`, and runs that one command without srt.
+
 ### v1 additive — 2026-10-27 (memory recall mode)
 
 - New setting key `memory.recall.mode` (`markdown` default | `embeddings`; exported as `MEMORY_RECALL_MODE_SETTING`, `MemoryRecallMode`). `memory.status` result gains optional `recall: MemoryRecallStatus` (`mode`, `state` off | semantic | text_only, `fallback` model_missing | no_embedding_model | cloud_not_allowed | error, `model`, `vectors`, `chunks`). New schemas `MemoryRecallStatus`, `MemoryRecallMode`, `MemoryRecallState`, `MemoryRecallFallback`; Swift gains the types and the optional field.

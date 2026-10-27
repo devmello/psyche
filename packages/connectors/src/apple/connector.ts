@@ -1870,7 +1870,7 @@ class AppleConnector implements Connector {
           : timedOut
             ? "timeout"
             : undefined;
-      // macOS has not granted the helper access (TCC): the agent may ask the owner (§3.12).
+      // macOS has not granted the helper access (TCC): the agent may ask the owner (§3.13).
       const tcc = macosAccessReason(res.error?.code, reason);
       throw new PsycheError(
         res.error?.code === "approval_required" ? "approval_required" : "unavailable",

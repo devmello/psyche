@@ -10,7 +10,7 @@ import { Type } from "@sinclair/typebox";
 import { askForFolder } from "./folder-access.ts";
 
 /**
- * `request_permission` (security §3.12): the agent asks for a permission a denial or tool error
+ * `request_permission` (security §3.13): the agent asks for a permission a denial or tool error
  * named as missing, instead of giving up. Each request is one inline card, and the owner decides:
  *
  * - `folder`: the folder card (pick, Allow once / Always allow / Deny; tainted turns once only);
@@ -134,9 +134,7 @@ async function ask(
     surfaces: [...deps.surfaces],
     scopesOffered: ["once"],
     taint: ctx.taint,
-    ...(ctx.taint && ctx.taintSources !== undefined
-      ? { taintSources: [...ctx.taintSources] }
-      : {}),
+    ...(ctx.taint && ctx.taintSources !== undefined ? { taintSources: [...ctx.taintSources] } : {}),
   });
   const done = await deps.broker.awaitDecision(issued.approval.id, ctx.signal);
   if (done.status !== "approved") {
@@ -183,7 +181,10 @@ export function requestPermissionTool(deps: RequestPermissionDeps): AgentToolReg
         return askForFolder(deps, ctx, { path: need.path, reason: p.reason, access: need.access });
       }
       if (await alreadyThere(deps, need)) {
-        return { output: { granted: true, status: "already", next: "retry the call" }, provenance: "trusted" };
+        return {
+          output: { granted: true, status: "already", next: "retry the call" },
+          provenance: "trusted",
+        };
       }
       return ask(deps, ctx, need, p.reason);
     },

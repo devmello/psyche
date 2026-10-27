@@ -75,9 +75,7 @@ export async function askForFolder(
     surfaces: [...deps.surfaces],
     scopesOffered: folderScopesOffered(ctx.taint),
     taint: ctx.taint,
-    ...(ctx.taint && ctx.taintSources !== undefined
-      ? { taintSources: [...ctx.taintSources] }
-      : {}),
+    ...(ctx.taint && ctx.taintSources !== undefined ? { taintSources: [...ctx.taintSources] } : {}),
   });
   const done = await deps.broker.awaitDecision(issued.approval.id, ctx.signal);
   const granted = done.details.granted as FolderGrantEntry | undefined;

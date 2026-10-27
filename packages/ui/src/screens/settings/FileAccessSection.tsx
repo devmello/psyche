@@ -14,6 +14,7 @@ import {
   SectionFrame,
   SettingHint,
   type SettingsFormProps,
+  SwitchField,
   useSettingsForm,
 } from "./shared.tsx";
 import type { FolderGrant } from "./types.ts";
@@ -182,6 +183,22 @@ function FolderList({
   );
 }
 
+/** `permissions.policy.exec.execHostEnabled` (security §5.4); off unless set to true. */
+export function execHostEnabled(values: Readonly<Record<string, unknown>>): boolean {
+  const exec = policyOf(values).exec;
+  return isRecord(exec) && exec.execHostEnabled === true;
+}
+
+/** The stored policy with `exec.execHostEnabled` set, everything else kept. */
+export function policyWithExecHost(
+  values: Readonly<Record<string, unknown>>,
+  on: boolean,
+): Record<string, unknown> {
+  const policy = policyOf(values);
+  const exec = isRecord(policy.exec) ? policy.exec : {};
+  return { ...policy, exec: { ...exec, execHostEnabled: on } };
+}
+
 export interface FileAccessPanelProps extends SettingsFormProps, LoadProps {
   persona: string;
   vmMode?: boolean;
@@ -219,6 +236,17 @@ export function FileAccessPanel({
             defaultAccess="ro"
           />
           <SettingHint settingKey={POLICY_KEY} />
+        </Group>
+        {/* Security §5.4: off by default; each command still asks on the Mac. */}
+        <Group
+          title={t("settings.files.execHost")}
+          description={t("settings.files.execHostHint", { persona })}
+        >
+          <SwitchField
+            label={t("settings.files.execHostSwitch")}
+            checked={execHostEnabled(values)}
+            onChange={(on) => onChange(POLICY_KEY, policyWithExecHost(values, on))}
+          />
         </Group>
         <Group
           title={t("settings.files.vmShares")}

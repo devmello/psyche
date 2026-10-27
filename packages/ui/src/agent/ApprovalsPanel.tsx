@@ -2,6 +2,7 @@ import type { Grant } from "@psyche/protocol";
 import { ChevronRight } from "lucide-react";
 import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ApprovalCard } from "../blocks/ApprovalCard.tsx";
+import { PermissionActionsProvider } from "../blocks/permission-actions.tsx";
 import { Badge } from "../components/ui/badge.tsx";
 import { Button } from "../components/ui/button.tsx";
 import {
@@ -180,32 +181,36 @@ export function ApprovalsPanel({
             </div>
           ) : null
         ) : (
-          <div className="flex flex-col gap-3">
-            {live.map((v) => {
-              const task = v.approval.requestedBy.taskId
-                ? tasks[v.approval.requestedBy.taskId]
-                : undefined;
-              return (
-                <ApprovalCard
-                  key={v.approval.id}
-                  approval={v.approval}
-                  canAnswer={v.canAnswer}
-                  stale={v.stale}
-                  persona={persona.name}
-                  taskTitle={task?.title ?? null}
-                  createdFrom={task?.createdFrom ?? null}
-                  parentThreadTitle={
-                    task?.specialist
-                      ? (threads[task.specialist.parentThreadId]?.thread.title ?? null)
-                      : null
-                  }
-                  otherSurfaces={v.approval.surfaces.filter((s) => s !== "desktop" && s !== "web")}
-                  onAnswer={(d, scope) => answer(v.approval.id, d, scope)}
-                  now={now}
-                />
-              );
-            })}
-          </div>
+          <PermissionActionsProvider>
+            <div className="flex flex-col gap-3">
+              {live.map((v) => {
+                const task = v.approval.requestedBy.taskId
+                  ? tasks[v.approval.requestedBy.taskId]
+                  : undefined;
+                return (
+                  <ApprovalCard
+                    key={v.approval.id}
+                    approval={v.approval}
+                    canAnswer={v.canAnswer}
+                    stale={v.stale}
+                    persona={persona.name}
+                    taskTitle={task?.title ?? null}
+                    createdFrom={task?.createdFrom ?? null}
+                    parentThreadTitle={
+                      task?.specialist
+                        ? (threads[task.specialist.parentThreadId]?.thread.title ?? null)
+                        : null
+                    }
+                    otherSurfaces={v.approval.surfaces.filter(
+                      (s) => s !== "desktop" && s !== "web",
+                    )}
+                    onAnswer={(d, scope, extras) => answer(v.approval.id, d, scope, extras)}
+                    now={now}
+                  />
+                );
+              })}
+            </div>
+          </PermissionActionsProvider>
         )}
       </section>
 

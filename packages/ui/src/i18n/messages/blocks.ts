@@ -76,6 +76,38 @@ export const blocks = {
     "Allow once lasts for this conversation. Always allow keeps the folder in Settings → File access until you revoke it.",
   "blocks.folder.onceOnly": "Only Allow once is offered: this request follows untrusted content.",
   "blocks.folder.exact": "Only this folder and what is inside it is shared.",
+  "blocks.details.executable": "Program",
+  "blocks.details.network": "Network",
+  "blocks.details.networkNone": "none",
+  "blocks.details.runsSandboxed":
+    "on your Mac, in the sandbox: it cannot read Psyche's vault, your SSH keys, Keychains or browser profiles",
+  "blocks.details.runsNoSandbox": "on your Mac, and the sandbox is not set up ({reason})",
+  "blocks.details.needed": "Needed",
+  "blocks.details.neededWhy": "Why",
+  "blocks.execHost.sandboxed":
+    "Runs in the sandbox. To run this one command without it, type {word} below.",
+  "blocks.execHost.noSandbox":
+    "The sandbox is not set up, so this command can only run without it. Set it up, or type {word} to run it unsandboxed this once.",
+  "blocks.execHost.setUp": "Set up sandbox",
+  "blocks.execHost.typeLabel": "Type {word} to run without the sandbox",
+  "blocks.execHost.unsandboxedOnce": "Without the sandbox, only Allow once is offered.",
+  "blocks.execHost.mustType": "Type {word} to allow, or set up the sandbox first.",
+  "blocks.permission.need.capability": "Turn on Run commands on this Mac",
+  "blocks.permission.need.connector_action":
+    "Let {connector} ask you before {group} (it is set to Deny)",
+  "blocks.permission.need.connector": "Connect {connector}",
+  "blocks.permission.need.macos_access": "Give {connector} access in macOS System Settings",
+  "blocks.permission.need.sandbox": "Set up the sandbox for commands",
+  "blocks.permission.need.folder": "A folder: {path}",
+  "blocks.permission.enableHint":
+    "Enable changes your settings until you turn it off in Settings. Each action still asks you.",
+  "blocks.permission.checkHint":
+    "Fix it, then choose Check again: Psyche checks and tells the chat.",
+  "blocks.permission.enable": "Enable",
+  "blocks.permission.checkAgain": "Check again",
+  "blocks.permission.openConnectors": "Open Connectors",
+  "blocks.permission.openSystemSettings": "Open System Settings",
+  "blocks.permission.setUpSandbox": "Set up sandbox",
   "blocks.details.url": "URL",
   "blocks.details.commit": "Commit",
   "blocks.details.force": "Force",

@@ -3,7 +3,7 @@ import { SEVERITY } from "./kinds.ts";
 import type { PolicyCall } from "./types.ts";
 
 /**
- * The permission a broker denial was missing (security §3.12), for the denials the owner can
+ * The permission a broker denial was missing (security §3.13), for the denials the owner can
  * lift on a `request_permission` card: a folder outside the grants, `exec_host` off, and a
  * connector action group set to deny. Every other denial (prohibitions, deny rules, plan mode,
  * taint) names nothing: the agent cannot ask its way past those.

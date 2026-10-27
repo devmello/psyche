@@ -15,7 +15,7 @@ import {
 } from "../common.ts";
 
 /**
- * What a denied or failed call was missing (security §3.12): a tool error or a broker denial
+ * What a denied or failed call was missing (security §3.13): a tool error or a broker denial
  * names it, and the agent passes it to `request_permission` so the owner can decide on a card.
  */
 export const MissingPermission = Type.Union(
@@ -102,7 +102,7 @@ export const ApprovalKind = StringEnum(
     "batch",
     /**
      * `request_permission`: the agent asks the owner to turn on a capability, loosen a connector
-     * action, connect a connector or grant macOS access it found missing (security §3.12).
+     * action, connect a connector or grant macOS access it found missing (security §3.13).
      */
     "permission_request",
   ],

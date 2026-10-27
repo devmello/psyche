@@ -162,7 +162,7 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
     (options.protectedRoots?.() ?? []).some((r) => isUnder(path, canonicalTarget(r)));
   const granted = (path: string, access: "read" | "write", ctx: ToolRunContext) => {
     assertNotProtected(path, options.protectedRoots?.());
-    // The conversation's own roots (`request_folder_access`, "Allow once") count too.
+    // The conversation's own roots (`request_permission`, "Allow once") count too.
     assertGranted(path, options.folders?.({ threadId: ctx.threadId }), access);
   };
   /**

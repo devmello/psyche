@@ -2,7 +2,7 @@ import { MissingPermission, PsycheError } from "@psyche/protocol";
 import { Value } from "@sinclair/typebox/value";
 
 /**
- * Missing permissions (security §3.12): a broker denial or a tool error that names what the
+ * Missing permissions (security §3.13): a broker denial or a tool error that names what the
  * owner could grant reaches the model as that object plus one instruction, so the agent asks with
  * `request_permission` instead of giving up. The owner decides on the card; nothing is granted
  * here.

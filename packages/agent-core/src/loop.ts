@@ -88,9 +88,9 @@ import {
   renderSystemPrompt,
 } from "./context.ts";
 import { type Evaluation, evaluateTask } from "./evaluator.ts";
-import { missingHint, missingOf } from "./missing-permission.ts";
 import { EventQueue } from "./events.ts";
 import { type HookMap, HookRegistry } from "./hooks.ts";
+import { missingHint, missingOf } from "./missing-permission.ts";
 import {
   type AgentPlugin,
   AgentPluginRegistry,

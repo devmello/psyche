@@ -1100,6 +1100,10 @@ export const settings = {
     "Psyche couldn't {action, select, approve {approve pairing} deny {deny pairing} other {revoke the device}} ({reason}).",
 
   // Settings → File access (FileAccessSection.tsx).
+  "settings.files.execHost": "Run commands on this Mac",
+  "settings.files.execHostHint":
+    "Lets {persona} run commands in your shared folders, in the sandbox. Every command asks you on this Mac first; chats can also ask you to turn this on.",
+  "settings.files.execHostSwitch": "Allow asking to run commands on this Mac",
   "settings.files.accessTo": "Access to {path}",
   "settings.files.ro": "Read only",
   "settings.files.rw": "Read and write",

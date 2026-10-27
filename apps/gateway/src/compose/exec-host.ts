@@ -199,9 +199,7 @@ export function execHostSrtSettings(input: {
         ...new Set([
           // The MCP list is rooted at this process's home; re-rooted at the owner's.
           ...defaultDenyRead(input.psycheHome).map((p) =>
-            p.startsWith(`${homedir()}/`)
-              ? join(input.userHome, p.slice(homedir().length + 1))
-              : p,
+            p.startsWith(`${homedir()}/`) ? join(input.userHome, p.slice(homedir().length + 1)) : p,
           ),
           join(input.psycheHome, "vault"),
           join(input.psycheHome, "state"),
@@ -290,7 +288,8 @@ const Input = Type.Object({
   }),
   env: Type.Optional(
     Type.Record(Type.String({ pattern: ENV_NAME }), Type.String({ maxLength: 8192 }), {
-      description: "Extra environment; shown on the card. PATH, HOME and loader variables are fixed",
+      description:
+        "Extra environment; shown on the card. PATH, HOME and loader variables are fixed",
     }),
   ),
   allowedDomains: Type.Optional(
@@ -472,8 +471,7 @@ export function execHostTool(deps: ExecHostDeps): AgentToolRegistration {
       }
       const redact = (b: Buffer) => deps.vault.redact(b.toString("utf8"));
       // An interrupted host command may have done part of its work: uncertain, never replayed.
-      const outcome =
-        timedOut || stopped ? "uncertain" : result.exitCode === 0 ? "ok" : "failed";
+      const outcome = timedOut || stopped ? "uncertain" : result.exitCode === 0 ? "ok" : "failed";
       return {
         output: {
           exitCode: result.exitCode,

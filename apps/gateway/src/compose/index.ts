@@ -97,20 +97,19 @@ import { bootstrapAdminHandlers } from "./bootstrap-admin.ts";
 import { CallContexts } from "./call-context.ts";
 import { ChannelConversations } from "./channel-conversations.ts";
 import { composeComputer } from "./computer.ts";
+import { CONNECTOR_MATRIX_PREFIX } from "./connector-matrix.ts";
 import { createContext } from "./context.ts";
 import { composeConversion } from "./convert.ts";
 import { composeDictation } from "./dictation.ts";
-import { feedContextResolver } from "./feed-context.ts";
-import { filesHandlers } from "./files.ts";
-import { CONNECTOR_MATRIX_PREFIX } from "./connector-matrix.ts";
-import { withFolder } from "./folder-access.ts";
-import { requestPermissionTool } from "./request-permission.ts";
 import {
   defaultSrtResolver,
   type ExecHostDeps,
   execHostTool,
   type SrtResolver,
 } from "./exec-host.ts";
+import { feedContextResolver } from "./feed-context.ts";
+import { filesHandlers } from "./files.ts";
+import { withFolder } from "./folder-access.ts";
 import {
   mountParamsOnly,
   mountPermissions,
@@ -150,6 +149,7 @@ import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { protectedRoots } from "./protected-paths.ts";
 import { notifierRouting } from "./quiet-hours.ts";
 import { createRateLimits } from "./rate-limits.ts";
+import { requestPermissionTool } from "./request-permission.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
 import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
 import { type ComposedSearch, composeSearch } from "./search.ts";
@@ -697,7 +697,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     protectedRoots: () => protectedRoots(config.home),
   }))
     registry.register(tool);
-  // Security §3.12: one way to ask for whatever a denial or error named as missing (a folder,
+  // Security §3.13: one way to ask for whatever a denial or error named as missing (a folder,
   // exec_host, a connector group set to deny, a connector, macOS access, the sandbox).
   const savePolicy = (next: PolicyConfig) => {
     const entry = setSetting(db, "permissions.policy", next);

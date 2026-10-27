@@ -493,7 +493,7 @@ describe("Apple app connectors (#528)", () => {
       message: "Calendars access was denied",
     };
     await expect(list()).rejects.toThrow(/Calendars access was denied/);
-    // Security §3.12: a TCC refusal names the macOS access the agent may ask the owner for.
+    // Security §3.13: a TCC refusal names the macOS access the agent may ask the owner for.
     (helper as FakeHelper).refuse = {
       code: "forbidden",
       message: "Calendars access is missing",

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { call, CTX, DEVICE, makeBroker, path, approve } from "./helpers.ts";
+import { approve, CTX, call, DEVICE, makeBroker, path } from "./helpers.ts";
 
 /**
- * `exec_host` (security §5.4) and missing permissions (§3.12): off by default, every call asks on
+ * `exec_host` (security §5.4) and missing permissions (§3.13): off by default, every call asks on
  * the Mac, `always` binds exact argv + cwd + env + binary hash for 30 days, a tainted turn gets
  * `once` only whatever grants exist, the cwd must be inside a granted folder, and `UNSANDBOXED`
  * applies to one approved run. Denials the owner could lift name what is missing.
@@ -60,12 +60,11 @@ describe("exec_host", () => {
     expect((await h.broker.decide(host(["ls", "-la"]), CTX)).decision).toBe("allow");
     expect((await h.broker.decide(host(["ls", "-R"]), CTX)).decision).toBe("ask");
     expect(
-      (await h.broker.decide(host(["ls", "-la"], { executableSha256: H("evil") }), CTX))
-        .decision,
+      (await h.broker.decide(host(["ls", "-la"], { executableSha256: H("evil") }), CTX)).decision,
     ).toBe("ask");
-    expect(
-      (await h.broker.decide(host(["ls", "-la"], { env: { CI: "1" } }), CTX)).decision,
-    ).toBe("ask");
+    expect((await h.broker.decide(host(["ls", "-la"], { env: { CI: "1" } }), CTX)).decision).toBe(
+      "ask",
+    );
     h.clock.advance(29 * 86_400_000);
     expect((await h.broker.decide(host(["ls", "-la"]), CTX)).decision).toBe("allow");
     h.clock.advance(2 * 86_400_000);
@@ -146,7 +145,9 @@ describe("missing permissions", () => {
   });
 
   it("names nothing for denials the owner cannot lift by request", async () => {
-    const h = makeBroker({ policy: { deny: ["write_file"] , folders: [{ path: "/w", mode: "rw" }] } });
+    const h = makeBroker({
+      policy: { deny: ["write_file"], folders: [{ path: "/w", mode: "rw" }] },
+    });
     const d = await h.broker.decide(call("write_file", "write", path("/w/a")), CTX);
     expect(d.decision).toBe("deny");
     expect(d.missing).toBeUndefined();

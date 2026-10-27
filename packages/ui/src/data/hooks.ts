@@ -708,6 +708,8 @@ export function useApprovals() {
 /** What an answer carries besides the decision: the folder the owner picked (`folder_access`). */
 export interface ApprovalExtras {
   folderPath?: string;
+  /** `exec_host`: the owner typed UNSANDBOXED to run this one command without srt. */
+  unsandboxed?: "UNSANDBOXED";
 }
 
 export async function answerApproval(
@@ -739,6 +741,9 @@ export async function answerApproval(
         ...(decision === "approve" && scope !== undefined ? { scope } : {}),
         ...(decision === "approve" && extras?.folderPath !== undefined
           ? { folderPath: extras.folderPath }
+          : {}),
+        ...(decision === "approve" && extras?.unsandboxed !== undefined
+          ? { unsandboxed: extras.unsandboxed }
           : {}),
         ...(presence === undefined ? {} : { presence }),
       }),
