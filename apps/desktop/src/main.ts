@@ -76,6 +76,7 @@ import {
   PERMISSION_KINDS,
   type PermissionKind,
 } from "./main/permissions/permissions.ts";
+import { HAS_UNSENT_TEXT, releaseHiddenAfterMs } from "./main/release.ts";
 import { ScreenAskWindow } from "./main/screen-ask/panel.ts";
 import { ScreenAskShortcut } from "./main/screen-ask/settings.ts";
 import { voicePopup } from "./main/screen-ask/voice-key.ts";
@@ -777,9 +778,21 @@ void app.whenReady().then(async () => {
     onChromeWindowCreated: (win, view) => {
       if (glass !== "native") windowTheme.applyTo({ win, view });
     },
-    onMainCreated: (win, view) => {
+    // Owner decision 2026-10-26 (docs/design/lightweight-2026.md item 2): after ten minutes in the
+    // menu bar the main app renderer is freed (−90 MB or more); reopening rebuilds it.
+    releaseHiddenAfterMs: releaseHiddenAfterMs(app.isPackaged, process.env),
+    canRelease: async (wc) => !(await wc.executeJavaScript(HAS_UNSENT_TEXT).catch(() => true)),
+    // Per page: the first main view and each one rebuilt after a release.
+    onMainViewCreated: (win, view) => {
       view.webContents.once("did-finish-load", () => {
         for (const c of pendingCommands.splice(0)) view.webContents.send(IPC.shellCommand, c);
+      });
+      // Input in the app itself (chat, approvals) counts too; nothing synthesizes input there.
+      view.webContents.on("before-input-event", (_e, input) => {
+        if (input.type === "keyDown" || input.type === "rawKeyDown") attention.input();
+      });
+      view.webContents.on("input-event", (_e, ev) => {
+        if (ev.type === "mouseDown") attention.input();
       });
       if (glass === "native") {
         void attachNativeGlass(win, view).then((id) => {
@@ -798,6 +811,8 @@ void app.whenReady().then(async () => {
           else run();
         });
       }
+    },
+    onMainCreated: (win) => {
       browser?.dispose();
       browser = new BrowserHost({
         window: win,
@@ -812,13 +827,6 @@ void app.whenReady().then(async () => {
       for (const ev of ["show", "hide", "minimize", "restore"] as const) {
         win.on(ev as "show", () => host.refreshVisibility());
       }
-      // Input in the app itself (chat, approvals) counts too; nothing synthesizes input there.
-      view.webContents.on("before-input-event", (_e, input) => {
-        if (input.type === "keyDown" || input.type === "rawKeyDown") attention.input();
-      });
-      view.webContents.on("input-event", (_e, ev) => {
-        if (ev.type === "mouseDown") attention.input();
-      });
       host.refreshVisibility();
       browser.on("download", (d) => broadcast(IPC.browserDownload, d.notice));
       if (bridge) {
