@@ -10,7 +10,13 @@ import {
 } from "../src/data/index.ts";
 import type { RecordedCall } from "../src/data/mock-gateway.ts";
 import { MockGateway } from "../src/data/mock-gateway.ts";
-import { createFixtureWorld, FIXTURE_NOW, IDS, PERSONA } from "../src/fixtures/index.ts";
+import {
+  appleConnectors,
+  createFixtureWorld,
+  FIXTURE_NOW,
+  IDS,
+  PERSONA,
+} from "../src/fixtures/index.ts";
 import { actionLabel } from "../src/screens/settings/ActionMatrix.tsx";
 import { AppearancePanel } from "../src/screens/settings/AppearanceSection.tsx";
 import { ChannelsPanel } from "../src/screens/settings/ChannelsSection.tsx";
@@ -233,6 +239,20 @@ describe("Permissions", () => {
       expect(matrix?.mcp__notion__search).toBe("deny");
     });
     expect(screen.getByText("tools/list hash ok")).toBeTruthy();
+  });
+
+  it("leaves Apple apps' actions to their Connectors card, reached from the note", async () => {
+    const { navigate } = setup(
+      { defaultSection: "permissions" },
+      { edit: (w) => Object.assign(w, { connectors: [...w.connectors, ...appleConnectors()] }) },
+    );
+    expect(await screen.findByRole("list", { name: "Notion actions" })).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Apple Mail actions" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "Apple Calendar actions" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "Apple Notes actions" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "Apple Reminders actions" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Open Connectors" }));
+    expect(navigate).toHaveBeenCalledWith("/settings/connectors");
   });
 
   it("revokes a grant from the ledger", async () => {

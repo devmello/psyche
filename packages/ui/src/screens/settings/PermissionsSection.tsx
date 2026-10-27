@@ -16,6 +16,7 @@ import { formatDate, formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { useSlots } from "../../slots.tsx";
 import { ActionMatrix, type ActionRule, withMatrixOverrides } from "./ActionMatrix.tsx";
+import { appleApp } from "./ConnectorCapabilities.tsx";
 import { SCOPE_MODE_LABEL } from "./ConnectorsSection.tsx";
 import { folderGrants } from "./FileAccessSection.tsx";
 import {
@@ -138,6 +139,8 @@ export interface PermissionsPanelProps extends SettingsFormProps, LoadProps {
   /** Per-connector matrix change; the connected screen writes `permissions.connectors.<id>`. */
   onRuleChange?: (connector: Connector, action: string, rule: ActionRule) => void;
   onOpenFiles?: () => void;
+  /** Opens Settings → Connectors, where a specific connector's permissions are set. */
+  onOpenConnectors?: () => void;
   /** Grant ids being revoked, for disabled buttons. */
   revoking?: ReadonlySet<string>;
   revokeError?: string | null;
@@ -154,6 +157,7 @@ export function PermissionsPanel({
   onRevoke,
   onRuleChange,
   onOpenFiles,
+  onOpenConnectors,
   revoking,
   revokeError = null,
   loading,
@@ -166,6 +170,8 @@ export function PermissionsPanel({
   const mode = str(values, "permissions.mode", "balanced") as PermissionMode;
   const origins = grants.filter((g) => g.kind === "new_origin" && g.revokedAt === null);
   const active = grants.filter((g) => g.revokedAt === null);
+  // Apple apps set their actions on their own card in Connectors, not here (#640).
+  const rows = connectors.filter((c) => appleApp(c.type) === null);
 
   return (
     <SectionFrame
@@ -203,7 +209,7 @@ export function PermissionsPanel({
           {connectors.length === 0 ? (
             <EmptyNotice text={t("settings.permissions.noConnectors")} />
           ) : (
-            connectors.map((c) => {
+            rows.map((c) => {
               const changed = toolsListChanged(c);
               const key = `permissions.connectors.${c.id}`;
               const hash = c.config.toolsListHash;
@@ -257,6 +263,16 @@ export function PermissionsPanel({
               );
             })
           )}
+          <div className="flex flex-wrap items-center gap-2 px-1">
+            <p className="text-callout text-label-secondary">
+              {t("settings.permissions.specificConnectors")}
+            </p>
+            {onOpenConnectors ? (
+              <Button type="button" variant="outline" size="sm" onClick={onOpenConnectors}>
+                {t("settings.permissions.openConnectors")}
+              </Button>
+            ) : null}
+          </div>
         </section>
 
         <Group
@@ -489,6 +505,7 @@ export function PermissionsSection({ now }: { now?: number }): ReactElement {
           form.onChange(`permissions.connectors.${c.id}`, { ...c.actionMatrix, [action]: rule })
         }
         onOpenFiles={() => navigate?.("/settings/files")}
+        onOpenConnectors={() => navigate?.("/settings/connectors")}
         revoking={revoking}
         revokeError={revokeError}
         loading={loading}

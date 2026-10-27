@@ -1308,6 +1308,9 @@ export const settings = {
   "settings.permissions.connectorActions": "Connector actions",
   "settings.permissions.connectorActionsHint":
     "Allow runs without asking, Ask shows an approval card, Deny never runs.",
+  "settings.permissions.specificConnectors":
+    "Permissions for a specific connector are set on its page in Connectors.",
+  "settings.permissions.openConnectors": "Open Connectors",
   "settings.permissions.noConnectors": "No connectors yet, so there are no actions to set.",
   "settings.permissions.scopeMode": "({mode})",
   "settings.permissions.grantsRevoked": "Grants revoked",
