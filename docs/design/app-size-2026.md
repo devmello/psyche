@@ -100,3 +100,95 @@ arbitrary JS and loads native addons) or ships the library again (+44 MB). Until
 the load failure is reported as `OrtRuntimeBlockedError` with that explanation, and ad-hoc and local
 builds (no hardened runtime) work. The one-line change, if chosen: a second entitlements file for
 that binary in `apps/desktop/src/packaging/signing-config.ts` (`optionsForFile`).
+
+## Phase 3: one Node runtime instead of two
+
+Today Psyche.app holds Electron's Node (inside `Electron Framework`) and a second, official Node 24.22.0
+(`Resources/psyched/runtime/node`, 93 MiB installed, 34 MiB gzip) that runs the Gateway LaunchAgent.
+Everything below was measured on this machine with the phase 2 bundle (psyched 202 MiB).
+
+### Can the LaunchAgent run on Electron's Node?
+
+Technically yes.
+
+| Question | Finding |
+|---|---|
+| Node version | Electron 44.9.0 embeds **Node 24.22.0**, the same as the pinned runtime (`deploy/Dockerfile` pin). V8 differs (Electron 15.2). |
+| Type stripping, flags | `ELECTRON_RUN_AS_NODE=1 Electron --max-semi-space-size=4 --disable-warning=ExperimentalWarning apps/gateway/src/main.ts` boots the Gateway as is: `/healthz` ok, and `node:module` has `stripTypeScriptTypes`. No prebuilt JS needed. |
+| Native ABI | Electron's `NODE_MODULE_VERSION` is 149 (Node 24: 137), but the Gateway's three addons (better-sqlite3, the cipher fork, onnxruntime's binding) are all **N-API** (`nm -u`: 60–63 `napi_*` symbols, no V8 ones), so nothing is rebuilt. sqlite-vec is a plain dylib loaded by SQLite. The same smoke (both SQLite builds, sqlite-vec, SQLCipher, playwright-core, turndown) passes under Electron's Node. node-pty is desktop-only and already built for Electron by Forge. |
+| Idle memory | Gateway RSS after boot plus 4 s: 197 MB on Electron's Node, 205 MB on the bundled Node. No penalty. |
+| Survives ⌘Q | The agent is a separate launchd job, so quitting the UI does not touch it, as today. |
+| Notarization | No new signing work: the binary is already inside the sealed app and signed with it. |
+| Windows later | The same mechanism exists (`ELECTRON_RUN_AS_NODE` on `Psyche.exe`, started by a Task Scheduler entry or service) with the same fuse trade-off below. |
+
+### Why not now: the `RunAsNode` fuse
+
+`apps/desktop/forge.config.ts` turns the **RunAsNode fuse off** (`@electron/fuses read` on the built
+app says "RunAsNode is Disabled"), and with it off `ELECTRON_RUN_AS_NODE` is ignored. Turning it on
+means any local process that can exec the signed binary runs arbitrary JavaScript with the app's
+identity and entitlements: microphone, Calendar, Contacts, Apple Events (`entitlements.plist`), and
+the TCC grants the owner gave Psyche. That is the case the fuse exists for, and Psyche's whole premise
+is that its secrets and grants stay behind the Gateway's checks. Fuses belong to `Electron Framework`,
+so a helper inside the same bundle does not escape them; a second framework copy would cost 240 MiB.
+
+Other costs of the swap, none blocking on their own:
+
+- Three places spawn `process.execPath` expecting Node (`packages/plugins/src/host.ts`,
+  `packages/model-router/src/cli/adapter.ts`, `packages/vault/src/payments/link.ts`). On Electron they
+  would launch a second copy of the app unless each passes `ELECTRON_RUN_AS_NODE=1`; the failure is a
+  window, not an error.
+- The CLI launcher (`psyche`) and the plist template `Program` would point into the app's main
+  executable. An app update that replaces `Psyche.app` under a running agent is as it is today.
+- Electron prints `task_name_for_pid: (os/kern) failure (5)` once at start in this mode (seen when run from a shell, not under launchd); the Gateway was unaffected.
+- The agent's identity to macOS becomes "Psyche" itself instead of an unnamed `node`, which changes
+  what Login Items and TCC show for the Gateway.
+
+An in-app daemon mode (launchd runs `Psyche --gateway` with the fuse off, main process headless,
+Gateway in-process or in a `utilityProcess`) avoids the fuse but starts Chromium's browser process
+for nothing (Dock icon unless `LSUIElement`, single-instance lock against the UI, extra RSS), and it
+ties the Gateway to Electron's main loop. Not low-risk either.
+
+**Recommendation: do not enable the fuse, and do not implement the swap in this series.** It is the
+only change that reaches the 300–400 MiB target, so it is worth the owner's decision on the fuse; if
+the owner accepts it, the work is: fuse on (or the daemon mode), `ELECTRON_RUN_AS_NODE` in those three
+spawns and in both launchers, and a packaging test that boots the Gateway on the app's binary.
+
+### The alternative that is safe: bundle the Gateway with esbuild
+
+`esbuild apps/gateway/src/main.ts --bundle --platform=node --format=esm --minify` with the native and
+lazily-loaded packages external (`better-sqlite3`, the cipher fork, sqlite-vec, onnxruntime-node,
+playwright-core, pdfjs-dist, domino, turndown) produces **one 5.3 MB file** (10.8 MB unminified; a
+`createRequire` banner is needed for CommonJS dependencies). That replaces most of `node_modules`
+(64.5 MiB, of which 20.8 MiB are the externals) and the workspace sources (`packages` 9.7 MiB,
+`apps/gateway` 1.3 MiB, apart from migrations, templates and skills).
+
+Tried: it starts and then stops at the first asset lookup (`scandir …/migrations/`), because 11 of the
+Gateway's modules find their files next to their own source with `import.meta.url`
+(`apps/gateway/src/config.ts`, `compose/skills.ts`, `apps/cli/src/migrate.ts`,
+`packages/db/src/migrate.ts`, `connectors/framework/sqlite-store.ts`, `files/extract/index.ts`,
+`memory/src/store.ts` and `vector.ts`, `model-router/src/cli/bridge.ts`,
+`notifications/src/sqlite-store.ts`, `sandbox/src/image.ts`). Those need one "assets root"
+helper that the bundle points at a copied `migrations/`, `templates/` and `skills/`, plus a smoke
+that starts the bundle. Savings: about 46 MiB (64.5 + 9.7 + 1.3 − 5.3 − assets) and a faster start.
+It is a refactor with a migration-path risk, so it is a proposal, not part of this PR.
+
+### Where that leaves the target (arm64, installed)
+
+| | MiB |
+|---|---|
+| Original | 651 |
+| After phases 1 and 2 | 519 |
+| + esbuild bundle (safe, proposed) | ≈ 473 |
+| + Electron's Node instead of the bundled one (fuse decision) | ≈ 380 |
+
+Under 500 is reachable without touching the fuse. The 300–400 range needs the second Node gone, or
+smaller things I would try before asking for the fuse:
+
+- `libvk_swiftshader.dylib` (16 MiB): the software Vulkan fallback for machines without a usable GPU.
+  Removing it risks a blank window on those; test with `--disable-gpu` first.
+- The web client (`Resources/psyched/app/apps/web/dist/assets`, 31 MiB of JS in 358 chunks, mostly
+  syntax-highlighter grammars and locale data loaded on demand) and the desktop renderer in
+  `app.asar` (32 MiB) are two builds of mostly the same UI; serving one copy, or dropping rarely used
+  grammars, is a bigger saving than anything left in `node_modules`.
+- A Node built `--without-intl` / small-ICU and without the inspector would be roughly 40–50 MiB
+  smaller than the official 93 MiB binary, at the price of building and pinning our own runtime in CI.
