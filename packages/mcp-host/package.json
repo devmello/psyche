@@ -16,12 +16,12 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@modelcontextprotocol/client": "2.3.1",
+    "@modelcontextprotocol/client": "2.4.0",
     "@psyche/protocol": "workspace:*"
   },
   "devDependencies": {
-    "@modelcontextprotocol/node": "2.1.1",
-    "@modelcontextprotocol/server": "2.3.1",
+    "@modelcontextprotocol/node": "2.1.2",
+    "@modelcontextprotocol/server": "2.4.0",
     "@modelcontextprotocol/server-filesystem": "2026.8.31",
     "@psyche/testing": "workspace:*",
     "zod": "4.6.7"
