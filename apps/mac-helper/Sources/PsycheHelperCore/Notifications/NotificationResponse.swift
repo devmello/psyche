@@ -115,7 +115,7 @@ public struct NotificationResponse: Sendable, Equatable {
         ]
         if let replyText {
             o["replyText"] = .string(replyText)
-            o["text"] = .string(replyText)  // S15's Notifier reads `text` (docs/status/s15.md)
+            o["text"] = .string(replyText)  // S15's Notifier reads `text` (docs/archive/status/s15.md)
         }
         if let approvalId { o["approvalId"] = .string(approvalId) }
         if let authError { o["authError"] = .string(authError) }

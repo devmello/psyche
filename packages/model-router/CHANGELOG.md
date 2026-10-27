@@ -1,5 +1,20 @@
 # @psyche/model-router
 
+## Unreleased (pre-0.3.0)
+
+### Minor Changes
+
+- Subscription CLIs as model providers: `claude-code/<model>` (Claude Code headless, the owner's Claude plan) and `codex/<model>` (Codex `exec --json`, the owner's ChatGPT plan), with Psyche's tools bridged over a stdio MCP relay so the agent loop and Permission Broker still run every tool, session resume per turn, and a probe for installed / signed in that reports no account details. Listed by default in Settings → Model & providers as subscription providers.
+- Voice conversation contract (V-G #691): `voice.conversation.*` methods and events, `via: "voice"` on approval answers and messages, `StartTurnInput.voice`, a `voice` model role (falls back to primary), a two-key `dictation.watch`, and the helper's speech shapes for V-H.
+
+### Patch Changes
+
+- Provider keys (#504): `models.setKey` normalizes a pasted key and refuses ones that cannot work (whitespace, Claude subscription tokens, Admin keys, wrong shape) with a reason; the probe reports the provider's own reason and tells a refused key from a malformed request; onboarding checks a key right after saving it; Settings → Model & providers can add or replace a key and checks it at once.
+- Subscription CLIs are found under launchd (#530): `claude` and `codex` resolve from PSYCHE_CLAUDE_PATH / PSYCHE_CODEX_PATH, PATH, Homebrew and user install directories, and the login shell; the probe shows the resolved path; the LaunchAgent plist sets a PATH with Homebrew first.
+- Subscription CLIs (#538): a history that ends with tool results keeps the tool exchange in the transcript, so the tool check's `uses_tool_result` case passes on `claude-code`; `models.list` reports a CLI provider as configured once its probe finds it installed and signed in.
+- Context windows for the subscription CLIs (#558): Claude Code models report 200k (1M for `[1m]` variants) and Codex 272k, so `models.list`, Settings and the chat's context meter agree; when a window is unknown, Settings shows the 128k the chat assumes.
+- Remove the text-to-speech surface from the protocol: `speech.readAloud*`, `speech.voices`, all `voice.conversation.*` methods and events, `speech.audio` and the read-aloud events, the helper's synthesis schemas and the `voice` model role. Dictation, voice memos and the two-key watch stay.
+
 ## 0.3.0-alpha.0
 
 ### Minor Changes

@@ -44,7 +44,7 @@ import {
  *   approvals notify the owner as they do in psyched.
  *
  * Tools marked provisional in shared/tools.json have no agent registration on main yet; their
- * owners replace these fakes (docs/status/int-3.md).
+ * owners replace these fakes (docs/archive/status/int-3.md).
  */
 
 export interface M2State {

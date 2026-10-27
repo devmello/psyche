@@ -20,7 +20,7 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
  * Loaded on the first passkey call (server mode only): with its ASN.1 and COSE dependencies it was
- * ≈ 45 ms of every Gateway start (docs/status/v1-perf.md).
+ * ≈ 45 ms of every Gateway start (docs/archive/status/v1-perf.md).
  */
 const webauthn = () => import("@simplewebauthn/server");
 type WebAuthn = Awaited<ReturnType<typeof webauthn>>;

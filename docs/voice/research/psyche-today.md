@@ -63,4 +63,4 @@ Measured (spike 03, M5, macOS 27):
 1. Zoom Developer Forum, "isSupportChromeWideAEC() sniffs browser name + version" (2025): playback through an `AudioContext` is echo-cancellable only because of Chromium's Chrome-wide echo cancellation, a feature-flag default; Zoom's SDK assumes it from Chrome 111 on Mac/Windows/Linux. https://devforum.zoom.us/t/issupportchromewideaec-sniffs-browser-name-version-breaking-echo-cancellation-on-microsoft-edge/145288 (secondary source; verify in the dev run)
 2. W3C webrtc-logs, 2019: Chrome then cancelled only WebRTC peer audio, unlike Firefox and Safari. https://lists.w3.org/Archives/Public/public-webrtc-logs/2019Apr/0334.html
 3. Chrome Developers, "macOS native echo cancellation" (M66–M68): with the `echoCancellation` constraint Chrome uses hardware or its software canceller. https://developer.chrome.com/blog/macos-native-echo-cancellation
-4. `docs/spikes/spike-03-speechanalyzer.md` (this repo).
+4. `docs/archive/spikes-docs/spike-03-speechanalyzer.md` (this repo).

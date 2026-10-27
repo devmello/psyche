@@ -122,7 +122,7 @@ export interface ContactsSource {
   names(options?: { limit?: number; signal?: AbortSignal }): Promise<string[]>;
 }
 
-/** Node capability the helper is asked to add (docs/status/s17.md → S14 issue). */
+/** Node capability the helper is asked to add (docs/archive/status/s17.md → S14 issue). */
 export const NODE_CONTACTS_CAPABILITY = "contacts.list";
 
 export interface NodeContactsSourceOptions {

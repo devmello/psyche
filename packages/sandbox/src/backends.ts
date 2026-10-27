@@ -9,7 +9,7 @@ import {
 
 /**
  * Pure argv builders for each container CLI. The flags are the ones spike 02 verified against
- * the contract on Apple `container` 1.5.0 and Docker 29.4 (spikes/sandbox-backends/lib.sh).
+ * the contract on Apple `container` 1.5.0 and Docker 29.4 (docs/archive/spikes/sandbox-backends/lib.sh).
  * Podman takes Docker's flags; it was not available on the spike machine.
  */
 

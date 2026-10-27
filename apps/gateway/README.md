@@ -1,6 +1,6 @@
 # @psyche/gateway (`psyched`)
 
-**Owner:** S01 (`prompts/s01-gateway-core.md`). Feature ids: A2, A4 (retention), A5 (config subset), E1–E3, N14, D6 (restart recovery) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
+**Owner:** S01 (`docs/archive/prompts/s01-gateway-core.md`). Feature ids: A2, A4 (retention), A5 (config subset), E1–E3, N14, D6 (restart recovery) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
 
 The long-running Gateway that owns all state and exposes the typed WS/HTTP API (architecture §3.1, §4, §7, §11). Everything goes through `@psyche/protocol` (frames, methods, events, contracts) and `@psyche/db` (SQLite).
 
@@ -40,7 +40,7 @@ Settings (`settings.set`) that the Gateway reads: `cleanupPeriodDays` (default 3
 
 ## API surface
 
-HTTP: `GET /healthz` (bare `{"ok":true}`), `GET /version`, the web UI at `/` (CSP `default-src 'self'`, `connect-src 'self'`, `frame-ancestors 'none'`). WebSocket at `/ws`; nodes on the Unix socket (NDJSON). Frames and the handshake follow wire spec v1 (`docs/plans/s00.md`).
+HTTP: `GET /healthz` (bare `{"ok":true}`), `GET /version`, the web UI at `/` (CSP `default-src 'self'`, `connect-src 'self'`, `frame-ancestors 'none'`). WebSocket at `/ws`; nodes on the Unix socket (NDJSON). Frames and the handshake follow wire spec v1 (`docs/archive/plans/s00.md`).
 
 | Family | Methods | Notes |
 | --- | --- | --- |

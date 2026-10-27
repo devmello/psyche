@@ -3,7 +3,7 @@ import { t } from "../../i18n/core.ts";
 import { type EvidenceItem, readEvidence } from "../ideas/evidence.tsx";
 
 /**
- * `Goal.plan` is untyped JSON (docs/status/s12.md gap 6). The kit reads this convention, which
+ * `Goal.plan` is untyped JSON (docs/archive/status/s12.md gap 6). The kit reads this convention, which
  * the fixtures follow (src/fixtures/proactive.ts):
  *   { milestones: [{ title, done }], planArtifactId, notesMd, watches: [{ title, url, condition,
  *     lastValue }], checkins: [{ at, status, note }], evidence: [...] (candidates only) }

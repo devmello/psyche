@@ -1,5 +1,40 @@
 # @psyche/connectors
 
+## Unreleased (pre-0.3.0)
+
+### Minor Changes
+
+- `MailMessageView` exposes parsed `Authentication-Results`, `Auto-Submitted`, `List-Id` and `Precedence` for the email channel (N9).
+- M6: Microsoft 365 connector over Graph (auth code + PKCE or device code; Outlook mail through the shared mail tools, calendar, contacts, OneDrive app folder; delta sync). `mailTools()` is exported for reuse.
+- M9: custom connectors from a declarative manifest or an OpenAPI 3 document, installed only through the device-only `skill_install` trust card (`details.kind: "connector"`); the agent can draft but never enable one.
+- Google connect flow (#505): `connectors.connect` answers at once with the pending consent page and finishes as `connectors.updated`; durable connector records (`connectors` table, `SqliteConnectorStore`) restored at boot; the owner's OAuth client from `connectors.google` in `config.json` or `PSYCHE_GOOGLE_CLIENT_*` (secret only as a vault placeholder). Guide: docs/guides/connectors-google.md.
+- Apple Notes, Reminders, Calendar and Mail connectors over the paired Mac helper's J6 app capabilities (#528); "needs the helper" when none is paired.
+- Apple connectors are never "connected" without the macOS grant: needs permission with where to allow it, re-checked on status (#549). One-per-machine connectors refuse a second instance (`already_connected`) and duplicates are removed at start.
+- Apple Mail tools, wave 1 (#639): mailboxes with unread counts, the selected email, reply and forward drafts, send a saved draft (bound to its recipients and body hash), mark read / flag, move or archive, save attachments.
+- Apple Reminders and Calendar tools, wave 1 (#639): due-today / overdue / flagged / text filters, links, alarms and repeats on reminders, complete, flag and delete; event search with attendees and meeting links, alarms, recurrence and availability, free/busy, delete.
+- Apple Notes tools, wave 1 (#639): search by text, folders, append (text or checklist), update bound to the note's previous body hash, Markdown create.
+- Apple Contacts connector, wave 1 (#639): look people up by name, email, phone or company; read a contact; add people and add emails or phones (approval-gated). The Apple connector now supports other grants (Contacts, none) and non-Apple identities.
+- Music connector (Apple Music and Spotify), wave 1 (#639): now playing, playback control, library search and play; the agent's playback tools are allowed by default (nothing leaves the Mac).
+- Safari and Chrome connectors, wave 1 (#639): open tabs and the current tab, the text of a Safari page (untrusted), adding to Safari's Reading List; Chrome tabs.
+- Files connector, wave 1 (#639): newest files in shared folders, move / rename (ask), put in the Trash (destructive, asks).
+- Shortcuts connector, wave 1 (#639): list the owner's shortcuts; run one with text input and get its output (destructive, always asks; shortcuts the owner turned off never run).
+- Things 3 connector, wave 1 (#639): list Inbox / Today / Upcoming / projects / areas / tags; add, reschedule and complete to-dos (ask).
+- Obsidian connector (#639): a shared vault folder searched, read and written as Markdown in the Gateway (no helper, no plugin): search, read, append, the daily note, create. One connector per vault.
+- calendar_find_free_time across connected Apple and Google calendars (#639), the free-slot finder, and the per-app guidance module (a tested copy of docs/connectors/agent-guidance.md).
+- `connectors.configure` (#727): merges non-secret settings into a connector's config without reconnecting (`null` removes a key; secret-looking keys must be `{{cred:slug}}` placeholders; keys the Gateway manages are refused) and re-creates the live instance. Shortcuts honour `config.shortcutRules[id]` (off refuses before any card, ask asks, allow runs as a write with a receipt; a matrix deny still wins). Obsidian re-checks `vaultPath` and keeps the daily note in `config.dailyFolder`. Apple Mail attachments staged by the helper are imported into the Library (quarantined, `origin: connector`) and the staging path never reaches the model. The Gateway now gives connectors a default Library sink.
+- The broker now applies the owner's Settings → Connectors rules (Allow / Ask / Deny per action group) to connector tool calls (#747).
+  - **Registry:** stamps each call with its group; connector-write receipts record the deciding rule.
+  - **Broker:** allow → no card; ask → card; deny → refused, with a receipt.
+  - **Hard floors:** sends, destructive, financial and device-only calls always ask.
+  - **Shortcuts:** each shortcut's rule applies (off → denied, allow → no card).
+  - **Gateway:** syncs `permissions.connectors.*` and `shortcutRules` into the broker policy and the executor's matrix. Direct Apple helper calls follow the same groups.
+
+### Patch Changes
+
+- Apple connectors ask macOS for the grant when it has not decided (Check again asks again), send the owner to System Settings only after a denial, and show the helper's reason when no prompt appeared (#570).
+- Apple Mail search: optional query plus unread, since / until and from filters, evaluated inside Mail, newest first (#626).
+- Things update and complete get Things' auth token from the vault (connector config `authToken: {{cred:…}}`, read under a credential card), added to the helper call only (#719).
+
 ## 0.3.0-alpha.0
 
 ### Minor Changes

@@ -838,7 +838,7 @@ void app.whenReady().then(async () => {
     },
   });
 
-  // The bundled Mac helper (docs/status/s14.md "Packaging"): started through LaunchServices once
+  // The bundled Mac helper (docs/archive/status/s14.md "Packaging"): started through LaunchServices once
   // this window pairs, i.e. the Gateway answers; dev builds use their own helper install.
   helper = new HelperLauncher({
     appPath: perfProbe === undefined ? bundledHelperPath() : undefined,

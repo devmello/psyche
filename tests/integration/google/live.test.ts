@@ -105,7 +105,7 @@ describe.skipIf(!LIVE)("scenario 2: Google (live OAuth, live model)", () => {
         .map((e) => (e.payload as { toolCall: { tool: string } }).toolCall.tool)
         .filter((t) => t.includes("__gmail_"));
       expect(gmailCalls.length).toBeGreaterThan(0);
-      // biome-ignore lint/suspicious/noConsole: the timings go to docs/status (INT-2).
+      // biome-ignore lint/suspicious/noConsole: the timings go to docs/archive/status (INT-2).
       console.log(`INT-2 live timings ${JSON.stringify({ connectedMs, turnMs })}`);
     } finally {
       clearInterval(pump);

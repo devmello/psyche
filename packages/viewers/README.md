@@ -5,7 +5,7 @@ P5 (Markdown editor), P6 (artifact runtime), P9 (text extraction); M2: P2, P8, U
 editing, Sandpack React artifacts.
 
 In-app viewers, the Markdown editor, the artifact sandbox and text extraction for the agent's file
-tools. Plan: [docs/plans/s13.md](../../docs/plans/s13.md). Status: [docs/status/s13.md](../../docs/status/s13.md).
+tools. Plan: [docs/archive/plans/s13.md](../../docs/archive/plans/s13.md). Status: [docs/archive/status/s13.md](../../docs/archive/status/s13.md).
 
 ## Entry points
 

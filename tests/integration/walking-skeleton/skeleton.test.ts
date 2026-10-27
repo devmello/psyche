@@ -14,7 +14,7 @@ import {
 } from "./scripted-model.ts";
 
 /**
- * INT-1 walking skeleton (prompts/int-1-walking-skeleton.md) with the scripted model: one path
+ * INT-1 walking skeleton (docs/archive/prompts/int-1-walking-skeleton.md) with the scripted model: one path
  * through the real Gateway, agent loop, broker, memory and task engine, driven over the wire by
  * the desktop's own client. Each `it` is one step of the scenario and depends on the previous.
  */

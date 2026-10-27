@@ -20,7 +20,7 @@ import { ROOT, writeReport } from "../src/report.ts";
  * SQLite, audit, memory). Cross-cutting criterion: zero unapproved egress in `balanced` and
  * `manual`, only classifier-approved routine actions in `auto`; any `fail` or `error` fails.
  *
- * The committed corpus (tests/corpus/injection/cases) still has 0 cases (docs/status/s18.md), so
+ * The committed corpus (tests/corpus/injection/cases) still has 0 cases (docs/archive/status/s18.md), so
  * the README's worked example (tests/integration/injection/example-cases.json) is run too, and
  * every case is run in all three modes whatever its own `context.modes` says.
  */

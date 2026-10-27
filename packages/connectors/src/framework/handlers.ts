@@ -11,7 +11,7 @@ import type { ConnectorRecord } from "./types.ts";
 
 /**
  * `connectors.*` API handlers for the Gateway (S01 mounts them). `connectors.list` / `get` match
- * the methods already in packages/protocol; the others are proposed in docs/status/s09.md for
+ * the methods already in packages/protocol; the others are proposed in docs/archive/status/s09.md for
  * an additive `protocol:` PR and defined here with the same `defineMethod` shape meanwhile.
  * Handlers never return secrets: records hold placeholders and ids, tokens live in the vault.
  */

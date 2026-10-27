@@ -1,6 +1,6 @@
 # @psyche/notifications
 
-**Owner:** S15 (`prompts/s15-proactive-notifications.md`). Feature id: O10 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
+**Owner:** S15 (`docs/archive/prompts/s15-proactive-notifications.md`). Feature id: O10 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
 
 The durable notification inbox and its delivery routing: in-app (desktop and web clients through Gateway events), the OS (the mac helper's `notify.show` node capability), and chat channels (`ChannelAdapter`). It handles de-duplication per task, quiet hours, retries, restart reconciliation, and the `notifications.*` method handlers.
 

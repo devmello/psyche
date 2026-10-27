@@ -1,6 +1,6 @@
 # Contributing to Psyche
 
-Psyche is built by many parallel sessions (human or agent), each owning a disjoint set of paths. **Read [`prompts/_shared-rules.md`](prompts/_shared-rules.md) first**: it holds the ownership rules, the definition of done and the security rules. Who owns what is in [`docs/09-execution-plan.md`](docs/09-execution-plan.md) §2 and §4 and in [`.github/CODEOWNERS`](.github/CODEOWNERS).
+Psyche is built by many parallel sessions (human or agent), each owning a disjoint set of paths. **Read [`docs/archive/prompts/_shared-rules.md`](docs/archive/prompts/_shared-rules.md) first**: it holds the ownership rules, the definition of done and the security rules. Who owns what is in [`docs/09-execution-plan.md`](docs/09-execution-plan.md) §2 and §4 and in [`.github/CODEOWNERS`](.github/CODEOWNERS).
 
 ## Toolchain
 
@@ -26,7 +26,7 @@ Rebase on `main` at least daily. Commit early and often with [Conventional Commi
 - Title prefix `[<id> <name>]`, for example `[S05 permissions] feat(permissions): bind approvals to argv+cwd`.
 - Fill in the checklist from `.github/pull_request_template.md`.
 - Add a changeset with `pnpm changeset` for any package change.
-- Keep `docs/status/<id>.md` current (what works, what is stubbed, blockers, requests to other sessions); start your work with a plan at `docs/plans/<id>.md`.
+- Update the design doc under `docs/` that describes the behavior you change. `docs/archive/` is history (earlier per-session plans and status files); do not add to it.
 
 ## Protocol changes
 

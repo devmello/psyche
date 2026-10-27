@@ -14,7 +14,7 @@ import { PRESENCE_ENROLLED_SETTING, presenceStateFor } from "../src/presence-gat
 import { desktopClient, ik, newDeviceKey, type TestClient } from "./helpers.ts";
 
 /**
- * Security §10, docs/status/s05.md §2 gap 4: fresh presence for access-widening and destructive
+ * Security §10, docs/archive/status/s05.md §2 gap 4: fresh presence for access-widening and destructive
  * `operator.admin` methods (not only security settings), fail closed once presence was enrolled,
  * and a device's first passkey needs the owner's presence from elsewhere.
  */

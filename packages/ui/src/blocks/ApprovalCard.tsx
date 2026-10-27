@@ -236,7 +236,7 @@ export function ApprovalCard({
   const status = statusText(approval, now);
   const whatLabel = t("blocks.approval.whatItWillDo");
   const taint = approval.taint ? t("blocks.approval.taint") : null;
-  // The Broker's own reason when the Gateway sends one (docs/status/s12.md, gap 3).
+  // The Broker's own reason when the Gateway sends one (docs/archive/status/s12.md, gap 3).
   const reason = (approval.details as Record<string, unknown>).reason;
   const why =
     typeof reason === "string" && reason.trim() !== ""

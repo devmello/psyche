@@ -1,4 +1,4 @@
-// Repository checks before a release tag (roadmap M3; docs/status/s22.md "First release").
+// Repository checks before a release tag (roadmap M3; docs/archive/status/s22.md "First release").
 // The release workflow's deploy smoke runs it first; run it by hand before tagging:
 //
 //   node deploy/scripts/release-preflight.mjs [--root <repo>]

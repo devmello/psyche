@@ -1,6 +1,6 @@
 # @psyche/speech
 
-**Owner:** S17 ([prompts/s17-speech.md](../../prompts/s17-speech.md)). Features Q1 (TS side), Q4 and N11 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md); architecture §5 (dictation), §4.10 (voice notes), §11 (`voice.*`); ADR-014.
+**Owner:** S17 ([docs/archive/prompts/s17-speech.md](../../docs/archive/prompts/s17-speech.md)). Features Q1 (TS side), Q4 and N11 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md); architecture §5 (dictation), §4.10 (voice notes), §11 (`voice.*`); ADR-014.
 
 Speech-to-text behind the `SpeechEngine` contract, engine selection, the whisper.cpp engine on the Gateway host, the Web Speech fallback for the web client, `voice.*` dictation sessions, voice memos, and voice-note transcoding per channel. Psyche does not speak: there is no text-to-speech, no read-aloud and no spoken reply (removed, see the docs/voice spec note). The Mac-native engines (SpeechAnalyzer, Parakeet, WhisperKit) live in the Swift helper (S14); this package reaches them as node capabilities.
 
@@ -135,4 +135,4 @@ Inbound channel voice notes (N11/Q4 round trip) reach the same path: the adapter
 
 ## Rules
 
-Edit only this package (see `prompts/_shared-rules.md`). Cross-package needs go through `packages/protocol` contracts and the fakes in `packages/testing`.
+Edit only this package (see `docs/archive/prompts/_shared-rules.md`). Cross-package needs go through `packages/protocol` contracts and the fakes in `packages/testing`.

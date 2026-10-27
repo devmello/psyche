@@ -6,7 +6,7 @@ import { GatewayConnection, type GatewayConnectionOptions } from "@psyche/web/cl
 import { type DeviceKey, platformFromNode, signWithDeviceKey } from "./lib/device-key.ts";
 
 /**
- * Main-process Gateway connection (wire spec v1, docs/plans/s00.md). The renderer never sees the
+ * Main-process Gateway connection (wire spec v1, docs/archive/plans/s00.md). The renderer never sees the
  * handshake secret, the device key or any token: it gets `GatewayStatus`, events, and RPC
  * results through the preload bridge.
  *

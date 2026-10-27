@@ -2,7 +2,7 @@ import { writeFileSync } from "node:fs";
 import type { WebContents } from "electron";
 
 /**
- * Window-to-first-paint measurement (docs/status/v1-perf.md), opt-in with
+ * Window-to-first-paint measurement (docs/archive/status/v1-perf.md), opt-in with
  * PSYCHE_PERF_FIRST_PAINT_FILE=<path>. The app writes how far startup got to that file at each
  * stage (`ready`, `loaded`, then `painted` or `no-paint`) and quits after the last one, so a run
  * that never paints still says why. A measured run leaves the owner's machine alone: it registers

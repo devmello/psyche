@@ -1,6 +1,6 @@
 # @psyche/agent-core
 
-**Owner:** S02 (`prompts/s02-agent-runtime.md`). Features C1–C5, C8, C9, C11, B7 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md); C6, C7 and C10 are M2.
+**Owner:** S02 (`docs/archive/prompts/s02-agent-runtime.md`). Features C1–C5, C8, C9, C11, B7 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md); C6, C7 and C10 are M2.
 
 The agent loop: it turns a user message into model calls, tool calls, approvals, questions, plans and receipts. It implements `AgentLoop` from `@psyche/protocol` with pi-agent-core semantics (steer / follow-up queues, typed tools with `execute(callId, params, signal, onUpdate)`, before/after tool hooks, `finishTurn → end | continue`), and talks to everything else through contracts: `ModelProvider` (the model router, S03), `PermissionBroker` (S05), `MemoryStore` (S07), `SkillLoader` (S16), `TaskEngine` / `Scheduler` (S04), `Notifier` (S15).
 
@@ -185,7 +185,7 @@ When a run with a `taskId` would end `final` and the task has receipts, the loop
 
 ## Coding helper (V10)
 
-`codingTools(deps)` returns `code.open`, `code.search`, `code.read`, `code.edit`, `code.run` and `code.git` (`src/coding/`). The Gateway registers them (`apps/gateway/src/compose/coding.ts`) with the P9 file tools' `read_file` / `write_file` registrations (reused for every read and write), the granted folders, a `SandboxRunner` (`code.run` runs in scope `project:<workspace>` with the repository at `/workspace/repo` and `.git` read-only; omitted without a runner), a `GitRunner` (host git, argv only; `code.git` is omitted without one) and the broker for receipts. Cards: `code.edit` is `file_write` with the whole patch, `code.run` is `exec`, `code.git` commit / branch are `git_write`, push is `git_push` (remote, URL, branch, commit; `once` only). Status and decisions: docs/status/s02.md "V10".
+`codingTools(deps)` returns `code.open`, `code.search`, `code.read`, `code.edit`, `code.run` and `code.git` (`src/coding/`). The Gateway registers them (`apps/gateway/src/compose/coding.ts`) with the P9 file tools' `read_file` / `write_file` registrations (reused for every read and write), the granted folders, a `SandboxRunner` (`code.run` runs in scope `project:<workspace>` with the repository at `/workspace/repo` and `.git` read-only; omitted without a runner), a `GitRunner` (host git, argv only; `code.git` is omitted without one) and the broker for receipts. Cards: `code.edit` is `file_write` with the whole patch, `code.run` is `exec`, `code.git` commit / branch are `git_write`, push is `git_push` (remote, URL, branch, commit; `once` only). Status and decisions: docs/archive/status/s02.md "V10".
 
 ## How this maps to the docs
 

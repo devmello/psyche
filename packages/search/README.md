@@ -1,6 +1,6 @@
 # @psyche/search
 
-**Owner:** S16 (`prompts/s16-search-skills.md`). Feature ids: S1 (S2 is M2) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
+**Owner:** S16 (`docs/archive/prompts/s16-search-skills.md`). Feature ids: S1 (S2 is M2) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
 
 One index over everything the owner and the agent produced: threads and messages, tasks and their Activity lines, Library items (with extracted text), feed posts, ideas, goals and the connector caches the owner opted to index. Memory is searched live through `MemoryStore` and fused into the results. It serves the Search screen and ⌘K (UI §3.13, §2.5) and the `search.query` method.
 

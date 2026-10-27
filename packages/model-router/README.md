@@ -1,6 +1,6 @@
 # @psyche/model-router
 
-**Owner:** S03. Features B1–B6 ([docs/03-feature-spec.md](../../docs/03-feature-spec.md)), architecture §4.4, ADR-003. Plan: [docs/plans/s03.md](../../docs/plans/s03.md). Status: [docs/status/s03.md](../../docs/status/s03.md).
+**Owner:** S03. Features B1–B6 ([docs/03-feature-spec.md](../../docs/03-feature-spec.md)), architecture §4.4, ADR-003. Plan: [docs/archive/plans/s03.md](../../docs/archive/plans/s03.md). Status: [docs/archive/status/s03.md](../../docs/archive/status/s03.md).
 
 The only code in Psyche that talks to model providers. It contains:
 

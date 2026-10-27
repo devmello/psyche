@@ -101,7 +101,7 @@ export interface QuestionSource {
 
 /**
  * `questions.*`: attended questions park inside the loop's turn; task questions live in the task
- * engine (docs/status/s02.md). An answer goes to whichever holds the request.
+ * engine (docs/archive/status/s02.md). An answer goes to whichever holds the request.
  */
 export function questionHandlers(
   loop: QuestionSource,

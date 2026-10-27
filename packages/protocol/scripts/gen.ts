@@ -1,7 +1,7 @@
 /**
  * Protocol codegen (`pnpm protocol:gen`, CI: `pnpm protocol:check`).
  *
- * Generator choice (ADR-015, docs/plans/s00.md): our own walk of the TypeBox schemas produces
+ * Generator choice (ADR-015, docs/archive/plans/s00.md): our own walk of the TypeBox schemas produces
  * `generated/schema.json` (JSON Schema draft 2020-12, one `$defs` entry per `$id`, plus an
  * `x-psyche` section describing every method and event); `quicktype-core` then turns that
  * document into TypeScript declarations (`generated/protocol.d.ts`) and Swift `Codable` structs

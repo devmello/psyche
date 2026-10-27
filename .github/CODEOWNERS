@@ -3,7 +3,7 @@
 # Ownership follows docs/09-execution-plan.md §2 and §4. Sessions have no GitHub
 # handles, so every path is owned by the repo owner (@devmello) and the owning
 # session id is in the comment. Edit only the paths your session owns
-# (prompts/_shared-rules.md); protocol changes go through `protocol:` PRs.
+# (docs/archive/prompts/_shared-rules.md); protocol changes go through `protocol:` PRs.
 #
 # Later matches take precedence, so the catch-all comes first.
 
@@ -65,17 +65,14 @@
 /packages/skills/               @devmello  # S16 search and skills
 /packages/speech/               @devmello  # S17 speech and voice notes
 
-# Content, deploy, tests, spikes
+# Content, deploy, tests
 /skills/                        @devmello  # S20 content: bundled skills
 /templates/                     @devmello  # S20 content: workspace templates
 /deploy/                        @devmello  # S22 CLI and deploy
 /deploy/sandbox-image/          @devmello  # S21 sandbox image
 /tests/                         @devmello  # S18 security and test harness
-/spikes/                        @devmello  # SP1-SP6 spikes (one subfolder each; never imported by packages)
+/apps/site/                     @devmello  # documentation site (VitePress)
 
-# Docs and prompts
-/docs/                          @devmello  # S00 design docs (any session updates the doc its PR changes)
-/docs/plans/                    @devmello  # any session: docs/plans/<id>.md
-/docs/status/                   @devmello  # any session: docs/status/<id>.md
-/docs/spikes/                   @devmello  # SP1-SP6 spike write-ups
-/prompts/                       @devmello  # S00 session prompts
+# Docs
+/docs/                          @devmello  # design docs (any session updates the doc its PR changes)
+/docs/archive/                  @devmello  # history of how Psyche was built; not current

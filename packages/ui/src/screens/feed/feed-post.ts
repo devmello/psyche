@@ -2,7 +2,7 @@ import type { FeedPost } from "@psyche/protocol";
 import { t } from "../../i18n/core.ts";
 
 /**
- * Derived facts about a feed post. `FeedPost` has no kind field (docs/status/s12.md gap 5), so
+ * Derived facts about a feed post. `FeedPost` has no kind field (docs/archive/status/s12.md gap 5), so
  * the kind label is derived here, in this order:
  *  1. `exploration` → exploration slot (labelled with its topic when one is known);
  *  2. `cluster` → news cluster;

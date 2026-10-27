@@ -22,7 +22,7 @@ import { Client } from "../../integration/walking-skeleton/harness.ts";
 import { median } from "../src/report.ts";
 
 /**
- * Startup numbers for the real `psyched` process (docs/status/v1-perf.md), opt-in with
+ * Startup numbers for the real `psyched` process (docs/archive/status/v1-perf.md), opt-in with
  * PSYCHE_PERF_TESTS=1 because it spawns Gateways and takes about a minute:
  *
  * - cold boot (empty `$PSYCHE_HOME`: migrations, keys) and warm boot (median of 3) to `/healthz`;
@@ -436,7 +436,7 @@ describe.skipIf(!ENABLED)("psyched process startup (PSYCHE_PERF_TESTS=1)", () =>
           "--use-mock-keychain",
           `--user-data-dir=${join(userHome, "userData")}`,
           // Launched from a test, the window is not frontmost; Chromium treats an occluded window
-          // as hidden and does not paint it (the second packaged run, docs/status/s22.md).
+          // as hidden and does not paint it (the second packaged run, docs/archive/status/s22.md).
           "--disable-backgrounding-occluded-windows",
           "--disable-features=CalculateNativeWinOcclusion",
         ],

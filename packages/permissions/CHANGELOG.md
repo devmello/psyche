@@ -1,5 +1,31 @@
 # @psyche/permissions
 
+## Unreleased (pre-0.3.0)
+
+### Minor Changes
+
+- Batch approvals (#670 W2): `broker.requestBatch` decides every call of a proposal, refuses anything above `write`, sends and device-only kinds, and issues one once-only `batch` card bound to the ordered calls; approving mints one approved child approval per call. `ProposalService` runs the broker's stored calls under those children with per-call results and a 30-second undo; `proposals.*` handlers and `proposal.updated` events; the `action_proposals` table.
+- The broker now applies the owner's Settings → Connectors rules (Allow / Ask / Deny per action group) to connector tool calls (#747).
+  - **Registry:** stamps each call with its group; connector-write receipts record the deciding rule.
+  - **Broker:** allow → no card; ask → card; deny → refused, with a receipt.
+  - **Hard floors:** sends, destructive, financial and device-only calls always ask.
+  - **Shortcuts:** each shortcut's rule applies (off → denied, allow → no card).
+  - **Gateway:** syncs `permissions.connectors.*` and `shortcutRules` into the broker policy and the executor's matrix. Direct Apple helper calls follow the same groups.
+
+### Patch Changes
+
+- Apple Mail tools, wave 1 (#639): mailboxes with unread counts, the selected email, reply and forward drafts, send a saved draft (bound to its recipients and body hash), mark read / flag, move or archive, save attachments.
+- Apple Reminders and Calendar tools, wave 1 (#639): due-today / overdue / flagged / text filters, links, alarms and repeats on reminders, complete, flag and delete; event search with attendees and meeting links, alarms, recurrence and availability, free/busy, delete.
+- Apple Notes tools, wave 1 (#639): search by text, folders, append (text or checklist), update bound to the note's previous body hash, Markdown create.
+- Apple Contacts connector, wave 1 (#639): look people up by name, email, phone or company; read a contact; add people and add emails or phones (approval-gated). The Apple connector now supports other grants (Contacts, none) and non-Apple identities.
+- Music connector (Apple Music and Spotify), wave 1 (#639): now playing, playback control, library search and play; the agent's playback tools are allowed by default (nothing leaves the Mac).
+- Safari and Chrome connectors, wave 1 (#639): open tabs and the current tab, the text of a Safari page (untrusted), adding to Safari's Reading List; Chrome tabs.
+- Files connector, wave 1 (#639): newest files in shared folders, move / rename (ask), put in the Trash (destructive, asks).
+- Shortcuts connector, wave 1 (#639): list the owner's shortcuts; run one with text input and get its output (destructive, always asks; shortcuts the owner turned off never run).
+- Things 3 connector, wave 1 (#639): list Inbox / Today / Upcoming / projects / areas / tags; add, reschedule and complete to-dos (ask).
+- The teaching loop's store and routing (#679): feedback events and lessons in the Gateway database, the lesson router with deterministic refusals and one destination per lesson, writers for SOUL.md, AGENTS.md, USER.md, the people graph, skills' LESSONS.md and automations, `feedback.*` and `memory.lessons.*` in the Gateway, approval answers as implicit evidence, and nightly dreaming scheduled at compose time.
+- Approvals by voice (V-G G3, #691): within chat's tiers (writes by default, never device-only or Touch ID approvals, deny-only in tainted turns), Psyche reads the broker's summary back, listens for a fixed phrase for 10 s and answers through the broker as the device's own card with scope `once`; the audit entry records `via: "voice"`.
+
 ## 0.3.0-alpha.0
 
 ### Minor Changes

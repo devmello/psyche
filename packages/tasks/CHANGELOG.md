@@ -1,5 +1,18 @@
 # @psyche/tasks
 
+## Unreleased (pre-0.3.0)
+
+### Minor Changes
+
+- Background specialists, part 1 (#683): `specialist.spawn`, `specialist.report` and `specialist.status`; specialist runs with their role's prompt, model, tool allowlist and clamped mode; the Specialists prompt section; `tasks.specialist` storage with `updateSpecialist`; the Gateway's specialist host (roles from the role skills and Settings, a subagent thread and task per job, one sanitized result).
+- `lessonsApplied` on agent messages and task runs (teaching loop §5.1, #679): the Gateway reads each run's assembled prompt after it ends, records the live lessons it carried on the run's messages (or its task, accumulated across runs) and moves their `lastAppliedAt`. Additive columns `messages.lessons_applied` and `tasks.lessons_applied`.
+- Run trace T1, part 3 (#660): task, automation and specialist turns are recorded through the run-trace sink (`TaskWorkerPoolOptions.trace`); automation runs name their agent run and usage; memory writes name their run and step; computer-use screenshots become run frames.
+- Background specialists, part 2a (#683): a dedicated specialist pool (`specialists.maxConcurrent`, default 3, at most 2 per parent thread) with queue positions; the chat pool no longer claims specialist jobs; `ClaimOptions` origin and per-parent filters; the spawn pre-flight stored on `SpecialistSpec` and returned on `SpecialistJob`.
+
+### Patch Changes
+
+- Background specialists, delivery (#683): one `specialist_result` Inbox card, a `specialist.result` event and a parent-thread line per job; `specialist.spawned` and throttled `specialist.progress` events; the `specialists.list` and `specialists.jobs` handlers; specialist jobs no longer also get a `task_done` / `task_failed` notification.
+
 ## 0.3.0-alpha.0
 
 ### Minor Changes

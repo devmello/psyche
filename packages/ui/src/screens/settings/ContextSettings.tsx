@@ -22,7 +22,7 @@ export const CONTEXT_KEYS = {
  */
 export const DEFAULT_CONTEXT_WINDOW = 128_000;
 
-/** The Gateway's bounds and defaults (`ContextLimits`, docs/status/s02.md). */
+/** The Gateway's bounds and defaults (`ContextLimits`, docs/archive/status/s02.md). */
 export const CONTEXT_BOUNDS = {
   maxTokens: { min: 1_000, step: 1_000 },
   /** Percent of the limit. */

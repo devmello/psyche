@@ -1,6 +1,6 @@
 # psyche-node manual test plan: vsock inside a VM
 
-CI cannot boot a VM, so the vsock path is verified by hand. Record results (date, host/guest macOS or distro versions, pass/fail, notes) in `docs/status/s19.md`.
+CI cannot boot a VM, so the vsock path is verified by hand. Record results (date, host/guest macOS or distro versions, pass/fail, notes) in `docs/archive/status/s19.md`.
 
 ## Prerequisites
 

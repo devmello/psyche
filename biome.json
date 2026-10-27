@@ -15,11 +15,8 @@
       "!**/.turbo",
       "!**/coverage",
       "!**/.build",
-      "!research_notes",
-      "!spikes",
-      "!reports",
+      "!docs/archive",
       "!pnpm-lock.yaml",
-      "!spikes",
       "!tests/corpus/review-cases",
       "!**/dist-bin"
     ],

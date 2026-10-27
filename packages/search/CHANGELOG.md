@@ -1,5 +1,15 @@
 # @psyche/search
 
+## Unreleased (pre-0.3.0)
+
+### Minor Changes
+
+- Built-in `web.search` (Brave key, SearXNG URL or rate-limited DuckDuckGo) and `web.fetch` tools on every surface, with a Web search group in Settings → Model & providers (#557).
+
+### Patch Changes
+
+- People and projects graph (#650): graph schemas, memory.entities.* / memory.loops.* / memory.graph.status methods, memory.entity.updated / memory.loop.updated / memory.suggestion.created events, and person / project search kinds.
+
 ## 0.3.0-alpha.0
 
 ### Minor Changes

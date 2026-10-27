@@ -1,6 +1,6 @@
 # Psyche — Technology Decisions (ADRs)
 
-Status: draft v0.1 (2026-10-18). Each record states the decision, the alternatives considered, the evidence (from `research_notes/`) and consequences. Dates and versions are as of October 2026.
+Status: draft v0.1 (2026-10-18). Each record states the decision, the alternatives considered, the evidence (from `docs/archive/research-notes/`) and consequences. Dates and versions are as of October 2026.
 
 ---
 

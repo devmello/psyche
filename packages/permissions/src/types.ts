@@ -15,7 +15,7 @@ import type {
 /**
  * Extensions of the `PermissionBroker` contract types. Every field is optional, so a caller that
  * only knows the contract still gets the strict defaults; the additions are listed for a
- * `protocol:` PR in `docs/status/s05.md`.
+ * `protocol:` PR in `docs/archive/status/s05.md`.
  */
 
 /** Where taint came from (security §3.6): `{sourceKind, origin or sender, toolCallId}`. */

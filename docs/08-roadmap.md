@@ -8,7 +8,7 @@ Goal: every process exists and talks.
 
 - A1–A7, A9 (helper skeleton with node registration and the Accessibility + Notifications request flows), A10 (`onboard`, `status`, `doctor`).
 - Protocol package with codegen (A3); CI on macOS and Linux.
-- Spikes to retire risk early (each a one-page write-up in `docs/spikes/`):
+- Spikes to retire risk early (each a one-page write-up in `docs/archive/spikes-docs/`):
   1. Electron `WebContentsView` + `webContents.debugger` bridged to the Gateway over a Unix socket; measure snapshot latency.
   2. Apple `container` cold start and file sharing on macOS 26/27 vs Colima `vz`.
   3. `SpeechAnalyzer` from the Swift helper streaming partials to the renderer.

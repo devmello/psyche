@@ -1,5 +1,63 @@
 # @psyche/protocol
 
+## Unreleased (pre-0.3.0)
+
+### Minor Changes
+
+- `plugins.*` methods and schemas for T4 code plugins: list, getProposal, proposeInstall, install, setEnabled, remove; installs reuse the device-only `skill_install` approval (`details.kind: "plugin"`).
+- `RelatedThreadsBlock` (`related_threads`): the owner's other chats a turn drew on (E12), shown as a collapsible "From your other chats" block.
+- VM snapshots and resets (L6): `VmSnapshot`, snapshot / restore / reset / delete params and results, `vm.snapshot` / `vm.reset` progress events, `vm.resetPerTask` setting (S14).
+- `vm.snapshots.*`: Gateway methods for the sandbox Mac's snapshots, restores and "fresh Mac" resets (L6).
+- Prebuilt guest images (L7): `VmImageManifest`, `VmImageFile`, `vm.export_image` params / result, `image` / `imageSha256` on `VmCreateParams`, `vm.import` / `vm.export` progress events (S14).
+- Context usage and limits per thread: `threads.contextUsage`, `threads.setContextLimits`, `threads.compact`, the `thread.context.updated` event and the `compaction` block.
+- Custom connectors (M9): `CustomConnectorManifest`, `CustomConnectorProposal` and `connectors.proposeCustom | getCustomProposal | installCustom | removeCustom`, installed through the device-only `skill_install` trust card with `details.kind: "connector"`.
+- Teach mode (J8): `TeachStep`, `TeachTarget`, `TeachDraft`, `TeachStartParams`, `TeachSessionParams`, `TeachStepEvent` (S14).
+- Web Bot Auth (I14): optional `CredentialBroker.botAuthKey()` / `rotateBotAuthKey()`, `BotAuthStatus`, and the `browser.botAuth.status | rotate` methods; the fake broker signs with a real Ed25519 key.
+- Voice mode (Q5): `speech.readAloud` takes `save: false` to stream a reply without filing a Library item, and `speech.readAloud.cancel` stops a stream for barge-in.
+- Agent-proposed skills (T3): `SkillDraft` and friends, `skills.drafts.list|update|accept|dismiss`, and the `skills.draft.updated` event.
+- `connectors.catalogue | connect | disconnect | status | setMatrix` and the `connectors.updated` event; `connect` returns the pending OAuth consent page at once (#505).
+- `LearnedFact`, the `learned` block and `memory.forgetLearned` (#509): facts about the owner learned from their own words, shown in the chat with Undo.
+- `mcp.probe` / `mcp.add` / `mcp.remove` and `McpServerInput`, `McpProposal`: add an MCP server from Settings behind a sandboxed probe and a trust card (#529).
+- `chat.greet {threadId}`: starts the agent's first message in an empty thread, so the main chat opens with the agent's greeting after onboarding (#555).
+- New method `usage.summary` (operator.read) and the `Usage*` schemas: tokens, cost and turns from the run ledger by day and model, the month so far, the monthly budget setting and a plan window when an adapter can read one (#599).
+- Apple Mail search: optional query plus unread, since / until and from filters, evaluated inside Mail, newest first (#626).
+- Stream reasoning steps as `chat.reasoning` (#632): the loop turns the model router's reasoning deltas into redacted, transient steps (setting `agent.showReasoning`, default on) and the Gateway publishes them without persisting them.
+- Apple app capability shapes, wave 1 (#637): Mail actions, Reminders and Calendar additions, Notes search/append/update, Contacts, Music, Safari/Chrome tab text, Files, Shortcuts and Things 3.
+- People and projects graph (#650): graph schemas, memory.entities.* / memory.loops.* / memory.graph.status methods, memory.entity.updated / memory.loop.updated / memory.suggestion.created events, and person / project search kinds.
+- `connectors.configure`: merge non-secret settings into a connector's config without reconnecting it (#640).
+- Teaching loop: feedback events, lessons and growth (feedback.*, memory.lessons.*, growth.summary), the taught block, and optional lessonsApplied / redo / FeedPost.growth / ApprovalRequest.fromLesson fields (#678).
+- Mail and meeting workflow shapes (#670 W1): batch proposals and the `batch` approval kind, event triggers for automations, `FeedPost.kind` / `refs` / `card`, digest (with the graph's loops), meeting-prep and meeting-notes records, `proposals.*` methods and the `proposal.updated` event.
+- Run trace T1 (#660): `RunStep`, the new `Run` fields, `runs.*`, the `run.step` event and the `psyche-trace+json` v1 export recipe; in the UI kit, the run store cases, `data/runs.ts` hooks, `fixtures/runs.ts` and MockGateway `runs.*`.
+- Background specialists (#682): `SpecialistSpec` on tasks, `SpecialistResult`, roles and jobs, `specialists.list` / `specialists.jobs`, `tasks.steer` / `tasks.update`, the `specialist.*` events, the `specialist_result` notification kind, `Automation.specialist` and the `subagent` agent event.
+- `speech.transcribe_file` params, result and `speech.progress` event, and `calendar.watch` / `calendar.changed` shapes (#673).
+- Voice conversation contract (V-G #691): `voice.conversation.*` methods and events, `via: "voice"` on approval answers and messages, `StartTurnInput.voice`, a `voice` model role (falls back to primary), a two-key `dictation.watch`, and the helper's speech shapes for V-H.
+- `NotifyInput.breakQuietHours` (optional): one notification may break through quiet hours (meeting prep for a meeting inside them, #670 W6).
+- Background specialists, part 2a (#683): a dedicated specialist pool (`specialists.maxConcurrent`, default 3, at most 2 per parent thread) with queue positions; the chat pool no longer claims specialist jobs; `ClaimOptions` origin and per-parent filters; the spawn pre-flight stored on `SpecialistSpec` and returned on `SpecialistJob`.
+- Background specialists, part 2b (#683): per-job budget accounting with an 80% marker; at a limit an attended job pauses on a "Budget" question (finish, give it more, stop) and an unattended one writes its partial report; deadlines; the tool-free wrap-up turn; plan-first jobs; `raiseSpecialistBudget` for `tasks.update`.
+- Canvas artifacts: `artifacts.create/update/read/versions/restore/list`, patch ops, `ArtifactRef`, `ArtifactVersion` and the `artifact.updated` event (chat experience phase 2).
+- New `specialist_result` block: a specialist job's result in the thread that spawned it (chat experience).
+- Remove the text-to-speech surface from the protocol: `speech.readAloud*`, `speech.voices`, all `voice.conversation.*` methods and events, `speech.audio` and the read-aloud events, the helper's synthesis schemas and the `voice` model role. Dictation, voice memos and the two-key watch stay.
+- Chart, diagram and diff artifact types, the `ArtifactChart` spec and the chart `patch` op (chat experience phase 5).
+- New read-only method `insights.summary` (operator.read) for the Overview screen: run, approval, artifact and specialist totals for 7 days, 30 days or all time with the previous period, one row per day in the caller's time zone, and the people and projects Psyche dealt with most. Incognito threads are left out. The UI gets `useInsights(window)` and mock fixtures for a new user, a typical month and a heavy year.
+- `insights.summary` totals now carry `runsByKind` (done and failed runs per kind: task, chat, automation, subagent). The Overview's first Summary tile is "Tasks done" (finished task and chat runs, linking to Recent runs filtered to done), and the Automations tile's success rate counts automation runs only. The Recent runs link gains a `status=done` modifier.
+- Map artifact type, the `ArtifactMap` spec and the marker ops (chat map widget).
+- Attach files in the chat composer. A + button shows when the thread's model can take files (from `models.list`; unknown shows it, a model without vision is offered documents only and says why an image was refused, an embeddings model hides it). Picked, dropped or pasted files become removable chips that upload through the new chunked `library.upload` (25 MiB, origin `upload`), and their Library ids go in `chat.send` `attachments`. The Gateway gives the agent images as image parts (4 per message, 5 MB each) and PDF, DOCX, XLSX and text files as capped extracted text (32k characters each, 96k per message) in the new `TurnInput.attachmentText`, kept out of what the owner said.
+- "Ask about this" on each Feed item. It starts a new chat named for the article with the item as a removable chip in the composer (the input asks "Ask about this article…"). `chat.send` takes an optional `context: { kind: "feed_item", id }`; the Gateway reads the item itself and gives the agent its title, source URL, summary, sources and id ahead of the question, as untrusted content (a fenced `<feed_item_context>` preamble, and the turn starts tainted with a `feed` source), never in the system section. The user message records a new `context` block, shown as a compact quoted card in the transcript.
+- MCP servers from an exact official source (`@modelcontextprotocol/server-*`, listed vendor packages and vendor endpoints) are `verified` instead of `unverified`. The Gateway derives the tier (`mcpTrustFor`) when a server is added and each time `mcp.servers` is read; owner-edited commands stay `unknown`.
+- A connected MCP server's detail now does something: list its tools and switch single tools off for the agent, turn the server off without removing it, see its secrets by name (set or not set) and replace them through the vault, and paste a `mcpServers` JSON config into the Add form (keys go to the vault). New methods `mcp.tools`, `mcp.tools.set`, `mcp.setEnabled`, `mcp.secrets`, `mcp.secrets.replace`; `McpServerStatus.enabled`.
+
+### Patch Changes
+
+- `ChannelSecretName` gains `access_token`, `app_secret`, `verify_token` for the WhatsApp Cloud API channel (N6).
+- `authToken?` on `ThingsUpdateParams` and `ThingsCompleteParams` (filled in by the Gateway from the vault, #719).
+- The teaching loop's store and routing (#679): feedback events and lessons in the Gateway database, the lesson router with deterministic refusals and one destination per lesson, writers for SOUL.md, AGENTS.md, USER.md, the people graph, skills' LESSONS.md and automations, `feedback.*` and `memory.lessons.*` in the Gateway, approval answers as implicit evidence, and nightly dreaming scheduled at compose time.
+- Run trace T1, part 3 (#660): task, automation and specialist turns are recorded through the run-trace sink (`TaskWorkerPoolOptions.trace`); automation runs name their agent run and usage; memory writes name their run and step; computer-use screenshots become run frames.
+- Ask about my screen: `screen.capture` / `screen.discard`, the helper's `screen.context` types and `chat.send.screen`.
+- Post-meeting notes and Record meeting: `meetings.notes.create`, `meetings.record.{status,start,stop}` and the `meetings.recording.updated` event.
+- Record meeting captured by the owner's device: `meetings.record.push` and `reason` on `meetings.record.stop`.
+- One table of defaults for the mail and meeting settings (`MAIL_MEETING_SETTING_DEFAULTS`), read by Settings → Mail & meetings; and the batch card's strings in all ten locales.
+- Remove all text-to-speech from the Gateway side: synthesis in `@psyche/speech` (Kokoro, ElevenLabs, read-aloud, voice catalog, the voice conversation manager), the voice-turn prompt section and `StartTurnInput.voice`, channel voice-note sending, and the synthesis half of the `SpeechEngine` contract. Speech to text is unchanged. The Gateway removes the stale voice and synthesis settings on start (`deleteSettings` in `@psyche/db`).
+
 ## 0.3.0-alpha.0
 
 ### Minor Changes

@@ -11,7 +11,7 @@
 //
 // After a Node security release: `update --version <patched>`, review the diff, then
 // `check --latest`. The sandbox image (deploy/sandbox-image, S21) is listed too: coordinate its
-// re-pin with docs/status/s21.md.
+// re-pin with docs/archive/status/s21.md.
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";

@@ -4,7 +4,14 @@ import { defineConfig } from "vitest/config";
 // `pnpm -r test` runs each package on its own, which is what CI uses.
 export default defineConfig({
   test: {
-    projects: ["packages/*", "apps/*", "tests/integration", "tests/acceptance", "!apps/mac-helper"],
+    projects: [
+      "packages/*",
+      "apps/*",
+      "tests/integration",
+      "tests/acceptance",
+      "!apps/mac-helper",
+      "!apps/site",
+    ],
     passWithNoTests: true,
   },
 });

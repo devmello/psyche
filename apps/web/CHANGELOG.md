@@ -1,5 +1,28 @@
 # @psyche/web
 
+## Unreleased (pre-0.3.0)
+
+### Minor Changes
+
+- Context usage in the chat: the header meter bound to `threads.contextUsage` and `thread.context.updated`, "Compact now" (`threads.compact`), per-chat limits (`threads.setContextLimits`) from the thread menus, compaction markers on `compaction` blocks with the turns they replaced, and Settings bounds that match the Gateway's.
+- Voice mode (Q5), off by default: a Voice button in the composer runs a spoken conversation (hands-free or hold to talk) with a listening / thinking / speaking state bar, replies in the persona's voice or the app's built-in voice, and interrupt-by-talking; approvals stay cards and are never answered by voice. Settings → Voice & dictation → Voice mode.
+- Localization groundwork (A12):
+  - an ICU message catalogue with `t()`, `I18nProvider` and `describeError` for Gateway errors;
+  - locale-aware formatting from the macOS region format, with Settings → Appearance → Language and region (`ui.locale`, `ui.direction`);
+  - `pnpm i18n:check` against hard-coded UI text and missing ids, with a shrink-only baseline;
+  - the chat's context UI extracted and right-to-left safe.
+- The composed app (web and desktop) fills the kit's `renderEditor` slot with the viewers' Markdown editor, so Soul & Memory edits persona files in Rich / Source / Diff. Lines the teaching loop wrote show their margin mark. `ControlledMarkdownEditor` is the controlled form: the host keeps the draft, budget, Save and Discard, and `MarkdownEditor` gains `chrome: "modes"` to show only the mode switch.
+- Record meeting in the shell: the consent dialog ("I've told everyone"), a visible recording pill, microphone capture streamed to the Gateway as PCM chunks, a silence stop after five minutes, and `requestRecordMeeting()` plus a palette entry to start it.
+- Remove spoken output from the UI: the voice capsule, lantern, voice HUD window, the shell's voice mode, the Voice button and the voice, speed, narration, barge-in, approval and brief settings. Voice is speech-to-text: the voice key opens the ask panel in voice mode and the answer is text. Settings keeps "Talk with Psyche", the voice key and "Review before sending".
+- The output canvas in the app: artifact cards open one canvas pane beside the chat (its artifact swapped in place; recents are its tabs), code and images render through the viewers, and a new artifact from the owner's own live run opens the canvas automatically (others stay a card).
+- The ask panel is the voice pop-up (part of #693): hold the voice key, speak, and let go. The words are sent as a plain chat (or left in the input when Review before sending is on) and the answer appears as text. The panel window now exists when Ask about screen or Talk with Psyche is on; screen capture still follows Ask about screen. A `VoiceKeySource` seam in desktop main keeps the macOS key watch replaceable.
+- Chart, diagram and diff artifacts (chat experience phase 5): a chart renderer drawn by the client from a small spec (no model JS), diffs through the diff block, Mermaid diagrams drawn in strict mode as images, and gateway support (merge-patch for charts, text ops for diagrams and diffs).
+- HTML artifacts in the canvas (chat experience phase 5): previewed in the opaque-origin artifact sandbox, off by default for content from untrusted sources until the owner presses Run, and creatable through `artifact.create`.
+
+### Patch Changes
+
+- Provider keys (#504): `models.setKey` normalizes a pasted key and refuses ones that cannot work (whitespace, Claude subscription tokens, Admin keys, wrong shape) with a reason; the probe reports the provider's own reason and tells a refused key from a malformed request; onboarding checks a key right after saving it; Settings → Model & providers can add or replace a key and checks it at once.
+
 ## 0.3.0-alpha.0
 
 ### Minor Changes

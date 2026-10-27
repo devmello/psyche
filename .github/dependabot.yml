@@ -1,4 +1,4 @@
-# Dependency updates (issue #297, reports/m3-dependency-audit.md DEP-5). Weekly, grouped, so the
+# Dependency updates (issue #297, docs/archive/reports/m3-dependency-audit.md DEP-5). Weekly, grouped, so the
 # SHA-pinned Actions and digest-pinned images do not go stale. PRs still go through the normal gate.
 version: 2
 updates:

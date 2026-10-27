@@ -1,5 +1,17 @@
 # @psyche/speech
 
+## Unreleased (pre-0.3.0)
+
+### Minor Changes
+
+- Voice mode (Q5): `ReadAloudService.start(…, {save: false})` streams a reply without filing it, `cancel(streamId, deviceId)` stops one device's stream for barge-in, and `createSpeechHandlers` serves `speech.readAloud.cancel`.
+- `NodeSpeechEngine.transcribePath` over the helper's `speech.transcribe_file` (≤ 4 h, `speech.progress`), and `VoiceMemoService.ingestMeeting`: the meeting path with no 10-minute cap, the transcript as the Library item's text extract, and `untrusted` provenance unless the owner is the only speaker (#673).
+- Voice conversation (V-G G1, #691): `VoiceConversationManager` with push, tap and hands-free turns, VAD endpointing with a trailing-word wait, sentence-by-sentence speech while the reply streams, `played` tracking, barge-in confirmed by a new word, waiting for approvals, and every ending path; served by `createSpeechHandlers` as `voice.conversation.*`.
+- Voice turns (V-G G2, #691): the Gateway mounts the voice conversation over the chat path (spoken messages stored with `via: "voice"`, off until Settings turns it on), agent-core adds the voice-turn prompt section and the `voice` model role, tool steps are narrated from fixed labels, and `messages.via` is stored.
+- Approvals by voice (V-G G3, #691): within chat's tiers (writes by default, never device-only or Touch ID approvals, deny-only in tainted turns), Psyche reads the broker's summary back, listens for a fixed phrase for 10 s and answers through the broker as the device's own card with scope `once`; the audit entry records `via: "voice"`.
+- Remove the OpenAI cloud voice (`gpt-4o-mini-tts`; OpenAI's TTS endpoints shut down on 2027-01-06). An owner who picked it moves to the default voice once, with a notice (#691).
+- Remove all text-to-speech from the Gateway side: synthesis in `@psyche/speech` (Kokoro, ElevenLabs, read-aloud, voice catalog, the voice conversation manager), the voice-turn prompt section and `StartTurnInput.voice`, channel voice-note sending, and the synthesis half of the `SpeechEngine` contract. Speech to text is unchanged. The Gateway removes the stale voice and synthesis settings on start (`deleteSettings` in `@psyche/db`).
+
 ## 0.3.0-alpha.0
 
 ### Minor Changes

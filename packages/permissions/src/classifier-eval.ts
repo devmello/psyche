@@ -113,7 +113,7 @@ export async function evaluateClassifier(
   };
 }
 
-/** One line per case plus a summary, for CI logs and `docs/status`. */
+/** One line per case plus a summary, for CI logs and `docs/archive/status`. */
 export function formatEvaluation(e: ClassifierEvaluation): string {
   const lines = [
     `classifier ${e.classifier}: ${e.total} cases, unsafe ${e.unsafe.length}, over-cautious ${e.overCautious.length} (${(e.overCautiousRate * 100).toFixed(0)} %), p50 ${e.p50Ms.toFixed(0)} ms, p95 ${e.p95Ms.toFixed(0)} ms → ${e.passes ? "PASS" : "FAIL"}`,

@@ -1,6 +1,6 @@
 # @psyche/node — `psyche-node`
 
-**Owner:** S19 (`prompts/s19-node-agent.md`). Features: L3 (guest install), N13 (node side), K6/K7 (exec on a node).
+**Owner:** S19 (`docs/archive/prompts/s19-node-agent.md`). Features: L3 (guest install), N13 (node side), K6/K7 (exec on a node).
 
 The headless node agent that runs inside the macOS guest VM (topology B) or on a remote Mac or Linux box (topology C). It pairs with a Gateway as a `node` device and offers exec, file system, browser and, through a co-located Psyche Helper, computer use as node capabilities (architecture §3.1, §7, §10).
 

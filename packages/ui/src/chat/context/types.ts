@@ -8,7 +8,7 @@ import { activeI18n, t } from "../../i18n/core.ts";
 
 /**
  * What the chat's context UI shows. The view models are the protocol's `threads.contextUsage`,
- * `thread.context.updated` and `compaction` block shapes (docs/status/s02.md), flattened for the
+ * `thread.context.updated` and `compaction` block shapes (docs/archive/status/s02.md), flattened for the
  * meter and the marker by `usageView` and `compactionView`.
  */
 

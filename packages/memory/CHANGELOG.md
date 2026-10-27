@@ -1,5 +1,17 @@
 # @psyche/memory
 
+## Unreleased (pre-0.3.0)
+
+### Minor Changes
+
+- Learning about the owner (#509): agent-core's `onOwnerTurn` hook; memory's dated Learned section in USER.md (`learnUserFacts`, `forgetLearned`) behind the sensitive and instruction filters; the Gateway's `memory.userProfile` switch, utility-model evaluator, `learned` chat note, audit entries and `memory.forgetLearned`.
+- People and projects graph store (#651, part 1): graph migration and drizzle mirror, identifier normalisation and bulk-sender rules, GraphStore with allowlisted facts and relations, history, interactions as pointers, open loops, suggestions, merge/split, forget with blocklist, retention, status and export.
+- People and projects graph (#651, part 2): card files with an owner-edit round trip (corrections, loops, notes, identifiers) and agent writes refused, and the deterministic ingester (Contacts, mail headers with thresholds and bulk/role/shared rules, the no-reply loop rule, calendar attendees, messages, owner-named projects), with the shared fixture world.
+- People and projects graph (#651, part 3): the model pass with taint rules, budgets and caching; deterministic project assignment and suggestions; memory.entities.* / memory.loops.* / memory.graph.status handlers; the people_lookup, project_brief, waiting_on, meeting_prep and loop_update tools; entity recall for private sessions.
+- The teaching loop's store and routing (#679): feedback events and lessons in the Gateway database, the lesson router with deterministic refusals and one destination per lesson, writers for SOUL.md, AGENTS.md, USER.md, the people graph, skills' LESSONS.md and automations, `feedback.*` and `memory.lessons.*` in the Gateway, approval answers as implicit evidence, and nightly dreaming scheduled at compose time.
+- Teaching loop growth and retention (#679): `growth.summary` (outcomes against the agent's own previous window, counts with every rate, null rates below 10 events, dated milestones), 180-day feedback retention, `memory.lessons.forgetAll` (presence-gated), lessons and feedback in `memory.export` and `memory.reset`, and the remaining implicit signals (learned-fact undo, quick task cancels, redo instructions, Feed and Ideas feedback).
+- Run trace T1, part 3 (#660): task, automation and specialist turns are recorded through the run-trace sink (`TaskWorkerPoolOptions.trace`); automation runs name their agent run and usage; memory writes name their run and step; computer-use screenshots become run frames.
+
 ## 0.3.0-alpha.0
 
 ### Minor Changes

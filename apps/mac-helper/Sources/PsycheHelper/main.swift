@@ -81,7 +81,7 @@ if printManifest {
     exit(0)
 }
 
-// One helper per $PSYCHE_HOME: the desktop runs `open` on every start (docs/status/s14.md
+// One helper per $PSYCHE_HOME: the desktop runs `open` on every start (docs/archive/status/s14.md
 // "Packaging"). Taken before the device identity loads, so a second copy touches nothing.
 var instanceLock: SingleInstanceLock?
 if !handshakeOnly {

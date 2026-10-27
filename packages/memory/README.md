@@ -1,6 +1,6 @@
 # @psyche/memory
 
-**Owner:** S07 (`prompts/s07-memory.md`). Feature ids: H1–H5, H7, H8 (M1); H6, H9, H10 (M2) ([docs/03-feature-spec.md](../../docs/03-feature-spec.md)).
+**Owner:** S07 (`docs/archive/prompts/s07-memory.md`). Feature ids: H1–H5, H7, H8 (M1); H6, H9, H10 (M2) ([docs/03-feature-spec.md](../../docs/03-feature-spec.md)).
 
 The workspace the owner can read (`$PSYCHE_HOME/workspace/`, Markdown files, the source of truth) plus the index the agent searches (FTS5 + vectors in `state/psyche.sqlite`). Implements the `MemoryStore` contract and passes its conformance suite.
 

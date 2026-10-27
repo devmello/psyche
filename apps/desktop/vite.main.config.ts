@@ -5,7 +5,7 @@ import { defineConfig } from "vite";
 // (forge.config.ts packageAfterPrune). electron-liquid-glass (the Liquid Glass spike's addon, not a
 // dependency; a probe installs it locally) stays external too; bundling it breaks its native loader.
 // Sourcemaps only in development (`electron-forge start`) or with PSYCHE_SOURCEMAPS=1: in a
-// packaged app they were 59 MB of app.asar (reports/v1-bundle-size.md).
+// packaged app they were 59 MB of app.asar (docs/archive/reports/v1-bundle-size.md).
 export default defineConfig(({ mode }) => ({
   build: {
     sourcemap: mode === "development" || process.env.PSYCHE_SOURCEMAPS === "1",

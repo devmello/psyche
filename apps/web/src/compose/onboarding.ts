@@ -1,7 +1,7 @@
 /**
  * Onboarding → workspace files (feature H1, H2; docs/06 onboarding). The UI kit's
  * `OnboardingFlow` hands its result to the host's `onComplete`; this turns it into owner writes
- * through `memory.*` (a paired device with `operator.write` is the owner, docs/status/s07.md):
+ * through `memory.*` (a paired device with `operator.write` is the owner, docs/archive/status/s07.md):
  * IDENTITY.md gets the name, creature and tagline, USER.md the owner's name and timezone, and
  * SOUL.md is replaced only when the owner picked a persona preset.
  */

@@ -1,6 +1,6 @@
 # @psyche/sandbox
 
-**Owner:** S21 (`prompts/s21-sandbox.md`). Features K1–K3 and K8 (base) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
+**Owner:** S21 (`docs/archive/prompts/s21-sandbox.md`). Features K1–K3 and K8 (base) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
 
 This package implements the `SandboxRunner` contract (`packages/protocol/src/contracts/SandboxRunner.ts`) with real containers. Each thread, project or task scope gets a nonroot container with no network and a persistent `/workspace` volume. Commands are bounded and return receipts. There is also a workspace file API and an interactive PTY. **There is never a host-shell fallback.** With no container backend, `ensureSandbox` rejects with `unavailable`.
 
@@ -65,7 +65,7 @@ for await (const chunk of pty.output) term.write(chunk); // pty.write(), pty.res
 
 ## Backends
 
-Detection order (ADR-008, confirmed by [spike 02](../../docs/spikes/spike-02-apple-container.md)):
+Detection order (ADR-008, confirmed by [spike 02](../../docs/archive/spikes-docs/spike-02-apple-container.md)):
 
 1. **Apple `container`**, on macOS 26+ on Apple silicon when the `container` CLI is installed. If its system service is stopped, `ensureSandbox` starts it (`container system start --disable-kernel-install`). The kernel must already be installed: run `container system start` once interactively.
 2. **Docker**: Docker Desktop, OrbStack, Colima (`colima start --vm-type vz`) or Docker on Linux. Used when `docker version` reaches a daemon. Colima uses the `colima` Docker context.

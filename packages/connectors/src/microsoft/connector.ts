@@ -37,7 +37,7 @@ import { GraphMailSession } from "./mail.ts";
  * tools, calendar tools shaped like Google's, contacts search, and OneDrive limited to Psyche's
  * app folder. Change notifications ("subscriptions renewed weekly") need a public HTTPS webhook,
  * which a loopback Gateway does not have, so sync polls Graph's delta queries instead (as M5
- * polls Gmail history); see docs/status/s09.md.
+ * polls Gmail history); see docs/archive/status/s09.md.
  */
 
 export const MICROSOFT_ACTIONS: ConnectorAction[] = [

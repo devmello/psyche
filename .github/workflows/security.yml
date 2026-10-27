@@ -1,6 +1,6 @@
 # Security gates (S18; docs/05-security-and-permissions.md §15.4, docs/03 cross-cutting criteria).
 # Separate from ci.yml (S00) so the gates can be required individually. Job names are the
-# required-status names listed in docs/status/s18.md; change them only together with branch
+# required-status names listed in docs/archive/status/s18.md; change them only together with branch
 # protection.
 name: security
 
@@ -83,7 +83,7 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      # Format and rules only until the corpus reaches its 150-case minimum (docs/status/s18.md).
+      # Format and rules only until the corpus reaches its 150-case minimum (docs/archive/status/s18.md).
       - name: Injection corpus is well-formed
         run: node tests/corpus/injection/validate.mjs --min-total 0
 

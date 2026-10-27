@@ -65,7 +65,7 @@ public final class NodeSession: @unchecked Sendable {
         case "node.invoke":
             handleInvoke(req)
         case "node.cancel":
-            // Not in protocol v1 yet (requested in docs/status/s14.md); honoured when the Gateway sends it.
+            // Not in protocol v1 yet (requested in docs/archive/status/s14.md); honoured when the Gateway sends it.
             if let id = req.params?["invocationId"]?.stringValue {
                 lock.lock()
                 let task = inFlight[id]

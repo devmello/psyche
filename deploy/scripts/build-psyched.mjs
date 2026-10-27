@@ -1,4 +1,4 @@
-// Builds the self-contained Gateway bundle for Psyche.app (docs/status/s22.md "Packaging layout").
+// Builds the self-contained Gateway bundle for Psyche.app (docs/archive/status/s22.md "Packaging layout").
 //
 //   node deploy/scripts/build-psyched.mjs [--arch arm64|x64] [--out <dir>] [--skip-web-build] [--smoke]
 //
@@ -49,12 +49,9 @@ const PRUNE = [
   "apps/mac-helper",
   "apps/web/src",
   "apps/web/testing",
+  "apps/site",
   "docs",
-  "prompts",
   "tests",
-  "spikes",
-  "research_notes",
-  "reports",
   ".changeset",
   ".github",
   "deploy/homebrew",
@@ -69,7 +66,7 @@ const ENTRY_WORKSPACES = ["apps/gateway", "apps/cli"];
  * Workspace packages the Gateway uses only a server-side corner of. Just these sources ship, and
  * only these dependencies are followed: `@psyche/viewers` would otherwise install the whole viewer
  * UI (Univer, Sandpack, CodeMirror, React, …), about 600 MB that psyched never loads
- * (reports/v1-bundle-size.md).
+ * (docs/archive/reports/v1-bundle-size.md).
  */
 export const SERVER_SUBSETS = {
   "@psyche/viewers": {

@@ -42,7 +42,7 @@ it("boots the composed Gateway, pairs the desktop client and streams a first tur
   const searchAt = performance.now();
   await c.call("memory.search", { query: "owner" });
   const searchMs = performance.now() - searchAt;
-  // Gateway-side overhead with a model that answers at once (docs/status/int-1.md, timings).
+  // Gateway-side overhead with a model that answers at once (docs/archive/status/int-1.md, timings).
   console.log(
     `INT-1 scripted timings ${JSON.stringify({ bootMs: Math.round(bootMs), firstDeltaMs: Math.round(firstDeltaMs), memorySearchMs: Math.round(searchMs) })}`,
   );

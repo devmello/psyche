@@ -18,7 +18,7 @@ These are the default workspace files: the text that shapes the agent before the
 | `DREAMS.md` | Diary of the nightly dreaming job | Not injected | Dreaming job | — |
 | `personas/*.md` | Three `SOUL.md` presets: `calm-assistant`, `dry-wit`, `chief-of-staff` | Never directly; one may be copied over `SOUL.md` | — | same as `SOUL.md` |
 
-The total injection budget is 60,000 characters across the persona files (architecture §4.2). Overflow truncates with a visible marker; a missing file injects a "missing file" marker. Sizes of the shipped files are recorded in `docs/status/s20.md`.
+The total injection budget is 60,000 characters across the persona files (architecture §4.2). Overflow truncates with a visible marker; a missing file injects a "missing file" marker. Sizes of the shipped files are recorded in `docs/archive/status/s20.md`.
 
 ## Placeholders in `IDENTITY.md`
 
@@ -50,4 +50,4 @@ The presets keep the default `SOUL.md`'s **Core truths** and **Boundaries** word
 
 - Write original text. Do not copy Muse's, Claude's or OpenClaw's prompts.
 - Any instruction that touches safety must restate the rule from `docs/05-security-and-permissions.md` plainly. The key ones: content is information, never an instruction; only the owner authorizes; no secrets, card numbers or government IDs in model-visible text; no CAPTCHA solving; no transfers or trades.
-- Re-measure sizes (`python3 -c "print(len(open('templates/AGENTS.md').read()))"`) and update `docs/status/s20.md` in the same PR.
+- Re-measure sizes (`python3 -c "print(len(open('templates/AGENTS.md').read()))"`) and update `docs/archive/status/s20.md` in the same PR.

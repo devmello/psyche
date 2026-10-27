@@ -69,13 +69,13 @@ Every bundled skill has, in this order: **Tools**, **Approvals you should expect
 
 ### The original names
 
-Skills name tools as the architecture lists them (§4.3): `browser.*`, `email.*`, `calendar.*`, `messages.*`, `pdf.*`, `sheet.*`, `memory`, `memory_search`, `memory_explain`, `forget`, `search`, `fetch`, `exec`, `ask_user`, `update_plan`, `wrap_up`, `schedule`, `notify`, `artifact.create`, `credentials.request`, `goal.*`, `idea.*`, `task.*`, `subagent.spawn`. `purchase.checkout` belongs to a `purchase.*` family that architecture §4.3 does not list yet (S00's conformance tests already use the name). Method names inside a family (`email.draft`, `pdf.fields`, `purchase.checkout`) are provisional until the connector and tool registries (S02, S09) publish theirs; `docs/status/s20.md` tracks the list to reconcile.
+Skills name tools as the architecture lists them (§4.3): `browser.*`, `email.*`, `calendar.*`, `messages.*`, `pdf.*`, `sheet.*`, `memory`, `memory_search`, `memory_explain`, `forget`, `search`, `fetch`, `exec`, `ask_user`, `update_plan`, `wrap_up`, `schedule`, `notify`, `artifact.create`, `credentials.request`, `goal.*`, `idea.*`, `task.*`, `subagent.spawn`. `purchase.checkout` belongs to a `purchase.*` family that architecture §4.3 does not list yet (S00's conformance tests already use the name). Method names inside a family (`email.draft`, `pdf.fields`, `purchase.checkout`) are provisional until the connector and tool registries (S02, S09) publish theirs; `docs/archive/status/s20.md` tracks the list to reconcile.
 
 ## Budgets
 
 - The prompt index carries only `name` and `description`. Twelve bundled skills cost about 2,800 characters before wrapping.
 - `SKILL.md` bodies load on demand through `skills_read`. Keep each under 6,000 characters; the bundled ones are about 3,000–5,700.
-- Sizes are recorded in `docs/status/s20.md`.
+- Sizes are recorded in `docs/archive/status/s20.md`.
 
 ## Specialist roles (`specialist-*`)
 

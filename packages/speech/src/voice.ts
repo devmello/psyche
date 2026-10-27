@@ -26,7 +26,7 @@ import { mergeVocabulary } from "./vocabulary.ts";
  * Sessions belong to the device that started them; chunks must arrive in `seq` order; sessions
  * end after `idleTimeoutMs` without audio or at `maxSessionMs`. Custom vocabulary is the
  * session default (agent name, contacts, recent topics) merged with the request's terms.
- * These shapes are proposed to `packages/protocol` (docs/status/s17.md).
+ * These shapes are proposed to `packages/protocol` (docs/archive/status/s17.md).
  */
 
 export interface VoiceStartParams {

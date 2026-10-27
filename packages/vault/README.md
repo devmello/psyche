@@ -1,6 +1,6 @@
 # @psyche/vault
 
-**Owner:** S06 (`prompts/s06-vault.md`). Features G1–G7, G9, G13, G14 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md). G8 belongs to the browser; G10–G12 are later milestones.
+**Owner:** S06 (`docs/archive/prompts/s06-vault.md`). Features G1–G7, G9, G13, G14 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md). G8 belongs to the browser; G10–G12 are later milestones.
 
 The Credential Broker: an encrypted vault the model never reads. The model sees `{{cred:<slug>}}` placeholders and metadata. Executors (browser fill, connector HTTP, sandbox env) resolve a placeholder only for a matching target, only with an approved `credential_fill`, and receive a one-shot `ResolvedSecret` handle, never a string.
 
@@ -103,7 +103,7 @@ These four are registered on main (PR #47). System keychain mode (G9) also needs
 - **Moving items:** `setBackend(id, "vault" | "keychain")` moves one item either way. `backendOf(id)` reports where its secret lives.
 - **Connector OAuth tokens** stay in the vault, because they refresh unattended.
 
-**Trade-off:** keychain items are protected by `biometryCurrentSet` or the passcode. If re-enrolling Touch ID invalidates them, the recovery key cannot bring them back (they are not in `vault.db`). Move them back with `setBackend(id, "vault")` before re-enrolling. This is also recorded as an open question in docs/status/s06.md.
+**Trade-off:** keychain items are protected by `biometryCurrentSet` or the passcode. If re-enrolling Touch ID invalidates them, the recovery key cannot bring them back (they are not in `vault.db`). Move them back with `setBackend(id, "vault")` before re-enrolling. This is also recorded as an open question in docs/archive/status/s06.md.
 
 ### 1Password as an external source (G10)
 

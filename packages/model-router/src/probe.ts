@@ -311,7 +311,7 @@ export const PROBE_SETTING_PREFIX = "models.probe.";
 
 /**
  * Probe verdicts as settings rows (`models.probe.<ref>`). Data model §10 puts them in
- * `model_profiles.probe_result`; that table is not in schema v0 yet (see docs/status/s03.md),
+ * `model_profiles.probe_result`; that table is not in schema v0 yet (see docs/archive/status/s03.md),
  * and moving there later only changes this store.
  */
 export class KeyValueProbeStore implements ProbeStore {

@@ -1,5 +1,5 @@
 /**
- * S23 adversarial review findings that touch credentials (docs/reviews/design-*.md), as
+ * S23 adversarial review findings that touch credentials (docs/archive/reviews/design-*.md), as
  * passing tests against the real vault. Items owned by other sessions are `todo` with the owner.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

@@ -19,7 +19,7 @@ import type { RecordingEventInput } from "./recording/recorder.ts";
 /**
  * Extensions to the protocol's `BrowserDriver` that the M1 tools need (prompt S08 mission).
  * Everything here is additive; the matching optional methods are proposed for
- * `packages/protocol` in a `protocol:` PR (see docs/status/s08.md). Until that merges the
+ * `packages/protocol` in a `protocol:` PR (see docs/archive/status/s08.md). Until that merges the
  * tools code against `BrowserDriverEx`, and both drivers implement it.
  */
 

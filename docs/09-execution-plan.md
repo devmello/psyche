@@ -1,6 +1,6 @@
 # Psyche — Parallel Execution Plan
 
-Status: v0.1 (2026-10-18). How to build Psyche with many Claude Code sessions (Max 20x, each using its own subagents) without them stepping on each other. Prompts for every session are in [`prompts/`](../prompts/README.md). Feature ids refer to [03-feature-spec.md](03-feature-spec.md).
+Status: v0.1 (2026-10-18). How to build Psyche with many Claude Code sessions (Max 20x, each using its own subagents) without them stepping on each other. Prompts for every session are in [`docs/archive/prompts/`](archive/prompts/README.md). Feature ids refer to [03-feature-spec.md](03-feature-spec.md).
 
 ## 1. Approach: contracts first, one package per session, fakes everywhere
 
@@ -48,9 +48,8 @@ psyche/
   skills/           S20  bundled SKILL.md files
   templates/        S20  default SOUL.md / AGENTS.md / USER.md / IDENTITY.md / interests.md
   deploy/           S22   Dockerfile, compose, launchd plists, Tailscale/Cloudflare examples
-  spikes/           SP*  throwaway prototypes (never imported by packages)
-  docs/             all  (each session may add docs/plans/<id>.md and docs/status/<id>.md)
-  prompts/          S00  session prompts
+  docs/             all  (originally each session added a plan and a status file; those, the session prompts and the spike write-ups now live in docs/archive/)
+  site/             S20  documentation site (now apps/site)
 ```
 
 Each package owns the database tables listed for it in [04-data-model.md](04-data-model.md) and adds migrations named `packages/db/migrations/<YYYYMMDDHHMM>_<package>_<desc>.sql`.
@@ -61,7 +60,7 @@ Each package owns the database tables listed for it in [04-data-model.md](04-dat
 | --- | --- | --- | --- |
 | **0 — Init** | You (or this session): `git init`, commit docs + prompts, create the GitHub repo | now | `main` exists with docs and prompts |
 | **0 — Bootstrap** | S00 | after init | scaffold + protocol v0 + fakes merged to `main`; `pnpm -r test` green in CI |
-| **1 — Spikes and content** (parallel with Bootstrap; no shared code) | SP1–SP6, S20, S18 (corpus and scenario scripts only) | after init | spike write-ups in `docs/spikes/`; findings folded into prompts if they change a decision |
+| **1 — Spikes and content** (parallel with Bootstrap; no shared code) | SP1–SP6, S20, S18 (corpus and scenario scripts only) | after init | spike write-ups in `docs/archive/spikes-docs/`; findings folded into prompts if they change a decision |
 | **2 — Core packages** | S01–S10, S12–S17, S21 | after Bootstrap merges | each package: contract tests green against fakes, README, status file |
 | **2b — Shells** | S11 (desktop/web), S14 (helper) | after Bootstrap merges | shells run against fakes/mock Gateway |
 | **3 — Integration** | INT-1 walking skeleton, INT-2 server mode, INT-3 acceptance V1/V2/V7, S22 CLI/deploy | when the packages a scenario needs are merged | Milestone 1 acceptance in [08-roadmap.md](08-roadmap.md) |
@@ -73,47 +72,47 @@ The integrator (S00 after bootstrap) merges in this order whenever PRs are ready
 
 | Id | Session | Owns | Feature ids (M1 scope; M2 in parentheses) | Depends on (via fakes) | Prompt |
 | --- | --- | --- | --- | --- | --- |
-| S00 | Bootstrap, then Integrator | root configs, `packages/protocol`, `packages/db` v0, `packages/testing` skeleton, CI | A1, A3, A4, A5 | — | `prompts/s00-bootstrap-integrator.md` |
-| S01 | Gateway core | `apps/gateway`, `packages/db` evolution | A2, N14, E1/E2/E3 persistence and session controller | agent-core, tasks, permissions, memory | `prompts/s01-gateway-core.md` |
-| S02 | Agent runtime | `packages/agent-core` | C1–C5, C8, C9, C11, B7 (C6, C7) | model-router, permissions, memory | `prompts/s02-agent-runtime.md` |
-| S03 | Model router | `packages/model-router` | B1–B6 | vault | `prompts/s03-model-router.md` |
-| S04 | Tasks and scheduler | `packages/tasks`, `packages/scheduler` | D1–D3, D6, O1, O4 (O2, O3) | agent-core, permissions, notifications | `prompts/s04-tasks-scheduler.md` |
-| S05 | Permissions and audit | `packages/permissions`, `packages/audit` | F1–F12, U3 | vault (for fill approvals), notifications | `prompts/s05-permissions-audit.md` |
-| S06 | Vault | `packages/vault` | G1–G9, G13, G14 (G10–G12) | permissions, helper keychain capability | `prompts/s06-vault.md` |
-| S07 | Memory | `packages/memory` | H1–H5, H7 logic, H8 (H6, H9, H10) | model-router (embeddings, utility model) | `prompts/s07-memory.md` |
-| S08 | Browser | `packages/browser` | I2–I4, I7–I9, I15 (I10, I12–I14) | permissions, vault (fill endpoint) | `prompts/s08-browser.md` |
-| S09 | MCP host and connectors | `packages/mcp-host`, `packages/connectors` | M1, M2, M4 data, M5, M8, M11 (M3, M7, M10) | permissions, vault, sandbox | `prompts/s09-mcp-connectors.md` |
-| S10 | Channels | `packages/channels` | N1–N4 (N5 glue, N10, N11) | gateway API, permissions, notifications | `prompts/s10-channels.md` |
-| S11 | Desktop and web shells | `apps/desktop`, `apps/web` | A6, A7, A8, E10, I1, I5, I6, I11, K6, D5, O10 relay, Q1 UI | protocol, ui, browser bridge, viewers | `prompts/s11-desktop-web-shell.md` |
-| S12 | UI kit | `packages/ui` | E4, E8 cards, F3, C4 UI, O6/O8/O9 screens, P7 screen, S1 UI, R2, R3, U1 screens | protocol only | `prompts/s12-ui-kit.md` |
-| S13 | Viewers, editor, documents | `packages/viewers` | P1, P3, P4, P5, P6, P9 (P2, P8) | protocol only | `prompts/s13-viewers-editor.md` |
-| S14 | Mac helper | `apps/mac-helper` | A9, J1–J5, O10 OS delivery, Q1 engines, keychain capability for G1 (J6, J7, J9, L1–L5) | protocol (node capability specs) | `prompts/s14-mac-helper.md` |
-| S15 | Proactive and notifications | `packages/proactive`, `packages/notifications` | O10 model (O5–O9) | scheduler, memory, model-router, connectors | `prompts/s15-proactive-notifications.md` |
-| S16 | Search and skills | `packages/search`, `packages/skills` | S1, T1, T5 loading (S2, T2) | db, memory | `prompts/s16-search-skills.md` |
-| S17 | Speech and voice notes | `packages/speech` | Q1 TS side (Q3, Q4, N11) | helper engines via node capability | `prompts/s17-speech.md` |
-| S18 | Security and test harness | `packages/testing` content, `tests/` | cross-cutting acceptance criteria; corpus; secret-leak checker; scenario runner | all (as fakes) | `prompts/s18-security-test-harness.md` |
-| S19 | Node agent (M2) | `apps/node` | L3, N13 node side | protocol | `prompts/s19-node-agent.md` |
-| S20 | Content: skills and templates | `skills/`, `templates/` | T5 content, H1 templates, R1 copy | — | `prompts/s20-content-skills-templates.md` |
-| SP1–SP6 | Spikes | `spikes/<name>`, `docs/spikes/` | roadmap M0 spikes | — | `prompts/spike-*.md` |
-| INT-1..3 | Integration | cross-package wiring only | walking skeleton, server mode, acceptance | merged packages | `prompts/int-*.md` |
-| S21 | Sandbox | `packages/sandbox`, `deploy/sandbox-image` | K1–K3, K8 base | protocol | `prompts/s21-sandbox.md` |
-| S22 | CLI and deploy | `apps/cli`, `deploy/`, release CI | A10 subset, A11 | protocol, gateway API | `prompts/s22-cli-deploy.md` |
-| S23 | Adversarial review | reviews only | — | — | `prompts/s23-adversarial-review.md` |
+| S00 | Bootstrap, then Integrator | root configs, `packages/protocol`, `packages/db` v0, `packages/testing` skeleton, CI | A1, A3, A4, A5 | — | `docs/archive/prompts/s00-bootstrap-integrator.md` |
+| S01 | Gateway core | `apps/gateway`, `packages/db` evolution | A2, N14, E1/E2/E3 persistence and session controller | agent-core, tasks, permissions, memory | `docs/archive/prompts/s01-gateway-core.md` |
+| S02 | Agent runtime | `packages/agent-core` | C1–C5, C8, C9, C11, B7 (C6, C7) | model-router, permissions, memory | `docs/archive/prompts/s02-agent-runtime.md` |
+| S03 | Model router | `packages/model-router` | B1–B6 | vault | `docs/archive/prompts/s03-model-router.md` |
+| S04 | Tasks and scheduler | `packages/tasks`, `packages/scheduler` | D1–D3, D6, O1, O4 (O2, O3) | agent-core, permissions, notifications | `docs/archive/prompts/s04-tasks-scheduler.md` |
+| S05 | Permissions and audit | `packages/permissions`, `packages/audit` | F1–F12, U3 | vault (for fill approvals), notifications | `docs/archive/prompts/s05-permissions-audit.md` |
+| S06 | Vault | `packages/vault` | G1–G9, G13, G14 (G10–G12) | permissions, helper keychain capability | `docs/archive/prompts/s06-vault.md` |
+| S07 | Memory | `packages/memory` | H1–H5, H7 logic, H8 (H6, H9, H10) | model-router (embeddings, utility model) | `docs/archive/prompts/s07-memory.md` |
+| S08 | Browser | `packages/browser` | I2–I4, I7–I9, I15 (I10, I12–I14) | permissions, vault (fill endpoint) | `docs/archive/prompts/s08-browser.md` |
+| S09 | MCP host and connectors | `packages/mcp-host`, `packages/connectors` | M1, M2, M4 data, M5, M8, M11 (M3, M7, M10) | permissions, vault, sandbox | `docs/archive/prompts/s09-mcp-connectors.md` |
+| S10 | Channels | `packages/channels` | N1–N4 (N5 glue, N10, N11) | gateway API, permissions, notifications | `docs/archive/prompts/s10-channels.md` |
+| S11 | Desktop and web shells | `apps/desktop`, `apps/web` | A6, A7, A8, E10, I1, I5, I6, I11, K6, D5, O10 relay, Q1 UI | protocol, ui, browser bridge, viewers | `docs/archive/prompts/s11-desktop-web-shell.md` |
+| S12 | UI kit | `packages/ui` | E4, E8 cards, F3, C4 UI, O6/O8/O9 screens, P7 screen, S1 UI, R2, R3, U1 screens | protocol only | `docs/archive/prompts/s12-ui-kit.md` |
+| S13 | Viewers, editor, documents | `packages/viewers` | P1, P3, P4, P5, P6, P9 (P2, P8) | protocol only | `docs/archive/prompts/s13-viewers-editor.md` |
+| S14 | Mac helper | `apps/mac-helper` | A9, J1–J5, O10 OS delivery, Q1 engines, keychain capability for G1 (J6, J7, J9, L1–L5) | protocol (node capability specs) | `docs/archive/prompts/s14-mac-helper.md` |
+| S15 | Proactive and notifications | `packages/proactive`, `packages/notifications` | O10 model (O5–O9) | scheduler, memory, model-router, connectors | `docs/archive/prompts/s15-proactive-notifications.md` |
+| S16 | Search and skills | `packages/search`, `packages/skills` | S1, T1, T5 loading (S2, T2) | db, memory | `docs/archive/prompts/s16-search-skills.md` |
+| S17 | Speech and voice notes | `packages/speech` | Q1 TS side (Q3, Q4, N11) | helper engines via node capability | `docs/archive/prompts/s17-speech.md` |
+| S18 | Security and test harness | `packages/testing` content, `tests/` | cross-cutting acceptance criteria; corpus; secret-leak checker; scenario runner | all (as fakes) | `docs/archive/prompts/s18-security-test-harness.md` |
+| S19 | Node agent (M2) | `apps/node` | L3, N13 node side | protocol | `docs/archive/prompts/s19-node-agent.md` |
+| S20 | Content: skills and templates | `skills/`, `templates/` | T5 content, H1 templates, R1 copy | — | `docs/archive/prompts/s20-content-skills-templates.md` |
+| SP1–SP6 | Spikes | `docs/archive/spikes/<name>`, `docs/archive/spikes-docs/` | roadmap M0 spikes | — | `docs/archive/prompts/spike-*.md` |
+| INT-1..3 | Integration | cross-package wiring only | walking skeleton, server mode, acceptance | merged packages | `docs/archive/prompts/int-*.md` |
+| S21 | Sandbox | `packages/sandbox`, `deploy/sandbox-image` | K1–K3, K8 base | protocol | `docs/archive/prompts/s21-sandbox.md` |
+| S22 | CLI and deploy | `apps/cli`, `deploy/`, release CI | A10 subset, A11 | protocol, gateway API | `docs/archive/prompts/s22-cli-deploy.md` |
+| S23 | Adversarial review | reviews only | — | — | `docs/archive/prompts/s23-adversarial-review.md` |
 
 Running fewer sessions: merge S02+S03, S04+S05, S12+S13, S16+S17+S20, and run the spikes inside S08/S14/S03 as their first task.
 
-## 5. Coordination rules (also in `prompts/_shared-rules.md`)
+## 5. Coordination rules (also in `docs/archive/prompts/_shared-rules.md`)
 
 - **Branches and worktrees.** One worktree per session, branch `ws/<id>-<name>` (for example `ws/s05-permissions`). Rebase on `main` at least daily. Small PRs (under ~800 lines of diff) with a checklist in the description.
 - **Ownership.** Edit only your owned paths. Need something from another package? Code against its interface and fake; if the interface is missing something, open a `protocol:` PR that adds it (additive only) and continue against your local copy until it merges.
 - **Protocol changes** are additive until v1: new optional fields, new methods, new events. Removing or renaming requires the integrator's sign-off.
 - **Migrations** use the timestamped naming above and touch only your tables.
 - **Tests.** Every package ships contract tests that run against the fakes, plus unit tests. CI gates: typecheck, lint, tests, the secret-leak checker, and (from Wave 3) the injection corpus.
-- **Status.** Keep `docs/status/<id>.md` current at each milestone (what works, what is stubbed, what blocked you, what you need from others). The integrator reads these daily.
+- **Status.** Keep `docs/archive/status/<id>.md` current at each milestone (what works, what is stubbed, what blocked you, what you need from others). The integrator reads these daily.
 - **Security rules are not optional.** Follow [05-security-and-permissions.md](05-security-and-permissions.md): no secrets in model-visible text, every side effect through the Permission Broker interface, receipts for every write, no host-shell fallback, loopback bind, no telemetry.
 - **Versions.** Verify library versions with `npm view <pkg> version` before pinning; do not rely on memory.
 - **Subagents.** Use them for library research, writing tests, and independent review of your own PR before you open it; never for cross-package edits.
-- **Conflicts.** If two sessions need the same file, stop and leave a note in `docs/status/<id>.md`; the integrator decides.
+- **Conflicts.** If two sessions need the same file, stop and leave a note in `docs/archive/status/<id>.md`; the integrator decides.
 
 ## 6. Self-contained sessions (formerly planned for Codex)
 

@@ -25,4 +25,4 @@
 
 Approvals that need Touch ID or a passkey are refused until a verifier accepts a real assertion (fail closed): helper assertions need a registered presence key, which nothing registers yet (#84); passkeys need S01 (#79).
 
-Status, gaps and timings: [docs/status/int-1.md](../../../../docs/status/int-1.md), [docs/status/int-2.md](../../../../docs/status/int-2.md).
+Status, gaps and timings: [docs/archive/status/int-1.md](../../../../docs/archive/status/int-1.md), [docs/archive/status/int-2.md](../../../../docs/archive/status/int-2.md).

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Builds apps/mac-helper/dist/PsycheHelper.app, the Mac helper that ships inside Psyche.app at
-# Contents/Resources/PsycheHelper.app (layout and launch contract: docs/status/s14.md "Packaging").
+# Contents/Resources/PsycheHelper.app (layout and launch contract: docs/archive/status/s14.md "Packaging").
 # Owner: S14. macOS only. Run it before `electron-forge package`, with the same signing variables.
 #
 #   deploy/macos/build-helper.sh [--arch arm64|x64] [--out <dir>]

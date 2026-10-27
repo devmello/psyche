@@ -1,7 +1,7 @@
 <!--
 Title: `[<id> <name>] <conventional commit summary>`, for example `[S05 permissions] feat(permissions): bind approvals to argv+cwd`.
 Protocol changes: `protocol: <summary>` (the integrator merges these first).
-Rules: prompts/_shared-rules.md. Process: CONTRIBUTING.md.
+Rules: docs/archive/prompts/_shared-rules.md (history, kept for reference). Process: CONTRIBUTING.md.
 -->
 
 ## What and why
@@ -17,7 +17,6 @@ Feature ids: <!-- F1, F2 -->
 - [ ] Contract tests for every interface this PR implements (`packages/testing` conformance suite); unit tests for the logic
 - [ ] No network in CI: fixtures are recorded; live tests sit behind `PSYCHE_LIVE_TESTS=1`
 - [ ] Package `README.md` covers purpose, public API, mapping to the docs, and what is stubbed
-- [ ] `docs/status/<id>.md` updated (what works, what is stubbed, blockers, requests to other sessions)
 - [ ] New or changed dependency versions verified with `npm view <pkg> version` (and peer requirements); licenses checked, no GPL/AGPL
 - [ ] Docs in `docs/` updated in this PR if behavior they describe changed
 - [ ] A changeset is added (`pnpm changeset`) or this PR changes no package

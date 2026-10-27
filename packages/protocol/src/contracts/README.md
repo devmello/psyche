@@ -1,6 +1,6 @@
 # Contracts
 
-Cross-package TypeScript interfaces (`prompts/_shared-rules.md` "Contracts and fakes"). Every package that depends on another package's behavior codes against one of these and tests against its fake in `@psyche/testing`. Contracts are plain interfaces with doc comments; the only runtime code is small shared constants, `parsePlaceholders` and the `ResolvedSecret` handle. Growth is additive: new optional fields, methods or events through a `protocol:` PR that also updates the fake (see `../../CHANGES.md`).
+Cross-package TypeScript interfaces (`docs/archive/prompts/_shared-rules.md` "Contracts and fakes"). Every package that depends on another package's behavior codes against one of these and tests against its fake in `@psyche/testing`. Contracts are plain interfaces with doc comments; the only runtime code is small shared constants, `parsePlaceholders` and the `ResolvedSecret` handle. Growth is additive: new optional fields, methods or events through a `protocol:` PR that also updates the fake (see `../../CHANGES.md`).
 
 | Contract | File | Docs | Owner (implements) | Fake | Conformance suite |
 | --- | --- | --- | --- | --- | --- |

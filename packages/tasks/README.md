@@ -1,6 +1,6 @@
 # @psyche/tasks
 
-**Owner:** S04 (`prompts/s04-tasks-scheduler.md`). Feature ids: D1–D3, D6, D7 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
+**Owner:** S04 (`docs/archive/prompts/s04-tasks-scheduler.md`). Feature ids: D1–D3, D6, D7 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
 
 Durable background work: tasks that outlive the turn that created them, survive worker crashes, Gateway restarts and laptop sleep, park on questions and approvals, and keep an Activity log.
 
