@@ -161,6 +161,16 @@ export {
   shouldAutoDraft,
   type Tone,
 } from "./mail/drafts.ts";
+export {
+  FOCUS_DURATION_MIN,
+  FOCUS_EVENT_TITLE,
+  FOCUS_SCHEDULE,
+  type FocusOutcome,
+  FocusTimeService,
+  type FocusTimeServiceOptions,
+  MAIL_FOCUS_JOB,
+  nextWeekStart,
+} from "./mail/focus.ts";
 export { lookalikeOf, type MailItem, presort } from "./mail/presort.ts";
 export {
   addressOf,

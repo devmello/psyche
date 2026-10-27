@@ -28,6 +28,7 @@ export const WORKFLOW_SETTING_KEYS = [
   "mail.schedule.hoursStart",
   "mail.schedule.hoursEnd",
   "mail.schedule.bufferMin",
+  "mail.schedule.focusTime",
   "mail.poll.activeMin",
   "mail.poll.idleMin",
   "meetings.prep.enabled",
@@ -59,6 +60,8 @@ export interface WorkflowSettings {
   draftModel: ModelRef | undefined;
   /** Scheduling (§4.4): working hours in local time and the buffer either side of meetings. */
   schedule: { workingHours: { start: number; end: number }; bufferMin: number };
+  /** "Offer focus time": one proposed deep-work block a week (`mail.schedule.focusTime`). */
+  focusTime: boolean;
   /** Minutes between mail checks while active / the least between checks otherwise; unset = default. */
   poll: { activeMin: number | undefined; idleMin: number | undefined };
   prep: {
@@ -125,6 +128,7 @@ export function workflowSettings(db: PsycheDb): WorkflowSettings {
     voiceEnabled: bool(get("mail.voice.enabled")),
     draftModel: localModelRef(get("mail.draft.localModel")),
     schedule: scheduleSettings(get),
+    focusTime: bool(get("mail.schedule.focusTime")),
     poll: {
       activeMin: whole(get("mail.poll.activeMin"), 1, 60),
       idleMin: whole(get("mail.poll.idleMin"), 1, 24 * 60),

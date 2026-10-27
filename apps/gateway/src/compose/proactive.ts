@@ -16,6 +16,7 @@ import {
   digestSchedule,
   FeedService,
   type FeedSource,
+  FocusTimeService,
   GoalsService,
   gmailSource,
   HEARTBEAT_TASK_BUDGET,
@@ -146,6 +147,8 @@ export interface ComposedProactive {
   readonly drafts: DraftService | undefined;
   /** Scheduling over email: free slots, a reply draft and optional holds (§4.4). */
   readonly scheduling: SchedulingService | undefined;
+  /** Focus time (§4.4): one proposed deep-work block a week, off until `mail.schedule.focusTime`. */
+  readonly focus: FocusTimeService | undefined;
   readonly handlers: Record<string, HandlerDef>;
   /** The scheduler's launcher: proactive jobs in-process, the heartbeat bounded, the rest to `inner`. */
   launcher(inner: RunLauncher, pool: TaskWorkerPool): RunLauncher;
@@ -341,6 +344,19 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           now: () => clock.now(),
           ...(typeof link === "string" && link !== "" ? { schedulingLink: link } : {}),
         });
+  const focus =
+    registry === undefined
+      ? undefined
+      : new FocusTimeService({
+          tools: registry,
+          scheduler,
+          ...(proposals === undefined ? {} : { proposals }),
+          enabled: () => settings().focusTime,
+          readOnly,
+          timezone: timeZone ?? "UTC",
+          schedule: () => settings().schedule,
+          now: () => clock.now(),
+        });
   const meetings =
     registry === undefined || setup.meetings === undefined
       ? undefined
@@ -405,6 +421,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
       });
       await meetingPrep?.ensureSchedule({ enabled: w.prep.enabled, ...tz });
       await voice?.ensureSchedule({ enabled: w.voiceEnabled, ...tz });
+      await focus?.ensureSchedule({ enabled: w.focusTime, ...tz });
     } catch (err) {
       logger?.log("warn", "workflow schedule sync failed", { code: PsycheError.from(err).code });
     }
@@ -464,6 +481,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     voice,
     drafts,
     scheduling,
+    focus,
     handlers: {
       ...mountParamsOnly(createGoalHandlers(goals) as never),
       ...mountParamsOnly(createFeedHandlers(feed) as never),
@@ -481,6 +499,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           pausable(mailWatch.job(), paused),
           ...(digest === undefined ? [] : [pausable(digest.job(), paused)]),
           ...(voice === undefined ? [] : [pausable(voice.job(), paused)]),
+          ...(focus === undefined ? [] : [pausable(focus.job(), paused)]),
           ...(meetingPrep === undefined ? [] : [pausable(meetingPrep.job(), paused)]),
         ],
         heartbeat: createTaskLauncher({ engine: tasks, pool, budget: HEARTBEAT_TASK_BUDGET }),
