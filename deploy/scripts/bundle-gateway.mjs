@@ -22,7 +22,7 @@ import {
   symlinkSync,
 } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import { prunePnpmStore, removeAllDanglingLinks } from "./pnpm-store.mjs";
 
 /** Output (relative to the app dir, no extension) → entry source. */
@@ -77,28 +77,44 @@ export const BANNER = [
   "const __dirname = __psycheDirname(__filename);",
 ].join("\n");
 
-/** Runs esbuild (from the repository's own install) over the entries; returns `{ file: bytes }`. */
+/**
+ * Runs esbuild (from the repository's own install) over the entries; returns `{ file: bytes }` for
+ * every output, chunks included. Entries are built per output folder with code splitting, so a
+ * dynamic `import()` (AI SDK providers, the MCP SDK) becomes a chunk next to its entry that is read
+ * only when first used, instead of source text every Gateway keeps in memory
+ * (docs/design/lightweight-2026.md). Chunks share their entry's folder, so the banner's bundle URL
+ * gives the same assets root whichever file sets it.
+ */
 export async function bundleGateway(appDir, { root, entries = ENTRIES, external = EXTERNAL } = {}) {
   const { build } = createRequire(join(root, "package.json"))("esbuild");
-  const res = await build({
-    absWorkingDir: appDir,
-    entryPoints: Object.fromEntries(Object.entries(entries).map(([out, src]) => [out, src])),
-    outdir: ".",
-    bundle: true,
-    platform: "node",
-    format: "esm",
-    target: "node24",
-    minify: true,
-    legalComments: "none",
-    banner: { js: BANNER },
-    external,
-    logLevel: "error",
-    metafile: true,
-    outExtension: { ".js": ".mjs" },
-    write: true,
-  });
+  const byDir = new Map();
+  for (const [out, src] of Object.entries(entries)) {
+    const dir = dirname(out);
+    byDir.set(dir, { ...byDir.get(dir), [basename(out)]: src });
+  }
   const out = {};
-  for (const [file, meta] of Object.entries(res.metafile.outputs)) out[file] = meta.bytes;
+  for (const [dir, entryPoints] of byDir) {
+    const res = await build({
+      absWorkingDir: appDir,
+      entryPoints,
+      outdir: dir,
+      bundle: true,
+      splitting: true,
+      chunkNames: "chunk-[hash]",
+      platform: "node",
+      format: "esm",
+      target: "node24",
+      minify: true,
+      legalComments: "none",
+      banner: { js: BANNER },
+      external,
+      logLevel: "error",
+      metafile: true,
+      outExtension: { ".js": ".mjs" },
+      write: true,
+    });
+    for (const [file, meta] of Object.entries(res.metafile.outputs)) out[file] = meta.bytes;
+  }
   return out;
 }
 

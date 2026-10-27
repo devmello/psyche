@@ -1,15 +1,4 @@
-import {
-  Client,
-  type FetchLike,
-  type Implementation,
-  ProtocolError,
-  SdkError,
-  SdkErrorCode,
-  StreamableHTTPClientTransport,
-  type Tool,
-  UnauthorizedError,
-} from "@modelcontextprotocol/client";
-import { getDefaultEnvironment, StdioClientTransport } from "@modelcontextprotocol/client/stdio";
+import type { Client, FetchLike, Implementation, Tool } from "@modelcontextprotocol/client";
 import {
   type Clock,
   type McpCallOptions,
@@ -30,6 +19,7 @@ import { startLoopbackReceiver } from "./loopback.ts";
 import { isValidServerId, MAX_TOOL_NAME_LENGTH, mcpToolName } from "./naming.ts";
 import { blockRegistration, type McpOAuthOptions, PsycheOAuthProvider } from "./oauth.ts";
 import { provenanceFor, requiresUserInteraction, sideEffectFor } from "./policy.ts";
+import { loadedMcpSdk, loadMcpSdk, loadMcpStdioSdk } from "./sdk.ts";
 import { assertNoPlaceholders, resolveEnv, type SecretInjection } from "./secrets.ts";
 
 /** Optional per-server settings beyond the `McpServerConfig` contract. */
@@ -354,7 +344,8 @@ export class PsycheMcpHost implements McpHost {
       // A JSON-RPC error is server-authored text: hand it back as a tool error carrying the
       // server's provenance (never as a PsycheError message), so it stays data. Invalid input
       // (SEP-1303, -32602) is thereby a tool error the model can correct.
-      if (err instanceof ProtocolError) {
+      const sdk = loadedMcpSdk();
+      if (sdk !== undefined && err instanceof sdk.ProtocolError) {
         return {
           content: {
             blocks: [
@@ -472,26 +463,32 @@ export class PsycheMcpHost implements McpHost {
     return this.#options.launcher;
   }
 
+  /** After `loadMcpSdk()`: both connect paths load it first. */
   #newClient(s: ServerState): Client {
+    const sdk = loadedMcpSdk();
+    if (sdk === undefined) throw new PsycheError("internal", "MCP SDK not loaded");
     const elicit = this.#options.inputRequester;
-    const client = new Client(this.#options.clientInfo ?? { name: "psyche", version: "0.0.0" }, {
-      versionNegotiation: { mode: "auto" },
-      // A server that keeps asking cannot stall a turn.
-      inputRequired: { maxRounds: MAX_INPUT_ROUNDS },
-      // No roots, sampling or logging (deprecated in 2026-07-28); elicitation only when the owner
-      // can be asked.
-      capabilities: elicit === undefined ? {} : { elicitation: { form: {}, url: {} } },
-      listChanged: {
-        tools: {
-          onChanged: (error, tools) => {
-            if (error === null && tools !== null) {
-              s.listSeq += 1;
-              this.#pin(s, tools);
-            } else void this.#refresh(s).catch(() => undefined);
+    const client = new sdk.Client(
+      this.#options.clientInfo ?? { name: "psyche", version: "0.0.0" },
+      {
+        versionNegotiation: { mode: "auto" },
+        // A server that keeps asking cannot stall a turn.
+        inputRequired: { maxRounds: MAX_INPUT_ROUNDS },
+        // No roots, sampling or logging (deprecated in 2026-07-28); elicitation only when the owner
+        // can be asked.
+        capabilities: elicit === undefined ? {} : { elicitation: { form: {}, url: {} } },
+        listChanged: {
+          tools: {
+            onChanged: (error, tools) => {
+              if (error === null && tools !== null) {
+                s.listSeq += 1;
+                this.#pin(s, tools);
+              } else void this.#refresh(s).catch(() => undefined);
+            },
           },
         },
       },
-    });
+    );
     if (elicit !== undefined) {
       client.setRequestHandler("elicitation/create", async (request) => {
         const p = request.params as Record<string, unknown>;
@@ -520,6 +517,8 @@ export class PsycheMcpHost implements McpHost {
   }
 
   async #connectStdio(s: ServerState, signal?: AbortSignal): Promise<Client> {
+    await loadMcpSdk();
+    const { getDefaultEnvironment, StdioClientTransport } = await loadMcpStdioSdk();
     const t = s.config.transport;
     if (t.kind !== "stdio") throw new PsycheError("internal", "not stdio");
     const launcher = this.#launcherFor(s.config.trust);
@@ -575,6 +574,7 @@ export class PsycheMcpHost implements McpHost {
   }
 
   async #connectHttp(s: ServerState, signal?: AbortSignal): Promise<Client> {
+    const { StreamableHTTPClientTransport, UnauthorizedError } = await loadMcpSdk();
     const t = s.config.transport;
     if (t.kind !== "http") throw new PsycheError("internal", "not http");
     const url = new URL(t.url);
@@ -867,7 +867,9 @@ function errorMessage(err: unknown): string {
 
 function toPsycheError(err: unknown): PsycheError {
   if (err instanceof PsycheError) return err;
-  if (err instanceof SdkError) {
+  const sdk = loadedMcpSdk();
+  if (sdk !== undefined && err instanceof sdk.SdkError) {
+    const SdkErrorCode = sdk.SdkErrorCode;
     if (err.code === SdkErrorCode.InputRequiredRoundsExceeded) {
       return new PsycheError("conflict", "server kept requesting input", { cause: err });
     }
@@ -877,7 +879,7 @@ function toPsycheError(err: unknown): PsycheError {
       return new PsycheError("unavailable", err.message, { cause: err, retryable: true });
     }
   }
-  if (err instanceof UnauthorizedError)
+  if (sdk !== undefined && err instanceof sdk.UnauthorizedError)
     return new PsycheError("unauthorized", err.message, { cause: err });
   if (err instanceof Error && err.name === "AbortError")
     return new PsycheError("cancelled", err.message);

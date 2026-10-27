@@ -1,10 +1,6 @@
 import type { Readable, Writable } from "node:stream";
-import {
-  type JSONRPCMessage,
-  ReadBuffer,
-  serializeMessage,
-  type Transport,
-} from "@modelcontextprotocol/client";
+import type { JSONRPCMessage, ReadBuffer, Transport } from "@modelcontextprotocol/client";
+import { loadMcpSdk } from "./sdk.ts";
 
 /**
  * MCP over a pair of byte pipes (newline-delimited JSON-RPC, as stdio), for servers whose
@@ -26,7 +22,7 @@ export class PipeTransport implements Transport {
   onerror?: (error: Error) => void;
   onmessage?: (message: JSONRPCMessage) => void;
   readonly #io: PipeProcess;
-  readonly #buffer = new ReadBuffer({ maxBufferSize: PIPE_MAX_MESSAGE_BYTES });
+  #buffer: ReadBuffer | undefined;
   #started = false;
   #closed = false;
 
@@ -37,9 +33,12 @@ export class PipeTransport implements Transport {
   async start(): Promise<void> {
     if (this.#started) throw new Error("PipeTransport already started");
     this.#started = true;
+    const { ReadBuffer } = await loadMcpSdk();
+    const buffer = new ReadBuffer({ maxBufferSize: PIPE_MAX_MESSAGE_BYTES });
+    this.#buffer = buffer;
     this.#io.stdout.on("data", (chunk: Buffer) => {
       try {
-        this.#buffer.append(chunk);
+        buffer.append(chunk);
       } catch (err) {
         this.onerror?.(err instanceof Error ? err : new Error(String(err)));
         void this.close();
@@ -48,7 +47,7 @@ export class PipeTransport implements Transport {
       for (;;) {
         let message: JSONRPCMessage | null;
         try {
-          message = this.#buffer.readMessage();
+          message = buffer.readMessage();
         } catch (err) {
           // A malformed line: report it and keep reading the next one.
           this.onerror?.(err instanceof Error ? err : new Error(String(err)));
@@ -68,6 +67,7 @@ export class PipeTransport implements Transport {
 
   async send(message: JSONRPCMessage): Promise<void> {
     if (this.#closed) throw new Error("PipeTransport is closed");
+    const { serializeMessage } = await loadMcpSdk();
     const data = serializeMessage(message);
     await new Promise<void>((resolve, reject) => {
       this.#io.stdin.write(data, (err) => (err ? reject(err) : resolve()));
@@ -84,7 +84,7 @@ export class PipeTransport implements Transport {
   #finish(): void {
     if (this.#closed) return;
     this.#closed = true;
-    this.#buffer.clear();
+    this.#buffer?.clear();
     this.onclose?.();
   }
 }
