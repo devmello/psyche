@@ -114,7 +114,7 @@ Technically yes.
 | Question | Finding |
 |---|---|
 | Node version | Electron 44.9.0 embeds **Node 24.22.0**, the same as the pinned runtime (`deploy/Dockerfile` pin). V8 differs (Electron 15.2). |
-| Type stripping, flags | `ELECTRON_RUN_AS_NODE=1 Electron --max-semi-space-size=4 --disable-warning=ExperimentalWarning apps/gateway/src/main.ts` boots the Gateway as is: `/healthz` ok, `process.versions` has `stripTypeScriptTypes`. No prebuilt JS needed. |
+| Type stripping, flags | `ELECTRON_RUN_AS_NODE=1 Electron --max-semi-space-size=4 --disable-warning=ExperimentalWarning apps/gateway/src/main.ts` boots the Gateway as is: `/healthz` ok, and `node:module` has `stripTypeScriptTypes`. No prebuilt JS needed. |
 | Native ABI | Electron's `NODE_MODULE_VERSION` is 149 (Node 24: 137), but the Gateway's three addons (better-sqlite3, the cipher fork, onnxruntime's binding) are all **N-API** (`nm -u`: 60–63 `napi_*` symbols, no V8 ones), so nothing is rebuilt. sqlite-vec is a plain dylib loaded by SQLite. The same smoke (both SQLite builds, sqlite-vec, SQLCipher, playwright-core, turndown) passes under Electron's Node. node-pty is desktop-only and already built for Electron by Forge. |
 | Idle memory | Gateway RSS after boot plus 4 s: 197 MB on Electron's Node, 205 MB on the bundled Node. No penalty. |
 | Survives ⌘Q | The agent is a separate launchd job, so quitting the UI does not touch it, as today. |
@@ -139,7 +139,7 @@ Other costs of the swap, none blocking on their own:
   window, not an error.
 - The CLI launcher (`psyche`) and the plist template `Program` would point into the app's main
   executable. An app update that replaces `Psyche.app` under a running agent is as it is today.
-- A launchd-started Electron logs `task_name_for_pid: (os/kern) failure (5)` once; harmless here.
+- Electron prints `task_name_for_pid: (os/kern) failure (5)` once at start in this mode (seen when run from a shell, not under launchd); the Gateway was unaffected.
 - The agent's identity to macOS becomes "Psyche" itself instead of an unnamed `node`, which changes
   what Login Items and TCC show for the Gateway.
 
@@ -162,11 +162,12 @@ playwright-core, pdfjs-dist, domino, turndown) produces **one 5.3 MB file** (10.
 (64.5 MiB, of which 20.8 MiB are the externals) and the workspace sources (`packages` 9.7 MiB,
 `apps/gateway` 1.3 MiB, apart from migrations, templates and skills).
 
-Tried: it starts and then stops at the first asset lookup (`scandir …/migrations/`), because 14 modules
-find their files next to their own source with `import.meta.url` (`apps/gateway/src/config.ts`,
-`compose/skills.ts`, `apps/cli/src/migrate.ts`, `packages/db/src/migrate.ts`, `connectors`,
-`memory` (two), `files`, `model-router/cli/bridge.ts`, `notifications`, `sandbox/image.ts`,
-`viewers` (two); `search/ort-runtime.ts` only resolves packages). Those need one "assets root"
+Tried: it starts and then stops at the first asset lookup (`scandir …/migrations/`), because 11 of the
+Gateway's modules find their files next to their own source with `import.meta.url`
+(`apps/gateway/src/config.ts`, `compose/skills.ts`, `apps/cli/src/migrate.ts`,
+`packages/db/src/migrate.ts`, `connectors/framework/sqlite-store.ts`, `files/extract/index.ts`,
+`memory/src/store.ts` and `vector.ts`, `model-router/src/cli/bridge.ts`,
+`notifications/src/sqlite-store.ts`, `sandbox/src/image.ts`). Those need one "assets root"
 helper that the bundle points at a copied `migrations/`, `templates/` and `skills/`, plus a smoke
 that starts the bundle. Savings: about 46 MiB (64.5 + 9.7 + 1.3 − 5.3 − assets) and a faster start.
 It is a refactor with a migration-path risk, so it is a proposal, not part of this PR.
