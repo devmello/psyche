@@ -50,6 +50,7 @@ import type { Call, HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 import { mountParamsOnly, surfaceOf } from "./handlers.ts";
 import { type ComposedMeetings, composeMeetings, graphPrepHooks } from "./meetings.ts";
+import { isOwnerQuietAt } from "./quiet-hours.ts";
 import {
   pausable,
   UPGRADE_CARD_SETTING,
@@ -264,6 +265,8 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           provider,
           model,
           ownerAddresses,
+          // The prep notice is held through quiet hours unless the meeting starts inside them.
+          isQuiet: (ms) => isOwnerQuietAt(db, ms),
           ...(proposals === undefined ? {} : { proposals }),
           saveToNotes: () => settings().prep.saveToNotes,
           // The previous occurrence's notes for the same series (§4.5 step 3).
