@@ -92,6 +92,35 @@ public enum MessagesCapabilities {
                 return CapabilityOutput(.null)
             },
             Capability(CapabilitySpec(
+                name: "messages.graph_chats",
+                description: "Metadata only, for the people graph: recent chats (newest activity first) as chatId, participant handles and isGroup. No names or text. Needs Full Disk Access.",
+                sideEffect: .read,
+                inputSchema: Schema.object(["limit": Schema.integer("Default 200, at most 200", min: 1, max: ChatDatabase.maxLimit)]),
+                receiptKind: "message_read"
+            )) { ctx in
+                let p = try ctx.decode(GraphMessages.ChatsParams.self)
+                let result = try await offMain { try open().graphChats(limit: p.limit ?? ChatDatabase.maxLimit) }
+                return CapabilityOutput(try JSONValue(encoding: result))
+            },
+            Capability(CapabilitySpec(
+                name: "messages.graph_read",
+                description: "Metadata only, for the people graph: messages as chatId, handle (inbound only), sentAt and direction, ascending: the newest `limit`, or a page after `sinceCursor`. "
+                    + "Bodies are not read unless includeText is true. Reactions are skipped. Needs Full Disk Access.",
+                sideEffect: .read,
+                inputSchema: Schema.object([
+                    "sinceCursor": cursor,
+                    "limit": Schema.integer("Default 200, at most 200", min: 1, max: ChatDatabase.maxLimit),
+                    "includeText": Schema.boolean("Also return message text (default false)"),
+                ]),
+                receiptKind: "message_read"
+            )) { ctx in
+                let p = try ctx.decode(GraphMessages.ReadParams.self)
+                let result = try await offMain {
+                    try open().graphRead(since: p.sinceCursor, limit: p.limit ?? ChatDatabase.maxLimit, includeText: p.includeText ?? false)
+                }
+                return CapabilityOutput(try JSONValue(encoding: result))
+            },
+            Capability(CapabilitySpec(
                 name: "messages.send",
                 description: "Send a text through Messages.app to a handle (`to`) or a chat (`chatId`). Destructive: needs an approval bound to the recipient and text.",
                 sideEffect: .destructive,
