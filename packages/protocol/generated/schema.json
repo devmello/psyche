@@ -1838,7 +1838,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Memory health for the Soul & Memory sheet: pause flag, index mode, counts, jobs.",
+        "description": "Memory health for the Soul & Memory sheet: pause flag, index mode, counts, jobs, recall mode.",
         "name": "memory.status",
         "params": "#/$defs/MemoryStatusParams",
         "result": "#/$defs/MemoryStatusResult",
@@ -22704,6 +22704,62 @@
       ],
       "type": "object"
     },
+    "MemoryRecallFallback": {
+      "enum": [
+        "model_missing",
+        "no_embedding_model",
+        "cloud_not_allowed",
+        "error"
+      ],
+      "type": "string"
+    },
+    "MemoryRecallMode": {
+      "enum": [
+        "markdown",
+        "embeddings"
+      ],
+      "type": "string"
+    },
+    "MemoryRecallState": {
+      "enum": [
+        "off",
+        "semantic",
+        "text_only"
+      ],
+      "type": "string"
+    },
+    "MemoryRecallStatus": {
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/MemoryRecallMode"
+        },
+        "state": {
+          "$ref": "#/$defs/MemoryRecallState"
+        },
+        "fallback": {
+          "$ref": "#/$defs/MemoryRecallFallback"
+        },
+        "model": {
+          "description": "Vector space, e.g. builtin/multilingual-e5-small",
+          "type": "string"
+        },
+        "vectors": {
+          "description": "Memory chunks embedded",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "chunks": {
+          "description": "Memory chunks indexed",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "mode",
+        "state"
+      ],
+      "type": "object"
+    },
     "MemoryRememberParams": {
       "properties": {
         "text": {
@@ -22850,6 +22906,9 @@
             "$ref": "#/$defs/MemoryJob"
           },
           "type": "array"
+        },
+        "recall": {
+          "$ref": "#/$defs/MemoryRecallStatus"
         }
       },
       "required": [

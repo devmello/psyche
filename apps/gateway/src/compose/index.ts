@@ -64,6 +64,7 @@ import {
   type EventName,
   type EventPayload,
   type IssuedApproval,
+  MEMORY_RECALL_MODE_SETTING,
   type ModelProvider,
   type ModelRef,
   type PermissionBroker,
@@ -112,6 +113,11 @@ import {
 import { composeHarnesses } from "./harnesses.ts";
 import { insightsHandlers } from "./insights.ts";
 import { libraryHandlers } from "./library.ts";
+import {
+  createMemoryRecall,
+  defaultLocalLoader,
+  type LocalEmbedderLoader,
+} from "./memory-recall.ts";
 import {
   clearModelKey,
   type HostedModelKind,
@@ -245,6 +251,8 @@ export interface ComposeOptions
   vault?: VaultSetup;
   /** Semantic search engines (S3; tests pass fakes so no model downloads or runs). */
   semanticEngines?: SemanticEngines;
+  /** Memory recall's on-device model when it is already on disk (tests pass a fake). */
+  memoryRecallLocal?: LocalEmbedderLoader;
   /** Built-in `web.search` / `web.fetch` network seams (#557; tests replay fixtures). */
   web?: WebToolsSetup;
 }
@@ -842,6 +850,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
   // Learning about the owner (#509): facts from the owner's own words into USER.md's Learned
   // section. It runs on the utility model, so only when one is configured (the router always has one).
+  // Memory recall (`memory.recall.mode`): embeddings over the Markdown memory, sharing Search's
+  // embedder; Search is composed later, hence the late binding.
+  let searchRef: ComposedSearch | undefined;
+  const memoryRecall = createMemoryRecall({
+    db,
+    memory,
+    searchEmbedder: () => searchRef?.embedder(),
+    router: (allowCloud) => routerEmbedder(router, allowCloud),
+    local: gwOptions.memoryRecallLocal ?? defaultLocalLoader(config.home),
+  });
   const userProfile = createUserProfile({
     db,
     home: config.home,
@@ -933,6 +951,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     contextProviders: [
       otherChats.provider,
       ...(people === undefined ? [] : [people.recall]),
+      memoryRecall.recall,
       artifactContextProvider(db),
     ],
     contextLimits: context.contextLimits,
@@ -1185,11 +1204,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       ? {}
       : { semanticEngines: gwOptions.semanticEngines }),
     now: () => clock.now(),
+    onSemanticChange: () => void memoryRecall.apply(),
     // Tests reconcile the Library by hand.
     ...(background ? {} : { librarySyncMs: 0 }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
   parts.push(search);
+  searchRef = search;
+  void memoryRecall.apply();
   parts.push(people.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone));
   // Code plugins (T4): off until the owner turns on `plugins.enabled`.
   parts.push(
@@ -1208,6 +1230,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const handlers: Record<string, HandlerDef> = {
     ...mountPermissions(db, createPermissionHandlers(rawBroker, audit), tokens),
     ...mountParamsOnly(createMemoryHandlers(memory, { teaching: teaching.service.store }) as never),
+    // memory.status also says how recall works (`memory.recall.mode`).
+    "memory.status": {
+      run: async () => ({ ...(await memory.status()), recall: memoryRecall.status() }),
+    },
     ...mountParamsOnly(userProfile.handlers as never),
     ...teaching.handlers,
     ...mountParamsOnly(
@@ -1326,6 +1352,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     if (f.event !== "settings.changed") return;
     for (const entry of f.payload?.entries ?? []) {
       if (entry.key === CROSS_THREAD_SETTING) crossThread.sync(entry.value);
+      if (entry.key === MEMORY_RECALL_MODE_SETTING) void memoryRecall.apply();
       if (entry.key === WEB_SEARCH_PROVIDER_SETTING || entry.key === WEB_SEARCH_SEARXNG_SETTING)
         webTools.refresh();
       if (entry.key !== "permissions.policy") continue;

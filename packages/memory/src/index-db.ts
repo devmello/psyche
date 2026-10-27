@@ -87,8 +87,8 @@ function likePrefix(prefix: string): string {
 export class MemoryIndex {
   readonly #db: Database.Database;
   readonly #now: () => string;
-  readonly #vector: VectorIndex;
-  readonly #embedder: Embedder | undefined;
+  #vector: VectorIndex;
+  #embedder: Embedder | undefined;
 
   constructor(options: {
     sqlite: Database.Database;
@@ -104,6 +104,39 @@ export class MemoryIndex {
 
   get vectorMode(): "sqlite-vec" | "brute-force" | "off" {
     return this.#embedder === undefined ? "off" : this.#vector.mode;
+  }
+
+  /**
+   * Turns vector search on (or switches model: chunks of another model are re-embedded by the
+   * next `embedPending`), or off with `undefined`. `vector` replaces the KNN index (sqlite-vec
+   * is loaded only once an embedder is set).
+   */
+  setEmbedder(embedder: Embedder | undefined, vector?: VectorIndex): void {
+    if (vector !== undefined) this.#vector = vector;
+    this.#embedder = embedder;
+  }
+
+  /** Drops every stored vector (embeddings turned off). */
+  dropEmbeddings(): void {
+    this.#db.exec("UPDATE memory_chunks SET embedding = NULL, embedding_model = NULL");
+    this.#vector.clear();
+  }
+
+  /** Chunks, and chunks embedded by the current model. */
+  embeddingCounts(): { chunks: number; vectors: number } {
+    const chunks = (
+      this.#db.prepare("SELECT COUNT(*) AS n FROM memory_chunks").get() as { n: number }
+    ).n;
+    const model = this.#embedder?.model;
+    const vectors =
+      model === undefined
+        ? 0
+        : (
+            this.#db
+              .prepare("SELECT COUNT(*) AS n FROM memory_chunks WHERE embedding_model = ?")
+              .get(model) as { n: number }
+          ).n;
+    return { chunks, vectors };
   }
 
   // --- files ------------------------------------------------------------------------------------

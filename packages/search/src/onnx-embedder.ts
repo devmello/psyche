@@ -108,7 +108,9 @@ type OrtModule = typeof import("onnxruntime-node");
 type Session = Awaited<ReturnType<OrtModule["InferenceSession"]["create"]>>;
 
 /** Loads the model and tokenizer; throws when the runtime cannot load on this machine. */
-export async function createOnnxEmbedder(options: OnnxEmbedderOptions): Promise<SearchEmbedder> {
+export async function createOnnxEmbedder(
+  options: OnnxEmbedderOptions,
+): Promise<SearchEmbedder & { release(): Promise<void> }> {
   const { spec } = options;
   const ort: OrtModule = await import("onnxruntime-node");
   const { Tokenizer } = await import("@huggingface/tokenizers");
@@ -158,6 +160,8 @@ export async function createOnnxEmbedder(options: OnnxEmbedderOptions): Promise<
   return {
     model: `builtin/${spec.id}`,
     floor: spec.floor,
+    /** Frees the ONNX session (used by `lazyEmbedder` when idle). */
+    release: () => session.release(),
     async embed(texts, purpose, signal) {
       const prefix = purpose === "query" ? spec.queryPrefix : spec.documentPrefix;
       const out: Float32Array[] = [];

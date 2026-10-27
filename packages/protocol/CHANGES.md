@@ -18,6 +18,9 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-27 (memory recall mode)
+
+- New setting key `memory.recall.mode` (`markdown` default | `embeddings`; exported as `MEMORY_RECALL_MODE_SETTING`, `MemoryRecallMode`). `memory.status` result gains optional `recall: MemoryRecallStatus` (`mode`, `state` off | semantic | text_only, `fallback` model_missing | no_embedding_model | cloud_not_allowed | error, `model`, `vectors`, `chunks`). New schemas `MemoryRecallStatus`, `MemoryRecallMode`, `MemoryRecallState`, `MemoryRecallFallback`; Swift gains the types and the optional field.
 ### v1 additive — 2026-10-26 (folder access requested from chat)
 
 For the `request_folder_access` agent tool (Gateway `compose/folder-access.ts`), S05 (`folder_access` kind, scopes and taint) and the chat approval card.

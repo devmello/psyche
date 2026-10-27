@@ -1,4 +1,4 @@
-import type { MethodResult } from "@psyche/protocol";
+import type { MemoryRecallStatus, MethodResult } from "@psyche/protocol";
 import { Download, Trash2 } from "lucide-react";
 import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
@@ -35,6 +35,8 @@ export interface DataControlsPanelProps extends SettingsFormProps, LoadProps {
   persona: string;
   memoryPaused: boolean;
   onPauseMemory?: (paused: boolean) => void;
+  /** How memory recall works now (`memory.status.recall`), under "How memory is recalled". */
+  recall?: MemoryRecallStatus;
   archivedThreads: number;
   onExport?: () => void;
   onDeleteArchived?: () => void;
@@ -48,6 +50,24 @@ export interface DataControlsPanelProps extends SettingsFormProps, LoadProps {
   learning?: ReactNode;
 }
 
+/** One line saying how memory recall works now. */
+export function recallStatusText(r: MemoryRecallStatus): string {
+  if (r.state === "semantic")
+    return t("settings.data.recallState.semantic", {
+      vectors: r.vectors ?? 0,
+      chunks: Math.max(r.chunks ?? 0, r.vectors ?? 0),
+    });
+  if (r.state === "text_only")
+    return t(
+      r.fallback === "model_missing"
+        ? "settings.data.recallState.modelMissing"
+        : r.fallback === "cloud_not_allowed"
+          ? "settings.data.recallState.cloudBlocked"
+          : "settings.data.recallState.textOnly",
+    );
+  return t("settings.data.recallState.off");
+}
+
 export function DataControlsPanel({
   values,
   onChange,
@@ -55,6 +75,7 @@ export function DataControlsPanel({
   persona,
   memoryPaused,
   onPauseMemory,
+  recall,
   archivedThreads,
   onExport,
   onDeleteArchived,
@@ -114,6 +135,30 @@ export function DataControlsPanel({
             settingKey="data.transcriptRecall"
             onChange={(v) => onChange("data.transcriptRecall", v)}
           />
+          <RadioField<"markdown" | "embeddings">
+            label={t("settings.key.memory.recall.mode")}
+            description={t("settings.data.recallModeHint")}
+            value={values["memory.recall.mode"] === "embeddings" ? "embeddings" : "markdown"}
+            settingKey="memory.recall.mode"
+            onChange={(v) => onChange("memory.recall.mode", v)}
+            options={[
+              {
+                value: "markdown",
+                label: t("settings.data.recallMode.markdown"),
+                hint: t("settings.data.recallMode.markdownHint"),
+              },
+              {
+                value: "embeddings",
+                label: t("settings.data.recallMode.embeddings"),
+                hint: t("settings.data.recallMode.embeddingsHint"),
+              },
+            ]}
+          />
+          {recall !== undefined && recall.mode === "embeddings" ? (
+            <p role="status" className="text-sm text-gray-11">
+              {recallStatusText(recall)}
+            </p>
+          ) : null}
           <RadioField
             label={t("settings.key.data.reasoningRetentionDays")}
             description={t("settings.data.reasoningRetentionHint")}
@@ -298,6 +343,7 @@ export function DataControlsSection({ onExportReady }: DataControlsSectionProps)
       onChange={form.onChange}
       needsApproval={form.needsApproval}
       memoryPaused={status.data?.paused ?? false}
+      {...(status.data?.recall === undefined ? {} : { recall: status.data.recall })}
       archivedThreads={archived.length}
       busy={busy}
       notice={notice ?? (form.writeError ? { kind: "error", text: form.writeError } : null)}

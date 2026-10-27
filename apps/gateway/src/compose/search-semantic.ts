@@ -147,11 +147,22 @@ export class SemanticController {
   #status: SearchSemanticStatus = { enabled: false, engine: "builtin", state: "off" };
   #abort: AbortController | null = null;
   #applying: Promise<void> = Promise.resolve();
+  #embedder: SearchEmbedder | undefined;
 
   constructor(semantic: SemanticIndex, engines: SemanticEngines, onChange: () => void) {
     this.#semantic = semantic;
     this.#engines = engines;
     this.#onChange = onChange;
+  }
+
+  /** The embedder semantic search uses now (memory recall shares it rather than loading another). */
+  embedder(): SearchEmbedder | undefined {
+    return this.#embedder;
+  }
+
+  #use(embedder: SearchEmbedder | undefined): void {
+    this.#embedder = embedder;
+    this.#semantic.setEmbedder(embedder);
   }
 
   status(): SearchSemanticStatus {
@@ -204,7 +215,7 @@ export class SemanticController {
     if (signal.aborted) return;
     const base = { enabled: config.enabled, engine: config.engine };
     if (!config.enabled) {
-      this.#semantic.setEmbedder(undefined);
+      this.#use(undefined);
       this.#semantic.clear();
       this.#set({ ...base, state: "off" });
       return;
@@ -212,11 +223,11 @@ export class SemanticController {
     if (config.engine === "router") {
       const r = this.#engines.router(config.allowCloud);
       if ("blocked" in r) {
-        this.#semantic.setEmbedder(undefined);
+        this.#use(undefined);
         this.#set({ ...base, state: "blocked", blocked: r.blocked });
         return;
       }
-      this.#semantic.setEmbedder(r.embedder);
+      this.#use(r.embedder);
       this.#set({
         ...base,
         state: "indexing",
@@ -244,7 +255,7 @@ export class SemanticController {
         signal,
       );
       if (signal.aborted) return;
-      this.#semantic.setEmbedder(embedder);
+      this.#use(embedder);
       this.#set({ ...base, state: "indexing", model: embedder.model, dims: spec.dims });
     } catch (err) {
       if (signal.aborted) return;
