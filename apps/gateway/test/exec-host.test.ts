@@ -129,7 +129,7 @@ const execHost = () =>
     broker: recording(),
     vault: { redact: (t) => t.replaceAll("s3cret", "[masked]") },
     folders: (threadId) => [...(broker.policy.folders ?? []), ...broker.sessionFolders(threadId)],
-    srt: { resolve: () => srt },
+    srt: { resolve: async () => srt },
     home: psycheHome,
     userHome: home,
     driver,

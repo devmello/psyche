@@ -1,11 +1,14 @@
 import type { ApprovalRequest } from "@psyche/protocol";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ApprovalCard } from "../src/blocks/ApprovalCard.tsx";
+import { PermissionActionsProvider } from "../src/blocks/permission-actions.tsx";
+import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { createFixtureWorld, FIXTURE_NOW } from "../src/fixtures/index.ts";
 import { FileAccessPanel } from "../src/screens/settings/FileAccessSection.tsx";
 import { type UiSlots, UiSlotsProvider } from "../src/slots.tsx";
+import { StoryWorld } from "../src/stories/harness.tsx";
 
 /**
  * The `exec_host` card (security §5.4) and the `permission_request` card (§3.13): the exact
@@ -120,6 +123,53 @@ describe("exec_host card", () => {
     await userEvent.clear(screen.getByRole("textbox", { name: /Type UNSANDBOXED/ }));
     await userEvent.type(screen.getByRole("textbox", { name: /Type UNSANDBOXED/ }), "UNSANDBOXED");
     expect(allow().hasAttribute("disabled")).toBe(false);
+  });
+});
+
+describe("Set up sandbox from the exec_host card (#966)", () => {
+  const srt = (available: boolean): MockGateway["sandboxSetup"]["srt"] => ({
+    available,
+    path: available ? "/opt/homebrew/bin/srt" : null,
+    source: available ? "detected" : null,
+    version: available ? "1.0.0" : null,
+    problem: available ? null : "not_found",
+  });
+
+  it("opens the sandbox setup dialog; once srt is ready, Allow no longer needs the word", async () => {
+    let gw: MockGateway | null = null;
+    const onAnswer = vi.fn();
+    render(
+      <StoryWorld
+        onGateway={(g) => {
+          gw = g;
+          g.sandboxSetup = { ...g.sandboxSetup, ready: false, srt: srt(false) };
+        }}
+      >
+        <PermissionActionsProvider>
+          <ApprovalCard
+            approval={execHost("missing")}
+            canAnswer
+            now={NOW}
+            armDelayMs={0}
+            onAnswer={onAnswer}
+          />
+        </PermissionActionsProvider>
+      </StoryWorld>,
+    );
+    await userEvent.click(screen.getByRole("radio", { name: "Allow once" }));
+    expect(allow().hasAttribute("disabled")).toBe(true);
+    await userEvent.click(screen.getByRole("button", { name: "Set up sandbox" }));
+    const dialog = await screen.findByRole("dialog", { name: "Set up the sandbox" });
+    expect(await within(dialog).findByText("Install srt")).toBeTruthy();
+    const g = gw as MockGateway | null;
+    if (g === null) throw new Error("gateway not ready");
+    g.sandboxSetup = { ...g.sandboxSetup, ready: true, srt: srt(true) };
+    await userEvent.click(within(dialog).getByRole("button", { name: "Check again" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(allow().hasAttribute("disabled")).toBe(false));
+    expect(screen.getByText(/Runs in the sandbox/)).toBeTruthy();
+    await userEvent.click(allow());
+    await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("approve", "once", undefined));
   });
 });
 

@@ -1,13 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import {
-  accessSync,
-  constants,
-  existsSync,
-  readFileSync,
-  realpathSync,
-  type Stats,
-  statSync,
-} from "node:fs";
+import { accessSync, constants, readFileSync, realpathSync, type Stats, statSync } from "node:fs";
 import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import { homedir, userInfo } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
@@ -22,6 +14,7 @@ import {
 } from "@psyche/protocol";
 import { type CliDriver, type CliResult, nodeCliDriver } from "@psyche/sandbox";
 import { Type } from "@sinclair/typebox";
+import type { SrtResolver } from "./srt.ts";
 
 /**
  * `exec_host`, "Run commands on this Mac" (security §5.4): one argv on the owner's own Mac, in a
@@ -53,20 +46,15 @@ export const SAFE_PATH = [
 const RESERVED_ENV =
   /^(PATH|HOME|TMPDIR|SHELL|USER|LOGNAME|DYLD_.*|LD_.*|NODE_OPTIONS|BASH_ENV|ENV|PYTHONSTARTUP|PSYCHE_.*)$/;
 
-/**
- * Where srt is, or why it is not. The sandbox setup's resolver (`compose/srt.ts`, #966) has this
- * shape and answers asynchronously; the local default answers at once.
- */
+/** Where srt is, or why it is not: the Gateway's one resolver (`compose/srt.ts`). */
 export type SrtStatus = { path: string } | { missing: true; reason: string };
-export interface SrtResolver {
-  resolve(): SrtStatus | Promise<SrtStatus>;
-}
+export type SrtLookup = Pick<SrtResolver, "resolve">;
 
 /**
  * The last answer, for the card (`describeCall` is synchronous), refreshed on every look; a run
  * always waits for a fresh one.
  */
-export function cachedSrt(resolver: SrtResolver): {
+export function cachedSrt(resolver: SrtLookup): {
   known(): SrtStatus;
   fresh(): Promise<SrtStatus>;
 } {
@@ -85,35 +73,12 @@ export function cachedSrt(resolver: SrtResolver): {
   };
 }
 
-/** `PSYCHE_SRT_PATH`, else the usual install locations. */
-export function defaultSrtResolver(env: NodeJS.ProcessEnv = process.env): SrtResolver {
-  return {
-    resolve() {
-      const explicit = env.PSYCHE_SRT_PATH;
-      const candidates =
-        explicit !== undefined && explicit !== ""
-          ? [explicit]
-          : ["/opt/homebrew/bin/srt", "/usr/local/bin/srt", join(homedir(), ".local/bin/srt")];
-      for (const c of candidates) {
-        if (isAbsolute(c) && existsSync(c)) return { path: c };
-      }
-      return {
-        missing: true,
-        reason:
-          explicit !== undefined && explicit !== ""
-            ? `PSYCHE_SRT_PATH (${explicit}) does not exist`
-            : "srt is not installed",
-      };
-    },
-  };
-}
-
 export interface ExecHostDeps {
   broker: Pick<PermissionBroker, "get">;
   vault: { redact(text: string): string };
   /** The live granted folders for a conversation (Settings plus this chat's Allow once). */
   folders(threadId: string): readonly FolderGrantEntry[];
-  srt: SrtResolver;
+  srt: SrtLookup;
   /** `$PSYCHE_HOME`: denied to the command; its settings and scratch live under it. */
   home: string;
   driver?: CliDriver;

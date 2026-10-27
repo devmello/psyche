@@ -102,12 +102,7 @@ import { CONNECTOR_MATRIX_PREFIX } from "./connector-matrix.ts";
 import { createContext } from "./context.ts";
 import { composeConversion } from "./convert.ts";
 import { composeDictation } from "./dictation.ts";
-import {
-  defaultSrtResolver,
-  type ExecHostDeps,
-  execHostTool,
-  type SrtResolver,
-} from "./exec-host.ts";
+import { type ExecHostDeps, execHostTool } from "./exec-host.ts";
 import { feedContextResolver } from "./feed-context.ts";
 import { filesHandlers } from "./files.ts";
 import { withFolder } from "./folder-access.ts";
@@ -175,6 +170,7 @@ import {
   type SpeechSetup,
   speechSetupFromEnv,
 } from "./speech.ts";
+import { createSrtResolver, type SrtResolver } from "./srt.ts";
 import { taskUpdateHandlers } from "./task-controls.ts";
 import {
   type ComposedTeaching,
@@ -705,7 +701,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     rawBroker.setPolicy(hostPolicy(next));
     publish("settings.changed", { entries: [entry] });
   };
-  const srt: SrtResolver = execHostSetup.srt ?? defaultSrtResolver(gwOptions.env ?? process.env);
+  // The Gateway's one srt lookup (`PSYCHE_SRT_PATH`, `exec.srtPath`, then found on this Mac):
+  // host commands and every part that runs under srt share it (`services.srt`).
+  const srt: SrtResolver = createSrtResolver({ db }, gwOptions.env ?? process.env);
+  const execHostSrt = execHostSetup.srt ?? srt;
   registry.register(
     requestPermissionTool({
       broker: executorBroker,
@@ -739,7 +738,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         const record = await connectorsPart?.registry.get(connector).catch(() => undefined);
         return record?.status === "connected";
       },
-      sandboxReady: async () => "path" in (await srt.resolve()),
+      sandboxReady: async () => "path" in (await execHostSrt.resolve()),
     }),
   );
   // "Run commands on this Mac" (security §5.4): registered always, so a call while it is off is
@@ -752,7 +751,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         ...(rawBroker.policy.folders ?? []),
         ...rawBroker.sessionFolders(threadId),
       ],
-      srt,
+      srt: execHostSrt,
       home: config.home,
       ...(execHostSetup.driver === undefined ? {} : { driver: execHostSetup.driver }),
       ...(execHostSetup.userHome === undefined ? {} : { userHome: execHostSetup.userHome }),
@@ -783,6 +782,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   ownPorts.add(config.port, "gateway (configured)");
   const services: ComposeServices = {
     db,
+    srt,
     clock,
     home: config.home,
     approvalTokens: tokens,

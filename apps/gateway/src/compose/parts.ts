@@ -74,7 +74,8 @@ export function partsFromEnv(
   // One `srt` lookup for every part that runs host commands under it (MCP, sandbox status).
   let srt: SrtResolver | undefined;
   const srtFor = (s: ComposeServices) => {
-    srt ??= createSrtResolver(s, env);
+    // The Gateway composes one (`services.srt`); a part list built without it makes its own.
+    srt ??= s.srt ?? createSrtResolver(s, env);
     return srt;
   };
   if (env.PSYCHE_BROWSER !== "off") {

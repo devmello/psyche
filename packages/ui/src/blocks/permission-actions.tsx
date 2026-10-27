@@ -1,19 +1,19 @@
 import type { MissingPermission } from "@psyche/protocol";
-import { type ReactElement, type ReactNode, useCallback, useMemo } from "react";
+import { type ReactElement, type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 import { useCall } from "../data/index.ts";
+import { SandboxSetupDialog } from "../screens/settings/SandboxNotice.tsx";
 import { UiSlotsProvider, useSlots } from "../slots.tsx";
 
 /**
  * The fix-it buttons of `permission_request` cards (security §3.13), built on the Gateway calls
- * Settings → Connectors already uses: Connectors and the sandbox setup open in Settings, and
- * macOS access goes through the connector's own grant flow (`connectors.connect` with
- * `permissionAction`), where the Mac helper opens the right System Settings pane and re-checks.
- * A host's own `permissionAction` slot wins.
+ * Settings already uses: Connectors opens in Settings, the sandbox setup is its walkthrough
+ * dialog (`SandboxSetupDialog`, #966), and macOS access goes through the connector's own grant
+ * flow (`connectors.connect` with `permissionAction`), where the Mac helper opens the right
+ * System Settings pane and re-checks. A host's own `permissionAction` slot wins.
  */
-export function usePermissionAction(): (
-  need: MissingPermission,
-  action: "open" | "check",
-) => Promise<void> {
+export function usePermissionAction(
+  openSandboxSetup?: () => Promise<boolean>,
+): (need: MissingPermission, action: "open" | "check") => Promise<boolean | undefined> {
   const call = useCall();
   const { navigate } = useSlots();
   return useCallback(
@@ -38,17 +38,50 @@ export function usePermissionAction(): (
         return;
       }
       if (action === "check") return;
-      // Connecting and the sandbox setup both live in Settings → Connectors (#966).
+      if (need.need === "sandbox" && openSandboxSetup !== undefined) return openSandboxSetup();
       navigate?.("/settings/connectors");
     },
-    [call, navigate],
+    [call, navigate, openSandboxSetup],
   );
 }
 
-/** Supplies `permissionAction` to the approval cards inside, unless the host already does. */
+/**
+ * Supplies `permissionAction` to the approval cards inside, unless the host already does, and
+ * hosts the sandbox setup dialog the exec_host and sandbox cards open.
+ */
 export function PermissionActionsProvider({ children }: { children?: ReactNode }): ReactElement {
   const host = useSlots().permissionAction;
-  const built = usePermissionAction();
+  const [sandboxOpen, setSandboxOpen] = useState(false);
+  // Settles when the dialog closes: true when srt became ready in it.
+  const settle = useRef<((ready: boolean) => void) | undefined>(undefined);
+  const openSandboxSetup = useCallback(
+    () =>
+      new Promise<boolean>((resolve) => {
+        settle.current?.(false);
+        settle.current = resolve;
+        setSandboxOpen(true);
+      }),
+    [],
+  );
+  const close = (ready: boolean) => {
+    settle.current?.(ready);
+    settle.current = undefined;
+  };
+  const built = usePermissionAction(openSandboxSetup);
   const value = useMemo(() => ({ permissionAction: host ?? built }), [host, built]);
-  return <UiSlotsProvider value={value}>{children}</UiSlotsProvider>;
+  return (
+    <UiSlotsProvider value={value}>
+      {children}
+      {host === undefined ? (
+        <SandboxSetupDialog
+          open={sandboxOpen}
+          onOpenChange={(open) => {
+            setSandboxOpen(open);
+            if (!open) close(false);
+          }}
+          onReady={() => close(true)}
+        />
+      ) : null}
+    </UiSlotsProvider>
+  );
 }

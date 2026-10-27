@@ -179,7 +179,9 @@ export function ApprovalCard({
   const isExecHost = raw.kind === "exec_host";
   const unsandboxedWord =
     typeof rawDetails.unsandboxedWord === "string" ? rawDetails.unsandboxedWord : "UNSANDBOXED";
-  const sandboxReady = rawDetails.sandbox === "srt";
+  // Set up from this card's "Set up sandbox": the run re-resolves srt, so the card follows.
+  const [sandboxSetUp, setSandboxSetUp] = useState(false);
+  const sandboxReady = rawDetails.sandbox === "srt" || sandboxSetUp;
   const [typed, setTyped] = useState("");
   const unsandboxed = isExecHost && typed === unsandboxedWord;
   // permission_request (§3.13): Enable turns a setting on; the rest are fixed elsewhere, then checked.
@@ -566,7 +568,15 @@ export function ApprovalCard({
                 variant="outline"
                 size="sm"
                 disabled={busy}
-                onClick={() => void permissionAction({ need: "sandbox" }, "open")}
+                onClick={() => {
+                  setError(null);
+                  Promise.resolve(permissionAction({ need: "sandbox" }, "open")).then(
+                    (ready) => {
+                      if (ready === true) setSandboxSetUp(true);
+                    },
+                    (err: unknown) => setError(describeError(err)),
+                  );
+                }}
               >
                 {t("blocks.execHost.setUp")}
               </Button>

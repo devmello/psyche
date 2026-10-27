@@ -69,9 +69,13 @@ export interface UiSlots {
   /**
    * A permission card's fix-it button (security §3.13): `open` goes where the owner fixes it
    * (Connectors, the macOS System Settings pane, the sandbox setup), `check` re-reads macOS
-   * access before the card's Check again. The chat's approval dock supplies it.
+   * access before the card's Check again. The chat's approval dock supplies it. `true` means the
+   * owner finished fixing it there (the sandbox setup reported srt ready).
    */
-  permissionAction?: (need: MissingPermission, action: "open" | "check") => Promise<void> | void;
+  permissionAction?: (
+    need: MissingPermission,
+    action: "open" | "check",
+  ) => Promise<boolean | undefined> | boolean | undefined;
   /** The host's native folder picker; resolves to the real path, or null when cancelled. */
   pickFolder?: (opts?: { title?: string }) => Promise<string | null>;
   /** Persona shown in agent messages and cards. */
