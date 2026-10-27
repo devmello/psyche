@@ -1,4 +1,4 @@
-import type { ActionProposal, ApprovalRequest } from "@psyche/protocol";
+import type { ActionProposal, ApprovalRequest, GrantScope } from "@psyche/protocol";
 import { ChevronDown, LoaderCircle, Undo2 } from "lucide-react";
 import { type ReactElement, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -30,8 +30,11 @@ export interface BatchCardProps {
   approval: ApprovalRequest | null;
   /** This surface holds the approval's answer token. */
   canAnswer: boolean;
-  /** Answers the approval: once only, never "always" (§7.2). */
-  onAnswer?: (decision: "approve" | "deny") => unknown;
+  /**
+   * Answers the approval: once, or the one scope the batch offers ("always", only for prep notes,
+   * security §3.4).
+   */
+  onAnswer?: (decision: "approve" | "deny", scope?: GrantScope) => unknown;
   onUndo?: () => void;
   /** Re-runs the calls that failed (absent until the Gateway offers it). */
   onRetryFailed?: () => void;
@@ -84,9 +87,9 @@ export function BatchCard({
     }
     return (
       <ApprovalCard
-        approval={{ ...approval, scopesOffered: ["once"] }}
+        approval={approval}
         canAnswer={canAnswer}
-        {...(onAnswer ? { onAnswer: (decision) => onAnswer(decision) } : {})}
+        {...(onAnswer ? { onAnswer } : {})}
         armDelayMs={armDelayMs}
         {...(fixedNow === undefined ? {} : { now: fixedNow })}
         detailsClassName="max-h-56 overflow-y-auto"
@@ -241,7 +244,9 @@ export function ProposalBatchCard({
       proposal={proposal}
       approval={answer.approval}
       canAnswer={answer.canAnswer}
-      onAnswer={(decision) => answer.answer(decision, decision === "approve" ? "once" : undefined)}
+      onAnswer={(decision, scope) =>
+        answer.answer(decision, decision === "approve" ? (scope ?? "once") : undefined)
+      }
       onUndo={() => {
         undo()
           .then((inverse) => setShownId(inverse.id))

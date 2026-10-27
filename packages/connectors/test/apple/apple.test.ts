@@ -1007,6 +1007,23 @@ describe("Apple Notes wave 1 (#639)", () => {
     ]);
   });
 
+  it("notes_create keys a Prep: title as its own grant class and no other title (security §3.5)", () => {
+    const created = notesTool("notes_create");
+    const key = (title: unknown) => created?.describeCall?.({ title, body: "b" })?.grantKey;
+    const base = "connector_action:apple-1:notes_create";
+    expect(key("Prep: Weekly sync 2026-10-27")).toBe(`${base}:title-prefix:Prep:`);
+    // NFC: a decomposed string still starts with the prefix.
+    expect(key("Prep: Café")).toBe(`${base}:title-prefix:Prep:`);
+    for (const title of ["Shopping list", "prep: lower", " Prep: spaced", "Preparing", "", 7]) {
+      expect(key(title)).toBe(base);
+    }
+    // Only notes_create has the class; an edit titled Prep: does not.
+    expect(
+      notesTool("notes_update")?.describeCall?.({ id: "n1", title: "Prep: x", body: "b" })
+        ?.grantKey,
+    ).not.toContain("title-prefix");
+  });
+
   it("notes_create can ask for Markdown", () => {
     const created = notesTool("notes_create");
     if (!created) throw new Error("notes_create is missing");

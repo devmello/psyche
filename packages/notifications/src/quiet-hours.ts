@@ -1,4 +1,9 @@
-import { type NotificationKind, PsycheError } from "@psyche/protocol";
+import {
+  NOTIFICATION_SETTING_DEFAULTS,
+  type NotificationKind,
+  type NotificationSettingKey,
+  PsycheError,
+} from "@psyche/protocol";
 
 const MINUTE = 60_000;
 const DAY_MINUTES = 24 * 60;
@@ -116,4 +121,30 @@ export function quietEndsAt(cfg: QuietHoursConfig, ms: number): number | undefin
 
 export function breaksThrough(cfg: QuietHoursConfig, kind: NotificationKind): boolean {
   return (cfg.breakthrough ?? DEFAULT_BREAKTHROUGH).includes(kind);
+}
+
+const HM = /^([01]?\d|2[0-3]):[0-5]\d$/;
+
+/**
+ * The owner's quiet hours (Settings → Notifications) as a `QuietHoursConfig`, or `null` while
+ * they are off (the default). `read` returns a setting's stored value (`undefined` when unset);
+ * a time that is not a valid `HH:MM` falls back to the default so a bad value never takes the
+ * window down. The zone is the caller's (the system zone); `breakthrough` keeps its default.
+ */
+export function quietHoursFromSettings(
+  read: (key: NotificationSettingKey) => unknown,
+  timezone: string,
+): QuietHoursConfig | null {
+  if (read("notifications.quietHours.enabled") !== true) return null;
+  const time = (key: "notifications.quietHours.start" | "notifications.quietHours.end") => {
+    const v = read(key);
+    return typeof v === "string" && HM.test(v.trim())
+      ? v.trim().padStart(5, "0")
+      : NOTIFICATION_SETTING_DEFAULTS[key];
+  };
+  return {
+    start: time("notifications.quietHours.start"),
+    end: time("notifications.quietHours.end"),
+    timezone,
+  };
 }

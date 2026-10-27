@@ -17,6 +17,7 @@ import {
   digestSchedule,
   FeedService,
   type FeedSource,
+  FocusTimeService,
   GoalsService,
   gmailSource,
   HEARTBEAT_TASK_BUDGET,
@@ -54,6 +55,7 @@ import type { Logger } from "../log.ts";
 import { mountParamsOnly, surfaceOf } from "./handlers.ts";
 import { type ComposedMeetings, composeMeetings, graphPrepHooks } from "./meetings.ts";
 import { recordingsFolderIo } from "./notes-folder.ts";
+import { isOwnerQuietAt } from "./quiet-hours.ts";
 import {
   notesRefusal,
   pausable,
@@ -159,6 +161,8 @@ export interface ComposedProactive {
   readonly drafts: DraftService | undefined;
   /** Scheduling over email: free slots, a reply draft and optional holds (§4.4). */
   readonly scheduling: SchedulingService | undefined;
+  /** Focus time (§4.4): one proposed deep-work block a week, off until `mail.schedule.focusTime`. */
+  readonly focus: FocusTimeService | undefined;
   readonly handlers: Record<string, HandlerDef>;
   /** The scheduler's launcher: proactive jobs in-process, the heartbeat bounded, the rest to `inner`. */
   launcher(inner: RunLauncher, pool: TaskWorkerPool): RunLauncher;
@@ -296,6 +300,8 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           provider,
           model,
           ownerAddresses,
+          // The prep notice is held through quiet hours unless the meeting starts inside them.
+          isQuiet: (ms) => isOwnerQuietAt(db, ms),
           ...(proposals === undefined ? {} : { proposals }),
           saveToNotes: () => settings().prep.saveToNotes,
           // The previous occurrence's notes for the same series (§4.5 step 3).
@@ -375,6 +381,19 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           schedule: () => settings().schedule,
           now: () => clock.now(),
           ...(typeof link === "string" && link !== "" ? { schedulingLink: link } : {}),
+        });
+  const focus =
+    registry === undefined
+      ? undefined
+      : new FocusTimeService({
+          tools: registry,
+          scheduler,
+          ...(proposals === undefined ? {} : { proposals }),
+          enabled: () => settings().focusTime,
+          readOnly,
+          timezone: timeZone ?? "UTC",
+          schedule: () => settings().schedule,
+          now: () => clock.now(),
         });
   const meetings =
     registry === undefined || setup.meetings === undefined
@@ -471,6 +490,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
         ...tz,
       });
       await voice?.ensureSchedule({ enabled: w.voiceEnabled, ...tz });
+      await focus?.ensureSchedule({ enabled: w.focusTime, ...tz });
     } catch (err) {
       logger?.log("warn", "workflow schedule sync failed", { code: PsycheError.from(err).code });
     }
@@ -531,6 +551,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     voice,
     drafts,
     scheduling,
+    focus,
     handlers: {
       ...mountParamsOnly(createGoalHandlers(goals) as never),
       ...mountParamsOnly(createFeedHandlers(feed) as never),
@@ -548,6 +569,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           pausable(mailWatch.job(), paused),
           ...(digest === undefined ? [] : [pausable(digest.job(), paused)]),
           ...(voice === undefined ? [] : [pausable(voice.job(), paused)]),
+          ...(focus === undefined ? [] : [pausable(focus.job(), paused)]),
           ...(meetingPrep === undefined ? [] : [pausable(meetingPrep.job(), paused)]),
           ...(notesFolder === undefined ? [] : [pausable(notesFolder.job(), paused)]),
         ],

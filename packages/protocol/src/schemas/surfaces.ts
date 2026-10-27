@@ -304,7 +304,23 @@ export const USER_SETTING_PREFIXES = [
   "locale",
   "notifications.sound",
   "notifications.badges",
+  // Quiet hours (#953): a preference about when to be told, not a security setting. Lower-case:
+  // the match lower-cases the key's segments, so this covers `notifications.quietHours.*`.
+  "notifications.quiethours",
 ] as const;
+
+/**
+ * Settings → Notifications → Quiet hours (#953): what each key is when the owner has not set it.
+ * The Gateway reads unset keys through these and Settings shows exactly these. Off by default;
+ * `start` and `end` are local `HH:MM`, the window may cross midnight.
+ */
+export const NOTIFICATION_SETTING_DEFAULTS = {
+  "notifications.quietHours.enabled": false,
+  "notifications.quietHours.start": "22:00",
+  "notifications.quietHours.end": "08:00",
+} as const;
+
+export type NotificationSettingKey = keyof typeof NOTIFICATION_SETTING_DEFAULTS;
 
 export function isUserSettingKey(key: string): boolean {
   const segments = key.toLowerCase().split(".");

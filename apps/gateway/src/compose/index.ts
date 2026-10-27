@@ -132,6 +132,7 @@ import { graphSourceAdapters } from "./people-sources.ts";
 import { composePlugins } from "./plugins.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { protectedRoots } from "./protected-paths.ts";
+import { notifierRouting } from "./quiet-hours.ts";
 import { createRateLimits } from "./rate-limits.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
 import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
@@ -458,6 +459,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     // Tables come from @psyche/db's migration ledger (202610190200_notifications_init).
     store: new SqliteNotificationStore(db.sqlite),
     clock,
+    // Quiet hours (#953): a getter, so a change in Settings applies to the next notification.
+    routing: notifierRouting(db),
   });
   const storedPolicy = validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger);
   const tokens = new ApprovalTokens();

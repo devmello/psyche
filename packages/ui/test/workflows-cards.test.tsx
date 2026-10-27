@@ -299,7 +299,7 @@ describe("BatchCard", () => {
     render(
       <BatchCard
         proposal={markReadProposal("awaiting_approval", { approvalId: "appr_x" })}
-        approval={{ ...batchApproval(), scopesOffered: ["once", "always"] }}
+        approval={{ ...batchApproval(), scopesOffered: ["once"] }}
         canAnswer
         onAnswer={onAnswer}
         armDelayMs={0}
@@ -307,7 +307,7 @@ describe("BatchCard", () => {
       />,
     );
     expect(screen.getByText("Mark read: Weekly digest (Acme)")).toBeTruthy();
-    // A batch never offers "always".
+    // The broker offers a batch "always" only for prep notes; this one did not.
     expect(screen.queryByRole("radio", { name: /always/i })).toBeNull();
     const deny = screen.getByRole("button", { name: "Deny" });
     const allow = screen.getByRole("button", { name: "Allow with scope" });
@@ -315,7 +315,25 @@ describe("BatchCard", () => {
     // Deny is preselected, so ⌘↩ answers deny until the owner picks Allow once.
     await user.click(screen.getByRole("radio", { name: "Allow once" }));
     await user.keyboard("{Control>}{Enter}{/Control}");
-    expect(onAnswer).toHaveBeenCalledWith("approve");
+    expect(onAnswer).toHaveBeenCalledWith("approve", "once");
+  });
+
+  it("names the one standing choice a prep-note batch offers: Always for prep notes", async () => {
+    const onAnswer = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <BatchCard
+        proposal={markReadProposal("awaiting_approval", { approvalId: "appr_x" })}
+        approval={{ ...batchApproval(), scopesOffered: ["once", "always"] }}
+        canAnswer
+        onAnswer={onAnswer}
+        armDelayMs={0}
+        now={STORY_NOW}
+      />,
+    );
+    await user.click(screen.getByRole("radio", { name: "Always for prep notes" }));
+    await user.keyboard("{Control>}{Enter}{/Control}");
+    expect(onAnswer).toHaveBeenCalledWith("approve", "always");
   });
 
   it("shows the one-row step log that expands to a row per call", async () => {
