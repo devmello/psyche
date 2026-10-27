@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { loadOrt, type OrtModule, type OrtRuntimeOptions } from "./ort-runtime.ts";
 import type { SearchEmbedder } from "./semantic.ts";
 
 /**
@@ -102,15 +103,17 @@ export interface OnnxEmbedderOptions {
   threads?: number;
   /** Texts per inference call (default 8). */
   batchSize?: number;
+  /** Where the runtime comes from (`$PSYCHE_HOME` for a downloaded one); tests inject `ort`. */
+  runtime?: OrtRuntimeOptions;
+  ort?: OrtModule;
 }
 
-type OrtModule = typeof import("onnxruntime-node");
 type Session = Awaited<ReturnType<OrtModule["InferenceSession"]["create"]>>;
 
 /** Loads the model and tokenizer; throws when the runtime cannot load on this machine. */
 export async function createOnnxEmbedder(options: OnnxEmbedderOptions): Promise<SearchEmbedder> {
   const { spec } = options;
-  const ort: OrtModule = await import("onnxruntime-node");
+  const ort: OrtModule = options.ort ?? (await loadOrt(options.runtime));
   const { Tokenizer } = await import("@huggingface/tokenizers");
   const tokenizer = new Tokenizer(
     JSON.parse(await readFile(options.tokenizerPath, "utf8")),

@@ -11,6 +11,7 @@ export * from "./highlight.ts";
 export * from "./indexer.ts";
 export * from "./memory.ts";
 export * from "./onnx-embedder.ts";
+export * from "./ort-runtime.ts";
 export * from "./query-parser.ts";
 export * from "./ranking.ts";
 export * from "./schema.ts";

@@ -214,10 +214,27 @@ export function dedupeSiblingCopies(appDir) {
   return saved;
 }
 
-/** Everything above, in order; returns the megabytes each step removed. */
-export function prunePackageWaste(appDir) {
+/**
+ * Apple silicon builds do not ship onnxruntime's native library (44 MB): the Gateway downloads
+ * Microsoft's pinned release the first time on-device semantic search is turned on
+ * (packages/search/src/ort-runtime.ts). The package's JS and its 0.3 MB binding stay, as the
+ * download is laid out from them. Returns the bytes dropped.
+ */
+export function dropOnnxRuntimeLibrary(appDir) {
+  let bytes = 0;
+  for (const { name, dir } of installedPackages(appDir)) {
+    if (name !== "onnxruntime-node") continue;
+    const native = join(dir, "bin", "napi-v6", "darwin", "arm64");
+    for (const e of entries(native)) if (/^libonnxruntime/.test(e)) bytes += drop(join(native, e));
+  }
+  return bytes;
+}
+
+/** Everything above, in order; returns the bytes each step removed. */
+export function prunePackageWaste(appDir, { arch } = {}) {
   const installed = pruneInstalledPackages(appDir);
   const workspaces = pruneWorkspaceTests(appDir);
-  const dupes = dedupeSiblingCopies(appDir);
-  return { installed: installed.bytes, workspaces, dupes, packages: installed.packages };
+  const dupes = arch === "arm64" ? 0 : dedupeSiblingCopies(appDir);
+  const onDemand = arch === "arm64" ? dropOnnxRuntimeLibrary(appDir) : 0;
+  return { installed: installed.bytes, workspaces, dupes, onDemand, packages: installed.packages };
 }
