@@ -891,7 +891,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   parts.push(teaching.part);
   const loop = createAgentLoop({
     // Model-side history survives a restart (issue #52); secrets the vault knows are masked.
-    state: new SqliteThreadStateStore(db, redactor),
+    state: new SqliteThreadStateStore(db, redactor, config.home),
     provider,
     model: modelRef,
     ...(utility === undefined ? {} : { utilityModel: utility }),
