@@ -126,6 +126,12 @@ export function workspacePath(item: LibraryItem): string {
   return item.path.replace(/^system\//, "");
 }
 
+/** The artifact behind an `artifact` item: its file lives at `artifacts/<id>/<slug>.<ext>`. */
+export function artifactIdOf(item: LibraryItem): string | null {
+  if (item.kind !== "artifact") return null;
+  return /^artifacts\/([^/]+)\//.exec(item.path)?.[1] ?? null;
+}
+
 /** Audit months are read-only (§3.12). */
 export function isReadOnly(item: LibraryItem): boolean {
   return item.kind === "system" && /(^|\/)audit/i.test(item.path);

@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openDb, type PsycheDb } from "@psyche/db";
+import { appendMessage, createRun, createThread, openDb, type PsycheDb } from "@psyche/db";
 import type { Artifact, ArtifactVersion } from "@psyche/protocol";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { applyOps, mergePatch, parseCell, parseTable } from "../src/artifacts/ops.ts";
@@ -205,6 +205,57 @@ describe("ArtifactStore", () => {
     const path = join(home, "library", "artifacts", w.artifact.id, "trip-plan.md");
     expect(readFileSync(path, "utf8")).toBe("# Day 1\n");
     expect(published).toHaveLength(1);
+  });
+
+  it("records the run at creation and finds the message that holds it later", async () => {
+    const thread = createThread(db, { kind: "main", sessionKey: "owner:main" });
+    const { artifact } = await store.create(
+      { type: "doc", title: "Plan", content: "x", threadId: thread.id },
+      agent,
+    );
+    expect(artifact).toMatchObject({ threadId: thread.id, runId: "run_1" });
+    // The turn commits its message after the tool ran: nothing to find yet.
+    expect(store.withOrigin(artifact).messageId ?? null).toBeNull();
+    for (const id of ["run_0", "run_1"])
+      createRun(db, { id, threadId: thread.id, modelRef: "test/model" });
+    const say = (blocks: unknown[], runId: string | null) =>
+      appendMessage(
+        db,
+        { threadId: thread.id, role: "agent", blocks: blocks as never, provenance: "owner", runId },
+        { expectedWriterRunId: null },
+      );
+    say([{ type: "text", md: "earlier" }], "run_0");
+    const made = say([{ type: "artifact", artifactId: artifact.id }], "run_1");
+    expect(store.withOrigin(artifact).messageId).toBe(made.id);
+    // Remembered: later reads see it without searching, through the stored row.
+    expect(store.get(artifact.id).artifact.messageId).toBe(made.id);
+    // A fork copies the block into another thread; the origin stays the creation thread.
+    const fork = createThread(db, { kind: "main", sessionKey: "owner:fork" });
+    appendMessage(
+      db,
+      {
+        threadId: fork.id,
+        role: "agent",
+        blocks: [{ type: "artifact", artifactId: artifact.id }] as never,
+        provenance: "owner",
+      },
+      { expectedWriterRunId: null },
+    );
+    expect(store.withOrigin(store.get(artifact.id).artifact)).toMatchObject({
+      threadId: thread.id,
+      messageId: made.id,
+    });
+  });
+
+  it("leaves origin empty for an artifact made without a chat", async () => {
+    const { artifact } = await store.create(
+      { type: "doc", title: "Loose", content: "x" },
+      {
+        author: "user",
+      },
+    );
+    expect(store.withOrigin(artifact)).toMatchObject({ runId: null, threadId: null });
+    expect(store.withOrigin(artifact).messageId ?? null).toBeNull();
   });
 
   it("versions edits, snapshots periodically and rebuilds any version", async () => {

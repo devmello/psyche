@@ -62,7 +62,7 @@ export function artifactHandlers(store: ArtifactStore): Record<string, HandlerDe
   return {
     "artifacts.get": {
       run: (_c: Call, p: MethodParams<"artifacts.get">): MethodResult<"artifacts.get"> => ({
-        artifact: store.get(p.artifactId).artifact,
+        artifact: store.withOrigin(store.get(p.artifactId).artifact),
       }),
     },
     "artifacts.list": {
@@ -75,7 +75,7 @@ export function artifactHandlers(store: ArtifactStore): Record<string, HandlerDe
           ...(p.threadId === undefined ? {} : { threadId: p.threadId }),
         });
         return {
-          artifacts: page.items,
+          artifacts: page.items.map((a) => store.withOrigin(a)),
           nextCursor: page.hasMore ? encodeOffset(offset + page.items.length) : null,
         };
       },

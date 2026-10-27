@@ -1162,7 +1162,9 @@ export interface Artifact {
     id:            string;
     language?:     string;
     libraryItemId: string;
+    messageId?:    null | string;
     nameSlug:      string;
+    runId?:        null | string;
     sourceRef?:    null | string;
     threadId?:     null | string;
     title:         string;

@@ -3979,7 +3979,9 @@ public struct Artifact: Codable, Sendable {
     public let id: String
     public let language: String?
     public let libraryItemID: String
+    public let messageID: String?
     public let nameSlug: String
+    public let runID: String?
     public let sourceRef: String?
     public let threadID: String?
     public let title: String
@@ -3993,7 +3995,9 @@ public struct Artifact: Codable, Sendable {
         case id = "id"
         case language = "language"
         case libraryItemID = "libraryItemId"
+        case messageID = "messageId"
         case nameSlug = "nameSlug"
+        case runID = "runId"
         case sourceRef = "sourceRef"
         case threadID = "threadId"
         case title = "title"
@@ -4003,12 +4007,14 @@ public struct Artifact: Codable, Sendable {
         case version = "version"
     }
 
-    public init(bytes: Int?, id: String, language: String?, libraryItemID: String, nameSlug: String, sourceRef: String?, threadID: String?, title: String, type: ArtifactType, untrusted: Bool?, updatedAt: String, version: Int) {
+    public init(bytes: Int?, id: String, language: String?, libraryItemID: String, messageID: String?, nameSlug: String, runID: String?, sourceRef: String?, threadID: String?, title: String, type: ArtifactType, untrusted: Bool?, updatedAt: String, version: Int) {
         self.bytes = bytes
         self.id = id
         self.language = language
         self.libraryItemID = libraryItemID
+        self.messageID = messageID
         self.nameSlug = nameSlug
+        self.runID = runID
         self.sourceRef = sourceRef
         self.threadID = threadID
         self.title = title

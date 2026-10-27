@@ -342,6 +342,9 @@ export const artifacts = sqliteTable("artifacts", {
   nameSlug: text("name_slug").notNull(),
   language: text("language"),
   threadId: text("thread_id"),
+  /** Origin (migration 202610271200): the run that made it and the message holding its block. */
+  runId: text("run_id"),
+  messageId: text("message_id"),
   untrusted: integer("untrusted").notNull(),
   version: integer("version").notNull(),
   content: text("content").notNull(),

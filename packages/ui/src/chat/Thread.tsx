@@ -32,6 +32,7 @@ import { ApprovalDock } from "./ApprovalDock.tsx";
 import { attachSupport, modelCapabilities, uploadFile } from "./attachments.ts";
 import { type CommandName, parseCommand } from "./commands.ts";
 import { FollowUpQueue } from "./FollowUpQueue.tsx";
+import { clearChatFocus, flashMessage, useChatFocusRequest } from "./focus-request.ts";
 import { MessageView } from "./MessageView.tsx";
 import { OfflineBanner } from "./OfflineBanner.tsx";
 import { ComposerPrefill } from "./prefill.ts";
@@ -154,7 +155,7 @@ export function ChatThread({
   const view = useThread(threadId);
   const { fork, create } = useThreads();
   const call = useCall();
-  const { navigate } = useSlots();
+  const { navigate, openArtifact } = useSlots();
   const { state: connection } = useConnection();
   const tasks = useStoreState((s) => s.tasks);
   const store = useStore();
@@ -227,6 +228,23 @@ export function ChatThread({
     }
     return null;
   }, [display]);
+
+  // "Open in chat" from the Library: land on the message that made the artifact, then open it.
+  const focusRequest = useChatFocusRequest(threadId);
+  const focusMessages = view.messages.length;
+  useEffect(() => {
+    if (focusRequest === null) return;
+    const { messageId, artifactId } = focusRequest;
+    // The transcript may still be loading; wait for the message unless it never shows up.
+    const landed = messageId !== null && flashMessage(messageId);
+    if (!landed && focusMessages === 0) return;
+    clearChatFocus(focusRequest);
+    if (artifactId === null || openArtifact === undefined) return;
+    void call("artifacts.get", { artifactId }).then(
+      (r) => openArtifact(r.artifact),
+      () => {},
+    );
+  }, [focusRequest, focusMessages, call, openArtifact]);
 
   // The command runner reads this render's thread state; onNew calls the latest one.
   const runCommandRef = useRef<(name: CommandName, arg: string) => Promise<void>>(async () => {});
