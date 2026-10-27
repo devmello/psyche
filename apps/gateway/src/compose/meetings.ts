@@ -6,6 +6,7 @@ import type { GraphStore } from "@psyche/memory";
 import {
   type AudioCapture,
   type CapturedAudio,
+  CONFERENCE_APP_BUNDLES,
   CONSENT_LINE,
   type FeedEvent,
   type FeedStore,
@@ -90,6 +91,8 @@ export interface MeetingsSetup {
   capture?: () => AudioCapture | undefined;
   /** The people graph while `memory.graph` is on: "they owe you" loops land there. */
   graph?: () => GraphStore | undefined;
+  /** The bundle ids of the running apps from the helper, for ending Record meeting on app quit. */
+  runningApps?: () => Promise<readonly string[] | undefined>;
   ownerAddresses: () => Promise<string[]>;
   timezone?: string;
   publish(event: "meetings.recording.updated", payload: MeetingRecordingStatus): void;
@@ -140,6 +143,7 @@ export function composeMeetings(setup: MeetingsSetup): ComposedMeetings {
     push: (seq, pcm) => device.push(seq, pcm),
     existingItem: (id) => getLibraryItem(db, id),
     publish: (status) => setup.publish("meetings.recording.updated", status),
+    ...(setup.runningApps === undefined ? {} : { runningApps: setup.runningApps }),
     ...(setup.logger === undefined ? {} : { logger: setup.logger }),
   });
   const params = mountParamsOnly({
@@ -224,6 +228,13 @@ export interface RecordMeetingOptions {
   existingItem?: (id: string) => LibraryItem | undefined;
   /** Chunks stop for this long and the recording ends (default 2 minutes). */
   idleMs?: number;
+  /**
+   * The bundle ids of the apps running now, from the helper (`apps.list`); `undefined` when no
+   * helper is online. A recording that starts while a conference app runs ends when it quits.
+   */
+  runningApps?: () => Promise<readonly string[] | undefined>;
+  /** How often the conference app is checked (default 5 seconds). */
+  appPollMs?: number;
   /** The consent line shown before every start (Settings; default `CONSENT_LINE`). */
   consentLine?: () => string;
   /** Why recording is off right now (paused, notes off), or `undefined` when it may run. */
@@ -284,6 +295,7 @@ export class RecordMeeting {
       deviceId: deviceId ?? null,
     };
     this.#watch();
+    this.#watchApp(recording).catch(() => undefined);
     // The source ending (silence, the app quit) finishes the recording without a stop call.
     recording.done.then(
       (audio) => this.#ended(recording, audio),
@@ -335,6 +347,34 @@ export class RecordMeeting {
       this.stop("source_ended").catch(() => undefined);
     }, this.#o.idleMs ?? 120_000);
     active.idle.unref?.();
+  }
+
+  /**
+   * "Record meeting" ends when the conference app quits (§4.6): the conference apps running when
+   * the recording starts are checked every few seconds, and when none of them runs any more the
+   * capture stops with `app_quit`. With no helper, or no conference app at start, nothing is
+   * watched and silence still ends the recording.
+   */
+  async #watchApp(recording: MeetingRecording): Promise<void> {
+    const running = this.#o.runningApps;
+    if (running === undefined) return;
+    const at = await running();
+    const watched = (at ?? []).filter((b) => CONFERENCE_APP_BUNDLES.includes(b));
+    const active = this.#active;
+    if (watched.length === 0 || active === null || active.recording !== recording) return;
+    const timer = setInterval(() => {
+      running().then(
+        (now) => {
+          if (now === undefined || this.#active?.recording !== recording) return;
+          if (watched.some((b) => now.includes(b))) return;
+          this.stop("app_quit").catch(() => undefined);
+        },
+        () => undefined,
+      );
+    }, this.#o.appPollMs ?? 5_000);
+    timer.unref?.();
+    const clear = () => clearInterval(timer);
+    recording.done.then(clear, clear);
   }
 
   #ended(recording: MeetingRecording, audio: CapturedAudio): void {

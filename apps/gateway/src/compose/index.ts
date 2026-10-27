@@ -1031,6 +1031,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         : {
             transcriber: speechPart.meetings,
             transcriberAvailable: () => speechPart.meetings.available(),
+            runningApps: () => speechPart.meetings.runningApps(),
           }),
     },
     // The people graph while the owner has it on: prep's attendees and loops, notes' loops.
