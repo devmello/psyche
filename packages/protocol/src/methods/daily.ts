@@ -59,7 +59,7 @@ export const DailyMethods = {
     result: Type.Object({ followups: Type.Array(DailyFollowup) }),
     scope: "operator.write",
     sideEffecting: true,
-    description: "Evening wrap-up 'carry over': snoozes the given follow-ups to tomorrow morning.",
+    description: "Evening wrap-up 'carry over': snoozes the given follow-ups to tomorrow morning. Side-effecting.",
   }),
   "daily.automations.templates": defineMethod({
     params: Type.Object({}),

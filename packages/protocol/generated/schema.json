@@ -1083,7 +1083,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Evening wrap-up 'carry over': snoozes the given follow-ups to tomorrow morning.",
+        "description": "Evening wrap-up 'carry over': snoozes the given follow-ups to tomorrow morning. Side-effecting.",
         "name": "daily.carryOver",
         "params": "#/$defs/DailyCarryOverParams",
         "result": "#/$defs/DailyCarryOverResult",

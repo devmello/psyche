@@ -37,7 +37,11 @@ export function createDailyHandlers(d: DailyHandlerDeps) {
       action: "done" | "snooze" | "dismiss" | "reopen";
       until?: string;
     }) => {
-      const f = d.followups.update(p.id, p.action, p.until === undefined ? undefined : Date.parse(p.until));
+      const f = d.followups.update(
+        p.id,
+        p.action,
+        p.until === undefined ? undefined : Date.parse(p.until),
+      );
       if (f === undefined) throw new Error("not_found");
       return { followup: f };
     },

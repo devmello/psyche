@@ -93,3 +93,4 @@ export const DailyAutomationTemplate = Type.Object(
   { id: Type.String(), text: Type.String({ maxLength: 300 }) },
   { $id: "DailyAutomationTemplate" },
 );
+export type DailyAutomationTemplate = Static<typeof DailyAutomationTemplate>;

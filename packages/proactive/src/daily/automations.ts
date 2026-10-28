@@ -1,9 +1,4 @@
-import type {
-  Automation,
-  DailyAutomationDraft,
-  ModelProvider,
-  ModelRef,
-} from "@psyche/protocol";
+import type { Automation, DailyAutomationDraft, ModelProvider, ModelRef } from "@psyche/protocol";
 import { complete, extractJson } from "../feed/model.ts";
 import type { SchedulerLike } from "../jobs.ts";
 
@@ -15,13 +10,23 @@ import type { SchedulerLike } from "../jobs.ts";
 
 export const AUTOMATION_TEMPLATES = [
   { id: "friday-shipped", text: "Every Friday at 5pm, summarise what I shipped this week" },
-  { id: "monday-plan", text: "Every Monday at 9am, help me plan the week from my calendar and tasks" },
+  {
+    id: "monday-plan",
+    text: "Every Monday at 9am, help me plan the week from my calendar and tasks",
+  },
   { id: "daily-inbox", text: "Every weekday at 4pm, list the mail that still needs a reply" },
-  { id: "weekly-review", text: "Every Sunday at 7pm, review open tasks and follow-ups and suggest what to drop" },
+  {
+    id: "weekly-review",
+    text: "Every Sunday at 7pm, review open tasks and follow-ups and suggest what to drop",
+  },
   { id: "hourly-focus", text: "Every 2 hours on weekdays, remind me to stand up and drink water" },
 ] as const;
 
-export type ValidateSchedule = (kind: "cron" | "interval", schedule: string, timezone: string) => void;
+export type ValidateSchedule = (
+  kind: "cron" | "interval",
+  schedule: string,
+  timezone: string,
+) => void;
 
 const CRON_FIELD = /^[\d*,/\-A-Za-z]+$/;
 

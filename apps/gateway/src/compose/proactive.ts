@@ -9,12 +9,11 @@ import {
   type AudioCapture,
   appleMailSource,
   arxivSource,
+  createDailyHandlers,
   createFeedHandlers,
   createGoalHandlers,
   createIdeaHandlers,
   createProposalHandlers,
-  createDailyHandlers,
-  DAILY_SETTING_KEYS,
   DailyService,
   DigestService,
   DraftService,
@@ -297,8 +296,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
       const idle = settings().poll.idleMin;
       return idle === undefined ? OFF_HOURS_POLL_MS : idle * 60_000;
     },
-    sources: () =>
-      lookup === undefined ? [] : [appleMailSource(lookup), gmailSource(lookup)],
+    sources: () => (lookup === undefined ? [] : [appleMailSource(lookup), gmailSource(lookup)]),
     ...(timeZone === undefined ? {} : { timezone: timeZone }),
     onError: (err) => logger?.log("warn", "mail poll failed", { code: PsycheError.from(err).code }),
   });
@@ -499,7 +497,9 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     activity: {
       openTasks: async () =>
         (
-          await tasks.list({ status: ["queued", "running", "awaiting_input", "awaiting_approval", "paused"] })
+          await tasks.list({
+            status: ["queued", "running", "awaiting_input", "awaiting_approval", "paused"],
+          })
         )
           .filter((t) => t.createdFrom !== "automation")
           .slice(0, 20)
@@ -525,12 +525,15 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
         const files = changes.filter((c) => c.record.category === "file").length;
         return [
           ...done,
-          ...(files === 0 ? [] : [{ title: `${files} file change${files === 1 ? "" : "s"} recorded` }]),
+          ...(files === 0
+            ? []
+            : [{ title: `${files} file change${files === 1 ? "" : "s"} recorded` }]),
         ];
       },
     },
     onFeedEvent: (e) => publish(e.event, e.payload as never),
-    onError: (err) => logger?.log("warn", "daily step failed", { code: PsycheError.from(err).code }),
+    onError: (err) =>
+      logger?.log("warn", "daily step failed", { code: PsycheError.from(err).code }),
   });
   const dailyHandlers = createDailyHandlers({
     daily,

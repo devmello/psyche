@@ -1,22 +1,16 @@
-import type {
-  DailyBrief,
-  DailyKind,
-  ModelProvider,
-  ModelRef,
-  Notifier,
-} from "@psyche/protocol";
+import type { DailyBrief, DailyKind, ModelProvider, ModelRef, Notifier } from "@psyche/protocol";
 import { ulid } from "ulid";
 import { complete } from "../feed/model.ts";
 import type { FeedStore, StoredPost } from "../feed/store.ts";
-import { type LaunchResult, jobMarker, parseJobMarker, type ProactiveJob } from "../jobs.ts";
+import type { SchedulerLike } from "../jobs.ts";
+import { jobMarker, type LaunchResult, type ProactiveJob, parseJobMarker } from "../jobs.ts";
 import { classifyBatch, cleanHeader } from "../mail/classify.ts";
 import type { MailItem } from "../mail/presort.ts";
 import { readTool } from "../mail/tools.ts";
 import type { CalendarEvent } from "../meetings/prep.ts";
 import type { ToolLookup } from "../proposals/service.ts";
-import type { SchedulerLike } from "../jobs.ts";
-import { type FollowupStore, type AwaitingThread } from "./followups.ts";
-import { dailyCron, type DailySettings } from "./settings.ts";
+import type { AwaitingThread, FollowupStore } from "./followups.ts";
+import { type DailySettings, dailyCron } from "./settings.ts";
 import { localAt, localParts, startOfLocalDay } from "./time.ts";
 
 export const DAILY_BRIEF_JOB = "daily-brief";
@@ -56,10 +50,7 @@ export interface DailyServiceOptions {
   channelSurfaces?: () => string[];
   timezone?: string;
   newId?: () => string;
-  onFeedEvent?: (event: {
-    event: "feed.updated";
-    payload: { posts: unknown[] };
-  }) => void;
+  onFeedEvent?: (event: { event: "feed.updated"; payload: { posts: unknown[] } }) => void;
   onError?: (error: unknown) => void;
 }
 
@@ -211,8 +202,13 @@ export class DailyService {
     const tasks = await this.#o.activity?.openTasks?.();
     if (tasks !== undefined) {
       seen = true;
-      for (const t of tasks.filter((x) => x.dueAt === undefined || Date.parse(x.dueAt) < dayEnd).slice(0, 8)) {
-        items.push({ text: cleanHeader(t.title, 160), ...(t.link === undefined ? {} : { link: t.link }) });
+      for (const t of tasks
+        .filter((x) => x.dueAt === undefined || Date.parse(x.dueAt) < dayEnd)
+        .slice(0, 8)) {
+        items.push({
+          text: cleanHeader(t.title, 160),
+          ...(t.link === undefined ? {} : { link: t.link }),
+        });
       }
     }
     return { id: "due", title, items, ...(seen ? {} : { unavailable: true }) };
@@ -256,7 +252,9 @@ export class DailyService {
         messages: [
           {
             role: "user",
-            parts: [{ type: "text", text: `<<<untrusted-data>>>\n${facts}\n<<<end-untrusted-data>>>` }],
+            parts: [
+              { type: "text", text: `<<<untrusted-data>>>\n${facts}\n<<<end-untrusted-data>>>` },
+            ],
           },
         ],
         maxOutputTokens: 80,
@@ -303,7 +301,10 @@ export class DailyService {
       sections.push({ ...open, id: "open", items: [...open.items, ...fu.items] });
       const next = await this.#events(dayEnd, dayEnd + 86_400_000);
       const first = next?.[0];
-      const prep = first === undefined ? undefined : this.#o.prepLink?.({ id: first.id, title: first.title, start: first.start });
+      const prep =
+        first === undefined
+          ? undefined
+          : this.#o.prepLink?.({ id: first.id, title: first.title, start: first.start });
       sections.push({
         id: "tomorrow",
         title: "Tomorrow",
@@ -330,7 +331,10 @@ export class DailyService {
   }
 
   /** Builds the card, posts it, and notifies; a second run on the same local day reposts nothing. */
-  async run(kind: DailyKind, options: { force?: boolean } = {}): Promise<{ postId?: string; skipped?: string }> {
+  async run(
+    kind: DailyKind,
+    options: { force?: boolean } = {},
+  ): Promise<{ postId?: string; skipped?: string }> {
     const o = this.#o;
     const settings = o.settings();
     const brief = await this.assemble(kind);
@@ -338,10 +342,7 @@ export class DailyService {
     const now = new Date(o.clock.now()).toISOString();
     const id = o.newId?.() ?? `post_${ulid(o.clock.now())}`;
     const total = brief.sections.reduce((n, s) => n + s.items.length, 0);
-    const title =
-      kind === "morning"
-        ? `Your day · ${brief.date}`
-        : `Wrap-up · ${brief.date}`;
+    const title = kind === "morning" ? `Your day · ${brief.date}` : `Wrap-up · ${brief.date}`;
     const bodyMd = brief.sections
       .filter((s) => s.items.length > 0)
       .map((s) => `**${s.title}**\n${s.items.map((i) => `- ${i.text}`).join("\n")}`)
@@ -367,9 +368,17 @@ export class DailyService {
     o.onFeedEvent?.({ event: "feed.updated", payload: { posts: [wire] } });
     if (settings.notify) {
       const body = brief.summary !== "" ? brief.summary : `${total} item${total === 1 ? "" : "s"}`;
-      // Not a breakthrough kind: the notifier holds it through the owner's quiet hours.
+      // In the app at once, and as an OS banner that the notifier holds through the owner's quiet
+      // hours (briefing is not a breakthrough kind).
       try {
-        await o.notifier?.notify({ kind: "briefing", title, body, route: `/feed/${id}`, dedupeKey: dedupe });
+        await o.notifier?.notify({
+          kind: "briefing",
+          title,
+          body,
+          route: `/feed/${id}`,
+          dedupeKey: dedupe,
+          surfaces: ["desktop", "web", "notification"],
+        });
         const channels = settings.messages ? (o.channelSurfaces?.() ?? []) : [];
         if (channels.length > 0) {
           await o.notifier?.notify({
@@ -400,7 +409,9 @@ export class DailyService {
     if (this.#o.tools.get("mail_search") !== undefined) {
       const r = await this.#read("mail_search", { mailbox: "Sent", since, limit: 20 });
       for (const m of output<Record<string, unknown>>(r, "messages")) {
-        const text = [m.subject, m.preview, m.snippet].filter((x) => typeof x === "string").join("\n");
+        const text = [m.subject, m.preview, m.snippet]
+          .filter((x) => typeof x === "string")
+          .join("\n");
         sent.push({ text, ...(typeof m.link === "string" ? { link: m.link } : {}) });
       }
       const until = new Date(now - f.awaitingDays * 86_400_000).toISOString();
@@ -413,9 +424,17 @@ export class DailyService {
       for (const m of output<Record<string, unknown>>(old, "messages")) {
         if (typeof m.subject !== "string" || typeof m.date !== "string") continue;
         const sentAt = Date.parse(m.date);
-        const reply = await this.#read("mail_search", { query: m.subject.replace(/^(re|fwd?):\s*/i, ""), since: m.date, limit: 5 });
+        const reply = await this.#read("mail_search", {
+          query: m.subject.replace(/^(re|fwd?):\s*/i, ""),
+          since: m.date,
+          limit: 5,
+        });
         const replied = output<Record<string, unknown>>(reply, "messages").some(
-          (x) => x.id !== m.id && typeof x.from === "string" && typeof m.to === "string" && x.from.includes(String(m.to)),
+          (x) =>
+            x.id !== m.id &&
+            typeof x.from === "string" &&
+            typeof m.to === "string" &&
+            x.from.includes(String(m.to)),
         );
         if (!replied && Number.isFinite(sentAt)) {
           awaiting.push({
@@ -428,7 +447,10 @@ export class DailyService {
         }
       }
     } else if (this.#o.tools.get("gmail_search_threads") !== undefined) {
-      const r = await this.#read("gmail_search_threads", { query: "in:sent newer_than:2d", maxResults: 20 });
+      const r = await this.#read("gmail_search_threads", {
+        query: "in:sent newer_than:2d",
+        maxResults: 20,
+      });
       for (const t of output<Record<string, unknown>>(r, "threads")) {
         sent.push({ text: [t.subject, t.snippet].filter((x) => typeof x === "string").join("\n") });
       }
@@ -438,7 +460,11 @@ export class DailyService {
       });
       for (const t of output<Record<string, unknown>>(old, "threads")) {
         if (typeof t.subject !== "string") continue;
-        awaiting.push({ id: String(t.id ?? t.subject), subject: t.subject, sentAt: now - f.awaitingDays * 86_400_000 - 1 });
+        awaiting.push({
+          id: String(t.id ?? t.subject),
+          subject: t.subject,
+          sentAt: now - f.awaitingDays * 86_400_000 - 1,
+        });
       }
     }
     // Sent mail is the owner's own text; the awaiting list is thread metadata, never parsed for actions.

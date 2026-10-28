@@ -1,7 +1,7 @@
 import type { DailyFollowup } from "@psyche/protocol";
 import { ulid } from "ulid";
 import { cleanHeader } from "../mail/classify.ts";
-import { type FollowupSensitivity, FOLLOWUPS_KEY, type KeyValue } from "./settings.ts";
+import { FOLLOWUPS_KEY, type FollowupSensitivity, type KeyValue } from "./settings.ts";
 import { localAt, localParts } from "./time.ts";
 
 /**
@@ -15,7 +15,8 @@ const TIME_CUE =
   /\b(today|tonight|tomorrow|this (?:week|afternoon|evening|morning)|next week|by (?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|eod|end of (?:day|week))|on (?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|later|soon|shortly)\b/i;
 const ACTION_VERB =
   /\b(send|get|share|follow up|check|review|look into|call|ping|email|reply|respond|book|schedule|finish|draft|write|update|forward|confirm|circle back|get back)\b/i;
-const COMMIT = /\b(?:I['’]ll|I will|I['’]m going to|I am going to|let me|I can)\s+([^.!?\n]{3,160})/i;
+const COMMIT =
+  /\b(?:I['’]ll|I will|I['’]m going to|I am going to|let me|I can)\s+([^.!?\n]{3,160})/i;
 const REMIND = /\bremind me to\s+([^.!?\n]{3,160})/i;
 
 const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -36,11 +37,7 @@ export function ownLines(text: string): string[] {
   return out;
 }
 
-export function dueFromText(
-  text: string,
-  nowMs: number,
-  timezone: string,
-): number | undefined {
+export function dueFromText(text: string, nowMs: number, timezone: string): number | undefined {
   const t = text.toLowerCase();
   if (/\b(today|tonight|this (afternoon|evening)|eod|end of day)\b/.test(t)) {
     return localAt(nowMs, timezone, 0, 17);
@@ -72,7 +69,11 @@ export function detectCommitments(
     const hasVerb = ACTION_VERB.test(line);
     const keep =
       remind !== null ||
-      (options.sensitivity === "high" ? true : options.sensitivity === "low" ? hasCue && hasVerb : hasCue || hasVerb);
+      (options.sensitivity === "high"
+        ? true
+        : options.sensitivity === "low"
+          ? hasCue && hasVerb
+          : hasCue || hasVerb);
     if (!keep) continue;
     const phrase = (remind === null ? line : (match[1] ?? line)).replace(/\s+/g, " ").trim();
     const dueAt = dueFromText(line, options.nowMs, options.timezone);
@@ -115,7 +116,10 @@ export class FollowupStore {
     // Finished items fall off first when the list is full.
     const open = items.filter((i) => i.status === "open" || i.status === "snoozed");
     const rest = items.filter((i) => i.status !== "open" && i.status !== "snoozed");
-    this.#kv.set(FOLLOWUPS_KEY, [...rest.slice(-Math.max(0, MAX_FOLLOWUPS - open.length)), ...open]);
+    this.#kv.set(FOLLOWUPS_KEY, [
+      ...rest.slice(-Math.max(0, MAX_FOLLOWUPS - open.length)),
+      ...open,
+    ]);
   }
 
   /** Adds an item unless the same text from the same source is already tracked. */
@@ -176,8 +180,7 @@ export class FollowupStore {
     const now = this.#now();
     return this.#all().filter((i) =>
       statuses === undefined
-        ? i.status === "open" ||
-          (i.status === "snoozed" && Date.parse(i.snoozedUntil ?? "") <= now)
+        ? i.status === "open" || (i.status === "snoozed" && Date.parse(i.snoozedUntil ?? "") <= now)
         : statuses.includes(i.status),
     );
   }

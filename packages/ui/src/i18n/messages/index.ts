@@ -8,6 +8,7 @@ import { chat } from "./chat.ts";
 import { common } from "./common.ts";
 import { connectorGallery } from "./connector-gallery.ts";
 import { context } from "./context.ts";
+import { daily } from "./daily.ts";
 import { design } from "./design.ts";
 import { errors } from "./errors.ts";
 import { glass } from "./glass.ts";
@@ -50,6 +51,7 @@ export const en = {
   ...agent,
   ...agentNotes,
   ...audit,
+  ...daily,
   ...shell,
   ...settings,
   ...settingsLanguage,

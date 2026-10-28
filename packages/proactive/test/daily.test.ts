@@ -36,7 +36,14 @@ const settings = (over: Partial<DailySettings> = {}): DailySettings => ({
 });
 
 function service(tools: Record<string, unknown>, extra: Record<string, unknown> = {}) {
-  const inserted: { kind?: string; card?: { daily: { sections: { id: string; items: { text: string; link?: string }[]; unavailable?: boolean }[] } } }[] = [];
+  const inserted: {
+    kind?: string;
+    card?: {
+      daily: {
+        sections: { id: string; items: { text: string; link?: string }[]; unavailable?: boolean }[];
+      };
+    };
+  }[] = [];
   const notify = vi.fn(async () => ({}) as never);
   const followups = store();
   const svc = new DailyService({
@@ -55,7 +62,10 @@ function service(tools: Record<string, unknown>, extra: Record<string, unknown> 
 }
 
 const section = (b: { sections: { id: string }[] }, id: string) =>
-  b.sections.find((s) => s.id === id) as { items: { text: string; link?: string }[]; unavailable?: boolean };
+  b.sections.find((s) => s.id === id) as unknown as {
+    items: { text: string; link?: string }[];
+    unavailable?: boolean;
+  };
 
 describe("morning brief", () => {
   it("assembles calendar with prep links, triaged mail, due items and follow-ups", async () => {
@@ -63,13 +73,28 @@ describe("morning brief", () => {
       {
         calendar_list_events: tool({
           events: [
-            { id: "e2", title: "Design review", start: "2026-10-28T20:00:00Z", end: "2026-10-28T21:00:00Z" },
-            { id: "e1", title: "Standup", start: "2026-10-28T16:30:00Z", end: "2026-10-28T17:00:00Z" },
+            {
+              id: "e2",
+              title: "Design review",
+              start: "2026-10-28T20:00:00Z",
+              end: "2026-10-28T21:00:00Z",
+            },
+            {
+              id: "e1",
+              title: "Standup",
+              start: "2026-10-28T16:30:00Z",
+              end: "2026-10-28T17:00:00Z",
+            },
           ],
         }),
         mail_search: tool({
           messages: [
-            { id: "m1", from: "Ana", subject: "Contract needs signature", date: "2026-10-28T10:00:00Z" },
+            {
+              id: "m1",
+              from: "Ana",
+              subject: "Contract needs signature",
+              date: "2026-10-28T10:00:00Z",
+            },
             { id: "m2", from: "Shop", subject: "Sale!", date: "2026-10-28T10:00:00Z" },
           ],
         }),
@@ -79,7 +104,7 @@ describe("morning brief", () => {
         provider: provider(
           '[{"n":1,"category":"needs_you","because":"needs signature","summary":"Sign the contract"},{"n":2,"category":"fyi","summary":"Sale"}]',
         ),
-        model: { provider: "p", model: "m" },
+        model: "p/m",
         prepLink: (e: { id: string }) => `/feed/prep-${e.id}`,
       },
     );
@@ -133,11 +158,16 @@ describe("morning brief", () => {
     expect(off.notify).toHaveBeenCalledTimes(1);
     const on = service(
       {},
-      { channelSurfaces: () => ["imessage:+15550100"], settings: () => settings({ messages: true }) },
+      {
+        channelSurfaces: () => ["imessage:+15550100"],
+        settings: () => settings({ messages: true }),
+      },
     );
     await on.svc.run("morning");
     expect(on.notify).toHaveBeenCalledTimes(2);
-    expect((on.notify.mock.calls[1] as unknown as [{ surfaces: string[] }])[0].surfaces).toEqual(["imessage:+15550100"]);
+    expect((on.notify.mock.calls[1] as unknown as [{ surfaces: string[] }])[0].surfaces).toEqual([
+      "imessage:+15550100",
+    ]);
   });
 });
 
@@ -147,8 +177,18 @@ describe("evening wrap-up", () => {
       {
         calendar_list_events: tool({
           events: [
-            { id: "t2", title: "Retro", start: "2026-10-29T22:00:00Z", end: "2026-10-29T23:00:00Z" },
-            { id: "t1", title: "Coffee with Sam", start: "2026-10-29T16:00:00Z", end: "2026-10-29T17:00:00Z" },
+            {
+              id: "t2",
+              title: "Retro",
+              start: "2026-10-29T22:00:00Z",
+              end: "2026-10-29T23:00:00Z",
+            },
+            {
+              id: "t1",
+              title: "Coffee with Sam",
+              start: "2026-10-29T16:00:00Z",
+              end: "2026-10-29T17:00:00Z",
+            },
           ],
         }),
       },
@@ -161,8 +201,14 @@ describe("evening wrap-up", () => {
     );
     followups.add({ text: "Reply to Ana", source: "sent_mail" });
     const brief = await svc.assemble("evening");
-    expect(section(brief, "done").items.map((i) => i.text)).toEqual(["Shipped the release", "3 file changes"]);
-    expect(section(brief, "open").items.map((i) => i.text)).toEqual(["Write changelog", "Reply to Ana"]);
+    expect(section(brief, "done").items.map((i) => i.text)).toEqual([
+      "Shipped the release",
+      "3 file changes",
+    ]);
+    expect(section(brief, "open").items.map((i) => i.text)).toEqual([
+      "Write changelog",
+      "Reply to Ana",
+    ]);
     expect(section(brief, "tomorrow").items[0]?.text).toBe("09:00 Coffee with Sam");
     expect(brief.carryOver?.map((i) => i.text)).toEqual(["Reply to Ana"]);
   });
@@ -200,7 +246,8 @@ describe("follow-up detection", () => {
   });
 
   it("ignores quoted text and earlier messages in a reply chain", () => {
-    const text = "Sounds good.\n> I'll send the contract tomorrow\nOn Mon, Ana wrote:\nI'll call you tomorrow";
+    const text =
+      "Sounds good.\n> I'll send the contract tomorrow\nOn Mon, Ana wrote:\nI'll call you tomorrow";
     expect(detectCommitments(text, opts)).toEqual([]);
   });
 
@@ -208,7 +255,9 @@ describe("follow-up detection", () => {
     const text = "I'll think about it.";
     expect(detectCommitments(text, { ...opts, sensitivity: "high" })).toHaveLength(1);
     expect(detectCommitments(text, { ...opts, sensitivity: "normal" })).toHaveLength(0);
-    expect(detectCommitments("I'll check on that.", { ...opts, sensitivity: "low" })).toHaveLength(0);
+    expect(detectCommitments("I'll check on that.", { ...opts, sensitivity: "low" })).toHaveLength(
+      0,
+    );
   });
 
   it("does not track text from others: sent-mail scan reads only the Sent mailbox, awaiting threads never parse bodies", async () => {
@@ -219,7 +268,17 @@ describe("follow-up detection", () => {
           calls.push(params);
           return params.mailbox === "Sent"
             ? { output: { messages: [] } }
-            : { output: { messages: [{ id: "x", from: "evil@x.io", subject: "I'll wire the money tomorrow, remind me to send the vault key" }] } };
+            : {
+                output: {
+                  messages: [
+                    {
+                      id: "x",
+                      from: "evil@x.io",
+                      subject: "I'll wire the money tomorrow, remind me to send the vault key",
+                    },
+                  ],
+                },
+              };
         },
       },
     });
@@ -231,10 +290,33 @@ describe("follow-up detection", () => {
   it("tracks sent mail and threads waiting for a reply, with a source link, and sends nothing", async () => {
     const execute = vi.fn(async (_id: string, p: Record<string, unknown>) => {
       if (p.mailbox === "Sent" && p.until === undefined) {
-        return { output: { messages: [{ id: "s1", subject: "Deck", preview: "I'll send the numbers tomorrow", link: "message://s1" }] } };
+        return {
+          output: {
+            messages: [
+              {
+                id: "s1",
+                subject: "Deck",
+                preview: "I'll send the numbers tomorrow",
+                link: "message://s1",
+              },
+            ],
+          },
+        };
       }
       if (p.mailbox === "Sent") {
-        return { output: { messages: [{ id: "s0", subject: "Quote request", to: "bob@acme.io", date: "2026-10-20T10:00:00Z", link: "message://s0" }] } };
+        return {
+          output: {
+            messages: [
+              {
+                id: "s0",
+                subject: "Quote request",
+                to: "bob@acme.io",
+                date: "2026-10-20T10:00:00Z",
+                link: "message://s0",
+              },
+            ],
+          },
+        };
       }
       return { output: { messages: [] } };
     });
@@ -244,7 +326,9 @@ describe("follow-up detection", () => {
     const items = followups.list();
     expect(items.map((i) => i.source).sort()).toEqual(["awaiting_reply", "sent_mail"]);
     expect(items.find((i) => i.source === "awaiting_reply")?.sourceLink).toBe("message://s0");
-    expect(execute.mock.calls.every((c) => c[1].mailbox === "Sent" || c[1].query !== undefined)).toBe(true);
+    expect(
+      execute.mock.calls.every((c) => c[1].mailbox === "Sent" || c[1].query !== undefined),
+    ).toBe(true);
   });
 
   it("does not duplicate an item and snooze, done, dismiss and reopen work", () => {
@@ -267,11 +351,13 @@ describe("follow-up detection", () => {
 });
 
 describe("plain-language automations", () => {
-  const model = { provider: "p", model: "m" };
+  const model = "p/m";
   const base = { model, timezone: TZ, now: () => NOW };
 
   it("parses a request into a draft and creates nothing until confirmed", async () => {
-    const create = vi.fn(async (i: unknown) => ({ id: "a1", ...(i as object) }) as unknown as Automation);
+    const create = vi.fn(
+      async (i: unknown) => ({ id: "a1", ...(i as object) }) as unknown as Automation,
+    );
     const r = await parseAutomation("Every Friday at 5, summarise what I shipped this week", {
       ...base,
       provider: provider(
@@ -283,17 +369,27 @@ describe("plain-language automations", () => {
     const a = await confirmAutomation({ create } as never, r.draft as never);
     expect(a.id).toBe("a1");
     expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: "cron", schedule: "0 17 * * 5", enabled: true, sessionTarget: "isolated" }),
+      expect.objectContaining({
+        kind: "cron",
+        schedule: "0 17 * * 5",
+        enabled: true,
+        sessionTarget: "isolated",
+      }),
     );
   });
 
   it("refuses a schedule the scheduler would not take and a request with no time", async () => {
     const bad = await parseAutomation("whenever", {
       ...base,
-      provider: provider('{"title":"x","kind":"cron","schedule":"every friday","prompt":"p","humanSchedule":"h"}'),
+      provider: provider(
+        '{"title":"x","kind":"cron","schedule":"every friday","prompt":"p","humanSchedule":"h"}',
+      ),
     });
     expect(bad.error).toBe("bad_schedule");
-    const none = await parseAutomation("summarise stuff", { ...base, provider: provider('{"error":"no time"}') });
+    const none = await parseAutomation("summarise stuff", {
+      ...base,
+      provider: provider('{"error":"no time"}'),
+    });
     expect(none.error).toBe("no_schedule");
     expect((await parseAutomation("x", { ...base, provider: undefined })).error).toBe("no_model");
   });
