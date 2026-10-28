@@ -1,0 +1,239 @@
+/*
+  .psy-prose: Psyche's reading typography for rendered Markdown (chat replies, receipts,
+  previews). Targets Streamdown's data-streamdown hooks and plain elements. Unlayered on
+  purpose: it must beat Tailwind's preflight and Streamdown's own utility classes. Spacing is
+  structural (margins between siblings, no content-driven heights), so streaming a list or code
+  block in does not reflow what is already on screen. Other Markdown surfaces adopt it by adding
+  the class (the Markdown component already does).
+*/
+.psy-prose {
+  --prose-gap: 0.7em;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.psy-prose > * + * {
+  margin-top: var(--prose-gap);
+}
+.psy-prose.space-y-4 > :not(:last-child) {
+  margin-bottom: 0;
+}
+
+/* Headings: clear size steps, tighter below than above. */
+.psy-prose :is(h1, h2, h3, h4, h5, h6) {
+  color: var(--label-primary);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  margin-top: 1.4em;
+  margin-bottom: 0;
+}
+.psy-prose :is(h1, h2, h3, h4, h5, h6) + * {
+  margin-top: 0.45em;
+}
+.psy-prose > :is(h1, h2, h3, h4, h5, h6):first-child {
+  margin-top: 0;
+}
+.psy-prose h1 {
+  font-size: 1.45em;
+  font-weight: 700;
+}
+.psy-prose h2 {
+  font-size: 1.25em;
+  padding-bottom: 0.25em;
+  border-bottom: 1px solid var(--separator);
+}
+.psy-prose h3 {
+  font-size: 1.1em;
+}
+.psy-prose :is(h4, h5, h6) {
+  font-size: 1em;
+  color: var(--label-secondary);
+}
+
+/* Lists: visible markers, nested indentation, compact items. */
+.psy-prose :is(ul, ol) {
+  list-style-position: outside;
+  padding-left: 1.5em;
+  margin-top: var(--prose-gap);
+}
+.psy-prose ul {
+  list-style-type: disc;
+}
+.psy-prose ul ul {
+  list-style-type: circle;
+}
+.psy-prose ul ul ul {
+  list-style-type: square;
+}
+.psy-prose ol {
+  list-style-type: decimal;
+}
+.psy-prose ol ol {
+  list-style-type: lower-alpha;
+}
+.psy-prose ol ol ol {
+  list-style-type: lower-roman;
+}
+.psy-prose li {
+  padding: 0;
+  margin-top: 0.3em;
+  padding-left: 0.2em;
+}
+.psy-prose li:first-child {
+  margin-top: 0;
+}
+.psy-prose li::marker {
+  color: var(--label-tertiary);
+}
+.psy-prose ol > li::marker {
+  font-variant-numeric: tabular-nums;
+}
+.psy-prose li :is(ul, ol) {
+  margin-top: 0.3em;
+  padding-left: 1.4em;
+}
+.psy-prose li > p {
+  display: block;
+}
+.psy-prose li > p + * {
+  margin-top: 0.3em;
+}
+/* Task lists: no marker, a checkbox in its place. */
+.psy-prose ul.contains-task-list {
+  list-style: none;
+  padding-left: 0.25em;
+}
+.psy-prose li.task-list-item {
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5em;
+  padding-left: 0;
+}
+.psy-prose li.task-list-item > input[type="checkbox"] {
+  flex: none;
+  margin: 0;
+  position: relative;
+  top: 0.15em;
+  accent-color: var(--accent-9);
+}
+
+/* Blockquote: left rule, softer text. */
+.psy-prose blockquote {
+  margin-left: 0;
+  margin-right: 0;
+  padding: 0.1em 0 0.1em 1em;
+  border-left: 3px solid var(--separator-strong);
+  color: var(--label-secondary);
+  font-style: normal;
+}
+.psy-prose blockquote > * + * {
+  margin-top: 0.5em;
+}
+
+/* Inline code. */
+.psy-prose :not(pre) > code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  padding: 0.12em 0.4em;
+  border-radius: 5px;
+  background: var(--fill-tertiary);
+  color: var(--label-primary);
+}
+
+/* Code blocks (Streamdown chrome: header label + copy). */
+.psy-prose [data-streamdown="code-block"] {
+  margin: var(--prose-gap) 0 0;
+  padding: 0;
+  gap: 0;
+  border: 1px solid var(--separator);
+  border-radius: 10px;
+  background: var(--surface-sidebar);
+  overflow: hidden;
+}
+.psy-prose [data-streamdown="code-block-header"] {
+  height: auto;
+  padding: 0.35em 0.75em;
+  border-bottom: 1px solid var(--separator);
+  color: var(--label-tertiary);
+  font-size: 0.78em;
+}
+.psy-prose [data-streamdown="code-block-body"] {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0.7em 0.9em;
+  font-size: 0.86em;
+  line-height: 1.55;
+  overflow-x: auto;
+}
+.psy-prose [data-streamdown="code-block-body"] pre {
+  margin: 0;
+  background: transparent;
+}
+.psy-prose [data-streamdown="code-block-body"] code {
+  font-family: var(--font-mono);
+  background: transparent;
+  padding: 0;
+}
+
+/* Tables: bordered, header tint, scroll horizontally instead of squeezing. */
+.psy-prose [data-streamdown="table-wrapper"] {
+  margin: var(--prose-gap) 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  max-width: 100%;
+}
+.psy-prose [data-streamdown="table-wrapper"] > div {
+  max-height: none !important;
+  overflow-x: auto;
+  border: 1px solid var(--separator);
+  border-radius: 10px;
+  background: transparent;
+}
+.psy-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92em;
+}
+.psy-prose thead {
+  background: var(--fill-quaternary);
+}
+.psy-prose :is(th, td) {
+  padding: 0.45em 0.8em;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--separator);
+}
+.psy-prose th {
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--label-primary);
+}
+.psy-prose tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.psy-prose hr {
+  margin: 1.2em 0;
+  border: 0;
+  border-top: 1px solid var(--separator);
+}
+.psy-prose a {
+  color: var(--accent-11);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklch, var(--accent-11) 40%, transparent);
+  text-underline-offset: 2px;
+}
+.psy-prose a:hover {
+  text-decoration-color: currentColor;
+}
+.psy-prose strong {
+  font-weight: 600;
+}
+.psy-prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
