@@ -94,6 +94,7 @@
 //   let artifactConflict = try? JSONDecoder().decode(ArtifactConflict.self, from: jsonData)
 //   let artifactDeck = try? JSONDecoder().decode(ArtifactDeck.self, from: jsonData)
 //   let artifactDeckTheme = try? JSONDecoder().decode(ArtifactDeckTheme.self, from: jsonData)
+//   let artifactExport = try? JSONDecoder().decode(ArtifactExport.self, from: jsonData)
 //   let artifactFormulaCell = try? JSONDecoder().decode(ArtifactFormulaCell.self, from: jsonData)
 //   let artifactMap = try? JSONDecoder().decode(ArtifactMap.self, from: jsonData)
 //   let artifactMapMarker = try? JSONDecoder().decode(ArtifactMapMarker.self, from: jsonData)
@@ -113,6 +114,7 @@
 //   let artifactWorkbookSheet = try? JSONDecoder().decode(ArtifactWorkbookSheet.self, from: jsonData)
 //   let artifactsCreateParams = try? JSONDecoder().decode(ArtifactsCreateParams.self, from: jsonData)
 //   let artifactsCreateResult = try? JSONDecoder().decode(ArtifactsCreateResult.self, from: jsonData)
+//   let artifactsExportParams = try? JSONDecoder().decode(ArtifactsExportParams.self, from: jsonData)
 //   let artifactsGetParams = try? JSONDecoder().decode(ArtifactsGetParams.self, from: jsonData)
 //   let artifactsGetResult = try? JSONDecoder().decode(ArtifactsGetResult.self, from: jsonData)
 //   let artifactsListParams = try? JSONDecoder().decode(ArtifactsListParams.self, from: jsonData)
@@ -3994,6 +3996,25 @@ public enum ArtifactDeckTheme: String, Codable, Sendable {
     case light = "light"
 }
 
+// MARK: - ArtifactExport
+public struct ArtifactExport: Codable, Sendable {
+    public let data: String
+    public let mime: String
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case data = "data"
+        case mime = "mime"
+        case name = "name"
+    }
+
+    public init(data: String, mime: String, name: String) {
+        self.data = data
+        self.mime = mime
+        self.name = name
+    }
+}
+
 // MARK: - ArtifactMap
 public struct ArtifactMap: Codable, Sendable {
     public let bounds: [Double]?
@@ -4721,6 +4742,25 @@ public struct ArtifactRef: Codable, Sendable {
         self.summary = summary
         self.title = title
         self.type = type
+        self.version = version
+    }
+}
+
+// MARK: - ArtifactsExportParams
+public struct ArtifactsExportParams: Codable, Sendable {
+    public let artifactID: String
+    public let format: String
+    public let version: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case artifactID = "artifactId"
+        case format = "format"
+        case version = "version"
+    }
+
+    public init(artifactID: String, format: String, version: Int?) {
+        self.artifactID = artifactID
+        self.format = format
         self.version = version
     }
 }

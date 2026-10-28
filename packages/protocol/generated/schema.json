@@ -475,6 +475,14 @@
         "sideEffecting": true
       },
       {
+        "description": "Renders a doc, workbook or deck as a file (docx, xlsx, pptx, pdf, md, csv) for download. Nothing is written to the owner's disk.",
+        "name": "artifacts.export",
+        "params": "#/$defs/ArtifactsExportParams",
+        "result": "#/$defs/ArtifactExport",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Returns one artifact's metadata (content through `artifacts.read`).",
         "name": "artifacts.get",
         "params": "#/$defs/ArtifactsGetParams",
@@ -6604,6 +6612,25 @@
       ],
       "type": "string"
     },
+    "ArtifactExport": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "mime": {
+          "type": "string"
+        },
+        "data": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "mime",
+        "data"
+      ],
+      "type": "object"
+    },
     "ArtifactFormulaCell": {
       "properties": {
         "f": {
@@ -7778,6 +7805,30 @@
       "required": [
         "artifact",
         "ref"
+      ],
+      "type": "object"
+    },
+    "ArtifactsExportParams": {
+      "properties": {
+        "artifactId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "format": {
+          "maxLength": 8,
+          "minLength": 2,
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "artifactId",
+        "format"
       ],
       "type": "object"
     },
