@@ -157,6 +157,7 @@ import { protectedRoots } from "./protected-paths.ts";
 import { notifierRouting } from "./quiet-hours.ts";
 import { createRateLimits } from "./rate-limits.ts";
 import { requestPermissionTool } from "./request-permission.ts";
+import { researchTools } from "./research.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
 import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
 import { scriptTools } from "./scripts.ts";
@@ -1333,6 +1334,20 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   parts.push(search);
   searchRef = search;
   void memoryRecall.apply();
+  // Deep research (`/research`): plan, confirmed run, cited report artifact, follow-ups.
+  for (const tool of researchTools({
+    db,
+    home: config.home,
+    provider,
+    model: modelRef,
+    cheapModel: utility ?? modelRef,
+    web: webTools,
+    localSearch: async (q) => (await search.index.query({ q, limit: 5 })).hits,
+    publish: (artifact, version) =>
+      publish("artifact.updated", { artifact, version }, artifact.threadId ?? undefined),
+  })) {
+    registry.register(tool);
+  }
   parts.push(people.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone));
   // Code plugins (T4): off until the owner turns on `plugins.enabled`.
   parts.push(

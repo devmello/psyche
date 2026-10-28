@@ -26,6 +26,7 @@ export type CommandName =
   | "remember"
   | "teach"
   | "plan"
+  | "research"
   | "status"
   | "export"
   | "stop";
@@ -82,6 +83,7 @@ export const COMMANDS: readonly CommandInfo[] = [
   command("remember", "required"),
   command("teach", "required"),
   command("plan", "optional"),
+  command("research", "required"),
   command("status", "none"),
   command("export", "optional", { kind: "enum", options: exportOptions }),
   command("stop", "none"),

@@ -1,0 +1,18 @@
+{
+  "name": "@psyche/research",
+  "version": "0.3.0-alpha.0",
+  "private": true,
+  "description": "Deep research: plan, parallel reads, claim extraction, cross-check, cited report.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  }
+}

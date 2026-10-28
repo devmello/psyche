@@ -461,6 +461,15 @@ export function ChatThread({
         await view.send(t("chat.thread.schedulePrompt", { request: arg }));
         return;
       }
+      case "research": {
+        // The agent drafts the plan with `research_plan`; the owner confirms before the run.
+        const local = /^--local\s+/.test(arg);
+        const question = local ? arg.replace(/^--local\s+/, "") : arg;
+        await view.send(
+          t(local ? "chat.thread.researchPromptLocal" : "chat.thread.researchPrompt", { question }),
+        );
+        return;
+      }
       case "remember": {
         const res = await call("memory.remember", { text: arg });
         setNotice({ kind: "ok", text: t("chat.thread.remembered", { path: res.path }) });

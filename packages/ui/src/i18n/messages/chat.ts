@@ -49,6 +49,8 @@ export const chat = {
   "chat.commands.status.description": "Show model, mode and running work",
   "chat.commands.export.hint": "md | json",
   "chat.commands.export.description": "Export this thread",
+  "chat.commands.research.hint": "question",
+  "chat.commands.research.description": "Research a question in depth, with a cited report",
   "chat.commands.stop.description": "Stop the current run",
   "chat.commands.unknown":
     "There's no /{name} command. Start with // to send text that begins with a slash.",
@@ -178,6 +180,10 @@ export const chat = {
   "chat.thread.planMode": "Plan mode: read-only until you switch back.",
   "chat.thread.schedulePrompt":
     "/schedule {request}\n\nCreate this as an automation with your schedule tool, then tell me what you set up.",
+  "chat.thread.researchPrompt":
+    "/research {question}\n\nResearch this in depth with your research_plan tool. Show me the plan and the token estimate, and wait for my go-ahead before you call research_run. Use web sources only.",
+  "chat.thread.researchPromptLocal":
+    "/research {question}\n\nResearch this in depth with your research_plan tool, including my own files, mail and notes (includeLocal). Show me the plan and the token estimate, and wait for my go-ahead before you call research_run.",
   "chat.thread.remembered": "Noted in {path}.",
   "chat.thread.taught": "Psyche will remember: {lesson}",
   "chat.thread.teachNothing": "There is no reply to correct yet.",

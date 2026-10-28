@@ -392,3 +392,6 @@ export {
   VOICE_KEYS,
   type VoiceSettings,
 } from "./voice/settings.ts";
+
+// Deep research: progress view and cited report.
+export * from "./research/index.ts";
