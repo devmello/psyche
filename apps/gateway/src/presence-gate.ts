@@ -138,6 +138,8 @@ export const PRESENCE_METHODS: Readonly<Record<string, (p: Params) => string | u
   "memory.lessons.forgetAll": (p) =>
     p.dryRun === true ? undefined : "Forget everything Psyche learned from you",
   "backup.delete": () => "Delete a backup",
+  "sandbox.installSrt": () =>
+    "Install srt (the sandbox runtime) into Psyche's tools folder from the npm registry",
 };
 
 /** The gate for one dispatched call, or `undefined` when the method needs none. */

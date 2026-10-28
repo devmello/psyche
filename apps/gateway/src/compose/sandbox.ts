@@ -1,5 +1,12 @@
 import { join } from "node:path";
-import type { DecisionContext, SandboxBackend, SandboxScope } from "@psyche/protocol";
+import { getSetting, setSetting } from "@psyche/db";
+import {
+  type DecisionContext,
+  PsycheError,
+  type SandboxBackend,
+  type SandboxScope,
+  type SandboxSrtInstaller,
+} from "@psyche/protocol";
 import {
   type ContainerSandboxRunner,
   type ContainerSandboxRunnerOptions,
@@ -9,10 +16,21 @@ import {
   type DevServerEvent,
   FileProvenanceStore,
   inspectBackends,
+  installedSrtVersion,
+  installSrt,
   type SandboxEgress,
+  SRT_PACKAGE,
+  SRT_SETTING,
+  SRT_VERSION,
+  type SrtInstallDeps,
+  SrtInstallError,
+  type SrtPin,
   type SrtStatus,
+  srtInstallDir,
   systemDetectDeps,
+  systemSrtInstallDeps,
 } from "@psyche/sandbox";
+import type { Call } from "../context.ts";
 import type { Gateway } from "../server.ts";
 import { execTool } from "./exec-tool.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
@@ -54,6 +72,8 @@ export interface SandboxSetup {
   detectDeps?: DetectDeps;
   /** Where `srt` is (shared with the MCP part), for `sandbox.status` and `sandbox.setup`. */
   srt?: SrtResolver;
+  /** `sandbox.installSrt`: the fetch and unpack (tests pass fakes) and the Node that runs srt. */
+  srtInstall?: { deps?: SrtInstallDeps; nodePath?: string; pins?: readonly SrtPin[] };
 }
 
 /**
@@ -67,6 +87,7 @@ export function sandboxSetupHandler(
   active: () => Promise<SandboxBackend>,
   srt: SrtResolver | undefined,
   deps?: DetectDeps,
+  installer?: () => SandboxSrtInstaller,
 ) {
   return {
     run: async () => {
@@ -88,6 +109,7 @@ export function sandboxSetupHandler(
       return {
         ready: s.available,
         srt: s,
+        ...(installer === undefined ? {} : { installer: installer() }),
         containers: {
           recommended,
           backends,
@@ -97,6 +119,23 @@ export function sandboxSetupHandler(
         },
       };
     },
+  };
+}
+
+/** What the guided setup shows about installing srt: the pin, where it goes, what is there. */
+export function srtInstallerInfo(
+  services: Pick<ComposeServices, "db" | "home">,
+): SandboxSrtInstaller {
+  const installedVersion = installedSrtVersion(
+    services.home,
+    getSetting(services.db, SRT_SETTING)?.value,
+  );
+  return {
+    package: SRT_PACKAGE,
+    version: SRT_VERSION,
+    dir: srtInstallDir(services.home),
+    installedVersion,
+    updateAvailable: installedVersion !== null && installedVersion !== SRT_VERSION,
   };
 }
 
@@ -218,7 +257,9 @@ export function composeSandbox(
     const first = (await runner.backends().catch(() => []))[0];
     return first === "apple-container" || first === "docker" || first === "podman" ? first : "none";
   };
-  const setupHandler = sandboxSetupHandler(backend, setup.srt, setup.detectDeps);
+  const setupHandler = sandboxSetupHandler(backend, setup.srt, setup.detectDeps, () =>
+    srtInstallerInfo(services),
+  );
   return {
     runner,
     egress,
@@ -239,6 +280,47 @@ export function composeSandbox(
         },
       },
       "sandbox.setup": setupHandler,
+      // Only ever the owner's click (operator.admin + fresh presence in the dispatcher); it is
+      // not an agent tool, so no model turn, tainted or not, can reach it.
+      "sandbox.installSrt": {
+        run: async (call: Call) => {
+          const log = (level: "info" | "warn", msg: string, f: Record<string, string>) =>
+            services.logger?.log(level, msg, { device: call.identity.deviceId, ...f });
+          const nodePath = setup.srtInstall?.nodePath ?? process.execPath;
+          log("info", "sandbox.srt.install.start", { package: SRT_PACKAGE, version: SRT_VERSION });
+          let result: Awaited<ReturnType<typeof installSrt>>;
+          try {
+            result = await installSrt(setup.srtInstall?.deps ?? systemSrtInstallDeps, {
+              home: services.home,
+              nodePath,
+              ...(setup.srtInstall?.pins === undefined ? {} : { pins: setup.srtInstall.pins }),
+            });
+          } catch (e) {
+            const code = e instanceof SrtInstallError ? e.code : "internal";
+            log("warn", "sandbox.srt.install.failed", { code });
+            throw new PsycheError(
+              code === "download_failed" ? "unavailable" : "internal",
+              e instanceof SrtInstallError ? e.message : "srt could not be installed",
+              { details: { reason: code } },
+            );
+          }
+          const entry = setSetting(services.db, SRT_SETTING, result.path);
+          call.emit("settings.changed", { entries: [entry] });
+          // The receipt: what was fetched (exact URLs and checksums) and where it went.
+          log("info", "sandbox.srt.install.receipt", {
+            package: SRT_PACKAGE,
+            version: result.version,
+            dir: result.dir,
+            path: result.path,
+            node: nodePath,
+            tarballs: result.packages.map((p) => `${p.url}#${p.integrity}`).join(" "),
+          });
+          return {
+            srt: setup.srt === undefined ? NO_SRT : await setup.srt.inspect(),
+            installer: srtInstallerInfo(services),
+          };
+        },
+      },
     },
     start(gateway: Gateway) {
       if (setup.vm === undefined) return;

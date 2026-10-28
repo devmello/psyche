@@ -2246,6 +2246,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Installs the pinned srt into Psyche's own tools folder with the Gateway's bundled Node (npm registry tarballs only, each checked against its pinned sha512 integrity; no scripts run, no global prefix, no sudo) and saves exec.srtPath. Only from the owner's click; needs fresh presence once the Gateway has a presence verifier (approval_required with details.approvalId, then retry with approvalId). Fails closed on any mismatch. Side-effecting.",
+        "name": "sandbox.installSrt",
+        "params": "#/$defs/SandboxInstallSrtParams",
+        "result": "#/$defs/SandboxInstallSrtResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Lists sandboxes.",
         "name": "sandbox.list",
         "params": "#/$defs/SandboxListParams",
@@ -28281,6 +28289,32 @@
       ],
       "type": "object"
     },
+    "SandboxInstallSrtParams": {
+      "properties": {
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "SandboxInstallSrtResult": {
+      "properties": {
+        "srt": {
+          "$ref": "#/$defs/SandboxSrtStatus"
+        },
+        "installer": {
+          "$ref": "#/$defs/SandboxSrtInstaller"
+        }
+      },
+      "required": [
+        "srt",
+        "installer"
+      ],
+      "type": "object"
+    },
     "SandboxListParams": {
       "properties": {},
       "type": "object"
@@ -28354,6 +28388,9 @@
         "srt": {
           "$ref": "#/$defs/SandboxSrtStatus"
         },
+        "installer": {
+          "$ref": "#/$defs/SandboxSrtInstaller"
+        },
         "containers": {
           "$ref": "#/$defs/SandboxContainerSetup"
         }
@@ -28362,6 +28399,44 @@
         "ready",
         "srt",
         "containers"
+      ],
+      "type": "object"
+    },
+    "SandboxSrtInstaller": {
+      "properties": {
+        "package": {
+          "description": "The npm package, e.g. @anthropic-ai/sandbox-runtime",
+          "type": "string"
+        },
+        "version": {
+          "description": "The version this Psyche installs (pinned)",
+          "type": "string"
+        },
+        "dir": {
+          "description": "Where it will be installed (mode 0700)",
+          "type": "string"
+        },
+        "installedVersion": {
+          "anyOf": [
+            {
+              "description": "The Psyche-installed version `exec.srtPath` points into",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updateAvailable": {
+          "description": "An older Psyche-installed srt is in use and this Psyche pins another version",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "package",
+        "version",
+        "dir",
+        "updateAvailable"
       ],
       "type": "object"
     },
