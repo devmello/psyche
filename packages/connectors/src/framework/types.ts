@@ -132,7 +132,13 @@ export type ConnectorEvent =
   | { type: "synced"; connectorId: string; changes: number; full: boolean }
   | { type: "matrix_changed"; connectorId: string; matrix: Record<string, ActionRule> }
   /** `connectors.configure` changed the record's settings (#727); the instance was re-created. */
-  | { type: "configured"; connectorId: string; keys: string[] };
+  | {
+      type: "configured";
+      connectorId: string;
+      keys: string[];
+      /** The owner changed which sources they declared theirs (`trustedSources`, security §3.6). */
+      trustedSources?: { before: string[]; after: string[] };
+    };
 
 export interface ConnectorContext {
   clock: Clock;

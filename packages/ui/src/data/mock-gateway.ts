@@ -164,6 +164,8 @@ export interface MockWorld {
   appleGrant?: "granted" | "denied" | "notDetermined";
   /** `connectors.catalogue`; absent → the fixture catalogue (accounts and the Apple apps). */
   catalogue?: ConnectorCatalogueEntry[];
+  /** The helper's source lists (`reminders.list_lists`, …) through `nodes.invoke`; absent → fixtures. */
+  helperSources?: Record<string, unknown>;
   /** The helper's `shortcuts.list` through `nodes.invoke`; absent → the fixture shortcuts. */
   shortcuts?: unknown[];
   /** The last turn's context usage by thread id (`threads.contextUsage`). */
@@ -190,6 +192,25 @@ export interface MockWorld {
   specialistRoles?: SpecialistRole[];
   specialistJobs?: SpecialistJob[];
 }
+
+/** What the helper lists for Settings → Connectors → "Mine — treat as trusted". */
+const TRUST_SOURCE_RESULTS: Record<string, unknown> = {
+  "reminders.list_lists": {
+    lists: [
+      { id: "L-HOME", title: "Home", source: "iCloud", writable: true },
+      { id: "L-FAMILY", title: "Family (shared)", source: "iCloud", writable: false },
+    ],
+  },
+  "calendar.list_calendars": {
+    calendars: [
+      { id: "C-WORK", title: "Work", source: "iCloud", writable: true },
+      { id: "C-HOLIDAYS", title: "US Holidays", source: "Subscribed", writable: false },
+    ],
+  },
+  "notes.folders": {
+    folders: [{ id: "F-NOTES", name: "Notes", account: "iCloud", parentId: null, noteCount: 3 }],
+  },
+};
 
 /** The model window the mock reports when a thread has no usage yet. */
 export const MOCK_CONTEXT_WINDOW = 200_000;
@@ -2833,6 +2854,13 @@ export class MockGateway implements GatewayClient {
     "nodes.list": () => ({ nodes: this.world.nodes }),
     "nodes.invoke": (p) => {
       this.find(this.world.nodes, p.nodeId, "node");
+      const source = TRUST_SOURCE_RESULTS[p.capability];
+      if (source !== undefined)
+        return {
+          invocationId: this.id("inv"),
+          ok: true,
+          result: this.world.helperSources?.[p.capability] ?? source,
+        };
       if (p.capability !== "shortcuts.list")
         fail("not_implemented", `MockGateway does not invoke ${p.capability}`);
       return {
