@@ -76,6 +76,8 @@ export interface MemoryToolContext {
   ownerText?: string;
   /** A private session of the owner (not a group, channel peer or subagent). */
   privateSession?: boolean;
+  /** Thread, turn and call behind the tool call (change records). */
+  link?: { threadId?: string; runId?: string; toolCallId?: string };
 }
 
 export interface ToolOutcome {
@@ -146,6 +148,7 @@ function writeOptions(ctx: MemoryToolContext, etag?: string): WriteOptions {
     provenance: ctx.provenance,
     actor: "agent",
     source: "tool",
+    link: { tool: "memory", ...ctx.link },
     ...(ctx.approvalId === undefined ? {} : { approvalId: ctx.approvalId }),
     ...(ctx.origin === undefined ? {} : { origin: ctx.origin }),
     ...(etag === undefined ? {} : { etag }),

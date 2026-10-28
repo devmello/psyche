@@ -165,13 +165,19 @@ export class HashChainAuditLog implements AuditLog {
   }
 
   /** Appends are serialized so `seq` and `prev` never race, even with an async signer. */
-  append(input: AuditEntryInput): Promise<AuditEntry> {
-    const run = this.#queue.then(() => this.#append(input));
+  append(
+    input: AuditEntryInput,
+    extra: { verbatim?: readonly string[] } = {},
+  ): Promise<AuditEntry> {
+    const run = this.#queue.then(() => this.#append(input, extra));
     this.#queue = run.catch(() => undefined);
     return run;
   }
 
-  async #append(input: AuditEntryInput): Promise<AuditEntry> {
+  async #append(
+    input: AuditEntryInput,
+    extra: { verbatim?: readonly string[] } = {},
+  ): Promise<AuditEntry> {
     if (this.#validateKinds && !AUDIT_KIND_PATTERN.test(input.kind)) {
       throw new PsycheError("invalid_params", `audit kind "${input.kind}" is not a dotted name`);
     }
@@ -179,7 +185,10 @@ export class HashChainAuditLog implements AuditLog {
     const now = this.#clock.now();
     // Never let ts run backwards: month files are read in name order.
     const tsMs = tail === undefined ? now : Math.max(now, Date.parse(tail.ts));
-    const opts = this.#redact === undefined ? {} : { redact: this.#redact };
+    const opts = {
+      ...(this.#redact === undefined ? {} : { redact: this.#redact }),
+      ...(extra.verbatim === undefined ? {} : { verbatim: extra.verbatim }),
+    };
     const base: Omit<AuditEntry, "hash"> = {
       seq: tail === undefined ? 0 : tail.seq + 1,
       ts: new Date(tsMs).toISOString(),

@@ -18,6 +18,14 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-28 (audit view of owner-data changes)
+
+For the chat's "Changed N files" chip and the Timeline / Activity audit view.
+
+- New methods `audit.changes` (filtered list, newest first), `audit.change` (one change plus its stored diff) and `audit.changesExport` (JSON or Markdown with the chain status).
+- New types `AuditChange`, `AuditChangeActor`, `AuditChangeTarget`, `AuditChangeCategory`, `AuditChangesExportFormat`.
+- New event `audit.change.recorded`.
+
 ### v1 additive — 2026-10-27 (auto-mode availability in models.list)
 
 For the chat's permission-mode control (it should not offer Auto when the thread's model cannot run it).

@@ -132,5 +132,9 @@ describe("deferred tools: prompt size", () => {
       expect.arrayContaining(["read_file", "memory", "find_capability", "tool_search"]),
     );
     expect(a).toBeLessThan(b * 0.6);
+    // #986: `messages_send` (its own compose card) is offered on demand like any other tool.
+    const send = all.find((t) => t.name === "messages_send");
+    expect(send).toBeDefined();
+    expect(defer(send as (typeof all)[number])).toBe(true);
   });
 });

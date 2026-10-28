@@ -1,5 +1,6 @@
 import { agent } from "./agent.ts";
 import { agentNotes } from "./agent-notes.ts";
+import { audit } from "./audit.ts";
 import { blocks } from "./blocks.ts";
 import { canvas } from "./canvas.ts";
 import { capabilities } from "./capabilities.ts";
@@ -49,6 +50,7 @@ export const en = {
   ...context,
   ...agent,
   ...agentNotes,
+  ...audit,
   ...shell,
   ...settings,
   ...settingsLanguage,

@@ -89,7 +89,18 @@ export const settingsHandlers: Record<string, HandlerDef> = {
           params.approvalId,
         );
       }
+      const before = getSettings(call.ctx.db, [key])[key];
       const entry = setSetting(call.ctx.db, key, value);
+      try {
+        call.ctx.onSettingChanged?.({
+          key,
+          before,
+          after: value,
+          deviceId: call.identity.deviceId,
+        });
+      } catch {
+        // Reporting never fails the change.
+      }
       const stateVersion = call.ctx.bus.bumpStateVersion();
       call.emit("settings.changed", { entries: [entry] });
       return { entry, stateVersion };

@@ -1,5 +1,6 @@
 import type {
   ActionProposal,
+  AuditChange,
   CatalogEntry,
   ConnectorCatalogueEntry,
   ContextLimits,
@@ -109,6 +110,9 @@ export interface MockWorld {
   answerTokens: Record<string, string>;
   inputRequests: InputRequest[];
   receipts: Receipt[];
+  /** Audit change records (`audit.changes`), newest first, with their stored diffs. */
+  auditChanges: { change: AuditChange; diff?: string }[];
+  auditVerified: boolean;
   artifacts: Artifact[];
   /** Canvas history per artifact: content, table view and version record, index = version - 1. */
   artifactHistory: Record<
@@ -204,6 +208,8 @@ export const EMPTY_WORLD: MockWorld = {
   answerTokens: {},
   inputRequests: [],
   receipts: [],
+  auditChanges: [],
+  auditVerified: true,
   artifacts: [],
   artifactHistory: {},
   library: [],
@@ -1546,6 +1552,31 @@ export class MockGateway implements GatewayClient {
     },
 
     "receipts.get": (p) => ({ receipt: this.find(this.world.receipts, p.receiptId, "receipt") }),
+    "audit.changes": (p) => ({
+      changes: this.world.auditChanges
+        .map((c) => c.change)
+        .filter(
+          (c) =>
+            (p.threadId === undefined || c.threadId === p.threadId) &&
+            (p.runId === undefined || c.runId === p.runId) &&
+            (p.categories === undefined || p.categories.includes(c.category)),
+        )
+        .slice(0, p.limit ?? 200),
+    }),
+    "audit.change": (p) => {
+      const found = this.world.auditChanges.find((c) => c.change.seq === p.seq);
+      if (found === undefined) throw new PsycheError("not_found", "no such audit entry");
+      return { change: found.change, ...(found.diff === undefined ? {} : { diff: found.diff }) };
+    },
+    "audit.changesExport": (p) => ({
+      format: p.format,
+      verified: this.world.auditVerified,
+      data: JSON.stringify(this.world.auditChanges.map((c) => c.change)),
+    }),
+    "audit.verify": () =>
+      this.world.auditVerified
+        ? { ok: true, count: this.world.auditChanges.length }
+        : { ok: false, brokenAtSeq: 3, reason: "hash_mismatch" },
     "receipts.list": (p) => ({
       receipts: this.world.receipts.filter((r) => p.taskId === undefined || r.taskId === p.taskId),
       nextCursor: null,

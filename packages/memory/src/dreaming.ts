@@ -460,7 +460,12 @@ async function dream(
   // 5. Write.
   const next = lines.join("\n");
   if (next !== memory) {
-    await store.write("MEMORY.md", next, { provenance: "agent", actor: "job", source: "job" });
+    await store.write("MEMORY.md", next, {
+      provenance: "agent",
+      actor: "job",
+      source: "job",
+      link: { tool: "dreaming" },
+    });
   }
   const n = report.notPromoted;
   const skipped = [
@@ -482,6 +487,7 @@ async function dream(
     provenance: "system",
     actor: "job",
     source: "job",
+    link: { tool: "dreaming" },
   });
   store.setState(LEDGER_KEY, ledger);
   return report;

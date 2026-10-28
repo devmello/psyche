@@ -99,6 +99,8 @@ export interface RedactOptions {
   keep?: readonly string[];
   /** Strings longer than this are reduced to a digest. Default 2,048. */
   maxStringLength?: number;
+  /** String values stored as given: the caller already redacted them (change-record diffs). */
+  verbatim?: readonly string[];
 }
 
 export interface ContentDigest {
@@ -124,6 +126,7 @@ function safeStringify(value: unknown): string {
 export function redactForAudit<T>(value: T, options: RedactOptions = {}): T {
   const keep = new Set((options.keep ?? []).map(normalizeKey));
   const max = options.maxStringLength ?? 2048;
+  const verbatim = new Set((options.verbatim ?? []).map(normalizeKey));
   const scrub = (s: string): string => {
     const once = options.redact === undefined ? s : options.redact(s);
     return redactSensitive(once);
@@ -154,6 +157,10 @@ export function redactForAudit<T>(value: T, options: RedactOptions = {}): T {
       const out: Record<string, unknown> = {};
       for (const [k, item] of Object.entries(v as Record<string, unknown>)) {
         const nk = normalizeKey(k);
+        if (verbatim.has(nk) && typeof item === "string") {
+          out[k] = item;
+          continue;
+        }
         if (!keep.has(nk) && SECRET_KEYS.has(nk)) {
           out[k] = REDACTED;
           continue;

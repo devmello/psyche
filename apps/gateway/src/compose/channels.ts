@@ -74,6 +74,7 @@ import type { TxHooks } from "../session/controller.ts";
 import { channelSecretHandlers, vaultChannelSecret } from "./channel-secrets.ts";
 import { type EmailSetup, emailSetupFromEnv, mailEmailTransport } from "./email-channel.ts";
 import { indexedChannelLibrary } from "./library.ts";
+import { messagesSendTool } from "./messages-send.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -783,6 +784,23 @@ export function composeChannels(
     return node === undefined ? undefined : nodes?.client(node.id);
   };
   const im = setup.imessage;
+  // `messages_send` (agent tool): sends bind to this account whether or not the iMessage channel
+  // itself is set up, because the tool and `verifiedMessagesSends` share it.
+  const sendAccount = im?.account ?? "mac-messages";
+  const sendTool = messagesSendTool({
+    broker: services.broker,
+    surfaces: ["desktop", "web"],
+    account: sendAccount,
+    node: () => {
+      const nodes = gateway?.context.nodes;
+      const node = nodes
+        ?.list()
+        .find((n) => nodes.isLive(n.id) && n.capabilities.some((c) => c.name === "messages.send"));
+      return node === undefined ? undefined : nodes?.client(node.id);
+    },
+    sender: (client) => verifiedMessagesSends(services, client, sendAccount),
+  });
+  let unregisterSendTool: (() => unknown) | undefined;
   if (im !== undefined) {
     add(
       new IMessageAdapter({
@@ -1218,6 +1236,7 @@ export function composeChannels(
     },
     async start(gw: Gateway) {
       gateway = gw;
+      unregisterSendTool ??= services.tools.register(sendTool);
       unsubscribe = gw.bus.subscribe(["operator.read"], onFrame);
       await service.init();
       await ensureWebChat();
@@ -1241,6 +1260,8 @@ export function composeChannels(
       }
     },
     async stop() {
+      unregisterSendTool?.();
+      unregisterSendTool = undefined;
       if (timer !== null) clearInterval(timer);
       timer = null;
       unsubscribe?.();
