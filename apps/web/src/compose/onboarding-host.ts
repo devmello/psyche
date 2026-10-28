@@ -171,10 +171,10 @@ export async function detectCompleted(call: Call): Promise<OnboardingStepId[]> {
     return res.claims.length > 0;
   });
   await attempt("habits", async () => {
-    const res = (await call("settings.get", { keys: ["mail.digest.enabled"] })) as {
+    const res = (await call("settings.get", { keys: ["daily.brief.enabled"] })) as {
       settings: Record<string, unknown>;
     };
-    return typeof res.settings["mail.digest.enabled"] === "boolean";
+    return typeof res.settings["daily.brief.enabled"] === "boolean";
   });
   return done;
 }

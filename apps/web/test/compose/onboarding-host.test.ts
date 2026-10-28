@@ -143,16 +143,15 @@ describe("habits and automations", () => {
   it("writes each habit key and keeps going when one is refused", async () => {
     const g = gateway({
       "settings.set": (p) => {
-        if (p.key === "habits.wrapup.enabled") throw new Error("forbidden");
+        if (p.key === "daily.wrapup.enabled") throw new Error("forbidden");
         return {};
       },
     });
     await saveHabits(g.call, { brief: true, wrapup: true, followups: false });
     expect(g.calls.map((c) => c.params.key)).toEqual([
-      "mail.digest.enabled",
-      "mail.digest.time",
-      "habits.wrapup.enabled",
-      "mail.followups.enabled",
+      "daily.brief.enabled",
+      "daily.wrapup.enabled",
+      "daily.followups.enabled",
     ]);
   });
 
@@ -214,8 +213,8 @@ describe("completeOnboarding with the first-run answers", () => {
     expect(user).toContain("- Timezone: America/Los_Angeles");
     expect(user).toContain("- Work or study: Student");
     expect(user).toContain("- Home city: Santa Cruz");
-    expect(sets).toContain("mail.digest.enabled");
-    expect(sets).toContain("habits.wrapup.enabled");
+    expect(sets).toContain("daily.brief.enabled");
+    expect(sets).toContain("daily.wrapup.enabled");
   });
 
   it("a re-run leaves IDENTITY.md alone", async () => {
