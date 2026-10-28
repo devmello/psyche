@@ -22,8 +22,11 @@ import {
   type GraphProjectStatus,
   type GraphRelationshipLabel,
   type GraphRemovedCounts,
+  type GraphReviewState,
+  type GraphSensitivity,
   type GraphSource,
   type GraphStatus,
+  type GraphSubjectKind,
   type GraphSuggestion,
   type GraphWriteSource,
   type Provenance,
@@ -48,7 +51,7 @@ import { blockHash, normalizeIdentifier, normalizeName, sha256, slugify } from "
  * the phase that adds their supersession and review rules (EM1+), so adding them to the protocol
  * changes no behaviour.
  */
-const LIFE_ATTRIBUTES: ReadonlySet<string> = new Set([
+export const LIFE_ATTRIBUTES: ReadonlySet<string> = new Set([
   "anniversary",
   "hometown",
   "school",
@@ -109,6 +112,9 @@ const REL_KINDS: Partial<Record<GraphEdgeRel, [GraphEntityKind[], GraphEntityKin
   related_to: [["person"], ["person"]],
   part_of: [["project"], ["project"]],
 };
+
+/** Review states that count as known (everything memory §4.3). */
+export const ACCEPTED_REVIEW_SQL = "('accepted', 'auto_accepted', 'edited')";
 
 const SUMMARY_CHARS = 400;
 const SUBJECT_CHARS = 200;
@@ -221,6 +227,13 @@ interface FactRow {
   recorded_at: string;
   superseded_by: string | null;
   retracted_at: string | null;
+  subject_kind: GraphSubjectKind;
+  sensitivity: GraphSensitivity;
+  review: GraphReviewState;
+  first_seen_at: string | null;
+  last_seen_at: string | null;
+  run_id: string | null;
+  extractor: string | null;
 }
 
 interface EdgeRow {
@@ -348,6 +361,13 @@ function toFact(r: FactRow): GraphFact {
     recordedAt: r.recorded_at,
     supersededBy: r.superseded_by,
     retractedAt: r.retracted_at,
+    subjectKind: r.subject_kind,
+    sensitivity: r.sensitivity,
+    review: r.review,
+    ...(r.first_seen_at === null ? {} : { firstSeenAt: r.first_seen_at }),
+    ...(r.last_seen_at === null ? {} : { lastSeenAt: r.last_seen_at }),
+    runId: r.run_id,
+    ...(r.extractor === null ? {} : { extractor: r.extractor }),
   };
 }
 
@@ -438,6 +458,11 @@ export class GraphStore {
     this.#db.prepare("UPDATE graph_entities SET updated_at = ? WHERE id = ?").run(this.#now(), id);
     this.#reindex(id);
     this.#emit({ event: "memory.entity.updated", payload: { id, kind: row.kind, changed } });
+  }
+
+  /** Reindexes an entity and emits `memory.entity.updated` after a write made outside this class. */
+  touch(id: string, changed: string[]): void {
+    this.#touched(id, changed);
   }
 
   // --- entities --------------------------------------------------------------------------------
@@ -850,7 +875,13 @@ export class GraphStore {
     const where = [
       "entity_id = ?",
       ...(current
-        ? ["superseded_by IS NULL", "retracted_at IS NULL", "(valid_to IS NULL OR valid_to > ?)"]
+        ? [
+            "superseded_by IS NULL",
+            "retracted_at IS NULL",
+            "(valid_to IS NULL OR valid_to > ?)",
+            // Proposed, discarded and quarantined facts are not part of what Psyche knows.
+            `review IN ${ACCEPTED_REVIEW_SQL}`,
+          ]
         : []),
       ...(attribute === undefined ? [] : ["attribute = ?"]),
     ].join(" AND ");
@@ -1062,7 +1093,7 @@ export class GraphStore {
       this.#db
         .prepare(
           `SELECT * FROM graph_edges WHERE (src = ? OR dst = ?) AND superseded_by IS NULL AND retracted_at IS NULL
-           AND (valid_to IS NULL OR valid_to > ?) ORDER BY created_at DESC, id DESC`,
+           AND (valid_to IS NULL OR valid_to > ?) AND review IN ${ACCEPTED_REVIEW_SQL} ORDER BY created_at DESC, id DESC`,
         )
         .all(entityId, entityId, this.#now()) as EdgeRow[]
     ).map(toEdge);
