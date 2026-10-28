@@ -83,7 +83,7 @@ export interface BrowserSetup {
    */
   partition?: PartitionMode;
   /** Origins the owner has signed into in the agent profile, for `auto`. */
-  signedInOrigins?: string[];
+  signedInOrigins?: string[] | (() => string[]);
   /**
    * Dev preview (feature I12, security §3.10): which loopback servers tasks may open. Absent
    * means none; the sandbox / exec layer registers servers it starts on `devServers`.
@@ -392,7 +392,12 @@ export function composeBrowser(
               ...(setup.partition === undefined ? {} : { partition: setup.partition }),
               ...(setup.signedInOrigins === undefined
                 ? {}
-                : { signedInOrigins: setup.signedInOrigins }),
+                : {
+                    signedInOrigins:
+                      typeof setup.signedInOrigins === "function"
+                        ? setup.signedInOrigins()
+                        : setup.signedInOrigins,
+                  }),
             }),
         ...(recording === undefined ? {} : { recording }),
       });

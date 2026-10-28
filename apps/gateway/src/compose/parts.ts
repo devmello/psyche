@@ -62,6 +62,20 @@ export function googleClientSetup(
   return { ...(file ?? {}), ...fromEnv };
 }
 
+/** Origins the owner chose to stay signed in to (`$PSYCHE_HOME/browser/signed-in.json`). */
+export function readSignedInOrigins(home: string): string[] {
+  try {
+    const doc = JSON.parse(readFileSync(join(home, "browser", "signed-in.json"), "utf8")) as {
+      sites?: { origin?: unknown }[];
+    };
+    return (doc.sites ?? []).flatMap((s) =>
+      typeof s.origin === "string" && /^https:\/\/[^/\s]+$/.test(s.origin) ? [s.origin] : [],
+    );
+  } catch {
+    return [];
+  }
+}
+
 export function partsFromEnv(
   env: NodeJS.ProcessEnv,
   /** Test seam: runner options for the sandbox part (a fake CLI driver and detection). */
@@ -111,7 +125,9 @@ export function partsFromEnv(
         ...(partition === "profile" || partition === "clean" || partition === "auto"
           ? { partition }
           : {}),
-        ...(signedIn.length === 0 ? {} : { signedInOrigins: signedIn }),
+        // Read on every new session: Settings → Browser and "Stay signed in" change the list
+        // while the Gateway runs (desktop writes `browser/signed-in.json`).
+        signedInOrigins: () => [...new Set([...signedIn, ...readSignedInOrigins(s.home)])],
       });
       return browser;
     });

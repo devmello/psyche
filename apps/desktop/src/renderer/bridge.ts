@@ -11,6 +11,7 @@ import {
   type PermissionState,
   type ShellCommand,
   type ShellPlatform,
+  type SignedInSiteView,
   type SystemAppearance,
   type SystemDictationStatus,
   type SystemLocale,
@@ -82,6 +83,9 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
       setControl: async (id, take) => void (await b.browser.setControl(id, take)),
       popOut: async (id, full) => void (await b.browser.popOut(id, full)),
       clearBrowsingData: async (profile) => void (await b.browser.clearBrowsingData(profile)),
+      answerPrompt: async (id, action) => void (await b.browser.answerPrompt(id, action)),
+      listSignedInSites: () => b.browser.listSignedInSites() as Promise<SignedInSiteView[]>,
+      forgetSignedInSite: async (origin) => void (await b.browser.forgetSignedInSite(origin)),
       openRealChromeProfile: (profile) =>
         b.browser.openRealChromeProfile(profile) as Promise<{ path: string }>,
     },

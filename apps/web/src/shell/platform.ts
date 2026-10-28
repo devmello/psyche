@@ -66,8 +66,35 @@ export interface BrowserTabView {
   discarded?: boolean;
 }
 
+/**
+ * A question under the pane after the owner signed in inside an agent tab. Never carries a
+ * password: the pane draws a mask and main holds the value.
+ */
+export type BrowserPromptView =
+  | { id: string; tabId: string; kind: "stay_signed_in"; origin: string; hosts: string[] }
+  | {
+      id: string;
+      tabId: string;
+      kind: "save_login";
+      origin: string;
+      username: string;
+      /** Short code of the last failed save (`vault_locked`, `forbidden`, …). */
+      error?: string;
+    };
+
+export type BrowserPromptAnswer = "accept" | "dismiss" | "never";
+
+/** A site the owner chose to stay signed in to (Settings → Browser). */
+export interface SignedInSiteView {
+  origin: string;
+  hosts: string[];
+  addedAt: string;
+}
+
 export interface BrowserHostState {
   tabs: BrowserTabView[];
+  /** Sign-in questions waiting for the owner; absent on hosts without them. */
+  prompts?: BrowserPromptView[];
   activeTabId: string | null;
   /** The Gateway's CDP driver is connected over the bridge socket. */
   bridgeConnected: boolean;
@@ -108,6 +135,12 @@ export interface BrowserPort {
   /** Moves a tab into its own window (Open in window) or back into the pane. */
   popOut(tabId: string, fullScreen?: boolean): Promise<void>;
   clearBrowsingData(profile: BridgeProfile): Promise<void>;
+  /** Answers a sign-in prompt: Yes (`accept`), Not now (`dismiss`) or Never for this site. */
+  answerPrompt?(promptId: string, action: BrowserPromptAnswer): Promise<void>;
+  /** Sites kept signed in, in the persistent profile. */
+  listSignedInSites?(): Promise<SignedInSiteView[]>;
+  /** Sign out of a site: removes it from the list and deletes its cookies from the profile. */
+  forgetSignedInSite?(origin: string): Promise<void>;
   /**
    * Opens the Psyche Chrome profile real-Chrome mode uses (feature I13) in Google Chrome, with
    * no DevTools port, so the owner can sign in there; resolves to the profile's directory.
