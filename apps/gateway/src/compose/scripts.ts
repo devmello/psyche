@@ -8,6 +8,7 @@ import {
   type ToolRunContext,
   type TurnToolContext,
 } from "@psyche/agent-core";
+import type { ChangeInput } from "@psyche/audit";
 import { bindingFor } from "@psyche/permissions";
 import { EXEC_OUTPUT_CAP_BYTES, PsycheError, type ToolResult } from "@psyche/protocol";
 import { type CliDriver, type CliResult, nodeCliDriver } from "@psyche/sandbox";
@@ -45,6 +46,8 @@ export interface ScriptToolsDeps {
   node?: string;
   /** Finds `python3` (tests); undefined when there is none. */
   python?: () => string | undefined;
+  /** The owner-data change log (#985): every approved run, with the code that ran. */
+  record?: (change: ChangeInput) => void;
 }
 
 const sha = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
@@ -295,6 +298,21 @@ export function scriptTools(deps: ScriptToolsDeps): AgentToolRegistration[] {
       await writeFile(saved.metaPath, JSON.stringify({ ...saved.meta, runs }), { mode: 0o600 });
       const redact = (b: Buffer) => deps.vault.redact(b.toString("utf8"));
       const ok = result.exitCode === 0 && !timedOut;
+      deps.record?.({
+        actor: { type: "agent" },
+        category: "command",
+        threadId: ctx.threadId,
+        runId: ctx.runId,
+        ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
+        toolCallId: ctx.callId,
+        tool: "run_script",
+        target: { path: `${SCRIPTS_DIR}/${saved.id}/main.${ext(p.language)}` },
+        action: "run",
+        approvalId: decision.id,
+        after: p.code,
+        outcome: ok ? "ok" : "failed",
+        note: `${p.purpose.slice(0, 200)} (exit ${result.exitCode ?? "none"}${timedOut ? ", timed out" : ""}${domains.length > 0 ? `, network ${domains.join(", ")}` : ""})`,
+      });
       return {
         output: {
           scriptId: saved.id,

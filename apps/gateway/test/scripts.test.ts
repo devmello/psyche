@@ -2,6 +2,7 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentToolRegistration, DeferredToolsApi, ToolRunContext } from "@psyche/agent-core";
+import type { ChangeInput } from "@psyche/audit";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
@@ -65,7 +66,9 @@ async function setup() {
   const owner = await adminClient(composed.gateway);
   clients.push(owner);
   const s = services as ComposeServices;
+  const records: ChangeInput[] = [];
   const tools = scriptTools({
+    record: (c) => records.push(c),
     services: s,
     srt: { resolve: async () => ({ path: srtPath }) },
     vault: { redact: (t) => t },
@@ -77,7 +80,7 @@ async function setup() {
       provenance: string;
       isError?: boolean;
     };
-  return { owner, services: s, mcp: mcp as ComposedMcp, run };
+  return { owner, services: s, mcp: mcp as ComposedMcp, run, records };
 }
 
 function ctx(extra: Partial<ToolRunContext> = {}) {
@@ -173,6 +176,18 @@ describe("run_script (build and run in the same turn)", () => {
     expect(result.provenance).toBe("untrusted");
     expect(result.output).toMatchObject({ exitCode: 0, stdout: "5", runs: 1 });
     expect(result.output.hint).toBeUndefined();
+    // The run is in the change log (#985) with its approval and the code that ran.
+    expect(env.records).toMatchObject([
+      {
+        category: "command",
+        tool: "run_script",
+        action: "run",
+        approvalId: card.id,
+        after: SUM,
+        outcome: "ok",
+        threadId: "thr_1",
+      },
+    ]);
     // Run again: it suggests keeping it.
     const again = await sum(env, "approve", ctx().c);
     expect(String(again.result.output.hint)).toContain("save_script_as_tool");
@@ -190,6 +205,7 @@ describe("run_script (build and run in the same turn)", () => {
     expect(String(card.details.tainted)).toContain("untrusted content");
     expect(result.output).toMatchObject({ status: "denied" });
     expect(result.output.stdout).toBeUndefined();
+    expect(env.records).toEqual([]);
   }, 60_000);
 
   it("refuses unattended runs and other requesters before any card", async () => {

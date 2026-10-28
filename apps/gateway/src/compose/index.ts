@@ -1223,6 +1223,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     services,
     srt: execHostSrt,
     vault: vault.vault,
+    record: (change) => void changes.record(change),
     ...(execHostSetup.driver === undefined ? {} : { driver: execHostSetup.driver }),
   })) {
     registry.register(tool);
