@@ -3,6 +3,7 @@ import { agentNotes } from "./agent-notes.ts";
 import { audit } from "./audit.ts";
 import { blocks } from "./blocks.ts";
 import { canvas } from "./canvas.ts";
+import { capabilities } from "./capabilities.ts";
 import { charts } from "./charts.ts";
 import { chat } from "./chat.ts";
 import { common } from "./common.ts";
@@ -58,6 +59,7 @@ export const en = {
   ...mailMeetings,
   ...connectorGallery,
   ...onboarding,
+  ...capabilities,
   ...people,
   ...specialists,
   ...screens,

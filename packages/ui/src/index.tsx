@@ -268,7 +268,7 @@ export * from "./screens/goals/index.ts";
 export * from "./screens/ideas/index.ts";
 export * from "./screens/inbox/index.ts";
 export * from "./screens/library/index.ts";
-export * from "./screens/onboarding/index.ts";
+export * from "./screens/onboarding/model.ts";
 export * from "./screens/search/index.ts";
 export { CONTEXT_KEYS, ContextSettingsGroup } from "./screens/settings/ContextSettings.tsx";
 export * from "./screens/settings/index.ts";

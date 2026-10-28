@@ -3,6 +3,7 @@ import { CircleAlert, CircleCheck, CircleX, Loader } from "lucide-react";
 import type { ReactElement } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { t } from "../../i18n/core.ts";
+import { useSlots } from "../../slots.tsx";
 import { Facts, Group, SectionFrame } from "./shared.tsx";
 import type { AboutInfo, DoctorCheck } from "./types.ts";
 
@@ -32,6 +33,7 @@ export function AboutPanel({
   onOpenLogs,
   onRevealHome,
 }: AboutPanelProps): ReactElement {
+  const { navigate } = useSlots();
   return (
     <SectionFrame title={t("settings.about.title")} description={t("settings.about.description")}>
       <Group title={t("settings.about.versions")}>
@@ -73,6 +75,24 @@ export function AboutPanel({
           ]}
         />
       </Group>
+      {navigate ? (
+        <Group
+          title={t("onboarding.rerun.title")}
+          description={t("onboarding.rerun.description")}
+          actions={
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => navigate("/onboarding")}
+            >
+              {t("onboarding.rerun.button")}
+            </Button>
+          }
+        >
+          {null}
+        </Group>
+      ) : null}
       <Group
         // i18n-ignore: the CLI command's name
         title="psyche doctor"

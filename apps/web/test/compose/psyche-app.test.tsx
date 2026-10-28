@@ -302,7 +302,8 @@ describe("the composed app on the web host (A8)", () => {
     render(<PsycheApp platform={platform} />);
     await screen.findByTestId("onboarding");
     // The web can't ask macOS: no Permissions step (#554).
-    const progress = screen.getByRole("navigation", { name: "Onboarding progress" });
+    // The flow loads on demand.
+    const progress = await screen.findByRole("navigation", { name: "Onboarding progress" });
     expect(progress.textContent).not.toContain("Permissions");
   });
 

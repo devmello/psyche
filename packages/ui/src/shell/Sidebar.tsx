@@ -181,6 +181,9 @@ function SettingsMenuItems({
 }): ReactElement {
   return (
     <>
+      <DropdownMenuItem onClick={() => onNavigate("/can-do")}>
+        {t("capabilities.open")}
+      </DropdownMenuItem>
       <DropdownMenuItem onClick={onSettings}>
         {t("shell.rail.settings")}
         <DropdownMenuShortcut>⌘,</DropdownMenuShortcut>

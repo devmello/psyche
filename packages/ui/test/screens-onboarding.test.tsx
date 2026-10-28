@@ -38,21 +38,23 @@ describe("OnboardingFlow", () => {
     const list = steps().getByRole("list");
     expect(list.tagName).toBe("OL");
     const items = steps().getAllByRole("listitem");
-    expect(items).toHaveLength(7);
+    expect(items).toHaveLength(11);
     expect(items[0]?.getAttribute("aria-current")).toBe("step");
     expect(items[0]?.textContent).toContain("Meet your agent");
     expect((screen.getByRole("button", { name: /Back/ }) as HTMLButtonElement).disabled).toBe(true);
 
     await next();
+    expect(heading().textContent).toContain("About you");
+    await next();
     expect(heading().textContent).toContain("Permissions");
-    expect(steps().getAllByRole("listitem")[1]?.getAttribute("aria-current")).toBe("step");
+    expect(steps().getAllByRole("listitem")[2]?.getAttribute("aria-current")).toBe("step");
     expect(steps().getAllByRole("listitem")[0]?.getAttribute("aria-current")).toBeNull();
     expect(onStepChange).toHaveBeenLastCalledWith("permissions");
     // Focus lands on the new step's heading.
     expect(document.activeElement).toBe(heading());
 
     await userEvent.click(screen.getByRole("button", { name: /Back/ }));
-    expect(heading().textContent).toContain("Meet your agent");
+    expect(heading().textContent).toContain("About you");
     // A visited step is reachable from the list.
     await userEvent.click(steps().getByRole("button", { name: "Permissions" }));
     expect(heading().textContent).toContain("Permissions");
@@ -223,6 +225,9 @@ describe("OnboardingFlow", () => {
       "Small and sure.",
     );
     await next();
+    // About you is skippable and optional.
+    await screen.findByRole("textbox", { name: "Your name" });
+    await next();
     await userEvent.click(screen.getByRole("button", { name: "Allow Accessibility" }));
     await userEvent.click(screen.getByRole("button", { name: "Skip Screen Recording" }));
     await next();
@@ -242,6 +247,13 @@ describe("OnboardingFlow", () => {
     await screen.findByText("Tool calling: passed");
     await next();
     await userEvent.click(screen.getByRole("radio", { name: /VM mode/ }));
+    await next();
+    // Memory import, First wins and Habits are each skippable.
+    expect(heading().textContent).toContain("Bring your memory");
+    await next();
+    expect(heading().textContent).toContain("First wins");
+    await next();
+    expect(heading().textContent).toContain("Turn on habits");
     await next();
     expect(heading().textContent).toContain("Done");
     expect(screen.getByText("Pip is ready.")).toBeTruthy();
@@ -269,6 +281,8 @@ describe("OnboardingFlow", () => {
       },
       workspace: "vm",
       mail: { digest: true, prep: true, followups: false, voice: false, notes: true },
+      owner: { name: "", timeZone: expect.any(String), work: "", city: "" },
+      habits: { brief: true, wrapup: false, followups: true },
     });
   });
 
@@ -277,10 +291,10 @@ describe("OnboardingFlow", () => {
     const nextButton = screen.getByRole("button", { name: "Next" });
     nextButton.focus();
     await userEvent.keyboard("{Enter}");
-    expect(heading().textContent).toContain("Permissions");
+    expect(heading().textContent).toContain("About you");
     expect(document.activeElement).toBe(heading());
     await userEvent.tab();
-    expect(document.activeElement?.textContent).toBe("Allow");
+    expect((document.activeElement as HTMLElement).id).toBe("onboarding-about-name");
   });
 });
 
@@ -381,13 +395,14 @@ describe("Onboarding where this window can't ask macOS (web, #554)", () => {
   it("leaves out Permissions and says on Done they are set up in the Mac app", async () => {
     const { onStepChange } = setup({ macPermissions: false });
     const items = steps().getAllByRole("listitem");
-    expect(items).toHaveLength(6);
+    expect(items).toHaveLength(10);
     expect(steps().queryByText("Permissions")).toBeNull();
     expect(screen.queryByRole("button", { name: /Allow/ })).toBeNull();
     await next();
+    await next();
     expect(heading().textContent).toContain("Connect");
     expect(onStepChange).toHaveBeenLastCalledWith("connectors");
-    expect(heading().querySelector(".sr-only")?.textContent).toContain("Step 2 of 6");
+    expect(heading().querySelector(".sr-only")?.textContent).toContain("Step 3 of 10");
   });
 
   it("a /onboarding/permissions route lands on the next step", () => {

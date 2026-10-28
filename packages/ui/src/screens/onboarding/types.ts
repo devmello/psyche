@@ -6,22 +6,30 @@ import type { ProviderKind, TccPermission, TccState, ToolCheck } from "../settin
 
 export type OnboardingStepId =
   | "agent"
+  | "about"
   | "permissions"
   | "connectors"
   | "mail"
   | "sandbox"
   | "model"
   | "where"
+  | "memory"
+  | "wins"
+  | "habits"
   | "done";
 
 export const ONBOARDING_STEP_IDS: readonly OnboardingStepId[] = [
   "agent",
+  "about",
   "permissions",
   "connectors",
   "mail",
   "sandbox",
   "model",
   "where",
+  "memory",
+  "wins",
+  "habits",
   "done",
 ];
 
@@ -66,6 +74,44 @@ export interface ModelChoice {
 
 export type Workspace = "local" | "vm";
 
+/** The About-you step: written to USER.md's structured fields. All optional. */
+export interface OwnerProfile {
+  name: string;
+  timeZone: string;
+  work: string;
+  city: string;
+}
+
+export type ImportSource = "chatgpt" | "claude" | "text";
+
+/** One memory the import found, shown for review before anything is saved. */
+export interface ImportedMemory {
+  id: string;
+  text: string;
+  kind: string;
+  /** Looked like an instruction (the Gateway flags it); off by default. */
+  flagged: boolean;
+}
+
+export interface ImportedMemoryPreview {
+  items: ImportedMemory[];
+  skipped: number;
+}
+
+/** Callbacks for the steps added by the first-run redesign; all optional (the step says so). */
+export interface OnboardingExtrasProps {
+  /** Parses an export or "what do you know about me" text without saving it. */
+  onPreviewImport?: (format: ImportSource, content: string) => Promise<ImportedMemoryPreview>;
+  /** Saves the reviewed items as the owner's memory; resolves with how many were saved. */
+  onCommitImport?: (items: ImportedMemory[]) => Promise<number>;
+  /** Runs one starter task live and resolves with its answer. */
+  onRunWin?: (win: "brief" | "meetings" | "inbox") => Promise<string>;
+  /** Called whenever the step changes or a step is finished, so a restart resumes. */
+  onProgress?: (progress: { step: OnboardingStepId; done: OnboardingStepId[] }) => void;
+  /** Steps a re-run leaves out because they are already set up. */
+  completed?: readonly OnboardingStepId[];
+}
+
 /**
  * The mail and meetings decision screen's switches (mail-and-meetings-2026 §7.5). The step is
  * offered only when a mail account is connected; without one `OnboardingResult.mail` is absent.
@@ -96,9 +142,13 @@ export interface OnboardingResult {
   workspace: Workspace;
   /** Set when the mail step was offered (a mail account is connected). */
   mail?: MailChoices;
+  /** The About-you answers (empty strings when skipped). */
+  owner?: OwnerProfile;
+  /** Habit switches, when that step was reached. */
+  habits?: import("./habits.ts").HabitChoices;
 }
 
-export interface OnboardingShellProps {
+export interface OnboardingShellProps extends OnboardingExtrasProps {
   /** Installed RAM for local-model guidance. */
   ramGb?: number;
   /**

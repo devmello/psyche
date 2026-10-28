@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { type ReactElement, useEffect, useId, useRef, useState } from "react";
+import { lazy, type ReactElement, Suspense, useEffect, useId, useRef, useState } from "react";
 import { DEFAULT_CREATURE } from "../../avatar/creatures/index.tsx";
 import { PsycheMark } from "../../brand.tsx";
 import { Button } from "../../components/ui/button.tsx";
@@ -14,6 +14,7 @@ import {
 } from "../settings/ConnectorsSection.tsx";
 import { ConnectProgress, permissionOf, useConnectorConnect } from "../settings/connect-flow.tsx";
 import type { TccPermission } from "../settings/types.ts";
+import { HABIT_DEFAULTS, type HabitChoices } from "./habits.ts";
 import { MAIL_DEFAULTS, MailStep } from "./MailStep.tsx";
 import {
   ConnectorsStep,
@@ -26,6 +27,7 @@ import {
   WhereStep,
 } from "./OnboardingSteps.tsx";
 import { SandboxStep } from "./SandboxStep.tsx";
+import { detectTimeZone } from "./time-zone.ts";
 import {
   type ConnectedAccount,
   type MailChoices,
@@ -34,12 +36,26 @@ import {
   type OnboardingResult,
   type OnboardingShellProps,
   type OnboardingStepId,
+  type OwnerProfile,
   type PermissionAnswer,
   type PermissionResult,
   type PersonaDraft,
   type SetupCheck,
   type Workspace,
 } from "./types.ts";
+
+// The first-run additions load on demand: they are not in the main bundle path.
+const AboutStep = lazy(() => import("./AboutStep.tsx").then((m) => ({ default: m.AboutStep })));
+const MemoryImportStep = lazy(() =>
+  import("./MemoryImportStep.tsx").then((m) => ({ default: m.MemoryImportStep })),
+);
+const FirstWinsStep = lazy(() =>
+  import("./FirstWinsStep.tsx").then((m) => ({ default: m.FirstWinsStep })),
+);
+const HabitsStep = lazy(() => import("./HabitsStep.tsx").then((m) => ({ default: m.HabitsStep })));
+
+/** Steps the owner may leave with "Skip for now" whatever they hold. */
+const SKIPPABLE: ReadonlySet<OnboardingStepId> = new Set(["about", "memory", "wins", "habits"]);
 
 /**
  * Onboarding (UI design §3.19; redesign-2026 §5.9): one centred column, step dots, one decision
@@ -60,6 +76,14 @@ export function stepLabel(step: OnboardingStepId, persona: string): string {
   switch (step) {
     case "agent":
       return t("onboarding.step.agent");
+    case "about":
+      return t("onboarding.step.about");
+    case "memory":
+      return t("onboarding.step.memory");
+    case "wins":
+      return t("onboarding.step.wins");
+    case "habits":
+      return t("onboarding.step.habits");
     case "permissions":
       return t("onboarding.step.permissions");
     case "connectors":
@@ -89,6 +113,8 @@ export interface OnboardingFlowProps extends OnboardingShellProps {
     connectors: ConnectedAccount[];
     model: ModelChoice;
     workspace: Workspace;
+    owner: Partial<OwnerProfile>;
+    habits: HabitChoices;
   }>;
   onComplete: (result: OnboardingResult) => void;
 }
@@ -114,6 +140,11 @@ export function OnboardingFlow({
   helper,
   onVerify,
   macPermissions = true,
+  onPreviewImport,
+  onCommitImport,
+  onRunWin,
+  onProgress,
+  completed = [],
 }: OnboardingFlowProps): ReactElement {
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -160,7 +191,11 @@ export function OnboardingFlow({
   // The mail decision screen is offered once a mail account is connected (§7.5).
   const mailConnected = connectors.some((c) => MAIL_CONNECTOR_TYPES.has(c.type));
   const steps = ONBOARDING_STEP_IDS.filter(
-    (s) => (s !== "permissions" || macPermissions) && (s !== "mail" || mailConnected),
+    (s) =>
+      (s !== "permissions" || macPermissions) &&
+      (s !== "mail" || mailConnected) &&
+      // A re-run leaves out what is already set up.
+      (s === "done" || !completed.includes(s)),
   );
   const asked = step ?? own;
   const current = steps.includes(asked)
@@ -170,6 +205,14 @@ export function OnboardingFlow({
   const [reached, setReached] = useState(index);
   const [mail, setMail] = useState<MailChoices>(MAIL_DEFAULTS);
   const [sandboxReady, setSandboxReady] = useState(false);
+  const [owner, setOwner] = useState<OwnerProfile>({
+    name: "",
+    timeZone: detectTimeZone(),
+    work: "",
+    city: "",
+    ...initial.owner,
+  });
+  const [habits, setHabits] = useState<HabitChoices>(initial.habits ?? HABIT_DEFAULTS);
   const resumeConnector = (account: ConnectedAccount) => {
     const c = liveConnectors.find((x) => x.id === account.connectorId);
     if (c !== undefined) void flow.resume(c, account.label);
@@ -222,7 +265,17 @@ export function OnboardingFlow({
     model,
     workspace,
     ...(mailConnected ? { mail } : {}),
+    owner,
+    ...(steps.includes("habits") ? { habits } : {}),
   };
+
+  // Progress is saved on every step change, so quitting midway resumes here.
+  const progressRef = useRef(onProgress);
+  progressRef.current = onProgress;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the step changes
+  useEffect(() => {
+    progressRef.current?.({ step: current, done: steps.slice(0, steps.indexOf(current)) });
+  }, [current]);
 
   const allow = async (p: TccPermission) => {
     if (!onRequestPermission) {
@@ -438,6 +491,16 @@ export function OnboardingFlow({
         </h1>
 
         {current === "agent" ? <MeetStep value={persona} onChange={setPersona} /> : null}
+        <Suspense fallback={null}>
+          {current === "about" ? <AboutStep value={owner} onChange={setOwner} /> : null}
+          {current === "memory" ? (
+            <MemoryImportStep onPreview={onPreviewImport} onCommit={onCommitImport} />
+          ) : null}
+          {current === "wins" ? (
+            <FirstWinsStep connected={new Set(connectors.map((c) => c.type))} onRun={onRunWin} />
+          ) : null}
+          {current === "habits" ? <HabitsStep value={habits} onChange={setHabits} /> : null}
+        </Suspense>
         {current === "permissions" ? (
           <PermissionsStep
             persona={name}
@@ -524,7 +587,8 @@ export function OnboardingFlow({
         </Button>
         <span className="ms-auto" />
         {(current === "connectors" && connectors.length === 0) ||
-        (current === "sandbox" && !sandboxReady) ? (
+        (current === "sandbox" && !sandboxReady) ||
+        SKIPPABLE.has(current) ? (
           <Button
             type="button"
             variant="plain"

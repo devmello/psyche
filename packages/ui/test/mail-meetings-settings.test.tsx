@@ -171,7 +171,10 @@ describe("the onboarding mail step", () => {
     expect(voice.getAttribute("aria-checked")).toBe("false");
     await user.click(screen.getByRole("switch", { name: "Track replies you’re waiting on" }));
     await user.click(screen.getByRole("button", { name: /Next/ }));
-    // Sandbox, Model, Where, Done
+    // Sandbox, Model, Where, Memory, First wins, Habits, Done
+    await user.click(await screen.findByRole("button", { name: /Next/ }));
+    await user.click(await screen.findByRole("button", { name: /Next/ }));
+    await user.click(await screen.findByRole("button", { name: /Next/ }));
     await user.click(await screen.findByRole("button", { name: /Next/ }));
     await user.click(await screen.findByRole("button", { name: /Next/ }));
     await user.click(await screen.findByRole("button", { name: /Next/ }));
