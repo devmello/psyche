@@ -725,6 +725,9 @@ export interface ApprovalExtras {
   folderPath?: string;
   /** `exec_host`: the owner typed UNSANDBOXED to run this one command without srt. */
   unsandboxed?: "UNSANDBOXED";
+  /** `messages_send` card: the text left in the editor and the recipient picked. */
+  editedText?: string;
+  recipientChoice?: string;
 }
 
 export async function answerApproval(
@@ -759,6 +762,12 @@ export async function answerApproval(
           : {}),
         ...(decision === "approve" && extras?.unsandboxed !== undefined
           ? { unsandboxed: extras.unsandboxed }
+          : {}),
+        ...(decision === "approve" && extras?.editedText !== undefined
+          ? { editedText: extras.editedText }
+          : {}),
+        ...(decision === "approve" && extras?.recipientChoice !== undefined
+          ? { recipientChoice: extras.recipientChoice }
           : {}),
         ...(presence === undefined ? {} : { presence }),
       }),

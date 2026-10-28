@@ -281,6 +281,10 @@ export const web = {
   "web.approval.alwaysAllow": "Always allow",
   "web.approval.folderNone": "No folder chosen",
   "web.approval.folderChoose": "Choose folder…",
+  "web.approval.messageText": "Message text, editable before sending",
+  "web.approval.messageWeak": "SMS/RCS: weak identity, check it",
+  "web.approval.messageUntrusted":
+    "This recipient was suggested by content Psyche read, not by you. Check it before sending.",
   "web.approval.folderPath": "Folder path",
   "web.approval.folderPickTitle": "Share a folder",
   "web.browser.thisSite": "this site",

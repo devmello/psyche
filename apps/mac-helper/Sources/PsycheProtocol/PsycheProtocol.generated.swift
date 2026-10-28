@@ -3287,8 +3287,10 @@ public struct ApprovalAnswer: Codable, Sendable {
     public let answerToken: String
     public let approvalID: String
     public let decision: DecisionEnum
+    public let editedText: String?
     public let folderPath: String?
     public let presence: PresenceAssertion?
+    public let recipientChoice: String?
     public let scope: GrantScope?
     public let unsandboxed: Unsandboxed?
     public let via: InputVia?
@@ -3297,19 +3299,23 @@ public struct ApprovalAnswer: Codable, Sendable {
         case answerToken = "answerToken"
         case approvalID = "approvalId"
         case decision = "decision"
+        case editedText = "editedText"
         case folderPath = "folderPath"
         case presence = "presence"
+        case recipientChoice = "recipientChoice"
         case scope = "scope"
         case unsandboxed = "unsandboxed"
         case via = "via"
     }
 
-    public init(answerToken: String, approvalID: String, decision: DecisionEnum, folderPath: String?, presence: PresenceAssertion?, scope: GrantScope?, unsandboxed: Unsandboxed?, via: InputVia?) {
+    public init(answerToken: String, approvalID: String, decision: DecisionEnum, editedText: String?, folderPath: String?, presence: PresenceAssertion?, recipientChoice: String?, scope: GrantScope?, unsandboxed: Unsandboxed?, via: InputVia?) {
         self.answerToken = answerToken
         self.approvalID = approvalID
         self.decision = decision
+        self.editedText = editedText
         self.folderPath = folderPath
         self.presence = presence
+        self.recipientChoice = recipientChoice
         self.scope = scope
         self.unsandboxed = unsandboxed
         self.via = via

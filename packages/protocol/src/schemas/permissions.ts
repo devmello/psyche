@@ -232,6 +232,13 @@ export const ApprovalAnswer = Type.Object(
      * one command without srt (security §5.4).
      */
     unsandboxed: Type.Optional(Type.Literal("UNSANDBOXED")),
+    /**
+     * `message_send` compose card only (the `messages_send` tool): the text the owner edited on
+     * the card. This text, not the agent's draft, is what the approval binds and what is sent.
+     */
+    editedText: Type.Optional(Type.String({ minLength: 1, maxLength: 20000 })),
+    /** `message_send` compose card only: the candidate recipient the owner chose (its `id`). */
+    recipientChoice: Type.Optional(Type.String({ minLength: 1, maxLength: 400 })),
     presence: Type.Optional(PresenceAssertionSchema),
     /** `voice`: answered by a spoken phrase after a readback (docs/voice/voice-mode-2026.md §4.6). */
     via: Type.Optional(InputVia),

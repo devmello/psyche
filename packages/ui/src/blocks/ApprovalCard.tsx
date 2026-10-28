@@ -72,7 +72,12 @@ export interface ApprovalCardProps {
   onAnswer?: (
     decision: "approve" | "deny",
     scope?: GrantScope,
-    extras?: { folderPath?: string; unsandboxed?: "UNSANDBOXED" },
+    extras?: {
+      folderPath?: string;
+      unsandboxed?: "UNSANDBOXED";
+      editedText?: string;
+      recipientChoice?: string;
+    },
   ) => unknown;
   /** Fixed clock (stories, tests). */
   now?: number;
@@ -85,6 +90,151 @@ export interface ApprovalCardProps {
   detailsClassName?: string;
   /** Shared-layout id: the dock's card morphs into the transcript's result row (§5.3). */
   layoutId?: string;
+}
+
+interface ComposeCard {
+  account: string;
+  text: string;
+  recipientSource: "owner" | "untrusted";
+  candidates: {
+    id: string;
+    kind: "handle" | "chat";
+    label: string;
+    service: string;
+    weak: boolean;
+    participants: string[];
+  }[];
+}
+
+/** The `messages_send` compose details, or null for any other message_send card. */
+function readComposeCard(details: unknown): ComposeCard | null {
+  const c = (details as { compose?: unknown } | null)?.compose;
+  if (typeof c !== "object" || c === null) return null;
+  const v = c as Record<string, unknown>;
+  if (!Array.isArray(v.candidates) || typeof v.text !== "string") return null;
+  const candidates = v.candidates.flatMap((x) => {
+    if (typeof x !== "object" || x === null) return [];
+    const r = x as Record<string, unknown>;
+    if (typeof r.id !== "string" || typeof r.label !== "string") return [];
+    return [
+      {
+        id: r.id,
+        kind: r.kind === "chat" ? ("chat" as const) : ("handle" as const),
+        label: r.label,
+        service: typeof r.service === "string" ? r.service : "unknown",
+        weak: r.weak === true,
+        participants: Array.isArray(r.participants)
+          ? r.participants.filter((p): p is string => typeof p === "string")
+          : [],
+      },
+    ];
+  });
+  if (candidates.length === 0) return null;
+  return {
+    account: typeof v.account === "string" ? v.account : "",
+    // Details are display-sanitized: line breaks arrive as ⏎, so the editor restores them.
+    text: v.text.replaceAll("⏎", "\n"),
+    recipientSource: v.recipientSource === "untrusted" ? "untrusted" : "owner",
+    candidates,
+  };
+}
+
+const serviceLabel = (service: string): string =>
+  service === "imessage"
+    ? t("blocks.message.service.imessage")
+    : service === "sms"
+      ? t("blocks.message.service.sms")
+      : service === "rcs"
+        ? t("blocks.message.service.rcs")
+        : t("blocks.message.service.unknown");
+
+/** Who the message goes to (name, handle, service; a group's people) and the editable text. */
+function MessageCompose({
+  compose,
+  recipientId,
+  onRecipient,
+  text,
+  onText,
+  labelId,
+}: {
+  compose: ComposeCard;
+  recipientId: string;
+  onRecipient: (id: string) => void;
+  text: string;
+  onText: (text: string) => void;
+  labelId: string;
+}): ReactElement {
+  const many = compose.candidates.length > 1;
+  return (
+    <div className="mt-2 flex flex-col gap-2" data-testid="message-compose">
+      {compose.recipientSource === "untrusted" ? (
+        <p className="text-callout text-danger-text" data-testid="message-untrusted">
+          {t("blocks.message.untrusted")}
+        </p>
+      ) : null}
+      <fieldset className="flex flex-col gap-1" data-testid="message-recipients">
+        <legend className="text-callout text-label-secondary">
+          {many ? t("blocks.message.pick") : t("blocks.message.to")}
+        </legend>
+        {compose.candidates.map((c) => (
+          <label
+            key={c.id}
+            className="flex items-start gap-2 rounded-md bg-fill-quaternary px-2 py-1.5 text-body"
+          >
+            <input
+              type="radio"
+              name={`${labelId}-recipient`}
+              value={c.id}
+              checked={recipientId === c.id}
+              onChange={() => onRecipient(c.id)}
+              className="mt-1"
+            />
+            <span className="min-w-0 flex-1 break-words">
+              <span className="text-label-primary" data-testid="message-recipient">
+                {c.label}
+              </span>{" "}
+              <span className="text-callout text-label-secondary">
+                {c.kind === "chat"
+                  ? t("blocks.message.group", { count: c.participants.length })
+                  : serviceLabel(c.service)}
+              </span>
+              {c.weak ? (
+                <span className="block text-callout text-danger-text">
+                  {t("blocks.message.weak")}
+                </span>
+              ) : null}
+              {c.participants.length > 0 ? (
+                <span className="block text-callout text-label-secondary">
+                  {c.participants.join(", ")}
+                </span>
+              ) : null}
+            </span>
+          </label>
+        ))}
+      </fieldset>
+      <div className="flex flex-col gap-1">
+        <label
+          id={labelId}
+          htmlFor={`${labelId}-text`}
+          className="text-callout text-label-secondary"
+        >
+          {t("blocks.message.text")}
+        </label>
+        <textarea
+          id={`${labelId}-text`}
+          value={text}
+          onChange={(e) => onText(e.target.value)}
+          rows={4}
+          maxLength={20000}
+          aria-label={t("blocks.message.textLabel")}
+          className="min-h-20 w-full resize-y rounded-md bg-fill-secondary px-2 py-1.5 text-body outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        <p className="text-callout text-label-secondary">
+          {text.trim() === "" ? t("blocks.message.empty") : t("blocks.message.exact")}
+        </p>
+      </div>
+    </div>
+  );
 }
 
 const scopeLabel = (scope: GrantScope): string => t(`blocks.approval.scope.${scope}`);
@@ -187,6 +337,13 @@ export function ApprovalCard({
     requestedFolder?.status === "ok" ? requestedFolder.path : "",
   );
   const folderBlocked = requestedFolder?.status === "blocked" && folder === "";
+  // message_send compose card (`messages_send`): the recipient picked and the text left in the
+  // editor are what the Gateway binds and sends, not the agent's draft.
+  const compose = useMemo(() => readComposeCard(raw.details), [raw.details]);
+  const [recipientId, setRecipientId] = useState(
+    compose?.candidates.length === 1 ? (compose.candidates[0]?.id ?? "") : "",
+  );
+  const [messageText, setMessageText] = useState(compose?.text ?? "");
   // exec_host (security §5.4): srt unless the owner types the word, which allows this run only.
   const rawDetails = raw.details as Record<string, unknown>;
   const isExecHost = raw.kind === "exec_host";
@@ -261,11 +418,13 @@ export function ApprovalCard({
       await onAnswer?.(
         decision,
         unsandboxed && scope !== undefined ? "once" : scope,
-        isFolder && decision === "approve" && folder !== ""
-          ? { folderPath: folder }
-          : unsandboxed && decision === "approve"
-            ? { unsandboxed: "UNSANDBOXED" }
-            : undefined,
+        compose !== null && decision === "approve"
+          ? { editedText: messageText, recipientChoice: recipientId }
+          : isFolder && decision === "approve" && folder !== ""
+            ? { folderPath: folder }
+            : unsandboxed && decision === "approve"
+              ? { unsandboxed: "UNSANDBOXED" }
+              : undefined,
       );
     } catch (err) {
       setError(describeError(err));
@@ -338,6 +497,7 @@ export function ApprovalCard({
   const allowReady =
     offeredScopes.length > 0 &&
     (!isFolder || folder !== "") &&
+    (compose === null || (recipientId !== "" && messageText.trim() !== "")) &&
     (!isExecHost || sandboxReady || unsandboxed);
   const canAllow = armed && !busy && allowReady;
   const specialist = approval.requestedBy.specialist;
@@ -564,6 +724,17 @@ export function ApprovalCard({
             {t("blocks.folder.exact")} {t("blocks.folder.scope")}
           </p>
         </div>
+      ) : null}
+
+      {interactive && compose !== null ? (
+        <MessageCompose
+          compose={compose}
+          recipientId={recipientId}
+          onRecipient={setRecipientId}
+          text={messageText}
+          onText={setMessageText}
+          labelId={`${headingId}-message`}
+        />
       ) : null}
 
       {interactive && isExecHost ? (

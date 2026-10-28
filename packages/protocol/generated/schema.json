@@ -5769,6 +5769,16 @@
           "const": "UNSANDBOXED",
           "type": "string"
         },
+        "editedText": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "recipientChoice": {
+          "maxLength": 400,
+          "minLength": 1,
+          "type": "string"
+        },
         "presence": {
           "$ref": "#/$defs/PresenceAssertion"
         },

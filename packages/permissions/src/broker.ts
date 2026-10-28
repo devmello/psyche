@@ -62,6 +62,12 @@ import {
   isDeviceOnly,
   SEVERITY,
 } from "./kinds.ts";
+import {
+  type ComposeFinal,
+  composeBindingHash,
+  readCompose,
+  resolveCompose,
+} from "./message-compose.ts";
 import { type CompiledPolicy, compilePolicy, type PolicyConfig } from "./policy.ts";
 import { DENY_ALL_LOOPBACK, type LocalProjectVerifier } from "./prohibitions.ts";
 import { requesterKey, requesterSurfaces } from "./requester.ts";
@@ -1242,6 +1248,27 @@ export class PsychePermissionBroker implements PermissionBroker {
       }
     }
 
+    // The `messages_send` compose card: the recipient the owner chose and the text they left in
+    // the editor are what the approval binds, never the agent's draft (security §3.5).
+    let composeFinal: ComposeFinal | undefined;
+    const compose = a.kind === "message_send" ? readCompose(a.details) : undefined;
+    if (input.decision === "approve" && compose !== undefined) {
+      composeFinal = resolveCompose(compose, input);
+      if (composeFinal === undefined) {
+        return this.#reject(
+          rec,
+          id,
+          by,
+          "compose_invalid",
+          "invalid_params",
+          "choose one recipient on the card and keep some text to send",
+        );
+      }
+      if (scope !== "once") {
+        return this.#reject(rec, id, by, "compose_scope", "invalid_params", "sends are once only");
+      }
+    }
+
     // First authorized answer wins: re-read, check, mark the token and decide atomically.
     // Re-read the clock after the awaited approver and presence checks (review #14).
     const now = this.clock.now();
@@ -1267,6 +1294,14 @@ export class PsychePermissionBroker implements PermissionBroker {
         if (fa.kind === "batch") this.#mintBatchChildren(fresh, by, now);
         if (fa.kind === "exec_host" && input.unsandboxed !== undefined) {
           fa.details = { ...fa.details, unsandboxed: true };
+        }
+        if (fa.kind === "message_send" && composeFinal !== undefined && compose !== undefined) {
+          fa.details = { ...fa.details, final: { ...composeFinal } };
+          fa.bindingHash = composeBindingHash(
+            compose.account,
+            composeFinal.recipient,
+            composeFinal.text,
+          );
         }
         if (fa.kind === "folder_access" && folderPick !== undefined) {
           // Not a ledger grant: `always` lives in Settings → File access, `once` in the thread.

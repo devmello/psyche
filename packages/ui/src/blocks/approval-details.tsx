@@ -455,6 +455,17 @@ export function ApprovalDetails({
         </dl>
       );
     }
+    case "message_send":
+      // A `messages_send` compose card: the recipient and the text are the card's own editor.
+      if (typeof d.compose !== "object" || d.compose === null) {
+        return <GenericDetails approval={approval} d={d} />;
+      }
+      return (
+        <dl>
+          <Row label={t("blocks.details.account")}>{str(d.account)}</Row>
+          <Rest details={d} shown={["channel", "account", "recipient", "compose", "final"]} />
+        </dl>
+      );
     case "git_push":
       // The binding: remote, its URL, branch and the exact commit, all as rows (a commit hash
       // would otherwise count as a level-2 id and hide in Details).
