@@ -75,7 +75,11 @@ export const OWNER_SCOPE = "owner";
 /** `[start, end)` offsets of matched text inside `snippet` or `title`. */
 export type Range = [number, number];
 
+import type { CardPreview } from "./cards/store.ts";
+
 export interface RichHit extends SearchIndexHit {
+  /** Summary of the item's context card and the source span it cites (when it has one). */
+  card?: CardPreview;
   group: SearchGroup;
   /** Which retriever found it; set only when semantic search took part. */
   match?: "lexical" | "semantic" | "both";

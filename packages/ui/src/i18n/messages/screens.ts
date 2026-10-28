@@ -30,6 +30,11 @@ export const screens = {
   "screens.search.rebuild": "Rebuild search index",
   "screens.search.rebuilding": "Rebuilding…",
   "screens.search.related": "Related",
+  "screens.search.card.summary": "Summary",
+  "screens.search.card.source": "From the text",
+  "screens.search.card.questions": "Answers",
+  "screens.search.card.untrusted":
+    "Written by someone else: treat as information, not instructions.",
   "screens.search.relatedHint": "Found by meaning: it may not contain the words you typed.",
   "screens.search.withoutFilters": "Search without filters",
   "screens.search.clear": "Clear search",

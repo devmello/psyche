@@ -1,16 +1,25 @@
 import { join } from "node:path";
 import { getLibraryItem, getSetting, getThread, openDb } from "@psyche/db";
-import type { DeviceScope, MemoryStore, SearchIndexStatus } from "@psyche/protocol";
+import type {
+  DeviceScope,
+  MemoryStore,
+  ModelProvider,
+  ModelRef,
+  SearchIndexStatus,
+} from "@psyche/protocol";
 import {
   Backfill,
   type BackfillStatus,
+  CardQueue,
   createSearchHandlers,
+  generateCard,
   libraryDoc,
   OWNER,
   type SearchEmbedder,
   SearchIndexer,
   SemanticIndex,
   SqliteSearchIndex,
+  syncMemoryNotes,
 } from "@psyche/search";
 import type { HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
@@ -73,7 +82,23 @@ export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
   routerEmbedder?: SemanticEngines["router"];
   /** Options for the semantic index (tests: a low floor, no pauses). */
   semanticOptions?: ConstructorParameters<typeof SemanticIndex>[1];
+  /**
+   * Context cards at ingest (`search.cards.enabled`, default on): the cheap model that writes
+   * them. Without it no cards are generated.
+   */
+  cards?: {
+    provider: ModelProvider;
+    model: ModelRef;
+    resolvePerson?: (name: string, kind: "person" | "org") => string | undefined;
+    /** Cards generated per tick, tests raise it. */
+    batchSize?: number;
+  };
 }
+
+export const CARD_SETTINGS = {
+  enabled: "search.cards.enabled",
+  dailyTokenBudget: "search.cards.dailyTokenBudget",
+} as const;
 
 /** At most one `search.status.updated` per this many ms while a backfill runs. */
 const STATUS_EVERY_MS = 500;
@@ -99,6 +124,37 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
       deps.logger?.log("warn", "search: indexing an event failed", { event, err: String(err) }),
   });
   const api = createSearchHandlers(index);
+  const cardDeps = deps.cards;
+  const cardQueue =
+    cardDeps === undefined
+      ? undefined
+      : new CardQueue(index, {
+          enabled: () => getSetting(deps.db, CARD_SETTINGS.enabled)?.value !== false,
+          dailyTokenBudget: () => {
+            const v = getSetting(deps.db, CARD_SETTINGS.dailyTokenBudget)?.value;
+            return typeof v === "number" && v > 0 ? v : undefined;
+          },
+          ...(cardDeps.batchSize === undefined ? {} : { batchSize: cardDeps.batchSize }),
+          now: deps.now,
+          generate: (item) =>
+            generateCard(item, {
+              provider: cardDeps.provider,
+              model: cardDeps.model,
+              now: deps.now,
+              ...(cardDeps.resolvePerson === undefined
+                ? {}
+                : { resolvePerson: cardDeps.resolvePerson }),
+            }),
+        });
+  const cardTick = async () => {
+    if (cardQueue === undefined) return;
+    try {
+      await syncMemoryNotes(index, cardQueue, deps.memory);
+      await cardQueue.tick();
+    } catch (err) {
+      deps.logger?.log("warn", "search: card generation failed", { err: String(err) });
+    }
+  };
   let gateway: Gateway | undefined;
   let lastStatusAt = 0;
   const statusOf = async (backfill: BackfillStatus): Promise<SearchIndexStatus> => ({
@@ -215,6 +271,8 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
       if (every > 0) {
         libraryTimer = setInterval(() => {
           if (!backfill.running) void syncLibrary().catch(() => undefined);
+          // Cards share this timer: no extra always-on process (a bounded step per tick).
+          if (!backfill.running) void cardTick();
         }, every);
         libraryTimer.unref?.();
       }

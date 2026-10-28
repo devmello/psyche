@@ -1,4 +1,6 @@
 import type Database from "better-sqlite3";
+import { ensureCardSchema } from "./cards/store.ts";
+import { contextLine } from "./cards/text.ts";
 
 /**
  * On-device semantic search (docs/design/search-2026.md §3–§5): chunk embeddings of indexed
@@ -104,10 +106,30 @@ END;
 
 /** What a document's embedding depends on; a message's title is its thread's, so it is left out. */
 const VERSION_SQL =
-  "d.updated_ms || ':' || length(d.body) || ':' || (CASE WHEN d.kind = 'message' THEN 0 ELSE length(d.title) END)";
+  "d.updated_ms || ':' || length(d.body) || ':' || (CASE WHEN d.kind = 'message' THEN 0 ELSE length(d.title) END) || ':' || coalesce(c.updated_ms, 0)";
 
 /** The text a document is embedded from, split into chunks (empty: too short to embed). */
-export function chunksOf(kind: string, title: string, body: string): string[] {
+export function chunksOf(
+  kind: string,
+  title: string,
+  body: string,
+  context?: { source?: string | null; createdAt?: number; card?: string },
+): string[] {
+  const chunks = bodyChunks(kind, title, body);
+  // A long document's later chunks lose their title; every chunk carries a context line so it
+  // can be found on its own (title, source, date).
+  const line =
+    chunks.length > 1 && kind !== "message"
+      ? contextLine({ title, source: context?.source ?? kind, createdAt: context?.createdAt })
+      : "";
+  const out = line === "" ? chunks : chunks.map((c, i) => (i === 0 ? c : `${line}\n${c}`));
+  const card = (context?.card ?? "").replace(/\s+/g, " ").trim();
+  // The card is its own chunk: its summary and questions match how people ask.
+  if (card.length >= MIN_CHARS) out.push(card.slice(0, SINGLE_MAX));
+  return out;
+}
+
+function bodyChunks(kind: string, title: string, body: string): string[] {
   const text = (kind === "message" ? body : `${title}\n${body}`).replace(/\s+/g, " ").trim();
   if (text.length < MIN_CHARS) return [];
   if (text.length <= SINGLE_MAX) return [text];
@@ -244,6 +266,9 @@ interface PendingRow {
   kind: string;
   title: string;
   body: string;
+  source: string | null;
+  created_ms: number;
+  card: string | null;
   version: string;
 }
 
@@ -277,6 +302,7 @@ export class SemanticIndex implements SemanticSearch {
       options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, ms))));
     this.#onProgress = options.onProgress;
     db.exec(SCHEMA);
+    ensureCardSchema(db);
     // Rows whose document went away while the trigger did not exist (an older index).
     db.exec(
       "DELETE FROM search_vectors WHERE doc_id NOT IN (SELECT id FROM search_docs); DELETE FROM search_vec_state WHERE doc_id NOT IN (SELECT id FROM search_docs)",
@@ -425,8 +451,10 @@ export class SemanticIndex implements SemanticSearch {
   #pending(model: string, limit: number): PendingRow[] {
     return this.#db
       .prepare(
-        `SELECT d.id AS id, d.kind AS kind, d.title AS title, d.body AS body, ${VERSION_SQL} AS version
+        `SELECT d.id AS id, d.kind AS kind, d.title AS title, d.body AS body, d.source AS source,
+           d.created_ms AS created_ms, c.fts AS card, ${VERSION_SQL} AS version
          FROM search_docs d LEFT JOIN search_vec_state s ON s.doc_id = d.id AND s.model = ?
+         LEFT JOIN search_cards c ON c.doc_id = d.id
          WHERE d.kind IN (${EMBED_KINDS.map(() => "?").join(", ")})
            AND (s.version IS NULL OR s.version != ${VERSION_SQL})
          ORDER BY d.created_ms DESC LIMIT ?`,
@@ -440,6 +468,7 @@ export class SemanticIndex implements SemanticSearch {
         .prepare(
           `SELECT count(*) AS n FROM search_docs d
            LEFT JOIN search_vec_state s ON s.doc_id = d.id AND s.model = ?
+           LEFT JOIN search_cards c ON c.doc_id = d.id
            WHERE d.kind IN (${EMBED_KINDS.map(() => "?").join(", ")})
              AND (s.version IS NULL OR s.version != ${VERSION_SQL})`,
         )
@@ -461,7 +490,11 @@ export class SemanticIndex implements SemanticSearch {
         if (rows.length === 0) break;
         const chunks: { row: PendingRow; n: number; text: string }[] = [];
         for (const row of rows) {
-          chunksOf(row.kind, row.title, row.body).forEach((text, n) => {
+          chunksOf(row.kind, row.title, row.body, {
+            source: row.source,
+            createdAt: row.created_ms,
+            card: row.card ?? "",
+          }).forEach((text, n) => {
             chunks.push({ row, n, text });
           });
         }

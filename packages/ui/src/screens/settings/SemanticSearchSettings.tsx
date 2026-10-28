@@ -116,6 +116,13 @@ export function SemanticSearchSettingsGroup({
           <StatusChip tone={line.tone}>{line.text}</StatusChip>
         </div>
       </SwitchField>
+      <SwitchField
+        label={t("settings.key.search.cards.enabled")}
+        description={t("settings.semanticSearch.cardsHint")}
+        checked={bool(values, "search.cards.enabled", true)}
+        onChange={(v) => onChange("search.cards.enabled", v)}
+        settingKey="search.cards.enabled"
+      />
       {enabled ? (
         <RadioField<Engine>
           label={t("settings.key.search.semantic.engine")}

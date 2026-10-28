@@ -4,6 +4,7 @@ import { SqliteSearchIndex, type SqliteSearchIndexOptions } from "./sqlite-index
 
 export * from "./adapters.ts";
 export * from "./backfill.ts";
+export * from "./cards/index.ts";
 export * from "./fake-embedder.ts";
 export * from "./graph.ts";
 export * from "./handlers.ts";
