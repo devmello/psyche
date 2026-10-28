@@ -1148,6 +1148,12 @@ export type ArtifactSlideLayout = "title" | "bullets" | "image" | "two-column" |
 
 export type ArtifactDeckTheme = "light" | "dark" | "contrast";
 
+export interface ArtifactExport {
+    data: string;
+    mime: string;
+    name: string;
+}
+
 export interface ArtifactMap {
     bounds?: number[];
     markers: ArtifactMapMarker[];
@@ -1331,6 +1337,12 @@ export interface ArtifactRef {
     title:      string;
     type:       ArtifactType;
     version:    number;
+}
+
+export interface ArtifactsExportParams {
+    artifactId: string;
+    format:     string;
+    version?:   number;
 }
 
 export interface ArtifactsGetParams {
