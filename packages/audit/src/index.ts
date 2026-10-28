@@ -9,6 +9,26 @@ export {
   sha256,
 } from "./canonical.ts";
 export {
+  CHANGE_CATEGORIES,
+  CHANGE_KIND,
+  type ChangeActor,
+  type ChangeCategory,
+  type ChangeFilter,
+  type ChangeInput,
+  type ChangeRecord,
+  ChangeRecorder,
+  type ChangeRecorderOptions,
+  type ChangeTarget,
+  changeFromEntry,
+  changesToMarkdown,
+  diffFromEntry,
+  listChanges,
+  MAX_DIFF_BYTES,
+  packDiff,
+  unifiedDiff,
+  unpackDiff,
+} from "./changes.ts";
+export {
   AUDIT_KIND_PATTERN,
   AUDIT_KINDS,
   type AuditKind,

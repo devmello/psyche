@@ -49,6 +49,7 @@ export const PERMISSION_AUDIT_KINDS = [
   "receipt.reconciled",
   "audit.anchored",
   "revocations.replayed",
+  "change.recorded",
 ] as const;
 
 export const AUDIT_KINDS = [...DATA_MODEL_AUDIT_KINDS, ...PERMISSION_AUDIT_KINDS] as const;

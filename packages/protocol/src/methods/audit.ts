@@ -1,4 +1,4 @@
-import { Type } from "@sinclair/typebox";
+import { type Static, Type } from "@sinclair/typebox";
 import { IsoDateTime, Nullable, Sha256, StringEnum } from "../common.ts";
 import { AuditEntry } from "../schemas/permissions.ts";
 import { defineMethod } from "./define.ts";
@@ -92,6 +92,77 @@ export const AuditFrictionResult = Type.Object(
 
 const ExportFormat = StringEnum(["jsonl", "json"], { $id: "AuditExportFormat" });
 
+export const AuditChangeCategory = StringEnum(
+  ["file", "memory", "command", "connector", "skill", "setting", "approval"],
+  { $id: "AuditChangeCategory" },
+);
+
+export const AuditChangeActor = Type.Object(
+  {
+    type: StringEnum(["agent", "job", "owner"]),
+    /** The background job ("profile-learning", "dreaming") or the owner's surface. */
+    name: Type.Optional(Type.String({ maxLength: 100 })),
+  },
+  { $id: "AuditChangeActor" },
+);
+
+export const AuditChangeTarget = Type.Object(
+  {
+    path: Type.Optional(Type.String({ maxLength: 1000 })),
+    connector: Type.Optional(Type.String({ maxLength: 100 })),
+    object: Type.Optional(Type.String({ maxLength: 500 })),
+  },
+  { $id: "AuditChangeTarget" },
+);
+
+/**
+ * One owner-data change, read from a `change.recorded` audit entry (or an approval decision for
+ * the `approval` category). The diff is fetched with `audit.change`.
+ */
+export const AuditChange = Type.Object(
+  {
+    seq: Type.Integer({ minimum: 0 }),
+    hash: Sha256,
+    ts: IsoDateTime,
+    actor: AuditChangeActor,
+    category: AuditChangeCategory,
+    threadId: Type.Optional(Type.String()),
+    runId: Type.Optional(Type.String()),
+    taskId: Type.Optional(Type.String()),
+    toolCallId: Type.Optional(Type.String()),
+    tool: Type.String(),
+    target: AuditChangeTarget,
+    action: Type.String(),
+    approvalId: Type.Optional(Type.String()),
+    receiptId: Type.Optional(Type.String()),
+    beforeSha256: Type.Optional(Type.String()),
+    afterSha256: Type.Optional(Type.String()),
+    bytes: Type.Optional(Type.Integer({ minimum: 0 })),
+    outcome: StringEnum(["ok", "failed"]),
+    note: Type.Optional(Type.String()),
+    hasDiff: Type.Boolean(),
+    diffTruncated: Type.Optional(Type.Boolean()),
+    stats: Type.Optional(
+      Type.Object({ added: Type.Integer({ minimum: 0 }), removed: Type.Integer({ minimum: 0 }) }),
+    ),
+  },
+  { $id: "AuditChange" },
+);
+
+export type AuditChange = Static<typeof AuditChange>;
+
+const AuditChangesExportFormat = StringEnum(["json", "markdown"], {
+  $id: "AuditChangesExportFormat",
+});
+
+const ChangeFilterProps = {
+  threadId: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+  runId: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+  categories: Type.Optional(Type.Array(AuditChangeCategory, { maxItems: 8 })),
+  since: Type.Optional(IsoDateTime),
+  until: Type.Optional(IsoDateTime),
+};
+
 export const AuditMethods = {
   "audit.list": defineMethod({
     params: Type.Object({
@@ -115,6 +186,41 @@ export const AuditMethods = {
     scope: "operator.read",
     description:
       "Lists audit entries matching the filters (since inclusive, until exclusive). Page with sinceSeq.",
+  }),
+  "audit.changes": defineMethod({
+    params: Type.Object({
+      ...ChangeFilterProps,
+      beforeSeq: Type.Optional(Type.Integer({ minimum: 0 })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 500 })),
+    }),
+    result: Type.Object({ changes: Type.Array(AuditChange) }),
+    scope: "operator.read",
+    description:
+      "Owner-data changes (files, memory, commands, connectors, skills, settings, approvals), newest first, from the audit log. Page with beforeSeq.",
+  }),
+  "audit.change": defineMethod({
+    params: Type.Object({ seq: Type.Integer({ minimum: 0 }) }),
+    result: Type.Object({
+      change: AuditChange,
+      /** Redacted unified diff; absent for binary or large files (hashes and size only). */
+      diff: Type.Optional(Type.String()),
+    }),
+    scope: "operator.read",
+    description: "One change with its stored unified diff.",
+  }),
+  "audit.changesExport": defineMethod({
+    params: Type.Object({
+      ...ChangeFilterProps,
+      format: AuditChangesExportFormat,
+    }),
+    result: Type.Object({
+      format: AuditChangesExportFormat,
+      data: Type.String(),
+      /** Chain status at export time. */
+      verified: Type.Boolean(),
+    }),
+    scope: "operator.read",
+    description: "Exports the matching changes with diffs and the chain status.",
   }),
   "audit.verify": defineMethod({
     params: Type.Object({}),

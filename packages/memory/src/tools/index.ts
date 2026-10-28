@@ -314,6 +314,7 @@ export class MemoryTools {
     const r = await this.#store.forget(args.subject, {
       dryRun: dry,
       actor: "agent",
+      link: { tool: "forget", ...ctx.link },
       ...(ctx.approvalId === undefined ? {} : { approvalId: ctx.approvalId }),
     });
     const files = r.files ?? [];
@@ -333,6 +334,7 @@ export class MemoryTools {
     const { path, chunk } = await this.#store.appendDailyNote({
       text: args.text,
       provenance,
+      link: { tool: "remember", ...ctx.link },
       ...(provenance === "untrusted" && ctx.origin !== undefined ? { origin: ctx.origin } : {}),
     });
     return {

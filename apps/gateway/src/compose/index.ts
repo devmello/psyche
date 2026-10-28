@@ -97,6 +97,14 @@ import { createAutoTitler } from "./auto-title.ts";
 import { withAutomationSpecialists } from "./automation-specialists.ts";
 import { bootstrapAdminHandlers } from "./bootstrap-admin.ts";
 import { CallContexts } from "./call-context.ts";
+import {
+  changeHandlers,
+  createChangeRecorder,
+  fileChange,
+  memoryChange,
+  settingChange,
+  toolEffectChange,
+} from "./changes.ts";
 import { ChannelConversations } from "./channel-conversations.ts";
 import { composeComputer } from "./computer.ts";
 import { CONNECTOR_MATRIX_PREFIX } from "./connector-matrix.ts";
@@ -432,7 +440,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     signer: anchorKey,
     verifier: anchorKey,
     anchorIntervalMs: ANCHOR_INTERVAL_MS,
+    // Live vault values are masked in every entry, change diffs included.
+    redact: (text) => redactor.redact(text),
   });
+  // Every write to the owner's data reports here (audit.change.recorded drives the chat chip).
+  const changes = createChangeRecorder({
+    audit,
+    redact: (text) => redactor.redact(text),
+    publish,
+  });
+  gwOptions.onSettingChanged = (c) => void changes.record(settingChange(c));
   // A restored backup's log is shorter than what this key anchored; the restore is audited with
   // the head it had (replayRevocations below consumes the marker).
   if (existsSync(join(config.home, RESTORE_MARKER))) {
@@ -654,6 +671,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...(timeZone === undefined ? {} : { timeZone }),
     approvals: brokerApprovalCheck(broker),
     audit,
+    onChange: (c) => void changes.record(memoryChange(c)),
     flush: { provider, model: utility ?? modelRef },
     onEvent: (e) => {
       if (e.event === "memory.file.changed") {
@@ -693,6 +711,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       ...(scope === undefined ? [] : rawBroker.sessionFolders(scope.threadId)),
     ],
     protectedRoots: () => protectedRoots(config.home),
+    onChange: (c) => void changes.record(fileChange(c)),
   }))
     registry.register(tool);
   // Security §3.13: one way to ask for whatever a denial or error named as missing (a folder,
@@ -1029,6 +1048,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     onContextUsage: context.onContextUsage,
     onCompaction: context.onCompaction,
     onOwnerTurn: userProfile.onOwnerTurn,
+    onToolEffect: (e) => {
+      const change = toolEffectChange(e);
+      if (change !== undefined) void changes.record(change);
+    },
     // Incognito threads are memory-only (E9, security §8): the loop never flushes them.
     isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
     specialists,
@@ -1346,6 +1369,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...threadSettingsHandlers(modelPins),
     ...vault.handlers,
     ...bootstrapAdminHandlers({ db, audit }),
+    ...changeHandlers({ audit }),
     ...filesHandlers({ folders: () => rawBroker.policy.folders ?? [], home: config.home }),
     ...attentionHandlers(attention),
     ...libraryHandlers({ db, home: config.home }),

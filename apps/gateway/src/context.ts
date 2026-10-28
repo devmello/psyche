@@ -121,6 +121,10 @@ export interface GatewayContext {
   readonly agent: AgentLoop;
   readonly broker: PermissionBroker;
   readonly memory: MemoryStore | null;
+  /** Reports `settings.set` to the audit trail. */
+  readonly onSettingChanged:
+    | ((change: { key: string; before: unknown; after: unknown; deviceId: string }) => void)
+    | null;
   readonly limits: GatewayLimits;
   readonly failedChallenges: RateLimiter;
   /** Per-device budgets (security §10), keyed by device id so extra connections do not help. */

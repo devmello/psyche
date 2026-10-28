@@ -621,6 +621,9 @@ export class GatewayStore {
           // The agent's own notes list (Soul & Memory) follows the files.
           e.payload.path.startsWith(AGENT_NOTES_DIR) ? ["memory.notes."] : [],
         );
+      case "audit.change.recorded":
+        // The chat's change chip and the audit view read audit.changes.
+        return invalidate(s, ["audit.changes", "audit.verify"]);
       case "connectors.updated":
         // Settings → Connectors and onboarding read connectors.list; a finished sign-in,
         // a disconnect or a revoked token refreshes it (#505).

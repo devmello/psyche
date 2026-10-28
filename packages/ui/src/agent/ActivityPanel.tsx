@@ -22,6 +22,7 @@ import { MissionControl, TASK_GLYPH } from "./MissionControl.tsx";
 export { TASK_GLYPH };
 
 import { DelayedSkeleton } from "../components/DelayedSkeleton.tsx";
+import { AuditView } from "./AuditView.tsx";
 import { TimelineView } from "./timeline/TimelineView.tsx";
 
 /**
@@ -477,6 +478,7 @@ export function ActivityPanel({
         onOpenTask={(taskId) => setSelected(taskId)}
         now={now}
       />
+      <AuditView {...(fixedNow === undefined ? {} : { now: fixedNow })} />
     </section>
   );
 }
