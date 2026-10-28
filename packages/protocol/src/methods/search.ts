@@ -127,6 +127,50 @@ export const SearchHitGroup = Type.Object(
 );
 export type SearchHitGroup = Static<typeof SearchHitGroup>;
 
+/** What kind of filter an understood phrase became (Search screen chips). */
+export const SearchChipKind = StringEnum(["time", "person", "source", "type"], {
+  $id: "SearchChipKind",
+});
+export type SearchChipKind = Static<typeof SearchChipKind>;
+
+/** What the asker wants: look something up, get an answer, or list matches. */
+export const SearchQueryIntent = StringEnum(["find", "answer", "list"], {
+  $id: "SearchQueryIntent",
+});
+export type SearchQueryIntent = Static<typeof SearchQueryIntent>;
+
+/** How far a query had to be loosened to find anything. */
+export const SearchRelaxed = StringEnum(["none", "filters", "or"], { $id: "SearchRelaxed" });
+export type SearchRelaxed = Static<typeof SearchRelaxed>;
+
+/** A filter found in plain words ("last week", "from Alex"), shown as a removable chip. */
+export const SearchQueryChip = Type.Object(
+  {
+    id: Type.String({ description: "Pass it in `dropChips` to turn the chip off" }),
+    kind: SearchChipKind,
+    label: Type.String({
+      description:
+        "time: the phrase as typed; person: the name; source: mail, imessage, notes, calendar, reminders or files; type: pdf, image, sheet or slides",
+    }),
+    token: Type.String({ description: "The query-language filter the chip stands for" }),
+  },
+  { $id: "SearchQueryChip" },
+);
+export type SearchQueryChip = Static<typeof SearchQueryChip>;
+
+/** How the query was read: its intent, the chips applied and whether it had to be relaxed. */
+export const SearchUnderstood = Type.Object(
+  {
+    natural: Type.Boolean({ description: "Read as a question rather than run as typed" }),
+    intent: SearchQueryIntent,
+    chips: Type.Array(SearchQueryChip),
+    relaxed: SearchRelaxed,
+    query: Type.String({ description: "The query that produced the results" }),
+  },
+  { $id: "SearchUnderstood" },
+);
+export type SearchUnderstood = Static<typeof SearchUnderstood>;
+
 /** Progress of the index backfill (docs/design/search-2026.md §5.1). */
 export const SearchBackfillStatus = Type.Object(
   {
@@ -195,9 +239,16 @@ export const SearchMethods = {
       query: Type.String({ minLength: 1, maxLength: 2000 }),
       scopes: Type.Optional(Type.Array(SearchScope)),
       limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200 })),
+      dropChips: Type.Optional(
+        Type.Array(Type.String({ maxLength: 200 }), {
+          maxItems: 16,
+          description: "Ids of understood chips the user removed",
+        }),
+      ),
     }),
     result: Type.Object({
       hits: Type.Array(SearchHit),
+      understood: Type.Optional(SearchUnderstood),
       groups: Type.Optional(Type.Array(SearchHitGroup)),
       total: Type.Optional(Type.Integer({ minimum: 0 })),
       warnings: Type.Optional(

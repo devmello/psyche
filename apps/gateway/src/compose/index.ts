@@ -163,7 +163,7 @@ import { researchTools } from "./research.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
 import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
 import { scriptTools } from "./scripts.ts";
-import { type ComposedSearch, composeSearch } from "./search.ts";
+import { type ComposedSearch, composeSearch, graphNames } from "./search.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
 import {
   type ApprovalRelay,
@@ -1326,6 +1326,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     feed: proactive.feed,
     ideas: proactive.ideas,
     goals: proactive.goals,
+    ...(timeZone === undefined ? {} : { timeZone }),
+    // "from Alex": the people graph's names, aliases and addresses for that person.
+    resolvePerson: (name) => {
+      const graph = people?.graph;
+      if (graph === undefined) return undefined;
+      return graphNames(graph, name);
+    },
     // `search.semantic.engine: router`: the `embedding` role; a cloud one only with allowCloud (S4).
     routerEmbedder: (allowCloud) => routerEmbedder(router, allowCloud),
     // Context cards at ingest: the utility model (cheap), a few items per minute, a daily budget.

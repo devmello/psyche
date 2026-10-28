@@ -30936,6 +30936,15 @@
       ],
       "type": "object"
     },
+    "SearchChipKind": {
+      "enum": [
+        "time",
+        "person",
+        "source",
+        "type"
+      ],
+      "type": "string"
+    },
     "SearchGroup": {
       "enum": [
         "threads",
@@ -31133,6 +31142,40 @@
       ],
       "type": "string"
     },
+    "SearchQueryChip": {
+      "properties": {
+        "id": {
+          "description": "Pass it in `dropChips` to turn the chip off",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/SearchChipKind"
+        },
+        "label": {
+          "description": "time: the phrase as typed; person: the name; source: mail, imessage, notes, calendar, reminders or files; type: pdf, image, sheet or slides",
+          "type": "string"
+        },
+        "token": {
+          "description": "The query-language filter the chip stands for",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "label",
+        "token"
+      ],
+      "type": "object"
+    },
+    "SearchQueryIntent": {
+      "enum": [
+        "find",
+        "answer",
+        "list"
+      ],
+      "type": "string"
+    },
     "SearchQueryParams": {
       "properties": {
         "query": {
@@ -31150,6 +31193,15 @@
           "maximum": 200,
           "minimum": 1,
           "type": "integer"
+        },
+        "dropChips": {
+          "description": "Ids of understood chips the user removed",
+          "items": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "maxItems": 16,
+          "type": "array"
         }
       },
       "required": [
@@ -31164,6 +31216,9 @@
             "$ref": "#/$defs/SearchHit"
           },
           "type": "array"
+        },
+        "understood": {
+          "$ref": "#/$defs/SearchUnderstood"
         },
         "groups": {
           "items": {
@@ -31203,6 +31258,14 @@
         "started"
       ],
       "type": "object"
+    },
+    "SearchRelaxed": {
+      "enum": [
+        "none",
+        "filters",
+        "or"
+      ],
+      "type": "string"
     },
     "SearchScope": {
       "enum": [
@@ -31309,6 +31372,38 @@
     },
     "SearchStatusParams": {
       "properties": {},
+      "type": "object"
+    },
+    "SearchUnderstood": {
+      "properties": {
+        "natural": {
+          "description": "Read as a question rather than run as typed",
+          "type": "boolean"
+        },
+        "intent": {
+          "$ref": "#/$defs/SearchQueryIntent"
+        },
+        "chips": {
+          "items": {
+            "$ref": "#/$defs/SearchQueryChip"
+          },
+          "type": "array"
+        },
+        "relaxed": {
+          "$ref": "#/$defs/SearchRelaxed"
+        },
+        "query": {
+          "description": "The query that produced the results",
+          "type": "string"
+        }
+      },
+      "required": [
+        "natural",
+        "intent",
+        "chips",
+        "relaxed",
+        "query"
+      ],
       "type": "object"
     },
     "SelfConnectorFile": {

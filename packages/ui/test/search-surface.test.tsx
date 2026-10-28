@@ -146,3 +146,60 @@ describe("⌘K palette", () => {
     await waitFor(() => expect(onNavigate).toHaveBeenCalled());
   });
 });
+
+describe("understood filter chips", () => {
+  const understood = {
+    natural: true,
+    intent: "answer" as const,
+    relaxed: "none" as const,
+    query: "from:alex after:2026-10-12 before:2026-10-19 lease",
+    chips: [
+      {
+        id: "time:last week",
+        kind: "time" as const,
+        label: "last week",
+        token: "after:2026-10-12 before:2026-10-19",
+      },
+      { id: "person:alex", kind: "person" as const, label: "Alex", token: "from:alex" },
+      { id: "source:mail", kind: "source" as const, label: "mail", token: "source:mail" },
+    ],
+  };
+
+  it("shows them as removable chips", async () => {
+    const onDropChip = vi.fn();
+    render(
+      <StoryWorld>
+        <SearchSurface
+          variant="page"
+          query="what did Alex send about the lease last week"
+          onQueryChange={() => undefined}
+          hits={hits}
+          understood={understood}
+          onDropChip={onDropChip}
+        />
+      </StoryWorld>,
+    );
+    const list = screen.getByRole("list", { name: "Understood filters" });
+    expect(within(list).getByText("Last week")).toBeTruthy();
+    expect(within(list).getByText("From Alex")).toBeTruthy();
+    expect(within(list).getByText("In email")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Remove From Alex" }));
+    expect(onDropChip).toHaveBeenCalledWith("person:alex");
+  });
+
+  it("hides chips that were relaxed and says so", () => {
+    render(
+      <StoryWorld>
+        <SearchSurface
+          variant="page"
+          query="what did Alex send about the lease last week"
+          onQueryChange={() => undefined}
+          hits={hits}
+          understood={{ ...understood, relaxed: "filters" }}
+        />
+      </StoryWorld>,
+    );
+    expect(screen.queryByRole("list", { name: "Understood filters" })).toBeNull();
+    expect(screen.getByText(/Nothing matched all of your filters/)).toBeTruthy();
+  });
+});

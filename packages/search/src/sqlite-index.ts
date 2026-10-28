@@ -37,6 +37,7 @@ import {
   type SearchResponse,
   type SearchViewer,
 } from "./types.ts";
+import { understand } from "./understand.ts";
 
 export interface SqliteSearchIndexOptions {
   /** Epoch ms; drives the recency boost and relative dates. Default `Date.now`. */
@@ -49,8 +50,13 @@ export interface SqliteSearchIndexOptions {
   maxBodyChars?: number;
   /** Memory is queried live through the store, not copied into this index. */
   memory?: MemoryStore;
-  /** Minutes east of UTC for calendar dates in queries (default 0). */
-  tzOffsetMinutes?: number;
+  /**
+   * Minutes east of UTC for calendar dates in queries (default 0). A function is read per query,
+   * so daylight saving time follows the owner's zone.
+   */
+  tzOffsetMinutes?: number | (() => number);
+  /** Names and addresses a person is known by (people graph, contacts) for "from Alex". */
+  resolvePerson?: (name: string) => readonly string[] | undefined;
 }
 
 /** Semantic candidates (documents) fused into one search. */
@@ -107,7 +113,8 @@ export class SqliteSearchIndex implements SearchIndex {
   #weight: number;
   #maxBody: number;
   #memory: MemoryStore | undefined;
-  #tz: number;
+  #tz: () => number;
+  #resolvePerson: ((name: string) => readonly string[] | undefined) | undefined;
   #upsert: Database.Statement;
   #delete: Database.Statement;
   #semantic: SemanticSearch | undefined;
@@ -121,7 +128,9 @@ export class SqliteSearchIndex implements SearchIndex {
     this.#weight = options.recencyWeight ?? 1;
     this.#maxBody = options.maxBodyChars ?? 100_000;
     this.#memory = options.memory;
-    this.#tz = options.tzOffsetMinutes ?? 0;
+    const tz = options.tzOffsetMinutes ?? 0;
+    this.#tz = typeof tz === "function" ? tz : () => tz;
+    this.#resolvePerson = options.resolvePerson;
     ensureSearchSchema(db);
     this.cards = new CardStore(db);
     db.pragma("temp_store = MEMORY");
@@ -319,13 +328,44 @@ export class SqliteSearchIndex implements SearchIndex {
   }
 
   parse(q: string): ParsedQuery {
-    return parseQuery(q, { now: this.#now(), tzOffsetMinutes: this.#tz });
+    return parseQuery(q, { now: this.#now(), tzOffsetMinutes: this.#tz() });
   }
 
   // --- Rich query ------------------------------------------------------------------------------
 
-  /** Grouped, collapsed, highlighted search for the Search screen and ⌘K. */
+  /**
+   * Grouped, collapsed, highlighted search for the Search screen and ⌘K. A question in plain
+   * words is understood first (`understand.ts`): stop words dropped, the rest ORed, time, people
+   * and source phrases applied as filters. If a reading finds nothing the next, looser one runs,
+   * so a query with matching words never comes back empty.
+   */
   async search(request: SearchRequest): Promise<SearchResponse> {
+    if (request.understand === false) return this.#searchOnce(request);
+    const plan = understand(request.q, {
+      now: this.#now(),
+      tzOffsetMinutes: this.#tz(),
+      disabled: request.dropChips ?? [],
+      ...(this.#resolvePerson === undefined ? {} : { resolvePerson: this.#resolvePerson }),
+    });
+    let res: SearchResponse | undefined;
+    let used = plan.attempts[0];
+    for (const attempt of plan.attempts) {
+      used = attempt;
+      res = await this.#searchOnce({ ...request, q: attempt.q });
+      if (res.hits.length > 0 || res.total > 0) break;
+    }
+    if (res === undefined) return this.#searchOnce(request);
+    res.understood = {
+      natural: plan.natural,
+      intent: plan.intent,
+      chips: plan.chips,
+      relaxed: used?.relaxed ?? "none",
+      query: used?.q ?? request.q,
+    };
+    return res;
+  }
+
+  async #searchOnce(request: SearchRequest): Promise<SearchResponse> {
     const started = performance.now();
     const viewer = request.viewer ?? OWNER;
     const parsed = this.parse(request.q);
@@ -602,6 +642,10 @@ export class SqliteSearchIndex implements SearchIndex {
     if (parsed.mimes !== undefined) {
       sql.push(`(${parsed.mimes.map(() => "d.mime LIKE ?").join(" OR ")})`);
       params.push(...parsed.mimes.map((m) => m.replace(/\*$/, "%")));
+    }
+    if (parsed.sources !== undefined) {
+      sql.push(`(${parsed.sources.map(() => "d.source IN (?, ?)").join(" OR ")})`);
+      params.push(...parsed.sources.flatMap((k) => [k, `connector:${k}`]));
     }
     if (parsed.from !== undefined) {
       sql.push(`(${parsed.from.map(() => "instr(d.sender_key, ?) > 0").join(" OR ")})`);

@@ -7,8 +7,9 @@ import type { Provenance, SearchIndexDocKind } from "@psyche/protocol";
  *
  * Bare words are ANDed and match as prefixes (so ⌘K results stay while a word is half typed),
  * `OR` between two terms makes an alternative, `"…"` is an exact phrase, `-x` excludes.
- * Filters: `in:` (pane), `type:` (file type or document kind), `from:`, `before:`, `after:`,
- * `on:`, `has:` (`approval`, `receipt`, `attachment`), `is:` (provenance), `thread:`.
+ * Filters: `in:` (pane), `type:` (file type or document kind), `source:` (mail, messages, notes,
+ * calendar, reminders, files), `from:`, `before:`, `after:`, `on:`, `has:` (`approval`,
+ * `receipt`, `attachment`), `is:` (provenance), `thread:`.
  * An unknown `key:value` is searched as text.
  */
 
@@ -32,6 +33,8 @@ export interface ParsedFilters {
   /** MIME patterns; a trailing `/*` matches the whole family. */
   mimes?: string[];
   from?: string[];
+  /** Index `source` keys (`mail`, `imessage`, …); `connector:<key>` rows match too. */
+  sources?: string[];
   /** Epoch ms; documents with `createdAt < before`. */
   before?: number;
   /** Epoch ms; documents with `createdAt >= after`. */
@@ -128,6 +131,29 @@ const TYPE_MIMES: Record<string, string[]> = {
   json: ["application/json"],
 };
 
+/** `source:` values → the index `source` keys they select. */
+export const SOURCE_KEYS: Record<string, string[]> = {
+  mail: ["mail"],
+  email: ["mail"],
+  emails: ["mail"],
+  messages: ["imessage"],
+  imessage: ["imessage"],
+  sms: ["imessage"],
+  texts: ["imessage"],
+  notes: ["notes"],
+  note: ["notes"],
+  calendar: ["calendar"],
+  events: ["calendar"],
+  reminders: ["reminders"],
+  reminder: ["reminders"],
+  files: ["files", "library"],
+  file: ["files", "library"],
+  chat: ["chat"],
+  chats: ["chat"],
+  tasks: ["tasks"],
+  library: ["library"],
+};
+
 const KINDS: SearchIndexDocKind[] = [
   "thread",
   "message",
@@ -142,7 +168,18 @@ const KINDS: SearchIndexDocKind[] = [
 
 const PROVENANCES: Provenance[] = ["owner", "agent", "untrusted", "system"];
 const FLAGS: SearchFlag[] = ["approval", "receipt", "attachment"];
-const FILTER_KEYS = new Set(["in", "type", "from", "before", "after", "on", "has", "is", "thread"]);
+const FILTER_KEYS = new Set([
+  "in",
+  "type",
+  "source",
+  "from",
+  "before",
+  "after",
+  "on",
+  "has",
+  "is",
+  "thread",
+]);
 
 interface Token {
   key?: string;
@@ -310,6 +347,12 @@ export function parseQuery(input: string, opts: ParseOptions = {}): ParsedQuery 
         else if (/^[a-z]+\/[a-z0-9.+*-]+$/.test(lower))
           filters.mimes = pushUnique(filters.mimes, [lower]);
         else unknown();
+        break;
+      }
+      case "source": {
+        const keys = SOURCE_KEYS[lower];
+        if (keys === undefined) unknown();
+        else filters.sources = pushUnique(filters.sources, keys);
         break;
       }
       case "from":

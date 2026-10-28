@@ -7696,17 +7696,22 @@ export type SearchSemanticEngine = "builtin" | "router";
 export type SearchSemanticState = "off" | "downloading" | "loading" | "indexing" | "ready" | "error" | "blocked";
 
 export interface SearchQueryParams {
-    limit?:  number;
-    query:   string;
-    scopes?: SearchScope[];
+    /**
+     * Ids of understood chips the user removed
+     */
+    dropChips?: string[];
+    limit?:     number;
+    query:      string;
+    scopes?:    SearchScope[];
 }
 
 export type SearchScope = "threads" | "messages" | "tasks" | "memory" | "library" | "feed" | "ideas" | "goals" | "connectors" | "people" | "projects";
 
 export interface SearchQueryResult {
-    groups?: SearchHitGroup[];
-    hits:    SearchHit[];
-    total?:  number;
+    groups?:     SearchHitGroup[];
+    hits:        SearchHit[];
+    total?:      number;
+    understood?: SearchUnderstood;
     /**
      * Filter tokens that were not understood
      */
@@ -7758,6 +7763,43 @@ export interface SearchHitCard {
 export type SearchIndexDocKind = "thread" | "message" | "task" | "memory" | "library" | "feed" | "idea" | "goal" | "connector" | "person" | "project";
 
 export type SearchMatch = "lexical" | "semantic" | "both";
+
+export interface SearchUnderstood {
+    chips:  SearchQueryChip[];
+    intent: SearchQueryIntent;
+    /**
+     * Read as a question rather than run as typed
+     */
+    natural: boolean;
+    /**
+     * The query that produced the results
+     */
+    query:   string;
+    relaxed: SearchRelaxed;
+}
+
+export interface SearchQueryChip {
+    /**
+     * Pass it in `dropChips` to turn the chip off
+     */
+    id:   string;
+    kind: SearchChipKind;
+    /**
+     * time: the phrase as typed; person: the name; source: mail, imessage, notes, calendar,
+     * reminders or files; type: pdf, image, sheet or slides
+     */
+    label: string;
+    /**
+     * The query-language filter the chip stands for
+     */
+    token: string;
+}
+
+export type SearchChipKind = "time" | "person" | "source" | "type";
+
+export type SearchQueryIntent = "find" | "answer" | "list";
+
+export type SearchRelaxed = "none" | "filters" | "or";
 
 export interface SearchReindexResult {
     /**

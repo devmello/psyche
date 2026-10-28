@@ -1417,11 +1417,15 @@ export function useAutomations() {
   };
 }
 
-export function useSearch(query: string, scopes?: SearchScope[]) {
+export function useSearch(query: string, scopes?: SearchScope[], dropChips?: string[]) {
   const trimmed = query.trim();
   const q = useGatewayQuery(
     "search.query",
-    { query: trimmed === "" ? " " : trimmed, ...(scopes === undefined ? {} : { scopes }) },
+    {
+      query: trimmed === "" ? " " : trimmed,
+      ...(scopes === undefined ? {} : { scopes }),
+      ...(dropChips === undefined || dropChips.length === 0 ? {} : { dropChips }),
+    },
     { enabled: trimmed !== "" },
   );
   const hits: readonly SearchHit[] = trimmed === "" ? [] : (q.data?.hits ?? []);
@@ -1430,7 +1434,8 @@ export function useSearch(query: string, scopes?: SearchScope[]) {
     for (const h of hits) out.set(h.scope, [...(out.get(h.scope) ?? []), h]);
     return out;
   }, [hits]);
-  return { ...q, hits, groups };
+  const understood = trimmed === "" ? undefined : q.data?.understood;
+  return { ...q, hits, groups, understood };
 }
 
 /** Index size and backfill progress, live through `search.status.updated`; `reindex` rebuilds. */
