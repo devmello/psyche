@@ -7725,6 +7725,7 @@ export interface SearchHitGroup {
 export type SearchGroup = "threads" | "tasks" | "memory" | "library" | "feed" | "ideas" | "goals" | "connectors" | "people" | "projects";
 
 export interface SearchHit {
+    card?: SearchHitCard;
     /**
      * Epoch ms
      */
@@ -7742,6 +7743,16 @@ export interface SearchHit {
     threadId?:          null | string;
     title:              string;
     titleHighlights?:   Array<number[]>;
+}
+
+export interface SearchHitCard {
+    confidence: number;
+    questions:  string[];
+    /**
+     * Source text the summary cites
+     */
+    span:    string;
+    summary: string;
 }
 
 export type SearchIndexDocKind = "thread" | "message" | "task" | "memory" | "library" | "feed" | "idea" | "goal" | "connector" | "person" | "project";

@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { composeConnectors, stagedImporter } from "../src/compose/connectors.ts";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { indexedConnectorLibrary } from "../src/compose/library.ts";
-import { adminClient, ik, type TestClient } from "./helpers.ts";
+import { adminClient, desktopClient, ik, type TestClient } from "./helpers.ts";
 
 /** #727: `connectors.configure` over the wire, and staged Mail attachments into the Library. */
 
@@ -86,6 +86,89 @@ describe("connectors.configure (#727)", () => {
     expect(updates()[0]).toMatchObject({
       payload: { reason: "updated", connector: { id: connector.id } },
     });
+  });
+});
+
+describe("trusted sources (security §3.6)", () => {
+  const lists = {
+    lists: [
+      { id: "L1", title: "Home", source: "iCloud", writable: true },
+      { id: "L2", title: "Family", source: "iCloud", writable: false },
+    ],
+  };
+  const remindersHelper: AppleHelper = {
+    nodeId: "node_mac",
+    capabilities: ["reminders.list_lists", "reminders.list", "permissions.status"],
+    invoke: async () => ({ ok: true, result: lists }),
+  };
+
+  async function compose() {
+    composed = await composeGateway({
+      retentionIntervalMs: 0,
+      background: false,
+      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      model: { provider: new FakeModelProvider(), model: "fake/model" },
+      parts: [
+        (s) =>
+          composeConnectors(s, {
+            store: new MemoryConnectorStore(),
+            appleHelper: () => remindersHelper,
+            syncIntervalMs: 0,
+          }),
+      ],
+    });
+    const owner = await adminClient(composed.gateway);
+    clients.push(owner);
+    const { connector } = (await owner.call(
+      "connectors.connect",
+      { catalogueId: "apple-reminders", scopeMode: "read_act" },
+      ik(),
+    )) as { connector: { id: string } };
+    return { owner, id: connector.id };
+  }
+
+  it("the owner's toggle is audited, and a shared source cannot be marked", async () => {
+    const { owner, id } = await compose();
+    await expect(
+      owner.call(
+        "connectors.configure",
+        { connectorId: id, config: { trustedSources: ["L2"] } },
+        ik(),
+      ),
+    ).rejects.toThrow(/shared_source/);
+    await owner.call(
+      "connectors.configure",
+      { connectorId: id, config: { trustedSources: ["L1"] } },
+      ik(),
+    );
+    const { changes } = (await owner.call("audit.changes", {}, ik())) as {
+      changes: {
+        category: string;
+        target: { connector?: string; object?: string };
+        actor: { type: string };
+      }[];
+    };
+    const row = changes.find((c) => c.target.object === "trustedSources");
+    expect(row).toMatchObject({ category: "connector", actor: { type: "owner" } });
+    expect(row?.target.connector).toBe(id);
+  });
+
+  it("a device without the admin scope (what a turn runs as) cannot change trustedSources", async () => {
+    const { id } = await compose();
+    if (composed === null) throw new Error("not composed");
+    const plain = await desktopClient(composed.gateway);
+    clients.push(plain);
+    await expect(
+      plain.call(
+        "connectors.configure",
+        { connectorId: id, config: { trustedSources: ["L1"] } },
+        ik(),
+      ),
+    ).rejects.toThrow();
+    const { connector } = (await plain.call("connectors.get", { connectorId: id }, ik())) as {
+      connector: { config: Record<string, unknown> };
+    };
+    expect(connector.config).not.toHaveProperty("trustedSources");
   });
 });
 

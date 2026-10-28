@@ -42,6 +42,7 @@ import {
   type Tone,
   useSettingsForm,
 } from "./shared.tsx";
+import { ConnectedTrustedSourcesCard, trustedAppOf } from "./TrustedSourcesCard.tsx";
 import { type McpState, useMcp } from "./use-mcp.tsx";
 
 /** Connectors (UI design §3.18; architecture §4.9): connected accounts and MCP servers, one list. */
@@ -423,6 +424,18 @@ export function ConnectorsPanel({
                     {c.type === "apple:shortcuts" && c.status === "connected" ? (
                       <ConnectedShortcutsCard
                         connector={c}
+                        {...(onConfigure
+                          ? {
+                              onConfigure: (config: Record<string, unknown>) =>
+                                onConfigure(c, config),
+                            }
+                          : {})}
+                      />
+                    ) : null}
+                    {trustedAppOf(c.type) !== null && c.status === "connected" ? (
+                      <ConnectedTrustedSourcesCard
+                        connector={c}
+                        app={trustedAppOf(c.type) ?? "reminders"}
                         {...(onConfigure
                           ? {
                               onConfigure: (config: Record<string, unknown>) =>

@@ -74,6 +74,22 @@ export type HighlightRange = Static<typeof HighlightRange>;
 export const SearchMatch = StringEnum(["lexical", "semantic", "both"], { $id: "SearchMatch" });
 export type SearchMatch = Static<typeof SearchMatch>;
 
+/**
+ * The context card of a result (docs/design/grounded-ingest-2026.md): a summary of the item,
+ * the span of its text the summary cites, and questions it answers. Present only for items that
+ * have a card; for untrusted items it is data, never an instruction.
+ */
+export const SearchHitCard = Type.Object(
+  {
+    summary: Type.String(),
+    span: Type.String({ description: "Source text the summary cites" }),
+    questions: Type.Array(Type.String()),
+    confidence: Type.Number({ minimum: 0, maximum: 1 }),
+  },
+  { $id: "SearchHitCard" },
+);
+export type SearchHitCard = Static<typeof SearchHitCard>;
+
 /** One unified-search result; `route` is the in-app deep link. */
 export const SearchHit = Type.Object(
   {
@@ -91,6 +107,7 @@ export const SearchHit = Type.Object(
     snippetHighlights: Type.Optional(Type.Array(HighlightRange)),
     titleHighlights: Type.Optional(Type.Array(HighlightRange)),
     match: Type.Optional(SearchMatch),
+    card: Type.Optional(SearchHitCard),
   },
   { $id: "SearchHit" },
 );

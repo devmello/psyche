@@ -733,6 +733,36 @@ function SurfacePreview({
           <Highlight text={hit.snippet} terms={terms} />
         </p>
       ) : null}
+      {hit.card ? (
+        <div className="flex flex-col gap-1 rounded-md bg-fill-tertiary p-2 text-callout">
+          <p className="text-label-primary">
+            <span className="text-caption text-label-tertiary">
+              {t("screens.search.card.summary")}
+              {": "}
+            </span>
+            {hit.card.summary}
+          </p>
+          <p className="text-label-secondary italic">
+            <span className="text-caption text-label-tertiary not-italic">
+              {t("screens.search.card.source")}
+              {": "}
+            </span>
+            {`“${hit.card.span}”`}
+          </p>
+          {hit.card.questions.length > 0 ? (
+            <p className="text-label-secondary">
+              <span className="text-caption text-label-tertiary">
+                {t("screens.search.card.questions")}
+                {": "}
+              </span>
+              {hit.card.questions.join(" · ")}
+            </p>
+          ) : null}
+          {hit.provenance === "untrusted" ? (
+            <p className="text-caption text-label-tertiary">{t("screens.search.card.untrusted")}</p>
+          ) : null}
+        </div>
+      ) : null}
       <div className="mt-auto flex flex-wrap gap-2">
         <Button size="sm" onClick={onOpen} disabled={hit.route == null}>
           <CornerDownLeft aria-hidden="true" />

@@ -31022,6 +31022,9 @@
         },
         "match": {
           "$ref": "#/$defs/SearchMatch"
+        },
+        "card": {
+          "$ref": "#/$defs/SearchHitCard"
         }
       },
       "required": [
@@ -31030,6 +31033,35 @@
         "title",
         "snippet",
         "score"
+      ],
+      "type": "object"
+    },
+    "SearchHitCard": {
+      "properties": {
+        "summary": {
+          "type": "string"
+        },
+        "span": {
+          "description": "Source text the summary cites",
+          "type": "string"
+        },
+        "questions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "summary",
+        "span",
+        "questions",
+        "confidence"
       ],
       "type": "object"
     },

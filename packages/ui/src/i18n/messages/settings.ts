@@ -80,6 +80,9 @@ export const settings = {
   "settings.key.context.maxTokens": "Context limit",
   "settings.key.search.web.provider": "Web search provider",
   "settings.key.search.semantic.enabled": "Semantic search (on-device)",
+  "settings.key.search.cards.enabled": "Context cards for search",
+  "settings.semanticSearch.cardsHint":
+    "When something is saved or indexed, a small cloud model writes a short summary, who and when, and the questions it answers, using only what the text says. Capped at about 200,000 tokens a day (well under a dollar); turn off to stop.",
   "settings.key.search.semantic.engine": "Embedding engine",
   "settings.key.search.semantic.allowCloud": "Allow a cloud embedding service",
   "settings.key.search.web.searxngUrl": "SearXNG URL",
@@ -717,6 +720,20 @@ export const settings = {
   "settings.shortcuts.install": "Install",
   "settings.shortcuts.installNamed": "Install {name}",
   "settings.shortcuts.installed": "Installed",
+  // Trusted sources: "mine" lists, folders and calendars (security §3.6).
+  "settings.trusted.title.reminders": "Your Reminders lists",
+  "settings.trusted.title.notes": "Your Notes folders",
+  "settings.trusted.title.calendar": "Your calendars",
+  "settings.trusted.none.reminders": "No Reminders lists yet.",
+  "settings.trusted.none.notes": "No folders in Notes yet.",
+  "settings.trusted.none.calendar": "No calendars yet.",
+  "settings.trusted.loading": "Reading them from this Mac…",
+  "settings.trusted.noHelper": "Open Psyche on your Mac to list them: the helper reads them.",
+  "settings.trusted.failed": "Psyche couldn't read them from this Mac.",
+  "settings.trusted.toggle": "Mine — treat as trusted",
+  "settings.trusted.shared": "Shared",
+  "settings.trusted.hint":
+    "Reading from it won't make the chat ask again. Only turn this on for lists no one else can edit.",
   // Obsidian card (#640): the vault through File access, and the daily-note folder.
   "settings.obsidian.vault": "Vault folder",
   "settings.obsidian.newVault": "New vault folder",

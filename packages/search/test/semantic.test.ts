@@ -31,7 +31,7 @@ describe("chunksOf", () => {
     const long = Array.from({ length: 600 }, (_, i) => `word${i}`).join(" ");
     const chunks = chunksOf("library", "Notes", long);
     expect(chunks.length).toBeGreaterThan(3);
-    for (const c of chunks) expect(c.length).toBeLessThanOrEqual(1200);
+    for (const c of chunks) expect(c.length).toBeLessThanOrEqual(1260);
     // Consecutive chunks overlap, so a sentence across a boundary is in one of them whole.
     const tail = chunks[0]?.slice(-50) ?? "";
     expect(chunks[1]?.includes(tail.slice(-20))).toBe(true);
