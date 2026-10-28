@@ -252,7 +252,7 @@ describe("real-Chrome mode over the routing driver (I13)", () => {
 });
 
 describe("real-Chrome mode off", () => {
-  it("is unavailable without a real-Chrome attachment", async () => {
+  it("hides real Chrome from the model while the toggle is off", async () => {
     const registry = new Registry();
     const dir = await mkdtemp(join(tmpdir(), "psyche-s08-rc-off-"));
     const desktop = new MockDesktop({ quarantineDir: dir });
@@ -272,18 +272,10 @@ describe("real-Chrome mode off", () => {
       }),
       session: async () => s.id,
     });
-    const r = await registry
-      .get("browser.use_real_chrome")
-      ?.execute(
-        "c",
-        { url: "https://example.com/", reason: "x" },
-        new AbortController().signal,
-        () => {},
-      );
-    expect(r).toMatchObject({
-      isError: true,
-      output: { error: { code: "unavailable", details: { reason: "no_real_chrome" } } },
-    });
+    // Off by default: the model is not offered real Chrome, nor its stop tool.
+    expect(registry.get("browser.use_real_chrome")).toBeUndefined();
+    expect(registry.get("browser.stop_real_chrome")).toBeUndefined();
+    expect(registry.get("browser.open_tab")).toBeDefined();
     driver.dispose();
     desktop.disconnect();
     await rm(dir, { recursive: true, force: true });
