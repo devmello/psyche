@@ -165,6 +165,7 @@ import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
 import { scriptTools } from "./scripts.ts";
 import { type ComposedSearch, composeSearch, graphNames } from "./search.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
+import { searchEverythingTool } from "./search-tool.ts";
 import {
   type ApprovalRelay,
   type ComposedPart,
@@ -1348,6 +1349,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
   parts.push(search);
   searchRef = search;
+  // `search_everything`: the agent's tool over the main index (roadmap §6); deferred by default.
+  registry.register(
+    searchEverythingTool({ index: search.index, provider, model: utility ?? modelRef }),
+  );
   void memoryRecall.apply();
   // Deep research (`/research`): plan, confirmed run, cited report artifact, follow-ups.
   for (const tool of researchTools({

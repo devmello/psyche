@@ -301,6 +301,18 @@ export const blocks = {
 
   "blocks.related.toggle": "From your other chats ({count, plural, one {# chat} other {# chats}})",
   "blocks.related.untitled": "Untitled chat",
+  "blocks.sources.label": "Sources",
+  "blocks.sources.open": "Open {title}",
+  "blocks.sources.untitled": "Untitled",
+  "blocks.sources.show": "Show the source",
+  "blocks.sources.hide": "Hide the source",
+  "blocks.sources.untrusted": "From someone else. Treated as data, not instructions.",
+  "blocks.sources.kind.mail": "Mail",
+  "blocks.sources.kind.messages": "Messages",
+  "blocks.sources.kind.notes": "Notes",
+  "blocks.sources.kind.calendar": "Calendar",
+  "blocks.sources.kind.library": "Library",
+  "blocks.sources.kind.other": "{source}",
   "blocks.appLink.open": "Open {where}",
   "blocks.appLink.settings": "Settings: {section}",
 

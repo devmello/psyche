@@ -88,6 +88,8 @@ export interface RichHit extends SearchIndexHit {
   parentId?: string;
   from?: string;
   mime?: string;
+  /** Producer id (`source` of the document): a connector id, `library`, … */
+  source?: string;
   /** Epoch ms. */
   createdAt: number;
   snippetHighlights: Range[];
@@ -114,6 +116,13 @@ export interface SearchRequest {
   groups?: SearchGroup[];
   /** Restrict to these document kinds (intersected with `groups`). */
   kinds?: SearchIndexDocKind[];
+  /**
+   * Who runs the search. `agent` (the `search_everything` tool) leaves out documents of sources
+   * the owner kept from the agent (`setAgentSearchable`); default `owner`.
+   */
+  audience?: "owner" | "agent";
+  /** Restrict to documents of these producers (`source`). */
+  sources?: string[];
   /** Collapse messages onto threads and actions onto tasks (default true). */
   collapse?: boolean;
   /** Read plain-English input (default true); false runs `q` exactly as the query language. */

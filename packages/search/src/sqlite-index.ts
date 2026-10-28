@@ -22,7 +22,7 @@ import {
   toFtsMatch,
 } from "./query-parser.ts";
 import { fuse, RRF_K } from "./ranking.ts";
-import { ensureSearchSchema } from "./schema.ts";
+import { ensureSearchSchema, SOURCE_FLAGS_SCHEMA } from "./schema.ts";
 import { SemanticBusyError, type SemanticCandidate, type SemanticSearch } from "./semantic.ts";
 import {
   GROUP_OF_KIND,
@@ -74,6 +74,7 @@ interface DocRow {
   parent_id: string | null;
   sender: string | null;
   mime: string | null;
+  source: string | null;
   created_ms: number;
 }
 
@@ -133,6 +134,7 @@ export class SqliteSearchIndex implements SearchIndex {
     this.#resolvePerson = options.resolvePerson;
     ensureSearchSchema(db);
     this.cards = new CardStore(db);
+    db.exec(SOURCE_FLAGS_SCHEMA);
     db.pragma("temp_store = MEMORY");
     db.exec("CREATE TEMP TABLE IF NOT EXISTS search_hits (rid INTEGER, grp TEXT, score REAL)");
     this.#upsert = db.prepare(`
@@ -289,6 +291,60 @@ export class SqliteSearchIndex implements SearchIndex {
     return this.db.prepare("DELETE FROM search_docs WHERE source = ?").run(source).changes;
   }
 
+  /**
+   * Owner-only sources: `searchable: false` keeps a source's documents out of every agent search
+   * (`SearchRequest.audience: "agent"`); the owner's own Search screen still finds them. Sources
+   * default to searchable, so existing indexes behave as before.
+   */
+  setAgentSearchable(source: string, searchable: boolean): void {
+    if (searchable) {
+      this.db.prepare("DELETE FROM search_source_flags WHERE source = ?").run(source);
+    } else {
+      this.db
+        .prepare(
+          "INSERT INTO search_source_flags (source, agent_searchable) VALUES (?, 0) ON CONFLICT (source) DO UPDATE SET agent_searchable = 0",
+        )
+        .run(source);
+    }
+  }
+
+  agentSearchable(source: string): boolean {
+    return !this.agentExcludedSources().includes(source);
+  }
+
+  agentExcludedSources(): string[] {
+    return (
+      this.db
+        .prepare("SELECT source FROM search_source_flags WHERE agent_searchable = 0")
+        .all() as { source: string }[]
+    ).map((r) => r.source);
+  }
+
+  #agentHidden(source: string): boolean {
+    return !this.agentSearchable(source);
+  }
+
+  /**
+   * Full text of documents by id for the agent's answer step. Documents of agent-excluded
+   * sources, other scopes and incognito threads are not returned.
+   */
+  textOf(ids: readonly string[], audience: "owner" | "agent" = "agent"): Map<string, string> {
+    const out = new Map<string, string>();
+    if (ids.length === 0) return out;
+    const hidden = audience === "agent" ? this.agentExcludedSources() : [];
+    const rows = this.db
+      .prepare(
+        `SELECT id, body, source FROM search_docs WHERE id IN (${ids.map(() => "?").join(", ")})
+           AND scope_key = ?`,
+      )
+      .all(...ids, OWNER_SCOPE) as { id: string; body: string; source: string | null }[];
+    for (const r of rows) {
+      if (r.source !== null && hidden.includes(r.source)) continue;
+      out.set(r.id, r.body);
+    }
+    return out;
+  }
+
   /** Records a `has:` fact about a document, thread or task (it may not be indexed yet). */
   async setFlag(targetId: string, flag: SearchFlag): Promise<void> {
     this.db
@@ -371,7 +427,8 @@ export class SqliteSearchIndex implements SearchIndex {
     const parsed = this.parse(request.q);
     const limit = clampLimit(request.limit, 20);
     const groupLimit = clampLimit(request.groupLimit, 5);
-    const where = this.#where(parsed.filters, undefined, viewer);
+    const agent = request.audience === "agent";
+    const where = this.#where(parsed.filters, undefined, viewer, agent, request.sources);
     const kinds = allowedKinds(request);
     if (kinds !== undefined) {
       where.sql.push(`d.kind IN (${kinds.map(() => "?").join(", ") || "NULL"})`);
@@ -384,6 +441,7 @@ export class SqliteSearchIndex implements SearchIndex {
     if (semantic.length > 0) {
       return this.#hybrid(parsed, where, semantic, {
         viewer,
+        agent,
         kinds,
         collapse,
         limit,
@@ -410,7 +468,10 @@ export class SqliteSearchIndex implements SearchIndex {
 
     let total = ranked.total;
     let flat = flatLocal;
-    const memory = await this.#searchMemory(parsed, viewer, kinds, groupLimit, limit);
+    const memory =
+      agent && this.#agentHidden("memory")
+        ? []
+        : await this.#searchMemory(parsed, viewer, kinds, groupLimit, limit);
     if (memory.length > 0) {
       groups.set("memory", {
         group: "memory",
@@ -458,6 +519,7 @@ export class SqliteSearchIndex implements SearchIndex {
     semantic: SemanticCandidate[],
     o: {
       viewer: SearchViewer;
+      agent: boolean;
       kinds: SearchIndexDocKind[] | undefined;
       collapse: boolean;
       limit: number;
@@ -576,7 +638,10 @@ export class SqliteSearchIndex implements SearchIndex {
     const flatLocal = flatRids.flatMap((rid) => hitOf.get(rid) ?? []);
     let total = ranked.total + chunkOf.size;
     let flat = flatLocal;
-    const memory = await this.#searchMemory(parsed, o.viewer, o.kinds, o.groupLimit, o.limit);
+    const memory =
+      o.agent && this.#agentHidden("memory")
+        ? []
+        : await this.#searchMemory(parsed, o.viewer, o.kinds, o.groupLimit, o.limit);
     if (memory.length > 0) {
       groups.set("memory", {
         group: "memory",
@@ -624,9 +689,23 @@ export class SqliteSearchIndex implements SearchIndex {
     parsed: ParsedFilters,
     contract: SearchIndexFilters | undefined,
     viewer: SearchViewer,
+    agent = false,
+    sources?: readonly string[],
   ): Where {
     const sql: string[] = [];
     const params: unknown[] = [];
+    if (agent) {
+      // Owner-only sources: documents of a source the owner kept from the agent never reach it.
+      const hidden = this.agentExcludedSources();
+      if (hidden.length > 0) {
+        sql.push(`(d.source IS NULL OR d.source NOT IN (${hidden.map(() => "?").join(", ")}))`);
+        params.push(...hidden);
+      }
+    }
+    if (sources !== undefined) {
+      sql.push(`d.source IN (${sources.map(() => "?").join(", ") || "NULL"})`);
+      params.push(...sources);
+    }
     const inList = (col: string, values: readonly unknown[]) => {
       sql.push(`${col} IN (${values.map(() => "?").join(", ") || "NULL"})`);
       params.push(...values);
@@ -771,7 +850,7 @@ export class SqliteSearchIndex implements SearchIndex {
     const placeholders = rids.map(() => "?").join(", ");
     const docs = this.db
       .prepare(
-        `SELECT rowid, id, kind, grp, title, body, provenance, thread_id, parent_id, sender, mime, created_ms
+        `SELECT rowid, id, kind, grp, title, body, provenance, thread_id, parent_id, sender, mime, source, created_ms
          FROM search_docs WHERE rowid IN (${placeholders})`,
       )
       .all(...rids) as DocRow[];
@@ -817,6 +896,7 @@ export class SqliteSearchIndex implements SearchIndex {
       if (d.parent_id !== null) hit.parentId = d.parent_id;
       if (d.sender !== null) hit.from = d.sender;
       if (d.mime !== null) hit.mime = d.mime;
+      if (d.source !== null) hit.source = d.source;
       const card = previews.get(d.id);
       if (card !== undefined) hit.card = card;
       out.set(r.rid, hit);

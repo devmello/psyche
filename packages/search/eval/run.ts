@@ -7,7 +7,7 @@
  *
  * Builds an in-memory `SqliteSearchIndex` from `fixtures/corpus.json`, runs every question in
  * `fixtures/questions.json` through `index.search` and scores the ranked ids against the gold
- * sources. No model runs unless `--llm` is passed; semantic search is off (BM25 only).
+ * sources. No model runs unless `--llm` is passed (`--mock-answers` scores the answer path with an extractive stand-in); semantic search is off (BM25 only).
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -26,6 +26,7 @@ import {
   recallAt,
   reciprocalRank,
 } from "./metrics.ts";
+import { mockAnswer } from "./mock-answer.ts";
 import { type RewriteMode, rewrite } from "./rewrite.ts";
 
 export interface CorpusDoc {
@@ -227,6 +228,7 @@ async function main(): Promise<void> {
       classes: { type: "boolean", default: false },
       misses: { type: "boolean", default: false },
       llm: { type: "boolean", default: false },
+      "mock-answers": { type: "boolean", default: false },
       only: { type: "string" },
       out: { type: "string" },
     },
@@ -236,6 +238,7 @@ async function main(): Promise<void> {
   const questions = only === undefined ? all : all.filter((q) => only.includes(q.id));
   const modes = values.mode === undefined ? MODES : [values.mode as RewriteMode];
   const coverages = values.coverage === undefined ? COVERAGES : [values.coverage as Coverage];
+  const answers = values.llm || values["mock-answers"];
   const byId = new Map(corpus.map((d) => [d.id, d]));
   const report: Record<string, { summary: Summary; byClass: Record<string, Summary> }> = {};
 
@@ -244,14 +247,12 @@ async function main(): Promise<void> {
     const results = new Map<RewriteMode, QuestionResult[]>();
     for (const mode of modes) {
       const res = await evaluate(corpus, questions, mode, coverage);
-      if (values.llm) {
+      if (answers) {
         for (const r of res) {
           const q = questions.find((x) => x.id === r.id);
           if (q === undefined) continue;
-          const a = await llmAnswer(
-            q.q,
-            r.ranked.slice(0, 8).flatMap((id) => byId.get(id) ?? []),
-          );
+          const top = r.ranked.slice(0, 8).flatMap((id) => byId.get(id) ?? []);
+          const a = values["mock-answers"] ? mockAnswer(q.q, top) : await llmAnswer(q.q, top);
           r.cite = citationScore(a.citations, q.gold);
           if (q.answerKeywords.length > 0) r.answerOk = answerMatches(a.answer, q.answerKeywords);
         }
@@ -259,7 +260,7 @@ async function main(): Promise<void> {
       results.set(mode, res);
     }
     print(`## coverage: ${coverage}\n`);
-    print(header("mode", values.llm));
+    print(header("mode", answers));
     for (const [mode, res] of results) {
       const summary = summarize(res);
       print(row(mode, summary));
@@ -275,7 +276,7 @@ async function main(): Promise<void> {
     if (values.classes) {
       for (const [mode] of results) {
         print(`### ${coverage}/${mode} by class\n`);
-        print(header("class", values.llm));
+        print(header("class", answers));
         for (const [c, s] of Object.entries(report[`${coverage}/${mode}`]?.byClass ?? {}))
           print(row(c, s));
         print();

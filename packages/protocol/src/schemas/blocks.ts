@@ -1,5 +1,5 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { Id, IsoDateTime, Nullable, StringEnum } from "../common.ts";
+import { Id, IsoDateTime, Nullable, Provenance, StringEnum } from "../common.ts";
 import { CompactionSummary } from "./context.ts";
 import { DailyWorkflowProposal } from "./daily.ts";
 import { LearnedFact } from "./memory.ts";
@@ -125,6 +125,42 @@ export const RelatedThreadsBlock = Type.Object(
 );
 
 /**
+ * One source behind a `search_everything` answer (search roadmap §6.3): a chip that opens the
+ * item. Title, source and span come from mail, messages and files (untrusted): plain text only.
+ */
+export const AnswerSource = Type.Object(
+  {
+    id: Type.String({ maxLength: 200 }),
+    /** Producer: `mail`, `messages`, `notes`, `library`, … */
+    source: Type.String({ maxLength: 80 }),
+    kind: Type.String({ maxLength: 40 }),
+    title: Type.String({ maxLength: 200 }),
+    date: Type.String({ maxLength: 10 }),
+    /** In-app deep link that opens the item; null when it has no pane. */
+    route: Nullable(Type.String({ maxLength: 500 })),
+    provenance: Provenance,
+    /** The cited passage ("show the source"). */
+    span: Type.String({ maxLength: 500 }),
+  },
+  { $id: "AnswerSource" },
+);
+export type AnswerSource = Static<typeof AnswerSource>;
+
+/**
+ * The sources of a grounded answer, as chips under the reply with a "show the source" expander.
+ * `answer` is the validated answer (each sentence cites ids), absent in find mode.
+ */
+export const SourcesBlock = Type.Object(
+  {
+    type: Type.Literal("sources"),
+    items: Type.Array(AnswerSource, { minItems: 1, maxItems: 20 }),
+    /** Ids cited by the answer, in order of first use; empty in find mode. */
+    cited: Type.Array(Type.String({ maxLength: 200 }), { maxItems: 20 }),
+  },
+  { $id: "SourcesBlock" },
+);
+
+/**
  * Features B7 / C2: a compaction of the thread's earlier turns, kept as a `system` message where
  * it happened. The turns it replaced stay in the transcript (recoverable); the model reads this
  * summary instead of them. Summary text is the utility model's: plain text, never Markdown.
@@ -221,6 +257,7 @@ export const Block = Type.Union(
     TaskBlock,
     WrapUpBlock,
     RelatedThreadsBlock,
+    SourcesBlock,
     CompactionBlock,
     LearnedBlock,
     TaughtBlock,
