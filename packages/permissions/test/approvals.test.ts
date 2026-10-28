@@ -52,6 +52,36 @@ describe("approval lifecycle", () => {
     expect((await h.audit.query({ kind: "approval.expired" })).length).toBe(1);
   });
 
+  it("denies a run's pending cards when the owner replies in chat, audited, mirrors closed", async () => {
+    const events: BrokerEvent[] = [];
+    const h = makeBroker({ onEvent: (e) => events.push(e) });
+    const issued = await request(h, write());
+    expect((await h.notifier.list({ unresolvedOnly: true })).length).toBe(1);
+    const waiting = h.broker.awaitDecision(issued.approval.id);
+    const closed = await h.broker.denyPendingForRun(CTX.runId as string);
+    expect(closed.map((a) => a.id)).toEqual([issued.approval.id]);
+    const decided = await waiting;
+    expect(decided).toMatchObject({ status: "denied", invalidatedReason: "owner_replied_in_chat" });
+    // The notification copy closed with the card.
+    expect((await h.notifier.list({ unresolvedOnly: true })).length).toBe(0);
+    expect(
+      events.some((e) => e.type === "approval.decided" && e.approval.status === "denied"),
+    ).toBe(true);
+    // The audit line records why.
+    const rows = await h.audit.query({ kind: "approval.decided" });
+    expect(rows).toHaveLength(1);
+    expect(JSON.stringify(rows[0])).toContain("owner replied in chat");
+    // A later click on any surface finds it already answered.
+    const [token] = Object.values(issued.answerTokens);
+    const late = h.broker.answer({
+      approvalId: issued.approval.id,
+      decision: "approve",
+      answerToken: token as string,
+      decidedBy: { deviceId: "dev_1" },
+    } as never);
+    await expect(late).rejects.toMatchObject({ code: "answer_late" });
+  });
+
   it("stores answer tokens hashed and never emits them in events (design-20)", async () => {
     const events: BrokerEvent[] = [];
     const h = makeBroker({ onEvent: (e) => events.push(e) });

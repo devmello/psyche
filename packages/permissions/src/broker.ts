@@ -189,6 +189,9 @@ export const MAX_BATCH_CALLS = 100;
 /** How long a minted child approval of an approved batch stays usable. */
 export const BATCH_CHILD_TTL_MS = 10 * 60_000;
 
+/** `invalidatedReason` of a card the owner closed by typing in the chat instead. */
+export const OWNER_REPLIED_IN_CHAT = "owner_replied_in_chat";
+
 /** The id of a batch's child approval: deterministic, so no store has to remember it. */
 export function batchChildId(batchApprovalId: string, index: number): string {
   return `${batchApprovalId}.${index}`;
@@ -1926,6 +1929,50 @@ export class PsychePermissionBroker implements PermissionBroker {
       },
     );
     return structuredClone(decided);
+  }
+
+  /**
+   * The owner typed a message in the chat instead of answering: every pending card of the run is
+   * denied ("owner replied in chat"), never approved. The audit line records the reason; the
+   * notification copies close with the card and a later click finds it already decided.
+   * Returns the cards it closed.
+   */
+  async denyPendingForRun(
+    runId: string,
+    reason: string = OWNER_REPLIED_IN_CHAT,
+  ): Promise<ApprovalRequest[]> {
+    this.#sweep();
+    const closed: ApprovalRequest[] = [];
+    for (const rec of this.#store.listApprovals({ status: "pending" })) {
+      const a = rec.approval;
+      if (a.requestedBy.runId !== runId) continue;
+      a.status = "denied";
+      a.decidedAt = new Date(this.clock.now()).toISOString();
+      a.invalidatedReason = reason;
+      this.#store.updateApproval(rec);
+      this.#timers.get(a.id)?.();
+      this.#timers.delete(a.id);
+      await this.#log(
+        "approval.decided",
+        { type: "system" },
+        {
+          approvalId: a.id,
+          ...(a.requestedBy.taskId == null ? {} : { taskId: a.requestedBy.taskId }),
+          ...(a.requestedBy.toolCallId === undefined
+            ? {}
+            : { toolCallId: a.requestedBy.toolCallId }),
+        },
+        {
+          decision: "deny",
+          reason: "owner replied in chat",
+          bindingHash: a.bindingHash,
+          taint: a.taint,
+        },
+      );
+      this.#settled(a, "approval.decided");
+      closed.push(structuredClone(a));
+    }
+    return closed;
   }
 
   async revokeRunAuthority(runId: string): Promise<void> {

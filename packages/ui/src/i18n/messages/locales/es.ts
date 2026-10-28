@@ -328,6 +328,7 @@ export const es: Partial<Catalogue> = {
   "blocks.approval.status.approved":
     "Aprobado{hasWhere, select, true { en {where}} other {}}{hasScope, select, true { · {scope}} other {}}{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.denied": "Denegado{hasWhen, select, true { · {when}} other {}}",
+  "blocks.approval.status.declinedInChat": "Rechazado: respondiste en el chat",
   "blocks.approval.status.expired": "Caducado. No se hizo nada.",
   "blocks.approval.status.voidedBecause": "Anulado: {reason}",
   "blocks.approval.status.voided": "Anulado. Los argumentos cambiaron.",
@@ -360,6 +361,7 @@ export const es: Partial<Catalogue> = {
   "blocks.question.answered": "Preguntas respondidas",
   "blocks.question.cancelled": "Preguntas canceladas",
   "blocks.question.noLongerNeeded": "Ya no hace falta.",
+  "blocks.question.answeredInChat": "Respondido en el chat",
   "blocks.question.heading":
     "{persona} necesita {count, plural, =1 {una respuesta} =2 {dos respuestas} =3 {tres respuestas} =4 {cuatro respuestas} other {# respuestas}} antes de continuar",
   "blocks.question.skip": "Omitir por ahora",

@@ -319,6 +319,7 @@ export const ko: Partial<Catalogue> = {
   "blocks.approval.status.approved":
     "승인됨{hasWhere, select, true { ({where}에서)} other {}}{hasScope, select, true { · {scope}} other {}}{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.denied": "거부됨{hasWhen, select, true { · {when}} other {}}",
+  "blocks.approval.status.declinedInChat": "거절됨 — 채팅에서 답장했습니다",
   "blocks.approval.status.expired": "만료되었습니다. 아무것도 실행되지 않았습니다.",
   "blocks.approval.status.voidedBecause": "무효화됨: {reason}",
   "blocks.approval.status.voided": "무효화되었습니다. 인수가 변경되었습니다.",
@@ -349,6 +350,7 @@ export const ko: Partial<Catalogue> = {
   "blocks.question.answered": "답변한 질문",
   "blocks.question.cancelled": "취소된 질문",
   "blocks.question.noLongerNeeded": "더 이상 필요하지 않습니다.",
+  "blocks.question.answeredInChat": "채팅에서 답변함",
   "blocks.question.heading":
     "계속하려면 {persona}에게 {count, plural, other {#개의 답변}}이 필요합니다",
   "blocks.question.skip": "지금은 건너뛰기",

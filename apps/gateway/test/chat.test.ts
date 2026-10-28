@@ -327,6 +327,33 @@ describe("queue modes", () => {
     expect(agent.turns).toHaveLength(1);
   });
 
+  it("a message typed while the turn waits on a card answers it instead of queueing", async () => {
+    const c = await setup();
+    const thread = await newThread(c);
+    agent.script([{ type: "wait", gate: "g" }]);
+    const first = await c.call<{ runId: string }>(
+      "chat.send",
+      { threadId: thread.id, content: "go" },
+      ik(),
+    );
+    await agent.started(1);
+    agent.waiting.add(first.runId);
+    const sent = await c.call<{ queued: boolean; runId: string }>(
+      "chat.send",
+      { threadId: thread.id, content: "yes" },
+      ik(),
+    );
+    await new Promise((r) => setTimeout(r, 10));
+    // Recorded under the active run, handed to the loop as a reply; no follow-up, no steer.
+    expect(sent.runId).toBe(first.runId);
+    expect(agent.superseded).toEqual([{ runId: first.runId, text: "yes" }]);
+    expect(agent.steers).toEqual([]);
+    expect(transcript(thread.id).map((m) => m.provenance)).toEqual(["owner", "owner"]);
+    agent.open("g");
+    await t.gateway.context.sessions.idle();
+    expect(agent.turns).toHaveLength(1);
+  });
+
   it("interrupt supersedes the running turn: the writer guard drops its late output", async () => {
     const c = await setup();
     const thread = await newThread(c);

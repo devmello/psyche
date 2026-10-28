@@ -178,11 +178,14 @@ export function ApprovalPointer({ approvalId }: { approvalId: string }): ReactEl
               className="[&_svg]:size-3.5"
             />
             <span className="min-w-0 truncate">
-              {t("blocks.message.receipt", {
-                status: approval.status,
-                scope: approval.scopeGranted ?? "once",
-                summary,
-              })}
+              {approval.status === "denied" &&
+              approval.invalidatedReason === "owner_replied_in_chat"
+                ? `${t("blocks.approval.status.declinedInChat")}: ${summary}`
+                : t("blocks.message.receipt", {
+                    status: approval.status,
+                    scope: approval.scopeGranted ?? "once",
+                    summary,
+                  })}
             </span>
             <Button
               variant="plain"
@@ -225,7 +228,19 @@ function QuestionBlockView({ inputRequestId }: { inputRequestId: string }): Reac
   // thread drops even that when a user message already says it). The model still has both.
   if (request.status === "answered") {
     const values = answerValues(request.answer);
-    if (values.length === 0) return null;
+    if (values.length === 0) {
+      // Closed by a message typed in the chat: the message itself is the answer.
+      if (request.answer !== null) return null;
+      return (
+        <p
+          className="my-1 flex min-h-7 items-center gap-2 text-callout text-label-secondary"
+          data-testid="question-answered-in-chat"
+        >
+          <StatusGlyph status="done" className="[&_svg]:size-3.5" />
+          {t("blocks.question.answeredInChat")}
+        </p>
+      );
+    }
     return (
       <p className="my-1 flex justify-end" data-testid="question-answer-line">
         <span className="max-w-[80%] truncate rounded-xl bg-fill-secondary px-3 py-1 text-callout text-label-primary">

@@ -148,6 +148,11 @@ export function QuestionCard({
             <StatusGlyph status="cancelled" />
             {t("blocks.question.noLongerNeeded")}
           </p>
+        ) : request.answer === null ? (
+          <p className="flex min-h-7 items-center gap-2 text-label-secondary">
+            <StatusGlyph status="done" />
+            {t("blocks.question.answeredInChat")}
+          </p>
         ) : (
           <ul className="flex flex-col">
             {request.questions.map((q, i) => {

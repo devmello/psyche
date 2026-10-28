@@ -74,3 +74,20 @@ export function validateAnswer(questions: readonly Question[], answer: QuestionA
     }
   }
 }
+
+/**
+ * The owner typed a message in the chat while the question was open: the typed text is the
+ * answer, and `ask_user` hands it to the model as such (the turn goes on with it).
+ */
+export interface ChatReply {
+  answeredInChat: true;
+  text: string;
+}
+
+/** `invalidatedReason` of an approval the owner closed by replying in the chat (see the broker). */
+export const OWNER_REPLIED_IN_CHAT = "owner_replied_in_chat";
+
+/** What the model reads when a card was declined because the owner replied in the chat. */
+export function declinedInChatNote(text: string): string {
+  return `denied: the owner replied in chat instead of answering this card, so it was not approved. Their message, which is their new instruction: ${JSON.stringify(text)}`;
+}

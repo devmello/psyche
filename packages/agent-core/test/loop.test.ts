@@ -257,6 +257,38 @@ describe("tool calls", () => {
     expect(JSON.stringify(resultsIn(h.provider.requests[1]).get("c1")?.output)).toContain("denied");
   });
 
+  it('a message typed in the chat denies every pending card, even "yes", and carries the text', async () => {
+    const exec = recorder();
+    const h = harness({
+      script: [
+        calls(
+          { id: "c1", name: "calendar.create", input: { title: "A" } },
+          { id: "c2", name: "calendar.create", input: { title: "B" } },
+        ),
+        say("Understood."),
+      ],
+    });
+    h.loop.registry.register({ spec: spec("calendar.create", "write"), execute: exec.execute });
+    const turn = start(h, "book both");
+    await until(() => h.broker.issued.length >= 1, "approval");
+    expect(h.loop.isWaiting(turn.runId)).toBe(true);
+    const closed = await h.loop.supersedeWaits(turn.runId, "yes");
+    expect(closed.approvals.length).toBeGreaterThanOrEqual(1);
+    const events = await turn.done;
+    // Typed "yes" is never an approval: nothing ran.
+    expect(exec.seen).toHaveLength(0);
+    for (const a of h.broker.issued) {
+      expect(await h.broker.verifyBinding(a.approval.id, a.approval.bindingHash)).toMatchObject({
+        ok: false,
+      });
+    }
+    expect(toolStatuses(events, "c1").at(-1)).toBe("blocked");
+    const out = JSON.stringify(resultsIn(h.provider.requests.at(-1)).get("c1")?.output);
+    expect(out).toContain("owner replied in chat");
+    expect(out).toContain("yes");
+    expect(out).toContain("new instruction");
+  });
+
   it("a hook can suspend a call on its own approval", async () => {
     const exec = recorder();
     const h = harness({ script: [call("c1", "t", {}), say("ok")] });
@@ -350,6 +382,23 @@ describe("ask_user", () => {
     expect(resultsIn(h.provider.requests[1]).get("c1")?.output).toEqual({
       answers: { Flight: "9:40 (Recommended)" },
     });
+  });
+
+  it("a message typed in the chat answers the open question and the turn goes on with it", async () => {
+    const h = harness({ script: [call("c1", "ask_user", questionInput()), say("Booking 6am.")] });
+    const turn = start(h, "find me a flight");
+    await until(() => turn.events.some((e) => e.type === "question"), "question");
+    expect(h.loop.isWaiting(turn.runId)).toBe(true);
+    const closed = await h.loop.supersedeWaits(turn.runId, "actually the 6am one");
+    expect(closed.questions).toHaveLength(1);
+    expect(closed.questions[0]).toMatchObject({ status: "answered", answer: null });
+    const events = await turn.done;
+    expect(endOf(events).outcome).toBe("final");
+    expect(resultsIn(h.provider.requests[1]).get("c1")?.output).toEqual({
+      answeredInChat: true,
+      text: "actually the 6am one",
+    });
+    expect(h.loop.isWaiting(turn.runId)).toBe(false);
   });
 
   it("hands a background task's question to the task engine and ends awaiting_input", async () => {

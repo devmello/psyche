@@ -273,6 +273,9 @@ function statusText(approval: ApprovalRequest, now: number): string | null {
       });
     }
     case "denied":
+      if (approval.invalidatedReason === "owner_replied_in_chat") {
+        return t("blocks.approval.status.declinedInChat");
+      }
       return t("blocks.approval.status.denied", {
         hasWhen: Boolean(approval.decidedAt),
         when: approval.decidedAt ? formatRelative(approval.decidedAt, now) : "",

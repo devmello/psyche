@@ -333,6 +333,7 @@ export const de: Partial<Catalogue> = {
   "blocks.approval.status.approved":
     "Genehmigt{hasWhere, select, true { auf {where}} other {}}{hasScope, select, true { · {scope}} other {}}{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.denied": "Abgelehnt{hasWhen, select, true { · {when}} other {}}",
+  "blocks.approval.status.declinedInChat": "Abgelehnt – du hast im Chat geantwortet",
   "blocks.approval.status.expired": "Abgelaufen. Nichts wurde getan.",
   "blocks.approval.status.voidedBecause": "Ungültig: {reason}",
   "blocks.approval.status.voided": "Ungültig. Die Argumente haben sich geändert.",
@@ -364,6 +365,7 @@ export const de: Partial<Catalogue> = {
   "blocks.question.answered": "Beantwortete Fragen",
   "blocks.question.cancelled": "Abgebrochene Fragen",
   "blocks.question.noLongerNeeded": "Nicht mehr nötig.",
+  "blocks.question.answeredInChat": "Im Chat beantwortet",
   "blocks.question.heading":
     "{persona} braucht {count, plural, =1 {eine Antwort} =2 {zwei Antworten} =3 {drei Antworten} =4 {vier Antworten} other {# Antworten}}, bevor es weitergeht",
   "blocks.question.skip": "Vorerst überspringen",

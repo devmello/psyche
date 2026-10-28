@@ -322,6 +322,7 @@ export const hi: Partial<Catalogue> = {
   "blocks.approval.status.approved":
     "स्वीकृत{hasWhere, select, true { · {where} पर} other {}}{hasScope, select, true { · {scope}} other {}}{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.denied": "अस्वीकृत{hasWhen, select, true { · {when}} other {}}",
+  "blocks.approval.status.declinedInChat": "अस्वीकृत — आपने चैट में जवाब दिया",
   "blocks.approval.status.expired": "समय-सीमा समाप्त। कुछ नहीं किया गया।",
   "blocks.approval.status.voidedBecause": "निरस्त: {reason}",
   "blocks.approval.status.voided": "निरस्त। आर्ग्युमेंट बदल गए।",
@@ -353,6 +354,7 @@ export const hi: Partial<Catalogue> = {
   "blocks.question.answered": "जवाब दिए गए सवाल",
   "blocks.question.cancelled": "रद्द किए गए सवाल",
   "blocks.question.noLongerNeeded": "अब ज़रूरत नहीं।",
+  "blocks.question.answeredInChat": "चैट में उत्तर दिया",
   "blocks.question.heading":
     "{persona} को जारी रखने से पहले {count, plural, =1 {एक जवाब} =2 {दो जवाब} =3 {तीन जवाब} =4 {चार जवाब} other {# जवाब}} चाहिए",
   "blocks.question.skip": "अभी छोड़ें",

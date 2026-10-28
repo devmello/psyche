@@ -324,6 +324,7 @@ export const ar: Partial<Catalogue> = {
   "blocks.approval.status.approved":
     "تمت الموافقة{hasWhere, select, true { على {where}} other {}}{hasScope, select, true { · {scope}} other {}}{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.denied": "مرفوض{hasWhen, select, true { · {when}} other {}}",
+  "blocks.approval.status.declinedInChat": "مرفوض — ردّيت في الدردشة",
   "blocks.approval.status.expired": "انتهت الصلاحية. لم يتم فعل شيء.",
   "blocks.approval.status.voidedBecause": "ملغى: {reason}",
   "blocks.approval.status.voided": "ملغى. تغيّرت الوسيطات.",
@@ -355,6 +356,7 @@ export const ar: Partial<Catalogue> = {
   "blocks.question.answered": "الأسئلة المُجابة",
   "blocks.question.cancelled": "الأسئلة الملغاة",
   "blocks.question.noLongerNeeded": "لم يعد مطلوبًا.",
+  "blocks.question.answeredInChat": "تمت الإجابة في الدردشة",
   "blocks.question.heading":
     "يحتاج {persona} إلى {count, plural, =1 {إجابة} =2 {إجابتين} few {# إجابات} many {# إجابة} other {# إجابة}} قبل المتابعة",
   "blocks.question.skip": "تخطٍّ الآن",

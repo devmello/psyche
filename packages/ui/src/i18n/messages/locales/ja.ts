@@ -317,6 +317,7 @@ export const ja: Partial<Catalogue> = {
   "blocks.approval.status.approved":
     "承認済み{hasWhere, select, true {（{where}）} other {}}{hasScope, select, true { · {scope}} other {}}{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.denied": "拒否済み{hasWhen, select, true { · {when}} other {}}",
+  "blocks.approval.status.declinedInChat": "辞退 — チャットで返信しました",
   "blocks.approval.status.expired": "期限切れ。何も実行されませんでした。",
   "blocks.approval.status.voidedBecause": "無効：{reason}",
   "blocks.approval.status.voided": "無効。引数が変更されました。",
@@ -347,6 +348,7 @@ export const ja: Partial<Catalogue> = {
   "blocks.question.answered": "回答済みの質問",
   "blocks.question.cancelled": "キャンセルされた質問",
   "blocks.question.noLongerNeeded": "もう必要ありません。",
+  "blocks.question.answeredInChat": "チャットで回答済み",
   "blocks.question.heading":
     "{persona}は続行する前に{count, plural, other {#件の回答}}を必要としています",
   "blocks.question.skip": "今はスキップ",
