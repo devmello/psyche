@@ -1,5 +1,5 @@
 import type { PermissionMode, Thread, ThreadKind } from "@psyche/protocol";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lte, sql } from "drizzle-orm";
 import { fromBool, threadFromRow } from "../mappers.ts";
 import type { PsycheDb } from "../open.ts";
 import { threads } from "../schema.ts";
@@ -17,6 +17,8 @@ export interface NewThread {
   readonly modelRef?: string | null;
   readonly pinned?: boolean;
   readonly expiresAt?: string | null;
+  /** Opened with "New chat": see {@link listEmptyUserChats}. */
+  readonly userCreated?: boolean;
 }
 
 export function createThread(db: PsycheDb, input: NewThread): Thread {
@@ -36,6 +38,7 @@ export function createThread(db: PsycheDb, input: NewThread): Thread {
       modelRef: input.modelRef ?? null,
       pinned: fromBool(input.pinned),
       expiresAt: input.expiresAt ?? null,
+      userCreated: input.userCreated ? 1 : 0,
       createdAt: at,
       updatedAt: at,
     })
@@ -120,8 +123,48 @@ export function findThreadBySessionKey(
   return row === undefined ? undefined : threadFromRow(row);
 }
 
+/** "New chat" threads with no message yet (a pinned one is the owner's keep, so it stays listed). */
+const emptyUserChat = sql`${threads.userCreated} = 1 AND ${threads.pinned} = 0
+  AND NOT EXISTS (SELECT 1 FROM messages WHERE messages.thread_id = ${threads.id})`;
+
+export interface EmptyChatOptions {
+  readonly kind?: ThreadKind;
+  /** Only chats created at or before this instant (ISO), so one just opened is left alone. */
+  readonly createdBefore?: string;
+  readonly threadId?: string;
+}
+
+/**
+ * Chats the owner opened with "New chat" that still have no message: the ones New chat reuses
+ * and the ones that are deleted. A chat with any message, a run (running, waiting or finished),
+ * a queued follow-up or a task is never listed. Newest first.
+ */
+export function listEmptyUserChats(db: PsycheDb, opts: EmptyChatOptions = {}): Thread[] {
+  const rows = db.drizzle
+    .select()
+    .from(threads)
+    .where(
+      and(
+        emptyUserChat,
+        inArray(threads.kind, ["side", "incognito"]),
+        isNull(threads.activeWriterRunId),
+        sql`NOT EXISTS (SELECT 1 FROM runs WHERE runs.thread_id = ${threads.id})`,
+        sql`NOT EXISTS (SELECT 1 FROM chat_queue WHERE chat_queue.thread_id = ${threads.id})`,
+        sql`NOT EXISTS (SELECT 1 FROM tasks WHERE tasks.thread_id = ${threads.id})`,
+        opts.kind === undefined ? undefined : eq(threads.kind, opts.kind),
+        opts.threadId === undefined ? undefined : eq(threads.id, opts.threadId),
+        opts.createdBefore === undefined ? undefined : lte(threads.createdAt, opts.createdBefore),
+      ),
+    )
+    .orderBy(desc(threads.createdAt), desc(threads.id))
+    .all();
+  return rows.map(threadFromRow);
+}
+
 export interface ThreadPageOptions extends ListThreadsOptions {
   readonly pinnedOnly?: boolean;
+  /** Leave out "New chat" threads that have no message yet (the sidebar never lists them). */
+  readonly hideEmptyChats?: boolean;
   /** Case-insensitive substring of the title. */
   readonly query?: string;
   /** Offset cursor from a previous page. */
@@ -139,6 +182,7 @@ export function listThreadsPage(
     opts.includeArchived ? undefined : isNull(threads.archivedAt),
     opts.kind === undefined ? undefined : eq(threads.kind, opts.kind),
     opts.pinnedOnly ? eq(threads.pinned, 1) : undefined,
+    opts.hideEmptyChats ? sql`NOT (${emptyUserChat})` : undefined,
     escaped === undefined
       ? undefined
       : sql`lower(${threads.title}) LIKE ${`%${escaped.toLowerCase()}%`} ESCAPE '\\'`,

@@ -8346,10 +8346,11 @@ export interface Thread {
     /**
      * e.g. "owner:main", "telegram:peer:12345"
      */
-    sessionKey:  string;
-    title:       string;
-    titleSource: TitleSource;
-    updatedAt:   string;
+    sessionKey:   string;
+    title:        string;
+    titleSource:  TitleSource;
+    updatedAt:    string;
+    userCreated?: boolean;
 }
 
 export type ThreadKind = "main" | "side" | "incognito" | "channel" | "automation" | "subagent";
@@ -8408,6 +8409,10 @@ export interface ThreadsDeleteParams {
     threadId:    string;
 }
 
+export interface ThreadsDiscardEmptyResult {
+    deleted: boolean;
+}
+
 export interface ThreadsForkParams {
     messageId: string;
     threadId:  string;
@@ -8453,6 +8458,21 @@ export interface ThreadPreview {
 }
 
 export type ThreadPreviewRole = "user" | "agent";
+
+export interface ThreadsNewChatParams {
+    kind:            ThreadsNewChatParamsKind;
+    preferThreadId?: string;
+}
+
+export type ThreadsNewChatParamsKind = "side" | "incognito";
+
+export interface ThreadsNewChatResult {
+    /**
+     * An existing empty chat was returned, none created
+     */
+    reused: boolean;
+    thread: Thread;
+}
 
 export interface ThreadsPinParams {
     pinned:   boolean;

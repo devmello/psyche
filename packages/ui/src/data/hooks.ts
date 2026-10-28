@@ -37,6 +37,7 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { describeError } from "../i18n/errors.ts";
 import type { ConnectionState } from "./client.ts";
+import { isEmptyUserChat } from "./empty-chat.ts";
 import { useStore, useStoreState } from "./provider.tsx";
 import {
   type ArtifactContent,
@@ -239,11 +240,13 @@ export function useThreads(options: { includeArchived?: boolean } = {}) {
   const store = useStore();
   const all = useMemo(
     () =>
-      Object.values(threadsDict).sort((a, b) =>
-        (b.thread.lastMessageAt ?? b.thread.updatedAt).localeCompare(
-          a.thread.lastMessageAt ?? a.thread.updatedAt,
+      Object.values(threadsDict)
+        .filter((e) => !isEmptyUserChat(e))
+        .sort((a, b) =>
+          (b.thread.lastMessageAt ?? b.thread.updatedAt).localeCompare(
+            a.thread.lastMessageAt ?? a.thread.updatedAt,
+          ),
         ),
-      ),
     [threadsDict],
   );
   const main = all.find((t) => t.thread.kind === "main") ?? null;
@@ -275,6 +278,18 @@ export function useThreads(options: { includeArchived?: boolean } = {}) {
     main,
     active,
     archived,
+    /**
+     * New chat: the empty chat the owner already has (the one on screen first), else a new one.
+     * It is not listed until it has a message.
+     */
+    newChat: async (kind: "side" | "incognito" = "side", preferThreadId?: string) => {
+      const { thread } = await store.call("threads.newChat", {
+        kind,
+        ...(preferThreadId === undefined ? {} : { preferThreadId }),
+      });
+      store.update((s) => putThread(s, thread));
+      return thread;
+    },
     create: async (params: MethodParams<"threads.create"> = { kind: "side" }) => {
       const { thread } = await store.call("threads.create", params);
       store.update((s) => putThread(s, thread));

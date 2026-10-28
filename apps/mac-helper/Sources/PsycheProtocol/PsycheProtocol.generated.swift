@@ -1059,9 +1059,12 @@
 //   let threadsContextUsageResult = try? JSONDecoder().decode(ThreadsContextUsageResult.self, from: jsonData)
 //   let threadsCreateParams = try? JSONDecoder().decode(ThreadsCreateParams.self, from: jsonData)
 //   let threadsDeleteParams = try? JSONDecoder().decode(ThreadsDeleteParams.self, from: jsonData)
+//   let threadsDiscardEmptyResult = try? JSONDecoder().decode(ThreadsDiscardEmptyResult.self, from: jsonData)
 //   let threadsForkParams = try? JSONDecoder().decode(ThreadsForkParams.self, from: jsonData)
 //   let threadsListParams = try? JSONDecoder().decode(ThreadsListParams.self, from: jsonData)
 //   let threadsListResult = try? JSONDecoder().decode(ThreadsListResult.self, from: jsonData)
+//   let threadsNewChatParams = try? JSONDecoder().decode(ThreadsNewChatParams.self, from: jsonData)
+//   let threadsNewChatResult = try? JSONDecoder().decode(ThreadsNewChatResult.self, from: jsonData)
 //   let threadsPinParams = try? JSONDecoder().decode(ThreadsPinParams.self, from: jsonData)
 //   let threadsRenameParams = try? JSONDecoder().decode(ThreadsRenameParams.self, from: jsonData)
 //   let threadsSetContextLimitsParams = try? JSONDecoder().decode(ThreadsSetContextLimitsParams.self, from: jsonData)
@@ -24375,6 +24378,7 @@ public struct Thread: Codable, Sendable {
     public let title: String
     public let titleSource: TitleSource
     public let updatedAt: String
+    public let userCreated: Bool?
 
     public enum CodingKeys: String, CodingKey {
         case activeWriterRunID = "activeWriterRunId"
@@ -24394,9 +24398,10 @@ public struct Thread: Codable, Sendable {
         case title = "title"
         case titleSource = "titleSource"
         case updatedAt = "updatedAt"
+        case userCreated = "userCreated"
     }
 
-    public init(activeWriterRunID: String?, archivedAt: String?, createdAt: String, expiresAt: String?, forkedFromMessageID: String?, id: String, kind: ThreadKind, lastMessageAt: String?, modelRef: String?, parentThreadID: String?, permissionMode: PermissionMode, personaOverlay: String?, pinned: Bool, sessionKey: String, title: String, titleSource: TitleSource, updatedAt: String) {
+    public init(activeWriterRunID: String?, archivedAt: String?, createdAt: String, expiresAt: String?, forkedFromMessageID: String?, id: String, kind: ThreadKind, lastMessageAt: String?, modelRef: String?, parentThreadID: String?, permissionMode: PermissionMode, personaOverlay: String?, pinned: Bool, sessionKey: String, title: String, titleSource: TitleSource, updatedAt: String, userCreated: Bool?) {
         self.activeWriterRunID = activeWriterRunID
         self.archivedAt = archivedAt
         self.createdAt = createdAt
@@ -24414,6 +24419,7 @@ public struct Thread: Codable, Sendable {
         self.title = title
         self.titleSource = titleSource
         self.updatedAt = updatedAt
+        self.userCreated = userCreated
     }
 }
 
@@ -24588,6 +24594,19 @@ public struct ThreadsDeleteParams: Codable, Sendable {
     }
 }
 
+// MARK: - ThreadsDiscardEmptyResult
+public struct ThreadsDiscardEmptyResult: Codable, Sendable {
+    public let deleted: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case deleted = "deleted"
+    }
+
+    public init(deleted: Bool) {
+        self.deleted = deleted
+    }
+}
+
 // MARK: - ThreadsForkParams
 public struct ThreadsForkParams: Codable, Sendable {
     public let messageID: String
@@ -24713,6 +24732,44 @@ public struct ThreadPreview: Codable, Sendable {
 public enum ThreadPreviewRole: String, Codable, Sendable {
     case agent = "agent"
     case user = "user"
+}
+
+// MARK: - ThreadsNewChatParams
+public struct ThreadsNewChatParams: Codable, Sendable {
+    public let kind: ThreadsNewChatParamsKind
+    public let preferThreadID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case preferThreadID = "preferThreadId"
+    }
+
+    public init(kind: ThreadsNewChatParamsKind, preferThreadID: String?) {
+        self.kind = kind
+        self.preferThreadID = preferThreadID
+    }
+}
+
+public enum ThreadsNewChatParamsKind: String, Codable, Sendable {
+    case incognito = "incognito"
+    case side = "side"
+}
+
+// MARK: - ThreadsNewChatResult
+public struct ThreadsNewChatResult: Codable, Sendable {
+    /// An existing empty chat was returned, none created
+    public let reused: Bool
+    public let thread: Thread
+
+    public enum CodingKeys: String, CodingKey {
+        case reused = "reused"
+        case thread = "thread"
+    }
+
+    public init(reused: Bool, thread: Thread) {
+        self.reused = reused
+        self.thread = thread
+    }
 }
 
 // MARK: - ThreadsPinParams

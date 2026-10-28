@@ -41,6 +41,11 @@ export const Thread = Type.Object(
     createdAt: IsoDateTime,
     updatedAt: IsoDateTime,
     lastMessageAt: Nullable(IsoDateTime),
+    /**
+     * True for a chat the owner opened with "New chat". Only these are reused while empty, hidden
+     * from the thread list until they have a message, and deleted when left empty.
+     */
+    userCreated: Type.Optional(Type.Boolean()),
   },
   { $id: "Thread" },
 );

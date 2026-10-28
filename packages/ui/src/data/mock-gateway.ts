@@ -83,6 +83,7 @@ import { appleShortcuts, connectorCatalogue } from "../fixtures/settings.ts";
 import type { MockSkillSource } from "../fixtures/skills.ts";
 import { applyOpsLocal } from "../lib/artifact-ops.ts";
 import type { ConnectionState, GatewayClient, GatewayEvent, RequestOptions } from "./client.ts";
+import { isEmptyUserChat } from "./empty-chat.ts";
 import { toBase64 } from "./files.ts";
 import { emptyGraph, graphHandlers } from "./mock-graph.ts";
 import { type ProposalMockContext, proposalHandlers, settleBatch } from "./mock-proposals.ts";
@@ -1042,6 +1043,7 @@ export class MockGateway implements GatewayClient {
 
     "threads.list": (p) => ({
       threads: this.world.threads
+        .filter((t) => !isEmptyUserChat(t))
         .filter((t) => p.includeArchived === true || t.thread.archivedAt == null)
         .filter((t) => p.kind === undefined || t.thread.kind === p.kind),
       nextCursor: null,
@@ -1074,6 +1076,30 @@ export class MockGateway implements GatewayClient {
       });
       this.emit("thread.updated", { thread });
       return { thread };
+    },
+    "threads.newChat": (p) => {
+      const reusable = (id: string) => {
+        const e = this.world.threads.find((x) => x.thread.id === id);
+        return e !== undefined && isEmptyUserChat(e) && e.thread.kind === p.kind;
+      };
+      const empty = this.world.threads.filter((x) => reusable(x.thread.id));
+      const reuse = empty.find((x) => x.thread.id === p.preferThreadId) ?? empty[empty.length - 1];
+      if (reuse) return { thread: reuse.thread, reused: true };
+      const create = this.handlers["threads.create"];
+      if (create === undefined) return fail("not_found", "threads.create");
+      const { thread } = create({ kind: p.kind }) as { thread: ThreadListEntry["thread"] };
+      const marked = { ...thread, title: "", userCreated: true };
+      const entry = this.world.threads.find((x) => x.thread.id === thread.id);
+      if (entry) entry.thread = marked;
+      this.emit("thread.updated", { thread: marked });
+      return { thread: marked, reused: false };
+    },
+    "threads.discardEmpty": (p) => {
+      const entry = this.world.threads.find((x) => x.thread.id === p.threadId);
+      if (entry === undefined || !isEmptyUserChat(entry)) return { deleted: false };
+      this.world.threads = this.world.threads.filter((x) => x.thread.id !== p.threadId);
+      this.emit("thread.deleted", { threadId: p.threadId });
+      return { deleted: true };
     },
     "threads.rename": (p) => this.patchThread(p.threadId, { title: p.title, titleSource: "user" }),
     "threads.archive": (p) =>

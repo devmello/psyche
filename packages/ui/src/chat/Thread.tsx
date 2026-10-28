@@ -31,6 +31,7 @@ import { VoiceComposer } from "../voice/composer-voice.tsx";
 import { ApprovalDock } from "./ApprovalDock.tsx";
 import { attachSupport, modelCapabilities, uploadFile } from "./attachments.ts";
 import { type CommandName, parseCommand } from "./commands.ts";
+import { ComposerBusyWatch } from "./composer-busy.ts";
 import { FollowUpQueue } from "./FollowUpQueue.tsx";
 import { clearChatFocus, flashMessage, useChatFocusRequest } from "./focus-request.ts";
 import { MessageView } from "./MessageView.tsx";
@@ -153,7 +154,7 @@ export function ChatThread({
   onDisclosureChange,
 }: ChatThreadProps): ReactElement {
   const view = useThread(threadId);
-  const { fork, create } = useThreads();
+  const { fork, create, newChat } = useThreads();
   const call = useCall();
   const { navigate, openArtifact } = useSlots();
   const { state: connection } = useConnection();
@@ -403,7 +404,7 @@ export function ChatThread({
         return;
       }
       case "new": {
-        const created = await create({ kind: "side" });
+        const created = await newChat("side", threadId);
         openThread(created.id);
         return;
       }
@@ -766,6 +767,10 @@ export function ChatThread({
               <div className="pointer-events-auto mx-auto flex w-full max-w-[680px] flex-col gap-2">
                 <Presence>{away ? <JumpToLatest key="jump" onJump={jump} /> : null}</Presence>
                 <ComposerPrefill />
+                <ComposerBusyWatch
+                  threadId={threadId}
+                  attachments={attachments.attach?.chips.length ?? 0}
+                />
                 {empty ? <ComposerSuggestions /> : null}
                 <ApprovalDock
                   threadId={threadId}

@@ -6,6 +6,7 @@ import {
   findThreadBySessionKey,
   getMessage,
   getThread,
+  listEmptyUserChats,
   listMessagesPage,
   listThreadsPage,
   threadActivity,
@@ -103,6 +104,22 @@ function patch(
   return { thread };
 }
 
+/**
+ * Removes a thread for good: running work stops first (no queued follow-up starts), so nothing
+ * writes into or acts for a deleted transcript; then the rows go (messages, runs and queued
+ * follow-ups cascade; the agent's per-thread state is deleted with it) and `thread.deleted` tells
+ * every connected window.
+ */
+export async function removeThread(call: Call, threadId: string): Promise<void> {
+  const { ctx } = call;
+  await ctx.sessions.closeThread(threadId, () => {
+    deleteThread(ctx.db, threadId);
+    deleteAgentThreadState(ctx.db, threadId);
+    ctx.bus.bumpStateVersion();
+  });
+  ctx.bus.publish("thread.deleted", { threadId }, threadId);
+}
+
 export const threadsHandlers: Record<string, HandlerDef> = {
   "threads.create": {
     transactional: true,
@@ -170,6 +187,42 @@ export const threadsHandlers: Record<string, HandlerDef> = {
       return { thread };
     },
   },
+  "threads.newChat": {
+    transactional: true,
+    run(call: Call, params: { kind: "side" | "incognito"; preferThreadId?: string }) {
+      const { db } = call.ctx;
+      const empty = listEmptyUserChats(db, { kind: params.kind });
+      const reuse = empty.find((t) => t.id === params.preferThreadId) ?? empty[0];
+      if (reuse) {
+        // Opening it again restarts its clock for the empty-chat sweep.
+        const thread = updateThread(db, reuse.id, {}) as Thread;
+        return { thread, reused: true };
+      }
+      const id = db.newId();
+      const thread = createThread(db, {
+        id,
+        kind: params.kind,
+        sessionKey: `owner:${params.kind}:${id}`,
+        userCreated: true,
+        expiresAt:
+          params.kind === "incognito"
+            ? new Date(call.ctx.now().getTime() + INCOGNITO_TTL_MS).toISOString()
+            : null,
+      });
+      emitThread(call, thread);
+      return { thread, reused: false };
+    },
+  },
+  "threads.discardEmpty": {
+    async run(call: Call, params: { threadId: string }) {
+      // Eligibility is the Gateway's call, not the window's: a message, a run, a queued
+      // follow-up, a task or a pin that arrived since the window looked keeps the thread.
+      if (listEmptyUserChats(call.ctx.db, { threadId: params.threadId }).length === 0)
+        return { deleted: false };
+      await removeThread(call, params.threadId);
+      return { deleted: true };
+    },
+  },
   "threads.list": {
     run(
       call: Call,
@@ -192,6 +245,7 @@ export const threadsHandlers: Record<string, HandlerDef> = {
           ? {}
           : { includeArchived: params.includeArchived }),
         ...(params.pinnedOnly === undefined ? {} : { pinnedOnly: params.pinnedOnly }),
+        hideEmptyChats: true,
         ...(params.query === undefined ? {} : { query: params.query }),
       });
       const activity = threadActivity(
@@ -244,14 +298,7 @@ export const threadsHandlers: Record<string, HandlerDef> = {
     async run(call: Call, params: { threadId: string; alsoForget?: boolean }) {
       const { ctx } = call;
       requireThread(call, params.threadId);
-      // Running work stops first (no queued follow-up starts), so nothing writes into or acts
-      // for a deleted transcript.
-      await ctx.sessions.closeThread(params.threadId, () => {
-        deleteThread(ctx.db, params.threadId);
-        deleteAgentThreadState(ctx.db, params.threadId);
-        ctx.bus.bumpStateVersion();
-      });
-      ctx.bus.publish("thread.deleted", { threadId: params.threadId }, params.threadId);
+      await removeThread(call, params.threadId);
       if (params.alsoForget && ctx.memory) {
         // "Also forget" stages a retraction preview; the owner confirms it in Memory (S07).
         await ctx.memory.forget(`thread:${params.threadId}`, { dryRun: true });

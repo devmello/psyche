@@ -1,5 +1,5 @@
 import type { ApprovalRequest, Message, Notification, ThreadListEntry } from "@psyche/protocol";
-import { t } from "@psyche/ui";
+import { isEmptyUserChat, t } from "@psyche/ui";
 import type { GatewayEvent } from "../client/connection.ts";
 import { type GatewayStatus, INITIAL_STATUS } from "../client/status.ts";
 import type { GatewayPort, Unsubscribe } from "./platform.ts";
@@ -200,7 +200,7 @@ export class ShellStore {
     ]);
     this.set({
       ...(threads.status === "fulfilled" && threads.value
-        ? { threads: threads.value.threads }
+        ? { threads: this.withOpenEmptyChats(threads.value.threads) }
         : {}),
       ...(approvals.status === "fulfilled" && approvals.value
         ? {
@@ -213,6 +213,28 @@ export class ShellStore {
         : {}),
     });
     for (const threadId of Object.keys(this.state.messages)) void this.loadHistory(threadId);
+  }
+
+  /** Puts a thread the Gateway just returned (New chat) in the list if it is not there. */
+  upsertThread(thread: ThreadListEntry["thread"]): void {
+    if (this.state.threads.some((x) => x.thread.id === thread.id)) return;
+    this.set({
+      threads: [
+        { thread, activity: { running: 0, awaitingInput: 0, awaitingApproval: 0 } },
+        ...this.state.threads,
+      ],
+    });
+  }
+
+  /**
+   * `threads.list` never returns an empty "New chat", so a list that replaces ours would drop the
+   * one on screen; it stays until a message makes it a listed chat or it is deleted.
+   */
+  private withOpenEmptyChats(listed: ThreadListEntry[]): ThreadListEntry[] {
+    const kept = this.state.threads.filter(
+      (e) => isEmptyUserChat(e) && !listed.some((l) => l.thread.id === e.thread.id),
+    );
+    return kept.length === 0 ? listed : [...kept, ...listed];
   }
 
   async loadHistory(threadId: string): Promise<void> {
@@ -304,6 +326,12 @@ export class ShellStore {
         this.set({
           threads: [entry, ...this.state.threads.filter((t) => t.thread.id !== thread.id)],
         });
+        break;
+      }
+      case "thread.deleted": {
+        const id = String(p.threadId);
+        const { [id]: _messages, ...messages } = this.state.messages;
+        this.set({ threads: this.state.threads.filter((x) => x.thread.id !== id), messages });
         break;
       }
       case "approval.created":

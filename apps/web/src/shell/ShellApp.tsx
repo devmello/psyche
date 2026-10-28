@@ -59,6 +59,7 @@ import {
   titleBarInset,
 } from "./components/TitleBar.tsx";
 import { ShellProvider, useShell, useShellState } from "./context.tsx";
+import { useDiscardEmptyChat } from "./empty-chat.ts";
 import { matchShortcut, type ShortcutAction } from "./keyboard.ts";
 import {
   BREAKPOINT_MEDIUM,
@@ -583,12 +584,34 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     };
   }, [platform.kind, store, layout, threadId, env, popOutPane, route]);
 
+  // Leaving an empty "New chat" (another chat, another screen, closing the window) deletes it.
+  const chatOnScreen = base.startsWith("/chat") && !popOutPane && route !== "/quick";
+  useDiscardEmptyChat(store, chatOnScreen ? threadId : null);
+  // The chat on screen was deleted elsewhere (another window, the sweep): back to the main chat.
+  useEffect(
+    () =>
+      store.tap((e) => {
+        if (e.event === "thread.deleted" && routeThreadId !== undefined) {
+          if ((e.payload as { threadId?: string }).threadId === routeThreadId) navigate("/chat");
+        }
+      }),
+    [store, routeThreadId, navigate],
+  );
+
   const newChat = useCallback(
     (kind: "side" | "incognito") => {
+      // New chat goes back to an empty chat of that kind (the one on screen first) instead of
+      // piling up another; the Gateway makes one only when there is none. An older Gateway
+      // without the method creates as before.
       void store
-        .call<{ thread: Thread }>("threads.create", { kind })
+        .call<{ thread: Thread }>("threads.newChat", {
+          kind,
+          ...(threadId ? { preferThreadId: threadId } : {}),
+        })
+        .then((r) => r ?? store.call<{ thread: Thread }>("threads.create", { kind }))
         .then((r) => {
           if (r?.thread) {
+            store.upsertThread(r.thread);
             void store.refresh();
             navigate(`/chat/${r.thread.id}`);
           }
@@ -600,7 +623,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
           ),
         );
     },
-    [store, navigate],
+    [store, navigate, threadId],
   );
   const newSideChat = useCallback(() => newChat("side"), [newChat]);
   const newIncognitoChat = useCallback(() => newChat("incognito"), [newChat]);

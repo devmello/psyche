@@ -1,4 +1,4 @@
-import { activeI18n, destinationFor, PsycheMark, StatusPill, t } from "@psyche/ui";
+import { activeI18n, destinationFor, isEmptyUserChat, PsycheMark, StatusPill, t } from "@psyche/ui";
 import { type ReactElement, type ReactNode, useId, useState } from "react";
 import type { GatewayStatus } from "../../client/status.ts";
 import { useShell, useShellState } from "../context.tsx";
@@ -139,8 +139,9 @@ export function ThreadList(props: {
   const threads = useShellState((s) => s.threads);
   const searchId = useId();
   const [query, setQuery] = useState("");
-  const live = threads.filter((x) => x.thread.archivedAt === null);
-  const archived = threads.length - live.length;
+  // An empty "New chat" is not a conversation yet: never listed.
+  const live = threads.filter((x) => x.thread.archivedAt === null && !isEmptyUserChat(x));
+  const archived = threads.filter((x) => x.thread.archivedAt !== null).length;
   const q = query.trim().toLowerCase();
   const shown = q
     ? live.filter((x) =>

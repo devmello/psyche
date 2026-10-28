@@ -132,7 +132,8 @@ export function AppShell({
   }, [agentTab]);
 
   const newSideChat = async () => {
-    const created = await threads.create({ kind: "side" });
+    // The empty chat on screen (or any other) is reused; only then is a new one made.
+    const created = await threads.newChat("side", threadId ?? undefined);
     onNavigate(`/chat/${created.id}`);
   };
   // A new destination crossfades the content column; a thread switch inside Chat doesn't.
