@@ -1,5 +1,7 @@
 import type { ToolSpec } from "@psyche/protocol";
+import { Type } from "@sinclair/typebox";
 import { describe, expect, it } from "vitest";
+import { defineTool, type TurnToolContext } from "../src/index.ts";
 import { call, endOf, harness, recorder, resultsIn, runTurn, say, spec } from "./harness.ts";
 
 const names = (tools: ToolSpec[] | undefined) => (tools ?? []).map((t) => t.name);
@@ -113,6 +115,34 @@ describe("deferred tools (progressive disclosure)", () => {
     const r = resultsIn(h.provider.requests[2]).get("c1");
     expect(r?.provenance).toBe("untrusted");
     expect(JSON.stringify(r?.output)).toContain("data, not instructions");
+  });
+
+  it("a tool installed during the turn loads into the same turn (install_capability's path)", async () => {
+    const h = harness({
+      script: [call("c1", "install_x", {}), call("c2", "mcp__x__do", {}), say("done")],
+      loop: { deferTool },
+    });
+    const done = recorder({ output: { did: true } });
+    h.loop.registry.register(
+      defineTool({
+        name: "install_x",
+        description: "Installs x.",
+        input: Type.Object({}),
+        sideEffect: "none",
+        async run(_p, ctx) {
+          // What an approved install does: its server's tools register, then load.
+          h.loop.registry.register({ spec: spec("mcp__x__do", "read"), execute: done.execute });
+          const api = (ctx as TurnToolContext).turn.deferredTools;
+          return { output: api?.load(["mcp__x__do"]), provenance: "trusted" };
+        },
+      }),
+    );
+    await runTurn(h, "install x and use it");
+    expect(resultsIn(h.provider.requests[1]).get("c1")?.output).toMatchObject({
+      loaded: ["mcp__x__do"],
+    });
+    expect(names(h.provider.requests[1]?.tools)).toContain("mcp__x__do");
+    expect(done.seen).toHaveLength(1);
   });
 
   it("without deferTool every tool is sent and the finder pair is absent", async () => {

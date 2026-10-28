@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type { CliDriver, CliResult } from "@psyche/sandbox";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
+import { deferToolFor } from "../src/compose/capabilities.ts";
 import { type ComposedGateway, composeGateway, partsFromEnv } from "../src/compose/index.ts";
 import { silentLogger } from "../src/log.ts";
 
@@ -86,5 +87,50 @@ describe("composed tool schemas (#414)", () => {
       })
       .map((t) => t.name);
     expect(bad).toEqual([]);
+  });
+});
+
+/**
+ * Progressive disclosure: the tool schemas sent with every request before and after deferral, in
+ * the default composition (no MCP servers yet; each server adds its whole `tools/list` before).
+ * Tokens are the loop's own estimate (4 characters ≈ 1 token). Prints the numbers for the PR.
+ */
+describe("deferred tools: prompt size", () => {
+  it("sends far fewer schema tokens with the default loading policy", async () => {
+    home = mkdtempSync(join(tmpdir(), "psyche-prompt-size-"));
+    composed = await composeGateway({
+      env: {},
+      logger: silentLogger,
+      retentionIntervalMs: 0,
+      background: false,
+      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      model: { provider: new FakeModelProvider(), model: "fake/model" },
+      parts: partsFromEnv(
+        {},
+        {
+          sandboxRunner: {
+            driver: fakeCli,
+            detect: async () => [{ kind: "docker", cli: "/usr/bin/docker", version: "29" }],
+            image: "psyche-sandbox:core-dev",
+            idleTimeoutMs: 0,
+          },
+        },
+      ),
+    });
+    const all = composed.loop.registry.list();
+    const finder = new Set(["tool_search", "load_tools"]);
+    const defer = deferToolFor(composed.gateway.context.db);
+    const before = all.filter((t) => !finder.has(t.name));
+    const after = all.filter((t) => finder.has(t.name) || !defer(t));
+    const tokens = (specs: typeof all) => Math.ceil(JSON.stringify(specs).length / 4);
+    const b = tokens(before);
+    const a = tokens(after);
+    console.log(
+      `tool schemas per request: before ${before.length} tools ≈ ${b} tokens; after ${after.length} tools ≈ ${a} tokens (${Math.round((1 - a / b) * 100)}% less); on demand ${all.length - after.length}`,
+    );
+    expect(after.map((t) => t.name)).toEqual(
+      expect.arrayContaining(["read_file", "memory", "find_capability", "tool_search"]),
+    );
+    expect(a).toBeLessThan(b * 0.6);
   });
 });
