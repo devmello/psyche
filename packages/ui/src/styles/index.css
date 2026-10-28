@@ -9,6 +9,7 @@
 @import "./semantic.css";
 @import "./motion.css";
 @import "./design.css";
+@import "./prose.css";
 
 /* Scan the kit's own sources wherever the shell's Tailwind runs from. */
 @source "../";
