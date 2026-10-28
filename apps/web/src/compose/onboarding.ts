@@ -12,6 +12,10 @@ export interface OnboardingAnswers {
   tagline: string;
   ownerName?: string;
   timeZone?: string;
+  work?: string;
+  city?: string;
+  /** A re-run: leave IDENTITY.md and SOUL.md alone and write only the owner's facts. */
+  skipIdentity?: boolean;
   /** Full text of a persona preset (`templates/personas/*.md`) to use as SOUL.md. */
   soul?: string;
 }
@@ -71,20 +75,23 @@ export async function writeOnboarding(call: GatewayCall, a: OnboardingAnswers): 
     written.push(path);
   };
 
-  await update("IDENTITY.md", (current) => {
-    const withFields = setFrontmatter(current, {
-      name: a.name,
-      creature: a.creature,
-      tagline: a.tagline,
+  if (!a.skipIdentity)
+    await update("IDENTITY.md", (current) => {
+      const withFields = setFrontmatter(current, {
+        name: a.name,
+        creature: a.creature,
+        tagline: a.tagline,
+      });
+      const match = FRONTMATTER.exec(withFields);
+      const head = match ? match[0] : "";
+      return head + identityBody(withFields.slice(head.length), a);
     });
-    const match = FRONTMATTER.exec(withFields);
-    const head = match ? match[0] : "";
-    return head + identityBody(withFields.slice(head.length), a);
-  });
   await update("USER.md", (current) =>
     fillUserFacts(current, {
       ...(a.ownerName ? { Name: a.ownerName } : {}),
       ...(a.timeZone ? { Timezone: a.timeZone } : {}),
+      ...(a.work ? { "Work or study": a.work } : {}),
+      ...(a.city ? { "Home city": a.city } : {}),
     }),
   );
   if (a.soul !== undefined) await update("SOUL.md", () => a.soul as string);

@@ -26,6 +26,14 @@
     "./motion": {
       "types": "./src/motion/index.ts",
       "default": "./src/motion/index.ts"
+    },
+    "./onboarding": {
+      "types": "./src/screens/onboarding/index.ts",
+      "default": "./src/screens/onboarding/index.ts"
+    },
+    "./capabilities": {
+      "types": "./src/screens/capabilities/index.ts",
+      "default": "./src/screens/capabilities/index.ts"
     }
   },
   "sideEffects": [

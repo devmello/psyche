@@ -1,7 +1,10 @@
 import type { ReactElement } from "react";
 import { t } from "../../i18n/core.ts";
 import { GROUP_ROWS, SwitchField } from "../settings/shared.tsx";
+import { MAIL_DEFAULTS, mailSettings } from "./mail-settings.ts";
 import type { MailChoices } from "./types.ts";
+
+export { MAIL_DEFAULTS, mailSettings };
 
 /**
  * The mail and meetings decision screen (docs/workflows/mail-and-meetings-2026.md §7.5): after
@@ -10,27 +13,6 @@ import type { MailChoices } from "./types.ts";
  * switch that starts off, and says what is read and where it stays. The Mail rule bridge and
  * Psyche's own recording are not offered here.
  */
-
-/** What the screen starts with (§7.5). */
-export const MAIL_DEFAULTS: MailChoices = {
-  digest: true,
-  prep: true,
-  followups: true,
-  voice: false,
-  notes: true,
-};
-
-/** The Gateway settings a set of choices writes (one switch each; the digest at 7:30). */
-export function mailSettings(choices: MailChoices): Record<string, boolean | string> {
-  return {
-    "mail.digest.enabled": choices.digest,
-    ...(choices.digest ? { "mail.digest.time": "07:30" } : {}),
-    "meetings.prep.enabled": choices.prep,
-    "mail.followups.enabled": choices.followups,
-    "mail.voice.enabled": choices.voice,
-    "meetings.notes.enabled": choices.notes,
-  };
-}
 
 export function MailStep({
   persona,

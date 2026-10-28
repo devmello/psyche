@@ -23,7 +23,6 @@ import {
   LibraryScreen,
   type LibrarySection,
   mailSettings,
-  OnboardingFlow,
   type OnboardingResult,
   OverviewRun,
   OverviewScreen,
@@ -61,11 +60,10 @@ import {
 } from "../shell/ShellApp.tsx";
 import { chatFileSlots } from "./attachments.tsx";
 import { ComposedCanvas } from "./canvas.tsx";
-import { useMacHelper } from "./helper.tsx";
+import { FirstRun, onboardingRoute } from "./first-run.tsx";
 import { kitClient } from "./kit-client.ts";
-import { checkModel, saveProviderKey, verifySetup } from "./model-setup.ts";
 import { writeOnboarding } from "./onboarding.ts";
-import { readPermissions, requestPermission } from "./permissions.tsx";
+import { saveHabits } from "./onboarding-host.ts";
 import { settingsRoute } from "./settings.tsx";
 import { useTranscriptMode } from "./transcript-mode.tsx";
 import { ComposedFilesPane, renderMarkdownEditor } from "./viewers.tsx";
@@ -310,14 +308,22 @@ export async function completeOnboarding(
   platform: ShellPlatform,
   result: OnboardingResult,
   now: () => Date = () => new Date(),
+  options: { rerun?: boolean } = {},
 ): Promise<void> {
   const call = (m: string, p: unknown, o?: { idempotencyKey?: string }) =>
     platform.gateway.call(m, p, o ?? {});
+  const owner = result.owner;
   await writeOnboarding(call, {
     name: result.persona.name,
     creature: result.persona.creatureDescription || result.persona.creatureId,
     tagline: result.persona.tagline,
+    ...(options.rerun ? { skipIdentity: true } : {}),
+    ...(owner?.name.trim() ? { ownerName: owner.name.trim() } : {}),
+    ...(owner?.timeZone.trim() ? { timeZone: owner.timeZone.trim() } : {}),
+    ...(owner?.work.trim() ? { work: owner.work.trim() } : {}),
+    ...(owner?.city.trim() ? { city: owner.city.trim() } : {}),
   });
+  if (result.habits) await saveHabits(call, result.habits);
   // The mail and meetings decision screen (§7.5), when it was offered: one setting per switch.
   // Best effort: a failed write leaves that workflow off, the safe default, and the owner can
   // turn it on in Settings → Mail & meetings.
@@ -339,7 +345,7 @@ export async function completeOnboarding(
     { key: ONBOARDED_KEY, value: now().toISOString() },
     { idempotencyKey: `onboarding:done:${now().getTime()}` },
   );
-  await greetMainChat(call, now);
+  if (!options.rerun) await greetMainChat(call, now);
 }
 
 /**
@@ -480,13 +486,6 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
   const [gate, setGate] = useState<Gate>("loading");
   const [error, setError] = useState<string | null>(null);
   const [persona, reloadPersona] = useWorkspacePersona(platform);
-  const helper = useMacHelper(platform);
-  const helperRef = useRef(helper);
-  helperRef.current = helper;
-  const verify = useMemo(
-    () => (result: OnboardingResult) => verifySetup(platform, result, helperRef.current),
-    [platform],
-  );
 
   useEffect(() => {
     let cancelled = false;
@@ -515,7 +514,11 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
     () => ({
       chat: (threadId, ctx) => <KitChat threadId={threadId} ctx={ctx} />,
       section: (route, navigate) =>
-        settingsRoute(route, navigate, platform) ?? screenRoute(route, navigate),
+        onboardingRoute(route, navigate, platform, (r) =>
+          completeOnboarding(platform, r, undefined, { rerun: true }),
+        ) ??
+        settingsRoute(route, navigate, platform) ??
+        screenRoute(route, navigate),
       agentSheet: (p) => <RoutedAgentSheet {...p} />,
       // The 2026 sidebar (redesign §5.1); the compact drawer shows its threads alone (§5.11).
       sidebar: (p) => (
@@ -581,15 +584,9 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
               {error}
             </p>
           ) : null}
-          <OnboardingFlow
-            {...(helper ? { helper } : {})}
-            // Only the desktop can ask macOS; the web skips the step (#554).
-            macPermissions={platform.permissions !== undefined}
-            onRequestPermission={(p) => requestPermission(platform, p)}
-            onReadPermissions={() => readPermissions(platform)}
-            onSaveKey={(provider, key) => saveProviderKey(platform, provider, key)}
-            onCheckModel={(choice) => checkModel(platform, choice)}
-            onVerify={verify}
+          <FirstRun
+            platform={platform}
+            mode="first"
             onComplete={(result) => {
               completeOnboarding(platform, result).then(
                 () => {

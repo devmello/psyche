@@ -31,6 +31,7 @@ import { specialists } from "./specialists.ts";
 import { time } from "./time.ts";
 import { voice } from "./voice.ts";
 import { web } from "./web.ts";
+import { whatCanYouDo } from "./what-can-you-do.ts";
 import { workflows } from "./workflows.ts";
 
 /**
@@ -61,6 +62,7 @@ export const en = {
   ...mailMeetings,
   ...connectorGallery,
   ...onboarding,
+  ...whatCanYouDo,
   ...people,
   ...specialists,
   ...screens,

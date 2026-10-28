@@ -5,7 +5,7 @@ import { type ReactElement, type RefObject, useLayoutEffect, useState } from "re
 import { Avatar } from "../avatar/Avatar.tsx";
 import { t } from "../i18n/core.ts";
 import { fade } from "../motion/index.ts";
-import { usePersona } from "../slots.tsx";
+import { usePersona, useSlots } from "../slots.tsx";
 
 /** The element's border-box height, kept current with a ResizeObserver (0 before layout). */
 export function useElementHeight(ref: RefObject<HTMLElement | null>): number {
@@ -29,6 +29,7 @@ export function useElementHeight(ref: RefObject<HTMLElement | null>): number {
  */
 export function EmptyThread(): ReactElement {
   const persona = usePersona();
+  const { navigate } = useSlots();
   return (
     <div
       className="flex flex-1 flex-col items-center justify-center gap-3 pb-[20vh] text-center"
@@ -45,6 +46,15 @@ export function EmptyThread(): ReactElement {
       <p className="max-w-[44ch] text-body text-label-secondary">
         {t("chat.thread.empty", { name: persona.name })}
       </p>
+      {navigate ? (
+        <button
+          type="button"
+          className="cursor-default text-callout text-accent-11 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={() => navigate("/can-do")}
+        >
+          {t("capabilities.open")}
+        </button>
+      ) : null}
     </div>
   );
 }
