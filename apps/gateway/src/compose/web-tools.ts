@@ -1,3 +1,4 @@
+import { safeFetch } from "@psyche/connectors";
 import { getSetting, type PsycheDb, setSetting } from "@psyche/db";
 import type { EventName, EventPayload, ToolRegistration } from "@psyche/protocol";
 import { ResolvedSecret } from "@psyche/protocol";
@@ -46,6 +47,14 @@ export interface ComposedWebTools {
   status(): WebSearchStatus;
   /** Re-read the settings and republish the status when it changed. */
   refresh(): void;
+  /** In-process search for deep research (same provider and limits as `web.search`). */
+  search(
+    query: string,
+    count: number,
+    signal: AbortSignal,
+  ): Promise<{ title: string; url: string; snippet: string }[]>;
+  /** In-process page read for deep research (same SSRF policy as `web.fetch`). */
+  readPage(url: string, signal: AbortSignal): Promise<{ title?: string; text: string }>;
 }
 
 export function composeWebTools(
@@ -102,5 +111,31 @@ export function composeWebTools(
     ...(setup.fetchOptions === undefined ? {} : { fetchOptions: setup.fetchOptions }),
   });
 
-  return { tools, status, refresh };
+  const search: ComposedWebTools["search"] = async (query, count, signal) => {
+    const provider = providerFor(status(), {
+      fetch: fetchFn,
+      braveKey: async () =>
+        new ResolvedSecret(braveKey, {
+          credentialId: `env:${BRAVE_KEY_ENV}`,
+          target: { kind: "origin", value: BRAVE_ORIGIN },
+        }),
+      limiter,
+    });
+    if (provider === undefined) throw new Error("web search is turned off in Settings");
+    return provider.search(query, { count, signal });
+  };
+  const readPage: ComposedWebTools["readPage"] = async (url, signal) => {
+    const origin = new URL(url).origin;
+    const page = await safeFetch(url, {
+      ...setup.fetchOptions,
+      signal,
+      maxChars: 40_000,
+      maxRedirects: 5,
+      allowHop: (next) => next.origin === origin,
+    });
+    if (page.status >= 400) throw new Error(`HTTP ${page.status}`);
+    return { ...(page.title === undefined ? {} : { title: page.title }), text: page.markdown };
+  };
+
+  return { tools, status, refresh, search, readPage };
 }

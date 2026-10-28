@@ -358,6 +358,9 @@ importers:
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@psyche/research':
+        specifier: workspace:*
+        version: link:../../packages/research
       '@psyche/sandbox':
         specifier: workspace:*
         version: link:../../packages/sandbox
@@ -903,6 +906,8 @@ importers:
       quicktype-core:
         specifier: 26.0.0
         version: 26.0.0
+
+  packages/research: {}
 
   packages/sandbox:
     dependencies:
