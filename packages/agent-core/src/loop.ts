@@ -414,6 +414,12 @@ type GateOutcome = { proceed: Gated } | { done: ModelPart };
 
 const READ_ONLY: ReadonlySet<SideEffect> = new Set(["none", "read"]);
 const INTERACTIVE = new Set(["ask_user", "exit_plan_mode"]);
+/**
+ * Tools that wait for the owner's answer and change what the next call may do (a folder or a
+ * setting granted). They never join a concurrent read-only batch, so a sibling call in the same
+ * response (a `list_dir` of the folder just asked for) runs only after the answer comes back.
+ */
+const WAITS_FOR_OWNER = new Set(["request_permission", "request_folder_access"]);
 const NO_REPLY = "NO_REPLY";
 const NO_APPROVAL_AUTHORITY =
   "needs the owner's approval, and subagents cannot ask: report what you would do and why";
@@ -475,7 +481,7 @@ export class PsycheAgentLoop implements AgentLoop {
   /** When this loop (this process) started: earlier approvals belong to a dead process (#64). */
   #bootedAt = 0;
   /** Every run this process started: only another process's cards are ever re-used (#64). */
-  #ranHere = new Set<string>();
+  #ranHere = new Set(["request_permission", "request_folder_access"]);
   #threads = new Map<string, { activeRunId?: string; followUps: string[] }>();
   #explanations = new Map<string, ContextExplanation>();
   #plans = new Map<string, { threadId: string; title: string; plan: string }>();
@@ -1736,7 +1742,8 @@ export class PsycheAgentLoop implements AgentLoop {
 
   #readOnly(run: RunState, call: { name: string; input: unknown }): boolean {
     const reg = run.active.get(call.name);
-    if (reg === undefined || INTERACTIVE.has(call.name)) return false;
+    if (reg === undefined || INTERACTIVE.has(call.name) || WAITS_FOR_OWNER.has(call.name))
+      return false;
     let described: SideEffect | undefined;
     try {
       described = reg.describeCall?.(call.input)?.sideEffect;
@@ -3101,7 +3108,7 @@ function abortReason(run: RunState): RunEnd | undefined {
  * absolute paths, as whole tokens.
  */
 export function ownerTargets(text: string): Set<string> {
-  const out = new Set<string>();
+  const out = new Set(["request_permission", "request_folder_access"]);
   for (const raw of text.split(/[\s,;<>()"'`[\]{}]+/)) {
     const token = raw.replace(/[.:!?]+$/, "").toLowerCase();
     if (token === "") continue;
@@ -3163,7 +3170,7 @@ function reopenMessage(e: Evaluation): string {
 }
 
 function answeredPrefix(messages: ModelMessage[]): ModelMessage[] {
-  const answered = new Set<string>();
+  const answered = new Set(["request_permission", "request_folder_access"]);
   for (const m of messages)
     for (const p of m.parts) if (p.type === "tool_result") answered.add(p.callId);
   let end = messages.length;
@@ -3189,7 +3196,7 @@ function lastAssistantText(messages: readonly ModelMessage[]): string {
 
 /** Every tool call in the transcript keeps a result, so the next turn is a valid request. */
 function closeDanglingCalls(messages: ModelMessage[], why: string): void {
-  const answered = new Set<string>();
+  const answered = new Set(["request_permission", "request_folder_access"]);
   for (const m of messages) {
     for (const p of m.parts) if (p.type === "tool_result") answered.add(p.callId);
   }

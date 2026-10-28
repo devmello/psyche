@@ -29,7 +29,7 @@ export function requestFolderAccessTool(deps: FolderAccessToolDeps): AgentToolRe
   return defineTool({
     name: "request_folder_access",
     description:
-      "Ask the owner for access to a folder your file tools cannot reach (read_file, list_dir, search_files, write_file say it is outside every granted folder). Give the folder you need as `path` (a hint: the owner picks the real folder), why you need it, and `read` or `read_write`. The owner decides; the reply says whether a folder was granted and which one. Ask only for the narrowest folder you need, never for the home folder, and do not ask again after a denial.",
+      "Ask the owner for access to a folder your file tools cannot reach (read_file, list_dir, search_files, write_file say it is outside every granted folder). Give the folder you need as `path` (a hint: the owner picks the real folder), why you need it, and `read` or `read_write`. The call waits for the owner to answer on their card and returns in the same turn: `granted: true` with the folder, access and how long it lasts, after which you continue with the task right away (list or read the folder); or `granted: false`, after which you tell the owner briefly and do not ask again. Make this call by itself, before the file calls that need the folder. Ask only for the narrowest folder you need, never for the home folder, and do not ask again after a denial.",
     input: Type.Object({
       path: Type.String({ minLength: 1, maxLength: 1024, description: "The folder you need" }),
       reason: Type.String({ minLength: 1, maxLength: 500, description: "Why, in a sentence" }),

@@ -160,7 +160,7 @@ export function requestPermissionTool(deps: RequestPermissionDeps): AgentToolReg
   return defineTool({
     name: "request_permission",
     description:
-      'Ask the owner for a permission you are missing. When a tool is denied or fails with `Missing permission: {...}` (a folder outside the granted ones, run-commands-on-this-Mac turned off, a connector action set to deny, a connector not connected, macOS access, the sandbox), pass that object as `need` with a one-sentence `reason`. For a folder you may also ask directly: {"need": "folder", "path", "access": "read" | "read_write"} (the owner picks the real folder). The owner decides on a card; retry the denied call only when the reply says `granted: true`, and never ask again after a denial.',
+      'Ask the owner for a permission you are missing. When a tool is denied or fails with `Missing permission: {...}` (a folder outside the granted ones, run-commands-on-this-Mac turned off, a connector action set to deny, a connector not connected, macOS access, the sandbox), pass that object as `need` with a one-sentence `reason`. For a folder you may also ask directly: {"need": "folder", "path", "access": "read" | "read_write"} (the owner picks the real folder). The call waits for the owner to answer on their card and returns it in the same turn: when the reply says `granted: true`, retry the denied call and finish the task; on a denial or an expired card tell the owner briefly and never ask again. Make this call by itself, before the calls that need the permission.',
     input: Type.Object({
       need: Need,
       reason: Type.String({ minLength: 1, maxLength: 500, description: "Why, in a sentence" }),
