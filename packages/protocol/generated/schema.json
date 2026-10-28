@@ -319,6 +319,11 @@
         "payload": "#/$defs/ReceiptCreatedPayload"
       },
       {
+        "description": "A deep-research tool call (research_run, research_followup) advanced: the plan, the step, a source read, claim and token counts, done or stopped. Typed labels and counts only, never page text.",
+        "name": "research.progress",
+        "payload": "#/$defs/ResearchProgressPayload"
+      },
+      {
         "description": "A run-trace step was added or changed (an upsert, coalesced per step; ≤ 4/s for progress). Never carries thinking text or payload bodies: read them with runs.step.",
         "name": "run.step",
         "payload": "#/$defs/RunStepPayload"
@@ -28497,6 +28502,215 @@
         "id",
         "ok",
         "payload"
+      ],
+      "type": "object"
+    },
+    "ResearchProgressEvent": {
+      "anyOf": [
+        {
+          "properties": {
+            "type": {
+              "const": "step",
+              "type": "string"
+            },
+            "step": {
+              "$ref": "#/$defs/ResearchProgressStep"
+            }
+          },
+          "required": [
+            "type",
+            "step"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "plan",
+              "type": "string"
+            },
+            "plan": {
+              "$ref": "#/$defs/ResearchProgressPlan"
+            }
+          },
+          "required": [
+            "type",
+            "plan"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "source",
+              "type": "string"
+            },
+            "url": {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            "title": {
+              "maxLength": 500,
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "reading",
+                "read",
+                "failed"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "url",
+            "title",
+            "status"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "claims",
+              "type": "string"
+            },
+            "count": {
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [
+            "type",
+            "count"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "tokens",
+              "type": "string"
+            },
+            "used": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "budget": {
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [
+            "type",
+            "used",
+            "budget"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "done",
+              "type": "string"
+            },
+            "artifactId": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "artifactId"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "stopped",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ResearchProgressPayload": {
+      "properties": {
+        "toolCallId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "event": {
+          "$ref": "#/$defs/ResearchProgressEvent"
+        }
+      },
+      "required": [
+        "toolCallId",
+        "event"
+      ],
+      "type": "object"
+    },
+    "ResearchProgressPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "subQuestions": {
+          "items": {
+            "$ref": "#/$defs/ResearchProgressSubQuestion"
+          },
+          "maxItems": 50,
+          "type": "array"
+        },
+        "includeLocal": {
+          "type": "boolean"
+        },
+        "estimatedTokens": {
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "subQuestions",
+        "includeLocal",
+        "estimatedTokens"
+      ],
+      "type": "object"
+    },
+    "ResearchProgressStep": {
+      "enum": [
+        "scope",
+        "plan",
+        "read",
+        "extract",
+        "crosscheck",
+        "synthesize",
+        "save"
+      ],
+      "type": "string"
+    },
+    "ResearchProgressSubQuestion": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "question": {
+          "maxLength": 500,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "question"
       ],
       "type": "object"
     },

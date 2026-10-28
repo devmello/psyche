@@ -13,6 +13,7 @@ export * from "./memory.ts";
 export * from "./messages.ts";
 export * from "./models.ts";
 export * from "./permissions.ts";
+export * from "./research.ts";
 export * from "./runs.ts";
 export * from "./specialists.ts";
 export * from "./speech.ts";

@@ -912,6 +912,11 @@
 //   let resErrFrame = try? JSONDecoder().decode(ResErrFrame.self, from: jsonData)
 //   let resFrame = try? JSONDecoder().decode(ResFrame.self, from: jsonData)
 //   let resOkFrame = try? JSONDecoder().decode(ResOkFrame.self, from: jsonData)
+//   let researchProgressEvent = try? JSONDecoder().decode(ResearchProgressEvent.self, from: jsonData)
+//   let researchProgressPayload = try? JSONDecoder().decode(ResearchProgressPayload.self, from: jsonData)
+//   let researchProgressPlan = try? JSONDecoder().decode(ResearchProgressPlan.self, from: jsonData)
+//   let researchProgressStep = try? JSONDecoder().decode(ResearchProgressStep.self, from: jsonData)
+//   let researchProgressSubQuestion = try? JSONDecoder().decode(ResearchProgressSubQuestion.self, from: jsonData)
 //   let run = try? JSONDecoder().decode(Run.self, from: jsonData)
 //   let runBudget = try? JSONDecoder().decode(RunBudget.self, from: jsonData)
 //   let runFrame = try? JSONDecoder().decode(RunFrame.self, from: jsonData)
@@ -21294,6 +21299,123 @@ public struct ResOkFrame: Codable, Sendable {
         self.payload = payload
         self.type = type
     }
+}
+
+// MARK: - ResearchProgressPayload
+public struct ResearchProgressPayload: Codable, Sendable {
+    public let event: ResearchProgressEvent
+    public let toolCallID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case event = "event"
+        case toolCallID = "toolCallId"
+    }
+
+    public init(event: ResearchProgressEvent, toolCallID: String) {
+        self.event = event
+        self.toolCallID = toolCallID
+    }
+}
+
+// MARK: - ResearchProgressEvent
+public struct ResearchProgressEvent: Codable, Sendable {
+    public let step: ResearchProgressStep?
+    public let type: ResearchProgressEventType
+    public let plan: ResearchProgressPlan?
+    public let status: ResearchProgressEventStatus?
+    public let title: String?
+    public let url: String?
+    public let count: Double?
+    public let budget: Double?
+    public let used: Double?
+    public let artifactID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case step = "step"
+        case type = "type"
+        case plan = "plan"
+        case status = "status"
+        case title = "title"
+        case url = "url"
+        case count = "count"
+        case budget = "budget"
+        case used = "used"
+        case artifactID = "artifactId"
+    }
+
+    public init(step: ResearchProgressStep?, type: ResearchProgressEventType, plan: ResearchProgressPlan?, status: ResearchProgressEventStatus?, title: String?, url: String?, count: Double?, budget: Double?, used: Double?, artifactID: String?) {
+        self.step = step
+        self.type = type
+        self.plan = plan
+        self.status = status
+        self.title = title
+        self.url = url
+        self.count = count
+        self.budget = budget
+        self.used = used
+        self.artifactID = artifactID
+    }
+}
+
+// MARK: - ResearchProgressPlan
+public struct ResearchProgressPlan: Codable, Sendable {
+    public let estimatedTokens: Double
+    public let includeLocal: Bool
+    public let subQuestions: [ResearchProgressSubQuestion]
+
+    public enum CodingKeys: String, CodingKey {
+        case estimatedTokens = "estimatedTokens"
+        case includeLocal = "includeLocal"
+        case subQuestions = "subQuestions"
+    }
+
+    public init(estimatedTokens: Double, includeLocal: Bool, subQuestions: [ResearchProgressSubQuestion]) {
+        self.estimatedTokens = estimatedTokens
+        self.includeLocal = includeLocal
+        self.subQuestions = subQuestions
+    }
+}
+
+// MARK: - ResearchProgressSubQuestion
+public struct ResearchProgressSubQuestion: Codable, Sendable {
+    public let id: String
+    public let question: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case question = "question"
+    }
+
+    public init(id: String, question: String) {
+        self.id = id
+        self.question = question
+    }
+}
+
+public enum ResearchProgressEventStatus: String, Codable, Sendable {
+    case failed = "failed"
+    case read = "read"
+    case reading = "reading"
+}
+
+public enum ResearchProgressStep: String, Codable, Sendable {
+    case crosscheck = "crosscheck"
+    case extract = "extract"
+    case plan = "plan"
+    case read = "read"
+    case save = "save"
+    case scope = "scope"
+    case synthesize = "synthesize"
+}
+
+public enum ResearchProgressEventType: String, Codable, Sendable {
+    case claims = "claims"
+    case done = "done"
+    case plan = "plan"
+    case source = "source"
+    case step = "step"
+    case stopped = "stopped"
+    case tokens = "tokens"
 }
 
 // MARK: - RunGetResult

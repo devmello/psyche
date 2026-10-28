@@ -482,6 +482,13 @@ export class GatewayStore {
           `toolCalls:${e.payload.toolCall.id}`,
           v,
         );
+      case "research.progress": {
+        const { toolCallId, event } = e.payload;
+        return {
+          ...touch(s, `research:${toolCallId}`, v),
+          research: { ...s.research, [toolCallId]: [...(s.research[toolCallId] ?? []), event] },
+        };
+      }
       case "task.updated":
         return touch(put(s, "tasks", e.payload.task), `tasks:${e.payload.task.id}`, v);
       case "task.action": {

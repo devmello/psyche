@@ -183,6 +183,7 @@ const REQUIRED_EVENTS = [
   "chat.block",
   "run.updated",
   "tool_call.updated",
+  "research.progress",
   "task.updated",
   "task.action",
   "approval.created",
