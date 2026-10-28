@@ -27,6 +27,8 @@ export const chat = {
 
   "chat.commands.model.hint": "provider/model",
   "chat.commands.model.description": "Pick this thread's model",
+  "chat.commands.mode.hint": "manual | balanced | auto | plan",
+  "chat.commands.mode.description": "Set this thread's permission mode",
   "chat.commands.new.description": "Start a new side chat",
   "chat.commands.btw.hint": "question",
   "chat.commands.btw.description": "Ask aside in a side chat",
@@ -55,6 +57,25 @@ export const chat = {
   "chat.commands.usageModel":
     "Usage: /model provider/model, for example anthropic/claude-sonnet-5-5",
   "chat.commands.usageExport": "Usage: /export [md | json]",
+  "chat.commands.usageMode": "Usage: /mode [manual | balanced | auto | plan]",
+
+  "chat.args.label": "Values for /{command}",
+  "chat.args.loading": "Loading…",
+  "chat.args.count": "{count, plural, one {# value} other {# values}}",
+  "chat.args.current": "current",
+  "chat.args.badge.vision": "Vision",
+  "chat.args.badge.reasoning": "Reasoning",
+  "chat.args.badge.tools": "Tools",
+  "chat.args.badge.local": "Local",
+  "chat.args.badge.autoCapable": "Auto-capable",
+  "chat.args.model.noKey": "No API key",
+  "chat.args.model.notChat": "Not a chat model",
+  "chat.args.model.unreachable": "Unreachable",
+  "chat.args.mode.manual": "Asks before every action",
+  "chat.args.mode.balanced": "Asks only for risky actions",
+  "chat.args.mode.auto": "Acts on its own; needs an Auto-capable model",
+  "chat.args.mode.autoNeedsModel": "Needs an Auto-capable model: pick one with /model",
+  "chat.args.mode.plan": "Read-only: plans without acting",
 
   "chat.composer.commands": "Commands",
   "chat.composer.quoting": "Quoting:",
@@ -152,6 +173,8 @@ export const chat = {
   "chat.thread.modelCurrentDefault":
     "This thread uses the default model. Type /model provider/model to pick another.",
   "chat.thread.modelSet": "This thread now uses {model}.",
+  "chat.thread.modeCurrent": "Permission mode: {mode}.",
+  "chat.thread.modeSet": "Permission mode is now {mode}.",
   "chat.thread.planMode": "Plan mode: read-only until you switch back.",
   "chat.thread.schedulePrompt":
     "/schedule {request}\n\nCreate this as an automation with your schedule tool, then tell me what you set up.",
