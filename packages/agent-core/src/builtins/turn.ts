@@ -9,7 +9,12 @@ import {
 import { Type } from "@sinclair/typebox";
 import { applyPlanUpdate, UpdatePlanInput } from "../checklist.ts";
 import type { DeferredToolsApi } from "../deferred.ts";
-import { AskUserInput, normalizeQuestions, type QuestionAnswer } from "../questions.ts";
+import {
+  AskUserInput,
+  type ChatReply,
+  normalizeQuestions,
+  type QuestionAnswer,
+} from "../questions.ts";
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "../registry.ts";
 import type { SpecialistTurnApi } from "../specialists.ts";
 import type { HarnessTurnApi } from "./harness.ts";
@@ -20,7 +25,9 @@ export interface TurnApi {
   checklist(): ChecklistItem[];
   setChecklist(items: ChecklistItem[]): void;
   /** Attended: resolves with the answer. Background (task) run: parks the task and the turn. */
-  ask(questions: Question[]): Promise<{ answer: QuestionAnswer } | { parked: InputRequest }>;
+  ask(
+    questions: Question[],
+  ): Promise<{ answer: QuestionAnswer } | { parked: InputRequest } | ChatReply>;
   /** C10: gate one action of an embedded coding harness through the broker. */
   gateHarnessAction?: HarnessTurnApi["gateHarnessAction"];
   harnessActionDone?: HarnessTurnApi["harnessActionDone"];
@@ -59,6 +66,9 @@ export const askUserTool = defineTool({
   run: async (params, ctx) => {
     const questions = normalizeQuestions(params);
     const result = await turnOf(ctx).ask(questions);
+    if ("answeredInChat" in result) {
+      return ok({ answeredInChat: true, text: result.text });
+    }
     if ("parked" in result) {
       return ok({
         status: "awaiting_input",

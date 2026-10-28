@@ -270,6 +270,11 @@ export interface PermissionBroker {
   listReceipts(filter?: { taskId?: string; toolCallId?: string }): Promise<Receipt[]>;
   /** Cancellation: pending approvals of the run are invalidated, its answers rejected. */
   revokeRunAuthority(runId: string): Promise<void>;
+  /**
+   * The owner replied in the chat instead of answering: denies every pending approval of the run
+   * (reason `owner_replied_in_chat`, audited) and returns them. Typed text never approves.
+   */
+  denyPendingForRun?(runId: string, reason?: string): Promise<ApprovalRequest[]>;
   listGrants(filter?: GrantFilter): Promise<Grant[]>;
   revokeGrant(grantId: string): Promise<Grant>;
 }

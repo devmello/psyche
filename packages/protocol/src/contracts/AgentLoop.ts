@@ -183,6 +183,17 @@ export interface AgentLoop {
   startTurn(input: StartTurnInput): AsyncIterable<AgentEvent>;
   /** Interrupt the current tool loop of `runId` with new guidance. */
   steer(runId: string, text: string): Promise<void>;
+  /** Whether the run's turn is parked on a question or card the owner has not answered. */
+  isWaiting?(runId: string): boolean;
+  /**
+   * The owner replied in the chat instead of answering: open questions take the text as their
+   * answer (`{ answeredInChat, text }` to the model); pending approvals are denied, never
+   * approved, and the model gets the text as the owner's new instruction. Returns what closed.
+   */
+  supersedeWaits?(
+    runId: string,
+    text: string,
+  ): Promise<{ questions: InputRequest[]; approvals: ApprovalRequest[] }>;
   /** Queue a message to run after the thread's current turn settles. */
   followUp(threadId: string, text: string): Promise<void>;
   /** Cancel a run; its tool and approval authority is revoked immediately (§4.5). */

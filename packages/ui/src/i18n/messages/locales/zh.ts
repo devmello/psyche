@@ -317,6 +317,7 @@ export const zh: Partial<Catalogue> = {
   "blocks.approval.status.approved":
     "已批准{hasWhere, select, true {（在 {where} 上）} other {}}{hasScope, select, true { · {scope}} other {}}{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.denied": "已拒绝{hasWhen, select, true { · {when}} other {}}",
+  "blocks.approval.status.declinedInChat": "已拒绝 — 你在聊天中回复了",
   "blocks.approval.status.expired": "已过期。未执行任何操作。",
   "blocks.approval.status.voidedBecause": "已作废：{reason}",
   "blocks.approval.status.voided": "已作废。参数已更改。",
@@ -347,6 +348,7 @@ export const zh: Partial<Catalogue> = {
   "blocks.question.answered": "已回答的问题",
   "blocks.question.cancelled": "已取消的问题",
   "blocks.question.noLongerNeeded": "不再需要。",
+  "blocks.question.answeredInChat": "已在聊天中回答",
   "blocks.question.heading": "{persona} 需要你回答 {count, plural, other {# 个问题}}才能继续",
   "blocks.question.skip": "暂时跳过",
   "blocks.question.answer": "回答",

@@ -234,4 +234,28 @@ describe("answered approval receipts", () => {
     expect(within(log).queryByTestId("approval-result")).toBeNull();
     expect(within(log).queryByRole("button", { name: /details/i })).toBeNull();
   });
+
+  it("words a card closed by a chat reply (declined / answered in chat)", async () => {
+    thread((w) =>
+      approvalWorld(w, "ap_chat", {
+        summary: "Run npm test",
+        status: "denied",
+        scopeGranted: null,
+        invalidatedReason: "owner_replied_in_chat",
+      }),
+    );
+    const log = await screen.findByRole("log", { name: "Conversation" });
+    const row = await within(log).findByTestId("approval-result");
+    expect(row.textContent).toContain("Declined — you replied in chat: Run npm test");
+  });
+
+  it("shows a question answered by a typed message as answered in chat", async () => {
+    thread((w) => {
+      only(w, msg("m_q", 1, "agent", [text("Which calendar?"), question("inp_a")]));
+      w.inputRequests.push(request("inp_a", { answer: null }));
+    });
+    const log = await screen.findByRole("log", { name: "Conversation" });
+    const line = await within(log).findByTestId("question-answered-in-chat");
+    expect(line.textContent).toBe("Answered in chat");
+  });
 });

@@ -164,6 +164,7 @@ export const blocks = {
   "blocks.approval.status.approved":
     "Approved{hasWhere, select, true { on {where}} other {}}{hasScope, select, true { · {scope}} other {}}{hasWhen, select, true { · {when}} other {}}",
   "blocks.approval.status.denied": "Denied{hasWhen, select, true { · {when}} other {}}",
+  "blocks.approval.status.declinedInChat": "Declined — you replied in chat",
   "blocks.approval.status.expired": "Expired. Nothing was done.",
   "blocks.approval.status.voidedBecause": "Voided: {reason}",
   "blocks.approval.status.voided": "Voided. The arguments changed.",
@@ -208,6 +209,7 @@ export const blocks = {
   "blocks.question.answered": "Answered questions",
   "blocks.question.cancelled": "Cancelled questions",
   "blocks.question.noLongerNeeded": "No longer needed.",
+  "blocks.question.answeredInChat": "Answered in chat",
   "blocks.question.heading":
     "{persona} needs {count, plural, =1 {an answer} =2 {two answers} =3 {three answers} =4 {four answers} other {# answers}} before continuing",
   "blocks.question.skip": "Skip for now",

@@ -112,7 +112,13 @@ import {
   pluginText,
   withDeadline,
 } from "./plugins.ts";
-import { type QuestionAnswer, validateAnswer } from "./questions.ts";
+import {
+  type ChatReply,
+  declinedInChatNote,
+  OWNER_REPLIED_IN_CHAT,
+  type QuestionAnswer,
+  validateAnswer,
+} from "./questions.ts";
 import { ReasoningSteps } from "./reasoning.ts";
 import { type AgentToolRegistration, AgentToolRegistry, parseMcpToolName } from "./registry.ts";
 import {
@@ -357,7 +363,7 @@ interface ChildSpec {
 
 interface PendingQuestion {
   request: InputRequest;
-  resolve: (answer: QuestionAnswer) => void;
+  resolve: (answer: QuestionAnswer | ChatReply) => void;
   reject: (err: unknown) => void;
 }
 
@@ -395,6 +401,12 @@ interface RunState {
   messageId: string;
   parked?: InputRequest;
   questions: Map<string, PendingQuestion>;
+  /** Cards and questions the turn is parked on right now (a reply in the chat ends them). */
+  waits: number;
+  /** The owner's last typed reply that ended a wait (`supersedeWaits`). */
+  chatReply?: string;
+  /** A reply in the chat ended a wait this step: the calls still to run are skipped. */
+  replied: boolean;
   active: Map<string, AgentToolRegistration>;
   hidden: Map<string, string>;
   /** Tools this run may load on demand (loaded ones included), from the last assembly. */
@@ -489,6 +501,9 @@ function runStatusOf(outcome: RunOutcome): RunStatus {
       return "failed";
   }
 }
+
+/** What `#await` returns for a card the owner closed by replying in the chat. */
+const DENIED_IN_CHAT = "denied_in_chat";
 
 class RunEnd extends Error {
   readonly outcome: RunOutcome;
@@ -635,6 +650,43 @@ export class PsycheAgentLoop implements AgentLoop {
     throw new PsycheError("not_found", `no open question ${inputRequestId}`);
   }
 
+  /** Whether the run's turn is parked on a card or question the owner has not answered. */
+  isWaiting(runId: string): boolean {
+    const run = this.#runs.get(runId);
+    return run !== undefined && run.waits > 0;
+  }
+
+  /**
+   * The owner typed a message instead of answering the open cards. Questions take the text as
+   * their answer; approvals and permission cards are denied (typed text never approves) and the
+   * tool result carries the text as the owner's new instruction. Returns what it closed.
+   */
+  async supersedeWaits(
+    runId: string,
+    text: string,
+  ): Promise<{ questions: InputRequest[]; approvals: ApprovalRequest[] }> {
+    const none = { questions: [], approvals: [] };
+    const run = this.#runs.get(runId);
+    if (run === undefined) return none;
+    run.chatReply = text;
+    run.replied = true;
+    run.ownerText += `\n${text}`;
+    const questions: InputRequest[] = [];
+    for (const [id, pending] of [...run.questions]) {
+      run.questions.delete(id);
+      questions.push({
+        ...pending.request,
+        status: "answered",
+        answer: null,
+        answeredAt: toIso(this.#clock.now()),
+      });
+      pending.resolve({ answeredInChat: true, text });
+    }
+    const approvals =
+      (await this.#o.broker.denyPendingForRun?.(runId, OWNER_REPLIED_IN_CHAT)) ?? [];
+    return { questions, approvals };
+  }
+
   /** Open attended questions (for a reconnecting client). */
   openQuestions(threadId?: string): InputRequest[] {
     return [...this.#runs.values()]
@@ -706,6 +758,8 @@ export class PsycheAgentLoop implements AgentLoop {
       thread: emptyThreadState(),
       messageId: this.#ids.next("msg"),
       questions: new Map(),
+      waits: 0,
+      replied: false,
       active: new Map(),
       hidden: new Map(),
       emit,
@@ -1220,6 +1274,7 @@ export class PsycheAgentLoop implements AgentLoop {
   }
 
   #drainSteer(run: RunState): boolean {
+    run.replied = false;
     if (run.steer.length === 0) return false;
     for (const text of run.steer.splice(0)) {
       run.ownerText += `\n${text}`;
@@ -1918,6 +1973,8 @@ export class PsycheAgentLoop implements AgentLoop {
     if (run.abort.signal.aborted) return "cancelled";
     if (run.parked !== undefined) return "not run: waiting for the owner's answer";
     if (run.steer.length > 0) return "skipped: the owner sent new guidance";
+    if (run.replied)
+      return "skipped: the owner replied in chat; their message is the new instruction";
     return undefined;
   }
 
@@ -2078,7 +2135,11 @@ export class PsycheAgentLoop implements AgentLoop {
       }
       const approval = await this.#await(run, r.approvalId, call);
       if (approval !== "approved")
-        return this.#finishBlocked(run, gated, `blocked: hook approval ${approval}`);
+        return this.#finishBlocked(
+          run,
+          gated,
+          this.#declined(run, approval, `blocked: hook approval ${approval}`),
+        );
     }
 
     for (const plugin of this.plugins.with("before_tool_call", "beforeToolCall")) {
@@ -2319,7 +2380,12 @@ export class PsycheAgentLoop implements AgentLoop {
         return { done: part };
       }
       const answer = await this.#await(run, approvalId, call);
-      if (answer !== "approved") return this.#finishBlocked(run, gated, `not approved (${answer})`);
+      if (answer !== "approved")
+        return this.#finishBlocked(
+          run,
+          gated,
+          this.#declined(run, answer, `not approved (${answer})`),
+        );
       // Recompute from the call's arguments as they are now (security §3.5): a change while the
       // card was open reaches the broker as a different hash, which denies and audits it.
       const changed = this.#changedBinding(gated, approvalKind);
@@ -2435,6 +2501,16 @@ export class PsycheAgentLoop implements AgentLoop {
     return !ownerTargets(run.ownerText).has(value);
   }
 
+  /**
+   * Why a card was not approved, for the model. A card the owner closed by replying in the chat
+   * says so and carries the typed text as their new instruction.
+   */
+  #declined(run: RunState, status: string, fallback: string): string {
+    return status === DENIED_IN_CHAT && run.chatReply !== undefined && run.chatReply !== ""
+      ? declinedInChatNote(run.chatReply)
+      : fallback;
+  }
+
   /** Park the run on an approval (attended). Returns the final status. */
   async #await(
     run: RunState,
@@ -2443,13 +2519,19 @@ export class PsycheAgentLoop implements AgentLoop {
   ): Promise<string> {
     run.emit({ type: "run.status", runId: run.runId, status: "awaiting_approval" });
     this.#toolEvent(run, call.id, call.name, "pending", "Waiting for approval");
+    run.waits += 1;
     try {
       const a = await this.#o.broker.awaitDecision(approvalId, run.abort.signal);
+      // Closed by a reply in the chat: a denial that carries the typed text (never an approval).
+      if (a.status === "denied" && a.invalidatedReason === OWNER_REPLIED_IN_CHAT) {
+        return DENIED_IN_CHAT;
+      }
       return a.status;
     } catch (err) {
       this.#checkAbort(run);
       throw err;
     } finally {
+      run.waits -= 1;
       if (!run.abort.signal.aborted)
         run.emit({ type: "run.status", runId: run.runId, status: "running" });
     }
@@ -2968,7 +3050,7 @@ export class PsycheAgentLoop implements AgentLoop {
   async #ask(
     run: RunState,
     questions: Question[],
-  ): Promise<{ answer: QuestionAnswer } | { parked: InputRequest }> {
+  ): Promise<{ answer: QuestionAnswer } | { parked: InputRequest } | ChatReply> {
     if (run.mode === "unattended" || run.subagent !== undefined) {
       throw new PsycheError("forbidden", "ask_user is not available in this run");
     }
@@ -2991,14 +3073,21 @@ export class PsycheAgentLoop implements AgentLoop {
       answeredAt: null,
       answeredByDeviceId: null,
     };
-    const wait = deferred<QuestionAnswer>();
+    const wait = deferred<QuestionAnswer | ChatReply>();
     run.questions.set(request.id, { request, resolve: wait.resolve, reject: wait.reject });
     run.emit({ type: "question", runId: run.runId, inputRequest: structuredClone(request) });
     this.#block(run, { type: "question", inputRequestId: request.id });
     run.emit({ type: "run.status", runId: run.runId, status: "awaiting_input" });
-    const answer = await wait.promise;
+    run.waits += 1;
+    let answer: QuestionAnswer | ChatReply;
+    try {
+      answer = await wait.promise;
+    } finally {
+      run.waits -= 1;
+    }
     run.emit({ type: "run.status", runId: run.runId, status: "running" });
-    return { answer };
+    if ("answeredInChat" in answer && answer.answeredInChat === true) return answer as ChatReply;
+    return { answer: answer as QuestionAnswer };
   }
 
   /**
@@ -3249,7 +3338,11 @@ export class PsycheAgentLoop implements AgentLoop {
     const job = run.specialistJob;
     if (status !== "approved") {
       if (job !== undefined) await this.#planDenied(run, job, plan, status);
-      return { planId, approved: false, reason: status };
+      return {
+        planId,
+        approved: false,
+        reason: this.#declined(run, status, status),
+      };
     }
     const verified = await this.#o.broker.verifyBinding(issued.approval.id, binding);
     if (!verified.ok) {

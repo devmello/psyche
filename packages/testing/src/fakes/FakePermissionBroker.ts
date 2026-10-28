@@ -697,6 +697,24 @@ export class FakePermissionBroker implements PermissionBroker {
     }
   }
 
+  async denyPendingForRun(
+    runId: string,
+    reason = "owner_replied_in_chat",
+  ): Promise<ApprovalRequest[]> {
+    const closed: ApprovalRequest[] = [];
+    for (const entry of this.#approvals.values()) {
+      const a = entry.approval;
+      if (a.requestedBy.runId !== runId || a.status !== "pending") continue;
+      a.status = "denied";
+      a.invalidatedReason = reason;
+      a.decidedAt = toIso(this.clock.now());
+      entry.cancelTimer?.();
+      this.#notify(a);
+      closed.push(structuredClone(a));
+    }
+    return closed;
+  }
+
   async listGrants(filter: GrantFilter = {}): Promise<Grant[]> {
     return [...this.#grants.values()]
       .map((e) => e.grant)

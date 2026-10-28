@@ -11,6 +11,9 @@ type Step = ScriptedAgentEvent | { type: "wait"; gate: string } | { type: "do"; 
 export class GatedAgentLoop implements AgentLoop {
   readonly turns: StartTurnInput[] = [];
   readonly steers: { runId: string; text: string }[] = [];
+  /** Runs parked on a card or question, and the chat replies that ended the wait. */
+  readonly waiting = new Set<string>();
+  readonly superseded: { runId: string; text: string }[] = [];
   readonly cancels: string[] = [];
   readonly #scripts: Step[][] = [];
   readonly #gates = new Map<string, { open: boolean; waiters: (() => void)[] }>();
@@ -80,6 +83,16 @@ export class GatedAgentLoop implements AgentLoop {
 
   async steer(runId: string, text: string): Promise<void> {
     this.steers.push({ runId, text });
+  }
+
+  isWaiting(runId: string): boolean {
+    return this.waiting.has(runId);
+  }
+
+  async supersedeWaits(runId: string, text: string) {
+    this.waiting.delete(runId);
+    this.superseded.push({ runId, text });
+    return { questions: [], approvals: [] };
   }
 
   async followUp(): Promise<void> {}

@@ -257,6 +257,9 @@ export class SessionController {
       return { messageId, runId: run.id, queued: false };
     }
     const mode = input.mode ?? "followUp";
+    if (mode !== "interrupt" && this.#repliesToWait(input, active)) {
+      return this.#replyInChat(thread, active, input, attachments, quote, hooks);
+    }
     if (mode === "followUp") {
       const item = enqueueMessage(db, {
         threadId: thread.id,
@@ -319,6 +322,57 @@ export class SessionController {
     );
     this.#noteTaint(run.id, input.taintSources);
     return { messageId, runId: run.id, queued: false };
+  }
+
+  /**
+   * Whether this message answers the card the turn is parked on: the owner's own words (never a
+   * channel stranger's or another agent's) while the run waits on a question or an approval.
+   */
+  #repliesToWait(input: SendInput, runId: string): boolean {
+    if (messageProvenance(input.requester) !== "owner") return false;
+    if (input.provenance !== undefined && input.provenance !== "owner") return false;
+    return this.#ctx.agent.isWaiting?.(runId) === true;
+  }
+
+  /**
+   * The owner typed a message instead of clicking the card (feature: typed text wins). It is
+   * recorded under the active run; questions take it as their answer, approvals are denied with
+   * "owner replied in chat" and the model gets the text as the owner's new instruction. The text
+   * never approves anything.
+   */
+  #replyInChat(
+    thread: NonNullable<ReturnType<typeof getThread>>,
+    active: string,
+    input: SendInput,
+    attachments: readonly string[],
+    quote: Quote | undefined,
+    hooks: TxHooks,
+  ): SendResult {
+    const { db } = this.#ctx;
+    const message = appendMessage(
+      db,
+      {
+        threadId: thread.id,
+        role: "user",
+        blocks: userBlocks(input.content, attachments),
+        provenance: "owner",
+        replyToMessageId: quote?.messageId ?? null,
+        runId: active,
+      },
+      { expectedWriterRunId: active },
+    );
+    this.#bump();
+    hooks.emit("chat.message", { message }, thread.id);
+    hooks.afterCommit(() => {
+      Promise.resolve(this.#ctx.agent.supersedeWaits?.(active, withQuote(quote, input.content)))
+        .then((closed) => {
+          for (const inputRequest of closed?.questions ?? []) {
+            this.#ctx.bus.publish("question.updated", { inputRequest }, thread.id);
+          }
+        })
+        .catch((err) => this.#warn("reply to waiting card failed", err));
+    });
+    return { messageId: message.id, runId: active, queued: true };
   }
 
   /** Taint the input itself carries, picked up when the run's turn starts. */
