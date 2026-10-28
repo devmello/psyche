@@ -305,3 +305,18 @@ export const Queue: Story = {
 };
 
 export const OfflineBannerOnly: Story = { render: () => <OfflineBanner state="offline" /> };
+
+/** The column follows the chat container, not the window: narrow, medium and very wide. */
+function widthStory(width: number): Story {
+  return {
+    decorators: [withWorld()],
+    render: () => (
+      <div className="h-[800px] overflow-hidden" style={{ width }}>
+        <ChatThread threadId={IDS.threads.main} now={STORY_NOW} />
+      </div>
+    ),
+  };
+}
+export const Width600: Story = widthStory(600);
+export const Width960: Story = widthStory(960);
+export const Width1600: Story = widthStory(1600);

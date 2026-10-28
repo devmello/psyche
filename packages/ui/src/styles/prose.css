@@ -237,3 +237,19 @@
   height: auto;
   border-radius: 8px;
 }
+
+/*
+  Chat surface (Thread viewport + composer dock): the column grows with the chat container, not
+  the window, so a docked side pane narrows it. Prose keeps a readable measure; code, tables and
+  images use the whole column. `cqw` resolves against the Thread root (@container/chat).
+*/
+.chat-surface {
+  --chat-wide: 1040px;
+  --prose-width: clamp(72ch, 62cqw, 90ch);
+}
+.chat-surface .psy-prose.prose-width {
+  max-width: 100%;
+}
+.chat-surface .psy-prose > :is(p, ul, ol, blockquote, h1, h2, h3, h4, h5, h6, hr) {
+  max-width: var(--prose-width);
+}
