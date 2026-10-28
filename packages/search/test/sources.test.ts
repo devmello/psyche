@@ -413,7 +413,7 @@ describe("controls", () => {
     const h = harness(["notes"]);
     expect(h.indexer.cardBlocked()).toEqual([]);
     h.config().sources.notes.processing = "none";
-    expect(h.indexer.cardBlocked()).toEqual(["local:notes"]);
+    expect(h.indexer.cardBlocked()).toEqual(["connector:notes"]);
   });
 
   it("dedupes identical long text across sources, keeping the owner's copy", async () => {

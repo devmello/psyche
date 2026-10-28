@@ -129,7 +129,7 @@ Mail, Messages, Notes, Calendar, Reminders and files in granted folders are inde
 - **Provenance:** other people's mail and any conversation-day with an inbound message are `untrusted`; the owner's sent mail and outbound-only days are `owner`; notes, events and reminders are `owner` only when the #1006 trusted-sources check says so (else `untrusted`); files under `Downloads` are `untrusted`, other granted-folder files `owner`.
 - **Exclusions:** contacts (address, phone digits or name), chats, mail accounts and folders, stored with the source config in the `search.sources` setting; adding one purges what it matches at once. The everything-memory plan extends this list.
 - **Battery:** low-power mode pauses everything; on battery only filled sources take one page per tick (no backfill, no sweep).
-- **Kinds:** all of them are `connector` docs (`source: local:<id>`), files included (the roadmap said `library`; the Library reconcile and a full rebuild sweep that kind). Context cards reach them through the existing `CardQueue` scan.
+- **Kinds:** all of them are `connector` docs (`source: connector:<key>` with keys mail, imessage, notes, calendar, reminders, files, matching the `source:` filter), files included (the roadmap said `library`; the Library reconcile and a full rebuild sweep that kind). Context cards reach them through the existing `CardQueue` scan.
 - **Not done:** OCR (the mac-helper has no Vision capability; `ocr` is a hook on the files source, scans and images are indexed by name); Mail attachments as child docs; per-source people-graph resolution (§3.2).
 
 ## 3. Ingest quality

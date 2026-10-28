@@ -69,7 +69,8 @@ interface Row {
 }
 
 /** Document source tag in `search_docs.source` (bulk removal, per-source counts). */
-export const sourceTag = (id: SourceId): string => `local:${id}`;
+export const sourceTag = (id: SourceId): string =>
+  `connector:${id === "messages" ? "imessage" : id}`;
 
 /**
  * Keeps the opted-in local sources (Mail, Messages, Notes, Calendar, Reminders, granted folders)
@@ -364,9 +365,9 @@ export class SourceIndexer {
         db
           .prepare(
             `SELECT source, count(*) AS n, sum(length(title) + length(body) + length(extra)) AS bytes
-             FROM search_docs WHERE source LIKE 'local:%' GROUP BY source`,
+             FROM search_docs WHERE source IN (${SOURCE_IDS.map(() => "?").join(", ")}) GROUP BY source`,
           )
-          .all() as { source: string; n: number; bytes: number }[]
+          .all(...SOURCE_IDS.map(sourceTag)) as { source: string; n: number; bytes: number }[]
       ).map((r) => [r.source, { n: r.n, bytes: r.bytes ?? 0 }]),
     );
     const sources: SourceStatus[] = SOURCE_IDS.map((id) => {
