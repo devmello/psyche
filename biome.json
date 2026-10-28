@@ -18,6 +18,7 @@
       "!docs/archive",
       "!pnpm-lock.yaml",
       "!tests/corpus/review-cases",
+      "!tests/fixtures/everything-memory/redteam",
       "!**/dist-bin"
     ],
     "experimentalScannerIgnores": [".build", "dist", "dist-bin", "node_modules", "out"]
