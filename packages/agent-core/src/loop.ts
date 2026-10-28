@@ -54,6 +54,7 @@ import {
   type ToolUpdate,
   type Usage,
 } from "@psyche/protocol";
+import { appNavigateTool } from "./builtins/app.ts";
 import {
   automationStateGetTool,
   automationStateSetTool,
@@ -547,7 +548,7 @@ export class PsycheAgentLoop implements AgentLoop {
   #registerBuiltins(): void {
     const o = this.#o;
     const tz = o.timeZone ?? "UTC";
-    const tools: AgentToolRegistration[] = [...turnTools()];
+    const tools: AgentToolRegistration[] = [...turnTools(), appNavigateTool];
     if (o.memory !== undefined)
       tools.push(memoryTool(o.memory, { clock: this.#clock, timeZone: tz }));
     if (o.tasks !== undefined) tools.push(taskStartTool(o.tasks));

@@ -3297,6 +3297,23 @@
       ],
       "type": "object"
     },
+    "AppLinkBlock": {
+      "properties": {
+        "type": {
+          "const": "app_link",
+          "type": "string"
+        },
+        "route": {
+          "maxLength": 80,
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "route"
+      ],
+      "type": "object"
+    },
     "AppleAlarm": {
       "anyOf": [
         {
@@ -9936,6 +9953,9 @@
         },
         {
           "$ref": "#/$defs/AutomationWorkflowBlock"
+        },
+        {
+          "$ref": "#/$defs/AppLinkBlock"
         }
       ]
     },

@@ -1,3 +1,4 @@
+export * from "./app-routes.ts";
 export * from "./bridge.ts";
 export * from "./common.ts";
 export * from "./contracts/index.ts";
