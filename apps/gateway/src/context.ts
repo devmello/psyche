@@ -29,6 +29,8 @@ import type { SessionController } from "./session/controller.ts";
  */
 export interface ThreadModelPolicy {
   allowsAutoMode(ref: ModelRef): boolean;
+  /** The model a thread without a pin runs on (the router's primary role), when known. */
+  defaultModel?(): ModelRef | undefined;
   /** Absent when the provider is not the model router: the pin is then only recorded. */
   setThreadModel?(threadId: string, ref: ModelRef | undefined): Promise<void>;
 }

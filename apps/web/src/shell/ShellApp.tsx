@@ -35,6 +35,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { autoModeBlockedBy, type ListedAutoModels } from "./auto-mode.ts";
 import { ChatView, PERMISSION_MODES, QuickEntry } from "./components/Chat.tsx";
 import {
   GatewayPill,
@@ -608,23 +609,40 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   const setPermissionMode = useCallback(
     (permissionMode: Thread["permissionMode"]) => {
       if (!thread) return;
-      void store
-        .call("threads.update", { threadId: thread.id, permissionMode })
-        .then((r) => {
-          if (r === undefined) store.toast(t("web.toast.permissionModeUnsupported"), "warn");
-          else void store.refresh();
-        })
-        .catch(() => store.toast(t("web.toast.permissionModeUnsupported"), "warn"));
+      void store.updateThread(
+        thread.id,
+        { permissionMode },
+        t("web.toast.permissionModeUnsupported"),
+      );
     },
     [thread, store],
   );
 
+  // Which model blocks Auto for this thread, from `models.list` (fetched once, then cached).
+  const [listedModels, setListedModels] = useState<ListedAutoModels | undefined>(undefined);
+  useEffect(() => {
+    if (!thread || listedModels !== undefined) return;
+    let live = true;
+    void store
+      .call<ListedAutoModels>("models.list", {})
+      .then((r) => live && r !== undefined && setListedModels(r))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [thread, listedModels, store]);
+  const autoBlockedBy = thread ? autoModeBlockedBy(listedModels, thread.modelRef) : null;
+
   const cycleMode = useCallback(() => {
     if (!thread) return;
     const i = PERMISSION_MODES.indexOf(thread.permissionMode);
-    const next = PERMISSION_MODES[(i + 1) % PERMISSION_MODES.length];
+    let next = PERMISSION_MODES[(i + 1) % PERMISSION_MODES.length];
+    // Auto is skipped while the thread's model is known not to allow it (the pill says why).
+    if (next === "auto" && autoBlockedBy !== null) {
+      next = PERMISSION_MODES[(i + 2) % PERMISSION_MODES.length];
+    }
     if (next) setPermissionMode(next);
-  }, [thread, setPermissionMode]);
+  }, [thread, setPermissionMode, autoBlockedBy]);
 
   useEffect(
     () =>
@@ -946,6 +964,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       <ChatView
         thread={thread}
         onModeCycle={cycleMode}
+        autoBlockedBy={autoBlockedBy}
         onModelPicker={() => setOverlay("model")}
         focusToken={focusToken}
       />
@@ -1118,13 +1137,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
                 }}
                 onPick={(modelRef) => {
                   if (!thread) return;
-                  void store
-                    .call("threads.update", { threadId: thread.id, modelRef })
-                    .then(
-                      (r) =>
-                        r === undefined && store.toast(t("web.toast.modelUnsupported"), "warn"),
-                    )
-                    .catch(() => store.toast(t("web.toast.modelUnsupported"), "warn"));
+                  void store.updateThread(thread.id, { modelRef }, t("web.toast.modelUnsupported"));
                 }}
               />
             ) : null}

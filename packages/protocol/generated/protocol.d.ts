@@ -5930,6 +5930,7 @@ export interface ModelProviderSummary {
 }
 
 export interface ProviderModelEntry {
+    autoMode?:     boolean;
     capabilities?: ModelCapabilityGuess;
     ref:           string;
     toolCheck:     ToolCheckStatus;

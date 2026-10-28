@@ -473,6 +473,8 @@ export function Composer(props: {
 export function ChatView(props: {
   thread: Thread | null;
   onModeCycle: () => void;
+  /** The model that keeps this thread out of Auto, when known (the mode pill says so). */
+  autoBlockedBy?: string | null;
   onModelPicker: () => void;
   focusToken: number;
 }): ReactElement {
@@ -509,7 +511,11 @@ export function ChatView(props: {
           type="button"
           className="pill"
           onClick={props.onModeCycle}
-          title={t("web.chat.permissionModeTitle")}
+          title={
+            props.autoBlockedBy
+              ? `${t("web.chat.permissionModeTitle")} — ${t("web.chat.autoUnavailable", { model: props.autoBlockedBy })}`
+              : t("web.chat.permissionModeTitle")
+          }
           data-testid="mode-pill"
         >
           {t("web.chat.permissionMode", { mode: props.thread?.permissionMode ?? "balanced" })}

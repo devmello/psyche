@@ -25916,6 +25916,9 @@
         },
         "toolCheck": {
           "$ref": "#/$defs/ToolCheckStatus"
+        },
+        "autoMode": {
+          "type": "boolean"
         }
       },
       "required": [

@@ -97,6 +97,8 @@ export const ProviderModelEntry = Type.Object(
     ref: ModelRef,
     capabilities: Type.Optional(ModelCapabilityGuess),
     toolCheck: ToolCheckStatus,
+    /** The model is on the auto-mode allowlist, so a thread on it may run in `auto`. */
+    autoMode: Type.Optional(Type.Boolean()),
   },
   { $id: "ProviderModelEntry" },
 );

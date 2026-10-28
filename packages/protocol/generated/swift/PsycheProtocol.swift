@@ -17662,17 +17662,20 @@ public struct ModelProviderSummary: Codable, Sendable {
 
 // MARK: - ProviderModelEntry
 public struct ProviderModelEntry: Codable, Sendable {
+    public let autoMode: Bool?
     public let capabilities: ModelCapabilityGuess?
     public let ref: String
     public let toolCheck: ToolCheckStatus
 
     public enum CodingKeys: String, CodingKey {
+        case autoMode = "autoMode"
         case capabilities = "capabilities"
         case ref = "ref"
         case toolCheck = "toolCheck"
     }
 
-    public init(capabilities: ModelCapabilityGuess?, ref: String, toolCheck: ToolCheckStatus) {
+    public init(autoMode: Bool?, capabilities: ModelCapabilityGuess?, ref: String, toolCheck: ToolCheckStatus) {
+        self.autoMode = autoMode
         self.capabilities = capabilities
         self.ref = ref
         self.toolCheck = toolCheck

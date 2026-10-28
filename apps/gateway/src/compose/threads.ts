@@ -24,12 +24,17 @@ export type ModelPins = ThreadModelPolicy;
 
 interface RouterLike {
   allowsAutoMode(ref: ModelRef): boolean;
+  role(role: "primary"): { model: ModelRef } | undefined;
   setThreadModel(threadId: string, ref: ModelRef | undefined): Promise<void>;
 }
 
 function isRouterLike(p: unknown): p is RouterLike {
   const r = p as Partial<RouterLike> | null;
-  return typeof r?.allowsAutoMode === "function" && typeof r.setThreadModel === "function";
+  return (
+    typeof r?.allowsAutoMode === "function" &&
+    typeof r.setThreadModel === "function" &&
+    typeof r.role === "function"
+  );
 }
 
 /** The router's own checks when the provider is the router, else the default allowlist. */
@@ -37,6 +42,7 @@ export function modelPinsFor(provider: ModelProvider): ModelPins {
   if (isRouterLike(provider)) {
     return {
       allowsAutoMode: (ref) => provider.allowsAutoMode(ref),
+      defaultModel: () => provider.role("primary")?.model,
       setThreadModel: (threadId, ref) => provider.setThreadModel(threadId, ref),
     };
   }
@@ -59,13 +65,18 @@ export function threadSettingsHandlers(pins: ModelPins): Record<string, HandlerD
         }
         const modelRef: ModelRef | null =
           (params.modelRef === undefined ? thread.modelRef : params.modelRef) ?? null;
-        const autoAllowed = modelRef !== null && pins.allowsAutoMode(modelRef);
+        // A thread without a pin runs on the router's default chat model, so Auto is judged
+        // against that model rather than refused outright.
+        const effectiveRef = modelRef ?? pins.defaultModel?.() ?? null;
+        const autoAllowed = effectiveRef !== null && pins.allowsAutoMode(effectiveRef);
         if (params.permissionMode === "auto" && !autoAllowed) {
           throw new PsycheError(
             "forbidden",
-            modelRef === null
+            effectiveRef === null
               ? "Auto mode needs a model on the auto-mode allowlist. Pick one with /model first."
-              : `${modelRef} is not on the auto-mode allowlist; it can run this thread in manual or balanced mode.`,
+              : modelRef === null
+                ? `${effectiveRef} is this thread's default model and is not on the auto-mode allowlist; pick an allowlisted one with /model, or use manual or balanced mode.`
+                : `${effectiveRef} is not on the auto-mode allowlist; it can run this thread in manual or balanced mode.`,
           );
         }
         let permissionMode = params.permissionMode ?? thread.permissionMode;
