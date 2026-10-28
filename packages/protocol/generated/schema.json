@@ -742,6 +742,22 @@
         "sideEffecting": false
       },
       {
+        "description": "Search the capability catalogue: installed tools and connectors, gallery presets, bundled skills, Psyche-made connectors, and the official MCP registry when the owner allows online search. Ranked by fit, installed first. Registry names and summaries are third-party data.",
+        "name": "capabilities.search",
+        "params": "#/$defs/CapabilitiesSearchParams",
+        "result": "#/$defs/CapabilitiesSearchResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting: sets whether an installed tool or connector is always sent to the model or loaded on demand (setting tools.loading); default removes the override.",
+        "name": "capabilities.setLoading",
+        "params": "#/$defs/CapabilitiesSetLoadingParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Adds or removes sender / group ids on one of a channel's allowlists. Side-effecting.",
         "name": "channels.allowlist.update",
         "params": "#/$defs/ChannelsAllowlistUpdateParams",
@@ -10071,6 +10087,71 @@
       ],
       "type": "object"
     },
+    "CapabilitiesSearchParams": {
+      "properties": {
+        "query": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "tool",
+            "connector",
+            "skill"
+          ],
+          "type": "string"
+        },
+        "installable": {
+          "type": "boolean"
+        },
+        "limit": {
+          "maximum": 200,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "CapabilitiesSearchResult": {
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/CatalogEntry"
+          },
+          "type": "array"
+        },
+        "online": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "entries",
+        "online"
+      ],
+      "type": "object"
+    },
+    "CapabilitiesSetLoadingParams": {
+      "properties": {
+        "name": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string"
+        },
+        "loading": {
+          "enum": [
+            "always",
+            "on_demand",
+            "default"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "loading"
+      ],
+      "type": "object"
+    },
     "CapabilityManifest": {
       "properties": {
         "nodeId": {
@@ -10098,6 +10179,155 @@
         "platform",
         "version",
         "capabilities"
+      ],
+      "type": "object"
+    },
+    "CatalogEntry": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "tool",
+            "connector",
+            "skill"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "comesFrom": {
+          "enum": [
+            "builtin",
+            "installed",
+            "preset",
+            "registry",
+            "psyche",
+            "bundled"
+          ],
+          "type": "string"
+        },
+        "trust": {
+          "enum": [
+            "bundled",
+            "verified",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "loaded",
+            "on_demand",
+            "installed",
+            "off",
+            "installable"
+          ],
+          "type": "string"
+        },
+        "needs": {
+          "$ref": "#/$defs/CatalogNeeds"
+        },
+        "installCost": {
+          "enum": [
+            "none",
+            "download",
+            "remote",
+            "enable"
+          ],
+          "type": "string"
+        },
+        "tools": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "install": {
+          "$ref": "#/$defs/CatalogInstall"
+        },
+        "loading": {
+          "enum": [
+            "always",
+            "on_demand"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "summary",
+        "comesFrom",
+        "trust",
+        "status",
+        "needs",
+        "installCost"
+      ],
+      "type": "object"
+    },
+    "CatalogInstall": {
+      "properties": {
+        "command": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "url": {
+          "type": "string"
+        },
+        "docsUrl": {
+          "type": "string"
+        },
+        "preset": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "CatalogNeeds": {
+      "properties": {
+        "signIn": {
+          "enum": [
+            "none",
+            "key",
+            "oauth"
+          ],
+          "type": "string"
+        },
+        "inputs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "runsIn": {
+          "enum": [
+            "builtin",
+            "srt",
+            "remote"
+          ],
+          "type": "string"
+        },
+        "network": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "signIn",
+        "inputs",
+        "runsIn",
+        "network"
       ],
       "type": "object"
     },
