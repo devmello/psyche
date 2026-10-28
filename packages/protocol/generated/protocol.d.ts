@@ -914,14 +914,16 @@ export interface AppleTabTextParams {
 }
 
 export interface ApprovalAnswer {
-    answerToken:  string;
-    approvalId:   string;
-    decision:     DecisionEnum;
-    folderPath?:  string;
-    presence?:    PresenceAssertion;
-    scope?:       GrantScope;
-    unsandboxed?: Unsandboxed;
-    via?:         InputVia;
+    answerToken:      string;
+    approvalId:       string;
+    decision:         DecisionEnum;
+    editedText?:      string;
+    folderPath?:      string;
+    presence?:        PresenceAssertion;
+    recipientChoice?: string;
+    scope?:           GrantScope;
+    unsandboxed?:     Unsandboxed;
+    via?:             InputVia;
 }
 
 export type DecisionEnum = "approve" | "deny";

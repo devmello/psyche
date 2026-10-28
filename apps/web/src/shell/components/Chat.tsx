@@ -92,6 +92,35 @@ function useCountdown(expiresAt: string): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
+interface DockCompose {
+  text: string;
+  recipientSource: string;
+  candidates: {
+    id: string;
+    label: string;
+    service: string;
+    weak: boolean;
+    participants: string[];
+  }[];
+}
+
+/** The `messages_send` compose details (display-sanitized: line breaks arrive as ⏎). */
+function composeOf(approval: ApprovalRequest): DockCompose | null {
+  const c = (approval.details as { compose?: Record<string, unknown> }).compose;
+  if (!c || !Array.isArray(c.candidates) || typeof c.text !== "string") return null;
+  return {
+    text: c.text.replaceAll("⏎", "\n"),
+    recipientSource: String(c.recipientSource ?? "owner"),
+    candidates: (c.candidates as Record<string, unknown>[]).map((x) => ({
+      id: String(x.id),
+      label: String(x.label),
+      service: String(x.service),
+      weak: x.weak === true,
+      participants: Array.isArray(x.participants) ? x.participants.map(String) : [],
+    })),
+  };
+}
+
 /**
  * Approval dock above the composer (docs/06 §3.3): host-rendered, Deny left / Allow right,
  * Deny preselected, buttons disabled for 400 ms, ⌘Return approves and ⌘D denies (handled in
@@ -105,6 +134,12 @@ export function ApprovalDock({ approval }: { approval: ApprovalRequest }): React
   const isFolder = approval.kind === "folder_access";
   const [folder, setFolder] = useState("");
   const pickFolder = platform.dialogs?.pickFolder;
+  // message_send compose card (`messages_send`): the owner picks the recipient and edits the text.
+  const compose = composeOf(approval);
+  const [recipient, setRecipient] = useState(
+    compose?.candidates.length === 1 ? (compose.candidates[0]?.id ?? "") : "",
+  );
+  const [messageText, setMessageText] = useState(compose?.text ?? "");
   const countdown = useCountdown(approval.expiresAt);
   // biome-ignore lint/correctness/useExhaustiveDependencies: re-arm the 400 ms delay per approval
   useEffect(() => {
@@ -118,7 +153,11 @@ export function ApprovalDock({ approval }: { approval: ApprovalRequest }): React
         approval.id,
         decision,
         decision === "approve" ? scope : undefined,
-        isFolder && folder !== "" ? { folderPath: folder } : undefined,
+        compose !== null && decision === "approve"
+          ? { editedText: messageText, recipientChoice: recipient }
+          : isFolder && folder !== ""
+            ? { folderPath: folder }
+            : undefined,
       )
       .catch(() => store.toast(t("web.approval.answerFailed"), "error"));
   return (
@@ -190,6 +229,34 @@ export function ApprovalDock({ approval }: { approval: ApprovalRequest }): React
           )}
         </div>
       ) : null}
+      {compose !== null ? (
+        <div data-testid="message-compose">
+          {compose.recipientSource === "untrusted" ? (
+            <p role="alert">{t("web.approval.messageUntrusted")}</p>
+          ) : null}
+          {compose.candidates.map((c) => (
+            <label key={c.id} style={{ display: "block" }}>
+              <input
+                type="radio"
+                name={`to-${approval.id}`}
+                checked={recipient === c.id}
+                onChange={() => setRecipient(c.id)}
+              />{" "}
+              {c.label} · {c.service}
+              {c.weak ? ` · ${t("web.approval.messageWeak")}` : ""}
+              {c.participants.length > 0 ? ` (${c.participants.join(", ")})` : ""}
+            </label>
+          ))}
+          <textarea
+            aria-label={t("web.approval.messageText")}
+            value={messageText}
+            rows={4}
+            maxLength={20000}
+            onChange={(e) => setMessageText(e.target.value)}
+            style={{ width: "100%" }}
+          />
+        </div>
+      ) : null}
       <div style={{ fontSize: 12, color: "var(--shell-muted)" }}>
         {t("web.approval.binding", { hash: approval.bindingHash.slice(0, 15) })}
       </div>
@@ -199,7 +266,11 @@ export function ApprovalDock({ approval }: { approval: ApprovalRequest }): React
         </button>
         <button
           type="button"
-          disabled={!armed || (isFolder && folder === "")}
+          disabled={
+            !armed ||
+            (isFolder && folder === "") ||
+            (compose !== null && (recipient === "" || messageText.trim() === ""))
+          }
           onClick={() => answer("approve")}
           data-action="approve"
         >
