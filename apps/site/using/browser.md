@@ -81,3 +81,9 @@ Pages are untrusted content. Text on a page never becomes an instruction, and af
 - [Browser pane in the UI design](https://github.com/devmello/psyche/blob/main/docs/06-ui-design.md#35-browser-pane)
 - [Browser security in the security design](https://github.com/devmello/psyche/blob/main/docs/05-security-and-permissions.md#6-browser-security)
 - [Browser package](https://github.com/devmello/psyche/tree/main/packages/browser)
+
+## Staying signed in
+
+Tasks browse logged out by default, in a tab that is wiped when Psyche quits. When you sign in yourself inside one (for example after a task says "Needs you: sign in"), the pane asks **Stay signed in to this site?** Choose yes and Psyche keeps that site's cookies, and those of any single sign-on site you passed through, in its browser profile, and continues in the same tab. Only the sites you say yes to open signed in; everything else stays logged out. See and remove them under Settings → Browser → Signed-in sites (**Sign out / forget**). Site storage other than cookies is not carried over, so a few sites may ask you to sign in once more.
+
+When you type a password in the pane, Psyche can also ask **Save login to Psyche vault?** It shows the site, your username and a masked password; **Never for this site** stops the question for that site. The password goes from the app straight to the vault and never to the model; a task fills it later only through the usual approval.

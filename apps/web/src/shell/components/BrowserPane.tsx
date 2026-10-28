@@ -4,6 +4,7 @@ import { type ReactElement, useEffect, useLayoutEffect, useRef, useState } from 
 import { useShell, useShellState } from "../context.tsx";
 import type { BrowserHostState, BrowserPort, BrowserTabView } from "../platform.ts";
 import { openNewTab } from "./browser-new-tab.ts";
+import { SignInPrompt } from "./SignInPrompts.tsx";
 
 /**
  * Browser pane chrome (docs/06 §3.5; features I1, I5, I6, I11). The live page is a native
@@ -417,6 +418,17 @@ function DesktopBrowserPane(props: {
       ) : null}
       {sitePrompt ? <SitePrompt approval={sitePrompt} /> : null}
       {credPrompt ? <CredentialPrompt approval={credPrompt} onTypeMyself={takeOver} /> : null}
+      {tab && port.answerPrompt
+        ? (state.prompts ?? [])
+            .filter((p) => p.tabId === tab.tabId)
+            .map((p) => (
+              <SignInPrompt
+                key={p.id}
+                prompt={p}
+                onAnswer={(id, a) => port.answerPrompt?.(id, a) ?? Promise.resolve()}
+              />
+            ))
+        : null}
       <div style={{ flex: 1, position: "relative", minHeight: 120 }}>
         <div
           ref={viewport}

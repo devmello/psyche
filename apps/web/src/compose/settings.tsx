@@ -256,6 +256,15 @@ export function settingsRoute(
                 Promise.resolve(null),
             }
           : {})}
+        {...(platform.browser?.listSignedInSites && platform.browser.forgetSignedInSite
+          ? {
+              signedInSites: {
+                list: () => platform.browser?.listSignedInSites?.() ?? Promise.resolve([]),
+                forget: (origin: string) =>
+                  platform.browser?.forgetSignedInSite?.(origin) ?? Promise.resolve(),
+              },
+            }
+          : {})}
         {...(platform.browser?.openRealChromeProfile
           ? {
               onOpenRealChromeProfile: (profile: string) =>

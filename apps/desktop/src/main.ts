@@ -478,6 +478,18 @@ function registerIpc(): void {
     });
     return { path: dir };
   });
+  handle(IPC.browserPromptAnswer, (_e, arg) => {
+    const r = rec(IPC.browserPromptAnswer, arg);
+    const action = r.action === "accept" || r.action === "never" ? r.action : "dismiss";
+    return requireBrowser().answerPrompt(
+      str(IPC.browserPromptAnswer, r.promptId, "promptId", 64),
+      action,
+    );
+  });
+  handle(IPC.browserSignedInList, () => requireBrowser().signedInSites());
+  handle(IPC.browserSignedInForget, (_e, arg) =>
+    requireBrowser().forgetSignedInSite(checkHttpUrl(IPC.browserSignedInForget, arg)),
+  );
   handle(IPC.browserClearData, (_e, arg) =>
     requireBrowser().clearBrowsingData(arg === "clean" ? "clean" : "logged-in"),
   );
@@ -824,6 +836,9 @@ void app.whenReady().then(async () => {
           mainView.webContents.isDestroyed() ? 1 : mainView.webContents.getZoomFactor(),
         psycheHome: home,
         userData: app.getPath("userData"),
+        // Straight from this process to the Gateway's vault: the value never goes through the
+        // renderer, a log or the model.
+        vaultAdd: async (item) => void (await requireGateway().call("vault.add", item)),
         // Dev and test runs may shorten the idle time before a background tab is discarded.
         ...tabDiscardOverride(app.isPackaged, process.env),
       });
