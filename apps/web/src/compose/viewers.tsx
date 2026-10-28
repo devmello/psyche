@@ -170,6 +170,12 @@ export function renderMarkdownEditor(props: EditorSlotProps): ReactElement {
       {...(props.readOnly ? { readOnly: true } : {})}
       {...(props.marks ? { marks: props.marks } : {})}
       {...(props.onMarkActivate ? { onMarkActivate: props.onMarkActivate } : {})}
+      modesLabel={t("agent.memory.modes")}
+      modeLabels={{
+        rich: t("agent.memory.mode.rich"),
+        source: t("agent.memory.mode.source"),
+        diff: t("agent.memory.mode.diff"),
+      }}
     />
   );
 }

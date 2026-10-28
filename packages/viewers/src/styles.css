@@ -37,11 +37,31 @@
   display: inline-flex;
   border: 0;
   margin: 0;
-  padding: 0;
+  padding: 2px;
   gap: 2px;
+  border-radius: 8px;
+  background: var(--psy-segmented-track, rgba(127, 127, 127, 0.12));
+}
+.psy-segmented > button {
+  padding: 2px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--psy-text-muted, inherit);
+  font: inherit;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.psy-segmented > button:hover {
+  color: inherit;
+}
+.psy-segmented > button:focus-visible {
+  outline: 2px solid var(--psy-accent, #6d5efc);
+  outline-offset: 1px;
 }
 .psy-segmented > button[aria-pressed="true"] {
   font-weight: 600;
+  color: inherit;
   background: var(--psy-accent-subtle, rgba(127, 127, 127, 0.18));
 }
 
@@ -196,20 +216,37 @@
 .psy-md {
   display: flex;
   flex-direction: column;
+  /* Fills a bounded parent (a dialog body, a pane) and never grows past it: only the body below
+     scrolls, so the bar and the mode switch stay put. */
+  flex: 1 1 auto;
   height: 100%;
+  min-height: 0;
+  min-width: 0;
 }
 .psy-md__bar {
   display: flex;
+  flex: none;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
   border-bottom: 1px solid var(--psy-border, rgba(127, 127, 127, 0.25));
 }
+/* The scroll container in Rich, Source and Diff (CodeMirror grows to its content inside it). */
 .psy-md__editor,
 .psy-md__diff {
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
+}
+.psy-md__editor .cm-editor,
+.psy-md__diff .cm-editor {
+  min-height: 100%;
+}
+.psy-md__editor .cm-scroller,
+.psy-md__diff .cm-scroller {
+  overflow: visible;
 }
 /* Margin marks (teaching loop §5.2): a dot beside lines the owner's lessons wrote. */
 .psy-md-marks {

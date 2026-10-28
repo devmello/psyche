@@ -1,7 +1,7 @@
 import { useMemo, useRef } from "react";
 import type { LineMark } from "../core/line-marks.ts";
 import type { DocumentStore } from "../core/markdown.ts";
-import { MarkdownEditor } from "./MarkdownEditor.tsx";
+import { MarkdownEditor, type MarkdownEditorProps } from "./MarkdownEditor.tsx";
 
 export interface ControlledMarkdownEditorProps {
   path: string;
@@ -12,6 +12,8 @@ export interface ControlledMarkdownEditorProps {
   readOnly?: boolean;
   marks?: readonly LineMark[];
   onMarkActivate?: (id: string) => void;
+  modeLabels?: MarkdownEditorProps["modeLabels"];
+  modesLabel?: string;
 }
 
 /**
@@ -59,6 +61,8 @@ export function ControlledMarkdownEditor(props: ControlledMarkdownEditorProps) {
       {...(props.readOnly ? { readOnly: true } : {})}
       {...(props.marks ? { marks: props.marks } : {})}
       {...(props.onMarkActivate ? { onMarkActivate: props.onMarkActivate } : {})}
+      {...(props.modeLabels ? { modeLabels: props.modeLabels } : {})}
+      {...(props.modesLabel ? { modesLabel: props.modesLabel } : {})}
     />
   );
 }

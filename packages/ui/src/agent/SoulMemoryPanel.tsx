@@ -136,8 +136,8 @@ export function MemoryFileEditor({ path, budget }: { path: string; budget: numbe
     }
   };
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-3">
+    <div data-slot="memory-file-editor" className="flex min-h-0 flex-1 flex-col gap-2">
+      <div className="flex shrink-0 items-center gap-3">
         <BudgetMeter used={value.length} budget={budget} />
         <span className="ms-auto flex gap-2">
           <Button
@@ -158,28 +158,35 @@ export function MemoryFileEditor({ path, budget }: { path: string; budget: numbe
       ) : null}
       <FileLessons lessons={lessons} openId={openLesson} onOpenChange={setOpenLesson} />
       {slots.renderEditor ? (
-        slots.renderEditor({
-          path,
-          value,
-          onChange: setDraft,
-          budget,
-          ...(lessons.length > 0
-            ? {
-                marks: lessons.map((l) => ({ id: l.id, text: l.value, label: lessonMarkLabel(l) })),
-                onMarkActivate: setOpenLesson,
-              }
-            : {}),
-        })
+        // The body: the one flex child that takes the dialog's spare height and scrolls inside it.
+        <div data-slot="memory-file-body" className="flex min-h-0 flex-1 flex-col">
+          {slots.renderEditor({
+            path,
+            value,
+            onChange: setDraft,
+            budget,
+            ...(lessons.length > 0
+              ? {
+                  marks: lessons.map((l) => ({
+                    id: l.id,
+                    text: l.value,
+                    label: lessonMarkLabel(l),
+                  })),
+                  onMarkActivate: setOpenLesson,
+                }
+              : {}),
+          })}
+        </div>
       ) : (
         <Textarea
           aria-label={t("agent.memory.contents", { path })}
-          className="field-sizing-fixed h-[50vh] resize-y bg-canvas font-mono text-[13px] leading-5"
+          className="field-sizing-fixed min-h-0 flex-1 resize-none overflow-auto bg-canvas font-mono text-[13px] leading-5"
           value={value}
           onChange={(e) => setDraft(e.target.value)}
         />
       )}
       {saveError ? (
-        <p className="text-sm text-danger-text" role="alert">
+        <p className="shrink-0 text-sm text-danger-text" role="alert">
           {saveError}
         </p>
       ) : null}
@@ -528,8 +535,8 @@ export function SoulMemoryPanel({
           if (!next) setEditing(null);
         }}
       >
-        <DialogContent className="flex max-h-[85vh] w-[min(720px,calc(100vw-2rem))] max-w-none flex-col gap-3 sm:max-w-none">
-          <DialogHeader>
+        <DialogContent className="flex h-[min(85vh,48rem)] max-h-[calc(100dvh-2rem)] w-[min(720px,calc(100vw-2rem))] max-w-none flex-col gap-3 overflow-hidden sm:max-w-none">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="text-mono text-label-primary">{editing ?? path}</DialogTitle>
           </DialogHeader>
           {editing !== null ? <MemoryFileEditor path={editing} budget={fileBudget} /> : null}
