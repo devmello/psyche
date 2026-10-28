@@ -264,8 +264,6 @@ export const es: Partial<Catalogue> = {
     "Psyche no pudo cargar {what, select, approval {esta aprobación} question {esta pregunta} receipt {este recibo} artifact {este artefacto} file {este archivo} task {esta tarea} plan {este plan} other {este elemento}}.",
   "blocks.message.waitingApproval": "Esperando tu aprobación",
   "blocks.message.reviewApproval": "Revisar la aprobación: {summary}",
-  "blocks.message.decided":
-    "{status, select, approved {Aprobado} denied {Denegado} expired {Caducado} invalidated {Anulado} other {{status}}}: {summary}",
 
   "blocks.details.none": "ninguno",
   "blocks.details.argumentsList": "Argumentos: {args}",

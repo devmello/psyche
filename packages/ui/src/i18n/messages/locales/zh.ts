@@ -253,8 +253,6 @@ export const zh: Partial<Catalogue> = {
     "Psyche 无法载入此{what, select, approval {审批} question {问题} receipt {回执} artifact {成果} file {文件} task {任务} plan {计划} other {项目}}。",
   "blocks.message.waitingApproval": "正在等待你的批准",
   "blocks.message.reviewApproval": "审核审批：{summary}",
-  "blocks.message.decided":
-    "{status, select, approved {已批准} denied {已拒绝} expired {已过期} invalidated {已作废} other {{status}}}：{summary}",
 
   "blocks.details.none": "无",
   "blocks.details.argumentsList": "参数：{args}",

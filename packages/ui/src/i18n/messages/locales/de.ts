@@ -269,8 +269,6 @@ export const de: Partial<Catalogue> = {
     "Psyche konnte {what, select, approval {diese Genehmigung} question {diese Frage} receipt {diesen Beleg} artifact {dieses Artefakt} file {diese Datei} task {diese Aufgabe} plan {diesen Plan} other {dieses Element}} nicht laden.",
   "blocks.message.waitingApproval": "Wartet auf deine Genehmigung",
   "blocks.message.reviewApproval": "Genehmigung prüfen: {summary}",
-  "blocks.message.decided":
-    "{status, select, approved {Genehmigt} denied {Abgelehnt} expired {Abgelaufen} invalidated {Ungültig} other {{status}}}: {summary}",
 
   "blocks.details.none": "keine",
   "blocks.details.argumentsList": "Argumente: {args}",

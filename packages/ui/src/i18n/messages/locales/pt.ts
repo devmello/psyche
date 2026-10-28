@@ -254,8 +254,6 @@ export const pt: Partial<Catalogue> = {
     "O Psyche não conseguiu carregar {what, select, approval {esta aprovação} question {esta pergunta} receipt {este recibo} artifact {este artefato} file {este arquivo} task {esta tarefa} plan {este plano} other {este item}}.",
   "blocks.message.waitingApproval": "Aguardando sua aprovação",
   "blocks.message.reviewApproval": "Revisar aprovação: {summary}",
-  "blocks.message.decided":
-    "{status, select, approved {Aprovada} denied {Negada} expired {Expirada} invalidated {Anulada} other {{status}}}: {summary}",
   "blocks.details.none": "nenhum",
   "blocks.details.argumentsList": "Argumentos: {args}",
   "blocks.details.command": "Comando",

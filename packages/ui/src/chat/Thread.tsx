@@ -8,7 +8,7 @@ import type { Message, PermissionMode, QueueMode, SpecialistJob } from "@psyche/
 import { CircleAlert, X } from "lucide-react";
 import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type DisclosureLevel, DisclosureProvider } from "../blocks/disclosure.tsx";
-import { indexThreadBlocks, ThreadBlocksProvider } from "../blocks/thread-blocks.tsx";
+import { answerValues, indexThreadBlocks, ThreadBlocksProvider } from "../blocks/thread-blocks.tsx";
 import {
   type GatewayCall,
   useCall,
@@ -596,9 +596,17 @@ export function ChatThread({
     if (stepRun && (runSteps[stepRun.id]?.length ?? 0) > 0) out.add(stepRun.id);
     return out;
   }, [view.messages, runSteps, stepRun, listedRuns]);
+  // Answered questions leave the transcript (or shrink to one answer line), live and on reload.
+  const inputRequests = useStoreState((s) => s.inputRequests);
+  const answeredQuestions = useMemo(() => {
+    const out = new Map<string, readonly string[]>();
+    for (const r of Object.values(inputRequests))
+      if (r.threadId === threadId && r.status === "answered") out.set(r.id, answerValues(r.answer));
+    return out;
+  }, [inputRequests, threadId]);
   const blockIndex = useMemo(
-    () => ({ ...baseIndex, activeRunId: stepRun?.id ?? null, tracedRuns }),
-    [baseIndex, stepRun?.id, tracedRuns],
+    () => ({ ...baseIndex, activeRunId: stepRun?.id ?? null, tracedRuns, answeredQuestions }),
+    [baseIndex, stepRun?.id, tracedRuns, answeredQuestions],
   );
   // Specialists this thread started (§6.1): one line each after the run that started them.
   const jobFilter = useMemo(() => ({ threadId }), [threadId]);

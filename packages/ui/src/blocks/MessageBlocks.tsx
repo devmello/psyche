@@ -1,10 +1,12 @@
+import { sanitizeDisplay } from "@psyche/permissions/cards";
 import type { Block, Message } from "@psyche/protocol";
 import { ArrowDown } from "lucide-react";
 import * as m from "motion/react-m";
-import { type ReactElement, type ReactNode, useEffect } from "react";
+import { type ReactElement, type ReactNode, useEffect, useId, useState } from "react";
 import { Avatar } from "../avatar/Avatar.tsx";
 import { DelayedSkeleton } from "../components/DelayedSkeleton.tsx";
 import { StatusGlyph } from "../components/status.tsx";
+import { Button } from "../components/ui/button.tsx";
 import {
   useApproval,
   useArtifact,
@@ -22,7 +24,7 @@ import { usePersona, useSlots } from "../slots.tsx";
 import { SpecialistResultBlockView } from "../specialists/SpecialistResultBlock.tsx";
 import { ReceiptFeedback } from "../teaching/ReceiptFeedback.tsx";
 import { LearnedLine, TaughtLine } from "../teaching/TaughtLine.tsx";
-import { focusApproval } from "./ApprovalCard.tsx";
+import { ApprovalCard, focusApproval } from "./ApprovalCard.tsx";
 import { ArtifactCard, FileCard } from "./ArtifactCard.tsx";
 import { Checklist, PlanCard } from "./Checklist.tsx";
 import { ContextCard } from "./ContextCard.tsx";
@@ -34,7 +36,7 @@ import { RelatedThreads } from "./RelatedThreads.tsx";
 import { type BlockContext, RegisteredBlock, registerBlock } from "./registry.tsx";
 import { TaskCard } from "./TaskCard.tsx";
 import { type ToolCallItem, ToolRun } from "./ToolRun.tsx";
-import { blocksToShow, useThreadBlocks } from "./thread-blocks.tsx";
+import { answerValues, blocksToShow, useThreadBlocks } from "./thread-blocks.tsx";
 import type { ToolCallBlock } from "./types.ts";
 import { WrapUpBox } from "./WrapUp.tsx";
 
@@ -80,6 +82,9 @@ function ToolRunBlock({ blocks }: { blocks: readonly ToolCallBlock[] }): ReactEl
  */
 export function ApprovalPointer({ approvalId }: { approvalId: string }): ReactElement {
   const { approval, loading } = useApproval(approvalId);
+  const persona = usePersona();
+  const [expanded, setExpanded] = useState(false);
+  const detailsId = useId();
   if (approval === null)
     return loading ? <Skeleton what="approval" /> : <Missing what="approval" />;
   const summary = displaySummary(approval);
@@ -101,32 +106,79 @@ export function ApprovalPointer({ approvalId }: { approvalId: string }): ReactEl
           <ArrowDown className="size-3.5" aria-hidden="true" />
         </m.button>
       ) : (
-        <m.p
+        // Answered, the card stays part of the record as a one-line receipt; Details opens it.
+        <m.div
           key="answered"
           layoutId={`approval-${approval.id}`}
           transition={{ layout: motionSpring(spring.emphasis), ...fade.animate.transition }}
-          className="my-0.5 flex items-center gap-1.5 text-callout text-label-secondary"
+          className="my-0.5"
           data-testid="approval-result"
           {...fade}
         >
-          <StatusGlyph
-            status={approval.status === "approved" ? "done" : "failed"}
-            className="[&_svg]:size-3.5"
-          />
-          <span className="min-w-0 truncate">
-            {t("blocks.message.decided", { status: approval.status, summary })}
-          </span>
-        </m.p>
+          <p className="flex items-center gap-1.5 text-callout text-label-secondary">
+            <StatusGlyph
+              status={approval.status === "approved" ? "done" : "failed"}
+              className="[&_svg]:size-3.5"
+            />
+            <span className="min-w-0 truncate">
+              {t("blocks.message.receipt", {
+                status: approval.status,
+                scope: approval.scopeGranted ?? "once",
+                summary,
+              })}
+            </span>
+            <Button
+              variant="plain"
+              size="xs"
+              aria-expanded={expanded}
+              aria-controls={detailsId}
+              aria-label={t(
+                expanded ? "blocks.message.hideDetailsOf" : "blocks.message.showDetailsOf",
+                { summary },
+              )}
+              onClick={() => setExpanded((e) => !e)}
+            >
+              {t(expanded ? "blocks.message.hideDetails" : "blocks.message.showDetails")}
+            </Button>
+          </p>
+          <div id={detailsId}>
+            {expanded ? (
+              <div className="mt-1.5">
+                <ApprovalCard
+                  approval={approval}
+                  canAnswer={false}
+                  persona={persona.name}
+                  armDelayMs={0}
+                />
+              </div>
+            ) : null}
+          </div>
+        </m.div>
       )}
     </Presence>
   );
 }
 
-function QuestionBlockView({ inputRequestId }: { inputRequestId: string }): ReactElement {
+function QuestionBlockView({ inputRequestId }: { inputRequestId: string }): ReactElement | null {
   const { request, loading, answer } = useQuestion(inputRequestId);
   const persona = usePersona();
   const slots = useSlots();
   if (request === null) return loading ? <Skeleton what="question" /> : <Missing what="question" />;
+  // Answered, the card is gone: the transcript keeps just the answer, in the user's style (the
+  // thread drops even that when a user message already says it). The model still has both.
+  if (request.status === "answered") {
+    const values = answerValues(request.answer);
+    if (values.length === 0) return null;
+    return (
+      <p className="my-1 flex justify-end" data-testid="question-answer-line">
+        <span className="max-w-[80%] truncate rounded-xl bg-fill-secondary px-3 py-1 text-callout text-label-primary">
+          {t("blocks.question.answerLine", {
+            answer: values.map((v) => sanitizeDisplay(v)).join(" · "),
+          })}
+        </span>
+      </p>
+    );
+  }
   return (
     <QuestionCard
       request={request}

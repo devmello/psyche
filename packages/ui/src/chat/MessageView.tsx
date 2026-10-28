@@ -4,6 +4,7 @@ import { type ReactElement, useId, useState } from "react";
 import { Avatar } from "../avatar/Avatar.tsx";
 import { MessageBlocks } from "../blocks/MessageBlocks.tsx";
 import { RegisteredBlock } from "../blocks/registry.tsx";
+import { blocksToShow, useThreadBlocks } from "../blocks/thread-blocks.tsx";
 import { Button } from "../components/ui/button.tsx";
 import {
   DropdownMenu,
@@ -68,11 +69,12 @@ export function MessageView({
   onEdit,
   onJumpTo,
   onWrapUpAction,
-}: MessageViewProps): ReactElement {
+}: MessageViewProps): ReactElement | null {
   const persona = usePersona();
   const editId = useId();
   const [editing, setEditing] = useState<string | null>(null);
   const feedback = useMessageFeedback(message);
+  const index = useThreadBlocks();
   const canEdit = onEdit !== undefined && message.role === "user";
   const time = formatTime(message.createdAt);
   const quote = quoted ? (
@@ -110,6 +112,15 @@ export function MessageView({
       </div>
     );
   }
+
+  // A message whose only content was answered question cards leaves no empty row behind.
+  if (
+    message.role === "agent" &&
+    !streamingText &&
+    message.blocks.some((b) => b.type === "question") &&
+    blocksToShow(message, index).length === 0
+  )
+    return null;
 
   // Teaching lives in the ⋯ menu (no thumbs): it saves a local lesson, never provider feedback.
   const canTeach = message.role === "agent" && !streamingText;

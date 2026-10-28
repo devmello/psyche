@@ -257,8 +257,6 @@ export const ko: Partial<Catalogue> = {
     "Psyche가 이 {what, select, approval {승인} question {질문} receipt {영수증} artifact {아티팩트} file {파일} task {작업} plan {계획} other {항목}}을(를) 로드할 수 없습니다.",
   "blocks.message.waitingApproval": "사용자의 승인을 기다리는 중",
   "blocks.message.reviewApproval": "승인 검토: {summary}",
-  "blocks.message.decided":
-    "{status, select, approved {승인됨} denied {거부됨} expired {만료됨} invalidated {무효화됨} other {{status}}}: {summary}",
   "blocks.details.none": "없음",
   "blocks.details.argumentsList": "인수: {args}",
   "blocks.details.command": "명령",
