@@ -1059,6 +1059,70 @@
         "sideEffecting": false
       },
       {
+        "description": "Creates the scheduled automation for a confirmed draft, through the same scheduler as the schedule tool. Side-effecting.",
+        "name": "daily.automations.confirm",
+        "params": "#/$defs/DailyAutomationsConfirmParams",
+        "result": "#/$defs/DailyAutomationsConfirmResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Turns 'Every Friday at 5, summarise what I shipped' into a structured schedule and prompt for the confirmation card. Creates nothing.",
+        "name": "daily.automations.parse",
+        "params": "#/$defs/DailyAutomationsParseParams",
+        "result": "#/$defs/DailyAutomationsParseResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Starter phrases for plain-language automations.",
+        "name": "daily.automations.templates",
+        "params": "#/$defs/DailyAutomationsTemplatesParams",
+        "result": "#/$defs/DailyAutomationsTemplatesResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Evening wrap-up 'carry over': snoozes the given follow-ups to tomorrow morning.",
+        "name": "daily.carryOver",
+        "params": "#/$defs/DailyCarryOverParams",
+        "result": "#/$defs/DailyCarryOverResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Detects commitments in text the owner wrote ('I'll send it tomorrow', 'remind me to…') and tracks them. Only the owner's own text; it sends nothing. Side-effecting.",
+        "name": "daily.followups.ingest",
+        "params": "#/$defs/DailyFollowupsIngestParams",
+        "result": "#/$defs/DailyFollowupsIngestResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Lists tracked follow-ups (default: open and snoozed items that are due).",
+        "name": "daily.followups.list",
+        "params": "#/$defs/DailyFollowupsListParams",
+        "result": "#/$defs/DailyFollowupsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Marks a follow-up done, snoozes it, dismisses it or reopens it. Side-effecting.",
+        "name": "daily.followups.update",
+        "params": "#/$defs/DailyFollowupsUpdateParams",
+        "result": "#/$defs/DailyFollowupsUpdateResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Builds the morning brief or evening wrap-up now and posts it to the Feed. Side-effecting.",
+        "name": "daily.run",
+        "params": "#/$defs/DailyRunParams",
+        "result": "#/$defs/DailyRunResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "Approves a pending pairing request with owner-chosen scopes. Needs fresh presence once the Gateway has a presence verifier (approval_required with details.approvalId, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now).",
         "name": "devices.approve",
         "params": "#/$defs/DevicesApproveParams",
@@ -13711,6 +13775,463 @@
       ],
       "type": "object"
     },
+    "DailyAutomationDraft": {
+      "properties": {
+        "title": {
+          "maxLength": 120,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "cron",
+            "interval"
+          ],
+          "type": "string"
+        },
+        "schedule": {
+          "maxLength": 120,
+          "minLength": 1,
+          "type": "string"
+        },
+        "timezone": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "prompt": {
+          "maxLength": 8000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "humanSchedule": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "kind",
+        "schedule",
+        "timezone",
+        "prompt",
+        "humanSchedule"
+      ],
+      "type": "object"
+    },
+    "DailyAutomationTemplate": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 300,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ],
+      "type": "object"
+    },
+    "DailyAutomationsConfirmParams": {
+      "properties": {
+        "draft": {
+          "$ref": "#/$defs/DailyAutomationDraft"
+        }
+      },
+      "required": [
+        "draft"
+      ],
+      "type": "object"
+    },
+    "DailyAutomationsConfirmResult": {
+      "properties": {
+        "automation": {
+          "$ref": "#/$defs/Automation"
+        }
+      },
+      "required": [
+        "automation"
+      ],
+      "type": "object"
+    },
+    "DailyAutomationsParseParams": {
+      "properties": {
+        "text": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
+    },
+    "DailyAutomationsParseResult": {
+      "properties": {
+        "draft": {
+          "$ref": "#/$defs/DailyAutomationDraft"
+        },
+        "error": {
+          "maxLength": 300,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "DailyAutomationsTemplatesParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "DailyAutomationsTemplatesResult": {
+      "properties": {
+        "templates": {
+          "items": {
+            "$ref": "#/$defs/DailyAutomationTemplate"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "templates"
+      ],
+      "type": "object"
+    },
+    "DailyBrief": {
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/DailyKind"
+        },
+        "date": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "type": "string"
+        },
+        "summary": {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        "sections": {
+          "items": {
+            "$ref": "#/$defs/DailySection"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
+        "carryOver": {
+          "items": {
+            "$ref": "#/$defs/DailyItem"
+          },
+          "maxItems": 20,
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "date",
+        "summary",
+        "sections"
+      ],
+      "type": "object"
+    },
+    "DailyCarryOverParams": {
+      "properties": {
+        "ids": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array"
+        }
+      },
+      "required": [
+        "ids"
+      ],
+      "type": "object"
+    },
+    "DailyCarryOverResult": {
+      "properties": {
+        "followups": {
+          "items": {
+            "$ref": "#/$defs/DailyFollowup"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "followups"
+      ],
+      "type": "object"
+    },
+    "DailyFollowup": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/DailyFollowupSource"
+        },
+        "sourceLink": {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/DailyFollowupStatus"
+        },
+        "dueAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "snoozedUntil": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "source",
+        "status",
+        "createdAt"
+      ],
+      "type": "object"
+    },
+    "DailyFollowupSource": {
+      "enum": [
+        "sent_mail",
+        "message",
+        "chat",
+        "awaiting_reply",
+        "manual"
+      ],
+      "type": "string"
+    },
+    "DailyFollowupStatus": {
+      "enum": [
+        "open",
+        "snoozed",
+        "done",
+        "dismissed"
+      ],
+      "type": "string"
+    },
+    "DailyFollowupsIngestParams": {
+      "properties": {
+        "text": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "sent_mail",
+            "message",
+            "chat"
+          ],
+          "type": "string"
+        },
+        "sourceLink": {
+          "maxLength": 1000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "source"
+      ],
+      "type": "object"
+    },
+    "DailyFollowupsIngestResult": {
+      "properties": {
+        "added": {
+          "items": {
+            "$ref": "#/$defs/DailyFollowup"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "added"
+      ],
+      "type": "object"
+    },
+    "DailyFollowupsListParams": {
+      "properties": {
+        "status": {
+          "items": {
+            "$ref": "#/$defs/DailyFollowupStatus"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "DailyFollowupsListResult": {
+      "properties": {
+        "followups": {
+          "items": {
+            "$ref": "#/$defs/DailyFollowup"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "followups"
+      ],
+      "type": "object"
+    },
+    "DailyFollowupsUpdateParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "action": {
+          "enum": [
+            "done",
+            "snooze",
+            "dismiss",
+            "reopen"
+          ],
+          "type": "string"
+        },
+        "until": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "action"
+      ],
+      "type": "object"
+    },
+    "DailyFollowupsUpdateResult": {
+      "properties": {
+        "followup": {
+          "$ref": "#/$defs/DailyFollowup"
+        }
+      },
+      "required": [
+        "followup"
+      ],
+      "type": "object"
+    },
+    "DailyItem": {
+      "properties": {
+        "text": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "link": {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        "followupId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
+    },
+    "DailyKind": {
+      "enum": [
+        "morning",
+        "evening"
+      ],
+      "type": "string"
+    },
+    "DailyRunParams": {
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/DailyKind"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "DailyRunResult": {
+      "properties": {
+        "postId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "skipped": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "DailySection": {
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/DailySectionId"
+        },
+        "title": {
+          "maxLength": 120,
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/DailyItem"
+          },
+          "maxItems": 50,
+          "type": "array"
+        },
+        "unavailable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "items"
+      ],
+      "type": "object"
+    },
+    "DailySectionId": {
+      "enum": [
+        "calendar",
+        "mail",
+        "due",
+        "followups",
+        "weather",
+        "done",
+        "open",
+        "tomorrow"
+      ],
+      "type": "string"
+    },
     "DecidedBy": {
       "anyOf": [
         {
@@ -15107,6 +15628,8 @@
         "digest",
         "meeting_prep",
         "meeting_notes",
+        "daily_brief",
+        "daily_wrapup",
         "watch",
         "reminder",
         "suggestion",
@@ -37225,6 +37748,22 @@
           "required": [
             "type",
             "notes"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "daily",
+              "type": "string"
+            },
+            "daily": {
+              "$ref": "#/$defs/DailyBrief"
+            }
+          },
+          "required": [
+            "type",
+            "daily"
           ],
           "type": "object"
         }

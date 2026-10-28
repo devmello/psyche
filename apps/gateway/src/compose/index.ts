@@ -59,7 +59,7 @@ import {
   replayRevocations,
   SqlitePermissionStore,
 } from "@psyche/permissions";
-import { proactiveTools, publicFetch } from "@psyche/proactive";
+import { DAILY_SETTING_KEYS, proactiveTools, publicFetch } from "@psyche/proactive";
 import {
   type ApprovalRequestInput,
   type Clock,
@@ -1154,6 +1154,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     publish,
     broker,
     registry,
+    audit,
+    channelSurfaces: () =>
+      relays.flatMap((r) => r.surfaces()).filter((x) => x.startsWith("imessage:")),
     // Ideas proposes folding a skill's lessons into it once it has three (teaching loop §6).
     skillUpdates: () => skills.updates(),
     // Post-meeting notes transcribe on the Mac through the speech part (§4.6). Record meeting
@@ -1259,7 +1262,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
           payload?: { entries?: { key: string }[] };
         };
         if (f.event !== "settings.changed") return;
-        const keys: readonly string[] = WORKFLOW_SETTING_KEYS;
+        const keys: readonly string[] = [...WORKFLOW_SETTING_KEYS, ...DAILY_SETTING_KEYS];
         if ((f.payload?.entries ?? []).some((e) => keys.includes(e.key))) {
           void proactive.syncWorkflowSchedules();
         }

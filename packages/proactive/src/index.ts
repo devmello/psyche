@@ -288,3 +288,31 @@ export {
   type ProactiveToolsOptions,
   proactiveTools,
 } from "./tools/index.ts";
+
+export {
+  AUTOMATION_TEMPLATES,
+  confirmAutomation,
+  parseAutomation,
+  type ValidateSchedule,
+} from "./daily/automations.ts";
+export {
+  detectCommitments,
+  FollowupStore,
+  MAX_FOLLOWUPS,
+} from "./daily/followups.ts";
+export { createDailyHandlers, type DailyHandlerDeps } from "./daily/handlers.ts";
+export {
+  DAILY_BRIEF_JOB,
+  DAILY_WRAPUP_JOB,
+  type ActivityItem,
+  type DailyActivity,
+  DailyService,
+  type DailyServiceOptions,
+} from "./daily/service.ts";
+export {
+  DAILY_SETTING_KEYS,
+  type DailySettings,
+  FOLLOWUPS_KEY,
+  type KeyValue,
+  readDailySettings,
+} from "./daily/settings.ts";

@@ -210,6 +210,12 @@ export class MeetingPrepService {
       | undefined;
   }
 
+  /** The Feed route of an event's prep note, once one was written (the daily brief links it). */
+  prepLinkFor(event: { id: string }): string | undefined {
+    const postId = this.#row(event.id)?.post_id;
+    return postId == null ? undefined : `/feed/${postId}`;
+  }
+
   /** Rows for events starting on a local day (tests, the digest's "nothing new" lines). */
   rows(): PrepRow[] {
     return this.#o.db.prepare("SELECT * FROM meeting_preps ORDER BY start_at").all() as PrepRow[];

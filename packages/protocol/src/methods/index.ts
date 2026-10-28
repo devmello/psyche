@@ -46,6 +46,7 @@ import { VaultMethods } from "./vault.ts";
 import { ViewMethods } from "./view.ts";
 import { VmMethods } from "./vm.ts";
 import { VoiceMethods } from "./voice.ts";
+import { DailyMethods } from "./daily.ts";
 import { MeetingsMethods, ProposalsMethods } from "./workflows.ts";
 
 export * from "./agent-notes.ts";
@@ -58,6 +59,7 @@ export * from "./browser.ts";
 export * from "./channels.ts";
 export * from "./chat.ts";
 export * from "./connect.ts";
+export * from "./daily.ts";
 export * from "./connectors.ts";
 export * from "./define.ts";
 export * from "./devices.ts";
@@ -147,6 +149,7 @@ export const Methods = {
   ...ModelsMethods,
   ...UsageMethods,
   ...InsightsMethods,
+  ...DailyMethods,
   ...ProposalsMethods,
   ...MeetingsMethods,
   ...FeedbackMethods,
