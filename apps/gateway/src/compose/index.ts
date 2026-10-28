@@ -709,6 +709,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     requestPermissionTool({
       broker: executorBroker,
       surfaces: ["desktop", "web"],
+      folderEnv: () => ({ psycheHome: config.home, protectedRoots: protectedRoots(config.home) }),
       execHostEnabled: () => rawBroker.policy.exec?.execHostEnabled === true,
       enableExecHost: async () => {
         const current =

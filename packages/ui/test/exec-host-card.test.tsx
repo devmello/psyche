@@ -79,9 +79,12 @@ describe("exec_host card", () => {
     expect(screen.getByText("CI=1")).toBeTruthy();
     expect(screen.getByText("/opt/homebrew/Cellar/node/24.1.0/bin/npm")).toBeTruthy();
     expect(screen.getByText(/in the sandbox: it cannot read Psyche's vault/)).toBeTruthy();
-    for (const name of ["Allow once", "Always", "Deny"]) {
-      expect(screen.getByRole("radio", { name: new RegExp(name) })).toBeTruthy();
+    // One control set: the scope rides on Allow, then Deny / Allow at the bottom.
+    for (const name of ["Allow once", "Always allow"]) {
+      expect(screen.getByRole("option", { name })).toBeTruthy();
     }
+    expect(screen.getAllByRole("button", { name: "Deny" })).toHaveLength(1);
+    expect(screen.queryByRole("radio")).toBeNull();
   });
 
   it("typing UNSANDBOXED leaves Allow once only and sends the word with the answer", async () => {
@@ -90,9 +93,8 @@ describe("exec_host card", () => {
       screen.getByRole("textbox", { name: "Type UNSANDBOXED to run without the sandbox" }),
       "UNSANDBOXED",
     );
-    expect(screen.queryByRole("radio", { name: /Always/ })).toBeNull();
+    expect(screen.queryByRole("option", { name: /Always/ })).toBeNull();
     expect(screen.getByText("Without the sandbox, only Allow once is offered.")).toBeTruthy();
-    await userEvent.click(screen.getByRole("radio", { name: "Allow once" }));
     await userEvent.click(allow());
     await waitFor(() =>
       expect(onAnswer).toHaveBeenCalledWith("approve", "once", { unsandboxed: "UNSANDBOXED" }),
@@ -101,7 +103,6 @@ describe("exec_host card", () => {
 
   it("an approval without the word sends no unsandboxed flag", async () => {
     const onAnswer = show(execHost("srt"));
-    await userEvent.click(screen.getByRole("radio", { name: "Allow once" }));
     await userEvent.click(allow());
     await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("approve", "once", undefined));
   });
@@ -110,7 +111,6 @@ describe("exec_host card", () => {
     const permissionAction = vi.fn();
     show(execHost("missing"), { permissionAction });
     expect(screen.getByText(/the sandbox is not set up \(srt is not installed\)/)).toBeTruthy();
-    await userEvent.click(screen.getByRole("radio", { name: "Allow once" }));
     expect(allow().hasAttribute("disabled")).toBe(true);
     await userEvent.click(screen.getByRole("button", { name: "Set up sandbox" }));
     expect(permissionAction).toHaveBeenCalledWith({ need: "sandbox" }, "open");
@@ -156,7 +156,6 @@ describe("Set up sandbox from the exec_host card (#966)", () => {
         </PermissionActionsProvider>
       </StoryWorld>,
     );
-    await userEvent.click(screen.getByRole("radio", { name: "Allow once" }));
     expect(allow().hasAttribute("disabled")).toBe(true);
     await userEvent.click(screen.getByRole("button", { name: "Set up sandbox" }));
     const dialog = await screen.findByRole("dialog", { name: "Set up the sandbox" });
@@ -180,7 +179,6 @@ describe("permission request card", () => {
     expect(screen.getByText("to run your tests")).toBeTruthy();
     expect(screen.getByText(/Each action still asks you/)).toBeTruthy();
     expect(screen.getByText(/Touch ID|passkey/i)).toBeTruthy();
-    await userEvent.click(screen.getByRole("radio", { name: "Enable" }));
     await userEvent.click(screen.getByRole("button", { name: "Allow with scope" }));
     await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("approve", "once", undefined));
   });
@@ -196,7 +194,6 @@ describe("permission request card", () => {
     const onAnswer = show(permission(need, false), { permissionAction });
     await userEvent.click(screen.getByRole("button", { name: "Open System Settings" }));
     expect(permissionAction).toHaveBeenCalledWith(need, "open");
-    await userEvent.click(screen.getByRole("radio", { name: "Check again" }));
     await userEvent.click(screen.getByRole("button", { name: "Allow with scope" }));
     await waitFor(() => expect(onAnswer).toHaveBeenCalled());
     expect(permissionAction).toHaveBeenLastCalledWith(need, "check");
@@ -232,5 +229,42 @@ describe("Settings → File access: Run commands on this Mac", () => {
       folders: [{ path: "/p", mode: "rw" }],
       exec: { execHostEnabled: true },
     });
+  });
+});
+
+describe("one control set, friendly taint, one reason (shared by every approval card)", () => {
+  const tainted = {
+    taint: true,
+    scopesOffered: ["once"],
+    taintSources: [{ sourceKind: "web_fetch", origin: "https://www.example.com/page" }],
+  } as Partial<ApprovalRequest>;
+
+  it("a tainted run-command card says why in words, offers only Allow once, no raw ids", () => {
+    show(execHost("srt", tainted));
+    expect(screen.getByTestId("taint-note").textContent).toBe(
+      "Earlier in this chat The agent read example.com, so only Allow once is offered.",
+    );
+    expect(screen.queryByRole("combobox", { name: "Allow for" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Deny" })).toHaveLength(1);
+    expect(screen.queryByRole("radio")).toBeNull();
+  });
+
+  it("a permission card shows its reason once, not again beside the requester", () => {
+    show(permission({ need: "capability", capability: "exec_host" }));
+    expect(screen.getAllByText("to run your tests")).toHaveLength(1);
+  });
+
+  it("a generic tool approval keeps the reason line and shows the taint sentence", () => {
+    show(
+      approval({
+        kind: "file_write",
+        summary: "Do a thing",
+        details: { reason: "because you asked", taintSources: ["web_fetch:https://example.com/"] },
+        ...tainted,
+      }),
+    );
+    expect(screen.getAllByText(/because you asked/)).toHaveLength(1);
+    expect(screen.queryByText(/web_fetch:/)).toBeNull();
+    expect(screen.getByTestId("taint-note")).toBeTruthy();
   });
 });

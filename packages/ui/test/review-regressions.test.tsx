@@ -41,7 +41,6 @@ describe("ApprovalCard keyboard safety", () => {
         armDelayMs={0}
       />,
     );
-    await userEvent.click(screen.getByRole("radio", { name: "Allow once" }));
     const allow = screen.getByRole("button", { name: "Allow with scope" });
     allow.focus();
     await userEvent.keyboard("{Enter}");
@@ -49,7 +48,7 @@ describe("ApprovalCard keyboard safety", () => {
     expect(onAnswer).not.toHaveBeenCalled();
     // ⌘Return is the keyboard path.
     await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
-    expect(onAnswer).toHaveBeenCalledWith("approve", "once");
+    expect(onAnswer).toHaveBeenCalledWith("approve", "once", undefined);
   });
 
   it("re-arms when a stale card becomes answerable again", () => {

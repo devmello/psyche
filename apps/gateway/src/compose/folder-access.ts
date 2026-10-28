@@ -1,6 +1,11 @@
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "@psyche/agent-core";
 import { hashCanonical } from "@psyche/audit";
-import { type FolderGrantEntry, folderScopesOffered } from "@psyche/permissions";
+import {
+  type FolderAccessEnv,
+  type FolderGrantEntry,
+  folderScopesOffered,
+  resolveRequestedFolder,
+} from "@psyche/permissions";
 import { type PermissionBroker, PsycheError, type ToolResult } from "@psyche/protocol";
 import { Type } from "@sinclair/typebox";
 
@@ -16,6 +21,8 @@ import { Type } from "@sinclair/typebox";
 export interface FolderAccessToolDeps {
   broker: PermissionBroker;
   surfaces: readonly string[];
+  /** The sensitive-root environment the broker judges a folder by (defaults to this user's home). */
+  folderEnv?: () => FolderAccessEnv;
 }
 
 export function requestFolderAccessTool(deps: FolderAccessToolDeps): AgentToolRegistration {
@@ -51,18 +58,30 @@ export async function askForFolder(
     );
   }
   const mode = p.access === "read_write" ? "rw" : "ro";
+  // The card pre-fills this resolved folder; the owner can replace it with the picker. What is
+  // shown is what is granted, and the broker re-resolves it when the owner answers.
+  const requested = await resolveRequestedFolder(p.path, deps.folderEnv?.() ?? {});
+  const resolved =
+    requested.status === "missing"
+      ? { folderStatus: "missing" }
+      : {
+          folderStatus: requested.status,
+          resolvedPath: requested.path,
+          ...(requested.status === "blocked" ? { blockedReason: requested.reason } : {}),
+        };
   const binding = hashCanonical({
     tool: "request_folder_access",
     path: p.path,
     reason: p.reason,
     access: mode,
+    resolved,
     threadId: ctx.threadId,
     callId: ctx.callId,
   });
   const issued = await deps.broker.requestApproval({
     kind: "folder_access",
     summary: `Share a folder: ${p.path}`.slice(0, 300),
-    details: { requestedPath: p.path, reason: p.reason, access: mode },
+    details: { requestedPath: p.path, reason: p.reason, access: mode, ...resolved },
     bindingHash: binding,
     grantKey: `folder_access|${mode}`,
     requestedBy: {

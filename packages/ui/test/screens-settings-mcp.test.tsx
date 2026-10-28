@@ -120,7 +120,6 @@ describe("Connectors → Custom MCP server", () => {
       server: { id: "files", transport: { kind: "stdio", command: ["npx", "-y", "files"] } },
     });
 
-    await userEvent.click(await within(card).findByText("Allow once", { exact: true }));
     const allow = within(card).getByRole("button", { name: "Allow with scope" });
     await waitFor(() => expect((allow as HTMLButtonElement).disabled).toBe(false));
     await userEvent.click(allow);

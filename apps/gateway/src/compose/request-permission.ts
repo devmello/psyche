@@ -1,5 +1,6 @@
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "@psyche/agent-core";
 import { hashCanonical } from "@psyche/audit";
+import type { FolderAccessEnv } from "@psyche/permissions";
 import {
   MissingPermission,
   type PermissionBroker,
@@ -27,6 +28,8 @@ import { askForFolder } from "./folder-access.ts";
 export interface RequestPermissionDeps {
   broker: PermissionBroker;
   surfaces: readonly string[];
+  /** The sensitive-root environment a requested folder is judged by (see `askForFolder`). */
+  folderEnv?: () => FolderAccessEnv;
   /** Whether `exec_host` is on now. */
   execHostEnabled(): boolean;
   /** Turns `exec_host` on in `permissions.policy` (after the owner's Enable). */

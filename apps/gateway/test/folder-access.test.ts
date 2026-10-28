@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentToolRegistration, ToolRunContext } from "@psyche/agent-core";
@@ -75,6 +75,7 @@ const tool = () =>
       },
     }),
     surfaces: ["desktop"],
+    folderEnv: () => ({ home, psycheHome: join(home, ".psyche") }),
   });
 const input = { path: "~/Projects/app", reason: "read the notes", access: "read" as const };
 
@@ -146,6 +147,55 @@ describe("request_folder_access", () => {
       run(tool(), input, ctx({ requester: { role: "guest" } as never })),
     ).rejects.toMatchObject({ code: "forbidden" });
     expect(await broker.list({ status: "pending" })).toEqual([]);
+  });
+});
+
+describe("requested folder resolution", () => {
+  const ask = async (path: string) => {
+    const pend = run(tool(), { ...input, path }, ctx());
+    const a = await pending();
+    await answerPending(a.id, "deny", "");
+    await pend;
+    return a.details as Record<string, unknown>;
+  };
+
+  it("pre-fills the real path of an existing folder (~ expanded)", async () => {
+    expect(await ask("~/Projects/app")).toMatchObject({
+      folderStatus: "ok",
+      resolvedPath: project,
+      requestedPath: "~/Projects/app",
+    });
+  });
+
+  it("resolves .. and symlinks before showing the folder", async () => {
+    symlinkSync(project, join(home, "link-to-app"));
+    expect(await ask(`${home}/Projects/app/../app`)).toMatchObject({ resolvedPath: project });
+    expect(await ask(join(home, "link-to-app"))).toMatchObject({
+      folderStatus: "ok",
+      resolvedPath: project,
+    });
+  });
+
+  it("marks a sensitive root as blocked, judged by its real path", async () => {
+    expect(await ask(home)).toMatchObject({ folderStatus: "blocked", resolvedPath: home });
+    expect(await ask(join(home, ".ssh"))).toMatchObject({
+      folderStatus: "blocked",
+      blockedReason: "sensitive_root",
+    });
+    symlinkSync(join(home, ".ssh"), join(home, "innocent"));
+    expect(await ask(join(home, "innocent"))).toMatchObject({
+      folderStatus: "blocked",
+      resolvedPath: join(home, ".ssh"),
+    });
+    expect(await ask("/")).toMatchObject({ folderStatus: "blocked" });
+  });
+
+  it("falls back to the picker when the path is missing, a file, or relative", async () => {
+    for (const path of [join(home, "nope"), join(project, "notes.txt"), "Downloads"]) {
+      const d = await ask(path);
+      expect(d.folderStatus).toBe("missing");
+      expect(d.resolvedPath).toBeUndefined();
+    }
   });
 });
 

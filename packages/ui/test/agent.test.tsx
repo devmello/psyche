@@ -83,7 +83,6 @@ describe("ApprovalsPanel", () => {
     const groups = await screen.findAllByRole("group");
     const card = groups.find((g) => /jane\.ortiz/.test(g.textContent ?? ""));
     if (card === undefined) throw new Error("send_email card not found");
-    await userEvent.click(within(card).getByRole("radio", { name: "Allow once" }));
     await waitFor(() =>
       expect(
         within(card).getByRole("button", { name: "Allow with scope" }).hasAttribute("disabled"),

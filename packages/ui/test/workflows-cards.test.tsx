@@ -308,14 +308,14 @@ describe("BatchCard", () => {
     );
     expect(screen.getByText("Mark read: Weekly digest (Acme)")).toBeTruthy();
     // The broker offers a batch "always" only for prep notes; this one did not.
-    expect(screen.queryByRole("radio", { name: /always/i })).toBeNull();
+    expect(screen.queryByRole("option", { name: /always/i })).toBeNull();
     const deny = screen.getByRole("button", { name: "Deny" });
     const allow = screen.getByRole("button", { name: "Allow with scope" });
     expect(deny.compareDocumentPosition(allow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // Deny is preselected, so ⌘↩ answers deny until the owner picks Allow once.
-    await user.click(screen.getByRole("radio", { name: "Allow once" }));
+    // ⌘↩ allows once, the only scope offered.
+    allow.focus();
     await user.keyboard("{Control>}{Enter}{/Control}");
-    expect(onAnswer).toHaveBeenCalledWith("approve", "once");
+    expect(onAnswer).toHaveBeenCalledWith("approve", "once", undefined);
   });
 
   it("names the one standing choice a prep-note batch offers: Always for prep notes", async () => {
@@ -331,9 +331,9 @@ describe("BatchCard", () => {
         now={STORY_NOW}
       />,
     );
-    await user.click(screen.getByRole("radio", { name: "Always for prep notes" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Allow for" }), "always");
     await user.keyboard("{Control>}{Enter}{/Control}");
-    expect(onAnswer).toHaveBeenCalledWith("approve", "always");
+    expect(onAnswer).toHaveBeenCalledWith("approve", "always", undefined);
   });
 
   it("shows the one-row step log that expands to a row per call", async () => {
@@ -414,7 +414,7 @@ describe("ProposalBatchCard against the MockGateway", () => {
     await waitFor(() => expect(callsTo("proposals.approve")).toHaveLength(1));
     expect(await screen.findByText("Mark read: Weekly digest (Acme)")).toBeTruthy();
     // Choose Allow (once), then wait out the 400 ms arming.
-    await user.click(screen.getByRole("radio", { name: "Allow once" }));
+
     const allow = screen.getByRole("button", { name: "Allow with scope" }) as HTMLButtonElement;
     await waitFor(() => expect(allow.disabled).toBe(false), { timeout: 2000 });
     await user.click(allow);
@@ -437,7 +437,7 @@ describe("ProposalBatchCard against the MockGateway", () => {
         w.proposalFailures = { [WORKFLOW_IDS.proposals.newsletters]: { 1: "message moved" } };
       },
     });
-    await user.click(await screen.findByRole("radio", { name: "Allow once" }));
+    await screen.findByRole("button", { name: "Allow with scope" });
     const allow = screen.getByRole("button", { name: "Allow with scope" }) as HTMLButtonElement;
     await waitFor(() => expect(allow.disabled).toBe(false), { timeout: 2000 });
     await user.click(allow);
