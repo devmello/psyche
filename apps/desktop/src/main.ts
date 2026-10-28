@@ -812,10 +812,12 @@ void app.whenReady().then(async () => {
         });
       }
     },
-    onMainCreated: (win) => {
+    onMainCreated: (win, mainView) => {
       browser?.dispose();
       browser = new BrowserHost({
         window: win,
+        rendererZoom: () =>
+          mainView.webContents.isDestroyed() ? 1 : mainView.webContents.getZoomFactor(),
         psycheHome: home,
         userData: app.getPath("userData"),
         // Dev and test runs may shorten the idle time before a background tab is discarded.
