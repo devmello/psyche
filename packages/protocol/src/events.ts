@@ -26,6 +26,7 @@ import {
 import { FeedbackEvent, Lesson, LessonStatus } from "./schemas/learning.ts";
 import { MemoryChangeSource, MemoryJob, PersonaIdentity } from "./schemas/memory.ts";
 import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
+import { ResearchProgressEvent } from "./schemas/research.ts";
 import { RunStep } from "./schemas/runs.ts";
 import { SpecialistJob, SpecialistResult } from "./schemas/specialists.ts";
 import { Artifact, FeedPost, Goal, Idea, Notification, SettingEntry } from "./schemas/surfaces.ts";
@@ -119,6 +120,11 @@ export const Events = {
   "tool_call.updated": defineEvent({
     payload: Type.Object({ toolCall: ToolCall }),
     description: "A tool call changed status (params are redacted; never secrets).",
+  }),
+  "research.progress": defineEvent({
+    payload: Type.Object({ toolCallId: Id, event: ResearchProgressEvent }),
+    description:
+      "A deep-research tool call (research_run, research_followup) advanced: the plan, the step, a source read, claim and token counts, done or stopped. Typed labels and counts only, never page text.",
   }),
   "task.updated": defineEvent({
     payload: Type.Object({ task: Task }),

@@ -13,6 +13,7 @@ import {
   useLibraryItem,
   useQuestion,
   useReceipt,
+  useStore,
   useStoreState,
   useTask,
 } from "../data/index.ts";
@@ -20,6 +21,8 @@ import { t } from "../i18n/core.ts";
 import { displaySummary } from "../lib/cards.ts";
 import { MapBlock } from "../map/MapBlock.tsx";
 import { fade, motionSpring, Presence, spring } from "../motion/index.ts";
+import { foldResearch } from "../research/model.ts";
+import { ResearchProgress } from "../research/ResearchProgress.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
 import { SpecialistResultBlockView } from "../specialists/SpecialistResultBlock.tsx";
 import { ReceiptFeedback } from "../teaching/ReceiptFeedback.tsx";
@@ -59,7 +62,59 @@ function Missing({ what }: { what: BlockTarget }): ReactElement {
   );
 }
 
+const RESEARCH_RUN = "research_run";
+
+/** One deep-research run: the typed progress card, folded from `research.progress` events. */
+function ResearchRunBlock({ block }: { block: ToolCallBlock }): ReactElement {
+  const store = useStore();
+  const events = useStoreState((s) => s.research[block.toolCallId]);
+  const threadId = useStoreState((s) => {
+    const runId = s.toolCalls[block.toolCallId]?.runId;
+    return runId === undefined ? null : (s.runs[runId]?.threadId ?? null);
+  });
+  const view = foldResearch(events ?? []);
+  // The call ending without a `done` or `stopped` event (failed, cancelled, or loaded from
+  // history with no live events) must not leave the card spinning.
+  const finished = block.status !== "pending" && block.status !== "running";
+  const shown =
+    finished && view.status === "running" ? { ...view, status: "stopped" as const } : view;
+  return (
+    <ResearchProgress
+      view={shown}
+      {...(threadId === null
+        ? {}
+        : { onStop: () => void store.call("chat.cancel", { threadId }).catch(() => undefined) })}
+    />
+  );
+}
+
 function ToolRunBlock({ blocks }: { blocks: readonly ToolCallBlock[] }): ReactElement {
+  const researchIds = useStoreState(
+    (s) =>
+      blocks.filter((b) => b.tool === RESEARCH_RUN && s.research[b.toolCallId] !== undefined)
+        .length,
+  );
+  if (researchIds > 0) {
+    // Research runs get their own card; the other calls in the run keep the generic row.
+    const out: ReactElement[] = [];
+    let rest: ToolCallBlock[] = [];
+    const flush = () => {
+      if (rest.length > 0) out.push(<ToolRunItems key={`t${out.length}`} blocks={rest} />);
+      rest = [];
+    };
+    for (const b of blocks) {
+      if (b.tool === RESEARCH_RUN) {
+        flush();
+        out.push(<ResearchRunBlock key={b.toolCallId} block={b} />);
+      } else rest.push(b);
+    }
+    flush();
+    return <>{out}</>;
+  }
+  return <ToolRunItems blocks={blocks} />;
+}
+
+function ToolRunItems({ blocks }: { blocks: readonly ToolCallBlock[] }): ReactElement {
   const items = useStoreState((s) =>
     blocks.map((b): ToolCallItem => {
       const call = s.toolCalls[b.toolCallId] ?? null;

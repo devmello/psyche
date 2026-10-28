@@ -17,6 +17,7 @@ import type {
   MethodResult,
   Notification,
   Receipt,
+  ResearchProgressEvent,
   Run,
   RunFrame,
   RunStep,
@@ -135,6 +136,8 @@ export interface UiState {
   /** The specialist roles with the owner's settings (`specialists.list`); null until loaded. */
   specialistRoles: readonly SpecialistRole[] | null;
   toolCalls: Dict<ToolCall>;
+  /** Deep-research progress events by tool call id (`research.progress`), in arrival order. */
+  research: Dict<readonly ResearchProgressEvent[]>;
   tasks: Dict<Task>;
   taskActions: Dict<readonly TaskAction[]>;
   approvals: Dict<ApprovalRequest>;
@@ -192,6 +195,7 @@ export const INITIAL_STATE: UiState = {
   proposals: {},
   specialistRoles: null,
   toolCalls: {},
+  research: {},
   tasks: {},
   taskActions: {},
   approvals: {},

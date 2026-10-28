@@ -34,6 +34,7 @@ import {
 } from "@psyche/protocol";
 import type { GatewayContext } from "../context.ts";
 import { resolveAttachments } from "./attachments.ts";
+import { RESEARCH_TOOLS, toResearchProgress } from "./research-progress.ts";
 
 type SendResult = MethodResult<"chat.send">;
 type TurnImages = { mime: string; data: string }[];
@@ -862,6 +863,16 @@ export class SessionController {
         else current.blocks.push(block);
         current.textIndex = -1;
         bus.publish("tool_call.updated", { toolCall }, threadId);
+        if (RESEARCH_TOOLS.has(event.tool) && event.update?.data !== undefined) {
+          const progress = toResearchProgress(event.update.data);
+          if (progress !== null) {
+            bus.publish(
+              "research.progress",
+              { toolCallId: event.toolCallId, event: progress },
+              threadId,
+            );
+          }
+        }
         return;
       }
       case "approval_requested": {

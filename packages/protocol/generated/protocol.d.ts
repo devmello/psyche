@@ -7072,6 +7072,41 @@ export interface ResOkFrame {
     type:    ResErrFrameType;
 }
 
+export interface ResearchProgressPayload {
+    event:      ResearchProgressEvent;
+    toolCallId: string;
+}
+
+export interface ResearchProgressEvent {
+    step?:       ResearchProgressStep;
+    type:        ResearchProgressEventType;
+    plan?:       ResearchProgressPlan;
+    status?:     ResearchProgressEventStatus;
+    title?:      string;
+    url?:        string;
+    count?:      number;
+    budget?:     number;
+    used?:       number;
+    artifactId?: string;
+}
+
+export interface ResearchProgressPlan {
+    estimatedTokens: number;
+    includeLocal:    boolean;
+    subQuestions:    ResearchProgressSubQuestion[];
+}
+
+export interface ResearchProgressSubQuestion {
+    id:       string;
+    question: string;
+}
+
+export type ResearchProgressEventStatus = "reading" | "read" | "failed";
+
+export type ResearchProgressStep = "scope" | "plan" | "read" | "extract" | "crosscheck" | "synthesize" | "save";
+
+export type ResearchProgressEventType = "step" | "plan" | "source" | "claims" | "tokens" | "done" | "stopped";
+
 export interface RunGetResult {
     /**
      * Helper and specialist runs it spawned

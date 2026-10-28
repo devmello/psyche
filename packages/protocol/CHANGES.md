@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-28 (research.progress)
+
+For the deep-research progress card in the transcript.
+
+- New event `research.progress` (`{toolCallId, event}`) and types `ResearchProgressEvent`, `ResearchProgressStep`, `ResearchProgressPlan`, `ResearchProgressSubQuestion`.
+
 ### v1 additive — 2026-10-28 (audit view of owner-data changes)
 
 For the chat's "Changed N files" chip and the Timeline / Activity audit view.

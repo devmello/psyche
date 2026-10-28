@@ -515,6 +515,52 @@ describe("tool calls and cards", () => {
   });
 });
 
+describe("research progress", () => {
+  it("publishes typed research.progress for research tools only, dropping malformed data", async () => {
+    const c = await setup();
+    const thread = await newThread(c);
+    const call = (tool: string, id: string, data: unknown) => ({
+      type: "tool_call" as const,
+      toolCallId: id,
+      tool,
+      status: "running" as const,
+      level1: tool,
+      update: { message: "x", data },
+    });
+    agent.script([
+      call("research_run", "r1", { type: "step", step: "read" }),
+      call("research_run", "r1", {
+        type: "plan",
+        plan: {
+          question: "q",
+          subQuestions: [{ id: "s1", question: "What?", extra: 1 }],
+          includeLocal: false,
+          estimatedTokens: 1000,
+        },
+      }),
+      call("research_run", "r1", { type: "bogus", secret: "x" }),
+      call("browser.navigate", "b1", { type: "step", step: "read" }),
+      { type: "end", outcome: "final" },
+    ]);
+    await c.call("chat.send", { threadId: thread.id, content: "go" }, ik());
+    await t.gateway.context.sessions.idle();
+    expect(c.eventsNamed("research.progress").map((e) => e.payload)).toEqual([
+      { toolCallId: "r1", event: { type: "step", step: "read" } },
+      {
+        toolCallId: "r1",
+        event: {
+          type: "plan",
+          plan: {
+            subQuestions: [{ id: "s1", question: "What?" }],
+            includeLocal: false,
+            estimatedTokens: 1000,
+          },
+        },
+      },
+    ]);
+  });
+});
+
 describe("threads", () => {
   it("creates one main thread, side and incognito threads, and lists with activity and search", async () => {
     const c = await setup();
