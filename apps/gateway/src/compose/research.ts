@@ -45,7 +45,13 @@ function untrustedOut(output: unknown, isError = false): ToolResult {
 
 export function researchTools(deps: ResearchDeps): AgentToolRegistration[] {
   const store = new ArtifactStore({ db: deps.db, home: deps.home, publish: deps.publish });
-  const runs = new Map<string, { run: ResearchRun; plan: ResearchPlan; ran: boolean }>();
+  interface Kept {
+    run: ResearchRun;
+    plan: ResearchPlan;
+    ran: boolean;
+    progress: ((e: ProgressEvent) => void) | undefined;
+  }
+  const runs = new Map<string, Kept>();
   let counter = 0;
 
   const sinkFor = (threadId: string, runId: string): ArtifactSink => ({
@@ -99,7 +105,7 @@ export function researchTools(deps: ResearchDeps): AgentToolRegistration[] {
     },
   });
 
-  const keep = (id: string, entry: { run: ResearchRun; plan: ResearchPlan; ran: boolean }) => {
+  const keep = (id: string, entry: Kept) => {
     runs.set(id, entry);
     while (runs.size > MAX_KEPT) runs.delete(runs.keys().next().value as string);
   };
@@ -116,18 +122,21 @@ export function researchTools(deps: ResearchDeps): AgentToolRegistration[] {
     describeCall: (p) => ({ summary: `Plan research: ${p.question.slice(0, 80)}` }),
     async run(p, ctx) {
       const id = `research-${++counter}-${ctx.runId.slice(0, 6)}`;
+      const holder: { entry?: Kept } = {};
       const run = new ResearchRun(
         hostFor(ctx.threadId, ctx.runId),
         sinkFor(ctx.threadId, ctx.runId),
         {
           includeLocal: p.includeLocal === true,
+          onProgress: (e) => holder.entry?.progress?.(e),
         },
       );
       try {
         const clarify = await run.clarify(p.question);
         if (clarify !== null) return { output: { clarify }, provenance: "trusted" };
         const drafted = await run.makePlan(p.question);
-        keep(id, { run, plan: drafted, ran: false });
+        holder.entry = { run, plan: drafted, ran: false, progress: undefined };
+        keep(id, holder.entry);
         return {
           output: {
             researchId: id,
@@ -156,6 +165,7 @@ export function researchTools(deps: ResearchDeps): AgentToolRegistration[] {
       if (!entry || entry.ran)
         return untrustedOut({ error: "unknown or already-run research id" }, true);
       entry.ran = true;
+      entry.progress = (e) => ctx.onUpdate({ message: e.type, data: e });
       const onStop = () => entry.run.stop();
       ctx.signal.addEventListener("abort", onStop);
       const usedBefore = entry.run.tokens;
@@ -202,6 +212,7 @@ export function researchTools(deps: ResearchDeps): AgentToolRegistration[] {
         return untrustedOut({ error: "unknown research id or no report yet" }, true);
       const onStop = () => entry.run.stop();
       ctx.signal.addEventListener("abort", onStop);
+      entry.progress = (e) => ctx.onUpdate({ message: e.type, data: e });
       try {
         if (p.section !== undefined) {
           const status = await entry.run.digDeeper(p.section - 1);
