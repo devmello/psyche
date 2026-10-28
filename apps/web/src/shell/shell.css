@@ -406,7 +406,8 @@ button {
 .pane {
   display: flex;
   flex-direction: column;
-  min-width: 360px;
+  /* Never wider than its column: a header that cannot fit shrinks its title, not its buttons. */
+  min-width: min(360px, 100%);
   min-height: 0;
   border-inline-start: 1px solid var(--separator);
 }
@@ -425,6 +426,7 @@ button {
   display: flex;
   gap: 2px;
   flex: 1;
+  min-width: 0;
   overflow: hidden;
 }
 .pane > header button {
@@ -436,6 +438,16 @@ button {
 }
 .pane > header button[aria-selected="true"] {
   background: var(--surface-sidebar);
+}
+/* The actions (split, pop out, close) keep their size; the tab titles give way with an ellipsis. */
+.pane > header > button {
+  flex-shrink: 0;
+}
+.pane > header .tabs button {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .pane .body {
   flex: 1;
