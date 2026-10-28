@@ -29,6 +29,8 @@ import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { motionSpring, spring } from "../motion/index.ts";
 import { type ComposerVoice, ComposerVoiceButtons } from "../voice/controls.tsx";
+import { ArgMenu, useArgMenu } from "./ArgMenu.tsx";
+import type { ArgContext } from "./command-args.ts";
 import { COMMANDS, type CommandInfo, completion, matchCommands } from "./commands.ts";
 import { messageText } from "./MessageView.tsx";
 import { useElementHeight } from "./ThreadChrome.tsx";
@@ -108,6 +110,8 @@ export interface ComposerProps {
   voice?: ComposerVoice;
   /** Stops the active run (`chat.cancel`). */
   onStop?: () => void;
+  /** What the argument popup lists after `/model `, `/mode `: the thread's data. */
+  argContext?: ArgContext;
 }
 
 /**
@@ -129,8 +133,10 @@ export function Composer({
   onDictate,
   voice,
   onStop,
+  argContext,
 }: ComposerProps): ReactElement {
   const menu = useCommandMenu();
+  const argMenu = useArgMenu(argContext);
   const menuId = useId();
   const hintId = useId();
   const empty = useAuiState((s) => (s.composer.isEditing ? s.composer.text.trim() === "" : true));
@@ -228,6 +234,7 @@ export function Composer({
               ))}
             </div>
           ) : null}
+          {argMenu.open ? <ArgMenu menu={argMenu} /> : null}
           {quoting ? (
             <div className="mx-2 mt-2 flex items-center gap-2 rounded-md bg-fill-tertiary px-2 py-1 text-callout">
               <span className="text-label-secondary">{t("chat.composer.quoting")}</span>
@@ -385,6 +392,7 @@ export function Composer({
                   return;
                 }
                 menu.onKeyDown(e);
+                argMenu.onKeyDown(e);
               }}
               onPaste={onPaste}
               aria-autocomplete="list"
@@ -394,7 +402,12 @@ export function Composer({
                     "aria-controls": menuId,
                     "aria-activedescendant": `${menuId}-${menu.matches[menu.active]?.name ?? ""}`,
                   }
-                : {})}
+                : argMenu.open && !argMenu.loading
+                  ? {
+                      "aria-controls": argMenu.id,
+                      "aria-activedescendant": argMenu.optionId(argMenu.active),
+                    }
+                  : {})}
               className="max-h-[40vh] min-h-8 min-w-0 flex-1 resize-none bg-transparent px-2 py-1 text-reading text-label-primary outline-none placeholder:text-label-tertiary disabled:cursor-not-allowed"
             />
             <span id={hintId} className="sr-only">

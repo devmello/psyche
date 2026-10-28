@@ -6,9 +6,17 @@
  */
 
 import { t } from "../i18n/core.ts";
+import {
+  type ArgSpec,
+  currentModel,
+  exportOptions,
+  modelOptions,
+  modeOptions,
+} from "./command-args.ts";
 
 export type CommandName =
   | "model"
+  | "mode"
   | "new"
   | "btw"
   | "fork"
@@ -24,7 +32,13 @@ export type CommandName =
 
 export interface CommandInfo {
   name: CommandName;
-  args: "none" | "optional" | "required";
+  /** Whether the command takes an argument at all. */
+  arity: "none" | "optional" | "required";
+  /**
+   * Declared when the argument comes from a known set: the composer then pops up the valid
+   * values after `/name `. Absent for free text.
+   */
+  readonly args?: ArgSpec;
   /** The argument's placeholder (catalogue text, read at use). */
   readonly hint: string;
   readonly description: string;
@@ -34,12 +48,13 @@ export interface CommandInfo {
 type HintedCommand = Exclude<CommandName, "new" | "status" | "stop">;
 
 /** A command whose hint and description come from the catalogue as they are read. */
-function command(name: CommandName, args: CommandInfo["args"]): CommandInfo {
+function command(name: CommandName, arity: CommandInfo["arity"], args?: ArgSpec): CommandInfo {
   return {
     name,
-    args,
+    arity,
+    ...(args === undefined ? {} : { args }),
     get hint() {
-      return args === "none" ? "" : t(`chat.commands.${name as HintedCommand}.hint`);
+      return arity === "none" ? "" : t(`chat.commands.${name as HintedCommand}.hint`);
     },
     get description() {
       return t(`chat.commands.${name}.description`);
@@ -48,7 +63,16 @@ function command(name: CommandName, args: CommandInfo["args"]): CommandInfo {
 }
 
 export const COMMANDS: readonly CommandInfo[] = [
-  command("model", "optional"),
+  command("model", "optional", {
+    kind: "enum",
+    options: modelOptions,
+    current: currentModel,
+  }),
+  command("mode", "optional", {
+    kind: "enum",
+    options: modeOptions,
+    current: (ctx) => ctx.permissionMode,
+  }),
   command("new", "none"),
   command("btw", "required"),
   command("fork", "optional"),
@@ -59,7 +83,7 @@ export const COMMANDS: readonly CommandInfo[] = [
   command("teach", "required"),
   command("plan", "optional"),
   command("status", "none"),
-  command("export", "optional"),
+  command("export", "optional", { kind: "enum", options: exportOptions }),
   command("stop", "none"),
 ];
 
@@ -81,14 +105,21 @@ export function parseCommand(input: string): CommandParse {
   if (info === undefined) {
     return { type: "error", message: t("chat.commands.unknown", { name }) };
   }
-  if (info.args === "none" && arg !== "") {
+  if (info.arity === "none" && arg !== "") {
     return { type: "error", message: t("chat.commands.noArgs", { name }) };
   }
-  if (info.args === "required" && arg === "") {
+  if (info.arity === "required" && arg === "") {
     return { type: "error", message: t("chat.commands.usage", { name, hint: info.hint }) };
   }
   if (name === "model" && arg !== "" && !MODEL_REF.test(arg)) {
     return { type: "error", message: t("chat.commands.usageModel") };
+  }
+  if (
+    name === "mode" &&
+    arg !== "" &&
+    !["manual", "balanced", "auto", "plan"].includes(arg.toLowerCase())
+  ) {
+    return { type: "error", message: t("chat.commands.usageMode") };
   }
   if (
     name === "export" &&
@@ -98,7 +129,7 @@ export function parseCommand(input: string): CommandParse {
   ) {
     return { type: "error", message: t("chat.commands.usageExport") };
   }
-  return { type: "command", name: info.name, arg };
+  return { type: "command", name: info.name, arg: name === "mode" ? arg.toLowerCase() : arg };
 }
 
 /** Commands for the autocomplete menu while the composer holds only `/` plus a partial name. */
@@ -111,5 +142,5 @@ export function matchCommands(text: string): CommandInfo[] {
 
 /** What a picked command inserts: the name, plus a space when it takes an argument. */
 export function completion(info: CommandInfo): string {
-  return info.args === "none" ? `/${info.name}` : `/${info.name} `;
+  return info.arity === "none" ? `/${info.name}` : `/${info.name} `;
 }

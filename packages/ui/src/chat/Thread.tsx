@@ -4,7 +4,7 @@ import {
   ThreadPrimitive,
   useExternalStoreRuntime,
 } from "@assistant-ui/react";
-import type { Message, QueueMode, SpecialistJob } from "@psyche/protocol";
+import type { Message, PermissionMode, QueueMode, SpecialistJob } from "@psyche/protocol";
 import { CircleAlert, X } from "lucide-react";
 import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type DisclosureLevel, DisclosureProvider } from "../blocks/disclosure.tsx";
@@ -30,6 +30,7 @@ import { SpecialistSpawns } from "../specialists/SpawnLine.tsx";
 import { VoiceComposer } from "../voice/composer-voice.tsx";
 import { ApprovalDock } from "./ApprovalDock.tsx";
 import { attachSupport, modelCapabilities, uploadFile } from "./attachments.ts";
+import type { ArgContext } from "./command-args.ts";
 import { type CommandName, parseCommand } from "./commands.ts";
 import { FollowUpQueue } from "./FollowUpQueue.tsx";
 import { clearChatFocus, flashMessage, useChatFocusRequest } from "./focus-request.ts";
@@ -184,6 +185,13 @@ export function ChatThread({
   // on any chat model, images need vision). Capabilities come from `models.list`: no new probe.
   const models = useGatewayQuery("models.list", {});
   const support = attachSupport(modelCapabilities(models.data, view.thread?.thread.modelRef));
+  // What the argument popup (`/model `, `/mode `) lists: the data this column already holds.
+  const argModelRef = view.thread?.thread.modelRef ?? null;
+  const argMode = view.thread?.thread.permissionMode;
+  const argContext = useMemo<ArgContext>(
+    () => ({ models: models.data, modelRef: argModelRef, permissionMode: argMode }),
+    [models.data, argModelRef, argMode],
+  );
   const attachments = useAttachments(support, (file, signal) =>
     uploadFile(call as GatewayCall, file, { threadId, signal }),
   );
@@ -365,7 +373,7 @@ export function ChatThread({
     const openThread = (id: string) => navigate?.(`/chat/${id}`);
     /** `threads.update` with the outcome as a notice; true when the thread changed. */
     const updateThread = async (
-      params: { modelRef?: string | null; permissionMode?: "plan" },
+      params: { modelRef?: string | null; permissionMode?: PermissionMode },
       done: string,
     ): Promise<boolean> => {
       try {
@@ -395,6 +403,20 @@ export function ChatThread({
           return;
         }
         await updateThread({ modelRef: arg }, t("chat.thread.modelSet", { model: arg }));
+        return;
+      }
+      case "mode": {
+        if (arg === "") {
+          setNotice({
+            kind: "info",
+            text: t("chat.thread.modeCurrent", { mode: thread?.permissionMode ?? "balanced" }),
+          });
+          return;
+        }
+        await updateThread(
+          { permissionMode: arg as PermissionMode },
+          t("chat.thread.modeSet", { mode: arg }),
+        );
         return;
       }
       case "plan": {
@@ -799,6 +821,7 @@ export function ChatThread({
                       }
                     : {})}
                   mode={mode}
+                  argContext={argContext}
                   onStop={() => void view.cancel()}
                   {...(attachments.attach ? { attach: attachments.attach } : {})}
                   sendBlocked={attachments.uploading}
