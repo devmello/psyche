@@ -2483,8 +2483,7 @@ export class MockGateway implements GatewayClient {
     },
     "mcp.files.read": (p) => {
       const s = this.mcpServer(p.serverId);
-      const files =
-        s.madeBy === "psyche" ? this.mcpFiles.get(p.serverId) : undefined;
+      const files = s.madeBy === "psyche" ? this.mcpFiles.get(p.serverId) : undefined;
       if (files === undefined) fail("not_found", `${p.serverId} was not made by Psyche`);
       return {
         files: [...(files ?? [])].map(([path, content]) => ({
@@ -2500,8 +2499,7 @@ export class MockGateway implements GatewayClient {
     },
     "mcp.files.write": (p) => {
       const s = this.mcpServer(p.serverId);
-      const files =
-        s.madeBy === "psyche" ? this.mcpFiles.get(p.serverId) : undefined;
+      const files = s.madeBy === "psyche" ? this.mcpFiles.get(p.serverId) : undefined;
       if (files === undefined) fail("not_found", `${p.serverId} was not made by Psyche`);
       const before = files?.get(p.path) ?? "";
       files?.set(p.path, p.content);
@@ -2540,7 +2538,13 @@ export class MockGateway implements GatewayClient {
             bytes: c.length,
             lines: c.split("\n"),
           })),
-          diff: [`--- a/${p.path}`, `+++ b/${p.path}`, "@@", ...before.split("\n").map((l) => `-${l}`), ...p.content.split("\n").map((l) => `+${l}`)],
+          diff: [
+            `--- a/${p.path}`,
+            `+++ b/${p.path}`,
+            "@@",
+            ...before.split("\n").map((l) => `-${l}`),
+            ...p.content.split("\n").map((l) => `+${l}`),
+          ],
         },
         bindingHash: `sha256:${"e".repeat(64)}`,
         grantKey: `sha256:${"f".repeat(64)}`,
