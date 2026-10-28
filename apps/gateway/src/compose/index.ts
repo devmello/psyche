@@ -119,7 +119,6 @@ import { composeHarnesses } from "./harnesses.ts";
 import { insightsHandlers } from "./insights.ts";
 import { libraryHandlers } from "./library.ts";
 import type { ComposedMcp } from "./mcp.ts";
-import { scriptTools } from "./scripts.ts";
 import {
   createMemoryRecall,
   defaultLocalLoader,
@@ -152,6 +151,7 @@ import { createRateLimits } from "./rate-limits.ts";
 import { requestPermissionTool } from "./request-permission.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
 import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
+import { scriptTools } from "./scripts.ts";
 import { type ComposedSearch, composeSearch } from "./search.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
 import {

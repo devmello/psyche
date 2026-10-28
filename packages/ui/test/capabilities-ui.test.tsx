@@ -236,3 +236,34 @@ describe("capability_install approval card", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 });
+
+describe("script_run approval card", () => {
+  it("shows the purpose, the whole code, the input, the network and the taint note", () => {
+    render(
+      <ApprovalDetails
+        approval={
+          {
+            id: "a2",
+            kind: "skill_install",
+            details: {
+              kind: "script_run",
+              language: "node",
+              purpose: "Add two numbers",
+              files: [
+                { path: "main.mjs", bytes: 30, lines: ["const a = 1;", "console.log(a + 1);"] },
+              ],
+              input: '{"a":1}',
+              network: [],
+              permissions: ["No network"],
+              tainted: "Asked in a turn that read untrusted content.",
+            },
+          } as unknown as ApprovalRequest
+        }
+      />,
+    );
+    expect(screen.getByText("Add two numbers")).toBeTruthy();
+    expect(screen.getByText(/const a = 1;\s+console\.log\(a \+ 1\);/)).toBeTruthy();
+    expect(screen.getByText('{"a":1}').tagName).toBe("CODE");
+    expect(screen.getByRole("alert").textContent).toContain("untrusted content");
+  });
+});

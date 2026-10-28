@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -94,7 +94,10 @@ export function scriptTools(deps: ScriptToolsDeps): AgentToolRegistration[] {
     if (l === "node") return deps.node ?? process.execPath;
     const py = (deps.python ?? defaultPython)();
     if (py === undefined) {
-      throw new PsycheError("unavailable", "python3 is not installed on this Mac; write it for node");
+      throw new PsycheError(
+        "unavailable",
+        "python3 is not installed on this Mac; write it for node",
+      );
     }
     return py;
   };
@@ -139,8 +142,14 @@ export function scriptTools(deps: ScriptToolsDeps): AgentToolRegistration[] {
         scriptId: id,
         language: p.language,
         interpreter: runner,
-        code: p.code,
-        lines: p.code.split("\n").length,
+        // One entry per line, as the connector cards send code (the card UI's file view).
+        files: [
+          {
+            path: `main.${ext(p.language)}`,
+            bytes: Buffer.byteLength(p.code, "utf8"),
+            lines: p.code.split("\n"),
+          },
+        ],
         input: input.length > 2_000 ? `${input.slice(0, 2_000)}…` : input,
         network: domains,
         purpose: p.purpose.slice(0, 300),
@@ -245,7 +254,11 @@ export function scriptTools(deps: ScriptToolsDeps): AgentToolRegistration[] {
     input: Type.Object({
       language: Language,
       code: Type.String({ minLength: 1, maxLength: MAX_CODE }),
-      purpose: Type.String({ minLength: 3, maxLength: 300, description: "What it does, in one line" }),
+      purpose: Type.String({
+        minLength: 3,
+        maxLength: 300,
+        description: "What it does, in one line",
+      }),
       input: Type.Optional(Type.Unknown({ description: "JSON given to the script on stdin" })),
       allowedDomains: Type.Optional(Domains),
       timeoutMs: Type.Optional(Type.Integer({ minimum: 1_000, maximum: MAX_TIMEOUT_MS })),
@@ -262,7 +275,10 @@ export function scriptTools(deps: ScriptToolsDeps): AgentToolRegistration[] {
       const decision = await card(ctx, p, saved.id, input, domains, runner);
       if (decision.status !== "approved") {
         return {
-          output: { status: decision.status, note: "the owner did not approve; do not run it again" },
+          output: {
+            status: decision.status,
+            note: "the owner did not approve; do not run it again",
+          },
           provenance: "trusted",
         };
       }

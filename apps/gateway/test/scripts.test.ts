@@ -164,9 +164,12 @@ describe("run_script (build and run in the same turn)", () => {
       surfaces: ["desktop"],
       scopesOffered: ["once"],
       taint: false,
-      details: { kind: "script_run", language: "node", code: SUM, network: [] },
+      details: { kind: "script_run", language: "node", network: [] },
     });
     expect(String(card.details.input)).toBe('{"a":2,"b":3}');
+    const [file] = card.details.files as { path: string; lines: string[] }[];
+    expect(file?.path).toBe("main.mjs");
+    expect(file?.lines.join("\n")).toBe(SUM);
     expect(result.provenance).toBe("untrusted");
     expect(result.output).toMatchObject({ exitCode: 0, stdout: "5", runs: 1 });
     expect(result.output.hint).toBeUndefined();
@@ -192,7 +195,11 @@ describe("run_script (build and run in the same turn)", () => {
   it("refuses unattended runs and other requesters before any card", async () => {
     const env = await setup();
     await expect(
-      env.run("run_script", { language: "node", code: SUM, purpose: "x y z" }, ctx({ mode: "unattended" }).c),
+      env.run(
+        "run_script",
+        { language: "node", code: SUM, purpose: "x y z" },
+        ctx({ mode: "unattended" }).c,
+      ),
     ).rejects.toThrow(/owner's card/);
     await expect(
       env.run(
@@ -216,12 +223,19 @@ describe("run_script (build and run in the same turn)", () => {
         name: "Adder",
         toolName: "add",
         description: "Adds a and b.",
-        inputSchema: { type: "object", properties: { a: { type: "number" }, b: { type: "number" } } },
+        inputSchema: {
+          type: "object",
+          properties: { a: { type: "number" }, b: { type: "number" } },
+        },
       },
       c,
     );
     const card = await nextCard(env.owner, seen);
-    expect(card.details).toMatchObject({ kind: "mcp_server", madeBy: "psyche", command: "node server.mjs" });
+    expect(card.details).toMatchObject({
+      kind: "mcp_server",
+      madeBy: "psyche",
+      command: "node server.mjs",
+    });
     const files = (card.details.files as { path: string }[]).map((f) => f.path).sort();
     expect(files).toEqual(["manifest.json", "mcp-lite.mjs", "script.mjs", "server.mjs"]);
     await answer(env.owner, card.id, "approve");
@@ -230,7 +244,12 @@ describe("run_script (build and run in the same turn)", () => {
     const registered = env.services.tools.get("mcp__adder__add");
     expect(registered).toBeDefined();
     expect(loaded).toEqual(["mcp__adder__add"]);
-    const out = await registered?.execute("c9", { a: 4, b: 5 }, new AbortController().signal, () => undefined);
+    const out = await registered?.execute(
+      "c9",
+      { a: 4, b: 5 },
+      new AbortController().signal,
+      () => undefined,
+    );
     expect(JSON.stringify(out?.output)).toContain("9");
   }, 60_000);
 
