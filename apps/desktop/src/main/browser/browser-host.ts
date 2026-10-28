@@ -31,6 +31,7 @@ import {
   loggedInPartition,
 } from "./partitions.ts";
 import { TakeControl } from "./take-control.ts";
+import { computeViewBounds } from "./view-bounds.ts";
 
 /**
  * The embedded agent browser (architecture §5, §8; security §6; spike 01). One `WebContentsView`
@@ -55,6 +56,8 @@ export interface BrowserHostOptions {
   discardCheckMs?: number;
   /** Clock for idle tracking (tests). */
   now?: () => number;
+  /** The shell renderer's zoom factor, so its CSS-pixel pane rect maps to window pixels. */
+  rendererZoom?: () => number;
 }
 
 export interface BrowserHostEvents extends BridgeHostEvents {
@@ -147,6 +150,7 @@ export class BrowserHost implements BridgeTabHost {
   private readonly profileName: string;
   private readonly idleMs: number | undefined;
   private readonly discardAfterMs: number;
+  private readonly rendererZoom: () => number;
   private readonly now: () => number;
   private discardTimer: ReturnType<typeof setInterval> | undefined;
   private readonly emitter = new TypedEmitter<BrowserHostEvents>();
@@ -171,6 +175,10 @@ export class BrowserHost implements BridgeTabHost {
     this.profileName = opts.profileName ?? DEFAULT_PROFILE_NAME;
     this.idleMs = opts.idleMs;
     this.discardAfterMs = opts.discardAfterMs ?? DISCARD_AFTER_MS;
+    this.rendererZoom = opts.rendererZoom ?? (() => 1);
+    // Window geometry changes move the pane's pixels even when the renderer reports nothing.
+    for (const ev of ["resize", "move", "enter-full-screen", "leave-full-screen"] as const)
+      this.win.on(ev as "resize", () => this.layout());
     this.now = opts.now ?? Date.now;
     this.discardTimer = setInterval(
       () => this.discardIdleTabs(),
@@ -448,7 +456,7 @@ export class BrowserHost implements BridgeTabHost {
     this.wireControl(t);
     this.wireTab(t);
     this.attachDebugger(t);
-    view.setBounds(this.lastBounds);
+    view.setBounds(this.viewBounds());
     view.setVisible(false);
     this.win.contentView.addChildView(view);
     if (!o.background || this.active === null) this.setActive(id);
@@ -801,7 +809,7 @@ export class BrowserHost implements BridgeTabHost {
     this.byWebContents.set(t.wc.id, t);
     this.wireTab(t);
     this.attachDebugger(t);
-    view.setBounds(this.lastBounds);
+    view.setBounds(this.viewBounds());
     view.setVisible(false);
     this.win.contentView.addChildView(view);
     if (t.snapshot.zoom !== 1) t.wc.setZoomFactor(t.snapshot.zoom);
@@ -877,14 +885,31 @@ export class BrowserHost implements BridgeTabHost {
     this.emitter.emit("paneVisible", shown);
   }
 
+  private clampedViewport(): Rect | null {
+    if (this.viewport === null) return null;
+    return computeViewBounds(this.viewport, this.win.getContentBounds(), this.rendererZoom());
+  }
+
+  /** Bounds for a tab view: the clamped pane rect, else the last good one (hidden tabs). */
+  private viewBounds(): Rect {
+    const live = this.clampedViewport();
+    if (live !== null) return live;
+    return (
+      computeViewBounds(this.lastBounds, this.win.getContentBounds(), this.rendererZoom()) ??
+      this.lastBounds
+    );
+  }
+
   private layout(): void {
     this.refreshVisibility();
     if (this.win.isDestroyed()) return;
+    // A rect that falls outside the window hides the view instead of drawing it off-pane.
+    const placed = this.viewport !== null && this.clampedViewport() !== null;
     for (const t of this.tabs.values()) {
       if (t.popOut !== undefined || t.discarded) continue;
       // Hidden tabs keep realistic bounds so pages lay out and screencast at the pane's size.
-      t.view.setBounds(this.lastBounds);
-      t.view.setVisible(this.viewport !== null && t.id === this.active);
+      t.view.setBounds(this.viewBounds());
+      t.view.setVisible(placed && t.id === this.active);
     }
   }
 
