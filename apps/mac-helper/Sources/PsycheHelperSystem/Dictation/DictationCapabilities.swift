@@ -124,7 +124,7 @@ public struct LiveDictationBackend: DictationBackend {
             let app = NSRunningApplication(processIdentifier: pid)
             let a = AX.attrs(f, ["AXRole", "AXSubrole"])
             let role = AX.string(a["AXRole"])
-            let secure = AX.string(a["AXSubrole"]) == "AXSecureTextField" || role == "AXSecureTextField"
+            let secure = DictationPolicy.isSecureElement(role: role, subrole: AX.string(a["AXSubrole"]))
             let info = DictationElementInfo(
                 selectedTextSettable: AX.isSettable(f, "AXSelectedText"),
                 valueSettable: AX.isSettable(f, "AXValue"),

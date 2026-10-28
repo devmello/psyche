@@ -40,14 +40,23 @@ public enum DictationPolicy {
         guard let focus else { return .noFocus }
         if let bundle = focus.bundleId, ownBundleIds.contains(bundle) { return .ownWindow }
         if let expectPid, expectPid != Int(focus.pid) { return .focusChanged }
-        // Secure Event Input is on while any password field has keyboard focus (even when AX
-        // cannot see the field, as in an Electron app without its AX tree).
-        if secureInput || focus.secure { return .secureField }
+        // Only the focused element decides. `secureInput` (global Secure Event Input) is true
+        // whenever any app holds it (Terminal's Secure Keyboard Entry, a password manager, a
+        // password field in another window), so it must not block ordinary fields; it only
+        // means synthesized key events may be swallowed, so `insert` prefers AX writes then.
+        if focus.secure { return .secureField }
         if let element = focus.element, !element.canTakeText, focus.role.map({ !textRoles.contains($0) }) ?? false {
             // A focused button, list or web area with no caret: typing would trigger shortcuts.
             return element.isWebArea ? nil : .notEditable
         }
         return nil
+    }
+
+    /// True only for the focused element itself being a password field: AX role or subrole
+    /// `AXSecureTextField` (Chromium reports `input[type=password]` that way). Unknown or missing
+    /// roles (Chromium/Electron web content) are not secure.
+    public static func isSecureElement(role: String?, subrole: String?) -> Bool {
+        role == "AXSecureTextField" || subrole == "AXSecureTextField"
     }
 
     public static func target(_ focus: DictationFocus?, secureInput: Bool, expectPid: Int? = nil) -> DictationTarget? {
@@ -137,7 +146,9 @@ public enum DictationInserter {
         switch r {
         case .noFocus: message = "No app has keyboard focus."
         case .ownWindow: message = "Psyche's own windows dictate through the composer."
-        case .secureField: message = "Psyche never types into password fields."
+        case .secureField:
+            let app = target?.appName.isEmpty == false ? target!.appName : "this app"
+            message = "The focused field in \(app) is a password field. Psyche never types into password fields."
         case .notEditable: message = "The focused element does not take text."
         case .focusChanged: message = "Focus moved to another app while you were dictating; nothing was inserted."
         }
