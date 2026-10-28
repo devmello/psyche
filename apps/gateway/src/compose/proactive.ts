@@ -275,6 +275,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
   // Settings → Mail & meetings, read on every run (workflow-settings.ts).
   const settings = () => workflowSettings(db);
   const readOnly = () => settings().readOnly;
+  const lookup = registry === undefined ? undefined : connectorToolLookup(registry);
   // Wave 1 has no push for new mail: poll through whichever mail tools are connected (§4.7).
   const mailWatch = new MailWatcher({
     scheduler,
@@ -284,7 +285,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
       return idle === undefined ? OFF_HOURS_POLL_MS : idle * 60_000;
     },
     sources: () =>
-      registry === undefined ? [] : [appleMailSource(registry), gmailSource(registry)],
+      lookup === undefined ? [] : [appleMailSource(lookup), gmailSource(lookup)],
     ...(timeZone === undefined ? {} : { timezone: timeZone }),
     onError: (err) => logger?.log("warn", "mail poll failed", { code: PsycheError.from(err).code }),
   });
@@ -328,7 +329,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           db: db.sqlite,
           clock,
           scheduler,
-          tools: registry,
+          tools: connectorToolLookup(registry),
           memory,
           ...(proposals === undefined ? {} : { proposals }),
           feed: feed.store,
@@ -351,7 +352,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
       ? undefined
       : new VoiceService({
           clock,
-          tools: registry,
+          tools: connectorToolLookup(registry),
           memory,
           scheduler,
           ownerAddresses,
@@ -363,7 +364,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     registry === undefined
       ? undefined
       : new DraftService({
-          tools: registry,
+          tools: connectorToolLookup(registry),
           ...(voice === undefined ? {} : { voice }),
           ...(proposals === undefined ? {} : { proposals }),
           readOnly,
@@ -377,7 +378,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     registry === undefined || drafts === undefined
       ? undefined
       : new SchedulingService({
-          tools: registry,
+          tools: connectorToolLookup(registry),
           drafts,
           ...(proposals === undefined ? {} : { proposals }),
           readOnly,
@@ -390,7 +391,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     registry === undefined
       ? undefined
       : new FocusTimeService({
-          tools: registry,
+          tools: connectorToolLookup(registry),
           scheduler,
           ...(proposals === undefined ? {} : { proposals }),
           enabled: () => settings().focusTime,
@@ -406,7 +407,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           db,
           clock,
           home: setup.meetings.home,
-          tools: registry,
+          tools: connectorToolLookup(registry),
           feed: feed.store,
           notifier,
           ...(proposals === undefined ? {} : { proposals }),
