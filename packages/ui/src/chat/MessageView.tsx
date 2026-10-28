@@ -186,7 +186,7 @@ export function MessageView({
         aria-label={t("chat.message.userLabel", { time })}
         data-role="user"
       >
-        <div className="flex max-w-[80%] items-center gap-2">
+        <div className="flex max-w-[min(80%,var(--prose-width))] items-center gap-2">
           {hoverTime}
           {actions}
           {editing !== null && onEdit ? (
