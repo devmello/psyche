@@ -42,8 +42,50 @@ import { blockHash, normalizeIdentifier, normalizeName, sha256, slugify } from "
  * the provenance rules and the sensitive filters, and keeps history instead of overwriting.
  */
 
-export const FACT_ATTRIBUTES = GraphFactAttributeSchema.enum as readonly GraphFactAttribute[];
-export const EDGE_RELS = GraphEdgeRelSchema.enum as readonly GraphEdgeRel[];
+/**
+ * The attributes and relations the store accepts today. The protocol enums grew for everything
+ * memory (docs/design/everything-memory-2026.md §4); the extra values stay refused here until
+ * the phase that adds their supersession and review rules (EM1+), so adding them to the protocol
+ * changes no behaviour.
+ */
+const LIFE_ATTRIBUTES: ReadonlySet<string> = new Set([
+  "anniversary",
+  "hometown",
+  "school",
+  "pronouns",
+  "partner_name",
+  "children_names",
+  "pet_names",
+  "likes",
+  "dislikes",
+  "diet",
+  "gift_idea",
+  "languages",
+  "contact_pref",
+  "life_event",
+]);
+const LIFE_RELS: ReadonlySet<string> = new Set([
+  "family",
+  "friend",
+  "neighbour",
+  "classmate",
+  "roommate",
+  "colleague",
+  "manager",
+  "client",
+  "vendor",
+  "mentor",
+  "studied_at",
+  "lives_in",
+  "attended",
+  "about",
+]);
+export const FACT_ATTRIBUTES = (
+  GraphFactAttributeSchema.enum as readonly GraphFactAttribute[]
+).filter((a) => !LIFE_ATTRIBUTES.has(a));
+export const EDGE_RELS = (GraphEdgeRelSchema.enum as readonly GraphEdgeRel[]).filter(
+  (r) => !LIFE_RELS.has(r),
+);
 
 /** Set only by the owner (or Contacts, which the owner maintains): never inferred (§4.3). */
 export const OWNER_ONLY_ATTRIBUTES: ReadonlySet<GraphFactAttribute> = new Set([
@@ -58,7 +100,7 @@ export const MULTI_VALUED: ReadonlySet<GraphFactAttribute> = new Set(["preferenc
 /** Relations that carry a personal label: owner or Contacts only (§4.4). */
 export const OWNER_ONLY_RELS: ReadonlySet<GraphEdgeRel> = new Set(["related_to", "reports_to"]);
 /** Which kinds each relation connects. */
-const REL_KINDS: Record<GraphEdgeRel, [GraphEntityKind[], GraphEntityKind[]]> = {
+const REL_KINDS: Partial<Record<GraphEdgeRel, [GraphEntityKind[], GraphEntityKind[]]>> = {
   works_at: [["person"], ["org"]],
   member_of: [["person"], ["project"]],
   stakeholder_of: [["person", "org"], ["project"]],
@@ -1037,7 +1079,7 @@ export class GraphStore {
     const dst = this.#entityRow(input.dst);
     if (src === undefined || dst === undefined) fail("not_found", "no such entity");
     if (src.id === dst.id) return refuse("invalid_params", "an entity cannot relate to itself");
-    const [srcKinds, dstKinds] = REL_KINDS[input.rel];
+    const [srcKinds, dstKinds] = REL_KINDS[input.rel] ?? [[], []];
     if (!srcKinds.includes(src.kind) || !dstKinds.includes(dst.kind)) {
       return refuse(
         "invalid_params",

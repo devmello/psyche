@@ -1,6 +1,14 @@
 import { Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, Nullable, Provenance, StringEnum } from "../common.ts";
 import {
+  MemoryRun,
+  QuarantineAction,
+  QuarantineItem,
+  ReviewDecision,
+  ReviewItem,
+  ReviewNever,
+} from "../schemas/everything-memory.ts";
+import {
   EntitySummary,
   GraphBlocklistEntry,
   GraphEdge,
@@ -18,6 +26,7 @@ import {
   GraphProjectStatus,
   GraphRelationshipLabel,
   GraphRemovedCounts,
+  GraphReviewState,
   GraphSource,
   GraphStatus,
   GraphSuggestion,
@@ -533,6 +542,78 @@ export const MemoryMethods = {
     sideEffecting: true,
     description:
       "Confirms, completes, snoozes or dismisses a loop, or edits its text or due date. Side-effecting.",
+  }),
+  // --- Everything memory: review, quarantine, runs (docs/design/everything-memory-2026.md §5.6, §6.7, §7) ---
+  "memory.review.list": defineMethod({
+    params: Type.Object({
+      state: Type.Optional(
+        Type.Array(GraphReviewState, {
+          maxItems: 6,
+          description: "Default pending (conflicts included)",
+        }),
+      ),
+      entityId: Type.Optional(Id),
+      ...pageParams,
+    }),
+    result: Type.Object({
+      items: Type.Array(ReviewItem),
+      counts: Type.Object({
+        pending: Type.Integer({ minimum: 0 }),
+        autoAccepted: Type.Integer({ minimum: 0 }),
+        quarantined: Type.Integer({ minimum: 0 }),
+      }),
+      ...nextCursor,
+    }),
+    scope: "operator.read",
+    description:
+      "Facts Psyche proposed and is waiting on, with quotes and sources. Every value and quote is untrusted text from the source.",
+  }),
+  "memory.review.decide": defineMethod({
+    params: Type.Object({
+      factIds: Type.Array(Id, { minItems: 1, maxItems: 200 }),
+      decision: ReviewDecision,
+      value: Type.Optional(
+        Type.String({ minLength: 1, maxLength: 2000, description: "Required for edit" }),
+      ),
+      never: Type.Optional(ReviewNever),
+    }),
+    result: Type.Object({ facts: Type.Array(GraphFact) }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Confirms, edits (the edited value becomes the owner's) or discards proposed facts; discard and edit also teach the extractor not to repeat it. Side-effecting.",
+  }),
+  "memory.review.undo": defineMethod({
+    params: Type.Object({ factId: Id }),
+    result: Type.Object({ fact: GraphFact }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Reverts an auto-accepted fact to discarded, within 7 days of accepting. Side-effecting.",
+  }),
+  "memory.quarantine.list": defineMethod({
+    params: Type.Object({ includeDecided: Type.Optional(Type.Boolean()), ...pageParams }),
+    result: Type.Object({ items: Type.Array(QuarantineItem), ...nextCursor }),
+    scope: "operator.read",
+    description:
+      "Items held back from extraction, with the reasons and a short untrusted excerpt. Never the full text.",
+  }),
+  "memory.quarantine.decide": defineMethod({
+    params: Type.Object({ id: Id, action: QuarantineAction }),
+    result: Type.Object({ item: QuarantineItem }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Release (extract once; the result stays untrusted and pending), discard, or block the sender (adds a per-contact exclusion). Side-effecting.",
+  }),
+  "memory.runs.list": defineMethod({
+    params: Type.Object({
+      limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, description: "Default 14" })),
+    }),
+    result: Type.Object({ runs: Type.Array(MemoryRun) }),
+    scope: "operator.read",
+    description:
+      "The nightly everything-memory runs, newest first: counts and drop reasons, never text.",
   }),
   "memory.graph.status": defineMethod({
     params: Type.Object({}),

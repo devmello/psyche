@@ -495,21 +495,23 @@ Every PR: fixtures only, `FakeModelProvider`, `vitest --maxWorkers=1`, typecheck
 
 Order: EM0 → EM1 → EM2 → EM3 → EM4 → EM5, with EM6, EM7 and EM-S1 in parallel once EM3 is in. EM5 does not merge until EM2's suite passes against both model kinds.
 
-## 14. Decisions the owner still needs to make
+## 14. Decisions (all accepted by the owner, 2026-10-28)
 
-| # | Decision | Recommendation |
-| --- | --- | --- |
-| 1 | **Default model** when the feature is turned on: None, Cloud or Local. | **None** until the owner picks; first-run shows Cloud (Haiku-class) as the suggested choice, Local with its RAM warning. |
-| 2 | **Whose text is read** by default: `two_way`, `contacts`, `everyone`, `chosen`. | **`two_way`**: people you actually correspond with. |
-| 3 | **Retention** of unconfirmed facts from others. | **Pending 30 days; accepted-but-untrusted 24 months after last evidence.** |
-| 4 | **Sensitive categories**: all off, each a separate switch; only stated facts, never inferred. | Agree. |
-| 5 | **Government IDs and account numbers**: allow as a category, or hard-block? | **Hard-block** (security §8); offer "Save to the vault" instead. |
-| 6 | **Auto-accept** of self-disclosures from two-way contacts. | **Review by default**; offer per-sender auto-accept after 5 confirmed facts. |
-| 7 | **Backfill** on first run. | **30 days** by default; 90 or 365 with the estimate shown. |
-| 8 | **Agent access** default once on: `none`, `accepted`, `all`. | **`accepted`**, sensitive hidden. |
-| 9 | **Encrypt the memory store** with SQLCipher in its own file. | **Yes**, after the EM-S1 spike; cards to files off by default. |
-| 10 | **Battery runs**. | **Off** (AC only). |
-| 11 | **Search index encryption** (raw mail and messages text). | Same as 9, decided with the search-coverage work. |
+The owner accepted every recommendation below on 2026-10-28; they are now binding. Decision 11 stays tied to the search-coverage work.
+
+| # | Decision | Recommendation | Status |
+| --- | --- | --- | --- |
+| 1 | **Default model** when the feature is turned on: None, Cloud or Local. | **None** until the owner picks; first-run shows Cloud (Haiku-class) as the suggested choice, Local with its RAM warning. | Accepted 2026-10-28 |
+| 2 | **Whose text is read** by default: `two_way`, `contacts`, `everyone`, `chosen`. | **`two_way`**: people you actually correspond with. | Accepted 2026-10-28 |
+| 3 | **Retention** of unconfirmed facts from others. | **Pending 30 days; accepted-but-untrusted 24 months after last evidence.** | Accepted 2026-10-28 |
+| 4 | **Sensitive categories**: all off, each a separate switch; only stated facts, never inferred. | Agree. | Accepted 2026-10-28 |
+| 5 | **Government IDs and account numbers**: allow as a category, or hard-block? | **Hard-block** (security §8); offer "Save to the vault" instead. | Accepted 2026-10-28 |
+| 6 | **Auto-accept** of self-disclosures from two-way contacts. | **Review by default**; offer per-sender auto-accept after 5 confirmed facts. | Accepted 2026-10-28 |
+| 7 | **Backfill** on first run. | **30 days** by default; 90 or 365 with the estimate shown. | Accepted 2026-10-28 |
+| 8 | **Agent access** default once on: `none`, `accepted`, `all`. | **`accepted`**, sensitive hidden. | Accepted 2026-10-28 |
+| 9 | **Encrypt the memory store** with SQLCipher in its own file. | **Yes**, after the EM-S1 spike; cards to files off by default. | Accepted 2026-10-28 |
+| 10 | **Battery runs**. | **Off** (AC only). | Accepted 2026-10-28 |
+| 11 | **Search index encryption** (raw mail and messages text). | Same as 9, decided with the search-coverage work. | Accepted 2026-10-28 (decided with #9) |
 
 ## 15. Risks
 

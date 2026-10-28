@@ -21,7 +21,7 @@ import { FACT_ATTRIBUTES, type GraphStore } from "./store.ts";
 
 export const CARD_BUDGET = 2000;
 
-const LABEL: Record<GraphFactAttribute, string> = {
+const LABEL: Partial<Record<GraphFactAttribute, string>> = {
   role: "Role",
   title: "Title",
   employer: "Works at",
@@ -104,7 +104,7 @@ export function renderCard(graph: GraphStore, entityId: string): RenderedCard | 
   const facts = detail.facts.filter((f) => f.attribute !== "note");
   const factLines = facts.map((f) => {
     provenance = leastTrusted(provenance, f.provenance);
-    return `- ${LABEL[f.attribute]}: ${oneLine(f.value)} ${sourceTag(f, interactionKind)} <!--f:${f.id}-->`;
+    return `- ${LABEL[f.attribute] ?? f.attribute}: ${oneLine(f.value)} ${sourceTag(f, interactionKind)} <!--f:${f.id}-->`;
   });
   const loops = detail.openLoops.slice(0, 5).map((l: GraphLoop) => {
     provenance = leastTrusted(provenance, l.provenance);
