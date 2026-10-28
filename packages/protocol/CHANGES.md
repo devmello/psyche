@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-27 (auto-mode availability in models.list)
+
+For the chat's permission-mode control (it should not offer Auto when the thread's model cannot run it).
+
+- `ProviderModelEntry` gains optional `autoMode`: the model is on the auto-mode allowlist. Absent when the Gateway has no model router.
+
 ### v1 additive — 2026-10-27 (exec_host and missing permissions)
 
 For the `exec_host` and `request_permission` agent tools (Gateway `compose/exec-host.ts`, `compose/request-permission.ts`; security §5.4, §3.13).

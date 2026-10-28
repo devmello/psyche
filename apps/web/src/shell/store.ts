@@ -183,6 +183,31 @@ export class ShellStore {
     }
   }
 
+  /**
+   * Changes a thread's permission mode or model (`threads.update`). "Needs a newer version" is
+   * only for a Gateway that lacks the method; any other failure (e.g. the Gateway refusing Auto
+   * for a model off the allowlist) shows the Gateway's own message. Returns whether it applied.
+   */
+  async updateThread(
+    threadId: string,
+    patch: { permissionMode?: string; modelRef?: string },
+    unsupportedText: string,
+  ): Promise<boolean> {
+    try {
+      const r = await this.call("threads.update", { threadId, ...patch });
+      if (r === undefined) {
+        this.toast(unsupportedText, "warn");
+        return false;
+      }
+      void this.refresh();
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message.trim() : "";
+      this.toast(message === "" ? t("web.toast.threadUpdateFailed") : message, "warn");
+      return false;
+    }
+  }
+
   private onStatus(status: GatewayStatus): void {
     const wasPaired = this.state.status.phase === "paired";
     this.set({ status });

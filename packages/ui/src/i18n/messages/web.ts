@@ -359,6 +359,8 @@ export const web = {
   "web.chat.send": "Send",
   "web.chat.label": "Chat",
   "web.chat.permissionModeTitle": "Permission mode (⌘⇧M)",
+  "web.chat.autoUnavailable":
+    "Auto is unavailable: {model} isn't on the auto-mode allowlist. Pick another model to use it.",
   "web.chat.permissionMode":
     "{mode, select, manual {manual} balanced {balanced} auto {auto} plan {plan} other {{mode}}}",
   "web.chat.modelTitle": "Model (⌘⇧I)",
@@ -377,6 +379,7 @@ export const web = {
   "web.toast.sideChatFailed": "Psyche couldn't create a side chat.",
   "web.toast.permissionModeUnsupported":
     "Changing the permission mode needs a newer version of Psyche.",
+  "web.toast.threadUpdateFailed": "Psyche couldn't change that chat setting.",
   "web.toast.modelUnsupported": "Picking a model needs a newer version of Psyche.",
   "web.palette.newSideChat": "New side chat",
   "web.palette.newIncognito": "New incognito chat (memory-only, 24 h)",

@@ -91,6 +91,46 @@ describe("ShellStore", () => {
   });
 });
 
+describe("ShellStore.updateThread", () => {
+  const UNSUPPORTED = "Changing the permission mode needs a newer version of Psyche.";
+
+  it("shows the Gateway's own message when it refuses, not 'newer version'", async () => {
+    const message = "lmstudio/tiny-7b is not on the auto-mode allowlist.";
+    const gw = fakeGateway({
+      "threads.update": () => {
+        throw Object.assign(new Error(message), { code: "forbidden" });
+      },
+    });
+    const store = new ShellStore(gw.port);
+    await expect(store.updateThread("t1", { permissionMode: "auto" }, UNSUPPORTED)).resolves.toBe(
+      false,
+    );
+    expect(store.getState().toasts.map((t) => t.text)).toEqual([message]);
+    expect(store.getState().unavailable).not.toContain("threads.update");
+  });
+
+  it("says 'newer version' only when the Gateway lacks the method", async () => {
+    const store = new ShellStore(fakeGateway({}).port);
+    await expect(store.updateThread("t1", { permissionMode: "auto" }, UNSUPPORTED)).resolves.toBe(
+      false,
+    );
+    expect(store.getState().toasts.map((t) => t.text)).toEqual([UNSUPPORTED]);
+  });
+
+  it("applies the change and refreshes on success", async () => {
+    const gw = fakeGateway({
+      "threads.update": () => ({ thread: {} }),
+      "threads.list": () => ({ threads: [] }),
+      "approvals.list": () => ({ approvals: [] }),
+      "notifications.list": () => ({ notifications: [] }),
+    });
+    const store = new ShellStore(gw.port);
+    await expect(store.updateThread("t1", { modelRef: "a/b" }, UNSUPPORTED)).resolves.toBe(true);
+    expect(gw.calls[0]).toEqual(["threads.update", { threadId: "t1", modelRef: "a/b" }]);
+    expect(store.getState().toasts).toEqual([]);
+  });
+});
+
 describe("toasts (docs/a11y-audit.md T1)", () => {
   it("pauses while held, closes after 8 s otherwise, and keeps errors until dismissed", async () => {
     vi.useFakeTimers();

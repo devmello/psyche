@@ -185,7 +185,7 @@ describe("models.* (Settings → Model & providers)", () => {
     const desk = await client(await compose());
     const list = await desk.call<{ providers: ModelProviderSummary[] }>("models.list", {});
     expect(byId(list.providers, "llamacpp")?.models).toEqual([
-      { ref: "llamacpp/qwen3-8b", toolCheck: "untested" },
+      { ref: "llamacpp/qwen3-8b", toolCheck: "untested", autoMode: false },
     ]);
     await expect(
       desk.call("models.setRole", { role: "primary", ref: "llamacpp/tiny" }, ik()),
@@ -287,6 +287,7 @@ describe("subscription CLIs in Settings (fake CLI)", () => {
       {
         ref: "claude-code/haiku",
         toolCheck: "untested",
+        autoMode: false,
         capabilities: { source: "catalog", contextWindow: 200_000 },
       },
     ]);

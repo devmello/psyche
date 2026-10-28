@@ -179,6 +179,7 @@ export function modelSettingsHandlers(setup: ModelSettingsSetup): Record<string,
       models.push({
         ref,
         toolCheck: await toolCheck(ref),
+        ...(router === undefined ? {} : { autoMode: router.allowsAutoMode(ref) }),
         ...(capabilities === undefined ? {} : { capabilities }),
       });
     }
