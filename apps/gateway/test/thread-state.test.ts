@@ -144,6 +144,47 @@ describe("durable agent thread state (issue #52)", () => {
     expect(sent.split("yes write a revised one").length - 1).toBe(1);
   });
 
+  it("keeps an attached image as an image when the history is rebuilt", async () => {
+    home = mkdtempSync(join(tmpdir(), "psyche-state-"));
+    composed = await compose();
+    const desk = await desktopClient(composed.gateway);
+    clients.push(desk);
+    const { thread } = await desk.call<{ thread: Thread }>(
+      "threads.create",
+      { kind: "side" },
+      ik(),
+    );
+    const png = Buffer.alloc(300_000, 7);
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(png, 0);
+    png.writeUInt32BE(13, 8);
+    png.write("IHDR", 12, "ascii");
+    png.writeUInt32BE(1000, 16);
+    png.writeUInt32BE(700, 20);
+    const up = await desk.call<{ item?: { id: string; mime: string } }>(
+      "library.upload",
+      { name: "shot.png", bytes: png.toString("base64"), final: true },
+      ik(),
+    );
+    provider.enqueue([
+      { type: "text_delta", text: "It shows a diagram." },
+      { type: "finish", reason: "stop" },
+    ]);
+    await desk.call(
+      "chat.send",
+      { threadId: thread.id, content: "what is this", attachments: [up.item?.id] },
+      ik(),
+    );
+    await composed.gateway.context.sessions.idle();
+    deleteAgentThreadState(composed.db, thread.id);
+    provider.requests.length = 0;
+    await desk.call("chat.send", { threadId: thread.id, content: "and now?" }, ik());
+    await composed.gateway.context.sessions.idle();
+    const parts = (provider.requests.at(0)?.messages ?? []).flatMap((m) => m.parts);
+    expect(parts.filter((p) => p.type === "image")).toHaveLength(1);
+    const text = parts.flatMap((p) => (p.type === "text" ? [p.text] : [])).join("\n");
+    expect(text.length).toBeLessThan(5_000);
+  });
+
   it("gives a fork the history it shows", async () => {
     home = mkdtempSync(join(tmpdir(), "psyche-state-"));
     composed = await compose();

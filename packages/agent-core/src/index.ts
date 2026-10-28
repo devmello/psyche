@@ -9,6 +9,7 @@ export * from "./compaction.ts";
 export * from "./context.ts";
 export * from "./evaluator.ts";
 export * from "./hooks.ts";
+export * from "./image-tokens.ts";
 export * from "./loop.ts";
 export * from "./missing-permission.ts";
 export * from "./plugins.ts";

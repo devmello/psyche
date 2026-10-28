@@ -64,15 +64,23 @@ export interface HarnessOptions {
   files?: Record<string, string>;
   loop?: Partial<AgentLoopOptions>;
   contextWindow?: number;
+  vision?: boolean;
 }
 
 export function harness(options: HarnessOptions = {}) {
   const clock = new FakeClock();
   const ids = createIdGenerator();
   const provider = new FakeModelProvider({
-    ...(options.contextWindow === undefined
+    ...(options.contextWindow === undefined && options.vision === undefined
       ? {}
-      : { capabilities: { contextWindow: options.contextWindow } }),
+      : {
+          capabilities: {
+            ...(options.contextWindow === undefined
+              ? {}
+              : { contextWindow: options.contextWindow }),
+            ...(options.vision === undefined ? {} : { vision: options.vision }),
+          },
+        }),
   }).script(options.script ?? []);
   const broker = new RecordingBroker({ clock, ids, policy: options.policy ?? {} });
   const memory = new FakeMemoryStore({ clock, ids, files: options.files ?? {} });

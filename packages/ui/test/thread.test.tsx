@@ -327,6 +327,41 @@ describe("a failed run (#539)", () => {
     expect(card.textContent).toContain("credential unavailable");
   });
 
+  it("explains an over-budget turn in plain words, with a Compact action", async () => {
+    const navigate = vi.fn();
+    const gateway = new MockGateway(createFixtureWorld(), { now: () => FIXTURE_NOW });
+    const store = new GatewayStore(gateway, { now: () => FIXTURE_NOW });
+    render(
+      <GatewayProvider client={gateway} store={store}>
+        <UiSlotsProvider value={{ persona: { name: "Wren", creature: "moth" }, navigate }}>
+          <ChatThread threadId={IDS.threads.dentist} now={NOW} />
+        </UiSlotsProvider>
+      </GatewayProvider>,
+    );
+    await screen.findByText(/dentist/i, undefined, { timeout: 3000 }).catch(() => undefined);
+    const sent = gateway.commitMessage(IDS.threads.dentist, "user", [
+      { type: "text", md: "hello" },
+    ]);
+    act(() =>
+      gateway.setRun({
+        id: "run_failed",
+        threadId: IDS.threads.dentist,
+        status: "failed",
+        modelRef: "anthropic/claude-sonnet-5-5",
+        attempt: 1,
+        startedAt: sent.createdAt,
+        endedAt: sent.createdAt,
+        error: "context_limit",
+        usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0, costUsd: 0 },
+      }),
+    );
+    const card = await screen.findByTestId("run-failure");
+    expect(card.textContent).toContain("too big for the model's context");
+    expect(card.textContent).not.toContain("[stopped");
+    expect(within(card).getByRole("button", { name: "Compact the chat" })).toBeTruthy();
+    expect(card.textContent).toContain("remove or shrink the attachment");
+  });
+
   it("names a failure in Psyche's words when the key isn't the cause", async () => {
     const { failureAnchors, isCredentialFailure } = await import("../src/chat/RunFailure.tsx");
     expect(isCredentialFailure("timeout: provider took too long")).toBe(false);

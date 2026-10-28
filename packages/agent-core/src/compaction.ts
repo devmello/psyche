@@ -8,6 +8,7 @@ import type {
   ModelRef,
   ToolSpec,
 } from "@psyche/protocol";
+import { estimateMessagesTokens } from "./image-tokens.ts";
 import { estimateTokens } from "./util.ts";
 
 export interface CompactionPolicy {
@@ -35,7 +36,7 @@ export function estimateContextTokens(
 ): number {
   return (
     estimateTokens(system) +
-    estimateTokens(JSON.stringify(messages)) +
+    estimateMessagesTokens(messages) +
     estimateTokens(JSON.stringify(tools))
   );
 }
@@ -267,8 +268,8 @@ export function estimateBreakdown(
   }
   b.tools += tools.length === 0 ? 0 : estimateTokens(JSON.stringify(tools));
   const cut = Math.max(0, Math.min(turnStart, messages.length));
-  b.history += cut === 0 ? 0 : estimateTokens(JSON.stringify(messages.slice(0, cut)));
-  b.current += cut === messages.length ? 0 : estimateTokens(JSON.stringify(messages.slice(cut)));
+  b.history += cut === 0 ? 0 : estimateMessagesTokens(messages.slice(0, cut));
+  b.current += cut === messages.length ? 0 : estimateMessagesTokens(messages.slice(cut));
   return b;
 }
 

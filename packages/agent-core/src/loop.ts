@@ -747,16 +747,26 @@ export class PsycheAgentLoop implements AgentLoop {
       // A specialist runs on its role's model, never a pinned `/model` (specialists §4.3).
       if (run.specialistJob !== undefined) run.model = run.specialistJob.spec.model;
       run.turnStart = run.thread.messages.length;
+      const turnImages = input.input.images ?? [];
+      // A model that cannot read images gets a note, never the picture (or its bytes as text).
+      const blind = turnImages.length > 0 && !(await this.#canSeeImages(run.model));
       run.thread.messages.push({
         role: "user",
         parts: [
-          { type: "text", text: userText(input) },
+          {
+            type: "text",
+            text: blind
+              ? `${userText(input)}\n\n[${turnImages.length} attached image${turnImages.length === 1 ? "" : "s"} not shown: ${run.model} cannot read images. Tell the owner, and suggest switching to a model that can see images.]`
+              : userText(input),
+          },
           // Images the model sees with the message (a pinned screen capture).
-          ...(input.input.images ?? []).map((i) => ({
-            type: "image" as const,
-            mime: i.mime,
-            data: i.data,
-          })),
+          ...(blind
+            ? []
+            : turnImages.map((i) => ({
+                type: "image" as const,
+                mime: i.mime,
+                data: i.data,
+              }))),
         ],
       });
       outcome = await this.#loop(run);
@@ -1206,10 +1216,7 @@ export class PsycheAgentLoop implements AgentLoop {
     }
     if (estimate > limits.maxTokens) {
       // Never send more than the owner allows: the turn ends instead (B7, owner priority).
-      this.#marker(
-        run,
-        `[stopped: this turn needs about ${estimate} tokens of context, over the ${limits.maxTokens}-token limit; compact the thread or raise the limit]`,
-      );
+      // The chat shows this as a card (compact / shrink the attachment), not as raw text.
       throw new RunEnd("failed", "context_limit");
     }
     run.pendingBreakdown = {
@@ -1358,6 +1365,15 @@ export class PsycheAgentLoop implements AgentLoop {
       const oldest = this.#explanations.keys().next().value;
       if (oldest === undefined) break;
       this.#explanations.delete(oldest);
+    }
+  }
+
+  /** False only when the provider says the model cannot read images. */
+  async #canSeeImages(model: ModelRef): Promise<boolean> {
+    try {
+      return (await this.#o.provider.capabilities(model)).vision !== false;
+    } catch {
+      return true;
     }
   }
 

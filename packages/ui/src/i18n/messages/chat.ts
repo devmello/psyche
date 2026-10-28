@@ -196,6 +196,11 @@ export const chat = {
   "chat.runFailed.credential":
     "Psyche couldn't reply: your model's API key is missing or was refused. Add or fix it in Settings → Models.",
   "chat.runFailed.generic": "Psyche couldn't finish this reply.",
+  "chat.runFailed.contextLimit":
+    "This message is too big for the model's context, so Psyche didn't send it.",
+  "chat.runFailed.contextLimitHint":
+    "Compact the chat to free room, or remove or shrink the attachment and send it again.",
+  "chat.runFailed.compact": "Compact the chat",
   "chat.runFailed.openModels": "Open Settings → Models",
   "chat.runFailed.details": "Details",
 
