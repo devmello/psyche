@@ -71,7 +71,7 @@ struct DictationTests {
         var pw = textEdit
         pw.secure = true
         #expect(DictationPolicy.refusal(pw, secureInput: false) == .secureField)
-        #expect(DictationPolicy.refusal(textEdit, secureInput: true) == .secureField)
+        #expect(DictationPolicy.refusal(textEdit, secureInput: true) == nil)
         #expect(DictationPolicy.refusal(textEdit, secureInput: false, expectPid: 7) == .focusChanged)
         let button = DictationFocus(
             pid: 42, bundleId: "com.apple.finder", appName: "Finder", role: "AXButton",
@@ -119,7 +119,7 @@ struct DictationTests {
         for (focus, secure, expect, reason) in [
             (DictationFocus?.none, false, Int?.none, "no_focus"),
             (DictationFocus(pid: 5, bundleId: "com.psyche.helper", appName: "Psyche"), false, nil, "own_window"),
-            (textEdit, true, nil, "secure_field"),
+            (DictationFocus(pid: 42, bundleId: "com.apple.TextEdit", appName: "TextEdit", role: "AXTextField", secure: true), false, nil, "secure_field"),
             (textEdit, false, 99, "focus_changed"),
         ] {
             let b = FakeDictationBackend(focus)
@@ -132,6 +132,41 @@ struct DictationTests {
             } catch { Issue.record("unexpected \(error)") }
             #expect(b.calls.isEmpty)
         }
+    }
+
+    // Mocked AX facts for the focused element, as the live backend reads them.
+    @Test func chromiumContenteditableAllowedUnderGlobalSecureInput() throws {
+        // Electron chat box: role AXTextArea/unknown, no secure subrole; some other app holds secure input.
+        #expect(!DictationPolicy.isSecureElement(role: "AXTextArea", subrole: nil))
+        let claude = DictationFocus(
+            pid: 77, bundleId: "com.anthropic.claudefordesktop", appName: "Claude", role: "AXTextArea",
+            element: DictationElementInfo(selectedTextSettable: false, valueSettable: false, hasSelectedRange: false))
+        let b = FakeDictationBackend(claude)
+        b.secure = true
+        let out = try DictationInserter.insert("hello", expectPid: nil, backend: b)
+        #expect(out.method == .typed && b.inserted == ["hello"])
+    }
+
+    @Test func secureTextFieldRefusedByRoleOrSubrole() {
+        #expect(DictationPolicy.isSecureElement(role: "AXTextField", subrole: "AXSecureTextField"))
+        #expect(DictationPolicy.isSecureElement(role: "AXSecureTextField", subrole: nil))
+        let f = DictationFocus(pid: 77, bundleId: "com.google.Chrome", appName: "Chrome", role: "AXTextField", secure: true)
+        #expect(DictationPolicy.refusal(f, secureInput: false) == .secureField)
+        #expect(DictationInserter.refusalError(.secureField, target: DictationPolicy.target(f, secureInput: false)).message.contains("Chrome"))
+    }
+
+    @Test func unknownRoleAllowed() {
+        #expect(!DictationPolicy.isSecureElement(role: nil, subrole: nil))
+        #expect(!DictationPolicy.isSecureElement(role: "AXUnknown", subrole: "AXUnknown"))
+        #expect(DictationPolicy.refusal(DictationFocus(pid: 9, bundleId: nil, appName: "X", role: nil), secureInput: false) == nil)
+    }
+
+    @Test func passwordLabelledAncestorDoesNotMatter() {
+        // Only the focused element's own role/subrole count; labels and ancestors are never inputs.
+        let f = DictationFocus(
+            pid: 9, bundleId: "com.apple.Safari", appName: "Safari", role: "AXTextArea",
+            element: DictationElementInfo(selectedTextSettable: true, valueSettable: true, hasSelectedRange: true))
+        #expect(DictationPolicy.refusal(f, secureInput: false) == nil)
     }
 
     @Test func typingStopsWhenFocusMovesIntoAPasswordField() {
