@@ -1,5 +1,6 @@
 import type {
   ActionProposal,
+  CatalogEntry,
   ConnectorCatalogueEntry,
   ContextLimits,
   ContextUsage,
@@ -312,6 +313,8 @@ export class MockGateway implements GatewayClient {
   private skillProposals = new Map<string, SkillProposal>();
   /** Settings → MCP (#529): added servers and probes waiting for their trust card. */
   readonly mcpServers: McpServerStatus[] = [];
+  /** The capability catalogue `capabilities.search` ranks (stories, tests); registry entries need the online setting. */
+  capabilityCatalog: CatalogEntry[] = [];
   /** How stdio MCP servers run; tests set `"none"` for a Gateway with no sandbox. */
   mcpLauncher: "srt" | "container" | "none" = "srt";
   /** `sandbox.installSrt` calls so far, and an error to throw from it (tests). */
@@ -2376,6 +2379,29 @@ export class MockGateway implements GatewayClient {
           trust: x.trust,
         })),
     }),
+    "capabilities.search": (p) => {
+      const online = this.world.settings["capabilities.onlineSearch"] === true;
+      const q = (p.query ?? "").trim().toLowerCase();
+      const entries = this.capabilityCatalog
+        .filter((e) => online || e.comesFrom !== "registry")
+        .filter((e) => p.kind === undefined || e.kind === p.kind)
+        .filter((e) => p.installable !== true || e.status === "installable" || e.status === "off")
+        .filter((e) => q === "" || `${e.name} ${e.summary}`.toLowerCase().includes(q))
+        .slice(0, p.limit ?? 50);
+      return { entries: structuredClone(entries), online };
+    },
+    "capabilities.setLoading": (p) => {
+      const map = {
+        ...((this.world.settings["tools.loading"] as Record<string, string> | undefined) ?? {}),
+      };
+      if (p.loading === "default") delete map[p.name];
+      else map[p.name] = p.loading;
+      this.world.settings["tools.loading"] = map;
+      this.emit("settings.changed", {
+        entries: [{ key: "tools.loading", value: map, updatedAt: this.now() }],
+      });
+      return { ok: true as const };
+    },
     "mcp.status": () => ({ launcher: this.mcpLauncher, servers: this.mcpServers }),
     "mcp.probe": (p) => {
       if (this.mcpServers.some((x) => x.id === p.server.id))

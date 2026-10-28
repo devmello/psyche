@@ -2,6 +2,7 @@ import { agent } from "./agent.ts";
 import { agentNotes } from "./agent-notes.ts";
 import { blocks } from "./blocks.ts";
 import { canvas } from "./canvas.ts";
+import { capabilities } from "./capabilities.ts";
 import { charts } from "./charts.ts";
 import { chat } from "./chat.ts";
 import { common } from "./common.ts";
@@ -68,6 +69,7 @@ export const en = {
   ...workflows,
   ...overview,
   ...overviewGrowth,
+  ...capabilities,
 } as const;
 
 export type MessageId = keyof typeof en;

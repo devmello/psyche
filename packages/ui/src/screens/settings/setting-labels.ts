@@ -10,6 +10,8 @@ import { t } from "../../i18n/core.ts";
  */
 const LABELLED_KEYS = [
   "agent.showReasoning",
+  "capabilities.onlineSearch",
+  "tools.loading",
   "appearance.theme",
   "appearance.gray",
   "appearance.accentSeed",
