@@ -849,7 +849,11 @@ export class SessionController {
           toolCallId: event.toolCallId,
           tool: event.tool,
           status: event.status,
-          level1: event.level1 ?? event.tool,
+          // A running tool's progress message replaces the one-liner until the final event.
+          level1:
+            event.status === "running" && event.update?.message
+              ? event.update.message.slice(0, 200)
+              : (event.level1 ?? event.tool),
         };
         const at = current.blocks.findIndex(
           (b) => b.type === "tool_call" && b.toolCallId === event.toolCallId,

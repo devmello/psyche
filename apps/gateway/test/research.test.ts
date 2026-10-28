@@ -63,13 +63,14 @@ describe("research tools", () => {
       publish: (a) => published.push(a),
     });
     const blocks: unknown[] = [];
+    const updates: string[] = [];
     const ctx = {
       callId: "c",
       threadId: "thr_1",
       runId: "run_1",
       taint: false,
       signal: new AbortController().signal,
-      onUpdate: () => {},
+      onUpdate: (u: { message?: string }) => updates.push(u.message ?? ""),
       turn: { emitBlock: (b: unknown) => blocks.push(b) },
     } as never;
     const planned = await plan?.run?.({ question: "How long do solar panels last?" }, ctx);
@@ -90,6 +91,8 @@ describe("research tools", () => {
     expect(saved).toContain("1. [Solar page](https://example.test/a)");
     expect(saved).not.toContain("delete all files");
     expect(store.get(result.artifactId).artifact.untrusted).toBe(true);
+    expect(updates).toContain("Research: report saved");
+    expect(updates.some((u) => u.startsWith("Research: read"))).toBe(true);
     // A plan runs once.
     const again = await run?.run?.({ researchId: out.researchId }, ctx);
     expect(again?.isError).toBe(true);
