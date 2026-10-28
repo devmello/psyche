@@ -124,6 +124,11 @@
         "payload": "#/$defs/ArtifactUpdatedPayload"
       },
       {
+        "description": "An owner-data change was written to the audit log (drives the chat's change chip).",
+        "name": "audit.change.recorded",
+        "payload": "#/$defs/AuditChangeRecordedPayload"
+      },
+      {
         "description": "An automation run ended (done, no_reply, failed, cancelled, skipped).",
         "name": "automation.run.finished",
         "payload": "#/$defs/AutomationRunFinishedPayload"
@@ -523,6 +528,30 @@
         "params": "#/$defs/AttentionReportParams",
         "result": "#/$defs/AttentionReportResult",
         "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "One change with its stored unified diff.",
+        "name": "audit.change",
+        "params": "#/$defs/AuditChangeParams",
+        "result": "#/$defs/AuditChangeResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Owner-data changes (files, memory, commands, connectors, skills, settings, approvals), newest first, from the audit log. Page with beforeSeq.",
+        "name": "audit.changes",
+        "params": "#/$defs/AuditChangesParams",
+        "result": "#/$defs/AuditChangesResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Exports the matching changes with diffs and the chain status.",
+        "name": "audit.changesExport",
+        "params": "#/$defs/AuditChangesExportParams",
+        "result": "#/$defs/AuditChangesExportResult",
+        "scope": "operator.read",
         "sideEffecting": false
       },
       {
@@ -5756,6 +5785,16 @@
           "const": "UNSANDBOXED",
           "type": "string"
         },
+        "editedText": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "recipientChoice": {
+          "maxLength": 400,
+          "minLength": 1,
+          "type": "string"
+        },
         "presence": {
           "$ref": "#/$defs/PresenceAssertion"
         },
@@ -7564,6 +7603,328 @@
       },
       "required": [
         "type"
+      ],
+      "type": "object"
+    },
+    "AuditChange": {
+      "properties": {
+        "seq": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "hash": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "ts": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "actor": {
+          "$ref": "#/$defs/AuditChangeActor"
+        },
+        "category": {
+          "$ref": "#/$defs/AuditChangeCategory"
+        },
+        "threadId": {
+          "type": "string"
+        },
+        "runId": {
+          "type": "string"
+        },
+        "taskId": {
+          "type": "string"
+        },
+        "toolCallId": {
+          "type": "string"
+        },
+        "tool": {
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/AuditChangeTarget"
+        },
+        "action": {
+          "type": "string"
+        },
+        "approvalId": {
+          "type": "string"
+        },
+        "receiptId": {
+          "type": "string"
+        },
+        "beforeSha256": {
+          "type": "string"
+        },
+        "afterSha256": {
+          "type": "string"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "outcome": {
+          "enum": [
+            "ok",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        },
+        "hasDiff": {
+          "type": "boolean"
+        },
+        "diffTruncated": {
+          "type": "boolean"
+        },
+        "stats": {
+          "properties": {
+            "added": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "removed": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "added",
+            "removed"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "seq",
+        "hash",
+        "ts",
+        "actor",
+        "category",
+        "tool",
+        "target",
+        "action",
+        "outcome",
+        "hasDiff"
+      ],
+      "type": "object"
+    },
+    "AuditChangeActor": {
+      "properties": {
+        "type": {
+          "enum": [
+            "agent",
+            "job",
+            "owner"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 100,
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "AuditChangeCategory": {
+      "enum": [
+        "file",
+        "memory",
+        "command",
+        "connector",
+        "skill",
+        "setting",
+        "approval"
+      ],
+      "type": "string"
+    },
+    "AuditChangeParams": {
+      "properties": {
+        "seq": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "seq"
+      ],
+      "type": "object"
+    },
+    "AuditChangeRecordedPayload": {
+      "properties": {
+        "seq": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "category": {
+          "$ref": "#/$defs/AuditChangeCategory"
+        },
+        "threadId": {
+          "type": "string"
+        },
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "seq",
+        "category"
+      ],
+      "type": "object"
+    },
+    "AuditChangeResult": {
+      "properties": {
+        "change": {
+          "$ref": "#/$defs/AuditChange"
+        },
+        "diff": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "change"
+      ],
+      "type": "object"
+    },
+    "AuditChangeTarget": {
+      "properties": {
+        "path": {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        "connector": {
+          "maxLength": 100,
+          "type": "string"
+        },
+        "object": {
+          "maxLength": 500,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "AuditChangesExportFormat": {
+      "enum": [
+        "json",
+        "markdown"
+      ],
+      "type": "string"
+    },
+    "AuditChangesExportParams": {
+      "properties": {
+        "threadId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "runId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "categories": {
+          "items": {
+            "$ref": "#/$defs/AuditChangeCategory"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
+        "since": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "until": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "format": {
+          "$ref": "#/$defs/AuditChangesExportFormat"
+        }
+      },
+      "required": [
+        "format"
+      ],
+      "type": "object"
+    },
+    "AuditChangesExportResult": {
+      "properties": {
+        "format": {
+          "$ref": "#/$defs/AuditChangesExportFormat"
+        },
+        "data": {
+          "type": "string"
+        },
+        "verified": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "format",
+        "data",
+        "verified"
+      ],
+      "type": "object"
+    },
+    "AuditChangesParams": {
+      "properties": {
+        "threadId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "runId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "categories": {
+          "items": {
+            "$ref": "#/$defs/AuditChangeCategory"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
+        "since": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "until": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "beforeSeq": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "AuditChangesResult": {
+      "properties": {
+        "changes": {
+          "items": {
+            "$ref": "#/$defs/AuditChange"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "changes"
       ],
       "type": "object"
     },

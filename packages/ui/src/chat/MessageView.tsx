@@ -24,6 +24,7 @@ import {
   useMessageFeedback,
 } from "../teaching/FeedbackActions.tsx";
 import { TaughtLine } from "../teaching/TaughtLine.tsx";
+import { ChangeChip } from "./ChangeChip.tsx";
 import { CompactionMessage } from "./context/connected.tsx";
 
 /** First text of a message, for quotes and previews. */
@@ -273,6 +274,11 @@ export function MessageView({
           {...(onWrapUpAction ? { onWrapUpAction } : {})}
         />
         {/* Teaching (§5.1): the note after Teach and "Used n lessons", only when there is one. */}
+        <ChangeChip
+          threadId={message.threadId}
+          runId={message.runId ?? null}
+          messageId={message.id}
+        />
         <TeachPanel feedback={feedback} />
         <FeedbackNote feedback={feedback} />
         <UsedLessons message={message} />

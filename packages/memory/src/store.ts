@@ -129,11 +129,38 @@ export interface SqliteMemoryStoreOptions {
   onEvent?: MemoryEventSink;
   /** Records that a retraction happened (never its content). */
   audit?: Pick<AuditLog, "append">;
+  /** Called after every file write, append, delete and rename (owner-data change records). */
+  onChange?: (change: MemoryFileChange) => void;
   /** Utility model for the pre-compaction flush; without it `flush` appends nothing. */
   flush?: FlushConfig;
 }
 
+/** Who and what a write belongs to, for the owner-data audit (change records). */
+export interface WriteLink {
+  threadId?: string;
+  runId?: string;
+  toolCallId?: string;
+  /** The tool (`memory`, `remember`) or background job (`profile-learning`, `dreaming`). */
+  tool?: string;
+}
+
+/** One change to a workspace file, reported after it is on disk. */
+export interface MemoryFileChange {
+  path: string;
+  action: "create" | "update" | "append" | "delete" | "rename";
+  /** Content before and after; undefined when the file did not exist or no longer does. */
+  before?: string;
+  after?: string;
+  /** The new path, for a rename. */
+  renamedTo?: string;
+  actor: WriteActor;
+  approvalId?: string;
+  link: WriteLink;
+}
+
 export interface WriteOptions extends MemoryWriteOptions {
+  /** Thread, turn and tool or job behind the write (change records). */
+  link?: WriteLink;
   actor?: WriteActor;
   source?: WriteContext["source"];
   /** Origin rendered in daily-note tags for `untrusted` writes. */
@@ -142,6 +169,8 @@ export interface WriteOptions extends MemoryWriteOptions {
 
 export interface DailyNoteWithOrigin extends DailyNoteInput {
   origin?: ProvenanceOrigin;
+  /** Thread, turn and tool behind the append (change records). */
+  link?: WriteLink;
 }
 
 interface ClaimRow {
@@ -215,6 +244,7 @@ export class SqliteMemoryStore implements MemoryStore {
   readonly #templateValues: Record<string, string>;
   readonly #onEvent: MemoryEventSink | undefined;
   readonly #audit: Pick<AuditLog, "append"> | undefined;
+  readonly #onChange: ((change: MemoryFileChange) => void) | undefined;
   readonly #flush: FlushConfig | undefined;
   #embedQueue: Promise<unknown> = Promise.resolve();
   #watcher: FSWatcher | undefined;
@@ -235,6 +265,7 @@ export class SqliteMemoryStore implements MemoryStore {
     this.#templateValues = options.templateValues ?? {};
     this.#onEvent = options.onEvent;
     this.#audit = options.audit;
+    this.#onChange = options.onChange;
     this.#flush = options.flush;
     ensureDir(options.workspaceDir);
     this.root = options.workspaceDir;
@@ -670,6 +701,8 @@ export class SqliteMemoryStore implements MemoryStore {
     }[],
     context: {
       threadId: string;
+      /** The turn the facts were learned from (change records link the write to it). */
+      runId?: string;
       /**
        * Teaching loop (docs/agent/teaching-loop-2026.md §4): the learned fact a correction
        * replaces. Its line goes first, so the corrected fact is not refused as a duplicate.
@@ -756,7 +789,16 @@ export class SqliteMemoryStore implements MemoryStore {
         if (stated.some((l) => l.field === h.field && l.date > h.date)) continue;
         next = setHeaderField(next, h.field, h.value, "replace");
       }
-      await this.write("USER.md", next, { provenance: "owner", actor: "job", source: "job" });
+      await this.write("USER.md", next, {
+        provenance: "owner",
+        actor: "job",
+        source: "job",
+        link: {
+          tool: "profile-learning",
+          threadId: context.threadId,
+          ...(context.runId === undefined ? {} : { runId: context.runId }),
+        },
+      });
     }
     return { written, refused };
   }
@@ -775,7 +817,12 @@ export class SqliteMemoryStore implements MemoryStore {
       parseLearned(file.content).filter((l) => l.section === undefined),
     );
     if (content !== file.content) {
-      await this.write("USER.md", content, { provenance: "owner", actor: "job", source: "job" });
+      await this.write("USER.md", content, {
+        provenance: "owner",
+        actor: "job",
+        source: "job",
+        link: { tool: "profile-repair" },
+      });
     }
     this.#setState(USER_HEADER_REPAIR, { at: this.#nowIso(), filled });
     return filled;
@@ -787,7 +834,12 @@ export class SqliteMemoryStore implements MemoryStore {
     if (current === undefined) return false;
     const next = removeLearned(current, factId);
     if (next === undefined) return false;
-    await this.write("USER.md", next, { provenance: "owner", actor: "job", source: "job" });
+    await this.write("USER.md", next, {
+      provenance: "owner",
+      actor: "job",
+      source: "job",
+      link: { tool: "profile-forget" },
+    });
     return true;
   }
 
@@ -831,6 +883,15 @@ export class SqliteMemoryStore implements MemoryStore {
     this.#usedApprovals.add(approvalId);
   }
 
+  #changed(change: MemoryFileChange): void {
+    if (change.action !== "rename" && change.before === change.after) return;
+    try {
+      this.#onChange?.(change);
+    } catch {
+      // Reporting is best effort: it never fails the write.
+    }
+  }
+
   /** Every write goes through here; see README "Write rules". */
   async write(path: string, content: string, options: WriteOptions): Promise<MemoryFile> {
     const p = this.canonicalPath(path);
@@ -865,6 +926,15 @@ export class SqliteMemoryStore implements MemoryStore {
     }
     const mtime = this.#writeDisk(p, next);
     this.#indexFile(p, next, fileProvenance, mtime);
+    this.#changed({
+      path: p,
+      action: current === undefined ? "create" : "update",
+      ...(current === undefined ? {} : { before: current }),
+      after: next,
+      actor,
+      ...(options.approvalId === undefined ? {} : { approvalId: options.approvalId }),
+      link: options.link ?? {},
+    });
     const etag = etagOf(next);
     this.#emit({
       event: "memory.file.changed",
@@ -916,7 +986,18 @@ export class SqliteMemoryStore implements MemoryStore {
       });
     }
     // Only the listed (non-hidden, checked) files go; directories are removed once empty.
+    const removed = files.map((f) => [f, this.#readDisk(f)] as const);
     for (const f of files) rmSync(this.#abs(f), { force: true });
+    for (const [f, before] of removed) {
+      this.#changed({
+        path: f,
+        action: "delete",
+        ...(before === undefined ? {} : { before }),
+        actor,
+        ...(options.approvalId === undefined ? {} : { approvalId: options.approvalId }),
+        link: options.link ?? {},
+      });
+    }
     if (statSync(abs, { throwIfNoEntry: false })?.isDirectory() === true) removeEmptyDirs(abs);
     for (const f of files) {
       this.#unindexFile(f);
@@ -972,6 +1053,16 @@ export class SqliteMemoryStore implements MemoryStore {
     renameSync(this.#abs(src), this.#abs(dst));
     this.#unindexFile(src);
     this.#indexFile(dst, content, provenance, statSync(this.#abs(dst)).mtimeMs);
+    this.#changed({
+      path: src,
+      action: "rename",
+      before: content,
+      after: content,
+      renamedTo: dst,
+      actor,
+      ...(options.approvalId === undefined ? {} : { approvalId: options.approvalId }),
+      link: options.link ?? {},
+    });
     const source = options.source ?? "tool";
     const trace = traced(options.trace);
     this.#emit({
@@ -1017,7 +1108,8 @@ export class SqliteMemoryStore implements MemoryStore {
       );
     }
     const path = dailyNotePath(date);
-    const current = this.#readDisk(path) ?? newDailyNote(date);
+    const existing = this.#readDisk(path);
+    const current = existing ?? newDailyNote(date);
     const base = current.length === 0 || current.endsWith("\n") ? current : `${current}\n`;
     const tag: ProvenanceTag = {
       provenance: input.provenance,
@@ -1030,6 +1122,14 @@ export class SqliteMemoryStore implements MemoryStore {
     const fileProvenance = leastTrusted(row?.provenance ?? input.provenance, input.provenance);
     const mtime = this.#writeDisk(path, next);
     this.#indexFile(path, next, fileProvenance, mtime);
+    this.#changed({
+      path,
+      action: "append",
+      ...(existing === undefined ? {} : { before: existing }),
+      after: next,
+      actor: input.trace === undefined && input.link === undefined ? "job" : "agent",
+      link: input.link ?? {},
+    });
     this.#emit({
       event: "memory.file.changed",
       payload: {
@@ -1165,7 +1265,7 @@ export class SqliteMemoryStore implements MemoryStore {
    */
   async forget(
     subject: string,
-    options: { dryRun?: boolean; actor?: WriteActor; approvalId?: string } = {},
+    options: { dryRun?: boolean; actor?: WriteActor; approvalId?: string; link?: WriteLink } = {},
   ): Promise<ForgetResult> {
     const phrase = oneLine(subject);
     if (phrase.length < MIN_FORGET_CHARS) {
@@ -1232,7 +1332,12 @@ export class SqliteMemoryStore implements MemoryStore {
       // Removing lines adds nothing: the file keeps its provenance.
       const kept = this.#index.getFile(path)?.provenance ?? "owner";
       const provenance = kept === "untrusted" && isProtected(path) ? "agent" : kept;
-      await this.write(path, content, { provenance, actor: "job", source: "job" });
+      await this.write(path, content, {
+        provenance,
+        actor: "job",
+        source: "job",
+        link: { ...options.link, tool: options.link?.tool ?? "forget" },
+      });
     }
     const now = this.#nowIso();
     this.#db.transaction(() => {

@@ -300,6 +300,25 @@ export interface AgentLoopOptions {
     /** The turn read untrusted content (the owner's words are still the owner's). */
     taint: boolean;
   }) => Promise<void> | void;
+  /**
+   * After every side-effecting tool call (write or worse), with the thread, turn, approval and
+   * target: the audit trail of what the agent changed. Never delays or fails the call.
+   */
+  onToolEffect?: (effect: {
+    threadId: string;
+    runId: string;
+    taskId?: string;
+    toolCallId: string;
+    tool: string;
+    kind: string;
+    target?: { kind: string; value: string };
+    sideEffect: SideEffect;
+    outcome: "ok" | "failed" | "uncertain";
+    summary: string;
+    approvalId?: string;
+    receiptId?: string;
+    subagent?: boolean;
+  }) => void;
   /** After every turn that called the model: what its last call sent (the context meter). */
   onContextUsage?: (usage: ContextUsage) => void;
   /** After a compaction: the Gateway stores the `compaction` block and audits it. */
@@ -1757,6 +1776,37 @@ export class PsycheAgentLoop implements AgentLoop {
 
   // --- Tools ------------------------------------------------------------------------------------
 
+  #effect(
+    run: RunState,
+    g: Gated,
+    toolCallId: string,
+    tool: string,
+    outcome: "ok" | "failed" | "uncertain",
+    summary: string,
+    receiptId: string | undefined,
+  ): void {
+    try {
+      this.#o.onToolEffect?.({
+        threadId: run.threadId,
+        runId: run.runId,
+        ...(run.taskId === undefined ? {} : { taskId: run.taskId }),
+        toolCallId,
+        tool,
+        kind: g.approvalKind ?? g.desc.kind ?? tool,
+        ...(g.target === undefined
+          ? {}
+          : { target: { kind: g.target.kind, value: g.target.value } }),
+        sideEffect: g.sideEffect,
+        outcome,
+        summary,
+        ...(g.approvalId === undefined ? {} : { approvalId: g.approvalId }),
+        ...(receiptId === undefined ? {} : { receiptId }),
+      });
+    } catch {
+      // Reporting never fails the call.
+    }
+  }
+
   #toolEvent(
     run: RunState,
     toolCallId: string,
@@ -2535,6 +2585,9 @@ export class PsycheAgentLoop implements AgentLoop {
     }
     if (result.receiptId !== undefined)
       this.#block(run, { type: "receipt", receiptId: result.receiptId });
+    if (SEVERITY[g.sideEffect] >= SEVERITY.write) {
+      this.#effect(run, g, call.id, call.name, failed ? "failed" : "ok", level1, result.receiptId);
+    }
     const status: ToolCallStatus = failed ? "failed" : "ok";
     this.#toolEvent(
       run,
@@ -3112,6 +3165,7 @@ export class PsycheAgentLoop implements AgentLoop {
       });
       receiptId = receipt.id;
       this.#block(run, { type: "receipt", receiptId });
+      this.#effect(run, g, actionId, g.call.name, outcome, level1, receiptId);
     }
     const status: ToolCallStatus =
       outcome === "ok" ? "ok" : outcome === "failed" ? "failed" : "uncertain";

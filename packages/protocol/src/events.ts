@@ -1,6 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, Nullable, Provenance, StringEnum } from "./common.ts";
 import { PsycheError } from "./errors.ts";
+import { AuditChangeCategory } from "./methods/audit.ts";
 import { BrowserRecording } from "./methods/browser.ts";
 import { QueuedMessage } from "./methods/chat.ts";
 import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
@@ -147,6 +148,16 @@ export const Events = {
   "receipt.created": defineEvent({
     payload: Type.Object({ receipt: Receipt }),
     description: "A side effect was recorded.",
+  }),
+  "audit.change.recorded": defineEvent({
+    payload: Type.Object({
+      seq: Type.Integer({ minimum: 0 }),
+      category: AuditChangeCategory,
+      threadId: Type.Optional(Type.String()),
+      runId: Type.Optional(Type.String()),
+    }),
+    description:
+      "An owner-data change was written to the audit log (drives the chat's change chip).",
   }),
   "artifact.updated": defineEvent({
     payload: Type.Object({ artifact: Artifact, version: ArtifactVersion }),

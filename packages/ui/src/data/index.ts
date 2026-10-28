@@ -1,4 +1,5 @@
 export * from "./artifacts.ts";
+export * from "./changes.ts";
 export {
   type ConnectionState,
   type GatewayClient,

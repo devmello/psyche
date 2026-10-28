@@ -15,6 +15,7 @@ import type { AgentToolRegistration, ToolRunContext } from "@psyche/agent-core";
 import type { ToolResult } from "@psyche/protocol";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  type FileChange,
   type FileToolsOptions,
   fileTools,
   type GrantedFolder,
@@ -438,5 +439,38 @@ describe("provenance", () => {
     expect((await t.run("read_file", { path: join(readOnly, "notes.md") })).provenance).toBe(
       "untrusted",
     );
+  });
+});
+
+describe("change reporting", () => {
+  it("reports creates, overwrites and edits with before and after, and the call's thread and turn", async () => {
+    const seen: FileChange[] = [];
+    const t = toolset({ onChange: (c) => seen.push(c) });
+    const c = ctx({ threadId: "thr_1", runId: "run_1", callId: "call_1", approvalId: "ap_1" });
+    const path = join(granted, "a.md");
+    await t.run("write_file", { path, content: "one" }, c);
+    await t.run("write_file", { path, content: "two" }, c);
+    await t.run("edit_file", { path, old_string: "two", new_string: "three" }, c);
+    expect(seen.map((s) => s.action)).toEqual(["create", "overwrite", "edit"]);
+    expect(seen[0]?.before).toBeUndefined();
+    expect(seen[1]?.before?.toString()).toBe("one");
+    expect(seen[2]).toMatchObject({
+      tool: "edit_file",
+      threadId: "thr_1",
+      runId: "run_1",
+      toolCallId: "call_1",
+      approvalId: "ap_1",
+    });
+    expect(seen[2]?.before?.toString()).toBe("two");
+    expect(seen[2]?.after.toString()).toBe("three");
+  });
+
+  it("reports nothing for a refused write", async () => {
+    const seen: FileChange[] = [];
+    const t = toolset({ onChange: (c) => seen.push(c), folders: () => folders });
+    await expect(
+      t.run("write_file", { path: join(readOnly, "x.md"), content: "no" }),
+    ).rejects.toThrow();
+    expect(seen).toHaveLength(0);
   });
 });

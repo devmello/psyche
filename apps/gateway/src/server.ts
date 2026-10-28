@@ -80,6 +80,13 @@ export interface GatewayOptions {
   env?: NodeJS.ProcessEnv;
   logger?: Logger;
   now?: () => Date;
+  /** The owner changed a setting (audit trail: key and value hashes, never the value). */
+  onSettingChanged?: (change: {
+    key: string;
+    before: unknown;
+    after: unknown;
+    deviceId: string;
+  }) => void;
   /** Inject an open database (tests); defaults to SQLite at config.dbPath. */
   db?: PsycheDb;
   /** Agent runtime (S02); defaults to a loop that fails every turn cleanly. */
@@ -200,6 +207,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     memory: options.memory ?? null,
     extraHandlers: checkExtraHandlers(options.handlers ?? {}),
     onDeviceRevoked: options.onDeviceRevoked ?? null,
+    onSettingChanged: options.onSettingChanged ?? null,
     brokerPublishesReceipts: options.brokerPublishesReceipts ?? false,
     presenceState: presenceStateFor(db, options.settingsPresence ?? (() => false)),
     threadModels: options.threadModels ?? null,
