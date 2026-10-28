@@ -10,6 +10,8 @@ export const CANVAS_IDS = {
   map: "art_canvas_map",
   html: "art_canvas_html",
   htmlUntrusted: "art_canvas_html_untrusted",
+  deck: "art_canvas_deck",
+  workbook: "art_canvas_workbook",
 } as const;
 
 const DOC_V1 = "# Lisbon, 3 days\n\n## Day 1\n- Alfama walk\n- Dinner in Bairro Alto\n";
@@ -71,6 +73,46 @@ const DIFF = `--- a/itinerary.md
 `;
 
 const HTML = '<h1>Packing list</h1><button onclick="alert(1)">Open</button>';
+
+const DECK = JSON.stringify({
+  theme: "light",
+  slides: [
+    { id: "s1", layout: "title", title: "Lisbon in 3 days", bullets: ["Trip plan for June"] },
+    {
+      id: "s2",
+      layout: "bullets",
+      title: "Day 1",
+      bullets: ["Alfama walk", "Dinner in Bairro Alto"],
+      notes: "Mention the tram 28 queue.",
+    },
+    {
+      id: "s3",
+      layout: "two-column",
+      title: "Budget",
+      bullets: ["Flights: 412", "Hotel: 690"],
+      bullets2: ["Tram passes: 24", "Food: 260"],
+    },
+  ],
+});
+const WORKBOOK = JSON.stringify({
+  sheets: [
+    {
+      name: "Budget",
+      cells: {
+        A1: "Item",
+        B1: "Cost",
+        A2: "Flights",
+        B2: 412,
+        A3: "Hotel",
+        B3: 690,
+        A4: "Total",
+        B4: { f: "SUM(B2:B3)" },
+        C4: { f: "B4/0" },
+      },
+    },
+    { name: "Notes", cells: { A1: "Prices in EUR" } },
+  ],
+});
 
 const at = (min: number) => new Date(Date.parse(FIXTURE_NOW) - min * 60_000).toISOString();
 
@@ -181,8 +223,32 @@ export function canvasFixtures(): {
     updatedAt: at(12),
     untrusted: true,
   };
+  const deck: Artifact = {
+    id: CANVAS_IDS.deck,
+    libraryItemId: "lib_canvas_deck",
+    type: "slides",
+    title: "Lisbon deck",
+    version: 1,
+    nameSlug: "lisbon-deck",
+    sourceRef: null,
+    updatedAt: at(30),
+    threadId: IDS.threads.lisbon,
+    bytes: DECK.length,
+  };
+  const workbook: Artifact = {
+    id: CANVAS_IDS.workbook,
+    libraryItemId: "lib_canvas_workbook",
+    type: "workbook",
+    title: "Trip workbook",
+    version: 1,
+    nameSlug: "trip-workbook",
+    sourceRef: null,
+    updatedAt: at(31),
+    threadId: IDS.threads.lisbon,
+    bytes: WORKBOOK.length,
+  };
   return {
-    artifacts: [doc, table, chart, diff, html, htmlUntrusted, map],
+    artifacts: [doc, table, chart, diff, html, htmlUntrusted, map, deck, workbook],
     artifactHistory: {
       [doc.id]: {
         contents: [DOC_V1, DOC_V2, DOC_V3],
@@ -217,6 +283,16 @@ export function canvasFixtures(): {
         contents: [HTML],
         views: [null],
         versions: [version(htmlUntrusted.id, 1, "agent", "1 lines", 12)],
+      },
+      [deck.id]: {
+        contents: [DECK],
+        views: [null],
+        versions: [version(deck.id, 1, "agent", "3 slides", 3)],
+      },
+      [workbook.id]: {
+        contents: [WORKBOOK],
+        views: [null],
+        versions: [version(workbook.id, 1, "agent", "2 sheets", 4)],
       },
       [table.id]: {
         contents: [TABLE],

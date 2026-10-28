@@ -1630,6 +1630,16 @@ export class MockGateway implements GatewayClient {
       }
       return this.writeArtifactVersion(a, next.content, next.view, { ops: p.ops });
     },
+    "artifacts.export": (p) => {
+      const a = this.find(this.world.artifacts, p.artifactId, "artifact");
+      const h = this.artifactHistory(a.id);
+      const content = h.contents[(p.version ?? a.version) - 1] ?? "";
+      return {
+        name: `${a.nameSlug}.${p.format}`,
+        mime: "application/octet-stream",
+        data: btoa(unescape(encodeURIComponent(content))),
+      };
+    },
     "artifacts.restore": (p) => {
       const a = this.find(this.world.artifacts, p.artifactId, "artifact");
       const h = this.artifactHistory(a.id);

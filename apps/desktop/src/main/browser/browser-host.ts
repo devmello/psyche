@@ -24,12 +24,16 @@ import {
   isAllowedNavigationUrl,
 } from "./cdp-policy.ts";
 import { ensureQuarantineDir, quarantinePath, setQuarantineAttribute } from "./downloads.ts";
+import { FORM_READ_SCRIPT, httpsOrigin, LoginCapture, parseFormSnapshot } from "./login-capture.ts";
 import {
   cleanPartition,
   DEFAULT_PROFILE_NAME,
   linkProfileDir,
   loggedInPartition,
 } from "./partitions.ts";
+import { type SignedInSite, SignedInStore } from "./signed-in-sites.ts";
+import { forgetSite, staySignedIn } from "./signin-flow.ts";
+import { type SignInPromptAnswer, SignInPrompts, type VaultLoginItem } from "./signin-prompts.ts";
 import { TakeControl } from "./take-control.ts";
 import { computeViewBounds } from "./view-bounds.ts";
 
@@ -48,6 +52,10 @@ export interface BrowserHostOptions {
   userData: string;
   /** Logged-in profile name (`persist:agent-<name>`). */
   profileName?: string;
+  /** Main → Gateway `vault.add`, for "Save login to Psyche vault?". Absent: the prompt is off. */
+  vaultAdd?: (item: VaultLoginItem) => Promise<void>;
+  /** How often the owner-control login check runs (default 500 ms). */
+  captureEveryMs?: number;
   /** Take-control idle release (default 1.5 s). */
   idleMs?: number;
   /** Discard a background tab's renderer after this much idle time (default 15 min). */
@@ -103,9 +111,14 @@ interface Tab {
   lastFind: string | null;
   popOut: BaseWindow | undefined;
   subs: (() => void)[];
+  /** Hosts of the https pages this tab loaded: the sign-in flow's SSO hosts (security §6). */
+  flowHosts: Set<string>;
+  capture: LoginCapture;
 }
 
 const STATE_THROTTLE_MS = 50;
+/** Isolated world the sign-in check reads forms from; the page's own scripts cannot reach it. */
+const ISOLATED_WORLD = 1999;
 export const DISCARD_AFTER_MS = 15 * 60_000;
 const DISCARD_CHECK_MS = 60_000;
 const HIGHLIGHT_MS = 600;
@@ -153,6 +166,9 @@ export class BrowserHost implements BridgeTabHost {
   private readonly rendererZoom: () => number;
   private readonly now: () => number;
   private discardTimer: ReturnType<typeof setInterval> | undefined;
+  private captureTimer: ReturnType<typeof setInterval> | undefined;
+  private readonly signedIn: SignedInStore;
+  private readonly prompts: SignInPrompts;
   private readonly emitter = new TypedEmitter<BrowserHostEvents>();
   private readonly tabs = new Map<string, Tab>();
   private readonly byWebContents = new Map<number, Tab>();
@@ -185,6 +201,18 @@ export class BrowserHost implements BridgeTabHost {
       opts.discardCheckMs ?? DISCARD_CHECK_MS,
     );
     this.discardTimer.unref();
+    this.signedIn = new SignedInStore(this.home);
+    this.prompts = new SignInPrompts({
+      store: this.signedIn,
+      vaultAdd:
+        opts.vaultAdd ??
+        (() =>
+          Promise.reject(Object.assign(new Error("vault unavailable"), { code: "unavailable" }))),
+      stay: (tabId, origin, hosts) => this.stayOnProfile(tabId, origin, hosts),
+      changed: () => this.scheduleState(),
+    });
+    this.captureTimer = setInterval(() => this.pollCaptures(), opts.captureEveryMs ?? 500);
+    this.captureTimer.unref();
   }
 
   // ── events ──────────────────────────────────────────────────────────────────────────────
@@ -208,6 +236,7 @@ export class BrowserHost implements BridgeTabHost {
       tabs: [...this.tabs.values()].map((t) => this.view(t)),
       activeTabId: this.active,
       bridgeConnected: this.bridgeConnected,
+      prompts: this.prompts.views(),
     };
   }
 
@@ -450,7 +479,10 @@ export class BrowserHost implements BridgeTabHost {
       lastFind: null,
       popOut: undefined,
       subs: [],
+      flowHosts: new Set(),
+      capture: undefined as unknown as LoginCapture,
     };
+    t.capture = this.newCapture(t);
     this.tabs.set(id, t);
     this.byWebContents.set(wc.id, t);
     this.wireControl(t);
@@ -473,6 +505,8 @@ export class BrowserHost implements BridgeTabHost {
     this.byWebContents.delete(t.wc.id);
     clearTimeout(t.highlightTimer);
     t.control.dispose();
+    t.capture.reset();
+    this.prompts.dropTab(t.id);
     for (const u of t.subs.splice(0)) u();
     try {
       if (t.discarded) {
@@ -545,13 +579,17 @@ export class BrowserHost implements BridgeTabHost {
       t.policy.reset();
       this.updated(t);
     });
-    wc.on("did-navigate", () => {
+    wc.on("did-navigate", (_e, url) => {
       t.lastActive = this.now();
       t.navigated = true;
+      this.noteVisit(t, url);
       this.updated(t);
     });
-    wc.on("did-navigate-in-page", (_e, _url, isMainFrame) => {
-      if (isMainFrame) this.updated(t);
+    wc.on("did-navigate-in-page", (_e, url, isMainFrame) => {
+      if (isMainFrame) {
+        t.capture.navigated(url);
+        this.updated(t);
+      }
     });
     wc.on("page-title-updated", () => this.updated(t));
     wc.on("did-start-loading", () => {
@@ -1010,6 +1048,96 @@ export class BrowserHost implements BridgeTabHost {
     this.scheduleState();
   }
 
+  // ── sign-in: stay signed in, save to vault (security §6, §4) ──────────────────────────────
+
+  private noteVisit(t: Tab, url: string): void {
+    const origin = httpsOrigin(url);
+    if (origin === null) return;
+    t.flowHosts.add(new URL(origin).hostname);
+    t.capture.navigated(url);
+  }
+
+  private newCapture(t: Tab): LoginCapture {
+    return new LoginCapture({
+      read: async () => {
+        if (t.discarded || t.wc.isDestroyed() || t.wc.isLoading()) return null;
+        try {
+          return parseFormSnapshot(
+            await t.wc.executeJavaScriptInIsolatedWorld(ISOLATED_WORLD, [
+              { code: FORM_READ_SCRIPT },
+            ]),
+          );
+        } catch {
+          return null;
+        }
+      },
+      control: () => t.control.state,
+      isNeverSave: (origin) => this.signedIn.isNeverSave(origin),
+      onLogin: (login) => {
+        if (t.closing) return;
+        const site = httpsOrigin(login.finalUrl);
+        if (site !== null && t.partition !== loggedInPartition(this.profileName))
+          this.prompts.offerStay(t.id, site, [...t.flowHosts]);
+        if (login.password !== null && login.username !== "")
+          this.prompts.offerSave(t.id, login.origin, login.username, login.password);
+      },
+    });
+  }
+
+  /** Only a tab the owner holds is read; an agent-controlled tab is never captured. */
+  private pollCaptures(): void {
+    if (this.disposed) return;
+    for (const t of this.tabs.values()) {
+      if (t.closing || t.discarded) continue;
+      if (t.control.state !== "user") {
+        if (t.capture.hasPending) t.capture.reset();
+        continue;
+      }
+      void t.capture.tick().catch(() => t.capture.reset());
+    }
+  }
+
+  private async stayOnProfile(tabId: string, origin: string, hosts: string[]): Promise<void> {
+    const t = this.need(tabId, false);
+    const profile = loggedInPartition(this.profileName);
+    if (t.partition === profile) return;
+    this.prepareSession(profile);
+    await staySignedIn({
+      from: session.fromPartition(t.partition),
+      to: session.fromPartition(profile),
+      store: this.signedIn,
+      origin,
+      hosts,
+    });
+    // The tab keeps its id, task and URL; only its renderer moves to the profile's session.
+    this.discardTab(t);
+    t.partition = profile;
+    t.profile = "logged-in";
+    this.restoreTab(t);
+    this.setActive(t.id);
+  }
+
+  signedInSites(): SignedInSite[] {
+    return this.signedIn.list();
+  }
+
+  async forgetSignedInSite(raw: string): Promise<boolean> {
+    const origin = httpsOrigin(raw) ?? raw;
+    const profile = loggedInPartition(this.profileName);
+    this.prepareSession(profile);
+    const done = await forgetSite({
+      profile: session.fromPartition(profile),
+      store: this.signedIn,
+      origin,
+    });
+    this.scheduleState();
+    return done;
+  }
+
+  answerPrompt(promptId: string, action: SignInPromptAnswer): Promise<void> {
+    return this.prompts.answer(promptId, action);
+  }
+
   async clearBrowsingData(profile: BridgeProfile): Promise<void> {
     const partitions =
       profile === "logged-in" ? [loggedInPartition(this.profileName)] : [...this.cleanPartitions];
@@ -1070,6 +1198,7 @@ export class BrowserHost implements BridgeTabHost {
     this.disposed = true;
     clearTimeout(this.stateTimer);
     clearInterval(this.discardTimer);
+    clearInterval(this.captureTimer);
     for (const t of [...this.tabs.values()]) {
       t.closing = true;
       if (!t.discarded && !t.wc.isDestroyed()) t.wc.close();

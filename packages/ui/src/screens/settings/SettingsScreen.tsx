@@ -42,7 +42,7 @@ import { cn } from "../../lib/utils.ts";
 import { useSlots } from "../../slots.tsx";
 import { AboutSection } from "./AboutSection.tsx";
 import { AppearanceSection } from "./AppearanceSection.tsx";
-import { BrowserSection } from "./BrowserSection.tsx";
+import { BrowserSection, type SignedInSitesApi } from "./BrowserSection.tsx";
 import { ChannelsSection } from "./ChannelsSection.tsx";
 import { ComputerUseSection } from "./ComputerUseSection.tsx";
 import { ConnectorsSection, type ConnectorsView, type ScopeMode } from "./ConnectorsSection.tsx";
@@ -265,6 +265,8 @@ export interface SettingsShellProps {
   onOpenLogs?: () => void;
   /** Desktop only: opens the Psyche Chrome profile (real-Chrome mode) in Google Chrome. */
   onOpenRealChromeProfile?: (profile: string) => Promise<{ path: string }>;
+  /** Desktop only: sites "Stay signed in" kept in the profile (Settings → Browser). */
+  signedInSites?: SignedInSitesApi;
   /**
    * Section bodies the shell renders itself (for example a File access section backed by the
    * Gateway's `permissions.policy` with a native folder picker). Sections not listed here use
@@ -341,7 +343,12 @@ export function SettingsSectionView({
         />
       );
     case "browser":
-      return <BrowserSection {...opt("onOpenProfile", s.onOpenRealChromeProfile)} />;
+      return (
+        <BrowserSection
+          {...opt("onOpenProfile", s.onOpenRealChromeProfile)}
+          {...opt("signedInSites", s.signedInSites)}
+        />
+      );
     case "files":
       return <FileAccessSection {...opt("vmMode", s.vmMode)} />;
     case "vm":

@@ -22,6 +22,18 @@
       "types": "./src/core/convert.ts",
       "default": "./src/core/convert.ts"
     },
+    "./core/generate": {
+      "types": "./src/core/generate/index.ts",
+      "default": "./src/core/generate/index.ts"
+    },
+    "./core/docx": {
+      "types": "./src/core/docx.ts",
+      "default": "./src/core/docx.ts"
+    },
+    "./core/libs": {
+      "types": "./src/core/libs.ts",
+      "default": "./src/core/libs.ts"
+    },
     "./bundler": {
       "types": "./src/bundler/index.ts",
       "default": "./src/bundler/index.ts"

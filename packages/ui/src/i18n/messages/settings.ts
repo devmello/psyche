@@ -520,6 +520,14 @@ export const settings = {
     "Each task still asks you first, on this device with Touch ID or a passkey.",
   "settings.browser.profileDescription":
     "A Chrome profile only {persona} uses, never your own. Open it once to sign in and install 1Password, then close it.",
+  "settings.browser.signedIn.title": "Signed-in sites",
+  "settings.browser.signedIn.description":
+    "Sites you chose to stay signed in to. Tasks use your sign-in only on these; every other site opens logged out.",
+  "settings.browser.signedIn.none": "No signed-in sites yet.",
+  "settings.browser.signedIn.viaHosts": "Also signed in through {hosts}",
+  "settings.browser.signedIn.forget": "Sign out / forget",
+  "settings.browser.signedIn.loadFailed": "Psyche couldn't list the signed-in sites ({reason}).",
+  "settings.browser.signedIn.forgetFailed": "Psyche couldn't sign out of {site} ({reason}).",
   "settings.browser.details": "Details",
   "settings.browser.detailsText":
     "While a task uses it, Psyche runs Google Chrome with this profile and a DevTools port on this Mac's loopback (127.0.0.1), and closes it when the task is done. {persona} is not attached while you have the profile open yourself.",

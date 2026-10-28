@@ -84,6 +84,7 @@ import {
 import { WEB_SEARCH_PROVIDER_SETTING, WEB_SEARCH_SEARXNG_SETTING } from "@psyche/search";
 import { createTaskHandlers, SqliteTaskEngine, TaskWorkerPool } from "@psyche/tasks";
 import { SecretRedactor, type Vault } from "@psyche/vault";
+import { type DocumentsHandle, documentBridge } from "../artifacts/bridge.ts";
 import { resolveConfig } from "../config.ts";
 import type { HandlerDef } from "../context.ts";
 import type { PublicRoute, WebhookRoute } from "../http.ts";
@@ -707,7 +708,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
 
   const registry = new AgentToolRegistry();
   // P9 file tools (#49); the executors re-check the live granted folders behind the broker.
+  const documents: DocumentsHandle = {};
   for (const tool of fileTools({
+    documents: documentBridge(documents),
     // No folder list means nothing is granted (#287), never "only the broker checks".
     // This conversation's "Allow once" folders count beside the owner's (request_folder_access).
     folders: (scope) => [
@@ -806,6 +809,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const ownPorts = createOwnPorts();
   ownPorts.add(config.port, "gateway (configured)");
   const services: ComposeServices = {
+    documents,
     db,
     srt,
     clock,

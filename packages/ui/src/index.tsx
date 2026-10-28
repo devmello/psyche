@@ -252,6 +252,8 @@ export {
 } from "./map/map-model.ts";
 export { FPS_PROBE_KEY, medianFps, startFpsProbe } from "./motion/fps-probe.ts";
 export * from "./overview/index.ts";
+// Deep research: progress view and cited report.
+export * from "./research/index.ts";
 export {
   type ScreenAskAnswer,
   type ScreenAskCaptureView,
@@ -392,6 +394,3 @@ export {
   VOICE_KEYS,
   type VoiceSettings,
 } from "./voice/settings.ts";
-
-// Deep research: progress view and cited report.
-export * from "./research/index.ts";

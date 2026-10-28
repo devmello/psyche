@@ -36,7 +36,33 @@ export const MAX_ENTRIES = 500;
 export const SEARCH_LIMITS = { files: 5000, fileBytes: 1024 * 1024, depth: 12, matches: 200 };
 const SNIPPET_CHARS = 300;
 
+/** Largest .docx / .xlsx / .pptx that `open_document` imports or `write_document` writes. */
+export const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
+
+/**
+ * What the document tools need from the artifact store (the Gateway supplies it): a synchronous
+ * fingerprint for the approval binding, an export to the format of the target's extension, and an
+ * import of a file's bytes into an editable artifact. Without it the tools are not registered.
+ */
+export interface DocumentBridge {
+  fingerprint(artifactId: string): {
+    title: string;
+    type: string;
+    version: number;
+    hash: string;
+  };
+  exportTo(artifactId: string, path: string): Promise<Uint8Array>;
+  importFrom(
+    path: string,
+    bytes: Uint8Array,
+    ctx: ToolRunContext,
+    options: { title?: string },
+  ): Promise<unknown>;
+}
+
 export interface FileToolsOptions {
+  /** Opens and writes back .docx / .xlsx / .pptx / .md / .csv as artifacts (documents-2026). */
+  documents?: DocumentBridge;
   /**
    * The owner's granted folders (`permissions.policy.folders`), read on every call. When set,
    * the executors refuse paths outside them (and writes outside `rw` ones) behind the broker.
@@ -72,7 +98,7 @@ export interface FileChange {
   taskId?: string;
   toolCallId: string;
   approvalId?: string;
-  tool: "write_file" | "edit_file";
+  tool: "write_file" | "edit_file" | "write_document";
 }
 
 const sha256 = (data: string | Uint8Array) => createHash("sha256").update(data).digest("hex");
@@ -635,5 +661,97 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
     },
   });
 
-  return [readTool, writeTool, editTool, listTool, searchTool];
+  const openDocumentTool = defineTool({
+    name: "open_document",
+    description:
+      "Open a .docx, .xlsx, .pptx, .md or .csv file in a folder the owner granted as an editable canvas artifact (a doc, workbook or deck), best effort: formatting the artifact models not is dropped. Returns the artifact reference. Edit it with artifact.update; write it back to the file with write_document.",
+    input: Type.Object({
+      path: AbsolutePath,
+      title: Type.Optional(Type.String({ maxLength: 200 })),
+    }),
+    sideEffect: "read",
+    targetKind: "path",
+    provenanceOut: readOut,
+    describeCall: (p) => ({ target: { kind: "path", value: canonicalTarget(p.path) } }),
+    async run(p, ctx) {
+      const path = canonicalTarget(p.path);
+      granted(path, "read", ctx);
+      await assertNoSymlinks(path);
+      const bytes = await readWhole(path, MAX_DOCUMENT_BYTES);
+      if (bytes === undefined)
+        throw new PsycheError("invalid_params", `${path} is over ${MAX_DOCUMENT_BYTES} bytes`);
+      const output = await options.documents?.importFrom(path, bytes, ctx, {
+        ...(p.title === undefined ? {} : { title: p.title }),
+      });
+      return { output, provenance: readOut };
+    },
+  });
+
+  const writeDocumentTool = defineTool({
+    name: "write_document",
+    description:
+      "Write a canvas artifact (doc, workbook or deck) to a file in a folder the owner granted read-write, in the format of the path's extension (.docx, .md, .pdf; .xlsx, .csv; .pptx, .pdf). The owner approves the exact path and which artifact version is written. Overwrites the file.",
+    input: Type.Object({ path: AbsolutePath, artifactId: Type.String({ minLength: 1 }) }),
+    sideEffect: "write",
+    targetKind: "path",
+    describeCall: (p) => {
+      const realPath = canonicalTarget(p.path);
+      const fp = options.documents?.fingerprint(p.artifactId);
+      if (fp === undefined) throw new PsycheError("not_found", "documents are not available");
+      const ext = basename(realPath).split(".").pop() ?? "";
+      return {
+        kind: "file_write",
+        target: { kind: "path", value: realPath },
+        bindingFields: {
+          operation: "overwrite",
+          realPath,
+          contentSha256: sha256(`${fp.hash}:${ext}`),
+        },
+        summary: `Write ${basename(realPath)} from "${fp.title}"`,
+        details: {
+          path: realPath,
+          operation: "write",
+          diff: cardDiff(
+            realPath,
+            "",
+            `${fp.title} (${fp.type}, version ${fp.version})`,
+            `exported as .${ext}`,
+          ),
+        },
+      };
+    },
+    async run(p, ctx) {
+      const path = canonicalTarget(p.path);
+      granted(path, "write", ctx);
+      const data = Buffer.from((await options.documents?.exportTo(p.artifactId, path)) ?? []);
+      if (data.byteLength === 0 || data.byteLength > MAX_DOCUMENT_BYTES)
+        throw new PsycheError("invalid_params", "the export is empty or too large");
+      await assertNoSymlinks(dirname(path));
+      await assertNoSymlinks(path);
+      const previous = options.onChange === undefined ? undefined : await readPrevious(path);
+      await atomicWrite(path, data);
+      recordWrite(path, data, ctx);
+      report(
+        "write_document",
+        previous === undefined ? "create" : "overwrite",
+        path,
+        previous,
+        data,
+        ctx,
+      );
+      return {
+        output: { path, bytes: data.byteLength, sha256: sha256(data) },
+        provenance: "trusted",
+      };
+    },
+  });
+
+  return [
+    readTool,
+    writeTool,
+    editTool,
+    listTool,
+    searchTool,
+    ...(options.documents === undefined ? [] : [openDocumentTool, writeDocumentTool]),
+  ];
 }

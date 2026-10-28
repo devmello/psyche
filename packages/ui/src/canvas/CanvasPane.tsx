@@ -17,11 +17,22 @@ import {
   Map as MapIcon,
   Network,
   Pencil,
+  Presentation,
+  Sheet as SheetIcon,
   ShieldAlert,
   Table as TableIcon,
 } from "lucide-react";
 import * as m from "motion/react-m";
-import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  type ReactElement,
+  type ReactNode,
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { DiffBlock } from "../blocks/DiffBlock.tsx";
 import { Markdown } from "../blocks/Markdown.tsx";
 import { Button } from "../components/ui/button.tsx";
@@ -65,6 +76,18 @@ import { ChartView } from "./ChartView.tsx";
  * version authored by the user; an old version is read-only with "Restore as new version".
  */
 
+// The deck and workbook editors (and the presenter) are separate chunks: they load when a
+// slides or workbook artifact opens, so the chat's first paint and idle memory do not carry them.
+const DeckEditor = lazy(() => import("./documents/DeckEditor.tsx"));
+const WorkbookEditor = lazy(() => import("./documents/WorkbookEditor.tsx"));
+
+/** What each document kind exports to (the Gateway renders them; see `artifacts.export`). */
+const EXPORTS: Partial<Record<Artifact["type"], readonly string[]>> = {
+  doc: ["docx", "pdf", "md"],
+  workbook: ["xlsx", "csv"],
+  slides: ["pptx", "pdf"],
+};
+
 const TYPE_ICON: Partial<Record<Artifact["type"], typeof FileText>> = {
   doc: FileText,
   markdown: FileText,
@@ -77,8 +100,12 @@ const TYPE_ICON: Partial<Record<Artifact["type"], typeof FileText>> = {
   diagram: Network,
   diff: GitCompare,
   html: Globe,
+  slides: Presentation,
+  workbook: SheetIcon,
 };
 const EDITABLE = new Set<Artifact["type"]>(["doc", "markdown", "code", "table", "diagram", "html"]);
+/** Edited in place by their own editor, not through the Edit / Save toggle. */
+const INLINE_EDITED = new Set<Artifact["type"]>(["slides", "workbook"]);
 const MAX_TABS = 5;
 
 /** What a host renderer gets to draw an artifact body. */
@@ -294,6 +321,22 @@ function CanvasBody({
     }
   };
 
+  const exportAs = async (format: string) => {
+    setNotice(null);
+    try {
+      const file = await actions.export(artifact.id, format, version);
+      const bytes = Uint8Array.from(atob(file.data), (c) => c.charCodeAt(0));
+      const url = URL.createObjectURL(new Blob([bytes], { type: file.mime }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file.name;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setNotice(t("canvas.exportFailed", { message: describeError(e) }));
+    }
+  };
+
   const download = () => {
     if (content === null) return;
     const url = URL.createObjectURL(new Blob([plainText(content)], { type: "text/plain" }));
@@ -344,6 +387,22 @@ function CanvasBody({
         >
           <Copy aria-hidden="true" />
         </Button>
+        {EXPORTS[artifact.type] !== undefined ? (
+          <NativeSelect
+            size="sm"
+            aria-label={t("canvas.export")}
+            value=""
+            disabled={content === null}
+            onChange={(e) => e.target.value !== "" && void exportAs(e.target.value)}
+          >
+            <option value="">{t("canvas.exportAs")}</option>
+            {EXPORTS[artifact.type]?.map((f) => (
+              <option key={f} value={f}>
+                .{f}
+              </option>
+            ))}
+          </NativeSelect>
+        ) : null}
         <Button
           size="sm"
           variant="ghost"
@@ -418,6 +477,24 @@ function CanvasBody({
           )
         ) : custom !== undefined && custom !== null ? (
           custom
+        ) : INLINE_EDITED.has(artifact.type) ? (
+          <Suspense fallback={<CanvasSkeleton />}>
+            {artifact.type === "slides" ? (
+              <DeckEditor
+                title={artifact.title}
+                content={content.content}
+                editable={latest && !saving}
+                onCommit={commit}
+              />
+            ) : (
+              <WorkbookEditor
+                title={artifact.title}
+                content={content.content}
+                editable={latest && !saving}
+                onCommit={commit}
+              />
+            )}
+          </Suspense>
         ) : table ? (
           <TableBody
             content={content}

@@ -17,6 +17,7 @@ import type {
   ToolRegistry,
 } from "@psyche/protocol";
 import type { SecretRedactor, Vault } from "@psyche/vault";
+import type { DocumentsHandle } from "../artifacts/bridge.ts";
 import type { HandlerDef } from "../context.ts";
 import type { PublicRoute, WebhookRoute } from "../http.ts";
 import type { Logger } from "../log.ts";
@@ -73,6 +74,8 @@ export interface ComposeServices {
    * would.
    */
   readonly approvalTokens: Pick<ApprovalTokens, "tokenFor">;
+  /** Filled by the artifacts part: how the file tools reach the artifact store (documents-2026). */
+  readonly documents?: DocumentsHandle;
 }
 
 export interface OwnPorts {

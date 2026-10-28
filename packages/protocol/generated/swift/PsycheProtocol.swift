@@ -92,18 +92,29 @@
 //   let artifactCell = try? JSONDecoder().decode(ArtifactCell.self, from: jsonData)
 //   let artifactChart = try? JSONDecoder().decode(ArtifactChart.self, from: jsonData)
 //   let artifactConflict = try? JSONDecoder().decode(ArtifactConflict.self, from: jsonData)
+//   let artifactDeck = try? JSONDecoder().decode(ArtifactDeck.self, from: jsonData)
+//   let artifactDeckTheme = try? JSONDecoder().decode(ArtifactDeckTheme.self, from: jsonData)
+//   let artifactExport = try? JSONDecoder().decode(ArtifactExport.self, from: jsonData)
+//   let artifactFormulaCell = try? JSONDecoder().decode(ArtifactFormulaCell.self, from: jsonData)
 //   let artifactMap = try? JSONDecoder().decode(ArtifactMap.self, from: jsonData)
 //   let artifactMapMarker = try? JSONDecoder().decode(ArtifactMapMarker.self, from: jsonData)
 //   let artifactMarkerPatch = try? JSONDecoder().decode(ArtifactMarkerPatch.self, from: jsonData)
 //   let artifactOp = try? JSONDecoder().decode(ArtifactOp.self, from: jsonData)
 //   let artifactRef = try? JSONDecoder().decode(ArtifactRef.self, from: jsonData)
+//   let artifactSlide = try? JSONDecoder().decode(ArtifactSlide.self, from: jsonData)
+//   let artifactSlideLayout = try? JSONDecoder().decode(ArtifactSlideLayout.self, from: jsonData)
+//   let artifactSlidePatch = try? JSONDecoder().decode(ArtifactSlidePatch.self, from: jsonData)
 //   let artifactTable = try? JSONDecoder().decode(ArtifactTable.self, from: jsonData)
 //   let artifactTableView = try? JSONDecoder().decode(ArtifactTableView.self, from: jsonData)
 //   let artifactType = try? JSONDecoder().decode(ArtifactType.self, from: jsonData)
 //   let artifactUpdatedPayload = try? JSONDecoder().decode(ArtifactUpdatedPayload.self, from: jsonData)
 //   let artifactVersion = try? JSONDecoder().decode(ArtifactVersion.self, from: jsonData)
+//   let artifactWorkbook = try? JSONDecoder().decode(ArtifactWorkbook.self, from: jsonData)
+//   let artifactWorkbookCell = try? JSONDecoder().decode(ArtifactWorkbookCell.self, from: jsonData)
+//   let artifactWorkbookSheet = try? JSONDecoder().decode(ArtifactWorkbookSheet.self, from: jsonData)
 //   let artifactsCreateParams = try? JSONDecoder().decode(ArtifactsCreateParams.self, from: jsonData)
 //   let artifactsCreateResult = try? JSONDecoder().decode(ArtifactsCreateResult.self, from: jsonData)
+//   let artifactsExportParams = try? JSONDecoder().decode(ArtifactsExportParams.self, from: jsonData)
 //   let artifactsGetParams = try? JSONDecoder().decode(ArtifactsGetParams.self, from: jsonData)
 //   let artifactsGetResult = try? JSONDecoder().decode(ArtifactsGetResult.self, from: jsonData)
 //   let artifactsListParams = try? JSONDecoder().decode(ArtifactsListParams.self, from: jsonData)
@@ -3924,6 +3935,86 @@ public struct Series: Codable, Sendable {
     }
 }
 
+// MARK: - ArtifactDeck
+public struct ArtifactDeck: Codable, Sendable {
+    public let slides: [ArtifactSlide]
+    public let theme: ArtifactDeckTheme
+
+    public enum CodingKeys: String, CodingKey {
+        case slides = "slides"
+        case theme = "theme"
+    }
+
+    public init(slides: [ArtifactSlide], theme: ArtifactDeckTheme) {
+        self.slides = slides
+        self.theme = theme
+    }
+}
+
+// MARK: - ArtifactSlide
+public struct ArtifactSlide: Codable, Sendable {
+    public let bullets: [String]?
+    public let bullets2: [String]?
+    public let id: String
+    public let image: String?
+    public let layout: ArtifactSlideLayout
+    public let notes: String?
+    public let title: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case bullets = "bullets"
+        case bullets2 = "bullets2"
+        case id = "id"
+        case image = "image"
+        case layout = "layout"
+        case notes = "notes"
+        case title = "title"
+    }
+
+    public init(bullets: [String]?, bullets2: [String]?, id: String, image: String?, layout: ArtifactSlideLayout, notes: String?, title: String?) {
+        self.bullets = bullets
+        self.bullets2 = bullets2
+        self.id = id
+        self.image = image
+        self.layout = layout
+        self.notes = notes
+        self.title = title
+    }
+}
+
+public enum ArtifactSlideLayout: String, Codable, Sendable {
+    case blank = "blank"
+    case bullets = "bullets"
+    case image = "image"
+    case title = "title"
+    case twoColumn = "two-column"
+}
+
+public enum ArtifactDeckTheme: String, Codable, Sendable {
+    case contrast = "contrast"
+    case dark = "dark"
+    case light = "light"
+}
+
+// MARK: - ArtifactExport
+public struct ArtifactExport: Codable, Sendable {
+    public let data: String
+    public let mime: String
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case data = "data"
+        case mime = "mime"
+        case name = "name"
+    }
+
+    public init(data: String, mime: String, name: String) {
+        self.data = data
+        self.mime = mime
+        self.name = name
+    }
+}
+
 // MARK: - ArtifactMap
 public struct ArtifactMap: Codable, Sendable {
     public let bounds: [Double]?
@@ -4131,7 +4222,9 @@ public enum ArtifactType: String, Codable, Sendable {
     case pdf = "pdf"
     case react = "react"
     case sheet = "sheet"
+    case slides = "slides"
     case table = "table"
+    case workbook = "workbook"
 }
 
 // MARK: - ArtifactVersion
@@ -4211,6 +4304,15 @@ public struct ArtifactOp: Codable, Sendable {
     public let marker: ArtifactMapMarker?
     public let id: String?
     public let artifactOpSet: ArtifactMarkerPatch?
+    public let body: String?
+    public let heading: String?
+    public let level: Int?
+    public let slide: ArtifactSlide?
+    public let changes: ArtifactSlidePatch?
+    public let to: Int?
+    public let theme: ArtifactDeckTheme?
+    public let cells: [String: JSONAny]?
+    public let sheet: String?
     public let patch: [String: JSONAny]?
 
     public enum CodingKeys: String, CodingKey {
@@ -4232,10 +4334,19 @@ public struct ArtifactOp: Codable, Sendable {
         case marker = "marker"
         case id = "id"
         case artifactOpSet = "set"
+        case body = "body"
+        case heading = "heading"
+        case level = "level"
+        case slide = "slide"
+        case changes = "changes"
+        case to = "to"
+        case theme = "theme"
+        case cells = "cells"
+        case sheet = "sheet"
         case patch = "patch"
     }
 
-    public init(new: String?, old: String?, op: Op, after: String?, text: String?, content: String?, cell: String?, value: ArtifactCell?, range: String?, values: [ValueElement]?, at: Int?, rows: [[ArtifactCell]]?, count: Int?, name: String?, view: ArtifactTableView?, marker: ArtifactMapMarker?, id: String?, artifactOpSet: ArtifactMarkerPatch?, patch: [String: JSONAny]?) {
+    public init(new: String?, old: String?, op: Op, after: String?, text: String?, content: String?, cell: String?, value: ArtifactCell?, range: String?, values: [ValueElement]?, at: Int?, rows: [[ArtifactCell]]?, count: Int?, name: String?, view: ArtifactTableView?, marker: ArtifactMapMarker?, id: String?, artifactOpSet: ArtifactMarkerPatch?, body: String?, heading: String?, level: Int?, slide: ArtifactSlide?, changes: ArtifactSlidePatch?, to: Int?, theme: ArtifactDeckTheme?, cells: [String: JSONAny]?, sheet: String?, patch: [String: JSONAny]?) {
         self.new = new
         self.old = old
         self.op = op
@@ -4254,6 +4365,15 @@ public struct ArtifactOp: Codable, Sendable {
         self.marker = marker
         self.id = id
         self.artifactOpSet = artifactOpSet
+        self.body = body
+        self.heading = heading
+        self.level = level
+        self.slide = slide
+        self.changes = changes
+        self.to = to
+        self.theme = theme
+        self.cells = cells
+        self.sheet = sheet
         self.patch = patch
     }
 }
@@ -4283,19 +4403,59 @@ public struct ArtifactMarkerPatch: Codable, Sendable {
     }
 }
 
+// MARK: - ArtifactSlidePatch
+public struct ArtifactSlidePatch: Codable, Sendable {
+    public let bullets: [String]?
+    public let bullets2: [String]?
+    public let image: String?
+    public let layout: ArtifactSlideLayout?
+    public let notes: String?
+    public let title: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case bullets = "bullets"
+        case bullets2 = "bullets2"
+        case image = "image"
+        case layout = "layout"
+        case notes = "notes"
+        case title = "title"
+    }
+
+    public init(bullets: [String]?, bullets2: [String]?, image: String?, layout: ArtifactSlideLayout?, notes: String?, title: String?) {
+        self.bullets = bullets
+        self.bullets2 = bullets2
+        self.image = image
+        self.layout = layout
+        self.notes = notes
+        self.title = title
+    }
+}
+
 public enum Op: String, Codable, Sendable {
     case addColumn = "addColumn"
     case addMarker = "addMarker"
     case addRows = "addRows"
+    case addSection = "addSection"
+    case addSheet = "addSheet"
+    case addSlide = "addSlide"
     case deleteRows = "deleteRows"
     case insert = "insert"
+    case moveSlide = "moveSlide"
     case opSet = "set"
     case patch = "patch"
     case removeMarker = "removeMarker"
+    case removeSection = "removeSection"
+    case removeSheet = "removeSheet"
+    case removeSlide = "removeSlide"
+    case renameSheet = "renameSheet"
     case replace = "replace"
+    case replaceSection = "replaceSection"
     case rewrite = "rewrite"
+    case setCells = "setCells"
     case setRange = "setRange"
+    case setTheme = "setTheme"
     case updateMarker = "updateMarker"
+    case updateSlide = "updateSlide"
     case view = "view"
 }
 
@@ -4401,6 +4561,97 @@ public enum Dir: String, Codable, Sendable {
     case desc = "desc"
 }
 
+// MARK: - ArtifactWorkbook
+public struct ArtifactWorkbook: Codable, Sendable {
+    public let sheets: [ArtifactWorkbookSheet]
+
+    public enum CodingKeys: String, CodingKey {
+        case sheets = "sheets"
+    }
+
+    public init(sheets: [ArtifactWorkbookSheet]) {
+        self.sheets = sheets
+    }
+}
+
+// MARK: - ArtifactWorkbookSheet
+public struct ArtifactWorkbookSheet: Codable, Sendable {
+    public let cells: [String: JSONAny]
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case cells = "cells"
+        case name = "name"
+    }
+
+    public init(cells: [String: JSONAny], name: String) {
+        self.cells = cells
+        self.name = name
+    }
+}
+
+public enum ArtifactWorkbookCell: Codable, Sendable {
+    case artifactFormulaCell(ArtifactFormulaCell)
+    case bool(Bool)
+    case double(Double)
+    case string(String)
+    case null
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let x = try? container.decode(Bool.self) {
+            self = .bool(x)
+            return
+        }
+        if let x = try? container.decode(Double.self) {
+            self = .double(x)
+            return
+        }
+        if let x = try? container.decode(String.self) {
+            self = .string(x)
+            return
+        }
+        if let x = try? container.decode(ArtifactFormulaCell.self) {
+            self = .artifactFormulaCell(x)
+            return
+        }
+        if container.decodeNil() {
+            self = .null
+            return
+        }
+        throw DecodingError.typeMismatch(ArtifactWorkbookCell.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for ArtifactWorkbookCell"))
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .artifactFormulaCell(let x):
+            try container.encode(x)
+        case .bool(let x):
+            try container.encode(x)
+        case .double(let x):
+            try container.encode(x)
+        case .string(let x):
+            try container.encode(x)
+        case .null:
+            try container.encodeNil()
+        }
+    }
+}
+
+// MARK: - ArtifactFormulaCell
+public struct ArtifactFormulaCell: Codable, Sendable {
+    public let f: String
+
+    public enum CodingKeys: String, CodingKey {
+        case f = "f"
+    }
+
+    public init(f: String) {
+        self.f = f
+    }
+}
+
 // MARK: - ArtifactsCreateParams
 public struct ArtifactsCreateParams: Codable, Sendable {
     public let content: String
@@ -4491,6 +4742,25 @@ public struct ArtifactRef: Codable, Sendable {
         self.summary = summary
         self.title = title
         self.type = type
+        self.version = version
+    }
+}
+
+// MARK: - ArtifactsExportParams
+public struct ArtifactsExportParams: Codable, Sendable {
+    public let artifactID: String
+    public let format: String
+    public let version: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case artifactID = "artifactId"
+        case format = "format"
+        case version = "version"
+    }
+
+    public init(artifactID: String, format: String, version: Int?) {
+        self.artifactID = artifactID
+        self.format = format
         self.version = version
     }
 }

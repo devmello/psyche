@@ -63,6 +63,8 @@ export const FILE_TOOLS = new Set([
   "search_files",
   "delete_file",
   "move_file",
+  "open_document",
+  "write_document",
 ]);
 /**
  * The coding helper's tools (V10): their path targets (the repository root, a file in it, a
@@ -92,7 +94,7 @@ const SIDE_EFFECT_FLOORS: { re: RegExp; floor: SideEffect }[] = [
     re: /^computer\.(click|double_click|type|key|scroll|drag|open_app|run_shortcut|applescript|right_click)/,
     floor: "write",
   },
-  { re: /^(write_file|edit_file|credentials\.request|memory)$/, floor: "write" },
+  { re: /^(write_file|edit_file|write_document|credentials\.request|memory)$/, floor: "write" },
   // The agent writing its own skills: always a card, whatever the registry declares.
   { re: /^skill_(create|update|delete)$/, floor: "destructive" },
   { re: /^code\.(edit|run)$/, floor: "write" },
@@ -124,7 +126,13 @@ export function inferApprovalKind(tool: string): ApprovalKind {
   if (NAVIGATION_TOOLS.test(tool)) return "new_origin";
   if (tool.startsWith("credentials.")) return "credential_fill";
   if (/^(purchase|checkout|link\.)/.test(tool)) return "purchase";
-  if (tool === "write_file" || tool === "edit_file" || tool === "code.edit") return "file_write";
+  if (
+    tool === "write_file" ||
+    tool === "edit_file" ||
+    tool === "write_document" ||
+    tool === "code.edit"
+  )
+    return "file_write";
   if (tool === "code.run") return "exec";
   if (tool.startsWith("mcp__")) return "mcp_tool";
   if (tool.startsWith("computer.")) return "computer_action";

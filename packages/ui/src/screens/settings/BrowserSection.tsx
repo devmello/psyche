@@ -1,6 +1,6 @@
 import type { BotAuthStatus } from "@psyche/protocol";
 import { ExternalLink, KeyRound } from "lucide-react";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
@@ -79,6 +79,82 @@ export function botAuthOf(values: Readonly<Record<string, unknown>>): BotAuthSet
   };
 }
 
+/** A site kept signed in, in the persistent profile (desktop only). */
+export interface SignedInSite {
+  origin: string;
+  hosts: string[];
+  addedAt: string;
+}
+
+export interface SignedInSitesApi {
+  list(): Promise<SignedInSite[]>;
+  /** Removes the site from the list and deletes its cookies from the profile. */
+  forget(origin: string): Promise<void>;
+}
+
+/** Settings → Browser "Signed-in sites": what "Stay signed in" kept, each with Sign out. */
+export function SignedInSitesGroup({ api }: { api: SignedInSitesApi }): ReactElement {
+  const [sites, setSites] = useState<SignedInSite[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const reload = useCallback(
+    () =>
+      api.list().then(
+        (s) => setSites(s),
+        (err: unknown) =>
+          setError(t("settings.browser.signedIn.loadFailed", { reason: messageOf(err) })),
+      ),
+    [api],
+  );
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+  return (
+    <Group
+      title={t("settings.browser.signedIn.title")}
+      description={t("settings.browser.signedIn.description")}
+    >
+      {error ? <ErrorNotice what={error} did={t("settings.shared.nothingChanged")} /> : null}
+      {sites !== null && sites.length === 0 ? (
+        <p className="text-muted-foreground" data-testid="signed-in-empty">
+          {t("settings.browser.signedIn.none")}
+        </p>
+      ) : null}
+      <ul className="flex flex-col gap-2" data-testid="signed-in-sites">
+        {(sites ?? []).map((s) => (
+          <li key={s.origin} className="flex items-center justify-between gap-3">
+            <span>
+              <span className="font-mono">{s.origin.replace(/^https:\/\//, "")}</span>
+              {s.hosts.length > 1 ? (
+                <span className="block text-xs text-muted-foreground">
+                  {t("settings.browser.signedIn.viaHosts", { hosts: s.hosts.join(", ") })}
+                </span>
+              ) : null}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setError(null);
+                api.forget(s.origin).then(reload, (err: unknown) =>
+                  setError(
+                    t("settings.browser.signedIn.forgetFailed", {
+                      site: s.origin,
+                      reason: messageOf(err),
+                    }),
+                  ),
+                );
+              }}
+            >
+              {t("settings.browser.signedIn.forget")}
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </Group>
+  );
+}
+
 export interface BrowserPanelProps extends SettingsFormProps, LoadProps {
   /** Web Bot Auth status from the Gateway; null while unknown. */
   botAuth?: BotAuthStatus | null;
@@ -89,6 +165,8 @@ export interface BrowserPanelProps extends SettingsFormProps, LoadProps {
   profileLabel?: string;
   /** Desktop only: opens the profile in Google Chrome; resolves to its directory. */
   onOpenProfile?: (profile: string) => Promise<{ path: string }>;
+  /** Desktop only: the sites "Stay signed in" kept, with Sign out / forget. */
+  signedInSites?: SignedInSitesApi;
 }
 
 export function BrowserPanel({
@@ -98,6 +176,7 @@ export function BrowserPanel({
   persona,
   profileLabel = t("settings.browser.profile"),
   onOpenProfile,
+  signedInSites,
   botAuth,
   onRotateBotAuth,
   loading,
@@ -199,6 +278,7 @@ export function BrowserPanel({
             )
           ) : null}
         </Group>
+        {signedInSites ? <SignedInSitesGroup api={signedInSites} /> : null}
         <Group
           title={t("settings.key.browser.botAuth")}
           description={t("settings.browser.botAuthDescription", { persona })}
@@ -307,8 +387,10 @@ export function BrowserPanel({
 
 export function BrowserSection({
   onOpenProfile,
+  signedInSites,
 }: {
   onOpenProfile?: (profile: string) => Promise<{ path: string }>;
+  signedInSites?: SignedInSitesApi;
 }): ReactElement {
   const form = useSettingsForm();
   const persona = usePersona();
@@ -324,6 +406,7 @@ export function BrowserSection({
         persona={persona.name}
         profileLabel={realChromeProfileLabel(named)}
         {...(onOpenProfile ? { onOpenProfile } : {})}
+        {...(signedInSites ? { signedInSites } : {})}
         botAuth={botAuthQ.data?.status ?? null}
         onRotateBotAuth={() => call("browser.botAuth.rotate", {}).then(() => botAuthQ.reload())}
         loading={form.loading && Object.keys(form.values).length === 0}

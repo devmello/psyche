@@ -4,5 +4,5 @@
   "dmgMB": 150,
   "gatewayIdleFootprintMB": 105,
   "gatewayIdleHeapMB": 30,
-  "gatewayBundleMB": 6.5
+  "gatewayBundleMB": 9
 }

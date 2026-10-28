@@ -475,6 +475,14 @@
         "sideEffecting": true
       },
       {
+        "description": "Renders a doc, workbook or deck as a file (docx, xlsx, pptx, pdf, md, csv) for download. Nothing is written to the owner's disk.",
+        "name": "artifacts.export",
+        "params": "#/$defs/ArtifactsExportParams",
+        "result": "#/$defs/ArtifactExport",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Returns one artifact's metadata (content through `artifacts.read`).",
         "name": "artifacts.get",
         "params": "#/$defs/ArtifactsGetParams",
@@ -6577,6 +6585,65 @@
       ],
       "type": "object"
     },
+    "ArtifactDeck": {
+      "properties": {
+        "theme": {
+          "$ref": "#/$defs/ArtifactDeckTheme"
+        },
+        "slides": {
+          "items": {
+            "$ref": "#/$defs/ArtifactSlide"
+          },
+          "maxItems": 300,
+          "type": "array"
+        }
+      },
+      "required": [
+        "theme",
+        "slides"
+      ],
+      "type": "object"
+    },
+    "ArtifactDeckTheme": {
+      "enum": [
+        "light",
+        "dark",
+        "contrast"
+      ],
+      "type": "string"
+    },
+    "ArtifactExport": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "mime": {
+          "type": "string"
+        },
+        "data": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "mime",
+        "data"
+      ],
+      "type": "object"
+    },
+    "ArtifactFormulaCell": {
+      "properties": {
+        "f": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "f"
+      ],
+      "type": "object"
+    },
     "ArtifactMap": {
       "properties": {
         "title": {
@@ -6998,6 +7065,255 @@
         {
           "properties": {
             "op": {
+              "const": "replaceSection",
+              "type": "string"
+            },
+            "heading": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "body": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "heading",
+            "body"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "addSection",
+              "type": "string"
+            },
+            "after": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "level": {
+              "maximum": 6,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "heading": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "body": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "level",
+            "heading",
+            "body"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "removeSection",
+              "type": "string"
+            },
+            "heading": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "heading"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "addSlide",
+              "type": "string"
+            },
+            "slide": {
+              "$ref": "#/$defs/ArtifactSlide"
+            },
+            "at": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "op",
+            "slide"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "updateSlide",
+              "type": "string"
+            },
+            "id": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "changes": {
+              "$ref": "#/$defs/ArtifactSlidePatch"
+            }
+          },
+          "required": [
+            "op",
+            "id",
+            "changes"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "removeSlide",
+              "type": "string"
+            },
+            "id": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "id"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "moveSlide",
+              "type": "string"
+            },
+            "id": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "to": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "op",
+            "id",
+            "to"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "setTheme",
+              "type": "string"
+            },
+            "theme": {
+              "$ref": "#/$defs/ArtifactDeckTheme"
+            }
+          },
+          "required": [
+            "op",
+            "theme"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "setCells",
+              "type": "string"
+            },
+            "sheet": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "cells": {
+              "patternProperties": {
+                "^[A-Z]{1,3}[1-9][0-9]{0,5}$": {
+                  "$ref": "#/$defs/ArtifactWorkbookCell"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "op",
+            "sheet",
+            "cells"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "addSheet",
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 31,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "name"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "renameSheet",
+              "type": "string"
+            },
+            "sheet": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "name": {
+              "maxLength": 31,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "sheet",
+            "name"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "removeSheet",
+              "type": "string"
+            },
+            "sheet": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "sheet"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "op": {
               "const": "patch",
               "type": "string"
             },
@@ -7054,6 +7370,132 @@
         "hash",
         "summary"
       ],
+      "type": "object"
+    },
+    "ArtifactSlide": {
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "minLength": 1,
+          "type": "string"
+        },
+        "layout": {
+          "$ref": "#/$defs/ArtifactSlideLayout"
+        },
+        "title": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "bullets": {
+          "items": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "maxItems": 30,
+          "type": "array"
+        },
+        "bullets2": {
+          "items": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "maxItems": 30,
+          "type": "array"
+        },
+        "image": {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        "notes": {
+          "maxLength": 4000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "layout"
+      ],
+      "type": "object"
+    },
+    "ArtifactSlideLayout": {
+      "enum": [
+        "title",
+        "bullets",
+        "image",
+        "two-column",
+        "blank"
+      ],
+      "type": "string"
+    },
+    "ArtifactSlidePatch": {
+      "properties": {
+        "layout": {
+          "$ref": "#/$defs/ArtifactSlideLayout"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bullets": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 500,
+                "type": "string"
+              },
+              "maxItems": 30,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bullets2": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 500,
+                "type": "string"
+              },
+              "maxItems": 30,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "image": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "maxLength": 4000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
       "type": "object"
     },
     "ArtifactTable": {
@@ -7152,7 +7594,9 @@
         "chart",
         "diagram",
         "diff",
-        "map"
+        "map",
+        "slides",
+        "workbook"
       ],
       "type": "string"
     },
@@ -7257,6 +7701,63 @@
       ],
       "type": "object"
     },
+    "ArtifactWorkbook": {
+      "properties": {
+        "sheets": {
+          "items": {
+            "$ref": "#/$defs/ArtifactWorkbookSheet"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "sheets"
+      ],
+      "type": "object"
+    },
+    "ArtifactWorkbookCell": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/ArtifactFormulaCell"
+        }
+      ]
+    },
+    "ArtifactWorkbookSheet": {
+      "properties": {
+        "name": {
+          "maxLength": 31,
+          "minLength": 1,
+          "type": "string"
+        },
+        "cells": {
+          "patternProperties": {
+            "^[A-Z]{1,3}[1-9][0-9]{0,5}$": {
+              "$ref": "#/$defs/ArtifactWorkbookCell"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "name",
+        "cells"
+      ],
+      "type": "object"
+    },
     "ArtifactsCreateParams": {
       "properties": {
         "type": {
@@ -7304,6 +7805,30 @@
       "required": [
         "artifact",
         "ref"
+      ],
+      "type": "object"
+    },
+    "ArtifactsExportParams": {
+      "properties": {
+        "artifactId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "format": {
+          "maxLength": 8,
+          "minLength": 2,
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "artifactId",
+        "format"
       ],
       "type": "object"
     },

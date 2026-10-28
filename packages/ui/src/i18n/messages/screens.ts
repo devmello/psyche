@@ -365,6 +365,8 @@ export const screens = {
   "screens.library.date.month": "Last 30 days",
   "screens.library.type.image": "Image",
   "screens.library.type.data": "Data",
+  "screens.library.type.deck": "Slides",
+  "screens.library.type.workbook": "Spreadsheet",
   "screens.library.type.audio": "Audio",
   "screens.library.type.video": "Video",
   "screens.library.type.file": "File",
