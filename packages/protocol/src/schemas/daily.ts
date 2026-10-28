@@ -94,3 +94,48 @@ export const DailyAutomationTemplate = Type.Object(
   { $id: "DailyAutomationTemplate" },
 );
 export type DailyAutomationTemplate = Static<typeof DailyAutomationTemplate>;
+
+/**
+ * A multi-run workflow the agent planned and trial-ran with the owner ("task → automation"):
+ * one confirm card lists every schedule, what each run does and the approvals it will need.
+ * Confirming creates one scheduled automation per run, linked by `groupId` (the runs share
+ * state through `automation_state`, keyed by it). Names carry a `Daily` prefix.
+ */
+export const DailyWorkflowRun = Type.Object(
+  {
+    /** Short name of the run: "Morning check", "Evening check". */
+    name: Type.String({ minLength: 1, maxLength: 80 }),
+    kind: StringEnum(["cron", "interval"]),
+    schedule: Type.String({ minLength: 1, maxLength: 120 }),
+    /** The schedule in words, with days: "Every day at 9:00 AM". */
+    humanSchedule: Type.String({ maxLength: 200 }),
+    /** The instruction this run follows, written to the assistant. */
+    prompt: Type.String({ minLength: 1, maxLength: 6000 }),
+    /** What the run does, as the owner reads it on the card. */
+    steps: Type.Array(Type.String({ maxLength: 200 }), { maxItems: 12 }),
+    /** Approvals this run will ask for each time ("Add reminders: asks once per run"). */
+    approvals: Type.Array(Type.String({ maxLength: 200 }), { maxItems: 8 }),
+  },
+  { $id: "DailyWorkflowRun" },
+);
+export type DailyWorkflowRun = Static<typeof DailyWorkflowRun>;
+
+export const DailyWorkflowProposal = Type.Object(
+  {
+    /** Links the runs; also the key of the shared run state. */
+    groupId: Type.String({ pattern: "^[a-z0-9][a-z0-9-]{2,40}$" }),
+    title: Type.String({ minLength: 1, maxLength: 120 }),
+    timezone: Type.String({ minLength: 1 }),
+    runs: Type.Array(DailyWorkflowRun, { minItems: 1, maxItems: 6 }),
+    /** How unattended runs reach the owner. */
+    notify: StringEnum(["notification", "messages", "both"]),
+    /** Honest limits found while planning ("Canvas needs a sign-in each time"). */
+    obstacles: Type.Array(Type.String({ maxLength: 300 }), { maxItems: 8 }),
+    /** The agent also offers to save the procedure as a skill. */
+    offerSkill: Type.Optional(Type.Boolean()),
+    /** The proposal was built after reading untrusted content: the card says so. */
+    tainted: Type.Optional(Type.Boolean()),
+  },
+  { $id: "DailyWorkflowProposal" },
+);
+export type DailyWorkflowProposal = Static<typeof DailyWorkflowProposal>;

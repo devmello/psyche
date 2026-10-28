@@ -1,4 +1,9 @@
-import type { DailyAutomationDraft, ModelProvider, ModelRef } from "@psyche/protocol";
+import type {
+  DailyAutomationDraft,
+  DailyWorkflowProposal,
+  ModelProvider,
+  ModelRef,
+} from "@psyche/protocol";
 import type { SchedulerLike } from "../jobs.ts";
 import {
   AUTOMATION_TEMPLATES,
@@ -9,6 +14,7 @@ import {
 import type { FollowupStore } from "./followups.ts";
 import type { DailyService } from "./service.ts";
 import type { DailySettings } from "./settings.ts";
+import { confirmWorkflow } from "./workflows.ts";
 
 export interface DailyHandlerDeps {
   daily: DailyService | undefined;
@@ -74,6 +80,9 @@ export function createDailyHandlers(d: DailyHandlerDeps) {
       }),
     "daily.automations.confirm": async (p: { draft: DailyAutomationDraft }) => ({
       automation: await confirmAutomation(d.scheduler, p.draft, d.validate),
+    }),
+    "daily.workflows.confirm": async (p: { proposal: DailyWorkflowProposal }) => ({
+      automations: await confirmWorkflow(d.scheduler, p.proposal, d.validate),
     }),
   };
 }

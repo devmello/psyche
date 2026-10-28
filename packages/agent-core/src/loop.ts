@@ -55,6 +55,11 @@ import {
   type Usage,
 } from "@psyche/protocol";
 import {
+  automationStateGetTool,
+  automationStateSetTool,
+  proposeAutomationTool,
+} from "./builtins/automation.ts";
+import {
   type HarnessAction,
   type HarnessGateResult,
   HarnessRegistry,
@@ -546,7 +551,13 @@ export class PsycheAgentLoop implements AgentLoop {
     if (o.memory !== undefined)
       tools.push(memoryTool(o.memory, { clock: this.#clock, timeZone: tz }));
     if (o.tasks !== undefined) tools.push(taskStartTool(o.tasks));
-    if (o.scheduler !== undefined) tools.push(scheduleTool(o.scheduler, tz));
+    if (o.scheduler !== undefined) {
+      tools.push(scheduleTool(o.scheduler, tz));
+      tools.push(proposeAutomationTool({ timeZone: tz, newId: () => this.#ids.next("grp") }));
+      if (o.memory !== undefined) {
+        tools.push(automationStateGetTool(o.memory), automationStateSetTool(o.memory));
+      }
+    }
     if (o.notifier !== undefined) tools.push(notifyTool(o.notifier));
     tools.push(harnessDelegateTool(this.harnesses));
     if (o.specialists !== undefined && o.tasks !== undefined) tools.push(...specialistTools());

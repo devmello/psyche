@@ -165,6 +165,7 @@
 //   let automationSpecialist = try? JSONDecoder().decode(AutomationSpecialist.self, from: jsonData)
 //   let automationTrigger = try? JSONDecoder().decode(AutomationTrigger.self, from: jsonData)
 //   let automationUpdatedPayload = try? JSONDecoder().decode(AutomationUpdatedPayload.self, from: jsonData)
+//   let automationWorkflowBlock = try? JSONDecoder().decode(AutomationWorkflowBlock.self, from: jsonData)
 //   let automationsCreateParams = try? JSONDecoder().decode(AutomationsCreateParams.self, from: jsonData)
 //   let automationsDeleteParams = try? JSONDecoder().decode(AutomationsDeleteParams.self, from: jsonData)
 //   let automationsListParams = try? JSONDecoder().decode(AutomationsListParams.self, from: jsonData)
@@ -387,6 +388,10 @@
 //   let dailyRunResult = try? JSONDecoder().decode(DailyRunResult.self, from: jsonData)
 //   let dailySection = try? JSONDecoder().decode(DailySection.self, from: jsonData)
 //   let dailySectionID = try? JSONDecoder().decode(DailySectionID.self, from: jsonData)
+//   let dailyWorkflowProposal = try? JSONDecoder().decode(DailyWorkflowProposal.self, from: jsonData)
+//   let dailyWorkflowRun = try? JSONDecoder().decode(DailyWorkflowRun.self, from: jsonData)
+//   let dailyWorkflowsConfirmParams = try? JSONDecoder().decode(DailyWorkflowsConfirmParams.self, from: jsonData)
+//   let dailyWorkflowsConfirmResult = try? JSONDecoder().decode(DailyWorkflowsConfirmResult.self, from: jsonData)
 //   let decidedBy = try? JSONDecoder().decode(DecidedBy.self, from: jsonData)
 //   let decision = try? JSONDecoder().decode(Decision.self, from: jsonData)
 //   let delivery = try? JSONDecoder().decode(Delivery.self, from: jsonData)
@@ -6132,6 +6137,102 @@ public struct AutomationUpdatedPayload: Codable, Sendable {
     }
 }
 
+// MARK: - AutomationWorkflowBlock
+public struct AutomationWorkflowBlock: Codable, Sendable {
+    public let proposal: DailyWorkflowProposal
+    public let type: AutomationWorkflowBlockType
+
+    public enum CodingKeys: String, CodingKey {
+        case proposal = "proposal"
+        case type = "type"
+    }
+
+    public init(proposal: DailyWorkflowProposal, type: AutomationWorkflowBlockType) {
+        self.proposal = proposal
+        self.type = type
+    }
+}
+
+// MARK: - DailyWorkflowProposal
+public struct DailyWorkflowProposal: Codable, Sendable {
+    public let groupID: String
+    public let notify: Notify
+    public let obstacles: [String]
+    public let offerSkill: Bool?
+    public let runs: [DailyWorkflowRun]
+    public let tainted: Bool?
+    public let timezone: String
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case groupID = "groupId"
+        case notify = "notify"
+        case obstacles = "obstacles"
+        case offerSkill = "offerSkill"
+        case runs = "runs"
+        case tainted = "tainted"
+        case timezone = "timezone"
+        case title = "title"
+    }
+
+    public init(groupID: String, notify: Notify, obstacles: [String], offerSkill: Bool?, runs: [DailyWorkflowRun], tainted: Bool?, timezone: String, title: String) {
+        self.groupID = groupID
+        self.notify = notify
+        self.obstacles = obstacles
+        self.offerSkill = offerSkill
+        self.runs = runs
+        self.tainted = tainted
+        self.timezone = timezone
+        self.title = title
+    }
+}
+
+public enum Notify: String, Codable, Sendable {
+    case both = "both"
+    case messages = "messages"
+    case notification = "notification"
+}
+
+// MARK: - DailyWorkflowRun
+public struct DailyWorkflowRun: Codable, Sendable {
+    public let approvals: [String]
+    public let humanSchedule: String
+    public let kind: DailyWorkflowRunKind
+    public let name: String
+    public let prompt: String
+    public let schedule: String
+    public let steps: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case approvals = "approvals"
+        case humanSchedule = "humanSchedule"
+        case kind = "kind"
+        case name = "name"
+        case prompt = "prompt"
+        case schedule = "schedule"
+        case steps = "steps"
+    }
+
+    public init(approvals: [String], humanSchedule: String, kind: DailyWorkflowRunKind, name: String, prompt: String, schedule: String, steps: [String]) {
+        self.approvals = approvals
+        self.humanSchedule = humanSchedule
+        self.kind = kind
+        self.name = name
+        self.prompt = prompt
+        self.schedule = schedule
+        self.steps = steps
+    }
+}
+
+public enum DailyWorkflowRunKind: String, Codable, Sendable {
+    case cron = "cron"
+    case interval = "interval"
+}
+
+public enum AutomationWorkflowBlockType: String, Codable, Sendable {
+    case automationWorkflow = "automation_workflow"
+}
+
 // MARK: - AutomationsCreateParams
 public struct AutomationsCreateParams: Codable, Sendable {
     public let delivery: Delivery?
@@ -8417,6 +8518,7 @@ public struct Block: Codable, Sendable {
     public let lessonID: String?
     public let messageID: String?
     public let statement: String?
+    public let proposal: DailyWorkflowProposal?
 
     public enum CodingKeys: String, CodingKey {
         case md = "md"
@@ -8452,9 +8554,10 @@ public struct Block: Codable, Sendable {
         case lessonID = "lessonId"
         case messageID = "messageId"
         case statement = "statement"
+        case proposal = "proposal"
     }
 
-    public init(md: String?, type: BlockType, level1: String?, status: ToolCallStatus?, tool: String?, toolCallID: String?, planID: String?, items: [ItemElement]?, approvalID: String?, inputRequestID: String?, artifactID: String?, preview: String?, libraryItemID: String?, id: String?, kind: BlockKind?, source: String?, title: String?, url: String?, receiptID: String?, taskID: String?, actions: [WrapUpAction]?, ask: String?, recap: String?, compactionID: String?, replaced: Replaced?, summary: CompactionSummary?, tokensAfter: Int?, tokensBefore: Int?, trigger: BlockTrigger?, feedbackID: String?, lessonID: String?, messageID: String?, statement: String?) {
+    public init(md: String?, type: BlockType, level1: String?, status: ToolCallStatus?, tool: String?, toolCallID: String?, planID: String?, items: [ItemElement]?, approvalID: String?, inputRequestID: String?, artifactID: String?, preview: String?, libraryItemID: String?, id: String?, kind: BlockKind?, source: String?, title: String?, url: String?, receiptID: String?, taskID: String?, actions: [WrapUpAction]?, ask: String?, recap: String?, compactionID: String?, replaced: Replaced?, summary: CompactionSummary?, tokensAfter: Int?, tokensBefore: Int?, trigger: BlockTrigger?, feedbackID: String?, lessonID: String?, messageID: String?, statement: String?, proposal: DailyWorkflowProposal?) {
         self.md = md
         self.type = type
         self.level1 = level1
@@ -8488,6 +8591,7 @@ public struct Block: Codable, Sendable {
         self.lessonID = lessonID
         self.messageID = messageID
         self.statement = statement
+        self.proposal = proposal
     }
 }
 
@@ -8621,6 +8725,7 @@ public enum BlockTrigger: String, Codable, Sendable {
 public enum BlockType: String, Codable, Sendable {
     case approval = "approval"
     case artifact = "artifact"
+    case automationWorkflow = "automation_workflow"
     case checklist = "checklist"
     case compaction = "compaction"
     case context = "context"
@@ -10538,7 +10643,7 @@ public struct DailyAutomationsConfirmParams: Codable, Sendable {
 // MARK: - DailyAutomationDraft
 public struct DailyAutomationDraft: Codable, Sendable {
     public let humanSchedule: String
-    public let kind: DailyAutomationDraftKind
+    public let kind: DailyWorkflowRunKind
     public let prompt: String
     public let schedule: String
     public let timezone: String
@@ -10553,7 +10658,7 @@ public struct DailyAutomationDraft: Codable, Sendable {
         case title = "title"
     }
 
-    public init(humanSchedule: String, kind: DailyAutomationDraftKind, prompt: String, schedule: String, timezone: String, title: String) {
+    public init(humanSchedule: String, kind: DailyWorkflowRunKind, prompt: String, schedule: String, timezone: String, title: String) {
         self.humanSchedule = humanSchedule
         self.kind = kind
         self.prompt = prompt
@@ -10561,11 +10666,6 @@ public struct DailyAutomationDraft: Codable, Sendable {
         self.timezone = timezone
         self.title = title
     }
-}
-
-public enum DailyAutomationDraftKind: String, Codable, Sendable {
-    case cron = "cron"
-    case interval = "interval"
 }
 
 // MARK: - DailyAutomationsConfirmResult
@@ -10848,6 +10948,32 @@ public struct DailyRunResult: Codable, Sendable {
     public init(postID: String?, skipped: String?) {
         self.postID = postID
         self.skipped = skipped
+    }
+}
+
+// MARK: - DailyWorkflowsConfirmParams
+public struct DailyWorkflowsConfirmParams: Codable, Sendable {
+    public let proposal: DailyWorkflowProposal
+
+    public enum CodingKeys: String, CodingKey {
+        case proposal = "proposal"
+    }
+
+    public init(proposal: DailyWorkflowProposal) {
+        self.proposal = proposal
+    }
+}
+
+// MARK: - DailyWorkflowsConfirmResult
+public struct DailyWorkflowsConfirmResult: Codable, Sendable {
+    public let automations: [Automation]
+
+    public enum CodingKeys: String, CodingKey {
+        case automations = "automations"
+    }
+
+    public init(automations: [Automation]) {
+        self.automations = automations
     }
 }
 

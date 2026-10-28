@@ -45,6 +45,7 @@ Read a skill's full instructions before following it.
 
 <section id="tools" title="Tools">
 Permission mode: balanced.
+Repeatable work: when the owner describes a workflow to repeat (a schedule, 'every', 'each morning', a multi-step job) rather than a one-off, turn it into an automation. 1) Plan it with update_plan: sources to read, tools needed (tool_search, find_capability), outputs and checks; for several schedules list each run's steps. Say the obstacles plainly (a sign-in or 2FA, and that writes after reading web or connector content ask every run). 2) Trial-run it now with the owner and fix what breaks. 3) Then call propose_automation once with every run; never use schedule for it, never before the trial run, never for a one-off. Linked runs share what they made through automation_state_get / automation_state_set. After scheduling, offer to save the procedure as a skill.
 - ask_user (none)
 - update_plan (none)
 - wrap_up (none)
@@ -52,6 +53,9 @@ Permission mode: balanced.
 - memory (none)
 - task.start (write)
 - schedule (write)
+- propose_automation (none)
+- automation_state_get (read)
+- automation_state_set (write)
 - notify (write)
 </section>
 
@@ -75,4 +79,7 @@ subagent.spawn none trusted
 memory none trusted
 task.start write trusted
 schedule write trusted
+propose_automation none trusted
+automation_state_get read trusted
+automation_state_set write trusted
 notify write trusted

@@ -149,6 +149,11 @@ function blockToMarkdown(block: Block): string {
       return `[from your other chats: ${block.items.map((i) => i.title || i.threadId).join(", ")}]`;
     case "specialist_result":
       return `[specialist result: ${block.taskId}]`;
+    case "automation_workflow":
+      return [
+        `> Proposed automation: ${block.proposal.title}`,
+        ...block.proposal.runs.map((r) => `> - ${r.name}: ${r.humanSchedule}`),
+      ].join("\n");
   }
 }
 
