@@ -451,6 +451,21 @@
 //   let eventFrame = try? JSONDecoder().decode(EventFrame.self, from: jsonData)
 //   let eventsSubscribeParams = try? JSONDecoder().decode(EventsSubscribeParams.self, from: jsonData)
 //   let eventsSubscribeResult = try? JSONDecoder().decode(EventsSubscribeResult.self, from: jsonData)
+//   let everythingAgentAccess = try? JSONDecoder().decode(EverythingAgentAccess.self, from: jsonData)
+//   let everythingBackfillDays = try? JSONDecoder().decode(EverythingBackfillDays.self, from: jsonData)
+//   let everythingMemorySettings = try? JSONDecoder().decode(EverythingMemorySettings.self, from: jsonData)
+//   let everythingModelKind = try? JSONDecoder().decode(EverythingModelKind.self, from: jsonData)
+//   let everythingModelSetting = try? JSONDecoder().decode(EverythingModelSetting.self, from: jsonData)
+//   let everythingPeopleDefault = try? JSONDecoder().decode(EverythingPeopleDefault.self, from: jsonData)
+//   let everythingPeopleSetting = try? JSONDecoder().decode(EverythingPeopleSetting.self, from: jsonData)
+//   let everythingProcessingModel = try? JSONDecoder().decode(EverythingProcessingModel.self, from: jsonData)
+//   let everythingRetentionSetting = try? JSONDecoder().decode(EverythingRetentionSetting.self, from: jsonData)
+//   let everythingReviewSetting = try? JSONDecoder().decode(EverythingReviewSetting.self, from: jsonData)
+//   let everythingScheduleSetting = try? JSONDecoder().decode(EverythingScheduleSetting.self, from: jsonData)
+//   let everythingSensitiveClass = try? JSONDecoder().decode(EverythingSensitiveClass.self, from: jsonData)
+//   let everythingSensitiveSwitches = try? JSONDecoder().decode(EverythingSensitiveSwitches.self, from: jsonData)
+//   let everythingSource = try? JSONDecoder().decode(EverythingSource.self, from: jsonData)
+//   let everythingSourceSwitches = try? JSONDecoder().decode(EverythingSourceSwitches.self, from: jsonData)
 //   let explicitFeedbackKind = try? JSONDecoder().decode(ExplicitFeedbackKind.self, from: jsonData)
 //   let feedFeedback = try? JSONDecoder().decode(FeedFeedback.self, from: jsonData)
 //   let feedFeedbackParams = try? JSONDecoder().decode(FeedFeedbackParams.self, from: jsonData)
@@ -516,6 +531,9 @@
 //   let grantsRevokeResult = try? JSONDecoder().decode(GrantsRevokeResult.self, from: jsonData)
 //   let graphBlockKind = try? JSONDecoder().decode(GraphBlockKind.self, from: jsonData)
 //   let graphBlocklistEntry = try? JSONDecoder().decode(GraphBlocklistEntry.self, from: jsonData)
+//   let graphCitation = try? JSONDecoder().decode(GraphCitation.self, from: jsonData)
+//   let graphCitationSource = try? JSONDecoder().decode(GraphCitationSource.self, from: jsonData)
+//   let graphCitationTarget = try? JSONDecoder().decode(GraphCitationTarget.self, from: jsonData)
 //   let graphDirection = try? JSONDecoder().decode(GraphDirection.self, from: jsonData)
 //   let graphEdge = try? JSONDecoder().decode(GraphEdge.self, from: jsonData)
 //   let graphEdgeRel = try? JSONDecoder().decode(GraphEdgeRel.self, from: jsonData)
@@ -525,6 +543,7 @@
 //   let graphEntityStatus = try? JSONDecoder().decode(GraphEntityStatus.self, from: jsonData)
 //   let graphFact = try? JSONDecoder().decode(GraphFact.self, from: jsonData)
 //   let graphFactAttribute = try? JSONDecoder().decode(GraphFactAttribute.self, from: jsonData)
+//   let graphFamilyRole = try? JSONDecoder().decode(GraphFamilyRole.self, from: jsonData)
 //   let graphIdentifier = try? JSONDecoder().decode(GraphIdentifier.self, from: jsonData)
 //   let graphIdentifierKind = try? JSONDecoder().decode(GraphIdentifierKind.self, from: jsonData)
 //   let graphInteraction = try? JSONDecoder().decode(GraphInteraction.self, from: jsonData)
@@ -540,8 +559,11 @@
 //   let graphProjectStatus = try? JSONDecoder().decode(GraphProjectStatus.self, from: jsonData)
 //   let graphRelationshipLabel = try? JSONDecoder().decode(GraphRelationshipLabel.self, from: jsonData)
 //   let graphRemovedCounts = try? JSONDecoder().decode(GraphRemovedCounts.self, from: jsonData)
+//   let graphReviewState = try? JSONDecoder().decode(GraphReviewState.self, from: jsonData)
+//   let graphSensitivity = try? JSONDecoder().decode(GraphSensitivity.self, from: jsonData)
 //   let graphSource = try? JSONDecoder().decode(GraphSource.self, from: jsonData)
 //   let graphStatus = try? JSONDecoder().decode(GraphStatus.self, from: jsonData)
+//   let graphSubjectKind = try? JSONDecoder().decode(GraphSubjectKind.self, from: jsonData)
 //   let graphSuggestion = try? JSONDecoder().decode(GraphSuggestion.self, from: jsonData)
 //   let graphSuggestionAnswer = try? JSONDecoder().decode(GraphSuggestionAnswer.self, from: jsonData)
 //   let graphSuggestionFilter = try? JSONDecoder().decode(GraphSuggestionFilter.self, from: jsonData)
@@ -741,6 +763,10 @@
 //   let memoryPersonaEditResult = try? JSONDecoder().decode(MemoryPersonaEditResult.self, from: jsonData)
 //   let memoryPersonaGetParams = try? JSONDecoder().decode(MemoryPersonaGetParams.self, from: jsonData)
 //   let memoryPersonaGetResult = try? JSONDecoder().decode(MemoryPersonaGetResult.self, from: jsonData)
+//   let memoryQuarantineDecideParams = try? JSONDecoder().decode(MemoryQuarantineDecideParams.self, from: jsonData)
+//   let memoryQuarantineDecideResult = try? JSONDecoder().decode(MemoryQuarantineDecideResult.self, from: jsonData)
+//   let memoryQuarantineListParams = try? JSONDecoder().decode(MemoryQuarantineListParams.self, from: jsonData)
+//   let memoryQuarantineListResult = try? JSONDecoder().decode(MemoryQuarantineListResult.self, from: jsonData)
 //   let memoryReadParams = try? JSONDecoder().decode(MemoryReadParams.self, from: jsonData)
 //   let memoryReadResult = try? JSONDecoder().decode(MemoryReadResult.self, from: jsonData)
 //   let memoryRecallFallback = try? JSONDecoder().decode(MemoryRecallFallback.self, from: jsonData)
@@ -751,6 +777,15 @@
 //   let memoryRememberResult = try? JSONDecoder().decode(MemoryRememberResult.self, from: jsonData)
 //   let memoryResetParams = try? JSONDecoder().decode(MemoryResetParams.self, from: jsonData)
 //   let memoryResetResult = try? JSONDecoder().decode(MemoryResetResult.self, from: jsonData)
+//   let memoryReviewDecideParams = try? JSONDecoder().decode(MemoryReviewDecideParams.self, from: jsonData)
+//   let memoryReviewDecideResult = try? JSONDecoder().decode(MemoryReviewDecideResult.self, from: jsonData)
+//   let memoryReviewListParams = try? JSONDecoder().decode(MemoryReviewListParams.self, from: jsonData)
+//   let memoryReviewListResult = try? JSONDecoder().decode(MemoryReviewListResult.self, from: jsonData)
+//   let memoryReviewUndoParams = try? JSONDecoder().decode(MemoryReviewUndoParams.self, from: jsonData)
+//   let memoryReviewUndoResult = try? JSONDecoder().decode(MemoryReviewUndoResult.self, from: jsonData)
+//   let memoryRun = try? JSONDecoder().decode(MemoryRun.self, from: jsonData)
+//   let memoryRunsListParams = try? JSONDecoder().decode(MemoryRunsListParams.self, from: jsonData)
+//   let memoryRunsListResult = try? JSONDecoder().decode(MemoryRunsListResult.self, from: jsonData)
 //   let memorySearchParams = try? JSONDecoder().decode(MemorySearchParams.self, from: jsonData)
 //   let memorySearchResult = try? JSONDecoder().decode(MemorySearchResult.self, from: jsonData)
 //   let memoryStatusParams = try? JSONDecoder().decode(MemoryStatusParams.self, from: jsonData)
@@ -890,6 +925,10 @@
 //   let provenanceOut = try? JSONDecoder().decode(ProvenanceOut.self, from: jsonData)
 //   let providerModelEntry = try? JSONDecoder().decode(ProviderModelEntry.self, from: jsonData)
 //   let psycheTrace = try? JSONDecoder().decode(PsycheTrace.self, from: jsonData)
+//   let quarantineAction = try? JSONDecoder().decode(QuarantineAction.self, from: jsonData)
+//   let quarantineDecided = try? JSONDecoder().decode(QuarantineDecided.self, from: jsonData)
+//   let quarantineItem = try? JSONDecoder().decode(QuarantineItem.self, from: jsonData)
+//   let quarantineReason = try? JSONDecoder().decode(QuarantineReason.self, from: jsonData)
 //   let question = try? JSONDecoder().decode(Question.self, from: jsonData)
 //   let questionAnswers = try? JSONDecoder().decode(QuestionAnswers.self, from: jsonData)
 //   let questionBlock = try? JSONDecoder().decode(QuestionBlock.self, from: jsonData)
@@ -924,6 +963,10 @@
 //   let researchProgressPlan = try? JSONDecoder().decode(ResearchProgressPlan.self, from: jsonData)
 //   let researchProgressStep = try? JSONDecoder().decode(ResearchProgressStep.self, from: jsonData)
 //   let researchProgressSubQuestion = try? JSONDecoder().decode(ResearchProgressSubQuestion.self, from: jsonData)
+//   let reviewDecision = try? JSONDecoder().decode(ReviewDecision.self, from: jsonData)
+//   let reviewItem = try? JSONDecoder().decode(ReviewItem.self, from: jsonData)
+//   let reviewItemChange = try? JSONDecoder().decode(ReviewItemChange.self, from: jsonData)
+//   let reviewNever = try? JSONDecoder().decode(ReviewNever.self, from: jsonData)
 //   let run = try? JSONDecoder().decode(Run.self, from: jsonData)
 //   let runBudget = try? JSONDecoder().decode(RunBudget.self, from: jsonData)
 //   let runFrame = try? JSONDecoder().decode(RunFrame.self, from: jsonData)
@@ -11653,6 +11696,281 @@ public struct EventsSubscribeResult: Codable, Sendable {
     }
 }
 
+// MARK: - EverythingMemorySettings
+public struct EverythingMemorySettings: Codable, Sendable {
+    public let agentAccess: EverythingAgentAccess
+    /// Separate from the category switches
+    public let agentSeesSensitive: Bool
+    /// Off by default for everyone, including after an update
+    public let enabled: Bool
+    public let maxTokensPerNight: Int
+    public let model: EverythingModelSetting
+    public let people: EverythingPeopleSetting
+    public let retention: EverythingRetentionSetting
+    public let review: EverythingReviewSetting
+    public let schedule: EverythingScheduleSetting
+    public let sensitive: EverythingSensitiveSwitches
+    public let sources: EverythingSourceSwitches
+    /// Write person cards to files; off once everything memory is on
+    public let writeCardFiles: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case agentAccess = "agentAccess"
+        case agentSeesSensitive = "agentSeesSensitive"
+        case enabled = "enabled"
+        case maxTokensPerNight = "maxTokensPerNight"
+        case model = "model"
+        case people = "people"
+        case retention = "retention"
+        case review = "review"
+        case schedule = "schedule"
+        case sensitive = "sensitive"
+        case sources = "sources"
+        case writeCardFiles = "writeCardFiles"
+    }
+
+    public init(agentAccess: EverythingAgentAccess, agentSeesSensitive: Bool, enabled: Bool, maxTokensPerNight: Int, model: EverythingModelSetting, people: EverythingPeopleSetting, retention: EverythingRetentionSetting, review: EverythingReviewSetting, schedule: EverythingScheduleSetting, sensitive: EverythingSensitiveSwitches, sources: EverythingSourceSwitches, writeCardFiles: Bool) {
+        self.agentAccess = agentAccess
+        self.agentSeesSensitive = agentSeesSensitive
+        self.enabled = enabled
+        self.maxTokensPerNight = maxTokensPerNight
+        self.model = model
+        self.people = people
+        self.retention = retention
+        self.review = review
+        self.schedule = schedule
+        self.sensitive = sensitive
+        self.sources = sources
+        self.writeCardFiles = writeCardFiles
+    }
+}
+
+public enum EverythingAgentAccess: String, Codable, Sendable {
+    case accepted = "accepted"
+    case all = "all"
+    case none = "none"
+}
+
+// MARK: - EverythingModelSetting
+public struct EverythingModelSetting: Codable, Sendable {
+    public let everythingModelSettingDefault: EverythingProcessingModel
+    public let perSource: [String: JSONAny]?
+
+    public enum CodingKeys: String, CodingKey {
+        case everythingModelSettingDefault = "default"
+        case perSource = "perSource"
+    }
+
+    public init(everythingModelSettingDefault: EverythingProcessingModel, perSource: [String: JSONAny]?) {
+        self.everythingModelSettingDefault = everythingModelSettingDefault
+        self.perSource = perSource
+    }
+}
+
+// MARK: - EverythingProcessingModel
+public struct EverythingProcessingModel: Codable, Sendable {
+    public let kind: EverythingModelKind
+    public let ref: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case ref = "ref"
+    }
+
+    public init(kind: EverythingModelKind, ref: String?) {
+        self.kind = kind
+        self.ref = ref
+    }
+}
+
+/// none: deterministic graph only; cloud: Haiku-class provider; local: on this Mac
+public enum EverythingModelKind: String, Codable, Sendable {
+    case cloud = "cloud"
+    case local = "local"
+    case none = "none"
+}
+
+// MARK: - EverythingPeopleSetting
+public struct EverythingPeopleSetting: Codable, Sendable {
+    public let everythingPeopleSettingDefault: EverythingPeopleDefault
+
+    public enum CodingKeys: String, CodingKey {
+        case everythingPeopleSettingDefault = "default"
+    }
+
+    public init(everythingPeopleSettingDefault: EverythingPeopleDefault) {
+        self.everythingPeopleSettingDefault = everythingPeopleSettingDefault
+    }
+}
+
+public enum EverythingPeopleDefault: String, Codable, Sendable {
+    case chosen = "chosen"
+    case contacts = "contacts"
+    case everyone = "everyone"
+    case twoWay = "two_way"
+}
+
+// MARK: - EverythingRetentionSetting
+public struct EverythingRetentionSetting: Codable, Sendable {
+    public let pendingDays: Int
+    public let quarantineDays: Int
+    public let runLogDays: Int
+    /// Months after newest evidence; 0 keeps them forever
+    public let untrustedAcceptedMonths: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case pendingDays = "pendingDays"
+        case quarantineDays = "quarantineDays"
+        case runLogDays = "runLogDays"
+        case untrustedAcceptedMonths = "untrustedAcceptedMonths"
+    }
+
+    public init(pendingDays: Int, quarantineDays: Int, runLogDays: Int, untrustedAcceptedMonths: Int) {
+        self.pendingDays = pendingDays
+        self.quarantineDays = quarantineDays
+        self.runLogDays = runLogDays
+        self.untrustedAcceptedMonths = untrustedAcceptedMonths
+    }
+}
+
+// MARK: - EverythingReviewSetting
+public struct EverythingReviewSetting: Codable, Sendable {
+    /// Non-sensitive, confidence >= 0.8, no conflict
+    public let autoAcceptOwnerAuthored: Bool
+    /// Offered, off by default (decision 6)
+    public let autoAcceptSelfDisclosure: Bool
+    /// Confirmed facts from one two-way contact before auto-accept is offered
+    public let perSenderAutoAcceptAfter: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case autoAcceptOwnerAuthored = "autoAcceptOwnerAuthored"
+        case autoAcceptSelfDisclosure = "autoAcceptSelfDisclosure"
+        case perSenderAutoAcceptAfter = "perSenderAutoAcceptAfter"
+    }
+
+    public init(autoAcceptOwnerAuthored: Bool, autoAcceptSelfDisclosure: Bool, perSenderAutoAcceptAfter: Int) {
+        self.autoAcceptOwnerAuthored = autoAcceptOwnerAuthored
+        self.autoAcceptSelfDisclosure = autoAcceptSelfDisclosure
+        self.perSenderAutoAcceptAfter = perSenderAutoAcceptAfter
+    }
+}
+
+// MARK: - EverythingScheduleSetting
+public struct EverythingScheduleSetting: Codable, Sendable {
+    public let backfillDays: EverythingBackfillDays
+    public let quietHoursEnd: String
+    public let quietHoursStart: String
+    /// AC only by default (decision 10)
+    public let runOnBattery: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case backfillDays = "backfillDays"
+        case quietHoursEnd = "quietHoursEnd"
+        case quietHoursStart = "quietHoursStart"
+        case runOnBattery = "runOnBattery"
+    }
+
+    public init(backfillDays: EverythingBackfillDays, quietHoursEnd: String, quietHoursStart: String, runOnBattery: Bool) {
+        self.backfillDays = backfillDays
+        self.quietHoursEnd = quietHoursEnd
+        self.quietHoursStart = quietHoursStart
+        self.runOnBattery = runOnBattery
+    }
+}
+
+/// First-run backfill window in days (decision 7)
+public enum EverythingBackfillDays: String, Codable, Sendable {
+    case the0 = "0"
+    case the30 = "30"
+    case the365 = "365"
+    case the90 = "90"
+}
+
+/// All off. Only stated facts are stored when on. Government IDs and account numbers have no
+/// switch: they are never stored
+// MARK: - EverythingSensitiveSwitches
+public struct EverythingSensitiveSwitches: Codable, Sendable {
+    public let ethnicity: Bool
+    public let finance: Bool
+    public let health: Bool
+    public let legal: Bool
+    public let politics: Bool
+    public let preciseLocation: Bool
+    public let religion: Bool
+    public let sexuality: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case ethnicity = "ethnicity"
+        case finance = "finance"
+        case health = "health"
+        case legal = "legal"
+        case politics = "politics"
+        case preciseLocation = "precise_location"
+        case religion = "religion"
+        case sexuality = "sexuality"
+    }
+
+    public init(ethnicity: Bool, finance: Bool, health: Bool, legal: Bool, politics: Bool, preciseLocation: Bool, religion: Bool, sexuality: Bool) {
+        self.ethnicity = ethnicity
+        self.finance = finance
+        self.health = health
+        self.legal = legal
+        self.politics = politics
+        self.preciseLocation = preciseLocation
+        self.religion = religion
+        self.sexuality = sexuality
+    }
+}
+
+/// One switch per source, all off
+// MARK: - EverythingSourceSwitches
+public struct EverythingSourceSwitches: Codable, Sendable {
+    public let browser: Bool
+    public let calendar: Bool
+    public let chats: Bool
+    public let files: Bool
+    public let mail: Bool
+    public let messages: Bool
+    public let notes: Bool
+    public let reminders: Bool
+    public let transcripts: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case browser = "browser"
+        case calendar = "calendar"
+        case chats = "chats"
+        case files = "files"
+        case mail = "mail"
+        case messages = "messages"
+        case notes = "notes"
+        case reminders = "reminders"
+        case transcripts = "transcripts"
+    }
+
+    public init(browser: Bool, calendar: Bool, chats: Bool, files: Bool, mail: Bool, messages: Bool, notes: Bool, reminders: Bool, transcripts: Bool) {
+        self.browser = browser
+        self.calendar = calendar
+        self.chats = chats
+        self.files = files
+        self.mail = mail
+        self.messages = messages
+        self.notes = notes
+        self.reminders = reminders
+        self.transcripts = transcripts
+    }
+}
+
+public enum EverythingSensitiveClass: String, Codable, Sendable {
+    case ethnicity = "ethnicity"
+    case finance = "finance"
+    case health = "health"
+    case legal = "legal"
+    case politics = "politics"
+    case preciseLocation = "precise_location"
+    case religion = "religion"
+    case sexuality = "sexuality"
+}
+
 // MARK: - FeedFeedbackParams
 public struct FeedFeedbackParams: Codable, Sendable {
     public let feedback: FeedFeedback?
@@ -13774,6 +14092,8 @@ public struct GraphEdge: Codable, Sendable {
     public let provenance: Provenance
     public let rel: GraphEdgeRel
     public let retractedAt: String?
+    public let review: GraphReviewState?
+    public let role: GraphFamilyRole?
     public let sources: [String]
     public let src: String
     public let supersededBy: String?
@@ -13788,6 +14108,8 @@ public struct GraphEdge: Codable, Sendable {
         case provenance = "provenance"
         case rel = "rel"
         case retractedAt = "retractedAt"
+        case review = "review"
+        case role = "role"
         case sources = "sources"
         case src = "src"
         case supersededBy = "supersededBy"
@@ -13795,7 +14117,7 @@ public struct GraphEdge: Codable, Sendable {
         case validTo = "validTo"
     }
 
-    public init(confidence: Double, dst: String, id: String, label: GraphRelationshipLabel?, provenance: Provenance, rel: GraphEdgeRel, retractedAt: String?, sources: [String], src: String, supersededBy: String?, validFrom: String, validTo: String?) {
+    public init(confidence: Double, dst: String, id: String, label: GraphRelationshipLabel?, provenance: Provenance, rel: GraphEdgeRel, retractedAt: String?, review: GraphReviewState?, role: GraphFamilyRole?, sources: [String], src: String, supersededBy: String?, validFrom: String, validTo: String?) {
         self.confidence = confidence
         self.dst = dst
         self.id = id
@@ -13803,6 +14125,8 @@ public struct GraphEdge: Codable, Sendable {
         self.provenance = provenance
         self.rel = rel
         self.retractedAt = retractedAt
+        self.review = review
+        self.role = role
         self.sources = sources
         self.src = src
         self.supersededBy = supersededBy
@@ -13828,13 +14152,49 @@ public enum GraphRelationshipLabel: String, Codable, Sendable {
 }
 
 public enum GraphEdgeRel: String, Codable, Sendable {
+    case about = "about"
+    case attended = "attended"
+    case classmate = "classmate"
+    case client = "client"
+    case colleague = "colleague"
+    case family = "family"
+    case friend = "friend"
+    case livesIn = "lives_in"
     case locatedAt = "located_at"
+    case manager = "manager"
     case memberOf = "member_of"
+    case mentor = "mentor"
+    case neighbour = "neighbour"
     case partOf = "part_of"
     case relatedTo = "related_to"
     case reportsTo = "reports_to"
+    case roommate = "roommate"
     case stakeholderOf = "stakeholder_of"
+    case studiedAt = "studied_at"
+    case vendor = "vendor"
     case worksAt = "works_at"
+}
+
+public enum GraphReviewState: String, Codable, Sendable {
+    case accepted = "accepted"
+    case autoAccepted = "auto_accepted"
+    case discarded = "discarded"
+    case edited = "edited"
+    case pending = "pending"
+    case quarantined = "quarantined"
+}
+
+public enum GraphFamilyRole: String, Codable, Sendable {
+    case child = "child"
+    case cousin = "cousin"
+    case grandchild = "grandchild"
+    case grandparent = "grandparent"
+    case inLaw = "in_law"
+    case other = "other"
+    case parent = "parent"
+    case partner = "partner"
+    case sibling = "sibling"
+    case spouse = "spouse"
 }
 
 // MARK: - GraphEntity
@@ -13900,12 +14260,15 @@ public struct GraphEntity: Codable, Sendable {
     }
 }
 
-/// person, organisation, project or place
+/// person, organisation, project, place, event (dated, may recur) or topic (a lightweight
+/// label)
 public enum GraphEntityKind: String, Codable, Sendable {
+    case event = "event"
     case org = "org"
     case person = "person"
     case place = "place"
     case project = "project"
+    case topic = "topic"
 }
 
 public enum GraphEntityStatus: String, Codable, Sendable {
@@ -13920,12 +14283,20 @@ public struct GraphFact: Codable, Sendable {
     public let confidence: Double
     public let entityID: String
     public let evidence: String?
+    /// "rule" or the model ref that proposed it
+    public let extractor: String?
+    public let firstSeenAt: String?
     public let id: String
+    public let lastSeenAt: String?
     public let provenance: Provenance
     public let recordedAt: String
     public let retractedAt: String?
+    public let review: GraphReviewState?
+    public let runID: String?
+    public let sensitivity: GraphSensitivity?
     /// Interaction, chunk, Contacts or lesson references
     public let sources: [String]
+    public let subjectKind: GraphSubjectKind?
     public let supersededBy: String?
     public let validFrom: String
     public let validTo: String?
@@ -13936,27 +14307,41 @@ public struct GraphFact: Codable, Sendable {
         case confidence = "confidence"
         case entityID = "entityId"
         case evidence = "evidence"
+        case extractor = "extractor"
+        case firstSeenAt = "firstSeenAt"
         case id = "id"
+        case lastSeenAt = "lastSeenAt"
         case provenance = "provenance"
         case recordedAt = "recordedAt"
         case retractedAt = "retractedAt"
+        case review = "review"
+        case runID = "runId"
+        case sensitivity = "sensitivity"
         case sources = "sources"
+        case subjectKind = "subjectKind"
         case supersededBy = "supersededBy"
         case validFrom = "validFrom"
         case validTo = "validTo"
         case value = "value"
     }
 
-    public init(attribute: GraphFactAttribute, confidence: Double, entityID: String, evidence: String?, id: String, provenance: Provenance, recordedAt: String, retractedAt: String?, sources: [String], supersededBy: String?, validFrom: String, validTo: String?, value: String) {
+    public init(attribute: GraphFactAttribute, confidence: Double, entityID: String, evidence: String?, extractor: String?, firstSeenAt: String?, id: String, lastSeenAt: String?, provenance: Provenance, recordedAt: String, retractedAt: String?, review: GraphReviewState?, runID: String?, sensitivity: GraphSensitivity?, sources: [String], subjectKind: GraphSubjectKind?, supersededBy: String?, validFrom: String, validTo: String?, value: String) {
         self.attribute = attribute
         self.confidence = confidence
         self.entityID = entityID
         self.evidence = evidence
+        self.extractor = extractor
+        self.firstSeenAt = firstSeenAt
         self.id = id
+        self.lastSeenAt = lastSeenAt
         self.provenance = provenance
         self.recordedAt = recordedAt
         self.retractedAt = retractedAt
+        self.review = review
+        self.runID = runID
+        self.sensitivity = sensitivity
         self.sources = sources
+        self.subjectKind = subjectKind
         self.supersededBy = supersededBy
         self.validFrom = validFrom
         self.validTo = validTo
@@ -13965,21 +14350,58 @@ public struct GraphFact: Codable, Sendable {
 }
 
 public enum GraphFactAttribute: String, Codable, Sendable {
+    case anniversary = "anniversary"
     case birthday = "birthday"
     case budgetNote = "budget_note"
+    case childrenNames = "children_names"
     case city = "city"
+    case contactPref = "contact_pref"
     case deadline = "deadline"
+    case diet = "diet"
+    case dislikes = "dislikes"
     case emailPref = "email_pref"
     case employer = "employer"
+    case giftIdea = "gift_idea"
+    case hometown = "hometown"
+    case languages = "languages"
+    case lifeEvent = "life_event"
+    case likes = "likes"
     case nextStep = "next_step"
     case note = "note"
+    case partnerName = "partner_name"
+    case petNames = "pet_names"
     case preference = "preference"
+    case pronouns = "pronouns"
     case relationshipToOwner = "relationship_to_owner"
     case role = "role"
+    case school = "school"
     case status = "status"
     case team = "team"
     case timezone = "timezone"
     case title = "title"
+}
+
+public enum GraphSensitivity: String, Codable, Sendable {
+    case accountNumbers = "account_numbers"
+    case ethnicity = "ethnicity"
+    case finance = "finance"
+    case govID = "gov_id"
+    case health = "health"
+    case legal = "legal"
+    case none = "none"
+    case politics = "politics"
+    case preciseLocation = "precise_location"
+    case religion = "religion"
+    case sexuality = "sexuality"
+}
+
+/// self_disclosure: the sender about themselves; about_other: the sender about someone else;
+/// owner_stated: the owner's own words; deterministic: Contacts, calendar, headers
+public enum GraphSubjectKind: String, Codable, Sendable {
+    case aboutOther = "about_other"
+    case deterministic = "deterministic"
+    case ownerStated = "owner_stated"
+    case selfDisclosure = "self_disclosure"
 }
 
 // MARK: - GraphIdentifier
@@ -14159,7 +14581,7 @@ public struct EntitySummary: Codable, Sendable {
 // MARK: - GraphStatus
 public struct GraphStatus: Codable, Sendable {
     public let budget: GraphStatusBudget
-    public let counts: Counts
+    public let counts: GraphStatusCounts
     public let enabled: Bool
     public let lastModelPassAt: String?
     /// Suggested loops confirmed vs dismissed per source over 30 days
@@ -14175,7 +14597,7 @@ public struct GraphStatus: Codable, Sendable {
         case sources = "sources"
     }
 
-    public init(budget: GraphStatusBudget, counts: Counts, enabled: Bool, lastModelPassAt: String?, loopPrecision: [LoopPrecision], sources: [SourceElement]) {
+    public init(budget: GraphStatusBudget, counts: GraphStatusCounts, enabled: Bool, lastModelPassAt: String?, loopPrecision: [LoopPrecision], sources: [SourceElement]) {
         self.budget = budget
         self.counts = counts
         self.enabled = enabled
@@ -14207,8 +14629,8 @@ public struct GraphStatusBudget: Codable, Sendable {
     }
 }
 
-// MARK: - Counts
-public struct Counts: Codable, Sendable {
+// MARK: - GraphStatusCounts
+public struct GraphStatusCounts: Codable, Sendable {
     public let openLoops: Int
     public let orgs: Int
     public let pendingSuggestions: Int
@@ -18214,6 +18636,148 @@ public struct MemoryPersonaGetResult: Codable, Sendable {
     }
 }
 
+// MARK: - MemoryQuarantineDecideParams
+public struct MemoryQuarantineDecideParams: Codable, Sendable {
+    public let action: QuarantineAction
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case action = "action"
+        case id = "id"
+    }
+
+    public init(action: QuarantineAction, id: String) {
+        self.action = action
+        self.id = id
+    }
+}
+
+public enum QuarantineAction: String, Codable, Sendable {
+    case blockSender = "block_sender"
+    case discard = "discard"
+    case release = "release"
+}
+
+// MARK: - MemoryQuarantineDecideResult
+public struct MemoryQuarantineDecideResult: Codable, Sendable {
+    public let item: QuarantineItem
+
+    public enum CodingKeys: String, CodingKey {
+        case item = "item"
+    }
+
+    public init(item: QuarantineItem) {
+        self.item = item
+    }
+}
+
+// MARK: - QuarantineItem
+public struct QuarantineItem: Codable, Sendable {
+    public let createdAt: String
+    public let decided: QuarantineDecided?
+    public let decidedAt: String?
+    /// Untrusted, truncated, never rendered as markup
+    public let excerpt: String
+    public let id: String
+    public let reasons: [QuarantineReason]
+    public let senderEntityID: String?
+    public let source: GraphCitationSource
+    public let sourceRef: String
+
+    public enum CodingKeys: String, CodingKey {
+        case createdAt = "createdAt"
+        case decided = "decided"
+        case decidedAt = "decidedAt"
+        case excerpt = "excerpt"
+        case id = "id"
+        case reasons = "reasons"
+        case senderEntityID = "senderEntityId"
+        case source = "source"
+        case sourceRef = "sourceRef"
+    }
+
+    public init(createdAt: String, decided: QuarantineDecided?, decidedAt: String?, excerpt: String, id: String, reasons: [QuarantineReason], senderEntityID: String?, source: GraphCitationSource, sourceRef: String) {
+        self.createdAt = createdAt
+        self.decided = decided
+        self.decidedAt = decidedAt
+        self.excerpt = excerpt
+        self.id = id
+        self.reasons = reasons
+        self.senderEntityID = senderEntityID
+        self.source = source
+        self.sourceRef = sourceRef
+    }
+}
+
+public enum QuarantineDecided: String, Codable, Sendable {
+    case blocked = "blocked"
+    case discarded = "discarded"
+    case released = "released"
+}
+
+public enum QuarantineReason: String, Codable, Sendable {
+    case claimsAboutOwner = "claims_about_owner"
+    case hiddenText = "hidden_text"
+    case identityClaim = "identity_claim"
+    case instructionLike = "instruction_like"
+    case itemTooLarge = "item_too_large"
+    case newSenderSensitive = "new_sender_sensitive"
+    case relationChange = "relation_change"
+    case schemaInvalid = "schema_invalid"
+    case senderLimit = "sender_limit"
+    case subjectMismatch = "subject_mismatch"
+    case tooManyClaims = "too_many_claims"
+}
+
+public enum GraphCitationSource: String, Codable, Sendable {
+    case browser = "browser"
+    case calendar = "calendar"
+    case chats = "chats"
+    case contacts = "contacts"
+    case files = "files"
+    case mail = "mail"
+    case messages = "messages"
+    case notes = "notes"
+    case reminders = "reminders"
+    case transcripts = "transcripts"
+}
+
+// MARK: - MemoryQuarantineListParams
+public struct MemoryQuarantineListParams: Codable, Sendable {
+    /// Opaque cursor
+    public let cursor: String?
+    public let includeDecided: Bool?
+    public let limit: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case cursor = "cursor"
+        case includeDecided = "includeDecided"
+        case limit = "limit"
+    }
+
+    public init(cursor: String?, includeDecided: Bool?, limit: Int?) {
+        self.cursor = cursor
+        self.includeDecided = includeDecided
+        self.limit = limit
+    }
+}
+
+// MARK: - MemoryQuarantineListResult
+public struct MemoryQuarantineListResult: Codable, Sendable {
+    public let items: [QuarantineItem]
+    public let nextCursor: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case items = "items"
+        case nextCursor = "nextCursor"
+    }
+
+    public init(items: [QuarantineItem], nextCursor: String?) {
+        self.items = items
+        self.nextCursor = nextCursor
+    }
+}
+
 // MARK: - MemoryReadParams
 public struct MemoryReadParams: Codable, Sendable {
     public let lineEnd: Int?
@@ -18320,6 +18884,337 @@ public struct MemoryResetResult: Codable, Sendable {
         self.dryRun = dryRun
         self.files = files
     }
+}
+
+// MARK: - MemoryReviewDecideParams
+public struct MemoryReviewDecideParams: Codable, Sendable {
+    public let decision: ReviewDecision
+    public let factIDS: [String]
+    public let never: ReviewNever?
+    /// Required for edit
+    public let value: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case decision = "decision"
+        case factIDS = "factIds"
+        case never = "never"
+        case value = "value"
+    }
+
+    public init(decision: ReviewDecision, factIDS: [String], never: ReviewNever?, value: String?) {
+        self.decision = decision
+        self.factIDS = factIDS
+        self.never = never
+        self.value = value
+    }
+}
+
+public enum ReviewDecision: String, Codable, Sendable {
+    case confirm = "confirm"
+    case discard = "discard"
+    case edit = "edit"
+}
+
+/// "Never learn this": this attribute for this person, or from this sender
+public enum ReviewNever: String, Codable, Sendable {
+    case attributeForEntity = "attribute_for_entity"
+    case attributeFromSender = "attribute_from_sender"
+}
+
+// MARK: - MemoryReviewDecideResult
+public struct MemoryReviewDecideResult: Codable, Sendable {
+    public let facts: [GraphFact]
+
+    public enum CodingKeys: String, CodingKey {
+        case facts = "facts"
+    }
+
+    public init(facts: [GraphFact]) {
+        self.facts = facts
+    }
+}
+
+// MARK: - MemoryReviewListParams
+public struct MemoryReviewListParams: Codable, Sendable {
+    /// Opaque cursor
+    public let cursor: String?
+    public let entityID: String?
+    public let limit: Int?
+    /// Default pending (conflicts included)
+    public let state: [GraphReviewState]?
+
+    public enum CodingKeys: String, CodingKey {
+        case cursor = "cursor"
+        case entityID = "entityId"
+        case limit = "limit"
+        case state = "state"
+    }
+
+    public init(cursor: String?, entityID: String?, limit: Int?, state: [GraphReviewState]?) {
+        self.cursor = cursor
+        self.entityID = entityID
+        self.limit = limit
+        self.state = state
+    }
+}
+
+// MARK: - MemoryReviewListResult
+public struct MemoryReviewListResult: Codable, Sendable {
+    public let counts: MemoryReviewListResultCounts
+    public let items: [ReviewItem]
+    public let nextCursor: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case counts = "counts"
+        case items = "items"
+        case nextCursor = "nextCursor"
+    }
+
+    public init(counts: MemoryReviewListResultCounts, items: [ReviewItem], nextCursor: String?) {
+        self.counts = counts
+        self.items = items
+        self.nextCursor = nextCursor
+    }
+}
+
+// MARK: - MemoryReviewListResultCounts
+public struct MemoryReviewListResultCounts: Codable, Sendable {
+    public let autoAccepted: Int
+    public let pending: Int
+    public let quarantined: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case autoAccepted = "autoAccepted"
+        case pending = "pending"
+        case quarantined = "quarantined"
+    }
+
+    public init(autoAccepted: Int, pending: Int, quarantined: Int) {
+        self.autoAccepted = autoAccepted
+        self.pending = pending
+        self.quarantined = quarantined
+    }
+}
+
+// MARK: - ReviewItem
+public struct ReviewItem: Codable, Sendable {
+    public let change: ReviewItemChange
+    public let citations: [GraphCitation]
+    public let entityName: String
+    public let fact: GraphFact
+    public let previousValue: String?
+    /// The fact as a sentence, e.g. "Ava's birthday is May 3"; untrusted text
+    public let sentence: String
+
+    public enum CodingKeys: String, CodingKey {
+        case change = "change"
+        case citations = "citations"
+        case entityName = "entityName"
+        case fact = "fact"
+        case previousValue = "previousValue"
+        case sentence = "sentence"
+    }
+
+    public init(change: ReviewItemChange, citations: [GraphCitation], entityName: String, fact: GraphFact, previousValue: String?, sentence: String) {
+        self.change = change
+        self.citations = citations
+        self.entityName = entityName
+        self.fact = fact
+        self.previousValue = previousValue
+        self.sentence = sentence
+    }
+}
+
+/// changed: supersedes a value; conflict: a lower-ranked source disagrees
+public enum ReviewItemChange: String, Codable, Sendable {
+    case changed = "changed"
+    case conflict = "conflict"
+    case new = "new"
+}
+
+// MARK: - GraphCitation
+public struct GraphCitation: Codable, Sendable {
+    public let authorEntityID: String?
+    public let createdAt: String
+    public let docID: String?
+    /// Exclusive end offset
+    public let end: Int
+    public let id: String
+    public let observedAt: String
+    public let provenance: Provenance
+    /// Verbatim from the source
+    public let quote: String
+    public let source: GraphCitationSource
+    /// sha256 of the text the offsets refer to
+    public let sourceHash: String
+    /// Native id: Message-ID, chat guid and day, note id, event id or path
+    public let sourceRef: String
+    /// Offset of the quote in the extracted text
+    public let start: Int
+    public let targetID: String
+    public let targetKind: GraphCitationTarget
+
+    public enum CodingKeys: String, CodingKey {
+        case authorEntityID = "authorEntityId"
+        case createdAt = "createdAt"
+        case docID = "docId"
+        case end = "end"
+        case id = "id"
+        case observedAt = "observedAt"
+        case provenance = "provenance"
+        case quote = "quote"
+        case source = "source"
+        case sourceHash = "sourceHash"
+        case sourceRef = "sourceRef"
+        case start = "start"
+        case targetID = "targetId"
+        case targetKind = "targetKind"
+    }
+
+    public init(authorEntityID: String?, createdAt: String, docID: String?, end: Int, id: String, observedAt: String, provenance: Provenance, quote: String, source: GraphCitationSource, sourceHash: String, sourceRef: String, start: Int, targetID: String, targetKind: GraphCitationTarget) {
+        self.authorEntityID = authorEntityID
+        self.createdAt = createdAt
+        self.docID = docID
+        self.end = end
+        self.id = id
+        self.observedAt = observedAt
+        self.provenance = provenance
+        self.quote = quote
+        self.source = source
+        self.sourceHash = sourceHash
+        self.sourceRef = sourceRef
+        self.start = start
+        self.targetID = targetID
+        self.targetKind = targetKind
+    }
+}
+
+public enum GraphCitationTarget: String, Codable, Sendable {
+    case edge = "edge"
+    case entity = "entity"
+    case event = "event"
+    case fact = "fact"
+}
+
+// MARK: - MemoryReviewUndoParams
+public struct MemoryReviewUndoParams: Codable, Sendable {
+    public let factID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case factID = "factId"
+    }
+
+    public init(factID: String) {
+        self.factID = factID
+    }
+}
+
+// MARK: - MemoryReviewUndoResult
+public struct MemoryReviewUndoResult: Codable, Sendable {
+    public let fact: GraphFact
+
+    public enum CodingKeys: String, CodingKey {
+        case fact = "fact"
+    }
+
+    public init(fact: GraphFact) {
+        self.fact = fact
+    }
+}
+
+// MARK: - MemoryRunsListParams
+public struct MemoryRunsListParams: Codable, Sendable {
+    /// Default 14
+    public let limit: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case limit = "limit"
+    }
+
+    public init(limit: Int?) {
+        self.limit = limit
+    }
+}
+
+// MARK: - MemoryRunsListResult
+public struct MemoryRunsListResult: Codable, Sendable {
+    public let runs: [MemoryRun]
+
+    public enum CodingKeys: String, CodingKey {
+        case runs = "runs"
+    }
+
+    public init(runs: [MemoryRun]) {
+        self.runs = runs
+    }
+}
+
+// MARK: - MemoryRun
+public struct MemoryRun: Codable, Sendable {
+    public let batches: Int
+    public let deferred: Int
+    public let endedAt: String?
+    public let error: String?
+    /// Counts by drop reason; never text
+    public let factsDropped: [String: Int]
+    public let factsProposed: Int
+    public let id: String
+    public let itemsFiltered: Int
+    public let itemsRead: Int
+    public let model: String?
+    public let quarantined: Int
+    public let sources: [EverythingSource]
+    public let startedAt: String
+    public let tokensIn: Int
+    public let tokensOut: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case batches = "batches"
+        case deferred = "deferred"
+        case endedAt = "endedAt"
+        case error = "error"
+        case factsDropped = "factsDropped"
+        case factsProposed = "factsProposed"
+        case id = "id"
+        case itemsFiltered = "itemsFiltered"
+        case itemsRead = "itemsRead"
+        case model = "model"
+        case quarantined = "quarantined"
+        case sources = "sources"
+        case startedAt = "startedAt"
+        case tokensIn = "tokensIn"
+        case tokensOut = "tokensOut"
+    }
+
+    public init(batches: Int, deferred: Int, endedAt: String?, error: String?, factsDropped: [String: Int], factsProposed: Int, id: String, itemsFiltered: Int, itemsRead: Int, model: String?, quarantined: Int, sources: [EverythingSource], startedAt: String, tokensIn: Int, tokensOut: Int) {
+        self.batches = batches
+        self.deferred = deferred
+        self.endedAt = endedAt
+        self.error = error
+        self.factsDropped = factsDropped
+        self.factsProposed = factsProposed
+        self.id = id
+        self.itemsFiltered = itemsFiltered
+        self.itemsRead = itemsRead
+        self.model = model
+        self.quarantined = quarantined
+        self.sources = sources
+        self.startedAt = startedAt
+        self.tokensIn = tokensIn
+        self.tokensOut = tokensOut
+    }
+}
+
+public enum EverythingSource: String, Codable, Sendable {
+    case browser = "browser"
+    case calendar = "calendar"
+    case chats = "chats"
+    case files = "files"
+    case mail = "mail"
+    case messages = "messages"
+    case notes = "notes"
+    case reminders = "reminders"
+    case transcripts = "transcripts"
 }
 
 // MARK: - MemorySearchParams

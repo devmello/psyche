@@ -4,6 +4,7 @@ export * from "./blocks.ts";
 export * from "./context.ts";
 export * from "./custom-connectors.ts";
 export * from "./daily.ts";
+export * from "./everything-memory.ts";
 export * from "./graph.ts";
 export * from "./identity.ts";
 export * from "./insights.ts";

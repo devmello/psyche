@@ -3752,6 +3752,125 @@ export interface EventsSubscribeResult {
     stateVersion: number;
 }
 
+export interface EverythingMemorySettings {
+    agentAccess: EverythingAgentAccess;
+    /**
+     * Separate from the category switches
+     */
+    agentSeesSensitive: boolean;
+    /**
+     * Off by default for everyone, including after an update
+     */
+    enabled:           boolean;
+    maxTokensPerNight: number;
+    model:             EverythingModelSetting;
+    people:            EverythingPeopleSetting;
+    retention:         EverythingRetentionSetting;
+    review:            EverythingReviewSetting;
+    schedule:          EverythingScheduleSetting;
+    sensitive:         EverythingSensitiveSwitches;
+    sources:           EverythingSourceSwitches;
+    /**
+     * Write person cards to files; off once everything memory is on
+     */
+    writeCardFiles: boolean;
+}
+
+export type EverythingAgentAccess = "none" | "accepted" | "all";
+
+export interface EverythingModelSetting {
+    default:    EverythingProcessingModel;
+    perSource?: { [key: string]: unknown };
+}
+
+export interface EverythingProcessingModel {
+    kind: EverythingModelKind;
+    ref?: string;
+}
+
+/**
+ * none: deterministic graph only; cloud: Haiku-class provider; local: on this Mac
+ */
+export type EverythingModelKind = "none" | "cloud" | "local";
+
+export interface EverythingPeopleSetting {
+    default: EverythingPeopleDefault;
+}
+
+export type EverythingPeopleDefault = "two_way" | "contacts" | "everyone" | "chosen";
+
+export interface EverythingRetentionSetting {
+    pendingDays:    number;
+    quarantineDays: number;
+    runLogDays:     number;
+    /**
+     * Months after newest evidence; 0 keeps them forever
+     */
+    untrustedAcceptedMonths: number;
+}
+
+export interface EverythingReviewSetting {
+    /**
+     * Non-sensitive, confidence >= 0.8, no conflict
+     */
+    autoAcceptOwnerAuthored: boolean;
+    /**
+     * Offered, off by default (decision 6)
+     */
+    autoAcceptSelfDisclosure: boolean;
+    /**
+     * Confirmed facts from one two-way contact before auto-accept is offered
+     */
+    perSenderAutoAcceptAfter: number;
+}
+
+export interface EverythingScheduleSetting {
+    backfillDays:    EverythingBackfillDays;
+    quietHoursEnd:   string;
+    quietHoursStart: string;
+    /**
+     * AC only by default (decision 10)
+     */
+    runOnBattery: boolean;
+}
+
+/**
+ * First-run backfill window in days (decision 7)
+ */
+export type EverythingBackfillDays = "0" | "30" | "90" | "365";
+
+/**
+ * All off. Only stated facts are stored when on. Government IDs and account numbers have no
+ * switch: they are never stored
+ */
+export interface EverythingSensitiveSwitches {
+    ethnicity:        boolean;
+    finance:          boolean;
+    health:           boolean;
+    legal:            boolean;
+    politics:         boolean;
+    precise_location: boolean;
+    religion:         boolean;
+    sexuality:        boolean;
+}
+
+/**
+ * One switch per source, all off
+ */
+export interface EverythingSourceSwitches {
+    browser:     boolean;
+    calendar:    boolean;
+    chats:       boolean;
+    files:       boolean;
+    mail:        boolean;
+    messages:    boolean;
+    notes:       boolean;
+    reminders:   boolean;
+    transcripts: boolean;
+}
+
+export type EverythingSensitiveClass = "health" | "finance" | "sexuality" | "religion" | "politics" | "ethnicity" | "legal" | "precise_location";
+
 export interface FeedFeedbackParams {
     feedback?: FeedFeedback | null;
     postId:    string;
@@ -4483,6 +4602,8 @@ export interface GraphEdge {
     provenance:    Provenance;
     rel:           GraphEdgeRel;
     retractedAt?:  null | string;
+    review?:       GraphReviewState;
+    role?:         GraphFamilyRole;
     sources:       string[];
     src:           string;
     supersededBy?: null | string;
@@ -4492,7 +4613,11 @@ export interface GraphEdge {
 
 export type GraphRelationshipLabel = "partner" | "parent" | "child" | "sibling" | "friend" | "colleague" | "manager" | "report" | "client" | "vendor" | "teacher" | "doctor" | "other";
 
-export type GraphEdgeRel = "works_at" | "member_of" | "stakeholder_of" | "located_at" | "reports_to" | "related_to" | "part_of";
+export type GraphEdgeRel = "works_at" | "member_of" | "stakeholder_of" | "located_at" | "reports_to" | "related_to" | "part_of" | "family" | "friend" | "neighbour" | "classmate" | "roommate" | "colleague" | "manager" | "client" | "vendor" | "mentor" | "studied_at" | "lives_in" | "attended" | "about";
+
+export type GraphReviewState = "pending" | "accepted" | "auto_accepted" | "edited" | "discarded" | "quarantined";
+
+export type GraphFamilyRole = "parent" | "child" | "sibling" | "partner" | "spouse" | "grandparent" | "grandchild" | "cousin" | "in_law" | "other";
 
 export interface GraphEntity {
     aliases:   string[];
@@ -4521,32 +4646,51 @@ export interface GraphEntity {
 }
 
 /**
- * person, organisation, project or place
+ * person, organisation, project, place, event (dated, may recur) or topic (a lightweight
+ * label)
  */
-export type GraphEntityKind = "person" | "org" | "project" | "place";
+export type GraphEntityKind = "person" | "org" | "project" | "place" | "event" | "topic";
 
 export type GraphEntityStatus = "active" | "archived" | "merged";
 
 export interface GraphFact {
-    attribute:    GraphFactAttribute;
-    confidence:   number;
-    entityId:     string;
-    evidence?:    null | string;
+    attribute:  GraphFactAttribute;
+    confidence: number;
+    entityId:   string;
+    evidence?:  null | string;
+    /**
+     * "rule" or the model ref that proposed it
+     */
+    extractor?:   string;
+    firstSeenAt?: string;
     id:           string;
+    lastSeenAt?:  string;
     provenance:   Provenance;
     recordedAt:   string;
     retractedAt?: null | string;
+    review?:      GraphReviewState;
+    runId?:       null | string;
+    sensitivity?: GraphSensitivity;
     /**
      * Interaction, chunk, Contacts or lesson references
      */
     sources:       string[];
+    subjectKind?:  GraphSubjectKind;
     supersededBy?: null | string;
     validFrom:     string;
     validTo?:      null | string;
     value:         string;
 }
 
-export type GraphFactAttribute = "role" | "title" | "employer" | "team" | "email_pref" | "timezone" | "city" | "birthday" | "relationship_to_owner" | "preference" | "note" | "status" | "next_step" | "budget_note" | "deadline";
+export type GraphFactAttribute = "role" | "title" | "employer" | "team" | "email_pref" | "timezone" | "city" | "birthday" | "relationship_to_owner" | "preference" | "note" | "status" | "next_step" | "budget_note" | "deadline" | "anniversary" | "hometown" | "school" | "pronouns" | "partner_name" | "children_names" | "pet_names" | "likes" | "dislikes" | "diet" | "gift_idea" | "languages" | "contact_pref" | "life_event";
+
+export type GraphSensitivity = "none" | "health" | "finance" | "sexuality" | "religion" | "politics" | "ethnicity" | "legal" | "precise_location" | "gov_id" | "account_numbers";
+
+/**
+ * self_disclosure: the sender about themselves; about_other: the sender about someone else;
+ * owner_stated: the owner's own words; deterministic: Contacts, calendar, headers
+ */
+export type GraphSubjectKind = "self_disclosure" | "about_other" | "owner_stated" | "deterministic";
 
 export interface GraphIdentifier {
     createdAt: string;
@@ -4616,7 +4760,7 @@ export interface EntitySummary {
 
 export interface GraphStatus {
     budget:           GraphStatusBudget;
-    counts:           Counts;
+    counts:           GraphStatusCounts;
     enabled:          boolean;
     lastModelPassAt?: null | string;
     /**
@@ -4633,7 +4777,7 @@ export interface GraphStatusBudget {
     tokensUsed:   number;
 }
 
-export interface Counts {
+export interface GraphStatusCounts {
     openLoops:          number;
     orgs:               number;
     pendingSuggestions: number;
@@ -6018,6 +6162,52 @@ export interface MemoryPersonaGetResult {
     identity:    PersonaIdentity;
 }
 
+export interface MemoryQuarantineDecideParams {
+    action: QuarantineAction;
+    id:     string;
+}
+
+export type QuarantineAction = "release" | "discard" | "block_sender";
+
+export interface MemoryQuarantineDecideResult {
+    item: QuarantineItem;
+}
+
+export interface QuarantineItem {
+    createdAt:  string;
+    decided?:   QuarantineDecided | null;
+    decidedAt?: null | string;
+    /**
+     * Untrusted, truncated, never rendered as markup
+     */
+    excerpt:         string;
+    id:              string;
+    reasons:         QuarantineReason[];
+    senderEntityId?: null | string;
+    source:          GraphCitationSource;
+    sourceRef:       string;
+}
+
+export type QuarantineDecided = "released" | "discarded" | "blocked";
+
+export type QuarantineReason = "instruction_like" | "hidden_text" | "claims_about_owner" | "identity_claim" | "relation_change" | "too_many_claims" | "sender_limit" | "item_too_large" | "schema_invalid" | "new_sender_sensitive" | "subject_mismatch";
+
+export type GraphCitationSource = "mail" | "messages" | "notes" | "calendar" | "reminders" | "chats" | "files" | "browser" | "transcripts" | "contacts";
+
+export interface MemoryQuarantineListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?:         string;
+    includeDecided?: boolean;
+    limit?:          number;
+}
+
+export interface MemoryQuarantineListResult {
+    items:       QuarantineItem[];
+    nextCursor?: null | string;
+}
+
 export interface MemoryReadParams {
     lineEnd?:   number;
     lineStart?: number;
@@ -6051,6 +6241,145 @@ export interface MemoryResetResult {
     dryRun: boolean;
     files:  string[];
 }
+
+export interface MemoryReviewDecideParams {
+    decision: ReviewDecision;
+    factIds:  string[];
+    never?:   ReviewNever;
+    /**
+     * Required for edit
+     */
+    value?: string;
+}
+
+export type ReviewDecision = "confirm" | "edit" | "discard";
+
+/**
+ * "Never learn this": this attribute for this person, or from this sender
+ */
+export type ReviewNever = "attribute_for_entity" | "attribute_from_sender";
+
+export interface MemoryReviewDecideResult {
+    facts: GraphFact[];
+}
+
+export interface MemoryReviewListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?:   string;
+    entityId?: string;
+    limit?:    number;
+    /**
+     * Default pending (conflicts included)
+     */
+    state?: GraphReviewState[];
+}
+
+export interface MemoryReviewListResult {
+    counts:      MemoryReviewListResultCounts;
+    items:       ReviewItem[];
+    nextCursor?: null | string;
+}
+
+export interface MemoryReviewListResultCounts {
+    autoAccepted: number;
+    pending:      number;
+    quarantined:  number;
+}
+
+export interface ReviewItem {
+    change:         ReviewItemChange;
+    citations:      GraphCitation[];
+    entityName:     string;
+    fact:           GraphFact;
+    previousValue?: null | string;
+    /**
+     * The fact as a sentence, e.g. "Ava's birthday is May 3"; untrusted text
+     */
+    sentence: string;
+}
+
+/**
+ * changed: supersedes a value; conflict: a lower-ranked source disagrees
+ */
+export type ReviewItemChange = "new" | "changed" | "conflict";
+
+export interface GraphCitation {
+    authorEntityId?: null | string;
+    createdAt:       string;
+    docId?:          null | string;
+    /**
+     * Exclusive end offset
+     */
+    end:        number;
+    id:         string;
+    observedAt: string;
+    provenance: Provenance;
+    /**
+     * Verbatim from the source
+     */
+    quote:  string;
+    source: GraphCitationSource;
+    /**
+     * sha256 of the text the offsets refer to
+     */
+    sourceHash: string;
+    /**
+     * Native id: Message-ID, chat guid and day, note id, event id or path
+     */
+    sourceRef: string;
+    /**
+     * Offset of the quote in the extracted text
+     */
+    start:      number;
+    targetId:   string;
+    targetKind: GraphCitationTarget;
+}
+
+export type GraphCitationTarget = "fact" | "edge" | "event" | "entity";
+
+export interface MemoryReviewUndoParams {
+    factId: string;
+}
+
+export interface MemoryReviewUndoResult {
+    fact: GraphFact;
+}
+
+export interface MemoryRunsListParams {
+    /**
+     * Default 14
+     */
+    limit?: number;
+}
+
+export interface MemoryRunsListResult {
+    runs: MemoryRun[];
+}
+
+export interface MemoryRun {
+    batches:  number;
+    deferred: number;
+    endedAt?: null | string;
+    error?:   null | string;
+    /**
+     * Counts by drop reason; never text
+     */
+    factsDropped:  { [key: string]: number };
+    factsProposed: number;
+    id:            string;
+    itemsFiltered: number;
+    itemsRead:     number;
+    model?:        null | string;
+    quarantined:   number;
+    sources:       EverythingSource[];
+    startedAt:     string;
+    tokensIn:      number;
+    tokensOut:     number;
+}
+
+export type EverythingSource = "mail" | "messages" | "notes" | "calendar" | "reminders" | "chats" | "files" | "browser" | "transcripts";
 
 export interface MemorySearchParams {
     limit?:      number;

@@ -1968,6 +1968,22 @@
         "sideEffecting": false
       },
       {
+        "description": "Release (extract once; the result stays untrusted and pending), discard, or block the sender (adds a per-contact exclusion). Side-effecting.",
+        "name": "memory.quarantine.decide",
+        "params": "#/$defs/MemoryQuarantineDecideParams",
+        "result": "#/$defs/MemoryQuarantineDecideResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Items held back from extraction, with the reasons and a short untrusted excerpt. Never the full text.",
+        "name": "memory.quarantine.list",
+        "params": "#/$defs/MemoryQuarantineListParams",
+        "result": "#/$defs/MemoryQuarantineListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Reads a workspace memory file, optionally a line range.",
         "name": "memory.read",
         "params": "#/$defs/MemoryReadParams",
@@ -1990,6 +2006,38 @@
         "result": "#/$defs/MemoryResetResult",
         "scope": "operator.admin",
         "sideEffecting": true
+      },
+      {
+        "description": "Confirms, edits (the edited value becomes the owner's) or discards proposed facts; discard and edit also teach the extractor not to repeat it. Side-effecting.",
+        "name": "memory.review.decide",
+        "params": "#/$defs/MemoryReviewDecideParams",
+        "result": "#/$defs/MemoryReviewDecideResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Facts Psyche proposed and is waiting on, with quotes and sources. Every value and quote is untrusted text from the source.",
+        "name": "memory.review.list",
+        "params": "#/$defs/MemoryReviewListParams",
+        "result": "#/$defs/MemoryReviewListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Reverts an auto-accepted fact to discarded, within 7 days of accepting. Side-effecting.",
+        "name": "memory.review.undo",
+        "params": "#/$defs/MemoryReviewUndoParams",
+        "result": "#/$defs/MemoryReviewUndoResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "The nightly everything-memory runs, newest first: counts and drop reasons, never text.",
+        "name": "memory.runs.list",
+        "params": "#/$defs/MemoryRunsListParams",
+        "result": "#/$defs/MemoryRunsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
       },
       {
         "description": "Hybrid search (FTS5 + vectors) over memory chunks.",
@@ -16365,6 +16413,368 @@
       ],
       "type": "object"
     },
+    "EverythingAgentAccess": {
+      "enum": [
+        "none",
+        "accepted",
+        "all"
+      ],
+      "type": "string"
+    },
+    "EverythingBackfillDays": {
+      "default": "30",
+      "description": "First-run backfill window in days (decision 7)",
+      "enum": [
+        "0",
+        "30",
+        "90",
+        "365"
+      ],
+      "type": "string"
+    },
+    "EverythingMemorySettings": {
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Off by default for everyone, including after an update",
+          "type": "boolean"
+        },
+        "model": {
+          "$ref": "#/$defs/EverythingModelSetting"
+        },
+        "sources": {
+          "$ref": "#/$defs/EverythingSourceSwitches"
+        },
+        "people": {
+          "$ref": "#/$defs/EverythingPeopleSetting"
+        },
+        "sensitive": {
+          "$ref": "#/$defs/EverythingSensitiveSwitches"
+        },
+        "agentAccess": {
+          "$ref": "#/$defs/EverythingAgentAccess"
+        },
+        "agentSeesSensitive": {
+          "default": false,
+          "description": "Separate from the category switches",
+          "type": "boolean"
+        },
+        "review": {
+          "$ref": "#/$defs/EverythingReviewSetting"
+        },
+        "schedule": {
+          "$ref": "#/$defs/EverythingScheduleSetting"
+        },
+        "retention": {
+          "$ref": "#/$defs/EverythingRetentionSetting"
+        },
+        "maxTokensPerNight": {
+          "default": 250000,
+          "minimum": 1000,
+          "type": "integer"
+        },
+        "writeCardFiles": {
+          "default": false,
+          "description": "Write person cards to files; off once everything memory is on",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled",
+        "model",
+        "sources",
+        "people",
+        "sensitive",
+        "agentAccess",
+        "agentSeesSensitive",
+        "review",
+        "schedule",
+        "retention",
+        "maxTokensPerNight",
+        "writeCardFiles"
+      ],
+      "type": "object"
+    },
+    "EverythingModelKind": {
+      "description": "none: deterministic graph only; cloud: Haiku-class provider; local: on this Mac",
+      "enum": [
+        "none",
+        "cloud",
+        "local"
+      ],
+      "type": "string"
+    },
+    "EverythingModelSetting": {
+      "properties": {
+        "default": {
+          "$ref": "#/$defs/EverythingProcessingModel"
+        },
+        "perSource": {
+          "properties": {},
+          "type": "object"
+        }
+      },
+      "required": [
+        "default"
+      ],
+      "type": "object"
+    },
+    "EverythingPeopleDefault": {
+      "enum": [
+        "two_way",
+        "contacts",
+        "everyone",
+        "chosen"
+      ],
+      "type": "string"
+    },
+    "EverythingPeopleSetting": {
+      "properties": {
+        "default": {
+          "$ref": "#/$defs/EverythingPeopleDefault"
+        }
+      },
+      "required": [
+        "default"
+      ],
+      "type": "object"
+    },
+    "EverythingProcessingModel": {
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/EverythingModelKind"
+        },
+        "ref": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "EverythingRetentionSetting": {
+      "properties": {
+        "pendingDays": {
+          "default": 30,
+          "maximum": 90,
+          "minimum": 7,
+          "type": "integer"
+        },
+        "untrustedAcceptedMonths": {
+          "default": 24,
+          "description": "Months after newest evidence; 0 keeps them forever",
+          "maximum": 600,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "quarantineDays": {
+          "default": 30,
+          "maximum": 90,
+          "minimum": 7,
+          "type": "integer"
+        },
+        "runLogDays": {
+          "default": 90,
+          "maximum": 365,
+          "minimum": 7,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "pendingDays",
+        "untrustedAcceptedMonths",
+        "quarantineDays",
+        "runLogDays"
+      ],
+      "type": "object"
+    },
+    "EverythingReviewSetting": {
+      "properties": {
+        "autoAcceptOwnerAuthored": {
+          "default": true,
+          "description": "Non-sensitive, confidence >= 0.8, no conflict",
+          "type": "boolean"
+        },
+        "autoAcceptSelfDisclosure": {
+          "default": false,
+          "description": "Offered, off by default (decision 6)",
+          "type": "boolean"
+        },
+        "perSenderAutoAcceptAfter": {
+          "default": 5,
+          "description": "Confirmed facts from one two-way contact before auto-accept is offered",
+          "maximum": 50,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "autoAcceptOwnerAuthored",
+        "autoAcceptSelfDisclosure",
+        "perSenderAutoAcceptAfter"
+      ],
+      "type": "object"
+    },
+    "EverythingScheduleSetting": {
+      "properties": {
+        "quietHoursStart": {
+          "default": "01:00",
+          "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+          "type": "string"
+        },
+        "quietHoursEnd": {
+          "default": "06:00",
+          "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+          "type": "string"
+        },
+        "runOnBattery": {
+          "default": false,
+          "description": "AC only by default (decision 10)",
+          "type": "boolean"
+        },
+        "backfillDays": {
+          "$ref": "#/$defs/EverythingBackfillDays"
+        }
+      },
+      "required": [
+        "quietHoursStart",
+        "quietHoursEnd",
+        "runOnBattery",
+        "backfillDays"
+      ],
+      "type": "object"
+    },
+    "EverythingSensitiveClass": {
+      "enum": [
+        "health",
+        "finance",
+        "sexuality",
+        "religion",
+        "politics",
+        "ethnicity",
+        "legal",
+        "precise_location"
+      ],
+      "type": "string"
+    },
+    "EverythingSensitiveSwitches": {
+      "description": "All off. Only stated facts are stored when on. Government IDs and account numbers have no switch: they are never stored",
+      "properties": {
+        "health": {
+          "default": false,
+          "type": "boolean"
+        },
+        "finance": {
+          "default": false,
+          "type": "boolean"
+        },
+        "sexuality": {
+          "default": false,
+          "type": "boolean"
+        },
+        "religion": {
+          "default": false,
+          "type": "boolean"
+        },
+        "politics": {
+          "default": false,
+          "type": "boolean"
+        },
+        "ethnicity": {
+          "default": false,
+          "type": "boolean"
+        },
+        "legal": {
+          "default": false,
+          "type": "boolean"
+        },
+        "precise_location": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "health",
+        "finance",
+        "sexuality",
+        "religion",
+        "politics",
+        "ethnicity",
+        "legal",
+        "precise_location"
+      ],
+      "type": "object"
+    },
+    "EverythingSource": {
+      "enum": [
+        "mail",
+        "messages",
+        "notes",
+        "calendar",
+        "reminders",
+        "chats",
+        "files",
+        "browser",
+        "transcripts"
+      ],
+      "type": "string"
+    },
+    "EverythingSourceSwitches": {
+      "description": "One switch per source, all off",
+      "properties": {
+        "mail": {
+          "default": false,
+          "type": "boolean"
+        },
+        "messages": {
+          "default": false,
+          "type": "boolean"
+        },
+        "notes": {
+          "default": false,
+          "type": "boolean"
+        },
+        "calendar": {
+          "default": false,
+          "type": "boolean"
+        },
+        "reminders": {
+          "default": false,
+          "type": "boolean"
+        },
+        "chats": {
+          "default": false,
+          "type": "boolean"
+        },
+        "files": {
+          "default": false,
+          "type": "boolean"
+        },
+        "browser": {
+          "default": false,
+          "type": "boolean"
+        },
+        "transcripts": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "mail",
+        "messages",
+        "notes",
+        "calendar",
+        "reminders",
+        "chats",
+        "files",
+        "browser",
+        "transcripts"
+      ],
+      "type": "object"
+    },
     "ExplicitFeedbackKind": {
       "enum": [
         "helpful",
@@ -18159,6 +18569,130 @@
       ],
       "type": "object"
     },
+    "GraphCitation": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "targetKind": {
+          "$ref": "#/$defs/GraphCitationTarget"
+        },
+        "targetId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/GraphCitationSource"
+        },
+        "docId": {
+          "anyOf": [
+            {
+              "description": "search_docs id, when indexed",
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceRef": {
+          "description": "Native id: Message-ID, chat guid and day, note id, event id or path",
+          "maxLength": 1024,
+          "type": "string"
+        },
+        "quote": {
+          "description": "Verbatim from the source",
+          "maxLength": 200,
+          "type": "string"
+        },
+        "start": {
+          "description": "Offset of the quote in the extracted text",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "end": {
+          "description": "Exclusive end offset",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sourceHash": {
+          "description": "sha256 of the text the offsets refer to",
+          "maxLength": 128,
+          "type": "string"
+        },
+        "authorEntityId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "observedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "targetKind",
+        "targetId",
+        "source",
+        "sourceRef",
+        "quote",
+        "start",
+        "end",
+        "sourceHash",
+        "provenance",
+        "observedAt",
+        "createdAt"
+      ],
+      "type": "object"
+    },
+    "GraphCitationSource": {
+      "enum": [
+        "mail",
+        "messages",
+        "notes",
+        "calendar",
+        "reminders",
+        "chats",
+        "files",
+        "browser",
+        "transcripts",
+        "contacts"
+      ],
+      "type": "string"
+    },
+    "GraphCitationTarget": {
+      "enum": [
+        "fact",
+        "edge",
+        "event",
+        "entity"
+      ],
+      "type": "string"
+    },
     "GraphDirection": {
       "enum": [
         "in",
@@ -18193,6 +18727,12 @@
         },
         "label": {
           "$ref": "#/$defs/GraphRelationshipLabel"
+        },
+        "role": {
+          "$ref": "#/$defs/GraphFamilyRole"
+        },
+        "review": {
+          "$ref": "#/$defs/GraphReviewState"
         },
         "provenance": {
           "$ref": "#/$defs/Provenance"
@@ -18271,7 +18811,21 @@
         "located_at",
         "reports_to",
         "related_to",
-        "part_of"
+        "part_of",
+        "family",
+        "friend",
+        "neighbour",
+        "classmate",
+        "roommate",
+        "colleague",
+        "manager",
+        "client",
+        "vendor",
+        "mentor",
+        "studied_at",
+        "lives_in",
+        "attended",
+        "about"
       ],
       "type": "string"
     },
@@ -18474,12 +19028,14 @@
       "type": "object"
     },
     "GraphEntityKind": {
-      "description": "person, organisation, project or place",
+      "description": "person, organisation, project, place, event (dated, may recur) or topic (a lightweight label)",
       "enum": [
         "person",
         "org",
         "project",
-        "place"
+        "place",
+        "event",
+        "topic"
       ],
       "type": "string"
     },
@@ -18585,6 +19141,43 @@
               "type": "null"
             }
           ]
+        },
+        "subjectKind": {
+          "$ref": "#/$defs/GraphSubjectKind"
+        },
+        "sensitivity": {
+          "$ref": "#/$defs/GraphSensitivity"
+        },
+        "review": {
+          "$ref": "#/$defs/GraphReviewState"
+        },
+        "firstSeenAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "lastSeenAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "runId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "extractor": {
+          "description": "\"rule\" or the model ref that proposed it",
+          "maxLength": 200,
+          "type": "string"
         }
       },
       "required": [
@@ -18616,7 +19209,36 @@
         "status",
         "next_step",
         "budget_note",
-        "deadline"
+        "deadline",
+        "anniversary",
+        "hometown",
+        "school",
+        "pronouns",
+        "partner_name",
+        "children_names",
+        "pet_names",
+        "likes",
+        "dislikes",
+        "diet",
+        "gift_idea",
+        "languages",
+        "contact_pref",
+        "life_event"
+      ],
+      "type": "string"
+    },
+    "GraphFamilyRole": {
+      "enum": [
+        "parent",
+        "child",
+        "sibling",
+        "partner",
+        "spouse",
+        "grandparent",
+        "grandchild",
+        "cousin",
+        "in_law",
+        "other"
       ],
       "type": "string"
     },
@@ -19048,6 +19670,33 @@
       ],
       "type": "object"
     },
+    "GraphReviewState": {
+      "enum": [
+        "pending",
+        "accepted",
+        "auto_accepted",
+        "edited",
+        "discarded",
+        "quarantined"
+      ],
+      "type": "string"
+    },
+    "GraphSensitivity": {
+      "enum": [
+        "none",
+        "health",
+        "finance",
+        "sexuality",
+        "religion",
+        "politics",
+        "ethnicity",
+        "legal",
+        "precise_location",
+        "gov_id",
+        "account_numbers"
+      ],
+      "type": "string"
+    },
     "GraphSource": {
       "enum": [
         "contacts",
@@ -19214,6 +19863,16 @@
         "loopPrecision"
       ],
       "type": "object"
+    },
+    "GraphSubjectKind": {
+      "description": "self_disclosure: the sender about themselves; about_other: the sender about someone else; owner_stated: the owner's own words; deterministic: Contacts, calendar, headers",
+      "enum": [
+        "self_disclosure",
+        "about_other",
+        "owner_stated",
+        "deterministic"
+      ],
+      "type": "string"
     },
     "GraphSuggestion": {
       "properties": {
@@ -24759,6 +25418,81 @@
       ],
       "type": "object"
     },
+    "MemoryQuarantineDecideParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "action": {
+          "$ref": "#/$defs/QuarantineAction"
+        }
+      },
+      "required": [
+        "id",
+        "action"
+      ],
+      "type": "object"
+    },
+    "MemoryQuarantineDecideResult": {
+      "properties": {
+        "item": {
+          "$ref": "#/$defs/QuarantineItem"
+        }
+      },
+      "required": [
+        "item"
+      ],
+      "type": "object"
+    },
+    "MemoryQuarantineListParams": {
+      "properties": {
+        "includeDecided": {
+          "type": "boolean"
+        },
+        "cursor": {
+          "description": "Opaque cursor",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "MemoryQuarantineListResult": {
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/QuarantineItem"
+          },
+          "type": "array"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "description": "Opaque cursor",
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "type": "object"
+    },
     "MemoryReadParams": {
       "properties": {
         "path": {
@@ -24925,6 +25659,295 @@
         "chunks",
         "claims",
         "dryRun"
+      ],
+      "type": "object"
+    },
+    "MemoryReviewDecideParams": {
+      "properties": {
+        "factIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 200,
+          "minItems": 1,
+          "type": "array"
+        },
+        "decision": {
+          "$ref": "#/$defs/ReviewDecision"
+        },
+        "value": {
+          "description": "Required for edit",
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "never": {
+          "$ref": "#/$defs/ReviewNever"
+        }
+      },
+      "required": [
+        "factIds",
+        "decision"
+      ],
+      "type": "object"
+    },
+    "MemoryReviewDecideResult": {
+      "properties": {
+        "facts": {
+          "items": {
+            "$ref": "#/$defs/GraphFact"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "facts"
+      ],
+      "type": "object"
+    },
+    "MemoryReviewListParams": {
+      "properties": {
+        "state": {
+          "description": "Default pending (conflicts included)",
+          "items": {
+            "$ref": "#/$defs/GraphReviewState"
+          },
+          "maxItems": 6,
+          "type": "array"
+        },
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "cursor": {
+          "description": "Opaque cursor",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "MemoryReviewListResult": {
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/ReviewItem"
+          },
+          "type": "array"
+        },
+        "counts": {
+          "properties": {
+            "pending": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "autoAccepted": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "quarantined": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "pending",
+            "autoAccepted",
+            "quarantined"
+          ],
+          "type": "object"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "description": "Opaque cursor",
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "counts"
+      ],
+      "type": "object"
+    },
+    "MemoryReviewUndoParams": {
+      "properties": {
+        "factId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "factId"
+      ],
+      "type": "object"
+    },
+    "MemoryReviewUndoResult": {
+      "properties": {
+        "fact": {
+          "$ref": "#/$defs/GraphFact"
+        }
+      },
+      "required": [
+        "fact"
+      ],
+      "type": "object"
+    },
+    "MemoryRun": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "startedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "endedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "model": {
+          "anyOf": [
+            {
+              "description": "provider/model",
+              "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/EverythingSource"
+          },
+          "type": "array"
+        },
+        "itemsRead": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "itemsFiltered": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "batches": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tokensIn": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tokensOut": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "factsProposed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "factsDropped": {
+          "description": "Counts by drop reason; never text",
+          "patternProperties": {
+            "^(.*)$": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "quarantined": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "deferred": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "startedAt",
+        "sources",
+        "itemsRead",
+        "itemsFiltered",
+        "batches",
+        "tokensIn",
+        "tokensOut",
+        "factsProposed",
+        "factsDropped",
+        "quarantined",
+        "deferred"
+      ],
+      "type": "object"
+    },
+    "MemoryRunsListParams": {
+      "properties": {
+        "limit": {
+          "description": "Default 14",
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "MemoryRunsListResult": {
+      "properties": {
+        "runs": {
+          "items": {
+            "$ref": "#/$defs/MemoryRun"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "runs"
       ],
       "type": "object"
     },
@@ -28065,6 +29088,117 @@
       ],
       "type": "object"
     },
+    "QuarantineAction": {
+      "enum": [
+        "release",
+        "discard",
+        "block_sender"
+      ],
+      "type": "string"
+    },
+    "QuarantineDecided": {
+      "enum": [
+        "released",
+        "discarded",
+        "blocked"
+      ],
+      "type": "string"
+    },
+    "QuarantineItem": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/GraphCitationSource"
+        },
+        "sourceRef": {
+          "maxLength": 1024,
+          "type": "string"
+        },
+        "senderEntityId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reasons": {
+          "items": {
+            "$ref": "#/$defs/QuarantineReason"
+          },
+          "maxItems": 11,
+          "minItems": 1,
+          "type": "array"
+        },
+        "excerpt": {
+          "description": "Untrusted, truncated, never rendered as markup",
+          "maxLength": 300,
+          "type": "string"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "decided": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QuarantineDecided"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "decidedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "sourceRef",
+        "reasons",
+        "excerpt",
+        "createdAt"
+      ],
+      "type": "object"
+    },
+    "QuarantineReason": {
+      "enum": [
+        "instruction_like",
+        "hidden_text",
+        "claims_about_owner",
+        "identity_claim",
+        "relation_change",
+        "too_many_claims",
+        "sender_limit",
+        "item_too_large",
+        "schema_invalid",
+        "new_sender_sensitive",
+        "subject_mismatch"
+      ],
+      "type": "string"
+    },
     "Question": {
       "properties": {
         "question": {
@@ -28952,6 +30086,76 @@
         "question"
       ],
       "type": "object"
+    },
+    "ReviewDecision": {
+      "enum": [
+        "confirm",
+        "edit",
+        "discard"
+      ],
+      "type": "string"
+    },
+    "ReviewItem": {
+      "properties": {
+        "fact": {
+          "$ref": "#/$defs/GraphFact"
+        },
+        "entityName": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "citations": {
+          "items": {
+            "$ref": "#/$defs/GraphCitation"
+          },
+          "maxItems": 10,
+          "type": "array"
+        },
+        "change": {
+          "$ref": "#/$defs/ReviewItemChange"
+        },
+        "previousValue": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sentence": {
+          "description": "The fact as a sentence, e.g. \"Ava's birthday is May 3\"; untrusted text",
+          "maxLength": 400,
+          "type": "string"
+        }
+      },
+      "required": [
+        "fact",
+        "entityName",
+        "citations",
+        "change",
+        "sentence"
+      ],
+      "type": "object"
+    },
+    "ReviewItemChange": {
+      "description": "changed: supersedes a value; conflict: a lower-ranked source disagrees",
+      "enum": [
+        "new",
+        "changed",
+        "conflict"
+      ],
+      "type": "string"
+    },
+    "ReviewNever": {
+      "description": "\"Never learn this\": this attribute for this person, or from this sender",
+      "enum": [
+        "attribute_for_entity",
+        "attribute_from_sender"
+      ],
+      "type": "string"
     },
     "Run": {
       "properties": {
