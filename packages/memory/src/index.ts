@@ -16,6 +16,7 @@ export * from "./filters.ts";
 export * from "./flush.ts";
 export * from "./git-sync.ts";
 export * from "./graph/cards.ts";
+export * from "./graph/everything.ts";
 export * from "./graph/handlers.ts";
 export * from "./graph/ingest.ts";
 export * from "./graph/model-pass.ts";
