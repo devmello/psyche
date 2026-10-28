@@ -204,7 +204,8 @@ describe("authorizeChannelReply with the replying turn (security §3.3, §3.6)",
       ...tainted,
     });
     expect(d).toMatchObject({ decision: "ask", approvalKind: "message_send" });
-    expect(d.scopesOffered).toEqual(["once", "task"]);
+    // A tainted destructive card offers `once` only (§3.6, §3.12).
+    expect(d.scopesOffered).toEqual(["once"]);
   });
 
   it("refuses under plan mode and user deny rules", async () => {

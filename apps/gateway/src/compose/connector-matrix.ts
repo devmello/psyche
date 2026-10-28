@@ -16,9 +16,14 @@ import type { ComposeServices } from "./services.ts";
  * - the connector executor's own matrix (`registry.setMatrix`), which otherwise keeps the
  *   defaults and refuses an allowed write that carries no approval.
  *
- * The broker's hard floors (sends, destructive, device-only) still ask whatever the matrix says.
+ * The broker's floors (sends, destructive, financial, device-only) still ask whatever the matrix
+ * says, except where the owner lifted one in Settings with a confirmation: `permissions.
+ * liftedFloors.<connectorId>` (`["notes.delete", …]`) becomes `policy.liftedFloors` and the
+ * executor's `floorLifted` (security §3.12). Only that setting lifts a floor: a `liftedFloors`
+ * entry inside an imported `permissions.policy` is dropped, and a plain `allow` never lifts one.
  */
 export const CONNECTOR_MATRIX_PREFIX = "permissions.connectors.";
+export const LIFTED_FLOORS_PREFIX = "permissions.liftedFloors.";
 
 const RULES: readonly MatrixRule[] = ["allow", "ask", "deny"];
 const SHORTCUT_RULE: Record<string, MatrixRule> = { off: "deny", ask: "ask", allow: "allow" };
@@ -41,6 +46,38 @@ export function ownerMatrices(settings: Record<string, unknown>): Map<string, Ma
     if (!key.startsWith(CONNECTOR_MATRIX_PREFIX)) continue;
     const id = key.slice(CONNECTOR_MATRIX_PREFIX.length);
     if (id !== "") out.set(id, rulesOf(value));
+  }
+  return out;
+}
+
+/** The owner's confirmed `permissions.liftedFloors.<id>` settings, by connector id. */
+export function ownerLiftedFloors(settings: Record<string, unknown>): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const [key, value] of Object.entries(settings)) {
+    if (!key.startsWith(LIFTED_FLOORS_PREFIX) || !Array.isArray(value)) continue;
+    const id = key.slice(LIFTED_FLOORS_PREFIX.length);
+    const actions = value.filter((v): v is string => typeof v === "string" && v !== "");
+    if (id !== "" && actions.length > 0) out.set(id, [...new Set(actions)]);
+  }
+  return out;
+}
+
+/**
+ * `policy.liftedFloors` for the broker: the owner's confirmed opt-ins only, for the connector and
+ * (Apple apps) for `apple.<app>`, which direct `node.*` calls use.
+ */
+export function brokerLiftedFloors(
+  owner: ReadonlyMap<string, readonly string[]>,
+  records: readonly Pick<ConnectorRecord, "id" | "type">[],
+): NonNullable<PolicyConfig["liftedFloors"]> {
+  const out: Record<string, string[]> = {};
+  const types = new Map(records.map((r) => [r.id, r.type]));
+  for (const [id, actions] of owner) {
+    out[id] = [...actions];
+    const type = types.get(id);
+    const appleKey = type === undefined ? undefined : appleConnectorKey(type);
+    if (appleKey !== undefined)
+      out[appleKey] = [...new Set([...(out[appleKey] ?? []), ...actions])];
   }
   return out;
 }
@@ -119,12 +156,14 @@ export function connectorMatrixSync(
   const defaultsFor = (type: string) => defaultsByType.get(type);
 
   function applyBroker(): void {
-    const owner = ownerMatrices(getSettings(db));
+    const settings = getSettings(db);
+    const owner = ownerMatrices(settings);
     const policy = getSetting(db, "permissions.policy")?.value as PolicyConfig | undefined;
     try {
       rawBroker.setPolicy({
         ...rawBroker.policy,
         connectors: brokerConnectors(policy?.connectors, owner, records, defaultsFor),
+        liftedFloors: brokerLiftedFloors(ownerLiftedFloors(settings), records),
       });
     } catch (err) {
       warn("applying connector rules to the broker failed", err);
@@ -178,6 +217,9 @@ export function connectorMatrixSync(
   return {
     sync,
     applyNow: applyBroker,
-    follows: (key) => key === "permissions.policy" || key.startsWith(CONNECTOR_MATRIX_PREFIX),
+    follows: (key) =>
+      key === "permissions.policy" ||
+      key.startsWith(CONNECTOR_MATRIX_PREFIX) ||
+      key.startsWith(LIFTED_FLOORS_PREFIX),
   };
 }

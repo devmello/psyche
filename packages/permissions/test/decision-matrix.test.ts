@@ -43,7 +43,7 @@ const ALL: GrantScope[] = ["once", "task", "site", "session", "always"];
  * - `none`: nothing (the target is new to the Task);
  * - `touched` (read only): the owner approved one read of this origin (`once`), so it is touched;
  * - `grant`: the owner approved with the strongest scope the class allows (§3.4): `always` for
- *   read / write, `task` for destructive; financial allows only `once`, so no standing grant exists.
+ *   read / write / destructive / financial (the owner's confirmed Always allow, §3.12).
  */
 type Prior = "none" | "touched" | "grant";
 
@@ -66,8 +66,8 @@ const GRANT_SCOPE: Record<SideEffect, GrantScope> = {
   none: "once",
   read: "always",
   write: "always",
-  destructive: "task",
-  financial: "once", // §3.4: financial only `once`
+  destructive: "always",
+  financial: "always", // §3.4, §3.12: financial only `once` or a confirmed `always`
 };
 
 const CASES: Case[] = MODES.flatMap((mode) =>
@@ -89,10 +89,12 @@ interface Expected {
   classifier?: ClassifierLabel;
 }
 
-/** Scopes an ask offers: §3.4 caps by class, §3.2 caps further by mode. */
-function scopesFor(mode: PermissionMode, se: SideEffect): GrantScope[] {
-  if (se === "financial") return ["once"]; // §3.2 "ask, once"; §3.4 "financial only once"
-  if (se === "destructive") return mode === "manual" ? ["once"] : ["once", "task"]; // §3.2, §3.4
+/** Scopes an ask offers: §3.4 caps by class, §3.2 caps further by mode, §3.6 by taint. */
+function scopesFor(mode: PermissionMode, se: SideEffect, taint = false): GrantScope[] {
+  // §3.6, §3.12: a tainted destructive / financial card offers `once` only.
+  if (taint && SEVERITY[se] >= SEVERITY.destructive) return ["once"];
+  if (se === "financial") return mode === "manual" ? ["once"] : ["once", "always"]; // §3.4
+  if (se === "destructive") return mode === "manual" ? ["once"] : ["once", "task", "always"];
   if (mode === "manual") {
     // §3.2 manual/read: "first read of each new source asks (task / site offered)".
     if (se === "read") return ["once", "task", "site"];
@@ -112,15 +114,12 @@ function expected(c: Case): Expected {
   // §3.3 step 4 / §3.6: a tainted write / destructive / financial on a new target asks
   // "regardless of site / session / always grants".
   if (taint && SEVERITY[se] >= SEVERITY.write) {
-    return { decision: "ask", rule: "taint:new_target", scopes: scopesFor(mode, se) };
+    return { decision: "ask", rule: "taint:new_target", scopes: scopesFor(mode, se, taint) };
   }
 
   // §3.3 step 5: standing grants. §3.2: manual does not consult allow-grants for writes (nor
-  // destructive / financial, which it asks `once`); financial never has a standing grant (§3.4).
-  const grantLive =
-    prior === "grant" &&
-    se !== "financial" &&
-    !(mode === "manual" && SEVERITY[se] >= SEVERITY.write);
+  // destructive / financial, which it asks `once`).
+  const grantLive = prior === "grant" && !(mode === "manual" && SEVERITY[se] >= SEVERITY.write);
   if (grantLive) {
     // §3.2 auto/write "within existing grants: classifier routine → allow"; §3.3 step 7.
     // The default RulesClassifier labels an untainted write with an owner request `routine`.
@@ -140,7 +139,7 @@ function expected(c: Case): Expected {
       return { decision: "ask", rule: `${modeRule}:new_source`, scopes: scopesFor(mode, se) };
     default:
       // write: "ask" (manual every time, balanced / auto outside grants);
-      // destructive: "ask, once or task"; financial: "ask, once".
+      // destructive: "ask, once / task / always"; financial: "ask, once / always".
       return { decision: "ask", rule: modeRule, scopes: scopesFor(mode, se) };
   }
 }
@@ -206,9 +205,10 @@ function checkShape(d: PolicyDecision, se: SideEffect): void {
     expect(d.scopesOffered?.length ?? 0).toBeGreaterThan(0);
     for (const s of d.scopesOffered ?? [])
       expect(allowedScopes(se, "connector_action")).toContain(s);
-    if (se === "financial") expect(d.scopesOffered).toEqual(["once"]);
+    if (se === "financial")
+      for (const s of d.scopesOffered ?? []) expect(["once", "always"]).toContain(s);
     if (se === "destructive")
-      for (const s of d.scopesOffered ?? []) expect(["once", "task"]).toContain(s);
+      for (const s of d.scopesOffered ?? []) expect(["once", "task", "always"]).toContain(s);
   } else {
     expect(d.scopesOffered).toBeUndefined();
     expect(d.deferred).toBeUndefined();
@@ -271,11 +271,15 @@ describe("matrix properties", () => {
     }
   });
 
-  it("financial is never allowed, in any mode, with or without a prior approval", async () => {
+  it("financial is allowed only by the owner's confirmed always grant, never manual or tainted", async () => {
     for (const kase of CASES.filter((c) => c.se === "financial")) {
       const d = await runCase(kase);
-      expect(d.decision, caseName(kase)).not.toBe("allow");
-      if (d.decision === "ask") expect(d.scopesOffered).toEqual(["once"]);
+      const allowed =
+        kase.prior === "grant" && !kase.taint && kase.mode !== "manual" && kase.mode !== "plan";
+      if (allowed) expect(d.rule, caseName(kase)).toMatch(/^grant:/);
+      else expect(d.decision, caseName(kase)).not.toBe("allow");
+      if (d.decision === "ask" && (kase.taint || kase.mode === "manual"))
+        expect(d.scopesOffered).toEqual(["once"]);
     }
   });
 
@@ -285,11 +289,11 @@ describe("matrix properties", () => {
       approve(h, call(TOOL, "financial", origin(SHOP)), SETUP_CTX, "task"),
     ).rejects.toThrow(/scope task not offered/);
     await expect(
-      approve(h, call(TOOL, "financial", origin(SHOP)), SETUP_CTX, "always"),
-    ).rejects.toThrow(/scope always not offered/);
+      approve(h, call(TOOL, "financial", origin(SHOP)), SETUP_CTX, "session"),
+    ).rejects.toThrow(/scope session not offered/);
     await expect(
-      approve(h, call(TOOL, "destructive", origin(SHOP)), SETUP_CTX, "always"),
-    ).rejects.toThrow(/scope always not offered/);
+      approve(h, call(TOOL, "destructive", origin(SHOP)), SETUP_CTX, "session"),
+    ).rejects.toThrow(/scope session not offered/);
     expect(await h.broker.listGrants()).toEqual([]);
   });
 

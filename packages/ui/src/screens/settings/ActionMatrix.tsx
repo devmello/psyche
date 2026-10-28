@@ -89,6 +89,22 @@ export function withMatrixOverrides(
   });
 }
 
+/**
+ * `permissions.liftedFloors.<id>` from settings: the actions whose send / destructive / financial
+ * floor the owner lifted with a confirm (security §3.12), by connector id.
+ */
+export function liftedFloorsOf(
+  values: Readonly<Record<string, unknown>>,
+): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  const prefix = "permissions.liftedFloors.";
+  for (const [k, v] of Object.entries(values)) {
+    if (!k.startsWith(prefix) || !Array.isArray(v)) continue;
+    out[k.slice(prefix.length)] = v.filter((a): a is string => typeof a === "string");
+  }
+  return out;
+}
+
 export interface ActionMatrixProps {
   connectorLabel: string;
   matrix: Readonly<Record<string, ActionRule>>;

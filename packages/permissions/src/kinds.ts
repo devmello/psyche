@@ -137,7 +137,9 @@ export function allowedScopes(
   sideEffect: SideEffect | undefined,
   kind: ApprovalKind,
 ): GrantScope[] {
-  if (sideEffect === "financial" || kind === "purchase") return ["once"];
+  if (kind === "purchase") return ["once"];
+  // Financial calls: `once`, or an `always` the owner confirms on the card (§3.4, §3.12).
+  if (sideEffect === "financial") return ["once", "always"];
   // Scripts and Shortcuts are approved per exact source / name + input (security §5.4).
   if (
     [
@@ -159,7 +161,7 @@ export function allowedScopes(
   if (kind === "credential_fill") return ["once", "site"];
   // Security §5.4: exec_host offers `once` or an `always` bound to exact argv + cwd + binary.
   if (kind === "exec_host") return ["once", "always"];
-  if (sideEffect === "destructive") return ["once", "task"];
+  if (sideEffect === "destructive") return ["once", "task", "always"];
   return ALL_SCOPES;
 }
 

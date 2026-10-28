@@ -83,8 +83,10 @@ Each thread has a permission mode. The broker supports four:
 | --- | --- | --- | --- | --- |
 | Plan | Only tools with no side effect run | Denied | Denied | Denied |
 | Manual | The first read of each new source in a task asks | Ask every time; standing grants are not used | Ask, once only | Ask, once only, on your device |
-| Balanced | The first read of each new source in a task asks; sensitive sites always ask | Standing grants run; otherwise ask | Ask, once or for this task | Ask, once only, on your device |
-| Auto | New ordinary sites are read without asking, unless the turn is tainted or the site is sensitive | Inside your grants, a classifier decides: routine runs, sensitive asks, prohibited is denied | Ask, once or for this task | Ask, once only, on your device |
+| Balanced | The first read of each new source in a task asks; sensitive sites always ask | Standing grants run; otherwise ask | Ask, once, for this task or always (you confirm Always allow) | Ask, once or always (you confirm Always allow), on your device |
+| Auto | New ordinary sites are read without asking, unless the turn is tainted or the site is sensitive | Inside your grants, a classifier decides: routine runs, sensitive asks, prohibited is denied | As Balanced | As Balanced |
+
+Sends, destructive and financial actions ask by default. You can let one run without asking: choose Allow for that action in Settings → Connectors, or Always allow on its card, and confirm. Psyche still asks after it has read untrusted content in the turn, and every time in Manual mode. Credential entry, purchases, commands on this Mac and other device-only approvals always ask.
 
 A "new source" is a site, connector account, folder, app or MCP server the task has not touched yet. "Sensitive sites" is a built-in list of banking, brokerage, government, health, password-manager, sign-in and webmail hosts (for example `accounts.google.com` and `mail.google.com`). Reads inside a folder you shared run without asking.
 

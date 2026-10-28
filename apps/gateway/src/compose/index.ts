@@ -1585,7 +1585,10 @@ export { createLogger, surfaceOf };
  * tools, so here no workspace root exists unless the owner names one (#287).
  */
 function hostPolicy(p: PolicyConfig | undefined): PolicyConfig {
-  return { ...(p ?? {}), workspaceRoots: p?.workspaceRoots ?? [] };
+  // Lifted floors come only from Settings' confirmed opt-in (`permissions.liftedFloors.<id>`,
+  // connector-matrix.ts), never from a stored or imported policy (security §3.12).
+  const { liftedFloors: _imported, ...rest } = p ?? {};
+  return { ...rest, workspaceRoots: p?.workspaceRoots ?? [] };
 }
 
 /**

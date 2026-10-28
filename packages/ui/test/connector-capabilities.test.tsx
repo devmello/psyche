@@ -51,7 +51,7 @@ async function openCard(name: string) {
 }
 
 describe("Apple app capability cards (docs/connectors/apple-apps-2026.md §7.1, #640)", () => {
-  it("lists Mail's action groups in plain words, and Send never offers Allow", async () => {
+  it("lists Mail's action groups in plain words", async () => {
     const { settingsWrites } = setup();
     const card = await openCard("Apple Mail");
     const groups = within(card).getByRole("list", { name: "What Wren can do with Apple Mail" });
@@ -66,9 +66,8 @@ describe("Apple app capability cards (docs/connectors/apple-apps-2026.md §7.1, 
     // Raw keys stay out of the first level.
     expect(within(card).queryByText("mail.organize")).toBeNull();
 
-    const send = within(groups).getByRole("radiogroup", { name: "Send mail" });
-    expect(within(send).queryByRole("radio", { name: /Allow/ })).toBeNull();
-    expect(within(groups).getByText("Always asks first")).toBeTruthy();
+    // Send asks by default; Allow is offered behind a confirm (§3.12).
+    expect(within(groups).getByText("Asks first unless you allow it")).toBeTruthy();
 
     // A group's rule is the matrix override the Permissions section reads.
     const organize = within(groups).getByRole("radiogroup", { name: "Organize mail" });
@@ -79,6 +78,41 @@ describe("Apple app capability cards (docs/connectors/apple-apps-2026.md §7.1, 
         value: expect.objectContaining({ "mail.organize": "deny", "mail.read": "allow" }),
       }),
     );
+  });
+
+  it("Allow on Send confirms first, then stores the override (security §3.12)", async () => {
+    const { settingsWrites } = setup();
+    const card = await openCard("Apple Mail");
+    const send = within(card).getByRole("radiogroup", { name: "Send mail" });
+    const allow = within(send).getByRole("radio", { name: "Send mail: Allow" });
+
+    // Cancel: nothing is written.
+    await userEvent.click(allow);
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog.textContent).toContain("Wren can send mail in Apple Mail without asking.");
+    expect(dialog.textContent).toContain("be unsent");
+    expect(dialog.textContent).toContain("untrusted content");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(JSON.stringify(settingsWrites())).not.toContain("permissions.liftedFloors");
+
+    // Confirm: the allow and the confirmed override are both saved.
+    await userEvent.click(allow);
+    await userEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "Allow without asking",
+      }),
+    );
+    await waitFor(() =>
+      expect(settingsWrites()).toContainEqual({
+        key: `permissions.liftedFloors.${IDS.connectors.appleMail}`,
+        value: ["mail.send"],
+      }),
+    );
+    expect(settingsWrites()).toContainEqual({
+      key: `permissions.connectors.${IDS.connectors.appleMail}`,
+      value: expect.objectContaining({ "mail.send": "allow" }),
+    });
   });
 
   it("names the macOS grant each app uses, and the path to fix a missing one", async () => {

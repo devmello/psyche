@@ -1,7 +1,8 @@
 import type { Connector, ConnectorCatalogueEntry } from "@psyche/protocol";
 import { ChevronRight, ShieldCheck } from "lucide-react";
 import { type ReactElement, useId, useState } from "react";
-import { isMessageId, t } from "../../i18n/core.ts";
+import { floorClassOf, unliftable, useLiftFloorConfirm } from "../../blocks/LiftFloorDialog.tsx";
+import { activeI18n, isMessageId, t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
 import { type ActionRule, RULES } from "./ActionMatrix.tsx";
 import { SegmentedRadio } from "./SegmentedRadio.tsx";
@@ -71,9 +72,17 @@ function groupText(action: CatalogueAction): { title: string; lines: string | nu
   };
 }
 
-/** Sends, deletes and other outward actions always ask (§3): Allow is never offered for them. */
+/**
+ * Device-only and authentication actions (credential entry, purchases, scripts, …) always ask:
+ * Allow is never offered for them (security §3.7, §3.12).
+ */
 export function alwaysAsks(action: CatalogueAction): boolean {
-  return action.sideEffect === "destructive" || action.approvalKind === "send_email";
+  return unliftable(action.approvalKind);
+}
+
+/** Sends, deletes and payments ask unless the owner lifted the floor with a confirm (§3.12). */
+export function liftableFloor(action: CatalogueAction) {
+  return alwaysAsks(action) ? null : floorClassOf(action.approvalKind, action.sideEffect);
 }
 
 export interface CapabilityCardProps {
@@ -81,7 +90,13 @@ export interface CapabilityCardProps {
   /** The connector type's action groups from `connectors.catalogue`. */
   actions: readonly CatalogueAction[];
   persona: string;
-  onRuleChange?: (action: string, rule: ActionRule) => void;
+  /**
+   * `liftFloor`: for a send / destructive / financial group, whether the owner confirmed Allow
+   * (true) or left it (false); absent for other groups.
+   */
+  onRuleChange?: (action: string, rule: ActionRule, liftFloor?: boolean) => void;
+  /** The groups whose floor the owner lifted (`permissions.liftedFloors.<id>`). */
+  lifted?: readonly string[];
   /** Fills the chat composer with an example request; absent hides "Try it". */
   onTry?: (text: string) => void;
   /** Opens with the groups showing (stories). */
@@ -94,11 +109,13 @@ export function CapabilityCard({
   actions,
   persona,
   onRuleChange,
+  lifted = [],
   onTry,
   defaultOpen = false,
 }: CapabilityCardProps): ReactElement | null {
   const id = useId();
   const [open, setOpen] = useState(defaultOpen);
+  const confirm = useLiftFloorConfirm(persona, "matrix");
   const app = appleApp(connector.type);
   if (app === null || actions.length === 0) return null;
   const grant = grantName(app);
@@ -133,7 +150,21 @@ export function CapabilityCard({
               const { title, lines } = groupText(action);
               const rule: ActionRule = connector.actionMatrix[action.id] ?? action.defaultRule;
               const asks = alwaysAsks(action);
+              const floor = liftableFloor(action);
+              const isLifted = floor !== null && lifted.includes(action.id);
+              // A plain allow never lifts a floor: it shows as Ask until the owner confirms.
+              const shown: ActionRule =
+                (asks || (floor !== null && !isLifted)) && rule === "allow" ? "ask" : rule;
               const off = readOnly && action.sideEffect !== "read";
+              const choose = (next: ActionRule) => {
+                if (floor === null) return onRuleChange?.(action.id, next);
+                if (next !== "allow") return onRuleChange?.(action.id, next, false);
+                const what = t("settings.connectors.can.liftWhat", {
+                  action: title.toLocaleLowerCase(activeI18n().locale),
+                  name: connector.label,
+                });
+                confirm.ask(floor, what, () => onRuleChange?.(action.id, "allow", true));
+              };
               return (
                 <li key={action.id} data-rule={rule} className="flex items-center gap-3">
                   <div className="flex min-w-0 flex-1 flex-col">
@@ -149,15 +180,21 @@ export function CapabilityCard({
                       <span className="text-callout text-label-tertiary">
                         {t("settings.connectors.can.alwaysAsks")}
                       </span>
+                    ) : floor !== null ? (
+                      <span className="text-callout text-label-tertiary">
+                        {isLifted && shown === "allow"
+                          ? t("settings.connectors.can.lifted")
+                          : t("settings.connectors.can.asksByDefault")}
+                      </span>
                     ) : null}
                   </div>
                   {off ? null : (
                     <SegmentedRadio
                       label={title}
                       options={asks ? RULES.filter((r) => r.value !== "allow") : RULES}
-                      value={asks && rule === "allow" ? "ask" : rule}
+                      value={shown}
                       disabled={onRuleChange === undefined}
-                      onChange={(next) => onRuleChange?.(action.id, next)}
+                      onChange={choose}
                       segmentLabel={(o) =>
                         t("settings.matrix.cell", { row: title, column: o.label })
                       }
@@ -195,6 +232,7 @@ export function CapabilityCard({
           ) : null}
         </div>
       ) : null}
+      {confirm.dialog}
     </div>
   );
 }

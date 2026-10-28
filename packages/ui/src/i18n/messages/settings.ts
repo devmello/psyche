@@ -142,6 +142,7 @@ export const settings = {
   "settings.key.ui.locale": "Region format",
   "settings.key.ui.direction": "Text direction",
   "settings.key.permissions.connectors": "Access for {id}",
+  "settings.key.permissions.liftedFloors": "Actions allowed without asking for {id}",
   "settings.key.models.roles": "Model for {role}",
   "settings.key.specialists.maxConcurrent": "Specialists at once",
   "settings.key.specialists.monthlyCapUsd": "Monthly specialist spend",
@@ -724,6 +725,9 @@ export const settings = {
   "settings.connectors.can.title": "What {persona} can do",
   "settings.connectors.can.label": "What {persona} can do with {name}",
   "settings.connectors.can.alwaysAsks": "Always asks first",
+  "settings.connectors.can.asksByDefault": "Asks first unless you allow it",
+  "settings.connectors.can.lifted": "Runs without asking",
+  "settings.connectors.can.liftWhat": "{action} in {name}",
   "settings.connectors.can.readOnly": "Off while {name} is connected read-only",
   "settings.connectors.can.mail.read.title": "Read mail",
   "settings.connectors.can.mail.read.lines":

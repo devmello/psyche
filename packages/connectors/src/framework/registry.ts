@@ -98,6 +98,11 @@ export interface ConnectorRegistryOptions {
    * Preferred over `approvalFor`, which cannot carry a standing grant.
    */
   authorityFor?: (callId: string) => ToolCallAuthority | undefined;
+  /**
+   * Whether the owner lifted the destructive / financial floor for a connection's action group
+   * (Settings → Connectors' confirmed opt-in, security §3.12): only then may it be `allow`.
+   */
+  floorLifted?: (connectorId: string, action: string) => boolean;
   onEvent?: (event: ConnectorEvent) => void;
   newId?: () => string;
 }
@@ -426,7 +431,11 @@ export class ConnectorRegistry {
       if (rule !== "allow" && rule !== "ask" && rule !== "deny") {
         throw new PsycheError("invalid_params", `invalid rule for ${key}`);
       }
-      if (rule === "allow" && NO_STANDING.includes(action.sideEffect)) {
+      if (
+        rule === "allow" &&
+        NO_STANDING.includes(action.sideEffect) &&
+        this.#opts.floorLifted?.(id, key) !== true
+      ) {
         throw new PsycheError(
           "policy_denied",
           `${key} is ${action.sideEffect}; it can only be ask or deny`,
@@ -590,7 +599,12 @@ export class ConnectorRegistry {
     // The connector's own narrower setting for this call (one shortcut, #727); deny still wins.
     const own = tool.ruleFor?.(params);
     if (own !== undefined && rule !== "deny") rule = own;
-    if (rule === "allow" && NO_STANDING.includes(effect)) rule = "ask";
+    if (
+      rule === "allow" &&
+      NO_STANDING.includes(effect) &&
+      this.#opts.floorLifted?.(connectorId, tool.action) !== true
+    )
+      rule = "ask";
     if (rule === "deny") {
       throw new PsycheError("policy_denied", `${tool.action} is set to deny`, {
         details: {
@@ -658,9 +672,9 @@ export class ConnectorRegistry {
                 ? "no_grant_key"
                 : grant.grantKey !== expected
                   ? "grant_key_mismatch"
-                  : effect === "financial"
-                    ? "no_standing_grants_for_financial"
-                    : effect === "destructive" && grant.scope !== "task"
+                  : effect === "financial" && grant.scope !== "always"
+                    ? `scope_${grant.scope}_not_allowed_for_financial`
+                    : effect === "destructive" && grant.scope !== "task" && grant.scope !== "always"
                       ? `scope_${grant.scope}_not_allowed_for_destructive`
                       : undefined;
       if (reason !== undefined) {
@@ -686,8 +700,11 @@ export class ConnectorRegistry {
           toolCallId: callId,
           approvalId: approvalId ?? null,
           ...(out.externalRefs === undefined ? {} : { externalRefs: out.externalRefs }),
-          // Which rule let the call through: an approval, a grant, or the owner's matrix (#747).
-          ...(authority === undefined ? {} : { payload: { rule: authority.rule } }),
+          // Which rule let the call through: an approval, a grant, or the owner's matrix (#747),
+          // and for a send / destructive / financial call let through without a card, `via`.
+          ...(authority === undefined
+            ? {}
+            : { payload: { rule: authority.rule, ...viaOf(authority, approvalId) } }),
         });
         receiptId = r.id;
       }
@@ -760,6 +777,18 @@ const SEVERITY: SideEffect[] = ["none", "read", "write", "destructive", "financi
 function moreSevere(a: SideEffect, b: SideEffect | undefined): SideEffect {
   if (b === undefined) return a;
   return SEVERITY.indexOf(b) > SEVERITY.indexOf(a) ? b : a;
+}
+
+/** `via: grant` / `via: matrix-override` for a write no card answered (security §3.12). */
+function viaOf(
+  authority: ToolCallAuthority,
+  approvalId: string | undefined,
+): { via?: "grant" | "matrix-override" } {
+  if (approvalId !== undefined) return {};
+  if (authority.rule.endsWith(":override")) return { via: "matrix-override" };
+  if (authority.grantId !== undefined || authority.rule.startsWith("grant:"))
+    return { via: "grant" };
+  return {};
 }
 
 /** Connector tools use the MCP naming so allow / ask / deny rules look the same (ToolSpec). */

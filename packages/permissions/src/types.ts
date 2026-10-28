@@ -119,6 +119,11 @@ export interface PolicyDecision extends DecisionResult {
   deferred?: boolean;
   /** Classifier label when the classifier ran. */
   classifier?: { label: ClassifierLabel; reason: string };
+  /**
+   * What let a send / destructive / financial call through without a card (§3.12): a standing
+   * grant the owner made, or the owner's confirmed matrix override.
+   */
+  via?: "grant" | "matrix-override";
 }
 
 export type ClassifierLabel = "routine" | "sensitive" | "prohibited";
