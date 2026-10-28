@@ -2550,6 +2550,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Deletes the thread if it is an empty New chat (no message, run, queued follow-up or task); anything else is left alone and reports deleted: false.",
+        "name": "threads.discardEmpty",
+        "params": "#/$defs/ThreadIdParams",
+        "result": "#/$defs/ThreadsDiscardEmptyResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
         "description": "User-initiated fork: a new side thread with the transcript up to and including messageId. Side-effecting.",
         "name": "threads.fork",
         "params": "#/$defs/ThreadsForkParams",
@@ -2571,6 +2579,14 @@
         "params": "#/$defs/ThreadsListParams",
         "result": "#/$defs/ThreadsListResult",
         "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "New chat: returns the empty chat of that kind the owner already has (preferring preferThreadId), else creates one marked as user-created.",
+        "name": "threads.newChat",
+        "params": "#/$defs/ThreadsNewChatParams",
+        "result": "#/$defs/ThreadsNewChatResult",
+        "scope": "operator.write",
         "sideEffecting": false
       },
       {
@@ -32796,6 +32812,9 @@
               "type": "null"
             }
           ]
+        },
+        "userCreated": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -33065,6 +33084,17 @@
       ],
       "type": "object"
     },
+    "ThreadsDiscardEmptyResult": {
+      "properties": {
+        "deleted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "deleted"
+      ],
+      "type": "object"
+    },
     "ThreadsForkParams": {
       "properties": {
         "threadId": {
@@ -33145,6 +33175,48 @@
       },
       "required": [
         "threads"
+      ],
+      "type": "object"
+    },
+    "ThreadsNewChatParams": {
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "const": "side",
+              "type": "string"
+            },
+            {
+              "const": "incognito",
+              "type": "string"
+            }
+          ]
+        },
+        "preferThreadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "ThreadsNewChatResult": {
+      "properties": {
+        "thread": {
+          "$ref": "#/$defs/Thread"
+        },
+        "reused": {
+          "description": "An existing empty chat was returned, none created",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "thread",
+        "reused"
       ],
       "type": "object"
     },

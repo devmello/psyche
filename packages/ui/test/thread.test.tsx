@@ -281,7 +281,8 @@ describe("slash commands (C9)", () => {
     expect(await screen.findByText("Nothing is running in this chat.")).toBeTruthy();
     await userEvent.type(await box(), "/new{Enter}");
     await waitFor(() => expect(navigated).toHaveLength(1));
-    expect(gateway.calls.find((c) => c.method === "threads.create")?.params).toEqual({
+    // New chat: the Gateway reuses an empty chat or makes one; the chat on screen is preferred.
+    expect(gateway.calls.find((c) => c.method === "threads.newChat")?.params).toMatchObject({
       kind: "side",
     });
   });

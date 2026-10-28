@@ -57,6 +57,26 @@ export const ThreadsMethods = {
     description:
       "Creates a thread (default kind main). Side-effecting: a retried key returns the same thread.",
   }),
+  "threads.newChat": defineMethod({
+    params: Type.Object({
+      kind: Type.Union([Type.Literal("side"), Type.Literal("incognito")]),
+      preferThreadId: Type.Optional(Id),
+    }),
+    result: Type.Object({
+      thread: Thread,
+      reused: Type.Boolean({ description: "An existing empty chat was returned, none created" }),
+    }),
+    scope: "operator.write",
+    description:
+      "New chat: returns the empty chat of that kind the owner already has (preferring preferThreadId), else creates one marked as user-created.",
+  }),
+  "threads.discardEmpty": defineMethod({
+    params: ThreadIdParams,
+    result: Type.Object({ deleted: Type.Boolean() }),
+    scope: "operator.write",
+    description:
+      "Deletes the thread if it is an empty New chat (no message, run, queued follow-up or task); anything else is left alone and reports deleted: false.",
+  }),
   "threads.list": defineMethod({
     params: Type.Object({
       kind: Type.Optional(ThreadKind),

@@ -8,6 +8,7 @@ export {
   type PresenceAssertion,
   type RequestOptions,
 } from "./client.ts";
+export { isEmptyUserChat } from "./empty-chat.ts";
 export * from "./files.ts";
 export * from "./hooks.ts";
 export * from "./insights.ts";

@@ -119,6 +119,8 @@ export const threads = sqliteTable("threads", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
   lastMessageAt: text("last_message_at"),
+  /** 1 for a chat the owner opened with "New chat" (migration 202610271300). */
+  userCreated: integer("user_created").notNull().default(0),
 });
 
 export const messages = sqliteTable("messages", {

@@ -577,6 +577,13 @@ export class GatewayStore {
           v,
         );
       }
+      case "thread.deleted": {
+        // Another window, the empty-chat sweep or retention removed it.
+        const id = e.payload.threadId;
+        if (s.threads[id] === undefined) return s;
+        const { [id]: _gone, ...threads } = s.threads;
+        return touch({ ...s, threads }, `threads:${id}`, v);
+      }
       case "thread.context.updated": {
         const u = e.payload.usage;
         const prev = s.threadContext[u.threadId];

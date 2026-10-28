@@ -8,6 +8,7 @@ import {
   expireRunFramesBefore,
   expireRunStepText,
   getSetting,
+  listEmptyUserChats,
   listExpiredThreads,
   type PsycheDb,
   pruneIdempotencyRecords,
@@ -21,11 +22,19 @@ export const DEFAULT_CLEANUP_PERIOD_DAYS = 30;
 /** Idempotency results are kept this long; clients retry within minutes. */
 export const IDEMPOTENCY_RETENTION_DAYS = 7;
 export const RETENTION_INTERVAL_MS = 3_600_000;
+/**
+ * An empty "New chat" is swept once it is this old. The sidebar never lists it and leaving it
+ * deletes it, so this only catches windows that closed uncleanly; it is long enough that a
+ * prompt being written in an open one is not pulled out from under the owner.
+ */
+export const EMPTY_CHAT_TTL_MS = 30 * 60_000;
 const DAY_MS = 86_400_000;
 
 export interface RetentionReport {
   toolPayloads: number;
   expiredThreads: string[];
+  /** Empty "New chat" threads older than {@link EMPTY_CHAT_TTL_MS}. */
+  emptyChats: string[];
   idempotencyRecords: number;
   /** Thinking steps whose retained text was blanked (run trace §4.3). */
   thinking: number;
@@ -111,7 +120,8 @@ export function cleanupPeriodDays(ctx: GatewayContext): number {
 
 /**
  * Retention sweep (data model §12): level-3 tool payloads older than `cleanupPeriodDays`, expired
- * incognito threads (unless a run is still writing to them), and old idempotency results.
+ * incognito threads (unless a run is still writing to them), empty "New chat" threads, and old
+ * idempotency results.
  * Receipts and audit entries are never touched.
  */
 export function runRetention(ctx: GatewayContext): RetentionReport {
@@ -121,6 +131,7 @@ export function runRetention(ctx: GatewayContext): RetentionReport {
   const report: RetentionReport = {
     toolPayloads: 0,
     expiredThreads: [],
+    emptyChats: [],
     idempotencyRecords: 0,
     thinking: 0,
     frames: 0,
@@ -142,6 +153,14 @@ export function runRetention(ctx: GatewayContext): RetentionReport {
       deleteAgentThreadState(db, thread.id);
       report.expiredThreads.push(thread.id);
     }
+    // Chats the owner opened with "New chat" and never wrote in (nothing else qualifies: see
+    // listEmptyUserChats).
+    for (const thread of listEmptyUserChats(db, { createdBefore: iso(EMPTY_CHAT_TTL_MS) })) {
+      if (thread.updatedAt > iso(EMPTY_CHAT_TTL_MS)) continue;
+      deleteThread(db, thread.id);
+      deleteAgentThreadState(db, thread.id);
+      report.emptyChats.push(thread.id);
+    }
     report.idempotencyRecords = pruneIdempotencyRecords(
       db,
       iso(IDEMPOTENCY_RETENTION_DAYS * DAY_MS),
@@ -157,6 +176,7 @@ export function runRetention(ctx: GatewayContext): RetentionReport {
     if (
       report.toolPayloads > 0 ||
       report.expiredThreads.length > 0 ||
+      report.emptyChats.length > 0 ||
       report.thinking > 0 ||
       report.frames > 0
     )
@@ -183,17 +203,19 @@ export function runRetention(ctx: GatewayContext): RetentionReport {
       });
     }
   }
-  for (const threadId of report.expiredThreads)
+  for (const threadId of [...report.expiredThreads, ...report.emptyChats])
     bus.publish("thread.deleted", { threadId }, threadId);
   if (
     report.toolPayloads > 0 ||
     report.expiredThreads.length > 0 ||
+    report.emptyChats.length > 0 ||
     report.thinking > 0 ||
     report.frames > 0
   ) {
     ctx.log.log("info", "retention sweep", {
       toolPayloads: report.toolPayloads,
       threads: report.expiredThreads.length,
+      emptyChats: report.emptyChats.length,
       thinking: report.thinking,
       frames: report.frames,
     });

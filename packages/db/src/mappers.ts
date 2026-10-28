@@ -132,6 +132,7 @@ export function threadFromRow(row: ThreadRow): Thread {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     lastMessageAt: row.lastMessageAt,
+    ...(row.userCreated === 1 ? { userCreated: true } : {}),
   };
 }
 
