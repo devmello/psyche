@@ -306,6 +306,63 @@ describe("Try it from the desktop's Settings window (#677)", () => {
   });
 });
 
+describe("Run setup again from Settings (About → Set up again)", () => {
+  function RunSetup({ navigate }: { navigate: (to: string) => void }) {
+    return (
+      <button type="button" onClick={() => navigate("/onboarding")}>
+        Run setup again
+      </button>
+    );
+  }
+
+  it("in the Settings window opens the main window on /onboarding and stays put", async () => {
+    window.history.replaceState(null, "", "/window/settings/about");
+    const { platform } = platformWith();
+    const opened: string[] = [];
+    platform.kind = "desktop";
+    platform.windows = {
+      popOutPane: async () => {},
+      closeWindow: () => {},
+      onCommand: () => () => {},
+      openInMain: (route) => opened.push(route),
+    };
+    render(
+      <ShellApp
+        platform={platform}
+        slots={{ section: (_r, nav) => <RunSetup navigate={nav} /> }}
+      />,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Run setup again" }));
+    expect(opened).toEqual(["/onboarding"]);
+    expect(window.location.pathname).toBe("/window/settings/about");
+    expect(screen.getByTestId("settings-window")).toBeTruthy();
+  });
+
+  it("in the main window's own Settings route still navigates in place", async () => {
+    window.history.replaceState(null, "", "/settings/about");
+    const { platform } = platformWith();
+    const opened: string[] = [];
+    platform.windows = {
+      popOutPane: async () => {},
+      closeWindow: () => {},
+      onCommand: () => () => {},
+      openInMain: (route) => opened.push(route),
+    };
+    render(
+      <ShellApp
+        platform={platform}
+        slots={{
+          section: (r, nav) => (r === "/onboarding" ? <p>rerun</p> : <RunSetup navigate={nav} />),
+        }}
+      />,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Run setup again" }));
+    await waitFor(() => expect(window.location.pathname).toBe("/onboarding"));
+    await screen.findByText("rerun");
+    expect(opened).toEqual([]);
+  });
+});
+
 describe("the agent sheet's routes (redesign §5.7)", () => {
   it("docks beside the content only with room for both and no panes open (#625)", () => {
     expect(agentSheetDocked({ compact: false, contentWidth: 1280 - 248 })).toBe(true);

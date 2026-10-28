@@ -40,3 +40,11 @@ describe("Try it from the Settings window (#677)", () => {
     });
   });
 });
+
+describe("Run setup again from the Settings window", () => {
+  it("asks main to open a route in the main window, fire-and-forget", () => {
+    const bridge = exposed.psyche as { windows: { openInMain: (route: string) => void } };
+    bridge.windows.openInMain("/onboarding");
+    expect(send).toHaveBeenLastCalledWith(IPC.windowOpenInMain, { route: "/onboarding" });
+  });
+});

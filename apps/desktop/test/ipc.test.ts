@@ -6,6 +6,7 @@ import {
   checkComposerText,
   checkExternalUrl,
   checkHttpUrl,
+  checkMainRoute,
   checkRoute,
   checkViewport,
 } from "../src/lib/ipc.ts";
@@ -102,5 +103,25 @@ describe("composer text from another window (#677)", () => {
     );
     for (const bad of [null, "text", {}, { text: "" }, { text: 42 }, { text: "x".repeat(4_001) }])
       expect(() => checkComposerText(bad), JSON.stringify(bad)?.slice(0, 40)).toThrow();
+  });
+});
+
+describe("routes the Settings window opens in the main window", () => {
+  it("are app paths, optionally with a plain query or hash", () => {
+    expect(checkMainRoute({ route: "/onboarding" })).toBe("/onboarding");
+    expect(checkMainRoute({ route: "/overview#growth" })).toBe("/overview#growth");
+    expect(checkMainRoute({ route: "/agent/soul?file=USER.md" })).toBe("/agent/soul?file=USER.md");
+    for (const bad of [
+      null,
+      "/onboarding",
+      {},
+      { route: "" },
+      { route: "https://evil.com" },
+      { route: "//evil.com/x" },
+      { route: "/a/../b" },
+      { route: "/a?x=<script>" },
+      { route: "/a b" },
+    ])
+      expect(() => checkMainRoute(bad), JSON.stringify(bad)).toThrow();
   });
 });

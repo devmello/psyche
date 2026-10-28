@@ -420,6 +420,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   // Desktop: Settings live in their own window (⌘,; docs/design/redesign-2026.md §4, §5.8).
   const settingsWindow = useRef(initialRoute().startsWith(SETTINGS_WINDOW_PREFIX)).current;
   const openSettings = platform.windows?.openSettings;
+  const openInMain = platform.windows?.openInMain?.bind(platform.windows);
   const routeRef = useRef(route);
   routeRef.current = route;
   const navigate = useCallback(
@@ -431,7 +432,11 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
           openSettings(to.split("/")[2]);
           return;
         }
-      } else if (settingsWindow) return;
+      } else if (settingsWindow) {
+        // The Settings window renders only Settings: anything else opens in the main window.
+        openInMain?.(to);
+        return;
+      }
       // A new destination crossfades the content column (motion.md §4.5); a thread switch inside
       // Chat, or anything on the same screen, changes in place. The agent sheet opening or
       // closing over a section keeps that section where it is (#614).
@@ -446,7 +451,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         // app:// and file:// hosts may refuse; the in-memory route still changes
       }
     },
-    [settingsWindow, openSettings],
+    [settingsWindow, openSettings, openInMain],
   );
 
   const toggleSidebar = useCallback(() => {
