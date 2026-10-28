@@ -30,6 +30,8 @@ export interface LockEntry {
   findings: { high: number; warn: number; info: number };
   /** The declared tools, approval kinds and prompt files the owner approved (T2). */
   manifest?: SkillManifestDecl;
+  /** Psyche wrote the skill (self-extension); trust stays `unknown`. Absent for everything else. */
+  author?: "agent";
 }
 
 export interface LockFile {

@@ -4,6 +4,7 @@ import { type ReactElement, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { t } from "../../i18n/core.ts";
 import { ConnectorIcon } from "./ConnectorIcon.tsx";
+import { McpCodePanel } from "./McpCodePanel.tsx";
 import { McpServerPanels } from "./McpServerPanels.tsx";
 import { presetText } from "./mcp-preset-build.ts";
 import { MCP_PRESETS } from "./mcp-presets.ts";
@@ -34,6 +35,7 @@ export function McpServerRow({
   onSetEnabled,
   onTry,
   defaultOpen = false,
+  now,
 }: {
   server: McpServerStatus;
   onRemove?: (server: McpServerStatus) => void;
@@ -42,6 +44,8 @@ export function McpServerRow({
   /** "Try it": fills the chat composer (a ready-made server has an example). */
   onTry?: (text: string) => void;
   defaultOpen?: boolean;
+  /** The clock the approval card counts down against (stories, tests). */
+  now?: number;
 }): ReactElement {
   const [open, setOpen] = useState(defaultOpen);
   const preset = MCP_PRESETS.find((p) => p.id === server.id);
@@ -64,6 +68,9 @@ export function McpServerRow({
               </StatusChip>
             )}
             <StatusChip tone="neutral">{t("settings.mcp.badge")}</StatusChip>
+            {server.madeBy === "psyche" ? (
+              <StatusChip tone="info">{t("settings.mcp.madeBy")}</StatusChip>
+            ) : null}
             <StatusChip tone={trustTone}>
               {t("settings.connectors.trust", { tier: mcpTrustLabel(server.trust) })}
             </StatusChip>
@@ -125,6 +132,9 @@ export function McpServerRow({
             {...(onSetEnabled ? { onSetEnabled: (on: boolean) => onSetEnabled(server, on) } : {})}
             {...(onRemove ? { onRemove: () => onRemove(server) } : {})}
           />
+          {server.madeBy === "psyche" ? (
+            <McpCodePanel server={server} {...(now === undefined ? {} : { now })} />
+          ) : null}
         </>
       ) : null}
     </article>

@@ -1,4 +1,5 @@
 import {
+  AGENT_NOTES_DIR,
   type MethodName,
   type MethodParams,
   type MethodResult,
@@ -612,10 +613,14 @@ export class GatewayStore {
       case "goal.updated":
         return touch(put(s, "goals", e.payload.goal), `goals:${e.payload.goal.id}`, v);
       case "memory.file.changed":
-        return {
-          ...s,
-          memoryEtags: { ...s.memoryEtags, [e.payload.path]: e.payload.etag ?? null },
-        };
+        return invalidate(
+          {
+            ...s,
+            memoryEtags: { ...s.memoryEtags, [e.payload.path]: e.payload.etag ?? null },
+          },
+          // The agent's own notes list (Soul & Memory) follows the files.
+          e.payload.path.startsWith(AGENT_NOTES_DIR) ? ["memory.notes."] : [],
+        );
       case "connectors.updated":
         // Settings → Connectors and onboarding read connectors.list; a finished sign-in,
         // a disconnect or a revoked token refreshes it (#505).

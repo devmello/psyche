@@ -110,6 +110,10 @@ Lines are matched both as written and shell-normalized (continuations joined, qu
 
 Scanners lag campaigns (security §2); the scan is one layer. The others are the approval, the lock, the untrusted provenance of third-party text and the rule that a skill never widens tool policy.
 
+## Skills the agent writes (self-extension)
+
+`skill_create`, `skill_update` and `skill_delete` (`src/author.ts`) let the agent keep a procedure it worked out. Each call is one device-only `skill_install` card (`once` only, destructive class, so a tainted turn offers nothing else) that shows the full `SKILL.md`, every resource and, on an update, the diff against the approved version. Nothing is written or loaded before the owner approves; the tool then installs exactly the reviewed tree, pins its hash in `skills.lock.json` with `author: "agent"` and trust `unknown`, and every load re-hashes (`hash_mismatch` disables a tampered skill). Validation: `parseSkill`, size caps (`AUTHOR_LIMITS`), relative non-hidden resource paths only, the install policy (forbidden permissions and tools are refused before any card), and the scanner (high findings refuse the call). The agent can only update or delete skills it made. The previous approved version is kept under `skills/.history/<name>/<n>/` (never loaded; listed as `history` on `skills.list`).
+
 ## Storage
 
 - `skills` table (data model §10; migration `packages/db/migrations/202610191300_skills_init.sql`, mirror `packages/db/src/schema-s16.ts`): one row per (source, name) with the owner's `enabled` switch, last seen hash, trust and version. `MemorySkillStateStore` for tests.

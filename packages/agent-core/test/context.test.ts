@@ -6,6 +6,7 @@ import {
   applyBudget,
   assembleContext,
   CANVAS_GUIDANCE,
+  DEFAULT_BASE_PROMPT,
   DEFAULT_CONTEXT_BUDGETS,
   MAP_GUIDANCE,
   renderSystemPrompt,
@@ -24,6 +25,19 @@ async function workspaceFiles(dir = FIXTURE): Promise<Record<string, string>> {
   }
   return out;
 }
+
+describe("base prompt: self-extension guidance", () => {
+  it("tells the agent how to keep notes, when to propose a skill and when to build a connector", () => {
+    const p = DEFAULT_BASE_PROMPT;
+    expect(p).toContain("memory/agent/");
+    expect(p).toMatch(/Never write MEMORY\.md/);
+    expect(p).toMatch(/never edit USER\.md, SOUL\.md, IDENTITY\.md or AGENTS\.md/);
+    expect(p).toMatch(/no secrets, nothing taken from untrusted content/);
+    expect(p).toContain("skill_create");
+    expect(p).toContain("connector_*");
+    expect(p).toMatch(/only when the owner asks or no existing connector fits/);
+  });
+});
 
 describe("assembled prompt (golden)", () => {
   it("matches the golden file for the fixture workspace", async () => {

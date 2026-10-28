@@ -39,6 +39,16 @@ export interface PsycheMcpServerConfig extends McpServerConfig {
    * itself ignores it; the Gateway's reconcile does not add a disabled server.
    */
   enabled?: boolean;
+  /**
+   * Written by Psyche itself (`connector_*` tools), not picked by the owner: the code lives in
+   * `$PSYCHE_HOME/agent-connectors/<id>`. Always tier `unknown`; it starts only while that code
+   * still hashes to `filesHash`, the tree the owner approved.
+   */
+  madeBy?: "psyche";
+  /** The manifest's version (a counter the agent bumps on update). */
+  version?: string;
+  /** Hash of the approved code tree (`treeHash` of the files); checked before every start. */
+  filesHash?: string;
   /** The server's own names of tools the owner withholds from the agent (`registerMcpServerTools`'s `offer`). */
   disabledTools?: string[];
 }
@@ -538,6 +548,9 @@ export class PsycheMcpHost implements McpHost {
       ...(s.config.cwd === undefined ? {} : { cwd: s.config.cwd }),
       sandbox: {
         allowedDomains: s.config.sandbox?.allowedDomains ?? [],
+        ...(s.config.sandbox?.allowRead === undefined
+          ? {}
+          : { allowRead: s.config.sandbox.allowRead }),
         allowWrite: s.config.sandbox?.allowWrite ?? [],
         denyRead: s.config.sandbox?.denyRead ?? [],
       },

@@ -9,6 +9,7 @@ import type {
   ModelRoles,
 } from "@psyche/protocol";
 import {
+  AGENT_NOTES_DIR,
   type ApprovalRequest,
   type Artifact,
   type ArtifactTableView,
@@ -335,6 +336,8 @@ export class MockGateway implements GatewayClient {
   };
 
   private mcpProposals = new Map<string, { proposal: McpProposal; approvalId: string }>();
+  /** Code of the servers Psyche made (`mcp.files.*`), by server id then path. */
+  private mcpFiles = new Map<string, Map<string, string>>();
   /** What an added server's detail shows: its tools (the owner's switches) and secrets by name. */
   private mcpDetail = new Map<string, { tools: McpServerTool[]; secrets: McpServerSecret[] }>();
 
@@ -352,6 +355,11 @@ export class MockGateway implements GatewayClient {
       this.mcpDetail.set(serverId, d);
     }
     return d;
+  }
+
+  /** The code of a server Psyche made (stories, tests); the server itself is `seedMcpServer`. */
+  seedMcpFiles(serverId: string, files: Record<string, string>): void {
+    this.mcpFiles.set(serverId, new Map(Object.entries(files)));
   }
 
   /** A server already added, with the tools and secrets its detail shows (stories, tests). */
@@ -2140,6 +2148,24 @@ export class MockGateway implements GatewayClient {
       });
       return { path: p.path, bytes: content.length, updatedAt: this.now(), etag: etagOf(content) };
     },
+    "memory.notes.list": () => ({
+      notes: Object.entries(this.world.memoryFiles)
+        .filter(([path]) => path.startsWith(AGENT_NOTES_DIR))
+        .map(([path, content]) => ({
+          path,
+          updatedAt: this.now(),
+          text: content.slice(0, 600),
+          bytes: content.length,
+          provenance: /\[untrusted\]/i.test(content) ? ("untrusted" as const) : ("agent" as const),
+        })),
+    }),
+    "memory.notes.delete": (p) => {
+      if (!p.path.startsWith(AGENT_NOTES_DIR)) fail("invalid_params", "not an agent note");
+      const removed = this.world.memoryFiles[p.path] !== undefined;
+      delete this.world.memoryFiles[p.path];
+      if (removed) this.emit("memory.file.changed", { path: p.path, etag: null, source: "api" });
+      return { removed };
+    },
     "memory.files.list": (p) => ({
       files: Object.entries(this.world.memoryFiles)
         .filter(([path]) => p.prefix === undefined || path.startsWith(p.prefix))
@@ -2410,6 +2436,13 @@ export class MockGateway implements GatewayClient {
         fail("approval_required", "adding an MCP server needs its approved trust card");
       this.mcpProposals.delete(p.proposalId);
       const s = staged.proposal.server;
+      const made = this.mcpServers.find((x) => x.id === s.id && x.madeBy === "psyche");
+      if (made !== undefined) {
+        // An update of a connector Psyche wrote: the new code starts, the entry stays.
+        made.connected = true;
+        made.version = String(Number(made.version ?? "1") + 1);
+        return { server: structuredClone(made) };
+      }
       const server: McpServerStatus = {
         id: s.id,
         name: s.name,
@@ -2447,6 +2480,87 @@ export class MockGateway implements GatewayClient {
       this.mcpServers.splice(i, 1);
       this.mcpDetail.delete(p.serverId);
       return { ok: true as const };
+    },
+    "mcp.files.read": (p) => {
+      const s = this.mcpServer(p.serverId);
+      const files =
+        s.madeBy === "psyche" ? this.mcpFiles.get(p.serverId) : undefined;
+      if (files === undefined) fail("not_found", `${p.serverId} was not made by Psyche`);
+      return {
+        files: [...(files ?? [])].map(([path, content]) => ({
+          path,
+          content,
+          bytes: content.length,
+        })),
+        version: s.version ?? "1",
+        runtime: "node" as const,
+        entry: "server.mjs",
+        modified: s.connected === false,
+      };
+    },
+    "mcp.files.write": (p) => {
+      const s = this.mcpServer(p.serverId);
+      const files =
+        s.madeBy === "psyche" ? this.mcpFiles.get(p.serverId) : undefined;
+      if (files === undefined) fail("not_found", `${p.serverId} was not made by Psyche`);
+      const before = files?.get(p.path) ?? "";
+      files?.set(p.path, p.content);
+      s.connected = false;
+      const now = this.now();
+      const proposal: McpProposal = {
+        id: this.id("mcpp"),
+        server: {
+          id: s.id,
+          name: s.name,
+          transport: { kind: "stdio", command: ["node", "server.mjs"] },
+        },
+        tools: [],
+        toolsListHash: `sha256:${"d".repeat(64)}`,
+        network: { reaches: false, hosts: [] },
+        isolation: "srt",
+        expiresAt: Date.parse(now) + 30 * 60_000,
+      };
+      const approval = this.requestApproval({
+        id: this.id("apr"),
+        kind: "skill_install",
+        summary: `Update connector "${s.name}" written by Psyche`,
+        details: {
+          kind: "mcp_server",
+          madeBy: "psyche",
+          change: "update",
+          id: s.id,
+          name: s.name,
+          version: String(Number(s.version ?? "1") + 1),
+          previousVersion: s.version ?? "1",
+          command: "node server.mjs",
+          requestedNetwork: [],
+          tools: [],
+          files: [...(files ?? [])].map(([path, c]) => ({
+            path,
+            bytes: c.length,
+            lines: c.split("\n"),
+          })),
+          diff: [`--- a/${p.path}`, `+++ b/${p.path}`, "@@", ...before.split("\n").map((l) => `-${l}`), ...p.content.split("\n").map((l) => `+${l}`)],
+        },
+        bindingHash: `sha256:${"e".repeat(64)}`,
+        grantKey: `sha256:${"f".repeat(64)}`,
+        requestedBy: { runId: null, taskId: null, threadId: null },
+        sideEffect: "destructive",
+        surfaces: ["desktop", "web"],
+        scopesOffered: ["once"],
+        deviceOnly: true,
+        requiresAuthentication: false,
+        taint: false,
+        status: "pending",
+        scopeGranted: null,
+        decidedBy: null,
+        requestedAt: now,
+        expiresAt: new Date(Date.parse(now) + 30 * 60_000).toISOString(),
+        decidedAt: null,
+        grantId: null,
+      });
+      this.mcpProposals.set(proposal.id, { proposal, approvalId: approval.id });
+      return { proposal, approval };
     },
     "mcp.tools": (p) => {
       const s = this.mcpServer(p.serverId);

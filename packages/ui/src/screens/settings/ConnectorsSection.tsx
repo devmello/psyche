@@ -455,6 +455,7 @@ export function ConnectorsPanel({
                       server={s}
                       {...(mcp ? { onRemove: mcp.remove, onSetEnabled: mcp.setEnabled } : {})}
                       {...(onTry ? { onTry } : {})}
+                      {...(now === undefined ? {} : { now })}
                     />
                   </li>
                 ))

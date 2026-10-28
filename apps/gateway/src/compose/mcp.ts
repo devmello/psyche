@@ -26,9 +26,10 @@ import {
   type ToolRegistry,
 } from "@psyche/protocol";
 import type { Gateway } from "../server.ts";
-import { mcpAddHandlers } from "./mcp-add.ts";
+import { mcpAdder } from "./mcp-add.ts";
 import { mcpGrantRevocation } from "./mcp-grants.ts";
 import { mcpManageHandlers } from "./mcp-manage.ts";
+import { selfConnectorStore, selfConnectors } from "./self-connectors.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 import type { SrtResolver } from "./srt.ts";
 
@@ -104,6 +105,8 @@ function launcherFor(services: ComposeServices, setup: McpSetup): StdioLauncher 
  */
 function trustOf(c: PsycheMcpServerConfig): McpTrustTier {
   if (c.trust === "bundled") return "bundled";
+  // Code Psyche wrote for itself is never vouched for, whatever its command looks like.
+  if (c.madeBy === "psyche") return "unknown";
   const t = c.transport as Partial<PsycheMcpServerConfig["transport"]>;
   if (t.kind === "stdio" && Array.isArray(t.command)) {
     return mcpTrustFor({ kind: "stdio", command: t.command });
@@ -308,6 +311,12 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
     configs.set(config.id, runKey(config));
     offered.set(config.id, choices(config));
     try {
+      // Agent-made code starts only while it is the tree the owner approved.
+      const stale = await self.verifyMadeBy(config);
+      if (stale !== undefined) {
+        warn("agent-made mcp server not started", { serverId: config.id, reason: stale });
+        return;
+      }
       const info = await host.addServer(config);
       if (info.status !== "connected") {
         warn("mcp server did not connect", { serverId: config.id, status: info.status });
@@ -360,7 +369,14 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
       const c = next.get(id);
       // A changed config is a different server: its grants end with the old one. A server the
       // owner turned off stops the same way, and starts again as a new one when turned on.
-      if (c === undefined || c.enabled === false || runKey(c) !== configs.get(id)) await remove(id);
+      if (
+        c === undefined ||
+        c.enabled === false ||
+        runKey(c) !== configs.get(id) ||
+        (await self.verifyMadeBy(c)) !== undefined
+      ) {
+        await remove(id);
+      }
     }
     for (const c of wanted) if (c.enabled !== false && !configs.has(c.id)) await add(c);
     // The owner's tool choices: re-register what is offered; the server keeps running.
@@ -399,6 +415,9 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
       network: http || (c.sandbox?.allowedDomains?.length ?? 0) > 0,
       connected: registrations.has(c.id),
       ...(c.enabled === false ? { enabled: false } : {}),
+      ...(c.madeBy === "psyche"
+        ? { madeBy: "psyche" as const, ...(c.version === undefined ? {} : { version: c.version }) }
+        : {}),
     };
   };
   /** Stops and starts a running server again, so a new secret is read at spawn. */
@@ -408,10 +427,34 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
     await remove(serverId);
     await add(c);
   };
+  const adder = mcpAdder({
+    services,
+    settingKey: MCP_SERVERS_SETTING,
+    launcher,
+    secrets,
+    ...(setup.hostOptions === undefined ? {} : { hostOptions: setup.hostOptions }),
+    apply: (value) => enqueue(value),
+    status: (id) => {
+      const c = known.get(id);
+      return c === undefined ? undefined : statusOf(c);
+    },
+    toolsHash: (id) => (registrations.has(id) ? host.describe(id).toolsListHash : undefined),
+    removed: (entry) => self.removed(entry),
+  });
+  // Connectors Psyche writes for itself (`connector_*` tools; same probe → card → add path).
+  const self = selfConnectors({
+    services,
+    settingKey: MCP_SERVERS_SETTING,
+    adder,
+    store: selfConnectorStore(services.home),
+    reconcile: () => enqueue(getSetting(services.db, MCP_SERVERS_SETTING)?.value),
+  });
+  const unregisterSelfTools = self.tools.map((t) => services.tools.register(t));
   return {
     host,
     idle: () => queue,
     handlers: {
+      ...self.handlers,
       // For `psyche security audit` (security §11 "MCP servers") and Settings → MCP.
       "mcp.status": {
         run: async () => ({
@@ -420,19 +463,7 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
         }),
       },
       // Settings → MCP (#529): probe in the sandbox, trust card, then add.
-      ...mcpAddHandlers({
-        services,
-        settingKey: MCP_SERVERS_SETTING,
-        launcher,
-        secrets,
-        ...(setup.hostOptions === undefined ? {} : { hostOptions: setup.hostOptions }),
-        apply: (value) => enqueue(value),
-        status: (id) => {
-          const c = known.get(id);
-          return c === undefined ? undefined : statusOf(c);
-        },
-        toolsHash: (id) => (registrations.has(id) ? host.describe(id).toolsListHash : undefined),
-      }),
+      ...adder.handlers,
       // A server's detail (tools, on/off, secrets).
       ...mcpManageHandlers({
         services,
@@ -463,6 +494,7 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
     },
     async stop() {
       unsubscribe?.();
+      for (const unregister of unregisterSelfTools) unregister();
       await queue;
       for (const reg of registrations.values()) reg.unregister();
       registrations.clear();

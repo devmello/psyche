@@ -37,6 +37,7 @@ import { PeopleSheetSection } from "../people/PeopleSheetSection.tsx";
 import { usePersona, useSlots } from "../slots.tsx";
 import { lessonsAt, useLessons } from "../teaching/hooks.ts";
 import { LessonMark, lessonMarkLabel } from "../teaching/LessonMark.tsx";
+import { AgentNotes } from "./AgentNotes.tsx";
 
 /** Persona files and their budgets (architecture §4.2: 20k per file, 4k for USER.md). */
 export const PERSONA_FILES = [
@@ -415,6 +416,8 @@ export function SoulMemoryPanel({
           ),
         )}
       </GroupedList>
+
+      <AgentNotes />
 
       <PeopleSheetSection {...(initialEntity ? { initialEntity } : {})} />
 

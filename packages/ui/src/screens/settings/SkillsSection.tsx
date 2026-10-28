@@ -15,7 +15,7 @@ import { Label } from "../../components/ui/label.tsx";
 import { Switch } from "../../components/ui/switch.tsx";
 import { answerApproval, useApproval, useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { useStore } from "../../data/provider.tsx";
-import { t } from "../../i18n/core.ts";
+import { activeI18n, t } from "../../i18n/core.ts";
 import { usePersona } from "../../slots.tsx";
 import { useLessons } from "../../teaching/hooks.ts";
 import { LessonMark } from "../../teaching/LessonMark.tsx";
@@ -81,6 +81,7 @@ const STATUS_TONE: Record<SkillDetails["status"], Tone> = {
   shadowed: "neutral",
 };
 
+const DAY = { month: "short", day: "numeric" } as const;
 const trustLabel = (trust: SkillDetails["trust"]): string => t(`settings.skills.trust.${trust}`);
 
 const show = (s: string, max = 300) => sanitizeDisplay(s, max);
@@ -365,6 +366,7 @@ function SkillRow({
   onReviewUpdate?: SkillsPanelProps["onReviewUpdate"];
 }): ReactElement {
   const id = useId();
+  const persona = usePersona().name;
 
   const toggleable = skill.status === "active" || skill.status === "disabled";
   const name = show(skill.name, 64);
@@ -380,6 +382,9 @@ function SkillRow({
         <StatusChip tone={STATUS_TONE[skill.status]}>
           {t(`settings.skills.status.${skill.status}`)}
         </StatusChip>
+        {skill.madeBy === "agent" ? (
+          <StatusChip tone="info">{t("settings.skills.madeByAgent", { persona })}</StatusChip>
+        ) : null}
         {skill.update?.updateAvailable ? (
           <StatusChip tone={skill.update.manifestChanged ? "approval" : "info"}>
             {t("settings.skills.updateAvailable", {
@@ -434,6 +439,26 @@ function SkillRow({
             {t("settings.skills.toolsLabel")}{" "}
             <code>{skill.manifest.tools.map((x) => show(x, 80)).join(", ")}</code>
           </p>
+        </details>
+      ) : null}
+      {skill.history !== undefined && skill.history.length > 0 ? (
+        <details className="text-xs text-muted-foreground" data-testid="skill-history">
+          <summary className="cursor-pointer">
+            {t("settings.skills.history", { n: skill.history.length })}
+          </summary>
+          <p className="mt-1">{t("settings.skills.historyHint")}</p>
+          <ul className="mt-1 flex flex-col gap-0.5">
+            {skill.history.map((v) => (
+              <li key={v.version}>
+                {t("settings.skills.historyItem", {
+                  version: v.version,
+                  approved: activeI18n().date(Date.parse(v.approvedAt), DAY),
+                  retiredBy: v.retiredBy,
+                  retired: activeI18n().date(Date.parse(v.retiredAt), DAY),
+                })}
+              </li>
+            ))}
+          </ul>
         </details>
       ) : null}
       {lessons.length > 0 ? (

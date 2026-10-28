@@ -65,6 +65,22 @@ export function skills(): SkillDetails[] {
       reasons: ["disabled by the owner"],
     }),
     skill({
+      name: "weekly-report",
+      description: "Write the weekly report from the notes folder.",
+      source: "home",
+      trust: "unknown",
+      madeBy: "agent",
+      history: [
+        {
+          version: 1,
+          hash: fakeSha("skill:weekly-report:v1"),
+          approvedAt: "2026-10-20T15:00:00.000Z",
+          retiredAt: "2026-10-24T15:00:00.000Z",
+          retiredBy: "update",
+        },
+      ],
+    }),
+    skill({
       name: "receipt-filer",
       description: "Save receipts from mail into Documents/Receipts with a dated file name.",
       source: "home",

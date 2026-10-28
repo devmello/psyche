@@ -19,6 +19,7 @@ import { fileTools } from "@psyche/files";
 import {
   brokerApprovalCheck,
   consolidateLessons,
+  createAgentNoteHandlers,
   createMemoryHandlers,
   createMemoryStore,
   ownerTimeZone,
@@ -1305,6 +1306,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       run: async () => ({ ...(await memory.status()), recall: memoryRecall.status() }),
     },
     ...mountParamsOnly(userProfile.handlers as never),
+    // The owner's list and delete for the agent's own notes (memory/agent/).
+    ...mountParamsOnly(createAgentNoteHandlers(memory) as never),
     ...teaching.handlers,
     ...mountParamsOnly(
       context.handlers(

@@ -1,6 +1,11 @@
 import type { TurnContextProvider } from "@psyche/agent-core";
 import { getSetting, getThread, type PsycheDb } from "@psyche/db";
-import { type Embedder, memoryRecall, type SqliteMemoryStore } from "@psyche/memory";
+import {
+  type Embedder,
+  memoryRecall,
+  recentAgentNotes,
+  type SqliteMemoryStore,
+} from "@psyche/memory";
 import {
   MEMORY_RECALL_MODE_SETTING,
   type MemoryRecallMode,
@@ -28,6 +33,7 @@ import { type SemanticEngines, semanticConfig } from "./search-semantic.ts";
  * - `builtin`: the on-device model if it is already downloaded (turning on semantic search
  *   downloads it), loaded on the first embed and freed after a minute idle, so idle RAM stays
  *   where it was. Nothing is downloaded from here.
+ * In `markdown` mode the section carries only the agent's own recent notes (`memory/agent/`).
  * Without one (model missing, role blocked) recall still runs and matches words only (FTS5),
  * the status says why (`text_only` + `fallback`). Memory changes reindex as they happen.
  */
@@ -180,10 +186,13 @@ export function createMemoryRecall(deps: MemoryRecallDeps) {
   const recall: TurnContextProvider = {
     name: "memory_recall",
     async provide(input) {
-      if (status.mode !== "embeddings") return undefined;
       if (!RECALL_THREADS.has(getThread(db, input.threadId)?.kind ?? "")) return undefined;
-      // Only owner and agent chunks: the section is trusted and the turn keeps its tools.
-      const lines = await memoryRecall(memory, input.text, { limit: 5, maxChars: 1_100 });
+      // Only owner and agent text: the section is trusted and the turn keeps its tools. Markdown
+      // mode has no search, so the agent's own notes (memory/agent/) are what it recalls.
+      const lines =
+        status.mode === "embeddings"
+          ? await memoryRecall(memory, input.text, { limit: 5, maxChars: 1_100 })
+          : await recentAgentNotes(memory, { limit: 5, maxChars: 1_100 });
       if (lines.length === 0) return undefined;
       return {
         sections: [{ title: RECALL_TITLE, text: lines.join("\n") }],

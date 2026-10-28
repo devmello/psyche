@@ -77,6 +77,8 @@ export const BROWSER_WRITE_TOOLS =
 const SIDE_EFFECT_FLOORS: { re: RegExp; floor: SideEffect }[] = [
   { re: /^(purchase|checkout|link\.|payments?\.)/, floor: "financial" },
   { re: /^exec_host$/, floor: "destructive" },
+  // Runs code the agent wrote (`connector_test`); `connector_remove` is caught by the delete rule.
+  { re: /^connector_test$/, floor: "destructive" },
   { re: /^browser\.submit$/, floor: "destructive" },
   {
     re: /(^|[._])(delete|remove|trash|unsubscribe|revoke|oauth_consent|accept_terms|consent)([._]|$)/,
@@ -91,6 +93,8 @@ const SIDE_EFFECT_FLOORS: { re: RegExp; floor: SideEffect }[] = [
     floor: "write",
   },
   { re: /^(write_file|edit_file|credentials\.request|memory)$/, floor: "write" },
+  // The agent writing its own skills: always a card, whatever the registry declares.
+  { re: /^skill_(create|update|delete)$/, floor: "destructive" },
   { re: /^code\.(edit|run)$/, floor: "write" },
   { re: /^browser\.(click|type|select|fill|press|drag|upload|key)$/, floor: "write" },
 ];
@@ -125,7 +129,8 @@ export function inferApprovalKind(tool: string): ApprovalKind {
   if (tool.startsWith("mcp__")) return "mcp_tool";
   if (tool.startsWith("computer.")) return "computer_action";
   if (tool === "memory") return "memory_protected_write";
-  if (tool === "skills.install") return "skill_install";
+  if (tool === "skills.install" || /^skill_(create|update|delete)$/.test(tool))
+    return "skill_install";
   if (tool === "exit_plan_mode" || tool === "ExitPlanMode") return "plan_exit";
   // Delegation is a `write` (design-08): it gets its own card, not a generic connector action.
   if (tool === "task.start" || tool === "task.create") return "task_start";

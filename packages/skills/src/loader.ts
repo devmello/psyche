@@ -15,6 +15,7 @@ import {
   type LoadedSkill,
   type PermissionBroker,
   PsycheError,
+  type SkillAuthorVersion,
   type SkillInstallProposal,
   type SkillInstallSource,
   type SkillLoader,
@@ -91,6 +92,10 @@ export interface SkillDetails extends SkillSummary {
   manifest?: SkillManifest;
   /** The last update check for an installed skill (`checkUpdates`). */
   update?: SkillUpdateCheck;
+  /** Psyche wrote this skill (lock entry `author`). */
+  madeBy?: "agent";
+  /** Earlier approved versions of an agent-made skill, newest first. */
+  history?: SkillAuthorVersion[];
   /**
    * The background specialist role this skill defines (`metadata.psyche.specialist`,
    * docs/agent/specialists-2026.md §5). `tools` is the resolved allowlist when the Gateway's
@@ -112,6 +117,8 @@ export interface SkillProposal extends SkillInstallProposal {
   /** Epoch ms. */
   expiresAt: number;
   manifest: SkillManifest;
+  /** Psyche wrote this skill (self-extension); recorded in the lock entry. */
+  author?: "agent";
 }
 
 export type SkillChangeEvent =
@@ -366,6 +373,7 @@ export class FsSkillLoader implements SkillLoader {
       if (lk !== undefined) {
         entry.lock = lk;
         details.trust = lk.trust;
+        if (lk.author === "agent") details.madeBy = "agent";
         if (lk.commit !== undefined) details.commit = lk.commit;
       }
       if (needsLock && lk === undefined) {
@@ -450,6 +458,7 @@ export class FsSkillLoader implements SkillLoader {
       const d = structuredClone(e.details);
       const u = d.source === "home" ? this.#updates.get(d.name) : undefined;
       if (u !== undefined && u.installedHash === d.hash) d.update = structuredClone(u);
+      if (d.madeBy === "agent") d.history = this.history(d.name);
       return d;
     });
   }
@@ -652,7 +661,7 @@ export class FsSkillLoader implements SkillLoader {
   /** Re-fetches an installed skill from its pinned source and stages the update with a diff. */
   async proposeUpdate(name: string, ref?: string): Promise<SkillProposal> {
     const lk = this.#readLock().skills[lockKey("home", name)];
-    if (lk === undefined || lk.origin.kind === "workspace")
+    if (lk === undefined || lk.origin.kind === "workspace" || lk.author === "agent")
       throw new PsycheError("not_found", `${name} was not installed from a source`);
     const origin: SkillInstallSource =
       lk.origin.kind === "git" && ref !== undefined ? { ...lk.origin, ref } : lk.origin;
@@ -888,6 +897,7 @@ export class FsSkillLoader implements SkillLoader {
       approvedAt,
       findings: counts,
       manifest: p.manifest,
+      ...(p.author === undefined ? {} : { author: p.author }),
     };
     writeLock(this.lockPath, lock);
     this.#state.upsert({
@@ -900,6 +910,168 @@ export class FsSkillLoader implements SkillLoader {
       ...(version === undefined ? {} : { version }),
       installedAt: approvedAt,
     });
+  }
+
+  // --- Agent-made skills (self-extension) ------------------------------------------------------
+
+  /** Policy violations of a manifest under the owner's current install policy. */
+  policyViolations(manifest: SkillManifest): string[] {
+    return policyViolations(manifest, this.#policy());
+  }
+
+  /**
+   * The approved, agent-made skill `name` in `$PSYCHE_HOME/skills`: its folder, tree and lock
+   * entry. `undefined` for anything else (bundled, workspace, owner-installed, never approved).
+   * `intact` is false when the files no longer match the approved hash.
+   */
+  agentOwned(
+    name: string,
+  ): { dir: string; tree: SkillTree; lock: LockEntry; intact: boolean } | undefined {
+    if (!NAME_PATTERN.test(name)) return undefined;
+    const lock = this.#readLock().skills[lockKey("home", name)];
+    if (lock?.author !== "agent") return undefined;
+    const dir = join(this.#o.homeDir, name);
+    if (!existsSync(join(dir, "SKILL.md"))) return undefined;
+    const tree = readSkillDir(dir);
+    return { dir, tree, lock, intact: treeHash(tree) === lock.treeHash };
+  }
+
+  /** `$PSYCHE_HOME/skills/.history/<name>`: earlier approved versions (never loaded). */
+  #historyDir(name: string): string {
+    return join(this.#o.homeDir, ".history", name);
+  }
+
+  /** Earlier approved versions of an agent-made skill, newest first. */
+  history(name: string): SkillAuthorVersion[] {
+    if (!NAME_PATTERN.test(name)) return [];
+    const root = this.#historyDir(name);
+    if (!existsSync(root)) return [];
+    const out: SkillAuthorVersion[] = [];
+    for (const n of readdirSync(root)) {
+      try {
+        const m = JSON.parse(
+          readFileSync(join(root, n, "meta.json"), "utf8"),
+        ) as SkillAuthorVersion;
+        out.push({
+          version: m.version,
+          hash: m.hash,
+          approvedAt: m.approvedAt,
+          retiredAt: m.retiredAt,
+          retiredBy: m.retiredBy,
+        });
+      } catch {
+        // A half-written or foreign folder is not a version.
+      }
+    }
+    return out.sort((a, b) => b.version - a.version);
+  }
+
+  /** Keeps the approved version that is about to be replaced or deleted (at most 20 per skill). */
+  #retire(name: string, retiredBy: "update" | "delete"): void {
+    const owned = this.agentOwned(name);
+    // Only approved content is history: a tampered tree is not kept as "approved".
+    if (owned === undefined || !owned.intact) return;
+    const root = this.#historyDir(name);
+    const last = this.history(name)[0]?.version ?? 0;
+    const dir = join(root, String(last + 1));
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    writeTree(root, join(dir, "tree"), owned.tree);
+    const meta: SkillAuthorVersion = {
+      version: last + 1,
+      hash: owned.lock.treeHash,
+      approvedAt: owned.lock.approvedAt,
+      retiredAt: new Date(this.#now()).toISOString(),
+      retiredBy,
+    };
+    writeFileSync(join(dir, "meta.json"), `${JSON.stringify(meta, null, 2)}\n`, { mode: 0o600 });
+    for (const old of this.history(name).slice(20)) {
+      rmSync(join(root, String(old.version)), { recursive: true, force: true });
+    }
+  }
+
+  /**
+   * Installs a skill the agent wrote, after the owner approved the tool call's `skill_install` card
+   * (the agent loop verified the approval; `approvalId` is recorded). Trust stays `unknown`, the
+   * lock entry carries `author: "agent"`, the previous approved version is kept in `.history/`.
+   */
+  async installAgentTree(a: {
+    name: string;
+    tree: SkillTree;
+    approvalId: string;
+    update: boolean;
+  }): Promise<SkillSummary> {
+    const text = textOf(a.tree.get("SKILL.md") ?? { bytes: new Uint8Array(), executable: false });
+    const parsed = text === undefined ? undefined : parseSkill(text, a.name);
+    if (parsed === undefined || !parsed.ok)
+      throw new PsycheError("invalid_params", "not a valid skill");
+    const declared = manifestOf(parsed.skill.meta, a.tree);
+    if (!declared.ok)
+      throw new PsycheError(
+        "invalid_params",
+        `invalid skill manifest: ${declared.errors.join("; ")}`,
+      );
+    const violations = policyViolations(declared.manifest, this.#policy());
+    if (violations.length > 0)
+      throw new PsycheError(
+        "policy_denied",
+        `skill ${a.name} asks for more than the policy allows: ${violations.join("; ")}`,
+        {
+          details: { name: a.name, violations, manifest: declared.manifest },
+        },
+      );
+    const findings = scanSkillTree(a.tree, a.name);
+    if (hasBlockingFindings(findings))
+      throw new PsycheError("policy_denied", `the scan of ${a.name} has high-severity findings`);
+    const hash = treeHash(a.tree);
+    const target = join(this.#o.homeDir, a.name);
+    this.#busy = true;
+    try {
+      if (a.update) this.#retire(a.name, "update");
+      writeTree(this.#o.homeDir, target, a.tree);
+      this.#writeInstall(
+        {
+          id: "",
+          name: a.name,
+          source: { kind: "path", path: `agent/${a.name}` },
+          text: text ?? "",
+          hash,
+          trust: "unknown",
+          findings,
+          approvalKind: "skill_install",
+          files: [],
+          scope: "home",
+          bindingHash: "sha256:" as never,
+          grantKey: "",
+          expiresAt: 0,
+          manifest: declared.manifest,
+          author: "agent",
+        },
+        a.approvalId,
+        target,
+      );
+    } finally {
+      this.#busy = false;
+    }
+    await this.#o.broker?.recordReceipt({
+      kind: "skill_install",
+      outcome: "ok",
+      summary: `${a.update ? "Updated" : "Installed"} skill ${a.name} (made by Psyche)`,
+      approvalId: a.approvalId,
+      externalRefs: { skill: a.name, hash },
+    });
+    this.refresh();
+    this.#o.onChange?.({ type: "installed", name: a.name, hash, enabled: true });
+    const e = this.#entries.find((x) => x.details.name === a.name && x.details.source === "home");
+    if (e === undefined) throw new PsycheError("internal", "installed skill did not load");
+    return toSummary(e.details);
+  }
+
+  /** Removes an agent-made skill after the owner approved the delete; keeps its last version. */
+  async removeAgentSkill(name: string): Promise<void> {
+    if (this.agentOwned(name) === undefined)
+      throw new PsycheError("not_found", `no skill made by Psyche named ${name}`);
+    this.#retire(name, "delete");
+    await this.remove(name);
   }
 
   /**
@@ -956,7 +1128,7 @@ export class FsSkillLoader implements SkillLoader {
     const lock = this.#readLock();
     const out: SkillUpdateCheck[] = [];
     for (const lk of Object.values(lock.skills)) {
-      if (lk.scope !== "home" || lk.origin.kind === "workspace") continue;
+      if (lk.scope !== "home" || lk.origin.kind === "workspace" || lk.author === "agent") continue;
       if (name !== undefined && lk.name !== name) continue;
       const installed = this.#entries.find(
         (e) => e.details.name === lk.name && e.details.source === "home",
