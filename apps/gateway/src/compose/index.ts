@@ -1328,6 +1328,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     goals: proactive.goals,
     // `search.semantic.engine: router`: the `embedding` role; a cloud one only with allowCloud (S4).
     routerEmbedder: (allowCloud) => routerEmbedder(router, allowCloud),
+    // Context cards at ingest: the utility model (cheap), a few items per minute, a daily budget.
+    cards: { provider, model: utility ?? modelRef },
     ...(gwOptions.semanticEngines === undefined
       ? {}
       : { semanticEngines: gwOptions.semanticEngines }),

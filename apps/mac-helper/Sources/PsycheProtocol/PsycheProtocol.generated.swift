@@ -988,6 +988,7 @@
 //   let searchBackfillStatus = try? JSONDecoder().decode(SearchBackfillStatus.self, from: jsonData)
 //   let searchGroup = try? JSONDecoder().decode(SearchGroup.self, from: jsonData)
 //   let searchHit = try? JSONDecoder().decode(SearchHit.self, from: jsonData)
+//   let searchHitCard = try? JSONDecoder().decode(SearchHitCard.self, from: jsonData)
 //   let searchHitGroup = try? JSONDecoder().decode(SearchHitGroup.self, from: jsonData)
 //   let searchIndexDocKind = try? JSONDecoder().decode(SearchIndexDocKind.self, from: jsonData)
 //   let searchIndexStatus = try? JSONDecoder().decode(SearchIndexStatus.self, from: jsonData)
@@ -23127,6 +23128,7 @@ public enum SearchGroup: String, Codable, Sendable {
 
 // MARK: - SearchHit
 public struct SearchHit: Codable, Sendable {
+    public let card: SearchHitCard?
     /// Epoch ms
     public let createdAt: Int?
     public let group: SearchGroup?
@@ -23144,6 +23146,7 @@ public struct SearchHit: Codable, Sendable {
     public let titleHighlights: [[Int]]?
 
     public enum CodingKeys: String, CodingKey {
+        case card = "card"
         case createdAt = "createdAt"
         case group = "group"
         case id = "id"
@@ -23160,7 +23163,8 @@ public struct SearchHit: Codable, Sendable {
         case titleHighlights = "titleHighlights"
     }
 
-    public init(createdAt: Int?, group: SearchGroup?, id: String, kind: SearchIndexDocKind?, match: SearchMatch?, provenance: Provenance?, route: String?, scope: SearchScope, score: Double, snippet: String, snippetHighlights: [[Int]]?, threadID: String?, title: String, titleHighlights: [[Int]]?) {
+    public init(card: SearchHitCard?, createdAt: Int?, group: SearchGroup?, id: String, kind: SearchIndexDocKind?, match: SearchMatch?, provenance: Provenance?, route: String?, scope: SearchScope, score: Double, snippet: String, snippetHighlights: [[Int]]?, threadID: String?, title: String, titleHighlights: [[Int]]?) {
+        self.card = card
         self.createdAt = createdAt
         self.group = group
         self.id = id
@@ -23175,6 +23179,29 @@ public struct SearchHit: Codable, Sendable {
         self.threadID = threadID
         self.title = title
         self.titleHighlights = titleHighlights
+    }
+}
+
+// MARK: - SearchHitCard
+public struct SearchHitCard: Codable, Sendable {
+    public let confidence: Double
+    public let questions: [String]
+    /// Source text the summary cites
+    public let span: String
+    public let summary: String
+
+    public enum CodingKeys: String, CodingKey {
+        case confidence = "confidence"
+        case questions = "questions"
+        case span = "span"
+        case summary = "summary"
+    }
+
+    public init(confidence: Double, questions: [String], span: String, summary: String) {
+        self.confidence = confidence
+        self.questions = questions
+        self.span = span
+        self.summary = summary
     }
 }
 

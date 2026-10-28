@@ -8,6 +8,8 @@ import type {
   SearchIndexResult,
 } from "@psyche/protocol";
 import type Database from "better-sqlite3";
+import { CardStore } from "./cards/store.ts";
+import type { ContextCard } from "./cards/types.ts";
 import { HL_CLOSE, HL_OPEN, snippetFor, stripMarkers } from "./highlight.ts";
 import { searchMemory } from "./memory.ts";
 import {
@@ -109,6 +111,8 @@ export class SqliteSearchIndex implements SearchIndex {
   #upsert: Database.Statement;
   #delete: Database.Statement;
   #semantic: SemanticSearch | undefined;
+  /** Context cards of indexed items (docs/design/grounded-ingest-2026.md). */
+  readonly cards: CardStore;
 
   constructor(db: Database.Database, options: SqliteSearchIndexOptions = {}) {
     this.db = db;
@@ -119,6 +123,7 @@ export class SqliteSearchIndex implements SearchIndex {
     this.#memory = options.memory;
     this.#tz = options.tzOffsetMinutes ?? 0;
     ensureSearchSchema(db);
+    this.cards = new CardStore(db);
     db.pragma("temp_store = MEMORY");
     db.exec("CREATE TEMP TABLE IF NOT EXISTS search_hits (rid INTEGER, grp TEXT, score REAL)");
     this.#upsert = db.prepare(`
@@ -173,7 +178,9 @@ export class SqliteSearchIndex implements SearchIndex {
       return;
     }
     const body = doc.text.length > this.#maxBody ? doc.text.slice(0, this.#maxBody) : doc.text;
-    const extra = [doc.from, ...(doc.tags ?? [])].filter((x) => x !== undefined && x !== "");
+    const extra = [doc.from, ...(doc.tags ?? []), this.cards.ftsFor(doc.id)].filter(
+      (x) => x !== undefined && x !== "",
+    );
     this.#upsert.run({
       id: doc.id,
       kind: doc.kind,
@@ -195,6 +202,33 @@ export class SqliteSearchIndex implements SearchIndex {
       created_ms: Math.trunc(doc.createdAt),
       updated_ms: Math.trunc(doc.updatedAt ?? doc.createdAt),
     });
+  }
+
+  /**
+   * Stores a context card for an indexed document and folds its words (summary, questions,
+   * entities, tags) into the document's full-text and embedding input. No-op when the document
+   * is gone (incognito or deleted meanwhile).
+   */
+  attachCard(card: ContextCard): boolean {
+    const row = this.db
+      .prepare("SELECT sender, tags FROM search_docs WHERE id = ?")
+      .get(card.docId) as { sender: string | null; tags: string } | undefined;
+    if (row === undefined) return false;
+    this.db.transaction(() => {
+      this.cards.put(card);
+      const extra = [
+        row.sender ?? "",
+        ...(JSON.parse(row.tags) as string[]),
+        this.cards.ftsFor(card.docId),
+      ]
+        .filter((x) => x !== "")
+        .join(" ");
+      this.db
+        .prepare("UPDATE search_docs SET extra = ? WHERE id = ?")
+        .run(clean(extra), card.docId);
+    })();
+    this.#semantic?.schedule?.();
+    return true;
   }
 
   async remove(id: string): Promise<void> {
@@ -712,6 +746,7 @@ export class SqliteSearchIndex implements SearchIndex {
       for (const r of rows) marked.set(r.rid, r);
     }
     const tokens = highlightTokens(parsed);
+    const previews = this.cards.previews(docs.map((d) => d.id));
     const out = new Map<number, RichHit>();
     for (const r of ranked) {
       const d = rowsById.get(r.rid);
@@ -738,6 +773,8 @@ export class SqliteSearchIndex implements SearchIndex {
       if (d.parent_id !== null) hit.parentId = d.parent_id;
       if (d.sender !== null) hit.from = d.sender;
       if (d.mime !== null) hit.mime = d.mime;
+      const card = previews.get(d.id);
+      if (card !== undefined) hit.card = card;
       out.set(r.rid, hit);
     }
     return out;

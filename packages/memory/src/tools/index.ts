@@ -115,7 +115,7 @@ function spec(
 export const memoryToolSpecs: readonly ToolSpec[] = [
   spec(
     "memory",
-    "Read and edit your memory files under /memories (the workspace): view, create, str_replace, insert, delete, rename. Daily notes in /memories/memory/ are append-only. SOUL.md, IDENTITY.md, USER.md, MEMORY.md and AGENTS.md change only with the owner's approval. What the owner tells you about themselves (name, timezone, work, education, skills, people, preferences, a resume they attach) is saved to USER.md automatically after the turn and the chat shows what was saved; do not ask to edit USER.md for that.",
+    "Read and edit your memory files under /memories (the workspace): view, create, str_replace, insert, delete, rename. Daily notes in /memories/memory/ are append-only. SOUL.md, IDENTITY.md, USER.md, MEMORY.md and AGENTS.md change only with the owner's approval. What the owner tells you about themselves (name, timezone, work, education, skills, people, preferences, a resume they attach) is saved to USER.md automatically after the turn and the chat shows what was saved; do not ask to edit USER.md for that. When you write a note yourself, give it full context from the conversation (who, what, when as a calendar date, where it came from, why it matters) and only what was actually said: no guesses, and mark anything you inferred as an inference.",
     MemoryCommandToolSchema,
     "write",
   ),
@@ -139,7 +139,7 @@ export const memoryToolSpecs: readonly ToolSpec[] = [
   ),
   spec(
     "remember",
-    "Append a fact to today's daily note. Facts the owner stated in this turn keep owner provenance; anything else is recorded as your inference.",
+    'Append a fact to today\'s daily note. Facts the owner stated in this turn keep owner provenance; anything else is recorded as your inference. Write the note so it can be found later without the conversation: say who it is about, what happened or was decided, when (the date it happened, spelled out, not "tomorrow"), where or in which app or thread it came from, and why it matters, using the owner\'s own words and names. Capture only what was actually said; never fill gaps with guesses, and say "not stated" rather than inventing a detail.',
     RememberInput,
     "write",
   ),
