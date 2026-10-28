@@ -4,7 +4,8 @@
  * viewers.tsx, so the web and desktop builds both get it.
  */
 .psy-viewer,
-.psy-viewer-state {
+.psy-viewer-state,
+.psy-md {
   --psy-border: var(--color-gray-6);
   --psy-text-muted: var(--color-muted-foreground);
   --psy-accent: var(--color-accent-9);

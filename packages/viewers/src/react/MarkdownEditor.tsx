@@ -19,6 +19,8 @@ import { ViewerMessage } from "./states.tsx";
 
 export type EditorMode = "rich" | "source" | "diff";
 
+const MODE_NAMES: Record<EditorMode, string> = { rich: "Rich", source: "Source", diff: "Diff" };
+
 export interface MarkdownEditorProps {
   /** Workspace-relative path (persona budgets, MEMORY.md note) or a Library name. */
   path: string;
@@ -41,6 +43,10 @@ export interface MarkdownEditorProps {
    * and Discard itself (the kit's editor slot, `ControlledMarkdownEditor`).
    */
   chrome?: "full" | "modes";
+  /** The Rich / Source / Diff names, for a host that localizes them. */
+  modeLabels?: Partial<Record<EditorMode, string>>;
+  /** The mode switch's accessible name. */
+  modesLabel?: string;
 }
 
 /**
@@ -205,10 +211,10 @@ function EditorBody(
       {/* biome-ignore lint/a11y/useSemanticElements: a button row, not a form group */}
       <div className="psy-md__bar" role="group" aria-label="Editor">
         {full ? <span className="psy-md__name">{props.path}</span> : null}
-        <fieldset className="psy-segmented" aria-label="Mode">
+        <fieldset className="psy-segmented" aria-label={props.modesLabel ?? "Mode"}>
           {(["rich", "source", "diff"] as const).map((m) => (
             <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)}>
-              {m === "rich" ? "Rich" : m === "source" ? "Source" : "Diff"}
+              {props.modeLabels?.[m] ?? MODE_NAMES[m]}
             </button>
           ))}
         </fieldset>

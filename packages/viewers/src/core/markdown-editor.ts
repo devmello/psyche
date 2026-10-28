@@ -106,6 +106,12 @@ export const richPreview: Extension = [
     ".cm-md-quote": { borderLeft: "3px solid rgba(127,127,127,.4)", paddingLeft: "8px" },
     ".cm-md-link": { textDecoration: "underline" },
   }),
+  // Rich reads as prose in the app's body face; code spans and fenced blocks keep the monospace
+  // above, and Source / Diff (which do not load this) stay monospace throughout.
+  EditorView.theme({
+    ".cm-scroller": { fontFamily: "var(--font-sans, system-ui, sans-serif)", lineHeight: "1.6" },
+    ".cm-md-code, .cm-md-codeblock": { fontFamily: "var(--font-mono, ui-monospace, monospace)" },
+  }),
 ];
 
 export interface MarkdownExtensionOptions {
