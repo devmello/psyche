@@ -6,7 +6,12 @@ import {
   type ArtifactOp,
   ArtifactTable,
   type ArtifactTableView,
+  applyDocOp,
+  applyStructuredOps,
+  DocumentError,
   PsycheError,
+  parseDeck,
+  parseWorkbook,
 } from "@psyche/protocol";
 import { Value } from "@sinclair/typebox/value";
 
@@ -28,6 +33,8 @@ const TEXT_TYPES = new Set<Artifact["type"]>([
 ]);
 const TABLE_TYPES = new Set<Artifact["type"]>(["table", "sheet"]);
 
+export const isDocumentType = (t: Artifact["type"]): t is "slides" | "workbook" =>
+  t === "slides" || t === "workbook";
 export const isMapType = (t: Artifact["type"]): boolean => t === "map";
 export const isChartType = (t: Artifact["type"]): boolean => t === "chart";
 export const isTextType = (t: Artifact["type"]): boolean => TEXT_TYPES.has(t);
@@ -54,7 +61,19 @@ function occurrences(haystack: string, needle: string): number {
 /** Clips an anchor for an error message so the model can see which one failed. */
 const clip = (s: string): string => JSON.stringify(s.length > 60 ? `${s.slice(0, 57)}…` : s);
 
-function applyTextOp(content: string, op: ArtifactOp, index: number): string {
+const SECTION_OPS = new Set(["replaceSection", "addSection", "removeSection"]);
+
+function applyTextOp(
+  content: string,
+  op: ArtifactOp,
+  index: number,
+  type: Artifact["type"],
+): string {
+  if (SECTION_OPS.has(op.op)) {
+    if (type !== "doc" && type !== "markdown")
+      throw bad(`op ${index}: ${op.op} applies to docs, not ${type}`);
+    return applyDocOp(content, op, index);
+  }
   switch (op.op) {
     case "replace": {
       const n = occurrences(content, op.old);
@@ -316,9 +335,16 @@ export function applyOps(
   if (isTextType(type)) {
     let next = content;
     ops.forEach((op, i) => {
-      next = applyTextOp(next, op, i);
+      next = applyTextOp(next, op, i, type);
     });
     return { content: next, view: null, rewrites };
+  }
+  if (isDocumentType(type)) {
+    try {
+      return { content: applyStructuredOps(type, content, ops), view: null, rewrites };
+    } catch (e) {
+      throw e instanceof DocumentError ? bad(e.message) : e;
+    }
   }
   if (isTableType(type)) {
     let table = parseTable(content);
@@ -355,6 +381,15 @@ export function applyOps(
 
 /** Normalizes content at create time (tables become canonical JSON). */
 export function normalizeContent(type: Artifact["type"], content: string): string {
+  if (isDocumentType(type)) {
+    try {
+      return type === "slides"
+        ? JSON.stringify(parseDeck(content), null, 1)
+        : JSON.stringify(parseWorkbook(content));
+    } catch (e) {
+      throw e instanceof DocumentError ? bad(e.message) : e;
+    }
+  }
   if (isChartType(type)) return JSON.stringify(parseChart(content));
   if (isMapType(type)) return JSON.stringify(parseMap(content));
   return isTableType(type) ? JSON.stringify(parseTable(content)) : content;
@@ -369,24 +404,28 @@ export function summarize(
   ops?: readonly ArtifactOp[],
   previous?: string,
 ): string {
-  const what = isMapType(type)
-    ? (() => {
-        const m = JSON.parse(content) as ArtifactMap;
-        return `map, ${m.markers.length} markers`;
-      })()
-    : isChartType(type)
+  const what = isDocumentType(type)
+    ? type === "slides"
+      ? `${(JSON.parse(content) as { slides: unknown[] }).slides.length} slides`
+      : `${(JSON.parse(content) as { sheets: unknown[] }).sheets.length} sheets`
+    : isMapType(type)
       ? (() => {
-          const c = JSON.parse(content) as ArtifactChart;
-          return `${c.kind} chart, ${c.series.length} series × ${c.categories.length} points`;
+          const m = JSON.parse(content) as ArtifactMap;
+          return `map, ${m.markers.length} markers`;
         })()
-      : isTableType(type)
+      : isChartType(type)
         ? (() => {
-            const t = JSON.parse(content) as ArtifactTable;
-            return `${t.rows.length} rows × ${t.columns.length} columns`;
+            const c = JSON.parse(content) as ArtifactChart;
+            return `${c.kind} chart, ${c.series.length} series × ${c.categories.length} points`;
           })()
-        : isTextType(type)
-          ? `${lineCount(content)} lines`
-          : "replaced";
+        : isTableType(type)
+          ? (() => {
+              const t = JSON.parse(content) as ArtifactTable;
+              return `${t.rows.length} rows × ${t.columns.length} columns`;
+            })()
+          : isTextType(type)
+            ? `${lineCount(content)} lines`
+            : "replaced";
   if (ops === undefined) return what;
   const counts = new Map<string, number>();
   for (const o of ops) counts.set(o.op, (counts.get(o.op) ?? 0) + 1);

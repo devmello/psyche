@@ -8,12 +8,17 @@ import { listArtifactsPage, listArtifactVersions, type PsycheDb } from "@psyche/
 import {
   ArtifactOp,
   type ArtifactVersion,
+  type Computed,
+  colToIndex,
+  computeWorkbook,
   type MethodParams,
   type MethodResult,
   PsycheError,
+  parseWorkbook,
   type ToolResult,
 } from "@psyche/protocol";
 import { Type } from "@sinclair/typebox";
+import { exportArtifact } from "../artifacts/documents.ts";
 import { ArtifactStore, type ArtifactWrite } from "../artifacts/store.ts";
 import type { Call, HandlerDef } from "../context.ts";
 import { decodeOffset, encodeOffset } from "../handlers/threads.ts";
@@ -135,6 +140,21 @@ export function artifactHandlers(store: ArtifactStore): Record<string, HandlerDe
       ): Promise<MethodResult<"artifacts.update">> =>
         writtenResult(await store.update(p.artifactId, p.base, p.ops, user)),
     },
+    "artifacts.export": {
+      run: async (
+        _c: Call,
+        p: MethodParams<"artifacts.export">,
+      ): Promise<MethodResult<"artifacts.export">> => {
+        const head = store.get(p.artifactId).artifact;
+        const at = store.contentAt(p.artifactId, p.version);
+        const file = await exportArtifact(head.type, head.title, at.content, p.format);
+        return {
+          name: file.name,
+          mime: file.mime,
+          data: Buffer.from(file.bytes).toString("base64"),
+        };
+      },
+    },
     "artifacts.restore": {
       run: async (
         _c: Call,
@@ -155,11 +175,13 @@ const CreateInput = Type.Object({
     Type.Literal("diff"),
     Type.Literal("map"),
     Type.Literal("html"),
+    Type.Literal("slides"),
+    Type.Literal("workbook"),
   ]),
   title: Type.String({ minLength: 1, maxLength: 200 }),
   content: Type.String({
     description:
-      "doc: markdown. code: the source. table: CSV with a header row, or JSON {columns, rows}. chart: JSON {kind: bar|line|area|pie, categories, series: [{name, values}]}. diagram: Mermaid text. diff: a unified diff. map: JSON {title?, markers: [{id, lat, lng, label, note?, link?}], routes?: [{label?, points: [[lat, lng], ...]}]} (only for places whose coordinates you already have from connector results or web search; never guess coordinates). html: one self-contained HTML document (inline CSS and script only; it runs in a sandbox with no network, so never reference outside URLs).",
+      "doc: markdown. code: the source. table: CSV with a header row, or JSON {columns, rows}. chart: JSON {kind: bar|line|area|pie, categories, series: [{name, values}]}. diagram: Mermaid text. diff: a unified diff. map: JSON {title?, markers: [{id, lat, lng, label, note?, link?}], routes?: [{label?, points: [[lat, lng], ...]}]} (only for places whose coordinates you already have from connector results or web search; never guess coordinates). slides: JSON {theme: light|dark|contrast, slides: [{id, layout: title|bullets|image|two-column|blank, title?, bullets?, bullets2?, image?, notes?}]}. workbook: JSON {sheets: [{name, cells: {A1: value | {f: SUM(B2:B9)}}}]} (row 1 is the header; read computed values with sheet.read). html: one self-contained HTML document (inline CSS and script only; it runs in a sandbox with no network, so never reference outside URLs).",
   }),
   language: Type.Optional(Type.String({ maxLength: 40, description: "code only, e.g. ts, py" })),
 });
@@ -205,6 +227,54 @@ function conflictOutput(w: ArtifactWrite): unknown {
   };
 }
 
+/** Computed cells of one sheet, windowed to `range`, capped. */
+export function readSheet(content: string, sheet?: string, range?: string) {
+  const wb = parseWorkbook(content);
+  const target =
+    sheet === undefined
+      ? wb.sheets[0]
+      : wb.sheets.find((s) => s.name.toLowerCase() === sheet.toLowerCase());
+  if (target === undefined)
+    throw new PsycheError(
+      "not_found",
+      `no sheet named ${sheet}; sheets: ${wb.sheets.map((s) => s.name).join(", ")}`,
+    );
+  const values = computeWorkbook(wb)[target.name] ?? {};
+  let inRange = (_c: number, _r: number) => true;
+  if (range !== undefined) {
+    const [a, b = a] = range.split(":") as [string, string?];
+    const pa = /^([A-Z]+)(\d+)$/.exec(a) as RegExpExecArray;
+    const pb = /^([A-Z]+)(\d+)$/.exec(b as string) as RegExpExecArray;
+    const [c0, c1] = [colToIndex(pa[1] as string), colToIndex(pb[1] as string)].sort(
+      (x, y) => x - y,
+    );
+    const [r0, r1] = [Number(pa[2]), Number(pb[2])].sort((x, y) => x - y);
+    inRange = (c, r) =>
+      c >= (c0 as number) && c <= (c1 as number) && r >= (r0 as number) && r <= (r1 as number);
+  }
+  const cells: Record<string, { value: Computed; formula?: string }> = {};
+  let n = 0;
+  let truncated = false;
+  for (const [ref, raw] of Object.entries(target.cells)) {
+    const m = /^([A-Z]+)(\d+)$/.exec(ref) as RegExpExecArray;
+    if (!inRange(colToIndex(m[1] as string), Number(m[2]))) continue;
+    if (++n > 2000) {
+      truncated = true;
+      break;
+    }
+    cells[ref] = {
+      value: values[ref] ?? null,
+      ...(raw !== null && typeof raw === "object" ? { formula: `=${raw.f}` } : {}),
+    };
+  }
+  return {
+    sheet: target.name,
+    sheets: wb.sheets.map((s) => s.name),
+    cells,
+    ...(truncated ? { truncated } : {}),
+  };
+}
+
 export function artifactTools(store: ArtifactStore): AgentToolRegistration[] {
   return [
     defineTool({
@@ -231,7 +301,7 @@ export function artifactTools(store: ArtifactStore): AgentToolRegistration[] {
             type: "artifact",
             artifactId: w.artifact.id,
             preview:
-              p.type === "table"
+              p.type === "table" || p.type === "workbook"
                 ? "sheet"
                 : p.type === "chart"
                   ? "dashboard"
@@ -248,7 +318,7 @@ export function artifactTools(store: ArtifactStore): AgentToolRegistration[] {
     defineTool({
       name: "artifact.update",
       description:
-        'Edit a canvas artifact with small ops on version `base`. Text: {op:"replace", old, new} (old must match exactly once; include enough context), {op:"insert", after, text} (after="" inserts at the start), {op:"rewrite", content} only when most of it changes. Charts: {op:"patch", patch} is a JSON merge patch onto the spec (arrays are replaced whole; null deletes a key). Maps: {op:"addMarker", marker}, {op:"removeMarker", id}, {op:"updateMarker", id, set:{lat?, lng?, label?, note?, link?}}. Tables (A1 = first data row): {op:"set", cell:"B3", value}, {op:"setRange", range, values}, {op:"addRows", rows, at?}, {op:"deleteRows", at, count}, {op:"addColumn", name, values?}, {op:"view", view:{sort?, filter?}}. If the user edited it since `base`, you get a conflict with what changed; nothing is written.',
+        'Edit a canvas artifact with small ops on version `base`. Text: {op:"replace", old, new} (old must match exactly once; include enough context), {op:"insert", after, text} (after="" inserts at the start), {op:"rewrite", content} only when most of it changes. Charts: {op:"patch", patch} is a JSON merge patch onto the spec (arrays are replaced whole; null deletes a key). Maps: {op:"addMarker", marker}, {op:"removeMarker", id}, {op:"updateMarker", id, set:{lat?, lng?, label?, note?, link?}}. Docs (also): {op:"replaceSection", heading, body}, {op:"addSection", after?, level, heading, body}, {op:"removeSection", heading}. Slides: {op:"addSlide", slide, at?}, {op:"updateSlide", id, changes}, {op:"removeSlide", id}, {op:"moveSlide", id, to}, {op:"setTheme", theme}. Workbooks: {op:"setCells", sheet, cells:{"B2": 5, "B3": {f:"B2*2"}, "C1": null}}, {op:"addSheet", name}, {op:"renameSheet", sheet, name}, {op:"removeSheet", sheet}. Tables (A1 = first data row): {op:"set", cell:"B3", value}, {op:"setRange", range, values}, {op:"addRows", rows, at?}, {op:"deleteRows", at, count}, {op:"addColumn", name, values?}, {op:"view", view:{sort?, filter?}}. If the user edited it since `base`, you get a conflict with what changed; nothing is written.',
       input: UpdateInput,
       sideEffect: "none",
       describeCall: (p) => ({ summary: `Edited artifact (${p.ops.length} ops)` }),
@@ -292,6 +362,36 @@ export function artifactTools(store: ArtifactStore): AgentToolRegistration[] {
             },
             // Content derived from tainted input stays tainted when read back.
             provenance: a.untrusted === true ? "untrusted" : "trusted",
+          };
+        } catch (e) {
+          return toolError(e);
+        }
+      },
+    }),
+    defineTool({
+      name: "sheet.read",
+      description:
+        "Read computed values from a workbook artifact: one sheet (default: the first), optionally a range like A1:D20. Formulas are evaluated (SUM, AVERAGE, MIN, MAX, COUNT, IF, ROUND, arithmetic, cross-sheet refs); errors read as #DIV/0!, #REF!, #NAME?. Returns the formula beside each computed value.",
+      input: Type.Object({
+        artifactId: Type.String(),
+        sheet: Type.Optional(Type.String()),
+        range: Type.Optional(
+          Type.String({ pattern: "^[A-Z]{1,3}[1-9][0-9]{0,5}(:[A-Z]{1,3}[1-9][0-9]{0,5})?$" }),
+        ),
+      }),
+      sideEffect: "none",
+      run: async (p) => {
+        try {
+          const a = store.get(p.artifactId);
+          if (a.artifact.type !== "workbook")
+            throw new PsycheError("invalid_params", "sheet.read applies to workbook artifacts");
+          return {
+            output: {
+              artifactId: a.artifact.id,
+              version: a.artifact.version,
+              ...readSheet(a.content, p.sheet, p.range),
+            },
+            provenance: a.artifact.untrusted === true ? "untrusted" : "trusted",
           };
         } catch (e) {
           return toolError(e);
@@ -364,6 +464,7 @@ export function composeArtifacts(services: ComposeServices): ComposedPart {
     publish: (artifact, version) =>
       services.publish("artifact.updated", { artifact, version }, artifact.threadId ?? undefined),
   });
+  if (services.documents !== undefined) services.documents.store = store;
   const unregister = artifactTools(store).map((t) => services.tools.register(t));
   return {
     handlers: artifactHandlers(store),

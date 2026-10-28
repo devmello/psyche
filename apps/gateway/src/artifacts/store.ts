@@ -29,6 +29,7 @@ import { libraryRoot } from "../compose/library.ts";
 import {
   applyOps,
   isChartType,
+  isDocumentType,
   isMapType,
   isTableType,
   isTextType,
@@ -83,6 +84,8 @@ const EXT: Partial<Record<Artifact["type"], string>> = {
   map: "json",
   diagram: "mmd",
   diff: "patch",
+  slides: "json",
+  workbook: "json",
 };
 const MIME: Partial<Record<Artifact["type"], string>> = {
   doc: "text/markdown",
@@ -95,6 +98,8 @@ const MIME: Partial<Record<Artifact["type"], string>> = {
   map: "application/json",
   diagram: "text/plain",
   diff: "text/x-diff",
+  slides: "application/json",
+  workbook: "application/json",
 };
 
 export function slugify(title: string): string {
@@ -177,6 +182,7 @@ export class ArtifactStore {
       isTextType(input.type) ||
       isTableType(input.type) ||
       isChartType(input.type) ||
+      isDocumentType(input.type) ||
       isMapType(input.type)
     ) {
       content = normalizeContent(input.type, input.content);

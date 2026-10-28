@@ -1129,6 +1129,25 @@ export interface Series {
     values: (number | null)[];
 }
 
+export interface ArtifactDeck {
+    slides: ArtifactSlide[];
+    theme:  ArtifactDeckTheme;
+}
+
+export interface ArtifactSlide {
+    bullets?:  string[];
+    bullets2?: string[];
+    id:        string;
+    image?:    string;
+    layout:    ArtifactSlideLayout;
+    notes?:    string;
+    title?:    string;
+}
+
+export type ArtifactSlideLayout = "title" | "bullets" | "image" | "two-column" | "blank";
+
+export type ArtifactDeckTheme = "light" | "dark" | "contrast";
+
 export interface ArtifactMap {
     bounds?: number[];
     markers: ArtifactMapMarker[];
@@ -1179,7 +1198,7 @@ export interface Artifact {
     version:       number;
 }
 
-export type ArtifactType = "markdown" | "html" | "react" | "pdf" | "sheet" | "itinerary" | "dashboard" | "doc" | "code" | "table" | "image" | "chart" | "diagram" | "diff" | "map";
+export type ArtifactType = "markdown" | "html" | "react" | "pdf" | "sheet" | "itinerary" | "dashboard" | "doc" | "code" | "table" | "image" | "chart" | "diagram" | "diff" | "map" | "slides" | "workbook";
 
 export interface ArtifactVersion {
     artifactId:    string;
@@ -1219,10 +1238,28 @@ export interface ArtifactOp {
     marker?:  ArtifactMapMarker;
     id?:      string;
     set?:     ArtifactMarkerPatch;
+    body?:    string;
+    heading?: string;
+    level?:   number;
+    slide?:   ArtifactSlide;
+    changes?: ArtifactSlidePatch;
+    to?:      number;
+    theme?:   ArtifactDeckTheme;
+    cells?:   { [key: string]: unknown };
+    sheet?:   string;
     patch?:   { [key: string]: unknown };
 }
 
-export type Op = "replace" | "insert" | "rewrite" | "set" | "setRange" | "addRows" | "deleteRows" | "addColumn" | "view" | "addMarker" | "removeMarker" | "updateMarker" | "patch";
+export interface ArtifactSlidePatch {
+    bullets?:  string[] | null;
+    bullets2?: string[] | null;
+    image?:    null | string;
+    layout?:   ArtifactSlideLayout;
+    notes?:    null | string;
+    title?:    null | string;
+}
+
+export type Op = "replace" | "insert" | "rewrite" | "set" | "setRange" | "addRows" | "deleteRows" | "addColumn" | "view" | "addMarker" | "removeMarker" | "updateMarker" | "replaceSection" | "addSection" | "removeSection" | "addSlide" | "updateSlide" | "removeSlide" | "moveSlide" | "setTheme" | "setCells" | "addSheet" | "renameSheet" | "removeSheet" | "patch";
 
 export interface ArtifactMarkerPatch {
     label?: string;
@@ -1250,6 +1287,21 @@ export interface Sort {
 }
 
 export type Dir = "asc" | "desc";
+
+export interface ArtifactWorkbook {
+    sheets: ArtifactWorkbookSheet[];
+}
+
+export interface ArtifactWorkbookSheet {
+    cells: { [key: string]: unknown };
+    name:  string;
+}
+
+export type ArtifactWorkbookCell = boolean | ArtifactFormulaCell | number | null | string;
+
+export interface ArtifactFormulaCell {
+    f: string;
+}
 
 export interface ArtifactsCreateParams {
     content:   string;
