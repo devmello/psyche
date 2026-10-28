@@ -227,7 +227,13 @@
 //   let browserTab = try? JSONDecoder().decode(BrowserTab.self, from: jsonData)
 //   let browserTabsParams = try? JSONDecoder().decode(BrowserTabsParams.self, from: jsonData)
 //   let browserTabsResult = try? JSONDecoder().decode(BrowserTabsResult.self, from: jsonData)
+//   let capabilitiesSearchParams = try? JSONDecoder().decode(CapabilitiesSearchParams.self, from: jsonData)
+//   let capabilitiesSearchResult = try? JSONDecoder().decode(CapabilitiesSearchResult.self, from: jsonData)
+//   let capabilitiesSetLoadingParams = try? JSONDecoder().decode(CapabilitiesSetLoadingParams.self, from: jsonData)
 //   let capabilityManifest = try? JSONDecoder().decode(CapabilityManifest.self, from: jsonData)
+//   let catalogEntry = try? JSONDecoder().decode(CatalogEntry.self, from: jsonData)
+//   let catalogInstall = try? JSONDecoder().decode(CatalogInstall.self, from: jsonData)
+//   let catalogNeeds = try? JSONDecoder().decode(CatalogNeeds.self, from: jsonData)
 //   let channel = try? JSONDecoder().decode(Channel.self, from: jsonData)
 //   let channelIdentity = try? JSONDecoder().decode(ChannelIdentity.self, from: jsonData)
 //   let channelRef = try? JSONDecoder().decode(ChannelRef.self, from: jsonData)
@@ -7161,6 +7167,209 @@ public struct BrowserTabsResult: Codable, Sendable {
     public init(tabs: [BrowserTab]) {
         self.tabs = tabs
     }
+}
+
+// MARK: - CapabilitiesSearchParams
+public struct CapabilitiesSearchParams: Codable, Sendable {
+    public let installable: Bool?
+    public let kind: CapabilitiesSearchParamsKind?
+    public let limit: Int?
+    public let query: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case installable = "installable"
+        case kind = "kind"
+        case limit = "limit"
+        case query = "query"
+    }
+
+    public init(installable: Bool?, kind: CapabilitiesSearchParamsKind?, limit: Int?, query: String?) {
+        self.installable = installable
+        self.kind = kind
+        self.limit = limit
+        self.query = query
+    }
+}
+
+public enum CapabilitiesSearchParamsKind: String, Codable, Sendable {
+    case connector = "connector"
+    case skill = "skill"
+    case tool = "tool"
+}
+
+// MARK: - CapabilitiesSearchResult
+public struct CapabilitiesSearchResult: Codable, Sendable {
+    public let entries: [CatalogEntry]
+    public let online: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case entries = "entries"
+        case online = "online"
+    }
+
+    public init(entries: [CatalogEntry], online: Bool) {
+        self.entries = entries
+        self.online = online
+    }
+}
+
+// MARK: - CatalogEntry
+public struct CatalogEntry: Codable, Sendable {
+    public let comesFrom: ComesFrom
+    public let id: String
+    public let install: CatalogInstall?
+    public let installCost: InstallCost
+    public let kind: CapabilitiesSearchParamsKind
+    public let loading: CatalogEntryLoading?
+    public let name: String
+    public let needs: CatalogNeeds
+    public let status: CatalogEntryStatus
+    public let summary: String
+    public let tools: [String]?
+    public let trust: Trust
+
+    public enum CodingKeys: String, CodingKey {
+        case comesFrom = "comesFrom"
+        case id = "id"
+        case install = "install"
+        case installCost = "installCost"
+        case kind = "kind"
+        case loading = "loading"
+        case name = "name"
+        case needs = "needs"
+        case status = "status"
+        case summary = "summary"
+        case tools = "tools"
+        case trust = "trust"
+    }
+
+    public init(comesFrom: ComesFrom, id: String, install: CatalogInstall?, installCost: InstallCost, kind: CapabilitiesSearchParamsKind, loading: CatalogEntryLoading?, name: String, needs: CatalogNeeds, status: CatalogEntryStatus, summary: String, tools: [String]?, trust: Trust) {
+        self.comesFrom = comesFrom
+        self.id = id
+        self.install = install
+        self.installCost = installCost
+        self.kind = kind
+        self.loading = loading
+        self.name = name
+        self.needs = needs
+        self.status = status
+        self.summary = summary
+        self.tools = tools
+        self.trust = trust
+    }
+}
+
+public enum ComesFrom: String, Codable, Sendable {
+    case builtin = "builtin"
+    case bundled = "bundled"
+    case installed = "installed"
+    case preset = "preset"
+    case psyche = "psyche"
+    case registry = "registry"
+}
+
+// MARK: - CatalogInstall
+public struct CatalogInstall: Codable, Sendable {
+    public let command: [String]?
+    public let docsURL: String?
+    public let preset: String?
+    public let url: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case command = "command"
+        case docsURL = "docsUrl"
+        case preset = "preset"
+        case url = "url"
+    }
+
+    public init(command: [String]?, docsURL: String?, preset: String?, url: String?) {
+        self.command = command
+        self.docsURL = docsURL
+        self.preset = preset
+        self.url = url
+    }
+}
+
+public enum InstallCost: String, Codable, Sendable {
+    case download = "download"
+    case enable = "enable"
+    case none = "none"
+    case remote = "remote"
+}
+
+public enum CatalogEntryLoading: String, Codable, Sendable {
+    case always = "always"
+    case onDemand = "on_demand"
+}
+
+// MARK: - CatalogNeeds
+public struct CatalogNeeds: Codable, Sendable {
+    public let inputs: [String]
+    public let network: [String]
+    public let runsIn: RunsIn
+    public let signIn: SignIn
+
+    public enum CodingKeys: String, CodingKey {
+        case inputs = "inputs"
+        case network = "network"
+        case runsIn = "runsIn"
+        case signIn = "signIn"
+    }
+
+    public init(inputs: [String], network: [String], runsIn: RunsIn, signIn: SignIn) {
+        self.inputs = inputs
+        self.network = network
+        self.runsIn = runsIn
+        self.signIn = signIn
+    }
+}
+
+public enum RunsIn: String, Codable, Sendable {
+    case builtin = "builtin"
+    case remote = "remote"
+    case srt = "srt"
+}
+
+public enum SignIn: String, Codable, Sendable {
+    case key = "key"
+    case none = "none"
+    case oauth = "oauth"
+}
+
+public enum CatalogEntryStatus: String, Codable, Sendable {
+    case installable = "installable"
+    case installed = "installed"
+    case loaded = "loaded"
+    case off = "off"
+    case onDemand = "on_demand"
+}
+
+public enum Trust: String, Codable, Sendable {
+    case bundled = "bundled"
+    case unknown = "unknown"
+    case verified = "verified"
+}
+
+// MARK: - CapabilitiesSetLoadingParams
+public struct CapabilitiesSetLoadingParams: Codable, Sendable {
+    public let loading: CapabilitiesSetLoadingParamsLoading
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case loading = "loading"
+        case name = "name"
+    }
+
+    public init(loading: CapabilitiesSetLoadingParamsLoading, name: String) {
+        self.loading = loading
+        self.name = name
+    }
+}
+
+public enum CapabilitiesSetLoadingParamsLoading: String, Codable, Sendable {
+    case always = "always"
+    case loadingDefault = "default"
+    case onDemand = "on_demand"
 }
 
 // MARK: - CapabilityManifest
@@ -14535,12 +14744,6 @@ public enum MadeBy: String, Codable, Sendable {
 public enum KindEnum: String, Codable, Sendable {
     case http = "http"
     case stdio = "stdio"
-}
-
-public enum Trust: String, Codable, Sendable {
-    case bundled = "bundled"
-    case unknown = "unknown"
-    case verified = "verified"
 }
 
 // MARK: - MCPFilesReadParams

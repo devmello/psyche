@@ -11,6 +11,7 @@ import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { usePersona } from "../../slots.tsx";
 import { type ActionRule, liftedFloorsOf, withMatrixOverrides } from "./ActionMatrix.tsx";
+import { AvailableConnectors } from "./CapabilityAvailable.tsx";
 import { ConnectForm } from "./ConnectForm.tsx";
 import { CapabilityCard } from "./ConnectorCapabilities.tsx";
 import { ConnectorIcon } from "./ConnectorIcon.tsx";
@@ -223,6 +224,7 @@ export function ConnectorsPanel({
           // Hidden, not unmounted, while the trust card is open: cancelling it returns to the form.
           <div hidden={review !== null}>
             <ConnectForm
+              key={addType ?? "gallery"}
               persona={persona}
               initialType={addType}
               {...(onTry ? { onTry } : {})}
@@ -462,6 +464,15 @@ export function ConnectorsPanel({
               : null}
           </ul>
         )}
+        {mcp && showMcp && onConnect ? (
+          <AvailableConnectors
+            mcp={mcp}
+            onPreset={(id) => {
+              setAddType(`preset:${id}`);
+              setAdding(true);
+            }}
+          />
+        ) : null}
       </LoadGate>
     </SectionFrame>
   );

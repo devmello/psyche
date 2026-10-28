@@ -2252,6 +2252,70 @@ export interface BrowserTabsResult {
     tabs: BrowserTab[];
 }
 
+export interface CapabilitiesSearchParams {
+    installable?: boolean;
+    kind?:        CapabilitiesSearchParamsKind;
+    limit?:       number;
+    query?:       string;
+}
+
+export type CapabilitiesSearchParamsKind = "tool" | "connector" | "skill";
+
+export interface CapabilitiesSearchResult {
+    entries: CatalogEntry[];
+    online:  boolean;
+}
+
+export interface CatalogEntry {
+    comesFrom:   ComesFrom;
+    id:          string;
+    install?:    CatalogInstall;
+    installCost: InstallCost;
+    kind:        CapabilitiesSearchParamsKind;
+    loading?:    CatalogEntryLoading;
+    name:        string;
+    needs:       CatalogNeeds;
+    status:      CatalogEntryStatus;
+    summary:     string;
+    tools?:      string[];
+    trust:       Trust;
+}
+
+export type ComesFrom = "builtin" | "installed" | "preset" | "registry" | "psyche" | "bundled";
+
+export interface CatalogInstall {
+    command?: string[];
+    docsUrl?: string;
+    preset?:  string;
+    url?:     string;
+}
+
+export type InstallCost = "none" | "download" | "remote" | "enable";
+
+export type CatalogEntryLoading = "always" | "on_demand";
+
+export interface CatalogNeeds {
+    inputs:  string[];
+    network: string[];
+    runsIn:  RunsIn;
+    signIn:  SignIn;
+}
+
+export type RunsIn = "builtin" | "srt" | "remote";
+
+export type SignIn = "none" | "key" | "oauth";
+
+export type CatalogEntryStatus = "loaded" | "on_demand" | "installed" | "off" | "installable";
+
+export type Trust = "bundled" | "verified" | "unknown";
+
+export interface CapabilitiesSetLoadingParams {
+    loading: CapabilitiesSetLoadingParamsLoading;
+    name:    string;
+}
+
+export type CapabilitiesSetLoadingParamsLoading = "always" | "on_demand" | "default";
+
 export interface CapabilityManifest {
     capabilities: NodeCapability[];
     nodeId?:      string;
@@ -4778,8 +4842,6 @@ export interface MCPServerStatus {
 export type MadeBy = "psyche";
 
 export type KindEnum = "stdio" | "http";
-
-export type Trust = "bundled" | "verified" | "unknown";
 
 export interface MCPFilesReadParams {
     serverId: string;

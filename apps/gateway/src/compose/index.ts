@@ -97,6 +97,7 @@ import { createAutoTitler } from "./auto-title.ts";
 import { withAutomationSpecialists } from "./automation-specialists.ts";
 import { bootstrapAdminHandlers } from "./bootstrap-admin.ts";
 import { CallContexts } from "./call-context.ts";
+import { capabilityCatalogue, capabilityTools, deferToolFor } from "./capabilities.ts";
 import {
   changeHandlers,
   createChangeRecorder,
@@ -125,6 +126,7 @@ import {
 import { composeHarnesses } from "./harnesses.ts";
 import { insightsHandlers } from "./insights.ts";
 import { libraryHandlers } from "./library.ts";
+import type { ComposedMcp } from "./mcp.ts";
 import {
   createMemoryRecall,
   defaultLocalLoader,
@@ -1054,6 +1056,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     },
     // Incognito threads are memory-only (E9, security §8): the loop never flushes them.
     isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
+    // Progressive disclosure: only the core tools' schemas ride in every request (capabilities.ts).
+    deferTool: deferToolFor(db),
     specialists,
     // Reasoning steps for the step log (setting agent.showReasoning, default on), masked.
     showReasoning: () => getSetting(db, "agent.showReasoning")?.value !== false,
@@ -1204,6 +1208,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     webSetup,
   );
   for (const tool of webTools.tools) registry.register(tool);
+  // The capability catalogue: find_capability / install_capability and Settings' Available lists.
+  const mcpPart = parts.find((p): p is ComposedMcp => "adder" in p && "host" in p);
+  const capabilities = capabilityTools({
+    services,
+    catalogue: capabilityCatalogue({ services, skills: skills.loader, fetch }),
+    ...(mcpPart === undefined ? {} : { adder: mcpPart.adder, idle: () => mcpPart.idle() }),
+    skills: skills.loader,
+  });
+  for (const tool of capabilities.tools) registry.register(tool);
   // The dreaming automation runs memory dreaming and the people graph pass in-process.
   // Dreaming, then the lesson pass (teaching loop §6, #681), then the people graph pass.
   // Automations with a `specialist` run as unattended specialist jobs (specialists §4.10).
@@ -1364,6 +1377,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...mountParamsOnly(createAutomationHandlers(scheduler) as never),
     ...mountParamsOnly(createNotificationHandlers(notifier) as never),
     ...proactive.handlers,
+    ...capabilities.handlers,
     ...questionHandlers(loop, tasks),
     ...receiptHandlers(broker),
     ...threadSettingsHandlers(modelPins),
