@@ -580,7 +580,7 @@ export interface AppleMailSetFlagsParams {
 }
 
 export interface AppleMusicControlParams {
-    action: Action;
+    action: AppleMusicControlParamsAction;
     /**
      * Which player (default: whichever is playing, else Music)
      */
@@ -595,7 +595,7 @@ export interface AppleMusicControlParams {
     volume?: number;
 }
 
-export type Action = "play" | "pause" | "playpause" | "next" | "previous" | "volume" | "shuffle";
+export type AppleMusicControlParamsAction = "play" | "pause" | "playpause" | "next" | "previous" | "volume" | "shuffle";
 
 /**
  * Which player (default: whichever is playing, else Music)
@@ -2252,6 +2252,70 @@ export interface BrowserTabsResult {
     tabs: BrowserTab[];
 }
 
+export interface CapabilitiesSearchParams {
+    installable?: boolean;
+    kind?:        CapabilitiesSearchParamsKind;
+    limit?:       number;
+    query?:       string;
+}
+
+export type CapabilitiesSearchParamsKind = "tool" | "connector" | "skill";
+
+export interface CapabilitiesSearchResult {
+    entries: CatalogEntry[];
+    online:  boolean;
+}
+
+export interface CatalogEntry {
+    comesFrom:   ComesFrom;
+    id:          string;
+    install?:    CatalogInstall;
+    installCost: InstallCost;
+    kind:        CapabilitiesSearchParamsKind;
+    loading?:    CatalogEntryLoading;
+    name:        string;
+    needs:       CatalogNeeds;
+    status:      CatalogEntryStatus;
+    summary:     string;
+    tools?:      string[];
+    trust:       Trust;
+}
+
+export type ComesFrom = "builtin" | "installed" | "preset" | "registry" | "psyche" | "bundled";
+
+export interface CatalogInstall {
+    command?: string[];
+    docsUrl?: string;
+    preset?:  string;
+    url?:     string;
+}
+
+export type InstallCost = "none" | "download" | "remote" | "enable";
+
+export type CatalogEntryLoading = "always" | "on_demand";
+
+export interface CatalogNeeds {
+    inputs:  string[];
+    network: string[];
+    runsIn:  RunsIn;
+    signIn:  SignIn;
+}
+
+export type RunsIn = "builtin" | "srt" | "remote";
+
+export type SignIn = "none" | "key" | "oauth";
+
+export type CatalogEntryStatus = "loaded" | "on_demand" | "installed" | "off" | "installable";
+
+export type Trust = "bundled" | "verified" | "unknown";
+
+export interface CapabilitiesSetLoadingParams {
+    loading: CapabilitiesSetLoadingParamsLoading;
+    name:    string;
+}
+
+export type CapabilitiesSetLoadingParamsLoading = "always" | "on_demand" | "default";
+
 export interface CapabilityManifest {
     capabilities: NodeCapability[];
     nodeId?:      string;
@@ -3229,6 +3293,109 @@ export interface CustomConnectorProposalResult {
     proposal: CustomConnectorProposal;
 }
 
+export interface DailyAutomationsConfirmParams {
+    draft: DailyAutomationDraft;
+}
+
+export interface DailyAutomationDraft {
+    humanSchedule: string;
+    kind:          DailyAutomationDraftKind;
+    prompt:        string;
+    schedule:      string;
+    timezone:      string;
+    title:         string;
+}
+
+export type DailyAutomationDraftKind = "cron" | "interval";
+
+export interface DailyAutomationsConfirmResult {
+    automation: Automation;
+}
+
+export interface DailyAutomationsParseParams {
+    text: string;
+}
+
+export interface DailyAutomationsParseResult {
+    draft?: DailyAutomationDraft;
+    error?: string;
+}
+
+export interface DailyAutomationsTemplatesResult {
+    templates: DailyAutomationTemplate[];
+}
+
+export interface DailyAutomationTemplate {
+    id:   string;
+    text: string;
+}
+
+export interface DailyCarryOverParams {
+    ids: string[];
+}
+
+export interface DailyCarryOverResult {
+    followups: DailyFollowup[];
+}
+
+export interface DailyFollowup {
+    createdAt:     string;
+    dueAt?:        string;
+    id:            string;
+    snoozedUntil?: string;
+    source:        DailyFollowupSource;
+    sourceLink?:   string;
+    status:        DailyFollowupStatus;
+    text:          string;
+}
+
+export type DailyFollowupSource = "sent_mail" | "message" | "chat" | "awaiting_reply" | "manual";
+
+export type DailyFollowupStatus = "open" | "snoozed" | "done" | "dismissed";
+
+export interface DailyFollowupsIngestParams {
+    source:      DailyFollowupsIngestParamsSource;
+    sourceLink?: string;
+    text:        string;
+}
+
+export type DailyFollowupsIngestParamsSource = "sent_mail" | "message" | "chat";
+
+export interface DailyFollowupsIngestResult {
+    added: DailyFollowup[];
+}
+
+export interface DailyFollowupsListParams {
+    status?: DailyFollowupStatus[];
+}
+
+export interface DailyFollowupsListResult {
+    followups: DailyFollowup[];
+}
+
+export interface DailyFollowupsUpdateParams {
+    action: DailyFollowupsUpdateParamsAction;
+    id:     string;
+    until?: string;
+}
+
+export type DailyFollowupsUpdateParamsAction = "done" | "snooze" | "dismiss" | "reopen";
+
+export interface DailyFollowupsUpdateResult {
+    followup: DailyFollowup;
+}
+
+export interface DailyRunParams {
+    kind: DailyKind;
+}
+
+export type DailyKind = "morning" | "evening";
+
+export interface DailyRunResult {
+    postId?:  string;
+    skipped?: string;
+}
+
 export interface DecidedBy {
     deviceId?: string;
     /**
@@ -3512,7 +3679,31 @@ export interface WorkflowCard {
     type:    WorkflowCardType;
     prep?:   MeetingPrep;
     notes?:  MeetingNotes;
+    daily?:  DailyBrief;
 }
+
+export interface DailyBrief {
+    carryOver?: DailyItem[];
+    date:       string;
+    kind:       DailyKind;
+    sections:   DailySection[];
+    summary:    string;
+}
+
+export interface DailyItem {
+    followupId?: string;
+    link?:       string;
+    text:        string;
+}
+
+export interface DailySection {
+    id:           DailySectionID;
+    items:        DailyItem[];
+    title:        string;
+    unavailable?: boolean;
+}
+
+export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow";
 
 export interface InboxDigest {
     accounts: string[];
@@ -3691,7 +3882,7 @@ export interface SourcedLineSource {
 
 export type FluffyKind = "thread" | "note" | "loop" | "library" | "url" | "event" | "meeting";
 
-export type WorkflowCardType = "digest" | "meeting_prep" | "meeting_notes";
+export type WorkflowCardType = "digest" | "meeting_prep" | "meeting_notes" | "daily";
 
 export interface Citation {
     source?: string;
@@ -3714,7 +3905,7 @@ export interface GrowthCardItem {
 
 export type GrowthCardItemType = "lesson" | "question" | "retire" | "conflict";
 
-export type FeedPostKind = "brief" | "briefing" | "digest" | "meeting_prep" | "meeting_notes" | "watch" | "reminder" | "suggestion" | "news" | "exploration";
+export type FeedPostKind = "brief" | "briefing" | "digest" | "meeting_prep" | "meeting_notes" | "daily_brief" | "daily_wrapup" | "watch" | "reminder" | "suggestion" | "news" | "exploration";
 
 export interface FeedPostRefs {
     goalId?:      string;
@@ -4778,8 +4969,6 @@ export interface MCPServerStatus {
 export type MadeBy = "psyche";
 
 export type KindEnum = "stdio" | "http";
-
-export type Trust = "bundled" | "verified" | "unknown";
 
 export interface MCPFilesReadParams {
     serverId: string;
@@ -8912,7 +9101,7 @@ export interface VaultLinkExternalParams {
     name:     string;
     ref:      Ref;
     slug?:    string;
-    source:   SourceEnum;
+    source:   VaultLinkExternalParamsSource;
 }
 
 export type Field = "username" | "password" | "totp" | "token" | "privateKey" | "text";
@@ -8924,7 +9113,7 @@ export interface Ref {
     vault?: string;
 }
 
-export type SourceEnum = "1password" | "bitwarden";
+export type VaultLinkExternalParamsSource = "1password" | "bitwarden";
 
 export interface VaultLinkExternalResult {
     credential: CredentialMeta;

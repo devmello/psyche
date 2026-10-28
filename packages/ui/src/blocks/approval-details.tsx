@@ -3,7 +3,7 @@ import { TriangleAlert } from "lucide-react";
 import { type ReactElement, type ReactNode, useState } from "react";
 import { t } from "../i18n/core.ts";
 import { DiffBlock } from "./DiffBlock.tsx";
-import { SelfConnectorDetails } from "./SelfConnectorDetails.tsx";
+import { SelfConnectorCode, SelfConnectorDetails } from "./SelfConnectorDetails.tsx";
 
 /**
  * Binding details shown in full, by kind (UI design §3.3). Everything here comes from the
@@ -45,6 +45,147 @@ function Row({ label, children }: { label: string; children: ReactNode }): React
 
 function Code({ children }: { children: ReactNode }): ReactElement {
   return <code className="rounded-xs bg-fill-tertiary px-1 text-mono">{children}</code>;
+}
+
+const strings = (v: unknown): string[] =>
+  Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+
+/**
+ * A connector or skill the agent asks to add (`install_capability`): where it comes from, whether
+ * it is official, the exact command or address, the network, and what the agent wants it for.
+ * Registry text is third-party data, shown as plain text.
+ */
+function CapabilityInstallDetails({ d }: { d: Details }): ReactElement {
+  const verified = d.verified === true;
+  const network = strings(d.network);
+  const permissions = strings(d.permissions);
+  return (
+    <dl>
+      <Row
+        label={t(
+          d.capability === "skill"
+            ? "capabilities.card.kind.skill"
+            : "capabilities.card.kind.connector",
+        )}
+      >
+        <span className="font-medium">{str(d.name)}</span>
+      </Row>
+      <Row label={t("capabilities.card.source")}>{str(d.source)}</Row>
+      <Row label={t("capabilities.card.trust")}>
+        <span className={verified ? "text-label-primary" : "font-medium text-approval-text"}>
+          {verified ? t("capabilities.badge.official") : t("capabilities.badge.unverified")}
+        </span>
+      </Row>
+      {typeof d.command === "string" ? (
+        <Row label={t("capabilities.card.command")}>
+          <Code>{d.command}</Code>
+        </Row>
+      ) : null}
+      {typeof d.url === "string" ? (
+        <Row label={t("capabilities.card.url")}>
+          <Code>{d.url}</Code>
+        </Row>
+      ) : null}
+      <Row label={t("capabilities.card.network")}>
+        {network.length > 0 ? network.join(", ") : str(null)}
+      </Row>
+      <Row label={t("capabilities.card.permissions")}>
+        {permissions.length > 0 ? (
+          <ul className="list-disc ps-4">
+            {permissions.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
+        ) : (
+          str(null)
+        )}
+      </Row>
+      <Row label={t("capabilities.card.reason")}>{str(d.reason)}</Row>
+      {typeof d.summary === "string" && d.summary !== "" ? (
+        <Row label={t("capabilities.card.summary")}>{d.summary}</Row>
+      ) : null}
+      {typeof d.warning === "string" && d.warning !== "" ? (
+        <div
+          role="alert"
+          className="mt-1 flex gap-2 rounded-md border border-approval-border px-2 py-1.5 text-callout text-approval-text"
+        >
+          <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          <span>
+            <strong>{t("capabilities.card.warning")}</strong> {d.warning}
+          </span>
+        </div>
+      ) : null}
+      {typeof d.tainted === "string" && d.tainted !== "" ? (
+        <div
+          role="alert"
+          className="mt-1 flex gap-2 rounded-md border border-approval-border px-2 py-1.5 text-callout text-approval-text"
+        >
+          <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          <span>
+            <strong>{t("capabilities.card.tainted")}</strong> {d.tainted}
+          </span>
+        </div>
+      ) : null}
+    </dl>
+  );
+}
+
+/**
+ * A script the agent wrote and asks to run once (`run_script`): the whole code, what it is for,
+ * its input, and the network it may reach. Nothing runs before the owner approves.
+ */
+function ScriptRunDetails({ d }: { d: Details }): ReactElement {
+  const network = strings(d.network);
+  const permissions = strings(d.permissions);
+  const files = (Array.isArray(d.files) ? d.files : []).flatMap((f) => {
+    const o = f as { path?: unknown; bytes?: unknown; lines?: unknown } | null;
+    return o !== null && typeof o === "object" && typeof o.path === "string"
+      ? [
+          {
+            path: o.path,
+            bytes: typeof o.bytes === "number" ? o.bytes : 0,
+            lines: strings(o.lines),
+          },
+        ]
+      : [];
+  });
+  return (
+    <dl>
+      <Row label={t("capabilities.script.purpose")}>{str(d.purpose)}</Row>
+      <Row label={t("capabilities.script.language")}>
+        <Code>{str(d.language)}</Code>
+      </Row>
+      <Row label={t("capabilities.script.code")}>
+        <SelfConnectorCode files={files} />
+      </Row>
+      <Row label={t("capabilities.script.input")}>
+        <Code>{str(d.input)}</Code>
+      </Row>
+      <Row label={t("capabilities.card.network")}>
+        {network.length > 0 ? network.join(", ") : str(null)}
+      </Row>
+      {permissions.length > 0 ? (
+        <Row label={t("capabilities.card.permissions")}>
+          <ul className="list-disc ps-4">
+            {permissions.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
+        </Row>
+      ) : null}
+      {typeof d.tainted === "string" && d.tainted !== "" ? (
+        <div
+          role="alert"
+          className="mt-1 flex gap-2 rounded-md border border-approval-border px-2 py-1.5 text-callout text-approval-text"
+        >
+          <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          <span>
+            <strong>{t("capabilities.card.tainted")}</strong> {d.tainted}
+          </span>
+        </div>
+      ) : null}
+    </dl>
+  );
 }
 
 /** A diff behind "View diff", in the kit's code block (Shiki `diff`). */
@@ -177,6 +318,8 @@ export function ApprovalDetails({
       if (d.kind === "mcp_server" && d.madeBy === "psyche") {
         return <SelfConnectorDetails approval={approval} persona={persona} />;
       }
+      if (d.kind === "capability_install") return <CapabilityInstallDetails d={d} />;
+      if (d.kind === "script_run") return <ScriptRunDetails d={d} />;
       // Psyche writing its own skill: the whole text and, on an update, the diff to read first.
       if (d.madeBy !== "agent") return <GenericDetails approval={approval} d={d} />;
       return (

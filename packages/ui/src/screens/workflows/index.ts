@@ -1,3 +1,4 @@
+export { DailyCard, type DailyCardProps, type DailyFollowupAction } from "./DailyCard.tsx";
 export { DigestCard, type DigestCardProps, type DigestLoopAction } from "./DigestCard.tsx";
 export { DRAFT_LINES, DraftCard, type DraftCardProps } from "./DraftCard.tsx";
 export {

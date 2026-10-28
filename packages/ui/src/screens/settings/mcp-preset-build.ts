@@ -1,4 +1,4 @@
-import type { McpServerInput } from "@psyche/protocol";
+import type { McpPreset, McpServerInput, PresetField } from "@psyche/protocol";
 import { t } from "../../i18n/core.ts";
 import type { MessageId } from "../../i18n/messages/index.ts";
 import type { McpSecret } from "./use-mcp.tsx";
@@ -10,71 +10,13 @@ import type { McpSecret } from "./use-mcp.tsx";
  * data entry plus its strings.
  */
 
-export type PresetCategory =
-  | "files"
-  | "dev"
-  | "productivity"
-  | "comms"
-  | "web"
-  | "everyday"
-  | "finance";
-
-/** A value the owner gives: a key (kept in the vault), or plain text such as a folder. */
-export interface PresetField {
-  id: string;
-  kind: "secret" | "text";
-  /** stdio: set as this environment variable (a secret goes in as a vault placeholder). */
-  env?: string;
-  /** Replaces `{id}` in the command's arguments, or in the server's address. */
-  arg?: true;
-  /** Host names the owner lists (comma-separated): the sandbox may reach them. */
-  domains?: true;
-  /** A key must start with this (Stripe's `rk_`: a restricted key, so the server stays read only). */
-  prefix?: string;
-  /** Where to get the key; shown as a link. */
-  helpUrl?: string;
-  placeholder?: string;
-  optional?: true;
-}
-
-export type PresetIcon =
-  | "folder"
-  | "database"
-  | "brain"
-  | "git"
-  | "bug"
-  | "tasks"
-  | "doc"
-  | "cloud"
-  | "globe"
-  | "search"
-  | "browser"
-  | "weather"
-  | "clock"
-  | "map"
-  | "music"
-  | "home"
-  | "card"
-  | "chat"
-  | "table";
-
-export type PresetTransport =
-  | { kind: "stdio"; command: readonly string[]; domains?: readonly string[] }
-  | { kind: "http"; url: string; auth: "oauth" | "bearer" | "none" };
-
-export interface McpPreset {
-  /** The server id: tools register as `mcp__<id>__<tool>`. */
-  id: string;
-  label: string;
-  category: PresetCategory;
-  icon: PresetIcon;
-  /** The vendor's own server (shown as Official), or a community one. */
-  official: boolean;
-  popular?: true;
-  transport: PresetTransport;
-  fields: readonly PresetField[];
-  docsUrl: string;
-}
+export type {
+  McpPreset,
+  PresetCategory,
+  PresetField,
+  PresetIcon,
+  PresetTransport,
+} from "@psyche/protocol";
 
 export type PresetKey = "desc" | "example" | `field.${string}.label` | `field.${string}.help`;
 

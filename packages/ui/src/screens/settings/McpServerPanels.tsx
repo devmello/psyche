@@ -14,8 +14,16 @@ import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { Switch } from "../../components/ui/switch.tsx";
+import { useCall, useSettings } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
-import { Group, SectionSkeleton, StatusChip, type Tone } from "./shared.tsx";
+import {
+  Group,
+  messageOf,
+  SectionSkeleton,
+  StatusChip,
+  SwitchField,
+  type Tone,
+} from "./shared.tsx";
 import {
   type McpSecretsState,
   type McpToolsState,
@@ -323,6 +331,47 @@ export function McpDangerZone({
 }
 
 /** Tools, Secrets and the Danger zone of one server (loads only while its details are open). */
+/**
+ * Whether the server's tools are sent with every request ("Always on") or found when a task needs
+ * them (the default). Setting `tools.loading`, written by `capabilities.setLoading`.
+ */
+export function McpLoadingGroup({ server }: { server: McpServerStatus }): ReactElement {
+  const call = useCall();
+  const { settings } = useSettings();
+  const [error, setError] = useState<string | null>(null);
+  const map = settings["tools.loading"];
+  const always =
+    typeof map === "object" &&
+    map !== null &&
+    (map as Record<string, unknown>)[`mcp__${server.id}`] === "always";
+  return (
+    <Group title={t("capabilities.loading.title")}>
+      <div className="flex flex-col gap-1">
+        <SwitchField
+          label={t("capabilities.loading.label")}
+          description={t("capabilities.loading.hint")}
+          checked={always}
+          settingKey="tools.loading"
+          onChange={(v) => {
+            setError(null);
+            call("capabilities.setLoading", {
+              name: `mcp__${server.id}`,
+              loading: v ? "always" : "default",
+            }).catch((err: unknown) =>
+              setError(t("capabilities.loading.failed", { reason: messageOf(err) })),
+            );
+          }}
+        />
+        {error !== null ? (
+          <p role="alert" className="text-callout text-danger-text">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    </Group>
+  );
+}
+
 export function McpServerPanels({
   server,
   onSetEnabled,
@@ -336,6 +385,7 @@ export function McpServerPanels({
   const secrets = useMcpSecrets(server, true);
   return (
     <div className="ms-11 flex flex-col gap-4">
+      <McpLoadingGroup server={server} />
       <McpToolsGroup server={server} state={tools} />
       <McpSecretsGroup state={secrets} />
       <McpDangerZone

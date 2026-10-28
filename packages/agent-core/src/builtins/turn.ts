@@ -8,6 +8,7 @@ import {
 } from "@psyche/protocol";
 import { Type } from "@sinclair/typebox";
 import { applyPlanUpdate, UpdatePlanInput } from "../checklist.ts";
+import type { DeferredToolsApi } from "../deferred.ts";
 import { AskUserInput, normalizeQuestions, type QuestionAnswer } from "../questions.ts";
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "../registry.ts";
 import type { SpecialistTurnApi } from "../specialists.ts";
@@ -25,6 +26,8 @@ export interface TurnApi {
   harnessActionDone?: HarnessTurnApi["harnessActionDone"];
   /** Background specialists (specialists §4): spawn, report, status. */
   specialists?: SpecialistTurnApi;
+  /** Deferred tools of this run (`AgentLoopOptions.deferTool`); absent when nothing is deferred. */
+  deferredTools?: DeferredToolsApi;
   /** Runs a subagent to completion (C6); its result comes back as this tool's result. */
   spawnSubagent(input: SpawnSubagentInput): Promise<SubagentResult>;
   /** Emits the plan block and waits for the `plan_exit` approval. */

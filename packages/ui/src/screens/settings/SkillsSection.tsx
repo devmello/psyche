@@ -19,6 +19,7 @@ import { activeI18n, t } from "../../i18n/core.ts";
 import { usePersona } from "../../slots.tsx";
 import { useLessons } from "../../teaching/hooks.ts";
 import { LessonMark } from "../../teaching/LessonMark.tsx";
+import { AvailableSkills } from "./CapabilityAvailable.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import { SkillSuggestions } from "./SkillDraftCard.tsx";
 import {
@@ -628,6 +629,7 @@ export function SkillsPanel({
             </ul>
           )}
         </Group>
+        {onToggle ? <AvailableSkills skills={skills} onEnable={(s) => onToggle(s, true)} /> : null}
         <Group title={t("settings.skills.trust.bundled")}>
           {bundled.length === 0 ? (
             <EmptyNotice text={t("settings.skills.noBundled")} />

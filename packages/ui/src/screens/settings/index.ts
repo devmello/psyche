@@ -72,6 +72,16 @@ export {
   type NewCredential,
 } from "./CredentialsSection.tsx";
 export {
+  AutomationsPanel,
+  type AutomationsPanelProps,
+  DAILY_DEFAULTS,
+  DailyPanel,
+  type DailyPanelProps,
+  DailySection,
+  FollowupsList,
+  type FollowupsListProps,
+} from "./DailySection.tsx";
+export {
   DataControlsPanel,
   type DataControlsPanelProps,
   DataControlsSection,

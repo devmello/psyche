@@ -3,6 +3,7 @@ import {
   Activity,
   Bell,
   Bot,
+  CalendarClock,
   FolderLock,
   Globe,
   Info,
@@ -46,6 +47,7 @@ import { ChannelsSection } from "./ChannelsSection.tsx";
 import { ComputerUseSection } from "./ComputerUseSection.tsx";
 import { ConnectorsSection, type ConnectorsView, type ScopeMode } from "./ConnectorsSection.tsx";
 import { CredentialsSection } from "./CredentialsSection.tsx";
+import { DailySection } from "./DailySection.tsx";
 import { DataControlsSection, type ExportFile } from "./DataControlsSection.tsx";
 import { DevicesSection } from "./DevicesSection.tsx";
 import { FileAccessSection } from "./FileAccessSection.tsx";
@@ -92,6 +94,7 @@ export type SettingsSectionId =
   | "notifications"
   | "voice"
   | "mail"
+  | "daily"
   | "data"
   | "people"
   | "server"
@@ -132,6 +135,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionEntry[] = [
   entry("notifications", Bell),
   entry("voice", Mic),
   entry("mail", Mail),
+  entry("daily", CalendarClock),
   entry("data", Trash2),
   entry("people", Users),
   entry("server", Server),
@@ -148,7 +152,16 @@ export const SETTINGS_GROUPS: readonly {
 }[] = [
   {
     id: "general",
-    sections: ["model", "persona", "appearance", "notifications", "voice", "mail", "usage"],
+    sections: [
+      "model",
+      "persona",
+      "appearance",
+      "notifications",
+      "voice",
+      "mail",
+      "daily",
+      "usage",
+    ],
   },
   {
     id: "access",
@@ -190,6 +203,7 @@ export function sectionForKey(key: string): SettingsSectionId | null {
     mail: "mail",
     meetings: "mail",
     workflows: "mail",
+    daily: "daily",
     vault: "credentials",
     channels: "channels",
     mcp: "connectors",
@@ -352,6 +366,8 @@ export function SettingsSectionView({
       return <VoiceSection />;
     case "mail":
       return <MailMeetingsSection />;
+    case "daily":
+      return <DailySection />;
     case "data":
       return <DataControlsSection {...opt("onExportReady", s.onExportReady)} />;
     case "people":

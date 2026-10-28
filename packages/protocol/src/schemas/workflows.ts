@@ -1,5 +1,6 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, JsonObject, Nullable, Provenance, StringEnum } from "../common.ts";
+import { DailyBrief } from "./daily.ts";
 import { GraphLoop } from "./graph.ts";
 import { TaintSource } from "./permissions.ts";
 
@@ -360,6 +361,7 @@ export const WorkflowCard = Type.Union(
     Type.Object({ type: Type.Literal("digest"), digest: InboxDigest }),
     Type.Object({ type: Type.Literal("meeting_prep"), prep: MeetingPrep }),
     Type.Object({ type: Type.Literal("meeting_notes"), notes: MeetingNotes }),
+    Type.Object({ type: Type.Literal("daily"), daily: DailyBrief }),
   ],
   { $id: "WorkflowCard" },
 );
@@ -372,6 +374,8 @@ export const FeedPostKind = StringEnum(
     "digest",
     "meeting_prep",
     "meeting_notes",
+    "daily_brief",
+    "daily_wrapup",
     "watch",
     "reminder",
     "suggestion",

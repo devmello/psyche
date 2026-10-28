@@ -21,6 +21,11 @@ export interface ThreadState {
    * starts tainted with these sources, so its approval cards still name the original origins.
    */
   taint?: { sources: TaintSource[] };
+  /**
+   * Deferred tools this thread loaded (`load_tools`, an approved install), in load order. Append
+   * only: a loaded tool stays for the thread, so the tool list only ever grows at its end.
+   */
+  loadedTools?: string[];
 }
 
 export interface ThreadStateStore {

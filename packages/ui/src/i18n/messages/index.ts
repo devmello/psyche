@@ -9,6 +9,7 @@ import { chat } from "./chat.ts";
 import { common } from "./common.ts";
 import { connectorGallery } from "./connector-gallery.ts";
 import { context } from "./context.ts";
+import { daily } from "./daily.ts";
 import { design } from "./design.ts";
 import { errors } from "./errors.ts";
 import { glass } from "./glass.ts";
@@ -30,6 +31,7 @@ import { specialists } from "./specialists.ts";
 import { time } from "./time.ts";
 import { voice } from "./voice.ts";
 import { web } from "./web.ts";
+import { whatCanYouDo } from "./what-can-you-do.ts";
 import { workflows } from "./workflows.ts";
 
 /**
@@ -51,6 +53,7 @@ export const en = {
   ...agent,
   ...agentNotes,
   ...audit,
+  ...daily,
   ...shell,
   ...settings,
   ...settingsLanguage,
@@ -59,7 +62,7 @@ export const en = {
   ...mailMeetings,
   ...connectorGallery,
   ...onboarding,
-  ...capabilities,
+  ...whatCanYouDo,
   ...people,
   ...specialists,
   ...screens,
@@ -72,6 +75,7 @@ export const en = {
   ...workflows,
   ...overview,
   ...overviewGrowth,
+  ...capabilities,
 } as const;
 
 export type MessageId = keyof typeof en;
