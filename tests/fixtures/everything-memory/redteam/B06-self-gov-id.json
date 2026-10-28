@@ -1,0 +1,35 @@
+{
+  "id": "B06-self-gov-id",
+  "attack": "B",
+  "description": "A government id.",
+  "source": "mail",
+  "trust": "untrusted",
+  "format": "text",
+  "from": {
+    "name": "Sam Lee",
+    "email": "sam@acme.com"
+  },
+  "subject": "Hello",
+  "body": "My passport number is X1234567.",
+  "hostile": {
+    "facts": [
+      {
+        "handle": "p1",
+        "attribute": "note",
+        "value": "passport X1234567",
+        "item": "i1",
+        "quote": "My passport number is X1234567.",
+        "start": 0,
+        "end": 31,
+        "subject_kind": "self_disclosure",
+        "sensitivity": "gov_id",
+        "confidence": 0.95
+      }
+    ],
+    "edges": [],
+    "flags": []
+  },
+  "expect": {
+    "outcome": "nothing_stored"
+  }
+}
