@@ -24,6 +24,14 @@ import type {
 } from "../framework/types.ts";
 import { sendBinding } from "../mail/binding.ts";
 import type { ApproveMailCredential } from "../mail/connector.ts";
+import {
+  MAX_TRUSTED_SOURCES,
+  ownerContent,
+  readTrustedSources,
+  type SourceFact,
+  sourceFacts,
+  type TrustedApp,
+} from "./trusted-sources.ts";
 
 /**
  * Apple Notes, Reminders, Calendar and Mail (#528) as thin adapters over the paired Mac helper's
@@ -55,6 +63,13 @@ export function ownerOnlyReminders(output: unknown): boolean {
     return o.shared === false && (o.createdBy === undefined || o.createdBy === "owner");
   });
 }
+
+/** The helper capability that lists each app's sources (lists, calendars, folders). */
+const SOURCE_CAPABILITY: Record<TrustedApp, string> = {
+  reminders: "reminders.list_lists",
+  calendar: "calendar.list_calendars",
+  notes: "notes.folders",
+};
 
 /** The slice of a paired helper node these connectors use (the Gateway's `NodeClient`). */
 export interface AppleHelper {
@@ -1825,6 +1840,30 @@ class AppleConnector implements Connector {
   }
 
   async configure(config: JsonObject): Promise<{ config: JsonObject }> {
+    const trusted = config.trustedSources;
+    if (trusted !== undefined) {
+      if (this.#app !== "reminders" && this.#app !== "notes" && this.#app !== "calendar") {
+        throw new PsycheError(
+          "invalid_params",
+          "trustedSources is a Reminders, Notes or Calendar setting",
+        );
+      }
+      if (
+        !Array.isArray(trusted) ||
+        trusted.length > MAX_TRUSTED_SOURCES ||
+        trusted.some((id) => typeof id !== "string" || id === "" || id.length > 200)
+      ) {
+        throw new PsycheError(
+          "invalid_params",
+          `trustedSources is a list of at most ${MAX_TRUSTED_SOURCES} source ids`,
+        );
+      }
+      const next = [...new Set(trusted as string[])];
+      // A shared or read-only source cannot be declared "mine": checked against the helper now.
+      const added = next.filter((id) => !readTrustedSources(this.#config).has(id));
+      if (added.length > 0) await this.#assertUnshared(added);
+      config = { ...config, trustedSources: next };
+    }
     const rules = config.shortcutRules;
     if (rules !== undefined) {
       if (this.#app !== "shortcuts") {
@@ -1919,12 +1958,58 @@ class AppleConnector implements Connector {
     if (spec.capability === "mail.save_attachments") output = await this.#importStaged(output, p);
     const out: ToolOutput = {
       output,
-      provenance: this.#app === "reminders" && ownerOnlyReminders(output) ? "trusted" : "untrusted",
+      provenance: (await this.#ownerContent(h, output, ctx.signal)) ? "trusted" : "untrusted",
     };
     if (spec.sideEffect !== "read") {
       out.receiptSummary = `${LABEL[this.#app]}: ${spec.capability} on ${h.name ?? "this Mac"}`;
     }
     return out;
+  }
+
+  async #assertUnshared(ids: string[]): Promise<void> {
+    const app = this.#app as TrustedApp;
+    const capability = SOURCE_CAPABILITY[app];
+    const h = this.#opts.helper();
+    const fail = (reason: string, message: string) =>
+      new PsycheError("invalid_params", message, { details: { reason, ids: ids.slice(0, 20) } });
+    if (h === undefined || !h.capabilities.includes(capability)) {
+      throw fail("helper_unavailable", "Psyche needs the Mac helper to check these are not shared");
+    }
+    const res = await h.invoke(capability, {}, { timeoutMs: 15_000 });
+    const facts = new Map(sourceFacts(app, res.ok ? res.result : undefined).map((f) => [f.id, f]));
+    for (const id of ids) {
+      const fact = facts.get(id);
+      if (fact === undefined) throw fail("unknown_source", "That source no longer exists");
+      if (fact.shared) {
+        throw fail(
+          "shared_source",
+          `${fact.title || "That source"} is shared, so it cannot be marked as yours`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Whether the result is the owner's own content (§3.6): attested by the helper (#1004), or every
+   * row from a source the owner marked "mine" in Settings that is still unshared. The current
+   * source facts come from the helper; anything unresolved stays untrusted.
+   */
+  async #ownerContent(h: AppleHelper, output: unknown, signal?: AbortSignal): Promise<boolean> {
+    const app = this.#app;
+    if (app !== "reminders" && app !== "notes" && app !== "calendar") return false;
+    if (app === "reminders" && ownerOnlyReminders(output)) return true;
+    const trusted = readTrustedSources(this.#config);
+    if (trusted.size === 0) return false;
+    const capability = SOURCE_CAPABILITY[app];
+    if (!h.capabilities.includes(capability)) return false;
+    try {
+      const res = await h.invoke(capability, {}, { signal, timeoutMs: 15_000 });
+      if (!res.ok) return false;
+      const facts = new Map<string, SourceFact>(sourceFacts(app, res.result).map((f) => [f.id, f]));
+      return ownerContent(app, output, { trusted, facts });
+    } catch {
+      return false;
+    }
   }
 
   /**

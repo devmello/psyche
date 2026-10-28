@@ -209,6 +209,91 @@ describe("connector action matrix → broker (#747)", () => {
     expect(other).toMatchObject({ decision: "ask" });
   });
 
+  it("a read from a list the owner marked theirs does not taint, so the Allow write runs without a card (§3.6)", async () => {
+    home = mkdtempSync(join(tmpdir(), "psyche-matrix-"));
+    const store = new MemoryConnectorStore();
+    const reminders = record({
+      id: "apple-reminders",
+      type: "apple:reminders",
+      label: "Reminders",
+      config: { trustedSources: ["L1"] },
+    });
+    await store.put(reminders);
+    const remindersHelper: AppleHelper = {
+      nodeId: "node_mac",
+      capabilities: ["reminders.list", "reminders.list_lists", "reminders.create"],
+      invoke: async (capability, params) => {
+        if (capability === "reminders.list_lists") {
+          return {
+            ok: true,
+            result: {
+              lists: [
+                { id: "L1", title: "Home", source: "iCloud", writable: true },
+                { id: "L2", title: "Work", source: "iCloud", writable: true },
+              ],
+            },
+          };
+        }
+        const ids = (params as { listIds?: string[] }).listIds ?? ["L1", "L2"];
+        return {
+          ok: true,
+          result: { reminders: ids.map((listId) => ({ id: `r-${listId}`, listId, title: "x" })) },
+        };
+      },
+    };
+    composed = await composeGateway({
+      retentionIntervalMs: 0,
+      background: false,
+      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      model: { provider: new FakeModelProvider(), model: "fake/model" },
+      parts: [
+        (s) =>
+          composeConnectors(s, { store, appleHelper: () => remindersHelper, syncIntervalMs: 0 }),
+      ],
+    });
+    const c = composed;
+    const owner = await adminClient(c.gateway);
+    clients.push(owner);
+    await owner.call(
+      "settings.set",
+      {
+        key: "permissions.connectors.apple-reminders",
+        value: { "reminders.read": "allow", "reminders.write": "allow" },
+      },
+      ik(),
+    );
+    await until(
+      () => c.broker.policy.connectors?.["apple-reminders"]?.["reminders.write"] === "allow",
+    );
+    const tools = appleFactories({ helper: () => remindersHelper })
+      .find((f) => f.entry.type === "apple:reminders")
+      ?.create(reminders, undefined as never)
+      .tools();
+    const list = tools?.find((t) => t.name === "reminders_list");
+    if (list === undefined) throw new Error("no reminders_list");
+    const read = async (listIds: string[]) =>
+      (await list.execute({ listIds }, { signal: new AbortController().signal } as never)) as {
+        provenance?: string;
+      };
+    const create = intent(reminders, "reminders_create", { title: "Call dentist" });
+
+    const trusted = await read(["L1"]);
+    expect(trusted.provenance).toBe("trusted");
+    expect(
+      await c.broker.decide(create, { ...CTX, taint: trusted.provenance === "untrusted" }),
+    ).toMatchObject({
+      decision: "allow",
+      rule: "connector:apple-reminders/reminders.write",
+    });
+
+    // A mixed read (trusted plus untrusted list) taints: the write asks.
+    const mixed = await read(["L1", "L2"]);
+    expect(mixed.provenance).toBe("untrusted");
+    expect(
+      (await c.broker.decide(create, { ...CTX, taint: mixed.provenance === "untrusted" })).decision,
+    ).toBe("ask");
+  });
+
   it("a new permissions.policy keeps the owner's Settings rules", async () => {
     home = mkdtempSync(join(tmpdir(), "psyche-matrix-"));
     const store = new MemoryConnectorStore();

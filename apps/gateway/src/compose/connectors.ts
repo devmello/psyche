@@ -52,6 +52,7 @@ import {
 import { VaultTokenVault } from "@psyche/vault";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Gateway } from "../server.ts";
+import { createChangeRecorder } from "./changes.ts";
 import { connectorMatrixSync } from "./connector-matrix.ts";
 import { fetchLimit, taskOrigins } from "./fetch-origins.ts";
 import { indexedConnectorLibrary } from "./library.ts";
@@ -261,7 +262,26 @@ export function composeConnectors(
   /** Catalogue ids with an implementation here; the rest (remote MCP presets) show unavailable. */
   const implemented = new Set(factories.map((f) => f.entry.id));
   /** connectors.updated for Settings and onboarding (#505): the record as stored now. */
+  const changes = createChangeRecorder({
+    audit: services.audit,
+    redact: (text) => services.redactor.redact(text),
+    publish: services.publish,
+  });
   const publishUpdate = async (event: ConnectorEvent): Promise<void> => {
+    // The owner declared sources theirs (or took one back): trust moves, so the audit trail says so.
+    if (event.type === "configured" && event.trustedSources !== undefined) {
+      const { before, after } = event.trustedSources;
+      void changes.record({
+        actor: { type: "owner", name: "settings" },
+        category: "connector",
+        tool: "connectors.configure",
+        target: { connector: event.connectorId, object: "trustedSources" },
+        action: "update",
+        before: before.join("\n"),
+        after: after.join("\n"),
+        note: `trusted sources: +${after.filter((x) => !before.includes(x)).length} -${before.filter((x) => !after.includes(x)).length}`,
+      });
+    }
     if (event.type !== "status" && event.type !== "matrix_changed" && event.type !== "configured")
       return;
     const connector = await registry.get(event.connectorId).catch(() => undefined);

@@ -936,6 +936,187 @@ describe("Apple Reminders and Calendar wave 1 (#639)", () => {
     expect(await provenanceOf({ reminders: [] })).toBe("untrusted");
   });
 
+  describe("sources the owner marked as theirs (§3.6)", () => {
+    const LISTS = {
+      lists: [
+        { id: "L1", title: "Home", source: "iCloud", writable: true },
+        { id: "L2", title: "Work", source: "iCloud", writable: true },
+        { id: "L3", title: "Family", source: "iCloud", writable: false },
+      ],
+    };
+    const CALS = {
+      calendars: [
+        { id: "C1", title: "Mine", source: "iCloud", writable: true },
+        { id: "C2", title: "Holidays", source: "Subscribed", writable: false },
+      ],
+    };
+    const FOLDERS = {
+      folders: [
+        { id: "F1", name: "Notes", account: "iCloud", parentId: null, noteCount: 2 },
+        { id: "F2", name: "Shared", account: "iCloud", parentId: null, noteCount: 1 },
+        { id: "F3", name: "Notes", account: "Gmail", parentId: null, noteCount: 1 },
+      ],
+    };
+    async function readWith(
+      catalogueId: string,
+      tool: string,
+      trustedSources: string[] | undefined,
+      answers: Record<string, unknown>,
+    ) {
+      const helper = new FakeHelper();
+      for (const [k, v] of Object.entries(answers)) helper.answers[k] = { ok: true, result: v };
+      const { registry, run } = make(helper);
+      const rec = await registry.connect({ catalogueId, scopeMode: "read_act" });
+      if (trustedSources !== undefined) {
+        // The owner marked them while they were unshared; what the helper says changed since.
+        const cap = Object.keys(answers).find((k) => /list_lists|list_calendars|folders/.test(k));
+        const key = cap?.includes("calendars")
+          ? "calendars"
+          : cap?.includes("lists")
+            ? "lists"
+            : "folders";
+        const before: Record<string, unknown>[] = (
+          ((answers[cap ?? ""] as Record<string, unknown[]>)[key] ?? []) as object[]
+        ).map((r) => ({
+          ...(r as object),
+          writable: true,
+        }));
+        for (const id of trustedSources)
+          if (!before.some((r) => r.id === id)) before.push({ id, title: id, writable: true });
+        const now = helper.answers[cap ?? ""];
+        helper.answers[cap ?? ""] = { ok: true, result: { [key]: before } };
+        await registry.configure(rec.id, { trustedSources });
+        if (now) helper.answers[cap ?? ""] = now;
+      }
+      const out = (await run(`mcp__apple-1__${tool}`)({})) as unknown as { provenance: string };
+      return out.provenance;
+    }
+    const reminder = (id: string, listId: string) => ({ id, listId, title: id });
+
+    it("a read from trusted lists is trusted; a mixed or shared one is not", async () => {
+      const read = (trusted: string[], reminders: unknown[]) =>
+        readWith("apple-reminders", "reminders_list", trusted, {
+          "reminders.list": { reminders },
+          "reminders.list_lists": LISTS,
+        });
+      expect(await read(["L1"], [reminder("a", "L1")])).toBe("trusted");
+      expect(await read(["L1", "L2"], [reminder("a", "L1"), reminder("b", "L2")])).toBe("trusted");
+      // Mixed: one row from a list the owner did not mark.
+      expect(await read(["L1"], [reminder("a", "L1"), reminder("b", "L2")])).toBe("untrusted");
+      // Marked, but the list is read-only (shared) now.
+      expect(await read(["L3"], [reminder("a", "L3")])).toBe("untrusted");
+      // Someone else wrote it, even in a trusted list.
+      expect(await read(["L1"], [{ ...reminder("a", "L1"), createdBy: "ana@x.org" }])).toBe(
+        "untrusted",
+      );
+      expect(await read([], [reminder("a", "L1")])).toBe("untrusted");
+      expect(await read(["L1"], [])).toBe("untrusted");
+    });
+
+    it("an unknown source id fails closed", async () => {
+      expect(
+        await readWith("apple-reminders", "reminders_list", ["GONE"], {
+          "reminders.list": { reminders: [reminder("a", "GONE")] },
+          "reminders.list_lists": LISTS,
+        }),
+      ).toBe("untrusted");
+    });
+
+    it("an invite from an external organiser in a trusted calendar stays untrusted", async () => {
+      const ev = (id: string, calendarId: string, attendees?: unknown[]) => ({
+        id,
+        calendarId,
+        title: id,
+        start: "2026-10-30T10:00:00Z",
+        end: "2026-10-30T11:00:00Z",
+        ...(attendees === undefined ? {} : { attendees }),
+      });
+      const read = (events: unknown[]) =>
+        readWith("apple-calendar", "calendar_list_events", ["C1"], {
+          "calendar.list_events": { events },
+          "calendar.list_calendars": CALS,
+        });
+      expect(await read([ev("own", "C1")])).toBe("trusted");
+      expect(
+        await read([
+          ev("mine-with-guests", "C1", [
+            { name: "Me", status: "accepted", organizer: true, me: true },
+            { name: "Bo", status: "pending", organizer: false },
+          ]),
+        ]),
+      ).toBe("trusted");
+      expect(
+        await read([
+          ev("invite", "C1", [
+            { name: "Eve", email: "eve@x.org", status: "accepted", organizer: true },
+            { name: "Me", status: "pending", organizer: false, me: true },
+          ]),
+        ]),
+      ).toBe("untrusted");
+      expect(await read([ev("own", "C1"), ev("other", "C2")])).toBe("untrusted");
+    });
+
+    it("Notes match by folder name and fail closed when a name is shared with another folder", async () => {
+      const read = (trusted: string[], folder: string) =>
+        readWith("apple-notes", "notes_list", trusted, {
+          "notes.list": {
+            notes: [{ id: "n1", folder, title: "x", modified: "2026-10-20T10:00:00Z" }],
+          },
+          "notes.folders": FOLDERS,
+        });
+      // "Notes" is two folders (iCloud and Gmail): both must be marked.
+      expect(await read(["F1"], "Notes")).toBe("untrusted");
+      expect(await read(["F1", "F3"], "Notes")).toBe("trusted");
+      expect(await read(["F1", "F3"], "Shared")).toBe("untrusted");
+    });
+
+    it("Mail and Messages stay untrusted whatever is configured", async () => {
+      const helper = new FakeHelper();
+      const { registry, run } = make(helper);
+      await registry.connect({ catalogueId: "apple-mail", scopeMode: "read" });
+      const out = (await run("mcp__apple-1__mail_mailboxes")({})) as unknown as {
+        provenance: string;
+      };
+      expect(out.provenance).toBe("untrusted");
+    });
+
+    it("configure takes ids only for Reminders, Notes and Calendar, and refuses a shared source", async () => {
+      const helper = new FakeHelper();
+      helper.answers["reminders.list_lists"] = { ok: true, result: LISTS };
+      const { registry } = make(helper);
+      const rec = await registry.connect({ catalogueId: "apple-reminders", scopeMode: "read" });
+      await expect(registry.configure(rec.id, { trustedSources: ["L3"] })).rejects.toMatchObject({
+        details: { reason: "shared_source" },
+      });
+      await expect(registry.configure(rec.id, { trustedSources: ["NOPE"] })).rejects.toMatchObject({
+        details: { reason: "unknown_source" },
+      });
+      await expect(registry.configure(rec.id, { trustedSources: "L1" })).rejects.toMatchObject({
+        code: "invalid_params",
+      });
+      const ok = await registry.configure(rec.id, { trustedSources: ["L1", "L1"] });
+      expect(ok.config.trustedSources).toEqual(["L1"]);
+      const mail = await registry.connect({ catalogueId: "apple-mail", scopeMode: "read" });
+      await expect(registry.configure(mail.id, { trustedSources: ["x"] })).rejects.toMatchObject({
+        code: "invalid_params",
+      });
+    });
+
+    it("no connector tool takes trustedSources: an agent cannot set it", () => {
+      for (const app of ["reminders", "notes", "calendar"]) {
+        const idx = ["notes", "reminders", "calendar"].indexOf(app);
+        const tools =
+          appleFactories({ helper: () => new FakeHelper() })
+            [idx]?.create({ id: "apple-1", type: `apple:${app}` } as never, {} as never)
+            .tools() ?? [];
+        expect(tools.length).toBeGreaterThan(0);
+        for (const t of tools) {
+          expect(JSON.stringify(t.inputSchema)).not.toContain("trustedSources");
+        }
+      }
+    });
+  });
+
   it("reminders_create carries a mail link, an alarm and a recurrence; complete and delete ask", async () => {
     const create = toolOf(1, "apple:reminders", "reminders_create");
     if (!create) throw new Error("reminders_create is missing");

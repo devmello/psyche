@@ -480,6 +480,11 @@ export class ConnectorRegistry {
       next = checked.config;
       if (checked.account !== undefined) record.account = checked.account;
     }
+    const idsOf = (c: JsonObject): string[] =>
+      Array.isArray(c.trustedSources)
+        ? (c.trustedSources as unknown[]).filter((x): x is string => typeof x === "string")
+        : [];
+    const trustedBefore = idsOf(record.config);
     record.config = next;
     record.updatedAt = new Date(this.#clock.now()).toISOString();
     await this.#store.put(record);
@@ -488,7 +493,15 @@ export class ConnectorRegistry {
       const connector = factory.create(record, this.#connectorContext());
       this.#live.set(id, { connector, unregister: this.#register(record, connector) });
     }
-    this.#emit({ type: "configured", connectorId: id, keys: Object.keys(patch) });
+    const trustedAfter = idsOf(next);
+    this.#emit({
+      type: "configured",
+      connectorId: id,
+      keys: Object.keys(patch),
+      ...(JSON.stringify(trustedBefore) === JSON.stringify(trustedAfter)
+        ? {}
+        : { trustedSources: { before: trustedBefore, after: trustedAfter } }),
+    });
     return structuredClone(record);
   }
 
