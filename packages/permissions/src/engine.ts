@@ -366,7 +366,12 @@ export class PolicyEngine {
     const d = this.#d;
     const p = d.policy();
     const inferred = inferApprovalKind(call.tool);
-    const kind = call.kind ?? inferred;
+    // The memory tool names its protected-file writes itself (kind + `write`, exact binding);
+    // every other call is Psyche's own notes (`none`). The store still refuses a protected
+    // write without an approved card, so a mislabelled call gains nothing.
+    const plainMemory =
+      call.tool === "memory" && call.kind === undefined && call.sideEffect === "none";
+    const kind = call.kind ?? (plainMemory ? "connector_action" : inferred);
     const se = effectiveSideEffect(call.tool, call.sideEffect);
     if (se !== call.sideEffect) trace.push(`floor:${call.sideEffect}->${se}`);
     const tainted = ctx.taint || ctx.initiator === "mcp_app";

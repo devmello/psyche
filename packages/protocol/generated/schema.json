@@ -1374,6 +1374,22 @@
         "sideEffecting": true
       },
       {
+        "description": "The code of an agent-made MCP server (madeBy psyche), read-only. not_found for an unknown server or one not made by Psyche.",
+        "name": "mcp.files.read",
+        "params": "#/$defs/McpFilesReadParams",
+        "result": "#/$defs/SelfConnectorFilesResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting: the owner edits one file of an agent-made server. The server stops (its code no longer matches the approved tree) until the change is approved on a device-only trust card showing the diff; approve it, then mcp.add with the returned proposal. invalid_params for a bad path or size; not_found for a server not made by Psyche.",
+        "name": "mcp.files.write",
+        "params": "#/$defs/McpFilesWriteParams",
+        "result": "#/$defs/SelfConnectorFilesWriteResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Side-effecting: starts the server sandboxed (srt or a container; never bare), lists its tools without registering them, stops it, and opens a device-only skill_install trust card (details.kind mcp_server) with the tools and network reach. unavailable when no sandbox launcher exists for a stdio server; conflict when the id is taken.",
         "name": "mcp.probe",
         "params": "#/$defs/McpProbeParams",
@@ -1780,6 +1796,22 @@
         "result": "#/$defs/MemoryLoopsUpdateResult",
         "scope": "operator.write",
         "sideEffecting": true
+      },
+      {
+        "description": "Deletes one agent note as the owner (removed false when it is already gone). Only files under memory/agent/ qualify. Side-effecting.",
+        "name": "memory.notes.delete",
+        "params": "#/$defs/MemoryNotesDeleteParams",
+        "result": "#/$defs/MemoryNotesDeleteResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Lists the notes Psyche keeps for itself (memory/agent/*.md), newest first.",
+        "name": "memory.notes.list",
+        "params": "#/$defs/MemoryNotesListParams",
+        "result": "#/$defs/MemoryNotesListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
       },
       {
         "description": "Pauses or resumes memory: while paused nothing is flushed, remembered or indexed from chats. Side-effecting.",
@@ -3096,6 +3128,36 @@
         "deny"
       ],
       "type": "string"
+    },
+    "AgentNote": {
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/WorkspacePath"
+        },
+        "updatedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        }
+      },
+      "required": [
+        "path",
+        "updatedAt",
+        "text",
+        "bytes",
+        "provenance"
+      ],
+      "type": "object"
     },
     "AppleAlarm": {
       "anyOf": [
@@ -19569,6 +19631,43 @@
       ],
       "type": "object"
     },
+    "McpFilesReadParams": {
+      "properties": {
+        "serverId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "serverId"
+      ],
+      "type": "object"
+    },
+    "McpFilesWriteParams": {
+      "properties": {
+        "serverId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "content": {
+          "maxLength": 200000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "serverId",
+        "path",
+        "content"
+      ],
+      "type": "object"
+    },
     "McpProbeParams": {
       "properties": {
         "server": {
@@ -19964,6 +20063,13 @@
         },
         "enabled": {
           "type": "boolean"
+        },
+        "madeBy": {
+          "const": "psyche",
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
         }
       },
       "required": [
@@ -22592,6 +22698,46 @@
       },
       "required": [
         "loop"
+      ],
+      "type": "object"
+    },
+    "MemoryNotesDeleteParams": {
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/WorkspacePath"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "MemoryNotesDeleteResult": {
+      "properties": {
+        "removed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "removed"
+      ],
+      "type": "object"
+    },
+    "MemoryNotesListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "MemoryNotesListResult": {
+      "properties": {
+        "notes": {
+          "items": {
+            "$ref": "#/$defs/AgentNote"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "notes"
       ],
       "type": "object"
     },
@@ -29021,6 +29167,75 @@
       "properties": {},
       "type": "object"
     },
+    "SelfConnectorFile": {
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "content",
+        "bytes"
+      ],
+      "type": "object"
+    },
+    "SelfConnectorFilesResult": {
+      "properties": {
+        "files": {
+          "items": {
+            "$ref": "#/$defs/SelfConnectorFile"
+          },
+          "type": "array"
+        },
+        "version": {
+          "type": "string"
+        },
+        "runtime": {
+          "enum": [
+            "node",
+            "python"
+          ],
+          "type": "string"
+        },
+        "entry": {
+          "type": "string"
+        },
+        "modified": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "files",
+        "version",
+        "runtime",
+        "entry",
+        "modified"
+      ],
+      "type": "object"
+    },
+    "SelfConnectorFilesWriteResult": {
+      "properties": {
+        "proposal": {
+          "$ref": "#/$defs/McpProposal"
+        },
+        "approval": {
+          "$ref": "#/$defs/ApprovalRequest"
+        }
+      },
+      "required": [
+        "proposal",
+        "approval"
+      ],
+      "type": "object"
+    },
     "SettingEntry": {
       "properties": {
         "key": {
@@ -29139,6 +29354,42 @@
         "financial"
       ],
       "type": "string"
+    },
+    "SkillAuthorVersion": {
+      "properties": {
+        "version": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "hash": {
+          "type": "string"
+        },
+        "approvedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "retiredAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "retiredBy": {
+          "enum": [
+            "update",
+            "delete"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "hash",
+        "approvedAt",
+        "retiredAt",
+        "retiredBy"
+      ],
+      "type": "object"
     },
     "SkillChangeEvent": {
       "anyOf": [
@@ -29342,6 +29593,20 @@
         },
         "update": {
           "$ref": "#/$defs/SkillUpdateStatus"
+        },
+        "madeBy": {
+          "description": "Psyche wrote this skill (self-extension); trust stays unknown",
+          "enum": [
+            "agent"
+          ],
+          "type": "string"
+        },
+        "history": {
+          "description": "Earlier approved versions of an agent-made skill, newest first",
+          "items": {
+            "$ref": "#/$defs/SkillAuthorVersion"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -29733,6 +29998,13 @@
         },
         "manifest": {
           "$ref": "#/$defs/SkillManifest"
+        },
+        "author": {
+          "description": "Psyche wrote this skill",
+          "enum": [
+            "agent"
+          ],
+          "type": "string"
         }
       },
       "required": [

@@ -21,6 +21,10 @@ export const McpServerStatus = Type.Object(
     connected: Type.Boolean(),
     /** Turned off by the owner (`mcp.setEnabled`): kept in the config, not running. Default on. */
     enabled: Type.Optional(Type.Boolean()),
+    /** Written by Psyche itself (its code is in `agent-connectors/<id>`); always tier `unknown`. */
+    madeBy: Type.Optional(Type.Literal("psyche")),
+    /** The agent-made server's version (from its manifest). */
+    version: Type.Optional(Type.String()),
   },
   { $id: "McpServerStatus" },
 );
@@ -151,6 +155,18 @@ export type McpServerSecret = Static<typeof McpServerSecret>;
 
 const ServerId = Type.String({ minLength: 1, maxLength: 64 });
 
+/** One file of an agent-made server's code, as the owner sees it. */
+export const SelfConnectorFile = Type.Object(
+  {
+    /** Relative, `/`-separated, no `..`. */
+    path: Type.String(),
+    content: Type.String(),
+    bytes: Type.Integer({ minimum: 0 }),
+  },
+  { $id: "SelfConnectorFile" },
+);
+export type SelfConnectorFile = Static<typeof SelfConnectorFile>;
+
 export const McpMethods = {
   "mcp.status": defineMethod({
     params: Type.Object({}),
@@ -246,5 +262,37 @@ export const McpMethods = {
     sideEffecting: true,
     description:
       "Side-effecting: stores a new value for one of the server's env variables (or its bearer token) in the vault, bound to that server, and restarts the server so it takes effect. A value kept in plain config moves to the vault. The value travels client to Gateway only. not_found for an unknown server or name; unavailable while the vault is locked.",
+  }),
+  "mcp.files.read": defineMethod({
+    params: Type.Object({ serverId: ServerId }),
+    result: Type.Object(
+      {
+        files: Type.Array(SelfConnectorFile),
+        version: Type.String(),
+        runtime: StringEnum(["node", "python"]),
+        entry: Type.String(),
+        /** The code on disk no longer hashes to what the owner approved: the server does not start. */
+        modified: Type.Boolean(),
+      },
+      { $id: "SelfConnectorFilesResult" },
+    ),
+    scope: "operator.read",
+    description:
+      "The code of an agent-made MCP server (madeBy psyche), read-only. not_found for an unknown server or one not made by Psyche.",
+  }),
+  "mcp.files.write": defineMethod({
+    params: Type.Object({
+      serverId: ServerId,
+      path: Type.String({ minLength: 1, maxLength: 200 }),
+      content: Type.String({ maxLength: 200_000 }),
+    }),
+    result: Type.Object(
+      { proposal: McpProposal, approval: ApprovalRequest },
+      { $id: "SelfConnectorFilesWriteResult" },
+    ),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: the owner edits one file of an agent-made server. The server stops (its code no longer matches the approved tree) until the change is approved on a device-only trust card showing the diff; approve it, then mcp.add with the returned proposal. invalid_params for a bad path or size; not_found for a server not made by Psyche.",
   }),
 } as const;

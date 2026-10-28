@@ -9,6 +9,7 @@
 //   let actionProposal = try? JSONDecoder().decode(ActionProposal.self, from: jsonData)
 //   let actionProposalStatus = try? JSONDecoder().decode(ActionProposalStatus.self, from: jsonData)
 //   let actionRule = try? JSONDecoder().decode(ActionRule.self, from: jsonData)
+//   let agentNote = try? JSONDecoder().decode(AgentNote.self, from: jsonData)
 //   let appleAlarm = try? JSONDecoder().decode(AppleAlarm.self, from: jsonData)
 //   let appleBusyBlock = try? JSONDecoder().decode(AppleBusyBlock.self, from: jsonData)
 //   let appleCalendar = try? JSONDecoder().decode(AppleCalendar.self, from: jsonData)
@@ -544,6 +545,8 @@
 //   let mailThreadRef = try? JSONDecoder().decode(MailThreadRef.self, from: jsonData)
 //   let mCPAddParams = try? JSONDecoder().decode(MCPAddParams.self, from: jsonData)
 //   let mCPAddResult = try? JSONDecoder().decode(MCPAddResult.self, from: jsonData)
+//   let mCPFilesReadParams = try? JSONDecoder().decode(MCPFilesReadParams.self, from: jsonData)
+//   let mCPFilesWriteParams = try? JSONDecoder().decode(MCPFilesWriteParams.self, from: jsonData)
 //   let mCPProbeParams = try? JSONDecoder().decode(MCPProbeParams.self, from: jsonData)
 //   let mCPProbeResult = try? JSONDecoder().decode(MCPProbeResult.self, from: jsonData)
 //   let mCPProbedTool = try? JSONDecoder().decode(MCPProbedTool.self, from: jsonData)
@@ -666,6 +669,10 @@
 //   let memoryLoopsListResult = try? JSONDecoder().decode(MemoryLoopsListResult.self, from: jsonData)
 //   let memoryLoopsUpdateParams = try? JSONDecoder().decode(MemoryLoopsUpdateParams.self, from: jsonData)
 //   let memoryLoopsUpdateResult = try? JSONDecoder().decode(MemoryLoopsUpdateResult.self, from: jsonData)
+//   let memoryNotesDeleteParams = try? JSONDecoder().decode(MemoryNotesDeleteParams.self, from: jsonData)
+//   let memoryNotesDeleteResult = try? JSONDecoder().decode(MemoryNotesDeleteResult.self, from: jsonData)
+//   let memoryNotesListParams = try? JSONDecoder().decode(MemoryNotesListParams.self, from: jsonData)
+//   let memoryNotesListResult = try? JSONDecoder().decode(MemoryNotesListResult.self, from: jsonData)
 //   let memoryPauseParams = try? JSONDecoder().decode(MemoryPauseParams.self, from: jsonData)
 //   let memoryPauseResult = try? JSONDecoder().decode(MemoryPauseResult.self, from: jsonData)
 //   let memoryPersonaEditParams = try? JSONDecoder().decode(MemoryPersonaEditParams.self, from: jsonData)
@@ -926,6 +933,9 @@
 //   let searchSemanticState = try? JSONDecoder().decode(SearchSemanticState.self, from: jsonData)
 //   let searchSemanticStatus = try? JSONDecoder().decode(SearchSemanticStatus.self, from: jsonData)
 //   let searchStatusParams = try? JSONDecoder().decode(SearchStatusParams.self, from: jsonData)
+//   let selfConnectorFile = try? JSONDecoder().decode(SelfConnectorFile.self, from: jsonData)
+//   let selfConnectorFilesResult = try? JSONDecoder().decode(SelfConnectorFilesResult.self, from: jsonData)
+//   let selfConnectorFilesWriteResult = try? JSONDecoder().decode(SelfConnectorFilesWriteResult.self, from: jsonData)
 //   let settingEntry = try? JSONDecoder().decode(SettingEntry.self, from: jsonData)
 //   let settings = try? JSONDecoder().decode(Settings.self, from: jsonData)
 //   let settingsChangedPayload = try? JSONDecoder().decode(SettingsChangedPayload.self, from: jsonData)
@@ -934,6 +944,7 @@
 //   let settingsSetParams = try? JSONDecoder().decode(SettingsSetParams.self, from: jsonData)
 //   let settingsSetResult = try? JSONDecoder().decode(SettingsSetResult.self, from: jsonData)
 //   let sideEffect = try? JSONDecoder().decode(SideEffect.self, from: jsonData)
+//   let skillAuthorVersion = try? JSONDecoder().decode(SkillAuthorVersion.self, from: jsonData)
 //   let skillChangeEvent = try? JSONDecoder().decode(SkillChangeEvent.self, from: jsonData)
 //   let skillCommand = try? JSONDecoder().decode(SkillCommand.self, from: jsonData)
 //   let skillDetails = try? JSONDecoder().decode(SkillDetails.self, from: jsonData)
@@ -14174,30 +14185,40 @@ public struct MCPServerStatus: Codable, Sendable {
     public let connected: Bool
     public let enabled: Bool?
     public let id: String
+    public let madeBy: MadeBy?
     public let name: String
     public let network: Bool
     public let transport: KindEnum
     public let trust: Trust
+    public let version: String?
 
     public enum CodingKeys: String, CodingKey {
         case connected = "connected"
         case enabled = "enabled"
         case id = "id"
+        case madeBy = "madeBy"
         case name = "name"
         case network = "network"
         case transport = "transport"
         case trust = "trust"
+        case version = "version"
     }
 
-    public init(connected: Bool, enabled: Bool?, id: String, name: String, network: Bool, transport: KindEnum, trust: Trust) {
+    public init(connected: Bool, enabled: Bool?, id: String, madeBy: MadeBy?, name: String, network: Bool, transport: KindEnum, trust: Trust, version: String?) {
         self.connected = connected
         self.enabled = enabled
         self.id = id
+        self.madeBy = madeBy
         self.name = name
         self.network = network
         self.transport = transport
         self.trust = trust
+        self.version = version
     }
+}
+
+public enum MadeBy: String, Codable, Sendable {
+    case psyche = "psyche"
 }
 
 public enum KindEnum: String, Codable, Sendable {
@@ -14209,6 +14230,38 @@ public enum Trust: String, Codable, Sendable {
     case bundled = "bundled"
     case unknown = "unknown"
     case verified = "verified"
+}
+
+// MARK: - MCPFilesReadParams
+public struct MCPFilesReadParams: Codable, Sendable {
+    public let serverID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case serverID = "serverId"
+    }
+
+    public init(serverID: String) {
+        self.serverID = serverID
+    }
+}
+
+// MARK: - MCPFilesWriteParams
+public struct MCPFilesWriteParams: Codable, Sendable {
+    public let content: String
+    public let path: String
+    public let serverID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case content = "content"
+        case path = "path"
+        case serverID = "serverId"
+    }
+
+    public init(content: String, path: String, serverID: String) {
+        self.content = content
+        self.path = path
+        self.serverID = serverID
+    }
 }
 
 // MARK: - MCPProbeParams
@@ -16533,6 +16586,70 @@ public struct MemoryLoopsUpdateResult: Codable, Sendable {
 
     public init(loop: GraphLoop) {
         self.loop = loop
+    }
+}
+
+// MARK: - MemoryNotesDeleteParams
+public struct MemoryNotesDeleteParams: Codable, Sendable {
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case path = "path"
+    }
+
+    public init(path: String) {
+        self.path = path
+    }
+}
+
+// MARK: - MemoryNotesDeleteResult
+public struct MemoryNotesDeleteResult: Codable, Sendable {
+    public let removed: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case removed = "removed"
+    }
+
+    public init(removed: Bool) {
+        self.removed = removed
+    }
+}
+
+// MARK: - MemoryNotesListResult
+public struct MemoryNotesListResult: Codable, Sendable {
+    public let notes: [AgentNote]
+
+    public enum CodingKeys: String, CodingKey {
+        case notes = "notes"
+    }
+
+    public init(notes: [AgentNote]) {
+        self.notes = notes
+    }
+}
+
+// MARK: - AgentNote
+public struct AgentNote: Codable, Sendable {
+    public let bytes: Int
+    public let path: String
+    public let provenance: Provenance
+    public let text: String
+    public let updatedAt: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case path = "path"
+        case provenance = "provenance"
+        case text = "text"
+        case updatedAt = "updatedAt"
+    }
+
+    public init(bytes: Int, path: String, provenance: Provenance, text: String, updatedAt: String) {
+        self.bytes = bytes
+        self.path = path
+        self.provenance = provenance
+        self.text = text
+        self.updatedAt = updatedAt
     }
 }
 
@@ -21539,6 +21656,71 @@ public struct SearchReindexResult: Codable, Sendable {
     }
 }
 
+// MARK: - SelfConnectorFilesResult
+public struct SelfConnectorFilesResult: Codable, Sendable {
+    public let entry: String
+    public let files: [SelfConnectorFile]
+    public let modified: Bool
+    public let runtime: Runtime
+    public let version: String
+
+    public enum CodingKeys: String, CodingKey {
+        case entry = "entry"
+        case files = "files"
+        case modified = "modified"
+        case runtime = "runtime"
+        case version = "version"
+    }
+
+    public init(entry: String, files: [SelfConnectorFile], modified: Bool, runtime: Runtime, version: String) {
+        self.entry = entry
+        self.files = files
+        self.modified = modified
+        self.runtime = runtime
+        self.version = version
+    }
+}
+
+// MARK: - SelfConnectorFile
+public struct SelfConnectorFile: Codable, Sendable {
+    public let bytes: Int
+    public let content: String
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case content = "content"
+        case path = "path"
+    }
+
+    public init(bytes: Int, content: String, path: String) {
+        self.bytes = bytes
+        self.content = content
+        self.path = path
+    }
+}
+
+public enum Runtime: String, Codable, Sendable {
+    case node = "node"
+    case python = "python"
+}
+
+// MARK: - SelfConnectorFilesWriteResult
+public struct SelfConnectorFilesWriteResult: Codable, Sendable {
+    public let approval: ApprovalRequest
+    public let proposal: MCPProposal
+
+    public enum CodingKeys: String, CodingKey {
+        case approval = "approval"
+        case proposal = "proposal"
+    }
+
+    public init(approval: ApprovalRequest, proposal: MCPProposal) {
+        self.approval = approval
+        self.proposal = proposal
+    }
+}
+
 // MARK: - SettingsChangedPayload
 public struct SettingsChangedPayload: Codable, Sendable {
     public let entries: [SettingEntry]
@@ -21704,6 +21886,8 @@ public struct SkillProposalResult: Codable, Sendable {
 // MARK: - SkillProposal
 public struct SkillProposal: Codable, Sendable {
     public let approvalKind: ApprovalKindEnum
+    /// Psyche wrote this skill
+    public let author: AuthorEnum?
     public let bindingHash: String
     public let commit: String?
     /// Epoch ms
@@ -21726,6 +21910,7 @@ public struct SkillProposal: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case approvalKind = "approvalKind"
+        case author = "author"
         case bindingHash = "bindingHash"
         case commit = "commit"
         case expiresAt = "expiresAt"
@@ -21743,8 +21928,9 @@ public struct SkillProposal: Codable, Sendable {
         case update = "update"
     }
 
-    public init(approvalKind: ApprovalKindEnum, bindingHash: String, commit: String?, expiresAt: Int, files: [SkillProposalFile], findings: [ScanFinding], grantKey: String, hash: String, id: String, manifest: SkillManifest?, name: String, scope: Scope, source: SkillInstallSource, text: String, trust: SkillTrust, update: SkillProposalUpdate?) {
+    public init(approvalKind: ApprovalKindEnum, author: AuthorEnum?, bindingHash: String, commit: String?, expiresAt: Int, files: [SkillProposalFile], findings: [ScanFinding], grantKey: String, hash: String, id: String, manifest: SkillManifest?, name: String, scope: Scope, source: SkillInstallSource, text: String, trust: SkillTrust, update: SkillProposalUpdate?) {
         self.approvalKind = approvalKind
+        self.author = author
         self.bindingHash = bindingHash
         self.commit = commit
         self.expiresAt = expiresAt
@@ -21761,6 +21947,13 @@ public struct SkillProposal: Codable, Sendable {
         self.trust = trust
         self.update = update
     }
+}
+
+/// Psyche wrote this skill (self-extension); trust stays unknown
+///
+/// Psyche wrote this skill
+public enum AuthorEnum: String, Codable, Sendable {
+    case agent = "agent"
 }
 
 // MARK: - SkillProposalFile
@@ -22308,6 +22501,10 @@ public struct SkillDetails: Codable, Sendable {
     public let findings: [ScanFinding]
     /// Tree hash; empty for a skill that could not be read
     public let hash: String
+    /// Earlier approved versions of an agent-made skill, newest first
+    public let history: [SkillAuthorVersion]?
+    /// Psyche wrote this skill (self-extension); trust stays unknown
+    public let madeBy: AuthorEnum?
     public let manifest: SkillManifest?
     public let name: String
     /// Lower-precedence sources this skill overrides
@@ -22330,6 +22527,8 @@ public struct SkillDetails: Codable, Sendable {
         case enabled = "enabled"
         case findings = "findings"
         case hash = "hash"
+        case history = "history"
+        case madeBy = "madeBy"
         case manifest = "manifest"
         case name = "name"
         case overrides = "overrides"
@@ -22344,13 +22543,15 @@ public struct SkillDetails: Codable, Sendable {
         case version = "version"
     }
 
-    public init(commit: String?, description: String, disableModelInvocation: Bool, enabled: Bool, findings: [ScanFinding], hash: String, manifest: SkillManifest?, name: String, overrides: [SkillSource], path: String, reasons: [String], source: SkillSource, status: SkillStatus, trust: SkillTrust, update: SkillUpdateStatus?, userEnabled: Bool, userInvocable: Bool, version: String?) {
+    public init(commit: String?, description: String, disableModelInvocation: Bool, enabled: Bool, findings: [ScanFinding], hash: String, history: [SkillAuthorVersion]?, madeBy: AuthorEnum?, manifest: SkillManifest?, name: String, overrides: [SkillSource], path: String, reasons: [String], source: SkillSource, status: SkillStatus, trust: SkillTrust, update: SkillUpdateStatus?, userEnabled: Bool, userInvocable: Bool, version: String?) {
         self.commit = commit
         self.description = description
         self.disableModelInvocation = disableModelInvocation
         self.enabled = enabled
         self.findings = findings
         self.hash = hash
+        self.history = history
+        self.madeBy = madeBy
         self.manifest = manifest
         self.name = name
         self.overrides = overrides
@@ -22364,6 +22565,36 @@ public struct SkillDetails: Codable, Sendable {
         self.userInvocable = userInvocable
         self.version = version
     }
+}
+
+// MARK: - SkillAuthorVersion
+public struct SkillAuthorVersion: Codable, Sendable {
+    public let approvedAt: String
+    public let hash: String
+    public let retiredAt: String
+    public let retiredBy: RetiredBy
+    public let version: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case approvedAt = "approvedAt"
+        case hash = "hash"
+        case retiredAt = "retiredAt"
+        case retiredBy = "retiredBy"
+        case version = "version"
+    }
+
+    public init(approvedAt: String, hash: String, retiredAt: String, retiredBy: RetiredBy, version: Int) {
+        self.approvedAt = approvedAt
+        self.hash = hash
+        self.retiredAt = retiredAt
+        self.retiredBy = retiredBy
+        self.version = version
+    }
+}
+
+public enum RetiredBy: String, Codable, Sendable {
+    case delete = "delete"
+    case update = "update"
 }
 
 public enum SkillStatus: String, Codable, Sendable {
@@ -27333,6 +27564,7 @@ public typealias MeetingsRecordStatusParams = [String: JSONAny]
 public typealias MemoryExportParams = [String: JSONAny]
 public typealias MemoryGraphBlocklistListParams = [String: JSONAny]
 public typealias MemoryGraphStatusParams = [String: JSONAny]
+public typealias MemoryNotesListParams = [String: JSONAny]
 public typealias MemoryPersonaGetParams = [String: JSONAny]
 public typealias MemoryStatusParams = [String: JSONAny]
 public typealias ModelsListParams = [String: JSONAny]

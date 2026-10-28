@@ -113,6 +113,22 @@ export const SkillUpdateStatus = Type.Object(
 );
 export type SkillUpdateStatus = Static<typeof SkillUpdateStatus>;
 
+/**
+ * One earlier approved version of a skill Psyche made (`$PSYCHE_HOME/skills/.history/<name>/<n>/`).
+ * Versions are kept, never loaded; restoring one is a new proposal the owner approves.
+ */
+export const SkillAuthorVersion = Type.Object(
+  {
+    version: Type.Integer({ minimum: 1 }),
+    hash: Type.String(),
+    approvedAt: IsoDateTime,
+    retiredAt: IsoDateTime,
+    retiredBy: StringEnum(["update", "delete"]),
+  },
+  { $id: "SkillAuthorVersion" },
+);
+export type SkillAuthorVersion = Static<typeof SkillAuthorVersion>;
+
 /** A skill as Settings → Skills shows it. */
 export const SkillDetails = Type.Object(
   {
@@ -130,6 +146,16 @@ export const SkillDetails = Type.Object(
     commit: Type.Optional(Type.String()),
     manifest: Type.Optional(SkillManifest),
     update: Type.Optional(SkillUpdateStatus),
+    madeBy: Type.Optional(
+      StringEnum(["agent"], {
+        description: "Psyche wrote this skill (self-extension); trust stays unknown",
+      }),
+    ),
+    history: Type.Optional(
+      Type.Array(SkillAuthorVersion, {
+        description: "Earlier approved versions of an agent-made skill, newest first",
+      }),
+    ),
   },
   { $id: "SkillDetails" },
 );
@@ -189,6 +215,7 @@ export const SkillProposal = Type.Object(
     ),
     expiresAt: Type.Integer({ minimum: 0, description: "Epoch ms" }),
     manifest: Type.Optional(SkillManifest),
+    author: Type.Optional(StringEnum(["agent"], { description: "Psyche wrote this skill" })),
   },
   { $id: "SkillProposal" },
 );

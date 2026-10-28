@@ -18,6 +18,11 @@ export interface McpSandboxPolicy {
   /** Domains the server may reach through srt's proxy; empty means no network. */
   allowedDomains: string[];
   /**
+   * Paths the server may read inside an otherwise denied area (an agent-made server's own code
+   * directory under Psyche home). Read-only: never added to `allowWrite`.
+   */
+  allowRead?: string[];
+  /**
    * Paths the server may write. Must be empty under `srt`: security §5.3 allows writes only to
    * the per-process scratch directory the launcher creates.
    */
@@ -139,7 +144,7 @@ export function srtSettings(
   return {
     filesystem: {
       denyRead: [...new Set([...defaultDenyRead(psycheHome), ...spec.sandbox.denyRead])],
-      allowRead: [],
+      allowRead: [...(spec.sandbox.allowRead ?? [])],
       allowWrite: [scratchDir],
       denyWrite: [psycheHome],
     },

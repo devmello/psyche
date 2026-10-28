@@ -151,6 +151,8 @@ const KEY_FIELDS: Record<string, string[]> = {
   git_push: ["remote", "remoteUrl", "branch", "commit", "repo"],
   // What the skill asks for comes before anything else on the trust card (T2).
   skill_install: [
+    "action",
+    "madeBy",
     "name",
     "source",
     "commit",

@@ -4673,15 +4673,29 @@ export interface MCPServerStatus {
     connected: boolean;
     enabled?:  boolean;
     id:        string;
+    madeBy?:   MadeBy;
     name:      string;
     network:   boolean;
     transport: KindEnum;
     trust:     Trust;
+    version?:  string;
 }
+
+export type MadeBy = "psyche";
 
 export type KindEnum = "stdio" | "http";
 
 export type Trust = "bundled" | "verified" | "unknown";
+
+export interface MCPFilesReadParams {
+    serverId: string;
+}
+
+export interface MCPFilesWriteParams {
+    content:  string;
+    path:     string;
+    serverId: string;
+}
 
 export interface MCPProbeParams {
     server: MCPServerInput;
@@ -5527,6 +5541,26 @@ export interface MemoryLoopsUpdateParams {
 
 export interface MemoryLoopsUpdateResult {
     loop: GraphLoop;
+}
+
+export interface MemoryNotesDeleteParams {
+    path: string;
+}
+
+export interface MemoryNotesDeleteResult {
+    removed: boolean;
+}
+
+export interface MemoryNotesListResult {
+    notes: AgentNote[];
+}
+
+export interface AgentNote {
+    bytes:      number;
+    path:       string;
+    provenance: Provenance;
+    text:       string;
+    updatedAt:  string;
 }
 
 export interface MemoryPauseParams {
@@ -7262,6 +7296,27 @@ export interface SearchReindexResult {
     started: boolean;
 }
 
+export interface SelfConnectorFilesResult {
+    entry:    string;
+    files:    SelfConnectorFile[];
+    modified: boolean;
+    runtime:  Runtime;
+    version:  string;
+}
+
+export interface SelfConnectorFile {
+    bytes:   number;
+    content: string;
+    path:    string;
+}
+
+export type Runtime = "node" | "python";
+
+export interface SelfConnectorFilesWriteResult {
+    approval: ApprovalRequest;
+    proposal: MCPProposal;
+}
+
 export interface SettingsChangedPayload {
     entries: SettingEntry[];
 }
@@ -7315,8 +7370,12 @@ export interface SkillProposalResult {
 
 export interface SkillProposal {
     approvalKind: ApprovalKindEnum;
-    bindingHash:  string;
-    commit?:      string;
+    /**
+     * Psyche wrote this skill
+     */
+    author?:     AuthorEnum;
+    bindingHash: string;
+    commit?:     string;
     /**
      * Epoch ms
      */
@@ -7343,6 +7402,13 @@ export interface SkillProposal {
      */
     update?: SkillProposalUpdate;
 }
+
+/**
+ * Psyche wrote this skill (self-extension); trust stays unknown
+ *
+ * Psyche wrote this skill
+ */
+export type AuthorEnum = "agent";
 
 export interface SkillProposalFile {
     bytes:      number;
@@ -7573,7 +7639,15 @@ export interface SkillDetails {
     /**
      * Tree hash; empty for a skill that could not be read
      */
-    hash:      string;
+    hash: string;
+    /**
+     * Earlier approved versions of an agent-made skill, newest first
+     */
+    history?: SkillAuthorVersion[];
+    /**
+     * Psyche wrote this skill (self-extension); trust stays unknown
+     */
+    madeBy?:   AuthorEnum;
     manifest?: SkillManifest;
     name:      string;
     /**
@@ -7593,6 +7667,16 @@ export interface SkillDetails {
     userInvocable: boolean;
     version?:      string;
 }
+
+export interface SkillAuthorVersion {
+    approvedAt: string;
+    hash:       string;
+    retiredAt:  string;
+    retiredBy:  RetiredBy;
+    version:    number;
+}
+
+export type RetiredBy = "update" | "delete";
 
 export type SkillStatus = "active" | "disabled" | "draft" | "unlocked" | "hash_mismatch" | "invalid" | "blocked" | "ineligible" | "shadowed";
 

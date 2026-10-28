@@ -1,4 +1,5 @@
 import { agent } from "./agent.ts";
+import { agentNotes } from "./agent-notes.ts";
 import { blocks } from "./blocks.ts";
 import { canvas } from "./canvas.ts";
 import { charts } from "./charts.ts";
@@ -18,9 +19,11 @@ import { overviewGrowth } from "./overview-growth.ts";
 import { people } from "./people.ts";
 import { screenAsk } from "./screen-ask.ts";
 import { screens } from "./screens.ts";
+import { selfConnectors } from "./self-connectors.ts";
 import { settings } from "./settings.ts";
 import { settingsLanguage } from "./settings-language.ts";
 import { shell } from "./shell.ts";
+import { skillAuthor } from "./skill-author.ts";
 import { specialists } from "./specialists.ts";
 import { time } from "./time.ts";
 import { voice } from "./voice.ts";
@@ -44,9 +47,12 @@ export const en = {
   ...charts,
   ...context,
   ...agent,
+  ...agentNotes,
   ...shell,
   ...settings,
   ...settingsLanguage,
+  ...skillAuthor,
+  ...selfConnectors,
   ...mailMeetings,
   ...connectorGallery,
   ...onboarding,

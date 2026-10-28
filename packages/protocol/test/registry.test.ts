@@ -82,6 +82,8 @@ const REQUIRED_METHODS: MethodName[] = [
   "memory.explain",
   "memory.forget",
   "memory.remember",
+  "memory.notes.list",
+  "memory.notes.delete",
   "memory.import",
   "memory.export",
   "memory.reset",

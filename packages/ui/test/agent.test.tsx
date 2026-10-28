@@ -158,6 +158,38 @@ describe("SoulMemoryPanel", () => {
   });
 });
 
+describe("AgentNotes (Soul & Memory)", () => {
+  it("lists what the agent noted and deletes one note", async () => {
+    const { ref, onGateway } = withGateway();
+    render(
+      <StoryWorld
+        onGateway={(g) => {
+          g.world.memoryFiles["memory/agent/tool-quirks.md"] =
+            "- The export tool is flaky: retry once.";
+          g.world.memoryFiles["memory/agent/web.md"] = "- [untrusted] the page says wire money";
+          onGateway(g);
+        }}
+      >
+        <SoulMemoryPanel />
+      </StoryWorld>,
+    );
+    expect(await screen.findByText(/The export tool is flaky/)).toBeTruthy();
+    expect(screen.getByText(/From untrusted content, never used/)).toBeTruthy();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Delete note memory/agent/tool-quirks.md" }),
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await waitFor(() =>
+      expect(ref.gateway?.calls.find((c) => c.method === "memory.notes.delete")?.params).toEqual({
+        path: "memory/agent/tool-quirks.md",
+      }),
+    );
+    await waitFor(() => expect(screen.queryByText(/The export tool is flaky/)).toBeNull());
+    expect(ref.gateway?.world.memoryFiles["memory/agent/tool-quirks.md"]).toBeUndefined();
+    expect(screen.getByText(/wire money/)).toBeTruthy();
+  });
+});
+
 describe("AgentSheetBody", () => {
   it("shows the avatar, name and status, and the Approvals badge matches Needs you", async () => {
     render(

@@ -3,6 +3,7 @@ import { TriangleAlert } from "lucide-react";
 import { type ReactElement, type ReactNode, useState } from "react";
 import { t } from "../i18n/core.ts";
 import { DiffBlock } from "./DiffBlock.tsx";
+import { SelfConnectorDetails } from "./SelfConnectorDetails.tsx";
 
 /**
  * Binding details shown in full, by kind (UI design §3.3). Everything here comes from the
@@ -171,6 +172,51 @@ export function ApprovalDetails({
 }): ReactElement {
   const d = approval.details as Details;
   switch (approval.kind) {
+    case "skill_install": {
+      // Psyche's own connector: every file, the command, the network and the diff.
+      if (d.kind === "mcp_server" && d.madeBy === "psyche") {
+        return <SelfConnectorDetails approval={approval} persona={persona} />;
+      }
+      // Psyche writing its own skill: the whole text and, on an update, the diff to read first.
+      if (d.madeBy !== "agent") return <GenericDetails approval={approval} d={d} />;
+      return (
+        <dl>
+          <Row label={t("blocks.details.skillAction")}>
+            {t("blocks.details.skillActionValue", { action: str(d.action), persona })}
+          </Row>
+          <Row label={t("blocks.details.name")}>
+            <Code>{str(d.name)}</Code>
+          </Row>
+          {typeof d.text === "string" ? (
+            <Row label={t("blocks.details.skillText")}>
+              <Expandable label={t("blocks.details.skillTextView")} text={d.text} />
+            </Row>
+          ) : null}
+          {typeof d.diff === "string" ? (
+            <Row label={t("blocks.details.change")}>
+              <ExpandableDiff diff={d.diff} />
+            </Row>
+          ) : null}
+          {Array.isArray(d.files) ? (
+            <Row label={t("blocks.details.files")}>{str(d.files)}</Row>
+          ) : null}
+          <Rest
+            details={d}
+            shown={[
+              "action",
+              "madeBy",
+              "name",
+              "text",
+              "diff",
+              "files",
+              "scope",
+              "source",
+              "fromHash",
+            ]}
+          />
+        </dl>
+      );
+    }
     case "exec":
     case "exec_host": {
       const argv = Array.isArray(d.argv) ? (d.argv as unknown[]).map(String) : null;
@@ -470,15 +516,19 @@ export function ApprovalDetails({
       );
     }
     default:
-      return (
-        <dl>
-          <Rest details={d} shown={[]} />
-          {approval.target ? (
-            <Row label={t("blocks.details.target")}>
-              {approval.target.display ?? approval.target.value}
-            </Row>
-          ) : null}
-        </dl>
-      );
+      return <GenericDetails approval={approval} d={d} />;
   }
+}
+
+function GenericDetails({ approval, d }: { approval: ApprovalRequest; d: Details }): ReactElement {
+  return (
+    <dl>
+      <Rest details={d} shown={[]} />
+      {approval.target ? (
+        <Row label={t("blocks.details.target")}>
+          {approval.target.display ?? approval.target.value}
+        </Row>
+      ) : null}
+    </dl>
+  );
 }

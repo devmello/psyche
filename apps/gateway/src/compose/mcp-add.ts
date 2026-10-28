@@ -9,6 +9,7 @@ import {
 } from "@psyche/mcp-host";
 import { bindingFor } from "@psyche/permissions";
 import {
+  type ApprovalRequest,
   type McpProbedTool,
   type McpProposal,
   type McpServerInput,
@@ -54,12 +55,53 @@ export interface McpAddDeps {
   status(serverId: string): McpServerStatus | undefined;
   /** The running server's pinned `tools/list` hash, when it connected. */
   toolsHash(serverId: string): string | undefined;
+  /** An entry was removed with `mcp.remove` (an agent-made server's directory goes with it). */
+  removed?(entry: PsycheMcpServerConfig): Promise<void>;
 }
 
 interface Staged {
   proposal: McpProposal;
   config: PsycheMcpServerConfig;
   bindingHash: string;
+  extra?: ProposeExtra;
+}
+
+/**
+ * What an agent-made server (compose/self-connectors.ts) adds to the same probe → card → add
+ * path: the config it derived itself (command, cwd, code hash), card details (files, diff),
+ * who asked, and what to do around the commit.
+ */
+export interface ProposeExtra {
+  /** The entry to store, instead of `serverConfig(input)`. */
+  config: PsycheMcpServerConfig;
+  /** The probe runs with no network (the code is not approved yet); the card lists `config`'s. */
+  probeWithoutNetwork?: boolean;
+  /** Merged into the card's details after the standard ones. */
+  details?: Record<string, unknown>;
+  summary?: string;
+  requestedBy?: { runId: string | null; taskId: string | null; threadId: string | null };
+  taint?: { sources?: readonly unknown[] };
+  /** An update: replaces the existing entry of this id. */
+  replace?: boolean;
+  /** Runs right before the entry is written; throws to refuse (the code changed since). */
+  precommit?(): Promise<void>;
+  /** Runs once the server is added. */
+  committed?(): Promise<void>;
+}
+
+export interface McpAdder {
+  handlers: Record<string, HandlerDef>;
+  /** Probes (sandboxed), stages the proposal and opens its device-only trust card. */
+  propose(
+    input: McpServerInput,
+    extra?: ProposeExtra,
+  ): Promise<{ proposal: McpProposal; approval: ApprovalRequest }>;
+  /** `mcp.add` for a proposal whose card was approved. */
+  commit(proposalId: string, approvalId: string): Promise<{ server: McpServerStatus }>;
+  /** `mcp.remove`: drops the entry (its tools unregister, its grants are revoked). */
+  remove(serverId: string): Promise<void>;
+  /** Starts the config in a throwaway sandboxed host and reports what it lists. */
+  test(config: PsycheMcpServerConfig): Promise<Omit<McpProposal, "id" | "expiresAt">>;
 }
 
 const sha = (text: string) => `sha256:${createHash("sha256").update(text, "utf8").digest("hex")}`;
@@ -120,6 +162,10 @@ function sideEffectOf(annotations: unknown): McpProbedTool["sideEffect"] {
 }
 
 export function mcpAddHandlers(deps: McpAddDeps): Record<string, HandlerDef> {
+  return mcpAdder(deps).handlers;
+}
+
+export function mcpAdder(deps: McpAddDeps): McpAdder {
   const { services } = deps;
   const staged = new Map<string, Staged>();
   const now = () => services.clock.now();
@@ -127,8 +173,11 @@ export function mcpAddHandlers(deps: McpAddDeps): Record<string, HandlerDef> {
     for (const [id, s] of staged) if (s.proposal.expiresAt <= now()) staged.delete(id);
   };
 
-  const probe = async (input: McpServerInput): Promise<Omit<McpProposal, "id" | "expiresAt">> => {
-    const config = serverConfig(input);
+  const probe = async (
+    input: McpServerInput,
+    config: PsycheMcpServerConfig = serverConfig(input),
+    runAs: PsycheMcpServerConfig = config,
+  ): Promise<Omit<McpProposal, "id" | "expiresAt">> => {
     // The host override (tests) wins, as it does for the real host.
     const launcher = deps.hostOptions?.launcher ?? deps.launcher;
     if (
@@ -143,6 +192,12 @@ export function mcpAddHandlers(deps: McpAddDeps): Record<string, HandlerDef> {
         { details: { reason: "no_launcher" } },
       );
     }
+    if (config.madeBy === "psyche" && launcher?.isolation !== "srt") {
+      // The code is read from the Gateway's disk under srt; a container has no such mount.
+      throw new PsycheError("unavailable", "Psyche-made connectors run under srt only", {
+        details: { reason: "no_launcher" },
+      });
+    }
     // Same launcher and secrets as the real host; nothing is registered, no events reach it.
     const { onEvent: _ignored, ...hostOptions } = deps.hostOptions ?? {};
     const host = createMcpHost({
@@ -152,7 +207,7 @@ export function mcpAddHandlers(deps: McpAddDeps): Record<string, HandlerDef> {
     });
     const probeId = `${config.id}-probe-${randomUUID().slice(0, 8)}`;
     try {
-      const info = await host.addServer({ ...config, id: probeId });
+      const info = await host.addServer({ ...runAs, id: probeId });
       const d = host.describe(probeId);
       if (info.status !== "connected" || d.toolsListHash === undefined) {
         throw new PsycheError("unavailable", "The server did not start", {
@@ -209,123 +264,184 @@ export function mcpAddHandlers(deps: McpAddDeps): Record<string, HandlerDef> {
     });
   };
 
-  return {
+  const propose = async (input: McpServerInput, extra?: ProposeExtra) => {
+    sweep();
+    const current = readServers(services, deps.settingKey);
+    if (extra?.replace !== true && current.some((c) => c.id === input.id)) {
+      throw new PsycheError("conflict", `an MCP server with id ${input.id} exists`);
+    }
+    const config = extra?.config ?? serverConfig(input);
+    const runAs =
+      extra?.probeWithoutNetwork === true
+        ? { ...config, sandbox: { ...config.sandbox, allowedDomains: [] } }
+        : config;
+    const found = await probe(input, config, runAs);
+    const b = binding(config, found);
+    const id = `mcpp_${randomUUID().replace(/-/g, "").slice(0, 20)}`;
+    const proposal: McpProposal = { id, ...found, expiresAt: now() + MCP_PROPOSAL_TTL_MS };
+    const t = config.transport;
+    const issued = await services.broker.requestApproval({
+      kind: "skill_install",
+      summary:
+        extra?.summary ??
+        `Add MCP server "${input.name}" (${found.tools.length} tools${found.network.reaches ? `, reaches ${found.network.hosts.join(", ").slice(0, 120)}` : ", no network"})`,
+      details: {
+        kind: "mcp_server",
+        id: input.id,
+        name: input.name,
+        ...(t.kind === "stdio" ? { command: t.command.join(" ") } : { url: t.url }),
+        isolation: found.isolation,
+        network: found.network.reaches ? found.network.hosts : [],
+        // What the agent could do: every tool, its tier, and whether it stays off.
+        tools: found.tools.map(
+          (x) => `${x.sideEffect} ${x.name}${x.blocked ? " (off: suspicious description)" : ""}`,
+        ),
+        warnings: found.tools.reduce((n, x) => n + x.warnings.length, 0),
+        toolsListHash: found.toolsListHash,
+        proposalId: id,
+        ...(extra?.details ?? {}),
+      },
+      bindingHash: b.bindingHash,
+      grantKey: b.grantKey,
+      requestedBy: extra?.requestedBy ?? { runId: null, taskId: null, threadId: null },
+      sideEffect: "destructive",
+      surfaces: ["desktop"],
+      scopesOffered: ["once"],
+      taint: extra?.taint !== undefined,
+      ...(extra?.taint?.sources === undefined ? {} : { taintSources: [...extra.taint.sources] }),
+    } as Parameters<typeof services.broker.requestApproval>[0]);
+    services.publish("approval.created", { approval: issued.approval });
+    staged.set(id, {
+      proposal,
+      config,
+      bindingHash: b.bindingHash,
+      ...(extra === undefined ? {} : { extra }),
+    });
+    return { proposal, approval: issued.approval };
+  };
+
+  const commit = async (proposalId: string, approvalId: string) => {
+    sweep();
+    const s = staged.get(proposalId);
+    if (s === undefined) {
+      throw new PsycheError("approval_expired", "the probe expired; check the server again");
+    }
+    const approval = await services.rawBroker.get(approvalId);
+    if (
+      approval === undefined ||
+      approval.kind !== "skill_install" ||
+      (approval.details as { kind?: unknown }).kind !== "mcp_server"
+    ) {
+      throw new PsycheError(
+        "approval_required",
+        "adding an MCP server needs its approved trust card",
+      );
+    }
+    const v = await services.rawBroker.verifyBinding(approvalId, s.bindingHash);
+    if (!v.ok) {
+      throw new PsycheError(
+        v.reason === "binding_mismatch" ? "binding_mismatch" : "approval_required",
+        `trust card not usable: ${v.reason}`,
+      );
+    }
+    staged.delete(proposalId);
+    const id = s.config.id;
+    const replace = s.extra?.replace === true;
+    const before = readServers(services, deps.settingKey);
+    const previous = before.find((c) => c.id === id);
+    if (previous !== undefined && !replace) {
+      throw new PsycheError("conflict", `an MCP server with id ${id} exists`);
+    }
+    await s.extra?.precommit?.();
+    const write = async (value: PsycheMcpServerConfig[]) => {
+      const entry = setSetting(services.db, deps.settingKey, value);
+      services.publish("settings.changed", { entries: [entry] });
+      await deps.apply(value);
+    };
+    // An update keeps the owner's choices (tools turned off, on/off) and takes the new code.
+    const kept =
+      previous === undefined
+        ? s.config
+        : {
+            ...s.config,
+            ...(previous.disabledTools === undefined
+              ? {}
+              : { disabledTools: previous.disabledTools }),
+            ...(previous.enabled === false ? { enabled: false } : {}),
+          };
+    await write(
+      previous === undefined ? [...before, kept] : before.map((c) => (c.id === id ? kept : c)),
+    );
+    const hash = deps.toolsHash(id);
+    if (hash !== undefined && hash !== s.proposal.toolsListHash) {
+      // The server now lists other tools than the card showed: take it out again.
+      const now0 = readServers(services, deps.settingKey);
+      await write(
+        previous === undefined
+          ? now0.filter((c) => c.id !== id)
+          : now0.map((c) => (c.id === id ? previous : c)),
+      );
+      throw new PsycheError(
+        "conflict",
+        "the server's tools changed since you approved them; check it again",
+      );
+    }
+    await s.extra?.committed?.();
+    await services.broker
+      .recordReceipt({
+        kind: "mcp_server_add",
+        outcome: "ok",
+        summary: `${replace ? "Updated" : "Added"} MCP server "${s.config.name}" (${s.proposal.tools.length} tools)`,
+        approvalId,
+        externalRefs: { serverId: id, toolsListHash: s.proposal.toolsListHash },
+      })
+      .catch(() => undefined);
+    const status = deps.status(id);
+    if (status === undefined) throw new PsycheError("internal", "the server was not added");
+    return { server: status };
+  };
+
+  const remove = async (serverId: string) => {
+    const current = readServers(services, deps.settingKey);
+    const entry = current.find((c) => c.id === serverId);
+    if (entry === undefined) throw new PsycheError("not_found", `no MCP server ${serverId}`);
+    const next = current.filter((c) => c.id !== serverId);
+    const saved = setSetting(services.db, deps.settingKey, next);
+    services.publish("settings.changed", { entries: [saved] });
+    await deps.apply(next);
+    // An agent-made server's code goes with it.
+    await deps.removed?.(entry);
+  };
+
+  const handlers: Record<string, HandlerDef> = {
     "mcp.probe": {
       async run(_call, params: { server: McpServerInput }) {
-        sweep();
-        const input = params.server;
-        if (readServers(services, deps.settingKey).some((c) => c.id === input.id)) {
-          throw new PsycheError("conflict", `an MCP server with id ${input.id} exists`);
-        }
-        const found = await probe(input);
-        const config = serverConfig(input);
-        const b = binding(config, found);
-        const id = `mcpp_${randomUUID().replace(/-/g, "").slice(0, 20)}`;
-        const proposal: McpProposal = { id, ...found, expiresAt: now() + MCP_PROPOSAL_TTL_MS };
-        const t = config.transport;
-        const issued = await services.broker.requestApproval({
-          kind: "skill_install",
-          summary: `Add MCP server "${input.name}" (${found.tools.length} tools${found.network.reaches ? `, reaches ${found.network.hosts.join(", ").slice(0, 120)}` : ", no network"})`,
-          details: {
-            kind: "mcp_server",
-            id: input.id,
-            name: input.name,
-            ...(t.kind === "stdio" ? { command: t.command.join(" ") } : { url: t.url }),
-            isolation: found.isolation,
-            network: found.network.reaches ? found.network.hosts : [],
-            // What the agent could do: every tool, its tier, and whether it stays off.
-            tools: found.tools.map(
-              (x) =>
-                `${x.sideEffect} ${x.name}${x.blocked ? " (off: suspicious description)" : ""}`,
-            ),
-            warnings: found.tools.reduce((n, x) => n + x.warnings.length, 0),
-            toolsListHash: found.toolsListHash,
-          },
-          bindingHash: b.bindingHash,
-          grantKey: b.grantKey,
-          requestedBy: { runId: null, taskId: null, threadId: null },
-          sideEffect: "destructive",
-          surfaces: ["desktop"],
-          scopesOffered: ["once"],
-          taint: false,
-        });
-        services.publish("approval.created", { approval: issued.approval });
-        staged.set(id, { proposal, config, bindingHash: b.bindingHash });
-        return { proposal, approval: issued.approval };
+        return propose(params.server);
       },
     },
     "mcp.add": {
       async run(_call, params: { proposalId: string; approvalId: string }) {
-        sweep();
-        const s = staged.get(params.proposalId);
-        if (s === undefined) {
-          throw new PsycheError("approval_expired", "the probe expired; check the server again");
-        }
-        const approval = await services.rawBroker.get(params.approvalId);
-        if (
-          approval === undefined ||
-          approval.kind !== "skill_install" ||
-          (approval.details as { kind?: unknown }).kind !== "mcp_server"
-        ) {
-          throw new PsycheError(
-            "approval_required",
-            "adding an MCP server needs its approved trust card",
-          );
-        }
-        const v = await services.rawBroker.verifyBinding(params.approvalId, s.bindingHash);
-        if (!v.ok) {
-          throw new PsycheError(
-            v.reason === "binding_mismatch" ? "binding_mismatch" : "approval_required",
-            `trust card not usable: ${v.reason}`,
-          );
-        }
-        staged.delete(params.proposalId);
-        const id = s.config.id;
-        const current = readServers(services, deps.settingKey);
-        if (current.some((c) => c.id === id)) {
-          throw new PsycheError("conflict", `an MCP server with id ${id} exists`);
-        }
-        const write = async (value: PsycheMcpServerConfig[]) => {
-          const entry = setSetting(services.db, deps.settingKey, value);
-          services.publish("settings.changed", { entries: [entry] });
-          await deps.apply(value);
-        };
-        await write([...current, s.config]);
-        const hash = deps.toolsHash(id);
-        if (hash !== undefined && hash !== s.proposal.toolsListHash) {
-          // The server now lists other tools than the card showed: take it out again.
-          await write(readServers(services, deps.settingKey).filter((c) => c.id !== id));
-          throw new PsycheError(
-            "conflict",
-            "the server's tools changed since you approved them; check it again",
-          );
-        }
-        await services.broker
-          .recordReceipt({
-            kind: "mcp_server_add",
-            outcome: "ok",
-            summary: `Added MCP server "${s.config.name}" (${s.proposal.tools.length} tools)`,
-            approvalId: params.approvalId,
-            externalRefs: { serverId: id, toolsListHash: s.proposal.toolsListHash },
-          })
-          .catch(() => undefined);
-        const status = deps.status(id);
-        if (status === undefined) throw new PsycheError("internal", "the server was not added");
-        return { server: status };
+        return commit(params.proposalId, params.approvalId);
       },
     },
     "mcp.remove": {
       async run(_call, params: { serverId: string }) {
-        const current = readServers(services, deps.settingKey);
-        if (!current.some((c) => c.id === params.serverId)) {
-          throw new PsycheError("not_found", `no MCP server ${params.serverId}`);
-        }
-        const next = current.filter((c) => c.id !== params.serverId);
-        const entry = setSetting(services.db, deps.settingKey, next);
-        services.publish("settings.changed", { entries: [entry] });
-        await deps.apply(next);
+        await remove(params.serverId);
         return { ok: true as const };
       },
     },
+  };
+  return { handlers, propose, commit, remove, test: (config) => probe(inputOf(config), config) };
+}
+
+/** The `McpServerInput` view of a stdio config (an agent-made server's own). */
+export function inputOf(config: PsycheMcpServerConfig): McpServerInput {
+  const t = config.transport;
+  if (t.kind !== "stdio") throw new PsycheError("internal", "only stdio configs have an input");
+  return {
+    id: config.id,
+    name: config.name,
+    transport: { kind: "stdio", command: [...t.command] },
+    allowedDomains: [...(config.sandbox?.allowedDomains ?? [])],
   };
 }

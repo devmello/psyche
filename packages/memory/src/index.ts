@@ -6,6 +6,7 @@ import { SqliteMemoryStore, type SqliteMemoryStoreOptions } from "./store.ts";
  * searches. See README.md for the file formats, provenance rules and public API.
  */
 
+export * from "./agent-notes.ts";
 export * from "./chunker.ts";
 export * from "./context.ts";
 export * from "./daily.ts";

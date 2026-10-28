@@ -12,6 +12,7 @@ import {
   type ToolRegistration,
 } from "@psyche/protocol";
 import {
+  createSkillAuthorTools,
   createSkillLoader,
   createSkillsHandlers,
   createSkillTools,
@@ -34,6 +35,11 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
  * `skill_install` card (announced through the executor broker); only `skills.install` with that
  * approval writes files. The agent sees approved, enabled skills only: the loop's skills index,
  * `skills_search` and `skills_read` all read the same loader.
+ *
+ * Agent-written skills (self-extension): `skill_create` / `skill_update` / `skill_delete` are
+ * tool calls the permission engine turns into a device-only, `once` `skill_install` card with the
+ * full content and, on an update, the diff; tainted turns get no other choice. Approved skills
+ * carry `author: "agent"` in the lock file, stay at trust `unknown` and keep a version history.
  *
  * Agent-proposed skills (T3): once the Gateway listens, routine detection hooks into the agent
  * loop (`attachRoutineDetector` over its in-process hooks); a tool sequence that ends the owner's
@@ -214,6 +220,13 @@ export function composeSkills(opts: SkillsOptions = {}): ComposedSkills {
     });
     draftsRef = drafts;
     const unregister = createSkillTools(fs).map((t) => tools.register(markedSearch(t)));
+    // Skills the agent writes itself: each call is one device-only skill_install card with the
+    // full text (and the diff on an update); nothing loads until the owner approves it.
+    unregister.push(
+      ...createSkillAuthorTools(fs, {
+        authorityFor: (callId) => services.calls.authorityFor(callId),
+      }).map((t) => tools.register(t)),
+    );
     const handlers: Record<string, HandlerDef> = {};
     const table = createSkillsHandlers(fs, {
       broker: services.broker,
