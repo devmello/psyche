@@ -267,3 +267,115 @@ describe("Onboarding → Sandbox", () => {
     expect(screen.queryByText(/Without srt/)).toBeNull();
   });
 });
+
+describe("Install srt (Psyche's own Node)", () => {
+  const INSTALLER = {
+    package: "@anthropic-ai/sandbox-runtime",
+    version: "0.0.81",
+    dir: "/Users/you/.psyche/tools/srt/0.0.81",
+    installedVersion: null,
+    updateAvailable: false,
+  };
+
+  it("shows only when srt is missing; a click confirms with package, version and folder", async () => {
+    const gw = world(
+      (g) => {
+        g.sandboxSetup = { ...MISSING, installer: INSTALLER };
+      },
+      <SandboxSetup />,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Install with Psyche" }));
+    // Nothing happens until the confirm.
+    expect(gw().installSrtCalls).toBe(0);
+    const confirm = screen.getByRole("region", { name: "Install srt 0.0.81?" });
+    expect(within(confirm).getByText(/@anthropic-ai\/sandbox-runtime 0\.0\.81/)).toBeTruthy();
+    expect(within(confirm).getByText(/\.psyche\/tools\/srt\/0\.0\.81/)).toBeTruthy();
+    await userEvent.click(within(confirm).getByRole("button", { name: "Install" }));
+    await waitFor(() => expect(gw().installSrtCalls).toBe(1));
+    // Re-checked: ready, with the installed version shown and no install button left.
+    expect(await screen.findByText(/Installed by Psyche: srt 0\.0\.81/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Install with Psyche" })).toBeNull();
+  });
+
+  it("can be cancelled without installing", async () => {
+    const gw = world(
+      (g) => {
+        g.sandboxSetup = { ...MISSING, installer: INSTALLER };
+      },
+      <SandboxSetup />,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Install with Psyche" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("region", { name: "Install srt 0.0.81?" })).toBeNull();
+    expect(gw().installSrtCalls).toBe(0);
+  });
+
+  it("is absent when srt is already there", async () => {
+    world(
+      (g) => {
+        g.sandboxSetup = { ...READY, installer: INSTALLER };
+      },
+      <SandboxSetup />,
+    );
+    expect(await screen.findByText("Ready")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Install with Psyche" })).toBeNull();
+  });
+
+  it("offers Reinstall when the recorded path is broken", async () => {
+    world(
+      (g) => {
+        g.sandboxSetup = {
+          ...MISSING,
+          srt: {
+            available: false,
+            path: "/Users/you/.psyche/tools/srt/0.0.81/bin/srt",
+            source: "setting",
+            version: null,
+            problem: "not_executable",
+          },
+          installer: { ...INSTALLER, installedVersion: "0.0.81" },
+        };
+      },
+      <SandboxSetup />,
+    );
+    expect(await screen.findByRole("button", { name: "Reinstall" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Install with Psyche" })).toBeNull();
+  });
+
+  it("offers an update when this Psyche pins a newer version", async () => {
+    world(
+      (g) => {
+        g.sandboxSetup = {
+          ...READY,
+          installer: { ...INSTALLER, installedVersion: "0.0.70", updateAvailable: true },
+        };
+      },
+      <SandboxSetup />,
+    );
+    expect(await screen.findByText(/0\.0\.70 is installed/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Update srt" })).toBeTruthy();
+  });
+
+  it("shows a failure and leaves the button available", async () => {
+    world(
+      (g) => {
+        g.sandboxSetup = { ...MISSING, installer: INSTALLER };
+        g.installSrtError = new Error("integrity mismatch");
+      },
+      <SandboxSetup />,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Install with Psyche" }));
+    await userEvent.click(screen.getByRole("button", { name: "Install" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("integrity mismatch");
+  });
+
+  it("is on the onboarding Sandbox step", async () => {
+    world(
+      (g) => {
+        g.sandboxSetup = { ...MISSING, installer: INSTALLER };
+      },
+      <OnboardingFlow onComplete={() => {}} defaultStep="sandbox" />,
+    );
+    expect(await screen.findByRole("button", { name: "Install with Psyche" })).toBeTruthy();
+  });
+});

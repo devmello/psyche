@@ -7023,6 +7023,47 @@ export interface RunsStepsResult {
     steps:    RunStep[];
 }
 
+export interface SandboxInstallSrtParams {
+    approvalId?: string;
+}
+
+export interface SandboxInstallSrtResult {
+    installer: SandboxSrtInstaller;
+    srt:       SandboxSrtStatus;
+}
+
+export interface SandboxSrtInstaller {
+    /**
+     * Where it will be installed (mode 0700)
+     */
+    dir:               string;
+    installedVersion?: null | string;
+    /**
+     * The npm package, e.g. @anthropic-ai/sandbox-runtime
+     */
+    package: string;
+    /**
+     * An older Psyche-installed srt is in use and this Psyche pins another version
+     */
+    updateAvailable: boolean;
+    /**
+     * The version this Psyche installs (pinned)
+     */
+    version: string;
+}
+
+export interface SandboxSrtStatus {
+    available: boolean;
+    path?:     null | string;
+    problem?:  SandboxSrtProblem | null;
+    source?:   SandboxSrtSource | null;
+    version?:  null | string;
+}
+
+export type SandboxSrtProblem = "not_found" | "not_absolute" | "not_executable";
+
+export type SandboxSrtSource = "env" | "setting" | "detected";
+
 export interface SandboxListResult {
     sandboxes: SandboxInfo[];
 }
@@ -7044,6 +7085,7 @@ export type SandboxStatus = "creating" | "running" | "stopped" | "error";
 
 export interface SandboxSetupResult {
     containers: SandboxContainerSetup;
+    installer?: SandboxSrtInstaller;
     /**
      * srt is available, so command servers can run
      */
@@ -7082,18 +7124,6 @@ export interface SandboxSetupBackend {
 }
 
 export type SandboxContainerBackend = "apple-container" | "docker" | "podman";
-
-export interface SandboxSrtStatus {
-    available: boolean;
-    path?:     null | string;
-    problem?:  SandboxSrtProblem | null;
-    source?:   SandboxSrtSource | null;
-    version?:  null | string;
-}
-
-export type SandboxSrtProblem = "not_found" | "not_absolute" | "not_executable";
-
-export type SandboxSrtSource = "env" | "setting" | "detected";
 
 export interface SandboxStatusParams {
     sandboxId?: string;

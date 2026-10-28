@@ -892,12 +892,15 @@
 //   let sandboxContainerBackend = try? JSONDecoder().decode(SandboxContainerBackend.self, from: jsonData)
 //   let sandboxContainerSetup = try? JSONDecoder().decode(SandboxContainerSetup.self, from: jsonData)
 //   let sandboxInfo = try? JSONDecoder().decode(SandboxInfo.self, from: jsonData)
+//   let sandboxInstallSrtParams = try? JSONDecoder().decode(SandboxInstallSrtParams.self, from: jsonData)
+//   let sandboxInstallSrtResult = try? JSONDecoder().decode(SandboxInstallSrtResult.self, from: jsonData)
 //   let sandboxListParams = try? JSONDecoder().decode(SandboxListParams.self, from: jsonData)
 //   let sandboxListResult = try? JSONDecoder().decode(SandboxListResult.self, from: jsonData)
 //   let sandboxNetwork = try? JSONDecoder().decode(SandboxNetwork.self, from: jsonData)
 //   let sandboxSetupBackend = try? JSONDecoder().decode(SandboxSetupBackend.self, from: jsonData)
 //   let sandboxSetupParams = try? JSONDecoder().decode(SandboxSetupParams.self, from: jsonData)
 //   let sandboxSetupResult = try? JSONDecoder().decode(SandboxSetupResult.self, from: jsonData)
+//   let sandboxSrtInstaller = try? JSONDecoder().decode(SandboxSrtInstaller.self, from: jsonData)
 //   let sandboxSrtProblem = try? JSONDecoder().decode(SandboxSrtProblem.self, from: jsonData)
 //   let sandboxSrtSource = try? JSONDecoder().decode(SandboxSrtSource.self, from: jsonData)
 //   let sandboxSrtStatus = try? JSONDecoder().decode(SandboxSrtStatus.self, from: jsonData)
@@ -20955,6 +20958,101 @@ public struct RunsStepsResult: Codable, Sendable {
     }
 }
 
+// MARK: - SandboxInstallSrtParams
+public struct SandboxInstallSrtParams: Codable, Sendable {
+    public let approvalID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+    }
+
+    public init(approvalID: String?) {
+        self.approvalID = approvalID
+    }
+}
+
+// MARK: - SandboxInstallSrtResult
+public struct SandboxInstallSrtResult: Codable, Sendable {
+    public let installer: SandboxSrtInstaller
+    public let srt: SandboxSrtStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case installer = "installer"
+        case srt = "srt"
+    }
+
+    public init(installer: SandboxSrtInstaller, srt: SandboxSrtStatus) {
+        self.installer = installer
+        self.srt = srt
+    }
+}
+
+// MARK: - SandboxSrtInstaller
+public struct SandboxSrtInstaller: Codable, Sendable {
+    /// Where it will be installed (mode 0700)
+    public let dir: String
+    public let installedVersion: String?
+    /// The npm package, e.g. @anthropic-ai/sandbox-runtime
+    public let package: String
+    /// An older Psyche-installed srt is in use and this Psyche pins another version
+    public let updateAvailable: Bool
+    /// The version this Psyche installs (pinned)
+    public let version: String
+
+    public enum CodingKeys: String, CodingKey {
+        case dir = "dir"
+        case installedVersion = "installedVersion"
+        case package = "package"
+        case updateAvailable = "updateAvailable"
+        case version = "version"
+    }
+
+    public init(dir: String, installedVersion: String?, package: String, updateAvailable: Bool, version: String) {
+        self.dir = dir
+        self.installedVersion = installedVersion
+        self.package = package
+        self.updateAvailable = updateAvailable
+        self.version = version
+    }
+}
+
+// MARK: - SandboxSrtStatus
+public struct SandboxSrtStatus: Codable, Sendable {
+    public let available: Bool
+    public let path: String?
+    public let problem: SandboxSrtProblem?
+    public let source: SandboxSrtSource?
+    public let version: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case available = "available"
+        case path = "path"
+        case problem = "problem"
+        case source = "source"
+        case version = "version"
+    }
+
+    public init(available: Bool, path: String?, problem: SandboxSrtProblem?, source: SandboxSrtSource?, version: String?) {
+        self.available = available
+        self.path = path
+        self.problem = problem
+        self.source = source
+        self.version = version
+    }
+}
+
+public enum SandboxSrtProblem: String, Codable, Sendable {
+    case notAbsolute = "not_absolute"
+    case notExecutable = "not_executable"
+    case notFound = "not_found"
+}
+
+public enum SandboxSrtSource: String, Codable, Sendable {
+    case detected = "detected"
+    case env = "env"
+    case setting = "setting"
+}
+
 // MARK: - SandboxListResult
 public struct SandboxListResult: Codable, Sendable {
     public let sandboxes: [SandboxInfo]
@@ -21017,18 +21115,21 @@ public enum SandboxStatus: String, Codable, Sendable {
 // MARK: - SandboxSetupResult
 public struct SandboxSetupResult: Codable, Sendable {
     public let containers: SandboxContainerSetup
+    public let installer: SandboxSrtInstaller?
     /// srt is available, so command servers can run
     public let ready: Bool
     public let srt: SandboxSrtStatus
 
     public enum CodingKeys: String, CodingKey {
         case containers = "containers"
+        case installer = "installer"
         case ready = "ready"
         case srt = "srt"
     }
 
-    public init(containers: SandboxContainerSetup, ready: Bool, srt: SandboxSrtStatus) {
+    public init(containers: SandboxContainerSetup, installer: SandboxSrtInstaller?, ready: Bool, srt: SandboxSrtStatus) {
         self.containers = containers
+        self.installer = installer
         self.ready = ready
         self.srt = srt
     }
@@ -21099,43 +21200,6 @@ public enum SandboxContainerBackend: String, Codable, Sendable {
     case appleContainer = "apple-container"
     case docker = "docker"
     case podman = "podman"
-}
-
-// MARK: - SandboxSrtStatus
-public struct SandboxSrtStatus: Codable, Sendable {
-    public let available: Bool
-    public let path: String?
-    public let problem: SandboxSrtProblem?
-    public let source: SandboxSrtSource?
-    public let version: String?
-
-    public enum CodingKeys: String, CodingKey {
-        case available = "available"
-        case path = "path"
-        case problem = "problem"
-        case source = "source"
-        case version = "version"
-    }
-
-    public init(available: Bool, path: String?, problem: SandboxSrtProblem?, source: SandboxSrtSource?, version: String?) {
-        self.available = available
-        self.path = path
-        self.problem = problem
-        self.source = source
-        self.version = version
-    }
-}
-
-public enum SandboxSrtProblem: String, Codable, Sendable {
-    case notAbsolute = "not_absolute"
-    case notExecutable = "not_executable"
-    case notFound = "not_found"
-}
-
-public enum SandboxSrtSource: String, Codable, Sendable {
-    case detected = "detected"
-    case env = "env"
-    case setting = "setting"
 }
 
 // MARK: - SandboxStatusParams

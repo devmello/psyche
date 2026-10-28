@@ -1,19 +1,29 @@
 import type { MethodResult, SandboxSetupBackend } from "@psyche/protocol";
-import { type ReactElement, type ReactNode, useEffect, useId, useRef, useState } from "react";
+import {
+  type ReactElement,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
-import { useGatewayQuery } from "../../data/index.ts";
+import { useCall, useGatewayQuery } from "../../data/index.ts";
 import { t } from "../../i18n/core.ts";
 import { SafeLink } from "../../links/SafeLink.tsx";
 import { SettingsApprovalProvider } from "./SettingsApproval.tsx";
-import { useSettingsForm } from "./shared.tsx";
+import { approvalIdOf, messageOf, SettingsApprovalContext, useSettingsForm } from "./shared.tsx";
 
 /**
  * Guided sandbox setup. srt first (Anthropic's sandbox runtime on macOS's Seatbelt, no VM):
  * commands run on the Mac without reading Psyche's private data. Then, optional, a container
- * runtime for stronger isolation. Every step is the owner's to run (a copyable command or an
- * official link); Psyche installs and starts nothing. "Check again" only looks
+ * runtime for stronger isolation. The container steps are the owner's to run (a copyable command
+ * or an official link). srt itself can be installed by the Gateway with Psyche's own Node into
+ * Psyche's tools folder, but only from a click and confirm here (`sandbox.installSrt`, which
+ * also asks for presence); nothing is installed otherwise. "Check again" only looks
  * (`sandbox.setup`); choosing srt's location saves `exec.srtPath`, which asks for presence.
  * Used from the add-a-connector flow and onboarding.
  */
@@ -26,6 +36,7 @@ const DOCKER_DESKTOP = "https://www.docker.com/products/docker-desktop/";
 const RESTART_GATEWAY = "launchctl kickstart -k gui/$(id -u)/com.psyche.gateway";
 
 type Setup = MethodResult<"sandbox.setup">;
+type Installer = NonNullable<Setup["installer"]>;
 type Runtime = SandboxSetupBackend["kind"];
 /** Catalogue ids are camelCase. */
 const KEY: Record<Runtime, "appleContainer" | "docker" | "podman"> = {
@@ -126,16 +137,138 @@ function ChooseSrt({ initial, onSaved }: { initial: string; onSaved: () => void 
   );
 }
 
+/**
+ * "Install srt" / "Reinstall" / "Update srt": a click, then a confirm that names the package,
+ * the pinned version and where it goes. The Gateway installs it with its bundled Node and saves
+ * `exec.srtPath`; presence is asked for like any security change.
+ */
+function InstallSrt({
+  installer,
+  label,
+  onInstalled,
+}: {
+  installer: Installer;
+  label: string;
+  onInstalled: () => void;
+}) {
+  const call = useCall();
+  const requestApproval = useContext(SettingsApprovalContext);
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const run = async (approvalId?: string) => {
+    await call("sandbox.installSrt", approvalId === undefined ? {} : { approvalId });
+    onInstalled();
+  };
+  const go = () => {
+    setBusy(true);
+    setError(null);
+    run().then(
+      () => {
+        setBusy(false);
+        setConfirming(false);
+      },
+      (err: unknown) => {
+        setBusy(false);
+        const id = approvalIdOf(err);
+        if (id !== null && requestApproval) {
+          setConfirming(false);
+          requestApproval({ key: SRT_SETTING, approvalId: id, retry: (aid) => run(aid) });
+        } else {
+          setError(t("settings.sandbox.srt.installFailed", { reason: messageOf(err) }));
+        }
+      },
+    );
+  };
+  if (!confirming) {
+    return (
+      <span className="flex flex-col gap-1.5">
+        <span>
+          <Button type="button" size="sm" onClick={() => setConfirming(true)}>
+            {label}
+          </Button>
+        </span>
+        {error ? (
+          <p role="alert" className="text-footnote text-danger-text">
+            {error}
+          </p>
+        ) : null}
+      </span>
+    );
+  }
+  const vars = { package: installer.package, version: installer.version, dir: installer.dir };
+  return (
+    <section
+      aria-label={t("settings.sandbox.srt.installConfirm.title", vars)}
+      className="flex flex-col gap-2 rounded-md border border-separator px-3 py-2"
+    >
+      <p className="text-callout font-medium text-label-primary">
+        {t("settings.sandbox.srt.installConfirm.title", vars)}
+      </p>
+      <p className="text-callout text-label-secondary">
+        {t("settings.sandbox.srt.installConfirm.body", vars)}
+      </p>
+      <p className="break-all font-mono text-footnote text-label-secondary">
+        {t("settings.sandbox.srt.installConfirm.where", vars)}
+      </p>
+      {error ? (
+        <p role="alert" className="text-footnote text-danger-text">
+          {error}
+        </p>
+      ) : null}
+      <span className="flex gap-2">
+        <Button type="button" size="sm" disabled={busy} onClick={go}>
+          {busy
+            ? t("settings.sandbox.srt.installing")
+            : t("settings.sandbox.srt.installConfirm.go")}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="plain"
+          disabled={busy}
+          onClick={() => setConfirming(false)}
+        >
+          {t("settings.sandbox.srt.installConfirm.cancel")}
+        </Button>
+      </span>
+    </section>
+  );
+}
+
 function SrtPart({ data, onSaved }: { data: Setup | undefined; onSaved: () => void }) {
   const [choosing, setChoosing] = useState(false);
   const srt = data?.srt;
+  const installer = data?.installer;
   const readyAt = srt?.available ? srt.path : null;
   if (typeof readyAt === "string") {
     return (
-      <p role="status" className="text-callout text-label-primary">
-        <strong>{t("settings.sandbox.ready")}</strong>{" "}
-        {t("settings.sandbox.srt.ready", { path: readyAt })}
-      </p>
+      <>
+        <p role="status" className="text-callout text-label-primary">
+          <strong>{t("settings.sandbox.ready")}</strong>{" "}
+          {t("settings.sandbox.srt.ready", { path: readyAt })}
+        </p>
+        {installer?.installedVersion ? (
+          <p className="text-footnote text-label-tertiary">
+            {t("settings.sandbox.srt.installed", { version: installer.installedVersion })}
+          </p>
+        ) : null}
+        {installer?.updateAvailable ? (
+          <>
+            <p className="text-footnote text-label-secondary">
+              {t("settings.sandbox.srt.updateAvailable", {
+                version: installer.version,
+                installed: installer.installedVersion ?? "",
+              })}
+            </p>
+            <InstallSrt
+              installer={installer}
+              label={t("settings.sandbox.srt.updateButton")}
+              onInstalled={onSaved}
+            />
+          </>
+        ) : null}
+      </>
     );
   }
   const fromEnv = srt?.source === "env";
@@ -150,6 +283,20 @@ function SrtPart({ data, onSaved }: { data: Setup | undefined; onSaved: () => vo
         {t("settings.sandbox.srt.missing.title")}
       </p>
       <p className="text-callout text-label-secondary">{t("settings.sandbox.srt.missing.body")}</p>
+      {installer && !fromEnv ? (
+        <InstallSrt
+          installer={installer}
+          label={
+            srt?.path && srt.problem
+              ? t("settings.sandbox.srt.reinstallButton")
+              : t("settings.sandbox.srt.installButton")
+          }
+          onInstalled={onSaved}
+        />
+      ) : null}
+      {installer && !fromEnv ? (
+        <p className="text-footnote text-label-tertiary">{t("settings.sandbox.srt.installOr")}</p>
+      ) : null}
       <ol className="flex flex-col gap-3">
         <Step n={1} title={t("settings.sandbox.srt.install")}>
           <CopyCommand command={SRT_INSTALL} />

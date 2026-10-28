@@ -47,6 +47,26 @@ export const SandboxSrtStatus = Type.Object(
 );
 export type SandboxSrtStatus = Static<typeof SandboxSrtStatus>;
 
+/**
+ * The srt install the owner can run from the guided setup: the pinned package, where it goes
+ * (under Psyche home, never a global prefix), and what is installed there now.
+ */
+export const SandboxSrtInstaller = Type.Object(
+  {
+    package: Type.String({ description: "The npm package, e.g. @anthropic-ai/sandbox-runtime" }),
+    version: Type.String({ description: "The version this Psyche installs (pinned)" }),
+    dir: Type.String({ description: "Where it will be installed (mode 0700)" }),
+    installedVersion: Nullable(
+      Type.String({ description: "The Psyche-installed version `exec.srtPath` points into" }),
+    ),
+    updateAvailable: Type.Boolean({
+      description: "An older Psyche-installed srt is in use and this Psyche pins another version",
+    }),
+  },
+  { $id: "SandboxSrtInstaller" },
+);
+export type SandboxSrtInstaller = Static<typeof SandboxSrtInstaller>;
+
 /** One container runtime as the guided setup sees it. */
 export const SandboxSetupBackend = Type.Object(
   {
@@ -105,10 +125,22 @@ export const SandboxMethods = {
     result: Type.Object({
       ready: Type.Boolean({ description: "srt is available, so command servers can run" }),
       srt: SandboxSrtStatus,
+      installer: Type.Optional(SandboxSrtInstaller),
       containers: SandboxContainerSetup,
     }),
     scope: "operator.read",
     description:
       "Looks again for the sandboxes on this computer, for the guided setup: srt first (Seatbelt, commands run on the Mac without reading Psyche's private data), then the optional container runtimes (supported, installed, running, recommended, restart needed). Never installs or starts anything.",
+  }),
+  "sandbox.installSrt": defineMethod({
+    params: Type.Object({ approvalId: Type.Optional(Id) }),
+    result: Type.Object({
+      srt: SandboxSrtStatus,
+      installer: SandboxSrtInstaller,
+    }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Installs the pinned srt into Psyche's own tools folder with the Gateway's bundled Node (npm registry tarballs only, each checked against its pinned sha512 integrity; no scripts run, no global prefix, no sudo) and saves exec.srtPath. Only from the owner's click; needs fresh presence once the Gateway has a presence verifier (approval_required with details.approvalId, then retry with approvalId). Fails closed on any mismatch. Side-effecting.",
   }),
 } as const;

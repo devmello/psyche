@@ -258,6 +258,14 @@ export interface RecordedCall {
 
 type Handler = (params: never) => unknown;
 
+const MOCK_SRT_INSTALLER = {
+  package: "@anthropic-ai/sandbox-runtime",
+  version: "0.0.81",
+  dir: "/Users/you/.psyche/tools/srt/0.0.81",
+  installedVersion: null,
+  updateAvailable: false,
+} as const;
+
 const MOCK_MIME: Record<string, string> = {
   md: "text/markdown",
   txt: "text/plain",
@@ -306,6 +314,9 @@ export class MockGateway implements GatewayClient {
   readonly mcpServers: McpServerStatus[] = [];
   /** How stdio MCP servers run; tests set `"none"` for a Gateway with no sandbox. */
   mcpLauncher: "srt" | "container" | "none" = "srt";
+  /** `sandbox.installSrt` calls so far, and an error to throw from it (tests). */
+  installSrtCalls = 0;
+  installSrtError: Error | null = null;
   /** What `sandbox.setup` finds (guided setup); tests change it between "Check again"s. */
   sandboxSetup: MethodResult<"sandbox.setup"> = {
     ready: true,
@@ -2995,6 +3006,25 @@ export class MockGateway implements GatewayClient {
       sandbox: null,
     }),
     "sandbox.setup": () => structuredClone(this.sandboxSetup),
+    "sandbox.installSrt": () => {
+      this.installSrtCalls += 1;
+      if (this.installSrtError) throw this.installSrtError;
+      const installer = this.sandboxSetup.installer ?? MOCK_SRT_INSTALLER;
+      const path = `${installer.dir}/bin/srt`;
+      this.sandboxSetup = {
+        ...this.sandboxSetup,
+        ready: true,
+        srt: {
+          available: true,
+          path,
+          source: "setting",
+          version: installer.version,
+          problem: null,
+        },
+        installer: { ...installer, installedVersion: installer.version, updateAvailable: false },
+      };
+      return { srt: this.sandboxSetup.srt, installer: this.sandboxSetup.installer as never };
+    },
   };
 
   private decidePairing(

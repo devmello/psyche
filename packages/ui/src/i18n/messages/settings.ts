@@ -828,6 +828,21 @@ export const settings = {
     "The srt at {path} can't be used: {problem, select, not_absolute {the path must start with /} not_executable {there's no program there that can run} other {it wasn't found}}.",
   "settings.sandbox.srt.fromEnv":
     "PSYCHE_SRT_PATH sets this location, so it can't be changed here.",
+  "settings.sandbox.srt.installButton": "Install with Psyche",
+  "settings.sandbox.srt.reinstallButton": "Reinstall",
+  "settings.sandbox.srt.updateButton": "Update srt",
+  "settings.sandbox.srt.installOr": "Or let Psyche install it for you",
+  "settings.sandbox.srt.installConfirm.title": "Install srt {version}?",
+  "settings.sandbox.srt.installConfirm.body":
+    "Psyche will download {package} {version} and its dependencies from the npm registry (registry.npmjs.org), check each file against a checksum built into this version of Psyche, and unpack them with its own Node. Nothing is installed system-wide, no install scripts run and no password is needed.",
+  "settings.sandbox.srt.installConfirm.where": "It will be put in {dir}",
+  "settings.sandbox.srt.installConfirm.go": "Install",
+  "settings.sandbox.srt.installConfirm.cancel": "Cancel",
+  "settings.sandbox.srt.installing": "Installing srt…",
+  "settings.sandbox.srt.installed": "Installed by Psyche: srt {version}.",
+  "settings.sandbox.srt.installFailed": "srt could not be installed: {reason}",
+  "settings.sandbox.srt.updateAvailable":
+    "A newer srt ({version}) comes with this version of Psyche; {installed} is installed.",
   "settings.sandbox.srt.choose": "srt is somewhere else",
   "settings.sandbox.srt.path": "Full path to srt",
   "settings.sandbox.srt.use": "Use this srt",

@@ -42,4 +42,5 @@ export {
   type EgressTunnelHandler,
 } from "./runner.ts";
 export * from "./srt.ts";
+export * from "./srt-install.ts";
 export type { OpenStdioOptions, SandboxStdio, SandboxStdioReceipt } from "./stdio.ts";
