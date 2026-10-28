@@ -4,5 +4,5 @@
     "lib": ["es2024"],
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "eval/**/*.ts"]
 }
