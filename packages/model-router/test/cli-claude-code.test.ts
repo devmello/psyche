@@ -189,6 +189,32 @@ describe("claude-code provider (fake CLI, recorded stream-json)", () => {
     ]);
   });
 
+  it("restarts the run when a continuation brings tools the CLI never listed (load_tools mid-turn)", async () => {
+    const { adapter, seen } = setup(["tools", "text"]);
+    const first = ask("Weather in Paris?", { tools: [weatherTool] });
+    const turn = await accumulate(adapter.stream(first));
+    expect(turn.finish).toEqual({ type: "finish", reason: "tool_calls" });
+    const messages: ModelMessage[] = [
+      ...first.messages,
+      turn.message(),
+      {
+        role: "tool",
+        parts: [{ type: "tool_result", callId: "toolu_fxA", output: { tempC: 18 } }],
+      },
+    ];
+    // The model loaded notes.read after the CLI started: its schema is in the next request.
+    const second = await run(adapter, { ...first, messages, tools: [weatherTool, notesRead] });
+    expect(second.events.at(-1)).toEqual({ type: "finish", reason: "stop" });
+    const argvs = seen().filter((e) => e.kind === "argv");
+    expect(argvs).toHaveLength(2);
+    const argv = argvOf(seen, 1);
+    expect(argv).toContain("--resume");
+    const lists = seen().filter((e) => e.kind === "tools") as unknown as {
+      tools: { name: string }[];
+    }[];
+    expect(lists.at(-1)?.tools.map((t) => t.name)).toEqual(["weather", "notes_read"]);
+  });
+
   it("hands a refused call back to the CLI as an MCP error and never re-emits it (#500)", async () => {
     const { adapter, seen } = setup(["tool-refused"]);
     const gmailSend: ToolSpec = { ...weatherTool, name: "gmail.send", description: "Send mail" };
