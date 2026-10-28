@@ -258,8 +258,6 @@ export const hi: Partial<Catalogue> = {
     "Psyche यह {what, select, approval {स्वीकृति} question {सवाल} receipt {रसीद} artifact {आर्टिफ़ैक्ट} file {फ़ाइल} task {टास्क} plan {योजना} other {आइटम}} लोड नहीं कर सका।",
   "blocks.message.waitingApproval": "आपकी स्वीकृति की प्रतीक्षा में",
   "blocks.message.reviewApproval": "स्वीकृति की समीक्षा करें: {summary}",
-  "blocks.message.decided":
-    "{status, select, approved {स्वीकृत} denied {अस्वीकृत} expired {समय-सीमा समाप्त} invalidated {निरस्त} other {{status}}}: {summary}",
 
   "blocks.details.none": "कोई नहीं",
   "blocks.details.argumentsList": "आर्ग्युमेंट: {args}",

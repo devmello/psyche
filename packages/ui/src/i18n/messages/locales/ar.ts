@@ -260,8 +260,6 @@ export const ar: Partial<Catalogue> = {
     "تعذّر على Psyche تحميل {what, select, approval {هذه الموافقة} question {هذا السؤال} receipt {هذا الإيصال} artifact {هذا المُخرَج} file {هذا الملف} task {هذه المهمة} plan {هذه الخطة} other {هذا العنصر}}.",
   "blocks.message.waitingApproval": "بانتظار موافقتك",
   "blocks.message.reviewApproval": "مراجعة الموافقة: {summary}",
-  "blocks.message.decided":
-    "{status, select, approved {تمت الموافقة} denied {مرفوض} expired {منتهي الصلاحية} invalidated {ملغى} other {{status}}}: {summary}",
 
   "blocks.details.none": "لا شيء",
   "blocks.details.argumentsList": "الوسيطات: {args}",

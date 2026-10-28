@@ -77,7 +77,7 @@ describe("tool rows across an approval pause (#569)", () => {
     expect(blocksToShow(plain, index)).toBe(plain.blocks);
   });
 
-  it("renders one row going pending → ok and one Approved notice in the thread", async () => {
+  it("renders one row going pending → ok and one receipt in the thread", async () => {
     render(
       <StoryWorld
         edit={(w: ReturnType<typeof createFixtureWorld>) => {
@@ -106,7 +106,7 @@ describe("tool rows across an approval pause (#569)", () => {
     expect(within(log).getAllByRole("button", { name: /2 actions · web/ })).toHaveLength(1);
     expect(within(log).queryByRole("button", { name: /^1 action · web/ })).toBeNull();
     await waitFor(() =>
-      expect(within(log).getAllByText(/Approved: Read nodejs\.org/)).toHaveLength(1),
+      expect(within(log).getAllByText(/Allowed once: Read nodejs\.org/)).toHaveLength(1),
     );
   });
 });

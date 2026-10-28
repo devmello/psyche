@@ -255,8 +255,6 @@ export const ja: Partial<Catalogue> = {
     "Psycheはこの{what, select, approval {承認} question {質問} receipt {レシート} artifact {アーティファクト} file {ファイル} task {タスク} plan {プラン} other {項目}}を読み込めませんでした。",
   "blocks.message.waitingApproval": "あなたの承認を待っています",
   "blocks.message.reviewApproval": "承認を確認：{summary}",
-  "blocks.message.decided":
-    "{status, select, approved {承認済み} denied {拒否済み} expired {期限切れ} invalidated {無効} other {{status}}}：{summary}",
   "blocks.details.none": "なし",
   "blocks.details.argumentsList": "引数：{args}",
   "blocks.details.command": "コマンド",
