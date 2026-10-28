@@ -194,6 +194,9 @@ export function batchChildId(batchApprovalId: string, index: number): string {
   return `${batchApprovalId}.${index}`;
 }
 
+/** Rejected answers may be this many times the decision budget per minute before a lockout. */
+const FAILURE_CAP_FACTOR = 6;
+
 export class PsychePermissionBroker implements PermissionBroker {
   readonly clock: Clock;
   readonly audit: AuditLog | undefined;
@@ -222,6 +225,8 @@ export class PsychePermissionBroker implements PermissionBroker {
     { call: PolicyCall; ctx: PolicyContext; binding: Binding; decision: PolicyDecision; at: number }
   >();
   readonly #answerTimes = new Map<string, number[]>();
+  /** Rejected answers per identity: a much higher flood cap, so failures never eat the budget. */
+  readonly #failureTimes = new Map<string, number[]>();
   readonly #channelConversations: ChannelConversationLookup | undefined;
   readonly #replyTimes = new Map<string, number[]>();
   readonly #folderAccess: PermissionBrokerOptions["folderAccess"];
@@ -955,13 +960,32 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#timers.set(a.id, () => clearTimeout(t));
   }
 
-  #rateLimited(identity: string): boolean {
+  /**
+   * Seconds until the identity may answer again, or 0 when under the limit. Peeks only: attempts
+   * that fail authentication or validation never use the budget (see `#recordAnswer`).
+   */
+  #retryAfterSec(identity: string): number {
     const limit = this.#policy.config.approvals?.answersPerMinute ?? 10;
+    return Math.max(
+      this.#windowWait(this.#answerTimes, identity, limit),
+      this.#windowWait(this.#failureTimes, identity, limit * FAILURE_CAP_FACTOR),
+    );
+  }
+
+  #windowWait(map: Map<string, number[]>, identity: string, limit: number): number {
     const now = this.clock.now();
-    const times = (this.#answerTimes.get(identity) ?? []).filter((t) => t > now - 60_000);
-    times.push(now);
+    const times = (map.get(identity) ?? []).filter((t) => t > now - 60_000);
+    map.set(identity, times);
+    if (times.length < limit) return 0;
+    const oldest = times[times.length - limit] ?? now;
+    return Math.max(1, Math.ceil((oldest + 60_000 - now) / 1000));
+  }
+
+  /** Counts a real decision: the answerer authenticated and every check passed. */
+  #recordAnswer(identity: string): void {
+    const times = this.#answerTimes.get(identity) ?? [];
+    times.push(this.clock.now());
     this.#answerTimes.set(identity, times);
-    return times.length > limit;
   }
 
   async #reject(
@@ -973,6 +997,13 @@ export class PsychePermissionBroker implements PermissionBroker {
     message: string,
     details?: unknown,
   ): Promise<never> {
+    if (reason !== "rate_limited") {
+      const identity =
+        "deviceId" in by ? `device:${by.deviceId}` : `channel:${by.channel}:${by.senderId}`;
+      const failures = this.#failureTimes.get(identity) ?? [];
+      failures.push(this.clock.now());
+      this.#failureTimes.set(identity, failures);
+    }
     await this.#log(
       "approval.answer_rejected",
       actorOf(by),
@@ -993,8 +1024,17 @@ export class PsychePermissionBroker implements PermissionBroker {
     const identity =
       "deviceId" in by ? `device:${by.deviceId}` : `channel:${by.channel}:${by.senderId}`;
     const id = input.approvalId;
-    if (this.#rateLimited(identity))
-      return this.#reject(undefined, id, by, "rate_limited", "rate_limited", "too many answers");
+    const retryAfterSec = this.#retryAfterSec(identity);
+    if (retryAfterSec > 0)
+      return this.#reject(
+        undefined,
+        id,
+        by,
+        "rate_limited",
+        "rate_limited",
+        `Too many approvals in a minute. Try again in ${retryAfterSec} s`,
+        { retryAfterSec },
+      );
     const rec = this.#store.getApproval(id);
     if (rec === undefined)
       return this.#reject(undefined, id, by, "not_found", "not_found", `approval ${id} not found`);
@@ -1268,6 +1308,8 @@ export class PsychePermissionBroker implements PermissionBroker {
         return this.#reject(rec, id, by, "compose_scope", "invalid_params", "sends are once only");
       }
     }
+
+    this.#recordAnswer(identity);
 
     // First authorized answer wins: re-read, check, mark the token and decide atomically.
     // Re-read the clock after the awaited approver and presence checks (review #14).

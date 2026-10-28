@@ -20,6 +20,7 @@ import {
   listeningPorts,
   OriginPolicy,
   type OriginPolicyOptions,
+  PartitionChooser,
   type PartitionMode,
   RecordingStore,
   type RoutingDriver,
@@ -513,6 +514,14 @@ export function composeBrowser(
       return ids;
     },
     taskPolicy: (callId) => policyFor(keyFor(callId, "web")),
+    // "Stay signed in" origins: real Chrome is not offered for a site Psyche's browser holds.
+    signedIn: (url) => {
+      const origins =
+        typeof setup.signedInOrigins === "function"
+          ? setup.signedInOrigins()
+          : (setup.signedInOrigins ?? []);
+      return new PartitionChooser({ mode: "auto", signedInOrigins: origins }).isSignedIn(url);
+    },
     // `browser.use_real_chrome` sees the mode only while the switch (or the env) is on.
     get realChrome() {
       return realChromeOn() ? realChrome : undefined;
@@ -555,13 +564,18 @@ export function composeBrowser(
    * fail; a call that races a disconnect still fails at once with `unavailable`.
    */
   let unregisterTools: (() => void) | undefined;
+  let registeredWithRealChrome = false;
   const syncTools = (): void => {
-    const runnable = driver !== undefined || realChromeOn();
-    if (runnable && unregisterTools === undefined) {
-      unregisterTools = registerBrowserTools(tools, toolDeps);
-    } else if (!runnable && unregisterTools !== undefined) {
+    const real = realChromeOn();
+    const runnable = driver !== undefined || real;
+    // The real-Chrome tools are offered only while the switch is on, so a flip re-registers.
+    if (unregisterTools !== undefined && (!runnable || registeredWithRealChrome !== real)) {
       unregisterTools();
       unregisterTools = undefined;
+    }
+    if (runnable && unregisterTools === undefined) {
+      unregisterTools = registerBrowserTools(tools, toolDeps);
+      registeredWithRealChrome = real;
     }
   };
   syncTools();

@@ -1,6 +1,7 @@
 import type { ToolSpec } from "@psyche/protocol";
 import { Type } from "@sinclair/typebox";
 import { describe, expect, it } from "vitest";
+import { lastResortFactor } from "../src/deferred.ts";
 import { defineTool, type TurnToolContext } from "../src/index.ts";
 import { call, endOf, harness, recorder, resultsIn, runTurn, say, spec } from "./harness.ts";
 
@@ -173,5 +174,12 @@ describe("deferred tools (progressive disclosure)", () => {
     const tools = names(h.provider.requests[0]?.tools);
     expect(tools).toContain("weather.forecast");
     expect(tools).not.toContain("tool_search");
+  });
+});
+
+describe("last-resort tools rank lower", () => {
+  it("browser.use_real_chrome scores below an equal match", () => {
+    expect(lastResortFactor("browser.use_real_chrome")).toBeLessThan(1);
+    expect(lastResortFactor("browser.open_tab")).toBe(1);
   });
 });

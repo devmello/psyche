@@ -72,7 +72,7 @@ export const settings = {
   "settings.key.appearance.glassBlur": "Blur",
   "settings.key.appearance.glassRefraction": "Refraction",
   "settings.key.backup.schedule": "Backup schedule",
-  "settings.key.browser.realChrome": "Real-Chrome mode",
+  "settings.key.browser.realChrome": "Let Psyche use your Chrome",
   "settings.key.browser.botAuth": "Web Bot Auth",
   "settings.key.computerUse.enabled": "Allow computer use",
   "settings.key.exec.srtPath": "srt location",

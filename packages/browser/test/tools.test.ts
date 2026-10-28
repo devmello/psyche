@@ -8,7 +8,7 @@ import { FsQuarantineWriter } from "../src/downloads/library.ts";
 import { CdpBridgeDriver } from "../src/drivers/cdp.ts";
 import { MockDesktop } from "../src/testing/mock-desktop.ts";
 import type { CallContext } from "../src/tools/gate.ts";
-import { registerBrowserTools } from "../src/tools/register.ts";
+import { fillSummary, registerBrowserTools } from "../src/tools/register.ts";
 
 class Registry implements ToolRegistry {
   readonly tools = new Map<string, ToolRegistration>();
@@ -208,6 +208,68 @@ describe("browser.* tools", () => {
     ctx.approvalId = undefined;
     expect(wrong).toMatchObject({ isError: true, output: { error: { code: "policy_denied" } } });
     expect(desktop.tab(tabId).fieldValue("username")).toBe("");
+  });
+
+  it("signs in from the vault only on the bound origin, then hands 2FA to the owner and continues", async () => {
+    const secret = "tr0ub4dor-staging-pass";
+    creds.add({
+      slug: "canvas-login",
+      bindings: [{ origin: desktop.browser.origin("b") }],
+      secret,
+    });
+    const open = await call("browser.open_tab", { url: desktop.browser.url("a/login") });
+    const tabId = (open.output as { tab: { id: string } }).tab.id;
+    const pass = (await driver.snapshot(tabId)).refs.find((r) => r.name === "Password")?.ref ?? "";
+    // The login item is bound to another origin: refused, nothing typed, nothing leaked.
+    creds.approve("appr_mismatch", { slug: "canvas-login", origin: desktop.browser.origin("a") });
+    ctx.approvalId = "appr_mismatch";
+    const refused = await call("browser.fill_credential", {
+      tabId,
+      ref: pass,
+      placeholder: "{{cred:canvas-login}}",
+    });
+    ctx.approvalId = undefined;
+    expect(refused.isError).toBe(true);
+    expect(desktop.tab(tabId).fieldValue("password")).not.toBe(secret);
+    expect(JSON.stringify(refused)).not.toContain(secret);
+
+    // Bound to this origin: it fills; then a 2FA step is handed to the owner and the run goes on.
+    creds.add({
+      slug: "site-a-sso",
+      bindings: [{ origin: desktop.browser.origin("a") }],
+      secret: "second-secret-value-9",
+    });
+    creds.approve("appr_ok", { slug: "site-a-sso", origin: desktop.browser.origin("a") });
+    ctx.approvalId = "appr_ok";
+    const filled = await call("browser.fill_credential", {
+      tabId,
+      ref: pass,
+      placeholder: "{{cred:site-a-sso}}",
+    });
+    ctx.approvalId = undefined;
+    expect(filled.isError).toBeUndefined();
+    const handOff = call("browser.request_control", { tabId, reason: "Approve the Duo push" });
+    await new Promise((r) => setTimeout(r, 20));
+    desktop.takeControl(tabId, "keyboard");
+    await new Promise((r) => setTimeout(r, 20));
+    desktop.release(tabId);
+    expect((await handOff).output).toMatchObject({ status: "returned" });
+    const after = await call("browser.snapshot", { tabId });
+    expect(after.isError).toBeUndefined();
+    for (const out of [refused.output, filled.output, after.output]) {
+      assertNoSecrets(out, "sign-in transcript");
+      expect(JSON.stringify(out)).not.toContain(secret);
+    }
+  });
+
+  it("words a login item's card as a sign-in", () => {
+    const item = { kind: "login", name: "UCSC (dev…@ucsc.edu)" } as never;
+    expect(fillSummary(item, { slug: "ucsc" }, "https://canvas.ucsc.edu")).toBe(
+      "Sign in to canvas.ucsc.edu with your saved login (UCSC (dev…@ucsc.edu))?",
+    );
+    expect(fillSummary(undefined, { slug: "k", field: "token" }, "https://x.test")).toBe(
+      "Fill k (token) on x.test",
+    );
   });
 
   it("withholds any output or error that echoes a vault secret (S23 design-18)", async () => {

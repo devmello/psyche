@@ -34,6 +34,28 @@ import type { ApproveMailCredential } from "../mail/connector.ts";
  * allow, writes ask, sending mail always asks. Everything an app returns is untrusted.
  */
 
+/**
+ * Reminders the owner wrote are the owner's own content (security §3.6 taints content *not
+ * authored by the owner*). EventKit exposes neither the author of a reminder nor whether a list
+ * is shared, so the adapter fails closed: a read is trusted only when the helper attests, for
+ * every returned list or reminder, `shared: false` and no other author (`createdBy` absent or
+ * `"owner"`). Anything unattested, shared or by someone else keeps the result untrusted.
+ */
+export function ownerOnlyReminders(output: unknown): boolean {
+  const rows = Array.isArray(output)
+    ? output
+    : typeof output === "object" && output !== null
+      ? ((output as { reminders?: unknown; lists?: unknown }).reminders ??
+        (output as { lists?: unknown }).lists)
+      : undefined;
+  if (!Array.isArray(rows) || rows.length === 0) return false;
+  return rows.every((r) => {
+    if (typeof r !== "object" || r === null) return false;
+    const o = r as { shared?: unknown; createdBy?: unknown };
+    return o.shared === false && (o.createdBy === undefined || o.createdBy === "owner");
+  });
+}
+
 /** The slice of a paired helper node these connectors use (the Gateway's `NodeClient`). */
 export interface AppleHelper {
   nodeId: string;
@@ -1895,7 +1917,10 @@ class AppleConnector implements Connector {
     }
     let output = spec.shape ? spec.shape(res.result, p) : (res.result ?? null);
     if (spec.capability === "mail.save_attachments") output = await this.#importStaged(output, p);
-    const out: ToolOutput = { output, provenance: "untrusted" };
+    const out: ToolOutput = {
+      output,
+      provenance: this.#app === "reminders" && ownerOnlyReminders(output) ? "trusted" : "untrusted",
+    };
     if (spec.sideEffect !== "read") {
       out.receiptSummary = `${LABEL[this.#app]}: ${spec.capability} on ${h.name ?? "this Mac"}`;
     }

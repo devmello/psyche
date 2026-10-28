@@ -674,15 +674,56 @@ export function ApprovalDetails({
   }
 }
 
+/** A tool call's `params` as readable rows: URL and reason first, the rest as plain values. */
+function ParamRows({ params }: { params: Details }): ReactElement {
+  const order = ["url", "reason"];
+  const keys = [
+    ...order.filter((k) => k in params),
+    ...Object.keys(params).filter((k) => !order.includes(k)),
+  ];
+  return (
+    <>
+      {keys.map((k) => {
+        const v = params[k];
+        const text =
+          typeof v === "object" && v !== null && !Array.isArray(v)
+            ? str(JSON.stringify(v))
+            : str(v);
+        return (
+          <Row
+            key={k}
+            label={
+              k === "url"
+                ? t("blocks.details.url")
+                : k === "reason"
+                  ? t("blocks.details.reason")
+                  : humanize(k)
+            }
+          >
+            {k === "url" ? <Code>{text}</Code> : text}
+          </Row>
+        );
+      })}
+    </>
+  );
+}
+
 function GenericDetails({ approval, d }: { approval: ApprovalRequest; d: Details }): ReactElement {
+  const params =
+    typeof d.params === "object" && d.params !== null && !Array.isArray(d.params)
+      ? (d.params as Details)
+      : null;
+  // The target shows once, from the request's own `target`; a `details.target` copy is dropped.
+  const targetText = approval.target
+    ? (approval.target.display ?? approval.target.value)
+    : typeof d.target === "string"
+      ? d.target
+      : null;
   return (
     <dl>
-      <Rest details={d} shown={[]} />
-      {approval.target ? (
-        <Row label={t("blocks.details.target")}>
-          {approval.target.display ?? approval.target.value}
-        </Row>
-      ) : null}
+      <Rest details={d} shown={params === null ? ["target"] : ["target", "params"]} />
+      {params !== null ? <ParamRows params={params} /> : null}
+      {targetText !== null ? <Row label={t("blocks.details.target")}>{targetText}</Row> : null}
     </dl>
   );
 }

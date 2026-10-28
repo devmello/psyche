@@ -87,6 +87,12 @@ export interface BrowserToolDeps {
    */
   realChrome?: RealChromeDeps;
   /**
+   * True when the owner is signed into this URL's origin in Psyche's own browser profile
+   * (`signedInOrigins`, "Stay signed in"). `browser.use_real_chrome` then answers with a pointer
+   * to the embedded browser instead of asking for real-Chrome consent.
+   */
+  signedIn?(url: string): boolean;
+  /**
    * The task's origin policy, shared by all of its sessions (web, real Chrome). An approved new
    * origin is granted here; without it the web session's policy is used.
    */
@@ -261,7 +267,8 @@ export function browserToolDefs(deps: BrowserToolDeps) {
     }),
     def({
       name: "browser.open_tab",
-      description: "Open a new tab, optionally at a URL. New origins need approval.",
+      description:
+        'Open a new tab, optionally at a URL. New origins need approval. This is Psyche\'s own browser: sites the owner chose "Stay signed in" for open signed in. This is the default for every site. If the site needs a sign-in, use browser.fill_credential with a saved login, or browser.request_control so the owner signs in here.',
       schema: Type.Object({ url: Type.Optional(Url) }),
       sideEffect: "read",
       rerun: true,
@@ -643,7 +650,7 @@ export function browserToolDefs(deps: BrowserToolDeps) {
     def({
       name: "browser.fill_credential",
       description:
-        "Fill a vault credential into a field with {{cred:<item>[.field]}}. Asks the owner; the value is never shown.",
+        "Sign in with a saved vault login: fill a field with {{cred:<item>[.field]}} (the username and password fields of a login page, one call each). Use it when a page asks for a sign-in and the owner has a saved login for that exact site; it works only on the item's bound site. One approval card per fill, and you never see the value. If a 2FA step (Duo, a code) follows, call browser.request_control and continue when the owner hands the tab back. With no saved login, call browser.request_control so the owner signs in; Psyche then offers Stay signed in and Save login.",
       schema: Type.Object({
         tabId: TabId,
         ref: Ref,
@@ -658,7 +665,7 @@ export function browserToolDefs(deps: BrowserToolDeps) {
         const out: ToolCallDescription = { kind: "credential_fill" };
         if (origin === undefined) return out;
         out.target = { kind: "origin", value: origin };
-        out.summary = `Fill a saved credential on ${origin}`;
+        out.summary = fillSummary(deps.credentialMeta?.(ph?.slug ?? ""), ph, origin);
         if (ph !== undefined) {
           // The same fields the executor's own gate and the vault bind, so a loop-level
           // approval is the one the vault accepts.
@@ -792,71 +799,97 @@ export function browserToolDefs(deps: BrowserToolDeps) {
         }
       },
     }),
-    def({
-      name: "browser.use_real_chrome",
-      description:
-        "Open a URL in the owner's Psyche Chrome profile (real-Chrome mode): a separate Chrome where the owner is signed in and has extensions such as 1Password. Use it only when the embedded browser cannot do the job (a store extension, a site that needs the owner's existing sign-in there). The owner approves it once per task on their device. Origin approvals, the vault and every other rule stay the same; the tab works with the other browser.* tools.",
-      schema: Type.Object({
-        url: Url,
-        reason: Type.String({ minLength: 1, maxLength: 200 }),
-      }),
-      sideEffect: "destructive",
-      rerun: true,
-      describe: (p) => ({
-        sideEffect: "destructive",
-        kind: "policy_change",
-        target: { kind: "app", value: "chrome" },
-        summary: `Use your Psyche Chrome profile (your sign-ins and extensions there) for this task: ${p.reason.slice(0, 160)}`,
-      }),
-      run: async (p, { callId, signal }) => {
-        const rc = deps.realChrome;
-        if (rc === undefined) {
-          throw new PsycheError("unavailable", "real-Chrome mode is not enabled on this Gateway", {
-            details: { reason: "no_real_chrome" },
-          });
-        }
-        let sessionId = rc.attached(callId);
-        if (sessionId === undefined) {
-          const ctx = deps.context(callId);
-          // Per-session consent (security §6): once, on the owner's device, with presence.
-          if (ctx.approvalId === undefined) {
-            const scope = ctx.taskId ?? `thread:${ctx.threadId}`;
-            const outcome = await approvals.check(
-              {
-                tool: "browser.use_real_chrome",
-                kind: "policy_change",
-                sideEffect: "destructive",
-                target: { kind: "app", value: "chrome" },
-                summary: `Use your Psyche Chrome profile (your sign-ins and extensions there) for this task: ${p.reason.slice(0, 160)}`,
-                details: { mode: "real_chrome", reason: p.reason, taskId: ctx.taskId ?? null },
-                bindingFields: { mode: "real_chrome", scope },
-                grantKey: `real_chrome|${scope}`,
-              },
-              ctx,
-              signal,
-            );
-            if (!outcome.ok) throw gateError(outcome);
-          }
-          sessionId = await rc.attach(callId);
-        }
-        const tab = await d.openTab(sessionId, p.url);
-        return {
-          tab,
-          browser: "real_chrome",
-          hint: "This tab is in the owner's Psyche Chrome window. Use the other browser.* tools on it; credential fills still go through browser.fill_credential, and 1Password may fill by itself after the owner approves there. Call browser.stop_real_chrome when done.",
-        };
-      },
-    }),
-    def({
-      name: "browser.stop_real_chrome",
-      description:
-        "End this task's real-Chrome session. Chrome closes, and its debugging port with it, once no task uses it.",
-      schema: Type.Object({}),
-      sideEffect: "none",
-      run: async (_p, { callId }) => ({
-        stopped: (await deps.realChrome?.detach(callId)) === true,
-      }),
-    }),
+    // Off by default (Settings → Browser, "Let Psyche use your Chrome"): the model is not
+    // offered real Chrome at all unless the switch is on.
+    ...(deps.realChrome === undefined
+      ? []
+      : [
+          def({
+            name: "browser.use_real_chrome",
+            description:
+              "Open a URL in the owner's Psyche Chrome profile (real-Chrome mode): a separate Chrome where the owner is signed in and has extensions such as 1Password. Offered only because the owner switched on \"Let Psyche use your Chrome\". LAST RESORT: for a site the owner is signed into, use browser.open_tab in Psyche's own browser (it keeps the owner's sign-ins for those sites) and, if the site is not signed in yet, browser.fill_credential or browser.request_control so the owner signs in there and chooses \"Stay signed in\". Use this tool only when the owner asks for Chrome, or the built-in browser cannot do the job (a store extension, a site that only works with their Chrome sign-in). It is refused for an origin that is already signed in in Psyche's browser. The owner approves it once per task on their device with Touch ID. Origin approvals, the vault and every other rule stay the same; the tab works with the other browser.* tools.",
+            schema: Type.Object({
+              url: Url,
+              reason: Type.String({ minLength: 1, maxLength: 200 }),
+            }),
+            // Static class `none`: `describe` escalates to destructive unless the origin is already
+            // signed in in Psyche's browser, where the call is only a pointer to open_tab.
+            sideEffect: "none",
+            rerun: true,
+            describe: (p) =>
+              // Already signed in in Psyche's browser: no consent card, `run` points at open_tab.
+              deps.signedIn?.(p.url) === true
+                ? { sideEffect: "none" }
+                : {
+                    sideEffect: "destructive",
+                    kind: "policy_change",
+                    target: { kind: "app", value: "chrome" },
+                    summary: `Use your Psyche Chrome profile (your sign-ins and extensions there) for this task: ${p.reason.slice(0, 160)}`,
+                  },
+            run: async (p, { callId, signal }) => {
+              if (deps.signedIn?.(p.url) === true) {
+                return {
+                  redirected: true,
+                  hint: "The owner is already signed in to this site in Psyche's own browser. Use browser.open_tab with this URL and the other browser.* tools there; do not use real Chrome.",
+                };
+              }
+              const rc = deps.realChrome;
+              if (rc === undefined) {
+                throw new PsycheError(
+                  "unavailable",
+                  "real-Chrome mode is not enabled on this Gateway",
+                  {
+                    details: { reason: "no_real_chrome" },
+                  },
+                );
+              }
+              let sessionId = rc.attached(callId);
+              if (sessionId === undefined) {
+                const ctx = deps.context(callId);
+                // Per-session consent (security §6): once, on the owner's device, with presence.
+                if (ctx.approvalId === undefined) {
+                  const scope = ctx.taskId ?? `thread:${ctx.threadId}`;
+                  const outcome = await approvals.check(
+                    {
+                      tool: "browser.use_real_chrome",
+                      kind: "policy_change",
+                      sideEffect: "destructive",
+                      target: { kind: "app", value: "chrome" },
+                      summary: `Use your Psyche Chrome profile (your sign-ins and extensions there) for this task: ${p.reason.slice(0, 160)}`,
+                      details: {
+                        mode: "real_chrome",
+                        reason: p.reason,
+                        taskId: ctx.taskId ?? null,
+                      },
+                      bindingFields: { mode: "real_chrome", scope },
+                      grantKey: `real_chrome|${scope}`,
+                    },
+                    ctx,
+                    signal,
+                  );
+                  if (!outcome.ok) throw gateError(outcome);
+                }
+                sessionId = await rc.attach(callId);
+              }
+              const tab = await d.openTab(sessionId, p.url);
+              return {
+                tab,
+                browser: "real_chrome",
+                hint: "This tab is in the owner's Psyche Chrome window. Use the other browser.* tools on it; credential fills still go through browser.fill_credential, and 1Password may fill by itself after the owner approves there. Call browser.stop_real_chrome when done.",
+              };
+            },
+          }),
+          def({
+            name: "browser.stop_real_chrome",
+            description:
+              "End this task's real-Chrome session. Chrome closes, and its debugging port with it, once no task uses it.",
+            schema: Type.Object({}),
+            sideEffect: "none",
+            run: async (_p, { callId }) => ({
+              stopped: (await deps.realChrome?.detach(callId)) === true,
+            }),
+          }),
+        ]),
     def({
       name: "browser.console",
       description: "Console messages of a dev-preview (localhost) tab.",
@@ -874,6 +907,18 @@ export function browserToolDefs(deps: BrowserToolDeps) {
       run: async (p, { callId }) => ({ requests: d.networkLog(await sessionTab(callId, p.tabId)) }),
     }),
   ];
+}
+
+/** What the card asks: a login item reads as a sign-in ("with your saved login (name)"). */
+export function fillSummary(
+  item: CredentialMeta | undefined,
+  ph: { slug: string; field?: string } | undefined,
+  origin: string,
+): string {
+  const host = origin.replace(/^https?:\/\//, "");
+  if (item?.kind === "login") return `Sign in to ${host} with your saved login (${item.name})?`;
+  if (ph === undefined) return `Fill a saved credential on ${host}`;
+  return `Fill ${ph.slug}${ph.field === undefined ? "" : ` (${ph.field})`} on ${host}`;
 }
 
 /**
@@ -937,7 +982,7 @@ async function fillCredential(
         kind: "credential_fill",
         sideEffect: "write",
         target: { kind: "origin", value: origin },
-        summary: `Fill ${ph.slug}${ph.field === undefined ? "" : ` (${ph.field})`} on ${origin}`,
+        summary: fillSummary(deps.credentialMeta?.(ph.slug), ph, origin),
         details: {
           item: ph.slug,
           field: ph.field ?? "secret",

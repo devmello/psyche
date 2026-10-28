@@ -910,6 +910,32 @@ describe("Apple Reminders and Calendar wave 1 (#639)", () => {
     expect(helper.calls).toEqual([{ capability: "reminders.list", params }]);
   });
 
+  it("Reminders the owner wrote do not taint; shared, other-author or unattested ones do (§3.6)", async () => {
+    const provenanceOf = async (result: unknown) => {
+      const helper = new FakeHelper();
+      helper.answers["reminders.list"] = { ok: true, result };
+      const { registry, run } = make(helper);
+      await registry.connect({ catalogueId: "apple-reminders", scopeMode: "read" });
+      const out = (await run("mcp__apple-1__reminders_list")({})) as unknown as {
+        provenance: string;
+      };
+      return out.provenance;
+    };
+    const mine = { id: "R1", title: "Dentist", shared: false };
+    expect(
+      await provenanceOf({ reminders: [mine, { ...mine, id: "R2", createdBy: "owner" }] }),
+    ).toBe("trusted");
+    expect(await provenanceOf({ reminders: [mine, { ...mine, id: "R3", shared: true }] })).toBe(
+      "untrusted",
+    );
+    expect(await provenanceOf({ reminders: [{ ...mine, createdBy: "ana@example.org" }] })).toBe(
+      "untrusted",
+    );
+    // The helper cannot attest (EventKit has no author): fail closed.
+    expect(await provenanceOf({ reminders: [{ id: "R4", title: "x" }] })).toBe("untrusted");
+    expect(await provenanceOf({ reminders: [] })).toBe("untrusted");
+  });
+
   it("reminders_create carries a mail link, an alarm and a recurrence; complete and delete ask", async () => {
     const create = toolOf(1, "apple:reminders", "reminders_create");
     if (!create) throw new Error("reminders_create is missing");

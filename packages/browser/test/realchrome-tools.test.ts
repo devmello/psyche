@@ -59,6 +59,7 @@ describe("real-Chrome mode over the routing driver (I13)", () => {
     return issued;
   };
   const policy = new OriginPolicy({ devPreview: true });
+  let signedInHosts: string[] = [];
   let webSession = "";
   let realSession: DriverSession | undefined;
   const events: DriverEventEx[] = [];
@@ -96,6 +97,7 @@ describe("real-Chrome mode over the routing driver (I13)", () => {
         ...(realSession === undefined ? [] : [realSession.id]),
       ],
       taskPolicy: () => policy,
+      signedIn: (url) => signedInHosts.some((h) => url.includes(h)),
       realChrome: {
         attached: () => realSession?.id,
         async attach() {
@@ -220,10 +222,37 @@ describe("real-Chrome mode over the routing driver (I13)", () => {
       code: "unavailable",
     });
   });
+
+  it("prefers Psyche's own browser for an origin the owner is signed into there", async () => {
+    signedInHosts = ["canvas.example"];
+    const askedBefore = broker.decisions.filter(
+      (d) => d.call.tool === "browser.use_real_chrome",
+    ).length;
+    const url = "https://canvas.example/";
+    const desc = registry.get("browser.use_real_chrome")?.describeCall?.({
+      url,
+      reason: "Check assignments",
+    });
+    expect(desc).toMatchObject({ sideEffect: "none" });
+    expect(desc).not.toHaveProperty("kind");
+    const res = await call("browser.use_real_chrome", { url, reason: "Check assignments" });
+    expect(res.isError).toBeUndefined();
+    expect(res.output).toMatchObject({ redirected: true });
+    expect(String((res.output as { hint: string }).hint)).toContain("browser.open_tab");
+    expect(broker.decisions.filter((d) => d.call.tool === "browser.use_real_chrome").length).toBe(
+      askedBefore,
+    );
+    // Not signed in there: the consent card path is unchanged.
+    signedInHosts = [];
+    expect(
+      registry.get("browser.use_real_chrome")?.describeCall?.({ url, reason: "r" }),
+    ).toMatchObject({ kind: "policy_change" });
+    expect(registry.get("browser.use_real_chrome")?.spec.description).toContain("LAST RESORT");
+  });
 });
 
 describe("real-Chrome mode off", () => {
-  it("is unavailable without a real-Chrome attachment", async () => {
+  it("hides real Chrome from the model while the toggle is off", async () => {
     const registry = new Registry();
     const dir = await mkdtemp(join(tmpdir(), "psyche-s08-rc-off-"));
     const desktop = new MockDesktop({ quarantineDir: dir });
@@ -243,18 +272,10 @@ describe("real-Chrome mode off", () => {
       }),
       session: async () => s.id,
     });
-    const r = await registry
-      .get("browser.use_real_chrome")
-      ?.execute(
-        "c",
-        { url: "https://example.com/", reason: "x" },
-        new AbortController().signal,
-        () => {},
-      );
-    expect(r).toMatchObject({
-      isError: true,
-      output: { error: { code: "unavailable", details: { reason: "no_real_chrome" } } },
-    });
+    // Off by default: the model is not offered real Chrome, nor its stop tool.
+    expect(registry.get("browser.use_real_chrome")).toBeUndefined();
+    expect(registry.get("browser.stop_real_chrome")).toBeUndefined();
+    expect(registry.get("browser.open_tab")).toBeDefined();
     driver.dispose();
     desktop.disconnect();
     await rm(dir, { recursive: true, force: true });

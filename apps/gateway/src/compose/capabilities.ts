@@ -366,7 +366,12 @@ function rank(item: CatalogItem, query: string): number {
   if (fit === 0) return 0;
   const status = INSTALLED.has(e.status) ? 1.5 : e.status === "off" ? 1.1 : 1;
   const trust = e.trust === "unknown" ? 1 : 1.2;
-  return fit * status * trust;
+  return (
+    fit *
+    status *
+    trust *
+    (e.id.includes("use_real_chrome") || e.name.includes("use_real_chrome") ? 0.4 : 1)
+  );
 }
 
 export function capabilityCatalogue(opts: CatalogueOptions): Catalogue {
