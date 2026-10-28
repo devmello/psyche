@@ -119,6 +119,8 @@ interface LiveRun {
   configFile: string;
   modelId: string;
   tempFiles: string[];
+  /** Tool names the CLI listed when it started: it never re-lists (`listChanged: false`). */
+  toolNames: Set<string>;
   totals?: CliSessionEnvelope["totals"];
   idle?: ReturnType<typeof setTimeout>;
 }
@@ -249,6 +251,12 @@ export class CliAdapter implements ModelProvider {
     return live === undefined ? undefined : { live, results };
   }
 
+  /** True when `request` offers a tool the live CLI process never listed. */
+  #hasNewTools(live: LiveRun, request: ModelRequest): boolean {
+    const names = ToolNameMap.for(request, CLI_TOOL_NAMES);
+    return (request.tools ?? []).some((t) => !live.toolNames.has(names.toProvider(t.name)));
+  }
+
   async #start(request: ModelRequest, modelId: string): Promise<LiveRun> {
     const workdir = this.workdir();
     mkdirSync(workdir, { recursive: true, mode: 0o700 });
@@ -316,6 +324,7 @@ export class CliAdapter implements ModelProvider {
       configFile,
       modelId,
       tempFiles: (spec.files ?? []).map((f) => f.path),
+      toolNames: new Set(tools.map((t) => t.name)),
     };
   }
 
@@ -354,7 +363,15 @@ export class CliAdapter implements ModelProvider {
           `ref ${request.model} is not for provider ${this.id}`,
         );
       }
-      const cont = this.#continuation(request);
+      let cont = this.#continuation(request);
+      if (cont !== undefined && this.#hasNewTools(cont.live, request)) {
+        // The CLI lists its tools once, at start, and answers "No such tool available" for any
+        // other (deferred tools the model just loaded, an approved install). End the run and
+        // start a fresh one that resumes the session with the full list; like a run that timed
+        // out while suspended, it is told the earlier tool calls and their results.
+        this.#finishRun(cont.live);
+        cont = undefined;
+      }
       if (cont !== undefined) {
         live = cont.live;
         clearTimeout(live.idle);
