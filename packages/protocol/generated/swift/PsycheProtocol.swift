@@ -10,6 +10,7 @@
 //   let actionProposalStatus = try? JSONDecoder().decode(ActionProposalStatus.self, from: jsonData)
 //   let actionRule = try? JSONDecoder().decode(ActionRule.self, from: jsonData)
 //   let agentNote = try? JSONDecoder().decode(AgentNote.self, from: jsonData)
+//   let answerSource = try? JSONDecoder().decode(AnswerSource.self, from: jsonData)
 //   let appLinkBlock = try? JSONDecoder().decode(AppLinkBlock.self, from: jsonData)
 //   let appleAlarm = try? JSONDecoder().decode(AppleAlarm.self, from: jsonData)
 //   let appleBusyBlock = try? JSONDecoder().decode(AppleBusyBlock.self, from: jsonData)
@@ -1060,6 +1061,7 @@
 //   let skillsSetEnabledParams = try? JSONDecoder().decode(SkillsSetEnabledParams.self, from: jsonData)
 //   let skillsSetEnabledResult = try? JSONDecoder().decode(SkillsSetEnabledResult.self, from: jsonData)
 //   let sourcedLine = try? JSONDecoder().decode(SourcedLine.self, from: jsonData)
+//   let sourcesBlock = try? JSONDecoder().decode(SourcesBlock.self, from: jsonData)
 //   let specialistAutomation = try? JSONDecoder().decode(SpecialistAutomation.self, from: jsonData)
 //   let specialistBudgetSetting = try? JSONDecoder().decode(SpecialistBudgetSetting.self, from: jsonData)
 //   let specialistFinding = try? JSONDecoder().decode(SpecialistFinding.self, from: jsonData)
@@ -8530,6 +8532,7 @@ public struct Block: Codable, Sendable {
     public let actions: [WrapUpAction]?
     public let ask: String?
     public let recap: String?
+    public let cited: [String]?
     public let compactionID: String?
     public let replaced: Replaced?
     public let summary: CompactionSummary?
@@ -8567,6 +8570,7 @@ public struct Block: Codable, Sendable {
         case actions = "actions"
         case ask = "ask"
         case recap = "recap"
+        case cited = "cited"
         case compactionID = "compactionId"
         case replaced = "replaced"
         case summary = "summary"
@@ -8581,7 +8585,7 @@ public struct Block: Codable, Sendable {
         case route = "route"
     }
 
-    public init(md: String?, type: BlockType, level1: String?, status: ToolCallStatus?, tool: String?, toolCallID: String?, planID: String?, items: [ItemElement]?, approvalID: String?, inputRequestID: String?, artifactID: String?, preview: String?, libraryItemID: String?, id: String?, kind: BlockKind?, source: String?, title: String?, url: String?, receiptID: String?, taskID: String?, actions: [WrapUpAction]?, ask: String?, recap: String?, compactionID: String?, replaced: Replaced?, summary: CompactionSummary?, tokensAfter: Int?, tokensBefore: Int?, trigger: BlockTrigger?, feedbackID: String?, lessonID: String?, messageID: String?, statement: String?, proposal: DailyWorkflowProposal?, route: String?) {
+    public init(md: String?, type: BlockType, level1: String?, status: ToolCallStatus?, tool: String?, toolCallID: String?, planID: String?, items: [ItemElement]?, approvalID: String?, inputRequestID: String?, artifactID: String?, preview: String?, libraryItemID: String?, id: String?, kind: BlockKind?, source: String?, title: String?, url: String?, receiptID: String?, taskID: String?, actions: [WrapUpAction]?, ask: String?, recap: String?, cited: [String]?, compactionID: String?, replaced: Replaced?, summary: CompactionSummary?, tokensAfter: Int?, tokensBefore: Int?, trigger: BlockTrigger?, feedbackID: String?, lessonID: String?, messageID: String?, statement: String?, proposal: DailyWorkflowProposal?, route: String?) {
         self.md = md
         self.type = type
         self.level1 = level1
@@ -8605,6 +8609,7 @@ public struct Block: Codable, Sendable {
         self.actions = actions
         self.ask = ask
         self.recap = recap
+        self.cited = cited
         self.compactionID = compactionID
         self.replaced = replaced
         self.summary = summary
@@ -8645,8 +8650,13 @@ public struct ItemElement: Codable, Sendable {
     public let threadID: String?
     public let title: String?
     public let date: String?
+    public let id: String?
+    public let kind: String?
+    public let provenance: Provenance?
+    public let route: String?
+    public let source: String?
+    public let span: String?
     public let factID: String?
-    public let kind: LearnedFactKind?
 
     public enum CodingKeys: String, CodingKey {
         case status = "status"
@@ -8656,11 +8666,16 @@ public struct ItemElement: Codable, Sendable {
         case threadID = "threadId"
         case title = "title"
         case date = "date"
-        case factID = "factId"
+        case id = "id"
         case kind = "kind"
+        case provenance = "provenance"
+        case route = "route"
+        case source = "source"
+        case span = "span"
+        case factID = "factId"
     }
 
-    public init(status: ChecklistItemStatus?, text: String?, lastMessageAt: String?, snippet: String?, threadID: String?, title: String?, date: String?, factID: String?, kind: LearnedFactKind?) {
+    public init(status: ChecklistItemStatus?, text: String?, lastMessageAt: String?, snippet: String?, threadID: String?, title: String?, date: String?, id: String?, kind: String?, provenance: Provenance?, route: String?, source: String?, span: String?, factID: String?) {
         self.status = status
         self.text = text
         self.lastMessageAt = lastMessageAt
@@ -8668,18 +8683,21 @@ public struct ItemElement: Codable, Sendable {
         self.threadID = threadID
         self.title = title
         self.date = date
-        self.factID = factID
+        self.id = id
         self.kind = kind
+        self.provenance = provenance
+        self.route = route
+        self.source = source
+        self.span = span
+        self.factID = factID
     }
 }
 
-public enum LearnedFactKind: String, Codable, Sendable {
-    case name = "name"
-    case other = "other"
-    case person = "person"
-    case preference = "preference"
-    case project = "project"
-    case routine = "routine"
+public enum Provenance: String, Codable, Sendable {
+    case agent = "agent"
+    case owner = "owner"
+    case system = "system"
+    case untrusted = "untrusted"
 }
 
 public enum ChecklistItemStatus: String, Codable, Sendable {
@@ -8761,6 +8779,7 @@ public enum BlockType: String, Codable, Sendable {
     case question = "question"
     case receipt = "receipt"
     case relatedThreads = "related_threads"
+    case sources = "sources"
     case specialistResult = "specialist_result"
     case task = "task"
     case taught = "taught"
@@ -9027,13 +9046,6 @@ public enum LessonKind: String, Codable, Sendable {
     case fact = "fact"
     case parameter = "parameter"
     case style = "style"
-}
-
-public enum Provenance: String, Codable, Sendable {
-    case agent = "agent"
-    case owner = "owner"
-    case system = "system"
-    case untrusted = "untrusted"
 }
 
 public enum MessageRole: String, Codable, Sendable {
@@ -15231,6 +15243,15 @@ public struct LearnedFact: Codable, Sendable {
         self.text = text
         self.threadID = threadID
     }
+}
+
+public enum LearnedFactKind: String, Codable, Sendable {
+    case name = "name"
+    case other = "other"
+    case person = "person"
+    case preference = "preference"
+    case project = "project"
+    case routine = "routine"
 }
 
 public enum LearnedBlockType: String, Codable, Sendable {
@@ -24387,6 +24408,63 @@ public struct SkillsSetEnabledResult: Codable, Sendable {
     public init(skill: SkillDetails) {
         self.skill = skill
     }
+}
+
+// MARK: - SourcesBlock
+public struct SourcesBlock: Codable, Sendable {
+    public let cited: [String]
+    public let items: [AnswerSource]
+    public let type: SourcesBlockType
+
+    public enum CodingKeys: String, CodingKey {
+        case cited = "cited"
+        case items = "items"
+        case type = "type"
+    }
+
+    public init(cited: [String], items: [AnswerSource], type: SourcesBlockType) {
+        self.cited = cited
+        self.items = items
+        self.type = type
+    }
+}
+
+// MARK: - AnswerSource
+public struct AnswerSource: Codable, Sendable {
+    public let date: String
+    public let id: String
+    public let kind: String
+    public let provenance: Provenance
+    public let route: String?
+    public let source: String
+    public let span: String
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case date = "date"
+        case id = "id"
+        case kind = "kind"
+        case provenance = "provenance"
+        case route = "route"
+        case source = "source"
+        case span = "span"
+        case title = "title"
+    }
+
+    public init(date: String, id: String, kind: String, provenance: Provenance, route: String?, source: String, span: String, title: String) {
+        self.date = date
+        self.id = id
+        self.kind = kind
+        self.provenance = provenance
+        self.route = route
+        self.source = source
+        self.span = span
+        self.title = title
+    }
+}
+
+public enum SourcesBlockType: String, Codable, Sendable {
+    case sources = "sources"
 }
 
 // MARK: - SpecialistProgressPayload

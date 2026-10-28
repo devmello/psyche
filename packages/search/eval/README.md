@@ -60,3 +60,7 @@ Relevance is binary: a result counts when it is a gold id.
 - Add questions with complete gold sets. For list questions, include every matching doc.
 - `test/eval.test.ts` checks that ids are unique and that every gold id exists.
 - A PR that changes ranking, parsing or ingest should paste the before and after tables.
+
+## Answer metrics without a key (`--mock-answers`)
+
+`pnpm --filter @psyche/search eval -- --mock-answers` scores the answer path offline. An extractive stand-in picks, from each of the top 8 hits, the sentence closest to the question and cites its hit. Those sentences go through the same `validateAnswer` as the `search_everything` tool (cited ids must be in the hit set and the cited text must support the sentence). `cite P@3`, `cite ok` and `answer ok` then measure retrieval plus the citation guard, not a language model. `--llm` swaps in Haiku.
