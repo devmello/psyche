@@ -87,6 +87,12 @@ export interface BrowserToolDeps {
    */
   realChrome?: RealChromeDeps;
   /**
+   * True when the owner is signed into this URL's origin in Psyche's own browser profile
+   * (`signedInOrigins`, "Stay signed in"). `browser.use_real_chrome` then answers with a pointer
+   * to the embedded browser instead of asking for real-Chrome consent.
+   */
+  signedIn?(url: string): boolean;
+  /**
    * The task's origin policy, shared by all of its sessions (web, real Chrome). An approved new
    * origin is granted here; without it the web session's policy is used.
    */
@@ -261,7 +267,8 @@ export function browserToolDefs(deps: BrowserToolDeps) {
     }),
     def({
       name: "browser.open_tab",
-      description: "Open a new tab, optionally at a URL. New origins need approval.",
+      description:
+        'Open a new tab, optionally at a URL. New origins need approval. This is Psyche\'s own browser: sites the owner chose "Stay signed in" for open signed in. Prefer it over browser.use_real_chrome; if the site needs a sign-in, call browser.request_control so the owner signs in here.',
       schema: Type.Object({ url: Type.Optional(Url) }),
       sideEffect: "read",
       rerun: true,
@@ -795,20 +802,32 @@ export function browserToolDefs(deps: BrowserToolDeps) {
     def({
       name: "browser.use_real_chrome",
       description:
-        "Open a URL in the owner's Psyche Chrome profile (real-Chrome mode): a separate Chrome where the owner is signed in and has extensions such as 1Password. Use it only when the embedded browser cannot do the job (a store extension, a site that needs the owner's existing sign-in there). The owner approves it once per task on their device. Origin approvals, the vault and every other rule stay the same; the tab works with the other browser.* tools.",
+        "Open a URL in the owner's Psyche Chrome profile (real-Chrome mode): a separate Chrome where the owner is signed in and has extensions such as 1Password. LAST RESORT: for a site the owner is signed into, use browser.open_tab in Psyche's own browser (it keeps the owner's sign-ins for those sites) and, if the site is not signed in yet, browser.request_control so the owner signs in there and chooses \"Stay signed in\". Use this tool only when the owner asks for Chrome, or the embedded browser cannot do the job (a store extension, a site that only works with their Chrome sign-in). It is refused for an origin that is already signed in in Psyche's browser. The owner approves it once per task on their device with Touch ID. Origin approvals, the vault and every other rule stay the same; the tab works with the other browser.* tools.",
       schema: Type.Object({
         url: Url,
         reason: Type.String({ minLength: 1, maxLength: 200 }),
       }),
-      sideEffect: "destructive",
+      // Static class `none`: `describe` escalates to destructive unless the origin is already
+      // signed in in Psyche's browser, where the call is only a pointer to open_tab.
+      sideEffect: "none",
       rerun: true,
-      describe: (p) => ({
-        sideEffect: "destructive",
-        kind: "policy_change",
-        target: { kind: "app", value: "chrome" },
-        summary: `Use your Psyche Chrome profile (your sign-ins and extensions there) for this task: ${p.reason.slice(0, 160)}`,
-      }),
+      describe: (p) =>
+        // Already signed in in Psyche's browser: no consent card, `run` points at open_tab.
+        deps.signedIn?.(p.url) === true
+          ? { sideEffect: "none" }
+          : {
+              sideEffect: "destructive",
+              kind: "policy_change",
+              target: { kind: "app", value: "chrome" },
+              summary: `Use your Psyche Chrome profile (your sign-ins and extensions there) for this task: ${p.reason.slice(0, 160)}`,
+            },
       run: async (p, { callId, signal }) => {
+        if (deps.signedIn?.(p.url) === true) {
+          return {
+            redirected: true,
+            hint: "The owner is already signed in to this site in Psyche's own browser. Use browser.open_tab with this URL and the other browser.* tools there; do not use real Chrome.",
+          };
+        }
         const rc = deps.realChrome;
         if (rc === undefined) {
           throw new PsycheError("unavailable", "real-Chrome mode is not enabled on this Gateway", {

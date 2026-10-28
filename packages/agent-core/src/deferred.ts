@@ -65,6 +65,15 @@ export function lexicalScore(query: string, name: string, description: string): 
   return score / q.length;
 }
 
+/**
+ * Tools that are a last resort: they need a heavier owner approval and have a lighter equivalent
+ * (real Chrome vs Psyche's own browser with "Stay signed in"). Ranked below real matches.
+ */
+const LAST_RESORT_FACTOR = 0.4;
+export function lastResortFactor(name: string): number {
+  return /(^|[._])use_real_chrome$/.test(name) ? LAST_RESORT_FACTOR : 1;
+}
+
 /** The prompt's line of on-demand tools: names only, MCP tools grouped per server. */
 export function deferredLine(specs: readonly ToolSpec[]): string | undefined {
   if (specs.length === 0) return undefined;
@@ -103,7 +112,11 @@ export const toolSearchTool = defineTool({
     if (api === undefined) return { output: { tools: [] }, provenance: "trusted" };
     const ranked = api
       .deferred()
-      .map((d) => ({ d, score: lexicalScore(p.query, d.spec.name, d.spec.description) }))
+      .map((d) => ({
+        d,
+        score:
+          lexicalScore(p.query, d.spec.name, d.spec.description) * lastResortFactor(d.spec.name),
+      }))
       .filter((x) => x.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, p.limit ?? 8);

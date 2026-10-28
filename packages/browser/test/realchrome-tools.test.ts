@@ -59,6 +59,7 @@ describe("real-Chrome mode over the routing driver (I13)", () => {
     return issued;
   };
   const policy = new OriginPolicy({ devPreview: true });
+  let signedInHosts: string[] = [];
   let webSession = "";
   let realSession: DriverSession | undefined;
   const events: DriverEventEx[] = [];
@@ -96,6 +97,7 @@ describe("real-Chrome mode over the routing driver (I13)", () => {
         ...(realSession === undefined ? [] : [realSession.id]),
       ],
       taskPolicy: () => policy,
+      signedIn: (url) => signedInHosts.some((h) => url.includes(h)),
       realChrome: {
         attached: () => realSession?.id,
         async attach() {
@@ -219,6 +221,33 @@ describe("real-Chrome mode over the routing driver (I13)", () => {
     await expect(lonely.openSessionOn("real_chrome", {})).rejects.toMatchObject({
       code: "unavailable",
     });
+  });
+
+  it("prefers Psyche's own browser for an origin the owner is signed into there", async () => {
+    signedInHosts = ["canvas.example"];
+    const askedBefore = broker.decisions.filter(
+      (d) => d.call.tool === "browser.use_real_chrome",
+    ).length;
+    const url = "https://canvas.example/";
+    const desc = registry.get("browser.use_real_chrome")?.describeCall?.({
+      url,
+      reason: "Check assignments",
+    });
+    expect(desc).toMatchObject({ sideEffect: "none" });
+    expect(desc).not.toHaveProperty("kind");
+    const res = await call("browser.use_real_chrome", { url, reason: "Check assignments" });
+    expect(res.isError).toBeUndefined();
+    expect(res.output).toMatchObject({ redirected: true });
+    expect(String((res.output as { hint: string }).hint)).toContain("browser.open_tab");
+    expect(broker.decisions.filter((d) => d.call.tool === "browser.use_real_chrome").length).toBe(
+      askedBefore,
+    );
+    // Not signed in there: the consent card path is unchanged.
+    signedInHosts = [];
+    expect(
+      registry.get("browser.use_real_chrome")?.describeCall?.({ url, reason: "r" }),
+    ).toMatchObject({ kind: "policy_change" });
+    expect(registry.get("browser.use_real_chrome")?.spec.description).toContain("LAST RESORT");
   });
 });
 

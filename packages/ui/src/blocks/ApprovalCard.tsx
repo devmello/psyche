@@ -27,6 +27,7 @@ import { cn } from "../lib/utils.ts";
 import { easeLinear, fade, motionSpring, spring } from "../motion/index.ts";
 import { useSlots } from "../slots.tsx";
 import { roleLabel } from "../specialists/model.ts";
+import { type AnswerFailure, answerFailureText, classifyAnswerError } from "./answer-error.ts";
 import { ApprovalDetails, ApprovalIds } from "./approval-details.tsx";
 import { floorClassOf, useLiftFloorConfirm } from "./LiftFloorDialog.tsx";
 import { taintSentence } from "./taint-text.ts";
@@ -320,6 +321,11 @@ export function ApprovalCard({
   const [armed, setArmed] = useState(armDelayMs === 0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A rate-limited answer disables Allow until the Gateway's retry-after has passed.
+  const [limitedUntil, setLimitedUntil] = useState<number | null>(null);
+  const [limitFailure, setLimitFailure] = useState<AnswerFailure | null>(null);
+  // Synchronous guard: two clicks in one tick must send one answer.
+  const inFlight = useRef(false);
   const [showIds, setShowIds] = useState(false);
   // folder_access: the folder the owner picks is what is granted, never the agent's string.
   const isFolder = raw.kind === "folder_access";
@@ -397,7 +403,8 @@ export function ApprovalCard({
   const liftConfirm = useLiftFloorConfirm(persona, "card");
 
   const submit = async (decision: "approve" | "deny", confirmed = false) => {
-    if (!interactive || !armed || busy) return;
+    if (!interactive || !armed || busy || inFlight.current) return;
+    if (limitedUntil !== null && Date.now() < limitedUntil && decision === "approve") return;
     if (decision === "approve" && !allowReady) return;
     if (decision === "approve" && floor !== null && choice === "always" && !confirmed) {
       liftConfirm.ask(
@@ -408,8 +415,11 @@ export function ApprovalCard({
       return;
     }
     const scope: GrantScope | undefined = decision === "deny" ? undefined : choice;
+    inFlight.current = true;
     setBusy(true);
     setError(null);
+    setLimitedUntil(null);
+    setLimitFailure(null);
     try {
       // macOS access: re-read the grant first, so the Gateway's check sees what was just allowed.
       if (decision === "approve" && need?.need === "macos_access") {
@@ -427,8 +437,14 @@ export function ApprovalCard({
               : undefined,
       );
     } catch (err) {
-      setError(describeError(err));
+      const failure = classifyAnswerError(err);
+      if (failure.kind === "rate_limited") {
+        setLimitedUntil(Date.now() + failure.retryAfterSec * 1000);
+        setLimitFailure(failure);
+        setError(null);
+      } else setError(answerFailureText(failure));
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   };
@@ -462,9 +478,17 @@ export function ApprovalCard({
     ? ""
     : typeof reason === "string" && reason.trim() !== ""
       ? reason
-      : [mode ? t("blocks.approval.modeReason", { mode }) : null, approval.sideEffect ?? null]
-          .filter(Boolean)
-          .join("; ");
+      : mode && approval.sideEffect
+        ? t("blocks.approval.whyMode", {
+            mode: mode.charAt(0).toUpperCase() + mode.slice(1),
+            effect: t(`blocks.approval.sideEffect.${approval.sideEffect}`),
+          })
+        : [
+            mode ? t("blocks.approval.modeReason", { mode }) : null,
+            approval.sideEffect ? t(`blocks.approval.sideEffect.${approval.sideEffect}`) : null,
+          ]
+            .filter(Boolean)
+            .join("; ");
 
   const permissionLabel = enables
     ? t("blocks.permission.enable")
@@ -499,7 +523,11 @@ export function ApprovalCard({
     (!isFolder || folder !== "") &&
     (compose === null || (recipientId !== "" && messageText.trim() !== "")) &&
     (!isExecHost || sandboxReady || unsandboxed);
-  const canAllow = armed && !busy && allowReady;
+  const limitNow = useNow(1000);
+  const limitSecondsLeft =
+    limitedUntil === null ? 0 : Math.max(0, Math.ceil((limitedUntil - limitNow) / 1000));
+  const limited = limitSecondsLeft > 0;
+  const canAllow = armed && !busy && allowReady && !limited;
   const specialist = approval.requestedBy.specialist;
   // A specialist asks (specialists §4.4): "For {task} · Shopper started by Psyche in Main chat".
   const requester = specialist
@@ -840,6 +868,13 @@ export function ApprovalCard({
           {otherSurfaces.length > 0 ? (
             <span>{t("blocks.approval.alsoSentTo", { surfaces: otherSurfaces.join(", ") })}</span>
           ) : null}
+        </p>
+      ) : null}
+
+      {limited && limitFailure !== null ? (
+        <p className="mt-2 flex items-start gap-2 text-label-primary" role="alert">
+          <CircleAlert className="mt-0.5 size-4 shrink-0 text-danger-text" aria-hidden="true" />
+          {answerFailureText(limitFailure, limitSecondsLeft)}
         </p>
       ) : null}
 

@@ -20,6 +20,7 @@ import {
   listeningPorts,
   OriginPolicy,
   type OriginPolicyOptions,
+  PartitionChooser,
   type PartitionMode,
   RecordingStore,
   type RoutingDriver,
@@ -513,6 +514,14 @@ export function composeBrowser(
       return ids;
     },
     taskPolicy: (callId) => policyFor(keyFor(callId, "web")),
+    // "Stay signed in" origins: real Chrome is not offered for a site Psyche's browser holds.
+    signedIn: (url) => {
+      const origins =
+        typeof setup.signedInOrigins === "function"
+          ? setup.signedInOrigins()
+          : (setup.signedInOrigins ?? []);
+      return new PartitionChooser({ mode: "auto", signedInOrigins: origins }).isSignedIn(url);
+    },
     // `browser.use_real_chrome` sees the mode only while the switch (or the env) is on.
     get realChrome() {
       return realChromeOn() ? realChrome : undefined;

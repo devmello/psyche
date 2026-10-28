@@ -166,11 +166,12 @@ describe("approval lifecycle", () => {
     expect(await h.broker.listGrants()).toEqual([]);
   });
 
-  it("rate-limits answers per identity (security §10)", async () => {
+  it("failed answers do not use the decision budget, and a wait is reported", async () => {
     const h = makeBroker();
     const issued = await request(h, write());
     h.clock.advance(500);
-    for (let i = 0; i < 10; i += 1) {
+    // Forged, unauthenticated attempts (cancelled prompts, repeated clicks) are not decisions.
+    for (let i = 0; i < 30; i += 1) {
       await h.broker
         .answer({
           approvalId: issued.approval.id,
@@ -180,14 +181,50 @@ describe("approval lifecycle", () => {
         })
         .catch(() => undefined);
     }
-    await expect(
-      h.broker.answer({
+    const ok = await h.broker.answer({
+      approvalId: issued.approval.id,
+      answerToken: issued.answerTokens.desktop ?? "",
+      decision: "deny",
+      decidedBy: { deviceId: "dev_mac" },
+    });
+    expect(ok.status).toBe("denied");
+  });
+
+  it("rate-limits real decisions per identity with a retry-after (security §10)", async () => {
+    const h = makeBroker();
+    h.clock.advance(500);
+    for (let i = 0; i < 10; i += 1) {
+      const issued = await request(h, write());
+      h.clock.advance(500);
+      await h.broker.answer({
         approvalId: issued.approval.id,
         answerToken: issued.answerTokens.desktop ?? "",
         decision: "deny",
         decidedBy: { deviceId: "dev_mac" },
+      });
+    }
+    const next = await request(h, write());
+    h.clock.advance(500);
+    await expect(
+      h.broker.answer({
+        approvalId: next.approval.id,
+        answerToken: next.answerTokens.desktop ?? "",
+        decision: "deny",
+        decidedBy: { deviceId: "dev_mac" },
       }),
-    ).rejects.toMatchObject({ code: "rate_limited" });
+    ).rejects.toMatchObject({
+      code: "rate_limited",
+      message: expect.stringMatching(/^Too many approvals in a minute\. Try again in \d+ s/),
+      details: { retryAfterSec: expect.any(Number) },
+    });
+    h.clock.advance(61_000);
+    const later = await h.broker.answer({
+      approvalId: next.approval.id,
+      answerToken: next.answerTokens.desktop ?? "",
+      decision: "deny",
+      decidedBy: { deviceId: "dev_mac" },
+    });
+    expect(later.status).toBe("denied");
   });
 
   it("destructive sends never reach chat (design-04, architecture §4.6)", async () => {
