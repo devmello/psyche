@@ -162,18 +162,36 @@ function DesktopBrowserPane(props: {
       port.setViewport(null);
       return;
     }
+    let last = "";
     const report = () => {
       const r = el.getBoundingClientRect();
-      // Physical on purpose: the native view is placed in window pixels.
+      // A zero-size placeholder is not on screen: hide the native view rather than place it.
+      if (r.width <= 0 || r.height <= 0) {
+        if (last !== "null") port.setViewport(null);
+        last = "null";
+        return;
+      }
+      const key = `${r.left}|${r.top}|${r.width}|${r.height}`;
+      if (key === last) return;
+      last = key;
       port.setViewport({ x: r.left, y: r.top, width: r.width, height: r.height });
     };
     report();
+    // ResizeObserver misses pure moves (side panel docking, sidebar toggle, slide-in animation),
+    // so also re-check the position every frame; reports are deduplicated.
+    let raf = requestAnimationFrame(function tick() {
+      report();
+      raf = requestAnimationFrame(tick);
+    });
     const ro = new ResizeObserver(report);
     ro.observe(el);
     window.addEventListener("resize", report);
+    window.addEventListener("focus", report);
     return () => {
+      cancelAnimationFrame(raf);
       ro.disconnect();
       window.removeEventListener("resize", report);
+      window.removeEventListener("focus", report);
       port.setViewport(null);
     };
   }, [port, props.covered, tab]);
