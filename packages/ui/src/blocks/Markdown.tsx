@@ -64,7 +64,10 @@ export function Markdown({ children, streaming = false, className }: MarkdownPro
   const live = streaming || text !== children;
   return (
     <Streamdown
-      className={cn("psy-markdown prose-width text-reading text-label-primary", className)}
+      className={cn(
+        "psy-markdown psy-prose prose-width text-reading text-label-primary",
+        className,
+      )}
       mode={live ? "streaming" : "static"}
       parseIncompleteMarkdown={live}
       isAnimating={live}

@@ -676,12 +676,12 @@ export function ChatThread({
             `h-full` when it is a block. The composer stack floats over the transcript's end
             (redesign-2026 §5.2), so the root is the positioning context.
           */}
-          <ThreadPrimitive.Root className="relative flex h-full min-h-0 min-w-[min(100%,var(--chat-min-width))] flex-1 flex-col overflow-hidden bg-canvas">
+          <ThreadPrimitive.Root className="@container/chat relative flex h-full min-h-0 min-w-[min(100%,var(--chat-min-width))] flex-1 flex-col overflow-hidden bg-canvas">
             {offline ? <OfflineBanner state={connection} /> : null}
             <ThreadPrimitive.Viewport
               ref={viewportRef}
               autoScroll={false}
-              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 [mask-image:linear-gradient(to_bottom,transparent_0,black_24px,black_calc(100%_-_24px),transparent_100%)]"
+              className="chat-surface min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 @xl/chat:px-6 @5xl/chat:px-10 [mask-image:linear-gradient(to_bottom,transparent_0,black_24px,black_calc(100%_-_24px),transparent_100%)]"
               style={{
                 paddingBottom: stackHeight + 24,
                 scrollPaddingBottom: stackHeight + 24,
@@ -692,11 +692,13 @@ export function ChatThread({
             >
               {/*
                 Short conversations sit just above the composer, as in a messaging app; long
-                ones scroll. 680 px reading column (§3.7).
+                ones scroll. The column grows with the chat container (container queries, so a docked
+                side pane shrinks it): text holds a 72–90ch measure, wide content and the composer use
+                the full column.
               */}
               <div
                 ref={columnRef}
-                className="mx-auto flex min-h-full w-full max-w-[680px] flex-col justify-end pt-6"
+                className="mx-auto flex min-h-full w-full max-w-(--chat-wide) flex-col justify-end pt-6"
                 data-testid="conversation-column"
               >
                 {empty ? <EmptyThread /> : null}
@@ -791,10 +793,10 @@ export function ChatThread({
             </ThreadPrimitive.Viewport>
             <div
               ref={stackRef}
-              className="pointer-events-none absolute inset-x-0 bottom-0 px-6 pb-4"
+              className="chat-surface pointer-events-none absolute inset-x-0 bottom-0 px-4 @xl/chat:px-6 @5xl/chat:px-10 pb-4"
               data-testid="composer-stack"
             >
-              <div className="pointer-events-auto mx-auto flex w-full max-w-[680px] flex-col gap-2">
+              <div className="pointer-events-auto mx-auto flex w-full max-w-(--chat-wide) flex-col gap-2">
                 <Presence>{away ? <JumpToLatest key="jump" onJump={jump} /> : null}</Presence>
                 <ComposerPrefill />
                 <ComposerBusyWatch
