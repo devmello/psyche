@@ -87,6 +87,13 @@ import {
   DEFAULT_CONTEXT_BUDGETS,
   renderSystemPrompt,
 } from "./context.ts";
+import {
+  DEFERRAL_CORE,
+  DEFERRED_REASON,
+  type DeferredToolsApi,
+  loadToolsTool,
+  toolSearchTool,
+} from "./deferred.ts";
 import { type Evaluation, evaluateTask } from "./evaluator.ts";
 import { EventQueue } from "./events.ts";
 import { type HookMap, HookRegistry } from "./hooks.ts";
@@ -100,13 +107,6 @@ import {
   withDeadline,
 } from "./plugins.ts";
 import { type QuestionAnswer, validateAnswer } from "./questions.ts";
-import {
-  DEFERRAL_CORE,
-  DEFERRED_REASON,
-  type DeferredToolsApi,
-  loadToolsTool,
-  toolSearchTool,
-} from "./deferred.ts";
 import { ReasoningSteps } from "./reasoning.ts";
 import { type AgentToolRegistration, AgentToolRegistry, parseMcpToolName } from "./registry.ts";
 import {
@@ -1420,7 +1420,8 @@ export class PsycheAgentLoop implements AgentLoop {
       },
       load: (names) => {
         const out = { loaded: [] as string[], already: [] as string[], unknown: [] as string[] };
-        const list = (run.thread.loadedTools ??= []);
+        run.thread.loadedTools ??= [];
+        const list = run.thread.loadedTools;
         for (const name of new Set(names)) {
           // A tool that registered after this step's assembly (an install just approved).
           const reg = run.deferred?.get(name) ?? this.registry.get(name);

@@ -174,14 +174,16 @@ function toolsSection(
 ): ContextSection {
   // A loaded deferred tool stays in the on-demand line too, so loading never changes this text.
   const onDemand = new Set(deferred.map((t) => t.name));
-  const lines = tools.filter((t) => !onDemand.has(t.name)).map((t) => {
-    const marks = [
-      t.sideEffect,
-      ...(t.descriptionProvenance === "untrusted" ? ["untrusted description"] : []),
-      ...(t.provenanceOut === "untrusted" ? ["untrusted results"] : []),
-    ];
-    return `- ${t.name} (${marks.join(", ")})`;
-  });
+  const lines = tools
+    .filter((t) => !onDemand.has(t.name))
+    .map((t) => {
+      const marks = [
+        t.sideEffect,
+        ...(t.descriptionProvenance === "untrusted" ? ["untrusted description"] : []),
+        ...(t.provenanceOut === "untrusted" ? ["untrusted results"] : []),
+      ];
+      return `- ${t.name} (${marks.join(", ")})`;
+    });
   const thirdParty = [...tools, ...deferred].some((t) => t.descriptionProvenance === "untrusted");
   const header = [
     `Permission mode: ${permissionMode}.${permissionMode === "plan" ? " Plan mode is read-only: research, then call exit_plan_mode with the plan for the owner to approve." : ""}`,

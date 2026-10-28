@@ -26,7 +26,7 @@ import {
   type ToolRegistry,
 } from "@psyche/protocol";
 import type { Gateway } from "../server.ts";
-import { mcpAdder } from "./mcp-add.ts";
+import { type McpAdder, mcpAdder } from "./mcp-add.ts";
 import { mcpGrantRevocation } from "./mcp-grants.ts";
 import { mcpManageHandlers } from "./mcp-manage.ts";
 import { selfConnectorStore, selfConnectors } from "./self-connectors.ts";
@@ -69,6 +69,8 @@ export interface McpSetup {
 
 export interface ComposedMcp extends ComposedPart {
   readonly host: PsycheMcpHost;
+  /** Probe → card → add, for the capability catalogue's installs. */
+  readonly adder: McpAdder;
   /** Settles once every pending reconcile has run (tests, shutdown). */
   idle(): Promise<void>;
 }
@@ -452,6 +454,7 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
   const unregisterSelfTools = self.tools.map((t) => services.tools.register(t));
   return {
     host,
+    adder,
     idle: () => queue,
     handlers: {
       ...self.handlers,

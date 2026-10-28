@@ -100,6 +100,16 @@ export interface McpAdder {
   commit(proposalId: string, approvalId: string): Promise<{ server: McpServerStatus }>;
   /** `mcp.remove`: drops the entry (its tools unregister, its grants are revoked). */
   remove(serverId: string): Promise<void>;
+  /**
+   * An install the owner approved on a card that showed the config before anything ran (the
+   * capability catalogue's `install_capability`): checks the approval against `bindingHash`,
+   * probes (sandboxed, with the approved network) and adds. Blocked tools stay off as always.
+   */
+  install(
+    config: PsycheMcpServerConfig,
+    approvalId: string,
+    bindingHash: string,
+  ): Promise<{ server: McpServerStatus; tools: McpProbedTool[] }>;
   /** Starts the config in a throwaway sandboxed host and reports what it lists. */
   test(config: PsycheMcpServerConfig): Promise<Omit<McpProposal, "id" | "expiresAt">>;
 }
@@ -401,6 +411,62 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
     return { server: status };
   };
 
+  const install = async (
+    config: PsycheMcpServerConfig,
+    approvalId: string,
+    bindingHash: string,
+  ) => {
+    const approval = await services.rawBroker.get(approvalId);
+    const v = await services.rawBroker.verifyBinding(approvalId, bindingHash);
+    if (
+      approval === undefined ||
+      approval.kind !== "skill_install" ||
+      (approval.details as { kind?: unknown }).kind !== "capability_install" ||
+      !v.ok
+    ) {
+      throw new PsycheError("approval_required", "installing a connector needs its approved card");
+    }
+    const before = readServers(services, deps.settingKey);
+    if (before.some((c) => c.id === config.id)) {
+      throw new PsycheError("conflict", `an MCP server with id ${config.id} exists`);
+    }
+    const input: McpServerInput = {
+      id: config.id,
+      name: config.name,
+      transport:
+        config.transport.kind === "stdio"
+          ? { kind: "stdio", command: [...config.transport.command] }
+          : { kind: "http", url: config.transport.url },
+      ...(config.sandbox?.allowedDomains === undefined
+        ? {}
+        : { allowedDomains: [...config.sandbox.allowedDomains] }),
+    };
+    const found = await probe(input, config);
+    const write = async (value: PsycheMcpServerConfig[]) => {
+      const entry = setSetting(services.db, deps.settingKey, value);
+      services.publish("settings.changed", { entries: [entry] });
+      await deps.apply(value);
+    };
+    await write([...before, config]);
+    const hash = deps.toolsHash(config.id);
+    if (hash !== undefined && hash !== found.toolsListHash) {
+      await write(readServers(services, deps.settingKey).filter((c) => c.id !== config.id));
+      throw new PsycheError("conflict", "the server's tools changed while it was being added");
+    }
+    await services.broker
+      .recordReceipt({
+        kind: "mcp_server_add",
+        outcome: "ok",
+        summary: `Installed MCP server "${config.name}" (${found.tools.length} tools)`,
+        approvalId,
+        externalRefs: { serverId: config.id, toolsListHash: found.toolsListHash },
+      })
+      .catch(() => undefined);
+    const status = deps.status(config.id);
+    if (status === undefined) throw new PsycheError("internal", "the server was not added");
+    return { server: status, tools: found.tools };
+  };
+
   const remove = async (serverId: string) => {
     const current = readServers(services, deps.settingKey);
     const entry = current.find((c) => c.id === serverId);
@@ -431,7 +497,14 @@ export function mcpAdder(deps: McpAddDeps): McpAdder {
       },
     },
   };
-  return { handlers, propose, commit, remove, test: (config) => probe(inputOf(config), config) };
+  return {
+    handlers,
+    propose,
+    commit,
+    remove,
+    install,
+    test: (config) => probe(inputOf(config), config),
+  };
 }
 
 /** The `McpServerInput` view of a stdio config (an agent-made server's own). */
