@@ -87,7 +87,7 @@ struct DictationTests {
     }
 
     @Test func targetWireKeepsNullsAndNeverCarriesContents() {
-        let t = DictationPolicy.target(DictationFocus(pid: 3, bundleId: nil, appName: "X"), secureInput: true)!
+        let t = DictationPolicy.target(DictationFocus(pid: 3, bundleId: nil, appName: "X", secure: true), secureInput: false)!
         #expect(t.wire == ["pid": 3, "bundleId": .null, "appName": "X", "role": .null, "insertable": false, "refusal": "secure_field"])
     }
 
