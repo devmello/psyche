@@ -68,6 +68,8 @@ export const ALWAYS_ON = new Set([
   "search_files",
   "memory",
   "request_permission",
+  // A screen ask leaves the agent one look at the frame (screen-ask.ts).
+  "screen.look",
   "subagent.spawn",
   "task.start",
   "schedule",

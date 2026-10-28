@@ -1935,19 +1935,21 @@ export class PsycheAgentLoop implements AgentLoop {
     override?: AgentToolRegistration,
   ): Promise<GateOutcome> {
     const startedAt = toIso(this.#clock.now());
-    const reg = override ?? run.active.get(call.name);
+    let reg = override ?? run.active.get(call.name);
+    let unloaded = false;
+    if (reg === undefined && run.hidden.get(call.name) === DEFERRED_REASON) {
+      // Called by name without loading: it loads (its schema is sent from the next step) and,
+      // when the arguments fit, runs now through the same gate as any call.
+      this.#deferredApi(run).load([call.name]);
+      reg = run.deferred?.get(call.name);
+      if (reg !== undefined) {
+        run.active.set(call.name, reg);
+        run.hidden.delete(call.name);
+        unloaded = true;
+      }
+    }
     if (reg === undefined) {
       const why = run.hidden.get(call.name);
-      if (why === DEFERRED_REASON) {
-        // Called by name without loading: load it, and the model calls it again with its schema.
-        this.#deferredApi(run).load([call.name]);
-        return this.#blocked(
-          run,
-          call,
-          `${call.name} was not loaded; it is loaded now. Call it again from the next step.`,
-          "failed",
-        );
-      }
       return this.#blocked(
         run,
         call,
@@ -1957,7 +1959,12 @@ export class PsycheAgentLoop implements AgentLoop {
     }
     const invalid = reg.validate?.(call.input);
     if (invalid !== undefined)
-      return this.#blocked(run, call, `invalid params: ${invalid}`, "failed");
+      return this.#blocked(
+        run,
+        call,
+        `invalid params: ${invalid}${unloaded ? ` (${call.name} is loaded now: its schema is in your tools from the next step)` : ""}`,
+        "failed",
+      );
     let desc: ToolCallDescription = {};
     try {
       desc = reg.describeCall?.(call.input) ?? {};

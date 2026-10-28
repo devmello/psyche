@@ -63,18 +63,36 @@ describe("deferred tools (progressive disclosure)", () => {
     expect(names(h.provider.requests.at(-1)?.tools)).toContain("weather.forecast");
   });
 
-  it("a deferred tool called without loading is loaded and asked again", async () => {
+  it("a deferred tool called without loading runs when its arguments fit, and stays loaded", async () => {
     const { h, forecast } = withWeather([
       call("c1", "weather.forecast", { city: "Porto" }),
-      call("c2", "weather.forecast", { city: "Porto" }),
       say("done"),
     ]);
     await runTurn(h, "weather in Porto");
-    const first = resultsIn(h.provider.requests[1]).get("c1");
-    expect(first?.isError).toBe(true);
-    expect(JSON.stringify(first?.output)).toContain("loaded now");
+    expect(resultsIn(h.provider.requests[1]).get("c1")?.output).toEqual({ temp: 18 });
     expect(names(h.provider.requests[1]?.tools)).toContain("weather.forecast");
     expect(forecast.seen).toHaveLength(1);
+  });
+
+  it("a deferred tool called with bad arguments is refused with a pointer to its schema", async () => {
+    const h = harness({
+      script: [call("c1", "weather.typed", { city: 3 }), say("done")],
+      loop: { deferTool },
+    });
+    h.loop.registry.register(
+      defineTool({
+        name: "weather.typed",
+        description: "Typed forecast.",
+        input: Type.Object({ city: Type.String() }),
+        sideEffect: "read",
+        run: async () => ({ output: {}, provenance: "trusted" }),
+      }),
+    );
+    await runTurn(h, "weather");
+    const r = resultsIn(h.provider.requests[1]).get("c1");
+    expect(r?.isError).toBe(true);
+    expect(JSON.stringify(r?.output)).toContain("loaded now");
+    expect(names(h.provider.requests[1]?.tools)).toContain("weather.typed");
   });
 
   it("load_tools takes mcp__<server> for a whole connector and refuses unknown names", async () => {
