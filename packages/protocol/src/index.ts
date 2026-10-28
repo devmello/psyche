@@ -1,6 +1,7 @@
 export * from "./bridge.ts";
 export * from "./common.ts";
 export * from "./contracts/index.ts";
+export * from "./documents.ts";
 export * from "./errors.ts";
 export * from "./events.ts";
 export * from "./frames.ts";

@@ -1,4 +1,11 @@
-import type { ArtifactCell, ArtifactOp, ArtifactTable, ArtifactTableView } from "@psyche/protocol";
+import {
+  type ArtifactCell,
+  type ArtifactOp,
+  type ArtifactTable,
+  type ArtifactTableView,
+  applyDocOp,
+  applyStructuredOps,
+} from "@psyche/protocol";
 
 /**
  * Client side of the artifact op format (docs/design/chat-experience-2026.md §4.3): turning a
@@ -135,6 +142,8 @@ export function applyOpsLocal(
   view: ArtifactTableView | null,
   ops: readonly ArtifactOp[],
 ): { content: string; view: ArtifactTableView | null } {
+  if (type === "slides" || type === "workbook")
+    return { content: applyStructuredOps(type, content, ops), view: null };
   if (type === "table" || type === "sheet") {
     const t = JSON.parse(content) as ArtifactTable;
     let v = view;
@@ -189,8 +198,10 @@ export function applyOpsLocal(
     return { content: JSON.stringify(c), view: null };
   }
   let text = content;
-  for (const op of ops) {
-    if (op.op === "rewrite") text = op.content;
+  for (const [i, op] of ops.entries()) {
+    if (op.op === "replaceSection" || op.op === "addSection" || op.op === "removeSection")
+      text = applyDocOp(text, op, i);
+    else if (op.op === "rewrite") text = op.content;
     else if (op.op === "replace" || op.op === "insert") {
       const anchor = op.op === "replace" ? op.old : op.after;
       if (op.op === "insert" && anchor === "") {

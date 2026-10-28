@@ -215,6 +215,9 @@ export const ArtifactType = StringEnum(
     "diagram",
     "diff",
     "map",
+    // Real documents (docs/design/documents-2026.md): a deck and a multi-sheet workbook, both JSON.
+    "slides",
+    "workbook",
   ],
   {
     $id: "ArtifactType",

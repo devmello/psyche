@@ -222,6 +222,7 @@ export function fileChange(c: FileChange): ChangeInput {
 const RECORDED_ELSEWHERE = new Set([
   "write_file",
   "edit_file",
+  "write_document",
   "memory",
   "remember",
   "forget",

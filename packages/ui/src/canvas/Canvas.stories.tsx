@@ -76,3 +76,31 @@ export const HtmlUntrustedOff: Story = {
     </StoryWorld>
   ),
 };
+
+export const Slides: Story = {
+  render: () => (
+    <StoryWorld edit={withCanvas}>
+      <div className="h-[640px] w-[860px] border border-separator">
+        <CanvasPane
+          artifactId={CANVAS_IDS.deck}
+          threadId={IDS.threads.lisbon}
+          onSelect={() => {}}
+        />
+      </div>
+    </StoryWorld>
+  ),
+};
+
+export const Workbook: Story = {
+  render: () => (
+    <StoryWorld edit={withCanvas}>
+      <div className="h-[520px] w-[760px] border border-separator">
+        <CanvasPane
+          artifactId={CANVAS_IDS.workbook}
+          threadId={IDS.threads.lisbon}
+          onSelect={() => {}}
+        />
+      </div>
+    </StoryWorld>
+  ),
+};

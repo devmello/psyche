@@ -26,6 +26,27 @@ export const ReceiptsMethods = {
     scope: "operator.read",
     description: "Lists receipts, newest first, optionally for one task.",
   }),
+  "artifacts.export": defineMethod({
+    params: Type.Object({
+      artifactId: Id,
+      /** `md`, `docx`, `pdf` (doc); `xlsx`, `csv` (workbook); `pptx`, `pdf` (slides). */
+      format: Type.String({ minLength: 2, maxLength: 8 }),
+      version: Type.Optional(Type.Integer({ minimum: 1 })),
+    }),
+    result: Type.Object(
+      {
+        name: Type.String(),
+        mime: Type.String(),
+        /** The file, base64. */
+        data: Type.String(),
+      },
+      { $id: "ArtifactExport" },
+    ),
+    scope: "operator.read",
+    sideEffecting: false,
+    description:
+      "Renders a doc, workbook or deck as a file (docx, xlsx, pptx, pdf, md, csv) for download. Nothing is written to the owner's disk.",
+  }),
 } as const;
 
 const ArtifactWritten = Type.Object({
