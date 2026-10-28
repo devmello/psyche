@@ -159,6 +159,7 @@ import { createRateLimits } from "./rate-limits.ts";
 import { requestPermissionTool } from "./request-permission.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
 import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
+import { scriptTools } from "./scripts.ts";
 import { type ComposedSearch, composeSearch } from "./search.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
 import {
@@ -1217,6 +1218,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     skills: skills.loader,
   });
   for (const tool of capabilities.tools) registry.register(tool);
+  // Build and run: scripts Psyche writes run under srt after one card; kept ones become connectors.
+  for (const tool of scriptTools({
+    services,
+    srt: execHostSrt,
+    vault: vault.vault,
+    record: (change) => void changes.record(change),
+    ...(execHostSetup.driver === undefined ? {} : { driver: execHostSetup.driver }),
+  })) {
+    registry.register(tool);
+  }
   // The dreaming automation runs memory dreaming and the people graph pass in-process.
   // Dreaming, then the lesson pass (teaching loop §6, #681), then the people graph pass.
   // Automations with a `specialist` run as unattended specialist jobs (specialists §4.10).

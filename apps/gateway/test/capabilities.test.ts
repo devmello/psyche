@@ -203,7 +203,7 @@ describe("capability catalogue", () => {
     expect(options.findIndex((o) => o === radar)).toBeLessThan(
       options.findIndex((o) => o === weather),
     );
-    expect(String((r.output.build as { how: string }).how)).toContain("connector_create");
+    expect(String((r.output.build as { how: string }).how)).toContain("run_script");
     // A gallery preset turns up too, with what it needs.
     const time = (
       (await tool("find_capability").run({ need: "time zones" }, c)).output.options as {

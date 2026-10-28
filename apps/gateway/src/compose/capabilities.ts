@@ -83,6 +83,7 @@ export const ALWAYS_ON = new Set([
   "artifact.read",
   "find_capability",
   "install_capability",
+  "run_script",
 ]);
 
 export type Loading = "always" | "on_demand";
@@ -562,7 +563,7 @@ function nextStep(item: CatalogItem): string {
 
 const BUILD_OPTION = {
   kind: "build",
-  how: 'Nothing installed fits? Write it yourself: load_tools ["connector_create","connector_write_file","connector_test","connector_register"] for a small MCP server (runs under srt, unknown tier, the owner approves the code), or skill_create for a procedure. Tell the owner in one line what you are adding and why.',
+  how: "Nothing installed fits but you could do it in code? Build it and run it now: run_script with a small Node script (stdin JSON in, stdout out; one owner card shows the code; srt, no network unless listed). If it will be needed again, save_script_as_tool keeps it as a connector. For a server with several tools use the connector_* tools (load_tools them); for a procedure, skill_create. Tell the owner in one line what you are building and why.",
 };
 
 export interface CapabilityToolsDeps {

@@ -47,4 +47,8 @@ export const capabilities = {
   "capabilities.card.reason": "Why",
   "capabilities.card.warning": "Not verified",
   "capabilities.card.tainted": "Caution",
+  "capabilities.script.purpose": "What it does",
+  "capabilities.script.language": "Language",
+  "capabilities.script.code": "Code",
+  "capabilities.script.input": "Input",
 } as const;
