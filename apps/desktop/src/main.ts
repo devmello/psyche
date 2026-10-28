@@ -41,6 +41,7 @@ import {
   checkComposerText,
   checkExternalUrl,
   checkHttpUrl,
+  checkMainRoute,
   checkRoute,
   checkViewport,
   IPC,
@@ -540,6 +541,9 @@ function registerIpc(): void {
   on(IPC.windowPrefillComposer, (_e, arg) =>
     command({ type: "prefillComposer", text: checkComposerText(arg) }),
   );
+  // Settings window → "Run setup again" and its other links outside Settings: the main window
+  // comes forward and navigates there (`command` shows it).
+  on(IPC.windowOpenInMain, (_e, arg) => command({ type: "navigate", route: checkMainRoute(arg) }));
   handle(IPC.dictationGetStatus, () => dictation?.status);
   handle(IPC.dictationRecheck, async () => {
     await dictation?.recheck();

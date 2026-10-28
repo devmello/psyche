@@ -3,6 +3,7 @@ import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { AboutPanel } from "../src/screens/settings/AboutSection.tsx";
 import type { AboutInfo } from "../src/screens/settings/types.ts";
+import { UiSlotsProvider } from "../src/slots.tsx";
 
 const web: AboutInfo = {
   appVersion: "0.3.0-alpha.0",
@@ -34,5 +35,19 @@ describe("About (#610)", () => {
     expect(screen.queryByText("Data folder")).toBeNull();
     expect(screen.queryByText("Runtime")).toBeNull();
     expect(screen.queryByRole("button", { name: "Reveal in Finder" })).toBeNull();
+  });
+
+  it("Run setup again asks the host to open /onboarding, and is hidden without navigation", async () => {
+    const navigate = vi.fn();
+    const { unmount } = render(
+      <UiSlotsProvider value={{ navigate }}>
+        <AboutPanel info={web} />
+      </UiSlotsProvider>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Run setup again" }));
+    expect(navigate).toHaveBeenCalledExactlyOnceWith("/onboarding");
+    unmount();
+    render(<AboutPanel info={web} />);
+    expect(screen.queryByRole("button", { name: "Run setup again" })).toBeNull();
   });
 });

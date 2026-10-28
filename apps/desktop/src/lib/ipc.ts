@@ -47,6 +47,8 @@ export const IPC = {
   windowOpenSettings: "psyche:window:open-settings",
   /** Settings → Connectors "Try it" (#677): fill the main window's composer, without sending. */
   windowPrefillComposer: "psyche:window:prefill-composer",
+  /** The Settings window's links to anywhere else (Run setup again): the main window navigates. */
+  windowOpenInMain: "psyche:window:open-in-main",
   shellCommand: "psyche:shell:command",
   notifyShow: "psyche:notify:show",
   // The bundled Mac helper's launch and pairing state (onboarding, Settings → Devices).
@@ -209,6 +211,21 @@ export function checkRoute(channel: string, v: unknown): string {
     throw new IpcPayloadError(channel, "route must be an app path");
   if (s.includes("..") || s.includes("//"))
     throw new IpcPayloadError(channel, "route must be an app path");
+  return s;
+}
+
+/**
+ * A route the Settings window asks the main window to open: an app path (as `checkRoute`), with
+ * an optional `?query` or `#hash` of plain characters. Never a URL.
+ */
+export function checkMainRoute(v: unknown): string {
+  const s = str(IPC.windowOpenInMain, rec(IPC.windowOpenInMain, v).route, "route", 512);
+  const at = s.search(/[?#]/);
+  const path = at === -1 ? s : s.slice(0, at);
+  const rest = at === -1 ? "" : s.slice(at);
+  checkRoute(IPC.windowOpenInMain, path);
+  if (!/^(?:[?#][A-Za-z0-9_\-.:=&%,/]*)*$/.test(rest))
+    throw new IpcPayloadError(IPC.windowOpenInMain, "route must be an app path");
   return s;
 }
 

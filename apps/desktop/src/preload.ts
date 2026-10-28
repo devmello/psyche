@@ -126,6 +126,8 @@ const bridge = {
     openSettings: (section?: string) => ipcRenderer.send(IPC.windowOpenSettings, section ?? null),
     /** Fills the main window's composer and brings it forward; never sends (#677). */
     prefillComposer: (text: string) => ipcRenderer.send(IPC.windowPrefillComposer, { text }),
+    /** From the Settings window: the main window comes forward and navigates to `route`. */
+    openInMain: (route: string) => ipcRenderer.send(IPC.windowOpenInMain, { route }),
     onCommand: (cb: (c: unknown) => void) => listen(IPC.shellCommand, cb),
   },
   notify: {

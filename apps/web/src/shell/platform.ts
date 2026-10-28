@@ -150,6 +150,11 @@ export interface WindowPort {
    * (Settings → Connectors "Try it", #677). Main relays it as a `prefillComposer` command.
    */
   prefillComposer?(text: string): void;
+  /**
+   * From the Settings window: brings the main window forward on `route` (Settings → About → "Run
+   * setup again", which the Settings window cannot render). Main relays it as a `navigate` command.
+   */
+  openInMain?(route: string): void;
   /** Commands from the app menu, tray, deep links and global shortcuts. */
   onCommand(cb: (command: ShellCommand) => void): Unsubscribe;
 }

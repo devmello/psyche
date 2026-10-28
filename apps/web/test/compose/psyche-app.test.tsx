@@ -211,6 +211,30 @@ describe("old agent routes redirect to the Overview (agent-overview-2026 O5)", (
   });
 });
 
+describe("Run setup again in the main window", () => {
+  it("renders the re-run flow on /onboarding and for a navigate command from Settings", async () => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", "/feed");
+    const { platform } = webPlatform();
+    let emit: ((c: ShellCommand) => void) | undefined;
+    platform.windows = {
+      popOutPane: async () => {},
+      closeWindow: () => {},
+      onCommand: (cb) => {
+        emit = cb;
+        return () => {};
+      },
+    };
+    render(<PsycheApp platform={platform} />);
+    await screen.findByTestId("screen-feed");
+    act(() => emit?.({ type: "navigate", route: "/onboarding" }));
+    await screen.findByTestId("screen-onboarding-rerun");
+    expect(window.location.pathname).toBe("/onboarding");
+    // Re-running only revisits steps; it never gates the app behind the first-run screen.
+    expect(screen.queryByTestId("onboarding")).toBeNull();
+  });
+});
+
 describe("Try it fills the chat composer (#677)", () => {
   it("a prefillComposer command opens the chat with the text in the composer, unsent", async () => {
     window.innerWidth = 1280;

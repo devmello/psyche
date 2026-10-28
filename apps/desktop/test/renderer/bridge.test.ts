@@ -56,4 +56,14 @@ describe("renderer bridge", () => {
     desktopPlatform(fake).windows?.prefillComposer?.("Draft a reply to Sam");
     expect(sent).toEqual(["Draft a reply to Sam"]);
   });
+
+  it("relays Run setup again from the Settings window to main", () => {
+    const sent: string[] = [];
+    const fake = {
+      chrome: { titleBar: "native" },
+      windows: { openInMain: (route: string) => sent.push(route) },
+    } as unknown as PsycheBridge;
+    desktopPlatform(fake).windows?.openInMain?.("/onboarding");
+    expect(sent).toEqual(["/onboarding"]);
+  });
 });
