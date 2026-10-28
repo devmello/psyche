@@ -287,6 +287,8 @@ export const blocks = {
 
   "blocks.related.toggle": "From your other chats ({count, plural, one {# chat} other {# chats}})",
   "blocks.related.untitled": "Untitled chat",
+  "blocks.appLink.open": "Open {where}",
+  "blocks.appLink.settings": "Settings: {section}",
 
   "blocks.markdown.image": "[image: {alt}]",
   "blocks.markdown.untitled": "untitled",

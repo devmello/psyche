@@ -40,6 +40,10 @@ Every session has its own worktree, and a worktree reports about 2.6 GB with `du
 - Add a changeset with `pnpm changeset` for any package change.
 - Update the design doc under `docs/` that describes the behavior you change. `docs/archive/` is history (earlier per-session plans and status files); do not add to it.
 
+## UI changes update the app guide
+
+`skills/psyche-app-guide/SKILL.md` is how Psyche explains its own app ("where is the brief time?", "how do I share a folder?"). A change that adds or renames a Settings section, a top-level route, a Library section, a slash command or an approval scope must update the guide in the same PR, and a new route also goes in `packages/protocol/src/app-routes.ts` (the allowlist for `app_navigate`). `packages/skills/test/app-guide.test.ts` fails when code and guide drift apart.
+
 ## Protocol changes
 
 `packages/protocol` is the contract every package compiles against. Change it only through a PR titled `protocol: <summary>`:

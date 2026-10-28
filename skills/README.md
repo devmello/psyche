@@ -27,6 +27,7 @@ Bundled skills are instructions for specific jobs. They tell the agent how to do
 | `follow-up-tracking` | P1 | M5, H1 (mail-and-meetings §4.2) | `/follow-up-tracking` |
 | `scheduling-over-email` | P1 | V2, M5, O4 (§4.4) | `/scheduling-over-email` |
 | `meeting-notes` | P1 | Q2, M5, O1 (§4.6) | `/meeting-notes` |
+| `psyche-app-guide` | P0 | T1, T5 (how Psyche's own app works; offers `app_navigate`) | `/psyche-app-guide` |
 
 T5 makes five skills P0; these are the five whose scenarios (V1, V2, V7) and subsystems (I) are P0.
 

@@ -10,6 +10,7 @@
 //   let actionProposalStatus = try? JSONDecoder().decode(ActionProposalStatus.self, from: jsonData)
 //   let actionRule = try? JSONDecoder().decode(ActionRule.self, from: jsonData)
 //   let agentNote = try? JSONDecoder().decode(AgentNote.self, from: jsonData)
+//   let appLinkBlock = try? JSONDecoder().decode(AppLinkBlock.self, from: jsonData)
 //   let appleAlarm = try? JSONDecoder().decode(AppleAlarm.self, from: jsonData)
 //   let appleBusyBlock = try? JSONDecoder().decode(AppleBusyBlock.self, from: jsonData)
 //   let appleCalendar = try? JSONDecoder().decode(AppleCalendar.self, from: jsonData)
@@ -1280,6 +1281,26 @@
 //   let wrapUpBlock = try? JSONDecoder().decode(WrapUpBlock.self, from: jsonData)
 
 import Foundation
+
+// MARK: - AppLinkBlock
+public struct AppLinkBlock: Codable, Sendable {
+    public let route: String
+    public let type: AppLinkBlockType
+
+    public enum CodingKeys: String, CodingKey {
+        case route = "route"
+        case type = "type"
+    }
+
+    public init(route: String, type: AppLinkBlockType) {
+        self.route = route
+        self.type = type
+    }
+}
+
+public enum AppLinkBlockType: String, Codable, Sendable {
+    case appLink = "app_link"
+}
 
 /// Free events are left out; blocks come in start order.
 // MARK: - AppleBusyBlock
@@ -8519,6 +8540,7 @@ public struct Block: Codable, Sendable {
     public let messageID: String?
     public let statement: String?
     public let proposal: DailyWorkflowProposal?
+    public let route: String?
 
     public enum CodingKeys: String, CodingKey {
         case md = "md"
@@ -8555,9 +8577,10 @@ public struct Block: Codable, Sendable {
         case messageID = "messageId"
         case statement = "statement"
         case proposal = "proposal"
+        case route = "route"
     }
 
-    public init(md: String?, type: BlockType, level1: String?, status: ToolCallStatus?, tool: String?, toolCallID: String?, planID: String?, items: [ItemElement]?, approvalID: String?, inputRequestID: String?, artifactID: String?, preview: String?, libraryItemID: String?, id: String?, kind: BlockKind?, source: String?, title: String?, url: String?, receiptID: String?, taskID: String?, actions: [WrapUpAction]?, ask: String?, recap: String?, compactionID: String?, replaced: Replaced?, summary: CompactionSummary?, tokensAfter: Int?, tokensBefore: Int?, trigger: BlockTrigger?, feedbackID: String?, lessonID: String?, messageID: String?, statement: String?, proposal: DailyWorkflowProposal?) {
+    public init(md: String?, type: BlockType, level1: String?, status: ToolCallStatus?, tool: String?, toolCallID: String?, planID: String?, items: [ItemElement]?, approvalID: String?, inputRequestID: String?, artifactID: String?, preview: String?, libraryItemID: String?, id: String?, kind: BlockKind?, source: String?, title: String?, url: String?, receiptID: String?, taskID: String?, actions: [WrapUpAction]?, ask: String?, recap: String?, compactionID: String?, replaced: Replaced?, summary: CompactionSummary?, tokensAfter: Int?, tokensBefore: Int?, trigger: BlockTrigger?, feedbackID: String?, lessonID: String?, messageID: String?, statement: String?, proposal: DailyWorkflowProposal?, route: String?) {
         self.md = md
         self.type = type
         self.level1 = level1
@@ -8592,6 +8615,7 @@ public struct Block: Codable, Sendable {
         self.messageID = messageID
         self.statement = statement
         self.proposal = proposal
+        self.route = route
     }
 }
 
@@ -8723,6 +8747,7 @@ public enum BlockTrigger: String, Codable, Sendable {
 }
 
 public enum BlockType: String, Codable, Sendable {
+    case appLink = "app_link"
     case approval = "approval"
     case artifact = "artifact"
     case automationWorkflow = "automation_workflow"

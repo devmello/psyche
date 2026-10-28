@@ -27,6 +27,7 @@ import { usePersona, useSlots } from "../slots.tsx";
 import { SpecialistResultBlockView } from "../specialists/SpecialistResultBlock.tsx";
 import { ReceiptFeedback } from "../teaching/ReceiptFeedback.tsx";
 import { LearnedLine, TaughtLine } from "../teaching/TaughtLine.tsx";
+import { AppLinkBlockView } from "./AppLink.tsx";
 import { ApprovalCard, focusApproval } from "./ApprovalCard.tsx";
 import { ArtifactCard, FileCard } from "./ArtifactCard.tsx";
 import { AutomationWorkflowBlockView } from "./AutomationWorkflowCard.tsx";
@@ -463,6 +464,9 @@ registerBlock("taught", {
 });
 registerBlock("specialist_result", {
   View: ({ block }) => <SpecialistResultBlockView taskId={block.taskId} />,
+});
+registerBlock("app_link", {
+  View: ({ block }) => <AppLinkBlockView block={block} />,
 });
 registerBlock("automation_workflow", {
   View: ({ block }) => <AutomationWorkflowBlockView proposal={block.proposal} />,

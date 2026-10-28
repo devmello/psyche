@@ -196,6 +196,16 @@ export const AutomationWorkflowBlock = Type.Object(
   { $id: "AutomationWorkflowBlock" },
 );
 
+/**
+ * "Open it for you": a button that navigates the app to a known screen or Settings section
+ * (the `app_navigate` tool). `route` is already allowlisted (`resolveAppRoute`); the UI derives
+ * the label from it, so no model text reaches the button.
+ */
+export const AppLinkBlock = Type.Object(
+  { type: Type.Literal("app_link"), route: Type.String({ maxLength: 80 }) },
+  { $id: "AppLinkBlock" },
+);
+
 export const Block = Type.Union(
   [
     TextBlock,
@@ -216,6 +226,7 @@ export const Block = Type.Union(
     TaughtBlock,
     SpecialistResultBlock,
     AutomationWorkflowBlock,
+    AppLinkBlock,
   ],
   { $id: "Block" },
 );

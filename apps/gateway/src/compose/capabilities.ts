@@ -81,6 +81,7 @@ export const ALWAYS_ON = new Set([
   "artifact.create",
   "artifact.update",
   "artifact.read",
+  "app_navigate",
   "find_capability",
   "install_capability",
   "run_script",
