@@ -84,8 +84,8 @@ const EXT: Partial<Record<Artifact["type"], string>> = {
   map: "json",
   diagram: "mmd",
   diff: "patch",
-  slides: "json",
-  workbook: "json",
+  slides: "deck.json",
+  workbook: "book.json",
 };
 const MIME: Partial<Record<Artifact["type"], string>> = {
   doc: "text/markdown",

@@ -15,7 +15,9 @@ import {
   MessageCircle,
   Package,
   PenLine,
+  Presentation,
   Settings2,
+  Sheet,
   ShieldAlert,
   ShieldCheck,
   X,
@@ -97,6 +99,11 @@ function ItemIcon({ item, className }: { item: LibraryItem; className?: string }
     case "image":
       return <ImageIcon className={cls} aria-hidden="true" />;
     case "artifact":
+      // Documents the agent and the owner edit together (documents-2026): doc, deck, workbook.
+      if (item.name.endsWith(".deck.json"))
+        return <Presentation className={cls} aria-hidden="true" />;
+      if (item.name.endsWith(".book.json")) return <Sheet className={cls} aria-hidden="true" />;
+      if (item.name.endsWith(".md")) return <FileText className={cls} aria-hidden="true" />;
       return <Package className={cls} aria-hidden="true" />;
     case "system":
       return <Settings2 className={cls} aria-hidden="true" />;

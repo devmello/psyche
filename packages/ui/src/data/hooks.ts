@@ -1089,6 +1089,12 @@ export function useArtifactActions(): {
     ops: ArtifactOp[],
   ): Promise<MethodResult<"artifacts.update">>;
   restore(artifactId: string, version: number): Promise<MethodResult<"artifacts.restore">>;
+  /** Renders a doc, workbook or deck as a file (nothing is written to disk). */
+  export(
+    artifactId: string,
+    format: string,
+    version?: number,
+  ): Promise<MethodResult<"artifacts.export">>;
 } {
   const store = useStore();
   return useMemo(
@@ -1103,6 +1109,12 @@ export function useArtifactActions(): {
         store.update((s) => put(s, "artifacts", res.artifact));
         return res;
       },
+      export: (artifactId, format, version) =>
+        store.call("artifacts.export", {
+          artifactId,
+          format,
+          ...(version === undefined ? {} : { version }),
+        }),
     }),
     [store],
   );

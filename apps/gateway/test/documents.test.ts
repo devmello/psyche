@@ -140,6 +140,26 @@ describe("agent tools: create, patch, read", () => {
     expect((await call("sheet.read", { artifactId: id, sheet: "Nope" })).isError).toBe(true);
   });
 
+  it("mirrors decks and workbooks to the Library under kind-specific names", async () => {
+    const deck = await store.create(
+      { type: "slides", title: "Q3 Deck", content: JSON.stringify(DECK) },
+      { author: "agent" },
+    );
+    const book = await store.create(
+      { type: "workbook", title: "Q3 Book", content: JSON.stringify(BOOK) },
+      { author: "agent" },
+    );
+    const names = [deck, book].map(
+      (w) =>
+        (
+          db.sqlite
+            .prepare("SELECT name FROM library_items WHERE id = ?")
+            .get(w.artifact.libraryItemId) as { name: string }
+        ).name,
+    );
+    expect(names).toEqual(["q3-deck.deck.json", "q3-book.book.json"]);
+  });
+
   it("an owner edit is a version the agent sees; a stale base conflicts instead of overwriting", async () => {
     const id = (await call("artifact.create", { type: "doc", title: "R", content: MD })).output
       .artifactId;

@@ -98,6 +98,8 @@ export function fileType(item: LibraryItem): string {
   const ext = /\.([a-z0-9]+)$/i.exec(item.name)?.[1]?.toLowerCase();
   if (item.mime === "application/pdf" || ext === "pdf") return "PDF";
   if (item.mime === "text/markdown" || ext === "md") return "Markdown";
+  if (item.name.endsWith(".deck.json")) return t("screens.library.type.deck");
+  if (item.name.endsWith(".book.json")) return t("screens.library.type.workbook");
   if (item.mime.startsWith("image/")) return t("screens.library.type.image");
   if (item.mime === "text/html" || ext === "html") return "HTML";
   if (item.mime.endsWith("+json") || item.mime === "application/json")
