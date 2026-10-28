@@ -119,6 +119,7 @@ import { composeHarnesses } from "./harnesses.ts";
 import { insightsHandlers } from "./insights.ts";
 import { libraryHandlers } from "./library.ts";
 import type { ComposedMcp } from "./mcp.ts";
+import { scriptTools } from "./scripts.ts";
 import {
   createMemoryRecall,
   defaultLocalLoader,
@@ -1194,6 +1195,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     skills: skills.loader,
   });
   for (const tool of capabilities.tools) registry.register(tool);
+  // Build and run: scripts Psyche writes run under srt after one card; kept ones become connectors.
+  for (const tool of scriptTools({
+    services,
+    srt: execHostSrt,
+    vault: vault.vault,
+    ...(execHostSetup.driver === undefined ? {} : { driver: execHostSetup.driver }),
+  })) {
+    registry.register(tool);
+  }
   // The dreaming automation runs memory dreaming and the people graph pass in-process.
   // Dreaming, then the lesson pass (teaching loop §6, #681), then the people graph pass.
   // Automations with a `specialist` run as unattended specialist jobs (specialists §4.10).
