@@ -381,6 +381,23 @@ function contentWidthOf(env: LayoutWidth): number {
   return Number.isFinite(cw) && cw > 0 ? cw : env.width;
 }
 
+/**
+ * Width in CSS px of the docked pane column beside the chat: the pane share of the content area
+ * (window minus sidebar), never less than one pane minimum and never so wide that the chat column
+ * drops under its minimum. A saved fraction measured on a wider window is clamped here, so a pane
+ * header always fits its column.
+ */
+export function paneColumnWidth(chatFraction: number, contentWidth: number): number {
+  const cw = Number.isFinite(contentWidth) && contentWidth > 0 ? contentWidth : 0;
+  const fraction =
+    Number.isFinite(chatFraction) && chatFraction > 0 && chatFraction < 1
+      ? chatFraction
+      : DEFAULT_CHAT_FRACTION;
+  const lo = Math.min(PANE_MIN_PX, cw);
+  const hi = Math.max(lo, cw - CHAT_MIN_PX);
+  return Math.round(clamp((1 - fraction) * cw, lo, hi));
+}
+
 function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n));
 }

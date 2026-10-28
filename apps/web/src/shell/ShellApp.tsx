@@ -1116,6 +1116,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
                 layout={layout}
                 threadId={threadId}
                 width={width}
+                contentWidth={env().contentWidth ?? width}
                 covered={overlay !== null}
                 dispatch={dispatch}
                 {...(slots.pane ? { renderPane: slots.pane, navigate } : {})}

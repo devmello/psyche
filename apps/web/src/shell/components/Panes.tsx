@@ -16,6 +16,7 @@ import {
   type LayoutAction,
   type LayoutStore,
   type PaneInstance,
+  paneColumnWidth,
   presentation,
 } from "../layout/index.ts";
 import { TerminalPane } from "../panes/TerminalPane.tsx";
@@ -243,6 +244,8 @@ export function PaneArea(props: {
   layout: LayoutStore;
   threadId: string;
   width: number;
+  /** Width of the chat + pane area (window minus sidebar); defaults to `width`. */
+  contentWidth?: number;
   covered: boolean;
   dispatch: (action: LayoutAction) => void;
   renderPane?: PaneRenderer;
@@ -263,7 +266,11 @@ export function PaneArea(props: {
     <PanePresence
       className="pane-presence"
       style={{
-        width: pres.mode === "compact" ? "100%" : `${Math.round((1 - pres.chatFraction) * 100)}%`,
+        // Pixels of the content area, not a share of the whole row: the row also holds the sidebar.
+        width:
+          pres.mode === "compact"
+            ? "100%"
+            : paneColumnWidth(pres.chatFraction, props.contentWidth ?? props.width),
       }}
     >
       {open ? <PaneColumns {...props} state={state} pres={pres} /> : null}
