@@ -1,4 +1,9 @@
-import type { EntitySummary, SearchHit, SearchIndexStatus } from "@psyche/protocol";
+import type {
+  EntitySummary,
+  SearchHit,
+  SearchIndexStatus,
+  SearchUnderstood,
+} from "@psyche/protocol";
 import { RefreshCw } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
 import { Page, PageHeader } from "../../components/page.tsx";
@@ -32,6 +37,9 @@ export interface SearchViewProps {
   onOpenEntity?: (entity: EntitySummary) => void;
   renderEntityPreview?: (entity: EntitySummary) => ReactNode;
   now?: number;
+  /** How the Gateway read the query (chips for "last week", "from Alex"). */
+  understood?: SearchUnderstood;
+  onDropChip?: (id: string) => void;
   /** Backfill progress (`search.status`); a running backfill shows a status line. */
   indexStatus?: SearchIndexStatus;
   /** Rebuilds the index; offered when a search finds nothing or fails. */
@@ -106,6 +114,8 @@ export function SearchView({
   indexStatus,
   onReindex,
   reindexing,
+  understood,
+  onDropChip,
 }: SearchViewProps): ReactElement {
   const results = hits.length;
   const blank = query.trim() === "";
@@ -138,6 +148,8 @@ export function SearchView({
           {...(onOpenEntity ? { onOpenEntity } : {})}
           {...(renderEntityPreview ? { renderEntityPreview } : {})}
           {...(now !== undefined ? { now } : {})}
+          {...(understood ? { understood } : {})}
+          {...(onDropChip ? { onDropChip } : {})}
         />
         <IndexStatusLine
           status={indexStatus}
@@ -221,6 +233,8 @@ export function SearchScreen({
       {...(index.status === undefined ? {} : { indexStatus: index.status })}
       onReindex={() => void index.reindex().catch(() => undefined)}
       reindexing={index.reindexing}
+      {...(search.understood ? { understood: search.understood } : {})}
+      onDropChip={search.dropChip}
     />
   );
 }

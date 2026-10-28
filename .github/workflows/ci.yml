@@ -106,6 +106,42 @@ jobs:
             echo "apps/mac-helper/Tests does not exist yet; skipping swift test."
           fi
 
+  # Search quality report (docs/design/search-roadmap-2026.md §9): the offline eval harness (BM25 only,
+  # no model, no network) runs on every change and prints its tables to the job summary. It never
+  # blocks a merge: the numbers are for reading, not a gate.
+  search-eval:
+    name: search eval (report)
+    needs: changes
+    if: needs.changes.outputs.ts == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm (version from packageManager in package.json)
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node (version from .nvmrc)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run the eval
+        run: |
+          {
+            echo "## Search eval"
+            echo
+            pnpm --filter @psyche/search eval --classes
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
   # Which platforms did this push or PR touch? One job answers for all of them, so each platform job
   # below (and the Windows, iOS and Android jobs to come, see docs/guides/monorepo-layout.md) runs only
   # when its own paths or the shared protocol changed. (#731: a protocol enum addition, #714, broke the

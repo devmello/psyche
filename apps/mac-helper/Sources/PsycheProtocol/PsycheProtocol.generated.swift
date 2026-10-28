@@ -986,6 +986,7 @@
 //   let screenRect = try? JSONDecoder().decode(ScreenRect.self, from: jsonData)
 //   let searchBackfillState = try? JSONDecoder().decode(SearchBackfillState.self, from: jsonData)
 //   let searchBackfillStatus = try? JSONDecoder().decode(SearchBackfillStatus.self, from: jsonData)
+//   let searchChipKind = try? JSONDecoder().decode(SearchChipKind.self, from: jsonData)
 //   let searchGroup = try? JSONDecoder().decode(SearchGroup.self, from: jsonData)
 //   let searchHit = try? JSONDecoder().decode(SearchHit.self, from: jsonData)
 //   let searchHitCard = try? JSONDecoder().decode(SearchHitCard.self, from: jsonData)
@@ -993,16 +994,20 @@
 //   let searchIndexDocKind = try? JSONDecoder().decode(SearchIndexDocKind.self, from: jsonData)
 //   let searchIndexStatus = try? JSONDecoder().decode(SearchIndexStatus.self, from: jsonData)
 //   let searchMatch = try? JSONDecoder().decode(SearchMatch.self, from: jsonData)
+//   let searchQueryChip = try? JSONDecoder().decode(SearchQueryChip.self, from: jsonData)
+//   let searchQueryIntent = try? JSONDecoder().decode(SearchQueryIntent.self, from: jsonData)
 //   let searchQueryParams = try? JSONDecoder().decode(SearchQueryParams.self, from: jsonData)
 //   let searchQueryResult = try? JSONDecoder().decode(SearchQueryResult.self, from: jsonData)
 //   let searchReindexParams = try? JSONDecoder().decode(SearchReindexParams.self, from: jsonData)
 //   let searchReindexResult = try? JSONDecoder().decode(SearchReindexResult.self, from: jsonData)
+//   let searchRelaxed = try? JSONDecoder().decode(SearchRelaxed.self, from: jsonData)
 //   let searchScope = try? JSONDecoder().decode(SearchScope.self, from: jsonData)
 //   let searchSemanticBlock = try? JSONDecoder().decode(SearchSemanticBlock.self, from: jsonData)
 //   let searchSemanticEngine = try? JSONDecoder().decode(SearchSemanticEngine.self, from: jsonData)
 //   let searchSemanticState = try? JSONDecoder().decode(SearchSemanticState.self, from: jsonData)
 //   let searchSemanticStatus = try? JSONDecoder().decode(SearchSemanticStatus.self, from: jsonData)
 //   let searchStatusParams = try? JSONDecoder().decode(SearchStatusParams.self, from: jsonData)
+//   let searchUnderstood = try? JSONDecoder().decode(SearchUnderstood.self, from: jsonData)
 //   let selfConnectorFile = try? JSONDecoder().decode(SelfConnectorFile.self, from: jsonData)
 //   let selfConnectorFilesResult = try? JSONDecoder().decode(SelfConnectorFilesResult.self, from: jsonData)
 //   let selfConnectorFilesWriteResult = try? JSONDecoder().decode(SelfConnectorFilesWriteResult.self, from: jsonData)
@@ -23039,17 +23044,21 @@ public enum SearchSemanticState: String, Codable, Sendable {
 
 // MARK: - SearchQueryParams
 public struct SearchQueryParams: Codable, Sendable {
+    /// Ids of understood chips the user removed
+    public let dropChips: [String]?
     public let limit: Int?
     public let query: String
     public let scopes: [SearchScope]?
 
     public enum CodingKeys: String, CodingKey {
+        case dropChips = "dropChips"
         case limit = "limit"
         case query = "query"
         case scopes = "scopes"
     }
 
-    public init(limit: Int?, query: String, scopes: [SearchScope]?) {
+    public init(dropChips: [String]?, limit: Int?, query: String, scopes: [SearchScope]?) {
+        self.dropChips = dropChips
         self.limit = limit
         self.query = query
         self.scopes = scopes
@@ -23075,6 +23084,7 @@ public struct SearchQueryResult: Codable, Sendable {
     public let groups: [SearchHitGroup]?
     public let hits: [SearchHit]
     public let total: Int?
+    public let understood: SearchUnderstood?
     /// Filter tokens that were not understood
     public let warnings: [String]?
 
@@ -23082,13 +23092,15 @@ public struct SearchQueryResult: Codable, Sendable {
         case groups = "groups"
         case hits = "hits"
         case total = "total"
+        case understood = "understood"
         case warnings = "warnings"
     }
 
-    public init(groups: [SearchHitGroup]?, hits: [SearchHit], total: Int?, warnings: [String]?) {
+    public init(groups: [SearchHitGroup]?, hits: [SearchHit], total: Int?, understood: SearchUnderstood?, warnings: [String]?) {
         self.groups = groups
         self.hits = hits
         self.total = total
+        self.understood = understood
         self.warnings = warnings
     }
 }
@@ -23223,6 +23235,78 @@ public enum SearchMatch: String, Codable, Sendable {
     case both = "both"
     case lexical = "lexical"
     case semantic = "semantic"
+}
+
+// MARK: - SearchUnderstood
+public struct SearchUnderstood: Codable, Sendable {
+    public let chips: [SearchQueryChip]
+    public let intent: SearchQueryIntent
+    /// Read as a question rather than run as typed
+    public let natural: Bool
+    /// The query that produced the results
+    public let query: String
+    public let relaxed: SearchRelaxed
+
+    public enum CodingKeys: String, CodingKey {
+        case chips = "chips"
+        case intent = "intent"
+        case natural = "natural"
+        case query = "query"
+        case relaxed = "relaxed"
+    }
+
+    public init(chips: [SearchQueryChip], intent: SearchQueryIntent, natural: Bool, query: String, relaxed: SearchRelaxed) {
+        self.chips = chips
+        self.intent = intent
+        self.natural = natural
+        self.query = query
+        self.relaxed = relaxed
+    }
+}
+
+// MARK: - SearchQueryChip
+public struct SearchQueryChip: Codable, Sendable {
+    /// Pass it in `dropChips` to turn the chip off
+    public let id: String
+    public let kind: SearchChipKind
+    /// time: the phrase as typed; person: the name; source: mail, imessage, notes, calendar,
+    /// reminders or files; type: pdf, image, sheet or slides
+    public let label: String
+    /// The query-language filter the chip stands for
+    public let token: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case kind = "kind"
+        case label = "label"
+        case token = "token"
+    }
+
+    public init(id: String, kind: SearchChipKind, label: String, token: String) {
+        self.id = id
+        self.kind = kind
+        self.label = label
+        self.token = token
+    }
+}
+
+public enum SearchChipKind: String, Codable, Sendable {
+    case person = "person"
+    case source = "source"
+    case time = "time"
+    case type = "type"
+}
+
+public enum SearchQueryIntent: String, Codable, Sendable {
+    case answer = "answer"
+    case find = "find"
+    case list = "list"
+}
+
+public enum SearchRelaxed: String, Codable, Sendable {
+    case filters = "filters"
+    case none = "none"
+    case or = "or"
 }
 
 // MARK: - SearchReindexResult

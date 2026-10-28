@@ -119,3 +119,11 @@ describe("query parser", () => {
     expect(toFtsMatch(p("*** ---").terms)).toBeUndefined();
   });
 });
+
+describe("source: filter", () => {
+  it("maps a source word to index source keys", () => {
+    expect(parseQuery("lease source:email").filters.sources).toEqual(["mail"]);
+    expect(parseQuery("source:files").filters.sources).toEqual(["files", "library"]);
+    expect(parseQuery("source:nope").warnings).toEqual(["source:nope"]);
+  });
+});

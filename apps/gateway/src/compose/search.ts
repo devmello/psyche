@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { getLibraryItem, getSetting, getThread, openDb } from "@psyche/db";
+import type { GraphStore } from "@psyche/memory";
 import type {
   DeviceScope,
   MemoryStore,
@@ -20,6 +21,7 @@ import {
   SemanticIndex,
   SqliteSearchIndex,
   syncMemoryNotes,
+  tzOffsetMinutesAt,
 } from "@psyche/search";
 import type { HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
@@ -68,6 +70,13 @@ export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
   memory: MemoryStore;
   now: () => number;
   logger?: Logger;
+  /** The owner's IANA zone (USER.md): "yesterday" and "last week" mean their days. */
+  timeZone?: string;
+  /**
+   * Names and addresses a person is known by (the people graph), so "from Alex" also finds mail
+   * from alex@… and messages from "Alex Rivera".
+   */
+  resolvePerson?: (name: string) => readonly string[] | undefined;
   /** Index file; defaults to `<home>/state/search.sqlite`. */
   path?: string;
   /** Library reconcile interval (default 60 s; 0 = only after a backfill and on demand). */
@@ -112,11 +121,41 @@ const ALL_SCOPES: DeviceScope[] = [
   "node",
 ];
 
+/**
+ * Every name and email the people graph knows for the person called `name` (a full name, an
+ * alias, or a first name when only one person has it); undefined when nobody matches.
+ */
+export function graphNames(
+  graph: Pick<GraphStore, "listEntities" | "identifiers">,
+  name: string,
+): string[] | undefined {
+  const want = name.trim().toLowerCase();
+  if (want === "") return undefined;
+  const matches = graph.listEntities(["person", "org"]).filter((e) => {
+    const names = [e.name, ...e.aliases].map((n) => n.toLowerCase());
+    return names.some((n) => n === want || n.split(/\s+/)[0] === want);
+  });
+  if (matches.length === 0 || matches.length > 3) return undefined;
+  const out = new Set<string>();
+  for (const e of matches) {
+    out.add(e.name.toLowerCase());
+    for (const a of e.aliases) out.add(a.toLowerCase());
+    for (const id of graph.identifiers(e.id))
+      if (id.kind === "email") out.add(id.value.toLowerCase());
+  }
+  return [...out];
+}
+
 export function composeSearch(deps: SearchDeps): ComposedSearch {
   // Its own file, not psyche.sqlite: it can be rebuilt any time and its writes never contend
   // with the transcript writer.
   const file = openDb(deps.path ?? join(deps.home, "state", "search.sqlite"), { migrate: false });
-  const index = new SqliteSearchIndex(file.sqlite, { memory: deps.memory, now: deps.now });
+  const index = new SqliteSearchIndex(file.sqlite, {
+    memory: deps.memory,
+    now: deps.now,
+    tzOffsetMinutes: () => tzOffsetMinutesAt(deps.timeZone, deps.now()),
+    ...(deps.resolvePerson === undefined ? {} : { resolvePerson: deps.resolvePerson }),
+  });
   const indexer = new SearchIndexer(index, {
     lookupThread: async (id) => getThread(deps.db, id),
     lookupTask: (id) => deps.tasks.get(id),

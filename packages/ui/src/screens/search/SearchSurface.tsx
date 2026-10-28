@@ -1,4 +1,4 @@
-import type { SearchHit, SearchScope } from "@psyche/protocol";
+import type { SearchHit, SearchQueryChip, SearchScope, SearchUnderstood } from "@psyche/protocol";
 import { ChevronDown, CornerDownLeft, Search, ShieldQuestion, X, Zap } from "lucide-react";
 import {
   type KeyboardEvent,
@@ -122,6 +122,45 @@ const filterLabel = (f: SearchFilter) =>
     ? t("screens.search.filter", { key: "in", value: SCOPE_LABEL[f.scope] })
     : t("screens.search.filter", { key: f.key, value: f.value });
 
+/** The label of a chip Psyche read out of plain words ("last week", "from Alex", "in email"). */
+export function understoodChipLabel(chip: SearchQueryChip): string {
+  switch (chip.kind) {
+    case "person":
+      return t("screens.search.chip.person", { name: chip.label });
+    case "source":
+      switch (chip.label) {
+        case "mail":
+          return t("screens.search.chip.source.mail");
+        case "imessage":
+          return t("screens.search.chip.source.imessage");
+        case "notes":
+          return t("screens.search.chip.source.notes");
+        case "calendar":
+          return t("screens.search.chip.source.calendar");
+        case "reminders":
+          return t("screens.search.chip.source.reminders");
+        case "tasks":
+          return t("screens.search.chip.source.tasks");
+        default:
+          return t("screens.search.chip.source.files");
+      }
+    case "type":
+      switch (chip.label) {
+        case "pdf":
+          return t("screens.search.chip.type.pdf");
+        case "image":
+          return t("screens.search.chip.type.image");
+        case "sheet":
+          return t("screens.search.chip.type.sheet");
+        default:
+          return t("screens.search.chip.type.slides");
+      }
+    default:
+      // The phrase as the user wrote it.
+      return chip.label.charAt(0).toUpperCase() + chip.label.slice(1);
+  }
+}
+
 const chipClass =
   "inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2.5 text-callout outline-none transition-colors duration-(--duration-micro) focus-visible:ring-2 focus-visible:ring-ring";
 
@@ -152,6 +191,10 @@ export interface SearchSurfaceProps {
   renderEntityPreview?: (entity: EntitySummary) => ReactNode;
   /** The clock for "last talked …" lines. */
   now?: number;
+  /** How the Gateway read the query: filters found in plain words, shown as removable chips. */
+  understood?: SearchUnderstood;
+  /** Turns an understood chip off (the search runs again without it). */
+  onDropChip?: (id: string) => void;
 }
 
 export function SearchSurface({
@@ -174,6 +217,8 @@ export function SearchSurface({
   onOpenEntity,
   renderEntityPreview,
   now = Date.now(),
+  understood,
+  onDropChip,
 }: SearchSurfaceProps): ReactElement {
   const baseId = useId();
   const listId = `${baseId}-list`;
@@ -256,6 +301,17 @@ export function SearchSurface({
   // Chips for the filters typed in the field, removable in place (§5.5).
   const chips = [...parsed.filters, ...parsed.unsupported.map((u) => ({ key: "?", value: u }))];
 
+  // Chips for filters read out of plain words, removable too. Once the search relaxed them they
+  // are not applied, so they are not shown as if they were.
+  const understoodChips =
+    understood === undefined || understood.relaxed !== "none" ? [] : understood.chips;
+  const relaxedNote =
+    understood === undefined || understood.relaxed === "none"
+      ? null
+      : understood.relaxed === "filters"
+        ? t("screens.search.relaxed.filters")
+        : t("screens.search.relaxed.or");
+
   let results: ReactNode;
   if (!searching && !palette) {
     results = blank ? (
@@ -310,6 +366,11 @@ export function SearchSurface({
   } else {
     results = (
       <>
+        {relaxedNote === null ? null : (
+          <p className="px-3 text-callout text-label-secondary" role="status">
+            {relaxedNote}
+          </p>
+        )}
         <p className="sr-only" role="status">
           {t("screens.search.results", { n: flat.filter((i) => i.kind !== "action").length })}
         </p>
@@ -376,6 +437,31 @@ export function SearchSurface({
         )}
       >
         <Search className="size-4 shrink-0 text-label-secondary" aria-hidden="true" />
+        {understoodChips.length > 0 ? (
+          <ul aria-label={t("screens.search.understood")} className="contents">
+            {understoodChips.map((c) => {
+              const label = understoodChipLabel(c);
+              return (
+                <li key={c.id}>
+                  <span className={cn(chipClass, "pe-1 bg-accent-a3 text-accent-11")}>
+                    {label}
+                    <button
+                      type="button"
+                      aria-label={t("screens.search.chip.remove", { chip: label })}
+                      onClick={() => {
+                        onDropChip?.(c.id);
+                        focusField();
+                      }}
+                      className="rounded-full p-0.5 outline-none hover:bg-fill-tertiary focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <X className="size-3" aria-hidden="true" />
+                    </button>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
         {chips.length > 0 ? (
           <ul aria-label={t("screens.search.activeFilters")} className="contents">
             {chips.map((f) => {
@@ -791,6 +877,9 @@ export function useSearchSurface(initialQuery = "", debounceMs = 200, enabled = 
     return () => clearTimeout(timer);
   }, [query, debounceMs]);
   const settledParsed = useMemo(() => parseSearchQuery(settled), [settled]);
+  // Chips the user removed; a new query starts over with the chips it earns.
+  const [dropped, setDropped] = useState<{ query: string; ids: string[] }>({ query: "", ids: [] });
+  const dropChips = dropped.query === settled ? dropped.ids : [];
   const search = useSearch(
     enabled
       ? settledParsed.queryText === ""
@@ -798,6 +887,7 @@ export function useSearchSurface(initialQuery = "", debounceMs = 200, enabled = 
         : settledParsed.queryText
       : "",
     settledParsed.scopes,
+    dropChips,
   );
   const hits = useMemo(() => filterHits(search.hits, settledParsed), [search.hits, settledParsed]);
   // People and projects come first for plain queries; a typed filter (in:, type:, from:) narrows
@@ -815,6 +905,8 @@ export function useSearchSurface(initialQuery = "", debounceMs = 200, enabled = 
     loading: search.loading || query !== settled,
     error: search.error,
     reload: search.reload,
+    understood: search.understood,
+    dropChip: (id: string) => setDropped({ query: settled, ids: [...dropChips, id] }),
   };
 }
 

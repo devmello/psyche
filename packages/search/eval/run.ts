@@ -62,7 +62,7 @@ export const EVAL_TZ = -420;
  */
 export const PRODUCTION_SOURCES = new Set(["chat", "tasks", "library"]);
 
-const MODES: RewriteMode[] = ["raw", "keywords", "rules"];
+const MODES: RewriteMode[] = ["raw", "keywords", "rules", "prod"];
 const COVERAGES = ["production", "full"] as const;
 type Coverage = (typeof COVERAGES)[number];
 const KS = [1, 5, 10, 20];
@@ -128,7 +128,9 @@ export async function evaluate(
   for (const q of questions) {
     const rw = rewrite(q.q, mode, EVAL_NOW, EVAL_TZ);
     const run = async (text: string) =>
-      (await index.search({ q: text, collapse: false, limit: 20 })).hits.map((h) => h.id);
+      (
+        await index.search({ q: text, collapse: false, limit: 20, understand: mode === "prod" })
+      ).hits.map((h) => h.id);
     let ranked = await run(rw.q);
     let usedFallback = false;
     if (ranked.length === 0 && rw.fallback !== undefined) {
