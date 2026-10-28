@@ -121,6 +121,18 @@
 //   let attentionReportResult = try? JSONDecoder().decode(AttentionReportResult.self, from: jsonData)
 //   let audioFormat = try? JSONDecoder().decode(AudioFormat.self, from: jsonData)
 //   let auditActor = try? JSONDecoder().decode(AuditActor.self, from: jsonData)
+//   let auditChange = try? JSONDecoder().decode(AuditChange.self, from: jsonData)
+//   let auditChangeActor = try? JSONDecoder().decode(AuditChangeActor.self, from: jsonData)
+//   let auditChangeCategory = try? JSONDecoder().decode(AuditChangeCategory.self, from: jsonData)
+//   let auditChangeParams = try? JSONDecoder().decode(AuditChangeParams.self, from: jsonData)
+//   let auditChangeRecordedPayload = try? JSONDecoder().decode(AuditChangeRecordedPayload.self, from: jsonData)
+//   let auditChangeResult = try? JSONDecoder().decode(AuditChangeResult.self, from: jsonData)
+//   let auditChangeTarget = try? JSONDecoder().decode(AuditChangeTarget.self, from: jsonData)
+//   let auditChangesExportFormat = try? JSONDecoder().decode(AuditChangesExportFormat.self, from: jsonData)
+//   let auditChangesExportParams = try? JSONDecoder().decode(AuditChangesExportParams.self, from: jsonData)
+//   let auditChangesExportResult = try? JSONDecoder().decode(AuditChangesExportResult.self, from: jsonData)
+//   let auditChangesParams = try? JSONDecoder().decode(AuditChangesParams.self, from: jsonData)
+//   let auditChangesResult = try? JSONDecoder().decode(AuditChangesResult.self, from: jsonData)
 //   let auditEntry = try? JSONDecoder().decode(AuditEntry.self, from: jsonData)
 //   let auditExportFormat = try? JSONDecoder().decode(AuditExportFormat.self, from: jsonData)
 //   let auditExportParams = try? JSONDecoder().decode(AuditExportParams.self, from: jsonData)
@@ -4708,6 +4720,301 @@ public struct AttentionReportResult: Codable, Sendable {
     }
 }
 
+// MARK: - AuditChangeParams
+public struct AuditChangeParams: Codable, Sendable {
+    public let seq: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case seq = "seq"
+    }
+
+    public init(seq: Int) {
+        self.seq = seq
+    }
+}
+
+// MARK: - AuditChangeRecordedPayload
+public struct AuditChangeRecordedPayload: Codable, Sendable {
+    public let category: AuditChangeCategory
+    public let runID: String?
+    public let seq: Int
+    public let threadID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case category = "category"
+        case runID = "runId"
+        case seq = "seq"
+        case threadID = "threadId"
+    }
+
+    public init(category: AuditChangeCategory, runID: String?, seq: Int, threadID: String?) {
+        self.category = category
+        self.runID = runID
+        self.seq = seq
+        self.threadID = threadID
+    }
+}
+
+public enum AuditChangeCategory: String, Codable, Sendable {
+    case approval = "approval"
+    case command = "command"
+    case connector = "connector"
+    case file = "file"
+    case memory = "memory"
+    case setting = "setting"
+    case skill = "skill"
+}
+
+// MARK: - AuditChangeResult
+public struct AuditChangeResult: Codable, Sendable {
+    public let change: AuditChange
+    public let diff: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case change = "change"
+        case diff = "diff"
+    }
+
+    public init(change: AuditChange, diff: String?) {
+        self.change = change
+        self.diff = diff
+    }
+}
+
+// MARK: - AuditChange
+public struct AuditChange: Codable, Sendable {
+    public let action: String
+    public let actor: AuditChangeActor
+    public let afterSha256: String?
+    public let approvalID: String?
+    public let beforeSha256: String?
+    public let bytes: Int?
+    public let category: AuditChangeCategory
+    public let diffTruncated: Bool?
+    public let hasDiff: Bool
+    public let hash: String
+    public let note: String?
+    public let outcome: AuditChangeOutcome
+    public let receiptID: String?
+    public let runID: String?
+    public let seq: Int
+    public let stats: Stats?
+    public let target: AuditChangeTarget
+    public let taskID: String?
+    public let threadID: String?
+    public let tool: String
+    public let toolCallID: String?
+    public let ts: String
+
+    public enum CodingKeys: String, CodingKey {
+        case action = "action"
+        case actor = "actor"
+        case afterSha256 = "afterSha256"
+        case approvalID = "approvalId"
+        case beforeSha256 = "beforeSha256"
+        case bytes = "bytes"
+        case category = "category"
+        case diffTruncated = "diffTruncated"
+        case hasDiff = "hasDiff"
+        case hash = "hash"
+        case note = "note"
+        case outcome = "outcome"
+        case receiptID = "receiptId"
+        case runID = "runId"
+        case seq = "seq"
+        case stats = "stats"
+        case target = "target"
+        case taskID = "taskId"
+        case threadID = "threadId"
+        case tool = "tool"
+        case toolCallID = "toolCallId"
+        case ts = "ts"
+    }
+
+    public init(action: String, actor: AuditChangeActor, afterSha256: String?, approvalID: String?, beforeSha256: String?, bytes: Int?, category: AuditChangeCategory, diffTruncated: Bool?, hasDiff: Bool, hash: String, note: String?, outcome: AuditChangeOutcome, receiptID: String?, runID: String?, seq: Int, stats: Stats?, target: AuditChangeTarget, taskID: String?, threadID: String?, tool: String, toolCallID: String?, ts: String) {
+        self.action = action
+        self.actor = actor
+        self.afterSha256 = afterSha256
+        self.approvalID = approvalID
+        self.beforeSha256 = beforeSha256
+        self.bytes = bytes
+        self.category = category
+        self.diffTruncated = diffTruncated
+        self.hasDiff = hasDiff
+        self.hash = hash
+        self.note = note
+        self.outcome = outcome
+        self.receiptID = receiptID
+        self.runID = runID
+        self.seq = seq
+        self.stats = stats
+        self.target = target
+        self.taskID = taskID
+        self.threadID = threadID
+        self.tool = tool
+        self.toolCallID = toolCallID
+        self.ts = ts
+    }
+}
+
+// MARK: - AuditChangeActor
+public struct AuditChangeActor: Codable, Sendable {
+    public let name: String?
+    public let type: AuditChangeActorType
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case type = "type"
+    }
+
+    public init(name: String?, type: AuditChangeActorType) {
+        self.name = name
+        self.type = type
+    }
+}
+
+public enum AuditChangeActorType: String, Codable, Sendable {
+    case agent = "agent"
+    case job = "job"
+    case owner = "owner"
+}
+
+public enum AuditChangeOutcome: String, Codable, Sendable {
+    case failed = "failed"
+    case ok = "ok"
+}
+
+// MARK: - Stats
+public struct Stats: Codable, Sendable {
+    public let added: Int
+    public let removed: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case added = "added"
+        case removed = "removed"
+    }
+
+    public init(added: Int, removed: Int) {
+        self.added = added
+        self.removed = removed
+    }
+}
+
+// MARK: - AuditChangeTarget
+public struct AuditChangeTarget: Codable, Sendable {
+    public let connector: String?
+    public let object: String?
+    public let path: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case connector = "connector"
+        case object = "object"
+        case path = "path"
+    }
+
+    public init(connector: String?, object: String?, path: String?) {
+        self.connector = connector
+        self.object = object
+        self.path = path
+    }
+}
+
+// MARK: - AuditChangesExportParams
+public struct AuditChangesExportParams: Codable, Sendable {
+    public let categories: [AuditChangeCategory]?
+    public let format: ChatExportFormat
+    public let runID: String?
+    public let since: String?
+    public let threadID: String?
+    public let until: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case categories = "categories"
+        case format = "format"
+        case runID = "runId"
+        case since = "since"
+        case threadID = "threadId"
+        case until = "until"
+    }
+
+    public init(categories: [AuditChangeCategory]?, format: ChatExportFormat, runID: String?, since: String?, threadID: String?, until: String?) {
+        self.categories = categories
+        self.format = format
+        self.runID = runID
+        self.since = since
+        self.threadID = threadID
+        self.until = until
+    }
+}
+
+public enum ChatExportFormat: String, Codable, Sendable {
+    case json = "json"
+    case markdown = "markdown"
+}
+
+// MARK: - AuditChangesExportResult
+public struct AuditChangesExportResult: Codable, Sendable {
+    public let data: String
+    public let format: ChatExportFormat
+    public let verified: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case data = "data"
+        case format = "format"
+        case verified = "verified"
+    }
+
+    public init(data: String, format: ChatExportFormat, verified: Bool) {
+        self.data = data
+        self.format = format
+        self.verified = verified
+    }
+}
+
+// MARK: - AuditChangesParams
+public struct AuditChangesParams: Codable, Sendable {
+    public let beforeSeq: Int?
+    public let categories: [AuditChangeCategory]?
+    public let limit: Int?
+    public let runID: String?
+    public let since: String?
+    public let threadID: String?
+    public let until: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case beforeSeq = "beforeSeq"
+        case categories = "categories"
+        case limit = "limit"
+        case runID = "runId"
+        case since = "since"
+        case threadID = "threadId"
+        case until = "until"
+    }
+
+    public init(beforeSeq: Int?, categories: [AuditChangeCategory]?, limit: Int?, runID: String?, since: String?, threadID: String?, until: String?) {
+        self.beforeSeq = beforeSeq
+        self.categories = categories
+        self.limit = limit
+        self.runID = runID
+        self.since = since
+        self.threadID = threadID
+        self.until = until
+    }
+}
+
+// MARK: - AuditChangesResult
+public struct AuditChangesResult: Codable, Sendable {
+    public let changes: [AuditChange]
+
+    public enum CodingKeys: String, CodingKey {
+        case changes = "changes"
+    }
+
+    public init(changes: [AuditChange]) {
+        self.changes = changes
+    }
+}
+
 // MARK: - AuditExportParams
 public struct AuditExportParams: Codable, Sendable {
     public let format: AuditExportFormat?
@@ -7880,11 +8187,6 @@ public struct ChatExportParams: Codable, Sendable {
         self.format = format
         self.threadID = threadID
     }
-}
-
-public enum ChatExportFormat: String, Codable, Sendable {
-    case json = "json"
-    case markdown = "markdown"
 }
 
 // MARK: - ChatExportResult
@@ -26253,7 +26555,7 @@ public struct CredentialUse: Codable, Sendable {
     public let credentialID: String
     public let executor: Executor
     public let id: String
-    public let outcome: Outcome
+    public let outcome: CredentialUseOutcome
     public let reason: String?
     public let target: String
     public let taskID: String?
@@ -26270,7 +26572,7 @@ public struct CredentialUse: Codable, Sendable {
         case taskID = "taskId"
     }
 
-    public init(approvalID: String?, createdAt: String, credentialID: String, executor: Executor, id: String, outcome: Outcome, reason: String?, target: String, taskID: String?) {
+    public init(approvalID: String?, createdAt: String, credentialID: String, executor: Executor, id: String, outcome: CredentialUseOutcome, reason: String?, target: String, taskID: String?) {
         self.approvalID = approvalID
         self.createdAt = createdAt
         self.credentialID = credentialID
@@ -26290,7 +26592,7 @@ public enum Executor: String, Codable, Sendable {
     case ssh = "ssh"
 }
 
-public enum Outcome: String, Codable, Sendable {
+public enum CredentialUseOutcome: String, Codable, Sendable {
     case denied = "denied"
     case failed = "failed"
     case filled = "filled"

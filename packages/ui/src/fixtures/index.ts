@@ -2,6 +2,7 @@ import type {
   ActionProposal,
   ApprovalRequest,
   Artifact,
+  AuditChange,
   Automation,
   AutomationRun,
   BotAuthStatus,
@@ -109,6 +110,10 @@ export interface FixtureWorld {
   answerTokens: Record<string, string>;
   inputRequests: InputRequest[];
   receipts: Receipt[];
+  /** Audit change records (`audit.changes`), newest first, with their stored diffs. */
+  auditChanges: { change: AuditChange; diff?: string }[];
+  /** Whether the audit hash chain verifies. */
+  auditVerified: boolean;
   artifacts: Artifact[];
   library: LibraryItem[];
   /** Granted-folder files by absolute path (FILE_ROOTS), for the Files pane. */
@@ -197,6 +202,8 @@ export function createFixtureWorld(): FixtureWorld {
     answerTokens: answerTokens(),
     inputRequests: inputRequests(),
     receipts: receipts(),
+    auditChanges: [],
+    auditVerified: true,
     artifacts: artifacts(),
     library: library(),
     files: fileTree(),

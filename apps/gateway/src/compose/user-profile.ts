@@ -228,6 +228,7 @@ export function createUserProfile(deps: UserProfileDeps) {
     // `onOwnerTurn` is the owner's own words, attended: the only source that may fill the header.
     const { written, refused } = await deps.memory.learnUserFacts(proposals, {
       threadId,
+      runId,
       ownerWords: true,
     });
     await deps.audit

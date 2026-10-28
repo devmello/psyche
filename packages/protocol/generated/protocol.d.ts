@@ -1370,6 +1370,100 @@ export interface AttentionReportResult {
     ok: boolean;
 }
 
+export interface AuditChangeParams {
+    seq: number;
+}
+
+export interface AuditChangeRecordedPayload {
+    category:  AuditChangeCategory;
+    runId?:    string;
+    seq:       number;
+    threadId?: string;
+}
+
+export type AuditChangeCategory = "file" | "memory" | "command" | "connector" | "skill" | "setting" | "approval";
+
+export interface AuditChangeResult {
+    change: AuditChange;
+    diff?:  string;
+}
+
+export interface AuditChange {
+    action:         string;
+    actor:          AuditChangeActor;
+    afterSha256?:   string;
+    approvalId?:    string;
+    beforeSha256?:  string;
+    bytes?:         number;
+    category:       AuditChangeCategory;
+    diffTruncated?: boolean;
+    hasDiff:        boolean;
+    hash:           string;
+    note?:          string;
+    outcome:        AuditChangeOutcome;
+    receiptId?:     string;
+    runId?:         string;
+    seq:            number;
+    stats?:         Stats;
+    target:         AuditChangeTarget;
+    taskId?:        string;
+    threadId?:      string;
+    tool:           string;
+    toolCallId?:    string;
+    ts:             string;
+}
+
+export interface AuditChangeActor {
+    name?: string;
+    type:  AuditChangeActorType;
+}
+
+export type AuditChangeActorType = "agent" | "job" | "owner";
+
+export type AuditChangeOutcome = "ok" | "failed";
+
+export interface Stats {
+    added:   number;
+    removed: number;
+}
+
+export interface AuditChangeTarget {
+    connector?: string;
+    object?:    string;
+    path?:      string;
+}
+
+export interface AuditChangesExportParams {
+    categories?: AuditChangeCategory[];
+    format:      ChatExportFormat;
+    runId?:      string;
+    since?:      string;
+    threadId?:   string;
+    until?:      string;
+}
+
+export type ChatExportFormat = "json" | "markdown";
+
+export interface AuditChangesExportResult {
+    data:     string;
+    format:   ChatExportFormat;
+    verified: boolean;
+}
+
+export interface AuditChangesParams {
+    beforeSeq?:  number;
+    categories?: AuditChangeCategory[];
+    limit?:      number;
+    runId?:      string;
+    since?:      string;
+    threadId?:   string;
+    until?:      string;
+}
+
+export interface AuditChangesResult {
+    changes: AuditChange[];
+}
+
 export interface AuditExportParams {
     format?: AuditExportFormat;
     since?:  string;
@@ -2498,8 +2592,6 @@ export interface ChatExportParams {
     format:   ChatExportFormat;
     threadId: string;
 }
-
-export type ChatExportFormat = "markdown" | "json";
 
 export interface ChatExportResult {
     content: string;
@@ -8971,7 +9063,7 @@ export interface CredentialUse {
     credentialId: string;
     executor:     Executor;
     id:           string;
-    outcome:      Outcome;
+    outcome:      CredentialUseOutcome;
     reason?:      null | string;
     target:       string;
     taskId?:      null | string;
@@ -8979,7 +9071,7 @@ export interface CredentialUse {
 
 export type Executor = "browser" | "connector" | "sandbox" | "ssh";
 
-export type Outcome = "filled" | "denied" | "failed";
+export type CredentialUseOutcome = "filled" | "denied" | "failed";
 
 export interface ViewCommandPayload {
     args:       { [key: string]: unknown };
