@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { estimateContextTokens } from "@psyche/agent-core";
 import { insertLibraryItem, type NewLibraryItem, openDb, type PsycheDb } from "@psyche/db";
 import { PsycheError, UPLOAD_CHUNK_BYTES, UPLOAD_MAX_BYTES } from "@psyche/protocol";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -55,6 +56,37 @@ async function stored(
     ...over,
   }).id;
 }
+
+/** A PNG header for the given size, padded with noise to `bytes`. */
+function bigPng(width: number, height: number, bytes: number): Buffer {
+  const b = Buffer.alloc(bytes);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(b, 0);
+  b.writeUInt32BE(13, 8);
+  b.write("IHDR", 12, "ascii");
+  b.writeUInt32BE(width, 16);
+  b.writeUInt32BE(height, 20);
+  for (let i = 33; i < bytes; i++) b[i] = (i * 31) & 0xff;
+  return b;
+}
+
+describe("image attachments and tokens", () => {
+  it("returns a large screenshot as an image, not text, and estimates a few thousand tokens", async () => {
+    const id = await stored("shot.png", bigPng(1200, 800, 505_000), {
+      kind: "image",
+      mime: "image/png",
+    });
+    const out = await resolveAttachments(db, home, [id]);
+    expect(out.images).toHaveLength(1);
+    expect(out.images[0]?.mime).toBe("image/png");
+    expect(out.text).not.toContain(out.images[0]?.data.slice(0, 40) ?? "?");
+    const tokens = estimateContextTokens(
+      "",
+      [{ role: "user", parts: [{ type: "image", ...(out.images[0] as object) } as never] }],
+      [],
+    );
+    expect(tokens).toBeLessThan(3_000);
+  });
+});
 
 describe("resolveAttachments", () => {
   it("passes a text file as a labelled block", async () => {

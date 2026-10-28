@@ -11,6 +11,7 @@ import {
   magicMatches,
 } from "@psyche/files";
 import type { LibraryItem } from "@psyche/protocol";
+import { downscaleImage } from "./image-resize.ts";
 
 /**
  * What a chat message's Library attachments become for the agent (feature P4, UI design §3.2):
@@ -141,7 +142,8 @@ export async function resolveAttachments(
           continue;
         }
         const bytes = await readStored(home, item, ATTACHMENT_LIMITS.imageBytes);
-        images.push({ mime: item.mime, data: bytes.toString("base64") });
+        const sized = await downscaleImage(bytes, item.mime);
+        images.push({ mime: item.mime, data: sized.toString("base64") });
         parts.push(`[attached image: ${item.name} (library item ${item.id}); you can see it]`);
         continue;
       }

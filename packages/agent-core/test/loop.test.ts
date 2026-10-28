@@ -35,7 +35,7 @@ describe("text-only turn", () => {
   });
 
   it("gives the model the turn's images after the text (a pinned screen capture)", async () => {
-    const h = harness({ script: [say("A chart")] });
+    const h = harness({ script: [say("A chart")], vision: true });
     const input = turnInput("what is this?");
     input.input.images = [{ mime: "image/jpeg", data: "AAAA" }];
     for await (const _ of h.loop.startTurn(input)) {

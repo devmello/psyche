@@ -403,7 +403,9 @@ export class AiSdkAdapter implements ModelProvider {
     const caps: ModelCapabilities = {
       // Local models are agent-capable only once the probe says so (`ModelRouter` gates this).
       toolCalling: price?.toolCalling ?? true,
-      vision: price?.vision ?? false,
+      // An unpriced hosted model is assumed to read images (a wrong "no" would drop the owner's
+      // attachments); local models say so through the probe or their name.
+      vision: price?.vision ?? !local,
       reasoning: price?.reasoning ?? false,
       embeddings:
         price?.mode === "embedding" ||
