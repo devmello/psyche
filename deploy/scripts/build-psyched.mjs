@@ -83,8 +83,26 @@ const ENTRY_WORKSPACES = ["apps/gateway", "apps/cli"];
  */
 export const SERVER_SUBSETS = {
   "@psyche/viewers": {
-    deps: ["@psyche/protocol"],
-    src: ["src/core/convert.ts", "src/core/detect.ts", "src/core/registry.ts"],
+    // Document artifacts (#997) import, export and write back docx/xlsx/pptx/pdf on the server.
+    deps: ["@psyche/protocol", "mammoth", "jszip", "xlsx", "docx", "pptxgenjs", "@cantoo/pdf-lib"],
+    src: [
+      "src/core/convert.ts",
+      "src/core/detect.ts",
+      "src/core/registry.ts",
+      "src/core/docx.ts",
+      "src/core/env.ts",
+      "src/core/libs.ts",
+      "src/core/artifact.ts",
+      "src/core/generate/chart.ts",
+      "src/core/generate/docx.ts",
+      "src/core/generate/html.ts",
+      "src/core/generate/index.ts",
+      "src/core/generate/markdown.ts",
+      "src/core/generate/model.ts",
+      "src/core/generate/pdf.ts",
+      "src/core/generate/pptx.ts",
+      "src/core/generate/xlsx.ts",
+    ],
   },
 };
 
