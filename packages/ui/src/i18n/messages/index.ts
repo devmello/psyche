@@ -20,6 +20,7 @@ import { onboarding } from "./onboarding.ts";
 import { overview } from "./overview.ts";
 import { overviewGrowth } from "./overview-growth.ts";
 import { people } from "./people.ts";
+import { research } from "./research.ts";
 import { screenAsk } from "./screen-ask.ts";
 import { screens } from "./screens.ts";
 import { selfConnectors } from "./self-connectors.ts";
@@ -76,6 +77,7 @@ export const en = {
   ...overview,
   ...overviewGrowth,
   ...capabilities,
+  ...research,
 } as const;
 
 export type MessageId = keyof typeof en;
