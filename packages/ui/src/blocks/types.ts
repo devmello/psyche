@@ -13,3 +13,4 @@ export type FileBlock = BlockOf<"file">;
 export type ReceiptBlock = BlockOf<"receipt">;
 export type TaskBlock = BlockOf<"task">;
 export type WrapUpBlock = BlockOf<"wrap_up">;
+export type AutomationWorkflowBlock = BlockOf<"automation_workflow">;

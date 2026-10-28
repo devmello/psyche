@@ -1826,6 +1826,38 @@ export interface AutomationUpdatedPayload {
     automation: Automation;
 }
 
+export interface AutomationWorkflowBlock {
+    proposal: DailyWorkflowProposal;
+    type:     AutomationWorkflowBlockType;
+}
+
+export interface DailyWorkflowProposal {
+    groupId:     string;
+    notify:      Notify;
+    obstacles:   string[];
+    offerSkill?: boolean;
+    runs:        DailyWorkflowRun[];
+    tainted?:    boolean;
+    timezone:    string;
+    title:       string;
+}
+
+export type Notify = "notification" | "messages" | "both";
+
+export interface DailyWorkflowRun {
+    approvals:     string[];
+    humanSchedule: string;
+    kind:          DailyWorkflowRunKind;
+    name:          string;
+    prompt:        string;
+    schedule:      string;
+    steps:         string[];
+}
+
+export type DailyWorkflowRunKind = "cron" | "interval";
+
+export type AutomationWorkflowBlockType = "automation_workflow";
+
 export interface AutomationsCreateParams {
     delivery?:     Delivery;
     enabled?:      boolean;
@@ -2658,6 +2690,7 @@ export interface Block {
     lessonId?:       null | string;
     messageId?:      string;
     statement?:      null | string;
+    proposal?:       DailyWorkflowProposal;
 }
 
 export interface WrapUpAction {
@@ -2700,7 +2733,7 @@ export interface CompactionSummary {
 
 export type BlockTrigger = "auto" | "manual";
 
-export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "context" | "receipt" | "task" | "wrap_up" | "related_threads" | "compaction" | "learned" | "taught" | "specialist_result";
+export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "context" | "receipt" | "task" | "wrap_up" | "related_threads" | "compaction" | "learned" | "taught" | "specialist_result" | "automation_workflow";
 
 export interface ChatCancelParams {
     runId?:   string;
@@ -3363,14 +3396,12 @@ export interface DailyAutomationsConfirmParams {
 
 export interface DailyAutomationDraft {
     humanSchedule: string;
-    kind:          DailyAutomationDraftKind;
+    kind:          DailyWorkflowRunKind;
     prompt:        string;
     schedule:      string;
     timezone:      string;
     title:         string;
 }
-
-export type DailyAutomationDraftKind = "cron" | "interval";
 
 export interface DailyAutomationsConfirmResult {
     automation: Automation;
@@ -3458,6 +3489,14 @@ export type DailyKind = "morning" | "evening";
 export interface DailyRunResult {
     postId?:  string;
     skipped?: string;
+}
+
+export interface DailyWorkflowsConfirmParams {
+    proposal: DailyWorkflowProposal;
+}
+
+export interface DailyWorkflowsConfirmResult {
+    automations: Automation[];
 }
 
 export interface DecidedBy {

@@ -1,6 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, Nullable, StringEnum } from "../common.ts";
 import { CompactionSummary } from "./context.ts";
+import { DailyWorkflowProposal } from "./daily.ts";
 import { LearnedFact } from "./memory.ts";
 
 /** Message content blocks (data model §9.1). Discriminated on `type`. */
@@ -185,6 +186,16 @@ export const SpecialistResultBlock = Type.Object(
   { $id: "SpecialistResultBlock" },
 );
 
+/**
+ * The confirm card for a planned workflow ("task → automation"): every schedule, what each run
+ * does, the approvals it needs and how it notifies. Confirming calls `daily.workflows.confirm`.
+ * The text is the model's and may echo untrusted content: render it as plain text.
+ */
+export const AutomationWorkflowBlock = Type.Object(
+  { type: Type.Literal("automation_workflow"), proposal: DailyWorkflowProposal },
+  { $id: "AutomationWorkflowBlock" },
+);
+
 export const Block = Type.Union(
   [
     TextBlock,
@@ -204,6 +215,7 @@ export const Block = Type.Union(
     LearnedBlock,
     TaughtBlock,
     SpecialistResultBlock,
+    AutomationWorkflowBlock,
   ],
   { $id: "Block" },
 );

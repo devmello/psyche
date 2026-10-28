@@ -293,6 +293,27 @@ export const blocks = {
 
   "blocks.wrapUp.label": "Wrap-up",
 
+  "blocks.workflow.label": "Schedule this workflow",
+  "blocks.workflow.title": "Schedule “{title}”?",
+  "blocks.workflow.runs": "{count, plural, one {# scheduled run} other {# scheduled runs}}",
+  "blocks.workflow.runOf": "{name} · {when} ({timezone})",
+  "blocks.workflow.does": "What it does",
+  "blocks.workflow.approvals": "Will ask you to approve",
+  "blocks.workflow.noApprovals": "No approvals needed.",
+  "blocks.workflow.notify":
+    "{how, select, messages {Tells you in Messages} both {Tells you with a notification and in Messages} other {Tells you with a notification}} when it needs you.",
+  "blocks.workflow.obstacles": "Worth knowing",
+  "blocks.workflow.tainted":
+    "This was planned after reading content from the web or a connector. Check the steps before you schedule.",
+  "blocks.workflow.skillOffer": "I can also save these steps as a skill afterwards.",
+  "blocks.workflow.confirm": "Schedule",
+  "blocks.workflow.decline": "Not now",
+  "blocks.workflow.scheduling": "Scheduling…",
+  "blocks.workflow.done":
+    "Scheduled {count, plural, one {# run} other {# runs}}. See them in Tasks.",
+  "blocks.workflow.declined": "Not scheduled.",
+  "blocks.workflow.failed": "Couldn't schedule this. Check the times and try again.",
+
   "blocks.receipt.label": "Receipt:",
   "blocks.receipt.id.gmailId": "Gmail id {ref}",
   "blocks.receipt.id.messageId": "message id {ref}",

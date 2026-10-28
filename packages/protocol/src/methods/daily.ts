@@ -6,6 +6,7 @@ import {
   DailyFollowup,
   DailyFollowupStatus,
   DailyKind,
+  DailyWorkflowProposal,
 } from "../schemas/daily.ts";
 import { Automation } from "../schemas/integrations.ts";
 import { defineMethod } from "./define.ts";
@@ -86,5 +87,13 @@ export const DailyMethods = {
     sideEffecting: true,
     description:
       "Creates the scheduled automation for a confirmed draft, through the same scheduler as the schedule tool. Side-effecting.",
+  }),
+  "daily.workflows.confirm": defineMethod({
+    params: Type.Object({ proposal: DailyWorkflowProposal }),
+    result: Type.Object({ automations: Type.Array(Automation) }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Creates the linked scheduled automations of a confirmed workflow card (one per run), through the same scheduler as the schedule tool. Confirming twice creates nothing new. Side-effecting.",
   }),
 } as const;

@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   AgentToolRegistry,
+  automationIntentProvider,
   type CompactionPolicy,
   createAgentLoop,
   type PsycheAgentLoop,
@@ -1051,6 +1052,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       ...(people === undefined ? [] : [people.recall]),
       memoryRecall.recall,
       artifactContextProvider(db),
+      automationIntentProvider(),
     ],
     contextLimits: context.contextLimits,
     onContextUsage: context.onContextUsage,

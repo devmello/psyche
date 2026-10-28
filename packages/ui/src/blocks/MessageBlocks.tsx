@@ -29,6 +29,7 @@ import { ReceiptFeedback } from "../teaching/ReceiptFeedback.tsx";
 import { LearnedLine, TaughtLine } from "../teaching/TaughtLine.tsx";
 import { ApprovalCard, focusApproval } from "./ApprovalCard.tsx";
 import { ArtifactCard, FileCard } from "./ArtifactCard.tsx";
+import { AutomationWorkflowBlockView } from "./AutomationWorkflowCard.tsx";
 import { Checklist, PlanCard } from "./Checklist.tsx";
 import { ContextCard } from "./ContextCard.tsx";
 import { useEntersLater } from "./card-enter.tsx";
@@ -462,6 +463,9 @@ registerBlock("taught", {
 });
 registerBlock("specialist_result", {
   View: ({ block }) => <SpecialistResultBlockView taskId={block.taskId} />,
+});
+registerBlock("automation_workflow", {
+  View: ({ block }) => <AutomationWorkflowBlockView proposal={block.proposal} />,
 });
 // Folded into runs above, and drawn by MessageView as a system notice.
 registerBlock("tool_call", { View: () => null });
