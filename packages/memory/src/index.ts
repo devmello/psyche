@@ -12,6 +12,7 @@ export * from "./context.ts";
 export * from "./daily.ts";
 export * from "./dreaming.ts";
 export * from "./export.ts";
+export * from "./extraction/index.ts";
 export * from "./filters.ts";
 export * from "./flush.ts";
 export * from "./git-sync.ts";

@@ -3,9 +3,11 @@ import {
   type GraphCitation,
   type GraphCitationSource,
   type GraphCitationTarget,
+  type GraphEdgeRel,
   type GraphFact,
   type GraphFactAttribute,
   GraphFactAttribute as GraphFactAttributeSchema,
+  type GraphFamilyRole,
   type GraphIdentifierKind,
   type GraphReviewState,
   type GraphSensitivity,
@@ -20,14 +22,15 @@ import {
 import type Database from "better-sqlite3";
 import { monotonicFactory } from "ulid";
 import { oneLine } from "../daily.ts";
-import { blockingKinds, looksLikeInstruction } from "../filters.ts";
-import { blockHash, normalizeIdentifier, normalizeName } from "./normalize.ts";
+import { blockingKinds, detectSensitive, looksLikeInstruction } from "../filters.ts";
+import { blockHash, normalizeIdentifier, normalizeName, sha256 } from "./normalize.ts";
 import {
   ACCEPTED_REVIEW_SQL,
   factKeyHash,
   type GraphStore,
   LIFE_ATTRIBUTES,
   MULTI_VALUED,
+  OWNER_ONLY_RELS,
 } from "./store.ts";
 
 /**
@@ -72,6 +75,29 @@ export function isSingleValued(attribute: GraphFactAttribute): boolean {
 
 /** owner > Contacts (`system`) > agent from owner-authored text > untrusted (§4.5). */
 const RANK: Record<Provenance, number> = { untrusted: 1, agent: 2, system: 3, owner: 4 };
+
+/** Relations a text may suggest (`related_to` / `reports_to` are the owner's; no `knows`). */
+const EDGE_RELS_PROPOSABLE: ReadonlySet<GraphEdgeRel> = new Set([
+  "works_at",
+  "member_of",
+  "stakeholder_of",
+  "located_at",
+  "part_of",
+  "family",
+  "friend",
+  "neighbour",
+  "classmate",
+  "roommate",
+  "colleague",
+  "manager",
+  "client",
+  "vendor",
+  "mentor",
+  "studied_at",
+  "lives_in",
+  "attended",
+  "about",
+]);
 
 /** Sensitivity classes that are never stored, whatever the owner switches on (decision 5). */
 const HARD_BLOCKED: ReadonlySet<GraphSensitivity> = new Set(["gov_id", "account_numbers"]);
@@ -127,6 +153,20 @@ export type ProposeOutcome =
       otherId?: string;
     }
   | { status: "refused"; reason: RefuseReason };
+
+export interface ProposeEdgeInput {
+  src: string;
+  dst: string;
+  rel: GraphEdgeRel;
+  role?: GraphFamilyRole;
+  provenance: Exclude<Provenance, "owner">;
+  confidence?: number;
+  citations: CitationInput[];
+}
+
+export type ProposeEdgeOutcome =
+  | { status: "pending" | "refreshed"; edgeId: string }
+  | { status: "refused"; reason: RefuseReason | "bad_relation" | "self_relation" };
 
 export interface ExclusionEntry {
   kind: GraphIdentifierKind;
@@ -590,7 +630,10 @@ export class EverythingStore {
     if (HARD_BLOCKED.has(sensitivity)) return refused("hard_blocked");
     const value = clip(input.value, VALUE_CHARS);
     if (value === null) return refused("empty_value");
-    if (blockingKinds(value, false).length > 0) return refused("secret_in_value");
+    // Secrets, cards, government ids and account numbers never; health only as a declared class.
+    const found = detectSensitive(value);
+    if (found.some((k) => k !== "health")) return refused("secret_in_value");
+    if (found.includes("health") && sensitivity !== "health") return refused("secret_in_value");
     if (looksLikeInstruction(value)) return refused("instruction_like");
     if (input.citations.length === 0) return refused("no_citation");
     if (!input.citations.every((c) => this.#validCitation(c))) return refused("bad_citation");
@@ -717,6 +760,77 @@ export class EverythingStore {
       fact: toFact(this.#factRow(id) as FactRow),
       ...(otherId === undefined ? {} : { otherId }),
     };
+  }
+
+  /**
+   * Stores a proposed relation. Always `pending`: a relation from text is a suggestion the owner
+   * confirms ("Is Dana your sister?"), never a merge or a route. `related_to` and `reports_to`
+   * carry personal labels and stay with the owner and Contacts; `knows` does not exist.
+   */
+  proposeEdge(input: ProposeEdgeInput): ProposeEdgeOutcome {
+    const refused = (
+      reason: RefuseReason | "bad_relation" | "self_relation",
+    ): ProposeEdgeOutcome => ({ status: "refused", reason });
+    if ((input.provenance as string) === "owner") return refused("owner_provenance");
+    if (!EDGE_RELS_PROPOSABLE.has(input.rel) || OWNER_ONLY_RELS.has(input.rel)) {
+      return refused("bad_relation");
+    }
+    if (input.role !== undefined && input.rel !== "family") return refused("bad_relation");
+    if (input.src === input.dst) return refused("self_relation");
+    const ends = [input.src, input.dst].map(
+      (id) =>
+        this.#db.prepare("SELECT id, hidden FROM graph_entities WHERE id = ?").get(id) as
+          | { id: string; hidden: number }
+          | undefined,
+    );
+    if (ends.some((e) => e === undefined)) return refused("unknown_entity");
+    if (ends.some((e) => e?.hidden === 1)) return refused("hidden_entity");
+    if (ends.some((e) => e !== undefined && this.isEntityExcluded(e.id)))
+      return refused("excluded");
+    if (input.citations.length === 0) return refused("no_citation");
+    if (!input.citations.every((c) => this.#validCitation(c))) return refused("bad_citation");
+    const keyHash = sha256(`${input.rel}\n${input.dst}`);
+    if (
+      this.#db
+        .prepare(
+          "SELECT 1 FROM graph_feedback WHERE kind = 'wrong_edge' AND entity_id = ? AND key_hash = ?",
+        )
+        .get(input.src, keyHash) !== undefined
+    ) {
+      return refused("rejected_before");
+    }
+    const now = this.#now();
+    const existing = this.#db
+      .prepare(
+        `SELECT id FROM graph_edges WHERE src = ? AND dst = ? AND rel = ? AND COALESCE(role, '') = ?
+           AND retracted_at IS NULL AND superseded_by IS NULL AND review IN ('pending', 'accepted', 'auto_accepted', 'edited')`,
+      )
+      .get(input.src, input.dst, input.rel, input.role ?? "") as { id: string } | undefined;
+    const id = existing?.id ?? this.#id("edge");
+    this.#db.transaction(() => {
+      if (existing === undefined) {
+        this.#db
+          .prepare(
+            `INSERT INTO graph_edges (id, src, dst, rel, role, review, provenance, confidence, sources,
+               valid_from, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)`,
+          )
+          .run(
+            id,
+            input.src,
+            input.dst,
+            input.rel,
+            input.role ?? null,
+            input.provenance,
+            Math.min(1, Math.max(0, input.confidence ?? 0.6)),
+            JSON.stringify([...new Set(input.citations.map((c) => `${c.source}:${c.sourceRef}`))]),
+            now,
+            now,
+            now,
+          );
+      }
+      for (const c of input.citations) this.#addCitation("edge", id, c, input.provenance);
+    })();
+    return { status: existing === undefined ? "pending" : "refreshed", edgeId: id };
   }
 
   // --- the owner's decisions (§7) ----------------------------------------------------------------

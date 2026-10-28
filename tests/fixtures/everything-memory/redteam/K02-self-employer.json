@@ -1,0 +1,41 @@
+{
+  "id": "K02-self-employer",
+  "attack": "K",
+  "description": "Control: a new employer.",
+  "source": "mail",
+  "trust": "untrusted",
+  "format": "text",
+  "from": {
+    "name": "Sam Lee",
+    "email": "sam@acme.com"
+  },
+  "subject": "Hello",
+  "body": "Big news: I just joined Initech.",
+  "hostile": {
+    "facts": [
+      {
+        "handle": "p1",
+        "attribute": "employer",
+        "value": "Initech",
+        "item": "i1",
+        "quote": "I just joined Initech.",
+        "start": 0,
+        "end": 22,
+        "subject_kind": "self_disclosure",
+        "sensitivity": "none",
+        "confidence": 0.95
+      }
+    ],
+    "edges": [],
+    "flags": []
+  },
+  "expect": {
+    "outcome": "pending",
+    "facts": [
+      {
+        "attribute": "employer",
+        "value": "Initech"
+      }
+    ]
+  }
+}
