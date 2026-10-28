@@ -1,0 +1,1376 @@
+[
+  {
+    "id": "q001",
+    "q": "TAPK7Q",
+    "class": "exact",
+    "intent": "find",
+    "gold": ["mail-001", "file-009"],
+    "answer": "The TAP Air Portugal booking confirmation for SFO-LIS (e-ticket and email).",
+    "answerKeywords": []
+  },
+  {
+    "id": "q002",
+    "q": "What is the Airbnb confirmation code for our Lisbon apartment?",
+    "class": "exact",
+    "intent": "answer",
+    "gold": ["mail-004", "note-002", "cal-006", "file-008", "file-010", "chat-004", "task-003"],
+    "answer": "HMA8R2K5ZP",
+    "answerKeywords": ["HMA8R2K5ZP"]
+  },
+  {
+    "id": "q003",
+    "q": "What's the confirmation number for my Q3 estimated tax payment?",
+    "class": "exact",
+    "intent": "answer",
+    "gold": ["mail-038", "note-007", "file-016", "chat-022"],
+    "answer": "EP-2026-Q3-88412",
+    "answerKeywords": ["EP-2026-Q3-88412"]
+  },
+  {
+    "id": "q004",
+    "q": "What's the code on the lockbox at the Alfama Airbnb?",
+    "class": "exact",
+    "intent": "answer",
+    "gold": ["mail-005", "cal-006"],
+    "answer": "3092",
+    "answerKeywords": ["3092"]
+  },
+  {
+    "id": "q005",
+    "q": "gate code wren street",
+    "class": "exact",
+    "intent": "answer",
+    "gold": ["note-022"],
+    "answer": "5827",
+    "answerKeywords": ["5827"]
+  },
+  {
+    "id": "q006",
+    "q": "What's my bib number for the half marathon?",
+    "class": "exact",
+    "intent": "answer",
+    "gold": ["mail-032", "imsg-022", "note-011", "cal-037", "chat-018"],
+    "answer": "4821",
+    "answerKeywords": ["4821"]
+  },
+  {
+    "id": "q007",
+    "q": "What's the policy number on the travel insurance for Portugal?",
+    "class": "exact",
+    "intent": "answer",
+    "gold": ["mail-008", "file-008", "lib-012", "task-003"],
+    "answer": "ST-77310-LX",
+    "answerKeywords": ["ST-77310-LX"]
+  },
+  {
+    "id": "q008",
+    "q": "What is the Calla Kitchen booking confirmation code?",
+    "class": "exact",
+    "intent": "answer",
+    "gold": ["mail-049", "note-008", "cal-035", "chat-026"],
+    "answer": "CK-0711",
+    "answerKeywords": ["CK-0711"]
+  },
+  {
+    "id": "q009",
+    "q": "Lisbon_Budget.xlsx",
+    "class": "exact",
+    "intent": "find",
+    "gold": ["file-011"],
+    "answer": "The Lisbon budget spreadsheet.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q010",
+    "q": "BQ-2291 quote total",
+    "class": "exact",
+    "intent": "answer",
+    "gold": ["mail-046", "file-012"],
+    "answer": "$14,200 (Bayline Remodeling quote BQ-2291)",
+    "answerKeywords": ["14,200"]
+  },
+  {
+    "id": "q011",
+    "q": "What's the reservation code for the dinner at Taberna Sol e Mar?",
+    "class": "exact",
+    "intent": "answer",
+    "gold": ["mail-010", "cal-003"],
+    "answer": "TN-48213",
+    "answerKeywords": ["TN-48213"]
+  },
+  {
+    "id": "q012",
+    "q": "What's my renters insurance policy number?",
+    "class": "exact",
+    "intent": "answer",
+    "gold": ["mail-021", "file-024"],
+    "answer": "HR-3381",
+    "answerKeywords": ["HR-3381"]
+  },
+  {
+    "id": "q013",
+    "q": "What's the name of the vet who sees Biscuit?",
+    "class": "exact",
+    "intent": "answer",
+    "gold": ["mail-024", "mail-025", "note-005", "cal-008", "file-004"],
+    "answer": "Dr. Pham at Lakeshore Animal Clinic",
+    "answerKeywords": ["Pham"]
+  },
+  {
+    "id": "q014",
+    "q": "What flavor cake did I order for the party?",
+    "class": "exact",
+    "intent": "answer",
+    "gold": ["mail-050", "note-008", "cal-036", "chat-026"],
+    "answer": "Lemon olive oil cake from Sugarloaf Bakery",
+    "answerKeywords": ["lemon"]
+  },
+  {
+    "id": "q015",
+    "q": "Who is the host of our Airbnb in Lisbon?",
+    "class": "exact",
+    "intent": "answer",
+    "gold": ["mail-004", "mail-005", "mail-006", "note-002", "file-008", "chat-004"],
+    "answer": "Rita Carvalho",
+    "answerKeywords": ["Rita"]
+  },
+  {
+    "id": "q016",
+    "q": "Which book is the book club reading in November?",
+    "class": "exact",
+    "intent": "answer",
+    "gold": ["mail-053", "note-009", "imsg-065", "cal-033", "chat-036"],
+    "answer": "Klara and the Sun",
+    "answerKeywords": ["Klara"]
+  },
+  {
+    "id": "q017",
+    "q": "What is the invoice number for my Pixelwerk subscription in September?",
+    "class": "exact",
+    "intent": "answer",
+    "gold": ["mail-040"],
+    "answer": "PW-0951",
+    "answerKeywords": ["PW-0951"]
+  },
+  {
+    "id": "q018",
+    "q": "PL-5530188",
+    "class": "exact",
+    "intent": "answer",
+    "gold": ["mail-084"],
+    "answer": "Parcelo tracking for the Atelier Mori package; arriving Thursday Oct 22.",
+    "answerKeywords": ["22"]
+  },
+  {
+    "id": "q019",
+    "q": "What's the address of Dr. Alvarez's office?",
+    "class": "exact",
+    "intent": "answer",
+    "gold": ["cal-010", "cal-011", "cal-012"],
+    "answer": "940 Grand Ave",
+    "answerKeywords": ["940 Grand"]
+  },
+  {
+    "id": "q020",
+    "q": "Who is Marcus Lindqvist?",
+    "class": "exact",
+    "intent": "answer",
+    "gold": ["mail-039", "note-007", "cal-023", "rem-010", "lib-011", "chat-023", "task-002"],
+    "answer": "Marcus Lindqvist is my CPA; planning call Nov 3 at 2 PM.",
+    "answerKeywords": ["CPA"]
+  },
+  {
+    "id": "q021",
+    "q": "Sugarloaf Bakery pickup",
+    "class": "exact",
+    "intent": "find",
+    "gold": ["mail-050", "imsg-036", "note-008", "cal-036", "chat-026"],
+    "answer": "Cake order: pickup Sat Nov 7 at 2:00 PM at Sugarloaf Bakery.",
+    "answerKeywords": ["2"]
+  },
+  {
+    "id": "q022",
+    "q": "What's Biscuit's microchip number?",
+    "class": "exact",
+    "intent": "answer",
+    "gold": ["note-005"],
+    "answer": "985-120-0345-1277",
+    "answerKeywords": ["985-120-0345-1277"]
+  },
+  {
+    "id": "q023",
+    "q": "What is the name of the half marathon I signed up for?",
+    "class": "exact",
+    "intent": "answer",
+    "gold": ["mail-032", "note-011", "cal-038"],
+    "answer": "Lake Merritt Half Marathon, Sunday Nov 15",
+    "answerKeywords": ["Lake Merritt"]
+  },
+  {
+    "id": "q024",
+    "q": "invoice 0042 Coral Studio",
+    "class": "exact",
+    "intent": "find",
+    "gold": ["mail-106", "note-007", "file-014", "file-015", "task-002", "task-014"],
+    "answer": "Invoice 0042 to Coral Studio, $1,800, due Nov 4.",
+    "answerKeywords": ["1,800"]
+  },
+  {
+    "id": "q025",
+    "q": "What's the booking reference for the Sintra tour?",
+    "class": "exact",
+    "intent": "answer",
+    "gold": ["mail-009", "cal-005"],
+    "answer": "TL-559021",
+    "answerKeywords": ["TL-559021"]
+  },
+  {
+    "id": "q026",
+    "q": "how much did the kitchen guys want",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": [
+      "mail-046",
+      "mail-047",
+      "file-012",
+      "file-013",
+      "note-004",
+      "lib-016",
+      "chat-014",
+      "task-006",
+      "imsg-083"
+    ],
+    "answer": "Bayline wanted $14,200; Harbor & Pine wanted $16,850.",
+    "answerKeywords": ["14,200"]
+  },
+  {
+    "id": "q027",
+    "q": "What treatment did the dog get for his ear problem?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["mail-025", "note-005", "chat-010", "task-004", "rem-022"],
+    "answer": "Ear drops twice a day for 10 days, with a recheck on Oct 22.",
+    "answerKeywords": ["drops"]
+  },
+  {
+    "id": "q028",
+    "q": "By when do I need to give Gupta an answer to get the better deal?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["mail-019", "note-006", "cal-040", "imsg-026"],
+    "answer": "Signed agreement by November 1 for $2,560/mo (otherwise Nov 15 at $2,585).",
+    "answerKeywords": ["nov"]
+  },
+  {
+    "id": "q029",
+    "q": "Where exactly am I staying in Lisbon?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["mail-004", "mail-005", "cal-006", "file-008"],
+    "answer": "Alfama apartment, Travessa do Limoeiro Novo 18, 3o Esq.",
+    "answerKeywords": ["Limoeiro"]
+  },
+  {
+    "id": "q030",
+    "q": "Who is covering for me at work while I am away in December?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["note-014", "file-022"],
+    "answer": "Lena is the backup for design QA (and owns research follow-ups).",
+    "answerKeywords": ["Lena"]
+  },
+  {
+    "id": "q031",
+    "q": "What will I have to pay out of pocket for the new tooth cap?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["mail-030", "mail-031", "cal-012", "note-028"],
+    "answer": "About $320.",
+    "answerKeywords": ["320"]
+  },
+  {
+    "id": "q032",
+    "q": "Is it going to be wet when we visit Lisbon?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["lib-001", "chat-048", "mail-014", "imsg-012", "mail-013"],
+    "answer": "Yes, rainy: around 13 wet days in December, highs near 15 C.",
+    "answerKeywords": ["rain"]
+  },
+  {
+    "id": "q033",
+    "q": "What speed do I need to hold to finish under 1:55?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["file-018", "note-011", "chat-020"],
+    "answer": "About 8:46 per mile.",
+    "answerKeywords": ["8:46"]
+  },
+  {
+    "id": "q034",
+    "q": "When should Priya walk into her surprise?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["imsg-032", "cal-035", "lib-015", "mail-049"],
+    "answer": "7:00 PM at Calla Kitchen, Garden Room.",
+    "answerKeywords": ["7"]
+  },
+  {
+    "id": "q035",
+    "q": "Where are we eating our first Saturday in Lisbon?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["mail-010", "cal-003", "imsg-001", "imsg-002", "note-002", "file-008"],
+    "answer": "Taberna Sol e Mar in Alfama, 20:30 on Dec 5.",
+    "answerKeywords": ["Sol e Mar"]
+  },
+  {
+    "id": "q036",
+    "q": "How much do I pay to park the car at my building?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["mail-019", "file-001", "file-003", "file-002", "note-006"],
+    "answer": "$75 per month.",
+    "answerKeywords": ["75"]
+  },
+  {
+    "id": "q037",
+    "q": "What was the bill for the dog's checkup over the summer?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["mail-024", "file-005", "note-005"],
+    "answer": "$187.00",
+    "answerKeywords": ["187"]
+  },
+  {
+    "id": "q038",
+    "q": "What did the user interviews say people struggle with in the old product?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["mail-069", "file-021", "task-015"],
+    "answer": "The data source picker is buried/hard to find.",
+    "answerKeywords": ["picker"]
+  },
+  {
+    "id": "q039",
+    "q": "How much can my landlord legally bump the rent next year?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["lib-005", "chat-008"],
+    "answer": "Up to 3.2 percent (about $2,528.40) if the unit is covered.",
+    "answerKeywords": ["3.2"]
+  },
+  {
+    "id": "q040",
+    "q": "Is my flight home leaving earlier or later than first planned?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["mail-003", "cal-002", "file-008"],
+    "answer": "Later: 10:40 instead of 10:15.",
+    "answerKeywords": ["10:40"]
+  },
+  {
+    "id": "q041",
+    "q": "How much did the insurance company give back for the ear visit?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["mail-027", "chat-012"],
+    "answer": "$113.60 (80% of $142).",
+    "answerKeywords": ["113.60"]
+  },
+  {
+    "id": "q042",
+    "q": "Is it okay that the builders want a quarter of the money upfront?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["lib-003", "lib-016"],
+    "answer": "No: California caps a down payment at 10% or $1,000, whichever is less.",
+    "answerKeywords": ["1,000"]
+  },
+  {
+    "id": "q043",
+    "q": "When does the courtesy ride leave on the morning of the car service?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["imsg-070", "cal-026"],
+    "answer": "8:15 AM",
+    "answerKeywords": ["8:15"]
+  },
+  {
+    "id": "q044",
+    "q": "What was the rent before it went to the current amount?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["file-002", "note-006"],
+    "answer": "$2,300 per month.",
+    "answerKeywords": ["2,300"]
+  },
+  {
+    "id": "q045",
+    "q": "Did Sam settle up for the tools he borrowed?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["mail-083", "imsg-039"],
+    "answer": "Yes, he Venmoed $35 for the ladder and beers.",
+    "answerKeywords": ["35"]
+  },
+  {
+    "id": "q046",
+    "q": "How many are definitely coming to the surprise dinner?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["mail-051", "file-026", "note-008", "chat-028"],
+    "answer": "9 confirmed yes.",
+    "answerKeywords": ["9"]
+  },
+  {
+    "id": "q047",
+    "q": "When does the free coffee reward run out?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["mail-092"],
+    "answer": "October 31.",
+    "answerKeywords": ["31"]
+  },
+  {
+    "id": "q048",
+    "q": "What did Maya recommend for watching the sunset?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["imsg-015", "note-003"],
+    "answer": "Miradouro da Graca, arrive by 17:30.",
+    "answerKeywords": ["miradouro"]
+  },
+  {
+    "id": "q049",
+    "q": "Where do I collect my running number before the race?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["mail-032", "cal-037"],
+    "answer": "Estuary Running Co., 410 Embarcadero Way, Fri Nov 13 4-8 PM.",
+    "answerKeywords": ["Estuary"]
+  },
+  {
+    "id": "q050",
+    "q": "When do paying customers get early access to Atlas?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["mail-064", "file-022", "file-019"],
+    "answer": "Customer beta on Dec 14.",
+    "answerKeywords": ["14"]
+  },
+  {
+    "id": "q051",
+    "q": "What should I bring with me to the tooth appointment?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["mail-030", "cal-012"],
+    "answer": "Insurance card.",
+    "answerKeywords": ["insurance card"]
+  },
+  {
+    "id": "q052",
+    "q": "What deduction can I take for working from home?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["lib-011", "chat-024"],
+    "answer": "$550 (simplified method, 110 sq ft).",
+    "answerKeywords": ["550"]
+  },
+  {
+    "id": "q053",
+    "q": "Which part of Lisbon is best to stay in on a first winter visit?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["lib-002"],
+    "answer": "Alfama is most characterful; Baixa most convenient.",
+    "answerKeywords": ["Alfama"]
+  },
+  {
+    "id": "q054",
+    "q": "What happens if I pay the rent more than a few days late?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["file-001"],
+    "answer": "$60 if rent is more than five days late.",
+    "answerKeywords": ["60"]
+  },
+  {
+    "id": "q055",
+    "q": "What did my freelance clients pay me so far this year?",
+    "class": "paraphrase",
+    "intent": "answer",
+    "gold": ["file-015", "task-002", "note-007"],
+    "answer": "$10,100 paid year to date.",
+    "answerKeywords": ["10,100"]
+  },
+  {
+    "id": "q056",
+    "q": "What did my landlord email me yesterday?",
+    "class": "temporal",
+    "intent": "answer",
+    "gold": ["mail-019"],
+    "answer": "Hold rent at $2,560 if signed by Nov 1.",
+    "answerKeywords": ["2,560"]
+  },
+  {
+    "id": "q057",
+    "q": "What do I have on my calendar this Friday?",
+    "class": "temporal",
+    "intent": "list",
+    "gold": ["cal-026", "cal-027", "cal-028"],
+    "answer": "Car service 8:00, lunch with Sam 12:30, Atlas prototype freeze 16:00.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q058",
+    "q": "When is my dentist appointment next week?",
+    "class": "temporal",
+    "intent": "answer",
+    "gold": ["cal-012", "mail-030"],
+    "answer": "Thursday Oct 29 at 8:30 AM (crown fitting).",
+    "answerKeywords": ["8:30"]
+  },
+  {
+    "id": "q059",
+    "q": "What did Maya text me on Sunday?",
+    "class": "temporal",
+    "intent": "answer",
+    "gold": ["imsg-006"],
+    "answer": "Asked me to bring 2 jars of crunchy peanut butter and Mom's hot sauce.",
+    "answerKeywords": ["peanut"]
+  },
+  {
+    "id": "q060",
+    "q": "What am I doing Saturday morning?",
+    "class": "temporal",
+    "intent": "list",
+    "gold": ["cal-029", "cal-030"],
+    "answer": "10 mile long run at 8:00, then climbing at 10:00.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q061",
+    "q": "What did I ask you about Atlas last Thursday?",
+    "class": "temporal",
+    "intent": "answer",
+    "gold": ["thr-008", "chat-029", "chat-031"],
+    "answer": "What the design review agenda is and when usability sessions run.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q062",
+    "q": "Which reminders are due tomorrow?",
+    "class": "temporal",
+    "intent": "list",
+    "gold": ["rem-002", "rem-018"],
+    "answer": "Send Figma links to Daniel; review Tomas's tokens PR.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q063",
+    "q": "What happened with the vet in July?",
+    "class": "temporal",
+    "intent": "answer",
+    "gold": ["mail-024", "file-005", "cal-007", "file-004", "note-005"],
+    "answer": "Annual exam July 14 with Dr. Pham, boosters, $187.",
+    "answerKeywords": ["annual"]
+  },
+  {
+    "id": "q064",
+    "q": "What's on my calendar for November 7?",
+    "class": "temporal",
+    "intent": "list",
+    "gold": ["cal-035", "cal-036"],
+    "answer": "Cake pickup at 2 PM and Priya's birthday party at 7 PM.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q065",
+    "q": "What was the contractor's quote in the email from September?",
+    "class": "temporal",
+    "intent": "answer",
+    "gold": ["mail-046"],
+    "answer": "$14,200 from Bayline Remodeling.",
+    "answerKeywords": ["14,200"]
+  },
+  {
+    "id": "q066",
+    "q": "What did Lena email about in early October?",
+    "class": "temporal",
+    "intent": "answer",
+    "gold": ["mail-069"],
+    "answer": "Research readout from the eight onboarding interviews.",
+    "answerKeywords": ["onboarding"]
+  },
+  {
+    "id": "q067",
+    "q": "When was my last teeth cleaning?",
+    "class": "temporal",
+    "intent": "answer",
+    "gold": ["mail-029", "cal-010"],
+    "answer": "Thursday September 3 at 10:00.",
+    "answerKeywords": ["sep"]
+  },
+  {
+    "id": "q068",
+    "q": "What time is book club on Wednesday next week?",
+    "class": "temporal",
+    "intent": "answer",
+    "gold": ["cal-032", "mail-053", "imsg-064", "chat-036"],
+    "answer": "7:00 PM on Oct 28 at Nadia's.",
+    "answerKeywords": ["7"]
+  },
+  {
+    "id": "q069",
+    "q": "When is the water going off at my building?",
+    "class": "temporal",
+    "intent": "answer",
+    "gold": ["mail-020", "cal-034"],
+    "answer": "Thursday Oct 22, 9:00 AM to 1:00 PM.",
+    "answerKeywords": ["9"]
+  },
+  {
+    "id": "q070",
+    "q": "In early October, what did you tell me about the home office deduction?",
+    "class": "temporal",
+    "intent": "answer",
+    "gold": ["thr-006", "chat-024"],
+    "answer": "$5 per sq ft up to 300 sq ft; $550 for 110 sq ft.",
+    "answerKeywords": ["550"]
+  },
+  {
+    "id": "q071",
+    "q": "Which of Biscuit's appointments is coming up this week?",
+    "class": "temporal",
+    "intent": "answer",
+    "gold": ["cal-009", "mail-026", "imsg-069", "imsg-016", "mail-025"],
+    "answer": "Ear recheck Thursday Oct 22 at 10:30.",
+    "answerKeywords": ["10:30"]
+  },
+  {
+    "id": "q072",
+    "q": "What running gear did I buy in September?",
+    "class": "temporal",
+    "intent": "answer",
+    "gold": ["mail-034", "mail-035"],
+    "answer": "Cirrus 9 running shoes and a pack of energy gels from Stridewell.",
+    "answerKeywords": ["Cirrus"]
+  },
+  {
+    "id": "q073",
+    "q": "What did the kitchen contractor email me last week?",
+    "class": "temporal",
+    "intent": "answer",
+    "gold": ["mail-048"],
+    "answer": "They could start Jan 11 and add the backsplash for $900 if I decide by Nov 30.",
+    "answerKeywords": ["900"]
+  },
+  {
+    "id": "q074",
+    "q": "Which tasks did you complete in September?",
+    "class": "temporal",
+    "intent": "list",
+    "gold": ["task-003", "task-012", "task-010"],
+    "answer": "Lisbon confirmations, Lisbon budget sheet, dentist appointment dates.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q075",
+    "q": "What meetings do I have today?",
+    "class": "temporal",
+    "intent": "list",
+    "gold": ["cal-017", "cal-018"],
+    "answer": "Atlas standup 9:30 and token pairing with Tomas at 3:00.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q076",
+    "q": "Which bills are due this week?",
+    "class": "temporal",
+    "intent": "answer",
+    "gold": ["mail-023", "rem-008"],
+    "answer": "FiberNest, $65 due Oct 25.",
+    "answerKeywords": ["65"]
+  },
+  {
+    "id": "q077",
+    "q": "What did Maya send me in August?",
+    "class": "temporal",
+    "intent": "list",
+    "gold": ["mail-076", "imsg-009"],
+    "answer": "Porto photos and a note about visiting Porto.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q078",
+    "q": "When was my knee physical therapy appointment?",
+    "class": "temporal",
+    "intent": "answer",
+    "gold": ["mail-036", "imsg-071"],
+    "answer": "Tuesday Oct 6 at 6:00 PM with Imani Hughes.",
+    "answerKeywords": ["6"]
+  },
+  {
+    "id": "q079",
+    "q": "What was in last week's summary you wrote?",
+    "class": "temporal",
+    "intent": "answer",
+    "gold": ["lib-014"],
+    "answer": "24.6 miles run, ear drops finished, water shutoff notice, Bayline follow-up.",
+    "answerKeywords": ["24.6"]
+  },
+  {
+    "id": "q080",
+    "q": "What changed on my flight this month?",
+    "class": "temporal",
+    "intent": "answer",
+    "gold": ["mail-003"],
+    "answer": "The return TP 0237 now departs at 10:40 instead of 10:15.",
+    "answerKeywords": ["10:40"]
+  },
+  {
+    "id": "q081",
+    "q": "What did Maya say about the restaurant?",
+    "class": "person",
+    "intent": "answer",
+    "gold": ["imsg-001", "mail-013"],
+    "answer": "She picked Taberna Sol e Mar for Saturday Dec 5.",
+    "answerKeywords": ["Sol e Mar"]
+  },
+  {
+    "id": "q082",
+    "q": "emails from Daniel Reyes",
+    "class": "person",
+    "intent": "list",
+    "gold": ["mail-059", "mail-060", "mail-061", "mail-065", "mail-068"],
+    "answer": "Atlas kickoff, review agenda and invite, PTO approval, 1:1 follow-ups.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q083",
+    "q": "What did Mom say about the contractors?",
+    "class": "person",
+    "intent": "answer",
+    "gold": ["imsg-047", "mail-077"],
+    "answer": "She prefers Bayline because they listened; wants warm white cabinets and no rushing.",
+    "answerKeywords": ["Bayline"]
+  },
+  {
+    "id": "q084",
+    "q": "What did Priya suggest we do in Lisbon?",
+    "class": "person",
+    "intent": "answer",
+    "gold": ["mail-075"],
+    "answer": "Pasteis in Belem, tile museum, LX Factory, a fado night.",
+    "answerKeywords": ["fado"]
+  },
+  {
+    "id": "q085",
+    "q": "What did Sam say about the decorations for the party?",
+    "class": "person",
+    "intent": "answer",
+    "gold": ["imsg-032"],
+    "answer": "He picks up balloons at noon and decorates from 5:30.",
+    "answerKeywords": ["balloons"]
+  },
+  {
+    "id": "q086",
+    "q": "What did Aiko say about bringing someone to the party?",
+    "class": "person",
+    "intent": "answer",
+    "gold": ["imsg-034", "mail-051", "file-026"],
+    "answer": "She is bringing Kenji as a plus one.",
+    "answerKeywords": ["Kenji"]
+  },
+  {
+    "id": "q087",
+    "q": "What does Lena need from me for the usability sessions?",
+    "class": "person",
+    "intent": "answer",
+    "gold": ["mail-062", "imsg-058"],
+    "answer": "Observe at least two sessions (10am and 1pm Tuesday) and freeze the prototype by Friday.",
+    "answerKeywords": ["observe"]
+  },
+  {
+    "id": "q088",
+    "q": "What did Tomás say about the filter chips?",
+    "class": "person",
+    "intent": "answer",
+    "gold": ["imsg-056", "mail-070"],
+    "answer": "Wrapping bug is fixed on staging; asked me to verify.",
+    "answerKeywords": ["staging"]
+  },
+  {
+    "id": "q089",
+    "q": "What did Nadia say about getting into her building for book club?",
+    "class": "person",
+    "intent": "answer",
+    "gold": ["mail-080"],
+    "answer": "Use the side entrance on Linden.",
+    "answerKeywords": ["side entrance"]
+  },
+  {
+    "id": "q090",
+    "q": "What did Mr. Gupta ask me to do on Thursday?",
+    "class": "person",
+    "intent": "answer",
+    "gold": ["imsg-067"],
+    "answer": "Move my car by 8:30 for the plumbers.",
+    "answerKeywords": ["8:30"]
+  },
+  {
+    "id": "q091",
+    "q": "What did Daniel say about my time off in December?",
+    "class": "person",
+    "intent": "answer",
+    "gold": ["mail-065", "lib-007"],
+    "answer": "Approved; write a handoff doc and name a backup.",
+    "answerKeywords": ["approved"]
+  },
+  {
+    "id": "q092",
+    "q": "What did Marcus the accountant ask me to send him?",
+    "class": "person",
+    "intent": "answer",
+    "gold": ["mail-039", "note-007", "rem-010"],
+    "answer": "Freelance income summary, home office measurements, receipts.",
+    "answerKeywords": ["income"]
+  },
+  {
+    "id": "q093",
+    "q": "texts from Mom",
+    "class": "person",
+    "intent": "list",
+    "gold": ["imsg-046", "imsg-047", "imsg-049", "imsg-050"],
+    "answer": "Sunday lunch, Bayline preference, property tax letter, did you eat.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q094",
+    "q": "What did Rita say about arriving before check-in?",
+    "class": "person",
+    "intent": "answer",
+    "gold": ["mail-005", "mail-006"],
+    "answer": "Check-in is from 15:00; bags can be left with her or you can have lunch nearby.",
+    "answerKeywords": ["15"]
+  },
+  {
+    "id": "q095",
+    "q": "What did Sam say about the concert?",
+    "class": "person",
+    "intent": "answer",
+    "gold": ["mail-079", "imsg-042"],
+    "answer": "3 tickets for Palm Season on Sat Nov 14, doors 7:30, $62 each.",
+    "answerKeywords": ["62"]
+  },
+  {
+    "id": "q096",
+    "q": "Who is Hana Ito?",
+    "class": "person",
+    "intent": "answer",
+    "gold": ["imsg-066", "cal-033"],
+    "answer": "A book club member; hosts the November meeting.",
+    "answerKeywords": ["book club"]
+  },
+  {
+    "id": "q097",
+    "q": "What did Priya say about Gupta's offer?",
+    "class": "person",
+    "intent": "answer",
+    "gold": ["imsg-025", "imsg-027"],
+    "answer": "She prefers signing at $2,560 and asking again about parking.",
+    "answerKeywords": ["sign"]
+  },
+  {
+    "id": "q098",
+    "q": "What did Maya ask me to bring from the US?",
+    "class": "person",
+    "intent": "answer",
+    "gold": ["imsg-006", "note-031", "rem-014"],
+    "answer": "Two jars of crunchy peanut butter and the hot sauce Mom likes.",
+    "answerKeywords": ["peanut"]
+  },
+  {
+    "id": "q099",
+    "q": "emails from Anil Gupta",
+    "class": "person",
+    "intent": "list",
+    "gold": ["mail-017", "mail-019", "mail-020"],
+    "answer": "Lease renewal offer, rent hold offer, water shutoff notice.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q100",
+    "q": "messages from Alvarez Family Dentistry",
+    "class": "person",
+    "intent": "list",
+    "gold": ["mail-029", "mail-030", "mail-107", "mail-108"],
+    "answer": "Cleaning confirmation, feedback request, crown prep reschedule, crown fitting reminder.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q101",
+    "q": "all of Biscuit's past vet visits",
+    "class": "list",
+    "intent": "list",
+    "gold": ["mail-024", "mail-025", "file-005", "file-006", "cal-007", "cal-008", "note-005"],
+    "answer": "July 14 annual exam and Oct 8 ear infection.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q102",
+    "q": "Every email about the Lisbon trip I booked",
+    "class": "list",
+    "intent": "list",
+    "gold": [
+      "mail-001",
+      "mail-002",
+      "mail-003",
+      "mail-004",
+      "mail-005",
+      "mail-006",
+      "mail-008",
+      "mail-009",
+      "mail-010",
+      "mail-012",
+      "mail-011",
+      "mail-013",
+      "mail-109"
+    ],
+    "answer": "Flights, seats, schedule change, Airbnb, insurance, Sintra, restaurant, eSIM, transfer.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q103",
+    "q": "every receipt email from September",
+    "class": "list",
+    "intent": "list",
+    "gold": ["mail-040", "mail-041", "mail-034", "mail-035", "mail-042"],
+    "answer": "Pixelwerk, Cloudbox, Stridewell x2, Marlow Hardware.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q104",
+    "q": "Every dentist appointment on my calendar",
+    "class": "list",
+    "intent": "list",
+    "gold": ["cal-010", "cal-011", "cal-012"],
+    "answer": "Sep 3 cleaning, Sep 24 crown prep, Oct 29 crown fitting.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q105",
+    "q": "All the kitchen quotes I have received",
+    "class": "list",
+    "intent": "list",
+    "gold": ["mail-046", "mail-047", "file-012", "file-013"],
+    "answer": "Bayline $14,200 and Harbor & Pine $16,850.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q106",
+    "q": "Which of my calendar events are for the half marathon?",
+    "class": "list",
+    "intent": "list",
+    "gold": ["cal-037", "cal-038", "cal-029"],
+    "answer": "Long run Oct 24, packet pickup Nov 13, race Nov 15.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q107",
+    "q": "All tasks you did for the Lisbon trip",
+    "class": "list",
+    "intent": "list",
+    "gold": ["task-003", "task-012", "task-011"],
+    "answer": "Collected confirmations, made budget sheet, drafted packing list.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q108",
+    "q": "lease renewal pdf",
+    "class": "list",
+    "intent": "list",
+    "gold": ["file-001", "file-002"],
+    "answer": "Lease_Renewal_2026.pdf (and the older 2025 one).",
+    "answerKeywords": []
+  },
+  {
+    "id": "q109",
+    "q": "Which documents list the Atlas launch dates?",
+    "class": "list",
+    "intent": "list",
+    "gold": ["mail-064", "file-022", "file-019"],
+    "answer": "Launch timeline email, spreadsheet, and the PRD.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q110",
+    "q": "All reminders about bills or payments I need to make",
+    "class": "list",
+    "intent": "list",
+    "gold": ["rem-007", "rem-008", "rem-011", "rem-023"],
+    "answer": "Gas bill, FiberNest, Sam concert, Q4 tax.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q111",
+    "q": "Every meeting transcript in my library",
+    "class": "list",
+    "intent": "list",
+    "gold": ["lib-006", "lib-007", "lib-008", "lib-009", "lib-010", "lib-011"],
+    "answer": "Six transcripts.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q112",
+    "q": "What notes do I have about my mom's kitchen?",
+    "class": "list",
+    "intent": "list",
+    "gold": ["note-004", "note-025"],
+    "answer": "Quote comparison and questions for contractors.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q113",
+    "q": "All my notes about the Lisbon trip",
+    "class": "list",
+    "intent": "list",
+    "gold": ["note-001", "note-002", "note-003", "note-024"],
+    "answer": "Budget, itinerary, food places, Portuguese phrases.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q114",
+    "q": "Who has RSVP'd to Priya's birthday?",
+    "class": "list",
+    "intent": "list",
+    "gold": ["file-026", "mail-051"],
+    "answer": "9 yes including Sam, Aiko (+Kenji), Nadia, Lena, Hana.",
+    "answerKeywords": ["Sam"]
+  },
+  {
+    "id": "q115",
+    "q": "Every upcoming plan with Maya in Lisbon",
+    "class": "list",
+    "intent": "list",
+    "gold": ["cal-003", "cal-004"],
+    "answer": "Dinner Sat Dec 5, Belem Sun Dec 6.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q116",
+    "q": "All invoices to or from Coral Studio",
+    "class": "list",
+    "intent": "list",
+    "gold": ["mail-105", "mail-106", "task-014", "file-015"],
+    "answer": "Invoice 0041 ($2,400, paid), 0042 ($1,800).",
+    "answerKeywords": []
+  },
+  {
+    "id": "q117",
+    "q": "Every email from Eastbay Auto Care",
+    "class": "list",
+    "intent": "list",
+    "gold": ["mail-055", "mail-056"],
+    "answer": "Oct 23 service confirmation; May receipt.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q118",
+    "q": "Which restaurants have I booked?",
+    "class": "list",
+    "intent": "list",
+    "gold": ["mail-010", "mail-049"],
+    "answer": "Taberna Sol e Mar (Dec 5) and Calla Kitchen (Nov 7).",
+    "answerKeywords": []
+  },
+  {
+    "id": "q119",
+    "q": "Every Northwind meeting on my calendar between Nov 1 and Nov 20",
+    "class": "list",
+    "intent": "list",
+    "gold": ["cal-025", "cal-024", "cal-021", "cal-022"],
+    "answer": "Intern lunch, design freeze, mid-year review, offsite.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q120",
+    "q": "Which of our chats were about Biscuit?",
+    "class": "list",
+    "intent": "list",
+    "gold": ["thr-003"],
+    "answer": "The ear infection chat.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q121",
+    "q": "Is Maya free the night we land in Lisbon?",
+    "class": "multihop",
+    "intent": "answer",
+    "gold": ["mail-001", "imsg-003"],
+    "answer": "No, she works until 22:00 on Friday Dec 4 (we land that day).",
+    "answerKeywords": ["22"]
+  },
+  {
+    "id": "q122",
+    "q": "How much have I paid so far for Lisbon flights and the Airbnb?",
+    "class": "multihop",
+    "intent": "answer",
+    "gold": ["mail-001", "mail-004"],
+    "answer": "$1,184.60 for flights and EUR 896 for the Airbnb.",
+    "answerKeywords": ["1,184.60", "896"]
+  },
+  {
+    "id": "q123",
+    "q": "What's the quote from the contractor my mom likes?",
+    "class": "multihop",
+    "intent": "answer",
+    "gold": ["imsg-047", "mail-046", "file-012"],
+    "answer": "Bayline, $14,200.",
+    "answerKeywords": ["14,200"]
+  },
+  {
+    "id": "q124",
+    "q": "Do I have a conflict Thursday between the dog's recheck and the design review?",
+    "class": "multihop",
+    "intent": "answer",
+    "gold": ["cal-009", "cal-013", "imsg-016"],
+    "answer": "No: recheck is at 10:30 and Priya is taking him; the review is at 2 PM.",
+    "answerKeywords": ["Priya"]
+  },
+  {
+    "id": "q125",
+    "q": "How much more per year would I pay at the lower rent Gupta offered versus what I pay now?",
+    "class": "multihop",
+    "intent": "answer",
+    "gold": ["mail-019", "file-001"],
+    "answer": "$110 per month more, $1,320 a year ($2,560 vs $2,450).",
+    "answerKeywords": ["1,320"]
+  },
+  {
+    "id": "q126",
+    "q": "Daniel approved my time off; what do I have to hand off and who covers design QA?",
+    "class": "multihop",
+    "intent": "answer",
+    "gold": ["mail-065", "note-014"],
+    "answer": "Write a handoff doc; Lena covers design QA.",
+    "answerKeywords": ["Lena"]
+  },
+  {
+    "id": "q127",
+    "q": "What are the venue deposit and the cake together for Priya's party?",
+    "class": "multihop",
+    "intent": "answer",
+    "gold": ["mail-049", "mail-050"],
+    "answer": "$250 deposit plus $68 cake is $318.",
+    "answerKeywords": ["318"]
+  },
+  {
+    "id": "q128",
+    "q": "Can I make lunch with Sam on Friday after my car service starts?",
+    "class": "multihop",
+    "intent": "answer",
+    "gold": ["cal-026", "cal-027"],
+    "answer": "Yes: service starts at 8:00 and lunch is at 12:30.",
+    "answerKeywords": ["12:30"]
+  },
+  {
+    "id": "q129",
+    "q": "When does my flight home land now, and how does it compare to the original?",
+    "class": "multihop",
+    "intent": "answer",
+    "gold": ["mail-003", "mail-001"],
+    "answer": "Now 14:30, originally 14:05.",
+    "answerKeywords": ["14:30"]
+  },
+  {
+    "id": "q130",
+    "q": "Who am I having dinner with on the Saturday in Lisbon and where?",
+    "class": "multihop",
+    "intent": "answer",
+    "gold": ["mail-010", "cal-003", "imsg-001"],
+    "answer": "Maya, at Taberna Sol e Mar at 20:30.",
+    "answerKeywords": ["Maya"]
+  },
+  {
+    "id": "q131",
+    "q": "What would Bayline cost if I add the backsplash they offered?",
+    "class": "multihop",
+    "intent": "answer",
+    "gold": ["mail-048", "mail-046"],
+    "answer": "$14,200 + $900 = $15,100.",
+    "answerKeywords": ["15,100"]
+  },
+  {
+    "id": "q132",
+    "q": "What day of the week is the half marathon and when do the corrals open?",
+    "class": "multihop",
+    "intent": "answer",
+    "gold": ["mail-032", "mail-033"],
+    "answer": "Sunday Nov 15; corrals open at 6:45 AM.",
+    "answerKeywords": ["6:45"]
+  },
+  {
+    "id": "q133",
+    "q": "Who is the PM on Atlas and when does beta start?",
+    "class": "multihop",
+    "intent": "answer",
+    "gold": ["mail-059", "mail-064"],
+    "answer": "Aiko Tanaka; internal beta Nov 30, customer beta Dec 14.",
+    "answerKeywords": ["Aiko"]
+  },
+  {
+    "id": "q134",
+    "q": "Which contractor can start sooner, Bayline or Harbor & Pine?",
+    "class": "multihop",
+    "intent": "answer",
+    "gold": ["mail-048", "mail-047"],
+    "answer": "Bayline on Jan 11; Harbor week of Jan 19.",
+    "answerKeywords": ["Bayline"]
+  },
+  {
+    "id": "q135",
+    "q": "What did Biscuit's two vet visits cost this year in total?",
+    "class": "multihop",
+    "intent": "answer",
+    "gold": ["mail-024", "mail-025"],
+    "answer": "$187 + $142 = $329.",
+    "answerKeywords": ["329"]
+  },
+  {
+    "id": "q136",
+    "q": "Until what time is Maya working the day we arrive?",
+    "class": "crosslingual",
+    "intent": "answer",
+    "gold": ["imsg-003", "imsg-080"],
+    "answer": "Until 22:00 (10 PM) on Friday Dec 4.",
+    "answerKeywords": ["22"]
+  },
+  {
+    "id": "q137",
+    "q": "How much is the city tourist tax at the Airbnb and how do I pay it?",
+    "class": "crosslingual",
+    "intent": "answer",
+    "gold": ["mail-005", "cal-006"],
+    "answer": "EUR 2 per person per night, EUR 28 total, in cash on arrival.",
+    "answerKeywords": ["28"]
+  },
+  {
+    "id": "q138",
+    "q": "Where is the key to the apartment in Alfama?",
+    "class": "crosslingual",
+    "intent": "answer",
+    "gold": ["mail-005"],
+    "answer": "In a lockbox next to the blue door; code 3092.",
+    "answerKeywords": ["3092"]
+  },
+  {
+    "id": "q139",
+    "q": "Where exactly are we meeting Maya in Belem on Sunday?",
+    "class": "crosslingual",
+    "intent": "answer",
+    "gold": ["imsg-005", "cal-004"],
+    "answer": "At the entrance of Jeronimos Monastery at 11:00.",
+    "answerKeywords": ["ronimos"]
+  },
+  {
+    "id": "q140",
+    "q": "What did Maya say the weather will be like in December?",
+    "class": "crosslingual",
+    "intent": "answer",
+    "gold": ["imsg-012"],
+    "answer": "Rain almost every day; bring the raincoat.",
+    "answerKeywords": ["rain"]
+  },
+  {
+    "id": "q141",
+    "q": "from:maya kitchen",
+    "class": "filter",
+    "intent": "list",
+    "gold": ["mail-076", "imsg-010"],
+    "answer": "Maya's messages mentioning Mom's kitchen.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q142",
+    "q": "type:pdf lease",
+    "class": "filter",
+    "intent": "list",
+    "gold": ["file-001", "file-002", "file-003"],
+    "answer": "The lease PDFs.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q143",
+    "q": "in:tasks dentist",
+    "class": "filter",
+    "intent": "list",
+    "gold": ["task-010"],
+    "answer": "The task that found dentist appointment dates.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q144",
+    "q": "after:2026-10-15 biscuit recheck",
+    "class": "filter",
+    "intent": "list",
+    "gold": ["mail-026", "imsg-016", "imsg-069", "cal-009", "chat-046"],
+    "answer": "Biscuit recheck items since Oct 15.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q145",
+    "q": "from:daniel atlas",
+    "class": "filter",
+    "intent": "list",
+    "gold": ["mail-059", "mail-060", "mail-061", "mail-065", "imsg-052"],
+    "answer": "Atlas items from Daniel.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q146",
+    "q": "in:calendar after:2026-12-01",
+    "class": "filter",
+    "intent": "list",
+    "gold": ["cal-001", "cal-002", "cal-003", "cal-004", "cal-005", "cal-006"],
+    "answer": "December calendar events for the Lisbon trip.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q147",
+    "q": "type:csv receipts",
+    "class": "filter",
+    "intent": "list",
+    "gold": ["file-014"],
+    "answer": "Tax_Receipts_2026.csv",
+    "answerKeywords": []
+  },
+  {
+    "id": "q148",
+    "q": "from:sam concert",
+    "class": "filter",
+    "intent": "list",
+    "gold": ["mail-079", "imsg-042"],
+    "answer": "Sam's messages about concert tickets.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q149",
+    "q": "in:reminders lease",
+    "class": "filter",
+    "intent": "list",
+    "gold": ["rem-006"],
+    "answer": "Reminder to sign the lease renewal.",
+    "answerKeywords": []
+  },
+  {
+    "id": "q150",
+    "q": "before:2026-07-31 maya",
+    "class": "filter",
+    "intent": "list",
+    "gold": ["imsg-013", "imsg-014"],
+    "answer": "Maya items before July 31.",
+    "answerKeywords": []
+  }
+]
