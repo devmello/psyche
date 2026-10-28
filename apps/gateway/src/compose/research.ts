@@ -43,6 +43,26 @@ function untrustedOut(output: unknown, isError = false): ToolResult {
   return { output, provenance: "untrusted", ...(isError ? { isError } : {}) };
 }
 
+/** One terse line for the tool row while a run is in progress (the typed event rides in `data`). */
+export function progressLine(e: ProgressEvent, plan: ResearchPlan): string {
+  switch (e.type) {
+    case "step":
+      return `Research: ${e.step}`;
+    case "source":
+      return `Research: ${e.status} ${e.title || e.url}`.slice(0, 160);
+    case "claims":
+      return `Research: ${e.count} claims`;
+    case "tokens":
+      return `Research: ${e.used} of about ${plan.estimatedTokens} tokens`;
+    case "plan":
+      return `Research: ${e.plan.subQuestions.length} sub-questions`;
+    case "done":
+      return "Research: report saved";
+    case "stopped":
+      return "Research: stopped";
+  }
+}
+
 export function researchTools(deps: ResearchDeps): AgentToolRegistration[] {
   const store = new ArtifactStore({ db: deps.db, home: deps.home, publish: deps.publish });
   interface Kept {
@@ -165,7 +185,7 @@ export function researchTools(deps: ResearchDeps): AgentToolRegistration[] {
       if (!entry || entry.ran)
         return untrustedOut({ error: "unknown or already-run research id" }, true);
       entry.ran = true;
-      entry.progress = (e) => ctx.onUpdate({ message: e.type, data: e });
+      entry.progress = (e) => ctx.onUpdate({ message: progressLine(e, entry.plan), data: e });
       const onStop = () => entry.run.stop();
       ctx.signal.addEventListener("abort", onStop);
       const usedBefore = entry.run.tokens;
@@ -212,7 +232,7 @@ export function researchTools(deps: ResearchDeps): AgentToolRegistration[] {
         return untrustedOut({ error: "unknown research id or no report yet" }, true);
       const onStop = () => entry.run.stop();
       ctx.signal.addEventListener("abort", onStop);
-      entry.progress = (e) => ctx.onUpdate({ message: e.type, data: e });
+      entry.progress = (e) => ctx.onUpdate({ message: progressLine(e, entry.plan), data: e });
       try {
         if (p.section !== undefined) {
           const status = await entry.run.digDeeper(p.section - 1);
