@@ -17,6 +17,7 @@ export * from "./query-parser.ts";
 export * from "./ranking.ts";
 export * from "./schema.ts";
 export * from "./semantic.ts";
+export * from "./sources/index.ts";
 export * from "./sqlite-index.ts";
 export * from "./types.ts";
 export * from "./web/index.ts";

@@ -189,6 +189,61 @@ export const SearchIndexStatus = Type.Object(
 );
 export type SearchIndexStatus = Static<typeof SearchIndexStatus>;
 
+/** Local sources the owner can have indexed (Settings → Search sources). */
+export const SearchSourceId = StringEnum(
+  ["mail", "messages", "notes", "calendar", "reminders", "files"],
+  { $id: "SearchSourceId" },
+);
+export type SearchSourceId = Static<typeof SearchSourceId>;
+
+/** Which model class may read a source's text; only `none` (no context cards) has an effect today. */
+export const SearchProcessing = StringEnum(["cloud", "local", "none"], {
+  $id: "SearchProcessing",
+});
+export type SearchProcessing = Static<typeof SearchProcessing>;
+
+export const SearchSourceStatus = Type.Object(
+  {
+    id: SearchSourceId,
+    label: Type.String(),
+    enabled: Type.Boolean({ description: "Off by default; the owner chooses what is read" }),
+    processing: SearchProcessing,
+    state: StringEnum(["off", "unavailable", "idle", "indexing", "error"], {
+      $id: "SearchSourceState",
+    }),
+    detail: Type.Optional(Type.String({ description: "Why it cannot run, or the last error" })),
+    items: Type.Integer({ minimum: 0 }),
+    lastIndexedAt: Type.Optional(Type.Integer({ minimum: 0, description: "Epoch ms" })),
+    textBytes: Type.Integer({ minimum: 0, description: "Text indexed for this source" }),
+    backfilled: Type.Boolean({ description: "The first pass reached the end" }),
+  },
+  { $id: "SearchSourceStatus" },
+);
+export type SearchSourceStatus = Static<typeof SearchSourceStatus>;
+
+/** What the owner keeps out of the index. */
+export const SearchExclusions = Type.Object(
+  {
+    contacts: Type.Array(Type.String({ maxLength: 320 }), { maxItems: 2000 }),
+    chats: Type.Array(Type.String({ maxLength: 320 }), { maxItems: 2000 }),
+    accounts: Type.Array(Type.String({ maxLength: 320 }), { maxItems: 2000 }),
+    folders: Type.Array(Type.String({ maxLength: 1024 }), { maxItems: 2000 }),
+  },
+  { $id: "SearchExclusions" },
+);
+export type SearchExclusions = Static<typeof SearchExclusions>;
+
+/** What `search.sources` returns and `search.sources.updated` carries. */
+export const SearchSourcesStatus = Type.Object(
+  {
+    sources: Type.Array(SearchSourceStatus),
+    exclude: SearchExclusions,
+    indexBytes: Type.Integer({ minimum: 0, description: "Size of the whole index file" }),
+  },
+  { $id: "SearchSourcesStatus" },
+);
+export type SearchSourcesStatus = Static<typeof SearchSourcesStatus>;
+
 export const SearchMethods = {
   "search.query": defineMethod({
     params: Type.Object({
@@ -222,5 +277,33 @@ export const SearchMethods = {
     sideEffecting: true,
     description:
       "Rebuilds the search index from the stores in the background; documents that no longer exist are dropped. Progress arrives as search.status.updated. Side-effecting.",
+  }),
+  "search.sources": defineMethod({
+    params: Type.Object({}),
+    result: SearchSourcesStatus,
+    scope: "operator.read",
+    description:
+      "Local search sources (Mail, Messages, Notes, Calendar, Reminders, files): on or off, items, last indexed, size.",
+  }),
+  "search.sources.configure": defineMethod({
+    params: Type.Object({
+      source: Type.Optional(SearchSourceId),
+      enabled: Type.Optional(Type.Boolean()),
+      processing: Type.Optional(SearchProcessing),
+      exclude: Type.Optional(Type.Partial(SearchExclusions)),
+    }),
+    result: SearchSourcesStatus,
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Turns a search source on or off (what Psyche may read), sets its processing model, or replaces exclusion lists. Turning a source off removes its documents at once; an added exclusion removes what it matches. Side-effecting.",
+  }),
+  "search.sources.rebuild": defineMethod({
+    params: Type.Object({ source: SearchSourceId }),
+    result: SearchSourcesStatus,
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Drops one source's documents and reads it again from the start in the background. Side-effecting.",
   }),
 } as const;

@@ -145,6 +145,10 @@ export interface MockWorld {
   memoryFiles: Record<string, string>;
   memoryClaims: MemoryClaim[];
   searchHits: SearchHit[];
+  searchSources: {
+    sources: Partial<Record<string, { enabled: boolean; processing: "cloud" | "local" | "none" }>>;
+    exclude: { contacts: string[]; chats: string[]; accounts: string[]; folders: string[] };
+  };
   /** The people and projects graph (`memory.entities.*`); absent → empty. */
   graph?: GraphWorld;
   /** Batch proposals (`proposals.*`) and the calls that fail when one runs, by proposal id. */
@@ -264,6 +268,7 @@ export const EMPTY_WORLD: MockWorld = {
   memoryFiles: {},
   memoryClaims: [],
   searchHits: [],
+  searchSources: { sources: {}, exclude: { contacts: [], chats: [], accounts: [], folders: [] } },
   skills: [],
   skillSources: {},
   skillDrafts: [],
@@ -337,6 +342,35 @@ export class MockGateway implements GatewayClient {
   private latency: number;
   private now: () => string;
   private counter = 0;
+  private sourcesStatus(): MethodResult<"search.sources"> {
+    const ids = ["mail", "messages", "notes", "calendar", "reminders", "files"] as const;
+    const labels = {
+      mail: "Mail",
+      messages: "Messages",
+      notes: "Notes",
+      calendar: "Calendar",
+      reminders: "Reminders",
+      files: "Files",
+    };
+    const cfg = this.world.searchSources;
+    return {
+      sources: ids.map((id) => {
+        const c = cfg.sources[id] ?? { enabled: false, processing: "cloud" as const };
+        return {
+          id,
+          label: labels[id],
+          enabled: c.enabled,
+          processing: c.processing,
+          state: c.enabled ? ("idle" as const) : ("off" as const),
+          items: c.enabled ? 120 : 0,
+          textBytes: c.enabled ? 480_000 : 0,
+          backfilled: c.enabled,
+        };
+      }),
+      exclude: cfg.exclude,
+      indexBytes: 12_000_000,
+    };
+  }
   private skillProposals = new Map<string, SkillProposal>();
   /** Settings → MCP (#529): added servers and probes waiting for their trust card. */
   readonly mcpServers: McpServerStatus[] = [];
@@ -2205,6 +2239,20 @@ export class MockGateway implements GatewayClient {
       backfill: { state: "done", done: 0 },
     }),
     "search.reindex": () => ({ started: true }),
+    "search.sources": () => this.sourcesStatus(),
+    "search.sources.configure": (p) => {
+      const cfg = this.world.searchSources;
+      if (p.source !== undefined) {
+        const cur = cfg.sources[p.source] ?? { enabled: false, processing: "cloud" as const };
+        cfg.sources[p.source] = {
+          enabled: p.enabled ?? cur.enabled,
+          processing: p.processing ?? cur.processing,
+        };
+      }
+      if (p.exclude !== undefined) Object.assign(cfg.exclude, p.exclude);
+      return this.sourcesStatus();
+    },
+    "search.sources.rebuild": () => this.sourcesStatus(),
 
     "memory.read": (p) => {
       const content = this.world.memoryFiles[p.path] ?? fail("not_found", `${p.path} not found`);

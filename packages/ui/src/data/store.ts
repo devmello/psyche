@@ -637,6 +637,8 @@ export class GatewayStore {
         return invalidate(s, ["connectors."]);
       case "node.updated":
         return invalidate(s, ["nodes."]);
+      case "search.sources.updated":
+        return invalidate(s, ["search.sources"]);
       case "search.status.updated":
         // Results refresh once a backfill or rebuild has finished, not on every progress tick.
         return invalidate(

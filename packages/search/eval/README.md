@@ -25,7 +25,8 @@ It runs each question three ways (`--mode`):
 It indexes two coverages (`--coverage`):
 
 - `production`: only the sources the Gateway indexes today (chats, tasks, Library).
-- `full`: every source.
+- `full`: every source, written straight into the index.
+- `indexed`: production plus every local source, written by the real source indexers (`SourceIndexer` over a fake Apple connector, a fake Messages helper and a temp folder; `eval/indexed.ts`). Messages are one document per chat and day, so a hit credits every corpus message of that conversation-day.
 
 ## Metrics
 

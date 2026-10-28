@@ -21,6 +21,11 @@ export interface CardQueueOptions {
   minChars?: number;
   maxAttempts?: number;
   kinds?: readonly string[];
+  /**
+   * Producers whose items get no card (a search source set to processing `none`); read on every
+   * call, so a switch applies at once.
+   */
+  blockedSources?: () => readonly string[];
   now?: () => number;
 }
 
@@ -71,6 +76,7 @@ export class CardQueue {
       minChars: 200,
       maxAttempts: 3,
       kinds: CARD_KINDS,
+      blockedSources: () => [],
       now: Date.now,
       ...options,
     };
@@ -94,7 +100,8 @@ export class CardQueue {
     return (
       item.provenance !== "system" &&
       item.text.trim().length >= this.#o.minChars &&
-      this.#o.kinds.includes(item.kind)
+      this.#o.kinds.includes(item.kind) &&
+      !(this.#o.blockedSources?.() ?? []).includes(item.source)
     );
   }
 
@@ -185,8 +192,11 @@ export class CardQueue {
 
   #candidateSql(): string {
     const kinds = this.#o.kinds.map(() => "?").join(", ");
+    const blocked = (this.#o.blockedSources?.() ?? []).map((s) => `'${s.replace(/'/g, "''")}'`);
+    const notBlocked =
+      blocked.length === 0 ? "" : `AND COALESCE(d.source, '') NOT IN (${blocked.join(", ")})`;
     return `FROM search_docs d
-      WHERE d.kind IN (${kinds}) AND length(d.body) >= ? AND d.provenance != 'system'
+      WHERE d.kind IN (${kinds}) AND length(d.body) >= ? AND d.provenance != 'system' ${notBlocked}
         AND NOT EXISTS (SELECT 1 FROM search_cards c WHERE c.doc_id = d.id)
         AND NOT EXISTS (SELECT 1 FROM search_card_queue q WHERE q.doc_id = d.id)
         AND NOT EXISTS (SELECT 1 FROM search_meta m WHERE m.key = 'cards.skip.' || d.id)`;

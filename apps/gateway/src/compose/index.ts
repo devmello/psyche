@@ -164,6 +164,8 @@ import type { ComposedSandbox } from "./sandbox.ts";
 import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
 import { scriptTools } from "./scripts.ts";
 import { type ComposedSearch, composeSearch } from "./search.ts";
+import { appleSearchSeams } from "./search-apple.ts";
+import { filesSourceDeps, powerReader } from "./search-files.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
 import {
   type ApprovalRelay,
@@ -1318,7 +1320,21 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   );
   parts.push(otherChats.part());
   // S1 unified search: `state/search.sqlite`, kept current from the bus, and `search.query`.
+  const appleSearch = appleSearchSeams({
+    connectors: async () => (connectorsPart === undefined ? [] : connectorsPart.registry.list()),
+    tools: services.tools,
+    messages: graphMessagesHelper,
+    now: () => clock.now(),
+  });
   const search = composeSearch({
+    // Local sources: each off until the owner turns it on in Settings → Search sources.
+    sources: {
+      apple: appleSearch.deps,
+      refresh: appleSearch.refresh,
+      files: filesSourceDeps({ folders: () => rawBroker.policy.folders ?? [] }),
+      power: powerReader(),
+      watch: background,
+    },
     db,
     home: config.home,
     memory,

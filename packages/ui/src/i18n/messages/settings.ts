@@ -1013,6 +1013,41 @@ export const settings = {
 
   // Web search for the agent's web.search / web.fetch tools, under Model (WebSearchSettings.tsx).
   // Semantic search in Search and ⌘K (docs/design/search-2026.md §3), under Model (SemanticSearchSettings.tsx).
+  // Local search sources (docs/design/search-roadmap-2026.md §2), under Model (SearchSourcesSettings.tsx).
+  "settings.searchSources.title": "Search sources",
+  "settings.searchSources.description":
+    "Choose what Psyche reads into your search index. Everything is off until you switch it on, and the index stays on this Mac.",
+  "settings.searchSources.hint.mail":
+    "Subject, sender, recipients, date and the text of your mail in Apple Mail. Quoted replies are skipped.",
+  "settings.searchSources.hint.messages":
+    "The text of your iMessage conversations, grouped by chat and day. Off by default. Other people's messages are treated as untrusted text, never as instructions.",
+  "settings.searchSources.hint.notes": "The title and text of your Apple Notes.",
+  "settings.searchSources.hint.calendar":
+    "Events from the past three years and the next twelve months: title, time, place, attendees and notes.",
+  "settings.searchSources.hint.reminders": "Reminders and their lists, due dates and notes.",
+  "settings.searchSources.hint.files":
+    "Text, Markdown, code, PDF, Word and Excel files in the folders you have shared with Psyche. Scans and images need OCR, which is not available yet.",
+  "settings.searchSources.state.off": "Off: not read",
+  "settings.searchSources.state.unavailable": "On, but not available: {why}",
+  "settings.searchSources.state.error": "Problem: {why}",
+  "settings.searchSources.state.indexing":
+    "Indexing: {n, plural, one {# item} other {# items}} so far",
+  "settings.searchSources.state.idle": "Up to date: {n, plural, one {# item} other {# items}}",
+  "settings.searchSources.neverIndexed": "Not indexed yet",
+  "settings.searchSources.lastIndexed": "Last indexed {when}",
+  "settings.searchSources.rebuild": "Rebuild",
+  "settings.searchSources.rebuildLabel": "Rebuild {source}",
+  "settings.searchSources.processing": "Processing",
+  "settings.searchSources.processingLabel": "Processing for {source}",
+  "settings.searchSources.processing.cloud": "Cloud model (current)",
+  "settings.searchSources.processing.local": "Local model",
+  "settings.searchSources.processing.none": "None: no summaries",
+  "settings.searchSources.excludeContacts": "Never index these contacts",
+  "settings.searchSources.excludeContactsHint":
+    "Email addresses, phone numbers or names, separated by commas",
+  "settings.searchSources.excludeFolders": "Never index these folders",
+  "settings.searchSources.indexSize": "Search index size: {size}",
+
   "settings.semanticSearch.title": "Search",
   "settings.semanticSearch.description":
     "Find chats, tasks and files by meaning as well as by their words. Everything is indexed and searched on this Mac.",

@@ -7766,6 +7766,74 @@ export interface SearchReindexResult {
     started: boolean;
 }
 
+export interface SearchSourcesConfigureParams {
+    enabled?:    boolean;
+    exclude?:    Exclude;
+    processing?: SearchProcessing;
+    source?:     SearchSourceID;
+}
+
+export interface Exclude {
+    accounts?: string[];
+    chats?:    string[];
+    contacts?: string[];
+    folders?:  string[];
+}
+
+export type SearchProcessing = "cloud" | "local" | "none";
+
+export type SearchSourceID = "mail" | "messages" | "notes" | "calendar" | "reminders" | "files";
+
+export interface SearchSourcesRebuildParams {
+    source: SearchSourceID;
+}
+
+export interface SearchSourcesStatus {
+    exclude: SearchExclusions;
+    /**
+     * Size of the whole index file
+     */
+    indexBytes: number;
+    sources:    SearchSourceStatus[];
+}
+
+export interface SearchExclusions {
+    accounts: string[];
+    chats:    string[];
+    contacts: string[];
+    folders:  string[];
+}
+
+export interface SearchSourceStatus {
+    /**
+     * The first pass reached the end
+     */
+    backfilled: boolean;
+    /**
+     * Why it cannot run, or the last error
+     */
+    detail?: string;
+    /**
+     * Off by default; the owner chooses what is read
+     */
+    enabled: boolean;
+    id:      SearchSourceID;
+    items:   number;
+    label:   string;
+    /**
+     * Epoch ms
+     */
+    lastIndexedAt?: number;
+    processing:     SearchProcessing;
+    state:          SearchSourceState;
+    /**
+     * Text indexed for this source
+     */
+    textBytes: number;
+}
+
+export type SearchSourceState = "off" | "unavailable" | "idle" | "indexing" | "error";
+
 export interface SelfConnectorFilesResult {
     entry:    string;
     files:    SelfConnectorFile[];

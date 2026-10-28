@@ -334,6 +334,11 @@
         "payload": "#/$defs/RunUpdatedPayload"
       },
       {
+        "description": "A local search source changed: switched, indexed more, swept or rebuilt (Settings → Search sources).",
+        "name": "search.sources.updated",
+        "payload": "#/$defs/SearchSourcesStatus"
+      },
+      {
         "description": "Search index backfill started, progressed or finished (docs/design/search-2026.md §6).",
         "name": "search.status.updated",
         "payload": "#/$defs/SearchIndexStatus"
@@ -2436,6 +2441,30 @@
         "name": "search.reindex",
         "params": "#/$defs/SearchReindexParams",
         "result": "#/$defs/SearchReindexResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Local search sources (Mail, Messages, Notes, Calendar, Reminders, files): on or off, items, last indexed, size.",
+        "name": "search.sources",
+        "params": "#/$defs/SearchSourcesParams",
+        "result": "#/$defs/SearchSourcesStatus",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Turns a search source on or off (what Psyche may read), sets its processing model, or replaces exclusion lists. Turning a source off removes its documents at once; an added exclusion removes what it matches. Side-effecting.",
+        "name": "search.sources.configure",
+        "params": "#/$defs/SearchSourcesConfigureParams",
+        "result": "#/$defs/SearchSourcesStatus",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Drops one source's documents and reads it again from the start in the background. Side-effecting.",
+        "name": "search.sources.rebuild",
+        "params": "#/$defs/SearchSourcesRebuildParams",
+        "result": "#/$defs/SearchSourcesStatus",
         "scope": "operator.write",
         "sideEffecting": true
       },
@@ -30936,6 +30965,49 @@
       ],
       "type": "object"
     },
+    "SearchExclusions": {
+      "properties": {
+        "contacts": {
+          "items": {
+            "maxLength": 320,
+            "type": "string"
+          },
+          "maxItems": 2000,
+          "type": "array"
+        },
+        "chats": {
+          "items": {
+            "maxLength": 320,
+            "type": "string"
+          },
+          "maxItems": 2000,
+          "type": "array"
+        },
+        "accounts": {
+          "items": {
+            "maxLength": 320,
+            "type": "string"
+          },
+          "maxItems": 2000,
+          "type": "array"
+        },
+        "folders": {
+          "items": {
+            "maxLength": 1024,
+            "type": "string"
+          },
+          "maxItems": 2000,
+          "type": "array"
+        }
+      },
+      "required": [
+        "contacts",
+        "chats",
+        "accounts",
+        "folders"
+      ],
+      "type": "object"
+    },
     "SearchGroup": {
       "enum": [
         "threads",
@@ -31133,6 +31205,14 @@
       ],
       "type": "string"
     },
+    "SearchProcessing": {
+      "enum": [
+        "cloud",
+        "local",
+        "none"
+      ],
+      "type": "string"
+    },
     "SearchQueryParams": {
       "properties": {
         "query": {
@@ -31304,6 +31384,170 @@
         "enabled",
         "engine",
         "state"
+      ],
+      "type": "object"
+    },
+    "SearchSourceId": {
+      "enum": [
+        "mail",
+        "messages",
+        "notes",
+        "calendar",
+        "reminders",
+        "files"
+      ],
+      "type": "string"
+    },
+    "SearchSourceState": {
+      "enum": [
+        "off",
+        "unavailable",
+        "idle",
+        "indexing",
+        "error"
+      ],
+      "type": "string"
+    },
+    "SearchSourceStatus": {
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/SearchSourceId"
+        },
+        "label": {
+          "type": "string"
+        },
+        "enabled": {
+          "description": "Off by default; the owner chooses what is read",
+          "type": "boolean"
+        },
+        "processing": {
+          "$ref": "#/$defs/SearchProcessing"
+        },
+        "state": {
+          "$ref": "#/$defs/SearchSourceState"
+        },
+        "detail": {
+          "description": "Why it cannot run, or the last error",
+          "type": "string"
+        },
+        "items": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "lastIndexedAt": {
+          "description": "Epoch ms",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "textBytes": {
+          "description": "Text indexed for this source",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "backfilled": {
+          "description": "The first pass reached the end",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "enabled",
+        "processing",
+        "state",
+        "items",
+        "textBytes",
+        "backfilled"
+      ],
+      "type": "object"
+    },
+    "SearchSourcesConfigureParams": {
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/SearchSourceId"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "processing": {
+          "$ref": "#/$defs/SearchProcessing"
+        },
+        "exclude": {
+          "properties": {
+            "contacts": {
+              "items": {
+                "maxLength": 320,
+                "type": "string"
+              },
+              "maxItems": 2000,
+              "type": "array"
+            },
+            "chats": {
+              "items": {
+                "maxLength": 320,
+                "type": "string"
+              },
+              "maxItems": 2000,
+              "type": "array"
+            },
+            "accounts": {
+              "items": {
+                "maxLength": 320,
+                "type": "string"
+              },
+              "maxItems": 2000,
+              "type": "array"
+            },
+            "folders": {
+              "items": {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              "maxItems": 2000,
+              "type": "array"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "SearchSourcesParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "SearchSourcesRebuildParams": {
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/SearchSourceId"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "type": "object"
+    },
+    "SearchSourcesStatus": {
+      "properties": {
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/SearchSourceStatus"
+          },
+          "type": "array"
+        },
+        "exclude": {
+          "$ref": "#/$defs/SearchExclusions"
+        },
+        "indexBytes": {
+          "description": "Size of the whole index file",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sources",
+        "exclude",
+        "indexBytes"
       ],
       "type": "object"
     },
