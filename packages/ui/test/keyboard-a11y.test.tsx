@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ApprovalCard } from "../src/blocks/ApprovalCard.tsx";
@@ -67,26 +67,23 @@ describe("chat column by keyboard", () => {
 });
 
 describe("approval card by keyboard", () => {
-  it("arrow keys change the scope and ⌘Return allows the chosen one", async () => {
+  it("the scope select changes the lifetime and ⌘Return allows the chosen one", async () => {
     const approval = createFixtureWorld().approvals.find((a) => a.status === "pending");
     if (!approval) throw new Error("no pending approval");
     const onAnswer = vi.fn();
     render(
       <ApprovalCard approval={approval} canAnswer now={NOW} armDelayMs={0} onAnswer={onAnswer} />,
     );
-    const group = screen.getByRole("radiogroup", { name: "Decision" });
-    const radios = within(group).getAllByRole("radio");
-    const checked = () => radios.find((r) => r.getAttribute("aria-checked") === "true");
-    // Deny is preselected (§3.3); move to the first allowing scope with the arrow keys.
-    (checked() ?? radios[0])?.focus();
-    const before = checked();
-    await userEvent.keyboard("{ArrowLeft}");
-    const after = checked();
-    expect(after).toBeTruthy();
-    expect(after).not.toBe(before);
+    const scope = screen.getByRole("combobox", { name: "Allow for" }) as HTMLSelectElement;
+    expect(scope.value).toBe("once");
+    const other = [...scope.options].find((o) => o.value !== "once");
+    if (!other) throw new Error("fixture offers one scope only");
+    await userEvent.selectOptions(scope, other.value);
+    expect(scope.value).toBe(other.value);
     await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
     await waitFor(() => expect(onAnswer).toHaveBeenCalled());
     expect(onAnswer.mock.calls[0]?.[0]).toBe("approve");
+    expect(onAnswer.mock.calls[0]?.[1]).toBe(other.value);
   });
 });
 

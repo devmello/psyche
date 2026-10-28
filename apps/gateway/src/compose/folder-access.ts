@@ -1,6 +1,11 @@
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "@psyche/agent-core";
 import { hashCanonical } from "@psyche/audit";
-import { type FolderGrantEntry, folderScopesOffered } from "@psyche/permissions";
+import {
+  type FolderAccessEnv,
+  type FolderGrantEntry,
+  folderScopesOffered,
+  resolveRequestedFolder,
+} from "@psyche/permissions";
 import { type PermissionBroker, PsycheError, type ToolResult } from "@psyche/protocol";
 import { Type } from "@sinclair/typebox";
 
@@ -16,13 +21,15 @@ import { Type } from "@sinclair/typebox";
 export interface FolderAccessToolDeps {
   broker: PermissionBroker;
   surfaces: readonly string[];
+  /** The sensitive-root environment the broker judges a folder by (defaults to this user's home). */
+  folderEnv?: () => FolderAccessEnv;
 }
 
 export function requestFolderAccessTool(deps: FolderAccessToolDeps): AgentToolRegistration {
   return defineTool({
     name: "request_folder_access",
     description:
-      "Ask the owner for access to a folder your file tools cannot reach (read_file, list_dir, search_files, write_file say it is outside every granted folder). Give the folder you need as `path` (a hint: the owner picks the real folder), why you need it, and `read` or `read_write`. The owner decides; the reply says whether a folder was granted and which one. Ask only for the narrowest folder you need, never for the home folder, and do not ask again after a denial.",
+      "Ask the owner for access to a folder your file tools cannot reach (read_file, list_dir, search_files, write_file say it is outside every granted folder). Give the folder you need as `path` (a hint: the owner picks the real folder), why you need it, and `read` or `read_write`. The call waits for the owner to answer on their card and returns in the same turn: `granted: true` with the folder, access and how long it lasts, after which you continue with the task right away (list or read the folder); or `granted: false`, after which you tell the owner briefly and do not ask again. Make this call by itself, before the file calls that need the folder. Ask only for the narrowest folder you need, never for the home folder, and do not ask again after a denial.",
     input: Type.Object({
       path: Type.String({ minLength: 1, maxLength: 1024, description: "The folder you need" }),
       reason: Type.String({ minLength: 1, maxLength: 500, description: "Why, in a sentence" }),
@@ -51,18 +58,30 @@ export async function askForFolder(
     );
   }
   const mode = p.access === "read_write" ? "rw" : "ro";
+  // The card pre-fills this resolved folder; the owner can replace it with the picker. What is
+  // shown is what is granted, and the broker re-resolves it when the owner answers.
+  const requested = await resolveRequestedFolder(p.path, deps.folderEnv?.() ?? {});
+  const resolved =
+    requested.status === "missing"
+      ? { folderStatus: "missing" }
+      : {
+          folderStatus: requested.status,
+          resolvedPath: requested.path,
+          ...(requested.status === "blocked" ? { blockedReason: requested.reason } : {}),
+        };
   const binding = hashCanonical({
     tool: "request_folder_access",
     path: p.path,
     reason: p.reason,
     access: mode,
+    resolved,
     threadId: ctx.threadId,
     callId: ctx.callId,
   });
   const issued = await deps.broker.requestApproval({
     kind: "folder_access",
     summary: `Share a folder: ${p.path}`.slice(0, 300),
-    details: { requestedPath: p.path, reason: p.reason, access: mode },
+    details: { requestedPath: p.path, reason: p.reason, access: mode, ...resolved },
     bindingHash: binding,
     grantKey: `folder_access|${mode}`,
     requestedBy: {

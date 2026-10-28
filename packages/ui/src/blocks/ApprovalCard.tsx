@@ -1,5 +1,3 @@
-import { Radio as RadioPrimitive } from "@base-ui/react/radio";
-import { RadioGroup as RadioGroupPrimitive } from "@base-ui/react/radio-group";
 import { renderForSurface, sanitizeApproval } from "@psyche/permissions/cards";
 import type { ApprovalRequest, GrantScope, MissingPermission } from "@psyche/protocol";
 import { CircleAlert, Ellipsis, Fingerprint, ShieldCheck } from "lucide-react";
@@ -30,6 +28,7 @@ import { easeLinear, fade, motionSpring, spring } from "../motion/index.ts";
 import { useSlots } from "../slots.tsx";
 import { roleLabel } from "../specialists/model.ts";
 import { ApprovalDetails, ApprovalIds } from "./approval-details.tsx";
+import { taintSentence } from "./taint-text.ts";
 
 /**
  * Approval card (UI design §3.3). Host-rendered, fixed structure and button order, never inside a
@@ -50,6 +49,8 @@ export function focusApproval(approvalId: string): void {
 }
 
 export type ApprovalChoice = "deny" | "once" | "task" | "site" | "always" | "session";
+
+type AllowScope = Exclude<ApprovalChoice, "deny">;
 
 export interface ApprovalCardProps {
   approval: ApprovalRequest;
@@ -85,14 +86,12 @@ export interface ApprovalCardProps {
   layoutId?: string;
 }
 
-/**
- * Expiry choices under Always allow (UI design §3.3), limited to the grant scopes an answer can
- * carry: `session` ends with this session, `always` lasts until revoked in Settings (the Broker
- * may still cap it by policy).
- */
-const untilLabel = (scope: "session" | "always"): string => t(`blocks.approval.until.${scope}`);
-
 const scopeLabel = (scope: GrantScope): string => t(`blocks.approval.scope.${scope}`);
+
+/** "Downloads" for `/Users/me/Downloads`. */
+function folderName(path: string): string {
+  return path.replace(/\/+$/, "").split("/").pop() || path;
+}
 
 function originOf(approval: ApprovalRequest): string | null {
   if (approval.target?.kind === "origin") return approval.target.display ?? approval.target.value;
@@ -161,10 +160,11 @@ export function ApprovalCard({
   const now = useNow(1000, fixedNow);
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const [choice, setChoice] = useState<ApprovalChoice>("deny");
-  // The narrower lifetime is the default (until this session ends), when it is offered.
-  const [alwaysScope, setAlwaysScope] = useState<"always" | "session">(
-    approval.scopesOffered.includes("session") ? "session" : "always",
+  // The scope sits on the Allow action; the narrowest offered lifetime is the default.
+  const [choice, setChoice] = useState<AllowScope>(
+    (["once", "task", "site", "session", "always"] as const).find((v) =>
+      approval.scopesOffered.includes(v),
+    ) ?? "once",
   );
   const [armed, setArmed] = useState(armDelayMs === 0);
   const [busy, setBusy] = useState(false);
@@ -173,7 +173,19 @@ export function ApprovalCard({
   // folder_access: the folder the owner picks is what is granted, never the agent's string.
   const isFolder = raw.kind === "folder_access";
   const { pickFolder, permissionAction } = useSlots();
-  const [folder, setFolder] = useState("");
+  // The Gateway resolved the path the agent named: a usable folder is pre-filled and is exactly
+  // what is granted; a blocked or missing one needs the owner's pick.
+  const requestedFolder =
+    typeof raw.details.folderStatus === "string"
+      ? {
+          status: raw.details.folderStatus,
+          path: typeof raw.details.resolvedPath === "string" ? raw.details.resolvedPath : "",
+        }
+      : null;
+  const [folder, setFolder] = useState(
+    requestedFolder?.status === "ok" ? requestedFolder.path : "",
+  );
+  const folderBlocked = requestedFolder?.status === "blocked" && folder === "";
   // exec_host (security §5.4): srt unless the owner types the word, which allows this run only.
   const rawDetails = raw.details as Record<string, unknown>;
   const isExecHost = raw.kind === "exec_host";
@@ -218,16 +230,11 @@ export function ApprovalCard({
   }, [interactive, armDelayMs]);
   const site = originOf(approval);
   const offered = approval.scopesOffered;
-  const hasAlways = offered.includes("always") || offered.includes("session");
 
   const submit = async (decision: "approve" | "deny") => {
     if (!interactive || !armed || busy) return;
-    const scope: GrantScope | undefined =
-      decision === "deny"
-        ? undefined
-        : choice === "always" || choice === "session"
-          ? alwaysScope
-          : (choice as GrantScope);
+    if (decision === "approve" && !allowReady) return;
+    const scope: GrantScope | undefined = decision === "deny" ? undefined : choice;
     setBusy(true);
     setError(null);
     try {
@@ -261,7 +268,7 @@ export function ApprovalCard({
     }
     if (e.key === "Enter") {
       e.preventDefault();
-      void submit(choice === "deny" ? "deny" : "approve");
+      void submit("approve");
     } else if (e.key.toLowerCase() === "d") {
       e.preventDefault();
       void submit("deny");
@@ -270,78 +277,53 @@ export function ApprovalCard({
 
   const status = statusText(approval, now);
   const whatLabel = t("blocks.approval.whatItWillDo");
-  const taint = approval.taint ? t("blocks.approval.taint") : null;
+  const onlyOnce = offered.length === 1 && offered[0] === "once";
+  const taintNote = pending ? taintSentence(approval, persona, onlyOnce) : null;
   // The Broker's own reason when the Gateway sends one (docs/archive/status/s12.md, gap 3).
   const reason = (approval.details as Record<string, unknown>).reason;
-  const why =
-    typeof reason === "string" && reason.trim() !== ""
+  // The folder and permission cards already show the reason in their own "Why" row.
+  const reasonInDetails = isFolder || isPermission;
+  const why = reasonInDetails
+    ? ""
+    : typeof reason === "string" && reason.trim() !== ""
       ? reason
-      : [
-          mode ? t("blocks.approval.modeReason", { mode }) : null,
-          approval.sideEffect ?? null,
-          taint,
-        ]
+      : [mode ? t("blocks.approval.modeReason", { mode }) : null, approval.sideEffect ?? null]
           .filter(Boolean)
           .join("; ");
 
   const permissionLabel = enables
     ? t("blocks.permission.enable")
     : t("blocks.permission.checkAgain");
-  const offeredScopes: { value: ApprovalChoice; short: string; long: string; hint?: string }[] = [
+  const offeredScopes: { value: AllowScope; label: string }[] = [
     ...(offered.includes("once")
-      ? [
-          {
-            value: "once" as const,
-            short: isPermission ? permissionLabel : scopeLabel("once"),
-            long: isPermission ? permissionLabel : scopeLabel("once"),
-          },
-        ]
+      ? [{ value: "once" as const, label: isPermission ? permissionLabel : scopeLabel("once") }]
       : []),
-    ...(offered.includes("task")
-      ? [
-          {
-            value: "task" as const,
-            short: t("chat.approval.segment.task"),
-            long: scopeLabel("task"),
-          },
-        ]
-      : []),
+    ...(offered.includes("task") ? [{ value: "task" as const, label: scopeLabel("task") }] : []),
     ...(offered.includes("site") && site !== null
-      ? [
-          {
-            value: "site" as const,
-            short: t("chat.approval.segment.site"),
-            long: `${scopeLabel("site")} ${site}`,
-            hint: site,
-          },
-        ]
+      ? [{ value: "site" as const, label: `${scopeLabel("site")} ${site}` }]
       : []),
-    ...(hasAlways && !unsandboxed
+    // Typing UNSANDBOXED allows this run only, so no lasting scope is offered then.
+    ...(offered.includes("session") && !unsandboxed
+      ? [{ value: "session" as const, label: scopeLabel("session") }]
+      : []),
+    ...(offered.includes("always") && !unsandboxed
       ? [
           {
             value: "always" as const,
             // A batch card offers `always` only for the prep note (security §3.4): name what it covers.
-            short:
-              approval.kind === "batch"
-                ? t("blocks.approval.scope.prepNotes")
-                : isFolder
-                  ? scopeLabel("always")
-                  : t("chat.approval.segment.always"),
-            long:
+            label:
               approval.kind === "batch"
                 ? t("blocks.approval.scope.prepNotes")
                 : scopeLabel("always"),
           },
         ]
       : []),
-    { value: "deny", short: t("blocks.approval.deny"), long: t("blocks.approval.deny") },
   ];
-  const canAllow =
-    armed &&
-    !busy &&
-    choice !== "deny" &&
+  const allowReady =
+    offeredScopes.length > 0 &&
     (!isFolder || folder !== "") &&
     (!isExecHost || sandboxReady || unsandboxed);
+  const canAllow = armed && !busy && allowReady;
   const specialist = approval.requestedBy.specialist;
   // A specialist asks (specialists §4.4): "For {task} · Shopper started by Psyche in Main chat".
   const requester = specialist
@@ -486,53 +468,84 @@ export function ApprovalCard({
       </p>
 
       {interactive && isFolder ? (
-        <div className="mt-3 flex flex-col gap-1.5" data-testid="folder-pick">
-          <label className="text-callout text-label-secondary" htmlFor={`${headingId}-folder`}>
-            {t("blocks.folder.title")}
-          </label>
-          <div className="flex flex-wrap items-center gap-2">
-            {pickFolder ? (
-              <>
-                <code
-                  id={`${headingId}-folder`}
-                  className="min-w-0 flex-1 truncate font-mono text-callout"
-                  data-testid="folder-picked"
-                >
-                  {folder === "" ? t("blocks.folder.mustPick") : folder}
-                </code>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => {
-                    setError(null);
-                    pickFolder({ title: t("blocks.folder.pickTitle", { persona }) }).then(
-                      (picked) => {
-                        if (picked !== null) setFolder(picked);
-                      },
-                      (err) =>
-                        setError(t("blocks.folder.pickError", { error: describeError(err) })),
-                    );
-                  }}
-                >
-                  {folder === "" ? t("blocks.folder.choose") : t("blocks.folder.change")}
-                </Button>
-              </>
-            ) : (
-              // No native picker (a browser): the owner confirms the path by typing it.
-              <input
-                id={`${headingId}-folder`}
-                value={folder}
-                onChange={(e) => setFolder(e.target.value.trim())}
-                aria-label={t("blocks.folder.pathLabel")}
-                placeholder="/"
-                className="h-7 min-w-0 flex-1 rounded-md bg-fill-secondary px-2 font-mono text-callout outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
-            )}
+        <div className="mt-2 flex flex-col gap-1.5" data-testid="folder-pick">
+          <div className="grid grid-cols-[7rem_1fr] gap-3 py-0.5 text-body">
+            <span
+              className="text-callout leading-[18px] text-label-secondary"
+              id={`${headingId}-folder-label`}
+            >
+              {t("blocks.folder.title")}
+            </span>
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              {pickFolder ? (
+                <>
+                  <div className="min-w-0 flex-1">
+                    {folder !== "" ? (
+                      <>
+                        <p className="truncate text-label-primary" data-testid="folder-name">
+                          {folderName(folder)}
+                        </p>
+                        <p
+                          className="break-all text-callout text-label-secondary"
+                          data-testid="folder-picked"
+                        >
+                          {folder}
+                        </p>
+                      </>
+                    ) : folderBlocked ? (
+                      <p className="text-danger-text" data-testid="folder-blocked">
+                        {t("blocks.folder.blocked", { path: requestedFolder?.path ?? "" })}
+                      </p>
+                    ) : (
+                      <p className="text-label-primary" data-testid="folder-missing">
+                        {requestedFolder?.status === "missing"
+                          ? t("blocks.folder.notFound", {
+                              path: String(raw.details.requestedPath ?? ""),
+                            })
+                          : t("blocks.folder.mustPick")}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => {
+                      setError(null);
+                      pickFolder({ title: t("blocks.folder.pickTitle", { persona }) }).then(
+                        (picked) => {
+                          if (picked !== null) setFolder(picked);
+                        },
+                        (err) =>
+                          setError(t("blocks.folder.pickError", { error: describeError(err) })),
+                      );
+                    }}
+                  >
+                    {folder === "" ? t("blocks.folder.choose") : t("blocks.folder.change")}
+                  </Button>
+                </>
+              ) : (
+                // No native picker (a browser): the owner confirms the path by typing it.
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  {folderBlocked ? (
+                    <p className="text-danger-text" data-testid="folder-blocked">
+                      {t("blocks.folder.blocked", { path: requestedFolder?.path ?? "" })}
+                    </p>
+                  ) : null}
+                  <input
+                    id={`${headingId}-folder`}
+                    value={folder}
+                    onChange={(e) => setFolder(e.target.value.trim())}
+                    aria-label={t("blocks.folder.pathLabel")}
+                    placeholder="/"
+                    className="h-7 min-w-0 flex-1 rounded-md bg-fill-secondary px-2 text-callout outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
+              )}
+            </div>
           </div>
           <p className="text-callout text-label-secondary">
             {t("blocks.folder.exact")} {t("blocks.folder.scope")}
-            {approval.taint ? ` ${t("blocks.folder.onceOnly")}` : ""}
           </p>
         </div>
       ) : null}
@@ -623,82 +636,24 @@ export function ApprovalCard({
         </div>
       ) : null}
 
-      {interactive ? (
-        <>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {/* The scope is one segmented control; Deny is preselected (docs/06 §3.3). */}
-            <RadioGroupPrimitive
-              value={choice}
-              onValueChange={(v) => setChoice(v as ApprovalChoice)}
-              aria-label={t("blocks.approval.decision")}
-              className="inline-flex max-w-full flex-wrap items-center gap-0.5 rounded-md bg-fill-secondary p-0.5"
-            >
-              {offeredScopes.map((scope) => (
-                <RadioPrimitive.Root
-                  key={scope.value}
-                  value={scope.value}
-                  aria-label={scope.long}
-                  {...(scope.hint ? { title: scope.hint } : {})}
-                  className={cn(
-                    "relative inline-flex h-6 cursor-default items-center rounded-sm px-2.5 text-body outline-none transition-colors duration-(--duration-micro) ease-(--ease-standard) focus-visible:ring-2 focus-visible:ring-ring",
-                    choice === scope.value
-                      ? "text-label-primary"
-                      : "text-label-secondary hover:text-label-primary",
-                  )}
-                >
-                  {choice === scope.value ? (
-                    <m.span
-                      layoutId={`approval-scope-${approval.id}`}
-                      transition={motionSpring(spring.micro)}
-                      className="absolute inset-0 rounded-sm bg-surface-raised shadow-elevation-1"
-                      aria-hidden="true"
-                    />
-                  ) : null}
-                  <span className="relative">{scope.short}</span>
-                </RadioPrimitive.Root>
-              ))}
-            </RadioGroupPrimitive>
-            {hasAlways && !isFolder ? (
-              <>
-                <label className="sr-only" htmlFor={`${headingId}-until`}>
-                  {t("blocks.approval.alwaysUntil")}
-                </label>
-                <NativeSelect
-                  id={`${headingId}-until`}
-                  size="sm"
-                  value={alwaysScope}
-                  onChange={(e) => {
-                    setAlwaysScope(e.target.value as "always" | "session");
-                    setChoice("always");
-                  }}
-                >
-                  {offered.includes("session") ? (
-                    <option value="session">{untilLabel("session")}</option>
-                  ) : null}
-                  {offered.includes("always") ? (
-                    <option value="always">{untilLabel("always")}</option>
-                  ) : null}
-                </NativeSelect>
-              </>
-            ) : null}
-          </div>
+      {taintNote ? (
+        <p className="mt-3 text-callout text-label-secondary" data-testid="taint-note">
+          {taintNote}
+        </p>
+      ) : null}
 
-          {approval.requiresAuthentication || otherSurfaces.length > 0 ? (
-            <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-callout text-label-secondary">
-              {approval.requiresAuthentication ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <Fingerprint className="size-3.5" aria-hidden="true" />{" "}
-                  {t("blocks.approval.needsAuth")}
-                </span>
-              ) : null}
-              {otherSurfaces.length > 0 ? (
-                <span>
-                  {t("blocks.approval.alsoSentTo", { surfaces: otherSurfaces.join(", ") })}
-                </span>
-              ) : null}
-            </p>
+      {interactive && (approval.requiresAuthentication || otherSurfaces.length > 0) ? (
+        <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-callout text-label-secondary">
+          {approval.requiresAuthentication ? (
+            <span className="inline-flex items-center gap-1.5">
+              <Fingerprint className="size-3.5" aria-hidden="true" />{" "}
+              {t("blocks.approval.needsAuth")}
+            </span>
           ) : null}
-        </>
+          {otherSurfaces.length > 0 ? (
+            <span>{t("blocks.approval.alsoSentTo", { surfaces: otherSurfaces.join(", ") })}</span>
+          ) : null}
+        </p>
       ) : null}
 
       {error ? (
@@ -726,6 +681,26 @@ export function ApprovalCard({
           >
             {t("blocks.approval.deny")}
           </Button>
+          {offeredScopes.length > 1 ? (
+            <>
+              <label className="sr-only" htmlFor={`${headingId}-scope`}>
+                {t("blocks.approval.allowScope")}
+              </label>
+              <NativeSelect
+                id={`${headingId}-scope`}
+                size="sm"
+                value={choice}
+                disabled={busy}
+                onChange={(e) => setChoice(e.target.value as AllowScope)}
+              >
+                {offeredScopes.map((scope) => (
+                  <option key={scope.value} value={scope.value}>
+                    {scope.label}
+                  </option>
+                ))}
+              </NativeSelect>
+            </>
+          ) : null}
           <Button
             // Solid accent once armed; before that a fill with a 400 ms progress underline, so
             // it never reads as disabled for good (§5.3).

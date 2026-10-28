@@ -101,7 +101,10 @@ function Rest({ details, shown }: { details: Details; shown: readonly string[] }
     <>
       {Object.entries(details)
         // `reason` is the Broker's explanation, shown as "Why asked" by the card.
-        .filter(([k, v]) => !shown.includes(k) && k !== "reason" && !isLevel2Key(k, v))
+        .filter(
+          ([k, v]) =>
+            !shown.includes(k) && k !== "reason" && k !== "taintSources" && !isLevel2Key(k, v),
+        )
         .map(([k, v]) => (
           <Row key={k} label={humanize(k)}>
             {str(v)}
@@ -123,6 +126,11 @@ export function ApprovalIds({ approval }: { approval: ApprovalRequest }): ReactE
             <span className="font-mono text-callout break-all">{str(v)}</span>
           </Row>
         ))}
+      {Array.isArray(d.taintSources) && d.taintSources.length > 0 ? (
+        <Row label={t("blocks.approval.taintDetails")}>
+          <span className="font-mono text-callout break-all">{str(d.taintSources)}</span>
+        </Row>
+      ) : null}
       <Row label={t("blocks.details.approval")}>
         <span className="font-mono text-callout break-all">{approval.id}</span>
       </Row>
@@ -374,22 +382,33 @@ export function ApprovalDetails({
           <Rest details={d} shown={["need", "reason"]} />
         </dl>
       );
-    case "folder_access":
-      // The agent's words are a request; the folder granted is the one the owner picks.
+    case "folder_access": {
+      // The folder itself is the card's "Folder to share" pick; this is what was asked and why.
+      const asked = str(d.requestedPath);
+      const same = d.folderStatus === "ok" && d.resolvedPath === d.requestedPath;
       return (
         <dl>
-          <Row label={t("blocks.details.requestedFolder")}>
-            <Code>{str(d.requestedPath)}</Code>
-          </Row>
+          {same ? null : <Row label={t("blocks.details.requestedFolder")}>{asked}</Row>}
           <Row label={t("blocks.details.folderReason")}>{str(d.reason)}</Row>
           <Row label={t("blocks.details.folderAccess")}>
             {d.access === "rw"
               ? t("blocks.details.folderAccess.rw")
               : t("blocks.details.folderAccess.ro")}
           </Row>
-          <Rest details={d} shown={["requestedPath", "reason", "access"]} />
+          <Rest
+            details={d}
+            shown={[
+              "requestedPath",
+              "reason",
+              "access",
+              "folderStatus",
+              "resolvedPath",
+              "blockedReason",
+            ]}
+          />
         </dl>
       );
+    }
     case "git_push":
       // The binding: remote, its URL, branch and the exact commit, all as rows (a commit hash
       // would otherwise count as a level-2 id and hide in Details).

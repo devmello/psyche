@@ -24,10 +24,8 @@ function setup(): () => MockGateway {
 
 const methods = (g: MockGateway) => g.calls.map((c) => c.method);
 
-/** "Allow once" picks the choice and confirms; "Deny" uses the Deny button. Both wait for arming. */
+/** "Allow once" is the Allow button's default scope; both buttons wait for arming. */
 async function answer(card: HTMLElement, choice: "Allow once" | "Deny") {
-  if (choice === "Allow once")
-    await userEvent.click(await within(card).findByText("Allow once", { exact: true }));
   const button = within(card).getByRole("button", {
     name: choice === "Deny" ? "Deny" : "Allow with scope",
   });

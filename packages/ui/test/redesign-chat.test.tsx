@@ -199,10 +199,10 @@ describe("approval dock (redesign-2026 §5.3, docs/06 §3.3)", () => {
         </StoryWorld>,
       );
       const dock = await screen.findByTestId("approval-dock");
-      const group = await within(dock).findByRole("radiogroup", { name: "Decision" });
-      const radios = within(group).getAllByRole("radio");
-      expect(radios.at(-1)?.getAttribute("aria-label")).toBe("Deny");
-      expect(radios.at(-1)?.getAttribute("aria-checked")).toBe("true");
+      // One control set: no segmented Decision control, a single Deny and a single Allow.
+      await within(dock).findByRole("button", { name: "Deny" });
+      expect(within(dock).queryByRole("radiogroup")).toBeNull();
+      expect(within(dock).getAllByRole("button", { name: "Deny" })).toHaveLength(1);
       const deny = within(dock).getByRole("button", { name: "Deny" });
       const allow = within(dock).getByRole("button", { name: "Allow with scope" });
       // Deny leads, Allow trails.
@@ -212,9 +212,7 @@ describe("approval dock (redesign-2026 §5.3, docs/06 §3.3)", () => {
         await vi.advanceTimersByTimeAsync(450);
       });
       await waitFor(() => expect(deny.hasAttribute("disabled")).toBe(false));
-      // Allow stays off while Deny is the choice; picking a scope arms it.
-      expect(allow.hasAttribute("disabled")).toBe(true);
-      fireEvent.click(radios[0] as HTMLElement);
+      // Allow arms with Deny; the scope select sits next to it.
       await waitFor(() => expect(allow.hasAttribute("disabled")).toBe(false));
     } finally {
       vi.useRealTimers();

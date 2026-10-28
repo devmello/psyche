@@ -58,3 +58,52 @@ export const ApprovedOnIphone: Story = { args: { approval: byId(IDS.approvals.ap
 export const Denied: Story = { args: { approval: byId(IDS.approvals.denied) } };
 export const Expired: Story = { args: { approval: byId(IDS.approvals.expired) } };
 export const Voided: Story = { args: { approval: byId(IDS.approvals.invalidated) } };
+
+const folder = (details: Record<string, unknown>, over: Record<string, unknown> = {}) => ({
+  ...byId(IDS.approvals.sendEmail),
+  kind: "folder_access" as const,
+  summary: "Share a folder: /Users/me/Downloads",
+  details: {
+    requestedPath: "/Users/me/Downloads",
+    reason: "You asked me to check what's in your Downloads folder.",
+    access: "ro",
+    ...details,
+  },
+  scopesOffered: ["once", "always"] as ("once" | "always")[],
+  requiresAuthentication: false,
+  taint: false,
+  ...over,
+});
+
+/** The Gateway resolved the folder the agent asked for: pre-filled, Allow ready. */
+export const FolderPrefilled: Story = {
+  args: {
+    approval: folder({ folderStatus: "ok", resolvedPath: "/Users/me/Downloads" }),
+    persona: "Psyche",
+  },
+};
+export const FolderBlocked: Story = {
+  args: {
+    approval: folder({ folderStatus: "blocked", resolvedPath: "/Users/me" }),
+    persona: "Psyche",
+  },
+};
+export const FolderTainted: Story = {
+  args: {
+    approval: folder(
+      { folderStatus: "ok", resolvedPath: "/Users/me/Downloads" },
+      {
+        taint: true,
+        scopesOffered: ["once"],
+        taintSources: [
+          { sourceKind: "screen", origin: "https://canvas.ucsc.edu/" },
+          {
+            sourceKind: "mcp__apple-reminders-mvp8e06m2__reminders_create",
+            origin: "apple-reminders-mvp8e06m2",
+          },
+        ],
+      },
+    ),
+    persona: "Psyche",
+  },
+};

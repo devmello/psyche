@@ -136,6 +136,48 @@ export async function resolveFolderPick(raw: string, env: FolderAccessEnv = {}):
   return real;
 }
 
+/** What the Gateway made of the folder the agent named, shown on the card as the pre-filled pick. */
+export type RequestedFolder =
+  | { status: "ok"; path: string }
+  | { status: "blocked"; path: string; reason: FolderRefusal }
+  | { status: "missing" };
+
+/**
+ * Resolves the path the agent asked for (`~/` expanded, `..` and symlinks resolved). It must exist
+ * and be a directory; a sensitive root is `blocked` (the card disables Allow and offers the
+ * picker); anything else unusable is `missing` (the card falls back to the picker). The broker
+ * re-resolves whatever the owner finally allows, so this is a preview, never a grant.
+ */
+export async function resolveRequestedFolder(
+  raw: string,
+  env: FolderAccessEnv = {},
+): Promise<RequestedFolder> {
+  const given = raw.startsWith("~/") ? `${env.home ?? homedir()}/${raw.slice(2)}` : raw;
+  if (given.includes("\0") || !given.startsWith("/")) return { status: "missing" };
+  let real: string;
+  try {
+    real = await realpath(resolve(given));
+    if (!(await stat(real)).isDirectory()) return { status: "missing" };
+  } catch {
+    return { status: "missing" };
+  }
+  const protectedReal: string[] = [];
+  for (const p of env.protectedRoots ?? []) {
+    try {
+      protectedReal.push(await realpath(p));
+    } catch {
+      // Not there: the written path is enough.
+    }
+  }
+  const reason = refuseFolder(real, {
+    ...env,
+    protectedRoots: [...(env.protectedRoots ?? []), ...protectedReal],
+  });
+  return reason === undefined
+    ? { status: "ok", path: real }
+    : { status: "blocked", path: real, reason };
+}
+
 /** Offers only `once` when the request comes from a tainted context (security §3.6). */
 export function folderScopesOffered(taint: boolean): ("once" | "always")[] {
   return taint ? ["once"] : ["once", "always"];
