@@ -1,4 +1,5 @@
 import { type AgentToolRegistry, defineTool } from "@psyche/agent-core";
+import { type HashChainAuditLog, listChanges } from "@psyche/audit";
 import { getSetting, type PsycheDb, setSetting } from "@psyche/db";
 import type { GrantedFolder } from "@psyche/files";
 import type { GraphStore, SqliteMemoryStore } from "@psyche/memory";
@@ -8,16 +9,19 @@ import {
   type AudioCapture,
   appleMailSource,
   arxivSource,
+  createDailyHandlers,
   createFeedHandlers,
   createGoalHandlers,
   createIdeaHandlers,
   createProposalHandlers,
+  DailyService,
   DigestService,
   DraftService,
   digestSchedule,
   FeedService,
   type FeedSource,
   FocusTimeService,
+  FollowupStore,
   GoalsService,
   gmailSource,
   HEARTBEAT_TASK_BUDGET,
@@ -32,6 +36,7 @@ import {
   OFF_HOURS_POLL_MS,
   ProposalService,
   publicFetch,
+  readDailySettings,
   rssSource,
   SchedulingService,
   type SignalsProvider,
@@ -45,6 +50,7 @@ import { PsycheError } from "@psyche/protocol";
 import {
   createDbSessionResolver,
   createTaskLauncher,
+  parseSchedule,
   type RunLauncher,
   type SqliteScheduler,
 } from "@psyche/scheduler";
@@ -131,6 +137,10 @@ export interface ProactiveSetup {
     /** The running apps' bundle ids from the helper; Record meeting ends when a conference app quits. */
     runningApps?: () => Promise<readonly string[] | undefined>;
   };
+  /** The audit log: the evening wrap-up counts the day's recorded changes. */
+  audit?: Pick<HashChainAuditLog, "query">;
+  /** The owner's chat surfaces (`imessage:<peer>`); the brief goes there when `daily.messages` is on. */
+  channelSurfaces?: () => string[];
   /** The people graph while it is on: prep reads people and loops, notes add loops. */
   graph?: () => GraphStore | undefined;
   /**
@@ -162,6 +172,8 @@ export interface ComposedProactive {
   readonly drafts: DraftService | undefined;
   /** Scheduling over email: free slots, a reply draft and optional holds (§4.4). */
   readonly scheduling: SchedulingService | undefined;
+  /** Morning brief, evening wrap-up, follow-ups and plain-language automations. */
+  readonly daily: DailyService;
   /** Focus time (§4.4): one proposed deep-work block a week, off until `mail.schedule.focusTime`. */
   readonly focus: FocusTimeService | undefined;
   readonly handlers: Record<string, HandlerDef>;
@@ -275,6 +287,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
   // Settings → Mail & meetings, read on every run (workflow-settings.ts).
   const settings = () => workflowSettings(db);
   const readOnly = () => settings().readOnly;
+  const lookup = registry === undefined ? undefined : connectorToolLookup(registry);
   // Wave 1 has no push for new mail: poll through whichever mail tools are connected (§4.7).
   const mailWatch = new MailWatcher({
     scheduler,
@@ -283,8 +296,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
       const idle = settings().poll.idleMin;
       return idle === undefined ? OFF_HOURS_POLL_MS : idle * 60_000;
     },
-    sources: () =>
-      registry === undefined ? [] : [appleMailSource(registry), gmailSource(registry)],
+    sources: () => (lookup === undefined ? [] : [appleMailSource(lookup), gmailSource(lookup)]),
     ...(timeZone === undefined ? {} : { timezone: timeZone }),
     onError: (err) => logger?.log("warn", "mail poll failed", { code: PsycheError.from(err).code }),
   });
@@ -328,7 +340,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           db: db.sqlite,
           clock,
           scheduler,
-          tools: registry,
+          tools: connectorToolLookup(registry),
           memory,
           ...(proposals === undefined ? {} : { proposals }),
           feed: feed.store,
@@ -351,7 +363,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
       ? undefined
       : new VoiceService({
           clock,
-          tools: registry,
+          tools: connectorToolLookup(registry),
           memory,
           scheduler,
           ownerAddresses,
@@ -363,7 +375,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     registry === undefined
       ? undefined
       : new DraftService({
-          tools: registry,
+          tools: connectorToolLookup(registry),
           ...(voice === undefined ? {} : { voice }),
           ...(proposals === undefined ? {} : { proposals }),
           readOnly,
@@ -377,7 +389,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     registry === undefined || drafts === undefined
       ? undefined
       : new SchedulingService({
-          tools: registry,
+          tools: connectorToolLookup(registry),
           drafts,
           ...(proposals === undefined ? {} : { proposals }),
           readOnly,
@@ -390,7 +402,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     registry === undefined
       ? undefined
       : new FocusTimeService({
-          tools: registry,
+          tools: connectorToolLookup(registry),
           scheduler,
           ...(proposals === undefined ? {} : { proposals }),
           enabled: () => settings().focusTime,
@@ -460,6 +472,80 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
                 code: PsycheError.from(err).code,
               }),
           });
+  // Daily habits: the morning brief, evening wrap-up, follow-ups and plain-language automations.
+  // They add no loop of their own: two system automations on the scheduler, at the owner's times.
+  const dailyKv = {
+    get: (key: string) => getSetting(db, key)?.value,
+    set: (key: string, value: unknown) => void setSetting(db, key, value),
+  };
+  const dailySettings = () => readDailySettings(dailyKv);
+  const followups = new FollowupStore(dailyKv, () => clock.now());
+  const dailyTz = timeZone ?? "UTC";
+  const daily = new DailyService({
+    clock,
+    scheduler,
+    tools: lookup ?? { get: () => undefined },
+    feed: feed.store,
+    notifier,
+    provider,
+    model,
+    settings: dailySettings,
+    followups,
+    timezone: dailyTz,
+    ...(setup.channelSurfaces === undefined ? {} : { channelSurfaces: setup.channelSurfaces }),
+    prepLink: (e) => meetingPrep?.prepLinkFor(e),
+    activity: {
+      openTasks: async () =>
+        (
+          await tasks.list({
+            status: ["queued", "running", "awaiting_input", "awaiting_approval", "paused"],
+          })
+        )
+          .filter((t) => t.createdFrom !== "automation")
+          .slice(0, 20)
+          .map((t) => ({ id: t.id, title: t.title, link: `/tasks/${t.id}` })),
+      doneBetween: async (from, to) => {
+        const done = (await tasks.list({ status: ["done"] }))
+          .filter((t) => {
+            const at = Date.parse(t.completedAt ?? "");
+            return at >= from && at <= to;
+          })
+          .map((t) => ({ id: t.id, title: t.title, link: `/tasks/${t.id}` }));
+        // The edit audit (#985): one line for the day's recorded changes by the agent or jobs.
+        const changes =
+          setup.audit === undefined
+            ? []
+            : (
+                await listChanges(setup.audit, {
+                  since: new Date(from).toISOString(),
+                  until: new Date(to).toISOString(),
+                  limit: 500,
+                })
+              ).filter((c) => c.record.outcome === "ok");
+        const files = changes.filter((c) => c.record.category === "file").length;
+        return [
+          ...done,
+          ...(files === 0
+            ? []
+            : [{ title: `${files} file change${files === 1 ? "" : "s"} recorded` }]),
+        ];
+      },
+    },
+    onFeedEvent: (e) => publish(e.event, e.payload as never),
+    onError: (err) =>
+      logger?.log("warn", "daily step failed", { code: PsycheError.from(err).code }),
+  });
+  const dailyHandlers = createDailyHandlers({
+    daily,
+    followups,
+    settings: dailySettings,
+    scheduler,
+    provider,
+    model,
+    timezone: dailyTz,
+    now: () => clock.now(),
+    validate: (kind, schedule, tz) => void parseSchedule(kind, schedule, tz),
+  });
   const proposalHandlers: Record<string, HandlerDef> = {};
   if (proposals !== undefined) {
     // `proposals.approve` hands the caller the answer token of its own surface only (§3.7).
@@ -495,6 +581,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
       });
       await voice?.ensureSchedule({ enabled: w.voiceEnabled, ...tz });
       await focus?.ensureSchedule({ enabled: w.focusTime, ...tz });
+      await daily.syncSchedules();
     } catch (err) {
       logger?.log("warn", "workflow schedule sync failed", { code: PsycheError.from(err).code });
     }
@@ -556,7 +643,9 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     drafts,
     scheduling,
     focus,
+    daily,
     handlers: {
+      ...mountParamsOnly(dailyHandlers as never),
       ...mountParamsOnly(createGoalHandlers(goals) as never),
       ...mountParamsOnly(createFeedHandlers(feed) as never),
       ...mountParamsOnly(createIdeaHandlers(ideas) as never),
@@ -576,6 +665,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
           ...(focus === undefined ? [] : [pausable(focus.job(), paused)]),
           ...(meetingPrep === undefined ? [] : [pausable(meetingPrep.job(), paused)]),
           ...(notesFolder === undefined ? [] : [pausable(notesFolder.job(), paused)]),
+          ...daily.jobs(),
         ],
         heartbeat: createTaskLauncher({ engine: tasks, pool, budget: HEARTBEAT_TASK_BUDGET }),
         onError: (err) =>

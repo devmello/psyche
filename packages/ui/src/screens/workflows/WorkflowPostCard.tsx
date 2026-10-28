@@ -8,6 +8,7 @@ import { describeError } from "../../i18n/errors.ts";
 import { useOpenLink } from "../../links/LinkPrompt.tsx";
 import { useSlots } from "../../slots.tsx";
 import { ProposalBatchCard } from "./BatchCard.tsx";
+import { DailyCard } from "./DailyCard.tsx";
 import { DigestCard, type DigestLoopAction } from "./DigestCard.tsx";
 import { MeetingNotesCard } from "./MeetingNotesCard.tsx";
 import { MeetingPrepCard } from "./MeetingPrepCard.tsx";
@@ -91,6 +92,26 @@ export function WorkflowPostCard({
           renderBatch={batch}
           {...(navigate ? { onSettings: () => navigate("/settings/mail") } : {})}
           {...common}
+        />
+      );
+    case "daily":
+      return (
+        <DailyCard
+          brief={card.daily}
+          focused={focused}
+          onOpen={(link) => (link.startsWith("/") ? navigate?.(link) : openLink(link))}
+          onFollowup={(id, action) => {
+            store
+              .call("daily.followups.update", { id, action })
+              .catch((err: unknown) => toast.error(describeError(err)));
+          }}
+          onCarryOver={(ids) => {
+            store
+              .call("daily.carryOver", { ids })
+              .then(() => toast.success(t("daily.carryOver.done")))
+              .catch((err: unknown) => toast.error(describeError(err)));
+          }}
+          {...(className ? { className } : {})}
         />
       );
     case "meeting_prep":

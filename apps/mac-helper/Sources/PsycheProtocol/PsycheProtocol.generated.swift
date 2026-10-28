@@ -350,6 +350,32 @@
 //   let customConnectorProposal = try? JSONDecoder().decode(CustomConnectorProposal.self, from: jsonData)
 //   let customConnectorProposalResult = try? JSONDecoder().decode(CustomConnectorProposalResult.self, from: jsonData)
 //   let customConnectorTool = try? JSONDecoder().decode(CustomConnectorTool.self, from: jsonData)
+//   let dailyAutomationDraft = try? JSONDecoder().decode(DailyAutomationDraft.self, from: jsonData)
+//   let dailyAutomationTemplate = try? JSONDecoder().decode(DailyAutomationTemplate.self, from: jsonData)
+//   let dailyAutomationsConfirmParams = try? JSONDecoder().decode(DailyAutomationsConfirmParams.self, from: jsonData)
+//   let dailyAutomationsConfirmResult = try? JSONDecoder().decode(DailyAutomationsConfirmResult.self, from: jsonData)
+//   let dailyAutomationsParseParams = try? JSONDecoder().decode(DailyAutomationsParseParams.self, from: jsonData)
+//   let dailyAutomationsParseResult = try? JSONDecoder().decode(DailyAutomationsParseResult.self, from: jsonData)
+//   let dailyAutomationsTemplatesParams = try? JSONDecoder().decode(DailyAutomationsTemplatesParams.self, from: jsonData)
+//   let dailyAutomationsTemplatesResult = try? JSONDecoder().decode(DailyAutomationsTemplatesResult.self, from: jsonData)
+//   let dailyBrief = try? JSONDecoder().decode(DailyBrief.self, from: jsonData)
+//   let dailyCarryOverParams = try? JSONDecoder().decode(DailyCarryOverParams.self, from: jsonData)
+//   let dailyCarryOverResult = try? JSONDecoder().decode(DailyCarryOverResult.self, from: jsonData)
+//   let dailyFollowup = try? JSONDecoder().decode(DailyFollowup.self, from: jsonData)
+//   let dailyFollowupSource = try? JSONDecoder().decode(DailyFollowupSource.self, from: jsonData)
+//   let dailyFollowupStatus = try? JSONDecoder().decode(DailyFollowupStatus.self, from: jsonData)
+//   let dailyFollowupsIngestParams = try? JSONDecoder().decode(DailyFollowupsIngestParams.self, from: jsonData)
+//   let dailyFollowupsIngestResult = try? JSONDecoder().decode(DailyFollowupsIngestResult.self, from: jsonData)
+//   let dailyFollowupsListParams = try? JSONDecoder().decode(DailyFollowupsListParams.self, from: jsonData)
+//   let dailyFollowupsListResult = try? JSONDecoder().decode(DailyFollowupsListResult.self, from: jsonData)
+//   let dailyFollowupsUpdateParams = try? JSONDecoder().decode(DailyFollowupsUpdateParams.self, from: jsonData)
+//   let dailyFollowupsUpdateResult = try? JSONDecoder().decode(DailyFollowupsUpdateResult.self, from: jsonData)
+//   let dailyItem = try? JSONDecoder().decode(DailyItem.self, from: jsonData)
+//   let dailyKind = try? JSONDecoder().decode(DailyKind.self, from: jsonData)
+//   let dailyRunParams = try? JSONDecoder().decode(DailyRunParams.self, from: jsonData)
+//   let dailyRunResult = try? JSONDecoder().decode(DailyRunResult.self, from: jsonData)
+//   let dailySection = try? JSONDecoder().decode(DailySection.self, from: jsonData)
+//   let dailySectionID = try? JSONDecoder().decode(DailySectionID.self, from: jsonData)
 //   let decidedBy = try? JSONDecoder().decode(DecidedBy.self, from: jsonData)
 //   let decision = try? JSONDecoder().decode(Decision.self, from: jsonData)
 //   let delivery = try? JSONDecoder().decode(Delivery.self, from: jsonData)
@@ -2544,7 +2570,7 @@ public struct AppleMailSetFlagsParams: Codable, Sendable {
 
 // MARK: - AppleMusicControlParams
 public struct AppleMusicControlParams: Codable, Sendable {
-    public let action: Action
+    public let action: AppleMusicControlParamsAction
     /// Which player (default: whichever is playing, else Music)
     public let app: App?
     /// With action shuffle
@@ -2559,7 +2585,7 @@ public struct AppleMusicControlParams: Codable, Sendable {
         case volume = "volume"
     }
 
-    public init(action: Action, app: App?, shuffle: Bool?, volume: Int?) {
+    public init(action: AppleMusicControlParamsAction, app: App?, shuffle: Bool?, volume: Int?) {
         self.action = action
         self.app = app
         self.shuffle = shuffle
@@ -2567,7 +2593,7 @@ public struct AppleMusicControlParams: Codable, Sendable {
     }
 }
 
-public enum Action: String, Codable, Sendable {
+public enum AppleMusicControlParamsAction: String, Codable, Sendable {
     case next = "next"
     case pause = "pause"
     case play = "play"
@@ -10221,6 +10247,335 @@ public struct CustomConnectorProposalResult: Codable, Sendable {
     }
 }
 
+// MARK: - DailyAutomationsConfirmParams
+public struct DailyAutomationsConfirmParams: Codable, Sendable {
+    public let draft: DailyAutomationDraft
+
+    public enum CodingKeys: String, CodingKey {
+        case draft = "draft"
+    }
+
+    public init(draft: DailyAutomationDraft) {
+        self.draft = draft
+    }
+}
+
+// MARK: - DailyAutomationDraft
+public struct DailyAutomationDraft: Codable, Sendable {
+    public let humanSchedule: String
+    public let kind: DailyAutomationDraftKind
+    public let prompt: String
+    public let schedule: String
+    public let timezone: String
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case humanSchedule = "humanSchedule"
+        case kind = "kind"
+        case prompt = "prompt"
+        case schedule = "schedule"
+        case timezone = "timezone"
+        case title = "title"
+    }
+
+    public init(humanSchedule: String, kind: DailyAutomationDraftKind, prompt: String, schedule: String, timezone: String, title: String) {
+        self.humanSchedule = humanSchedule
+        self.kind = kind
+        self.prompt = prompt
+        self.schedule = schedule
+        self.timezone = timezone
+        self.title = title
+    }
+}
+
+public enum DailyAutomationDraftKind: String, Codable, Sendable {
+    case cron = "cron"
+    case interval = "interval"
+}
+
+// MARK: - DailyAutomationsConfirmResult
+public struct DailyAutomationsConfirmResult: Codable, Sendable {
+    public let automation: Automation
+
+    public enum CodingKeys: String, CodingKey {
+        case automation = "automation"
+    }
+
+    public init(automation: Automation) {
+        self.automation = automation
+    }
+}
+
+// MARK: - DailyAutomationsParseParams
+public struct DailyAutomationsParseParams: Codable, Sendable {
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case text = "text"
+    }
+
+    public init(text: String) {
+        self.text = text
+    }
+}
+
+// MARK: - DailyAutomationsParseResult
+public struct DailyAutomationsParseResult: Codable, Sendable {
+    public let draft: DailyAutomationDraft?
+    public let error: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case draft = "draft"
+        case error = "error"
+    }
+
+    public init(draft: DailyAutomationDraft?, error: String?) {
+        self.draft = draft
+        self.error = error
+    }
+}
+
+// MARK: - DailyAutomationsTemplatesResult
+public struct DailyAutomationsTemplatesResult: Codable, Sendable {
+    public let templates: [DailyAutomationTemplate]
+
+    public enum CodingKeys: String, CodingKey {
+        case templates = "templates"
+    }
+
+    public init(templates: [DailyAutomationTemplate]) {
+        self.templates = templates
+    }
+}
+
+// MARK: - DailyAutomationTemplate
+public struct DailyAutomationTemplate: Codable, Sendable {
+    public let id: String
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case text = "text"
+    }
+
+    public init(id: String, text: String) {
+        self.id = id
+        self.text = text
+    }
+}
+
+// MARK: - DailyCarryOverParams
+public struct DailyCarryOverParams: Codable, Sendable {
+    public let ids: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case ids = "ids"
+    }
+
+    public init(ids: [String]) {
+        self.ids = ids
+    }
+}
+
+// MARK: - DailyCarryOverResult
+public struct DailyCarryOverResult: Codable, Sendable {
+    public let followups: [DailyFollowup]
+
+    public enum CodingKeys: String, CodingKey {
+        case followups = "followups"
+    }
+
+    public init(followups: [DailyFollowup]) {
+        self.followups = followups
+    }
+}
+
+// MARK: - DailyFollowup
+public struct DailyFollowup: Codable, Sendable {
+    public let createdAt: String
+    public let dueAt: String?
+    public let id: String
+    public let snoozedUntil: String?
+    public let source: DailyFollowupSource
+    public let sourceLink: String?
+    public let status: DailyFollowupStatus
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case createdAt = "createdAt"
+        case dueAt = "dueAt"
+        case id = "id"
+        case snoozedUntil = "snoozedUntil"
+        case source = "source"
+        case sourceLink = "sourceLink"
+        case status = "status"
+        case text = "text"
+    }
+
+    public init(createdAt: String, dueAt: String?, id: String, snoozedUntil: String?, source: DailyFollowupSource, sourceLink: String?, status: DailyFollowupStatus, text: String) {
+        self.createdAt = createdAt
+        self.dueAt = dueAt
+        self.id = id
+        self.snoozedUntil = snoozedUntil
+        self.source = source
+        self.sourceLink = sourceLink
+        self.status = status
+        self.text = text
+    }
+}
+
+public enum DailyFollowupSource: String, Codable, Sendable {
+    case awaitingReply = "awaiting_reply"
+    case chat = "chat"
+    case manual = "manual"
+    case message = "message"
+    case sentMail = "sent_mail"
+}
+
+public enum DailyFollowupStatus: String, Codable, Sendable {
+    case dailyFollowupStatusOpen = "open"
+    case dismissed = "dismissed"
+    case done = "done"
+    case snoozed = "snoozed"
+}
+
+// MARK: - DailyFollowupsIngestParams
+public struct DailyFollowupsIngestParams: Codable, Sendable {
+    public let source: DailyFollowupsIngestParamsSource
+    public let sourceLink: String?
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case source = "source"
+        case sourceLink = "sourceLink"
+        case text = "text"
+    }
+
+    public init(source: DailyFollowupsIngestParamsSource, sourceLink: String?, text: String) {
+        self.source = source
+        self.sourceLink = sourceLink
+        self.text = text
+    }
+}
+
+public enum DailyFollowupsIngestParamsSource: String, Codable, Sendable {
+    case chat = "chat"
+    case message = "message"
+    case sentMail = "sent_mail"
+}
+
+// MARK: - DailyFollowupsIngestResult
+public struct DailyFollowupsIngestResult: Codable, Sendable {
+    public let added: [DailyFollowup]
+
+    public enum CodingKeys: String, CodingKey {
+        case added = "added"
+    }
+
+    public init(added: [DailyFollowup]) {
+        self.added = added
+    }
+}
+
+// MARK: - DailyFollowupsListParams
+public struct DailyFollowupsListParams: Codable, Sendable {
+    public let status: [DailyFollowupStatus]?
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: [DailyFollowupStatus]?) {
+        self.status = status
+    }
+}
+
+// MARK: - DailyFollowupsListResult
+public struct DailyFollowupsListResult: Codable, Sendable {
+    public let followups: [DailyFollowup]
+
+    public enum CodingKeys: String, CodingKey {
+        case followups = "followups"
+    }
+
+    public init(followups: [DailyFollowup]) {
+        self.followups = followups
+    }
+}
+
+// MARK: - DailyFollowupsUpdateParams
+public struct DailyFollowupsUpdateParams: Codable, Sendable {
+    public let action: DailyFollowupsUpdateParamsAction
+    public let id: String
+    public let until: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case action = "action"
+        case id = "id"
+        case until = "until"
+    }
+
+    public init(action: DailyFollowupsUpdateParamsAction, id: String, until: String?) {
+        self.action = action
+        self.id = id
+        self.until = until
+    }
+}
+
+public enum DailyFollowupsUpdateParamsAction: String, Codable, Sendable {
+    case dismiss = "dismiss"
+    case done = "done"
+    case reopen = "reopen"
+    case snooze = "snooze"
+}
+
+// MARK: - DailyFollowupsUpdateResult
+public struct DailyFollowupsUpdateResult: Codable, Sendable {
+    public let followup: DailyFollowup
+
+    public enum CodingKeys: String, CodingKey {
+        case followup = "followup"
+    }
+
+    public init(followup: DailyFollowup) {
+        self.followup = followup
+    }
+}
+
+// MARK: - DailyRunParams
+public struct DailyRunParams: Codable, Sendable {
+    public let kind: DailyKind
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+    }
+
+    public init(kind: DailyKind) {
+        self.kind = kind
+    }
+}
+
+public enum DailyKind: String, Codable, Sendable {
+    case evening = "evening"
+    case morning = "morning"
+}
+
+// MARK: - DailyRunResult
+public struct DailyRunResult: Codable, Sendable {
+    public let postID: String?
+    public let skipped: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case postID = "postId"
+        case skipped = "skipped"
+    }
+
+    public init(postID: String?, skipped: String?) {
+        self.postID = postID
+        self.skipped = skipped
+    }
+}
+
 // MARK: - DecidedBy
 public struct DecidedBy: Codable, Sendable {
     public let deviceID: String?
@@ -10960,20 +11315,100 @@ public struct WorkflowCard: Codable, Sendable {
     public let type: WorkflowCardType
     public let prep: MeetingPrep?
     public let notes: MeetingNotes?
+    public let daily: DailyBrief?
 
     public enum CodingKeys: String, CodingKey {
         case digest = "digest"
         case type = "type"
         case prep = "prep"
         case notes = "notes"
+        case daily = "daily"
     }
 
-    public init(digest: InboxDigest?, type: WorkflowCardType, prep: MeetingPrep?, notes: MeetingNotes?) {
+    public init(digest: InboxDigest?, type: WorkflowCardType, prep: MeetingPrep?, notes: MeetingNotes?, daily: DailyBrief?) {
         self.digest = digest
         self.type = type
         self.prep = prep
         self.notes = notes
+        self.daily = daily
     }
+}
+
+// MARK: - DailyBrief
+public struct DailyBrief: Codable, Sendable {
+    public let carryOver: [DailyItem]?
+    public let date: String
+    public let kind: DailyKind
+    public let sections: [DailySection]
+    public let summary: String
+
+    public enum CodingKeys: String, CodingKey {
+        case carryOver = "carryOver"
+        case date = "date"
+        case kind = "kind"
+        case sections = "sections"
+        case summary = "summary"
+    }
+
+    public init(carryOver: [DailyItem]?, date: String, kind: DailyKind, sections: [DailySection], summary: String) {
+        self.carryOver = carryOver
+        self.date = date
+        self.kind = kind
+        self.sections = sections
+        self.summary = summary
+    }
+}
+
+// MARK: - DailyItem
+public struct DailyItem: Codable, Sendable {
+    public let followupID: String?
+    public let link: String?
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case followupID = "followupId"
+        case link = "link"
+        case text = "text"
+    }
+
+    public init(followupID: String?, link: String?, text: String) {
+        self.followupID = followupID
+        self.link = link
+        self.text = text
+    }
+}
+
+// MARK: - DailySection
+public struct DailySection: Codable, Sendable {
+    public let id: DailySectionID
+    public let items: [DailyItem]
+    public let title: String
+    public let unavailable: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case items = "items"
+        case title = "title"
+        case unavailable = "unavailable"
+    }
+
+    public init(id: DailySectionID, items: [DailyItem], title: String, unavailable: Bool?) {
+        self.id = id
+        self.items = items
+        self.title = title
+        self.unavailable = unavailable
+    }
+}
+
+public enum DailySectionID: String, Codable, Sendable {
+    case calendar = "calendar"
+    case dailySectionIDOpen = "open"
+    case done = "done"
+    case due = "due"
+    case followups = "followups"
+    case mail = "mail"
+    case tomorrow = "tomorrow"
+    case weather = "weather"
 }
 
 // MARK: - InboxDigest
@@ -11485,6 +11920,7 @@ public enum FluffyKind: String, Codable, Sendable {
 }
 
 public enum WorkflowCardType: String, Codable, Sendable {
+    case daily = "daily"
     case digest = "digest"
     case meetingNotes = "meeting_notes"
     case meetingPrep = "meeting_prep"
@@ -11560,6 +11996,8 @@ public enum GrowthCardItemType: String, Codable, Sendable {
 public enum FeedPostKind: String, Codable, Sendable {
     case brief = "brief"
     case briefing = "briefing"
+    case dailyBrief = "daily_brief"
+    case dailyWrapup = "daily_wrapup"
     case digest = "digest"
     case exploration = "exploration"
     case meetingNotes = "meeting_notes"
@@ -26268,7 +26706,7 @@ public struct VaultLinkExternalParams: Codable, Sendable {
     public let name: String
     public let ref: Ref
     public let slug: String?
-    public let source: SourceEnum
+    public let source: VaultLinkExternalParamsSource
 
     public enum CodingKeys: String, CodingKey {
         case bindings = "bindings"
@@ -26280,7 +26718,7 @@ public struct VaultLinkExternalParams: Codable, Sendable {
         case source = "source"
     }
 
-    public init(bindings: [CredentialBinding], fields: [Field]?, kind: VaultLinkExternalParamsKind, name: String, ref: Ref, slug: String?, source: SourceEnum) {
+    public init(bindings: [CredentialBinding], fields: [Field]?, kind: VaultLinkExternalParamsKind, name: String, ref: Ref, slug: String?, source: VaultLinkExternalParamsSource) {
         self.bindings = bindings
         self.fields = fields
         self.kind = kind
@@ -26323,7 +26761,7 @@ public struct Ref: Codable, Sendable {
     }
 }
 
-public enum SourceEnum: String, Codable, Sendable {
+public enum VaultLinkExternalParamsSource: String, Codable, Sendable {
     case bitwarden = "bitwarden"
     case the1Password = "1password"
 }
@@ -28128,6 +28566,7 @@ public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]
 public typealias ConnectorsCatalogueParams = [String: JSONAny]
 public typealias ConnectorsListParams = [String: JSONAny]
+public typealias DailyAutomationsTemplatesParams = [String: JSONAny]
 public typealias DevicesBootstrapAdminParams = [String: JSONAny]
 public typealias DevicesPresenceKeyListParams = [String: JSONAny]
 public typealias DictationTargetParams = [String: JSONAny]
