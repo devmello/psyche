@@ -70,6 +70,13 @@ export const PolicyConfig = Type.Object(
         Type.Record(Type.String({ minLength: 1 }), RuleEffect),
       ),
     ),
+    /**
+     * Connector actions whose send / destructive / financial floor the owner lifted, by connector
+     * id (Settings → Connectors' confirmed opt-in, §3.12). Only with that action's `allow`.
+     */
+    liftedFloors: Type.Optional(
+      Type.Record(Type.String({ minLength: 1 }), Type.Array(Type.String({ minLength: 1 }))),
+    ),
     apps: Type.Optional(Type.Record(Type.String({ minLength: 1 }), AppTier)),
     sites: Type.Optional(Type.Record(Type.String({ minLength: 1 }), RuleEffect)),
     folders: Type.Optional(

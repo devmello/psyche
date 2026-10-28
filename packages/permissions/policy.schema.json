@@ -155,6 +155,18 @@
         }
       }
     },
+    "liftedFloors": {
+      "type": "object",
+      "patternProperties": {
+        "^(.*)$": {
+          "type": "array",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          }
+        }
+      }
+    },
     "apps": {
       "type": "object",
       "patternProperties": {

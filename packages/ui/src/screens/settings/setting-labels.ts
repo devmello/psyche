@@ -148,6 +148,10 @@ const PREFIX_LABELS: readonly [prefix: string, label: (rest: string) => string][
     "permissions.connectors.",
     (id) => t("settings.key.permissions.connectors", { id: id.replace(/^conn_/, "") }),
   ],
+  [
+    "permissions.liftedFloors.",
+    (id) => t("settings.key.permissions.liftedFloors", { id: id.replace(/^conn_/, "") }),
+  ],
   ["mail.accounts.", (account) => t("settings.key.mail.accounts", { account })],
   ["models.roles.", (role) => t("settings.key.models.roles", { role })],
   ["specialists.enabled.", (role) => t("settings.key.specialists.enabled", { role })],

@@ -42,6 +42,7 @@ import {
   type ChannelReplyInput,
 } from "./channel-reply.ts";
 import { type ActionClassifier, RulesClassifier } from "./classifier.ts";
+import { floorClass } from "./connector-matrix.ts";
 import {
   type DryRun,
   newTaskState,
@@ -374,6 +375,8 @@ export class PsychePermissionBroker implements PermissionBroker {
         ...(decision.reason === undefined ? {} : { reason: decision.reason }),
         ...(decision.bindingHash === undefined ? {} : { bindingHash: decision.bindingHash }),
         ...(decision.grantId === undefined ? {} : { grantId: decision.grantId }),
+        // A send / destructive / financial call let through without a card (§3.12).
+        ...(decision.via === undefined ? {} : { via: decision.via }),
         paramsHash: call.paramsHash,
         ...(call.target === undefined ? {} : { target: call.target.value }),
         taint: ctx.taint,
@@ -812,7 +815,11 @@ export class PsychePermissionBroker implements PermissionBroker {
     if (input.typedConfirmation !== undefined)
       scopesOffered = scopesOffered.filter((s) => s === "once");
     // Taint always overrides standing grants (§3.6): a tainted folder request is never kept.
-    if (input.kind === "folder_access" && (input.taint || input.context?.taint === true))
+    // So is a tainted send, destructive or financial card: `once` only, never Always (§3.12).
+    if (
+      (input.kind === "folder_access" || floorClass(input.kind, se) !== undefined) &&
+      (input.taint || input.context?.taint === true)
+    )
       scopesOffered = scopesOffered.filter((s) => s === "once");
     if (scopesOffered.length === 0) scopesOffered = ["once"];
 

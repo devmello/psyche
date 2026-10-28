@@ -8,7 +8,7 @@ import {
   CLASSIFIER_TIMEOUT_MS,
   classifyFailClosed,
 } from "./classifier.ts";
-import { matrixFloor, matrixRule } from "./connector-matrix.ts";
+import { floorClass, floorLifted, matrixFloor, matrixRule } from "./connector-matrix.ts";
 import {
   ALL_SCOPES,
   allowedScopes,
@@ -197,11 +197,15 @@ interface Floor {
   rule: string;
   reason: string;
   scopes?: GrantScope[];
+  /** A send / destructive / financial matrix floor: a standing grant the owner made covers it. */
+  grantLiftable?: true;
 }
 
 interface Allowance {
   rule: string;
   grant?: StoredGrant;
+  /** The owner's confirmed floor override (§3.12): covers sends, destructive and financial. */
+  lifted?: true;
 }
 
 export class PolicyEngine {
@@ -320,6 +324,7 @@ export class PolicyEngine {
       binding?: Binding;
       scopes?: GrantScope[];
       grantId?: string;
+      via?: PolicyDecision["via"];
       typedConfirmation?: string;
       classifier?: PolicyDecision["classifier"];
     },
@@ -328,6 +333,7 @@ export class PolicyEngine {
     const d: PolicyDecision = { decision, rule, trace: [...trace], sideEffect: x.se, call };
     if (reason !== undefined) d.reason = reason;
     if (x.grantId !== undefined) d.grantId = x.grantId;
+    if (x.via !== undefined) d.via = x.via;
     if (x.classifier !== undefined) d.classifier = x.classifier;
     if (x.binding !== undefined) {
       d.bindingHash = x.binding.bindingHash;
@@ -457,16 +463,30 @@ export class PolicyEngine {
       const configured =
         matrixRule(matrix, connector.action) ??
         (legacy === undefined ? undefined : matrixRule(matrix, legacy));
-      // Apple app adapters (J6) carry defaults, and `alwaysAsk` actions never become silent.
-      const effect = appleAppEffect(call.tool, configured);
+      // The owner's confirmed opt-in (§3.12): only the `liftedFloors` list, never a plain allow.
+      const lifted = floorLifted(p.config.liftedFloors?.[connector.id], connector.action);
+      // Apple app adapters (J6) carry defaults, and `alwaysAsk` actions never become silent
+      // unless the owner lifted the floor.
+      const effect = appleAppEffect(call.tool, configured, lifted);
       const rule = `connector:${connector.id}/${connector.action}`;
       if (effect === "deny") return done("deny", rule, "connector matrix denies this action");
       if (effect === "ask") floors.push({ rule, reason: "connector matrix asks" });
       if (effect === "allow") {
-        // Hard floors: an owner `allow` never silences sends, destructive or device-only calls.
-        const floor = matrixFloor(kind, se);
-        if (floor === undefined) allowances.push({ rule });
-        else floors.push({ rule: `${rule}:floor`, reason: floor });
+        // Floors: an owner `allow` silences sends, destructive or financial calls only with the
+        // confirmed override; device-only and authentication kinds always ask.
+        const floor = matrixFloor(kind, se, lifted);
+        if (floor === undefined)
+          allowances.push(
+            lifted && floorClass(kind, se) !== undefined
+              ? { rule: `${rule}:override`, lifted: true }
+              : { rule },
+          );
+        else
+          floors.push({
+            rule: `${rule}:floor`,
+            reason: floor,
+            ...(floorClass(kind, se) === undefined ? {} : { grantLiftable: true as const }),
+          });
       }
     }
 
@@ -639,6 +659,7 @@ export class PolicyEngine {
 
     // 4. Taint escalation.
     trace.push("step4:taint");
+    const floored = floorClass(kind, se);
     const tk = targetKey(call);
     const newTarget = ctx.newTarget ?? (tk === undefined ? true : !state.approvedTargets.has(tk));
     let escalation: Floor | undefined;
@@ -696,6 +717,9 @@ export class PolicyEngine {
           scopes: ["once"],
         };
       }
+      // Security §3.6, §3.12: a tainted send, destructive or financial card offers `once` only.
+      if (escalation !== undefined && floored !== undefined)
+        escalation = { ...escalation, scopes: ["once"] };
       if (escalation !== undefined) trace.push(escalation.rule);
     }
 
@@ -704,6 +728,8 @@ export class PolicyEngine {
       for (const f of floors)
         if (f.scopes !== undefined) s = s.filter((x) => f.scopes?.includes(x));
       if (noAlways) s = s.filter((x) => x !== "always");
+      // Tainted send / destructive / financial cards offer `once` only (§3.6, §3.12).
+      if (tainted && floored !== undefined) s = s.filter((x) => x === "once");
       if (unbound) s = s.filter((x) => x === "once");
       if (ctx.taskId === undefined) s = s.filter((x) => x !== "task");
       if (kind !== "credential_fill" && origin === undefined) s = s.filter((x) => x !== "site");
@@ -723,7 +749,17 @@ export class PolicyEngine {
         ...(typedConfirmation === undefined ? {} : { typedConfirmation }),
       });
 
-    const floor = floors[0];
+    // Manual mode never consults grants or allowances for writes and above (step 5).
+    const consult = !(mode === "manual" && SEVERITY[se] >= SEVERITY.write);
+    // A matrix floor on a send / destructive / financial call yields to a standing grant the owner
+    // made on such a card (Always allow, §3.12); every other floor asks first.
+    let grantCovers: boolean | undefined;
+    const floor = floors.find((f) => {
+      if (f.grantLiftable !== true) return true;
+      grantCovers ??=
+        consult && !unbound && d.matchGrant(binding.grantKey, kind, se, ctx, origin) !== undefined;
+      return !grantCovers;
+    });
     if (floor !== undefined) return ask(floor.rule, floor.reason);
 
     // Sensitive categories always ask for reads, whatever grants exist (security §3.2).
@@ -742,16 +778,25 @@ export class PolicyEngine {
 
     // 5. Standing grants and configured allowances.
     trace.push("step5:grants");
-    const consult = !(mode === "manual" && SEVERITY[se] >= SEVERITY.write) && se !== "financial";
     let allowed: Allowance | undefined;
     if (consult) {
+      // Financial calls match only an `always` grant the owner confirmed (`allowedScopes`).
       const g = d.matchGrant(binding.grantKey, kind, se, ctx, origin);
       if (g !== undefined && !unbound) allowed = { rule: `grant:${g.grant.id}`, grant: g };
       else if (SEVERITY[se] <= SEVERITY.write) allowed = allowances[0];
+      else allowed = allowances.find((a) => a.lifted === true);
     }
     if (allowed !== undefined) {
       if (escalation !== undefined)
         return ask(escalation.rule, escalation.reason, escalation.scopes);
+      // Security §3.6, §3.12: taint always overrides what lifts a send / destructive / financial
+      // floor (the matrix override, a standing grant), whatever the target.
+      if (
+        tainted &&
+        floored !== undefined &&
+        (allowed.lifted === true || allowed.grant !== undefined)
+      )
+        return ask("taint:floor", "untrusted content was read in this turn", ["once"]);
       // 7. Classifier: residual writes in auto mode.
       let classifier: PolicyDecision["classifier"];
       if (mode === "auto" && se === "write") {
@@ -778,9 +823,14 @@ export class PolicyEngine {
           binding,
           grantId,
           classifier,
+          ...(floored === undefined ? {} : { via: "grant" as const }),
         });
       }
-      return done("allow", allowed.rule, undefined, { binding, classifier });
+      return done("allow", allowed.rule, undefined, {
+        binding,
+        classifier,
+        ...(allowed.lifted === true ? { via: "matrix-override" as const } : {}),
+      });
     }
 
     // 6. Mode default (security §3.2).
@@ -809,7 +859,7 @@ export class PolicyEngine {
       case "destructive":
         return ask(modeRule);
       case "financial":
-        return ask(modeRule, undefined, ["once"]);
+        return ask(modeRule, undefined, ["once", "always"]);
     }
   }
 

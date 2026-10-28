@@ -230,6 +230,29 @@ describe("connectors.* handlers", () => {
   });
 });
 
+describe("lifted floors (security §3.12)", () => {
+  it("allow on a destructive group needs the owner's confirmed override", async () => {
+    const lifted = new Set<string>();
+    const registry = new ConnectorRegistry({
+      factories: [demoFactory(["a@example.com"])],
+      context: {
+        clock: new FakeClock(),
+        fetch,
+        tokens: { load: async () => undefined, save: async () => {}, clear: async () => {} },
+      },
+      floorLifted: (id, action) => lifted.has(`${id}/${action}`),
+      newId: () => "demo-1",
+    });
+    await registry.connect({ catalogueId: "demo", scopeMode: "read_act" });
+    await expect(registry.setMatrix("demo-1", { "demo.delete": "allow" })).rejects.toMatchObject({
+      code: "policy_denied",
+    });
+    lifted.add("demo-1/demo.delete");
+    const r = await registry.setMatrix("demo-1", { "demo.delete": "allow" });
+    expect(r.actionMatrix["demo.delete"]).toBe("allow");
+  });
+});
+
 describe("write enforcement fails closed", () => {
   const setup = (opts: {
     approvalFor?: () => string | undefined;
@@ -491,7 +514,9 @@ describe("standing grants (ToolRunContext.authority)", () => {
     expect(executed).toEqual([byGrant]);
     expect(receipts).toEqual([expect.objectContaining({ kind: "demo.write", approvalId: null })]);
     // The receipt says which rule let the call through (#747).
-    expect(receipts).toEqual([expect.objectContaining({ payload: { rule: "grant:grt_1" } })]);
+    expect(receipts).toEqual([
+      expect.objectContaining({ payload: { rule: "grant:grt_1", via: "grant" } }),
+    ]);
   });
 
   it("a grant the ledger no longer has, or that expired, is refused", async () => {
@@ -524,7 +549,7 @@ describe("standing grants (ToolRunContext.authority)", () => {
     });
   });
 
-  it("destructive actions take only task grants, as security §3.4 says", async () => {
+  it("destructive actions take task or always grants, never session (§3.4, §3.12)", async () => {
     const taskGrant = {
       ...liveGrant,
       scope: "task" as const,
@@ -538,9 +563,13 @@ describe("standing grants (ToolRunContext.authority)", () => {
     const always = { ...taskGrant, scope: "always" as const, taskId: null };
     await expect(
       setup({ authority: { ...authority, scope: "always" }, grants: [always] }).call("wipe"),
+    ).resolves.toMatchObject({ output: "gone" });
+    const session = { ...taskGrant, scope: "session" as const, taskId: null };
+    await expect(
+      setup({ authority: { ...authority, scope: "session" }, grants: [session] }).call("wipe"),
     ).rejects.toMatchObject({
       code: "binding_mismatch",
-      message: expect.stringContaining("scope_always_not_allowed_for_destructive"),
+      message: expect.stringContaining("scope_session_not_allowed_for_destructive"),
     });
   });
 

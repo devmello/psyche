@@ -28,6 +28,7 @@ import { easeLinear, fade, motionSpring, spring } from "../motion/index.ts";
 import { useSlots } from "../slots.tsx";
 import { roleLabel } from "../specialists/model.ts";
 import { ApprovalDetails, ApprovalIds } from "./approval-details.tsx";
+import { floorClassOf, useLiftFloorConfirm } from "./LiftFloorDialog.tsx";
 import { taintSentence } from "./taint-text.ts";
 
 /**
@@ -229,11 +230,26 @@ export function ApprovalCard({
     return () => clearTimeout(timer);
   }, [interactive, armDelayMs]);
   const site = originOf(approval);
-  const offered = approval.scopesOffered;
+  // A send / destructive / financial card (§3.12): Always allow lifts its floor for this call
+  // class, so it confirms first, and a tainted one never offers it (§3.6).
+  const floor = floorClassOf(approval.kind, approval.sideEffect);
+  const offered =
+    floor !== null && approval.taint
+      ? approval.scopesOffered.filter((s) => s === "once")
+      : approval.scopesOffered;
+  const liftConfirm = useLiftFloorConfirm(persona, "card");
 
-  const submit = async (decision: "approve" | "deny") => {
+  const submit = async (decision: "approve" | "deny", confirmed = false) => {
     if (!interactive || !armed || busy) return;
     if (decision === "approve" && !allowReady) return;
+    if (decision === "approve" && floor !== null && choice === "always" && !confirmed) {
+      liftConfirm.ask(
+        floor,
+        t("blocks.liftFloor.cardWhat", { summary: approval.summary }),
+        () => void submit("approve", true),
+      );
+      return;
+    }
     const scope: GrantScope | undefined = decision === "deny" ? undefined : choice;
     setBusy(true);
     setError(null);
@@ -746,6 +762,7 @@ export function ApprovalCard({
           <ApprovalIds approval={approval} />
         </div>
       ) : null}
+      {liftConfirm.dialog}
     </m.fieldset>
   );
 }

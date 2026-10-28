@@ -183,23 +183,24 @@ export function describePermissionBrokerConformance(
       expect((await broker.decide(call, CTX)).decision).toBe("deny");
     });
 
-    it("destructive is never offered or granted beyond task", async () => {
+    it("destructive is offered once / task / always, never site or session", async () => {
       const { broker, clock } = await setup();
       const call = intent("email.send", "destructive");
       const d = await broker.decide(call, CTX);
       expect(d.decision).toBe("ask");
-      for (const s of d.scopesOffered ?? []) expect(["once", "task"]).toContain(s);
+      for (const s of d.scopesOffered ?? []) expect(["once", "task", "always"]).toContain(s);
       const issued = await request(broker, call, {
         scopesOffered: ["once", "task", "site", "session", "always"],
       });
-      for (const s of issued.approval.scopesOffered) expect(["once", "task"]).toContain(s);
+      for (const s of issued.approval.scopesOffered)
+        expect(["once", "task", "always"]).toContain(s);
       clock.advance(APPROVAL_ARM_DELAY_MS + 100);
       await expectPsycheError(
         broker.answer({
           approvalId: issued.approval.id,
           answerToken: token(issued, "desktop"),
           decision: "approve",
-          scope: "always",
+          scope: "session",
           decidedBy: by,
         }),
       );
@@ -452,7 +453,8 @@ export function describePermissionBrokerConformance(
       });
       expect(issued.approval.deviceOnly).toBe(true);
       expect(issued.approval.surfaces).not.toContain("telegram:4242");
-      for (const s of issued.approval.scopesOffered) expect(["once", "task"]).toContain(s);
+      for (const s of issued.approval.scopesOffered)
+        expect(["once", "task", "always"]).toContain(s);
     });
 
     it("pairing and policy changes are device-only", async () => {

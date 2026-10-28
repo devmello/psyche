@@ -227,14 +227,15 @@ export function appleConnectorKey(recordType: string): `apple.${string}` | undef
 
 /**
  * The matrix effect for an Apple app call: the owner's entry, else the default; an `alwaysAsk`
- * action downgrades an owner `allow` to `ask`.
+ * action downgrades an owner `allow` to `ask` unless the owner lifted its floor (`lifted`).
  */
 export function appleAppEffect(
   tool: string,
   configured: "allow" | "ask" | "deny" | undefined,
+  lifted = false,
 ): "allow" | "ask" | "deny" | undefined {
   const a = appleAppAction(tool);
   if (a === undefined) return configured;
   const effect = configured ?? a.default;
-  return a.alwaysAsk === true && effect === "allow" ? "ask" : effect;
+  return a.alwaysAsk === true && effect === "allow" && !lifted ? "ask" : effect;
 }

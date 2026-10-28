@@ -98,8 +98,10 @@ Every tool and node capability declares `sideEffect: none | read | write | destr
 | --- | --- | --- | --- | --- |
 | `plan` | `sideEffect: none` tools only; produces a Plan artifact; `ExitPlanMode` needs approval | denied | denied | denied |
 | `manual` | first read of each new source asks (`task` / `site` offered) | ask every time; allow-grants not consulted | ask, `once` only | ask, `once`, device surface |
-| `balanced` (default) | first read of a new source asks; sensitive categories always ask | standing grants honored, else ask with `once / task / site / session / always` | ask, `once` or `task` | ask, `once`, device surface |
-| `auto` | new ordinary origins allowed unless tainted or sensitive | within existing grants: classifier `routine` → allow, `sensitive` → ask, `prohibited` → deny; outside grants: ask | ask (`once` / `task`) | ask, `once`, device surface |
+| `balanced` (default) | first read of a new source asks; sensitive categories always ask | standing grants honored, else ask with `once / task / site / session / always` | ask, `once`, `task` or a confirmed `always` (§3.12); untainted calls the owner lifted the floor for run | ask, `once` or a confirmed `always`, device surface; lifted as for destructive |
+| `auto` | new ordinary origins allowed unless tainted or sensitive | within existing grants: classifier `routine` → allow, `sensitive` → ask, `prohibited` → deny; outside grants: ask | as `balanced` | as `balanced` |
+
+The `destructive` and `financial` cells, and sends, are **floors**: on by default, liftable by the owner per connector action or per call class, each time with a confirmation (§3.12). Taint (§3.6), `manual` and `plan` mode, deny rules and the device-only and authentication kinds (§3.7) are never lifted.
 
 `notify` to the owner (target `recipient: owner`) is not a `write` the owner approves: it reaches only the owner's own inbox, like the reply in their own chat, so it is allowed without a card in every mode but `plan`, tainted or not, and an unattended run's deliverable is delivered (rule `owner_inbox`, #307). Deny rules, ask rules and hooks still apply.
 
@@ -131,7 +133,7 @@ For every tool call and `node.invoke`, the first terminal result wins:
 | `session` | `grantKey` | until `/new`, Gateway restart, or 12 h idle | counted |
 | `always` | `grantKey` | 90 days (`grants.alwaysExpiryDays`), warning 7 days before | optional `maxUses` |
 
-`destructive` accepts only `once` or `task`; `financial` only `once`; credential fills default to `once` with an opt-in `site` grant (architecture §4.7). Every grant records `createdFrom` (ApprovalRequest id), `uses`, `lastUsedAt`, `lastUsedBindingHash`, and is revocable in Settings → Permissions; `always` grants for `exec` bind to exact argv and cwd, as OpenClaw's do (openclaw notes, 2k).
+`destructive` accepts `once`, `task` or `always`; `financial` `once` or `always` (purchases `once` only); an `always` on a send, destructive or financial card is the owner's confirmed opt-in (§3.12) and never applies to a tainted call; credential fills default to `once` with an opt-in `site` grant (architecture §4.7). Every grant records `createdFrom` (ApprovalRequest id), `uses`, `lastUsedAt`, `lastUsedBindingHash`, and is revocable in Settings → Permissions; `always` grants for `exec` bind to exact argv and cwd, as OpenClaw's do (openclaw notes, 2k).
 
 ### 3.5 Binding hash and grant key per action kind
 
@@ -163,7 +165,7 @@ For every tool call and `node.invoke`, the first terminal result wins:
 
 **How long.** Turn-scoped, surviving compaction (a summary of untrusted content is untrusted). The Task keeps cumulative `taintedSources[]` for approval cards.
 
-**What it escalates.** In a tainted turn: any `write`, `destructive` or `financial` action on a target *new* relative to the owner's request and to targets approved earlier in the Task → `ask` regardless of `site` / `session` / `always` grants (architecture §4.6); navigation to a new origin → `ask` (architecture §8); a credential fill whose bound origin differs from every tainting origin → `ask` even with a `site` grant; `exec` with `network: proxy` or writes outside `/workspace` → `ask`; untrusted-derived memory writes go only to the daily note tagged `untrusted`, never to `USER.md` / `MEMORY.md` (§8).
+**What it escalates.** In a tainted turn: any `write`, `destructive` or `financial` action on a target *new* relative to the owner's request and to targets approved earlier in the Task → `ask` regardless of `site` / `session` / `always` grants (architecture §4.6); any send, `destructive` or `financial` call the owner's lifted floor or standing grant would let through → `ask` (rule `taint:floor`), whatever the target, and such tainted cards offer `once` only (§3.12); navigation to a new origin → `ask` (architecture §8); a credential fill whose bound origin differs from every tainting origin → `ask` even with a `site` grant; `exec` with `network: proxy` or writes outside `/workspace` → `ask`; untrusted-derived memory writes go only to the daily note tagged `untrusted`, never to `USER.md` / `MEMORY.md` (§8).
 
 ### 3.7 Approval requests: delivery, expiry, restart, answers
 
@@ -266,13 +268,16 @@ The owner sets Allow / Ask / Deny per connector **action group** (`mail.read`, `
   - deny: refused before any card, with a receipt whose `payload.rule` names the rule.
   - No entry: the mode default.
   - First-party connector calls are not treated as unknown-tier MCP (§11). A third-party MCP server's tier floor still applies.
-- **Hard floors.** An owner `allow` never silences these: sends (`send_email`, `message_send`), `destructive` and `financial` calls, and device-only or authentication kinds (§3.7). They ask, with rule `connector:<id>/<group>:floor`; a deny still refuses them. Taint escalation (§3.6) and manual mode apply as for any allowance.
+- **Floors.** By default an owner `allow` does not silence sends (`send_email`, `message_send`), `destructive` or `financial` calls: they ask, with rule `connector:<id>/<group>:floor`. The owner can lift one of these floors, per action group, and only with a confirmation:
+  - **In Settings.** Choosing Allow on such a group opens a confirm that names the action and its consequence ("Psyche can delete notes in Notes without asking. Deleted items may not be recoverable."). Confirmed, Settings saves the group in `permissions.liftedFloors.<connectorId>` next to its `allow` (a presence-gated security setting, §10). The Gateway turns it into `policy.liftedFloors` and the executor's `floorLifted`; the call then runs without a card, rule `connector:<id>/<group>:override`, `via: matrix-override`. A plain `allow`, from an old config or an import, never lifts a floor, and a `liftedFloors` entry inside `permissions.policy` is dropped. Choosing Ask or Deny removes the override.
+  - **On a card.** A send, destructive or financial card also offers Always allow, behind the same confirm. It is an `always` grant (§3.4) bound to the call's `grantKey` and kind, so a later call of that class runs without a card (`via: grant`) until it expires or is revoked in Settings → Permissions.
+  - **Never lifted.** Taint (§3.6) asks whatever the override or grant, and offers `once` only. Manual mode asks every time. Deny still refuses. Device-only and authentication kinds (credential entry, vault fills, purchases, `exec_host`, pairing, policy changes, AppleScript; §3.7) keep their floors with no override.
 - **Shortcuts.** `config.shortcutRules` maps to `shortcuts.run/<id>`.
   - Off: the connector refuses it before any card, and the broker denies it.
   - Allow: the connector describes that one shortcut as a write, so it runs without a card. Taint escalation still applies.
   - Any other shortcut is destructive and asks.
 - **Direct helper calls.** `node.*` Apple app calls follow the same groups: `APPLE_APP_ACTIONS` rows carry the group, and the rules of an `apple:<app>` record also land under `apple.<app>`. An older `permissions.policy` entry keyed by the bare action name still applies when the group has none.
-- **Receipts.** Every connector write's receipt records the deciding rule (`payload.rule`): an approval, a grant, or the matrix.
+- **Receipts.** Every connector write's receipt records the deciding rule (`payload.rule`): an approval, a grant, or the matrix. A write no card answered also records `payload.via` (`grant` or `matrix-override`), and the `tool_call.decided` audit entry of a send, destructive or financial call let through that way records `via` too.
 
 ### 3.13 Missing permissions and `request_permission`
 

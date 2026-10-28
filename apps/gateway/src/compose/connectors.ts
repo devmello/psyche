@@ -41,6 +41,7 @@ import {
   fsError,
   isUnder,
 } from "@psyche/files";
+import { floorLifted } from "@psyche/permissions";
 import {
   type CredentialBroker,
   type CredentialRevokedEvent,
@@ -298,6 +299,8 @@ export function composeConnectors(
     broker: services.broker,
     approvalFor: (callId) => services.calls.approvalFor(callId),
     authorityFor: (callId) => services.calls.authorityFor(callId),
+    // The owner's confirmed opt-ins, as the broker holds them (security §3.12).
+    floorLifted: (id, action) => floorLifted(services.rawBroker.policy.liftedFloors?.[id], action),
     onEvent: (event) => {
       onConnectorEvent(services, event);
       void publishUpdate(event);

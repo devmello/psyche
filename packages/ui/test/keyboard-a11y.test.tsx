@@ -68,8 +68,10 @@ describe("chat column by keyboard", () => {
 
 describe("approval card by keyboard", () => {
   it("the scope select changes the lifetime and ⌘Return allows the chosen one", async () => {
-    const approval = createFixtureWorld().approvals.find((a) => a.status === "pending");
-    if (!approval) throw new Error("no pending approval");
+    const pending = createFixtureWorld().approvals.find((a) => a.status === "pending");
+    if (!pending) throw new Error("no pending approval");
+    // A tainted send offers Allow once only (security §3.6, §3.12): use an untainted copy.
+    const approval = { ...pending, taint: false };
     const onAnswer = vi.fn();
     render(
       <ApprovalCard approval={approval} canAnswer now={NOW} armDelayMs={0} onAnswer={onAnswer} />,

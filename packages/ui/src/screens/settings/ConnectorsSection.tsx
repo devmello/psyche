@@ -10,7 +10,7 @@ import { describeError } from "../../i18n/errors.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { usePersona } from "../../slots.tsx";
-import { type ActionRule, withMatrixOverrides } from "./ActionMatrix.tsx";
+import { type ActionRule, liftedFloorsOf, withMatrixOverrides } from "./ActionMatrix.tsx";
 import { ConnectForm } from "./ConnectForm.tsx";
 import { CapabilityCard } from "./ConnectorCapabilities.tsx";
 import { ConnectorIcon } from "./ConnectorIcon.tsx";
@@ -120,8 +120,18 @@ export interface ConnectorsPanelProps extends LoadProps {
   onGrant?: (connector: Connector) => void;
   /** `connectors.catalogue`: each type's action groups for the Apple app cards (#640). */
   catalogue?: readonly ConnectorCatalogueEntry[];
-  /** An action group's Allow / Ask / Deny, saved as `permissions.connectors.<id>`. */
-  onRuleChange?: (connector: Connector, action: string, rule: ActionRule) => void;
+  /**
+   * An action group's Allow / Ask / Deny, saved as `permissions.connectors.<id>`; `liftFloor` is
+   * the owner's confirmed opt-in for a send / destructive / financial group (security §3.12).
+   */
+  onRuleChange?: (
+    connector: Connector,
+    action: string,
+    rule: ActionRule,
+    liftFloor?: boolean,
+  ) => void;
+  /** `permissions.liftedFloors.<id>` per connector id. */
+  liftedFloors?: Readonly<Record<string, readonly string[]>>;
   /** "Try it": fills the chat composer with an example request. */
   onTry?: (text: string) => void;
   /** Opens the Apple app cards with their groups showing (stories). */
@@ -150,6 +160,7 @@ export function ConnectorsPanel({
   onConfigure,
   catalogue,
   onRuleChange,
+  liftedFloors,
   onTry,
   defaultCapabilitiesOpen,
   loading,
@@ -397,10 +408,11 @@ export function ConnectorsPanel({
                       connector={c}
                       actions={catalogue?.find((e) => e.type === c.type)?.actions ?? []}
                       persona={persona}
+                      lifted={liftedFloors?.[c.id] ?? []}
                       {...(onRuleChange
                         ? {
-                            onRuleChange: (action: string, rule: ActionRule) =>
-                              onRuleChange(c, action, rule),
+                            onRuleChange: (action: string, rule: ActionRule, lift?: boolean) =>
+                              onRuleChange(c, action, rule, lift),
                           }
                         : {})}
                       {...(onTry ? { onTry } : {})}
@@ -542,9 +554,16 @@ export function ConnectorsSection({
         persona={persona ?? fallback.name}
         implemented={implemented}
         {...(catalogue ? { catalogue } : {})}
-        onRuleChange={(c: Connector, action: string, rule: ActionRule) =>
-          form.onChange(`permissions.connectors.${c.id}`, { ...c.actionMatrix, [action]: rule })
-        }
+        liftedFloors={liftedFloorsOf(form.values)}
+        onRuleChange={(c: Connector, action: string, rule: ActionRule, lift?: boolean) => {
+          form.onChange(`permissions.connectors.${c.id}`, { ...c.actionMatrix, [action]: rule });
+          if (lift !== undefined) {
+            const key = `permissions.liftedFloors.${c.id}`;
+            const was = liftedFloorsOf(form.values)[c.id] ?? [];
+            const next = lift ? [...new Set([...was, action])] : was.filter((a) => a !== action);
+            if (next.length !== was.length) form.onChange(key, next);
+          }
+        }}
         {...(onTry ? { onTry } : {})}
         sharedFolders={folderGrants(form.values).map((g) => g.path)}
         onShareFolder={(path: string, mode: ScopeMode) => {

@@ -14,7 +14,12 @@ import {
 import { APPLE_APP_ACTIONS, type PolicyContext } from "@psyche/permissions";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
-import { brokerConnectors, ownerMatrices } from "../src/compose/connector-matrix.ts";
+import {
+  brokerConnectors,
+  brokerLiftedFloors,
+  ownerLiftedFloors,
+  ownerMatrices,
+} from "../src/compose/connector-matrix.ts";
 import { composeConnectors } from "../src/compose/connectors.ts";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { adminClient, ik, type TestClient } from "./helpers.ts";
@@ -250,6 +255,17 @@ describe("connector action matrix → broker (#747)", () => {
       "apple.mail": { "mail.organize": "allow" },
       sc: { "shortcuts.run/A": "deny" },
     });
+  });
+
+  it("lifted floors come only from the confirmed setting, mirrored for Apple apps (§3.12)", () => {
+    const owner = ownerLiftedFloors({
+      "permissions.liftedFloors.apple-notes": ["notes.delete", "notes.delete", 3],
+      "permissions.liftedFloors.gmail": "gmail.send",
+      "permissions.connectors.apple-notes": { "notes.delete": "allow" },
+    });
+    expect(brokerLiftedFloors(owner, [record({ id: "apple-notes", type: "apple:notes" })])).toEqual(
+      { "apple-notes": ["notes.delete"], "apple.notes": ["notes.delete"] },
+    );
   });
 
   it("an echoed catalogue default is not a choice: neither side flips (music, reads)", () => {
