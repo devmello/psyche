@@ -100,6 +100,13 @@ import {
   withDeadline,
 } from "./plugins.ts";
 import { type QuestionAnswer, validateAnswer } from "./questions.ts";
+import {
+  DEFERRAL_CORE,
+  DEFERRED_REASON,
+  type DeferredToolsApi,
+  loadToolsTool,
+  toolSearchTool,
+} from "./deferred.ts";
 import { ReasoningSteps } from "./reasoning.ts";
 import { type AgentToolRegistration, AgentToolRegistry, parseMcpToolName } from "./registry.ts";
 import {
@@ -237,6 +244,11 @@ export interface AgentLoopOptions {
   /** Mode a thread moves to when its plan is approved (default `balanced`). */
   planExitMode?: PermissionMode;
   toolToggles?: (threadId: string) => Record<string, boolean> | undefined;
+  /**
+   * Progressive disclosure (deferred.ts): true keeps the tool's schema out of the prompt until
+   * the thread loads it with `load_tools`. Unset: every active tool is sent, as before.
+   */
+  deferTool?: (spec: ToolSpec, threadId: string) => boolean;
   /** Incognito threads are never flushed to memory (security §8). */
   isIncognito?: (threadId: string) => boolean;
   /**
@@ -360,6 +372,8 @@ interface RunState {
   questions: Map<string, PendingQuestion>;
   active: Map<string, AgentToolRegistration>;
   hidden: Map<string, string>;
+  /** Tools this run may load on demand (loaded ones included), from the last assembly. */
+  deferred?: Map<string, AgentToolRegistration>;
   emit: (event: AgentEvent) => void;
   /** Set for a subagent run: no questions, messaging, approvals or nesting (C6). */
   subagent?: { parentRunId: string; maxSteps: number };
@@ -517,6 +531,7 @@ export class PsycheAgentLoop implements AgentLoop {
     if (o.notifier !== undefined) tools.push(notifyTool(o.notifier));
     tools.push(harnessDelegateTool(this.harnesses));
     if (o.specialists !== undefined && o.tasks !== undefined) tools.push(...specialistTools());
+    if (o.deferTool !== undefined) tools.push(toolSearchTool, loadToolsTool);
     for (const tool of tools) {
       if (this.registry.get(tool.spec.name) === undefined) this.registry.register(tool);
     }
@@ -1267,11 +1282,14 @@ export class PsycheAgentLoop implements AgentLoop {
       tools = tools.filter((t) => t.spec.name !== "harness.delegate");
       hidden.set("harness.delegate", "no coding harness is installed");
     }
+    let deferred: AgentToolRegistration[] = [];
+    ({ tools, deferred } = this.#defer(run, tools, hidden));
     const ctx = await assembleContext({
       basePrompt: this.#o.basePrompt ?? DEFAULT_BASE_PROMPT,
       ...(this.#o.memory === undefined ? {} : { memory: this.#o.memory }),
       ...(this.#o.skills === undefined ? {} : { skills: this.#o.skills }),
       tools: tools.map((t) => t.spec),
+      ...(deferred.length === 0 ? {} : { deferred: deferred.map((t) => t.spec) }),
       permissionMode: run.permissionMode,
       runMode: run.mode,
       now: this.#clock.now(),
@@ -1332,6 +1350,7 @@ export class PsycheAgentLoop implements AgentLoop {
           ...(toggles === undefined ? {} : { toggles }),
           allow: new Set(tools.map((t) => t.spec.name).filter((n) => allow.has(n))),
         }));
+        ({ tools } = this.#defer(run, tools, hidden));
       }
     }
     run.provided ??= await this.#provideContext(run);
@@ -1354,6 +1373,69 @@ export class PsycheAgentLoop implements AgentLoop {
       system: renderSystemPrompt(sections),
       sections,
       tools: tools.map((t) => structuredClone(t.spec)),
+    };
+  }
+
+  /**
+   * Splits off the tools `deferTool` keeps out of the prompt (deferred.ts). Loaded ones go after
+   * the rest in load order (append-only); the others are hidden with `DEFERRED_REASON`. With
+   * nothing deferrable, `tool_search` and `load_tools` are not offered either.
+   */
+  #defer(
+    run: RunState,
+    tools: AgentToolRegistration[],
+    hidden: Map<string, string>,
+  ): { tools: AgentToolRegistration[]; deferred: AgentToolRegistration[] } {
+    const pick = this.#o.deferTool;
+    const deferred =
+      pick === undefined
+        ? []
+        : tools.filter((t) => !DEFERRAL_CORE.has(t.spec.name) && pick(t.spec, run.threadId));
+    run.deferred = new Map(deferred.map((t) => [t.spec.name, t]));
+    if (deferred.length === 0) {
+      return {
+        tools: tools.filter((t) => t !== toolSearchTool && t !== loadToolsTool),
+        deferred,
+      };
+    }
+    const order = new Map((run.thread.loadedTools ?? []).map((n, i) => [n, i]));
+    const loaded = deferred
+      .filter((t) => order.has(t.spec.name))
+      .sort((a, b) => (order.get(a.spec.name) ?? 0) - (order.get(b.spec.name) ?? 0));
+    for (const t of deferred) if (!order.has(t.spec.name)) hidden.set(t.spec.name, DEFERRED_REASON);
+    return {
+      tools: [...tools.filter((t) => !run.deferred?.has(t.spec.name)), ...loaded],
+      deferred,
+    };
+  }
+
+  #deferredApi(run: RunState): DeferredToolsApi {
+    return {
+      deferred: () => {
+        const loaded = new Set(run.thread.loadedTools ?? []);
+        return [...(run.deferred?.values() ?? [])].map((t) => ({
+          spec: structuredClone(t.spec),
+          loaded: loaded.has(t.spec.name),
+        }));
+      },
+      load: (names) => {
+        const out = { loaded: [] as string[], already: [] as string[], unknown: [] as string[] };
+        const list = (run.thread.loadedTools ??= []);
+        for (const name of new Set(names)) {
+          // A tool that registered after this step's assembly (an install just approved).
+          const reg = run.deferred?.get(name) ?? this.registry.get(name);
+          if (list.includes(name)) out.already.push(name);
+          else if (
+            reg !== undefined &&
+            (run.deferred?.has(name) === true ||
+              this.#o.deferTool?.(reg.spec, run.threadId) === true)
+          ) {
+            list.push(name);
+            out.loaded.push(name);
+          } else out.unknown.push(name);
+        }
+        return out;
+      },
     };
   }
 
@@ -1855,6 +1937,16 @@ export class PsycheAgentLoop implements AgentLoop {
     const reg = override ?? run.active.get(call.name);
     if (reg === undefined) {
       const why = run.hidden.get(call.name);
+      if (why === DEFERRED_REASON) {
+        // Called by name without loading: load it, and the model calls it again with its schema.
+        this.#deferredApi(run).load([call.name]);
+        return this.#blocked(
+          run,
+          call,
+          `${call.name} was not loaded; it is loaded now. Call it again from the next step.`,
+          "failed",
+        );
+      }
       return this.#blocked(
         run,
         call,
@@ -2796,6 +2888,7 @@ export class PsycheAgentLoop implements AgentLoop {
       harnessActionDone: (actionId, outcome, summary) =>
         this.#harnessDone(run, actionId, outcome, summary),
       exitPlan: (plan) => this.#exitPlan(run, toolCallId, plan),
+      ...(this.#o.deferTool === undefined ? {} : { deferredTools: this.#deferredApi(run) }),
     };
   }
 

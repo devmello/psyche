@@ -7,6 +7,7 @@ export * from "./coding/index.ts";
 export * from "./commands.ts";
 export * from "./compaction.ts";
 export * from "./context.ts";
+export * from "./deferred.ts";
 export * from "./evaluator.ts";
 export * from "./hooks.ts";
 export * from "./image-tokens.ts";

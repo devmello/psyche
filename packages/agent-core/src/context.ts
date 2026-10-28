@@ -6,6 +6,7 @@ import type {
   SkillLoader,
   ToolSpec,
 } from "@psyche/protocol";
+import { deferredLine } from "./deferred.ts";
 import { localDate } from "./util.ts";
 
 /** Character budgets from architecture §4.2 step 3 and feature C2. */
@@ -65,6 +66,8 @@ export interface AssembleInput {
   memory?: MemoryStore;
   skills?: SkillLoader;
   tools: readonly ToolSpec[];
+  /** Tools loaded on demand (deferred.ts): named in one line, schemas not sent. */
+  deferred?: readonly ToolSpec[];
   permissionMode: PermissionMode;
   runMode: RunMode;
   now: number;
@@ -167,8 +170,11 @@ function toolsSection(
   tools: readonly ToolSpec[],
   permissionMode: PermissionMode,
   runMode: RunMode,
+  deferred: readonly ToolSpec[] = [],
 ): ContextSection {
-  const lines = tools.map((t) => {
+  // A loaded deferred tool stays in the on-demand line too, so loading never changes this text.
+  const onDemand = new Set(deferred.map((t) => t.name));
+  const lines = tools.filter((t) => !onDemand.has(t.name)).map((t) => {
     const marks = [
       t.sideEffect,
       ...(t.descriptionProvenance === "untrusted" ? ["untrusted description"] : []),
@@ -176,7 +182,7 @@ function toolsSection(
     ];
     return `- ${t.name} (${marks.join(", ")})`;
   });
-  const thirdParty = tools.some((t) => t.descriptionProvenance === "untrusted");
+  const thirdParty = [...tools, ...deferred].some((t) => t.descriptionProvenance === "untrusted");
   const header = [
     `Permission mode: ${permissionMode}.${permissionMode === "plan" ? " Plan mode is read-only: research, then call exit_plan_mode with the plan for the owner to approve." : ""}`,
     // #281: MCP servers write their own tool descriptions and parameter text.
@@ -194,7 +200,11 @@ function toolsSection(
     id: "tools",
     kind: "tools",
     title: "Tools",
-    text: [...header, lines.length === 0 ? "(no tools)" : lines.join("\n")].join("\n"),
+    text: [
+      ...header,
+      lines.length === 0 ? "(no tools)" : lines.join("\n"),
+      ...(deferredLine(deferred) === undefined ? [] : [deferredLine(deferred) as string]),
+    ].join("\n"),
   };
 }
 
@@ -260,7 +270,7 @@ export async function assembleContext(input: AssembleInput): Promise<AssembledCo
   sections.push(...(await personaSections(input.memory, input.budgets)));
   const skills = await skillsSection(input.skills, input.budgets.skillsIndex);
   if (skills !== undefined) sections.push(skills);
-  sections.push(toolsSection(input.tools, input.permissionMode, input.runMode));
+  sections.push(toolsSection(input.tools, input.permissionMode, input.runMode, input.deferred));
   const daily = await dailyNoteSections(
     input.memory,
     input.now,
