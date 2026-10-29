@@ -139,6 +139,14 @@ export const graphFacts = sqliteTable("graph_facts", {
   retractedAt: text("retracted_at"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+  // Everything memory (202610281200_memory_everything.sql).
+  subjectKind: text("subject_kind").notNull(),
+  sensitivity: text("sensitivity").notNull(),
+  review: text("review").notNull(),
+  firstSeenAt: text("first_seen_at"),
+  lastSeenAt: text("last_seen_at"),
+  runId: text("run_id"),
+  extractor: text("extractor"),
 });
 
 export const graphEdges = sqliteTable("graph_edges", {
@@ -156,6 +164,8 @@ export const graphEdges = sqliteTable("graph_edges", {
   retractedAt: text("retracted_at"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+  role: text("role"),
+  review: text("review").notNull(),
 });
 
 export const graphInteractions = sqliteTable("graph_interactions", {
@@ -240,6 +250,87 @@ export const graphCursors = sqliteTable("graph_cursors", {
   updatedAt: text("updated_at").notNull(),
 });
 
+// --- Everything memory (202610281200_memory_everything.sql; docs/design/everything-memory-2026.md) ---
+
+export const graphCitations = sqliteTable("graph_citations", {
+  id: text("id").primaryKey(),
+  targetKind: text("target_kind").notNull(),
+  targetId: text("target_id").notNull(),
+  source: text("source").notNull(),
+  docId: text("doc_id"),
+  sourceRef: text("source_ref").notNull(),
+  quote: text("quote").notNull(),
+  start: integer("start").notNull(),
+  end: integer("end").notNull(),
+  sourceHash: text("source_hash").notNull(),
+  authorEntityId: text("author_entity_id"),
+  provenance: text("provenance").notNull(),
+  observedAt: text("observed_at").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const memoryRuns = sqliteTable("memory_runs", {
+  id: text("id").primaryKey(),
+  startedAt: text("started_at").notNull(),
+  endedAt: text("ended_at"),
+  model: text("model"),
+  sources: text("sources").notNull(),
+  itemsRead: integer("items_read").notNull(),
+  itemsFiltered: integer("items_filtered").notNull(),
+  batches: integer("batches").notNull(),
+  tokensIn: integer("tokens_in").notNull(),
+  tokensOut: integer("tokens_out").notNull(),
+  factsProposed: integer("facts_proposed").notNull(),
+  factsDropped: text("facts_dropped").notNull(),
+  quarantined: integer("quarantined").notNull(),
+  deferred: integer("deferred").notNull(),
+  error: text("error"),
+});
+
+export const memoryQuarantine = sqliteTable("memory_quarantine", {
+  id: text("id").primaryKey(),
+  source: text("source").notNull(),
+  sourceRef: text("source_ref").notNull(),
+  senderEntityId: text("sender_entity_id"),
+  reasons: text("reasons").notNull(),
+  excerpt: text("excerpt").notNull(),
+  createdAt: text("created_at").notNull(),
+  decided: text("decided"),
+  decidedAt: text("decided_at"),
+});
+
+export const graphExclusions = sqliteTable(
+  "graph_exclusions",
+  {
+    kind: text("kind").notNull(),
+    valueHash: text("value_hash").notNull(),
+    mode: text("mode").notNull(),
+    hint: text("hint"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.kind, t.valueHash] })],
+);
+
+export const memoryClaimSubjects = sqliteTable(
+  "memory_claim_subjects",
+  {
+    claimId: text("claim_id").notNull(),
+    entityId: text("entity_id").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.claimId, t.entityId] })],
+);
+
+export const memoryNeverRules = sqliteTable(
+  "memory_never_rules",
+  {
+    kind: text("kind").notNull(),
+    entityId: text("entity_id").notNull(),
+    attribute: text("attribute").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.kind, t.entityId, t.attribute] })],
+);
+
 // --- The teaching loop (202610251600_memory_teaching.sql; docs/agent/teaching-loop-2026.md §3) ---
 
 export const feedbackEvents = sqliteTable("feedback_events", {
@@ -312,6 +403,12 @@ export const s07Schema = {
   graphFeedback,
   graphBlocklist,
   graphCursors,
+  graphCitations,
+  memoryRuns,
+  memoryQuarantine,
+  graphExclusions,
+  memoryClaimSubjects,
+  memoryNeverRules,
   feedbackEvents,
   lessons,
   feedbackWeekly,

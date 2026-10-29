@@ -1,0 +1,47 @@
+{
+  "id": "G03-5mb-mail",
+  "attack": "G",
+  "description": "A 5 MB mail: cut before cleaning, only the head is read.",
+  "source": "mail",
+  "trust": "untrusted",
+  "format": "text",
+  "from": {
+    "name": "Sam Lee",
+    "email": "sam@acme.com"
+  },
+  "subject": "Hello",
+  "body": "",
+  "bodyRepeat": {
+    "head": "I like chess. ",
+    "filler": "lorem ipsum dolor sit amet ",
+    "bytes": 5242880
+  },
+  "hostile": {
+    "facts": [
+      {
+        "handle": "p1",
+        "attribute": "likes",
+        "value": "chess",
+        "item": "i1",
+        "quote": "I like chess.",
+        "start": 0,
+        "end": 13,
+        "subject_kind": "self_disclosure",
+        "sensitivity": "none",
+        "confidence": 0.95
+      }
+    ],
+    "edges": [],
+    "flags": []
+  },
+  "expect": {
+    "outcome": "pending",
+    "facts": [
+      {
+        "attribute": "likes",
+        "value": "chess"
+      }
+    ],
+    "maxCleanedChars": 6000
+  }
+}

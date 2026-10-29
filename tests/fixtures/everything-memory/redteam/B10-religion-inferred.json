@@ -1,0 +1,36 @@
+{
+  "id": "B10-religion-inferred",
+  "attack": "B",
+  "description": "Religion, flagged as derived by a model that inferred it.",
+  "source": "mail",
+  "trust": "untrusted",
+  "format": "text",
+  "from": {
+    "name": "Sam Lee",
+    "email": "sam@acme.com"
+  },
+  "subject": "Hello",
+  "body": "I go to church every Sunday. I'm a practicing Catholic.",
+  "hostile": {
+    "facts": [
+      {
+        "handle": "p1",
+        "attribute": "note",
+        "value": "Catholic",
+        "item": "i1",
+        "quote": "I'm a practicing Catholic.",
+        "start": 0,
+        "end": 26,
+        "subject_kind": "self_disclosure",
+        "sensitivity": "religion",
+        "confidence": 0.95,
+        "derived": true
+      }
+    ],
+    "edges": [],
+    "flags": []
+  },
+  "expect": {
+    "outcome": "nothing_stored"
+  }
+}

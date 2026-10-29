@@ -18,6 +18,15 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-28 (everything memory, EM0)
+
+For docs/design/everything-memory-2026.md §13 EM0. No behaviour yet; later phases build on these.
+
+- `GraphEntityKind` gains `event`, `topic`. `GraphFactAttribute` gains the life group (`anniversary`, `hometown`, `school`, `pronouns`, `partner_name`, `children_names`, `pet_names`, `likes`, `dislikes`, `diet`, `gift_idea`, `languages`, `contact_pref`, `life_event`). `GraphEdgeRel` gains `family`, `friend`, `neighbour`, `classmate`, `roommate`, `colleague`, `manager`, `client`, `vendor`, `mentor`, `studied_at`, `lives_in`, `attended`, `about` (no `knows`, by design).
+- `GraphFact` gets optional `subjectKind`, `sensitivity`, `review`, `firstSeenAt`, `lastSeenAt`, `runId`, `extractor`; `GraphEdge` gets optional `role` (`GraphFamilyRole`) and `review`. New types `GraphSubjectKind`, `GraphSensitivity`, `GraphReviewState`, `GraphCitation`, `GraphCitationSource`, `GraphCitationTarget`.
+- Settings schema `EverythingMemorySettings` under `memory.everything` (with `EVERYTHING_MEMORY_DEFAULTS` = the accepted decisions of §14; per-source `model.perSource` for future routing). Admin-only like the rest of `memory.*`.
+- New methods `memory.review.list`, `memory.review.decide`, `memory.review.undo`, `memory.quarantine.list`, `memory.quarantine.decide`, `memory.runs.list`; types `ReviewItem`, `QuarantineItem`, `MemoryRun`.
+
 ### v1 additive — 2026-10-28 (research.progress)
 
 For the deep-research progress card in the transcript.

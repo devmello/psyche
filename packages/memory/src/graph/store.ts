@@ -22,8 +22,11 @@ import {
   type GraphProjectStatus,
   type GraphRelationshipLabel,
   type GraphRemovedCounts,
+  type GraphReviewState,
+  type GraphSensitivity,
   type GraphSource,
   type GraphStatus,
+  type GraphSubjectKind,
   type GraphSuggestion,
   type GraphWriteSource,
   type Provenance,
@@ -42,8 +45,50 @@ import { blockHash, normalizeIdentifier, normalizeName, sha256, slugify } from "
  * the provenance rules and the sensitive filters, and keeps history instead of overwriting.
  */
 
-export const FACT_ATTRIBUTES = GraphFactAttributeSchema.enum as readonly GraphFactAttribute[];
-export const EDGE_RELS = GraphEdgeRelSchema.enum as readonly GraphEdgeRel[];
+/**
+ * The attributes and relations the store accepts today. The protocol enums grew for everything
+ * memory (docs/design/everything-memory-2026.md §4); the extra values stay refused here until
+ * the phase that adds their supersession and review rules (EM1+), so adding them to the protocol
+ * changes no behaviour.
+ */
+export const LIFE_ATTRIBUTES: ReadonlySet<string> = new Set([
+  "anniversary",
+  "hometown",
+  "school",
+  "pronouns",
+  "partner_name",
+  "children_names",
+  "pet_names",
+  "likes",
+  "dislikes",
+  "diet",
+  "gift_idea",
+  "languages",
+  "contact_pref",
+  "life_event",
+]);
+const LIFE_RELS: ReadonlySet<string> = new Set([
+  "family",
+  "friend",
+  "neighbour",
+  "classmate",
+  "roommate",
+  "colleague",
+  "manager",
+  "client",
+  "vendor",
+  "mentor",
+  "studied_at",
+  "lives_in",
+  "attended",
+  "about",
+]);
+export const FACT_ATTRIBUTES = (
+  GraphFactAttributeSchema.enum as readonly GraphFactAttribute[]
+).filter((a) => !LIFE_ATTRIBUTES.has(a));
+export const EDGE_RELS = (GraphEdgeRelSchema.enum as readonly GraphEdgeRel[]).filter(
+  (r) => !LIFE_RELS.has(r),
+);
 
 /** Set only by the owner (or Contacts, which the owner maintains): never inferred (§4.3). */
 export const OWNER_ONLY_ATTRIBUTES: ReadonlySet<GraphFactAttribute> = new Set([
@@ -58,7 +103,7 @@ export const MULTI_VALUED: ReadonlySet<GraphFactAttribute> = new Set(["preferenc
 /** Relations that carry a personal label: owner or Contacts only (§4.4). */
 export const OWNER_ONLY_RELS: ReadonlySet<GraphEdgeRel> = new Set(["related_to", "reports_to"]);
 /** Which kinds each relation connects. */
-const REL_KINDS: Record<GraphEdgeRel, [GraphEntityKind[], GraphEntityKind[]]> = {
+const REL_KINDS: Partial<Record<GraphEdgeRel, [GraphEntityKind[], GraphEntityKind[]]>> = {
   works_at: [["person"], ["org"]],
   member_of: [["person"], ["project"]],
   stakeholder_of: [["person", "org"], ["project"]],
@@ -67,6 +112,9 @@ const REL_KINDS: Record<GraphEdgeRel, [GraphEntityKind[], GraphEntityKind[]]> = 
   related_to: [["person"], ["person"]],
   part_of: [["project"], ["project"]],
 };
+
+/** Review states that count as known (everything memory §4.3). */
+export const ACCEPTED_REVIEW_SQL = "('accepted', 'auto_accepted', 'edited')";
 
 const SUMMARY_CHARS = 400;
 const SUBJECT_CHARS = 200;
@@ -179,6 +227,13 @@ interface FactRow {
   recorded_at: string;
   superseded_by: string | null;
   retracted_at: string | null;
+  subject_kind: GraphSubjectKind;
+  sensitivity: GraphSensitivity;
+  review: GraphReviewState;
+  first_seen_at: string | null;
+  last_seen_at: string | null;
+  run_id: string | null;
+  extractor: string | null;
 }
 
 interface EdgeRow {
@@ -306,6 +361,13 @@ function toFact(r: FactRow): GraphFact {
     recordedAt: r.recorded_at,
     supersededBy: r.superseded_by,
     retractedAt: r.retracted_at,
+    subjectKind: r.subject_kind,
+    sensitivity: r.sensitivity,
+    review: r.review,
+    ...(r.first_seen_at === null ? {} : { firstSeenAt: r.first_seen_at }),
+    ...(r.last_seen_at === null ? {} : { lastSeenAt: r.last_seen_at }),
+    runId: r.run_id,
+    ...(r.extractor === null ? {} : { extractor: r.extractor }),
   };
 }
 
@@ -396,6 +458,11 @@ export class GraphStore {
     this.#db.prepare("UPDATE graph_entities SET updated_at = ? WHERE id = ?").run(this.#now(), id);
     this.#reindex(id);
     this.#emit({ event: "memory.entity.updated", payload: { id, kind: row.kind, changed } });
+  }
+
+  /** Reindexes an entity and emits `memory.entity.updated` after a write made outside this class. */
+  touch(id: string, changed: string[]): void {
+    this.#touched(id, changed);
   }
 
   // --- entities --------------------------------------------------------------------------------
@@ -808,7 +875,13 @@ export class GraphStore {
     const where = [
       "entity_id = ?",
       ...(current
-        ? ["superseded_by IS NULL", "retracted_at IS NULL", "(valid_to IS NULL OR valid_to > ?)"]
+        ? [
+            "superseded_by IS NULL",
+            "retracted_at IS NULL",
+            "(valid_to IS NULL OR valid_to > ?)",
+            // Proposed, discarded and quarantined facts are not part of what Psyche knows.
+            `review IN ${ACCEPTED_REVIEW_SQL}`,
+          ]
         : []),
       ...(attribute === undefined ? [] : ["attribute = ?"]),
     ].join(" AND ");
@@ -1020,7 +1093,7 @@ export class GraphStore {
       this.#db
         .prepare(
           `SELECT * FROM graph_edges WHERE (src = ? OR dst = ?) AND superseded_by IS NULL AND retracted_at IS NULL
-           AND (valid_to IS NULL OR valid_to > ?) ORDER BY created_at DESC, id DESC`,
+           AND (valid_to IS NULL OR valid_to > ?) AND review IN ${ACCEPTED_REVIEW_SQL} ORDER BY created_at DESC, id DESC`,
         )
         .all(entityId, entityId, this.#now()) as EdgeRow[]
     ).map(toEdge);
@@ -1037,7 +1110,7 @@ export class GraphStore {
     const dst = this.#entityRow(input.dst);
     if (src === undefined || dst === undefined) fail("not_found", "no such entity");
     if (src.id === dst.id) return refuse("invalid_params", "an entity cannot relate to itself");
-    const [srcKinds, dstKinds] = REL_KINDS[input.rel];
+    const [srcKinds, dstKinds] = REL_KINDS[input.rel] ?? [[], []];
     if (!srcKinds.includes(src.kind) || !dstKinds.includes(dst.kind)) {
       return refuse(
         "invalid_params",

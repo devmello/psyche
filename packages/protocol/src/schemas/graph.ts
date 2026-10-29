@@ -9,9 +9,10 @@ import { Id, IsoDateTime, Nullable, Provenance, StringEnum } from "../common.ts"
  * attribute and are never stored.
  */
 
-export const GraphEntityKind = StringEnum(["person", "org", "project", "place"], {
+export const GraphEntityKind = StringEnum(["person", "org", "project", "place", "event", "topic"], {
   $id: "GraphEntityKind",
-  description: "person, organisation, project or place",
+  description:
+    "person, organisation, project, place, event (dated, may recur) or topic (a lightweight label)",
 });
 export type GraphEntityKind = Static<typeof GraphEntityKind>;
 
@@ -73,6 +74,21 @@ export const GraphFactAttribute = StringEnum(
     "next_step",
     "budget_note",
     "deadline",
+    // Everything memory "life" group (docs/design/everything-memory-2026.md §4.3).
+    "anniversary",
+    "hometown",
+    "school",
+    "pronouns",
+    "partner_name",
+    "children_names",
+    "pet_names",
+    "likes",
+    "dislikes",
+    "diet",
+    "gift_idea",
+    "languages",
+    "contact_pref",
+    "life_event",
   ],
   { $id: "GraphFactAttribute" },
 );
@@ -114,6 +130,100 @@ export const GraphWriteSource = Type.Object(
 );
 export type GraphWriteSource = Static<typeof GraphWriteSource>;
 
+/** Who a fact is about, relative to the text it came from (everything memory §4.3). */
+export const GraphSubjectKind = StringEnum(
+  ["self_disclosure", "about_other", "owner_stated", "deterministic"],
+  {
+    $id: "GraphSubjectKind",
+    description:
+      "self_disclosure: the sender about themselves; about_other: the sender about someone else; owner_stated: the owner's own words; deterministic: Contacts, calendar, headers",
+  },
+);
+export type GraphSubjectKind = Static<typeof GraphSubjectKind>;
+
+/**
+ * Sensitivity class of a fact (§10.2). `gov_id` and `account_numbers` are hard-blocked: they
+ * exist so the classifier can name what it dropped, never so a fact is stored with them.
+ */
+export const GraphSensitivity = StringEnum(
+  [
+    "none",
+    "health",
+    "finance",
+    "sexuality",
+    "religion",
+    "politics",
+    "ethnicity",
+    "legal",
+    "precise_location",
+    "gov_id",
+    "account_numbers",
+  ],
+  { $id: "GraphSensitivity" },
+);
+export type GraphSensitivity = Static<typeof GraphSensitivity>;
+
+/** Review state of a fact (§4.3, §7). */
+export const GraphReviewState = StringEnum(
+  ["pending", "accepted", "auto_accepted", "edited", "discarded", "quarantined"],
+  { $id: "GraphReviewState" },
+);
+export type GraphReviewState = Static<typeof GraphReviewState>;
+
+/** Where a citation's text came from (§4.4). */
+export const GraphCitationSource = StringEnum(
+  [
+    "mail",
+    "messages",
+    "notes",
+    "calendar",
+    "reminders",
+    "chats",
+    "files",
+    "browser",
+    "transcripts",
+    "contacts",
+  ],
+  { $id: "GraphCitationSource" },
+);
+export type GraphCitationSource = Static<typeof GraphCitationSource>;
+
+export const GraphCitationTarget = StringEnum(["fact", "edge", "event", "entity"], {
+  $id: "GraphCitationTarget",
+});
+export type GraphCitationTarget = Static<typeof GraphCitationTarget>;
+
+/**
+ * A verbatim span of a source that supports a fact, relation or event (§4.4). A fact without at
+ * least one citation that re-verifies against its source does not exist.
+ */
+export const GraphCitation = Type.Object(
+  {
+    id: Id,
+    targetKind: GraphCitationTarget,
+    targetId: Id,
+    source: GraphCitationSource,
+    docId: Nullable(Type.String({ maxLength: 200, description: "search_docs id, when indexed" })),
+    sourceRef: Type.String({
+      maxLength: 1024,
+      description: "Native id: Message-ID, chat guid and day, note id, event id or path",
+    }),
+    quote: Type.String({ maxLength: 200, description: "Verbatim from the source" }),
+    start: Type.Integer({ minimum: 0, description: "Offset of the quote in the extracted text" }),
+    end: Type.Integer({ minimum: 0, description: "Exclusive end offset" }),
+    sourceHash: Type.String({
+      maxLength: 128,
+      description: "sha256 of the text the offsets refer to",
+    }),
+    authorEntityId: Nullable(Id),
+    provenance: Provenance,
+    observedAt: IsoDateTime,
+    createdAt: IsoDateTime,
+  },
+  { $id: "GraphCitation" },
+);
+export type GraphCitation = Static<typeof GraphCitation>;
+
 export const GraphFact = Type.Object(
   {
     id: Id,
@@ -133,6 +243,17 @@ export const GraphFact = Type.Object(
     recordedAt: IsoDateTime,
     supersededBy: Nullable(Id),
     retractedAt: Nullable(IsoDateTime),
+    // Everything memory (§4.3). Optional so older producers stay valid; absent means the value
+    // an owner or rule-written fact would have (none / accepted).
+    subjectKind: Type.Optional(GraphSubjectKind),
+    sensitivity: Type.Optional(GraphSensitivity),
+    review: Type.Optional(GraphReviewState),
+    firstSeenAt: Type.Optional(IsoDateTime),
+    lastSeenAt: Type.Optional(IsoDateTime),
+    runId: Type.Optional(Nullable(Id)),
+    extractor: Type.Optional(
+      Type.String({ maxLength: 200, description: '"rule" or the model ref that proposed it' }),
+    ),
   },
   { $id: "GraphFact" },
 );
@@ -140,10 +261,52 @@ export type GraphFact = Static<typeof GraphFact>;
 
 /** The relation allowlist (§4.4). Co-occurrence is computed, never stored as an edge. */
 export const GraphEdgeRel = StringEnum(
-  ["works_at", "member_of", "stakeholder_of", "located_at", "reports_to", "related_to", "part_of"],
+  [
+    "works_at",
+    "member_of",
+    "stakeholder_of",
+    "located_at",
+    "reports_to",
+    "related_to",
+    "part_of",
+    // Everything memory relations (§4.2). `knows` is deliberately absent: co-occurrence is a
+    // query over graph_participants, never an edge.
+    "family",
+    "friend",
+    "neighbour",
+    "classmate",
+    "roommate",
+    "colleague",
+    "manager",
+    "client",
+    "vendor",
+    "mentor",
+    "studied_at",
+    "lives_in",
+    "attended",
+    "about",
+  ],
   { $id: "GraphEdgeRel" },
 );
 export type GraphEdgeRel = Static<typeof GraphEdgeRel>;
+
+/** The `role` of a `family` edge (§4.2). */
+export const GraphFamilyRole = StringEnum(
+  [
+    "parent",
+    "child",
+    "sibling",
+    "partner",
+    "spouse",
+    "grandparent",
+    "grandchild",
+    "cousin",
+    "in_law",
+    "other",
+  ],
+  { $id: "GraphFamilyRole" },
+);
+export type GraphFamilyRole = Static<typeof GraphFamilyRole>;
 
 export const GraphEdge = Type.Object(
   {
@@ -152,6 +315,8 @@ export const GraphEdge = Type.Object(
     dst: Id,
     rel: GraphEdgeRel,
     label: Type.Optional(GraphRelationshipLabel),
+    role: Type.Optional(GraphFamilyRole),
+    review: Type.Optional(GraphReviewState),
     provenance: Provenance,
     confidence: Type.Number({ minimum: 0, maximum: 1 }),
     sources: Type.Array(Type.String()),
