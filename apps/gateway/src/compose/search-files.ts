@@ -76,7 +76,8 @@ export function watchFolders(roots: readonly string[], onChange: () => void): ()
 /** `pmset -g batt` / `pmset -g` → battery state (pure, for tests). */
 export function parsePower(batt: string, settings: string): PowerState {
   return {
-    onBattery: /Now drawing from 'Battery Power'/.test(batt),
+    // A character class keeps `from '…'` out of build-psyched's import scan.
+    onBattery: /Now drawing from ['"]Battery Power['"]/.test(batt),
     lowPower: /^\s*lowpowermode\s+1\s*$/m.test(settings),
   };
 }
