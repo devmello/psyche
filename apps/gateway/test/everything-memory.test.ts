@@ -369,3 +369,52 @@ describe("the Feed card and the brief line", () => {
     tmp.cleanup();
   });
 });
+
+describe("exclusion handlers", () => {
+  it("list, add (with a forget dry run), remove, and the default for who is included", async () => {
+    const { e, graph } = setup();
+    const sam = graph.createEntity({
+      kind: "person",
+      name: "Sam Lee",
+      identifiers: [{ kind: "email", value: "sam@acme.com" }],
+    }).id;
+    e.store.proposeFact({
+      entityId: sam,
+      attribute: "city",
+      value: "Rome",
+      provenance: "untrusted",
+      subjectKind: "self_disclosure",
+      citations: [
+        {
+          source: "mail",
+          sourceRef: "<m>",
+          quote: "I live in Rome",
+          start: 0,
+          end: 14,
+          sourceHash: "h",
+          authorEntityId: sam,
+        },
+      ],
+    });
+    expect(await e.handlers["memory.exclusions.list"]({})).toEqual({
+      entries: [],
+      defaultPeople: "two_way",
+    });
+    const dry = await e.handlers["memory.exclusions.add"]({
+      kind: "domain",
+      value: "acme.com",
+      mode: "forget",
+      dryRun: true,
+    });
+    expect(dry.forgotten).toMatchObject({ facts: 1 });
+    expect((await e.handlers["memory.exclusions.list"]({})).entries).toEqual([]);
+    const added = await e.handlers["memory.exclusions.add"]({ kind: "email", value: "priya@x.io" });
+    expect(added.entry.hint).toBe("p•••@x.io");
+    const listed = await e.handlers["memory.exclusions.list"]({});
+    expect(listed.entries).toHaveLength(1);
+    expect(await e.handlers["memory.exclusions.remove"]({ id: added.entry.id })).toEqual({
+      removed: true,
+    });
+    expect((await e.handlers["memory.exclusions.list"]({})).entries).toEqual([]);
+  });
+});

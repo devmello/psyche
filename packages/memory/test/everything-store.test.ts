@@ -529,3 +529,40 @@ describe("review queue", () => {
     expect(em.confirmedFromSender(sam)).toBe(0);
   });
 });
+
+describe("owner exclusions (Settings)", () => {
+  it("excludes by address, number or domain with a masked hint, and removes by id", () => {
+    const a = em.excludeIdentifier("email", "Sam@Acme.com", "exclude").entry;
+    const b = em.excludeIdentifier("phone", "+1 (555) 010-0199", "exclude").entry;
+    const c = em.excludeIdentifier("domain", "WWW.Evil.example", "exclude").entry;
+    expect(a?.hint).toBe("s•••@acme.com");
+    expect(b?.hint).toBe("•••99");
+    expect(c?.hint).toBe("evil.example");
+    expect(
+      em
+        .exclusions()
+        .map((e) => e.id)
+        .sort(),
+    ).toEqual([a?.id, b?.id, c?.id].sort());
+    expect(JSON.stringify(em.exclusions())).not.toMatch(/sam@acme|0199/i);
+    expect(em.removeExclusionById(a?.id ?? "")).toBe(true);
+    expect(em.removeExclusionById(a?.id ?? "")).toBe(false);
+    expect(em.removeExclusionById("garbage")).toBe(false);
+    expect(em.isExcluded("email", "sam@acme.com")).toBe(false);
+  });
+
+  it("forget counts first (dry run) then deletes what was learned from the people who use it", () => {
+    const out = propose();
+    if (out.status === "refused") throw new Error("refused");
+    const dry = em.excludeIdentifier("domain", "acme.com", "forget", true);
+    expect(dry.entry).toBeUndefined();
+    expect(dry.forgotten).toMatchObject({ facts: 1, citations: 1 });
+    expect(em.exclusions()).toEqual([]);
+    expect(em.getFact(out.fact.id)).toBeDefined();
+    const done = em.excludeIdentifier("domain", "acme.com", "forget");
+    expect(done.forgotten.facts).toBe(1);
+    expect(done.entry?.mode).toBe("forget");
+    expect(em.getFact(out.fact.id)).toBeUndefined();
+    expect(propose()).toEqual({ status: "refused", reason: "excluded" });
+  });
+});

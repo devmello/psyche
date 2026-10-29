@@ -217,7 +217,10 @@ export async function runEverythingPass(deps: PassDeps): Promise<PassReport> {
   const sink = createExtractionSink(em, { runId, extractor: runModel ?? "unknown" });
   const limits = newNightLimits();
   const vset = validationSettings(settings);
-  const names = new NameIndex(graph.listEntities(["person"]));
+  // Excluded people are never offered to the model as candidates.
+  const names = new NameIndex(
+    graph.listEntities(["person"]).filter((p) => !em.isEntityExcluded(p.id)),
+  );
   const budget = settings.maxTokensPerNight;
   const localStarted = now;
   const usesLocal = [...choices.keys()].some((s) => modelKindFor(settings, s) === "local");
