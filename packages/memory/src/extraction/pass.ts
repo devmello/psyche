@@ -69,7 +69,7 @@ export interface PassDeps {
   clock: Clock;
   timeZone: string;
   /** The model for a kind; undefined while none is configured for it. */
-  modelFor: (kind: "cloud" | "local") => ModelChoice | undefined;
+  modelFor: (kind: "cloud" | "local", source: ReadableSource) => ModelChoice | undefined;
   /** The owner confirmed the local-model RAM warning. */
   localModelConfirmed?: boolean;
   localModelBytes?: number;
@@ -206,7 +206,7 @@ export async function runEverythingPass(deps: PassDeps): Promise<PassReport> {
   const choices = new Map<ReadableSource, ModelChoice>();
   for (const s of sources) {
     const kind = modelKindFor(settings, s) as "cloud" | "local";
-    const choice = deps.modelFor(kind);
+    const choice = deps.modelFor(kind, s);
     if (choice !== undefined) choices.set(s, choice);
   }
   const runModel = [...choices.values()][0]?.model ?? null;
@@ -502,9 +502,11 @@ async function runBatch(
  * The pass as a nightly step: runs inside the dreaming window after the graph poll (§6.1) and
  * returns one diary line. `deps` is read fresh each night, so a changed setting takes effect then.
  */
-export function everythingNightlyStep(deps: () => PassDeps): () => Promise<string | undefined> {
+export function everythingNightlyStep(
+  deps: () => PassDeps | Promise<PassDeps>,
+): () => Promise<string | undefined> {
   return async () => {
-    const r = await runEverythingPass(deps());
+    const r = await runEverythingPass(await deps());
     if (!r.ran) return undefined;
     const bits = [`${r.factsStored} facts proposed from ${r.itemsRead} items`];
     if (r.quarantined > 0) bits.push(`${r.quarantined} quarantined`);

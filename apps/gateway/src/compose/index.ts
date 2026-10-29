@@ -114,6 +114,7 @@ import { CONNECTOR_MATRIX_PREFIX } from "./connector-matrix.ts";
 import { createContext } from "./context.ts";
 import { composeConversion } from "./convert.ts";
 import { composeDictation } from "./dictation.ts";
+import { composeEverything, type Everything } from "./everything.ts";
 import { type ExecHostDeps, execHostTool } from "./exec-host.ts";
 import { feedContextResolver } from "./feed-context.ts";
 import { filesHandlers } from "./files.ts";
@@ -300,6 +301,8 @@ export interface ComposedGateway {
   readonly otherChats: OtherChats;
   /** The people and projects graph (#651). */
   readonly people: People;
+  /** Everything memory: review, quarantine and the nightly pass (#1010). */
+  readonly everything: Everything;
   /** Unified search (S1): the main index, its indexer and `search.query`. */
   readonly search: ComposedSearch;
   readonly broker: PsychePermissionBroker;
@@ -809,6 +812,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...(background ? {} : { pollIntervalMs: 0, afterRunDelayMs: 0 }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
+  // Everything memory (#1010): review and quarantine handlers, and the nightly pass.
+  const everything = composeEverything({
+    db,
+    clock,
+    graph: people.graph,
+    home: config.home,
+    provider,
+    utility: utility ?? modelRef,
+    timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+  });
   const calls = new CallContexts();
   const ownPorts = createOwnPorts();
   ownPorts.add(config.port, "gateway (configured)");
@@ -1263,6 +1277,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
           const dormant = await retireUnanswered(teaching.service, memory, { clock });
           return `lessons: ${r.merged} merged, ${r.promoted} promoted, ${r.proposed} proposed, ${r.flagged} flagged, ${dormant} dormant`;
         },
+        // Everything memory (#1010): off and model None until the owner picks; gated on power,
+        // idle time and quiet hours inside the pass.
+        everything.nightly,
       ],
     ),
     { db, tasks, host: specialists, now: () => clock.now() },
@@ -1384,6 +1401,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   })) {
     registry.register(tool);
   }
+  parts.push(everything.part());
   parts.push(people.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone));
   // Code plugins (T4): off until the owner turns on `plugins.enabled`.
   parts.push(
@@ -1575,6 +1593,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     loop,
     otherChats,
     people,
+    everything,
     search,
     broker,
     audit,
