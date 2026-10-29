@@ -1,6 +1,6 @@
 import type { DailyAutomationDraft, ScheduledItem } from "@psyche/protocol";
 import { CalendarClock, Plus } from "lucide-react";
-import type { ReactElement, ReactNode } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { usePrefillComposer } from "../../chat/prefill.ts";
 import {
@@ -13,6 +13,7 @@ import {
   useDelayedFlag,
 } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
+import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs.tsx";
 import { useCall, useGatewayQuery } from "../../data/index.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
@@ -20,6 +21,7 @@ import { useNow } from "../../lib/use-now.ts";
 import { itemName } from "./format.ts";
 import { RunHistory } from "./RunHistory.tsx";
 import { ScheduledRow, type ScheduledRowProps } from "./ScheduledRow.tsx";
+import { ScheduledRuns } from "./ScheduledRuns.tsx";
 
 const EXAMPLES = [
   "scheduled.empty.example.1",
@@ -47,6 +49,10 @@ export interface ScheduledViewProps
   onRetry?: () => void;
   /** Opens a chat with the task → automation flow started; `text` is an example, if one was picked. */
   onNewAutomation: (text?: string) => void;
+  /** The Runs tab's content; without it the screen has no tabs. */
+  runsPanel?: ReactNode;
+  /** The tab to open on. */
+  initialTab?: "schedule" | "runs";
 }
 
 /** The Scheduled screen: your automations, then Psyche's routines. */
@@ -58,8 +64,11 @@ export function ScheduledView({
   error = null,
   onRetry,
   onNewAutomation,
+  runsPanel,
+  initialTab = "schedule",
   ...rowProps
 }: ScheduledViewProps): ReactElement {
+  const [tab, setTab] = useState<"schedule" | "runs">(initialTab);
   const showSkeleton = useDelayedFlag(loading && items.length === 0);
   const owner = items.filter((i) => i.group === "owner");
   const routines = items.filter((i) => i.group === "routine");
@@ -88,7 +97,17 @@ export function ScheduledView({
           </Button>
         }
       />
-      {error && items.length === 0 ? (
+      {runsPanel !== undefined ? (
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "schedule" | "runs")}>
+          <TabsList>
+            <TabsTrigger value="schedule">{t("scheduled.tab.schedule")}</TabsTrigger>
+            <TabsTrigger value="runs">{t("scheduled.tab.runs")}</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      ) : null}
+      {tab === "runs" && runsPanel !== undefined ? (
+        runsPanel
+      ) : error && items.length === 0 ? (
         <ErrorState
           what={t("scheduled.loadFailed")}
           reason={error}
@@ -187,6 +206,9 @@ export function ScheduledScreen({ onNavigate, now: fixedNow }: ScheduledScreenPr
       loading={q.loading}
       error={q.error}
       onRetry={q.reload}
+      runsPanel={
+        <ScheduledRuns now={now} timezone={timezone} {...(onNavigate ? { onNavigate } : {})} />
+      }
       onNewAutomation={(text) => toChat(text ?? t("scheduled.new.prefill"))}
       onPause={(item, paused) =>
         void act(

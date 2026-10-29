@@ -2,10 +2,13 @@ import { DREAMING_PROMPT_MARKER } from "@psyche/memory";
 import { parseJobMarker } from "@psyche/proactive";
 import {
   type Automation,
+  type AutomationRun,
   type MethodParams,
   type MethodResult,
   PsycheError,
   type ScheduledItem,
+  type ScheduledRunEntry,
+  type ScheduledRunState,
 } from "@psyche/protocol";
 import type { SqliteScheduler } from "@psyche/scheduler";
 import { WEEKLY_CARD_MARKER } from "./weekly-card.ts";
@@ -90,9 +93,36 @@ export interface ScheduledDeps {
   kv: ScheduledKv;
   /** The owner's IANA zone. */
   timezone: () => string;
+  /** The status of a run's task, to tell a run parked on an approval from one that is working. */
+  taskStatus?: (taskId: string) => Promise<string | undefined>;
+  /** Open approvals per task id. */
+  pendingApprovals?: () => Promise<ReadonlyMap<string, number>>;
 }
 
-type ScheduledMethod = "scheduled.list" | "scheduled.pause";
+/**
+ * The one status a run is shown with, from the scheduler's run status (the source of truth) and,
+ * while it runs, its task's: `done` is the only success; a skipped or no-reply run says why.
+ */
+export function runState(status: AutomationRun["status"], taskStatus?: string): ScheduledRunState {
+  switch (status) {
+    case "running":
+      return taskStatus === "awaiting_approval" || taskStatus === "awaiting_input"
+        ? "waiting"
+        : "running";
+    case "done":
+      return "succeeded";
+    case "failed":
+      return "failed";
+    case "cancelled":
+      return "cancelled";
+    default:
+      return "skipped";
+  }
+}
+
+const NOTHING_TO_REPORT = "Nothing to report";
+
+type ScheduledMethod = "scheduled.list" | "scheduled.pause" | "scheduled.runs";
 export type ScheduledHandlers = {
   [M in ScheduledMethod]: (params: MethodParams<M>) => Promise<MethodResult<M>>;
 };
@@ -177,6 +207,56 @@ export function createScheduledHandlers(deps: ScheduledDeps): ScheduledHandlers 
       timezone: deps.timezone(),
       items: build(await scheduler.list()),
     }),
+    "scheduled.runs": async ({ automationId, state, limit }) => {
+      const wanted = limit ?? 100;
+      // A state filter is applied after the mapping (`waiting` is a running run), so over-fetch.
+      const rows = scheduler.allRuns({
+        ...(automationId === undefined ? {} : { automationId }),
+        limit: state === undefined ? wanted : 500,
+      });
+      const pending = (await deps.pendingApprovals?.()) ?? new Map<string, number>();
+      const out: ScheduledRunEntry[] = [];
+      for (const { run, title, system } of rows) {
+        const taskStatus =
+          run.status === "running" && run.taskId != null
+            ? await deps.taskStatus?.(run.taskId)
+            : undefined;
+        const s = runState(run.status, taskStatus);
+        if (state !== undefined && s !== state) continue;
+        const a = system ? await scheduler.get(run.automationId) : undefined;
+        const open = run.taskId == null ? 0 : (pending.get(run.taskId) ?? 0);
+        const reason =
+          s === "skipped"
+            ? (run.summary ?? NOTHING_TO_REPORT)
+            : s === "failed" || s === "cancelled"
+              ? (run.summary ?? null)
+              : null;
+        const entry: ScheduledRunEntry = {
+          id: run.id,
+          automationId: run.automationId,
+          title,
+          group: system ? "routine" : "owner",
+          trigger: run.trigger,
+          state: s,
+          reason,
+          startedAt: run.startedAt,
+          endedAt: run.endedAt,
+          durationMs:
+            run.endedAt == null
+              ? null
+              : Math.max(0, Date.parse(run.endedAt) - Date.parse(run.startedAt)),
+          summary: run.summary,
+          threadId: run.threadId,
+          taskId: run.taskId,
+          agentRunId: run.runId,
+          pendingApprovals: s === "waiting" ? open : 0,
+        };
+        if (a !== undefined) entry.routine = routineOf(a).key;
+        out.push(entry);
+        if (out.length >= wanted) break;
+      }
+      return { runs: out };
+    },
     "scheduled.pause": async ({ id, paused }) => {
       const a = await scheduler.get(id);
       if (a === undefined) throw new PsycheError("not_found", "scheduled item not found");

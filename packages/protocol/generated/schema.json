@@ -2501,6 +2501,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Every run of everything the scheduler runs, newest first, in progress ones included: the owner's automations and Psyche's routines (brief, wrap-up, nightly memory, proactive jobs), whether started by the schedule, by an event or by Run now. Filter by job and by state.",
+        "name": "scheduled.runs",
+        "params": "#/$defs/ScheduledRunsParams",
+        "result": "#/$defs/ScheduledRunsResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Desktop only: captures the frontmost window (or a box) and its text context once, on the owner's ask shortcut; the frame is stored as an untrusted Library item that expires unless sent.",
         "name": "screen.capture",
         "params": "#/$defs/ScreenContextParams",
@@ -32363,6 +32371,190 @@
       },
       "required": [
         "item"
+      ],
+      "type": "object"
+    },
+    "ScheduledRunEntry": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "automationId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "group": {
+          "$ref": "#/$defs/ScheduledGroup"
+        },
+        "routine": {
+          "maxLength": 64,
+          "type": "string"
+        },
+        "trigger": {
+          "enum": [
+            "schedule",
+            "manual",
+            "event"
+          ],
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/ScheduledRunState"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "startedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "endedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "durationMs": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "threadId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "agentRunId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pendingApprovals": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "automationId",
+        "title",
+        "group",
+        "trigger",
+        "state",
+        "startedAt",
+        "pendingApprovals"
+      ],
+      "type": "object"
+    },
+    "ScheduledRunState": {
+      "description": "The one status a run is shown with. `waiting`: the run's task is parked on an approval or an answer. `skipped`: nothing was done, and `reason` says why (paused, previous run still going, nothing to report). `succeeded` only when the run finished `done`",
+      "enum": [
+        "running",
+        "waiting",
+        "succeeded",
+        "failed",
+        "skipped",
+        "cancelled"
+      ],
+      "type": "string"
+    },
+    "ScheduledRunsParams": {
+      "properties": {
+        "automationId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/ScheduledRunState"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "ScheduledRunsResult": {
+      "properties": {
+        "runs": {
+          "items": {
+            "$ref": "#/$defs/ScheduledRunEntry"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "runs"
       ],
       "type": "object"
     },

@@ -2225,6 +2225,7 @@ export class MockGateway implements GatewayClient {
         .slice(0, p.limit ?? 200),
     }),
     "automations.run": () => ({ runId: this.id("run"), taskId: this.id("task") }),
+    "scheduled.runs": () => ({ runs: [] }),
     "scheduled.list": () => ({
       timezone: "UTC",
       items: this.world.automations.map((a) => ({

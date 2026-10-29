@@ -1474,6 +1474,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         scheduler,
         kv: scheduledKv,
         timezone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+        taskStatus: async (taskId) => (await tasks.get(taskId))?.status,
+        pendingApprovals: async () => {
+          const byTask = new Map<string, number>();
+          for (const a of await broker.list({ status: "pending" })) {
+            const tid = a.requestedBy.taskId;
+            if (tid != null) byTask.set(tid, (byTask.get(tid) ?? 0) + 1);
+          }
+          return byTask;
+        },
       }) as never,
     ),
     ...mountParamsOnly(createNotificationHandlers(notifier) as never),
