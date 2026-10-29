@@ -18,6 +18,7 @@ const LABELLED_KEYS = [
   "appearance.reduceMotion",
   "appearance.contrast",
   "appearance.zoom",
+  "appearance.showInDock",
   "appearance.reduceTransparency",
   "appearance.glass",
   "appearance.glassTint",

@@ -113,7 +113,7 @@ Settings opens from the gear or ⌘, at the left a searchable list in groups. Ro
 **General**
 - **Model & providers** (`model`): add a provider (API key, subscription via a signed-in CLI, or local), check the endpoint, see tools/vision/reasoning badges, and pick models. A model you pick is used as chosen; if it fails Psyche says so.
 - **Persona** (`persona`): name, tagline, emoji, creature and avatar, "Show thinking while it works". Tone lives in SOUL.md.
-- **Appearance** (`appearance`): Theme (Auto follows the system), Gray family, Accent color; applies to every paired device.
+- **Appearance** (`appearance`): Theme (Auto follows the system), Gray family, Accent color; applies to every paired device. On the Mac, **Show in Dock when no windows are open** (off by default): off, Psyche leaves the Dock and ⌘-Tab when its last window closes and keeps running from the menu bar; click the menu bar icon (Open Psyche) or open Psyche again from Finder or Spotlight to bring the window back. ⌘Q still quits.
 - **Notifications** (`notifications`): **Quiet hours** switch with **Quiet from** and **Quiet until**; notifications are held but still land in the inbox.
 - **Voice & dictation** (`voice`): dictation key, Talk with Psyche, Ask about my screen.
 - **Mail & meetings** (`mail`): accounts, inbox digest, follow-ups, writing style, scheduling, meeting prep and notes; one switch for everything.

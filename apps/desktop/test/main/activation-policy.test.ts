@@ -12,12 +12,17 @@ function sources(dir: string): string[] {
   });
 }
 
-describe("main app stays a regular app (Dock + ⌘Tab)", () => {
+describe("Dock + ⌘Tab presence is switched in one place", () => {
   const files = sources(SRC).map((p) => ({ p, text: readFileSync(p, "utf8") }));
 
-  it("never switches the activation policy or hides the Dock icon", () => {
+  // Background mode (no window open → accessory) lives in main/dock-policy.ts; a second caller
+  // would fight it, and `dock.hide()` would drop the icon behind its back.
+  it("only the dock policy switches the activation policy; nothing hides the Dock icon", () => {
     for (const { p, text } of files) {
-      expect(text, p).not.toMatch(/setActivationPolicy|dock\??\.hide\(/);
+      expect(text, p).not.toMatch(/dock\??\.hide\(/);
+      if (!p.endsWith(join("main", "dock-policy.ts"))) {
+        expect(text, p).not.toMatch(/setActivationPolicy/);
+      }
     }
   });
 
