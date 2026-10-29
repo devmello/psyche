@@ -291,13 +291,13 @@ describe("BrowserHost sign-in prompts", () => {
     expect(profile.map((c) => c.name).sort()).toEqual(["sid", "sso"]);
     expect(tabOf(tab.tabId).partition).toBe("persist:agent-default");
     expect(tabOf(tab.tabId).profile).toBe("logged-in");
-    expect(host.signedInSites().map((s) => s.origin)).toEqual(["https://canvas.ucsc.edu"]);
-    expect(host.signedInSites()[0]?.hosts).toEqual(["canvas.ucsc.edu", "login.ucsc.edu"]);
+    expect((await host.signedInSites()).map((s) => s.origin)).toEqual(["https://canvas.ucsc.edu"]);
+    expect((await host.signedInSites())[0]?.hosts).toEqual(["canvas.ucsc.edu", "login.ucsc.edu"]);
     // The clean partition keeps its other cookies, untouched.
     expect(h.sessionFor(clean).jar).toHaveLength(3);
 
     expect(await host.forgetSignedInSite("https://canvas.ucsc.edu/")).toBe(true);
     expect(profile).toEqual([]);
-    expect(host.signedInSites()).toEqual([]);
+    expect(await host.signedInSites()).toEqual([]);
   });
 });

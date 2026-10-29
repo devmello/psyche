@@ -1,4 +1,4 @@
-import type { ApprovalRequest } from "@psyche/protocol";
+import type { ApprovalRequest, BridgeProfile } from "@psyche/protocol";
 import { activeI18n, t } from "@psyche/ui";
 import { type ReactElement, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useShell, useShellState } from "../context.tsx";
@@ -127,6 +127,20 @@ function CredentialPrompt(props: {
         </button>
       </div>
     </fieldset>
+  );
+}
+
+/** Which profile the tab runs in: "Signed in as you" (the persistent profile) or "Logged out". */
+export function ProfileChip({ profile }: { profile: BridgeProfile }): ReactElement {
+  return (
+    <span
+      className="chip"
+      title={t("web.browser.profile")}
+      data-testid="browser-profile"
+      data-profile={profile}
+    >
+      {profile === "clean" ? t("web.browser.profileClean") : t("web.browser.profileAgent")}
+    </span>
   );
 }
 
@@ -352,11 +366,7 @@ function DesktopBrowserPane(props: {
             >
               {tab.url}
             </output>
-            <span className="chip" title={t("web.browser.profile")} data-testid="browser-profile">
-              {tab.profile === "clean"
-                ? t("web.browser.profileClean")
-                : t("web.browser.profileAgent")}
-            </span>
+            <ProfileChip profile={tab.profile} />
             <button
               type="button"
               onClick={() => void port.navigate(tab.tabId, "zoomOut")}

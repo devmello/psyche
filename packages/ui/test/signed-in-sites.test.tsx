@@ -30,6 +30,27 @@ describe("Settings → Browser signed-in sites", () => {
     expect(screen.getByText("github.com")).toBeTruthy();
   });
 
+  it("labels sites found from the profile's cookies", async () => {
+    render(
+      <SignedInSitesGroup
+        api={{
+          list: async () => [
+            {
+              origin: "https://ucsc.edu",
+              hosts: ["canvas.ucsc.edu"],
+              addedAt: "x",
+              detected: true,
+            },
+          ],
+          forget: async () => {},
+        }}
+      />,
+    );
+    await screen.findByText("ucsc.edu");
+    expect(screen.getByTestId("signed-in-auto")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sign out / forget" })).toBeTruthy();
+  });
+
   it("says so when nothing is kept signed in", async () => {
     render(<SignedInSitesGroup api={{ list: async () => [], forget: async () => {} }} />);
     expect(await screen.findByTestId("signed-in-empty")).toBeTruthy();

@@ -87,6 +87,12 @@ export interface BrowserSetup {
   /** Origins the owner has signed into in the agent profile, for `auto`. */
   signedInOrigins?: string[] | (() => string[]);
   /**
+   * Registrable domains the profile holds a live session for (found from its cookies by the
+   * desktop). With "Let Psyche use my signed-in sessions" on (the default), `auto` mode opens
+   * those sites, SSO hosts included, in the profile.
+   */
+  detectedDomains?: () => string[];
+  /**
    * Dev preview (feature I12, security §3.10): which loopback servers tasks may open. Absent
    * means none; the sandbox / exec layer registers servers it starts on `devServers`.
    */
@@ -128,6 +134,16 @@ export const REAL_CHROME_SETTING = "browser.realChrome";
  * Off unless set; a malformed value counts as off.
  */
 export const BOT_AUTH_SETTING = "browser.botAuth";
+
+/**
+ * "Let Psyche use my signed-in sessions" (admin key, boolean, default on). Off keeps agent tabs
+ * logged out except for sites the owner chose with "Stay signed in".
+ */
+export const USE_SIGNED_IN_SETTING = "browser.useSignedInSessions";
+
+export function useSignedInFromSetting(value: unknown): boolean {
+  return value !== false;
+}
 
 export function botAuthFromSetting(value: unknown): BotAuthConfig {
   if (typeof value !== "object" || value === null) return { enabled: false };
@@ -468,6 +484,13 @@ export function composeBrowser(
                       typeof setup.signedInOrigins === "function"
                         ? setup.signedInOrigins()
                         : setup.signedInOrigins,
+                  }),
+              ...(setup.detectedDomains === undefined
+                ? {}
+                : {
+                    detectedDomains: setup.detectedDomains,
+                    useSignedInSessions: () =>
+                      useSignedInFromSetting(getSetting(services.db, USE_SIGNED_IN_SETTING)?.value),
                   }),
             }),
         ...(recording === undefined ? {} : { recording }),

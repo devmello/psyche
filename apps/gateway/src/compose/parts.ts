@@ -76,6 +76,24 @@ export function readSignedInOrigins(home: string): string[] {
   }
 }
 
+/**
+ * Registrable domains the persistent profile holds a live session for
+ * (`$PSYCHE_HOME/browser/detected-sessions.json`, written by the desktop from the profile's
+ * cookies: domain names only, never a cookie or a value).
+ */
+export function readDetectedDomains(home: string): string[] {
+  try {
+    const doc = JSON.parse(
+      readFileSync(join(home, "browser", "detected-sessions.json"), "utf8"),
+    ) as { domains?: unknown };
+    return Array.isArray(doc.domains)
+      ? doc.domains.filter((d): d is string => typeof d === "string" && /^[a-z0-9.-]+$/.test(d))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 export function partsFromEnv(
   env: NodeJS.ProcessEnv,
   /** Test seam: runner options for the sandbox part (a fake CLI driver and detection). */
@@ -128,6 +146,7 @@ export function partsFromEnv(
         // Read on every new session: Settings → Browser and "Stay signed in" change the list
         // while the Gateway runs (desktop writes `browser/signed-in.json`).
         signedInOrigins: () => [...new Set([...signedIn, ...readSignedInOrigins(s.home)])],
+        detectedDomains: () => readDetectedDomains(s.home),
       });
       return browser;
     });

@@ -851,6 +851,7 @@ void app.whenReady().then(async () => {
         // Dev and test runs may shorten the idle time before a background tab is discarded.
         ...tabDiscardOverride(app.isPackaged, process.env),
       });
+      browser.watchProfileCookies();
       browser.on("state", (s) => broadcast(IPC.browserState, s));
       // Pause-when-unwatched (#272): pane visibility and owner input go to the Gateway.
       browser.on("paneVisible", (v) => attention.visible(v));

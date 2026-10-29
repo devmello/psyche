@@ -532,7 +532,14 @@ export const settings = {
     "A Chrome profile only {persona} uses, never your own. Open it once to sign in and install 1Password, then close it.",
   "settings.browser.signedIn.title": "Signed-in sites",
   "settings.browser.signedIn.description":
-    "Sites you chose to stay signed in to. Tasks use your sign-in only on these; every other site opens logged out.",
+    "Sites you are signed in to in Psyche's browser, including ones Psyche found from your sign-ins. Tasks use your sign-in on these; with the switch above off, only the ones you chose to stay signed in to.",
+  "settings.browser.signedIn.auto": "found automatically",
+  "settings.browser.useSignedIn.title": "Signed-in sessions",
+  "settings.browser.useSignedIn.description":
+    "When you sign in to a site in Psyche's browser, {persona} can keep using that sign-in for the same site, including its sign-in pages. Writes, purchases and sends still ask you first.",
+  "settings.browser.useSignedIn.label": "Let Psyche use my signed-in sessions",
+  "settings.browser.useSignedIn.hint":
+    "On by default. Off opens every site logged out, except the ones you chose to stay signed in to.",
   "settings.browser.signedIn.none": "No signed-in sites yet.",
   "settings.browser.signedIn.viaHosts": "Also signed in through {hosts}",
   "settings.browser.signedIn.forget": "Sign out / forget",

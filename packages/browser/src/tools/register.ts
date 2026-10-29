@@ -307,8 +307,25 @@ export function browserToolDefs(deps: BrowserToolDeps) {
       sideEffect: "read",
       rerun: true,
       describe: (p) => ({ ...originTarget(p.url), summary: `Open ${tryOrigin(p.url) ?? p.url}` }),
-      run: async (p, { callId, signal }) =>
-        d.navigate(await sessionTab(callId, p.tabId), p.url, { signal }),
+      run: async (p, { callId, signal }) => {
+        const tabId = await sessionTab(callId, p.tabId);
+        // A clean tab that is about to open a site the owner is signed in to moves to the
+        // profile first; a 401/403 in a clean tab gets one retry there (the setting can be off).
+        const switched = async (url: string) => {
+          if (d.tabPartition(tabId) !== "clean") return undefined;
+          const moved = await d.switchToProfile(tabId, url);
+          if (moved === undefined) return undefined;
+          return { ...(await d.navigate(moved.id, p.url, { signal })), tabId: moved.id };
+        };
+        const early = await switched(p.url);
+        if (early !== undefined) return early;
+        const result = await d.navigate(tabId, p.url, { signal });
+        if (result.status === 401 || result.status === 403) {
+          const retried = await switched(result.url);
+          if (retried !== undefined) return retried;
+        }
+        return result;
+      },
     }),
     ...(["back", "forward", "reload"] as const).map((op) =>
       def({

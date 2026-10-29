@@ -79,11 +79,24 @@ export function botAuthOf(values: Readonly<Record<string, unknown>>): BotAuthSet
   };
 }
 
-/** A site kept signed in, in the persistent profile (desktop only). */
+/**
+ * "Let Psyche use my signed-in sessions" (admin key, boolean, default on): tasks open a site in
+ * the persistent profile when it holds a session for the site's registrable domain. Off keeps
+ * tasks logged out except for sites chosen with "Stay signed in".
+ */
+export const USE_SIGNED_IN_KEY = "browser.useSignedInSessions";
+
+export function useSignedInOf(values: Readonly<Record<string, unknown>>): boolean {
+  return values[USE_SIGNED_IN_KEY] !== false;
+}
+
+/** A site signed in to in the persistent profile (desktop only). */
 export interface SignedInSite {
   origin: string;
   hosts: string[];
   addedAt: string;
+  /** Found from the profile's cookies rather than chosen with "Stay signed in". */
+  detected?: boolean;
 }
 
 export interface SignedInSitesApi {
@@ -124,6 +137,11 @@ export function SignedInSitesGroup({ api }: { api: SignedInSitesApi }): ReactEle
           <li key={s.origin} className="flex items-center justify-between gap-3">
             <span>
               <span className="font-mono">{s.origin.replace(/^https:\/\//, "")}</span>
+              {s.detected ? (
+                <span className="ml-2 text-xs text-muted-foreground" data-testid="signed-in-auto">
+                  {t("settings.browser.signedIn.auto")}
+                </span>
+              ) : null}
               {s.hosts.length > 1 ? (
                 <span className="block text-xs text-muted-foreground">
                   {t("settings.browser.signedIn.viaHosts", { hosts: s.hosts.join(", ") })}
@@ -185,6 +203,7 @@ export function BrowserPanel({
 }: BrowserPanelProps): ReactElement {
   const setting = realChromeOf(values);
   const wba = botAuthOf(values);
+  const useSignedIn = useSignedInOf(values);
   const [rotated, setRotated] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [rotating, setRotating] = useState(false);
   const hasKey = botAuth?.keyId !== null && botAuth?.keyId !== undefined;
@@ -277,6 +296,18 @@ export function BrowserPanel({
               </p>
             )
           ) : null}
+        </Group>
+        <Group
+          title={t("settings.browser.useSignedIn.title")}
+          description={t("settings.browser.useSignedIn.description", { persona })}
+        >
+          <SwitchField
+            label={t("settings.browser.useSignedIn.label")}
+            description={t("settings.browser.useSignedIn.hint")}
+            checked={useSignedIn}
+            settingKey={USE_SIGNED_IN_KEY}
+            onChange={(on) => onChange(USE_SIGNED_IN_KEY, on)}
+          />
         </Group>
         {signedInSites ? <SignedInSitesGroup api={signedInSites} /> : null}
         <Group
