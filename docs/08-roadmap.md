@@ -75,6 +75,7 @@ Goal: credentials, proactivity, computer use, server mode.
 - Channels: N6 WhatsApp, N7 Signal, N8 Slack/Discord, N9 email/SMS.
 - L6 snapshots/resets, L7 prebuilt guest images.
 - G11 Bitwarden; I14 Web Bot Auth; M6 Microsoft Graph; M9 custom connectors; J8 teach mode; Q5 voice mode; T3 agent-proposed skills; T4 plugins; E12 cross-thread awareness; A12 localization; Windows and Linux desktops.
+- Generative UI: the agent builds live widgets (progress, task lists, tables, charts, forms) in chat from a declarative spec; see [design/generative-ui-2026.md](design/generative-ui-2026.md).
 
 ## Workstreams (can proceed in parallel after Milestone 0)
 
