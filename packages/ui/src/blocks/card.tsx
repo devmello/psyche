@@ -71,6 +71,8 @@ export function fromStepStatus(status: RunStep["status"]): CardStatusInfo {
       return { status: "done" };
     case "skipped":
       return { status: "cancelled" };
+    case "denied":
+      return { status: "blocked" };
     default:
       return { status };
   }

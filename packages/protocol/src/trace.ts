@@ -142,6 +142,7 @@ const MARK: Record<RunStep["status"], string> = {
   waiting: "⏸",
   cancelled: "–",
   skipped: "–",
+  denied: "⊘",
 };
 
 /**

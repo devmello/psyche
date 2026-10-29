@@ -16,7 +16,7 @@ export const GROUP_ROWS = 3;
 /** Silence after which the active row says "No response for …" (§3.2). */
 export const STALL_MS = 30_000;
 
-const ENDED: readonly RunStep["status"][] = ["ok", "failed", "cancelled", "skipped"];
+const ENDED: readonly RunStep["status"][] = ["ok", "failed", "cancelled", "skipped", "denied"];
 
 export const ended = (step: RunStep): boolean => ENDED.includes(step.status);
 

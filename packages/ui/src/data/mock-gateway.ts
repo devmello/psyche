@@ -194,7 +194,7 @@ export interface MockWorld {
   /** Frames by run id. */
   runFrames?: Record<string, RunFrame[]>;
   /** Tool inputs and outputs by `<runId>/<stepId>`. */
-  runPayloads?: Record<string, { input?: unknown; output?: unknown }>;
+  runPayloads?: Record<string, { input?: unknown; output?: unknown; truncated?: boolean }>;
   /** Joins automation runs to their agent runs (`runs.list {automationId}`). */
   automationRuns?: AutomationRun[];
   /** Background specialists (`specialists.*`); `fixtures/specialists.ts` has a world of them. */
@@ -1431,7 +1431,7 @@ export class MockGateway implements GatewayClient {
         step: step as RunStep,
         ...(payload.input === undefined ? {} : { input: payload.input }),
         ...(payload.output === undefined ? {} : { output: payload.output }),
-        truncated: false,
+        truncated: payload.truncated === true,
       };
     },
     "runs.frames": (p) => ({
@@ -1450,7 +1450,8 @@ export class MockGateway implements GatewayClient {
       const run = this.find(this.world.runs, p.runId, "run");
       const input = (r: Run) => {
         const steps = this.stepsOf(r.id);
-        const payloads: Record<string, { input?: unknown; output?: unknown }> = {};
+        const payloads: Record<string, { input?: unknown; output?: unknown; truncated?: boolean }> =
+          {};
         const thinking: Record<string, string> = {};
         for (const x of steps) {
           const pl = this.world.runPayloads?.[`${r.id}/${x.id}`];

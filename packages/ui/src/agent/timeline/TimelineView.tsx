@@ -552,6 +552,7 @@ export function TimelineView({
       <RunHeader
         run={run}
         stepCount={run.stepCount ?? steps.length}
+        problems={steps.filter((s) => s.status === "failed" || s.status === "denied").length}
         now={now}
         mode={mode}
         onModeChange={setMode}
@@ -572,6 +573,7 @@ export function TimelineView({
         {failed?.step ? (
           <FailureBanner
             step={failed.step}
+            {...(run.error ? { runError: run.error } : {})}
             {...(onRetry ? { onRetry } : {})}
             {...(onReconnect ? { onReconnect: () => onReconnect(failed.step as RunStep) } : {})}
             onShowStep={() => {

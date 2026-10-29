@@ -309,7 +309,7 @@ export function StepInspector({
               <Payload
                 value={detail?.input}
                 preview={step.preview?.input}
-                truncated={false}
+                truncated={detail?.truncated ?? false}
                 empty={t("agent.timeline.noInput")}
               />
             )}

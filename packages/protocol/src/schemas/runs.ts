@@ -40,7 +40,7 @@ export const RunStepKind = StringEnum(
 export type RunStepKind = Static<typeof RunStepKind>;
 
 export const RunStepStatus = StringEnum(
-  ["pending", "running", "ok", "failed", "waiting", "cancelled", "skipped"],
+  ["pending", "running", "ok", "failed", "waiting", "cancelled", "skipped", "denied"],
   { $id: "RunStepStatus" },
 );
 export type RunStepStatus = Static<typeof RunStepStatus>;

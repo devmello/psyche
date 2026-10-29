@@ -178,7 +178,7 @@ export interface FixtureWorld {
   /** Run-trace steps, frames, payloads and automation runs (`runTraceWorld()` in fixtures/runs). */
   runSteps?: RunStep[];
   runFrames?: Record<string, RunFrame[]>;
-  runPayloads?: Record<string, { input?: unknown; output?: unknown }>;
+  runPayloads?: Record<string, { input?: unknown; output?: unknown; truncated?: boolean }>;
   automationRuns?: AutomationRun[];
   /** Batch proposals (`proposals.*`) and which calls fail when one runs (`fixtures/workflows.ts`). */
   proposals?: ActionProposal[];

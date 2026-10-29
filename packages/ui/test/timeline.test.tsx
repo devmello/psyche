@@ -1,3 +1,4 @@
+import type { RunStep } from "@psyche/protocol";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Profiler, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -356,5 +357,65 @@ describe("TimelineView replay clock (smoothness C14)", () => {
     expect(Number(slider.getAttribute("aria-valuenow"))).toBeGreaterThan(0);
     // Commits only for discrete changes (steps appearing, frames, ~1 Hz labels), not per frame.
     expect(commits - before).toBeLessThan(FRAMES / 4);
+  });
+});
+
+describe("truthful Timeline (model I/O, failure reason, partial, denied)", () => {
+  const model = (runId: string): RunStep => ({
+    id: "stp_model_x",
+    runId,
+    seq: 99,
+    kind: "model",
+    status: "ok",
+    label: "Model call",
+    startedAt: today("09:22", "00"),
+    endedAt: today("09:22", "02"),
+    attempt: 1,
+    modelRef: "anthropic/claude-sonnet-5-5",
+    payloadRef: { input: "pl_in", output: "pl_out" },
+  });
+
+  it("shows a model call's input and output, and says when the prompt was cut", async () => {
+    const { wrapper } = setup((w) => {
+      w.runSteps = [...(w.runSteps ?? []), model(R.done)];
+      w.runPayloads = {
+        ...w.runPayloads,
+        [`${R.done}/stp_model_x`]: {
+          input: { system: "You are Psyche.", messages: [{ role: "user", parts: [] }] },
+          output: { text: "Booked.", stopReason: "stop" },
+          truncated: true,
+        },
+      };
+    });
+    render(
+      <TimelineView runId={R.done} now={NOW} initialStepId="stp_model_x" initialTab="input" />,
+      {
+        wrapper,
+      },
+    );
+    expect((await screen.findAllByText(/You are Psyche\./)).length).toBeGreaterThan(0);
+    expect(screen.getByText(/start and end/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "Output" }));
+    expect((await screen.findAllByText(/Booked\./)).length).toBeGreaterThan(0);
+  });
+
+  it("puts the run's final error beside the failed step's, at the top", async () => {
+    const { wrapper } = setup();
+    render(<TimelineView runId={R.failed} now={NOW} />, { wrapper });
+    const banner = await screen.findByTestId("failure-banner");
+    expect(banner.textContent).toContain("The page took too long to load.");
+    expect(banner.textContent).toContain("Final error: The bank's site kept timing out.");
+  });
+
+  it("reads a done run with a denied step as done with problems, not green", async () => {
+    const { wrapper } = setup((w) => {
+      w.runSteps = [
+        ...(w.runSteps ?? []),
+        { ...model(R.done), id: "stp_denied_x", kind: "approval", status: "denied", seq: 98 },
+      ];
+    });
+    render(<TimelineView runId={R.done} now={NOW} />, { wrapper });
+    const header = await screen.findByTestId("run-header");
+    expect(header.textContent).toContain("Done with problems");
   });
 });

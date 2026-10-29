@@ -779,14 +779,14 @@ export class SessionController {
         if (event.runId !== runId) continue;
         if (event.type === "end") {
           outcome = endStatus(event);
-          this.#ctx.runTrace.end(runId, event.outcome);
+          this.#ctx.runTrace.end(runId, event.outcome, event.error);
           break;
         }
         this.#apply(event, { threadId, runId, idFor, current, flushBefore, hasQuestion });
       }
     } catch (err) {
       outcome = { status: "failed", error: PsycheError.from(err).message };
-      this.#ctx.runTrace.end(runId, "failed");
+      this.#ctx.runTrace.end(runId, "failed", outcome.error ?? undefined);
     }
     if (turn.detached) {
       this.#ctx.runTrace.end(runId, "cancelled");

@@ -30,6 +30,7 @@ export const AGENT_HOOKS = [
   "before_tool_call",
   "after_tool_call",
   "tool_result_persist",
+  "model_call_persist",
   "before_compaction",
   "agent_end",
 ] as const;

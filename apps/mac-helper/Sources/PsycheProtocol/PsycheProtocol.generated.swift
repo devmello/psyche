@@ -22107,6 +22107,7 @@ public enum RunStepKind: String, Codable, Sendable {
 
 public enum RunStepStatus: String, Codable, Sendable {
     case cancelled = "cancelled"
+    case denied = "denied"
     case failed = "failed"
     case ok = "ok"
     case pending = "pending"

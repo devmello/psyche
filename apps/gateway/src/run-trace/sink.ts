@@ -8,12 +8,14 @@ import {
   lastRunStepSeq,
   type PsycheDb,
   patchRunTrace,
+  putStepPayload,
   putToolPayload,
   upsertRunStep,
 } from "@psyche/db";
 import {
   type AgentEvent,
   EMPTY_USAGE,
+  type ModelMessage,
   RUN_STEP_LIMITS,
   type Run,
   type RunStep,
@@ -21,6 +23,7 @@ import {
   type ToolCall,
   type ToolCallStatus,
   type ToolResult,
+  type ToolSpec,
   type Usage,
 } from "@psyche/protocol";
 import type { EventBus } from "../event-bus.ts";
@@ -103,6 +106,8 @@ interface TraceRun {
   /** When the model call now in progress began (the end of the last step that waited on it). */
   modelSince: string;
   lastUsage: Usage;
+  /** The newest model step: `modelCall` attaches the call's input and output to it. */
+  lastModelStepId?: string;
   /** Running tool steps by id: a call that starts while another runs joins its group. */
   runningTools: Set<string>;
   /** Open waits (approval, question) closed by the run's next event. */
@@ -131,7 +136,13 @@ function stepStatus(s: ToolCallStatus): RunStepStatus {
   }
 }
 
-const ENDED: ReadonlySet<RunStepStatus> = new Set(["ok", "failed", "cancelled", "skipped"]);
+const ENDED: ReadonlySet<RunStepStatus> = new Set([
+  "ok",
+  "failed",
+  "cancelled",
+  "skipped",
+  "denied",
+]);
 
 function clip(text: string, max: number): string {
   return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
@@ -149,9 +160,31 @@ function preview(value: unknown, redact: (t: string) => string): string | undefi
   return clip(redact(text), RUN_STEP_LIMITS.previewBytes);
 }
 
+/** A model call's prompt grows with the thread: its payloads are kept to 128 KB each. */
+const MODEL_PAYLOAD_BYTES = 128 * 1024;
+
+/** What a failed tool said, from its output (a string, or an `error`/`message` field). */
+function errorText(output: unknown): string {
+  if (typeof output === "string") return output;
+  if (output !== null && typeof output === "object") {
+    const o = output as Record<string, unknown>;
+    for (const k of ["error", "message", "reason"]) {
+      const v = o[k];
+      if (typeof v === "string" && v !== "") return v;
+    }
+  }
+  try {
+    return JSON.stringify(output) ?? "";
+  } catch {
+    return "";
+  }
+}
+
 /** A payload body under the 1 MB cap: the head and tail with a marker past it (§4.5). */
-function capPayload(text: string): { text: string; truncated: boolean } {
-  const max = RUN_STEP_LIMITS.payloadBytes;
+function capPayload(
+  text: string,
+  max: number = RUN_STEP_LIMITS.payloadBytes,
+): { text: string; truncated: boolean } {
   if (Buffer.byteLength(text) <= max) return { text, truncated: false };
   const half = Math.floor(max / 2) - 64;
   return {
@@ -389,7 +422,7 @@ export class RunTraceSink {
         return id;
       }
       case "end":
-        this.end(runId, event.outcome);
+        this.end(runId, event.outcome, event.error);
         return undefined;
       default:
         return undefined;
@@ -397,11 +430,16 @@ export class RunTraceSink {
   }
 
   /** Closes what is still open when a run ends, and flushes its pending updates. */
-  end(runId: string, outcome: Extract<AgentEvent, { type: "end" }>["outcome"]): void {
+  end(
+    runId: string,
+    outcome: Extract<AgentEvent, { type: "end" }>["outcome"],
+    error?: string,
+  ): void {
     const t = this.#runs.get(runId);
     if (t === undefined) return;
     const at = this.#iso();
     this.#closeText(t, at);
+    const reason = clip(this.#redact(error ?? "The run failed"), 1000);
     const waiting = outcome === "awaiting_approval" || outcome === "awaiting_input";
     for (const step of t.steps.values()) {
       if (ENDED.has(step.status)) continue;
@@ -414,7 +452,27 @@ export class RunTraceSink {
           : outcome === "failed"
             ? "failed"
             : "cancelled";
-      this.#put(t, { ...step, status, endedAt: at });
+      this.#put(t, {
+        ...step,
+        status,
+        endedAt: at,
+        ...(status === "failed" && step.error === undefined
+          ? { error: { code: "run_failed", message: reason, retryable: false } }
+          : {}),
+      });
+    }
+    // A run that failed must say why on a step: the budget, a model error or a crash have none.
+    if (outcome === "failed" && ![...t.steps.values()].some((s) => s.status === "failed")) {
+      this.#put(t, {
+        id: this.#newId(),
+        kind: "note",
+        status: "failed",
+        label: clip(reason, RUN_STEP_LIMITS.labelChars),
+        startedAt: at,
+        endedAt: at,
+        error: { code: "run_failed", message: reason, retryable: false },
+        ...(t.parentStepId === undefined ? {} : { parentStepId: t.parentStepId }),
+      });
     }
     for (const timer of t.progressTimers.values()) clearTimeout(timer);
     if (t.runUpdateTimer !== undefined) clearTimeout(t.runUpdateTimer);
@@ -643,8 +701,22 @@ export class RunTraceSink {
       if (i !== undefined) payloadRef.input = i;
       if (o !== undefined) payloadRef.output = o;
     }
+    // Why a call failed is what it said: the step's error carries the tool's own message.
+    const why =
+      result.isError === true && step.status === "failed"
+        ? clip(this.#redact(errorText(result.output)), 1000)
+        : "";
     this.#put(t, {
       ...step,
+      ...(why === ""
+        ? {}
+        : {
+            error: {
+              code: step.error?.code ?? "tool_failed",
+              message: why,
+              retryable: step.error?.retryable ?? true,
+            },
+          }),
       ...(input === undefined && output === undefined
         ? {}
         : {
@@ -655,6 +727,117 @@ export class RunTraceSink {
           }),
       ...(Object.keys(payloadRef).length === 0 ? {} : { payloadRef }),
       ...(result.receiptId === undefined ? {} : { receiptId: result.receiptId }),
+    });
+  }
+
+  // --- Model calls (model_call_persist) -----------------------------------------------------
+
+  /**
+   * The loop's `model_call_persist` hook: the call's input (system, messages, tools offered) and
+   * output (text, tool calls, stop reason, usage) become the newest model step's payloads. Both
+   * are redacted and capped at `MODEL_PAYLOAD_BYTES` (head and tail kept, `truncated` set), and
+   * carry the run's taint so the Timeline can show it.
+   */
+  modelCall(ctx: {
+    runId: string;
+    system: string;
+    messages: readonly ModelMessage[];
+    tools: readonly ToolSpec[];
+    output: {
+      text: string;
+      calls: readonly { id: string; name: string; input: unknown }[];
+      finish: string;
+      error?: string;
+    };
+    taint: boolean;
+  }): void {
+    const t = this.#runs.get(ctx.runId);
+    const stepId = t?.lastModelStepId;
+    if (t === undefined || stepId === undefined) return;
+    const step = t.steps.get(stepId);
+    if (step === undefined) return;
+    const input = {
+      system: ctx.system,
+      messages: ctx.messages.map((m) => ({
+        role: m.role,
+        parts: m.parts.flatMap((p) => {
+          // Opaque reasoning envelopes and inline images are not readable: leave a marker.
+          if (p.type === "reasoning") return [{ type: "reasoning" }];
+          if (p.type === "image") return [{ type: "image", mime: p.mime }];
+          return [p];
+        }),
+      })),
+      tools: ctx.tools.map((x) => ({ name: x.name, description: x.description })),
+      taint: ctx.taint,
+    };
+    const output = {
+      text: ctx.output.text,
+      toolCalls: ctx.output.calls,
+      stopReason: ctx.output.finish,
+      ...(ctx.output.error === undefined ? {} : { error: ctx.output.error }),
+      ...(step.usage === undefined ? {} : { usage: step.usage }),
+      taint: ctx.taint,
+    };
+    const payloadRef: { input?: string; output?: string } = {};
+    if (t.store) {
+      const write = (kind: "input" | "output", value: unknown) => {
+        try {
+          const capped = capPayload(this.#redact(JSON.stringify(value)), MODEL_PAYLOAD_BYTES);
+          return putStepPayload(this.#o.db, {
+            runId: t.runId,
+            stepId,
+            kind,
+            text: capped.text,
+            truncated: capped.truncated,
+          });
+        } catch {
+          return undefined;
+        }
+      };
+      const i = write("input", input);
+      const o = write("output", output);
+      if (i !== undefined) payloadRef.input = i;
+      if (o !== undefined) payloadRef.output = o;
+    }
+    const lastUser = [...ctx.messages].reverse().find((m) => m.role === "user");
+    const asked = lastUser?.parts.find((p) => p.type === "text");
+    const inPreview = clip(
+      this.#redact(
+        `${ctx.messages.length} messages, ${ctx.tools.length} tools${
+          asked?.type === "text" ? `: ${asked.text}` : ""
+        }`,
+      ),
+      RUN_STEP_LIMITS.previewBytes,
+    );
+    const outText =
+      ctx.output.text !== ""
+        ? ctx.output.text
+        : ctx.output.calls.length > 0
+          ? `Called ${ctx.output.calls.map((c) => c.name).join(", ")}`
+          : (ctx.output.error ?? "");
+    const failed = ctx.output.finish === "error";
+    const cancelled = ctx.output.finish === "cancelled";
+    this.#put(t, {
+      ...step,
+      ...(failed
+        ? {
+            status: "failed" as const,
+            error: {
+              code: "model_error",
+              message: clip(this.#redact(ctx.output.error ?? "The model call failed"), 1000),
+              retryable: true,
+            },
+          }
+        : cancelled
+          ? { status: "cancelled" as const }
+          : {}),
+      preview: {
+        input: inPreview,
+        ...(outText === ""
+          ? {}
+          : { output: clip(this.#redact(outText), RUN_STEP_LIMITS.previewBytes) }),
+      },
+      ...(Object.keys(payloadRef).length === 0 ? {} : { payloadRef }),
     });
   }
 
@@ -717,7 +900,11 @@ export class RunTraceSink {
 
   #tool(t: TraceRun, event: Extract<AgentEvent, { type: "tool_call" }>, at: string): string {
     let id = t.byToolCall.get(event.toolCallId);
-    const status = stepStatus(event.status);
+    // A call blocked after the owner (or the policy) said no to its approval is denied, not skipped.
+    const status: RunStepStatus =
+      event.status === "blocked" && event.details?.approvalId != null
+        ? "denied"
+        : stepStatus(event.status);
     const label = clip(this.#redact(event.level1 ?? event.tool), RUN_STEP_LIMITS.labelChars);
     const target = event.details?.target?.value;
     if (id === undefined) {
@@ -841,6 +1028,7 @@ export class RunTraceSink {
     const id = this.#newId();
     const delta = subUsage(usage, t.lastUsage);
     t.lastUsage = usage;
+    t.lastModelStepId = id;
     const run = t.store ? getRun(this.#o.db, t.runId) : undefined;
     this.#put(t, {
       id,
@@ -895,7 +1083,7 @@ export class RunTraceSink {
         event.status === "blocked" &&
         step.approvalId !== undefined &&
         event.details?.approvalId === step.approvalId;
-      this.#put(t, { ...step, status: declined ? "skipped" : "ok", endedAt: at });
+      this.#put(t, { ...step, status: declined ? "denied" : "ok", endedAt: at });
     }
     t.waits.clear();
     t.modelSince = at;
