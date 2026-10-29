@@ -2293,7 +2293,8 @@ export class GraphStore {
       .map((i) => i.value)
       .join(" ");
     const facts = this.#factRows(id, true)
-      .filter((f) => f.provenance !== "untrusted")
+      // Not what a third party wrote, and never a sensitive learned fact (search would reveal it).
+      .filter((f) => f.provenance !== "untrusted" && f.sensitivity === "none")
       .map((f) => f.value)
       .join(" ");
     this.#db

@@ -1,5 +1,7 @@
 import {
   type EntitySummary,
+  type GraphCitationSource,
+  type GraphFact,
   type GraphInteraction,
   type GraphLoop,
   type GraphSource,
@@ -11,8 +13,56 @@ import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import { looksLikeInstruction } from "../filters.ts";
 import type { MemoryCallClass, MemoryToolContext, ToolOutcome } from "../tools/memory-command.ts";
+import type { EverythingStore } from "./everything.ts";
 import { normalizeName } from "./normalize.ts";
 import { type GraphStore, SOURCE_KINDS } from "./store.ts";
+
+/**
+ * What the agent may read of everything memory (docs/design/everything-memory-2026.md §9),
+ * enforced here where the facts are read, never in the prompt. `none`: no learned facts at all;
+ * `accepted`: facts the owner accepted (or that were added from their own text); `all`: also
+ * facts still waiting for review, marked unconfirmed. Sensitive facts have their own switch. A
+ * fact is visible only if EVERY one of its citations comes from a source the agent may search
+ * (the per-source flag of Search), so a fact cited only from Messages disappears when Messages
+ * is owner-only. Facts that did not come from everything memory (no `extractor`) are untouched.
+ */
+export interface AgentMemoryAccess {
+  mode: "none" | "accepted" | "all";
+  seesSensitive: boolean;
+  sourceAllowed: (source: GraphCitationSource) => boolean;
+}
+
+/** Until told otherwise: confirmed facts only, sensitive hidden, every source allowed (decision 8). */
+export const DEFAULT_AGENT_ACCESS: AgentMemoryAccess = {
+  mode: "accepted",
+  seesSensitive: false,
+  sourceAllowed: () => true,
+};
+
+const ACCEPTED_REVIEW = new Set(["accepted", "auto_accepted", "edited"]);
+
+/** True when `fact` came from everything memory (the extractor wrote or proposed it). */
+export const isLearnedFact = (f: GraphFact): boolean => f.extractor !== undefined;
+
+export function visibleToAgent(
+  fact: GraphFact,
+  access: AgentMemoryAccess,
+  em: Pick<EverythingStore, "citations"> | undefined,
+): boolean {
+  if (!isLearnedFact(fact)) return true;
+  if (access.mode === "none") return false;
+  const review = fact.review ?? "accepted";
+  if (review === "pending") {
+    if (access.mode !== "all") return false;
+  } else if (!ACCEPTED_REVIEW.has(review)) {
+    return false;
+  }
+  if ((fact.sensitivity ?? "none") !== "none" && !access.seesSensitive) return false;
+  // Closed when the citations cannot be checked.
+  if (em === undefined) return false;
+  const cites = em.citations("fact", fact.id);
+  return cites.length > 0 && cites.every((c) => access.sourceAllowed(c.source));
+}
 
 /**
  * The agent's people and project tools (docs/memory/people-and-projects-2026.md §6.2), and entity
@@ -135,10 +185,23 @@ const day = (iso: string | null | undefined) => (typeof iso === "string" ? iso.s
 export class GraphTools {
   readonly #graph: GraphStore;
   readonly #now: () => number;
+  readonly #access: () => AgentMemoryAccess;
+  readonly #em: EverythingStore | undefined;
 
-  constructor(graph: GraphStore, options: { now?: () => number } = {}) {
+  constructor(
+    graph: GraphStore,
+    options: {
+      now?: () => number;
+      /** What the agent may read of everything memory; read on every call. */
+      access?: () => AgentMemoryAccess;
+      /** For the citations behind the per-source rule and for unconfirmed facts. */
+      em?: EverythingStore;
+    } = {},
+  ) {
     this.#graph = graph;
     this.#now = options.now ?? (() => Date.now());
+    this.#access = options.access ?? (() => DEFAULT_AGENT_ACCESS);
+    this.#em = options.em;
   }
 
   get specs(): readonly ToolSpec[] {
@@ -187,8 +250,21 @@ export class GraphTools {
       lines.push(`Summary (${day(entity.summaryAt)}): ${entity.summary}`);
       taint.untrusted = true;
     }
-    const facts = detail.facts.slice(0, 8).map((f) => {
-      if (f.provenance === "untrusted") taint.untrusted = true;
+    const access = this.#access();
+    const shown = detail.facts.filter((f) => visibleToAgent(f, access, this.#em));
+    // `all`: facts still waiting for the owner, said plainly to be unconfirmed.
+    const waiting =
+      access.mode === "all" && this.#em !== undefined
+        ? this.#em
+            .reviewItems({ entityId: id, states: ["pending"], limit: 8 })
+            .items.map((i) => i.fact)
+            .filter((f) => visibleToAgent(f, access, this.#em))
+        : [];
+    if (waiting.length > 0) taint.untrusted = true;
+    const facts = [...shown, ...waiting].slice(0, 8).map((f) => {
+      if (f.provenance === "untrusted" || f.review === "pending") taint.untrusted = true;
+      if (f.review === "pending")
+        return `${f.attribute}: ${f.value} (unconfirmed, not yet reviewed)`;
       const how =
         f.provenance === "owner"
           ? "you said"
@@ -433,6 +509,8 @@ export interface EntityRecallOptions {
   /** Interactions older than this are not recalled, even before the nightly retention runs. */
   retentionDays?: number;
   now?: number;
+  /** Which facts the agent may read (everything memory's access rules); absent = all. */
+  visible?: (fact: GraphFact) => boolean;
 }
 
 const DAY_MS = 86_400_000;
@@ -537,7 +615,14 @@ export function entityRecall(
       .find((x) => x.rel === "works_at" && x.src === e.id && confirmed(x));
     const orgName = org === undefined ? undefined : plain(graph.getEntity(org.dst)?.name);
     const title = plain(
-      graph.facts(e.id).find((f) => f.attribute === "title" && confirmed(f))?.value,
+      graph
+        .facts(e.id)
+        .find(
+          (f) =>
+            f.attribute === "title" &&
+            confirmed(f) &&
+            (options.visible === undefined || options.visible(f)),
+        )?.value,
     );
     const loop = graph
       .loops({ entityId: e.id, status: ["open"] })
