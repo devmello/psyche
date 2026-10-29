@@ -1031,6 +1031,7 @@
 //   let searchBackfillState = try? JSONDecoder().decode(SearchBackfillState.self, from: jsonData)
 //   let searchBackfillStatus = try? JSONDecoder().decode(SearchBackfillStatus.self, from: jsonData)
 //   let searchChipKind = try? JSONDecoder().decode(SearchChipKind.self, from: jsonData)
+//   let searchExclusions = try? JSONDecoder().decode(SearchExclusions.self, from: jsonData)
 //   let searchGroup = try? JSONDecoder().decode(SearchGroup.self, from: jsonData)
 //   let searchHit = try? JSONDecoder().decode(SearchHit.self, from: jsonData)
 //   let searchHitCard = try? JSONDecoder().decode(SearchHitCard.self, from: jsonData)
@@ -1038,6 +1039,7 @@
 //   let searchIndexDocKind = try? JSONDecoder().decode(SearchIndexDocKind.self, from: jsonData)
 //   let searchIndexStatus = try? JSONDecoder().decode(SearchIndexStatus.self, from: jsonData)
 //   let searchMatch = try? JSONDecoder().decode(SearchMatch.self, from: jsonData)
+//   let searchProcessing = try? JSONDecoder().decode(SearchProcessing.self, from: jsonData)
 //   let searchQueryChip = try? JSONDecoder().decode(SearchQueryChip.self, from: jsonData)
 //   let searchQueryIntent = try? JSONDecoder().decode(SearchQueryIntent.self, from: jsonData)
 //   let searchQueryParams = try? JSONDecoder().decode(SearchQueryParams.self, from: jsonData)
@@ -1050,6 +1052,13 @@
 //   let searchSemanticEngine = try? JSONDecoder().decode(SearchSemanticEngine.self, from: jsonData)
 //   let searchSemanticState = try? JSONDecoder().decode(SearchSemanticState.self, from: jsonData)
 //   let searchSemanticStatus = try? JSONDecoder().decode(SearchSemanticStatus.self, from: jsonData)
+//   let searchSourceID = try? JSONDecoder().decode(SearchSourceID.self, from: jsonData)
+//   let searchSourceState = try? JSONDecoder().decode(SearchSourceState.self, from: jsonData)
+//   let searchSourceStatus = try? JSONDecoder().decode(SearchSourceStatus.self, from: jsonData)
+//   let searchSourcesConfigureParams = try? JSONDecoder().decode(SearchSourcesConfigureParams.self, from: jsonData)
+//   let searchSourcesParams = try? JSONDecoder().decode(SearchSourcesParams.self, from: jsonData)
+//   let searchSourcesRebuildParams = try? JSONDecoder().decode(SearchSourcesRebuildParams.self, from: jsonData)
+//   let searchSourcesStatus = try? JSONDecoder().decode(SearchSourcesStatus.self, from: jsonData)
 //   let searchStatusParams = try? JSONDecoder().decode(SearchStatusParams.self, from: jsonData)
 //   let searchUnderstood = try? JSONDecoder().decode(SearchUnderstood.self, from: jsonData)
 //   let selfConnectorFile = try? JSONDecoder().decode(SelfConnectorFile.self, from: jsonData)
@@ -11769,7 +11778,7 @@ public struct EverythingModelSetting: Codable, Sendable {
 
 // MARK: - EverythingProcessingModel
 public struct EverythingProcessingModel: Codable, Sendable {
-    public let kind: EverythingModelKind
+    public let kind: SearchProcessing
     public let ref: String?
 
     public enum CodingKeys: String, CodingKey {
@@ -11777,14 +11786,14 @@ public struct EverythingProcessingModel: Codable, Sendable {
         case ref = "ref"
     }
 
-    public init(kind: EverythingModelKind, ref: String?) {
+    public init(kind: SearchProcessing, ref: String?) {
         self.kind = kind
         self.ref = ref
     }
 }
 
 /// none: deterministic graph only; cloud: Haiku-class provider; local: on this Mac
-public enum EverythingModelKind: String, Codable, Sendable {
+public enum SearchProcessing: String, Codable, Sendable {
     case cloud = "cloud"
     case local = "local"
     case none = "none"
@@ -24239,6 +24248,174 @@ public struct SearchReindexResult: Codable, Sendable {
     }
 }
 
+// MARK: - SearchSourcesConfigureParams
+public struct SearchSourcesConfigureParams: Codable, Sendable {
+    public let agent: Bool?
+    public let enabled: Bool?
+    public let exclude: Exclude?
+    public let processing: SearchProcessing?
+    public let source: SearchSourceID?
+
+    public enum CodingKeys: String, CodingKey {
+        case agent = "agent"
+        case enabled = "enabled"
+        case exclude = "exclude"
+        case processing = "processing"
+        case source = "source"
+    }
+
+    public init(agent: Bool?, enabled: Bool?, exclude: Exclude?, processing: SearchProcessing?, source: SearchSourceID?) {
+        self.agent = agent
+        self.enabled = enabled
+        self.exclude = exclude
+        self.processing = processing
+        self.source = source
+    }
+}
+
+// MARK: - Exclude
+public struct Exclude: Codable, Sendable {
+    public let accounts: [String]?
+    public let chats: [String]?
+    public let contacts: [String]?
+    public let folders: [String]?
+
+    public enum CodingKeys: String, CodingKey {
+        case accounts = "accounts"
+        case chats = "chats"
+        case contacts = "contacts"
+        case folders = "folders"
+    }
+
+    public init(accounts: [String]?, chats: [String]?, contacts: [String]?, folders: [String]?) {
+        self.accounts = accounts
+        self.chats = chats
+        self.contacts = contacts
+        self.folders = folders
+    }
+}
+
+public enum SearchSourceID: String, Codable, Sendable {
+    case calendar = "calendar"
+    case files = "files"
+    case mail = "mail"
+    case messages = "messages"
+    case notes = "notes"
+    case reminders = "reminders"
+}
+
+// MARK: - SearchSourcesRebuildParams
+public struct SearchSourcesRebuildParams: Codable, Sendable {
+    public let source: SearchSourceID
+
+    public enum CodingKeys: String, CodingKey {
+        case source = "source"
+    }
+
+    public init(source: SearchSourceID) {
+        self.source = source
+    }
+}
+
+// MARK: - SearchSourcesStatus
+public struct SearchSourcesStatus: Codable, Sendable {
+    public let exclude: SearchExclusions
+    /// Size of the whole index file
+    public let indexBytes: Int
+    public let sources: [SearchSourceStatus]
+
+    public enum CodingKeys: String, CodingKey {
+        case exclude = "exclude"
+        case indexBytes = "indexBytes"
+        case sources = "sources"
+    }
+
+    public init(exclude: SearchExclusions, indexBytes: Int, sources: [SearchSourceStatus]) {
+        self.exclude = exclude
+        self.indexBytes = indexBytes
+        self.sources = sources
+    }
+}
+
+// MARK: - SearchExclusions
+public struct SearchExclusions: Codable, Sendable {
+    public let accounts: [String]
+    public let chats: [String]
+    public let contacts: [String]
+    public let folders: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case accounts = "accounts"
+        case chats = "chats"
+        case contacts = "contacts"
+        case folders = "folders"
+    }
+
+    public init(accounts: [String], chats: [String], contacts: [String], folders: [String]) {
+        self.accounts = accounts
+        self.chats = chats
+        self.contacts = contacts
+        self.folders = folders
+    }
+}
+
+// MARK: - SearchSourceStatus
+public struct SearchSourceStatus: Codable, Sendable {
+    /// The agent's search_everything may search it; Messages is off until the owner allows it
+    public let agent: Bool
+    /// The first pass reached the end
+    public let backfilled: Bool
+    /// Why it cannot run, or the last error
+    public let detail: String?
+    /// Off by default; the owner chooses what is read
+    public let enabled: Bool
+    public let id: SearchSourceID
+    public let items: Int
+    public let label: String
+    /// Epoch ms
+    public let lastIndexedAt: Int?
+    public let processing: SearchProcessing
+    public let state: SearchSourceState
+    /// Text indexed for this source
+    public let textBytes: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case agent = "agent"
+        case backfilled = "backfilled"
+        case detail = "detail"
+        case enabled = "enabled"
+        case id = "id"
+        case items = "items"
+        case label = "label"
+        case lastIndexedAt = "lastIndexedAt"
+        case processing = "processing"
+        case state = "state"
+        case textBytes = "textBytes"
+    }
+
+    public init(agent: Bool, backfilled: Bool, detail: String?, enabled: Bool, id: SearchSourceID, items: Int, label: String, lastIndexedAt: Int?, processing: SearchProcessing, state: SearchSourceState, textBytes: Int) {
+        self.agent = agent
+        self.backfilled = backfilled
+        self.detail = detail
+        self.enabled = enabled
+        self.id = id
+        self.items = items
+        self.label = label
+        self.lastIndexedAt = lastIndexedAt
+        self.processing = processing
+        self.state = state
+        self.textBytes = textBytes
+    }
+}
+
+public enum SearchSourceState: String, Codable, Sendable {
+    case error = "error"
+    case idle = "idle"
+    case indexing = "indexing"
+    case off = "off"
+    case unavailable = "unavailable"
+}
+
 // MARK: - SelfConnectorFilesResult
 public struct SelfConnectorFilesResult: Codable, Sendable {
     public let entry: String
@@ -30216,6 +30393,7 @@ public typealias PasskeysRegisterBeginParams = [String: JSONAny]
 public typealias SandboxListParams = [String: JSONAny]
 public typealias SandboxSetupParams = [String: JSONAny]
 public typealias SearchReindexParams = [String: JSONAny]
+public typealias SearchSourcesParams = [String: JSONAny]
 public typealias SearchStatusParams = [String: JSONAny]
 public typealias Settings = [String: JSONAny]
 public typealias SpecialistsListParams = [String: JSONAny]

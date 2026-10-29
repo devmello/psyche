@@ -1459,6 +1459,33 @@ export function useSearchIndexStatus() {
   };
 }
 
+/** Local search sources (Settings → Search sources): live status, switches, exclusions, Rebuild. */
+export function useSearchSources() {
+  const store = useStore();
+  const q = useGatewayQuery("search.sources", {});
+  const apply = (res: MethodResult<"search.sources">) =>
+    store.update((s) => ({
+      ...s,
+      queries: {
+        ...s.queries,
+        [`search.sources:${JSON.stringify({})}`]: {
+          data: res,
+          error: null,
+          loading: false,
+          version: store.version(),
+        },
+      },
+    }));
+  return {
+    ...q,
+    status: q.data,
+    configure: async (p: MethodParams<"search.sources.configure">) =>
+      apply(await store.call("search.sources.configure", p)),
+    rebuild: async (source: MethodParams<"search.sources.rebuild">["source"]) =>
+      apply(await store.call("search.sources.rebuild", { source })),
+  };
+}
+
 export function useMemoryFile(path: string | null) {
   const store = useStore();
   const etag = useStoreState((s) => (path === null ? undefined : s.memoryEtags[path]));

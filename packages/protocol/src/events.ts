@@ -6,7 +6,7 @@ import { BrowserRecording } from "./methods/browser.ts";
 import { QueuedMessage } from "./methods/chat.ts";
 import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
 import { DictationKeyPayload } from "./methods/dictation.ts";
-import { SearchIndexStatus } from "./methods/search.ts";
+import { SearchIndexStatus, SearchSourcesStatus } from "./methods/search.ts";
 import { SkillChangeEvent, SkillDraft, SkillUpdateStatus } from "./methods/skills.ts";
 import { VoiceEndedPayload, VoiceSegmentPayload } from "./methods/voice.ts";
 import { ArtifactVersion } from "./schemas/artifacts.ts";
@@ -422,6 +422,11 @@ export const Events = {
     payload: MeetingRecordingStatus,
     description:
       "Record meeting started or ended (stopped, silence, the conference app quit), or the ended recording's notes finished or failed (mail and meeting workflows §4.6).",
+  }),
+  "search.sources.updated": defineEvent({
+    payload: SearchSourcesStatus,
+    description:
+      "A local search source changed: switched, indexed more, swept or rebuilt (Settings → Search sources).",
   }),
   "search.status.updated": defineEvent({
     payload: SearchIndexStatus,

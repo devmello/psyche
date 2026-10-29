@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { getLibraryItem, getSetting, getThread, openDb } from "@psyche/db";
+import { getLibraryItem, getSetting, getThread, openDb, setSetting } from "@psyche/db";
 import type { GraphStore } from "@psyche/memory";
 import type {
   DeviceScope,
@@ -9,16 +9,25 @@ import type {
   SearchIndexStatus,
 } from "@psyche/protocol";
 import {
+  type AppleSourceDeps,
+  appleAdapters,
   Backfill,
   type BackfillStatus,
   CardQueue,
   createSearchHandlers,
+  type FilesSourceDeps,
+  filesAdapter,
   generateCard,
   libraryDoc,
   OWNER,
+  type PowerState,
+  readSourcesConfig,
   type SearchEmbedder,
   SearchIndexer,
   SemanticIndex,
+  type SourceId,
+  SourceIndexer,
+  type SourcesConfig,
   SqliteSearchIndex,
   syncMemoryNotes,
   tzOffsetMinutesAt,
@@ -26,6 +35,7 @@ import {
 import type { HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
+import { watchFolders } from "./search-files.ts";
 import {
   defaultSemanticEngines,
   SEMANTIC_SETTINGS,
@@ -64,12 +74,31 @@ export interface ComposedSearch extends ComposedPart {
   status(): Promise<SearchIndexStatus>;
   /** Indexes Library items added since the last sync and drops removed ones. */
   syncLibrary(): Promise<void>;
+  /** One step over the enabled local sources (tests; the timer runs it every few minutes). */
+  sourceTick(): Promise<void>;
+  /** The local-source indexer (absent when the host offers none). */
+  readonly sources?: SourceIndexer;
 }
+
+export const SOURCES_SETTING = "search.sources";
 
 export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
   memory: MemoryStore;
   now: () => number;
   logger?: Logger;
+  /**
+   * Local sources (Mail, Messages, Notes, Calendar, Reminders, granted folders; roadmap §2): each
+   * is off until the owner turns it on in Settings → Search sources. Absent = none offered.
+   */
+  sources?: {
+    apple: AppleSourceDeps;
+    /** Re-reads the connector list before each pass. */
+    refresh?: () => Promise<void>;
+    files?: FilesSourceDeps;
+    power?: () => PowerState;
+    /** Watch granted folders for changes (FSEvents); off in tests. */
+    watch?: boolean;
+  };
   /** The owner's IANA zone (USER.md): "yesterday" and "last week" mean their days. */
   timeZone?: string;
   /**
@@ -163,6 +192,8 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
       deps.logger?.log("warn", "search: indexing an event failed", { event, err: String(err) }),
   });
   const api = createSearchHandlers(index);
+  let sourceIndexer: SourceIndexer | undefined;
+  let gateway: Gateway | undefined;
   const cardDeps = deps.cards;
   const cardQueue =
     cardDeps === undefined
@@ -174,6 +205,7 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
             return typeof v === "number" && v > 0 ? v : undefined;
           },
           ...(cardDeps.batchSize === undefined ? {} : { batchSize: cardDeps.batchSize }),
+          blockedSources: () => sourceIndexer?.cardBlocked() ?? [],
           now: deps.now,
           generate: (item) =>
             generateCard(item, {
@@ -194,7 +226,6 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
       deps.logger?.log("warn", "search: card generation failed", { err: String(err) });
     }
   };
-  let gateway: Gateway | undefined;
   let lastStatusAt = 0;
   const statusOf = async (backfill: BackfillStatus): Promise<SearchIndexStatus> => ({
     docs: await index.count(),
@@ -239,6 +270,58 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
       void statusOf(b).then((st) => gateway?.bus.publish("search.status.updated", st));
     },
   });
+  const sourcesConfig = (): SourcesConfig =>
+    readSourcesConfig(getSetting(deps.db, SOURCES_SETTING)?.value);
+  const filesSource =
+    deps.sources?.files === undefined ? undefined : filesAdapter(deps.sources.files);
+  if (deps.sources !== undefined) {
+    sourceIndexer = new SourceIndexer(
+      index,
+      [...appleAdapters(deps.sources.apple), ...(filesSource === undefined ? [] : [filesSource])],
+      {
+        config: sourcesConfig,
+        now: deps.now,
+        ...(deps.sources.power === undefined ? {} : { power: deps.sources.power }),
+        ...(deps.backfillPauseMs === undefined ? {} : { pauseMs: deps.backfillPauseMs }),
+        onChange: () => publishSources(),
+        onError: (source, err) =>
+          deps.logger?.log("warn", "search: a source failed", { source, err: String(err) }),
+      },
+    );
+  }
+  const publishSources = () => {
+    if (sourceIndexer !== undefined && gateway !== undefined)
+      gateway.bus.publish("search.sources.updated", sourceIndexer.status());
+  };
+  let grantsKey = "";
+  let stopWatch: (() => void) | undefined;
+  /** (Re)starts the folder watcher when files are on and the grants changed; sweeps revoked roots. */
+  const syncFolders = () => {
+    const files = deps.sources?.files;
+    if (files === undefined || sourceIndexer === undefined) return;
+    const on = sourcesConfig().sources.files.enabled;
+    const roots = files.folders().map((f) => f.path);
+    const key = `${on}:${roots.join("\n")}`;
+    if (key === grantsKey) return;
+    const hadGrants = grantsKey !== "";
+    grantsKey = key;
+    stopWatch?.();
+    stopWatch = undefined;
+    filesSource?.invalidate();
+    if (!on) return;
+    if (hadGrants) void sourceIndexer.sweep("files");
+    if (deps.sources?.watch === true)
+      stopWatch = watchFolders(roots, () => {
+        filesSource?.invalidate();
+        void sourceIndexer?.tick();
+      });
+  };
+  const sourceTick = async () => {
+    if (sourceIndexer === undefined) return;
+    syncFolders();
+    await deps.sources?.refresh?.();
+    await sourceIndexer.tick();
+  };
   const syncLibrary = async () => {
     const have = new Set(
       (deps.db.sqlite.prepare("SELECT id FROM library_items").all() as { id: string }[]).map(
@@ -267,6 +350,10 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
       .catch((err) => deps.logger?.log("warn", "search: backfill failed", { err: String(err) }));
     return run.started;
   };
+  const sourcesOrThrow = (): SourceIndexer => {
+    if (sourceIndexer === undefined) throw new Error("this host offers no local search sources");
+    return sourceIndexer;
+  };
   let libraryTimer: ReturnType<typeof setInterval> | undefined;
   // Events are indexed one at a time in publish order (a thread before its messages).
   let queue: Promise<void> = Promise.resolve();
@@ -277,6 +364,40 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
     },
     "search.status": { run: () => statusOf(backfill.status()) },
     "search.reindex": { run: () => ({ started: runBackfill(true) }) },
+    "search.sources": { run: () => sourcesOrThrow().status() },
+    "search.sources.configure": {
+      run: async (_call, params: never) => {
+        const indexer = sourcesOrThrow();
+        const p = params as {
+          source?: SourceId;
+          enabled?: boolean;
+          processing?: "cloud" | "local" | "none";
+          agent?: boolean;
+          exclude?: Partial<SourcesConfig["exclude"]>;
+        };
+        const next = sourcesConfig();
+        if (p.source !== undefined) {
+          if (p.enabled !== undefined) next.sources[p.source].enabled = p.enabled;
+          if (p.processing !== undefined) next.sources[p.source].processing = p.processing;
+          if (p.agent !== undefined) next.sources[p.source].agent = p.agent;
+        }
+        if (p.exclude !== undefined) Object.assign(next.exclude, p.exclude);
+        setSetting(deps.db, SOURCES_SETTING, readSourcesConfig(next));
+        await indexer.applyConfig();
+        syncFolders();
+        void indexer.tick();
+        publishSources();
+        return indexer.status();
+      },
+    },
+    "search.sources.rebuild": {
+      run: async (_call, params: never) => {
+        const indexer = sourcesOrThrow();
+        await indexer.rebuild((params as { source: SourceId }).source);
+        void indexer.tick();
+        return indexer.status();
+      },
+    },
   };
   return {
     index,
@@ -289,6 +410,8 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
     idle: () => queue,
     status: () => statusOf(backfill.status()),
     syncLibrary,
+    sourceTick,
+    ...(sourceIndexer === undefined ? {} : { sources: sourceIndexer }),
     start(gw: Gateway) {
       gateway = gw;
       unsubscribe = gw.bus.subscribe(ALL_SCOPES, (frame) => {
@@ -308,7 +431,13 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
       if (backfill.needed()) runBackfill(false);
       const every = deps.librarySyncMs ?? 60_000;
       if (every > 0) {
+        // Local sources: a bounded step every few minutes on the same timer, and soon after start.
+        let beat = 0;
+        const first = setTimeout(() => void sourceTick().catch(() => undefined), 20_000);
+        first.unref?.();
         libraryTimer = setInterval(() => {
+          beat += 1;
+          if (beat % 5 === 0 && !backfill.running) void sourceTick().catch(() => undefined);
           if (!backfill.running) void syncLibrary().catch(() => undefined);
           // Cards share this timer: no extra always-on process (a bounded step per tick).
           if (!backfill.running) void cardTick();
@@ -320,6 +449,8 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
       unsubscribe?.();
       unsubscribe = undefined;
       if (libraryTimer !== undefined) clearInterval(libraryTimer);
+      stopWatch?.();
+      await sourceIndexer?.stop();
       gateway = undefined;
       controller.stop();
       semantic.setEmbedder(undefined);

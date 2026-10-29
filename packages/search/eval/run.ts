@@ -17,6 +17,7 @@ import type { Provenance, SearchIndexDocKind } from "@psyche/protocol";
 import { createSearchIndex } from "../src/index.ts";
 import type { SearchDoc } from "../src/types.ts";
 import { llmAnswer } from "./answer.ts";
+import { type IndexedCorpus, indexThroughSources } from "./indexed.ts";
 import {
   answerMatches,
   type CitationScore,
@@ -64,7 +65,11 @@ export const EVAL_TZ = -420;
 export const PRODUCTION_SOURCES = new Set(["chat", "tasks", "library"]);
 
 const MODES: RewriteMode[] = ["raw", "keywords", "rules", "prod"];
-const COVERAGES = ["production", "full"] as const;
+/**
+ * `indexed` = production sources plus Mail, Messages, Notes, Calendar, Reminders and files, written
+ * by the real source indexers (roadmap §2). `full` writes the same documents straight in.
+ */
+const COVERAGES = ["production", "full", "indexed"] as const;
 type Coverage = (typeof COVERAGES)[number];
 const KS = [1, 5, 10, 20];
 /** The mock answerer cites this many top hits. */
@@ -116,6 +121,11 @@ export interface QuestionResult {
   usedFallback: boolean;
 }
 
+/** Counts and sizes of the last `indexed` run (reported under its table). */
+export let indexStats:
+  | { counts: Record<string, number>; textBytes: number; indexBytes: number }
+  | undefined;
+
 export async function evaluate(
   corpus: CorpusDoc[],
   questions: Question[],
@@ -125,13 +135,24 @@ export async function evaluate(
   const index = createSearchIndex({ now: () => EVAL_NOW, tzOffsetMinutes: EVAL_TZ });
   const docs = corpus.filter((d) => coverage === "full" || PRODUCTION_SOURCES.has(d.source));
   await index.indexMany(docs.map(toSearchDoc));
+  let indexed: IndexedCorpus | undefined;
+  if (coverage === "indexed") {
+    indexed = await indexThroughSources(index, corpus, EVAL_NOW);
+    indexStats = {
+      counts: indexed.counts,
+      textBytes: indexed.textBytes,
+      indexBytes: indexed.indexBytes,
+    };
+  }
   const out: QuestionResult[] = [];
   for (const q of questions) {
     const rw = rewrite(q.q, mode, EVAL_NOW, EVAL_TZ);
-    const run = async (text: string) =>
-      (
+    const run = async (text: string) => {
+      const ids = (
         await index.search({ q: text, collapse: false, limit: 20, understand: mode === "prod" })
-      ).hits.map((h) => h.id);
+      ).hits.flatMap((h) => (indexed === undefined ? [h.id] : indexed.expand(h.id)));
+      return [...new Set(ids)];
+    };
     let ranked = await run(rw.q);
     let usedFallback = false;
     if (ranked.length === 0 && rw.fallback !== undefined) {
@@ -153,6 +174,7 @@ export async function evaluate(
       usedFallback,
     });
   }
+  indexed?.cleanup();
   index.db.close();
   return out;
 }
@@ -260,6 +282,14 @@ async function main(): Promise<void> {
       results.set(mode, res);
     }
     print(`## coverage: ${coverage}\n`);
+    if (coverage === "indexed" && indexStats !== undefined)
+      print(
+        `source docs: ${Object.entries(indexStats.counts)
+          .map(([k, v]) => `${k} ${v}`)
+          .join(
+            ", ",
+          )}; text ${(indexStats.textBytes / 1000).toFixed(0)} kB, index file ${(indexStats.indexBytes / 1000).toFixed(0)} kB\n`,
+      );
     print(header("mode", answers));
     for (const [mode, res] of results) {
       const summary = summarize(res);

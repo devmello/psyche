@@ -121,6 +121,19 @@ So about 1.3 GB on disk for a very heavy home and 200–400 MB for a typical one
 
 Every new source sets `provenance` as today: mail, messages, browser pages and downloads are `untrusted`; the owner's own notes, calendar, reminders and files are `owner`; Psyche's research and documents are `agent`. `scopeKey` is always `owner` for connector sources: a designated person's agent never sees the owner's mail.
 
+### 2.6 Status: local sources landed
+
+Mail, Messages, Notes, Calendar, Reminders and files in granted folders are indexed by `SourceIndexer` (`packages/search/src/sources/`), driven from the Gateway's existing 60 s timer (a step every 5th beat, nothing new always on). Each source is **off by default** (this supersedes the "on by default" recommendation above, per the owner's opt-in decision) and is switched in Settings → Search sources, with items, last indexed, size, Rebuild and a processing model per source (`cloud` | `local` | `none`; only `none`, no context cards, acts today).
+
+- **Cursors:** Mail walks back by date, then follows new mail with `since`; Messages pages `messages.graph_read` (`includeText`) by ROWID, one doc per chat and day; Notes by modified date; Calendar by windows (3 y back, 12 months ahead); Reminders re-read whole (hash skips unchanged); files by (mtime, path) with an FSEvents watcher (`fs.watch` recursive, 2 s coalesced).
+- **Sweep:** once a day, on power, each source with `listIds` removes what vanished (Messages has none: Rebuild drops deleted ones). A partial listing never deletes.
+- **Dedupe:** SHA-256 of title and text per item (unchanged items are not rewritten); identical long text (>= 200 chars) in two sources keeps one, preferring the owner's copy.
+- **Provenance:** other people's mail and any conversation-day with an inbound message are `untrusted`; the owner's sent mail and outbound-only days are `owner`; notes, events and reminders are `owner` only when the #1006 trusted-sources check says so (else `untrusted`); files under `Downloads` are `untrusted`, other granted-folder files `owner`.
+- **Exclusions:** contacts (address, phone digits or name), chats, mail accounts and folders, stored with the source config in the `search.sources` setting; adding one purges what it matches at once. The everything-memory plan extends this list.
+- **Battery:** low-power mode pauses everything; on battery only filled sources take one page per tick (no backfill, no sweep).
+- **Kinds:** all of them are `connector` docs (`source: connector:<key>` with keys mail, imessage, notes, calendar, reminders, files, matching the `source:` filter), files included (the roadmap said `library`; the Library reconcile and a full rebuild sweep that kind). Context cards reach them through the existing `CardQueue` scan.
+- **Not done:** OCR (the mac-helper has no Vision capability; `ocr` is a hook on the files source, scans and images are indexed by name); Mail attachments as child docs; per-source people-graph resolution (§3.2).
+
 ## 3. Ingest quality
 
 ### 3.1 What a doc is
