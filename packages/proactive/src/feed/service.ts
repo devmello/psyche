@@ -451,6 +451,32 @@ export class FeedService {
     return out;
   }
 
+  /**
+   * A plain notice card from Psyche about its own work ("Psyche learned 14 things yesterday"):
+   * text and a link, no citations, never exploration, and no notification.
+   */
+  postNotice(input: { title: string; bodyMd: string; reason: string }): FeedPost {
+    const post: StoredPost = {
+      id: this.#id(),
+      title: input.title,
+      bodyMd: input.bodyMd,
+      citations: [],
+      cluster: null,
+      score: 1,
+      reasons: [input.reason],
+      exploration: false,
+      briefingId: null,
+      feedback: null,
+      createdAt: toIso(this.#o.clock.now()),
+      batchId: this.#id(),
+      kind: "suggestion",
+    };
+    this.store.insert(post);
+    const out = toFeedPost(post);
+    this.#emit({ event: "feed.updated", payload: { posts: [out] } });
+    return out;
+  }
+
   // --- read + feedback -------------------------------------------------------------------------
 
   async list(

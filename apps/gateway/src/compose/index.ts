@@ -821,6 +821,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     provider,
     utility: utility ?? modelRef,
     timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    announce: (card) => void proactive.feed.postNotice({ ...card, reason: "memory learned" }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
   const calls = new CallContexts();
@@ -1186,6 +1187,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     audit,
     channelSurfaces: () =>
       relays.flatMap((r) => r.surfaces()).filter((x) => x.startsWith("imessage:")),
+    learned: () => everything.learnedYesterday(),
     // Ideas proposes folding a skill's lessons into it once it has three (teaching loop §6).
     skillUpdates: () => skills.updates(),
     // Post-meeting notes transcribe on the Mac through the speech part (§4.6). Record meeting

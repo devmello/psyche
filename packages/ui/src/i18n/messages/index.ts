@@ -16,6 +16,7 @@ import { glass } from "./glass.ts";
 import { links } from "./links.ts";
 import { mailMeetings } from "./mail-meetings.ts";
 import { meetingRecord } from "./meeting-record.ts";
+import { memoryReview } from "./memory-review.ts";
 import { onboarding } from "./onboarding.ts";
 import { overview } from "./overview.ts";
 import { overviewGrowth } from "./overview-growth.ts";
@@ -64,6 +65,7 @@ export const en = {
   ...connectorGallery,
   ...onboarding,
   ...whatCanYouDo,
+  ...memoryReview,
   ...people,
   ...specialists,
   ...screens,

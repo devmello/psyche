@@ -22,7 +22,12 @@ function makeTmpDir() {
 
 const NOW = Date.parse("2026-10-29T03:00:00Z");
 
-function setup(over: { readState?: Parameters<typeof composeEverything>[0]["readState"] } = {}) {
+function setup(
+  over: {
+    readState?: Parameters<typeof composeEverything>[0]["readState"];
+    announce?: Parameters<typeof composeEverything>[0]["announce"];
+  } = {},
+) {
   const clock = new FakeClock(NOW);
   const db = openDb(":memory:");
   const graph = new GraphStore({ sqlite: db.sqlite, clock });
@@ -38,6 +43,7 @@ function setup(over: { readState?: Parameters<typeof composeEverything>[0]["read
     utility: "fake/utility",
     timeZone: () => "UTC",
     ...(over.readState === undefined ? {} : { readState: over.readState }),
+    ...(over.announce === undefined ? {} : { announce: over.announce }),
   });
   return { clock, db, graph, provider, e, tmp };
 }
@@ -263,6 +269,103 @@ describe("the nightly step", () => {
     expect(provider.requests[0]?.model).toBe("fake/utility");
     expect(provider.requests[0]?.tools).toEqual([]);
     expect(e.store.runs()[0]).toMatchObject({ itemsRead: 1, model: "fake/utility" });
+    tmp.cleanup();
+  });
+});
+
+describe("the Feed card and the brief line", () => {
+  const night = async () => ({
+    onAc: true,
+    lowPowerMode: false,
+    thermal: "nominal" as const,
+    idleMinutes: 60,
+  });
+
+  it("announces counts only, once, and the brief reads them for a day and a half", async () => {
+    const cards: { title: string; bodyMd: string }[] = [];
+    const { e, db, graph, provider, tmp, clock } = setup({
+      readState: night,
+      announce: (c) => cards.push(c),
+    });
+    graph.createEntity({ kind: "person", name: "The Owner", isOwner: true });
+    graph.createEntity({ kind: "person", name: "Dana Reyes" });
+    const idx = openDb(join(tmp.dir, "state", "search.sqlite"), { migrate: false });
+    idx.sqlite.exec(
+      `CREATE TABLE search_docs (rowid INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, kind TEXT, grp TEXT, title TEXT NOT NULL, body TEXT NOT NULL, extra TEXT, provenance TEXT NOT NULL, thread_id TEXT, parent_id TEXT, collapse_key TEXT, scope_key TEXT NOT NULL, sender TEXT, sender_key TEXT, mime TEXT, tags TEXT, source TEXT, created_ms INTEGER NOT NULL, updated_ms INTEGER NOT NULL)`,
+    );
+    idx.sqlite
+      .prepare(
+        `INSERT INTO search_docs (id, title, body, provenance, scope_key, source, created_ms, updated_ms) VALUES ('mail:1','','Dana Reyes loves climbing, we should go this weekend.','owner','owner','connector:mail',?,?)`,
+      )
+      .run(NOW - 3600_000, NOW - 3600_000);
+    idx.sqlite.close();
+    const fact = {
+      handle: "p1",
+      attribute: "likes",
+      value: "climbing",
+      item: "i1",
+      quote: "Dana Reyes loves climbing",
+      start: 0,
+      end: 25,
+      subject_kind: "owner_stated",
+      sensitivity: "none",
+      confidence: 0.95,
+    };
+    provider.enqueue([
+      { type: "text_delta", text: JSON.stringify({ facts: [fact], edges: [], flags: [] }) },
+      { type: "finish", reason: "stop" },
+    ]);
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, {
+      enabled: true,
+      sources: { mail: true },
+      model: { default: { kind: "cloud" } },
+    });
+    expect(await e.learnedYesterday()).toBeUndefined();
+    await e.nightly();
+    expect(cards).toHaveLength(1);
+    expect(cards[0]?.title).toBe("Psyche learned 1 thing");
+    expect(cards[0]?.bodyMd).toBe(
+      "1 auto-accepted · 0 to review · 0 quarantined\n\n[Review](/settings/memory)",
+    );
+    expect(JSON.stringify(cards)).not.toMatch(/climbing|Dana/);
+    expect(e.learnedYesterday()).toEqual({
+      text: "Psyche learned 1 thing yesterday: 1 auto-accepted · 0 to review · 0 quarantined",
+      link: "/settings/memory",
+    });
+    clock.advance(40 * 3_600_000);
+    expect(e.learnedYesterday()).toBeUndefined();
+    tmp.cleanup();
+  });
+
+  it("announces nothing when the run found nothing", async () => {
+    const cards: unknown[] = [];
+    const { e, db, graph, provider, tmp } = setup({
+      readState: night,
+      announce: (c) => cards.push(c),
+    });
+    graph.createEntity({ kind: "person", name: "The Owner", isOwner: true });
+    const idx = openDb(join(tmp.dir, "state", "search.sqlite"), { migrate: false });
+    idx.sqlite.exec(
+      `CREATE TABLE search_docs (rowid INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, kind TEXT, grp TEXT, title TEXT NOT NULL, body TEXT NOT NULL, extra TEXT, provenance TEXT NOT NULL, thread_id TEXT, parent_id TEXT, collapse_key TEXT, scope_key TEXT NOT NULL, sender TEXT, sender_key TEXT, mime TEXT, tags TEXT, source TEXT, created_ms INTEGER NOT NULL, updated_ms INTEGER NOT NULL)`,
+    );
+    idx.sqlite
+      .prepare(
+        `INSERT INTO search_docs (id, title, body, provenance, scope_key, source, created_ms, updated_ms) VALUES ('mail:1','','Note to self: book the dentist for Friday.','owner','owner','connector:mail',?,?)`,
+      )
+      .run(NOW - 3600_000, NOW - 3600_000);
+    idx.sqlite.close();
+    provider.enqueue([
+      { type: "text_delta", text: '{"facts":[],"edges":[],"flags":[]}' },
+      { type: "finish", reason: "stop" },
+    ]);
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, {
+      enabled: true,
+      sources: { mail: true },
+      model: { default: { kind: "cloud" } },
+    });
+    await e.nightly();
+    expect(cards).toEqual([]);
+    expect(e.learnedYesterday()).toBeUndefined();
     tmp.cleanup();
   });
 });

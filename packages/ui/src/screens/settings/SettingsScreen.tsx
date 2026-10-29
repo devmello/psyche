@@ -3,6 +3,7 @@ import {
   Activity,
   Bell,
   Bot,
+  BrainCircuit,
   CalendarClock,
   FolderLock,
   Globe,
@@ -52,6 +53,7 @@ import { DataControlsSection, type ExportFile } from "./DataControlsSection.tsx"
 import { DevicesSection } from "./DevicesSection.tsx";
 import { FileAccessSection } from "./FileAccessSection.tsx";
 import { MailMeetingsSection } from "./MailMeetingsSection.tsx";
+import { MemoryReviewSection } from "./MemoryReviewSection.tsx";
 import { ModelSection } from "./ModelSection.tsx";
 import { NotificationsSection } from "./NotificationsSection.tsx";
 import { PeopleSection } from "./PeopleSection.tsx";
@@ -97,6 +99,7 @@ export type SettingsSectionId =
   | "daily"
   | "data"
   | "people"
+  | "memory"
   | "server"
   | "usage"
   | "about";
@@ -138,6 +141,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionEntry[] = [
   entry("daily", CalendarClock),
   entry("data", Trash2),
   entry("people", Users),
+  entry("memory", BrainCircuit),
   entry("server", Server),
   entry("usage", Activity),
   entry("about", Info),
@@ -177,7 +181,7 @@ export const SETTINGS_GROUPS: readonly {
     ],
   },
   { id: "devices", sections: ["devices", "channels", "vm", "server"] },
-  { id: "privacy", sections: ["data", "people"] },
+  { id: "privacy", sections: ["data", "people", "memory"] },
   { id: "about", sections: ["about"] },
 ];
 
@@ -379,6 +383,8 @@ export function SettingsSectionView({
       return <DataControlsSection {...opt("onExportReady", s.onExportReady)} />;
     case "people":
       return <PeopleSection {...opt("onExportReady", s.onExportReady)} />;
+    case "memory":
+      return <MemoryReviewSection />;
     case "server":
       return (
         <ServerSection

@@ -12177,6 +12177,7 @@ public enum DailySectionID: String, Codable, Sendable {
     case done = "done"
     case due = "due"
     case followups = "followups"
+    case learned = "learned"
     case mail = "mail"
     case tomorrow = "tomorrow"
     case weather = "weather"

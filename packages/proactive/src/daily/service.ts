@@ -44,6 +44,11 @@ export interface DailyServiceOptions {
   settings: () => DailySettings;
   followups: FollowupStore;
   activity?: DailyActivity;
+  /**
+   * What everything memory learned since the last brief (docs/design/everything-memory-2026.md
+   * §12.5): one line and the Review link, or nothing. Counts only, never the facts themselves.
+   */
+  learned?: () => { text: string; link?: string } | undefined;
   /** Link to the prep note for a calendar event, when meeting prep made one. */
   prepLink?: (event: { id: string; title: string; start: string }) => string | undefined;
   /** Channel surfaces (`imessage:<peer>`) the card is also delivered to when `daily.messages` is on. */
@@ -285,6 +290,19 @@ export class DailyService {
       sections.push(calendar, mail, due, this.#followupsSection("Follow-ups", dayEnd));
       const weather = await this.#weather("Weather");
       if (weather !== undefined) sections.push(weather);
+      const learned = this.#o.learned?.();
+      if (learned !== undefined) {
+        sections.push({
+          id: "learned",
+          title: "Learned yesterday",
+          items: [
+            {
+              text: cleanHeader(learned.text, 200),
+              ...(learned.link === undefined ? {} : { link: learned.link }),
+            },
+          ],
+        });
+      }
     } else {
       const done = (await this.#o.activity?.doneBetween?.(dayStart, now)) ?? undefined;
       sections.push({

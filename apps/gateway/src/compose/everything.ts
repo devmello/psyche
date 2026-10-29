@@ -35,6 +35,20 @@ import type { ComposedPart } from "./services.ts";
  * a local model also needs the owner to have confirmed its RAM warning.
  */
 
+const ANNOUNCE_CURSOR = "everything:announce";
+export const REVIEW_LINK = "/settings/memory";
+const BRIEF_WINDOW_MS = 36 * 3_600_000;
+
+interface Announcement {
+  at: number;
+  autoAccepted: number;
+  toReview: number;
+  quarantined: number;
+}
+
+const summaryLine = (a: Announcement): string =>
+  `${a.autoAccepted} auto-accepted · ${a.toReview} to review · ${a.quarantined} quarantined`;
+
 export const EVERYTHING_LOCAL_CONFIRMED = `${EVERYTHING_MEMORY_SETTING_KEY}.localConfirmed`;
 
 type Obj = Record<string, unknown>;
@@ -177,6 +191,8 @@ export interface EverythingDeps {
   timeZone: () => string;
   /** The machine, read once when the pass starts (tests pass fixed numbers). */
   readState?: () => Promise<PassDeps["state"]>;
+  /** Posts the "Psyche learned N things" card to the Feed (no notification). */
+  announce?: (card: { title: string; bodyMd: string }) => void;
   logger?: { log(level: "warn", msg: string, fields?: Record<string, unknown>): void };
 }
 
@@ -186,6 +202,8 @@ export interface Everything {
   readonly handlers: EverythingHandlers;
   /** The nightly step, for the dreaming automation (after the lesson pass, before the graph pass). */
   readonly nightly: NightlyStep;
+  /** The brief's "Learned yesterday" line, while the last run is recent and found something. */
+  learnedYesterday(): { text: string; link: string } | undefined;
   part(): ComposedPart;
 }
 
@@ -241,7 +259,18 @@ export function composeEverything(deps: EverythingDeps): Everything {
     // Off, or no model chosen: nothing is read and nothing is opened.
     if (!s.enabled) return undefined;
     try {
-      return await everythingNightlyStep(passDeps)();
+      return await everythingNightlyStep(passDeps, (report) => {
+        if (report.runId === undefined) return;
+        const sum = store.runSummary(report.runId);
+        const learned = sum.autoAccepted + sum.toReview;
+        if (learned + sum.quarantined === 0) return;
+        graph.setCursor(ANNOUNCE_CURSOR, { at: clock.now(), ...sum } satisfies Announcement);
+        // Counts only: no fact text reaches the Feed card or the brief.
+        deps.announce?.({
+          title: `Psyche learned ${learned} ${learned === 1 ? "thing" : "things"}`,
+          bodyMd: `${summaryLine({ at: 0, ...sum })}\n\n[Review](${REVIEW_LINK})`,
+        });
+      })();
     } catch (err) {
       deps.logger?.log("warn", "everything memory pass failed", {
         error: err instanceof Error ? err.message : String(err),
@@ -254,6 +283,15 @@ export function composeEverything(deps: EverythingDeps): Everything {
     settings,
     handlers,
     nightly,
+    learnedYesterday() {
+      const a = graph.cursor(ANNOUNCE_CURSOR) as Announcement | undefined;
+      if (a === undefined || clock.now() - a.at > BRIEF_WINDOW_MS) return undefined;
+      const learned = a.autoAccepted + a.toReview;
+      return {
+        text: `Psyche learned ${learned} ${learned === 1 ? "thing" : "things"} yesterday: ${summaryLine(a)}`,
+        link: REVIEW_LINK,
+      };
+    },
     part() {
       return {
         handlers: mountParamsOnly(handlers as never),
