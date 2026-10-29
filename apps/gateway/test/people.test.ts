@@ -421,3 +421,86 @@ describe("people and projects graph in the Gateway (#651)", () => {
     });
   });
 });
+
+describe("agent access to everything memory (EM7)", () => {
+  async function learned(c: ComposedGateway) {
+    const sam = byName(c, "Sam Lee");
+    const learn = (attribute: "likes" | "city", value: string, source: "notes" | "messages") => {
+      const out = c.everything.store.proposeFact({
+        entityId: sam,
+        attribute,
+        value,
+        provenance: "agent",
+        subjectKind: "owner_stated",
+        extractor: "fake/haiku",
+        citations: [
+          {
+            source,
+            sourceRef: `<${value}>`,
+            quote: `owner wrote ${value}`,
+            start: 0,
+            end: 10 + value.length,
+            sourceHash: "h",
+          },
+        ],
+      });
+      if (out.status === "refused") throw new Error(out.reason);
+      c.everything.store.decide(out.fact.id, "confirm");
+    };
+    learn("likes", "bouldering", "notes");
+    learn("city", "Reykjavik", "messages");
+    return sam;
+  }
+  const lookup = async (c: ComposedGateway) =>
+    String(
+      (
+        (await c.loop.registry.get("people_lookup")?.run?.({ query: "Sam Lee" }, ctx("t1"))) as {
+          output: unknown;
+        }
+      ).output,
+    );
+
+  it("defaults: off means nothing learned reaches the agent; on means accepted facts, per-source flag respected", async () => {
+    const c = await compose();
+    load(c);
+    enable(c);
+    await learned(c);
+    // Feature switched off: hidden whatever agentAccess says.
+    expect(c.people.agentAccess().mode).toBe("none");
+    let out = await lookup(c);
+    expect(out).not.toMatch(/bouldering|Reykjavik/);
+    setSetting(c.db, "memory.everything", { enabled: true });
+    expect(c.people.agentAccess()).toMatchObject({ mode: "accepted", seesSensitive: false });
+    // Messages are owner-only in Search by default: a fact cited only from Messages is hidden.
+    out = await lookup(c);
+    expect(out).toContain("bouldering");
+    expect(out).not.toContain("Reykjavik");
+    setSetting(c.db, "search.sources", {
+      sources: { messages: { enabled: true, agent: true } },
+      exclude: {},
+    });
+    expect(await lookup(c)).toContain("Reykjavik");
+    setSetting(c.db, "search.sources", {
+      sources: { messages: { enabled: true, agent: false } },
+      exclude: {},
+    });
+    expect(await lookup(c)).not.toContain("Reykjavik");
+    setSetting(c.db, "memory.everything", { enabled: true, agentAccess: "none" });
+    expect(await lookup(c)).not.toMatch(/bouldering|Reykjavik/);
+  });
+
+  it("learned facts stay out of person card files unless the owner allows it", async () => {
+    const c = await compose();
+    load(c);
+    enable(c);
+    const sam = await learned(c);
+    setSetting(c.db, "memory.everything", { enabled: true });
+    const path = await c.people.cards.write(sam);
+    const file = await c.memory.readFile(path ?? "");
+    expect(file?.content).toBeDefined();
+    expect(file?.content).not.toMatch(/bouldering|Reykjavik/);
+    setSetting(c.db, "memory.everything", { enabled: true, writeCardFiles: true });
+    await c.people.cards.write(sam);
+    expect((await c.memory.readFile(path ?? ""))?.content).toContain("bouldering");
+  });
+});

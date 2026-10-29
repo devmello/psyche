@@ -1,9 +1,11 @@
 import type { AgentToolRegistration, TurnContextProvider } from "@psyche/agent-core";
 import { getSetting, getThread, type PsycheDb, setSetting } from "@psyche/db";
 import {
+  type AgentMemoryAccess,
   assignProjects,
   CardSync,
   createGraphHandlers,
+  EverythingStore,
   ensureDreamingAutomation,
   entityRecall,
   type GraphEvent,
@@ -26,17 +28,26 @@ import {
   type SchedulerLike,
   type SqliteMemoryStore,
   suggestProjects,
+  visibleToAgent,
   withDreaming,
 } from "@psyche/memory";
 import {
   type Clock,
+  EVERYTHING_MEMORY_SETTING_KEY,
   type GraphSource,
   type ModelProvider,
   type ModelRef,
   PsycheError,
 } from "@psyche/protocol";
-import { entityDoc, GRAPH_SEARCH_SOURCE, graphDocId, SqliteSearchIndex } from "@psyche/search";
+import {
+  entityDoc,
+  GRAPH_SEARCH_SOURCE,
+  graphDocId,
+  readSourcesConfig,
+  SqliteSearchIndex,
+} from "@psyche/search";
 import type { Gateway } from "../server.ts";
+import { everythingSettings } from "./everything.ts";
 import { mountParamsOnly } from "./handlers.ts";
 import type { ComposedPart } from "./services.ts";
 
@@ -130,6 +141,8 @@ export const AFTER_RUN_TOKENS = 15_000;
 
 export interface People {
   readonly graph: GraphStore;
+  /** What the agent may read of everything memory right now. */
+  readonly agentAccess: () => AgentMemoryAccess;
   readonly cards: CardSync;
   readonly handlers: GraphHandlers;
   readonly settings: () => GraphSettings;
@@ -195,7 +208,11 @@ export function composePeople(deps: PeopleDeps): People {
     },
   });
   const store = graph;
-  const cards = new CardSync(store, memory);
+  // Facts about other people stay out of plaintext card files unless the owner allows it (§11.1).
+  const cards = new CardSync(store, memory, () => ({
+    learnedFacts: everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value)
+      .writeCardFiles,
+  }));
   cardSync = cards;
   let lastPass = store.cursor(LAST_PASS_CURSOR) as {
     at: string;
@@ -261,7 +278,25 @@ export function composePeople(deps: PeopleDeps): People {
     },
   };
 
-  const graphTools = new GraphTools(store, { now: () => clock.now() });
+  // What the agent may read of everything memory (§9): the setting, combined with Search's
+  // per-source "agent can search" flag. Read on every call, so a change applies at once.
+  const learned = new EverythingStore({ sqlite: db.sqlite, graph: store, clock });
+  const agentAccess = (): AgentMemoryAccess => {
+    const s = everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value);
+    const cfg = readSourcesConfig(getSetting(db, "search.sources")?.value);
+    return {
+      // Off means off: nothing learned reaches the agent while the feature is switched off.
+      mode: s.enabled ? s.agentAccess : "none",
+      seesSensitive: s.agentSeesSensitive,
+      sourceAllowed: (src) =>
+        src in cfg.sources ? cfg.sources[src as keyof typeof cfg.sources].agent : true,
+    };
+  };
+  const graphTools = new GraphTools(store, {
+    now: () => clock.now(),
+    access: agentAccess,
+    em: learned,
+  });
 
   // After-run pass (§5.2): the entities a run looked at are refreshed shortly after, debounced.
   const afterRunIds = new Set<string>();
@@ -440,6 +475,7 @@ export function composePeople(deps: PeopleDeps): People {
       if (!s.enabled || !s.entityRecall) return undefined;
       if (!RECALL_THREADS.has(getThread(db, input.threadId)?.kind ?? "")) return undefined;
       const lines = entityRecall(store, input.text, {
+        visible: (f) => visibleToAgent(f, agentAccess(), learned),
         session: "private",
         sources: s.sources,
         now: clock.now(),
@@ -455,6 +491,7 @@ export function composePeople(deps: PeopleDeps): People {
 
   return {
     graph: store,
+    agentAccess,
     cards,
     recall,
     handlers,

@@ -107,11 +107,17 @@ export async function runGraphModelPass(
       report.skipped++;
       continue;
     }
-    const facts = graph.facts(entity.id).map((f) => ({
-      attribute: f.attribute,
-      value: f.value,
-      by: f.provenance === "owner" ? "owner" : "notes",
-    }));
+    // Summaries are built without what everything memory learned: those facts are shown as facts,
+    // subject to the owner's agent-access setting, never folded into text the agent reads freely
+    // (and never into a prompt that goes to a cloud model a second time).
+    const facts = graph
+      .facts(entity.id)
+      .filter((f) => f.extractor === undefined)
+      .map((f) => ({
+        attribute: f.attribute,
+        value: f.value,
+        by: f.provenance === "owner" ? "owner" : "notes",
+      }));
     const corrected = graph.retractedFacts(entity.id).map((f) => `${f.attribute}=${f.value}`);
     const ownerItems = interactions
       .filter((i) => i.direction === "out" || i.direction === "both")

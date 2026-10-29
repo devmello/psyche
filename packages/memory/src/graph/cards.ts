@@ -71,8 +71,24 @@ export interface RenderedCard {
   provenance: Provenance;
 }
 
+export interface CardOptions {
+  /**
+   * Write facts everything memory learned into the card file. Off by default: a card is plain
+   * text the agent can read, so facts about other people stay out of it (design §11.1). Such
+   * facts are neither shown nor retracted by an edit of the file.
+   */
+  learnedFacts?: boolean;
+}
+
+const cardShows = (f: { extractor?: string | undefined }, o: CardOptions): boolean =>
+  o.learnedFacts === true || f.extractor === undefined;
+
 /** Renders an entity's card within `CARD_BUDGET` characters (Notes are never cut). */
-export function renderCard(graph: GraphStore, entityId: string): RenderedCard | undefined {
+export function renderCard(
+  graph: GraphStore,
+  entityId: string,
+  options: CardOptions = {},
+): RenderedCard | undefined {
   const detail = graph.detail(entityId);
   if (detail === undefined) return undefined;
   const { entity } = detail;
@@ -101,7 +117,7 @@ export function renderCard(graph: GraphStore, entityId: string): RenderedCard | 
     head.push(last.trim());
   }
 
-  const facts = detail.facts.filter((f) => f.attribute !== "note");
+  const facts = detail.facts.filter((f) => f.attribute !== "note" && cardShows(f, options));
   const factLines = facts.map((f) => {
     provenance = leastTrusted(provenance, f.provenance);
     return `- ${LABEL[f.attribute] ?? f.attribute}: ${oneLine(f.value)} ${sourceTag(f, interactionKind)} <!--f:${f.id}-->`;
@@ -254,12 +270,15 @@ export function applyCardEdit(
   graph: GraphStore,
   entity: GraphEntity,
   content: string,
+  options: CardOptions = {},
 ): CardEditResult {
   const parsed = parseCard(content);
   const result: CardEditResult = { applied: [], conflicts: [] };
   if (!parsed.ok || (parsed.id !== undefined && parsed.id !== entity.id)) return result;
   const source = { kind: "owner_edit" as const };
-  const current = graph.facts(entity.id).filter((f) => f.attribute !== "note");
+  const current = graph
+    .facts(entity.id)
+    .filter((f) => f.attribute !== "note" && cardShows(f, options));
   const byId = new Map(current.map((f) => [f.id, f]));
   const kept = new Set<string>();
   for (const f of parsed.facts) {
@@ -398,17 +417,23 @@ export function applyCardEdit(
 export class CardSync {
   readonly #graph: GraphStore;
   readonly #store: SqliteMemoryStore;
+  readonly #options: () => CardOptions;
 
-  constructor(graph: GraphStore, store: SqliteMemoryStore) {
+  constructor(
+    graph: GraphStore,
+    store: SqliteMemoryStore,
+    options: () => CardOptions = () => ({}),
+  ) {
     this.#graph = graph;
     this.#store = store;
+    this.#options = options;
   }
 
   /** (Re)writes an entity's card; returns its path. */
   async write(entityId: string): Promise<string | undefined> {
     const entity = this.#graph.getEntity(entityId);
     if (entity === undefined || entity.status !== "active" || entity.hidden) return undefined;
-    const rendered = renderCard(this.#graph, entityId);
+    const rendered = renderCard(this.#graph, entityId, this.#options());
     if (rendered === undefined) return undefined;
     const path = entity.cardPath ?? this.#graph.cardPathFor(entity);
     const current = await this.#store.readFile(path);
@@ -442,9 +467,9 @@ export class CardSync {
       this.#graph.setCardPath(entity.id, null);
       return undefined;
     }
-    const rendered = renderCard(this.#graph, entity.id);
+    const rendered = renderCard(this.#graph, entity.id, this.#options());
     if (rendered?.content === file.content) return { applied: [], conflicts: [] };
-    const result = applyCardEdit(this.#graph, entity, file.content);
+    const result = applyCardEdit(this.#graph, entity, file.content, this.#options());
     if (!parseCard(file.content).ok) return result;
     await this.write(entity.id);
     return result;
