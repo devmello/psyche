@@ -747,6 +747,36 @@ export class SqliteScheduler implements Scheduler {
     this.#emit(events);
   }
 
+  /** Runs of every automation, newest first, each with its automation's title (`scheduled.runs`). */
+  allRuns(
+    filter: { automationId?: string; status?: AutomationRun["status"]; limit?: number } = {},
+  ): { run: AutomationRun; title: string; system: boolean }[] {
+    const limit = Math.max(1, Math.min(filter.limit ?? 100, 500));
+    const where: string[] = [];
+    const args: (string | number)[] = [];
+    if (filter.automationId !== undefined) {
+      where.push("r.automation_id = ?");
+      args.push(filter.automationId);
+    }
+    if (filter.status !== undefined) {
+      where.push("r.status = ?");
+      args.push(filter.status);
+    }
+    const rows = this.#db.sqlite
+      .prepare(
+        `SELECT r.*, a.title AS a_title, a.system AS a_system FROM automation_runs r
+         JOIN automations a ON a.id = r.automation_id
+         ${where.length === 0 ? "" : `WHERE ${where.join(" AND ")}`}
+         ORDER BY r.started_at DESC, r.id DESC LIMIT ?`,
+      )
+      .all(...args, limit) as (RunRow & { a_title: string; a_system: number })[];
+    return rows.map((r) => ({
+      run: runFromRow(r),
+      title: r.a_title,
+      system: r.a_system === 1,
+    }));
+  }
+
   /** Run history, newest first (`automations.runs`). */
   runs(automationId: string, page: { cursor?: string; limit?: number } = {}) {
     this.#row(automationId);

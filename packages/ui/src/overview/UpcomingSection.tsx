@@ -22,10 +22,16 @@ const GROUP_LABEL = {
  * Frequent ones ("every 45 min") are a single row that says so. Rows are the agent sheet's
  * `UpcomingRow` (usual run, pause, snooze, delete); paused automations sit under a disclosure.
  */
-export function UpcomingSection({ now: fixedNow }: { now?: number }): ReactElement {
+export function UpcomingSection({
+  now: fixedNow,
+  onNavigate,
+}: {
+  now?: number;
+  onNavigate?: (to: string) => void;
+}): ReactElement {
   const now = useNow(30_000, fixedNow);
   const { entries, paused, automations, loading, error, reload } = useUpcomingEntries();
-  const rowProps = useUpcomingRowProps(automations, now);
+  const rowProps = useUpcomingRowProps(automations, now, undefined, onNavigate);
   const [showPaused, setShowPaused] = useState(false);
   const groups = groupUpcoming(entries, now, activeI18n().timeZone);
   const row = (a: Automation) => (

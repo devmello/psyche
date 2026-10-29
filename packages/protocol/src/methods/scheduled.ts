@@ -81,6 +81,48 @@ export const ScheduledItem = Type.Object(
 );
 export type ScheduledItem = Static<typeof ScheduledItem>;
 
+export const ScheduledRunState = StringEnum(
+  ["running", "waiting", "succeeded", "failed", "skipped", "cancelled"],
+  {
+    $id: "ScheduledRunState",
+    description:
+      "The one status a run is shown with. `waiting`: the run's task is parked on an approval or an answer. `skipped`: nothing was done, and `reason` says why (paused, previous run still going, nothing to report). `succeeded` only when the run finished `done`",
+  },
+);
+export type ScheduledRunState = Static<typeof ScheduledRunState>;
+
+/** One run of the scheduler, with the job it belongs to: the Runs view's row. */
+export const ScheduledRunEntry = Type.Object(
+  {
+    /** The scheduler run's id (`automation_runs`). */
+    id: Id,
+    automationId: Id,
+    /** The job's title as stored. */
+    title: Type.String(),
+    group: ScheduledGroup,
+    /** Routines: which built-in ("daily-brief", "memory-dreaming", …). */
+    routine: Type.Optional(Type.String({ maxLength: 64 })),
+    trigger: StringEnum(["schedule", "manual", "event"]),
+    state: ScheduledRunState,
+    /** Why a run was skipped, failed or is waiting. */
+    reason: Nullable(Type.String()),
+    startedAt: IsoDateTime,
+    endedAt: Nullable(IsoDateTime),
+    /** Null while it runs. */
+    durationMs: Nullable(Type.Integer({ minimum: 0 })),
+    /** What the run produced (or the failure message). */
+    summary: Nullable(Type.String()),
+    threadId: Nullable(Id),
+    taskId: Nullable(Id),
+    /** The agent run that did the work (its Timeline: `runs.get`). */
+    agentRunId: Nullable(Id),
+    /** `waiting`: the open approvals of the run's task, to decide in the approvals queue. */
+    pendingApprovals: Type.Integer({ minimum: 0 }),
+  },
+  { $id: "ScheduledRunEntry" },
+);
+export type ScheduledRunEntry = Static<typeof ScheduledRunEntry>;
+
 export const ScheduledMethods = {
   "scheduled.list": defineMethod({
     params: Type.Object({}),
@@ -92,6 +134,17 @@ export const ScheduledMethods = {
     scope: "operator.read",
     description:
       "Lists everything the scheduler runs (the owner's automations, then Psyche's routines) with next and last run, what each does, the approvals it may need and its linked runs.",
+  }),
+  "scheduled.runs": defineMethod({
+    params: Type.Object({
+      automationId: Type.Optional(Id),
+      state: Type.Optional(ScheduledRunState),
+      limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 500 })),
+    }),
+    result: Type.Object({ runs: Type.Array(ScheduledRunEntry) }),
+    scope: "operator.read",
+    description:
+      "Every run of everything the scheduler runs, newest first, in progress ones included: the owner's automations and Psyche's routines (brief, wrap-up, nightly memory, proactive jobs), whether started by the schedule, by an event or by Run now. Filter by job and by state.",
   }),
   "scheduled.pause": defineMethod({
     params: Type.Object({ id: Id, paused: Type.Boolean() }),

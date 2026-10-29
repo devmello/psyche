@@ -1,6 +1,7 @@
 import type { Automation, Lesson } from "@psyche/protocol";
 import { CalendarClock, Ellipsis } from "lucide-react";
-import type { ReactElement } from "react";
+import { type ReactElement, useState } from "react";
+import { toast } from "sonner";
 import { DelayedSkeletons } from "../components/DelayedSkeleton.tsx";
 import { EmptyState } from "../components/page.tsx";
 import { Badge } from "../components/ui/badge.tsx";
@@ -14,6 +15,7 @@ import {
 import { Skeleton } from "../components/ui/skeleton.tsx";
 import { useAutomations, useCall, useGatewayQuery, useThreads } from "../data/index.ts";
 import { activeI18n, t } from "../i18n/core.ts";
+import { describeError } from "../i18n/errors.ts";
 import { formatRelative } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 import { useLessons } from "../teaching/hooks.ts";
@@ -177,6 +179,7 @@ export function UpcomingRow({
   now,
   delivery,
   onRun,
+  running = false,
   onToggle,
   onDelete,
   onEdit,
@@ -191,6 +194,8 @@ export function UpcomingRow({
   /** The delivery target as a sentence. */
   delivery?: string;
   onRun?: () => void;
+  /** Run now was clicked and has not answered yet. */
+  running?: boolean;
   onToggle?: () => void;
   onDelete?: () => void;
   onEdit?: () => void;
@@ -247,8 +252,8 @@ export function UpcomingRow({
             ) : null}
           </>
         ) : onRun ? (
-          <Button size="sm" variant="ghost" onClick={onRun}>
-            {t("agent.upcoming.runNow")}
+          <Button size="sm" variant="ghost" disabled={running} onClick={onRun}>
+            {running ? t("agent.upcoming.running") : t("agent.upcoming.runNow")}
           </Button>
         ) : null}
         <DropdownMenu>
@@ -265,7 +270,9 @@ export function UpcomingRow({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {reminder && onRun ? (
-              <DropdownMenuItem onClick={onRun}>{t("agent.upcoming.runNow")}</DropdownMenuItem>
+              <DropdownMenuItem disabled={running} onClick={onRun}>
+                {running ? t("agent.upcoming.running") : t("agent.upcoming.runNow")}
+              </DropdownMenuItem>
             ) : null}
             {onToggle ? (
               <DropdownMenuItem onClick={onToggle}>
@@ -300,7 +307,10 @@ export function useUpcomingRowProps(
   q: ReturnType<typeof useAutomations>,
   now: number,
   onEdit?: (automation: Automation) => void,
+  /** Opens a route; the "Running" toast offers the Scheduled screen's Runs with it. */
+  onNavigate?: (route: string) => void,
 ): (a: Automation) => UpcomingRowProps {
+  const [running, setRunning] = useState<ReadonlySet<string>>(new Set());
   const lessons = useLessons({ destination: "automation" }).lessons;
   const call = useCall();
   const deliverySentence = useDeliverySentence();
@@ -310,7 +320,38 @@ export function useUpcomingRowProps(
       lessons.find(
         (l) => l.destination.type === "automation" && l.destination.automationId === a.id,
       ) ?? null,
-    onRun: () => void q.runNow(a.id),
+    running: running.has(a.id),
+    onRun: () => {
+      if (running.has(a.id)) return;
+      setRunning((r) => new Set(r).add(a.id));
+      toast.info(t("agent.upcoming.runStarting", { title: a.title }));
+      q.runNow(a.id)
+        .then(() =>
+          toast.success(t("agent.upcoming.runStarted", { title: a.title }), {
+            ...(onNavigate
+              ? {
+                  action: {
+                    label: t("agent.upcoming.viewRun"),
+                    onClick: () => onNavigate("/scheduled"),
+                  },
+                }
+              : {}),
+          }),
+        )
+        .catch((err: unknown) =>
+          toast.error(
+            t("agent.upcoming.runFailed", { title: a.title, reason: describeError(err) }),
+          ),
+        )
+        .finally(() => {
+          setRunning((r) => {
+            const n = new Set(r);
+            n.delete(a.id);
+            return n;
+          });
+          q.reload();
+        });
+    },
     onToggle: () => void q.setEnabled(a.id, !a.enabled),
     onDelete: () => void q.remove(a.id),
     ...(isReminder(a)

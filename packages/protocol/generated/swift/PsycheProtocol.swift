@@ -1037,6 +1037,10 @@
 //   let scheduledListResult = try? JSONDecoder().decode(ScheduledListResult.self, from: jsonData)
 //   let scheduledPauseParams = try? JSONDecoder().decode(ScheduledPauseParams.self, from: jsonData)
 //   let scheduledPauseResult = try? JSONDecoder().decode(ScheduledPauseResult.self, from: jsonData)
+//   let scheduledRunEntry = try? JSONDecoder().decode(ScheduledRunEntry.self, from: jsonData)
+//   let scheduledRunState = try? JSONDecoder().decode(ScheduledRunState.self, from: jsonData)
+//   let scheduledRunsParams = try? JSONDecoder().decode(ScheduledRunsParams.self, from: jsonData)
+//   let scheduledRunsResult = try? JSONDecoder().decode(ScheduledRunsResult.self, from: jsonData)
 //   let scheduledState = try? JSONDecoder().decode(ScheduledState.self, from: jsonData)
 //   let screenCapture = try? JSONDecoder().decode(ScreenCapture.self, from: jsonData)
 //   let screenCaptureMode = try? JSONDecoder().decode(ScreenCaptureMode.self, from: jsonData)
@@ -23985,6 +23989,108 @@ public struct ScheduledPauseResult: Codable, Sendable {
 
     public init(item: ScheduledItem) {
         self.item = item
+    }
+}
+
+// MARK: - ScheduledRunsParams
+public struct ScheduledRunsParams: Codable, Sendable {
+    public let automationID: String?
+    public let limit: Int?
+    public let state: ScheduledRunState?
+
+    public enum CodingKeys: String, CodingKey {
+        case automationID = "automationId"
+        case limit = "limit"
+        case state = "state"
+    }
+
+    public init(automationID: String?, limit: Int?, state: ScheduledRunState?) {
+        self.automationID = automationID
+        self.limit = limit
+        self.state = state
+    }
+}
+
+/// The one status a run is shown with. `waiting`: the run's task is parked on an approval or
+/// an answer. `skipped`: nothing was done, and `reason` says why (paused, previous run still
+/// going, nothing to report). `succeeded` only when the run finished `done`
+public enum ScheduledRunState: String, Codable, Sendable {
+    case cancelled = "cancelled"
+    case failed = "failed"
+    case running = "running"
+    case skipped = "skipped"
+    case succeeded = "succeeded"
+    case waiting = "waiting"
+}
+
+// MARK: - ScheduledRunsResult
+public struct ScheduledRunsResult: Codable, Sendable {
+    public let runs: [ScheduledRunEntry]
+
+    public enum CodingKeys: String, CodingKey {
+        case runs = "runs"
+    }
+
+    public init(runs: [ScheduledRunEntry]) {
+        self.runs = runs
+    }
+}
+
+// MARK: - ScheduledRunEntry
+public struct ScheduledRunEntry: Codable, Sendable {
+    public let agentRunID: String?
+    public let automationID: String
+    public let durationMS: Int?
+    public let endedAt: String?
+    public let group: ScheduledGroup
+    public let id: String
+    public let pendingApprovals: Int
+    public let reason: String?
+    public let routine: String?
+    public let startedAt: String
+    public let state: ScheduledRunState
+    public let summary: String?
+    public let taskID: String?
+    public let threadID: String?
+    public let title: String
+    public let trigger: AutomationRunTrigger
+
+    public enum CodingKeys: String, CodingKey {
+        case agentRunID = "agentRunId"
+        case automationID = "automationId"
+        case durationMS = "durationMs"
+        case endedAt = "endedAt"
+        case group = "group"
+        case id = "id"
+        case pendingApprovals = "pendingApprovals"
+        case reason = "reason"
+        case routine = "routine"
+        case startedAt = "startedAt"
+        case state = "state"
+        case summary = "summary"
+        case taskID = "taskId"
+        case threadID = "threadId"
+        case title = "title"
+        case trigger = "trigger"
+    }
+
+    public init(agentRunID: String?, automationID: String, durationMS: Int?, endedAt: String?, group: ScheduledGroup, id: String, pendingApprovals: Int, reason: String?, routine: String?, startedAt: String, state: ScheduledRunState, summary: String?, taskID: String?, threadID: String?, title: String, trigger: AutomationRunTrigger) {
+        self.agentRunID = agentRunID
+        self.automationID = automationID
+        self.durationMS = durationMS
+        self.endedAt = endedAt
+        self.group = group
+        self.id = id
+        self.pendingApprovals = pendingApprovals
+        self.reason = reason
+        self.routine = routine
+        self.startedAt = startedAt
+        self.state = state
+        self.summary = summary
+        self.taskID = taskID
+        self.threadID = threadID
+        self.title = title
+        self.trigger = trigger
     }
 }
 

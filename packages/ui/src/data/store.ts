@@ -632,7 +632,7 @@ export class GatewayStore {
       case "automation.run.started":
       case "automation.run.finished":
         // The Scheduled screen: the list, and each automation's run history.
-        return invalidate(s, ["scheduled.list", "automations.runs"]);
+        return invalidate(s, ["scheduled.list", "scheduled.runs", "automations.runs"]);
       case "audit.change.recorded":
         // The chat's change chip and the audit view read audit.changes.
         return invalidate(s, ["audit.changes", "audit.verify"]);

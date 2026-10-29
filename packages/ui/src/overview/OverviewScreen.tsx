@@ -137,7 +137,11 @@ export function OverviewScreen({
             ) : id === "specialists" ? (
               <Specialists key={id} period={period} now={at} />
             ) : id === "upcoming" ? (
-              <UpcomingSection key={id} {...(now === undefined ? {} : { now })} />
+              <UpcomingSection
+                key={id}
+                {...(now === undefined ? {} : { now })}
+                {...(onNavigate ? { onNavigate } : {})}
+              />
             ) : id === "recent" ? (
               <RecentSection
                 key={id}

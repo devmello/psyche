@@ -8016,6 +8016,42 @@ export interface ScheduledPauseResult {
     item: ScheduledItem;
 }
 
+export interface ScheduledRunsParams {
+    automationId?: string;
+    limit?:        number;
+    state?:        ScheduledRunState;
+}
+
+/**
+ * The one status a run is shown with. `waiting`: the run's task is parked on an approval or
+ * an answer. `skipped`: nothing was done, and `reason` says why (paused, previous run still
+ * going, nothing to report). `succeeded` only when the run finished `done`
+ */
+export type ScheduledRunState = "running" | "waiting" | "succeeded" | "failed" | "skipped" | "cancelled";
+
+export interface ScheduledRunsResult {
+    runs: ScheduledRunEntry[];
+}
+
+export interface ScheduledRunEntry {
+    agentRunId?:      null | string;
+    automationId:     string;
+    durationMs?:      number | null;
+    endedAt?:         null | string;
+    group:            ScheduledGroup;
+    id:               string;
+    pendingApprovals: number;
+    reason?:          null | string;
+    routine?:         string;
+    startedAt:        string;
+    state:            ScheduledRunState;
+    summary?:         null | string;
+    taskId?:          null | string;
+    threadId?:        null | string;
+    title:            string;
+    trigger:          AutomationRunTrigger;
+}
+
 export interface ScreenCapture {
     captureId:      string;
     context?:       ScreenContext | null;
