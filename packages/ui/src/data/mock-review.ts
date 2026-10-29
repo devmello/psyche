@@ -114,7 +114,10 @@ export function reviewHandlers(ctx: { world: () => ReviewWorld; now: () => strin
         mode,
         createdAt: ctx.now(),
       };
-      if (p.dryRun !== true) (w.exclusions ??= []).push(entry);
+      if (p.dryRun !== true) {
+        w.exclusions ??= [];
+        w.exclusions.push(entry);
+      }
       return { entry, forgotten };
     },
     "memory.exclusions.remove": (p) => {

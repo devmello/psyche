@@ -454,10 +454,10 @@ describe("agent access to everything memory (EM7)", () => {
   const lookup = async (c: ComposedGateway) =>
     String(
       (
-        (await c.loop.registry.get("people_lookup")?.run?.({ query: "Sam Lee" }, ctx("t1"))) as {
-          output: unknown;
-        }
-      ).output,
+        (await c.loop.registry.get("people_lookup")?.run?.({ query: "Sam Lee" }, ctx("t1"))) as
+          | { output: unknown }
+          | undefined
+      )?.output,
     );
 
   it("defaults: off means nothing learned reaches the agent; on means accepted facts, per-source flag respected", async () => {

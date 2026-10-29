@@ -1,5 +1,5 @@
 import type { EverythingExclusion } from "@psyche/protocol";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useId, useState } from "react";
 import { toast } from "sonner";
 import { Input } from "../../components/ui/input.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
@@ -146,10 +146,12 @@ function TimeField({
   value: string;
   onChange: (v: string) => void;
 }): ReactElement {
+  const id = useId();
   return (
-    <label className="flex items-center justify-between gap-3 px-3 text-body">
+    <label htmlFor={id} className="flex items-center justify-between gap-3 px-3 text-body">
       {label}
       <Input
+        id={id}
         type="time"
         value={value}
         onChange={(e) =>
