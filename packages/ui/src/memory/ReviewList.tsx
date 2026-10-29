@@ -79,6 +79,7 @@ export function ReviewList({
     // biome-ignore lint/a11y/useSemanticElements: a keyboard-driven list region
     <div
       role="group"
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: the region takes j/k/a/e shortcuts, so it must be focusable
       tabIndex={0}
       aria-label={t("memoryReview.keys")}
       onKeyDown={onKeyDown}
