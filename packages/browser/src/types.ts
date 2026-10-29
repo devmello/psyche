@@ -184,6 +184,10 @@ export interface OpenSessionOptions {
   partition?: PartitionMode;
   /** Origins the owner has signed into in the agent profile; `auto` mode uses the profile there. */
   signedInOrigins?: string[];
+  /** Registrable domains the profile holds a live session for (found from its cookies), read per tab. */
+  detectedDomains?: () => readonly string[];
+  /** "Let Psyche use my signed-in sessions"; read per tab, default on. Off ignores `detectedDomains`. */
+  useSignedInSessions?: () => boolean;
   /** The task's origin policy; a fresh empty policy (every origin needs approval) by default. */
   policy?: OriginPolicy | OriginPolicyOptions;
   /** Opt-in screencast recording for the session's tabs (feature I10). */
@@ -194,6 +198,13 @@ export interface BrowserDriverEx extends BrowserDriver {
   openSession(options: OpenSessionOptions): ReturnType<BrowserDriver["openSession"]>;
   listTabs(sessionId: string): Promise<DriverTabEx[]>;
   openTab(sessionId: string, url?: string): Promise<DriverTabEx>;
+  /**
+   * Moves a `clean` tab of an `auto` session into the profile at `url` when the owner has a
+   * session for that site (a tab opened blank, or a 401/403 in the clean partition). The old tab
+   * closes; returns the new tab, or undefined when nothing applies. Writes still go through
+   * approvals and taint as in any tab.
+   */
+  switchToProfile(tabId: string, url: string): Promise<DriverTabEx | undefined>;
   /** The partition a tab runs in (feature I15). */
   tabPartition(tabId: string): TabPartition;
   snapshot(tabId: string, options?: SnapshotOptions): Promise<BrowserSnapshot>;

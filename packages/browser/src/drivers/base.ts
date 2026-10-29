@@ -185,6 +185,12 @@ export abstract class DriverBase implements BrowserDriverEx {
       ...(options.signedInOrigins === undefined
         ? {}
         : { signedInOrigins: options.signedInOrigins }),
+      ...(options.detectedDomains === undefined
+        ? {}
+        : { detectedDomains: options.detectedDomains }),
+      ...(options.useSignedInSessions === undefined
+        ? {}
+        : { useSignedInSessions: options.useSignedInSessions }),
     });
     const session: DriverSession = {
       id: newId("bsess"),
@@ -473,7 +479,24 @@ export abstract class DriverBase implements BrowserDriverEx {
         });
       }
     }
-    const choice = s.partitions.choose(url);
+    return this.#openTabIn(s, url, s.partitions.choose(url));
+  }
+
+  async switchToProfile(tabId: string, url: string): Promise<DriverTabEx | undefined> {
+    const t = this.tabState(tabId);
+    if (t.partition !== "clean" || !t.session.partitions.prefersProfile(url)) return undefined;
+    const choice = t.session.partitions.choose(url);
+    if (choice.partition !== "profile") return undefined;
+    const moved = await this.#openTabIn(t.session, url, choice);
+    await this.closeTab(tabId);
+    return moved;
+  }
+
+  async #openTabIn(
+    s: SessionState,
+    url: string | undefined,
+    choice: ReturnType<PartitionChooser["choose"]>,
+  ): Promise<DriverTabEx> {
     const created = await this.createTab(s, url, choice.partition);
     const t = await this.adoptTab(
       s,

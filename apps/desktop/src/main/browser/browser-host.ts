@@ -1,4 +1,9 @@
-import { type BridgeProfile, type BridgeTab, PsycheError } from "@psyche/protocol";
+import {
+  type BridgeProfile,
+  type BridgeTab,
+  PsycheError,
+  registrableDomain,
+} from "@psyche/protocol";
 import type { BrowserHostState, BrowserNav, BrowserTabView, Rect } from "@psyche/web/platform";
 import {
   BaseWindow,
@@ -23,6 +28,7 @@ import {
   isAgentActionMethod,
   isAllowedNavigationUrl,
 } from "./cdp-policy.ts";
+import { forgetDetected, refreshDetected } from "./detected-sessions.ts";
 import { ensureQuarantineDir, quarantinePath, setQuarantineAttribute } from "./downloads.ts";
 import { FORM_READ_SCRIPT, httpsOrigin, LoginCapture, parseFormSnapshot } from "./login-capture.ts";
 import {
@@ -1117,21 +1123,47 @@ export class BrowserHost implements BridgeTabHost {
     this.setActive(t.id);
   }
 
-  signedInSites(): SignedInSite[] {
-    return this.signedIn.list();
+  /** "Stay signed in" sites plus the sites whose cookies the profile already holds. */
+  async signedInSites(): Promise<SignedInSite[]> {
+    const listed = this.signedIn.list();
+    const profile = loggedInPartition(this.profileName);
+    this.prepareSession(profile);
+    const found = await refreshDetected(this.home, session.fromPartition(profile)).catch(() => []);
+    const known = new Set(listed.map((s) => registrableDomain(new URL(s.origin).hostname)));
+    return [
+      ...listed,
+      ...found.filter((f) => !known.has(registrableDomain(new URL(f.origin).hostname))),
+    ];
+  }
+
+  /** Keeps `detected-sessions.json` current as the owner signs in or out in the profile. */
+  watchProfileCookies(): void {
+    const profile = loggedInPartition(this.profileName);
+    this.prepareSession(profile);
+    const ses = session.fromPartition(profile);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const refresh = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (!this.disposed) void refreshDetected(this.home, ses).catch(() => undefined);
+      }, 1500);
+      timer.unref();
+    };
+    ses.cookies.on("changed", refresh);
+    refresh();
   }
 
   async forgetSignedInSite(raw: string): Promise<boolean> {
     const origin = httpsOrigin(raw) ?? raw;
     const profile = loggedInPartition(this.profileName);
     this.prepareSession(profile);
-    const done = await forgetSite({
-      profile: session.fromPartition(profile),
-      store: this.signedIn,
-      origin,
-    });
+    const ses = session.fromPartition(profile);
+    const done = await forgetSite({ profile: ses, store: this.signedIn, origin });
+    // A site found from the profile's cookies has no entry: clear its registrable domain too.
+    const cleared = (await forgetDetected(ses, origin)) > 0;
+    await refreshDetected(this.home, ses).catch(() => undefined);
     this.scheduleState();
-    return done;
+    return done || cleared;
   }
 
   answerPrompt(promptId: string, action: SignInPromptAnswer): Promise<void> {

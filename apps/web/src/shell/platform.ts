@@ -89,6 +89,8 @@ export interface SignedInSiteView {
   origin: string;
   hosts: string[];
   addedAt: string;
+  /** Found from the profile's cookies rather than chosen with "Stay signed in". */
+  detected?: boolean;
 }
 
 export interface BrowserHostState {
