@@ -36,6 +36,12 @@ export interface AppWindows {
   setQuitting(): void;
   /** Shows the main window, creating it when it was closed. */
   showMain(): BaseWindow;
+  /**
+   * Creates the main window without showing it (a background launch for unattended runs): the
+   * agent browser host and its bridge come up, nothing appears on screen and the app stays an
+   * accessory app. The renderer is freed after the usual hidden time.
+   */
+  startHidden(): void;
   /** Opens a pane in its own window, or raises the one already open for the route. */
   popOut(route: string, title: string): void;
   /** Raises the pop-out for `route`; false when it is gone (the pane should dock again). */
@@ -257,8 +263,8 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
     }
   };
 
-  function createMain(): BaseWindow {
-    mainClosed = false;
+  function createMain(hidden = false): BaseWindow {
+    mainClosed = hidden;
     const win = new BaseWindow({
       ...mainWindowOptions({
         anySize: opts.anySize === true,
@@ -270,7 +276,7 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
       ...insetChrome(),
       ...(opts.splash?.() ? { splash: true } : {}),
     });
-    view.webContents.once("did-finish-load", () => win.show());
+    if (!hidden) view.webContents.once("did-finish-load", () => win.show());
     win.on("hide", armRelease);
     win.on("show", disarmRelease);
     win.on("show", () => {
@@ -295,6 +301,10 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
     mainWin = win;
     opts.onMainCreated?.(win, view);
     opts.onChromeWindowCreated?.(win, view);
+    if (hidden) {
+      armRelease();
+      syncDock();
+    }
     return win;
   }
 
@@ -354,6 +364,9 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
       mainView && !mainView.webContents.isDestroyed() ? mainView.webContents : undefined,
     setQuitting() {
       quitting = true;
+    },
+    startHidden() {
+      if (mainWin === undefined) createMain(true);
     },
     showMain() {
       const switched = opts.dock?.beforeShow() ?? false;

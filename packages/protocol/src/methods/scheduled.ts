@@ -38,6 +38,14 @@ export const ScheduledState = StringEnum(["active", "paused", "off"], {
     "`paused`: stopped here and resumable here. `off`: a routine whose feature is switched off in its Settings section, which is where it is turned on",
 });
 
+/**
+ * A pre-flight warning on an automation. `browser_not_guaranteed`: its plan uses the browser and
+ * Psyche cannot promise one when it runs (the app is not running and cannot be started).
+ */
+export const ScheduledWarning = StringEnum(["browser_not_guaranteed"], {
+  $id: "ScheduledWarning",
+});
+
 export const ScheduledItem = Type.Object(
   {
     /** The automation's id (what `automations.*` take). */
@@ -70,6 +78,10 @@ export const ScheduledItem = Type.Object(
      */
     approvals: Type.Array(Type.String({ maxLength: 64 }), { maxItems: 8 }),
     linked: Type.Optional(ScheduledLink),
+    /** Owner automations: problems found before the run (see `ScheduledWarning`). */
+    warnings: Type.Optional(Type.Array(ScheduledWarning, { maxItems: 4 })),
+    /** With `browser_not_guaranteed`: why, in a sentence (for the details line). */
+    warningReason: Type.Optional(Type.String({ maxLength: 300 })),
     /** False for Psyche's routines: they can be paused and run, not deleted. */
     deletable: Type.Boolean(),
     /** Where the routine is configured (`/settings/<id>`). */

@@ -67,6 +67,7 @@ export const settings = {
   "settings.key.appearance.contrast": "High contrast",
   "settings.key.appearance.zoom": "Zoom",
   "settings.key.appearance.showInDock": "Show in Dock when no windows are open",
+  "settings.key.appearance.openAtLogin": "Open Psyche at login",
   "settings.key.appearance.reduceTransparency": "Reduce transparency",
   "settings.key.appearance.glass": "Translucent controls",
   "settings.key.appearance.glassTint": "Tint",
@@ -508,6 +509,8 @@ export const settings = {
   "settings.appearance.background": "Background",
   "settings.appearance.showInDockHint":
     "Off, Psyche leaves the Dock and ⌘-Tab when its last window closes and keeps running from the menu bar. Click the menu bar icon to open it again.",
+  "settings.appearance.openAtLoginHint":
+    "Starts Psyche in the menu bar when you sign in, with no window, so scheduled automations that use the browser can always run. Psyche also starts itself in the background when a run needs the browser.",
   "settings.appearance.glass.hint":
     "The composer, toolbar controls, menus and popovers let the content behind them show through. Off, they are opaque.",
   "settings.appearance.reduceTransparencyHint":

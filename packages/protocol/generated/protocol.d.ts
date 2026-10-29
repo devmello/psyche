@@ -7966,25 +7966,27 @@ export interface ScheduledListResult {
 }
 
 export interface ScheduledItem {
-    approvals:   string[];
-    deletable:   boolean;
-    enabled:     boolean;
-    group:       ScheduledGroup;
-    id:          string;
-    kind:        AutomationKind;
-    lastRunAt?:  null | string;
-    lastStatus?: null | string;
-    linked?:     ScheduledLink;
-    nextRunAt?:  null | string;
-    prompt?:     string;
-    routine?:    string;
-    schedule:    string;
-    settings?:   string;
-    state:       ScheduledState;
-    summary:     string;
-    timezone:    string;
-    title:       string;
-    trigger?:    AutomationTrigger;
+    approvals:      string[];
+    deletable:      boolean;
+    enabled:        boolean;
+    group:          ScheduledGroup;
+    id:             string;
+    kind:           AutomationKind;
+    lastRunAt?:     null | string;
+    lastStatus?:    null | string;
+    linked?:        ScheduledLink;
+    nextRunAt?:     null | string;
+    prompt?:        string;
+    routine?:       string;
+    schedule:       string;
+    settings?:      string;
+    state:          ScheduledState;
+    summary:        string;
+    timezone:       string;
+    title:          string;
+    trigger?:       AutomationTrigger;
+    warningReason?: string;
+    warnings?:      ScheduledWarning[];
 }
 
 export type ScheduledGroup = "owner" | "routine";
@@ -8006,6 +8008,8 @@ export interface ScheduledLinkedRun {
  * in its Settings section, which is where it is turned on
  */
 export type ScheduledState = "active" | "paused" | "off";
+
+export type ScheduledWarning = "browser_not_guaranteed";
 
 export interface ScheduledPauseParams {
     id:     string;

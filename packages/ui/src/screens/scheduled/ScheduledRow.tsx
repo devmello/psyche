@@ -137,6 +137,13 @@ export function ScheduledRow({
         <span className="text-callout text-label-secondary">{itemSchedule(item)}</span>
       </div>
 
+      {item.warnings?.includes("browser_not_guaranteed") ? (
+        <p role="note" className="text-callout text-warning-text">
+          {item.warningReason
+            ? t("scheduled.row.browserWarning", { reason: item.warningReason })
+            : t("scheduled.row.browserWarningNoReason")}
+        </p>
+      ) : null}
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-callout">
         <dt className="text-label-secondary">{t("scheduled.row.next")}</dt>
         <dd>{nextRunLine(item, now, timezone)}</dd>

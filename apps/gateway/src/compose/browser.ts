@@ -51,6 +51,7 @@ import {
 import type { Call, HandlerDef } from "../context.ts";
 import type { PublicRoute } from "../http.ts";
 import type { Gateway } from "../server.ts";
+import { createDesktopLauncher, type DesktopLauncher, desktopInstalled } from "./desktop-launch.ts";
 import { IndexedQuarantineWriter } from "./library.ts";
 import { createRealChromeMode, type RealChromeMode, type RealChromeSetup } from "./real-chrome.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
@@ -103,6 +104,16 @@ export interface BrowserSetup {
   realChromeCdpEndpoint?: string;
   /** Real-Chrome mode (feature I13): off unless `enabled`. See `compose/real-chrome.ts`. */
   realChrome?: RealChromeSetup;
+  /**
+   * Starts the desktop app in the background when a run needs the browser and no desktop is
+   * connected. Default: `open -g -j -a Psyche --args --background` on macOS when the bridge socket
+   * is served; `null` turns it off (the browser then needs the app to be open).
+   */
+  launchDesktop?: DesktopLauncher | null;
+  /** Whether the app can be found to launch (default: Psyche.app in /Applications). */
+  desktopInstalled?: () => boolean;
+  /** How long to wait for the bridge after launching the app (default 25 s). */
+  desktopWaitMs?: number;
 }
 
 /**
@@ -323,6 +334,65 @@ export function composeBrowser(
     return driver;
   };
 
+  // Unattended runs have no window to rely on: when no desktop is connected the Gateway starts
+  // the app in the background and waits for its bridge. Tools stay registered meanwhile.
+  const launcher: DesktopLauncher | undefined =
+    setup.launchDesktop === null
+      ? undefined
+      : (setup.launchDesktop ?? (setup.socketPath === false ? undefined : createDesktopLauncher()));
+  const waitMs = setup.desktopWaitMs ?? 25_000;
+  // For the Scheduled pre-flight: the browser is guaranteed while the desktop is connected, or
+  // while the app can be started in the background.
+  services.browserAvailability.check = () => {
+    if (driver !== undefined || realChromeOn()) return { ok: true };
+    if (launcher === undefined) {
+      return { ok: false, reason: "Psyche's desktop app is not connected and cannot be started" };
+    }
+    return (setup.desktopInstalled ?? desktopInstalled)()
+      ? { ok: true }
+      : { ok: false, reason: "Psyche.app is not installed where it can be started" };
+  };
+  const bridgeWaiters = new Set<() => void>();
+  const unavailable = (reason: string): PsycheError =>
+    new PsycheError("unavailable", `Psyche's browser couldn't start: ${reason}`, {
+      retryable: true,
+      details: { reason: "browser_unavailable", cause: reason },
+    });
+  const waitForBridge = (): Promise<void> =>
+    new Promise((resolve, reject) => {
+      const done = () => {
+        clearTimeout(timer);
+        bridgeWaiters.delete(done);
+        resolve();
+      };
+      const timer = setTimeout(() => {
+        bridgeWaiters.delete(done);
+        reject(unavailable(`the app did not connect within ${Math.round(waitMs / 1000)} seconds`));
+      }, waitMs);
+      bridgeWaiters.add(done);
+    });
+  let starting: Promise<CdpBridgeDriver> | undefined;
+  const ensureDesktop = (): Promise<CdpBridgeDriver> => {
+    if (driver !== undefined) return Promise.resolve(driver);
+    if (launcher === undefined) return Promise.resolve().then(current);
+    starting ??= (async () => {
+      log?.log("info", "browser needs the desktop: starting Psyche in the background");
+      const connected = waitForBridge();
+      connected.catch(() => undefined);
+      try {
+        await launcher();
+      } catch (err) {
+        throw unavailable(err instanceof Error ? err.message : String(err));
+      }
+      await connected;
+      return current();
+    })().finally(() => {
+      starting = undefined;
+      for (const w of [...bridgeWaiters]) w();
+    });
+    return starting;
+  };
+
   // Calls go to the driver that owns their session or tab: the desktop's (primary, swapped on
   // reconnect) or real Chrome while a task has it attached (I13).
   const router = createRoutingDriver(() => current());
@@ -366,8 +436,8 @@ export function composeBrowser(
   };
 
   const sessionFor = async (callId: string, kind: SessionKind = "web"): Promise<string> => {
-    // No desktop: say so before anything else (#556).
-    const primary = current();
+    // No desktop: start it, or say so before anything else (#556).
+    const primary = await ensureDesktop();
     const ctx = services.calls.context(callId);
     const key = keyFor(callId, kind);
     let session = sessions.get(key);
@@ -567,7 +637,8 @@ export function composeBrowser(
   let registeredWithRealChrome = false;
   const syncTools = (): void => {
     const real = realChromeOn();
-    const runnable = driver !== undefined || real;
+    // A background launch can provide the desktop, so the tools do not depend on a window.
+    const runnable = driver !== undefined || real || launcher !== undefined;
     // The real-Chrome tools are offered only while the switch is on, so a flip re-registers.
     if (unregisterTools !== undefined && (!runnable || registeredWithRealChrome !== real)) {
       unregisterTools();
@@ -606,6 +677,7 @@ export function composeBrowser(
     });
     log?.log("info", "browser bridge connected");
     syncTools();
+    for (const w of [...bridgeWaiters]) w();
     return attached;
   };
 

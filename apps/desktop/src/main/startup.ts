@@ -11,6 +11,10 @@ export interface StartupDeps {
   showMain: () => void;
   /** Brings the app to the front (`app.focus({ steal: true })`). */
   focusApp: () => void;
+  /** Creates the main window hidden, for a background launch. */
+  startHidden?: () => void;
+  /** Launched with `--background` (the Gateway starts Psyche for an unattended run). */
+  background?: boolean;
   /** Starts the Gateway (supervisor) and connects; never awaited before the window shows. */
   startGateway: () => Promise<void>;
   /** Opened as a login item: don't take focus. */
@@ -22,9 +26,14 @@ export interface StartupDeps {
 }
 
 export function startShell(deps: StartupDeps): void {
-  deps.showMain();
-  deps.onShown?.((deps.now ?? Date.now)());
-  if (!deps.openedAtLogin) deps.focusApp();
+  if (deps.background === true && deps.startHidden !== undefined) {
+    // No window, no focus: the agent browser and its bridge run from the hidden main window.
+    deps.startHidden();
+  } else {
+    deps.showMain();
+    deps.onShown?.((deps.now ?? Date.now)());
+    if (!deps.openedAtLogin) deps.focusApp();
+  }
   void deps.startGateway().catch((err: unknown) => {
     deps.warn?.(`the Gateway did not start: ${err instanceof Error ? err.message : String(err)}`);
   });

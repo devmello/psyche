@@ -33,6 +33,10 @@ import type { SrtResolver } from "./srt.ts";
  * What the composition root hands to the INT-2 subsystems (browser, connectors, channels).
  * Each subsystem module turns these into handlers, tools and background work.
  */
+export interface BrowserAvailability {
+  check?: () => { ok: boolean; reason?: string };
+}
+
 export interface ComposeServices {
   readonly db: PsycheDb;
   readonly clock: Clock;
@@ -66,6 +70,11 @@ export interface ComposeServices {
    * at check time by the browser part, so random-port OAuth receivers need no registration.
    */
   readonly ownPorts: OwnPorts;
+  /**
+   * Whether unattended runs can count on Psyche's browser (the browser part sets `check`): the
+   * Scheduled screen warns about automations that use the browser when it cannot be guaranteed.
+   */
+  readonly browserAvailability: BrowserAvailability;
   /** Security §10 rate limits (inbound chat per sender, `web_fetch` per Task), audited. */
   readonly rateLimits: ComposeRateLimits;
   /**

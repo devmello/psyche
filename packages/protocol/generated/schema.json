@@ -32244,6 +32244,17 @@
         "linked": {
           "$ref": "#/$defs/ScheduledLink"
         },
+        "warnings": {
+          "items": {
+            "$ref": "#/$defs/ScheduledWarning"
+          },
+          "maxItems": 4,
+          "type": "array"
+        },
+        "warningReason": {
+          "maxLength": 300,
+          "type": "string"
+        },
         "deletable": {
           "type": "boolean"
         },
@@ -32565,6 +32576,12 @@
         "active",
         "paused",
         "off"
+      ],
+      "type": "string"
+    },
+    "ScheduledWarning": {
+      "enum": [
+        "browser_not_guaranteed"
       ],
       "type": "string"
     },

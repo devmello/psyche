@@ -505,6 +505,14 @@ function runStatusOf(outcome: RunOutcome): RunStatus {
 /** What `#await` returns for a card the owner closed by replying in the chat. */
 const DENIED_IN_CHAT = "denied_in_chat";
 
+/** The message of a tool error flagged `details.reason: "browser_unavailable"`, else undefined. */
+function browserUnavailableReason(output: unknown): string | undefined {
+  const error = (output as { error?: { message?: unknown; details?: { reason?: unknown } } } | null)
+    ?.error;
+  if (error?.details?.reason !== "browser_unavailable") return undefined;
+  return typeof error.message === "string" ? error.message : "Psyche's browser couldn't start";
+}
+
 class RunEnd extends Error {
   readonly outcome: RunOutcome;
   readonly reason: string | undefined;
@@ -2663,6 +2671,13 @@ export class PsycheAgentLoop implements AgentLoop {
         isError: true,
         provenance: reg.run === undefined ? "untrusted" : reg.spec.provenanceOut,
       };
+    }
+    // The browser could not be provided at all (the desktop would not start): an unattended
+    // run has nothing to retry or ask, so it fails with the reason instead of the model
+    // concluding the owner must enable a tool.
+    if (run.mode === "unattended" && result.isError === true) {
+      const reason = browserUnavailableReason(result.output);
+      if (reason !== undefined) throw new RunEnd("failed", reason);
     }
     result = { ...result, provenance: worst(reg.spec.provenanceOut, result.provenance) };
     for (const hook of this.hooks.handlers("after_tool_call")) {

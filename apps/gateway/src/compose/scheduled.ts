@@ -95,6 +95,8 @@ export interface ScheduledDeps {
   timezone: () => string;
   /** The status of a run's task, to tell a run parked on an approval from one that is working. */
   taskStatus?: (taskId: string) => Promise<string | undefined>;
+  /** Whether unattended runs can count on the browser; undefined when unknown (no browser part). */
+  browserAvailable?: () => { ok: boolean; reason?: string } | undefined;
   /** Open approvals per task id. */
   pendingApprovals?: () => Promise<ReadonlyMap<string, number>>;
 }
@@ -131,6 +133,11 @@ export function pausedRoutines(kv: ScheduledKv): ReadonlySet<string> {
   const v = kv.get(PAUSED_ROUTINES_KEY);
   return new Set(Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
 }
+
+/** Whether an automation's instruction is likely to drive the browser (pre-flight heuristic). */
+const BROWSER_USE =
+  /\b(browser|website|web ?site|web ?page|canvas|portal|sign[- ]?in|log[- ]?in|https?:\/\/|[a-z0-9-]+\.(com|edu|org|net|io)\b)/i;
+export const usesBrowser = (prompt: string): boolean => BROWSER_USE.test(prompt);
 
 export function createScheduledHandlers(deps: ScheduledDeps): ScheduledHandlers {
   const { scheduler, kv } = deps;
@@ -176,6 +183,13 @@ export function createScheduledHandlers(deps: ScheduledDeps): ScheduledHandlers 
       if (routine !== undefined) item.routine = routine.key;
       if (info?.settings !== undefined) item.settings = info.settings;
       if (!isRoutine) item.prompt = a.prompt;
+      if (!isRoutine && usesBrowser(a.prompt)) {
+        const availability = deps.browserAvailable?.();
+        if (availability !== undefined && !availability.ok) {
+          item.warnings = ["browser_not_guaranteed"];
+          if (availability.reason !== undefined) item.warningReason = availability.reason;
+        }
+      }
       if (a.trigger !== undefined) item.trigger = a.trigger;
       if (g !== undefined && siblings.length > 0) {
         item.linked = {
