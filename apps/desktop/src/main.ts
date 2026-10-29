@@ -61,6 +61,7 @@ import { BrowserHost } from "./main/browser/browser-host.ts";
 import { SystemDictation } from "./main/dictation/controller.ts";
 import { HudWindow } from "./main/dictation/hud.ts";
 import { ACCESSIBILITY_SETTINGS_URL, DictationService } from "./main/dictation/service.ts";
+import { DockPolicy } from "./main/dock-policy.ts";
 import {
   attachNativeGlass,
   GLASS_PROBE_ENV,
@@ -186,6 +187,9 @@ function systemAppearance(): { reduceTransparency: boolean; highContrast: boolea
     highContrast: nativeTheme.shouldUseHighContrastColors,
   };
 }
+
+/** Psyche leaves the Dock and ⌘-Tab while no window is open. */
+const dockPolicy = new DockPolicy({ app, warn: (m) => console.warn(`[dock] ${m}`) });
 
 const windowTheme = new WindowTheme({
   targets: () => windows?.chromeWindows() ?? [],
@@ -669,6 +673,7 @@ function onGatewayEvent(e: {
     const entries = (p.entries as { key: string; value: unknown }[] | undefined) ?? [];
     zoom.onSettingsChanged(entries);
     windowTheme.onSettingsChanged(entries);
+    dockPolicy.onSettingsChanged(entries);
   }
   if (e.event === "notification.created") {
     const d = relay.decide(p.notification as PsycheNotification);
@@ -788,6 +793,7 @@ void app.whenReady().then(async () => {
     splash: () => splashWanted,
     anySize: wantsAnyWindowSize(app.isPackaged, process.env),
     mainOptions: glassWindowOptions(glass),
+    dock: dockPolicy,
     // The stored zoom wins over Electron's own per-origin memory on every load.
     onViewCreated: (wc) => wc.on("did-finish-load", () => zoom.applyTo(wc)),
     // The native-glass spike keeps its window transparent; every other window paints the canvas.
@@ -893,6 +899,7 @@ void app.whenReady().then(async () => {
       void refreshApprovals();
       void zoom.load();
       void windowTheme.load();
+      void dockPolicy.load((method, params) => requireGateway().call(method, params));
       void dictation?.load();
       void screenAskShortcut?.load();
       void bootstrapAdminIfNeeded({
@@ -1106,6 +1113,7 @@ app.on("will-quit", () => {
 
 app.on("before-quit", () => {
   windows?.setQuitting();
+  dockPolicy.dispose();
   terminal?.closeAll();
   void bridge?.stop();
   browser?.dispose();

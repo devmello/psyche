@@ -9,6 +9,7 @@ import {
   type WebContents,
   WebContentsView,
 } from "electron";
+import type { DockPolicy } from "./dock-policy.ts";
 import { createPopOutRegistry } from "./pop-outs.ts";
 import {
   canvasColor,
@@ -82,6 +83,11 @@ export interface WindowOptions {
   canRelease?: (wc: WebContents) => Promise<boolean>;
   /** Every main app view, the first and each one made after a release: per-page wiring. */
   onMainViewCreated?: (win: BaseWindow, view: WebContentsView) => void;
+  /**
+   * Keeps Psyche out of the Dock and ⌘-Tab while no window is open (main, Settings, pop-outs; the
+   * quick-entry bar and the panels are not counted). Unset leaves the activation policy alone.
+   */
+  dock?: Pick<DockPolicy, "beforeShow" | "afterShow" | "windowsChanged">;
 }
 
 /** Settings section ids are short slugs (`model`, `computer-use`). */
@@ -119,10 +125,39 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
   let quick: { win: BaseWindow; view: WebContentsView } | undefined;
   let settings: { win: BaseWindow; view: WebContentsView } | undefined;
   const views = new Map<WebContents, { win: BaseWindow; view: WebContentsView }>();
+  const popOutWins = new Set<BaseWindow>();
   // Closing the app (quit) closes pop-outs too; that is not a pane to dock again.
   const popOuts = createPopOutRegistry((route) => {
     if (!quitting) opts.onPopOutClosed?.(route);
   });
+
+  // The windows that keep Psyche in the Dock and ⌘-Tab: main, Settings and the pop-outs. Settings
+  // and pop-outs close for good, so they count while they exist (they show once loaded; counting
+  // from creation keeps a window that closes meanwhile from flashing the icon off). The main
+  // window is only hidden: it counts from its creation until it is hidden, and a minimized one
+  // still counts (it lives in the Dock). The quick-entry bar and the panels do not count.
+  let mainHidden = false;
+  const syncDock = () => {
+    if (quitting) return;
+    const live = (w: BaseWindow | undefined) => w !== undefined && !w.isDestroyed();
+    const open = [
+      live(mainWin) && !mainHidden,
+      live(settings?.win),
+      ...[...popOutWins].map(live),
+    ].filter(Boolean).length;
+    opts.dock?.windowsChanged(open);
+  };
+  const trackDock = (win: BaseWindow) => {
+    win.on("show", syncDock);
+    win.on("hide", syncDock);
+    win.on("closed", syncDock);
+  };
+  /** Runs `show` with the app a regular one (⌘-Tab), then takes the focus the switch cost. */
+  const showCounted = (show: () => void) => {
+    const switched = opts.dock?.beforeShow() ?? false;
+    show();
+    opts.dock?.afterShow(switched);
+  };
 
   const urlFor = (route: string) => {
     const url = new URL(route, opts.rendererUrl);
@@ -221,6 +256,7 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
   };
 
   function createMain(): BaseWindow {
+    mainHidden = false;
     const win = new BaseWindow({
       ...mainWindowOptions({
         anySize: opts.anySize === true,
@@ -235,6 +271,13 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
     view.webContents.once("did-finish-load", () => win.show());
     win.on("hide", armRelease);
     win.on("show", disarmRelease);
+    win.on("hide", () => {
+      mainHidden = true;
+    });
+    win.on("show", () => {
+      mainHidden = false;
+    });
+    trackDock(win);
     // "Close window" hides it: the agent browser's tab views live in this window and keep
     // working (feature A7, I11). Only quitting destroys it.
     win.on("close", (event) => {
@@ -280,6 +323,7 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
     win.on("closed", () => {
       settings = undefined;
     });
+    trackDock(win);
     opts.onChromeWindowCreated?.(win, view);
     return { win, view };
   }
@@ -311,6 +355,7 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
       quitting = true;
     },
     showMain() {
+      const switched = opts.dock?.beforeShow() ?? false;
       const win = mainWin ?? createMain();
       if (mainView === undefined) {
         // Released while hidden: a new app view on the route it left. The window shows at once,
@@ -323,24 +368,42 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
       if (win.isMinimized()) win.restore();
       win.show();
       win.focus();
+      opts.dock?.afterShow(switched);
       return win;
     },
     popOut(route, title) {
       if (popOuts.focus(route)) return;
-      const win = new BaseWindow({ width: 900, height: 700, minWidth: 480, minHeight: 360, title });
-      popOuts.add(route, win);
-      makeView(win, route);
-      win.show();
+      showCounted(() => {
+        const win = new BaseWindow({
+          width: 900,
+          height: 700,
+          minWidth: 480,
+          minHeight: 360,
+          title,
+        });
+        popOuts.add(route, win);
+        popOutWins.add(win);
+        win.on("closed", () => popOutWins.delete(win));
+        trackDock(win);
+        makeView(win, route);
+        win.show();
+      });
     },
-    focusPopOut: (route) => popOuts.focus(route),
+    focusPopOut: (route) => {
+      const found = popOuts.has(route);
+      if (found) showCounted(() => popOuts.focus(route));
+      return found;
+    },
     showSettings(section) {
-      if (settings && !settings.win.isDestroyed()) {
-        if (section) void settings.view.webContents.loadURL(urlFor(settingsRoute(section)));
-        settings.win.show();
-        settings.win.focus();
-        return;
-      }
-      settings = createSettings(section);
+      showCounted(() => {
+        if (settings && !settings.win.isDestroyed()) {
+          if (section) void settings.view.webContents.loadURL(urlFor(settingsRoute(section)));
+          settings.win.show();
+          settings.win.focus();
+          return;
+        }
+        settings = createSettings(section);
+      });
     },
     chromeWindows() {
       const out: { win: BaseWindow; view: WebContentsView }[] = [];

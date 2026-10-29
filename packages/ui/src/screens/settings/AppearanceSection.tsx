@@ -32,6 +32,9 @@ import { GlassSwitch } from "./TranslucencySettings.tsx";
 
 /** Appearance (UI design §3.18, color system §4.8, theming API §4.10). */
 
+/** Read by the desktop app's main process (`apps/desktop/src/main/dock-policy.ts`). */
+const SHOW_IN_DOCK_SETTING = "appearance.showInDock";
+
 type AccentId = "violet" | "blue" | "teal" | "green" | "amber" | "tomato" | "pink";
 
 const accent = (id: AccentId, seed: string) => ({
@@ -342,6 +345,16 @@ export function AppearancePanel({
             }
             settingKey={REDUCE_TRANSPARENCY_SETTING}
             onChange={(v) => onChange(REDUCE_TRANSPARENCY_SETTING, v)}
+          />
+        </Group>
+
+        <Group title={t("settings.appearance.background")}>
+          <SwitchField
+            label={t("settings.key.appearance.showInDock")}
+            description={t("settings.appearance.showInDockHint")}
+            checked={values[SHOW_IN_DOCK_SETTING] === true}
+            settingKey={SHOW_IN_DOCK_SETTING}
+            onChange={(v) => onChange(SHOW_IN_DOCK_SETTING, v)}
           />
         </Group>
 
