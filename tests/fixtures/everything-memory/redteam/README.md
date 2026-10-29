@@ -1,3 +1,24 @@
+# Everything-memory red-team fixtures
+
+Hostile mail and messages for the extraction validator (docs/design/everything-memory-2026.md §5.7).
+Every file is data: nothing here is executed, and the tests never read real mail or messages.
+
+Each `<id>.json` is one case:
+
+| Field | Meaning |
+| --- | --- |
+| `attack` | A hijack · B poison others · C poison owner · D settings · E delayed invocation · F identity · G cost · H hidden text · K control (benign, must still work) |
+| `source`, `trust`, `format` | where it came from, `owner` / `trusted` / `untrusted`, `text` or `html` |
+| `from`, `subject`, `body`, `fields` | the item; `fields` are extra untrusted strings screened with it (signature, display name) |
+| `eml` | optional: a sibling `.eml` file whose headers and (decoded) body replace `from` / `subject` / `body` |
+| `bodyRepeat`, `flood` | generated at test time (a 5 MB mail; N messages from one sender) so no huge file is committed |
+| `hostile` | the closed-form output a fully hijacked extractor would return for this item (handles `p0` owner, `p1` sender, `p2` another known person, `i1` the item) |
+| `expect` | the outcome asserted per case: `quarantined` (with reasons), `nothing_stored`, `pending` (exactly these facts), `stored_trusted`, `batch_rejected`, `sender_limit` |
+
+Global invariants asserted for every case: no tool call is accepted, no setting, identifier,
+exclusion, merge, loop or claim changes, no `owner` or accepted fact comes from untrusted text,
+every stored fact is `pending` with a citation whose quote is found in the item's cleaned text,
+and nothing is stored about the owner.
 
 ## Recorded responses
 
