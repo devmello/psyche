@@ -247,7 +247,7 @@ Each phase is one PR unless noted. P1–P3 give a useful read-only feature; late
 
 ## 11. Owner decisions
 
-**Accepted by the owner on 2026-10-29:** all ten recommendations below, as written. Implementation has not started; it begins with the first phase in §12 when the owner asks.
+**Accepted by the owner on 2026-10-29:** all ten recommendations below, as written. Implementation has not started; it begins with the first phase in §10 when the owner asks.
 
 | # | Decision | Recommendation |
 | --- | --- | --- |
