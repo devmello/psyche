@@ -18,6 +18,11 @@ export interface SourceConfig {
    * cards); `cloud` and `local` are recorded for the router to use later.
    */
   processing: ProcessingModel;
+  /**
+   * Whether the agent's `search_everything` may search this source. On for every source except
+   * Messages, which stays owner-only until the owner allows it. The owner's own Search ignores it.
+   */
+  agent: boolean;
 }
 
 /** Things the owner keeps out of the index, matched case-insensitively. */
@@ -48,7 +53,8 @@ export const SOURCE_LABELS: Record<SourceId, string> = {
 
 export function defaultSourcesConfig(): SourcesConfig {
   const sources = {} as Record<SourceId, SourceConfig>;
-  for (const id of SOURCE_IDS) sources[id] = { enabled: false, processing: "cloud" };
+  for (const id of SOURCE_IDS)
+    sources[id] = { enabled: false, processing: "cloud", agent: id !== "messages" };
   return { sources, exclude: { contacts: [], chats: [], accounts: [], folders: [] } };
 }
 
@@ -61,6 +67,7 @@ export function readSourcesConfig(raw: unknown): SourcesConfig {
     const s = r.sources?.[id] as Partial<SourceConfig> | undefined;
     if (s === undefined || typeof s !== "object" || s === null) continue;
     if (s.enabled === true) out.sources[id].enabled = true;
+    if (typeof s.agent === "boolean") out.sources[id].agent = s.agent;
     if (PROCESSING_MODELS.includes(s.processing as ProcessingModel))
       out.sources[id].processing = s.processing as ProcessingModel;
   }
@@ -128,6 +135,7 @@ export interface SourceStatus {
   label: string;
   enabled: boolean;
   processing: ProcessingModel;
+  agent: boolean;
   state: SourceState;
   /** Why it cannot run now (`unavailable`) or the last error. */
   detail?: string;

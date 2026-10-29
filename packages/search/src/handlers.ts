@@ -111,6 +111,7 @@ export function createSearchHandlers(index: SqliteSearchIndex): SearchHandlers {
         kinds,
         // `threads` shows one result per conversation; `messages` alone lists every message.
         collapse: scopes.includes("threads") || !scopes.includes("messages"),
+        ...(params.dropChips === undefined ? {} : { dropChips: params.dropChips }),
       });
       const wire = (h: RichHit): SearchHit | undefined => {
         const scope = scopeOf(h);
@@ -143,6 +144,7 @@ export function createSearchHandlers(index: SqliteSearchIndex): SearchHandlers {
         })),
         total: res.total,
         warnings: res.warnings,
+        ...(res.understood === undefined ? {} : { understood: res.understood }),
       };
     },
   };

@@ -150,8 +150,8 @@ describe("config", () => {
       },
       exclude: { contacts: ["a@b.c", 3, " "] },
     });
-    expect(r.sources.mail).toEqual({ enabled: true, processing: "local" });
-    expect(r.sources.notes).toEqual({ enabled: false, processing: "cloud" });
+    expect(r.sources.mail).toEqual({ enabled: true, processing: "local", agent: true });
+    expect(r.sources.notes).toEqual({ enabled: false, processing: "cloud", agent: true });
     expect(r.exclude.contacts).toEqual(["a@b.c"]);
   });
 });
@@ -365,6 +365,18 @@ describe("notes, calendar, reminders", () => {
     h.f.world.reminders = [h.f.world.reminders[0] as Obj];
     await h.indexer.sweep("reminders");
     expect(h.ids()).not.toContain("reminders:r2");
+  });
+});
+
+describe("agent access", () => {
+  it("is on for every source but Messages, and follows the config into the index flags", async () => {
+    const h = harness(["notes", "messages"]);
+    expect(h.index.agentExcludedSources()).toEqual(["connector:imessage"]);
+    h.config().sources.notes.agent = false;
+    h.config().sources.messages.agent = true;
+    await h.indexer.applyConfig();
+    expect(h.index.agentExcludedSources()).toEqual(["connector:notes"]);
+    expect(h.indexer.status().sources.find((s) => s.id === "notes")?.agent).toBe(false);
   });
 });
 

@@ -8,10 +8,13 @@
  *   "next Thursday"), people ("from Maya", "Maya said") and source words ("email", "pdf").
  *   A prototype of the query-understanding step, with no model.
  *
+ * - `prod`: the question exactly as typed, but through the production path, which understands it
+ *   itself (`src/understand.ts`). The other modes switch that off, so they stay a fixed reference.
+ *
  * Filter tokens the user typed (`from:maya`, `type:pdf`) pass through every rewrite unchanged.
  */
 
-export type RewriteMode = "raw" | "keywords" | "rules";
+export type RewriteMode = "raw" | "keywords" | "rules" | "prod";
 
 export interface Rewrite {
   q: string;
@@ -173,7 +176,7 @@ function people(original: string): string[] {
 }
 
 export function rewrite(q: string, mode: RewriteMode, now: number, tz = 0): Rewrite {
-  if (mode === "raw") return { q };
+  if (mode === "raw" || mode === "prod") return { q };
   const typed = q.split(/\s+/).filter((t) => FILTER_KEYS.test(t));
   const free = q
     .split(/\s+/)

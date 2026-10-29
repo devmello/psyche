@@ -14,6 +14,7 @@ const base = (
   label: over.id,
   enabled: false,
   processing: "cloud" as const,
+  agent: over.id !== "messages",
   state: "off" as const,
   items: 0,
   textBytes: 0,
@@ -87,6 +88,8 @@ describe("search sources settings", () => {
     expect(onConfigure).toHaveBeenCalledWith({ source: "mail", enabled: false });
     await userEvent.selectOptions(screen.getByLabelText("Processing for Mail"), "none");
     expect(onConfigure).toHaveBeenCalledWith({ source: "mail", processing: "none" });
+    await userEvent.click(screen.getByLabelText("Agent search for Mail"));
+    expect(onConfigure).toHaveBeenCalledWith({ source: "mail", agent: false });
     await userEvent.click(screen.getByRole("button", { name: "Rebuild Mail" }));
     expect(onRebuild).toHaveBeenCalledWith("mail");
     const input = screen.getByLabelText("Never index these contacts");

@@ -4,6 +4,8 @@ Status: plan. It builds on `search-2026.md` (#900, phases S1–S4 merged), which
 
 The owner's framing: search is Psyche's most powerful feature, because it can "build a searchable version of your life you can prompt using English". Today it is a good keyword index over chats, tasks and the Library. Most of the owner's life (mail, messages, notes, calendar, files) is reachable only through live connector tools, and an English question typed into Search usually returns nothing.
 
+The nightly memory pass that turns indexed items into cited facts about people and events is planned in [everything-memory-2026.md](everything-memory-2026.md); it reads the index this roadmap builds.
+
 Ingest-time **context cards and contextual chunks** landed in #1007 (grounded-ingest) and are only referenced here (§3.6). This doc does not duplicate them.
 
 ## 1. Where we are (baseline)

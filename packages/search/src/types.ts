@@ -4,6 +4,7 @@ import type {
   SearchIndexDocKind,
   SearchIndexHit,
 } from "@psyche/protocol";
+import type { QueryChip, SearchIntent } from "./understand.ts";
 
 /**
  * Optional fields this package adds to `SearchIndexDoc`. They are proposed for the contract in a
@@ -87,6 +88,8 @@ export interface RichHit extends SearchIndexHit {
   parentId?: string;
   from?: string;
   mime?: string;
+  /** Producer id (`source` of the document): a connector id, `library`, … */
+  source?: string;
   /** Epoch ms. */
   createdAt: number;
   snippetHighlights: Range[];
@@ -113,8 +116,31 @@ export interface SearchRequest {
   groups?: SearchGroup[];
   /** Restrict to these document kinds (intersected with `groups`). */
   kinds?: SearchIndexDocKind[];
+  /**
+   * Who runs the search. `agent` (the `search_everything` tool) leaves out documents of sources
+   * the owner kept from the agent (`setAgentSearchable`); default `owner`.
+   */
+  audience?: "owner" | "agent";
+  /** Restrict to documents of these producers (`source`). */
+  sources?: string[];
   /** Collapse messages onto threads and actions onto tasks (default true). */
   collapse?: boolean;
+  /** Read plain-English input (default true); false runs `q` exactly as the query language. */
+  understand?: boolean;
+  /** Ids of understood chips the user removed (`time:last week`). */
+  dropChips?: string[];
+}
+
+/** How a query was read: the chips shown on the Search screen and how far it was relaxed. */
+export interface QueryUnderstood {
+  /** Read as a question (four or more words, or a "?"); false means it ran as typed. */
+  natural: boolean;
+  intent: SearchIntent;
+  chips: QueryChip[];
+  /** `filters`: nothing matched with the chips, so they were dropped; `or`: ORed every word. */
+  relaxed: "none" | "filters" | "or";
+  /** The query that produced the results. */
+  query: string;
 }
 
 export interface SearchResponse {
@@ -125,6 +151,7 @@ export interface SearchResponse {
   /** Filter tokens that were not understood. */
   warnings: string[];
   tookMs: number;
+  understood?: QueryUnderstood;
 }
 
 export type { Provenance };

@@ -104,3 +104,13 @@ export function ensureSearchSchema(db: Database.Database): void {
 export function searchIndexIsEmpty(db: Database.Database): boolean {
   return db.prepare("SELECT 1 FROM search_docs LIMIT 1").get() === undefined;
 }
+
+/**
+ * Per-source "the agent may search this" switch (default on: a source has no row). Kept out of
+ * the versioned schema above so an index rebuild never forgets what the owner kept from the agent.
+ */
+export const SOURCE_FLAGS_SCHEMA = `
+CREATE TABLE IF NOT EXISTS search_source_flags (
+  source TEXT PRIMARY KEY,
+  agent_searchable INTEGER NOT NULL DEFAULT 1
+) WITHOUT ROWID;`;

@@ -106,6 +106,7 @@ export class SourceIndexer {
       budgetMs: options.budgetMs ?? 1500,
     };
     index.db.exec(DDL);
+    this.#syncAgentFlags();
     // The index may have been rebuilt under us: forget rows whose document is gone.
     index.db.exec(
       "DELETE FROM search_source_items WHERE NOT EXISTS (SELECT 1 FROM search_docs d WHERE d.id = doc_id)",
@@ -312,6 +313,7 @@ export class SourceIndexer {
   /** Call after the config changed: purges sources switched off and items newly excluded. */
   async applyConfig(): Promise<void> {
     const config = this.#o.config();
+    this.#syncAgentFlags();
     for (const id of SOURCE_IDS) {
       if (config.sources[id].enabled) continue;
       const has = this.#index.db
@@ -342,6 +344,13 @@ export class SourceIndexer {
       removed += 1;
     }
     if (removed > 0) this.#o.onChange?.();
+  }
+
+  /** Mirrors each source's agent-access choice into the index's per-source flag. */
+  #syncAgentFlags(): void {
+    const config = this.#o.config();
+    for (const id of SOURCE_IDS)
+      this.#index.setAgentSearchable(sourceTag(id), config.sources[id].agent);
   }
 
   /** Purges a source and reads it again from the start (Settings → Rebuild). */
@@ -391,6 +400,7 @@ export class SourceIndexer {
         label: SOURCE_LABELS[id],
         enabled: cfg.enabled,
         processing: cfg.processing,
+        agent: cfg.agent,
         state,
         ...(cfg.enabled && (why ?? err) !== undefined ? { detail: (why ?? err) as string } : {}),
         items: c?.n ?? 0,

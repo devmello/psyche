@@ -39,6 +39,7 @@ import { QuestionCard } from "./QuestionCard.tsx";
 import { ReceiptLine } from "./Receipt.tsx";
 import { RelatedThreads } from "./RelatedThreads.tsx";
 import { type BlockContext, RegisteredBlock, registerBlock } from "./registry.tsx";
+import { SourceChips } from "./SourceChips.tsx";
 import { TaskCard } from "./TaskCard.tsx";
 import { type ToolCallItem, ToolRun } from "./ToolRun.tsx";
 import { answerValues, blocksToShow, useThreadBlocks } from "./thread-blocks.tsx";
@@ -467,6 +468,7 @@ registerBlock("wrap_up", {
   ),
 });
 registerBlock("related_threads", { View: ({ block }) => <RelatedThreads block={block} /> });
+registerBlock("sources", { View: ({ block }) => <SourceChips block={block} /> });
 registerBlock("learned", { View: ({ block }) => <LearnedLine items={block.items} /> });
 registerBlock("taught", {
   View: ({ block }) => (

@@ -164,6 +164,7 @@ describe("search.sources methods", () => {
     ]);
     expect(st.sources.every((s) => !s.enabled && s.state === "off" && s.items === 0)).toBe(true);
     expect(st.sources.every((s) => s.processing === "cloud")).toBe(true);
+    expect(st.sources.filter((s) => !s.agent).map((s) => s.id)).toEqual(["messages"]);
   });
 
   it("toggles a source, keeps the processing model and exclusions, and rebuilds", async () => {
@@ -180,8 +181,19 @@ describe("search.sources methods", () => {
     );
     const m = st.sources.find((s) => s.id === "messages");
     // No Mac helper in this test: enabled, but it says why nothing is read.
-    expect(m).toMatchObject({ enabled: true, processing: "local", state: "unavailable" });
+    expect(m).toMatchObject({
+      enabled: true,
+      processing: "local",
+      agent: false,
+      state: "unavailable",
+    });
     expect(st.exclude.contacts).toEqual(["mum@example.com"]);
+    st = await owner.call<SearchSourcesStatus>(
+      "search.sources.configure",
+      { source: "messages", agent: true },
+      ik(),
+    );
+    expect(st.sources.find((s) => s.id === "messages")?.agent).toBe(true);
     st = await owner.call<SearchSourcesStatus>(
       "search.sources.rebuild",
       { source: "messages" },

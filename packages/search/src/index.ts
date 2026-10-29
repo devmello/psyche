@@ -20,6 +20,7 @@ export * from "./semantic.ts";
 export * from "./sources/index.ts";
 export * from "./sqlite-index.ts";
 export * from "./types.ts";
+export * from "./understand.ts";
 export * from "./web/index.ts";
 
 export interface CreateSearchIndexOptions extends SqliteSearchIndexOptions {
@@ -37,3 +38,4 @@ export function createSearchIndex(options: CreateSearchIndexOptions = {}): Sqlit
   const db = options.db ?? openDb(options.path ?? ":memory:", { migrate: false }).sqlite;
   return new SqliteSearchIndex(db, options);
 }
+export * from "./agent/search-everything.ts";

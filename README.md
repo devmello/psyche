@@ -72,7 +72,7 @@ Contributors: read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 
 - **Using Psyche:** [docs/guides/](docs/guides/README.md), starting with [getting-started](docs/guides/getting-started.md), [approvals](docs/guides/approvals.md) and [memory and persona](docs/guides/memory-and-persona.md).
 - **How it is built:** [docs/00-vision-and-principles.md](docs/00-vision-and-principles.md), [02-architecture](docs/02-architecture.md), [03-feature-spec](docs/03-feature-spec.md), [05-security-and-permissions](docs/05-security-and-permissions.md), [07-tech-decisions](docs/07-tech-decisions.md) and [08-roadmap](docs/08-roadmap.md).
-- **Design notes:** [docs/design/](docs/design/) and [docs/agent/](docs/agent/). Updates and install: [docs/design/updates-and-install-2026.md](docs/design/updates-and-install-2026.md).
+- **Design notes:** [docs/design/](docs/design/) and [docs/agent/](docs/agent/). Memory of people and your life: [docs/memory/people-and-projects-2026.md](docs/memory/people-and-projects-2026.md) and the plan for [everything memory](docs/design/everything-memory-2026.md). Updates and install: [docs/design/updates-and-install-2026.md](docs/design/updates-and-install-2026.md).
 - **History:** [docs/archive/](docs/archive/README.md) holds past build prompts, spikes, reviews and status logs. It is kept for reference and is not current.
 
 ## Contributing, security and license

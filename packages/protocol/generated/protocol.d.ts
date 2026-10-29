@@ -2687,6 +2687,7 @@ export interface Block {
     actions?:        WrapUpAction[];
     ask?:            string;
     recap?:          string;
+    cited?:          string[];
     compactionId?:   string;
     replaced?:       Replaced;
     summary?:        CompactionSummary;
@@ -2714,11 +2715,16 @@ export interface ItemElement {
     threadId?:      string;
     title?:         string;
     date?:          string;
+    id?:            string;
+    kind?:          string;
+    provenance?:    Provenance;
+    route?:         null | string;
+    source?:        string;
+    span?:          string;
     factId?:        string;
-    kind?:          LearnedFactKind;
 }
 
-export type LearnedFactKind = "name" | "preference" | "routine" | "person" | "project" | "other";
+export type Provenance = "owner" | "agent" | "untrusted" | "system";
 
 export type ChecklistItemStatus = "pending" | "in_progress" | "completed";
 
@@ -2741,7 +2747,7 @@ export interface CompactionSummary {
 
 export type BlockTrigger = "auto" | "manual";
 
-export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "context" | "receipt" | "task" | "wrap_up" | "related_threads" | "compaction" | "learned" | "taught" | "specialist_result" | "automation_workflow" | "app_link";
+export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "context" | "receipt" | "task" | "wrap_up" | "related_threads" | "sources" | "compaction" | "learned" | "taught" | "specialist_result" | "automation_workflow" | "app_link";
 
 export interface ChatCancelParams {
     runId?:   string;
@@ -2826,8 +2832,6 @@ export interface LessonRef {
 }
 
 export type LessonKind = "style" | "fact" | "entity" | "approach" | "parameter" | "boundary";
-
-export type Provenance = "owner" | "agent" | "untrusted" | "system";
 
 export type MessageRole = "user" | "agent" | "system" | "tool";
 
@@ -4952,6 +4956,8 @@ export interface LearnedFact {
     text:     string;
     threadId: string;
 }
+
+export type LearnedFactKind = "name" | "preference" | "routine" | "person" | "project" | "other";
 
 export type LearnedBlockType = "learned";
 
@@ -7696,17 +7702,22 @@ export type SearchSemanticEngine = "builtin" | "router";
 export type SearchSemanticState = "off" | "downloading" | "loading" | "indexing" | "ready" | "error" | "blocked";
 
 export interface SearchQueryParams {
-    limit?:  number;
-    query:   string;
-    scopes?: SearchScope[];
+    /**
+     * Ids of understood chips the user removed
+     */
+    dropChips?: string[];
+    limit?:     number;
+    query:      string;
+    scopes?:    SearchScope[];
 }
 
 export type SearchScope = "threads" | "messages" | "tasks" | "memory" | "library" | "feed" | "ideas" | "goals" | "connectors" | "people" | "projects";
 
 export interface SearchQueryResult {
-    groups?: SearchHitGroup[];
-    hits:    SearchHit[];
-    total?:  number;
+    groups?:     SearchHitGroup[];
+    hits:        SearchHit[];
+    total?:      number;
+    understood?: SearchUnderstood;
     /**
      * Filter tokens that were not understood
      */
@@ -7759,6 +7770,43 @@ export type SearchIndexDocKind = "thread" | "message" | "task" | "memory" | "lib
 
 export type SearchMatch = "lexical" | "semantic" | "both";
 
+export interface SearchUnderstood {
+    chips:  SearchQueryChip[];
+    intent: SearchQueryIntent;
+    /**
+     * Read as a question rather than run as typed
+     */
+    natural: boolean;
+    /**
+     * The query that produced the results
+     */
+    query:   string;
+    relaxed: SearchRelaxed;
+}
+
+export interface SearchQueryChip {
+    /**
+     * Pass it in `dropChips` to turn the chip off
+     */
+    id:   string;
+    kind: SearchChipKind;
+    /**
+     * time: the phrase as typed; person: the name; source: mail, imessage, notes, calendar,
+     * reminders or files; type: pdf, image, sheet or slides
+     */
+    label: string;
+    /**
+     * The query-language filter the chip stands for
+     */
+    token: string;
+}
+
+export type SearchChipKind = "time" | "person" | "source" | "type";
+
+export type SearchQueryIntent = "find" | "answer" | "list";
+
+export type SearchRelaxed = "none" | "filters" | "or";
+
 export interface SearchReindexResult {
     /**
      * False when a run was already in flight
@@ -7767,6 +7815,7 @@ export interface SearchReindexResult {
 }
 
 export interface SearchSourcesConfigureParams {
+    agent?:      boolean;
     enabled?:    boolean;
     exclude?:    Exclude;
     processing?: SearchProcessing;
@@ -7805,6 +7854,10 @@ export interface SearchExclusions {
 }
 
 export interface SearchSourceStatus {
+    /**
+     * The agent's search_everything may search it; Messages is off until the owner allows it
+     */
+    agent: boolean;
     /**
      * The first pass reached the end
      */
@@ -8284,6 +8337,25 @@ export interface SkillsSetEnabledParams {
 export interface SkillsSetEnabledResult {
     skill: SkillDetails;
 }
+
+export interface SourcesBlock {
+    cited: string[];
+    items: AnswerSource[];
+    type:  SourcesBlockType;
+}
+
+export interface AnswerSource {
+    date:       string;
+    id:         string;
+    kind:       string;
+    provenance: Provenance;
+    route?:     null | string;
+    source:     string;
+    span:       string;
+    title:      string;
+}
+
+export type SourcesBlockType = "sources";
 
 export interface SpecialistProgressPayload {
     budget: RunBudget;

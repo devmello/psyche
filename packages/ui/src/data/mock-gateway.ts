@@ -146,7 +146,9 @@ export interface MockWorld {
   memoryClaims: MemoryClaim[];
   searchHits: SearchHit[];
   searchSources: {
-    sources: Partial<Record<string, { enabled: boolean; processing: "cloud" | "local" | "none" }>>;
+    sources: Partial<
+      Record<string, { enabled: boolean; processing: "cloud" | "local" | "none"; agent: boolean }>
+    >;
     exclude: { contacts: string[]; chats: string[]; accounts: string[]; folders: string[] };
   };
   /** The people and projects graph (`memory.entities.*`); absent → empty. */
@@ -355,12 +357,17 @@ export class MockGateway implements GatewayClient {
     const cfg = this.world.searchSources;
     return {
       sources: ids.map((id) => {
-        const c = cfg.sources[id] ?? { enabled: false, processing: "cloud" as const };
+        const c = cfg.sources[id] ?? {
+          enabled: false,
+          processing: "cloud" as const,
+          agent: id !== "messages",
+        };
         return {
           id,
           label: labels[id],
           enabled: c.enabled,
           processing: c.processing,
+          agent: c.agent,
           state: c.enabled ? ("idle" as const) : ("off" as const),
           items: c.enabled ? 120 : 0,
           textBytes: c.enabled ? 480_000 : 0,
@@ -2243,10 +2250,15 @@ export class MockGateway implements GatewayClient {
     "search.sources.configure": (p) => {
       const cfg = this.world.searchSources;
       if (p.source !== undefined) {
-        const cur = cfg.sources[p.source] ?? { enabled: false, processing: "cloud" as const };
+        const cur = cfg.sources[p.source] ?? {
+          enabled: false,
+          processing: "cloud" as const,
+          agent: p.source !== "messages",
+        };
         cfg.sources[p.source] = {
           enabled: p.enabled ?? cur.enabled,
           processing: p.processing ?? cur.processing,
+          agent: p.agent ?? cur.agent,
         };
       }
       if (p.exclude !== undefined) Object.assign(cfg.exclude, p.exclude);

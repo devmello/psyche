@@ -10,6 +10,7 @@
 //   let actionProposalStatus = try? JSONDecoder().decode(ActionProposalStatus.self, from: jsonData)
 //   let actionRule = try? JSONDecoder().decode(ActionRule.self, from: jsonData)
 //   let agentNote = try? JSONDecoder().decode(AgentNote.self, from: jsonData)
+//   let answerSource = try? JSONDecoder().decode(AnswerSource.self, from: jsonData)
 //   let appLinkBlock = try? JSONDecoder().decode(AppLinkBlock.self, from: jsonData)
 //   let appleAlarm = try? JSONDecoder().decode(AppleAlarm.self, from: jsonData)
 //   let appleBusyBlock = try? JSONDecoder().decode(AppleBusyBlock.self, from: jsonData)
@@ -986,6 +987,7 @@
 //   let screenRect = try? JSONDecoder().decode(ScreenRect.self, from: jsonData)
 //   let searchBackfillState = try? JSONDecoder().decode(SearchBackfillState.self, from: jsonData)
 //   let searchBackfillStatus = try? JSONDecoder().decode(SearchBackfillStatus.self, from: jsonData)
+//   let searchChipKind = try? JSONDecoder().decode(SearchChipKind.self, from: jsonData)
 //   let searchExclusions = try? JSONDecoder().decode(SearchExclusions.self, from: jsonData)
 //   let searchGroup = try? JSONDecoder().decode(SearchGroup.self, from: jsonData)
 //   let searchHit = try? JSONDecoder().decode(SearchHit.self, from: jsonData)
@@ -995,10 +997,13 @@
 //   let searchIndexStatus = try? JSONDecoder().decode(SearchIndexStatus.self, from: jsonData)
 //   let searchMatch = try? JSONDecoder().decode(SearchMatch.self, from: jsonData)
 //   let searchProcessing = try? JSONDecoder().decode(SearchProcessing.self, from: jsonData)
+//   let searchQueryChip = try? JSONDecoder().decode(SearchQueryChip.self, from: jsonData)
+//   let searchQueryIntent = try? JSONDecoder().decode(SearchQueryIntent.self, from: jsonData)
 //   let searchQueryParams = try? JSONDecoder().decode(SearchQueryParams.self, from: jsonData)
 //   let searchQueryResult = try? JSONDecoder().decode(SearchQueryResult.self, from: jsonData)
 //   let searchReindexParams = try? JSONDecoder().decode(SearchReindexParams.self, from: jsonData)
 //   let searchReindexResult = try? JSONDecoder().decode(SearchReindexResult.self, from: jsonData)
+//   let searchRelaxed = try? JSONDecoder().decode(SearchRelaxed.self, from: jsonData)
 //   let searchScope = try? JSONDecoder().decode(SearchScope.self, from: jsonData)
 //   let searchSemanticBlock = try? JSONDecoder().decode(SearchSemanticBlock.self, from: jsonData)
 //   let searchSemanticEngine = try? JSONDecoder().decode(SearchSemanticEngine.self, from: jsonData)
@@ -1012,6 +1017,7 @@
 //   let searchSourcesRebuildParams = try? JSONDecoder().decode(SearchSourcesRebuildParams.self, from: jsonData)
 //   let searchSourcesStatus = try? JSONDecoder().decode(SearchSourcesStatus.self, from: jsonData)
 //   let searchStatusParams = try? JSONDecoder().decode(SearchStatusParams.self, from: jsonData)
+//   let searchUnderstood = try? JSONDecoder().decode(SearchUnderstood.self, from: jsonData)
 //   let selfConnectorFile = try? JSONDecoder().decode(SelfConnectorFile.self, from: jsonData)
 //   let selfConnectorFilesResult = try? JSONDecoder().decode(SelfConnectorFilesResult.self, from: jsonData)
 //   let selfConnectorFilesWriteResult = try? JSONDecoder().decode(SelfConnectorFilesWriteResult.self, from: jsonData)
@@ -1069,6 +1075,7 @@
 //   let skillsSetEnabledParams = try? JSONDecoder().decode(SkillsSetEnabledParams.self, from: jsonData)
 //   let skillsSetEnabledResult = try? JSONDecoder().decode(SkillsSetEnabledResult.self, from: jsonData)
 //   let sourcedLine = try? JSONDecoder().decode(SourcedLine.self, from: jsonData)
+//   let sourcesBlock = try? JSONDecoder().decode(SourcesBlock.self, from: jsonData)
 //   let specialistAutomation = try? JSONDecoder().decode(SpecialistAutomation.self, from: jsonData)
 //   let specialistBudgetSetting = try? JSONDecoder().decode(SpecialistBudgetSetting.self, from: jsonData)
 //   let specialistFinding = try? JSONDecoder().decode(SpecialistFinding.self, from: jsonData)
@@ -8539,6 +8546,7 @@ public struct Block: Codable, Sendable {
     public let actions: [WrapUpAction]?
     public let ask: String?
     public let recap: String?
+    public let cited: [String]?
     public let compactionID: String?
     public let replaced: Replaced?
     public let summary: CompactionSummary?
@@ -8576,6 +8584,7 @@ public struct Block: Codable, Sendable {
         case actions = "actions"
         case ask = "ask"
         case recap = "recap"
+        case cited = "cited"
         case compactionID = "compactionId"
         case replaced = "replaced"
         case summary = "summary"
@@ -8590,7 +8599,7 @@ public struct Block: Codable, Sendable {
         case route = "route"
     }
 
-    public init(md: String?, type: BlockType, level1: String?, status: ToolCallStatus?, tool: String?, toolCallID: String?, planID: String?, items: [ItemElement]?, approvalID: String?, inputRequestID: String?, artifactID: String?, preview: String?, libraryItemID: String?, id: String?, kind: BlockKind?, source: String?, title: String?, url: String?, receiptID: String?, taskID: String?, actions: [WrapUpAction]?, ask: String?, recap: String?, compactionID: String?, replaced: Replaced?, summary: CompactionSummary?, tokensAfter: Int?, tokensBefore: Int?, trigger: BlockTrigger?, feedbackID: String?, lessonID: String?, messageID: String?, statement: String?, proposal: DailyWorkflowProposal?, route: String?) {
+    public init(md: String?, type: BlockType, level1: String?, status: ToolCallStatus?, tool: String?, toolCallID: String?, planID: String?, items: [ItemElement]?, approvalID: String?, inputRequestID: String?, artifactID: String?, preview: String?, libraryItemID: String?, id: String?, kind: BlockKind?, source: String?, title: String?, url: String?, receiptID: String?, taskID: String?, actions: [WrapUpAction]?, ask: String?, recap: String?, cited: [String]?, compactionID: String?, replaced: Replaced?, summary: CompactionSummary?, tokensAfter: Int?, tokensBefore: Int?, trigger: BlockTrigger?, feedbackID: String?, lessonID: String?, messageID: String?, statement: String?, proposal: DailyWorkflowProposal?, route: String?) {
         self.md = md
         self.type = type
         self.level1 = level1
@@ -8614,6 +8623,7 @@ public struct Block: Codable, Sendable {
         self.actions = actions
         self.ask = ask
         self.recap = recap
+        self.cited = cited
         self.compactionID = compactionID
         self.replaced = replaced
         self.summary = summary
@@ -8654,8 +8664,13 @@ public struct ItemElement: Codable, Sendable {
     public let threadID: String?
     public let title: String?
     public let date: String?
+    public let id: String?
+    public let kind: String?
+    public let provenance: Provenance?
+    public let route: String?
+    public let source: String?
+    public let span: String?
     public let factID: String?
-    public let kind: LearnedFactKind?
 
     public enum CodingKeys: String, CodingKey {
         case status = "status"
@@ -8665,11 +8680,16 @@ public struct ItemElement: Codable, Sendable {
         case threadID = "threadId"
         case title = "title"
         case date = "date"
-        case factID = "factId"
+        case id = "id"
         case kind = "kind"
+        case provenance = "provenance"
+        case route = "route"
+        case source = "source"
+        case span = "span"
+        case factID = "factId"
     }
 
-    public init(status: ChecklistItemStatus?, text: String?, lastMessageAt: String?, snippet: String?, threadID: String?, title: String?, date: String?, factID: String?, kind: LearnedFactKind?) {
+    public init(status: ChecklistItemStatus?, text: String?, lastMessageAt: String?, snippet: String?, threadID: String?, title: String?, date: String?, id: String?, kind: String?, provenance: Provenance?, route: String?, source: String?, span: String?, factID: String?) {
         self.status = status
         self.text = text
         self.lastMessageAt = lastMessageAt
@@ -8677,18 +8697,21 @@ public struct ItemElement: Codable, Sendable {
         self.threadID = threadID
         self.title = title
         self.date = date
-        self.factID = factID
+        self.id = id
         self.kind = kind
+        self.provenance = provenance
+        self.route = route
+        self.source = source
+        self.span = span
+        self.factID = factID
     }
 }
 
-public enum LearnedFactKind: String, Codable, Sendable {
-    case name = "name"
-    case other = "other"
-    case person = "person"
-    case preference = "preference"
-    case project = "project"
-    case routine = "routine"
+public enum Provenance: String, Codable, Sendable {
+    case agent = "agent"
+    case owner = "owner"
+    case system = "system"
+    case untrusted = "untrusted"
 }
 
 public enum ChecklistItemStatus: String, Codable, Sendable {
@@ -8770,6 +8793,7 @@ public enum BlockType: String, Codable, Sendable {
     case question = "question"
     case receipt = "receipt"
     case relatedThreads = "related_threads"
+    case sources = "sources"
     case specialistResult = "specialist_result"
     case task = "task"
     case taught = "taught"
@@ -9036,13 +9060,6 @@ public enum LessonKind: String, Codable, Sendable {
     case fact = "fact"
     case parameter = "parameter"
     case style = "style"
-}
-
-public enum Provenance: String, Codable, Sendable {
-    case agent = "agent"
-    case owner = "owner"
-    case system = "system"
-    case untrusted = "untrusted"
 }
 
 public enum MessageRole: String, Codable, Sendable {
@@ -15240,6 +15257,15 @@ public struct LearnedFact: Codable, Sendable {
         self.text = text
         self.threadID = threadID
     }
+}
+
+public enum LearnedFactKind: String, Codable, Sendable {
+    case name = "name"
+    case other = "other"
+    case person = "person"
+    case preference = "preference"
+    case project = "project"
+    case routine = "routine"
 }
 
 public enum LearnedBlockType: String, Codable, Sendable {
@@ -23048,17 +23074,21 @@ public enum SearchSemanticState: String, Codable, Sendable {
 
 // MARK: - SearchQueryParams
 public struct SearchQueryParams: Codable, Sendable {
+    /// Ids of understood chips the user removed
+    public let dropChips: [String]?
     public let limit: Int?
     public let query: String
     public let scopes: [SearchScope]?
 
     public enum CodingKeys: String, CodingKey {
+        case dropChips = "dropChips"
         case limit = "limit"
         case query = "query"
         case scopes = "scopes"
     }
 
-    public init(limit: Int?, query: String, scopes: [SearchScope]?) {
+    public init(dropChips: [String]?, limit: Int?, query: String, scopes: [SearchScope]?) {
+        self.dropChips = dropChips
         self.limit = limit
         self.query = query
         self.scopes = scopes
@@ -23084,6 +23114,7 @@ public struct SearchQueryResult: Codable, Sendable {
     public let groups: [SearchHitGroup]?
     public let hits: [SearchHit]
     public let total: Int?
+    public let understood: SearchUnderstood?
     /// Filter tokens that were not understood
     public let warnings: [String]?
 
@@ -23091,13 +23122,15 @@ public struct SearchQueryResult: Codable, Sendable {
         case groups = "groups"
         case hits = "hits"
         case total = "total"
+        case understood = "understood"
         case warnings = "warnings"
     }
 
-    public init(groups: [SearchHitGroup]?, hits: [SearchHit], total: Int?, warnings: [String]?) {
+    public init(groups: [SearchHitGroup]?, hits: [SearchHit], total: Int?, understood: SearchUnderstood?, warnings: [String]?) {
         self.groups = groups
         self.hits = hits
         self.total = total
+        self.understood = understood
         self.warnings = warnings
     }
 }
@@ -23234,6 +23267,78 @@ public enum SearchMatch: String, Codable, Sendable {
     case semantic = "semantic"
 }
 
+// MARK: - SearchUnderstood
+public struct SearchUnderstood: Codable, Sendable {
+    public let chips: [SearchQueryChip]
+    public let intent: SearchQueryIntent
+    /// Read as a question rather than run as typed
+    public let natural: Bool
+    /// The query that produced the results
+    public let query: String
+    public let relaxed: SearchRelaxed
+
+    public enum CodingKeys: String, CodingKey {
+        case chips = "chips"
+        case intent = "intent"
+        case natural = "natural"
+        case query = "query"
+        case relaxed = "relaxed"
+    }
+
+    public init(chips: [SearchQueryChip], intent: SearchQueryIntent, natural: Bool, query: String, relaxed: SearchRelaxed) {
+        self.chips = chips
+        self.intent = intent
+        self.natural = natural
+        self.query = query
+        self.relaxed = relaxed
+    }
+}
+
+// MARK: - SearchQueryChip
+public struct SearchQueryChip: Codable, Sendable {
+    /// Pass it in `dropChips` to turn the chip off
+    public let id: String
+    public let kind: SearchChipKind
+    /// time: the phrase as typed; person: the name; source: mail, imessage, notes, calendar,
+    /// reminders or files; type: pdf, image, sheet or slides
+    public let label: String
+    /// The query-language filter the chip stands for
+    public let token: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case kind = "kind"
+        case label = "label"
+        case token = "token"
+    }
+
+    public init(id: String, kind: SearchChipKind, label: String, token: String) {
+        self.id = id
+        self.kind = kind
+        self.label = label
+        self.token = token
+    }
+}
+
+public enum SearchChipKind: String, Codable, Sendable {
+    case person = "person"
+    case source = "source"
+    case time = "time"
+    case type = "type"
+}
+
+public enum SearchQueryIntent: String, Codable, Sendable {
+    case answer = "answer"
+    case find = "find"
+    case list = "list"
+}
+
+public enum SearchRelaxed: String, Codable, Sendable {
+    case filters = "filters"
+    case none = "none"
+    case or = "or"
+}
+
 // MARK: - SearchReindexResult
 public struct SearchReindexResult: Codable, Sendable {
     /// False when a run was already in flight
@@ -23250,19 +23355,22 @@ public struct SearchReindexResult: Codable, Sendable {
 
 // MARK: - SearchSourcesConfigureParams
 public struct SearchSourcesConfigureParams: Codable, Sendable {
+    public let agent: Bool?
     public let enabled: Bool?
     public let exclude: Exclude?
     public let processing: SearchProcessing?
     public let source: SearchSourceID?
 
     public enum CodingKeys: String, CodingKey {
+        case agent = "agent"
         case enabled = "enabled"
         case exclude = "exclude"
         case processing = "processing"
         case source = "source"
     }
 
-    public init(enabled: Bool?, exclude: Exclude?, processing: SearchProcessing?, source: SearchSourceID?) {
+    public init(agent: Bool?, enabled: Bool?, exclude: Exclude?, processing: SearchProcessing?, source: SearchSourceID?) {
+        self.agent = agent
         self.enabled = enabled
         self.exclude = exclude
         self.processing = processing
@@ -23364,6 +23472,8 @@ public struct SearchExclusions: Codable, Sendable {
 
 // MARK: - SearchSourceStatus
 public struct SearchSourceStatus: Codable, Sendable {
+    /// The agent's search_everything may search it; Messages is off until the owner allows it
+    public let agent: Bool
     /// The first pass reached the end
     public let backfilled: Bool
     /// Why it cannot run, or the last error
@@ -23381,6 +23491,7 @@ public struct SearchSourceStatus: Codable, Sendable {
     public let textBytes: Int
 
     public enum CodingKeys: String, CodingKey {
+        case agent = "agent"
         case backfilled = "backfilled"
         case detail = "detail"
         case enabled = "enabled"
@@ -23393,7 +23504,8 @@ public struct SearchSourceStatus: Codable, Sendable {
         case textBytes = "textBytes"
     }
 
-    public init(backfilled: Bool, detail: String?, enabled: Bool, id: SearchSourceID, items: Int, label: String, lastIndexedAt: Int?, processing: SearchProcessing, state: SearchSourceState, textBytes: Int) {
+    public init(agent: Bool, backfilled: Bool, detail: String?, enabled: Bool, id: SearchSourceID, items: Int, label: String, lastIndexedAt: Int?, processing: SearchProcessing, state: SearchSourceState, textBytes: Int) {
+        self.agent = agent
         self.backfilled = backfilled
         self.detail = detail
         self.enabled = enabled
@@ -24563,6 +24675,63 @@ public struct SkillsSetEnabledResult: Codable, Sendable {
     public init(skill: SkillDetails) {
         self.skill = skill
     }
+}
+
+// MARK: - SourcesBlock
+public struct SourcesBlock: Codable, Sendable {
+    public let cited: [String]
+    public let items: [AnswerSource]
+    public let type: SourcesBlockType
+
+    public enum CodingKeys: String, CodingKey {
+        case cited = "cited"
+        case items = "items"
+        case type = "type"
+    }
+
+    public init(cited: [String], items: [AnswerSource], type: SourcesBlockType) {
+        self.cited = cited
+        self.items = items
+        self.type = type
+    }
+}
+
+// MARK: - AnswerSource
+public struct AnswerSource: Codable, Sendable {
+    public let date: String
+    public let id: String
+    public let kind: String
+    public let provenance: Provenance
+    public let route: String?
+    public let source: String
+    public let span: String
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case date = "date"
+        case id = "id"
+        case kind = "kind"
+        case provenance = "provenance"
+        case route = "route"
+        case source = "source"
+        case span = "span"
+        case title = "title"
+    }
+
+    public init(date: String, id: String, kind: String, provenance: Provenance, route: String?, source: String, span: String, title: String) {
+        self.date = date
+        self.id = id
+        self.kind = kind
+        self.provenance = provenance
+        self.route = route
+        self.source = source
+        self.span = span
+        self.title = title
+    }
+}
+
+public enum SourcesBlockType: String, Codable, Sendable {
+    case sources = "sources"
 }
 
 // MARK: - SpecialistProgressPayload

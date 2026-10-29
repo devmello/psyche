@@ -1037,6 +1037,8 @@ export const settings = {
   "settings.searchSources.lastIndexed": "Last indexed {when}",
   "settings.searchSources.rebuild": "Rebuild",
   "settings.searchSources.rebuildLabel": "Rebuild {source}",
+  "settings.searchSources.agent": "Let Psyche's agent search this",
+  "settings.searchSources.agentLabel": "Agent search for {source}",
   "settings.searchSources.processing": "Processing",
   "settings.searchSources.processingLabel": "Processing for {source}",
   "settings.searchSources.processing.cloud": "Cloud model (current)",

@@ -73,6 +73,7 @@ export function SearchSourcesSettingsGroup({
     source?: SearchSourceId;
     enabled?: boolean;
     processing?: "cloud" | "local" | "none";
+    agent?: boolean;
     exclude?: { contacts?: string[]; folders?: string[] };
   }) => void | Promise<void>;
   onRebuild?: (source: SearchSourceId) => void | Promise<void>;
@@ -124,6 +125,17 @@ export function SearchSourcesSettingsGroup({
                 </Button>
               ) : null}
             </div>
+            {s.enabled ? (
+              <label className="flex items-center gap-2 pt-1 text-caption text-label-secondary">
+                <input
+                  type="checkbox"
+                  checked={s.agent}
+                  aria-label={t("settings.searchSources.agentLabel", { source: s.label })}
+                  onChange={(e) => void configure({ source: s.id, agent: e.target.checked })}
+                />
+                {t("settings.searchSources.agent")}
+              </label>
+            ) : null}
             {s.enabled ? (
               <label className="flex items-center gap-2 pt-1 text-caption text-label-secondary">
                 {t("settings.searchSources.processing")}

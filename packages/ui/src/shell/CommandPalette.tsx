@@ -157,6 +157,8 @@ export function CommandPalette({
             onQueryChange={search.setQuery}
             hits={search.hits}
             parsed={search.parsed}
+            {...(search.understood ? { understood: search.understood } : {})}
+            onDropChip={search.dropChip}
             loading={search.loading}
             loadingDelayMs={150}
             error={search.error}
