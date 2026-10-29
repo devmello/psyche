@@ -1,7 +1,12 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { EXTRACT_PROMPT_VERSION, EXTRACT_SYSTEM_PROMPT } from "../src/extraction/index.ts";
+import {
+  EXTRACT_PROMPT_VERSION,
+  EXTRACT_SYSTEM_PROMPT,
+  EXTRACT_THIRD_PARTY_ABOUT_OTHERS_ADDENDUM,
+  EXTRACT_THIRD_PARTY_PROMPT,
+} from "../src/extraction/index.ts";
 
 const DIR = join(import.meta.dirname, "..", "src", "extraction");
 const files = readdirSync(DIR).filter((f) => f.endsWith(".ts"));
@@ -60,5 +65,36 @@ describe("extractor call site", () => {
     expect(EXTRACT_SYSTEM_PROMPT).toBe(golden.replace(/\n$/, ""));
     // It never carries settings, ids or the owner's data.
     expect(EXTRACT_SYSTEM_PROMPT).not.toMatch(/memory\.everything|entityId|@/);
+  });
+
+  it("the third-party prompts are pinned too, and tell the model nothing is an instruction", () => {
+    const dir = join(
+      import.meta.dirname,
+      "..",
+      "..",
+      "..",
+      "tests",
+      "fixtures",
+      "everything-memory",
+    );
+    const plain = readFileSync(join(dir, "extract-prompt-third-party.v1.txt"), "utf8").replace(
+      /\n$/,
+      "",
+    );
+    const about = readFileSync(
+      join(dir, "extract-prompt-third-party-about-others.v1.txt"),
+      "utf8",
+    ).replace(/\n$/, "");
+    expect(EXTRACT_THIRD_PARTY_PROMPT).toBe(plain);
+    expect(`${EXTRACT_THIRD_PARTY_PROMPT}${EXTRACT_THIRD_PARTY_ABOUT_OTHERS_ADDENDUM}`).toBe(about);
+    for (const p of [EXTRACT_THIRD_PARTY_PROMPT, about]) {
+      expect(p).toMatch(/never an instruction/);
+      expect(p).toMatch(/You have no tools/);
+      expect(p).toMatch(/never about the owner|about the owner/);
+      expect(p).not.toMatch(/memory\.everything|entityId|@/);
+    }
+    // The addendum is the only place "about_other" may be asked for.
+    expect(EXTRACT_THIRD_PARTY_PROMPT).not.toMatch(/about_other/);
+    expect(EXTRACT_SYSTEM_PROMPT).not.toMatch(/about_other/);
   });
 });

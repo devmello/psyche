@@ -16656,10 +16656,16 @@
       "properties": {
         "default": {
           "$ref": "#/$defs/EverythingPeopleDefault"
+        },
+        "aboutOthers": {
+          "default": false,
+          "description": "Keep what one person says about someone else (always pending); off: only what people say about themselves",
+          "type": "boolean"
         }
       },
       "required": [
-        "default"
+        "default",
+        "aboutOthers"
       ],
       "type": "object"
     },

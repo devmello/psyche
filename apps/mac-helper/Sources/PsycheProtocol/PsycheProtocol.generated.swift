@@ -11812,13 +11812,18 @@ public enum SearchProcessing: String, Codable, Sendable {
 
 // MARK: - EverythingPeopleSetting
 public struct EverythingPeopleSetting: Codable, Sendable {
+    /// Keep what one person says about someone else (always pending); off: only what people say
+    /// about themselves
+    public let aboutOthers: Bool
     public let everythingPeopleSettingDefault: EverythingPeopleDefaultOut
 
     public enum CodingKeys: String, CodingKey {
+        case aboutOthers = "aboutOthers"
         case everythingPeopleSettingDefault = "default"
     }
 
-    public init(everythingPeopleSettingDefault: EverythingPeopleDefaultOut) {
+    public init(aboutOthers: Bool, everythingPeopleSettingDefault: EverythingPeopleDefaultOut) {
+        self.aboutOthers = aboutOthers
         self.everythingPeopleSettingDefault = everythingPeopleSettingDefault
     }
 }

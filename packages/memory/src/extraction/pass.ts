@@ -127,8 +127,8 @@ const cursorKey = (s: ReadableSource) => `everything:${s}`;
 export function validationSettings(settings: EverythingMemorySettings): ValidationSettings {
   return {
     sensitive: settings.sensitive,
-    // Facts one person's text asserts about another: third-party text only, off until EM5.
-    allowAboutOther: false,
+    // What one person says about another: off unless the owner allows it (EM5); always pending.
+    allowAboutOther: settings.people.aboutOthers,
     autoAcceptOwnerAuthored: settings.review.autoAcceptOwnerAuthored,
   };
 }
@@ -178,6 +178,8 @@ function words(s: string): string {
 
 interface Prepared {
   item: BatchItem;
+  /** The person who wrote an `untrusted` item. */
+  author?: GraphEntity;
   mentions: GraphEntity[];
   group: string;
   tokens: number;
@@ -250,6 +252,7 @@ export async function runEverythingPass(deps: PassDeps): Promise<PassReport> {
         const page = deps.reader.read(source, cursor, {
           limit: PAGE_ITEMS,
           windowDays: CATCH_UP_DAYS,
+          includeUntrusted: readsOthers(settings),
         });
         if (page.next === undefined) break;
         report.itemsRead += page.items.length + page.skippedUntrusted;
@@ -312,6 +315,53 @@ export async function runEverythingPass(deps: PassDeps): Promise<PassReport> {
   return report;
 }
 
+/** Other people's text is read unless the owner chose to hear only from people they pick. */
+export const readsOthers = (s: EverythingMemorySettings): boolean => s.people.default !== "chosen";
+
+/** Senders no one writes back to: lists, no-reply and role addresses (§6.3). */
+const BULK_SENDER =
+  /(?:^|[<\s])(?:no-?reply|do-?not-?reply|donotreply|mailer-daemon|postmaster|bounces?|newsletter|notifications?|alerts?|updates?|news|marketing|promo(?:tions)?|offers?|deals|billing|invoice|receipts?|support|help|info|hello|team|admin|sales|orders?|shipping|security|accounts?)(?:[+.-][\w.-]*)?@/i;
+
+const ADDRESS = /[\w.+'-]+@[\w-]+(?:\.[\w-]+)+/;
+const NUMBER = /\+?\d[\d\s().-]{6,}\d/;
+
+/**
+ * Who wrote an item the owner did not (§10.1, §6.3). Returns the person if their text may be
+ * read, else undefined. Checked before the item is cleaned, parsed or batched, so an excluded,
+ * bulk, unknown or not-included sender's text never goes further.
+ */
+function admitSender(sender: string | null, deps: PassDeps): GraphEntity | undefined {
+  if (sender === null || sender.trim() === "") return undefined;
+  const { graph, em, settings } = deps;
+  if (BULK_SENDER.test(sender)) return undefined;
+  const email = ADDRESS.exec(sender)?.[0];
+  const phone = email === undefined ? NUMBER.exec(sender)?.[0] : undefined;
+  if (email === undefined && phone === undefined) return undefined;
+  const kind = email === undefined ? "phone" : "email";
+  const value = (email ?? phone) as string;
+  // An excluded address, number or domain is never read, even if it maps to no one yet.
+  if (em.isExcluded(kind, value) || graph.isBlocked(kind, value)) return undefined;
+  const id = graph.resolveIdentifier(kind, value);
+  if (id === undefined) return undefined;
+  const entity = graph.getEntity(graph.resolveMerged(id));
+  if (
+    entity === undefined ||
+    entity.isOwner ||
+    entity.hidden ||
+    entity.status !== "active" ||
+    entity.kind !== "person" ||
+    em.isEntityExcluded(entity.id)
+  ) {
+    return undefined;
+  }
+  const policy = settings.people.default;
+  const included =
+    policy === "everyone" ||
+    (policy === "contacts" && graph.isContact(entity.id)) ||
+    (policy === "two_way" && graph.isTwoWay(entity.id));
+  return included ? entity : undefined;
+}
+
 /** Pre-filter (§6.3) and cleaning. Items the model never needs to see are settled here. */
 function prepare(
   items: OwnerItem[],
@@ -325,6 +375,16 @@ function prepare(
     "SELECT source_hash FROM memory_extracted_items WHERE source = ? AND source_ref = ?",
   );
   for (const it of items) {
+    let author: GraphEntity | undefined;
+    if (it.trust === "untrusted") {
+      // Other people's text: whose it is decides whether it is read at all, before any parsing.
+      const verdict = admitSender(it.sender, deps);
+      if (verdict === undefined) {
+        report.itemsFiltered++;
+        continue;
+      }
+      author = verdict;
+    }
     const cleaned = cleanItemText(`${it.title}\n\n${it.body}`.trim(), { format: "text" });
     if (cleaned.text.length < MIN_ITEM_CHARS) {
       report.itemsFiltered++;
@@ -341,7 +401,7 @@ function prepare(
       handle: "",
       source: citationSource(it.source),
       sourceRef: it.docId,
-      trust: "owner",
+      trust: it.trust,
       authorHandle: "p0",
       participantHandles: [],
       mentionHandles: [],
@@ -351,17 +411,23 @@ function prepare(
       hiddenRemoved: cleaned.hiddenRemoved,
       rawLength: cleaned.rawLength,
       visibleLength: cleaned.visibleLength,
+      ...(it.trust === "untrusted" ? { fields: [it.sender ?? ""] } : {}),
     };
     const screened = screenItem({
       text: item.text,
-      trust: "owner",
+      trust: it.trust,
       hiddenRemoved: cleaned.hiddenRemoved,
+      // The sender's display name is attacker-controlled text too.
+      ...(it.trust === "untrusted" ? { fields: [it.sender ?? ""] } : {}),
+      rawLength: cleaned.rawLength,
+      visibleLength: cleaned.visibleLength,
     }).reasons as QuarantineReason[];
     if (screened.length > 0) {
       // The model never sees an item that trips the deterministic screen.
       sink.quarantine({
         source: item.source,
         sourceRef: item.sourceRef,
+        ...(author === undefined ? {} : { senderEntityId: author.id }),
         reasons: screened,
         excerpt: item.text.slice(0, 300),
       });
@@ -371,8 +437,10 @@ function prepare(
     }
     out.push({
       item,
-      mentions,
-      group: it.threadId ?? `${it.source}:${new Date(it.createdMs).toISOString().slice(0, 10)}`,
+      ...(author === undefined ? {} : { author }),
+      mentions: mentions.filter((m) => m.id !== author?.id),
+      // Never mix the owner's words and other people's in one call: they use different prompts.
+      group: `${it.trust}:${it.threadId ?? `${it.source}:${new Date(it.createdMs).toISOString().slice(0, 10)}`}`,
       tokens: estimateExtractTokens(item.text) + 30,
     });
   }
@@ -439,18 +507,31 @@ async function runBatch(
   // Opaque handles: p0 is the owner, then each person named in the batch; i1.. are the items.
   const people = new Map<string, { handle: string; entity: GraphEntity }>();
   const candidates: BatchCandidate[] = [{ handle: "p0", entityId: owner.id, isOwner: true }];
-  const items: BatchItem[] = batch.map((p, i) => {
-    const mentionHandles: string[] = [];
-    for (const m of p.mentions) {
-      let h = people.get(m.id);
-      if (h === undefined) {
-        h = { handle: `p${people.size + 1}`, entity: m };
-        people.set(m.id, h);
-        candidates.push({ handle: h.handle, entityId: m.id, isOwner: false });
-      }
-      mentionHandles.push(h.handle);
+  const handleOf = (e: GraphEntity, firstSeen?: string): string => {
+    let h = people.get(e.id);
+    if (h === undefined) {
+      h = { handle: `p${people.size + 1}`, entity: e };
+      people.set(e.id, h);
+      candidates.push({
+        handle: h.handle,
+        entityId: e.id,
+        isOwner: false,
+        ...(firstSeen === undefined ? {} : { firstSeenAt: firstSeen }),
+      });
     }
-    return { ...p.item, handle: `i${i + 1}`, mentionHandles, participantHandles: mentionHandles };
+    return h.handle;
+  };
+  const items: BatchItem[] = batch.map((p, i) => {
+    const authorHandle = p.author === undefined ? "p0" : handleOf(p.author, p.author.createdAt);
+    const mentionHandles = p.mentions.map((m) => handleOf(m));
+    return {
+      ...p.item,
+      handle: `i${i + 1}`,
+      authorHandle,
+      mentionHandles,
+      // The owner receives what others wrote; the people named are in the item.
+      participantHandles: p.author === undefined ? mentionHandles : ["p0", ...mentionHandles],
+    };
   });
   const listing = [
     { handle: "p0", name: owner.name, isOwner: true },
@@ -464,6 +545,7 @@ async function runBatch(
       model: choice.model,
       items,
       people: listing,
+      aboutOthers: vset.allowAboutOther,
       ...(deps.signal === undefined ? {} : { signal: deps.signal }),
     });
     // Providers that report usage are trusted; otherwise estimate from what was sent.

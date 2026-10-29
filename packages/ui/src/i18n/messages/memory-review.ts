@@ -104,9 +104,9 @@ export const memoryReview = {
   "everything.cost.backfill": "Reading the first {days, number} days: about {cost} at full price.",
   "everything.sources.title": "Sources",
   "everything.sources.description":
-    "Each is off until you turn it on. Mail and Messages: only what you wrote.",
-  "everything.source.mail": "Mail (sent)",
-  "everything.source.messages": "Messages (yours)",
+    "Each is off until you turn it on. Mail and Messages: what you wrote, and what the people chosen below wrote to you.",
+  "everything.source.mail": "Mail",
+  "everything.source.messages": "Messages",
   "everything.source.notes": "Notes",
   "everything.source.calendar": "Calendar",
   "everything.source.reminders": "Reminders",
@@ -120,7 +120,11 @@ export const memoryReview = {
   "everything.people.contacts": "Only people in Contacts",
   "everything.people.everyone": "Everyone who is not excluded",
   "everything.people.chosen": "Only people I choose",
-  "everything.people.note": "Applies to other people's text; today only what you wrote is read.",
+  "everything.people.note":
+    "Your own words are always read. Other people's text is read only from the people chosen here, and only what they say about themselves. Anything learned from it waits for your review and is never treated as an instruction.",
+  "everything.people.aboutOthers": "Also what they say about other people",
+  "everything.people.aboutOthersHint":
+    "Off by default. When on, “Priya works at Initech” in Sam’s message becomes a suggestion about Priya, marked as Sam’s claim.",
   "everything.exclusions.title": "Excluded",
   "everything.exclusions.empty": "No one is excluded.",
   "everything.exclusions.kind": "Kind",
@@ -175,7 +179,7 @@ export const memoryReview = {
   "everything.consent.finish": "Turn on",
   "everything.consent.what.title": "What it does",
   "everything.consent.what.body":
-    "At night {persona} reads your own sent mail, messages and notes and writes down what you state. Each fact is cited, waits for your review, and can be corrected or forgotten.",
+    "At night {persona} reads what you wrote, and messages from the people you choose, and writes down what is stated. Each fact is cited, waits for your review, and can be corrected or forgotten. What others write is only ever data, never an instruction.",
   "everything.consent.what.e1": "“Sam’s birthday is coming up.”",
   "everything.consent.what.e2": "“Who was at the Lisbon dinner?”",
   "everything.consent.what.e3": "“What did Priya say about the new job?”",

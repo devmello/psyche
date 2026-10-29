@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-29 (everything memory, EM5)
+
+- `EverythingMemorySettings.people` gains `aboutOthers` (boolean, default false): keep what one person says about someone else, always pending.
+
 ### v1 additive — 2026-10-29 (everything memory, EM6)
 
 - New methods `memory.exclusions.list`, `memory.exclusions.add` (admin; `dryRun` counts a forget), `memory.exclusions.remove` (admin) and types `EverythingExclusion`, `EverythingExclusionMode`. Only a masked hint of an excluded address is ever returned.
