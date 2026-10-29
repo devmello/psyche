@@ -22,6 +22,7 @@ import { overview } from "./overview.ts";
 import { overviewGrowth } from "./overview-growth.ts";
 import { people } from "./people.ts";
 import { research } from "./research.ts";
+import { scheduled } from "./scheduled.ts";
 import { screenAsk } from "./screen-ask.ts";
 import { screens } from "./screens.ts";
 import { selfConnectors } from "./self-connectors.ts";
@@ -80,6 +81,7 @@ export const en = {
   ...overviewGrowth,
   ...capabilities,
   ...research,
+  ...scheduled,
 } as const;
 
 export type MessageId = keyof typeof en;

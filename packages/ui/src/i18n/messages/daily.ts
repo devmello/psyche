@@ -85,6 +85,9 @@ export const daily = {
   "daily.automations.edit": "Edit",
   "daily.automations.save": "Save",
   "daily.automations.delete": "Delete",
+  "daily.automations.count":
+    "{n, plural, =0 {No automations yet.} one {# automation.} other {# automations.}}",
+  "daily.automations.manage": "Manage on Scheduled",
   "daily.automations.paused": "Paused",
   "daily.automations.next": "Next: {when}",
   "daily.automations.failed": "Couldn't update the automation.",

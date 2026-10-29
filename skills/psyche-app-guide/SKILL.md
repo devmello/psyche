@@ -33,6 +33,7 @@ The sidebar's gear opens Settings (⌘,).
 | Feed | `/feed` |
 | Ideas | `/ideas` |
 | Goals | `/goals` |
+| Scheduled | `/scheduled` |
 | Library | `/library/documents` (also `/library/images`, `/library/artifacts`, `/library/downloads`, `/library/system`) |
 | Overview | `/overview` |
 | Inbox | `/inbox` |
@@ -41,11 +42,11 @@ The sidebar's gear opens Settings (⌘,).
 | Run setup again | `/onboarding` |
 | Settings | `/settings/<section>` |
 
-Settings sections (`/settings/…`): `model`, `persona`, `connectors` (also `connectors/mcp`, `connectors/add-mcp`), `skills`, `specialists`, `permissions`, `computer-use`, `browser`, `files`, `vm`, `devices`, `channels`, `credentials`, `appearance`, `notifications`, `voice`, `mail`, `daily`, `data`, `people`, `server`, `usage`, `about`.
+Settings sections (`/settings/…`): `model`, `persona`, `connectors` (also `connectors/mcp`, `connectors/add-mcp`), `skills`, `specialists`, `permissions`, `computer-use`, `browser`, `files`, `vm`, `devices`, `channels`, `credentials`, `appearance`, `notifications`, `voice`, `mail`, `daily`, `data`, `people`, `everything`, `memory`, `server`, `usage`, `about`.
 
 ## The sidebar and chat
 
-**Sidebar** (⌘B toggles it, ⌥⌘B switches full and compact): destinations Chat, Search, Feed, Ideas, Goals, Library (with counts), then the Threads list (side chats, automations' chats and subagents are marked), and a footer with the persona and a gear ("Settings and help"). The gear menu has **What can you do?**, **Settings** (⌘,), **Usage** and **Help** (the About section). Overview opens from the persona.
+**Sidebar** (⌘B toggles it, ⌥⌘B switches full and compact): destinations Chat, Search, Feed, Ideas, Goals, Scheduled, Library (with counts), then the Threads list (side chats, automations' chats and subagents are marked), and a footer with the persona and a gear ("Settings and help"). The gear menu has **What can you do?**, **Settings** (⌘,), **Usage** and **Help** (the About section). Overview opens from the persona.
 
 **Composer**: type `/` for commands. `//text` sends text that starts with a slash. Arguments with known values pop up after the command (`/model `, `/mode `, `/export `).
 
@@ -87,12 +88,14 @@ How to set the brief time: Settings → Daily → Morning brief → Time. Open `
 
 **Automations** are scheduled runs. Ways to create one:
 - Say it in chat ("every weekday at 9am check my UCSC Canvas for new assignments and notify me") or use `/schedule when and what`. Psyche recognises a repeatable routine, plans it, does a trial run with you, then shows ONE card, **Schedule "title"?**, listing every schedule, **What it does**, **Will ask you to approve**, how it notifies. **Schedule** creates the linked runs; **Not now** creates nothing. It can offer to save the steps as a skill afterwards.
-- Settings → Daily → Automations: **Describe the automation**, **Preview**, then confirm with **Create** (starters under **Starters**). Each automation can be Paused/Resumed, Edited, Deleted.
+- Settings → Daily → Automations: **Describe the automation**, **Preview**, then confirm with **Create** (starters under **Starters**). The list of automations is on **Scheduled** (**Manage on Scheduled**), or **New automation** there opens a chat that starts the same flow.
 - Settings → Skills and What can you do? cards ("Add: Morning brief at 7:30 on weekdays").
 
 For a site that needs a login (Canvas, a portal), first sign in once in the Psyche browser and choose **Stay signed in** (see Browser). Automations use that sign-in only on the sites you chose. Each run can still ask for approvals the card listed; a run that cannot ask parks and waits.
 
-Where to see them: `/overview` → **Upcoming** (next runs) and **Recent runs**; `/agent/upcoming`. A run's Timeline opens from Recent runs. **Goals** (`/goals`) holds longer aims; tell Psyche a goal in chat or add one there. Background work (tasks) shows in the chat as task cards and in Overview → Now & next.
+**Scheduled** (`/scheduled`, sidebar → Scheduled) lists everything that runs on a schedule, in two groups: **Your automations** (including the linked runs of a task → automation, such as a 9:00 add and an 11:30 PM check) and **Psyche's routines** (morning brief, evening wrap-up, the nightly memory pass, mail digest, meeting prep, ideas, the heartbeat). Each row shows its schedule in words ("Weekdays at 9:00"), **Next run** (relative and absolute, in your time zone from USER.md), **Last run**, **What it does**, **Approvals it may need** and **Linked runs**. Actions: **Pause** / **Resume**, **Run now** (approvals still wait in Approvals), **Edit** (describe it again, then confirm the same card as when creating; a linked set is changed in a chat), **Delete** (asks first; your automations only) and **History** (every run with status, how long it took, a link to its chat or transcript, and the changes it recorded). Psyche's routines can be paused and run but not deleted; their **Settings** button opens where they are configured (a routine switched off there shows **Turn on in Settings**). With nothing set up, the screen shows examples and a **New automation** button. Open it with `app_navigate` `/scheduled`.
+
+Where else to see them: `/overview` → **Upcoming** (next runs) and **Recent runs**; `/agent/upcoming`. A run's Timeline opens from Recent runs. **Goals** (`/goals`) holds longer aims; tell Psyche a goal in chat or add one there. Background work (tasks) shows in the chat as task cards and in Overview → Now & next.
 
 ## Library and artifacts
 
@@ -136,6 +139,8 @@ Settings opens from the gear or ⌘, at the left a searchable list in groups. Ro
 **Privacy**
 - **Data controls** (`data`): this is Memory. **Pause memory**, **Transcript recall**, **How memory is recalled** (Markdown only, or Markdown plus embeddings), how long to keep thinking and task replays, Export everything, Delete threads, reset memory. Everything stays on this machine.
 - **People & projects** (`people`): the people and projects Psyche tracks, with privacy controls.
+- **Everything memory** (`everything`): off until you turn it on. Psyche reads your own mail, messages and notes at night and writes down what you state (who people are, birthdays, plans); every fact cites the words it came from and waits for you.
+- **Memory review** (`memory`): what Psyche learned from your mail, messages and notes. Tabs **To review**, **Learned lately** (undo within the window) and **Quarantine**; nothing is a fact until you accept it.
 
 **About** (`about`): versions, data folder (Reveal in Finder), **Run checks** (Gateway, sandbox, permissions, vault), Open logs, and **Run setup again** (walks the first-run setup again; finished steps are skipped).
 

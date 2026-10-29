@@ -29,6 +29,7 @@ export const shell = {
   "shell.rail.feed": "Feed",
   "shell.rail.ideas": "Ideas",
   "shell.rail.goals": "Goals",
+  "shell.rail.scheduled": "Scheduled",
   "shell.rail.library": "Library",
   "shell.rail.overview": "Overview",
   "shell.rail.badge": "{label}, {n, number} new",

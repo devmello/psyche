@@ -16,6 +16,7 @@ const RAIL: Record<string, MessageId> = {
   feed: "shell.rail.feed",
   ideas: "shell.rail.ideas",
   goals: "shell.rail.goals",
+  scheduled: "shell.rail.scheduled",
   library: "shell.rail.library",
   overview: "shell.rail.overview",
   inbox: "screens.inbox.title",

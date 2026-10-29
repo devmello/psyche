@@ -12,6 +12,8 @@ import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
+import { useSlots } from "../../slots.tsx";
+import { AutomationDraftCard } from "../scheduled/AutomationDraftCard.tsx";
 import { TimeRow } from "./MailMeetingsSection.tsx";
 import {
   bool,
@@ -109,6 +111,11 @@ export interface AutomationsPanelProps {
   onToggle: (a: Automation) => void;
   onEdit: (a: Automation, patch: { title?: string; prompt?: string }) => void;
   onDelete: (a: Automation) => void;
+  /**
+   * When the host has the Scheduled screen, the list lives there: this panel keeps the "describe
+   * it" box and links to the list instead of repeating it.
+   */
+  onOpenScheduled?: () => void;
 }
 
 /** Plain-language automations: type a sentence, confirm the card, manage the list. */
@@ -124,6 +131,7 @@ export function AutomationsPanel({
   onToggle,
   onEdit,
   onDelete,
+  onOpenScheduled,
 }: AutomationsPanelProps): ReactElement {
   const [text, setText] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
@@ -173,29 +181,23 @@ export function AutomationsPanel({
         </p>
       ) : null}
       {draft ? (
-        <section
-          aria-label={t("daily.automations.confirm.title")}
-          className="flex flex-col gap-2 rounded-md bg-fill-quaternary p-3"
-        >
-          <h3 className="text-headline">{t("daily.automations.confirm.title")}</h3>
-          <p className="text-body">{draft.title}</p>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-callout">
-            <dt className="text-label-secondary">{t("daily.automations.confirm.when")}</dt>
-            <dd>{draft.humanSchedule}</dd>
-            <dt className="text-label-secondary">{t("daily.automations.confirm.does")}</dt>
-            <dd>{draft.prompt}</dd>
-          </dl>
-          <div className="flex gap-2">
-            <Button type="button" disabled={busy} onClick={onConfirm}>
-              {t("daily.automations.confirm.cta")}
-            </Button>
-            <Button type="button" variant="ghost" onClick={onCancelDraft}>
-              {t("daily.automations.confirm.cancel")}
-            </Button>
-          </div>
-        </section>
+        <AutomationDraftCard
+          draft={draft}
+          busy={busy}
+          onConfirm={onConfirm}
+          onCancel={onCancelDraft}
+        />
       ) : null}
-      {automations.length === 0 ? (
+      {onOpenScheduled ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-callout text-label-secondary">
+            {t("daily.automations.count", { n: automations.length })}
+          </span>
+          <Button type="button" size="sm" variant="secondary" onClick={onOpenScheduled}>
+            {t("daily.automations.manage")}
+          </Button>
+        </div>
+      ) : automations.length === 0 ? (
         <p className="text-callout text-label-secondary">{t("daily.automations.empty")}</p>
       ) : (
         <ul
@@ -412,6 +414,7 @@ const isUserAutomation = (a: Automation) =>
 export function DailySection(): ReactElement {
   const form = useSettingsForm();
   const call = useCall();
+  const { navigate } = useSlots();
   const followups = useGatewayQuery("daily.followups.list", {});
   const autos = useGatewayQuery("automations.list", {});
   const templates = useGatewayQuery("daily.automations.templates", {});
@@ -500,6 +503,7 @@ export function DailySection(): ReactElement {
                 .then(() => reloadAutos())
                 .catch((err: unknown) => fail("daily.automations.failed", err))
             }
+            {...(navigate ? { onOpenScheduled: () => navigate("/scheduled") } : {})}
           />
         </Group>
       </DailyPanel>

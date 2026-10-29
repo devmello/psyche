@@ -15,6 +15,7 @@ const ROUTES: readonly RegExp[] = [
   /^\/feed\/instructions$/,
   /^\/ideas$/,
   /^\/goals$/,
+  /^\/scheduled$/,
   new RegExp(`^/goals/${ID}$`),
   /^\/library\/(documents|images|artifacts|downloads|system)$/,
   /^\/agent\/(activity|approvals|upcoming|soul)$/,

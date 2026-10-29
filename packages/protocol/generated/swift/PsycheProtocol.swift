@@ -1029,6 +1029,15 @@
 //   let sandboxStatusParams = try? JSONDecoder().decode(SandboxStatusParams.self, from: jsonData)
 //   let sandboxStatusResult = try? JSONDecoder().decode(SandboxStatusResult.self, from: jsonData)
 //   let scanFinding = try? JSONDecoder().decode(ScanFinding.self, from: jsonData)
+//   let scheduledGroup = try? JSONDecoder().decode(ScheduledGroup.self, from: jsonData)
+//   let scheduledItem = try? JSONDecoder().decode(ScheduledItem.self, from: jsonData)
+//   let scheduledLink = try? JSONDecoder().decode(ScheduledLink.self, from: jsonData)
+//   let scheduledLinkedRun = try? JSONDecoder().decode(ScheduledLinkedRun.self, from: jsonData)
+//   let scheduledListParams = try? JSONDecoder().decode(ScheduledListParams.self, from: jsonData)
+//   let scheduledListResult = try? JSONDecoder().decode(ScheduledListResult.self, from: jsonData)
+//   let scheduledPauseParams = try? JSONDecoder().decode(ScheduledPauseParams.self, from: jsonData)
+//   let scheduledPauseResult = try? JSONDecoder().decode(ScheduledPauseResult.self, from: jsonData)
+//   let scheduledState = try? JSONDecoder().decode(ScheduledState.self, from: jsonData)
 //   let screenCapture = try? JSONDecoder().decode(ScreenCapture.self, from: jsonData)
 //   let screenCaptureMode = try? JSONDecoder().decode(ScreenCaptureMode.self, from: jsonData)
 //   let screenCaptureRefusal = try? JSONDecoder().decode(ScreenCaptureRefusal.self, from: jsonData)
@@ -23816,6 +23825,169 @@ public struct SandboxStatusResult: Codable, Sendable {
     }
 }
 
+// MARK: - ScheduledListResult
+public struct ScheduledListResult: Codable, Sendable {
+    public let items: [ScheduledItem]
+    public let timezone: String
+
+    public enum CodingKeys: String, CodingKey {
+        case items = "items"
+        case timezone = "timezone"
+    }
+
+    public init(items: [ScheduledItem], timezone: String) {
+        self.items = items
+        self.timezone = timezone
+    }
+}
+
+// MARK: - ScheduledItem
+public struct ScheduledItem: Codable, Sendable {
+    public let approvals: [String]
+    public let deletable: Bool
+    public let enabled: Bool
+    public let group: ScheduledGroup
+    public let id: String
+    public let kind: AutomationKind
+    public let lastRunAt: String?
+    public let lastStatus: String?
+    public let linked: ScheduledLink?
+    public let nextRunAt: String?
+    public let prompt: String?
+    public let routine: String?
+    public let schedule: String
+    public let settings: String?
+    public let state: ScheduledState
+    public let summary: String
+    public let timezone: String
+    public let title: String
+    public let trigger: AutomationTrigger?
+
+    public enum CodingKeys: String, CodingKey {
+        case approvals = "approvals"
+        case deletable = "deletable"
+        case enabled = "enabled"
+        case group = "group"
+        case id = "id"
+        case kind = "kind"
+        case lastRunAt = "lastRunAt"
+        case lastStatus = "lastStatus"
+        case linked = "linked"
+        case nextRunAt = "nextRunAt"
+        case prompt = "prompt"
+        case routine = "routine"
+        case schedule = "schedule"
+        case settings = "settings"
+        case state = "state"
+        case summary = "summary"
+        case timezone = "timezone"
+        case title = "title"
+        case trigger = "trigger"
+    }
+
+    public init(approvals: [String], deletable: Bool, enabled: Bool, group: ScheduledGroup, id: String, kind: AutomationKind, lastRunAt: String?, lastStatus: String?, linked: ScheduledLink?, nextRunAt: String?, prompt: String?, routine: String?, schedule: String, settings: String?, state: ScheduledState, summary: String, timezone: String, title: String, trigger: AutomationTrigger?) {
+        self.approvals = approvals
+        self.deletable = deletable
+        self.enabled = enabled
+        self.group = group
+        self.id = id
+        self.kind = kind
+        self.lastRunAt = lastRunAt
+        self.lastStatus = lastStatus
+        self.linked = linked
+        self.nextRunAt = nextRunAt
+        self.prompt = prompt
+        self.routine = routine
+        self.schedule = schedule
+        self.settings = settings
+        self.state = state
+        self.summary = summary
+        self.timezone = timezone
+        self.title = title
+        self.trigger = trigger
+    }
+}
+
+public enum ScheduledGroup: String, Codable, Sendable {
+    case owner = "owner"
+    case routine = "routine"
+}
+
+// MARK: - ScheduledLink
+public struct ScheduledLink: Codable, Sendable {
+    public let groupID: String
+    public let runs: [ScheduledLinkedRun]
+
+    public enum CodingKeys: String, CodingKey {
+        case groupID = "groupId"
+        case runs = "runs"
+    }
+
+    public init(groupID: String, runs: [ScheduledLinkedRun]) {
+        self.groupID = groupID
+        self.runs = runs
+    }
+}
+
+// MARK: - ScheduledLinkedRun
+public struct ScheduledLinkedRun: Codable, Sendable {
+    public let id: String
+    public let nextRunAt: String?
+    public let schedule: String
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case nextRunAt = "nextRunAt"
+        case schedule = "schedule"
+        case title = "title"
+    }
+
+    public init(id: String, nextRunAt: String?, schedule: String, title: String) {
+        self.id = id
+        self.nextRunAt = nextRunAt
+        self.schedule = schedule
+        self.title = title
+    }
+}
+
+/// `paused`: stopped here and resumable here. `off`: a routine whose feature is switched off
+/// in its Settings section, which is where it is turned on
+public enum ScheduledState: String, Codable, Sendable {
+    case active = "active"
+    case off = "off"
+    case paused = "paused"
+}
+
+// MARK: - ScheduledPauseParams
+public struct ScheduledPauseParams: Codable, Sendable {
+    public let id: String
+    public let paused: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case paused = "paused"
+    }
+
+    public init(id: String, paused: Bool) {
+        self.id = id
+        self.paused = paused
+    }
+}
+
+// MARK: - ScheduledPauseResult
+public struct ScheduledPauseResult: Codable, Sendable {
+    public let item: ScheduledItem
+
+    public enum CodingKeys: String, CodingKey {
+        case item = "item"
+    }
+
+    public init(item: ScheduledItem) {
+        self.item = item
+    }
+}
+
 // MARK: - ScreenCapture
 public struct ScreenCapture: Codable, Sendable {
     public let captureID: String
@@ -30545,6 +30717,7 @@ public typealias PasskeysReauthBeginParams = [String: JSONAny]
 public typealias PasskeysRegisterBeginParams = [String: JSONAny]
 public typealias SandboxListParams = [String: JSONAny]
 public typealias SandboxSetupParams = [String: JSONAny]
+public typealias ScheduledListParams = [String: JSONAny]
 public typealias SearchReindexParams = [String: JSONAny]
 public typealias SearchSourcesParams = [String: JSONAny]
 public typealias SearchStatusParams = [String: JSONAny]
