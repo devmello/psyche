@@ -19,6 +19,7 @@ vi.mock("electron", async () => {
     isLoading() {
       return false;
     }
+    focus() {}
     close() {
       this.destroyed = true;
     }
@@ -194,6 +195,72 @@ describe("background mode: out of the Dock while no window is open", () => {
     expect(app.setActivationPolicy).not.toHaveBeenCalled();
   });
 
+  it("blur, hide and minimize never leave the Dock: only closing the last window does", () => {
+    const { windows, app } = setup();
+    const win = main(windows);
+    // Focus loss, minimize, ⌘H / Space-switch / occlusion "hide": the window still exists.
+    win.emit("blur");
+    win.minimized = true;
+    win.emit("minimize");
+    win.hide();
+    settle();
+    vi.advanceTimersByTime(60_000);
+    expect(win.isDestroyed()).toBe(false);
+    expect(app.setActivationPolicy).not.toHaveBeenCalled();
+    // Brought back and shown again, still regular; only "Close window" drops the icon.
+    win.show();
+    win.close();
+    settle();
+    expect(app.setActivationPolicy).toHaveBeenCalledTimes(1);
+    expect(app.setActivationPolicy).toHaveBeenCalledWith("accessory");
+  });
+
+  it("two windows, one closed: stays regular; the last close switches", () => {
+    const { windows, app } = setup();
+    const win = main(windows);
+    windows.showSettings();
+    const settings = BaseWindow.all[1] as FakeWindow;
+    settings.show();
+    settings.close();
+    settle();
+    expect(app.setActivationPolicy).not.toHaveBeenCalled(); // main is still open
+    win.close();
+    settle();
+    expect(app.setActivationPolicy).toHaveBeenCalledTimes(1);
+    expect(app.setActivationPolicy).toHaveBeenCalledWith("accessory");
+  });
+
+  it("an unfocused window behind others, with a second one closed, stays regular", () => {
+    const { windows, app } = setup();
+    const win = main(windows);
+    windows.popOut("/chat/t_1/pane/files", "Files");
+    const pop = BaseWindow.all[1] as FakeWindow;
+    win.emit("blur");
+    win.hide(); // e.g. ⌘H
+    pop.close();
+    settle();
+    expect(app.setActivationPolicy).not.toHaveBeenCalled();
+  });
+
+  it("the quick-entry bar and other non-window surfaces (tray panel, overlay) are ignored", () => {
+    const { windows, app } = setup();
+    const win = main(windows);
+    win.close();
+    settle();
+    expect(app.setActivationPolicy).toHaveBeenCalledTimes(1);
+    // The quick-entry bar opening and blurring away does not bring the icon back or count.
+    windows.toggleQuickEntry();
+    const quick = BaseWindow.all[1] as FakeWindow;
+    quick.emit("blur");
+    // A panel/overlay window made outside createAppWindows is not tracked at all.
+    const overlay = new (BaseWindow as unknown as new () => FakeWindow)();
+    overlay.show();
+    overlay.close();
+    settle();
+    expect(app.setActivationPolicy).toHaveBeenCalledTimes(1);
+    expect(app.setActivationPolicy).toHaveBeenLastCalledWith("accessory");
+  });
+
   it("no Dock flash when one window closes as another opens", () => {
     const { windows, app } = setup();
     const win = main(windows);
@@ -235,7 +302,7 @@ describe("background mode: out of the Dock while no window is open", () => {
 
   it("a pop-out closing last docks its pane and leaves the Dock too", () => {
     const { windows, app, popOutClosed } = setup();
-    windows.showMain().hide();
+    windows.showMain().close();
     windows.popOut("/chat/t_1/pane/files", "Files");
     const pop = BaseWindow.all[1] as FakeWindow;
     pop.close();

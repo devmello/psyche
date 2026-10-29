@@ -131,17 +131,20 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
     if (!quitting) opts.onPopOutClosed?.(route);
   });
 
-  // The windows that keep Psyche in the Dock and ⌘-Tab: main, Settings and the pop-outs. Settings
-  // and pop-outs close for good, so they count while they exist (they show once loaded; counting
-  // from creation keeps a window that closes meanwhile from flashing the icon off). The main
-  // window is only hidden: it counts from its creation until it is hidden, and a minimized one
-  // still counts (it lives in the Dock). The quick-entry bar and the panels do not count.
-  let mainHidden = false;
+  // The windows that keep Psyche in the Dock and ⌘-Tab: main, Settings and the pop-outs. The
+  // decision rests on whether a window exists, never on its visibility or focus: a minimized,
+  // unfocused, occluded or other-Space window is still open (it lives in the Dock), and Electron's
+  // "hide"/"blur" fire for plenty of reasons that are not the owner closing it (⌘H, a Space
+  // switch, occlusion). Settings and pop-outs close for good, so they count while they exist
+  // (counting from creation keeps a window that closes meanwhile from flashing the icon off). The
+  // main window is only hidden by "Close window"; that close, and only that, marks it closed
+  // until it is shown again. The quick-entry bar and the panels do not count.
+  let mainClosed = false;
   const syncDock = () => {
     if (quitting) return;
     const live = (w: BaseWindow | undefined) => w !== undefined && !w.isDestroyed();
     const open = [
-      live(mainWin) && !mainHidden,
+      live(mainWin) && !mainClosed,
       live(settings?.win),
       ...[...popOutWins].map(live),
     ].filter(Boolean).length;
@@ -149,7 +152,6 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
   };
   const trackDock = (win: BaseWindow) => {
     win.on("show", syncDock);
-    win.on("hide", syncDock);
     win.on("closed", syncDock);
   };
   /** Runs `show` with the app a regular one (⌘-Tab), then takes the focus the switch cost. */
@@ -256,7 +258,7 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
   };
 
   function createMain(): BaseWindow {
-    mainHidden = false;
+    mainClosed = false;
     const win = new BaseWindow({
       ...mainWindowOptions({
         anySize: opts.anySize === true,
@@ -271,11 +273,8 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
     view.webContents.once("did-finish-load", () => win.show());
     win.on("hide", armRelease);
     win.on("show", disarmRelease);
-    win.on("hide", () => {
-      mainHidden = true;
-    });
     win.on("show", () => {
-      mainHidden = false;
+      mainClosed = false;
     });
     trackDock(win);
     // "Close window" hides it: the agent browser's tab views live in this window and keep
@@ -283,7 +282,9 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
     win.on("close", (event) => {
       if (quitting) return;
       event.preventDefault();
+      mainClosed = true;
       win.hide();
+      syncDock();
     });
     win.on("closed", () => {
       disarmRelease();
