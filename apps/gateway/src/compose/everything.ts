@@ -74,24 +74,18 @@ export function everythingSettings(value: unknown): EverythingMemorySettings {
   };
 }
 
-type ReviewParams<
-  M extends
-    | "memory.review.list"
-    | "memory.review.decide"
-    | "memory.review.undo"
-    | "memory.quarantine.list"
-    | "memory.quarantine.decide"
-    | "memory.runs.list",
-> = MethodParams<M>;
-type ReviewResult<
-  M extends
-    | "memory.review.list"
-    | "memory.review.decide"
-    | "memory.review.undo"
-    | "memory.quarantine.list"
-    | "memory.quarantine.decide"
-    | "memory.runs.list",
-> = MethodResult<M>;
+type EverythingMethod =
+  | "memory.review.list"
+  | "memory.review.decide"
+  | "memory.review.undo"
+  | "memory.quarantine.list"
+  | "memory.quarantine.decide"
+  | "memory.runs.list"
+  | "memory.exclusions.list"
+  | "memory.exclusions.add"
+  | "memory.exclusions.remove";
+type ReviewParams<M extends EverythingMethod> = MethodParams<M>;
+type ReviewResult<M extends EverythingMethod> = MethodResult<M>;
 
 export interface EverythingHandlers {
   "memory.review.list"(
@@ -112,11 +106,23 @@ export interface EverythingHandlers {
   "memory.runs.list"(
     p: ReviewParams<"memory.runs.list">,
   ): Promise<ReviewResult<"memory.runs.list">>;
+  "memory.exclusions.list"(
+    p: ReviewParams<"memory.exclusions.list">,
+  ): Promise<ReviewResult<"memory.exclusions.list">>;
+  "memory.exclusions.add"(
+    p: ReviewParams<"memory.exclusions.add">,
+  ): Promise<ReviewResult<"memory.exclusions.add">>;
+  "memory.exclusions.remove"(
+    p: ReviewParams<"memory.exclusions.remove">,
+  ): Promise<ReviewResult<"memory.exclusions.remove">>;
 }
 
 const PAGE = 50;
 
-export function everythingHandlers(em: EverythingStore): EverythingHandlers {
+export function everythingHandlers(
+  em: EverythingStore,
+  settings: () => EverythingMemorySettings = () => everythingSettings(undefined),
+): EverythingHandlers {
   const offsetOf = (cursor: string | undefined): number => {
     const n = cursor === undefined ? 0 : Number.parseInt(cursor, 10);
     return Number.isInteger(n) && n >= 0 ? n : 0;
@@ -176,6 +182,45 @@ export function everythingHandlers(em: EverythingStore): EverythingHandlers {
     async "memory.runs.list"(p) {
       return { runs: em.runs(p.limit ?? 14) };
     },
+    async "memory.exclusions.list"() {
+      return {
+        entries: em
+          .exclusions()
+          .filter((e) => e.kind === "email" || e.kind === "phone" || e.kind === "domain")
+          .map((e) => ({
+            id: e.id,
+            kind: e.kind as "email" | "phone" | "domain",
+            hint: e.hint,
+            mode: e.mode,
+            createdAt: e.createdAt,
+          })),
+        defaultPeople: settings().people.default,
+      };
+    },
+    async "memory.exclusions.add"(p) {
+      const mode = p.mode ?? "exclude";
+      const { entry, forgotten } = em.excludeIdentifier(p.kind, p.value, mode, p.dryRun === true);
+      const found = entry ?? {
+        id: "",
+        kind: p.kind,
+        hint: null,
+        mode,
+        createdAt: new Date().toISOString(),
+      };
+      return {
+        entry: {
+          id: found.id,
+          kind: p.kind,
+          hint: found.hint,
+          mode: found.mode,
+          createdAt: found.createdAt,
+        },
+        forgotten,
+      };
+    },
+    async "memory.exclusions.remove"(p) {
+      return { removed: em.removeExclusionById(p.id) };
+    },
   };
 }
 
@@ -211,7 +256,7 @@ export function composeEverything(deps: EverythingDeps): Everything {
   const { db, clock, graph } = deps;
   const store = new EverythingStore({ sqlite: db.sqlite, graph, clock });
   const settings = () => everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value);
-  const handlers = everythingHandlers(store);
+  const handlers = everythingHandlers(store, settings);
   let search: PsycheDb | undefined;
   // A second, read-only connection to the derived index, opened on the first read (so a pass the
   // gates refuse never touches the file) and never written to.

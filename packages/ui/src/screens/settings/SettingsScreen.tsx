@@ -3,6 +3,7 @@ import {
   Activity,
   Bell,
   Bot,
+  Brain,
   BrainCircuit,
   CalendarClock,
   FolderLock,
@@ -51,6 +52,7 @@ import { CredentialsSection } from "./CredentialsSection.tsx";
 import { DailySection } from "./DailySection.tsx";
 import { DataControlsSection, type ExportFile } from "./DataControlsSection.tsx";
 import { DevicesSection } from "./DevicesSection.tsx";
+import { EverythingMemorySection } from "./EverythingMemorySection.tsx";
 import { FileAccessSection } from "./FileAccessSection.tsx";
 import { MailMeetingsSection } from "./MailMeetingsSection.tsx";
 import { MemoryReviewSection } from "./MemoryReviewSection.tsx";
@@ -99,6 +101,7 @@ export type SettingsSectionId =
   | "daily"
   | "data"
   | "people"
+  | "everything"
   | "memory"
   | "server"
   | "usage"
@@ -141,6 +144,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionEntry[] = [
   entry("daily", CalendarClock),
   entry("data", Trash2),
   entry("people", Users),
+  entry("everything", Brain),
   entry("memory", BrainCircuit),
   entry("server", Server),
   entry("usage", Activity),
@@ -181,7 +185,7 @@ export const SETTINGS_GROUPS: readonly {
     ],
   },
   { id: "devices", sections: ["devices", "channels", "vm", "server"] },
-  { id: "privacy", sections: ["data", "people", "memory"] },
+  { id: "privacy", sections: ["data", "people", "everything", "memory"] },
   { id: "about", sections: ["about"] },
 ];
 
@@ -189,6 +193,7 @@ export const SETTINGS_GROUPS: readonly {
 export function sectionForKey(key: string): SettingsSectionId | null {
   const root = key.split(".", 1)[0] ?? "";
   if (key.startsWith("permissions.folders")) return "files";
+  if (key.startsWith("memory.everything")) return "everything";
   const byRoot: Record<string, SettingsSectionId> = {
     appearance: "appearance",
     backup: "data",
@@ -383,6 +388,8 @@ export function SettingsSectionView({
       return <DataControlsSection {...opt("onExportReady", s.onExportReady)} />;
     case "people":
       return <PeopleSection {...opt("onExportReady", s.onExportReady)} />;
+    case "everything":
+      return <EverythingMemorySection />;
     case "memory":
       return <MemoryReviewSection />;
     case "server":

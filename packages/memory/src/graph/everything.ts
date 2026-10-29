@@ -169,6 +169,8 @@ export type ProposeEdgeOutcome =
   | { status: "refused"; reason: RefuseReason | "bad_relation" | "self_relation" };
 
 export interface ExclusionEntry {
+  /** `<kind>:<hash>`; opaque, for removal. */
+  id: string;
   kind: GraphIdentifierKind;
   hint: string | null;
   mode: "exclude" | "forget";
@@ -264,6 +266,17 @@ export function safeExcerpt(text: string, max: number): string {
       .trim()
       .slice(0, max)
   );
+}
+
+/** "sam@acme.com" → "s•••@acme.com"; phones keep their last two digits; domains show whole. */
+export function maskHint(kind: GraphIdentifierKind, norm: string): string | null {
+  if (kind === "domain") return norm;
+  if (kind === "phone") return `•••${norm.replace(/\D/g, "").slice(-2)}`;
+  if (kind === "email") {
+    const [user = "", domain = ""] = norm.split("@");
+    return `${user.slice(0, 1)}•••@${domain}`;
+  }
+  return null;
 }
 
 function toFact(r: FactRow): GraphFact {
@@ -481,7 +494,7 @@ export class EverythingStore {
   ): ExclusionEntry {
     const norm = this.#normalize(kind, value);
     if (norm === undefined) fail("invalid_params", "not a valid identifier");
-    const hint = kind === "domain" ? norm : null;
+    const hint = maskHint(kind, norm);
     const now = this.#now();
     this.#db
       .prepare(
@@ -489,7 +502,48 @@ export class EverythingStore {
          ON CONFLICT (kind, value_hash) DO UPDATE SET mode = excluded.mode`,
       )
       .run(kind, blockHash(kind, norm), mode, hint, now);
-    return { kind, hint, mode, createdAt: now };
+    return { id: `${kind}:${blockHash(kind, norm)}`, kind, hint, mode, createdAt: now };
+  }
+
+  /**
+   * Exclude an address, number or domain for the owner (Settings): the exclusion is stored, and
+   * with `forget` everything learned from the people who use it is deleted too. `dryRun` counts
+   * without writing.
+   */
+  excludeIdentifier(
+    kind: GraphIdentifierKind,
+    value: string,
+    mode: "exclude" | "forget",
+    dryRun = false,
+  ): {
+    entry: ExclusionEntry | undefined;
+    forgotten: { facts: number; edges: number; citations: number; quarantine: number };
+  } {
+    const norm = this.#normalize(kind, value);
+    if (norm === undefined) fail("invalid_params", "not a valid identifier");
+    const people = new Set<string>();
+    if (mode === "forget") {
+      const rows =
+        kind === "domain"
+          ? (this.#db
+              .prepare(
+                "SELECT entity_id FROM graph_identifiers WHERE kind = 'email' AND value_norm LIKE ?",
+              )
+              .all(`%@${norm.replace(/[%_]/g, "")}`) as { entity_id: string }[])
+          : (this.#db
+              .prepare("SELECT entity_id FROM graph_identifiers WHERE kind = ? AND value_norm = ?")
+              .all(kind, norm) as { entity_id: string }[]);
+      for (const r of rows) people.add(r.entity_id);
+    }
+    const forgotten = { facts: 0, edges: 0, citations: 0, quarantine: 0 };
+    for (const id of people) {
+      const r = this.forgetWhatTheySaid(id, dryRun);
+      forgotten.facts += r.facts;
+      forgotten.edges += r.edges;
+      forgotten.citations += r.citations;
+      forgotten.quarantine += r.quarantine;
+    }
+    return { entry: dryRun ? undefined : this.exclude(kind, value, mode), forgotten };
   }
 
   /** Excludes every identifier of a person (and, with `forget`, what they said). */
@@ -541,15 +595,32 @@ export class EverythingStore {
     return (
       this.#db
         .prepare(
-          "SELECT kind, mode, hint, created_at FROM graph_exclusions ORDER BY created_at, kind",
+          "SELECT kind, value_hash, mode, hint, created_at FROM graph_exclusions ORDER BY created_at, kind",
         )
         .all() as {
         kind: GraphIdentifierKind;
+        value_hash: string;
         mode: "exclude" | "forget";
         hint: string | null;
         created_at: string;
       }[]
-    ).map((r) => ({ kind: r.kind, hint: r.hint, mode: r.mode, createdAt: r.created_at }));
+    ).map((r) => ({
+      id: `${r.kind}:${r.value_hash}`,
+      kind: r.kind,
+      hint: r.hint,
+      mode: r.mode,
+      createdAt: r.created_at,
+    }));
+  }
+
+  removeExclusionById(id: string): boolean {
+    const i = id.indexOf(":");
+    if (i <= 0) return false;
+    return (
+      this.#db
+        .prepare("DELETE FROM graph_exclusions WHERE kind = ? AND value_hash = ?")
+        .run(id.slice(0, i), id.slice(i + 1)).changes > 0
+    );
   }
 
   removeExclusion(kind: GraphIdentifierKind, value: string): boolean {

@@ -453,10 +453,15 @@
 //   let eventsSubscribeResult = try? JSONDecoder().decode(EventsSubscribeResult.self, from: jsonData)
 //   let everythingAgentAccess = try? JSONDecoder().decode(EverythingAgentAccess.self, from: jsonData)
 //   let everythingBackfillDays = try? JSONDecoder().decode(EverythingBackfillDays.self, from: jsonData)
+//   let everythingExclusion = try? JSONDecoder().decode(EverythingExclusion.self, from: jsonData)
+//   let everythingExclusionAddKind = try? JSONDecoder().decode(EverythingExclusionAddKind.self, from: jsonData)
+//   let everythingExclusionKind = try? JSONDecoder().decode(EverythingExclusionKind.self, from: jsonData)
+//   let everythingExclusionMode = try? JSONDecoder().decode(EverythingExclusionMode.self, from: jsonData)
 //   let everythingMemorySettings = try? JSONDecoder().decode(EverythingMemorySettings.self, from: jsonData)
 //   let everythingModelKind = try? JSONDecoder().decode(EverythingModelKind.self, from: jsonData)
 //   let everythingModelSetting = try? JSONDecoder().decode(EverythingModelSetting.self, from: jsonData)
 //   let everythingPeopleDefault = try? JSONDecoder().decode(EverythingPeopleDefault.self, from: jsonData)
+//   let everythingPeopleDefaultOut = try? JSONDecoder().decode(EverythingPeopleDefaultOut.self, from: jsonData)
 //   let everythingPeopleSetting = try? JSONDecoder().decode(EverythingPeopleSetting.self, from: jsonData)
 //   let everythingProcessingModel = try? JSONDecoder().decode(EverythingProcessingModel.self, from: jsonData)
 //   let everythingRetentionSetting = try? JSONDecoder().decode(EverythingRetentionSetting.self, from: jsonData)
@@ -705,6 +710,12 @@
 //   let memoryEntitiesUpdateParams = try? JSONDecoder().decode(MemoryEntitiesUpdateParams.self, from: jsonData)
 //   let memoryEntitiesUpdateResult = try? JSONDecoder().decode(MemoryEntitiesUpdateResult.self, from: jsonData)
 //   let memoryEntityUpdatedPayload = try? JSONDecoder().decode(MemoryEntityUpdatedPayload.self, from: jsonData)
+//   let memoryExclusionsAddParams = try? JSONDecoder().decode(MemoryExclusionsAddParams.self, from: jsonData)
+//   let memoryExclusionsAddResult = try? JSONDecoder().decode(MemoryExclusionsAddResult.self, from: jsonData)
+//   let memoryExclusionsListParams = try? JSONDecoder().decode(MemoryExclusionsListParams.self, from: jsonData)
+//   let memoryExclusionsListResult = try? JSONDecoder().decode(MemoryExclusionsListResult.self, from: jsonData)
+//   let memoryExclusionsRemoveParams = try? JSONDecoder().decode(MemoryExclusionsRemoveParams.self, from: jsonData)
+//   let memoryExclusionsRemoveResult = try? JSONDecoder().decode(MemoryExclusionsRemoveResult.self, from: jsonData)
 //   let memoryExplainParams = try? JSONDecoder().decode(MemoryExplainParams.self, from: jsonData)
 //   let memoryExplainResult = try? JSONDecoder().decode(MemoryExplainResult.self, from: jsonData)
 //   let memoryExportParams = try? JSONDecoder().decode(MemoryExportParams.self, from: jsonData)
@@ -11801,18 +11812,18 @@ public enum SearchProcessing: String, Codable, Sendable {
 
 // MARK: - EverythingPeopleSetting
 public struct EverythingPeopleSetting: Codable, Sendable {
-    public let everythingPeopleSettingDefault: EverythingPeopleDefault
+    public let everythingPeopleSettingDefault: EverythingPeopleDefaultOut
 
     public enum CodingKeys: String, CodingKey {
         case everythingPeopleSettingDefault = "default"
     }
 
-    public init(everythingPeopleSettingDefault: EverythingPeopleDefault) {
+    public init(everythingPeopleSettingDefault: EverythingPeopleDefaultOut) {
         self.everythingPeopleSettingDefault = everythingPeopleSettingDefault
     }
 }
 
-public enum EverythingPeopleDefault: String, Codable, Sendable {
+public enum EverythingPeopleDefaultOut: String, Codable, Sendable {
     case chosen = "chosen"
     case contacts = "contacts"
     case everyone = "everyone"
@@ -17539,6 +17550,147 @@ public struct MemoryEntityUpdatedPayload: Codable, Sendable {
     }
 }
 
+// MARK: - MemoryExclusionsAddParams
+public struct MemoryExclusionsAddParams: Codable, Sendable {
+    /// Count what a forget would remove without deleting
+    public let dryRun: Bool?
+    public let kind: GraphBlockKind
+    public let mode: EverythingExclusionMode?
+    public let value: String
+
+    public enum CodingKeys: String, CodingKey {
+        case dryRun = "dryRun"
+        case kind = "kind"
+        case mode = "mode"
+        case value = "value"
+    }
+
+    public init(dryRun: Bool?, kind: GraphBlockKind, mode: EverythingExclusionMode?, value: String) {
+        self.dryRun = dryRun
+        self.kind = kind
+        self.mode = mode
+        self.value = value
+    }
+}
+
+public enum GraphBlockKind: String, Codable, Sendable {
+    case domain = "domain"
+    case email = "email"
+    case phone = "phone"
+}
+
+/// exclude: read no text, learn nothing; forget: also delete what was learned
+public enum EverythingExclusionMode: String, Codable, Sendable {
+    case exclude = "exclude"
+    case forget = "forget"
+}
+
+// MARK: - MemoryExclusionsAddResult
+public struct MemoryExclusionsAddResult: Codable, Sendable {
+    public let entry: EverythingExclusion
+    public let forgotten: Forgotten
+
+    public enum CodingKeys: String, CodingKey {
+        case entry = "entry"
+        case forgotten = "forgotten"
+    }
+
+    public init(entry: EverythingExclusion, forgotten: Forgotten) {
+        self.entry = entry
+        self.forgotten = forgotten
+    }
+}
+
+// MARK: - EverythingExclusion
+public struct EverythingExclusion: Codable, Sendable {
+    public let createdAt: String
+    public let hint: String?
+    /// Opaque; for memory.exclusions.remove
+    public let id: String
+    public let kind: GraphBlockKind
+    public let mode: EverythingExclusionMode
+
+    public enum CodingKeys: String, CodingKey {
+        case createdAt = "createdAt"
+        case hint = "hint"
+        case id = "id"
+        case kind = "kind"
+        case mode = "mode"
+    }
+
+    public init(createdAt: String, hint: String?, id: String, kind: GraphBlockKind, mode: EverythingExclusionMode) {
+        self.createdAt = createdAt
+        self.hint = hint
+        self.id = id
+        self.kind = kind
+        self.mode = mode
+    }
+}
+
+// MARK: - Forgotten
+public struct Forgotten: Codable, Sendable {
+    public let citations: Int
+    public let edges: Int
+    public let facts: Int
+    public let quarantine: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case citations = "citations"
+        case edges = "edges"
+        case facts = "facts"
+        case quarantine = "quarantine"
+    }
+
+    public init(citations: Int, edges: Int, facts: Int, quarantine: Int) {
+        self.citations = citations
+        self.edges = edges
+        self.facts = facts
+        self.quarantine = quarantine
+    }
+}
+
+// MARK: - MemoryExclusionsListResult
+public struct MemoryExclusionsListResult: Codable, Sendable {
+    public let defaultPeople: EverythingPeopleDefaultOut
+    public let entries: [EverythingExclusion]
+
+    public enum CodingKeys: String, CodingKey {
+        case defaultPeople = "defaultPeople"
+        case entries = "entries"
+    }
+
+    public init(defaultPeople: EverythingPeopleDefaultOut, entries: [EverythingExclusion]) {
+        self.defaultPeople = defaultPeople
+        self.entries = entries
+    }
+}
+
+// MARK: - MemoryExclusionsRemoveParams
+public struct MemoryExclusionsRemoveParams: Codable, Sendable {
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+    }
+
+    public init(id: String) {
+        self.id = id
+    }
+}
+
+// MARK: - MemoryExclusionsRemoveResult
+public struct MemoryExclusionsRemoveResult: Codable, Sendable {
+    public let removed: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case removed = "removed"
+    }
+
+    public init(removed: Bool) {
+        self.removed = removed
+    }
+}
+
 // MARK: - MemoryExplainParams
 public struct MemoryExplainParams: Codable, Sendable {
     public let claimID: String
@@ -17801,12 +17953,6 @@ public struct MemoryGraphBlocklistAddParams: Codable, Sendable {
         self.kind = kind
         self.value = value
     }
-}
-
-public enum GraphBlockKind: String, Codable, Sendable {
-    case domain = "domain"
-    case email = "email"
-    case phone = "phone"
 }
 
 // MARK: - MemoryGraphBlocklistAddResult
@@ -30380,6 +30526,7 @@ public typealias GrowthUpdatedPayload = [String: JSONAny]
 public typealias MCPStatusParams = [String: JSONAny]
 public typealias MeetingsRecordPushResult = [String: JSONAny]
 public typealias MeetingsRecordStatusParams = [String: JSONAny]
+public typealias MemoryExclusionsListParams = [String: JSONAny]
 public typealias MemoryExportParams = [String: JSONAny]
 public typealias MemoryGraphBlocklistListParams = [String: JSONAny]
 public typealias MemoryGraphStatusParams = [String: JSONAny]

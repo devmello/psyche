@@ -1,6 +1,8 @@
 import { Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, Nullable, Provenance, StringEnum } from "../common.ts";
 import {
+  EverythingExclusion,
+  EverythingExclusionMode,
   MemoryRun,
   QuarantineAction,
   QuarantineItem,
@@ -605,6 +607,49 @@ export const MemoryMethods = {
     sideEffecting: true,
     description:
       "Release (extract once; the result stays untrusted and pending), discard, or block the sender (adds a per-contact exclusion). Side-effecting.",
+  }),
+  "memory.exclusions.list": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({
+      entries: Type.Array(EverythingExclusion),
+      defaultPeople: StringEnum(["two_way", "contacts", "everyone", "chosen"], {
+        $id: "EverythingPeopleDefaultOut",
+      }),
+    }),
+    scope: "operator.read",
+    description:
+      "People, numbers and domains everything memory never reads or learns about (a masked hint each), and who is included by default.",
+  }),
+  "memory.exclusions.add": defineMethod({
+    params: Type.Object({
+      kind: StringEnum(["email", "phone", "domain"], { $id: "EverythingExclusionAddKind" }),
+      value: Type.String({ minLength: 1, maxLength: 320 }),
+      mode: Type.Optional(EverythingExclusionMode),
+      dryRun: Type.Optional(
+        Type.Boolean({ description: "Count what a forget would remove without deleting" }),
+      ),
+    }),
+    result: Type.Object({
+      entry: EverythingExclusion,
+      forgotten: Type.Object({
+        facts: Type.Integer({ minimum: 0 }),
+        edges: Type.Integer({ minimum: 0 }),
+        citations: Type.Integer({ minimum: 0 }),
+        quarantine: Type.Integer({ minimum: 0 }),
+      }),
+    }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Excludes an address, number or whole domain. With mode forget, also deletes what was learned from people who use it. Side-effecting.",
+  }),
+  "memory.exclusions.remove": defineMethod({
+    params: Type.Object({ id: Type.String({ minLength: 1, maxLength: 200 }) }),
+    result: Type.Object({ removed: Type.Boolean() }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Lets everything memory read and learn from this address, number or domain again. Side-effecting.",
   }),
   "memory.runs.list": defineMethod({
     params: Type.Object({

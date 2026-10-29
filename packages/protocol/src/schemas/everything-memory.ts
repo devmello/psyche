@@ -315,6 +315,27 @@ export const QuarantineAction = StringEnum(["release", "discard", "block_sender"
 });
 export type QuarantineAction = Static<typeof QuarantineAction>;
 
+// --- Exclusions (§10.1) -----------------------------------------------------------------------
+
+export const EverythingExclusionMode = StringEnum(["exclude", "forget"], {
+  $id: "EverythingExclusionMode",
+  description: "exclude: read no text, learn nothing; forget: also delete what was learned",
+});
+export type EverythingExclusionMode = Static<typeof EverythingExclusionMode>;
+
+/** One excluded address, number or domain. Only a masked hint is kept; the value is hashed. */
+export const EverythingExclusion = Type.Object(
+  {
+    id: Type.String({ description: "Opaque; for memory.exclusions.remove" }),
+    kind: StringEnum(["email", "phone", "domain"], { $id: "EverythingExclusionKind" }),
+    hint: Nullable(Type.String({ maxLength: 200 })),
+    mode: EverythingExclusionMode,
+    createdAt: IsoDateTime,
+  },
+  { $id: "EverythingExclusion" },
+);
+export type EverythingExclusion = Static<typeof EverythingExclusion>;
+
 // --- Runs (§6.7) ------------------------------------------------------------------------------
 
 export const MemoryRun = Type.Object(

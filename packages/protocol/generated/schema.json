@@ -1773,6 +1773,30 @@
         "sideEffecting": true
       },
       {
+        "description": "Excludes an address, number or whole domain. With mode forget, also deletes what was learned from people who use it. Side-effecting.",
+        "name": "memory.exclusions.add",
+        "params": "#/$defs/MemoryExclusionsAddParams",
+        "result": "#/$defs/MemoryExclusionsAddResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "People, numbers and domains everything memory never reads or learns about (a masked hint each), and who is included by default.",
+        "name": "memory.exclusions.list",
+        "params": "#/$defs/MemoryExclusionsListParams",
+        "result": "#/$defs/MemoryExclusionsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lets everything memory read and learn from this address, number or domain again. Side-effecting.",
+        "name": "memory.exclusions.remove",
+        "params": "#/$defs/MemoryExclusionsRemoveParams",
+        "result": "#/$defs/MemoryExclusionsRemoveResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Why a fact is believed: the claim with its source chunks and provenance.",
         "name": "memory.explain",
         "params": "#/$defs/MemoryExplainParams",
@@ -16462,6 +16486,67 @@
       ],
       "type": "string"
     },
+    "EverythingExclusion": {
+      "properties": {
+        "id": {
+          "description": "Opaque; for memory.exclusions.remove",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/EverythingExclusionKind"
+        },
+        "hint": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mode": {
+          "$ref": "#/$defs/EverythingExclusionMode"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "mode",
+        "createdAt"
+      ],
+      "type": "object"
+    },
+    "EverythingExclusionAddKind": {
+      "enum": [
+        "email",
+        "phone",
+        "domain"
+      ],
+      "type": "string"
+    },
+    "EverythingExclusionKind": {
+      "enum": [
+        "email",
+        "phone",
+        "domain"
+      ],
+      "type": "string"
+    },
+    "EverythingExclusionMode": {
+      "description": "exclude: read no text, learn nothing; forget: also delete what was learned",
+      "enum": [
+        "exclude",
+        "forget"
+      ],
+      "type": "string"
+    },
     "EverythingMemorySettings": {
       "properties": {
         "enabled": {
@@ -16550,6 +16635,15 @@
       "type": "object"
     },
     "EverythingPeopleDefault": {
+      "enum": [
+        "two_way",
+        "contacts",
+        "everyone",
+        "chosen"
+      ],
+      "type": "string"
+    },
+    "EverythingPeopleDefaultOut": {
       "enum": [
         "two_way",
         "contacts",
@@ -24325,6 +24419,115 @@
         "id",
         "kind",
         "changed"
+      ],
+      "type": "object"
+    },
+    "MemoryExclusionsAddParams": {
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/EverythingExclusionAddKind"
+        },
+        "value": {
+          "maxLength": 320,
+          "minLength": 1,
+          "type": "string"
+        },
+        "mode": {
+          "$ref": "#/$defs/EverythingExclusionMode"
+        },
+        "dryRun": {
+          "description": "Count what a forget would remove without deleting",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "type": "object"
+    },
+    "MemoryExclusionsAddResult": {
+      "properties": {
+        "entry": {
+          "$ref": "#/$defs/EverythingExclusion"
+        },
+        "forgotten": {
+          "properties": {
+            "facts": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "edges": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "citations": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "quarantine": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "facts",
+            "edges",
+            "citations",
+            "quarantine"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "entry",
+        "forgotten"
+      ],
+      "type": "object"
+    },
+    "MemoryExclusionsListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "MemoryExclusionsListResult": {
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/EverythingExclusion"
+          },
+          "type": "array"
+        },
+        "defaultPeople": {
+          "$ref": "#/$defs/EverythingPeopleDefaultOut"
+        }
+      },
+      "required": [
+        "entries",
+        "defaultPeople"
+      ],
+      "type": "object"
+    },
+    "MemoryExclusionsRemoveParams": {
+      "properties": {
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "MemoryExclusionsRemoveResult": {
+      "properties": {
+        "removed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "removed"
       ],
       "type": "object"
     },
