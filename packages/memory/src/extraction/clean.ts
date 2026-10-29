@@ -207,6 +207,8 @@ function stripQuotedReply(text: string): string {
     ) {
       break;
     }
+    // A forwarded message is someone else's text, even inside the owner's own mail.
+    if (/^\s*(?:-{3,}\s*Forwarded message\s*-{3,}|Begin forwarded message:)/i.test(line)) break;
     if (/^\s*>/.test(line)) continue;
     kept.push(line);
   }

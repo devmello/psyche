@@ -320,6 +320,18 @@ export const memoryClaimSubjects = sqliteTable(
   (t) => [primaryKey({ columns: [t.claimId, t.entityId] })],
 );
 
+export const memoryExtractedItems = sqliteTable(
+  "memory_extracted_items",
+  {
+    source: text("source").notNull(),
+    sourceRef: text("source_ref").notNull(),
+    sourceHash: text("source_hash").notNull(),
+    runId: text("run_id"),
+    extractedAt: text("extracted_at").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.source, t.sourceRef] })],
+);
+
 export const memoryNeverRules = sqliteTable(
   "memory_never_rules",
   {
@@ -409,6 +421,7 @@ export const s07Schema = {
   graphExclusions,
   memoryClaimSubjects,
   memoryNeverRules,
+  memoryExtractedItems,
   feedbackEvents,
   lessons,
   feedbackWeekly,
