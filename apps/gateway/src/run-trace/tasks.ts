@@ -176,7 +176,7 @@ export function taskRunTrace(deps: TaskRunTraceDeps): TaskTurnTrace {
       run(() => {
         const threadId = turn.task.threadId;
         const sink = deps.sink();
-        sink?.end(turn.runId, outcome);
+        sink?.end(turn.runId, outcome, error);
         // The parent's spawn step follows the specialist's job to its outcome.
         const parentRunId = turn.task.specialist?.parentRunId;
         if (parentRunId != null) {

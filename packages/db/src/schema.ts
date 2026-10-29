@@ -220,6 +220,17 @@ export const toolPayloads = sqliteTable("tool_payloads", {
   truncated: integer("truncated").notNull().default(0),
 });
 
+/** A model-call step's input and output (gzip JSON/text), migration 202610291500. */
+export const stepPayloadRows = sqliteTable("step_payloads", {
+  id: text("id").primaryKey(),
+  runId: text("run_id").notNull(),
+  stepId: text("step_id").notNull(),
+  kind: text("kind").notNull(),
+  data: blob("data", { mode: "buffer" }).notNull(),
+  truncated: integer("truncated").notNull().default(0),
+  createdAt: text("created_at").notNull(),
+});
+
 /** Run-trace steps (run trace §4.2): the RunStep as JSON plus the retained thinking text. */
 export const runSteps = sqliteTable(
   "run_steps",

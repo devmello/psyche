@@ -31134,7 +31134,8 @@
         "failed",
         "waiting",
         "cancelled",
-        "skipped"
+        "skipped",
+        "denied"
       ],
       "type": "string"
     },

@@ -54,6 +54,21 @@ export interface AfterToolCallContext extends ToolCallHookContext {
   result: ToolResult;
 }
 
+export interface ModelCallContext extends RunRef {
+  system: string;
+  messages: readonly ModelMessage[];
+  tools: readonly ToolSpec[];
+  /** The model's reply: text, the tool calls it made, why it stopped. */
+  output: {
+    text: string;
+    calls: readonly { id: string; name: string; input: unknown }[];
+    finish: string;
+    error?: string;
+  };
+  /** The run read untrusted content before or during this call. */
+  taint: boolean;
+}
+
 export interface CompactionContext extends RunRef {
   /** The messages about to be summarized (read-only view). */
   messages: readonly ModelMessage[];
@@ -94,6 +109,8 @@ export interface HookHandlers {
   after_tool_call: (ctx: AfterToolCallContext) => MaybePromise<{ result?: ToolResult } | undefined>;
   /** The `tool_calls` row (data model §2) and the result, for the Gateway to persist. */
   tool_result_persist: (ctx: { record: ToolCall; result: ToolResult }) => MaybePromise<void>;
+  /** One finished model call, for the Gateway's run trace (Timeline input and output). */
+  model_call_persist: (ctx: ModelCallContext) => MaybePromise<void>;
   before_compaction: (ctx: CompactionContext) => MaybePromise<void>;
   agent_end: (ctx: AgentEndContext) => MaybePromise<void>;
 }
@@ -107,6 +124,7 @@ export class HookRegistry {
     before_tool_call: [],
     after_tool_call: [],
     tool_result_persist: [],
+    model_call_persist: [],
     before_compaction: [],
     agent_end: [],
   };

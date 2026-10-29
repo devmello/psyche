@@ -271,6 +271,27 @@ describe("provenance and taint", () => {
   });
 });
 
+describe("model_call_persist", () => {
+  it("hands each finished call's prompt and reply to the run trace, after its usage event", async () => {
+    const h = harness({ script: [say("Hello there")] });
+    const seen: { system: string; roles: string[]; text: string; finish: string }[] = [];
+    h.loop.hooks.on("model_call_persist", ({ system, messages, output }) => {
+      seen.push({
+        system,
+        roles: messages.map((m) => m.role),
+        text: output.text,
+        finish: output.finish,
+      });
+    });
+    await runTurn(h, "hi");
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.roles).toEqual(["user"]);
+    expect(seen[0]?.text).toBe("Hello there");
+    expect(seen[0]?.finish).toBe("stop");
+    expect(seen[0]?.system.length).toBeGreaterThan(0);
+  });
+});
+
 describe("compaction (B7)", () => {
   it("flushes memory first, then summarizes older turns with the utility model", async () => {
     const pad = "x".repeat(1_600);

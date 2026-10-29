@@ -184,6 +184,7 @@ export function countToolPayloads(db: PsycheDb): number {
  */
 export function deleteToolPayloadsBefore(db: PsycheDb, cutoff: string): number {
   return db.sqlite.transaction(() => {
+    db.sqlite.prepare("DELETE FROM step_payloads WHERE created_at < ?").run(cutoff);
     const doomed = db.drizzle
       .select({ id: toolPayloads.id })
       .from(toolPayloads)

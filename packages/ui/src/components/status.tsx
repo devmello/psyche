@@ -51,9 +51,9 @@ const GLYPH = {
 
 /** A run step's status (protocol `RunStep.status`) as a glyph kind. */
 export function stepStatusKind(
-  status: "pending" | "running" | "ok" | "failed" | "waiting" | "cancelled" | "skipped",
+  status: "pending" | "running" | "ok" | "failed" | "waiting" | "cancelled" | "skipped" | "denied",
 ): StepStatusKind {
-  return status === "ok" ? "done" : status;
+  return status === "ok" ? "done" : status === "denied" ? "blocked" : status;
 }
 
 export interface StatusGlyphProps {

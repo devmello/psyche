@@ -983,9 +983,11 @@ export class PsycheAgentLoop implements AgentLoop {
       run.steps += 1;
       run.messageId = run.steps === 1 ? run.messageId : this.#ids.next("msg");
       const { system, tools } = await this.#prepare(run);
+      const sent = run.thread.messages.slice();
       const step = await this.#callModel(run, system, tools);
       if (step.parts.length > 0) run.thread.messages.push({ role: "assistant", parts: step.parts });
       run.emit({ type: "usage", runId: run.runId, usage: { ...run.usage } });
+      await this.#modelCallPersist(run, system, tools, sent, step);
       if (step.finish === "cancelled") throw new RunEnd("cancelled");
       if (step.finish === "error") throw new RunEnd("failed", step.error ?? "model error");
       const breach = await this.#specialistAccount(run);
@@ -1827,6 +1829,40 @@ export class PsycheAgentLoop implements AgentLoop {
       run.pendingBreakdown = undefined;
     }
     return { parts, text, calls, finish, ...(error === undefined ? {} : { error }) };
+  }
+
+  /** Hands the finished call's input and output to `model_call_persist` (the run trace). */
+  async #modelCallPersist(
+    run: RunState,
+    system: string,
+    tools: ToolSpec[],
+    messages: ModelMessage[],
+    step: {
+      text: string;
+      calls: { id: string; name: string; input: unknown }[];
+      finish: string;
+      error?: string;
+    },
+  ): Promise<void> {
+    for (const hook of this.hooks.handlers("model_call_persist")) {
+      try {
+        await hook({
+          ...runRef(run),
+          system,
+          messages,
+          tools,
+          output: {
+            text: step.text,
+            calls: step.calls,
+            finish: step.finish,
+            ...(step.error === undefined ? {} : { error: step.error }),
+          },
+          taint: run.taint,
+        });
+      } catch {
+        // A trace write never fails the turn.
+      }
+    }
   }
 
   /** Reasoning steps for this run's step log, unless `showReasoning` is off for the thread. */

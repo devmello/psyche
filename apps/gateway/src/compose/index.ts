@@ -1106,6 +1106,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       // A trace write never fails the call.
     }
   });
+  // A model call's prompt and reply become the Timeline step's input and output.
+  loop.hooks.on("model_call_persist", (ctx) => {
+    try {
+      gatewayRef?.context.runTrace.modelCall(ctx);
+    } catch {
+      // A trace write never fails the turn.
+    }
+  });
   // Awaited by the loop before its `end` event, so a chat run's lessons are known before the
   // controller commits the transcript and publishes `run.updated`.
   loop.hooks.on("agent_end", (ctx) =>

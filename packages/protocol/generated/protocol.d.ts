@@ -7361,7 +7361,7 @@ export interface RunStepError {
 
 export type RunStepKind = "thinking" | "model" | "tool" | "approval" | "question" | "subagent" | "text" | "memory" | "artifact" | "note";
 
-export type RunStepStatus = "pending" | "running" | "ok" | "failed" | "waiting" | "cancelled" | "skipped";
+export type RunStepStatus = "pending" | "running" | "ok" | "failed" | "waiting" | "cancelled" | "skipped" | "denied";
 
 export type PsycheTraceFormat = "psyche-trace";
 

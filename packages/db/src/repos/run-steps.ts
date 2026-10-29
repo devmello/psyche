@@ -1,8 +1,9 @@
+import { gunzipSync, gzipSync } from "node:zlib";
 import type { RunFrame, RunStep } from "@psyche/protocol";
 import { and, asc, eq, gt, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { decodeJson } from "../mappers.ts";
 import type { PsycheDb } from "../open.ts";
-import { runFrames, runSteps, toolPayloads } from "../schema.ts";
+import { runFrames, runSteps, stepPayloadRows, toolPayloads } from "../schema.ts";
 
 /**
  * The run trace's store (docs/design/run-trace-2026.md §4.2–§4.3). Steps are written by the
@@ -228,6 +229,18 @@ export function stepPayloads(
 ): { input?: unknown; output?: unknown; truncated: boolean } {
   const rows = db.drizzle.select().from(toolPayloads).where(eq(toolPayloads.stepId, stepId)).all();
   const out: { input?: unknown; output?: unknown; truncated: boolean } = { truncated: false };
+  // A model call's own payloads (gzip), written by `putStepPayload`.
+  for (const r of db.drizzle
+    .select()
+    .from(stepPayloadRows)
+    .where(eq(stepPayloadRows.stepId, stepId))
+    .all()) {
+    const text = gunzipSync(Buffer.from(r.data)).toString("utf8");
+    const value = r.truncated === 1 ? text : safeJson(text);
+    if (r.kind === "input") out.input = value;
+    else out.output = value;
+    if (r.truncated === 1) out.truncated = true;
+  }
   for (const r of rows) {
     const text = Buffer.from(r.data).toString("utf8");
     const value = r.mime === "application/json" ? safeJson(text) : text;
@@ -236,6 +249,40 @@ export function stepPayloads(
     if (r.truncated === 1) out.truncated = true;
   }
   return out;
+}
+
+/**
+ * Stores a model step's input or output, gzip-compressed (prompts repeat the whole thread, so
+ * they compress well). A truncated body is plain text (head and tail with a marker); an intact
+ * one is JSON. Replaces the step's earlier payload of that kind.
+ */
+export function putStepPayload(
+  db: PsycheDb,
+  input: {
+    readonly runId: string;
+    readonly stepId: string;
+    readonly kind: "input" | "output";
+    readonly text: string;
+    readonly truncated: boolean;
+  },
+): string {
+  const id = db.newId();
+  db.sqlite
+    .prepare("DELETE FROM step_payloads WHERE step_id = ? AND kind = ?")
+    .run(input.stepId, input.kind);
+  db.drizzle
+    .insert(stepPayloadRows)
+    .values({
+      id,
+      runId: input.runId,
+      stepId: input.stepId,
+      kind: input.kind,
+      data: gzipSync(Buffer.from(input.text, "utf8")),
+      truncated: input.truncated ? 1 : 0,
+      createdAt: db.now(),
+    })
+    .run();
+  return id;
 }
 
 function safeJson(text: string): unknown {
@@ -263,6 +310,7 @@ export function deleteRunTrace(db: PsycheDb, runId: string): string[] {
         "DELETE FROM tool_payloads WHERE step_id IN (SELECT id FROM run_steps WHERE run_id = ?)",
       )
       .run(runId);
+    db.sqlite.prepare("DELETE FROM step_payloads WHERE run_id = ?").run(runId);
     db.drizzle.delete(runSteps).where(eq(runSteps.runId, runId)).run();
     db.drizzle.delete(runFrames).where(eq(runFrames.runId, runId)).run();
     db.sqlite

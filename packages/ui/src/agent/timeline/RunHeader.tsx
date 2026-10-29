@@ -50,7 +50,8 @@ export function runGlyph(status: RunStatus): StepStatusKind {
   }
 }
 
-function stateLabel(status: RunStatus): string {
+function stateLabel(status: RunStatus, partial = false): string {
+  if (partial && status === "done") return t("agent.timeline.state.partial");
   const key = status === "awaiting_approval" || status === "awaiting_input" ? "waiting" : status;
   return t(`agent.timeline.state.${key}` as MessageId);
 }
@@ -63,6 +64,8 @@ export function runTitle(run: Run, threadTitle?: string | null): string {
 export interface RunHeaderProps {
   run: Run;
   stepCount: number;
+  /** Steps that failed or were denied; a done run with any reads as partial, not green. */
+  problems?: number;
   now?: number;
   mode: TimelineMode;
   onModeChange: (mode: TimelineMode) => void;
@@ -83,6 +86,7 @@ export interface RunHeaderProps {
 export function RunHeader({
   run,
   stepCount,
+  problems = 0,
   now,
   mode,
   onModeChange,
@@ -97,13 +101,14 @@ export function RunHeader({
   leading,
 }: RunHeaderProps): ReactElement {
   const running = run.status === "running";
+  const partial = run.status === "done" && problems > 0;
   const start = ms(run.startedAt) ?? 0;
   const end = ms(run.endedAt) ?? undefined;
   const tokens = usageTokens(run.usage);
   const cost = run.usage.costUsd;
   const who = t(`agent.timeline.who.${run.origin ?? "owner"}` as MessageId);
   const facts: ReactNode[] = [
-    stateLabel(run.status),
+    stateLabel(run.status, partial),
     <LiveDuration
       key="d"
       startedAt={start}
@@ -121,8 +126,8 @@ export function RunHeader({
       <div className="flex min-w-0 items-center gap-2">
         {leading}
         <StatusGlyph
-          status={runGlyph(run.status)}
-          label={stateLabel(run.status)}
+          status={partial ? "partial" : runGlyph(run.status)}
+          label={stateLabel(run.status, partial)}
           morph
           className="size-4 shrink-0"
         />

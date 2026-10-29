@@ -387,7 +387,10 @@ export function traceFrames(): Record<string, RunFrame[]> {
 }
 
 /** Tool inputs and outputs behind `payloadRef`, by `<runId>/<stepId>` (redacted, as stored). */
-export function tracePayloads(): Record<string, { input?: unknown; output?: unknown }> {
+export function tracePayloads(): Record<
+  string,
+  { input?: unknown; output?: unknown; truncated?: boolean }
+> {
   return {
     [`${R.done}/stp_trace_lisbon_02`]: {
       input: { query: "Lisbon flights", from: "SFO", month: "May" },

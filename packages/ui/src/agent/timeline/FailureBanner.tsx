@@ -20,6 +20,8 @@ export function isAuthError(step: RunStep): boolean {
 
 export interface FailureBannerProps {
   step: RunStep;
+  /** The run's own final error, when it says more than the failed step. */
+  runError?: string;
   onRetry?: () => void;
   /** Opens the connector behind an authorisation failure. */
   onReconnect?: () => void;
@@ -28,6 +30,7 @@ export interface FailureBannerProps {
 
 export function FailureBanner({
   step,
+  runError,
   onRetry,
   onReconnect,
   onShowStep,
@@ -63,6 +66,14 @@ export function FailureBanner({
             })
           )}
         </dd>
+        {runError && runError !== step.error?.message ? (
+          <>
+            <dt className="text-label-secondary">{t("agent.timeline.failure.label")}</dt>
+            <dd className="min-w-0 text-label-primary">
+              {t("agent.timeline.failure.runError", { message: runError })}
+            </dd>
+          </>
+        ) : null}
         <dt className="text-label-secondary">{t("agent.timeline.failure.did")}</dt>
         <dd className="text-label-primary">
           {tries > 1
