@@ -3784,14 +3784,14 @@ export interface EverythingModelSetting {
 }
 
 export interface EverythingProcessingModel {
-    kind: EverythingModelKind;
+    kind: SearchProcessing;
     ref?: string;
 }
 
 /**
  * none: deterministic graph only; cloud: Haiku-class provider; local: on this Mac
  */
-export type EverythingModelKind = "none" | "cloud" | "local";
+export type SearchProcessing = "none" | "cloud" | "local";
 
 export interface EverythingPeopleSetting {
     default: EverythingPeopleDefault;
@@ -8157,8 +8157,6 @@ export interface Exclude {
     contacts?: string[];
     folders?:  string[];
 }
-
-export type SearchProcessing = "cloud" | "local" | "none";
 
 export type SearchSourceID = "mail" | "messages" | "notes" | "calendar" | "reminders" | "files";
 

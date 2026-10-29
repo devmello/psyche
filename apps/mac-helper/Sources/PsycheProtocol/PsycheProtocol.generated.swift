@@ -11778,7 +11778,7 @@ public struct EverythingModelSetting: Codable, Sendable {
 
 // MARK: - EverythingProcessingModel
 public struct EverythingProcessingModel: Codable, Sendable {
-    public let kind: EverythingModelKind
+    public let kind: SearchProcessing
     public let ref: String?
 
     public enum CodingKeys: String, CodingKey {
@@ -11786,14 +11786,14 @@ public struct EverythingProcessingModel: Codable, Sendable {
         case ref = "ref"
     }
 
-    public init(kind: EverythingModelKind, ref: String?) {
+    public init(kind: SearchProcessing, ref: String?) {
         self.kind = kind
         self.ref = ref
     }
 }
 
 /// none: deterministic graph only; cloud: Haiku-class provider; local: on this Mac
-public enum EverythingModelKind: String, Codable, Sendable {
+public enum SearchProcessing: String, Codable, Sendable {
     case cloud = "cloud"
     case local = "local"
     case none = "none"
@@ -24293,12 +24293,6 @@ public struct Exclude: Codable, Sendable {
         self.contacts = contacts
         self.folders = folders
     }
-}
-
-public enum SearchProcessing: String, Codable, Sendable {
-    case cloud = "cloud"
-    case local = "local"
-    case none = "none"
 }
 
 public enum SearchSourceID: String, Codable, Sendable {
