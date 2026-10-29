@@ -21,6 +21,8 @@ export interface ExtractorCall {
   model: ModelRef;
   items: readonly BatchItem[];
   people: readonly { handle: string; name: string; isOwner: boolean }[];
+  /** Allow what a sender says about someone else (third-party batches only). */
+  aboutOthers?: boolean;
   signal?: AbortSignal;
 }
 
@@ -29,7 +31,9 @@ export type ExtractorResult =
   | { ok: false; reason: ParseFailure; tokensIn: number; tokensOut: number };
 
 export async function callExtractor(call: ExtractorCall): Promise<ExtractorResult> {
-  const prompt = buildExtractPrompt(call.items, call.people);
+  const prompt = buildExtractPrompt(call.items, call.people, {
+    ...(call.aboutOthers === undefined ? {} : { aboutOthers: call.aboutOthers }),
+  });
   const request: ModelRequest = {
     model: call.model,
     system: prompt.system,

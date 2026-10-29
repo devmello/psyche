@@ -108,6 +108,10 @@ export const EverythingMemorySettings = Type.Object(
     people: Type.Object(
       {
         default: EverythingPeopleDefault,
+        aboutOthers: bool(
+          false,
+          "Keep what one person says about someone else (always pending); off: only what people say about themselves",
+        ),
       },
       { $id: "EverythingPeopleSetting" },
     ),
@@ -192,7 +196,7 @@ export const EVERYTHING_MEMORY_DEFAULTS = {
     browser: false,
     transcripts: false,
   },
-  people: { default: "two_way" },
+  people: { default: "two_way", aboutOthers: false },
   sensitive: {
     health: false,
     finance: false,

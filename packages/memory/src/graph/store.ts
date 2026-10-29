@@ -1369,6 +1369,32 @@ export class GraphStore {
     return outbound > 0 && inbound > 0 ? score : score * 0.25;
   }
 
+  /** The owner has both written to and heard from this person (§10.1 `two_way`). */
+  isTwoWay(entityId: string): boolean {
+    const r = this.#db
+      .prepare(
+        `SELECT
+           max(i.direction IN ('out', 'both')) AS sent,
+           max(i.direction IN ('in', 'both')) AS got
+         FROM graph_interactions i JOIN graph_participants p ON p.interaction_id = i.id
+         WHERE p.entity_id = ?`,
+      )
+      .get(entityId) as { sent: number | null; got: number | null };
+    return r.sent === 1 && r.got === 1;
+  }
+
+  /** The person is in Contacts, or the owner linked or verified one of their identifiers. */
+  isContact(entityId: string): boolean {
+    return (
+      this.#db
+        .prepare(
+          `SELECT 1 FROM graph_identifiers WHERE entity_id = ?
+             AND (source = 'contacts' OR verified = 1 OR linked_by = 'owner') LIMIT 1`,
+        )
+        .get(entityId) !== undefined
+    );
+  }
+
   // --- loops -----------------------------------------------------------------------------------
 
   #loopRow(id: string): LoopRow | undefined {

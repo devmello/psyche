@@ -74,7 +74,7 @@ describe("Settings → Everything memory", () => {
     fireEvent.click(await screen.findByRole("switch", { name: "Everything memory" }));
     const dialog = await screen.findByTestId("everything-consent");
     next();
-    fireEvent.click(within(dialog).getByRole("switch", { name: "Mail (sent)" }));
+    fireEvent.click(within(dialog).getByRole("switch", { name: "Mail" }));
     next();
     next();
     fireEvent.click(within(dialog).getByRole("radio", { name: /Cloud/ }));
@@ -174,5 +174,19 @@ describe("Settings → Everything memory", () => {
       ),
     );
     await waitFor(() => expect(gateway.world.review?.exclusions).toHaveLength(1));
+  });
+
+  it("what people say about others is a separate switch, off by default", async () => {
+    show();
+    fireEvent.click(await screen.findByRole("switch", { name: "Everything memory" }));
+    const dialog = await screen.findByTestId("everything-consent");
+    for (let i = 0; i < 4; i++) next();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Turn on" }));
+    const sw = await screen.findByRole("switch", { name: "Also what they say about other people" });
+    expect(sw.getAttribute("aria-checked")).toBe("false");
+    expect(stored()?.people.aboutOthers).toBe(false);
+    fireEvent.click(sw);
+    await waitFor(() => expect(stored()?.people.aboutOthers).toBe(true));
+    expect(stored()?.people.default).toBe("two_way");
   });
 });

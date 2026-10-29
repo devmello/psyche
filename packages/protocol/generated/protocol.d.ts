@@ -3794,7 +3794,12 @@ export interface EverythingProcessingModel {
 export type SearchProcessing = "none" | "cloud" | "local";
 
 export interface EverythingPeopleSetting {
-    default: EverythingPeopleDefaultOut;
+    /**
+     * Keep what one person says about someone else (always pending); off: only what people say
+     * about themselves
+     */
+    aboutOthers: boolean;
+    default:     EverythingPeopleDefaultOut;
 }
 
 export type EverythingPeopleDefaultOut = "two_way" | "contacts" | "everyone" | "chosen";

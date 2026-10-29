@@ -33,6 +33,10 @@ export interface ReaderCursor {
 }
 
 export interface OwnerItem {
+  /** `owner`: the owner's own words; `untrusted`: someone else's (EM5), only when asked for. */
+  trust: "owner" | "untrusted";
+  /** The sender as indexed (an address, number or name); only for `untrusted` items. */
+  sender: string | null;
   source: ReadableSource;
   /** The search document id: the citation's `source_ref`. */
   docId: string;
@@ -58,7 +62,7 @@ export interface ItemReader {
   read(
     source: ReadableSource,
     after: ReaderCursor,
-    opts: { limit: number; windowDays: number },
+    opts: { limit: number; windowDays: number; includeUntrusted?: boolean },
   ): ReadPage;
 }
 
@@ -71,6 +75,7 @@ interface Row {
   body: string;
   provenance: string;
   scope_key: string;
+  sender: string | null;
   thread_id: string | null;
   created_ms: number;
   updated_ms: number;
@@ -86,7 +91,7 @@ export class SearchDocReader implements ItemReader {
   read(
     source: ReadableSource,
     after: ReaderCursor,
-    opts: { limit: number; windowDays: number },
+    opts: { limit: number; windowDays: number; includeUntrusted?: boolean },
   ): ReadPage {
     const tag = SOURCE_TAGS[source];
     // Catch-up is bounded (§6.1): at most `windowDays` past the oldest unread item per run.
@@ -103,7 +108,7 @@ export class SearchDocReader implements ItemReader {
     const until = oldest.updated_ms + opts.windowDays * DAY_MS;
     const rows = this.#db
       .prepare(
-        `SELECT rowid, id, title, body, provenance, scope_key, thread_id, created_ms, updated_ms FROM search_docs
+        `SELECT rowid, id, title, body, provenance, scope_key, sender, thread_id, created_ms, updated_ms FROM search_docs
          WHERE source = ? AND (updated_ms > ? OR (updated_ms = ? AND rowid > ?)) AND updated_ms <= ?
          ORDER BY updated_ms, rowid LIMIT ?`,
       )
@@ -114,12 +119,16 @@ export class SearchDocReader implements ItemReader {
     const items: OwnerItem[] = [];
     let skipped = 0;
     for (const r of page) {
-      // Only the owner's own content, in the owner's own scope.
-      if (r.provenance !== "owner" || r.scope_key !== "owner") {
+      // The owner's own scope only. Other people's text comes back only when asked for.
+      const own = r.provenance === "owner";
+      const theirs = r.provenance === "untrusted" && opts.includeUntrusted === true;
+      if (r.scope_key !== "owner" || !(own || theirs)) {
         skipped++;
         continue;
       }
       items.push({
+        trust: own ? "owner" : "untrusted",
+        sender: own ? null : r.sender,
         source,
         docId: r.id,
         rowid: r.rowid,

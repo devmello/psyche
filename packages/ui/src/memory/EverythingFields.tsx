@@ -191,11 +191,18 @@ export function PeopleFields({
         label={t("everything.people.default")}
         grouped
         value={value.people.default}
-        onChange={(d) => onChange({ ...value, people: { default: d } })}
+        onChange={(d) => onChange({ ...value, people: { ...value.people, default: d } })}
         options={(["two_way", "contacts", "everyone", "chosen"] as const).map((d) => ({
           value: d,
           label: t(`everything.people.${d}`),
         }))}
+      />
+      <SwitchField
+        label={t("everything.people.aboutOthers")}
+        description={t("everything.people.aboutOthersHint")}
+        checked={value.people.aboutOthers}
+        settingKey={EVERYTHING_KEY}
+        onChange={(on) => onChange({ ...value, people: { ...value.people, aboutOthers: on } })}
       />
     </Group>
   );
