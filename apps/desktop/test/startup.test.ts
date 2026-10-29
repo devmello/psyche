@@ -52,4 +52,20 @@ describe("startShell (issue #441)", () => {
     await Promise.resolve();
     expect(warn).toHaveBeenCalledWith("the Gateway did not start: port in use");
   });
+
+  it("a background launch creates the window hidden and takes no focus", () => {
+    const order: string[] = [];
+    startShell({
+      showMain: () => order.push("show"),
+      startHidden: () => order.push("hidden"),
+      background: true,
+      focusApp: () => order.push("focus"),
+      startGateway: () => {
+        order.push("gateway");
+        return Promise.resolve();
+      },
+      openedAtLogin: false,
+    });
+    expect(order).toEqual(["hidden", "gateway"]);
+  });
 });

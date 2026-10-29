@@ -130,6 +130,46 @@ describe("unattended runs (C8)", () => {
     expect(events.filter((e) => e.type === "chat.delta")).toHaveLength(1);
   });
 
+  it("a browser that could not start fails the run with the reason; an owner's turn just sees the error", async () => {
+    const reason = "Psyche's browser couldn't start: the app did not connect within 25 seconds";
+    const failing = {
+      execute: async (): Promise<ToolResult> => ({
+        output: {
+          error: {
+            code: "unavailable",
+            message: reason,
+            details: { reason: "browser_unavailable" },
+          },
+        },
+        isError: true,
+        provenance: "trusted",
+      }),
+    };
+    const unattended = harness({
+      script: [call("b1", "browser.open_tab", { url: "https://x.test/" })],
+    });
+    unattended.loop.registry.register({
+      spec: spec("browser.open_tab", "read"),
+      execute: failing.execute,
+    });
+    expect(endOf(await runTurn(unattended, "check canvas", { mode: "unattended" }))).toMatchObject({
+      outcome: "failed",
+      error: reason,
+    });
+
+    const attended = harness({
+      script: [
+        call("b1", "browser.open_tab", { url: "https://x.test/" }),
+        say("The browser is down."),
+      ],
+    });
+    attended.loop.registry.register({
+      spec: spec("browser.open_tab", "read"),
+      execute: failing.execute,
+    });
+    expect(endOf(await runTurn(attended, "check canvas")).outcome).toBe("final");
+  });
+
   it("an action needing approval is queued with a notification, never attempted", async () => {
     const exec = recorder();
     const h = harness({

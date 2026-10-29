@@ -34,6 +34,7 @@ import { GlassSwitch } from "./TranslucencySettings.tsx";
 
 /** Read by the desktop app's main process (`apps/desktop/src/main/dock-policy.ts`). */
 const SHOW_IN_DOCK_SETTING = "appearance.showInDock";
+const OPEN_AT_LOGIN_SETTING = "appearance.openAtLogin";
 
 type AccentId = "violet" | "blue" | "teal" | "green" | "amber" | "tomato" | "pink";
 
@@ -355,6 +356,13 @@ export function AppearancePanel({
             checked={values[SHOW_IN_DOCK_SETTING] === true}
             settingKey={SHOW_IN_DOCK_SETTING}
             onChange={(v) => onChange(SHOW_IN_DOCK_SETTING, v)}
+          />
+          <SwitchField
+            label={t("settings.key.appearance.openAtLogin")}
+            description={t("settings.appearance.openAtLoginHint")}
+            checked={values[OPEN_AT_LOGIN_SETTING] === true}
+            settingKey={OPEN_AT_LOGIN_SETTING}
+            onChange={(v) => onChange(OPEN_AT_LOGIN_SETTING, v)}
           />
         </Group>
 

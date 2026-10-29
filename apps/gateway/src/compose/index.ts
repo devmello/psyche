@@ -172,6 +172,7 @@ import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
 import { searchEverythingTool } from "./search-tool.ts";
 import {
   type ApprovalRelay,
+  type BrowserAvailability,
   type ComposedPart,
   type ComposeServices,
   createOwnPorts,
@@ -827,6 +828,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
   const calls = new CallContexts();
   const ownPorts = createOwnPorts();
+  const browserAvailability: BrowserAvailability = {};
   ownPorts.add(config.port, "gateway (configured)");
   const services: ComposeServices = {
     documents,
@@ -863,6 +865,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     vault: vault.vault,
     redactor,
     ownPorts,
+    browserAvailability,
     rateLimits: createRateLimits(config.rateLimits, {
       audit,
       clock,
@@ -1482,6 +1485,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         scheduler,
         kv: scheduledKv,
         timezone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+        browserAvailable: () => browserAvailability.check?.(),
         taskStatus: async (taskId) => (await tasks.get(taskId))?.status,
         pendingApprovals: async () => {
           const byTask = new Map<string, number>();

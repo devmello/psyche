@@ -70,6 +70,7 @@ import {
   runGlassProbe,
 } from "./main/glass.ts";
 import { HelperLauncher, helperCanHoldKeychain } from "./main/helper-launcher.ts";
+import { LoginItem } from "./main/login-item.ts";
 import { buildAppMenu } from "./main/menu.ts";
 import { perfHold, perfProbeFile, startProbe, watchFirstPaint } from "./main/perf-probe.ts";
 import {
@@ -190,6 +191,7 @@ function systemAppearance(): { reduceTransparency: boolean; highContrast: boolea
 
 /** Psyche leaves the Dock and ⌘-Tab while no window is open. */
 const dockPolicy = new DockPolicy({ app, warn: (m) => console.warn(`[dock] ${m}`) });
+const loginItem = new LoginItem(app, { warn: (m) => console.warn(`[login] ${m}`) });
 
 const windowTheme = new WindowTheme({
   targets: () => windows?.chromeWindows() ?? [],
@@ -674,6 +676,7 @@ function onGatewayEvent(e: {
     zoom.onSettingsChanged(entries);
     windowTheme.onSettingsChanged(entries);
     dockPolicy.onSettingsChanged(entries);
+    loginItem.onSettingsChanged(entries);
   }
   if (e.event === "notification.created") {
     const d = relay.decide(p.notification as PsycheNotification);
@@ -900,6 +903,7 @@ void app.whenReady().then(async () => {
       void zoom.load();
       void windowTheme.load();
       void dockPolicy.load((method, params) => requireGateway().call(method, params));
+      void loginItem.load((method, params) => requireGateway().call(method, params));
       void dictation?.load();
       void screenAskShortcut?.load();
       void bootstrapAdminIfNeeded({
@@ -1062,6 +1066,8 @@ void app.whenReady().then(async () => {
   const sup = supervisor;
   startShell({
     showMain: () => appWindows.showMain(),
+    startHidden: () => appWindows.startHidden(),
+    background: process.argv.includes("--background"),
     focusApp: () => app.focus({ steal: true }),
     startGateway: () => sup.ensureRunning().then(() => gateway?.start()),
     openedAtLogin: app.getLoginItemSettings().wasOpenedAtLogin === true,

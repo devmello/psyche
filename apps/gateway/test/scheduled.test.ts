@@ -22,7 +22,7 @@ import {
 const NOW = Date.parse("2026-10-28T15:00:00Z");
 const TZ = "America/Los_Angeles";
 
-function setup() {
+function setup(browserAvailable?: () => { ok: boolean; reason?: string } | undefined) {
   const clock = new FakeClock(NOW);
   const db = openDb(":memory:");
   const notifier = new FakeNotifier({ clock });
@@ -48,7 +48,12 @@ function setup() {
     get: (k: string) => store.get(k),
     set: (k: string, v: unknown) => void store.set(k, v),
   };
-  const handlers = createScheduledHandlers({ scheduler, kv, timezone: () => TZ });
+  const handlers = createScheduledHandlers({
+    scheduler,
+    kv,
+    timezone: () => TZ,
+    ...(browserAvailable === undefined ? {} : { browserAvailable }),
+  });
   return { scheduler, kv, handlers, launched };
 }
 
@@ -76,6 +81,48 @@ const PROPOSAL: DailyWorkflowProposal = {
     },
   ],
 } as never;
+
+describe("scheduled.list pre-flight", () => {
+  const CANVAS = "Check Canvas for assignments due tomorrow and remind me.";
+
+  it("warns when a browser automation cannot be guaranteed a browser", async () => {
+    const { scheduler, handlers } = setup(() => ({
+      ok: false,
+      reason: "Psyche.app is not installed where it can be started",
+    }));
+    await scheduler.create({
+      kind: "cron",
+      title: "Canvas",
+      schedule: "0 20 * * *",
+      prompt: CANVAS,
+    });
+    await scheduler.create({
+      kind: "cron",
+      title: "Recap",
+      schedule: "0 17 * * 5",
+      prompt: "Summarise what I shipped this week.",
+    });
+    const { items } = await handlers["scheduled.list"]({});
+    const canvas = items.find((i) => i.title === "Canvas");
+    expect(canvas?.warnings).toEqual(["browser_not_guaranteed"]);
+    expect(canvas?.warningReason).toContain("not installed");
+    expect(items.find((i) => i.title === "Recap")?.warnings).toBeUndefined();
+  });
+
+  it("does not warn when the browser is guaranteed or the status is unknown", async () => {
+    for (const available of [() => ({ ok: true }), undefined]) {
+      const { scheduler, handlers } = setup(available);
+      await scheduler.create({
+        kind: "cron",
+        title: "Canvas",
+        schedule: "0 20 * * *",
+        prompt: CANVAS,
+      });
+      const { items } = await handlers["scheduled.list"]({});
+      expect(items[0]?.warnings).toBeUndefined();
+    }
+  });
+});
 
 describe("scheduled.list", () => {
   it("lists the owner's automations first, then Psyche's routines, with next runs", async () => {

@@ -426,6 +426,47 @@ describe("background mode: out of the Dock while no window is open", () => {
   });
 });
 
+describe("background launch (unattended runs need the agent browser)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    BaseWindow.all.length = 0;
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("creates the host window hidden so the browser host and bridge come up with no window", async () => {
+    const log: string[] = [];
+    const dock = new DockPolicy({ app: fakeApp(log), platform: "darwin", graceMs: GRACE });
+    const created: unknown[] = [];
+    const windows = createAppWindows({
+      rendererUrl: "app://psyche/",
+      preloadPath: "/preload.cjs",
+      dock,
+      releaseHiddenAfterMs: 1000,
+      onMainCreated: (w) => created.push(w),
+    });
+    windows.startHidden();
+    // The browser host (built in onMainCreated) exists; nothing was shown or focused.
+    expect(created).toHaveLength(1);
+    const win = windows.main() as unknown as FakeWindow;
+    expect(win.visible).toBe(false);
+    vi.advanceTimersByTime(GRACE);
+    expect(log).toEqual(["policy:accessory"]);
+    // The 10-minute renderer free runs, but the window (and so the host and bridge) stays.
+    vi.advanceTimersByTime(1000);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(windows.mainContents()).toBeUndefined();
+    expect(windows.main()).toBe(win);
+    expect(win.isDestroyed()).toBe(false);
+    // A second background start does not rebuild the host; opening from the menu bar shows it.
+    windows.startHidden();
+    expect(created).toHaveLength(1);
+    windows.showMain();
+    expect(created).toHaveLength(1);
+    expect(windows.mainContents()).toBeDefined();
+  });
+});
+
 describe("main.ts opens windows only through showMain", () => {
   const text = readFileSync(join(__dirname, "..", "..", "src", "main.ts"), "utf8");
 

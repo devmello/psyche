@@ -1042,6 +1042,7 @@
 //   let scheduledRunsParams = try? JSONDecoder().decode(ScheduledRunsParams.self, from: jsonData)
 //   let scheduledRunsResult = try? JSONDecoder().decode(ScheduledRunsResult.self, from: jsonData)
 //   let scheduledState = try? JSONDecoder().decode(ScheduledState.self, from: jsonData)
+//   let scheduledWarning = try? JSONDecoder().decode(ScheduledWarning.self, from: jsonData)
 //   let screenCapture = try? JSONDecoder().decode(ScreenCapture.self, from: jsonData)
 //   let screenCaptureMode = try? JSONDecoder().decode(ScreenCaptureMode.self, from: jsonData)
 //   let screenCaptureRefusal = try? JSONDecoder().decode(ScreenCaptureRefusal.self, from: jsonData)
@@ -23867,6 +23868,8 @@ public struct ScheduledItem: Codable, Sendable {
     public let timezone: String
     public let title: String
     public let trigger: AutomationTrigger?
+    public let warningReason: String?
+    public let warnings: [ScheduledWarning]?
 
     public enum CodingKeys: String, CodingKey {
         case approvals = "approvals"
@@ -23888,9 +23891,11 @@ public struct ScheduledItem: Codable, Sendable {
         case timezone = "timezone"
         case title = "title"
         case trigger = "trigger"
+        case warningReason = "warningReason"
+        case warnings = "warnings"
     }
 
-    public init(approvals: [String], deletable: Bool, enabled: Bool, group: ScheduledGroup, id: String, kind: AutomationKind, lastRunAt: String?, lastStatus: String?, linked: ScheduledLink?, nextRunAt: String?, prompt: String?, routine: String?, schedule: String, settings: String?, state: ScheduledState, summary: String, timezone: String, title: String, trigger: AutomationTrigger?) {
+    public init(approvals: [String], deletable: Bool, enabled: Bool, group: ScheduledGroup, id: String, kind: AutomationKind, lastRunAt: String?, lastStatus: String?, linked: ScheduledLink?, nextRunAt: String?, prompt: String?, routine: String?, schedule: String, settings: String?, state: ScheduledState, summary: String, timezone: String, title: String, trigger: AutomationTrigger?, warningReason: String?, warnings: [ScheduledWarning]?) {
         self.approvals = approvals
         self.deletable = deletable
         self.enabled = enabled
@@ -23910,6 +23915,8 @@ public struct ScheduledItem: Codable, Sendable {
         self.timezone = timezone
         self.title = title
         self.trigger = trigger
+        self.warningReason = warningReason
+        self.warnings = warnings
     }
 }
 
@@ -23962,6 +23969,10 @@ public enum ScheduledState: String, Codable, Sendable {
     case active = "active"
     case off = "off"
     case paused = "paused"
+}
+
+public enum ScheduledWarning: String, Codable, Sendable {
+    case browserNotGuaranteed = "browser_not_guaranteed"
 }
 
 // MARK: - ScheduledPauseParams
