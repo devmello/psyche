@@ -33,6 +33,7 @@ import {
   parseRecentFilter,
   type RailItem,
   recentHref,
+  ScheduledScreen,
   SearchScreen,
   sheetTab,
   ThreadContextDialog,
@@ -246,6 +247,8 @@ export function screenRoute(route: string, navigate: (to: string) => void): Reac
           onOpenGoal={(goal) => navigate(`/goals/${goal.id}`)}
         />,
       );
+    case "scheduled":
+      return page("Scheduled", <ScheduledScreen onNavigate={navigate} />);
     case "library": {
       const section = (LIBRARY_SECTIONS.find((s) => s.id === parts[1])?.id ??
         "documents") as LibrarySection;

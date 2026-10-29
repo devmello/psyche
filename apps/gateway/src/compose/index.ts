@@ -162,6 +162,7 @@ import { createRateLimits } from "./rate-limits.ts";
 import { requestPermissionTool } from "./request-permission.ts";
 import { researchTools } from "./research.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
+import { createScheduledHandlers, pausedRoutines, withPausedRoutines } from "./scheduled.ts";
 import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
 import { scriptTools } from "./scripts.ts";
 import { type ComposedSearch, composeSearch, graphNames } from "./search.ts";
@@ -1257,34 +1258,42 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   })) {
     registry.register(tool);
   }
+  const scheduledKv = {
+    get: (key: string) => getSetting(db, key)?.value,
+    set: (key: string, value: unknown) => void setSetting(db, key, value),
+  };
   // The dreaming automation runs memory dreaming and the people graph pass in-process.
   // Dreaming, then the lesson pass (teaching loop §6, #681), then the people graph pass.
   // Automations with a `specialist` run as unattended specialist jobs (specialists §4.10).
-  launcher = withAutomationSpecialists(
-    people.launcher(
-      // The weekly "What I learned" Feed post (teaching loop §5.4) runs in-process too.
-      withWeeklyCard(proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool), {
-        store: teaching.service.store,
-        memory,
-        clock,
-        enabled: () =>
-          teachingSettings(db).enabled && getSetting(db, "teaching.weeklyCard")?.value !== false,
-        post: (card) => proactive.feed.postGrowth(card),
-      }),
-      [
-        async () => {
-          if (!teachingSettings(db).enabled) return undefined;
-          const r = await consolidateLessons(teaching.service, memory, { clock });
-          // "Still true?" left unanswered: the lesson goes dormant (teaching loop §3.3).
-          const dormant = await retireUnanswered(teaching.service, memory, { clock });
-          return `lessons: ${r.merged} merged, ${r.promoted} promoted, ${r.proposed} proposed, ${r.flagged} flagged, ${dormant} dormant`;
-        },
-        // Everything memory (#1010): off and model None until the owner picks; gated on power,
-        // idle time and quiet hours inside the pass.
-        everything.nightly,
-      ],
+  launcher = withPausedRoutines(
+    withAutomationSpecialists(
+      people.launcher(
+        // The weekly "What I learned" Feed post (teaching loop §5.4) runs in-process too.
+        withWeeklyCard(proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool), {
+          store: teaching.service.store,
+          memory,
+          clock,
+          enabled: () =>
+            teachingSettings(db).enabled && getSetting(db, "teaching.weeklyCard")?.value !== false,
+          post: (card) => proactive.feed.postGrowth(card),
+        }),
+        [
+          async () => {
+            if (!teachingSettings(db).enabled) return undefined;
+            const r = await consolidateLessons(teaching.service, memory, { clock });
+            // "Still true?" left unanswered: the lesson goes dormant (teaching loop §3.3).
+            const dormant = await retireUnanswered(teaching.service, memory, { clock });
+            return `lessons: ${r.merged} merged, ${r.promoted} promoted, ${r.proposed} proposed, ${r.flagged} flagged, ${dormant} dormant`;
+          },
+          // Everything memory (#1010): off and model None until the owner picks; gated on power,
+          // idle time and quiet hours inside the pass.
+          everything.nightly,
+        ],
+      ),
+      { db, tasks, host: specialists, now: () => clock.now() },
     ),
-    { db, tasks, host: specialists, now: () => clock.now() },
+    // Scheduled → Pause: a paused routine skips its scheduled runs (Run now still goes through).
+    () => pausedRoutines(scheduledKv),
   );
   scheduler.subscribe((e) => publish(e.event, e.payload as never));
 
@@ -1460,6 +1469,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       }) as never,
     ),
     ...mountParamsOnly(createAutomationHandlers(scheduler) as never),
+    ...mountParamsOnly(
+      createScheduledHandlers({
+        scheduler,
+        kv: scheduledKv,
+        timezone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+      }) as never,
+    ),
     ...mountParamsOnly(createNotificationHandlers(notifier) as never),
     ...proactive.handlers,
     ...capabilities.handlers,

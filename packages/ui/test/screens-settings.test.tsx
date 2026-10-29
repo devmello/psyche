@@ -89,7 +89,7 @@ describe("SettingsScreen", () => {
     const items = within(nav).getAllByRole("button");
     // 15 sections of UI design §2.6 plus Browser (I13), Skills (T2), VM mode (L1–L5),
     // People & projects (#652), Specialists (#685), Mail & meetings (#672), Notifications (#953) and Daily.
-    expect(items).toHaveLength(23);
+    expect(items).toHaveLength(25);
     expect(items.map((b) => b.textContent?.trim())).toContain("Notifications");
     expect(items.map((b) => b.textContent?.trim())).toContain("People & projects");
     expect(items.map((b) => b.textContent?.trim())).toContain("Skills");

@@ -2485,6 +2485,22 @@
         "sideEffecting": false
       },
       {
+        "description": "Lists everything the scheduler runs (the owner's automations, then Psyche's routines) with next and last run, what each does, the approvals it may need and its linked runs.",
+        "name": "scheduled.list",
+        "params": "#/$defs/ScheduledListParams",
+        "result": "#/$defs/ScheduledListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Pauses or resumes one scheduled item. The owner's automations are switched off and on; a routine of Psyche's skips its scheduled runs while paused (Run now still works) and keeps the pause across restarts.",
+        "name": "scheduled.pause",
+        "params": "#/$defs/ScheduledPauseParams",
+        "result": "#/$defs/ScheduledPauseResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
         "description": "Desktop only: captures the frontmost window (or a box) and its text context once, on the owner's ask shortcut; the frame is stored as an untrusted Library item that expires unless sent.",
         "name": "screen.capture",
         "params": "#/$defs/ScreenContextParams",
@@ -32126,6 +32142,238 @@
         "message"
       ],
       "type": "object"
+    },
+    "ScheduledGroup": {
+      "enum": [
+        "owner",
+        "routine"
+      ],
+      "type": "string"
+    },
+    "ScheduledItem": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "group": {
+          "$ref": "#/$defs/ScheduledGroup"
+        },
+        "routine": {
+          "maxLength": 64,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/AutomationKind"
+        },
+        "title": {
+          "type": "string"
+        },
+        "schedule": {
+          "type": "string"
+        },
+        "timezone": {
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/ScheduledState"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "nextRunAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastRunAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastStatus": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "summary": {
+          "maxLength": 300,
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "approvals": {
+          "items": {
+            "maxLength": 64,
+            "type": "string"
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
+        "linked": {
+          "$ref": "#/$defs/ScheduledLink"
+        },
+        "deletable": {
+          "type": "boolean"
+        },
+        "settings": {
+          "maxLength": 32,
+          "type": "string"
+        },
+        "trigger": {
+          "$ref": "#/$defs/AutomationTrigger"
+        }
+      },
+      "required": [
+        "id",
+        "group",
+        "kind",
+        "title",
+        "schedule",
+        "timezone",
+        "state",
+        "enabled",
+        "summary",
+        "approvals",
+        "deletable"
+      ],
+      "type": "object"
+    },
+    "ScheduledLink": {
+      "properties": {
+        "groupId": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "runs": {
+          "items": {
+            "$ref": "#/$defs/ScheduledLinkedRun"
+          },
+          "maxItems": 24,
+          "type": "array"
+        }
+      },
+      "required": [
+        "groupId",
+        "runs"
+      ],
+      "type": "object"
+    },
+    "ScheduledLinkedRun": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "schedule": {
+          "type": "string"
+        },
+        "nextRunAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "schedule"
+      ],
+      "type": "object"
+    },
+    "ScheduledListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "ScheduledListResult": {
+      "properties": {
+        "timezone": {
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/ScheduledItem"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "timezone",
+        "items"
+      ],
+      "type": "object"
+    },
+    "ScheduledPauseParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "paused": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "paused"
+      ],
+      "type": "object"
+    },
+    "ScheduledPauseResult": {
+      "properties": {
+        "item": {
+          "$ref": "#/$defs/ScheduledItem"
+        }
+      },
+      "required": [
+        "item"
+      ],
+      "type": "object"
+    },
+    "ScheduledState": {
+      "description": "`paused`: stopped here and resumable here. `off`: a routine whose feature is switched off in its Settings section, which is where it is turned on",
+      "enum": [
+        "active",
+        "paused",
+        "off"
+      ],
+      "type": "string"
     },
     "ScreenCapture": {
       "properties": {

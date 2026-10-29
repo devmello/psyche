@@ -353,6 +353,14 @@ export class SqliteScheduler implements Scheduler {
     return row === undefined ? undefined : automationFromRow(row, this.#watchRow(id));
   }
 
+  /** The ids of Psyche's own automations (the brief, nightly memory, proactive jobs): not the owner's. */
+  systemIds(): ReadonlySet<string> {
+    const rows = this.#db.sqlite.prepare("SELECT id FROM automations WHERE system = 1").all() as {
+      id: string;
+    }[];
+    return new Set(rows.map((r) => r.id));
+  }
+
   async list(filter: { kind?: Automation["kind"] } = {}): Promise<Automation[]> {
     const rows = (
       filter.kind === undefined

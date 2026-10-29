@@ -37,6 +37,10 @@ export function createAutomationHandlers(scheduler: SqliteScheduler): Automation
     "automations.delete": async (p) => {
       const a = await scheduler.get(p.automationId);
       if (a === undefined) throw new PsycheError("not_found", "automation not found");
+      // Psyche's own routines are paused, not deleted: their owner re-creates them at start.
+      if (scheduler.systemIds().has(a.id)) {
+        throw new PsycheError("policy_denied", "a built-in routine can be paused, not deleted");
+      }
       await scheduler.remove(p.automationId);
       return { ok: true as const };
     },

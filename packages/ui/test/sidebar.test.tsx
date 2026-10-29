@@ -62,7 +62,16 @@ describe("Sidebar (redesign §5.1)", () => {
     const names = within(within(nav).getByRole("list", { name: "Destinations" }))
       .getAllByRole("button")
       .map((b) => b.getAttribute("data-destination"));
-    expect(names).toEqual(["chat", "search", "feed", "ideas", "goals", "library", "overview"]);
+    expect(names).toEqual([
+      "chat",
+      "search",
+      "feed",
+      "ideas",
+      "goals",
+      "scheduled",
+      "library",
+      "overview",
+    ]);
     const ideas = destination("Ideas");
     expect(ideas.getAttribute("aria-current")).toBe("page");
     expect(ideas.getAttribute("aria-label")).toBe("Ideas, 2 new");

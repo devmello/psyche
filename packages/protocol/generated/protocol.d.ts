@@ -7960,6 +7960,62 @@ export interface SandboxStatusResult {
     srt?:      SandboxSrtStatus;
 }
 
+export interface ScheduledListResult {
+    items:    ScheduledItem[];
+    timezone: string;
+}
+
+export interface ScheduledItem {
+    approvals:   string[];
+    deletable:   boolean;
+    enabled:     boolean;
+    group:       ScheduledGroup;
+    id:          string;
+    kind:        AutomationKind;
+    lastRunAt?:  null | string;
+    lastStatus?: null | string;
+    linked?:     ScheduledLink;
+    nextRunAt?:  null | string;
+    prompt?:     string;
+    routine?:    string;
+    schedule:    string;
+    settings?:   string;
+    state:       ScheduledState;
+    summary:     string;
+    timezone:    string;
+    title:       string;
+    trigger?:    AutomationTrigger;
+}
+
+export type ScheduledGroup = "owner" | "routine";
+
+export interface ScheduledLink {
+    groupId: string;
+    runs:    ScheduledLinkedRun[];
+}
+
+export interface ScheduledLinkedRun {
+    id:         string;
+    nextRunAt?: null | string;
+    schedule:   string;
+    title:      string;
+}
+
+/**
+ * `paused`: stopped here and resumable here. `off`: a routine whose feature is switched off
+ * in its Settings section, which is where it is turned on
+ */
+export type ScheduledState = "active" | "paused" | "off";
+
+export interface ScheduledPauseParams {
+    id:     string;
+    paused: boolean;
+}
+
+export interface ScheduledPauseResult {
+    item: ScheduledItem;
+}
+
 export interface ScreenCapture {
     captureId:      string;
     context?:       ScreenContext | null;

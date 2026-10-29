@@ -628,6 +628,11 @@ export class GatewayStore {
           // The agent's own notes list (Soul & Memory) follows the files.
           e.payload.path.startsWith(AGENT_NOTES_DIR) ? ["memory.notes."] : [],
         );
+      case "automation.updated":
+      case "automation.run.started":
+      case "automation.run.finished":
+        // The Scheduled screen: the list, and each automation's run history.
+        return invalidate(s, ["scheduled.list", "automations.runs"]);
       case "audit.change.recorded":
         // The chat's change chip and the audit view read audit.changes.
         return invalidate(s, ["audit.changes", "audit.verify"]);

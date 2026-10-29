@@ -2225,6 +2225,52 @@ export class MockGateway implements GatewayClient {
         .slice(0, p.limit ?? 200),
     }),
     "automations.run": () => ({ runId: this.id("run"), taskId: this.id("task") }),
+    "scheduled.list": () => ({
+      timezone: "UTC",
+      items: this.world.automations.map((a) => ({
+        id: a.id,
+        group: "owner" as const,
+        kind: a.kind,
+        title: a.title,
+        schedule: a.schedule,
+        timezone: a.timezone,
+        state: a.enabled ? ("active" as const) : ("paused" as const),
+        enabled: a.enabled,
+        nextRunAt: a.enabled ? a.nextRunAt : null,
+        lastRunAt: a.lastRunAt,
+        lastStatus: a.lastStatus,
+        summary: a.prompt.split("\n")[0] ?? "",
+        prompt: a.prompt,
+        approvals: ["queued"],
+        deletable: true,
+      })),
+    }),
+    "scheduled.pause": (p) => {
+      const automation = {
+        ...this.find(this.world.automations, p.id, "automation"),
+        enabled: !p.paused,
+        updatedAt: this.now(),
+      };
+      this.replace("automations", automation);
+      return {
+        item: {
+          id: automation.id,
+          group: "owner" as const,
+          kind: automation.kind,
+          title: automation.title,
+          schedule: automation.schedule,
+          timezone: automation.timezone,
+          state: p.paused ? ("paused" as const) : ("active" as const),
+          enabled: !p.paused,
+          nextRunAt: p.paused ? null : automation.nextRunAt,
+          lastRunAt: automation.lastRunAt,
+          lastStatus: automation.lastStatus,
+          summary: automation.prompt.split("\n")[0] ?? "",
+          approvals: ["queued"],
+          deletable: true,
+        },
+      };
+    },
     "automations.update": (p) => {
       const { automationId, ...fields } = p;
       const automation = {

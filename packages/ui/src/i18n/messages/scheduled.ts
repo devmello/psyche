@@ -1,0 +1,160 @@
+/** The Scheduled screen (`/scheduled`): everything the scheduler runs, by who set it up. */
+export const scheduled = {
+  "scheduled.title": "Scheduled",
+  "scheduled.description":
+    "Everything that runs on a schedule: your automations and Psyche's own routines.",
+  "scheduled.timezone": "Times in {zone}",
+  "scheduled.loading": "Loading what's scheduled",
+  "scheduled.loadFailed": "Psyche couldn't load what's scheduled",
+  "scheduled.new": "New automation",
+  "scheduled.new.prefill":
+    "I want to automate a task I do every day. Help me plan it, try it once with me, then schedule it. The task: ",
+  "scheduled.edit.prefill": 'I want to change my "{title}" automation. What I want changed: ',
+
+  "scheduled.group.owner": "Your automations",
+  "scheduled.group.routine": "Psyche's routines",
+  "scheduled.group.routine.hint":
+    "These run on their own. You can pause them or run one now, but not delete them.",
+
+  "scheduled.empty.title": "You haven't set up any automations yet.",
+  "scheduled.empty.hint": "Describe something you'd like done on a schedule. A few ideas:",
+  "scheduled.empty.example.1": "Every weekday at 9, add what I need to my shopping cart",
+  "scheduled.empty.example.2": "Every Friday at 5, summarise what I shipped this week",
+  "scheduled.empty.example.3": "Every morning, check the tracking on my parcels",
+  "scheduled.empty.example.aria": "Start with: {text}",
+  "scheduled.routines.empty": "Nothing of Psyche's is scheduled yet.",
+
+  "scheduled.state.paused": "Paused",
+  "scheduled.state.off": "Off",
+
+  "scheduled.row.next": "Next run",
+  "scheduled.row.last": "Last run",
+  "scheduled.row.does": "What it does",
+  "scheduled.row.approvals": "Approvals it may need",
+  "scheduled.row.linked": "Linked runs",
+  "scheduled.row.never": "Hasn't run yet",
+  "scheduled.row.nextPaused": "Paused: no runs until you resume it",
+  "scheduled.row.nextOff": "Off: turn it on in Settings",
+  "scheduled.row.nextEvent": "Runs when something happens, not on a clock",
+  "scheduled.row.nextNone": "Nothing scheduled",
+  "scheduled.row.nextAt": "{relative} · {absolute}",
+  "scheduled.row.lastAt": "{status} · {relative}",
+  "scheduled.row.absolute": "{date} at {time}",
+  "scheduled.row.linkedRun": "{title}: {when}",
+  "scheduled.row.noSummary": "Runs the instruction you gave it.",
+
+  "scheduled.approvals.none": "None. It only uses what you've turned on in Settings.",
+  "scheduled.approvals.queued":
+    "Anything that sends, changes or deletes something waits in Approvals for your OK.",
+  "scheduled.approvals.calendar_write": "Adding a focus block to your calendar",
+
+  "scheduled.status.running": "Running",
+  "scheduled.status.done": "Done",
+  "scheduled.status.no_reply": "Nothing to report",
+  "scheduled.status.failed": "Failed",
+  "scheduled.status.cancelled": "Stopped",
+  "scheduled.status.skipped": "Skipped",
+
+  "scheduled.action.pause": "Pause",
+  "scheduled.action.resume": "Resume",
+  "scheduled.action.pause.aria": "Pause {title}",
+  "scheduled.action.resume.aria": "Resume {title}",
+  "scheduled.action.runNow": "Run now",
+  "scheduled.action.runNow.aria": "Run {title} now",
+  "scheduled.action.edit": "Edit",
+  "scheduled.action.edit.aria": "Edit {title}",
+  "scheduled.action.delete": "Delete",
+  "scheduled.action.delete.aria": "Delete {title}",
+  "scheduled.action.history": "History",
+  "scheduled.action.history.aria": "Show the run history of {title}",
+  "scheduled.action.settings": "Settings",
+  "scheduled.action.settings.aria": "Open the settings for {title}",
+  "scheduled.action.turnOn": "Turn on in Settings",
+
+  "scheduled.toast.paused": "Paused {title}.",
+  "scheduled.toast.resumed": "Resumed {title}.",
+  "scheduled.toast.started":
+    "Started {title}. Anything that needs approval will wait in Approvals.",
+  "scheduled.toast.deleted": "Deleted {title}.",
+  "scheduled.toast.saved": "Saved {title}.",
+  "scheduled.toast.failed": "That didn't work.",
+
+  "scheduled.delete.title": "Delete {title}?",
+  "scheduled.delete.body":
+    "It stops running and its run history goes with it. This can't be undone.",
+  "scheduled.delete.confirm": "Delete it",
+  "scheduled.delete.cancel": "Keep it",
+
+  "scheduled.edit.title": "Change {title}",
+  "scheduled.edit.label": "Describe it again, with the schedule",
+  "scheduled.edit.review": "Review change",
+  "scheduled.edit.cancel": "Cancel",
+  "scheduled.edit.cardTitle": "Save this change?",
+  "scheduled.edit.save": "Save changes",
+  "scheduled.edit.linked":
+    "This is one run of a linked set, so changes are made together, in a chat.",
+  "scheduled.edit.inChat": "Change it in a chat",
+  "scheduled.edit.noModel": "Pick a model in Settings first, then Psyche can read the change.",
+  "scheduled.edit.parseFailed":
+    "Psyche couldn't turn that into a schedule. Say when it should run, for example “every Friday at 5”.",
+
+  "scheduled.history.title": "Run history",
+  "scheduled.history.loading": "Loading the runs",
+  "scheduled.history.failed": "Psyche couldn't load the runs",
+  "scheduled.history.empty": "It hasn't run yet.",
+  "scheduled.history.run": "{status} · {when}",
+  "scheduled.history.duration": "took {duration}",
+  "scheduled.history.running": "still running",
+  "scheduled.history.manual": "run by you",
+  "scheduled.history.event": "started by an event",
+  "scheduled.history.coalesced": "covers {n, number} missed runs",
+  "scheduled.history.openChat": "Open the chat",
+  "scheduled.history.openChat.aria": "Open the chat of the run on {when}",
+  "scheduled.history.openTranscript": "Open the transcript",
+  "scheduled.history.openTranscript.aria": "Open the transcript of the run on {when}",
+  "scheduled.history.changes": "{n, plural, one {# recorded change} other {# recorded changes}}",
+  "scheduled.history.showChanges": "Recorded changes",
+  "scheduled.history.noChanges": "No changes recorded",
+  "scheduled.history.change": "{action}: {target}",
+  "scheduled.history.change.failed": "{action}: {target} (didn't go through)",
+
+  "scheduled.routine.generic": "Runs in the background for Psyche.",
+  "scheduled.routine.dailyBrief.name": "Morning brief",
+  "scheduled.routine.dailyBrief.does":
+    "Builds your morning brief from your calendar, mail and follow-ups and posts it to the Feed.",
+  "scheduled.routine.dailyWrapup.name": "Evening wrap-up",
+  "scheduled.routine.dailyWrapup.does":
+    "Sums up what got done, what's left and what's next, and offers to carry items over.",
+  "scheduled.routine.mailDigest.name": "Inbox digest",
+  "scheduled.routine.mailDigest.does": "Reads your new mail and posts one digest of what matters.",
+  "scheduled.routine.mailVoice.name": "Writing style",
+  "scheduled.routine.mailVoice.does":
+    "Learns how you write from your sent mail so drafts sound like you.",
+  "scheduled.routine.mailWatch.name": "Mail check",
+  "scheduled.routine.mailWatch.does":
+    "Checks for new mail so the digest and your follow-ups stay current.",
+  "scheduled.routine.mailFocus.name": "Focus time",
+  "scheduled.routine.mailFocus.does": "Proposes one block of deep-work time in your week.",
+  "scheduled.routine.meetingPrep.does": "Prepares a short note before a meeting.",
+  "scheduled.routine.notesFolder.name": "Recordings folder",
+  "scheduled.routine.notesFolder.does":
+    "Looks for new meeting recordings and turns them into notes.",
+  "scheduled.routine.feedBrief.name": "Feed brief",
+  "scheduled.routine.feedBrief.does": "Writes the day's brief into your Feed.",
+  "scheduled.routine.feedBriefing.does": "Writes your custom briefing into the Feed.",
+  "scheduled.routine.ideasMine.name": "Ideas: nightly mining",
+  "scheduled.routine.ideasMine.does": "Looks through the day for ideas worth keeping.",
+  "scheduled.routine.ideasDeliver.name": "Ideas: delivery window",
+  "scheduled.routine.ideasDeliver.does": "Sends you the ideas it found, at a good time.",
+  "scheduled.routine.goalCheckin.does": "Checks in on how this goal is going.",
+  "scheduled.routine.goalWatch.does": "Watches for news about this goal.",
+  "scheduled.routine.memoryDreaming.name": "Nightly memory pass",
+  "scheduled.routine.memoryDreaming.does":
+    "Tidies what Psyche remembers each night: merges duplicates, keeps what's useful, updates the people and projects it knows.",
+  "scheduled.routine.weeklyCard.name": "What I learned this week",
+  "scheduled.routine.weeklyCard.does":
+    "Posts a weekly card in the Feed with what Psyche learned about how you like things done.",
+  "scheduled.routine.heartbeat.name": "Heartbeat",
+  "scheduled.routine.heartbeat.does":
+    "A light check-in during the day to see if anything needs your attention.",
+} as const;

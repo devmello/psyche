@@ -1,4 +1,5 @@
 import {
+  CalendarClock,
   CircleCheck,
   Library,
   Lightbulb,
@@ -12,7 +13,15 @@ import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 
 /** The destinations, in docs/06 §2.1's order: the sidebar's first group and the compact tab bar. */
-export type RailItem = "chat" | "search" | "feed" | "ideas" | "goals" | "library" | "overview";
+export type RailItem =
+  | "chat"
+  | "search"
+  | "feed"
+  | "ideas"
+  | "goals"
+  | "scheduled"
+  | "library"
+  | "overview";
 
 export const RAIL_ITEMS: readonly {
   id: RailItem;
@@ -61,6 +70,14 @@ export const RAIL_ITEMS: readonly {
     icon: CircleCheck,
   },
   {
+    id: "scheduled",
+    get label() {
+      return t("shell.rail.scheduled");
+    },
+    route: "/scheduled",
+    icon: CalendarClock,
+  },
+  {
     id: "library",
     get label() {
       return t("shell.rail.library");
@@ -101,7 +118,8 @@ export interface TabBarProps {
  * no tile; Search lives in the top bar's palette.
  */
 export function TabBar({ active, onNavigate, badges = {} }: TabBarProps): ReactElement {
-  const items = RAIL_ITEMS.filter((i) => i.id !== "search");
+  // Search lives in the top bar; Scheduled is reached from the sidebar and the palette.
+  const items = RAIL_ITEMS.filter((i) => i.id !== "search" && i.id !== "scheduled");
   return (
     <nav
       aria-label={t("shell.rail.main")}
