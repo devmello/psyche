@@ -15167,7 +15167,8 @@
         "weather",
         "done",
         "open",
-        "tomorrow"
+        "tomorrow",
+        "learned"
       ],
       "type": "string"
     },

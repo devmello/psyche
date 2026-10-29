@@ -1000,6 +1000,23 @@ export class EverythingStore {
     return { items, total };
   }
 
+  /** What one run produced, by review state, for the "Psyche learned N things" card (counts only). */
+  runSummary(runId: string): { autoAccepted: number; toReview: number; quarantined: number } {
+    const n = (sql: string, ...a: unknown[]) =>
+      (this.#db.prepare(sql).get(...a) as { n: number }).n;
+    return {
+      autoAccepted: n(
+        "SELECT count(*) AS n FROM graph_facts WHERE run_id = ? AND review = 'auto_accepted'",
+        runId,
+      ),
+      toReview: n(
+        "SELECT count(*) AS n FROM graph_facts WHERE run_id = ? AND review = 'pending'",
+        runId,
+      ),
+      quarantined: n("SELECT quarantined AS n FROM memory_runs WHERE id = ?", runId),
+    };
+  }
+
   reviewCounts(): { pending: number; autoAccepted: number; quarantined: number } {
     const n = (sql: string) => (this.#db.prepare(sql).get() as { n: number }).n;
     return {

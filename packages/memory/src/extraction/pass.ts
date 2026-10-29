@@ -504,10 +504,12 @@ async function runBatch(
  */
 export function everythingNightlyStep(
   deps: () => PassDeps | Promise<PassDeps>,
+  onReport?: (report: PassReport) => void,
 ): () => Promise<string | undefined> {
   return async () => {
     const r = await runEverythingPass(await deps());
     if (!r.ran) return undefined;
+    onReport?.(r);
     const bits = [`${r.factsStored} facts proposed from ${r.itemsRead} items`];
     if (r.quarantined > 0) bits.push(`${r.quarantined} quarantined`);
     if (r.deferred > 0) bits.push(`${r.deferred} left for tomorrow`);

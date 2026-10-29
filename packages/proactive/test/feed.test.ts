@@ -376,3 +376,22 @@ describe("briefings", () => {
     ).rejects.toMatchObject({ code: "invalid_params" });
   });
 });
+
+describe("Psyche's own notices", () => {
+  it("postNotice stores a plain card with no citations, never exploration, and emits feed.updated", () => {
+    const { feed, events } = rig({});
+    const post = feed.postNotice({
+      title: "Psyche learned 14 things",
+      bodyMd: "9 auto-accepted · 5 to review\n\n[Review](/settings/memory)",
+      reason: "memory learned",
+    });
+    expect(Value.Check(FeedPost, post)).toBe(true);
+    expect(post).toMatchObject({
+      citations: [],
+      exploration: false,
+      reasons: ["memory learned"],
+      kind: "suggestion",
+    });
+    expect(events.some((e) => e.event === "feed.updated")).toBe(true);
+  });
+});

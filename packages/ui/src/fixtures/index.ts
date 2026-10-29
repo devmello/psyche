@@ -42,6 +42,7 @@ import type {
   ToolCall,
   VaultPayment,
 } from "@psyche/protocol";
+import type { ReviewWorld } from "../data/mock-review.ts";
 import { answerTokens, approvals, grants } from "./approvals.ts";
 import { messages, runs, threads, toolCalls } from "./chat.ts";
 import { fileTree, type MockFileNode } from "./files.ts";
@@ -147,6 +148,8 @@ export interface FixtureWorld {
   searchHits: SearchHit[];
   /** People and projects (docs/memory/people-and-projects-2026.md §8). */
   graph: GraphWorld;
+  /** Everything memory's review queue, quarantine and runs (absent = empty). */
+  review?: ReviewWorld;
   /** Settings → Skills (T2). */
   skills: SkillDetails[];
   /** What reviewing a folder finds: a proposal to stage, or policy violations. */

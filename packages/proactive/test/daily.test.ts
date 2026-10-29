@@ -441,3 +441,26 @@ describe("settings and schedule", () => {
     expect(svc.jobs().map((j) => j.name)).toEqual(["morning brief", "evening wrap-up"]);
   });
 });
+
+describe("learned yesterday (everything memory)", () => {
+  it("adds one counts-only section with the Review link to the morning brief, and none to the wrap-up", async () => {
+    const learned = () => ({
+      text: "Psyche learned 14 things yesterday: 9 auto-accepted · 5 to review · 1 quarantined",
+      link: "/settings/memory",
+    });
+    const { svc } = service({}, { learned });
+    const brief = await svc.assemble("morning");
+    expect(section(brief, "learned").items).toEqual([
+      { text: learned().text, link: "/settings/memory" },
+    ]);
+    const evening = await svc.assemble("evening");
+    expect(evening.sections.some((s) => s.id === "learned")).toBe(false);
+  });
+
+  it("adds nothing when there is nothing to report", async () => {
+    const { svc } = service({}, { learned: () => undefined });
+    expect((await svc.assemble("morning")).sections.some((s) => s.id === "learned")).toBe(false);
+    const { svc: plain } = service({});
+    expect((await plain.assemble("morning")).sections.some((s) => s.id === "learned")).toBe(false);
+  });
+});

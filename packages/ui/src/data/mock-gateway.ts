@@ -90,6 +90,7 @@ import { isEmptyUserChat } from "./empty-chat.ts";
 import { toBase64 } from "./files.ts";
 import { emptyGraph, graphHandlers } from "./mock-graph.ts";
 import { type ProposalMockContext, proposalHandlers, settleBatch } from "./mock-proposals.ts";
+import { emptyReview, type ReviewWorld, reviewHandlers } from "./mock-review.ts";
 
 /**
  * In-memory Gateway for stories and tests (no network). It speaks the protocol exactly: every
@@ -100,6 +101,8 @@ import { type ProposalMockContext, proposalHandlers, settleBatch } from "./mock-
  */
 
 export interface MockWorld {
+  /** Everything memory's review queue (absent = empty). */
+  review?: ReviewWorld;
   threads: ThreadListEntry[];
   messages: Message[];
   runs: Run[];
@@ -1127,6 +1130,13 @@ export class MockGateway implements GatewayClient {
       now: () => this.now(),
       emit: (event, payload) => this.emit(event, payload),
       settings: () => this.world.settings,
+    }),
+    ...reviewHandlers({
+      world: () => {
+        this.world.review ??= emptyReview();
+        return this.world.review;
+      },
+      now: () => this.now(),
     }),
     ...proposalHandlers(this.proposalContext()),
     "events.subscribe": () => ({ stateVersion: this.stateVersion }),

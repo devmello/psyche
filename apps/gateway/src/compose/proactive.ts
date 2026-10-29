@@ -141,6 +141,8 @@ export interface ProactiveSetup {
   audit?: Pick<HashChainAuditLog, "query">;
   /** The owner's chat surfaces (`imessage:<peer>`); the brief goes there when `daily.messages` is on. */
   channelSurfaces?: () => string[];
+  /** Everything memory's "Learned yesterday" line for the morning brief (counts only). */
+  learned?: () => { text: string; link?: string } | undefined;
   /** The people graph while it is on: prep reads people and loops, notes add loops. */
   graph?: () => GraphStore | undefined;
   /**
@@ -492,6 +494,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     settings: dailySettings,
     followups,
     timezone: dailyTz,
+    ...(setup.learned === undefined ? {} : { learned: setup.learned }),
     ...(setup.channelSurfaces === undefined ? {} : { channelSurfaces: setup.channelSurfaces }),
     prepLink: (e) => meetingPrep?.prepLinkFor(e),
     activity: {

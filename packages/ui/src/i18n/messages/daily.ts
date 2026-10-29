@@ -40,6 +40,7 @@ export const daily = {
   "daily.section.done": "Done today",
   "daily.section.open": "Still open",
   "daily.section.tomorrow": "Tomorrow",
+  "daily.section.learned": "Learned yesterday",
   "daily.section.empty": "Nothing here.",
   "daily.section.unavailable": "Connect an app in Connectors to see this.",
   "daily.item.open": "Open {item}",

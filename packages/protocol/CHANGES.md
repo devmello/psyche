@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-29 (everything memory, EM4)
+
+- `DailySectionId` gains `learned` (the brief's "Learned yesterday" section: counts and the Review link, never fact text).
+
 ### v1 additive — 2026-10-28 (everything memory, EM0)
 
 For docs/design/everything-memory-2026.md §13 EM0. No behaviour yet; later phases build on these.

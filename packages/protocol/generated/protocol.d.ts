@@ -3937,7 +3937,7 @@ export interface DailySection {
     unavailable?: boolean;
 }
 
-export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow";
+export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned";
 
 export interface InboxDigest {
     accounts: string[];
