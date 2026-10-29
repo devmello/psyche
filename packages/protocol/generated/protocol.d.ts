@@ -3794,10 +3794,10 @@ export interface EverythingProcessingModel {
 export type SearchProcessing = "none" | "cloud" | "local";
 
 export interface EverythingPeopleSetting {
-    default: EverythingPeopleDefault;
+    default: EverythingPeopleDefaultOut;
 }
 
-export type EverythingPeopleDefault = "two_way" | "contacts" | "everyone" | "chosen";
+export type EverythingPeopleDefaultOut = "two_way" | "contacts" | "everyone" | "chosen";
 
 export interface EverythingRetentionSetting {
     pendingDays:    number;
@@ -5772,6 +5772,59 @@ export interface MemoryEntityUpdatedPayload {
     kind:    GraphEntityKind;
 }
 
+export interface MemoryExclusionsAddParams {
+    /**
+     * Count what a forget would remove without deleting
+     */
+    dryRun?: boolean;
+    kind:    GraphBlockKind;
+    mode?:   EverythingExclusionMode;
+    value:   string;
+}
+
+export type GraphBlockKind = "email" | "phone" | "domain";
+
+/**
+ * exclude: read no text, learn nothing; forget: also delete what was learned
+ */
+export type EverythingExclusionMode = "exclude" | "forget";
+
+export interface MemoryExclusionsAddResult {
+    entry:     EverythingExclusion;
+    forgotten: Forgotten;
+}
+
+export interface EverythingExclusion {
+    createdAt: string;
+    hint?:     null | string;
+    /**
+     * Opaque; for memory.exclusions.remove
+     */
+    id:   string;
+    kind: GraphBlockKind;
+    mode: EverythingExclusionMode;
+}
+
+export interface Forgotten {
+    citations:  number;
+    edges:      number;
+    facts:      number;
+    quarantine: number;
+}
+
+export interface MemoryExclusionsListResult {
+    defaultPeople: EverythingPeopleDefaultOut;
+    entries:       EverythingExclusion[];
+}
+
+export interface MemoryExclusionsRemoveParams {
+    id: string;
+}
+
+export interface MemoryExclusionsRemoveResult {
+    removed: boolean;
+}
+
 export interface MemoryExplainParams {
     claimId: string;
 }
@@ -5863,8 +5916,6 @@ export interface MemoryGraphBlocklistAddParams {
     kind:  GraphBlockKind;
     value: string;
 }
-
-export type GraphBlockKind = "email" | "phone" | "domain";
 
 export interface MemoryGraphBlocklistAddResult {
     entry: GraphBlocklistEntry;

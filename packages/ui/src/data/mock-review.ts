@@ -1,4 +1,5 @@
 import {
+  type EverythingExclusion,
   type GraphFact,
   type MemoryRun,
   type MethodName,
@@ -18,6 +19,7 @@ export interface ReviewWorld {
   items: ReviewItem[];
   quarantine: QuarantineItem[];
   runs: MemoryRun[];
+  exclusions?: EverythingExclusion[];
 }
 
 export function emptyReview(): ReviewWorld {
@@ -86,6 +88,40 @@ export function reviewHandlers(ctx: { world: () => ReviewWorld; now: () => strin
         p.action === "release" ? "released" : p.action === "discard" ? "discarded" : "blocked";
       q.decidedAt = ctx.now();
       return { item: q };
+    },
+    "memory.exclusions.list": () => ({
+      entries: ctx.world().exclusions ?? [],
+      defaultPeople: "two_way" as const,
+    }),
+    "memory.exclusions.add": (p) => {
+      const w = ctx.world();
+      const mode = p.mode ?? "exclude";
+      // Pretend two facts and three quotes were learned from them, so a forget has a count.
+      const forgotten =
+        mode === "forget"
+          ? { facts: 2, edges: 0, citations: 3, quarantine: 0 }
+          : { facts: 0, edges: 0, citations: 0, quarantine: 0 };
+      const hint =
+        p.kind === "domain"
+          ? p.value.toLowerCase()
+          : p.kind === "phone"
+            ? `•••${p.value.slice(-2)}`
+            : `${p.value.slice(0, 1)}•••@${p.value.split("@")[1] ?? ""}`;
+      const entry = {
+        id: `${p.kind}:${(w.exclusions?.length ?? 0) + 1}`,
+        kind: p.kind,
+        hint,
+        mode,
+        createdAt: ctx.now(),
+      };
+      if (p.dryRun !== true) (w.exclusions ??= []).push(entry);
+      return { entry, forgotten };
+    },
+    "memory.exclusions.remove": (p) => {
+      const w = ctx.world();
+      const before = w.exclusions?.length ?? 0;
+      w.exclusions = (w.exclusions ?? []).filter((e) => e.id !== p.id);
+      return { removed: (w.exclusions?.length ?? 0) < before };
     },
     "memory.runs.list": (p) => ({ runs: ctx.world().runs.slice(0, p.limit ?? 14) }),
   };
