@@ -247,6 +247,8 @@ Each phase is one PR unless noted. P1–P3 give a useful read-only feature; late
 
 ## 11. Owner decisions
 
+**Accepted by the owner on 2026-10-29:** all ten recommendations below, as written. Implementation has not started; it begins with the first phase in §12 when the owner asks.
+
 | # | Decision | Recommendation |
 | --- | --- | --- |
 | D1 | How the agent emits UI: tools (`render_ui`/`update_ui`) or a fenced block in its text (` ```psyche-ui `). | **Tools.** Typed input, validation errors the model can act on, taint attached at the call, no parser in the text stream. |
