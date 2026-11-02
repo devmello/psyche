@@ -201,7 +201,7 @@ export function AvailableConnectors({
   const [query, setQuery] = useState("");
   return (
     <Group
-      title={t("capabilities.available.title")}
+      title={t("settings.connectors.page.advanced.find")}
       description={t("capabilities.available.connectorsHint")}
     >
       <div className="flex flex-col gap-2">

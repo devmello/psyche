@@ -23,6 +23,7 @@ import {
   Plug,
   Search,
   Table2,
+  Terminal,
   Workflow,
 } from "lucide-react";
 import type { ReactElement } from "react";
@@ -40,6 +41,8 @@ const ICONS: Readonly<Record<string, LucideIcon>> = {
   "apple:shortcuts": Workflow,
   slack: MessagesSquare,
   mcp: Cable,
+  "device:files": FolderOpen,
+  "device:terminal": Terminal,
 };
 
 const PRESET_ICONS: Readonly<Record<PresetIcon, LucideIcon>> = {

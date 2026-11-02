@@ -31,9 +31,12 @@ describe("Settings buttons call the Gateway on their own", () => {
   it("Connectors: Disconnect and Sign in again", async () => {
     const user = userEvent.setup();
     const { calls } = setup(<ConnectorsSection />);
+    await user.click(await screen.findByRole("button", { name: "Open Gmail" }));
     await user.click(await screen.findByRole("button", { name: "Disconnect Gmail" }));
     await waitFor(() => expect(calls("connectors.disconnect")).toHaveLength(1));
-    await user.click(await screen.findByRole("button", { name: "Sign in again" }));
+    await user.click(await screen.findByRole("button", { name: "All connectors" }));
+    // Outlook's sign-in ran out: its row carries the one button that fixes it.
+    await user.click(await screen.findByRole("button", { name: /^Sign in again: Outlook/ }));
     await waitFor(() =>
       expect(
         calls("connectors.connect").some(

@@ -254,10 +254,41 @@ export const ConnectorsPresetForm: Story = {
     />
   ),
 };
-/** Built-in connectors and MCP servers in one list: the same row, an MCP badge and a trust badge. */
+/**
+ * The page at a glance: what needs you in amber (a sign-in that ran out, a server that did not
+ * start), what is connected, what is on this Mac, and a few things to add.
+ */
 export const ConnectorsWithMcpServers: Story = {
   render: () => (
-    <ConnectorsPanel {...connectorProps} connectors={world.connectors} mcp={mcpState(mcpServers)} />
+    <ConnectorsPanel
+      {...connectorProps}
+      connectors={world.connectors}
+      mcp={mcpState(mcpServers)}
+      policy={form}
+      onOpenSection={noop}
+    />
+  ),
+};
+/** A connector that needs you: why, and the one button that fixes it, then everything else. */
+export const ConnectorsDetailNeedsSignIn: Story = {
+  render: () => (
+    <ConnectorsPanel
+      {...connectorProps}
+      connectors={world.connectors}
+      mcp={mcpState(mcpServers)}
+      defaultOpenId={IDS.connectors.outlook}
+    />
+  ),
+};
+/** A tool server that did not start: the reason, its tools, secrets and how it runs. */
+export const ConnectorsDetailServerFailed: Story = {
+  render: () => (
+    <ConnectorsPanel
+      {...connectorProps}
+      connectors={world.connectors}
+      mcp={mcpState(mcpServers)}
+      defaultOpenId="linear"
+    />
   ),
 };
 /** The Custom MCP server row of Add connector: its form opens in place. */
@@ -271,13 +302,13 @@ export const ConnectorsAddMcpServer: Story = {
     />
   ),
 };
-/** The MCP filter with no servers yet (the old MCP route lands here). */
+/** Advanced, open: your own tool server and the registry search (the old MCP route lands here). */
 export const ConnectorsMcpEmpty: Story = {
   render: () => (
-    <ConnectorsPanel {...connectorProps} connectors={[]} mcp={mcpState([])} defaultFilter="mcp" />
+    <ConnectorsPanel {...connectorProps} connectors={[]} mcp={mcpState([])} defaultAdvancedOpen />
   ),
 };
-/** Shortcuts (the helper's list, off / ask / allow) and an Obsidian vault (#640). */
+/** Shortcuts (the helper's list, off / ask / allow) in the app's detail (#640). */
 export const ConnectorsShortcutsAndObsidian: Story = {
   render: () => (
     <ConnectorsPanel
@@ -287,10 +318,25 @@ export const ConnectorsShortcutsAndObsidian: Story = {
       sharedFolders={["/Users/you/Notes/Vault"]}
       onConfigure={noop}
       onShareFolder={noop}
+      defaultOpenId={IDS.connectors.appleShortcuts}
     />
   ),
 };
-/** Apple apps on this Mac (#640): action groups, the macOS grant and "Try it". */
+/** An Obsidian vault in the connector's detail (#640). */
+export const ConnectorsObsidianDetail: Story = {
+  render: () => (
+    <ConnectorsPanel
+      {...connectorProps}
+      connectors={shortcutsAndObsidian()}
+      catalogue={connectorCatalogue()}
+      sharedFolders={["/Users/you/Notes/Vault"]}
+      onConfigure={noop}
+      onShareFolder={noop}
+      defaultOpenId={IDS.connectors.obsidian}
+    />
+  ),
+};
+/** Apple apps on this Mac (#640): one row each; Notes waits on its macOS grant. */
 export const ConnectorsAppleApps: Story = {
   render: () => (
     <ConnectorsPanel
@@ -299,7 +345,21 @@ export const ConnectorsAppleApps: Story = {
       catalogue={connectorCatalogue()}
       onRuleChange={noop}
       onTry={noop}
-      defaultCapabilitiesOpen
+      onGrant={noop}
+      onCheck={noop}
+    />
+  ),
+};
+/** An Apple app's detail (#640): action groups, the macOS grant and "Try it". */
+export const ConnectorsAppleAppDetail: Story = {
+  render: () => (
+    <ConnectorsPanel
+      {...connectorProps}
+      connectors={appleConnectors()}
+      catalogue={connectorCatalogue()}
+      onRuleChange={noop}
+      onTry={noop}
+      defaultOpenId={IDS.connectors.appleMail}
     />
   ),
 };

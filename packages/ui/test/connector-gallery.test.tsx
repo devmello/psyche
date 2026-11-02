@@ -128,7 +128,8 @@ describe("Add connector gallery", () => {
     const popular = screen.getByRole("region", { name: "Popular" });
     expect(within(popular).getByRole("button", { name: /GitHub/ })).toBeTruthy();
     expect(screen.getByRole("region", { name: "Files and knowledge" })).toBeTruthy();
-    expect(screen.getByRole("region", { name: "Your own" })).toBeTruthy();
+    // Your own server is not a tile: it lives under Advanced on the page.
+    expect(screen.queryByRole("region", { name: "Your own" })).toBeNull();
     // A built-in connector sits next to the presets.
     expect(screen.getByRole("button", { name: /Obsidian/ })).toBeTruthy();
 

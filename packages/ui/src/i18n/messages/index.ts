@@ -9,6 +9,7 @@ import { charts } from "./charts.ts";
 import { chat } from "./chat.ts";
 import { common } from "./common.ts";
 import { connectorGallery } from "./connector-gallery.ts";
+import { connectorsPage } from "./connectors-page.ts";
 import { context } from "./context.ts";
 import { daily } from "./daily.ts";
 import { design } from "./design.ts";
@@ -71,6 +72,7 @@ export const en = {
   ...deviceAccess,
   ...mailMeetings,
   ...connectorGallery,
+  ...connectorsPage,
   ...onboarding,
   ...whatCanYouDo,
   ...memoryReview,

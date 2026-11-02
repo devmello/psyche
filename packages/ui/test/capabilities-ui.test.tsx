@@ -76,13 +76,18 @@ function setup(section: "connectors" | "skills", seed?: (g: MockGateway) => void
   };
 }
 
+/** The registry search sits under Advanced on the Connectors page. */
+const openAdvanced = async () =>
+  userEvent.click(await screen.findByRole("button", { name: "Advanced" }));
+
 const searches = (g: MockGateway) =>
   g.calls.filter((c) => c.method === "capabilities.search").map((c) => c.params);
 
 describe("Settings → Connectors → Available", () => {
   it("lists presets, searches (debounced) and hides registry entries until online search is on", async () => {
     const gateway = setup("connectors");
-    const group = (await screen.findByRole("heading", { name: "Available" })).closest(
+    await openAdvanced();
+    const group = (await screen.findByRole("heading", { name: "Find servers online" })).closest(
       "section",
     ) as HTMLElement;
     expect(await within(group).findByText("GitHub")).toBeTruthy();
@@ -114,6 +119,7 @@ describe("Settings → Connectors → Available", () => {
     const gateway = setup("connectors", (g) => {
       g.world.settings["capabilities.onlineSearch"] = true;
     });
+    await openAdvanced();
     const weather = (await screen.findByText("Weather Now")).closest("li") as HTMLElement;
     await userEvent.click(within(weather).getByRole("button", { name: "Check server" }));
     await waitFor(() =>
@@ -144,9 +150,9 @@ describe("Settings → Connectors → a server's loading", () => {
         connected: true,
       }),
     );
-    const row = await screen.findByRole("article", { name: "Files" });
-    await userEvent.click(within(row).getByRole("button", { name: "More for Files" }));
-    await userEvent.click(await screen.findByRole("menuitem", { name: "Show details" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Open Files" }));
+    const row = await screen.findByRole("region", { name: "Files" });
+    await userEvent.click(within(row).getByRole("button", { name: "Technical details" }));
     const sw = await within(row).findByRole("switch", { name: "Always on" });
     expect(sw.getAttribute("aria-checked")).toBe("false");
     await userEvent.click(sw);

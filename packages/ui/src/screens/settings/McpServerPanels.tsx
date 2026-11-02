@@ -299,7 +299,7 @@ export function McpDangerZone({
   if (!onSetEnabled && !onRemove) return null;
   const on = server.enabled !== false;
   return (
-    <Group title={t("settings.mcp.danger.title")}>
+    <Group title={t("settings.connectors.page.detail.manage")}>
       {onSetEnabled ? (
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
@@ -330,7 +330,6 @@ export function McpDangerZone({
   );
 }
 
-/** Tools, Secrets and the Danger zone of one server (loads only while its details are open). */
 /**
  * Whether the server's tools are sent with every request ("Always on") or found when a task needs
  * them (the default). Setting `tools.loading`, written by `capabilities.setLoading`.
@@ -372,6 +371,7 @@ export function McpLoadingGroup({ server }: { server: McpServerStatus }): ReactE
   );
 }
 
+/** Tools, Secrets and the Danger zone of one server (loads only while its detail is open). */
 export function McpServerPanels({
   server,
   onSetEnabled,
@@ -384,8 +384,7 @@ export function McpServerPanels({
   const tools = useMcpTools(server, true);
   const secrets = useMcpSecrets(server, true);
   return (
-    <div className="ms-11 flex flex-col gap-4">
-      <McpLoadingGroup server={server} />
+    <div className="flex flex-col gap-4">
       <McpToolsGroup server={server} state={tools} />
       <McpSecretsGroup state={secrets} />
       <McpDangerZone
