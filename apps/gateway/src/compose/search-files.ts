@@ -8,7 +8,7 @@ import {
   extractDocument,
   type GrantedFolder,
 } from "@psyche/files";
-import { type FilesSourceDeps, filesAdapter, type PowerState } from "@psyche/search";
+import { type FilesOcr, type FilesSourceDeps, filesAdapter, type PowerState } from "@psyche/search";
 
 export { filesAdapter };
 
@@ -16,9 +16,13 @@ export { filesAdapter };
 export function filesSourceDeps(o: {
   folders: () => readonly GrantedFolder[];
   protectedRoots?: () => readonly string[] | undefined;
+  /** Vision OCR through the Mac helper; the owner's switch is added by the search compose. */
+  ocr?: Omit<FilesOcr, "enabled">;
 }): FilesSourceDeps {
   return {
     folders: o.folders,
+    // Off until composeSearch binds the owner's switch (a bare `ocr` would be always on).
+    ...(o.ocr === undefined ? {} : { ocr: { ...o.ocr, enabled: () => false } }),
     isProtected: (path) => {
       try {
         assertNotProtected(path, o.protectedRoots?.());

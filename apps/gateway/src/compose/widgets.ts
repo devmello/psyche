@@ -1,14 +1,27 @@
 import { getWidgets } from "@psyche/db";
 import type { MethodParams, MethodResult } from "@psyche/protocol";
 import type { Call } from "../context.ts";
+import { checkWidgetBindings } from "../widgets/bindings.ts";
+import { WidgetStore } from "../widgets/store.ts";
+import { widgetTools } from "../widgets/tools.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
- * Generative-UI widgets (docs/design/generative-ui-2026.md). P1 serves snapshots by id; the agent
- * tools, patching and freezing arrive with P3.
+ * Generative-UI widgets (docs/design/generative-ui-2026.md). Snapshots by id, and the agent's `render_ui`, `update_ui` and
+ * `list_ui` tools (deferred by default: not in `ALWAYS_ON`).
  */
 export function composeWidgets(services: ComposeServices): ComposedPart {
+  const store = new WidgetStore({
+    db: services.db,
+    bindings: (root, threadId) => checkWidgetBindings(services.db, root, threadId),
+    publish: (event, payload, threadId) => services.publish(event, payload, threadId),
+  });
+  const unregister = widgetTools(store).map((t) => services.tools.register(t));
   return {
+    stop: () => {
+      store.flush();
+      for (const u of unregister) u();
+    },
     handlers: {
       "widgets.get": {
         run: (_c: Call, p: MethodParams<"widgets.get">): MethodResult<"widgets.get"> => {

@@ -1,7 +1,9 @@
 import {
   type ComingUpItem,
   type EverythingExclusion,
+  type EverythingRunResult,
   type GraphFact,
+  type LifeFactHit,
   type MemoryRun,
   type MethodName,
   type MethodParams,
@@ -22,6 +24,10 @@ export interface ReviewWorld {
   quarantine: QuarantineItem[];
   runs: MemoryRun[];
   exclusions?: EverythingExclusion[];
+  /** Life search results (absent = none). */
+  life?: LifeFactHit[];
+  /** What "Run now" answers (default: a small successful pass). */
+  runResult?: EverythingRunResult;
   /** Coming up lines, by entity (absent = none). */
   upcoming?: ComingUpItem[];
   /** People whose data was forgotten or excluded, for tests. */
@@ -96,6 +102,20 @@ export function reviewHandlers(ctx: { world: () => ReviewWorld; now: () => strin
       q.decidedAt = ctx.now();
       return { item: q };
     },
+    "memory.everything.run": () => {
+      const w = ctx.world();
+      return (
+        w.runResult ?? {
+          ran: true,
+          reason: null,
+          itemsRead: 12,
+          factsProposed: 3,
+          quarantined: 1,
+          deferred: 0,
+          tokens: 5200,
+        }
+      );
+    },
     "memory.senders.list": () => ({ senders: ctx.world().senders ?? [] }),
     "memory.senders.decide": (p) => {
       const w = ctx.world();
@@ -105,6 +125,11 @@ export function reviewHandlers(ctx: { world: () => ReviewWorld; now: () => strin
       else w.senders = (w.senders ?? []).filter((x) => x.entityId !== p.entityId);
       return { senders: w.senders ?? [] };
     },
+    "memory.life.search": () => ({
+      entities: [],
+      facts: ctx.world().life ?? [],
+      intent: null,
+    }),
     "memory.upcoming": (p) => ({
       items: (ctx.world().upcoming ?? []).filter(
         (i) => p.entityId === undefined || i.entityId === p.entityId,

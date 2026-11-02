@@ -3875,6 +3875,21 @@ export interface EverythingSourceSwitches {
     transcripts: boolean;
 }
 
+export interface EverythingRunResult {
+    deferred:      number;
+    factsProposed: number;
+    itemsRead:     number;
+    quarantined:   number;
+    ran:           boolean;
+    reason?:       EverythingRunReason | null;
+    tokens:        number;
+}
+
+/**
+ * Why a pass did not run
+ */
+export type EverythingRunReason = "disabled" | "no_sources" | "model_none" | "battery" | "low_power" | "thermal" | "not_idle" | "outside_quiet_hours" | "local_not_confirmed" | "low_memory" | "no_owner_entity" | "busy";
+
 export type EverythingSensitiveClass = "health" | "finance" | "sexuality" | "religion" | "politics" | "ethnicity" | "legal" | "precise_location";
 
 export interface FeedFeedbackParams {
@@ -6149,6 +6164,35 @@ export interface MemoryLessonsListResult {
     nextCursor?: null | string;
 }
 
+export interface MemoryLifeSearchParams {
+    /**
+     * Default 20
+     */
+    limit?: number;
+    q:      string;
+}
+
+export interface MemoryLifeSearchResult {
+    entities: EntitySummary[];
+    facts:    LifeFactHit[];
+    intent?:  null | string;
+}
+
+export interface LifeFactHit {
+    attribute:   GraphFactAttribute;
+    entity:      EntitySummary;
+    factId:      string;
+    observedAt?: null | string;
+    provenance:  Provenance;
+    quote?:      null | string;
+    review:      GraphReviewState;
+    source?:     null | string;
+    /**
+     * Untrusted text when it came from someone else
+     */
+    value: string;
+}
+
 export interface MemoryLoopUpdatedPayload {
     loop: GraphLoop;
 }
@@ -7108,6 +7152,63 @@ export interface NotificationsResolveParams {
 export interface NotificationsResolveResult {
     notification: Notification;
 }
+
+export interface OcrRecognizeParams {
+    /**
+     * PDF only: first page to consider (default 1)
+     */
+    fromPage?: number;
+    /**
+     * Size cap
+     */
+    maxFileBytes?: number;
+    /**
+     * At most this many pages are recognised in this call
+     */
+    maxPages?: number;
+    /**
+     * PDF only: pages whose text layer is shorter than this are recognised
+     */
+    minTextChars?: number;
+    /**
+     * PDF only: 1-based pages to consider (default: from the start)
+     */
+    pages?: number[];
+    /**
+     * An absolute path to a PNG, JPEG, HEIC, TIFF, GIF, WebP or PDF file
+     */
+    path: string;
+}
+
+export interface OcrRecognizeResult {
+    /**
+     * PDF only: where a next call continues, when pages remain
+     */
+    nextPage?: number;
+    /**
+     * Pages in the document (1 for an image)
+     */
+    pageCount: number;
+    /**
+     * Only pages that were recognised, in order
+     */
+    pages:    OcrPage[];
+    refusal?: OcrRefusal;
+}
+
+export interface OcrPage {
+    /**
+     * Mean line confidence
+     */
+    confidence: number;
+    /**
+     * 1 for an image
+     */
+    page: number;
+    text: string;
+}
+
+export type OcrRefusal = "unsupported_type" | "too_large" | "not_a_file" | "unreadable" | "unavailable";
 
 export interface OkResult {
     ok: boolean;
@@ -8233,8 +8334,9 @@ export interface SearchIndexStatus {
     /**
      * Documents in the index
      */
-    docs:      number;
-    semantic?: SearchSemanticStatus;
+    docs:        number;
+    encryption?: SearchIndexEncryption;
+    semantic?:   SearchSemanticStatus;
 }
 
 export interface SearchBackfillStatus {
@@ -8259,6 +8361,24 @@ export interface SearchBackfillStatus {
 }
 
 export type SearchBackfillState = "idle" | "running" | "done" | "error";
+
+export interface SearchIndexEncryption {
+    /**
+     * Why it is unavailable
+     */
+    reason?: string;
+    /**
+     * on: the index file is encrypted; off: it is not and the switch is off; unavailable: the
+     * switch is on but the key cannot be used here
+     */
+    state: SearchIndexEncryptionState;
+}
+
+/**
+ * on: the index file is encrypted; off: it is not and the switch is off; unavailable: the
+ * switch is on but the key cannot be used here
+ */
+export type SearchIndexEncryptionState = "off" | "on" | "unavailable";
 
 export interface SearchSemanticStatus {
     blocked?: SearchSemanticBlock;
@@ -8308,6 +8428,11 @@ export interface SearchQueryParams {
     limit?:     number;
     query:      string;
     scopes?:    SearchScope[];
+    /**
+     * Let the cheap query model read a question the rules could not filter (Enter, not
+     * keystrokes). Ignored when no model is configured
+     */
+    smart?: boolean;
 }
 
 export type SearchScope = "threads" | "messages" | "tasks" | "memory" | "library" | "feed" | "ideas" | "goals" | "connectors" | "people" | "projects";
@@ -8417,6 +8542,7 @@ export interface SearchSourcesConfigureParams {
     agent?:      boolean;
     enabled?:    boolean;
     exclude?:    Exclude;
+    ocr?:        boolean;
     processing?: SearchProcessing;
     source?:     SearchSourceID;
 }
@@ -8428,7 +8554,7 @@ export interface Exclude {
     folders?:  string[];
 }
 
-export type SearchSourceID = "mail" | "messages" | "notes" | "calendar" | "reminders" | "files";
+export type SearchSourceID = "mail" | "messages" | "notes" | "calendar" | "reminders" | "files" | "browser" | "transcripts";
 
 export interface SearchSourcesRebuildParams {
     source: SearchSourceID;
@@ -8474,8 +8600,13 @@ export interface SearchSourceStatus {
      * Epoch ms
      */
     lastIndexedAt?: number;
-    processing:     SearchProcessing;
-    state:          SearchSourceState;
+    /**
+     * Read text in images and scanned PDFs on this Mac (Apple Vision); off until the owner
+     * allows it. Only Files uses it
+     */
+    ocr:        boolean;
+    processing: SearchProcessing;
+    state:      SearchSourceState;
     /**
      * Text indexed for this source
      */
@@ -10699,6 +10830,10 @@ export type WidgetOpOp = "set" | "append" | "prepend" | "remove" | "replace" | "
 export type WidgetTone = "neutral" | "info" | "success" | "warning" | "danger";
 
 export interface WidgetUpdatedPayload {
+    /**
+     * The revision `ops` apply to (default rev - 1). A coalesced event spans several revisions.
+     */
+    fromRev?: number;
     /**
      * Empty when only `state` changed
      */

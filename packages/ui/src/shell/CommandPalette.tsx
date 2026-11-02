@@ -236,6 +236,7 @@ export function CommandPalette({
               else if (a.route) onNavigate(a.route);
             }}
             entities={search.entities}
+            lifeFacts={search.life}
             onOpenEntity={(e) => {
               close();
               onNavigate(`/agent/soul?entity=${encodeURIComponent(e.id)}`);

@@ -4,6 +4,8 @@ import {
   ComingUpItem,
   EverythingExclusion,
   EverythingExclusionMode,
+  EverythingRunResult,
+  LifeFactHit,
   MemoryRun,
   PersonRemoved,
   QuarantineAction,
@@ -655,6 +657,14 @@ export const MemoryMethods = {
     description:
       "Lets everything memory read and learn from this address, number or domain again. Side-effecting.",
   }),
+  "memory.everything.run": defineMethod({
+    params: Type.Object({}),
+    result: EverythingRunResult,
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Runs the everything-memory pass now, under the same limits (power, thermal, model, budget) except quiet hours and idle time. Returns counts, or why it did not run. Side-effecting.",
+  }),
   "memory.senders.list": defineMethod({
     params: Type.Object({}),
     result: Type.Object({ senders: Type.Array(SenderTrust) }),
@@ -717,6 +727,20 @@ export const MemoryMethods = {
     sideEffecting: true,
     description:
       "Excludes every address and number of this person from everything memory; with forget, also deletes what was learned from them. Side-effecting.",
+  }),
+  "memory.life.search": defineMethod({
+    params: Type.Object({
+      q: Type.String({ maxLength: 500 }),
+      limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 50, description: "Default 20" })),
+    }),
+    result: Type.Object({
+      entities: Type.Array(EntitySummary),
+      facts: Type.Array(LifeFactHit),
+      intent: Nullable(Type.String({ maxLength: 40 })),
+    }),
+    scope: "operator.read",
+    description:
+      "Life search for the owner: people, organisations, events and topics by name, and cited facts (including ones still waiting for review, marked) by their words. Owner-only: the agent reads memory through its own tools and access rules.",
   }),
   "memory.runs.list": defineMethod({
     params: Type.Object({

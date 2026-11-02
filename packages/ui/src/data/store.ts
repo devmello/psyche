@@ -1,5 +1,6 @@
 import {
   AGENT_NOTES_DIR,
+  applyWidgetOps,
   type MethodName,
   type MethodParams,
   type MethodResult,
@@ -548,6 +549,28 @@ export class GatewayStore {
           next = { ...next, threadArtifacts: { ...next.threadArtifacts, [thread]: ids } };
         }
         return next;
+      }
+      case "widget.updated": {
+        // `rev` is the order (generative-ui-2026 §5.5): apply only the one that continues from the local rev, otherwise drop the
+        // snapshot so the block refetches it with `widgets.get`.
+        const { widgetId, rev, ops, state } = e.payload;
+        const fromRev = e.payload.fromRev ?? rev - 1;
+        const local = s.widgets[widgetId];
+        if (local === undefined) return s;
+        if (ops.length === 0 && rev === local.rev) {
+          return put(s, "widgets", { ...local, ...(state === undefined ? {} : { state }) });
+        }
+        const applied = fromRev === local.rev ? applyWidgetOps(local.spec, ops) : null;
+        if (applied?.ok) {
+          return put(s, "widgets", {
+            ...local,
+            rev,
+            spec: applied.spec,
+            ...(state === undefined ? {} : { state }),
+          });
+        }
+        const { [widgetId]: _stale, ...rest } = s.widgets;
+        return { ...s, widgets: rest };
       }
       case "notification.created":
         return touch(

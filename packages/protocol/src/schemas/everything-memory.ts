@@ -1,6 +1,14 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { Id, IsoDateTime, ModelRef, Nullable, StringEnum } from "../common.ts";
-import { GraphCitation, GraphCitationSource, GraphFact, type GraphSensitivity } from "./graph.ts";
+import { Id, IsoDateTime, ModelRef, Nullable, Provenance, StringEnum } from "../common.ts";
+import {
+  EntitySummary,
+  GraphCitation,
+  GraphCitationSource,
+  GraphFact,
+  GraphFactAttribute,
+  GraphReviewState,
+  type GraphSensitivity,
+} from "./graph.ts";
 
 /**
  * Everything memory (docs/design/everything-memory-2026.md): settings (§8, §9, §10, §12.2),
@@ -340,6 +348,41 @@ export const EverythingExclusion = Type.Object(
 );
 export type EverythingExclusion = Static<typeof EverythingExclusion>;
 
+// --- Run now (§6.1) -----------------------------------------------------------------------------
+
+export const EverythingRunReason = StringEnum(
+  [
+    "disabled",
+    "no_sources",
+    "model_none",
+    "battery",
+    "low_power",
+    "thermal",
+    "not_idle",
+    "outside_quiet_hours",
+    "local_not_confirmed",
+    "low_memory",
+    "no_owner_entity",
+    "busy",
+  ],
+  { $id: "EverythingRunReason", description: "Why a pass did not run" },
+);
+export type EverythingRunReason = Static<typeof EverythingRunReason>;
+
+/** What "Run now" did: counts only, never text. */
+export const EverythingRunResult = Type.Object(
+  {
+    ran: Type.Boolean(),
+    reason: Nullable(EverythingRunReason),
+    itemsRead: Type.Integer({ minimum: 0 }),
+    factsProposed: Type.Integer({ minimum: 0 }),
+    quarantined: Type.Integer({ minimum: 0 }),
+    deferred: Type.Integer({ minimum: 0 }),
+    tokens: Type.Integer({ minimum: 0 }),
+  },
+  { $id: "EverythingRunResult" },
+);
+export type EverythingRunResult = Static<typeof EverythingRunResult>;
 // --- Per-sender auto-accept (§7.3) ------------------------------------------------------------
 
 export const SenderTrustState = StringEnum(["offered", "trusted"], { $id: "SenderTrustState" });
@@ -406,6 +449,27 @@ export const PersonRemoved = Type.Object(
   { $id: "PersonRemoved" },
 );
 export type PersonRemoved = Static<typeof PersonRemoved>;
+
+// --- Life search (§12.4) -----------------------------------------------------------------------
+
+export const LifeFactHit = Type.Object(
+  {
+    factId: Id,
+    entity: EntitySummary,
+    attribute: GraphFactAttribute,
+    value: Type.String({
+      maxLength: 2000,
+      description: "Untrusted text when it came from someone else",
+    }),
+    provenance: Provenance,
+    review: GraphReviewState,
+    quote: Nullable(Type.String({ maxLength: 200 })),
+    source: Nullable(Type.String({ maxLength: 40 })),
+    observedAt: Nullable(IsoDateTime),
+  },
+  { $id: "LifeFactHit" },
+);
+export type LifeFactHit = Static<typeof LifeFactHit>;
 
 // --- Runs (§6.7) ------------------------------------------------------------------------------
 

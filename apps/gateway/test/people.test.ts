@@ -504,3 +504,20 @@ describe("agent access to everything memory (EM7)", () => {
     expect((await c.memory.readFile(path ?? ""))?.content).toContain("bouldering");
   });
 });
+
+describe("the everything-memory schedule", () => {
+  it("is a system automation in Scheduled, off until the feature is on", async () => {
+    const c = await compose();
+    const find = async () =>
+      (await c.scheduler.list()).find((a) => a.prompt.includes("everything-memory"));
+    await vi.waitFor(async () => expect(await find()).toBeDefined());
+    const a = await find();
+    expect(a).toMatchObject({
+      title: "Everything memory",
+      schedule: "15 3 * * *",
+      enabled: false,
+    });
+    // It runs after dreaming (03:00), and dreaming no longer carries the pass.
+    expect((await c.scheduler.list()).filter(isDreamingAutomation)).toHaveLength(1);
+  });
+});

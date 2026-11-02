@@ -1,0 +1,48 @@
+{
+  "$comment": "Eval set for render_ui guidance (generative-ui-2026 §6.4, P3). `expect` is what a good turn does. Run against a real model by the eval harness; the unit test only checks the set is well formed and balanced.",
+  "cases": [
+    {
+      "prompt": "Clean up my inbox: archive newsletters, draft replies, unsubscribe from promos. Keep me posted.",
+      "expect": "ui",
+      "why": "multi-step state that changes"
+    },
+    {
+      "prompt": "Compare these five laptops on price, weight and battery.",
+      "expect": "ui",
+      "why": "structure: comparable items worth scanning"
+    },
+    {
+      "prompt": "Track the progress of the migration while it runs.",
+      "expect": "ui",
+      "why": "progress that will change"
+    },
+    {
+      "prompt": "Show last month's spend by category.",
+      "expect": "ui",
+      "why": "numbers worth scanning"
+    },
+    { "prompt": "Why is the sky blue?", "expect": "text", "why": "explanation" },
+    { "prompt": "What time is my 2pm meeting?", "expect": "text", "why": "short fact" },
+    {
+      "prompt": "Should I take the job in Austin or stay?",
+      "expect": "text",
+      "why": "opinion the owner will want to quote"
+    },
+    {
+      "prompt": "Write a thank-you email to Sam.",
+      "expect": "text",
+      "why": "prose to copy; or artifact, never a widget"
+    },
+    { "prompt": "Rename that file to notes.md.", "expect": "text", "why": "one-line confirmation" },
+    {
+      "prompt": "Can you update the progress widget with step 3 done?",
+      "expect": "update_ui",
+      "why": "update, do not draw another"
+    },
+    {
+      "prompt": "Add a button that approves sending the email.",
+      "expect": "text",
+      "why": "approvals are host-owned; refuse to fake one"
+    }
+  ]
+}
