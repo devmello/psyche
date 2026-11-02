@@ -180,7 +180,7 @@ export function StackedBars({
                       }}
                       onBlur={() => setHot((h) => (h === i ? null : h))}
                       className={cn(
-                        "flex h-full w-full flex-col-reverse justify-start rounded-t-[4px] outline-none hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring",
+                        "flex h-full w-full flex-col-reverse items-center justify-start rounded-t-[4px] outline-none hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring",
                         selected && "bg-fill-secondary",
                       )}
                     >
@@ -188,7 +188,7 @@ export function StackedBars({
                         <span
                           aria-hidden="true"
                           data-empty-day=""
-                          className="block h-0.5 w-full rounded-full bg-gray-4"
+                          className="block h-0.5 w-3/5 max-w-12 rounded-full bg-gray-4"
                         />
                       ) : null}
                       {bar?.segments.map((seg, k) => (
@@ -196,7 +196,7 @@ export function StackedBars({
                           key={seg.id}
                           data-series={seg.id}
                           className={cn(
-                            "block w-full",
+                            "block w-3/5 max-w-12",
                             k === bar.segments.length - 1 && "rounded-t-[4px]",
                           )}
                           style={{

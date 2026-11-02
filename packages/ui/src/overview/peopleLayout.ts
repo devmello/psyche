@@ -137,6 +137,12 @@ function placeLabels(
   const blocked: Box[] = [
     discBox(center.x, center.y, 27),
     ...nodes.map((n) => discBox(n.x, n.y, n.radius + 3)),
+    // The open-loops badge PeopleMap draws at the node's upper right.
+    ...nodes
+      .filter((n) => n.entity.openLoops > 0)
+      .map((n) =>
+        discBox(n.x + n.radius * 0.8, n.y - n.radius * 0.8, Math.max(8, n.radius * 0.75) + 2),
+      ),
   ];
   const placed: Box[] = [];
   return nodes.map((n) => {
