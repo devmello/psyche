@@ -65,3 +65,4 @@ export async function createMemoryStore(
   return store;
 }
 export * from "./learned.ts";
+export * from "./secure/encrypted.ts";
