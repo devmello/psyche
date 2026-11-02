@@ -24,6 +24,7 @@ import { StatusGlyph, type StatusKind } from "../components/status.tsx";
 import { t } from "../i18n/core.ts";
 import { formatDuration, formatTime, toolFamily } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
+import { McpAppPanel } from "../widgets/McpAppPanel.tsx";
 import { DiffBlock } from "./DiffBlock.tsx";
 import { DISCLOSURE_KEY, useDisclosure } from "./disclosure.tsx";
 import { ToolResultPreview } from "./ToolResultPreview.tsx";
@@ -161,6 +162,9 @@ export function ToolCallRow({
         </details>
       ) : null}
       {call ? <ToolResultPreview call={call} /> : null}
+      {block.status === "ok" && block.tool.startsWith("mcp__") ? (
+        <McpAppPanel tool={block.tool} />
+      ) : null}
       {raw && call ? (
         <div className="ms-6 flex flex-col gap-1 rounded-md bg-fill-quaternary p-2">
           <div className="flex flex-wrap items-center gap-2 text-callout text-label-secondary">

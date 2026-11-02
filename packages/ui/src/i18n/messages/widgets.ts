@@ -22,6 +22,13 @@ export const widgets = {
   "widgets.frame.retry": "Try again",
   "widgets.frame.announce": "{title}: {summary}",
   "widgets.frame.building": "Building widget…",
+  "widgets.app.title": "App from {server}",
+  "widgets.app.untrusted": "Built from untrusted content",
+  "widgets.app.note":
+    "This page came from the connector. It cannot use the network, your tools or your data, and it cannot ask for approvals.",
+  "widgets.app.run": "Run app",
+  "widgets.app.hide": "Hide app",
+  "widgets.app.unavailable": "This app cannot be shown here.",
   "widgets.node.unsupported": "Psyche can't show this part yet.",
   "widgets.node.unavailable": "Unavailable",
   "widgets.state.todo": "To do",

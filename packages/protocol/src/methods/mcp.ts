@@ -167,7 +167,47 @@ export const SelfConnectorFile = Type.Object(
 );
 export type SelfConnectorFile = Static<typeof SelfConnectorFile>;
 
+/**
+ * An MCP App (a `ui://` resource a tool declares): HTML the server wrote, so untrusted data that
+ * only ever renders in the artifact sandbox (generative-ui-2026 P9). It carries no way back: the
+ * frame has no network, no tool channel and no storage; the declared CSP and permissions are
+ * shown to the owner, never granted.
+ */
+export const McpApp = Type.Object(
+  {
+    serverId: Type.String(),
+    uri: Type.String(),
+    html: Type.String(),
+    csp: Type.Record(Type.String(), Type.Unknown()),
+    permissions: Type.Record(Type.String(), Type.Unknown()),
+    provenance: Type.Literal("untrusted"),
+  },
+  { $id: "McpApp" },
+);
+export type McpApp = Static<typeof McpApp>;
+
 export const McpMethods = {
+  "mcp.app": defineMethod({
+    params: Type.Object({
+      tool: Type.String({
+        minLength: 1,
+        maxLength: 200,
+        description: "The tool's name as the transcript shows it (mcp__<server>__<tool>)",
+      }),
+    }),
+    result: Type.Object(
+      {
+        available: Type.Boolean({
+          description: "False when the tool declares no app, is off, or its server is not running",
+        }),
+        app: Type.Optional(McpApp),
+      },
+      { $id: "McpAppResult" },
+    ),
+    scope: "operator.read",
+    description:
+      "The MCP App (ui:// resource) the named tool declares, read from its own running server: only a resource that server's pinned tools declare is served, never a URI from the caller. The HTML is server-authored and untrusted: render it only in the artifact sandbox, after the owner chooses to run it. It cannot call tools or read anything else.",
+  }),
   "mcp.status": defineMethod({
     params: Type.Object({}),
     result: Type.Object({

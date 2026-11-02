@@ -1540,6 +1540,14 @@
         "sideEffecting": true
       },
       {
+        "description": "The MCP App (ui:// resource) the named tool declares, read from its own running server: only a resource that server's pinned tools declare is served, never a URI from the caller. The HTML is server-authored and untrusted: render it only in the artifact sandbox, after the owner chooses to run it. It cannot call tools or read anything else.",
+        "name": "mcp.app",
+        "params": "#/$defs/McpAppParams",
+        "result": "#/$defs/McpAppResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "The code of an agent-made MCP server (madeBy psyche), read-only. not_found for an unknown server or one not made by Psyche.",
         "name": "mcp.files.read",
         "params": "#/$defs/McpFilesReadParams",
@@ -23048,6 +23056,73 @@
       },
       "required": [
         "server"
+      ],
+      "type": "object"
+    },
+    "McpApp": {
+      "properties": {
+        "serverId": {
+          "type": "string"
+        },
+        "uri": {
+          "type": "string"
+        },
+        "html": {
+          "type": "string"
+        },
+        "csp": {
+          "patternProperties": {
+            "^(.*)$": {}
+          },
+          "type": "object"
+        },
+        "permissions": {
+          "patternProperties": {
+            "^(.*)$": {}
+          },
+          "type": "object"
+        },
+        "provenance": {
+          "const": "untrusted",
+          "type": "string"
+        }
+      },
+      "required": [
+        "serverId",
+        "uri",
+        "html",
+        "csp",
+        "permissions",
+        "provenance"
+      ],
+      "type": "object"
+    },
+    "McpAppParams": {
+      "properties": {
+        "tool": {
+          "description": "The tool's name as the transcript shows it (mcp__<server>__<tool>)",
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "tool"
+      ],
+      "type": "object"
+    },
+    "McpAppResult": {
+      "properties": {
+        "available": {
+          "description": "False when the tool declares no app, is off, or its server is not running",
+          "type": "boolean"
+        },
+        "app": {
+          "$ref": "#/$defs/McpApp"
+        }
+      },
+      "required": [
+        "available"
       ],
       "type": "object"
     },
