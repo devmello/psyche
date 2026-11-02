@@ -28,7 +28,9 @@ import {
   type ScopeMode,
   useImplementedTypes,
 } from "./connector-catalog.tsx";
+import { FilesOnMacCard, type PolicyValues, TerminalCard } from "./DeviceAccessCards.tsx";
 import { folderGrants, POLICY_KEY, policyWithFolders } from "./FileAccessSection.tsx";
+import { McpFailureNotice } from "./McpFailureNotice.tsx";
 import { McpServerRow } from "./McpServerDetail.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import { SegmentedRadio } from "./SegmentedRadio.tsx";
@@ -109,7 +111,12 @@ export interface ConnectorsPanelProps extends LoadProps {
   /** Connector types the Gateway can connect; undefined offers every catalog row. */
   implemented?: ReadonlySet<string> | undefined;
   /** Opens another Settings section (the Slack row). */
-  onOpenSection?: (section: "channels") => void;
+  onOpenSection?: (section: "channels" | "files") => void;
+  /**
+   * The settings that decide device access (`permissions.policy`): Files on this Mac and Terminal
+   * are views onto them, shown above the list.
+   */
+  policy?: PolicyValues;
   /** MCP servers, listed with the connectors and added from the catalogue's Custom MCP server row. */
   mcp?: McpState;
   /** Which connectors to list first (the old MCP route lands on `mcp`). */
@@ -152,6 +159,7 @@ export function ConnectorsPanel({
   connectProgress,
   implemented,
   onOpenSection,
+  policy,
   mcp,
   defaultFilter = "all",
   defaultAddType,
@@ -218,7 +226,17 @@ export function ConnectorsPanel({
           {mcp?.notice ? <p>{mcp.notice}</p> : null}
         </div>
         {mcp?.actionError ? (
-          <ErrorNotice what={mcp.actionError} did={t("settings.skills.nothingChanged")} />
+          <McpFailureNotice message={mcp.actionError} failure={mcp.actionFailure} mcp={mcp} />
+        ) : null}
+        {policy ? (
+          <>
+            <FilesOnMacCard {...policy} persona={persona} />
+            <TerminalCard
+              {...policy}
+              persona={persona}
+              {...(onOpenSection ? { onOpenFileAccess: () => onOpenSection("files") } : {})}
+            />
+          </>
         ) : null}
         {review}
         {adding && onConnect ? (
@@ -499,7 +517,7 @@ export interface ConnectorsSectionProps {
   onReconnect?: (connector: Connector) => void;
   onDisconnect?: (connector: Connector) => void;
   onRemove?: (connector: Connector) => void;
-  onOpenSection?: (section: "channels") => void;
+  onOpenSection?: (section: "channels" | "files") => void;
   /** Where the section opens: the MCP servers only, or with the Add MCP server form showing. */
   view?: ConnectorsView;
 }
@@ -590,6 +608,7 @@ export function ConnectorsSection({
           }
         }}
         {...(onTry ? { onTry } : {})}
+        policy={{ values: form.values, onChange: form.onChange }}
         sharedFolders={folderGrants(form.values).map((g) => g.path)}
         onShareFolder={(path: string, mode: ScopeMode) => {
           const grants = folderGrants(form.values).filter((g) => g.path !== path);

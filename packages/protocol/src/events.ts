@@ -173,6 +173,11 @@ export const Events = {
     payload: Type.Object({ notification: Notification }),
     description: "A notification was created for the in-app inbox.",
   }),
+  "notification.opened": defineEvent({
+    payload: Type.Object({ notificationId: Id, route: Type.String() }),
+    description:
+      "The owner tapped an OS notification (the Mac helper's): clients open its route, a chat with the message or approval card, a run, or Scheduled → Runs.",
+  }),
   "settings.changed": defineEvent({
     payload: Type.Object({ entries: Type.Array(SettingEntry) }),
     description: "Settings changed (including appearance), so every paired client re-themes.",

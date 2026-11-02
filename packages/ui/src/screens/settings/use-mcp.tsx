@@ -43,6 +43,8 @@ export interface McpState {
   checking: boolean;
   /** An add that failed or a remove that failed, in words. */
   actionError: string | null;
+  /** Why a server did not start (`mcp.probe`): the launch failure and the server's own words. */
+  actionFailure: McpLaunchFailure | null;
   /** The last add / remove / denial, in words. */
   notice: string | null;
   /** The trust card under review, with its approval. */
@@ -51,6 +53,23 @@ export interface McpState {
   remove: (server: McpServerStatus) => void;
   /** Turns a server off (kept in the list, not running) or back on. */
   setEnabled: (server: McpServerStatus, enabled: boolean) => void;
+}
+
+export interface McpLaunchFailure {
+  failure: string;
+  stderr: string;
+  exitCode?: number;
+}
+
+/** `details` of a probe that could not start the server; null for any other error. */
+export function launchFailureOf(err: unknown): McpLaunchFailure | null {
+  const d = (err as { details?: Record<string, unknown> } | null)?.details;
+  if (d === undefined || d === null || typeof d.failure !== "string") return null;
+  return {
+    failure: d.failure,
+    stderr: typeof d.stderr === "string" ? d.stderr : "",
+    ...(typeof d.exitCode === "number" ? { exitCode: d.exitCode } : {}),
+  };
 }
 
 export function useMcp(now?: number): McpState {
@@ -64,6 +83,7 @@ export function useMcp(now?: number): McpState {
   } | null>(null);
   const [checking, setChecking] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionFailure, setActionFailure] = useState<McpLaunchFailure | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const dropSecrets = (ids: readonly string[]) => {
@@ -103,6 +123,7 @@ export function useMcp(now?: number): McpState {
     reload: q.reload,
     checking,
     actionError,
+    actionFailure,
     notice,
     review:
       proposal === null ? null : (
@@ -123,6 +144,7 @@ export function useMcp(now?: number): McpState {
       ),
     check: (input, secrets = []) => {
       setActionError(null);
+      setActionFailure(null);
       setNotice(null);
       setChecking(true);
       const stored: string[] = [];
@@ -146,6 +168,7 @@ export function useMcp(now?: number): McpState {
         .catch((err: unknown) => {
           dropSecrets(stored);
           setActionError(messageOf(err));
+          setActionFailure(launchFailureOf(err));
         })
         .finally(() => setChecking(false));
     },

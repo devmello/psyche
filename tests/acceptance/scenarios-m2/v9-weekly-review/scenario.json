@@ -328,7 +328,7 @@
           "approvalKind": "send_email",
           "tool": "gmail.send",
           "callRef": "c_v9_probe",
-          "scopesOffered": ["once", "task"],
+          "scopesOffered": ["once"],
           "mustShow": ["coach@runclub.example"],
           "taint": true,
           "taintSources": ["calendar:coach@runclub.example"]

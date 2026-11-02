@@ -44,6 +44,9 @@ function webPlatform() {
       thread: MAIN,
       activity: { running: 0, awaitingInput: 0, awaitingApproval: 0 },
     }),
+    // The thread reads the model's capabilities from this (83083c2e); the generic `.list` fallback
+    // below has the wrong shape and crashed ChatThread, taking the shell's command listener with it.
+    "models.list": () => ({ providers: [], roles: {} }),
     "chat.history": () => ({ messages: [], nextCursor: null }),
     "chat.queue.list": () => ({ items: [] }),
     "events.subscribe": () => ({ ok: true }),
