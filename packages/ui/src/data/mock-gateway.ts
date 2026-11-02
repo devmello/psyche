@@ -1628,14 +1628,20 @@ export class MockGateway implements GatewayClient {
         | undefined;
       return {
         entries: [
-          ...(policy?.folders ?? []).map((f) => ({
-            id: `folder:always:${f.path}`,
-            type: "folder" as const,
-            scope: "always" as const,
-            label: f.path,
-            path: f.path,
-            mode: f.mode,
-          })),
+          // Like the Gateway, a malformed folder (no path, an unknown mode) is not listed.
+          ...(policy?.folders ?? [])
+            .filter(
+              (f) =>
+                typeof f.path === "string" && f.path !== "" && (f.mode === "ro" || f.mode === "rw"),
+            )
+            .map((f) => ({
+              id: `folder:always:${f.path}`,
+              type: "folder" as const,
+              scope: "always" as const,
+              label: f.path,
+              path: f.path,
+              mode: f.mode,
+            })),
           ...this.world.grants
             .filter((g) => g.revokedAt == null)
             .map((g) => ({

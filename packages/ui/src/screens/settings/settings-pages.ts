@@ -12,6 +12,7 @@ import {
   GraduationCap,
   Info,
   KeyRound,
+  ListChecks,
   type LucideIcon,
   Mail,
   MessagesSquare,
@@ -41,6 +42,7 @@ import { t } from "../../i18n/core.ts";
  */
 
 export type SettingsPageId =
+  | "essentials"
   | "general"
   | "model"
   | "connectors"
@@ -52,6 +54,7 @@ export type SettingsPageId =
   | "about";
 
 export type SettingsPaneId =
+  | "essentials"
   | "appearance"
   | "persona"
   | "notifications"
@@ -121,6 +124,7 @@ const page = (
 });
 
 export const SETTINGS_PANES: readonly SettingsEntry<SettingsPaneId>[] = [
+  entry("essentials", ListChecks),
   entry("appearance", Palette),
   entry("persona", UserRound),
   entry("notifications", Bell),
@@ -150,8 +154,12 @@ export const SETTINGS_PANES: readonly SettingsEntry<SettingsPaneId>[] = [
   entry("about", Info),
 ];
 
-/** The sidebar, in the order people need it: everyday choices first, plumbing last. */
+/**
+ * The sidebar, in the order people need it: Essentials (the few choices a newcomer makes) first,
+ * everyday choices next, plumbing last.
+ */
 export const SETTINGS_PAGES: readonly SettingsPage[] = [
+  page("essentials", ListChecks, ["essentials"]),
   page("general", SlidersHorizontal, ["appearance", "persona", "notifications", "voice"]),
   page("model", Cpu, ["model", "usage"]),
   page("connectors", Plug, ["connectors", "search", "mail", "channels"]),
@@ -199,7 +207,7 @@ export function pageOfPane(id: SettingsPaneId): SettingsPage {
 
 /**
  * Where a route id lands: its page, and the pane to scroll to (none for a page's own id, which
- * opens at the top). Unknown ids open General.
+ * opens at the top). Unknown ids open Essentials.
  */
 export function resolveSection(id: string | undefined): {
   page: SettingsPageId;
@@ -209,7 +217,7 @@ export function resolveSection(id: string | undefined): {
   if (asPage !== undefined) return { page: asPage.id };
   const asPane = SETTINGS_PANES.find((p) => p.id === id);
   if (asPane !== undefined) return { page: pageOfPane(asPane.id).id, pane: asPane.id };
-  return { page: "general" };
+  return { page: "essentials" };
 }
 
 /** The pane a setting key lives in, so Search can jump straight to it. */

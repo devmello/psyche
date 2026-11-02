@@ -11,6 +11,7 @@
  * 2026 regrouping still land (docs/design/settings-2026.md).
  */
 export const APP_SETTINGS_SECTIONS = [
+  "essentials",
   "general",
   "appearance",
   "persona",

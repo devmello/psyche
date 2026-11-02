@@ -88,7 +88,8 @@ export const mailMeetings = {
   "settings.mail.notes.enabled.hint":
     "Does nothing until you add audio: a Voice Memo, a file or a recording you start.",
   "settings.mail.notes.folder": "Recordings folder",
-  "settings.mail.notes.folder.hint": "A folder Wren may read. Grant it under File access.",
+  "settings.mail.notes.folder.hint":
+    "A folder Wren may read. Grant it in Settings → Permissions → Access.",
   "settings.mail.notes.folder.placeholder": "~/Documents/Recordings",
   "settings.mail.transcribe.endpoint": "Transcription endpoint",
   "settings.mail.transcribe.endpoint.hint":

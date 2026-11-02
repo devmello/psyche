@@ -46,6 +46,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** Where Settings opens: the few choices most people make, each with a safe default. */
+export const Essentials: Story = { args: { defaultSection: "essentials" } };
 export const ModelAndProviders: Story = { args: { defaultSection: "model" } };
 export const Persona: Story = { args: { defaultSection: "persona" } };
 export const Connectors: Story = { args: { defaultSection: "connectors" } };

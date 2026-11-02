@@ -1847,7 +1847,6 @@ export const it: Partial<Catalogue> = {
     "Nessuna autorizzazione permanente per siti web. I nuovi siti chiedono prima.",
   "settings.permissions.scopeExpires": "{scope}, scade {date}",
   "settings.permissions.revokeNamed": "Revoca {name}",
-  "settings.permissions.editInFiles": "Modifica in Accesso ai file",
   "settings.permissions.noFolders": "Nessuna cartella condivisa.",
   "settings.permissions.folderRw": "lettura e scrittura",
   "settings.permissions.folderRo": "sola lettura",
@@ -2860,8 +2859,6 @@ export const it: Partial<Catalogue> = {
   "web.files.pickError":
     "Psyche non è riuscito ad aprire il selettore di cartelle ({error}). Nulla è cambiato.",
   "web.files.choose": "Scegli una cartella…",
-  "web.files.chooseHint":
-    "Condivisa in sola lettura; passala a lettura e scrittura nell’elenco qui sotto.",
   "web.onboarding.title": "Configura Psyche",
   "web.onboarding.saveError": "Impossibile salvare il tuo agente: {error}",
   "web.bytes.b": "{n} B",

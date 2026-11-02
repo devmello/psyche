@@ -16,8 +16,12 @@ const reader =
     values[key];
 
 describe("quietHoursFromSettings", () => {
-  it("is off until the owner turns it on", () => {
-    expect(quietHoursFromSettings(reader({}), LA)).toBeNull();
+  it("is on until the owner turns it off (settings-2026 §7)", () => {
+    expect(quietHoursFromSettings(reader({}), LA)).toEqual({
+      start: "22:00",
+      end: "08:00",
+      timezone: LA,
+    });
     expect(
       quietHoursFromSettings(
         reader({
@@ -27,10 +31,10 @@ describe("quietHoursFromSettings", () => {
         LA,
       ),
     ).toBeNull();
-    // Only a real boolean counts.
+    // Only a real boolean is the owner's choice; anything else reads as the default.
     expect(
-      quietHoursFromSettings(reader({ "notifications.quietHours.enabled": "true" }), LA),
-    ).toBeNull();
+      quietHoursFromSettings(reader({ "notifications.quietHours.enabled": "false" }), LA),
+    ).not.toBeNull();
   });
 
   it("defaults to 22:00 to 08:00 in the given zone", () => {

@@ -88,13 +88,14 @@ function settingValue(g: MockGateway, key: string): unknown {
 }
 
 describe("SettingsScreen", () => {
-  it("lists the nine pages, opens a page's panes under it, and marks the current one", async () => {
+  it("lists the pages, opens a page's panes under it, and marks the current one", async () => {
     const { navigate } = setup({ defaultSection: "appearance" });
     const nav = screen.getByRole("navigation", { name: "Settings sections" });
     const pages = within(nav)
       .getAllByRole("button")
       .filter((b) => b.getAttribute("aria-current") !== "location" && !b.closest("ul ul"));
     expect(pages.map((b) => b.textContent?.trim())).toEqual([
+      "Essentials",
       "General",
       "Models",
       "Connectors & sources",
@@ -123,7 +124,7 @@ describe("SettingsScreen", () => {
       within(nav).getByRole("button", { name: "Permissions" }).getAttribute("aria-current"),
     ).toBe("page");
     expect(navigate).toHaveBeenCalledWith("/settings/permissions");
-    await userEvent.click(within(nav).getByRole("button", { name: "File access" }));
+    await userEvent.click(within(nav).getByRole("button", { name: "Access" }));
     expect(navigate).toHaveBeenCalledWith("/settings/files");
   });
 
@@ -136,7 +137,7 @@ describe("SettingsScreen", () => {
     await userEvent.keyboard("{End}");
     expect(document.activeElement?.textContent).toBe("About");
     await userEvent.keyboard("{ArrowDown}");
-    expect(document.activeElement?.textContent).toBe("General");
+    expect(document.activeElement?.textContent).toBe("Essentials");
   });
 
   it("searches pages, panes and single settings, and jumps to the setting", async () => {
@@ -190,12 +191,12 @@ describe("paneForKey", () => {
 
 describe("parseSettingsRoute", () => {
   it("opens pages, and old section ids on their page at that pane", () => {
-    expect(parseSettingsRoute("/settings")).toEqual({ section: "general" });
+    expect(parseSettingsRoute("/settings")).toEqual({ section: "essentials" });
     expect(parseSettingsRoute("/settings/files")).toEqual({ section: "files" });
     expect(resolveSection("files")).toEqual({ page: "permissions", pane: "files" });
     expect(resolveSection("people")).toEqual({ page: "memory", pane: "people" });
     expect(resolveSection("model")).toEqual({ page: "model" });
-    expect(resolveSection("nope")).toEqual({ page: "general" });
+    expect(resolveSection("nope")).toEqual({ page: "essentials" });
     expect(parseSettingsRoute("/settings/mcp")).toEqual({ section: "connectors", view: "mcp" });
     expect(parseSettingsRoute("/settings/connectors/add-mcp")).toEqual({
       section: "connectors",
@@ -1078,13 +1079,14 @@ describe("File access (folder grants live in permissions.policy)", () => {
     });
   });
 
-  it("shares a typed folder as a permissions.policy grant the broker applies", async () => {
+  it("adds a typed folder (Add a folder yourself) as a permissions.policy grant", async () => {
     const { gateway } = setup(
       { defaultSection: "files" },
       { edit: (w) => Object.assign(w.settings, { "permissions.policy": policy }) },
     );
-    const list = await screen.findByRole("list", { name: "Shared folders" });
+    const list = await screen.findByRole("list", { name: /can reach/ });
     expect(within(list).getByText("/Users/me/Notes")).toBeTruthy();
+    expect(within(list).getAllByText(/^Always/).length).toBeGreaterThan(0);
     await userEvent.type(screen.getByLabelText("Share a folder"), "/Users/me/Taxes{Enter}");
     await waitFor(() =>
       expect(settingValue(gateway(), "permissions.policy")).toEqual({
@@ -1098,30 +1100,33 @@ describe("File access (folder grants live in permissions.policy)", () => {
     expect(settingCall(gateway(), "permissions.folders")).toBeUndefined();
   });
 
-  it("Revoke removes an always-allowed folder from the policy the broker applies", async () => {
+  it("Revoke takes a folder back through access.revoke, and read/write changes the policy", async () => {
     const { gateway } = setup(
       { defaultSection: "files" },
       { edit: (w) => Object.assign(w.settings, { "permissions.policy": policy }) },
     );
-    const list = await screen.findByRole("list", { name: "Shared folders" });
-    expect(within(list).getByDisplayValue("Read and write")).toBeTruthy();
-    await userEvent.click(
-      within(list).getByRole("button", { name: "Stop sharing /Users/me/Notes" }),
-    );
+    const list = await screen.findByRole("list", { name: /can reach/ });
+    await userEvent.selectOptions(within(list).getByLabelText("Access to /Users/me/Notes"), "ro");
     await waitFor(() =>
       expect(settingValue(gateway(), "permissions.policy")).toEqual({
         defaultMode: "manual",
-        folders: [],
+        folders: [{ path: "/Users/me/Notes", mode: "ro" }],
+      }),
+    );
+    await userEvent.click(within(list).getByRole("button", { name: "Revoke /Users/me/Notes" }));
+    await waitFor(() =>
+      expect(callsOf(gateway(), "access.revoke")[0]?.params).toEqual({
+        entryId: "folder:always:/Users/me/Notes",
       }),
     );
   });
 
-  it("lists the policy's folders once, in File access on the Permissions page", async () => {
+  it("lists the policy's folders once, in Access on the Permissions page", async () => {
     setup(
       { defaultSection: "permissions" },
       { edit: (w) => Object.assign(w.settings, { "permissions.policy": policy }) },
     );
-    const list = await screen.findByRole("list", { name: "Shared folders" });
+    const list = await screen.findByRole("list", { name: /can reach/ });
     expect(within(list).getByText("/Users/me/Notes")).toBeTruthy();
     expect(screen.getAllByText("/Users/me/Notes")).toHaveLength(1);
   });

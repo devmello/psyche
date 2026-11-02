@@ -332,8 +332,12 @@ export const USER_SETTING_PREFIXES = [
  * The Gateway reads unset keys through these and Settings shows exactly these. Off by default;
  * `start` and `end` are local `HH:MM`, the window may cross midnight.
  */
+/**
+ * Quiet hours are on until the owner turns them off (settings-2026 §7): a night of held
+ * notifications is the safe default; approvals marked time-sensitive still come through.
+ */
 export const NOTIFICATION_SETTING_DEFAULTS = {
-  "notifications.quietHours.enabled": false,
+  "notifications.quietHours.enabled": true,
   "notifications.quietHours.start": "22:00",
   "notifications.quietHours.end": "08:00",
 } as const;

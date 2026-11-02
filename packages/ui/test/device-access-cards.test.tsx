@@ -110,7 +110,7 @@ describe("Files on this Mac and Terminal", () => {
     expect(screen.queryByRole("button", { name: "Share a folder" })).toBeNull();
     expect(screen.getByText("Running commands is on")).toBeTruthy();
     expect(screen.getByText("2 folders shared.")).toBeTruthy();
-    await user.click(screen.getAllByRole("button", { name: "Open File access" })[1] as HTMLElement);
+    await user.click(screen.getAllByRole("button", { name: "Open Access" })[1] as HTMLElement);
     expect(onOpen).toHaveBeenCalledTimes(1);
     expect(execHostEnabled({})).toBe(false);
   });

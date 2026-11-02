@@ -1,7 +1,7 @@
-# Settings 2026: nine pages, one home per setting
+# Settings 2026: Essentials first, one home per setting
 
-Status: built in the `claude/settings-2026` PR, 2026-11-02. Owner asleep; decisions below are the
-session's own and easy to revisit.
+Status: §1–6 built in #1113 (`claude/settings-2026`); §7 in the stacked `claude/settings-essentials`
+PR, 2026-11-02. Owner asleep; decisions below are the session's own and easy to revisit.
 
 ## 1. What was wrong
 
@@ -118,3 +118,50 @@ when a labelled key has no pane (`paneForKey`).
 - Desktop `ShellApp` drops the view part of `/settings/connectors/add-mcp`.
 - About 75 controls are explained only by their group's description; the worst offenders (Mail,
   Everything memory sensitive topics) deserve one line each.
+
+## 7. Essentials, safe defaults, and access by asking
+
+The owner's direction (2026-11-02): "The entire app needs to be cleaned up, simple, intuitive, but
+still powerful. It cannot be so confusing that people don't even know what to do for beginners,
+yet it should offer so much capability that people who are advanced can adjust settings on their
+own. If this means changing some settings to be by default toggled, and having an easy section for
+settings at the top while allowing you to still modify everything individually, do that. But things
+like adding access to files is complicated to do through settings. The models should just be able
+to request access and that should just remember and always work depending on what type of
+permission they give."
+
+**Essentials** (`/settings/essentials`) is the first page and where Settings opens; an unknown id
+also lands there. It holds the five choices a newcomer makes, each written to the same key or call
+as its detailed pane, with **More** opening that pane:
+
+| Group | What it changes | Default |
+|---|---|---|
+| Model | shows the primary model and whether its provider answers; **Set up a model** (amber, the page's one filled button) when none | none until set up |
+| What Psyche may read | Mail, Messages, Notes, Calendar, Reminders, Files (`search.sources.configure`) | all off |
+| How often Psyche asks first | `permissions.mode` (Balanced, Manual, Auto) | Balanced |
+| When Psyche may interrupt you | Quiet hours (`notifications.quietHours.enabled`), Morning brief (`daily.brief.enabled`) | quiet hours **on**, brief off |
+| Memory | Let Psyche remember our chats (`memory.pause`) | on |
+
+Nothing on Essentials is its only home: power users change everything, and more, in the pages
+below. Essentials repeats a setting on purpose (a shortcut), which is the one exception to "one home
+per setting"; each row writes the same key, so the two can never disagree.
+
+**Defaults changed.** Only one, where it is clearly safe: **quiet hours are on by default**,
+22:00–08:00 (`NOTIFICATION_SETTING_DEFAULTS`, read by `quietHoursFromSettings`). Notifications in
+that window wait in the inbox; approvals marked time-sensitive still come through. An owner who set
+the switch keeps their choice (only an unset key reads the default). Considered and left as they
+are: search sources (reading mail or messages must be the owner's choice), the morning brief (it
+costs model calls), semantic search (it downloads a model and uses RAM, which the owner prefers to
+keep low), and anything touching taint, credential entry or the financial and destructive floors.
+
+**Access by asking.** #1111 made "the agent asks, you answer once, it is remembered" the main path
+(`request_folder_access` and the approval scopes, kept in the broker) and added `access.list` /
+`access.revoke`. Settings now follows it: the File access pane is renamed **Access** and opens with
+**What Psyche can reach**, one list of every shared folder and standing grant, each marked
+**Always**, **This chat** or **For now** (folders also read only or read and write, changeable for
+the always-kept ones), with **Revoke**. Adding a folder by hand moved under a folded **Add a folder
+yourself** (a typed path, or the Mac's folder chooser), described as usually not needed. Run
+commands on this Mac and VM shares stay below it. The route id stays `files`, so old links work.
+
+Not changed here: the Grants ledger in Approval rules stays as the history (with use counts and
+revoked grants); the current list lives in Access.

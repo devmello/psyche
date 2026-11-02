@@ -15,18 +15,17 @@ describe("Settings → Notifications", () => {
     expect(settingLabel("notifications.quietHours.enabled")).toBe("Quiet hours");
   });
 
-  it("starts off with 22:00 to 08:00 and the times set aside", () => {
+  it("starts on, 22:00 to 08:00, until the owner turns it off (settings-2026 §7)", () => {
     render(<NotificationsPanel values={{}} onChange={() => {}} />);
-    expect(D["notifications.quietHours.enabled"]).toBe(false);
+    expect(D["notifications.quietHours.enabled"]).toBe(true);
     expect(screen.getByRole("switch", { name: "Quiet hours" }).getAttribute("aria-checked")).toBe(
-      "false",
+      "true",
     );
     const from = screen.getByLabelText("Quiet from") as HTMLInputElement;
     const until = screen.getByLabelText("Quiet until") as HTMLInputElement;
     expect(from.value).toBe("22:00");
     expect(until.value).toBe("08:00");
-    expect(from.disabled).toBe(true);
-    expect(until.disabled).toBe(true);
+    expect(from.disabled).toBe(false);
   });
 
   it("writes the switch and the times to their keys", async () => {
@@ -34,7 +33,7 @@ describe("Settings → Notifications", () => {
     const user = userEvent.setup();
     const { rerender } = render(<NotificationsPanel values={{}} onChange={onChange} />);
     await user.click(screen.getByRole("switch", { name: "Quiet hours" }));
-    expect(onChange).toHaveBeenCalledWith("notifications.quietHours.enabled", true);
+    expect(onChange).toHaveBeenCalledWith("notifications.quietHours.enabled", false);
 
     rerender(
       <NotificationsPanel

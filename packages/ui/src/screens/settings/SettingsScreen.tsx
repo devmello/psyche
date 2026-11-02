@@ -30,6 +30,7 @@ import {
   MemoryControlsSection,
 } from "./DataControlsSection.tsx";
 import { DevicesSection } from "./DevicesSection.tsx";
+import { EssentialsSection } from "./EssentialsSection.tsx";
 import { EverythingMemorySection } from "./EverythingMemorySection.tsx";
 import { FileAccessSection } from "./FileAccessSection.tsx";
 import { MailMeetingsSection } from "./MailMeetingsSection.tsx";
@@ -310,6 +311,8 @@ export function SettingsSectionView({
       );
     case "usage":
       return <UsageSection usage={s.usage ?? null} />;
+    case "essentials":
+      return <EssentialsSection {...opt("onOpen", onOpenSection)} />;
     case "search":
       return <SearchSection />;
     case "learning":
@@ -383,7 +386,7 @@ function NavRow({
 
 export function SettingsScreen({
   section,
-  defaultSection = "general",
+  defaultSection = "essentials",
   onSectionChange,
   connectorsView,
   defaultQuery = "",

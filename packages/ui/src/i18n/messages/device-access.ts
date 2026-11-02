@@ -2,12 +2,12 @@
 export const deviceAccess = {
   "settings.deviceAccess.files.title": "Files on this Mac",
   "settings.deviceAccess.files.hint":
-    "The folders {persona} may read, and edit where you allow it. You share them in Permissions → File access.",
+    "The folders {persona} may read, and edit where you allow it. You share them in Permissions → Access.",
   "settings.deviceAccess.files.more": "{count, plural, one {and 1 more} other {and # more}}",
-  "settings.deviceAccess.open": "Open File access",
+  "settings.deviceAccess.open": "Open Access",
   "settings.deviceAccess.terminal.title": "Terminal",
   "settings.deviceAccess.terminal.hint":
-    "{persona} can run terminal commands on this Mac when Run commands on this Mac is on in Permissions → File access.",
+    "{persona} can run terminal commands on this Mac when Run commands on this Mac is on in Permissions → Access.",
   "settings.deviceAccess.terminal.where":
     "Commands run on your Mac, in the folders you shared, and can write only to a folder you shared read and write.",
   "settings.deviceAccess.terminal.asks":
