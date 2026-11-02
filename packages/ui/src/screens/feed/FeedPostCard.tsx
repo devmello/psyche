@@ -14,6 +14,7 @@ import { t } from "../../i18n/core.ts";
 import { formatTime } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
 import { SafeLink } from "../../links/SafeLink.tsx";
+import { FeedNudgeActions } from "../../nudges/ConnectedNudges.tsx";
 import { GrowthCardItems } from "../../teaching/GrowthCard.tsx";
 import { FeedWidgetView } from "../../widgets/WidgetBlock.tsx";
 import { ProposalBatchCard } from "../workflows/BatchCard.tsx";
@@ -94,7 +95,13 @@ function StandardPostCard({
       )}
     >
       <p className="text-caption text-label-secondary">
-        <span>{post.growth ? t("screens.growth.card.kind") : feedKindLabel(post)}</span>
+        <span>
+          {post.growth
+            ? t("screens.growth.card.kind")
+            : post.refs?.nudgeId
+              ? t("nudges.kind")
+              : feedKindLabel(post)}
+        </span>
         {kind === "briefing" ? <span> · {formatTime(post.createdAt)}</span> : null}
       </p>
       <h2 id={titleId} className="text-title-2 text-label-primary">
@@ -107,6 +114,8 @@ function StandardPostCard({
       {post.widget ? <FeedWidgetView postId={post.id} snapshot={post.widget} /> : null}
       {/* The weekly "What I learned" card (teaching loop §5.4): its review items. */}
       {post.growth ? <GrowthCardItems postId={post.id} card={post.growth} /> : null}
+      {/* A relationship nudge (docs/design/relationship-nudges-2026.md): its actions. */}
+      {post.refs?.nudgeId ? <FeedNudgeActions nudgeId={post.refs.nudgeId} /> : null}
       {proposalIds.length > 0 ? (
         reviewing ? (
           proposalIds.map((id) =>

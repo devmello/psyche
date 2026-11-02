@@ -55,6 +55,8 @@ export interface EntityCardProps extends EntityCardActions {
   persona?: string;
   /** "Ava turns 7 on Friday": birthdays, anniversaries and events, from the Gateway. */
   upcoming?: readonly string[];
+  /** Relationship nudges' "Keep in touch" group (it brings its own heading; null when empty). */
+  keepInTouch?: ReactNode;
   loading?: boolean;
   loadingDelayMs?: number;
   error?: string | null;
@@ -456,6 +458,7 @@ export function PersonCard({
   now,
   persona = "Wren",
   upcoming = [],
+  keepInTouch = null,
   loading = false,
   loadingDelayMs = 0,
   error = null,
@@ -490,6 +493,7 @@ export function PersonCard({
                 ))}
               </GroupedList>
             ) : null}
+            {keepInTouch}
             <GroupedList title={t("people.section.facts")}>
               <FactRows
                 entity={e}
