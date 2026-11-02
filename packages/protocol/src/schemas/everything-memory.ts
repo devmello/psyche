@@ -363,6 +363,7 @@ export const EverythingRunReason = StringEnum(
     "local_not_confirmed",
     "low_memory",
     "no_owner_entity",
+    "store_unavailable",
     "busy",
   ],
   { $id: "EverythingRunReason", description: "Why a pass did not run" },

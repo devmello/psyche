@@ -3893,7 +3893,7 @@ export interface EverythingRunResult {
 /**
  * Why a pass did not run
  */
-export type EverythingRunReason = "disabled" | "no_sources" | "model_none" | "battery" | "low_power" | "thermal" | "not_idle" | "outside_quiet_hours" | "local_not_confirmed" | "low_memory" | "no_owner_entity" | "busy";
+export type EverythingRunReason = "disabled" | "no_sources" | "model_none" | "battery" | "low_power" | "thermal" | "not_idle" | "outside_quiet_hours" | "local_not_confirmed" | "low_memory" | "no_owner_entity" | "store_unavailable" | "busy";
 
 export type EverythingSensitiveClass = "health" | "finance" | "sexuality" | "religion" | "politics" | "ethnicity" | "legal" | "precise_location";
 

@@ -16976,6 +16976,7 @@
         "local_not_confirmed",
         "low_memory",
         "no_owner_entity",
+        "store_unavailable",
         "busy"
       ],
       "type": "string"

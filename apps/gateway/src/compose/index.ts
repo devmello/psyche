@@ -136,6 +136,7 @@ import { composeHarnesses } from "./harnesses.ts";
 import { insightsHandlers } from "./insights.ts";
 import { libraryHandlers } from "./library.ts";
 import type { ComposedMcp } from "./mcp.ts";
+import { resolveMemoryStore } from "./memory-db.ts";
 import {
   asMemoryEmbedder,
   createMemoryRecall,
@@ -689,10 +690,24 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   };
   await restoreModelSettings(modelSettings);
   const modelPins = modelPinsFor(provider);
+  // Where the graph and memory tables live: `psyche.sqlite` itself unless `memory.encrypt` is on,
+  // then the encrypted `state/memory.sqlite`, opened once its key arrives (EM9b).
+  const memoryDb = resolveMemoryStore({
+    db,
+    home: config.home,
+    wrapper: vault.wrapper,
+    slot: vault.slot,
+    derived: new DerivedKeyStore(vault.helper),
+    ...(gwOptions.logger === undefined
+      ? {}
+      : { log: (msg: string) => gwOptions.logger?.log("warn", msg) }),
+  });
+  const memoryLate = memoryDb.late;
   // The people graph is composed once the tool registry exists; card edits reach it from here.
   let people: People | undefined;
   const memory = await createMemoryStore({
     db,
+    ...(memoryLate === undefined ? {} : { sqlite: memoryDb.sqlite, deferInit: true }),
     workspaceDir: join(config.home, "workspace"),
     clock,
     ...(timeZone === undefined ? {} : { timeZone }),
@@ -716,6 +731,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       people?.onMemoryEvent(e);
     },
   });
+  if (memoryLate !== undefined) {
+    // First-run setup and the initial index wait for the encrypted file; until then memory reads
+    // are empty and writes fail with `unavailable` (never written to the plain file).
+    memoryLate.whenReady(() => {
+      memory.init().catch((err: unknown) => {
+        gwOptions.logger?.log("warn", "memory store setup failed", { error: String(err) });
+      });
+    });
+    parts.push({ start: () => memoryDb.start(), stop: () => memoryDb.stop() });
+  }
 
   const tasks = new SqliteTaskEngine({ db, clock });
   tasks.subscribe((e) => {
@@ -817,6 +842,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // People and projects (#651): handlers, owner-only agent tools, search docs, the nightly pass.
   people = composePeople({
     db,
+    ...(memoryLate === undefined ? {} : { memorySqlite: memoryDb.sqlite }),
     clock,
     memory,
     provider,
@@ -830,6 +856,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // Everything memory (#1010): review and quarantine handlers, and the nightly pass.
   const everything = composeEverything({
     db,
+    ...(memoryLate === undefined
+      ? {}
+      : { memorySqlite: memoryDb.sqlite, memoryReady: () => memoryLate.ready }),
     clock,
     graph: people.graph,
     home: config.home,
@@ -1568,7 +1597,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...libraryHandlers({ db, home: config.home }),
     ...modelSettingsHandlers(modelSettings),
     // The Overview's aggregates (docs/design/agent-overview-2026.md §6.2): read-only SQL.
-    ...insightsHandlers({ db }),
+    ...insightsHandlers({
+      db,
+      ...(memoryLate === undefined ? {} : { memorySqlite: memoryDb.sqlite }),
+    }),
     // The sidebar's usage footer (#599): a read over the run ledger.
     ...usageSummaryHandlers({
       db,

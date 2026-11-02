@@ -28,7 +28,8 @@ export type GateReason =
   | "not_idle"
   | "outside_quiet_hours"
   | "local_not_confirmed"
-  | "low_memory";
+  | "low_memory"
+  | "store_unavailable";
 
 export type GateResult = { ok: true } | { ok: false; reason: GateReason };
 

@@ -18,6 +18,8 @@ import type { Call, HandlerDef } from "../context.ts";
 
 export interface InsightsSetup {
   db: PsycheDb;
+  /** Where the people graph lives when it is not `db.sqlite` (the encrypted memory store). */
+  memorySqlite?: PsycheDb["sqlite"];
   now?: () => Date;
 }
 
@@ -123,6 +125,7 @@ function emptyTotals(): InsightTotals {
 
 export function insightsHandlers(setup: InsightsSetup): Record<string, HandlerDef> {
   const sql = setup.db.sqlite;
+  const graphSql = setup.memorySqlite ?? sql;
 
   /** Runs started in [from, to) as light rows, oldest first. */
   function runRows(from: string | null, to: string): RunRow[] {
@@ -259,7 +262,7 @@ export function insightsHandlers(setup: InsightsSetup): Record<string, HandlerDe
   }
 
   function topEntities(from: string | null, to: string): InsightEntity[] {
-    return sql
+    return graphSql
       .prepare(
         `SELECT e.id AS entityId, e.kind AS kind, e.name AS name, COUNT(*) AS interactions,
                 MAX(i.occurred_at) AS lastInteractionAt,

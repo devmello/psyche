@@ -225,6 +225,7 @@ export const memoryReview = {
   "everything.run.reason.local_not_confirmed": "Confirm the local model's memory warning first.",
   "everything.run.reason.low_memory": "Not now: not enough free memory for the local model.",
   "everything.run.reason.no_owner_entity": "Your own card in People is not set up yet.",
+  "everything.run.reason.store_unavailable": "Not now: the memory store is still opening.",
   "everything.run.reason.busy": "A pass is already running.",
   "everything.retention.title": "Retention",
   "everything.retention.pending": "Unreviewed facts expire after {days, number} days",

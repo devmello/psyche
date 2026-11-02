@@ -12115,6 +12115,7 @@ public enum EverythingRunReason: String, Codable, Sendable {
     case noSources = "no_sources"
     case notIdle = "not_idle"
     case outsideQuietHours = "outside_quiet_hours"
+    case storeUnavailable = "store_unavailable"
     case thermal = "thermal"
 }
 

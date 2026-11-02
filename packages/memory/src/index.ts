@@ -55,15 +55,21 @@ export {
  * setup (templates, initial index). Call `watch()` to pick up edits made outside Psyche.
  */
 export async function createMemoryStore(
-  options: Omit<SqliteMemoryStoreOptions, "sqlite"> & { db: PsycheDb },
+  options: Omit<SqliteMemoryStoreOptions, "sqlite"> & {
+    db: PsycheDb;
+    /** The connection the store uses when it is not `db.sqlite` (the encrypted file). */
+    sqlite?: SqliteMemoryStoreOptions["sqlite"];
+    /** Do not run first-run setup now; the caller runs `init()` when the database opens. */
+    deferInit?: boolean;
+  },
 ): Promise<SqliteMemoryStore> {
-  const { db, ...rest } = options;
+  const { db, sqlite, deferInit, ...rest } = options;
   const store = new SqliteMemoryStore({
     ...rest,
-    sqlite: db.sqlite,
+    sqlite: sqlite ?? db.sqlite,
     newId: rest.newId ?? db.newId,
   });
-  await store.init();
+  if (deferInit !== true) await store.init();
   return store;
 }
 export * from "./learned.ts";
