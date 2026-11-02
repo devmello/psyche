@@ -234,7 +234,10 @@ describe("a security setting approved with a passkey (issue #79)", () => {
     fireEvent.keyDown(share, { key: "Enter" });
     const banner = await screen.findByTestId("settings-approval", {}, { timeout: 4000 });
     await waitFor(() => expect(within(banner).queryByText("Loading the approval…")).toBeNull());
-    fireEvent.click(within(banner).getByRole("radio", { name: "Allow once" }));
+    // A policy change is offered "once" only, so since cd0a988b (one control set on the card) there
+    // is no scope control to pick from: the single Allow action is the one-time scope.
+    expect(within(banner).queryByRole("combobox")).toBeNull();
+    expect(within(banner).queryByRole("radio")).toBeNull();
     const button = within(banner).getByRole("button", { name: "Allow with scope" });
     await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(button, { detail: 1 }); // a pointer click; the card ignores keyboard clicks
