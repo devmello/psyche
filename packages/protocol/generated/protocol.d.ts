@@ -6164,6 +6164,35 @@ export interface MemoryLessonsListResult {
     nextCursor?: null | string;
 }
 
+export interface MemoryLifeSearchParams {
+    /**
+     * Default 20
+     */
+    limit?: number;
+    q:      string;
+}
+
+export interface MemoryLifeSearchResult {
+    entities: EntitySummary[];
+    facts:    LifeFactHit[];
+    intent?:  null | string;
+}
+
+export interface LifeFactHit {
+    attribute:   GraphFactAttribute;
+    entity:      EntitySummary;
+    factId:      string;
+    observedAt?: null | string;
+    provenance:  Provenance;
+    quote?:      null | string;
+    review:      GraphReviewState;
+    source?:     null | string;
+    /**
+     * Untrusted text when it came from someone else
+     */
+    value: string;
+}
+
 export interface MemoryLoopUpdatedPayload {
     loop: GraphLoop;
 }
@@ -8305,8 +8334,9 @@ export interface SearchIndexStatus {
     /**
      * Documents in the index
      */
-    docs:      number;
-    semantic?: SearchSemanticStatus;
+    docs:        number;
+    encryption?: SearchIndexEncryption;
+    semantic?:   SearchSemanticStatus;
 }
 
 export interface SearchBackfillStatus {
@@ -8331,6 +8361,24 @@ export interface SearchBackfillStatus {
 }
 
 export type SearchBackfillState = "idle" | "running" | "done" | "error";
+
+export interface SearchIndexEncryption {
+    /**
+     * Why it is unavailable
+     */
+    reason?: string;
+    /**
+     * on: the index file is encrypted; off: it is not and the switch is off; unavailable: the
+     * switch is on but the key cannot be used here
+     */
+    state: SearchIndexEncryptionState;
+}
+
+/**
+ * on: the index file is encrypted; off: it is not and the switch is off; unavailable: the
+ * switch is on but the key cannot be used here
+ */
+export type SearchIndexEncryptionState = "off" | "on" | "unavailable";
 
 export interface SearchSemanticStatus {
     blocked?: SearchSemanticBlock;

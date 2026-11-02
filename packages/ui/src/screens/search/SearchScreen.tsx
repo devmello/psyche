@@ -1,5 +1,6 @@
 import type {
   EntitySummary,
+  LifeFactHit,
   SearchHit,
   SearchIndexStatus,
   SearchUnderstood,
@@ -34,6 +35,8 @@ export interface SearchViewProps {
   autoFocus?: boolean;
   /** People and projects for the query, shown first (docs/memory/people-and-projects-2026.md §6.4). */
   entities?: readonly EntitySummary[];
+  /** Cited facts from Everything memory (Life), after people and projects. */
+  lifeFacts?: readonly LifeFactHit[];
   onOpenEntity?: (entity: EntitySummary) => void;
   renderEntityPreview?: (entity: EntitySummary) => ReactNode;
   now?: number;
@@ -108,6 +111,7 @@ export function SearchView({
   preview = false,
   autoFocus = false,
   entities,
+  lifeFacts,
   onOpenEntity,
   renderEntityPreview,
   now,
@@ -145,6 +149,7 @@ export function SearchView({
           {...(onOpen ? { onOpen } : {})}
           {...(onOpenInSideChat ? { onOpenInSideChat } : {})}
           {...(entities ? { entities } : {})}
+          {...(lifeFacts ? { lifeFacts } : {})}
           {...(onOpenEntity ? { onOpenEntity } : {})}
           {...(renderEntityPreview ? { renderEntityPreview } : {})}
           {...(now !== undefined ? { now } : {})}
@@ -218,6 +223,7 @@ export function SearchScreen({
       autoFocus={autoFocus}
       {...(onOpenInSideChat ? { onOpenInSideChat } : {})}
       entities={search.entities}
+      lifeFacts={search.life}
       onOpenEntity={
         onOpenEntity ?? ((e) => navigate?.(`/agent/soul?entity=${encodeURIComponent(e.id)}`))
       }
