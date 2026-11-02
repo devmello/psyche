@@ -94,11 +94,11 @@ export const ScheduledItem = Type.Object(
 export type ScheduledItem = Static<typeof ScheduledItem>;
 
 export const ScheduledRunState = StringEnum(
-  ["running", "waiting", "succeeded", "failed", "skipped", "cancelled"],
+  ["running", "waiting", "succeeded", "not_verified", "failed", "skipped", "cancelled"],
   {
     $id: "ScheduledRunState",
     description:
-      "The one status a run is shown with. `waiting`: the run's task is parked on an approval or an answer. `skipped`: nothing was done, and `reason` says why (paused, previous run still going, nothing to report). `succeeded` only when the run finished `done`",
+      "The one status a run is shown with. `waiting`: the run's task is parked on an approval or an answer. `skipped`: nothing was done, and `reason` says why (paused, previous run still going, nothing to report). `succeeded` only when the run finished `done` and its checks passed. `not_verified`: the run ended, but the evidence that its steps happened is missing (`reason` names the step, `evidence` lists what was recorded); `failed`: it errored or was refused",
   },
 );
 export type ScheduledRunState = Static<typeof ScheduledRunState>;
@@ -130,6 +130,8 @@ export const ScheduledRunEntry = Type.Object(
     agentRunId: Nullable(Id),
     /** `waiting`: the open approvals of the run's task, to decide in the approvals queue. */
     pendingApprovals: Type.Integer({ minimum: 0 }),
+    /** What the run really did, one plain line per tool call (`not_verified` / `failed` runs). */
+    evidence: Type.Optional(Type.Array(Type.String({ maxLength: 300 }), { maxItems: 40 })),
   },
   { $id: "ScheduledRunEntry" },
 );

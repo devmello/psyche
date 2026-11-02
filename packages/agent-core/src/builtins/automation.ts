@@ -121,7 +121,7 @@ export function proposeAutomationTool(options: {
 }
 
 const STATE_CAP = 8_000;
-const stateFile = (group: string) => `automations/${group}.json`;
+export const stateFile = (group: string) => `automations/${group}.json`;
 
 interface StateFile {
   data: Record<string, unknown>;
@@ -129,7 +129,7 @@ interface StateFile {
   tainted: boolean;
 }
 
-async function readState(store: MemoryStore, group: string) {
+export async function readState(store: MemoryStore, group: string) {
   const file = await store.readFile(stateFile(group));
   let current: StateFile = { data: {}, tainted: false };
   if (file !== undefined) {

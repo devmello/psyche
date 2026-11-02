@@ -2,6 +2,7 @@ import {
   type Clock,
   type MemoryStore,
   type Notifier,
+  ownerNoticeKey,
   PROTECTED_MEMORY_FILES,
   PsycheError,
   type Scheduler,
@@ -328,6 +329,13 @@ export function notifyTool(notifier: Notifier): AgentToolRegistration {
       {
         title: Type.String({ minLength: 1, maxLength: 120 }),
         body: Type.String({ minLength: 1, maxLength: 2_000 }),
+        purpose: Type.Optional(
+          Type.String({
+            maxLength: 40,
+            description:
+              "Why this notice exists, e.g. 'result' or 'needs_signin'. Repeating a purpose in the same task updates that notice instead of sending another.",
+          }),
+        ),
       },
       { additionalProperties: false },
     ),
@@ -344,6 +352,10 @@ export function notifyTool(notifier: Notifier): AgentToolRegistration {
         title: p.title,
         body: p.body,
         ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
+        // One notice per run and purpose: a retry, a repeated call or the framework's completion
+        // notice (same key) update that notice instead of sending another.
+        dedupeKey: ownerNoticeKey(ctx.taskId ?? ctx.runId, p.purpose),
+        keepExisting: true,
       });
       return { output: { notificationId: n.id }, provenance: "trusted" };
     },
