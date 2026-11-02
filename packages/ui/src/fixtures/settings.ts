@@ -603,8 +603,8 @@ export function credentialUses(): CredentialUse[] {
 export function settings(): Record<string, unknown> {
   return {
     "appearance.theme": "auto",
-    "appearance.accentSeed": "#6e56cf",
-    "appearance.gray": "auto",
+    "appearance.accentSeed": "#2c5aa0",
+    "appearance.gray": "paper",
     "appearance.reduceMotion": "system",
     "appearance.contrast": "standard",
     "permissions.mode": "balanced",

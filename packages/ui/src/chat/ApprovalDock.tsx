@@ -160,9 +160,9 @@ export function ApprovalDock({
                 <span
                   className={cn(
                     "tabular-nums",
-                    Date.parse(next.approval.expiresAt) - now < 60_000
+                    Date.parse(next.approval.expiresAt) - now < 10_000
                       ? "text-danger-text"
-                      : "text-label-tertiary",
+                      : "text-label-secondary",
                   )}
                 >
                   · {formatCountdown(Date.parse(next.approval.expiresAt) - now)}

@@ -335,10 +335,10 @@ describe("redesign E3", () => {
     });
   });
 
-  it("stops the avatar's idle loop after 5 s (WCAG 2.2.2)", () => {
+  it("stops the avatar's needs-you loop after 5 s (WCAG 2.2.2)", () => {
     vi.useFakeTimers();
     try {
-      const { container } = render(<Avatar name="Wren" state="idle" />);
+      const { container } = render(<Avatar name="Wren" state="needs-you" />);
       const avatar = container.querySelector("[data-state]") as HTMLElement;
       expect(avatar.dataset.looping).toBe("true");
       act(() => {

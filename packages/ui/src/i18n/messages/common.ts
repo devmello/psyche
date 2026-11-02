@@ -17,4 +17,7 @@ export const common = {
   "common.off": "Off",
   "common.dismiss": "Dismiss",
   "common.noText": "(no text)",
+  "common.avatarCount": "{label}, {n, plural, one {# needs you} other {# need you}}",
+  "settings.appearance.accent.ink": "Ink",
+  "settings.appearance.gray.paper": "Paper",
 } as const;

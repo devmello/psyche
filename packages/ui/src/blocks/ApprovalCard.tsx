@@ -567,19 +567,13 @@ export function ApprovalCard({
       data-approval-id={approval.id}
       data-status={stale ? "stale" : expiredByClock ? "expired" : approval.status}
       className={cn(
-        // Level 1 (redesign-2026 §5.3): raised surface, no outline; a 2 px amber leading edge
-        // while it waits for an answer. It fades in place and never moves (docs/06 §3.3).
-        "relative m-0 min-w-0 overflow-hidden rounded-lg bg-surface-raised p-4 ps-5 text-body text-label-primary shadow-elevation-1",
+        // Level 1 (redesign-2026 §5.3): raised surface with a 1 px amber hairline while it waits
+        // for an answer. It fades in place and never moves (docs/06 §3.3).
+        "relative m-0 min-w-0 overflow-hidden rounded-lg border bg-surface-raised p-4 text-body text-label-primary shadow-elevation-1",
+        pending && !stale ? "border-approval-border" : "border-transparent",
         className,
       )}
     >
-      {pending && !stale ? (
-        <span
-          className="absolute inset-y-0 start-0 w-0.5 bg-approval"
-          aria-hidden="true"
-          data-testid="approval-edge"
-        />
-      ) : null}
       <div className="flex items-center gap-2">
         <ShieldCheck className="size-4 shrink-0 text-approval-text" aria-hidden="true" />
         <span className="text-caption text-approval-text">
@@ -589,7 +583,7 @@ export function ApprovalCard({
           <span
             className={cn(
               "text-caption tabular-nums",
-              remaining < 60_000 ? "text-danger-text" : "text-approval-text",
+              remaining < 10_000 ? "text-danger-text" : "text-label-secondary",
             )}
           >
             · {t("blocks.approval.expiresIn", { countdown: formatCountdown(remaining) })}
@@ -678,7 +672,7 @@ export function ApprovalCard({
         <div className="mt-2 flex flex-col gap-1.5" data-testid="folder-pick">
           <div className="grid grid-cols-[7rem_1fr] gap-3 py-0.5 text-body">
             <span
-              className="text-callout leading-[18px] text-label-secondary"
+              className="text-callout leading-5 text-label-secondary"
               id={`${headingId}-folder-label`}
             >
               {t("blocks.folder.title")}
@@ -942,7 +936,7 @@ export function ApprovalCard({
             aria-describedby={hintId}
           >
             {isPermission ? permissionLabel : t("chat.approval.allow")}
-            <kbd className="font-sans text-callout opacity-70">⌘↩</kbd>
+            <kbd className="font-sans text-callout opacity-85">⌘↩</kbd>
             {!armed ? (
               <m.span
                 className="absolute inset-x-0 bottom-0 h-0.5 origin-left bg-accent-9"

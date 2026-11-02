@@ -68,7 +68,7 @@ function Thumbnail({ kind }: { kind: ArtifactPreviewKind }): ReactElement {
       <div className="grid grid-cols-3 gap-0.5">
         {Array.from({ length: 12 }, (_, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: static decoration
-          <span key={i} className={cn("h-1.5 rounded-[1px]", i < 3 ? "bg-gray-7" : "bg-gray-5")} />
+          <span key={i} className={cn("h-1.5 rounded-xs", i < 3 ? "bg-gray-7" : "bg-gray-5")} />
         ))}
       </div>
     ) : kind === "itinerary" ? (

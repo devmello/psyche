@@ -116,7 +116,7 @@ export const shell = {
   "shell.compact.threads": "Threads",
   "shell.compact.more": "More",
   "shell.compact.mode": "Permission mode",
-  "shell.compact.model": "Choose a model…",
+  "shell.compact.model": "Choose a model",
   "shell.compact.modelCurrent": "Model: {model}",
   "shell.usage.apiLine": "{cost} today · {tokens} tokens",
   "shell.usage.subscriptionLine":

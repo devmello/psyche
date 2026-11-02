@@ -4,7 +4,7 @@ import { withWorld } from "../stories/harness.tsx";
 import { StartupSplashView } from "./StartupSplashView.tsx";
 
 /**
- * The startup splash (#595): the mark draws in, the lantern breathes, then it hands off. The
+ * The startup splash (#595): the mark draws in, then it hands off. The
  * visual suite renders every story in light and dark.
  */
 const meta = {

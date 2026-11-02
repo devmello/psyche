@@ -37,7 +37,7 @@ function humanize(key: string): string {
 function Row({ label, children }: { label: string; children: ReactNode }): ReactElement {
   return (
     <div className="grid grid-cols-[7rem_1fr] gap-3 py-0.5 text-body">
-      <dt className="text-callout leading-[18px] text-label-secondary">{label}</dt>
+      <dt className="text-callout leading-5 text-label-secondary">{label}</dt>
       <dd className="min-w-0 break-words text-label-primary">{children}</dd>
     </div>
   );

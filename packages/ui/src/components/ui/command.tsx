@@ -4,6 +4,7 @@ import type * as React from "react";
 import { cn } from "../../lib/utils.ts";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./dialog.tsx";
 import { InputGroup, InputGroupAddon } from "./input-group.tsx";
+import { Kbd } from "./kbd.tsx";
 
 function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
   return (
@@ -147,14 +148,11 @@ function CommandItem({
   );
 }
 
-function CommandShortcut({ className, ...props }: React.ComponentProps<"span">) {
+function CommandShortcut({ className, ...props }: React.ComponentProps<"kbd">) {
   return (
-    <span
+    <Kbd
       data-slot="command-shortcut"
-      className={cn(
-        "ml-auto text-xs tracking-widest text-muted-foreground group-data-selected/command-item:text-foreground",
-        className,
-      )}
+      className={cn("ml-auto group-data-selected/command-item:text-foreground", className)}
       {...props}
     />
   );

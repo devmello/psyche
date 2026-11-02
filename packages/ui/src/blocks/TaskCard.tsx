@@ -68,6 +68,8 @@ export function TaskCard({
   const live = task.status === "running" || task.status === "queued";
   const current = task.checklist.find((c) => c.status === "in_progress");
   const failed = task.status === "failed" || task.status === "cancelled";
+  // The accent fill goes only to the card that needs the owner.
+  const needsYou = task.status === "awaiting_input" || task.status === "awaiting_approval";
   const actions: CardAction[] = [];
   if (live && onPause)
     actions.push({
@@ -95,7 +97,6 @@ export function TaskCard({
       id: "retry",
       label: t("common.retry"),
       kind: "send",
-      primary: true,
       onSelect: () => onRetry(task),
     });
   if (onOpen)
@@ -103,7 +104,7 @@ export function TaskCard({
       id: "open",
       label: t("blocks.task.openActivity"),
       kind: "open",
-      primary: !(failed && onRetry),
+      primary: needsYou,
       onSelect: () => onOpen(task),
     });
   return (

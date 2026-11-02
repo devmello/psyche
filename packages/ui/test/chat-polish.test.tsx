@@ -80,10 +80,11 @@ describe("ApprovalCard (§3.3)", () => {
       <ApprovalCard approval={a} canAnswer onAnswer={() => {}} now={STORY_NOW} armDelayMs={0} />,
     );
     const card = container.querySelector("fieldset") as HTMLElement;
-    // Raised surface with a 2 px amber leading edge, not an amber fill (redesign-2026 §5.3).
+    // Raised surface with a 1 px amber hairline, not an amber fill (redesign-2026 §5.3).
     expect(card.className).toContain("bg-surface-raised");
     expect(card.className).not.toContain("bg-approval-surface");
-    expect(card.querySelector("[data-testid=approval-edge]")).not.toBeNull();
+    expect(card.className).toContain("border-approval-border");
+    expect(card.querySelector("[data-testid=approval-edge]")).toBeNull();
     expect(card.textContent).not.toContain(a.bindingHash);
     // Details are level 2, under the card's ⋯ (§5.3).
     await userEvent.click(screen.getByRole("button", { name: "More about this approval" }));

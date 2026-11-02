@@ -1,6 +1,5 @@
 import type { MethodResult } from "@psyche/protocol";
 import { type ReactElement, useEffect, useMemo } from "react";
-import { Sparkline } from "../components/sparkline.tsx";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "../components/ui/hover-card.tsx";
 import { useGatewayQuery, useStoreState } from "../data/index.ts";
 import { activeI18n, t } from "../i18n/core.ts";
@@ -10,7 +9,7 @@ import { tokens as formatTokens, usd } from "../screens/settings/UsageSection.ts
 
 /**
  * Usage under the persona's name (#599): a quiet second line and a small graphic, from the
- * Gateway's `usage.summary`. API keys show today's cost and tokens with a 7-day sparkline, or a
+ * Gateway's `usage.summary`. API keys show today's cost and tokens as plain text, with a
  * segmented bar against the monthly budget when one is set (warning at 80 %, danger at 100 %).
  * Subscription CLIs show turns and tokens today, and a ring only when the adapter reads the plan's
  * window: never an estimated percentage. Hover or focus shows the week by model; a click opens
@@ -83,13 +82,6 @@ export function usageLine(s: UsageSummaryData, primarySubscription?: boolean): s
     cost: usd(s.today.costUsd),
     tokens: formatTokens(s.today.tokens),
   });
-}
-
-/** The days' values the sparkline draws: cost for API keys, tokens for subscriptions. */
-function series(s: UsageSummaryData, lead: UsageLead): number[] {
-  return s.days.map((d) =>
-    lead === "api" && s.days.some((x) => x.costUsd > 0) ? d.costUsd : d.tokens,
-  );
 }
 
 /** A thin bar of 10 segments against the monthly budget. */
@@ -175,7 +167,7 @@ export function PlanRing({
   );
 }
 
-/** The graphic for the summary: ring (plan window), bar (budget) or sparkline. */
+/** The graphic for the summary: ring (plan window) or bar (budget); otherwise none. */
 export function UsageGraphic({
   summary,
   mini = false,
@@ -192,11 +184,8 @@ export function UsageGraphic({
     return <PlanRing fraction={summary.planWindow.usedFraction} />;
   const budget = lead === "api" ? budgetFraction(summary) : null;
   if (budget !== null) return <BudgetBar fraction={budget} width={mini ? 20 : 40} />;
-  // A week with no usage draws nothing rather than a flat line.
-  if (summary.days.every((d) => d.turns === 0)) return null;
-  return (
-    <Sparkline values={series(summary, lead)} width={mini ? 20 : 40} testId="usage-sparkline" />
-  );
+  // No budget and no plan window: the usage line says it in plain tabular text.
+  return null;
 }
 
 /** A model reference as people read it: `anthropic/claude-sonnet-5-5` → `claude-sonnet-5-5`. */
@@ -348,7 +337,9 @@ export function UsageFooter({
               </span>
               <UsageGraphic summary={summary} {...kind} />
             </span>
-            <span className="min-w-0 truncate text-callout text-label-tertiary">{line}</span>
+            <span className="min-w-0 truncate text-callout text-label-tertiary tabular-nums">
+              {line}
+            </span>
           </>
         )}
       </HoverCardTrigger>

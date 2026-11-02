@@ -54,7 +54,7 @@ function TabsList({
           "pointer-events-none absolute top-0 left-0 -z-10 translate-x-(--active-tab-left) translate-y-(--active-tab-top) transition-[translate,width,height] duration-(--spring-micro-duration) ease-(--spring-micro)",
           variant === "line"
             ? "h-0.5 w-(--active-tab-width) translate-y-[calc(var(--active-tab-top)+var(--active-tab-height)+3px)] bg-label-primary"
-            : "h-(--active-tab-height) w-(--active-tab-width) rounded-[6px] bg-surface-raised shadow-elevation-1 dark:bg-fill-primary",
+            : "h-(--active-tab-height) w-(--active-tab-width) rounded-sm bg-surface-raised shadow-elevation-1 dark:bg-fill-primary",
         )}
       />
     </TabsPrimitive.List>
@@ -66,7 +66,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
     <TabsPrimitive.Tab
       data-slot="tabs-trigger"
       className={cn(
-        "relative inline-flex h-full flex-1 cursor-default items-center justify-center gap-1.5 rounded-[6px] border border-transparent px-2.5 py-0.5 text-sm font-medium whitespace-nowrap text-label-secondary transition-colors duration-(--duration-micro) group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start hover:text-label-primary focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-active:text-label-primary [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "relative inline-flex h-full flex-1 cursor-default items-center justify-center gap-1.5 rounded-sm border border-transparent px-2.5 py-0.5 text-sm font-medium whitespace-nowrap text-label-secondary transition-colors duration-(--duration-micro) group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start hover:text-label-primary focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-active:text-label-primary [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       {...props}

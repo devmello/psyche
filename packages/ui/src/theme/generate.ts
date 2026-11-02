@@ -15,7 +15,15 @@ import Color from "colorjs.io";
  */
 
 export type Appearance = "light" | "dark";
-export type GrayFamily = "auto" | "neutral" | "slate" | "mauve" | "sage" | "olive" | "sand";
+export type GrayFamily =
+  | "auto"
+  | "neutral"
+  | "slate"
+  | "mauve"
+  | "sage"
+  | "olive"
+  | "sand"
+  | "paper";
 
 export const GRAY_FAMILIES: readonly GrayFamily[] = [
   "auto",
@@ -25,10 +33,11 @@ export const GRAY_FAMILIES: readonly GrayFamily[] = [
   "sage",
   "olive",
   "sand",
+  "paper",
 ];
 
-/** Default seed: a lantern violet for the moth's wing spots. */
-export const DEFAULT_ACCENT_SEED = "#6e56cf";
+/** Default seed: ink on paper. */
+export const DEFAULT_ACCENT_SEED = "#2c5aa0";
 
 export interface GeneratedScale {
   /** 12 OKLCH colors mapped into sRGB. Index 0 is step 1. */
@@ -116,6 +125,7 @@ const GRAY_TINT: Record<Exclude<GrayFamily, "auto">, { h: number; c: number }> =
   sage: { h: 165, c: 0.01 },
   olive: { h: 125, c: 0.01 },
   sand: { h: 75, c: 0.01 },
+  paper: { h: 80, c: 0.005 },
 };
 
 /** Gray chroma per step as a share of the family's peak chroma. */
@@ -274,7 +284,7 @@ function accentRaw(appearance: Appearance, seed: Oklch): Oklch[] {
 /** Generates the scales for one appearance. */
 export function generateMode(input: ThemeInput, appearance: Appearance): ModeTheme {
   const seed = parseSeed(input.accentSeed);
-  const family = input.gray ?? "auto";
+  const family = input.gray ?? "paper";
   const nudged: string[] = [];
 
   const grays = grayRaw(appearance, family, seed);
@@ -288,6 +298,26 @@ export function generateMode(input: ThemeInput, appearance: Appearance): ModeThe
     nudged.push(
       `Step 9 moved from lightness ${round(seed[0], 3)} to ${round(c9.step9[0], 3)} so its text reaches 4.5:1.`,
     );
+  }
+
+  // Dark mode: step 9 doubles as the focus ring and the chart's first series, so it must reach
+  // 3:1 against the surfaces (gray-1, gray-2) as well as carry its text. Dark seeds like ink are lifted.
+  if (appearance === "dark") {
+    const canvas = css(grays[1] as Oklch);
+    const s9: Oklch = [...(raw[8] as Oklch)];
+    const before = s9[0];
+    for (let i = 0; i < 60 && s9[0] < 0.95 && wcagContrast(css(s9), canvas) < 3.05; i++) {
+      s9[0] = clamp(s9[0] + 0.01, 0, 1);
+    }
+    if (s9[0] !== before) {
+      raw[8] = s9;
+      raw[9] = [hoverLightness(s9[0], appearance), (raw[9] as Oklch)[1], seed[2]];
+      c9.step9 = s9;
+      c9.apca = apcaContrast(css(s9), c9.text);
+      nudged.push(
+        `Step 9 lifted from lightness ${round(before, 3)} to ${round(s9[0], 3)} to reach 3:1 on the sidebar surface.`,
+      );
+    }
   }
 
   const step2 = css(raw[1] as Oklch);
@@ -332,7 +362,7 @@ export function generateMode(input: ThemeInput, appearance: Appearance): ModeThe
 
 /** Generates both appearances from one seed. */
 export function generateTheme(input: ThemeInput): GeneratedTheme {
-  const full: Required<ThemeInput> = { accentSeed: input.accentSeed, gray: input.gray ?? "auto" };
+  const full: Required<ThemeInput> = { accentSeed: input.accentSeed, gray: input.gray ?? "paper" };
   return { input: full, light: generateMode(full, "light"), dark: generateMode(full, "dark") };
 }
 

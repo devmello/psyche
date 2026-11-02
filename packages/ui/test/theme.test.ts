@@ -59,10 +59,23 @@ describe("generateTheme contrast gate", () => {
 
 describe("generateTheme scales", () => {
   it("places a passable seed on step 9 unchanged", () => {
-    // #6e56cf with white text is 5.9:1, so it needs no nudge.
+    // The default ink seed with white text passes 4.5:1, so step 9 stays put.
     const t = generateTheme({ accentSeed: DEFAULT_ACCENT_SEED });
-    expect(t.light.accent.hex[8]).toBe("#6e56cf");
-    expect(t.light.nudged).toEqual([]);
+    expect(t.light.accent.hex[8]).toBe("#2c5aa0");
+    expect(t.light.nudged.some((n) => n.startsWith("Step 9"))).toBe(false);
+  });
+
+  it("lifts a dark ink step 9 to 3:1 on the dark surfaces and still passes the gate", () => {
+    const t = generateTheme({ accentSeed: DEFAULT_ACCENT_SEED });
+    expect(t.dark.report.passes).toBe(true);
+    expect(
+      wcagContrast(t.dark.accent.solid[8] as string, t.dark.gray.solid[1] as string),
+    ).toBeGreaterThanOrEqual(3);
+  });
+
+  it("defaults to the paper gray family", () => {
+    const t = generateTheme({ accentSeed: DEFAULT_ACCENT_SEED });
+    expect(t.input.gray).toBe("paper");
   });
 
   it("nudges a seed whose step-9 text would fail and says so", () => {
@@ -75,7 +88,7 @@ describe("generateTheme scales", () => {
   it("uses dark text on bright seeds (APCA choice)", () => {
     const t = generateTheme({ accentSeed: "#ffc53d" });
     expect(lightness(t.light.accentContrast)).toBeLessThan(0.5);
-    expect(lightness(generateTheme({ accentSeed: "#6e56cf" }).light.accentContrast)).toBe(1);
+    expect(lightness(generateTheme({ accentSeed: "#2c5aa0" }).light.accentContrast)).toBe(1);
   });
 
   it("orders background and border steps by lightness", () => {

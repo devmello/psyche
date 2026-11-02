@@ -6,11 +6,10 @@ import { t } from "../i18n/core.ts";
 import { motionSpring, spring } from "../motion/tokens.ts";
 
 /**
- * The startup splash's face (#595): the Psyche mark drawing itself in the app's own theme, a
- * lantern glow breathing behind it while Psyche starts (the moth and the lantern from the icon),
+ * The startup splash's face (#595): the Psyche mark drawing itself in the app's own theme,
  * the wordmark and the status line fading up beneath. On pairing the mark flies into the chat
  * toolbar's avatar (`[data-splash-target]`) and fades as the splash does, so splash and app read
- * as one surface. Reduced motion: no stroke draw, no breathing, no flight; one crossfade.
+ * as one surface. Reduced motion: no stroke draw, no flight; one crossfade.
  *
  * Presentational: apps/web's `StartupSplash` decides the line, when to leave and the actions.
  * Compositor-only after the draw (opacity, transform); no glass.
@@ -116,7 +115,6 @@ export function StartupSplashView({
           }}
           data-testid="startup-splash-mark"
         >
-          <span className="startup-splash-lantern" aria-hidden="true" />
           <svg
             width={GLYPH}
             height={GLYPH}

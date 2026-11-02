@@ -18,7 +18,7 @@ const preview: Preview = {
       description: "Accent seed",
       toolbar: {
         title: "Accent",
-        items: ["#6e56cf", "#0090ff", "#e54d2e", "#46a758", "#ffc53d"],
+        items: ["#2c5aa0", "#6e56cf", "#0090ff", "#e54d2e", "#46a758", "#ffc53d"],
         dynamicTitle: true,
       },
     },
@@ -31,7 +31,7 @@ const preview: Preview = {
       toolbar: { title: "Contrast", items: ["standard", "high"], dynamicTitle: true },
     },
   },
-  initialGlobals: { theme: "light", accent: "#6e56cf", motion: "full", contrast: "standard" },
+  initialGlobals: { theme: "light", accent: "#2c5aa0", motion: "full", contrast: "standard" },
   parameters: {
     layout: "padded",
     a11y: { test: "error" },
@@ -41,7 +41,7 @@ const preview: Preview = {
       <ThemeProvider
         settings={{
           theme: ctx.globals.theme === "dark" ? "dark" : "light",
-          accentSeed: String(ctx.globals.accent ?? "#6e56cf"),
+          accentSeed: String(ctx.globals.accent ?? "#2c5aa0"),
           reduceMotion: ctx.globals.motion === "reduced",
           contrast: ctx.globals.contrast === "high" ? "high" : "standard",
         }}
