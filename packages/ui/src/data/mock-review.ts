@@ -1,5 +1,6 @@
 import {
   type EverythingExclusion,
+  type EverythingRunResult,
   type GraphFact,
   type MemoryRun,
   type MethodName,
@@ -20,6 +21,8 @@ export interface ReviewWorld {
   quarantine: QuarantineItem[];
   runs: MemoryRun[];
   exclusions?: EverythingExclusion[];
+  /** What "Run now" answers (default: a small successful pass). */
+  runResult?: EverythingRunResult;
 }
 
 export function emptyReview(): ReviewWorld {
@@ -88,6 +91,20 @@ export function reviewHandlers(ctx: { world: () => ReviewWorld; now: () => strin
         p.action === "release" ? "released" : p.action === "discard" ? "discarded" : "blocked";
       q.decidedAt = ctx.now();
       return { item: q };
+    },
+    "memory.everything.run": () => {
+      const w = ctx.world();
+      return (
+        w.runResult ?? {
+          ran: true,
+          reason: null,
+          itemsRead: 12,
+          factsProposed: 3,
+          quarantined: 1,
+          deferred: 0,
+          tokens: 5200,
+        }
+      );
     },
     "memory.exclusions.list": () => ({
       entries: ctx.world().exclusions ?? [],

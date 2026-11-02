@@ -2,19 +2,28 @@ import { join } from "node:path";
 import { getSetting, openDb, type PsycheDb } from "@psyche/db";
 import {
   EverythingStore,
-  everythingNightlyStep,
   type GraphStore,
   type ItemReader,
   localMinutesAt,
   type NightlyStep,
   type PassDeps,
+  type PassReport,
+  runEverythingPass,
   SearchDocReader,
 } from "@psyche/memory";
+import {
+  jobMarker,
+  type LaunchResult,
+  type ProactiveJob,
+  parseJobMarker,
+  type SchedulerLike,
+} from "@psyche/proactive";
 import {
   type Clock,
   EVERYTHING_MEMORY_DEFAULTS,
   EVERYTHING_MEMORY_SETTING_KEY,
   EverythingMemorySettings,
+  type EverythingRunResult,
   type MethodParams,
   type MethodResult,
   type ModelProvider,
@@ -22,6 +31,7 @@ import {
   PsycheError,
 } from "@psyche/protocol";
 import { Value } from "@sinclair/typebox/value";
+import type { Gateway } from "../server.ts";
 import { readSystemState } from "./everything-probe.ts";
 import { mountParamsOnly } from "./handlers.ts";
 import type { ComposedPart } from "./services.ts";
@@ -48,6 +58,26 @@ interface Announcement {
 
 const summaryLine = (a: Announcement): string =>
   `${a.autoAccepted} auto-accepted · ${a.toReview} to review · ${a.quarantined} quarantined`;
+
+const JOB = "everything-memory";
+/** After dreaming (03:00), inside the default quiet hours (01:00-06:00). */
+export const NIGHTLY_CRON = "15 3 * * *";
+
+const emptyReport = (): PassReport => ({
+  ran: false,
+  itemsRead: 0,
+  itemsFiltered: 0,
+  batches: 0,
+  tokensIn: 0,
+  tokensOut: 0,
+  factsStored: 0,
+  edgesStored: 0,
+  dropped: {},
+  quarantined: 0,
+  deferred: 0,
+  ownerProposals: [],
+  error: null,
+});
 
 export const EVERYTHING_LOCAL_CONFIRMED = `${EVERYTHING_MEMORY_SETTING_KEY}.localConfirmed`;
 
@@ -83,7 +113,8 @@ type EverythingMethod =
   | "memory.runs.list"
   | "memory.exclusions.list"
   | "memory.exclusions.add"
-  | "memory.exclusions.remove";
+  | "memory.exclusions.remove"
+  | "memory.everything.run";
 type ReviewParams<M extends EverythingMethod> = MethodParams<M>;
 type ReviewResult<M extends EverythingMethod> = MethodResult<M>;
 
@@ -115,6 +146,9 @@ export interface EverythingHandlers {
   "memory.exclusions.remove"(
     p: ReviewParams<"memory.exclusions.remove">,
   ): Promise<ReviewResult<"memory.exclusions.remove">>;
+  "memory.everything.run"(
+    p: ReviewParams<"memory.everything.run">,
+  ): Promise<ReviewResult<"memory.everything.run">>;
 }
 
 const PAGE = 50;
@@ -122,6 +156,15 @@ const PAGE = 50;
 export function everythingHandlers(
   em: EverythingStore,
   settings: () => EverythingMemorySettings = () => everythingSettings(undefined),
+  run: () => Promise<ReviewResult<"memory.everything.run">> = async () => ({
+    ran: false,
+    reason: "disabled",
+    itemsRead: 0,
+    factsProposed: 0,
+    quarantined: 0,
+    deferred: 0,
+    tokens: 0,
+  }),
 ): EverythingHandlers {
   const offsetOf = (cursor: string | undefined): number => {
     const n = cursor === undefined ? 0 : Number.parseInt(cursor, 10);
@@ -218,6 +261,9 @@ export function everythingHandlers(
         forgotten,
       };
     },
+    async "memory.everything.run"() {
+      return run();
+    },
     async "memory.exclusions.remove"(p) {
       return { removed: em.removeExclusionById(p.id) };
     },
@@ -247,16 +293,23 @@ export interface Everything {
   readonly handlers: EverythingHandlers;
   /** The nightly step, for the dreaming automation (after the lesson pass, before the graph pass). */
   readonly nightly: NightlyStep;
+  /** The scheduled job (matched by its marker) for the launcher chain. */
+  readonly job: ProactiveJob;
+  /** "Run now": same pass and limits, minus quiet hours and idle time. */
+  runNow(): Promise<EverythingRunResult>;
   /** The brief's "Learned yesterday" line, while the last run is recent and found something. */
   learnedYesterday(): { text: string; link: string } | undefined;
-  part(): ComposedPart;
+  part(scheduler?: SchedulerLike, timezone?: string): ComposedPart;
 }
 
 export function composeEverything(deps: EverythingDeps): Everything {
   const { db, clock, graph } = deps;
   const store = new EverythingStore({ sqlite: db.sqlite, graph, clock });
   const settings = () => everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value);
-  const handlers = everythingHandlers(store, settings);
+  let runNowFn: () => Promise<EverythingRunResult> = async () => {
+    throw new PsycheError("unavailable", "everything memory is not ready");
+  };
+  const handlers = everythingHandlers(store, settings, () => runNowFn());
   let search: PsycheDb | undefined;
   // A second, read-only connection to the derived index, opened on the first read (so a pass the
   // gates refuse never touches the file) and never written to.
@@ -299,23 +352,70 @@ export function composeEverything(deps: EverythingDeps): Everything {
         getSetting(db, EVERYTHING_LOCAL_CONFIRMED)?.value === defaultLocal,
     };
   };
-  const nightly: NightlyStep = async () => {
-    const s = settings();
-    // Off, or no model chosen: nothing is read and nothing is opened.
-    if (!s.enabled) return undefined;
+  // One pass at a time: the scheduled run, "Run now" and a retry never overlap.
+  let running = false;
+  const afterReport = (report: PassReport) => {
+    if (report.runId === undefined) return;
+    const sum = store.runSummary(report.runId);
+    const learned = sum.autoAccepted + sum.toReview;
+    if (learned + sum.quarantined === 0) return;
+    graph.setCursor(ANNOUNCE_CURSOR, { at: clock.now(), ...sum } satisfies Announcement);
+    // Counts only: no fact text reaches the Feed card or the brief.
+    deps.announce?.({
+      title: `Psyche learned ${learned} ${learned === 1 ? "thing" : "things"}`,
+      bodyMd: `${summaryLine({ at: 0, ...sum })}\n\n[Review](${REVIEW_LINK})`,
+    });
+  };
+  /** Runs the pass under its gates; `manual` skips quiet hours and idle time, nothing else. */
+  const runPass = async (manual: boolean): Promise<PassReport | "busy"> => {
+    if (running) return "busy";
+    running = true;
     try {
-      return await everythingNightlyStep(passDeps, (report) => {
-        if (report.runId === undefined) return;
-        const sum = store.runSummary(report.runId);
-        const learned = sum.autoAccepted + sum.toReview;
-        if (learned + sum.quarantined === 0) return;
-        graph.setCursor(ANNOUNCE_CURSOR, { at: clock.now(), ...sum } satisfies Announcement);
-        // Counts only: no fact text reaches the Feed card or the brief.
-        deps.announce?.({
-          title: `Psyche learned ${learned} ${learned === 1 ? "thing" : "things"}`,
-          bodyMd: `${summaryLine({ at: 0, ...sum })}\n\n[Review](${REVIEW_LINK})`,
-        });
-      })();
+      const d = await passDeps();
+      const report = await runEverythingPass({ ...d, manual });
+      afterReport(report);
+      return report;
+    } finally {
+      running = false;
+    }
+  };
+  const line = (r: PassReport): string => {
+    const bits = [`${r.factsStored + r.edgesStored} facts proposed from ${r.itemsRead} items`];
+    if (r.quarantined > 0) bits.push(`${r.quarantined} quarantined`);
+    if (r.deferred > 0) bits.push(`${r.deferred} left for tomorrow`);
+    if (r.error !== null) bits.push("stopped early");
+    return `everything memory: ${bits.join(", ")}`;
+  };
+  const toResult = (r: PassReport | "busy"): EverythingRunResult =>
+    r === "busy"
+      ? {
+          ran: false,
+          reason: "busy",
+          itemsRead: 0,
+          factsProposed: 0,
+          quarantined: 0,
+          deferred: 0,
+          tokens: 0,
+        }
+      : {
+          ran: r.ran,
+          reason: r.gate ?? null,
+          itemsRead: r.itemsRead,
+          factsProposed: r.factsStored + r.edgesStored,
+          quarantined: r.quarantined,
+          deferred: r.deferred,
+          tokens: r.tokensIn + r.tokensOut,
+        };
+  runNowFn = async () => {
+    // Off is off: not even "Run now" reads anything while the feature is switched off.
+    if (!settings().enabled) return toResult({ ...emptyReport(), gate: "disabled" });
+    return toResult(await runPass(true));
+  };
+  const nightly: NightlyStep = async () => {
+    if (!settings().enabled) return undefined;
+    try {
+      const r = await runPass(false);
+      return r === "busy" || !r.ran ? undefined : line(r);
     } catch (err) {
       deps.logger?.log("warn", "everything memory pass failed", {
         error: err instanceof Error ? err.message : String(err),
@@ -323,11 +423,58 @@ export function composeEverything(deps: EverythingDeps): Everything {
       return undefined;
     }
   };
+  const WAITING: Record<string, string> = {
+    disabled: "Everything memory is off.",
+    no_sources: "No source is turned on.",
+    model_none: "No model is chosen.",
+    battery: "Waiting: not plugged in.",
+    low_power: "Waiting: Low Power Mode is on.",
+    thermal: "Waiting: the Mac is too warm.",
+    not_idle: "Waiting: you are using the Mac.",
+    outside_quiet_hours: "Waiting for quiet hours.",
+    local_not_confirmed: "The local model has not been confirmed.",
+    low_memory: "Waiting: not enough free memory for the local model.",
+    no_owner_entity: "Waiting for your own card in People.",
+    busy: "Already running.",
+  };
+  /** The scheduled job (Scheduled → Everything memory): same pass, and "Run now" works there. */
+  const job: ProactiveJob = {
+    name: "everything memory",
+    matches: (a) => parseJobMarker(a.prompt)?.job === JOB,
+    async run(request): Promise<LaunchResult> {
+      const manual = (request.run as { trigger?: string }).trigger === "manual";
+      if (!settings().enabled) return { status: "no_reply", summary: WAITING.disabled ?? "" };
+      const r = await runPass(manual);
+      if (r === "busy") return { status: "no_reply", summary: WAITING.busy ?? "" };
+      return {
+        status: "no_reply",
+        summary: r.ran ? line(r) : (WAITING[r.gate ?? "disabled"] ?? "Did not run."),
+      };
+    },
+  };
+  /** The system automation shown in Scheduled; on only while the feature is on. */
+  const syncAutomation = async (scheduler: SchedulerLike, timezone: string) => {
+    const fields = {
+      title: "Everything memory",
+      schedule: NIGHTLY_CRON,
+      timezone,
+      sessionTarget: "main",
+      delivery: {},
+      prompt: jobMarker(JOB, "nightly"),
+      enabled: settings().enabled,
+      scratch: null,
+    };
+    const existing = (await scheduler.list()).find((a) => a.prompt.trim() === fields.prompt);
+    if (existing === undefined) await scheduler.create({ kind: "cron", system: true, ...fields });
+    else await scheduler.update(existing.id, fields);
+  };
   return {
     store,
     settings,
     handlers,
     nightly,
+    job,
+    runNow: () => runNowFn(),
     learnedYesterday() {
       const a = graph.cursor(ANNOUNCE_CURSOR) as Announcement | undefined;
       if (a === undefined || clock.now() - a.at > BRIEF_WINDOW_MS) return undefined;
@@ -337,10 +484,33 @@ export function composeEverything(deps: EverythingDeps): Everything {
         link: REVIEW_LINK,
       };
     },
-    part() {
+    part(scheduler, timezone) {
+      let unsubscribe: (() => void) | undefined;
       return {
         handlers: mountParamsOnly(handlers as never),
+        async start(gateway: Gateway) {
+          if (scheduler === undefined) return;
+          const sync = () =>
+            void syncAutomation(scheduler, timezone ?? deps.timeZone()).catch((err) =>
+              deps.logger?.log("warn", "everything memory schedule sync failed", {
+                error: err instanceof Error ? err.message : String(err),
+              }),
+            );
+          sync();
+          unsubscribe = gateway.bus.subscribe(["operator.read"], (frame) => {
+            const f = JSON.parse(frame) as {
+              event?: string;
+              payload?: { entries?: { key: string }[] };
+            };
+            if (
+              f.event === "settings.changed" &&
+              f.payload?.entries?.some((e) => e.key === EVERYTHING_MEMORY_SETTING_KEY)
+            )
+              sync();
+          });
+        },
         stop() {
+          unsubscribe?.();
           search?.sqlite.close();
           search = undefined;
         },

@@ -1,6 +1,7 @@
-import type { EverythingExclusion } from "@psyche/protocol";
+import type { EverythingExclusion, EverythingRunResult } from "@psyche/protocol";
 import { type ReactElement, useId, useState } from "react";
 import { toast } from "sonner";
+import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
@@ -17,6 +18,7 @@ import {
   SourceFields,
 } from "../../memory/EverythingFields.tsx";
 import { ExclusionsPanel, type ExclusionsPanelProps } from "../../memory/ExclusionsPanel.tsx";
+import { estimateMonthly, formatUsd } from "../../memory/estimate.ts";
 import { usePersona } from "../../slots.tsx";
 import {
   Group,
@@ -40,6 +42,9 @@ export function EverythingPanel({
   localConfirmed,
   onConfirmLocal,
   exclusions,
+  onRunNow,
+  running = false,
+  runResult = null,
 }: {
   value: EverythingValues;
   onChange: (next: EverythingValues) => void;
@@ -47,6 +52,9 @@ export function EverythingPanel({
   localConfirmed: string | undefined;
   onConfirmLocal: (ref: string) => void;
   exclusions: ReactElement;
+  onRunNow?: () => void;
+  running?: boolean;
+  runResult?: EverythingRunResult | null;
 }): ReactElement {
   const off = !value.enabled;
   return (
@@ -117,6 +125,37 @@ export function EverythingPanel({
               }
             />
           </Group>
+          <Group title={t("everything.run.button")} description={t("everything.run.hint")}>
+            <div className="flex flex-col gap-2 px-3">
+              <p className="text-callout text-label-secondary" data-testid="run-estimate">
+                {value.model.default.kind === "cloud"
+                  ? t("everything.run.estimateCloud", {
+                      cost: formatUsd(estimateMonthly("cloud", value.sources).typical / 30),
+                    })
+                  : t("everything.run.estimateFree")}
+              </p>
+              <Button
+                size="sm"
+                className="self-start"
+                disabled={running || onRunNow === undefined}
+                onClick={onRunNow}
+              >
+                {running ? t("everything.run.running") : t("everything.run.button")}
+              </Button>
+              {runResult === null ? null : (
+                <p role="status" data-testid="run-result" className="text-callout">
+                  {runResult.ran
+                    ? t("everything.run.done", {
+                        items: runResult.itemsRead,
+                        facts: runResult.factsProposed,
+                        held: runResult.quarantined,
+                        more: runResult.deferred > 0 ? "yes" : "no",
+                      })
+                    : t(`everything.run.reason.${runResult.reason ?? "disabled"}`)}
+                </p>
+              )}
+            </div>
+          </Group>
           <Group title={t("everything.retention.title")}>
             <p className="px-3 text-callout text-label-secondary">
               {t("everything.retention.pending", { days: value.retention.pendingDays })}
@@ -170,6 +209,8 @@ export function EverythingMemorySection(): ReactElement {
   const list = useGatewayQuery("memory.exclusions.list", {});
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [runResult, setRunResult] = useState<EverythingRunResult | null>(null);
   const value = readEverything(form.values);
   const confirmedRaw = form.values[EVERYTHING_LOCAL_CONFIRMED];
   const localConfirmed = typeof confirmedRaw === "string" ? confirmedRaw : undefined;
@@ -215,6 +256,16 @@ export function EverythingMemorySection(): ReactElement {
           onTurnOn={() => setConsent(true)}
           localConfirmed={localConfirmed}
           onConfirmLocal={(ref) => form.onChange(EVERYTHING_LOCAL_CONFIRMED, ref)}
+          running={running}
+          runResult={runResult}
+          onRunNow={() => {
+            setRunning(true);
+            setRunResult(null);
+            call("memory.everything.run", {})
+              .then(setRunResult)
+              .catch(fail)
+              .finally(() => setRunning(false));
+          }}
           exclusions={
             <ExclusionsPanel
               entries={list.data?.entries ?? []}

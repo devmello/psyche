@@ -340,6 +340,42 @@ export const EverythingExclusion = Type.Object(
 );
 export type EverythingExclusion = Static<typeof EverythingExclusion>;
 
+// --- Run now (§6.1) -----------------------------------------------------------------------------
+
+export const EverythingRunReason = StringEnum(
+  [
+    "disabled",
+    "no_sources",
+    "model_none",
+    "battery",
+    "low_power",
+    "thermal",
+    "not_idle",
+    "outside_quiet_hours",
+    "local_not_confirmed",
+    "low_memory",
+    "no_owner_entity",
+    "busy",
+  ],
+  { $id: "EverythingRunReason", description: "Why a pass did not run" },
+);
+export type EverythingRunReason = Static<typeof EverythingRunReason>;
+
+/** What "Run now" did: counts only, never text. */
+export const EverythingRunResult = Type.Object(
+  {
+    ran: Type.Boolean(),
+    reason: Nullable(EverythingRunReason),
+    itemsRead: Type.Integer({ minimum: 0 }),
+    factsProposed: Type.Integer({ minimum: 0 }),
+    quarantined: Type.Integer({ minimum: 0 }),
+    deferred: Type.Integer({ minimum: 0 }),
+    tokens: Type.Integer({ minimum: 0 }),
+  },
+  { $id: "EverythingRunResult" },
+);
+export type EverythingRunResult = Static<typeof EverythingRunResult>;
+
 // --- Runs (§6.7) ------------------------------------------------------------------------------
 
 export const MemoryRun = Type.Object(
