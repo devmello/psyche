@@ -393,6 +393,8 @@ export const FeedPostRefs = Type.Object(
     proposalIds: Type.Optional(Type.Array(Id)),
     threads: Type.Optional(Type.Array(MailThreadRef)),
     goalId: Type.Optional(Id),
+    /** A relationship nudge card (docs/design/relationship-nudges-2026.md). */
+    nudgeId: Type.Optional(Id),
   },
   { $id: "FeedPostRefs" },
 );

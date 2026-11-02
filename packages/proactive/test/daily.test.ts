@@ -481,6 +481,28 @@ describe("coming up (everything memory)", () => {
     expect((await svc.assemble("evening")).sections.some((s) => s.id === "coming_up")).toBe(false);
   });
 
+  it("adds a Keep in touch section of at most three lines to the morning brief only", async () => {
+    const lines = Array.from({ length: 5 }, (_, i) => ({
+      text: `You haven't replied to Person ${i}'s message from ${i + 5} days ago.`,
+      link: `/agent/soul?entity=e${i}`,
+    }));
+    const { svc } = service({}, { keepInTouch: () => lines });
+    const brief = await svc.assemble("morning");
+    expect(section(brief, "keep_in_touch")).toMatchObject({ title: "Keep in touch" });
+    expect(section(brief, "keep_in_touch").items).toHaveLength(3);
+    expect(section(brief, "keep_in_touch").items[0]?.link).toBe("/agent/soul?entity=e0");
+    expect((await svc.assemble("evening")).sections.some((s) => s.id === "keep_in_touch")).toBe(
+      false,
+    );
+  });
+
+  it("has no Keep in touch section when there is nothing to say", async () => {
+    const { svc } = service({}, { keepInTouch: () => [] });
+    expect((await svc.assemble("morning")).sections.some((s) => s.id === "keep_in_touch")).toBe(
+      false,
+    );
+  });
+
   it("adds nothing when nothing is coming up", async () => {
     const { svc } = service({}, { comingUp: () => [] });
     expect((await svc.assemble("morning")).sections.some((s) => s.id === "coming_up")).toBe(false);

@@ -156,6 +156,7 @@ import {
   restoreModelSettings,
   settingsKeyValue,
 } from "./model-settings.ts";
+import { composeNudges } from "./nudges.ts";
 import { createOtherChats, type OtherChats } from "./other-chats.ts";
 import { PageReadHub } from "./page-reads.ts";
 import { composePasskeys } from "./passkeys.ts";
@@ -844,6 +845,23 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     announce: (card) => void proactive.feed.postNotice({ ...card, reason: "memory learned" }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
+  // Relationship nudges: off until the owner consents; cards are silent Feed posts.
+  const nudges = composeNudges({
+    db,
+    clock,
+    graph: people.graph,
+    em: everything.store,
+    timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    post: (card) =>
+      void proactive.feed.postNotice({
+        title: card.title,
+        bodyMd: card.bodyMd,
+        reason: "relationship nudge",
+        refs: { nudgeId: card.nudgeId },
+      }),
+    ...(background ? {} : { refreshMs: 0 }),
+    ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+  });
   const calls = new CallContexts();
   const ownPorts = createOwnPorts();
   const browserAvailability: BrowserAvailability = {};
@@ -1231,6 +1249,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       relays.flatMap((r) => r.surfaces()).filter((x) => x.startsWith("imessage:")),
     learned: () => everything.learnedYesterday(),
     comingUp: () => everything.comingUp(),
+    // The brief also posts any new nudge cards, so the Feed and the brief agree.
+    keepInTouch: () => {
+      nudges.refresh();
+      return nudges.keepInTouch();
+    },
     // Ideas proposes folding a skill's lessons into it once it has three (teaching loop §6).
     skillUpdates: () => skills.updates(),
     // Post-meeting notes transcribe on the Mac through the speech part (§4.6). Record meeting
@@ -1481,6 +1504,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   parts.push(
     everything.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone),
   );
+  parts.push(nudges.part());
   parts.push(people.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone));
   // Code plugins (T4): off until the owner turns on `plugins.enabled`.
   parts.push(

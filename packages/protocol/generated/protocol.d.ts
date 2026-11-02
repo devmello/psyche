@@ -3963,7 +3963,7 @@ export interface DailySection {
     unavailable?: boolean;
 }
 
-export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up";
+export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up" | "keep_in_touch";
 
 export interface InboxDigest {
     accounts: string[];
@@ -4170,6 +4170,7 @@ export type FeedPostKind = "brief" | "briefing" | "digest" | "meeting_prep" | "m
 export interface FeedPostRefs {
     goalId?:      string;
     meetingId?:   string;
+    nudgeId?:     string;
     proposalIds?: string[];
     threads?:     MailThreadRef[];
 }
@@ -7171,6 +7172,66 @@ export interface NotificationsResolveParams {
 
 export interface NotificationsResolveResult {
     notification: Notification;
+}
+
+export type NudgeSensitivity = "low" | "normal" | "high";
+
+export interface NudgesActParams {
+    action: NudgeAction;
+    id:     string;
+}
+
+export type NudgeAction = "done" | "snooze_week" | "snooze_month" | "mute_person";
+
+export interface NudgesActResult {
+    ok: boolean;
+}
+
+export interface NudgesListParams {
+    entityId?: string;
+}
+
+export interface NudgesListResult {
+    /**
+     * The switch is on and the owner has consented
+     */
+    enabled: boolean;
+    items:   NudgeItem[];
+    /**
+     * With entityId: nudges for that person are muted
+     */
+    muted: boolean;
+}
+
+export interface NudgeItem {
+    channel?: ChannelEnum | null;
+    date?:    null | string;
+    daysAgo?: number | null;
+    entityId: string;
+    id:       string;
+    kind:     NudgeKind;
+    /**
+     * A display name: third-party text, one line
+     */
+    name:    string;
+    overdue: boolean;
+    /**
+     * One plain sentence built from the name, numbers and a template
+     */
+    text: string;
+}
+
+export type ChannelEnum = "mail" | "messages";
+
+export type NudgeKind = "unanswered" | "drift" | "birthday" | "promise";
+
+export interface NudgesMuteParams {
+    entityId: string;
+    muted:    boolean;
+}
+
+export interface NudgesMuteResult {
+    ok: boolean;
 }
 
 export interface OcrRecognizeParams {
