@@ -53,6 +53,21 @@ describe("OnboardingFlow", () => {
     await userEvent.click(screen.getByRole("button", { name: /Back/ }));
     expect(heading().textContent).toContain("About you");
     expect(progress().textContent).toBe("2 of 11");
+
+    // The "N of 11" label opens the step menu: reached steps jump, unreached ones are disabled.
+    await next();
+    await userEvent.click(screen.getByRole("button", { name: /3 of 11/ }));
+    const items = await screen.findAllByRole("menuitem");
+    expect(items).toHaveLength(11);
+    expect(items[2]?.getAttribute("aria-current")).toBe("step");
+    expect(items[3]?.getAttribute("aria-disabled")).toBe("true");
+    await userEvent.click(items[0] as HTMLElement);
+    expect(heading().textContent).toContain("Meet your agent");
+    expect(progress().textContent).toBe("1 of 11");
+    // A reached step ahead of the current one is reachable too.
+    await userEvent.click(screen.getByRole("button", { name: /1 of 11/ }));
+    await userEvent.click((await screen.findAllByRole("menuitem"))[2] as HTMLElement);
+    expect(heading().textContent).toContain("Permissions");
   });
 
   it("names the agent from suggestions or keeps Psyche, and previews the creature", async () => {

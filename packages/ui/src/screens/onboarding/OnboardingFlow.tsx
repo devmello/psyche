@@ -3,6 +3,12 @@ import { lazy, type ReactElement, Suspense, useEffect, useId, useRef, useState }
 import { DEFAULT_CREATURE } from "../../avatar/creatures/index.tsx";
 import { PsycheMark } from "../../brand.tsx";
 import { Button } from "../../components/ui/button.tsx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu.tsx";
 import { useGatewayQuery } from "../../data/index.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
@@ -202,6 +208,7 @@ export function OnboardingFlow({
     ? asked
     : (steps[ONBOARDING_STEP_IDS.indexOf(asked)] ?? "agent");
   const index = steps.indexOf(current);
+  const [reached, setReached] = useState(index);
   const [mail, setMail] = useState<MailChoices>(MAIL_DEFAULTS);
   const [sandboxReady, setSandboxReady] = useState(false);
   const [owner, setOwner] = useState<OwnerProfile>({
@@ -234,6 +241,7 @@ export function OnboardingFlow({
   const go = (next: OnboardingStepId) => {
     if (recoveryPending) return;
     setOwn(next);
+    setReached((r) => Math.max(r, steps.indexOf(next)));
     onStepChange?.(next);
   };
 
@@ -425,18 +433,48 @@ export function OnboardingFlow({
         <span className="text-label-tertiary" data-testid="onboarding-mark">
           <PsycheMark size={24} />
         </span>
-        {/* Quiet progress: "2 of 11" in text, with progress semantics for assistive tech. */}
-        <p
+        {/* Quiet progress: "2 of 11" is the trigger of the step menu (reached steps jump). */}
+        <span
           role="progressbar"
           aria-label={t("onboarding.progress")}
           aria-valuemin={1}
           aria-valuemax={steps.length}
           aria-valuenow={index + 1}
           aria-valuetext={t("onboarding.stepCount", { n: index + 1, total: steps.length })}
-          className="text-callout text-label-tertiary tabular-nums"
+          className="sr-only"
         >
           {t("onboarding.stepCount", { n: index + 1, total: steps.length })}
-        </p>
+        </span>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label={`${t("onboarding.progress")}: ${t("onboarding.stepCount", { n: index + 1, total: steps.length })}`}
+            className="-me-1.5 cursor-default rounded-sm px-1.5 py-0.5 text-callout text-label-tertiary tabular-nums outline-none hover:text-label-secondary focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <span aria-hidden="true">
+              {t("onboarding.stepCount", { n: index + 1, total: steps.length })}
+            </span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            {steps.map((s, i) => {
+              const active = s === current;
+              const done = i < index;
+              return (
+                <DropdownMenuItem
+                  key={s}
+                  aria-current={active ? "step" : undefined}
+                  disabled={i > reached}
+                  onClick={() => {
+                    if (!active) go(s);
+                  }}
+                  className={active ? "font-medium" : ""}
+                >
+                  {stepLabel(s, name)}
+                  {done ? <span className="sr-only"> {t("onboarding.doneMark")}</span> : null}
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </header>
 
       <section
