@@ -870,6 +870,7 @@
 //   let notificationAction = try? JSONDecoder().decode(NotificationAction.self, from: jsonData)
 //   let notificationCreatedPayload = try? JSONDecoder().decode(NotificationCreatedPayload.self, from: jsonData)
 //   let notificationKind = try? JSONDecoder().decode(NotificationKind.self, from: jsonData)
+//   let notificationOpenedPayload = try? JSONDecoder().decode(NotificationOpenedPayload.self, from: jsonData)
 //   let notificationResolvedPayload = try? JSONDecoder().decode(NotificationResolvedPayload.self, from: jsonData)
 //   let notificationUpdatedPayload = try? JSONDecoder().decode(NotificationUpdatedPayload.self, from: jsonData)
 //   let notificationsListParams = try? JSONDecoder().decode(NotificationsListParams.self, from: jsonData)
@@ -20898,6 +20899,22 @@ public enum NotificationKind: String, Codable, Sendable {
     case system = "system"
     case taskDone = "task_done"
     case taskFailed = "task_failed"
+}
+
+// MARK: - NotificationOpenedPayload
+public struct NotificationOpenedPayload: Codable, Sendable {
+    public let notificationID: String
+    public let route: String
+
+    public enum CodingKeys: String, CodingKey {
+        case notificationID = "notificationId"
+        case route = "route"
+    }
+
+    public init(notificationID: String, route: String) {
+        self.notificationID = notificationID
+        self.route = route
+    }
 }
 
 // MARK: - NotificationResolvedPayload

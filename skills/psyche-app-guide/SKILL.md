@@ -46,7 +46,9 @@ Settings sections (`/settings/…`): `model`, `persona`, `connectors` (also `con
 
 ## The sidebar and chat
 
-**Sidebar** (⌘B toggles it, ⌥⌘B switches full and compact): destinations Chat, Search, Feed, Ideas, Goals, Scheduled, Library (with counts), then the Threads list (side chats, automations' chats and subagents are marked), and a footer with the persona and a gear ("Settings and help"). The gear menu has **What can you do?**, **Settings** (⌘,), **Usage** and **Help** (the About section). Overview opens from the persona.
+**Sidebar** (⌘B toggles it, ⌥⌘B switches full and compact): the main destinations are **Chat** (⌘1), **Inbox** (⌘2; an amber count shows how many items need you), **Search**, **Feed** (⌘3), **Scheduled** (⌘4) and **Library** (⌘5). A folded **More** group holds **Ideas**, **Goals**, **Memory** (Soul & Memory, `/agent/soul`) and **Overview** (⌘6; activity, the audit and recent runs); it opens by itself when you are on one of them, and shows a count while folded. Under the destinations is the Threads list (side chats, automations' chats and subagents are marked), and a footer with the persona and a gear ("Settings and help"). The gear menu has **What can you do?**, **Settings** (⌘,), **Usage** and **Help** (the About section). Every screen and every Settings section is also in the command palette (⌘K): type part of a name ("voice", "memory review", "scheduled runs") and press Return.
+
+**Inbox** (`/inbox`): notifications that need you come first (approvals, questions), then today, then earlier. Clicking a notification, in the Inbox or as a Mac notification, opens its source: the chat that asked, scrolled to and highlighting the message or approval card; a run's notification opens its Timeline or **Scheduled → Runs** (`/scheduled?tab=runs`); a memory item opens **Settings → Memory review**.
 
 **Composer**: type `/` for commands. `//text` sends text that starts with a slash. Arguments with known values pop up after the command (`/model `, `/mode `, `/export `).
 

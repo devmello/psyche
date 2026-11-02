@@ -44,6 +44,11 @@ describe("approval lifecycle", () => {
       approvalId: issued.approval.id,
       body: "Approval pending",
     });
+    // Its link opens the card in the chat that asked, or the approvals sheet without one.
+    const threadId = issued.approval.requestedBy.threadId;
+    expect(notes[0]?.route).toBe(
+      threadId == null ? "/agent/approvals" : `/chat/${threadId}?approval=${issued.approval.id}`,
+    );
     const waiting = h.broker.awaitDecision(issued.approval.id);
     h.clock.advance(30 * 60_000);
     expect((await waiting).status).toBe("expired");

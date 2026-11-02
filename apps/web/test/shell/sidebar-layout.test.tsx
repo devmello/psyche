@@ -417,7 +417,7 @@ describe("compact layout under 720 px (redesign §5.11)", () => {
       within(tabs)
         .getAllByRole("button")
         .map((b) => b.textContent),
-    ).toEqual(["Chat", "Feed", "Ideas", "Goals", "Library", "Overview"]);
+    ).toEqual(["Chat", "Inbox", "Feed", "Library", "Overview"]);
     await press({ key: "b", ctrlKey: true });
     const drawer = await screen.findByRole("dialog", { name: "Threads" });
     expect(within(drawer).getByRole("button", { name: /Main chat/ })).toBeTruthy();

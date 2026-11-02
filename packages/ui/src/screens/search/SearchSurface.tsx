@@ -28,6 +28,7 @@ import { EntityMonogram } from "../../people/glyphs.tsx";
 import { useEntitySearch } from "../../people/hooks.ts";
 import type { EntitySummary } from "../../people/types.ts";
 import type { PaletteAction } from "../../shell/CommandPalette.tsx";
+import { paletteMatches } from "../../shell/palette-match.ts";
 import { isMac } from "../../shell/shortcuts.ts";
 import { Highlight, highlightTerms, SCOPE_ICON } from "./search-parts.tsx";
 import {
@@ -98,7 +99,7 @@ export function surfaceGroups(
   })).filter((g) => g.items.length > 0);
   groups.push(...scoped);
   const needle = text.trim().toLowerCase();
-  const matching = actions.filter((a) => needle === "" || a.label.toLowerCase().includes(needle));
+  const matching = actions.filter((a) => paletteMatches(a, needle));
   if (matching.length > 0)
     groups.push({
       id: "actions",

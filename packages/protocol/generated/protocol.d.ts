@@ -6955,6 +6955,11 @@ export interface NotificationAction {
 
 export type NotificationKind = "approval" | "input_needed" | "task_done" | "task_failed" | "proactive" | "briefing" | "reminder" | "system" | "specialist_result";
 
+export interface NotificationOpenedPayload {
+    notificationId: string;
+    route:          string;
+}
+
 export interface NotificationResolvedPayload {
     notification: Notification;
 }

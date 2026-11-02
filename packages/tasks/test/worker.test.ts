@@ -106,6 +106,8 @@ describe("TaskWorkerPool", () => {
       "Searched restaurants near Mission",
     ]);
     expect((await notifier.list()).map((n) => n.kind)).toEqual(["task_done"]);
+    // The notification's link opens the chat the task ran in.
+    expect((await notifier.list())[0]?.route).toBe(`/chat/${task.threadId}`);
   });
 
   it("expired-lease recovery: a frozen worker's task is resumed by another from its checkpoint", async () => {

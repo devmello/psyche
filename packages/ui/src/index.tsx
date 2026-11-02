@@ -154,6 +154,7 @@ export {
   useThreadExport,
 } from "./chat/ExportMenu.tsx";
 export { FollowUpQueue } from "./chat/FollowUpQueue.tsx";
+export { chatFocusFromRoute, requestChatFocus } from "./chat/focus-request.ts";
 export { MessageView, type MessageViewProps, messageText } from "./chat/MessageView.tsx";
 export { OfflineBanner } from "./chat/OfflineBanner.tsx";
 export { ComposerPrefill, usePrefillComposer } from "./chat/prefill.ts";
@@ -288,6 +289,7 @@ export {
   type CommandPaletteProps,
   DEFAULT_ACTIONS,
   type PaletteAction,
+  paletteMatches,
 } from "./shell/CommandPalette.tsx";
 export { CompactTopBar, type CompactTopBarProps } from "./shell/CompactTopBar.tsx";
 export {
@@ -300,8 +302,14 @@ export {
   ThreadCrossfade,
 } from "./shell/motion.tsx";
 export {
+  type NotificationLookup,
+  notificationHasTarget,
+  notificationRoute,
+} from "./shell/notification-target.ts";
+export {
   destinationFor,
   RAIL_ITEMS,
+  type RailGroup,
   type RailItem,
   TabBar,
   type TabBarProps,
