@@ -74,6 +74,28 @@ export const memoryReview = {
   "memoryReview.senders.decline": "Not now, don't ask again",
   "memoryReview.senders.trusted": "{name}: accepted automatically",
   "memoryReview.senders.revoke": "Stop",
+  "personData.export": "Export everything…",
+  "personData.said": "Forget what they said…",
+  "personData.exclude": "Don't learn about them…",
+  "personData.excludeForget": "Don't learn about them, and forget…",
+  "personData.title.said": "Forget what {name} said?",
+  "personData.title.exclude": "Stop learning about {name}?",
+  "personData.title.exclude_forget": "Stop learning about {name} and forget?",
+  "personData.counts":
+    "This deletes {facts, number} facts and {quotes, number} quotes learned from their messages, and {held, number} held items.",
+  "personData.excludeOnly":
+    "Their messages will not be read and nothing will be learned about them. What is already known stays until you forget it.",
+  "personData.after.said": "The person, their messages and anything you added yourself stay.",
+  "personData.after.exclude": "You can allow them again in Settings → Everything memory.",
+  "personData.after.exclude_forget":
+    "You can allow them again in Settings → Everything memory, but what was deleted does not come back.",
+  "personData.confirm.said": "Forget what they said",
+  "personData.confirm.exclude": "Stop learning",
+  "personData.confirm.exclude_forget": "Stop and forget",
+  "personData.done.said": "Forgot what {name} said.",
+  "personData.done.exclude": "No longer learning about {name}.",
+  "personData.done.exclude_forget": "No longer learning about {name}, and forgot what they said.",
+  "people.section.upcoming": "Coming up",
   "memoryReview.recent.undoUntil": "You can undo this until {date}",
   // --- Everything memory settings and first-run consent (§12) ---
   "settings.nav.everything": "Everything memory",

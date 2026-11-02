@@ -26,6 +26,7 @@ export * from "./graph/poll.ts";
 export * from "./graph/projects.ts";
 export * from "./graph/store.ts";
 export * from "./graph/tools.ts";
+export * from "./graph/upcoming.ts";
 export * from "./handlers.ts";
 export * from "./importer.ts";
 export * from "./layout.ts";

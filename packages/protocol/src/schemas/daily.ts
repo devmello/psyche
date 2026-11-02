@@ -11,7 +11,18 @@ export const DailyKind = StringEnum(["morning", "evening"], { $id: "DailyKind" }
 export type DailyKind = Static<typeof DailyKind>;
 
 export const DailySectionId = StringEnum(
-  ["calendar", "mail", "due", "followups", "weather", "done", "open", "tomorrow", "learned"],
+  [
+    "calendar",
+    "mail",
+    "due",
+    "followups",
+    "weather",
+    "done",
+    "open",
+    "tomorrow",
+    "learned",
+    "coming_up",
+  ],
   { $id: "DailySectionId" },
 );
 
