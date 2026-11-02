@@ -329,6 +329,8 @@ describe("connector writes allowed by a standing task grant", () => {
       decision: "allow",
       decisionRule: `grant:${grantId}`,
       taintIn: false,
+      // The send's result is third-party content, so the turn leaves tainted.
+      taintOut: true,
     });
     expect(final?.details?.receiptId).toMatch(/^rcp/);
 
