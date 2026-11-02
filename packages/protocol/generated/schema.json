@@ -1983,6 +1983,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Life search for the owner: people, organisations, events and topics by name, and cited facts (including ones still waiting for review, marked) by their words. Owner-only: the agent reads memory through its own tools and access rules.",
+        "name": "memory.life.search",
+        "params": "#/$defs/MemoryLifeSearchParams",
+        "result": "#/$defs/MemoryLifeSearchResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Open loops, oldest first, filtered by status, direction, person, project or due date.",
         "name": "memory.loops.list",
         "params": "#/$defs/MemoryLoopsListParams",
@@ -2615,7 +2623,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Turns a search source on or off (what Psyche may read), sets its processing model, or replaces exclusion lists. Turning a source off removes its documents at once; an added exclusion removes what it matches. Side-effecting.",
+        "description": "Turns a search source on or off (what Psyche may read), sets its processing model, turns on reading text in images (OCR, Files only), or replaces exclusion lists. Turning a source off removes its documents at once; an added exclusion removes what it matches. Side-effecting.",
         "name": "search.sources.configure",
         "params": "#/$defs/SearchSourcesConfigureParams",
         "result": "#/$defs/SearchSourcesStatus",
@@ -22355,6 +22363,76 @@
       ],
       "type": "object"
     },
+    "LifeFactHit": {
+      "properties": {
+        "factId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "entity": {
+          "$ref": "#/$defs/EntitySummary"
+        },
+        "attribute": {
+          "$ref": "#/$defs/GraphFactAttribute"
+        },
+        "value": {
+          "description": "Untrusted text when it came from someone else",
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "review": {
+          "$ref": "#/$defs/GraphReviewState"
+        },
+        "quote": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "factId",
+        "entity",
+        "attribute",
+        "value",
+        "provenance",
+        "review"
+      ],
+      "type": "object"
+    },
     "LinkPaymentMethod": {
       "properties": {
         "id": {
@@ -25716,6 +25794,56 @@
       ],
       "type": "object"
     },
+    "MemoryLifeSearchParams": {
+      "properties": {
+        "q": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "limit": {
+          "description": "Default 20",
+          "maximum": 50,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "q"
+      ],
+      "type": "object"
+    },
+    "MemoryLifeSearchResult": {
+      "properties": {
+        "entities": {
+          "items": {
+            "$ref": "#/$defs/EntitySummary"
+          },
+          "type": "array"
+        },
+        "facts": {
+          "items": {
+            "$ref": "#/$defs/LifeFactHit"
+          },
+          "type": "array"
+        },
+        "intent": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "entities",
+        "facts"
+      ],
+      "type": "object"
+    },
     "MemoryLoopUpdatedPayload": {
       "properties": {
         "loop": {
@@ -28496,6 +28624,116 @@
         "notification"
       ],
       "type": "object"
+    },
+    "OcrPage": {
+      "properties": {
+        "page": {
+          "description": "1 for an image",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "text": {
+          "maxLength": 20000,
+          "type": "string"
+        },
+        "confidence": {
+          "description": "Mean line confidence",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "page",
+        "text",
+        "confidence"
+      ],
+      "type": "object"
+    },
+    "OcrRecognizeParams": {
+      "properties": {
+        "path": {
+          "description": "An absolute path to a PNG, JPEG, HEIC, TIFF, GIF, WebP or PDF file",
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        },
+        "pages": {
+          "description": "PDF only: 1-based pages to consider (default: from the start)",
+          "items": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "maxItems": 200,
+          "type": "array"
+        },
+        "fromPage": {
+          "description": "PDF only: first page to consider (default 1)",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "maxPages": {
+          "description": "At most this many pages are recognised in this call",
+          "maximum": 20,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "minTextChars": {
+          "description": "PDF only: pages whose text layer is shorter than this are recognised",
+          "maximum": 1000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maxFileBytes": {
+          "description": "Size cap",
+          "maximum": 26214400,
+          "minimum": 1024,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "OcrRecognizeResult": {
+      "properties": {
+        "pages": {
+          "description": "Only pages that were recognised, in order",
+          "items": {
+            "$ref": "#/$defs/OcrPage"
+          },
+          "type": "array"
+        },
+        "pageCount": {
+          "description": "Pages in the document (1 for an image)",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "nextPage": {
+          "description": "PDF only: where a next call continues, when pages remain",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "refusal": {
+          "$ref": "#/$defs/OcrRefusal"
+        }
+      },
+      "required": [
+        "pages",
+        "pageCount"
+      ],
+      "type": "object"
+    },
+    "OcrRefusal": {
+      "enum": [
+        "unsupported_type",
+        "too_large",
+        "not_a_file",
+        "unreadable",
+        "unavailable"
+      ],
+      "type": "string"
     },
     "OkResult": {
       "properties": {
@@ -33579,6 +33817,27 @@
       ],
       "type": "string"
     },
+    "SearchIndexEncryption": {
+      "properties": {
+        "state": {
+          "description": "on: the index file is encrypted; off: it is not and the switch is off; unavailable: the switch is on but the key cannot be used here",
+          "enum": [
+            "off",
+            "on",
+            "unavailable"
+          ],
+          "type": "string"
+        },
+        "reason": {
+          "description": "Why it is unavailable",
+          "type": "string"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "type": "object"
+    },
     "SearchIndexStatus": {
       "properties": {
         "docs": {
@@ -33591,6 +33850,9 @@
         },
         "semantic": {
           "$ref": "#/$defs/SearchSemanticStatus"
+        },
+        "encryption": {
+          "$ref": "#/$defs/SearchIndexEncryption"
         }
       },
       "required": [
@@ -33889,6 +34151,10 @@
           "description": "The agent's search_everything may search it; Messages is off until the owner allows it",
           "type": "boolean"
         },
+        "ocr": {
+          "description": "Read text in images and scanned PDFs on this Mac (Apple Vision); off until the owner allows it. Only Files uses it",
+          "type": "boolean"
+        },
         "state": {
           "$ref": "#/$defs/SearchSourceState"
         },
@@ -33921,6 +34187,7 @@
         "enabled",
         "processing",
         "agent",
+        "ocr",
         "state",
         "items",
         "textBytes",
@@ -33940,6 +34207,9 @@
           "$ref": "#/$defs/SearchProcessing"
         },
         "agent": {
+          "type": "boolean"
+        },
+        "ocr": {
           "type": "boolean"
         },
         "exclude": {

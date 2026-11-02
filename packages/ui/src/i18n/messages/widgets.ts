@@ -37,4 +37,10 @@ export const widgets = {
   "widgets.stat.delta": "Change: {delta}",
   "widgets.list.empty": "Nothing here.",
   "widgets.code.label": "Code",
+  "widgets.bound.status":
+    "{status, select, queued {Queued} running {Running} awaiting_input {Waiting for your answer} awaiting_approval {Waiting for your approval} paused {Paused} done {Done} failed {Failed} cancelled {Cancelled} pending {Pending} ok {Done} uncertain {Done, outcome unknown} blocked {Blocked} working {Working} needs_you {Needs you} partial {Partly done} enabled {Scheduled} disabled {Paused} other {{status}}}",
+  "widgets.bound.never": "Never",
+  "widgets.bound.noNext": "Not scheduled",
+  "widgets.bound.sources": "{count, plural, one {# source} other {# sources}}",
+  "widgets.bound.claims": "{count, plural, one {# claim} other {# claims}}",
 } as const;

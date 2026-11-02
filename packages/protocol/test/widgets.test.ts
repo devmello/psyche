@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyWidgetOps,
   Block,
+  collectWidgetBinds,
   Events,
   foldLabel,
   isReservedLabel,
@@ -307,5 +308,99 @@ describe("applyWidgetOps", () => {
     expect(applyWidgetOps(spec(), [{ op: "set", id: "p", props: { onclick: "x" } }]).ok).toBe(
       false,
     );
+  });
+});
+
+describe("widget bindings", () => {
+  const withBind = (node: Record<string, unknown>) => ({ ...good(), root: node });
+  it("accepts allowed source/field/node combinations", () => {
+    expect(
+      issues(
+        withBind({
+          id: "p",
+          type: "progress",
+          label: "Run",
+          bind: { source: "task", id: "t1", field: "progress" },
+        }),
+      ),
+    ).toEqual([]);
+    expect(
+      issues(
+        withBind({
+          id: "c",
+          type: "checklist",
+          items: [],
+          bind: { source: "task", id: "t1", field: "steps" },
+        }),
+      ),
+    ).toEqual([]);
+    expect(
+      issues(
+        withBind({
+          id: "s",
+          type: "status",
+          label: "…",
+          tone: "neutral",
+          bind: { source: "automation", id: "a1", field: "status" },
+        }),
+      ),
+    ).toEqual([]);
+  });
+  it("rejects unknown fields and wrong node types with a message the model can act on", () => {
+    const a = issues(
+      withBind({
+        id: "p",
+        type: "progress",
+        label: "x",
+        value: 1,
+        bind: { source: "task", id: "t1", field: "secret" },
+      }),
+    );
+    expect(a[0]?.message).toMatch(/not a bindable field of task\. Allowed: status, progress/);
+    const b = issues(
+      withBind({
+        id: "t",
+        type: "table",
+        label: "x",
+        columns: [{ key: "a", label: "A" }],
+        rows: [],
+        bind: { source: "task", id: "t1", field: "progress" },
+      }),
+    );
+    expect(b[0]?.message).toMatch(/can only bind to a progress node/);
+    expect(
+      issues(
+        withBind({
+          id: "p",
+          type: "progress",
+          label: "x",
+          value: 1,
+          bind: { source: "email", id: "t1", field: "progress" },
+        }),
+      ).length,
+    ).toBeGreaterThan(0);
+  });
+  it("collects binds from nested nodes and tabs", () => {
+    const spec = withBind({
+      id: "r",
+      type: "tabs",
+      tabs: [
+        {
+          id: "t",
+          label: "T",
+          children: [
+            {
+              id: "p",
+              type: "progress",
+              label: "x",
+              bind: { source: "task", id: "t1", field: "progress" },
+            },
+          ],
+        },
+      ],
+    });
+    expect(collectWidgetBinds(spec.root)).toEqual([
+      { nodeId: "p", bind: { source: "task", id: "t1", field: "progress" } },
+    ]);
   });
 });

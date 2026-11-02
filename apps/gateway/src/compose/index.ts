@@ -174,7 +174,9 @@ import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
 import { scriptTools } from "./scripts.ts";
 import { type ComposedSearch, composeSearch, graphNames } from "./search.ts";
 import { appleSearchSeams } from "./search-apple.ts";
+import { resolveSearchKey } from "./search-db.ts";
 import { filesSourceDeps, powerReader } from "./search-files.ts";
+import { helperRecognizer } from "./search-ocr.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
 import { searchEverythingTool } from "./search-tool.ts";
 import {
@@ -943,6 +945,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       );
     return node === undefined ? undefined : nodes?.client(node.id);
   };
+  // The Mac helper that offers Vision OCR for search ingest (`ocr.recognize`), when one is live.
+  const ocrHelper = () => {
+    const nodes = gatewayRef?.context.nodes;
+    const node = nodes
+      ?.list()
+      .find((n) => nodes.isLive(n.id) && n.capabilities.some((c) => c.name === "ocr.recognize"));
+    return node === undefined ? undefined : nodes?.client(node.id);
+  };
   people.useSources(() =>
     graphSourceAdapters({
       connectors: async () => (connectorsPart === undefined ? [] : connectorsPart.registry.list()),
@@ -1387,13 +1397,26 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     messages: graphMessagesHelper,
     now: () => clock.now(),
   });
+  // Encryption at rest for the search index, with its own key beside the vault's (R8).
+  const searchEncryption = await resolveSearchKey({
+    db,
+    keyFile: join(config.home, "state", "search.key.json"),
+    wrapper: vault.wrapper,
+    slot: vault.slot,
+  });
+  const power = powerReader();
   const search = composeSearch({
+    encryption: searchEncryption,
     // Local sources: each off until the owner turns it on in Settings → Search sources.
     sources: {
       apple: appleSearch.deps,
       refresh: appleSearch.refresh,
-      files: filesSourceDeps({ folders: () => rawBroker.policy.folders ?? [] }),
-      power: powerReader(),
+      files: filesSourceDeps({
+        folders: () => rawBroker.policy.folders ?? [],
+        // Vision OCR in the Mac helper (opt-in per source), one file at a time, on power only.
+        ocr: { recognize: helperRecognizer(ocrHelper), power },
+      }),
+      power,
       watch: background,
       pageReads,
     },
