@@ -5,7 +5,7 @@ import { useCall, useGatewayQuery, useSearchSources } from "../../data/hooks.ts"
 import { t } from "../../i18n/core.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { DAILY_DEFAULTS } from "./DailySection.tsx";
-import { modelLabel } from "./ModelSection.tsx";
+import { modelLabel, providerInfoFromSummary, providersFromSettings } from "./ModelSection.tsx";
 import { MODE_OPTIONS } from "./PermissionsSection.tsx";
 import type { SettingsPaneId } from "./settings-pages.ts";
 import {
@@ -257,14 +257,20 @@ export function EssentialsSection({
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
 
-  const ref = models.data?.roles.primary ?? null;
-  const provider =
-    ref === null ? undefined : models.data?.providers.find((p) => ref.startsWith(`${p.id}/`));
+  // As Model & providers reads it: the live list when the Gateway has one, else the settings.
+  const live = models.data !== undefined && models.data.providers.length > 0;
+  const providers = live
+    ? (models.data?.providers ?? []).map(providerInfoFromSummary)
+    : providersFromSettings(form.values);
+  const ref =
+    (live ? models.data?.roles.primary : undefined) ??
+    (str(form.values, "models.primary", "") || null);
+  const provider = ref === null ? undefined : providers.find((p) => ref.startsWith(`${p.id}/`));
   const entry = provider?.models.find((m) => m.ref === ref);
   const model: EssentialsModel = {
     ref,
     label: entry === undefined ? null : modelLabel(entry),
-    ready: provider !== undefined && (provider.local || provider.keyConfigured),
+    ready: provider?.status === "ok",
   };
   const sources = READ_SOURCES.flatMap((id) => {
     const s = search.status?.sources.find((x) => x.id === id);
