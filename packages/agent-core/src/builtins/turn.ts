@@ -22,6 +22,8 @@ import type { HarnessTurnApi } from "./harness.ts";
 /** What the loop lends its turn tools: blocks, the checklist, questions and plan approval. */
 export interface TurnApi {
   emitBlock(block: Block): void;
+  /** The id of the message this turn is writing (a widget points at it). */
+  messageId(): string;
   checklist(): ChecklistItem[];
   setChecklist(items: ChecklistItem[]): void;
   /** Attended: resolves with the answer. Background (task) run: parks the task and the turn. */

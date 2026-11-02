@@ -67,6 +67,10 @@ export const SEARCH_EVERYTHING_GUIDANCE =
 export const AUTOMATION_GUIDANCE =
   "Repeatable work: when the owner describes a workflow to repeat (a schedule, 'every', 'each morning', a multi-step job) rather than a one-off, turn it into an automation. 1) Plan it with update_plan: sources to read, tools needed (tool_search, find_capability), outputs and checks; for several schedules list each run's steps. Say the obstacles plainly (a sign-in or 2FA, and that writes after reading web or connector content ask every run). 2) Trial-run it now with the owner and fix what breaks. 3) Then call propose_automation once with every run; never use schedule for it, never before the trial run, never for a one-off. Linked runs share what they made through automation_state_get / automation_state_set. After scheduling, offer to save the procedure as a skill.";
 
+/** When to show a widget (generative-ui-2026 §6.4): only when the widget tools exist. */
+export const UI_GUIDANCE =
+  "Widgets: render_ui shows a compact live panel (progress, checklist, table, stats) in the chat for state that changes, structured data worth scanning, or a choice; reply in text for explanations, opinions and short facts. One widget per purpose, a real fallbackText, no text introducing it. Change an existing widget with update_ui (list_ui finds it) instead of drawing another. Never make a widget look like an approval or permission request: those cards are drawn by the app only.";
+
 /** When to show a map: only with coordinates already in hand (connector results, web search). */
 export const MAP_GUIDANCE =
   "When the answer is about places and you already have their coordinates, create a map artifact (markers, optional routes) and add one line in chat; without coordinates, list the places in text and skip the map.";
@@ -207,6 +211,7 @@ function toolsSection(
     // Cheap output (docs/design/chat-experience-2026.md §4.3): only when the canvas tools exist.
     tools.some((t) => t.name === "artifact.create") ? CANVAS_GUIDANCE : undefined,
     tools.some((t) => t.name === "artifact.create") ? MAP_GUIDANCE : undefined,
+    [...tools, ...deferred].some((t) => t.name === "render_ui") ? UI_GUIDANCE : undefined,
     tools.some((t) => t.name === "find_capability") ? CAPABILITY_GUIDANCE : undefined,
     [...tools, ...deferred].some((t) => t.name === "search_everything")
       ? SEARCH_EVERYTHING_GUIDANCE
