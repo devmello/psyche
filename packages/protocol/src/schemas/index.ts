@@ -15,6 +15,7 @@ export * from "./messages.ts";
 export * from "./models.ts";
 export * from "./ocr.ts";
 export * from "./permissions.ts";
+export * from "./relationship-nudges.ts";
 export * from "./research.ts";
 export * from "./runs.ts";
 export * from "./specialists.ts";

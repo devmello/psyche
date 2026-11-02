@@ -2295,6 +2295,30 @@
         "sideEffecting": false
       },
       {
+        "description": "Done (a promise's loop is closed too), snooze for a week or a month, or stop nudges for that person. Side-effecting.",
+        "name": "nudges.act",
+        "params": "#/$defs/NudgesActParams",
+        "result": "#/$defs/NudgesActResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Nudges to show now (not done, snoozed or muted), best first; with entityId, that person's. Empty while the feature is off.",
+        "name": "nudges.list",
+        "params": "#/$defs/NudgesListParams",
+        "result": "#/$defs/NudgesListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Stops (or resumes) nudges for one person, from their page. Side-effecting.",
+        "name": "nudges.mute",
+        "params": "#/$defs/NudgesMuteParams",
+        "result": "#/$defs/NudgesMuteResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "This device's passkeys.",
         "name": "passkeys.list",
         "params": "#/$defs/PasskeysListParams",
@@ -15422,7 +15446,8 @@
         "open",
         "tomorrow",
         "learned",
-        "coming_up"
+        "coming_up",
+        "keep_in_touch"
       ],
       "type": "string"
     },
@@ -17503,6 +17528,12 @@
           "type": "array"
         },
         "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "nudgeId": {
           "description": "ULID in production",
           "maxLength": 64,
           "minLength": 1,
@@ -28731,6 +28762,202 @@
       },
       "required": [
         "notification"
+      ],
+      "type": "object"
+    },
+    "NudgeAction": {
+      "enum": [
+        "done",
+        "snooze_week",
+        "snooze_month",
+        "mute_person"
+      ],
+      "type": "string"
+    },
+    "NudgeItem": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/NudgeKind"
+        },
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "description": "A display name: third-party text, one line",
+          "maxLength": 60,
+          "type": "string"
+        },
+        "text": {
+          "description": "One plain sentence built from the name, numbers and a template",
+          "maxLength": 300,
+          "type": "string"
+        },
+        "daysAgo": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "channel": {
+          "anyOf": [
+            {
+              "enum": [
+                "mail",
+                "messages"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "date": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "overdue": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "entityId",
+        "name",
+        "text",
+        "overdue"
+      ],
+      "type": "object"
+    },
+    "NudgeKind": {
+      "enum": [
+        "unanswered",
+        "drift",
+        "birthday",
+        "promise"
+      ],
+      "type": "string"
+    },
+    "NudgeSensitivity": {
+      "enum": [
+        "low",
+        "normal",
+        "high"
+      ],
+      "type": "string"
+    },
+    "NudgesActParams": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "action": {
+          "$ref": "#/$defs/NudgeAction"
+        }
+      },
+      "required": [
+        "id",
+        "action"
+      ],
+      "type": "object"
+    },
+    "NudgesActResult": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "type": "object"
+    },
+    "NudgesListParams": {
+      "properties": {
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "NudgesListResult": {
+      "properties": {
+        "enabled": {
+          "description": "The switch is on and the owner has consented",
+          "type": "boolean"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/NudgeItem"
+          },
+          "type": "array"
+        },
+        "muted": {
+          "description": "With entityId: nudges for that person are muted",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled",
+        "items",
+        "muted"
+      ],
+      "type": "object"
+    },
+    "NudgesMuteParams": {
+      "properties": {
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "muted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "entityId",
+        "muted"
+      ],
+      "type": "object"
+    },
+    "NudgesMuteResult": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
       ],
       "type": "object"
     },

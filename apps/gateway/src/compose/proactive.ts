@@ -145,6 +145,8 @@ export interface ProactiveSetup {
   learned?: () => { text: string; link?: string } | undefined;
   /** Everything memory's "Coming up" lines for the morning brief. */
   comingUp?: () => { text: string; link?: string }[];
+  /** Relationship nudges' "Keep in touch" lines for the morning brief (at most three). */
+  keepInTouch?: () => { text: string; link?: string }[];
   /** The people graph while it is on: prep reads people and loops, notes add loops. */
   graph?: () => GraphStore | undefined;
   /**
@@ -498,6 +500,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     timezone: dailyTz,
     ...(setup.learned === undefined ? {} : { learned: setup.learned }),
     ...(setup.comingUp === undefined ? {} : { comingUp: setup.comingUp }),
+    ...(setup.keepInTouch === undefined ? {} : { keepInTouch: setup.keepInTouch }),
     ...(setup.channelSurfaces === undefined ? {} : { channelSurfaces: setup.channelSurfaces }),
     prepLink: (e) => meetingPrep?.prepLinkFor(e),
     activity: {

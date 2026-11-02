@@ -24,6 +24,7 @@ export * from "./graph/life.ts";
 export * from "./graph/life-answer.ts";
 export * from "./graph/model-pass.ts";
 export * from "./graph/normalize.ts";
+export * from "./graph/nudges.ts";
 export * from "./graph/poll.ts";
 export * from "./graph/projects.ts";
 export * from "./graph/store.ts";
