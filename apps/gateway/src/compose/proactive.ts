@@ -143,6 +143,8 @@ export interface ProactiveSetup {
   channelSurfaces?: () => string[];
   /** Everything memory's "Learned yesterday" line for the morning brief (counts only). */
   learned?: () => { text: string; link?: string } | undefined;
+  /** Everything memory's "Coming up" lines for the morning brief. */
+  comingUp?: () => { text: string; link?: string }[];
   /** The people graph while it is on: prep reads people and loops, notes add loops. */
   graph?: () => GraphStore | undefined;
   /**
@@ -495,6 +497,7 @@ export function composeProactive(setup: ProactiveSetup): ComposedProactive {
     followups,
     timezone: dailyTz,
     ...(setup.learned === undefined ? {} : { learned: setup.learned }),
+    ...(setup.comingUp === undefined ? {} : { comingUp: setup.comingUp }),
     ...(setup.channelSurfaces === undefined ? {} : { channelSurfaces: setup.channelSurfaces }),
     prepLink: (e) => meetingPrep?.prepLinkFor(e),
     activity: {

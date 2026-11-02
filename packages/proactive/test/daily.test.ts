@@ -464,3 +464,25 @@ describe("learned yesterday (everything memory)", () => {
     expect((await plain.assemble("morning")).sections.some((s) => s.id === "learned")).toBe(false);
   });
 });
+
+describe("coming up (everything memory)", () => {
+  it("adds a section of plain lines with links to the morning brief, capped at eight, and none to the wrap-up", async () => {
+    const lines = Array.from({ length: 10 }, (_, i) => ({
+      text: `Person ${i} turns 7 on Friday`,
+      link: `/agent/soul?entity=e${i}`,
+    }));
+    const { svc } = service({}, { comingUp: () => lines });
+    const brief = await svc.assemble("morning");
+    expect(section(brief, "coming_up").items).toHaveLength(8);
+    expect(section(brief, "coming_up").items[0]).toEqual({
+      text: "Person 0 turns 7 on Friday",
+      link: "/agent/soul?entity=e0",
+    });
+    expect((await svc.assemble("evening")).sections.some((s) => s.id === "coming_up")).toBe(false);
+  });
+
+  it("adds nothing when nothing is coming up", async () => {
+    const { svc } = service({}, { comingUp: () => [] });
+    expect((await svc.assemble("morning")).sections.some((s) => s.id === "coming_up")).toBe(false);
+  });
+});

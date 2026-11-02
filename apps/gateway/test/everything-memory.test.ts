@@ -478,3 +478,72 @@ describe("sender trust handlers", () => {
     ).toBe("offered");
   });
 });
+
+describe("person page methods", () => {
+  async function world() {
+    const s = setup();
+    const owner = s.graph.createEntity({ kind: "person", name: "The Owner", isOwner: true }).id;
+    const ava = s.graph.createEntity({
+      kind: "person",
+      name: "Ava Reyes",
+      identifiers: [{ kind: "email", value: "ava@x.io" }],
+    }).id;
+    s.graph.setFact({
+      entityId: ava,
+      attribute: "birthday",
+      value: "Nov 2, 2019",
+      provenance: "owner",
+    });
+    return { ...s, owner, ava };
+  }
+
+  it("coming up: a plain line per person, and for the brief only while the feature is on", async () => {
+    const { e, ava, db } = await world();
+    const r = await e.handlers["memory.upcoming"]({ days: 14 });
+    expect(r.items).toEqual([
+      expect.objectContaining({
+        entityId: ava,
+        kind: "birthday",
+        daysAway: 4,
+        turns: 7,
+        text: "Ava Reyes turns 7 on Monday",
+      }),
+    ]);
+    expect((await e.handlers["memory.upcoming"]({ entityId: "nope" })).items).toEqual([]);
+    expect(e.comingUp()).toEqual([]);
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, { enabled: true });
+    expect(e.comingUp()).toEqual([
+      { text: "Ava Reyes turns 7 on Monday", link: `/agent/soul?entity=${ava}` },
+    ]);
+  });
+
+  it("export is a zip with person.json; forget-said and exclude count first and never touch the owner", async () => {
+    const { e, ava, owner } = await world();
+    const file = await e.handlers["memory.entities.export"]({ id: ava });
+    expect(file).toMatchObject({ mime: "application/zip" });
+    expect(file.filename).toMatch(/^psyche-ava-reyes-\d{4}-\d{2}-\d{2}\.zip$/);
+    const { unzipSync, strFromU8 } = await import("fflate");
+    const entries = unzipSync(Buffer.from(file.data, "base64"));
+    expect(JSON.parse(strFromU8(entries["person.json"] as Uint8Array)).entity.name).toBe(
+      "Ava Reyes",
+    );
+    expect(await e.handlers["memory.entities.forgetSaid"]({ id: ava, dryRun: true })).toMatchObject(
+      { dryRun: true },
+    );
+    const ex = await e.handlers["memory.entities.exclude"]({
+      id: ava,
+      mode: "exclude",
+      dryRun: true,
+    });
+    expect(ex).toMatchObject({ excluded: 1, dryRun: true });
+    expect(e.store.isEntityExcluded(ava)).toBe(false);
+    await e.handlers["memory.entities.exclude"]({ id: ava, mode: "exclude" });
+    expect(e.store.isEntityExcluded(ava)).toBe(true);
+    await expect(
+      e.handlers["memory.entities.exclude"]({ id: owner, mode: "exclude" }),
+    ).rejects.toThrow(/that is you/);
+    await expect(e.handlers["memory.entities.forgetSaid"]({ id: owner })).rejects.toThrow(
+      /that is you/,
+    );
+  });
+});
