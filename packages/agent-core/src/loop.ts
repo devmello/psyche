@@ -395,6 +395,8 @@ interface RunState {
   permissionMode: PermissionMode;
   /** The owner's own words this turn (target matching); empty for a non-owner requester. */
   ownerText: string;
+  /** A widget button proposed this call: the turn's first step is this call, not a model call. */
+  proposedCall?: { tool: string; input: Record<string, unknown> };
   /** The owner's own message carried Library attachments (#509: the learner reads uploads). */
   ownerAttached: boolean;
   /** Who asked for the turn (security §9); absent means the owner. */
@@ -764,7 +766,8 @@ export class PsycheAgentLoop implements AgentLoop {
       mode: input.mode,
       permissionMode: input.permissionMode,
       // Only the owner's words name targets the agent may act on (security §3.6, §9).
-      ownerText: ownerSent ? input.input.text : "",
+      ownerText: ownerSent && input.ownerWords !== false ? input.input.text : "",
+      ...(input.proposedCall === undefined ? {} : { proposedCall: input.proposedCall }),
       ownerAttached: ownerSent && (input.input.attachments?.length ?? 0) > 0,
       ...(requester === undefined ? {} : { requester }),
       ...(input.beforeDispatch === undefined ? {} : { beforeDispatch: input.beforeDispatch }),
@@ -1006,10 +1009,17 @@ export class PsycheAgentLoop implements AgentLoop {
       run.messageId = run.steps === 1 ? run.messageId : this.#ids.next("msg");
       const { system, tools } = await this.#prepare(run);
       const sent = run.thread.messages.slice();
-      const step = await this.#callModel(run, system, tools);
+      // A widget button's call is the first step (generative-ui-2026 §6.2); it is gated below
+      // exactly like a model's call. It is consumed here so a retry of the loop never re-proposes it.
+      const proposed = run.proposedCall;
+      run.proposedCall = undefined;
+      const step =
+        proposed === undefined
+          ? await this.#callModel(run, system, tools)
+          : this.#proposedStep(proposed);
       if (step.parts.length > 0) run.thread.messages.push({ role: "assistant", parts: step.parts });
       run.emit({ type: "usage", runId: run.runId, usage: { ...run.usage } });
-      await this.#modelCallPersist(run, system, tools, sent, step);
+      if (proposed === undefined) await this.#modelCallPersist(run, system, tools, sent, step);
       if (step.finish === "cancelled") throw new RunEnd("cancelled");
       if (step.finish === "error") throw new RunEnd("failed", step.error ?? "model error");
       const breach = await this.#specialistAccount(run);
@@ -1814,6 +1824,76 @@ export class PsycheAgentLoop implements AgentLoop {
   }
 
   // --- Model call -------------------------------------------------------------------------------
+
+  /** The step a widget's proposed call stands for: one tool call, no model involved. */
+  #proposedStep(proposed: { tool: string; input: Record<string, unknown> }): {
+    parts: ModelPart[];
+    text: string;
+    calls: { id: string; name: string; input: unknown }[];
+    finish: string;
+    error?: string;
+  } {
+    const id = this.#ids.next("call");
+    return {
+      parts: [{ type: "tool_call", id, name: proposed.tool, input: proposed.input }],
+      text: "",
+      calls: [{ id, name: proposed.tool, input: proposed.input }],
+      finish: "tool_calls",
+    };
+  }
+
+  /**
+   * A dry run of the broker for one call (a widget's "asks first" marker): nothing runs, nothing
+   * is asked, no run state is touched. Uses the same intent a real gate would build, with the
+   * target treated as new, which is the strictest answer the broker can give for it.
+   */
+  async previewCall(input: {
+    threadId: string;
+    tool: string;
+    input: Record<string, unknown>;
+    permissionMode: PermissionMode;
+    taintSources: TaintSource[];
+  }): Promise<{
+    decision: "allow" | "ask" | "deny" | "device-only" | "unavailable";
+    rule?: string;
+  }> {
+    const reg = this.registry.get(input.tool);
+    if (reg === undefined) return { decision: "unavailable" };
+    try {
+      if (reg.validate?.(input.input) !== undefined) return { decision: "unavailable" };
+      const desc = reg.describeCall?.(input.input) ?? {};
+      const target = desc.target;
+      const hash = paramsHash(input.input);
+      const [result] = await this.#o.broker.preview(
+        [
+          {
+            tool: input.tool,
+            sideEffect: stricter(reg.spec.sideEffect, desc.sideEffect),
+            ...((target?.kind ?? reg.spec.targetKind)
+              ? { targetKind: target?.kind ?? reg.spec.targetKind }
+              : {}),
+            ...(target === undefined ? {} : { target }),
+            params: structuredClone(input.input),
+            paramsHash: hash,
+            ...(desc.kind === undefined ? {} : { kind: desc.kind }),
+          },
+        ],
+        {
+          threadId: input.threadId,
+          runId: "widget:preview",
+          permissionMode: input.permissionMode,
+          taint: input.taintSources.length > 0,
+          ...(input.taintSources.length > 0 ? { taintSources: input.taintSources } : {}),
+          newTarget: true,
+        },
+      );
+      return result === undefined
+        ? { decision: "unavailable" }
+        : { decision: result.decision, rule: result.rule };
+    } catch {
+      return { decision: "unavailable" };
+    }
+  }
 
   async #callModel(
     run: RunState,

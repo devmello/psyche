@@ -10,6 +10,7 @@ import {
   type Thread,
 } from "@psyche/protocol";
 import type { Call, HandlerDef, ResolvedChatContext, ResolvedScreen } from "../context.ts";
+import { claimWidgetClick } from "../widgets/rate.ts";
 import { requireThread } from "./threads.ts";
 
 const DEFAULT_PAGE = 100;
@@ -22,9 +23,6 @@ function decodeSeqCursor(cursor: string | undefined): number | undefined {
   return Number(n);
 }
 
-const WIDGET_REPLY_MS = 1000;
-const lastWidgetReply = new Map<string, number>();
-
 /** The widget's taint sources (possibly none) once the reply is allowed; throws otherwise. */
 function widgetReply(call: Call, threadId: string, widgetId: string): TaintSource[] {
   const [widget] = getWidgets(call.ctx.db, [widgetId]);
@@ -32,14 +30,7 @@ function widgetReply(call: Call, threadId: string, widgetId: string): TaintSourc
   if (widget === undefined || widget.threadId !== threadId) {
     throw new PsycheError("not_found", "That widget is not in this chat.");
   }
-  const now = Date.now();
-  if (now - (lastWidgetReply.get(widgetId) ?? 0) < WIDGET_REPLY_MS) {
-    throw new PsycheError("rate_limited", "That widget just sent a reply; wait a moment.", {
-      retryable: true,
-    });
-  }
-  lastWidgetReply.set(widgetId, now);
-  if (lastWidgetReply.size > 500) lastWidgetReply.clear();
+  claimWidgetClick(widgetId);
   return widget.taint.map((s) => ({ ...s }));
 }
 

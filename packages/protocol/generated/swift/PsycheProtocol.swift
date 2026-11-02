@@ -1405,10 +1405,14 @@
 //   let widgetState = try? JSONDecoder().decode(WidgetState.self, from: jsonData)
 //   let widgetTone = try? JSONDecoder().decode(WidgetTone.self, from: jsonData)
 //   let widgetUpdatedPayload = try? JSONDecoder().decode(WidgetUpdatedPayload.self, from: jsonData)
+//   let widgetsActParams = try? JSONDecoder().decode(WidgetsActParams.self, from: jsonData)
+//   let widgetsActResult = try? JSONDecoder().decode(WidgetsActResult.self, from: jsonData)
 //   let widgetsGetParams = try? JSONDecoder().decode(WidgetsGetParams.self, from: jsonData)
 //   let widgetsGetResult = try? JSONDecoder().decode(WidgetsGetResult.self, from: jsonData)
 //   let widgetsImageParams = try? JSONDecoder().decode(WidgetsImageParams.self, from: jsonData)
 //   let widgetsImageResult = try? JSONDecoder().decode(WidgetsImageResult.self, from: jsonData)
+//   let widgetsPreviewParams = try? JSONDecoder().decode(WidgetsPreviewParams.self, from: jsonData)
+//   let widgetsPreviewResult = try? JSONDecoder().decode(WidgetsPreviewResult.self, from: jsonData)
 //   let workflowCard = try? JSONDecoder().decode(WorkflowCard.self, from: jsonData)
 //   let workflowEvent = try? JSONDecoder().decode(WorkflowEvent.self, from: jsonData)
 //   let workflowEventFilter = try? JSONDecoder().decode(WorkflowEventFilter.self, from: jsonData)
@@ -3496,7 +3500,7 @@ public struct AppleTabTextParams: Codable, Sendable {
 public struct ApprovalAnswer: Codable, Sendable {
     public let answerToken: String
     public let approvalID: String
-    public let decision: DecisionEnum
+    public let decision: ApprovalAnswerDecision
     public let editedText: String?
     public let folderPath: String?
     public let presence: PresenceAssertion?
@@ -3518,7 +3522,7 @@ public struct ApprovalAnswer: Codable, Sendable {
         case via = "via"
     }
 
-    public init(answerToken: String, approvalID: String, decision: DecisionEnum, editedText: String?, folderPath: String?, presence: PresenceAssertion?, recipientChoice: String?, scope: GrantScope?, unsandboxed: Unsandboxed?, via: InputVia?) {
+    public init(answerToken: String, approvalID: String, decision: ApprovalAnswerDecision, editedText: String?, folderPath: String?, presence: PresenceAssertion?, recipientChoice: String?, scope: GrantScope?, unsandboxed: Unsandboxed?, via: InputVia?) {
         self.answerToken = answerToken
         self.approvalID = approvalID
         self.decision = decision
@@ -3532,7 +3536,7 @@ public struct ApprovalAnswer: Codable, Sendable {
     }
 }
 
-public enum DecisionEnum: String, Codable, Sendable {
+public enum ApprovalAnswerDecision: String, Codable, Sendable {
     case approve = "approve"
     case deny = "deny"
 }
@@ -31648,6 +31652,44 @@ public enum WidgetState: String, Codable, Sendable {
     case live = "live"
 }
 
+// MARK: - WidgetsActParams
+public struct WidgetsActParams: Codable, Sendable {
+    public let itemID: String?
+    public let nodeID: String
+    public let values: [String: JSONAny]?
+    public let widgetID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case itemID = "itemId"
+        case nodeID = "nodeId"
+        case values = "values"
+        case widgetID = "widgetId"
+    }
+
+    public init(itemID: String?, nodeID: String, values: [String: JSONAny]?, widgetID: String) {
+        self.itemID = itemID
+        self.nodeID = nodeID
+        self.values = values
+        self.widgetID = widgetID
+    }
+}
+
+// MARK: - WidgetsActResult
+public struct WidgetsActResult: Codable, Sendable {
+    public let messageID: String
+    public let runID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case messageID = "messageId"
+        case runID = "runId"
+    }
+
+    public init(messageID: String, runID: String?) {
+        self.messageID = messageID
+        self.runID = runID
+    }
+}
+
 // MARK: - WidgetsGetParams
 public struct WidgetsGetParams: Codable, Sendable {
     public let widgetIDS: [String]
@@ -31813,6 +31855,49 @@ public enum WidgetsImageResultMIME: String, Codable, Sendable {
     case imageJPEG = "image/jpeg"
     case imagePNG = "image/png"
     case imageWebp = "image/webp"
+}
+
+// MARK: - WidgetsPreviewParams
+public struct WidgetsPreviewParams: Codable, Sendable {
+    public let itemID: String?
+    public let nodeID: String
+    public let widgetID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case itemID = "itemId"
+        case nodeID = "nodeId"
+        case widgetID = "widgetId"
+    }
+
+    public init(itemID: String?, nodeID: String, widgetID: String) {
+        self.itemID = itemID
+        self.nodeID = nodeID
+        self.widgetID = widgetID
+    }
+}
+
+// MARK: - WidgetsPreviewResult
+public struct WidgetsPreviewResult: Codable, Sendable {
+    public let decision: WidgetsPreviewResultDecision
+    public let tool: String
+
+    public enum CodingKeys: String, CodingKey {
+        case decision = "decision"
+        case tool = "tool"
+    }
+
+    public init(decision: WidgetsPreviewResultDecision, tool: String) {
+        self.decision = decision
+        self.tool = tool
+    }
+}
+
+public enum WidgetsPreviewResultDecision: String, Codable, Sendable {
+    case allow = "allow"
+    case ask = "ask"
+    case deny = "deny"
+    case deviceOnly = "device-only"
+    case unavailable = "unavailable"
 }
 
 // MARK: - WrapUpBlock
