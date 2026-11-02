@@ -308,6 +308,8 @@
 //   let checklistItemStatus = try? JSONDecoder().decode(ChecklistItemStatus.self, from: jsonData)
 //   let checkpointStatus = try? JSONDecoder().decode(CheckpointStatus.self, from: jsonData)
 //   let citation = try? JSONDecoder().decode(Citation.self, from: jsonData)
+//   let comingUpItem = try? JSONDecoder().decode(ComingUpItem.self, from: jsonData)
+//   let comingUpKind = try? JSONDecoder().decode(ComingUpKind.self, from: jsonData)
 //   let compactionBlock = try? JSONDecoder().decode(CompactionBlock.self, from: jsonData)
 //   let compactionResult = try? JSONDecoder().decode(CompactionResult.self, from: jsonData)
 //   let compactionSummary = try? JSONDecoder().decode(CompactionSummary.self, from: jsonData)
@@ -686,12 +688,18 @@
 //   let memoryEntitiesEdgesRetractResult = try? JSONDecoder().decode(MemoryEntitiesEdgesRetractResult.self, from: jsonData)
 //   let memoryEntitiesEdgesSetParams = try? JSONDecoder().decode(MemoryEntitiesEdgesSetParams.self, from: jsonData)
 //   let memoryEntitiesEdgesSetResult = try? JSONDecoder().decode(MemoryEntitiesEdgesSetResult.self, from: jsonData)
+//   let memoryEntitiesExcludeParams = try? JSONDecoder().decode(MemoryEntitiesExcludeParams.self, from: jsonData)
+//   let memoryEntitiesExcludeResult = try? JSONDecoder().decode(MemoryEntitiesExcludeResult.self, from: jsonData)
+//   let memoryEntitiesExportParams = try? JSONDecoder().decode(MemoryEntitiesExportParams.self, from: jsonData)
+//   let memoryEntitiesExportResult = try? JSONDecoder().decode(MemoryEntitiesExportResult.self, from: jsonData)
 //   let memoryEntitiesFactsRetractParams = try? JSONDecoder().decode(MemoryEntitiesFactsRetractParams.self, from: jsonData)
 //   let memoryEntitiesFactsRetractResult = try? JSONDecoder().decode(MemoryEntitiesFactsRetractResult.self, from: jsonData)
 //   let memoryEntitiesFactsSetParams = try? JSONDecoder().decode(MemoryEntitiesFactsSetParams.self, from: jsonData)
 //   let memoryEntitiesFactsSetResult = try? JSONDecoder().decode(MemoryEntitiesFactsSetResult.self, from: jsonData)
 //   let memoryEntitiesForgetParams = try? JSONDecoder().decode(MemoryEntitiesForgetParams.self, from: jsonData)
 //   let memoryEntitiesForgetResult = try? JSONDecoder().decode(MemoryEntitiesForgetResult.self, from: jsonData)
+//   let memoryEntitiesForgetSaidParams = try? JSONDecoder().decode(MemoryEntitiesForgetSaidParams.self, from: jsonData)
+//   let memoryEntitiesForgetSaidResult = try? JSONDecoder().decode(MemoryEntitiesForgetSaidResult.self, from: jsonData)
 //   let memoryEntitiesGetParams = try? JSONDecoder().decode(MemoryEntitiesGetParams.self, from: jsonData)
 //   let memoryEntitiesHistoryParams = try? JSONDecoder().decode(MemoryEntitiesHistoryParams.self, from: jsonData)
 //   let memoryEntitiesHistoryResult = try? JSONDecoder().decode(MemoryEntitiesHistoryResult.self, from: jsonData)
@@ -799,9 +807,15 @@
 //   let memoryRunsListResult = try? JSONDecoder().decode(MemoryRunsListResult.self, from: jsonData)
 //   let memorySearchParams = try? JSONDecoder().decode(MemorySearchParams.self, from: jsonData)
 //   let memorySearchResult = try? JSONDecoder().decode(MemorySearchResult.self, from: jsonData)
+//   let memorySendersDecideParams = try? JSONDecoder().decode(MemorySendersDecideParams.self, from: jsonData)
+//   let memorySendersDecideResult = try? JSONDecoder().decode(MemorySendersDecideResult.self, from: jsonData)
+//   let memorySendersListParams = try? JSONDecoder().decode(MemorySendersListParams.self, from: jsonData)
+//   let memorySendersListResult = try? JSONDecoder().decode(MemorySendersListResult.self, from: jsonData)
 //   let memoryStatusParams = try? JSONDecoder().decode(MemoryStatusParams.self, from: jsonData)
 //   let memoryStatusResult = try? JSONDecoder().decode(MemoryStatusResult.self, from: jsonData)
 //   let memorySuggestionCreatedPayload = try? JSONDecoder().decode(MemorySuggestionCreatedPayload.self, from: jsonData)
+//   let memoryUpcomingParams = try? JSONDecoder().decode(MemoryUpcomingParams.self, from: jsonData)
+//   let memoryUpcomingResult = try? JSONDecoder().decode(MemoryUpcomingResult.self, from: jsonData)
 //   let memoryVectorMode = try? JSONDecoder().decode(MemoryVectorMode.self, from: jsonData)
 //   let memoryWriteMode = try? JSONDecoder().decode(MemoryWriteMode.self, from: jsonData)
 //   let memoryWriteParams = try? JSONDecoder().decode(MemoryWriteParams.self, from: jsonData)
@@ -896,6 +910,7 @@
 //   let passkeysRegisterFinishResult = try? JSONDecoder().decode(PasskeysRegisterFinishResult.self, from: jsonData)
 //   let passkeysRemoveParams = try? JSONDecoder().decode(PasskeysRemoveParams.self, from: jsonData)
 //   let permissionMode = try? JSONDecoder().decode(PermissionMode.self, from: jsonData)
+//   let personRemoved = try? JSONDecoder().decode(PersonRemoved.self, from: jsonData)
 //   let personaIdentity = try? JSONDecoder().decode(PersonaIdentity.self, from: jsonData)
 //   let personaUpdatedPayload = try? JSONDecoder().decode(PersonaUpdatedPayload.self, from: jsonData)
 //   let pickableModelRole = try? JSONDecoder().decode(PickableModelRole.self, from: jsonData)
@@ -1090,6 +1105,9 @@
 //   let selfConnectorFile = try? JSONDecoder().decode(SelfConnectorFile.self, from: jsonData)
 //   let selfConnectorFilesResult = try? JSONDecoder().decode(SelfConnectorFilesResult.self, from: jsonData)
 //   let selfConnectorFilesWriteResult = try? JSONDecoder().decode(SelfConnectorFilesWriteResult.self, from: jsonData)
+//   let senderTrust = try? JSONDecoder().decode(SenderTrust.self, from: jsonData)
+//   let senderTrustDecision = try? JSONDecoder().decode(SenderTrustDecision.self, from: jsonData)
+//   let senderTrustState = try? JSONDecoder().decode(SenderTrustState.self, from: jsonData)
 //   let settingEntry = try? JSONDecoder().decode(SettingEntry.self, from: jsonData)
 //   let settings = try? JSONDecoder().decode(Settings.self, from: jsonData)
 //   let settingsChangedPayload = try? JSONDecoder().decode(SettingsChangedPayload.self, from: jsonData)
@@ -12223,6 +12241,7 @@ public struct DailySection: Codable, Sendable {
 
 public enum DailySectionID: String, Codable, Sendable {
     case calendar = "calendar"
+    case comingUp = "coming_up"
     case dailySectionIDOpen = "open"
     case done = "done"
     case due = "due"
@@ -17059,6 +17078,114 @@ public struct MemoryEntitiesEdgesSetResult: Codable, Sendable {
     }
 }
 
+// MARK: - MemoryEntitiesExcludeParams
+public struct MemoryEntitiesExcludeParams: Codable, Sendable {
+    public let dryRun: Bool?
+    public let id: String
+    public let mode: EverythingExclusionMode
+
+    public enum CodingKeys: String, CodingKey {
+        case dryRun = "dryRun"
+        case id = "id"
+        case mode = "mode"
+    }
+
+    public init(dryRun: Bool?, id: String, mode: EverythingExclusionMode) {
+        self.dryRun = dryRun
+        self.id = id
+        self.mode = mode
+    }
+}
+
+/// exclude: read no text, learn nothing; forget: also delete what was learned
+public enum EverythingExclusionMode: String, Codable, Sendable {
+    case exclude = "exclude"
+    case forget = "forget"
+}
+
+// MARK: - MemoryEntitiesExcludeResult
+public struct MemoryEntitiesExcludeResult: Codable, Sendable {
+    public let dryRun: Bool
+    /// Addresses and numbers excluded
+    public let excluded: Int
+    public let removed: PersonRemoved
+
+    public enum CodingKeys: String, CodingKey {
+        case dryRun = "dryRun"
+        case excluded = "excluded"
+        case removed = "removed"
+    }
+
+    public init(dryRun: Bool, excluded: Int, removed: PersonRemoved) {
+        self.dryRun = dryRun
+        self.excluded = excluded
+        self.removed = removed
+    }
+}
+
+// MARK: - PersonRemoved
+public struct PersonRemoved: Codable, Sendable {
+    public let citations: Int
+    public let edges: Int
+    public let facts: Int
+    public let quarantine: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case citations = "citations"
+        case edges = "edges"
+        case facts = "facts"
+        case quarantine = "quarantine"
+    }
+
+    public init(citations: Int, edges: Int, facts: Int, quarantine: Int) {
+        self.citations = citations
+        self.edges = edges
+        self.facts = facts
+        self.quarantine = quarantine
+    }
+}
+
+// MARK: - MemoryEntitiesExportParams
+public struct MemoryEntitiesExportParams: Codable, Sendable {
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+    }
+
+    public init(id: String) {
+        self.id = id
+    }
+}
+
+// MARK: - MemoryEntitiesExportResult
+public struct MemoryEntitiesExportResult: Codable, Sendable {
+    public let bytes: Int
+    /// Base64 zip: person.json (facts with citations and history, relations, loops, claims) and
+    /// the card
+    public let data: String
+    public let filename: String
+    public let mime: MemoryEntitiesExportResultMIME
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case data = "data"
+        case filename = "filename"
+        case mime = "mime"
+    }
+
+    public init(bytes: Int, data: String, filename: String, mime: MemoryEntitiesExportResultMIME) {
+        self.bytes = bytes
+        self.data = data
+        self.filename = filename
+        self.mime = mime
+    }
+}
+
+public enum MemoryEntitiesExportResultMIME: String, Codable, Sendable {
+    case applicationZip = "application/zip"
+}
+
 // MARK: - MemoryEntitiesFactsRetractParams
 public struct MemoryEntitiesFactsRetractParams: Codable, Sendable {
     public let factID: String
@@ -17185,6 +17312,38 @@ public struct Removed: Codable, Sendable {
         self.identifiers = identifiers
         self.interactions = interactions
         self.loops = loops
+    }
+}
+
+// MARK: - MemoryEntitiesForgetSaidParams
+public struct MemoryEntitiesForgetSaidParams: Codable, Sendable {
+    public let dryRun: Bool?
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case dryRun = "dryRun"
+        case id = "id"
+    }
+
+    public init(dryRun: Bool?, id: String) {
+        self.dryRun = dryRun
+        self.id = id
+    }
+}
+
+// MARK: - MemoryEntitiesForgetSaidResult
+public struct MemoryEntitiesForgetSaidResult: Codable, Sendable {
+    public let dryRun: Bool
+    public let removed: PersonRemoved
+
+    public enum CodingKeys: String, CodingKey {
+        case dryRun = "dryRun"
+        case removed = "removed"
+    }
+
+    public init(dryRun: Bool, removed: PersonRemoved) {
+        self.dryRun = dryRun
+        self.removed = removed
     }
 }
 
@@ -17618,12 +17777,6 @@ public enum GraphBlockKind: String, Codable, Sendable {
     case phone = "phone"
 }
 
-/// exclude: read no text, learn nothing; forget: also delete what was learned
-public enum EverythingExclusionMode: String, Codable, Sendable {
-    case exclude = "exclude"
-    case forget = "forget"
-}
-
 // MARK: - MemoryExclusionsAddResult
 public struct MemoryExclusionsAddResult: Codable, Sendable {
     public let entry: EverythingExclusion
@@ -17805,7 +17958,7 @@ public struct MemoryExportResult: Codable, Sendable {
     public let bytes: Int
     public let data: String
     public let filename: String
-    public let mime: MemoryExportResultMIME
+    public let mime: MemoryEntitiesExportResultMIME
 
     public enum CodingKeys: String, CodingKey {
         case bytes = "bytes"
@@ -17814,16 +17967,12 @@ public struct MemoryExportResult: Codable, Sendable {
         case mime = "mime"
     }
 
-    public init(bytes: Int, data: String, filename: String, mime: MemoryExportResultMIME) {
+    public init(bytes: Int, data: String, filename: String, mime: MemoryEntitiesExportResultMIME) {
         self.bytes = bytes
         self.data = data
         self.filename = filename
         self.mime = mime
     }
-}
-
-public enum MemoryExportResultMIME: String, Codable, Sendable {
-    case applicationZip = "application/zip"
 }
 
 // MARK: - MemoryFileChangedPayload
@@ -19469,6 +19618,83 @@ public struct MemoryHit: Codable, Sendable {
     }
 }
 
+// MARK: - MemorySendersDecideParams
+public struct MemorySendersDecideParams: Codable, Sendable {
+    public let decision: SenderTrustDecision
+    public let entityID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case decision = "decision"
+        case entityID = "entityId"
+    }
+
+    public init(decision: SenderTrustDecision, entityID: String) {
+        self.decision = decision
+        self.entityID = entityID
+    }
+}
+
+public enum SenderTrustDecision: String, Codable, Sendable {
+    case decline = "decline"
+    case revoke = "revoke"
+    case trust = "trust"
+}
+
+// MARK: - MemorySendersDecideResult
+public struct MemorySendersDecideResult: Codable, Sendable {
+    public let senders: [SenderTrust]
+
+    public enum CodingKeys: String, CodingKey {
+        case senders = "senders"
+    }
+
+    public init(senders: [SenderTrust]) {
+        self.senders = senders
+    }
+}
+
+// MARK: - SenderTrust
+public struct SenderTrust: Codable, Sendable {
+    /// Facts the owner confirmed from them, none discarded
+    public let confirmed: Int
+    public let entityID: String
+    /// A display name from a mail header: untrusted text
+    public let name: String
+    public let state: SenderTrustState
+
+    public enum CodingKeys: String, CodingKey {
+        case confirmed = "confirmed"
+        case entityID = "entityId"
+        case name = "name"
+        case state = "state"
+    }
+
+    public init(confirmed: Int, entityID: String, name: String, state: SenderTrustState) {
+        self.confirmed = confirmed
+        self.entityID = entityID
+        self.name = name
+        self.state = state
+    }
+}
+
+public enum SenderTrustState: String, Codable, Sendable {
+    case offered = "offered"
+    case trusted = "trusted"
+}
+
+// MARK: - MemorySendersListResult
+public struct MemorySendersListResult: Codable, Sendable {
+    public let senders: [SenderTrust]
+
+    public enum CodingKeys: String, CodingKey {
+        case senders = "senders"
+    }
+
+    public init(senders: [SenderTrust]) {
+        self.senders = senders
+    }
+}
+
 // MARK: - MemoryStatusResult
 public struct MemoryStatusResult: Codable, Sendable {
     public let chunks: Int
@@ -19566,6 +19792,78 @@ public struct MemorySuggestionCreatedPayload: Codable, Sendable {
     public init(suggestion: GraphSuggestion) {
         self.suggestion = suggestion
     }
+}
+
+// MARK: - MemoryUpcomingParams
+public struct MemoryUpcomingParams: Codable, Sendable {
+    /// Default 14
+    public let days: Int?
+    public let entityID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case days = "days"
+        case entityID = "entityId"
+    }
+
+    public init(days: Int?, entityID: String?) {
+        self.days = days
+        self.entityID = entityID
+    }
+}
+
+// MARK: - MemoryUpcomingResult
+public struct MemoryUpcomingResult: Codable, Sendable {
+    public let items: [ComingUpItem]
+
+    public enum CodingKeys: String, CodingKey {
+        case items = "items"
+    }
+
+    public init(items: [ComingUpItem]) {
+        self.items = items
+    }
+}
+
+// MARK: - ComingUpItem
+public struct ComingUpItem: Codable, Sendable {
+    /// Next occurrence, local date
+    public let date: String
+    public let daysAway: Int
+    public let entityID: String
+    public let kind: ComingUpKind
+    public let lastContactAt: String?
+    public let name: String
+    /// One plain line, built from names and dates
+    public let text: String
+    public let turns: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case date = "date"
+        case daysAway = "daysAway"
+        case entityID = "entityId"
+        case kind = "kind"
+        case lastContactAt = "lastContactAt"
+        case name = "name"
+        case text = "text"
+        case turns = "turns"
+    }
+
+    public init(date: String, daysAway: Int, entityID: String, kind: ComingUpKind, lastContactAt: String?, name: String, text: String, turns: Int?) {
+        self.date = date
+        self.daysAway = daysAway
+        self.entityID = entityID
+        self.kind = kind
+        self.lastContactAt = lastContactAt
+        self.name = name
+        self.text = text
+        self.turns = turns
+    }
+}
+
+public enum ComingUpKind: String, Codable, Sendable {
+    case anniversary = "anniversary"
+    case birthday = "birthday"
+    case event = "event"
 }
 
 // MARK: - MemoryWriteParams
@@ -31192,6 +31490,7 @@ public typealias MemoryGraphBlocklistListParams = [String: JSONAny]
 public typealias MemoryGraphStatusParams = [String: JSONAny]
 public typealias MemoryNotesListParams = [String: JSONAny]
 public typealias MemoryPersonaGetParams = [String: JSONAny]
+public typealias MemorySendersListParams = [String: JSONAny]
 public typealias MemoryStatusParams = [String: JSONAny]
 public typealias ModelsListParams = [String: JSONAny]
 public typealias NodesListParams = [String: JSONAny]

@@ -17,6 +17,8 @@ const ALLOWED: Record<string, string> = {
   "chat/FollowUpQueue.tsx": "composer-attached queue",
   "chat/Thread.tsx": "composer and thread chrome",
   "chat/ThreadChrome.tsx": "thread header chrome",
+  "overview/SummarySection.tsx":
+    "the stat ledger is one sheet ruled by hairlines; its placeholder cells share that surface",
   "people/EntityCard.tsx": "people sheet cards; Output-class migration (phase 6)",
   "people/SuggestionCard.tsx": "people sheet cards; Output-class migration (phase 6)",
   "specialists/FeedResults.tsx": "Feed surface; specialist results become blocks in phase 6",

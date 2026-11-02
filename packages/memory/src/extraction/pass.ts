@@ -130,6 +130,7 @@ export function validationSettings(settings: EverythingMemorySettings): Validati
     // What one person says about another: off unless the owner allows it (EM5); always pending.
     allowAboutOther: settings.people.aboutOthers,
     autoAcceptOwnerAuthored: settings.review.autoAcceptOwnerAuthored,
+    autoAcceptSelfDisclosure: settings.review.autoAcceptSelfDisclosure,
   };
 }
 

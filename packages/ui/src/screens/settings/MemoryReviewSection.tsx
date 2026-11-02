@@ -4,6 +4,7 @@ import type { ReactElement } from "react";
 import { t } from "../../i18n/core.ts";
 import { useMemoryReview } from "../../memory/hooks.ts";
 import { MemoryReviewPanel } from "../../memory/MemoryReviewPanel.tsx";
+import { SenderOffers } from "../../memory/SenderOffers.tsx";
 import { usePersona } from "../../slots.tsx";
 import { Group, LoadGate, SectionFrame, SwitchField, useSettingsForm } from "./shared.tsx";
 
@@ -74,6 +75,7 @@ export function MemoryReviewSection(): ReactElement {
             held: review.counts.quarantined,
           })}
         </p>
+        <SenderOffers senders={review.senders} busy={review.busy} onDecide={review.decideSender} />
         <MemoryReviewPanel
           pending={review.pending}
           recent={review.recent}
