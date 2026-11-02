@@ -1807,6 +1807,14 @@
         "sideEffecting": true
       },
       {
+        "description": "Runs the everything-memory pass now, under the same limits (power, thermal, model, budget) except quiet hours and idle time. Returns counts, or why it did not run. Side-effecting.",
+        "name": "memory.everything.run",
+        "params": "#/$defs/MemoryEverythingRunParams",
+        "result": "#/$defs/EverythingRunResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "Excludes an address, number or whole domain. With mode forget, also deletes what was learned from people who use it. Side-effecting.",
         "name": "memory.exclusions.add",
         "params": "#/$defs/MemoryExclusionsAddParams",
@@ -16913,6 +16921,70 @@
       ],
       "type": "object"
     },
+    "EverythingRunReason": {
+      "description": "Why a pass did not run",
+      "enum": [
+        "disabled",
+        "no_sources",
+        "model_none",
+        "battery",
+        "low_power",
+        "thermal",
+        "not_idle",
+        "outside_quiet_hours",
+        "local_not_confirmed",
+        "low_memory",
+        "no_owner_entity",
+        "busy"
+      ],
+      "type": "string"
+    },
+    "EverythingRunResult": {
+      "properties": {
+        "ran": {
+          "type": "boolean"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EverythingRunReason"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "itemsRead": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "factsProposed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "quarantined": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "deferred": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tokens": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ran",
+        "itemsRead",
+        "factsProposed",
+        "quarantined",
+        "deferred",
+        "tokens"
+      ],
+      "type": "object"
+    },
     "EverythingScheduleSetting": {
       "properties": {
         "quietHoursStart": {
@@ -24705,6 +24777,10 @@
         "kind",
         "changed"
       ],
+      "type": "object"
+    },
+    "MemoryEverythingRunParams": {
+      "properties": {},
       "type": "object"
     },
     "MemoryExclusionsAddParams": {

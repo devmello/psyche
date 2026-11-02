@@ -2,6 +2,7 @@ import type { EverythingMemorySettings } from "@psyche/protocol";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
+import type { FixtureWorld } from "../src/fixtures/index.ts";
 import { estimateBackfill, estimateMonthly, formatUsd } from "../src/memory/estimate.ts";
 import { EverythingMemorySection } from "../src/screens/settings/EverythingMemorySection.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
@@ -12,9 +13,9 @@ let gateway: MockGateway;
 const stored = () =>
   gateway.world.settings["memory.everything"] as EverythingMemorySettings | undefined;
 
-function show() {
+function show(edit?: (w: FixtureWorld) => void) {
   return render(
-    <StoryWorld onGateway={(g) => (gateway = g)}>
+    <StoryWorld {...(edit ? { edit } : {})} onGateway={(g) => (gateway = g)}>
       <EverythingMemorySection />
     </StoryWorld>,
   );
@@ -188,6 +189,47 @@ describe("Settings → Everything memory", () => {
     fireEvent.click(sw);
     await waitFor(() => expect(stored()?.people.aboutOthers).toBe(true));
     expect(stored()?.people.default).toBe("two_way");
+  });
+
+  async function turnedOn(edit?: Parameters<typeof show>[0]) {
+    show(edit);
+    fireEvent.click(await screen.findByRole("switch", { name: "Everything memory" }));
+    const dialog = await screen.findByTestId("everything-consent");
+    for (let i = 0; i < 4; i++) next();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Turn on" }));
+    return screen.findByRole("button", { name: "Run now" });
+  }
+
+  it("Run now shows the estimate first and then what was read", async () => {
+    const run = await turnedOn();
+    expect(screen.getByTestId("run-estimate").textContent).toMatch(/Free/);
+    fireEvent.click(run);
+    expect((await screen.findByTestId("run-result")).textContent).toMatch(
+      /Read 12 items: 3 facts proposed, 1 held back\./,
+    );
+  });
+
+  it("Run now says why it did not run, in plain words", async () => {
+    const run = await turnedOn((w) => {
+      w.review = {
+        items: [],
+        quarantine: [],
+        runs: [],
+        runResult: {
+          ran: false,
+          reason: "battery",
+          itemsRead: 0,
+          factsProposed: 0,
+          quarantined: 0,
+          deferred: 0,
+          tokens: 0,
+        },
+      };
+    });
+    fireEvent.click(run);
+    expect((await screen.findByTestId("run-result")).textContent).toBe(
+      "Not now: the Mac is on battery. Plug it in, or allow battery runs.",
+    );
   });
 });
 

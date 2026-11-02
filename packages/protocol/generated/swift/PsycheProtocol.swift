@@ -468,6 +468,8 @@
 //   let everythingProcessingModel = try? JSONDecoder().decode(EverythingProcessingModel.self, from: jsonData)
 //   let everythingRetentionSetting = try? JSONDecoder().decode(EverythingRetentionSetting.self, from: jsonData)
 //   let everythingReviewSetting = try? JSONDecoder().decode(EverythingReviewSetting.self, from: jsonData)
+//   let everythingRunReason = try? JSONDecoder().decode(EverythingRunReason.self, from: jsonData)
+//   let everythingRunResult = try? JSONDecoder().decode(EverythingRunResult.self, from: jsonData)
 //   let everythingScheduleSetting = try? JSONDecoder().decode(EverythingScheduleSetting.self, from: jsonData)
 //   let everythingSensitiveClass = try? JSONDecoder().decode(EverythingSensitiveClass.self, from: jsonData)
 //   let everythingSensitiveSwitches = try? JSONDecoder().decode(EverythingSensitiveSwitches.self, from: jsonData)
@@ -718,6 +720,7 @@
 //   let memoryEntitiesUpdateParams = try? JSONDecoder().decode(MemoryEntitiesUpdateParams.self, from: jsonData)
 //   let memoryEntitiesUpdateResult = try? JSONDecoder().decode(MemoryEntitiesUpdateResult.self, from: jsonData)
 //   let memoryEntityUpdatedPayload = try? JSONDecoder().decode(MemoryEntityUpdatedPayload.self, from: jsonData)
+//   let memoryEverythingRunParams = try? JSONDecoder().decode(MemoryEverythingRunParams.self, from: jsonData)
 //   let memoryExclusionsAddParams = try? JSONDecoder().decode(MemoryExclusionsAddParams.self, from: jsonData)
 //   let memoryExclusionsAddResult = try? JSONDecoder().decode(MemoryExclusionsAddResult.self, from: jsonData)
 //   let memoryExclusionsListParams = try? JSONDecoder().decode(MemoryExclusionsListParams.self, from: jsonData)
@@ -12035,6 +12038,53 @@ public struct EverythingSourceSwitches: Codable, Sendable {
         self.reminders = reminders
         self.transcripts = transcripts
     }
+}
+
+// MARK: - EverythingRunResult
+public struct EverythingRunResult: Codable, Sendable {
+    public let deferred: Int
+    public let factsProposed: Int
+    public let itemsRead: Int
+    public let quarantined: Int
+    public let ran: Bool
+    public let reason: EverythingRunReason?
+    public let tokens: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case deferred = "deferred"
+        case factsProposed = "factsProposed"
+        case itemsRead = "itemsRead"
+        case quarantined = "quarantined"
+        case ran = "ran"
+        case reason = "reason"
+        case tokens = "tokens"
+    }
+
+    public init(deferred: Int, factsProposed: Int, itemsRead: Int, quarantined: Int, ran: Bool, reason: EverythingRunReason?, tokens: Int) {
+        self.deferred = deferred
+        self.factsProposed = factsProposed
+        self.itemsRead = itemsRead
+        self.quarantined = quarantined
+        self.ran = ran
+        self.reason = reason
+        self.tokens = tokens
+    }
+}
+
+/// Why a pass did not run
+public enum EverythingRunReason: String, Codable, Sendable {
+    case battery = "battery"
+    case busy = "busy"
+    case disabled = "disabled"
+    case localNotConfirmed = "local_not_confirmed"
+    case lowMemory = "low_memory"
+    case lowPower = "low_power"
+    case modelNone = "model_none"
+    case noOwnerEntity = "no_owner_entity"
+    case noSources = "no_sources"
+    case notIdle = "not_idle"
+    case outsideQuietHours = "outside_quiet_hours"
+    case thermal = "thermal"
 }
 
 public enum EverythingSensitiveClass: String, Codable, Sendable {
@@ -31493,6 +31543,7 @@ public typealias GrowthUpdatedPayload = [String: JSONAny]
 public typealias MCPStatusParams = [String: JSONAny]
 public typealias MeetingsRecordPushResult = [String: JSONAny]
 public typealias MeetingsRecordStatusParams = [String: JSONAny]
+public typealias MemoryEverythingRunParams = [String: JSONAny]
 public typealias MemoryExclusionsListParams = [String: JSONAny]
 public typealias MemoryExportParams = [String: JSONAny]
 public typealias MemoryGraphBlocklistListParams = [String: JSONAny]
