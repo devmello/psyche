@@ -407,10 +407,9 @@ export function Sidebar({
             className="size-4 shrink-0 text-label-secondary"
           />
           <span className="min-w-0 flex-1 truncate">{searchLabel}</span>
-          {/* i18n-ignore: a key chord */}
-          <span aria-hidden="true" className="shrink-0 text-callout text-label-tertiary">
+          <kbd aria-hidden="true" className="shrink-0 font-sans text-callout text-label-tertiary">
             ⌘K
-          </span>
+          </kbd>
         </button>
       </li>
     )
