@@ -248,6 +248,46 @@ describe("WidgetStore", () => {
     });
   });
 
+  it("pins at most 6 across the app, publishes the change, and unpinning is always allowed (D5)", () => {
+    const ids = Array.from({ length: 7 }, (_, i) => mk(`P${i}`, i < 4 ? "thr_1" : "thr_2").id);
+    for (const id of ids.slice(0, 6)) store.setPinned(id, true);
+    expect(getWidget(db, ids[0] as string)?.pinned).toBe(true);
+    expect(events.filter((e) => e.payload.pinned === true)).toHaveLength(6);
+    expect(() => store.setPinned(ids[6] as string, true)).toThrow(/up to 6/);
+    expect(store.setPinned(ids[0] as string, false).pinned).toBe(false);
+    expect(store.setPinned(ids[6] as string, true).pinned).toBe(true);
+    expect(() => store.setPinned("nope", true)).toThrow(/No such widget/);
+    // Idempotent: pinning a pinned widget publishes nothing new.
+    const n = events.length;
+    store.setPinned(ids[6] as string, true);
+    expect(events).toHaveLength(n);
+  });
+
+  it("a pinned widget bound to a live entity does not freeze after 7 idle days; an unbound one does", () => {
+    const bound = store.create({
+      threadId: "thr_1",
+      messageId: "m",
+      spec: spec({
+        root: {
+          id: "p",
+          type: "status",
+          tone: "neutral",
+          label: "x",
+          bind: { source: "automation", id: "a", field: "status" },
+        } as never,
+      }),
+      taint: [],
+      owner,
+    });
+    const plain = mk("plain");
+    store.setPinned(bound.id, true);
+    store.setPinned(plain.id, true);
+    now += 8 * 24 * 60 * 60 * 1000;
+    const listed = Object.fromEntries(store.list("thr_1").map((w) => [w.id, w.state]));
+    expect(listed[bound.id]).toBe("live");
+    expect(listed[plain.id]).toBe("frozen");
+  });
+
   it("freezes after 7 days without a patch", () => {
     const w = mk();
     now += 8 * 24 * 60 * 60 * 1000;

@@ -141,6 +141,7 @@ export const Events = {
       ),
       ops: Type.Array(WidgetOp, { description: "Empty when only `state` changed" }),
       state: Type.Optional(WidgetState),
+      pinned: Type.Optional(Type.Boolean({ description: "Set when the pin changed" })),
     }),
     description:
       "A generative-UI widget was patched (rev is the order; apply only when fromRev (default rev - 1) == local rev, else refetch with widgets.get), or froze.",

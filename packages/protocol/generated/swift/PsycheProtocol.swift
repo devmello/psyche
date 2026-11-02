@@ -489,6 +489,7 @@
 //   let feedPostPayload = try? JSONDecoder().decode(FeedPostPayload.self, from: jsonData)
 //   let feedPostRefs = try? JSONDecoder().decode(FeedPostRefs.self, from: jsonData)
 //   let feedUpdatedPayload = try? JSONDecoder().decode(FeedUpdatedPayload.self, from: jsonData)
+//   let feedWidget = try? JSONDecoder().decode(FeedWidget.self, from: jsonData)
 //   let feedbackDeleteParams = try? JSONDecoder().decode(FeedbackDeleteParams.self, from: jsonData)
 //   let feedbackEvent = try? JSONDecoder().decode(FeedbackEvent.self, from: jsonData)
 //   let feedbackGiveParams = try? JSONDecoder().decode(FeedbackGiveParams.self, from: jsonData)
@@ -1421,6 +1422,10 @@
 //   let widgetsGetResult = try? JSONDecoder().decode(WidgetsGetResult.self, from: jsonData)
 //   let widgetsImageParams = try? JSONDecoder().decode(WidgetsImageParams.self, from: jsonData)
 //   let widgetsImageResult = try? JSONDecoder().decode(WidgetsImageResult.self, from: jsonData)
+//   let widgetsListParams = try? JSONDecoder().decode(WidgetsListParams.self, from: jsonData)
+//   let widgetsListResult = try? JSONDecoder().decode(WidgetsListResult.self, from: jsonData)
+//   let widgetsPinParams = try? JSONDecoder().decode(WidgetsPinParams.self, from: jsonData)
+//   let widgetsPinResult = try? JSONDecoder().decode(WidgetsPinResult.self, from: jsonData)
 //   let widgetsPreviewParams = try? JSONDecoder().decode(WidgetsPreviewParams.self, from: jsonData)
 //   let widgetsPreviewResult = try? JSONDecoder().decode(WidgetsPreviewResult.self, from: jsonData)
 //   let workflowCard = try? JSONDecoder().decode(WorkflowCard.self, from: jsonData)
@@ -12206,6 +12211,7 @@ public struct FeedPost: Codable, Sendable {
     public let refs: FeedPostRefs?
     public let score: Double
     public let title: String
+    public let widget: FeedWidget?
 
     public enum CodingKeys: String, CodingKey {
         case bodyMd = "bodyMd"
@@ -12223,9 +12229,10 @@ public struct FeedPost: Codable, Sendable {
         case refs = "refs"
         case score = "score"
         case title = "title"
+        case widget = "widget"
     }
 
-    public init(bodyMd: String, briefingID: String?, card: WorkflowCard?, citations: [Citation], cluster: [String: JSONAny]?, createdAt: String, exploration: Bool, feedback: FeedFeedback?, growth: GrowthCard?, id: String, kind: FeedPostKind?, reasons: [String], refs: FeedPostRefs?, score: Double, title: String) {
+    public init(bodyMd: String, briefingID: String?, card: WorkflowCard?, citations: [Citation], cluster: [String: JSONAny]?, createdAt: String, exploration: Bool, feedback: FeedFeedback?, growth: GrowthCard?, id: String, kind: FeedPostKind?, reasons: [String], refs: FeedPostRefs?, score: Double, title: String, widget: FeedWidget?) {
         self.bodyMd = bodyMd
         self.briefingID = briefingID
         self.card = card
@@ -12241,6 +12248,7 @@ public struct FeedPost: Codable, Sendable {
         self.refs = refs
         self.score = score
         self.title = title
+        self.widget = widget
     }
 }
 
@@ -12968,6 +12976,44 @@ public struct FeedPostRefs: Codable, Sendable {
         self.nudgeID = nudgeID
         self.proposalIDS = proposalIDS
         self.threads = threads
+    }
+}
+
+// MARK: - FeedWidget
+public struct FeedWidget: Codable, Sendable {
+    public let spec: WidgetSpec
+    public let taint: [TaintSource]
+
+    public enum CodingKeys: String, CodingKey {
+        case spec = "spec"
+        case taint = "taint"
+    }
+
+    public init(spec: WidgetSpec, taint: [TaintSource]) {
+        self.spec = spec
+        self.taint = taint
+    }
+}
+
+// MARK: - WidgetSpec
+public struct WidgetSpec: Codable, Sendable {
+    public let fallbackText: String
+    public let root: [String: JSONAny]
+    public let title: String
+    public let v: Double
+
+    public enum CodingKeys: String, CodingKey {
+        case fallbackText = "fallbackText"
+        case root = "root"
+        case title = "title"
+        case v = "v"
+    }
+
+    public init(fallbackText: String, root: [String: JSONAny], title: String, v: Double) {
+        self.fallbackText = fallbackText
+        self.root = root
+        self.title = title
+        self.v = v
     }
 }
 
@@ -31794,6 +31840,8 @@ public struct WidgetUpdatedPayload: Codable, Sendable {
     public let fromRev: Int?
     /// Empty when only `state` changed
     public let ops: [WidgetOp]
+    /// Set when the pin changed
+    public let pinned: Bool?
     public let rev: Int
     public let state: WidgetState?
     public let threadID: String
@@ -31802,15 +31850,17 @@ public struct WidgetUpdatedPayload: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case fromRev = "fromRev"
         case ops = "ops"
+        case pinned = "pinned"
         case rev = "rev"
         case state = "state"
         case threadID = "threadId"
         case widgetID = "widgetId"
     }
 
-    public init(fromRev: Int?, ops: [WidgetOp], rev: Int, state: WidgetState?, threadID: String, widgetID: String) {
+    public init(fromRev: Int?, ops: [WidgetOp], pinned: Bool?, rev: Int, state: WidgetState?, threadID: String, widgetID: String) {
         self.fromRev = fromRev
         self.ops = ops
+        self.pinned = pinned
         self.rev = rev
         self.state = state
         self.threadID = threadID
@@ -31966,28 +32016,6 @@ public enum WidgetOwnerKind: String, Codable, Sendable {
     case task = "task"
 }
 
-// MARK: - WidgetSpec
-public struct WidgetSpec: Codable, Sendable {
-    public let fallbackText: String
-    public let root: [String: JSONAny]
-    public let title: String
-    public let v: Double
-
-    public enum CodingKeys: String, CodingKey {
-        case fallbackText = "fallbackText"
-        case root = "root"
-        case title = "title"
-        case v = "v"
-    }
-
-    public init(fallbackText: String, root: [String: JSONAny], title: String, v: Double) {
-        self.fallbackText = fallbackText
-        self.root = root
-        self.title = title
-        self.v = v
-    }
-}
-
 // MARK: - WidgetsImageParams
 public struct WidgetsImageParams: Codable, Sendable {
     public let url: String
@@ -32026,6 +32054,61 @@ public enum WidgetsImageResultMIME: String, Codable, Sendable {
     case imageJPEG = "image/jpeg"
     case imagePNG = "image/png"
     case imageWebp = "image/webp"
+}
+
+// MARK: - WidgetsListParams
+public struct WidgetsListParams: Codable, Sendable {
+    public let pinned: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case pinned = "pinned"
+    }
+
+    public init(pinned: Bool) {
+        self.pinned = pinned
+    }
+}
+
+// MARK: - WidgetsListResult
+public struct WidgetsListResult: Codable, Sendable {
+    public let widgets: [Widget]
+
+    public enum CodingKeys: String, CodingKey {
+        case widgets = "widgets"
+    }
+
+    public init(widgets: [Widget]) {
+        self.widgets = widgets
+    }
+}
+
+// MARK: - WidgetsPinParams
+public struct WidgetsPinParams: Codable, Sendable {
+    public let pinned: Bool
+    public let widgetID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case pinned = "pinned"
+        case widgetID = "widgetId"
+    }
+
+    public init(pinned: Bool, widgetID: String) {
+        self.pinned = pinned
+        self.widgetID = widgetID
+    }
+}
+
+// MARK: - WidgetsPinResult
+public struct WidgetsPinResult: Codable, Sendable {
+    public let widget: Widget
+
+    public enum CodingKeys: String, CodingKey {
+        case widget = "widget"
+    }
+
+    public init(widget: Widget) {
+        self.widget = widget
+    }
 }
 
 // MARK: - WidgetsPreviewParams

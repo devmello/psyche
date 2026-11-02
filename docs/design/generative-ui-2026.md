@@ -2,7 +2,7 @@
 
 Owner request, 2026-10-29: "generative UI where the agent can generate UI to make the progress, the tasks, widgets, in the chat live so that we don't need to create it before."
 
-Status: **plan only**. Nothing here is built. Owner decisions are collected in §11, each with a recommendation.
+Status: **built** (phases P1–P8, 2026-11). Owner decisions are collected in §11, each with the owner's answer. P9 (progressive drafts, MCP Apps, map tiles) remains a later phase. The security rules for widget actions are in docs/05 §3.14.
 
 ## 1. Summary
 

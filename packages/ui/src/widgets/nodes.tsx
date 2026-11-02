@@ -15,6 +15,7 @@ import {
   type ReactElement,
   type ReactNode,
   Suspense,
+  useContext,
   useId,
   useMemo,
   useRef,
@@ -25,6 +26,7 @@ import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { SafeLink } from "../links/SafeLink.tsx";
 import { BoundNode } from "./bound.tsx";
+import { WidgetContext } from "./context.ts";
 import { ButtonNode, ChoicesNode, FormNode, ListRowAction } from "./interactive.tsx";
 import { TONE_ICON, TONE_TEXT } from "./tone.ts";
 
@@ -465,9 +467,17 @@ function Children({
 const MAX_DEPTH = WIDGET_LIMITS.depth + 2;
 
 export function RenderNode({ node, depth }: { node: N; depth: number }): ReactElement | null {
+  const surface = useContext(WidgetContext)?.surface ?? "chat";
   if (depth > MAX_DEPTH) return null;
   // A bound node is drawn from a live entity; the bound renderer calls back here with props merged.
-  if (node.bind && typeof node.bind === "object") return <BoundNode node={node} depth={depth} />;
+  if (node.bind && typeof node.bind === "object") {
+    // A Feed snapshot is static (D8): it never subscribes to anything.
+    if (surface === "feed") {
+      const { bind: _static, ...rest } = node;
+      return <RenderNode node={rest} depth={depth} />;
+    }
+    return <BoundNode node={node} depth={depth} />;
+  }
   const n = node;
   switch (n.type) {
     case "stack":

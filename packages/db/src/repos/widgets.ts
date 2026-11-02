@@ -1,5 +1,5 @@
 import type { TaintSource, Widget, WidgetOwner, WidgetSpec } from "@psyche/protocol";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import type { PsycheDb } from "../open.ts";
 import { type WidgetRow, widgets } from "../schema.ts";
 
@@ -130,6 +130,17 @@ export function updateWidget(
       .get();
     return widgetFromRow(next);
   })();
+}
+
+/** The pinned widgets, most recently updated first. */
+export function listPinnedWidgets(db: PsycheDb): Widget[] {
+  return db.drizzle
+    .select()
+    .from(widgets)
+    .where(eq(widgets.pinned, 1))
+    .orderBy(desc(widgets.updatedAt))
+    .all()
+    .map(widgetFromRow);
 }
 
 export function countPinnedWidgets(db: PsycheDb): number {

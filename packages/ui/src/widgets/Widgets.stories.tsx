@@ -1,6 +1,7 @@
 import type { Widget } from "@psyche/protocol";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { IDS } from "../fixtures/index.ts";
+import { createFixtureWorld, IDS } from "../fixtures/index.ts";
+import { FeedPostCard } from "../screens/feed/FeedPostCard.tsx";
 import { StoryWorld } from "../stories/harness.tsx";
 import {
   dataWidget,
@@ -19,6 +20,8 @@ import {
   remoteImageTaintedWidget,
   remoteImageWidget,
 } from "./fixtures-media.ts";
+import { withFeedWidget } from "./fixtures-surfaces.ts";
+import { PinnedWidgets } from "./PinnedWidgets.tsx";
 import { WidgetBlockView } from "./WidgetBlock.tsx";
 
 const meta = {
@@ -97,3 +100,37 @@ export const PlaceList: Story = showWith(mapWidget);
 
 /** Reply button, choices, a form and a list action: outline controls, nothing fires by itself. */
 export const Interactive: Story = showWith(interactiveWidget);
+
+/** Pinned widgets on the Overview: live through their bindings, open and reply only. */
+export const PinnedOnOverview: Story = {
+  render: () => (
+    <StoryWorld
+      edit={(w) => {
+        w.widgets = [
+          { ...boundWidget(IDS.tasks.dentist, IDS.threads.dentist), pinned: true },
+          { ...progressWidget, pinned: true },
+        ];
+      }}
+    >
+      <div className="max-w-[640px] p-4">
+        <PinnedWidgets />
+      </div>
+    </StoryWorld>
+  ),
+};
+
+/** A Feed post's widget: a static snapshot, open and reply only, taint carried. */
+export const FeedSnapshot: Story = {
+  render: () => {
+    const post = createFixtureWorld().feed.find((f) => f.id === IDS.feed.briefing);
+    return (
+      <StoryWorld>
+        <div className="max-w-[640px] p-4">
+          {post ? (
+            <FeedPostCard post={withFeedWidget(post)} onFeedback={() => {}} onAsk={() => {}} />
+          ) : null}
+        </div>
+      </StoryWorld>
+    );
+  },
+};

@@ -15,6 +15,7 @@ import { formatTime } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
 import { SafeLink } from "../../links/SafeLink.tsx";
 import { GrowthCardItems } from "../../teaching/GrowthCard.tsx";
+import { FeedWidgetView } from "../../widgets/WidgetBlock.tsx";
 import { ProposalBatchCard } from "../workflows/BatchCard.tsx";
 import { WorkflowPostCard } from "../workflows/WorkflowPostCard.tsx";
 import {
@@ -103,6 +104,7 @@ function StandardPostCard({
       <Markdown className="text-reading text-label-primary [&_a]:text-inherit [&_a]:underline [&_a]:decoration-dotted [&_a]:underline-offset-2 [&_a:hover]:decoration-solid [&_a]:rounded-sm [&_a:focus-visible]:outline-2 [&_a:focus-visible]:outline-ring">
         {withCitationLinks(post.bodyMd, post.citations)}
       </Markdown>
+      {post.widget ? <FeedWidgetView postId={post.id} snapshot={post.widget} /> : null}
       {/* The weekly "What I learned" card (teaching loop §5.4): its review items. */}
       {post.growth ? <GrowthCardItems postId={post.id} card={post.growth} /> : null}
       {proposalIds.length > 0 ? (

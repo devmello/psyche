@@ -101,7 +101,7 @@ function RemoteImage({ url, alt }: { url: string; alt: string }): ReactElement {
   const ctx = useContext(WidgetContext);
   const { settings } = useSettings();
   const store = useStore();
-  const on = settings["widgets.remoteImages"] === true;
+  const on = settings["widgets.remoteImages"] === true && ctx?.surface !== "feed";
   const [state, show, setState] = useBlobUrl();
   const [clicked, setClicked] = useState(false);
   const tainted = ctx?.tainted ?? true;

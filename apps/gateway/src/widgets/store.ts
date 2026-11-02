@@ -1,4 +1,5 @@
 import {
+  countPinnedWidgets,
   getWidget,
   insertWidget,
   listLiveWidgetsOwnedBy,
@@ -198,6 +199,30 @@ export class WidgetStore {
     return n;
   }
 
+  /**
+   * Pin to the Overview (D5): at most 6 across the app; the widget keeps its bindings and taint.
+   * Unpinning is always allowed. Returns the widget as it now is.
+   */
+  setPinned(widgetId: string, pinned: boolean): Widget {
+    const w = getWidget(this.#db, widgetId);
+    if (w === null) throw new PsycheError("not_found", "No such widget.");
+    if (w.pinned === pinned) return w;
+    if (pinned && countPinnedWidgets(this.#db) >= WIDGET_LIMITS.pinned) {
+      throw new PsycheError(
+        "conflict",
+        `You can pin up to ${WIDGET_LIMITS.pinned} widgets to the Overview. Unpin one first.`,
+      );
+    }
+    const next = updateWidget(this.#db, w.id, w.rev, { pinned, updatedAt: w.updatedAt });
+    if (next === null) throw new PsycheError("conflict", "The widget changed; try again.");
+    this.#publish(
+      "widget.updated",
+      { widgetId: w.id, threadId: w.threadId, rev: next.rev, ops: [], pinned },
+      w.threadId,
+    );
+    return next;
+  }
+
   /** Publishes anything still waiting (shutdown, tests). */
   flush(): void {
     for (const id of [...this.#pending.keys()]) this.#emit(id);
@@ -227,6 +252,8 @@ export class WidgetStore {
   #freezeIdle(threadId: string): void {
     const cutoff = this.#now() - WIDGET_IDLE_FREEZE_MS;
     for (const w of listThreadWidgets(this.#db, threadId, { state: "live" })) {
+      // A pinned widget bound to a live entity stays current without patches (§5.4, D5).
+      if (w.pinned && collectWidgetBinds(w.spec.root).length > 0) continue;
       if (Date.parse(w.updatedAt) < cutoff) this.#freeze(w);
     }
   }

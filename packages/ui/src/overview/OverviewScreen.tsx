@@ -8,6 +8,7 @@ import { cn } from "../lib/utils.ts";
 import { ScreenToolbar } from "../screens/feed/ScreenToolbar.tsx";
 import { SegmentedRadio } from "../screens/settings/SegmentedRadio.tsx";
 import { usePersona } from "../slots.tsx";
+import { PinnedWidgets } from "../widgets/PinnedWidgets.tsx";
 import { OverviewActivity } from "./ActivitySection.tsx";
 import { BuiltForYou, Specialists } from "./BuiltSpecialists.tsx";
 import { isNewUser, type OverviewData, useOverviewData } from "./data.ts";
@@ -125,6 +126,7 @@ export function OverviewScreen({
           <h2 className="sr-only">{t("overview.screen")}</h2>
           {fresh ? <GettingToKnowYou name={persona.name} onTry={onTry} /> : null}
           {fresh ? null : <OverviewSummary period={period} onNavigate={onNavigate} />}
+          <PinnedWidgets />
           {visible.map((id) =>
             id === "now" ? (
               <NowSection key={id} {...(now === undefined ? {} : { now })} />

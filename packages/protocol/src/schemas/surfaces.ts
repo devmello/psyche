@@ -1,6 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, JsonObject, ModelRef, Nullable, StringEnum, Surface } from "../common.ts";
 import { GrowthCard } from "./learning.ts";
+import { FeedWidget } from "./widgets.ts";
 import { FeedPostKind, FeedPostRefs, WorkflowCard } from "./workflows.ts";
 
 /** Data model §8 (proactive), §9 (library), §10 (usage, settings). */
@@ -37,6 +38,8 @@ export const FeedPost = Type.Object(
     card: Type.Optional(WorkflowCard),
     /** Set on the weekly "What I learned" post (teaching loop §5.4): its review items. */
     growth: Type.Optional(GrowthCard),
+    /** A static widget snapshot (generative-ui-2026 §8, D8); the Feed shows open and reply only. */
+    widget: Type.Optional(FeedWidget),
   },
   { $id: "FeedPost" },
 );

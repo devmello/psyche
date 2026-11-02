@@ -15,6 +15,20 @@ export const WidgetsMethods = {
     description:
       "Returns the latest snapshot of widgets by id (one batched call per history page or reconnect).",
   }),
+  "widgets.pin": defineMethod({
+    params: Type.Object({ widgetId: Id, pinned: Type.Boolean() }, { additionalProperties: false }),
+    result: Type.Object({ widget: Widget }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Pins a widget to the Overview or unpins it (generative-ui-2026 §8, D5). At most 6 pinned widgets across the app; a pinned widget keeps its live bindings and its taint.",
+  }),
+  "widgets.list": defineMethod({
+    params: Type.Object({ pinned: Type.Literal(true) }, { additionalProperties: false }),
+    result: Type.Object({ widgets: Type.Array(Widget) }),
+    scope: "operator.read",
+    description: "The pinned widgets, most recently pinned first (the Overview's Pinned block).",
+  }),
   "widgets.act": defineMethod({
     params: Type.Object(
       {

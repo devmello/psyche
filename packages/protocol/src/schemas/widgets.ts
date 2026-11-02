@@ -390,6 +390,16 @@ export const Widget = Type.Object(
 );
 export type Widget = Static<typeof Widget>;
 
+/**
+ * A widget on a Feed post (generative-ui-2026 §8, D8): a static snapshot, no live updates and no
+ * bindings. The Feed draws it with `open` and `reply` actions only; the taint travels with it.
+ */
+export const FeedWidget = Type.Object(
+  { spec: WidgetSpec, taint: Type.Array(TaintSource) },
+  { $id: "FeedWidget", additionalProperties: false },
+);
+export type FeedWidget = Static<typeof FeedWidget>;
+
 /** Hard limits, enforced by the validator (§4.3). */
 export const WIDGET_LIMITS = {
   specBytes: 32 * 1024,
