@@ -362,10 +362,10 @@ export function InboxRow({
             onClick={() => onMarkRead(n)}
             className="group/dot flex size-5 items-center justify-center rounded-full hover:bg-fill-quaternary focus-visible:outline-2 focus-visible:outline-ring"
           >
-            <span className="size-2 rounded-full bg-info" />
+            <span className="size-2 rounded-full bg-accent-9" />
           </button>
         ) : unread ? (
-          <span className="size-2 rounded-full bg-info" aria-hidden="true" />
+          <span className="size-2 rounded-full bg-accent-9" aria-hidden="true" />
         ) : null}
       </span>
       {/* One glyph per state (§3.6): status kinds use the shared glyph, the rest their icon. */}
@@ -390,7 +390,7 @@ export function InboxRow({
         <p className="flex flex-wrap items-center gap-x-1.5 text-callout text-label-secondary tabular-nums">
           <span className="text-label-tertiary">{kind.label}</span>
           <span aria-hidden="true">·</span>
-          <span className="font-mono">{formatRelative(n.createdAt, now)}</span>
+          <span>{formatRelative(n.createdAt, now)}</span>
           {unread ? <span className="sr-only">{t("screens.inbox.unread")}</span> : null}
           {isStale ? (
             <>
