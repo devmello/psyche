@@ -104,12 +104,20 @@ function isUrlOpen(
   return a.kind === "open" && typeof a.url === "string";
 }
 
+/** Feed and Overview draw `open` and `reply` controls only (generative-ui-2026 §8). */
+function useSurfaceAllows(action: unknown): boolean {
+  const surface = useContext(WidgetContext)?.surface ?? "chat";
+  const kind = (action as { kind?: unknown } | undefined)?.kind;
+  return surface === "chat" || kind === "reply" || kind === "open";
+}
+
 export function ButtonNode({ n }: { n: N }): ReactElement | null {
   const runner = useWidgetAction();
   const action = n.action;
+  const allowed = useSurfaceAllows(action);
   const isTool = (action as { kind?: unknown } | undefined)?.kind === "tool";
-  const preview = useToolPreview(isTool, str(n.id));
-  if (!runnable(action)) return null;
+  const preview = useToolPreview(isTool && allowed, str(n.id));
+  if (!runnable(action) || !allowed) return null;
   const label = str(n.label);
   if (isUrlOpen(action)) {
     return isSafeLink(action.url) ? (
@@ -143,8 +151,9 @@ export function ListRowAction({ item, nodeId }: { item: N; nodeId: string }): Re
   const runner = useWidgetAction();
   const action = item.action;
   const isTool = (action as { kind?: unknown } | undefined)?.kind === "tool";
-  const preview = useToolPreview(isTool, nodeId, str(item.id));
-  if (!runnable(action)) return <span className="min-w-0">{str(item.title)}</span>;
+  const allowed = useSurfaceAllows(action);
+  const preview = useToolPreview(isTool && allowed, nodeId, str(item.id));
+  if (!runnable(action) || !allowed) return <span className="min-w-0">{str(item.title)}</span>;
   if (isUrlOpen(action)) {
     return isSafeLink(action.url) ? (
       <SafeLink href={action.url}>{str(item.title)}</SafeLink>
@@ -182,8 +191,9 @@ export function ChoicesNode({ n }: { n: N }): ReactElement | null {
   const multi = n.mode === "multi";
   const [picked, setPicked] = useState<string[]>([]);
   const action = n.action;
+  const chat = (useContext(WidgetContext)?.surface ?? "chat") === "chat";
   // `ask: true` (a real InputRequest the Gateway creates) is a later phase.
-  if (!runnable(action) || n.ask === true || isUrlOpen(action) || action.kind === "tool")
+  if (!chat || !runnable(action) || n.ask === true || isUrlOpen(action) || action.kind === "tool")
     return null;
   const labels = picked.map((id) => str(options.find((o) => str(o.id) === id)?.label));
   const submit = (e: FormEvent) => {
@@ -244,9 +254,10 @@ export function FormNode({ n }: { n: N }): ReactElement | null {
   const fields = arr(n.fields);
   const submitSpec = (n.submit ?? {}) as N;
   const [values, setValues] = useState<Values>({});
+  const chat = (useContext(WidgetContext)?.surface ?? "chat") === "chat";
   const isTool = submitSpec.as === "tool";
-  const preview = useToolPreview(isTool, str(n.id));
-  if (submitSpec.as !== "reply" && !isTool) return null;
+  const preview = useToolPreview(isTool && chat, str(n.id));
+  if (!chat || (submitSpec.as !== "reply" && !isTool)) return null;
   const blocked =
     isTool && (preview === "deny" || preview === "unavailable" || preview === "loading");
   const set = (id: string, v: string | boolean) => setValues((p) => ({ ...p, [id]: v }));

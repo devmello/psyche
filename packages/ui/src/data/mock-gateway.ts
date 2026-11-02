@@ -1684,6 +1684,23 @@ export class MockGateway implements GatewayClient {
       receipts: this.world.receipts.filter((r) => p.taskId === undefined || r.taskId === p.taskId),
       nextCursor: null,
     }),
+    "widgets.list": () => ({ widgets: this.world.widgets.filter((w) => w.pinned) }),
+    "widgets.pin": (p) => {
+      const widget = this.find(this.world.widgets, p.widgetId, "widget");
+      if (p.pinned && !widget.pinned && this.world.widgets.filter((w) => w.pinned).length >= 6) {
+        fail("conflict", "You can pin up to 6 widgets to the Overview. Unpin one first.");
+      }
+      const next = { ...widget, pinned: p.pinned };
+      this.world.widgets = this.world.widgets.map((w) => (w.id === widget.id ? next : w));
+      this.emit("widget.updated", {
+        widgetId: widget.id,
+        threadId: widget.threadId,
+        rev: widget.rev,
+        ops: [],
+        pinned: p.pinned,
+      });
+      return { widget: next };
+    },
     "widgets.preview": (p) => {
       const widget = this.find(this.world.widgets, p.widgetId, "widget");
       const find = (n: unknown): Record<string, unknown> | undefined => {

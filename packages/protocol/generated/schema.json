@@ -3279,6 +3279,22 @@
         "sideEffecting": false
       },
       {
+        "description": "The pinned widgets, most recently pinned first (the Overview's Pinned block).",
+        "name": "widgets.list",
+        "params": "#/$defs/WidgetsListParams",
+        "result": "#/$defs/WidgetsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Pins a widget to the Overview or unpins it (generative-ui-2026 §8, D5). At most 6 pinned widgets across the app; a pinned widget keeps its live bindings and its taint.",
+        "name": "widgets.pin",
+        "params": "#/$defs/WidgetsPinParams",
+        "result": "#/$defs/WidgetsPinResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "What the Permission Broker would answer a widget control's tool call right now (a dry run: nothing runs, nothing is asked), so the control can say \"asks first\". Uses the widget's taint.",
         "name": "widgets.preview",
         "params": "#/$defs/WidgetsPreviewParams",
@@ -17440,6 +17456,9 @@
         },
         "growth": {
           "$ref": "#/$defs/GrowthCard"
+        },
+        "widget": {
+          "$ref": "#/$defs/FeedWidget"
         }
       },
       "required": [
@@ -17528,6 +17547,25 @@
       },
       "required": [
         "posts"
+      ],
+      "type": "object"
+    },
+    "FeedWidget": {
+      "additionalProperties": false,
+      "properties": {
+        "spec": {
+          "$ref": "#/$defs/WidgetSpec"
+        },
+        "taint": {
+          "items": {
+            "$ref": "#/$defs/TaintSource"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "spec",
+        "taint"
       ],
       "type": "object"
     },
@@ -42656,6 +42694,10 @@
         },
         "state": {
           "$ref": "#/$defs/WidgetState"
+        },
+        "pinned": {
+          "description": "Set when the pin changed",
+          "type": "boolean"
         }
       },
       "required": [
@@ -42821,6 +42863,63 @@
       "required": [
         "mime",
         "bytes"
+      ],
+      "type": "object"
+    },
+    "WidgetsListParams": {
+      "additionalProperties": false,
+      "properties": {
+        "pinned": {
+          "const": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "pinned"
+      ],
+      "type": "object"
+    },
+    "WidgetsListResult": {
+      "properties": {
+        "widgets": {
+          "items": {
+            "$ref": "#/$defs/Widget"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "widgets"
+      ],
+      "type": "object"
+    },
+    "WidgetsPinParams": {
+      "additionalProperties": false,
+      "properties": {
+        "widgetId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "pinned": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "widgetId",
+        "pinned"
+      ],
+      "type": "object"
+    },
+    "WidgetsPinResult": {
+      "properties": {
+        "widget": {
+          "$ref": "#/$defs/Widget"
+        }
+      },
+      "required": [
+        "widget"
       ],
       "type": "object"
     },

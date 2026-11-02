@@ -155,7 +155,7 @@ describe("widget rendering", () => {
     const text = widgetText(progressWidget.spec);
     expect(text).toContain("Cleanup: 3/5 · 60%");
     expect(text).toContain("☑ Archive newsletters");
-    expect(text).toContain("☐ Draft replies");
+    expect(text).toContain("▸ Draft replies");
   });
 });
 
@@ -205,11 +205,12 @@ describe("widget safety", () => {
     // Its one control is a plain outline "reply" button: no filled primary, no route to approvals.
     const buttons = within(frame).getAllByRole("button");
     expect(buttons.map((b) => b.getAttribute("aria-label") ?? b.textContent)).toEqual([
+      "Pin to Overview",
       "Copy as text",
       "Send it",
     ]);
-    expect(buttons[1]?.className).toMatch(/border-input|outline|bg-background/);
-    expect(buttons[1]?.className).not.toMatch(/bg-primary/);
+    expect(buttons[2]?.className).toMatch(/border-input|outline|bg-background/);
+    expect(buttons[2]?.className).not.toMatch(/bg-primary/);
     expect(document.querySelector("[data-card='framed'][data-kind='approval']")).toBeNull();
   });
 });

@@ -44,6 +44,7 @@ import {
   getAgentThreadState,
   getSetting,
   getThread,
+  getWidgets,
   updateThread,
 } from "@psyche/db";
 import { bindingFor, type ChannelReplyTurn } from "@psyche/permissions";
@@ -65,6 +66,7 @@ import {
   type TaintSource,
   type Thread,
   type ToolCall,
+  widgetFallbackText,
 } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
 import { MAIN_SESSION_KEY } from "../handlers/threads.ts";
@@ -1098,8 +1100,17 @@ export function composeChannels(
       if (message.role !== "agent" || runId === null) return;
       const target = replyTo.get(runId);
       if (target === undefined) return;
+      // Widgets never render in a channel: the owner gets the spec's own summary and a text
+      // rendering of its main nodes, in place (generative-ui-2026 §8). Controls become nothing.
       const text = message.blocks
-        .flatMap((b) => (b.type === "text" ? [b.md] : []))
+        .flatMap((b) => {
+          if (b.type === "text") return [b.md];
+          if (b.type === "ui") {
+            const [widget] = getWidgets(services.db, [b.widgetId]);
+            return widget === undefined ? [] : [widgetFallbackText(widget.spec)];
+          }
+          return [];
+        })
         .join("\n\n")
         .trim();
       if (text === "") return;

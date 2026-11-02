@@ -3932,6 +3932,7 @@ export interface FeedPost {
     refs?:       FeedPostRefs;
     score:       number;
     title:       string;
+    widget?:     FeedWidget;
 }
 
 export interface WorkflowCard {
@@ -4172,6 +4173,18 @@ export interface FeedPostRefs {
     meetingId?:   string;
     proposalIds?: string[];
     threads?:     MailThreadRef[];
+}
+
+export interface FeedWidget {
+    spec:  WidgetSpec;
+    taint: TaintSource[];
+}
+
+export interface WidgetSpec {
+    fallbackText: string;
+    root:         { [key: string]: unknown };
+    title:        string;
+    v:            number;
 }
 
 export interface FeedGenerateParams {
@@ -10859,7 +10872,11 @@ export interface WidgetUpdatedPayload {
     /**
      * Empty when only `state` changed
      */
-    ops:      WidgetOp[];
+    ops: WidgetOp[];
+    /**
+     * Set when the pin changed
+     */
+    pinned?:  boolean;
     rev:      number;
     state?:   WidgetState;
     threadId: string;
@@ -10916,13 +10933,6 @@ export interface WidgetOwner {
 
 export type WidgetOwnerKind = "run" | "task" | "automation" | "job";
 
-export interface WidgetSpec {
-    fallbackText: string;
-    root:         { [key: string]: unknown };
-    title:        string;
-    v:            number;
-}
-
 export interface WidgetsImageParams {
     url:      string;
     widgetId: string;
@@ -10937,6 +10947,23 @@ export interface WidgetsImageResult {
 }
 
 export type WidgetsImageResultMIME = "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+
+export interface WidgetsListParams {
+    pinned: boolean;
+}
+
+export interface WidgetsListResult {
+    widgets: Widget[];
+}
+
+export interface WidgetsPinParams {
+    pinned:   boolean;
+    widgetId: string;
+}
+
+export interface WidgetsPinResult {
+    widget: Widget;
+}
 
 export interface WidgetsPreviewParams {
     itemId?:  string;

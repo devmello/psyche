@@ -1,5 +1,6 @@
 import { resolveAppRoute, type WidgetAction } from "@psyche/protocol";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { usePrefillComposer } from "../chat/prefill.ts";
 import { useStore } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
@@ -61,6 +62,7 @@ export function useWidgetAction(): ActionRunner {
   const store = useStore();
   const ctx = useContext(WidgetContext);
   const { navigate, openArtifact, openLibraryItem } = useSlots();
+  const prefill = usePrefillComposer();
   const [state, setState] = useState<ActionState>("idle");
   const [error, setError] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -74,7 +76,14 @@ export function useWidgetAction(): ActionRunner {
       setError(null);
       setState("working");
       try {
-        if (action.kind === "reply") {
+        if (ctx.surface !== "chat" && action.kind !== "reply" && action.kind !== "open") {
+          throw new Error(t("widgets.action.unavailable"));
+        }
+        if (action.kind === "reply" && ctx.surface !== "chat") {
+          // Feed and Overview have no open chat of their own: the text waits in the composer.
+          if (prefill === undefined) throw new Error(t("widgets.action.unavailable"));
+          prefill(options.text ?? action.text);
+        } else if (action.kind === "reply") {
           await store.call("chat.send", {
             threadId: ctx.threadId,
             content: options.text ?? action.text,
@@ -139,7 +148,7 @@ export function useWidgetAction(): ActionRunner {
         }, COOLDOWN_MS);
       }
     },
-    [ctx, store, navigate, openArtifact, openLibraryItem],
+    [ctx, store, navigate, openArtifact, openLibraryItem, prefill],
   );
 
   return { state, error, run };

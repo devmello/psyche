@@ -1,11 +1,15 @@
 import type { Widget } from "@psyche/protocol";
-import { Check, Copy, LayoutPanelTop, ShieldAlert } from "lucide-react";
+import { Check, Copy, LayoutPanelTop, Pin, PinOff, ShieldAlert } from "lucide-react";
 import { type ReactElement, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { useStore } from "../data/index.ts";
+import { put } from "../data/state.ts";
 import { t } from "../i18n/core.ts";
+import { describeError } from "../i18n/errors.ts";
 import { copyText } from "../lib/clipboard.ts";
 import { cn } from "../lib/utils.ts";
 import { useSlots } from "../slots.tsx";
-import { WidgetContext } from "./context.ts";
+import { WidgetContext, type WidgetContextValue } from "./context.ts";
 import { RenderNode } from "./nodes.tsx";
 import { widgetText } from "./text.ts";
 
@@ -43,14 +47,21 @@ function useAnnouncement(widget: Widget): string {
   return text;
 }
 
-export default function WidgetView({ widget }: { widget: Widget }): ReactElement {
+export default function WidgetView({
+  widget,
+  surface = "chat",
+}: {
+  widget: Widget;
+  surface?: WidgetContextValue["surface"];
+}): ReactElement {
+  const store = useStore();
   const { writeClipboard } = useSlots();
   const [copied, setCopied] = useState(false);
   const announcement = useAnnouncement(widget);
   const tainted = widget.taint.length > 0;
   const ctx = useMemo(
-    () => ({ threadId: widget.threadId, widgetId: widget.id, tainted }),
-    [widget.threadId, widget.id, tainted],
+    () => ({ threadId: widget.threadId, widgetId: widget.id, tainted, surface }),
+    [widget.threadId, widget.id, tainted, surface],
   );
   const live = widget.state === "live";
   const sources = widget.taint
@@ -90,8 +101,30 @@ export default function WidgetView({ widget }: { widget: Widget }): ReactElement
             aria-hidden="true"
             className={cn("size-1.5 rounded-full", live ? "bg-label-secondary" : "bg-fill-primary")}
           />
-          {live ? t("widgets.frame.live") : t("widgets.frame.frozen")}
+          {surface === "feed"
+            ? t("widgets.feed.snapshot")
+            : live
+              ? t("widgets.frame.live")
+              : t("widgets.frame.frozen")}
         </span>
+        {surface === "feed" ? null : (
+          <button
+            type="button"
+            className="inline-flex size-6 shrink-0 items-center justify-center rounded-md hover:bg-fill-quaternary"
+            aria-label={widget.pinned ? t("widgets.frame.unpin") : t("widgets.frame.pin")}
+            aria-pressed={widget.pinned}
+            title={widget.pinned ? t("widgets.frame.unpin") : t("widgets.frame.pin")}
+            data-testid="widget-pin"
+            onClick={() => {
+              store
+                .call("widgets.pin", { widgetId: widget.id, pinned: !widget.pinned })
+                .then((r) => store.update((s) => put(s, "widgets", r.widget)))
+                .catch((err: unknown) => toast.error(describeError(err)));
+            }}
+          >
+            {widget.pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+          </button>
+        )}
         <button
           type="button"
           className="inline-flex size-6 shrink-0 items-center justify-center rounded-md hover:bg-fill-quaternary"

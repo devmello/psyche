@@ -12,6 +12,7 @@ import {
   validateWidgetSpec,
   Widget,
   WidgetSpec,
+  widgetFallbackText,
 } from "../src/index.ts";
 
 const good = () => ({
@@ -402,5 +403,34 @@ describe("widget bindings", () => {
     expect(collectWidgetBinds(spec.root)).toEqual([
       { nodeId: "p", bind: { source: "task", id: "t1", field: "progress" } },
     ]);
+  });
+});
+
+describe("widgetFallbackText (channels)", () => {
+  const spec = good() as unknown as import("../src/index.ts").WidgetSpec;
+  it("starts with the spec's summary, then the main nodes as text, with no controls", () => {
+    const text = widgetFallbackText(spec);
+    expect(text.split("\n")[0]).toBe("Inbox cleanup: 3 of 5 steps done (60%).");
+    expect(text).toContain("Cleanup: 3/5 · 60%");
+    expect(text).toContain("☑ Archive newsletters");
+    expect(text).toContain("▸ Draft replies");
+    expect(text).not.toContain("Draft the replies now"); // the button
+  });
+  it("caps a table at 5 rows and survives malformed nodes", () => {
+    const rows = Array.from({ length: 9 }, (_, i) => ({ a: `r${i}` }));
+    const t = widgetFallbackText({
+      ...spec,
+      root: { id: "t", type: "table", label: "T", columns: [{ key: "a", label: "A" }], rows },
+    });
+    expect(t).toContain("r4");
+    expect(t).not.toContain("r5");
+    expect(t).toContain("… 4 more");
+    expect(() =>
+      widgetFallbackText({
+        ...spec,
+        root: { id: "x", type: "table", rows: 3, columns: "no" } as never,
+      }),
+    ).not.toThrow();
+    expect(() => widgetFallbackText({ ...spec, root: null as never })).not.toThrow();
   });
 });

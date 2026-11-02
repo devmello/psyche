@@ -1,4 +1,4 @@
-import { getSetting, getWidgets } from "@psyche/db";
+import { getSetting, getWidgets, listPinnedWidgets } from "@psyche/db";
 import { type MethodParams, type MethodResult, PsycheError } from "@psyche/protocol";
 import type { Call } from "../context.ts";
 import { requireThread } from "../handlers/threads.ts";
@@ -68,6 +68,19 @@ export function composeWidgets(services: ComposeServices): ComposedPart {
       for (const u of unregister) u();
     },
     handlers: {
+      "widgets.pin": {
+        run: (call: Call, p: MethodParams<"widgets.pin">): MethodResult<"widgets.pin"> => {
+          const [widget] = getWidgets(services.db, [p.widgetId]);
+          if (widget === undefined) throw new PsycheError("not_found", "No such widget.");
+          requireThread(call, widget.threadId);
+          return { widget: store.setPinned(widget.id, p.pinned) };
+        },
+      },
+      "widgets.list": {
+        run: (_c: Call, _p: MethodParams<"widgets.list">): MethodResult<"widgets.list"> => ({
+          widgets: listPinnedWidgets(services.db),
+        }),
+      },
       "widgets.act": {
         transactional: true,
         run: (call: Call, p: MethodParams<"widgets.act">): MethodResult<"widgets.act"> => {

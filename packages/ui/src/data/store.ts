@@ -553,12 +553,18 @@ export class GatewayStore {
       case "widget.updated": {
         // `rev` is the order (generative-ui-2026 §5.5): apply only the one that continues from the local rev, otherwise drop the
         // snapshot so the block refetches it with `widgets.get`.
-        const { widgetId, rev, ops, state } = e.payload;
+        const { widgetId, rev, ops, state, pinned } = e.payload;
         const fromRev = e.payload.fromRev ?? rev - 1;
+        // The pinned list (Overview) follows pins made anywhere, including widgets not loaded here.
+        const base = pinned === undefined ? s : invalidate(s, ["widgets.list"]);
         const local = s.widgets[widgetId];
-        if (local === undefined) return s;
+        if (local === undefined) return base;
         if (ops.length === 0 && rev === local.rev) {
-          return put(s, "widgets", { ...local, ...(state === undefined ? {} : { state }) });
+          return put(base, "widgets", {
+            ...local,
+            ...(state === undefined ? {} : { state }),
+            ...(pinned === undefined ? {} : { pinned }),
+          });
         }
         const applied = fromRev === local.rev ? applyWidgetOps(local.spec, ops) : null;
         if (applied?.ok) {
