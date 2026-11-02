@@ -65,7 +65,8 @@
   --danger: var(--tomato-9);
   --danger-surface: var(--tomato-3);
   --danger-text: var(--tomato-11);
-  --success: var(--grass-9);
+  /* A deep, paper-friendly green on light (grass-9 shouted next to the ink); dark keeps step 9. */
+  --success: var(--grass-11);
   --success-text: var(--grass-11);
   --info: var(--sky-9);
   --info-text: var(--sky-11);
@@ -86,6 +87,11 @@
     system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Inter Variable", Inter,
     "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  /*
+    Page titles only (unslop 2026-11): the notebook's serif. New York ships with macOS, so it
+    costs nothing to load; elsewhere it falls back to Iowan, Charter or Georgia.
+  */
+  --font-display: ui-serif, "New York", "Iowan Old Style", Charter, Georgia, serif;
 
   transition:
     --accent-9 200ms var(--ease-standard),
@@ -104,6 +110,7 @@
 
 :root[data-theme="dark"] {
   --approval-text: var(--amber-11);
+  --success: var(--grass-9);
 }
 
 /* High contrast: borders step 8, text step 12, 2 px solid focus rings (§4.11). */
@@ -220,6 +227,7 @@
 
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
+  --font-display: var(--font-display);
 
   /*
     Tailwind's stock size names at Psyche's values (xs 12/16, sm 13/18, base 15/22 …). The named
