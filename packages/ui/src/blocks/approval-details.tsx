@@ -47,6 +47,22 @@ function Code({ children }: { children: ReactNode }): ReactElement {
   return <code className="rounded-xs bg-fill-tertiary px-1 text-mono">{children}</code>;
 }
 
+/**
+ * A money amount as the owner reads it: the producer's own display string when it sends one, else
+ * the number in the request's currency ("€412.80", never "412.8"). A bare number stays as is.
+ */
+function money(v: unknown, currency: unknown, display?: unknown): string {
+  if (typeof display === "string" && display !== "") return display;
+  if (typeof v === "number" && typeof currency === "string" && /^[A-Z]{3}$/.test(currency)) {
+    try {
+      return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(v);
+    } catch {
+      return str(v);
+    }
+  }
+  return str(v);
+}
+
 const strings = (v: unknown): string[] =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
 
@@ -494,13 +510,18 @@ export function ApprovalDetails({
     }
     case "purchase": {
       const items = Array.isArray(d.lineItems)
-        ? (d.lineItems as { name?: string; qty?: number; amount?: string }[])
+        ? (d.lineItems as {
+            name?: string;
+            qty?: number;
+            quantity?: number;
+            amount?: string | number;
+          }[])
         : [];
       return (
         <dl>
           <Row label={t("blocks.details.merchant")}>{str(d.merchant)}</Row>
           <Row label={t("blocks.details.amount")}>
-            <span className="font-semibold">{str(d.amount)}</span>
+            <span className="font-semibold">{money(d.amount, d.currency, d.amountDisplay)}</span>
           </Row>
           {items.length > 0 ? (
             <Row label={t("blocks.details.items")}>
@@ -509,16 +530,19 @@ export function ApprovalDetails({
                   // biome-ignore lint/suspicious/noArrayIndexKey: line items are fixed for the card
                   <li key={i}>
                     {t("blocks.details.lineItem", {
-                      qty: li.qty ?? 1,
+                      qty: li.qty ?? li.quantity ?? 1,
                       name: li.name ?? t("blocks.details.lineItemDefault"),
-                      amount: li.amount ?? "",
+                      amount: money(li.amount ?? "", d.currency),
                     })}
                   </li>
                 ))}
               </ul>
             </Row>
           ) : null}
-          <Rest details={d} shown={["merchant", "amount", "lineItems"]} />
+          <Rest
+            details={d}
+            shown={["merchant", "amount", "amountDisplay", "currency", "lineItems"]}
+          />
         </dl>
       );
     }

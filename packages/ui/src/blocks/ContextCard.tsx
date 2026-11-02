@@ -23,7 +23,7 @@ export function ContextCard({ block }: { block: BlockOf<"context"> }): ReactElem
     </>
   );
   const className =
-    "my-1 flex items-start gap-2 rounded-md border-s-2 border-separator-strong bg-fill-tertiary py-1.5 ps-2 pe-3 text-start no-underline";
+    "my-1 flex items-start gap-2 rounded-md border-[0.5px] border-separator bg-fill-tertiary px-3 py-1.5 text-start no-underline";
   return (
     <div data-testid="context-card">
       {block.url && /^https?:\/\//i.test(block.url) ? (
