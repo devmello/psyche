@@ -151,24 +151,27 @@ export function EndpointProbeStatus({
   ].filter((x): x is string => x !== null);
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex flex-wrap items-center gap-2 text-callout text-muted-foreground">
-        <Server className="size-3.5" aria-hidden="true" />
-        {probing === true ? (
-          <StatusChip tone="info">
-            <Loader className="size-3 motion-safe:animate-spin" aria-hidden="true" />
-            {t("settings.model.probe.checking")}
-          </StatusChip>
-        ) : (
-          <StatusChip tone={PROBE_TONE[probe.state]}>
-            {t(`settings.model.probe.state.${probe.state}`)}
-          </StatusChip>
-        )}
-        {detail.length > 0 ? <span>{detail.join(" · ")}</span> : null}
+      <div className="flex items-center gap-2 text-callout text-muted-foreground">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <Server className="size-3.5" aria-hidden="true" />
+          {probing === true ? (
+            <StatusChip tone="info">
+              <Loader className="size-3 motion-safe:animate-spin" aria-hidden="true" />
+              {t("settings.model.probe.checking")}
+            </StatusChip>
+          ) : (
+            <StatusChip tone={PROBE_TONE[probe.state]}>
+              {t(`settings.model.probe.state.${probe.state}`)}
+            </StatusChip>
+          )}
+          {detail.length > 0 ? <span>{detail.join(" · ")}</span> : null}
+        </div>
         {onProbe && probing !== true ? (
           <Button
             type="button"
-            variant="link"
+            variant="ghost"
             size="xs"
+            className="shrink-0"
             onClick={onProbe}
             aria-label={t("settings.model.probe.checkNamed", { name: label })}
           >
