@@ -56,38 +56,55 @@ export function NowSection({ now: fixedNow }: { now?: number }): ReactElement {
         reserve="min-h-28"
         skeleton={<SkeletonRows count={2} />}
       >
-        <div className="flex flex-col gap-3" data-testid="overview-now-body">
-          {needs > 0 ? (
-            <Row
-              glyph="waiting"
-              glyphLabel={t("agent.activity.waitingApproval")}
-              title={t("overview.now.needsYou", { n: needs })}
-              detail={t("overview.now.review")}
-              {...(navigate
-                ? {
-                    onOpen: () => navigate("/agent/approvals"),
-                    openLabel: t("overview.now.needsYou", { n: needs }),
-                  }
-                : {})}
-            />
-          ) : null}
-          {running.length > 0 ? (
-            <section aria-label={t("overview.now.running")} className="flex flex-col gap-0.5">
-              <Heading>{t("overview.now.running")}</Heading>
-              <ul className="flex flex-col">
-                {running.map((r) => (
-                  <li key={r.id}>
-                    <NowRunRow
-                      run={r}
-                      title={runTitle(r, threads[r.threadId]?.thread.title)}
-                      now={now}
-                      onOpenRun={openRun}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
+        {/* Two columns on a wide page: now (needs you, running) beside next up. */}
+        <div
+          className="grid items-start gap-x-8 gap-y-3 @min-[720px]/overview:grid-cols-2"
+          data-testid="overview-now-body"
+        >
+          <div className="flex min-w-0 flex-col gap-3">
+            {needs > 0 ? (
+              <Row
+                glyph="waiting"
+                glyphLabel={t("agent.activity.waitingApproval")}
+                title={t("overview.now.needsYou", { n: needs })}
+                detail={t("overview.now.review")}
+                {...(navigate
+                  ? {
+                      onOpen: () => navigate("/agent/approvals"),
+                      openLabel: t("overview.now.needsYou", { n: needs }),
+                    }
+                  : {})}
+              />
+            ) : null}
+            {running.length > 0 ? (
+              <section aria-label={t("overview.now.running")} className="flex flex-col gap-0.5">
+                <Heading>{t("overview.now.running")}</Heading>
+                <ul className="flex flex-col">
+                  {running.map((r) => (
+                    <li key={r.id}>
+                      <NowRunRow
+                        run={r}
+                        title={runTitle(r, threads[r.threadId]?.thread.title)}
+                        now={now}
+                        onOpenRun={openRun}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+            {needs === 0 && running.length === 0 ? (
+              <p className="px-2 text-body text-label-secondary">
+                {firstNext?.nextRunAt
+                  ? t("agent.activity.emptyNext", {
+                      name: persona.name,
+                      title: firstNext.title,
+                      when: formatRelative(firstNext.nextRunAt, now),
+                    })
+                  : t("agent.activity.empty")}
+              </p>
+            ) : null}
+          </div>
           {next.length > 0 ? (
             <section aria-label={t("agent.activity.nextUp")} className="flex flex-col gap-0.5">
               <Heading>{t("agent.activity.nextUp")}</Heading>
@@ -99,17 +116,6 @@ export function NowSection({ now: fixedNow }: { now?: number }): ReactElement {
                 ))}
               </ul>
             </section>
-          ) : null}
-          {needs === 0 && running.length === 0 ? (
-            <p className="px-2 text-body text-label-secondary">
-              {firstNext?.nextRunAt
-                ? t("agent.activity.emptyNext", {
-                    name: persona.name,
-                    title: firstNext.title,
-                    when: formatRelative(firstNext.nextRunAt, now),
-                  })
-                : t("agent.activity.empty")}
-            </p>
           ) : null}
         </div>
       </SectionBody>

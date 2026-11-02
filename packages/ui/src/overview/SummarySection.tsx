@@ -105,7 +105,14 @@ export function SummaryBody({
   return (
     <div className="flex flex-col gap-4">
       <Sentence period={period} insights={insights} lessons={growth?.lessons.learned ?? 0} />
-      <div className="grid grid-cols-2 gap-4 @min-[880px]/overview:grid-cols-4">
+      {/*
+        One ledger (unslop 2026-11): the four figures share a single sheet, ruled by hairlines,
+        instead of four equal cards side by side.
+      */}
+      <div
+        className="grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-separator shadow-elevation-1 @min-[880px]/overview:grid-cols-4 [&>*]:rounded-none [&>*]:shadow-none"
+        data-testid="overview-ledger"
+      >
         <StatTile
           testId="overview-tile-tasks"
           label={i18n.t("overview.summary.tile.tasks")}
@@ -261,7 +268,7 @@ function LessonsPlaceholder({
   const i18n = useI18n();
   if (state === "error") {
     return (
-      <div className="flex min-h-24 flex-col justify-center gap-2 rounded-lg border border-separator p-5">
+      <div className="flex min-h-24 flex-col justify-center gap-2 bg-surface-raised p-5">
         <span className="text-caption text-label-secondary">
           {i18n.t("overview.summary.tile.lessons")}
         </span>
@@ -275,9 +282,9 @@ function LessonsPlaceholder({
         section: i18n.t("overview.summary.tile.lessons"),
       })}
       testId="overview-tile-lessons-loading"
-      className="min-h-24"
+      className="min-h-24 bg-surface-raised"
     >
-      <Skeleton className="min-h-24" />
+      <Skeleton className="min-h-24 rounded-none" />
     </DelayedSkeleton>
   );
 }
@@ -291,9 +298,9 @@ function SummarySkeleton(): ReactElement {
       className="flex flex-col gap-4"
     >
       <Skeleton className="h-7 w-3/4" />
-      <div className="grid grid-cols-2 gap-4 @min-[880px]/overview:grid-cols-4">
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg @min-[880px]/overview:grid-cols-4">
         {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-24" />
+          <Skeleton key={i} className="h-28 rounded-none" />
         ))}
       </div>
     </DelayedSkeleton>

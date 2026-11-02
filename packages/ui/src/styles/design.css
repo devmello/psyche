@@ -85,7 +85,8 @@
 
   /* Run-trace bars (run-trace-2026.md §3.3): each ≥ 3:1 on the canvas (contrast-gate test). */
   --trace-thinking: var(--gray-9);
-  --trace-tool: var(--accent-9);
+  /* Graphite, not ink: the playhead and the selected step carry the one accent (unslop 2026-11). */
+  --trace-tool: var(--gray-11);
   --trace-waiting: var(--amber-11);
   --trace-failed: var(--tomato-9);
 
@@ -225,6 +226,14 @@
   --text-large-title--line-height: 32px;
   --text-large-title--font-weight: 600;
   --text-large-title--letter-spacing: 0.22px;
+  /*
+    Page titles (unslop 2026-11): the display serif at 500, so a screen's name reads like the
+    heading of a notebook page and hierarchy comes from the face, not from weight.
+  */
+  --text-page-title: 24px;
+  --text-page-title--line-height: 30px;
+  --text-page-title--font-weight: 500;
+  --text-page-title--letter-spacing: -0.012em;
   --text-title-1: 22px;
   --text-title-1--line-height: 28px;
   --text-title-1--font-weight: 600;

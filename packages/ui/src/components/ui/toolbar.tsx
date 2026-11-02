@@ -63,7 +63,10 @@ export function ToolbarLeading({ className, ...props }: React.ComponentProps<"di
   );
 }
 
-/** Title (text-headline) with an optional one-line subtitle (text-callout). */
+/**
+ * Title in the display serif (the screen's name, like a notebook page heading) with its facts on
+ * the same baseline in text-callout, e.g. "Inbox  4 unread".
+ */
 export function ToolbarTitle({
   title,
   subtitle,
@@ -73,12 +76,14 @@ export function ToolbarTitle({
   return (
     <div
       data-slot="toolbar-title"
-      className={cn("flex min-w-0 flex-col justify-center", className)}
+      className={cn("flex min-w-0 items-baseline gap-2", className)}
       {...props}
     >
-      <span className="truncate text-headline text-label-primary">{title}</span>
+      <span className="shrink-0 truncate font-display font-medium text-[17px]/[22px] text-label-primary tracking-[-0.01em]">
+        {title}
+      </span>
       {subtitle ? (
-        <span className="truncate text-callout text-label-secondary">{subtitle}</span>
+        <span className="truncate text-callout text-label-secondary tabular-nums">{subtitle}</span>
       ) : null}
     </div>
   );

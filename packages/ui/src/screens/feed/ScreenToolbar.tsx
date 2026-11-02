@@ -3,7 +3,7 @@ import { useToolbar, useToolbarContent } from "../../components/ui/toolbar.tsx";
 import { cn } from "../../lib/utils.ts";
 
 export interface ScreenToolbarProps {
-  /** The page title (text-title-1). It is the page's only heading at level 1. */
+  /** The page title (display serif, text-page-title). It is the page's only heading at level 1. */
   title: string;
   /** Short facts after the title, e.g. "Today · 7 posts" (text-callout, secondary). */
   meta?: ReactNode;
@@ -16,7 +16,7 @@ export interface ScreenToolbarProps {
 
 /**
  * A content screen's toolbar row (docs/design/redesign-2026.md §5.6): 52 px, the title in
- * text-title-1 at the leading edge and the actions trailing, so the title is not repeated in the
+ * the display serif at the leading edge and the actions trailing, so the title is not repeated in the
  * content. It sticks to the top of the scrolling page and fades the content under it with a
  * 24 px scroll-edge gradient instead of a border (§3.4).
  *
@@ -57,9 +57,9 @@ export function ScreenToolbar({
       )}
     >
       <div className="flex min-w-0 items-baseline gap-2">
-        <h1 className="shrink-0 text-title-1 text-label-primary">{title}</h1>
+        <h1 className="shrink-0 font-display text-page-title text-label-primary">{title}</h1>
         {meta ? (
-          <p className="truncate text-callout text-label-secondary @max-md/toolbar:hidden">
+          <p className="truncate text-callout text-label-secondary tabular-nums @max-md/toolbar:hidden">
             {meta}
           </p>
         ) : null}

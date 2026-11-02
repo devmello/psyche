@@ -291,7 +291,7 @@ export function GoalPageView({
               inactive: goal.status !== "active",
             })}
           </p>
-          <h2 id={titleId} className="text-title-1 text-label-primary">
+          <h2 id={titleId} className="font-display text-page-title text-label-primary">
             {goal.title}
           </h2>
         </div>

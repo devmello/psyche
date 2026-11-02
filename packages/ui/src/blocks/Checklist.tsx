@@ -12,7 +12,7 @@ import { Card } from "./card.tsx";
 const itemLabel = (status: ChecklistItem["status"]): string => t(`blocks.checklist.item.${status}`);
 
 /**
- * A 16 px circle that fills when the item completes, with a check that draws (redesign-2026
+ * A 16 px circle that fills graphite when the item completes (ink marks only the current step), with a check that draws (redesign-2026
  * §5.2). Only a change draws: items already done when the list mounts appear done. Under reduced
  * motion the check appears at once.
  */
@@ -28,7 +28,7 @@ function ItemMark({ status }: { status: ChecklistItem["status"] }): ReactElement
         className={cn(
           "transition-[fill,stroke] duration-(--duration-micro) ease-(--ease-standard)",
           done
-            ? "fill-success stroke-success"
+            ? "fill-label-tertiary stroke-label-tertiary"
             : status === "in_progress"
               ? "fill-transparent stroke-accent-9"
               : "fill-transparent stroke-label-quaternary",

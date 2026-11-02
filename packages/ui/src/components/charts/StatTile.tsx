@@ -68,11 +68,13 @@ export function StatTile({
   const body = (
     <>
       <span className="label-fit cjk-wrap block text-caption text-label-secondary">{label}</span>
-      <span className="block text-title-1 text-label-primary tabular-nums">{number}</span>
+      <span className="mt-1 block font-display text-[32px]/[38px] font-normal text-label-primary tabular-nums tracking-[-0.01em]">
+        {number}
+      </span>
     </>
   );
   const stretched =
-    "after:absolute after:inset-0 after:rounded-lg after:content-[''] hover:after:bg-fill-quaternary focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring";
+    "after:absolute after:inset-0 after:rounded-[inherit] after:content-[''] hover:after:bg-fill-quaternary focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring";
   return (
     <Card
       label={label}
