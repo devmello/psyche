@@ -186,3 +186,24 @@ no third "off" choice here.
 
 Not changed here: the Grants ledger in Approval rules stays as the history (with use counts and
 revoked grants); the current list lives in Access.
+
+## 8. Section cards (2026-11-02, "it all just is one text blurb")
+
+The pages kept the structure above; what changed is how a section reads while you scroll
+(`screens/settings/shared.tsx`):
+
+- **A card is a topic.** `Group` is a bordered card on the canvas with its title and one line of
+  description inside it, then rows separated by hairlines (44 px minimum, padded to the card edge).
+  Where one card ends the next begins on the canvas; the gap between cards is 20 px.
+- **A pane is a chapter.** On a page of several panes, `SectionFrame` pins its serif heading (with
+  a rule under it) inside the pane while it scrolls, and panes are 48 px apart.
+- **Everyday choices first, the rest folded.** `Advanced` is a native `<details>` that folds whole
+  cards away (context limits, maps, text direction, connector actions). Search and deep links open
+  it when the setting they want is inside. Keep a card's description to one sentence; a row's help
+  text to one short line; fine print (what leaves the Mac, what it costs) in a few words, not a
+  paragraph.
+- **No card in a card.** `EmptyNotice` and `ErrorNotice` drop their own surface inside a card, and
+  per-item lists are rows of the card, not lists with their own container.
+- **No Reduce transparency switch.** The macOS preference still applies on its own
+  (`AppearanceProvider`, `prefers-reduced-transparency`); a stored `appearance.reduceTransparency`
+  is ignored. "Translucent controls" remains.
