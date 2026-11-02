@@ -32,6 +32,7 @@ import {
   EVERYTHING_MEMORY_SETTING_KEY,
   EverythingMemorySettings,
   type EverythingRunResult,
+  type FeedWidget,
   type MethodParams,
   type MethodResult,
   type ModelProvider,
@@ -62,6 +63,46 @@ interface Announcement {
   autoAccepted: number;
   toReview: number;
   quarantined: number;
+}
+
+/**
+ * The Feed card's static widget (generative-ui-2026 §8, D8): the three counts as stat tiles and a
+ * button to the review screen. Counts only, so no fact text can reach the Feed; `open` is the one
+ * control it needs, and a Feed snapshot draws only open and reply anyway.
+ */
+export function learnedSnapshot(a: Announcement): FeedWidget {
+  const learned = a.autoAccepted + a.toReview;
+  return {
+    taint: [],
+    spec: {
+      v: 1,
+      title: "What Psyche learned",
+      fallbackText: `Psyche learned ${learned} ${learned === 1 ? "thing" : "things"}: ${summaryLine(a)}`,
+      root: {
+        id: "root",
+        type: "stack",
+        gap: "sm",
+        children: [
+          {
+            id: "counts",
+            type: "grid",
+            columns: 3,
+            children: [
+              { id: "auto", type: "stat", label: "Added", value: a.autoAccepted },
+              { id: "review", type: "stat", label: "To review", value: a.toReview },
+              { id: "held", type: "stat", label: "Held back", value: a.quarantined },
+            ],
+          },
+          {
+            id: "open",
+            type: "button",
+            label: "Review what was learned",
+            action: { kind: "open", route: REVIEW_LINK },
+          },
+        ],
+      },
+    },
+  };
 }
 
 const summaryLine = (a: Announcement): string =>
@@ -478,7 +519,7 @@ export interface EverythingDeps {
   /** The machine, read once when the pass starts (tests pass fixed numbers). */
   readState?: () => Promise<PassDeps["state"]>;
   /** Posts the "Psyche learned N things" card to the Feed (no notification). */
-  announce?: (card: { title: string; bodyMd: string }) => void;
+  announce?: (card: { title: string; bodyMd: string; widget?: FeedWidget }) => void;
   logger?: { log(level: "warn", msg: string, fields?: Record<string, unknown>): void };
 }
 
@@ -599,6 +640,7 @@ export function composeEverything(deps: EverythingDeps): Everything {
     deps.announce?.({
       title: `Psyche learned ${learned} ${learned === 1 ? "thing" : "things"}`,
       bodyMd: `${summaryLine({ at: 0, ...sum })}\n\n[Review](${REVIEW_LINK})`,
+      widget: learnedSnapshot({ at: 0, ...sum }),
     });
   };
   /** Runs the pass under its gates; `manual` skips quiet hours and idle time, nothing else. */

@@ -1,11 +1,14 @@
 import {
   type Clock,
+  collectWidgetBinds,
   type FeedPost,
+  type FeedWidget,
   type MemoryStore,
   type ModelProvider,
   type ModelRef,
   PsycheError,
   type Usage,
+  validateWidgetSpec,
 } from "@psyche/protocol";
 import { ulid } from "ulid";
 import { PROACTIVITY_BUDGET } from "../budget.ts";
@@ -460,7 +463,10 @@ export class FeedService {
     bodyMd: string;
     reason: string;
     refs?: FeedPost["refs"];
+    /** A static snapshot the Feed draws under the text (generative-ui-2026 §8, D8). */
+    widget?: FeedWidget;
   }): FeedPost {
+    const widget = input.widget === undefined ? undefined : staticSnapshot(input.widget);
     const post: StoredPost = {
       id: this.#id(),
       title: input.title,
@@ -476,6 +482,7 @@ export class FeedService {
       batchId: this.#id(),
       kind: "suggestion",
       ...(input.refs === undefined ? {} : { refs: input.refs }),
+      ...(widget === undefined ? {} : { widget }),
     };
     this.store.insert(post);
     const out = toFeedPost(post);
@@ -589,4 +596,15 @@ function describeReports(reports: SourceReport[]): string {
 export function toFeedPost(p: StoredPost): FeedPost {
   const { batchId: _batch, readAt: _read, ...post } = p;
   return post;
+}
+
+/**
+ * A snapshot is data the Feed draws as is: it must pass the same validator as a chat widget and
+ * carry no live binding (D8). One that does not is dropped, so a bad snapshot never loses the
+ * notice it decorates.
+ */
+export function staticSnapshot(w: FeedWidget): FeedWidget | undefined {
+  if (!validateWidgetSpec(w.spec).ok) return undefined;
+  if (collectWidgetBinds(w.spec.root).length > 0) return undefined;
+  return { spec: w.spec, taint: w.taint };
 }

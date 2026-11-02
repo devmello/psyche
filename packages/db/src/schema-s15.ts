@@ -27,6 +27,8 @@ export const feedPosts = sqliteTable("feed_posts", {
   refs: text("refs"),
   card: text("card"),
   growth: text("growth"),
+  // 202611031000_proactive_feed-widget
+  widget: text("widget"),
 });
 
 export const ideas = sqliteTable("ideas", {
