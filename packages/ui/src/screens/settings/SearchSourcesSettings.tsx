@@ -179,7 +179,7 @@ export function SearchSourcesSettingsGroup({
             {t("settings.searchSources.excludeFolders")}
             <input
               className="rounded-md border border-separator bg-transparent px-2 py-1 text-body"
-              placeholder="~/Documents/Private"
+              placeholder={t("settings.searchSources.excludeFoldersPlaceholder")}
               value={folders ?? data.exclude.folders.join(", ")}
               onChange={(e) => setFolders(e.target.value)}
               onBlur={() => {

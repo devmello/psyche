@@ -103,7 +103,10 @@ export default function WorkbookEditor({
         <table className="border-collapse text-body tabular-nums" aria-label={sheet.name}>
           <thead>
             <tr>
-              <th className="sticky start-0 top-0 z-10 w-10 border-b border-e border-separator bg-background" />
+              <td
+                aria-hidden="true"
+                className="sticky start-0 top-0 z-10 w-10 border-b border-e border-separator bg-background"
+              />
               {Array.from({ length: cols }, (_, c) => (
                 <th
                   key={indexToCol(c)}
@@ -155,28 +158,30 @@ export default function WorkbookEditor({
           </tbody>
         </table>
       </div>
-      <div
-        role="tablist"
-        aria-label={t("book.sheets")}
-        className="flex items-center gap-1 overflow-x-auto"
-      >
-        {wb.sheets.map((s) => (
-          <button
-            key={s.name}
-            type="button"
-            role="tab"
-            aria-selected={s.name === sheet.name}
-            onClick={() => setSheetName(s.name)}
-            className={cn(
-              "rounded-sm px-3 py-1 text-callout outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-              s.name === sheet.name
-                ? "bg-selection font-semibold"
-                : "text-label-secondary hover:bg-fill-quaternary",
-            )}
-          >
-            {s.name}
-          </button>
-        ))}
+      <div className="flex items-center gap-1">
+        <div
+          role="tablist"
+          aria-label={t("book.sheets")}
+          className="flex min-w-0 items-center gap-1 overflow-x-auto"
+        >
+          {wb.sheets.map((s) => (
+            <button
+              key={s.name}
+              type="button"
+              role="tab"
+              aria-selected={s.name === sheet.name}
+              onClick={() => setSheetName(s.name)}
+              className={cn(
+                "rounded-sm px-3 py-1 text-callout outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                s.name === sheet.name
+                  ? "bg-selection font-semibold"
+                  : "text-label-secondary hover:bg-fill-quaternary",
+              )}
+            >
+              {s.name}
+            </button>
+          ))}
+        </div>
         {editable ? (
           <Button
             size="icon-sm"

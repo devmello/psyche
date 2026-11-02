@@ -1,6 +1,8 @@
 import type { ResearchEvent } from "./model.ts";
 import type { ReportView } from "./ResearchReport.tsx";
 
+// i18n-ignore-start: sample research data for the stories and tests only, never shown in the app
+
 export const sampleEvents: ResearchEvent[] = [
   { type: "step", step: "plan" },
   {
@@ -45,3 +47,4 @@ export const sampleReport: ReportView = {
     { n: 2, url: "https://lab.example/degradation", title: "Degradation study", kind: "web" },
   ],
 };
+// i18n-ignore-end

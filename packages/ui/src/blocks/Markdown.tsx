@@ -51,6 +51,24 @@ const COMPONENTS: Components = {
     ) : (
       <span>{label}</span>
     ),
+  // GFM task lists: the disabled box is decorative and its state is read as text before the item,
+  // so a screen reader hears "Done, Book the slot" instead of an unlabelled checkbox.
+  input: ({ type, checked }) =>
+    type === "checkbox" ? (
+      <>
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled
+          readOnly
+          aria-hidden="true"
+          tabIndex={-1}
+        />
+        <span className="sr-only">
+          {checked ? t("blocks.markdown.taskDone") : t("blocks.markdown.taskOpen")}
+        </span>
+      </>
+    ) : null,
 };
 
 /**

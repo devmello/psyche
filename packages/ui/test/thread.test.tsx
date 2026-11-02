@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { COMMANDS } from "../src/chat/commands.ts";
 import { ChatThread } from "../src/chat/Thread.tsx";
 import { GatewayProvider, GatewayStore } from "../src/data/index.ts";
 import { MockGateway } from "../src/data/mock-gateway.ts";
@@ -207,7 +208,7 @@ describe("slash commands (C9)", () => {
     renderMain();
     await userEvent.type(await box(), "/");
     const menu = await screen.findByRole("listbox", { name: "Commands" });
-    expect(within(menu).getAllByRole("option")).toHaveLength(14);
+    expect(within(menu).getAllByRole("option")).toHaveLength(COMMANDS.length);
     await userEvent.type(await box(), "rem");
     expect(
       within(screen.getByRole("listbox", { name: "Commands" })).getAllByRole("option"),

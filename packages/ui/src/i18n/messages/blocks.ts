@@ -318,6 +318,8 @@ export const blocks = {
 
   "blocks.markdown.image": "[image: {alt}]",
   "blocks.markdown.untitled": "untitled",
+  "blocks.markdown.taskDone": "Done",
+  "blocks.markdown.taskOpen": "Not done",
 
   "blocks.wrapUp.label": "Wrap-up",
 
