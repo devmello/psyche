@@ -8029,9 +8029,12 @@ export interface ScheduledRunsParams {
 /**
  * The one status a run is shown with. `waiting`: the run's task is parked on an approval or
  * an answer. `skipped`: nothing was done, and `reason` says why (paused, previous run still
- * going, nothing to report). `succeeded` only when the run finished `done`
+ * going, nothing to report). `succeeded` only when the run finished `done` and its checks
+ * passed. `not_verified`: the run ended, but the evidence that its steps happened is
+ * missing (`reason` names the step, `evidence` lists what was recorded); `failed`: it
+ * errored or was refused
  */
-export type ScheduledRunState = "running" | "waiting" | "succeeded" | "failed" | "skipped" | "cancelled";
+export type ScheduledRunState = "running" | "waiting" | "succeeded" | "not_verified" | "failed" | "skipped" | "cancelled";
 
 export interface ScheduledRunsResult {
     runs: ScheduledRunEntry[];
@@ -8042,6 +8045,7 @@ export interface ScheduledRunEntry {
     automationId:     string;
     durationMs?:      number | null;
     endedAt?:         null | string;
+    evidence?:        string[];
     group:            ScheduledGroup;
     id:               string;
     pendingApprovals: number;

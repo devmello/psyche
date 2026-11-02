@@ -7,6 +7,7 @@ import { formatStepDuration } from "../../components/steps/LiveDuration.tsx";
 import { StepRow } from "../../components/steps/StepRow.tsx";
 import { useRunFrames, useRunStep, useRunSteps, useStoreState } from "../../data/index.ts";
 import { t } from "../../i18n/core.ts";
+import { parseNotVerified } from "../../lib/verdict.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { StepFeedback } from "../../teaching/StepFeedback.tsx";
 import {
@@ -155,9 +156,26 @@ export function StepItem({
       </div>
     ) : undefined;
   const failure =
-    step.status === "failed" && step.error ? (
-      <p className="text-danger-text">{step.error.message}</p>
-    ) : undefined;
+    step.status === "failed" && step.error
+      ? (() => {
+          const v = parseNotVerified(step.error.message);
+          if (v === undefined) return <p className="text-danger-text">{step.error.message}</p>;
+          return (
+            <div className="flex flex-col gap-1">
+              <p className="text-label-primary">
+                {t("agent.timeline.notVerified", { reason: v.reason })}
+              </p>
+              {v.evidence.length > 0 ? (
+                <ul className="ps-4 text-label-secondary">
+                  {v.evidence.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          );
+        })()
+      : undefined;
   const frame = step.frames ? <FrameThumb runId={runId} step={step} /> : undefined;
   // "Not like this" on a finished tool step (teaching loop §5.1).
   const ends = ended(step);

@@ -93,6 +93,14 @@ export const mailMeetings: Partial<Catalogue> = {
   "settings.mail.notes.folder.hint":
     "Wrenが読み取れるフォルダです。「ファイルアクセス」で許可してください。",
   "settings.mail.notes.folder.placeholder": "~/Documents/Recordings",
+  "settings.mail.transcribe.endpoint": "文字起こしのエンドポイント",
+  "settings.mail.transcribe.endpoint.hint":
+    "任意です。/v1/audio/transcriptions に対応した OpenAI 互換サーバー(例: この Mac 上の whisper.cpp)。Mac ヘルパーが動作していないときに使われます。音声はこのアドレスにのみ送信されます(https、または 127.0.0.1 の http)。",
+  "settings.mail.transcribe.endpoint.placeholder": "http://127.0.0.1:8080",
+  "settings.mail.transcribe.model": "文字起こしモデル",
+  "settings.mail.transcribe.model.placeholder": "whisper-1",
+  "settings.key.meetings.transcribe.endpoint": "文字起こしのエンドポイント",
+  "settings.key.meetings.transcribe.model": "文字起こしモデル",
   "settings.mail.notes.tasksApp": "アクションアイテムの追加先",
   "settings.mail.notes.tasksApp.reminders": "リマインダー",
   "settings.mail.notes.tasksApp.things": "Things",

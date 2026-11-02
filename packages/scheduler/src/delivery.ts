@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
-import type {
-  Automation,
-  AutomationRun,
-  IssuedApproval,
-  Notifier,
-  PermissionBroker,
+import {
+  type Automation,
+  type AutomationRun,
+  type IssuedApproval,
+  type Notifier,
+  ownerNoticeKey,
+  type PermissionBroker,
 } from "@psyche/protocol";
 import type { Deliverer, RunResult } from "./types.ts";
 
@@ -70,6 +71,9 @@ export interface DelivererOptions {
   onApprovalQueued?: (issued: IssuedApproval) => void;
 }
 
+/** Shared with the agent's `notify` tool: the task's one owner notice, whoever sends it first. */
+const noticeKey = (run: AutomationRun): string => ownerNoticeKey(run.taskId ?? run.id);
+
 /** The notification kind for a deliverable with no explicit target. */
 function fallbackKind(kind: Automation["kind"]): "reminder" | "briefing" | "task_done" {
   return kind === "reminder" ? "reminder" : kind === "briefing" ? "briefing" : "task_done";
@@ -113,7 +117,8 @@ export function createDeliverer(options: DelivererOptions): Deliverer {
             title: automation.title,
             body: text,
             route,
-            dedupeKey: `automation:${automation.id}:${run.id}`,
+            dedupeKey: noticeKey(run),
+            keepExisting: true,
           });
           notificationId = n?.id;
         }
@@ -126,7 +131,9 @@ export function createDeliverer(options: DelivererOptions): Deliverer {
           title: automation.title,
           body: text,
           route,
-          dedupeKey: `automation:${automation.id}:${run.id}`,
+          dedupeKey: noticeKey(run),
+          // The run may already have told the owner itself (`notify`): that notice stands.
+          keepExisting: true,
         });
         notificationId = n?.id;
       }
