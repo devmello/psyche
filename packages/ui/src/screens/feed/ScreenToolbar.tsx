@@ -57,7 +57,9 @@ export function ScreenToolbar({
       )}
     >
       <div className="flex min-w-0 items-baseline gap-2">
-        <h1 className="shrink-0 font-display text-page-title text-label-primary">{title}</h1>
+        <h1 className="min-w-0 truncate font-display text-page-title text-label-primary">
+          {title}
+        </h1>
         {meta ? (
           <p className="truncate text-callout text-label-secondary tabular-nums @max-md/toolbar:hidden">
             {meta}

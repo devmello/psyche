@@ -359,6 +359,23 @@
   [dir="rtl"] .material-sidebar {
     box-shadow: inset 0.5px 0 0 var(--separator-strong);
   }
+  /*
+    The compact rail expanded over the content (hover or keyboard focus): raised above the page
+    with the popover elevation, revealed from the rail's edge. Reduced motion places it at once
+    (the global rule shortens every animation).
+  */
+  .sidebar-peek {
+    box-shadow:
+      inset -0.5px 0 0 var(--separator-strong),
+      var(--elevation-2);
+    animation: psy-sidebar-peek var(--duration-short) var(--ease-enter) both;
+  }
+  [dir="rtl"] .sidebar-peek {
+    box-shadow:
+      inset 0.5px 0 0 var(--separator-strong),
+      var(--elevation-2);
+    animation-name: psy-sidebar-peek-rtl;
+  }
   /* Scroll edge (§3.4): content fades under a toolbar instead of a hard border. */
   .scroll-edge-top {
     mask-image: linear-gradient(to bottom, transparent 0, black 24px);
@@ -605,5 +622,23 @@
   from {
     opacity: 0;
     transform: translateY(-6px);
+  }
+}
+
+/* The expanded rail opens from the rail's 64 px edge; the clip leaves room for its shadow. */
+@keyframes psy-sidebar-peek {
+  from {
+    clip-path: inset(-32px calc(100% - 64px) -32px 0);
+  }
+  to {
+    clip-path: inset(-32px -32px -32px 0);
+  }
+}
+@keyframes psy-sidebar-peek-rtl {
+  from {
+    clip-path: inset(-32px 0 -32px calc(100% - 64px));
+  }
+  to {
+    clip-path: inset(-32px 0 -32px -32px);
   }
 }
