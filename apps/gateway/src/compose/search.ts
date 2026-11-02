@@ -1,11 +1,13 @@
-import { join } from "node:path";
-import { getLibraryItem, getSetting, getThread, openDb, setSetting } from "@psyche/db";
+import { mkdirSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { getLibraryItem, getSetting, getThread, setSetting } from "@psyche/db";
 import type { GraphStore } from "@psyche/memory";
 import type {
   DeviceScope,
   MemoryStore,
   ModelProvider,
   ModelRef,
+  SearchIndexEncryption,
   SearchIndexStatus,
 } from "@psyche/protocol";
 import {
@@ -35,6 +37,7 @@ import {
 import type { HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
+import { openSearchDatabase } from "./search-db.ts";
 import { watchFolders } from "./search-files.ts";
 import {
   defaultSemanticEngines,
@@ -106,6 +109,11 @@ export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
    * from alex@… and messages from "Alex Rivera".
    */
   resolvePerson?: (name: string) => readonly string[] | undefined;
+  /**
+   * Encryption at rest (`search.encrypt`): the key for this start and the state to report. Absent
+   * means plain, as before.
+   */
+  encryption?: { key?: Buffer; status: SearchIndexEncryption };
   /** Index file; defaults to `<home>/state/search.sqlite`. */
   path?: string;
   /** Library reconcile interval (default 60 s; 0 = only after a backfill and on demand). */
@@ -178,7 +186,11 @@ export function graphNames(
 export function composeSearch(deps: SearchDeps): ComposedSearch {
   // Its own file, not psyche.sqlite: it can be rebuilt any time and its writes never contend
   // with the transcript writer.
-  const file = openDb(deps.path ?? join(deps.home, "state", "search.sqlite"), { migrate: false });
+  const searchPath = deps.path ?? join(deps.home, "state", "search.sqlite");
+  mkdirSync(dirname(searchPath), { recursive: true, mode: 0o700 });
+  const file = openSearchDatabase(searchPath, deps.encryption?.key, (msg) =>
+    deps.logger?.log("info", msg),
+  );
   const index = new SqliteSearchIndex(file.sqlite, {
     memory: deps.memory,
     now: deps.now,
@@ -231,6 +243,7 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
     docs: await index.count(),
     backfill,
     semantic: controller.status(),
+    ...(deps.encryption === undefined ? {} : { encryption: deps.encryption.status }),
   });
   const publishStatus = () => {
     deps.onSemanticChange?.();
