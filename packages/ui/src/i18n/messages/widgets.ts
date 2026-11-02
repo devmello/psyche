@@ -1,5 +1,11 @@
 /** Generative-UI widgets in chat (`widgets/`; docs/design/generative-ui-2026.md). */
 export const widgets = {
+  "settings.widgets.title": "Widgets in chat",
+  "settings.widgets.privacy":
+    "Psyche can draw small panels in the chat: progress, lists, tables, charts and pictures. A panel may point at a picture on the web. Allowing that makes your Gateway fetch the picture from the web for you (no cookies, no referrer, never straight from your device), and only common image types up to 512 KB. In a panel built from untrusted content, the picture still waits for your click.",
+  "settings.widgets.remoteImages": "Show pictures from the web in widgets",
+  "settings.widgets.remoteImagesHint":
+    "Off by default: those pictures show a short note and nothing is fetched. Changing this needs your confirmation.",
   "widgets.frame.madeBy": "Made by Psyche",
   "widgets.frame.live": "Live",
   "widgets.frame.frozen": "Frozen",

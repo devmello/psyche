@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
+import { IDS } from "../src/fixtures/index.ts";
 import { StoryWorld } from "../src/stories/harness.tsx";
 import {
   chartsWidget,
@@ -151,7 +152,33 @@ describe("widget images", () => {
     expect(calls).toContain("widgets.image");
   });
 
-  it("reports a non-image library file instead of drawing it", async () => {
+  it("draws a Library image by file id through files.read as a blob (the Library path)", async () => {
+    const { calls } = mount({
+      ...dataImageWidget,
+      id: "wdg_file_ok",
+      spec: imagesSpec({ fileId: IDS.library.avatar }),
+    });
+    const img = (await screen.findByRole("img", {
+      name: "A blue gradient test image",
+    })) as HTMLImageElement;
+    expect(img.src.startsWith("blob:")).toBe(true);
+    expect(img.getAttribute("referrerpolicy")).toBe("no-referrer");
+    expect(calls).toContain("library.get");
+    expect(calls).toContain("files.read");
+  });
+
+  it("refuses a Library file that is not an image type (e.g. SVG or text)", async () => {
+    const { calls } = mount({
+      ...dataImageWidget,
+      id: "wdg_file_txt",
+      spec: imagesSpec({ fileId: IDS.library.intakeForm }),
+    });
+    expect(await screen.findByText(/could not be loaded/)).toBeTruthy();
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(calls).toContain("files.read");
+  });
+
+  it("reports a missing library file instead of drawing it", async () => {
     const w = { ...dataImageWidget, id: "wdg_file", spec: imagesSpec({ fileId: "lib_missing" }) };
     mount(w);
     expect(await screen.findByText(/could not be loaded/)).toBeTruthy();

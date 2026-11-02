@@ -858,6 +858,19 @@ describe("Data controls", () => {
     expect(screen.queryByText(/training/i)?.textContent).toMatch(/no training toggle/);
   });
 
+  it("keeps pictures from the web in widgets off until the owner turns it on, with a plain-language note", async () => {
+    const { gateway } = setup({ defaultSection: "data" });
+    const toggle = (await screen.findByRole("switch", {
+      name: "Show pictures from the web in widgets",
+    })) as HTMLElement;
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    expect(
+      screen.getByText(/Your Gateway fetch|fetch the picture from the web for you/i),
+    ).toBeTruthy();
+    await userEvent.click(toggle);
+    await waitFor(() => expect(settingValue(gateway(), "widgets.remoteImages")).toBe(true));
+  });
+
   it("pauses memory through memory.pause", async () => {
     const { gateway } = setup({ defaultSection: "data" });
     await userEvent.click(await screen.findByRole("switch", { name: "Pause memory" }));
