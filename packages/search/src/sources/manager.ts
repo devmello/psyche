@@ -321,6 +321,22 @@ export class SourceIndexer {
         .get(id);
       if (has !== undefined || this.#meta(`src.${id}.cursor`) !== undefined) await this.purge(id);
     }
+    for (const id of SOURCE_IDS) {
+      if (!config.sources[id].enabled) continue;
+      const was = this.#meta(`src.${id}.ocr`) === "1";
+      const now = config.sources[id].ocr;
+      if (was === now) continue;
+      if (now) {
+        // Turned on: walk the source again so images and scans are read (unchanged items are
+        // skipped by their hash).
+        this.#setMeta(`src.${id}.ocr`, "1");
+        this.#setMeta(`src.${id}.cursor`, undefined);
+        this.#setMeta(`src.${id}.backfilled`, undefined);
+      } else {
+        // Turned off: text read from images leaves the index with the setting.
+        await this.purge(id);
+      }
+    }
     const rows = this.#index.db
       .prepare(
         "SELECT source, native_id, provenance, parties, chat_id, account, path FROM search_source_items",
@@ -401,6 +417,7 @@ export class SourceIndexer {
         enabled: cfg.enabled,
         processing: cfg.processing,
         agent: cfg.agent,
+        ocr: cfg.ocr,
         state,
         ...(cfg.enabled && (why ?? err) !== undefined ? { detail: (why ?? err) as string } : {}),
         items: c?.n ?? 0,

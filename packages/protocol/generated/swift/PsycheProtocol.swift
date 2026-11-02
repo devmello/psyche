@@ -883,6 +883,10 @@
 //   let notificationsMarkReadResult = try? JSONDecoder().decode(NotificationsMarkReadResult.self, from: jsonData)
 //   let notificationsResolveParams = try? JSONDecoder().decode(NotificationsResolveParams.self, from: jsonData)
 //   let notificationsResolveResult = try? JSONDecoder().decode(NotificationsResolveResult.self, from: jsonData)
+//   let ocrPage = try? JSONDecoder().decode(OcrPage.self, from: jsonData)
+//   let ocrRecognizeParams = try? JSONDecoder().decode(OcrRecognizeParams.self, from: jsonData)
+//   let ocrRecognizeResult = try? JSONDecoder().decode(OcrRecognizeResult.self, from: jsonData)
+//   let ocrRefusal = try? JSONDecoder().decode(OcrRefusal.self, from: jsonData)
 //   let okResult = try? JSONDecoder().decode(OkResult.self, from: jsonData)
 //   let onePasswordRef = try? JSONDecoder().decode(OnePasswordRef.self, from: jsonData)
 //   let pairingRequest = try? JSONDecoder().decode(PairingRequest.self, from: jsonData)
@@ -21140,6 +21144,94 @@ public struct NotificationsResolveResult: Codable, Sendable {
     }
 }
 
+// MARK: - OcrRecognizeParams
+public struct OcrRecognizeParams: Codable, Sendable {
+    /// PDF only: first page to consider (default 1)
+    public let fromPage: Int?
+    /// Size cap
+    public let maxFileBytes: Int?
+    /// At most this many pages are recognised in this call
+    public let maxPages: Int?
+    /// PDF only: pages whose text layer is shorter than this are recognised
+    public let minTextChars: Int?
+    /// PDF only: 1-based pages to consider (default: from the start)
+    public let pages: [Int]?
+    /// An absolute path to a PNG, JPEG, HEIC, TIFF, GIF, WebP or PDF file
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case fromPage = "fromPage"
+        case maxFileBytes = "maxFileBytes"
+        case maxPages = "maxPages"
+        case minTextChars = "minTextChars"
+        case pages = "pages"
+        case path = "path"
+    }
+
+    public init(fromPage: Int?, maxFileBytes: Int?, maxPages: Int?, minTextChars: Int?, pages: [Int]?, path: String) {
+        self.fromPage = fromPage
+        self.maxFileBytes = maxFileBytes
+        self.maxPages = maxPages
+        self.minTextChars = minTextChars
+        self.pages = pages
+        self.path = path
+    }
+}
+
+// MARK: - OcrRecognizeResult
+public struct OcrRecognizeResult: Codable, Sendable {
+    /// PDF only: where a next call continues, when pages remain
+    public let nextPage: Int?
+    /// Pages in the document (1 for an image)
+    public let pageCount: Int
+    /// Only pages that were recognised, in order
+    public let pages: [OcrPage]
+    public let refusal: OcrRefusal?
+
+    public enum CodingKeys: String, CodingKey {
+        case nextPage = "nextPage"
+        case pageCount = "pageCount"
+        case pages = "pages"
+        case refusal = "refusal"
+    }
+
+    public init(nextPage: Int?, pageCount: Int, pages: [OcrPage], refusal: OcrRefusal?) {
+        self.nextPage = nextPage
+        self.pageCount = pageCount
+        self.pages = pages
+        self.refusal = refusal
+    }
+}
+
+// MARK: - OcrPage
+public struct OcrPage: Codable, Sendable {
+    /// Mean line confidence
+    public let confidence: Double
+    /// 1 for an image
+    public let page: Int
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case confidence = "confidence"
+        case page = "page"
+        case text = "text"
+    }
+
+    public init(confidence: Double, page: Int, text: String) {
+        self.confidence = confidence
+        self.page = page
+        self.text = text
+    }
+}
+
+public enum OcrRefusal: String, Codable, Sendable {
+    case notAFile = "not_a_file"
+    case tooLarge = "too_large"
+    case unavailable = "unavailable"
+    case unreadable = "unreadable"
+    case unsupportedType = "unsupported_type"
+}
+
 // MARK: - OkResult
 public struct OkResult: Codable, Sendable {
     public let ok: Bool
@@ -24822,6 +24914,7 @@ public struct SearchSourcesConfigureParams: Codable, Sendable {
     public let agent: Bool?
     public let enabled: Bool?
     public let exclude: Exclude?
+    public let ocr: Bool?
     public let processing: SearchProcessing?
     public let source: SearchSourceID?
 
@@ -24829,14 +24922,16 @@ public struct SearchSourcesConfigureParams: Codable, Sendable {
         case agent = "agent"
         case enabled = "enabled"
         case exclude = "exclude"
+        case ocr = "ocr"
         case processing = "processing"
         case source = "source"
     }
 
-    public init(agent: Bool?, enabled: Bool?, exclude: Exclude?, processing: SearchProcessing?, source: SearchSourceID?) {
+    public init(agent: Bool?, enabled: Bool?, exclude: Exclude?, ocr: Bool?, processing: SearchProcessing?, source: SearchSourceID?) {
         self.agent = agent
         self.enabled = enabled
         self.exclude = exclude
+        self.ocr = ocr
         self.processing = processing
         self.source = source
     }
@@ -24943,6 +25038,9 @@ public struct SearchSourceStatus: Codable, Sendable {
     public let label: String
     /// Epoch ms
     public let lastIndexedAt: Int?
+    /// Read text in images and scanned PDFs on this Mac (Apple Vision); off until the owner
+    /// allows it. Only Files uses it
+    public let ocr: Bool
     public let processing: SearchProcessing
     public let state: SearchSourceState
     /// Text indexed for this source
@@ -24957,12 +25055,13 @@ public struct SearchSourceStatus: Codable, Sendable {
         case items = "items"
         case label = "label"
         case lastIndexedAt = "lastIndexedAt"
+        case ocr = "ocr"
         case processing = "processing"
         case state = "state"
         case textBytes = "textBytes"
     }
 
-    public init(agent: Bool, backfilled: Bool, detail: String?, enabled: Bool, id: SearchSourceID, items: Int, label: String, lastIndexedAt: Int?, processing: SearchProcessing, state: SearchSourceState, textBytes: Int) {
+    public init(agent: Bool, backfilled: Bool, detail: String?, enabled: Bool, id: SearchSourceID, items: Int, label: String, lastIndexedAt: Int?, ocr: Bool, processing: SearchProcessing, state: SearchSourceState, textBytes: Int) {
         self.agent = agent
         self.backfilled = backfilled
         self.detail = detail
@@ -24971,6 +25070,7 @@ public struct SearchSourceStatus: Codable, Sendable {
         self.items = items
         self.label = label
         self.lastIndexedAt = lastIndexedAt
+        self.ocr = ocr
         self.processing = processing
         self.state = state
         self.textBytes = textBytes

@@ -23,6 +23,11 @@ export interface SourceConfig {
    * Messages, which stays owner-only until the owner allows it. The owner's own Search ignores it.
    */
   agent: boolean;
+  /**
+   * Read text in images and scanned PDFs on this Mac (Apple Vision, on-device; roadmap §3.4). Only
+   * the files source uses it. Off until the owner allows it.
+   */
+  ocr: boolean;
 }
 
 /** Things the owner keeps out of the index, matched case-insensitively. */
@@ -54,7 +59,7 @@ export const SOURCE_LABELS: Record<SourceId, string> = {
 export function defaultSourcesConfig(): SourcesConfig {
   const sources = {} as Record<SourceId, SourceConfig>;
   for (const id of SOURCE_IDS)
-    sources[id] = { enabled: false, processing: "cloud", agent: id !== "messages" };
+    sources[id] = { enabled: false, processing: "cloud", agent: id !== "messages", ocr: false };
   return { sources, exclude: { contacts: [], chats: [], accounts: [], folders: [] } };
 }
 
@@ -68,6 +73,7 @@ export function readSourcesConfig(raw: unknown): SourcesConfig {
     if (s === undefined || typeof s !== "object" || s === null) continue;
     if (s.enabled === true) out.sources[id].enabled = true;
     if (typeof s.agent === "boolean") out.sources[id].agent = s.agent;
+    if (s.ocr === true && id === "files") out.sources[id].ocr = true;
     if (PROCESSING_MODELS.includes(s.processing as ProcessingModel))
       out.sources[id].processing = s.processing as ProcessingModel;
   }
@@ -136,6 +142,7 @@ export interface SourceStatus {
   enabled: boolean;
   processing: ProcessingModel;
   agent: boolean;
+  ocr: boolean;
   state: SourceState;
   /** Why it cannot run now (`unavailable`) or the last error. */
   detail?: string;

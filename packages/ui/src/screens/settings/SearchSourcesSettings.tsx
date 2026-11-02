@@ -74,6 +74,7 @@ export function SearchSourcesSettingsGroup({
     enabled?: boolean;
     processing?: "cloud" | "local" | "none";
     agent?: boolean;
+    ocr?: boolean;
     exclude?: { contacts?: string[]; folders?: string[] };
   }) => void | Promise<void>;
   onRebuild?: (source: SearchSourceId) => void | Promise<void>;
@@ -134,6 +135,21 @@ export function SearchSourcesSettingsGroup({
                   onChange={(e) => void configure({ source: s.id, agent: e.target.checked })}
                 />
                 {t("settings.searchSources.agent")}
+              </label>
+            ) : null}
+            {s.enabled && s.id === "files" ? (
+              <label className="flex items-start gap-2 pt-1 text-caption text-label-secondary">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={s.ocr}
+                  aria-label={t("settings.searchSources.ocrLabel", { source: s.label })}
+                  onChange={(e) => void configure({ source: s.id, ocr: e.target.checked })}
+                />
+                <span className="flex flex-col">
+                  {t("settings.searchSources.ocr")}
+                  <span>{t("settings.searchSources.ocrHint")}</span>
+                </span>
               </label>
             ) : null}
             {s.enabled ? (

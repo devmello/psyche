@@ -19,6 +19,7 @@ import {
   threadScope,
 } from "@psyche/search";
 import { libraryRoot } from "./library.ts";
+import type { Recognize } from "./search-ocr.ts";
 
 /**
  * Backfill sources over the Gateway's stores (docs/design/search-2026.md §5.1). Rows are paged by
@@ -47,6 +48,23 @@ export interface SearchSourceDeps {
   goals?: { list(f: { status?: readonly Goal["status"][] }): Promise<Goal[]> };
   /** Rows per page (default 200). */
   pageSize?: number;
+  /**
+   * Vision OCR for Library images and scanned PDFs (the Files source's OCR switch): the
+   * recognizer when OCR may run now, else undefined. A new item (`add`) is read unless the Mac is
+   * in low-power mode; a backfill only on power.
+   */
+  libraryOcr?: (mode: "add" | "backfill") => Recognize | undefined;
+}
+
+/** Library items recognised per backfill page; the rest wait for the next pass. */
+const LIBRARY_OCR_PER_PAGE = 10;
+const OCR_IMAGE_MIME = /^image\/(png|jpe?g|heic|heif|tiff|gif|webp|bmp)$/i;
+const MIN_TEXT_LAYER = 30;
+
+/** Whether OCR could add text to this item: a raster image, or a PDF with (so far) no text. */
+export function isOcrCandidate(item: LibraryItem): boolean {
+  if (item.quarantined === true) return false;
+  return OCR_IMAGE_MIME.test(item.mime) || item.mime === "application/pdf";
 }
 
 /** Text files up to this size are indexed whole (capped by the index's body limit). */
@@ -133,9 +151,16 @@ export function searchSources(deps: SearchSourceDeps): BackfillSource[] {
     async page(cursor) {
       const ids = idsAfter("library_items", cursor);
       const docs: SearchDoc[] = [];
+      const recognize = deps.libraryOcr?.("backfill");
+      let left = LIBRARY_OCR_PER_PAGE;
+      const limited: Recognize | undefined =
+        recognize === undefined
+          ? undefined
+          : async (path, signal) => (left-- > 0 ? recognize(path, signal) : undefined);
       for (const id of ids) {
         const item = getLibraryItem(db, id);
-        if (item !== undefined) docs.push(libraryDoc(item, await libraryText(deps.home, item)));
+        if (item === undefined) continue;
+        docs.push(libraryDoc(item, await libraryText(deps.home, item, limited)));
       }
       return { docs, next: nextOf(ids) };
     },
@@ -179,9 +204,15 @@ export function searchSources(deps: SearchSourceDeps): BackfillSource[] {
 /**
  * Searchable text of a Library item: its stored text extract, else the file itself when it is
  * small text. Quarantined items (untrusted downloads) are indexed by name and tags only, so the
- * index never parses a file the owner has not released.
+ * index never parses a file the owner has not released. With `ocr`, an image (or a PDF whose text
+ * extract is empty) is read by Vision on this Mac and the recognised text becomes the body; the
+ * item keeps its own provenance.
  */
-export async function libraryText(home: string, item: LibraryItem): Promise<string> {
+export async function libraryText(
+  home: string,
+  item: LibraryItem,
+  ocr?: Recognize,
+): Promise<string> {
   if (item.quarantined === true) return "";
   const root = libraryRoot(home);
   const inside = (rel: string) => {
@@ -190,15 +221,25 @@ export async function libraryText(home: string, item: LibraryItem): Promise<stri
     return abs.startsWith(root + sep) ? abs : undefined;
   };
   try {
+    let text = "";
     if (item.textExtractRef != null) {
       const abs = inside(item.textExtractRef);
-      if (abs !== undefined) return await readFile(abs, "utf8");
-    }
-    if (TEXT_MIME.test(item.mime)) {
+      if (abs !== undefined) text = await readFile(abs, "utf8");
+    } else if (TEXT_MIME.test(item.mime)) {
       const abs = inside(item.path);
       if (abs !== undefined && (await stat(abs)).size <= MAX_TEXT_BYTES)
-        return await readFile(abs, "utf8");
+        text = await readFile(abs, "utf8");
     }
+    if (ocr !== undefined && isOcrCandidate(item) && text.trim().length < MIN_TEXT_LAYER) {
+      const abs = inside(item.path);
+      const read =
+        abs === undefined
+          ? undefined
+          : await ocr(abs, new AbortController().signal).catch(() => undefined);
+      if (read !== undefined && read.text.trim() !== "")
+        text = text.trim() === "" ? read.text : `${text}\n${read.text}`;
+    }
+    return text;
   } catch {
     // A missing or unreadable file is indexed by name.
   }

@@ -36,6 +36,7 @@ import type { HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
 import { watchFolders } from "./search-files.ts";
+import type { Recognize } from "./search-ocr.ts";
 import {
   defaultSemanticEngines,
   SEMANTIC_SETTINGS,
@@ -43,8 +44,17 @@ import {
   type SemanticEngines,
   semanticConfig,
 } from "./search-semantic.ts";
-import { libraryText, type SearchSourceDeps, searchSources } from "./search-sources.ts";
+import {
+  isOcrCandidate,
+  libraryText,
+  type SearchSourceDeps,
+  searchSources,
+} from "./search-sources.ts";
+
 import type { ComposedPart } from "./services.ts";
+
+/** New Library images and scans read per sync (every minute). */
+const LIBRARY_OCR_PER_SYNC = 5;
 
 /**
  * Unified search (feature S1, architecture §4.12, docs/design/search-2026.md): the main index in
@@ -260,7 +270,20 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
   );
   const applySemantic = () =>
     controller.apply(semanticConfig((key) => getSetting(deps.db, key)?.value));
-  const backfill: Backfill = new Backfill(index, searchSources(deps), {
+  /**
+   * Vision OCR for Library images and scans: the Files source's switch, the Mac helper, and the
+   * power state (a new item is read unless low-power mode is on; a backfill only on power).
+   */
+  const libraryOcr = (mode: "add" | "backfill"): Recognize | undefined => {
+    const files = deps.sources?.files?.ocr;
+    const cfg = sourcesConfig().sources.files;
+    if (files === undefined || !cfg.enabled || !cfg.ocr) return undefined;
+    const power = files.power?.();
+    if (power !== undefined && (power.lowPower || (mode === "backfill" && power.onBattery)))
+      return undefined;
+    return files.recognize;
+  };
+  const backfill: Backfill = new Backfill(index, searchSources({ ...deps, libraryOcr }), {
     now: deps.now,
     ...(deps.backfillPauseMs === undefined ? {} : { pauseMs: deps.backfillPauseMs }),
     onStatus: (b) => {
@@ -273,7 +296,20 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
   const sourcesConfig = (): SourcesConfig =>
     readSourcesConfig(getSetting(deps.db, SOURCES_SETTING)?.value);
   const filesSource =
-    deps.sources?.files === undefined ? undefined : filesAdapter(deps.sources.files);
+    deps.sources?.files === undefined
+      ? undefined
+      : filesAdapter({
+          ...deps.sources.files,
+          // The owner's switch (Settings → Search sources → Files), read on every pull.
+          ...(deps.sources.files.ocr === undefined
+            ? {}
+            : {
+                ocr: {
+                  ...deps.sources.files.ocr,
+                  enabled: () => sourcesConfig().sources.files.ocr,
+                },
+              }),
+        });
   if (deps.sources !== undefined) {
     sourceIndexer = new SourceIndexer(
       index,
@@ -336,11 +372,15 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
       ).map((r) => r.id),
     );
     for (const id of indexed) if (!have.has(id)) await index.remove(id);
+    // Images are read a few at a time; the rest stay unindexed until the next sync.
+    let ocrLeft = LIBRARY_OCR_PER_SYNC;
     for (const id of have) {
       if (indexed.has(id)) continue;
       const item = getLibraryItem(deps.db, id);
-      if (item !== undefined)
-        await index.index(libraryDoc(item, await libraryText(deps.home, item)));
+      if (item === undefined) continue;
+      const recognize = isOcrCandidate(item) ? libraryOcr("add") : undefined;
+      if (recognize !== undefined && ocrLeft-- <= 0) continue;
+      await index.index(libraryDoc(item, await libraryText(deps.home, item, recognize)));
     }
   };
   const runBackfill = (full: boolean) => {
@@ -373,6 +413,7 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
           enabled?: boolean;
           processing?: "cloud" | "local" | "none";
           agent?: boolean;
+          ocr?: boolean;
           exclude?: Partial<SourcesConfig["exclude"]>;
         };
         const next = sourcesConfig();
@@ -380,6 +421,8 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
           if (p.enabled !== undefined) next.sources[p.source].enabled = p.enabled;
           if (p.processing !== undefined) next.sources[p.source].processing = p.processing;
           if (p.agent !== undefined) next.sources[p.source].agent = p.agent;
+          // Reading text in images is Files only (readSourcesConfig drops it elsewhere).
+          if (p.ocr !== undefined) next.sources[p.source].ocr = p.ocr;
         }
         if (p.exclude !== undefined) Object.assign(next.exclude, p.exclude);
         setSetting(deps.db, SOURCES_SETTING, readSourcesConfig(next));

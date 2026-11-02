@@ -9,6 +9,7 @@ export * from "./FakeMessagesNode.ts";
 export * from "./FakeModelProvider.ts";
 export * from "./FakeNodeClient.ts";
 export * from "./FakeNotifier.ts";
+export * from "./FakeOcrNode.ts";
 export * from "./FakePermissionBroker.ts";
 export * from "./FakeSandboxRunner.ts";
 export * from "./FakeScheduler.ts";
