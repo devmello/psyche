@@ -29,6 +29,7 @@ import {
 } from "./metrics.ts";
 import { mockAnswer } from "./mock-answer.ts";
 import { oracleQueryProvider } from "./model-mock.ts";
+import { coverageReranker } from "./rerank-mock.ts";
 import { type RewriteMode, rewrite } from "./rewrite.ts";
 
 export interface CorpusDoc {
@@ -65,7 +66,7 @@ export const EVAL_TZ = -420;
  */
 export const PRODUCTION_SOURCES = new Set(["chat", "tasks", "library"]);
 
-const MODES: RewriteMode[] = ["raw", "keywords", "rules", "prod", "model"];
+const MODES: RewriteMode[] = ["raw", "keywords", "rules", "prod", "model", "rerank"];
 /**
  * `indexed` = production sources plus Mail, Messages, Notes, Calendar, Reminders and files, written
  * by the real source indexers (roadmap §2). `full` writes the same documents straight in.
@@ -136,7 +137,6 @@ export async function evaluate(
   const index = createSearchIndex({
     now: () => EVAL_NOW,
     tzOffsetMinutes: EVAL_TZ,
-    // `model`: production understanding plus the query model (an oracle stand-in, see model-mock.ts).
     ...(mode === "model"
       ? {
           queryModel: {
@@ -146,6 +146,10 @@ export async function evaluate(
             }),
           },
         }
+      : {}),
+    // `rerank`: production understanding plus a reranker stand-in over the top 20 (rerank-mock.ts).
+    ...(mode === "rerank"
+      ? { rerank: { reranker: coverageReranker, enabled: () => true, topN: () => 20 } }
       : {}),
   });
   const docs = corpus.filter((d) => coverage === "full" || PRODUCTION_SOURCES.has(d.source));
@@ -168,8 +172,9 @@ export async function evaluate(
           q: text,
           collapse: false,
           limit: 20,
-          understand: mode === "prod" || mode === "model",
+          understand: mode === "prod" || mode === "model" || mode === "rerank",
           smart: mode === "model",
+          rerank: mode === "rerank",
         })
       ).hits.flatMap((h) => (indexed === undefined ? [h.id] : indexed.expand(h.id)));
       return [...new Set(ids)];

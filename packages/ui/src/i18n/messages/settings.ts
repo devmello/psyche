@@ -86,6 +86,9 @@ export const settings = {
   "settings.key.search.cards.enabled": "Context cards for search",
   "settings.semanticSearch.cardsHint":
     "When something is saved or indexed, a small cloud model writes a short summary, who and when, and the questions it answers, using only what the text says. Capped at about 200,000 tokens a day (well under a dollar); turn off to stop.",
+  "settings.key.search.rerank.enabled": "Re-rank the best results with a small cloud model",
+  "settings.semanticSearch.rerankHint":
+    "Off by default. When the agent searches your data, a small cloud model reads the question and the top 20 results (title, date and the first 500 characters of each) and puts the best first. Those snippets leave this Mac. Cost: about 2,000 tokens per search, under a cent with a small model. No RAM: nothing runs on this machine. Never used for your delegates' searches or for keystrokes in ⌘K.",
   "settings.key.search.queryModel.enabled": "Read questions with a small model",
   "settings.semanticSearch.queryModelHint":
     "When the agent searches your data with a question and the built-in rules find no time, person or source in it, a small cloud model reads the question once (about 300 tokens) to work out those filters. Only the question is sent, never your items. If no model is set up, or the call fails, the rules are used.",
