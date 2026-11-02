@@ -8305,8 +8305,9 @@ export interface SearchIndexStatus {
     /**
      * Documents in the index
      */
-    docs:      number;
-    semantic?: SearchSemanticStatus;
+    docs:        number;
+    encryption?: SearchIndexEncryption;
+    semantic?:   SearchSemanticStatus;
 }
 
 export interface SearchBackfillStatus {
@@ -8331,6 +8332,24 @@ export interface SearchBackfillStatus {
 }
 
 export type SearchBackfillState = "idle" | "running" | "done" | "error";
+
+export interface SearchIndexEncryption {
+    /**
+     * Why it is unavailable
+     */
+    reason?: string;
+    /**
+     * on: the index file is encrypted; off: it is not and the switch is off; unavailable: the
+     * switch is on but the key cannot be used here
+     */
+    state: SearchIndexEncryptionState;
+}
+
+/**
+ * on: the index file is encrypted; off: it is not and the switch is off; unavailable: the
+ * switch is on but the key cannot be used here
+ */
+export type SearchIndexEncryptionState = "off" | "on" | "unavailable";
 
 export interface SearchSemanticStatus {
     blocked?: SearchSemanticBlock;
