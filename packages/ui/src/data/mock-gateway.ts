@@ -2366,6 +2366,13 @@ export class MockGateway implements GatewayClient {
         .slice(0, p.limit ?? 200),
     }),
     "automations.run": () => ({ runId: this.id("run"), taskId: this.id("task") }),
+    "automations.runs": (p) => {
+      const all = (this.world.automationRuns ?? [])
+        .filter((r) => r.automationId === p.automationId)
+        .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+      const limit = p.limit ?? 50;
+      return { runs: all.slice(0, limit), nextCursor: all.length > limit ? `o${limit}` : null };
+    },
     "scheduled.runs": () => ({ runs: [] }),
     "scheduled.list": () => ({
       timezone: "UTC",

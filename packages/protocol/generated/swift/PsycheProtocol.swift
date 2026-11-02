@@ -1264,6 +1264,7 @@
 //   let thingsUpdateParams = try? JSONDecoder().decode(ThingsUpdateParams.self, from: jsonData)
 //   let thread = try? JSONDecoder().decode(Thread.self, from: jsonData)
 //   let threadActivity = try? JSONDecoder().decode(ThreadActivity.self, from: jsonData)
+//   let threadAutomation = try? JSONDecoder().decode(ThreadAutomation.self, from: jsonData)
 //   let threadContextUpdatedPayload = try? JSONDecoder().decode(ThreadContextUpdatedPayload.self, from: jsonData)
 //   let threadDeletedPayload = try? JSONDecoder().decode(ThreadDeletedPayload.self, from: jsonData)
 //   let threadIDParams = try? JSONDecoder().decode(ThreadIDParams.self, from: jsonData)
@@ -29225,17 +29226,20 @@ public struct ThreadsListResult: Codable, Sendable {
 // MARK: - ThreadListEntry
 public struct ThreadListEntry: Codable, Sendable {
     public let activity: ThreadActivity
+    public let automation: ThreadAutomation?
     public let lastMessage: ThreadPreview?
     public let thread: Thread
 
     public enum CodingKeys: String, CodingKey {
         case activity = "activity"
+        case automation = "automation"
         case lastMessage = "lastMessage"
         case thread = "thread"
     }
 
-    public init(activity: ThreadActivity, lastMessage: ThreadPreview?, thread: Thread) {
+    public init(activity: ThreadActivity, automation: ThreadAutomation?, lastMessage: ThreadPreview?, thread: Thread) {
         self.activity = activity
+        self.automation = automation
         self.lastMessage = lastMessage
         self.thread = thread
     }
@@ -29257,6 +29261,50 @@ public struct ThreadActivity: Codable, Sendable {
         self.awaitingApproval = awaitingApproval
         self.awaitingInput = awaitingInput
         self.running = running
+    }
+}
+
+// MARK: - ThreadAutomation
+public struct ThreadAutomation: Codable, Sendable {
+    public let automationID: String
+    public let lastRun: LastRun?
+    public let runCount: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case automationID = "automationId"
+        case lastRun = "lastRun"
+        case runCount = "runCount"
+    }
+
+    public init(automationID: String, lastRun: LastRun?, runCount: Int) {
+        self.automationID = automationID
+        self.lastRun = lastRun
+        self.runCount = runCount
+    }
+}
+
+// MARK: - LastRun
+public struct LastRun: Codable, Sendable {
+    public let endedAt: String?
+    public let id: String
+    public let startedAt: String
+    public let status: AutomationRunStatus
+    public let summary: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case endedAt = "endedAt"
+        case id = "id"
+        case startedAt = "startedAt"
+        case status = "status"
+        case summary = "summary"
+    }
+
+    public init(endedAt: String?, id: String, startedAt: String, status: AutomationRunStatus, summary: String?) {
+        self.endedAt = endedAt
+        self.id = id
+        self.startedAt = startedAt
+        self.status = status
+        self.summary = summary
     }
 }
 

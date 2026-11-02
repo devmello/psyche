@@ -6,6 +6,7 @@ import {
   ContextUsage,
   EffectiveContextLimits,
 } from "../schemas/context.ts";
+import { AutomationRunStatus } from "../schemas/integrations.ts";
 import { Thread, ThreadActivity, ThreadKind } from "../schemas/threads.ts";
 import { defineMethod, nextCursor, OkResult, pageParams } from "./define.ts";
 
@@ -28,11 +29,36 @@ export const ThreadPreview = Type.Object(
 );
 export type ThreadPreview = Static<typeof ThreadPreview>;
 
+/**
+ * What an automation's one chat shows in the list: how many times it ran and how the last run
+ * went. Every run of an automation lands in this thread (`kind: automation`, session key
+ * `automation:<id>`); the run's own work thread is a hidden child of it.
+ */
+export const ThreadAutomation = Type.Object(
+  {
+    automationId: Id,
+    runCount: Type.Integer({ minimum: 0 }),
+    lastRun: Type.Optional(
+      Type.Object({
+        id: Id,
+        status: AutomationRunStatus,
+        startedAt: IsoDateTime,
+        endedAt: Type.Union([IsoDateTime, Type.Null()]),
+        summary: Type.Union([Type.String(), Type.Null()]),
+      }),
+    ),
+  },
+  { $id: "ThreadAutomation" },
+);
+export type ThreadAutomation = Static<typeof ThreadAutomation>;
+
 /** A thread plus the derived activity counts and the last line the sidebar shows. */
 export const ThreadListEntry = Type.Object(
   {
     thread: Thread,
     activity: ThreadActivity,
+    /** Present on an automation's chat; its activity counts include its runs. */
+    automation: Type.Optional(ThreadAutomation),
     /** Absent when the thread has no user or agent text yet. */
     lastMessage: Type.Optional(ThreadPreview),
   },

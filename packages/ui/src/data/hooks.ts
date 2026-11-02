@@ -220,6 +220,10 @@ export function usePayments(limit = 20): LoadState & { data: PaymentsData | unde
   return { ...load, data: entry?.data as PaymentsData | undefined };
 }
 
+/** The hidden thread one automation run works in: its automation's chat lists the run instead. */
+const isRunThread = (e: ThreadListEntry): boolean =>
+  e.thread.kind === "automation" && e.thread.sessionKey.startsWith("cron:");
+
 // --- Threads ----------------------------------------------------------------------------------
 
 export function useThreads(options: { includeArchived?: boolean } = {}) {
@@ -242,7 +246,7 @@ export function useThreads(options: { includeArchived?: boolean } = {}) {
   const all = useMemo(
     () =>
       Object.values(threadsDict)
-        .filter((e) => !isEmptyUserChat(e))
+        .filter((e) => !isEmptyUserChat(e) && !isRunThread(e))
         .sort((a, b) =>
           (b.thread.lastMessageAt ?? b.thread.updatedAt).localeCompare(
             a.thread.lastMessageAt ?? a.thread.updatedAt,
