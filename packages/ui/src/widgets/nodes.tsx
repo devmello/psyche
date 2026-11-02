@@ -534,7 +534,7 @@ export function RenderNode({ node, depth }: { node: N; depth: number }): ReactEl
         <ul className="flex flex-col divide-y divide-border">
           {items.map((i, k) => (
             <li key={str(i.id) || k} className="flex items-baseline justify-between gap-3 py-1">
-              <ListRowAction item={i} />
+              <ListRowAction item={i} nodeId={str(n.id)} />
               {i.meta ? (
                 <span className="shrink-0 text-callout text-label-secondary">{str(i.meta)}</span>
               ) : null}

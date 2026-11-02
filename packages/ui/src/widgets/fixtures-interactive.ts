@@ -53,13 +53,36 @@ export const interactiveSpec: WidgetSpec = {
         items: [
           { id: "r1", title: "Open my calendar", action: { kind: "open", route: "/scheduled" } },
           { id: "r2", title: "Plain row" },
+          {
+            id: "r3",
+            title: "Archive thread",
+            action: { kind: "tool", tool: "mail_archive", args: { thread: "t1" } },
+          },
         ],
       },
       {
         id: "tool",
         type: "button",
-        label: "Run it",
-        action: { kind: "tool", tool: "send_email", args: {} },
+        label: "Send the draft",
+        action: { kind: "tool", tool: "send_email", args: { to: "jane@example.com" } },
+      },
+      {
+        id: "toolform",
+        type: "form",
+        label: "Compose email",
+        fields: [
+          { id: "to", label: "To", type: "text", required: true },
+          {
+            id: "pri",
+            label: "Priority",
+            type: "select",
+            options: [
+              { id: "hi", label: "High" },
+              { id: "lo", label: "Low" },
+            ],
+          },
+        ],
+        submit: { label: "Send email", as: "tool", tool: "send_email" },
       },
     ],
   },
