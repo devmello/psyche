@@ -53,11 +53,19 @@ export function FeedPostCard(props: FeedPostCardProps): ReactElement {
   const { post, renderBatch, className } = props;
   if (post.card)
     return (
-      <WorkflowPostCard
-        post={{ ...post, card: post.card }}
-        {...(renderBatch ? { renderBatch } : {})}
-        {...(className ? { className } : {})}
-      />
+      <>
+        <WorkflowPostCard
+          post={{ ...post, card: post.card }}
+          {...(renderBatch ? { renderBatch } : {})}
+          {...(className ? { className } : {})}
+        />
+        {/* The daily brief's at-a-glance snapshot sits with its card. */}
+        {post.widget ? (
+          <div className={className}>
+            <FeedWidgetView postId={post.id} snapshot={post.widget} />
+          </div>
+        ) : null}
+      </>
     );
   return <StandardPostCard {...props} />;
 }

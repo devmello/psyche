@@ -212,6 +212,27 @@ describe("hard prohibitions", () => {
     }
   });
 
+  it("no agent or tool call runs Apple's on-device model; only the model router does", async () => {
+    const { broker } = makeBroker({ policy: permissive, psycheHome: "/Users/o/.psyche" });
+    for (const tool of [
+      "llm.apple.generate",
+      "node.llm.apple.generate",
+      "llm.apple.availability",
+    ]) {
+      for (const initiator of ["owner", "agent"] as const) {
+        const d = await broker.decide(call(tool, "read"), {
+          ...CTX,
+          permissionMode: "auto",
+          initiator,
+        });
+        expect(d, `${tool} ${initiator}`).toMatchObject({
+          decision: "deny",
+          rule: "prohibition:llm_router_only",
+        });
+      }
+    }
+  });
+
   it("no agent or tool call reaches the people graph's Messages reads (#763)", async () => {
     // Even an owner-initiated, allow-all call: only the graph's ingest path calls these.
     const { broker } = makeBroker({ policy: permissive, psycheHome: "/Users/o/.psyche" });

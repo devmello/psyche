@@ -79,6 +79,7 @@ export {
   MAX_FEED_INSTRUCTIONS,
   toFeedPost,
 } from "./feed/service.ts";
+export { dailySnapshot, type RunOutcome, runSnapshot } from "./feed/snapshots.ts";
 export {
   arxivSource,
   type Candidate,

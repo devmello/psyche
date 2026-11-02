@@ -1,5 +1,6 @@
 import type { Clock, CredentialBroker } from "@psyche/protocol";
 import { AiSdkAdapter } from "./adapter.ts";
+import { type AppleAdapterDeps, AppleOnDeviceAdapter } from "./apple/adapter.ts";
 import { CliAdapter, type CliAdapterDeps } from "./cli/adapter.ts";
 import { cliDialectFor } from "./cli/index.ts";
 import { isSubscriptionKind, type ProviderConfig } from "./config.ts";
@@ -32,6 +33,8 @@ export interface ModelRouterDeps {
   fetch?: typeof fetch;
   /** Subscription CLIs (`claude-code`, `codex`): bridge and environment (tests use a fake CLI). */
   cli?: CliAdapterDeps;
+  /** Apple's on-device model (`kind: "apple"`): the live Mac helper that offers `llm.apple.*`. */
+  apple?: AppleAdapterDeps;
 }
 
 /** Build adapters for each provider config and the router over them. */
@@ -43,9 +46,11 @@ export function createModelRouter(config: ModelRouterConfig, deps: ModelRouterDe
   if (deps.fetch !== undefined) adapterDeps.fetch = deps.fetch;
   const options: ConstructorParameters<typeof ModelRouter>[0] = {
     providers: config.providers.map((p) =>
-      isSubscriptionKind(p.kind)
-        ? new CliAdapter(p, cliDialectFor(p), deps.cli)
-        : new AiSdkAdapter(p, adapterDeps),
+      p.kind === "apple"
+        ? new AppleOnDeviceAdapter(p, deps.apple ?? { node: () => undefined })
+        : isSubscriptionKind(p.kind)
+          ? new CliAdapter(p, cliDialectFor(p), deps.cli)
+          : new AiSdkAdapter(p, adapterDeps),
     ),
     clock: deps.clock,
   };

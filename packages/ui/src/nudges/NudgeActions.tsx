@@ -11,8 +11,20 @@ import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { cn } from "../lib/utils.ts";
 
-/** The text a "Draft a reply" fills into the chat composer. Nothing is sent. */
+/**
+ * The text a "Draft a reply" fills into the chat composer. Nothing is sent. The starters (what
+ * Psyche has on file, with where it comes from) go in as context the draft may use and must not
+ * go beyond.
+ */
 export function draftPrompt(item: NudgeItem): string {
+  const base = draftRequest(item);
+  const starters = item.starters ?? [];
+  if (starters.length === 0) return base;
+  const list = starters.map((s) => `- ${s.text} (${s.evidence})`).join("\n");
+  return `${base}\n\n${t("nudges.draft.starters")}\n${list}`;
+}
+
+function draftRequest(item: NudgeItem): string {
   switch (item.kind) {
     case "unanswered":
       return t("nudges.draft.unanswered", {
@@ -27,6 +39,30 @@ export function draftPrompt(item: NudgeItem): string {
     case "promise":
       return t("nudges.draft.promise", { name: item.name, text: item.text });
   }
+}
+
+/** Up to three things to bring up, each with the fact or promise it comes from. */
+export function NudgeStarters({
+  starters,
+}: {
+  starters: NudgeItem["starters"];
+}): ReactElement | null {
+  if (starters === undefined || starters.length === 0) return null;
+  return (
+    <section aria-label={t("nudges.starters.title")} data-testid="nudge-starters">
+      <p className="text-caption text-label-secondary">{t("nudges.starters.title")}</p>
+      <ul className="mt-1 flex flex-col gap-1.5">
+        {starters.map((s) => (
+          <li key={`${s.text}|${s.evidence}`} className="flex flex-col">
+            <span className="text-body text-label-primary">{s.text}</span>
+            <span className="text-caption text-label-secondary" data-testid="nudge-evidence">
+              {s.evidence}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 export interface NudgeActionsProps {
@@ -86,6 +122,7 @@ export function NudgeActions({
           {t("nudges.overdue")}
         </p>
       ) : null}
+      <NudgeStarters starters={item.starters} />
       <div className="flex flex-wrap items-center gap-2">
         {onDraft ? (
           <Button

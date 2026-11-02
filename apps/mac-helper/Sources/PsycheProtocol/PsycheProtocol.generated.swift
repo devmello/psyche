@@ -4,6 +4,11 @@
 // This file was generated from JSON Schema using quicktype, do not modify it directly.
 // To parse the JSON, add this file to your project and do:
 //
+//   let accessEntry = try? JSONDecoder().decode(AccessEntry.self, from: jsonData)
+//   let accessListParams = try? JSONDecoder().decode(AccessListParams.self, from: jsonData)
+//   let accessListResult = try? JSONDecoder().decode(AccessListResult.self, from: jsonData)
+//   let accessRevokeParams = try? JSONDecoder().decode(AccessRevokeParams.self, from: jsonData)
+//   let accessRevokeResult = try? JSONDecoder().decode(AccessRevokeResult.self, from: jsonData)
 //   let actionCall = try? JSONDecoder().decode(ActionCall.self, from: jsonData)
 //   let actionCallResult = try? JSONDecoder().decode(ActionCallResult.self, from: jsonData)
 //   let actionProposal = try? JSONDecoder().decode(ActionProposal.self, from: jsonData)
@@ -34,6 +39,13 @@
 //   let appleFilesRenameParams = try? JSONDecoder().decode(AppleFilesRenameParams.self, from: jsonData)
 //   let appleFilesTrashParams = try? JSONDecoder().decode(AppleFilesTrashParams.self, from: jsonData)
 //   let appleFinderEntry = try? JSONDecoder().decode(AppleFinderEntry.self, from: jsonData)
+//   let appleLlmAvailability = try? JSONDecoder().decode(AppleLlmAvailability.self, from: jsonData)
+//   let appleLlmAvailabilityParams = try? JSONDecoder().decode(AppleLlmAvailabilityParams.self, from: jsonData)
+//   let appleLlmGenerateParams = try? JSONDecoder().decode(AppleLlmGenerateParams.self, from: jsonData)
+//   let appleLlmGenerateResult = try? JSONDecoder().decode(AppleLlmGenerateResult.self, from: jsonData)
+//   let appleLlmRefusal = try? JSONDecoder().decode(AppleLlmRefusal.self, from: jsonData)
+//   let appleLlmStatus = try? JSONDecoder().decode(AppleLlmStatus.self, from: jsonData)
+//   let appleLlmUnavailableReason = try? JSONDecoder().decode(AppleLlmUnavailableReason.self, from: jsonData)
 //   let appleMailDraftInput = try? JSONDecoder().decode(AppleMailDraftInput.self, from: jsonData)
 //   let appleMailDraftRef = try? JSONDecoder().decode(AppleMailDraftRef.self, from: jsonData)
 //   let appleMailForwardDraftParams = try? JSONDecoder().decode(AppleMailForwardDraftParams.self, from: jsonData)
@@ -868,6 +880,7 @@
 //   let modelFactSource = try? JSONDecoder().decode(ModelFactSource.self, from: jsonData)
 //   let modelProviderSummary = try? JSONDecoder().decode(ModelProviderSummary.self, from: jsonData)
 //   let modelRoles = try? JSONDecoder().decode(ModelRoles.self, from: jsonData)
+//   let modelsAppleStatusParams = try? JSONDecoder().decode(ModelsAppleStatusParams.self, from: jsonData)
 //   let modelsCheckParams = try? JSONDecoder().decode(ModelsCheckParams.self, from: jsonData)
 //   let modelsCheckResult = try? JSONDecoder().decode(ModelsCheckResult.self, from: jsonData)
 //   let modelsClearKeyParams = try? JSONDecoder().decode(ModelsClearKeyParams.self, from: jsonData)
@@ -912,6 +925,7 @@
 //   let nudgeItem = try? JSONDecoder().decode(NudgeItem.self, from: jsonData)
 //   let nudgeKind = try? JSONDecoder().decode(NudgeKind.self, from: jsonData)
 //   let nudgeSensitivity = try? JSONDecoder().decode(NudgeSensitivity.self, from: jsonData)
+//   let nudgeStarter = try? JSONDecoder().decode(NudgeStarter.self, from: jsonData)
 //   let nudgesActParams = try? JSONDecoder().decode(NudgesActParams.self, from: jsonData)
 //   let nudgesActResult = try? JSONDecoder().decode(NudgesActResult.self, from: jsonData)
 //   let nudgesListParams = try? JSONDecoder().decode(NudgesListParams.self, from: jsonData)
@@ -1413,6 +1427,7 @@
 //   let widgetAction = try? JSONDecoder().decode(WidgetAction.self, from: jsonData)
 //   let widgetBind = try? JSONDecoder().decode(WidgetBind.self, from: jsonData)
 //   let widgetBindingSource = try? JSONDecoder().decode(WidgetBindingSource.self, from: jsonData)
+//   let widgetDraftPayload = try? JSONDecoder().decode(WidgetDraftPayload.self, from: jsonData)
 //   let widgetNode = try? JSONDecoder().decode(WidgetNode.self, from: jsonData)
 //   let widgetOp = try? JSONDecoder().decode(WidgetOp.self, from: jsonData)
 //   let widgetOwner = try? JSONDecoder().decode(WidgetOwner.self, from: jsonData)
@@ -1441,6 +1456,134 @@
 //   let wrapUpBlock = try? JSONDecoder().decode(WrapUpBlock.self, from: jsonData)
 
 import Foundation
+
+// MARK: - AccessListResult
+public struct AccessListResult: Codable, Sendable {
+    public let entries: [AccessEntry]
+
+    public enum CodingKeys: String, CodingKey {
+        case entries = "entries"
+    }
+
+    public init(entries: [AccessEntry]) {
+        self.entries = entries
+    }
+}
+
+// MARK: - AccessEntry
+public struct AccessEntry: Codable, Sendable {
+    public let grantID: String?
+    public let id: String
+    public let kind: ApprovalKind?
+    public let label: String
+    public let lastUsedAt: String?
+    public let mode: Mode?
+    public let path: String?
+    public let scope: AccessEntryScope
+    public let since: String?
+    public let threadID: String?
+    public let type: AccessEntryType
+
+    public enum CodingKeys: String, CodingKey {
+        case grantID = "grantId"
+        case id = "id"
+        case kind = "kind"
+        case label = "label"
+        case lastUsedAt = "lastUsedAt"
+        case mode = "mode"
+        case path = "path"
+        case scope = "scope"
+        case since = "since"
+        case threadID = "threadId"
+        case type = "type"
+    }
+
+    public init(grantID: String?, id: String, kind: ApprovalKind?, label: String, lastUsedAt: String?, mode: Mode?, path: String?, scope: AccessEntryScope, since: String?, threadID: String?, type: AccessEntryType) {
+        self.grantID = grantID
+        self.id = id
+        self.kind = kind
+        self.label = label
+        self.lastUsedAt = lastUsedAt
+        self.mode = mode
+        self.path = path
+        self.scope = scope
+        self.since = since
+        self.threadID = threadID
+        self.type = type
+    }
+}
+
+public enum ApprovalKind: String, Codable, Sendable {
+    case appleScript = "apple_script"
+    case archiveThread = "archive_thread"
+    case batch = "batch"
+    case browserSubmit = "browser_submit"
+    case calendarWrite = "calendar_write"
+    case computerAction = "computer_action"
+    case connectorAction = "connector_action"
+    case credentialFill = "credential_fill"
+    case exec = "exec"
+    case execHost = "exec_host"
+    case fileWrite = "file_write"
+    case folderAccess = "folder_access"
+    case gitPush = "git_push"
+    case gitWrite = "git_write"
+    case mcpTool = "mcp_tool"
+    case memoryProtectedWrite = "memory_protected_write"
+    case messageSend = "message_send"
+    case newOrigin = "new_origin"
+    case pairing = "pairing"
+    case permissionRequest = "permission_request"
+    case planExit = "plan_exit"
+    case policyChange = "policy_change"
+    case purchase = "purchase"
+    case sendEmail = "send_email"
+    case shortcutRun = "shortcut_run"
+    case skillInstall = "skill_install"
+    case taskStart = "task_start"
+}
+
+public enum Mode: String, Codable, Sendable {
+    case ro = "ro"
+    case rw = "rw"
+}
+
+public enum AccessEntryScope: String, Codable, Sendable {
+    case always = "always"
+    case conversation = "conversation"
+    case limited = "limited"
+}
+
+public enum AccessEntryType: String, Codable, Sendable {
+    case folder = "folder"
+    case grant = "grant"
+}
+
+// MARK: - AccessRevokeParams
+public struct AccessRevokeParams: Codable, Sendable {
+    public let entryID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case entryID = "entryId"
+    }
+
+    public init(entryID: String) {
+        self.entryID = entryID
+    }
+}
+
+// MARK: - AccessRevokeResult
+public struct AccessRevokeResult: Codable, Sendable {
+    public let revoked: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case revoked = "revoked"
+    }
+
+    public init(revoked: Bool) {
+        self.revoked = revoked
+    }
+}
 
 // MARK: - AppLinkBlock
 public struct AppLinkBlock: Codable, Sendable {
@@ -2329,6 +2472,126 @@ public struct AppleFinderEntry: Codable, Sendable {
         self.name = name
         self.path = path
         self.size = size
+    }
+}
+
+// MARK: - AppleLlmAvailability
+public struct AppleLlmAvailability: Codable, Sendable {
+    public let available: Bool
+    /// Input and output together
+    public let contextTokens: Int
+    public let reason: AppleLlmUnavailableReason?
+
+    public enum CodingKeys: String, CodingKey {
+        case available = "available"
+        case contextTokens = "contextTokens"
+        case reason = "reason"
+    }
+
+    public init(available: Bool, contextTokens: Int, reason: AppleLlmUnavailableReason?) {
+        self.available = available
+        self.contextTokens = contextTokens
+        self.reason = reason
+    }
+}
+
+public enum AppleLlmUnavailableReason: String, Codable, Sendable {
+    case appleIntelligenceNotEnabled = "apple_intelligence_not_enabled"
+    case deviceNotEligible = "device_not_eligible"
+    case modelNotReady = "model_not_ready"
+    case unknown = "unknown"
+    case unsupportedOS = "unsupported_os"
+}
+
+// MARK: - AppleLlmGenerateParams
+public struct AppleLlmGenerateParams: Codable, Sendable {
+    public let instructions: String?
+    public let maxTokens: Int?
+    public let prompt: String
+    /// Guided generation: a JSON Schema subset (object, array, string, number, integer, boolean,
+    /// string enum; properties, required, items). The reply is JSON text of that shape.
+    public let schema: [String: JSONAny]?
+    public let temperature: Double?
+    public let timeoutMS: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case instructions = "instructions"
+        case maxTokens = "maxTokens"
+        case prompt = "prompt"
+        case schema = "schema"
+        case temperature = "temperature"
+        case timeoutMS = "timeoutMs"
+    }
+
+    public init(instructions: String?, maxTokens: Int?, prompt: String, schema: [String: JSONAny]?, temperature: Double?, timeoutMS: Int?) {
+        self.instructions = instructions
+        self.maxTokens = maxTokens
+        self.prompt = prompt
+        self.schema = schema
+        self.temperature = temperature
+        self.timeoutMS = timeoutMS
+    }
+}
+
+// MARK: - AppleLlmGenerateResult
+public struct AppleLlmGenerateResult: Codable, Sendable {
+    public let reason: AppleLlmUnavailableReason?
+    public let refusal: AppleLlmRefusal?
+    /// True when `text` is JSON from a schema
+    public let structured: Bool
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case reason = "reason"
+        case refusal = "refusal"
+        case structured = "structured"
+        case text = "text"
+    }
+
+    public init(reason: AppleLlmUnavailableReason?, refusal: AppleLlmRefusal?, structured: Bool, text: String) {
+        self.reason = reason
+        self.refusal = refusal
+        self.structured = structured
+        self.text = text
+    }
+}
+
+public enum AppleLlmRefusal: String, Codable, Sendable {
+    case contextExceeded = "context_exceeded"
+    case failed = "failed"
+    case guardrail = "guardrail"
+    case rateLimited = "rate_limited"
+    case timedOut = "timed_out"
+    case tooLong = "too_long"
+    case unavailable = "unavailable"
+    case unsupportedLanguage = "unsupported_language"
+    case unsupportedSchema = "unsupported_schema"
+}
+
+// MARK: - AppleLlmStatus
+public struct AppleLlmStatus: Codable, Sendable {
+    public let available: Bool
+    public let contextTokens: Int
+    /// A Mac helper that offers llm.apple.* is live
+    public let helperConnected: Bool
+    public let reason: AppleLlmUnavailableReason?
+    /// The model ref to select, apple/on-device
+    public let ref: String
+
+    public enum CodingKeys: String, CodingKey {
+        case available = "available"
+        case contextTokens = "contextTokens"
+        case helperConnected = "helperConnected"
+        case reason = "reason"
+        case ref = "ref"
+    }
+
+    public init(available: Bool, contextTokens: Int, helperConnected: Bool, reason: AppleLlmUnavailableReason?, ref: String) {
+        self.available = available
+        self.contextTokens = contextTokens
+        self.helperConnected = helperConnected
+        self.reason = reason
+        self.ref = ref
     }
 }
 
@@ -3522,6 +3785,7 @@ public struct ApprovalAnswer: Codable, Sendable {
     public let approvalID: String
     public let decision: ApprovalAnswerDecision
     public let editedText: String?
+    public let folderMode: Mode?
     public let folderPath: String?
     public let presence: PresenceAssertion?
     public let recipientChoice: String?
@@ -3534,6 +3798,7 @@ public struct ApprovalAnswer: Codable, Sendable {
         case approvalID = "approvalId"
         case decision = "decision"
         case editedText = "editedText"
+        case folderMode = "folderMode"
         case folderPath = "folderPath"
         case presence = "presence"
         case recipientChoice = "recipientChoice"
@@ -3542,11 +3807,12 @@ public struct ApprovalAnswer: Codable, Sendable {
         case via = "via"
     }
 
-    public init(answerToken: String, approvalID: String, decision: ApprovalAnswerDecision, editedText: String?, folderPath: String?, presence: PresenceAssertion?, recipientChoice: String?, scope: GrantScope?, unsandboxed: Unsandboxed?, via: InputVia?) {
+    public init(answerToken: String, approvalID: String, decision: ApprovalAnswerDecision, editedText: String?, folderMode: Mode?, folderPath: String?, presence: PresenceAssertion?, recipientChoice: String?, scope: GrantScope?, unsandboxed: Unsandboxed?, via: InputVia?) {
         self.answerToken = answerToken
         self.approvalID = approvalID
         self.decision = decision
         self.editedText = editedText
+        self.folderMode = folderMode
         self.folderPath = folderPath
         self.presence = presence
         self.recipientChoice = recipientChoice
@@ -3771,36 +4037,6 @@ public struct FromLesson: Codable, Sendable {
         self.feedbackID = feedbackID
         self.lessonID = lessonID
     }
-}
-
-public enum ApprovalKind: String, Codable, Sendable {
-    case appleScript = "apple_script"
-    case archiveThread = "archive_thread"
-    case batch = "batch"
-    case browserSubmit = "browser_submit"
-    case calendarWrite = "calendar_write"
-    case computerAction = "computer_action"
-    case connectorAction = "connector_action"
-    case credentialFill = "credential_fill"
-    case exec = "exec"
-    case execHost = "exec_host"
-    case fileWrite = "file_write"
-    case folderAccess = "folder_access"
-    case gitPush = "git_push"
-    case gitWrite = "git_write"
-    case mcpTool = "mcp_tool"
-    case memoryProtectedWrite = "memory_protected_write"
-    case messageSend = "message_send"
-    case newOrigin = "new_origin"
-    case pairing = "pairing"
-    case permissionRequest = "permission_request"
-    case planExit = "plan_exit"
-    case policyChange = "policy_change"
-    case purchase = "purchase"
-    case sendEmail = "send_email"
-    case shortcutRun = "shortcut_run"
-    case skillInstall = "skill_install"
-    case taskStart = "task_start"
 }
 
 // MARK: - RequestedBy
@@ -21760,6 +21996,7 @@ public struct NudgeItem: Codable, Sendable {
     /// A display name: third-party text, one line
     public let name: String
     public let overdue: Bool
+    public let starters: [NudgeStarter]?
     /// One plain sentence built from the name, numbers and a template
     public let text: String
 
@@ -21772,10 +22009,11 @@ public struct NudgeItem: Codable, Sendable {
         case kind = "kind"
         case name = "name"
         case overdue = "overdue"
+        case starters = "starters"
         case text = "text"
     }
 
-    public init(channel: ChannelEnum?, date: String?, daysAgo: Int?, entityID: String, id: String, kind: NudgeKind, name: String, overdue: Bool, text: String) {
+    public init(channel: ChannelEnum?, date: String?, daysAgo: Int?, entityID: String, id: String, kind: NudgeKind, name: String, overdue: Bool, starters: [NudgeStarter]?, text: String) {
         self.channel = channel
         self.date = date
         self.daysAgo = daysAgo
@@ -21784,6 +22022,7 @@ public struct NudgeItem: Codable, Sendable {
         self.kind = kind
         self.name = name
         self.overdue = overdue
+        self.starters = starters
         self.text = text
     }
 }
@@ -21798,6 +22037,24 @@ public enum NudgeKind: String, Codable, Sendable {
     case drift = "drift"
     case promise = "promise"
     case unanswered = "unanswered"
+}
+
+// MARK: - NudgeStarter
+public struct NudgeStarter: Codable, Sendable {
+    /// The fact or promise it comes from: attribute, value, how it became known, date
+    public let evidence: String
+    /// One short suggestion
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case evidence = "evidence"
+        case text = "text"
+    }
+
+    public init(evidence: String, text: String) {
+        self.evidence = evidence
+        self.text = text
+    }
 }
 
 // MARK: - NudgesMuteParams
@@ -26054,7 +26311,7 @@ public struct SkillProposal: Codable, Sendable {
     public let id: String
     public let manifest: SkillManifest?
     public let name: String
-    public let scope: Scope
+    public let scope: SkillProposalScope
     public let source: SkillInstallSource
     /// Full `SKILL.md` text, shown before enabling
     public let text: String
@@ -26082,7 +26339,7 @@ public struct SkillProposal: Codable, Sendable {
         case update = "update"
     }
 
-    public init(approvalKind: ApprovalKindEnum, author: AuthorEnum?, bindingHash: String, commit: String?, expiresAt: Int, files: [SkillProposalFile], findings: [ScanFinding], grantKey: String, hash: String, id: String, manifest: SkillManifest?, name: String, scope: Scope, source: SkillInstallSource, text: String, trust: SkillTrust, update: SkillProposalUpdate?) {
+    public init(approvalKind: ApprovalKindEnum, author: AuthorEnum?, bindingHash: String, commit: String?, expiresAt: Int, files: [SkillProposalFile], findings: [ScanFinding], grantKey: String, hash: String, id: String, manifest: SkillManifest?, name: String, scope: SkillProposalScope, source: SkillInstallSource, text: String, trust: SkillTrust, update: SkillProposalUpdate?) {
         self.approvalKind = approvalKind
         self.author = author
         self.bindingHash = bindingHash
@@ -26155,7 +26412,7 @@ public struct SkillManifest: Codable, Sendable {
     }
 }
 
-public enum Scope: String, Codable, Sendable {
+public enum SkillProposalScope: String, Codable, Sendable {
     case home = "home"
     case workspace = "workspace"
 }
@@ -31869,6 +32126,38 @@ public enum WidgetBindingSource: String, Codable, Sendable {
     case toolCall = "tool_call"
 }
 
+// MARK: - WidgetDraftPayload
+public struct WidgetDraftPayload: Codable, Sendable {
+    public let callID: String
+    /// The input finished or the run ended: drop the draft
+    public let done: Bool?
+    public let messageID: String
+    public let nodes: Int
+    public let root: [String: JSONAny]?
+    public let threadID: String
+    public let title: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case callID = "callId"
+        case done = "done"
+        case messageID = "messageId"
+        case nodes = "nodes"
+        case root = "root"
+        case threadID = "threadId"
+        case title = "title"
+    }
+
+    public init(callID: String, done: Bool?, messageID: String, nodes: Int, root: [String: JSONAny]?, threadID: String, title: String?) {
+        self.callID = callID
+        self.done = done
+        self.messageID = messageID
+        self.nodes = nodes
+        self.root = root
+        self.threadID = threadID
+        self.title = title
+    }
+}
+
 // MARK: - WidgetPatch
 public struct WidgetPatch: Codable, Sendable {
     public let baseRev: Int?
@@ -32285,6 +32574,8 @@ public enum WrapUpBlockType: String, Codable, Sendable {
     case wrapUp = "wrap_up"
 }
 
+public typealias AccessListParams = [String: JSONAny]
+public typealias AppleLlmAvailabilityParams = [String: JSONAny]
 public typealias AuditVerifyParams = [String: JSONAny]
 public typealias BackupListParams = [String: JSONAny]
 public typealias BridgeTabsListParams = [String: JSONAny]
@@ -32313,6 +32604,7 @@ public typealias MemoryNotesListParams = [String: JSONAny]
 public typealias MemoryPersonaGetParams = [String: JSONAny]
 public typealias MemorySendersListParams = [String: JSONAny]
 public typealias MemoryStatusParams = [String: JSONAny]
+public typealias ModelsAppleStatusParams = [String: JSONAny]
 public typealias ModelsListParams = [String: JSONAny]
 public typealias NodesListParams = [String: JSONAny]
 public typealias PasskeysListParams = [String: JSONAny]

@@ -228,6 +228,11 @@ export const ApprovalAnswer = Type.Object(
      */
     folderPath: Type.Optional(Type.String({ minLength: 1, maxLength: 4096 })),
     /**
+     * `folder_access` only: `ro` grants read-only even when the agent asked to change files.
+     * It can only narrow the request, never widen it.
+     */
+    folderMode: Type.Optional(StringEnum(["ro", "rw"])),
+    /**
      * `exec_host` only, with `scope: "once"`: the owner typed this word on the card to run this
      * one command without srt (security §5.4).
      */
