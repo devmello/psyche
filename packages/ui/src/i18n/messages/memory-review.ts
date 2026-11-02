@@ -114,6 +114,7 @@ export const memoryReview = {
     "{persona} reads your own mail, messages and notes at night and writes down what you state: who people are, birthdays, plans. Every fact cites the words it came from and waits for you. Off until you turn it on.",
   "everything.loadLabel": "everything memory",
   "everything.enabled": "Everything memory",
+  "everything.enabledGroup": "Nightly reading",
   "everything.enabledHint": "Nothing is read while this is off.",
   "everything.turnOn": "Set up…",
   "everything.model.title": "Who reads your day",
