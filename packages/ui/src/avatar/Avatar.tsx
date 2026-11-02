@@ -105,7 +105,7 @@ export function Avatar({
   const typing = useTypingFrame(working && !reduced && size >= 28);
   // Reduced motion and the 20 px size show the static frame; working is carried by badge and text.
   const pose: CreaturePose = working && size >= 28 ? typing : "idle";
-  const looping = useLoopWindow(state, !reduced && (state === "idle" || state === "needs-you"));
+  const looping = useLoopWindow(state, !reduced && state === "needs-you");
   const dashed = state === "paused" || state === "incognito";
   const ring =
     state === "needs-you"
@@ -115,7 +115,12 @@ export function Avatar({
         : delegated
           ? "ring-2 ring-info ring-offset-1 ring-offset-background"
           : "ring-1 ring-gray-6";
-  const label = t("agent.avatar.label", { name, state: AVATAR_STATE_LABEL[state], delegated });
+  const base = t("agent.avatar.label", { name, state: AVATAR_STATE_LABEL[state], delegated });
+  // The count lives in the accessible label; the toolbar's "N need you" says it on screen.
+  const label =
+    state === "needs-you" && count !== undefined && count > 0
+      ? t("common.avatarCount", { label: base, n: count })
+      : base;
   const badgeSize = Math.max(8, Math.round(size * 0.32));
 
   return (
@@ -133,7 +138,6 @@ export function Avatar({
           ring,
           dashed && "outline-2 outline-dashed outline-offset-1 outline-gray-9 ring-0",
           state === "needs-you" && looping && "animate-[psy-pulse-ring_1.2s_ease-in-out_infinite]",
-          state === "idle" && looping && "animate-[psy-breathe_4s_ease-in-out_infinite]",
           (state === "error" || state === "offline") && "grayscale",
           state === "offline" && "opacity-60",
         )}
@@ -159,14 +163,6 @@ export function Avatar({
           />
         )}
       </span>
-      {state === "needs-you" && count !== undefined && count > 0 && size >= 28 ? (
-        <span
-          className="absolute -top-1 -end-1 inline-flex min-w-4 items-center justify-center rounded-full bg-approval px-1 text-[10px] leading-4 font-semibold text-gray-12"
-          aria-hidden="true"
-        >
-          {count > 9 ? "9+" : count}
-        </span>
-      ) : null}
       {state === "error" ? (
         <span
           className="absolute -end-0.5 -bottom-0.5 rounded-full border-2 border-background bg-danger"

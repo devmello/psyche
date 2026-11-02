@@ -223,11 +223,11 @@
   /* macOS text styles (§3.2); `text-reading` is Psyche's reading size for transcripts. */
   --text-large-title: 26px;
   --text-large-title--line-height: 32px;
-  --text-large-title--font-weight: 700;
+  --text-large-title--font-weight: 600;
   --text-large-title--letter-spacing: 0.22px;
   --text-title-1: 22px;
   --text-title-1--line-height: 28px;
-  --text-title-1--font-weight: 700;
+  --text-title-1--font-weight: 600;
   --text-title-1--letter-spacing: -0.26px;
   --text-title-2: 17px;
   --text-title-2--line-height: 22px;
@@ -508,9 +508,9 @@
 }
 
 /*
-  The startup splash (#595; StartupSplashView): the app's canvas, the mark, a lantern glow
-  breathing behind it while Psyche starts. The body appears only if pairing takes longer than
-  300 ms (redesign §5.9). The whole splash is a window drag region except its buttons.
+  The startup splash (#595; StartupSplashView): the app's canvas and the mark drawing in. The body
+  appears only if pairing takes longer than 300 ms (redesign §5.9). The whole splash is a window
+  drag region except its buttons.
 */
 .startup-splash {
   position: fixed;
@@ -550,30 +550,6 @@
   position: relative;
   overflow: visible;
 }
-.startup-splash-lantern {
-  position: absolute;
-  inset: -36px;
-  border-radius: 50%;
-  background: radial-gradient(
-    closest-side,
-    color-mix(in oklch, var(--accent-9) 32%, transparent),
-    transparent
-  );
-  opacity: 0.55;
-  animation: psy-lantern var(--duration-lantern, 2800ms) ease-in-out
-    var(--duration-lantern-delay, 800ms) infinite alternate both;
-}
-:root[data-theme="dark"] .startup-splash-lantern {
-  background: radial-gradient(
-    closest-side,
-    color-mix(in oklch, var(--accent-9) 34%, transparent),
-    transparent
-  );
-}
-.startup-splash[data-tone="error"] .startup-splash-lantern {
-  animation: none;
-  opacity: 0.2;
-}
 .startup-splash-wordmark {
   margin: 0;
   font-size: 20px;
@@ -598,89 +574,19 @@
     opacity: 0;
   }
 }
-@keyframes psy-lantern {
-  from {
-    opacity: 0.35;
-    transform: scale(0.92);
-  }
-  to {
-    opacity: 0.8;
-    transform: scale(1.06);
-  }
-}
-/* Reduced motion: no breathing (the draw and the flight are skipped in the component). */
-@media (prefers-reduced-motion: reduce) {
-  :root:not([data-reduce-motion="false"]) .startup-splash-lantern {
-    animation: none;
-  }
-}
-:root[data-reduce-motion="true"] .startup-splash-lantern {
-  animation: none;
-}
-
 /*
   The ask panel (docs/design/screen-ask-2026.md, "Redesign: Siri-simple"): an opaque surface, a
   small orb for the state and a panel that fades in. Transitions and keyframes use the motion
   tokens; the global reduced-motion rule stops the loops, so each orb state also differs in shape.
 */
-.psy-orb {
-  border-radius: 9999px;
-  background: radial-gradient(
-    circle at 35% 30%,
-    color-mix(in oklch, white 65%, var(--accent-9)),
-    var(--accent-9) 55%,
-    var(--accent-11)
-  );
+/* Listening: three level bars that rise and fall; reduced motion holds them still. */
+.psy-orb-bar {
+  transform-origin: center;
+  animation: psy-orb-level 0.9s ease-in-out infinite;
 }
-.psy-orb::before,
-.psy-orb::after {
-  content: "";
-  position: absolute;
-  border-radius: 9999px;
-  pointer-events: none;
-}
-/* The halo: wide while listening, steady while answering, faint otherwise. */
-.psy-orb::before {
-  inset: -6px;
-  background: radial-gradient(
-    closest-side,
-    color-mix(in oklch, var(--accent-9) 45%, transparent),
-    transparent
-  );
-  opacity: 0.35;
-  transition:
-    opacity var(--duration-short) var(--ease-standard),
-    transform var(--duration-short) var(--ease-standard);
-}
-.psy-orb[data-state="listening"]::before {
-  opacity: 1;
-  transform: scale(1.25);
-  animation: psy-orb-breathe 1.4s ease-in-out infinite;
-}
-.psy-orb[data-state="answering"]::before {
-  opacity: 0.8;
-}
-/* The ring: an arc that turns while thinking. */
-.psy-orb::after {
-  inset: -4px;
-  opacity: 0;
-  background: conic-gradient(from 0deg, transparent 0 55%, var(--accent-9) 100%);
-  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
-  transition: opacity var(--duration-short) var(--ease-standard);
-}
-.psy-orb[data-state="thinking"]::after {
-  opacity: 1;
-  animation: psy-orb-spin 1s linear infinite;
-}
-@keyframes psy-orb-breathe {
+@keyframes psy-orb-level {
   50% {
-    transform: scale(1.5);
-    opacity: 0.6;
-  }
-}
-@keyframes psy-orb-spin {
-  to {
-    transform: rotate(360deg);
+    transform: scaleY(0.45);
   }
 }
 .psy-ask-in {

@@ -124,8 +124,8 @@ Captures were taken on 2026-10-25. The Electron e2e was not run, per the machine
 
 | Token | macOS style | Size / line | Weight | Tracking | Used for |
 | --- | --- | --- | --- | --- | --- |
-| `text-large-title` | Large Title | 26 / 32 | 700 | +0.22 px | Onboarding headline, empty-state headline |
-| `text-title-1` | Title 1 | 22 / 28 | 700 | −0.26 px | Page title (Feed, Goals, Library); settings window section title |
+| `text-large-title` | Large Title | 26 / 32 | 600 | +0.22 px | Onboarding headline, empty-state headline |
+| `text-title-1` | Title 1 | 22 / 28 | 600 | −0.26 px | Page title (Feed, Goals, Library); settings window section title |
 | `text-title-2` | Title 2 | 17 / 22 | 600 | −0.43 px | Card titles (feed post, goal, approval summary), sheet titles |
 | `text-title-3` | Title 3 | 15 / 20 | 600 | −0.23 px | Group headers inside a page, dialog titles |
 | `text-headline` | Headline | 13 / 16 | 600 | −0.08 px | Row titles, persona name in the toolbar, button labels on primary |
@@ -138,7 +138,7 @@ Captures were taken on 2026-10-25. The Electron e2e was not run, per the machine
 
 Notes:
 - **Minimum size and line heights:** the minimum is 11 px, above Apple's 10, for web legibility and AA. Line heights are 2–4 px looser than AppKit's, because browsers don't clip glyphs the way AppKit does, and the extra lead reads better at 13 px.
-- **Weights:** only 400, 500, 600 and 700. Apple advises against Ultralight, Thin and Light.
+- **Weights:** only 400, 500 and 600 for text styles (Large Title and Title 1 were 700; amended 2026-11-01 by the unslop pass, since bold at display sizes read heavy). Apple advises against Ultralight, Thin and Light.
 - **Uppercase:** the existing `text-label` (11/14 uppercase) is retired. Uppercase is only for the approval card's single "APPROVAL NEEDED" eyebrow, if anywhere.
 
 ### 3.3 Colour
@@ -163,7 +163,7 @@ Rules:
   - Selected sidebar rows are accent-tinted (`accent-a4` fill, label-primary text) when the window is key, and `fill-secondary` when it isn't. That is Apple's focused versus unfocused selection.
 - **Errors:** the error state uses danger only for the icon and an optional leading word. The sentence stays label-primary.
 - **Increase Contrast** (`prefers-contrast: more`, or Settings → High contrast): separators go to 20%, labels go one step darker, and materials become opaque with a 1 px `--separator` border. This is Apple's "black or white with a contrasting border".
-- **Default seed:** stays `#6e56cf` (the moth's wing spots) so personas look continuous. Restraint fixes the "loud violet" effect; the hue doesn't need to change. The Appearance picker keeps its WCAG gate.
+- **Default seed:** `#2c5aa0`, ink on paper, with the default gray family `paper` (`oklch` hue 80, chroma 0.005) so neutrals no longer tint toward the accent (amended 2026-11-01 by the unslop pass; it was violet `#6e56cf` with `auto` grays). Violet stays selectable in the Appearance picker, as do `auto` and the other gray families. Amber lamplight (`--approval`) is the only "needs you" colour. The picker keeps its WCAG gate.
 
 ### 3.4 Materials ("glass") and fallbacks
 

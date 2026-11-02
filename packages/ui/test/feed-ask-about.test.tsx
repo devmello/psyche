@@ -65,7 +65,7 @@ describe("Ask about this on a Feed item", () => {
     expect(within(chip).getByText(briefing.title)).toBeTruthy();
     // The input has the cursor, and asks about the article.
     const box = screen.getByRole("textbox", { name: /^Message / });
-    expect(box.getAttribute("placeholder")).toBe("Ask about this article…");
+    expect(box.getAttribute("placeholder")).toBe("Ask about this article");
     await waitFor(() => expect(document.activeElement).toBe(box));
 
     await user.click(within(chip).getByRole("button", { name: /^Remove .* from this message$/ }));

@@ -196,22 +196,25 @@ export function ThreadRow({
           data-testid="thread-row"
           data-sidebar-item=""
         >
-          {Glyph ? (
-            <Glyph
-              className="size-3.5 shrink-0 text-label-secondary"
-              strokeWidth={1.75}
-              role="img"
-              aria-label={glyphLabel ?? undefined}
-            />
-          ) : null}
-          {th.pinned ? (
-            <Pin
-              className="size-3.5 shrink-0 text-label-secondary"
-              strokeWidth={1.75}
-              role="img"
-              aria-label={t("shell.threads.pinned")}
-            />
-          ) : null}
+          {/* One 16 px leading slot on every row so titles line up; empty for plain threads. */}
+          <span className="flex size-4 shrink-0 items-center justify-center">
+            {th.pinned ? (
+              <Pin
+                className="size-4 text-label-secondary"
+                strokeWidth={1.75}
+                role="img"
+                aria-label={t("shell.threads.pinned")}
+              />
+            ) : Glyph ? (
+              <Glyph
+                className="size-4 text-label-secondary"
+                strokeWidth={1.75}
+                role="img"
+                aria-label={glyphLabel ?? undefined}
+              />
+            ) : null}
+          </span>
+          {th.pinned && glyphLabel ? <span className="sr-only">{glyphLabel}</span> : null}
           <span className="min-w-0 flex-1 truncate">{threadTitle(entry)}</span>
           {needs > 0 ? (
             <span className="sr-only">{t("shell.threads.srNeedsYou")}</span>
@@ -440,7 +443,7 @@ export function ThreadGroup({
         </DelayedSkeletons>
       ) : (
         <>
-          <ul aria-label={t("shell.threads.region")} className="flex flex-col">
+          <ul aria-label={t("shell.threads.region")} className="flex flex-col gap-0.5">
             {threads.main && match(threads.main) ? row(threads.main) : null}
             {side.map(row)}
           </ul>
@@ -453,14 +456,14 @@ export function ThreadGroup({
             <div>
               <button
                 type="button"
-                className="flex h-7 w-full items-center gap-1 rounded-sm px-3 text-start text-body text-label-secondary outline-none hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring"
+                className="mt-0.5 flex h-7 w-full items-center gap-2 rounded-sm px-3 text-start text-body text-label-secondary outline-none hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring"
                 aria-expanded={showArchived}
                 onClick={() => setShowArchived((s) => !s)}
                 data-sidebar-item=""
               >
                 <ChevronRight
                   className={cn(
-                    "size-3.5 shrink-0 transition-transform duration-(--duration-micro)",
+                    "size-4 shrink-0 transition-transform duration-(--duration-micro)",
                     showArchived ? "rotate-90" : "rtl:rotate-180",
                   )}
                   aria-hidden="true"
@@ -468,7 +471,7 @@ export function ThreadGroup({
                 {t("shell.threads.archivedCount", { n: threads.archived.length })}
               </button>
               {showArchived ? (
-                <ul aria-label={t("shell.threads.archived")} className="flex flex-col">
+                <ul aria-label={t("shell.threads.archived")} className="flex flex-col gap-0.5">
                   {threads.archived.filter(match).map(row)}
                 </ul>
               ) : null}

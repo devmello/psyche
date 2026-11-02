@@ -4,12 +4,12 @@
  */
 :root {
   /* Aliases kept for the shell components that still read them (listed in the A3 PR). */
-  --shell-bg: var(--canvas, #fcfcfe);
+  --shell-bg: var(--canvas, #fcfcfb);
   --shell-panel: var(--surface-sidebar, #f9f9fb);
   --shell-border: var(--separator, rgb(0 0 0 / 8%));
   --shell-text: var(--label-primary, #202020);
   --shell-muted: var(--label-secondary, #646464);
-  --shell-accent: var(--accent-9, #6e56cf);
+  --shell-accent: var(--accent-9, #2c5aa0);
   --shell-approval: var(--approval, #ffc53d);
   --shell-danger: var(--danger, #e54d2e);
   color-scheme: light dark;

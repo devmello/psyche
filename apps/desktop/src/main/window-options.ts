@@ -24,7 +24,7 @@ export const SETTINGS_WINDOW_MIN = { width: 760, height: 520 } as const;
  * paint it before the renderer has loaded; Electron recommends a background that matches the
  * app so the window "feels more native".
  */
-export const CANVAS_COLOR = { light: "#fcfcfe", dark: "#111112" } as const;
+export const CANVAS_COLOR = { light: "#fcfcfb", dark: "#111110" } as const;
 
 export function canvasColor(dark: boolean): string {
   return dark ? CANVAS_COLOR.dark : CANVAS_COLOR.light;

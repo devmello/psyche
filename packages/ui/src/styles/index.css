@@ -259,7 +259,6 @@
   --default-transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
   --animate-psy-rise: psy-rise var(--duration-medium) var(--ease-enter) both;
   --animate-psy-fade: psy-fade var(--duration-medium) var(--ease-enter) both;
-  --animate-psy-breathe: psy-breathe 4s ease-in-out infinite;
   --animate-psy-pulse-ring: psy-pulse-ring 1.2s ease-in-out infinite;
   --shadow-level-2: var(--shadow-level-2);
 }
@@ -377,15 +376,6 @@
   }
   to {
     opacity: 1;
-  }
-}
-@keyframes psy-breathe {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.02);
   }
 }
 @keyframes psy-type {

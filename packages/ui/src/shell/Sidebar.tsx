@@ -141,7 +141,7 @@ function ResizeEdge({
       aria-valuemax={SIDEBAR_WIDTH.max}
       tabIndex={0}
       data-testid="sidebar-resize"
-      className="absolute inset-y-0 -end-[3px] z-10 w-1.5 cursor-col-resize outline-none focus-visible:bg-ring/40 hover:bg-separator"
+      className="absolute inset-y-0 -end-1 z-10 w-2 cursor-col-resize outline-none focus-visible:bg-ring/40 hover:bg-separator"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -276,7 +276,7 @@ export function Sidebar({
             header ? "pb-2" : "py-2",
           )}
         >
-          <ul aria-label={t("shell.sidebar.destinations")} className="flex flex-col">
+          <ul aria-label={t("shell.sidebar.destinations")} className="flex flex-col gap-0.5">
             {RAIL_ITEMS.map((item) => {
               const Icon = item.icon;
               const count = counts[item.id] ?? 0;

@@ -35,7 +35,7 @@ export interface AppearanceSettings {
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
   theme: "auto",
   accentSeed: DEFAULT_ACCENT_SEED,
-  gray: "auto",
+  gray: "paper",
   reduceMotion: "system",
   contrast: "standard",
 };
@@ -50,7 +50,7 @@ export function appearanceFromSettings(settings: Record<string, unknown>): Appea
   const gray = settings["appearance.gray"];
   if (
     typeof gray === "string" &&
-    ["auto", "neutral", "slate", "mauve", "sage", "olive", "sand"].includes(gray)
+    ["auto", "neutral", "slate", "mauve", "sage", "olive", "sand", "paper"].includes(gray)
   )
     out.gray = gray as GrayFamily;
   const motion = settings["appearance.reduceMotion"];

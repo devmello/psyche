@@ -14,9 +14,9 @@
       replaces it when it mounts.
     -->
     <style>
-      html:has(.sk), body:has(.sk) { margin: 0; height: 100%; background: #fcfcfe; }
-      .sk { display: flex; height: 100vh; --sk-side: oklch(0.982 0.0038 288.03);
-        --sk-line: oklch(0.884 0.0086 288.03); --sk-block: oklch(0.956 0.0054 288.03); }
+      html:has(.sk), body:has(.sk) { margin: 0; height: 100%; background: #fcfcfb; }
+      .sk { display: flex; height: 100vh; --sk-side: oklch(0.982 0.0017 80);
+        --sk-line: oklch(0.884 0.004 80); --sk-block: oklch(0.956 0.0025 80); }
       .sk-side { width: 248px; flex: none; background: var(--sk-side);
         box-shadow: inset -0.5px 0 0 var(--sk-line); padding: 64px 16px 0; box-sizing: border-box; }
       .sk-main { flex: 1; display: flex; flex-direction: column; justify-content: flex-end;
@@ -24,9 +24,9 @@
       .sk-row { height: 12px; border-radius: 6px; background: var(--sk-block); margin: 0 0 14px; }
       .sk-composer { height: 52px; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--sk-line); }
       @media (prefers-color-scheme: dark) {
-        html:has(.sk), body:has(.sk) { background: #111112; }
-        .sk { --sk-side: oklch(0.213 0.0038 288.03); --sk-line: oklch(0.348 0.0086 288.03);
-          --sk-block: oklch(0.252 0.0054 288.03); }
+        html:has(.sk), body:has(.sk) { background: #111110; }
+        .sk { --sk-side: oklch(0.213 0.0017 80); --sk-line: oklch(0.348 0.004 80);
+          --sk-block: oklch(0.252 0.0025 80); }
       }
       @media (max-width: 719px) { .sk-side { display: none; } }
     </style>

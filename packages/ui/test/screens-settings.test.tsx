@@ -1071,7 +1071,7 @@ describe("Settings polish (UI design §3.18, §4.12)", () => {
   it("draws each accent swatch as one radio", async () => {
     setup({ defaultSection: "appearance" });
     const group = await screen.findByRole("radiogroup", { name: "Accent color" });
-    expect(within(group).getAllByRole("radio").length).toBe(7);
+    expect(within(group).getAllByRole("radio").length).toBe(8);
   });
 });
 

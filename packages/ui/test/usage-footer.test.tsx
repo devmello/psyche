@@ -86,10 +86,10 @@ describe("what the usage footer leads with (#599)", () => {
 });
 
 describe("UsageFooter", () => {
-  it("API key: today's cost and tokens with a 7-day sparkline, opening Settings → Usage", async () => {
+  it("API key: today's cost and tokens as plain text, opening Settings → Usage", async () => {
     const { button, onOpenUsage } = renderFooter(usageSummary());
     expect(button.textContent).toContain("$0.42 today · 18k tokens");
-    expect(screen.getByTestId("usage-sparkline")).toBeTruthy();
+    expect(screen.queryByTestId("usage-sparkline")).toBeNull();
     expect(button.getAttribute("aria-label")).toMatch(/^\$0\.42 today · 18k tokens\. /);
     await userEvent.click(button);
     expect(onOpenUsage).toHaveBeenCalled();
@@ -145,7 +145,7 @@ describe("UsageFooter", () => {
     const { button } = renderFooter(usageSummary(), "rail");
     expect(button.textContent).toBe("");
     expect(button.getAttribute("aria-label")).toContain("$0.42 today");
-    expect(screen.getByTestId("usage-sparkline")).toBeTruthy();
+    expect(screen.queryByTestId("usage-sparkline")).toBeNull();
   });
 });
 

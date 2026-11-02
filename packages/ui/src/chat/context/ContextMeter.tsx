@@ -83,7 +83,7 @@ export function ContextMeter({
         </span>
         {usage.exact ? null : (
           <span
-            className="rounded bg-gray-3 px-1 text-[0.6875rem] text-muted-foreground"
+            className="rounded-xs bg-gray-3 px-1 text-caption text-muted-foreground"
             aria-hidden="true"
           >
             {t("context.meter.estimateBadge")}

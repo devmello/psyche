@@ -36,7 +36,7 @@ import { GlassSwitch } from "./TranslucencySettings.tsx";
 const SHOW_IN_DOCK_SETTING = "appearance.showInDock";
 const OPEN_AT_LOGIN_SETTING = "appearance.openAtLogin";
 
-type AccentId = "violet" | "blue" | "teal" | "green" | "amber" | "tomato" | "pink";
+type AccentId = "ink" | "violet" | "blue" | "teal" | "green" | "amber" | "tomato" | "pink";
 
 const accent = (id: AccentId, seed: string) => ({
   id,
@@ -48,7 +48,8 @@ const accent = (id: AccentId, seed: string) => ({
 });
 
 export const ACCENT_PRESETS: readonly { id: AccentId; readonly name: string; seed: string }[] = [
-  accent("violet", DEFAULT_ACCENT_SEED),
+  accent("ink", DEFAULT_ACCENT_SEED),
+  accent("violet", "#6e56cf"),
   accent("blue", "oklch(0.6 0.19 255)"),
   accent("teal", "oklch(0.62 0.12 185)"),
   accent("green", "oklch(0.63 0.15 145)"),

@@ -182,7 +182,7 @@ export function Composer({
     // A floating Liquid Glass capsule (redesign-2026 §5.2; liquid-glass.md §6.3): refraction where
     // Chromium can, the next rung elsewhere, opaque under Reduce Transparency / Increase Contrast /
     // an inactive window. 44 px at one line with a radius of half that; it grows with `layout` on
-    // spring.smooth up to 40% of the window, then scrolls. On focus a 1 px ring hairline inside.
+    // spring.smooth up to 40% of the window, then scrolls. A 1 px separator hairline inside, a step stronger while focused; no accent ring, since the composer holds focus most of the time.
     <m.div
       ref={capsuleRef}
       layout={!typing}
@@ -195,7 +195,7 @@ export function Composer({
       <GlassSurface impl="refraction" radius={radius} as="div">
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-0 shadow-[inset_0_0_0_1px_var(--ring)] group-focus-within/composer:opacity-100"
+          className="pointer-events-none absolute inset-0 rounded-[inherit] shadow-[inset_0_0_0_1px_var(--separator)] group-has-[:focus-visible]/composer:shadow-[inset_0_0_0_1px_var(--separator-strong)]"
         />
         <ComposerPrimitive.Root className="flex flex-col">
           {menu.open ? (

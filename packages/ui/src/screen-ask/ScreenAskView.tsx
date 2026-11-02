@@ -243,7 +243,7 @@ export function ScreenAskView(p: ScreenAskViewProps): ReactElement {
     <div ref={root} className="p-2" data-testid="screen-ask">
       <section
         aria-label={t("screenAsk.label")}
-        className="psy-ask-in overflow-hidden rounded-[28px] border-[0.5px] border-separator-strong bg-surface-overlay text-label-primary"
+        className="psy-ask-in overflow-hidden rounded-3xl border-[0.5px] border-separator-strong bg-surface-overlay text-label-primary"
       >
         <form className="flex min-h-14 items-center gap-2.5 py-2 pr-2.5 pl-4" onSubmit={submit}>
           <ScreenAskOrb state={orbState(p)} />

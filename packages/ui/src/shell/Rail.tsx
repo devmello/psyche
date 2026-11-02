@@ -126,7 +126,7 @@ export function TabBar({ active, onNavigate, badges = {} }: TabBarProps): ReactE
       className="material-glass pb-[env(safe-area-inset-bottom)]"
       data-testid="tab-bar"
     >
-      <ul className="flex h-[49px] items-stretch justify-around">
+      <ul className="flex h-12 items-stretch justify-around">
         {items.map((item) => {
           const Icon = item.icon;
           const badge = badges[item.id] ?? 0;

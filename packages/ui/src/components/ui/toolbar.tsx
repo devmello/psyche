@@ -44,7 +44,7 @@ export function Toolbar({ className, drag = false, inset, style, ...props }: Too
       data-drag={drag ? "" : undefined}
       style={inset === undefined ? style : { ...style, paddingInlineStart: inset }}
       className={cn(
-        "material-toolbar relative z-10 flex h-[52px] w-full shrink-0 items-center gap-2 px-3 text-label-primary",
+        "material-toolbar relative z-10 flex h-13 w-full shrink-0 items-center gap-2 px-3 text-label-primary",
         className,
       )}
       {...props}
