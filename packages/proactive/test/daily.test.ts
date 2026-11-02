@@ -1,4 +1,4 @@
-import type { Automation } from "@psyche/protocol";
+import { type Automation, collectWidgetBinds, validateWidgetSpec } from "@psyche/protocol";
 import { describe, expect, it, vi } from "vitest";
 import { confirmAutomation, parseAutomation } from "../src/daily/automations.ts";
 import { detectCommitments, FollowupStore } from "../src/daily/followups.ts";
@@ -132,6 +132,18 @@ describe("morning brief", () => {
     expect(card?.sections.find((s) => s.id === "calendar")?.unavailable).toBe(true);
     expect(card?.sections.find((s) => s.id === "mail")?.unavailable).toBe(true);
     expect(notify).toHaveBeenCalledOnce();
+  });
+
+  it("posts a static snapshot of counts that holds none of the brief's text", async () => {
+    const { svc, inserted } = service({});
+    await svc.run("morning");
+    const w = (inserted[0] as unknown as { widget: { taint: unknown[]; spec: never } }).widget;
+    expect(w.taint).toEqual([]);
+    const text = JSON.stringify(w.spec);
+    expect(text).toContain("Not connected");
+    expect(text).toContain('"route":"/feed/post_1"');
+    expect(validateWidgetSpec(w.spec).ok).toBe(true);
+    expect(collectWidgetBinds((w.spec as { root: never }).root)).toEqual([]);
   });
 
   it("adds weather only when a weather connector exists", async () => {

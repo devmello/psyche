@@ -1,6 +1,8 @@
 import type { DailyBrief, DailyKind, ModelProvider, ModelRef, Notifier } from "@psyche/protocol";
 import { ulid } from "ulid";
 import { complete } from "../feed/model.ts";
+import { staticSnapshot } from "../feed/service.ts";
+import { dailySnapshot } from "../feed/snapshots.ts";
 import type { FeedStore, StoredPost } from "../feed/store.ts";
 import type { SchedulerLike } from "../jobs.ts";
 import { jobMarker, type LaunchResult, type ProactiveJob, parseJobMarker } from "../jobs.ts";
@@ -411,6 +413,8 @@ export class DailyService {
       kind: kind === "morning" ? "daily_brief" : "daily_wrapup",
       card: { type: "daily", daily: brief },
     };
+    const widget = staticSnapshot(dailySnapshot(brief, `/feed/${id}`));
+    if (widget !== undefined) post.widget = widget;
     o.feed.insert(post);
     const { batchId: _b, readAt: _r, ...wire } = post;
     o.onFeedEvent?.({ event: "feed.updated", payload: { posts: [wire] } });

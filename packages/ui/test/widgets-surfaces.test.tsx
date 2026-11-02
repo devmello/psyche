@@ -3,6 +3,7 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
+import { morningBrief } from "../src/fixtures/daily.ts";
 import { createFixtureWorld, IDS } from "../src/fixtures/index.ts";
 import { FeedPostCard } from "../src/screens/feed/FeedPostCard.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
@@ -160,5 +161,16 @@ describe("Overview and Feed draw open and reply only (§8)", () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith("/scheduled"));
     expect(methods.filter((m) => m.startsWith("widgets."))).toEqual([]);
     expect(methods).not.toContain("chat.send");
+  });
+
+  it("a card post (the daily brief) shows its snapshot beside the card", async () => {
+    const base = createFixtureWorld().feed.find((f) => f.id === IDS.feed.briefing) as never;
+    const post = {
+      ...withFeedWidget(base),
+      card: { type: "daily", daily: morningBrief() },
+    } as never;
+    world(<FeedPostCard post={post} onFeedback={() => {}} onAsk={() => {}} />, []);
+    const frame = await screen.findByTestId("widget");
+    expect(within(frame).getByTestId("widget-state").textContent).toBe("Snapshot");
   });
 });
