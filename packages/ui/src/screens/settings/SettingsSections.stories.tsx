@@ -33,6 +33,7 @@ import { MailMeetingsPanel } from "./MailMeetingsSection.tsx";
 import { ModelProvidersPanel, providerInfoFromSummary } from "./ModelSection.tsx";
 import { PermissionsPanel } from "./PermissionsSection.tsx";
 import { PersonaPanel } from "./PersonaSection.tsx";
+import { SearchPanel } from "./SearchSection.tsx";
 import { ServerPanel } from "./ServerSection.tsx";
 import { SkillSuggestions } from "./SkillDraftCard.tsx";
 import { SkillsPanel, SkillTrustCard } from "./SkillsSection.tsx";
@@ -888,6 +889,23 @@ export const AccessList: Story = {
           label: "Send email to jane@example.com",
         },
       ]}
+    />
+  ),
+};
+
+/** Search with the Apple on-device model offered (#1115): Apple Intelligence is off here. */
+export const SearchAppleModel: Story = {
+  render: () => (
+    <SearchPanel
+      {...form}
+      values={{ ...values, "search.model.engine": "apple" }}
+      appleStatus={{
+        ref: "apple/on-device",
+        helperConnected: true,
+        available: false,
+        reason: "apple_intelligence_not_enabled",
+        contextTokens: 4096,
+      }}
     />
   ),
 };
