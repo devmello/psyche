@@ -57,8 +57,10 @@ describe("window chrome (docs/design/redesign-2026.md §4)", () => {
 
   it("routes the Settings window to a slug section, never anything else", () => {
     expect(settingsRoute("computer-use")).toBe("/window/settings/computer-use");
-    expect(settingsRoute(undefined)).toBe("/window/settings/model");
-    expect(settingsRoute("../chat")).toBe("/window/settings/model");
-    expect(settingsRoute("model?x=1")).toBe("/window/settings/model");
+    expect(settingsRoute(undefined)).toBe("/window/settings/essentials");
+    expect(settingsRoute("../chat")).toBe("/window/settings/essentials");
+    expect(settingsRoute("model?x=1")).toBe("/window/settings/essentials");
+    expect(settingsRoute("connectors/add-mcp")).toBe("/window/settings/connectors/add-mcp");
+    expect(settingsRoute("connectors/../../x")).toBe("/window/settings/essentials");
   });
 });

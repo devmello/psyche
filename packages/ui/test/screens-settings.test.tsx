@@ -861,12 +861,9 @@ describe("VM mode", () => {
         "aria-checked",
       ),
     ).toBe("true");
-    expect(
-      screen.getByRole("radio", { name: "Paste into the guest only" }).getAttribute("aria-checked"),
-    ).toBe("true");
-    expect(screen.getByRole("radio", { name: "Host vault" }).getAttribute("aria-checked")).toBe(
-      "true",
-    );
+    // Clipboard and credentials have no reader in the Gateway, so no control (settings-2026 §6).
+    expect(screen.queryByRole("radio", { name: "Paste into the guest only" })).toBeNull();
+    expect(screen.queryByRole("radio", { name: "Host vault" })).toBeNull();
     expect(screen.getByText(/No guest has reported yet/)).toBeTruthy();
 
     await userEvent.click(toggle);
@@ -878,10 +875,6 @@ describe("VM mode", () => {
     expect(within(node).getByRole("option", { name: "work-mac" })).toBeTruthy();
     await userEvent.selectOptions(node, "node_guest");
     await waitFor(() => expect(settingValue(gateway(), "vm.guestNodeId")).toBe("node_guest"));
-    await userEvent.click(screen.getByRole("radio", { name: "Off" }));
-    await waitFor(() => expect(settingValue(gateway(), "vm.clipboard")).toBe("off"));
-    await userEvent.click(screen.getByRole("radio", { name: "Guest vault" }));
-    await waitFor(() => expect(settingValue(gateway(), "vm.credentials")).toBe("guest"));
   });
 
   it("shows the guest as vm.updated reports it", async () => {

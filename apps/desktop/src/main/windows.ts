@@ -96,9 +96,13 @@ export interface WindowOptions {
   dock?: Pick<DockPolicy, "beforeShow" | "afterShow" | "windowsChanged">;
 }
 
-/** Settings section ids are short slugs (`model`, `computer-use`). */
+/**
+ * Settings ids are short slugs (`model`, `computer-use`), optionally with a view
+ * (`connectors/add-mcp`); anything else opens Essentials, where Settings starts.
+ */
 export function settingsRoute(section: string | undefined): string {
-  const id = section && /^[a-z][a-z-]{0,39}$/.test(section) ? section : "model";
+  const slug = "[a-z][a-z-]{0,39}";
+  const id = section && new RegExp(`^${slug}(?:/${slug})?$`).test(section) ? section : "essentials";
   return `/window/settings/${id}`;
 }
 

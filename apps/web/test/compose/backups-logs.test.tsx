@@ -3,13 +3,7 @@ import type { MethodName, MethodParams, MethodResult } from "@psyche/protocol";
 import { type GatewayClient, GatewayProvider, GatewayRequestError } from "@psyche/ui";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  BACKUP_SCHEDULE_KEY,
-  BackupsPanel,
-  formatBytes,
-  isUnavailable,
-  scheduleOf,
-} from "../../src/compose/backups.tsx";
+import { BackupsPanel, formatBytes, isUnavailable } from "../../src/compose/backups.tsx";
 import { LogViewer, lineText, tailParams } from "../../src/compose/logs.tsx";
 
 afterEach(cleanup);
@@ -48,18 +42,6 @@ const BACKUP = {
 };
 
 describe("backups helpers", () => {
-  it("reads the schedule setting defensively", () => {
-    expect(scheduleOf({})).toEqual({ interval: "off", keep: 7 });
-    expect(scheduleOf({ [BACKUP_SCHEDULE_KEY]: { interval: "daily", keep: 3 } })).toEqual({
-      interval: "daily",
-      keep: 3,
-    });
-    expect(scheduleOf({ [BACKUP_SCHEDULE_KEY]: { interval: "hourly", keep: 0 } })).toEqual({
-      interval: "off",
-      keep: 7,
-    });
-  });
-
   it("formats sizes and recognises a Gateway without the methods", () => {
     expect(formatBytes(512)).toBe("512 B");
     expect(formatBytes(2_500_000)).toBe("2.4 MB");
@@ -117,13 +99,8 @@ describe("BackupsPanel", () => {
       file: BACKUP.file,
     });
 
-    fireEvent.click(screen.getByLabelText("Daily"));
-    await waitFor(() =>
-      expect(calls.find((c) => c.method === "settings.set")?.params).toEqual({
-        key: BACKUP_SCHEDULE_KEY,
-        value: { interval: "daily", keep: 7 },
-      }),
-    );
+    // No schedule is offered: nothing in the Gateway would run it.
+    expect(screen.queryByLabelText("Daily")).toBeNull();
     expect(screen.getByText(/psyche backup restore \/home\/h\/backups/)).toBeTruthy();
   });
 

@@ -3,6 +3,7 @@ import type { ReactElement } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
+import { useSlots } from "../../slots.tsx";
 import {
   EmptyNotice,
   ErrorNotice,
@@ -23,15 +24,13 @@ import type { ServerStatus } from "./types.ts";
 
 const DEFAULT_BIND = `${DEFAULT_GATEWAY_HOST}:${DEFAULT_GATEWAY_PORT}`;
 
-const remoteLabel = (kind: ServerStatus["remote"]["kind"]): string =>
+const remoteLabel = (kind: NonNullable<ServerStatus["remote"]>["kind"]): string =>
   t(`settings.server.remote.${kind}`);
 
 export interface ServerPanelProps extends SettingsFormProps, LoadProps {
   status: ServerStatus | null;
   sandboxError?: string | null;
   onAddPasskey?: () => void;
-  onStartVm?: () => void;
-  onStopVm?: () => void;
   onSetUpRemote?: () => void;
 }
 
@@ -42,8 +41,6 @@ export function ServerPanel({
   status,
   sandboxError = null,
   onAddPasskey,
-  onStartVm,
-  onStopVm,
   onSetUpRemote,
   loading,
   error,
@@ -82,47 +79,56 @@ export function ServerPanel({
         <Group
           title={t("settings.server.remoteAccess")}
           actions={
-            onSetUpRemote && (status?.remote.kind ?? "none") === "none" ? (
+            onSetUpRemote && (status?.remote?.kind ?? "none") === "none" ? (
               <Button type="button" size="sm" variant="outline" onClick={onSetUpRemote}>
                 {t("settings.server.setUp")}
               </Button>
             ) : null
           }
         >
-          {status === null ? (
+          {status?.remote === undefined ? (
             <EmptyNotice text={t("settings.server.remoteUnknown")} />
-          ) : (
+          ) : null}
+          {status === null ? null : (
             <Facts
               items={[
-                {
-                  term: t("settings.server.method"),
-                  value: (
-                    <span className="flex flex-wrap items-center gap-2">
-                      {remoteLabel(status.remote.kind)}
-                      {status.remote.kind === "none" ? null : (
-                        <StatusChip
-                          tone={
-                            status.remote.status === "ok"
-                              ? "success"
-                              : status.remote.status === "error"
-                                ? "danger"
-                                : "neutral"
-                          }
-                        >
-                          {t("settings.server.remoteStatus", { status: status.remote.status })}
-                        </StatusChip>
-                      )}
-                    </span>
-                  ),
-                },
-                ...(status.remote.url
-                  ? [
+                ...(status.remote === undefined
+                  ? []
+                  : [
                       {
-                        term: t("settings.server.address"),
-                        value: <code className="font-mono text-callout">{status.remote.url}</code>,
+                        term: t("settings.server.method"),
+                        value: (
+                          <span className="flex flex-wrap items-center gap-2">
+                            {remoteLabel(status.remote.kind)}
+                            {status.remote.kind === "none" ? null : (
+                              <StatusChip
+                                tone={
+                                  status.remote.status === "ok"
+                                    ? "success"
+                                    : status.remote.status === "error"
+                                      ? "danger"
+                                      : "neutral"
+                                }
+                              >
+                                {t("settings.server.remoteStatus", {
+                                  status: status.remote.status,
+                                })}
+                              </StatusChip>
+                            )}
+                          </span>
+                        ),
                       },
-                    ]
-                  : []),
+                      ...(status.remote.url
+                        ? [
+                            {
+                              term: t("settings.server.address"),
+                              value: (
+                                <code className="font-mono text-callout">{status.remote.url}</code>
+                              ),
+                            },
+                          ]
+                        : []),
+                    ]),
                 {
                   term: t("settings.server.passkeys"),
                   value: (
@@ -165,67 +171,49 @@ export function ServerPanel({
             <p className="text-muted-foreground">{t("settings.server.checkingSandbox")}</p>
           )}
         </Group>
-
-        <Group title={t("settings.nav.vm")}>
-          {status?.vm == null || status.vm.state === "none" ? (
-            <EmptyNotice text={t("settings.server.noVm")} />
-          ) : (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium">{status.vm.name ?? t("settings.server.guest")}</span>
-              <StatusChip
-                tone={
-                  status.vm.state === "running"
-                    ? "success"
-                    : status.vm.state === "error"
-                      ? "danger"
-                      : "neutral"
-                }
-              >
-                {t("settings.server.vmState", { state: status.vm.state })}
-              </StatusChip>
-              {status.vm.state === "running" && onStopVm ? (
-                <Button type="button" size="sm" variant="outline" onClick={onStopVm}>
-                  {t("settings.server.stopVm")}
-                </Button>
-              ) : null}
-              {status.vm.state !== "running" && onStartVm ? (
-                <Button type="button" size="sm" onClick={onStartVm}>
-                  {t("settings.server.startVm")}
-                </Button>
-              ) : null}
-            </div>
-          )}
-        </Group>
       </LoadGate>
     </SectionFrame>
   );
 }
 
+/** Settings → Devices → Server & remote access: how other devices reach the Gateway. */
+const REMOTE_DOCS = "https://devmello.github.io/psyche/get-started/server-mode#reach-it-safely";
+
 export interface ServerSectionProps {
-  /** Remote access, passkeys and VM state come from the shell (no Gateway method yet). */
+  /** Remote access and passkeys as the shell knows them; otherwise read from the Gateway. */
   status?: ServerStatus;
   onAddPasskey?: () => void;
-  onStartVm?: () => void;
-  onStopVm?: () => void;
   onSetUpRemote?: () => void;
 }
 
 export function ServerSection({ status, ...actions }: ServerSectionProps): ReactElement {
   const form = useSettingsForm();
+  const { openExternal } = useSlots();
   const sandbox = useGatewayQuery("sandbox.status", {});
-  const merged: ServerStatus | null =
-    status === undefined
-      ? null
-      : {
-          ...status,
-          sandbox: sandbox.data
-            ? { backend: sandbox.data.backend, available: sandbox.data.available }
-            : status.sandbox,
-        };
+  const passkeys = useGatewayQuery("passkeys.list", {});
+  const sandboxNow = sandbox.data
+    ? { backend: sandbox.data.backend, available: sandbox.data.available }
+    : null;
+  // No Gateway method reports remote access, so without the shell's status it says so plainly.
+  const merged: ServerStatus = status
+    ? { ...status, sandbox: sandboxNow ?? status.sandbox }
+    : {
+        bind: str(form.values, "gateway.bind", DEFAULT_BIND),
+        passkeys: passkeys.data?.passkeys.length ?? 0,
+        sandbox: sandboxNow,
+        vm: null,
+      };
+  const onSetUpRemote =
+    actions.onSetUpRemote ??
+    (() => {
+      if (openExternal) void openExternal(REMOTE_DOCS).catch(() => undefined);
+      else globalThis.open?.(REMOTE_DOCS, "_blank", "noopener,noreferrer");
+    });
   return (
     <div className="flex flex-col gap-3">
       <ServerPanel
         {...actions}
+        onSetUpRemote={onSetUpRemote}
         values={form.values}
         onChange={form.onChange}
         needsApproval={form.needsApproval}

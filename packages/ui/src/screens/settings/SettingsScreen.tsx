@@ -15,6 +15,7 @@ import type { UsageSummary } from "../../fixtures/index.ts";
 import { t } from "../../i18n/core.ts";
 import { documentPrefersReducedMotion, smoothScrollBehavior } from "../../lib/reduced-motion.ts";
 import { cn } from "../../lib/utils.ts";
+import { duration } from "../../motion/tokens.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { AboutSection } from "./AboutSection.tsx";
 import { AppearanceSection } from "./AppearanceSection.tsx";
@@ -168,8 +169,6 @@ export interface SettingsShellProps {
   onExportReady?: (file: ExportFile) => void;
   server?: ServerStatus;
   onAddPasskey?: () => void;
-  onStartVm?: () => void;
-  onStopVm?: () => void;
   onSetUpRemote?: () => void;
   usage?: UsageSummary | null;
   about?: AboutInfo | null;
@@ -304,13 +303,11 @@ export function SettingsSectionView({
         <ServerSection
           {...opt("status", s.server)}
           {...opt("onAddPasskey", s.onAddPasskey)}
-          {...opt("onStartVm", s.onStartVm)}
-          {...opt("onStopVm", s.onStopVm)}
           {...opt("onSetUpRemote", s.onSetUpRemote)}
         />
       );
     case "usage":
-      return <UsageSection usage={s.usage ?? null} />;
+      return <UsageSection {...opt("usage", s.usage)} />;
     case "essentials":
       return <EssentialsSection {...opt("onOpen", onOpenSection)} />;
     case "search":
@@ -333,11 +330,13 @@ export function SettingsSectionView({
 /** Briefly tints a row Search jumped to, so the eye lands on it (no tint under reduced motion). */
 function flash(el: HTMLElement): void {
   if (typeof el.animate !== "function" || documentPrefersReducedMotion()) return;
-  const tint = getComputedStyle(document.documentElement).getPropertyValue("--selection").trim();
+  const root = getComputedStyle(document.documentElement);
+  const tint = root.getPropertyValue("--selection").trim();
   if (tint === "") return;
+  // The motion tokens (motion.md §8): held for a few long beats, faded out on the enter curve.
   el.animate([{ backgroundColor: tint }, { backgroundColor: tint, offset: 0.6 }, {}], {
-    duration: 1600,
-    easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+    duration: duration.long * 5,
+    easing: root.getPropertyValue("--ease-enter").trim() || "ease-out",
   });
 }
 

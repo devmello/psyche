@@ -2634,6 +2634,19 @@ export class MockGateway implements GatewayClient {
     }),
 
     "connectors.list": () => ({ connectors: this.world.connectors }),
+    "connectors.disconnect": (p) => {
+      const c = this.find(this.world.connectors, p.connectorId, "connector");
+      const next: Connector = { ...c, status: "disconnected", updatedAt: this.now() };
+      this.world.connectors = this.world.connectors.map((x) => (x.id === c.id ? next : x));
+      this.emit("connectors.updated", { connector: next, reason: "disconnected" });
+      return { connector: next };
+    },
+    "connectors.removeCustom": (p) => {
+      const c = this.find(this.world.connectors, p.connectorId, "connector");
+      if (c.type !== "custom") fail("invalid_params", "only a custom connector can be removed");
+      this.world.connectors = this.world.connectors.filter((x) => x.id !== c.id);
+      return { ok: true as const };
+    },
     "connectors.catalogue": () => ({ entries: this.world.catalogue ?? connectorCatalogue() }),
     "connectors.configure": (p) => {
       const c = this.find(this.world.connectors, p.connectorId, "connector");

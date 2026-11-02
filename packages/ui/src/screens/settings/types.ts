@@ -58,7 +58,8 @@ export interface FolderGrant {
 
 export interface ServerStatus {
   bind: string;
-  remote: { kind: "none" | "tailscale" | "proxy"; status: "ok" | "off" | "error"; url?: string };
+  /** Absent when nothing reports it (no Gateway method yet): the panel says so. */
+  remote?: { kind: "none" | "tailscale" | "proxy"; status: "ok" | "off" | "error"; url?: string };
   passkeys: number;
   sandbox: { backend: string; available: boolean } | null;
   vm: { state: "none" | "stopped" | "running" | "error"; name?: string } | null;

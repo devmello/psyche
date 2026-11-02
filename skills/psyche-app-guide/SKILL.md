@@ -154,7 +154,7 @@ Settings opens from the gear or ⌘, on **Essentials**, the first of ten pages: 
 
 **Memory** (`memory`)
 - **Memory review** (`memory`): what Psyche learned from your mail, messages and notes. Tabs **To review**, **Learned lately** (undo within the window) and **Quarantine**; nothing is a fact until you accept it.
-- **Remembering & learning** (`learning`): **Pause memory**, **Transcript recall**, **How memory is recalled** (Markdown only, or Markdown plus embeddings) and **Learning** (learn from feedback, notice edits, pause learning, weekly card, forget everything learned).
+- **Remembering & learning** (`learning`): **Pause memory**, **How memory is recalled** (Markdown only, or Markdown plus embeddings) and **Learning** (learn from feedback, notice edits, pause learning, weekly card, forget everything learned).
 - **Everything memory** (`everything`): off until you turn it on. Psyche reads your own mail, messages and notes at night and writes down what you state (who people are, birthdays, plans); every fact cites the words it came from and waits for you. Sources you can switch on: Mail, Messages, Notes, Calendar, Reminders, Files, Transcripts. It learns only from what Search indexes, so a source Search does not index says so, with **Turn on in Search**. Browser pages and your chats with Psyche are never read by it.
 - **People & projects** (`people`): the people and projects Psyche tracks, with privacy controls. **Export** there opens Privacy & data (one export for everything). It also holds **Relationship nudges** (off until you turn it on and read the short consent note): **Remind me to keep in touch** and **How often** (Gentle, Normal, Eager) and **Reword suggestions with my model** (off; uses the model picked in Everything memory). See "Relationship nudges" below.
 
@@ -167,15 +167,15 @@ Settings opens from the gear or ⌘, on **Essentials**, the first of ten pages: 
 - **Approval rules** (`permissions`): **Default mode for new threads**, **Connector actions** (Allow / Ask / Deny each), **Browser origins** (sites that need no approval card), and the **Grants ledger** where you can revoke any "Always allow".
 - **Computer use** (`computer-use`): which Mac apps Psyche may operate; macOS permissions (Accessibility and others).
 - **Browser** (`browser`): above (Psyche profile, signed-in sites, Open links in, Let Psyche use your Chrome, Web Bot Auth).
-- **Access** (`files`): **What Psyche can reach**, one list of every shared folder and standing permission, each marked **Always**, **This chat** or **For now** (folders also read only or read and write), with **Revoke**. Psyche asks in the chat when it needs a folder (`request_folder_access`) and your answer is remembered here, so this is where you see and take back access rather than the usual way to give it. Also **Run commands on this Mac** (each command still asks first), **Add a folder yourself** (folded; a typed path, or **Choose a folder…** on the Mac), and VM shares.
-- **Credentials** (`credentials`): the vault. Storage (Psyche vault with Touch ID, System keychain, External manager), fill default (ask every fill / once per site), Items with **Add item**.
+- **Access** (`files`): **What Psyche can reach**, one list of every shared folder and standing permission, each marked **Always**, **This chat** or **For now** (folders also read only or read and write), with **Revoke**. Psyche asks in the chat when it needs a folder (`request_folder_access`) and your answer is remembered here, so this is where you see and take back access rather than the usual way to give it. Also **Run commands on this Mac** (each command still asks first), **Add a folder yourself** (folded; a typed path, or **Choose a folder…** on the Mac).
+- **Credentials** (`credentials`): the vault: Items with **Add item**, import, and links to 1Password or Bitwarden. Each fill still asks on its card.
 - **VM mode** (`vm`): run tasks in a separate sandbox Mac.
 
 **Privacy & data** (`data`): everything stays on this machine. **How long things are kept** (thinking, task replays), **Maps**, **Widgets in chat** (pictures from the web), **Export everything**, Backups, and last, under **Delete and start over**: Delete threads and **Reset memory…** (type "reset").
 
-**Devices** (`devices`): **Devices & nodes** (`devices`) and **Server & remote access** (`server`).
+**Devices** (`devices`): **Devices & nodes** (`devices`) and **Server & remote access** (`server`: the bind address, passkeys, sandbox health; **Set up** opens the remote-access guide).
 
-**About** (`about`): versions, data folder (Reveal in Finder), **Run checks** (Gateway, sandbox, permissions, vault), Open logs, and **Run setup again** (walks the first-run setup again; finished steps are skipped).
+**About** (`about`): versions, data folder (Reveal in Finder), **Run checks** (Gateway, model, sandbox, memory: each says what is wrong in plain words), Open logs, and **Run setup again** (walks the first-run setup again; finished steps are skipped).
 
 ## Onboarding
 

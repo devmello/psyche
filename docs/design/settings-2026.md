@@ -106,18 +106,32 @@ when a labelled key has no pane (`paneForKey`).
 - **Per-connector permissions** are set in Approval rules (most connectors) and on Apple
   connectors' cards in Connectors. Merging them needs a design for the Apple capability cards.
 
-## 6. Follow-ups found by the inventory
+## 6. Follow-ups found by the inventory (resolved)
 
-- The composed app never passes `usage`, `server`, `onRunDoctor`, `onExportReady` or
-  `onDisconnect`/`onRemove`/`onReconnect` to Settings (`apps/web/src/compose/settings.tsx`), so
-  Usage is empty, Server shows little, the doctor button and Export's save are inert, and
-  Disconnect/Remove/Sign in again do not render for app connectors. Verify in the running app.
-- Several keys appear to have no reader in the Gateway (`permissions.mode`, `vault.backend`,
-  `vault.fillDefault`, `data.transcriptRecall`, `models.image`, `backup.schedule`, `vm.shares`);
-  `apps/site/reference/settings.md` lists them.
-- Desktop `ShellApp` drops the view part of `/settings/connectors/add-mcp`.
-- About 75 controls are explained only by their group's description; the worst offenders (Mail,
-  Everything memory sensitive topics) deserve one line each.
+Fixed in the follow-up PR ("every Settings button does something, or is gone"):
+
+- **Dead buttons.** The composed app passed none of `usage`, `server`, `onRunDoctor`,
+  `onExportReady`, `onDisconnect`, `onRemove`, `onReconnect`. Each section now reaches the Gateway
+  itself when the shell gives nothing: Connectors call `connectors.disconnect`, resume the sign-in
+  for **Sign in again**, and remove a custom connector (`connectors.removeCustom`; other kinds have
+  no remove, so their rows don't offer it). Usage reads `usage.summary` (this month, today, the
+  last 7 days by model). Server builds its status from the bind setting, `passkeys.list` and
+  `sandbox.status`, says plainly that remote-access status isn't reported, and **Set up** opens the
+  remote-access guide. About's **Run checks** runs real checks (Gateway answers, a model is picked,
+  the sandbox is available, memory isn't paused). **Export everything** saves the zip as a
+  download when the shell has no save of its own.
+- **Desktop add-MCP link.** The Settings window keeps a view (`connectors/add-mcp`), and opens on
+  Essentials by default.
+- **Keys nothing read.** `permissions.mode` is now read: a new thread starts in the owner's default
+  mode (`auto` only with an allowlisted model, else balanced). The rest had no reader anywhere, so
+  their controls are gone rather than left as switches that do nothing: vault storage and fill
+  default (Credentials), transcript recall (Memory), the Image model role (and Persona's "redrawn"
+  claim that relied on it), the backup schedule (Backups), VM shares (Access), VM clipboard and
+  credentials (VM mode), and Server's VM start/stop (no Gateway method; VM mode is that pane).
+  The keys stay in the protocol; a control comes back when its reader exists.
+
+Still open: quiet hours twice (different meanings, §5), and about 75 controls explained only by
+their group's description.
 
 ## 7. Essentials, safe defaults, and access by asking
 

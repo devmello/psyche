@@ -22,7 +22,7 @@ import type { FolderGrant } from "./types.ts";
 
 /**
  * Access (UI design §3.18, settings-2026 §7): what Psyche can reach, with Revoke; folder grants
- * ro / rw; VirtioFS shares in VM mode. Psyche asks in the chat for a folder it needs and the
+ * ro / rw. Psyche asks in the chat for a folder it needs and the
  * answer is remembered (`request_folder_access`); adding one here is the manual way. Folder grants
  * live in the broker policy the Gateway applies (`permissions.policy.folders`, `{path, mode}`),
  * the same setting the CLI and other devices write; `permissions.folders` is the kit's older
@@ -31,7 +31,6 @@ import type { FolderGrant } from "./types.ts";
 
 export const POLICY_KEY = "permissions.policy";
 export const FOLDERS_KEY = "permissions.folders";
-export const VM_SHARES_KEY = "vm.shares";
 
 function isFolder(v: unknown): v is FolderGrant {
   return (
@@ -212,6 +211,7 @@ export function policyWithExecHost(
 
 export interface FileAccessPanelProps extends SettingsFormProps, LoadProps {
   persona: string;
+  /** Kept for callers; VM shares have no reader yet, so the panel no longer shows them. */
   vmMode?: boolean;
   /**
    * The list of what Psyche can reach (`ConnectedAccessList`). Without it the panel lists the
@@ -240,7 +240,6 @@ export function FileAccessPanel({
   onChange,
   needsApproval,
   persona,
-  vmMode = false,
   access,
   onChooseFolder,
   chooseError = null,
@@ -331,20 +330,6 @@ export function FileAccessPanel({
             />
           </div>
         </details>
-        <Group
-          title={t("settings.files.vmShares")}
-          description={vmMode ? t("settings.files.vmSharesOn") : t("settings.files.vmSharesOff")}
-        >
-          <FolderList
-            label={t("settings.files.vmShares")}
-            folders={foldersFromSettings(values, VM_SHARES_KEY)}
-            onChange={(next) => onChange(VM_SHARES_KEY, next)}
-            emptyText={t("settings.files.noVmShares")}
-            addLabel={t("settings.files.shareIntoVm")}
-            defaultAccess="ro"
-          />
-          <SettingHint settingKey={VM_SHARES_KEY} />
-        </Group>
       </LoadGate>
     </SectionFrame>
   );

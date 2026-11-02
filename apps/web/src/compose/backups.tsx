@@ -13,33 +13,12 @@ import { type ReactElement, useId, useState } from "react";
 /**
  * Backups (feature U4; docs/06 §3.18 Data controls): the archives `backup.*` manages under
  * `$PSYCHE_HOME/backups/`, "Back up now" with a passphrase that is sent once and never stored,
- * verify and delete per archive, and the schedule setting. Restore replaces the Gateway's own
+ * verify and delete per archive. There is no schedule: nothing in the Gateway runs one yet
+ * (settings-2026 §6), so the panel offers none. Restore replaces the Gateway's own
  * state, so it stays a CLI step with the Gateway stopped; the panel shows the command.
  */
 
-/** Schedule setting read by the Gateway's scheduler (S04 / S22): `{ interval, keep }`. */
-export const BACKUP_SCHEDULE_KEY = "backup.schedule";
-export type BackupInterval = "off" | "daily" | "weekly";
-export interface BackupSchedule {
-  interval: BackupInterval;
-  /** Archives to keep; older ones are deleted after a successful scheduled backup. */
-  keep: number;
-}
-export const DEFAULT_SCHEDULE: BackupSchedule = { interval: "off", keep: 7 };
 export const MIN_PASSPHRASE = 12;
-
-export function scheduleOf(values: Readonly<Record<string, unknown>>): BackupSchedule {
-  const raw = values[BACKUP_SCHEDULE_KEY];
-  if (typeof raw !== "object" || raw === null) return DEFAULT_SCHEDULE;
-  const r = raw as Partial<BackupSchedule>;
-  const interval: BackupInterval =
-    r.interval === "daily" || r.interval === "weekly" ? r.interval : "off";
-  const keep =
-    typeof r.keep === "number" && Number.isInteger(r.keep) && r.keep >= 1 && r.keep <= 365
-      ? r.keep
-      : DEFAULT_SCHEDULE.keep;
-  return { interval, keep };
-}
 
 export function formatBytes(n: number): string {
   const fixed = (v: number, digits: number) =>
@@ -81,7 +60,6 @@ export function BackupsPanel(): ReactElement {
   const [unencrypted, setUnencrypted] = useState(false);
   const [busy, setBusy] = useState<BackupAction | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
-  const schedule = scheduleOf(form.values);
   const unavailable = isUnavailableMessage(list.error);
 
   const run = async (what: BackupAction, fn: () => Promise<string>) => {
@@ -125,9 +103,6 @@ export function BackupsPanel(): ReactElement {
       await call("backup.delete", { file: b.file });
       return t("web.backups.deleted", { file: b.file });
     });
-
-  const setSchedule = (next: Partial<BackupSchedule>) =>
-    form.onChange(BACKUP_SCHEDULE_KEY, { ...schedule, ...next });
 
   const canCreate = busy === null && (unencrypted || passphrase.length >= MIN_PASSPHRASE);
   const backups = list.data?.backups ?? [];
@@ -244,41 +219,6 @@ export function BackupsPanel(): ReactElement {
         </ul>
       )}
 
-      <fieldset className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <legend className="font-medium text-foreground">{t("web.backups.schedule")}</legend>
-        {(["off", "daily", "weekly"] as const).map((v) => (
-          <label key={v} className="flex items-center gap-1.5">
-            <input
-              type="radio"
-              name={`${id}-interval`}
-              value={v}
-              checked={schedule.interval === v}
-              onChange={() => setSchedule({ interval: v })}
-            />
-            {t(`web.backups.interval.${v}`)}
-          </label>
-        ))}
-        <label className="flex items-center gap-1.5">
-          {t("web.backups.keep")}
-          <input
-            type="number"
-            className={`${input} w-16`}
-            min={1}
-            max={365}
-            value={schedule.keep}
-            onChange={(e) => {
-              const n = Number(e.target.value);
-              if (Number.isInteger(n) && n >= 1 && n <= 365) setSchedule({ keep: n });
-            }}
-            aria-label={t("web.backups.keepLabel")}
-          />
-        </label>
-      </fieldset>
-      {form.needsApproval.has(BACKUP_SCHEDULE_KEY) ? (
-        <p role="status" className="text-xs text-approval-text">
-          {t("web.backups.needsApproval")}
-        </p>
-      ) : null}
       {form.writeError ? (
         <p role="alert" className="text-danger-text">
           {form.writeError}
