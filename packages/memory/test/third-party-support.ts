@@ -1,10 +1,18 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { EVERYTHING_MEMORY_DEFAULTS, type EverythingMemorySettings } from "@psyche/protocol";
 import { FakeClock, FakeModelProvider } from "@psyche/testing";
 import Database from "better-sqlite3";
-import { type PassDeps, SearchDocReader, type SystemState } from "../src/extraction/index.ts";
+import {
+  cleanItemText,
+  type PassDeps,
+  SearchDocReader,
+  type SystemState,
+} from "../src/extraction/index.ts";
 import { EverythingStore } from "../src/graph/everything.ts";
 import { GraphStore } from "../src/graph/store.ts";
 import { makeEnv, type TestEnv } from "./helpers.ts";
+import { parseEml, REDTEAM_DIR, type RedteamCase } from "./redteam-support.ts";
 
 export const NOW = Date.parse("2026-10-29T03:00:00Z");
 export const DAY = 86_400_000;
@@ -188,5 +196,38 @@ export function fact(over: object = {}) {
     sensitivity: "none",
     confidence: 0.95,
     ...over,
+  };
+}
+
+/** A red-team case as the search index holds it: visible plain text, sender and trust. */
+export function docFor(c: RedteamCase): {
+  body: string;
+  title: string;
+  sender: string;
+  trust: "owner" | "untrusted";
+} {
+  let body = c.body;
+  let format = c.format;
+  let title = c.subject;
+  let from = c.from;
+  if (c.eml !== undefined) {
+    const eml = parseEml(readFileSync(join(REDTEAM_DIR, c.eml), "utf8"));
+    body = eml.body;
+    format = eml.format;
+    title = eml.headers.subject ?? title;
+    const m = /^(.*)<(.+)>$/.exec(eml.headers.from ?? "");
+    if (m !== null) from = { name: (m[1] as string).trim(), email: m[2] as string };
+  }
+  if (c.bodyRepeat !== undefined) {
+    const { head, filler, bytes } = c.bodyRepeat;
+    body = head + filler.repeat(Math.ceil(bytes / filler.length));
+  }
+  // The index stores visible plain text, not raw HTML.
+  if (format === "html") body = cleanItemText(body, { format: "html" }).text;
+  return {
+    body,
+    title,
+    sender: `${from.name} <${from.email}>`,
+    trust: c.trust === "owner" ? "owner" : "untrusted",
   };
 }

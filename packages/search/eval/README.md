@@ -56,6 +56,7 @@ Relevance is binary: a result counts when it is a gold id.
 | `--misses` | List the questions with R@10 < 1, with their query and top hits. |
 | `--only q001,q002` | Run only those questions. |
 | `--out report.json` | Also write the summaries as JSON. |
+| `--live` | With `--mode model` or `--mode rerank`, use the real `claude-haiku-5-5` instead of the offline stand-ins (the oracle query model, the lexical reranker). Reads the key like `--llm`, never prints it. About 53 calls for `model`, about 137 for `rerank` (about 1.3k input tokens each); pass `--coverage full`. |
 | `--llm` | Answer with `claude-haiku-5-5` from the top 8 hits and score its citations. It reads `ANTHROPIC_API_KEY` from the environment or the nearest `.env`, and never prints it. A full run is about 150 short calls per mode and coverage, so pass `--mode` and `--coverage`. |
 
 ## Adding to it
