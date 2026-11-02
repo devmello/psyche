@@ -139,26 +139,6 @@ export const FeedSnapshot: Story = {
   },
 };
 
-/** An MCP App a connector's tool declares: untrusted, closed until Run app, no way back to the Gateway. */
-export const McpApp: Story = {
-  render: () => (
-    <StoryWorld
-      onGateway={(g) => {
-        g.mcpApps = {
-          mcp__echo__show_chart: {
-            serverId: "echo",
-            uri: "ui://echo/chart.html",
-            html: "<p>Chart</p>",
-            csp: {},
-            permissions: {},
-            provenance: "untrusted",
-          },
-        };
-      }}
-    >
-      <div className="max-w-[640px] p-4">
-        <McpAppPanel tool="mcp__echo__show_chart" />
-
 /** Puts a draft in the store before the first paint, as `widget.draft` would. */
 function SeedDraft(): null {
   const store = useStore();
@@ -194,6 +174,30 @@ export const Drafting: Story = {
       <SeedDraft />
       <div className="max-w-[640px] p-4">
         <WidgetDrafts threadId="thr_story" />
+      </div>
+    </StoryWorld>
+  ),
+};
+
+/** An MCP App a connector's tool declares: untrusted, closed until Run app, no way back to the Gateway. */
+export const McpApp: Story = {
+  render: () => (
+    <StoryWorld
+      onGateway={(g) => {
+        g.mcpApps = {
+          mcp__echo__show_chart: {
+            serverId: "echo",
+            uri: "ui://echo/chart.html",
+            html: "<p>Chart</p>",
+            csp: {},
+            permissions: {},
+            provenance: "untrusted",
+          },
+        };
+      }}
+    >
+      <div className="max-w-[640px] p-4">
+        <McpAppPanel tool="mcp__echo__show_chart" />
       </div>
     </StoryWorld>
   ),
