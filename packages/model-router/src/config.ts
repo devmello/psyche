@@ -16,6 +16,8 @@ export const PROVIDER_KINDS = [
   "lmstudio",
   "claude-code",
   "codex",
+  /** Apple's on-device model through the Mac helper (`apple/on-device`). */
+  "apple",
 ] as const;
 export type ProviderKind = (typeof PROVIDER_KINDS)[number];
 
@@ -98,7 +100,8 @@ export function isLocalKind(kind: ProviderKind): boolean {
     kind === "openai-compatible" ||
     kind === "anthropic-compatible" ||
     kind === "llamacpp" ||
-    kind === "lmstudio"
+    kind === "lmstudio" ||
+    kind === "apple"
   );
 }
 
@@ -131,6 +134,7 @@ export function packageKey(config: ProviderConfig): string {
     case "lmstudio":
     case "claude-code":
     case "codex":
+    case "apple":
       return config.id;
   }
 }

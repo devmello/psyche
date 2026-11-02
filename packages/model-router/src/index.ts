@@ -1,4 +1,5 @@
 export * from "./adapter.ts";
+export * from "./apple/adapter.ts";
 export * from "./capability-guess.ts";
 export * from "./cli/index.ts";
 export * from "./compat.ts";

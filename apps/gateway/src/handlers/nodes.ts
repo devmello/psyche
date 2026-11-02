@@ -23,10 +23,11 @@ import { paramsHash } from "../idempotency.ts";
  * Capabilities that have a Gateway agent tool are reachable only through that tool, which
  * describes them (kind, binding, the full arguments on the card, #274): `apps.*` (AppleScript,
  * JXA, Shortcuts, open / focus), `computer.*` (sessions and per-app tiers), `messages.*`
- * (the iMessage channel's reply authority) and `notify.*` (the Gateway's approval notifications) and `ocr.*` (search ingest's Vision OCR).
+ * (the iMessage channel's reply authority), `notify.*` (the Gateway's approval notifications),
+ * `ocr.*` (search ingest's Vision OCR) and `llm.*` (the model router's Apple on-device model).
  */
 const UNREACHABLE =
-  /^(vault|keychain|settings|permissions|grants|approvals|devices|gateway|dictation|apps|computer|messages|notify|screen|ocr)([^a-z0-9]|$)/;
+  /^(vault|keychain|settings|permissions|grants|approvals|devices|gateway|dictation|apps|computer|messages|notify|screen|ocr|llm)([^a-z0-9]|$)/;
 
 /**
  * The helper's own notification permission, which the desktop's onboarding and Settings read and

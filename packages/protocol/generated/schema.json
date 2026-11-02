@@ -2183,6 +2183,14 @@
         "sideEffecting": true
       },
       {
+        "description": "Whether Apple's on-device language model (Apple Intelligence, macOS 26) can run on the paired Mac, for the model pickers: helperConnected false when no Mac helper offers it, otherwise available with the reason when not (device_not_eligible, apple_intelligence_not_enabled, model_not_ready, unsupported_os). Reads availability only; it never runs the model.",
+        "name": "models.appleStatus",
+        "params": "#/$defs/ModelsAppleStatusParams",
+        "result": "#/$defs/AppleLlmStatus",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Runs the six-case tool-calling check (B4) on one model and stores a conclusive verdict. Calls the model, so it may cost tokens.",
         "name": "models.check",
         "params": "#/$defs/ModelsCheckParams",
@@ -4714,6 +4722,144 @@
         "kind"
       ],
       "type": "object"
+    },
+    "AppleLlmAvailability": {
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "reason": {
+          "$ref": "#/$defs/AppleLlmUnavailableReason"
+        },
+        "contextTokens": {
+          "description": "Input and output together",
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "available",
+        "contextTokens"
+      ],
+      "type": "object"
+    },
+    "AppleLlmAvailabilityParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "AppleLlmGenerateParams": {
+      "properties": {
+        "prompt": {
+          "maxLength": 9000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "instructions": {
+          "maxLength": 9000,
+          "type": "string"
+        },
+        "schema": {
+          "description": "Guided generation: a JSON Schema subset (object, array, string, number, integer, boolean, string enum; properties, required, items). The reply is JSON text of that shape.",
+          "patternProperties": {
+            "^(.*)$": {}
+          },
+          "type": "object"
+        },
+        "maxTokens": {
+          "maximum": 1024,
+          "minimum": 16,
+          "type": "integer"
+        },
+        "temperature": {
+          "maximum": 2,
+          "minimum": 0,
+          "type": "number"
+        },
+        "timeoutMs": {
+          "maximum": 120000,
+          "minimum": 1000,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "type": "object"
+    },
+    "AppleLlmGenerateResult": {
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "structured": {
+          "description": "True when `text` is JSON from a schema",
+          "type": "boolean"
+        },
+        "refusal": {
+          "$ref": "#/$defs/AppleLlmRefusal"
+        },
+        "reason": {
+          "$ref": "#/$defs/AppleLlmUnavailableReason"
+        }
+      },
+      "required": [
+        "text",
+        "structured"
+      ],
+      "type": "object"
+    },
+    "AppleLlmRefusal": {
+      "enum": [
+        "unavailable",
+        "too_long",
+        "context_exceeded",
+        "guardrail",
+        "unsupported_language",
+        "unsupported_schema",
+        "rate_limited",
+        "timed_out",
+        "failed"
+      ],
+      "type": "string"
+    },
+    "AppleLlmStatus": {
+      "properties": {
+        "ref": {
+          "description": "The model ref to select, apple/on-device",
+          "type": "string"
+        },
+        "helperConnected": {
+          "description": "A Mac helper that offers llm.apple.* is live",
+          "type": "boolean"
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "reason": {
+          "$ref": "#/$defs/AppleLlmUnavailableReason"
+        },
+        "contextTokens": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ref",
+        "helperConnected",
+        "available",
+        "contextTokens"
+      ],
+      "type": "object"
+    },
+    "AppleLlmUnavailableReason": {
+      "enum": [
+        "unsupported_os",
+        "device_not_eligible",
+        "apple_intelligence_not_enabled",
+        "model_not_ready",
+        "unknown"
+      ],
+      "type": "string"
     },
     "AppleMailDraftInput": {
       "properties": {
@@ -28106,6 +28252,10 @@
           "type": "string"
         }
       },
+      "type": "object"
+    },
+    "ModelsAppleStatusParams": {
+      "properties": {},
       "type": "object"
     },
     "ModelsCheckParams": {

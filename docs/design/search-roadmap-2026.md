@@ -381,3 +381,33 @@ Live Haiku 5.5, full coverage, same harness (`--live --mode model`; 53 calls, ab
 | model, after the fix | 0.227 | 0.506 | 0.608 | 0.695 | 0.800 | 0.595 | 0.527 |
 
 R@10 by class against the baseline: every class is equal except **list +0.012**; none drops. **The gate passes.** The model path now does what it cannot get wrong: it never loses a result the rules found. It also does not gain on this set (temporal stays 0.585): the rules already settle the dates here, and the questions the model was unsure about mostly carry no filter worth adding. Defaults are unchanged (the model path is only reached when a model is configured and the rules are unsure); turning it on is still the owner's call, and the case for it is cost and latency against a gain of about zero on this set. Unit tests: `test/understand-model.test.ts` (the guard keeps a person and a source only when the question asks for them).
+
+## 13. Apple on-device model (the privacy-first local option)
+
+Status: built behind fakes, 2026-11-03. **Not run against the real model**: the owner is told before any local model runs, and the tests drive a fake helper. Feature entry: [future-features.md §6](../roadmap/future-features.md).
+
+**What.** Apple's `FoundationModels` framework (macOS 26, Apple Intelligence) as a model the router can serve, for the small jobs that read private text: reading a question (R13, §4.1), context cards (§3.6), listwise rerank (§5.4, R12) and, later, memory extraction for one source (everything-memory EM11). On-device system model: no download, no key, no cost, nothing leaves the Mac.
+
+**How it is wired.**
+
+| Layer | What | Where |
+| --- | --- | --- |
+| Mac helper | `llm.apple.availability` (reads whether it can run; never runs it) and `llm.apple.generate` (one prompt, text or JSON for a schema, one call at a time, fresh session each time, no tools, no history). Every failure is a `refusal` in the result, not an error: `unavailable` (with the reason: device not eligible, Apple Intelligence off, model not ready, macOS too old), `too_long`, `context_exceeded`, `guardrail`, `unsupported_language`, `unsupported_schema`, `rate_limited`, `timed_out`, `failed`. | `apps/mac-helper` `PsycheHelperSystem/LLM`, pure rules in `PsycheHelperCore/LLM` |
+| Guided generation | A JSON Schema subset (object, array, string, number, integer, boolean, string enum; at most 4 levels, 12 properties) becomes a `DynamicGenerationSchema`, so the query model's JSON and the rerank order can be forced to shape. Anything else is refused as `unsupported_schema`. | `AppleLLMPolicy.parseSchema`, `FoundationModelsBackend` |
+| Router | Provider kind `apple`, ref `apple/on-device`, local (`isLocalKind`), no tools, 4,096-token window. A missing helper or any refusal is an ordinary `finish{error}` with a router error kind. The provider is always routable; it answers "needs the Mac helper" until one is live. | `packages/model-router/src/apple` |
+| Reach | Only the router calls `llm.*`: `nodes.invoke` cannot reach it (`isUnreachableCapability`) and the broker denies `llm.apple.*` tool calls (`llm_router_only`). | `handlers/nodes.ts`, `permissions/prohibitions.ts` |
+| Settings hook | `models.appleStatus` → `{ref, helperConnected, available, reason?, contextTokens}` for the picker, and the setting `search.model.engine` (`utility`, the default, or `apple`). Memory uses the existing `{kind: "local", ref: "apple/on-device"}`. | `models.appleStatus`, `SEARCH_MODEL_ENGINE_KEY` |
+
+**`search.model.engine: apple`** moves reading a question, cards and rerank together. It **fails closed**: when the on-device model cannot answer, the job does nothing and the existing fallback stands (rules for a question, no card, plain ranking); it never retries on the utility (cloud) model. Rerank is cut to the top 8 hits (512 characters each) to fit the window.
+
+**Limits to remember.** The window is about 4,096 tokens, so input over 9,000 characters is refused, never cut. The model is small: expect it to read a question and reorder eight hits, not to write a faithful card from a long document. Whether it is good enough is what the real run measures.
+
+**What still needs a real run (A3), on a Mac the owner approves.**
+1. `llm.apple.availability` and one `llm.apple.generate` on a Mac with Apple Intelligence on, and on one with it off, to confirm the unavailable reasons and messages.
+2. The error-case mapping (`exceededContextWindowSize`, `guardrailViolation`, `unsupportedLanguageOrLocale`): the Swift mapping matches on the case names and is unit-tested only with names, not with real thrown errors.
+3. Guided generation with the query model's schema and the rerank schema (the schema is built in a test, never sent).
+4. `--live` Apple modes in the search eval (not written yet) with the gate of §9: no class drops by more than 0.02 R@10.
+5. Memory extraction on a few red-team cases (EM11) to see whether the batch fits the window.
+6. That the helper binary still launches on macOS 15: `FoundationModels` is weakly linked (`LC_LOAD_WEAK_DYLIB`, checked), but it has not been started on a macOS 15 machine.
+
+Out of scope on purpose: Private Cloud Compute (`PrivateCloudComputeLanguageModel`) sends text off the Mac and is not offered.
