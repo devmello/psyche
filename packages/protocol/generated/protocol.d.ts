@@ -10841,6 +10841,21 @@ export interface WidgetSpec {
     v:            number;
 }
 
+export interface WidgetsImageParams {
+    url:      string;
+    widgetId: string;
+}
+
+export interface WidgetsImageResult {
+    /**
+     * base64, at most 512 KiB decoded
+     */
+    bytes: string;
+    mime:  WidgetsImageResultMIME;
+}
+
+export type WidgetsImageResultMIME = "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+
 export interface WrapUpBlock {
     actions?: WrapUpAction[];
     ask?:     string;

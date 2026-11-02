@@ -3245,6 +3245,14 @@
         "result": "#/$defs/WidgetsGetResult",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "Fetches one remote image a widget shows (generative-ui-2026 §7.2, D3), through the Gateway: only when the owner turned `widgets.remoteImages` on, only a URL that is in that widget's stored spec, https only, no cookies or referrer, private addresses refused, image types only (never SVG), 512 KiB cap.",
+        "name": "widgets.image",
+        "params": "#/$defs/WidgetsImageParams",
+        "result": "#/$defs/WidgetsImageResult",
+        "scope": "operator.read",
+        "sideEffecting": false
       }
     ],
     "protocolVersion": 1
@@ -42445,6 +42453,48 @@
       "required": [
         "widgets",
         "missing"
+      ],
+      "type": "object"
+    },
+    "WidgetsImageParams": {
+      "properties": {
+        "widgetId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "url": {
+          "maxLength": 2000,
+          "pattern": "^https://",
+          "type": "string"
+        }
+      },
+      "required": [
+        "widgetId",
+        "url"
+      ],
+      "type": "object"
+    },
+    "WidgetsImageResult": {
+      "properties": {
+        "mime": {
+          "enum": [
+            "image/png",
+            "image/jpeg",
+            "image/gif",
+            "image/webp"
+          ],
+          "type": "string"
+        },
+        "bytes": {
+          "description": "base64, at most 512 KiB decoded",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mime",
+        "bytes"
       ],
       "type": "object"
     },

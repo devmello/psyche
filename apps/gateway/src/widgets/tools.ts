@@ -29,7 +29,8 @@ const CATALOGUE =
   "card {title?,subtitle?,tone?,children}; list {items:[{id,title,meta?}]}; stack {direction?,gap?,children}; grid {columns:2-4,children}; tabs {tabs:[{id,label,children}]}. " +
   "tone is neutral|info|success|warning|danger. No colours, classes, HTML or scripts exist; unknown fields are rejected. " +
   "Live: a progress, checklist, status, stat or text node may carry bind:{source,id,field} and the app keeps it current with no tokens: task (status, progress, steps, title, summary), tool_call (status), research (progress, status, claims, sources; id is the research tool call id), automation (status, nextRun, lastRun), job (status, lastStep). Prefer bind over update_ui for anything the app already tracks; only things of this chat can be bound. " +
-  "(chart, image, map, button, choices and form are accepted but not drawn yet; do not rely on them.)";
+  "chart {label,kind: bar|line|sparkline,unit?,series:[{name,points:[{x,y}]}] (max 4 series, same point count)}; image {alt,src:{fileId}|{dataUrl}|{url: https}} (remote urls are off unless the owner allows them: prefer a fileId); map {label,places:[{name,address?,lat?,lng?}]} (a place list with Open in Maps, no tiles). " +
+  "(button, choices and form are accepted but not drawn yet; do not rely on them.)";
 
 const RENDER_DESCRIPTION =
   "Show a small live widget in the chat: use it for state (progress, a task list, a status that will change), structure (more than about 4 comparable items, numbers worth scanning) or a choice. " +

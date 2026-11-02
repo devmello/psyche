@@ -1,11 +1,11 @@
 import type { Widget } from "@psyche/protocol";
 import { Check, Copy, LayoutPanelTop, ShieldAlert } from "lucide-react";
-import { type ReactElement, useEffect, useRef, useState } from "react";
+import { type ReactElement, useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../i18n/core.ts";
 import { copyText } from "../lib/clipboard.ts";
 import { cn } from "../lib/utils.ts";
 import { useSlots } from "../slots.tsx";
-import { WidgetChatContext } from "./bound.tsx";
+import { WidgetContext } from "./context.ts";
 import { RenderNode } from "./nodes.tsx";
 import { widgetText } from "./text.ts";
 
@@ -48,6 +48,10 @@ export default function WidgetView({ widget }: { widget: Widget }): ReactElement
   const [copied, setCopied] = useState(false);
   const announcement = useAnnouncement(widget);
   const tainted = widget.taint.length > 0;
+  const ctx = useMemo(
+    () => ({ threadId: widget.threadId, widgetId: widget.id, tainted }),
+    [widget.threadId, widget.id, tainted],
+  );
   const live = widget.state === "live";
   const sources = widget.taint
     .map((s) => s.origin ?? s.sender ?? s.sourceKind)
@@ -105,9 +109,9 @@ export default function WidgetView({ widget }: { widget: Widget }): ReactElement
         </button>
       </header>
       <div className="px-3 py-2.5">
-        <WidgetChatContext.Provider value={widget.threadId}>
+        <WidgetContext.Provider value={ctx}>
           <RenderNode node={widget.spec.root} depth={0} />
-        </WidgetChatContext.Provider>
+        </WidgetContext.Provider>
       </div>
       <div className="sr-only" aria-live="polite" role="status" data-testid="widget-live">
         {announcement}
