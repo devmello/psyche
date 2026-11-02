@@ -108,6 +108,7 @@ export const chat = {
   "chat.composer.stop": "Stop the run (Esc)",
   "chat.composer.send": "Send",
 
+  "chat.message.fromWidget": "From widget",
   "chat.message.jumpToQuote": "Jump to the quoted message",
   "chat.message.actions": "Message actions",
   "chat.message.reply": "Reply",

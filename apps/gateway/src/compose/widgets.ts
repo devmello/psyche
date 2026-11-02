@@ -40,8 +40,27 @@ export function composeWidgets(services: ComposeServices): ComposedPart {
     publish: (event, payload, threadId) => services.publish(event, payload, threadId),
   });
   const unregister = widgetTools(store).map((t) => services.tools.register(t));
+  let unsubscribe: (() => void) | undefined;
+  const ENDED = new Set(["done", "failed", "cancelled"]);
   return {
+    // A task that ends freezes the widgets it owns (generative-ui-2026 §5.1); bound ones keep going.
+    start: (gw) => {
+      unsubscribe = gw.bus.subscribe(["operator.read"], (frame) => {
+        let f: { event?: string; payload?: { task?: { id?: string; status?: string } } };
+        try {
+          f = JSON.parse(frame);
+        } catch {
+          return;
+        }
+        const task = f.payload?.task;
+        if (f.event === "task.updated" && task?.id && task.status && ENDED.has(task.status)) {
+          store.freezeOwnedBy("task", task.id);
+        }
+      });
+    },
     stop: () => {
+      unsubscribe?.();
+      unsubscribe = undefined;
       store.flush();
       for (const u of unregister) u();
     },

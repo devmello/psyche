@@ -44,16 +44,20 @@ interface TurnExtra {
   images?: TurnImages;
   /** What the message is about (Ask about this), recorded ahead of its text. */
   contextBlocks?: Block[];
+  /** A widget click (D10): the message is stored with `via: "widget"`. */
+  via?: "widget";
 }
 
 function turnExtra(input: SendInput): TurnExtra | undefined {
   if (
     input.preamble === undefined &&
+    input.via === undefined &&
     (input.images ?? []).length === 0 &&
     (input.contextBlocks ?? []).length === 0
   )
     return undefined;
   return {
+    ...(input.via === undefined ? {} : { via: input.via }),
     ...(input.preamble === undefined ? {} : { preamble: input.preamble }),
     ...((input.images ?? []).length === 0 ? {} : { images: input.images }),
     ...((input.contextBlocks ?? []).length === 0 ? {} : { contextBlocks: input.contextBlocks }),
@@ -100,6 +104,8 @@ export interface SendInput {
   images?: { mime: string; data: string }[];
   /** The cards of what the message is about (Ask about this), shown ahead of its text; same rule. */
   contextBlocks?: Block[];
+  /** `widget`: a click on a generative-UI widget sent it (D10); same busy rule as `preamble`. */
+  via?: "widget";
 }
 
 type Emit = <E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string) => void;
@@ -420,6 +426,7 @@ export class SessionController {
           blocks: userBlocks(content, attachments, extra?.contextBlocks),
           provenance: provenance === "agent" ? "agent" : messageProvenance(requester),
           replyToMessageId: quote?.messageId ?? null,
+          ...(extra?.via === undefined ? {} : { via: extra.via }),
         },
         { expectedWriterRunId: null },
       );
@@ -454,6 +461,7 @@ export class SessionController {
         provenance: provenance === "agent" ? "agent" : messageProvenance(requester),
         replyToMessageId: quote?.messageId ?? null,
         runId: run.id,
+        ...(extra?.via === undefined ? {} : { via: extra.via }),
       },
       { expectedWriterRunId: run.id },
     );

@@ -202,12 +202,14 @@ describe("widget safety", () => {
     );
     expect(frame.className).toMatch(/\[contain:layout_paint\]/);
     expect(frame.className).toMatch(/overflow-clip/);
-    // Interaction nodes do not render yet (P6), so there is no control at all.
-    expect(
-      within(frame)
-        .queryAllByRole("button")
-        .map((b) => b.getAttribute("aria-label")),
-    ).toEqual(["Copy as text"]);
+    // Its one control is a plain outline "reply" button: no filled primary, no route to approvals.
+    const buttons = within(frame).getAllByRole("button");
+    expect(buttons.map((b) => b.getAttribute("aria-label") ?? b.textContent)).toEqual([
+      "Copy as text",
+      "Send it",
+    ]);
+    expect(buttons[1]?.className).toMatch(/border-input|outline|bg-background/);
+    expect(buttons[1]?.className).not.toMatch(/bg-primary/);
     expect(document.querySelector("[data-card='framed'][data-kind='approval']")).toBeNull();
   });
 });

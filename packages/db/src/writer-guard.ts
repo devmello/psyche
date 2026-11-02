@@ -31,7 +31,7 @@ export interface NewMessage {
   readonly runId?: string | null;
   readonly createdAt?: string;
   /** `voice`: the owner spoke it (voice conversation). */
-  readonly via?: "voice";
+  readonly via?: "voice" | "widget";
 }
 
 export interface AppendOptions {

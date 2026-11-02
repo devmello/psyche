@@ -11,6 +11,7 @@ import {
   taintedWidget,
 } from "./fixtures.ts";
 import { boundWidget } from "./fixtures-bound.ts";
+import { interactiveWidget } from "./fixtures-interactive.ts";
 import {
   chartsWidget,
   dataImageWidget,
@@ -93,3 +94,6 @@ export const ImageRemoteUntrusted: Story = showWith(remoteImageTaintedWidget, {
 });
 /** A place list with Open in Maps: no tiles (D4). */
 export const PlaceList: Story = showWith(mapWidget);
+
+/** Reply button, choices, a form and a list action: outline controls, nothing fires by itself. */
+export const Interactive: Story = showWith(interactiveWidget);

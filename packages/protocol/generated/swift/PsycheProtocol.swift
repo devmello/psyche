@@ -288,6 +288,7 @@
 //   let chatExportParams = try? JSONDecoder().decode(ChatExportParams.self, from: jsonData)
 //   let chatExportResult = try? JSONDecoder().decode(ChatExportResult.self, from: jsonData)
 //   let chatFollowUpParams = try? JSONDecoder().decode(ChatFollowUpParams.self, from: jsonData)
+//   let chatFromWidget = try? JSONDecoder().decode(ChatFromWidget.self, from: jsonData)
 //   let chatGreetParams = try? JSONDecoder().decode(ChatGreetParams.self, from: jsonData)
 //   let chatGreetResult = try? JSONDecoder().decode(ChatGreetResult.self, from: jsonData)
 //   let chatHistoryParams = try? JSONDecoder().decode(ChatHistoryParams.self, from: jsonData)
@@ -3577,6 +3578,7 @@ public enum Unsandboxed: String, Codable, Sendable {
 
 public enum InputVia: String, Codable, Sendable {
     case voice = "voice"
+    case widget = "widget"
 }
 
 // MARK: - ApprovalBlock
@@ -9337,6 +9339,7 @@ public struct ChatSendParams: Codable, Sendable {
     public let attachments: [String]?
     public let content: String
     public let context: ChatContextRef?
+    public let fromWidget: ChatFromWidget?
     public let mode: QueueMode?
     public let redo: Redo?
     public let replyToMessageID: String?
@@ -9347,6 +9350,7 @@ public struct ChatSendParams: Codable, Sendable {
         case attachments = "attachments"
         case content = "content"
         case context = "context"
+        case fromWidget = "fromWidget"
         case mode = "mode"
         case redo = "redo"
         case replyToMessageID = "replyToMessageId"
@@ -9354,10 +9358,11 @@ public struct ChatSendParams: Codable, Sendable {
         case threadID = "threadId"
     }
 
-    public init(attachments: [String]?, content: String, context: ChatContextRef?, mode: QueueMode?, redo: Redo?, replyToMessageID: String?, screen: ChatScreenRef?, threadID: String) {
+    public init(attachments: [String]?, content: String, context: ChatContextRef?, fromWidget: ChatFromWidget?, mode: QueueMode?, redo: Redo?, replyToMessageID: String?, screen: ChatScreenRef?, threadID: String) {
         self.attachments = attachments
         self.content = content
         self.context = context
+        self.fromWidget = fromWidget
         self.mode = mode
         self.redo = redo
         self.replyToMessageID = replyToMessageID
@@ -9379,6 +9384,19 @@ public struct ChatContextRef: Codable, Sendable {
     public init(id: String, kind: BlockKind) {
         self.id = id
         self.kind = kind
+    }
+}
+
+// MARK: - ChatFromWidget
+public struct ChatFromWidget: Codable, Sendable {
+    public let widgetID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case widgetID = "widgetId"
+    }
+
+    public init(widgetID: String) {
+        self.widgetID = widgetID
     }
 }
 

@@ -1,12 +1,14 @@
 import {
   getWidget,
   insertWidget,
+  listLiveWidgetsOwnedBy,
   listThreadWidgets,
   type PsycheDb,
   updateWidget,
 } from "@psyche/db";
 import {
   applyWidgetOps,
+  collectWidgetBinds,
   type EventName,
   type EventPayload,
   formatWidgetIssues,
@@ -179,6 +181,21 @@ export class WidgetStore {
         title: w.spec.title,
         fallbackText: w.spec.fallbackText,
       }));
+  }
+
+  /**
+   * The owner (a task, automation or job) ended: its widgets freeze, unless they are bound to a
+   * live entity (then the host keeps them current; §5.1). A run-owned widget never freezes here:
+   * the agent may patch it in later runs of the same chat (D9).
+   */
+  freezeOwnedBy(kind: "task" | "automation" | "job", id: string): number {
+    let n = 0;
+    for (const w of listLiveWidgetsOwnedBy(this.#db, kind, id)) {
+      if (collectWidgetBinds(w.spec.root).length > 0) continue;
+      this.#freeze(w);
+      n++;
+    }
+    return n;
   }
 
   /** Publishes anything still waiting (shutdown, tests). */

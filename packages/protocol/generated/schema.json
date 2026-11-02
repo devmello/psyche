@@ -12519,6 +12519,20 @@
       ],
       "type": "object"
     },
+    "ChatFromWidget": {
+      "properties": {
+        "widgetId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "widgetId"
+      ],
+      "type": "object"
+    },
     "ChatGreetParams": {
       "properties": {
         "threadId": {
@@ -12791,6 +12805,9 @@
           "maxLength": 64,
           "minLength": 1,
           "type": "string"
+        },
+        "fromWidget": {
+          "$ref": "#/$defs/ChatFromWidget"
         },
         "redo": {
           "properties": {
@@ -21235,7 +21252,8 @@
     },
     "InputVia": {
       "enum": [
-        "voice"
+        "voice",
+        "widget"
       ],
       "type": "string"
     },

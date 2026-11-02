@@ -152,7 +152,7 @@ export function messageFromRow(row: MessageRow): Message {
     ...(row.lessonsApplied == null
       ? {}
       : { lessonsApplied: decodeJson<NonNullable<Message["lessonsApplied"]>>(row.lessonsApplied) }),
-    ...(row.via === "voice" ? { via: "voice" as const } : {}),
+    ...(row.via === "voice" || row.via === "widget" ? { via: row.via } : {}),
   };
 }
 
