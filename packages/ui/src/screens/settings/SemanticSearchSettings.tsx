@@ -137,6 +137,25 @@ export function SemanticSearchSettingsGroup({
         onChange={(v) => onChange("search.queryModel.enabled", v)}
         settingKey="search.queryModel.enabled"
       />
+      <SwitchField
+        label={t("settings.key.search.encrypt")}
+        description={t("settings.semanticSearch.encryptHint")}
+        checked={bool(values, "search.encrypt", false)}
+        onChange={(v) => onChange("search.encrypt", v)}
+        settingKey="search.encrypt"
+      >
+        {live.status?.encryption !== undefined && live.status.encryption.state !== "off" ? (
+          <div role="status" className="flex items-center gap-2 pt-1">
+            <StatusChip tone={live.status.encryption.state === "on" ? "success" : "danger"}>
+              {live.status.encryption.state === "on"
+                ? t("settings.semanticSearch.encrypt.on")
+                : t("settings.semanticSearch.encrypt.unavailable", {
+                    why: live.status.encryption.reason ?? "",
+                  })}
+            </StatusChip>
+          </div>
+        ) : null}
+      </SwitchField>
       {enabled ? (
         <RadioField<Engine>
           label={t("settings.key.search.semantic.engine")}

@@ -33817,6 +33817,27 @@
       ],
       "type": "string"
     },
+    "SearchIndexEncryption": {
+      "properties": {
+        "state": {
+          "description": "on: the index file is encrypted; off: it is not and the switch is off; unavailable: the switch is on but the key cannot be used here",
+          "enum": [
+            "off",
+            "on",
+            "unavailable"
+          ],
+          "type": "string"
+        },
+        "reason": {
+          "description": "Why it is unavailable",
+          "type": "string"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "type": "object"
+    },
     "SearchIndexStatus": {
       "properties": {
         "docs": {
@@ -33829,6 +33850,9 @@
         },
         "semantic": {
           "$ref": "#/$defs/SearchSemanticStatus"
+        },
+        "encryption": {
+          "$ref": "#/$defs/SearchIndexEncryption"
         }
       },
       "required": [

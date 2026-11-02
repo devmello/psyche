@@ -1088,6 +1088,7 @@
 //   let searchHitCard = try? JSONDecoder().decode(SearchHitCard.self, from: jsonData)
 //   let searchHitGroup = try? JSONDecoder().decode(SearchHitGroup.self, from: jsonData)
 //   let searchIndexDocKind = try? JSONDecoder().decode(SearchIndexDocKind.self, from: jsonData)
+//   let searchIndexEncryption = try? JSONDecoder().decode(SearchIndexEncryption.self, from: jsonData)
 //   let searchIndexStatus = try? JSONDecoder().decode(SearchIndexStatus.self, from: jsonData)
 //   let searchMatch = try? JSONDecoder().decode(SearchMatch.self, from: jsonData)
 //   let searchProcessing = try? JSONDecoder().decode(SearchProcessing.self, from: jsonData)
@@ -24840,17 +24841,20 @@ public struct SearchIndexStatus: Codable, Sendable {
     public let backfill: SearchBackfillStatus
     /// Documents in the index
     public let docs: Int
+    public let encryption: SearchIndexEncryption?
     public let semantic: SearchSemanticStatus?
 
     public enum CodingKeys: String, CodingKey {
         case backfill = "backfill"
         case docs = "docs"
+        case encryption = "encryption"
         case semantic = "semantic"
     }
 
-    public init(backfill: SearchBackfillStatus, docs: Int, semantic: SearchSemanticStatus?) {
+    public init(backfill: SearchBackfillStatus, docs: Int, encryption: SearchIndexEncryption?, semantic: SearchSemanticStatus?) {
         self.backfill = backfill
         self.docs = docs
+        self.encryption = encryption
         self.semantic = semantic
     }
 }
@@ -24892,6 +24896,33 @@ public enum SearchBackfillState: String, Codable, Sendable {
     case error = "error"
     case idle = "idle"
     case running = "running"
+}
+
+// MARK: - SearchIndexEncryption
+public struct SearchIndexEncryption: Codable, Sendable {
+    /// Why it is unavailable
+    public let reason: String?
+    /// on: the index file is encrypted; off: it is not and the switch is off; unavailable: the
+    /// switch is on but the key cannot be used here
+    public let state: SearchIndexEncryptionState
+
+    public enum CodingKeys: String, CodingKey {
+        case reason = "reason"
+        case state = "state"
+    }
+
+    public init(reason: String?, state: SearchIndexEncryptionState) {
+        self.reason = reason
+        self.state = state
+    }
+}
+
+/// on: the index file is encrypted; off: it is not and the switch is off; unavailable: the
+/// switch is on but the key cannot be used here
+public enum SearchIndexEncryptionState: String, Codable, Sendable {
+    case off = "off"
+    case on = "on"
+    case unavailable = "unavailable"
 }
 
 // MARK: - SearchSemanticStatus
