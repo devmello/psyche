@@ -28,6 +28,7 @@ import {
   reciprocalRank,
 } from "./metrics.ts";
 import { mockAnswer } from "./mock-answer.ts";
+import { coverageReranker } from "./rerank-mock.ts";
 import { type RewriteMode, rewrite } from "./rewrite.ts";
 
 export interface CorpusDoc {
@@ -64,7 +65,7 @@ export const EVAL_TZ = -420;
  */
 export const PRODUCTION_SOURCES = new Set(["chat", "tasks", "library"]);
 
-const MODES: RewriteMode[] = ["raw", "keywords", "rules", "prod"];
+const MODES: RewriteMode[] = ["raw", "keywords", "rules", "prod", "rerank"];
 /**
  * `indexed` = production sources plus Mail, Messages, Notes, Calendar, Reminders and files, written
  * by the real source indexers (roadmap §2). `full` writes the same documents straight in.
@@ -132,7 +133,14 @@ export async function evaluate(
   mode: RewriteMode,
   coverage: Coverage,
 ): Promise<QuestionResult[]> {
-  const index = createSearchIndex({ now: () => EVAL_NOW, tzOffsetMinutes: EVAL_TZ });
+  const index = createSearchIndex({
+    now: () => EVAL_NOW,
+    tzOffsetMinutes: EVAL_TZ,
+    // `rerank`: production understanding plus a reranker stand-in over the top 20 (rerank-mock.ts).
+    ...(mode === "rerank"
+      ? { rerank: { reranker: coverageReranker, enabled: () => true, topN: () => 20 } }
+      : {}),
+  });
   const docs = corpus.filter((d) => coverage === "full" || PRODUCTION_SOURCES.has(d.source));
   await index.indexMany(docs.map(toSearchDoc));
   let indexed: IndexedCorpus | undefined;
@@ -149,7 +157,13 @@ export async function evaluate(
     const rw = rewrite(q.q, mode, EVAL_NOW, EVAL_TZ);
     const run = async (text: string) => {
       const ids = (
-        await index.search({ q: text, collapse: false, limit: 20, understand: mode === "prod" })
+        await index.search({
+          q: text,
+          collapse: false,
+          limit: 20,
+          understand: mode === "prod" || mode === "rerank",
+          rerank: mode === "rerank",
+        })
       ).hits.flatMap((h) => (indexed === undefined ? [h.id] : indexed.expand(h.id)));
       return [...new Set(ids)];
     };

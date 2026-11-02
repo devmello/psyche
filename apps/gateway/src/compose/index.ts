@@ -1396,6 +1396,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     routerEmbedder: (allowCloud) => routerEmbedder(router, allowCloud),
     // Context cards at ingest: the utility model (cheap), a few items per minute, a daily budget.
     cards: { provider, model: utility ?? modelRef },
+    // Cloud rerank of the top hits: the utility model, only when one is set and the owner opts in.
+    ...(utility === undefined ? {} : { rerank: { provider, model: utility } }),
     ...(gwOptions.semanticEngines === undefined
       ? {}
       : { semanticEngines: gwOptions.semanticEngines }),

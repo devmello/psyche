@@ -15,10 +15,12 @@ import {
   type BackfillStatus,
   CardQueue,
   createSearchHandlers,
+  DEFAULT_TOP_N,
   type FilesSourceDeps,
   filesAdapter,
   generateCard,
   libraryDoc,
+  ModelReranker,
   OWNER,
   type PowerState,
   readSourcesConfig,
@@ -124,6 +126,8 @@ export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
    * Context cards at ingest (`search.cards.enabled`, default on): the cheap model that writes
    * them. Without it no cards are generated.
    */
+  /** Cloud rerank (`search.rerank.enabled`, off by default): the cheap model that reads the top hits. */
+  rerank?: { provider: ModelProvider; model: ModelRef };
   cards?: {
     provider: ModelProvider;
     model: ModelRef;
@@ -132,6 +136,12 @@ export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
     batchSize?: number;
   };
 }
+
+/** Cloud re-ranking of the top hits (roadmap R12): off until the owner turns it on. */
+export const RERANK_SETTINGS = {
+  enabled: "search.rerank.enabled",
+  topN: "search.rerank.topN",
+} as const;
 
 export const CARD_SETTINGS = {
   enabled: "search.cards.enabled",
@@ -184,6 +194,18 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
     now: deps.now,
     tzOffsetMinutes: () => tzOffsetMinutesAt(deps.timeZone, deps.now()),
     ...(deps.resolvePerson === undefined ? {} : { resolvePerson: deps.resolvePerson }),
+    ...(deps.rerank === undefined
+      ? {}
+      : {
+          rerank: {
+            reranker: new ModelReranker(deps.rerank),
+            enabled: () => getSetting(deps.db, RERANK_SETTINGS.enabled)?.value === true,
+            topN: () => {
+              const v = getSetting(deps.db, RERANK_SETTINGS.topN)?.value;
+              return typeof v === "number" ? v : DEFAULT_TOP_N;
+            },
+          },
+        }),
   });
   const indexer = new SearchIndexer(index, {
     lookupThread: async (id) => getThread(deps.db, id),

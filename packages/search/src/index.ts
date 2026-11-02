@@ -15,6 +15,7 @@ export * from "./memory.ts";
 export * from "./onnx-embedder.ts";
 export * from "./query-parser.ts";
 export * from "./ranking.ts";
+export * from "./rerank.ts";
 export * from "./schema.ts";
 export * from "./semantic.ts";
 export * from "./sources/index.ts";
