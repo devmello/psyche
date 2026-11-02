@@ -136,7 +136,7 @@ import { composeHarnesses } from "./harnesses.ts";
 import { insightsHandlers } from "./insights.ts";
 import { libraryHandlers } from "./library.ts";
 import type { ComposedMcp } from "./mcp.ts";
-import { resolveMemoryStore } from "./memory-db.ts";
+import { memoryStoreStatus, resolveMemoryStore, setMemoryEncrypted } from "./memory-db.ts";
 import {
   asMemoryEmbedder,
   createMemoryRecall,
@@ -699,6 +699,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     wrapper: vault.wrapper,
     slot: vault.slot,
     derived: new DerivedKeyStore(vault.helper),
+    escrow: vault.vault,
     ...(gwOptions.logger === undefined
       ? {}
       : { log: (msg: string) => gwOptions.logger?.log("warn", msg) }),
@@ -897,6 +898,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   ownPorts.add(config.port, "gateway (configured)");
   const pageReads = new PageReadHub();
   const services: ComposeServices = {
+    memoryStore: memoryDb,
     documents,
     pageReads,
     db,
@@ -1554,7 +1556,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...mountParamsOnly(createMemoryHandlers(memory, { teaching: teaching.service.store }) as never),
     // memory.status also says how recall works (`memory.recall.mode`).
     "memory.status": {
-      run: async () => ({ ...(await memory.status()), recall: memoryRecall.status() }),
+      run: async () => ({
+        ...(await memory.status()),
+        recall: memoryRecall.status(),
+        store: memoryStoreStatus(db, memoryDb),
+      }),
+    },
+    "memory.store.setEncrypted": {
+      run: async (_call: unknown, p: { on: boolean }) => setMemoryEncrypted(db, memoryDb, p.on),
     },
     ...mountParamsOnly(userProfile.handlers as never),
     // The owner's list and delete for the agent's own notes (memory/agent/).

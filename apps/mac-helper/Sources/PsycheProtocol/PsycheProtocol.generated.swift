@@ -816,6 +816,7 @@
 //   let memoryRun = try? JSONDecoder().decode(MemoryRun.self, from: jsonData)
 //   let memoryRunsListParams = try? JSONDecoder().decode(MemoryRunsListParams.self, from: jsonData)
 //   let memoryRunsListResult = try? JSONDecoder().decode(MemoryRunsListResult.self, from: jsonData)
+//   let memorySafetyCopy = try? JSONDecoder().decode(MemorySafetyCopy.self, from: jsonData)
 //   let memorySearchParams = try? JSONDecoder().decode(MemorySearchParams.self, from: jsonData)
 //   let memorySearchResult = try? JSONDecoder().decode(MemorySearchResult.self, from: jsonData)
 //   let memorySendersDecideParams = try? JSONDecoder().decode(MemorySendersDecideParams.self, from: jsonData)
@@ -824,6 +825,9 @@
 //   let memorySendersListResult = try? JSONDecoder().decode(MemorySendersListResult.self, from: jsonData)
 //   let memoryStatusParams = try? JSONDecoder().decode(MemoryStatusParams.self, from: jsonData)
 //   let memoryStatusResult = try? JSONDecoder().decode(MemoryStatusResult.self, from: jsonData)
+//   let memoryStoreSetEncryptedParams = try? JSONDecoder().decode(MemoryStoreSetEncryptedParams.self, from: jsonData)
+//   let memoryStoreState = try? JSONDecoder().decode(MemoryStoreState.self, from: jsonData)
+//   let memoryStoreStatus = try? JSONDecoder().decode(MemoryStoreStatus.self, from: jsonData)
 //   let memorySuggestionCreatedPayload = try? JSONDecoder().decode(MemorySuggestionCreatedPayload.self, from: jsonData)
 //   let memoryUpcomingParams = try? JSONDecoder().decode(MemoryUpcomingParams.self, from: jsonData)
 //   let memoryUpcomingResult = try? JSONDecoder().decode(MemoryUpcomingResult.self, from: jsonData)
@@ -19964,6 +19968,7 @@ public struct MemoryStatusResult: Codable, Sendable {
     public let lastJobs: [MemoryJob]
     public let paused: Bool
     public let recall: MemoryRecallStatus?
+    public let store: MemoryStoreStatus?
     public let vectorSearch: MemoryVectorMode
 
     public enum CodingKeys: String, CodingKey {
@@ -19973,16 +19978,18 @@ public struct MemoryStatusResult: Codable, Sendable {
         case lastJobs = "lastJobs"
         case paused = "paused"
         case recall = "recall"
+        case store = "store"
         case vectorSearch = "vectorSearch"
     }
 
-    public init(chunks: Int, claims: Int, files: Int, lastJobs: [MemoryJob], paused: Bool, recall: MemoryRecallStatus?, vectorSearch: MemoryVectorMode) {
+    public init(chunks: Int, claims: Int, files: Int, lastJobs: [MemoryJob], paused: Bool, recall: MemoryRecallStatus?, store: MemoryStoreStatus?, vectorSearch: MemoryVectorMode) {
         self.chunks = chunks
         self.claims = claims
         self.files = files
         self.lastJobs = lastJobs
         self.paused = paused
         self.recall = recall
+        self.store = store
         self.vectorSearch = vectorSearch
     }
 }
@@ -20036,10 +20043,60 @@ public enum MemoryRecallState: String, Codable, Sendable {
     case textOnly = "text_only"
 }
 
+// MARK: - MemoryStoreStatus
+public struct MemoryStoreStatus: Codable, Sendable {
+    public let encrypted: Bool
+    public let reason: String?
+    public let restartNeeded: Bool
+    public let safetyCopy: MemorySafetyCopy?
+    public let state: MemoryStoreState
+
+    public enum CodingKeys: String, CodingKey {
+        case encrypted = "encrypted"
+        case reason = "reason"
+        case restartNeeded = "restartNeeded"
+        case safetyCopy = "safetyCopy"
+        case state = "state"
+    }
+
+    public init(encrypted: Bool, reason: String?, restartNeeded: Bool, safetyCopy: MemorySafetyCopy?, state: MemoryStoreState) {
+        self.encrypted = encrypted
+        self.reason = reason
+        self.restartNeeded = restartNeeded
+        self.safetyCopy = safetyCopy
+        self.state = state
+    }
+}
+
+public enum MemorySafetyCopy: String, Codable, Sendable {
+    case kept = "kept"
+    case removed = "removed"
+}
+
+public enum MemoryStoreState: String, Codable, Sendable {
+    case off = "off"
+    case pending = "pending"
+    case ready = "ready"
+    case unavailable = "unavailable"
+}
+
 public enum MemoryVectorMode: String, Codable, Sendable {
     case bruteForce = "brute-force"
     case off = "off"
     case sqliteVec = "sqlite-vec"
+}
+
+// MARK: - MemoryStoreSetEncryptedParams
+public struct MemoryStoreSetEncryptedParams: Codable, Sendable {
+    public let on: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case on = "on"
+    }
+
+    public init(on: Bool) {
+        self.on = on
+    }
 }
 
 // MARK: - MemorySuggestionCreatedPayload

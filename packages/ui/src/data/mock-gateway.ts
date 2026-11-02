@@ -2483,7 +2483,17 @@ export class MockGateway implements GatewayClient {
       chunks: 128,
       claims: 42,
       lastJobs: [],
+      store: {
+        encrypted: this.world.settings["memory.encrypt"] === true,
+        state: "off" as const,
+        reason: null,
+        restartNeeded: this.world.settings["memory.encrypt"] === true,
+      },
     }),
+    "memory.store.setEncrypted": (p) => {
+      this.world.settings["memory.encrypt"] = p.on;
+      return { encrypted: p.on, state: "off" as const, reason: null, restartNeeded: p.on };
+    },
     "memory.pause": (p) => {
       this.world.settings["memory.paused"] = p.paused;
       return { paused: p.paused };

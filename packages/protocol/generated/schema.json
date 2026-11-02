@@ -2159,6 +2159,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Turns encryption of the memory store on (takes effect at the next start: the data moves into state/memory.sqlite, verified, then the plain rows are cleared) or off (everything is copied back into psyche.sqlite first, then the encrypted file and its key are deleted). Side-effecting.",
+        "name": "memory.store.setEncrypted",
+        "params": "#/$defs/MemoryStoreSetEncryptedParams",
+        "result": "#/$defs/MemoryStoreStatus",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Birthdays, anniversaries and dated events coming up, from accepted facts and event entities, soonest first.",
         "name": "memory.upcoming",
         "params": "#/$defs/MemoryUpcomingParams",
@@ -26852,6 +26860,13 @@
       ],
       "type": "object"
     },
+    "MemorySafetyCopy": {
+      "enum": [
+        "kept",
+        "removed"
+      ],
+      "type": "string"
+    },
     "MemorySearchParams": {
       "properties": {
         "query": {
@@ -26981,6 +26996,9 @@
         },
         "recall": {
           "$ref": "#/$defs/MemoryRecallStatus"
+        },
+        "store": {
+          "$ref": "#/$defs/MemoryStoreStatus"
         }
       },
       "required": [
@@ -26990,6 +27008,66 @@
         "chunks",
         "claims",
         "lastJobs"
+      ],
+      "type": "object"
+    },
+    "MemoryStoreSetEncryptedParams": {
+      "properties": {
+        "on": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "on"
+      ],
+      "type": "object"
+    },
+    "MemoryStoreState": {
+      "enum": [
+        "off",
+        "pending",
+        "ready",
+        "unavailable"
+      ],
+      "type": "string"
+    },
+    "MemoryStoreStatus": {
+      "properties": {
+        "encrypted": {
+          "type": "boolean"
+        },
+        "state": {
+          "$ref": "#/$defs/MemoryStoreState"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "restartNeeded": {
+          "type": "boolean"
+        },
+        "safetyCopy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MemorySafetyCopy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "encrypted",
+        "state",
+        "restartNeeded"
       ],
       "type": "object"
     },

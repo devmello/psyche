@@ -1188,6 +1188,15 @@ export const settings = {
   "settings.data.recallMode.embeddingsHint":
     "Uses the same embedding choice as Search. The model loads when needed and is freed when idle.",
   "settings.data.recallState.off": "Markdown only.",
+  "settings.data.encryptMemory": "Encrypt memory on disk",
+  "settings.data.encryptMemoryHint":
+    "Keeps what {persona} knows about people, and its memory index, in an encrypted file whose key is held by your vault (on a Mac, the Keychain). Turning it off copies everything back first.",
+  "settings.data.encryptMemory.restart": "Turns on the next time Psyche starts.",
+  "settings.data.encryptMemory.on": "Encrypted.",
+  "settings.data.encryptMemory.pending": "Waiting for the key from the Mac helper.",
+  "settings.data.encryptMemory.unavailable": "Not available: {why}",
+  "settings.data.encryptMemory.offDone":
+    "Memory is back in the main database; the encrypted file was deleted.",
   "settings.data.recallState.semantic":
     "Recalling by meaning and words: {vectors} of {chunks} memory passages indexed.",
   "settings.data.recallState.modelMissing":

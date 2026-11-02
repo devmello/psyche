@@ -720,6 +720,22 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     }
   }
 
+  /**
+   * Seals `data` under the vault's own key, for a secret that must survive what the vault
+   * survives (a restore on a new Mac with the recovery key) but is not an item: the memory
+   * store's key. `name` binds the box to its use. Needs the vault unlocked.
+   */
+  escrow(name: string, data: Buffer): SealedBox {
+    const u = this.#requireUnlocked();
+    return seal(u.dek, data, `psyche.vault.escrow.${name}`);
+  }
+
+  /** Opens a box from `escrow` with the same `name`. Needs the vault unlocked. */
+  unescrow(name: string, box: SealedBox): Buffer {
+    const u = this.#requireUnlocked();
+    return open(u.dek, box, `psyche.vault.escrow.${name}`);
+  }
+
   #requireUnlocked(): Unlocked {
     this.#checkIdle();
     const u = this.#unlocked;

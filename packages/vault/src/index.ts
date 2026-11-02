@@ -35,6 +35,7 @@ export {
   DEFAULT_ARGON2,
   formatRecoveryKey,
   parseRecoveryKey,
+  type SealedBox,
 } from "./crypto.ts";
 export { reasonOf } from "./errors.ts";
 export {
@@ -184,6 +185,7 @@ export {
   isPlainSqlite,
   loadOrCreateSubsystemKey,
   openEncryptedSqlite,
+  writeSubsystemKey,
 } from "./subsystem-key.ts";
 export { parseTotpSeed, type TotpSeed, totpCode } from "./totp.ts";
 export {

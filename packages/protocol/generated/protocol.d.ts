@@ -6618,6 +6618,7 @@ export interface MemoryStatusResult {
     lastJobs:     MemoryJob[];
     paused:       boolean;
     recall?:      MemoryRecallStatus;
+    store?:       MemoryStoreStatus;
     vectorSearch: MemoryVectorMode;
 }
 
@@ -6645,7 +6646,23 @@ export type MemoryRecallMode = "markdown" | "embeddings";
 
 export type MemoryRecallState = "off" | "semantic" | "text_only";
 
+export interface MemoryStoreStatus {
+    encrypted:     boolean;
+    reason?:       null | string;
+    restartNeeded: boolean;
+    safetyCopy?:   MemorySafetyCopy | null;
+    state:         MemoryStoreState;
+}
+
+export type MemorySafetyCopy = "kept" | "removed";
+
+export type MemoryStoreState = "off" | "pending" | "ready" | "unavailable";
+
 export type MemoryVectorMode = "sqlite-vec" | "brute-force" | "off";
+
+export interface MemoryStoreSetEncryptedParams {
+    on: boolean;
+}
 
 export interface MemorySuggestionCreatedPayload {
     suggestion: GraphSuggestion;
