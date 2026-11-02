@@ -66,7 +66,7 @@ export function EverythingPanel({
   const off = !value.enabled;
   return (
     <>
-      <Group title={t("everything.enabled")}>
+      <Group title={t("everything.enabledGroup")}>
         <SwitchField
           label={t("everything.enabled")}
           description={t("everything.enabledHint")}

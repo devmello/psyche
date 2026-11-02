@@ -1183,7 +1183,7 @@ export const settings = {
   "settings.searchSources.excludeFoldersPlaceholder": "~/Documents/Private",
   "settings.searchSources.indexSize": "Search index size: {size}",
 
-  "settings.semanticSearch.title": "Search",
+  "settings.semanticSearch.title": "Search by meaning",
   "settings.semanticSearch.description":
     "Find chats, tasks and files by meaning as well as by their words. Everything is indexed and searched on this Mac.",
   "settings.semanticSearch.enabledHint":
