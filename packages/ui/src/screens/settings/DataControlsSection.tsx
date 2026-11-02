@@ -1,4 +1,4 @@
-import type { MemoryRecallStatus, MethodResult } from "@psyche/protocol";
+import type { MemoryRecallStatus, MemoryStoreStatus, MethodResult } from "@psyche/protocol";
 import { Download, Trash2 } from "lucide-react";
 import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
@@ -20,6 +20,7 @@ import {
   RadioField,
   SectionFrame,
   type SettingsFormProps,
+  StatusChip,
   SwitchField,
   useSettingsForm,
 } from "./shared.tsx";
@@ -38,6 +39,9 @@ export interface DataControlsPanelProps extends SettingsFormProps, LoadProps {
   onPauseMemory?: (paused: boolean) => void;
   /** How memory recall works now (`memory.status.recall`), under "How memory is recalled". */
   recall?: MemoryRecallStatus;
+  /** Where memory lives (`memory.status.store`): the "Encrypt memory" switch and its state. */
+  store?: MemoryStoreStatus;
+  onEncryptMemory?: (on: boolean) => void;
   archivedThreads: number;
   onExport?: () => void;
   onDeleteArchived?: () => void;
@@ -49,6 +53,19 @@ export interface DataControlsPanelProps extends SettingsFormProps, LoadProps {
   defaultResetting?: boolean;
   /** The teaching loop's Learning group (§8), after Memory. */
   learning?: ReactNode;
+}
+
+function storeTone(s: MemoryStoreStatus): "success" | "info" | "danger" {
+  if (s.restartNeeded) return "info";
+  return s.state === "ready" ? "success" : s.state === "unavailable" ? "danger" : "info";
+}
+
+/** One line saying where memory is now. */
+export function storeText(s: MemoryStoreStatus): string {
+  if (s.restartNeeded) return t("settings.data.encryptMemory.restart");
+  if (s.state === "ready") return t("settings.data.encryptMemory.on");
+  if (s.state === "pending") return t("settings.data.encryptMemory.pending");
+  return t("settings.data.encryptMemory.unavailable", { why: s.reason ?? "" });
 }
 
 /** One line saying how memory recall works now. */
@@ -77,6 +94,8 @@ export function DataControlsPanel({
   memoryPaused,
   onPauseMemory,
   recall,
+  store,
+  onEncryptMemory,
   archivedThreads,
   onExport,
   onDeleteArchived,
@@ -160,6 +179,21 @@ export function DataControlsPanel({
               {recallStatusText(recall)}
             </p>
           ) : null}
+          {store === undefined ? null : (
+            <SwitchField
+              label={t("settings.data.encryptMemory")}
+              description={t("settings.data.encryptMemoryHint", { persona })}
+              checked={store.encrypted}
+              onChange={(v) => onEncryptMemory?.(v)}
+              disabled={onEncryptMemory === undefined || busy}
+            >
+              {store.restartNeeded || store.state !== "off" ? (
+                <div role="status" className="pt-1">
+                  <StatusChip tone={storeTone(store)}>{storeText(store)}</StatusChip>
+                </div>
+              ) : null}
+            </SwitchField>
+          )}
           <RadioField
             label={t("settings.key.data.reasoningRetentionDays")}
             description={t("settings.data.reasoningRetentionHint")}
@@ -322,7 +356,7 @@ export function DataControlsSection({ onExportReady }: DataControlsSectionProps)
     (t) => t.thread.archivedAt !== null && t.thread.archivedAt !== undefined,
   );
 
-  type Action = "pause" | "export" | "delete" | "reset" | "forget";
+  type Action = "pause" | "export" | "delete" | "reset" | "forget" | "encrypt";
   const act = async (fn: () => Promise<string>, action: Action) => {
     setBusy(true);
     setNotice(null);
@@ -346,6 +380,18 @@ export function DataControlsSection({ onExportReady }: DataControlsSectionProps)
       needsApproval={form.needsApproval}
       memoryPaused={status.data?.paused ?? false}
       {...(status.data?.recall === undefined ? {} : { recall: status.data.recall })}
+      {...(status.data?.store === undefined ? {} : { store: status.data.store })}
+      onEncryptMemory={(on) =>
+        void act(async () => {
+          const s = await call("memory.store.setEncrypted", { on });
+          status.reload();
+          return s.restartNeeded
+            ? t("settings.data.encryptMemory.restart")
+            : on
+              ? storeText(s)
+              : t("settings.data.encryptMemory.offDone");
+        }, "encrypt")
+      }
       archivedThreads={archived.length}
       busy={busy}
       notice={notice ?? (form.writeError ? { kind: "error", text: form.writeError } : null)}

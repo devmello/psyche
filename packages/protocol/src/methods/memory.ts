@@ -47,6 +47,7 @@ import {
   MemoryHit,
   MemoryJob,
   MemoryRecallStatus,
+  MemoryStoreStatus,
   PersonaIdentity,
 } from "../schemas/memory.ts";
 import { defineMethod, nextCursor, pageParams } from "./define.ts";
@@ -254,10 +255,19 @@ export const MemoryMethods = {
       claims: Type.Integer({ minimum: 0 }),
       lastJobs: Type.Array(MemoryJob),
       recall: Type.Optional(MemoryRecallStatus),
+      store: Type.Optional(MemoryStoreStatus),
     }),
     scope: "operator.read",
     description:
       "Memory health for the Soul & Memory sheet: pause flag, index mode, counts, jobs, recall mode.",
+  }),
+  "memory.store.setEncrypted": defineMethod({
+    params: Type.Object({ on: Type.Boolean() }),
+    result: MemoryStoreStatus,
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Turns encryption of the memory store on (takes effect at the next start: the data moves into state/memory.sqlite, verified, then the plain rows are cleared) or off (everything is copied back into psyche.sqlite first, then the encrypted file and its key are deleted). Side-effecting.",
   }),
   "memory.pause": defineMethod({
     params: Type.Object({ paused: Type.Boolean() }),

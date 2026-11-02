@@ -151,3 +151,20 @@ export const MemoryRecallStatus = Type.Object(
   { $id: "MemoryRecallStatus" },
 );
 export type MemoryRecallStatus = Static<typeof MemoryRecallStatus>;
+
+/**
+ * Where the people graph, the memory index and everything memory live (EM9b): `psyche.sqlite`
+ * (`off`) or the encrypted `state/memory.sqlite`, which opens once its key arrives.
+ */
+export const MemoryStoreStatus = Type.Object(
+  {
+    /** The switch (`memory.encrypt`). */
+    encrypted: Type.Boolean(),
+    state: StringEnum(["off", "pending", "ready", "unavailable"], { $id: "MemoryStoreState" }),
+    reason: Nullable(Type.String({ maxLength: 300 })),
+    /** The switch was turned on; the encrypted store opens at the next start. */
+    restartNeeded: Type.Boolean(),
+  },
+  { $id: "MemoryStoreStatus" },
+);
+export type MemoryStoreStatus = Static<typeof MemoryStoreStatus>;

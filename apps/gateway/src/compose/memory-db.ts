@@ -1,8 +1,15 @@
 import { existsSync, rmSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { getSetting, type PsycheDb } from "@psyche/db";
-import { copyTables, MEMORY_STORE_TABLES, openEncrypted } from "@psyche/memory";
-import { PsycheError } from "@psyche/protocol";
+import { join } from "node:path";
+import { deleteSettings, getSetting, type PsycheDb, setSetting } from "@psyche/db";
+import {
+  clearPlain,
+  copyBack,
+  copyTables,
+  MEMORY_STORE_TABLES,
+  openEncrypted,
+  syncSchema,
+} from "@psyche/memory";
+import { type MemoryStoreStatus, PsycheError } from "@psyche/protocol";
 import { type DerivedKeyStore, type KeyWrapper, loadOrCreateSubsystemKey } from "@psyche/vault";
 import { DeferredOpen } from "./deferred-open.ts";
 import type { VaultSlotChoice } from "./vault.ts";
@@ -56,6 +63,7 @@ function closedStatement(sql: string, reason: () => string): unknown {
 export class LateDatabase {
   #db: SqliteDb | undefined;
   #reason = "waiting for the key";
+  #owned = false;
   readonly #onReady: (() => void)[] = [];
   readonly handle: SqliteDb;
 
@@ -107,8 +115,15 @@ export class LateDatabase {
     return this.#reason;
   }
 
+  /** Points every caller at another database (the plain one, after turning encryption off). */
+  replace(db: SqliteDb): void {
+    this.#db = db;
+    this.#owned = false;
+  }
+
   attach(db: SqliteDb): void {
     this.#db = db;
+    this.#owned = true;
     for (const f of this.#onReady.splice(0)) f();
   }
 
@@ -118,8 +133,9 @@ export class LateDatabase {
     else this.#onReady.push(fn);
   }
 
+  /** Closes the encrypted file it opened; never a database it was only pointed at. */
   close(): void {
-    this.#db?.close();
+    if (this.#owned) this.#db?.close();
     this.#db = undefined;
   }
 }
@@ -133,23 +149,33 @@ export interface MemoryHandle {
   /** Opens the encrypted file once its key arrives (a no-op when off). */
   start(): void;
   stop(): void;
+  /**
+   * Turns encryption off now: copies every row back into psyche.sqlite (verified), then points
+   * the stores at it and deletes the encrypted file and its key. Throws while the file is closed.
+   */
+  turnOff(): Promise<void>;
 }
 
 const INTERACTIVE_SLOTS: readonly VaultSlotChoice[] = ["keychain"];
 
-/** Tables whose definition differs between the plain database and the encrypted file. */
-export function schemaDrift(plain: SqliteDb, enc: SqliteDb): string[] {
-  const sql = (db: SqliteDb, t: string) =>
-    (
-      db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?").get(t) as
-        | { sql: string }
-        | undefined
-    )?.sql;
-  return MEMORY_STORE_TABLES.filter((t) => {
-    const a = sql(plain, t);
-    return a !== undefined && a !== sql(enc, t);
-  });
-}
+/**
+ * Where a move into the encrypted file stands, in `psyche.sqlite` (so a crash at any step resumes):
+ * absent = never moved (or moved back); `copied` = the encrypted file holds a verified copy but the
+ * plain rows are still there; `cleared` = the plain rows are gone and the encrypted file is the
+ * only copy.
+ */
+export const MEMORY_MOVE_STATE = "memory.encrypt.state";
+
+type MoveState = "copied" | "cleared" | undefined;
+
+const moveState = (db: PsycheDb): MoveState => {
+  const v = getSetting(db, MEMORY_MOVE_STATE)?.value;
+  return v === "copied" || v === "cleared" ? v : undefined;
+};
+
+const removeFiles = (path: string) => {
+  for (const x of ["", "-wal", "-shm"]) rmSync(`${path}${x}`, { force: true });
+};
 
 export function resolveMemoryStore(o: {
   db: PsycheDb;
@@ -159,19 +185,26 @@ export function resolveMemoryStore(o: {
   derived?: Pick<DerivedKeyStore, "getOrCreate" | "unavailableReason">;
   log?: (msg: string) => void;
 }): MemoryHandle {
-  if (getSetting(o.db, MEMORY_ENCRYPT_SETTING)?.value !== true) {
+  const wanted = getSetting(o.db, MEMORY_ENCRYPT_SETTING)?.value === true;
+  // Once the plain rows are gone the encrypted file is the only copy: it is opened whatever the
+  // switch says, until "turn off" has copied everything back.
+  if (!wanted && moveState(o.db) !== "cleared") {
     return {
       sqlite: o.db.sqlite,
       late: undefined,
       status: () => ({ state: "off" }),
       start: () => undefined,
       stop: () => undefined,
+      turnOff: async () => undefined,
     };
   }
+  if (!wanted) o.log?.("memory: the encrypted store holds the only copy; opening it");
   const late = new LateDatabase();
   const path = join(o.home, "state", "memory.sqlite");
   const keyFile = join(o.home, "state", "memory.key.json");
   let failure: string | undefined;
+  let enc: SqliteDb | undefined;
+  let turnedOff = false;
   const provider = async (): Promise<Buffer | undefined> => {
     if (INTERACTIVE_SLOTS.includes(o.slot)) {
       const derived = o.derived;
@@ -184,43 +217,97 @@ export function resolveMemoryStore(o: {
   const opener = new DeferredOpen<SqliteDb>({
     provider,
     open: (key) => {
+      const state = moveState(o.db);
+      // A file from an attempt that never finished its copy is not trusted: start it again.
+      if (state === undefined) removeFiles(path);
       const fresh = !existsSync(path);
-      const enc = openEncrypted(path, key, { vec: true });
+      if (fresh && state === "cleared")
+        throw new Error("the encrypted memory store is missing and the plain copy was cleared");
+      const db = openEncrypted(path, key, { vec: true });
       try {
-        if (fresh) copyTables(enc, o.db.sqlite, MEMORY_STORE_TABLES);
-        const drift = schemaDrift(o.db.sqlite, enc);
-        if (drift.length > 0)
-          throw new Error(`the encrypted memory store is out of date (${drift.join(", ")})`);
+        if (fresh) {
+          copyTables(db, o.db.sqlite, MEMORY_STORE_TABLES);
+          setSetting(o.db, MEMORY_MOVE_STATE, "copied");
+        } else {
+          // Later migrations of psyche.sqlite reach the encrypted file here.
+          const rebuilt = syncSchema(db, o.db.sqlite, MEMORY_STORE_TABLES);
+          if (rebuilt.length > 0) o.log?.(`memory: updated ${rebuilt.join(", ")}`);
+        }
+        if (moveState(o.db) === "copied") {
+          clearPlain(o.db.sqlite, MEMORY_STORE_TABLES);
+          setSetting(o.db, MEMORY_MOVE_STATE, "cleared");
+        }
       } catch (err) {
-        enc.close();
-        // A file this attempt created is not kept half-filled: the next attempt starts clean.
-        if (fresh) for (const x of ["", "-wal", "-shm"]) rmSync(`${path}${x}`, { force: true });
+        db.close();
+        if (fresh) {
+          removeFiles(path);
+          if (moveState(o.db) === "copied") deleteSettings(o.db, [MEMORY_MOVE_STATE]);
+        }
         failure = err instanceof Error ? err.message : String(err);
         o.log?.(`memory: ${failure}`);
         throw err;
       }
-      return enc;
+      failure = undefined;
+      enc = db;
+      return db;
     },
-    onReady: (enc) => late.attach(enc),
+    onReady: (db) => late.attach(db),
     onWaiting: (reason) => late.setReason(reason),
   });
   return {
     sqlite: late.handle,
     late,
     status: () =>
-      late.ready
-        ? { state: "ready" }
-        : failure !== undefined
-          ? { state: "unavailable", reason: failure }
-          : { state: "pending", reason: opener.reason },
+      turnedOff
+        ? { state: "off" }
+        : late.ready
+          ? { state: "ready" }
+          : failure !== undefined
+            ? { state: "unavailable", reason: failure }
+            : { state: "pending", reason: opener.reason },
     start: () => opener.start(),
     stop: () => {
       opener.stop();
       late.close();
     },
+    turnOff: async () => {
+      if (turnedOff) return;
+      if (enc === undefined)
+        throw new PsycheError("unavailable", "the memory store is not open yet; try again shortly");
+      // Everything goes back to psyche.sqlite first; only then is the encrypted file removed.
+      copyBack(enc, o.db.sqlite, MEMORY_STORE_TABLES);
+      setSetting(o.db, MEMORY_ENCRYPT_SETTING, false);
+      deleteSettings(o.db, [MEMORY_MOVE_STATE]);
+      late.replace(o.db.sqlite);
+      enc.close();
+      enc = undefined;
+      removeFiles(path);
+      rmSync(keyFile, { force: true });
+      turnedOff = true;
+    },
   };
 }
 
-/** `dirname` of the memory file, for callers that need to create it. */
-export const memoryStatePath = (home: string): string =>
-  dirname(join(home, "state", "memory.sqlite"));
+/** What Settings shows (`memory.status` → `store`). */
+export function memoryStoreStatus(db: PsycheDb, handle: MemoryHandle): MemoryStoreStatus {
+  const encrypted = getSetting(db, MEMORY_ENCRYPT_SETTING)?.value === true;
+  const s = handle.status();
+  return {
+    encrypted,
+    state: s.state,
+    reason: "reason" in s ? s.reason : null,
+    restartNeeded: encrypted && s.state === "off",
+  };
+}
+
+/** `memory.store.setEncrypted`: on at the next start; off now, after copying everything back. */
+export async function setMemoryEncrypted(
+  db: PsycheDb,
+  handle: MemoryHandle,
+  on: boolean,
+): Promise<MemoryStoreStatus> {
+  if (on) setSetting(db, MEMORY_ENCRYPT_SETTING, true);
+  else if (handle.status().state === "off") setSetting(db, MEMORY_ENCRYPT_SETTING, false);
+  else await handle.turnOff();
+  return memoryStoreStatus(db, handle);
+}

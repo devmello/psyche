@@ -1,7 +1,7 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openDb, setSetting } from "@psyche/db";
+import { getSetting, openDb, setSetting } from "@psyche/db";
 import { GraphStore } from "@psyche/memory";
 import { FakeClock } from "@psyche/testing";
 import { KeyFileWrapper } from "@psyche/vault";
@@ -9,7 +9,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   LateDatabase,
   MEMORY_ENCRYPT_SETTING,
+  MEMORY_MOVE_STATE,
+  memoryStoreStatus,
   resolveMemoryStore,
+  setMemoryEncrypted,
 } from "../src/compose/memory-db.ts";
 
 const dirs: string[] = [];
@@ -84,7 +87,7 @@ describe("memory store location", () => {
     expect(() => readFileSync(join(f.dir, "state", "memory.sqlite"))).toThrow();
   });
 
-  it("an encrypted file whose tables fell behind the plain schema is not used", async () => {
+  it("a later migration of psyche.sqlite reaches the encrypted file on the next open", async () => {
     const f = fixture(true);
     const first = resolveMemoryStore({ ...f, slot: "key_file" });
     first.start();
@@ -94,11 +97,115 @@ describe("memory store location", () => {
     const again = resolveMemoryStore({ ...f, slot: "key_file" });
     stops.push(() => again.stop());
     again.start();
-    await wait(() => again.status().state === "unavailable");
-    expect(again.status()).toMatchObject({
-      reason: expect.stringMatching(/out of date.*graph_entities/),
-    });
-    expect(again.late?.ready).toBe(false);
+    await wait(() => again.status().state === "ready");
+    const cols = (
+      again.sqlite.prepare("PRAGMA table_info(graph_entities)").all() as { name: string }[]
+    ).map((c) => c.name);
+    expect(cols).toContain("later_column");
+  });
+});
+
+describe("moving the data", () => {
+  const sam = (sqlite: ConstructorParameters<typeof GraphStore>[0]["sqlite"]) =>
+    new GraphStore({ sqlite, clock: new FakeClock(0) });
+  const plainBytes = (dir: string) =>
+    Buffer.concat(
+      ["psyche.sqlite", "psyche.sqlite-wal"].map((n) => {
+        try {
+          return readFileSync(join(dir, n));
+        } catch {
+          return Buffer.alloc(0);
+        }
+      }),
+    );
+
+  it("after a verified copy the plain rows are cleared, so the text is only in the encrypted file", async () => {
+    const f = fixture(true);
+    sam(f.db.sqlite).createEntity({ kind: "person", name: "Sam SENTINEL" });
+    const m = resolveMemoryStore({ ...f, slot: "key_file" });
+    stops.push(() => m.stop());
+    m.start();
+    await wait(() => m.status().state === "ready");
+    expect(getSetting(f.db, MEMORY_MOVE_STATE)?.value).toBe("cleared");
+    expect(f.db.sqlite.prepare("SELECT count(*) n FROM graph_entities").get()).toEqual({ n: 0 });
+    expect(plainBytes(f.dir).includes("SENTINEL")).toBe(false);
+    expect(sam(m.sqlite).search("sam", {})).toHaveLength(1);
+  });
+
+  it("a half-written file from an attempt that never finished is thrown away and the copy redone", async () => {
+    const f = fixture(true);
+    sam(f.db.sqlite).createEntity({ kind: "person", name: "Sam Lee" });
+    mkdirSync(join(f.dir, "state"), { recursive: true });
+    writeFileSync(join(f.dir, "state", "memory.sqlite"), "half");
+    const m = resolveMemoryStore({ ...f, slot: "key_file" });
+    stops.push(() => m.stop());
+    m.start();
+    await wait(() => m.status().state === "ready");
+    expect(sam(m.sqlite).search("sam", {})).toHaveLength(1);
+  });
+
+  it("a crash after the copy but before the clear resumes with the clear", async () => {
+    const f = fixture(true);
+    sam(f.db.sqlite).createEntity({ kind: "person", name: "Sam Lee" });
+    const m = resolveMemoryStore({ ...f, slot: "key_file" });
+    m.start();
+    await wait(() => m.status().state === "ready");
+    m.stop();
+    // As if the process stopped right after "copied": plain rows back, state "copied".
+    f.db.sqlite
+      .prepare(
+        "INSERT INTO graph_entities (id, kind, name, sort_name, created_at, updated_at) VALUES ('stale','person','Stale','stale','t','t')",
+      )
+      .run();
+    setSetting(f.db, MEMORY_MOVE_STATE, "copied");
+    const again = resolveMemoryStore({ ...f, slot: "key_file" });
+    stops.push(() => again.stop());
+    again.start();
+    await wait(() => again.status().state === "ready");
+    expect(f.db.sqlite.prepare("SELECT count(*) n FROM graph_entities").get()).toEqual({ n: 0 });
+    expect(sam(again.sqlite).search("stale", {})).toEqual([]);
+    expect(sam(again.sqlite).search("sam", {})).toHaveLength(1);
+  });
+
+  it("switched off by hand while the encrypted file is the only copy, it still opens that file", async () => {
+    const f = fixture(true);
+    sam(f.db.sqlite).createEntity({ kind: "person", name: "Sam Lee" });
+    const m = resolveMemoryStore({ ...f, slot: "key_file" });
+    m.start();
+    await wait(() => m.status().state === "ready");
+    m.stop();
+    setSetting(f.db, MEMORY_ENCRYPT_SETTING, false);
+    const again = resolveMemoryStore({ ...f, slot: "key_file" });
+    stops.push(() => again.stop());
+    expect(again.late).toBeDefined();
+    again.start();
+    await wait(() => again.status().state === "ready");
+    expect(sam(again.sqlite).search("sam", {})).toHaveLength(1);
+  });
+
+  it("turning off copies everything back, points the stores at psyche.sqlite and removes the file and key", async () => {
+    const f = fixture(true);
+    sam(f.db.sqlite).createEntity({ kind: "person", name: "Sam Lee" });
+    const m = resolveMemoryStore({ ...f, slot: "key_file" });
+    stops.push(() => m.stop());
+    const g = sam(m.sqlite);
+    await expect(m.turnOff()).rejects.toThrow(/not open/);
+    m.start();
+    await wait(() => m.status().state === "ready");
+    g.createEntity({ kind: "person", name: "Learned While Encrypted" });
+    await m.turnOff();
+    expect(getSetting(f.db, MEMORY_ENCRYPT_SETTING)?.value).toBe(false);
+    expect(getSetting(f.db, MEMORY_MOVE_STATE)).toBeUndefined();
+    expect(sam(f.db.sqlite).search("learned", {})).toHaveLength(1);
+    // The same store object keeps working, now on the plain file.
+    g.createEntity({ kind: "person", name: "After Turning Off" });
+    expect(sam(f.db.sqlite).search("after", {})).toHaveLength(1);
+    expect(existsSync(join(f.dir, "state", "memory.sqlite"))).toBe(false);
+    expect(existsSync(join(f.dir, "state", "memory.key.json"))).toBe(false);
+    m.stop();
+    expect(f.db.sqlite.open).toBe(true);
+    const next = resolveMemoryStore({ ...f, slot: "key_file" });
+    expect(next.sqlite).toBe(f.db.sqlite);
   });
 });
 
@@ -134,5 +241,48 @@ describe("LateDatabase", () => {
       ran += 1;
     });
     expect(ran).toBe(2);
+  });
+});
+
+describe("the switch", () => {
+  it("on is stored and waits for the next start; off before that start just clears it", async () => {
+    const f = fixture();
+    const m = resolveMemoryStore({ ...f, slot: "key_file" });
+    expect(memoryStoreStatus(f.db, m)).toEqual({
+      encrypted: false,
+      state: "off",
+      reason: null,
+      restartNeeded: false,
+    });
+    expect(await setMemoryEncrypted(f.db, m, true)).toMatchObject({
+      encrypted: true,
+      state: "off",
+      restartNeeded: true,
+    });
+    expect(await setMemoryEncrypted(f.db, m, false)).toMatchObject({
+      encrypted: false,
+      restartNeeded: false,
+    });
+  });
+
+  it("off while the encrypted store is open copies everything back first", async () => {
+    const f = fixture(true);
+    new GraphStore({ sqlite: f.db.sqlite, clock: new FakeClock(0) }).createEntity({
+      kind: "person",
+      name: "Sam Lee",
+    });
+    const m = resolveMemoryStore({ ...f, slot: "key_file" });
+    stops.push(() => m.stop());
+    m.start();
+    await wait(() => m.status().state === "ready");
+    expect(memoryStoreStatus(f.db, m)).toMatchObject({ encrypted: true, state: "ready" });
+    expect(await setMemoryEncrypted(f.db, m, false)).toMatchObject({
+      encrypted: false,
+      state: "off",
+      restartNeeded: false,
+    });
+    expect(f.db.sqlite.prepare("SELECT name FROM graph_entities").all()).toEqual([
+      { name: "Sam Lee" },
+    ]);
   });
 });

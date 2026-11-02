@@ -106,3 +106,24 @@ describe("clearPlain and copyBack", () => {
     plain.close();
   });
 });
+
+describe("migrations and the encrypted store", () => {
+  /** Migrations up to here were applied before any data could live in the encrypted file. */
+  const BEFORE_EM9 = "202611021500";
+
+  it("no new migration changes rows of a moved table (schema changes reach it, row changes cannot)", () => {
+    const dir = join(import.meta.dirname, "..", "..", "db", "migrations");
+    const moved = MEMORY_STORE_TABLES.join("|");
+    const offending = readdirSync(dir)
+      .filter((f) => f.endsWith(".sql") && f > BEFORE_EM9)
+      .filter((f) =>
+        new RegExp(
+          `\\b(UPDATE|INSERT\\s+INTO|DELETE\\s+FROM)\\s+"?(${moved})\\b`,
+          "i",
+        ).test(readFileSync(join(dir, f), "utf8")),
+      );
+    // A migration that must change rows of a moved table needs a step in syncSchema's caller
+    // that applies the same change to the encrypted file; add it, then list the file here.
+    expect(offending).toEqual([]);
+  });
+});

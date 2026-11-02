@@ -28,3 +28,10 @@ What makes this more than wiring:
 4. **Backups and export** (`data` section) must include the encrypted file and the wrapped key together, never the key in the clear.
 
 Recommendation: do (1) as its own PR with the switch still off and a test that a pending key returns `unavailable` everywhere, then the migration (2) as a second PR; only then expose a Settings switch (no dead switches).
+
+## EM9b as built (2026-11-02)
+
+- Part 1 (#1094): `compose/memory-db.ts` `resolveMemoryStore` + `LateDatabase` behind `DeferredOpen`. Off returns `psyche.sqlite`'s own handle (same object). Closed store: reads empty, writes throw `unavailable`.
+- Part 2: move state in `memory.encrypt.state` (`copied` → `cleared`), resumable; a file without a recorded copy is discarded and redone. `syncSchema` rebuilds drifted tables from `psyche.sqlite`'s definitions on every open; a lint test fails on a new data-only migration that touches a moved table. `memory.store.setEncrypted`: on takes effect at the next start; off copies back (verified) and repoints the live handle at `psyche.sqlite`, then deletes the file and key. While the plain rows are cleared, the encrypted file opens even if the switch was flipped by hand.
+- Two SQLite libraries never share a file: rows are streamed between the plain and encrypted connections; nothing is ATTACHed across them.
+- Still open: backups/export including the encrypted file with its wrapped key; persisted fact vectors in the encrypted file; the Mac helper item is left in the Keychain after turning off.
