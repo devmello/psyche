@@ -70,7 +70,8 @@ describe("navigation", () => {
   it("stays out of the compact tab bar", () => {
     render(<TabBar active={null} onNavigate={() => {}} />);
     expect(screen.queryByRole("button", { name: "Scheduled" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Goals" })).toBeTruthy();
+    // The tab bar still renders (Chat, Inbox, Feed, Library, Overview since #1049).
+    expect(screen.getByRole("button", { name: "Chat" })).toBeTruthy();
   });
 });
 
