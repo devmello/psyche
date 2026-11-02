@@ -161,7 +161,7 @@ describe("moving the memory tables", () => {
   it("copies every memory table with its indexes, triggers and FTS, verified by counts", () => {
     const { db, path, sam } = populated();
     const enc = openEncrypted(join(dir, "memory.sqlite"), newKey());
-    const r = copyTables(enc, path, MEMORY_STORE_TABLES);
+    const r = copyTables(enc, db.sqlite, MEMORY_STORE_TABLES);
     expect(r.tables.graph_entities).toBe(2);
     expect(r.tables.graph_facts).toBe(1);
     expect(r.tables.graph_citations).toBe(1);
@@ -205,7 +205,7 @@ describe("moving the memory tables", () => {
     const { db, path } = populated();
     const target = join(dir, "memory.sqlite");
     const enc = openEncrypted(target, newKey());
-    copyTables(enc, path, MEMORY_STORE_TABLES);
+    copyTables(enc, db.sqlite, MEMORY_STORE_TABLES);
     enc.pragma("wal_checkpoint(TRUNCATE)");
     enc.close();
     expect(bytesOf(target).includes("SENTINEL")).toBe(false);
@@ -216,7 +216,7 @@ describe("moving the memory tables", () => {
   it("skips tables the source does not have", () => {
     const { db, path } = populated();
     const enc = openEncrypted(join(dir, "memory.sqlite"), newKey());
-    expect(copyTables(enc, path, ["graph_entities", "no_such_table"]).tables).toEqual({
+    expect(copyTables(enc, db.sqlite, ["graph_entities", "no_such_table"]).tables).toEqual({
       graph_entities: 2,
     });
     enc.close();
@@ -242,7 +242,7 @@ describe("delete everything", () => {
     const target = join(dir, "memory.sqlite");
     const key = newKey();
     const enc = openEncrypted(target, key);
-    copyTables(enc, path, MEMORY_STORE_TABLES);
+    copyTables(enc, plain.sqlite, MEMORY_STORE_TABLES);
     plain.sqlite.close();
     const { newKey: fresh, tables } = deleteEverything(enc);
     expect(tables).toBeGreaterThan(10);
