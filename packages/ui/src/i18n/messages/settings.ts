@@ -93,7 +93,7 @@ export const settings = {
     "The small model set in Models. If it is a cloud model, the text it reads goes to that provider.",
   "settings.searchModel.apple": "Apple on-device model",
   "settings.searchModel.appleHint":
-    "Runs on this Mac with Apple Intelligence: nothing is sent to the cloud, and no key or download is needed. It is small ({tokens} tokens), and when it can't run these jobs are skipped, never sent to the cloud instead.",
+    "Runs on this Mac with Apple Intelligence: nothing is sent to the cloud, and no key or download is needed. It is small ({tokens, number} tokens), and when it can't run these jobs are skipped, never sent to the cloud instead.",
   "settings.searchModel.apple.ready": "Ready on this Mac",
   "settings.searchModel.apple.needsAi": "Needs Apple Intelligence",
   "settings.searchModel.apple.notReady": "Getting ready",
