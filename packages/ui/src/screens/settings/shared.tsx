@@ -1,5 +1,5 @@
 import { isAdminSettingKey } from "@psyche/protocol";
-import { CircleAlert, ShieldAlert } from "lucide-react";
+import { ChevronRight, CircleAlert, ShieldAlert } from "lucide-react";
 import {
   createContext,
   type ReactElement,
@@ -155,6 +155,12 @@ const NO_KEYS: ReadonlySet<string> = new Set();
  */
 export const InPageContext = createContext(false);
 
+/**
+ * One pane of a Settings page (a "section"): the serif title and one line of what it covers,
+ * then its cards. On a page of several panes the header is a pinned chapter heading with a rule
+ * under it, so while you scroll you always know which section you are in and where the next one
+ * starts; the panes are spaced further apart than the cards inside them.
+ */
 export function SectionFrame({
   title,
   description,
@@ -175,7 +181,14 @@ export function SectionFrame({
   return (
     <section aria-labelledby={id} className="flex min-w-0 flex-col gap-4">
       {/* PageHeader's layout one level down: Settings owns the page's h1, each section an h2. */}
-      <header className="flex flex-wrap items-end gap-x-3 gap-y-2">
+      <header
+        className={cn(
+          "flex flex-wrap items-end gap-x-3 gap-y-2",
+          // Pinned inside its own pane while the pane scrolls past (Settings' two-column window).
+          inPage &&
+            "z-10 border-b border-separator bg-canvas pt-2 pb-3 @min-[720px]:sticky @min-[720px]:top-0",
+        )}
+      >
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           {/* The display serif (unslop 2026-11): 24 px for a page, 20 px for a pane on a page. */}
           <Heading
@@ -193,9 +206,11 @@ export function SectionFrame({
         </div>
         {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
       </header>
-      <NeedsApprovalContext.Provider value={needsApproval}>
-        {children}
-      </NeedsApprovalContext.Provider>
+      <div className="flex min-w-0 flex-col gap-5">
+        <NeedsApprovalContext.Provider value={needsApproval}>
+          {children}
+        </NeedsApprovalContext.Provider>
+      </div>
     </section>
   );
 }
@@ -204,6 +219,23 @@ export function SectionFrame({
 export const GROUP_ROWS =
   "flex flex-col rounded-lg bg-surface-raised text-body text-label-primary shadow-elevation-1 [&>*]:relative [&>*]:min-h-9 [&>*]:px-3 [&>*]:py-2 [&>*+*]:before:absolute [&>*+*]:before:inset-x-3 [&>*+*]:before:top-0 [&>*+*]:before:h-px [&>*+*]:before:bg-separator";
 
+/** The card every group is: a visible edge on the canvas, rounded, one surface. */
+export const CARD =
+  "rounded-xl border border-separator bg-surface-raised text-body text-label-primary shadow-elevation-1";
+
+/**
+ * The rows of a card: 44 px minimum, padded to the card's edge, a hairline above each one
+ * (the first one separates the card's heading from its rows).
+ */
+export const CARD_ROWS =
+  "flex flex-col [&>*]:relative [&>*]:min-h-11 [&>*]:px-4 [&>*]:py-3 [&>*]:before:absolute [&>*]:before:inset-x-4 [&>*]:before:top-0 [&>*]:before:h-px [&>*]:before:bg-separator";
+
+/**
+ * A card with its own heading: the title, one line of what it is for, an optional action, then
+ * rows separated by hairlines. This is the unit of a Settings page: a card is one topic, and
+ * where one card ends the next begins on the canvas, so the page never reads as one run of text.
+ * Keep the description to a sentence; long explanations belong in a row's own help text.
+ */
 export function Group({
   title,
   description,
@@ -219,19 +251,82 @@ export function Group({
 }): ReactElement {
   const id = useId();
   const Heading = useContext(InPageContext) ? "h4" : "h3";
-  // A grouped inset list (redesign §5.8): the title-3 header above, the raised container with
-  // 36 px rows separated by hairlines inset to the text, and the help text under it.
   return (
-    <section aria-labelledby={id} className={cn("flex flex-col gap-1.5", className)}>
-      <div className="flex flex-wrap items-end gap-2 px-1">
-        <Heading id={id} className="min-w-0 flex-1 text-title-3 text-label-primary">
-          {title}
-        </Heading>
+    <section aria-labelledby={id} className={cn(CARD, className)}>
+      <header className="flex flex-wrap items-start gap-x-3 gap-y-1 px-4 pt-3.5 pb-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <Heading id={id} className="text-title-3 text-label-primary">
+            {title}
+          </Heading>
+          {description ? <p className="text-callout text-label-secondary">{description}</p> : null}
+        </div>
         {actions}
-      </div>
-      {children ? <div className={GROUP_ROWS}>{children}</div> : null}
-      {description ? <p className="px-1 text-callout text-label-secondary">{description}</p> : null}
+      </header>
+      {children ? <div className={CARD_ROWS}>{children}</div> : null}
     </section>
+  );
+}
+
+/**
+ * One row of a card: the label and its help text on the left, the control on the right. For a
+ * setting that is not a switch, a field or a choice already built by the helpers below.
+ */
+export function SettingRow({
+  label,
+  description,
+  settingKey,
+  children,
+  className,
+}: {
+  label: ReactNode;
+  description?: ReactNode;
+  settingKey?: string;
+  /** The control, trailing. */
+  children?: ReactNode;
+  className?: string;
+}): ReactElement {
+  return (
+    <div
+      className={cn("flex flex-wrap items-center gap-x-4 gap-y-2", className)}
+      data-setting-key={settingKey}
+    >
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-body text-label-primary">{label}</span>
+        {description ? <p className="text-callout text-label-secondary">{description}</p> : null}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Options most people never touch, folded away: one quiet line that opens to more cards. Search
+ * and deep links open it when the setting they want is inside. Use it between cards; put the
+ * everyday choices above it and keep what is inside to cards of their own.
+ */
+export function Advanced({
+  title = t("settings.shared.advanced"),
+  description,
+  children,
+}: {
+  title?: string;
+  description?: ReactNode;
+  children?: ReactNode;
+}): ReactElement {
+  return (
+    <details className="group/advanced">
+      <summary className="flex min-h-8 w-fit cursor-default list-none items-center gap-1.5 rounded-md py-1 pe-2 text-callout font-medium text-label-secondary outline-none select-none hover:text-label-primary focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+        <ChevronRight
+          className="size-3.5 shrink-0 transition-transform duration-(--duration-micro) group-open/advanced:rotate-90 rtl:-scale-x-100"
+          aria-hidden="true"
+        />
+        {title}
+        {description ? (
+          <span className="font-normal text-label-tertiary">{description}</span>
+        ) : null}
+      </summary>
+      <div className="mt-3 flex flex-col gap-5">{children}</div>
+    </details>
   );
 }
 

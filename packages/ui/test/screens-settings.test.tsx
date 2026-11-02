@@ -234,14 +234,11 @@ describe("Appearance", () => {
     expect(settingCall(gateway(), "appearance.accentSeed")).toBeUndefined();
   });
 
-  it("turns translucent controls off and on, and reduce transparency (#608)", async () => {
-    const { gateway } = setup({ defaultSection: "appearance" });
-    const reduce = await screen.findByRole("switch", { name: "Reduce transparency" });
+  it("turns translucent controls off and on; there is no reduce-transparency switch (#608)", async () => {
+    setup({ defaultSection: "appearance" });
+    await screen.findByRole("switch", { name: "Translucent controls" });
+    expect(screen.queryByRole("switch", { name: "Reduce transparency" })).toBeNull();
     expect(screen.queryByRole("switch", { name: "Translucent sidebar" })).toBeNull();
-    await userEvent.click(reduce);
-    await waitFor(() =>
-      expect(settingValue(gateway(), "appearance.reduceTransparency")).toBe(true),
-    );
 
     const onChange = vi.fn();
     const panel = render(<AppearancePanel values={{}} onChange={onChange} />);

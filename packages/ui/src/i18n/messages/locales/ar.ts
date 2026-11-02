@@ -906,7 +906,6 @@ export const ar: Partial<Catalogue> = {
   "settings.key.appearance.reduceMotion": "تقليل الحركة",
   "settings.key.appearance.contrast": "تباين عالٍ",
   "settings.key.appearance.zoom": "التكبير",
-  "settings.key.appearance.reduceTransparency": "تقليل الشفافية",
   "settings.key.appearance.glass": "عناصر تحكم شفافة",
   "settings.key.appearance.glassTint": "الصبغة",
   "settings.key.appearance.glassBlur": "التمويه",
@@ -1290,15 +1289,10 @@ export const ar: Partial<Catalogue> = {
   "settings.appearance.loadLabel": "المظهر",
   "settings.appearance.theme.auto": "تلقائي",
   "settings.appearance.theme.autoHint": "يتبع النظام",
-  "settings.appearance.accent": "التمييز",
-  "settings.appearance.motionContrast": "الحركة والتباين",
   "settings.appearance.followSystem": "اتباع النظام",
   "settings.appearance.contrastHint": "حدود أقوى ونص أدكن وحلقات تركيز بسُمك 2 بكسل.",
-  "settings.appearance.transparency": "الشفافية",
   "settings.appearance.glass.hint":
     "يسمح حقل الكتابة وعناصر شريط الأدوات والقوائم والنوافذ المنبثقة بظهور المحتوى خلفها. عند الإيقاف، تكون معتمة.",
-  "settings.appearance.reduceTransparencyHint":
-    "تصبح القوائم والنوافذ المنبثقة وحقل الكتابة معتمة. يتبع إعداد النظام حتى تغيّره هنا.",
 
   "settings.browser.profile": "ملف تعريف Psyche",
   "settings.browser.profileNamed": "ملف تعريف Psyche ‏({persona})",

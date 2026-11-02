@@ -884,7 +884,6 @@ export const it: Partial<Catalogue> = {
   "settings.key.appearance.reduceMotion": "Riduci il movimento",
   "settings.key.appearance.contrast": "Contrasto elevato",
   "settings.key.appearance.zoom": "Zoom",
-  "settings.key.appearance.reduceTransparency": "Riduci la trasparenza",
   "settings.key.appearance.glass": "Controlli traslucidi",
   "settings.key.appearance.glassTint": "Tinta",
   "settings.key.appearance.glassBlur": "Sfocatura",
@@ -1265,16 +1264,11 @@ export const it: Partial<Catalogue> = {
   "settings.appearance.loadLabel": "l’aspetto",
   "settings.appearance.theme.auto": "Automatico",
   "settings.appearance.theme.autoHint": "Segue il sistema",
-  "settings.appearance.accent": "Evidenziazione",
-  "settings.appearance.motionContrast": "Movimento e contrasto",
   "settings.appearance.followSystem": "Segui il sistema",
   "settings.appearance.contrastHint":
     "Bordi più marcati, testo più scuro e anelli di focus da 2 px.",
-  "settings.appearance.transparency": "Trasparenza",
   "settings.appearance.glass.hint":
     "Il compositore, i controlli della barra degli strumenti, i menu e i popover lasciano intravedere il contenuto sottostante. Se disattivato, sono opachi.",
-  "settings.appearance.reduceTransparencyHint":
-    "Menu, popover e compositore diventano opachi. Segue l’impostazione di sistema finché non la cambi qui.",
   "settings.browser.profile": "Profilo Psyche",
   "settings.browser.profileNamed": "Profilo Psyche ({persona})",
   "settings.browser.title": "Browser",

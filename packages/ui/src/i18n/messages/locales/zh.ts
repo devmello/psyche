@@ -887,7 +887,6 @@ export const zh: Partial<Catalogue> = {
   "settings.key.appearance.reduceMotion": "减弱动态效果",
   "settings.key.appearance.contrast": "增强对比度",
   "settings.key.appearance.zoom": "缩放",
-  "settings.key.appearance.reduceTransparency": "降低透明度",
   "settings.key.appearance.glass": "半透明控件",
   "settings.key.appearance.glassTint": "色调",
   "settings.key.appearance.glassBlur": "模糊",
@@ -1262,15 +1261,10 @@ export const zh: Partial<Catalogue> = {
   "settings.appearance.loadLabel": "外观",
   "settings.appearance.theme.auto": "自动",
   "settings.appearance.theme.autoHint": "跟随系统",
-  "settings.appearance.accent": "强调色",
-  "settings.appearance.motionContrast": "动态效果与对比度",
   "settings.appearance.followSystem": "跟随系统",
   "settings.appearance.contrastHint": "更明显的边框、更深的文本和 2 px 焦点环。",
-  "settings.appearance.transparency": "半透明",
   "settings.appearance.glass.hint":
     "输入框、工具栏控件、菜单和弹出框会透出背后的内容。关闭后它们为不透明。",
-  "settings.appearance.reduceTransparencyHint":
-    "菜单、弹出框和输入框变为不透明。在你于此更改之前跟随系统设置。",
 
   "settings.browser.profile": "Psyche 描述文件",
   "settings.browser.profileNamed": "Psyche 描述文件（{persona}）",

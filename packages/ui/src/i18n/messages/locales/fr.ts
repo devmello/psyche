@@ -889,7 +889,6 @@ export const fr: Partial<Catalogue> = {
   "settings.key.appearance.reduceMotion": "Réduire les animations",
   "settings.key.appearance.contrast": "Contraste élevé",
   "settings.key.appearance.zoom": "Zoom",
-  "settings.key.appearance.reduceTransparency": "Réduire la transparence",
   "settings.key.appearance.glass": "Commandes translucides",
   "settings.key.appearance.glassTint": "Teinte",
   "settings.key.appearance.glassBlur": "Flou",
@@ -1270,16 +1269,11 @@ export const fr: Partial<Catalogue> = {
   "settings.appearance.loadLabel": "l’apparence",
   "settings.appearance.theme.auto": "Auto",
   "settings.appearance.theme.autoHint": "Suit le système",
-  "settings.appearance.accent": "Accentuation",
-  "settings.appearance.motionContrast": "Animations et contraste",
   "settings.appearance.followSystem": "Suivre le système",
   "settings.appearance.contrastHint":
     "Bordures plus marquées, texte plus foncé et contours de focus de 2 px.",
-  "settings.appearance.transparency": "Translucidité",
   "settings.appearance.glass.hint":
     "La zone de saisie, les commandes de la barre d’outils, les menus et les fenêtres contextuelles laissent transparaître le contenu derrière eux. Désactivé, ils sont opaques.",
-  "settings.appearance.reduceTransparencyHint":
-    "Les menus, les fenêtres contextuelles et la zone de saisie deviennent opaques. Suit le réglage du système jusqu’à ce que vous le changiez ici.",
   "settings.browser.profile": "Profil Psyche",
   "settings.browser.profileNamed": "Profil Psyche ({persona})",
   "settings.browser.title": "Navigateur",

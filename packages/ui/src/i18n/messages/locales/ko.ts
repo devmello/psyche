@@ -884,7 +884,6 @@ export const ko: Partial<Catalogue> = {
   "settings.key.appearance.reduceMotion": "동작 줄이기",
   "settings.key.appearance.contrast": "대비 증가",
   "settings.key.appearance.zoom": "확대/축소",
-  "settings.key.appearance.reduceTransparency": "투명도 감소",
   "settings.key.appearance.glass": "반투명 제어기",
   "settings.key.appearance.glassTint": "색조",
   "settings.key.appearance.glassBlur": "흐림",
@@ -1263,15 +1262,10 @@ export const ko: Partial<Catalogue> = {
   "settings.appearance.loadLabel": "화면 모드",
   "settings.appearance.theme.auto": "자동",
   "settings.appearance.theme.autoHint": "시스템을 따름",
-  "settings.appearance.accent": "강조 색상",
-  "settings.appearance.motionContrast": "동작 및 대비",
   "settings.appearance.followSystem": "시스템 따르기",
   "settings.appearance.contrastHint": "더 진한 테두리, 더 어두운 텍스트, 2px 포커스 링.",
-  "settings.appearance.transparency": "반투명 효과",
   "settings.appearance.glass.hint":
     "작성기, 도구 막대 제어기, 메뉴 및 팝오버 뒤의 콘텐츠가 비쳐 보입니다. 끄면 불투명해집니다.",
-  "settings.appearance.reduceTransparencyHint":
-    "메뉴, 팝오버 및 작성기가 불투명해집니다. 여기서 변경하기 전까지는 시스템 설정을 따릅니다.",
   "settings.browser.profile": "Psyche 프로파일",
   "settings.browser.profileNamed": "Psyche 프로파일 ({persona})",
   "settings.browser.title": "브라우저",

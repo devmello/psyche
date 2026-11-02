@@ -15,9 +15,6 @@ import { glassCssVariables, glassPreset, glassValues } from "../lib/glass-settin
 import { fpsProbeEnabled, startFpsProbe } from "../motion/fps-probe.ts";
 import { appearanceFromSettings, ThemeProvider } from "../theme/ThemeProvider.tsx";
 
-/** Opaque materials, like macOS Reduce transparency (redesign §3.4, §8). */
-export const REDUCE_TRANSPARENCY_SETTING = "appearance.reduceTransparency";
-
 const SystemLocale = createContext<string | null>(null);
 
 /** The system's locale as the host reported it (Settings → Language and region shows it). */
@@ -30,7 +27,9 @@ export interface AppearanceProviderProps {
   systemLocale?: string | null;
   /**
    * macOS Reduce Transparency / Increase Contrast as the desktop main reads them
-   * (`nativeTheme`); they apply when the owner hasn't chosen in Settings. The web relies on the
+   * (`nativeTheme`): Reduce Transparency always applies (there is no in-app switch for it; an
+   * `appearance.reduceTransparency` value stored by an earlier build is ignored), Increase
+   * Contrast until the owner picks a contrast in Settings. The web relies on the
    * `prefers-reduced-transparency` / `prefers-contrast` media queries instead.
    */
   system?: { reduceTransparency: boolean; highContrast: boolean } | null;
@@ -60,14 +59,7 @@ export function AppearanceProvider({
 }: AppearanceProviderProps): ReactElement {
   const { settings } = useSettings();
   const direction = settings[DIRECTION_SETTING];
-  const chosenTransparency = settings[REDUCE_TRANSPARENCY_SETTING];
-  const reduceTransparency =
-    chosenTransparency === true || chosenTransparency === false
-      ? chosenTransparency
-      : system?.reduceTransparency
-        ? true
-        : undefined;
-  useWindowAttributes(reduceTransparency);
+  useWindowAttributes(system?.reduceTransparency === true);
   useGlassSettings(settings);
   const appearance = appearanceFromSettings(settings);
   // Increase Contrast from macOS applies until the owner picks a contrast in Settings.
@@ -93,15 +85,15 @@ export function AppearanceProvider({
 
 /**
  * Root attributes the redesign tokens read (styles/design.css): `data-reduce-transparency`
- * (`true`, `false`, or absent to follow the OS) and `data-window-active` (an inactive window
- * loses the accent on its selection, as macOS does).
+ * (`true` when the desktop main reports macOS Reduce Transparency, else absent: the CSS follows
+ * `prefers-reduced-transparency` itself) and `data-window-active` (an inactive window loses the
+ * accent on its selection, as macOS does).
  */
-function useWindowAttributes(reduceTransparency: unknown): void {
+function useWindowAttributes(reduceTransparency: boolean): void {
   useEffect(() => {
     const root = typeof document === "undefined" ? null : document.documentElement;
     if (root === null) return;
-    if (reduceTransparency === true || reduceTransparency === false)
-      root.dataset.reduceTransparency = String(reduceTransparency);
+    if (reduceTransparency) root.dataset.reduceTransparency = "true";
     else delete root.dataset.reduceTransparency;
   }, [reduceTransparency]);
 

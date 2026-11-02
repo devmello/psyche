@@ -7,6 +7,7 @@ export const settings = {
   "settings.shared.loading": "Loading {label}",
   "settings.shared.nothingChanged": "Nothing was changed.",
   "settings.shared.tryAgain": "Try again",
+  "settings.shared.advanced": "Advanced",
   "settings.shared.needsAdmin":
     "Needs approval on this device. Change it from a device paired as admin.",
   "settings.shared.loadFailed": "Psyche couldn't load {label} ({reason}).",
@@ -149,7 +150,6 @@ export const settings = {
   "settings.key.appearance.zoom": "Zoom",
   "settings.key.appearance.showInDock": "Show in Dock when no windows are open",
   "settings.key.appearance.openAtLogin": "Open Psyche at login",
-  "settings.key.appearance.reduceTransparency": "Reduce transparency",
   "settings.key.appearance.glass": "Translucent controls",
   "settings.key.appearance.glassTint": "Tint",
   "settings.key.appearance.glassBlur": "Blur",
@@ -605,16 +605,22 @@ export const settings = {
   "settings.appearance.seedHelp":
     "Any CSS color. It lands on step 9; Psyche adjusts it if the text would be hard to read.",
   "settings.appearance.title": "Appearance",
-  "settings.appearance.description":
-    "Applies to every paired device. Approval, danger and success colors never follow the accent.",
+  "settings.appearance.description": "Applies to every device you've paired.",
   "settings.appearance.loadLabel": "appearance",
   "settings.appearance.theme.auto": "Auto",
   "settings.appearance.theme.autoHint": "Follows the system",
-  "settings.appearance.accent": "Accent",
-  "settings.appearance.motionContrast": "Motion and contrast",
   "settings.appearance.followSystem": "Follow the system",
+  "settings.appearance.colors": "Colors",
+  "settings.appearance.colorsHint": "Light or dark, and your accent color.",
+  "settings.appearance.comfort": "Comfort",
+  "settings.appearance.comfortHint": "Easier on the eyes and on motion.",
+  "settings.appearance.backgroundHint": "Whether Psyche keeps running when you close the window.",
+  "settings.appearance.advancedHint": "Gray tone, custom color, contrast check",
+  "settings.appearance.fineTune": "Fine-tune colors",
+  "settings.appearance.fineTuneHint": "For people who want an exact look.",
+  "settings.appearance.contrastCheck": "Contrast check",
+  "settings.appearance.contrastCheckHint": "How readable each theme is, step by step.",
   "settings.appearance.contrastHint": "Stronger borders, darker text and 2 px focus rings.",
-  "settings.appearance.transparency": "Translucency",
   "settings.appearance.background": "Background",
   "settings.appearance.showInDockHint":
     "Off, Psyche leaves the Dock and ⌘-Tab when its last window closes and keeps running from the menu bar. Click the menu bar icon to open it again.",
@@ -622,8 +628,6 @@ export const settings = {
     "Starts Psyche in the menu bar when you sign in, with no window, so scheduled automations that use the browser can always run. Psyche also starts itself in the background when a run needs the browser.",
   "settings.appearance.glass.hint":
     "The composer, toolbar controls, menus and popovers let the content behind them show through. Off, they are opaque.",
-  "settings.appearance.reduceTransparencyHint":
-    "Menus, popovers and the composer become opaque. Follows the system setting until you change it here.",
 
   // Settings → Browser: real-Chrome mode and Web Bot Auth (BrowserSection.tsx).
   "settings.browser.profile": "Psyche profile",

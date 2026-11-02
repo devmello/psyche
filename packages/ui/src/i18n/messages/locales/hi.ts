@@ -901,7 +901,6 @@ export const hi: Partial<Catalogue> = {
   "settings.key.appearance.reduceMotion": "मोशन कम करें",
   "settings.key.appearance.contrast": "उच्च कंट्रास्ट",
   "settings.key.appearance.zoom": "ज़ूम",
-  "settings.key.appearance.reduceTransparency": "पारदर्शिता कम करें",
   "settings.key.appearance.glass": "पारभासी नियंत्रण",
   "settings.key.appearance.glassTint": "टिंट",
   "settings.key.appearance.glassBlur": "ब्लर",
@@ -1287,15 +1286,10 @@ export const hi: Partial<Catalogue> = {
   "settings.appearance.loadLabel": "रूप-रंग",
   "settings.appearance.theme.auto": "ऑटो",
   "settings.appearance.theme.autoHint": "सिस्टम का पालन करता है",
-  "settings.appearance.accent": "ऐक्सेंट",
-  "settings.appearance.motionContrast": "मोशन और कंट्रास्ट",
   "settings.appearance.followSystem": "सिस्टम का पालन करें",
   "settings.appearance.contrastHint": "गहरी बॉर्डर, गहरा टेक्स्ट और 2 px फ़ोकस रिंग।",
-  "settings.appearance.transparency": "पारभासिता",
   "settings.appearance.glass.hint":
     "कंपोज़र, टूलबार नियंत्रण, मेनू और पॉपओवर के पीछे की सामग्री झलकती है। बंद होने पर वे अपारदर्शी होते हैं।",
-  "settings.appearance.reduceTransparencyHint":
-    "मेनू, पॉपओवर और कंपोज़र अपारदर्शी हो जाते हैं। जब तक आप इसे यहाँ न बदलें, सिस्टम सेटिंग का पालन करता है।",
 
   "settings.browser.profile": "Psyche प्रोफ़ाइल",
   "settings.browser.profileNamed": "Psyche प्रोफ़ाइल ({persona})",

@@ -929,7 +929,6 @@ export const de: Partial<Catalogue> = {
   "settings.key.appearance.reduceMotion": "Bewegung reduzieren",
   "settings.key.appearance.contrast": "Hoher Kontrast",
   "settings.key.appearance.zoom": "Zoom",
-  "settings.key.appearance.reduceTransparency": "Transparenz reduzieren",
   "settings.key.appearance.glass": "Durchscheinende Bedienelemente",
   "settings.key.appearance.glassTint": "Tönung",
   "settings.key.appearance.glassBlur": "Unschärfe",
@@ -1321,15 +1320,10 @@ export const de: Partial<Catalogue> = {
   "settings.appearance.loadLabel": "Darstellung",
   "settings.appearance.theme.auto": "Automatisch",
   "settings.appearance.theme.autoHint": "Folgt dem System",
-  "settings.appearance.accent": "Akzent",
-  "settings.appearance.motionContrast": "Bewegung und Kontrast",
   "settings.appearance.followSystem": "Dem System folgen",
   "settings.appearance.contrastHint": "Stärkere Ränder, dunklerer Text und 2 px breite Fokusringe.",
-  "settings.appearance.transparency": "Transparenz",
   "settings.appearance.glass.hint":
     "Der Eingabebereich, die Symbolleistenelemente, Menüs und Popover lassen den Inhalt dahinter durchscheinen. Aus bedeutet: Sie sind deckend.",
-  "settings.appearance.reduceTransparencyHint":
-    "Menüs, Popover und der Eingabebereich werden deckend. Folgt der Systemeinstellung, bis du es hier änderst.",
 
   "settings.browser.profile": "Psyche-Profil",
   "settings.browser.profileNamed": "Psyche-Profil ({persona})",

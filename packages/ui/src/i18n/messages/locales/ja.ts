@@ -879,7 +879,6 @@ export const ja: Partial<Catalogue> = {
   "settings.key.appearance.reduceMotion": "視差効果を減らす",
   "settings.key.appearance.contrast": "コントラストを上げる",
   "settings.key.appearance.zoom": "拡大/縮小",
-  "settings.key.appearance.reduceTransparency": "透明度を下げる",
   "settings.key.appearance.glass": "半透明のコントロール",
   "settings.key.appearance.glassTint": "色合い",
   "settings.key.appearance.glassBlur": "ぼかし",
@@ -1259,16 +1258,11 @@ export const ja: Partial<Catalogue> = {
   "settings.appearance.loadLabel": "外観",
   "settings.appearance.theme.auto": "自動",
   "settings.appearance.theme.autoHint": "システムに合わせる",
-  "settings.appearance.accent": "アクセント",
-  "settings.appearance.motionContrast": "動きとコントラスト",
   "settings.appearance.followSystem": "システムに合わせる",
   "settings.appearance.contrastHint":
     "境界線を強調し、テキストを濃くし、フォーカスリングを2 pxにします。",
-  "settings.appearance.transparency": "透明度",
   "settings.appearance.glass.hint":
     "入力欄、ツールバーのコントロール、メニュー、ポップオーバーの背後にあるコンテンツが透けて見えます。オフにすると不透明になります。",
-  "settings.appearance.reduceTransparencyHint":
-    "メニュー、ポップオーバー、入力欄が不透明になります。ここで変更するまではシステム設定に従います。",
   "settings.browser.profile": "Psycheプロファイル",
   "settings.browser.profileNamed": "Psycheプロファイル（{persona}）",
   "settings.browser.title": "ブラウザ",

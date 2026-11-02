@@ -884,7 +884,6 @@ export const pt: Partial<Catalogue> = {
   "settings.key.appearance.reduceMotion": "Reduzir movimento",
   "settings.key.appearance.contrast": "Alto contraste",
   "settings.key.appearance.zoom": "Zoom",
-  "settings.key.appearance.reduceTransparency": "Reduzir transparência",
   "settings.key.appearance.glass": "Controles translúcidos",
   "settings.key.appearance.glassTint": "Tonalidade",
   "settings.key.appearance.glassBlur": "Desfoque",
@@ -1263,16 +1262,11 @@ export const pt: Partial<Catalogue> = {
   "settings.appearance.loadLabel": "aparência",
   "settings.appearance.theme.auto": "Automático",
   "settings.appearance.theme.autoHint": "Segue o sistema",
-  "settings.appearance.accent": "Destaque",
-  "settings.appearance.motionContrast": "Movimento e contraste",
   "settings.appearance.followSystem": "Seguir o sistema",
   "settings.appearance.contrastHint":
     "Bordas mais fortes, texto mais escuro e anéis de foco de 2 px.",
-  "settings.appearance.transparency": "Translucidez",
   "settings.appearance.glass.hint":
     "O compositor, os controles da barra de ferramentas, os menus e os popovers deixam o conteúdo atrás deles transparecer. Desativado, eles ficam opacos.",
-  "settings.appearance.reduceTransparencyHint":
-    "Menus, popovers e o compositor ficam opacos. Segue o ajuste do sistema até você alterar aqui.",
   "settings.browser.profile": "Perfil do Psyche",
   "settings.browser.profileNamed": "Perfil do Psyche ({persona})",
   "settings.browser.title": "Navegador",

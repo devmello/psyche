@@ -924,7 +924,6 @@ export const es: Partial<Catalogue> = {
   "settings.key.appearance.reduceMotion": "Reducir el movimiento",
   "settings.key.appearance.contrast": "Alto contraste",
   "settings.key.appearance.zoom": "Zoom",
-  "settings.key.appearance.reduceTransparency": "Reducir la transparencia",
   "settings.key.appearance.glass": "Controles translúcidos",
   "settings.key.appearance.glassTint": "Tinte",
   "settings.key.appearance.glassBlur": "Desenfoque",
@@ -1315,16 +1314,11 @@ export const es: Partial<Catalogue> = {
   "settings.appearance.loadLabel": "el aspecto",
   "settings.appearance.theme.auto": "Automático",
   "settings.appearance.theme.autoHint": "Sigue al sistema",
-  "settings.appearance.accent": "Énfasis",
-  "settings.appearance.motionContrast": "Movimiento y contraste",
   "settings.appearance.followSystem": "Seguir al sistema",
   "settings.appearance.contrastHint":
     "Bordes más marcados, texto más oscuro y anillos de foco de 2 px.",
-  "settings.appearance.transparency": "Translucidez",
   "settings.appearance.glass.hint":
     "El compositor, los controles de la barra de herramientas, los menús y los paneles emergentes dejan ver el contenido que hay detrás. Desactivado, son opacos.",
-  "settings.appearance.reduceTransparencyHint":
-    "Los menús, los paneles emergentes y el compositor se vuelven opacos. Sigue el ajuste del sistema hasta que lo cambies aquí.",
 
   "settings.browser.profile": "Perfil de Psyche",
   "settings.browser.profileNamed": "Perfil de Psyche ({persona})",

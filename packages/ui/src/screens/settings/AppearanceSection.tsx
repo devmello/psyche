@@ -6,7 +6,6 @@ import { Label } from "../../components/ui/label.tsx";
 import { RadioGroup } from "../../components/ui/radio-group.tsx";
 import { activeI18n, t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
-import { REDUCE_TRANSPARENCY_SETTING } from "../../shell/AppearanceProvider.tsx";
 import {
   DEFAULT_ACCENT_SEED,
   GRAY_FAMILIES,
@@ -18,6 +17,7 @@ import {
 import { appearanceFromSettings } from "../../theme/ThemeProvider.tsx";
 import { LanguageGroup } from "./LanguageSettings.tsx";
 import {
+  Advanced,
   ErrorNotice,
   Group,
   LoadGate,
@@ -165,11 +165,9 @@ function AccentPicker({
 }): ReactElement {
   const id = useId();
   const preset = ACCENT_PRESETS.find((p) => p.seed === value);
-  const [draft, setDraft] = useState(preset ? "" : value);
-  const invalid = draft.trim() !== "" && !isValidSeed(draft.trim());
   return (
-    <div className="flex flex-col gap-2">
-      <span id={`${id}-label`} className="font-medium">
+    <div className="flex flex-col gap-3">
+      <span id={`${id}-label`} className="text-body text-label-primary">
         {t("settings.appearance.accentColor")}
       </span>
       <RadioGroup
@@ -183,7 +181,7 @@ function AccentPicker({
           <Label
             key={p.id}
             htmlFor={`${id}-${p.id}`}
-            className="flex-col gap-1.5 text-xs font-normal"
+            className="flex-col gap-1.5 text-callout font-normal text-label-secondary"
           >
             <RadioPrimitive.Root
               value={p.seed}
@@ -199,43 +197,52 @@ function AccentPicker({
           </Label>
         ))}
       </RadioGroup>
-      <div className="flex flex-col gap-1">
-        <Label htmlFor={`${id}-seed`}>{t("settings.appearance.customColor")}</Label>
-        <Input
-          id={`${id}-seed`}
-          className="max-w-xs font-mono"
-          // i18n-ignore: a CSS colour value, not text
-          placeholder="oklch(0.6 0.15 250)"
-          value={draft}
-          aria-invalid={invalid}
-          aria-describedby={`${id}-seed-help`}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={() => {
-            const s = draft.trim();
-            if (s !== "" && isValidSeed(s) && s !== value) onChange(s);
-          }}
-          onKeyDown={(e) => {
-            const s = draft.trim();
-            if (e.key === "Enter" && s !== "" && isValidSeed(s) && s !== value) onChange(s);
-          }}
-        />
-        <p
-          id={`${id}-seed-help`}
-          className={cn("text-xs", invalid ? "text-danger-text" : "text-muted-foreground")}
-        >
-          {invalid ? t("settings.appearance.seedInvalid") : t("settings.appearance.seedHelp")}
-        </p>
-      </div>
     </div>
   );
 }
 
-/** The OS asks for opaque materials (`prefers-reduced-transparency`). */
-function systemReducesTransparency(): boolean {
+/** Any CSS color as the accent (Advanced): committed on blur or Return when it parses. */
+function CustomAccent({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (seed: string) => void;
+}): ReactElement {
+  const id = useId();
+  const preset = ACCENT_PRESETS.find((p) => p.seed === value);
+  const [draft, setDraft] = useState(preset ? "" : value);
+  const invalid = draft.trim() !== "" && !isValidSeed(draft.trim());
   return (
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-transparency: reduce)").matches
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={`${id}-seed`} className="text-body font-normal text-label-primary">
+        {t("settings.appearance.customColor")}
+      </Label>
+      <Input
+        id={`${id}-seed`}
+        className="max-w-xs font-mono"
+        // i18n-ignore: a CSS colour value, not text
+        placeholder="oklch(0.6 0.15 250)"
+        value={draft}
+        aria-invalid={invalid}
+        aria-describedby={`${id}-seed-help`}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          const s = draft.trim();
+          if (s !== "" && isValidSeed(s) && s !== value) onChange(s);
+        }}
+        onKeyDown={(e) => {
+          const s = draft.trim();
+          if (e.key === "Enter" && s !== "" && isValidSeed(s) && s !== value) onChange(s);
+        }}
+      />
+      <p
+        id={`${id}-seed-help`}
+        className={cn("text-callout", invalid ? "text-danger-text" : "text-label-secondary")}
+      >
+        {invalid ? t("settings.appearance.seedInvalid") : t("settings.appearance.seedHelp")}
+      </p>
+    </div>
   );
 }
 
@@ -253,8 +260,6 @@ export function AppearancePanel({
     [a.accentSeed, a.gray],
   );
   const motion = a.reduceMotion === "system" ? "system" : a.reduceMotion ? "on" : "off";
-  // Unset follows the OS (AppearanceProvider leaves `data-reduce-transparency` off the root).
-  const reduceTransparency = values[REDUCE_TRANSPARENCY_SETTING];
   return (
     <SectionFrame
       needsApproval={needsApproval}
@@ -267,10 +272,12 @@ export function AppearancePanel({
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group title={t("settings.key.appearance.theme")}>
+        <Group
+          title={t("settings.appearance.colors")}
+          description={t("settings.appearance.colorsHint")}
+        >
           <RadioField
             label={t("settings.key.appearance.theme")}
-            hideLabel
             inline
             value={a.theme}
             settingKey="appearance.theme"
@@ -291,28 +298,16 @@ export function AppearancePanel({
               },
             ]}
           />
-          <RadioField
-            label={t("settings.key.appearance.gray")}
-            inline
-            value={a.gray}
-            settingKey="appearance.gray"
-            onChange={(v) => onChange("appearance.gray", v)}
-            options={GRAY_FAMILIES.map((g) => ({ value: g, label: grayLabel(g) }))}
-          />
-        </Group>
-
-        <Group title={t("settings.appearance.accent")}>
           <AccentPicker
             value={a.accentSeed}
             onChange={(s) => onChange("appearance.accentSeed", s)}
           />
-          <div className="grid gap-3 md:grid-cols-2" aria-live="polite">
-            <ThemePreview mode={theme.light} />
-            <ThemePreview mode={theme.dark} />
-          </div>
         </Group>
 
-        <Group title={t("settings.appearance.motionContrast")}>
+        <Group
+          title={t("settings.appearance.comfort")}
+          description={t("settings.appearance.comfortHint")}
+        >
           <RadioField
             label={t("settings.key.appearance.reduceMotion")}
             inline
@@ -334,23 +329,13 @@ export function AppearancePanel({
             settingKey="appearance.contrast"
             onChange={(v) => onChange("appearance.contrast", v ? "high" : "standard")}
           />
-        </Group>
-
-        <Group title={t("settings.appearance.transparency")}>
           <GlassSwitch values={values} onChange={onChange} />
-          <SwitchField
-            label={t("settings.key.appearance.reduceTransparency")}
-            description={t("settings.appearance.reduceTransparencyHint")}
-            checked={
-              reduceTransparency === true ||
-              (reduceTransparency !== false && systemReducesTransparency())
-            }
-            settingKey={REDUCE_TRANSPARENCY_SETTING}
-            onChange={(v) => onChange(REDUCE_TRANSPARENCY_SETTING, v)}
-          />
         </Group>
 
-        <Group title={t("settings.appearance.background")}>
+        <Group
+          title={t("settings.appearance.background")}
+          description={t("settings.appearance.backgroundHint")}
+        >
           <SwitchField
             label={t("settings.key.appearance.showInDock")}
             description={t("settings.appearance.showInDockHint")}
@@ -368,6 +353,35 @@ export function AppearancePanel({
         </Group>
 
         <LanguageGroup values={values} onChange={onChange} />
+
+        <Advanced description={t("settings.appearance.advancedHint")}>
+          <Group
+            title={t("settings.appearance.fineTune")}
+            description={t("settings.appearance.fineTuneHint")}
+          >
+            <RadioField
+              label={t("settings.key.appearance.gray")}
+              inline
+              value={a.gray}
+              settingKey="appearance.gray"
+              onChange={(v) => onChange("appearance.gray", v)}
+              options={GRAY_FAMILIES.map((g) => ({ value: g, label: grayLabel(g) }))}
+            />
+            <CustomAccent
+              value={a.accentSeed}
+              onChange={(s) => onChange("appearance.accentSeed", s)}
+            />
+          </Group>
+          <Group
+            title={t("settings.appearance.contrastCheck")}
+            description={t("settings.appearance.contrastCheckHint")}
+          >
+            <div className="grid gap-3 md:grid-cols-2" aria-live="polite">
+              <ThemePreview mode={theme.light} />
+              <ThemePreview mode={theme.dark} />
+            </div>
+          </Group>
+        </Advanced>
       </LoadGate>
     </SectionFrame>
   );
