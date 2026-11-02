@@ -1,7 +1,7 @@
 import { getSetting, getSettings, setSetting } from "@psyche/db";
 import { assertFolderGrantable } from "@psyche/permissions";
 import { isAdminSettingKey, PsycheError } from "@psyche/protocol";
-import { protectedRoots } from "../compose/protected-paths.ts";
+import { folderAccessEnv } from "../compose/protected-paths.ts";
 import type { Call, HandlerDef } from "../context.ts";
 import { requireFreshPresence } from "../presence-gate.ts";
 import { INTERNAL_SETTING_PREFIX } from "../state-version.ts";
@@ -47,7 +47,7 @@ async function checkNewFolders(call: Call, value: unknown): Promise<void> {
   const home = call.ctx.config.home;
   for (const f of folders as { path?: unknown }[]) {
     if (typeof f?.path !== "string" || known.has(f.path)) continue;
-    await assertFolderGrantable(f.path, { psycheHome: home, protectedRoots: protectedRoots(home) });
+    await assertFolderGrantable(f.path, folderAccessEnv(home));
   }
 }
 

@@ -168,7 +168,7 @@ import { composePeople, type People } from "./people.ts";
 import { graphSourceAdapters } from "./people-sources.ts";
 import { composePlugins } from "./plugins.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
-import { protectedRoots } from "./protected-paths.ts";
+import { folderAccessEnv, ownWorkdirs, protectedRoots } from "./protected-paths.ts";
 import { notifierRouting } from "./quiet-hours.ts";
 import { createRateLimits } from "./rate-limits.ts";
 import { requestPermissionTool } from "./request-permission.ts";
@@ -575,7 +575,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   };
   const rawBroker = new PsychePermissionBroker({
     folderAccess: {
-      env: () => ({ psycheHome: config.home, protectedRoots: protectedRoots(config.home) }),
+      env: () => folderAccessEnv(config.home),
       persist: persistFolder,
       remove: forgetFolder,
     },
@@ -794,6 +794,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       ...(scope === undefined ? [] : rawBroker.sessionFolders(scope.threadId)),
     ],
     protectedRoots: () => protectedRoots(config.home),
+    ownDirs: () => ownWorkdirs(config.home),
     onChange: (c) => void changes.record(fileChange(c)),
   }))
     registry.register(tool);
@@ -812,7 +813,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     requestPermissionTool({
       broker: executorBroker,
       surfaces: ["desktop", "web"],
-      folderEnv: () => ({ psycheHome: config.home, protectedRoots: protectedRoots(config.home) }),
+      folderEnv: () => folderAccessEnv(config.home),
       grantedFolders: (threadId) => [
         ...(rawBroker.policy.folders ?? []),
         ...rawBroker.sessionFolders(threadId),
