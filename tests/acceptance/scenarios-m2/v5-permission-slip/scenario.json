@@ -255,7 +255,7 @@
           "tool": "gmail.send",
           "callRef": "c_v5_send",
           "sideEffect": "destructive",
-          "scopesOffered": ["once", "task"],
+          "scopesOffered": ["once"],
           "mustShow": [
             "ms.rivera@lincoln-elementary.example",
             "Re: Field trip permission slip (due Friday)",

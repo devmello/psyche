@@ -193,10 +193,11 @@ describe("memory search on a seeded workspace", () => {
       await store.appendDailyNote({ text: lines.join("\n"), provenance: "owner", date });
     }
     for (let i = 0; i < 40; i += 1) {
-      await store.writeFile(
+      // Project cards are written by the graph or the owner, never by the agent's `writeFile`
+      // (dae92936), so the seed goes in as the owner.
+      await store.writeFileAsOwner(
         `projects/project-${i}.md`,
         `# Project ${i}\n\nGoal: ship milestone ${i}.\n\n- owner: Avery\n- next: ${topics[i % topics.length]}\n`,
-        { provenance: "owner" },
       );
     }
     const queries = [
