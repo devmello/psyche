@@ -1,6 +1,6 @@
 import type { Automation } from "@psyche/protocol";
 import { CalendarClock, Plus, RefreshCw, X } from "lucide-react";
-import { type ReactElement, useCallback, useEffect, useId, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { scheduleSentence } from "../../agent/UpcomingPanel.tsx";
 import { DelayedSkeletons } from "../../components/DelayedSkeleton.tsx";
@@ -60,6 +60,11 @@ export interface FeedInstructionsViewProps {
   /** What failed while loading, e.g. "the Gateway timed out". */
   error?: string | null;
   onRetry?: () => void;
+  /**
+   * Focus the instructions box as soon as it exists. The sheet's own `initialFocus` runs when the
+   * popup opens, before the files load and the box mounts, so focus would land on a footer button.
+   */
+  focusOnReady?: boolean;
 }
 
 let keySeq = 0;
@@ -80,8 +85,20 @@ export function FeedInstructionsView({
   loading = false,
   error = null,
   onRetry,
+  focusOnReady = false,
 }: FeedInstructionsViewProps): ReactElement {
   const textId = useId();
+  const areaRef = useRef<HTMLTextAreaElement>(null);
+  const ready = !loading && error === null;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the box first appears
+  useEffect(() => {
+    const area = areaRef.current;
+    if (!focusOnReady || !ready || area === null) return;
+    // Don't steal focus from a field the owner already reached.
+    const active = document.activeElement;
+    if (active instanceof HTMLInputElement || active instanceof HTMLSelectElement) return;
+    area.focus({ preventScroll: true });
+  }, [focusOnReady, ready]);
   if (loading) {
     return (
       <DelayedSkeletons label={t("screens.feed.editor.loading")} className="flex flex-col gap-3">
@@ -114,6 +131,7 @@ export function FeedInstructionsView({
           {t("screens.feed.editor.instructions")}
         </label>
         <Textarea
+          ref={areaRef}
           id={textId}
           value={instructions}
           maxLength={INSTRUCTIONS_MAX}
@@ -435,6 +453,7 @@ export function FeedInstructionsSheet({
         </SheetHeader>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4">
           <FeedInstructionsView
+            focusOnReady
             instructions={shownText}
             onInstructionsChange={setText}
             rows={shownRows}
