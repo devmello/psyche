@@ -1048,7 +1048,7 @@ export const settings = {
     "Events from the past three years and the next twelve months: title, time, place, attendees and notes.",
   "settings.searchSources.hint.reminders": "Reminders and their lists, due dates and notes.",
   "settings.searchSources.hint.files":
-    "Text, Markdown, code, PDF, Word and Excel files in the folders you have shared with Psyche. Scans and images need OCR, which is not available yet.",
+    "Text, Markdown, code, PDF, Word and Excel files in the folders you have shared with Psyche. Images and scans are indexed by name unless you turn on reading text in images.",
   "settings.searchSources.hint.browser":
     "Pages Psyche's browser reads for you: the address (without anything after a ?), title and text, kept 90 days. Logged-out browsing, private chats, sign-in, payment and local pages are never kept. Page text is untrusted: it can never give Psyche instructions.",
   "settings.searchSources.hint.transcripts":
@@ -1065,6 +1065,10 @@ export const settings = {
   "settings.searchSources.rebuildLabel": "Rebuild {source}",
   "settings.searchSources.agent": "Let Psyche's agent search this",
   "settings.searchSources.agentLabel": "Agent search for {source}",
+  "settings.searchSources.ocr": "Read text in images (OCR)",
+  "settings.searchSources.ocrHint":
+    "Reads screenshots, photos and scanned PDFs in shared folders and your Library on this Mac with Apple Vision. Nothing leaves your Mac and no model is downloaded. Runs one page at a time, only on power.",
+  "settings.searchSources.ocrLabel": "Read text in images for {source}",
   "settings.searchSources.processing": "Processing",
   "settings.searchSources.processingLabel": "Processing for {source}",
   "settings.searchSources.processing.cloud": "Cloud model (current)",
