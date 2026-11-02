@@ -172,6 +172,7 @@ import { notifierRouting } from "./quiet-hours.ts";
 import { createRateLimits } from "./rate-limits.ts";
 import { requestPermissionTool } from "./request-permission.ts";
 import { researchTools } from "./research.ts";
+import { withRunSnapshot } from "./run-snapshot.ts";
 import type { ComposedSandbox } from "./sandbox.ts";
 import { createScheduledHandlers, pausedRoutines, withPausedRoutines } from "./scheduled.ts";
 import { composeScreenAsk, type ScreenAskOptions } from "./screen-ask.ts";
@@ -1054,7 +1055,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     notifier,
     launcher: lateLauncher,
     sessions: createDbSessionResolver(db),
-    deliverer: createDeliverer({ notifier, broker }),
+    deliverer: withRunSnapshot(createDeliverer({ notifier, broker }), {
+      // `proactive` is composed after the scheduler; a run finishes long after both exist.
+      postNotice: (input) => proactive.feed.postNotice(input),
+    }),
     // Watches (O3) read public pages through the guarded fetch until S09 exports its own.
     watchFetch: publicFetch(),
     ...(timeZone === undefined ? {} : { defaultTimezone: timeZone }),
