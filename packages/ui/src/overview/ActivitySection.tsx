@@ -42,8 +42,8 @@ export function OverviewActivity({
       <SectionBody
         id="activity"
         status={status}
-        reserve="min-h-48"
-        skeleton={<Skeleton className="h-48" />}
+        reserve="min-h-72"
+        skeleton={<Skeleton className="h-72" />}
       >
         {data === undefined ? null : (
           <ActivityBody
@@ -141,6 +141,7 @@ export function ActivityBody({
       selectedDate={selectedDay}
       caption={caption}
       label={i18n.t("overview.activity.label")}
+      height={240}
       testId="overview-activity-bars"
     />
   );

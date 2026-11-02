@@ -1,5 +1,5 @@
 import { ArrowRight, Fingerprint, ShieldCheck, X } from "lucide-react";
-import { type ReactElement, type ReactNode, useEffect } from "react";
+import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 import { Avatar } from "../avatar/Avatar.tsx";
 import { Badge } from "../components/ui/badge.tsx";
 import { Button } from "../components/ui/button.tsx";
@@ -242,8 +242,19 @@ export function AgentSheetBody({
   }, [onClose, escapeAnywhere]);
   // The badge counts what the Approvals panel lists under "Needs you" and Questions.
   const needs = useNeedsYouCount();
+  // The sheet puts focus on the selected tab when it opens; the focus ring shows only once the
+  // owner starts using the keyboard in it, never at rest.
+  const [keyboard, setKeyboard] = useState(false);
   return (
-    <div className="@container flex min-h-0 flex-1 flex-col gap-4">
+    // biome-ignore lint/a11y/noStaticElementInteractions: tracks input modality for the focus ring only
+    <div
+      className="group/sheet @container flex min-h-0 flex-1 flex-col gap-4"
+      data-keyboard={keyboard ? "true" : "false"}
+      onKeyDownCapture={(e) => {
+        if (e.key === "Tab" || e.key.startsWith("Arrow")) setKeyboard(true);
+      }}
+      onPointerDownCapture={() => setKeyboard(false)}
+    >
       {header ? (
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
@@ -273,7 +284,10 @@ export function AgentSheetBody({
       >
         {/* Two segments, full width: about 190 px per label at 420 px (§4.1). */}
         <TabsList aria-label={t("agent.sheet.tabs")} className="w-full">
-          <TabsTrigger value="approvals" className="min-w-0 flex-1">
+          <TabsTrigger
+            value="approvals"
+            className="min-w-0 flex-1 focus-visible:border-transparent focus-visible:ring-0 focus-visible:outline-none group-data-[keyboard=true]/sheet:focus-visible:border-ring group-data-[keyboard=true]/sheet:focus-visible:ring-2"
+          >
             <ShieldCheck aria-hidden="true" className="@max-md:hidden" />{" "}
             {t("agent.sheet.approvals")}
             {needs > 0 ? (
@@ -282,7 +296,10 @@ export function AgentSheetBody({
               </Badge>
             ) : null}
           </TabsTrigger>
-          <TabsTrigger value="soul" className="min-w-0 flex-1">
+          <TabsTrigger
+            value="soul"
+            className="min-w-0 flex-1 focus-visible:border-transparent focus-visible:ring-0 focus-visible:outline-none group-data-[keyboard=true]/sheet:focus-visible:border-ring group-data-[keyboard=true]/sheet:focus-visible:ring-2"
+          >
             <Fingerprint aria-hidden="true" className="@max-md:hidden" /> {t("agent.sheet.soul")}
           </TabsTrigger>
         </TabsList>

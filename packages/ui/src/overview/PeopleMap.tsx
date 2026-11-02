@@ -6,7 +6,13 @@ import { t } from "../i18n/core.ts";
 import type { MessageId } from "../i18n/index.ts";
 import { formatRelative } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
-import { layoutPeopleMap, type NodeShape, type PeopleNode, type Ring } from "./peopleLayout.ts";
+import {
+  labelText,
+  layoutPeopleMap,
+  type NodeShape,
+  type PeopleNode,
+  type Ring,
+} from "./peopleLayout.ts";
 
 /** "Person" / "Organisation" / … for an entity kind. */
 export const kindLabel = (kind: InsightEntity["kind"]): string =>
@@ -193,10 +199,6 @@ function Detail({ node, now }: { node: PeopleNode; now: number }): ReactElement 
   );
 }
 
-const MAX_LABEL = 12;
-const shortName = (name: string): string =>
-  name.length > MAX_LABEL ? `${name.slice(0, MAX_LABEL - 1)}…` : name;
-
 function Mark({ shape, r }: { shape: NodeShape; r: number }): ReactElement {
   return shape === "circle" ? (
     <circle r={r} />
@@ -275,23 +277,34 @@ function Node({
       <g fill="var(--surface-raised)">
         <Mark shape={node.shape} r={node.radius} />
       </g>
-      <g fill="var(--accent-a4)" stroke="var(--accent-9)" strokeWidth={2}>
+      <g
+        fill={highlighted ? "var(--accent-a4)" : "var(--fill-secondary)"}
+        stroke={highlighted ? "var(--accent-9)" : "var(--label-secondary)"}
+        strokeWidth={highlighted ? 2 : 1.5}
+      >
         <Mark shape={node.shape} r={node.radius} />
       </g>
-      <text y={node.radius + 13} textAnchor="middle" fontSize={11} fill="var(--label-secondary)">
-        {shortName(entity.name)}
+      <text
+        x={node.label.x - node.x}
+        y={node.label.y - node.y}
+        textAnchor={node.label.anchor}
+        fontSize={11}
+        fill={highlighted ? "var(--label-primary)" : "var(--label-secondary)"}
+      >
+        <title>{entity.name}</title>
+        {labelText(entity.name)}
       </text>
       {entity.openLoops > 0 ? (
         <g
           transform={`translate(${node.radius * 0.8} ${-node.radius * 0.8})`}
           data-testid="people-node-loops"
         >
-          <circle r={Math.max(7, badge)} fill="var(--label-primary)" />
+          <circle r={Math.max(8, badge)} fill="var(--label-secondary)" />
           <text
             textAnchor="middle"
             dominantBaseline="central"
-            fontSize={9}
-            fontWeight={700}
+            fontSize={11}
+            fontWeight={600}
             fill="var(--surface-raised)"
           >
             {entity.openLoops}

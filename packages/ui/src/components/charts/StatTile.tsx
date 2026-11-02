@@ -3,8 +3,7 @@ import { Card } from "../../blocks/card.tsx";
 import type { I18n } from "../../i18n/core.ts";
 import { useI18n } from "../../i18n/I18nProvider.tsx";
 import { cn } from "../../lib/utils.ts";
-import { Sparkline } from "../sparkline.tsx";
-import { computeDelta, type Delta, sparklineEligible } from "./model.ts";
+import { computeDelta, type Delta } from "./model.ts";
 
 export interface StatTileProps {
   /** Short noun for the number ("Tasks done"); may wrap to two lines. */
@@ -14,8 +13,6 @@ export interface StatTileProps {
   previous?: number | null;
   /** Names the comparison in the delta words: "last month". */
   periodLabel?: string;
-  /** Daily counts for the sparkline; drawn only with at least two non-zero points. */
-  spark?: readonly number[];
   /** A line under the delta ("98% ok · 4 failed"); may hold its own links. */
   subline?: ReactNode;
   /** The tile is a link when `href` is set, a button when `onClick` is. */
@@ -47,8 +44,8 @@ export function deltaText(i18n: I18n, delta: Delta, period: string): string {
 }
 
 /**
- * A summary tile (agent-overview-2026 §5.4): label, a big tabular number, an optional sparkline,
- * a delta chip (arrow glyph plus words) and a subline. As a link its accessible name carries the
+ * A summary tile (agent-overview-2026 §5.4): label, a big tabular number,
+ * a delta line (arrow glyph plus words) and a subline. As a link its accessible name carries the
  * number and the delta. Chrome is the shared `Card`.
  */
 export function StatTile({
@@ -56,7 +53,6 @@ export function StatTile({
   value,
   previous,
   periodLabel = "",
-  spark,
   subline,
   href,
   onClick,
@@ -103,9 +99,6 @@ export function StatTile({
             <div>{body}</div>
           )}
         </div>
-        {sparklineEligible(spark) ? (
-          <Sparkline values={spark ?? []} width={64} height={24} testId="stat-tile-spark" />
-        ) : null}
       </div>
       {showDelta || subline !== undefined ? (
         <div className="mt-1 flex flex-wrap items-center gap-x-2 text-caption text-label-secondary">

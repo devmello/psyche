@@ -11,7 +11,6 @@ import {
   MessageCircle,
   Phone,
   ShieldAlert,
-  Sparkles,
   StickyNote,
   UserRound,
 } from "lucide-react";
@@ -62,9 +61,9 @@ export function EntityMonogram({
       className={cn(
         "flex shrink-0 items-center justify-center bg-fill-secondary font-semibold text-label-secondary",
         kind === "person" ? "rounded-full" : "rounded-md",
-        size === 20 && "size-5 text-[9px]",
-        size === 32 && "size-8 text-[12px]",
-        size === 40 && "size-10 text-[15px]",
+        size === 20 && "size-5 text-caption",
+        size === 32 && "size-8 text-callout",
+        size === 40 && "size-10 text-title-3",
         className,
       )}
     >
@@ -89,7 +88,7 @@ export const INTERACTION_ICON: Record<GraphInteractionKind, LucideIcon> = {
 
 const PROVENANCE_ICON: Record<GraphProvenance, LucideIcon> = {
   owner: UserRound,
-  agent: Sparkles,
+  agent: Bot,
   untrusted: ShieldAlert,
   system: Database,
 };

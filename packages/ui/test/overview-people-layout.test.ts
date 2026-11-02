@@ -2,6 +2,9 @@ import type { InsightEntity } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
 import { FIXTURE_NOW, insightsFixtures } from "../src/fixtures/index.ts";
 import {
+  labelBox,
+  labelText,
+  labelWidth,
   layoutPeopleMap,
   MAP_HEIGHT,
   MAP_WIDTH,
@@ -129,15 +132,28 @@ describe("layoutPeopleMap", () => {
     }
   });
 
-  it("puts each name just outside its node, away from the centre", () => {
-    const { nodes, center } = layoutPeopleMap(fixtures, NOW);
-    for (const n of nodes) {
-      const node = Math.hypot(n.x - center.x, n.y - center.y);
-      const label = Math.hypot(n.label.x - center.x, n.label.y - center.y);
-      expect(label).toBeGreaterThan(node);
-      if (n.label.anchor === "start") expect(n.label.x).toBeGreaterThan(n.x);
-      if (n.label.anchor === "end") expect(n.label.x).toBeLessThan(n.x);
-      if (n.label.anchor === "middle") expect(n.label.x).toBe(n.x);
+  it("keeps every name clear of every node and every other name", () => {
+    for (const set of [fixtures, insightsFixtures("heavy")["all"].topEntities]) {
+      const { nodes, center } = layoutPeopleMap(set, NOW);
+      const boxes = nodes.map((n) => labelBox(n.label, labelWidth(labelText(n.entity.name))));
+      for (const [i, n] of nodes.entries()) {
+        const box = boxes[i] as (typeof boxes)[number];
+        for (const [j, m] of nodes.entries()) {
+          const nearX = Math.max(box.l - m.x, 0, m.x - box.r);
+          const nearY = Math.max(box.t - m.y, 0, m.y - box.b);
+          expect(
+            Math.hypot(nearX, nearY),
+            `${n.entity.name} on ${m.entity.name}`,
+          ).toBeGreaterThanOrEqual(m.radius);
+          const other = boxes[j] as (typeof boxes)[number];
+          if (j > i) {
+            const apart =
+              box.r <= other.l || other.r <= box.l || box.b <= other.t || other.b <= box.t;
+            expect(apart, `${n.entity.name} on ${m.entity.name}`).toBe(true);
+          }
+        }
+        expect(Math.hypot(n.label.x - center.x, n.label.y - center.y)).toBeGreaterThan(0);
+      }
     }
   });
 

@@ -180,7 +180,7 @@ export function MemoryFileEditor({ path, budget }: { path: string; budget: numbe
       ) : (
         <Textarea
           aria-label={t("agent.memory.contents", { path })}
-          className="field-sizing-fixed min-h-0 flex-1 resize-none overflow-auto bg-canvas font-mono text-[13px] leading-5"
+          className="field-sizing-fixed min-h-0 flex-1 resize-none overflow-auto bg-canvas font-mono text-body"
           value={value}
           onChange={(e) => setDraft(e.target.value)}
         />

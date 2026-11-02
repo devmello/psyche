@@ -3,7 +3,6 @@ import { Search } from "lucide-react";
 import { type ReactElement, type ReactNode, useMemo, useState } from "react";
 import { TASK_STATUS_LABEL } from "../blocks/TaskCard.tsx";
 import { DelayedSkeletons } from "../components/DelayedSkeleton.tsx";
-import { Sparkline } from "../components/sparkline.tsx";
 import {
   StatusGlyph,
   type StatusKind,
@@ -179,14 +178,6 @@ export function NowRunRow({
       trailing={
         <>
           <LiveDuration startedAt={Date.parse(r.startedAt)} now={now} />
-          {r.activity ? (
-            <Sparkline
-              values={r.activity}
-              live
-              label={t("agent.activity.sparkSteps")}
-              testId="activity-sparkline"
-            />
-          ) : null}
         </>
       }
       onOpen={() => onOpenRun(r.id)}
@@ -252,15 +243,6 @@ export function NextRow({
         usual === null
           ? when
           : `${when} · ${t("agent.activity.usually", { duration: formatStepDuration(usual) })}`
-      }
-      trailing={
-        durations && durations.length > 1 ? (
-          <Sparkline
-            values={[...durations].reverse()}
-            label={t("agent.activity.sparkDurations", { n: durations.length })}
-            testId="durations-sparkline"
-          />
-        ) : undefined
       }
       {...(latest
         ? {
