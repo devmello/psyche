@@ -367,7 +367,7 @@ describe("sidebar (redesign-2026 §5.1)", () => {
               onOpenThread={() => {}}
               onNewSideChat={() => {}}
               onWidthChange={() => {}}
-              counts={{ feed: 2 }}
+              counts={{ home: 2 }}
               now={NOW}
             />
           </ShellMotion>
@@ -381,9 +381,10 @@ describe("sidebar (redesign-2026 §5.1)", () => {
     await screen.findAllByTestId("thread-row");
     await expectNoAxeViolations(container);
     const nav = screen.getByRole("navigation", { name: "Sidebar" });
-    const feed = RAIL_ITEMS.find((i) => i.id === "feed");
-    if (feed !== undefined)
-      expect(within(nav).getByRole("button", { name: `${feed.label}, 2 new` })).toBeTruthy();
+    const home = RAIL_ITEMS.find((i) => i.id === "home");
+    expect(
+      within(nav).getByRole("button", { name: `${home?.label}, 2 waiting on you` }),
+    ).toBeTruthy();
     // The open thread is the current page; the resize edge is a labelled separator.
     expect(within(nav).getAllByRole("button", { current: "page" })).toHaveLength(1);
     expect(within(nav).getByRole("separator", { name: "Resize the sidebar" })).toBeTruthy();
@@ -397,8 +398,8 @@ describe("sidebar (redesign-2026 §5.1)", () => {
     const chat = within(nav).getByRole("button", { name: "Chat" });
     chat.focus();
     await user.keyboard("{ArrowDown}");
-    // Inbox follows Chat since #1049; its name may carry an unread count.
-    expect(document.activeElement).toBe(within(nav).getByRole("button", { name: /^Inbox/ }));
+    // Home follows Chat since the 2026 consolidation; its name carries the waiting count.
+    expect(document.activeElement).toBe(within(nav).getByRole("button", { name: /^Home/ }));
     await user.keyboard("{End}");
     expect(document.activeElement?.closest("nav")).toBe(nav);
   });
