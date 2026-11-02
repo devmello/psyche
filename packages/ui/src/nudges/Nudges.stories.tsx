@@ -22,6 +22,18 @@ const items: Record<string, NudgeItem> = {
     channel: "messages",
     date: null,
     overdue: false,
+    starters: [
+      {
+        text: "Ask how the new job at Initech is going",
+        evidence: "Employer: Initech · their own words, accepted by you · Oct 12",
+      },
+      {
+        text: "Follow up on: moved to Lisbon in September",
+        evidence:
+          "Life event: moved to Lisbon in September · their own words, accepted by you · Oct 3",
+      },
+      { text: "You promised: “send the deck”", evidence: "Your promise · Oct 28" },
+    ],
   },
   drift: {
     id: "nd_drift",
@@ -98,6 +110,10 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Unanswered: Story = {};
+/** Priya Rao with nothing on file: the card has no starters, only the actions. */
+export const UnansweredNothingKnown: Story = {
+  args: { item: { ...(items.unanswered as NudgeItem), starters: [] } },
+};
 export const Drifting: Story = {
   args: { item: items.drift as NudgeItem, title: "Catch up with Sam Cole" },
 };

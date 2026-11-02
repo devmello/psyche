@@ -540,6 +540,8 @@ export interface Everything {
   readonly store: EverythingStore;
   readonly settings: () => EverythingMemorySettings;
   readonly handlers: EverythingHandlers;
+  /** The model the owner chose, or none (off, or a local one not confirmed yet). */
+  readonly answerModel: () => { provider: ModelProvider; model: ModelRef } | undefined;
   /** The nightly step, for the dreaming automation (after the lesson pass, before the graph pass). */
   readonly nightly: NightlyStep;
   /** The scheduled job (matched by its marker) for the launcher chain. */
@@ -562,6 +564,21 @@ export function composeEverything(deps: EverythingDeps): Everything {
   let runNowFn: () => Promise<EverythingRunResult> = async () => {
     throw new PsycheError("unavailable", "everything memory is not ready");
   };
+  const answerModel = (): { provider: ModelProvider; model: ModelRef } | undefined => {
+    const s = settings();
+    const choice = s.model.default;
+    if (!s.enabled || choice.kind === "none") return undefined;
+    if (choice.kind === "cloud")
+      return {
+        provider: deps.provider,
+        model: (choice.ref as ModelRef | undefined) ?? deps.utility,
+      };
+    const raw = getSetting(db, EVERYTHING_LOCAL_CONFIRMED)?.value;
+    const confirmed = typeof raw === "string" ? [raw] : Array.isArray(raw) ? raw : [];
+    return choice.ref !== undefined && confirmed.includes(choice.ref)
+      ? { provider: deps.provider, model: choice.ref as ModelRef }
+      : undefined;
+  };
   const handlers = everythingHandlers(store, settings, () => runNowFn(), {
     graph,
     clock,
@@ -570,21 +587,7 @@ export function composeEverything(deps: EverythingDeps): Everything {
     timeZone: deps.timeZone,
     ...(deps.card === undefined ? {} : { card: deps.card }),
     ...(deps.embedder === undefined ? {} : { embedder: deps.embedder }),
-    answerModel: () => {
-      const s = settings();
-      const choice = s.model.default;
-      if (!s.enabled || choice.kind === "none") return undefined;
-      if (choice.kind === "cloud")
-        return {
-          provider: deps.provider,
-          model: (choice.ref as ModelRef | undefined) ?? deps.utility,
-        };
-      const raw = getSetting(db, EVERYTHING_LOCAL_CONFIRMED)?.value;
-      const confirmed = typeof raw === "string" ? [raw] : Array.isArray(raw) ? raw : [];
-      return choice.ref !== undefined && confirmed.includes(choice.ref)
-        ? { provider: deps.provider, model: choice.ref as ModelRef }
-        : undefined;
-    },
+    answerModel,
   });
   let search: PsycheDb | undefined;
   // A second, read-only connection to the derived index, opened on the first read (so a pass the
@@ -767,6 +770,7 @@ export function composeEverything(deps: EverythingDeps): Everything {
     store,
     settings,
     handlers,
+    answerModel,
     nightly,
     job,
     runNow: () => runNowFn(),

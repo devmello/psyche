@@ -3,6 +3,7 @@ export const nudges = {
   "settings.key.nudges.enabled": "Relationship nudges",
   "settings.key.nudges.consentedAt": "Relationship nudges consent",
   "settings.key.nudges.sensitivity": "How often to nudge",
+  "settings.key.nudges.phrasing": "Reword nudge suggestions",
   "nudges.kind": "Keep in touch",
   "nudges.draftReply": "Draft a reply",
   "nudges.draftMessage": "Draft a message",
@@ -28,6 +29,12 @@ export const nudges = {
     "It is nearly {name}'s special day ({date}). Draft a short, warm message I could send. Do not send anything.",
   "nudges.draft.promise":
     "{text} Help me follow up: draft a short message to {name} about it. Do not send anything.",
+  "nudges.starters.title": "Things to bring up",
+  "nudges.draft.starters":
+    "Things I could bring up, from what Psyche has on file (use only these and do not invent anything else):",
+  "nudges.settings.phrasing": "Reword suggestions with my model",
+  "nudges.settings.phrasingHint":
+    "Uses the model chosen in Settings → Everything memory to say the “things to bring up” in friendlier words. It sees only those short lines, adds nothing, and the plain wording stays if it fails. Off by default.",
   "nudges.person.title": "Keep in touch",
   "nudges.person.none": "Nothing to follow up.",
   "nudges.person.muted": "Nudges for {name} are off.",

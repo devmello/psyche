@@ -133,3 +133,45 @@ and hidden entities get nothing; sensitive and pending facts are never used (bir
 `health`, pending birthday, quarantined); snooze and done persist and expire; mute persists and
 undoes; the brief shows at most 3; the Feed posts at most 3 a day and never twice, and not in
 quiet hours; off by default and before consent; nudge text never contains a subject line.
+
+## 9. Conversation starters (added 2026-11-02)
+
+When a nudge says to reach out, it can also say what to talk about: up to three short lines, each
+with a line showing where it comes from.
+
+> Ask how the new job at Initech is going
+> *Employer: Initech · their own words, accepted by you · Oct 12*
+>
+> You promised: “send the deck”
+> *Your promise · Oct 28*
+
+**What can be a starter** (deterministic templates, `packages/memory/src/graph/starters.ts`):
+
+- The owner's own open commitments to that person ("You promised…"), and things the owner noted
+  they are waiting on. Never a promise or note that came from someone else's text.
+- Accepted facts with no sensitivity class, from a short fixed list: life event, employer (or
+  role when no employer), school, city, pets, children and partner by name, likes. A noted gift
+  idea only on a birthday or anniversary nudge. Nothing else is read: no free-text notes, diet,
+  hometown, contact preferences, or anything from a fact still waiting for review.
+- A promise nudge leaves its own promise out of its starters.
+
+**Order**: promise, gift idea, life event, employer, role/school, city/pets/family, likes. At most
+three. **With too little known there are none**: the card shows its actions and no starters, never
+a generic line like "ask how they're doing".
+
+**Evidence line**: attribute, value, how it became known ("you told Psyche", "from Contacts",
+"learned from your own words", "their own words, accepted by you") and the date. It never contains
+the quote a fact was cited from, a subject line, or anything else from a message. Values are one
+clean line, skipped when they look like an instruction or hold something sensitive.
+
+**Where**: the Feed card, the person page row, Home and People's Keep in touch (they all share the
+nudge actions), and inside "Draft a reply": the chat gets the starters with their sources as
+context and is told to use only those and invent nothing. Nothing is sent.
+
+**Optional rewording** (`nudges.phrasing`, off by default, Settings → People & projects): the
+model chosen in everything memory (None means this does nothing; a local model must be confirmed)
+rewrites the starter lines in friendlier words. It sees only the starter sentences, with no tools.
+A reworded line is kept only if it is one short line with no link or address, repeats the words of
+the fact, and adds no capitalised word or number that was not in the original; otherwise that
+line keeps its template. The evidence line is never reworded, and reworded text is kept in memory
+only.

@@ -3,6 +3,7 @@ import { hashCanonical } from "@psyche/audit";
 import {
   type FolderAccessEnv,
   type FolderGrantEntry,
+  folderCovers,
   folderScopesOffered,
   resolveRequestedFolder,
 } from "@psyche/permissions";
@@ -23,6 +24,11 @@ export interface FolderAccessToolDeps {
   surfaces: readonly string[];
   /** The sensitive-root environment the broker judges a folder by (defaults to this user's home). */
   folderEnv?: () => FolderAccessEnv;
+  /**
+   * The folders already granted for this conversation (Settings' list plus its own). A request
+   * they cover is answered at once, so the owner is never asked for what they already gave.
+   */
+  grantedFolders?: (threadId: string) => readonly FolderGrantEntry[];
 }
 
 export function requestFolderAccessTool(deps: FolderAccessToolDeps): AgentToolRegistration {
@@ -51,16 +57,29 @@ export async function askForFolder(
   if (ctx.requester !== undefined && ctx.requester.role !== "owner") {
     throw new PsycheError("forbidden", "only the owner can share a folder");
   }
-  if (ctx.mode === "unattended") {
-    throw new PsycheError(
-      "approval_required",
-      "sharing a folder needs the owner; ask again in a chat turn",
-    );
-  }
   const mode = p.access === "read_write" ? "rw" : "ro";
   // The card pre-fills this resolved folder; the owner can replace it with the picker. What is
   // shown is what is granted, and the broker re-resolves it when the owner answers.
   const requested = await resolveRequestedFolder(p.path, deps.folderEnv?.() ?? {});
+  // Never ask twice for the same scope: a granted folder that covers this request answers it.
+  const covered = folderCovers(
+    deps.grantedFolders?.(ctx.threadId) ?? [],
+    requested.status === "missing" ? p.path : requested.path,
+    mode,
+  );
+  if (covered !== undefined && requested.status !== "blocked") {
+    return {
+      output: {
+        granted: true,
+        status: "already",
+        path: covered.path,
+        access: covered.mode === "rw" ? "read_write" : "read",
+        next: "continue; this folder was already shared",
+      },
+      provenance: "trusted",
+    };
+  }
+  const unattended = ctx.mode === "unattended";
   const resolved =
     requested.status === "missing"
       ? { folderStatus: "missing" }
@@ -69,6 +88,17 @@ export async function askForFolder(
           resolvedPath: requested.path,
           ...(requested.status === "blocked" ? { blockedReason: requested.reason } : {}),
         };
+  // An unattended run cannot wait: the card is queued in the inbox (once per folder) and the
+  // run carries on without it. An answer of "Always" works from the next run on.
+  if (unattended && requested.status !== "missing") {
+    const waiting = (await deps.broker.list({ status: "pending" })).some(
+      (a) =>
+        a.kind === "folder_access" &&
+        a.details.resolvedPath === requested.path &&
+        (a.details.access === "rw" || mode === "ro"),
+    );
+    if (waiting) return queued(requested.path);
+  }
   const binding = hashCanonical({
     tool: "request_folder_access",
     path: p.path,
@@ -92,10 +122,12 @@ export async function askForFolder(
     },
     sideEffect: mode === "rw" ? "write" : "read",
     surfaces: [...deps.surfaces],
-    scopesOffered: folderScopesOffered(ctx.taint),
+    // Unattended: "this conversation" ends with the run, so only a lasting answer is useful.
+    scopesOffered: unattended && !ctx.taint ? ["always"] : folderScopesOffered(ctx.taint),
     taint: ctx.taint,
     ...(ctx.taint && ctx.taintSources !== undefined ? { taintSources: [...ctx.taintSources] } : {}),
   });
+  if (unattended) return queued(requested.status === "missing" ? p.path : requested.path);
   const done = await deps.broker.awaitDecision(issued.approval.id, ctx.signal);
   const granted = done.details.granted as FolderGrantEntry | undefined;
   if (done.status !== "approved" || granted === undefined) {
@@ -107,6 +139,18 @@ export async function askForFolder(
       path: granted.path,
       access: granted.mode === "rw" ? "read_write" : "read",
       until: done.scopeGranted === "always" ? "revoked" : "end of this conversation",
+    },
+    provenance: "trusted",
+  };
+}
+
+/** What an unattended run is told: the card waits for the owner; go on without the folder. */
+function queued(path: string): ToolResult {
+  return {
+    output: {
+      granted: false,
+      status: "queued",
+      why: `asked the owner for ${path}; the card is in their inbox. Continue without it and say in your report that you need that folder`,
     },
     provenance: "trusted",
   };

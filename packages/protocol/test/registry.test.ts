@@ -72,6 +72,8 @@ const REQUIRED_METHODS: MethodName[] = [
   "approvals.answer",
   "grants.list",
   "grants.revoke",
+  "access.list",
+  "access.revoke",
   "memory.search",
   "memory.read",
   "memory.write",
