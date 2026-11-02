@@ -1,3 +1,4 @@
+import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   type AttentionState,
@@ -5,6 +6,7 @@ import {
   BOT_AUTH_DIRECTORY_PATH,
   BOT_AUTH_DIRECTORY_TYPE,
   type BotAuthConfig,
+  BRIDGE_SOCKET_POINTER,
   type BridgeClient,
   BridgeServer,
   type BrowserDriverEx,
@@ -15,6 +17,7 @@ import {
   createRoutingDriver,
   DevServerRegistry,
   type DevServerRegistryOptions,
+  defaultBridgeSocketPath,
   FileRecordingSink,
   type LibraryWriter,
   listeningPorts,
@@ -787,13 +790,16 @@ export function composeBrowser(
         }
       });
       if (setup.socketPath === false) return;
+      const socketPath = setup.socketPath ?? defaultBridgeSocketPath(services.home);
       server = new BridgeServer({
-        socketPath: setup.socketPath ?? join(services.home, "run", "browser-bridge.sock"),
+        socketPath,
         handshakeSecret: gateway.handshakeSecret,
         gatewayVersion: "psyched",
         onClient: (c) => void attach(c),
       });
       await server.listen();
+      // A deep `$PSYCHE_HOME` puts the socket under the temp dir: tell the desktop where.
+      await recordBridgeSocket(services.home, socketPath);
     },
     async stop() {
       offSettings?.();
@@ -949,4 +955,19 @@ function browserHandlers(
       },
     },
   };
+}
+
+/**
+ * Tells the desktop where the bridge socket is when it is not `$PSYCHE_HOME/run/browser-bridge.sock`
+ * (a deep home moves it under the temp dir); removes a stale pointer when it is the default again.
+ */
+export async function recordBridgeSocket(home: string, socketPath: string): Promise<void> {
+  const pointer = join(home, "run", BRIDGE_SOCKET_POINTER);
+  if (socketPath === join(home, "run", "browser-bridge.sock")) {
+    await rm(pointer, { force: true });
+    return;
+  }
+  await mkdir(join(home, "run"), { recursive: true, mode: 0o700 });
+  await writeFile(pointer, `${socketPath}\n`, { mode: 0o600 });
+  await chmod(pointer, 0o600);
 }

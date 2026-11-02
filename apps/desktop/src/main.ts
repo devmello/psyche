@@ -56,7 +56,7 @@ import { realChromeOpenCommand, realChromeProfileDir } from "./lib/real-chrome.t
 import { WindowTheme } from "./lib/window-theme.ts";
 import { ZoomController } from "./lib/zoom.ts";
 import { bootstrapAdminIfNeeded } from "./main/bootstrap-admin.ts";
-import { BridgeClient } from "./main/bridge/bridge-client.ts";
+import { BridgeClient, bridgeSocketPath } from "./main/bridge/bridge-client.ts";
 import { createAttentionReporter } from "./main/browser/attention.ts";
 import { BrowserHost } from "./main/browser/browser-host.ts";
 import { SystemDictation } from "./main/dictation/controller.ts";
@@ -871,8 +871,7 @@ void app.whenReady().then(async () => {
         void bridge.stop();
       }
       bridge = new BridgeClient({
-        socketPath:
-          process.env.PSYCHE_BROWSER_BRIDGE_SOCKET ?? join(home, "run", "browser-bridge.sock"),
+        socketPath: process.env.PSYCHE_BROWSER_BRIDGE_SOCKET ?? bridgeSocketPath(home),
         psycheHome: home,
         desktopVersion: app.getVersion(),
         host: browser,
