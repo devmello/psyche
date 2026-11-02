@@ -1,6 +1,7 @@
 import {
   type ComingUpItem,
   type EverythingExclusion,
+  type EverythingRunResult,
   type GraphFact,
   type LifeFactHit,
   type MemoryRun,
@@ -25,6 +26,8 @@ export interface ReviewWorld {
   exclusions?: EverythingExclusion[];
   /** Life search results (absent = none). */
   life?: LifeFactHit[];
+  /** What "Run now" answers (default: a small successful pass). */
+  runResult?: EverythingRunResult;
   /** Coming up lines, by entity (absent = none). */
   upcoming?: ComingUpItem[];
   /** People whose data was forgotten or excluded, for tests. */
@@ -98,6 +101,20 @@ export function reviewHandlers(ctx: { world: () => ReviewWorld; now: () => strin
         p.action === "release" ? "released" : p.action === "discard" ? "discarded" : "blocked";
       q.decidedAt = ctx.now();
       return { item: q };
+    },
+    "memory.everything.run": () => {
+      const w = ctx.world();
+      return (
+        w.runResult ?? {
+          ran: true,
+          reason: null,
+          itemsRead: 12,
+          factsProposed: 3,
+          quarantined: 1,
+          deferred: 0,
+          tokens: 5200,
+        }
+      );
     },
     "memory.senders.list": () => ({ senders: ctx.world().senders ?? [] }),
     "memory.senders.decide": (p) => {

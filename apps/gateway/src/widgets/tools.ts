@@ -28,6 +28,7 @@ const CATALOGUE =
   "table {label,columns:[{key,label,type?: text|number|date|link}],rows:[{key:value}],sortable?}; text {text,emphasis?,tone?}; markdown {md}; code {code,language?}; link {label,url}; " +
   "card {title?,subtitle?,tone?,children}; list {items:[{id,title,meta?}]}; stack {direction?,gap?,children}; grid {columns:2-4,children}; tabs {tabs:[{id,label,children}]}. " +
   "tone is neutral|info|success|warning|danger. No colours, classes, HTML or scripts exist; unknown fields are rejected. " +
+  "Live: a progress, checklist, status, stat or text node may carry bind:{source,id,field} and the app keeps it current with no tokens: task (status, progress, steps, title, summary), tool_call (status), research (progress, status, claims, sources; id is the research tool call id), automation (status, nextRun, lastRun), job (status, lastStep). Prefer bind over update_ui for anything the app already tracks; only things of this chat can be bound. " +
   "(chart, image, map, button, choices and form are accepted but not drawn yet; do not rely on them.)";
 
 const RENDER_DESCRIPTION =

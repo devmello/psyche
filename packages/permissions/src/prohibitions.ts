@@ -214,6 +214,8 @@ const CONTROL_PLANE_TOOL =
   /^(settings|config|grants|approvals|devices|device|pairing|policy|permissions|vault|security|gateway)[._]/i;
 /** The helper's metadata reads for the people graph (#763): only its ingest path may call them. */
 const GRAPH_INGEST_TOOL = /^(node\.)?messages\.graph_/i;
+/** Vision OCR reads file contents for search ingest only (roadmap R6/R7). */
+const OCR_INGEST_TOOL = /^(node\.)?ocr\./i;
 const PERMANENT_RM = new Set(["rm", "rmdir", "shred", "srm", "unlink"]);
 export const CONFIRMATION_WORD = "DELETE";
 
@@ -313,6 +315,9 @@ export async function checkProhibitions(
   // Messages metadata for the people graph never reaches a tool or an agent, whatever the policy.
   if (GRAPH_INGEST_TOOL.test(tool)) {
     return deny("graph_ingest_only", "Messages metadata is read only by the people graph's ingest");
+  }
+  if (OCR_INGEST_TOOL.test(tool)) {
+    return deny("ocr_ingest_only", "Text recognition is run only by the search ingest");
   }
   const path = targetPath(call);
   if (path !== undefined && env.psycheHome !== undefined) {

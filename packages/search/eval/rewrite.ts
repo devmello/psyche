@@ -14,7 +14,7 @@
  * Filter tokens the user typed (`from:maya`, `type:pdf`) pass through every rewrite unchanged.
  */
 
-export type RewriteMode = "raw" | "keywords" | "rules" | "prod" | "model";
+export type RewriteMode = "raw" | "keywords" | "rules" | "prod" | "model" | "rerank";
 
 export interface Rewrite {
   q: string;
@@ -176,7 +176,7 @@ function people(original: string): string[] {
 }
 
 export function rewrite(q: string, mode: RewriteMode, now: number, tz = 0): Rewrite {
-  if (mode === "raw" || mode === "prod" || mode === "model") return { q };
+  if (mode === "raw" || mode === "prod" || mode === "model" || mode === "rerank") return { q };
   const typed = q.split(/\s+/).filter((t) => FILTER_KEYS.test(t));
   const free = q
     .split(/\s+/)

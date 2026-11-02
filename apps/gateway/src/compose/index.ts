@@ -60,7 +60,12 @@ import {
   replayRevocations,
   SqlitePermissionStore,
 } from "@psyche/permissions";
-import { DAILY_SETTING_KEYS, proactiveTools, publicFetch } from "@psyche/proactive";
+import {
+  DAILY_SETTING_KEYS,
+  proactiveTools,
+  publicFetch,
+  withProactiveJobs,
+} from "@psyche/proactive";
 import {
   type ApprovalRequestInput,
   type Clock,
@@ -151,6 +156,7 @@ import {
   settingsKeyValue,
 } from "./model-settings.ts";
 import { createOtherChats, type OtherChats } from "./other-chats.ts";
+import { PageReadHub } from "./page-reads.ts";
 import { composePasskeys } from "./passkeys.ts";
 import { composePayments, paymentsSetupFromEnv } from "./payments.ts";
 import { composePeople, type People } from "./people.ts";
@@ -169,6 +175,7 @@ import { scriptTools } from "./scripts.ts";
 import { type ComposedSearch, composeSearch, graphNames } from "./search.ts";
 import { appleSearchSeams } from "./search-apple.ts";
 import { filesSourceDeps, powerReader } from "./search-files.ts";
+import { helperRecognizer } from "./search-ocr.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
 import { searchEverythingTool } from "./search-tool.ts";
 import {
@@ -835,8 +842,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const ownPorts = createOwnPorts();
   const browserAvailability: BrowserAvailability = {};
   ownPorts.add(config.port, "gateway (configured)");
+  const pageReads = new PageReadHub();
   const services: ComposeServices = {
     documents,
+    pageReads,
     db,
     srt,
     clock,
@@ -933,6 +942,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       .find(
         (n) => nodes.isLive(n.id) && n.capabilities.some((c) => c.name === "messages.graph_read"),
       );
+    return node === undefined ? undefined : nodes?.client(node.id);
+  };
+  // The Mac helper that offers Vision OCR for search ingest (`ocr.recognize`), when one is live.
+  const ocrHelper = () => {
+    const nodes = gatewayRef?.context.nodes;
+    const node = nodes
+      ?.list()
+      .find((n) => nodes.isLive(n.id) && n.capabilities.some((c) => c.name === "ocr.recognize"));
     return node === undefined ? undefined : nodes?.client(node.id);
   };
   people.useSources(() =>
@@ -1288,14 +1305,22 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     withAutomationSpecialists(
       people.launcher(
         // The weekly "What I learned" Feed post (teaching loop §5.4) runs in-process too.
-        withWeeklyCard(proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool), {
-          store: teaching.service.store,
-          memory,
-          clock,
-          enabled: () =>
-            teachingSettings(db).enabled && getSetting(db, "teaching.weeklyCard")?.value !== false,
-          post: (card) => proactive.feed.postGrowth(card),
-        }),
+        withWeeklyCard(
+          // Everything memory (#1010) is its own scheduled job (03:15, after dreaming), so
+          // Scheduled shows it and can Run it now.
+          withProactiveJobs(proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool), {
+            jobs: [everything.job],
+          }),
+          {
+            store: teaching.service.store,
+            memory,
+            clock,
+            enabled: () =>
+              teachingSettings(db).enabled &&
+              getSetting(db, "teaching.weeklyCard")?.value !== false,
+            post: (card) => proactive.feed.postGrowth(card),
+          },
+        ),
         [
           async () => {
             if (!teachingSettings(db).enabled) return undefined;
@@ -1304,9 +1329,6 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
             const dormant = await retireUnanswered(teaching.service, memory, { clock });
             return `lessons: ${r.merged} merged, ${r.promoted} promoted, ${r.proposed} proposed, ${r.flagged} flagged, ${dormant} dormant`;
           },
-          // Everything memory (#1010): off and model None until the owner picks; gated on power,
-          // idle time and quiet hours inside the pass.
-          everything.nightly,
         ],
       ),
       { db, tasks, host: specialists, now: () => clock.now() },
@@ -1374,14 +1396,20 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     messages: graphMessagesHelper,
     now: () => clock.now(),
   });
+  const power = powerReader();
   const search = composeSearch({
     // Local sources: each off until the owner turns it on in Settings → Search sources.
     sources: {
       apple: appleSearch.deps,
       refresh: appleSearch.refresh,
-      files: filesSourceDeps({ folders: () => rawBroker.policy.folders ?? [] }),
-      power: powerReader(),
+      files: filesSourceDeps({
+        folders: () => rawBroker.policy.folders ?? [],
+        // Vision OCR in the Mac helper (opt-in per source), one file at a time, on power only.
+        ocr: { recognize: helperRecognizer(ocrHelper), power },
+      }),
+      power,
       watch: background,
+      pageReads,
     },
     db,
     home: config.home,
@@ -1401,6 +1429,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     routerEmbedder: (allowCloud) => routerEmbedder(router, allowCloud),
     // Context cards at ingest: the utility model (cheap), a few items per minute, a daily budget.
     cards: { provider, model: utility ?? modelRef },
+    // Cloud rerank of the top hits: the utility model, only when one is set and the owner opts in.
+    ...(utility === undefined ? {} : { rerank: { provider, model: utility } }),
     // Plain-English questions the rules cannot filter: the utility model, only when one is set.
     ...(utility === undefined ? {} : { queryModel: { provider, model: utility } }),
     ...(gwOptions.semanticEngines === undefined
@@ -1433,7 +1463,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   })) {
     registry.register(tool);
   }
-  parts.push(everything.part());
+  parts.push(
+    everything.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone),
+  );
   parts.push(people.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone));
   // Code plugins (T4): off until the owner turns on `plugins.enabled`.
   parts.push(

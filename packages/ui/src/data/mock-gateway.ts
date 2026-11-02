@@ -152,7 +152,10 @@ export interface MockWorld {
   searchHits: SearchHit[];
   searchSources: {
     sources: Partial<
-      Record<string, { enabled: boolean; processing: "cloud" | "local" | "none"; agent: boolean }>
+      Record<
+        string,
+        { enabled: boolean; processing: "cloud" | "local" | "none"; agent: boolean; ocr?: boolean }
+      >
     >;
     exclude: { contacts: string[]; chats: string[]; accounts: string[]; folders: string[] };
   };
@@ -351,7 +354,16 @@ export class MockGateway implements GatewayClient {
   private now: () => string;
   private counter = 0;
   private sourcesStatus(): MethodResult<"search.sources"> {
-    const ids = ["mail", "messages", "notes", "calendar", "reminders", "files"] as const;
+    const ids = [
+      "mail",
+      "messages",
+      "notes",
+      "calendar",
+      "reminders",
+      "files",
+      "browser",
+      "transcripts",
+    ] as const;
     const labels = {
       mail: "Mail",
       messages: "Messages",
@@ -359,6 +371,8 @@ export class MockGateway implements GatewayClient {
       calendar: "Calendar",
       reminders: "Reminders",
       files: "Files",
+      browser: "Browser pages",
+      transcripts: "Transcripts",
     };
     const cfg = this.world.searchSources;
     return {
@@ -374,6 +388,7 @@ export class MockGateway implements GatewayClient {
           enabled: c.enabled,
           processing: c.processing,
           agent: c.agent,
+          ocr: c.ocr === true,
           state: c.enabled ? ("idle" as const) : ("off" as const),
           items: c.enabled ? 120 : 0,
           textBytes: c.enabled ? 480_000 : 0,
@@ -2327,6 +2342,7 @@ export class MockGateway implements GatewayClient {
           enabled: p.enabled ?? cur.enabled,
           processing: p.processing ?? cur.processing,
           agent: p.agent ?? cur.agent,
+          ocr: p.source === "files" ? (p.ocr ?? cur.ocr ?? false) : false,
         };
       }
       if (p.exclude !== undefined) Object.assign(cfg.exclude, p.exclude);

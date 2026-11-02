@@ -34,6 +34,9 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 - `EverythingMemorySettings.people` gains `aboutOthers` (boolean, default false): keep what one person says about someone else, always pending.
 
+### v1 additive — 2026-11-02 (everything memory, Run now)
+
+- New method `memory.everything.run` (write) and types `EverythingRunResult`, `EverythingRunReason`: runs the pass now, minus quiet hours and idle time; returns counts or why it did not run.
 ### v1 additive — 2026-11-02 (everything memory, EM8a)
 
 - New methods `memory.upcoming`, `memory.entities.export`, `memory.entities.forgetSaid` (admin), `memory.entities.exclude` (admin); types `ComingUpItem`, `ComingUpKind`, `PersonRemoved`. `DailySectionId` gains `coming_up`.

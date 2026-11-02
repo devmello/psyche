@@ -4,6 +4,7 @@ import {
   ComingUpItem,
   EverythingExclusion,
   EverythingExclusionMode,
+  EverythingRunResult,
   LifeFactHit,
   MemoryRun,
   PersonRemoved,
@@ -655,6 +656,14 @@ export const MemoryMethods = {
     sideEffecting: true,
     description:
       "Lets everything memory read and learn from this address, number or domain again. Side-effecting.",
+  }),
+  "memory.everything.run": defineMethod({
+    params: Type.Object({}),
+    result: EverythingRunResult,
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Runs the everything-memory pass now, under the same limits (power, thermal, model, budget) except quiet hours and idle time. Returns counts, or why it did not run. Side-effecting.",
   }),
   "memory.senders.list": defineMethod({
     params: Type.Object({}),

@@ -130,6 +130,11 @@ export interface SearchRequest {
   /** Ids of understood chips the user removed (`time:last week`). */
   dropChips?: string[];
   /**
+   * Re-rank the top hits with the configured reranker (Search screen Enter, the agent tool;
+   * never ⌘K keystrokes). Ignored unless the owner enabled it and the viewer is the owner.
+   */
+  rerank?: boolean;
+  /**
    * Let the cheap query model read a question the rules could not filter (Search screen Enter,
    * the agent tool; never ⌘K keystrokes). Ignored when no model is configured.
    */
@@ -157,6 +162,8 @@ export interface SearchResponse {
   warnings: string[];
   tookMs: number;
   understood?: QueryUnderstood;
+  /** Set when the top `n` hits were reordered by reranker `by`. */
+  reranked?: { by: string; n: number };
 }
 
 export type { Provenance };
