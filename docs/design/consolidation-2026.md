@@ -97,9 +97,9 @@ old name ("feed", "ideas", "inbox", "overview") finds its new home through the k
 
 | Old | Goes to |
 | --- | --- |
-| `/feed`, `/feed/<id>` | `/home#today` |
+| `/feed`, `/feed/<id>` | `/home#today` (shown in place) |
 | `/feed/instructions` | `/home/instructions` (Home with the brief's instructions sheet open) |
-| `/ideas` | `/home#suggestions` |
+| `/ideas` | `/home#suggestions` (shown in place) |
 | `/agent/upcoming` (already redirected) | `/home#coming-up` |
 | `/agent/soul?entity=<id>` | `/people?entity=<id>` |
 | `/inbox`, `/goals[/<id>]`, `/scheduled`, `/search`, `/overview[...]` | unchanged (pages, just off the sidebar) |
@@ -118,12 +118,18 @@ every old route, so a model that learned the old names still opens the right thi
 
 ## 5. Delivery
 
-1. **Home and People** (this doc, `app-routes.ts`, the two pages composed from existing
-   components, ⌘K entries, the app guide). Mergeable alone: the old pages still exist.
-2. **Navigation** (after `shell-chrome` merges, since it edits the sidebar): the five places,
-   the Search row, the tab bar, ⌘1–⌘4, the redirects in §3.4, the Overview losing Upcoming and
-   Pinned, Soul & Memory's People row, onboarding text and the app guide naming the new places.
-3. **Cleanup**: dead code from the removed pages, stories, and the visual baselines that changed.
+1. **Home and People** (#1109): this doc, `app-routes.ts`, the two pages composed from existing
+   components, ⌘K entries, the app guide. Mergeable alone: the old pages still exist.
+2. **Navigation** (after `shell-chrome`'s #1107, which rewrote the sidebar): the five places, the
+   Search row, the tab bar, ⌘1–⌘4, the old routes in §3.4 shown in place, the Overview losing
+   Upcoming and Pinned, ⌘K listing every page plus New automation and Add a goal
+   (`/goals?add=1`), "Pin to Home", copy that said "in the Feed", and the app guide.
+3. **Cleanup**: the Ideas page and the Feed page layout, unused rail message ids, stories, and
+   the visual baselines that changed.
+
+How an old route is handled: `legacyRedirect` (`packages/ui/src/home/redirects.ts`) maps it,
+and the shell renders the new place for it **in place** instead of navigating. Navigating would
+push history, and Back would land on the old route and bounce forward again.
 
 ## 6. Decisions (and why)
 
@@ -147,3 +153,12 @@ every old route, so a model that learned the old names still opens the right thi
 8. **No protocol or gateway change** beyond allowing `/home` and `/people` in `app_navigate`.
    Old notification routes (`/ideas`, `/feed`) redirect in the UI, so the Gateway can keep
    writing them; switching the Gateway to the new routes is a later, optional tidy-up.
+9. **Old routes render in place, the URL is not rewritten.** `/feed` stays in the address bar
+   while Home shows; the sidebar marks Home. This keeps Back working and costs nothing, since
+   nothing reads the URL back except the router.
+10. **Pages off the sidebar keep Home marked** (`destinationFor`): Scheduled, Notifications,
+    Goals and the Overview are all reached from a Home section, so the selection says where you
+    came from. Search and Settings mark nothing.
+11. **One accent on Home**: the first Approve when something waits on you, otherwise the first
+    idea's Do it. Inferred goals and nudges use outline buttons on Home (their own pages keep
+    the accent), and Home's sidebar count is amber, the only count the sidebar shows now.

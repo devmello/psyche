@@ -75,9 +75,9 @@ describe("AppShell", () => {
     await screen.findByRole("log", { name: "Conversation" });
     await userEvent.keyboard("{Meta>}k{/Meta}{Control>}k{/Control}");
     const input = await screen.findByPlaceholderText("Search or type a command");
-    await userEvent.type(input, "Go to Feed");
+    await userEvent.type(input, "Go to Home");
     await userEvent.keyboard("{Enter}");
-    await waitFor(() => expect(routes).toContain("/feed"));
+    await waitFor(() => expect(routes).toContain("/home"));
   });
 });
 
