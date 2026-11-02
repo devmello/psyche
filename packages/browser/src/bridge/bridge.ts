@@ -207,7 +207,7 @@ export class BridgeServer {
     if (Buffer.byteLength(options.socketPath) > 103) {
       throw new PsycheError(
         "invalid_params",
-        "socket path exceeds the 104-byte macOS limit; set a shorter PSYCHE_HOME or socket path",
+        "socket path exceeds the 104-byte macOS limit; set a shorter PSYCHE_HOME or PSYCHE_BROWSER_BRIDGE_SOCKET",
       );
     }
     this.#o = options;

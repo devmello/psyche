@@ -110,7 +110,7 @@ Read by the Gateway (`psyched`):
 | `PSYCHE_BIND` | `loopback` (default) or `container`, which listens on the container interface | [config.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/config.ts) |
 | `PSYCHE_GATEWAY_TOKEN_FILE` | Transport token file, required with `PSYCHE_BIND=container` | [config.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/config.ts) |
 | `PSYCHE_PUBLIC_ORIGIN`, `PSYCHE_ALLOWED_ORIGINS` | Override `gateway.publicOrigin` and `gateway.allowedOrigins` (comma-separated) | [config.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/config.ts) |
-| `PSYCHE_DB`, `PSYCHE_NODE_SOCKET`, `PSYCHE_WEB_ROOT` | Database file, local node socket, built web UI directory | [config.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/config.ts) |
+| `PSYCHE_DB`, `PSYCHE_NODE_SOCKET`, `PSYCHE_BROWSER_BRIDGE_SOCKET`, `PSYCHE_WEB_ROOT` | Database file, local node socket, browser bridge socket (the desktop shell reads it too), built web UI directory | [config.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/config.ts) |
 | `PSYCHE_LOG_LEVEL` | Minimum log level (default `info`) | [log.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/log.ts) |
 | `PSYCHE_MODEL`, `PSYCHE_UTILITY_MODEL` | Primary and utility model, until set in Settings | [compose/models.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/compose/models.ts) |
 | `PSYCHE_OLLAMA_URL`, `PSYCHE_LLAMACPP_URL`, `PSYCHE_LMSTUDIO_URL` | Address of a local model server | [compose/models.ts](https://github.com/devmello/psyche/blob/main/apps/gateway/src/compose/models.ts) |
