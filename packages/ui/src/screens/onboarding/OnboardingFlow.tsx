@@ -208,6 +208,14 @@ export function OnboardingFlow({
     ? asked
     : (steps[ONBOARDING_STEP_IDS.indexOf(asked)] ?? "agent");
   const index = steps.indexOf(current);
+  // The mail decision appears only once an account is connected, so it is not counted: the total
+  // stays fixed through the flow and the mail screen shares its number with Connectors.
+  const counted = steps.filter((s) => s !== "mail");
+  const total = counted.length;
+  const position = Math.max(
+    1,
+    current === "mail" ? counted.indexOf("connectors") + 1 || index : counted.indexOf(current) + 1,
+  );
   const [reached, setReached] = useState(index);
   const [mail, setMail] = useState<MailChoices>(MAIL_DEFAULTS);
   const [sandboxReady, setSandboxReady] = useState(false);
@@ -439,20 +447,18 @@ export function OnboardingFlow({
           aria-label={t("onboarding.progress")}
           aria-valuemin={1}
           aria-valuemax={steps.length}
-          aria-valuenow={index + 1}
-          aria-valuetext={t("onboarding.stepCount", { n: index + 1, total: steps.length })}
+          aria-valuenow={position}
+          aria-valuetext={t("onboarding.stepCount", { n: position, total })}
           className="sr-only"
         >
-          {t("onboarding.stepCount", { n: index + 1, total: steps.length })}
+          {t("onboarding.stepCount", { n: position, total })}
         </span>
         <DropdownMenu>
           <DropdownMenuTrigger
-            aria-label={`${t("onboarding.progress")}: ${t("onboarding.stepCount", { n: index + 1, total: steps.length })}`}
+            aria-label={`${t("onboarding.progress")}: ${t("onboarding.stepCount", { n: position, total })}`}
             className="-me-1.5 cursor-default rounded-sm px-1.5 py-0.5 text-callout text-label-tertiary tabular-nums outline-none hover:text-label-secondary focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <span aria-hidden="true">
-              {t("onboarding.stepCount", { n: index + 1, total: steps.length })}
-            </span>
+            <span aria-hidden="true">{t("onboarding.stepCount", { n: position, total })}</span>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             {steps.map((s, i) => {
@@ -495,9 +501,7 @@ export function OnboardingFlow({
           tabIndex={-1}
           className="font-display text-large-title font-medium text-label-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="sr-only">
-            {t("onboarding.stepOf", { n: index + 1, total: steps.length })}{" "}
-          </span>
+          <span className="sr-only">{t("onboarding.stepOf", { n: position, total })} </span>
           {stepLabel(current, name)}
         </h1>
 

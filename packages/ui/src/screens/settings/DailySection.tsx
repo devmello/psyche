@@ -211,7 +211,7 @@ export function AutomationsPanel({
                   <span className="text-body text-label-primary">
                     {a.title}
                     {a.enabled ? null : (
-                      <span className="ml-2 text-caption text-label-secondary">
+                      <span className="ms-2 text-caption text-label-secondary">
                         {t("daily.automations.paused")}
                       </span>
                     )}
