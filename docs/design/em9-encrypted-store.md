@@ -45,3 +45,7 @@ Recommendation: first the migration track (3), then (1) as its own PR with the s
 - **Safety copy.** The pre-move online backup of `psyche.sqlite` is kept at `safety/memory.pre-encrypt.sqlite` (0600, in a 0700 folder outside what backups include). It is overwritten with zeros and removed only when (1) the move is verified (`cleared`), (2) the encrypted file has opened on a later start, and (3) an **encrypted** backup was taken after that, including the encrypted file and the sealed key. `memory.status.store.safetyCopy` says `kept` or `removed`. On SSDs/APFS, overwriting does not guarantee the old blocks are gone; FileVault is what protects them.
 - **Turning off** copies everything back (verified), then deletes the encrypted file, the key file, the sealed key, the helper's Keychain item and the safety copy.
 - The Settings switch is not rendered yet; the method and its tests are in place.
+
+## Persisted fact vectors (EM9 (d))
+
+`graph_fact_vectors (fact_id, model, text_hash, dims, vector, created_at)`, one of the moved tables, so with encryption on it lives in `state/memory.sqlite` (an existing encrypted file gains it through `syncSchema`). `FactVectorStore` embeds only facts whose text hash or model changed; sensitive facts are never stored; rows cascade with their fact and are pruned after each nightly pass (retracted, superseded, expired). While the encrypted file is closed, search still answers and simply does not keep the vectors.

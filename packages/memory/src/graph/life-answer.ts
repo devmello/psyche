@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { ModelEvent, ModelProvider, ModelRef, ModelRequest } from "@psyche/protocol";
 import type { LifeCandidate, LifeFactHit } from "./life.ts";
 
@@ -46,6 +47,8 @@ export async function fuseLifeHits(
   embedder: LifeEmbedder | undefined,
   limit: number,
   signal?: AbortSignal,
+  /** Stored fact vectors: only facts that are new or changed are embedded. */
+  store?: FactVectorStore,
 ): Promise<LifeFactHit[]> {
   const base = lexical.slice(0, limit);
   if (embedder === undefined) return base;
@@ -54,11 +57,14 @@ export async function fuseLifeHits(
   let semantic: LifeFactHit[];
   try {
     const [query] = await embedder.embed([q.slice(0, 500)], "query", signal);
-    const docs = await embedder.embed(
-      pool.map((c) => factText(c.hit)),
-      "document",
-      signal,
-    );
+    const docs =
+      store === undefined
+        ? await embedder.embed(
+            pool.map((c) => factText(c.hit)),
+            "document",
+            signal,
+          )
+        : await store.vectorsFor(pool, embedder, signal);
     if (query === undefined || docs.length !== pool.length) return base;
     semantic = pool
       .map((c, i) => ({ hit: c.hit, score: cosine(query, docs[i] as number[]) }))
@@ -172,3 +178,124 @@ const fail = (reason: "no_facts" | "no_answer" | "ungrounded" | "model_failed"):
   facts: [],
   reason,
 });
+
+/** Embedding batches for facts not stored yet. */
+const EMBED_BATCH = 64;
+
+interface VectorRow {
+  fact_id: string;
+  text_hash: string;
+  dims: number;
+  vector: Buffer;
+}
+
+/** The SQL a store needs (the graph's connection: plain or the encrypted memory store). */
+export interface VectorDb {
+  prepare(sql: string): {
+    all(...a: unknown[]): unknown[];
+    run(...a: unknown[]): unknown;
+  };
+  transaction<T>(fn: () => T): () => T;
+}
+
+const hashText = (text: string): string => createHash("sha256").update(text).digest("hex");
+
+/**
+ * Fact vectors kept in `graph_fact_vectors` (with encryption on, inside the encrypted file), one
+ * per fact and model, keyed by the hash of the embedded text so an edited fact is embedded again.
+ * Sensitive facts are never passed in, so never stored. A store that cannot be written (the
+ * encrypted file not open yet) still answers: the vectors are just not kept.
+ */
+export class FactVectorStore {
+  readonly #db: VectorDb;
+
+  constructor(db: VectorDb) {
+    this.#db = db;
+  }
+
+  async vectorsFor(
+    pool: readonly LifeCandidate[],
+    embedder: LifeEmbedder,
+    signal?: AbortSignal,
+  ): Promise<number[][]> {
+    const texts = pool.map((c) => factText(c.hit));
+    const hashes = texts.map(hashText);
+    const stored = new Map<string, number[]>();
+    for (let i = 0; i < pool.length; i += 500) {
+      const ids = pool.slice(i, i + 500).map((c) => c.hit.factId);
+      const rows = this.#db
+        .prepare(
+          `SELECT fact_id, text_hash, dims, vector FROM graph_fact_vectors
+            WHERE model = ? AND fact_id IN (${ids.map(() => "?").join(", ")})`,
+        )
+        .all(embedder.model, ...ids) as VectorRow[];
+      for (const r of rows) stored.set(`${r.fact_id}:${r.text_hash}`, decode(r.vector, r.dims));
+    }
+    const out: (number[] | undefined)[] = pool.map((c, i) =>
+      stored.get(`${c.hit.factId}:${hashes[i]}`),
+    );
+    const missing = out.flatMap((v, i) => (v === undefined ? [i] : []));
+    for (let i = 0; i < missing.length; i += EMBED_BATCH) {
+      const part = missing.slice(i, i + EMBED_BATCH);
+      const vecs = await embedder.embed(
+        part.map((j) => texts[j] as string),
+        "document",
+        signal,
+      );
+      part.forEach((j, k) => {
+        out[j] = vecs[k];
+      });
+      this.#keep(
+        part.flatMap((j, k) => {
+          const v = vecs[k];
+          const c = pool[j];
+          return v === undefined || c === undefined || c.sensitive
+            ? []
+            : [{ factId: c.hit.factId, hash: hashes[j] as string, vector: v }];
+        }),
+        embedder.model,
+      );
+    }
+    return out.map((v) => v ?? []);
+  }
+
+  /** Drops vectors of facts that are no longer current (retracted, superseded, expired). */
+  prune(nowIso: string): number {
+    try {
+      const r = this.#db
+        .prepare(
+          `DELETE FROM graph_fact_vectors WHERE fact_id IN (
+             SELECT id FROM graph_facts WHERE retracted_at IS NOT NULL OR superseded_by IS NOT NULL
+               OR (valid_to IS NOT NULL AND valid_to <= ?))`,
+        )
+        .run(nowIso) as { changes?: number };
+      return r.changes ?? 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  #keep(rows: { factId: string; hash: string; vector: number[] }[], model: string): void {
+    if (rows.length === 0) return;
+    try {
+      const put = this.#db.prepare(
+        `INSERT INTO graph_fact_vectors (fact_id, model, text_hash, dims, vector, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT (fact_id, model) DO UPDATE SET text_hash = excluded.text_hash,
+           dims = excluded.dims, vector = excluded.vector, created_at = excluded.created_at`,
+      );
+      const at = new Date().toISOString();
+      this.#db.transaction(() => {
+        for (const r of rows)
+          put.run(r.factId, model, r.hash, r.vector.length, encode(r.vector), at);
+      })();
+    } catch {
+      // The store is closed (encrypted file not open yet) or read-only: answer without keeping.
+    }
+  }
+}
+
+const encode = (v: readonly number[]): Buffer => Buffer.from(new Float32Array(v).buffer);
+// Copied first: a blob's bytes need not sit on a 4-byte boundary.
+const decode = (b: Buffer, dims: number): number[] =>
+  Array.from(new Float32Array(Uint8Array.from(b).buffer, 0, dims));

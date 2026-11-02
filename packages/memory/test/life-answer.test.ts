@@ -2,7 +2,12 @@ import { FakeClock, FakeModelProvider } from "@psyche/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { EverythingStore } from "../src/graph/everything.ts";
 import { lifeCandidates, lifeSearch } from "../src/graph/life.ts";
-import { answerFromFacts, fuseLifeHits, type LifeEmbedder } from "../src/graph/life-answer.ts";
+import {
+  answerFromFacts,
+  FactVectorStore,
+  fuseLifeHits,
+  type LifeEmbedder,
+} from "../src/graph/life-answer.ts";
 import { GraphStore } from "../src/graph/store.ts";
 import { makeEnv, type TestEnv } from "./helpers.ts";
 
@@ -194,5 +199,88 @@ describe("grounded answer", () => {
       exclude: new Set([id]),
     });
     expect(r.reason).toBe("no_facts");
+  });
+});
+
+describe("stored fact vectors", () => {
+  const count = () =>
+    (env.db.sqlite.prepare("SELECT count(*) n FROM graph_fact_vectors").get() as { n: number }).n;
+
+  it("embeds each fact once, then reuses the stored vector", async () => {
+    learn("Sam Lee", "likes", "bouldering", "I love bouldering on weekends");
+    learn("Priya Rao", "city", "Lisbon", "I live in Lisbon");
+    const store = new FactVectorStore(env.db.sqlite);
+    const log: string[] = [];
+    const first = await fuseLifeHits("climbing", [], all(), embedder(log), 10, undefined, store);
+    expect(first.map((h) => h.value)).toEqual(["bouldering"]);
+    expect(count()).toBe(2);
+    log.length = 0;
+    const again = await fuseLifeHits("crag", [], all(), embedder(log), 10, undefined, store);
+    expect(again.map((h) => h.value)).toEqual(["bouldering"]);
+    // Only the question was embedded the second time.
+    expect(log).toEqual(["crag"]);
+  });
+
+  it("an edited fact is embedded again; another model has its own vectors", async () => {
+    const id = learn("Sam Lee", "likes", "bouldering", "I love bouldering");
+    const store = new FactVectorStore(env.db.sqlite);
+    await fuseLifeHits("climbing", [], all(), embedder(), 10, undefined, store);
+    env.db.sqlite
+      .prepare("UPDATE graph_facts SET value = 'climbing in Portugal' WHERE id = ?")
+      .run(id);
+    const log: string[] = [];
+    await fuseLifeHits("lisbon", [], all(), embedder(log), 10, undefined, store);
+    expect(log.some((t) => t.includes("Portugal"))).toBe(true);
+    const other: LifeEmbedder = { ...embedder(), model: "fake/other" };
+    await fuseLifeHits("lisbon", [], all(), other, 10, undefined, store);
+    expect(count()).toBe(2);
+  });
+
+  it("never stores a sensitive fact, and drops vectors of facts that are no longer current", async () => {
+    const id = learn("Sam Lee", "likes", "bouldering", "I love bouldering");
+    learn("Priya Rao", "city", "Lisbon", "I live in Lisbon");
+    env.db.sqlite.prepare("UPDATE graph_facts SET sensitivity = 'health' WHERE id = ?").run(id);
+    const store = new FactVectorStore(env.db.sqlite);
+    await fuseLifeHits("lisbon", [], all(), embedder(), 10, undefined, store);
+    expect(count()).toBe(1);
+    env.db.sqlite.prepare("UPDATE graph_facts SET retracted_at = 't'").run();
+    expect(store.prune(new Date(NOW).toISOString())).toBe(1);
+    expect(count()).toBe(0);
+  });
+
+  it("forgetting a fact deletes its vector with it", async () => {
+    const id = learn("Sam Lee", "likes", "bouldering", "I love bouldering");
+    const store = new FactVectorStore(env.db.sqlite);
+    await fuseLifeHits("climbing", [], all(), embedder(), 10, undefined, store);
+    env.db.sqlite.prepare("DELETE FROM graph_citations WHERE target_id = ?").run(id);
+    env.db.sqlite.prepare("DELETE FROM graph_facts WHERE id = ?").run(id);
+    expect(count()).toBe(0);
+  });
+
+  it("a store that cannot be written still answers", async () => {
+    learn("Sam Lee", "likes", "bouldering", "I love bouldering");
+    const readOnly = {
+      prepare: (sql: string) => {
+        const st = env.db.sqlite.prepare(sql);
+        return {
+          all: (...a: unknown[]) => st.all(...a),
+          run: () => {
+            throw new Error("memory store is not open");
+          },
+        };
+      },
+      transaction: <T>(fn: () => T) => env.db.sqlite.transaction(fn),
+    };
+    const hits = await fuseLifeHits(
+      "climbing",
+      [],
+      all(),
+      embedder(),
+      10,
+      undefined,
+      new FactVectorStore(readOnly),
+    );
+    expect(hits.map((h) => h.value)).toEqual(["bouldering"]);
+    expect(count()).toBe(0);
   });
 });

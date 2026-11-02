@@ -4,6 +4,7 @@ import {
   answerFromFacts,
   describeUpcoming,
   EverythingStore,
+  FactVectorStore,
   fuseLifeHits,
   type GraphStore,
   type ItemReader,
@@ -241,6 +242,8 @@ export interface PersonContext {
   card?: (path: string) => Promise<string | undefined>;
   /** The embedder search uses now, if any: ranks Life search by meaning too. */
   embedder?: () => LifeEmbedder | undefined;
+  /** Stored fact vectors (`graph_fact_vectors`), so only new or changed facts are embedded. */
+  vectors?: FactVectorStore;
   /** The model that may answer a question about people (off, or an unconfirmed local one: none). */
   answerModel?: () => { provider: ModelProvider; model: ModelRef } | undefined;
 }
@@ -382,6 +385,8 @@ export function everythingHandlers(
         lifeCandidates(ctx.graph, em, ctx.db, now),
         embedder,
         limit,
+        undefined,
+        ctx.vectors,
       );
       return { ...found, facts };
     },
@@ -392,7 +397,15 @@ export function everythingHandlers(
       if (model === undefined) return { answer: null, facts: [], reason: "no_model" };
       const lexical = lifeFactsForQuestion(ctx.graph, em, ctx.db, p.q, { limit: 20, now });
       const candidates = lifeCandidates(ctx.graph, em, ctx.db, now);
-      const hits = await fuseLifeHits(p.q, lexical, candidates, ctx.embedder?.(), 12);
+      const hits = await fuseLifeHits(
+        p.q,
+        lexical,
+        candidates,
+        ctx.embedder?.(),
+        12,
+        undefined,
+        ctx.vectors,
+      );
       const r = await answerFromFacts({
         ...model,
         question: p.q,
@@ -544,6 +557,7 @@ export function composeEverything(deps: EverythingDeps): Everything {
   const { db, clock, graph } = deps;
   const memorySql = deps.memorySqlite ?? db.sqlite;
   const store = new EverythingStore({ sqlite: memorySql, graph, clock });
+  const vectors = new FactVectorStore(memorySql);
   const settings = () => everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value);
   let runNowFn: () => Promise<EverythingRunResult> = async () => {
     throw new PsycheError("unavailable", "everything memory is not ready");
@@ -552,6 +566,7 @@ export function composeEverything(deps: EverythingDeps): Everything {
     graph,
     clock,
     db: memorySql,
+    vectors,
     timeZone: deps.timeZone,
     ...(deps.card === undefined ? {} : { card: deps.card }),
     ...(deps.embedder === undefined ? {} : { embedder: deps.embedder }),
@@ -651,6 +666,7 @@ export function composeEverything(deps: EverythingDeps): Everything {
     try {
       const d = await passDeps();
       const report = await runEverythingPass({ ...d, manual });
+      vectors.prune(new Date(clock.now()).toISOString());
       afterReport(report);
       return report;
     } finally {
