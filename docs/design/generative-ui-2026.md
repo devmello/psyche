@@ -2,7 +2,7 @@
 
 Owner request, 2026-10-29: "generative UI where the agent can generate UI to make the progress, the tasks, widgets, in the chat live so that we don't need to create it before."
 
-Status: **built** (phases P1–P8, 2026-11). Owner decisions are collected in §11, each with the owner's answer. P9 (progressive drafts, MCP Apps, map tiles) remains a later phase. The security rules for widget actions are in docs/05 §3.14.
+Status: **built** (phases P1–P8, 2026-11). Owner decisions are collected in §11, each with the owner's answer. P9: progressive drafts are built (2026-11); MCP Apps and map tiles (D4: place lists instead) remain later. The security rules for widget actions are in docs/05 §3.14.
 
 ## 1. Summary
 
@@ -125,7 +125,7 @@ Bindings are the recommended way to show anything the host already tracks; manua
 
 ### 5.5 Streaming, ordering, reconnects, replay
 
-- **While the model writes the spec.** P3 renders on the complete tool input: the `tool_call` block shows "Building widget…" with a skeleton sized from the declared `title`. P9 adds progressive rendering: the Gateway partial-parses the streaming tool input and publishes ephemeral `widget.draft` frames for nodes that are already complete (closed objects), never half a node. Drafts are not persisted; the committed spec replaces them.
+- **While the model writes the spec.** P3 renders on the complete tool input: the `tool_call` block shows "Building widget…" with a skeleton sized from the declared `title`. P9 (built) adds progressive rendering: the Gateway partial-parses the streaming tool input and publishes ephemeral `widget.draft` frames for nodes that are already complete (closed objects), never half a node. Drafts are not persisted; the committed spec replaces them. As built: the model stream emits `tool_input` deltas for `render_ui` only; `widgetDraft` (protocol) reads the text so far and keeps nodes whose object has closed, validates the tree as a whole spec (a reserved approval label or any other issue shows nothing), then removes every control, picture, row action and binding, so the preview is read-only; the Gateway throttles to one read per 250 ms and publishes `widget.draft` only when the title or node count changes, and `done` when the call is complete or the run ends. The client keeps drafts in memory by call id and draws them under a "Building widget…" header at the end of the transcript with a skeleton (still under reduced motion).
 - **Ordering.** `rev` is the order. The client applies `widget.updated` only when `rev == local + 1`; otherwise it refetches with `widgets.get([id])`.
 - **Reconnect.** The store already refreshes on a `seq` gap (`ui/src/data/store.ts`). On refresh it refetches snapshots for widgets in loaded messages and pinned widgets in one `widgets.get` call.
 - **Reload and history.** `chat.history` returns messages with `ui` blocks; the client batches `widgets.get` for the page. A frozen widget renders the same as a live one minus its live dot.

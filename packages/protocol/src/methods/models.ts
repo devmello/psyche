@@ -1,5 +1,6 @@
 import { Type } from "@sinclair/typebox";
 import { ModelRef } from "../common.ts";
+import { AppleLlmStatus } from "../schemas/apple-llm.ts";
 import {
   ModelProviderSummary,
   ModelRoles,
@@ -13,6 +14,13 @@ import { defineMethod } from "./define.ts";
  * checks reach the provider, so they run only when the owner asks and need `operator.admin`.
  */
 export const ModelsMethods = {
+  "models.appleStatus": defineMethod({
+    params: Type.Object({}),
+    result: AppleLlmStatus,
+    scope: "operator.read",
+    description:
+      "Whether Apple's on-device language model (Apple Intelligence, macOS 26) can run on the paired Mac, for the model pickers: helperConnected false when no Mac helper offers it, otherwise available with the reason when not (device_not_eligible, apple_intelligence_not_enabled, model_not_ready, unsupported_os). Reads availability only; it never runs the model.",
+  }),
   "models.list": defineMethod({
     params: Type.Object({}),
     result: Type.Object({ providers: Type.Array(ModelProviderSummary), roles: ModelRoles }),

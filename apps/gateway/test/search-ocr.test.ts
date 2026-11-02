@@ -77,6 +77,8 @@ describe("helperRecognizer", () => {
   it("is undefined without a helper, and nodes.invoke can never reach ocr.*", async () => {
     expect(await helperRecognizer(() => undefined)("/scan/a.png", never)).toBeUndefined();
     expect(isUnreachableCapability("ocr.recognize")).toBe(true);
+    expect(isUnreachableCapability("llm.apple.generate")).toBe(true);
+    expect(isUnreachableCapability("llm.apple.availability")).toBe(true);
   });
 });
 

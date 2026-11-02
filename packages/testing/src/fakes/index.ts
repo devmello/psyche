@@ -1,4 +1,5 @@
 export * from "./FakeAgentLoop.ts";
+export * from "./FakeAppleLlmNode.ts";
 export * from "./FakeAuditLog.ts";
 export * from "./FakeBrowserDriver.ts";
 export * from "./FakeChannelAdapter.ts";

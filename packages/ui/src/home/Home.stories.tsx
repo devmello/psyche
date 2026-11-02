@@ -22,6 +22,16 @@ const nudges: NudgeItem[] = [
     channel: "messages",
     date: null,
     overdue: false,
+    starters: [
+      {
+        text: "Ask how the new job at Initech is going",
+        evidence: "Employer: Initech · their own words, accepted by you · Oct 12",
+      },
+      {
+        text: "You promised: “send the deck”",
+        evidence: "Your promise · Oct 28",
+      },
+    ],
   },
   {
     id: "nd_birthday",

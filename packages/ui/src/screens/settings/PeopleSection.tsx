@@ -1,5 +1,5 @@
 import type { GraphSource, GraphStatus } from "@psyche/protocol";
-import { Download, UserRound } from "lucide-react";
+import { UserRound } from "lucide-react";
 import { type ReactElement, type ReactNode, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import {
@@ -11,12 +11,10 @@ import {
 } from "../../components/ui/dialog.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
-import { describeError } from "../../i18n/errors.ts";
 import { formatTime } from "../../lib/format.ts";
 import { RelationshipNudgesSettings, readNudgeSettings } from "../../nudges/NudgeSettings.tsx";
 import { ConnectedEntityCard } from "../../people/ConnectedEntityCard.tsx";
 import { usePersona, useSlots } from "../../slots.tsx";
-import type { ExportFile } from "./DataControlsSection.tsx";
 import { PeoplePrivacy } from "./PeoplePrivacy.tsx";
 import {
   ErrorNotice,
@@ -100,7 +98,8 @@ export interface PeoplePanelProps {
   error?: string | null;
   onRetry?: () => void;
   onOpenOwnCard?: () => void;
-  onExport?: () => void;
+  /** Opens Privacy & data, where Export everything (people and projects included) lives. */
+  onOpenExport?: () => void;
   busy?: boolean;
   notice?: { kind: "ok" | "error"; text: string } | null;
   /** Blocklist, delete by source and forget everything (the connected section's). */
@@ -119,7 +118,7 @@ export function PeoplePanel({
   error = null,
   onRetry,
   onOpenOwnCard,
-  onExport,
+  onOpenExport,
   busy = false,
   notice = null,
   privacy,
@@ -270,16 +269,18 @@ export function PeoplePanel({
           </div>
         </Group>
 
+        {nudges}
+        {/* One export for everything (settings-2026): this points at it instead of repeating it. */}
         <Group title={t("settings.people.export")} description={t("settings.people.exportHint")}>
           <div>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              disabled={!onExport || busy}
-              onClick={onExport}
+              disabled={!onOpenExport}
+              onClick={onOpenExport}
             >
-              <Download aria-hidden="true" /> {t("settings.people.exportButton")}
+              {t("settings.people.exportOpen")}
             </Button>
           </div>
         </Group>
@@ -289,15 +290,10 @@ export function PeoplePanel({
   );
 }
 
-export interface PeopleSectionProps {
-  /** Receives the export zip (it includes graph.json and the card files). */
-  onExportReady?: (file: ExportFile) => void;
-}
-
-/** Connected: the `memory.graph` setting, `memory.graph.status`, the owner's card and export. */
-export function PeopleSection({ onExportReady }: PeopleSectionProps): ReactElement {
+/** Connected: the `memory.graph` setting, `memory.graph.status` and the owner's card. */
+export function PeopleSection(): ReactElement {
   const form = useSettingsForm();
-  const call = useCall();
+  const _call = useCall();
   const persona = usePersona();
   const { navigate } = useSlots();
   const status = useGatewayQuery("memory.graph.status", {});
@@ -308,8 +304,8 @@ export function PeopleSection({ onExportReady }: PeopleSectionProps): ReactEleme
   });
   const owner = people.data?.entities.find((e) => e.isOwner) ?? null;
   const [ownOpen, setOwnOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<PeoplePanelProps["notice"]>(null);
+  const [busy, _setBusy] = useState(false);
+  const [notice, _setNotice] = useState<PeoplePanelProps["notice"]>(null);
 
   return (
     <>
@@ -340,25 +336,7 @@ export function PeopleSection({ onExportReady }: PeopleSectionProps): ReactEleme
             }}
           />
         }
-        onExport={() => {
-          setBusy(true);
-          setNotice(null);
-          call("memory.export", {})
-            .then((file) => {
-              onExportReady?.(file);
-              setNotice({
-                kind: "ok",
-                text: t("settings.data.exportReady", { filename: file.filename }),
-              });
-            })
-            .catch((err: unknown) =>
-              setNotice({
-                kind: "error",
-                text: t("people.writeFailed", { reason: describeError(err) }),
-              }),
-            )
-            .finally(() => setBusy(false));
-        }}
+        {...(navigate ? { onOpenExport: () => navigate("/settings/data") } : {})}
       />
       <Dialog open={ownOpen} onOpenChange={setOwnOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">

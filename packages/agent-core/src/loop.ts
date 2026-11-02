@@ -1953,6 +1953,16 @@ export class PsycheAgentLoop implements AgentLoop {
             parts.push({ type: "reasoning", provider: ev.provider, data: ev.data });
             break;
           }
+          case "tool_input":
+            run.emit({
+              type: "tool_input",
+              runId: run.runId,
+              messageId: run.messageId,
+              toolCallId: ev.id,
+              tool: ev.name,
+              delta: ev.delta,
+            });
+            break;
           case "tool_call":
             parts.push({ type: "tool_call", id: ev.id, name: ev.name, input: ev.input });
             calls.push({ id: ev.id, name: ev.name, input: ev.input });

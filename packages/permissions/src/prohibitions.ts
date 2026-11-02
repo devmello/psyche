@@ -216,6 +216,8 @@ const CONTROL_PLANE_TOOL =
 const GRAPH_INGEST_TOOL = /^(node\.)?messages\.graph_/i;
 /** Vision OCR reads file contents for search ingest only (roadmap R6/R7). */
 const OCR_INGEST_TOOL = /^(node\.)?ocr\./i;
+/** Apple's on-device model runs for the model router only; an agent gets no raw line to it. */
+const LLM_ROUTER_TOOL = /^(node\.)?llm\.apple\./i;
 const PERMANENT_RM = new Set(["rm", "rmdir", "shred", "srm", "unlink"]);
 export const CONFIRMATION_WORD = "DELETE";
 
@@ -318,6 +320,9 @@ export async function checkProhibitions(
   }
   if (OCR_INGEST_TOOL.test(tool)) {
     return deny("ocr_ingest_only", "Text recognition is run only by the search ingest");
+  }
+  if (LLM_ROUTER_TOOL.test(tool)) {
+    return deny("llm_router_only", "Apple's on-device model is run only by the model router");
   }
   const path = targetPath(call);
   if (path !== undefined && env.psycheHome !== undefined) {

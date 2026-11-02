@@ -21,8 +21,6 @@ import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { activeI18n, t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
 import { ContextSettingsGroup } from "./ContextSettings.tsx";
-import { SearchSourcesSettingsGroup } from "./SearchSourcesSettings.tsx";
-import { SemanticSearchSettingsGroup } from "./SemanticSearchSettings.tsx";
 import {
   EmptyNotice,
   ErrorNotice,
@@ -39,7 +37,6 @@ import {
   useSettingsForm,
 } from "./shared.tsx";
 import type { ProviderInfo, ProviderKind, ToolCheck } from "./types.ts";
-import { WebSearchSettingsGroup } from "./WebSearchSettings.tsx";
 
 /** Model & providers (UI design §3.18; architecture §4.4). */
 
@@ -557,9 +554,6 @@ export function ModelProvidersPanel({
           onChange={onChange}
           {...(primaryContext === undefined ? {} : { modelContextLength: primaryContext })}
         />
-        <SemanticSearchSettingsGroup values={values} onChange={onChange} />
-        <SearchSourcesSettingsGroup />
-        <WebSearchSettingsGroup values={values} onChange={onChange} />
         <Group title={t("settings.model.local")} description={t("settings.model.localHint")}>
           <RamGuidance {...(ramGb === undefined ? {} : { ramGb })} />
         </Group>

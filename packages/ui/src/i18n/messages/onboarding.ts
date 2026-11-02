@@ -61,7 +61,7 @@ export const onboarding = {
   "onboarding.agent.taglinePlaceholder": "Quiet wings, careful hands",
   "onboarding.agent.preview": "Preview",
   "onboarding.language.label": "Language",
-  "onboarding.language.hint": "You can change it later in Settings → Appearance.",
+  "onboarding.language.hint": "You can change it later in Settings → General → Appearance.",
   "onboarding.permission.why.accessibility": "Lets {name} click, type and use apps.",
   "onboarding.permission.why.screenRecording": "Lets {name} see app windows while it works.",
   "onboarding.permission.why.notifications":
@@ -120,7 +120,7 @@ export const onboarding = {
   "onboarding.model.neverSees": ". The agent never sees it.",
   "onboarding.model.saveToVault": "Save to vault",
   "onboarding.model.keyHint": "Goes straight to the Psyche vault. Psyche never shows it again.",
-  "onboarding.model.keyLater": "Add the key later in Settings → Model & providers.",
+  "onboarding.model.keyLater": "Add the key later in Settings → Models.",
   "onboarding.model.keyNotStored": "The key was not stored.",
   "onboarding.model.recoveryTitle": "Your vault recovery key",
   "onboarding.model.copy": "Copy",
@@ -160,7 +160,8 @@ export const onboarding = {
   "onboarding.where.local.appsValue":
     "Each app asks on first use: Off, Read only or Read and interact",
   "onboarding.where.local.files": "Files",
-  "onboarding.where.local.filesValue": "Only folders you share in Settings → File access",
+  "onboarding.where.local.filesValue":
+    "Only folders you share in Settings → Permissions → File access",
   "onboarding.where.local.commands": "Commands",
   "onboarding.where.local.commandsValue": "In a container; never on your Mac's shell",
   "onboarding.where.local.stop": "Stop",

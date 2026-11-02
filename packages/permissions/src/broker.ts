@@ -152,6 +152,8 @@ export interface PermissionBrokerOptions {
   folderAccess?: {
     env: () => FolderAccessEnv;
     persist: (entry: FolderGrantEntry) => Promise<void>;
+    /** Removes an `always` folder from Settings (the owner's revoke); true when it was there. */
+    remove?: (path: string) => Promise<boolean>;
   };
 }
 
@@ -1279,7 +1281,8 @@ export class PsychePermissionBroker implements PermissionBroker {
       try {
         folderPick = {
           path: await resolveFolderPick(input.folderPath, this.#folderAccess.env()),
-          mode: a.details.access === "rw" ? "rw" : "ro",
+          // The owner may narrow the request to read-only; nothing widens it.
+          mode: a.details.access === "rw" && input.folderMode !== "ro" ? "rw" : "ro",
         };
       } catch (err) {
         await this.#log(
@@ -1462,6 +1465,32 @@ export class PsychePermissionBroker implements PermissionBroker {
       { approvalId: fa.id, ...(threadId == null ? {} : { threadId }) },
       { path: pick.path, mode: pick.mode, scope: kept, taint: fa.taint },
     );
+  }
+
+  /** Revokes an `always` folder: it stops working on the next call. */
+  async revokeFolder(path: string): Promise<boolean> {
+    const removed = (await this.#folderAccess?.remove?.(path)) ?? false;
+    if (removed)
+      await this.#log("folder.revoked", { type: "system" }, {}, { path, scope: "always" });
+    return removed;
+  }
+
+  /** Every conversation's folders (`once`), for the access list in Settings. */
+  allSessionFolders(): { threadId: string; entry: FolderGrantEntry }[] {
+    return [...this.#sessionFolders].flatMap(([threadId, roots]) =>
+      roots.map((entry) => ({ threadId, entry })),
+    );
+  }
+
+  /** Ends one conversation's folder (a revoke from Settings); true when it was granted. */
+  async revokeSessionFolder(threadId: string, path: string): Promise<boolean> {
+    const roots = this.#sessionFolders.get(threadId) ?? [];
+    const kept = roots.filter((r) => r.path !== path);
+    if (kept.length === roots.length) return false;
+    if (kept.length === 0) this.#sessionFolders.delete(threadId);
+    else this.#sessionFolders.set(threadId, kept);
+    await this.#log("folder.revoked", { type: "system" }, { threadId }, { path, scope: "once" });
+    return true;
   }
 
   /** Folders allowed for one conversation (`once`), for the file executors behind the broker. */

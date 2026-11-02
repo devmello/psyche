@@ -6,7 +6,7 @@ import {
   WebSearchSettingsGroup,
 } from "../src/screens/settings/WebSearchSettings.tsx";
 
-describe("Settings → Model & providers → Web search (#557)", () => {
+describe("Settings → Connectors & sources → Search → Web search (#557)", () => {
   it("shows the provider in effect and where the Brave key comes from", () => {
     render(
       <WebSearchSettingsGroup

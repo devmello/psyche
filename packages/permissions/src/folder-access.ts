@@ -1,6 +1,6 @@
 import { realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { PsycheError } from "@psyche/protocol";
 
 /**
@@ -154,13 +154,8 @@ export async function resolveRequestedFolder(
 ): Promise<RequestedFolder> {
   const given = raw.startsWith("~/") ? `${env.home ?? homedir()}/${raw.slice(2)}` : raw;
   if (given.includes("\0") || !given.startsWith("/")) return { status: "missing" };
-  let real: string;
-  try {
-    real = await realpath(resolve(given));
-    if (!(await stat(real)).isDirectory()) return { status: "missing" };
-  } catch {
-    return { status: "missing" };
-  }
+  const real = await existingFolderFor(resolve(given));
+  if (real === undefined) return { status: "missing" };
   const protectedReal: string[] = [];
   for (const p of env.protectedRoots ?? []) {
     try {
@@ -176,6 +171,44 @@ export async function resolveRequestedFolder(
   return reason === undefined
     ? { status: "ok", path: real }
     : { status: "blocked", path: real, reason };
+}
+
+/**
+ * The folder a request names: the folder itself, the folder holding a file (a denied read of
+ * `~/Downloads/a.pdf` asks for `~/Downloads`), or the folder a not-yet-existing file would be
+ * created in. Anything else is undefined, so the card falls back to the picker.
+ */
+async function existingFolderFor(path: string): Promise<string | undefined> {
+  try {
+    const real = await realpath(path);
+    return (await stat(real)).isDirectory() ? real : dirname(real);
+  } catch {
+    // A new file: its parent folder, when that exists.
+  }
+  try {
+    const parent = await realpath(dirname(path));
+    return (await stat(parent)).isDirectory() ? parent : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Whether a folder the owner already granted (Settings, or this conversation) covers `path` at
+ * `access`, so asking again would be asking for what they gave. A file or a not-yet-existing path
+ * is covered when a granted folder contains it; a read-only grant does not cover a write.
+ */
+export function folderCovers(
+  grants: readonly FolderGrantEntry[],
+  path: string,
+  access: "ro" | "rw",
+): FolderGrantEntry | undefined {
+  const target = resolve(path);
+  const best = grants
+    .filter((g) => under(target, resolve(g.path)))
+    .sort((a, b) => b.path.length - a.path.length)[0];
+  if (best === undefined) return undefined;
+  return access === "rw" && best.mode !== "rw" ? undefined : best;
 }
 
 /** Offers only `once` when the request comes from a tainted context (security §3.6). */

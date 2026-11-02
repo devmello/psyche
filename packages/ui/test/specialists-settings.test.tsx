@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
-import { SETTINGS_GROUPS, sectionForKey } from "../src/screens/settings/SettingsScreen.tsx";
+import { paneForKey, SETTINGS_PAGES } from "../src/screens/settings/SettingsScreen.tsx";
 import { SpecialistsSection } from "../src/screens/settings/SpecialistsSection.tsx";
 import { settingLabel } from "../src/screens/settings/setting-labels.ts";
 import { StoryWorld } from "../src/stories/harness.tsx";
@@ -33,10 +33,10 @@ function writes(spy: ReturnType<typeof renderSection>): [string, unknown][] {
 }
 
 describe("Settings → Specialists (specialists §6.4)", () => {
-  it("lives in Access next to Skills, and finds its keys", () => {
-    const access = SETTINGS_GROUPS.find((g) => g.id === "access")?.sections ?? [];
-    expect(access.indexOf("specialists")).toBe(access.indexOf("skills") + 1);
-    expect(sectionForKey("specialists.budget.researcher")).toBe("specialists");
+  it("lives on Routines & skills next to Skills, and finds its keys", () => {
+    const panes = SETTINGS_PAGES.find((p) => p.id === "daily")?.panes ?? [];
+    expect(panes.indexOf("specialists")).toBe(panes.indexOf("skills") + 1);
+    expect(paneForKey("specialists.budget.researcher")).toBe("specialists");
     expect(settingLabel("specialists.maxMode.coder")).toBe("coder permission mode");
     expect(settingLabel("specialists.maxConcurrent")).toBe("Specialists at once");
   });

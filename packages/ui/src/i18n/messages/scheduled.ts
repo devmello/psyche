@@ -33,9 +33,9 @@ export const scheduled = {
   "scheduled.row.approvals": "Approvals it may need",
   "scheduled.row.linked": "Linked runs",
   "scheduled.row.browserWarning":
-    "The browser can't be guaranteed when this runs: {reason}. Turn on Open Psyche at login in Settings → Appearance.",
+    "The browser can't be guaranteed when this runs: {reason}. Turn on Open Psyche at login in Settings → General → Appearance.",
   "scheduled.row.browserWarningNoReason":
-    "The browser can't be guaranteed when this runs. Turn on Open Psyche at login in Settings → Appearance.",
+    "The browser can't be guaranteed when this runs. Turn on Open Psyche at login in Settings → General → Appearance.",
   "scheduled.row.never": "Hasn't run yet",
   "scheduled.row.nextPaused": "Paused: no runs until you resume it",
   "scheduled.row.nextOff": "Off: turn it on in Settings",

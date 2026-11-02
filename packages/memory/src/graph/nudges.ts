@@ -1,8 +1,12 @@
 import type { GraphEntity, GraphInteraction, GraphLoop } from "@psyche/protocol";
 import { detectSensitive, looksLikeInstruction } from "../filters.ts";
+import { safeName } from "./clean.ts";
 import { sha256 } from "./normalize.ts";
+import { buildStarters, type NudgeStarter } from "./starters.ts";
 import type { GraphStore } from "./store.ts";
 import { describeUpcoming, upcoming } from "./upcoming.ts";
+
+export { safeName } from "./clean.ts";
 
 /**
  * Relationship nudges (docs/design/relationship-nudges-2026.md): people you owe a reply, are
@@ -33,6 +37,8 @@ export interface Nudge {
   loopId: string | null;
   /** A promise past its due date: the one amber "needs you" case. */
   overdue: boolean;
+  /** Up to three things to bring up, each with where it comes from; empty when little is known. */
+  starters: NudgeStarter[];
 }
 
 export interface NudgeOptions {
@@ -65,24 +71,6 @@ const HISTORY_DAYS = 365;
 const BIRTHDAY_DAYS = 7;
 const PROMISE_MIN_AGE_DAYS = 2;
 const PROMISE_TEXT_CHARS = 120;
-
-/** A name from a header or Contacts is third-party text: one line, no control characters. */
-export function safeName(name: string, max = 60): string {
-  let out = "";
-  for (const ch of name) {
-    const c = ch.codePointAt(0) as number;
-    const invisible =
-      c < 0x20 ||
-      c === 0x7f ||
-      (c >= 0x200b && c <= 0x200f) ||
-      c === 0x2028 ||
-      c === 0x2029 ||
-      (c >= 0x2060 && c <= 0x2064) ||
-      c === 0xfeff;
-    out += invisible ? " " : ch;
-  }
-  return out.replace(/\s+/g, " ").trim().slice(0, max);
-}
 
 export function nudgeId(kind: NudgeKind, entityId: string, anchor: string): string {
   return `nd_${sha256(`${kind}\n${entityId}\n${anchor}`).slice(0, 20)}`;
@@ -166,6 +154,7 @@ function unanswered(
     date: null,
     loopId: null,
     overdue: false,
+    starters: [],
   };
 }
 
@@ -217,6 +206,7 @@ function drift(
     date: null,
     loopId: null,
     overdue: false,
+    starters: [],
   };
 }
 
@@ -240,6 +230,7 @@ function promise(e: GraphEntity, loop: GraphLoop, opts: NudgeOptions): Nudge | u
     date: null,
     loopId: loop.id,
     overdue,
+    starters: [],
   };
 }
 
@@ -298,11 +289,20 @@ export function computeNudges(graph: GraphStore, opts: NudgeOptions): Nudge[] {
       date: u.date,
       loopId: null,
       overdue: false,
+      starters: [],
     });
   }
-  return [...found.values()].sort(
-    (a, b) => b.priority - a.priority || a.name.localeCompare(b.name),
-  );
+  // Starters are built last, only for the nudges that survived (one per person).
+  return [...found.values()]
+    .sort((a, b) => b.priority - a.priority || a.name.localeCompare(b.name))
+    .map((n) => ({
+      ...n,
+      starters: buildStarters(graph, n.entityId, {
+        now: opts.now,
+        birthday: n.kind === "birthday",
+        excludeLoopId: n.loopId,
+      }),
+    }));
 }
 
 // --- snooze, done, mute ---------------------------------------------------------------------

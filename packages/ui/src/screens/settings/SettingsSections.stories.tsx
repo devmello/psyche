@@ -23,7 +23,7 @@ import { ConnectorsPanel } from "./ConnectorsSection.tsx";
 import { CredentialDetail } from "./CredentialDetail.tsx";
 import { ImportCredentialsForm } from "./CredentialImport.tsx";
 import { CredentialsPanel } from "./CredentialsSection.tsx";
-import { DataControlsPanel } from "./DataControlsSection.tsx";
+import { DataControlsPanel, MemoryControlsPanel } from "./DataControlsSection.tsx";
 import { DevicesPanel } from "./DevicesSection.tsx";
 import { FileAccessPanel } from "./FileAccessSection.tsx";
 import { LanguageGroup } from "./LanguageSettings.tsx";
@@ -38,7 +38,6 @@ import {
   sampleAbout,
   sampleDoctor,
   sampleEndpointProbes,
-  sampleFolders,
   sampleIdentities,
   sampleModelProviders,
   sampleProviders,
@@ -308,11 +307,9 @@ const permissionProps = {
   ...form,
   connectors: world.connectors,
   grants: world.grants,
-  folders: sampleFolders(),
   now: STORY_NOW,
   onRevoke: noop,
   onRuleChange: noop,
-  onOpenFiles: noop,
 };
 export const PermissionsLoading: Story = {
   render: () => <PermissionsPanel {...permissionProps} loading />,
@@ -321,7 +318,7 @@ export const PermissionsError: Story = {
   render: () => <PermissionsPanel {...permissionProps} error="forbidden" onRetry={noop} />,
 };
 export const PermissionsEmpty: Story = {
-  render: () => <PermissionsPanel {...permissionProps} connectors={[]} grants={[]} folders={[]} />,
+  render: () => <PermissionsPanel {...permissionProps} connectors={[]} grants={[]} />,
 };
 export const PermissionsGrantsRevoked: Story = {
   render: () => (
@@ -808,16 +805,14 @@ export const MailMeetingsError: Story = {
 const dataProps = {
   ...form,
   persona: PERSONA.name,
-  memoryPaused: false,
   archivedThreads: 1,
-  onPauseMemory: noop,
   onExport: noop,
   onDeleteArchived: noop,
   onReset: noop,
 };
 export const DataControlsPopulated: Story = { render: () => <DataControlsPanel {...dataProps} /> };
 export const DataControlsResetConfirm: Story = {
-  render: () => <DataControlsPanel {...dataProps} memoryPaused defaultResetting />,
+  render: () => <DataControlsPanel {...dataProps} defaultResetting />,
 };
 export const DataControlsExportFailed: Story = {
   render: () => (
@@ -825,6 +820,17 @@ export const DataControlsExportFailed: Story = {
       {...dataProps}
       archivedThreads={0}
       notice={{ kind: "error", text: "Psyche couldn't export (timeout). Nothing was changed." }}
+    />
+  ),
+};
+
+export const MemoryControls: Story = {
+  render: () => (
+    <MemoryControlsPanel
+      {...form}
+      persona={PERSONA.name}
+      memoryPaused={false}
+      onPauseMemory={noop}
     />
   ),
 };

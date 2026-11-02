@@ -36,7 +36,7 @@ async function answer(card: HTMLElement, choice: "Allow once" | "Deny") {
 describe("Settings → Skills", () => {
   it("lists installed and bundled skills with status and what each asks for", async () => {
     setup();
-    expect(await screen.findByRole("heading", { level: 2, name: "Skills" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 3, name: "Skills" })).toBeTruthy();
     const row = await screen.findByTestId("skill-receipt-filer");
     expect(within(row).getByText("Active")).toBeTruthy();
     expect(within(row).getByText("Update available")).toBeTruthy();

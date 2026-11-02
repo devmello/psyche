@@ -86,6 +86,9 @@ export {
   type DataControlsPanelProps,
   DataControlsSection,
   type ExportFile,
+  MemoryControlsPanel,
+  type MemoryControlsPanelProps,
+  MemoryControlsSection,
   RESET_WORD,
 } from "./DataControlsSection.tsx";
 export { DevicesPanel, type DevicesPanelProps, DevicesSection } from "./DevicesSection.tsx";
@@ -119,20 +122,25 @@ export {
   type PersonaPanelProps,
   PersonaSection,
 } from "./PersonaSection.tsx";
+export { SearchPanel, type SearchPanelProps, SearchSection } from "./SearchSection.tsx";
 export { SegmentedRadio } from "./SegmentedRadio.tsx";
 export { ServerPanel, type ServerPanelProps, ServerSection } from "./ServerSection.tsx";
 export { presenceUnavailable, SettingsApprovalProvider } from "./SettingsApproval.tsx";
 export {
-  matchSections,
-  SETTINGS_GROUPS,
+  paneForKey,
+  SETTINGS_PAGES,
+  SETTINGS_PANES,
   SETTINGS_SECTIONS,
-  type SettingsGroupId,
+  type SettingsHit,
+  type SettingsPage,
+  type SettingsPageId,
+  type SettingsPaneId,
   SettingsScreen,
   type SettingsScreenProps,
   type SettingsSectionId,
   SettingsSectionView,
   type SettingsShellProps,
-  sectionForKey,
+  searchSettings,
 } from "./SettingsScreen.tsx";
 export {
   asksFor,
@@ -143,6 +151,7 @@ export {
   type SkillTrustCardProps,
   skillSourceOf,
 } from "./SkillsSection.tsx";
+export { resolveSection } from "./settings-pages.ts";
 export { parseSettingsRoute, type SettingsTarget } from "./settings-route.ts";
 export { useSettingsForm } from "./shared.tsx";
 export type {

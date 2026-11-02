@@ -40,6 +40,7 @@ const LABELLED_KEYS = [
   "nudges.enabled",
   "nudges.consentedAt",
   "nudges.sensitivity",
+  "nudges.phrasing",
   "computerUse.enabled",
   "computerUse.apps",
   "context.maxTokens",

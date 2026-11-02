@@ -389,6 +389,26 @@ export class GatewayStore {
           },
         };
       }
+      case "widget.draft": {
+        const { threadId, callId, title, root, nodes, done } = e.payload;
+        if (done === true) {
+          const { [callId]: _gone, ...rest } = s.widgetDrafts;
+          return { ...s, widgetDrafts: rest };
+        }
+        return {
+          ...s,
+          widgetDrafts: {
+            ...s.widgetDrafts,
+            [callId]: {
+              threadId,
+              callId,
+              title: title ?? null,
+              root: (root as Record<string, unknown> | undefined) ?? null,
+              nodes,
+            },
+          },
+        };
+      }
       case "chat.message": {
         const m = e.payload.message;
         const next = touch(upsertMessage(s, m), `messages:${m.id}`, v);

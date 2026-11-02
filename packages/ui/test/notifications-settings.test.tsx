@@ -3,15 +3,15 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { NotificationsPanel } from "../src/screens/settings/NotificationsSection.tsx";
-import { matchSections, sectionForKey } from "../src/screens/settings/SettingsScreen.tsx";
+import { paneForKey, searchSettings } from "../src/screens/settings/SettingsScreen.tsx";
 import { settingLabel } from "../src/screens/settings/setting-labels.ts";
 
 /** Settings → Notifications → Quiet hours (#953). */
 
 describe("Settings → Notifications", () => {
   it("is a section that settings search and keys find", () => {
-    expect(matchSections("notifications").has("notifications")).toBe(true);
-    expect(sectionForKey("notifications.quietHours.start")).toBe("notifications");
+    expect(searchSettings("notifications").some((h) => h.pane === "notifications")).toBe(true);
+    expect(paneForKey("notifications.quietHours.start")).toBe("notifications");
     expect(settingLabel("notifications.quietHours.enabled")).toBe("Quiet hours");
   });
 
