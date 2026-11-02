@@ -146,12 +146,22 @@ export function SemanticSearchSettingsGroup({
       >
         {live.status?.encryption !== undefined && live.status.encryption.state !== "off" ? (
           <div role="status" className="flex items-center gap-2 pt-1">
-            <StatusChip tone={live.status.encryption.state === "on" ? "success" : "danger"}>
+            <StatusChip
+              tone={
+                live.status.encryption.state === "on"
+                  ? "success"
+                  : live.status.encryption.state === "pending"
+                    ? "info"
+                    : "danger"
+              }
+            >
               {live.status.encryption.state === "on"
                 ? t("settings.semanticSearch.encrypt.on")
-                : t("settings.semanticSearch.encrypt.unavailable", {
-                    why: live.status.encryption.reason ?? "",
-                  })}
+                : live.status.encryption.state === "pending"
+                  ? t("settings.semanticSearch.encrypt.pending")
+                  : t("settings.semanticSearch.encrypt.unavailable", {
+                      why: live.status.encryption.reason ?? "",
+                    })}
             </StatusChip>
           </div>
         ) : null}

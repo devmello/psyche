@@ -41,12 +41,12 @@ describe("resolveSearchKey", () => {
       status: { state: "off" },
     });
   });
-  it("is unavailable on the interactive keychain slot and never makes a key", async () => {
+  it("on the keychain slot without a helper is unavailable and never makes a key", async () => {
     const f = fixture(true);
     const r = await resolveSearchKey({ ...f, slot: "keychain" });
     expect(r.key).toBeUndefined();
+    expect(r.pending).toBeUndefined();
     expect(r.status.state).toBe("unavailable");
-    expect(r.status.reason).toMatch(/Touch ID/);
   });
   it("makes and reuses a wrapped key on a key-file slot", async () => {
     const f = fixture(true);

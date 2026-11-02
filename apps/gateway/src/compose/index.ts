@@ -89,7 +89,7 @@ import {
 } from "@psyche/scheduler";
 import { WEB_SEARCH_PROVIDER_SETTING, WEB_SEARCH_SEARXNG_SETTING } from "@psyche/search";
 import { createTaskHandlers, SqliteTaskEngine, TaskWorkerPool } from "@psyche/tasks";
-import { SecretRedactor, type Vault } from "@psyche/vault";
+import { DerivedKeyStore, SecretRedactor, type Vault } from "@psyche/vault";
 import { type DocumentsHandle, documentBridge } from "../artifacts/bridge.ts";
 import { resolveConfig } from "../config.ts";
 import type { HandlerDef } from "../context.ts";
@@ -1403,6 +1403,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     keyFile: join(config.home, "state", "search.key.json"),
     wrapper: vault.wrapper,
     slot: vault.slot,
+    derived: new DerivedKeyStore(vault.helper),
   });
   const power = powerReader();
   const search = composeSearch({
