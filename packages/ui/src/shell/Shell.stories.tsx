@@ -79,6 +79,33 @@ export const SidebarRail: Story = { render: () => <Main mode="rail" /> };
 
 export const SidebarRailFeed: Story = { render: () => <Main mode="rail" start="/feed" /> };
 
+/**
+ * The compact rail expanded by hover (a rest of 250 ms; it folds 300 ms after the pointer
+ * leaves): laid over the content, whose column keeps its place beside the 64 px rail. The play
+ * function rests the pointer on the rail; `no-visual` because the open state depends on timers.
+ */
+export const SidebarRailPeek: Story = {
+  tags: ["no-visual"],
+  render: () => <Main mode="rail" start="/feed" />,
+  play: async ({ canvasElement }) => {
+    const host = canvasElement.querySelector('[data-testid="sidebar-host"]');
+    host?.dispatchEvent(
+      new PointerEvent("pointerover", { bubbles: true, pointerType: "mouse", clientX: 20 }),
+    );
+  },
+};
+
+/** The same peek over the chat, in a narrow 720 px window. */
+export const SidebarRailPeekNarrow: Story = {
+  tags: ["no-visual"],
+  render: () => (
+    <div className="mx-auto h-dvh w-[720px] overflow-hidden border-x border-separator">
+      <Main mode="rail" />
+    </div>
+  ),
+  play: SidebarRailPeek.play,
+};
+
 export const Compact: Story = {
   parameters: { viewport: { defaultViewport: "mobile1" } },
   render: () => (
