@@ -140,3 +140,24 @@ export function countPinnedWidgets(db: PsycheDb): number {
     .get();
   return r?.n ?? 0;
 }
+
+/** Live widgets whose owner is the given task / automation / job (`owner.<key> = id`). */
+export function listLiveWidgetsOwnedBy(
+  db: PsycheDb,
+  kind: WidgetOwner["kind"],
+  id: string,
+): Widget[] {
+  const key = kind === "run" ? "runId" : `${kind}Id`;
+  return db.drizzle
+    .select()
+    .from(widgets)
+    .where(
+      and(
+        eq(widgets.state, "live"),
+        sql`json_extract(${widgets.owner}, '$.kind') = ${kind}`,
+        sql`json_extract(${widgets.owner}, ${`$.${key}`}) = ${id}`,
+      ),
+    )
+    .all()
+    .map(widgetFromRow);
+}

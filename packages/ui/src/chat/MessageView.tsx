@@ -1,5 +1,12 @@
 import type { Message, Task } from "@psyche/protocol";
-import { CornerUpLeft, Ellipsis, GitBranch, GraduationCap, Pencil } from "lucide-react";
+import {
+  CornerUpLeft,
+  Ellipsis,
+  GitBranch,
+  GraduationCap,
+  LayoutPanelTop,
+  Pencil,
+} from "lucide-react";
 import { type ReactElement, useId, useState } from "react";
 import { Avatar } from "../avatar/Avatar.tsx";
 import { MessageBlocks } from "../blocks/MessageBlocks.tsx";
@@ -187,6 +194,15 @@ export function MessageView({
         aria-label={t("chat.message.userLabel", { time })}
         data-role="user"
       >
+        {message.via === "widget" ? (
+          <span
+            className="mb-0.5 inline-flex items-center gap-1 text-callout text-label-secondary"
+            data-testid="from-widget-chip"
+          >
+            <LayoutPanelTop className="size-3.5" aria-hidden="true" />
+            {t("chat.message.fromWidget")}
+          </span>
+        ) : null}
         <div className="flex max-w-[min(80%,var(--prose-width))] items-center gap-2">
           {hoverTime}
           {actions}

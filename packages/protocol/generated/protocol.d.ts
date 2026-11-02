@@ -955,7 +955,7 @@ export type GrantScope = "once" | "task" | "site" | "session" | "always";
 
 export type Unsandboxed = "UNSANDBOXED";
 
-export type InputVia = "voice";
+export type InputVia = "voice" | "widget";
 
 export interface ApprovalBlock {
     approvalId: string;
@@ -2896,6 +2896,7 @@ export interface ChatSendParams {
     attachments?:      string[];
     content:           string;
     context?:          ChatContextRef;
+    fromWidget?:       ChatFromWidget;
     mode?:             QueueMode;
     redo?:             Redo;
     replyToMessageId?: string;
@@ -2906,6 +2907,10 @@ export interface ChatSendParams {
 export interface ChatContextRef {
     id:   string;
     kind: BlockKind;
+}
+
+export interface ChatFromWidget {
+    widgetId: string;
 }
 
 export type QueueMode = "steer" | "followUp" | "interrupt";

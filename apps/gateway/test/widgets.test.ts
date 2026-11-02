@@ -207,6 +207,47 @@ describe("WidgetStore", () => {
     ).toThrow(/frozen/);
   });
 
+  it("freezes a task's widgets when the task ends, but not bound ones or a run's (D9)", () => {
+    const plain = store.create({
+      threadId: "thr_1",
+      messageId: "m",
+      spec: spec(),
+      taint: [],
+      owner: { kind: "task", taskId: "tsk_1" },
+    });
+    const bound = store.create({
+      threadId: "thr_1",
+      messageId: "m",
+      spec: spec({
+        root: {
+          id: "p",
+          type: "progress",
+          label: "x",
+          bind: { source: "task", id: "tsk_1", field: "progress" },
+        },
+      }),
+      taint: [],
+      owner: { kind: "task", taskId: "tsk_1" },
+    });
+    const run = mk("run-owned");
+    const other = store.create({
+      threadId: "thr_1",
+      messageId: "m",
+      spec: spec(),
+      taint: [],
+      owner: { kind: "task", taskId: "tsk_2" },
+    });
+    expect(store.freezeOwnedBy("task", "tsk_1")).toBe(1);
+    expect(getWidget(db, plain.id)?.state).toBe("frozen");
+    expect(getWidget(db, bound.id)?.state).toBe("live");
+    expect(getWidget(db, run.id)?.state).toBe("live");
+    expect(getWidget(db, other.id)?.state).toBe("live");
+    expect(events.find((e) => e.payload.widgetId === plain.id)?.payload).toMatchObject({
+      state: "frozen",
+      ops: [],
+    });
+  });
+
   it("freezes after 7 days without a patch", () => {
     const w = mk();
     now += 8 * 24 * 60 * 60 * 1000;
