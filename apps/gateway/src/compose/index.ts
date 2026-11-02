@@ -60,7 +60,12 @@ import {
   replayRevocations,
   SqlitePermissionStore,
 } from "@psyche/permissions";
-import { DAILY_SETTING_KEYS, proactiveTools, publicFetch } from "@psyche/proactive";
+import {
+  DAILY_SETTING_KEYS,
+  proactiveTools,
+  publicFetch,
+  withProactiveJobs,
+} from "@psyche/proactive";
 import {
   type ApprovalRequestInput,
   type Clock,
@@ -828,6 +833,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     provider,
     utility: utility ?? modelRef,
     timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    card: async (path) => (await memory.readFile(path))?.content,
     announce: (card) => void proactive.feed.postNotice({ ...card, reason: "memory learned" }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
@@ -1209,6 +1215,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     channelSurfaces: () =>
       relays.flatMap((r) => r.surfaces()).filter((x) => x.startsWith("imessage:")),
     learned: () => everything.learnedYesterday(),
+    comingUp: () => everything.comingUp(),
     // Ideas proposes folding a skill's lessons into it once it has three (teaching loop §6).
     skillUpdates: () => skills.updates(),
     // Post-meeting notes transcribe on the Mac through the speech part (§4.6). Record meeting
@@ -1289,14 +1296,22 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     withAutomationSpecialists(
       people.launcher(
         // The weekly "What I learned" Feed post (teaching loop §5.4) runs in-process too.
-        withWeeklyCard(proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool), {
-          store: teaching.service.store,
-          memory,
-          clock,
-          enabled: () =>
-            teachingSettings(db).enabled && getSetting(db, "teaching.weeklyCard")?.value !== false,
-          post: (card) => proactive.feed.postGrowth(card),
-        }),
+        withWeeklyCard(
+          // Everything memory (#1010) is its own scheduled job (03:15, after dreaming), so
+          // Scheduled shows it and can Run it now.
+          withProactiveJobs(proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool), {
+            jobs: [everything.job],
+          }),
+          {
+            store: teaching.service.store,
+            memory,
+            clock,
+            enabled: () =>
+              teachingSettings(db).enabled &&
+              getSetting(db, "teaching.weeklyCard")?.value !== false,
+            post: (card) => proactive.feed.postGrowth(card),
+          },
+        ),
         [
           async () => {
             if (!teachingSettings(db).enabled) return undefined;
@@ -1305,9 +1320,6 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
             const dormant = await retireUnanswered(teaching.service, memory, { clock });
             return `lessons: ${r.merged} merged, ${r.promoted} promoted, ${r.proposed} proposed, ${r.flagged} flagged, ${dormant} dormant`;
           },
-          // Everything memory (#1010): off and model None until the owner picks; gated on power,
-          // idle time and quiet hours inside the pass.
-          everything.nightly,
         ],
       ),
       { db, tasks, host: specialists, now: () => clock.now() },
@@ -1403,6 +1415,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     routerEmbedder: (allowCloud) => routerEmbedder(router, allowCloud),
     // Context cards at ingest: the utility model (cheap), a few items per minute, a daily budget.
     cards: { provider, model: utility ?? modelRef },
+    // Cloud rerank of the top hits: the utility model, only when one is set and the owner opts in.
+    ...(utility === undefined ? {} : { rerank: { provider, model: utility } }),
+    // Plain-English questions the rules cannot filter: the utility model, only when one is set.
+    ...(utility === undefined ? {} : { queryModel: { provider, model: utility } }),
     ...(gwOptions.semanticEngines === undefined
       ? {}
       : { semanticEngines: gwOptions.semanticEngines }),
@@ -1433,7 +1449,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   })) {
     registry.register(tool);
   }
-  parts.push(everything.part());
+  parts.push(
+    everything.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone),
+  );
   parts.push(people.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone));
   // Code plugins (T4): off until the owner turns on `plugins.enabled`.
   parts.push(

@@ -340,6 +340,41 @@ export const EverythingExclusion = Type.Object(
 );
 export type EverythingExclusion = Static<typeof EverythingExclusion>;
 
+// --- Run now (§6.1) -----------------------------------------------------------------------------
+
+export const EverythingRunReason = StringEnum(
+  [
+    "disabled",
+    "no_sources",
+    "model_none",
+    "battery",
+    "low_power",
+    "thermal",
+    "not_idle",
+    "outside_quiet_hours",
+    "local_not_confirmed",
+    "low_memory",
+    "no_owner_entity",
+    "busy",
+  ],
+  { $id: "EverythingRunReason", description: "Why a pass did not run" },
+);
+export type EverythingRunReason = Static<typeof EverythingRunReason>;
+
+/** What "Run now" did: counts only, never text. */
+export const EverythingRunResult = Type.Object(
+  {
+    ran: Type.Boolean(),
+    reason: Nullable(EverythingRunReason),
+    itemsRead: Type.Integer({ minimum: 0 }),
+    factsProposed: Type.Integer({ minimum: 0 }),
+    quarantined: Type.Integer({ minimum: 0 }),
+    deferred: Type.Integer({ minimum: 0 }),
+    tokens: Type.Integer({ minimum: 0 }),
+  },
+  { $id: "EverythingRunResult" },
+);
+export type EverythingRunResult = Static<typeof EverythingRunResult>;
 // --- Per-sender auto-accept (§7.3) ------------------------------------------------------------
 
 export const SenderTrustState = StringEnum(["offered", "trusted"], { $id: "SenderTrustState" });
@@ -367,6 +402,45 @@ export const SenderTrustDecision = StringEnum(["trust", "decline", "revoke"], {
   $id: "SenderTrustDecision",
 });
 export type SenderTrustDecision = Static<typeof SenderTrustDecision>;
+
+// --- Coming up (§12.3, §12.5) -------------------------------------------------------------------
+
+export const ComingUpKind = StringEnum(["birthday", "anniversary", "event"], {
+  $id: "ComingUpKind",
+});
+
+export const ComingUpItem = Type.Object(
+  {
+    entityId: Id,
+    name: Type.String({ maxLength: 200 }),
+    kind: ComingUpKind,
+    date: Type.String({
+      pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+      description: "Next occurrence, local date",
+    }),
+    daysAway: Type.Integer({ minimum: 0 }),
+    turns: Nullable(Type.Integer({ minimum: 0 })),
+    lastContactAt: Nullable(IsoDateTime),
+    text: Type.String({
+      maxLength: 400,
+      description: "One plain line, built from names and dates",
+    }),
+  },
+  { $id: "ComingUpItem" },
+);
+export type ComingUpItem = Static<typeof ComingUpItem>;
+
+/** What forgetting or excluding a person would remove (or did), counts only. */
+export const PersonRemoved = Type.Object(
+  {
+    facts: Type.Integer({ minimum: 0 }),
+    edges: Type.Integer({ minimum: 0 }),
+    citations: Type.Integer({ minimum: 0 }),
+    quarantine: Type.Integer({ minimum: 0 }),
+  },
+  { $id: "PersonRemoved" },
+);
+export type PersonRemoved = Static<typeof PersonRemoved>;
 
 // --- Runs (§6.7) ------------------------------------------------------------------------------
 

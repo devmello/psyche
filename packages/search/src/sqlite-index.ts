@@ -22,6 +22,7 @@ import {
   toFtsMatch,
 } from "./query-parser.ts";
 import { fuse, RRF_K } from "./ranking.ts";
+import { applyOrder, clampTopN, type RerankSettings, toCandidate } from "./rerank.ts";
 import { ensureSearchSchema, SOURCE_FLAGS_SCHEMA } from "./schema.ts";
 import { SemanticBusyError, type SemanticCandidate, type SemanticSearch } from "./semantic.ts";
 import {
@@ -38,6 +39,7 @@ import {
   type SearchViewer,
 } from "./types.ts";
 import { understand } from "./understand.ts";
+import { type QueryModel, refineWithModel } from "./understand-model.ts";
 
 export interface SqliteSearchIndexOptions {
   /** Epoch ms; drives the recency boost and relative dates. Default `Date.now`. */
@@ -51,12 +53,19 @@ export interface SqliteSearchIndexOptions {
   /** Memory is queried live through the store, not copied into this index. */
   memory?: MemoryStore;
   /**
+   * The cheap query model (`understand-model.ts`), used for `smart` requests whose question the
+   * rules could not filter. Absent means rules only.
+   */
+  queryModel?: { model: QueryModel; enabled?: () => boolean };
+  /**
    * Minutes east of UTC for calendar dates in queries (default 0). A function is read per query,
    * so daylight saving time follows the owner's zone.
    */
   tzOffsetMinutes?: number | (() => number);
   /** Names and addresses a person is known by (people graph, contacts) for "from Alex". */
   resolvePerson?: (name: string) => readonly string[] | undefined;
+  /** Re-rank the top hits of `rerank: true` searches (`rerank.ts`); absent means never. */
+  rerank?: RerankSettings;
 }
 
 /** Semantic candidates (documents) fused into one search. */
@@ -116,6 +125,8 @@ export class SqliteSearchIndex implements SearchIndex {
   #memory: MemoryStore | undefined;
   #tz: () => number;
   #resolvePerson: ((name: string) => readonly string[] | undefined) | undefined;
+  #rerankSettings: RerankSettings | undefined;
+  #queryModel: SqliteSearchIndexOptions["queryModel"];
   #upsert: Database.Statement;
   #delete: Database.Statement;
   #semantic: SemanticSearch | undefined;
@@ -132,6 +143,8 @@ export class SqliteSearchIndex implements SearchIndex {
     const tz = options.tzOffsetMinutes ?? 0;
     this.#tz = typeof tz === "function" ? tz : () => tz;
     this.#resolvePerson = options.resolvePerson;
+    this.#rerankSettings = options.rerank;
+    this.#queryModel = options.queryModel;
     ensureSearchSchema(db);
     this.cards = new CardStore(db);
     db.exec(SOURCE_FLAGS_SCHEMA);
@@ -396,13 +409,62 @@ export class SqliteSearchIndex implements SearchIndex {
    * so a query with matching words never comes back empty.
    */
   async search(request: SearchRequest): Promise<SearchResponse> {
+    const res = await this.#understoodSearch(request);
+    return request.rerank === true ? this.#rerank(request, res) : res;
+  }
+
+  /**
+   * Reorders the top hits with the configured reranker (`rerank.ts`). Owner viewers only, only
+   * when the owner switched it on; every failure keeps the order the search produced.
+   */
+  async #rerank(request: SearchRequest, res: SearchResponse): Promise<SearchResponse> {
+    const cfg = this.#rerankSettings;
+    if (cfg === undefined || !cfg.enabled()) return res;
+    if ((request.viewer ?? OWNER).kind !== "owner") return res;
+    const n = Math.min(clampTopN(cfg.topN?.()), res.hits.length);
+    if (n < 2) return res;
+    const head = res.hits.slice(0, n);
+    let order: string[];
+    try {
+      order = await cfg.reranker.rerank(request.q, head.map(toCandidate));
+    } catch {
+      return res;
+    }
+    if (order.length === 0) return res;
+    const ranked = applyOrder(head, order);
+    const pos = new Map(ranked.map((h, i) => [h.id, i] as const));
+    res.hits = [...ranked, ...res.hits.slice(n)];
+    for (const g of res.groups) {
+      // Only hits that were re-ranked move; the rest keep their place behind them.
+      const moved = g.hits
+        .filter((h) => pos.has(h.id))
+        .sort((a, b) => (pos.get(a.id) ?? 0) - (pos.get(b.id) ?? 0));
+      g.hits = [...moved, ...g.hits.filter((h) => !pos.has(h.id))];
+    }
+    res.reranked = { by: cfg.reranker.id, n };
+    return res;
+  }
+
+  async #understoodSearch(request: SearchRequest): Promise<SearchResponse> {
     if (request.understand === false) return this.#searchOnce(request);
-    const plan = understand(request.q, {
+    const opts = {
       now: this.#now(),
       tzOffsetMinutes: this.#tz(),
       disabled: request.dropChips ?? [],
       ...(this.#resolvePerson === undefined ? {} : { resolvePerson: this.#resolvePerson }),
-    });
+    };
+    let plan = understand(request.q, opts);
+    const qm = this.#queryModel;
+    // A cheap model only where the rules are unsure and the caller asked for it; a dropped
+    // chip means the user is steering, so the rules' reading stays.
+    if (request.smart === true && qm !== undefined && qm.enabled?.() !== false) {
+      const refined = await refineWithModel(request.q, plan, qm.model, {
+        now: opts.now,
+        tzOffsetMinutes: opts.tzOffsetMinutes,
+        ...(this.#resolvePerson === undefined ? {} : { resolvePerson: this.#resolvePerson }),
+      });
+      if (refined !== undefined && (request.dropChips ?? []).length === 0) plan = refined;
+    }
     let res: SearchResponse | undefined;
     let used = plan.attempts[0];
     for (const attempt of plan.attempts) {

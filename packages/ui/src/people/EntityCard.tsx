@@ -38,6 +38,10 @@ export interface EntityCardActions {
   onTogglePin?: (entity: EntityView) => void;
   onMerge?: (entity: EntityView) => void;
   onForget?: (entity: EntityView) => void;
+  /** Everything memory (§10.3): export one person, forget what they said, stop learning. */
+  onExport?: (entity: EntityView) => void;
+  onForgetSaid?: (entity: EntityView) => void;
+  onExclude?: (entity: EntityView, forget: boolean) => void;
   /** Opens another person, org or project's card. */
   onOpenEntity?: (id: string) => void;
   /** Opens a link back to Mail, Calendar or Messages. */
@@ -49,6 +53,8 @@ export interface EntityCardProps extends EntityCardActions {
   now: number;
   /** Persona name, for the empty-facts hint. */
   persona?: string;
+  /** "Ava turns 7 on Friday": birthdays, anniversaries and events, from the Gateway. */
+  upcoming?: readonly string[];
   loading?: boolean;
   loadingDelayMs?: number;
   error?: string | null;
@@ -82,7 +88,13 @@ function CardHeader({
   entity: EntityView;
   actions: EntityCardActions;
 }): ReactElement {
-  const hasMenu = actions.onTogglePin || actions.onMerge || actions.onForget;
+  const hasMenu =
+    actions.onTogglePin ||
+    actions.onMerge ||
+    actions.onForget ||
+    actions.onExport ||
+    actions.onForgetSaid ||
+    actions.onExclude;
   return (
     <header className="flex items-start gap-3">
       <EntityMonogram kind={entity.kind} name={entity.name} size={40} />
@@ -115,6 +127,26 @@ function CardHeader({
               <DropdownMenuItem onClick={() => actions.onMerge?.(entity)}>
                 {t("people.merge")}
               </DropdownMenuItem>
+            ) : null}
+            {actions.onExport ? (
+              <DropdownMenuItem onClick={() => actions.onExport?.(entity)}>
+                {t("personData.export")}
+              </DropdownMenuItem>
+            ) : null}
+            {actions.onForgetSaid ? (
+              <DropdownMenuItem onClick={() => actions.onForgetSaid?.(entity)}>
+                {t("personData.said")}
+              </DropdownMenuItem>
+            ) : null}
+            {actions.onExclude ? (
+              <>
+                <DropdownMenuItem onClick={() => actions.onExclude?.(entity, false)}>
+                  {t("personData.exclude")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => actions.onExclude?.(entity, true)}>
+                  {t("personData.excludeForget")}
+                </DropdownMenuItem>
+              </>
             ) : null}
             {actions.onForget ? (
               <>
@@ -423,6 +455,7 @@ export function PersonCard({
   entity,
   now,
   persona = "Wren",
+  upcoming = [],
   loading = false,
   loadingDelayMs = 0,
   error = null,
@@ -448,6 +481,15 @@ export function PersonCard({
           <>
             <CardHeader entity={e} actions={actions} />
             <Summary entity={e} />
+            {upcoming.length > 0 ? (
+              <GroupedList title={t("people.section.upcoming")}>
+                {upcoming.map((line) => (
+                  <p key={line} data-testid="upcoming-row" className="px-3 py-1.5 text-body">
+                    {line}
+                  </p>
+                ))}
+              </GroupedList>
+            ) : null}
             <GroupedList title={t("people.section.facts")}>
               <FactRows
                 entity={e}
