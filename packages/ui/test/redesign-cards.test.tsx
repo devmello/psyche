@@ -163,8 +163,12 @@ describe("WrapUpBox (§5.3)", () => {
     expect(screen.getByText("Add it to your calendar?").className).toContain("text-headline");
     const primary = screen.getByRole("button", { name: "Add it" });
     const second = screen.getByRole("button", { name: "Not now" });
-    expect(primary.className).toContain("bg-primary");
+    // Ink belongs to the composer and the approval (one accent per view, #1053): a transcript
+    // card's primary is the bordered push button and the rest are borderless.
+    expect(primary.className).not.toContain("bg-primary");
+    expect(primary.className).toContain("border-separator-strong");
     expect(second.className).not.toContain("bg-primary");
+    expect(second.className).not.toContain("border-separator-strong");
     const buttons = container.querySelectorAll("button");
     expect(buttons[buttons.length - 1]).toBe(primary);
     await userEvent.click(primary);
