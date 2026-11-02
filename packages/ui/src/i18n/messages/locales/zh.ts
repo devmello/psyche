@@ -1147,8 +1147,6 @@ export const zh: Partial<Catalogue> = {
   "settings.credentials.payments.status.canceled": "已取消",
   "settings.credentials.payments.amountRefunded": "{total} · 已退款 {refunded}",
   "settings.credentials.payments.title": "付款",
-  "settings.credentials.payments.description":
-    "你在设备上批准每笔购买后，Stripe Link 会用一次性卡片付款。你的卡号从不会到达 Psyche。",
   "settings.credentials.payments.loadLabel": "付款",
   "settings.credentials.payments.notConfigured":
     "尚未设置 Stripe Link。请在运行 Gateway 的电脑上安装 Link CLI，登录 Link，并设置 PSYCHE_LINK_CLI；之后 Psyche 会在此显示你的付款方式。",
@@ -1257,20 +1255,15 @@ export const zh: Partial<Catalogue> = {
   "settings.appearance.seedHelp":
     "任意 CSS 颜色。它会落在第 9 级；如果文本难以阅读，Psyche 会加以调整。",
   "settings.appearance.title": "外观",
-  "settings.appearance.description": "应用于所有已配对的设备。审批、危险和成功颜色从不跟随强调色。",
   "settings.appearance.loadLabel": "外观",
   "settings.appearance.theme.auto": "自动",
   "settings.appearance.theme.autoHint": "跟随系统",
   "settings.appearance.followSystem": "跟随系统",
   "settings.appearance.contrastHint": "更明显的边框、更深的文本和 2 px 焦点环。",
-  "settings.appearance.glass.hint":
-    "输入框、工具栏控件、菜单和弹出框会透出背后的内容。关闭后它们为不透明。",
 
   "settings.browser.profile": "Psyche 描述文件",
   "settings.browser.profileNamed": "Psyche 描述文件（{persona}）",
   "settings.browser.title": "浏览器",
-  "settings.browser.description":
-    "{persona} 默认在自己的窗口中浏览。真实 Chrome 模式允许任务使用一个你只需登录一次的独立 Chrome 描述文件。",
   "settings.browser.loadLabel": "浏览器设置",
   "settings.browser.realChromeDescription": "用于需要你的登录状态或 1Password 等扩展的网站。",
   "settings.browser.letTasksUse": "允许任务使用 {profile}",
@@ -1507,8 +1500,6 @@ export const zh: Partial<Catalogue> = {
   "settings.context.turns": "个轮次",
 
   "settings.webSearch.title": "网页搜索",
-  "settings.webSearch.description":
-    "代理在网上查找信息的方式。搜索结果和网页被视为网页内容，从不被当作你的指令。",
   "settings.webSearch.inUse": "使用中",
   "settings.webSearch.unknown": "尚未报告",
   "settings.webSearch.braveKey": "Brave Search 密钥",
@@ -1528,8 +1519,6 @@ export const zh: Partial<Catalogue> = {
   "settings.webSearch.searxngPlaceholder": "http://127.0.0.1:8888",
 
   "settings.data.title": "隐私与数据",
-  "settings.data.description":
-    "{persona} 保存的所有内容都存放在这台电脑上。没有训练开关，因为没有任何内容会被用于训练。",
   "settings.data.loadLabel": "数据控制",
   "settings.data.memory": "记忆",
   "settings.data.pauseMemory": "暂停记忆",
@@ -1618,12 +1607,8 @@ export const zh: Partial<Catalogue> = {
   "settings.files.stopSharing": "停止共享 {path}",
   "settings.files.pathPlaceholder": "~/Documents/Taxes",
   "settings.files.title": "文件访问",
-  "settings.files.description":
-    "{persona} 只能看到你共享的文件夹。这台 Mac 上的其他一切都不可访问。",
   "settings.files.loadLabel": "文件访问",
   "settings.files.folders": "文件夹",
-  "settings.files.foldersHint":
-    "只读允许它打开和搜索；读写还允许它存储更改，每项更改都会显示在差异面板中。",
   "settings.files.sharedFolders": "共享文件夹",
   "settings.files.noFolders": "没有共享的文件夹。{persona} 只在自己的工作区中工作。",
   "settings.files.shareFolder": "共享文件夹",
@@ -1804,7 +1789,6 @@ export const zh: Partial<Catalogue> = {
   "settings.persona.redrawn": "{name} 的头像将根据你的描述重新绘制。",
   "settings.persona.savedForLater": "已存储你的描述。没有图像模型时，{name} 会保留下方选中的生物。",
   "settings.persona.title": "角色",
-  "settings.persona.description": "{name} 的外观和自我介绍方式。灵魂的语气在 SOUL.md 中。",
   "settings.persona.loadLabel": "角色",
   "settings.persona.describedAs": "描述为：{description}",
   "settings.persona.identity": "身份",
@@ -2055,8 +2039,6 @@ export const zh: Partial<Catalogue> = {
     "在独立的沙盒 Mac 中运行任务，让 {persona} 在它自己的 macOS 副本中工作，而不是在你的系统中。",
   "settings.vm.loadLabel": "虚拟机设置",
   "settings.vm.sandboxMac": "沙盒 Mac",
-  "settings.vm.enabledHint":
-    "要求使用它的任务会在客户机中运行。客户机只能看到你共享的文件夹，除非你批准更多权限，否则为只读。",
   "settings.vm.noGuest": "尚未配对客户机",
   "settings.vm.chooseGuest": "选择客户机",
   "settings.vm.guestStatus": "{name}（{status}）",
@@ -2064,8 +2046,6 @@ export const zh: Partial<Catalogue> = {
   "settings.vm.workspace.sandbox": "容器沙盒",
   "settings.vm.between": "你的 Mac 与客户机之间",
   "settings.vm.betweenHint": "从客户机复制文件出来始终是带回执的显式拷贝。",
-  "settings.vm.credentialsHint":
-    "使用主机保险库时，值留在你的 Mac 上并通过助手填充；客户机保险库则在客户机内保留自己的副本。",
   "settings.vm.guestStatusTitle": "客户机状态",
   "settings.vm.guestStatusHint": "Psyche 助手上次报告的内容。",
   "settings.vm.noReports":
@@ -2088,12 +2068,8 @@ export const zh: Partial<Catalogue> = {
   "settings.voice.mode.hold": "按住说话",
   "settings.voice.mode.toggle": "按一下开始，再按一下停止",
   "settings.voice.anyApp": "在任何 App 中",
-  "settings.voice.anyAppHint":
-    "无论你在哪里输入。文本会进入光标所在位置，从不发送给代理，也从不进入密码栏。",
   "settings.voice.hotkeyHint": "在任何 App 中按一下开始，再按一下停止。按删除键可关闭。",
   "settings.voice.talk": "与 Psyche 对话",
-  "settings.voice.talkHint":
-    "输入框中的“语音”按钮会开始语音对话：Psyche 倾听、出声回答，然后继续倾听。审批仍以卡片形式显示在屏幕上；语音从不批准任何内容。",
   "settings.voice.yourTurn": "你的发言",
   "settings.voice.turn.toggle": "免提",
   "settings.voice.turn.toggleHint": "你停顿时 Psyche 回答。",
@@ -2139,10 +2115,7 @@ export const zh: Partial<Catalogue> = {
     "此 Gateway 上尚不支持登录 {name}。稍后可在“设置 → 连接器”中设置。",
 
   "settings.language.title": "语言与地区",
-  "settings.language.description": "地区决定 Psyche 中所有日期、时间、数字和金额的书写格式。",
   "settings.language.language": "语言",
-  "settings.language.languageHint":
-    "Psyche 文本所用的语言。“与系统一致”跟随你的地区；尚未翻译的内容以英文显示。",
   "settings.language.languageSystem": "与系统一致（{name}）",
   "settings.language.region": "地区格式",
   "settings.language.system": "与系统一致（{name}）",

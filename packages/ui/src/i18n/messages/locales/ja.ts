@@ -1143,8 +1143,6 @@ export const ja: Partial<Catalogue> = {
   "settings.credentials.payments.status.canceled": "キャンセル済み",
   "settings.credentials.payments.amountRefunded": "{total} · {refunded}返金済み",
   "settings.credentials.payments.title": "支払い",
-  "settings.credentials.payments.description":
-    "Stripe Linkは、デバイスで各購入を承認した後に使い捨てカードで支払います。カード番号がPsycheに届くことはありません。",
   "settings.credentials.payments.loadLabel": "支払い",
   "settings.credentials.payments.notConfigured":
     "Stripe Linkが設定されていません。GatewayのマシンにLink CLIをインストールしてLinkにサインインし、PSYCHE_LINK_CLIを設定すると、ここに支払い方法が表示されます。",
@@ -1253,21 +1251,15 @@ export const ja: Partial<Catalogue> = {
   "settings.appearance.seedHelp":
     "任意のCSSカラー。ステップ9に適用され、テキストが読みにくくなる場合はPsycheが調整します。",
   "settings.appearance.title": "外観",
-  "settings.appearance.description":
-    "ペアリングされたすべてのデバイスに適用されます。承認、危険、成功の色はアクセントに影響されません。",
   "settings.appearance.loadLabel": "外観",
   "settings.appearance.theme.auto": "自動",
   "settings.appearance.theme.autoHint": "システムに合わせる",
   "settings.appearance.followSystem": "システムに合わせる",
   "settings.appearance.contrastHint":
     "境界線を強調し、テキストを濃くし、フォーカスリングを2 pxにします。",
-  "settings.appearance.glass.hint":
-    "入力欄、ツールバーのコントロール、メニュー、ポップオーバーの背後にあるコンテンツが透けて見えます。オフにすると不透明になります。",
   "settings.browser.profile": "Psycheプロファイル",
   "settings.browser.profileNamed": "Psycheプロファイル（{persona}）",
   "settings.browser.title": "ブラウザ",
-  "settings.browser.description":
-    "{persona}はデフォルトで専用のウインドウでブラウズします。実Chromeモードでは、一度サインインした別のChromeプロファイルをタスクで使用できます。",
   "settings.browser.loadLabel": "ブラウザ設定",
   "settings.browser.realChromeDescription":
     "サインインや1Passwordなどの機能拡張が必要なサイト向けです。",
@@ -1523,8 +1515,6 @@ export const ja: Partial<Catalogue> = {
   "settings.context.keepHint": "これらはどれだけ長くても要約されません。",
   "settings.context.turns": "ターン",
   "settings.webSearch.title": "Web検索",
-  "settings.webSearch.description":
-    "エージェントがWebで調べる方法。検索結果とページはWebコンテンツとして扱われ、あなたの指示として扱われることはありません。",
   "settings.webSearch.inUse": "使用中",
   "settings.webSearch.unknown": "まだ報告されていません",
   "settings.webSearch.braveKey": "Brave Searchのキー",
@@ -1545,8 +1535,6 @@ export const ja: Partial<Catalogue> = {
     "ユーザ名やパスワードを含まないhttp(s)のURLを入力してください。",
   "settings.webSearch.searxngPlaceholder": "http://127.0.0.1:8888",
   "settings.data.title": "プライバシーとデータ",
-  "settings.data.description":
-    "{persona}が保持するものはすべてこのマシン上にあります。学習に送られるものはないため、学習のオン/オフ設定はありません。",
   "settings.data.loadLabel": "データ管理",
   "settings.data.memory": "メモリ",
   "settings.data.pauseMemory": "メモリを一時停止",
@@ -1644,12 +1632,8 @@ export const ja: Partial<Catalogue> = {
   "settings.files.stopSharing": "{path}の共有を停止",
   "settings.files.pathPlaceholder": "~/Documents/Taxes",
   "settings.files.title": "ファイルアクセス",
-  "settings.files.description":
-    "{persona}に見えるのは、あなたが共有したフォルダだけです。このMacのそれ以外の場所にはアクセスできません。",
   "settings.files.loadLabel": "ファイルアクセス",
   "settings.files.folders": "フォルダ",
-  "settings.files.foldersHint":
-    "「読み出しのみ」では開くことと検索ができ、「読み/書き」では変更の保存もできます。変更はそれぞれ差分パネルに表示されます。",
   "settings.files.sharedFolders": "共有フォルダ",
   "settings.files.noFolders":
     "共有フォルダはありません。{persona}は自身のワークスペース内でのみ作業します。",
@@ -1845,8 +1829,6 @@ export const ja: Partial<Catalogue> = {
   "settings.persona.savedForLater":
     "説明を保存しました。画像モデルがないため、{name}は下で選んだ生き物のままです。",
   "settings.persona.title": "ペルソナ",
-  "settings.persona.description":
-    "{name}の見た目と自己紹介の仕方。ソウルの口調はSOUL.mdにあります。",
   "settings.persona.loadLabel": "ペルソナ",
   "settings.persona.describedAs": "説明：{description}",
   "settings.persona.identity": "アイデンティティ",
@@ -2104,8 +2086,6 @@ export const ja: Partial<Catalogue> = {
     "別のサンドボックスMacでタスクを実行し、{persona}があなたのmacOSではなく専用のコピーで作業するようにします。",
   "settings.vm.loadLabel": "VM設定",
   "settings.vm.sandboxMac": "サンドボックスMac",
-  "settings.vm.enabledHint":
-    "これを求めるタスクはゲストで実行されます。ゲストにはあなたが共有したフォルダしか見えず、追加で承認しない限り読み出しのみです。",
   "settings.vm.noGuest": "ペアリングされたゲストはまだありません",
   "settings.vm.chooseGuest": "ゲストを選択",
   "settings.vm.guestStatus": "{name}（{status}）",
@@ -2114,8 +2094,6 @@ export const ja: Partial<Catalogue> = {
   "settings.vm.between": "あなたのMacとゲストの間",
   "settings.vm.betweenHint":
     "ゲストからファイルをコピーする操作は、常にレシート付きの明示的なコピーになります。",
-  "settings.vm.credentialsHint":
-    "ホストの保管庫では、値はあなたのMacに残り、ヘルパー経由で入力されます。ゲストの保管庫はゲスト内に独自のコピーを保持します。",
   "settings.vm.guestStatusTitle": "ゲストの状態",
   "settings.vm.guestStatusHint": "Psycheヘルパーが最後に報告した内容。",
   "settings.vm.noReports":
@@ -2137,13 +2115,9 @@ export const ja: Partial<Catalogue> = {
   "settings.voice.mode.hold": "押しながら話す",
   "settings.voice.mode.toggle": "押して開始、もう一度押して停止",
   "settings.voice.anyApp": "どのアプリでも",
-  "settings.voice.anyAppHint":
-    "入力中の場所ならどこでも。テキストはカーソルの位置に入力され、エージェントには送られず、パスワード欄にも入力されません。",
   "settings.voice.hotkeyHint":
     "どのアプリからでも、1回押して開始、もう一度押して停止します。Backspaceでオフになります。",
   "settings.voice.talk": "Psycheと話す",
-  "settings.voice.talkHint":
-    "入力欄の「音声」ボタンで音声による会話を開始します。Psycheが聞き取り、声で答え、再び聞き取ります。承認は引き続き画面上のカードとして表示され、音声で承認されることはありません。",
   "settings.voice.yourTurn": "あなたの番",
   "settings.voice.turn.toggle": "ハンズフリー",
   "settings.voice.turn.toggleHint": "あなたが話し終えるとPsycheが答えます。",
@@ -2194,10 +2168,7 @@ export const ja: Partial<Catalogue> = {
     "{name}へのサインインはこのGatewayではまだ利用できません。後で設定 → コネクタから設定してください。",
 
   "settings.language.title": "言語と地域",
-  "settings.language.description": "地域は、Psyche全体での日付、時刻、数値、金額の表記を決めます。",
   "settings.language.language": "言語",
-  "settings.language.languageHint":
-    "Psycheのテキストの言語。「システムに合わせる」は地域に従います。未翻訳の部分は英語で表示されます。",
   "settings.language.languageSystem": "システムに合わせる（{name}）",
   "settings.language.region": "地域の書式",
   "settings.language.system": "システムに合わせる（{name}）",

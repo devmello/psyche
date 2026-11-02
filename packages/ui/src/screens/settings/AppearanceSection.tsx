@@ -15,7 +15,7 @@ import {
   type ModeTheme,
 } from "../../theme/generate.ts";
 import { appearanceFromSettings } from "../../theme/ThemeProvider.tsx";
-import { LanguageGroup } from "./LanguageSettings.tsx";
+import { DirectionField, LanguageGroup } from "./LanguageSettings.tsx";
 import {
   Advanced,
   ErrorNotice,
@@ -371,6 +371,7 @@ export function AppearancePanel({
               value={a.accentSeed}
               onChange={(s) => onChange("appearance.accentSeed", s)}
             />
+            <DirectionField values={values} onChange={onChange} />
           </Group>
           <Group
             title={t("settings.appearance.contrastCheck")}

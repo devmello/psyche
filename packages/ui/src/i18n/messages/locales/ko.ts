@@ -1148,8 +1148,6 @@ export const ko: Partial<Catalogue> = {
   "settings.credentials.payments.status.canceled": "취소됨",
   "settings.credentials.payments.amountRefunded": "{total} · {refunded} 환불됨",
   "settings.credentials.payments.title": "결제",
-  "settings.credentials.payments.description":
-    "Stripe Link는 사용자가 기기에서 각 구매를 승인한 뒤 일회용 카드로 결제합니다. 카드 번호는 Psyche에 절대 전달되지 않습니다.",
   "settings.credentials.payments.loadLabel": "결제",
   "settings.credentials.payments.notConfigured":
     "Stripe Link가 설정되어 있지 않습니다. Gateway가 실행되는 컴퓨터에 Link CLI를 설치하고 Link에 로그인한 뒤 PSYCHE_LINK_CLI를 설정하면 Psyche가 여기에 결제 수단을 표시합니다.",
@@ -1257,20 +1255,14 @@ export const ko: Partial<Catalogue> = {
   "settings.appearance.seedHelp":
     "모든 CSS 색상을 쓸 수 있습니다. 9단계에 적용되며, 텍스트를 읽기 어려워지면 Psyche가 조정합니다.",
   "settings.appearance.title": "화면 모드",
-  "settings.appearance.description":
-    "페어링된 모든 기기에 적용됩니다. 승인, 위험 및 성공 색상은 강조 색상을 따르지 않습니다.",
   "settings.appearance.loadLabel": "화면 모드",
   "settings.appearance.theme.auto": "자동",
   "settings.appearance.theme.autoHint": "시스템을 따름",
   "settings.appearance.followSystem": "시스템 따르기",
   "settings.appearance.contrastHint": "더 진한 테두리, 더 어두운 텍스트, 2px 포커스 링.",
-  "settings.appearance.glass.hint":
-    "작성기, 도구 막대 제어기, 메뉴 및 팝오버 뒤의 콘텐츠가 비쳐 보입니다. 끄면 불투명해집니다.",
   "settings.browser.profile": "Psyche 프로파일",
   "settings.browser.profileNamed": "Psyche 프로파일 ({persona})",
   "settings.browser.title": "브라우저",
-  "settings.browser.description":
-    "{persona}은(는) 기본적으로 자체 윈도우에서 탐색합니다. 실제 Chrome 모드를 켜면 사용자가 한 번 로그인해 둔 별도의 Chrome 프로파일을 작업에서 사용할 수 있습니다.",
   "settings.browser.loadLabel": "브라우저 설정",
   "settings.browser.realChromeDescription":
     "사용자의 로그인이나 1Password 같은 확장 프로그램이 필요한 사이트용입니다.",
@@ -1521,8 +1513,6 @@ export const ko: Partial<Catalogue> = {
   "settings.context.keepHint": "이 턴들은 길이에 상관없이 요약되지 않습니다.",
   "settings.context.turns": "턴",
   "settings.webSearch.title": "웹 검색",
-  "settings.webSearch.description":
-    "에이전트가 웹에서 정보를 찾는 방법입니다. 결과와 페이지는 웹 콘텐츠로만 취급되며 사용자의 지시로 취급되지 않습니다.",
   "settings.webSearch.inUse": "사용 중",
   "settings.webSearch.unknown": "아직 보고되지 않음",
   "settings.webSearch.braveKey": "Brave Search 키",
@@ -1542,8 +1532,6 @@ export const ko: Partial<Catalogue> = {
   "settings.webSearch.searxngInvalid": "사용자 이름이나 암호가 없는 http(s) URL을 입력하십시오.",
   "settings.webSearch.searxngPlaceholder": "http://127.0.0.1:8888",
   "settings.data.title": "개인정보 및 데이터",
-  "settings.data.description":
-    "{persona}이(가) 보관하는 모든 것은 이 컴퓨터에 있습니다. 학습에 쓰이는 데이터가 없으므로 학습 설정 스위치도 없습니다.",
   "settings.data.loadLabel": "데이터 제어",
   "settings.data.memory": "메모리",
   "settings.data.pauseMemory": "메모리 일시 정지",
@@ -1641,12 +1629,8 @@ export const ko: Partial<Catalogue> = {
   "settings.files.stopSharing": "{path} 공유 중단",
   "settings.files.pathPlaceholder": "~/Documents/Taxes",
   "settings.files.title": "파일 접근",
-  "settings.files.description":
-    "{persona}은(는) 사용자가 공유한 폴더만 볼 수 있습니다. 이 Mac의 나머지는 접근할 수 없습니다.",
   "settings.files.loadLabel": "파일 접근",
   "settings.files.folders": "폴더",
-  "settings.files.foldersHint":
-    "읽기 전용은 열고 검색할 수 있게 하고, 읽기 및 쓰기는 변경 사항 저장도 허용하며 각 변경은 변경 사항 패널에 표시됩니다.",
   "settings.files.sharedFolders": "공유 폴더",
   "settings.files.noFolders":
     "공유된 폴더가 없습니다. {persona}은(는) 자체 작업 공간에서만 작업합니다.",
@@ -1834,8 +1818,6 @@ export const ko: Partial<Catalogue> = {
   "settings.persona.savedForLater":
     "설명을 저장했습니다. 이미지 모델이 없으면 {name}은(는) 아래에서 선택한 크리처를 유지합니다.",
   "settings.persona.title": "페르소나",
-  "settings.persona.description":
-    "{name}의 모습과 자기소개 방식입니다. 소울의 말투는 SOUL.md에 있습니다.",
   "settings.persona.loadLabel": "페르소나",
   "settings.persona.describedAs": "설명: {description}",
   "settings.persona.identity": "정체성",
@@ -2090,8 +2072,6 @@ export const ko: Partial<Catalogue> = {
     "별도의 샌드박스 Mac에서 작업을 실행하여 {persona}이(가) 사용자의 macOS 대신 자체 macOS 사본에서 작업하게 합니다.",
   "settings.vm.loadLabel": "VM 설정",
   "settings.vm.sandboxMac": "샌드박스 Mac",
-  "settings.vm.enabledHint":
-    "요청하는 작업은 게스트에서 실행됩니다. 게스트는 사용자가 공유한 폴더만 보며, 추가로 승인하지 않는 한 읽기 전용입니다.",
   "settings.vm.noGuest": "아직 페어링된 게스트가 없습니다",
   "settings.vm.chooseGuest": "게스트 선택",
   "settings.vm.guestStatus": "{name} ({status})",
@@ -2100,8 +2080,6 @@ export const ko: Partial<Catalogue> = {
   "settings.vm.between": "사용자의 Mac과 게스트 사이",
   "settings.vm.betweenHint":
     "게스트 밖으로 파일을 복사하는 것은 항상 영수증이 남는 명시적 복사입니다.",
-  "settings.vm.credentialsHint":
-    "호스트 금고를 쓰면 값이 사용자의 Mac에 남고 도우미를 통해 입력됩니다. 게스트 금고는 게스트 안에 자체 사본을 보관합니다.",
   "settings.vm.guestStatusTitle": "게스트 상태",
   "settings.vm.guestStatusHint": "Psyche 도우미가 마지막으로 보고한 내용입니다.",
   "settings.vm.noReports":
@@ -2123,13 +2101,9 @@ export const ko: Partial<Catalogue> = {
   "settings.voice.mode.hold": "길게 눌러 말하기",
   "settings.voice.mode.toggle": "눌러서 시작, 다시 눌러서 중지",
   "settings.voice.anyApp": "모든 앱에서",
-  "settings.voice.anyAppHint":
-    "입력 중인 곳 어디서나 사용할 수 있습니다. 텍스트는 커서 위치에 들어가며, 에이전트에게 전달되거나 암호 필드에 입력되는 일은 없습니다.",
   "settings.voice.hotkeyHint":
     "어떤 앱에서든 한 번 눌러 시작하고 다시 눌러 중지합니다. Backspace를 누르면 꺼집니다.",
   "settings.voice.talk": "Psyche와 대화",
-  "settings.voice.talkHint":
-    "작성기의 음성 버튼으로 음성 대화를 시작합니다. Psyche가 듣고, 소리 내어 답하고, 다시 듣습니다. 승인은 여전히 화면에 카드로 표시되며, 음성으로는 아무것도 승인되지 않습니다.",
   "settings.voice.yourTurn": "사용자 차례",
   "settings.voice.turn.toggle": "핸즈프리",
   "settings.voice.turn.toggleHint": "말을 멈추면 Psyche가 답합니다.",
@@ -2179,11 +2153,7 @@ export const ko: Partial<Catalogue> = {
 
   // settings-language
   "settings.language.title": "언어 및 지역",
-  "settings.language.description":
-    "지역은 Psyche 전체에서 날짜, 시간, 숫자 및 금액이 표시되는 방식을 결정합니다.",
   "settings.language.language": "언어",
-  "settings.language.languageHint":
-    "Psyche 텍스트의 언어입니다. 시스템에 맞춤은 지역 설정을 따르며, 아직 번역되지 않은 부분은 영어로 표시됩니다.",
   "settings.language.languageSystem": "시스템에 맞춤 ({name})",
   "settings.language.region": "지역 형식",
   "settings.language.system": "시스템에 맞춤 ({name})",

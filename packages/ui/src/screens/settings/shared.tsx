@@ -155,6 +155,9 @@ const NO_KEYS: ReadonlySet<string> = new Set();
  */
 export const InPageContext = createContext(false);
 
+/** `true` inside a `Group` card: notices drop their own surface so a card never holds a card. */
+const InCardContext = createContext(false);
+
 /**
  * One pane of a Settings page (a "section"): the serif title and one line of what it covers,
  * then its cards. On a page of several panes the header is a pinned chapter heading with a rule
@@ -262,7 +265,11 @@ export function Group({
         </div>
         {actions}
       </header>
-      {children ? <div className={CARD_ROWS}>{children}</div> : null}
+      {children ? (
+        <InCardContext.Provider value>
+          <div className={CARD_ROWS}>{children}</div>
+        </InCardContext.Provider>
+      ) : null}
     </section>
   );
 }
@@ -364,12 +371,15 @@ export function ErrorNotice({
   onRetry?: () => void;
   className?: string;
 }): ReactElement {
+  const inCard = useContext(InCardContext);
   return (
     <div
       role="alert"
-      // An inline row on a raised surface; danger colours only the icon (redesign §5.10).
+      // An inline row on a raised surface (a plain row inside a card); danger colours only the
+      // icon (redesign §5.10).
       className={cn(
-        "flex flex-wrap items-center gap-3 rounded-lg bg-surface-raised p-3 shadow-elevation-1",
+        "flex flex-wrap items-center gap-3",
+        !inCard && "rounded-lg bg-surface-raised p-3 shadow-elevation-1",
         className,
       )}
     >
@@ -389,8 +399,14 @@ export function ErrorNotice({
 
 /** Empty state: one sentence plus one action (§4.13). */
 export function EmptyNotice({ text, action }: { text: string; action?: ReactNode }): ReactElement {
+  const inCard = useContext(InCardContext);
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-lg bg-surface-raised px-3 py-3 shadow-elevation-1">
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-3",
+        !inCard && "rounded-lg bg-surface-raised px-3 py-3 shadow-elevation-1",
+      )}
+    >
       <p className="min-w-0 flex-1 text-body text-label-secondary">{text}</p>
       {action}
     </div>

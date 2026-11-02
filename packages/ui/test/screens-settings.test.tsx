@@ -454,10 +454,10 @@ describe("Computer use", () => {
     expect(
       screen.queryByRole("button", { name: "Open System Settings for Accessibility" }),
     ).toBeNull();
-    const apps = screen.getByRole("list", { name: "App access" });
-    const row = within(apps)
-      .getAllByRole("listitem")
-      .find((li) => li.textContent?.includes("1Password")) as HTMLElement;
+    // Locked caps are rows of the Apps card, next to the per-app tier controls.
+    const row = Array.from(document.querySelectorAll<HTMLElement>('[data-locked="true"]')).find(
+      (el) => el.textContent?.includes("1Password"),
+    ) as HTMLElement;
     expect(within(row).getByText("Off (fixed)")).toBeTruthy();
     expect(within(row).queryByRole("radio")).toBeNull();
     expect(screen.getAllByText("Click only (fixed)")).toHaveLength(2);
@@ -928,7 +928,7 @@ describe("Data controls", () => {
     await userEvent.click(confirm);
     await waitFor(() => expect(callsOf(gateway(), "memory.reset")).toHaveLength(1));
     expect(await screen.findByText(/Memory reset:/)).toBeTruthy();
-    expect(screen.queryByText(/training/i)?.textContent).toMatch(/no training toggle/);
+    expect(screen.queryByText(/training/i)?.textContent).toMatch(/Nothing is sent for training/);
   });
 
   it("keeps pictures from the web in widgets off until the owner turns it on, with a plain-language note", async () => {

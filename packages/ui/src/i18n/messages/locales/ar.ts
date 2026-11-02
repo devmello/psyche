@@ -1172,8 +1172,6 @@ export const ar: Partial<Catalogue> = {
   "settings.credentials.payments.status.canceled": "ملغى",
   "settings.credentials.payments.amountRefunded": "{total} · استُردّ {refunded}",
   "settings.credentials.payments.title": "المدفوعات",
-  "settings.credentials.payments.description":
-    "يدفع Stripe Link ببطاقة لمرة واحدة بعد موافقتك على كل عملية شراء على أحد الأجهزة. لا تصل أرقام بطاقاتك إلى Psyche أبدًا.",
   "settings.credentials.payments.loadLabel": "المدفوعات",
   "settings.credentials.payments.notConfigured":
     "لم يتم إعداد Stripe Link. ثبّت واجهة Link على جهاز Gateway، وسجّل الدخول إلى Link، واضبط PSYCHE_LINK_CLI؛ عندها يعرض Psyche طرق الدفع هنا.",
@@ -1284,21 +1282,15 @@ export const ar: Partial<Catalogue> = {
   "settings.appearance.seedHelp":
     "أي لون CSS. يُوضع على الدرجة 9؛ ويعدّله Psyche إذا كان النص سيصعب قراءته.",
   "settings.appearance.title": "المظهر",
-  "settings.appearance.description":
-    "يُطبَّق على كل جهاز مقترن. ألوان الموافقة والخطر والنجاح لا تتبع لون التمييز أبدًا.",
   "settings.appearance.loadLabel": "المظهر",
   "settings.appearance.theme.auto": "تلقائي",
   "settings.appearance.theme.autoHint": "يتبع النظام",
   "settings.appearance.followSystem": "اتباع النظام",
   "settings.appearance.contrastHint": "حدود أقوى ونص أدكن وحلقات تركيز بسُمك 2 بكسل.",
-  "settings.appearance.glass.hint":
-    "يسمح حقل الكتابة وعناصر شريط الأدوات والقوائم والنوافذ المنبثقة بظهور المحتوى خلفها. عند الإيقاف، تكون معتمة.",
 
   "settings.browser.profile": "ملف تعريف Psyche",
   "settings.browser.profileNamed": "ملف تعريف Psyche ‏({persona})",
   "settings.browser.title": "المتصفح",
-  "settings.browser.description":
-    "يتصفح {persona} في نافذة خاصة به افتراضيًا. يتيح وضع Chrome الحقيقي للمهمة استخدام ملف تعريف Chrome منفصل تسجّل الدخول إليه مرة واحدة.",
   "settings.browser.loadLabel": "إعدادات المتصفح",
   "settings.browser.realChromeDescription":
     "للمواقع التي تحتاج إلى تسجيلات دخولك أو إضافاتك مثل 1Password.",
@@ -1552,8 +1544,6 @@ export const ar: Partial<Catalogue> = {
   "settings.context.turns": "دور",
 
   "settings.webSearch.title": "البحث على الويب",
-  "settings.webSearch.description":
-    "كيف يبحث الوكيل عن الأشياء على الويب. تُعامل النتائج والصفحات كمحتوى ويب، وليس كتعليمات منك أبدًا.",
   "settings.webSearch.inUse": "قيد الاستخدام",
   "settings.webSearch.unknown": "لم يُبلَّغ عنه بعد",
   "settings.webSearch.braveKey": "مفتاح Brave Search",
@@ -1574,8 +1564,6 @@ export const ar: Partial<Catalogue> = {
   "settings.webSearch.searxngPlaceholder": "http://127.0.0.1:8888",
 
   "settings.data.title": "الخصوصية والبيانات",
-  "settings.data.description":
-    "كل ما يحتفظ به {persona} موجود على هذا الجهاز. لا يوجد خيار للتدريب لأن لا شيء يُرسل للتدريب.",
   "settings.data.loadLabel": "التحكم في البيانات",
   "settings.data.memory": "الذاكرة",
   "settings.data.pauseMemory": "إيقاف الذاكرة مؤقتًا",
@@ -1673,12 +1661,8 @@ export const ar: Partial<Catalogue> = {
   "settings.files.stopSharing": "إيقاف مشاركة {path}",
   "settings.files.pathPlaceholder": "~/Documents/Taxes",
   "settings.files.title": "الوصول إلى الملفات",
-  "settings.files.description":
-    "لا يرى {persona} إلا المجلدات التي تشاركها. كل شيء آخر على هذا الـ Mac محظور عليه.",
   "settings.files.loadLabel": "الوصول إلى الملفات",
   "settings.files.folders": "المجلدات",
-  "settings.files.foldersHint":
-    "القراءة فقط تتيح له الفتح والبحث؛ والقراءة والكتابة تتيح له أيضًا حفظ التغييرات، ويُعرض كل منها في لوحة الفروق.",
   "settings.files.sharedFolders": "المجلدات المشتركة",
   "settings.files.noFolders": "لا مجلدات مشتركة. يعمل {persona} في مساحة عمله الخاصة فقط.",
   "settings.files.shareFolder": "مشاركة مجلد",
@@ -1872,7 +1856,6 @@ export const ar: Partial<Catalogue> = {
   "settings.persona.savedForLater":
     "تم حفظ وصفك. من دون نموذج صور، يحتفظ {name} بالمخلوق المختار أدناه.",
   "settings.persona.title": "الشخصية",
-  "settings.persona.description": "كيف يبدو {name} وكيف يقدّم نفسه. نبرة الروح موجودة في SOUL.md.",
   "settings.persona.loadLabel": "الشخصية",
   "settings.persona.describedAs": "الوصف: {description}",
   "settings.persona.identity": "الهوية",
@@ -2127,8 +2110,6 @@ export const ar: Partial<Catalogue> = {
     "شغّل المهام في Mac معزول منفصل، بحيث يعمل {persona} في نسخته الخاصة من macOS بدلًا من نسختك.",
   "settings.vm.loadLabel": "إعدادات VM",
   "settings.vm.sandboxMac": "الـ Mac المعزول",
-  "settings.vm.enabledHint":
-    "تعمل المهام التي تطلبه في الضيف. لا يرى إلا المجلدات التي تشاركها، للقراءة فقط ما لم توافق على أكثر.",
   "settings.vm.noGuest": "لم يُقرن أي ضيف بعد",
   "settings.vm.chooseGuest": "اختر ضيفًا",
   "settings.vm.guestStatus": "{name} ({status})",
@@ -2136,8 +2117,6 @@ export const ar: Partial<Catalogue> = {
   "settings.vm.workspace.sandbox": "حاوية معزولة",
   "settings.vm.between": "بين الـ Mac الخاص بك والضيف",
   "settings.vm.betweenHint": "نسخ الملفات من الضيف هو دائمًا نسخ صريح مع إيصال.",
-  "settings.vm.credentialsHint":
-    "مع خزنة المضيف، تبقى القيم على الـ Mac الخاص بك وتُعبَّأ عبر المساعد؛ وتحتفظ خزنة الضيف بنسختها الخاصة داخل الضيف.",
   "settings.vm.guestStatusTitle": "حالة الضيف",
   "settings.vm.guestStatusHint": "آخر ما أبلغ عنه مساعد Psyche.",
   "settings.vm.noReports":
@@ -2161,12 +2140,8 @@ export const ar: Partial<Catalogue> = {
   "settings.voice.mode.hold": "اضغط مطوّلًا للتحدث",
   "settings.voice.mode.toggle": "اضغط للبدء، واضغط للإيقاف",
   "settings.voice.anyApp": "في أي تطبيق",
-  "settings.voice.anyAppHint":
-    "أينما كنت تكتب. يذهب النص إلى حيث مؤشرك، وليس إلى الوكيل أبدًا، ولا إلى حقول كلمات السر أبدًا.",
   "settings.voice.hotkeyHint": "اضغط مرة للبدء ومرة أخرى للإيقاف، من أي تطبيق. مفتاح الحذف يوقفه.",
   "settings.voice.talk": "التحدث مع Psyche",
-  "settings.voice.talkHint":
-    "يبدأ زر الصوت في حقل الكتابة محادثة منطوقة: يستمع Psyche ويجيب بصوت مسموع ثم يستمع مرة أخرى. لا تزال الموافقات تظهر كبطاقات على الشاشة؛ ولا يوافق الصوت على أي شيء أبدًا.",
   "settings.voice.yourTurn": "دورك",
   "settings.voice.turn.toggle": "من دون استخدام اليدين",
   "settings.voice.turn.toggleHint": "يجيب Psyche عندما تتوقف.",
@@ -2213,11 +2188,7 @@ export const ar: Partial<Catalogue> = {
     "تسجيل الدخول إلى {name} غير متاح على Gateway هذا بعد. أعدّه لاحقًا في الإعدادات ← الموصّلات.",
 
   "settings.language.title": "اللغة والمنطقة",
-  "settings.language.description":
-    "تحدد المنطقة كيفية كتابة التواريخ والأوقات والأرقام والمبالغ، في كل مكان في Psyche.",
   "settings.language.language": "اللغة",
-  "settings.language.languageHint":
-    "لغة نصوص Psyche. «مطابقة النظام» تتبع منطقتك؛ وما لم يُترجم بعد يظهر بالإنجليزية.",
   "settings.language.languageSystem": "مطابقة النظام ({name})",
   "settings.language.region": "تنسيق المنطقة",
   "settings.language.system": "مطابقة النظام ({name})",
