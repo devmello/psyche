@@ -34,25 +34,24 @@ export const nudges = {
     "Things I could bring up, from what Psyche has on file (use only these and do not invent anything else):",
   "nudges.settings.phrasing": "Reword suggestions with my model",
   "nudges.settings.phrasingHint":
-    "Uses the model chosen in Settings → Everything memory to say the “things to bring up” in friendlier words. It sees only those short lines, adds nothing, and the plain wording stays if it fails. Off by default.",
+    "Uses the model you chose for Everything memory to say them in friendlier words. Off by default.",
   "nudges.person.title": "Keep in touch",
   "nudges.person.none": "Nothing to follow up.",
   "nudges.person.muted": "Nudges for {name} are off.",
   "nudges.person.unmute": "Turn nudges back on",
-  "nudges.settings.title": "Relationship nudges",
+  "nudges.settings.title": "Keeping in touch",
   "nudges.settings.description":
-    "Psyche tells you when a message from someone has gone unanswered, when you are drifting from someone you usually talk to, when a birthday is near, and when you owe someone something you promised.",
+    "Gentle reminders about people you have lost touch with, birthdays and promises you made.",
   "nudges.settings.enabled": "Remind me to keep in touch",
   "nudges.settings.enabledHint":
-    "Shown in your morning brief (up to three) and as quiet Feed cards. Nothing is ever sent for you.",
+    "Up to three in your morning brief, and quiet Feed cards. Nothing is ever sent for you.",
   "nudges.settings.sensitivity": "How often",
-  "nudges.settings.sensitivityHint":
-    "How long a message waits, and how far from your usual rhythm, before Psyche says something.",
+  "nudges.settings.sensitivityHint": "How long a message waits before Psyche says something.",
   "nudges.settings.low": "Gentle",
   "nudges.settings.normal": "Normal",
   "nudges.settings.high": "Eager",
   "nudges.settings.quietHours":
-    "Cards wait out the quiet hours set in Settings → General → Notifications.",
+    "Cards wait out the quiet hours in Settings → General → Notifications.",
   "nudges.consent.title": "Turn on relationship nudges?",
   "nudges.consent.body":
     "Psyche will look at when you last wrote to or heard from people you correspond with (dates only, not what was said), birthdays you confirmed, and promises you made in your own words.",

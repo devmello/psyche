@@ -15,78 +15,32 @@ import { formatTime } from "../../lib/format.ts";
 import { RelationshipNudgesSettings, readNudgeSettings } from "../../nudges/NudgeSettings.tsx";
 import { ConnectedEntityCard } from "../../people/ConnectedEntityCard.tsx";
 import { usePersona, useSlots } from "../../slots.tsx";
-import { PeoplePrivacy } from "./PeoplePrivacy.tsx";
+import { MemoryAdvancedSection } from "./MemoryAdvancedSection.tsx";
+import { MemoryPrivacySection } from "./MemoryPrivacySection.tsx";
+import {
+  GRAPH_DEFAULTS,
+  GRAPH_SETTING,
+  GRAPH_SOURCES,
+  type GraphSettings,
+  readGraphSettings,
+} from "./PeopleGraphSettings.tsx";
 import {
   ErrorNotice,
   Group,
   LoadGate,
-  RadioField,
   SectionFrame,
   SwitchField,
   useSettingsForm,
 } from "./shared.tsx";
 
 /**
- * Settings → Privacy → People & projects (docs/memory/people-and-projects-2026.md §6.7, §7): the
- * graph on or off, sources one by one with what each produced, how long interactions are kept,
- * names in replies, the nightly learning pass and its budget, "What Psyche knows about me",
- * export, and the privacy controls (blocklist, delete by source, forget everything). Everything stays on this Mac; every source is off until the owner turns it on.
+ * Settings → Memory → People and projects (docs/memory/people-and-projects-2026.md §6.7, §7): which
+ * sources cards are learned from, your own card, and keeping in touch. Everything stays on this
+ * Mac and every source is off until the owner turns it on. The switch is in Basics; privacy and
+ * the model and retention choices follow as their own sections.
  */
 
-export const GRAPH_SETTING = "memory.graph";
-
-export interface GraphSettings {
-  enabled: boolean;
-  sources: Record<GraphSource, boolean>;
-  interactionRetentionDays: number;
-  entityRecall: boolean;
-  model: {
-    nightly: boolean;
-    afterRun: boolean;
-    maxEntitiesPerNight: number;
-    maxTokensPerNight: number;
-  };
-}
-
-/** The sources the owner can turn on, each off until then. */
-const SOURCES: readonly GraphSource[] = [
-  "contacts",
-  "mail",
-  "calendar",
-  "messages",
-  "notes",
-  "chats",
-];
-
-/** The spec's defaults (§4.7): off, sources off except chats (the owner's own words). */
-export const GRAPH_DEFAULTS: GraphSettings = {
-  enabled: false,
-  sources: {
-    contacts: false,
-    mail: false,
-    calendar: false,
-    messages: false,
-    notes: false,
-    chats: true,
-  },
-  interactionRetentionDays: 540,
-  entityRecall: true,
-  model: { nightly: true, afterRun: true, maxEntitiesPerNight: 200, maxTokensPerNight: 150000 },
-};
-
-/** The stored object merged over the defaults, so a partial value never drops a field. */
-export function readGraphSettings(values: Readonly<Record<string, unknown>>): GraphSettings {
-  const raw = values[GRAPH_SETTING];
-  const v = (raw && typeof raw === "object" ? raw : {}) as Partial<GraphSettings>;
-  return {
-    ...GRAPH_DEFAULTS,
-    ...v,
-    sources: { ...GRAPH_DEFAULTS.sources, ...(v.sources ?? {}) },
-    model: { ...GRAPH_DEFAULTS.model, ...(v.model ?? {}) },
-  };
-}
-
-const RETENTION_DAYS = ["180", "365", "540", "730"] as const;
+export { GRAPH_DEFAULTS, GRAPH_SETTING, type GraphSettings, readGraphSettings };
 
 export interface PeoplePanelProps {
   settings: GraphSettings;
@@ -98,16 +52,15 @@ export interface PeoplePanelProps {
   error?: string | null;
   onRetry?: () => void;
   onOpenOwnCard?: () => void;
-  /** Opens Privacy & data, where Export everything (people and projects included) lives. */
-  onOpenExport?: () => void;
+  /** Turns People and projects on (Basics has the same switch). */
+  onTurnOn?: () => void;
   busy?: boolean;
   notice?: { kind: "ok" | "error"; text: string } | null;
-  /** Blocklist, delete by source and forget everything (the connected section's). */
-  privacy?: ReactNode;
-  /** The "Relationship nudges" group (it brings its own heading). */
+  /** The "Keeping in touch" group (it brings its own heading). */
   nudges?: ReactNode;
 }
 
+/** Settings → Memory → People and projects: the sources cards are learned from, and your own card. */
 export function PeoplePanel({
   settings,
   onChange,
@@ -118,15 +71,12 @@ export function PeoplePanel({
   error = null,
   onRetry,
   onOpenOwnCard,
-  onOpenExport,
-  busy = false,
+  onTurnOn,
   notice = null,
-  privacy,
   nudges,
 }: PeoplePanelProps): ReactElement {
   const set = (patch: Partial<GraphSettings>) => onChange({ ...settings, ...patch });
   const sourceStatus = (s: GraphSource) => status?.sources.find((x) => x.source === s);
-  const off = !settings.enabled;
   return (
     <SectionFrame
       needsApproval={needsApproval}
@@ -148,109 +98,53 @@ export function PeoplePanel({
             </p>
           )
         ) : null}
-        <Group title={t("settings.people.graph")}>
-          <SwitchField
-            label={t("settings.people.enabled")}
-            description={t("settings.people.enabledHint", { persona })}
-            checked={settings.enabled}
-            settingKey={GRAPH_SETTING}
-            onChange={(enabled) => set({ enabled })}
-          />
-          <SwitchField
-            label={t("settings.people.entityRecall")}
-            description={t("settings.people.entityRecallHint", { persona })}
-            checked={settings.entityRecall}
-            disabled={off}
-            onChange={(entityRecall) => set({ entityRecall })}
-          />
-        </Group>
-
-        <Group title={t("settings.people.sources")} description={t("settings.people.sourcesHint")}>
-          {SOURCES.map((s) => {
-            const st = sourceStatus(s);
-            const on = settings.sources[s];
-            return (
-              <SwitchField
-                key={s}
-                label={t(`settings.people.source.${s}`)}
-                description={
-                  on && st
-                    ? t("settings.people.sourceCounts", {
-                        entities: st.entities,
-                        interactions: st.interactions,
-                        read: st.lastIngestAt ? formatTime(st.lastIngestAt) : "none",
-                      })
-                    : s === "messages"
-                      ? t("settings.people.source.messagesHint")
-                      : t("settings.people.sourceOff")
-                }
-                checked={on}
-                disabled={off}
-                onChange={(v) => set({ sources: { ...settings.sources, [s]: v } })}
-              />
-            );
-          })}
-        </Group>
-
-        <Group title={t("settings.people.retention")}>
-          <RadioField
-            label={t("settings.people.retentionLabel")}
-            description={t("settings.people.retentionHint")}
-            inline
-            value={
-              RETENTION_DAYS.find((d) => Number(d) === settings.interactionRetentionDays) ?? "540"
-            }
-            onChange={(v) => set({ interactionRetentionDays: Number(v) })}
-            options={RETENTION_DAYS.map((d) => ({
-              value: d,
-              label: t("settings.people.months", { n: Math.round(Number(d) / 30) }),
-            }))}
-          />
-        </Group>
-
-        <Group
-          title={t("settings.people.learning")}
-          description={
-            status
-              ? t("settings.people.budget", {
-                  tokens: status.budget.tokensUsed,
-                  maxTokens: status.budget.maxTokens,
-                  entities: status.budget.entitiesUsed,
-                  maxEntities: status.budget.maxEntities,
-                })
-              : t("settings.people.learningHint")
-          }
-        >
-          <SwitchField
-            label={t("settings.people.nightly")}
-            description={t("settings.people.nightlyHint")}
-            checked={settings.model.nightly}
-            disabled={off}
-            onChange={(nightly) => set({ model: { ...settings.model, nightly } })}
-          />
-          <SwitchField
-            label={t("settings.people.afterRun")}
-            description={t("settings.people.afterRunHint")}
-            checked={settings.model.afterRun}
-            disabled={off}
-            onChange={(afterRun) => set({ model: { ...settings.model, afterRun } })}
-          />
-          {status && status.loopPrecision.length > 0 ? (
-            <p className="text-callout text-label-secondary">
-              {t("settings.people.precision", {
-                list: status.loopPrecision
-                  .map((p) =>
-                    t("settings.people.precisionItem", {
-                      source: t(`settings.people.source.${p.source}`),
-                      confirmed: p.confirmed,
-                      total: p.confirmed + p.dismissed,
-                    }),
-                  )
-                  .join(", "),
-              })}
-            </p>
-          ) : null}
-        </Group>
+        {settings.enabled ? (
+          <Group
+            title={t("settings.people.sources")}
+            description={t("settings.people.sourcesHint")}
+          >
+            {GRAPH_SOURCES.map((s) => {
+              const st = sourceStatus(s);
+              const on = settings.sources[s];
+              return (
+                <SwitchField
+                  key={s}
+                  label={t(`settings.people.source.${s}`)}
+                  description={
+                    on && st
+                      ? t("settings.people.sourceCounts", {
+                          entities: st.entities,
+                          interactions: st.interactions,
+                          read: st.lastIngestAt ? formatTime(st.lastIngestAt) : "none",
+                        })
+                      : s === "messages"
+                        ? t("settings.people.source.messagesHint")
+                        : t("settings.people.sourceOff")
+                  }
+                  checked={on}
+                  onChange={(v) => set({ sources: { ...settings.sources, [s]: v } })}
+                />
+              );
+            })}
+          </Group>
+        ) : (
+          <Group title={t("settings.people.graph")}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="min-w-0 flex-1 text-body text-label-secondary">
+                {t("settings.people.off", { persona })}
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={!onTurnOn}
+                onClick={onTurnOn}
+              >
+                {t("settings.people.turnOn")}
+              </Button>
+            </div>
+          </Group>
+        )}
 
         <Group
           title={t("settings.people.aboutYou")}
@@ -270,24 +164,17 @@ export function PeoplePanel({
         </Group>
 
         {nudges}
-        {/* One export for everything (settings-2026): this points at it instead of repeating it. */}
-        <Group title={t("settings.people.export")} description={t("settings.people.exportHint")}>
-          <div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={!onOpenExport}
-              onClick={onOpenExport}
-            >
-              {t("settings.people.exportOpen")}
-            </Button>
-          </div>
-        </Group>
-        {privacy}
       </LoadGate>
     </SectionFrame>
   );
+}
+
+/**
+ * Privacy and Advanced sit in the same pane as People and projects (the page lists four panes);
+ * each is its own section with the pane separator above it.
+ */
+function Subsection({ children }: { children: ReactNode }): ReactElement {
+  return <div className="mt-5 flex flex-col gap-5 border-t border-separator pt-8">{children}</div>;
 }
 
 /** Connected: the `memory.graph` setting, `memory.graph.status` and the owner's card. */
@@ -321,23 +208,22 @@ export function PeopleSection(): ReactElement {
         busy={busy}
         notice={notice ?? (form.writeError ? { kind: "error", text: form.writeError } : null)}
         {...(owner ? { onOpenOwnCard: () => setOwnOpen(true) } : {})}
+        onTurnOn={() =>
+          form.onChange(GRAPH_SETTING, { ...readGraphSettings(form.values), enabled: true })
+        }
         nudges={
           <RelationshipNudgesSettings
             {...readNudgeSettings(form.values)}
             onChange={form.onChange}
           />
         }
-        privacy={
-          <PeoplePrivacy
-            status={status.data ?? null}
-            onChanged={() => {
-              status.reload();
-              form.reload();
-            }}
-          />
-        }
-        {...(navigate ? { onOpenExport: () => navigate("/settings/data") } : {})}
       />
+      <Subsection>
+        <MemoryPrivacySection />
+      </Subsection>
+      <Subsection>
+        <MemoryAdvancedSection />
+      </Subsection>
       <Dialog open={ownOpen} onOpenChange={setOwnOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>

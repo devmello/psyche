@@ -280,48 +280,41 @@ export function PeoplePrivacy({ status, onChanged }: PeoplePrivacyProps): ReactE
     <>
       <Blocklist disabled={false} />
 
-      <Group
-        title={t("settings.people.deleteBySource")}
-        description={t("settings.people.deleteBySourceHint")}
-      >
-        {withData.length === 0 ? (
-          <p className="text-body text-label-secondary">{t("settings.people.nothingStored")}</p>
-        ) : (
-          withData.map((s) => (
-            <div key={s.source} className={row}>
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="text-body text-label-primary">
-                  {t(`settings.people.source.${s.source}`)}
-                </span>
-                <span className="text-callout text-label-secondary">
-                  {t("settings.people.sourceStored", {
-                    entities: s.entities,
-                    interactions: s.interactions,
-                  })}
-                </span>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="text-danger-text"
-                aria-label={t("settings.people.deleteSourceLabel", {
-                  source: t(`settings.people.source.${s.source}`),
+      <Group title={t("memoryPrivacy.forget")} description={t("memoryPrivacy.forgetHint")}>
+        {withData.map((s) => (
+          <div key={s.source} className={row}>
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="text-body text-label-primary">
+                {t(`settings.people.source.${s.source}`)}
+              </span>
+              <span className="text-callout text-label-secondary">
+                {t("settings.people.sourceStored", {
+                  entities: s.entities,
+                  interactions: s.interactions,
                 })}
-                onClick={() => setTarget({ kind: "source", source: s.source })}
-              >
-                {t("settings.people.deleteSource")}
-              </Button>
+              </span>
             </div>
-          ))
-        )}
-      </Group>
-
-      <Group
-        title={t("settings.people.forgetAll")}
-        description={t("settings.people.forgetAllHint")}
-      >
-        <div>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="text-danger-text"
+              aria-label={t("settings.people.deleteSourceLabel", {
+                source: t(`settings.people.source.${s.source}`),
+              })}
+              onClick={() => setTarget({ kind: "source", source: s.source })}
+            >
+              {t("settings.people.deleteSource")}
+            </Button>
+          </div>
+        ))}
+        <div className={row}>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="text-body text-label-primary">{t("settings.people.forgetAll")}</span>
+            <span className="text-callout text-label-secondary">
+              {t("settings.people.forgetAllHint")}
+            </span>
+          </div>
           <Button
             type="button"
             size="sm"

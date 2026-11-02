@@ -158,9 +158,7 @@ describe("Memory review", () => {
     expect(within(rows[2] as HTMLElement).getByTestId("review-sensitive").textContent).toMatch(
       /health/,
     );
-    expect(screen.getByTestId("review-counts").textContent).toMatch(
-      /3 to review · 1 added automatically · 1 held back/,
-    );
+    expect(screen.getByText("3 facts are waiting for you")).toBeTruthy();
   });
 
   it("confirm moves a fact out of the queue", async () => {
@@ -251,7 +249,7 @@ describe("Memory review", () => {
     show(seed);
     const owner = await screen.findByRole("switch", { name: /things you wrote yourself/i });
     expect(owner.getAttribute("aria-checked")).toBe("true");
-    const self = screen.getByRole("switch", { name: /tell you about themselves/i });
+    const self = screen.getByRole("switch", { name: /say about themselves/i });
     expect(self.getAttribute("aria-checked")).toBe("false");
     fireEvent.click(owner);
     await waitFor(() =>

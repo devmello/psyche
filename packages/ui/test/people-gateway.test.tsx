@@ -258,13 +258,19 @@ describe("Settings → People & projects", () => {
     ).toBeTruthy();
   });
 
-  it("is off by default, with every source but chats off", async () => {
-    setup(<PeopleSection />);
-    const enabled = await screen.findByRole("switch", { name: "Learn about people and projects" });
-    expect(enabled.getAttribute("aria-checked")).toBe("false");
-    expect(screen.getByRole("switch", { name: "Contacts" }).getAttribute("aria-checked")).toBe(
-      "false",
+  it("is off by default: a Turn on button, and no sources until it is on", async () => {
+    const { callsTo, user } = setup(<PeopleSection />);
+    await user.click(await screen.findByRole("button", { name: "Turn on" }));
+    await waitFor(() =>
+      expect(callsTo("settings.set")[0]?.params).toMatchObject({
+        key: "memory.graph",
+        value: { enabled: true },
+      }),
     );
+    // On: every source but chats starts off.
+    expect(
+      (await screen.findByRole("switch", { name: "Contacts" })).getAttribute("aria-checked"),
+    ).toBe("false");
     expect(screen.getByRole("switch", { name: "Your chats" }).getAttribute("aria-checked")).toBe(
       "true",
     );
@@ -294,7 +300,7 @@ describe("Settings → People & projects", () => {
     const navigate = vi.fn();
     const { user } = setup(<PeopleSection />, { edit: graphOn, slots: { navigate } });
     await user.click(await screen.findByRole("button", { name: "Open your card" }));
-    const dialog = await screen.findByRole("dialog", { name: "What Psyche knows about you" });
+    const dialog = await screen.findByRole("dialog", { name: "About you" });
     expect(await within(dialog).findByRole("article", { name: "Alex Rivera" })).toBeTruthy();
     await user.keyboard("{Escape}");
     await user.click(screen.getByRole("button", { name: "Open Privacy & data" }));
@@ -442,7 +448,7 @@ describe("Settings → People & projects: privacy", () => {
 
   it("forgets everything only after the phrase is typed", async () => {
     const { callsTo, gw, user } = setup(<PeopleSection />, { edit: graphOn });
-    await user.click(await screen.findByRole("button", { name: "Forget everything…" }));
+    await user.click(await screen.findByRole("button", { name: "Forget…" }));
     const dialog = await screen.findByRole("alertdialog", {
       name: "Forget everything about people and projects?",
     });
@@ -467,12 +473,6 @@ describe("Settings → People & projects: privacy", () => {
     await waitFor(() =>
       expect((gw().world.settings["memory.graph"] as { enabled: boolean }).enabled).toBe(false),
     );
-    await waitFor(() =>
-      expect(
-        screen
-          .getByRole("switch", { name: "Learn about people and projects" })
-          .getAttribute("aria-checked"),
-      ).toBe("false"),
-    );
+    expect(await screen.findByRole("button", { name: "Turn on" })).toBeTruthy();
   });
 });

@@ -24,7 +24,11 @@ import { ConnectorsPanel } from "./ConnectorsSection.tsx";
 import { CredentialDetail } from "./CredentialDetail.tsx";
 import { ImportCredentialsForm } from "./CredentialImport.tsx";
 import { CredentialsPanel } from "./CredentialsSection.tsx";
-import { DataControlsPanel, MemoryControlsPanel } from "./DataControlsSection.tsx";
+import {
+  DataControlsPanel,
+  MemoryControlsPanel,
+  MemoryStoreGroups,
+} from "./DataControlsSection.tsx";
 import { DevicesPanel } from "./DevicesSection.tsx";
 import { EssentialsPanel } from "./EssentialsSection.tsx";
 import { FileAccessPanel } from "./FileAccessSection.tsx";
@@ -917,7 +921,26 @@ export const MemoryControls: Story = {
       persona={PERSONA.name}
       memoryPaused={false}
       onPauseMemory={noop}
+      everything={{ on: true, onChange: noop }}
+      people={{ on: true, onChange: noop }}
+      reviewCount={3}
+      onOpenReview={noop}
     />
+  ),
+};
+
+/** Advanced → how memory is recalled, and encryption once the Gateway reports where memory lives. */
+export const MemoryStore: Story = {
+  render: () => (
+    <div className="flex flex-col gap-5">
+      <MemoryStoreGroups
+        {...form}
+        persona={PERSONA.name}
+        recall={{ mode: "embeddings", state: "semantic", vectors: 1204, chunks: 1260 }}
+        store={{ encrypted: false, state: "off", reason: null, restartNeeded: false }}
+        onEncryptMemory={noop}
+      />
+    </div>
   ),
 };
 

@@ -20,7 +20,7 @@ export const settings = {
   "settings.nav.essentials": "Essentials",
   "settings.nav.general": "General",
   "settings.nav.search": "Search",
-  "settings.nav.learning": "Remembering & learning",
+  "settings.nav.learning": "Basics",
   "settings.search.count": "{count, plural, one {# result} other {# results}}",
   "settings.search.result.page": "Page",
 
@@ -39,7 +39,7 @@ export const settings = {
     "The apps and accounts {persona} can reach, and which of them it searches.",
   "settings.page.memory": "Memory",
   "settings.page.memory.description":
-    "What {persona} remembers about you, what it reads to learn, and the people it knows.",
+    "What {persona} remembers, where it learns from, and how you control it.",
   "settings.page.daily": "Routines & skills",
   "settings.page.daily.description":
     "Your morning brief and wrap-up, automations, skills and the specialists {persona} can call.",
@@ -119,7 +119,7 @@ export const settings = {
   "settings.nav.notifications": "Notifications",
   "settings.nav.voice": "Voice & dictation",
   "settings.nav.data": "Privacy & data",
-  "settings.nav.people": "People & projects",
+  "settings.nav.people": "People and privacy",
   "settings.nav.server": "Server & remote access",
   "settings.nav.usage": "Usage",
   "settings.nav.about": "About",
@@ -1240,14 +1240,11 @@ export const settings = {
   "settings.data.keep": "How long things are kept",
   "settings.data.keepHint": "Older thinking and task replays are deleted on their own.",
   "settings.data.danger": "Delete and start over",
-  "settings.memoryControls.title": "Remembering & learning",
+  "settings.memoryControls.title": "Basics",
   "settings.memoryControls.description":
-    "Whether {persona} remembers from your chats, how it finds what it remembered, and what it learns from your feedback.",
+    "Choose what {persona} remembers and where it learns from. Each can be turned off at any time.",
   // The teaching loop's settings (docs/agent/teaching-loop-2026.md §8).
-  "settings.learning.title": "Learning",
-  "settings.learning.enabled": "Learn from your feedback",
-  "settings.learning.enabledHint":
-    "Helpful, Not like this and your corrections become lessons {persona} remembers.",
+  "settings.learning.title": "Learning from feedback",
   "settings.learning.implicit": "Notice edits, undos and dismissals",
   "settings.learning.implicitHint":
     "Sending an edited draft or undoing an action counts as feedback.",
@@ -1989,18 +1986,17 @@ export const settings = {
   "settings.connect.unavailable":
     "Signing in to {name} isn't available on this Gateway yet. Set it up later in Settings → Connectors & sources.",
 
-  "settings.people.title": "People & projects",
+  "settings.people.title": "People and projects",
   "settings.people.description":
-    "What {persona} learns about the people and projects in your life. It stays on this Mac, and every card says where each fact came from.",
+    "The cards {persona} keeps for the people and projects in your life. They stay on this Mac, and every fact shows where it came from.",
   "settings.people.loadLabel": "Loading people and projects settings",
-  "settings.people.graph": "General",
-  "settings.people.enabled": "Learn about people and projects",
-  "settings.people.enabledHint":
-    "{persona} keeps a card for the people you deal with: who they are, open loops and recent conversations. No message bodies are stored.",
+  "settings.people.off": "Off. {persona} keeps no cards for the people and projects in your life.",
+  "settings.people.turnOn": "Turn on",
+  "settings.people.graph": "Learn people from",
   "settings.people.entityRecall": "Use names in replies",
   "settings.people.entityRecallHint":
     "When you name someone in a private chat, {persona} adds one line about them. Never in groups or channels.",
-  "settings.people.sources": "Sources",
+  "settings.people.sources": "Learn people from",
   "settings.people.sourcesHint":
     "Each source is off until you turn it on. Turning one off stops reading it.",
   "settings.people.source.contacts": "Contacts",
@@ -2013,12 +2009,12 @@ export const settings = {
   "settings.people.sourceOff": "Off",
   "settings.people.sourceCounts":
     "{entities, plural, one {# person or project} other {# people and projects}} · {interactions, plural, one {# interaction} other {# interactions}} · {read, select, none {not read yet} other {read at {read}}}",
-  "settings.people.retention": "Keep interactions",
+  "settings.people.retention": "How long interactions stay",
   "settings.people.retentionLabel": "Keep interactions for",
   "settings.people.retentionHint":
     "Older headers and links are deleted nightly. Cards, facts and open loops stay until you forget them.",
   "settings.people.months": "{n, plural, one {# month} other {# months}}",
-  "settings.people.learning": "Learning pass",
+  "settings.people.learning": "How cards are kept",
   "settings.people.learningHint":
     "Summaries, roles and open loops come from the utility model, local by default.",
   "settings.people.budget":
@@ -2029,19 +2025,15 @@ export const settings = {
   "settings.people.afterRunHint": "Updates the few people and projects a task touched.",
   "settings.people.precision": "Suggested loops you kept: {list}.",
   "settings.people.precisionItem": "{source} {confirmed, number} of {total, number}",
-  "settings.people.aboutYou": "What Psyche knows about you",
+  "settings.people.aboutYou": "About you",
   "settings.people.aboutYouHint":
-    "Your own card: what {persona} has learned about you, each fact with its source. Correct or delete anything.",
+    "Your own card: each fact {persona} learned about you, with its source.",
   "settings.people.openOwnCard": "Open your card",
   "settings.people.ownCardHint": "Facts about you from your profile, chats and connected apps.",
   "settings.people.editUserMd": "Edit USER.md",
-  "settings.people.export": "Export",
-  "settings.people.exportHint":
-    "Export everything in Privacy & data includes graph.json (people, projects, facts and loops) and every card file.",
-  "settings.people.exportOpen": "Open Privacy & data",
-  "settings.people.blocked": "Blocked",
+  "settings.people.blocked": "Blocked from People",
   "settings.people.blockedHint":
-    "Psyche never learns about these again. A blocked domain covers every address at it; existing cards stay until you forget them.",
+    "Never learned about again. A blocked domain covers every address at it.",
   "settings.people.noneBlocked": "No one is blocked.",
   "settings.people.blockedOn": "{kind} · blocked {date}",
   "settings.people.unblock": "Unblock",
@@ -2059,9 +2051,6 @@ export const settings = {
   "settings.people.blockPlaceholder.email": "name@example.com",
   "settings.people.blockPlaceholder.phone": "+1 555 0100",
   "settings.people.blockPlaceholder.domain": "example.com",
-  "settings.people.deleteBySource": "Delete by source",
-  "settings.people.deleteBySourceHint":
-    "Removes everything one source brought in and turns it off. Facts you added yourself stay.",
   "settings.people.nothingStored": "Nothing is stored from any source yet.",
   "settings.people.sourceStored":
     "{entities, plural, one {# person or project} other {# people and projects}} · {interactions, plural, one {# interaction} other {# interactions}}",
@@ -2072,10 +2061,10 @@ export const settings = {
     "{source} is turned off so the next sync doesn't bring it back. Facts you added yourself stay.",
   "settings.people.deleteSourceConfirm": "Delete",
   "settings.people.deletedSource": "Deleted what {source} brought in.",
-  "settings.people.forgetAll": "Forget everything",
+  "settings.people.forgetAll": "Everything about people and projects",
   "settings.people.forgetAllHint":
-    "Deletes every person, project, card and loop, the blocklist too, and turns People & projects off. Your own memory files stay.",
-  "settings.people.forgetAllButton": "Forget everything…",
+    "Deletes every person, project, card and loop, and turns People and projects off. Your own memory files stay.",
+  "settings.people.forgetAllButton": "Forget…",
   "settings.people.forgetAllTitle": "Forget everything about people and projects?",
   "settings.people.forgetAllAfter":
     "This can't be undone. People & projects turns off; turn it back on to start again from scratch.",
