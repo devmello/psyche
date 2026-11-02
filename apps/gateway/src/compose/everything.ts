@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { getSetting, openDb, type PsycheDb } from "@psyche/db";
 import {
+  describeUpcoming,
   EverythingStore,
   everythingNightlyStep,
   type GraphStore,
@@ -9,6 +10,7 @@ import {
   type NightlyStep,
   type PassDeps,
   SearchDocReader,
+  upcoming,
 } from "@psyche/memory";
 import {
   type Clock,
@@ -85,7 +87,11 @@ type EverythingMethod =
   | "memory.exclusions.add"
   | "memory.exclusions.remove"
   | "memory.senders.list"
-  | "memory.senders.decide";
+  | "memory.senders.decide"
+  | "memory.upcoming"
+  | "memory.entities.export"
+  | "memory.entities.forgetSaid"
+  | "memory.entities.exclude";
 type ReviewParams<M extends EverythingMethod> = MethodParams<M>;
 type ReviewResult<M extends EverythingMethod> = MethodResult<M>;
 
@@ -123,6 +129,25 @@ export interface EverythingHandlers {
   "memory.senders.decide"(
     p: ReviewParams<"memory.senders.decide">,
   ): Promise<ReviewResult<"memory.senders.decide">>;
+  "memory.upcoming"(p: ReviewParams<"memory.upcoming">): Promise<ReviewResult<"memory.upcoming">>;
+  "memory.entities.export"(
+    p: ReviewParams<"memory.entities.export">,
+  ): Promise<ReviewResult<"memory.entities.export">>;
+  "memory.entities.forgetSaid"(
+    p: ReviewParams<"memory.entities.forgetSaid">,
+  ): Promise<ReviewResult<"memory.entities.forgetSaid">>;
+  "memory.entities.exclude"(
+    p: ReviewParams<"memory.entities.exclude">,
+  ): Promise<ReviewResult<"memory.entities.exclude">>;
+}
+
+/** What the person-page methods need beyond the store. */
+export interface PersonContext {
+  graph: GraphStore;
+  clock: Clock;
+  timeZone: () => string;
+  /** The person's card file, when one exists, for the export. */
+  card?: (path: string) => Promise<string | undefined>;
 }
 
 const PAGE = 50;
@@ -130,7 +155,21 @@ const PAGE = 50;
 export function everythingHandlers(
   em: EverythingStore,
   settings: () => EverythingMemorySettings = () => everythingSettings(undefined),
+  person?: PersonContext,
 ): EverythingHandlers {
+  /** The owner is never excluded or forgotten from their own memory: that would blind it. */
+  const notOwner = (raw: string): string => {
+    const g = needPerson().graph;
+    const id = g.resolveMerged(raw);
+    if (g.getEntity(id)?.isOwner === true) {
+      throw new PsycheError("invalid_params", "that is you, not someone to exclude");
+    }
+    return id;
+  };
+  const needPerson = (): PersonContext => {
+    if (person === undefined) throw new PsycheError("unavailable", "the people graph is not ready");
+    return person;
+  };
   const offsetOf = (cursor: string | undefined): number => {
     const n = cursor === undefined ? 0 : Number.parseInt(cursor, 10);
     return Number.isInteger(n) && n >= 0 ? n : 0;
@@ -226,6 +265,87 @@ export function everythingHandlers(
         forgotten,
       };
     },
+    async "memory.upcoming"(p) {
+      const ctx = needPerson();
+      const now = ctx.clock.now();
+      const items = upcoming(ctx.graph, {
+        now,
+        days: p.days ?? 14,
+        timeZone: ctx.timeZone(),
+        ...(p.entityId === undefined ? {} : { entityId: p.entityId }),
+      });
+      return {
+        items: items.map((i) => ({
+          entityId: i.entityId,
+          name: i.name,
+          kind: i.kind,
+          date: i.date,
+          daysAway: i.daysAway,
+          turns: i.turns,
+          lastContactAt: i.lastContactAt,
+          text: describeUpcoming(i, now),
+        })),
+      };
+    },
+    async "memory.entities.export"(p) {
+      const ctx = needPerson();
+      const entity = ctx.graph.getEntity(ctx.graph.resolveMerged(p.id));
+      if (entity === undefined) throw new PsycheError("not_found", "no such person");
+      const card =
+        entity.cardPath != null && ctx.card !== undefined
+          ? await ctx.card(entity.cardPath)
+          : undefined;
+      const { filename, data } = em.exportPersonZip(
+        entity.id,
+        card === undefined ? {} : { "card.md": card },
+      );
+      return {
+        filename,
+        mime: "application/zip" as const,
+        data: Buffer.from(data).toString("base64"),
+        bytes: data.byteLength,
+      };
+    },
+    async "memory.entities.forgetSaid"(p) {
+      const id = notOwner(p.id);
+      const r = em.forgetWhatTheySaid(id, p.dryRun === true);
+      return {
+        removed: {
+          facts: r.facts,
+          edges: r.edges,
+          citations: r.citations,
+          quarantine: r.quarantine,
+        },
+        dryRun: r.dryRun,
+      };
+    },
+    async "memory.entities.exclude"(p) {
+      const id = notOwner(p.id);
+      if (p.dryRun === true) {
+        const r = em.forgetWhatTheySaid(id, true);
+        const n = needPerson().graph.identifiers(id).length;
+        return {
+          excluded: n,
+          removed:
+            p.mode === "forget"
+              ? { facts: r.facts, edges: r.edges, citations: r.citations, quarantine: r.quarantine }
+              : { facts: 0, edges: 0, citations: 0, quarantine: 0 },
+          dryRun: true,
+        };
+      }
+      const before = p.mode === "forget" ? em.forgetWhatTheySaid(id, true) : undefined;
+      const excluded = em.excludeEntity(id, p.mode);
+      return {
+        excluded,
+        removed: {
+          facts: before?.facts ?? 0,
+          edges: before?.edges ?? 0,
+          citations: before?.citations ?? 0,
+          quarantine: before?.quarantine ?? 0,
+        },
+        dryRun: false,
+      };
+    },
     async "memory.senders.list"() {
       return { senders: em.senderTrust(settings().review.perSenderAutoAcceptAfter) };
     },
@@ -249,6 +369,8 @@ export interface EverythingDeps {
   /** The router's utility role: the cloud model when the setting names none. */
   utility: ModelRef;
   timeZone: () => string;
+  /** Reads a person's card file for their export. */
+  card?: (path: string) => Promise<string | undefined>;
   /** The machine, read once when the pass starts (tests pass fixed numbers). */
   readState?: () => Promise<PassDeps["state"]>;
   /** Posts the "Psyche learned N things" card to the Feed (no notification). */
@@ -264,6 +386,8 @@ export interface Everything {
   readonly nightly: NightlyStep;
   /** The brief's "Learned yesterday" line, while the last run is recent and found something. */
   learnedYesterday(): { text: string; link: string } | undefined;
+  /** "Coming up" lines for the morning brief: birthdays, anniversaries and events, 14 days. */
+  comingUp(): { text: string; link?: string }[];
   part(): ComposedPart;
 }
 
@@ -271,7 +395,12 @@ export function composeEverything(deps: EverythingDeps): Everything {
   const { db, clock, graph } = deps;
   const store = new EverythingStore({ sqlite: db.sqlite, graph, clock });
   const settings = () => everythingSettings(getSetting(db, EVERYTHING_MEMORY_SETTING_KEY)?.value);
-  const handlers = everythingHandlers(store, settings);
+  const handlers = everythingHandlers(store, settings, {
+    graph,
+    clock,
+    timeZone: deps.timeZone,
+    ...(deps.card === undefined ? {} : { card: deps.card }),
+  });
   let search: PsycheDb | undefined;
   // A second, read-only connection to the derived index, opened on the first read (so a pass the
   // gates refuse never touches the file) and never written to.
@@ -343,6 +472,16 @@ export function composeEverything(deps: EverythingDeps): Everything {
     settings,
     handlers,
     nightly,
+    comingUp() {
+      if (!settings().enabled) return [];
+      const now = clock.now();
+      return upcoming(graph, { now, days: 14, timeZone: deps.timeZone() })
+        .slice(0, 8)
+        .map((i) => ({
+          text: describeUpcoming(i, now),
+          link: `/agent/soul?entity=${encodeURIComponent(i.entityId)}`,
+        }));
+    },
     learnedYesterday() {
       const a = graph.cursor(ANNOUNCE_CURSOR) as Announcement | undefined;
       if (a === undefined || clock.now() - a.at > BRIEF_WINDOW_MS) return undefined;
