@@ -29,6 +29,8 @@ public final class HelperRuntime: @unchecked Sendable {
         handlers += MessagesCapabilities.make()
         // R6/R7 Vision OCR for search ingest (images and scanned PDFs), on-device.
         handlers += OCRCapabilities.make()
+        // Apple's on-device language model for the Gateway's model router (never run by the tests).
+        handlers += AppleLLMCapabilities.make()
         handlers += DictationCapabilities.make()
         handlers += VMCapabilities.make(VMManager(backend: VZBackend(), environment: environment, log: log))
         // J6 Apple app adapters (Calendar, Reminders, Mail, Notes, Finder, Safari).
