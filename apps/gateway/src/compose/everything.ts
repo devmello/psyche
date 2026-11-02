@@ -83,7 +83,9 @@ type EverythingMethod =
   | "memory.runs.list"
   | "memory.exclusions.list"
   | "memory.exclusions.add"
-  | "memory.exclusions.remove";
+  | "memory.exclusions.remove"
+  | "memory.senders.list"
+  | "memory.senders.decide";
 type ReviewParams<M extends EverythingMethod> = MethodParams<M>;
 type ReviewResult<M extends EverythingMethod> = MethodResult<M>;
 
@@ -115,6 +117,12 @@ export interface EverythingHandlers {
   "memory.exclusions.remove"(
     p: ReviewParams<"memory.exclusions.remove">,
   ): Promise<ReviewResult<"memory.exclusions.remove">>;
+  "memory.senders.list"(
+    p: ReviewParams<"memory.senders.list">,
+  ): Promise<ReviewResult<"memory.senders.list">>;
+  "memory.senders.decide"(
+    p: ReviewParams<"memory.senders.decide">,
+  ): Promise<ReviewResult<"memory.senders.decide">>;
 }
 
 const PAGE = 50;
@@ -217,6 +225,13 @@ export function everythingHandlers(
         },
         forgotten,
       };
+    },
+    async "memory.senders.list"() {
+      return { senders: em.senderTrust(settings().review.perSenderAutoAcceptAfter) };
+    },
+    async "memory.senders.decide"(p) {
+      em.decideSender(p.entityId, p.decision);
+      return { senders: em.senderTrust(settings().review.perSenderAutoAcceptAfter) };
     },
     async "memory.exclusions.remove"(p) {
       return { removed: em.removeExclusionById(p.id) };

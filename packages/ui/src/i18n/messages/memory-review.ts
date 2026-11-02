@@ -65,6 +65,15 @@ export const memoryReview = {
     "Always reviewed for now. After you confirm {n, number} facts from a contact with no discards, Psyche will offer to trust that person.",
   "memoryReview.rules.always":
     "Sensitive facts, conflicts, notes and relations are always reviewed.",
+  "memoryReview.senders.title": "Trusted contacts",
+  "memoryReview.senders.offer":
+    "You confirmed {n, number} things {name} told you about themselves and discarded none. Accept what {name} says about themselves (birthday, job, city, school, likes, pets, children) without asking?",
+  "memoryReview.senders.offerHint":
+    "Anything sensitive, unsure or in conflict is still reviewed, and you can undo for a week.",
+  "memoryReview.senders.trust": "Accept automatically",
+  "memoryReview.senders.decline": "Not now, don't ask again",
+  "memoryReview.senders.trusted": "{name}: accepted automatically",
+  "memoryReview.senders.revoke": "Stop",
   "memoryReview.recent.undoUntil": "You can undo this until {date}",
   // --- Everything memory settings and first-run consent (§12) ---
   "settings.nav.everything": "Everything memory",

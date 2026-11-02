@@ -2087,6 +2087,22 @@
         "sideEffecting": false
       },
       {
+        "description": "Trust a contact (their allowed self-disclosures are accepted on arrival, undoable for a week), decline the offer for good, or revoke trust. Side-effecting.",
+        "name": "memory.senders.decide",
+        "params": "#/$defs/MemorySendersDecideParams",
+        "result": "#/$defs/MemorySendersDecideResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Contacts whose self-disclosures Psyche now auto-accepts, and contacts it offers to (enough facts confirmed, none discarded).",
+        "name": "memory.senders.list",
+        "params": "#/$defs/MemorySendersListParams",
+        "result": "#/$defs/MemorySendersListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Memory health for the Soul & Memory sheet: pause flag, index mode, counts, jobs, recall mode.",
         "name": "memory.status",
         "params": "#/$defs/MemoryStatusParams",
@@ -26282,6 +26298,56 @@
       ],
       "type": "object"
     },
+    "MemorySendersDecideParams": {
+      "properties": {
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "decision": {
+          "$ref": "#/$defs/SenderTrustDecision"
+        }
+      },
+      "required": [
+        "entityId",
+        "decision"
+      ],
+      "type": "object"
+    },
+    "MemorySendersDecideResult": {
+      "properties": {
+        "senders": {
+          "items": {
+            "$ref": "#/$defs/SenderTrust"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "senders"
+      ],
+      "type": "object"
+    },
+    "MemorySendersListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "MemorySendersListResult": {
+      "properties": {
+        "senders": {
+          "items": {
+            "$ref": "#/$defs/SenderTrust"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "senders"
+      ],
+      "type": "object"
+    },
     "MemoryStatusParams": {
       "properties": {},
       "type": "object"
@@ -33701,6 +33767,51 @@
         "approval"
       ],
       "type": "object"
+    },
+    "SenderTrust": {
+      "properties": {
+        "entityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "description": "A display name from a mail header: untrusted text",
+          "maxLength": 200,
+          "type": "string"
+        },
+        "confirmed": {
+          "description": "Facts the owner confirmed from them, none discarded",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "state": {
+          "$ref": "#/$defs/SenderTrustState"
+        }
+      },
+      "required": [
+        "entityId",
+        "name",
+        "confirmed",
+        "state"
+      ],
+      "type": "object"
+    },
+    "SenderTrustDecision": {
+      "enum": [
+        "trust",
+        "decline",
+        "revoke"
+      ],
+      "type": "string"
+    },
+    "SenderTrustState": {
+      "enum": [
+        "offered",
+        "trusted"
+      ],
+      "type": "string"
     },
     "SettingEntry": {
       "properties": {

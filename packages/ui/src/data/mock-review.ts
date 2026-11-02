@@ -7,6 +7,7 @@ import {
   PsycheError,
   type QuarantineItem,
   type ReviewItem,
+  type SenderTrust,
 } from "@psyche/protocol";
 
 /**
@@ -20,6 +21,7 @@ export interface ReviewWorld {
   quarantine: QuarantineItem[];
   runs: MemoryRun[];
   exclusions?: EverythingExclusion[];
+  senders?: SenderTrust[];
 }
 
 export function emptyReview(): ReviewWorld {
@@ -88,6 +90,15 @@ export function reviewHandlers(ctx: { world: () => ReviewWorld; now: () => strin
         p.action === "release" ? "released" : p.action === "discard" ? "discarded" : "blocked";
       q.decidedAt = ctx.now();
       return { item: q };
+    },
+    "memory.senders.list": () => ({ senders: ctx.world().senders ?? [] }),
+    "memory.senders.decide": (p) => {
+      const w = ctx.world();
+      const s = (w.senders ?? []).find((x) => x.entityId === p.entityId);
+      if (s === undefined) throw new PsycheError("not_found", "no such contact");
+      if (p.decision === "trust") s.state = "trusted";
+      else w.senders = (w.senders ?? []).filter((x) => x.entityId !== p.entityId);
+      return { senders: w.senders ?? [] };
     },
     "memory.exclusions.list": () => ({
       entries: ctx.world().exclusions ?? [],

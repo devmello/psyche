@@ -799,6 +799,10 @@
 //   let memoryRunsListResult = try? JSONDecoder().decode(MemoryRunsListResult.self, from: jsonData)
 //   let memorySearchParams = try? JSONDecoder().decode(MemorySearchParams.self, from: jsonData)
 //   let memorySearchResult = try? JSONDecoder().decode(MemorySearchResult.self, from: jsonData)
+//   let memorySendersDecideParams = try? JSONDecoder().decode(MemorySendersDecideParams.self, from: jsonData)
+//   let memorySendersDecideResult = try? JSONDecoder().decode(MemorySendersDecideResult.self, from: jsonData)
+//   let memorySendersListParams = try? JSONDecoder().decode(MemorySendersListParams.self, from: jsonData)
+//   let memorySendersListResult = try? JSONDecoder().decode(MemorySendersListResult.self, from: jsonData)
 //   let memoryStatusParams = try? JSONDecoder().decode(MemoryStatusParams.self, from: jsonData)
 //   let memoryStatusResult = try? JSONDecoder().decode(MemoryStatusResult.self, from: jsonData)
 //   let memorySuggestionCreatedPayload = try? JSONDecoder().decode(MemorySuggestionCreatedPayload.self, from: jsonData)
@@ -1090,6 +1094,9 @@
 //   let selfConnectorFile = try? JSONDecoder().decode(SelfConnectorFile.self, from: jsonData)
 //   let selfConnectorFilesResult = try? JSONDecoder().decode(SelfConnectorFilesResult.self, from: jsonData)
 //   let selfConnectorFilesWriteResult = try? JSONDecoder().decode(SelfConnectorFilesWriteResult.self, from: jsonData)
+//   let senderTrust = try? JSONDecoder().decode(SenderTrust.self, from: jsonData)
+//   let senderTrustDecision = try? JSONDecoder().decode(SenderTrustDecision.self, from: jsonData)
+//   let senderTrustState = try? JSONDecoder().decode(SenderTrustState.self, from: jsonData)
 //   let settingEntry = try? JSONDecoder().decode(SettingEntry.self, from: jsonData)
 //   let settings = try? JSONDecoder().decode(Settings.self, from: jsonData)
 //   let settingsChangedPayload = try? JSONDecoder().decode(SettingsChangedPayload.self, from: jsonData)
@@ -19469,6 +19476,83 @@ public struct MemoryHit: Codable, Sendable {
     }
 }
 
+// MARK: - MemorySendersDecideParams
+public struct MemorySendersDecideParams: Codable, Sendable {
+    public let decision: SenderTrustDecision
+    public let entityID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case decision = "decision"
+        case entityID = "entityId"
+    }
+
+    public init(decision: SenderTrustDecision, entityID: String) {
+        self.decision = decision
+        self.entityID = entityID
+    }
+}
+
+public enum SenderTrustDecision: String, Codable, Sendable {
+    case decline = "decline"
+    case revoke = "revoke"
+    case trust = "trust"
+}
+
+// MARK: - MemorySendersDecideResult
+public struct MemorySendersDecideResult: Codable, Sendable {
+    public let senders: [SenderTrust]
+
+    public enum CodingKeys: String, CodingKey {
+        case senders = "senders"
+    }
+
+    public init(senders: [SenderTrust]) {
+        self.senders = senders
+    }
+}
+
+// MARK: - SenderTrust
+public struct SenderTrust: Codable, Sendable {
+    /// Facts the owner confirmed from them, none discarded
+    public let confirmed: Int
+    public let entityID: String
+    /// A display name from a mail header: untrusted text
+    public let name: String
+    public let state: SenderTrustState
+
+    public enum CodingKeys: String, CodingKey {
+        case confirmed = "confirmed"
+        case entityID = "entityId"
+        case name = "name"
+        case state = "state"
+    }
+
+    public init(confirmed: Int, entityID: String, name: String, state: SenderTrustState) {
+        self.confirmed = confirmed
+        self.entityID = entityID
+        self.name = name
+        self.state = state
+    }
+}
+
+public enum SenderTrustState: String, Codable, Sendable {
+    case offered = "offered"
+    case trusted = "trusted"
+}
+
+// MARK: - MemorySendersListResult
+public struct MemorySendersListResult: Codable, Sendable {
+    public let senders: [SenderTrust]
+
+    public enum CodingKeys: String, CodingKey {
+        case senders = "senders"
+    }
+
+    public init(senders: [SenderTrust]) {
+        self.senders = senders
+    }
+}
+
 // MARK: - MemoryStatusResult
 public struct MemoryStatusResult: Codable, Sendable {
     public let chunks: Int
@@ -31192,6 +31276,7 @@ public typealias MemoryGraphBlocklistListParams = [String: JSONAny]
 public typealias MemoryGraphStatusParams = [String: JSONAny]
 public typealias MemoryNotesListParams = [String: JSONAny]
 public typealias MemoryPersonaGetParams = [String: JSONAny]
+public typealias MemorySendersListParams = [String: JSONAny]
 public typealias MemoryStatusParams = [String: JSONAny]
 public typealias ModelsListParams = [String: JSONAny]
 public typealias NodesListParams = [String: JSONAny]

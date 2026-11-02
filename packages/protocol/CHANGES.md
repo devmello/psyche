@@ -26,6 +26,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 - New methods `scheduled.list` (operator.read) and `scheduled.pause` (operator.write), and types `ScheduledItem`, `ScheduledGroup`, `ScheduledState`, `ScheduledLink`, `ScheduledLinkedRun`: everything the scheduler runs, grouped as the owner's automations and Psyche's routines, with next and last run, approvals, linked runs and whether the item can be deleted. `automations.delete` now refuses Psyche's own routines (`policy_denied`). `/scheduled` joins the app routes.
 
+### v1 additive — 2026-11-02 (everything memory, EM5b)
+
+- New methods `memory.senders.list`, `memory.senders.decide` and types `SenderTrust`, `SenderTrustState`, `SenderTrustDecision`.
+
 ### v1 additive — 2026-10-29 (everything memory, EM5)
 
 - `EverythingMemorySettings.people` gains `aboutOthers` (boolean, default false): keep what one person says about someone else, always pending.
