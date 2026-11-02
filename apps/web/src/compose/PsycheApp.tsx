@@ -5,8 +5,10 @@ import {
   AgentSheetPanel,
   type AgentTab,
   AppearanceProvider,
+  AutomationChat,
   agentSheetHref,
   agentSheetRoute,
+  automationOfThread,
   ChatThread,
   CommandPalette,
   ConnectedSidebar,
@@ -85,7 +87,11 @@ export const ONBOARDED_KEY = "ui.onboarding.completedAt";
 function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }): ReactElement {
   // The agent sheet (`/agent/*`) is the shell's (`RoutedAgentSheet`): beside this chat on wide
   // windows, over it on narrow ones (#625); the avatar and task rows open it by route.
-  const incognito = useThread(threadId).thread?.thread.kind === "incognito";
+  const current = useThread(threadId).thread?.thread;
+  const incognito = current?.kind === "incognito";
+  // An automation's chat is its runs, not a conversation; a run's own thread (an approval's
+  // link, an old bookmark) opens the same chat with that run unfolded.
+  const automation = automationOfThread(current);
   // The avatar opens Approvals when something needs you, otherwise the segment used last.
   const defaultTab = useDefaultAgentTab();
   const [limitsOpen, setLimitsOpen] = useState(false);
@@ -107,6 +113,19 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
     }),
     [],
   );
+  if (current !== undefined && automation !== null) {
+    return (
+      <UiSlotsProvider value={fileSlots}>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-testid="kit-chat">
+          <AutomationChat
+            automationId={automation.automationId}
+            title={current.title}
+            focusThreadId={automation.runThread ? threadId : undefined}
+          />
+        </div>
+      </UiSlotsProvider>
+    );
+  }
   return (
     <UiSlotsProvider value={fileSlots}>
       <div

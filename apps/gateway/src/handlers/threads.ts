@@ -13,13 +13,17 @@ import {
   updateThread,
 } from "@psyche/db";
 import {
+  type AutomationRunStatus,
   type ModelRef,
   type PermissionMode,
   PsycheError,
   type Thread,
+  type ThreadActivity,
+  type ThreadAutomation,
   type ThreadKind,
   type ThreadPreview,
 } from "@psyche/protocol";
+import { automationIdOfThreadKey } from "@psyche/scheduler";
 import type { Call, HandlerDef } from "../context.ts";
 
 /** The owner's one persistent main thread (feature E1). */
@@ -60,14 +64,68 @@ export function threadPreview(call: Call, threadId: string): ThreadPreview | und
   return undefined;
 }
 
-function withPreview<T extends { thread: Thread }>(
+/**
+ * An automation's chat: its run count and last run, and the activity of its runs (they work in
+ * hidden threads of their own, so the chat's own counts would always read zero).
+ */
+function automationOf(
+  call: Call,
+  thread: Thread,
+): { automation: ThreadAutomation; activity: ThreadActivity } | undefined {
+  if (thread.kind !== "automation") return undefined;
+  const automationId = automationIdOfThreadKey(thread.sessionKey);
+  if (automationId === undefined) return undefined;
+  const { sqlite } = call.ctx.db;
+  const { n } = sqlite
+    .prepare(
+      "SELECT COUNT(*) AS n FROM automation_runs WHERE automation_id = ? AND status != 'skipped'",
+    )
+    .get(automationId) as { n: number };
+  const last = sqlite
+    .prepare(
+      `SELECT id, status, started_at AS startedAt, ended_at AS endedAt, summary FROM automation_runs
+        WHERE automation_id = ? AND status != 'skipped' ORDER BY started_at DESC, id DESC LIMIT 1`,
+    )
+    .get(automationId) as
+    | {
+        id: string;
+        status: AutomationRunStatus;
+        startedAt: string;
+        endedAt: string | null;
+        summary: string | null;
+      }
+    | undefined;
+  const activity: ThreadActivity = { running: 0, awaitingInput: 0, awaitingApproval: 0 };
+  const rows = sqlite
+    .prepare(
+      `SELECT status, count(*) AS n FROM runs
+        WHERE status IN ('running', 'awaiting_input', 'awaiting_approval')
+          AND thread_id IN (SELECT id FROM threads WHERE parent_thread_id = ?)
+        GROUP BY status`,
+    )
+    .all(thread.id) as { status: string; n: number }[];
+  for (const r of rows) {
+    if (r.status === "running") activity.running = r.n;
+    else if (r.status === "awaiting_input") activity.awaitingInput = r.n;
+    else activity.awaitingApproval = r.n;
+  }
+  return {
+    automation: { automationId, runCount: n, ...(last === undefined ? {} : { lastRun: last }) },
+    activity,
+  };
+}
+
+function withPreview<T extends { thread: Thread; activity?: ThreadActivity }>(
   call: Call,
   entry: T,
 ): T & {
   lastMessage?: ThreadPreview;
+  automation?: ThreadAutomation;
 } {
   const lastMessage = threadPreview(call, entry.thread.id);
-  return lastMessage === undefined ? entry : { ...entry, lastMessage };
+  const auto = automationOf(call, entry.thread);
+  const out = auto === undefined ? entry : { ...entry, ...auto };
+  return lastMessage === undefined ? out : { ...out, lastMessage };
 }
 
 export function requireThread(call: Call, threadId: string): Thread {
@@ -246,6 +304,7 @@ export const threadsHandlers: Record<string, HandlerDef> = {
           : { includeArchived: params.includeArchived }),
         ...(params.pinnedOnly === undefined ? {} : { pinnedOnly: params.pinnedOnly }),
         hideEmptyChats: true,
+        hideRunThreads: true,
         ...(params.query === undefined ? {} : { query: params.query }),
       });
       const activity = threadActivity(

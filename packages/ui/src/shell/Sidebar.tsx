@@ -6,6 +6,8 @@ import {
   type ReactElement,
   type ReactNode,
   useCallback,
+  useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -28,6 +30,7 @@ import { activeI18n, t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { usePersona } from "../slots.tsx";
 import { destinationFor, RAIL_ITEMS, type RailItem } from "./Rail.tsx";
+import { useSidebarPeek } from "./useSidebarPeek.ts";
 
 const MAIN_ITEMS = RAIL_ITEMS.filter((i) => i.group === "main");
 const MORE_ITEMS = RAIL_ITEMS.filter((i) => i.group === "more");
@@ -165,6 +168,11 @@ export interface SidebarProps {
   onOpenSettings?: () => void;
   /** Reveals and focuses the thread filter (⌘F inside the sidebar). */
   filterToken?: number;
+  /**
+   * The compact rail expands over the content on hover (after 250 ms) and on keyboard focus, and
+   * folds 300 ms after both have left; the content never shifts. Default on.
+   */
+  hoverExpand?: boolean;
   now?: number;
 }
 
@@ -308,6 +316,7 @@ export function Sidebar({
   renderUsage,
   onOpenSettings,
   filterToken,
+  hoverExpand = true,
   now,
 }: SidebarProps): ReactElement {
   const persona = usePersona();
@@ -316,7 +325,37 @@ export function Sidebar({
   const [filterBump, setFilterBump] = useState(0);
   const destination = destinationFor(route);
   const onChat = destination === "chat";
-  const rail = mode === "rail";
+  // The compact rail can expand over the content (hover or keyboard focus); `rail` is what is
+  // drawn, `compact` the mode the host chose.
+  const compact = mode === "rail";
+  const { peek, hostProps } = useSidebarPeek(compact && hoverExpand);
+  const rail = compact && !peek;
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  // The rail's and the full row's buttons are different elements: keep a keyboard user's place
+  // across the swap.
+  const focusKey = useRef<string | null>(null);
+  useEffect(() => {
+    // Focus that left for somewhere else (or a click elsewhere) is not ours to bring back.
+    const away = (e: Event) => {
+      if (!(e.target instanceof Node && hostRef.current?.contains(e.target)))
+        focusKey.current = null;
+    };
+    document.addEventListener("pointerdown", away, true);
+    return () => document.removeEventListener("pointerdown", away, true);
+  }, []);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs after each swap between the rail and the expanded view
+  useLayoutEffect(() => {
+    const key = focusKey.current;
+    focusKey.current = null;
+    const host = hostRef.current;
+    if (!key || !host || host.contains(document.activeElement)) return;
+    const next =
+      host.querySelector<HTMLElement>(`[data-destination="${key}"]`) ??
+      [...host.querySelectorAll<HTMLElement>("[aria-label]")].find(
+        (el) => el.getAttribute("aria-label") === key,
+      );
+    next?.focus();
+  }, [peek]);
   const selection = useMemo(() => ({ pill: true, instant }), [instant]);
   const settings = onOpenSettings ?? (() => onNavigate("/settings/model"));
   const resize = (raw: number) => {
@@ -414,156 +453,187 @@ export function Sidebar({
       </li>
     );
   };
+  // Expanded over the rail, the full sidebar's width (never narrower than its minimum).
+  const peekWidth = Math.max(width, SIDEBAR_WIDTH.min);
+  const { ref: hostRefCallback, ...hostHandlers } = hostProps;
   return (
     <SelectionContext.Provider value={selection}>
-      <nav
-        aria-label={t("shell.sidebar.label")}
-        className="relative flex h-full min-h-0 flex-col material-sidebar text-label-primary"
-        style={{ width: rail ? SIDEBAR_RAIL.width : width }}
-        data-testid="sidebar"
-        data-mode={mode}
-        // A keyboard choice moves the pill instantly; a click lets it travel (motion.md §4.4).
-        onKeyDownCapture={(e) => {
-          if (e.key === "Enter" || e.key === " ") setInstant(true);
+      {/* The rail's slot keeps its 64 px; the expanded sidebar is laid over the content beside
+          it, so nothing reflows. */}
+      <div
+        ref={(el) => {
+          hostRef.current = el;
+          hostRefCallback(el);
         }}
-        onPointerDownCapture={() => setInstant(false)}
-        onKeyDown={(e) => {
-          if (!rail && (e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "f") {
-            e.preventDefault();
-            setFilterBump((n) => n + 1);
-            return;
-          }
-          moveFocus(e);
+        className="relative h-full flex-none"
+        style={{ width: compact ? SIDEBAR_RAIL.width : width }}
+        data-testid="sidebar-host"
+        {...hostHandlers}
+        onFocusCapture={(e) => {
+          const el = e.target as HTMLElement;
+          focusKey.current = el.dataset.destination ?? el.getAttribute("aria-label");
+        }}
+        onBlurCapture={(e) => {
+          const next = e.relatedTarget;
+          if (next instanceof Node && !e.currentTarget.contains(next)) focusKey.current = null;
         }}
       >
-        {header ? (
-          <div
-            className={cn("flex h-14 shrink-0 items-center", rail ? "justify-center" : "px-2")}
-            data-testid="sidebar-header"
-          >
-            {header}
-          </div>
-        ) : null}
-        <div
+        <nav
+          aria-label={t("shell.sidebar.label")}
           className={cn(
-            "flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto",
-            header ? "pb-2" : "py-2",
+            "flex h-full min-h-0 flex-col material-sidebar text-label-primary",
+            compact ? "absolute inset-y-0 start-0 z-20" : "relative",
+            peek && "sidebar-peek",
           )}
+          style={{ width: compact ? (peek ? peekWidth : SIDEBAR_RAIL.width) : width }}
+          data-testid="sidebar"
+          data-mode={mode}
+          data-peek={peek ? "" : undefined}
+          // A keyboard choice moves the pill instantly; a click lets it travel (motion.md §4.4).
+          onKeyDownCapture={(e) => {
+            if (e.key === "Enter" || e.key === " ") setInstant(true);
+          }}
+          onPointerDownCapture={() => setInstant(false)}
+          onKeyDown={(e) => {
+            if (!rail && (e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "f") {
+              e.preventDefault();
+              setFilterBump((n) => n + 1);
+              return;
+            }
+            moveFocus(e);
+          }}
         >
-          <ul aria-label={t("shell.sidebar.destinations")} className="flex flex-col gap-0.5">
-            {MAIN_ITEMS.map(renderItem)}
-            {rail ? (
-              <>
-                <li
-                  role="presentation"
-                  className="mx-3 my-1 h-px bg-separator"
-                  aria-hidden="true"
-                />
-                {MORE_ITEMS.map(renderItem)}
-              </>
-            ) : (
-              <MoreGroup
-                open={moreOpen || moreCurrent}
-                forced={moreCurrent}
-                count={MORE_ITEMS.reduce((n, i) => n + (counts[i.id] ?? 0), 0)}
-                onToggle={() => setMoreOpen((v) => !v)}
-              >
-                {MORE_ITEMS.map(renderItem)}
-              </MoreGroup>
-            )}
-          </ul>
-          {rail ? null : (
-            <ThreadGroup
-              activeThreadId={onChat ? activeThreadId : null}
-              onOpen={onOpenThread}
-              {...(onNewSideChat ? { onNewSideChat } : {})}
-              {...(onExport ? { onExport } : {})}
-              {...(now === undefined ? {} : { now })}
-              filterToken={(filterToken ?? 0) + filterBump}
-            />
-          )}
-        </div>
-        {rail ? (
+          {header ? (
+            <div
+              className={cn("flex h-14 shrink-0 items-center", rail ? "justify-center" : "px-2")}
+              data-testid="sidebar-header"
+            >
+              {header}
+            </div>
+          ) : null}
           <div
-            className="flex h-14 shrink-0 items-center justify-center gap-0.5"
-            data-testid="sidebar-footer"
+            className={cn(
+              "flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto",
+              header ? "pb-2" : "py-2",
+            )}
           >
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <button
-                    type="button"
-                    aria-label={t("shell.sidebar.settingsMenu")}
-                    className={cn(
-                      "flex items-center justify-center rounded-full outline-none hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring",
-                      renderUsage ? "size-8" : "size-10",
-                    )}
+            <ul aria-label={t("shell.sidebar.destinations")} className="flex flex-col gap-0.5">
+              {MAIN_ITEMS.map(renderItem)}
+              {rail ? (
+                <>
+                  <li
+                    role="presentation"
+                    className="mx-3 my-1 h-px bg-separator"
+                    aria-hidden="true"
                   />
-                }
+                  {MORE_ITEMS.map(renderItem)}
+                </>
+              ) : (
+                <MoreGroup
+                  open={moreOpen || moreCurrent}
+                  forced={moreCurrent}
+                  count={MORE_ITEMS.reduce((n, i) => n + (counts[i.id] ?? 0), 0)}
+                  onToggle={() => setMoreOpen((v) => !v)}
+                >
+                  {MORE_ITEMS.map(renderItem)}
+                </MoreGroup>
+              )}
+            </ul>
+            {rail ? null : (
+              <ThreadGroup
+                activeThreadId={onChat ? activeThreadId : null}
+                onOpen={onOpenThread}
+                {...(onNewSideChat ? { onNewSideChat } : {})}
+                {...(onExport ? { onExport } : {})}
+                {...(now === undefined ? {} : { now })}
+                filterToken={(filterToken ?? 0) + filterBump}
+              />
+            )}
+          </div>
+          {rail ? (
+            <div
+              className="flex h-14 shrink-0 items-center justify-center gap-0.5"
+              data-testid="sidebar-footer"
+            >
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <button
+                      type="button"
+                      aria-label={t("shell.sidebar.settingsMenu")}
+                      className={cn(
+                        "flex items-center justify-center rounded-full outline-none hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring",
+                        renderUsage ? "size-8" : "size-10",
+                      )}
+                    />
+                  }
+                >
+                  <Avatar
+                    name={persona.name}
+                    creature={persona.creature}
+                    {...(persona.imageSrc ? { imageSrc: persona.imageSrc } : {})}
+                    size={renderUsage ? 20 : 28}
+                    decorative
+                  />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="right" align="end">
+                  <SettingsMenuItems onSettings={settings} onNavigate={onNavigate} />
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {renderUsage?.("rail", persona.name)}
+            </div>
+          ) : (
+            <div
+              className="flex h-11 shrink-0 items-center gap-2 ps-3 pe-1"
+              data-testid="sidebar-footer"
+            >
+              {/* The avatar opens the Overview, "{persona} & you" (agent-overview-2026 §8.8). */}
+              <button
+                type="button"
+                onClick={() => onNavigate("/overview")}
+                aria-label={t("shell.sidebar.openOverview")}
+                className="flex shrink-0 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                data-testid="sidebar-avatar"
               >
                 <Avatar
                   name={persona.name}
                   creature={persona.creature}
                   {...(persona.imageSrc ? { imageSrc: persona.imageSrc } : {})}
-                  size={renderUsage ? 20 : 28}
+                  size={20}
                   decorative
                 />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent side="right" align="end">
-                <SettingsMenuItems onSettings={settings} onNavigate={onNavigate} />
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {renderUsage?.("rail", persona.name)}
-          </div>
-        ) : (
-          <div
-            className="flex h-11 shrink-0 items-center gap-2 ps-3 pe-1"
-            data-testid="sidebar-footer"
-          >
-            {/* The avatar opens the Overview, "{persona} & you" (agent-overview-2026 §8.8). */}
-            <button
-              type="button"
-              onClick={() => onNavigate("/overview")}
-              aria-label={t("shell.sidebar.openOverview")}
-              className="flex shrink-0 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              data-testid="sidebar-avatar"
-            >
-              <Avatar
-                name={persona.name}
-                creature={persona.creature}
-                {...(persona.imageSrc ? { imageSrc: persona.imageSrc } : {})}
-                size={20}
-                decorative
-              />
-            </button>
-            <div className="flex min-w-0 flex-1 flex-col">
-              {renderUsage ? (
-                renderUsage("full", persona.name)
-              ) : (
-                <span className="min-w-0 truncate text-headline">{persona.name}</span>
-              )}
+              </button>
+              <div className="flex min-w-0 flex-1 flex-col">
+                {renderUsage ? (
+                  renderUsage("full", persona.name)
+                ) : (
+                  <span className="min-w-0 truncate text-headline">{persona.name}</span>
+                )}
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={t("shell.sidebar.settingsMenu")}
+                      className="text-label-secondary"
+                    />
+                  }
+                >
+                  <Settings aria-hidden="true" strokeWidth={1.75} />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="top" align="end">
+                  <SettingsMenuItems onSettings={settings} onNavigate={onNavigate} />
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={t("shell.sidebar.settingsMenu")}
-                    className="text-label-secondary"
-                  />
-                }
-              >
-                <Settings aria-hidden="true" strokeWidth={1.75} />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent side="top" align="end">
-                <SettingsMenuItems onSettings={settings} onNavigate={onNavigate} />
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
-        {onWidthChange ? <ResizeEdge width={width} mode={mode} onResize={resize} /> : null}
-      </nav>
+          )}
+          {onWidthChange && !peek ? (
+            <ResizeEdge width={width} mode={mode} onResize={resize} />
+          ) : null}
+        </nav>
+      </div>
     </SelectionContext.Provider>
   );
 }

@@ -2,6 +2,7 @@ import type { ModelProvider } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
 import {
   createSearchIndex,
+  guardPlan,
   parseModelPlan,
   QueryModel,
   refineWithModel,
@@ -69,12 +70,29 @@ describe("refineWithModel", () => {
   it("produces the same filter tokens as the rules and keeps the rules ladder", async () => {
     const m = new QueryModel({ provider: fake(JSON.stringify(PLAN)).provider, model: M });
     const r = await refineWithModel(q, understand(q, ctx), m, ctx);
-    expect(r?.attempts[0]?.q).toBe(
-      "after:2026-09-01 before:2026-09-30 from:priya source:mail lease OR deposit OR priya",
-    );
+    // The question only mentions Priya as the topic and names no source: both filters are dropped.
+    expect(r?.attempts[0]?.q).toBe("after:2026-09-01 before:2026-09-30 lease OR deposit");
     expect(r?.intent).toBe("answer");
     expect(r?.attempts.length).toBeGreaterThan(1);
-    expect(r?.chips.map((c) => c.kind)).toEqual(["time", "person", "source"]);
+    expect(r?.chips.map((c) => c.kind)).toEqual(["time"]);
+  });
+
+  it("keeps a person and a source only when the question asks for them", () => {
+    const plan = {
+      ...PLAN,
+      intent: "answer" as const,
+      people: ["Priya", "Sam"],
+      sources: ["mail", "imessage", "files"],
+    };
+    expect(guardPlan(plan, "email from Priya about the lease, Sam knows").people).toEqual([
+      "Priya",
+    ]);
+    expect(guardPlan(plan, "what Priya wrote about the lease").people).toEqual(["Priya"]);
+    expect(guardPlan(plan, "did Sam pay Priya back").people).toEqual([]);
+    expect(guardPlan(plan, "my email and the documents in my chats").sources).toEqual(["mail"]);
+    expect(guardPlan(plan, "which chats and documents mention it").sources).toEqual([]);
+    expect(guardPlan(plan, "texts about the pdf").sources).toEqual(["imessage", "files"]);
+    expect(guardPlan(plan, "email from Priya").after).toBe("2026-09-01");
   });
 
   it("caches per normalised question", async () => {

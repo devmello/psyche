@@ -174,16 +174,21 @@
 .app-frame[data-chrome="inset"] .sidebar-slot .material-sidebar {
   padding-top: 52px;
 }
-/* The chat's agent header is a `div[role=toolbar]` (`chat-toolbar`), not a `<header>` (#624). */
+/*
+  The chat's agent header is a `div[role=toolbar]` (`chat-toolbar`), not a `<header>` (#624); the
+  screens draw their own `screen-toolbar` header when no `ToolbarSlot` is mounted, which is how
+  the desktop shell runs today. Every toolbar kind is listed here, once, for both the drag region
+  and the traffic-light inset below; a screen never needs its own.
+*/
 .app-frame[data-chrome="inset"]
   .shell-content
-  :is([data-slot="toolbar"], [data-testid="chat-toolbar"]) {
+  :is([data-slot="toolbar"], [data-slot="screen-toolbar"], [data-testid="chat-toolbar"]) {
   -webkit-app-region: drag;
   app-region: drag;
 }
 .app-frame[data-chrome="inset"]
   .shell-content
-  :is([data-slot="toolbar"], [data-testid="chat-toolbar"])
+  :is([data-slot="toolbar"], [data-slot="screen-toolbar"], [data-testid="chat-toolbar"])
   :is(button, a, input, select, textarea, [role="button"], [role="menuitem"], [data-no-drag]) {
   -webkit-app-region: no-drag;
   app-region: no-drag;
@@ -196,6 +201,6 @@
 */
 .app-frame[data-chrome="inset"][data-toolbar-lead]
   .shell-content
-  :is([data-slot="toolbar"], [data-testid="chat-toolbar"]) {
+  :is([data-slot="toolbar"], [data-slot="screen-toolbar"], [data-testid="chat-toolbar"]) {
   padding-left: var(--toolbar-lead, 132px);
 }
