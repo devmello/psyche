@@ -9108,6 +9108,7 @@ public enum ChecklistItemStatus: String, Codable, Sendable {
 
 public enum BlockKind: String, Codable, Sendable {
     case feedItem = "feed_item"
+    case searchHit = "search_hit"
 }
 
 // MARK: - Replaced
@@ -9641,15 +9642,30 @@ public struct ChatSendParams: Codable, Sendable {
 public struct ChatContextRef: Codable, Sendable {
     public let id: String
     public let kind: BlockKind
+    public let route: String?
+    public let scope: String?
+    public let snippet: String?
+    public let title: String?
+    public let untrusted: Bool?
 
     public enum CodingKeys: String, CodingKey {
         case id = "id"
         case kind = "kind"
+        case route = "route"
+        case scope = "scope"
+        case snippet = "snippet"
+        case title = "title"
+        case untrusted = "untrusted"
     }
 
-    public init(id: String, kind: BlockKind) {
+    public init(id: String, kind: BlockKind, route: String?, scope: String?, snippet: String?, title: String?, untrusted: Bool?) {
         self.id = id
         self.kind = kind
+        self.route = route
+        self.scope = scope
+        self.snippet = snippet
+        self.title = title
+        self.untrusted = untrusted
     }
 }
 
@@ -30923,6 +30939,7 @@ public enum ViewPane: String, Codable, Sendable {
     case editor = "editor"
     case files = "files"
     case plan = "plan"
+    case sidechat = "sidechat"
     case subagents = "subagents"
     case tasks = "tasks"
     case terminal = "terminal"

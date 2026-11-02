@@ -21,6 +21,8 @@ export const ViewPane = StringEnum(
     "subagents",
     "artifact",
     "vm",
+    /** A side chat beside the view; `target` is its thread id. */
+    "sidechat",
   ],
   { $id: "ViewPane" },
 );

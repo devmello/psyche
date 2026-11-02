@@ -1,4 +1,4 @@
-import type { Thread } from "@psyche/protocol";
+import type { SearchHit, Thread } from "@psyche/protocol";
 import {
   AGENT_PANEL_MIN_CONTENT,
   AGENT_PANEL_WIDTH,
@@ -7,6 +7,7 @@ import {
   chatFocusFromRoute,
   clampSidebarWidth,
   destinationFor,
+  hitThreadId,
   PanePresence,
   RAIL_ITEMS,
   ReflowColumn,
@@ -18,6 +19,8 @@ import {
   type SidebarMode,
   SidebarPresence,
   SidebarToggle,
+  sideChatContext,
+  sideChatTitle,
   TabBar,
   ThreadCrossfade,
   ThreadsDrawer,
@@ -262,6 +265,8 @@ export interface PaletteSlotProps {
   navigate: (to: string) => void;
   /** The shell's commands: new side chat, panes, /model, mode, shortcuts. */
   actions: PaletteAction[];
+  /** ⌘L on a result: a side chat about it beside the current view. */
+  onOpenInSideChat: (hit: SearchHit) => void;
 }
 
 /** Persisted sidebar state (redesign §5.1: the width is remembered; ⌘B too). */
@@ -285,6 +290,18 @@ export interface ChatSlotContext {
 
 /** The one canvas pane (docs/design/chat-experience-2026.md §4.2): recents are its own tabs. */
 export const CANVAS_PANE_ID = "p_canvas";
+
+/** The layout action that shows a side chat beside the view; one pane per side chat. */
+export const openSideChatAction = (threadId: string, title?: string): LayoutAction => ({
+  type: "open",
+  pane: "sidechat",
+  paneId: `p_side_${threadId}`,
+  target: threadId,
+  ...(title === undefined || title === "" ? {} : { title }),
+});
+
+/** Layout keys of screens that are not a chat start with this; they are never reported. */
+const VIEW_LAYOUT_PREFIX = "view:";
 
 /** The layout action that shows an artifact in the canvas pane. */
 export const openArtifactAction = (artifactId: string, title?: string): LayoutAction => ({
@@ -408,13 +425,16 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     const focus = chatFocusFromRoute(route);
     if (focus !== null) requestChatFocus(focus);
   }, [route]);
+  // Panes belong to the chat on screen. On any other screen (Home, Library …) they are that
+  // screen's own, so a side chat opened from ⌘K sits beside the view the owner was on.
+  const paneKey = isChatRoute(base) ? threadId : `view:${destinationFor(base) ?? base}`;
   // Panes beside the chat take the room the docked agent sheet would need (#625).
   const subscribePanes = useCallback(
-    (cb: () => void) => (threadId ? layout.subscribeThread(threadId, cb) : () => {}),
-    [layout, threadId],
+    (cb: () => void) => (paneKey ? layout.subscribeThread(paneKey, cb) : () => {}),
+    [layout, paneKey],
   );
   const panesOpen = useSyncExternalStore(subscribePanes, () =>
-    threadId ? layout.forThread(threadId).panes.length > 0 : false,
+    paneKey ? layout.forThread(paneKey).panes.length > 0 : false,
   );
 
   const env = useCallback(
@@ -520,22 +540,22 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   );
   const dispatch = useCallback(
     (action: LayoutAction) => {
-      if (threadId) layout.dispatch(threadId, action, env());
+      if (paneKey) layout.dispatch(paneKey, action, env());
     },
-    [layout, threadId, env],
+    [layout, paneKey, env],
   );
 
   // The browser icon, ⌘K and ⌥⌘B-style shortcut: always shows the built-in browser, docking it
   // again if its pop-out window is gone.
   const openBrowser = useCallback(async () => {
-    if (!threadId) return;
+    if (!threadId || !paneKey) return;
     await showBrowser({
       threadId,
-      state: layout.forThread(threadId),
+      state: layout.forThread(paneKey),
       dispatch,
       ...(platform.windows?.focusPopOut ? { focusPopOut: platform.windows.focusPopOut } : {}),
     });
-  }, [layout, threadId, dispatch, platform.windows]);
+  }, [layout, threadId, paneKey, dispatch, platform.windows]);
 
   // A chat link's "Open in Psyche": a tab in the built-in browser, shown in the pane. Without a
   // browser (the web build) or an open thread it goes to the default browser instead.
@@ -550,16 +570,46 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     },
     [platform, threadId, openBrowser],
   );
+  // ⌘L or "Open in a side chat" on a search result: a new chat about it in a pane beside the view
+  // that is open, which stays where it is. The chat is linked to where it came from (the result
+  // itself when it is a chat, else the chat on screen) and carries the result as its context; it
+  // is its own thread, so the original is never copied into the list.
+  const openChatId = isChatRoute(base) ? threadId : null;
+  const openSideChat = useCallback(
+    (hit: SearchHit) => {
+      const parent = hitThreadId(hit) ?? openChatId;
+      const context = sideChatContext("", hit);
+      void store
+        .call<{ thread: Thread }>("threads.create", {
+          kind: "side",
+          title: sideChatTitle(hit),
+          ...(parent === null ? {} : { parentThreadId: parent }),
+        })
+        .then((r) => {
+          if (!r?.thread) throw new Error("no thread");
+          store.upsertThread(r.thread);
+          void store.refresh();
+          kitStore.update((s) => ({
+            ...s,
+            composerContext: { ...context, threadId: r.thread.id },
+          }));
+          dispatch(openSideChatAction(r.thread.id, r.thread.title || context.title));
+        })
+        .catch(() => store.toast(t("web.toast.sideChatFailed"), "error"));
+    },
+    [store, kitStore, dispatch, openChatId],
+  );
   const pickFolder = platform.dialogs?.pickFolder;
   const kitSlots = useMemo<UiSlots>(
     () => ({
       navigate,
       prefillComposer,
       openInPsyche,
+      openSideChat,
       renderMcpApp,
       ...(pickFolder === undefined ? {} : { pickFolder }),
     }),
-    [navigate, prefillComposer, openInPsyche, pickFolder],
+    [navigate, prefillComposer, openInPsyche, openSideChat, pickFolder],
   );
 
   // The main chat always exists (docs/06 §4.13); create it once if the Gateway has none yet.
@@ -579,8 +629,8 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
 
   // Re-fit layouts when the window narrows or widens.
   useEffect(() => {
-    if (threadId) layout.dispatch(threadId, { type: "fitToWidth" }, env());
-  }, [layout, threadId, env]);
+    if (paneKey) layout.dispatch(paneKey, { type: "fitToWidth" }, env());
+  }, [layout, paneKey, env]);
 
   // view.* RPC from the Gateway (the agent opening, closing and focusing panes), then report.
   useEffect(() => {
@@ -595,6 +645,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     let timer: ReturnType<typeof setTimeout> | undefined;
     const offLayout = layout.subscribe((changed) => {
       clearTimeout(timer);
+      if (changed.startsWith(VIEW_LAYOUT_PREFIX)) return;
       timer = setTimeout(() => {
         void store
           .call("view.report", {
@@ -756,8 +807,8 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
           dispatch({ type: "open", pane: "diff" });
           return true;
         case "toggleTerminalPane": {
-          const has = threadId
-            ? layout.forThread(threadId).panes.some((p) => p.pane === "terminal")
+          const has = paneKey
+            ? layout.forThread(paneKey).panes.some((p) => p.pane === "terminal")
             : false;
           dispatch(has ? { type: "close", pane: "terminal" } : { type: "open", pane: "terminal" });
           return true;
@@ -820,6 +871,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       dispatch,
       openBrowser,
       threadId,
+      paneKey,
       layout,
       cycleMode,
       navigate,
@@ -1033,7 +1085,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   const docked = agentSheetDocked({
     compact,
     contentWidth: env().contentWidth ?? width,
-    panesOpen: onChat && panesOpen,
+    panesOpen,
   });
   const closeSheet = () => navigate(onChat && threadId ? `/chat/${threadId}` : baseRef.current);
   const sheetFor = (presentation: "inline" | "overlay") =>
@@ -1143,10 +1195,11 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
               </RouteTransition>
               {docked ? null : sheetFor("overlay")}
             </ReflowColumn>
-            {onChat && threadId ? (
+            {paneKey ? (
               <PaneArea
                 layout={layout}
-                threadId={threadId}
+                layoutKey={paneKey}
+                threadId={threadId ?? paneKey}
                 width={width}
                 contentWidth={env().contentWidth ?? width}
                 covered={overlay !== null}
@@ -1174,6 +1227,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
                 onClose: () => setOverlay(null),
                 navigate,
                 actions,
+                onOpenInSideChat: openSideChat,
               })
             ) : overlay === "palette" ? (
               <CommandPalette

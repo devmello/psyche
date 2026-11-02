@@ -2812,7 +2812,7 @@ export type Provenance = "owner" | "agent" | "untrusted" | "system";
 
 export type ChecklistItemStatus = "pending" | "in_progress" | "completed";
 
-export type BlockKind = "feed_item";
+export type BlockKind = "feed_item" | "search_hit";
 
 export interface Replaced {
     fromMessageId?: null | string;
@@ -2988,8 +2988,13 @@ export interface ChatSendParams {
 }
 
 export interface ChatContextRef {
-    id:   string;
-    kind: BlockKind;
+    id:         string;
+    kind:       BlockKind;
+    route?:     string;
+    scope?:     string;
+    snippet?:   string;
+    title?:     string;
+    untrusted?: boolean;
 }
 
 export interface ChatFromWidget {
@@ -10571,7 +10576,7 @@ export interface ViewPaneState {
     threadId?: null | string;
 }
 
-export type ViewPane = "chat" | "browser" | "terminal" | "files" | "editor" | "diff" | "plan" | "tasks" | "subagents" | "artifact" | "vm";
+export type ViewPane = "chat" | "browser" | "terminal" | "files" | "editor" | "diff" | "plan" | "tasks" | "subagents" | "artifact" | "vm" | "sidechat";
 
 export type ViewPlacement = "main" | "side" | "split";
 

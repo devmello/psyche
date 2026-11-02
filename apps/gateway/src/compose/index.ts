@@ -183,6 +183,7 @@ import { appleSearchSeams } from "./search-apple.ts";
 import { resolveSearchKey } from "./search-db.ts";
 import { searchEngine, searchModelProvider } from "./search-engine.ts";
 import { filesSourceDeps, powerReader } from "./search-files.ts";
+import { chatContextResolver } from "./search-hit-context.ts";
 import { helperRecognizer } from "./search-ocr.ts";
 import { routerEmbedder, type SemanticEngines } from "./search-semantic.ts";
 import { searchEverythingTool } from "./search-tool.ts";
@@ -1774,8 +1775,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   );
   ownPorts.add(gateway.port, "gateway (bound)");
   for (const part of parts) await part.start?.(gateway);
-  // Ask about this (Feed): `chat.send.context` names a feed item the agent reads as untrusted data.
-  gateway.context.chatContext.resolve = feedContextResolver(proactive.feed.store);
+  // Ask about this (Feed) and a search result in a side chat: `chat.send.context` names what the
+  // agent reads as data.
+  gateway.context.chatContext.resolve = chatContextResolver(
+    feedContextResolver(proactive.feed.store),
+  );
   await proactive.start();
   await ensureWeeklyCardAutomation(scheduler, {
     timezone: timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,

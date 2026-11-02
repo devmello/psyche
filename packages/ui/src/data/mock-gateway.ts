@@ -1342,7 +1342,11 @@ export class MockGateway implements GatewayClient {
     }),
     "chat.send": (p) => {
       const busy = this.world.runs.some((r) => r.threadId === p.threadId && r.status === "running");
-      const about = p.context && this.world.feed.find((f) => f.id === p.context?.id);
+      const about =
+        p.context?.kind === "feed_item"
+          ? this.world.feed.find((f) => f.id === p.context?.id)
+          : undefined;
+      const hit = p.context?.kind === "search_hit" ? p.context : undefined;
       const message = this.commitMessage(
         p.threadId,
         "user",
@@ -1355,6 +1359,17 @@ export class MockGateway implements GatewayClient {
                   id: about.id,
                   title: about.title,
                   ...(about.citations[0] ? { url: about.citations[0].url } : {}),
+                },
+              ]
+            : []),
+          ...(hit
+            ? [
+                {
+                  type: "context" as const,
+                  kind: "search_hit" as const,
+                  id: hit.id,
+                  title: hit.title ?? hit.id,
+                  ...(hit.scope ? { source: hit.scope } : {}),
                 },
               ]
             : []),

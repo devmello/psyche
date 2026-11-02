@@ -331,7 +331,7 @@ export function ChatThread({
             ref: askContext.ref,
             block: {
               type: "context" as const,
-              kind: "feed_item" as const,
+              kind: askContext.ref.kind,
               id: askContext.ref.id,
               title: askContext.title,
               ...(askContext.url ? { url: askContext.url } : {}),
@@ -847,6 +847,7 @@ export function ChatThread({
                   {...(askContext
                     ? {
                         context: {
+                          kind: askContext.ref.kind,
                           title: askContext.title,
                           source: askContext.source,
                           onRemove: clearAskContext,

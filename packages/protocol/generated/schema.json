@@ -12779,7 +12779,10 @@
     "ChatContextRef": {
       "properties": {
         "kind": {
-          "const": "feed_item",
+          "enum": [
+            "feed_item",
+            "search_hit"
+          ],
           "type": "string"
         },
         "id": {
@@ -12787,6 +12790,25 @@
           "maxLength": 64,
           "minLength": 1,
           "type": "string"
+        },
+        "title": {
+          "maxLength": 300,
+          "type": "string"
+        },
+        "snippet": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "scope": {
+          "maxLength": 40,
+          "type": "string"
+        },
+        "route": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "untrusted": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -14435,7 +14457,10 @@
           "type": "string"
         },
         "kind": {
-          "const": "feed_item",
+          "enum": [
+            "feed_item",
+            "search_hit"
+          ],
           "type": "string"
         },
         "id": {
@@ -41590,7 +41615,8 @@
         "tasks",
         "subagents",
         "artifact",
-        "vm"
+        "vm",
+        "sidechat"
       ],
       "type": "string"
     },

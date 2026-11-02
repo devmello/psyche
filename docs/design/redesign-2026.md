@@ -390,6 +390,7 @@ Wireframes are layout-level. Every string goes through the catalogue.
 - **Creation:** a side chat is a thread in the sidebar, created with `+`, ⌘N, or "Continue in a side chat" from a message's ⋯.
 - **Transition:** opening one crossfades the column. The toolbar title becomes the side-chat title, and a breadcrumb leading glyph shows that it was forked from Main chat.
 - **Incognito:** a dashed avatar ring, and the accent swapped for gray inside the thread (`data-incognito`, already in the tokens).
+- **Beside the view (⌘L):** "Open in a side chat" on a search result (⌘L, or ⌘↵) opens a chat *about* that result in a `sidechat` pane next to whatever is open, which stays where it is. Nothing is copied: the result is the new chat's context (a chip in the composer, a card on the first message, `chat.send.context` kind `search_hit`), the new thread is named "About <result>", and its `parentThreadId` is the result when that is a chat, else the chat that was open. The pane is the shell's ordinary pane (per-chat layout, tab, ×, resizer); on a screen that is not a chat (Home, Library …) the pane belongs to that screen. **Expand** opens the thread full screen and closes the pane. Enter on a chat result still opens that chat. "Continue in a side chat", ⌘N and the tray's "New side chat" still open a chat full screen.
 
 ### 5.5 Search and ⌘K
 
@@ -397,7 +398,7 @@ Wireframes are layout-level. Every string goes through the catalogue.
   - ⌘K opens a level-2 glass palette, 640 px wide and centred at 20% from the top.
   - Results are grouped by kind (Threads, Memory, Library, Feed, Goals, Actions), with the typed filter chips (`in:`, `type:`, `from:`) inline in the field.
   - A preview pane on the right shows the selected result once the window is at least 1080 px wide.
-  - A footer shows the keyboard hints (↵ open, ⌘↵ open in a side chat, tab to filter).
+  - A footer shows the keyboard hints (↵ open, ⌘L open in a side chat, tab to filter).
 - **The Search destination** is the same component, embedded full height in the content column for longer sessions.
 
 ### 5.6 Feed, Ideas, Goals

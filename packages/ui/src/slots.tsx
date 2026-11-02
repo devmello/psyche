@@ -1,4 +1,11 @@
-import type { Artifact, LibraryItem, MissingPermission, Receipt, Task } from "@psyche/protocol";
+import type {
+  Artifact,
+  LibraryItem,
+  MissingPermission,
+  Receipt,
+  SearchHit,
+  Task,
+} from "@psyche/protocol";
 import { createContext, type ReactElement, type ReactNode, useContext, useMemo } from "react";
 import type { PreviewSlot } from "./blocks/ArtifactCard.tsx";
 import type { ArtifactRenderProps } from "./canvas/CanvasPane.tsx";
@@ -59,6 +66,11 @@ export interface UiSlots {
   writeClipboard?: (text: string) => Promise<void>;
   /** Opens an https page in the system browser (a connector's sign-in; #505). */
   openExternal?: (url: string) => Promise<void>;
+  /**
+   * ⌘L or "Open in a side chat" on a search result: a chat about it in a pane beside the current
+   * view. Hosts without panes leave it out and the kit opens the chat full screen instead.
+   */
+  openSideChat?: (hit: SearchHit) => void;
   /** Opens an http(s) page in Psyche's own browser pane (a chat link's "Open in Psyche"). */
   openInPsyche?: (url: string) => Promise<void> | void;
   /**

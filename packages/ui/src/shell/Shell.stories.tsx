@@ -218,20 +218,40 @@ export const CompactBars: Story = {
   ),
 };
 
+/** The shell opens a result in a side chat beside the view (⌘L), so the palette offers it. */
 export const Palette: Story = {
-  render: () => <CommandPalette open onOpenChange={() => {}} onNavigate={() => {}} />,
+  render: () => (
+    <CommandPalette
+      open
+      onOpenChange={() => {}}
+      onNavigate={() => {}}
+      onOpenInSideChat={() => {}}
+    />
+  ),
 };
 
 export const PaletteResults: Story = {
   render: () => (
-    <CommandPalette open onOpenChange={() => {}} onNavigate={() => {}} initialQuery="dentist" />
+    <CommandPalette
+      open
+      onOpenChange={() => {}}
+      onNavigate={() => {}}
+      onOpenInSideChat={() => {}}
+      initialQuery="dentist"
+    />
   ),
 };
 
 /** Every screen and Settings section is a palette action: "voice" finds Settings → Voice. */
 export const PaletteSettingsSearch: Story = {
   render: () => (
-    <CommandPalette open onOpenChange={() => {}} onNavigate={() => {}} initialQuery="voice" />
+    <CommandPalette
+      open
+      onOpenChange={() => {}}
+      onNavigate={() => {}}
+      onOpenInSideChat={() => {}}
+      initialQuery="voice"
+    />
   ),
 };
 
@@ -241,6 +261,7 @@ export const PaletteMemorySearch: Story = {
       open
       onOpenChange={() => {}}
       onNavigate={() => {}}
+      onOpenInSideChat={() => {}}
       initialQuery="memory review"
     />
   ),

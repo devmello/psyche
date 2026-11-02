@@ -331,6 +331,12 @@ export function SearchSurface({
       e.preventDefault();
       const mod = isMac() ? e.metaKey : e.ctrlKey;
       choose(current, mod);
+    } else if (e.key.toLowerCase() === "l" && (isMac() ? e.metaKey : e.ctrlKey) && !e.shiftKey) {
+      // ⌘L: a side chat about the highlighted result (also ⌘↵). Claimed from the browser's
+      // address bar only while a result can take it.
+      if (!onOpenInSideChat || current?.kind !== "hit") return;
+      e.preventDefault();
+      choose(current, true);
     } else if (e.key === "Escape" && !palette && query !== "") {
       e.preventDefault();
       onQueryChange("");
@@ -696,7 +702,7 @@ export function SearchSurface({
           </span>
           {onOpenInSideChat ? (
             <span className="inline-flex items-center gap-1">
-              <Kbd>{isMac() ? "⌘↵" : t("shell.search.keyCtrlEnter")}</Kbd>{" "}
+              <Kbd>{isMac() ? t("shell.search.keyCmdL") : t("shell.search.keyCtrlL")}</Kbd>{" "}
               {t("shell.search.hintSideChat")}
             </span>
           ) : null}
