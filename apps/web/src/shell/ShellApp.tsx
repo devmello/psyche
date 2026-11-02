@@ -38,6 +38,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { renderMcpApp } from "../compose/mcp-app.tsx";
 import { autoModeBlockedBy, type ListedAutoModels } from "./auto-mode.ts";
 import { ChatView, PERMISSION_MODES, QuickEntry } from "./components/Chat.tsx";
 import {
@@ -552,6 +553,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       navigate,
       prefillComposer,
       openInPsyche,
+      renderMcpApp,
       ...(pickFolder === undefined ? {} : { pickFolder }),
     }),
     [navigate, prefillComposer, openInPsyche, pickFolder],
