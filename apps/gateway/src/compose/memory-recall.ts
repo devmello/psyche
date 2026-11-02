@@ -91,7 +91,7 @@ export function defaultLocalLoader(home: string): LocalEmbedderLoader {
 }
 
 /** A search embedder as the memory index's embedder (vectors as plain arrays). */
-function asMemoryEmbedder(e: SearchEmbedder): Embedder {
+export function asMemoryEmbedder(e: SearchEmbedder): Embedder {
   return {
     model: e.model,
     embed: async (texts, purpose, signal) =>
