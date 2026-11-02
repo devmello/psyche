@@ -70,6 +70,7 @@ const LABELLED_KEYS = [
   "persona.creature",
   "persona.creatureId",
   "search.web.provider",
+  "search.model.engine",
   "search.semantic.enabled",
   "search.semantic.engine",
   "search.semantic.allowCloud",

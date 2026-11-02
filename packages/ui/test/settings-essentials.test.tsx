@@ -1,9 +1,11 @@
+import type { AppleLlmStatus } from "@psyche/protocol";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { AccessListView } from "../src/screens/settings/AccessList.tsx";
 import { EssentialsPanel } from "../src/screens/settings/EssentialsSection.tsx";
+import { SearchModelGroup } from "../src/screens/settings/SearchSection.tsx";
 import { SettingsScreen } from "../src/screens/settings/SettingsScreen.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
@@ -135,5 +137,64 @@ describe("Access list", () => {
   it("says Psyche asks when nothing is granted yet", () => {
     render(<AccessListView persona="Wren" entries={[]} />);
     expect(screen.getByText(/it asks you in the chat/)).toBeTruthy();
+  });
+});
+
+describe("Search → Model for search (Apple on-device, #1115)", () => {
+  const status = (over: Partial<AppleLlmStatus> = {}): AppleLlmStatus => ({
+    ref: "apple/on-device",
+    helperConnected: true,
+    available: true,
+    contextTokens: 4096,
+    ...over,
+  });
+
+  it("is hidden without a Mac helper, and defaults to the utility model", () => {
+    const { container } = render(
+      <SearchModelGroup
+        status={status({ helperConnected: false })}
+        values={{}}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(container.textContent).toBe("");
+    render(<SearchModelGroup status={status()} values={{}} onChange={vi.fn()} />);
+    expect(
+      screen.getByRole("radio", { name: /Your utility model/ }).getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(screen.getByText(/nothing is sent to the cloud/)).toBeTruthy();
+    expect(screen.getByText("Ready on this Mac")).toBeTruthy();
+  });
+
+  it("writes search.model.engine and says plainly when Apple Intelligence is off", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <SearchModelGroup status={status()} values={{}} onChange={onChange} />,
+    );
+    await user.click(screen.getByRole("radio", { name: /Apple on-device model/ }));
+    expect(onChange).toHaveBeenCalledWith("search.model.engine", "apple");
+    rerender(
+      <SearchModelGroup
+        status={status({ available: false, reason: "apple_intelligence_not_enabled" })}
+        values={{ "search.model.engine": "apple" }}
+        onChange={onChange}
+      />,
+    );
+    const chip = screen.getByText("Needs Apple Intelligence").closest("[data-tone]");
+    expect(chip?.getAttribute("data-tone")).toBe("approval");
+  });
+
+  it("cannot be chosen on a Mac that can't run it", () => {
+    render(
+      <SearchModelGroup
+        status={status({ available: false, reason: "device_not_eligible" })}
+        values={{}}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Not available on this Mac")).toBeTruthy();
+    const apple = screen.getByRole("radio", { name: /Apple on-device model/ });
+    expect(apple.hasAttribute("disabled") || apple.hasAttribute("data-disabled")).toBe(true);
   });
 });

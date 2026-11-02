@@ -85,6 +85,20 @@ export const settings = {
     "Everything else, and finer control over each of these, is in the pages below. Search settings finds any of it.",
 
   // Settings → Connectors & sources → Search (SearchSection.tsx).
+  "settings.searchModel.title": "Model for search",
+  "settings.searchModel.description":
+    "Which model reads a question, writes context cards and reorders results. Each of those can be switched off under Semantic search.",
+  "settings.searchModel.utility": "Your utility model",
+  "settings.searchModel.utilityHint":
+    "The small model set in Models. If it is a cloud model, the text it reads goes to that provider.",
+  "settings.searchModel.apple": "Apple on-device model",
+  "settings.searchModel.appleHint":
+    "Runs on this Mac with Apple Intelligence: nothing is sent to the cloud, and no key or download is needed. It is small ({tokens} tokens), and when it can't run these jobs are skipped, never sent to the cloud instead.",
+  "settings.searchModel.apple.ready": "Ready on this Mac",
+  "settings.searchModel.apple.needsAi": "Needs Apple Intelligence",
+  "settings.searchModel.apple.notReady": "Getting ready",
+  "settings.searchModel.apple.notOnThisMac": "Not available on this Mac",
+  "settings.searchModel.apple.unavailable": "Not available right now",
   "settings.search.title": "Search",
   "settings.search.description":
     "What Psyche indexes so it can find things for you, and which engine it uses on the web.",
@@ -148,6 +162,7 @@ export const settings = {
   "settings.key.exec.srtPath": "srt location",
   "settings.key.computerUse.apps": "App access",
   "settings.key.context.maxTokens": "Context limit",
+  "settings.key.search.model.engine": "Model for search",
   "settings.key.search.web.provider": "Web search provider",
   "settings.key.search.semantic.enabled": "Semantic search (on-device)",
   "settings.key.search.cards.enabled": "Context cards for search",

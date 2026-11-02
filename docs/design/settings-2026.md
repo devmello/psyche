@@ -163,5 +163,12 @@ the always-kept ones), with **Revoke**. Adding a folder by hand moved under a fo
 yourself** (a typed path, or the Mac's folder chooser), described as usually not needed. Run
 commands on this Mac and VM shares stay below it. The route id stays `files`, so old links work.
 
+**Model for search** (Search pane, from #1115): `search.model.engine`, **Your utility model**
+(default, unchanged) or **Apple on-device model**, shown only when `models.appleStatus` reports a
+connected Mac helper. Its status reads Ready on this Mac, Needs Apple Intelligence (amber only
+when it is the chosen model), Getting ready, or Not available on this Mac (then it can't be
+chosen). Switching the jobs off stays with their own switches under Semantic search, so there is
+no third "off" choice here.
+
 Not changed here: the Grants ledger in Approval rules stays as the history (with use counts and
 revoked grants); the current list lives in Access.
