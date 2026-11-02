@@ -24825,8 +24825,9 @@ public enum SearchBackfillState: String, Codable, Sendable {
 public struct SearchIndexEncryption: Codable, Sendable {
     /// Why it is unavailable
     public let reason: String?
-    /// on: the index file is encrypted; off: it is not and the switch is off; unavailable: the
-    /// switch is on but the key cannot be used here
+    /// on: the index file is encrypted; off: it is not and the switch is off; pending: the
+    /// switch is on and Psyche is waiting for the Mac helper to hand over the key; unavailable:
+    /// the key cannot be used here
     public let state: SearchIndexEncryptionState
 
     public enum CodingKeys: String, CodingKey {
@@ -24840,11 +24841,13 @@ public struct SearchIndexEncryption: Codable, Sendable {
     }
 }
 
-/// on: the index file is encrypted; off: it is not and the switch is off; unavailable: the
-/// switch is on but the key cannot be used here
+/// on: the index file is encrypted; off: it is not and the switch is off; pending: the
+/// switch is on and Psyche is waiting for the Mac helper to hand over the key; unavailable:
+/// the key cannot be used here
 public enum SearchIndexEncryptionState: String, Codable, Sendable {
     case off = "off"
     case on = "on"
+    case pending = "pending"
     case unavailable = "unavailable"
 }
 

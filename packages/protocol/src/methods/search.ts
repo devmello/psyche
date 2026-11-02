@@ -225,9 +225,9 @@ export type SearchSemanticStatus = Static<typeof SearchSemanticStatus>;
 /** Whether the index file is encrypted at rest (docs/design/search-roadmap-2026.md §12). */
 export const SearchIndexEncryption = Type.Object(
   {
-    state: StringEnum(["off", "on", "unavailable"], {
+    state: StringEnum(["off", "on", "pending", "unavailable"], {
       description:
-        "on: the index file is encrypted; off: it is not and the switch is off; unavailable: the switch is on but the key cannot be used here",
+        "on: the index file is encrypted; off: it is not and the switch is off; pending: the switch is on and Psyche is waiting for the Mac helper to hand over the key; unavailable: the key cannot be used here",
     }),
     reason: Type.Optional(Type.String({ description: "Why it is unavailable" })),
   },

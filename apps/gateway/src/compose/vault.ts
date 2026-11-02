@@ -327,6 +327,8 @@ export interface ComposedVault {
   readonly slot: VaultSlotChoice;
   /** The slot's key wrapper, for other databases that keep their own key beside the vault's. */
   readonly wrapper: KeyWrapper;
+  /** The Mac helper client (late-bound: it connects after the Gateway starts). */
+  readonly helper: NodeClient;
   readonly handlers: Record<string, HandlerDef>;
   /** Called once the Gateway (and its node registry) exists. */
   attach(nodes: NodeRegistry): void;
@@ -421,6 +423,7 @@ export function composeVault(
     redactor,
     slot: choice,
     wrapper,
+    helper,
     handlers: vaultHandlers(vault),
     attach(registry) {
       nodes = registry;

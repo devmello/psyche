@@ -8339,17 +8339,19 @@ export interface SearchIndexEncryption {
      */
     reason?: string;
     /**
-     * on: the index file is encrypted; off: it is not and the switch is off; unavailable: the
-     * switch is on but the key cannot be used here
+     * on: the index file is encrypted; off: it is not and the switch is off; pending: the
+     * switch is on and Psyche is waiting for the Mac helper to hand over the key; unavailable:
+     * the key cannot be used here
      */
     state: SearchIndexEncryptionState;
 }
 
 /**
- * on: the index file is encrypted; off: it is not and the switch is off; unavailable: the
- * switch is on but the key cannot be used here
+ * on: the index file is encrypted; off: it is not and the switch is off; pending: the
+ * switch is on and Psyche is waiting for the Mac helper to hand over the key; unavailable:
+ * the key cannot be used here
  */
-export type SearchIndexEncryptionState = "off" | "on" | "unavailable";
+export type SearchIndexEncryptionState = "off" | "on" | "pending" | "unavailable";
 
 export interface SearchSemanticStatus {
     blocked?: SearchSemanticBlock;

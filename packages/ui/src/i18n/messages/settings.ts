@@ -88,8 +88,10 @@ export const settings = {
     "When something is saved or indexed, a small cloud model writes a short summary, who and when, and the questions it answers, using only what the text says. Capped at about 200,000 tokens a day (well under a dollar); turn off to stop.",
   "settings.key.search.encrypt": "Encrypt the search index",
   "settings.semanticSearch.encryptHint":
-    "Keeps the search index file unreadable without a key kept beside your vault key. Applies the next time Psyche starts, and rebuilds the index once (a few minutes, plus the cost of context cards if they are on). Needs a vault key that opens without asking you: a key file (server) or the desktop's secure storage. The macOS keychain slot asks for Touch ID, so it cannot be used for this yet.",
+    "Keeps the search index file unreadable without a key that is stored separately: in a macOS keychain item that opens without Touch ID while your Mac is unlocked, or beside your vault key on a server. Protects copies, backups and synced folders of the index, not software running as you on your unlocked Mac. Applies the next time Psyche starts and rebuilds the index once (a few minutes, plus the cost of context cards if they are on). Search is empty for a few seconds after start while the Mac helper connects.",
   "settings.semanticSearch.encrypt.on": "Index encrypted",
+  "settings.semanticSearch.encrypt.pending":
+    "Waiting for the Mac helper to open the encrypted index",
   "settings.semanticSearch.encrypt.unavailable": "Not encrypted: {why}",
   "settings.key.search.rerank.enabled": "Re-rank the best results with a small cloud model",
   "settings.semanticSearch.rerankHint":
