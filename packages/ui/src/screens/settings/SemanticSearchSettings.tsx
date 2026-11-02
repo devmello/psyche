@@ -123,6 +123,13 @@ export function SemanticSearchSettingsGroup({
         onChange={(v) => onChange("search.cards.enabled", v)}
         settingKey="search.cards.enabled"
       />
+      <SwitchField
+        label={t("settings.key.search.queryModel.enabled")}
+        description={t("settings.semanticSearch.queryModelHint")}
+        checked={bool(values, "search.queryModel.enabled", true)}
+        onChange={(v) => onChange("search.queryModel.enabled", v)}
+        settingKey="search.queryModel.enabled"
+      />
       {enabled ? (
         <RadioField<Engine>
           label={t("settings.key.search.semantic.engine")}

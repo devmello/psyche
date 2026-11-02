@@ -70,6 +70,7 @@ const LABELLED_KEYS = [
   "search.semantic.engine",
   "search.semantic.allowCloud",
   "search.cards.enabled",
+  "search.queryModel.enabled",
   "specialists.maxConcurrent",
   "specialists.monthlyCapUsd",
   "specialists.showInFeed",

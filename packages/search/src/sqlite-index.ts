@@ -38,6 +38,7 @@ import {
   type SearchViewer,
 } from "./types.ts";
 import { understand } from "./understand.ts";
+import { type QueryModel, refineWithModel } from "./understand-model.ts";
 
 export interface SqliteSearchIndexOptions {
   /** Epoch ms; drives the recency boost and relative dates. Default `Date.now`. */
@@ -50,6 +51,11 @@ export interface SqliteSearchIndexOptions {
   maxBodyChars?: number;
   /** Memory is queried live through the store, not copied into this index. */
   memory?: MemoryStore;
+  /**
+   * The cheap query model (`understand-model.ts`), used for `smart` requests whose question the
+   * rules could not filter. Absent means rules only.
+   */
+  queryModel?: { model: QueryModel; enabled?: () => boolean };
   /**
    * Minutes east of UTC for calendar dates in queries (default 0). A function is read per query,
    * so daylight saving time follows the owner's zone.
@@ -116,6 +122,7 @@ export class SqliteSearchIndex implements SearchIndex {
   #memory: MemoryStore | undefined;
   #tz: () => number;
   #resolvePerson: ((name: string) => readonly string[] | undefined) | undefined;
+  #queryModel: SqliteSearchIndexOptions["queryModel"];
   #upsert: Database.Statement;
   #delete: Database.Statement;
   #semantic: SemanticSearch | undefined;
@@ -132,6 +139,7 @@ export class SqliteSearchIndex implements SearchIndex {
     const tz = options.tzOffsetMinutes ?? 0;
     this.#tz = typeof tz === "function" ? tz : () => tz;
     this.#resolvePerson = options.resolvePerson;
+    this.#queryModel = options.queryModel;
     ensureSearchSchema(db);
     this.cards = new CardStore(db);
     db.exec(SOURCE_FLAGS_SCHEMA);
@@ -397,12 +405,24 @@ export class SqliteSearchIndex implements SearchIndex {
    */
   async search(request: SearchRequest): Promise<SearchResponse> {
     if (request.understand === false) return this.#searchOnce(request);
-    const plan = understand(request.q, {
+    const opts = {
       now: this.#now(),
       tzOffsetMinutes: this.#tz(),
       disabled: request.dropChips ?? [],
       ...(this.#resolvePerson === undefined ? {} : { resolvePerson: this.#resolvePerson }),
-    });
+    };
+    let plan = understand(request.q, opts);
+    const qm = this.#queryModel;
+    // A cheap model only where the rules are unsure and the caller asked for it; a dropped
+    // chip means the user is steering, so the rules' reading stays.
+    if (request.smart === true && qm !== undefined && qm.enabled?.() !== false) {
+      const refined = await refineWithModel(request.q, plan, qm.model, {
+        now: opts.now,
+        tzOffsetMinutes: opts.tzOffsetMinutes,
+        ...(this.#resolvePerson === undefined ? {} : { resolvePerson: this.#resolvePerson }),
+      });
+      if (refined !== undefined && (request.dropChips ?? []).length === 0) plan = refined;
+    }
     let res: SearchResponse | undefined;
     let used = plan.attempts[0];
     for (const attempt of plan.attempts) {

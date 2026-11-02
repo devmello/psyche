@@ -21,6 +21,7 @@ import {
   libraryDoc,
   OWNER,
   type PowerState,
+  QueryModel,
   readSourcesConfig,
   type SearchEmbedder,
   SearchIndexer,
@@ -124,6 +125,7 @@ export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
    * Context cards at ingest (`search.cards.enabled`, default on): the cheap model that writes
    * them. Without it no cards are generated.
    */
+  queryModel?: { provider: ModelProvider; model: ModelRef };
   cards?: {
     provider: ModelProvider;
     model: ModelRef;
@@ -132,6 +134,9 @@ export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
     batchSize?: number;
   };
 }
+
+/** Search settings for reading questions with a cheap model (roadmap R13). */
+export const QUERY_MODEL_SETTINGS = { enabled: "search.queryModel.enabled" } as const;
 
 export const CARD_SETTINGS = {
   enabled: "search.cards.enabled",
@@ -184,6 +189,14 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
     now: deps.now,
     tzOffsetMinutes: () => tzOffsetMinutesAt(deps.timeZone, deps.now()),
     ...(deps.resolvePerson === undefined ? {} : { resolvePerson: deps.resolvePerson }),
+    ...(deps.queryModel === undefined
+      ? {}
+      : {
+          queryModel: {
+            model: new QueryModel(deps.queryModel),
+            enabled: () => getSetting(deps.db, QUERY_MODEL_SETTINGS.enabled)?.value !== false,
+          },
+        }),
   });
   const indexer = new SearchIndexer(index, {
     lookupThread: async (id) => getThread(deps.db, id),
