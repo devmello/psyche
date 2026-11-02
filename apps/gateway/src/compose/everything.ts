@@ -422,7 +422,24 @@ export function composeEverything(deps: EverythingDeps): Everything {
       // A cloud choice with no named model uses the router's utility role; a local one must be named.
       return (choice.ref as ModelRef | undefined) ?? (kind === "cloud" ? deps.utility : undefined);
     };
-    const defaultLocal = s.model.default.kind === "local" ? s.model.default.ref : undefined;
+    // Every local model a source would load must be named and confirmed (the default's, and each
+    // per-source override's); one name or a list is stored.
+    const confirmedRaw = getSetting(db, EVERYTHING_LOCAL_CONFIRMED)?.value;
+    const confirmed = new Set(
+      typeof confirmedRaw === "string"
+        ? [confirmedRaw]
+        : Array.isArray(confirmedRaw)
+          ? confirmedRaw.filter((x): x is string => typeof x === "string")
+          : [],
+    );
+    const perSource = s.model.perSource as
+      | Record<string, { kind: string; ref?: string }>
+      | undefined;
+    const localRefs = Object.entries(s.sources)
+      .filter(([, on]) => on)
+      .map(([src]) => perSource?.[src] ?? s.model.default)
+      .filter((c) => c.kind === "local")
+      .map((c) => c.ref);
     return {
       graph,
       em: store,
@@ -438,9 +455,7 @@ export function composeEverything(deps: EverythingDeps): Everything {
         return model === undefined ? undefined : { provider: deps.provider, model };
       },
       // The owner confirms the RAM warning for one named model; changing it asks again.
-      localModelConfirmed:
-        defaultLocal !== undefined &&
-        getSetting(db, EVERYTHING_LOCAL_CONFIRMED)?.value === defaultLocal,
+      localModelConfirmed: localRefs.every((r) => r !== undefined && confirmed.has(r)),
     };
   };
   const nightly: NightlyStep = async () => {

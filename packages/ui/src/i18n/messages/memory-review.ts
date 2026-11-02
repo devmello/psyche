@@ -133,6 +133,11 @@ export const memoryReview = {
     "About {typical} a month ({low} on a light month, {high} on a heavy one) for the sources you chose. An estimate, from a typical day.",
   "everything.cost.free": "Free: no text goes to a provider.",
   "everything.cost.backfill": "Reading the first {days, number} days: about {cost} at full price.",
+  "everything.perSource.title": "A different model for one source",
+  "everything.perSource.description":
+    "For example Messages on Local while Mail stays on Cloud. Sources set to “Same as above” use the choice above.",
+  "everything.perSource.default": "Same as above",
+  "everything.perSource.ref": "Model for {source}",
   "everything.sources.title": "Sources",
   "everything.sources.description":
     "Each is off until you turn it on. Mail and Messages: what you wrote, and what the people chosen below wrote to you.",
