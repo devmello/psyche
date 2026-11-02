@@ -22,6 +22,7 @@ export const DailySectionId = StringEnum(
     "tomorrow",
     "learned",
     "coming_up",
+    "keep_in_touch",
   ],
   { $id: "DailySectionId" },
 );

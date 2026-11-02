@@ -923,7 +923,7 @@ export interface AppleTabTextParams {
 export interface ApprovalAnswer {
     answerToken:      string;
     approvalId:       string;
-    decision:         DecisionEnum;
+    decision:         ApprovalAnswerDecision;
     editedText?:      string;
     folderPath?:      string;
     presence?:        PresenceAssertion;
@@ -933,7 +933,7 @@ export interface ApprovalAnswer {
     via?:             InputVia;
 }
 
-export type DecisionEnum = "approve" | "deny";
+export type ApprovalAnswerDecision = "approve" | "deny";
 
 export interface PresenceAssertion {
     deviceId: string;
@@ -955,7 +955,7 @@ export type GrantScope = "once" | "task" | "site" | "session" | "always";
 
 export type Unsandboxed = "UNSANDBOXED";
 
-export type InputVia = "voice";
+export type InputVia = "voice" | "widget";
 
 export interface ApprovalBlock {
     approvalId: string;
@@ -2896,6 +2896,7 @@ export interface ChatSendParams {
     attachments?:      string[];
     content:           string;
     context?:          ChatContextRef;
+    fromWidget?:       ChatFromWidget;
     mode?:             QueueMode;
     redo?:             Redo;
     replyToMessageId?: string;
@@ -2906,6 +2907,10 @@ export interface ChatSendParams {
 export interface ChatContextRef {
     id:   string;
     kind: BlockKind;
+}
+
+export interface ChatFromWidget {
+    widgetId: string;
 }
 
 export type QueueMode = "steer" | "followUp" | "interrupt";
@@ -3958,7 +3963,7 @@ export interface DailySection {
     unavailable?: boolean;
 }
 
-export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up";
+export type DailySectionID = "calendar" | "mail" | "due" | "followups" | "weather" | "done" | "open" | "tomorrow" | "learned" | "coming_up" | "keep_in_touch";
 
 export interface InboxDigest {
     accounts: string[];
@@ -4165,6 +4170,7 @@ export type FeedPostKind = "brief" | "briefing" | "digest" | "meeting_prep" | "m
 export interface FeedPostRefs {
     goalId?:      string;
     meetingId?:   string;
+    nudgeId?:     string;
     proposalIds?: string[];
     threads?:     MailThreadRef[];
 }
@@ -6164,18 +6170,17 @@ export interface MemoryLessonsListResult {
     nextCursor?: null | string;
 }
 
-export interface MemoryLifeSearchParams {
-    /**
-     * Default 20
-     */
-    limit?: number;
-    q:      string;
+export interface MemoryLifeAnswerParams {
+    q: string;
 }
 
-export interface MemoryLifeSearchResult {
-    entities: EntitySummary[];
-    facts:    LifeFactHit[];
-    intent?:  null | string;
+export interface MemoryLifeAnswerResult {
+    answer?: null | string;
+    /**
+     * The facts the answer cites, in order
+     */
+    facts:   LifeFactHit[];
+    reason?: LifeAnswerReason | null;
 }
 
 export interface LifeFactHit {
@@ -6191,6 +6196,22 @@ export interface LifeFactHit {
      * Untrusted text when it came from someone else
      */
     value: string;
+}
+
+export type LifeAnswerReason = "no_model" | "no_facts" | "no_answer" | "ungrounded" | "model_failed";
+
+export interface MemoryLifeSearchParams {
+    /**
+     * Default 20
+     */
+    limit?: number;
+    q:      string;
+}
+
+export interface MemoryLifeSearchResult {
+    entities: EntitySummary[];
+    facts:    LifeFactHit[];
+    intent?:  null | string;
 }
 
 export interface MemoryLoopUpdatedPayload {
@@ -7151,6 +7172,66 @@ export interface NotificationsResolveParams {
 
 export interface NotificationsResolveResult {
     notification: Notification;
+}
+
+export type NudgeSensitivity = "low" | "normal" | "high";
+
+export interface NudgesActParams {
+    action: NudgeAction;
+    id:     string;
+}
+
+export type NudgeAction = "done" | "snooze_week" | "snooze_month" | "mute_person";
+
+export interface NudgesActResult {
+    ok: boolean;
+}
+
+export interface NudgesListParams {
+    entityId?: string;
+}
+
+export interface NudgesListResult {
+    /**
+     * The switch is on and the owner has consented
+     */
+    enabled: boolean;
+    items:   NudgeItem[];
+    /**
+     * With entityId: nudges for that person are muted
+     */
+    muted: boolean;
+}
+
+export interface NudgeItem {
+    channel?: ChannelEnum | null;
+    date?:    null | string;
+    daysAgo?: number | null;
+    entityId: string;
+    id:       string;
+    kind:     NudgeKind;
+    /**
+     * A display name: third-party text, one line
+     */
+    name:    string;
+    overdue: boolean;
+    /**
+     * One plain sentence built from the name, numbers and a template
+     */
+    text: string;
+}
+
+export type ChannelEnum = "mail" | "messages";
+
+export type NudgeKind = "unanswered" | "drift" | "birthday" | "promise";
+
+export interface NudgesMuteParams {
+    entityId: string;
+    muted:    boolean;
+}
+
+export interface NudgesMuteResult {
+    ok: boolean;
 }
 
 export interface OcrRecognizeParams {
@@ -8368,17 +8449,19 @@ export interface SearchIndexEncryption {
      */
     reason?: string;
     /**
-     * on: the index file is encrypted; off: it is not and the switch is off; unavailable: the
-     * switch is on but the key cannot be used here
+     * on: the index file is encrypted; off: it is not and the switch is off; pending: the
+     * switch is on and Psyche is waiting for the Mac helper to hand over the key; unavailable:
+     * the key cannot be used here
      */
     state: SearchIndexEncryptionState;
 }
 
 /**
- * on: the index file is encrypted; off: it is not and the switch is off; unavailable: the
- * switch is on but the key cannot be used here
+ * on: the index file is encrypted; off: it is not and the switch is off; pending: the
+ * switch is on and Psyche is waiting for the Mac helper to hand over the key; unavailable:
+ * the key cannot be used here
  */
-export type SearchIndexEncryptionState = "off" | "on" | "unavailable";
+export type SearchIndexEncryptionState = "off" | "on" | "pending" | "unavailable";
 
 export interface SearchSemanticStatus {
     blocked?: SearchSemanticBlock;
@@ -10846,6 +10929,18 @@ export interface WidgetUpdatedPayload {
 
 export type WidgetState = "live" | "frozen";
 
+export interface WidgetsActParams {
+    itemId?:  string;
+    nodeId:   string;
+    values?:  { [key: string]: unknown };
+    widgetId: string;
+}
+
+export interface WidgetsActResult {
+    messageId: string;
+    runId:     null | string;
+}
+
 export interface WidgetsGetParams {
     widgetIds: string[];
 }
@@ -10888,6 +10983,34 @@ export interface WidgetSpec {
     title:        string;
     v:            number;
 }
+
+export interface WidgetsImageParams {
+    url:      string;
+    widgetId: string;
+}
+
+export interface WidgetsImageResult {
+    /**
+     * base64, at most 512 KiB decoded
+     */
+    bytes: string;
+    mime:  WidgetsImageResultMIME;
+}
+
+export type WidgetsImageResultMIME = "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+
+export interface WidgetsPreviewParams {
+    itemId?:  string;
+    nodeId:   string;
+    widgetId: string;
+}
+
+export interface WidgetsPreviewResult {
+    decision: WidgetsPreviewResultDecision;
+    tool:     string;
+}
+
+export type WidgetsPreviewResultDecision = "allow" | "ask" | "deny" | "device-only" | "unavailable";
 
 export interface WrapUpBlock {
     actions?: WrapUpAction[];

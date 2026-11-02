@@ -455,7 +455,12 @@ export class FeedService {
    * A plain notice card from Psyche about its own work ("Psyche learned 14 things yesterday"):
    * text and a link, no citations, never exploration, and no notification.
    */
-  postNotice(input: { title: string; bodyMd: string; reason: string }): FeedPost {
+  postNotice(input: {
+    title: string;
+    bodyMd: string;
+    reason: string;
+    refs?: FeedPost["refs"];
+  }): FeedPost {
     const post: StoredPost = {
       id: this.#id(),
       title: input.title,
@@ -470,6 +475,7 @@ export class FeedService {
       createdAt: toIso(this.#o.clock.now()),
       batchId: this.#id(),
       kind: "suggestion",
+      ...(input.refs === undefined ? {} : { refs: input.refs }),
     };
     this.store.insert(post);
     const out = toFeedPost(post);

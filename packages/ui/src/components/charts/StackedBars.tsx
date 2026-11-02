@@ -120,14 +120,14 @@ export function StackedBars({
               );
             })}
           </div>
-          <div className="relative mt-5" style={{ height }}>
+          <div className="relative mt-9" style={{ height }}>
             <div
               aria-hidden="true"
               className="pointer-events-none absolute inset-x-0 top-0 border-t border-separator"
             />
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute -top-5 start-0 font-mono text-caption text-label-tertiary tabular-nums"
+              className="pointer-events-none absolute -top-5 start-0 text-caption text-label-tertiary tabular-nums"
             >
               {i18n.number(max)}
             </span>
@@ -139,7 +139,7 @@ export function StackedBars({
                 />
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute top-1/2 start-0 -translate-y-full font-mono text-caption text-label-tertiary tabular-nums"
+                  className="pointer-events-none absolute top-1/2 start-0 -translate-y-full text-caption text-label-tertiary tabular-nums"
                 >
                   {i18n.number(max / 2)}
                 </span>
@@ -234,7 +234,7 @@ export function StackedBars({
           </div>
           <div
             aria-hidden="true"
-            className="mt-1 flex gap-1 font-mono text-caption text-label-tertiary"
+            className="mt-1 flex gap-1 text-caption text-label-tertiary tabular-nums"
           >
             {days.map((day, i) => (
               <span key={day.date} className="relative h-3.5 min-w-0 flex-1">

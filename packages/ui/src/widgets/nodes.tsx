@@ -11,8 +11,10 @@ import {
 import {
   type CSSProperties,
   type KeyboardEvent,
+  lazy,
   type ReactElement,
   type ReactNode,
+  Suspense,
   useId,
   useMemo,
   useRef,
@@ -23,14 +25,15 @@ import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { SafeLink } from "../links/SafeLink.tsx";
 import { BoundNode } from "./bound.tsx";
+import { ButtonNode, ChoicesNode, FormNode, ListRowAction } from "./interactive.tsx";
 import { TONE_ICON, TONE_TEXT } from "./tone.ts";
 
 /**
  * Renders widget nodes (generative-ui-2026 §4.2, §10.1). The spec is data and was validated by the
  * Gateway, but the renderer still treats every value as untrusted: strings render as text nodes,
  * `markdown` goes through `Markdown` (no HTML), links through `SafeLink`, and nothing here accepts
- * a class, style or colour from the spec. Interaction nodes (button, choices, form) and the
- * chart, image and map nodes arrive in later phases; until then they show their `fallbackText`.
+ * a class, style or colour from the spec. Interaction (button, choices, form, list actions)
+ * lives in `interactive.tsx`; `tool` actions arrive with P7.
  */
 
 type N = Record<string, unknown>;
@@ -42,6 +45,35 @@ const num = (v: unknown): number | undefined =>
   typeof v === "number" && Number.isFinite(v) ? v : undefined;
 const tone = (v: unknown): WidgetTone =>
   v === "info" || v === "success" || v === "warning" || v === "danger" ? v : "neutral";
+
+// Charts and images are their own chunks inside the widget chunk (generative-ui-2026 §9).
+const WidgetChart = lazy(() => import("./WidgetChart.tsx"));
+const WidgetImage = lazy(() => import("./WidgetImage.tsx"));
+
+function MapNode({ n }: { n: N }): ReactElement {
+  return (
+    <ul className="flex flex-col divide-y divide-border" aria-label={str(n.label)}>
+      {arr(n.places).map((p, i) => {
+        const lat = num(p.lat);
+        const lng = num(p.lng);
+        const q = encodeURIComponent([str(p.name), str(p.address)].filter(Boolean).join(", "));
+        const href = `https://maps.apple.com/?q=${q}${lat !== undefined && lng !== undefined ? `&ll=${lat},${lng}` : ""}`;
+        return (
+          // biome-ignore lint/suspicious/noArrayIndexKey: places have no ids
+          <li key={i} className="flex items-baseline justify-between gap-3 py-1">
+            <span className="min-w-0">
+              {str(p.name)}
+              {p.address ? (
+                <span className="block text-callout text-label-secondary">{str(p.address)}</span>
+              ) : null}
+            </span>
+            <SafeLink href={href}>{t("widgets.map.open")}</SafeLink>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 const GAP: Record<string, string> = {
   none: "gap-0",
@@ -502,7 +534,7 @@ export function RenderNode({ node, depth }: { node: N; depth: number }): ReactEl
         <ul className="flex flex-col divide-y divide-border">
           {items.map((i, k) => (
             <li key={str(i.id) || k} className="flex items-baseline justify-between gap-3 py-1">
-              <span className="min-w-0">{str(i.title)}</span>
+              <ListRowAction item={i} nodeId={str(n.id)} />
               {i.meta ? (
                 <span className="shrink-0 text-callout text-label-secondary">{str(i.meta)}</span>
               ) : null}
@@ -599,6 +631,26 @@ export function RenderNode({ node, depth }: { node: N; depth: number }): ReactEl
         </div>
       );
     }
+    case "chart":
+      return (
+        <Suspense fallback={<Fallback node={n} />}>
+          <WidgetChart node={n} />
+        </Suspense>
+      );
+    case "image":
+      return (
+        <Suspense fallback={<Fallback node={n} />}>
+          <WidgetImage node={n} />
+        </Suspense>
+      );
+    case "map":
+      return <MapNode n={n} />;
+    case "button":
+      return <ButtonNode n={n} />;
+    case "choices":
+      return <ChoicesNode n={n} />;
+    case "form":
+      return <FormNode n={n} />;
     case "link":
       return <Link href={str(n.url)}>{str(n.label)}</Link>;
     default:

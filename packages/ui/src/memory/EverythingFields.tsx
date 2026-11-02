@@ -18,15 +18,14 @@ export type EverythingValues = EverythingMemorySettings;
 export const EVERYTHING_KEY = "memory.everything";
 export const EVERYTHING_LOCAL_CONFIRMED = "memory.everything.localConfirmed";
 
+/** The sources the nightly pass reads. Browser pages and chats with Psyche are in the schema but never read, so no switch is shown. */
 export const SOURCE_IDS: readonly EverythingSource[] = [
   "mail",
   "messages",
   "notes",
   "calendar",
   "reminders",
-  "chats",
   "files",
-  "browser",
   "transcripts",
 ];
 

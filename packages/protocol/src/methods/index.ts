@@ -29,6 +29,7 @@ import { ModelsMethods } from "./models.ts";
 import { NodeMethods } from "./node.ts";
 import { NodesMethods } from "./nodes.ts";
 import { NotificationsMethods } from "./notifications.ts";
+import { NudgeMethods } from "./nudges.ts";
 import { PasskeysMethods } from "./passkeys.ts";
 import { PluginsMethods } from "./plugins.ts";
 import { FeedMethods, GoalsMethods, IdeasMethods } from "./proactive.ts";
@@ -81,6 +82,7 @@ export * from "./models.ts";
 export * from "./node.ts";
 export * from "./nodes.ts";
 export * from "./notifications.ts";
+export * from "./nudges.ts";
 export * from "./passkeys.ts";
 export * from "./plugins.ts";
 export * from "./proactive.ts";
@@ -158,6 +160,7 @@ export const Methods = {
   ...UsageMethods,
   ...InsightsMethods,
   ...DailyMethods,
+  ...NudgeMethods,
   ...ProposalsMethods,
   ...MeetingsMethods,
   ...FeedbackMethods,

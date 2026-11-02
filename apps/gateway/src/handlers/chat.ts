@@ -1,4 +1,4 @@
-import { listAllMessages, listMessagesPage, listQueue } from "@psyche/db";
+import { getWidgets, listAllMessages, listMessagesPage, listQueue } from "@psyche/db";
 import {
   type Block,
   type ChatContextRef,
@@ -6,9 +6,11 @@ import {
   type Message,
   PsycheError,
   type QueueMode,
+  type TaintSource,
   type Thread,
 } from "@psyche/protocol";
 import type { Call, HandlerDef, ResolvedChatContext, ResolvedScreen } from "../context.ts";
+import { claimWidgetClick } from "../widgets/rate.ts";
 import { requireThread } from "./threads.ts";
 
 const DEFAULT_PAGE = 100;
@@ -21,6 +23,17 @@ function decodeSeqCursor(cursor: string | undefined): number | undefined {
   return Number(n);
 }
 
+/** The widget's taint sources (possibly none) once the reply is allowed; throws otherwise. */
+function widgetReply(call: Call, threadId: string, widgetId: string): TaintSource[] {
+  const [widget] = getWidgets(call.ctx.db, [widgetId]);
+  // Another chat's widget looks like a missing one: ids cannot be probed.
+  if (widget === undefined || widget.threadId !== threadId) {
+    throw new PsycheError("not_found", "That widget is not in this chat.");
+  }
+  claimWidgetClick(widgetId);
+  return widget.taint.map((s) => ({ ...s }));
+}
+
 function send(
   call: Call,
   params: {
@@ -31,6 +44,7 @@ function send(
     redo?: { messageId: string; instruction?: string; withoutLessons?: boolean };
     screen?: ChatScreenRef;
     context?: ChatContextRef;
+    fromWidget?: { widgetId: string };
   },
   mode: QueueMode | undefined,
 ) {
@@ -54,6 +68,12 @@ function send(
       throw new PsycheError("unavailable", "Ask about this is not available here");
     context = resolve(params.context);
   }
+  // A click on a widget (generative-ui-2026 §6.2): same chat only, one a second, and an untrusted
+  // widget taints the turn it starts (§7.3): the owner's click does not launder agent-chosen text.
+  const fromWidget =
+    params.fromWidget === undefined
+      ? undefined
+      : widgetReply(call, params.threadId, params.fromWidget.widgetId);
   const redo = params.redo;
   if (redo !== undefined) {
     // Parts (the teaching loop) hear about a redo once the send commits.
@@ -79,6 +99,12 @@ function send(
       threadId: params.threadId,
       content: params.content,
       ...(attachments.length === 0 ? {} : { attachments }),
+      ...(fromWidget === undefined
+        ? {}
+        : {
+            via: "widget" as const,
+            ...(fromWidget.length === 0 ? {} : { taintSources: fromWidget }),
+          }),
       ...(screen === undefined && context === undefined
         ? {}
         : {
@@ -186,6 +212,8 @@ export const chatHandlers: Record<string, HandlerDef> = {
         replyToMessageId?: string;
         redo?: { messageId: string; instruction?: string; withoutLessons?: boolean };
         screen?: ChatScreenRef;
+        context?: ChatContextRef;
+        fromWidget?: { widgetId: string };
       },
     ) => send(call, params, params.mode),
   },

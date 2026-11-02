@@ -119,6 +119,8 @@ export interface MockWorld {
   auditVerified: boolean;
   artifacts: Artifact[];
   widgets: Widget[];
+  /** What `widgets.preview` answers per tool (default `ask`). */
+  widgetDecisions: Record<string, "allow" | "ask" | "deny" | "device-only" | "unavailable">;
   /** Canvas history per artifact: content, table view and version record, index = version - 1. */
   artifactHistory: Record<
     string,
@@ -229,6 +231,10 @@ const TRUST_SOURCE_RESULTS: Record<string, unknown> = {
 /** The model window the mock reports when a thread has no usage yet. */
 export const MOCK_CONTEXT_WINDOW = 200_000;
 
+/** A 1×1 PNG for `widgets.image`. */
+const MOCK_PNG =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAHnOcQAAAAABJRU5ErkJggg==";
+
 export const EMPTY_WORLD: MockWorld = {
   feedbackEvents: [],
   lessons: [],
@@ -247,6 +253,7 @@ export const EMPTY_WORLD: MockWorld = {
   auditVerified: true,
   artifacts: [],
   widgets: [],
+  widgetDecisions: {},
   artifactHistory: {},
   library: [],
   files: {},
@@ -330,9 +337,9 @@ const fakeHash = (text: string): `sha256:${string}` => {
   return `sha256:${h.toString(16).padStart(8, "0").repeat(8)}`;
 };
 
-/** A 1×1 grey PNG: what every mock frame shows. */
+/** A 1×1 mid grey PNG: what every mock frame shows. */
 const MOCK_FRAME_PNG =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGPYsGEDAAQkAhG7+/aHAAAAAElFTkSuQmCC";
 
 const fail = (code: ErrorCode, message: string): never => {
   throw new PsycheError(code, message);
@@ -1333,20 +1340,25 @@ export class MockGateway implements GatewayClient {
     "chat.send": (p) => {
       const busy = this.world.runs.some((r) => r.threadId === p.threadId && r.status === "running");
       const about = p.context && this.world.feed.find((f) => f.id === p.context?.id);
-      const message = this.commitMessage(p.threadId, "user", [
-        ...(about
-          ? [
-              {
-                type: "context" as const,
-                kind: "feed_item" as const,
-                id: about.id,
-                title: about.title,
-                ...(about.citations[0] ? { url: about.citations[0].url } : {}),
-              },
-            ]
-          : []),
-        { type: "text", md: p.content },
-      ]);
+      const message = this.commitMessage(
+        p.threadId,
+        "user",
+        [
+          ...(about
+            ? [
+                {
+                  type: "context" as const,
+                  kind: "feed_item" as const,
+                  id: about.id,
+                  title: about.title,
+                  ...(about.citations[0] ? { url: about.citations[0].url } : {}),
+                },
+              ]
+            : []),
+          { type: "text", md: p.content },
+        ],
+        p.fromWidget ? { via: "widget" } : {},
+      );
       return { messageId: message.id, runId: null, queued: busy };
     },
     "chat.greet": (p) => ({
@@ -1672,6 +1684,44 @@ export class MockGateway implements GatewayClient {
       receipts: this.world.receipts.filter((r) => p.taskId === undefined || r.taskId === p.taskId),
       nextCursor: null,
     }),
+    "widgets.preview": (p) => {
+      const widget = this.find(this.world.widgets, p.widgetId, "widget");
+      const find = (n: unknown): Record<string, unknown> | undefined => {
+        if (!n || typeof n !== "object") return undefined;
+        const node = n as Record<string, unknown>;
+        if (node.id === p.nodeId) return node;
+        for (const c of Array.isArray(node.children) ? node.children : []) {
+          const hit = find(c);
+          if (hit) return hit;
+        }
+        return undefined;
+      };
+      const node = find(widget.spec.root);
+      const action =
+        p.itemId === undefined
+          ? (node?.action as { tool?: string } | undefined)
+          : (node?.items as Array<{ id?: string; action?: { tool?: string } }> | undefined)?.find(
+              (i) => i.id === p.itemId,
+            )?.action;
+      const submit = node?.submit as { tool?: string } | undefined;
+      const tool = action?.tool ?? submit?.tool ?? "";
+      return { tool, decision: this.world.widgetDecisions[tool] ?? "ask" };
+    },
+    "widgets.act": (p) => {
+      const widget = this.find(this.world.widgets, p.widgetId, "widget");
+      const message = this.commitMessage(
+        widget.threadId,
+        "user",
+        [{ type: "text", md: `Run (widget ${p.nodeId})` }],
+        { via: "widget" },
+      );
+      return { messageId: message.id, runId: null };
+    },
+    "widgets.image": () => {
+      if (this.world.settings["widgets.remoteImages"] !== true)
+        fail("policy_denied", "Remote images in widgets are off");
+      return { mime: "image/png", bytes: MOCK_PNG };
+    },
     "widgets.get": (p) => {
       const widgets = p.widgetIds.flatMap((id) => this.world.widgets.filter((w) => w.id === id));
       return {

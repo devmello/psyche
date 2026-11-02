@@ -43,7 +43,7 @@ export function SegmentedRadio<T extends string>({
           key={o.value}
           value={o.value}
           aria-label={segmentLabel ? segmentLabel(o) : o.label}
-          className="h-6 min-w-12 cursor-default rounded-sm px-2.5 text-callout text-label-secondary outline-none transition-[background-color,color,box-shadow] duration-(--duration-micro) hover:text-label-primary focus-visible:ring-2 focus-visible:ring-ring data-checked:bg-surface-raised data-checked:text-label-primary data-checked:shadow-[0_0_0_0.5px_var(--separator),0_1px_2px_oklch(0_0_0/8%)]"
+          className="inline-flex h-6 min-w-12 cursor-default items-center justify-center rounded-sm px-2.5 text-callout text-label-secondary outline-none transition-[background-color,color,box-shadow] duration-(--duration-micro) hover:text-label-primary focus-visible:ring-2 focus-visible:ring-ring data-checked:bg-surface-raised data-checked:text-label-primary data-checked:shadow-[0_0_0_0.5px_var(--separator),0_1px_2px_oklch(0_0_0/8%)]"
         >
           {o.label}
         </RadioPrimitive.Root>

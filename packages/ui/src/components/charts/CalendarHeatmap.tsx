@@ -120,7 +120,7 @@ export function CalendarHeatmap({
                 <span
                   key={`m-${first?.date}`}
                   aria-hidden="true"
-                  className="whitespace-nowrap text-caption text-label-tertiary"
+                  className="whitespace-nowrap text-caption text-label-tertiary tabular-nums"
                   style={{ gridColumn: w + 1, gridRow: HEADER_ROW }}
                 >
                   {i18n.date(`${first?.date}T00:00:00Z`, { month: "short", timeZone: "UTC" })}

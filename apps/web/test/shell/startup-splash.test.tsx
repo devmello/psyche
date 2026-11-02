@@ -93,7 +93,7 @@ describe("StartupSplash (#539)", () => {
     }
   });
 
-  it("offers Show logs and Retry when the start failed, and the app on request", () => {
+  it("offers Show logs and Try again when the start failed, and the app on request", () => {
     const showLogs = vi.fn(async () => {});
     const retry = vi.fn(async () => {});
     render(
@@ -106,7 +106,7 @@ describe("StartupSplash (#539)", () => {
     );
     expect(screen.getByText("launchctl could not load")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Show logs" }));
-    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(showLogs).toHaveBeenCalledOnce();
     expect(retry).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole("button", { name: "Open Psyche anyway" }));

@@ -667,6 +667,71 @@ describe("Life search handler", () => {
   });
 });
 
+describe("Life answer handler", () => {
+  function learned() {
+    const ctx = setup();
+    const sam = ctx.graph.createEntity({ kind: "person", name: "Sam Lee" }).id;
+    const o = ctx.e.store.proposeFact({
+      entityId: sam,
+      attribute: "employer",
+      value: "Initech",
+      provenance: "untrusted",
+      subjectKind: "self_disclosure",
+      citations: [
+        {
+          source: "mail",
+          sourceRef: "<m>",
+          quote: "I just joined Initech",
+          start: 0,
+          end: 21,
+          sourceHash: "h",
+          authorEntityId: sam,
+        },
+      ],
+    });
+    if (o.status === "refused") throw new Error(o.reason);
+    ctx.e.store.decide(o.fact.id, "confirm");
+    return ctx;
+  }
+
+  it("says there is no model while everything memory is off", async () => {
+    const { e, provider } = learned();
+    expect(await e.handlers["memory.life.answer"]({ q: "where does sam work" })).toEqual({
+      answer: null,
+      facts: [],
+      reason: "no_model",
+    });
+    expect(provider.requests).toHaveLength(0);
+  });
+
+  it("answers from a reviewed fact on the chosen cloud model, with the fact cited", async () => {
+    const { e, db, provider } = learned();
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, {
+      enabled: true,
+      model: { default: { kind: "cloud" } },
+    });
+    provider.enqueue([
+      { type: "text_delta", text: "Sam works at Initech [1]." },
+      { type: "finish", reason: "stop" },
+    ]);
+    const r = await e.handlers["memory.life.answer"]({ q: "where does sam work" });
+    expect(r.answer).toBe("Sam works at Initech [1].");
+    expect(r.facts.map((f) => f.value)).toEqual(["Initech"]);
+    expect(provider.requests[0]?.model).toBe("fake/utility");
+    expect(provider.requests[0]?.tools).toEqual([]);
+  });
+
+  it("a local model that was never confirmed answers nothing", async () => {
+    const { e, db, provider } = learned();
+    setSetting(db, EVERYTHING_MEMORY_SETTING_KEY, {
+      enabled: true,
+      model: { default: { kind: "local", ref: "ollama/qwen" } },
+    });
+    expect((await e.handlers["memory.life.answer"]({ q: "sam" })).reason).toBe("no_model");
+    expect(provider.requests).toHaveLength(0);
+  });
+});
+
 describe("Run now and the scheduled job", () => {
   const afternoon = async () => ({
     onAc: true,

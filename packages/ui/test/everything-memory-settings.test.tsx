@@ -131,7 +131,12 @@ describe("Settings → Everything memory", () => {
     show();
     fireEvent.click(await screen.findByRole("switch", { name: "Everything memory" }));
     const dialog = await screen.findByTestId("everything-consent");
-    for (let i = 0; i < 4; i++) next();
+    next();
+    expect(within(dialog).getAllByRole("switch")).toHaveLength(7);
+    expect(dialog.textContent).toContain("Transcripts");
+    expect(dialog.textContent).not.toContain("Browser pages");
+    expect(dialog.textContent).not.toContain("Chats with Psyche");
+    for (let i = 0; i < 3; i++) next();
     fireEvent.click(within(dialog).getByRole("button", { name: "Turn on" }));
     await screen.findByText("Sensitive topics");
     expect(

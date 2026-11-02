@@ -433,7 +433,7 @@ export function PermissionsPanel({
           }
         >
           {showProhibitions ? (
-            <ul id="psyche-hard-prohibitions" className="list-disc ps-5 text-gray-11">
+            <ul id="psyche-hard-prohibitions" className="list-disc ps-8! text-label-secondary">
               {HARD_PROHIBITION_IDS.map((id) => (
                 <li key={id}>{t(`settings.permissions.never.${id}`)}</li>
               ))}

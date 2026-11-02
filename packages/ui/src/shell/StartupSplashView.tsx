@@ -163,7 +163,7 @@ export function StartupSplashView({
               ) : null}
               {onRetry ? (
                 <Button size="sm" onClick={onRetry}>
-                  {t("web.splash.retry")}
+                  {t("common.tryAgain")}
                 </Button>
               ) : null}
             </div>

@@ -13,7 +13,7 @@ describe("StartupSplashView (#595)", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("keeps the failure state: reason, Show logs, Retry and the way into the app", () => {
+  it("keeps the failure state: reason, Show logs, Try again and the way into the app", () => {
     const onShowLogs = vi.fn();
     const onRetry = vi.fn();
     const onOpenAnyway = vi.fn();
@@ -28,7 +28,7 @@ describe("StartupSplashView (#595)", () => {
     expect(screen.getByTestId("startup-splash").dataset.tone).toBe("error");
     expect(screen.getByText("psyched is not bundled")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Show logs" }));
-    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     fireEvent.click(screen.getByRole("button", { name: "Open Psyche anyway" }));
     expect(onShowLogs).toHaveBeenCalledOnce();
     expect(onRetry).toHaveBeenCalledOnce();

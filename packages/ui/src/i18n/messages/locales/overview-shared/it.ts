@@ -88,8 +88,6 @@ export const overviewShared: Partial<Catalogue> = {
   "screens.growth.empty":
     "Non è stato ancora imparato nulla. Di’ a {agent} quando qualcosa non va e lo ricorderà.",
   "screens.growth.loading": "Caricamento di ciò che ha imparato {agent}",
-  "screens.growth.loadFailed": "Impossibile caricare la crescita. {reason}",
-  "screens.growth.retry": "Riprova",
   "screens.growth.card.kind": "Cosa ho imparato",
   "screens.growth.card.items": "Elementi da rivedere",
   "screens.growth.card.keep": "Conserva",
@@ -109,7 +107,7 @@ export const overviewShared: Partial<Catalogue> = {
   "screens.lessons.change": "La modifica",
   "screens.lessons.before": "Prima",
   "screens.lessons.after": "Dopo",
-  "screens.lessons.loadFailed": "Impossibile caricare questa lezione. {reason}",
+  "screens.lessons.loadFailed": "Impossibile caricare questa lezione ({reason}).",
   "screens.lessons.sources": "Dal tuo feedback",
   "screens.lessons.sourceDate": "{date}",
   "screens.lessons.openThread": "Apri la conversazione",

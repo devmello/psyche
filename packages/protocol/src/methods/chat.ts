@@ -59,6 +59,12 @@ export const ChatMethods = {
        */
       replyToMessageId: Type.Optional(Id),
       /**
+       * The message is a click on a widget's reply button or a form submit (generative-ui-2026
+       * §6.2): it is stored with `via: "widget"` (the "from widget" chip, D10), and when the widget
+       * is untrusted the turn it starts is tainted with the widget's sources (§7.3).
+       */
+      fromWidget: Type.Optional(Type.Object({ widgetId: Id }, { $id: "ChatFromWidget" })),
+      /**
        * Redo (teaching loop §5.1): answer `messageId` again, with the owner's instruction
        * ("shorter") or without the lessons it used. A redo with an instruction is recorded as
        * `regenerated` feedback.

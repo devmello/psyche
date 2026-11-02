@@ -89,7 +89,7 @@ import {
 } from "@psyche/scheduler";
 import { WEB_SEARCH_PROVIDER_SETTING, WEB_SEARCH_SEARXNG_SETTING } from "@psyche/search";
 import { createTaskHandlers, SqliteTaskEngine, TaskWorkerPool } from "@psyche/tasks";
-import { SecretRedactor, type Vault } from "@psyche/vault";
+import { DerivedKeyStore, SecretRedactor, type Vault } from "@psyche/vault";
 import { type DocumentsHandle, documentBridge } from "../artifacts/bridge.ts";
 import { resolveConfig } from "../config.ts";
 import type { HandlerDef } from "../context.ts";
@@ -137,6 +137,7 @@ import { insightsHandlers } from "./insights.ts";
 import { libraryHandlers } from "./library.ts";
 import type { ComposedMcp } from "./mcp.ts";
 import {
+  asMemoryEmbedder,
   createMemoryRecall,
   defaultLocalLoader,
   type LocalEmbedderLoader,
@@ -155,6 +156,7 @@ import {
   restoreModelSettings,
   settingsKeyValue,
 } from "./model-settings.ts";
+import { composeNudges } from "./nudges.ts";
 import { createOtherChats, type OtherChats } from "./other-chats.ts";
 import { PageReadHub } from "./page-reads.ts";
 import { composePasskeys } from "./passkeys.ts";
@@ -836,7 +838,28 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     utility: utility ?? modelRef,
     timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     card: async (path) => (await memory.readFile(path))?.content,
+    embedder: () => {
+      const e = searchRef?.embedder();
+      return e === undefined ? undefined : asMemoryEmbedder(e);
+    },
     announce: (card) => void proactive.feed.postNotice({ ...card, reason: "memory learned" }),
+    ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+  });
+  // Relationship nudges: off until the owner consents; cards are silent Feed posts.
+  const nudges = composeNudges({
+    db,
+    clock,
+    graph: people.graph,
+    em: everything.store,
+    timeZone: () => timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    post: (card) =>
+      void proactive.feed.postNotice({
+        title: card.title,
+        bodyMd: card.bodyMd,
+        reason: "relationship nudge",
+        refs: { nudgeId: card.nudgeId },
+      }),
+    ...(background ? {} : { refreshMs: 0 }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
   const calls = new CallContexts();
@@ -1226,6 +1249,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       relays.flatMap((r) => r.surfaces()).filter((x) => x.startsWith("imessage:")),
     learned: () => everything.learnedYesterday(),
     comingUp: () => everything.comingUp(),
+    // The brief also posts any new nudge cards, so the Feed and the brief agree.
+    keepInTouch: () => {
+      nudges.refresh();
+      return nudges.keepInTouch();
+    },
     // Ideas proposes folding a skill's lessons into it once it has three (teaching loop §6).
     skillUpdates: () => skills.updates(),
     // Post-meeting notes transcribe on the Mac through the speech part (§4.6). Record meeting
@@ -1403,6 +1431,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     keyFile: join(config.home, "state", "search.key.json"),
     wrapper: vault.wrapper,
     slot: vault.slot,
+    derived: new DerivedKeyStore(vault.helper),
   });
   const power = powerReader();
   const search = composeSearch({
@@ -1475,6 +1504,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   parts.push(
     everything.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone),
   );
+  parts.push(nudges.part());
   parts.push(people.part(scheduler, timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone));
   // Code plugins (T4): off until the owner turns on `plugins.enabled`.
   parts.push(

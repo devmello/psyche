@@ -1,5 +1,6 @@
 import type { PermissionMode, SpecialistBudgetSetting, SpecialistRole } from "@psyche/protocol";
 import { type ReactElement, useEffect, useId, useState } from "react";
+import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { Switch } from "../../components/ui/switch.tsx";
@@ -68,9 +69,11 @@ function NumberField({
   value,
   max,
   step = 1,
+  hideLabel = false,
   onCommit,
 }: {
   label: string;
+  hideLabel?: boolean;
   value: number | undefined;
   max?: number | undefined;
   step?: number;
@@ -97,7 +100,7 @@ function NumberField({
   };
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1">
-      <label htmlFor={id} className="text-callout text-label-secondary">
+      <label htmlFor={id} className={hideLabel ? "sr-only" : "text-callout text-label-secondary"}>
         {label}
       </label>
       <Input
@@ -173,16 +176,18 @@ function RoleRow({
           </span>
           <span className="text-callout text-label-tertiary tabular-nums">{summary}</span>
         </div>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="xs"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-controls={`${id}-edit`}
           aria-label={t("settings.specialists.editLabel", { role: role.label })}
-          className="h-6 shrink-0 cursor-default rounded-sm px-1.5 text-callout text-accent-11 outline-none hover:bg-fill-tertiary focus-visible:ring-2 focus-visible:ring-ring"
+          className="shrink-0"
         >
           {open ? t("settings.specialists.done") : t("settings.specialists.edit")}
-        </button>
+        </Button>
         <Switch
           aria-label={t("settings.specialists.turnOn", { role: role.label })}
           checked={eff.enabled}
@@ -335,8 +340,8 @@ export function SpecialistsPanel({
             <SettingHint settingKey={SPECIALIST_KEYS.maxConcurrent} />
           </div>
           <div className="flex flex-col gap-1">
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="flex min-w-0 flex-[2] flex-col">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-1 flex-col">
                 <span className="text-body text-label-primary">
                   {t("settings.specialists.monthlyCap")}
                 </span>
@@ -351,6 +356,7 @@ export function SpecialistsPanel({
               </div>
               <div className="w-32">
                 <NumberField
+                  hideLabel
                   label={t("settings.specialists.budgetCost")}
                   value={capValue}
                   step={5}

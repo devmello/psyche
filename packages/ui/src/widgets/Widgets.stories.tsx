@@ -1,3 +1,4 @@
+import type { Widget } from "@psyche/protocol";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { IDS } from "../fixtures/index.ts";
 import { StoryWorld } from "../stories/harness.tsx";
@@ -10,9 +11,30 @@ import {
   taintedWidget,
 } from "./fixtures.ts";
 import { boundWidget } from "./fixtures-bound.ts";
+import { interactiveWidget } from "./fixtures-interactive.ts";
+import {
+  chartsWidget,
+  dataImageWidget,
+  mapWidget,
+  remoteImageTaintedWidget,
+  remoteImageWidget,
+} from "./fixtures-media.ts";
 import { WidgetBlockView } from "./WidgetBlock.tsx";
 
-const meta = { title: "Chat/Widgets" } satisfies Meta;
+const meta = {
+  title: "Chat/Widgets",
+  // The renderer is lazy; load its chunks first so baselines never catch the skeleton.
+  loaders: [
+    async () => {
+      await Promise.all([
+        import("./WidgetView.tsx"),
+        import("./WidgetChart.tsx"),
+        import("./WidgetImage.tsx"),
+      ]);
+      return {};
+    },
+  ],
+} satisfies Meta;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
@@ -45,3 +67,33 @@ export const ApprovalLookalike: Story = show("wdg_spoof");
 export const BoundToTask: Story = show("wdg_bound", [
   boundWidget(IDS.tasks.dentist, IDS.threads.dentist),
 ]);
+
+const showWith = (widget: Widget, settings: Record<string, unknown> = {}): Story => ({
+  render: () => (
+    <StoryWorld
+      edit={(w) => {
+        w.widgets = [widget];
+        Object.assign(w.settings, settings);
+      }}
+    >
+      <div className="max-w-[640px] p-4">
+        <WidgetBlockView block={{ type: "ui", widgetId: widget.id }} />
+      </div>
+    </StoryWorld>
+  ),
+});
+
+/** Bar, line and sparkline: dash patterns and markers as well as colour, a data table behind each. */
+export const Charts: Story = showWith(chartsWidget);
+export const ImageData: Story = showWith(dataImageWidget);
+/** Remote images are off by default (D3): a note, no request. */
+export const ImageRemoteOff: Story = showWith(remoteImageWidget);
+/** Allowed by the owner, but this widget is untrusted: nothing loads until a click. */
+export const ImageRemoteUntrusted: Story = showWith(remoteImageTaintedWidget, {
+  "widgets.remoteImages": true,
+});
+/** A place list with Open in Maps: no tiles (D4). */
+export const PlaceList: Story = showWith(mapWidget);
+
+/** Reply button, choices, a form and a list action: outline controls, nothing fires by itself. */
+export const Interactive: Story = showWith(interactiveWidget);

@@ -13,7 +13,12 @@ import { t } from "../../i18n/core.ts";
 import { ConnectedEntityCard } from "../../people/ConnectedEntityCard.tsx";
 import { useSlots } from "../../slots.tsx";
 import { ScreenColumn, ScreenToolbar } from "../feed/ScreenToolbar.tsx";
-import { SearchSurface, useMinWidth, useSearchSurface } from "./SearchSurface.tsx";
+import {
+  type LifeAnswerState,
+  SearchSurface,
+  useMinWidth,
+  useSearchSurface,
+} from "./SearchSurface.tsx";
 import { type ParsedSearchQuery, parseSearchQuery } from "./search-query.ts";
 
 export { groupHits, Highlight, highlightTerms, SCOPE_ICON } from "./search-parts.tsx";
@@ -37,6 +42,7 @@ export interface SearchViewProps {
   entities?: readonly EntitySummary[];
   /** Cited facts from Everything memory (Life), after people and projects. */
   lifeFacts?: readonly LifeFactHit[];
+  lifeAnswer?: LifeAnswerState;
   onOpenEntity?: (entity: EntitySummary) => void;
   renderEntityPreview?: (entity: EntitySummary) => ReactNode;
   now?: number;
@@ -112,6 +118,7 @@ export function SearchView({
   autoFocus = false,
   entities,
   lifeFacts,
+  lifeAnswer,
   onOpenEntity,
   renderEntityPreview,
   now,
@@ -150,6 +157,7 @@ export function SearchView({
           {...(onOpenInSideChat ? { onOpenInSideChat } : {})}
           {...(entities ? { entities } : {})}
           {...(lifeFacts ? { lifeFacts } : {})}
+          {...(lifeAnswer ? { lifeAnswer } : {})}
           {...(onOpenEntity ? { onOpenEntity } : {})}
           {...(renderEntityPreview ? { renderEntityPreview } : {})}
           {...(now !== undefined ? { now } : {})}
@@ -224,6 +232,14 @@ export function SearchScreen({
       {...(onOpenInSideChat ? { onOpenInSideChat } : {})}
       entities={search.entities}
       lifeFacts={search.life}
+      {...(search.answer
+        ? {
+            lifeAnswer: {
+              ...search.answer,
+              onOpenSettings: () => navigate?.("/settings/everything"),
+            },
+          }
+        : {})}
       onOpenEntity={
         onOpenEntity ?? ((e) => navigate?.(`/agent/soul?entity=${encodeURIComponent(e.id)}`))
       }

@@ -198,13 +198,16 @@ export function DelayedSkeleton({
   );
 }
 
-/** The section-level failure: "Couldn’t load Growth · Retry". Only this section fails (§5.5). */
+/** The section-level failure: "Couldn’t load Growth · Try again". Only this section fails (§5.5). */
 export function LoadFailed({
   onRetry,
   section,
+  message,
 }: {
   onRetry: (() => void) | undefined;
   section?: OverviewSectionId;
+  /** A full sentence for failures that are not one of the sections ("Couldn’t load the summary"). */
+  message?: string;
 }): ReactElement {
   return (
     <div
@@ -213,15 +216,16 @@ export function LoadFailed({
       data-testid="overview-load-failed"
     >
       <span>
-        {section === undefined
-          ? t("overview.error.load")
-          : t("overview.error.section", { section: sectionTitle(section) })}
+        {message ??
+          (section === undefined
+            ? t("overview.error.load")
+            : t("overview.error.section", { section: sectionTitle(section) }))}
       </span>
       {onRetry === undefined ? null : (
         <>
           <span aria-hidden="true">·</span>
           <Button size="sm" variant="ghost" onClick={onRetry}>
-            {t("common.retry")}
+            {t("common.tryAgain")}
           </Button>
         </>
       )}
@@ -240,7 +244,7 @@ export interface SectionBodyProps {
   children: ReactNode;
 }
 
-/** The body of a section: its delayed skeleton, its error with Retry, or the content. */
+/** The body of a section: its delayed skeleton, its error with Try again, or the content. */
 export function SectionBody({
   id,
   status,
@@ -261,7 +265,7 @@ export function SectionBody({
     );
   }
   if (status.phase === "error") {
-    // Compact: a failed section is a line with Retry, not a blank card the height of its data.
+    // Compact: a failed section is a line with Try again, not a blank card the height of its data.
     return <LoadFailed section={id} onRetry={status.reload} />;
   }
   return (

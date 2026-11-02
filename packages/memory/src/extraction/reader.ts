@@ -6,10 +6,19 @@ import type Database from "better-sqlite3";
  * the search index by cursor: the ONE ingest path, so the index's own exclusions and deletions
  * apply. In this phase it returns the owner's own items only (provenance `owner`: sent mail, own
  * messages, own notes, #1006 trusted sources); other people's text is counted and skipped, never
- * returned, and never leaves the index. Opens the database read-only in spirit: it only SELECTs.
+ * returned, and never leaves the index. Browser pages are deliberately not readable: a web page has
+ * no author to attribute a fact to and is the widest injection surface, so the switch is accepted
+ * but nothing is read. Chats with Psyche stay with the USER.md learner (design §6.2). Opens the database read-only in spirit: it only SELECTs.
  */
 
-export type ReadableSource = "mail" | "messages" | "notes" | "calendar" | "reminders" | "files";
+export type ReadableSource =
+  | "mail"
+  | "messages"
+  | "notes"
+  | "calendar"
+  | "reminders"
+  | "files"
+  | "transcripts";
 
 /** `search_docs.source` tag per source (packages/search/src/sources/manager.ts `sourceTag`). */
 export const SOURCE_TAGS: Record<ReadableSource, string> = {
@@ -19,6 +28,7 @@ export const SOURCE_TAGS: Record<ReadableSource, string> = {
   calendar: "connector:calendar",
   reminders: "connector:reminders",
   files: "connector:files",
+  transcripts: "connector:transcripts",
 };
 
 export const READABLE_SOURCES = Object.keys(SOURCE_TAGS) as ReadableSource[];
