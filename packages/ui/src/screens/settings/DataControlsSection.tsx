@@ -23,6 +23,7 @@ import {
   SwitchField,
   useSettingsForm,
 } from "./shared.tsx";
+import { WidgetGroup } from "./WidgetSettings.tsx";
 
 /** Data controls (UI design §3.18). There is no training toggle: nothing is sent anywhere. */
 
@@ -180,6 +181,7 @@ export function DataControlsPanel({
         </Group>
         {learning}
         <MapGroup values={values} onChange={onChange} />
+        <WidgetGroup values={values} onChange={onChange} />
 
         <Group title={t("settings.data.export")} description={t("settings.data.exportHint")}>
           <div>
