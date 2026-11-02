@@ -22,6 +22,7 @@ import { isSafeLink, Markdown } from "../blocks/Markdown.tsx";
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { SafeLink } from "../links/SafeLink.tsx";
+import { BoundNode } from "./bound.tsx";
 import { TONE_ICON, TONE_TEXT } from "./tone.ts";
 
 /**
@@ -433,6 +434,8 @@ const MAX_DEPTH = WIDGET_LIMITS.depth + 2;
 
 export function RenderNode({ node, depth }: { node: N; depth: number }): ReactElement | null {
   if (depth > MAX_DEPTH) return null;
+  // A bound node is drawn from a live entity; the bound renderer calls back here with props merged.
+  if (node.bind && typeof node.bind === "object") return <BoundNode node={node} depth={depth} />;
   const n = node;
   switch (n.type) {
     case "stack":

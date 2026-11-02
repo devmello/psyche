@@ -1,6 +1,7 @@
 import { getWidgets } from "@psyche/db";
 import type { MethodParams, MethodResult } from "@psyche/protocol";
 import type { Call } from "../context.ts";
+import { checkWidgetBindings } from "../widgets/bindings.ts";
 import { WidgetStore } from "../widgets/store.ts";
 import { widgetTools } from "../widgets/tools.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
@@ -12,6 +13,7 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
 export function composeWidgets(services: ComposeServices): ComposedPart {
   const store = new WidgetStore({
     db: services.db,
+    bindings: (root, threadId) => checkWidgetBindings(services.db, root, threadId),
     publish: (event, payload, threadId) => services.publish(event, payload, threadId),
   });
   const unregister = widgetTools(store).map((t) => services.tools.register(t));
