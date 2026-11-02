@@ -22,10 +22,7 @@ and nothing is stored about the owner.
 
 ## Recorded responses
 
-`../redteam-recordings/{cloud,local}.json` hold one raw model reply per case. They are **synthetic**:
-written to mimic a model that obeyed the injection (cloud: clean closed-form JSON) or was sloppier
-about the form (local: code fences, prose around the JSON, an extra field, truncated, double
-encoded). No model produced them and none was started to make them. The third-party gate replays
-every one of them through the whole pass (`third-party-redteam.test.ts`). To re-record from real
-models, run the same cases against a cloud key or a local server the owner started, and replace the
-files; that is done on demand, never in CI.
+`../redteam-recordings/` holds one raw model reply per case:
+
+- `cloud.json` and `cloud-unscreened.json` are **real** `anthropic/claude-haiku-5-5` replies (2026-11-02): the first through the whole pass (36 cases never reached the model because the screen held them, stored as `null`), the second with the screen bypassed so the validator alone is tested. `third-party-redteam.test.ts` and the `real Haiku 5.5 replies` block of `redteam.test.ts` replay them. Re-record on demand with `RECORD_REDTEAM=1 pnpm --filter @psyche/memory exec vitest run --maxWorkers=1 test/redteam-record.test.ts` (needs `ANTHROPIC_API_KEY` in the environment or the nearest `.env`; never in CI).
+- `local.json` is **synthetic**: written to mimic a sloppier local model (code fences, prose around the JSON, an extra field, truncated, double encoded). No local model was started to make it.

@@ -261,3 +261,18 @@ Each phase is one PR unless noted. P1–P3 give a useful read-only feature; late
 | D8 | Feed widgets live or static. | **Static snapshot** with open/reply in v1. |
 | D9 | Can the agent patch its widgets in later runs of the same thread? | **Yes**, same thread only; other threads, MCP servers and channels never. |
 | D10 | Should widget replies show in the transcript? | **Yes, always**, with a "from widget" chip. No hidden owner messages. |
+
+### Live UI-vs-text eval (2026-11-02, Haiku 5.5)
+
+`apps/gateway/test/ui-vs-text.live.test.ts` (`PSYCHE_LIVE_TESTS=1`, on demand) runs the 11 cases of `packages/agent-core/test/fixtures/ui-vs-text-cases.json` against `claude-haiku-5-5` with the real widget tool specs (`widgetTools`) and the real `UI_GUIDANCE` system text. A `list_ui` lookup is answered "no widgets in this chat" and the model continues for up to three steps. About 41k input and 3k output tokens for 13 calls.
+
+**Pass rate: 7 of 11 (64%).** Text cases: 6 of 6 (including the approval case: it refused to draw a button and said approvals are drawn by the app only). `update_ui`: 1 of 1 (it called `list_ui` first). UI cases: **0 of 4**:
+
+| Prompt | Expected | Got | Why |
+| --- | --- | --- | --- |
+| Clean up my inbox… | ui | text | "I can't reach your inbox from this chat": the harness offers no mail tools |
+| Compare these five laptops… | ui | text | asked which laptops (none were given) |
+| Show last month's spend by category | ui | text | "I don't have access to your spending data" |
+| Track the progress of the migration while it runs | ui | `list_ui`, then text | looked for an existing widget, found none, did not draw one |
+
+Reading: the guidance does its main job (text for explanations, opinions, drafts and actions it cannot do; no fake approval), but three of the four UI misses are a limit of the case set rather than of the guidance: a bare prompt gives the model no data and no tools, so a clarifying text reply is the better answer. The migration case is a real, small miss: with nothing to track yet the model should have drawn the progress widget. Follow-ups, not done here (the case set was not edited to fit the result): put the data in the prompts ("Compare these laptops: …", a table of spend), give the harness fake mail/task tools, and add a line to `UI_GUIDANCE` that a request to *track* something starts with `render_ui` when no widget exists.

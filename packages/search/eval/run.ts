@@ -4,6 +4,8 @@
  *   pnpm --filter @psyche/search eval                      # every mode, both coverages
  *   pnpm --filter @psyche/search eval -- --mode rules --coverage full --misses
  *   pnpm --filter @psyche/search eval -- --llm --mode rules --coverage full   # Haiku answers
+ *   pnpm --filter @psyche/search eval -- --live --mode model --coverage full  # Haiku reads the query
+ *   pnpm --filter @psyche/search eval -- --live --mode rerank --coverage full # Haiku reranks the top 20
  *
  * Builds an in-memory `SqliteSearchIndex` from `fixtures/corpus.json`, runs every question in
  * `fixtures/questions.json` through `index.search` and scores the ranked ids against the gold
@@ -13,8 +15,9 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import type { Provenance, SearchIndexDocKind } from "@psyche/protocol";
-import { createSearchIndex, QueryModel } from "../src/index.ts";
+import type { ModelProvider, Provenance, SearchIndexDocKind } from "@psyche/protocol";
+import { createLiveHaikuProvider } from "@psyche/testing";
+import { createSearchIndex, ModelReranker, QueryModel, type Reranker } from "../src/index.ts";
 import type { SearchDoc } from "../src/types.ts";
 import { llmAnswer } from "./answer.ts";
 import { type IndexedCorpus, indexThroughSources } from "./indexed.ts";
@@ -123,16 +126,37 @@ export interface QuestionResult {
   usedFallback: boolean;
 }
 
+const LIVE_MODEL_REF = "anthropic/claude-haiku-5-5" as never;
+
+function rerankerFor(live: ModelProvider | undefined): Reranker {
+  if (live === undefined) return coverageReranker;
+  const model = new ModelReranker({ provider: live, model: LIVE_MODEL_REF, timeoutMs: 30_000 });
+  return {
+    id: model.id,
+    cloud: model.cloud,
+    async rerank(query, candidates, signal) {
+      liveStats.rerankCalls++;
+      const order = await model.rerank(query, candidates, signal);
+      if (order.length === 0) liveStats.rerankFallbacks++;
+      return order;
+    },
+  };
+}
+
 /** Counts and sizes of the last `indexed` run (reported under its table). */
 export let indexStats:
   | { counts: Record<string, number>; textBytes: number; indexBytes: number }
   | undefined;
+
+/** What `--live` counted: model calls made and replies that fell back to the rules / original order. */
+export const liveStats = { queryCalls: 0, rerankCalls: 0, rerankFallbacks: 0 };
 
 export async function evaluate(
   corpus: CorpusDoc[],
   questions: Question[],
   mode: RewriteMode,
   coverage: Coverage,
+  live?: ModelProvider,
 ): Promise<QuestionResult[]> {
   const index = createSearchIndex({
     now: () => EVAL_NOW,
@@ -140,16 +164,17 @@ export async function evaluate(
     ...(mode === "model"
       ? {
           queryModel: {
-            model: new QueryModel({
-              provider: oracleQueryProvider(questions, corpus),
-              model: "eval" as never,
-            }),
+            model: new QueryModel(
+              live === undefined
+                ? { provider: oracleQueryProvider(questions, corpus), model: "eval" as never }
+                : { provider: live, model: LIVE_MODEL_REF, timeoutMs: 30_000 },
+            ),
           },
         }
       : {}),
     // `rerank`: production understanding plus a reranker stand-in over the top 20 (rerank-mock.ts).
     ...(mode === "rerank"
-      ? { rerank: { reranker: coverageReranker, enabled: () => true, topN: () => 20 } }
+      ? { rerank: { reranker: rerankerFor(live), enabled: () => true, topN: () => 20 } }
       : {}),
   });
   const docs = corpus.filter((d) => coverage === "full" || PRODUCTION_SOURCES.has(d.source));
@@ -276,6 +301,7 @@ async function main(): Promise<void> {
       classes: { type: "boolean", default: false },
       misses: { type: "boolean", default: false },
       llm: { type: "boolean", default: false },
+      live: { type: "boolean", default: false },
       "mock-answers": { type: "boolean", default: false },
       only: { type: "string" },
       out: { type: "string" },
@@ -286,6 +312,7 @@ async function main(): Promise<void> {
   const questions = only === undefined ? all : all.filter((q) => only.includes(q.id));
   const modes = values.mode === undefined ? MODES : [values.mode as RewriteMode];
   const coverages = values.coverage === undefined ? COVERAGES : [values.coverage as Coverage];
+  const live = values.live ? createLiveHaikuProvider() : undefined;
   const answers = values.llm || values["mock-answers"];
   const byId = new Map(corpus.map((d) => [d.id, d]));
   const report: Record<string, { summary: Summary; byClass: Record<string, Summary> }> = {};
@@ -294,7 +321,7 @@ async function main(): Promise<void> {
   for (const coverage of coverages) {
     const results = new Map<RewriteMode, QuestionResult[]>();
     for (const mode of modes) {
-      const res = await evaluate(corpus, questions, mode, coverage);
+      const res = await evaluate(corpus, questions, mode, coverage, live);
       if (answers) {
         for (const r of res) {
           const q = questions.find((x) => x.id === r.id);
@@ -349,6 +376,10 @@ async function main(): Promise<void> {
       }
     }
   }
+  if (live !== undefined)
+    print(
+      `live (claude-haiku-5-5): ${live.usage.calls} calls, ${live.usage.input} input / ${live.usage.output} output tokens; rerank calls ${liveStats.rerankCalls}, fell back to original order ${liveStats.rerankFallbacks}`,
+    );
   if (values.out !== undefined) writeFileSync(values.out, `${JSON.stringify(report, null, 2)}\n`);
 }
 

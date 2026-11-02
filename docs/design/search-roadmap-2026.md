@@ -337,3 +337,30 @@ Status: built, **opt-in** (`search.encrypt`, off by default).
 *Threat model.* The key is never next to the file, so a copy of the file, a Time Machine or cloud backup of the folder, or a disk image taken without the keychain is unreadable. It does not protect against code running as the owner on an unlocked Mac, which can read the item as any app in the access group could. Key on a server: `PSYCHE_VAULT_KEY_FILE` as before.
 
 *Start-up ordering.* The Mac helper connects after the Gateway has composed search, so the key is not there at boot. When the key comes from the helper, `composeSearch` builds the whole index graph behind a holder (`deferredSearch`) that opens it once `DeferredOpen` gets the key (retry 2 s, backing off to 30 s): until then `search.query` answers empty, `search.status` reports `encryption: pending`, nothing is written and no in-memory index is held (RAM stays flat). Events seen meanwhile are recovered by the backfill that runs after the open. With encryption off, or a key already in hand (key file), the original synchronous path is unchanged. `DeferredOpen` (key provider + open callback) is generic and is what the memory store's encrypted file (EM9b) should use.
+
+### Live results: query model and rerank with Haiku 5.5 (2026-11-02)
+
+The offline stand-ins (the oracle query model and the lexical-coverage reranker) are replaced for a day by the real thing: `pnpm --filter @psyche/search eval -- --live --mode model|rerank --coverage full --classes`. Everything goes to `claude-haiku-5-5` only; the key comes from the environment or the nearest `.env` and is never printed. BM25 only (no embedder), full coverage, 150 questions. Defaults are unchanged: rerank stays off, and the query model is only used where the rules are unsure.
+
+| Mode | R@1 | R@5 | R@10 | R@20 | hit@10 | MRR | nDCG@10 | cite P@3 | cite ok |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| prod (baseline, no model) | 0.225 | 0.502 | 0.607 | 0.694 | 0.800 | 0.590 | 0.524 | 0.402 | 0.640 |
+| model (live Haiku reads the query) | 0.222 | 0.505 | 0.588 | 0.672 | 0.787 | 0.594 | 0.519 | 0.411 | 0.640 |
+| rerank (live Haiku, top 20) | 0.348 | 0.640 | 0.681 | 0.694 | 0.853 | 0.783 | 0.676 | 0.549 | 0.800 |
+
+R@10 by class (the §9 gate is "no class drops more than 0.02"):
+
+| class | prod | model | Δ model | rerank | Δ rerank |
+| --- | --- | --- | --- | --- | --- |
+| crosslingual (5) | 0.300 | 0.300 | 0 | 0.500 | +0.200 |
+| exact (25) | 0.795 | 0.795 | 0 | 0.855 | +0.060 |
+| filter (10) | 0.780 | 0.780 | 0 | 0.780 | 0 |
+| list (20) | 0.618 | 0.564 | **−0.054** | 0.627 | +0.009 |
+| multihop (15) | 0.433 | 0.433 | 0 | 0.533 | **+0.100** |
+| paraphrase (30) | 0.430 | 0.397 | **−0.033** | 0.620 | +0.190 |
+| person (20) | 0.771 | 0.738 | **−0.033** | 0.833 | +0.062 |
+| temporal (25) | 0.585 | 0.585 | 0 | 0.585 | 0 |
+
+**Rerank passes the gate.** No class drops, multihop rises by 0.100 (the offline word-coverage stand-in had dropped it by 0.033; that only showed the plumbing, not what a model does), and every ranking metric improves: MRR 0.590 → 0.783, nDCG@10 0.524 → 0.676, R@1 0.225 → 0.348, hit@10 0.800 → 0.853, cite ok 0.640 → 0.800. R@20 is unchanged by construction (it reorders the top 20). 137 calls, about 178k input and 29k output tokens (about $0.32, about 1.3k input tokens a call); 14 of the 137 replies were empty or unusable and kept the original order. This is the numbers for the R12 decision only; the toggle stays off until the owner approves the cloud cost and the privacy rule of §5.4.
+
+**The live query model fails the gate** (list −0.054, paraphrase −0.033, person −0.033; overall R@10 0.607 → 0.588, 0.589 on a second run) and, unlike the oracle upper bound, it is not an improvement. It was called 53 times (about 17k input, 7k output tokens) and it lost four questions that the rules alone found (q045, q109, q120, q126) and gained one (q113). The cause, checked by reading the plans for four of them, is over-filtering, not bad dates: it adds a `people` filter for a name that is the subject of the item ("Did **Sam** settle up…", "**Daniel** approved my time off…") although the prompt says to do so only when the item is *from* them; and it turns the word "chats" into `sources: [imessage]` and "documents" into `sources: [files]`, which drops the Psyche chats and Library documents that are also gold. Fix before R13 ships, in `QUERY_MODEL_PROMPT` (people only after "from/by/sent by"; sources only for the words mail, message, note, event, reminder, file as a *source name*, never "chat" or "document"), then re-measure with this harness. Until then the model path should not be turned on by default.
