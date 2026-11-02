@@ -183,7 +183,7 @@ export function MessageView({
     return (
       <article
         id={`message-${message.id}`}
-        className="group/message mt-5 flex flex-col items-end"
+        className="group/message mt-8 flex flex-col items-end first:mt-0"
         aria-label={t("chat.message.userLabel", { time })}
         data-role="user"
       >
@@ -222,7 +222,7 @@ export function MessageView({
               </div>
             </form>
           ) : (
-            <div className="rounded-xl bg-fill-secondary px-4 py-2.5 text-reading text-label-primary">
+            <div className="rounded-2xl rounded-ee-md bg-fill-secondary px-4 py-2.5 text-reading text-label-primary">
               {quote}
               <MessageBlocks message={message} />
             </div>
