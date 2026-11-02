@@ -3,6 +3,7 @@ import { formatElapsed } from "../components/steps/LiveDuration.tsx";
 import {
   useAutomations,
   useGatewayQuery,
+  useQuestions,
   useStoreState,
   useThreads,
   useUpcoming,
@@ -15,6 +16,7 @@ import { routeLink } from "../overview/overviewLinks.ts";
 import { overviewRunHref } from "../overview/recent.ts";
 import { useSlots } from "../slots.tsx";
 import { runTitle } from "./timeline/RunHeader.tsx";
+import { useApprovalQueue } from "./ApprovalsPanel.tsx";
 import { useAgentStatus } from "./useAgentState.ts";
 
 export interface NowNext {
@@ -34,6 +36,8 @@ export interface NowNext {
 export function useNowNext(fixedNow?: number): NowNext {
   const now = useNow(1000, fixedNow);
   const status = useAgentStatus();
+  const queue = useApprovalQueue();
+  const questions = useQuestions();
   const live = useRunsList({ status: ["running"] });
   useThreads();
   const threads = useStoreState((s) => s.threads);
@@ -48,9 +52,12 @@ export function useNowNext(fixedNow?: number): NowNext {
 
   if (status.state === "offline") return { kind: "other", text: status.snippet, href: "/overview" };
   if (status.needsYou > 0) {
+    // What is waiting, by kind (the same split as the Approvals tab's list and Questions).
+    const q = questions.open.length;
+    const a = queue.live.length > 0 || q > 0 ? queue.live.length : status.needsYou;
     return {
       kind: "waiting",
-      text: t("agent.sheet.now.waiting", { n: status.needsYou }),
+      text: t("agent.sheet.now.waiting", { approvals: a, questions: q, both: a > 0 && q > 0 }),
       href: "/overview#now",
     };
   }

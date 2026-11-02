@@ -541,7 +541,7 @@ export const pt: Partial<Catalogue> = {
   "agent.sheet.soul": "Alma e Memória",
   "agent.sheet.now.working": "Trabalhando em {title} · {elapsed}",
   "agent.sheet.now.waiting":
-    "Aguardando você · {n, plural, one {# aprovação} other {# aprovações}}",
+    "Aguardando você · {approvals, plural, =0 {} one {# aprovação} other {# aprovações}}{both, select, true { · } other {}}{questions, plural, =0 {} one {# pergunta} other {# perguntas}}",
   "agent.sheet.now.idleNext": "Ocioso · próxima: {title} {when}",
   "agent.sheet.now.idle": "Ocioso",
   "agent.sheet.now.memoryPaused": "Memória pausada",

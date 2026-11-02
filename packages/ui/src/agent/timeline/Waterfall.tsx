@@ -147,8 +147,10 @@ export function Waterfall({
   };
 
   const sticky = "sticky z-10 bg-canvas";
-  // The selection fill over the canvas, opaque so bars scroll under the sticky label columns.
-  const selectedFill = "bg-[color-mix(in_oklch,var(--canvas),var(--accent-9)_14%)]";
+  // The row's selection fill (`--selection`, `--selection-inactive` in a background window) over
+  // the canvas: opaque so bars scroll under the sticky label columns, yet the same colour as the
+  // row behind the bar cell.
+  const selectedFill = "bg-[linear-gradient(var(--selection),var(--selection))]";
   return (
     <div
       ref={gridRef}
@@ -274,7 +276,7 @@ export function Waterfall({
                   className={cn(
                     "group/row absolute inset-x-0 flex items-center outline-none",
                     "hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-                    selected && "bg-accent-a4 hover:bg-accent-a4",
+                    selected && "bg-selection hover:bg-selection",
                     dim && "opacity-40",
                   )}
                   style={{ top: index * ROW_HEIGHT, height: ROW_HEIGHT }}

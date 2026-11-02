@@ -563,7 +563,8 @@ export const hi: Partial<Catalogue> = {
   "agent.sheet.approvals": "स्वीकृतियाँ",
   "agent.sheet.soul": "सोल और मेमोरी",
   "agent.sheet.now.working": "{title} पर काम कर रहा है · {elapsed}",
-  "agent.sheet.now.waiting": "आपका इंतज़ार · {n, plural, one {# अनुमोदन} other {# अनुमोदन}}",
+  "agent.sheet.now.waiting":
+    "आपका इंतज़ार · {approvals, plural, =0 {} one {# अनुमोदन} other {# अनुमोदन}}{both, select, true { · } other {}}{questions, plural, =0 {} one {# प्रश्न} other {# प्रश्न}}",
   "agent.sheet.now.idleNext": "निष्क्रिय · अगला: {title} {when}",
   "agent.sheet.now.idle": "निष्क्रिय",
   "agent.sheet.now.memoryPaused": "मेमोरी रुकी हुई है",
