@@ -76,6 +76,26 @@ describe("widget rendering", () => {
     await waitFor(() => expect(live.textContent).toMatch(/80%/));
   });
 
+  it("applies a coalesced event that spans several revisions (fromRev)", async () => {
+    const { ref } = mount([{ ...progressWidget, rev: 2 }], progressWidget.id);
+    await screen.findByTestId("widget");
+    act(() =>
+      ref.gateway?.emit("widget.updated", {
+        widgetId: progressWidget.id,
+        threadId: progressWidget.threadId,
+        rev: 4,
+        fromRev: 2,
+        ops: [
+          { op: "set", id: "p", props: { value: 4 } },
+          { op: "set", id: "p", props: { value: 5 } },
+        ],
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("5"),
+    );
+  });
+
   it("drops the snapshot on a rev gap and refetches it", async () => {
     const { ref } = mount([progressWidget], progressWidget.id);
     await screen.findByTestId("widget");

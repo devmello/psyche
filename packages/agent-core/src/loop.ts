@@ -3203,6 +3203,7 @@ export class PsycheAgentLoop implements AgentLoop {
   #turnApi(run: RunState, toolCallId: string): TurnApi {
     return {
       emitBlock: (block) => this.#block(run, block),
+      messageId: () => run.messageId,
       checklist: () => structuredClone(run.thread.checklist),
       setChecklist: (items) => {
         run.thread.checklist = structuredClone(items);

@@ -31288,6 +31288,8 @@ public enum WidgetTone: String, Codable, Sendable {
 
 // MARK: - WidgetUpdatedPayload
 public struct WidgetUpdatedPayload: Codable, Sendable {
+    /// The revision `ops` apply to (default rev - 1). A coalesced event spans several revisions.
+    public let fromRev: Int?
     /// Empty when only `state` changed
     public let ops: [WidgetOp]
     public let rev: Int
@@ -31296,6 +31298,7 @@ public struct WidgetUpdatedPayload: Codable, Sendable {
     public let widgetID: String
 
     public enum CodingKeys: String, CodingKey {
+        case fromRev = "fromRev"
         case ops = "ops"
         case rev = "rev"
         case state = "state"
@@ -31303,7 +31306,8 @@ public struct WidgetUpdatedPayload: Codable, Sendable {
         case widgetID = "widgetId"
     }
 
-    public init(ops: [WidgetOp], rev: Int, state: WidgetState?, threadID: String, widgetID: String) {
+    public init(fromRev: Int?, ops: [WidgetOp], rev: Int, state: WidgetState?, threadID: String, widgetID: String) {
+        self.fromRev = fromRev
         self.ops = ops
         self.rev = rev
         self.state = state

@@ -10705,6 +10705,10 @@ export type WidgetTone = "neutral" | "info" | "success" | "warning" | "danger";
 
 export interface WidgetUpdatedPayload {
     /**
+     * The revision `ops` apply to (default rev - 1). A coalesced event spans several revisions.
+     */
+    fromRev?: number;
+    /**
      * Empty when only `state` changed
      */
     ops:      WidgetOp[];

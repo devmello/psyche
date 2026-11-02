@@ -449,7 +449,7 @@
         "payload": "#/$defs/VoiceSegmentPayload"
       },
       {
-        "description": "A generative-UI widget was patched (rev is the order; apply only when rev == local + 1, else refetch with widgets.get), or froze.",
+        "description": "A generative-UI widget was patched (rev is the order; apply only when fromRev (default rev - 1) == local rev, else refetch with widgets.get), or froze.",
         "name": "widget.updated",
         "payload": "#/$defs/WidgetUpdatedPayload"
       }
@@ -42181,6 +42181,11 @@
           "type": "string"
         },
         "rev": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "fromRev": {
+          "description": "The revision `ops` apply to (default rev - 1). A coalesced event spans several revisions.",
           "minimum": 1,
           "type": "integer"
         },
