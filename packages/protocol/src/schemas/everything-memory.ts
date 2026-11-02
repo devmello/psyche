@@ -1,6 +1,14 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { Id, IsoDateTime, ModelRef, Nullable, StringEnum } from "../common.ts";
-import { GraphCitation, GraphCitationSource, GraphFact, type GraphSensitivity } from "./graph.ts";
+import { Id, IsoDateTime, ModelRef, Nullable, Provenance, StringEnum } from "../common.ts";
+import {
+  EntitySummary,
+  GraphCitation,
+  GraphCitationSource,
+  GraphFact,
+  GraphFactAttribute,
+  GraphReviewState,
+  type GraphSensitivity,
+} from "./graph.ts";
 
 /**
  * Everything memory (docs/design/everything-memory-2026.md): settings (§8, §9, §10, §12.2),
@@ -441,6 +449,27 @@ export const PersonRemoved = Type.Object(
   { $id: "PersonRemoved" },
 );
 export type PersonRemoved = Static<typeof PersonRemoved>;
+
+// --- Life search (§12.4) -----------------------------------------------------------------------
+
+export const LifeFactHit = Type.Object(
+  {
+    factId: Id,
+    entity: EntitySummary,
+    attribute: GraphFactAttribute,
+    value: Type.String({
+      maxLength: 2000,
+      description: "Untrusted text when it came from someone else",
+    }),
+    provenance: Provenance,
+    review: GraphReviewState,
+    quote: Nullable(Type.String({ maxLength: 200 })),
+    source: Nullable(Type.String({ maxLength: 40 })),
+    observedAt: Nullable(IsoDateTime),
+  },
+  { $id: "LifeFactHit" },
+);
+export type LifeFactHit = Static<typeof LifeFactHit>;
 
 // --- Runs (§6.7) ------------------------------------------------------------------------------
 

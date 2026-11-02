@@ -102,8 +102,8 @@ function walkFiles(dir: string, out: string[] = []): string[] {
     } else if (
       /\.tsx?$/.test(entry.name) &&
       !/\.(stories|test)\.tsx?$/.test(entry.name) &&
-      // Test doubles and story data are not UI.
-      !/^(mock-|sample-data)/.test(entry.name)
+      // Test doubles and story data are not UI (a `fixtures` folder, or a `fixtures*.ts` file beside its widget).
+      !/^(mock-|sample-data|fixtures)/.test(entry.name)
     ) {
       out.push(path);
     }
