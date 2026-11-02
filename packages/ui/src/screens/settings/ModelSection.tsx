@@ -466,19 +466,21 @@ export function ModelProvidersPanel({
                       aria-label={t("settings.model.modelsOf", { name: p.label })}
                     >
                       {p.models.map((m) => (
-                        <li key={m.ref} className="flex flex-wrap items-center gap-2">
-                          <span className={cn("text-sm", !m.label && "font-mono text-mono")}>
-                            {modelLabel(m)}
-                          </span>
-                          {m.label ? (
-                            <code className="font-mono text-callout text-muted-foreground">
-                              {m.ref}
-                            </code>
-                          ) : null}
-                          {m.capabilities?.embeddings === true ? null : (
-                            <ToolCheckBadge status={m.toolCheck} />
-                          )}
-                          <CapabilityChips capabilities={m.capabilities} />
+                        <li key={m.ref} className="flex items-center gap-2">
+                          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                            <span className={cn("text-sm", !m.label && "font-mono text-mono")}>
+                              {modelLabel(m)}
+                            </span>
+                            {m.label ? (
+                              <code className="font-mono text-callout text-muted-foreground">
+                                {m.ref}
+                              </code>
+                            ) : null}
+                            {m.capabilities?.embeddings === true ? null : (
+                              <ToolCheckBadge status={m.toolCheck} />
+                            )}
+                            <CapabilityChips capabilities={m.capabilities} />
+                          </div>
                           {onRunCheck &&
                           m.toolCheck !== "running" &&
                           m.capabilities?.embeddings !== true ? (
@@ -486,6 +488,7 @@ export function ModelProvidersPanel({
                               type="button"
                               variant="ghost"
                               size="xs"
+                              className="shrink-0"
                               onClick={() => onRunCheck(m.ref)}
                               aria-label={t("settings.model.runCheckOn", { name: modelLabel(m) })}
                             >

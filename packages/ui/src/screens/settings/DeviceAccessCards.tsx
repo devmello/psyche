@@ -60,7 +60,7 @@ export function TerminalCard({
         <Terminal aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
         <span>{t("settings.deviceAccess.terminal.hint", { persona })}</span>
       </p>
-      <ul className="list-disc ps-8 text-callout text-label-secondary">
+      <ul className="list-disc ps-8! text-callout text-label-secondary">
         <li>{t("settings.deviceAccess.terminal.where")}</li>
         <li>{t("settings.deviceAccess.terminal.asks")}</li>
         <li>{t("settings.deviceAccess.terminal.sandbox")}</li>
