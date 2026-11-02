@@ -187,7 +187,7 @@ export function resolveMemoryStore(o: {
       const fresh = !existsSync(path);
       const enc = openEncrypted(path, key, { vec: true });
       try {
-        if (fresh) copyTables(enc, o.db.sqlite.name, MEMORY_STORE_TABLES);
+        if (fresh) copyTables(enc, o.db.sqlite, MEMORY_STORE_TABLES);
         const drift = schemaDrift(o.db.sqlite, enc);
         if (drift.length > 0)
           throw new Error(`the encrypted memory store is out of date (${drift.join(", ")})`);
