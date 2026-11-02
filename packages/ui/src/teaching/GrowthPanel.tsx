@@ -83,26 +83,23 @@ export function LessonRow({ lesson }: { lesson: Lesson }): ReactElement {
       </time>
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="text-body text-label-primary">{lesson.statement}</span>
-        {/* Each "· item" is one nowrap unit, so a wrap never strands a separator at a line end. */}
-        <span className="flex flex-wrap items-center gap-x-1.5 text-caption text-label-secondary">
-          <span>{provenanceOf(lesson)}</span>
+        {/* "You told me · USER.md" wraps as one unit and "Show change" stands apart, so a wrap can never strand a separator. */}
+        <span className="flex flex-wrap items-center gap-x-3 text-caption text-label-secondary">
           <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+            <span>{provenanceOf(lesson)}</span>
             <span aria-hidden="true">·</span>
             <span className={lesson.destination.type === "file" ? "font-mono" : undefined}>
               {destinationOf(lesson)}
             </span>
           </span>
-          <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-            <span aria-hidden="true">·</span>
-            <button
-              type="button"
-              aria-expanded={open}
-              onClick={() => setOpen(!open)}
-              className="rounded-sm text-label-primary underline decoration-dotted underline-offset-2 outline-none hover:decoration-solid focus-visible:ring-3 focus-visible:ring-ring"
-            >
-              {open ? t("screens.growth.hideChange") : t("screens.growth.showChange")}
-            </button>
-          </span>
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={() => setOpen(!open)}
+            className="rounded-sm text-label-primary underline decoration-dotted underline-offset-2 outline-none hover:decoration-solid focus-visible:ring-3 focus-visible:ring-ring"
+          >
+            {open ? t("screens.growth.hideChange") : t("screens.growth.showChange")}
+          </button>
         </span>
         {open ? <ChangeLines before={lesson.previous} after={lesson.value} /> : null}
       </span>
