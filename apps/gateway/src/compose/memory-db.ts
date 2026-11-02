@@ -1,13 +1,16 @@
 import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { deleteSettings, getSetting, type PsycheDb, setSetting } from "@psyche/db";
+import { deleteSettings, getSetting, openDb, type PsycheDb, setSetting } from "@psyche/db";
 import {
   clearPlain,
   copyBack,
   copyTables,
+  isEmpty,
   MEMORY_STORE_TABLES,
   openEncrypted,
+  restorePlain,
   syncSchema,
+  verifySame,
 } from "@psyche/memory";
 import { type MemoryStoreStatus, PsycheError } from "@psyche/protocol";
 import { type DerivedKeyStore, type KeyWrapper, loadOrCreateSubsystemKey } from "@psyche/vault";
@@ -23,6 +26,9 @@ import type { VaultSlotChoice } from "./vault.ts";
  */
 export const MEMORY_ENCRYPT_SETTING = "memory.encrypt";
 export const MEMORY_KEY_NAME = "memory-store";
+
+/** A failure after which no copy may be discarded: the encrypted file or the backup is needed. */
+class Unrecoverable extends Error {}
 
 export type MemoryStoreState =
   | { state: "off" }
@@ -214,36 +220,115 @@ export function resolveMemoryStore(o: {
     }
     return (await loadOrCreateSubsystemKey(keyFile, o.wrapper, "Open the memory store")).key;
   };
+  const backup = join(o.home, "state", "memory-move-backup.sqlite");
+  /**
+   * Moves the rows into the encrypted file:
+   * 1. back up psyche.sqlite (same library, online backup) unless a backup of this move exists;
+   * 2. copy (or, resuming, bring the schema up to date), then compare counts and checksums;
+   * 3. clear the plain rows, then compare the encrypted file with the backup;
+   * 4. only then record "cleared" and delete the backup.
+   * Any failure after step 3 began puts the rows back from the backup and checks them.
+   */
+  const sameRows = (x: SqliteDb, y: SqliteDb): boolean => {
+    try {
+      verifySame(x, y, MEMORY_STORE_TABLES, "check");
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const moveIn = async (db: SqliteDb, fresh: boolean): Promise<void> => {
+    const plain = o.db.sqlite;
+    // Resuming after a crash between the clear and recording it: the plain side is empty and the
+    // backup and the encrypted file are the copies. Never discard either then.
+    const resumedAfterClear = !fresh && isEmpty(plain, MEMORY_STORE_TABLES);
+    if (resumedAfterClear && !existsSync(backup))
+      throw new Unrecoverable("the plain rows are gone and there is no backup to check against");
+    if (!resumedAfterClear) {
+      rmSync(backup, { force: true });
+      await plain.backup(backup);
+    }
+    if (fresh) copyTables(db, plain, MEMORY_STORE_TABLES);
+    else syncSchema(db, plain, MEMORY_STORE_TABLES);
+    const bak = openDb(backup, { readonly: true, migrate: false });
+    try {
+      if (resumedAfterClear) {
+        try {
+          verifySame(bak.sqlite, db, MEMORY_STORE_TABLES, "copy check");
+        } catch (err) {
+          throw new Unrecoverable(err instanceof Error ? err.message : String(err));
+        }
+      } else {
+        verifySame(plain, db, MEMORY_STORE_TABLES, "copy check");
+        verifySame(plain, bak.sqlite, MEMORY_STORE_TABLES, "backup check");
+        setSetting(o.db, MEMORY_MOVE_STATE, "copied");
+        try {
+          clearPlain(plain, MEMORY_STORE_TABLES);
+          verifySame(bak.sqlite, db, MEMORY_STORE_TABLES, "check after clearing");
+        } catch (err) {
+          try {
+            // A clear that failed inside its transaction changed nothing; otherwise restore.
+            if (!sameRows(bak.sqlite, plain)) {
+              restorePlain(plain, backup, MEMORY_STORE_TABLES);
+              verifySame(bak.sqlite, plain, MEMORY_STORE_TABLES, "restore check");
+            }
+          } catch (again) {
+            throw new Unrecoverable(
+              `${err instanceof Error ? err.message : String(err)}; restoring failed too (${String(again)})`,
+            );
+          }
+          throw err;
+        }
+      }
+    } finally {
+      bak.sqlite.close();
+    }
+    setSetting(o.db, MEMORY_MOVE_STATE, "cleared");
+    rmSync(backup, { force: true });
+  };
   const opener = new DeferredOpen<SqliteDb>({
     provider,
-    open: (key) => {
-      const state = moveState(o.db);
-      // A file from an attempt that never finished its copy is not trusted: start it again.
+    open: async (key) => {
+      let state = moveState(o.db);
+      if (state !== undefined && !existsSync(path)) {
+        // The encrypted file went away. If psyche.sqlite still has the rows, start over;
+        // otherwise every remaining copy is kept and nothing is opened.
+        if (state === "copied" && !isEmpty(o.db.sqlite, MEMORY_STORE_TABLES)) {
+          deleteSettings(o.db, [MEMORY_MOVE_STATE]);
+          state = undefined;
+        } else {
+          failure = `the encrypted memory store is missing; ${backup} and psyche.sqlite were kept as they are`;
+          o.log?.(`memory: ${failure}`);
+          throw new Unrecoverable(failure);
+        }
+      }
+      // A file from an attempt that never recorded a verified copy is not trusted: start again.
       if (state === undefined) removeFiles(path);
       const fresh = !existsSync(path);
-      if (fresh && state === "cleared")
-        throw new Error("the encrypted memory store is missing and the plain copy was cleared");
       const db = openEncrypted(path, key, { vec: true });
       try {
-        if (fresh) {
-          copyTables(db, o.db.sqlite, MEMORY_STORE_TABLES);
-          setSetting(o.db, MEMORY_MOVE_STATE, "copied");
-        } else {
+        if (state === "cleared") {
           // Later migrations of psyche.sqlite reach the encrypted file here.
           const rebuilt = syncSchema(db, o.db.sqlite, MEMORY_STORE_TABLES);
           if (rebuilt.length > 0) o.log?.(`memory: updated ${rebuilt.join(", ")}`);
-        }
-        if (moveState(o.db) === "copied") {
-          clearPlain(o.db.sqlite, MEMORY_STORE_TABLES);
-          setSetting(o.db, MEMORY_MOVE_STATE, "cleared");
+        } else {
+          await moveIn(db, fresh);
         }
       } catch (err) {
         db.close();
-        if (fresh) {
-          removeFiles(path);
-          if (moveState(o.db) === "copied") deleteSettings(o.db, [MEMORY_MOVE_STATE]);
+        if (err instanceof Unrecoverable) {
+          // Keep every copy (the encrypted file, the backup, the state) for a person to look at.
+          failure = `${err.message}; the encrypted file and ${backup} were kept`;
+        } else {
+          // psyche.sqlite holds every row (never cleared, or restored and checked): the attempt
+          // is discarded and the next start tries again. An opened, cleared store is never.
+          if (state !== "cleared") {
+            removeFiles(path);
+            deleteSettings(o.db, [MEMORY_MOVE_STATE]);
+            rmSync(backup, { force: true });
+          }
+          failure = err instanceof Error ? err.message : String(err);
         }
-        failure = err instanceof Error ? err.message : String(err);
         o.log?.(`memory: ${failure}`);
         throw err;
       }

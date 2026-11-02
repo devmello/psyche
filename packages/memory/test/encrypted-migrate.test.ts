@@ -6,7 +6,14 @@ import { FakeClock } from "@psyche/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { GraphStore } from "../src/graph/store.ts";
 import { copyTables, MEMORY_STORE_TABLES, newKey, openEncrypted } from "../src/secure/encrypted.ts";
-import { clearPlain, copyBack, syncSchema } from "../src/secure/migrate.ts";
+import {
+  clearPlain,
+  copyBack,
+  restorePlain,
+  syncSchema,
+  tableChecksums,
+  verifySame,
+} from "../src/secure/migrate.ts";
 
 let dir: string;
 beforeEach(() => {
@@ -117,13 +124,39 @@ describe("migrations and the encrypted store", () => {
     const offending = readdirSync(dir)
       .filter((f) => f.endsWith(".sql") && f > BEFORE_EM9)
       .filter((f) =>
-        new RegExp(
-          `\\b(UPDATE|INSERT\\s+INTO|DELETE\\s+FROM)\\s+"?(${moved})\\b`,
-          "i",
-        ).test(readFileSync(join(dir, f), "utf8")),
+        new RegExp(`\\b(UPDATE|INSERT\\s+INTO|DELETE\\s+FROM)\\s+"?(${moved})\\b`, "i").test(
+          readFileSync(join(dir, f), "utf8"),
+        ),
       );
     // A migration that must change rows of a moved table needs a step in syncSchema's caller
     // that applies the same change to the encrypted file; add it, then list the file here.
     expect(offending).toEqual([]);
+  });
+});
+
+describe("checksums, backup and restore", () => {
+  it("the same rows give the same checksums across the two libraries; one changed value does not", () => {
+    const { plain, enc } = setup();
+    expect(() => verifySame(plain, enc, MEMORY_STORE_TABLES, "t")).not.toThrow();
+    enc.prepare("UPDATE graph_entities SET name = 'Sam SENTINEX'").run();
+    expect(tableChecksums(enc, ["graph_entities"]).graph_entities?.rows).toBe(1);
+    expect(() => verifySame(plain, enc, MEMORY_STORE_TABLES, "t")).toThrow(
+      /graph_entities differs/,
+    );
+    enc.close();
+    plain.close();
+  });
+
+  it("restores the plain rows from an online backup after a clear, exactly", async () => {
+    const { plain, enc } = setup();
+    const before = tableChecksums(plain, MEMORY_STORE_TABLES);
+    const bak = join(dir, "backup.sqlite");
+    await plain.backup(bak);
+    clearPlain(plain, MEMORY_STORE_TABLES);
+    restorePlain(plain, bak, MEMORY_STORE_TABLES);
+    expect(tableChecksums(plain, MEMORY_STORE_TABLES)).toEqual(before);
+    expect(new GraphStore({ sqlite: plain, clock }).search("sam", {})).toHaveLength(1);
+    enc.close();
+    plain.close();
   });
 });

@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getSetting, openDb, setSetting } from "@psyche/db";
-import { GraphStore } from "@psyche/memory";
+import { copyBack, GraphStore, MEMORY_STORE_TABLES, tableChecksums } from "@psyche/memory";
 import { FakeClock } from "@psyche/testing";
 import { KeyFileWrapper } from "@psyche/vault";
 import { afterEach, describe, expect, it } from "vitest";
@@ -150,21 +150,56 @@ describe("moving the data", () => {
     const m = resolveMemoryStore({ ...f, slot: "key_file" });
     m.start();
     await wait(() => m.status().state === "ready");
+    // As if the process stopped right after "copied": the plain rows are still there.
+    copyBack(m.sqlite, f.db.sqlite, MEMORY_STORE_TABLES);
     m.stop();
-    // As if the process stopped right after "copied": plain rows back, state "copied".
-    f.db.sqlite
-      .prepare(
-        "INSERT INTO graph_entities (id, kind, name, sort_name, created_at, updated_at) VALUES ('stale','person','Stale','stale','t','t')",
-      )
-      .run();
     setSetting(f.db, MEMORY_MOVE_STATE, "copied");
     const again = resolveMemoryStore({ ...f, slot: "key_file" });
     stops.push(() => again.stop());
     again.start();
     await wait(() => again.status().state === "ready");
+    expect(getSetting(f.db, MEMORY_MOVE_STATE)?.value).toBe("cleared");
     expect(f.db.sqlite.prepare("SELECT count(*) n FROM graph_entities").get()).toEqual({ n: 0 });
-    expect(sam(again.sqlite).search("stale", {})).toEqual([]);
     expect(sam(again.sqlite).search("sam", {})).toHaveLength(1);
+    expect(existsSync(join(f.dir, "state", "memory-move-backup.sqlite"))).toBe(false);
+  });
+
+  it("a failure while clearing leaves psyche.sqlite exactly as it was and discards the attempt", async () => {
+    const f = fixture(true);
+    sam(f.db.sqlite).createEntity({ kind: "person", name: "Sam Lee" });
+    const before = tableChecksums(f.db.sqlite, MEMORY_STORE_TABLES);
+    f.db.sqlite.exec(
+      "CREATE TRIGGER block_clear BEFORE DELETE ON graph_entities BEGIN SELECT RAISE(ABORT, 'disk said no'); END",
+    );
+    const m = resolveMemoryStore({ ...f, slot: "key_file" });
+    stops.push(() => m.stop());
+    m.start();
+    await wait(() => m.status().state === "unavailable");
+    expect(m.status()).toMatchObject({ reason: expect.stringMatching(/disk said no/) });
+    f.db.sqlite.exec("DROP TRIGGER block_clear");
+    expect(tableChecksums(f.db.sqlite, MEMORY_STORE_TABLES)).toEqual(before);
+    expect(getSetting(f.db, MEMORY_MOVE_STATE)).toBeUndefined();
+    expect(existsSync(join(f.dir, "state", "memory.sqlite"))).toBe(false);
+    expect(existsSync(join(f.dir, "state", "memory-move-backup.sqlite"))).toBe(false);
+    // The next attempt goes through.
+    await wait(() => m.status().state === "ready", 8000);
+    expect(sam(m.sqlite).search("sam", {})).toHaveLength(1);
+  });
+
+  it("if the encrypted file disappears after the clear, every remaining copy is kept", async () => {
+    const f = fixture(true);
+    sam(f.db.sqlite).createEntity({ kind: "person", name: "Sam Lee" });
+    const m = resolveMemoryStore({ ...f, slot: "key_file" });
+    m.start();
+    await wait(() => m.status().state === "ready");
+    m.stop();
+    rmSync(join(f.dir, "state", "memory.sqlite"));
+    const again = resolveMemoryStore({ ...f, slot: "key_file" });
+    stops.push(() => again.stop());
+    again.start();
+    await wait(() => again.status().state === "unavailable");
+    expect(again.status()).toMatchObject({ reason: expect.stringMatching(/missing/) });
+    expect(getSetting(f.db, MEMORY_MOVE_STATE)?.value).toBe("cleared");
   });
 
   it("switched off by hand while the encrypted file is the only copy, it still opens that file", async () => {

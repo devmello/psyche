@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { PsycheError } from "@psyche/protocol";
 import { type RowConn, streamRows } from "./encrypted.ts";
 
@@ -190,4 +191,115 @@ export function clearPlain(plain: SqlConn, tables: readonly string[]): number {
   plain.exec("VACUUM");
   plain.pragma("wal_checkpoint(TRUNCATE)");
   return n;
+}
+
+/** Plain (non-virtual, non-shadow) tables among `tables` that `db` has. */
+function realTables(db: RowConn, tables: readonly string[]): string[] {
+  const rows = master(db as unknown as SqlConn).filter((r) => r.type === "table");
+  const virtual = rows.filter((r) => isVirtual(r.sql)).map((r) => r.name);
+  const have = new Set(rows.map((r) => r.name));
+  return tables.filter(
+    (t) => have.has(t) && !virtual.includes(t) && !virtual.some((v) => t.startsWith(`${v}_`)),
+  );
+}
+
+/**
+ * A checksum and row count per table: every column of every row, in rowid order, hashed. Two
+ * connections with the same rows give the same checksums, whatever library opened them.
+ */
+export function tableChecksums(
+  db: RowConn,
+  tables: readonly string[],
+): Record<string, { rows: number; sha256: string }> {
+  const out: Record<string, { rows: number; sha256: string }> = {};
+  for (const t of realTables(db, tables)) {
+    const cols = (db.prepare(`PRAGMA table_info(${quote(t)})`).all() as { name: string }[])
+      .map((c) => c.name)
+      .sort();
+    const stmt = db.prepare(
+      `SELECT ${cols.map(quote).join(", ")} FROM ${quote(t)} ORDER BY ${cols.map(quote).join(", ")}`,
+    );
+    stmt.raw(true);
+    const h = createHash("sha256");
+    let rows = 0;
+    for (const row of stmt.iterate() as IterableIterator<unknown[]>) {
+      for (const v of row) {
+        h.update(
+          v === null
+            ? "\u0000n"
+            : Buffer.isBuffer(v)
+              ? `\u0000b${v.toString("hex")}`
+              : `\u0000${typeof v === "number" || typeof v === "bigint" ? "i" : "s"}${String(v)}`,
+        );
+      }
+      h.update("\u0001");
+      rows++;
+    }
+    out[t] = { rows, sha256: h.digest("hex") };
+  }
+  return out;
+}
+
+/** Throws unless both sides hold exactly the same rows in every real table of `tables`. */
+export function verifySame(a: RowConn, b: RowConn, tables: readonly string[], what: string): void {
+  const x = tableChecksums(a, tables);
+  const y = tableChecksums(b, tables);
+  for (const t of Object.keys(x)) {
+    const p = x[t];
+    const q = y[t];
+    if (q === undefined || p?.rows !== q.rows || p.sha256 !== q.sha256)
+      throw new PsycheError(
+        "internal",
+        `${what}: ${t} differs (${p?.rows ?? 0} rows vs ${q?.rows ?? 0})`,
+      );
+  }
+}
+
+/** True when none of `tables` has a row. */
+export function isEmpty(db: RowConn, tables: readonly string[]): boolean {
+  return realTables(db, tables).every((t) => countOf(db, t) === 0);
+}
+
+/**
+ * Puts the rows of `tables` back into the plain database from a backup file made by the same
+ * SQLite library (`backup()` of that database), so ATTACH is safe here. Verified by checksums.
+ */
+export function restorePlain(plain: RowConn, backupPath: string, tables: readonly string[]): void {
+  plain.prepare("ATTACH DATABASE ? AS bak").run(backupPath);
+  try {
+    const rows = master(plain as unknown as SqlConn).filter((r) => r.type === "table");
+    const external = new Set(
+      rows
+        .filter((r) => isVirtual(r.sql) && /content\s*=\s*'/i.test(r.sql ?? ""))
+        .map((r) => r.name),
+    );
+    const virtual = new Set(rows.filter((r) => isVirtual(r.sql)).map((r) => r.name));
+    plain.exec("PRAGMA foreign_keys=OFF");
+    try {
+      plain.transaction(() => {
+        for (const t of tables) {
+          if (!rows.some((r) => r.name === t)) continue;
+          if (external.has(t)) continue;
+          plain.exec(`DELETE FROM main.${quote(t)}`);
+          plain.exec(`INSERT INTO main.${quote(t)} SELECT * FROM bak.${quote(t)}`);
+        }
+        for (const t of tables)
+          if (external.has(t))
+            plain.exec(`INSERT INTO main.${quote(t)}(${quote(t)}) VALUES ('rebuild')`);
+        for (const t of tables) {
+          if (!rows.some((r) => r.name === t) || virtual.has(t)) continue;
+          const a = (
+            plain.prepare(`SELECT count(*) n FROM main.${quote(t)}`).get() as { n: number }
+          ).n;
+          const b = (plain.prepare(`SELECT count(*) n FROM bak.${quote(t)}`).get() as { n: number })
+            .n;
+          if (a !== b) throw new PsycheError("internal", `restoring ${t} is incomplete`);
+        }
+      })();
+    } finally {
+      plain.exec("PRAGMA foreign_keys=ON");
+    }
+  } finally {
+    plain.exec("DETACH DATABASE bak");
+  }
 }
