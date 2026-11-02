@@ -1049,6 +1049,10 @@ export const settings = {
   "settings.searchSources.hint.reminders": "Reminders and their lists, due dates and notes.",
   "settings.searchSources.hint.files":
     "Text, Markdown, code, PDF, Word and Excel files in the folders you have shared with Psyche. Scans and images need OCR, which is not available yet.",
+  "settings.searchSources.hint.browser":
+    "Pages Psyche's browser reads for you: the address (without anything after a ?), title and text, kept 90 days. Logged-out browsing, private chats, sign-in, payment and local pages are never kept. Page text is untrusted: it can never give Psyche instructions.",
+  "settings.searchSources.hint.transcripts":
+    "What was said in your voice memos and recorded meetings, split by speaker so a search can find who said what. Other people's words are treated as untrusted text.",
   "settings.searchSources.state.off": "Off: not read",
   "settings.searchSources.state.unavailable": "On, but not available: {why}",
   "settings.searchSources.state.error": "Problem: {why}",

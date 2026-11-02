@@ -65,6 +65,18 @@ export interface BrowserToolDeps {
   session(callId: string, kind?: SessionKind): Promise<string>;
   /** The task's sessions that already exist (web and dev preview), without opening any. */
   openSessions?(callId: string): Promise<string[]>;
+  /**
+   * A page's text was just read (`browser.read_text`). The Gateway offers it to the opt-in
+   * "Browser pages" search source; errors here never fail the read.
+   */
+  onPageRead?(page: {
+    callId: string;
+    tabId: string;
+    url: string;
+    title: string;
+    text: string;
+    partition: "profile" | "clean";
+  }): void;
   /** Library item → local path, for uploads. Paths never come from the model. */
   libraryPath?(libraryItemId: string): Promise<string>;
   /** Which loopback servers may be previewed (security §3.10); without it none can. */
@@ -400,7 +412,24 @@ export function browserToolDefs(deps: BrowserToolDeps) {
         const tabId = await sessionTab(callId, p.tabId);
         const o: { maxChars?: number } = {};
         if (p.maxChars !== undefined) o.maxChars = p.maxChars;
-        return pageOut(tabId, await d.readText(tabId, o));
+        const read = await d.readText(tabId, o);
+        if (deps.onPageRead !== undefined) {
+          try {
+            const tab = (await d.listTabs(await deps.session(callId))).find((t) => t.id === tabId);
+            if (tab !== undefined)
+              deps.onPageRead({
+                callId,
+                tabId,
+                url: tab.url,
+                title: tab.title,
+                text: read.text,
+                partition: d.tabPartition(tabId),
+              });
+          } catch {
+            // Indexing a page is best effort.
+          }
+        }
+        return pageOut(tabId, read);
       },
     }),
     def({

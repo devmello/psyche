@@ -8448,7 +8448,7 @@ export interface Exclude {
     folders?:  string[];
 }
 
-export type SearchSourceID = "mail" | "messages" | "notes" | "calendar" | "reminders" | "files";
+export type SearchSourceID = "mail" | "messages" | "notes" | "calendar" | "reminders" | "files" | "browser" | "transcripts";
 
 export interface SearchSourcesRebuildParams {
     source: SearchSourceID;

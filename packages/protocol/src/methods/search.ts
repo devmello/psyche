@@ -235,7 +235,7 @@ export type SearchIndexStatus = Static<typeof SearchIndexStatus>;
 
 /** Local sources the owner can have indexed (Settings → Search sources). */
 export const SearchSourceId = StringEnum(
-  ["mail", "messages", "notes", "calendar", "reminders", "files"],
+  ["mail", "messages", "notes", "calendar", "reminders", "files", "browser", "transcripts"],
   { $id: "SearchSourceId" },
 );
 export type SearchSourceId = Static<typeof SearchSourceId>;

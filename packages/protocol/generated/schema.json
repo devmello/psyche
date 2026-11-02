@@ -33854,7 +33854,9 @@
         "notes",
         "calendar",
         "reminders",
-        "files"
+        "files",
+        "browser",
+        "transcripts"
       ],
       "type": "string"
     },

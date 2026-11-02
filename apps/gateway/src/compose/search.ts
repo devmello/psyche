@@ -13,6 +13,7 @@ import {
   appleAdapters,
   Backfill,
   type BackfillStatus,
+  browserAdapter,
   CardQueue,
   createSearchHandlers,
   DEFAULT_TOP_N,
@@ -33,11 +34,13 @@ import {
   type SourcesConfig,
   SqliteSearchIndex,
   syncMemoryNotes,
+  transcriptsAdapter,
   tzOffsetMinutesAt,
 } from "@psyche/search";
 import type { HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
+import type { PageReadHub } from "./page-reads.ts";
 import { watchFolders } from "./search-files.ts";
 import {
   defaultSemanticEngines,
@@ -46,7 +49,12 @@ import {
   type SemanticEngines,
   semanticConfig,
 } from "./search-semantic.ts";
-import { libraryText, type SearchSourceDeps, searchSources } from "./search-sources.ts";
+import {
+  libraryText,
+  recordingTranscripts,
+  type SearchSourceDeps,
+  searchSources,
+} from "./search-sources.ts";
 import type { ComposedPart } from "./services.ts";
 
 /**
@@ -98,6 +106,8 @@ export interface SearchDeps extends Omit<SearchSourceDeps, "pageSize"> {
     /** Re-reads the connector list before each pass. */
     refresh?: () => Promise<void>;
     files?: FilesSourceDeps;
+    /** Pages the browser read; the opt-in "Browser pages" source keeps them (roadmap §2). */
+    pageReads?: PageReadHub;
     power?: () => PowerState;
     /** Watch granted folders for changes (FSEvents); off in tests. */
     watch?: boolean;
@@ -308,10 +318,24 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
     readSourcesConfig(getSetting(deps.db, SOURCES_SETTING)?.value);
   const filesSource =
     deps.sources?.files === undefined ? undefined : filesAdapter(deps.sources.files);
+  const browserSource = browserAdapter({
+    enabled: () => sourcesConfig().sources.browser.enabled,
+  });
+  const stopPageReads = deps.sources?.pageReads?.subscribe((page) => browserSource.offer(page));
+  // Recordings' transcripts (voice memos, meetings) from the Library, as speaker-turn children.
+  const transcriptsSource = transcriptsAdapter({
+    recordings: (since, afterId, limit) =>
+      recordingTranscripts(deps.db, deps.home, since, afterId, limit),
+  });
   if (deps.sources !== undefined) {
     sourceIndexer = new SourceIndexer(
       index,
-      [...appleAdapters(deps.sources.apple), ...(filesSource === undefined ? [] : [filesSource])],
+      [
+        ...appleAdapters(deps.sources.apple),
+        ...(filesSource === undefined ? [] : [filesSource]),
+        browserSource,
+        transcriptsSource,
+      ],
       {
         config: sourcesConfig,
         now: deps.now,
@@ -481,6 +505,7 @@ export function composeSearch(deps: SearchDeps): ComposedSearch {
     },
     async stop() {
       unsubscribe?.();
+      stopPageReads?.();
       unsubscribe = undefined;
       if (libraryTimer !== undefined) clearInterval(libraryTimer);
       stopWatch?.();
