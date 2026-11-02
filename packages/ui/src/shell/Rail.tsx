@@ -1,37 +1,17 @@
-import {
-  BrainCircuit,
-  CalendarClock,
-  CircleCheck,
-  Inbox,
-  Library,
-  Lightbulb,
-  MessageCircle,
-  Newspaper,
-  Search,
-  UserRound,
-} from "lucide-react";
+import { House, Library, MessageCircle, UsersRound } from "lucide-react";
 import type { ReactElement } from "react";
 import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 
-/** The destinations, in docs/06 §2.1's order: the sidebar's first group and the compact tab bar. */
-export type RailItem =
-  | "chat"
-  | "inbox"
-  | "search"
-  | "feed"
-  | "ideas"
-  | "goals"
-  | "scheduled"
-  | "library"
-  | "memory"
-  | "overview";
-
 /**
- * Where a destination sits in the sidebar: `main` rows are always shown, `more` rows live under
- * the "More" group (collapsed until used, never hidden: the palette lists them too).
+ * The places (docs/design/consolidation-2026.md §3): the sidebar's destinations and the compact
+ * tab bar. Everything else (Scheduled, Notifications, Goals, {persona} & you, Search) is a page
+ * reached from Home or ⌘K, which lists every page and action.
  */
-export type RailGroup = "main" | "more";
+export type RailItem = "chat" | "home" | "library" | "people";
+
+/** Every destination is always shown; there is no "More" group any more. */
+export type RailGroup = "main";
 
 export const RAIL_ITEMS: readonly {
   id: RailItem;
@@ -56,67 +36,17 @@ export const RAIL_ITEMS: readonly {
     shortcut: "⌘1",
   },
   {
-    id: "inbox",
+    id: "home",
     get label() {
-      return t("shell.rail.inbox");
+      return t("home.title");
     },
-    route: "/inbox",
-    icon: Inbox,
+    route: "/home",
+    icon: House,
     group: "main",
-    keywords: "notifications needs you approvals alerts unread",
+    // The pages Home took in, so typing an old name still lands here.
+    keywords:
+      "dashboard today brief feed news posts digest ideas suggestions goals coming up upcoming needs you inbox approvals nudges keep in touch pinned widgets",
     shortcut: "⌘2",
-  },
-  {
-    id: "search",
-    get label() {
-      return t("shell.rail.search");
-    },
-    route: "/search",
-    icon: Search,
-    group: "main",
-    keywords: "find lookup everything",
-  },
-  {
-    id: "feed",
-    get label() {
-      return t("shell.rail.feed");
-    },
-    route: "/feed",
-    icon: Newspaper,
-    group: "main",
-    keywords: "today brief news posts digest",
-    shortcut: "⌘3",
-  },
-  {
-    id: "ideas",
-    get label() {
-      return t("shell.rail.ideas");
-    },
-    route: "/ideas",
-    icon: Lightbulb,
-    group: "more",
-    keywords: "suggestions proposed",
-  },
-  {
-    id: "goals",
-    get label() {
-      return t("shell.rail.goals");
-    },
-    route: "/goals",
-    icon: CircleCheck,
-    group: "more",
-    keywords: "aims objectives targets",
-  },
-  {
-    id: "scheduled",
-    get label() {
-      return t("shell.rail.scheduled");
-    },
-    route: "/scheduled",
-    icon: CalendarClock,
-    group: "main",
-    keywords: "automations runs schedule routines history",
-    shortcut: "⌘4",
   },
   {
     id: "library",
@@ -127,50 +57,37 @@ export const RAIL_ITEMS: readonly {
     icon: Library,
     group: "main",
     keywords: "documents files images artifacts downloads reports",
-    shortcut: "⌘5",
+    shortcut: "⌘3",
   },
   {
-    id: "memory",
+    id: "people",
     get label() {
-      return t("shell.rail.memory");
+      return t("people.page.title");
     },
-    route: "/agent/soul",
-    icon: BrainCircuit,
-    group: "more",
-    keywords: "soul people projects remember review follow-ups",
-  },
-  {
-    id: "overview",
-    get label() {
-      return t("shell.rail.overview");
-    },
-    route: "/overview",
-    icon: UserRound,
-    group: "more",
-    keywords:
-      "persona and you activity audit log what happened growth recent runs timeline upcoming",
-    shortcut: "⌘6",
+    route: "/people",
+    icon: UsersRound,
+    group: "main",
+    keywords: "contacts projects relationships keep in touch waiting on",
+    shortcut: "⌘4",
   },
 ];
 
+/** Pages off the sidebar, by the place they are reached from (their row stays marked). */
+const UNDER_HOME = new Set(["inbox", "feed", "ideas", "goals", "scheduled", "overview"]);
+
 /**
- * The destination a route belongs to (`/library/documents` → library), or null. The agent sheet
- * opens over the chat, so `/agent/*` belongs to Chat.
+ * The destination a route belongs to (`/library/documents` → library, `/scheduled` → home), or
+ * null (Search, Settings). The agent sheet opens over the chat, so `/agent/*` belongs to Chat.
  */
 export function destinationFor(route: string): RailItem | null {
   const first = route.split(/[/?#]/)[1] ?? "";
-  if (first === "agent") {
-    // The agent sheet opens over whatever is under it; Memory is its own entry,
-    // Approvals stay with Chat (Activity and Upcoming moved to the Overview).
-    const tab = route.split(/[?#]/)[0]?.split("/")[2];
-    if (tab === "soul") return "memory";
-    return "chat";
-  }
+  if (first === "agent") return "chat";
+  if (UNDER_HOME.has(first)) return "home";
   return RAIL_ITEMS.find((i) => i.id === first)?.id ?? null;
 }
 
-/** The compact tab bar's five tabs. */
-const TAB_BAR_ITEMS: readonly RailItem[] = ["chat", "inbox", "feed", "library", "overview"];
+/** The compact tab bar's tabs: every place. */
+const TAB_BAR_ITEMS: readonly RailItem[] = ["chat", "home", "library", "people"];
 
 export interface TabBarProps {
   active: RailItem | null;
@@ -180,7 +97,7 @@ export interface TabBarProps {
 }
 
 /**
- * The compact bottom tab bar (redesign §5.11, under 720 px): Chat, Feed, Ideas, Goals, Library on
+ * The compact bottom tab bar (redesign §5.11, under 720 px): Chat, Home, Library and People on
  * chrome glass, 49 px plus the safe area. The current tab is the accent icon and label only, with
  * no tile; Search lives in the top bar's palette.
  */
@@ -216,7 +133,7 @@ export function TabBar({ active, onNavigate, badges = {} }: TabBarProps): ReactE
                 <span className="text-subheadline">{item.label}</span>
                 {badge > 0 ? (
                   <span
-                    className="absolute top-1.5 start-1/2 ms-2.5 size-2 rounded-full bg-accent-9"
+                    className="absolute top-1.5 start-1/2 ms-2.5 size-2 rounded-full bg-approval"
                     aria-hidden="true"
                   />
                 ) : null}

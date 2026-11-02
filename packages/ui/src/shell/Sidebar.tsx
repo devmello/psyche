@@ -1,4 +1,4 @@
-import { ChevronDown, Globe, PanelLeft, Settings } from "lucide-react";
+import { ChevronDown, Globe, PanelLeft, Search, Settings } from "lucide-react";
 import {
   type KeyboardEvent,
   type MouseEvent,
@@ -25,98 +25,14 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip.tsx";
-import { useGoals, useIdeas, useNotifications } from "../data/index.ts";
+import { useNotifications } from "../data/index.ts";
 import { activeI18n, t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { usePersona } from "../slots.tsx";
 import { destinationFor, RAIL_ITEMS, type RailItem } from "./Rail.tsx";
-import { useSidebarPeek } from "./useSidebarPeek.ts";
-
-const MAIN_ITEMS = RAIL_ITEMS.filter((i) => i.group === "main");
-const MORE_ITEMS = RAIL_ITEMS.filter((i) => i.group === "more");
-
-const MORE_KEY = "psyche.sidebar.more";
-
-/** Whether the More group is open; remembered per browser, best effort. */
-function useMoreOpen(): [boolean, (update: (v: boolean) => boolean) => void] {
-  const [open, setOpen] = useState(() => {
-    try {
-      return globalThis.localStorage?.getItem(MORE_KEY) === "1";
-    } catch {
-      return false;
-    }
-  });
-  return [
-    open,
-    (update) =>
-      setOpen((v) => {
-        const next = update(v);
-        try {
-          globalThis.localStorage?.setItem(MORE_KEY, next ? "1" : "0");
-        } catch {
-          // Not remembered; the group still toggles.
-        }
-        return next;
-      }),
-  ];
-}
-
-/** The rarely used destinations, folded under one calm row rather than hidden. */
-function MoreGroup({
-  open,
-  forced,
-  count,
-  onToggle,
-  children,
-}: {
-  open: boolean;
-  /** New ideas and suggested goals inside, shown while the group is folded. */
-  count: number;
-  /** A row inside is current, so the group stays open. */
-  forced: boolean;
-  onToggle: () => void;
-  children: ReactNode;
-}): ReactElement {
-  return (
-    <li data-testid="sidebar-more">
-      <button
-        type="button"
-        onClick={onToggle}
-        disabled={forced}
-        aria-expanded={open}
-        aria-controls="sidebar-more-list"
-        className="flex h-7 w-full items-center gap-2 rounded-sm px-3 text-start text-callout text-label-secondary outline-none hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring"
-        data-sidebar-item=""
-        data-testid="sidebar-more-toggle"
-      >
-        <ChevronDown
-          aria-hidden="true"
-          className={cn(
-            "size-4 shrink-0 transition-transform",
-            open ? "" : "-rotate-90 rtl:rotate-90",
-          )}
-        />
-        <span className="min-w-0 flex-1 truncate">{t("shell.sidebar.more")}</span>
-        {count > 0 && !open ? (
-          <span
-            aria-hidden="true"
-            className="shrink-0 text-callout text-label-tertiary tabular-nums"
-          >
-            {activeI18n().number(count)}
-          </span>
-        ) : null}
-      </button>
-      {open ? (
-        <ul id="sidebar-more-list" className="flex flex-col gap-0.5">
-          {children}
-        </ul>
-      ) : null}
-    </li>
-  );
-}
-
 import { CurrentMark, SelectionContext, ThreadGroup } from "./ThreadList.tsx";
 import { ConnectedUsageFooter } from "./UsageFooter.tsx";
+import { useSidebarPeek } from "./useSidebarPeek.ts";
 
 /** Sidebar widths (redesign §5.1): 248 px by default, resizable 220–320, persisted by the host. */
 export const SIDEBAR_WIDTH = { min: 220, default: 248, max: 320 } as const;
@@ -151,8 +67,10 @@ export interface SidebarProps {
   onOpenThread: (threadId: string) => void;
   onNewSideChat?: () => void;
   onExport?: (threadId: string, format: "markdown" | "json" | "html") => void;
-  /** Trailing counts on destinations (new ideas, suggested goals…). */
+  /** Trailing counts on destinations (Home: what needs you, amber). */
   counts?: Partial<Record<RailItem, number>>;
+  /** The Search row opens ⌘K; without it the row is left out. */
+  onOpenSearch?: () => void;
   width?: number;
   /** Called while the owner drags or arrow-keys the edge; the host persists it. */
   onWidthChange?: (width: number) => void;
@@ -293,8 +211,9 @@ function SettingsMenuItems({
 
 /**
  * The 2026 sidebar (redesign §5.1): one macOS source list replacing the rail and the thread list.
- * Destinations (Chat, Search, Feed, Ideas, Goals, Library with counts), the Threads group, and a
- * footer with the persona and a settings gear. The current row sits on a pill that moves between
+ * A Search row that opens ⌘K, the four places (Chat, Home with the amber needs-you count,
+ * Library, People; docs/design/consolidation-2026.md §3), the Threads group, and a footer with
+ * the persona and a settings gear. The current row sits on a pill that moves between
  * rows; it is accent-tinted while the window is key and gray when it isn't. ↑ ↓ move focus
  * between rows. In the compact rail (#598) it is 64 px of destination icons with tooltips, the
  * threads hidden and the avatar opening the settings menu. The host owns collapse (⌘B), the mode
@@ -317,6 +236,7 @@ export function Sidebar({
   onOpenSettings,
   filterToken,
   hoverExpand = true,
+  onOpenSearch,
   now,
 }: SidebarProps): ReactElement {
   const persona = usePersona();
@@ -363,8 +283,6 @@ export function Sidebar({
     if (next.mode !== mode) onModeChange?.(next.mode);
     if (next.mode === "full") onWidthChange?.(next.width);
   };
-  const [moreOpen, setMoreOpen] = useMoreOpen();
-  const moreCurrent = MORE_ITEMS.some((i) => i.id === destination);
   const renderItem = (item: (typeof RAIL_ITEMS)[number]) => {
     const Icon = item.icon;
     const count = counts[item.id] ?? 0;
@@ -372,7 +290,8 @@ export function Sidebar({
     // The rail has no thread rows, so Chat itself carries it there.
     const selected = item.id === destination && (rail || !(onChat && activeThreadId !== null));
     const current = item.id === destination;
-    const name = count > 0 ? t("shell.rail.badge", { label: item.label, n: count }) : item.label;
+    // Home's count is what waits on the owner (amber), the only count the sidebar shows.
+    const name = count > 0 ? t("shell.rail.waiting", { label: item.label, n: count }) : item.label;
     const icon = (
       <Icon
         aria-hidden="true"
@@ -408,10 +327,7 @@ export function Sidebar({
               {count > 0 ? (
                 <span
                   aria-hidden="true"
-                  className={cn(
-                    "absolute top-1.5 end-1.5 size-1.5 rounded-full",
-                    item.id === "inbox" ? "bg-approval" : "bg-accent-9",
-                  )}
+                  className="absolute top-1.5 end-1.5 size-1.5 rounded-full bg-approval"
                 />
               ) : null}
             </TooltipTrigger>
@@ -438,12 +354,7 @@ export function Sidebar({
           {count > 0 ? (
             <span
               aria-hidden="true"
-              className={cn(
-                "shrink-0 text-callout tabular-nums",
-                item.id === "inbox"
-                  ? "rounded-full bg-approval-surface px-1.5 text-approval-text"
-                  : "text-label-tertiary",
-              )}
+              className="shrink-0 rounded-full bg-approval-surface px-1.5 text-callout text-approval-text tabular-nums"
               data-testid={`sidebar-count-${item.id}`}
             >
               {activeI18n().number(count)}
@@ -453,6 +364,57 @@ export function Sidebar({
       </li>
     );
   };
+  // Search is not a page: the row opens ⌘K, the same surface (docs/design/consolidation-2026.md §3).
+  const searchLabel = t("shell.rail.search");
+  const searchRow = onOpenSearch ? (
+    rail ? (
+      <li key="search" className="relative flex h-10 items-center justify-center">
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                onClick={onOpenSearch}
+                aria-label={searchLabel}
+                aria-keyshortcuts="Meta+K"
+                className="relative flex size-10 items-center justify-center rounded-sm outline-none hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring"
+                data-testid="sidebar-search"
+                data-destination="search"
+                data-sidebar-item=""
+              />
+            }
+          >
+            <Search aria-hidden="true" strokeWidth={1.75} className="size-5 text-label-secondary" />
+          </TooltipTrigger>
+          {/* i18n-ignore: a key chord */}
+          <TooltipContent side="right">{`${searchLabel} ⌘K`}</TooltipContent>
+        </Tooltip>
+      </li>
+    ) : (
+      <li key="search" className="relative flex h-7 items-center">
+        <button
+          type="button"
+          onClick={onOpenSearch}
+          aria-keyshortcuts="Meta+K"
+          className="relative flex h-7 min-w-0 flex-1 items-center gap-2 rounded-sm px-3 text-start text-body outline-none hover:bg-fill-quaternary focus-visible:ring-2 focus-visible:ring-ring"
+          data-testid="sidebar-search"
+          data-destination="search"
+          data-sidebar-item=""
+        >
+          <Search
+            aria-hidden="true"
+            strokeWidth={1.5}
+            className="size-4 shrink-0 text-label-secondary"
+          />
+          <span className="min-w-0 flex-1 truncate">{searchLabel}</span>
+          {/* i18n-ignore: a key chord */}
+          <span aria-hidden="true" className="shrink-0 text-callout text-label-tertiary">
+            ⌘K
+          </span>
+        </button>
+      </li>
+    )
+  ) : null;
   // Expanded over the rail, the full sidebar's width (never narrower than its minimum).
   const peekWidth = Math.max(width, SIDEBAR_WIDTH.min);
   const { ref: hostRefCallback, ...hostHandlers } = hostProps;
@@ -518,26 +480,8 @@ export function Sidebar({
             )}
           >
             <ul aria-label={t("shell.sidebar.destinations")} className="flex flex-col gap-0.5">
-              {MAIN_ITEMS.map(renderItem)}
-              {rail ? (
-                <>
-                  <li
-                    role="presentation"
-                    className="mx-3 my-1 h-px bg-separator"
-                    aria-hidden="true"
-                  />
-                  {MORE_ITEMS.map(renderItem)}
-                </>
-              ) : (
-                <MoreGroup
-                  open={moreOpen || moreCurrent}
-                  forced={moreCurrent}
-                  count={MORE_ITEMS.reduce((n, i) => n + (counts[i.id] ?? 0), 0)}
-                  onToggle={() => setMoreOpen((v) => !v)}
-                >
-                  {MORE_ITEMS.map(renderItem)}
-                </MoreGroup>
-              )}
+              {searchRow}
+              {RAIL_ITEMS.map(renderItem)}
             </ul>
             {rail ? null : (
               <ThreadGroup
@@ -745,25 +689,16 @@ export function SidebarToggle({
   );
 }
 
-/** Notifications that wait on the owner: the amber count beside Inbox. */
+/** Notifications that wait on the owner: the amber count beside Home. */
 function needsYouKind(kind: string): boolean {
   return kind === "approval" || kind === "input_needed";
 }
 
-/** New ideas and suggested goals, and what needs the owner in the inbox. */
+/** What needs the owner (approvals and questions), shown beside Home. */
 export function useSidebarCounts(): Partial<Record<RailItem, number>> {
-  const ideas = useIdeas();
-  const goals = useGoals();
   const notifications = useNotifications();
   const needsYou = notifications.unresolved.filter((n) => needsYouKind(n.kind)).length;
-  return useMemo(
-    () => ({
-      ideas: ideas.proposed.length,
-      goals: goals.candidates.length,
-      inbox: needsYou,
-    }),
-    [ideas.proposed.length, goals.candidates.length, needsYou],
-  );
+  return useMemo(() => ({ home: needsYou }), [needsYou]);
 }
 
 /** The sidebar with its counts and usage from the Gateway. */

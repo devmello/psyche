@@ -4,7 +4,7 @@ import type { GatewayStatus } from "../../client/status.ts";
 import { useShell, useShellState } from "../context.tsx";
 import type { GatewayRunView } from "../platform.ts";
 
-/** The destinations, in docs/06 §2.1's order (the fallback sidebar's first group). */
+/** The places (docs/design/consolidation-2026.md §3; the fallback sidebar's first group). */
 export const RAIL_ITEMS = [
   {
     route: "/chat",
@@ -13,33 +13,21 @@ export const RAIL_ITEMS = [
     },
   },
   {
-    route: "/search",
+    route: "/home",
     get label() {
-      return t("web.rail.search");
-    },
-  },
-  {
-    route: "/feed",
-    get label() {
-      return t("web.rail.feed");
-    },
-  },
-  {
-    route: "/ideas",
-    get label() {
-      return t("web.rail.ideas");
-    },
-  },
-  {
-    route: "/goals",
-    get label() {
-      return t("web.rail.goals");
+      return t("home.title");
     },
   },
   {
     route: "/library/documents",
     get label() {
       return t("web.rail.library");
+    },
+  },
+  {
+    route: "/people",
+    get label() {
+      return t("people.page.title");
     },
   },
 ] as const;

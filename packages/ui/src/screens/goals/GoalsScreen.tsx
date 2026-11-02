@@ -360,6 +360,8 @@ export interface GoalsScreenProps {
   onAddGoal?: () => void;
   /** Passed to the goal page; defaults to `goals.archive`. */
   onDeleteGoal?: (goal: Goal) => Promise<unknown> | undefined;
+  /** Opens with the add dialog showing (`/goals?add=1`, ⌘K's "Add a goal"). */
+  startAdding?: boolean;
 }
 
 /**
@@ -394,11 +396,12 @@ export function GoalsScreen({
   onOpenGoal,
   onAddGoal,
   onDeleteGoal,
+  startAdding = false,
 }: GoalsScreenProps): ReactElement {
   const { navigate } = useSlots();
   const persona = usePersona();
   const { goals, later, decide } = useGoalDecisions();
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(startAdding);
 
   const empty = goals.goals.length === 0 && goals.candidates.length === 0;
   return (

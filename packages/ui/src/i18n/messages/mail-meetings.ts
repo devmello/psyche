@@ -37,8 +37,7 @@ export const mailMeetings = {
   "settings.mail.digest.days": "Days",
   "settings.mail.digest.days.weekdays": "Weekdays",
   "settings.mail.digest.days.everyday": "Every day",
-  "settings.mail.digest.onlyWhenNeeded.hint":
-    "Quiet days put the digest in the Feed without a ping.",
+  "settings.mail.digest.onlyWhenNeeded.hint": "Quiet days put the digest on Home without a ping.",
   "settings.mail.digest.rules": "Sender rules",
   "settings.mail.digest.rulesHint": "Who is always archived, always allowed or screened.",
   "settings.mail.digest.openRules": "Open",

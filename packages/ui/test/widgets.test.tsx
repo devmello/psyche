@@ -205,7 +205,7 @@ describe("widget safety", () => {
     // Its one control is a plain outline "reply" button: no filled primary, no route to approvals.
     const buttons = within(frame).getAllByRole("button");
     expect(buttons.map((b) => b.getAttribute("aria-label") ?? b.textContent)).toEqual([
-      "Pin to Overview",
+      "Pin to Home",
       "Copy as text",
       "Send it",
     ]);
