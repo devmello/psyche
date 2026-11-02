@@ -62,14 +62,18 @@ describe("Sidebar (redesign §5.1)", () => {
     const names = within(within(nav).getByRole("list", { name: "Destinations" }))
       .getAllByRole("button")
       .map((b) => b.getAttribute("data-destination"));
+    // The main rows, then the More toggle (open here: Ideas, a More row, is current).
     expect(names).toEqual([
       "chat",
+      "inbox",
       "search",
       "feed",
-      "ideas",
-      "goals",
       "scheduled",
       "library",
+      null,
+      "ideas",
+      "goals",
+      "memory",
       "overview",
     ]);
     const ideas = destination("Ideas");
@@ -105,7 +109,7 @@ describe("Sidebar (redesign §5.1)", () => {
     await screen.findAllByTestId("thread-row");
     destination("Chat").focus();
     await userEvent.keyboard("{ArrowDown}");
-    expect(document.activeElement).toBe(destination("Search"));
+    expect(document.activeElement).toBe(destination("Inbox"));
     await userEvent.keyboard("{ArrowUp}");
     expect(document.activeElement).toBe(destination("Chat"));
     await userEvent.keyboard("{End}");
@@ -206,6 +210,10 @@ describe("Sidebar (redesign §5.1)", () => {
         </ShellMotion>
       </StoryWorld>,
     );
+    // Folded under More, the counts show on the group; opening it shows them on their rows.
+    const more = await screen.findByTestId("sidebar-more-toggle");
+    await waitFor(() => expect(more.textContent).toMatch(/\d/));
+    await userEvent.click(more);
     await waitFor(() => expect(destination("Goals").getAttribute("aria-label")).toMatch(/new$/));
   });
 });
@@ -323,7 +331,7 @@ describe("AppShell sidebar and compact layout", () => {
       within(tabs)
         .getAllByRole("button")
         .map((b) => b.textContent),
-    ).toEqual(["Chat", "Feed", "Ideas", "Goals", "Library", "Overview"]);
+    ).toEqual(["Chat", "Inbox", "Feed", "Library", "Overview"]);
     await userEvent.click(within(tabs).getByRole("button", { name: "Feed" }));
     expect(routes).toContain("/feed");
     await userEvent.click(screen.getByRole("button", { name: "Threads" }));

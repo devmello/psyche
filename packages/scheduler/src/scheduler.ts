@@ -8,6 +8,7 @@ import {
   type Clock,
   type Notifier,
   PsycheError,
+  SCHEDULED_RUNS_ROUTE,
   type ScheduledRun,
   type Scheduler,
   type UpcomingItem,
@@ -712,7 +713,7 @@ export class SqliteScheduler implements Scheduler {
             kind: "task_failed",
             title: `${a.title} failed`,
             body: result.summary ?? "The automation run failed",
-            route: `/upcoming/${a.id}`,
+            route: SCHEDULED_RUNS_ROUTE,
             dedupeKey: `automation:${a.id}:failed`,
             ...(result.taskId === undefined ? {} : { taskId: result.taskId }),
           });
@@ -863,7 +864,7 @@ export class SqliteScheduler implements Scheduler {
             kind: "proactive",
             title: automation.title,
             body: verdict.summary,
-            route: `/upcoming/${automation.id}`,
+            route: SCHEDULED_RUNS_ROUTE,
             dedupeKey: `watch:${automation.id}:${run.id}`,
           })
         ).id;

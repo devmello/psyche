@@ -217,6 +217,16 @@ export function checkRoute(channel: string, v: unknown): string {
   return s;
 }
 
+/** A notification's route: an app path with the plain `?message=` / `?approval=` / `?tab=` query. */
+export function checkNotifyRoute(channel: string, v: unknown): string {
+  const s = str(channel, v, "route", 512);
+  const at = s.indexOf("?");
+  checkRoute(channel, at === -1 ? s : s.slice(0, at));
+  if (at !== -1 && !/^\?[A-Za-z0-9_\-.:=&%]*$/.test(s.slice(at)))
+    throw new IpcPayloadError(channel, "route must be an app path");
+  return s;
+}
+
 /**
  * A route the Settings window asks the main window to open: an app path (as `checkRoute`), with
  * an optional `?query` or `#hash` of plain characters. Never a URL.

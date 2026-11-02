@@ -4,11 +4,14 @@ import {
   AGENT_PANEL_WIDTH,
   BrowserToggle,
   CompactTopBar,
+  chatFocusFromRoute,
   clampSidebarWidth,
   destinationFor,
   PanePresence,
+  RAIL_ITEMS,
   ReflowColumn,
   RouteTransition,
+  requestChatFocus,
   ShellMotion,
   SIDEBAR_RAIL,
   SIDEBAR_WIDTH,
@@ -386,10 +389,15 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   const createdMain = useRef(false);
 
   const mainThread: Thread | undefined = threads.find((x) => x.thread.kind === "main")?.thread;
-  const routeThreadId = /^\/chat\/([^/]+)/.exec(base)?.[1];
+  const routeThreadId = /^\/chat\/([^/?#]+)/.exec(base)?.[1];
   const threadId = routeThreadId ?? mainThread?.id ?? null;
   const thread = threads.find((x) => x.thread.id === threadId)?.thread ?? null;
   const popOutPane = /^\/chat\/[^/]+\/pane\/([^/]+)$/.exec(route)?.[1];
+  // A notification's durable link (`/chat/<id>?message=` or `?approval=`) lands on its message.
+  useEffect(() => {
+    const focus = chatFocusFromRoute(route);
+    if (focus !== null) requestChatFocus(focus);
+  }, [route]);
   // Panes beside the chat take the room the docked agent sheet would need (#625).
   const subscribePanes = useCallback(
     (cb: () => void) => (threadId ? layout.subscribeThread(threadId, cb) : () => {}),
@@ -706,6 +714,11 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
 
   const run = useCallback(
     (a: ShortcutAction): boolean => {
+      if (a.startsWith("go:")) {
+        const dest = RAIL_ITEMS.find((i) => `go:${i.id}` === a);
+        if (dest !== undefined) navigate(dest.route);
+        return true;
+      }
       switch (a) {
         case "palette":
           setOverlay((o) => (o === "palette" ? null : "palette"));

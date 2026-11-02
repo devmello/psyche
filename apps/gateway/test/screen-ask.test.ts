@@ -57,7 +57,8 @@ afterEach(async () => {
 
 async function setup(script: ModelEvent[][] = [say("ok")]) {
   home = mkdtempSync(join(tmpdir(), "psyche-screen-"));
-  const model = FakeModelProvider.script(script);
+  // The pinned frame is only sent as an image to a model that can read images (60bbc547).
+  const model = new FakeModelProvider({ capabilities: { vision: true } }).script(script);
   composed = await composeGateway({
     env: {},
     logger: silentLogger,

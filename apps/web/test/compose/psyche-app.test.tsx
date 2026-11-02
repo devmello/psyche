@@ -282,7 +282,7 @@ describe("the composed app on the web host (A8)", () => {
     // Bottom tab bar: the five phone tabs, no Search and no Settings in the rail.
     const rail = screen.getByTestId("rail");
     const labels = Array.from(rail.querySelectorAll("button")).map((b) => b.textContent?.trim());
-    expect(labels).toEqual(["Chat", "Feed", "Ideas", "Goals", "Library", "Overview"]);
+    expect(labels).toEqual(["Chat", "Inbox", "Feed", "Library", "Overview"]);
     expect(calls.some((c) => c.method === "settings.get")).toBe(true);
     await act(async () => {
       window.innerWidth = 1280;
@@ -327,8 +327,11 @@ describe("the composed app on the web host (A8)", () => {
     await screen.findByTestId("onboarding");
     // The web can't ask macOS: no Permissions step (#554).
     // The flow loads on demand.
-    const progress = await screen.findByRole("navigation", { name: "Onboarding progress" });
-    expect(progress.textContent).not.toContain("Permissions");
+    // Progress is a quiet "N of M" label that opens the step menu (#1040).
+    const trigger = await screen.findByRole("button", { name: /^Onboarding progress/ });
+    fireEvent.click(trigger);
+    const menu = await screen.findByRole("menu");
+    expect(menu.textContent).not.toContain("Permissions");
   });
 
   it("gives the kit the shell's navigation: Add a goal creates it and opens it (#554)", async () => {

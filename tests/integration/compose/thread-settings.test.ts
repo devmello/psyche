@@ -20,6 +20,10 @@ class PinningProvider extends FakeModelProvider {
   allowsAutoMode(ref: ModelRef): boolean {
     return ref === ALLOWED;
   }
+  /** `modelPinsFor` only treats a provider as the router when it also has `role` (9e07113c). */
+  role(_role: "primary"): { model: ModelRef } | undefined {
+    return undefined;
+  }
   async setThreadModel(threadId: string, ref: ModelRef | undefined): Promise<void> {
     if (ref === "local/chat-only") throw new Error("not agent-capable");
     if (ref === undefined) this.pins.delete(threadId);

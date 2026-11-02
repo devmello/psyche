@@ -10,6 +10,7 @@ import {
   type AuditLog,
   type BindingVerification,
   type Clock,
+  chatLinkRoute,
   type DecidedBy,
   type DeviceScope,
   type ErrorCode,
@@ -940,7 +941,10 @@ export class PsychePermissionBroker implements PermissionBroker {
         ...(a.requestedBy.taskId == null ? {} : { taskId: a.requestedBy.taskId }),
         surfaces: a.surfaces,
         dedupeKey: `approval:${a.id}`,
-        route: `/approvals/${a.id}`,
+        route:
+          a.requestedBy.threadId == null
+            ? "/agent/approvals"
+            : chatLinkRoute({ threadId: a.requestedBy.threadId, approvalId: a.id }),
       });
       this.#notifications.set(a.id, n.id);
     } catch {

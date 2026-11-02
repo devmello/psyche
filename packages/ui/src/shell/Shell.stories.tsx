@@ -107,6 +107,46 @@ export const SidebarAlone: Story = {
   ),
 };
 
+/** Inbox carries the amber needs-you count; More is folded (the group shows the ideas count). */
+export const SidebarNeedsYou: Story = {
+  render: () => (
+    <ShellMotion>
+      <div className="flex h-[640px]">
+        <Sidebar
+          route="/feed"
+          onNavigate={() => {}}
+          activeThreadId={null}
+          onOpenThread={() => {}}
+          onNewSideChat={() => {}}
+          onWidthChange={() => {}}
+          counts={{ inbox: 3, ideas: 2, goals: 1 }}
+          now={STORY_NOW}
+        />
+      </div>
+    </ShellMotion>
+  ),
+};
+
+/** On a More screen (Memory) the group is open and marks the current row. */
+export const SidebarMoreOpen: Story = {
+  render: () => (
+    <ShellMotion>
+      <div className="flex h-[640px]">
+        <Sidebar
+          route="/agent/soul"
+          onNavigate={() => {}}
+          activeThreadId={null}
+          onOpenThread={() => {}}
+          onNewSideChat={() => {}}
+          onWidthChange={() => {}}
+          counts={{ inbox: 1 }}
+          now={STORY_NOW}
+        />
+      </div>
+    </ShellMotion>
+  ),
+};
+
 export const ThreadsDrawer: Story = {
   render: () => (
     <div className="h-[600px] w-[320px]">
@@ -142,6 +182,24 @@ export const Palette: Story = {
 export const PaletteResults: Story = {
   render: () => (
     <CommandPalette open onOpenChange={() => {}} onNavigate={() => {}} initialQuery="dentist" />
+  ),
+};
+
+/** Every screen and Settings section is a palette action: "voice" finds Settings → Voice. */
+export const PaletteSettingsSearch: Story = {
+  render: () => (
+    <CommandPalette open onOpenChange={() => {}} onNavigate={() => {}} initialQuery="voice" />
+  ),
+};
+
+export const PaletteMemorySearch: Story = {
+  render: () => (
+    <CommandPalette
+      open
+      onOpenChange={() => {}}
+      onNavigate={() => {}}
+      initialQuery="memory review"
+    />
   ),
 };
 

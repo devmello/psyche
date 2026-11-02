@@ -177,6 +177,9 @@ export class PsycheNotifier implements Notifier {
 
     const outcome = this.#store.transaction(() => {
       const existing = dedupeKey === null ? undefined : this.#store.findOpenByDedupeKey(dedupeKey);
+      if (existing !== undefined && input.keepExisting === true) {
+        return { kind: "kept" as const, row: existing, superseded: [] };
+      }
       if (existing !== undefined) {
         const n = existing.notification;
         n.title = input.title;
@@ -242,6 +245,7 @@ export class PsycheNotifier implements Notifier {
     });
 
     for (const s of outcome.superseded) this.#emit("resolved", s.notification);
+    if (outcome.kind === "kept") return structuredClone(outcome.row.notification);
     if (outcome.kind === "updated") {
       this.#emit("updated", outcome.row.notification);
       return structuredClone(outcome.row.notification);

@@ -1,11 +1,15 @@
-import { t } from "@psyche/ui";
+import { RAIL_ITEMS, type RailItem, t } from "@psyche/ui";
 
 /**
  * Keyboard map (docs/06 §4.11, feature E10) as data, so the shortcut sheet (⌘/), the command
  * palette and the key handler share one source. `mod` is ⌘ on macOS and Ctrl elsewhere.
  */
 
+/** ⌘1–⌘6 open a main screen (the sidebar's own order). */
+export type GoAction = `go:${RailItem}`;
+
 export type ShortcutAction =
+  | GoAction
   | "palette"
   | "newSideChat"
   | "closeThreadView"
@@ -48,7 +52,7 @@ export interface Shortcut {
   inText?: boolean;
 }
 
-export const SHORTCUTS: readonly Shortcut[] = [
+const BASE_SHORTCUTS: readonly Shortcut[] = [
   {
     action: "palette",
     get label() {
@@ -244,6 +248,26 @@ export const SHORTCUTS: readonly Shortcut[] = [
     scope: "global",
   },
 ];
+
+/** ⌘1…: one chord per destination that has a digit in `RAIL_ITEMS`. */
+const GO_SHORTCUTS: readonly Shortcut[] = RAIL_ITEMS.flatMap((item) => {
+  const digit = item.shortcut?.match(/^⌘(\d)$/)?.[1];
+  return digit === undefined
+    ? []
+    : [
+        {
+          action: `go:${item.id}` as GoAction,
+          get label() {
+            return t("shell.palette.goTo", { label: item.label });
+          },
+          chord: { key: digit, mod: true },
+          scope: "app" as const,
+          inText: true,
+        },
+      ];
+});
+
+export const SHORTCUTS: readonly Shortcut[] = [...BASE_SHORTCUTS, ...GO_SHORTCUTS];
 
 export interface KeyEventLike {
   key: string;

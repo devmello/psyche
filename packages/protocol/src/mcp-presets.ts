@@ -1,7 +1,7 @@
 /**
  * Ready-made MCP servers: the Add connector gallery (`packages/ui`, its words are
  * `gallery.preset.<id>.*` in the UI catalogue) and the Gateway's capability catalogue both read
- * this list. Real servers only: the vendor's own remote URL, or an official or widely used
+ * this list. Real servers only (File access and Terminal are Settings views, not presets): the vendor's own remote URL, or an official or widely used
  * package. Adding a preset is one entry here plus its gallery strings.
  */
 
@@ -79,23 +79,6 @@ const NPM = ["registry.npmjs.org"] as const;
 const PYPI = ["pypi.org", "files.pythonhosted.org"] as const;
 
 export const MCP_PRESETS: readonly McpPreset[] = [
-  {
-    id: "filesystem",
-    summary: "Read and search the files in one folder.",
-    keywords: "files folder documents disk local",
-    label: "Files on this Mac",
-    category: "files",
-    icon: "folder",
-    official: true,
-    popular: true,
-    transport: {
-      kind: "stdio",
-      command: ["npx", "-y", "@modelcontextprotocol/server-filesystem", "{folder}"],
-      domains: [...NPM],
-    },
-    fields: [{ id: "folder", kind: "text", arg: true, placeholder: "/Users/you/Documents" }],
-    docsUrl: "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem",
-  },
   {
     id: "github",
     summary: "Browse GitHub repositories, issues and pull requests.",
@@ -351,3 +334,24 @@ export const MCP_PRESETS: readonly McpPreset[] = [
     docsUrl: "https://github.com/stripe/ai/tree/main/tools/modelcontextprotocol",
   },
 ];
+
+/** What a preset needs on this Mac before "Set up" can work. */
+export type PresetNeed = "srt" | "node" | "uv" | "network";
+
+/**
+ * The prerequisites for a preset, from how it starts: command servers run under the sandbox
+ * (`srt`) and need their runtime (`npx` → Node tools, `uvx` → uv); anything with a package index,
+ * host list or URL needs the network.
+ */
+export function presetNeeds(preset: McpPreset): PresetNeed[] {
+  const t = preset.transport;
+  if (t.kind === "http") return ["network"];
+  const needs: PresetNeed[] = ["srt"];
+  const first = t.command[0];
+  if (first === "npx" || first === "node") needs.push("node");
+  if (first === "uvx" || first === "uv") needs.push("uv");
+  if ((t.domains?.length ?? 0) > 0 || preset.fields.some((f) => f.domains === true)) {
+    needs.push("network");
+  }
+  return needs;
+}

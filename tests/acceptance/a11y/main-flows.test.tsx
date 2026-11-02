@@ -93,6 +93,11 @@ function pendingApproval() {
   return approval;
 }
 
+/** The fixture send with the taint cleared, so the card offers a choice of scope (§3.12). */
+function untaintedChoice() {
+  return { ...pendingApproval(), taint: false, scopesOffered: ["once", "task"] as const };
+}
+
 describe("approval card (docs/06 §3.3, §4.11)", () => {
   it("has no axe violations and names the card by its heading", async () => {
     const approval = pendingApproval();
@@ -103,15 +108,32 @@ describe("approval card (docs/06 §3.3, §4.11)", () => {
     // The card is a fieldset named by its heading, which is the broker's summary of the action.
     expect(screen.getByRole("group", { name: approval.summary })).toBeTruthy();
     expect(screen.getByRole("heading", { name: approval.summary })).toBeTruthy();
-    expect(screen.getByRole("radiogroup", { name: "Decision" })).toBeTruthy();
+    // The fixture is a send that read untrusted content: a tainted send offers `once` only
+    // (security §3.6, §3.12), so there is no scope choice to make, only Deny and Allow.
+    expect(approval.taint).toBe(true);
+    expect(screen.queryByRole("combobox", { name: "Allow for" })).toBeNull();
     for (const name of ["Deny", "Allow with scope"]) {
       expect(screen.getByRole("button", { name })).toBeTruthy();
     }
   });
 
+  it("has no axe violations when the owner chooses a scope", async () => {
+    const { container } = render(
+      <ApprovalCard
+        approval={untaintedChoice()}
+        canAnswer
+        now={NOW}
+        armDelayMs={0}
+        onAnswer={() => {}}
+      />,
+    );
+    await expectNoAxeViolations(container);
+    expect(screen.getByRole("combobox", { name: "Allow for" })).toBeTruthy();
+  });
+
   it("is fully keyboard operable: focus lands on the heading, Return alone never approves, ⌘Return approves the chosen scope, ⌘D denies", async () => {
     const onAnswer = vi.fn();
-    const approval = pendingApproval();
+    const approval = untaintedChoice();
     render(
       <ApprovalCard
         approval={approval}
@@ -127,23 +149,20 @@ describe("approval card (docs/06 §3.3, §4.11)", () => {
     expect(document.activeElement).toBe(heading);
     await user.keyboard("{Enter}");
     expect(onAnswer).not.toHaveBeenCalled();
-    // Tab reaches the scope radios (after the details disclosure); arrows move the selection.
-    const radios = screen.getAllByRole("radio");
+    // Tab reaches the scope select (after the details disclosure); the scope sits on Allow.
+    const scope = screen.getByRole("combobox", { name: "Allow for" });
     let reached = false;
     for (let i = 0; i < 8 && !reached; i += 1) {
       await user.tab();
-      reached = radios.some((r) => r === document.activeElement);
+      reached = scope === document.activeElement;
     }
-    expect(reached, "a scope radio is reachable by Tab from the heading").toBe(true);
-    const once = screen.getByRole("radio", { name: /Allow once/ });
-    once.focus();
-    await user.keyboard("{ArrowDown}{ArrowUp}");
-    await user.click(once);
+    expect(reached, "the scope select is reachable by Tab from the heading").toBe(true);
+    await user.selectOptions(scope, "task");
     await user.keyboard("{Meta>}{Enter}{/Meta}");
-    await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("approve", "once"));
+    await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("approve", "task", undefined));
     onAnswer.mockClear();
     await user.keyboard("{Meta>}d{/Meta}");
-    await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("deny", undefined));
+    await waitFor(() => expect(onAnswer).toHaveBeenCalledWith("deny", undefined, undefined));
   });
 
   it("exposes the shortcuts on the buttons for assistive tech", () => {
@@ -474,6 +493,8 @@ describe("the composed app as a window (landmarks, docs/a11y-audit.md A3)", () =
       "chat.history": () => ({ messages: [], nextCursor: null }),
       "chat.queue.list": () => ({ items: [] }),
       "events.subscribe": () => ({ ok: true }),
+      // The + button reads the model capabilities from here (`providers` and `roles` are required).
+      "models.list": () => ({ providers: [], roles: {} }),
       "memory.read": () => ({ content: '---\nname: "Wren"\n---\n', etag: "e1" }),
     };
     const status = { phase: "paired", health: "ok", attempt: 0 } as const;
