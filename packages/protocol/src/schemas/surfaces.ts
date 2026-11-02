@@ -148,7 +148,12 @@ export const Notification = Type.Object(
     body: Type.String(),
     taskId: Nullable(Id),
     approvalId: Nullable(Id),
-    route: Nullable(Type.String({ description: "Deep link inside the app, e.g. /tasks/<id>" })),
+    route: Nullable(
+      Type.String({
+        description:
+          "Deep link inside the app: /chat/<threadId>?message=<id> or ?approval=<id>, /overview/run/<runId>, /scheduled?tab=runs, /settings/memory",
+      }),
+    ),
     actions: Type.Array(NotificationAction),
     surfaces: Type.Array(Surface),
     delivered: Type.Record(Type.String(), IsoDateTime),

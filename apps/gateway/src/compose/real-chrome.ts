@@ -146,7 +146,7 @@ export function createRealChromeMode(o: {
           kind: "system",
           title: "Psyche is driving your Chrome",
           body: "A task is using the Psyche Chrome profile, where you are signed in. Its window title says “Psyche is driving this window”. It closes when the task is done; you can also quit Chrome.",
-          route: "/browser",
+          route: "/settings/browser",
           dedupeKey: "browser-real-chrome",
         })
         .catch(() => undefined);

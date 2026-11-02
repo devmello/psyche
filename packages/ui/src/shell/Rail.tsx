@@ -1,6 +1,8 @@
 import {
+  BrainCircuit,
   CalendarClock,
   CircleCheck,
+  Inbox,
   Library,
   Lightbulb,
   MessageCircle,
@@ -15,19 +17,32 @@ import { cn } from "../lib/utils.ts";
 /** The destinations, in docs/06 §2.1's order: the sidebar's first group and the compact tab bar. */
 export type RailItem =
   | "chat"
+  | "inbox"
   | "search"
   | "feed"
   | "ideas"
   | "goals"
   | "scheduled"
   | "library"
+  | "memory"
   | "overview";
+
+/**
+ * Where a destination sits in the sidebar: `main` rows are always shown, `more` rows live under
+ * the "More" group (collapsed until used, never hidden: the palette lists them too).
+ */
+export type RailGroup = "main" | "more";
 
 export const RAIL_ITEMS: readonly {
   id: RailItem;
   label: string;
   route: string;
   icon: typeof MessageCircle;
+  group: RailGroup;
+  /** The ⌘-digit that opens it, shown beside it in the palette. */
+  shortcut?: string;
+  /** Extra words the palette matches (not shown). */
+  keywords: string;
 }[] = [
   {
     id: "chat",
@@ -36,6 +51,20 @@ export const RAIL_ITEMS: readonly {
     },
     route: "/chat",
     icon: MessageCircle,
+    group: "main",
+    keywords: "threads conversation messages talk",
+    shortcut: "⌘1",
+  },
+  {
+    id: "inbox",
+    get label() {
+      return t("shell.rail.inbox");
+    },
+    route: "/inbox",
+    icon: Inbox,
+    group: "main",
+    keywords: "notifications needs you approvals alerts unread",
+    shortcut: "⌘2",
   },
   {
     id: "search",
@@ -44,6 +73,8 @@ export const RAIL_ITEMS: readonly {
     },
     route: "/search",
     icon: Search,
+    group: "main",
+    keywords: "find lookup everything",
   },
   {
     id: "feed",
@@ -52,6 +83,9 @@ export const RAIL_ITEMS: readonly {
     },
     route: "/feed",
     icon: Newspaper,
+    group: "main",
+    keywords: "today brief news posts digest",
+    shortcut: "⌘3",
   },
   {
     id: "ideas",
@@ -60,6 +94,8 @@ export const RAIL_ITEMS: readonly {
     },
     route: "/ideas",
     icon: Lightbulb,
+    group: "more",
+    keywords: "suggestions proposed",
   },
   {
     id: "goals",
@@ -68,6 +104,8 @@ export const RAIL_ITEMS: readonly {
     },
     route: "/goals",
     icon: CircleCheck,
+    group: "more",
+    keywords: "aims objectives targets",
   },
   {
     id: "scheduled",
@@ -76,6 +114,9 @@ export const RAIL_ITEMS: readonly {
     },
     route: "/scheduled",
     icon: CalendarClock,
+    group: "main",
+    keywords: "automations runs schedule routines history",
+    shortcut: "⌘4",
   },
   {
     id: "library",
@@ -84,6 +125,19 @@ export const RAIL_ITEMS: readonly {
     },
     route: "/library/documents",
     icon: Library,
+    group: "main",
+    keywords: "documents files images artifacts downloads reports",
+    shortcut: "⌘5",
+  },
+  {
+    id: "memory",
+    get label() {
+      return t("shell.rail.memory");
+    },
+    route: "/agent/soul",
+    icon: BrainCircuit,
+    group: "more",
+    keywords: "soul people projects remember review follow-ups",
   },
   {
     id: "overview",
@@ -92,6 +146,10 @@ export const RAIL_ITEMS: readonly {
     },
     route: "/overview",
     icon: UserRound,
+    group: "more",
+    keywords:
+      "persona and you activity audit log what happened growth recent runs timeline upcoming",
+    shortcut: "⌘6",
   },
 ];
 
@@ -101,9 +159,18 @@ export const RAIL_ITEMS: readonly {
  */
 export function destinationFor(route: string): RailItem | null {
   const first = route.split(/[/?#]/)[1] ?? "";
-  if (first === "agent") return "chat";
+  if (first === "agent") {
+    // The agent sheet opens over whatever is under it; Memory is its own entry,
+    // Approvals stay with Chat (Activity and Upcoming moved to the Overview).
+    const tab = route.split(/[?#]/)[0]?.split("/")[2];
+    if (tab === "soul") return "memory";
+    return "chat";
+  }
   return RAIL_ITEMS.find((i) => i.id === first)?.id ?? null;
 }
+
+/** The compact tab bar's five tabs. */
+const TAB_BAR_ITEMS: readonly RailItem[] = ["chat", "inbox", "feed", "library", "overview"];
 
 export interface TabBarProps {
   active: RailItem | null;
@@ -118,8 +185,8 @@ export interface TabBarProps {
  * no tile; Search lives in the top bar's palette.
  */
 export function TabBar({ active, onNavigate, badges = {} }: TabBarProps): ReactElement {
-  // Search lives in the top bar; Scheduled is reached from the sidebar and the palette.
-  const items = RAIL_ITEMS.filter((i) => i.id !== "search" && i.id !== "scheduled");
+  // Search lives in the top bar; the rest of the destinations are in the sidebar and the palette.
+  const items = RAIL_ITEMS.filter((i) => TAB_BAR_ITEMS.includes(i.id));
   return (
     <nav
       aria-label={t("shell.rail.main")}

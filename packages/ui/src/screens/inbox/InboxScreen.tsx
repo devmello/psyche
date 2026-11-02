@@ -16,13 +16,14 @@ import { toast } from "sonner";
 import { EmptyState, ErrorState, LoadingCards, useDelayedFlag } from "../../components/page.tsx";
 import { StatusGlyph, type StatusKind } from "../../components/status.tsx";
 import { Button } from "../../components/ui/button.tsx";
-import { useApproval, useNotifications, useTask } from "../../data/hooks.ts";
+import { useApproval, useCall, useNotifications, useTask } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { formatCountdown, formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { cn } from "../../lib/utils.ts";
 import { ListItem } from "../../motion/index.ts";
+import { notificationHasTarget, notificationRoute } from "../../shell/notification-target.ts";
 import { useSlots } from "../../slots.tsx";
 import { SpecialistInboxRow } from "../../specialists/InboxRow.tsx";
 import { ScreenColumn, ScreenToolbar } from "../feed/ScreenToolbar.tsx";
@@ -298,7 +299,7 @@ export function InboxRow({
         size="sm"
         variant="outline"
         onClick={() => onOpen?.(n)}
-        disabled={n.route == null}
+        disabled={!notificationHasTarget(n)}
       >
         {t("screens.inbox.answer")}
       </Button>
@@ -333,7 +334,7 @@ export function InboxRow({
         {a.label}
       </Button>
     ));
-  } else if (n.route != null) {
+  } else if (notificationHasTarget(n)) {
     actions = (
       <Button type="button" size="sm" variant="ghost" onClick={() => onOpen?.(n)}>
         {t("screens.inbox.open")}
@@ -342,10 +343,21 @@ export function InboxRow({
   }
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: the title button is the keyboard path to the same open
     <article
       aria-labelledby={titleId}
       data-unread={unread || undefined}
+      data-testid="inbox-row"
+      // The whole row opens its source (a click on a control inside it does that control's job).
+      onClick={
+        onOpen && notificationHasTarget(n)
+          ? (e) => {
+              if (!(e.target as HTMLElement).closest("button, a, input")) onOpen(n);
+            }
+          : undefined
+      }
       className={cn(
+        onOpen && notificationHasTarget(n) ? "cursor-default hover:bg-fill-quaternary" : "",
         // A two-line grouped row (redesign §3.7): status glyph, kind · time, title, body, actions.
         "relative flex min-h-11 flex-wrap items-start gap-3 px-3 py-2 text-body",
         "before:absolute before:inset-x-3 before:top-0 before:h-px before:bg-separator",
@@ -384,7 +396,18 @@ export function InboxRow({
             unread ? "font-semibold" : "font-normal",
           )}
         >
-          {n.title}
+          {onOpen && notificationHasTarget(n) ? (
+            <button
+              type="button"
+              onClick={() => onOpen(n)}
+              className="text-start outline-none focus-visible:underline"
+              data-testid="inbox-row-open"
+            >
+              {n.title}
+            </button>
+          ) : (
+            n.title
+          )}
         </h3>
         {n.body ? <p className="text-callout text-label-secondary">{n.body}</p> : null}
         <p className="flex flex-wrap items-center gap-x-1.5 text-callout text-label-secondary tabular-nums">
@@ -605,7 +628,7 @@ function ConnectedInboxRow({
 export interface InboxScreenProps {
   /** Fixed clock (stories, tests). */
   now?: number;
-  /** Defaults to `navigate(notification.route)`; approvals fall back to `/agent/approvals`. */
+  /** Defaults to opening the notification's source: its chat, run, or the card (`notificationRoute`). */
   onOpen?: (n: Notification) => void;
 }
 
@@ -614,11 +637,15 @@ export function InboxScreen({ now: fixedNow, onOpen }: InboxScreenProps): ReactE
   const { navigate } = useSlots();
   const now = useNow(1000, fixedNow);
   const inbox = useNotifications();
+  const call = useCall();
   const open =
     onOpen ??
     ((n: Notification) => {
-      const route = n.route ?? (n.kind === "approval" ? "/agent/approvals" : null);
-      if (route !== null) navigate?.(route);
+      void notificationRoute(n, {
+        taskThread: async (taskId) => (await call("tasks.get", { taskId })).task.threadId,
+        approvalThread: async (approvalId) =>
+          (await call("approvals.get", { approvalId })).approval.requestedBy.threadId ?? null,
+      }).then((route) => navigate?.(route));
     });
 
   return (

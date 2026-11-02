@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
-import type {
-  Automation,
-  AutomationRun,
-  IssuedApproval,
-  Notifier,
-  PermissionBroker,
+import {
+  type Automation,
+  type AutomationRun,
+  type IssuedApproval,
+  type Notifier,
+  type PermissionBroker,
+  SCHEDULED_RUNS_ROUTE,
 } from "@psyche/protocol";
 import type { Deliverer, RunResult } from "./types.ts";
 
@@ -257,6 +258,6 @@ async function notifyHeld(
     kind: "system",
     title: `${automation.title}: webhook not sent`,
     body: `Delivery to ${origin} was ${why}.`,
-    route: `/upcoming/${automation.id}`,
+    route: SCHEDULED_RUNS_ROUTE,
   });
 }

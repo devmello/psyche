@@ -282,7 +282,7 @@ describe("the composed app on the web host (A8)", () => {
     // Bottom tab bar: the five phone tabs, no Search and no Settings in the rail.
     const rail = screen.getByTestId("rail");
     const labels = Array.from(rail.querySelectorAll("button")).map((b) => b.textContent?.trim());
-    expect(labels).toEqual(["Chat", "Feed", "Ideas", "Goals", "Library", "Overview"]);
+    expect(labels).toEqual(["Chat", "Inbox", "Feed", "Library", "Overview"]);
     expect(calls.some((c) => c.method === "settings.get")).toBe(true);
     await act(async () => {
       window.innerWidth = 1280;

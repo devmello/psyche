@@ -184,6 +184,31 @@ describe("helper presence keys (issue #253)", () => {
     ).toMatchObject({ ok: true });
   });
 
+  it("a tap on the helper's card tells the desktop which route to open", async () => {
+    const { c, admin, h, helperDevice } = await setup();
+    await admin.call("devices.presenceKey.register", { deviceId: helperDevice }, ik());
+    const frames: string[] = [];
+    c.gateway.context.bus.subscribe(["operator.read", "operator.admin"], (f) => frames.push(f));
+    const first = await admin.request(
+      "settings.set",
+      { key: "permissions.policy", value: { allow: [] } },
+      ik(),
+    );
+    const approvalId = (first as { error: { details: { approvalId: string } } }).error.details
+      .approvalId;
+    await vi.waitFor(() => expect(h.shown.map((x) => x.id)).toContain(approvalId));
+    h.respond({ type: "notify.response", notificationId: approvalId, actionId: "default" });
+    await vi.waitFor(() => expect(frames.join("\n")).toContain("notification.opened"));
+    const opened = frames.map((f) => JSON.parse(f)).find((f) => f.event === "notification.opened");
+    // A settings approval has no chat, so the tap opens the approvals sheet.
+    expect(opened.payload).toEqual({ notificationId: approvalId, route: "/agent/approvals" });
+    // The tap decides nothing.
+    expect(
+      (await admin.call<{ approval: ApprovalRequest }>("approvals.get", { approvalId })).approval
+        .status,
+    ).toBe("pending");
+  });
+
   it("a second key needs fresh presence; revoking the helper revokes its key", async () => {
     const { c, admin, key, helperDevice } = await setup();
     await admin.call("devices.presenceKey.register", { deviceId: helperDevice }, ik());

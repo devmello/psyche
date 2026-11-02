@@ -33,7 +33,7 @@ import {
 import { createDesktopGateway, defaultGatewayOrigin, defaultPsycheHome } from "./gateway-client.ts";
 import { appInfo } from "./lib/app-info.ts";
 import { APP_ORIGIN, APP_SCHEME, contentType, isSameApp, resolveAppPath } from "./lib/app-path.ts";
-import { deepLinkFromArgv, parseDeepLink } from "./lib/deep-link.ts";
+import { deepLinkFromArgv, isAppRoute, parseDeepLink } from "./lib/deep-link.ts";
 import { loadOrCreateDeviceKey } from "./lib/device-key.ts";
 import {
   checkCallable,
@@ -42,6 +42,7 @@ import {
   checkExternalUrl,
   checkHttpUrl,
   checkMainRoute,
+  checkNotifyRoute,
   checkRoute,
   checkViewport,
   IPC,
@@ -642,7 +643,7 @@ function registerIpc(): void {
     showNotification(
       str(IPC.notifyShow, r.title, "title", 120),
       str(IPC.notifyShow, r.body, "body", 400),
-      typeof r.route === "string" ? checkRoute(IPC.notifyShow, r.route) : "/inbox",
+      typeof r.route === "string" ? checkNotifyRoute(IPC.notifyShow, r.route) : "/inbox",
     );
   });
 }
@@ -677,6 +678,10 @@ function onGatewayEvent(e: {
     windowTheme.onSettingsChanged(entries);
     dockPolicy.onSettingsChanged(entries);
     loginItem.onSettingsChanged(entries);
+  }
+  if (e.event === "notification.opened") {
+    const route = p.route;
+    if (typeof route === "string" && isAppRoute(route)) command({ type: "navigate", route });
   }
   if (e.event === "notification.created") {
     const d = relay.decide(p.notification as PsycheNotification);

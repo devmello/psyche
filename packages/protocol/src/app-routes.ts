@@ -106,3 +106,34 @@ export function resolveAppRoute(route: string): string | null {
   }
   return null;
 }
+
+/**
+ * The durable links a notification carries in `Notification.route`, built in one place so the
+ * inbox, the OS notification and the mac helper all open the same thing (nav-inbox 2026):
+ *
+ * - `/chat/<threadId>[?message=<id>|?approval=<id>]`: the chat that asked, scrolled to and
+ *   highlighting the message or the approval card.
+ * - `/overview/run/<runId>`: a run's Timeline.
+ * - `/scheduled?tab=runs`: Scheduled → Runs.
+ * - `/settings/memory`: Memory → Review.
+ *
+ * Ids are percent-encoded; a reader treats anything else as an old link (`/tasks/<id>`,
+ * `/approvals/<id>`, `/upcoming/<id>`) and resolves it from the notification's own ids.
+ */
+export function chatLinkRoute(link: {
+  threadId: string;
+  messageId?: string | null;
+  approvalId?: string | null;
+}): string {
+  const base = `/chat/${encodeURIComponent(link.threadId)}`;
+  if (link.messageId) return `${base}?message=${encodeURIComponent(link.messageId)}`;
+  if (link.approvalId) return `${base}?approval=${encodeURIComponent(link.approvalId)}`;
+  return base;
+}
+
+export function runLinkRoute(runId: string): string {
+  return `/overview/run/${encodeURIComponent(runId)}`;
+}
+
+export const SCHEDULED_RUNS_ROUTE = "/scheduled?tab=runs";
+export const MEMORY_REVIEW_ROUTE = "/settings/memory";

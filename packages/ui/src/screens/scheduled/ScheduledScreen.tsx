@@ -174,10 +174,16 @@ export interface ScheduledScreenProps {
   onNavigate?: (route: string) => void;
   /** A fixed clock for stories and tests. */
   now?: number;
+  /** `/scheduled?tab=runs` opens on the Runs tab (a run's notification lands there). */
+  initialTab?: "schedule" | "runs";
 }
 
 /** `/scheduled`, wired to the Gateway. */
-export function ScheduledScreen({ onNavigate, now: fixedNow }: ScheduledScreenProps): ReactElement {
+export function ScheduledScreen({
+  onNavigate,
+  now: fixedNow,
+  initialTab,
+}: ScheduledScreenProps): ReactElement {
   const call = useCall();
   const q = useGatewayQuery("scheduled.list", {});
   const prefill = usePrefillComposer();
@@ -200,6 +206,7 @@ export function ScheduledScreen({ onNavigate, now: fixedNow }: ScheduledScreenPr
 
   return (
     <ScheduledView
+      {...(initialTab ? { initialTab } : {})}
       items={q.data?.items ?? []}
       timezone={timezone}
       now={now}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deepLinkFromArgv, parseDeepLink } from "../src/lib/deep-link.ts";
+import { deepLinkFromArgv, isAppRoute, parseDeepLink } from "../src/lib/deep-link.ts";
 
 describe("psyche:// deep links", () => {
   it("maps links to app routes", () => {
@@ -36,5 +36,22 @@ describe("psyche:// deep links", () => {
   it("finds the link in a second instance's argv", () => {
     expect(deepLinkFromArgv(["/Applications/Psyche.app", "--flag", "psyche://feed"])).toBe("/feed");
     expect(deepLinkFromArgv(["/Applications/Psyche.app"])).toBeNull();
+  });
+
+  it("accepts a notification's durable links, and nothing looser", () => {
+    for (const ok of [
+      "/chat/th_1?message=m_1",
+      "/chat/th_1?approval=ap_1",
+      "/overview/run/run_1",
+      "/scheduled?tab=runs",
+    ])
+      expect(isAppRoute(ok), ok).toBe(true);
+    for (const bad of [
+      "/chat/th_1?message=",
+      "/chat/th_1?other=x",
+      "/scheduled?tab=x",
+      "/overview/run",
+    ])
+      expect(isAppRoute(bad), bad).toBe(false);
   });
 });
