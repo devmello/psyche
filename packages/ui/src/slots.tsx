@@ -48,6 +48,11 @@ export interface UiSlots {
    * to keep the kit's own rendering (chat-experience-2026 §4.2).
    */
   renderArtifact?: (props: ArtifactRenderProps) => ReactNode;
+  /**
+   * An MCP App (a `ui://` page a connector's tool declares) in the artifact sandbox: scripts on,
+   * no network, no tool or data channel. Absent where the host has no sandbox: the app is not shown.
+   */
+  renderMcpApp?: (props: { html: string; title: string }) => ReactNode;
   /** The Markdown editor from `packages/viewers` (Rich / Source / Diff). */
   renderEditor?: (props: EditorSlotProps) => ReactNode;
   /** Writes the system clipboard (the desktop's goes through main; #507). */
